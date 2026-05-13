@@ -102,8 +102,13 @@ export function FilterBar({ filters, onChange, projects, people }: FilterBarProp
           color: rgb(var(--fg));
           border: 1px solid rgb(var(--border));
           border-radius: 8px;
-          font-size: 0.875rem;
+          /* 16px on mobile prevents iOS Safari from auto-zooming when an
+             input gets focus; smaller on tablet+ for visual density. */
+          font-size: 16px;
           transition: border-color 120ms ease, box-shadow 120ms ease;
+        }
+        @media (min-width: 640px) {
+          .select { font-size: 0.875rem; }
         }
         .select:focus {
           outline: none;

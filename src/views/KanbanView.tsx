@@ -4,6 +4,7 @@ import {
   DndContext,
   DragOverlay,
   PointerSensor,
+  TouchSensor,
   closestCorners,
   useSensor,
   useSensors,
@@ -24,10 +25,13 @@ export function KanbanView() {
   const setStatus = useSetStatus();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
 
-  // 6px activation distance: anything below this is treated as a click,
-  // anything above starts a drag. Small enough to feel responsive on drag,
-  // big enough that a click on the Open button doesn't pick the card up.
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  // PointerSensor (mouse/trackpad): 6px movement starts a drag.
+  // TouchSensor (mobile): require a 200ms long-press before dragging starts,
+  // so normal touch-scrolling on a card-heavy column still works as expected.
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
+  );
 
   const tasksByStatus = useMemo(() => {
     const out: Record<Status, Task[]> = {
@@ -75,7 +79,7 @@ export function KanbanView() {
   }
 
   return (
-    <div className="mx-auto max-w-full px-6 py-6">
+    <div className="mx-auto max-w-full px-4 py-4 sm:px-6 sm:py-6">
       <DndContext
         sensors={sensors}
         collisionDetection={closestCorners}
@@ -110,7 +114,7 @@ interface ColumnProps {
 function Column({ status, tasks, onOpen }: ColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
   return (
-    <div className="flex w-80 shrink-0 flex-col">
+    <div className="flex w-72 shrink-0 flex-col sm:w-80">
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span

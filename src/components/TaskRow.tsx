@@ -25,12 +25,16 @@ export function TaskRow({ task, onOpen }: TaskRowProps) {
   return (
     <button
       onClick={() => onOpen(task.id)}
-      className="group flex w-full items-stretch gap-4 rounded-lg border border-border bg-surface p-4 text-left transition-all hover:border-fg-muted hover:shadow-md"
+      // Mobile: stacks vertically (everything full-width, sections separated
+      // by gap-3). Tablet+: horizontal layout with three columns.
+      className="group flex w-full flex-col gap-3 rounded-lg border border-border bg-surface p-3 text-left transition-all hover:border-fg-muted hover:shadow-md sm:flex-row sm:items-stretch sm:gap-4 sm:p-4"
     >
-      {/* Left: identity + priority */}
-      <div className="flex w-72 shrink-0 flex-col gap-2">
-        <div className="flex items-start gap-2">
+      {/* Left column: identity + priority. Full-width on phone, 18rem fixed on sm+. */}
+      <div className="flex flex-col gap-2 sm:w-72 sm:shrink-0">
+        <div className="flex flex-wrap items-center gap-2">
           <StatusBadge status={task.status} />
+          {/* Show chevron inline on mobile so users see the open hint without scrolling right */}
+          <ChevronRight className="ml-auto h-5 w-5 shrink-0 text-fg-muted transition-transform group-hover:translate-x-0.5 sm:hidden" />
         </div>
         <div className="font-display text-sm font-semibold leading-snug text-fg">
           {task.numberedTitle}
@@ -41,7 +45,7 @@ export function TaskRow({ task, onOpen }: TaskRowProps) {
         </div>
       </div>
 
-      {/* Middle: project + assigned + chips */}
+      {/* Middle column: project + assigned + chips. */}
       <div className="flex min-w-0 flex-1 flex-col gap-2">
         <div className="flex items-center gap-2 text-sm">
           <FolderOpen className="h-4 w-4 shrink-0 text-fg-muted" />
@@ -58,10 +62,17 @@ export function TaskRow({ task, onOpen }: TaskRowProps) {
           {task.labels.map((l) => (
             <LabelChip key={l} label={l} />
           ))}
+          {/* Comment + attachment indicators float here on mobile, where the
+              right column doesn't exist. */}
+          <div className="ml-auto flex items-center gap-2 lg:hidden">
+            <CommentCount count={task.comments.length} />
+            <AttachmentIndicator has={task.hasAttachments} />
+          </div>
         </div>
       </div>
 
-      {/* Right: last comment preview */}
+      {/* Right column: last comment preview. Only visible on lg+ to keep
+          phone and tablet screens uncluttered. */}
       <div className="hidden w-80 shrink-0 flex-col gap-1 lg:flex">
         <div className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
           Last Comment
@@ -91,7 +102,8 @@ export function TaskRow({ task, onOpen }: TaskRowProps) {
         </div>
       </div>
 
-      <ChevronRight className="my-auto h-5 w-5 shrink-0 text-fg-muted transition-transform group-hover:translate-x-0.5" />
+      {/* Chevron only on sm+; on mobile it's inline at the top-right instead. */}
+      <ChevronRight className="my-auto hidden h-5 w-5 shrink-0 text-fg-muted transition-transform group-hover:translate-x-0.5 sm:block" />
     </button>
   );
 }

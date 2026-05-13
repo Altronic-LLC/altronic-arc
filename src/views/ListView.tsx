@@ -22,7 +22,7 @@ export function ListView() {
   );
 
   return (
-    <div className="mx-auto flex max-w-[1600px] flex-col gap-5 px-6 py-6">
+    <div className="mx-auto flex max-w-[1600px] flex-col gap-4 px-4 py-4 sm:gap-5 sm:px-6 sm:py-6">
       <StatusPills tasks={tasks} activeFilter={statusFilter} onChange={setStatusFilter} />
       <FilterBar filters={filters} onChange={setFilters} projects={projects} people={people} />
 

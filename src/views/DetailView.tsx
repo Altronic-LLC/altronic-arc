@@ -59,7 +59,7 @@ export function DetailView() {
   }
 
   return (
-    <div className="mx-auto max-w-[1400px] px-6 py-6">
+    <div className="mx-auto max-w-[1400px] px-4 py-4 sm:px-6 sm:py-6">
       <button
         onClick={() => navigate(-1)}
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-fg-muted transition-colors hover:text-fg"
@@ -72,7 +72,7 @@ export function DetailView() {
         {/* Main column */}
         <div className="flex flex-1 flex-col gap-4">
           {/* Header card */}
-          <div className="rounded-lg border border-border bg-surface p-5">
+          <div className="rounded-lg border border-border bg-surface p-4 sm:p-5">
             <div className="mb-3 flex flex-wrap items-center gap-2">
               <button
                 onClick={handleMarkComplete}
@@ -103,7 +103,7 @@ export function DetailView() {
           </div>
 
           {/* Description card */}
-          <div className="rounded-lg border border-border bg-surface p-5">
+          <div className="rounded-lg border border-border bg-surface p-4 sm:p-5">
             <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
               Description
             </h2>
@@ -118,7 +118,7 @@ export function DetailView() {
           </div>
 
           {/* Comments card */}
-          <div className="rounded-lg border border-border bg-surface p-5">
+          <div className="rounded-lg border border-border bg-surface p-4 sm:p-5">
             <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
               Comments
             </h2>
@@ -131,7 +131,7 @@ export function DetailView() {
 
         {/* Sidebar */}
         <aside className="w-full shrink-0 lg:w-80">
-          <div className="rounded-lg border border-border bg-surface p-5">
+          <div className="rounded-lg border border-border bg-surface p-4 sm:p-5">
             <div className="grid gap-5">
               <Field icon={<Calendar />} label="Created">
                 {task.createdAt.toLocaleString(undefined, {

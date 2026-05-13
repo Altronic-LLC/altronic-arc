@@ -20,6 +20,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.1.3",
+    date: "2026-05-13",
+    changes: [
+      "Make the app fully responsive on mobile phones and tablets",
+      "Header collapses to two rows on phones with a dedicated theme toggle",
+      "Task list rows stack vertically on small screens; last-comment column hides on phones and tablets",
+      "Kanban touch-drag now requires a 200ms long-press so normal scrolling still works",
+      "Form inputs use 16px font on mobile to prevent iOS Safari auto-zoom",
+      "Browser address bar matches app theme color (white on light, dark on dark)",
+    ],
+  },
+  {
     version: "0.1.2",
     date: "2026-05-13",
     changes: [

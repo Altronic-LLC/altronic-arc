@@ -40,7 +40,7 @@ export function CommentComposer({ onSubmit, disabled }: CommentComposerProps) {
         placeholder="Write a comment…"
         disabled={disabled || busy}
         rows={4}
-        className="w-full resize-y rounded-md bg-bg p-3 text-sm text-fg placeholder:text-fg-muted focus:outline-none focus:ring-2 focus:ring-accent/30"
+        className="w-full resize-y rounded-md bg-bg p-3 text-base text-fg placeholder:text-fg-muted focus:outline-none focus:ring-2 focus:ring-accent/30 sm:text-sm"
       />
       <div className="mt-2 flex items-center justify-between">
         <div className="text-xs text-fg-muted">
