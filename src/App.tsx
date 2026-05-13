@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Header } from "@/components/Header";
+import { Footer } from "@/components/Footer";
 import { ListView } from "@/views/ListView";
 import { KanbanView } from "@/views/KanbanView";
 import { DetailView } from "@/views/DetailView";
@@ -17,6 +18,7 @@ export function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
+      <Footer />
     </div>
   );
 }

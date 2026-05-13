@@ -72,7 +72,8 @@ export function FilterBar({ filters, onChange, projects, people }: FilterBarProp
             value={filters.search}
             onChange={(e) => onChange({ ...filters, search: e.target.value })}
             placeholder="Title, description, comments…"
-            className="select pl-9"
+            className="select"
+            style={{ paddingLeft: "2.25rem" }}
           />
         </div>
       </Field>

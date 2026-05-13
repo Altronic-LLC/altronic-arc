@@ -29,6 +29,65 @@ When adding a new operation (e.g. updating attachments):
 This pattern keeps the mock and real implementations explicit, side by side,
 in one place — easy to compare, easy to keep in sync.
 
+## Changelog protocol (REQUIRED on every change)
+
+The app shows its current version in the footer, with a "View history" modal
+that lists all releases. This is driven by `src/data/changelog.ts`.
+
+**Every time you make a user-visible change, you MUST do both of these:**
+
+### 1. Add a changelog entry
+
+1. Open `src/data/changelog.ts`.
+2. Add a new entry at the **top** of the `CHANGELOG` array (newest first).
+3. Bump the version using semver-lite:
+   - PATCH (0.1.0 → 0.1.1): bug fix, copy change, small UI polish
+   - MINOR (0.1.x → 0.2.0): new feature (added view, new editor, etc.)
+   - MAJOR (1.x.x → 2.0.0): rework, breaking data-model changes
+4. Use today's date in `YYYY-MM-DD` format.
+5. Write each change as a one-liner from the user's POV (not "refactored
+   useTasks hook" but "tasks now reload after a network blip").
+6. Group related changes in one entry. If you're only making one tiny
+   fix, that's still its own entry.
+
+### 2. Use the same content in the commit message
+
+The Git commit message must mirror the changelog entry so the Git log
+stays readable without opening the app. Format:
+
+```
+v<version>: <short summary>
+
+- <change 1>
+- <change 2>
+- <change 3>
+```
+
+The short summary is a one-line description that fits in the 50-char
+GitHub commit-list column. The bullet list below is the SAME bullets you
+just put in `CHANGELOG`. Example:
+
+```
+v0.2.0: add person picker for task assignment
+
+- Add user dropdown when editing a task's Assigned field
+- Show current assignees as removable chips on the detail page
+- Fix Kanban card text wrapping for long assignee lists
+```
+
+When you run `git commit`, use the multi-line `-m` syntax or write the
+message in `git commit -F-` heredoc style so the bullets are preserved.
+Do NOT collapse everything onto one line.
+
+**Skip the changelog AND short-form the commit** only for: internal-only
+refactors with zero behavior change, dependency bumps without user impact,
+comment edits, typo fixes in code comments. For these, a one-line commit
+like `chore: tidy useTasks comments` is fine and no changelog entry needed.
+When in doubt, do the full protocol — it's free.
+
+The footer reads `CURRENT_VERSION` automatically, so bumping the top entry
+of `CHANGELOG` is the only place you need to change the version itself.
+
 ## File-by-file overview
 
 ```
@@ -47,7 +106,8 @@ src/
 │   └── tasks.ts                  All task CRUD (mock + real branches)
 │
 ├── data/
-│   └── mockData.ts               Sample tasks, projects, people — matches real schema
+│   ├── mockData.ts               Sample tasks, projects, people — matches real schema
+│   └── changelog.ts              Version history (drives the footer + history modal)
 │
 ├── hooks/
 │   ├── useTasks.ts               React Query hooks for tasks/projects/mutations
@@ -62,14 +122,18 @@ src/
 │   └── task.ts                   All domain types (Task, Status, etc.) + constants
 │
 ├── components/
-│   ├── Header.tsx                Top bar with view switcher and theme toggle
+│   ├── Header.tsx                Top bar with logos, view switcher, theme toggle
+│   ├── Footer.tsx                Maintainer contact + version (opens changelog modal)
 │   ├── StatusPills.tsx           Top counter row on the list view
 │   ├── FilterBar.tsx             Project / Assigned / Search / Created By filters
 │   ├── TaskRow.tsx               One row in the list view
-│   ├── KanbanCard.tsx            One card in the Kanban view (uses dnd-kit/sortable)
+│   ├── KanbanCard.tsx            One card in the Kanban view (whole card draggable)
 │   ├── CommentThread.tsx         Renders a sorted list of comments
 │   ├── CommentComposer.tsx       Textarea + Send button for new comments
-│   └── atoms.tsx                 Small reusable atoms (badges, chips, icons)
+│   ├── atoms.tsx                 Small reusable atoms (badges, chips, icons)
+│   └── brand/
+│       ├── Brandmark.tsx         Official Altronic "A" mark — theme-aware
+│       └── Wordmark.tsx          Official ALTRONIC wordmark — theme-aware
 │
 ├── views/
 │   ├── ListView.tsx              The default list page
