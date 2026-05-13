@@ -1,0 +1,102 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---------------------------------------------------------------------------
+   Theme tokens. The .dark class on <html> flips the variable values.
+   All Tailwind classes (bg-bg, text-fg, border-border, etc.) resolve through
+   these, so the theme switch is a single class toggle.
+--------------------------------------------------------------------------- */
+:root {
+  /* Light theme */
+  --bg: 248 248 247;
+  --surface: 255 255 255;
+  --surface-2: 244 244 243;
+  --border: 220 220 218;
+  --fg: 23 23 23;
+  --fg-muted: 100 100 98;
+  --accent: 203 44 48; /* Cooper Red */
+}
+
+.dark {
+  /* Dark theme — matches the existing Power Apps version's mood */
+  --bg: 18 18 20;
+  --surface: 28 28 32;
+  --surface-2: 38 38 44;
+  --border: 55 55 62;
+  --fg: 240 240 240;
+  --fg-muted: 160 160 165;
+  --accent: 220 60 64; /* Slightly brighter Cooper Red for dark bg */
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-bg text-fg font-sans antialiased;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+/* Headings use the condensed display font */
+h1,
+h2,
+h3,
+.font-display {
+  font-family: "Barlow Condensed", "Open Sans", sans-serif;
+  letter-spacing: 0.01em;
+}
+
+/* Custom scrollbar for the Kanban columns and long lists */
+.scroll-elegant::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.scroll-elegant::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scroll-elegant::-webkit-scrollbar-thumb {
+  background: rgb(var(--border));
+  border-radius: 4px;
+}
+.scroll-elegant::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--fg-muted));
+}
+
+/* Comment HTML content — preserves rendering of HTML stored in the
+   Communication field. Constrains it so it can't blow out the layout. */
+.comment-html {
+  @apply text-fg leading-relaxed;
+}
+.comment-html p {
+  @apply mb-2;
+}
+.comment-html p:last-child {
+  @apply mb-0;
+}
+.comment-html a {
+  @apply text-accent underline underline-offset-2 hover:no-underline;
+}
+.comment-html img {
+  @apply max-w-full h-auto rounded my-2;
+}
+.comment-html ul,
+.comment-html ol {
+  @apply ml-6 mb-2;
+}
+.comment-html ul {
+  @apply list-disc;
+}
+.comment-html ol {
+  @apply list-decimal;
+}
+.comment-html strong,
+.comment-html b {
+  @apply font-semibold;
+}
+.comment-html u {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
