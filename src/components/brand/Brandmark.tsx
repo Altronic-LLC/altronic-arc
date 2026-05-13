@@ -1,0 +1,28 @@
+// =============================================================================
+// Altronic Brandmark — the "A" icon mark from Altronic's official assets.
+// Uses currentColor for fill so it adapts to the surrounding text color
+// (black on light theme, white on dark theme) automatically.
+// =============================================================================
+
+interface BrandmarkProps {
+  className?: string;
+  title?: string;
+}
+
+export function Brandmark({ className, title = "Altronic" }: BrandmarkProps) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 2000 2410.95"
+      className={className}
+      role="img"
+      aria-label={title}
+    >
+      <title>{title}</title>
+      <path
+        fill="currentColor"
+        d="M367.48,2024.44c284.37-291.29,635.14-650.77,635.14-650.77H466l6.45-14.42c5.6-11.88,11.19-23.58,16.45-35.46L671.46,903.23,884.54,410.05l389,900.34L1405,1595.06l276.19,611.6H2000s-39.36-86.52-102.47-225.47C1642.54,1419,998,0,998,0H764.6L353,913.4a17.92,17.92,0,0,0-2.88,5.26,22,22,0,0,0-1.7,4.41C341,941.23,330.12,963.79,321.13,984c-3.23,6.62-6.79,13.4-9.16,19.34-43.6,97.72-88.05,196.29-132,293.84-43.77,97.89-87.37,195.44-131.48,291.12L24.92,1640.7H344.71L173.14,2025.43,0,2411Z"
+      />
+    </svg>
+  );
+}

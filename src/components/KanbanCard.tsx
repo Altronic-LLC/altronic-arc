@@ -1,6 +1,6 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, FolderOpen } from "lucide-react";
+import { FolderOpen, ExternalLink } from "lucide-react";
 import type { Task } from "@/types/task";
 import { cn } from "@/lib/cn";
 import {
@@ -32,31 +32,40 @@ export function KanbanCard({ task, onOpen }: KanbanCardProps) {
     <div
       ref={setNodeRef}
       style={style}
+      // The ENTIRE card is the drag handle — listeners and attributes are
+      // spread onto the outer div so picking up the card anywhere works.
+      // The PointerSensor has a 6px activation distance, so a click without
+      // movement doesn't trigger drag (and the Open button still works).
+      {...attributes}
+      {...listeners}
       className={cn(
-        "group rounded-lg border bg-surface p-3 shadow-sm",
-        isDragging ? "border-accent opacity-50" : "border-border hover:border-fg-muted",
+        "group cursor-grab rounded-lg border bg-surface p-3 shadow-sm transition-shadow active:cursor-grabbing",
+        isDragging ? "border-accent opacity-50 shadow-lg" : "border-border hover:border-fg-muted hover:shadow-md",
       )}
     >
-      <div className="flex items-start gap-2">
-        <button
-          {...attributes}
-          {...listeners}
-          className="mt-0.5 -ml-1 cursor-grab rounded p-0.5 text-fg-muted opacity-0 transition-opacity hover:bg-surface-2 group-hover:opacity-100 active:cursor-grabbing"
-          aria-label="Drag to reorder"
-        >
-          <GripVertical className="h-4 w-4" />
-        </button>
-
-        <button
-          onClick={() => onOpen(task.id)}
-          className="-ml-1 flex-1 text-left"
-        >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
           <div className="text-[10px] font-mono font-semibold uppercase tracking-wider text-fg-muted">
             #{task.id}
           </div>
           <div className="mt-0.5 line-clamp-2 text-sm font-medium leading-snug text-fg">
             {task.title}
           </div>
+        </div>
+
+        {/* Open-detail button. onPointerDown stops dnd-kit from claiming the
+            event so clicking the button doesn't initiate a drag. */}
+        <button
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpen(task.id);
+          }}
+          className="shrink-0 rounded p-1 text-fg-muted opacity-0 transition-opacity hover:bg-surface-2 hover:text-fg group-hover:opacity-100"
+          aria-label="Open task"
+          title="Open task"
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
         </button>
       </div>
 

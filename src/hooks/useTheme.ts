@@ -4,11 +4,12 @@ const STORAGE_KEY = "aets-theme";
 type Theme = "light" | "dark";
 
 function getInitialTheme(): Theme {
-  if (typeof window === "undefined") return "dark";
+  if (typeof window === "undefined") return "light";
   const stored = localStorage.getItem(STORAGE_KEY);
   if (stored === "light" || stored === "dark") return stored;
-  // Default to dark — matches the existing Power Apps version's mood
-  return window.matchMedia?.("(prefers-color-scheme: light)").matches ? "light" : "dark";
+  // Default to light. Users can toggle to dark via the header button;
+  // their choice is saved to localStorage and persists across sessions.
+  return "light";
 }
 
 export function useTheme() {

@@ -4,14 +4,14 @@ import {
   DndContext,
   DragOverlay,
   PointerSensor,
-  closestCenter,
+  closestCorners,
   useSensor,
   useSensors,
+  useDroppable,
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
-import { useDroppable } from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useSetStatus, useTasks } from "@/hooks/useTasks";
 import { STATUSES, type Status, type Task } from "@/types/task";
 import { KanbanCard } from "@/components/KanbanCard";
@@ -24,7 +24,10 @@ export function KanbanView() {
   const setStatus = useSetStatus();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+  // 6px activation distance: anything below this is treated as a click,
+  // anything above starts a drag. Small enough to feel responsive on drag,
+  // big enough that a click on the Open button doesn't pick the card up.
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   const tasksByStatus = useMemo(() => {
     const out: Record<Status, Task[]> = {
@@ -75,7 +78,7 @@ export function KanbanView() {
     <div className="mx-auto max-w-full px-6 py-6">
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCenter}
+        collisionDetection={closestCorners}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
@@ -130,7 +133,7 @@ function Column({ status, tasks, onOpen }: ColumnProps) {
       >
         <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
           {tasks.map((t) => (
-            <SortableCard key={t.id} task={t} onOpen={onOpen} />
+            <KanbanCard key={t.id} task={t} onOpen={onOpen} />
           ))}
         </SortableContext>
         {tasks.length === 0 && (
@@ -141,13 +144,4 @@ function Column({ status, tasks, onOpen }: ColumnProps) {
       </div>
     </div>
   );
-}
-
-/** Wraps KanbanCard with sortable context so each card is a drop target. */
-function SortableCard({ task, onOpen }: { task: Task; onOpen: (id: number) => void }) {
-  // SortableContext is already set up at the column level; KanbanCard uses
-  // useSortable internally. This wrapper exists as a placeholder for future
-  // per-card-level customisation if we ever need it.
-  useSortable({ id: task.id });
-  return <KanbanCard task={task} onOpen={onOpen} />;
 }

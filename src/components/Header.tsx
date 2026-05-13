@@ -3,6 +3,8 @@ import { LayoutGrid, List, Moon, Sun } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useTheme } from "@/hooks/useTheme";
 import { USE_MOCK } from "@/api/config";
+import { Brandmark } from "@/components/brand/Brandmark";
+import { Wordmark } from "@/components/brand/Wordmark";
 
 export function Header() {
   const { theme, toggle } = useTheme();
@@ -14,16 +16,14 @@ export function Header() {
   return (
     <header className="border-b border-border bg-surface">
       <div className="mx-auto flex max-w-[1600px] items-center gap-6 px-6 py-3">
-        <Link to="/" className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded bg-accent">
-            <span className="text-base font-bold text-white">A</span>
-          </div>
-          <div className="leading-tight">
-            <h1 className="font-display text-xl font-semibold uppercase tracking-wide">
-              Altronic Engineering Task System
-            </h1>
-            <p className="text-xs text-fg-muted">
-              {USE_MOCK ? "Demo mode · mock data" : "Connected to SharePoint"}
+        <Link to="/" className="flex items-center gap-3 text-fg">
+          {/* Both logos use currentColor, so they pick up text-fg (black on
+              light theme, white on dark theme) automatically. */}
+          <Brandmark className="h-9 w-auto" />
+          <div className="flex flex-col leading-tight">
+            <Wordmark className="h-3.5 w-auto" />
+            <p className="mt-1 font-display text-[11px] font-semibold uppercase tracking-[0.18em] text-fg-muted">
+              Engineering Task System
             </p>
           </div>
         </Link>
@@ -55,7 +55,10 @@ export function Header() {
           </Link>
         </nav>
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-3">
+          <span className="hidden text-[11px] text-fg-muted sm:inline">
+            {USE_MOCK ? "Demo mode · mock data" : "Connected to SharePoint"}
+          </span>
           <button
             onClick={toggle}
             className="flex h-9 w-9 items-center justify-center rounded-md border border-border text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
