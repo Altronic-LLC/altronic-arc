@@ -29,6 +29,32 @@ When adding a new operation (e.g. updating attachments):
 This pattern keeps the mock and real implementations explicit, side by side,
 in one place — easy to compare, easy to keep in sync.
 
+## Backlog (`BACKLOG.md`)
+
+Queued work that hasn't been picked up yet lives in `BACKLOG.md` at the
+repo root. It's an informal running list — no tickets, no points.
+
+**When the user asks to "queue something up" or "add to the list":**
+1. Open `BACKLOG.md`.
+2. Add a new item under `## Next up` (or `## Later` if they say so).
+3. Use a short title + a sub-paragraph of context if helpful.
+4. Do NOT make a code change for the item — just record it.
+5. Commit the BACKLOG.md update on its own with a message like
+   `docs: queue <thing> in backlog`. No changelog entry needed for
+   backlog edits — they describe future work, not shipped work.
+
+**When the user asks to pick something up from the backlog or work on
+"the next thing":**
+1. Open `BACKLOG.md` and pick the top item under `## Next up`.
+2. Implement it following the normal protocol (changelog entry +
+   matching commit message).
+3. Delete the item from `BACKLOG.md` in the SAME commit.
+4. The commit message and changelog entry describe what was built; the
+   `BACKLOG.md` delete is automatic cleanup.
+
+Never leave items in both places. The changelog records what shipped;
+the backlog records what hasn't.
+
 ## Changelog protocol (REQUIRED on every change)
 
 The app shows its current version in the footer, with a "View history" modal
