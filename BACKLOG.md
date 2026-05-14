@@ -12,23 +12,7 @@ needs detail, add a sub-bullet underneath it.
 
 ## Next up
 
-- **Show users when someone else just commented on the same task they're
-  viewing.** Polling-based, no realtime infrastructure required. When a
-  task's detail view is open, poll the comments list every 15–30 seconds.
-  If new comments appear since the user opened the page, show a small
-  banner like "New comment from Bob — refresh to see" with a refresh
-  button. When the user clicks Send on their own comment, do a quick
-  pre-flight check: if someone else commented in the last few seconds,
-  show a confirmation prompt ("Bob added a comment 5 seconds ago. Send
-  yours anyway?") before posting.
-  - This addresses the comment race-condition noted below (lost-update
-    on the pipe-delimited Communication field) by *making the conflict
-    visible* rather than preventing it. Race window shrinks from ~500ms
-    to ~15–30s and users see what happened instead of silently losing
-    data.
-  - Pure client-side, ~80 lines, polls the existing Graph endpoint. No
-    new backend, no Azure SignalR, no monthly cost.
-  - GitHub / Jira / Linear all do this pattern on issue comments.
+(empty)
 
 ## Later
 

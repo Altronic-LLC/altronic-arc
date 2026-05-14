@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
   Calendar,
@@ -11,6 +12,7 @@ import {
   GitBranch,
   Pencil,
   Plus,
+  RefreshCw,
   Tag,
   User,
   X,
@@ -35,10 +37,12 @@ import {
   PRIORITIES,
   STATUSES,
   type Category,
+  type Comment,
   type Label,
   type Person,
   type Priority,
   type Status,
+  type Task,
 } from "@/types/task";
 import { wouldCreateCycle } from "@/lib/taskGraph";
 import { sanitiseHtml } from "@/lib/sanitiseHtml";
@@ -57,6 +61,7 @@ export function DetailView() {
   const { data: projects = [] } = useProjects();
   const currentUser = useCurrentUser();
 
+  const queryClient = useQueryClient();
   const updateFields = useUpdateTaskFields();
   const addComment = useAddComment();
   const setParentTask = useSetParentTask();
@@ -66,6 +71,55 @@ export function DetailView() {
   const watchTask = useWatchTask();
   const unwatchTask = useUnwatchTask();
   const [showEdit, setShowEdit] = useState(false);
+
+  // Comment-collision tracking: we render the comment thread from a frozen
+  // snapshot of "comments the user has acknowledged seeing." Background
+  // polling refreshes task.comments via the React Query cache; any comments
+  // that appear and aren't in the seen set get surfaced via a banner above
+  // the thread, rather than silently injected. The user clicks the banner's
+  // "Show new" button to roll the snapshot forward.
+  const [seenCommentKeys, setSeenCommentKeys] = useState<Set<string>>(() => new Set());
+  const [snapshotInitialised, setSnapshotInitialised] = useState(false);
+
+  // Seed the snapshot the first time the task loads.
+  useEffect(() => {
+    if (!task || snapshotInitialised) return;
+    setSeenCommentKeys(new Set(task.comments.map(commentKey)));
+    setSnapshotInitialised(true);
+  }, [task, snapshotInitialised]);
+
+  // Background poll: every 20s while the detail view is open, invalidate
+  // the tasks query so the cache (and therefore task.comments) refreshes.
+  // Pauses when the tab is hidden so we don't burn API quota in background
+  // tabs. The actual UI doesn't auto-update — the banner does.
+  useEffect(() => {
+    if (!taskId) return;
+    const id = window.setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      queryClient.invalidateQueries({ queryKey: ["tasks", "list"] });
+    }, 20_000);
+    return () => window.clearInterval(id);
+  }, [taskId, queryClient]);
+
+  // Comments that have arrived from someone else since the user last
+  // refreshed/loaded. Drives the "new comment from X" banner.
+  const newExternalComments: Comment[] = useMemo(() => {
+    if (!task || !snapshotInitialised) return [];
+    const myEmail = (currentUser.email ?? "").toLowerCase();
+    return task.comments.filter((c) => {
+      if (seenCommentKeys.has(commentKey(c))) return false;
+      const author = (c.authorEmail ?? "").toLowerCase();
+      return author !== myEmail;
+    });
+  }, [task, seenCommentKeys, snapshotInitialised, currentUser.email]);
+
+  // Comments to render in the thread = whatever's in the snapshot. New
+  // external comments are hidden until the user clicks "Show new".
+  const displayedComments: Comment[] = useMemo(() => {
+    if (!task) return [];
+    if (!snapshotInitialised) return task.comments;
+    return task.comments.filter((c) => seenCommentKeys.has(commentKey(c)));
+  }, [task, seenCommentKeys, snapshotInitialised]);
 
   // Build the set of people who appear on any task for the Assigned picker.
   const allPeople: Person[] = useMemo(() => {
@@ -177,9 +231,53 @@ export function DetailView() {
     }
   }
 
+  function handleShowNewComments() {
+    if (!task) return;
+    setSeenCommentKeys(new Set(task.comments.map(commentKey)));
+  }
+
   async function handleAddComment(bodyHtml: string, attachments: import("@/types/task").CommentAttachment[]) {
     if (!task) return;
-    await addComment.mutateAsync({
+
+    // Pre-flight: refetch and check whether someone else commented in the
+    // last minute. Surfacing the race before posting lets the user decide
+    // whether to read the new comment first or send theirs anyway — the
+    // Communication field is a single text blob, so two near-simultaneous
+    // writes can lose data.
+    const myEmail = (currentUser.email ?? "").toLowerCase();
+    try {
+      await queryClient.refetchQueries({ queryKey: ["tasks", "list"] });
+    } catch {
+      // If the refetch fails (offline, transient error), fall through and
+      // let the actual write attempt surface the error.
+    }
+    const fresh = queryClient.getQueryData<Task[]>(["tasks", "list"]);
+    const freshTask = fresh?.find((t) => t.id === task.id);
+    if (freshTask) {
+      const recentOther = freshTask.comments.find((c) => {
+        if (seenCommentKeys.has(commentKey(c))) return false;
+        const author = (c.authorEmail ?? "").toLowerCase();
+        if (author === myEmail) return false;
+        return Date.now() - c.timestamp.getTime() < 60_000;
+      });
+      if (recentOther) {
+        const secondsAgo = Math.max(
+          1,
+          Math.round((Date.now() - recentOther.timestamp.getTime()) / 1000),
+        );
+        const proceed = window.confirm(
+          `${recentOther.authorName} added a comment ${secondsAgo} seconds ago. Send yours anyway?`,
+        );
+        if (!proceed) {
+          // User chose to read it first — roll the snapshot forward so
+          // the new comment appears in the thread and the banner clears.
+          setSeenCommentKeys(new Set(freshTask.comments.map(commentKey)));
+          return;
+        }
+      }
+    }
+
+    const result = await addComment.mutateAsync({
       id: task.id,
       comment: {
         authorName: currentUser.displayName,
@@ -188,6 +286,11 @@ export function DetailView() {
         attachments,
       },
     });
+    // Roll the snapshot forward to include the user's own new comment
+    // plus anything else that arrived during the round trip.
+    if (result) {
+      setSeenCommentKeys(new Set(result.comments.map(commentKey)));
+    }
   }
 
   // Eligible parent-task candidates: any task that isn't this one and isn't
@@ -321,8 +424,14 @@ export function DetailView() {
               Comments
             </h2>
             <CommentComposer onSubmit={handleAddComment} />
+            {newExternalComments.length > 0 && (
+              <NewCommentsBanner
+                comments={newExternalComments}
+                onShow={handleShowNewComments}
+              />
+            )}
             <div className="mt-5">
-              <CommentThread comments={task.comments} />
+              <CommentThread comments={displayedComments} />
             </div>
           </div>
         </div>
@@ -527,6 +636,41 @@ export function DetailView() {
       {showEdit && (
         <TaskFormModal mode="edit" task={task} onClose={() => setShowEdit(false)} />
       )}
+    </div>
+  );
+}
+
+function commentKey(c: Comment): string {
+  return `${c.timestamp.getTime()}|${(c.authorEmail ?? "").toLowerCase()}`;
+}
+
+function NewCommentsBanner({
+  comments,
+  onShow,
+}: {
+  comments: Comment[];
+  onShow: () => void;
+}) {
+  const authors = Array.from(new Set(comments.map((c) => c.authorName)));
+  const label =
+    comments.length === 1
+      ? `New comment from ${authors[0]}`
+      : authors.length === 1
+        ? `${comments.length} new comments from ${authors[0]}`
+        : `${comments.length} new comments from ${authors.slice(0, 2).join(", ")}${
+            authors.length > 2 ? ` +${authors.length - 2}` : ""
+          }`;
+
+  return (
+    <div className="mt-3 flex items-center justify-between gap-3 rounded-md border border-accent/40 bg-accent/10 px-3 py-2 text-sm">
+      <span className="text-fg">{label}</span>
+      <button
+        onClick={onShow}
+        className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-white shadow-sm transition-colors hover:bg-accent/90"
+      >
+        <RefreshCw className="h-3 w-3" />
+        Show new
+      </button>
     </div>
   );
 }

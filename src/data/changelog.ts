@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.2.6",
+    date: "2026-05-14",
+    changes: [
+      "When someone else comments on a task you're viewing, a banner appears above the thread (e.g. 'New comment from Bob') with a 'Show new' button — the comments stay frozen until you choose to refresh, so you don't lose your place mid-reply",
+      "Background poll runs every 20 seconds while a task detail page is open; pauses when the tab is hidden",
+      "Pre-flight check on Send: if someone else commented in the last minute, you'll be asked to confirm before posting (mitigates the Communication-field lost-update race without realtime infrastructure)",
+    ],
+  },
+  {
     version: "0.2.5",
     date: "2026-05-13",
     changes: [
