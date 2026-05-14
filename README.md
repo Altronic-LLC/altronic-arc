@@ -14,7 +14,7 @@ npm install
 npm run dev
 ```
 
-Open <http://localhost:5173> and the app comes up with realistic sample data.
+Open <[http://localhost:5173](https://altronic-llc.github.io/altronic-engineering-tasks)> and the app comes up with realistic sample data.
 The data is in-memory, so changes (drag-drop status, new comments, mark
 complete) work but reset on refresh.
 
