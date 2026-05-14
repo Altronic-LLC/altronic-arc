@@ -5,7 +5,28 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { App } from "./App";
 import { AuthProvider } from "./auth/AuthProvider";
 import { AuthGate } from "./auth/AuthGate";
+import { assertGraphConfigured } from "./api/config";
 import "./styles/globals.css";
+
+// Fail loud if real-mode config is missing. In demo mode this is a no-op.
+// Without this check, a missing env var would only surface later when the
+// user tries to load tasks, producing a confusing Graph error.
+try {
+  assertGraphConfigured();
+} catch (err) {
+  // Render a plain error page rather than letting React boot into a
+  // half-broken state. Useful when GitHub Actions vars are misconfigured.
+  document.getElementById("root")!.innerHTML = `
+    <div style="font-family: system-ui; padding: 2rem; max-width: 640px; margin: 4rem auto;">
+      <h1 style="font-size: 1.25rem; margin-bottom: 1rem;">Configuration error</h1>
+      <p style="color: #666; line-height: 1.5;">${(err as Error).message}</p>
+      <p style="color: #999; margin-top: 1rem; font-size: 0.875rem;">
+        Set the missing variables in GitHub repo Settings → Secrets and variables → Actions, then re-deploy.
+      </p>
+    </div>
+  `;
+  throw err;
+}
 
 // React Query client. Defaults are tuned for this app's read-heavy access
 // pattern — we cache lists for 30 seconds, refetch on window focus is off

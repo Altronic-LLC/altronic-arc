@@ -40,6 +40,7 @@ import {
   type Status,
 } from "@/types/task";
 import { wouldCreateCycle } from "@/lib/taskGraph";
+import { sanitiseHtml } from "@/lib/sanitiseHtml";
 import { CommentThread } from "@/components/CommentThread";
 import { CommentComposer } from "@/components/CommentComposer";
 import { LabelChip, StatusBadge, statusColor } from "@/components/atoms";
@@ -270,7 +271,7 @@ export function DetailView() {
               Description
             </h2>
             {task.description ? (
-              <div className="comment-html" dangerouslySetInnerHTML={{ __html: task.description }} />
+              <div className="comment-html" dangerouslySetInnerHTML={{ __html: sanitiseHtml(task.description) }} />
             ) : (
               <div className="text-sm text-fg-muted">No description.</div>
             )}

@@ -20,6 +20,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.2.4",
+    date: "2026-05-13",
+    changes: [
+      "Resolve signed-in user's SharePoint lookupId on first sign-in (fixes Watch button and assignee writes failing silently in real mode)",
+      "Sanitise all user-authored HTML through DOMPurify before rendering (comments, descriptions) — defence-in-depth against XSS",
+      "Fail loud at startup if real-mode env vars are missing, rather than rendering a half-broken page",
+      "Switch MSAL token cache from sessionStorage to localStorage so users stay signed in across browser restarts",
+      "Show a retryable error screen if MSAL initialisation fails, instead of getting stuck on 'Initialising authentication…'",
+      "When person-field writes would silently drop the current user, throw a clear error instead",
+      "Use the cached task list to populate the detail view, avoiding a redundant query",
+      "Internal: add newline separator between comment records for safer parsing",
+      "Internal: bump package.json version (was stuck at 0.1.0)",
+      "Internal: remove dead lint script that pointed to nothing",
+    ],
+  },
+  {
     version: "0.2.3",
     date: "2026-05-13",
     changes: [

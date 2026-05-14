@@ -1,30 +1,56 @@
 import type { Configuration } from "@azure/msal-browser";
+import { USE_MOCK } from "@/api/config";
 
 const tenantId = import.meta.env.VITE_AZURE_TENANT_ID;
 const clientId = import.meta.env.VITE_AZURE_CLIENT_ID;
 
 /**
- * MSAL configuration for the SPA OAuth flow (Authorization Code + PKCE).
+ * Build the MSAL configuration. Throws if required env vars are missing in
+ * real mode — fail loud rather than booting into a half-broken state.
  *
- * The `redirectUri` is computed at runtime from window.location so the same
- * code works locally (http://localhost:5173) and on GitHub Pages
- * (https://<owner>.github.io/altronic-engineering-tasks/). Each of these must
- * be registered as a redirect URI on the Entra ID app registration.
+ * Called by AuthProvider on first MSAL init. In mock mode this throws too
+ * but AuthProvider doesn't call it, so no harm done.
+ *
+ * Auth flow: SPA with Authorization Code + PKCE. Cache: localStorage so
+ * users stay signed in across browser restarts (typical internal-tool
+ * UX). Sessions still time out per Entra ID policy (default ~90 days
+ * refresh token) — localStorage just stops the per-tab logout.
  */
-export const msalConfig: Configuration = {
-  auth: {
-    clientId: clientId || "00000000-0000-0000-0000-000000000000",
-    authority: `https://login.microsoftonline.com/${tenantId || "common"}`,
-    redirectUri: typeof window !== "undefined" ? window.location.origin + window.location.pathname : "/",
-    postLogoutRedirectUri:
-      typeof window !== "undefined" ? window.location.origin + window.location.pathname : "/",
-    navigateToLoginRequestUrl: true,
-  },
-  cache: {
-    cacheLocation: "sessionStorage",
-    storeAuthStateInCookie: false,
-  },
-};
+export function buildMsalConfig(): Configuration {
+  if (!USE_MOCK) {
+    if (!clientId) {
+      throw new Error(
+        "VITE_AZURE_CLIENT_ID is required in real mode. " +
+          "Set it in GitHub repo Settings → Secrets and variables → Actions.",
+      );
+    }
+    if (!tenantId) {
+      throw new Error(
+        "VITE_AZURE_TENANT_ID is required in real mode. " +
+          "Set it in GitHub repo Settings → Secrets and variables → Actions.",
+      );
+    }
+  }
+
+  return {
+    auth: {
+      clientId: clientId ?? "demo-mode-no-client-id",
+      authority: `https://login.microsoftonline.com/${tenantId ?? "common"}`,
+      redirectUri:
+        typeof window !== "undefined" ? window.location.origin + window.location.pathname : "/",
+      postLogoutRedirectUri:
+        typeof window !== "undefined" ? window.location.origin + window.location.pathname : "/",
+      navigateToLoginRequestUrl: true,
+    },
+    cache: {
+      // localStorage: users stay signed in across tabs and browser restarts.
+      // Entra ID still enforces its own session timeouts (~90 days refresh).
+      // For a stricter logout-on-tab-close behavior, switch to "sessionStorage".
+      cacheLocation: "localStorage",
+      storeAuthStateInCookie: false,
+    },
+  };
+}
 
 /**
  * The Graph scopes the app requests. Adjust if the admin grants Sites.Selected

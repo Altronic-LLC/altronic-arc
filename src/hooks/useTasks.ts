@@ -4,7 +4,6 @@ import {
   createProject,
   createTask,
   deleteTask,
-  getTask,
   listProjects,
   listTasks,
   setAssigned,
@@ -25,7 +24,6 @@ import type {
 } from "@/types/task";
 
 const TASK_LIST_KEY = ["tasks", "list"] as const;
-const TASK_DETAIL_KEY = (id: number) => ["tasks", "detail", id] as const;
 const PROJECTS_KEY = ["projects"] as const;
 
 export function useTasks() {
@@ -36,12 +34,23 @@ export function useTasks() {
   });
 }
 
+/**
+ * Read a single task from the list cache, derived rather than separately
+ * fetched. This means useTask never triggers its own network call — it
+ * relies on useTasks (which the same component or a parent typically also
+ * calls) to populate the cache.
+ *
+ * Rationale: getTask() in the API layer is currently implemented by
+ * re-running listTasks() (so child/parent links get populated), so a
+ * separate query key would just duplicate the same data in the cache
+ * under two keys.
+ */
 export function useTask(id: number | null) {
-  return useQuery({
-    queryKey: id ? TASK_DETAIL_KEY(id) : ["tasks", "detail", "null"],
-    queryFn: () => (id ? getTask(id) : Promise.resolve(null)),
-    enabled: id !== null,
-  });
+  const list = useTasks();
+  return {
+    ...list,
+    data: id !== null ? list.data?.find((t) => t.id === id) ?? null : null,
+  };
 }
 
 export function useProjects() {
@@ -82,8 +91,7 @@ export function useUpdateTaskFields() {
   return useMutation({
     mutationFn: ({ id, fields }: { id: number; fields: Record<string, unknown> }) =>
       updateTaskFields(id, fields),
-    onSuccess: (task) => {
-      qc.setQueryData(TASK_DETAIL_KEY(task.id), task);
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: TASK_LIST_KEY });
     },
   });
@@ -94,8 +102,7 @@ export function useSetParentTask() {
   return useMutation({
     mutationFn: ({ id, parentId }: { id: number; parentId: number | null }) =>
       setParentTask(id, parentId),
-    onSuccess: (task) => {
-      qc.setQueryData(TASK_DETAIL_KEY(task.id), task);
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: TASK_LIST_KEY });
     },
   });
@@ -106,8 +113,7 @@ export function useSetParentProject() {
   return useMutation({
     mutationFn: ({ id, projectLookupId }: { id: number; projectLookupId: number | null }) =>
       setParentProject(id, projectLookupId),
-    onSuccess: (task) => {
-      qc.setQueryData(TASK_DETAIL_KEY(task.id), task);
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: TASK_LIST_KEY });
     },
   });
@@ -118,8 +124,7 @@ export function useSetRelatedProjects() {
   return useMutation({
     mutationFn: ({ id, lookupIds }: { id: number; lookupIds: number[] }) =>
       setRelatedProjects(id, lookupIds),
-    onSuccess: (task) => {
-      qc.setQueryData(TASK_DETAIL_KEY(task.id), task);
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: TASK_LIST_KEY });
     },
   });
@@ -129,8 +134,7 @@ export function useSetAssigned() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, people }: { id: number; people: Person[] }) => setAssigned(id, people),
-    onSuccess: (task) => {
-      qc.setQueryData(TASK_DETAIL_KEY(task.id), task);
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: TASK_LIST_KEY });
     },
   });
@@ -140,8 +144,7 @@ export function useSetWatchers() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, people }: { id: number; people: Person[] }) => setWatchers(id, people),
-    onSuccess: (task) => {
-      qc.setQueryData(TASK_DETAIL_KEY(task.id), task);
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: TASK_LIST_KEY });
     },
   });
@@ -151,8 +154,7 @@ export function useWatchTask() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, person }: { id: number; person: Person }) => watchTask(id, person),
-    onSuccess: (task) => {
-      qc.setQueryData(TASK_DETAIL_KEY(task.id), task);
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: TASK_LIST_KEY });
     },
   });
@@ -162,8 +164,7 @@ export function useUnwatchTask() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, person }: { id: number; person: Person }) => unwatchTask(id, person),
-    onSuccess: (task) => {
-      qc.setQueryData(TASK_DETAIL_KEY(task.id), task);
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: TASK_LIST_KEY });
     },
   });
@@ -184,8 +185,7 @@ export function useAddComment() {
         attachments?: CommentAttachment[];
       };
     }) => addComment(id, comment),
-    onSuccess: (task) => {
-      qc.setQueryData(TASK_DETAIL_KEY(task.id), task);
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: TASK_LIST_KEY });
     },
   });

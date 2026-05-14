@@ -64,7 +64,12 @@ export function appendComment(
   const ts = formatSpDate(new Date());
   const record = `${ts}|||${comment.authorName}|||${comment.authorEmail}|||${comment.bodyHtml}`;
   if (!existingRaw) return record;
-  return `${existingRaw}${record}`;
+  // Newline separator between records. The parser uses a lookahead and
+  // doesn't require it, but explicit \n is more robust than relying on
+  // the regex catching an unbroken concatenation. Trailing whitespace on
+  // the existing record is stripped to avoid double-newlines piling up
+  // over many appends.
+  return `${existingRaw.replace(/\s+$/, "")}\n${record}`;
 }
 
 /** "MM/DD/YYYY H:MM:SS AM/PM" → Date */

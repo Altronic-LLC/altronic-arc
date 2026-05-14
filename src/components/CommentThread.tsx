@@ -1,5 +1,6 @@
 import { Paperclip } from "lucide-react";
 import type { Comment, CommentAttachment } from "@/types/task";
+import { sanitiseHtml } from "@/lib/sanitiseHtml";
 
 interface CommentThreadProps {
   comments: Comment[];
@@ -21,11 +22,10 @@ export function CommentThread({ comments }: CommentThreadProps) {
           {c.bodyHtml ? (
             <div
               className="comment-html"
-              // Trusts the HTML stored in SharePoint. Values come from
-              // authenticated users via existing tooling, so same trust model
-              // as the Power Apps version. If this is ever exposed to
-              // lower-trust input, sanitize with DOMPurify first.
-              dangerouslySetInnerHTML={{ __html: c.bodyHtml }}
+              // bodyHtml is authored content from SharePoint users; sanitised
+              // through DOMPurify to strip scripts and event handlers before
+              // rendering. See src/lib/sanitiseHtml.ts.
+              dangerouslySetInnerHTML={{ __html: sanitiseHtml(c.bodyHtml) }}
             />
           ) : c.attachments && c.attachments.length > 0 ? (
             <div className="text-xs italic text-fg-muted">(attachment only — no text)</div>

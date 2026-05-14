@@ -1,18 +1,22 @@
 import { PublicClientApplication, EventType, type AuthenticationResult } from "@azure/msal-browser";
 import { MsalProvider } from "@azure/msal-react";
 import { useEffect, useState, type ReactNode } from "react";
-import { msalConfig } from "./msalConfig";
+import { buildMsalConfig } from "./msalConfig";
 import { USE_MOCK } from "@/api/config";
 
 let pca: PublicClientApplication | null = null;
 
 /**
- * Lazily initialise the MSAL instance. We do this lazily because in mock mode
- * we don't want to touch MSAL at all — no client ID, no network, no cookies.
+ * Lazily build the MSAL instance. We do this lazily so that mock mode
+ * never touches MSAL (no client ID, no network, no cookies).
+ *
+ * If config is invalid, this will throw — caught by AuthProvider's init
+ * effect which surfaces a retry UI rather than getting stuck on a loading
+ * screen.
  */
 function getPca(): PublicClientApplication {
   if (!pca) {
-    pca = new PublicClientApplication(msalConfig);
+    pca = new PublicClientApplication(buildMsalConfig());
 
     // Pick up account state changes so other hooks know who's signed in.
     pca.addEventCallback((event) => {
@@ -31,35 +35,80 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
+type InitState =
+  | { kind: "pending" }
+  | { kind: "ready" }
+  | { kind: "error"; error: Error };
+
 /**
  * In mock mode, this is a transparent passthrough — the app renders without
  * any auth machinery. In real mode it boots MSAL and wraps the tree in
  * MsalProvider so the hooks work.
+ *
+ * If MSAL init fails (bad config, network during boot), we render a
+ * retryable error message rather than a perpetual loading state.
  */
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [ready, setReady] = useState(USE_MOCK);
+  const [state, setState] = useState<InitState>(
+    USE_MOCK ? { kind: "ready" } : { kind: "pending" },
+  );
 
   useEffect(() => {
     if (USE_MOCK) return;
-    const instance = getPca();
-    instance.initialize().then(() => {
-      // Ensure a previously-signed-in account is set as active on reload.
-      const accounts = instance.getAllAccounts();
-      if (accounts.length > 0 && !instance.getActiveAccount()) {
-        instance.setActiveAccount(accounts[0]);
+    let cancelled = false;
+
+    async function boot() {
+      try {
+        const instance = getPca();
+        await instance.initialize();
+        if (cancelled) return;
+        const accounts = instance.getAllAccounts();
+        if (accounts.length > 0 && !instance.getActiveAccount()) {
+          instance.setActiveAccount(accounts[0]);
+        }
+        setState({ kind: "ready" });
+      } catch (err) {
+        if (cancelled) return;
+        setState({
+          kind: "error",
+          error: err instanceof Error ? err : new Error(String(err)),
+        });
       }
-      setReady(true);
-    });
+    }
+
+    boot();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   if (USE_MOCK) {
     return <>{children}</>;
   }
 
-  if (!ready) {
+  if (state.kind === "pending") {
     return (
-      <div className="flex h-full items-center justify-center text-fg-muted">
+      <div className="flex min-h-full items-center justify-center bg-bg text-fg-muted">
         Initialising authentication…
+      </div>
+    );
+  }
+
+  if (state.kind === "error") {
+    return (
+      <div className="flex min-h-full items-center justify-center bg-bg px-4 py-12">
+        <div className="max-w-md text-center">
+          <h1 className="font-display text-xl font-semibold text-fg">
+            Authentication failed to start
+          </h1>
+          <p className="mt-2 text-sm text-fg-muted">{state.error.message}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-6 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-accent/90"
+          >
+            Reload page
+          </button>
+        </div>
       </div>
     );
   }
@@ -67,8 +116,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
   return <MsalProvider instance={getPca()}>{children}</MsalProvider>;
 }
 
-/** Export the MSAL instance for non-React modules (graph fetcher needs it). */
+/**
+ * Export the MSAL instance for non-React modules (graph fetcher needs it).
+ * Returns null in mock mode and during initialisation; callers must handle
+ * the null case.
+ */
 export function getMsalInstance(): PublicClientApplication | null {
   if (USE_MOCK) return null;
-  return getPca();
+  try {
+    return getPca();
+  } catch {
+    // Config error — already surfaced through AuthProvider's error UI.
+    return null;
+  }
 }

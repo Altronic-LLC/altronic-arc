@@ -12,7 +12,23 @@ needs detail, add a sub-bullet underneath it.
 
 ## Next up
 
-(empty — last batch shipped in v0.2.0)
+- **Show users when someone else just commented on the same task they're
+  viewing.** Polling-based, no realtime infrastructure required. When a
+  task's detail view is open, poll the comments list every 15–30 seconds.
+  If new comments appear since the user opened the page, show a small
+  banner like "New comment from Bob — refresh to see" with a refresh
+  button. When the user clicks Send on their own comment, do a quick
+  pre-flight check: if someone else commented in the last few seconds,
+  show a confirmation prompt ("Bob added a comment 5 seconds ago. Send
+  yours anyway?") before posting.
+  - This addresses the comment race-condition noted below (lost-update
+    on the pipe-delimited Communication field) by *making the conflict
+    visible* rather than preventing it. Race window shrinks from ~500ms
+    to ~15–30s and users see what happened instead of silently losing
+    data.
+  - Pure client-side, ~80 lines, polls the existing Graph endpoint. No
+    new backend, no Azure SignalR, no monthly cost.
+  - GitHub / Jira / Linear all do this pattern on issue comments.
 
 ## Later
 
@@ -31,6 +47,15 @@ When an item ships, move it into the corresponding CHANGELOG entry in
 These are not formal backlog items, but flagging in case you want to track
 them after a real-mode shakedown:
 
+- **Comment race condition.** The `Communication` field is a single text
+  blob that we read, prepend to, and write back. Two users commenting on
+  the same task within ~500ms of each other can produce a lost-update
+  where one comment overwrites the other. Same issue affects the Power
+  App (same field, same write pattern), so this is not a regression. The
+  "show me if someone else commented" feature in the Next-up section
+  addresses this by making the conflict visible. A more durable fix
+  would be either etag-based optimistic concurrency or moving comments
+  to a separate SharePoint list — both bigger lifts.
 - **Verify the parent-task field's actual internal name** in SharePoint.
   The mapper assumes `ParentTaskLookupId`; if the column is named
   something else (e.g. `Parent_x0020_Task_x0020_ReferLookupId`), update
@@ -49,9 +74,3 @@ them after a real-mode shakedown:
 - **Replace hardcoded admin allow-list** with SharePoint group
   membership. See `src/hooks/useIsAdmin.ts` for the current approach
   and TODO comment.
-- **Resolve SharePoint user lookupIds at sign-in.** Today the watch
-  button and assignee writes rely on email matching in mock mode, and
-  on the lookupId being already present (from people already on tasks)
-  in real mode. For a clean person-add UX when the user has never been
-  on any task before, we need a one-time call to resolve the signed-in
-  user's site-user ID.

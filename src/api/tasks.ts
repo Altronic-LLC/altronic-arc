@@ -178,6 +178,12 @@ export async function setAssigned(id: number, people: Person[]): Promise<Task> {
   }
   // Real Graph: person-multi field expects { results: [lookupId, ...] }
   const lookupIds = people.map((p) => p.lookupId).filter((x): x is number => !!x);
+  if (people.length > 0 && lookupIds.length === 0) {
+    throw new Error(
+      "Cannot update Assigned: none of the selected people had a resolved SharePoint lookupId. " +
+        "Try refreshing the page and signing in again.",
+    );
+  }
   return updateTaskFields(id, { AssignedLookupId: { results: lookupIds } });
 }
 
@@ -187,11 +193,26 @@ export async function setWatchers(id: number, people: Person[]): Promise<Task> {
     return updateTaskFields(id, { Watchers: people });
   }
   const lookupIds = people.map((p) => p.lookupId).filter((x): x is number => !!x);
+  if (people.length > 0 && lookupIds.length === 0) {
+    throw new Error(
+      "Cannot update Watchers: none of the watchers had a resolved SharePoint lookupId. " +
+        "Try refreshing the page and signing in again.",
+    );
+  }
   return updateTaskFields(id, { WatchersLookupId: { results: lookupIds } });
 }
 
 /** Add the given person to the watchers list (if not already there). */
 export async function watchTask(id: number, person: Person): Promise<Task> {
+  if (!USE_MOCK && !person.lookupId) {
+    // SharePoint person fields require a numeric lookupId. If we don't have
+    // one for the current user, the write would silently drop them from the
+    // list. Fail loud instead so the UI can surface the problem.
+    throw new Error(
+      "Cannot add to watchers: your SharePoint user lookupId hasn't been resolved yet. " +
+        "Please wait a moment and try again, or refresh the page.",
+    );
+  }
   const task = await getTask(id);
   if (!task) throw new Error(`Task ${id} not found`);
   const alreadyWatching = task.watchers.some(

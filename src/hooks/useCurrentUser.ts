@@ -1,26 +1,55 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMsal } from "@azure/msal-react";
 import type { Person } from "@/types/task";
 import { USE_MOCK } from "@/api/config";
+import { resolveCurrentUserLookupId } from "@/api/currentUser";
+
+// Module-level cache so the lookupId resolution only fires once per session
+// per email, not once per component that uses this hook.
+const lookupIdCache = new Map<string, number>();
 
 /**
- * Identifies the signed-in user as a `Person`. In mock mode this is a
- * fixed placeholder (so demo flows like watching tasks and posting
- * comments still work). In real mode this comes from MSAL's active
- * account.
+ * Identifies the signed-in user as a `Person`.
  *
- * Note: the lookupId for the real-mode user is unknown to us until we
- * resolve their SharePoint user ID, which requires an extra Graph call
- * to /me/profile (or to the site's /users endpoint with a filter). For
- * now we leave it 0 and the write paths fall back to email-matching;
- * a refinement task can resolve and cache the lookupId on first sign-in.
+ * Mock mode: returns a fixed Demo User placeholder so all features work in
+ * the demo without real auth.
+ *
+ * Real mode: returns the MSAL account's name + email, plus a lookupId
+ * resolved from the SharePoint site's User Information List. The lookupId
+ * resolution is async (one Graph call on first use) and the hook re-renders
+ * once it's known. While the lookupId is being resolved, callers get 0 —
+ * which is invalid as a lookupId, so writers will fall back to email
+ * matching where possible. The Watch button and person pickers will work
+ * correctly once the lookupId resolves.
  */
 export function useCurrentUser(): Person {
-  // `useMsal` only works inside MsalProvider; safe to call here because
-  // AuthProvider renders the children inside MsalProvider in real mode
-  // and the demo-mode branch in this hook short-circuits before reading
-  // the accounts.
   const msal = useMsal();
+  const account = msal.accounts[0];
+  const email = (USE_MOCK ? "demo.user@altronic-llc.com" : account?.username ?? "").toLowerCase();
+
+  // Track the resolved lookupId in state so the component re-renders when
+  // it's known. Default to whatever's in the cache (or 0).
+  const [lookupId, setLookupId] = useState<number>(() => lookupIdCache.get(email) ?? 0);
+
+  useEffect(() => {
+    if (USE_MOCK) return;
+    if (!email) return;
+    // Use cache if we've already resolved this email this session.
+    const cached = lookupIdCache.get(email);
+    if (cached !== undefined) {
+      setLookupId(cached);
+      return;
+    }
+    let cancelled = false;
+    resolveCurrentUserLookupId(email).then((id) => {
+      if (cancelled) return;
+      lookupIdCache.set(email, id);
+      setLookupId(id);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [email]);
 
   return useMemo<Person>(() => {
     if (USE_MOCK) {
@@ -30,17 +59,13 @@ export function useCurrentUser(): Person {
         lookupId: 0,
       };
     }
-
-    const account = msal.accounts[0];
     if (!account) {
-      // No account active — shouldn't happen if AuthProvider is doing its
-      // job, but fall back to a sane placeholder rather than crashing.
       return { displayName: "Unknown user", email: "", lookupId: 0 };
     }
     return {
       displayName: account.name ?? account.username,
       email: account.username,
-      lookupId: 0,
+      lookupId,
     };
-  }, [msal.accounts]);
+  }, [account, lookupId]);
 }
