@@ -53,10 +53,18 @@ export function buildMsalConfig(): Configuration {
 }
 
 /**
- * The Graph scopes the app requests. Adjust if the admin grants Sites.Selected
- * rather than Sites.ReadWrite.All; the scope name on the wire is the same.
+ * The Graph scopes the app requests. Must match what's consented on the
+ * Entra app registration — if the app is registered with Sites.Selected,
+ * asking for Sites.ReadWrite.All here will fail token acquisition.
  *
- * Note: User.Read is included so we can show the signed-in user's name in
- * the header without needing extra permissions.
+ * We use Sites.Selected (narrowest scope). A SharePoint admin grants the
+ * app explicit write access to just the Altronic Engineering site via a
+ * one-time POST to /sites/{id}/permissions — see the IT setup brief.
+ * Additional sites can be added later with the same per-site grant; no
+ * code change needed unless we ever outgrow Sites.Selected and switch to
+ * Sites.ReadWrite.All.
+ *
+ * User.Read is included so the header can show the signed-in user's name
+ * and email without an extra permission.
  */
-export const graphScopes = ["User.Read", "Sites.ReadWrite.All"];
+export const graphScopes = ["User.Read", "Sites.Selected"];
