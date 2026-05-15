@@ -4,6 +4,7 @@ import {
   createProject,
   createTask,
   deleteTask,
+  editComment,
   listProjects,
   listTasks,
   setAssigned,
@@ -185,6 +186,24 @@ export function useAddComment() {
         attachments?: CommentAttachment[];
       };
     }) => addComment(id, comment),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: TASK_LIST_KEY });
+    },
+  });
+}
+
+export function useEditComment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      target,
+      newBodyHtml,
+    }: {
+      id: number;
+      target: { timestamp: Date; authorEmail: string };
+      newBodyHtml: string;
+    }) => editComment(id, target, newBodyHtml),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: TASK_LIST_KEY });
     },

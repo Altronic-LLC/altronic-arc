@@ -9,7 +9,7 @@ import type {
   Task,
 } from "@/types/task";
 import { toTask } from "@/lib/taskMapper";
-import { appendComment } from "@/lib/communicationParser";
+import { appendComment, replaceComment } from "@/lib/communicationParser";
 import { attachProjectTitles, attachTaskRelationships } from "@/lib/taskGraph";
 import { MOCK_PROJECTS, MOCK_TASKS } from "@/data/mockData";
 
@@ -375,6 +375,47 @@ export async function addComment(
     authorEmail: comment.authorEmail,
     bodyHtml: comment.bodyHtml,
   });
+  return updateTaskFields(id, { Communication: newRaw });
+}
+
+/**
+ * Edit the body of an existing comment on a task. Matched by the original
+ * timestamp + author email — those are kept unchanged so the audit trail
+ * (who said it and when) stays intact; only the bodyHtml changes.
+ *
+ * Authorisation: the caller is expected to check that the current user is
+ * the comment's author before invoking this. The API layer doesn't enforce
+ * it; it's a UI affordance, mirroring how SharePoint itself secures the
+ * Communication field as a whole (anyone with list-write access can edit
+ * any record). Locking down by author would mean splitting comments into
+ * their own list with per-item permissions — a bigger lift, not done here.
+ */
+export async function editComment(
+  id: number,
+  target: { timestamp: Date; authorEmail: string },
+  newBodyHtml: string,
+): Promise<Task> {
+  if (USE_MOCK) {
+    const idx = mockStore.findIndex((t) => t.id === id);
+    if (idx < 0) throw new Error(`Task ${id} not found`);
+    const next = { ...mockStore[idx] };
+    const targetEmail = target.authorEmail.toLowerCase();
+    next.comments = next.comments.map((c) =>
+      c.timestamp.getTime() === target.timestamp.getTime() &&
+      c.authorEmail.toLowerCase() === targetEmail
+        ? { ...c, bodyHtml: newBodyHtml }
+        : c,
+    );
+    next.modifiedAt = new Date();
+    mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
+    saveMockStoreToStorage();
+    return delay({ ...next });
+  }
+
+  const path = `/sites/${SP_SITE_ID}/lists/${SP_LIST_ID}/items/${id}?$expand=fields($select=Communication)`;
+  const existing = await graphFetch<GraphListItem>(path);
+  const existingRaw = (existing.fields.Communication as string | undefined) ?? "";
+  const newRaw = replaceComment(existingRaw, target, newBodyHtml);
   return updateTaskFields(id, { Communication: newRaw });
 }
 

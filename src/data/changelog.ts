@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.3.4",
+    date: "2026-05-15",
+    changes: [
+      "Edit your own comments in-place on the task detail page — a pencil icon next to your comment opens an inline editor with Save / Cancel; Esc cancels, Ctrl+Enter saves",
+      "Edits preserve the original timestamp and author so the audit trail stays intact; only the body text changes",
+      "Edit is limited to the comment's own author (matched by email); attachments on edited comments are preserved",
+    ],
+  },
+  {
     version: "0.3.3",
     date: "2026-05-15",
     changes: [

@@ -72,6 +72,39 @@ export function appendComment(
   return `${existingRaw.replace(/\s+$/, "")}\n${record}`;
 }
 
+/**
+ * Replace the body of a single comment record matched by its timestamp
+ * and author email. Returns the new full Communication string.
+ *
+ * Used by editComment to update one record without disturbing the others.
+ * If no record matches, the string is returned unchanged.
+ */
+export function replaceComment(
+  existingRaw: string | null | undefined,
+  target: { timestamp: Date; authorEmail: string },
+  newBodyHtml: string,
+): string {
+  if (!existingRaw) return "";
+
+  const TIMESTAMP_RE = /(?=\d{1,2}\/\d{1,2}\/\d{4}\s+\d{1,2}:\d{2}:\d{2}\s+(?:AM|PM)\|\|\|)/g;
+  const records = existingRaw.split(TIMESTAMP_RE).filter((r) => r.trim().length > 0);
+  const targetMs = target.timestamp.getTime();
+  const targetEmail = target.authorEmail.toLowerCase();
+
+  const updated = records.map((record) => {
+    const trimmed = record.trim();
+    const parts = trimmed.split("|||");
+    if (parts.length < 4) return trimmed;
+    const [tsRaw, name, email] = parts;
+    const recTs = parseSpDate(tsRaw.trim());
+    if (!recTs || recTs.getTime() !== targetMs) return trimmed;
+    if (email.trim().toLowerCase() !== targetEmail) return trimmed;
+    return `${tsRaw.trim()}|||${name.trim()}|||${email.trim()}|||${newBodyHtml}`;
+  });
+
+  return updated.join("\n");
+}
+
 /** "MM/DD/YYYY H:MM:SS AM/PM" → Date */
 function parseSpDate(s: string): Date | null {
   const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})\s+(AM|PM)$/.exec(s);

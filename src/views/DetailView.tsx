@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import {
   useAddComment,
+  useEditComment,
   useProjects,
   useSetAssigned,
   useSetParentProject,
@@ -65,6 +66,7 @@ export function DetailView() {
   const queryClient = useQueryClient();
   const updateFields = useUpdateTaskFields();
   const addComment = useAddComment();
+  const editComment = useEditComment();
   const setParentTask = useSetParentTask();
   const setParentProject = useSetParentProject();
   const setRelatedProjects = useSetRelatedProjects();
@@ -294,6 +296,18 @@ export function DetailView() {
     }
   }
 
+  async function handleEditComment(
+    comment: import("@/types/task").Comment,
+    newBodyHtml: string,
+  ) {
+    if (!task) return;
+    await editComment.mutateAsync({
+      id: task.id,
+      target: { timestamp: comment.timestamp, authorEmail: comment.authorEmail },
+      newBodyHtml,
+    });
+  }
+
   // Eligible parent-task candidates: any task that isn't this one and isn't
   // a descendant of this one (cycle prevention).
   const parentTaskCandidates = allTasks.filter(
@@ -442,7 +456,11 @@ export function DetailView() {
               />
             )}
             <div className="mt-5">
-              <CommentThread comments={displayedComments} />
+              <CommentThread
+                comments={displayedComments}
+                currentUserEmail={currentUser.email}
+                onEdit={handleEditComment}
+              />
             </div>
           </div>
         </div>
