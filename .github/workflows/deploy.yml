@@ -35,20 +35,6 @@ jobs:
         # the thresholds in vite.config.ts and add `-- --coverage` here.
         run: npm test
 
-      - name: Diagnose env (temporary)
-        run: |
-          echo "=== vars context (direct from GitHub) ==="
-          echo "VITE_USE_MOCK raw: '${{ vars.VITE_USE_MOCK }}'"
-          echo "VITE_AZURE_CLIENT_ID set: '${{ vars.VITE_AZURE_CLIENT_ID != '' }}'"
-          echo "VITE_AZURE_CLIENT_ID first 8: '${VAR_CID:0:8}'"
-          echo "VITE_AZURE_TENANT_ID set: '${{ vars.VITE_AZURE_TENANT_ID != '' }}'"
-          echo "VITE_SP_SITE_ID set: '${{ vars.VITE_SP_SITE_ID != '' }}'"
-          echo "VITE_SP_LIST_ID set: '${{ vars.VITE_SP_LIST_ID != '' }}'"
-          echo "=== resolved expressions used by Build step ==="
-          echo "USE_MOCK -> '${{ vars.VITE_USE_MOCK || 'true' }}'"
-        env:
-          VAR_CID: ${{ vars.VITE_AZURE_CLIENT_ID }}
-
       - name: Build
         run: npm run build
         env:
