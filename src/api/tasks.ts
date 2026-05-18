@@ -463,6 +463,14 @@ export async function editComment(
  */
 export async function createTask(input: {
   title: string;
+  /**
+   * Optional pre-computed NumberedTitle (e.g. "T12-0017-EMI sweep"). When
+   * the caller has the task list to count from (the form does, via
+   * useTasks), it can pass this and we'll write it directly. Per the
+   * project-task-numbering memory, NumberedTitle is NOT a SharePoint
+   * calculated column — the app is responsible for filling it in.
+   */
+  numberedTitle?: string;
   description?: string;
   status?: Status;
   priority?: string | null;
@@ -482,7 +490,9 @@ export async function createTask(input: {
       : null;
     const task: Task = {
       id: nextId,
-      numberedTitle: `T${nextId}-${parentProject?.title.slice(0, 4) ?? "0000"}-${input.title}`,
+      numberedTitle:
+        input.numberedTitle ??
+        `T${nextId}-${parentProject?.title.slice(0, 4) ?? "0000"}-${input.title}`,
       title: input.title,
       description: input.description ?? "",
       status: input.status ?? "BACKLOG",
@@ -516,6 +526,7 @@ export async function createTask(input: {
   // wants the field omitted instead. The TaskFormModal hands us null/[] for
   // unspecified choices so the equivalent guards live here.
   const fields: Record<string, unknown> = { Title: input.title };
+  if (input.numberedTitle) fields.NumberedTitle = input.numberedTitle;
   if (input.description) fields.Description = input.description;
   if (input.status) fields.Status = input.status;
   if (input.priority) fields.Priority = input.priority;
@@ -528,23 +539,21 @@ export async function createTask(input: {
   if (input.softwareRevision) {
     fields.SoftwareRevision = input.softwareRevision;
   }
+  // Person fields: only include real lookup IDs. The current user's
+  // lookupId is resolved async — if it isn't ready yet (lookupId === 0)
+  // we just skip the field rather than failing the entire create. The
+  // user can re-assign afterward once their identity is known.
   if (input.assigned && input.assigned.length > 0) {
     const lookupIds = input.assigned.map((p) => p.lookupId).filter((x): x is number => !!x);
-    if (lookupIds.length === 0) {
-      throw new Error(
-        "Cannot set Assigned: none of the selected people had a resolved SharePoint lookupId.",
-      );
+    if (lookupIds.length > 0) {
+      fields.AssignedLookupId = { results: lookupIds };
     }
-    fields.AssignedLookupId = { results: lookupIds };
   }
   if (input.watchers && input.watchers.length > 0) {
     const lookupIds = input.watchers.map((p) => p.lookupId).filter((x): x is number => !!x);
-    if (lookupIds.length === 0) {
-      throw new Error(
-        "Cannot set Watchers: none of the selected people had a resolved SharePoint lookupId.",
-      );
+    if (lookupIds.length > 0) {
+      fields.WatchersLookupId = { results: lookupIds };
     }
-    fields.WatchersLookupId = { results: lookupIds };
   }
 
   const created = await graphFetch<GraphListItem>(path, {

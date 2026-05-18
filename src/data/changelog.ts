@@ -20,6 +20,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.6.4",
+    date: "2026-05-18",
+    changes: [
+      "New tasks now get an auto-generated NumberedTitle like T12-0017-Endurance run (counting under the chosen project + the project's 4-char code prefix) — previously the column was left blank in real mode so new tasks displayed as just their plain title",
+      "Parent Project is now required on create — the dropdown opens to 'Select a project…' and the Create button stays disabled until you pick one",
+      "Assigned and Watchers on the new/edit task form now use a searchable dropdown — same pattern as the filter bar — instead of the pill chooser",
+      "Creating a task while your SharePoint identity is still resolving no longer aborts — the unresolved person is silently skipped on the wire rather than failing the whole submit",
+    ],
+  },
+  {
     version: "0.6.3",
     date: "2026-05-18",
     changes: [

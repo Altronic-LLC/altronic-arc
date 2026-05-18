@@ -26,6 +26,7 @@ import {
   type Task,
 } from "@/types/task";
 import { wouldCreateCycle } from "@/lib/taskGraph";
+import { MultiSelect } from "./SearchableSelect";
 import { cn } from "@/lib/cn";
 
 interface TaskFormModalProps {
@@ -156,26 +157,6 @@ export function TaskFormModal({ mode, task, onClose }: TaskFormModalProps) {
     );
   }
 
-  function toggleAssigned(person: Person) {
-    const key = (person.email ?? person.displayName).toLowerCase();
-    setAssignedState((prev) => {
-      const has = prev.some((p) => (p.email ?? p.displayName).toLowerCase() === key);
-      return has
-        ? prev.filter((p) => (p.email ?? p.displayName).toLowerCase() !== key)
-        : [...prev, person];
-    });
-  }
-
-  function toggleWatcher(person: Person) {
-    const key = (person.email ?? person.displayName).toLowerCase();
-    setWatchersState((prev) => {
-      const has = prev.some((p) => (p.email ?? p.displayName).toLowerCase() === key);
-      return has
-        ? prev.filter((p) => (p.email ?? p.displayName).toLowerCase() !== key)
-        : [...prev, person];
-    });
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const trimmedTitle = title.trim();
@@ -183,13 +164,36 @@ export function TaskFormModal({ mode, task, onClose }: TaskFormModalProps) {
       setError("Title is required.");
       return;
     }
+    if (mode === "create" && parentProjectId === "") {
+      setError("Parent Project is required.");
+      return;
+    }
     setError(null);
     setBusy(true);
 
     try {
       if (mode === "create") {
+        // Compute NumberedTitle locally — per the project-task-numbering
+        // memory, the app is responsible for this column (it's not a
+        // SharePoint calculated field). Format: T{n}-{projectRef}-{title}
+        // where n = (count of tasks under this project ref) + 1, and
+        // projectRef is the first four chars of the project title (the
+        // 0000-style code prefix). Unassigned-to-a-project tasks fall back
+        // to a "0000" project ref.
+        const chosenProject =
+          parentProjectId === ""
+            ? null
+            : projects.find((p) => p.lookupId === parentProjectId) ?? null;
+        const tasksInProject = chosenProject
+          ? allTasks.filter((t) => t.parentProject?.lookupId === chosenProject.lookupId)
+          : allTasks.filter((t) => !t.parentProject);
+        const nextN = tasksInProject.length + 1;
+        const projectRef = chosenProject?.title.slice(0, 4) ?? "0000";
+        const numberedTitle = `T${nextN}-${projectRef}-${trimmedTitle}`;
+
         const created = await createTask.mutateAsync({
           title: trimmedTitle,
+          numberedTitle,
           description: description.trim() || undefined,
           status,
           priority: priority || null,
@@ -439,15 +443,16 @@ export function TaskFormModal({ mode, task, onClose }: TaskFormModalProps) {
               </div>
             </FieldLabel>
 
-            <FieldLabel label="Parent Project">
+            <FieldLabel label="Parent Project" required={mode === "create"}>
               <select
                 value={parentProjectId === "" ? "" : String(parentProjectId)}
                 onChange={(e) =>
                   setParentProjectId(e.target.value === "" ? "" : parseInt(e.target.value, 10))
                 }
+                required={mode === "create"}
                 className="w-full rounded-md border border-border bg-surface px-3 py-2 text-base text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
               >
-                <option value="">None</option>
+                <option value="">{mode === "create" ? "Select a project…" : "None"}</option>
                 {projects.map((p) => (
                   <option key={p.lookupId} value={p.lookupId}>
                     {p.title}
@@ -483,11 +488,21 @@ export function TaskFormModal({ mode, task, onClose }: TaskFormModalProps) {
             </FieldLabel>
 
             <FieldLabel label="Assigned">
-              <PersonPicker selected={assigned} all={allPeople} onToggle={toggleAssigned} />
+              <PersonMultiSelect
+                allPeople={allPeople}
+                selected={assigned}
+                onChange={setAssignedState}
+                allLabel="Unassigned"
+              />
             </FieldLabel>
 
             <FieldLabel label="Watchers">
-              <PersonPicker selected={watchers} all={allPeople} onToggle={toggleWatcher} />
+              <PersonMultiSelect
+                allPeople={allPeople}
+                selected={watchers}
+                onChange={setWatchersState}
+                allLabel="No watchers"
+              />
             </FieldLabel>
 
             <FieldLabel label="Software Revision">
@@ -513,7 +528,11 @@ export function TaskFormModal({ mode, task, onClose }: TaskFormModalProps) {
           </button>
           <button
             type="submit"
-            disabled={busy || !title.trim()}
+            disabled={
+              busy ||
+              !title.trim() ||
+              (mode === "create" && parentProjectId === "")
+            }
             className="inline-flex items-center gap-1.5 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busy ? (
@@ -687,60 +706,37 @@ function RelatedProjectPicker({
   );
 }
 
-function PersonPicker({
+/**
+ * Adapter from MultiSelect (string-key based) to the form's Person[] state.
+ * The form keeps Person objects in state because the mutations downstream
+ * need email + lookupId, but the MultiSelect speaks in string keys.
+ */
+function PersonMultiSelect({
+  allPeople,
   selected,
-  all,
-  onToggle,
+  onChange,
+  allLabel,
 }: {
+  allPeople: Person[];
   selected: Person[];
-  all: Person[];
-  onToggle: (p: Person) => void;
+  onChange: (next: Person[]) => void;
+  allLabel: string;
 }) {
-  const selectedKeys = new Set(selected.map((p) => (p.email ?? p.displayName).toLowerCase()));
+  const keyOf = (p: Person) => p.email ?? p.displayName;
   return (
-    <div className="flex flex-col gap-2">
-      {selected.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {selected.map((p) => (
-            <span
-              key={p.email ?? p.displayName}
-              className="inline-flex items-center gap-1 rounded-full border border-accent bg-accent/10 px-2 py-0.5 text-xs text-accent"
-            >
-              {p.displayName}
-              <button
-                type="button"
-                onClick={() => onToggle(p)}
-                className="rounded p-0.5 hover:bg-accent/20"
-                aria-label={`Remove ${p.displayName}`}
-              >
-                <X className="h-2.5 w-2.5" />
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
-      <details>
-        <summary className="cursor-pointer text-xs text-fg-muted hover:text-fg">
-          + Add people
-        </summary>
-        <div className="mt-1.5 flex flex-wrap gap-1">
-          {all
-            .filter(
-              (p) => !selectedKeys.has((p.email ?? p.displayName).toLowerCase()),
-            )
-            .map((p) => (
-              <button
-                key={p.email ?? p.displayName}
-                type="button"
-                onClick={() => onToggle(p)}
-                className="inline-flex items-center gap-1 rounded-full border border-border bg-surface px-2 py-0.5 text-[10px] font-medium text-fg-muted hover:border-fg-muted hover:text-fg"
-              >
-                <Plus className="h-2.5 w-2.5" />
-                {p.displayName}
-              </button>
-            ))}
-        </div>
-      </details>
-    </div>
+    <MultiSelect
+      allLabel={allLabel}
+      searchPlaceholder="Search people…"
+      options={allPeople.map((p) => ({ value: keyOf(p), label: p.displayName }))}
+      selected={selected.map(keyOf)}
+      onChange={(keys) => {
+        const next: Person[] = [];
+        for (const k of keys) {
+          const person = allPeople.find((p) => keyOf(p) === k);
+          if (person) next.push(person);
+        }
+        onChange(next);
+      }}
+    />
   );
 }
