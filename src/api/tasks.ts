@@ -526,7 +526,14 @@ export async function createTask(input: {
   // wants the field omitted instead. The TaskFormModal hands us null/[] for
   // unspecified choices so the equivalent guards live here.
   const fields: Record<string, unknown> = { Title: input.title };
-  if (input.numberedTitle) fields.NumberedTitle = input.numberedTitle;
+  // NOTE: NumberedTitle is read-only / calculated on the real Tasks list
+  // (writing to it returns 400 invalidRequest). The CLAUDE.md "Data model"
+  // section calls it out as "Calculated, read-only"; an older memory
+  // suggested otherwise but that turned out to be wrong. New real-mode
+  // tasks display whatever SharePoint computes (which may be empty until
+  // the column's formula populates) — the mapper falls back to Title.
+  // Keeping the `input.numberedTitle` field on createTask for mock-mode
+  // synthesis only.
   if (input.description) fields.Description = input.description;
   if (input.status) fields.Status = input.status;
   if (input.priority) fields.Priority = input.priority;

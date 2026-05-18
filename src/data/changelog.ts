@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.6.5",
+    date: "2026-05-18",
+    changes: [
+      "Fix: creating a task in real mode no longer 400s on the NumberedTitle field — it turns out that column is read-only / server-calculated on the live SharePoint list. The 0.6.4 attempt to write it directly was reverted. New tasks will display whatever SharePoint computes (which may be empty until the list's formula populates) and the mapper falls back to the plain Title in the meantime",
+    ],
+  },
+  {
     version: "0.6.4",
     date: "2026-05-18",
     changes: [
