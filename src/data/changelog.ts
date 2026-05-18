@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.5.2",
+    date: "2026-05-18",
+    changes: [
+      "Filter dropdowns now have a search box at the top — type to narrow the options down instead of scrolling through every project or person",
+      "Created By dropdown matches the same style as Project Reference and Assigned for consistency (was a native dropdown before)",
+    ],
+  },
+  {
     version: "0.5.1",
     date: "2026-05-18",
     changes: [
