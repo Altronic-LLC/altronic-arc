@@ -45,7 +45,6 @@ import {
   type Person,
   type Priority,
   type Status,
-  type Task,
 } from "@/types/task";
 import { wouldCreateCycle } from "@/lib/taskGraph";
 import { sanitiseHtml } from "@/lib/sanitiseHtml";
@@ -122,12 +121,20 @@ export function DetailView() {
   }, [task, seenCommentKeys, snapshotInitialised, currentUser.email]);
 
   // Comments to render in the thread = whatever's in the snapshot. New
-  // external comments are hidden until the user clicks "Show new".
+  // external comments are hidden until the user clicks "Show new". Own
+  // comments — both historical and just-optimistically-inserted — always
+  // show; the seen-set is a tool for surfacing other people's updates,
+  // not for hiding your own writes from yourself.
   const displayedComments: Comment[] = useMemo(() => {
     if (!task) return [];
     if (!snapshotInitialised) return task.comments;
-    return task.comments.filter((c) => seenCommentKeys.has(commentKey(c)));
-  }, [task, seenCommentKeys, snapshotInitialised]);
+    const myEmail = (currentUser.email ?? "").toLowerCase();
+    return task.comments.filter((c) => {
+      const author = (c.authorEmail ?? "").toLowerCase();
+      if (author === myEmail) return true;
+      return seenCommentKeys.has(commentKey(c));
+    });
+  }, [task, seenCommentKeys, snapshotInitialised, currentUser.email]);
 
   // Build the set of people who appear on any task for the Assigned picker.
   const allPeople: Person[] = useMemo(() => {
@@ -244,48 +251,23 @@ export function DetailView() {
     setSeenCommentKeys(new Set(task.comments.map(commentKey)));
   }
 
-  async function handleAddComment(bodyHtml: string, attachments: import("@/types/task").CommentAttachment[]) {
+  function handleAddComment(
+    bodyHtml: string,
+    attachments: import("@/types/task").CommentAttachment[],
+  ) {
     if (!task) return;
-
-    // Pre-flight: refetch and check whether someone else commented in the
-    // last minute. Surfacing the race before posting lets the user decide
-    // whether to read the new comment first or send theirs anyway — the
-    // Communication field is a single text blob, so two near-simultaneous
-    // writes can lose data.
-    const myEmail = (currentUser.email ?? "").toLowerCase();
-    try {
-      await queryClient.refetchQueries({ queryKey: ["tasks", "list"] });
-    } catch {
-      // If the refetch fails (offline, transient error), fall through and
-      // let the actual write attempt surface the error.
-    }
-    const fresh = queryClient.getQueryData<Task[]>(["tasks", "list"]);
-    const freshTask = fresh?.find((t) => t.id === task.id);
-    if (freshTask) {
-      const recentOther = freshTask.comments.find((c) => {
-        if (seenCommentKeys.has(commentKey(c))) return false;
-        const author = (c.authorEmail ?? "").toLowerCase();
-        if (author === myEmail) return false;
-        return Date.now() - c.timestamp.getTime() < 60_000;
-      });
-      if (recentOther) {
-        const secondsAgo = Math.max(
-          1,
-          Math.round((Date.now() - recentOther.timestamp.getTime()) / 1000),
-        );
-        const proceed = window.confirm(
-          `${recentOther.authorName} added a comment ${secondsAgo} seconds ago. Send yours anyway?`,
-        );
-        if (!proceed) {
-          // User chose to read it first — roll the snapshot forward so
-          // the new comment appears in the thread and the banner clears.
-          setSeenCommentKeys(new Set(freshTask.comments.map(commentKey)));
-          return;
-        }
-      }
-    }
-
-    const result = await addComment.mutateAsync({
+    // Fire-and-forget. useAddComment's onMutate inserts the new comment in
+    // the React Query cache synchronously, so it shows up in the thread
+    // immediately. The actual Graph round-trip happens in the background.
+    //
+    // We used to refetch the whole tasks list first and pop a confirm()
+    // modal if someone else had just commented — the race window for the
+    // Communication field is real (it's a single text blob and last-write
+    // wins). But the modal added 2-4s to every send and the existing 20s
+    // background poll already surfaces concurrent comments through the
+    // banner above the thread. Trading the modal for the banner is the
+    // right call: speed for the common case, awareness for the rare one.
+    addComment.mutate({
       id: task.id,
       comment: {
         authorName: currentUser.displayName,
@@ -294,11 +276,6 @@ export function DetailView() {
         attachments,
       },
     });
-    // Roll the snapshot forward to include the user's own new comment
-    // plus anything else that arrived during the round trip.
-    if (result) {
-      setSeenCommentKeys(new Set(result.comments.map(commentKey)));
-    }
   }
 
   async function handleEditComment(
@@ -504,6 +481,15 @@ export function DetailView() {
             <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
               Comments
             </h2>
+            {addComment.isError && (
+              <div className="mb-3 rounded-md border border-cooper-red/30 bg-cooper-red/10 px-3 py-2 text-xs text-cooper-red">
+                Couldn't post comment:{" "}
+                {addComment.error instanceof Error
+                  ? addComment.error.message
+                  : "unknown error"}
+                . Your comment was removed from the thread — try again.
+              </div>
+            )}
             <CommentComposer onSubmit={handleAddComment} />
             {newExternalComments.length > 0 && (
               <NewCommentsBanner

@@ -191,7 +191,48 @@ export function useAddComment() {
         attachments?: CommentAttachment[];
       };
     }) => addComment(id, comment),
-    onSuccess: () => {
+    // Optimistic insert: the comment shows up in the thread instantly, the
+    // Graph round-trip happens in the background. Without this, sending a
+    // comment in real mode took ~2-4s before any visual feedback (one GET
+    // for the existing Communication field, one PATCH to write it, plus a
+    // full list re-fetch). Now those still run, but the user doesn't wait.
+    onMutate: async ({ id, comment }) => {
+      await qc.cancelQueries({ queryKey: TASK_LIST_KEY });
+      const previous = qc.getQueryData<Task[]>(TASK_LIST_KEY);
+      qc.setQueryData<Task[]>(TASK_LIST_KEY, (old) =>
+        old?.map((t) => {
+          if (t.id !== id) return t;
+          return {
+            ...t,
+            comments: [
+              {
+                timestamp: new Date(),
+                authorName: comment.authorName,
+                authorEmail: comment.authorEmail,
+                bodyHtml: comment.bodyHtml,
+                attachments: comment.attachments ?? [],
+              },
+              ...t.comments,
+            ],
+            modifiedAt: new Date(),
+            hasAttachments:
+              comment.attachments && comment.attachments.length > 0
+                ? true
+                : t.hasAttachments,
+          };
+        }) ?? [],
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      // Mutation failed — undo the optimistic insert so the thread reflects
+      // reality. The component watches `addComment.error` and surfaces the
+      // message inline.
+      if (context?.previous) qc.setQueryData(TASK_LIST_KEY, context.previous);
+    },
+    onSettled: () => {
+      // Reconcile with server truth. Whether we succeeded or failed, the
+      // canonical Communication string lives on SharePoint.
       qc.invalidateQueries({ queryKey: TASK_LIST_KEY });
     },
   });

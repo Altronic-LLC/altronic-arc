@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.6.1",
+    date: "2026-05-18",
+    changes: [
+      "Sending a comment now feels instant — the comment appears in the thread the moment you click Send, while SharePoint catches up in the background (previously you waited 2-4 seconds for three Graph calls to round-trip)",
+      "If the server rejects the comment, it's removed from the thread and an inline error appears above the composer so you can retry",
+      "Removed the 'someone else just commented, send anyway?' modal — the existing background poll and 'new comments' banner handle that case non-blockingly",
+    ],
+  },
+  {
     version: "0.6.0",
     date: "2026-05-18",
     changes: [
