@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.5.1",
+    date: "2026-05-18",
+    changes: [
+      "Initial task load is meaningfully faster — we now only ask SharePoint for the ~15 columns the app actually uses, instead of all 200+ columns on the list",
+      "Tasks and projects are fetched in parallel on first load instead of one after the other, saving another round-trip of latency",
+      "Cached task list now stays 'fresh' for 2 minutes (was 30 seconds), so switching between List and Kanban or refocusing the tab doesn't trigger a refetch",
+    ],
+  },
+  {
     version: "0.5.0",
     date: "2026-05-18",
     changes: [

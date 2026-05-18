@@ -29,12 +29,14 @@ try {
 }
 
 // React Query client. Defaults are tuned for this app's read-heavy access
-// pattern — we cache lists for 30 seconds, refetch on window focus is off
-// because the SharePoint data doesn't change that often.
+// pattern — we cache lists for 2 minutes, refetch on window focus is off
+// because the SharePoint data doesn't change that often. The DetailView
+// has its own 20s background poll for live comment updates, so this longer
+// default doesn't compromise that experience.
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 30_000,
+      staleTime: 120_000,
       refetchOnWindowFocus: false,
       retry: (failureCount, error) => {
         // Don't retry session-expired — let the AuthGate handle re-login.

@@ -31,7 +31,12 @@ export function useTasks() {
   return useQuery({
     queryKey: TASK_LIST_KEY,
     queryFn: listTasks,
-    staleTime: 30_000,
+    // 2 minutes: long enough that view-switches (List ↔ Kanban) and tab
+    // refocus feel instant without a network round-trip; short enough that
+    // a freshly-edited task elsewhere shows up within a minute or two.
+    // DetailView's background invalidate handles the live-comments case
+    // independently.
+    staleTime: 120_000,
   });
 }
 

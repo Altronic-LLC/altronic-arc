@@ -23,6 +23,33 @@ import { MOCK_PROJECTS, MOCK_TASKS } from "@/data/mockData";
 // optimistic updates can be verified visually during development.
 // =============================================================================
 
+// SharePoint internal column names we actually consume in taskMapper.ts.
+// Passed to `$expand=fields($select=…)` so the list endpoint only returns
+// these fields instead of all 200+ columns on the Project Task List. Cuts
+// payload size dramatically and speeds up initial load. Keep this list in
+// sync with `taskMapper.toTask()` — any new field the mapper reads has to
+// be added here too, otherwise it'll come back undefined in real mode.
+const TASK_FIELD_SELECT = [
+  "Title",
+  "NumberedTitle",
+  "Description",
+  "Status",
+  "Priority",
+  "Category",
+  "Labels",
+  "DueDate",
+  "AuthorLookupId",
+  "EditorLookupId",
+  "Parent_x0020_Project_x0020_ReferLookupId",
+  "ProjectReference",
+  "ParentTaskLookupId",
+  "Assigned",
+  "Watchers",
+  "SoftwareRevision",
+  "Attachments",
+  "Communication",
+].join(",");
+
 // In demo mode we keep the task list in memory but also persist to
 // localStorage so changes survive page refresh. Each tab reads from
 // localStorage on load and writes after each mutation; data lives under
@@ -141,13 +168,18 @@ export async function listTasks(): Promise<Task[]> {
     return delay(copy);
   }
 
-  const path = `/sites/${SP_SITE_ID}/lists/${SP_LIST_ID}/items?$expand=fields&$top=200`;
-  const items = await graphFetchAll<GraphListItem>(path);
+  const path = `/sites/${SP_SITE_ID}/lists/${SP_LIST_ID}/items?$expand=fields($select=${TASK_FIELD_SELECT})&$top=200`;
+  // Kick the items + projects requests off in parallel — they're
+  // independent until we merge titles in below. Saves one round-trip
+  // worth of latency on the initial load.
+  const [items, projects] = await Promise.all([
+    graphFetchAll<GraphListItem>(path),
+    listProjects(),
+  ]);
   const tasks = items.map(toTask);
   attachTaskRelationships(tasks);
   // Resolve project titles. Tolerates missing VITE_SP_PROJECTS_LIST_ID
   // (listProjects returns []) by leaving titles empty.
-  const projects = await listProjects();
   attachProjectTitles(tasks, projects);
   return tasks;
 }
@@ -552,7 +584,8 @@ export async function listProjects(): Promise<ProjectReference[]> {
     return [];
   }
 
-  const path = `/sites/${SP_SITE_ID}/lists/${projectsListId}/items?$expand=fields&$top=200`;
+  // Projects list — we only need the Title for resolving lookup labels.
+  const path = `/sites/${SP_SITE_ID}/lists/${projectsListId}/items?$expand=fields($select=Title)&$top=200`;
   const items = await graphFetchAll<GraphListItem>(path);
   return items.map((item) => ({
     lookupId: parseInt(item.id, 10),
