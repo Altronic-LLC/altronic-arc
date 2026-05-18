@@ -103,7 +103,13 @@ export function KanbanView() {
   }
 
   return (
-    <div className="mx-auto flex max-w-full flex-col gap-4 px-4 py-4 sm:gap-5 sm:px-6 sm:py-6">
+    // Lock the Kanban view to (about) the viewport so the column area's
+    // horizontal scrollbar always sits at the bottom of the screen. Without
+    // this the FilterBar + tall columns made the page itself scroll, and
+    // users had to scroll all the way down before they could reach the
+    // horizontal scrollbar. The dvh + rem offset is an approximation of the
+    // app chrome (Header + Footer + padding); a few pixels off is fine.
+    <div className="mx-auto flex h-[calc(100dvh-12rem)] max-w-full flex-col gap-3 px-4 py-3 sm:h-[calc(100dvh-7rem)] sm:gap-4 sm:px-6 sm:py-4">
       <div className="flex items-start justify-end gap-3">
         <button
           onClick={() => setShowNewTask(true)}
@@ -133,16 +139,21 @@ export function KanbanView() {
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="scroll-elegant flex gap-4 overflow-x-auto pb-4">
-          {STATUSES.map((status) => (
-            <Column
-              key={status}
-              status={status}
-              tasks={tasksByStatus[status]}
-              onOpen={(id) => navigate(`/task/${id}`)}
-              dragDisabled={isPhone}
-            />
-          ))}
+        {/* min-h-0 is the load-bearing class here: without it, the flex
+            child won't shrink below its content height and the horizontal
+            scrollbar disappears off the bottom of the screen again. */}
+        <div className="min-h-0 flex-1">
+          <div className="scroll-elegant flex h-full gap-4 overflow-x-auto overflow-y-hidden pb-2">
+            {STATUSES.map((status) => (
+              <Column
+                key={status}
+                status={status}
+                tasks={tasksByStatus[status]}
+                onOpen={(id) => navigate(`/task/${id}`)}
+                dragDisabled={isPhone}
+              />
+            ))}
+          </div>
         </div>
 
         <DragOverlay>
