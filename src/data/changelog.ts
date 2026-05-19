@@ -20,6 +20,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.11.2",
+    date: "2026-05-19",
+    changes: [
+      "@-mention emails redesigned: Cooper Red branded header with the ALTRONIC wordmark, the task title called out in its own block, the comment quoted in a card, and a proper red 'Open this task' button instead of a plain text link",
+      "Body line now reads 'You were mentioned in a task by X' (was 'in a comment') so it scans cleanly at a glance",
+      "Faint grey footer added: 'Do not reply to this email — it was automatically sent via the Engineering Task System'",
+      "Table-based layout throughout so the email looks the same in Outlook, Gmail, Apple Mail, and mobile clients",
+    ],
+  },
+  {
     version: "0.11.1",
     date: "2026-05-19",
     changes: [

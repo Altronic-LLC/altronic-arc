@@ -106,20 +106,13 @@ async function sendOne(input: {
   const taskTitle = input.task.numberedTitle || input.task.title;
   const subject = `You were mentioned in ${taskTitle}`;
   const url = taskUrl(input.task.id);
-  const excerptHtml = escapeHtml(input.commentExcerpt).replace(/\n/g, "<br/>");
-
-  const bodyHtml = `
-    <p>Hello ${escapeHtml(input.recipient.displayName)},</p>
-    <p>You were mentioned in a comment by <strong>${escapeHtml(
-      input.sender.displayName,
-    )}</strong> on <strong>${escapeHtml(taskTitle)}</strong>:</p>
-    <blockquote style="border-left:3px solid #ccc;padding:0.25rem 0.75rem;margin:0.5rem 0;color:#555;">
-      ${excerptHtml || "<em>(no message body)</em>"}
-    </blockquote>
-    <p><a href="${escapeHtml(url)}">Open this task →</a></p>
-    <hr/>
-    <p style="font-size:11px;color:#888;">Altronic Engineering Task System</p>
-  `;
+  const bodyHtml = renderMentionEmail({
+    recipientName: input.recipient.displayName,
+    senderName: input.sender.displayName,
+    taskTitle,
+    commentExcerpt: input.commentExcerpt,
+    url,
+  });
 
   const message: Record<string, unknown> = {
     subject,
@@ -174,6 +167,74 @@ function taskUrl(taskId: number): string {
     /\/(list|task|kanban|test-sheets?|admin|about)?.*$/,
     "",
   )}/task/${taskId}`;
+}
+
+interface MentionEmailContext {
+  recipientName: string;
+  senderName: string;
+  taskTitle: string;
+  commentExcerpt: string;
+  url: string;
+}
+
+/**
+ * Build the full HTML email body. Table-based layout so Outlook (which
+ * ignores most modern CSS) still renders cleanly. Inline styles only.
+ * Cooper Red `#CB2C30` is the brand accent. The wordmark is rendered as
+ * styled text rather than an image so email clients without remote-image
+ * loading still see the branding.
+ */
+function renderMentionEmail(ctx: MentionEmailContext): string {
+  const recipient = escapeHtml(ctx.recipientName);
+  const sender = escapeHtml(ctx.senderName);
+  const taskTitle = escapeHtml(ctx.taskTitle);
+  const excerpt = escapeHtml(ctx.commentExcerpt).replace(/\n/g, "<br/>");
+  const url = escapeHtml(ctx.url);
+
+  return `
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#f4f4f5;padding:24px 12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+  <tr>
+    <td align="center">
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width:600px;background:#ffffff;border-radius:8px;overflow:hidden;border:1px solid #e5e7eb;">
+        <tr>
+          <td style="background:#CB2C30;padding:20px 28px;">
+            <div style="color:#ffffff;font-weight:800;font-size:18px;letter-spacing:0.18em;text-transform:uppercase;line-height:1;">ALTRONIC</div>
+            <div style="color:rgba(255,255,255,0.85);font-weight:600;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;margin-top:6px;">Engineering Task System</div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:28px 28px 8px 28px;color:#1f2937;font-size:15px;line-height:1.55;">
+            <p style="margin:0 0 14px 0;font-size:16px;">Hello <strong>${recipient}</strong>,</p>
+            <p style="margin:0 0 18px 0;">You were mentioned in a task by <strong>${sender}</strong>.</p>
+            <div style="margin:0 0 18px 0;padding:14px 16px;background:#fafafa;border-left:3px solid #CB2C30;border-radius:0 6px 6px 0;">
+              <div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">Task</div>
+              <div style="font-weight:600;color:#111827;">${taskTitle}</div>
+            </div>
+            <div style="margin:0 0 22px 0;padding:14px 16px;background:#fafafa;border:1px solid #e5e7eb;border-radius:6px;color:#374151;">
+              ${excerpt || "<em style=\"color:#9ca3af;\">(no message body)</em>"}
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td align="center" style="padding:0 28px 28px 28px;">
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+              <tr>
+                <td align="center" style="background:#CB2C30;border-radius:6px;">
+                  <a href="${url}" style="display:inline-block;padding:12px 28px;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;letter-spacing:0.01em;">Open this task</a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:14px 28px;background:#f9fafb;border-top:1px solid #e5e7eb;color:#9ca3af;font-size:11px;line-height:1.5;text-align:center;">
+            Do not reply to this email &mdash; it was automatically sent via the Engineering Task System.
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>`.trim();
 }
 
 function escapeHtml(s: string): string {
