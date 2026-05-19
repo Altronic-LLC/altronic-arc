@@ -38,10 +38,9 @@ export interface NotifyMentionsInput {
  * server to make the comment look like it failed.
  */
 export async function notifyMentions(input: NotifyMentionsInput): Promise<void> {
-  const senderEmail = (input.sender.email ?? "").toLowerCase();
-  const recipients = input.recipients.filter(
-    (r) => r.email && r.email.toLowerCase() !== senderEmail,
-  );
+  // Send to every mention, including self-mentions — some users like to
+  // @-themselves as a "remind me later" mechanism that lands in their inbox.
+  const recipients = input.recipients.filter((r) => !!r.email);
   if (recipients.length === 0) return;
 
   // Mock mode: no real send. Log so the user can verify in console.

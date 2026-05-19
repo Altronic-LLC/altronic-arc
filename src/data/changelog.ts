@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.11.1",
+    date: "2026-05-19",
+    changes: [
+      "Mentioning yourself now emails you — useful as a 'remind me later' that lands in your inbox. Previously self-mentions were silently filtered out",
+    ],
+  },
+  {
     version: "0.11.0",
     date: "2026-05-19",
     changes: [
