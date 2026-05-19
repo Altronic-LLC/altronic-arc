@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.11.3",
+    date: "2026-05-19",
+    changes: [
+      "Mention email theme switched to black + white with red accents — header is now black with a thin Cooper Red accent line; red is reserved for the task-callout edge and the CTA button. No image-based logo so every email client renders the same without blocked-images problems",
+    ],
+  },
+  {
     version: "0.11.2",
     date: "2026-05-19",
     changes: [

@@ -180,9 +180,12 @@ interface MentionEmailContext {
 /**
  * Build the full HTML email body. Table-based layout so Outlook (which
  * ignores most modern CSS) still renders cleanly. Inline styles only.
- * Cooper Red `#CB2C30` is the brand accent. The wordmark is rendered as
- * styled text rather than an image so email clients without remote-image
- * loading still see the branding.
+ *
+ * Black/white theme with Cooper Red (`#CB2C30`) accents — the header bar
+ * is solid black with the wordmark in white, while the red accent is
+ * reserved for the task callout's left border and the call-to-action
+ * button. The wordmark is rendered as styled text rather than an image
+ * so every client renders it the same without blocking remote images.
  */
 function renderMentionEmail(ctx: MentionEmailContext): string {
   const recipient = escapeHtml(ctx.recipientName);
@@ -192,25 +195,25 @@ function renderMentionEmail(ctx: MentionEmailContext): string {
   const url = escapeHtml(ctx.url);
 
   return `
-<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#f4f4f5;padding:24px 12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#f3f4f6;padding:24px 12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
   <tr>
     <td align="center">
       <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width:600px;background:#ffffff;border-radius:8px;overflow:hidden;border:1px solid #e5e7eb;">
         <tr>
-          <td style="background:#CB2C30;padding:20px 28px;">
-            <div style="color:#ffffff;font-weight:800;font-size:18px;letter-spacing:0.18em;text-transform:uppercase;line-height:1;">ALTRONIC</div>
-            <div style="color:rgba(255,255,255,0.85);font-weight:600;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;margin-top:6px;">Engineering Task System</div>
+          <td style="background:#111827;padding:22px 28px;border-bottom:3px solid #CB2C30;">
+            <div style="color:#ffffff;font-weight:800;font-size:18px;letter-spacing:0.22em;text-transform:uppercase;line-height:1;">ALTRONIC</div>
+            <div style="color:#9ca3af;font-weight:600;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;margin-top:6px;">Engineering Task System</div>
           </td>
         </tr>
         <tr>
-          <td style="padding:28px 28px 8px 28px;color:#1f2937;font-size:15px;line-height:1.55;">
+          <td style="padding:28px 28px 8px 28px;color:#111827;font-size:15px;line-height:1.55;">
             <p style="margin:0 0 14px 0;font-size:16px;">Hello <strong>${recipient}</strong>,</p>
             <p style="margin:0 0 18px 0;">You were mentioned in a task by <strong>${sender}</strong>.</p>
-            <div style="margin:0 0 18px 0;padding:14px 16px;background:#fafafa;border-left:3px solid #CB2C30;border-radius:0 6px 6px 0;">
+            <div style="margin:0 0 18px 0;padding:14px 16px;background:#f9fafb;border-left:3px solid #CB2C30;border-radius:0 6px 6px 0;">
               <div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">Task</div>
               <div style="font-weight:600;color:#111827;">${taskTitle}</div>
             </div>
-            <div style="margin:0 0 22px 0;padding:14px 16px;background:#fafafa;border:1px solid #e5e7eb;border-radius:6px;color:#374151;">
+            <div style="margin:0 0 22px 0;padding:14px 16px;background:#ffffff;border:1px solid #e5e7eb;border-radius:6px;color:#374151;">
               ${excerpt || "<em style=\"color:#9ca3af;\">(no message body)</em>"}
             </div>
           </td>
@@ -227,7 +230,7 @@ function renderMentionEmail(ctx: MentionEmailContext): string {
           </td>
         </tr>
         <tr>
-          <td style="padding:14px 28px;background:#f9fafb;border-top:1px solid #e5e7eb;color:#9ca3af;font-size:11px;line-height:1.5;text-align:center;">
+          <td style="padding:14px 28px;background:#fafafa;border-top:1px solid #e5e7eb;color:#9ca3af;font-size:11px;line-height:1.5;text-align:center;">
             Do not reply to this email &mdash; it was automatically sent via the Engineering Task System.
           </td>
         </tr>
