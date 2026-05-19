@@ -20,6 +20,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.10.0",
+    date: "2026-05-19",
+    changes: [
+      "Every change you make now shows a small confirmation toast at the bottom-right of the screen — so you can see at a glance that something actually happened",
+      "Most toasts include an Undo button — click it within ~7 seconds of an accidental change (status, priority, category, due date, parent task/project, related projects, assignees, watchers, watch/unwatch, comment edit, test sheet edit) and the previous value is restored both in the UI and on SharePoint",
+      "Failures also surface as toasts — if a write was rejected the change rolls back automatically and a red toast tells you what happened",
+      "Comment-add and task/test-sheet creation get confirmation toasts but no Undo button (SharePoint doesn't expose delete-a-comment, and recreating a deleted task would shift NumberedTitle counts)",
+    ],
+  },
+  {
     version: "0.9.0",
     date: "2026-05-19",
     changes: [

@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
+import { ToastContainer } from "@/components/Toast";
 import { ListView } from "@/views/ListView";
 import { DashboardView } from "@/views/DashboardView";
 import { KanbanView } from "@/views/KanbanView";
@@ -37,6 +38,7 @@ export function App() {
         </Routes>
       </main>
       {!isPrintRoute && <Footer />}
+      {!isPrintRoute && <ToastContainer />}
     </div>
   );
 }

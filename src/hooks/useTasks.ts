@@ -28,6 +28,7 @@ import type {
   Task,
 } from "@/types/task";
 import { CATEGORIES, LABELS, PRIORITIES, STATUSES } from "@/types/task";
+import { pushToast } from "@/components/Toast";
 
 const TASK_LIST_KEY = ["tasks", "list"] as const;
 const PROJECTS_KEY = ["projects"] as const;
@@ -36,20 +37,13 @@ export function useTasks() {
   return useQuery({
     queryKey: TASK_LIST_KEY,
     queryFn: listTasks,
-    // 2 minutes: long enough that view-switches (List ↔ Kanban) and tab
-    // refocus feel instant without a network round-trip; short enough that
-    // a freshly-edited task elsewhere shows up within a minute or two.
-    // DetailView's background invalidate handles the live-comments case
-    // independently.
     staleTime: 120_000,
   });
 }
 
 /**
  * Read a single task from the list cache, derived rather than separately
- * fetched. This means useTask never triggers its own network call — it
- * relies on useTasks (which the same component or a parent typically also
- * calls) to populate the cache.
+ * fetched. This means useTask never triggers its own network call.
  */
 export function useTask(id: number | null) {
   const list = useTasks();
@@ -68,46 +62,79 @@ export function useProjects() {
 }
 
 // =============================================================================
-// Optimistic-update helpers
+// Optimistic update + toast/undo infrastructure
 //
-// Every mutation that touches a task should:
-//   1. onMutate: snapshot the cache, apply the optimistic change, return the
-//      snapshot as context for rollback.
-//   2. onError: if context has a snapshot, restore it.
-//   3. onSettled: invalidate the list so server truth (titles, lookup
-//      resolutions, timestamps, etc.) wins after the round-trip.
-//
-// The helpers below shortcut that boilerplate. The point is to make every
-// SharePoint write feel instant — the UI flips before the network does.
+// Every mutation:
+//   1. onMutate snapshots the cache, applies the optimistic change, and
+//      stashes both the full previous list and the specific task that was
+//      mutated. Stashing the snapshot is what lets undo work.
+//   2. onSuccess pushes a toast confirming the change. Where the inverse
+//      operation is well-defined, the toast carries an Undo button that
+//      (a) restores the snapshot to the cache and (b) fires the inverse
+//      API call so SharePoint catches up.
+//   3. onError rolls back to the snapshot and surfaces an error toast.
+//   4. onSettled invalidates so the next list refetch reconciles with the
+//      true server state.
 // =============================================================================
 
-type RollbackContext = { previous?: Task[] };
+type TaskCtx = { previous?: Task[]; prevTask?: Task };
 
 async function snapshotAndPatch(
   qc: QueryClient,
+  prevTaskId: number | null,
   patch: (tasks: Task[]) => Task[],
-): Promise<RollbackContext> {
+): Promise<TaskCtx> {
   await qc.cancelQueries({ queryKey: TASK_LIST_KEY });
   const previous = qc.getQueryData<Task[]>(TASK_LIST_KEY);
+  const prevTask =
+    prevTaskId != null ? previous?.find((t) => t.id === prevTaskId) : undefined;
   qc.setQueryData<Task[]>(TASK_LIST_KEY, (old) => (old ? patch(old) : []));
-  return { previous };
+  return { previous, prevTask };
 }
 
-function rollback(qc: QueryClient, context: RollbackContext | undefined) {
-  if (context?.previous) qc.setQueryData(TASK_LIST_KEY, context.previous);
+function rollback(qc: QueryClient, ctx: TaskCtx | undefined) {
+  if (ctx?.previous) qc.setQueryData(TASK_LIST_KEY, ctx.previous);
 }
 
 function invalidateTasks(qc: QueryClient) {
   qc.invalidateQueries({ queryKey: TASK_LIST_KEY });
 }
 
-/** Patch a single task in the list by id. */
 function patchTask(id: number, transform: (t: Task) => Task) {
   return (tasks: Task[]) => tasks.map((t) => (t.id === id ? transform(t) : t));
 }
 
+/**
+ * Build an undo callback for a task mutation. Restores the snapshot
+ * instantly and fires the inverse API call to revert on SharePoint. If
+ * the inverse fails (e.g. someone else moved on), surface an error toast
+ * and force a refetch so the UI doesn't lie.
+ */
+function buildUndo(
+  qc: QueryClient,
+  snapshot: Task[] | undefined,
+  serverRevert: () => Promise<unknown>,
+): (() => void) | undefined {
+  if (!snapshot) return undefined;
+  return () => {
+    qc.setQueryData<Task[]>(TASK_LIST_KEY, snapshot);
+    serverRevert().catch((err) => {
+      console.error("Undo failed:", err);
+      pushToast({
+        message: "Couldn't undo on SharePoint. Refreshing the list.",
+        variant: "error",
+      });
+      qc.invalidateQueries({ queryKey: TASK_LIST_KEY });
+    });
+  };
+}
+
+function errorToast(message: string) {
+  pushToast({ message, variant: "error" });
+}
+
 // =============================================================================
-// Mutations — every one is optimistic.
+// Mutations
 // =============================================================================
 
 export function useSetStatus() {
@@ -115,8 +142,21 @@ export function useSetStatus() {
   return useMutation({
     mutationFn: ({ id, status }: { id: number; status: Status }) => setTaskStatus(id, status),
     onMutate: ({ id, status }) =>
-      snapshotAndPatch(qc, patchTask(id, (t) => ({ ...t, status, modifiedAt: new Date() }))),
-    onError: (_err, _vars, ctx) => rollback(qc, ctx),
+      snapshotAndPatch(qc, id, patchTask(id, (t) => ({ ...t, status, modifiedAt: new Date() }))),
+    onSuccess: (_data, { id, status }, ctx) => {
+      const prev = ctx?.prevTask?.status;
+      pushToast({
+        message: `Status changed to "${status}"`,
+        undo:
+          prev && prev !== status
+            ? buildUndo(qc, ctx?.previous, () => setTaskStatus(id, prev))
+            : undefined,
+      });
+    },
+    onError: (_err, _vars, ctx) => {
+      rollback(qc, ctx);
+      errorToast("Couldn't change status — change reverted.");
+    },
     onSettled: () => invalidateTasks(qc),
   });
 }
@@ -127,8 +167,21 @@ export function useUpdateTaskFields() {
     mutationFn: ({ id, fields }: { id: number; fields: Record<string, unknown> }) =>
       updateTaskFields(id, fields),
     onMutate: ({ id, fields }) =>
-      snapshotAndPatch(qc, patchTask(id, (t) => applyFieldsLocally(t, fields))),
-    onError: (_err, _vars, ctx) => rollback(qc, ctx),
+      snapshotAndPatch(qc, id, patchTask(id, (t) => applyFieldsLocally(t, fields))),
+    onSuccess: (_data, { id, fields }, ctx) => {
+      const prevFields = ctx?.prevTask ? extractInverseFields(ctx.prevTask, fields) : null;
+      pushToast({
+        message: messageForFieldsUpdate(fields),
+        undo:
+          prevFields && Object.keys(prevFields).length > 0
+            ? buildUndo(qc, ctx?.previous, () => updateTaskFields(id, prevFields))
+            : undefined,
+      });
+    },
+    onError: (_err, _vars, ctx) => {
+      rollback(qc, ctx);
+      errorToast("Couldn't save changes — they have been reverted.");
+    },
     onSettled: () => invalidateTasks(qc),
   });
 }
@@ -139,25 +192,31 @@ export function useSetParentTask() {
     mutationFn: ({ id, parentId }: { id: number; parentId: number | null }) =>
       setParentTask(id, parentId),
     onMutate: ({ id, parentId }) =>
-      snapshotAndPatch(qc, (tasks) => {
+      snapshotAndPatch(qc, id, (tasks) => {
         const parent = parentId != null ? tasks.find((t) => t.id === parentId) : null;
         return tasks.map((t) =>
           t.id === id
             ? {
                 ...t,
                 parentTask: parent
-                  ? {
-                      id: parent.id,
-                      numberedTitle: parent.numberedTitle,
-                      status: parent.status,
-                    }
+                  ? { id: parent.id, numberedTitle: parent.numberedTitle, status: parent.status }
                   : null,
                 modifiedAt: new Date(),
               }
             : t,
         );
       }),
-    onError: (_err, _vars, ctx) => rollback(qc, ctx),
+    onSuccess: (_data, { id }, ctx) => {
+      const prev = ctx?.prevTask?.parentTask?.id ?? null;
+      pushToast({
+        message: "Parent task updated.",
+        undo: buildUndo(qc, ctx?.previous, () => setParentTask(id, prev)),
+      });
+    },
+    onError: (_err, _vars, ctx) => {
+      rollback(qc, ctx);
+      errorToast("Couldn't update parent task — reverted.");
+    },
     onSettled: () => invalidateTasks(qc),
   });
 }
@@ -170,6 +229,7 @@ export function useSetParentProject() {
     onMutate: ({ id, projectLookupId }) =>
       snapshotAndPatch(
         qc,
+        id,
         patchTask(id, (t) => ({
           ...t,
           parentProject:
@@ -179,7 +239,17 @@ export function useSetParentProject() {
           modifiedAt: new Date(),
         })),
       ),
-    onError: (_err, _vars, ctx) => rollback(qc, ctx),
+    onSuccess: (_data, { id }, ctx) => {
+      const prev = ctx?.prevTask?.parentProject?.lookupId ?? null;
+      pushToast({
+        message: "Parent project updated.",
+        undo: buildUndo(qc, ctx?.previous, () => setParentProject(id, prev)),
+      });
+    },
+    onError: (_err, _vars, ctx) => {
+      rollback(qc, ctx);
+      errorToast("Couldn't change parent project — reverted.");
+    },
     onSettled: () => invalidateTasks(qc),
   });
 }
@@ -192,6 +262,7 @@ export function useSetRelatedProjects() {
     onMutate: ({ id, lookupIds }) =>
       snapshotAndPatch(
         qc,
+        id,
         patchTask(id, (t) => ({
           ...t,
           relatedProjects: lookupIds.map(
@@ -200,7 +271,17 @@ export function useSetRelatedProjects() {
           modifiedAt: new Date(),
         })),
       ),
-    onError: (_err, _vars, ctx) => rollback(qc, ctx),
+    onSuccess: (_data, { id }, ctx) => {
+      const prev = ctx?.prevTask?.relatedProjects.map((p) => p.lookupId) ?? [];
+      pushToast({
+        message: "Related projects updated.",
+        undo: buildUndo(qc, ctx?.previous, () => setRelatedProjects(id, prev)),
+      });
+    },
+    onError: (_err, _vars, ctx) => {
+      rollback(qc, ctx);
+      errorToast("Couldn't update related projects — reverted.");
+    },
     onSettled: () => invalidateTasks(qc),
   });
 }
@@ -212,9 +293,20 @@ export function useSetAssigned() {
     onMutate: ({ id, people }) =>
       snapshotAndPatch(
         qc,
+        id,
         patchTask(id, (t) => ({ ...t, assigned: people, modifiedAt: new Date() })),
       ),
-    onError: (_err, _vars, ctx) => rollback(qc, ctx),
+    onSuccess: (_data, { id }, ctx) => {
+      const prev = ctx?.prevTask?.assigned ?? [];
+      pushToast({
+        message: "Assignees updated.",
+        undo: buildUndo(qc, ctx?.previous, () => setAssigned(id, prev)),
+      });
+    },
+    onError: (_err, _vars, ctx) => {
+      rollback(qc, ctx);
+      errorToast("Couldn't update assignees — reverted.");
+    },
     onSettled: () => invalidateTasks(qc),
   });
 }
@@ -226,9 +318,20 @@ export function useSetWatchers() {
     onMutate: ({ id, people }) =>
       snapshotAndPatch(
         qc,
+        id,
         patchTask(id, (t) => ({ ...t, watchers: people, modifiedAt: new Date() })),
       ),
-    onError: (_err, _vars, ctx) => rollback(qc, ctx),
+    onSuccess: (_data, { id }, ctx) => {
+      const prev = ctx?.prevTask?.watchers ?? [];
+      pushToast({
+        message: "Watchers updated.",
+        undo: buildUndo(qc, ctx?.previous, () => setWatchers(id, prev)),
+      });
+    },
+    onError: (_err, _vars, ctx) => {
+      rollback(qc, ctx);
+      errorToast("Couldn't update watchers — reverted.");
+    },
     onSettled: () => invalidateTasks(qc),
   });
 }
@@ -240,6 +343,7 @@ export function useWatchTask() {
     onMutate: ({ id, person }) =>
       snapshotAndPatch(
         qc,
+        id,
         patchTask(id, (t) => {
           const key = (person.email ?? person.displayName).toLowerCase();
           const has = t.watchers.some((p) => (p.email ?? p.displayName).toLowerCase() === key);
@@ -248,7 +352,16 @@ export function useWatchTask() {
             : { ...t, watchers: [...t.watchers, person], modifiedAt: new Date() };
         }),
       ),
-    onError: (_err, _vars, ctx) => rollback(qc, ctx),
+    onSuccess: (_data, { id, person }, ctx) => {
+      pushToast({
+        message: "You're now watching this task.",
+        undo: buildUndo(qc, ctx?.previous, () => unwatchTask(id, person)),
+      });
+    },
+    onError: (_err, _vars, ctx) => {
+      rollback(qc, ctx);
+      errorToast("Couldn't start watching — reverted.");
+    },
     onSettled: () => invalidateTasks(qc),
   });
 }
@@ -260,6 +373,7 @@ export function useUnwatchTask() {
     onMutate: ({ id, person }) =>
       snapshotAndPatch(
         qc,
+        id,
         patchTask(id, (t) => {
           const key = (person.email ?? person.displayName).toLowerCase();
           return {
@@ -271,7 +385,16 @@ export function useUnwatchTask() {
           };
         }),
       ),
-    onError: (_err, _vars, ctx) => rollback(qc, ctx),
+    onSuccess: (_data, { id, person }, ctx) => {
+      pushToast({
+        message: "Stopped watching this task.",
+        undo: buildUndo(qc, ctx?.previous, () => watchTask(id, person)),
+      });
+    },
+    onError: (_err, _vars, ctx) => {
+      rollback(qc, ctx);
+      errorToast("Couldn't stop watching — reverted.");
+    },
     onSettled: () => invalidateTasks(qc),
   });
 }
@@ -294,6 +417,7 @@ export function useAddComment() {
     onMutate: ({ id, comment }) =>
       snapshotAndPatch(
         qc,
+        id,
         patchTask(id, (t) => ({
           ...t,
           comments: [
@@ -311,7 +435,16 @@ export function useAddComment() {
             comment.attachments && comment.attachments.length > 0 ? true : t.hasAttachments,
         })),
       ),
-    onError: (_err, _vars, ctx) => rollback(qc, ctx),
+    onSuccess: () => {
+      // No undo: SharePoint's Communication field is a single string, and
+      // we'd have to read-modify-write to remove a specific record. Not
+      // worth the complexity for a low-error-rate operation. Just confirm.
+      pushToast({ message: "Comment posted." });
+    },
+    onError: (_err, _vars, ctx) => {
+      rollback(qc, ctx);
+      errorToast("Couldn't post comment — please retry.");
+    },
     onSettled: () => invalidateTasks(qc),
   });
 }
@@ -331,6 +464,7 @@ export function useEditComment() {
     onMutate: ({ id, target, newBodyHtml }) =>
       snapshotAndPatch(
         qc,
+        id,
         patchTask(id, (t) => ({
           ...t,
           comments: t.comments.map((c) =>
@@ -342,7 +476,24 @@ export function useEditComment() {
           modifiedAt: new Date(),
         })),
       ),
-    onError: (_err, _vars, ctx) => rollback(qc, ctx),
+    onSuccess: (_data, { id, target }, ctx) => {
+      const prevBody = ctx?.prevTask?.comments.find(
+        (c) =>
+          c.timestamp.getTime() === target.timestamp.getTime() &&
+          (c.authorEmail ?? "").toLowerCase() === target.authorEmail.toLowerCase(),
+      )?.bodyHtml;
+      pushToast({
+        message: "Comment updated.",
+        undo:
+          prevBody !== undefined
+            ? buildUndo(qc, ctx?.previous, () => editComment(id, target, prevBody))
+            : undefined,
+      });
+    },
+    onError: (_err, _vars, ctx) => {
+      rollback(qc, ctx);
+      errorToast("Couldn't save comment — reverted.");
+    },
     onSettled: () => invalidateTasks(qc),
   });
 }
@@ -351,12 +502,13 @@ export function useCreateTask() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: createTask,
-    // Create is the one mutation we don't go optimistic on: we'd need a
-    // temporary client-side id, the detail-page navigation after success
-    // would point at a non-existent task, and reconciling the temp id with
-    // the server-assigned id gets fiddly. The form awaits the real result
-    // and navigates after — the user gets accurate feedback either way.
-    onSuccess: () => invalidateTasks(qc),
+    // Create isn't optimistic (we need the server-assigned id before
+    // navigating to the new task). Toast confirms after the round-trip.
+    onSuccess: (task) => {
+      pushToast({ message: `Created task "${task.numberedTitle || task.title}".` });
+      invalidateTasks(qc);
+    },
+    onError: () => errorToast("Couldn't create task — please retry."),
   });
 }
 
@@ -365,8 +517,17 @@ export function useDeleteTask() {
   return useMutation({
     mutationFn: deleteTask,
     onMutate: (id: number) =>
-      snapshotAndPatch(qc, (tasks) => tasks.filter((t) => t.id !== id)),
-    onError: (_err, _vars, ctx) => rollback(qc, ctx),
+      snapshotAndPatch(qc, id, (tasks) => tasks.filter((t) => t.id !== id)),
+    onSuccess: () => {
+      // No undo: recreating a deleted task with the exact same id isn't
+      // possible — SharePoint assigns ids. Could rebuild a clone but that
+      // would change its position in NumberedTitle counts. Keep simple.
+      pushToast({ message: "Task deleted." });
+    },
+    onError: (_err, _vars, ctx) => {
+      rollback(qc, ctx);
+      errorToast("Couldn't delete task — restored.");
+    },
     onSettled: () => invalidateTasks(qc),
   });
 }
@@ -375,15 +536,18 @@ export function useCreateProject() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: createProject,
-    onSuccess: () => qc.invalidateQueries({ queryKey: PROJECTS_KEY }),
+    onSuccess: () => {
+      pushToast({ message: "Project created." });
+      qc.invalidateQueries({ queryKey: PROJECTS_KEY });
+    },
+    onError: () => errorToast("Couldn't create project — please retry."),
   });
 }
 
 // =============================================================================
-// Helpers used by the optimistic update functions.
+// Helpers
 // =============================================================================
 
-/** Look up a project by lookupId in the React Query projects cache. */
 function resolveProject(qc: QueryClient, lookupId: number): ProjectReference | null {
   const projects = qc.getQueryData<ProjectReference[]>(PROJECTS_KEY);
   return projects?.find((p) => p.lookupId === lookupId) ?? null;
@@ -391,14 +555,9 @@ function resolveProject(qc: QueryClient, lookupId: number): ProjectReference | n
 
 /**
  * Map a SharePoint-shaped fields object onto a Task for the optimistic
- * cache update. Mirrors the field-name mapping in taskMapper.ts (but in
- * the write direction).
- *
- * We touch only the keys the form actually sends — Title, Description,
- * Status, Priority, Category, DueDate, Labels, SoftwareRevision,
- * NumberedTitle. Communication is handled separately by useAddComment /
- * useEditComment so we don't try to re-parse it here. People fields are
- * handled by their own mutations (setAssigned / setWatchers).
+ * cache update. Mirrors the field-name mapping in taskMapper.ts (write
+ * direction). People fields are handled by setAssigned/setWatchers;
+ * Communication is handled by useAddComment/useEditComment.
  */
 function applyFieldsLocally(t: Task, fields: Record<string, unknown>): Task {
   const next: Task = { ...t, modifiedAt: new Date() };
@@ -436,4 +595,58 @@ function applyFieldsLocally(t: Task, fields: Record<string, unknown>): Task {
   if ("SoftwareRevision" in fields)
     next.softwareRevision = (fields.SoftwareRevision as string) ?? "";
   return next;
+}
+
+/**
+ * Given the task BEFORE a fields update and the fields object that just
+ * went through, return a fields object that — if sent to updateTaskFields
+ * — would revert the change. Used to build the undo handler.
+ */
+function extractInverseFields(prev: Task, fields: Record<string, unknown>): Record<string, unknown> {
+  const inv: Record<string, unknown> = {};
+  if ("Title" in fields) inv.Title = prev.title;
+  if ("Description" in fields) inv.Description = prev.description;
+  if ("NumberedTitle" in fields) inv.NumberedTitle = prev.numberedTitle;
+  if ("Status" in fields) inv.Status = prev.status;
+  if ("Priority" in fields) inv.Priority = prev.priority;
+  if ("Category" in fields) inv.Category = prev.category;
+  if ("DueDate" in fields)
+    inv.DueDate = prev.dueDate ? prev.dueDate.toISOString() : null;
+  if ("Labels" in fields) inv.Labels = prev.labels;
+  if ("SoftwareRevision" in fields) inv.SoftwareRevision = prev.softwareRevision;
+  return inv;
+}
+
+/**
+ * Friendlier toast text based on which field was edited. For single-field
+ * edits we name the field; multi-field edits get a generic message.
+ */
+function messageForFieldsUpdate(fields: Record<string, unknown>): string {
+  // Ignore the @odata.type sibling keys when counting.
+  const keys = Object.keys(fields).filter((k) => !k.endsWith("@odata.type"));
+  if (keys.length === 1) {
+    switch (keys[0]) {
+      case "Status":
+        return `Status changed to "${fields.Status}".`;
+      case "Priority":
+        return fields.Priority
+          ? `Priority changed to "${fields.Priority}".`
+          : "Priority cleared.";
+      case "Category":
+        return fields.Category
+          ? `Category changed to "${fields.Category}".`
+          : "Category cleared.";
+      case "DueDate":
+        return fields.DueDate ? "Due date updated." : "Due date cleared.";
+      case "Title":
+        return "Title updated.";
+      case "Description":
+        return "Description updated.";
+      case "Labels":
+        return "Labels updated.";
+      case "SoftwareRevision":
+        return "Software revision updated.";
+    }
+  }
+  return "Task updated.";
 }
