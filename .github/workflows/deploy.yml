@@ -22,8 +22,17 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          # Current Node LTS. Node 20 has a deprecation horizon mid-2026
+          # so we're getting ahead of it. Node 22 ships with npm 10.x by
+          # default; we bump to npm 11 below so CI matches typical local
+          # dev (where contributors usually have npm 11 already). Without
+          # the pin, every `npm install <new-dep>` locally would produce
+          # a lockfile shape CI rejects — that's the loop we want to end.
+          node-version: "22"
           cache: "npm"
+
+      - name: Pin npm to 11
+        run: npm install -g npm@11
 
       - name: Install
         run: npm ci
