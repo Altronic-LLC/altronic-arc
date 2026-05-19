@@ -299,7 +299,9 @@ export async function setAssigned(id: number, people: Person[]): Promise<Task> {
   if (USE_MOCK) {
     return updateTaskFields(id, { Assigned: people });
   }
-  // Real Graph: person-multi field expects { results: [lookupId, ...] }
+  // Real Graph v1.0: multi-value person/lookup fields write as a plain
+  // array of lookup IDs. The `{ results: [...] }` envelope is the OLD
+  // SharePoint REST format and Graph 400s on it.
   const lookupIds = people.map((p) => p.lookupId).filter((x): x is number => !!x);
   if (people.length > 0 && lookupIds.length === 0) {
     throw new Error(
@@ -307,7 +309,7 @@ export async function setAssigned(id: number, people: Person[]): Promise<Task> {
         "Try refreshing the page and signing in again.",
     );
   }
-  return updateTaskFields(id, { AssignedLookupId: { results: lookupIds } });
+  return updateTaskFields(id, { AssignedLookupId: lookupIds });
 }
 
 /** Replace the Watchers list. */
@@ -322,7 +324,7 @@ export async function setWatchers(id: number, people: Person[]): Promise<Task> {
         "Try refreshing the page and signing in again.",
     );
   }
-  return updateTaskFields(id, { WatchersLookupId: { results: lookupIds } });
+  return updateTaskFields(id, { WatchersLookupId: lookupIds });
 }
 
 /** Add the given person to the watchers list (if not already there). */
@@ -553,20 +555,16 @@ export async function createTask(input: {
   if (input.assigned && input.assigned.length > 0) {
     const lookupIds = input.assigned.map((p) => p.lookupId).filter((x): x is number => !!x);
     if (lookupIds.length > 0) {
-      fields.AssignedLookupId = { results: lookupIds };
+      fields.AssignedLookupId = lookupIds;
     }
   }
   if (input.watchers && input.watchers.length > 0) {
     const lookupIds = input.watchers.map((p) => p.lookupId).filter((x): x is number => !!x);
     if (lookupIds.length > 0) {
-      fields.WatchersLookupId = { results: lookupIds };
+      fields.WatchersLookupId = lookupIds;
     }
   }
 
-  // TEMP DEBUG (v0.6.6): log the exact body so we can see why Graph 400s on
-  // create. Remove this once we've diagnosed the field-shape problem.
-  // eslint-disable-next-line no-console
-  console.log("[createTask] POST fields:", JSON.parse(JSON.stringify(fields)));
   const created = await graphFetch<GraphListItem>(path, {
     method: "POST",
     body: JSON.stringify({ fields }),

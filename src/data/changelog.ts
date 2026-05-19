@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.6.7",
+    date: "2026-05-18",
+    changes: [
+      "Fix: creating or editing a task with people in Assigned or Watchers no longer 400s — the multi-person field write was using the old SharePoint REST shape ({ results: [123] }) which Microsoft Graph v1.0 rejects; switched to the plain array shape ([123]) it actually wants",
+      "Removed the temporary debug log added in v0.6.6 — root cause identified",
+    ],
+  },
+  {
     version: "0.6.6",
     date: "2026-05-18",
     changes: [
