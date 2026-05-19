@@ -11,6 +11,7 @@ import type {
 import { toTask } from "@/lib/taskMapper";
 import { appendComment, replaceComment } from "@/lib/communicationParser";
 import { attachProjectTitles, attachTaskRelationships } from "@/lib/taskGraph";
+import { multiPersonField } from "@/lib/graphFields";
 import { MOCK_PROJECTS, MOCK_TASKS } from "@/data/mockData";
 
 // =============================================================================
@@ -299,25 +300,19 @@ export async function setAssigned(id: number, people: Person[]): Promise<Task> {
   if (USE_MOCK) {
     return updateTaskFields(id, { Assigned: people });
   }
-  // Real Graph v1.0: multi-value lookup/person fields write as a plain
-  // array of lookup IDs, AND require an "@odata.type" annotation on the
-  // sibling key so Graph knows it's a collection (not a single int).
-  // Previous shapes that failed:
-  //   { AssignedLookupId: { results: [12] } }   ← old SP REST format
-  //   { AssignedLookupId: [12] }                ← plain array, also 400
-  // What works:
-  //   { "AssignedLookupId@odata.type": "Collection(Edm.Int32)", "AssignedLookupId": [12] }
-  const lookupIds = people.map((p) => p.lookupId).filter((x): x is number => !!x);
-  if (people.length > 0 && lookupIds.length === 0) {
+  // Multi-person writes go through the shared helper so the @odata.type
+  // annotation is never forgotten (see src/lib/graphFields.ts for the
+  // history of why this matters). The helper always emits the annotated
+  // shape; passing only-unresolved people would silently clear the field,
+  // so we guard that case here.
+  const resolved = people.filter((p) => !!p.lookupId);
+  if (people.length > 0 && resolved.length === 0) {
     throw new Error(
       "Cannot update Assigned: none of the selected people had a resolved SharePoint lookupId. " +
         "Try refreshing the page and signing in again.",
     );
   }
-  return updateTaskFields(id, {
-    "AssignedLookupId@odata.type": "Collection(Edm.Int32)",
-    AssignedLookupId: lookupIds,
-  });
+  return updateTaskFields(id, multiPersonField("Assigned", people));
 }
 
 /** Replace the Watchers list. */
@@ -325,17 +320,14 @@ export async function setWatchers(id: number, people: Person[]): Promise<Task> {
   if (USE_MOCK) {
     return updateTaskFields(id, { Watchers: people });
   }
-  const lookupIds = people.map((p) => p.lookupId).filter((x): x is number => !!x);
-  if (people.length > 0 && lookupIds.length === 0) {
+  const resolved = people.filter((p) => !!p.lookupId);
+  if (people.length > 0 && resolved.length === 0) {
     throw new Error(
       "Cannot update Watchers: none of the watchers had a resolved SharePoint lookupId. " +
         "Try refreshing the page and signing in again.",
     );
   }
-  return updateTaskFields(id, {
-    "WatchersLookupId@odata.type": "Collection(Edm.Int32)",
-    WatchersLookupId: lookupIds,
-  });
+  return updateTaskFields(id, multiPersonField("Watchers", people));
 }
 
 /** Add the given person to the watchers list (if not already there). */
@@ -539,14 +531,12 @@ export async function createTask(input: {
   // wants the field omitted instead. The TaskFormModal hands us null/[] for
   // unspecified choices so the equivalent guards live here.
   const fields: Record<string, unknown> = { Title: input.title };
-  // NOTE: NumberedTitle is read-only / calculated on the real Tasks list
-  // (writing to it returns 400 invalidRequest). The CLAUDE.md "Data model"
-  // section calls it out as "Calculated, read-only"; an older memory
-  // suggested otherwise but that turned out to be wrong. New real-mode
-  // tasks display whatever SharePoint computes (which may be empty until
-  // the column's formula populates) — the mapper falls back to Title.
-  // Keeping the `input.numberedTitle` field on createTask for mock-mode
-  // synthesis only.
+  // NumberedTitle is a writable text column (the v0.6.4 attempt 400'd, but
+  // that turned out to be the AssignedLookupId shape — the schema dump in
+  // v0.6.10 confirmed NumberedTitle is readonly=False, type=text). The
+  // form computes it as T{n}-{projectRef}-{title} where n is the count
+  // of existing tasks under the parent project + 1.
+  if (input.numberedTitle) fields.NumberedTitle = input.numberedTitle;
   if (input.description) fields.Description = input.description;
   if (input.status) fields.Status = input.status;
   if (input.priority) fields.Priority = input.priority;
@@ -563,19 +553,11 @@ export async function createTask(input: {
   // lookupId is resolved async — if it isn't ready yet (lookupId === 0)
   // we just skip the field rather than failing the entire create. The
   // user can re-assign afterward once their identity is known.
-  if (input.assigned && input.assigned.length > 0) {
-    const lookupIds = input.assigned.map((p) => p.lookupId).filter((x): x is number => !!x);
-    if (lookupIds.length > 0) {
-      fields["AssignedLookupId@odata.type"] = "Collection(Edm.Int32)";
-      fields.AssignedLookupId = lookupIds;
-    }
+  if (input.assigned?.some((p) => !!p.lookupId)) {
+    Object.assign(fields, multiPersonField("Assigned", input.assigned));
   }
-  if (input.watchers && input.watchers.length > 0) {
-    const lookupIds = input.watchers.map((p) => p.lookupId).filter((x): x is number => !!x);
-    if (lookupIds.length > 0) {
-      fields["WatchersLookupId@odata.type"] = "Collection(Edm.Int32)";
-      fields.WatchersLookupId = lookupIds;
-    }
+  if (input.watchers?.some((p) => !!p.lookupId)) {
+    Object.assign(fields, multiPersonField("Watchers", input.watchers));
   }
 
   const created = await graphFetch<GraphListItem>(path, {

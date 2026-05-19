@@ -44,7 +44,7 @@ export function KanbanCard({ task, onOpen, dragDisabled = false }: KanbanCardPro
             #{task.id}
           </div>
           <div className="mt-0.5 line-clamp-2 text-sm font-medium leading-snug text-fg">
-            {task.title}
+            {task.numberedTitle || task.title}
           </div>
         </div>
 

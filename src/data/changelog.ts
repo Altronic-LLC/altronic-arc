@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.6.12",
+    date: "2026-05-19",
+    changes: [
+      "NumberedTitle is back on new tasks — format T{n}-{projectRef}-{title} where n is the count of existing tasks under the chosen project + 1. Earlier we'd disabled the write thinking the column was read-only; it isn't, it was the people-field shape that was 400'ing. The list view, Kanban cards, detail page, and print view all already prefer NumberedTitle.",
+      "Kanban cards now show NumberedTitle instead of the plain title (the only surface that was still showing the bare title).",
+      "Internal: extracted multiPersonField/multiLookupField helpers in src/lib/graphFields.ts so every future form that writes a multi-person/multi-lookup field gets the @odata.type annotation for free — no more hand-built payloads and the same 400 trap waiting elsewhere.",
+    ],
+  },
+  {
     version: "0.6.11",
     date: "2026-05-19",
     changes: [

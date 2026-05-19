@@ -180,7 +180,7 @@ SharePoint internal column names (which is what Graph returns under
 |---|---|---|
 | `id` | (from `item.id`, not fields) | Numeric string in Graph, parsed to int |
 | `title` | `Title` | |
-| `numberedTitle` | `NumberedTitle` | Calculated, read-only |
+| `numberedTitle` | `NumberedTitle` | Writable text column, but the app owns it: format `T{n}-{projectRef}-{title}` where n = count of tasks already under the chosen project + 1. Form computes it; `createTask` writes it. |
 | `description` | `Description` | HTML or plain text |
 | `status` | `Status` | One of `STATUSES` |
 | `priority` | `Priority` | One of `PRIORITIES`, nullable |
@@ -233,10 +233,12 @@ depending on whether the column is single- or multi-person:
 
 `parsePersonField()` in `taskMapper.ts` normalises to `Person[]` either way.
 
-For writing: SharePoint expects person fields as `LookupId` only. The
-TaskField mutator (when added) needs to send e.g. `{ AssignedLookupId: 46 }`
-or for multi-person `{ AssignedLookupId: { results: [46, 87] } }`. **This is
-not yet implemented** — only Status and Communication updates are wired up.
+For writing: SharePoint person fields go in via `LookupId` only.
+
+- **Single-person:** `{ "TesterLookupId": 46 }` — just the integer.
+- **Multi-person:** `{ "AssignedLookupId@odata.type": "Collection(Edm.Int32)", "AssignedLookupId": [46, 87] }` — the **two-key** shape Graph v1.0 demands. The plain array (without the `@odata.type` annotation) and the older `{ results: [...] }` envelope both return a useless 400 invalidRequest.
+
+**Always go through the helper.** `src/lib/graphFields.ts` exports `multiPersonField(fieldName, people)` and `multiLookupField(fieldName, ids)` — they emit the correct two-key shape every time. Don't hand-build the payload elsewhere; you will forget the annotation and lose hours debugging the same 400.
 
 ## Parent project resolution
 
