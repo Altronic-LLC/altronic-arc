@@ -124,10 +124,16 @@ export function TaskFormModal({ mode, task, onClose }: TaskFormModalProps) {
   // and any descendant (to prevent cycles). In create mode all tasks are
   // candidates (the new task isn't in the list yet).
   const parentTaskCandidates = useMemo(() => {
-    if (mode === "create") return allTasks;
-    if (!task) return allTasks;
-    return allTasks.filter(
-      (t) => t.id !== task.id && !wouldCreateCycle(task.id, t.id, allTasks),
+    const candidates =
+      mode === "create" || !task
+        ? allTasks
+        : allTasks.filter(
+            (t) => t.id !== task.id && !wouldCreateCycle(task.id, t.id, allTasks),
+          );
+    // Natural-sort by numberedTitle so the dropdown reads T0, T1, T2, ... T10
+    // instead of the lexical T0, T1, T10, T11, ..., T2 order.
+    return [...candidates].sort((a, b) =>
+      a.numberedTitle.localeCompare(b.numberedTitle, undefined, { numeric: true }),
     );
   }, [mode, task, allTasks]);
 

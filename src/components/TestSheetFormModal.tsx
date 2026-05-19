@@ -85,7 +85,9 @@ export function TestSheetFormModal({ mode, sheet, fromTask, onClose }: TestSheet
   }));
   const taskOptions = tasks
     .map((t) => ({ value: String(t.id), label: t.numberedTitle }))
-    .sort((a, b) => a.label.localeCompare(b.label));
+    // Natural-sort: T2 before T10. The default lexical sort would put T10
+    // ahead of T2 — confusing for engineers who think in number order.
+    .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
   const peopleOptions = people.map((p) => ({
     value: p.email ?? p.displayName,
     label: p.displayName,

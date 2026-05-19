@@ -611,7 +611,12 @@ export async function deleteTask(id: number): Promise<void> {
  * lookup IDs on tasks and for the admin page's project listing.
  */
 export async function listProjects(): Promise<ProjectReference[]> {
-  if (USE_MOCK) return delay([...mockProjectStore]);
+  if (USE_MOCK) {
+    const sorted = [...mockProjectStore].sort((a, b) =>
+      a.title.localeCompare(b.title, undefined, { numeric: true }),
+    );
+    return delay(sorted);
+  }
 
   const projectsListId = import.meta.env.VITE_SP_PROJECTS_LIST_ID;
   if (!projectsListId) {
@@ -624,10 +629,15 @@ export async function listProjects(): Promise<ProjectReference[]> {
   // Projects list — we only need the Title for resolving lookup labels.
   const path = `/sites/${SP_SITE_ID}/lists/${projectsListId}/items?$expand=fields($select=Title)&$top=200`;
   const items = await graphFetchAll<GraphListItem>(path);
-  return items.map((item) => ({
+  const projects = items.map((item) => ({
     lookupId: parseInt(item.id, 10),
     title: (item.fields.Title as string) ?? `(project #${item.id})`,
   }));
+  // Sort by title using natural (numeric-aware) ordering so projects appear
+  // in 0000, 0001, ... order in every dropdown. This is the source of truth
+  // for the FilterBar and TaskFormModal pickers.
+  projects.sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true }));
+  return projects;
 }
 
 /**

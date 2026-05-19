@@ -5,6 +5,7 @@ import { useProjects, useTasks } from "@/hooks/useTasks";
 import { useFilters } from "@/hooks/useFilters";
 import { StatusPills } from "@/components/StatusPills";
 import { EMPTY_FILTERS, FilterBar } from "@/components/FilterBar";
+import { LoadingTasks } from "@/components/LoadingTasks";
 import { TaskRow } from "@/components/TaskRow";
 import { TaskFormModal } from "@/components/TaskFormModal";
 import { applyFilters, collectPeople, type StatusFilter } from "@/lib/taskFilters";
@@ -48,7 +49,7 @@ export function ListView() {
       <FilterBar filters={filters} onChange={setFilters} projects={projects} people={people} />
 
       {isLoading ? (
-        <div className="py-16 text-center text-fg-muted">Loading tasks…</div>
+        <LoadingTasks />
       ) : filtered.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border py-16 text-center text-fg-muted">
           No tasks match the current filters.

@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.6.10",
+    date: "2026-05-19",
+    changes: [
+      "Loading screen now rotates through whimsical verbs (Cogitating, Wrangling, Reticulating…) instead of a dry 'Loading tasks…', and explains that the first load is the slow one — subsequent loads come from cache",
+      "Project Reference dropdowns now sort 0000, 0001, 0002, … 0010 (natural-numeric order) across the filter bar, the new-task form, and the test-sheet form",
+      "Parent Task and Task Reference dropdowns sort the same way — T2 before T10, not the lexical T10 before T2",
+    ],
+  },
+  {
     version: "0.6.9",
     date: "2026-05-19",
     changes: [

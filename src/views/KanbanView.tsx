@@ -19,6 +19,7 @@ import { useFilters } from "@/hooks/useFilters";
 import { useIsPhone } from "@/hooks/useIsPhone";
 import { STATUSES, type Status, type Task } from "@/types/task";
 import { FilterBar } from "@/components/FilterBar";
+import { LoadingTasks } from "@/components/LoadingTasks";
 import { KanbanCard } from "@/components/KanbanCard";
 import { TaskFormModal } from "@/components/TaskFormModal";
 import { statusColor } from "@/components/atoms";
@@ -99,7 +100,7 @@ export function KanbanView() {
   }
 
   if (isLoading) {
-    return <div className="py-16 text-center text-fg-muted">Loading board…</div>;
+    return <LoadingTasks noun="the board" />;
   }
 
   return (
