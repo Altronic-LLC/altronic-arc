@@ -2,6 +2,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, FolderOpen } from "lucide-react";
 import { useProjects, useTasks } from "@/hooks/useTasks";
 import { TaskRow } from "@/components/TaskRow";
+import { LoadingTasks } from "@/components/LoadingTasks";
 
 /**
  * Project detail / overview page.
@@ -18,7 +19,7 @@ export function ProjectView() {
   const { data: projects = [], isLoading: projectsLoading } = useProjects();
 
   if (tasksLoading || projectsLoading) {
-    return <div className="mx-auto max-w-[1400px] px-4 py-12 text-fg-muted">Loading project…</div>;
+    return <LoadingTasks noun="this project" />;
   }
 
   const project = projects.find((p) => p.lookupId === lookupId);

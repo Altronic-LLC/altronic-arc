@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.15.0",
+    date: "2026-05-20",
+    changes: [
+      "Attachments are here: tasks and EIRs now have an Attachments card on the detail page where you can list, upload, download, and delete files attached to the SharePoint list item — needs the admin to grant the app SharePoint REST permission and set VITE_SP_SITE_URL; if it's not granted, the section shows a friendly notice instead of crashing",
+      "Every loading screen now rotates through whimsical verbs (Wrangling, Coaxing, Reverse-engineering, Bamboozling…) so waiting feels less dead — same treatment for the task list, EIRs, test sheets, projects, admin, and every detail view",
+      "EIR project reference now scans every field key for a project-shaped lookup id (any internal name with 'Project' and ending 'LookupId') — works regardless of how the SharePoint column was provisioned, and shows the lookup id as a fallback when the title hasn't joined yet",
+    ],
+  },
+  {
     version: "0.14.5",
     date: "2026-05-20",
     changes: [

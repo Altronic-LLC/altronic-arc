@@ -15,6 +15,14 @@ export const SP_TEST_RESULTS_LIST_ID = import.meta.env.VITE_SP_TEST_RESULTS_LIST
 export const SP_EIRS_LIST_ID = import.meta.env.VITE_SP_EIRS_LIST_ID;
 
 /**
+ * SharePoint site web URL — used to call the SP REST API (specifically for
+ * list-item attachments, which Graph v1.0 doesn't surface cleanly).
+ * Example: https://coopermachineryservices.sharepoint.com/sites/Altronic_Engineering
+ * If unset, attachment features degrade gracefully.
+ */
+export const SP_SITE_URL = import.meta.env.VITE_SP_SITE_URL as string | undefined;
+
+/**
  * Email address of the shared mailbox @-mention notifications send FROM.
  * Each user who can post comments must have Send-As permission on this
  * mailbox in Exchange. Leave blank to disable email notifications — they

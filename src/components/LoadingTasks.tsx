@@ -19,6 +19,15 @@ const VERBS = [
   "Reticulating",
   "Synthesizing",
   "Persuading",
+  "Cajoling",
+  "Bamboozling",
+  "Negotiating with",
+  "Polishing",
+  "Herding",
+  "Unfurling",
+  "Brewing",
+  "Coaxing",
+  "Reverse-engineering",
 ] as const;
 
 export function LoadingTasks({ noun = "tasks" }: { noun?: string }) {

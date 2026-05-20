@@ -64,6 +64,7 @@ jobs:
           VITE_SP_TEST_RESULTS_LIST_ID: ${{ vars.VITE_SP_TEST_RESULTS_LIST_ID }}
           VITE_SP_EIRS_LIST_ID: ${{ vars.VITE_SP_EIRS_LIST_ID }}
           VITE_SHARED_MAILBOX: ${{ vars.VITE_SHARED_MAILBOX }}
+          VITE_SP_SITE_URL: ${{ vars.VITE_SP_SITE_URL }}
 
       - name: Add 404 fallback for client-side routing
         # GitHub Pages serves /404.html for any unmatched path. Copying

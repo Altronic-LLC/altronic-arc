@@ -103,23 +103,22 @@ export function attachEirReferences(
 // ---- helpers ---------------------------------------------------------------
 
 /**
- * Read the EIR's project-reference lookup id from a graph fields bag, trying
- * every internal-name candidate we've seen for that column. The display name
- * is "Project Reference"; SharePoint normally encodes the space as `_x0020_`
- * giving `Project_x0020_Reference`, but some lists end up with the raw
- * `ProjectReference` instead — usually when the column was renamed after
- * creation, or created via an older code path. We accept either so this
- * works regardless of how the list was provisioned.
+ * Read the EIR's project-reference lookup id from a graph fields bag.
+ *
+ * The display name on the SharePoint column is "Project Reference"; the
+ * internal name depends on how the column was provisioned and we've seen
+ * three variants across lists in this tenant. Rather than maintain an
+ * ever-growing candidate list and keep being wrong, we scan EVERY field
+ * key whose name looks like a project-reference lookup id and use the
+ * first numeric value we find. That makes the mapper resilient to any
+ * future column rename, and matches the same projects list as Tasks.
  */
 function readProjectLookupId(
   f: Record<string, unknown>,
 ): { lookupId: number; title: string } | null {
-  const candidates = [
-    f.Project_x0020_ReferenceLookupId,
-    f.ProjectReferenceLookupId,
-    f.Project_x0020_Reference_x0020_LookupId,
-  ];
-  for (const raw of candidates) {
+  for (const [key, raw] of Object.entries(f)) {
+    if (!key.endsWith("LookupId")) continue;
+    if (!/project/i.test(key)) continue;
     if (raw == null || raw === "" || raw === 0 || raw === "0") continue;
     const n = toInt(raw, 0);
     if (n > 0) return { lookupId: n, title: "" };

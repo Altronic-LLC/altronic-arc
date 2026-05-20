@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useTestSheet } from "@/hooks/useTestSheets";
 import { TestSheetFormModal } from "@/components/TestSheetFormModal";
+import { LoadingTasks } from "@/components/LoadingTasks";
 
 export function TestSheetDetailView() {
   const { id } = useParams<{ id: string }>();
@@ -22,9 +23,7 @@ export function TestSheetDetailView() {
   const [editing, setEditing] = useState(false);
 
   if (isLoading) {
-    return (
-      <div className="mx-auto max-w-[1400px] px-4 py-12 text-fg-muted">Loading test sheet…</div>
-    );
+    return <LoadingTasks noun="this test sheet" />;
   }
 
   if (!sheet) {

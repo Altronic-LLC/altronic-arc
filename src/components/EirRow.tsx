@@ -65,7 +65,9 @@ export function EirRow({ eir, onOpen }: EirRowProps) {
         <div className="flex items-center gap-2 text-sm">
           <FolderOpen className="h-4 w-4 shrink-0 text-fg-muted" />
           <span className="truncate text-fg-muted">
-            {eir.parentProject ? eir.parentProject.title : "—"}
+            {eir.parentProject
+              ? eir.parentProject.title || `Project #${eir.parentProject.lookupId}`
+              : "—"}
           </span>
         </div>
         <div className="flex items-center gap-2 text-sm">

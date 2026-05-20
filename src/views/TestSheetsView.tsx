@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ClipboardList, Plus, Search } from "lucide-react";
 import { useTestSheets } from "@/hooks/useTestSheets";
 import { TestSheetFormModal } from "@/components/TestSheetFormModal";
+import { LoadingTasks } from "@/components/LoadingTasks";
 import type { TestSheet } from "@/types/task";
 
 export function TestSheetsView() {
@@ -70,7 +71,7 @@ export function TestSheetsView() {
       </div>
 
       {isLoading ? (
-        <div className="py-16 text-center text-fg-muted">Loading test sheets…</div>
+        <LoadingTasks noun="test sheets" />
       ) : filtered.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border py-16 text-center text-fg-muted">
           {sheets.length === 0

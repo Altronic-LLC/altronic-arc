@@ -4,6 +4,7 @@ import { useTask, useTasks } from "@/hooks/useTasks";
 import { sanitiseHtml } from "@/lib/sanitiseHtml";
 import { Brandmark } from "@/components/brand/Brandmark";
 import { Wordmark } from "@/components/brand/Wordmark";
+import { LoadingTasks } from "@/components/LoadingTasks";
 import type { Comment } from "@/types/task";
 
 /**
@@ -32,11 +33,7 @@ export function PrintTaskView() {
   }, [task]);
 
   if (isLoading || !task) {
-    return (
-      <div className="mx-auto max-w-[800px] bg-white p-8 text-sm text-gray-600">
-        Loading task…
-      </div>
-    );
+    return <LoadingTasks noun="this task" />;
   }
 
   return (

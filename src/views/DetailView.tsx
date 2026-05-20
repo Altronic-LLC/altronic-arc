@@ -54,6 +54,8 @@ import { TaskFormModal } from "@/components/TaskFormModal";
 import { TestSheetFormModal } from "@/components/TestSheetFormModal";
 import { useTestSheets } from "@/hooks/useTestSheets";
 import { LabelChip, StatusBadge, statusColor } from "@/components/atoms";
+import { AttachmentsSection } from "@/components/AttachmentsSection";
+import { LoadingTasks } from "@/components/LoadingTasks";
 import { PersonMultiField } from "@/components/PersonMultiField";
 import { cn } from "@/lib/cn";
 
@@ -150,7 +152,7 @@ export function DetailView() {
   }, [allTasks]);
 
   if (isLoading) {
-    return <div className="mx-auto max-w-[1400px] px-4 py-12 text-fg-muted">Loading task…</div>;
+    return <LoadingTasks noun="this task" />;
   }
 
   if (!task) {
@@ -476,6 +478,8 @@ export function DetailView() {
               </div>
             </div>
           )}
+
+          <AttachmentsSection parent="task" itemId={task.id} />
 
           {/* Comments card */}
           <div className="rounded-lg border border-border bg-surface p-4 sm:p-5">

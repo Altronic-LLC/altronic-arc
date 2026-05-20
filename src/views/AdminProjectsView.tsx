@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus, Shield } from "lucide-react";
 import { useCreateProject, useProjects } from "@/hooks/useTasks";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { LoadingTasks } from "@/components/LoadingTasks";
 
 /**
  * Admin page for managing Project References.
@@ -110,7 +111,7 @@ export function AdminProjectsView() {
           Existing projects ({projects.length})
         </h2>
         {isLoading ? (
-          <div className="py-8 text-center text-sm text-fg-muted">Loading…</div>
+          <LoadingTasks noun="projects" />
         ) : sorted.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border py-8 text-center text-sm text-fg-muted">
             No projects yet. Add one above.

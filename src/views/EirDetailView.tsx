@@ -39,6 +39,8 @@ import { CommentThread } from "@/components/CommentThread";
 import { CommentComposer } from "@/components/CommentComposer";
 import { SingleSelect } from "@/components/SearchableSelect";
 import { EirStatusBadge } from "@/components/atoms";
+import { AttachmentsSection } from "@/components/AttachmentsSection";
+import { LoadingTasks } from "@/components/LoadingTasks";
 import { PersonMultiField } from "@/components/PersonMultiField";
 import { sanitiseHtml } from "@/lib/sanitiseHtml";
 
@@ -102,7 +104,7 @@ export function EirDetailView() {
   }, [tasks, currentUser]);
 
   if (isLoading) {
-    return <div className="mx-auto max-w-[1400px] px-4 py-12 text-fg-muted">Loading EIR…</div>;
+    return <LoadingTasks noun="this EIR" />;
   }
   if (!eir) {
     return (
@@ -246,6 +248,8 @@ export function EirDetailView() {
               />
             </div>
           </div>
+
+          <AttachmentsSection parent="eir" itemId={eir.id} />
 
           {/* Comments */}
           <div className="rounded-lg border border-border bg-surface p-4 sm:p-5">
