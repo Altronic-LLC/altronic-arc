@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.15.1",
+    date: "2026-05-20",
+    changes: [
+      "Added a one-time browser-console diagnostic that prints every field-name SharePoint returns for the first EIR — so we can see exactly what the project-reference column is called and stop guessing",
+    ],
+  },
+  {
     version: "0.15.0",
     date: "2026-05-20",
     changes: [

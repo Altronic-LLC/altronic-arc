@@ -87,10 +87,48 @@ export async function listEirs(): Promise<Eir[]> {
     graphFetchAll<GraphListItem>(path),
     listProjects(),
   ]);
+
+  // One-time diagnostic. Print the field bag of the first EIR + any keys
+  // that look like a lookup id, so we can see exactly what SharePoint
+  // returns for the project-reference column on this list. Drops to a
+  // single console group; remove once the column is confirmed.
+  if (items.length > 0 && !diagnosticsLogged) {
+    diagnosticsLogged = true;
+    const fields = (items[0].fields ?? {}) as Record<string, unknown>;
+    const allKeys = Object.keys(fields).sort();
+    const lookupKeys = allKeys.filter((k) => k.endsWith("LookupId"));
+    const projectish = allKeys.filter((k) =>
+      /project|reference/i.test(k),
+    );
+    /* eslint-disable no-console */
+    console.groupCollapsed("[EIR DEBUG] field-name diagnostic");
+    console.log("All field keys on first EIR:", allKeys);
+    console.log("Keys ending in 'LookupId':", lookupKeys);
+    console.log("Keys mentioning project/reference:", projectish);
+    console.log(
+      "Projects returned by listProjects() (first 5):",
+      projects.slice(0, 5),
+    );
+    console.log(
+      "First EIR raw field values (only string/number values shown):",
+      Object.fromEntries(
+        Object.entries(fields).filter(
+          ([, v]) => typeof v === "string" || typeof v === "number",
+        ),
+      ),
+    );
+    console.groupEnd();
+    /* eslint-enable no-console */
+  }
+
   const eirs = items.map(toEir);
   attachEirReferences(eirs, projects);
   return eirs;
 }
+
+// Module-level flag so the diagnostic prints once per session, not on
+// every re-fetch (which React Query does plenty of).
+let diagnosticsLogged = false;
 
 export async function getEir(id: number): Promise<Eir | null> {
   const all = await listEirs();
