@@ -62,6 +62,7 @@ jobs:
           VITE_SP_LIST_ID: ${{ vars.VITE_SP_LIST_ID }}
           VITE_SP_PROJECTS_LIST_ID: ${{ vars.VITE_SP_PROJECTS_LIST_ID }}
           VITE_SP_TEST_RESULTS_LIST_ID: ${{ vars.VITE_SP_TEST_RESULTS_LIST_ID }}
+          VITE_SP_EIRS_LIST_ID: ${{ vars.VITE_SP_EIRS_LIST_ID }}
           VITE_SHARED_MAILBOX: ${{ vars.VITE_SHARED_MAILBOX }}
 
       - name: Add 404 fallback for client-side routing

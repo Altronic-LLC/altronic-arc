@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { ClipboardList, LayoutDashboard, LayoutGrid, List, Moon, Shield, Sun } from "lucide-react";
+import { ClipboardList, FileText, LayoutDashboard, LayoutGrid, List, Moon, Shield, Sun } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useTheme } from "@/hooks/useTheme";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
@@ -18,6 +18,7 @@ export function Header() {
   const isKanban = pathname.startsWith("/kanban");
   const isTestSheets =
     pathname.startsWith("/test-sheets") || pathname.startsWith("/test-sheet/");
+  const isEirs = pathname.startsWith("/eirs") || pathname.startsWith("/eir/");
   const isAdminPage = pathname.startsWith("/admin");
 
   return (
@@ -89,6 +90,16 @@ export function Header() {
             <ClipboardList className="h-4 w-4" />
             <span className="hidden sm:inline">Test Sheets</span>
             <span className="sm:hidden">Tests</span>
+          </Link>
+          <Link
+            to="/eirs"
+            className={cn(
+              "flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors sm:flex-initial",
+              isEirs ? "bg-surface text-fg shadow-sm" : "text-fg-muted hover:text-fg",
+            )}
+          >
+            <FileText className="h-4 w-4" />
+            EIRs
           </Link>
           {isAdmin && (
             <Link

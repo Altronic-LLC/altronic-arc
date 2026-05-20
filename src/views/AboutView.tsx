@@ -29,9 +29,9 @@ flowchart TB
 
   subgraph FE["Frontend (React SPA)"]
     direction TB
-    Views["Views<br/>Dashboard · List · Kanban<br/>Detail · Test Sheets<br/>About · Manual"]
-    Hooks["React Query hooks<br/>useTasks · useTestSheets<br/>useFilters · useCurrentUser"]
-    API["API layer<br/>src/api/tasks.ts<br/>src/api/testSheets.ts<br/>src/api/email.ts"]
+    Views["Views<br/>Dashboard · List · Kanban<br/>Detail · Test Sheets · EIRs<br/>About · Manual"]
+    Hooks["React Query hooks<br/>useTasks · useTestSheets · useEirs<br/>useFilters · useCurrentUser"]
+    API["API layer<br/>src/api/tasks.ts<br/>src/api/testSheets.ts<br/>src/api/eirs.ts<br/>src/api/email.ts"]
     Views --> Hooks --> API
   end
 
@@ -56,6 +56,7 @@ flowchart TB
     ProjectTaskList[("Project Task List")]
     Projects[("Projects")]
     TestResults[("Test Results")]
+    EIRs[("EIRs (Engineering<br/>Information Requests)")]
   end
 
   Graph --> SP
@@ -66,11 +67,14 @@ flowchart LR
   Project[("Project")]
   Task[("Task")]
   TestSheet[("Test Sheet")]
+  EIR[("EIR")]
 
   Task -- "Parent Project Reference" --> Project
   Task -- "Parent Task (self-link, optional)" --> Task
   TestSheet -- "Task Reference" --> Task
   TestSheet -- "Project Reference" --> Project
+  EIR -- "Project Reference" --> Project
+  EIR -- "Task Reference (text)" --> Task
 
   Person((Person))
   Comments[Comments]
@@ -78,6 +82,8 @@ flowchart LR
   Task -- "Communication" --> Comments
   Task -- "Assigned · Watchers" --> Person
   TestSheet -- "Tester" --> Person
+  EIR -- "Reporter · Assigned Engineers · Watchers" --> Person
+  EIR -- "Communication" --> Comments
 `.trim();
 
 const Mermaid = lazy(() => import("../components/MermaidDiagram"));

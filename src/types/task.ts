@@ -217,6 +217,145 @@ export interface TestSheetItemFields {
 }
 
 // =============================================================================
+// EIR (Engineering Information Request) list — separate SharePoint list:
+// https://coopermachineryservices.sharepoint.com/sites/Altronic_Engineering/Lists/EIREngineering%20Information%20Request
+//
+// Acts a lot like a task: has a Title, Description, status workflow, a
+// pipe-delimited Communication field for comments, lookups to a Project,
+// and people fields (single Reporter + multi Assigned Engineers + multi
+// Watchers). Adds part-detail fields (MFG, P/N, EAU, etc.) that tasks
+// don't have.
+// =============================================================================
+
+export const EIR_STATUSES = [
+  "Under Review",
+  "EIR Not Accepted",
+  "Response Accepted",
+  "Response Not Accepted",
+  "Closed",
+] as const;
+export type EirStatus = (typeof EIR_STATUSES)[number];
+
+export const EIR_RESOLUTIONS = [
+  "Pending",
+  "Resolved",
+  "EIR Not Approved",
+  "Promoted to Task",
+] as const;
+export type EirResolution = (typeof EIR_RESOLUTIONS)[number];
+
+export const EIR_REQUEST_TYPES = ["EIR", "ECR", "Temporary Deviation"] as const;
+export type EirRequestType = (typeof EIR_REQUEST_TYPES)[number];
+
+export const EIR_REQUESTED_PRIORITIES = ["High", "Medium", "Low"] as const;
+export type EirRequestedPriority = (typeof EIR_REQUESTED_PRIORITIES)[number];
+
+export const EIR_RISK_LEVELS = ["Level 1", "Level 2", "Level 3"] as const;
+export type EirRiskLevel = (typeof EIR_RISK_LEVELS)[number];
+
+export const EIR_RISK_PARTS = ["Active", "InActive"] as const;
+export type EirRiskPart = (typeof EIR_RISK_PARTS)[number];
+
+export const EIR_MEETING_RELEVANTS = ["Yes", "No"] as const;
+export type EirMeetingRelevant = (typeof EIR_MEETING_RELEVANTS)[number];
+
+/** A single EIR row from the Engineering Information Request list. */
+export interface Eir {
+  id: number;
+  /** "EIR No" — the human-readable identifier like EIR-1234. */
+  eirNo: string;
+  title: string;
+  description: string;
+  requestType: EirRequestType | null;
+  status: EirStatus;
+  resolution: EirResolution;
+  requestedPriority: EirRequestedPriority | null;
+
+  reporter: Person | null;
+  assignedEngineers: Person[];
+  watchers: Person[];
+  parentProject: ProjectReference | null;
+  /** Free-text reference to a task (e.g. the NumberedTitle or item id). */
+  taskReference: string;
+
+  engineeringResponse: string;
+
+  // Part details
+  whereUsed: string;
+  eau: string;
+  currentStock: string;
+  mfg: string;
+  mfgPartNumber: string;
+  currentPrice: string;
+  altronicPartNumber: string;
+
+  // Dates
+  requestedCompletionDate: Date | null;
+  ltbDate: Date | null;
+  priorityDate: Date | null;
+
+  // Priority + risk classification (mostly procurement-side)
+  priorityNumber: number | null;
+  priorityCount: number | null;
+  technicalPriority: EirRiskLevel | null;
+  riskPart: EirRiskPart | null;
+  riskPartLevel: EirRiskLevel | null;
+
+  // Misc
+  eirMeetingRelevant: EirMeetingRelevant | null;
+  buyerCode: string;
+  taskPromotedFlag: boolean;
+
+  // Audit + comments
+  createdAt: Date;
+  modifiedAt: Date;
+  author: Person | null;
+  comments: Comment[];
+  hasAttachments: boolean;
+}
+
+/** Raw EIR field bag as returned by Graph under `item.fields`. */
+export interface EirItemFields {
+  Title?: string;
+  EIRNo?: string;
+  Description?: string;
+  ProjectReferenceLookupId?: string | number;
+  Priority?: string; // the "Requested Priority" choice column (took the Priority name)
+  Reporter?: unknown;
+  Resolution?: string;
+  AssignedEngineer?: unknown;
+  Status?: string;
+  EngineeringResponse?: string;
+  WhereUsed?: string;
+  EAU?: string;
+  CurrentStock?: string;
+  Watchers?: unknown;
+  MFG?: string;
+  MFGP_x002f_N?: string;
+  Communication?: string;
+  Current_x0020_Price?: string;
+  Altronic_x0020_Part_x0020_Number?: string;
+  /** Display name "Requested Completion Date" — internal name is truncated at 32 chars. */
+  Requested_x0020_Completion_x0020?: string;
+  /** Numeric Priority (renamed `Priority0` because the choice column above won the original name). */
+  Priority0?: number | string;
+  PriorityDate?: string;
+  PriorityCount?: number | string;
+  EngResUsers?: string;
+  RiskPart?: string;
+  RiskPartLevel?: string;
+  TechnicalPriority?: string;
+  LTBDate?: string;
+  RequestType?: string;
+  TaskReference?: string;
+  TaskPromotedFlag?: boolean;
+  EIRMeetingRelevant?: string;
+  BuyerCode?: string;
+  Attachments?: boolean;
+  [key: string]: unknown;
+}
+
+// =============================================================================
 // Microsoft Graph response shapes — only the fields we touch
 // =============================================================================
 

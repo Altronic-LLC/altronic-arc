@@ -370,6 +370,86 @@ const SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: "eirs",
+    title: "EIRs (Engineering Information Requests)",
+    keywords: [
+      "eir",
+      "eirs",
+      "engineering information request",
+      "ecr",
+      "engineering change request",
+      "temporary deviation",
+      "request type",
+      "obsolete part",
+      "part replacement",
+      "mfg eol",
+      "mfg discontinued",
+      "ltb",
+      "engineering response",
+      "buyer code",
+      "risk part",
+      "procurement",
+      "where used",
+      "create eir",
+      "new eir",
+    ],
+    searchText:
+      "The EIRs tab shows Engineering Information Requests with status pills (Under Review, Response Accepted, Closed, etc.) and a filter bar for Project, Assigned Engineer, Reporter, and search. Click an EIR to open the detail page with Description, Engineering Response, Part Details (MFG, P/N, EAU, etc.), Comments, and a sidebar to edit Status, Resolution, Request Type, Priority, Reporter, Assigned Engineers, Watchers, Project, Task Reference, Requested Completion Date, LTB Date.",
+    render: () => (
+      <>
+        <P>
+          The <strong>EIRs</strong> tab in the top nav lists every entry from
+          the SharePoint Engineering Information Request list. EIRs cover three
+          request types — straight EIR, ECR (Engineering Change Request), and
+          Temporary Deviation — and progress through their own status workflow
+          separate from tasks.
+        </P>
+        <H3>List view</H3>
+        <P>
+          Status pills at the top (Open, Under Review, Response Accepted,
+          Closed, etc.) for quick filtering, plus a filter bar with Project
+          Reference (multi-select), Assigned Engineer (multi-select), free-text
+          Search across title / EIR No / MFG / P/N / description, and Reporter
+          (single-select). Filters live in the URL so views are shareable.
+        </P>
+        <H3>Creating one</H3>
+        <P>
+          Click <strong>New EIR</strong> at the top right. <strong>Title</strong>{" "}
+          and <strong>Project Reference</strong> are required. The form pre-fills
+          Reporter to you and Request Type to "EIR". Optional fields on create
+          include the part details (Where Used, MFG, MFG P/N, Altronic Part
+          Number) and Requested Completion Date — everything else can be
+          completed from the detail sidebar after creation.
+        </P>
+        <H3>Detail page</H3>
+        <P>
+          The main column shows the EIR No header, request-type chip,
+          Description, Engineering Response (with its own inline editor), Part
+          Details (Where Used, MFG, MFG P/N, Altronic Part Number, EAU, Current
+          Stock, Current Price, Buyer Code — all editable inline by clicking),
+          and the comments thread.
+        </P>
+        <P>
+          The sidebar holds the workflow fields: Status, Resolution, Request
+          Type, Requested Priority, Reporter, Assigned Engineers, Watchers,
+          Project Reference, Task Reference (free text — links back to a task
+          when it looks like a task ID), Requested Completion Date, LTB Date.
+          Every change is optimistic with toast + undo, same as everywhere
+          else.
+        </P>
+        <H3>Promotion to a task</H3>
+        <P>
+          When an EIR is promoted to an engineering task, the{" "}
+          <strong>Promoted to task</strong> chip appears at the top of the
+          detail page and the Resolution should be set to{" "}
+          <strong>Promoted to Task</strong>. The Task Reference field gets the
+          task identifier — type the number (e.g. <code>T115</code>) and an
+          "Open task" link appears in the sidebar.
+        </P>
+      </>
+    ),
+  },
+  {
     id: "test-sheets",
     title: "Test Sheets",
     keywords: [

@@ -20,6 +20,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.13.0",
+    date: "2026-05-20",
+    changes: [
+      "EIRs (Engineering Information Requests) are now a first-class part of the app — new 'EIRs' tab in the top nav with a list view (status pills + filter bar: Project, Assigned Engineer, Reporter, search), a detail page that mirrors the task detail layout (sidebar of editable fields, Part Details card, comments thread with @-mentions), and a 'New EIR' button that opens a create form",
+      "Dashboard 'EIRs' card is no longer mock — it shows the real count of open EIRs (Status != Closed) and clicks through to the EIRs list scoped to your project filter",
+      "Every EIR field is optimistic with toast + Undo, same as tasks — status, resolution, request type, requested priority, reporter, assigned engineers, watchers, project, task reference, requested completion date, LTB date, and all the part-detail fields (MFG, MFG P/N, Altronic Part Number, EAU, Current Stock, Current Price, Where Used, Buyer Code) plus the Engineering Response block",
+      "User Manual has a new EIRs section with @-mention-friendly search keywords (ecr, temporary deviation, mfg eol, ltb, buyer code, where used, etc.) so questions like 'how do I create an EIR' or 'what is a request type' find the right place",
+    ],
+  },
+  {
     version: "0.12.1",
     date: "2026-05-19",
     changes: [

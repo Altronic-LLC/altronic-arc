@@ -10,6 +10,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { useProjects, useTasks } from "@/hooks/useTasks";
+import { useEirs } from "@/hooks/useEirs";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { SingleSelect } from "@/components/SearchableSelect";
 import { LoadingTasks } from "@/components/LoadingTasks";
@@ -31,6 +32,7 @@ export function DashboardView() {
   const navigate = useNavigate();
   const { data: tasks = [], isLoading } = useTasks();
   const { data: projects = [] } = useProjects();
+  const { data: eirs = [] } = useEirs();
   const currentUser = useCurrentUser();
   const [projectId, setProjectId] = useState<number | null>(null);
   // Status breakdown defaults to the current user's tasks. They can flip
@@ -65,6 +67,15 @@ export function DashboardView() {
       t.assigned.some((p) => (p.email ?? "").toLowerCase() === myEmail),
     );
   }, [projectScoped, breakdownScope, myEmail]);
+  // EIR count is real once the EIR list is wired up — open EIRs only.
+  const openEirs = useMemo(() => {
+    return eirs.filter((e) => {
+      if (e.status === "Closed") return false;
+      if (projectId == null) return true;
+      return e.parentProject?.lookupId === projectId;
+    });
+  }, [eirs, projectId]);
+
   const byStatus = useMemo(() => {
     const out: Record<Status, number> = {
       BACKLOG: 0,
@@ -142,11 +153,18 @@ export function DashboardView() {
           actionText="View my tasks →"
           onClick={() => navigate(tasksUrl({ mine: true }))}
         />
-        <MockMetricCard
-          label="EIRs"
-          value={getMetricCount("eir", projectId)}
+        <MetricCard
+          label="Open EIRs"
+          value={openEirs.length}
           icon={<FileText className="h-5 w-5" />}
-          subtitle="Engineering Information Requests"
+          accent="muted"
+          hint="Engineering Information Requests not yet closed"
+          actionText="View EIRs →"
+          onClick={() => {
+            const params = new URLSearchParams();
+            if (projectId != null) params.set("project", String(projectId));
+            navigate(`/eirs?${params.toString()}`);
+          }}
         />
         <MockMetricCard
           label="ECNs"

@@ -11,6 +11,9 @@ export const SP_PROJECTS_LIST_ID = import.meta.env.VITE_SP_PROJECTS_LIST_ID;
 /** "Test Results" list on the same Altronic Engineering site. */
 export const SP_TEST_RESULTS_LIST_ID = import.meta.env.VITE_SP_TEST_RESULTS_LIST_ID;
 
+/** "Engineering Information Request" (EIR) list on the same site. */
+export const SP_EIRS_LIST_ID = import.meta.env.VITE_SP_EIRS_LIST_ID;
+
 /**
  * Email address of the shared mailbox @-mention notifications send FROM.
  * Each user who can post comments must have Send-As permission on this

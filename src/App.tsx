@@ -11,6 +11,8 @@ import { ProjectView } from "@/views/ProjectView";
 import { AdminProjectsView } from "@/views/AdminProjectsView";
 import { TestSheetsView } from "@/views/TestSheetsView";
 import { TestSheetDetailView } from "@/views/TestSheetDetailView";
+import { EirsView } from "@/views/EirsView";
+import { EirDetailView } from "@/views/EirDetailView";
 import { AboutView } from "@/views/AboutView";
 import { ManualView } from "@/views/ManualView";
 
@@ -34,6 +36,8 @@ export function App() {
           <Route path="/admin/projects" element={<AdminProjectsView />} />
           <Route path="/test-sheets" element={<TestSheetsView />} />
           <Route path="/test-sheet/:id" element={<TestSheetDetailView />} />
+          <Route path="/eirs" element={<EirsView />} />
+          <Route path="/eir/:id" element={<EirDetailView />} />
           <Route path="/about" element={<AboutView />} />
           <Route path="/manual" element={<ManualView />} />
           <Route path="*" element={<Navigate to="/" replace />} />
