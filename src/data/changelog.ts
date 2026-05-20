@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.15.5",
+    date: "2026-05-20",
+    changes: [
+      "Fixed EIRs failing to load — the previous attempt to coax Graph into expanding the project lookup via $select was rejected by Graph (bare lookup column names aren't valid in $select), which 400'd the whole EIR list request; reverted to no-$select so the list loads again, and rely on the tolerant mapper from the prior release to read the bare ProjectReference value directly",
+    ],
+  },
+  {
     version: "0.15.4",
     date: "2026-05-20",
     changes: [

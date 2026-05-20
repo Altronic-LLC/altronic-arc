@@ -75,52 +75,15 @@ export async function listEirs(): Promise<Eir[]> {
     return [];
   }
 
-  // Use $select with the LookupId-suffixed form of the project-reference
-  // column. Without $select, Graph returns the column under its bare name
-  // (`ProjectReference`) but doesn't expand the lookup id — the value just
-  // isn't there to read. Requesting `ProjectReferenceLookupId` explicitly
-  // forces Graph to materialise the lookup id as a number on the field bag.
-  // We list every column we touch in toEir() so payloads stay lean.
-  const select = [
-    "Title",
-    "EIRNo",
-    "Description",
-    "ProjectReferenceLookupId",
-    "ProjectReference",
-    "Priority",
-    "Reporter",
-    "ReporterLookupId",
-    "Resolution",
-    "AssignedEngineer",
-    "Status",
-    "EngineeringResponse",
-    "WhereUsed",
-    "EAU",
-    "CurrentStock",
-    "Watchers",
-    "MFG",
-    "MFGP_x002f_N",
-    "Communication",
-    "Current_x0020_Price",
-    "Altronic_x0020_Part_x0020_Number",
-    "Requested_x0020_Completion_x0020",
-    "Priority0",
-    "PriorityDate",
-    "PriorityCount",
-    "RiskPart",
-    "RiskPartLevel",
-    "TechnicalPriority",
-    "LTBDate",
-    "RequestType",
-    "TaskReference",
-    "TaskPromotedFlag",
-    "EIRMeetingRelevant",
-    "BuyerCode",
-    "Attachments",
-  ].join(",");
+  // No $select: Graph rejects bare lookup column names (like
+  // `ProjectReference`) in $select with a 400, and the suffixed form
+  // (`ProjectReferenceLookupId`) only synthesises if the column is
+  // provisioned as a proper Lookup — not the case on this list. Letting
+  // Graph return all field columns keeps the mapper resilient and avoids
+  // the whole-list 400 we saw when we tried to be clever.
   const path =
     `/sites/${SP_SITE_ID}/lists/${SP_EIRS_LIST_ID}` +
-    `/items?$expand=fields($select=${select})&$top=200`;
+    `/items?$expand=fields&$top=200`;
   const [items, projects] = await Promise.all([
     graphFetchAll<GraphListItem>(path),
     listProjects(),
