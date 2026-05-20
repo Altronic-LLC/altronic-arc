@@ -35,7 +35,8 @@ import { cn } from "@/lib/cn";
 // on the page.
 // =============================================================================
 
-type BreakdownMode = "tasks-mine" | "tasks-company" | "eirs-mine";
+type BreakdownDataset = "tasks" | "eirs";
+type BreakdownScope = "mine" | "company";
 
 export function DashboardView() {
   const navigate = useNavigate();
@@ -44,8 +45,14 @@ export function DashboardView() {
   const { data: eirs = [] } = useEirs();
   const currentUser = useCurrentUser();
   const [projectId, setProjectId] = useState<number | null>(null);
-  // Which card is "in focus" — drives the breakdown panel below.
-  const [breakdownMode, setBreakdownMode] = useState<BreakdownMode>("tasks-mine");
+  // Breakdown panel state has two independent axes:
+  //   dataset — which list we're slicing (tasks vs EIRs)
+  //   scope   — whose work to show (just mine vs the whole team)
+  // Clicking a card pins both; the Mine / Company toggle next to the
+  // breakdown header flips just the scope so the user can answer "what
+  // does the rest of the team's EIR pile look like?" without leaving.
+  const [breakdownDataset, setBreakdownDataset] = useState<BreakdownDataset>("tasks");
+  const [breakdownScope, setBreakdownScope] = useState<BreakdownScope>("mine");
 
   const myEmail = (currentUser.email ?? "").toLowerCase();
 
@@ -86,11 +93,18 @@ export function DashboardView() {
 
   // ----- Breakdown source -----
   const taskBreakdownSource = useMemo(() => {
-    if (breakdownMode === "tasks-company") return projectScopedTasks;
+    if (breakdownScope === "company") return projectScopedTasks;
     return projectScopedTasks.filter((t) =>
       t.assigned.some((p) => (p.email ?? "").toLowerCase() === myEmail),
     );
-  }, [projectScopedTasks, breakdownMode, myEmail]);
+  }, [projectScopedTasks, breakdownScope, myEmail]);
+
+  const eirBreakdownSource = useMemo(() => {
+    if (breakdownScope === "company") return projectScopedEirs;
+    return projectScopedEirs.filter((e) =>
+      e.assignedEngineers.some((p) => (p.email ?? "").toLowerCase() === myEmail),
+    );
+  }, [projectScopedEirs, breakdownScope, myEmail]);
 
   const byTaskStatus = useMemo(() => {
     const out: Record<Status, number> = {
@@ -113,9 +127,9 @@ export function DashboardView() {
       "Response Not Accepted": 0,
       Closed: 0,
     };
-    for (const e of myEirs) out[e.status]++;
+    for (const e of eirBreakdownSource) out[e.status]++;
     return out;
-  }, [myEirs]);
+  }, [eirBreakdownSource]);
 
   const projectOptions = projects.map((p) => ({
     value: String(p.lookupId),
@@ -138,10 +152,16 @@ export function DashboardView() {
     return `/list?${params.toString()}`;
   }
 
-  function eirsUrl({ status }: { status?: EirStatus } = {}): string {
+  function eirsUrl({
+    mine,
+    status,
+  }: {
+    mine: boolean;
+    status?: EirStatus;
+  }): string {
     const params = new URLSearchParams();
     if (projectId != null) params.set("project", String(projectId));
-    if (currentUser.email) params.set("engineer", currentUser.email);
+    if (mine && currentUser.email) params.set("engineer", currentUser.email);
     if (status) params.set("status", status);
     return `/eirs?${params.toString()}`;
   }
@@ -181,21 +201,31 @@ export function DashboardView() {
           label="My Open Tasks"
           value={myOpenTasks.length}
           icon={<ListChecks className="h-5 w-5" />}
-          accent={breakdownMode === "tasks-mine" ? "accent" : "muted"}
+          accent={
+            breakdownDataset === "tasks" && breakdownScope === "mine" ? "accent" : "muted"
+          }
           hint="Assigned to you and not Complete"
           actionText="Show in breakdown"
-          active={breakdownMode === "tasks-mine"}
-          onClick={() => setBreakdownMode("tasks-mine")}
+          active={breakdownDataset === "tasks" && breakdownScope === "mine"}
+          onClick={() => {
+            setBreakdownDataset("tasks");
+            setBreakdownScope("mine");
+          }}
         />
         <MetricCard
           label="My EIRs"
           value={myEirs.length}
           icon={<FileText className="h-5 w-5" />}
-          accent={breakdownMode === "eirs-mine" ? "accent" : "muted"}
+          accent={
+            breakdownDataset === "eirs" && breakdownScope === "mine" ? "accent" : "muted"
+          }
           hint="EIRs where you're an assigned engineer"
           actionText="Show in breakdown"
-          active={breakdownMode === "eirs-mine"}
-          onClick={() => setBreakdownMode("eirs-mine")}
+          active={breakdownDataset === "eirs" && breakdownScope === "mine"}
+          onClick={() => {
+            setBreakdownDataset("eirs");
+            setBreakdownScope("mine");
+          }}
         />
         <MockMetricCard
           label="ECNs"
@@ -218,36 +248,56 @@ export function DashboardView() {
           label="All Open Tasks"
           value={allOpenTasks.length}
           icon={<ListChecks className="h-5 w-5" />}
-          accent={breakdownMode === "tasks-company" ? "accent" : "muted"}
+          accent={
+            breakdownDataset === "tasks" && breakdownScope === "company"
+              ? "accent"
+              : "muted"
+          }
           hint="Active across the team"
           actionText="Show in breakdown"
-          active={breakdownMode === "tasks-company"}
-          onClick={() => setBreakdownMode("tasks-company")}
+          active={breakdownDataset === "tasks" && breakdownScope === "company"}
+          onClick={() => {
+            setBreakdownDataset("tasks");
+            setBreakdownScope("company");
+          }}
         />
         <div className="lg:col-span-2 rounded-lg border border-border bg-surface p-4 sm:p-5">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <h2 className="flex items-center gap-2 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
               <ClipboardCheck className="h-4 w-4" />
-              {breakdownMode === "eirs-mine"
-                ? "EIR status breakdown · Mine"
-                : breakdownMode === "tasks-company"
-                ? "Task status breakdown · Company"
-                : "Task status breakdown · Mine"}
+              {breakdownDataset === "eirs"
+                ? "EIR status breakdown"
+                : "Task status breakdown"}
             </h2>
-            <button
-              onClick={() => {
-                if (breakdownMode === "eirs-mine") navigate(eirsUrl());
-                else navigate(tasksUrl({ mine: breakdownMode === "tasks-mine" }));
-              }}
-              className="text-xs text-accent underline-offset-2 hover:underline"
-            >
-              View list →
-            </button>
+            <div className="flex items-center gap-2">
+              <SegmentToggle
+                value={breakdownScope}
+                onChange={setBreakdownScope}
+                options={[
+                  { value: "mine", label: "Mine" },
+                  { value: "company", label: "Company" },
+                ]}
+              />
+              <button
+                onClick={() => {
+                  if (breakdownDataset === "eirs") {
+                    navigate(eirsUrl({ mine: breakdownScope === "mine" }));
+                  } else {
+                    navigate(tasksUrl({ mine: breakdownScope === "mine" }));
+                  }
+                }}
+                className="text-xs text-accent underline-offset-2 hover:underline"
+              >
+                View list →
+              </button>
+            </div>
           </div>
-          {breakdownMode === "eirs-mine" ? (
+          {breakdownDataset === "eirs" ? (
             <EirStatusBars
               byStatus={byEirStatus}
-              onClickStatus={(s) => navigate(eirsUrl({ status: s }))}
+              onClickStatus={(s) =>
+                navigate(eirsUrl({ mine: breakdownScope === "mine", status: s }))
+              }
             />
           ) : (
             <StatusBars
@@ -255,7 +305,7 @@ export function DashboardView() {
               onClickStatus={(s) =>
                 navigate(
                   tasksUrl({
-                    mine: breakdownMode === "tasks-mine",
+                    mine: breakdownScope === "mine",
                     status: s,
                   }),
                 )
@@ -440,6 +490,38 @@ function EirStatusBars({
           </button>
         );
       })}
+    </div>
+  );
+}
+
+interface SegmentToggleProps<T extends string> {
+  value: T;
+  onChange: (next: T) => void;
+  options: { value: T; label: string }[];
+}
+
+function SegmentToggle<T extends string>({
+  value,
+  onChange,
+  options,
+}: SegmentToggleProps<T>) {
+  return (
+    <div className="inline-flex items-center rounded-md border border-border bg-surface-2 p-0.5 text-xs">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          onClick={() => onChange(o.value)}
+          className={cn(
+            "rounded-sm px-2.5 py-1 font-medium transition-colors",
+            value === o.value
+              ? "bg-surface text-fg shadow-sm"
+              : "text-fg-muted hover:text-fg",
+          )}
+          aria-pressed={value === o.value}
+        >
+          {o.label}
+        </button>
+      ))}
     </div>
   );
 }

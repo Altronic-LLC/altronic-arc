@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.14.4",
+    date: "2026-05-20",
+    changes: [
+      "Dashboard's Mine / Company toggle is back, and it applies to whichever dataset you're looking at — flip to Company while focused on EIRs to see the team-wide EIR status breakdown, then flip back to Mine without losing your place",
+    ],
+  },
+  {
     version: "0.14.3",
     date: "2026-05-20",
     changes: [
