@@ -66,4 +66,21 @@ describe("sanitiseHtml", () => {
   it("preserves <br>", () => {
     expect(sanitiseHtml("line1<br>line2")).toContain("<br>");
   });
+
+  it("strips inline style attributes (Power Apps stamps color:black, which breaks dark mode)", () => {
+    const result = sanitiseHtml(
+      '<p style="color: rgb(0, 0, 0); font-size: 13px;">hi</p>',
+    );
+    expect(result.toLowerCase()).not.toContain("style");
+    expect(result.toLowerCase()).not.toContain("color");
+    expect(result).toContain("<p>");
+    expect(result).toContain("hi");
+  });
+
+  it("strips legacy color / bgcolor attributes", () => {
+    const a = sanitiseHtml('<font color="black">x</font>');
+    expect(a.toLowerCase()).not.toContain("color=");
+    const b = sanitiseHtml('<table bgcolor="white"><tr><td>y</td></tr></table>');
+    expect(b.toLowerCase()).not.toContain("bgcolor");
+  });
 });

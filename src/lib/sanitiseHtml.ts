@@ -26,6 +26,20 @@ export function sanitiseHtml(raw: string | null | undefined): string {
     // Forbid the obviously-dangerous stuff explicitly even though the html
     // profile already blocks them. Defense in depth.
     FORBID_TAGS: ["script", "style", "iframe", "object", "embed", "form"],
-    FORBID_ATTR: ["onerror", "onload", "onclick", "onmouseover", "onfocus"],
+    // Drop `style` and any explicit `color` / `bgcolor`. The Power Apps
+    // rich-text editor stamps `color: rgb(0,0,0)` on every paragraph it
+    // produces, which renders as unreadable black on the dark theme.
+    // Letting the theme own colour is the right call: text inherits
+    // `color: rgb(var(--fg))` from the parent and always contrasts.
+    FORBID_ATTR: [
+      "onerror",
+      "onload",
+      "onclick",
+      "onmouseover",
+      "onfocus",
+      "style",
+      "color",
+      "bgcolor",
+    ],
   });
 }

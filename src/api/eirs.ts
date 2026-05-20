@@ -75,22 +75,86 @@ export async function listEirs(): Promise<Eir[]> {
     return [];
   }
 
-  // No $select: SharePoint internal column names vary subtly between lists
-  // (especially around the "Project Reference" lookup, which can be
-  // `Project_x0020_Reference` or `ProjectReference`). Letting Graph return
-  // all field columns means the mapper can be tolerant without us having to
-  // keep two $select lists in sync with whatever the actual list looks like.
+  // Use $select with the LookupId-suffixed form of the project-reference
+  // column. Without $select, Graph returns the column under its bare name
+  // (`ProjectReference`) but doesn't expand the lookup id — the value just
+  // isn't there to read. Requesting `ProjectReferenceLookupId` explicitly
+  // forces Graph to materialise the lookup id as a number on the field bag.
+  // We list every column we touch in toEir() so payloads stay lean.
+  const select = [
+    "Title",
+    "EIRNo",
+    "Description",
+    "ProjectReferenceLookupId",
+    "Priority",
+    "Reporter",
+    "ReporterLookupId",
+    "Resolution",
+    "AssignedEngineer",
+    "Status",
+    "EngineeringResponse",
+    "WhereUsed",
+    "EAU",
+    "CurrentStock",
+    "Watchers",
+    "MFG",
+    "MFGP_x002f_N",
+    "Communication",
+    "Current_x0020_Price",
+    "Altronic_x0020_Part_x0020_Number",
+    "Requested_x0020_Completion_x0020",
+    "Priority0",
+    "PriorityDate",
+    "PriorityCount",
+    "RiskPart",
+    "RiskPartLevel",
+    "TechnicalPriority",
+    "LTBDate",
+    "RequestType",
+    "TaskReference",
+    "TaskPromotedFlag",
+    "EIRMeetingRelevant",
+    "BuyerCode",
+    "Attachments",
+  ].join(",");
   const path =
     `/sites/${SP_SITE_ID}/lists/${SP_EIRS_LIST_ID}` +
-    `/items?$expand=fields&$top=200`;
+    `/items?$expand=fields($select=${select})&$top=200`;
   const [items, projects] = await Promise.all([
     graphFetchAll<GraphListItem>(path),
     listProjects(),
   ]);
+
+  // Round-two diagnostic. Last round confirmed the field comes back under
+  // the bare key `ProjectReference`, but we still don't know what shape
+  // its VALUE has — that's what blocks the lookup join. Print the value,
+  // its type, and a sibling Reporter value for comparison (we know
+  // ReporterLookupId works, so it's a useful reference).
+  if (items.length > 0 && !diagnosticsLogged) {
+    diagnosticsLogged = true;
+    const fields = (items[0].fields ?? {}) as Record<string, unknown>;
+    /* eslint-disable no-console */
+    console.groupCollapsed("[EIR DEBUG] project-ref value diagnostic (round 2)");
+    console.log("Field keys returned:", Object.keys(fields).sort());
+    console.log("ProjectReferenceLookupId VALUE:", fields["ProjectReferenceLookupId"]);
+    console.log("ProjectReference VALUE:", fields["ProjectReference"]);
+    console.log("Sibling ReporterLookupId VALUE:", fields["ReporterLookupId"]);
+    console.log("First 5 projects from listProjects():", projects.slice(0, 5));
+    console.log(
+      "Resolved parentProject after mapping:",
+      toEir(items[0]).parentProject,
+    );
+    console.groupEnd();
+    /* eslint-enable no-console */
+  }
+
   const eirs = items.map(toEir);
   attachEirReferences(eirs, projects);
   return eirs;
 }
+
+// Module-level flag so the diagnostic prints once per session.
+let diagnosticsLogged = false;
 
 export async function getEir(id: number): Promise<Eir | null> {
   const all = await listEirs();

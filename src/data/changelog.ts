@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.15.3",
+    date: "2026-05-20",
+    changes: [
+      "EIR descriptions and comments no longer render as unreadable black text on the dark theme — the rich-text editor in the original Power Apps form stamps inline color:black on every paragraph it produces, so we now strip inline style / color / bgcolor attributes during sanitise and let the theme own colour",
+      "Switched EIR list fetch back to an explicit $select that asks for ProjectReferenceLookupId by name — Graph only materialises lookup ids when the suffixed column name is requested explicitly; without it, the bare ProjectReference field comes through but with no usable value",
+      "Re-added a one-time browser-console diagnostic so we can verify the project lookup id is actually arriving this time",
+    ],
+  },
+  {
     version: "0.15.2",
     date: "2026-05-20",
     changes: [
