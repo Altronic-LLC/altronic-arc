@@ -6,7 +6,13 @@ import { App } from "./App";
 import { AuthProvider } from "./auth/AuthProvider";
 import { AuthGate } from "./auth/AuthGate";
 import { assertGraphConfigured } from "./api/config";
+import { installErrorCapture } from "./lib/errorBuffer";
 import "./styles/globals.css";
+
+// Mirror console errors + uncaught rejections into a bounded in-memory
+// buffer so the "Notify app manager" button can attach them to its
+// report email. Cheap to install, idempotent.
+installErrorCapture();
 
 // Fail loud if real-mode config is missing. In demo mode this is a no-op.
 // Without this check, a missing env var would only surface later when the

@@ -37,6 +37,15 @@ export const SP_SITE_URL = import.meta.env.VITE_SP_SITE_URL as string | undefine
  */
 export const SHARED_MAILBOX = import.meta.env.VITE_SHARED_MAILBOX as string | undefined;
 
+/**
+ * Email address of the app maintainer — recipient of "Notify app manager"
+ * error reports. Falls back to a sensible default if unset so the button
+ * still works on day one even before the env var is wired up.
+ */
+export const APP_MANAGER_EMAIL =
+  (import.meta.env.VITE_APP_MANAGER_EMAIL as string | undefined) ??
+  "ray.white@altronic-llc.com";
+
 export const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 
 /** Throw a clear error if the app tries to call Graph without being configured. */

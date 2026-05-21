@@ -950,9 +950,12 @@ const SECTIONS: ManualSection[] = [
       "not showing",
       "missing",
       "permission denied",
+      "report issue",
+      "report bug",
+      "notify app manager",
     ],
     searchText:
-      "Loading hangs? Often sign-in / permission. F12 console: 401 means token expired (re-sign-in), 403 means missing SharePoint access. Change reverted? Someone may have edited at the same time. New task missing? Default Assigned filter is you — pick Anyone. Mention email not sent? Manual @Name typing doesn't make a chip — pick from dropdown.",
+      "Loading hangs? Often sign-in / permission. F12 console: 401 means token expired (re-sign-in), 403 means missing SharePoint access. Change reverted? Someone may have edited at the same time. New task missing? Default Assigned filter is you — pick Anyone. Mention email not sent? Manual @Name typing doesn't make a chip — pick from dropdown. Report issue button in the header captures console errors and emails them to the app manager.",
     render: () => (
       <>
         <H3>"Loading tasks…" hangs forever</H3>
@@ -993,11 +996,18 @@ const SECTIONS: ManualSection[] = [
             on IT's end. Re-check with them.
           </LI>
         </UL>
-        <H3>Something else broken</H3>
+        <H3>Something else broken — use "Report issue"</H3>
         <P>
-          The contact for the app is in the footer. Include what you were
-          doing, what you expected, what happened, and the version number
-          from the footer.
+          Click the <strong>Report issue</strong> button (life-buoy icon) in
+          the top right of every page. It opens a small form where you can
+          describe what went wrong. The app attaches every console error it
+          has seen during your session — you don't need to open DevTools
+          yourself. The report is emailed to the app maintainer with you
+          CC'd, so you have a paper trail of exactly what was sent.
+        </P>
+        <P>
+          The maintainer contact is also in the footer if you'd rather send
+          a screenshot directly.
         </P>
       </>
     ),

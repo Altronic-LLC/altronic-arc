@@ -19,6 +19,7 @@ import { USE_MOCK } from "@/api/config";
 import { Brandmark } from "@/components/brand/Brandmark";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { UserMenu } from "@/components/UserMenu";
+import { NotifyAppManagerButton } from "@/components/NotifyAppManagerButton";
 
 // =============================================================================
 // Top-level nav structure:
@@ -86,6 +87,7 @@ export function Header() {
           </Link>
 
           <div className="flex items-center gap-2 sm:hidden">
+            <NotifyAppManagerButton />
             <button
               onClick={toggle}
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
@@ -136,6 +138,7 @@ export function Header() {
           <span className="hidden text-[11px] text-fg-muted md:inline">
             {USE_MOCK ? "Demo mode · mock data" : "Connected to SharePoint"}
           </span>
+          <NotifyAppManagerButton />
           <button
             onClick={toggle}
             className="flex h-9 w-9 items-center justify-center rounded-md border border-border text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"

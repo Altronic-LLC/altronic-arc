@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.21.0",
+    date: "2026-05-21",
+    changes: [
+      "New 'Report issue' button in the header (life-buoy icon) — visible on every screen; opens a modal with a description field and previews the browser console errors captured during the session, then emails the whole bundle to the app manager with you CC'd so you have a paper trail",
+      "Console errors, warnings, uncaught exceptions, and unhandled promise rejections are now captured into a bounded in-memory buffer (last 100 entries) the moment the app boots — DevTools output is unaffected; the buffer clears after a successful report",
+      "Report destination defaults to ray.white@altronic-llc.com but is overridable via the `VITE_APP_MANAGER_EMAIL` repo variable; sends FROM the existing shared mailbox via Graph sendMail (same path as @-mention notifications)",
+    ],
+  },
+  {
     version: "0.20.0",
     date: "2026-05-21",
     changes: [

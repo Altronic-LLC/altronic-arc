@@ -60,7 +60,7 @@ const SYSTEM_TIERS: Tier[] = [
     nodes: [
       { label: "Views", hint: "Dashboard · List · Kanban · Detail · EIRs · Test Sheets · Admin", palette: "ui" },
       { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useAdmins · useTaskFiles", palette: "ui" },
-      { label: "API layer", hint: "src/api/tasks · eirs · testSheets · admins · projectFiles · attachments · email", palette: "ui" },
+      { label: "API layer", hint: "src/api/tasks · eirs · testSheets · admins · projectFiles · attachments · email · errorReport", palette: "ui" },
     ],
   },
   {
