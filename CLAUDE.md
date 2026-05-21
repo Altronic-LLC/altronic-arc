@@ -333,22 +333,42 @@ pattern of the existing List and Kanban links.
 
 ### Architectural changes — REQUIRED: update the About page diagrams
 
-`src/views/AboutView.tsx` holds two Mermaid diagrams (system flow + data
-model) that double as the README for this app. They get out of date the
-moment we add a piece and don't update them.
+`src/views/AboutView.tsx` is the in-app README. It renders two diagrams,
+hand-built as React/SVG (we used to use Mermaid; replaced it because the
+parser kept choking on edge cases):
 
-**Anything that's structurally visible to a user belongs in the diagram.
-That means update the source strings at the top of `AboutView.tsx` in
+1. **System flow** — defined by the `SYSTEM_TIERS` array near the top.
+   Vertical tiers (User → React SPA → Auth & transport → SharePoint
+   lists) with colour-coded chips.
+2. **Data model** — a real ER diagram drawn on an SVG canvas. Tables
+   come from the `SCHEMA_TABLES` array (each entry has hand-tuned
+   `x` / `y` / `width` + columns); foreign-key relationships come from
+   the `CONNECTIONS` array with crow's-foot cardinality. Both are at the
+   top of `AboutView.tsx`.
+
+**Anything that's structurally visible to a user belongs in these
+diagrams. That means update the data at the top of `AboutView.tsx` in
 the SAME commit when you:**
 
-- Add or rename a route / view.
-- Add a new hook category (e.g. `useTestSheets`, `useProjects`).
-- Add a new module in `src/api/` (e.g. a third SharePoint list).
-- Add a new SharePoint list to the data model, or a new field that
-  introduces a new relationship between lists.
+- Add or rename a route / view → add it to `SYSTEM_TIERS[].nodes`.
+- Add a new hook category (e.g. `useTestSheets`, `useProjects`) → add it
+  to the React SPA tier's Hooks chip.
+- Add a new module in `src/api/` (e.g. a third SharePoint list API) → add
+  it to the React SPA tier's API chip.
+- Add a new SharePoint list → add a `SCHEMA_TABLES` entry with position
+  + columns, AND add it to the SharePoint lists tier in `SYSTEM_TIERS`.
+- Add a new column on an existing entity → add a row in that table's
+  `columns` array (mind the height — neighbour positions may need a
+  small `y` bump if the new column pushes the bottom edge into another
+  table).
+- Add a new foreign-key relationship between lists → add a `CONNECTIONS`
+  entry with the FK column / target / cardinality.
 
-Preview your edits at <https://mermaid.live/> before pasting back in.
-No code-review hand-wringing, no separate ticket — just edit the strings
+Tip when positioning tables: each row is `ROW_HEIGHT` (22px) tall and the
+header is `HEADER_HEIGHT` (50px). Total table height = HEADER + rows*22
++ ~6px padding — use that to budget vertical space between cards.
+
+No code-review hand-wringing, no separate ticket — just edit the arrays
 in the same commit. The footer "About" link is the source of truth that
 new team members see when they want to understand the system.
 
