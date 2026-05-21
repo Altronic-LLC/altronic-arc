@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.16.4",
+    date: "2026-05-20",
+    changes: [
+      "Adding an admin no longer 400s — turned out Graph rejects the whole POST when even one field name doesn't exist (not 'silently ignored' as I'd assumed), so removed the speculative `Display_x0020_Name` write key; writes now go to the real DisplayName column only",
+      "About-page Mermaid diagrams no longer render 'Syntax error in text' — the trapezoid shape combined with parentheses in the quoted label was crashing the Mermaid 11 parser; rewrote both diagrams with simpler labels (no nested parens in quoted node text)",
+    ],
+  },
+  {
     version: "0.16.3",
     date: "2026-05-20",
     changes: [

@@ -108,17 +108,14 @@ export async function addAdmin(input: {
   if (!SP_ADMINS_LIST_ID) {
     throw new Error("Cannot add admin: VITE_SP_ADMINS_LIST_ID is not set.");
   }
-  // Write to both candidate internal names. SharePoint silently ignores
-  // unknown keys on a POST (unlike $select on GET, which 400s), so it's
-  // safe to send both — whichever column actually exists takes the value.
+  // Only send keys that we know exist on the list — Graph 400s the whole
+  // POST when even one field name doesn't match a real column. Title is
+  // built-in; DisplayName and Note were created by our setup PowerShell.
+  // If a future provisioning ends up naming the column `Display_x0020_Name`
+  // instead, swap the key here (the read side accepts either).
   const fields: Record<string, string> = { Title: input.email };
-  if (input.displayName) {
-    fields.DisplayName = input.displayName;
-    fields.Display_x0020_Name = input.displayName;
-  }
-  if (input.note) {
-    fields.Note = input.note;
-  }
+  if (input.displayName) fields.DisplayName = input.displayName;
+  if (input.note) fields.Note = input.note;
   const created = await graphFetch<GraphListItem>(
     `/sites/${SP_SITE_ID}/lists/${SP_ADMINS_LIST_ID}/items`,
     { method: "POST", body: JSON.stringify({ fields }) },

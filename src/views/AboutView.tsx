@@ -40,7 +40,7 @@ flowchart TB
   MSAL[/MSAL Entra ID/]
   Mock[("Mock store<br/>in-memory + localStorage")]
   Graph[/"Microsoft Graph v1.0"/]
-  SPREST[/"SharePoint REST<br/>(attachments only)"/]
+  SPREST[/"SharePoint REST - attachments only"/]
 
   API -- "VITE_USE_MOCK=true" --> Mock
   API -- "VITE_USE_MOCK=false" --> Graph
@@ -76,24 +76,24 @@ flowchart LR
   Admin[("Admin")]
 
   Task -- "Parent Project Reference" --> Project
-  Task -- "Parent Task (self-link, optional)" --> Task
+  Task -- "Parent Task self-link" --> Task
   TestSheet -- "Task Reference" --> Task
   TestSheet -- "Project Reference" --> Project
-  EIR -- "Project Reference (multi-choice text)" --> Project
-  EIR -- "Task Reference (text or Power Apps URL)" --> Task
+  EIR -- "Project Reference - multi-choice" --> Project
+  EIR -- "Task Reference - text or URL" --> Task
 
   Person((Person))
   Comments[Comments]
-  Attachments[/"File attachments<br/>(SharePoint REST)"/]
+  Attachments[File attachments - SharePoint REST]
 
   Task -- "Communication" --> Comments
   Task -- "Assigned · Watchers" --> Person
   Task -. "Attached files" .-> Attachments
   TestSheet -- "Tester" --> Person
-  EIR -- "Reporter · Assigned Engineers · Watchers" --> Person
+  EIR -- "Reporter · Engineers · Watchers" --> Person
   EIR -- "Communication" --> Comments
   EIR -. "Attached files" .-> Attachments
-  Admin -- "Email (grants admin UI access)" --> Person
+  Admin -- "Email grants admin access" --> Person
 `.trim();
 
 const Mermaid = lazy(() => import("../components/MermaidDiagram"));
