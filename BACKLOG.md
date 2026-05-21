@@ -12,7 +12,21 @@ needs detail, add a sub-bullet underneath it.
 
 ## Next up
 
-(empty)
+- **EIR form — rework Project Reference write path.** The SharePoint
+  column on the EIR list is a multi-select Choice (text values), not a
+  Lookup. `EirFormModal` still writes via the old `parentProjectLookupId`
+  field through `createEir`; this needs to switch to writing the chosen
+  choice value(s) on the actual Choice column. While we're in there, do
+  the same for the in-app edit path (sidebar shows read-only chips today).
+- **EIR detail — Reporter no longer rendering.** Since we dropped
+  `$select` on the EIR list fetch (the no-`$select` route that finally
+  got `ProjectReference` resolving), Graph stopped expanding the single-
+  person Reporter column as an object — we only get `ReporterLookupId`
+  (just an integer). The mapper still reads `f.Reporter` and finds
+  nothing, so the sidebar shows "No reporter" on every EIR. Fix options:
+  add `Reporter` back to a targeted `$select` for this single field, or
+  look the person up by lookupId via the User Information List / a
+  cached directory.
 
 ## Later
 
