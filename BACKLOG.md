@@ -12,6 +12,11 @@ needs detail, add a sub-bullet underneath it.
 
 ## Next up
 
+- **Rename "Engineering Lists" dropdown to "Engineering Requests".** The
+  header dropdown that holds EIRs and Test Sheets is currently labelled
+  "Engineering Lists" (in `src/components/Header.tsx`) — change the label
+  + the short mobile-only "Lists" fallback to "Requests". Update the
+  Manual quick-start where it mentions the dropdown.
 - **EIR form — rework Project Reference write path.** The SharePoint
   column on the EIR list is a multi-select Choice (text values), not a
   Lookup. `EirFormModal` still writes via the old `parentProjectLookupId`
