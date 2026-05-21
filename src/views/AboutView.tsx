@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowLeft, BookOpen, ExternalLink, Info } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, BookOpen, ExternalLink, Info, Repeat } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { CURRENT_VERSION } from "@/data/changelog";
 import { cn } from "@/lib/cn";
@@ -85,65 +85,10 @@ const SYSTEM_TIERS: Tier[] = [
 ];
 
 // =============================================================================
-// Data model — entities on the left, their relationships listed under each.
+// Data model — relationships are wired up inside the ReferenceHierarchy
+// component below (the tier layout shows them naturally). The shared
+// concepts list is the supporting cast that every entity touches.
 // =============================================================================
-
-interface EntitySpec {
-  name: string;
-  palette: PaletteKey;
-  references: { label: string; target: string }[];
-  fields: { label: string; target: string }[];
-}
-
-const ENTITIES: EntitySpec[] = [
-  {
-    name: "Task",
-    palette: "entity",
-    references: [
-      { label: "Parent Project", target: "Project" },
-      { label: "Parent Task", target: "Task (self-link)" },
-    ],
-    fields: [
-      { label: "Assigned · Watchers", target: "Person" },
-      { label: "Communication", target: "Comments" },
-      { label: "Attached files", target: "Attachments" },
-    ],
-  },
-  {
-    name: "EIR",
-    palette: "entity",
-    references: [
-      { label: "Project Reference", target: "Project (multi-choice text)" },
-      { label: "Task Reference", target: "Task (text or Power Apps URL)" },
-    ],
-    fields: [
-      { label: "Reporter · Engineers · Watchers", target: "Person" },
-      { label: "Communication", target: "Comments" },
-      { label: "Attached files", target: "Attachments" },
-    ],
-  },
-  {
-    name: "Test Sheet",
-    palette: "entity",
-    references: [
-      { label: "Task Reference", target: "Task" },
-      { label: "Project Reference", target: "Project" },
-    ],
-    fields: [{ label: "Tester", target: "Person" }],
-  },
-  {
-    name: "Project",
-    palette: "entity",
-    references: [],
-    fields: [{ label: "Title", target: "0000-Engineering Apps, …" }],
-  },
-  {
-    name: "Admin",
-    palette: "entity",
-    references: [],
-    fields: [{ label: "Email", target: "Person (grants admin UI access)" }],
-  },
-];
 
 const SHARED_CONCEPTS: NodeSpec[] = [
   { label: "Person", hint: "Email + display name + lookupId", palette: "shared" },
@@ -237,23 +182,25 @@ export function AboutView() {
 
       <Section
         title="Data model"
-        description="The SharePoint lists this app reads and the shared concepts they share (people, comments, attachments). Each entity card lists the lookups it owns and the person / comment / file relationships."
+        description="How the SharePoint entities reference each other. Project sits at the top — Task, EIR, and Test Sheet all reference it. Task is referenced in turn by EIR and Test Sheet. Each arrow shows the actual SharePoint column carrying the reference."
       >
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.4fr_1fr]">
-          <div className="flex flex-col gap-3">
-            {ENTITIES.map((e) => (
-              <EntityCard key={e.name} entity={e} />
-            ))}
-          </div>
-          <div className="flex flex-col gap-3">
-            <h3 className="font-display text-xs font-semibold uppercase tracking-wider text-fg-muted">
-              Shared concepts
-            </h3>
-            {SHARED_CONCEPTS.map((n) => (
-              <DiagramNode key={n.label} node={n} className="w-full" />
-            ))}
-          </div>
+        <ReferenceHierarchy />
+
+        <h3 className="mt-6 font-display text-xs font-semibold uppercase tracking-wider text-fg-muted">
+          Shared concepts (used by all entities)
+        </h3>
+        <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+          {SHARED_CONCEPTS.map((n) => (
+            <DiagramNode key={n.label} node={n} className="w-full" />
+          ))}
         </div>
+        <div className="mt-3 grid grid-cols-1 gap-x-4 gap-y-1 text-xs text-fg-muted sm:grid-cols-2">
+          <SharedRow concept="Person" sources="Task (Assigned · Watchers) · EIR (Reporter · Engineers · Watchers) · Test Sheet (Tester) · Admin (Email)" />
+          <SharedRow concept="Comments" sources="Task, EIR — via the Communication field" />
+          <SharedRow concept="Attachments" sources="Task, EIR — list-item files via SharePoint REST" />
+          <SharedRow concept="Admin" sources="Standalone list — only links to Person via email; everyone in the list sees the Admin nav link" />
+        </div>
+
         <Legend
           items={[
             { palette: "entity", label: "Entity (SharePoint list)" },
@@ -335,48 +282,132 @@ function DiagramNode({
   );
 }
 
-function EntityCard({ entity }: { entity: EntitySpec }) {
+/**
+ * Three-tier reference hierarchy. Project at top → Task in the middle →
+ * EIR + Test Sheet at the bottom. Between each tier we render a labelled
+ * "reference bar" showing the exact SharePoint columns carrying the
+ * relationship (and which source entity sets each one).
+ *
+ * Visual cue: every arrow points UPWARD because references in SharePoint
+ * point at the parent (the child stores the lookup id).
+ */
+function ReferenceHierarchy() {
   return (
-    <div
-      className={cn(
-        "rounded-md border p-3 shadow-sm",
-        PALETTE[entity.palette],
-      )}
-    >
-      <div className="mb-2 font-display text-sm font-semibold uppercase tracking-wide">
-        {entity.name}
-      </div>
-      {entity.references.length > 0 && (
-        <RelList title="References" items={entity.references} />
-      )}
-      {entity.fields.length > 0 && (
-        <RelList title="Fields" items={entity.fields} />
-      )}
+    <div className="flex flex-col items-stretch gap-1">
+      {/* Tier 1 — Project */}
+      <TierRow>
+        <BigNode label="Project" palette="entity" />
+      </TierRow>
+
+      <ReferenceBar
+        upRefs={[
+          { field: "Parent Project Reference", from: "Task" },
+          { field: "Project Reference (multi-choice)", from: "EIR" },
+          { field: "Project Reference", from: "Test Sheet" },
+        ]}
+      />
+
+      {/* Tier 2 — Task (with self-link callout) */}
+      <TierRow>
+        <div className="flex items-center gap-2">
+          <BigNode label="Task" palette="entity" />
+          <SelfLoopBadge label="Parent Task — self-link (optional)" />
+        </div>
+      </TierRow>
+
+      <ReferenceBar
+        upRefs={[
+          { field: "Task Reference (text or Power Apps URL)", from: "EIR" },
+          { field: "Task Reference", from: "Test Sheet" },
+        ]}
+      />
+
+      {/* Tier 3 — EIR + Test Sheet */}
+      <TierRow>
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <BigNode label="EIR" palette="entity" />
+          <BigNode label="Test Sheet" palette="entity" />
+        </div>
+      </TierRow>
     </div>
   );
 }
 
-function RelList({
-  title,
-  items,
+function TierRow({ children }: { children: React.ReactNode }) {
+  return <div className="flex justify-center py-1">{children}</div>;
+}
+
+function BigNode({
+  label,
+  palette,
 }: {
-  title: string;
-  items: { label: string; target: string }[];
+  label: string;
+  palette: PaletteKey;
 }) {
   return (
-    <div className="mb-1.5 last:mb-0">
-      <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-fg-muted">
-        {title}
+    <div
+      className={cn(
+        "rounded-md border px-5 py-2.5 text-center shadow-sm",
+        PALETTE[palette],
+      )}
+    >
+      <div className="font-display text-sm font-semibold uppercase tracking-wider">
+        {label}
       </div>
-      <ul className="mt-0.5 space-y-0.5">
-        {items.map((it) => (
-          <li key={`${it.label}-${it.target}`} className="text-xs">
-            <span className="font-medium text-fg">{it.label}</span>
-            <span className="text-fg-muted"> → </span>
-            <span className="text-fg-muted">{it.target}</span>
-          </li>
-        ))}
-      </ul>
+    </div>
+  );
+}
+
+function SelfLoopBadge({ label }: { label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full border border-dashed border-border bg-surface-2 px-2 py-1 text-[10px] uppercase tracking-wider text-fg-muted">
+      <Repeat className="h-3 w-3" />
+      {label}
+    </span>
+  );
+}
+
+/**
+ * Reference bar between two tiers. Shows an upward arrow at the centre
+ * (because references point at the parent) and lists each carrying
+ * SharePoint column with its source entity called out.
+ */
+function ReferenceBar({
+  upRefs,
+}: {
+  upRefs: { field: string; from: string }[];
+}) {
+  return (
+    <div className="mx-auto flex w-full max-w-[640px] flex-col items-center gap-1.5 py-1">
+      <ArrowUp className="h-5 w-5 text-fg-muted" />
+      <div className="w-full rounded-md border border-dashed border-border bg-surface-2/40 px-3 py-2">
+        <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-fg-muted">
+          References ↑
+        </div>
+        <ul className="space-y-0.5">
+          {upRefs.map((r) => (
+            <li
+              key={`${r.field}-${r.from}`}
+              className="flex flex-wrap items-baseline gap-x-2 text-xs"
+            >
+              <span className="font-medium text-fg">{r.field}</span>
+              <span className="text-[10px] text-fg-muted">from</span>
+              <span className="rounded bg-cooper-red/15 px-1.5 py-0.5 text-[10px] font-semibold text-fg">
+                {r.from}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+function SharedRow({ concept, sources }: { concept: string; sources: string }) {
+  return (
+    <div className="flex gap-2 leading-snug">
+      <span className="shrink-0 font-semibold text-fg">{concept}</span>
+      <span>{sources}</span>
     </div>
   );
 }

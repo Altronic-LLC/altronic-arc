@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.16.7",
+    date: "2026-05-20",
+    changes: [
+      "Data model on the About page now reads as a proper three-tier hierarchy — Project at the top, Task in the middle (with its 'Parent Task' self-link called out), and EIR + Test Sheet at the bottom; between each tier a labelled bar lists every SharePoint column that carries the reference and which entity each one comes from, so Project Reference and Task Reference relationships are visually obvious",
+      "Shared concepts (Person, Comments, Attachments, Admin) moved below the hierarchy with a short note for each describing which entities touch it and via which field",
+    ],
+  },
+  {
     version: "0.16.6",
     date: "2026-05-20",
     changes: [
