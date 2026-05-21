@@ -345,9 +345,14 @@ const SECTIONS: ManualSection[] = [
         <H3>Attachments</H3>
         <P>
           Drag a file onto the composer, or click <strong>Attach</strong>.
-          Multiple files OK; previewed inline. Image attachments show up in
-          the comment and also ride along on the @-mention email as proper
-          email attachments.
+          Multiple files OK; previewed inline. On a <strong>task</strong>{" "}
+          comment, dropped files upload to the task's SharePoint project
+          folder before the comment posts, and a clickable hyperlink to
+          each file is inlined into the comment body — same routing
+          described in the Attachments section below. On an{" "}
+          <strong>EIR</strong> comment, attachments are still in-session
+          previews only (legacy behaviour; the EIR attachment migration is
+          on the backlog).
         </P>
         <H3>Editing your own comments</H3>
         <P>
@@ -369,6 +374,106 @@ const SECTIONS: ManualSection[] = [
           thread immediately; the network round-trip to SharePoint happens in
           the background.
         </P>
+      </>
+    ),
+  },
+  {
+    id: "attachments",
+    title: "Task attachments",
+    keywords: [
+      "attachment",
+      "attachments",
+      "upload",
+      "file",
+      "files",
+      "drawing",
+      "datasheet",
+      "pdf",
+      "image",
+      "project folder",
+      "documents library",
+      "miscellaneous",
+      "view all",
+      "where do files go",
+      "sharepoint folder",
+      "where used",
+    ],
+    searchText:
+      "Task attachments aren't stored on the task. They live in the team's Documents library under General/Project Folders, in the folder tagged with the task's Project Reference. If no folder matches, the file goes into the shared Miscellaneous folder with the project code prefixed onto the filename. The task shows the 5 most-recently-modified files plus a View all link. Comment attachments use the same routing — drop a file in the comment composer and it uploads to the project folder, then drops a hyperlink into the comment.",
+    render: () => (
+      <>
+        <P>
+          Task attachments live in the team's SharePoint{" "}
+          <strong>Documents</strong> library — specifically under{" "}
+          <code>General/Project Folders/</code> — instead of being attached
+          directly to the task. Each subfolder there is tagged with a{" "}
+          <strong>Project Reference</strong> column that links it back to a
+          Project. When you upload a file on a task, the app finds the
+          folder tagged with the task's project and uploads there.
+        </P>
+        <H3>Uploading a file</H3>
+        <P>
+          Open the task and use the <strong>Add file</strong> button on the
+          Attachments card. The toast under the button tells you which
+          folder you're writing to:
+        </P>
+        <ul className="ml-6 list-disc text-sm leading-relaxed text-fg-muted">
+          <li>
+            <em>"Files are stored in NGI-5000 on SharePoint."</em> — your
+            task's project matched that folder; the file goes straight in.
+          </li>
+          <li>
+            <em>
+              "No project folder matched — Miscellaneous is used instead
+              and uploads are prefixed with the project code so they stay
+              findable."
+            </em>{" "}
+            — the project has no dedicated folder, so the file lands in
+            the shared <code>Miscellaneous</code> folder with the project
+            code prepended (e.g. <code>349-MT-ACI_drawing.pdf</code>). You
+            can still find it later by searching SharePoint for the
+            project code.
+          </li>
+        </ul>
+        <H3>What you see on the task</H3>
+        <P>
+          The Attachments card shows the <strong>5 most-recently-modified
+          files</strong> in the project folder — each filename is a
+          hyperlink that opens the file in SharePoint. The{" "}
+          <strong>View all in SharePoint →</strong> link at the top of the
+          card opens the full project folder so you can browse everything,
+          including older files. The list is project-scoped, not
+          task-scoped: every task on the same project sees the same set of
+          files, because the files belong to the project.
+        </P>
+        <H3>Comment attachments</H3>
+        <P>
+          Files dropped into a task comment use the same routing. They
+          upload to the same project folder before the comment posts, and
+          a clickable hyperlink to each one is inlined at the bottom of
+          the comment body (`📎 filename.pdf`). The comment thread
+          renders those links naturally, so anyone reading the comment can
+          click straight through to the file.
+        </P>
+        <H3>Removing a file</H3>
+        <P>
+          The trash icon next to each filename deletes the file from
+          SharePoint. It asks for confirmation first because files are
+          project-wide — removing a file affects every task on that
+          project, not just the one you're looking at.
+        </P>
+        <H3>Limits</H3>
+        <P>
+          Files up to 4 MB upload directly. Above that, large-file upload
+          sessions aren't wired up yet — drop the file into SharePoint
+          directly and it'll show up on the next refresh.
+        </P>
+        <Tip>
+          EIRs use a different model for now — list-item attachments
+          attached to the EIR itself. That's an artifact of how the EIR
+          column was originally set up; the migration to the same
+          project-folder model is on the backlog.
+        </Tip>
       </>
     ),
   },
@@ -453,12 +558,13 @@ const SECTIONS: ManualSection[] = [
         </P>
         <H3>Attachments</H3>
         <P>
-          Tasks and EIRs have an <strong>Attachments</strong> card on the
-          detail page — list, upload, download, delete files stored against
-          the SharePoint list item. If the section shows an "unavailable"
-          notice instead, an admin still needs to grant the app the
-          SharePoint REST permission (Office 365 SharePoint Online →
-          AllSites.Manage).
+          EIRs have an <strong>Attachments</strong> card on the detail
+          page that stores files directly against the SharePoint list
+          item (the classic AttachmentFiles endpoint). If the section
+          shows an "unavailable" notice, an admin still needs to grant
+          the app the SharePoint REST permission (Office 365 SharePoint
+          Online → AllSites.Manage). Task attachments use a different
+          routing — see the "Task attachments" section.
         </P>
       </>
     ),

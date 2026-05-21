@@ -58,29 +58,30 @@ const SYSTEM_TIERS: Tier[] = [
   {
     label: "React SPA",
     nodes: [
-      { label: "Views", hint: "Dashboard · List · Kanban · Detail · EIRs · Admin", palette: "ui" },
-      { label: "React Query hooks", hint: "useTasks · useEirs · useAdmins · useAttachments", palette: "ui" },
-      { label: "API layer", hint: "src/api/tasks · eirs · admins · attachments · email", palette: "ui" },
+      { label: "Views", hint: "Dashboard · List · Kanban · Detail · EIRs · Test Sheets · Admin", palette: "ui" },
+      { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useAdmins · useTaskFiles", palette: "ui" },
+      { label: "API layer", hint: "src/api/tasks · eirs · testSheets · admins · projectFiles · attachments · email", palette: "ui" },
     ],
   },
   {
     label: "Auth & transport",
     nodes: [
-      { label: "MSAL Entra ID", hint: "Sites.Selected · Mail.Send.Shared · AllSites.Manage", palette: "auth" },
-      { label: "Microsoft Graph v1.0", hint: "Lists, items, users, mail", palette: "gateway" },
-      { label: "SharePoint REST", hint: "Attachments only", palette: "gateway" },
+      { label: "MSAL Entra ID", hint: "Sites.Selected · Mail.Send.Shared (AllSites.Manage optional)", palette: "auth" },
+      { label: "Microsoft Graph v1.0", hint: "Lists, items, drives, users, mail", palette: "gateway" },
+      { label: "SharePoint REST", hint: "EIR list-item attachments only (optional)", palette: "gateway" },
       { label: "Mock store", hint: "in-memory + localStorage (demo mode)", palette: "mock" },
       { label: "Shared mailbox", hint: "@-mention notifications", palette: "mock" },
     ],
   },
   {
-    label: "SharePoint lists",
+    label: "SharePoint storage",
     nodes: [
       { label: "Project Task List", palette: "list" },
       { label: "Projects", palette: "list" },
       { label: "Test Results", palette: "list" },
       { label: "EIRs", palette: "list" },
       { label: "Admins", palette: "list" },
+      { label: "Documents library", hint: "General/Project Folders/* — task attachments route here", palette: "list" },
     ],
   },
 ];
@@ -237,13 +238,38 @@ const SCHEMA_TABLES: SchemaTable[] = [
   },
   {
     name: "Attachment",
-    source: "Concept (SP REST file)",
+    source: "EIR list-item attachment (SP REST)",
     palette: "shared",
     x: 960, y: 540, width: 290,
     columns: [
-      { name: "parentId", type: "int", kind: "fk", references: "Task / EIR" },
+      { name: "parentId", type: "int", kind: "fk", references: "EIR.id" },
       { name: "fileName", type: "text", kind: "field" },
       { name: "serverRelativeUrl", type: "text", kind: "field" },
+    ],
+  },
+  {
+    name: "ProjectFolder",
+    source: "Documents / General / Project Folders",
+    palette: "shared",
+    x: 410, y: 540, width: 420,
+    columns: [
+      { name: "id", type: "driveItemId", kind: "pk" },
+      { name: "name", type: "text", kind: "field" },
+      { name: "webUrl", type: "text", kind: "field" },
+      { name: "projectReference", type: "int", kind: "fk", references: "Project.id" },
+    ],
+  },
+  {
+    name: "ProjectFile",
+    source: "Files inside a ProjectFolder",
+    palette: "shared",
+    x: 20, y: 760, width: 360,
+    columns: [
+      { name: "id", type: "driveItemId", kind: "pk" },
+      { name: "folderId", type: "driveItemId", kind: "fk", references: "ProjectFolder.id" },
+      { name: "name", type: "text", kind: "field" },
+      { name: "webUrl", type: "text", kind: "field" },
+      { name: "lastModified", type: "datetime", kind: "field" },
     ],
   },
 ];
@@ -275,11 +301,15 @@ const CONNECTIONS: Connection[] = [
   { fromTable: "TestSheet", fromColumn: "tester", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
   // Admin → Person
   { fromTable: "Admin", fromColumn: "email", toTable: "Person", toColumn: "email", fromCard: "one", toCard: "one" },
-  // Comment / Attachment → Task & EIR
+  // Comment → Task & EIR
   { fromTable: "Comment", fromColumn: "parentId", toTable: "Task", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "Comment", fromColumn: "parentId", toTable: "EIR", toColumn: "id", fromCard: "many", toCard: "one" },
-  { fromTable: "Attachment", fromColumn: "parentId", toTable: "Task", toColumn: "id", fromCard: "many", toCard: "one" },
+  // Attachment (EIR only — Tasks use ProjectFolder routing instead)
   { fromTable: "Attachment", fromColumn: "parentId", toTable: "EIR", toColumn: "id", fromCard: "many", toCard: "one" },
+  // ProjectFolder routing: every Project has one folder, every folder
+  // holds many files. Tasks discover their folder by project lookupId.
+  { fromTable: "ProjectFolder", fromColumn: "projectReference", toTable: "Project", toColumn: "id", fromCard: "one", toCard: "one" },
+  { fromTable: "ProjectFile", fromColumn: "folderId", toTable: "ProjectFolder", toColumn: "id", fromCard: "many", toCard: "one" },
 ];
 
 export function AboutView() {

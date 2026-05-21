@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.18.2",
+    date: "2026-05-21",
+    changes: [
+      "About diagrams updated for the new attachments routing — system flow now lists the Documents library under SharePoint storage and the `projectFiles` API + `useTaskFiles` hook on the SPA tier; ER diagram adds ProjectFolder + ProjectFile entities with foreign keys to Project, and the EIR-only Attachment entity is now correctly scoped to EIR.id (the Task → Attachment link is gone)",
+      "User Manual got a dedicated 'Task attachments' section walking through the project-folder routing, the Miscellaneous fallback with filename prefix, the 5-most-recent display + 'View all' link, and how comment attachments piggyback on the same path; the Comments section's Attachments sub-heading was rewritten to call out the task vs EIR difference",
+      "README rewritten — frames the app as the canonical home for every internal Altronic engineering tool going forward (Tasks + EIRs + Test Sheets today, anything new should land here as a new view), documents the Project Folders attachment routing up front, and lists every env var the deploy needs",
+    ],
+  },
+  {
     version: "0.18.1",
     date: "2026-05-21",
     changes: [
