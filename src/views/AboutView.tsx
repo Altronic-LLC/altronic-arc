@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowLeft, BookOpen, ExternalLink, Info, Key } from "lucide-react";
+import { ArrowDown, ArrowLeft, BookOpen, ExternalLink, Info } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { CURRENT_VERSION } from "@/data/changelog";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
@@ -86,10 +86,14 @@ const SYSTEM_TIERS: Tier[] = [
 ];
 
 // =============================================================================
-// Data model — ER-diagram style. Each entity is a table card with its key
-// columns and the foreign keys called out (FK → Target). This is the
-// schema view the engineering team asked for; the previous hierarchy
-// layout undersold how the relationships actually wire up.
+// Data model — drawn as a real ER diagram on a single SVG canvas.
+// Each table is positioned by hand on a 1280x880 canvas, with crow's-foot
+// connectors drawn between FK columns and their targets (one-end on the
+// PK side, many-end on the FK side).
+//
+// To add a column or relationship: bump the row count in SCHEMA_TABLES,
+// adjust the table's `y` if it pushes neighbours, and add a row to
+// CONNECTIONS. The renderer computes port positions from row index.
 // =============================================================================
 
 type ColumnKind = "pk" | "field" | "fk";
@@ -108,6 +112,27 @@ interface SchemaTable {
   source: string;
   palette: PaletteKey;
   columns: SchemaColumn[];
+  /** Top-left x position on the ER canvas. */
+  x: number;
+  /** Top-left y position on the ER canvas. */
+  y: number;
+  /** Card width. */
+  width: number;
+}
+
+// ----- ER canvas geometry --------------------------------------------------
+const HEADER_HEIGHT = 50;
+const ROW_HEIGHT = 22;
+
+/** Compute the table's total rendered height. */
+function tableHeight(t: SchemaTable): number {
+  return HEADER_HEIGHT + t.columns.length * ROW_HEIGHT + 6;
+}
+
+/** Y coordinate of a column's center (used for connection endpoints). */
+function rowCenterY(t: SchemaTable, columnName: string): number {
+  const idx = t.columns.findIndex((c) => c.name === columnName);
+  return t.y + HEADER_HEIGHT + idx * ROW_HEIGHT + ROW_HEIGHT / 2;
 }
 
 const SCHEMA_TABLES: SchemaTable[] = [
@@ -115,15 +140,28 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "Project",
     source: "Projects list",
     palette: "entity",
+    x: 530, y: 20, width: 240,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title", type: "text", kind: "field" },
     ],
   },
   {
+    name: "Person",
+    source: "Concept (User Info list)",
+    palette: "shared",
+    x: 960, y: 20, width: 290,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "displayName", type: "text", kind: "field" },
+      { name: "email", type: "text", kind: "field" },
+    ],
+  },
+  {
     name: "Task",
     source: "Project Task List",
     palette: "entity",
+    x: 20, y: 220, width: 360,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title", type: "text", kind: "field" },
@@ -131,21 +169,19 @@ const SCHEMA_TABLES: SchemaTable[] = [
       { name: "status", type: "choice", kind: "field" },
       { name: "priority", type: "choice", kind: "field" },
       { name: "category", type: "choice", kind: "field" },
-      { name: "labels", type: "choice[]", kind: "field" },
       { name: "dueDate", type: "datetime", kind: "field" },
       { name: "parentProjectId", type: "int", kind: "fk", references: "Project.id" },
       { name: "parentTaskId", type: "int", kind: "fk", references: "Task.id" },
       { name: "relatedProjects", type: "int[]", kind: "fk", references: "Project.id" },
       { name: "assigned", type: "int[]", kind: "fk", references: "Person.id" },
       { name: "watchers", type: "int[]", kind: "fk", references: "Person.id" },
-      { name: "description", type: "text", kind: "field" },
-      { name: "communication", type: "text", kind: "field" },
     ],
   },
   {
     name: "EIR",
     source: "Engineering Information Request",
     palette: "entity",
+    x: 410, y: 220, width: 420,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "eirNo", type: "text", kind: "field" },
@@ -159,73 +195,91 @@ const SCHEMA_TABLES: SchemaTable[] = [
       { name: "reporter", type: "int", kind: "fk", references: "Person.id" },
       { name: "assignedEngineers", type: "int[]", kind: "fk", references: "Person.id" },
       { name: "watchers", type: "int[]", kind: "fk", references: "Person.id" },
-      { name: "description", type: "text", kind: "field" },
-      { name: "engineeringResponse", type: "text", kind: "field" },
-      { name: "whereUsed", type: "text", kind: "field" },
-      { name: "mfg / mfgPartNumber / altronicPartNumber", type: "text", kind: "field" },
-      { name: "eau / currentStock / currentPrice", type: "text", kind: "field" },
-      { name: "requestedCompletionDate / ltbDate", type: "datetime", kind: "field" },
-      { name: "buyerCode", type: "text", kind: "field" },
-      { name: "communication", type: "text", kind: "field" },
-    ],
-  },
-  {
-    name: "TestSheet",
-    source: "Test Results",
-    palette: "entity",
-    columns: [
-      { name: "id", type: "int", kind: "pk" },
-      { name: "title", type: "text", kind: "field" },
-      { name: "product / serialNumber / firmwareVersion", type: "text", kind: "field" },
-      { name: "purpose / results", type: "text", kind: "field" },
-      { name: "parentProjectId", type: "int", kind: "fk", references: "Project.id" },
-      { name: "parentTaskId", type: "int", kind: "fk", references: "Task.id" },
-      { name: "tester", type: "int", kind: "fk", references: "Person.id" },
     ],
   },
   {
     name: "Admin",
     source: "Admins list",
     palette: "entity",
+    x: 960, y: 240, width: 290,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "email", type: "text", kind: "fk", references: "Person.email" },
       { name: "displayName", type: "text", kind: "field" },
-      { name: "note", type: "text", kind: "field" },
-    ],
-  },
-  {
-    name: "Person",
-    source: "Concept (resolved from SharePoint user info list)",
-    palette: "shared",
-    columns: [
-      { name: "id", type: "int", kind: "pk" },
-      { name: "displayName", type: "text", kind: "field" },
-      { name: "email", type: "text", kind: "field" },
     ],
   },
   {
     name: "Comment",
-    source: "Concept (parsed from Communication text field)",
+    source: "Concept (Communication field)",
     palette: "shared",
+    x: 960, y: 380, width: 290,
     columns: [
-      { name: "parentId", type: "int", kind: "fk", references: "Task.id / EIR.id" },
+      { name: "parentId", type: "int", kind: "fk", references: "Task / EIR" },
       { name: "timestamp", type: "datetime", kind: "field" },
       { name: "authorName", type: "text", kind: "field" },
-      { name: "authorEmail", type: "text", kind: "field" },
       { name: "bodyHtml", type: "text", kind: "field" },
     ],
   },
   {
-    name: "Attachment",
-    source: "Concept (SharePoint REST list-item file)",
-    palette: "shared",
+    name: "TestSheet",
+    source: "Test Results",
+    palette: "entity",
+    x: 20, y: 540, width: 360,
     columns: [
-      { name: "parentId", type: "int", kind: "fk", references: "Task.id / EIR.id" },
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title", type: "text", kind: "field" },
+      { name: "product", type: "text", kind: "field" },
+      { name: "serialNumber", type: "text", kind: "field" },
+      { name: "parentProjectId", type: "int", kind: "fk", references: "Project.id" },
+      { name: "parentTaskId", type: "int", kind: "fk", references: "Task.id" },
+      { name: "tester", type: "int", kind: "fk", references: "Person.id" },
+    ],
+  },
+  {
+    name: "Attachment",
+    source: "Concept (SP REST file)",
+    palette: "shared",
+    x: 960, y: 540, width: 290,
+    columns: [
+      { name: "parentId", type: "int", kind: "fk", references: "Task / EIR" },
       { name: "fileName", type: "text", kind: "field" },
       { name: "serverRelativeUrl", type: "text", kind: "field" },
     ],
   },
+];
+
+// ----- Connections (FK → target). Cardinality at each end: "one" | "many" --
+interface Connection {
+  fromTable: string;
+  fromColumn: string;
+  toTable: string;
+  toColumn: string;
+  fromCard: "one" | "many";
+  toCard: "one" | "many";
+}
+
+const CONNECTIONS: Connection[] = [
+  // Task → Project, Person
+  { fromTable: "Task", fromColumn: "parentProjectId", toTable: "Project", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "Task", fromColumn: "relatedProjects", toTable: "Project", toColumn: "id", fromCard: "many", toCard: "many" },
+  { fromTable: "Task", fromColumn: "assigned", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
+  { fromTable: "Task", fromColumn: "watchers", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
+  // EIR → Project, Person
+  { fromTable: "EIR", fromColumn: "projectReferences", toTable: "Project", toColumn: "id", fromCard: "many", toCard: "many" },
+  { fromTable: "EIR", fromColumn: "reporter", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "EIR", fromColumn: "assignedEngineers", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
+  { fromTable: "EIR", fromColumn: "watchers", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
+  // TestSheet → Project, Task, Person
+  { fromTable: "TestSheet", fromColumn: "parentProjectId", toTable: "Project", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "TestSheet", fromColumn: "parentTaskId", toTable: "Task", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "TestSheet", fromColumn: "tester", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
+  // Admin → Person
+  { fromTable: "Admin", fromColumn: "email", toTable: "Person", toColumn: "email", fromCard: "one", toCard: "one" },
+  // Comment / Attachment → Task & EIR
+  { fromTable: "Comment", fromColumn: "parentId", toTable: "Task", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "Comment", fromColumn: "parentId", toTable: "EIR", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "Attachment", fromColumn: "parentId", toTable: "Task", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "Attachment", fromColumn: "parentId", toTable: "EIR", toColumn: "id", fromCard: "many", toCard: "one" },
 ];
 
 export function AboutView() {
@@ -333,13 +387,9 @@ export function AboutView() {
 
       <Section
         title="Data model"
-        description="ER-diagram view of the SharePoint schema. Each card is one entity (a SharePoint list, or a derived concept). Primary keys are flagged PK; foreign keys carry an arrow with the target column they reference. Array types (int[]) indicate a multi-value relationship — these are SharePoint multi-value Lookup / multi-person columns."
+        description="ER diagram of the SharePoint schema. Each table is one entity (a list, or a derived concept). PK rows are flagged in red; FK rows are flagged blue. Connectors show foreign-key relationships with crow's-foot cardinality at each end (○ = one, ⋖ = many). The diagram is wide — scroll horizontally on small screens."
       >
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-          {SCHEMA_TABLES.map((t) => (
-            <SchemaCard key={t.name} table={t} />
-          ))}
-        </div>
+        <ErDiagram />
         <Legend
           items={[
             { palette: "entity", label: "Entity (SharePoint list)" },
@@ -431,72 +481,262 @@ function DiagramNode({
  * point at the parent (the child stores the lookup id).
  */
 /**
- * ER-diagram-style table card. Header carries the table name + the
- * SharePoint list / concept it comes from; the body is a striped column
- * list with type, kind (PK / FK / field), and the FK target where
- * applicable.
+ * ER diagram drawn as a single SVG canvas. Tables are positioned by hand
+ * in SCHEMA_TABLES; connectors come from CONNECTIONS. Crow's-foot markers
+ * (`one` = open circle, `many` = three-prong) carry cardinality at each
+ * end. Lines route as a simple right-angle: source → midpoint → target.
  */
-function SchemaCard({ table }: { table: SchemaTable }) {
+function ErDiagram() {
+  // Compute canvas dimensions from the table footprints.
+  const maxX = Math.max(...SCHEMA_TABLES.map((t) => t.x + t.width)) + 30;
+  const maxY = Math.max(...SCHEMA_TABLES.map((t) => t.y + tableHeight(t))) + 30;
+  const byName = Object.fromEntries(SCHEMA_TABLES.map((t) => [t.name, t]));
+
   return (
-    <div className="overflow-hidden rounded-md border border-border bg-bg shadow-sm">
-      <div
-        className={cn(
-          "border-b border-border px-3 py-2",
-          PALETTE[table.palette],
-        )}
+    <div className="overflow-x-auto rounded-md border border-border bg-bg p-3">
+      <svg
+        viewBox={`0 0 ${maxX} ${maxY}`}
+        width={maxX}
+        height={maxY}
+        style={{ minWidth: "100%", maxWidth: `${maxX}px` }}
+        role="img"
+        aria-label="Entity-relationship diagram for the Altronic Engineering Task System"
       >
-        <div className="font-display text-sm font-semibold uppercase tracking-wider">
-          {table.name}
-        </div>
-        <div className="text-[10px] text-fg-muted">{table.source}</div>
-      </div>
-      <table className="w-full text-xs">
-        <tbody>
-          {table.columns.map((col, i) => (
-            <tr
-              key={col.name}
-              className={cn(
-                i % 2 === 0 ? "bg-surface" : "bg-surface-2/40",
-                "border-b border-border last:border-b-0",
-              )}
-            >
-              <td className="w-8 px-2 py-1 align-top">
-                {col.kind === "pk" && (
-                  <span
-                    className="inline-flex items-center rounded bg-cooper-red/20 px-1.5 py-0.5 text-[9px] font-bold tracking-wider text-cooper-red"
-                    title="Primary key"
-                  >
-                    <Key className="h-2.5 w-2.5" />
-                  </span>
-                )}
-                {col.kind === "fk" && (
-                  <span
-                    className="inline-flex items-center rounded bg-superior-blue/20 px-1.5 py-0.5 text-[9px] font-bold tracking-wider text-superior-blue"
-                    title="Foreign key"
-                  >
-                    FK
-                  </span>
-                )}
-              </td>
-              <td className="px-1 py-1 font-mono font-semibold text-fg align-top">
-                {col.name}
-              </td>
-              <td className="px-1 py-1 font-mono text-[10px] text-fg-muted align-top">
-                {col.type}
-              </td>
-              <td className="px-2 py-1 text-[11px] text-fg-muted align-top">
-                {col.references && (
-                  <span className="inline-flex items-center gap-1">
-                    <span className="text-superior-blue">→</span>
-                    <span className="font-mono">{col.references}</span>
-                  </span>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+        <defs>
+          {/* "many" crow's-foot — three lines fanning from the table edge. */}
+          <marker
+            id="er-many"
+            markerWidth="14"
+            markerHeight="14"
+            refX="13"
+            refY="7"
+            orient="auto"
+            markerUnits="userSpaceOnUse"
+          >
+            <path
+              d="M 13,7 L 2,0 M 13,7 L 2,7 M 13,7 L 2,14"
+              stroke="rgb(var(--fg-muted))"
+              strokeWidth="1.4"
+              fill="none"
+            />
+          </marker>
+          {/* "one" — open circle just outside the table edge. */}
+          <marker
+            id="er-one"
+            markerWidth="14"
+            markerHeight="14"
+            refX="13"
+            refY="7"
+            orient="auto"
+            markerUnits="userSpaceOnUse"
+          >
+            <circle
+              cx="6"
+              cy="7"
+              r="3"
+              stroke="rgb(var(--fg-muted))"
+              strokeWidth="1.4"
+              fill="rgb(var(--bg))"
+            />
+            <line
+              x1="9"
+              y1="7"
+              x2="13"
+              y2="7"
+              stroke="rgb(var(--fg-muted))"
+              strokeWidth="1.4"
+            />
+          </marker>
+        </defs>
+
+        {/* Connectors first so they sit behind the table cards. */}
+        {CONNECTIONS.map((c, i) => (
+          <ConnectionPath key={i} c={c} byName={byName} />
+        ))}
+
+        {/* Tables on top. */}
+        {SCHEMA_TABLES.map((t) => (
+          <SchemaTableSvg key={t.name} table={t} />
+        ))}
+      </svg>
     </div>
+  );
+}
+
+function ConnectionPath({
+  c,
+  byName,
+}: {
+  c: Connection;
+  byName: Record<string, SchemaTable>;
+}) {
+  const from = byName[c.fromTable];
+  const to = byName[c.toTable];
+  if (!from || !to) return null;
+
+  // Pick the port side (left / right of each table) based on which
+  // direction the connector is travelling.
+  const fromRight = from.x + from.width / 2 < to.x + to.width / 2;
+  const srcX = fromRight ? from.x + from.width : from.x;
+  const tgtX = fromRight ? to.x : to.x + to.width;
+  const srcY = rowCenterY(from, c.fromColumn);
+  const tgtY = rowCenterY(to, c.toColumn);
+
+  // Right-angle path with the bend in the midline between the two
+  // tables. A small offset away from each table edge keeps the markers
+  // from clipping the table border.
+  const midX = (srcX + tgtX) / 2;
+  const d = `M ${srcX} ${srcY} L ${midX} ${srcY} L ${midX} ${tgtY} L ${tgtX} ${tgtY}`;
+
+  return (
+    <path
+      d={d}
+      stroke="rgb(var(--fg-muted))"
+      strokeWidth="1.2"
+      fill="none"
+      markerStart={`url(#er-${c.fromCard})`}
+      markerEnd={`url(#er-${c.toCard})`}
+    />
+  );
+}
+
+function SchemaTableSvg({ table }: { table: SchemaTable }) {
+  const h = tableHeight(table);
+  const isEntity = table.palette === "entity";
+  const headerFill = isEntity ? "#CB2C30" : "#1C60AC";
+
+  // Index of the last PK row so we can draw the dashed separator after it.
+  const lastPkIdx = table.columns.findIndex((c) => c.kind !== "pk") - 1;
+
+  return (
+    <g>
+      {/* Outer border */}
+      <rect
+        x={table.x}
+        y={table.y}
+        width={table.width}
+        height={h}
+        rx="6"
+        ry="6"
+        fill="rgb(var(--surface))"
+        stroke="rgb(var(--border))"
+      />
+
+      {/* Header band */}
+      <path
+        d={`M ${table.x} ${table.y + HEADER_HEIGHT}
+            L ${table.x} ${table.y + 6}
+            Q ${table.x} ${table.y} ${table.x + 6} ${table.y}
+            L ${table.x + table.width - 6} ${table.y}
+            Q ${table.x + table.width} ${table.y} ${table.x + table.width} ${table.y + 6}
+            L ${table.x + table.width} ${table.y + HEADER_HEIGHT} Z`}
+        fill={headerFill}
+      />
+      <text
+        x={table.x + table.width / 2}
+        y={table.y + 22}
+        fontSize="14"
+        fontWeight="700"
+        fill="#fff"
+        textAnchor="middle"
+      >
+        {table.name}
+      </text>
+      <text
+        x={table.x + table.width / 2}
+        y={table.y + 40}
+        fontSize="10"
+        fill="rgba(255,255,255,0.85)"
+        textAnchor="middle"
+      >
+        {table.source}
+      </text>
+
+      {/* Rows */}
+      {table.columns.map((col, i) => {
+        const rowY = table.y + HEADER_HEIGHT + i * ROW_HEIGHT;
+        return (
+          <g key={col.name}>
+            {/* PK badge */}
+            {col.kind === "pk" && (
+              <>
+                <rect
+                  x={table.x + 8}
+                  y={rowY + 4}
+                  width={26}
+                  height={14}
+                  rx="3"
+                  fill="#CB2C30"
+                />
+                <text
+                  x={table.x + 21}
+                  y={rowY + 14}
+                  fontSize="9"
+                  fontWeight="700"
+                  fill="#fff"
+                  textAnchor="middle"
+                >
+                  PK
+                </text>
+              </>
+            )}
+            {col.kind === "fk" && (
+              <>
+                <rect
+                  x={table.x + 8}
+                  y={rowY + 4}
+                  width={26}
+                  height={14}
+                  rx="3"
+                  fill="#1C60AC"
+                />
+                <text
+                  x={table.x + 21}
+                  y={rowY + 14}
+                  fontSize="9"
+                  fontWeight="700"
+                  fill="#fff"
+                  textAnchor="middle"
+                >
+                  FK
+                </text>
+              </>
+            )}
+            <text
+              x={table.x + 42}
+              y={rowY + 15}
+              fontSize="11"
+              fill="rgb(var(--fg))"
+              fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
+            >
+              {col.name}
+            </text>
+            <text
+              x={table.x + table.width - 8}
+              y={rowY + 15}
+              fontSize="10"
+              fill="rgb(var(--fg-muted))"
+              textAnchor="end"
+              fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
+            >
+              {col.type}
+            </text>
+          </g>
+        );
+      })}
+
+      {/* Dashed separator under the PK rows (Visio convention). */}
+      {lastPkIdx >= 0 && (
+        <line
+          x1={table.x + 8}
+          y1={table.y + HEADER_HEIGHT + (lastPkIdx + 1) * ROW_HEIGHT - 1}
+          x2={table.x + table.width - 8}
+          y2={table.y + HEADER_HEIGHT + (lastPkIdx + 1) * ROW_HEIGHT - 1}
+          stroke="rgb(var(--border))"
+          strokeDasharray="2 3"
+        />
+      )}
+    </g>
   );
 }
 

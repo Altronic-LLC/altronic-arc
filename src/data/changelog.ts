@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.17.11",
+    date: "2026-05-21",
+    changes: [
+      "Data model redrawn as a proper ER diagram on a single SVG canvas — tables are positioned next to one another with crow's-foot connectors running between them, the same Visio-style schema diagram the user requested; PK rows carry a red PK badge with a dashed separator below, FK rows carry a blue FK badge and a connector to the referenced table; cardinality is marked at each connector end (open circle = one, three-prong = many)",
+    ],
+  },
+  {
     version: "0.17.10",
     date: "2026-05-21",
     changes: [
