@@ -20,6 +20,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.17.1",
+    date: "2026-05-21",
+    changes: [
+      "New-EIR form is now just General Information + Purchasing Information — dropped the optional Project Reference / Task Reference / Assigned Engineers section; everything past the required fields is set from the EIR detail page after Save",
+      "Renamed the header dropdown from 'Engineering Lists' to 'Engineering Requests' (the short mobile label too) — Manual updated to match",
+      "Reporter now renders again on EIR detail — brought back an explicit Graph $select that asks for Reporter / AssignedEngineer / Watchers by name so the person columns come back expanded with LookupValue + Email instead of just the bare LookupId",
+      "EIR Project Reference is editable from the detail sidebar again — replaced the read-only chip list with a real multi-select picker that uses Project titles from the Projects list as the allowed choices and writes the multi-choice array back to SharePoint",
+    ],
+  },
+  {
     version: "0.17.0",
     date: "2026-05-21",
     changes: [

@@ -16,12 +16,10 @@ import type {
   EirResolution,
   EirStatus,
   Person,
-  ProjectReference,
 } from "@/types/task";
 import { pushToast } from "@/components/Toast";
 
 const EIRS_KEY = ["eirs", "list"] as const;
-const PROJECTS_KEY = ["projects"] as const;
 
 export function useEirs() {
   return useQuery({
@@ -85,11 +83,6 @@ function buildUndo(
   };
 }
 
-function resolveProject(qc: QueryClient, lookupId: number): ProjectReference | null {
-  const projects = qc.getQueryData<ProjectReference[]>(PROJECTS_KEY);
-  return projects?.find((p) => p.lookupId === lookupId) ?? null;
-}
-
 export function useCreateEir() {
   const qc = useQueryClient();
   return useMutation({
@@ -109,7 +102,7 @@ export function useUpdateEirFields() {
     mutationFn: ({ id, fields }: { id: number; fields: Record<string, unknown> }) =>
       updateEirFields(id, fields),
     onMutate: ({ id, fields }) =>
-      snapshotAndPatch(qc, id, patchEir(id, (e) => applyFieldsLocally(e, fields, qc))),
+      snapshotAndPatch(qc, id, patchEir(id, (e) => applyFieldsLocally(e, fields))),
     onSuccess: (_data, { id, fields }, ctx) => {
       const inverse = ctx?.prevEir ? buildInverseFields(ctx.prevEir, fields) : null;
       pushToast({
@@ -287,7 +280,6 @@ export function useEditEirComment() {
 function applyFieldsLocally(
   e: Eir,
   fields: Record<string, unknown>,
-  qc: QueryClient,
 ): Eir {
   const next: Eir = { ...e, modifiedAt: new Date() };
   if ("Title" in fields) next.title = (fields.Title as string) ?? next.title;
@@ -318,14 +310,19 @@ function applyFieldsLocally(
     const v = fields.LTBDate;
     next.ltbDate = v ? new Date(v as string) : null;
   }
-  if ("ProjectReferenceLookupId" in fields) {
-    const v = fields.ProjectReferenceLookupId;
-    next.parentProject = v
-      ? resolveProject(qc, Number(v)) ?? {
-          lookupId: Number(v),
-          title: next.parentProject?.title ?? "",
-        }
-      : null;
+  if ("ProjectReference" in fields) {
+    // Multi-choice Choice column — the write is an array of strings.
+    const v = fields.ProjectReference;
+    if (Array.isArray(v) && v.length > 0) {
+      next.parentProject = {
+        lookupId: 0,
+        title: v.filter((x): x is string => typeof x === "string").join(", "),
+      };
+    } else if (typeof v === "string" && v) {
+      next.parentProject = { lookupId: 0, title: v };
+    } else {
+      next.parentProject = null;
+    }
   }
   return next;
 }
@@ -355,8 +352,14 @@ function buildInverseFields(prev: Eir, fields: Record<string, unknown>): Record<
       : null;
   if ("LTBDate" in fields)
     inv.LTBDate = prev.ltbDate ? prev.ltbDate.toISOString() : null;
-  if ("ProjectReferenceLookupId" in fields)
-    inv.ProjectReferenceLookupId = prev.parentProject?.lookupId ?? null;
+  if ("ProjectReference" in fields) {
+    // Reverse the multi-choice array by splitting the joined title back
+    // out. lookupId is 0 for choice-backed entries — title is the truth.
+    const titles = prev.parentProject?.title
+      ? prev.parentProject.title.split(",").map((s) => s.trim()).filter(Boolean)
+      : [];
+    inv.ProjectReference = titles;
+  }
   return inv;
 }
 
@@ -392,7 +395,7 @@ function messageForFieldsUpdate(fields: Record<string, unknown>): string {
         return "Requested completion date updated.";
       case "LTBDate":
         return "LTB date updated.";
-      case "ProjectReferenceLookupId":
+      case "ProjectReference":
         return "Project updated.";
       case "TaskReference":
         return "Task reference updated.";

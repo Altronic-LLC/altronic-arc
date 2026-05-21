@@ -48,7 +48,7 @@ const SECTIONS: ManualSection[] = [
       "where do i start",
     ],
     searchText:
-      "Sign in with your altronic-llc.com account. The Dashboard opens after sign-in with your open tasks. Use the top nav to switch between Dashboard, List, Kanban, and the Engineering Lists dropdown (EIRs, Test Sheets).",
+      "Sign in with your altronic-llc.com account. The Dashboard opens after sign-in with your open tasks. Use the top nav to switch between Dashboard, List, Kanban, and the Engineering Requests dropdown (EIRs, Test Sheets).",
     render: () => (
       <>
         <P>
@@ -57,7 +57,7 @@ const SECTIONS: ManualSection[] = [
           summary of your open work. The top nav has direct links for the views
           of the task list — <strong>Dashboard</strong>, <strong>List</strong>,
           and the <strong>Kanban</strong> board — and an{" "}
-          <strong>Engineering Lists</strong> dropdown that holds the other
+          <strong>Engineering Requests</strong> dropdown that holds the other
           SharePoint lists (currently <strong>EIRs</strong> and{" "}
           <strong>Test Sheets</strong>). Your tasks are filtered to you by
           default — pick "Anyone" in the Assigned filter to see the rest of the

@@ -21,7 +21,7 @@ import {
   useSetEirWatchers,
   useUpdateEirFields,
 } from "@/hooks/useEirs";
-import { useTasks } from "@/hooks/useTasks";
+import { useTasks, useProjects } from "@/hooks/useTasks";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
   EIR_REQUEST_TYPES,
@@ -36,7 +36,7 @@ import {
 } from "@/types/task";
 import { CommentThread } from "@/components/CommentThread";
 import { CommentComposer } from "@/components/CommentComposer";
-import { SingleSelect } from "@/components/SearchableSelect";
+import { MultiSelect, SingleSelect } from "@/components/SearchableSelect";
 import { EirStatusBadge, statusColor } from "@/components/atoms";
 import { AttachmentsSection } from "@/components/AttachmentsSection";
 import { LoadingTasks } from "@/components/LoadingTasks";
@@ -368,7 +368,15 @@ export function EirDetailView() {
               </SidebarField>
 
               <SidebarField icon={<FolderOpen />} label="Project Reference">
-                <ProjectChipsList title={eir.parentProject?.title ?? ""} />
+                <ProjectChoicePicker
+                  selectedTitle={eir.parentProject?.title ?? ""}
+                  onChange={(titles) =>
+                    updateFields.mutate({
+                      id: eir.id,
+                      fields: { ProjectReference: titles },
+                    })
+                  }
+                />
               </SidebarField>
 
 
@@ -665,33 +673,51 @@ function LinkedTaskCard({
 }
 
 /**
- * Sidebar chip list for the multi-select Project Reference column. The
- * mapper packs all chosen choices into one comma-joined title string;
- * here we split them back out and render each as its own chip.
- *
- * Read-only for now — editing requires a proper multi-select picker that
- * writes to the Choice column with the correct payload shape, deferred.
+ * Sidebar picker for the multi-select Project Reference column. Reads the
+ * comma-joined title string the mapper packs the chosen choices into,
+ * splits it back into individual selections, and writes the change back as
+ * a string array (the Choice column's native write shape). Options come
+ * from the Projects list — its titles are the values configured as
+ * allowed choices in SharePoint.
  */
-function ProjectChipsList({ title }: { title: string }) {
-  const labels = title
+function ProjectChoicePicker({
+  selectedTitle,
+  onChange,
+}: {
+  selectedTitle: string;
+  onChange: (titles: string[]) => void;
+}) {
+  const { data: projects = [] } = useProjects();
+  const selected = selectedTitle
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
-  if (labels.length === 0) {
-    return <div className="text-sm text-fg-muted">No project assigned.</div>;
+
+  // Options = every project title from the Projects list, deduped. Then
+  // surface any currently-selected value that ISN'T in the projects list,
+  // so chips still render for archived/renamed projects.
+  const seen = new Set<string>();
+  const options: { value: string; label: string }[] = [];
+  for (const p of projects) {
+    if (!p.title || seen.has(p.title)) continue;
+    seen.add(p.title);
+    options.push({ value: p.title, label: p.title });
   }
+  for (const s of selected) {
+    if (!seen.has(s)) {
+      seen.add(s);
+      options.push({ value: s, label: `${s} (not in projects list)` });
+    }
+  }
+
   return (
-    <div className="flex flex-wrap gap-1.5">
-      {labels.map((label) => (
-        <span
-          key={label}
-          title={label}
-          className="inline-flex max-w-full truncate rounded border border-border bg-surface-2 px-2 py-0.5 text-xs text-fg"
-        >
-          {label}
-        </span>
-      ))}
-    </div>
+    <MultiSelect
+      allLabel="No project assigned"
+      searchPlaceholder="Search projects…"
+      options={options}
+      selected={selected}
+      onChange={onChange}
+    />
   );
 }
 

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { HardHat, Info, Loader2, X } from "lucide-react";
-import { useProjects, useTasks } from "@/hooks/useTasks";
+import { useTasks } from "@/hooks/useTasks";
 import { useCreateEir } from "@/hooks/useEirs";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
@@ -9,7 +9,7 @@ import {
   EIR_REQUEST_TYPES,
   type Person,
 } from "@/types/task";
-import { MultiSelect, SingleSelect } from "./SearchableSelect";
+import { SingleSelect } from "./SearchableSelect";
 
 interface EirFormModalProps {
   mode: "create"; // future: "edit"
@@ -27,14 +27,11 @@ interface EirFormModalProps {
  * Required-field set matches the original form too: Request Type, Reporter,
  * Requested Priority, Subject, Description.
  *
- * Project Reference is the EIR list's multi-choice column — write path is
- * still on the legacy lookup shape and broken until the backlog rework
- * lands; keeping the picker on the form as optional + flagged so users
- * aren't surprised when it doesn't persist yet.
+ * Everything else (Project Reference, Task Reference, Assigned Engineers,
+ * Watchers, etc.) is set from the EIR detail page after creation.
  */
 export function EirFormModal({ onClose }: EirFormModalProps) {
   const navigate = useNavigate();
-  const { data: projects = [] } = useProjects();
   const { data: tasks = [] } = useTasks();
   const currentUser = useCurrentUser();
   const createEir = useCreateEir();
@@ -59,11 +56,6 @@ export function EirFormModal({ onClose }: EirFormModalProps) {
   const [mfgPartNumber, setMfgPartNumber] = useState("");
   const [altronicPartNumber, setAltronicPartNumber] = useState("");
   const [whereUsed, setWhereUsed] = useState("");
-
-  // --- Optional in-app extras (kept because the detail page exposes them too) ---
-  const [projectId, setProjectId] = useState<number | null>(null);
-  const [assignedEngineers, setAssignedEngineers] = useState<Person[]>([]);
-  const [taskReference, setTaskReference] = useState("");
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -114,14 +106,11 @@ export function EirFormModal({ onClose }: EirFormModalProps) {
       const created = await createEir.mutateAsync({
         title: subject.trim(),
         description,
-        parentProjectLookupId: projectId,
         requestType,
         status: "Under Review",
         resolution: "Pending",
         requestedPriority: requestedPriority || null,
         reporter,
-        assignedEngineers,
-        taskReference,
         whereUsed,
         eau,
         currentStock,
@@ -340,57 +329,10 @@ export function EirFormModal({ onClose }: EirFormModalProps) {
             </FieldLabel>
           </div>
 
-          {/* ---- Optional extras (in-app only — not in the legacy form) ---- */}
-          <SectionHeader>Optional</SectionHeader>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <FieldLabel
-              label="Project Reference"
-              hint="The list column is a multi-select Choice — writes via this picker aren't fully wired up yet. Set the project from the EIR detail page after creating."
-            >
-              <SingleSelect
-                allLabel="No project selected"
-                searchPlaceholder="Search projects…"
-                options={projects.map((p) => ({
-                  value: String(p.lookupId),
-                  label: p.title,
-                }))}
-                selected={projectId != null ? String(projectId) : null}
-                onChange={(v) => setProjectId(v ? parseInt(v, 10) : null)}
-              />
-            </FieldLabel>
-
-            <FieldLabel label="Task Reference" hint="e.g. T115 — links back to a task once set.">
-              <input
-                value={taskReference}
-                onChange={(e) => setTaskReference(e.target.value)}
-                placeholder="e.g. T115"
-                className="input"
-              />
-            </FieldLabel>
-
-            <FieldLabel label="Assigned Engineers" className="sm:col-span-2">
-              <MultiSelect
-                allLabel="Unassigned"
-                searchPlaceholder="Search people…"
-                options={peopleOptions}
-                selected={assignedEngineers.map((p) => p.email ?? p.displayName)}
-                onChange={(keys) => {
-                  const next: Person[] = [];
-                  for (const k of keys) {
-                    const p = people.find((x) => (x.email ?? x.displayName) === k);
-                    if (p) next.push(p);
-                  }
-                  setAssignedEngineers(next);
-                }}
-              />
-            </FieldLabel>
-          </div>
-
-          <p className="mt-4 text-[11px] text-fg-muted">
-            Attachments aren't supported during creation yet — once the EIR
-            is saved, open the detail page and use the Attachments card to
-            upload files.
+          <p className="mt-5 text-[11px] text-fg-muted">
+            Project Reference, Task Reference, Assigned Engineers, and
+            Attachments are set from the EIR detail page after the EIR is
+            saved.
           </p>
         </div>
 

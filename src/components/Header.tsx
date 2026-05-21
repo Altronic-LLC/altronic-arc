@@ -22,12 +22,12 @@ import { UserMenu } from "@/components/UserMenu";
 
 // =============================================================================
 // Top-level nav structure:
-//   Dashboard | List | Kanban | [Engineering Lists ▼] | (Admin)
+//   Dashboard | List | Kanban | [Engineering Requests ▼] | (Admin)
 //
 // "List" and "Kanban" are views of the Tasks dataset and stay top-level
 // because that's the most-used flow. EIRs and Test Sheets — and any future
-// SharePoint list — go under the Engineering Lists dropdown so the top bar
-// doesn't grow every time a new list is added.
+// request-style list — go under the Engineering Requests dropdown so the
+// top bar doesn't grow every time a new list is added.
 // =============================================================================
 
 interface EngineeringListItem {
@@ -225,8 +225,8 @@ function EngineeringListsMenu({
         )}
       >
         <Library className="h-4 w-4" />
-        <span className="hidden sm:inline">Engineering Lists</span>
-        <span className="sm:hidden">Lists</span>
+        <span className="hidden sm:inline">Engineering Requests</span>
+        <span className="sm:hidden">Requests</span>
         <ChevronDown
           className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")}
         />

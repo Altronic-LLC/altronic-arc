@@ -75,15 +75,53 @@ export async function listEirs(): Promise<Eir[]> {
     return [];
   }
 
-  // No $select: Graph rejects bare lookup column names (like
-  // `ProjectReference`) in $select with a 400, and the suffixed form
-  // (`ProjectReferenceLookupId`) only synthesises if the column is
-  // provisioned as a proper Lookup — not the case on this list. Letting
-  // Graph return all field columns keeps the mapper resilient and avoids
-  // the whole-list 400 we saw when we tried to be clever.
+  // Explicit $select with the actual column internal names we confirmed
+  // via the earlier diagnostic. The key things this restores vs the
+  // no-$select approach:
+  //   - `Reporter` expands to a person object ({LookupId, LookupValue,
+  //     Email}); without $select Graph only returns ReporterLookupId
+  //     (just an int), so the sidebar showed "No reporter" on every EIR.
+  //   - Same fix for AssignedEngineer + Watchers.
+  //   - `ProjectReference` (multi-choice text) is included by its bare
+  //     column name, NOT the *LookupId variant which doesn't exist here.
+  const select = [
+    "Title",
+    "EIRNo",
+    "Description",
+    "RequestType",
+    "Status",
+    "Resolution",
+    "Priority",
+    "Reporter",
+    "AssignedEngineer",
+    "Watchers",
+    "ProjectReference",
+    "EngineeringResponse",
+    "WhereUsed",
+    "EAU",
+    "CurrentStock",
+    "MFG",
+    "MFGP_x002f_N",
+    "Communication",
+    "Current_x0020_Price",
+    "Altronic_x0020_Part_x0020_Number",
+    "Requested_x0020_Completion_x0020",
+    "Priority0",
+    "PriorityDate",
+    "PriorityCount",
+    "RiskPart",
+    "RiskPartLevel",
+    "TechnicalPriority",
+    "LTBDate",
+    "TaskReference",
+    "TaskPromotedFlag",
+    "EIRMeetingRelevant",
+    "BuyerCode",
+    "Attachments",
+  ].join(",");
   const path =
     `/sites/${SP_SITE_ID}/lists/${SP_EIRS_LIST_ID}` +
-    `/items?$expand=fields&$top=200`;
+    `/items?$expand=fields($select=${select})&$top=200`;
   const [items, projects] = await Promise.all([
     graphFetchAll<GraphListItem>(path),
     listProjects(),
@@ -248,9 +286,18 @@ export async function updateEirFields(
       const v = fields.LTBDate;
       next.ltbDate = v ? new Date(v as string) : null;
     }
-    if ("ProjectReferenceLookupId" in fields) {
-      const v = fields.ProjectReferenceLookupId;
-      next.parentProject = v ? { lookupId: Number(v), title: next.parentProject?.title ?? "" } : null;
+    if ("ProjectReference" in fields) {
+      const v = fields.ProjectReference;
+      if (Array.isArray(v) && v.length > 0) {
+        next.parentProject = {
+          lookupId: 0,
+          title: v.filter((x) => typeof x === "string").join(", "),
+        };
+      } else if (typeof v === "string" && v) {
+        next.parentProject = { lookupId: 0, title: v };
+      } else {
+        next.parentProject = null;
+      }
     }
     if ("ReporterLookupId" in fields) {
       const v = fields.ReporterLookupId;
