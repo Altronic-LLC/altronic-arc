@@ -298,6 +298,73 @@ const SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: "pcb-checklist",
+    title: "PCB checklist",
+    keywords: [
+      "pcb",
+      "checklist",
+      "schematic",
+      "gerber",
+      "bom",
+      "smt",
+      "build request",
+      "ecn",
+      "pre-release",
+      "released",
+      "category pcb",
+      "board",
+      "part number pulled",
+      "altium",
+      "cad output",
+    ],
+    searchText:
+      "Tasks with category PCB show a Checklist card on the detail page with 17 items — 13 Yes/No checkboxes and 4 Choice radio groups. Items cover schematic + PCB part numbers, archive backup, SMT data output, BOM compare + send to CAD, 3D model export, revision documentation, build request, ordering, and gerber package. Checking a box writes to SharePoint instantly; a small done/total counter in the card header tracks progress. The card only renders for category=PCB tasks.",
+    render: () => (
+      <>
+        <P>
+          When a task is set to category <strong>PCB</strong>, a{" "}
+          <strong>Checklist</strong> card appears on the detail page above
+          the Attachments section. It mirrors the 17-item checklist from
+          the original Power Apps form: 13 Yes/No items as checkboxes and
+          4 multi-option items as radio groups, laid out in two columns.
+        </P>
+        <H3>What's on the list</H3>
+        <P>
+          The checklist covers everything from pulling new schematic / PCB
+          part numbers, placing backups on the archive server, comparing
+          BOM with SAP, outputting BOM + 3D model + gerber files, sending
+          to CAD, submitting the build request, and the ordering /
+          pre-release vs released documentation flow. The radio groups
+          (Schematic and PCB revision, Send Gerber Package, Order_Parts)
+          let you pick the right path through SharePoint's allowed choice
+          values for that column.
+        </P>
+        <H3>Tracking progress</H3>
+        <P>
+          A small <strong>done / total</strong> counter in the card header
+          shows how many items are checked or chosen out of the total —
+          useful for confirming you've completed everything before
+          submitting a board build, and for skimming an existing PCB task
+          to see if it's done.
+        </P>
+        <H3>Saving</H3>
+        <P>
+          Every checkbox flip and radio change writes to SharePoint
+          immediately — optimistic, so the UI updates instantly. If the
+          save fails on the network round-trip, the field flips back and
+          a red toast shows the error. The standard undo lives in the
+          toast for a few seconds in case you bumped a box by accident.
+        </P>
+        <Tip>
+          If a checklist row shows a red "column missing on the
+          SharePoint Task list" note, that specific SharePoint column was
+          renamed or deleted — the rest of the checklist still works;
+          flag the missing column to an admin so it can be restored.
+        </Tip>
+      </>
+    ),
+  },
+  {
     id: "comments",
     title: "Comments & @-mentions",
     keywords: [

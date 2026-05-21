@@ -547,13 +547,20 @@ export function DetailView() {
               </Field>
 
               <Field icon={<Calendar />} label="Modified">
-                {task.modifiedAt.toLocaleString(undefined, {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                  hour: "numeric",
-                  minute: "2-digit",
-                })}
+                <div>
+                  {task.modifiedAt.toLocaleString(undefined, {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })}
+                </div>
+                {task.editor?.displayName && (
+                  <div className="text-[10px] text-fg-muted">
+                    by {task.editor.displayName}
+                  </div>
+                )}
               </Field>
 
               <Field icon={<Calendar />} label="Due Date">

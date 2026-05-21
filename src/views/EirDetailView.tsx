@@ -436,13 +436,20 @@ export function EirDetailView() {
                 {eir.author?.displayName ?? <span className="text-fg-muted">Unknown</span>}
               </Field>
               <Field icon={<Calendar />} label="Modified">
-                {eir.modifiedAt.toLocaleString(undefined, {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                  hour: "numeric",
-                  minute: "2-digit",
-                })}
+                <div>
+                  {eir.modifiedAt.toLocaleString(undefined, {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })}
+                </div>
+                {eir.editor?.displayName && (
+                  <div className="text-[10px] text-fg-muted">
+                    by {eir.editor.displayName}
+                  </div>
+                )}
               </Field>
 
               {/* Watchers live at the bottom of the sidebar to match the

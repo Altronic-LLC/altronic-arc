@@ -88,6 +88,7 @@ export function toEir(item: GraphListItem): Eir {
     createdAt: new Date(item.createdDateTime),
     modifiedAt: new Date(item.lastModifiedDateTime),
     author: parseCreatedByUser(item.createdBy),
+    editor: parseCreatedByUser(item.lastModifiedBy),
     comments: parseCommunication(f.Communication as string),
     hasAttachments: !!f.Attachments,
   };

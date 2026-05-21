@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.19.2",
+    date: "2026-05-21",
+    changes: [
+      "Modified date on Task + EIR sidebars now also shows who last touched it as a small 'by Name' caption underneath — pulled from Graph's default `lastModifiedBy.user`; small and indiscrete so it doesn't compete with the rest of the sidebar",
+      "User Manual got a new 'PCB checklist' section covering how the card appears on category=PCB tasks, what the 17 items are, how the done/total counter works, optimistic save + undo, and what the 'column missing' note means if a row shows up red",
+    ],
+  },
+  {
     version: "0.19.1",
     date: "2026-05-21",
     changes: [

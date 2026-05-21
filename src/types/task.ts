@@ -146,6 +146,13 @@ export interface Task {
    * pre-dating this field, or odd Graph responses).
    */
   author: Person | null;
+  /**
+   * Person who last modified this record. Resolved from Graph's default
+   * `lastModifiedBy.user` (displayName + email), same way `author`
+   * resolves from `createdBy.user`. Optional so old mocks / fixtures
+   * built before this field landed still type-check.
+   */
+  editor?: Person | null;
   /** Editor lookup ID. */
   editorLookupId: number;
   /** Parent project — null if not set. */
@@ -335,6 +342,12 @@ export interface Eir {
   createdAt: Date;
   modifiedAt: Date;
   author: Person | null;
+  /**
+   * Person who last modified this EIR (Graph `lastModifiedBy.user`).
+   * Optional to match the Task type — older mocks / fixtures can omit
+   * it without a type error.
+   */
+  editor?: Person | null;
   comments: Comment[];
   hasAttachments: boolean;
 }

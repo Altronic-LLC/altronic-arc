@@ -37,6 +37,7 @@ export function toTask(item: GraphListItem): Task {
     modifiedAt: new Date(item.lastModifiedDateTime),
     authorLookupId: toInt(f.AuthorLookupId, 0),
     author: parseCreatedByUser(item.createdBy),
+    editor: parseCreatedByUser(item.lastModifiedBy),
     editorLookupId: toInt(f.EditorLookupId, 0),
     parentProject: f.Parent_x0020_Project_x0020_ReferLookupId
       ? { lookupId: toInt(f.Parent_x0020_Project_x0020_ReferLookupId, 0), title: "" }
