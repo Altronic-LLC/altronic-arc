@@ -1,10 +1,9 @@
 import { useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   Calendar,
   CheckCircle2,
-  ExternalLink,
   FileText,
   Flag,
   FolderOpen,
@@ -38,11 +37,12 @@ import {
 import { CommentThread } from "@/components/CommentThread";
 import { CommentComposer } from "@/components/CommentComposer";
 import { SingleSelect } from "@/components/SearchableSelect";
-import { EirStatusBadge } from "@/components/atoms";
+import { EirStatusBadge, statusColor } from "@/components/atoms";
 import { AttachmentsSection } from "@/components/AttachmentsSection";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { PersonMultiField } from "@/components/PersonMultiField";
 import { sanitiseHtml } from "@/lib/sanitiseHtml";
+import { cn } from "@/lib/cn";
 
 export function EirDetailView() {
   const { id } = useParams<{ id: string }>();
@@ -264,6 +264,15 @@ export function EirDetailView() {
             </div>
           </div>
 
+          <LinkedTaskCard
+            linkedTask={linkedTask}
+            rawReference={eir.taskReference}
+            referenceIsUrl={taskRefIsUrl}
+            onSaveReference={(v) =>
+              updateFields.mutate({ id: eir.id, fields: { TaskReference: v } })
+            }
+          />
+
           <AttachmentsSection parent="eir" itemId={eir.id} />
 
           {/* Comments */}
@@ -362,48 +371,6 @@ export function EirDetailView() {
                 <ProjectChipsList title={eir.parentProject?.title ?? ""} />
               </SidebarField>
 
-              <SidebarField
-                icon={<FileText />}
-                label="Task Reference"
-                footer={
-                  // For typed-text task refs, keep the bottom "Open task →"
-                  // link. For Power Apps URLs the chip above IS the link,
-                  // so a footer link would just be redundant.
-                  !taskRefIsUrl && linkedTask ? (
-                    <Link
-                      to={`/task/${linkedTask.id}`}
-                      className="inline-flex items-center gap-1 text-xs text-accent underline-offset-2 hover:underline"
-                    >
-                      <ExternalLink className="h-3 w-3" />
-                      Open {linkedTask.numberedTitle || `task #${linkedTask.id}`}
-                    </Link>
-                  ) : null
-                }
-              >
-                {taskRefIsUrl ? (
-                  // Power Apps deep link — show as a clickable chip
-                  // pointing to the in-app detail page, not the ugly URL.
-                  <TaskRefChip
-                    task={linkedTask}
-                    fallbackItemId={extractItemIdFromUrl(eir.taskReference) ?? null}
-                    onClear={() =>
-                      updateFields.mutate({
-                        id: eir.id,
-                        fields: { TaskReference: "" },
-                      })
-                    }
-                  />
-                ) : (
-                  <InlineTextField
-                    label=""
-                    value={eir.taskReference}
-                    onSave={(v) =>
-                      updateFields.mutate({ id: eir.id, fields: { TaskReference: v } })
-                    }
-                    placeholder="e.g. T115"
-                  />
-                )}
-              </SidebarField>
 
               <SidebarField icon={<Calendar />} label="Requested Completion">
                 <input
@@ -591,51 +558,108 @@ function extractItemIdFromUrl(raw: string): number | null {
 }
 
 /**
- * Sidebar chip for a Power Apps deep-link Task Reference. Renders the
- * resolved task number (or the bare item id if the task hasn't loaded
- * yet) as a link to the in-app task detail page — way nicer than showing
- * a 200-char URL in a text input. A small "Clear" button next to the chip
- * lets users break the link if they want to type a different value.
+ * Linked-Task card — main-column section that mirrors the "Child tasks"
+ * card on the task detail view. One row per linked task (just one for
+ * now; we keep the array shape so multi-link is a small upgrade later).
+ * Each row is a clickable button with the numbered title on the left and
+ * a status badge on the right.
+ *
+ * Editing: a small "Edit" button toggles an inline text input so users
+ * can replace the reference. For Power Apps URLs we don't expose the raw
+ * URL in the input (would only invite typos) — just an "Edit" → empty
+ * input flow.
  */
-function TaskRefChip({
-  task,
-  fallbackItemId,
-  onClear,
+function LinkedTaskCard({
+  linkedTask,
+  rawReference,
+  referenceIsUrl,
+  onSaveReference,
 }: {
-  task: import("@/types/task").Task | null;
-  fallbackItemId: number | null;
-  onClear: () => void;
+  linkedTask: import("@/types/task").Task | null;
+  rawReference: string;
+  referenceIsUrl: boolean;
+  onSaveReference: (next: string) => void;
 }) {
-  // Prefer the resolved task's numberedTitle ("T115-PROJ-Title"); fall
-  // back to "#<itemId>" so the user still has something clickable even
-  // before the tasks list has resolved.
-  const label =
-    task?.numberedTitle?.trim() ||
-    (task ? `Task #${task.id}` : fallbackItemId ? `Task #${fallbackItemId}` : "Linked task");
-  const target = task ? `/task/${task.id}` : fallbackItemId ? `/task/${fallbackItemId}` : null;
+  const navigate = useNavigate();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(
+    referenceIsUrl ? "" : rawReference,
+  );
+
+  const hasReference = !!rawReference;
+
   return (
-    <div className="flex items-center gap-1.5">
-      {target ? (
-        <Link
-          to={target}
-          className="inline-flex min-w-0 flex-1 items-center gap-1.5 rounded-md border border-accent/40 bg-accent/10 px-2 py-1 text-sm font-medium text-accent transition-colors hover:bg-accent/20"
-          title={label}
+    <div className="rounded-lg border border-border bg-surface p-4 sm:p-5">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
+          Linked Task
+        </h2>
+        {!editing ? (
+          <button
+            onClick={() => {
+              setDraft(referenceIsUrl ? "" : rawReference);
+              setEditing(true);
+            }}
+            className="text-xs text-accent underline-offset-2 hover:underline"
+          >
+            {hasReference ? "Edit" : "Add"}
+          </button>
+        ) : (
+          <div className="flex gap-2">
+            <button
+              onClick={() => setEditing(false)}
+              className="text-xs text-fg-muted underline-offset-2 hover:underline"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                onSaveReference(draft.trim());
+                setEditing(false);
+              }}
+              className="text-xs font-medium text-accent underline-offset-2 hover:underline"
+            >
+              Save
+            </button>
+          </div>
+        )}
+      </div>
+
+      {editing ? (
+        <input
+          autoFocus
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder="e.g. T115 — or paste a Power Apps task link"
+          className="w-full rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+        />
+      ) : linkedTask ? (
+        <button
+          onClick={() => navigate(`/task/${linkedTask.id}`)}
+          className="flex w-full items-center justify-between gap-3 rounded-md border border-border bg-surface px-3 py-2 text-left text-sm transition-colors hover:border-fg-muted hover:bg-surface-2"
         >
-          <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-          <span className="truncate">{label}</span>
-        </Link>
+          <span className="truncate font-medium text-fg">
+            {linkedTask.numberedTitle || `Task #${linkedTask.id}`}
+          </span>
+          <span
+            className={cn(
+              "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+              statusColor(linkedTask.status),
+            )}
+          >
+            {linkedTask.status}
+          </span>
+        </button>
+      ) : hasReference ? (
+        <div className="rounded-md border border-dashed border-border px-3 py-2 text-xs text-fg-muted">
+          Reference is set but the linked task hasn't loaded yet (or it lives outside
+          this list). Raw value: <code className="break-all">{rawReference}</code>
+        </div>
       ) : (
-        <span className="text-sm text-fg-muted">{label}</span>
+        <div className="rounded-md border border-dashed border-border py-4 text-center text-xs text-fg-muted">
+          No task linked. Click "Add" to set one.
+        </div>
       )}
-      <button
-        type="button"
-        onClick={onClear}
-        className="rounded p-1 text-xs text-fg-muted hover:bg-surface-2 hover:text-fg"
-        title="Clear task reference"
-        aria-label="Clear task reference"
-      >
-        ✕
-      </button>
     </div>
   );
 }

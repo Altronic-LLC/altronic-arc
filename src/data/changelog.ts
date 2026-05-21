@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.16.1",
+    date: "2026-05-20",
+    changes: [
+      "Task Reference moved out of the EIR sidebar into a 'Linked Task' card in the main column — same look and feel as the 'Child tasks' card on the task detail (title on the left, status badge on the right), with a small Edit/Add affordance for changing the reference; Power Apps URLs no longer leak into the sidebar at all",
+      "Mention-style anchors in descriptions and comments no longer escape the styling rule — previously only `mailto:` anchors were caught, now any non-http link (anchor-only, missing href, javascript:, etc.) renders as plain bold text instead of loud red italic underline",
+    ],
+  },
+  {
     version: "0.16.0",
     date: "2026-05-20",
     changes: [

@@ -96,12 +96,14 @@ h3,
 .comment-html a {
   @apply text-accent underline underline-offset-2 hover:no-underline;
 }
-/* SharePoint and Power Apps stamp @-mentions as `<a href="mailto:...">`
-   tags. Render those as subtle bold spans instead of loud red links — a
-   name in a description shouldn't look like a clickable external link.
-   Stripping italic from inside the anchor too keeps "<a><em>Name</em></a>"
-   readable (SharePoint produces that combo for some user-link styles). */
-.comment-html a[href^="mailto:"] {
+/* Only true external links (http / https) keep the loud accent style.
+   Everything else — `mailto:` chips, anchor-only refs, javascript:,
+   SharePoint internal hrefs, missing-href stubs — falls back to plain
+   bold text. This is what fixes "Mark Balent" rendering as a red italic
+   underlined link in Power Apps-produced descriptions: those anchors
+   use schemes like `mailto:`, `#`, or empty href, none of which deserve
+   the external-link treatment. */
+.comment-html a:not([href^="http://"]):not([href^="https://"]) {
   @apply text-fg font-semibold no-underline;
 }
 .comment-html a em,
