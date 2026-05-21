@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.19.1",
+    date: "2026-05-21",
+    changes: [
+      "Added a 'Modified' date/time field next to 'Created' on both the Task and EIR detail sidebars — pulled from SharePoint's default lastModifiedDateTime so it's free; useful for telling at a glance when a record was last touched and for spotting stale items",
+    ],
+  },
+  {
     version: "0.19.0",
     date: "2026-05-21",
     changes: [

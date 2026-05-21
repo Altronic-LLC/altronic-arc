@@ -435,6 +435,15 @@ export function EirDetailView() {
               <Field icon={<User />} label="Created By">
                 {eir.author?.displayName ?? <span className="text-fg-muted">Unknown</span>}
               </Field>
+              <Field icon={<Calendar />} label="Modified">
+                {eir.modifiedAt.toLocaleString(undefined, {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                  hour: "numeric",
+                  minute: "2-digit",
+                })}
+              </Field>
 
               {/* Watchers live at the bottom of the sidebar to match the
                   Task detail layout — they're informational, not the kind

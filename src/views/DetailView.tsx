@@ -546,6 +546,16 @@ export function DetailView() {
                 {task.author ? task.author.displayName : "Unknown"}
               </Field>
 
+              <Field icon={<Calendar />} label="Modified">
+                {task.modifiedAt.toLocaleString(undefined, {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                  hour: "numeric",
+                  minute: "2-digit",
+                })}
+              </Field>
+
               <Field icon={<Calendar />} label="Due Date">
                 <input
                   type="date"
