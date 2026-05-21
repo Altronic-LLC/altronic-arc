@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.20.0",
+    date: "2026-05-21",
+    changes: [
+      "@-mentioned users on a task or EIR comment now automatically become watchers on that item — works for both lists; resolved against the existing people directory to get a real SharePoint LookupId before writing, falls through silently if the mentioned person isn't in the directory yet; toast confirms 'X is now watching this task / EIR' so the original commenter sees what happened",
+      "Removing yourself from the Watchers field is the off-switch — but a fresh @-mention will re-add you, so the mentioner needs to stop pinging if they actually want you to disengage; documented this in the User Manual's mention section",
+    ],
+  },
+  {
     version: "0.19.2",
     date: "2026-05-21",
     changes: [

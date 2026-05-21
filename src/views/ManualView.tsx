@@ -405,9 +405,20 @@ const SECTIONS: ManualSection[] = [
           chip in your comment and the mentioned person receives an email
           notification when you send.
         </P>
+        <P>
+          Anyone you @-mention also <strong>becomes a watcher</strong> on
+          the task or EIR automatically (unless they already are). They
+          get future notifications on follow-up activity. To stop
+          watching, the mentioned user removes themselves from the
+          Watchers field on the detail sidebar. (Heads-up: a fresh
+          @-mention will re-add them, so if you keep mentioning a
+          colleague who's already left the thread on purpose, expect
+          them to keep removing themselves.)
+        </P>
         <Tip>
           You <em>can</em> mention yourself — useful as a "remind me later"
-          that lands in your inbox.
+          that lands in your inbox and pins the task to your watched
+          list.
         </Tip>
         <H3>Attachments</H3>
         <P>

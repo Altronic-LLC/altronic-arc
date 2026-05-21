@@ -19,6 +19,7 @@ import type {
 } from "@/types/task";
 import { pushToast } from "@/components/Toast";
 import { multiLookupField } from "@/lib/graphFields";
+import { extractMentionedRecipients } from "@/lib/mentions";
 
 const EIRS_KEY = ["eirs", "list"] as const;
 
@@ -224,13 +225,75 @@ export function useAddEirComment() {
           modifiedAt: new Date(),
         })),
       ),
-    onSuccess: () => pushToast({ message: "Comment posted." }),
+    onSuccess: (_data, { id, comment }) => {
+      pushToast({ message: "Comment posted." });
+
+      // Auto-watch: anyone @-mentioned becomes a watcher on this EIR
+      // (unless they already are). Resolves the email against the people
+      // directory built from every EIR's reporter + engineers + watchers
+      // so we land a SharePoint LookupId — required to write the
+      // watcher entry. Silent on success, logs on failure.
+      const recipients = extractMentionedRecipients(comment.bodyHtml);
+      if (recipients.length === 0) return;
+      const eirs = qc.getQueryData<Eir[]>(EIRS_KEY);
+      const eir = eirs?.find((e) => e.id === id);
+      if (!eir) return;
+
+      const directory = eirs ? collectPeopleFromEirs(eirs) : [];
+      const alreadyWatching = new Set(
+        eir.watchers.map((w) => (w.email ?? w.displayName).toLowerCase()),
+      );
+      const byEmail = new Map<string, Person>();
+      for (const p of directory) {
+        if (p.email && p.lookupId) byEmail.set(p.email.toLowerCase(), p);
+      }
+      const additions: Person[] = [];
+      for (const r of recipients) {
+        const key = (r.email ?? r.displayName).toLowerCase();
+        if (alreadyWatching.has(key)) continue;
+        if (!r.email) continue;
+        const resolved = byEmail.get(r.email.toLowerCase());
+        if (!resolved) continue;
+        additions.push(resolved);
+        alreadyWatching.add(key);
+      }
+      if (additions.length === 0) return;
+
+      void setEirWatchers(id, [...eir.watchers, ...additions])
+        .then(() => {
+          qc.invalidateQueries({ queryKey: EIRS_KEY });
+          pushToast({
+            message:
+              additions.length === 1
+                ? `${additions[0].displayName} is now watching this EIR.`
+                : `${additions.length} people are now watching this EIR.`,
+          });
+        })
+        .catch((err) => {
+          console.error("Auto-watch failed for EIR comment:", err);
+        });
+    },
     onError: (_err, _vars, ctx) => {
       rollback(qc, ctx);
       pushToast({ message: "Couldn't post comment — please retry.", variant: "error" });
     },
     onSettled: () => invalidate(qc),
   });
+}
+
+/** Flatten every Person across the EIR list, deduped, lookupId-only. */
+function collectPeopleFromEirs(eirs: Eir[]): Person[] {
+  const map = new Map<string, Person>();
+  for (const e of eirs) {
+    const candidates: Person[] = [];
+    if (e.reporter) candidates.push(e.reporter);
+    candidates.push(...e.assignedEngineers, ...e.watchers);
+    for (const p of candidates) {
+      const key = (p.email ?? p.displayName).toLowerCase();
+      if (!map.has(key) && p.lookupId) map.set(key, p);
+    }
+  }
+  return [...map.values()];
 }
 
 export function useEditEirComment() {

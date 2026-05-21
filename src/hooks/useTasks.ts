@@ -466,26 +466,51 @@ export function useAddComment() {
       ),
     onSuccess: (_data, { id, comment }) => {
       pushToast({ message: "Comment posted." });
-      // Fire-and-forget @-mention emails. Use the cached task for context;
-      // it has the title/URL info the email body needs. Failures are
-      // logged inside notifyMentions — they don't bubble back to the user.
       const recipients = extractMentionedRecipients(comment.bodyHtml);
-      if (recipients.length > 0) {
-        const task = qc.getQueryData<Task[]>(TASK_LIST_KEY)?.find((t) => t.id === id);
-        if (task) {
-          const sender: Person = {
-            displayName: comment.authorName,
-            email: comment.authorEmail,
-          };
-          void notifyMentions({
-            recipients,
-            sender,
-            task,
-            commentExcerpt: htmlToPlainText(comment.bodyHtml),
-            attachments: comment.attachments ?? [],
+      if (recipients.length === 0) return;
+
+      const tasks = qc.getQueryData<Task[]>(TASK_LIST_KEY);
+      const task = tasks?.find((t) => t.id === id);
+      if (!task) return;
+
+      // Fire-and-forget @-mention emails. Failures logged inside
+      // notifyMentions — they don't bubble back to the user.
+      const sender: Person = {
+        displayName: comment.authorName,
+        email: comment.authorEmail,
+      };
+      void notifyMentions({
+        recipients,
+        sender,
+        task,
+        commentExcerpt: htmlToPlainText(comment.bodyHtml),
+        attachments: comment.attachments ?? [],
+      });
+
+      // Auto-watch: every mentioned user becomes a watcher on the task
+      // (unless they already are). Resolves the recipient email against
+      // the people directory built from every task's assigned + watchers
+      // so we get a real SharePoint LookupId — without one, Graph can't
+      // write the watcher entry. Silent on success; logs on failure.
+      void autoWatchFromMentions({
+        recipients,
+        currentWatchers: task.watchers,
+        directory: tasks ? collectPeopleFromTasks(tasks) : [],
+      })
+        .then(async (additions) => {
+          if (additions.length === 0) return;
+          await setWatchers(id, [...task.watchers, ...additions]);
+          qc.invalidateQueries({ queryKey: TASK_LIST_KEY });
+          pushToast({
+            message:
+              additions.length === 1
+                ? `${additions[0].displayName} is now watching this task.`
+                : `${additions.length} people are now watching this task.`,
           });
-        }
-      }
+        })
+        .catch((err) => {
+          console.error("Auto-watch failed for task comment:", err);
+        });
     },
     onError: (_err, _vars, ctx) => {
       rollback(qc, ctx);
@@ -493,6 +518,56 @@ export function useAddComment() {
     },
     onSettled: () => invalidateTasks(qc),
   });
+}
+
+/**
+ * Resolve @-mentioned recipients against a directory of known people,
+ * filter to those NOT already on the watcher list, return the ones we
+ * can actually write to SharePoint (need a resolved LookupId).
+ *
+ * Async only so the calling .then chain doesn't block the comment-post
+ * toast — the body is synchronous.
+ */
+async function autoWatchFromMentions({
+  recipients,
+  currentWatchers,
+  directory,
+}: {
+  recipients: Person[];
+  currentWatchers: Person[];
+  directory: Person[];
+}): Promise<Person[]> {
+  const alreadyWatching = new Set(
+    currentWatchers.map((w) => (w.email ?? w.displayName).toLowerCase()),
+  );
+  const byEmail = new Map<string, Person>();
+  for (const p of directory) {
+    if (p.email && p.lookupId) byEmail.set(p.email.toLowerCase(), p);
+  }
+
+  const additions: Person[] = [];
+  for (const r of recipients) {
+    const key = (r.email ?? r.displayName).toLowerCase();
+    if (alreadyWatching.has(key)) continue;
+    if (!r.email) continue;
+    const resolved = byEmail.get(r.email.toLowerCase());
+    if (!resolved) continue;
+    additions.push(resolved);
+    alreadyWatching.add(key);
+  }
+  return additions;
+}
+
+/** Flatten every Person across the task list, deduped by email/displayName. */
+function collectPeopleFromTasks(tasks: Task[]): Person[] {
+  const map = new Map<string, Person>();
+  for (const t of tasks) {
+    for (const p of [...t.assigned, ...t.watchers]) {
+      const key = (p.email ?? p.displayName).toLowerCase();
+      if (!map.has(key) && p.lookupId) map.set(key, p);
+    }
+  }
+  return [...map.values()];
 }
 
 export function useEditComment() {
