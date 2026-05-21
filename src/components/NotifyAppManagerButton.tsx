@@ -63,20 +63,48 @@ function NotifyAppManagerModal({ onClose }: { onClose: () => void }) {
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose, sending]);
 
+  // Two send paths:
+  //   1. Signed in → Graph sendMail via the shared mailbox (preferred, no
+  //      user action needed beyond clicking Send).
+  //   2. Not signed in → open a mailto: draft in the user's default mail
+  //      client. We can't post to Graph without a token, but the sign-in
+  //      screen is also exactly where users are most likely to hit
+  //      something they need to report. So this is the fallback that
+  //      keeps the button useful on the unauthenticated landing page.
+  const useMailto = !user.email;
+
   async function handleSend() {
     if (sending) return;
     setSending(true);
-    try {
-      await sendErrorReport({
+    const pageUrl = typeof window !== "undefined" ? window.location.href : "(unknown)";
+    const userAgent = typeof navigator !== "undefined" ? navigator.userAgent : "(unknown)";
+
+    if (useMailto) {
+      openMailtoDraft({
         description: description.trim(),
-        reporter: user.email ? user : null,
         captured,
-        pageUrl: typeof window !== "undefined" ? window.location.href : "(unknown)",
-        userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "(unknown)",
+        pageUrl,
+        userAgent,
       });
       clearRecentErrors();
       pushToast({
-        message: `Report sent to the app manager.${user.email ? " You'll get a copy by email." : ""}`,
+        message: "Opened a draft in your email client — please review and send.",
+      });
+      onClose();
+      return;
+    }
+
+    try {
+      await sendErrorReport({
+        description: description.trim(),
+        reporter: user,
+        captured,
+        pageUrl,
+        userAgent,
+      });
+      clearRecentErrors();
+      pushToast({
+        message: "Report sent to the app manager. You'll get a copy by email.",
       });
       onClose();
     } catch (err) {
@@ -179,10 +207,16 @@ function NotifyAppManagerModal({ onClose }: { onClose: () => void }) {
           </div>
 
           <p className="text-[11px] text-fg-muted">
-            Sent to <strong className="text-fg">{APP_MANAGER_EMAIL}</strong>
-            {user.email && (
+            {useMailto ? (
               <>
-                . You ({user.email}) will be CC'd.
+                You're not signed in, so we'll open a draft email to{" "}
+                <strong className="text-fg">{APP_MANAGER_EMAIL}</strong> in your
+                mail client — review it and hit Send.
+              </>
+            ) : (
+              <>
+                Sent to <strong className="text-fg">{APP_MANAGER_EMAIL}</strong>.
+                You ({user.email}) will be CC'd.
               </>
             )}
           </p>
@@ -203,10 +237,63 @@ function NotifyAppManagerModal({ onClose }: { onClose: () => void }) {
             disabled={sending || (!description.trim() && captured.length === 0)}
             className="rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {sending ? "Sending…" : "Send report"}
+            {sending ? "Sending…" : useMailto ? "Open email draft" : "Send report"}
           </button>
         </div>
       </div>
     </div>
   );
+}
+
+/**
+ * Open a mailto: draft pre-filled with the description + captured errors.
+ * Used as the fallback when there's no signed-in user (so Graph sendMail
+ * isn't reachable). The user composes from their own mailbox, which is
+ * actually a nice side effect — the maintainer knows exactly who reported
+ * what.
+ *
+ * mailto URLs have a practical length limit (~2000 chars on most clients).
+ * We cap the captured-error section so we don't blow it up; if there's a
+ * lot of noise, we truncate with a note.
+ */
+function openMailtoDraft(input: {
+  description: string;
+  captured: CapturedError[];
+  pageUrl: string;
+  userAgent: string;
+}): void {
+  const subject = "[Engineering Tasks] Issue report";
+
+  const lines: string[] = [];
+  lines.push("Description:");
+  lines.push(input.description || "(no description provided)");
+  lines.push("");
+  lines.push(`Page: ${input.pageUrl}`);
+  lines.push(`Browser: ${input.userAgent}`);
+  lines.push("");
+
+  if (input.captured.length === 0) {
+    lines.push("No console errors were captured during this session.");
+  } else {
+    lines.push(`Captured console output (${input.captured.length}):`);
+    let totalChars = 0;
+    const MAX_CHARS = 1500;
+    for (const e of input.captured) {
+      const chunk = `[${e.level.toUpperCase()}] ${e.at.toISOString()} ${e.message}`;
+      if (totalChars + chunk.length > MAX_CHARS) {
+        lines.push(
+          `… (${input.captured.length - lines.length} more entries truncated; open DevTools to see all)`,
+        );
+        break;
+      }
+      lines.push(chunk);
+      totalChars += chunk.length;
+    }
+  }
+
+  const body = lines.join("\n");
+  const href = `mailto:${APP_MANAGER_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  if (typeof window !== "undefined") {
+    window.location.href = href;
+  }
 }

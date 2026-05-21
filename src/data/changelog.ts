@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.21.1",
+    date: "2026-05-21",
+    changes: [
+      "'Report issue' button now also appears on the sign-in page (top right) so users who can't log in still have a path to flag the problem",
+      "When the button is pressed without a signed-in user, it opens a pre-filled draft in your default mail client (mailto:) instead of going through Graph sendMail — same destination, same captured-error attachment, you compose from your own mailbox so the maintainer knows exactly who reported it",
+    ],
+  },
+  {
     version: "0.21.0",
     date: "2026-05-21",
     changes: [

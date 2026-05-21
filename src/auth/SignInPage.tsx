@@ -5,6 +5,7 @@ import { graphScopes } from "@/auth/msalConfig";
 import { USE_MOCK } from "@/api/config";
 import { Brandmark } from "@/components/brand/Brandmark";
 import { Wordmark } from "@/components/brand/Wordmark";
+import { NotifyAppManagerButton } from "@/components/NotifyAppManagerButton";
 
 interface SignInPageProps {
   /**
@@ -62,6 +63,12 @@ export function SignInPage({ onDemoBypass }: SignInPageProps) {
 
   return (
     <div className="flex min-h-full flex-col bg-bg">
+      {/* "Report issue" button in the top-right so users who can't sign in
+          still have a path to flag the problem. When unauthenticated, the
+          button uses a mailto: draft instead of Graph sendMail. */}
+      <div className="absolute right-4 top-4 z-10">
+        <NotifyAppManagerButton />
+      </div>
       <div className="flex flex-1 items-center justify-center px-4 py-12">
         <div className="w-full max-w-md">
           <div className="flex flex-col items-center text-center">

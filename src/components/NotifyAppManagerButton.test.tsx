@@ -3,13 +3,15 @@ import { screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
 
-// Mock current user — the modal CC's whatever this returns.
+// Mock current user — swap implementation in individual tests to simulate
+// the unauthenticated sign-in-screen case.
+const currentUserMock = vi.fn(() => ({
+  displayName: "Ray White",
+  email: "ray.white@altronic-llc.com",
+  lookupId: 12,
+}));
 vi.mock("@/hooks/useCurrentUser", () => ({
-  useCurrentUser: () => ({
-    displayName: "Ray White",
-    email: "ray.white@altronic-llc.com",
-    lookupId: 12,
-  }),
+  useCurrentUser: () => currentUserMock(),
 }));
 
 // Capture sends without actually hitting Graph.
@@ -28,6 +30,11 @@ import { NotifyAppManagerButton } from "./NotifyAppManagerButton";
 beforeEach(() => {
   sendMock.mockReset();
   sendMock.mockResolvedValue(undefined);
+  currentUserMock.mockReturnValue({
+    displayName: "Ray White",
+    email: "ray.white@altronic-llc.com",
+    lookupId: 12,
+  });
 });
 
 describe("NotifyAppManagerButton", () => {
@@ -77,5 +84,39 @@ describe("NotifyAppManagerButton", () => {
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
+  });
+
+  it("falls back to a mailto: draft when not signed in", async () => {
+    currentUserMock.mockReturnValue({
+      displayName: "Unknown user",
+      email: "",
+      lookupId: 0,
+    });
+    // window.location.href is read-only in jsdom; replace with a setter spy.
+    const hrefSetter = vi.fn();
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { href: "", set href(v: string) { hrefSetter(v); } } as Location,
+    });
+
+    const user = userEvent.setup();
+    renderWithProviders(<NotifyAppManagerButton />);
+    fireEvent.click(screen.getByRole("button", { name: /notify app manager/i }));
+    await screen.findByRole("dialog");
+
+    // Send button label flips to "Open email draft" when unauthenticated.
+    expect(
+      screen.getByText(/not signed in.*draft email/i),
+    ).toBeInTheDocument();
+
+    const textarea = await screen.findByPlaceholderText(/I tried to drag/i);
+    await user.type(textarea, "stuck on sign-in");
+    await user.click(screen.getByRole("button", { name: /open email draft/i }));
+
+    expect(sendMock).not.toHaveBeenCalled();
+    expect(hrefSetter).toHaveBeenCalledTimes(1);
+    const href = hrefSetter.mock.calls[0]![0] as string;
+    expect(href.startsWith("mailto:ray.white@altronic-llc.com")).toBe(true);
+    expect(decodeURIComponent(href)).toContain("stuck on sign-in");
   });
 });
