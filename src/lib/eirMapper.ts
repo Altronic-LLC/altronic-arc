@@ -45,7 +45,14 @@ export function toEir(item: GraphListItem): Eir {
       EIR_REQUESTED_PRIORITIES,
     ),
 
-    reporter: parsePersonSingle(f.Reporter),
+    // Reporter is a single-person column on the EIR list. Graph may
+    // return it as an expanded `{ LookupId, LookupValue, Email }` object
+    // under `Reporter`, or — depending on how the $select interacts with
+    // the column type — only as the bare `ReporterLookupId` integer.
+    // parsePersonSingle handles both shapes (object via Reporter, integer
+    // via ReporterLookupId fallback) so we get a Person either way.
+    reporter:
+      parsePersonSingle(f.Reporter) ?? parsePersonSingle(f.ReporterLookupId),
     assignedEngineers: parsePersonMulti(f.AssignedEngineer),
     watchers: parsePersonMulti(f.Watchers),
     parentProject: readProjectLookupId(f),
@@ -92,12 +99,37 @@ export function attachEirReferences(
   projects: ProjectReference[],
 ): Eir[] {
   const byId = new Map(projects.map((p) => [p.lookupId, p.title]));
+
+  // Cross-pollinate the people directory: any EIR whose Reporter / Watcher
+  // / Assigned Engineer came back with a fully-expanded name is a hint we
+  // can apply to other EIRs whose same-lookupId Person came back as a
+  // bare `User #N` placeholder (Graph sometimes expands a single-person
+  // column on one item and not another in the same response).
+  const peopleById = new Map<number, Person>();
+  const noteSeen = (p: Person | null | undefined) => {
+    if (!p || !p.lookupId || p.displayName.startsWith("User #")) return;
+    if (!peopleById.has(p.lookupId)) peopleById.set(p.lookupId, p);
+  };
+  for (const e of eirs) {
+    noteSeen(e.reporter);
+    for (const x of e.assignedEngineers) noteSeen(x);
+    for (const x of e.watchers) noteSeen(x);
+  }
+
   for (const e of eirs) {
     if (e.parentProject && e.parentProject.lookupId > 0) {
-      // Only override a blank title — if the mapper already extracted a
-      // title from a string/managed-metadata value, that's authoritative.
       const joined = byId.get(e.parentProject.lookupId);
       if (joined && !e.parentProject.title) e.parentProject.title = joined;
+    }
+    if (e.reporter && e.reporter.displayName.startsWith("User #") && e.reporter.lookupId) {
+      const resolved = peopleById.get(e.reporter.lookupId);
+      if (resolved) {
+        e.reporter = {
+          ...e.reporter,
+          displayName: resolved.displayName,
+          email: resolved.email ?? e.reporter.email,
+        };
+      }
     }
   }
   return eirs;
@@ -271,17 +303,34 @@ function parseNullableNumber(raw: unknown): number | null {
 }
 
 function parsePersonSingle(raw: unknown): Person | null {
-  if (!raw) return null;
+  if (raw == null || raw === "" || raw === 0) return null;
+
+  // Bare integer or numeric string → just the lookupId. We don't know the
+  // name yet (a directory lookup would resolve it), so emit a placeholder
+  // Person with the id. The detail/list components show the lookupId in
+  // brackets so it's clear it's unresolved.
+  if (typeof raw === "number") {
+    return raw > 0 ? { displayName: `User #${raw}`, lookupId: raw } : null;
+  }
+  if (typeof raw === "string") {
+    const n = parseInt(raw, 10);
+    if (!Number.isNaN(n) && n > 0) {
+      return { displayName: `User #${n}`, lookupId: n };
+    }
+    return null;
+  }
+
   const entry = Array.isArray(raw) ? raw[0] : raw;
   if (typeof entry !== "object" || entry === null) return null;
   const obj = entry as Record<string, unknown>;
   const displayName =
     (obj.LookupValue as string) ?? (obj.displayName as string) ?? (obj.title as string);
-  if (!displayName) return null;
+  const lookupId = toInt(obj.LookupId ?? obj.lookupId, 0);
+  if (!displayName && lookupId === 0) return null;
   return {
-    displayName,
+    displayName: displayName || `User #${lookupId}`,
     email: (obj.Email as string) ?? (obj.email as string),
-    lookupId: toInt(obj.LookupId ?? obj.lookupId, 0),
+    lookupId,
   };
 }
 

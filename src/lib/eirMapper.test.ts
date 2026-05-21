@@ -93,7 +93,7 @@ describe("toEir — dates", () => {
 });
 
 describe("toEir — people", () => {
-  it("Reporter (single person)", () => {
+  it("Reporter (single person) — expanded object shape", () => {
     const e = toEir(
       item({
         fields: {
@@ -106,6 +106,31 @@ describe("toEir — people", () => {
       email: "sarah@x.com",
       lookupId: 46,
     });
+  });
+
+  it("Reporter (single person) — bare ReporterLookupId fallback", () => {
+    // When Graph doesn't expand the Reporter column we only see the
+    // suffixed integer; the mapper should still emit a Person with a
+    // placeholder displayName so attachEirReferences can swap it later.
+    const e = toEir(item({ fields: { ReporterLookupId: 88 } }));
+    expect(e.reporter).toEqual({
+      displayName: "User #88",
+      lookupId: 88,
+    });
+  });
+
+  it("Reporter — attachEirReferences resolves placeholder name from siblings", () => {
+    const expanded = toEir(
+      item({
+        fields: {
+          Reporter: { LookupId: 88, LookupValue: "Sarah Shaffer", Email: "sarah@x.com" },
+        },
+      }),
+    );
+    const placeholder = toEir(item({ fields: { ReporterLookupId: 88 } }));
+    attachEirReferences([expanded, placeholder], []);
+    expect(placeholder.reporter?.displayName).toBe("Sarah Shaffer");
+    expect(placeholder.reporter?.email).toBe("sarah@x.com");
   });
 
   it("Assigned Engineers (multi person)", () => {

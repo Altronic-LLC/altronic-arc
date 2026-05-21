@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.17.2",
+    date: "2026-05-21",
+    changes: [
+      "EIR Reporter now renders even when Graph returns just the bare ReporterLookupId instead of the expanded person object — the mapper falls back to building a placeholder Person from the lookupId, then attachEirReferences cross-pollinates real names from any other EIR in the response where the same person did come back expanded, so the list and detail show the right name in either case",
+      "Added a one-time browser-console diagnostic for the Reporter field on the first EIR — logs the value of `Reporter` (object?), `ReporterLookupId` (int?), and the resolved Person after mapping, so we can confirm which shape Graph is actually returning",
+    ],
+  },
+  {
     version: "0.17.1",
     date: "2026-05-21",
     changes: [
