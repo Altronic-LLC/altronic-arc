@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.16.6",
+    date: "2026-05-20",
+    changes: [
+      "Replaced the About page Mermaid diagrams with a hand-built HTML/Tailwind layout — same information laid out as tier cards (System flow) and entity cards with bulleted relationships (Data model), colour-coded with the Cooper palette and zero chance of 'syntax error in text' on the live page",
+    ],
+  },
+  {
     version: "0.16.5",
     date: "2026-05-20",
     changes: [
