@@ -434,20 +434,31 @@ const SECTIONS: ManualSection[] = [
         </P>
         <P>
           The sidebar holds the workflow fields: Status, Resolution, Request
-          Type, Requested Priority, Reporter, Assigned Engineers, Watchers,
-          Project Reference, Task Reference (free text — links back to a task
-          when it looks like a task ID), Requested Completion Date, LTB Date.
-          Every change is optimistic with toast + undo, same as everywhere
-          else.
+          Type, Requested Priority, Reporter, Assigned (Engineers), Project
+          Reference chips (read-only — the column is a multi-select choice
+          managed in SharePoint), Requested Completion Date, LTB Date, plus
+          Watchers at the bottom. Every change is optimistic with toast +
+          undo, same as everywhere else.
         </P>
-        <H3>Promotion to a task</H3>
+        <H3>Linked Task & promotion</H3>
         <P>
-          When an EIR is promoted to an engineering task, the{" "}
-          <strong>Promoted to task</strong> chip appears at the top of the
-          detail page and the Resolution should be set to{" "}
-          <strong>Promoted to Task</strong>. The Task Reference field gets the
-          task identifier — type the number (e.g. <code>T115</code>) and an
-          "Open task" link appears in the sidebar.
+          A <strong>Linked Task</strong> card sits in the main column above
+          the Attachments section. It shows the task this EIR has been
+          promoted to (or any other task you want to reference) — clickable
+          row with the numbered title on the left and the task's current
+          status badge on the right, identical in feel to the Child Tasks
+          card on the task detail. Hit <strong>Edit</strong> in the card
+          header to type a new reference (e.g. <code>T115</code>) or paste a
+          Power Apps task URL; the app extracts the task ID either way.
+        </P>
+        <H3>Attachments</H3>
+        <P>
+          Tasks and EIRs have an <strong>Attachments</strong> card on the
+          detail page — list, upload, download, delete files stored against
+          the SharePoint list item. If the section shows an "unavailable"
+          notice instead, an admin still needs to grant the app the
+          SharePoint REST permission (Office 365 SharePoint Online →
+          AllSites.Manage).
         </P>
       </>
     ),
@@ -499,6 +510,61 @@ const SECTIONS: ManualSection[] = [
           <strong>Task Reference</strong> in the sidebar are clickable links
           back to those records.
         </P>
+      </>
+    ),
+  },
+  {
+    id: "admin",
+    title: "Admin section",
+    keywords: [
+      "admin",
+      "administrator",
+      "permissions",
+      "access control",
+      "who can edit",
+      "grant access",
+      "add admin",
+      "remove admin",
+      "admin link",
+      "project references",
+      "projects admin",
+      "manage projects",
+    ],
+    searchText:
+      "Admins manage two things from the Admin section in the header: the list of admin users (/admin/admins) and the project references catalogue (/admin/projects). The Admin link only appears in the header for users on the admin list. Add an admin from the Admins page; their name appears in the header on their next sign-in. Removing yourself is disabled to prevent lockouts. A small hardcoded bootstrap set of admins stays in the code as a safety net.",
+    render: () => (
+      <>
+        <P>
+          The <strong>Admin</strong> link in the header only shows up for users
+          whose email is in the Admins list. Click it to land on the Admins
+          page, which has a table of everyone who has admin access.
+        </P>
+        <H3>Adding or removing admins</H3>
+        <P>
+          Click <strong>Add admin</strong> on the Admins page. Enter the user's
+          @altronic-llc.com email, optionally a display name and a short note
+          about why they're being granted access, and hit Save. The new admin
+          sees the Admin link the next time they reload the app.
+        </P>
+        <P>
+          To revoke access, click <strong>Remove</strong> on the row you want
+          to drop. You can't remove yourself — there's always a hardcoded
+          bootstrap set of accounts in the code as a safety net, so the system
+          stays accessible even if the Admins list is emptied by accident.
+        </P>
+        <H3>Project References admin</H3>
+        <P>
+          The <strong>Projects admin →</strong> link on the Admins page (or
+          navigate to <code>/admin/projects</code> directly) opens the Project
+          References editor. Add new projects there and they immediately
+          become available as parent / related project choices on every task.
+        </P>
+        <Tip>
+          If you're trying to add yourself and the modal closes silently with
+          no row appearing, the SharePoint Admins list isn't configured yet —
+          a yellow notice at the top of the Admins page tells you so. An
+          admin needs to create the list and set <code>VITE_SP_ADMINS_LIST_ID</code>.
+        </Tip>
       </>
     ),
   },

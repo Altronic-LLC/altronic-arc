@@ -29,9 +29,9 @@ flowchart TB
 
   subgraph FE["Frontend (React SPA)"]
     direction TB
-    Views["Views<br/>Dashboard · List · Kanban<br/>Detail · Test Sheets · EIRs<br/>About · Manual"]
-    Hooks["React Query hooks<br/>useTasks · useTestSheets · useEirs<br/>useFilters · useCurrentUser"]
-    API["API layer<br/>src/api/tasks.ts<br/>src/api/testSheets.ts<br/>src/api/eirs.ts<br/>src/api/email.ts"]
+    Views["Views<br/>Dashboard · List · Kanban<br/>Detail · Test Sheets · EIRs<br/>Admin (Projects · Admins)<br/>About · Manual"]
+    Hooks["React Query hooks<br/>useTasks · useTestSheets · useEirs<br/>useAdmins · useAttachments<br/>useFilters · useCurrentUser"]
+    API["API layer<br/>src/api/tasks.ts · testSheets.ts<br/>src/api/eirs.ts · admins.ts<br/>src/api/email.ts · attachments.ts"]
     Views --> Hooks --> API
   end
 
@@ -40,12 +40,15 @@ flowchart TB
   MSAL[/MSAL Entra ID/]
   Mock[("Mock store<br/>in-memory + localStorage")]
   Graph[/"Microsoft Graph v1.0"/]
+  SPREST[/"SharePoint REST<br/>(attachments only)"/]
 
   API -- "VITE_USE_MOCK=true" --> Mock
   API -- "VITE_USE_MOCK=false" --> Graph
+  API -- "list-item attachments" --> SPREST
 
   Browser -. sign in .-> MSAL
   MSAL -. access token .-> Graph
+  MSAL -. AllSites.Manage token .-> SPREST
 
   Mailbox[/"Shared mailbox<br/>VITE_SHARED_MAILBOX"/]
   API -- "@-mention notifications<br/>(Mail.Send.Shared)" --> Mailbox
@@ -57,9 +60,11 @@ flowchart TB
     Projects[("Projects")]
     TestResults[("Test Results")]
     EIRs[("EIRs (Engineering<br/>Information Requests)")]
+    Admins[("Admins")]
   end
 
   Graph --> SP
+  SPREST --> SP
 `.trim();
 
 const dataModelDiagram = `
@@ -68,22 +73,27 @@ flowchart LR
   Task[("Task")]
   TestSheet[("Test Sheet")]
   EIR[("EIR")]
+  Admin[("Admin")]
 
   Task -- "Parent Project Reference" --> Project
   Task -- "Parent Task (self-link, optional)" --> Task
   TestSheet -- "Task Reference" --> Task
   TestSheet -- "Project Reference" --> Project
-  EIR -- "Project Reference" --> Project
-  EIR -- "Task Reference (text)" --> Task
+  EIR -- "Project Reference (multi-choice text)" --> Project
+  EIR -- "Task Reference (text or Power Apps URL)" --> Task
 
   Person((Person))
   Comments[Comments]
+  Attachments[/"File attachments<br/>(SharePoint REST)"/]
 
   Task -- "Communication" --> Comments
   Task -- "Assigned · Watchers" --> Person
+  Task -. "Attached files" .-> Attachments
   TestSheet -- "Tester" --> Person
   EIR -- "Reporter · Assigned Engineers · Watchers" --> Person
   EIR -- "Communication" --> Comments
+  EIR -. "Attached files" .-> Attachments
+  Admin -- "Email (grants admin UI access)" --> Person
 `.trim();
 
 const Mermaid = lazy(() => import("../components/MermaidDiagram"));

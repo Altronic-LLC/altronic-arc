@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.16.3",
+    date: "2026-05-20",
+    changes: [
+      "About-page diagrams updated: system flow now shows the SharePoint REST audience (for attachments) and the Admins list; data-model diagram now shows Attachments and the Admin entity, plus the EIR project-reference column is annotated as multi-choice text instead of a lookup",
+      "User Manual updated with a new Admin section (how the Admin link is gated, how to add/remove admins, how to reach the Project References editor) and an Attachments + Linked Task callout in the EIRs section",
+    ],
+  },
+  {
     version: "0.16.2",
     date: "2026-05-20",
     changes: [
