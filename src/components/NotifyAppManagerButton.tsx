@@ -108,13 +108,27 @@ function NotifyAppManagerModal({ onClose }: { onClose: () => void }) {
       });
       onClose();
     } catch (err) {
+      // Graph send failed (usually a shared-mailbox permission/config issue
+      // — 404 ErrorItemNotFound, 403 Forbidden, or 401 SessionExpired). The
+      // report itself is too important to drop on the floor, so fall back
+      // to opening a mailto: draft in the user's own mail client. The
+      // maintainer still gets the message; the user's mailbox is the
+      // From address; we don't need any Exchange config to work for this
+      // path to succeed.
       // eslint-disable-next-line no-console
-      console.error("[notifyAppManager] send failed:", err);
-      pushToast({
-        message: `Couldn't send the report — please email ${APP_MANAGER_EMAIL} a screenshot.`,
-        variant: "error",
+      console.error("[notifyAppManager] Graph send failed, opening mailto fallback:", err);
+      openMailtoDraft({
+        description: description.trim(),
+        captured,
+        pageUrl,
+        userAgent,
       });
-      setSending(false);
+      clearRecentErrors();
+      pushToast({
+        message:
+          "Direct send failed — opened a draft in your email client. Please review and send.",
+      });
+      onClose();
     }
   }
 

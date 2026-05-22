@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.21.3",
+    date: "2026-05-22",
+    changes: [
+      "Report issue button now falls back to opening a mailto: draft whenever the Graph sendMail call fails (404 ErrorItemNotFound from a misconfigured shared mailbox, 403 Forbidden, 401 SessionExpired, etc.) — previously the toast just said 'couldn't send' and the user was stuck. Now the maintainer always gets the report, even when the Exchange config is broken for the signed-in user",
+      "Underlying cause if you've been seeing 404s on automation@altronic-llc.com: the signed-in user almost certainly lacks Send-As permission on the shared mailbox, or Mail.Send.Shared wasn't admin-consented on the app registration; check Exchange admin → mailbox delegation",
+    ],
+  },
+  {
     version: "0.21.2",
     date: "2026-05-22",
     changes: [

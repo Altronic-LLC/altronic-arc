@@ -86,6 +86,54 @@ describe("NotifyAppManagerButton", () => {
     });
   });
 
+  it("falls back to a mailto: draft when Graph send fails (e.g. shared mailbox 404)", async () => {
+    sendMock.mockRejectedValueOnce(
+      Object.assign(new Error("Graph 404 ErrorItemNotFound"), { name: "GraphError" }),
+    );
+    const hrefSetter = vi.fn();
+    const locationStub = {} as Location;
+    Object.defineProperty(locationStub, "href", {
+      configurable: true,
+      get: () => "",
+      set: (v: string) => hrefSetter(v),
+    });
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: locationStub,
+    });
+    // Silence the deliberate console.error so it doesn't clutter output.
+    const origErr = console.error;
+    console.error = vi.fn();
+
+    try {
+      const user = userEvent.setup();
+      renderWithProviders(<NotifyAppManagerButton />);
+      fireEvent.click(screen.getByRole("button", { name: /notify app manager/i }));
+      await screen.findByRole("dialog");
+
+      const textarea = await screen.findByPlaceholderText(/I tried to drag/i);
+      await user.type(textarea, "mailbox is broken");
+      await user.click(screen.getByRole("button", { name: /send report/i }));
+
+      // Graph was tried first…
+      await waitFor(() => {
+        expect(sendMock).toHaveBeenCalledTimes(1);
+      });
+      // …and then the mailto: draft opened as fallback.
+      await waitFor(() => {
+        expect(hrefSetter).toHaveBeenCalledTimes(1);
+      });
+      const href = hrefSetter.mock.calls[0]![0] as string;
+      expect(href.startsWith("mailto:ray.white@altronic-llc.com")).toBe(true);
+      expect(decodeURIComponent(href)).toContain("mailbox is broken");
+      await waitFor(() => {
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      });
+    } finally {
+      console.error = origErr;
+    }
+  });
+
   it("falls back to a mailto: draft when not signed in", async () => {
     currentUserMock.mockReturnValue({
       displayName: "Unknown user",
