@@ -20,6 +20,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.22.0",
+    date: "2026-05-22",
+    changes: [
+      "Task attachments now write to BOTH places: the SharePoint list item on the task itself (so they show up inline in the SharePoint UI), and the project folder in the Documents library (so engineering artefacts stay attributable to the project, not the task)",
+      "The Attachments card on each task now shows two sub-lists — 'On this task' (task-specific list-item attachments, shown first because they take priority) and 'From <project folder>' (the project-folder files). Each entry has its own open / remove controls",
+      "Deletes are scoped: removing a file from 'On this task' only deletes the list-item attachment; removing from the project folder only deletes the file in SharePoint. The other copy is untouched",
+      "Best-effort list-item upload: if the user's tenant hasn't admin-consented to AllSites.Manage on the Entra app, the list-item path silently no-ops and uploads still land in the project folder (so attachments never break completely)",
+    ],
+  },
+  {
     version: "0.21.3",
     date: "2026-05-22",
     changes: [
