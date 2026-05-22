@@ -81,7 +81,8 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "Test Results", palette: "list" },
       { label: "EIRs", palette: "list" },
       { label: "Admins", palette: "list" },
-      { label: "Documents library", hint: "General/Project Folders/* — task attachments route here", palette: "list" },
+      { label: "Documents library", hint: "General/Project Folders/* — task & comment files land here", palette: "list" },
+      { label: "List-item attachments", hint: "SharePoint REST · per-item files on Tasks & EIRs", palette: "list" },
     ],
   },
 ];
@@ -238,11 +239,11 @@ const SCHEMA_TABLES: SchemaTable[] = [
   },
   {
     name: "Attachment",
-    source: "EIR list-item attachment (SP REST)",
+    source: "Task & EIR list-item attachments (SP REST)",
     palette: "shared",
     x: 960, y: 540, width: 290,
     columns: [
-      { name: "parentId", type: "int", kind: "fk", references: "EIR.id" },
+      { name: "parentId", type: "int", kind: "fk", references: "Task / EIR" },
       { name: "fileName", type: "text", kind: "field" },
       { name: "serverRelativeUrl", type: "text", kind: "field" },
     ],
@@ -304,7 +305,10 @@ const CONNECTIONS: Connection[] = [
   // Comment → Task & EIR
   { fromTable: "Comment", fromColumn: "parentId", toTable: "Task", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "Comment", fromColumn: "parentId", toTable: "EIR", toColumn: "id", fromCard: "many", toCard: "one" },
-  // Attachment (EIR only — Tasks use ProjectFolder routing instead)
+  // List-item attachments — both Tasks and EIRs. Tasks ALSO mirror uploads
+  // into a ProjectFolder/ProjectFile pair (see below) so the same file is
+  // attributable to both the task and the project.
+  { fromTable: "Attachment", fromColumn: "parentId", toTable: "Task", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "Attachment", fromColumn: "parentId", toTable: "EIR", toColumn: "id", fromCard: "many", toCard: "one" },
   // ProjectFolder routing: every Project has one folder, every folder
   // holds many files. Tasks discover their folder by project lookupId.

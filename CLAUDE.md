@@ -393,6 +393,66 @@ the right section rather than starting new ones. Keep section ids stable
 so external links don't break. Tone: declarative, present-tense, "you do
 X to get Y." Skip implementation detail.
 
+## Attachments
+
+Tasks store every uploaded file in TWO places at once. This is intentional —
+the two storages serve different purposes and the redundancy is by design.
+
+### 1. Project folder (Documents library)
+
+Files land in `General/Project Folders/<Project Folder>/` on the site's
+default Documents library. Each project folder carries a `Project Reference`
+lookup metadata column tied to the Projects list — that's how the app
+finds the right folder for a task's project. If no folder matches the
+task's project, the file goes into a `Miscellaneous` folder with the
+project code prefixed onto the filename so it stays findable by search.
+
+Comment attachments use this path EXCLUSIVELY (they end up as
+hyperlinks inlined into the comment body HTML, so there's no list-item
+to attach them to).
+
+Code: `src/api/projectFiles.ts`, hooks in `src/hooks/useTaskFiles.ts`.
+Auth: standard Graph `Sites.Selected` — no extra scope needed.
+
+### 2. SharePoint list-item attachment (SP REST)
+
+Same file ALSO gets posted to the task list-item via the SharePoint REST
+endpoint `/_api/web/lists(guid'<list-id>')/items(<id>)/AttachmentFiles`.
+This makes the file visible inline on the task in the native SharePoint UI
+and in any downstream automation that reads list-item attachments.
+
+This path is **best-effort** — if the user's tenant hasn't admin-consented
+to `AllSites.Manage` (Office 365 SharePoint Online), or `VITE_SP_SITE_URL`
+isn't set, the list-item upload silently no-ops and the project-folder
+copy still goes through. The mutation `useUploadTaskFile` always returns
+the project-folder result so callers (incl. the comment composer) keep
+working uniformly.
+
+Code: `src/api/attachments.ts` (parametrised over `"task" | "eir"`).
+
+### UI layout
+
+The Attachments card on the task detail view shows two sub-lists:
+
+1. **On this task (N)** — task-specific list-item attachments. Shown first
+   because they're specific to this task vs. shared across the project.
+2. **From `<folder name>` (N)** — project-folder files. Shown second.
+
+Deletes are scoped per-storage — removing a file from "On this task" only
+deletes the list-item attachment; removing from the project folder only
+deletes the file in SharePoint. The other copy is untouched. This is by
+design: users may want one but not the other to disappear.
+
+### Adding a new attachment-related field
+
+If you add a new attachment field to either entity, update:
+1. `src/api/attachments.ts` (list-item path) or `src/api/projectFiles.ts`
+   (project folder path), depending on which storage it lives on.
+2. The Attachment table in `SCHEMA_TABLES` and any new connection in
+   `CONNECTIONS` in `src/views/AboutView.tsx`.
+3. The Attachments section in `src/views/ManualView.tsx`.
+4. The changelog + this section.
+
 ## Known limitations / TODO
 
 - **Person picker (write):** Assigning users isn't wired up — currently the
@@ -401,10 +461,9 @@ X to get Y." Skip implementation detail.
 - **Rich-text comment editor:** The composer is plain text wrapped in `<p>`
   tags. The Power Apps version uses a full WYSIWYG. If you want feature
   parity, swap `CommentComposer.tsx` for a Tiptap-based editor.
-- **Attachments:** Not yet implemented. Graph's support for list-item
-  attachments is limited; the SharePoint REST API at
-  `/_api/web/lists(guid'<list-id>')/items(<id>)/AttachmentFiles` works
-  better. The same MSAL token works for both endpoints.
+- **Attachments — dual routing:** Tasks store uploads in TWO places at once
+  (best-effort on the list-item side, source-of-truth on the project folder
+  side). See **Attachments** section below for the full picture.
 - **Workflow buttons** (New Test, New Field Trial, Form E028, Form E029)
   from the original app are intentionally not implemented in the MVP.
 - **Parent project resolution:** Needs the projects list ID

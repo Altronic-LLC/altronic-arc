@@ -477,68 +477,77 @@ const SECTIONS: ManualSection[] = [
       "where used",
     ],
     searchText:
-      "Task attachments aren't stored on the task. They live in the team's Documents library under General/Project Folders, in the folder tagged with the task's Project Reference. If no folder matches, the file goes into the shared Miscellaneous folder with the project code prefixed onto the filename. The task shows the 5 most-recently-modified files plus a View all link. Comment attachments use the same routing — drop a file in the comment composer and it uploads to the project folder, then drops a hyperlink into the comment.",
+      "Task attachments are stored in two places at once: the task itself in SharePoint (as list-item attachments) and the project folder under General/Project Folders. Files specific to a task show under 'On this task'; shared project files show under 'From <folder name>'. Task-specific attachments take priority and appear first. Deletes are scoped — removing from one place doesn't touch the other. Comment attachments use the project-folder path only, since they end up as hyperlinks inside the comment body.",
     render: () => (
       <>
         <P>
-          Task attachments live in the team's SharePoint{" "}
-          <strong>Documents</strong> library — specifically under{" "}
-          <code>General/Project Folders/</code> — instead of being attached
-          directly to the task. Each subfolder there is tagged with a{" "}
-          <strong>Project Reference</strong> column that links it back to a
-          Project. When you upload a file on a task, the app finds the
-          folder tagged with the task's project and uploads there.
-        </P>
-        <H3>Uploading a file</H3>
-        <P>
-          Open the task and use the <strong>Add file</strong> button on the
-          Attachments card. The toast under the button tells you which
-          folder you're writing to:
+          Task attachments land in <strong>two places</strong> at once when
+          you upload a file:
         </P>
         <ul className="ml-6 list-disc text-sm leading-relaxed text-fg-muted">
           <li>
-            <em>"Files are stored in NGI-5000 on SharePoint."</em> — your
-            task's project matched that folder; the file goes straight in.
+            <strong>On the task itself</strong> as a SharePoint list-item
+            attachment — visible inline on the task in the native SharePoint
+            UI and in anything that reads list-item attachments downstream.
           </li>
           <li>
-            <em>
-              "No project folder matched — Miscellaneous is used instead
-              and uploads are prefixed with the project code so they stay
-              findable."
-            </em>{" "}
-            — the project has no dedicated folder, so the file lands in
-            the shared <code>Miscellaneous</code> folder with the project
-            code prepended (e.g. <code>349-MT-ACI_drawing.pdf</code>). You
-            can still find it later by searching SharePoint for the
-            project code.
+            <strong>In the project folder</strong> under{" "}
+            <code>Documents / General / Project Folders / &lt;Project&gt;</code>{" "}
+            — visible across every task in the same project, useful for
+            engineering artefacts that belong to the project rather than to
+            one task.
           </li>
         </ul>
         <H3>What you see on the task</H3>
         <P>
-          The Attachments card shows the <strong>5 most-recently-modified
-          files</strong> in the project folder — each filename is a
-          hyperlink that opens the file in SharePoint. The{" "}
-          <strong>View all in SharePoint →</strong> link at the top of the
-          card opens the full project folder so you can browse everything,
-          including older files. The list is project-scoped, not
-          task-scoped: every task on the same project sees the same set of
-          files, because the files belong to the project.
+          The Attachments card on a task shows two sub-lists:
         </P>
-        <H3>Comment attachments</H3>
+        <ul className="ml-6 list-disc text-sm leading-relaxed text-fg-muted">
+          <li>
+            <strong>On this task</strong> — task-specific list-item
+            attachments. Listed first because they take priority (they were
+            attached to this task explicitly, not shared across a project).
+          </li>
+          <li>
+            <strong>From &lt;folder name&gt;</strong> — the 5 most-recently
+            modified files in the matching project folder. A{" "}
+            <strong>View all in SharePoint →</strong> link at the bottom
+            opens the full folder so you can browse the rest, including
+            older files.
+          </li>
+        </ul>
+        <H3>Uploading a file</H3>
         <P>
-          Files dropped into a task comment use the same routing. They
-          upload to the same project folder before the comment posts, and
-          a clickable hyperlink to each one is inlined at the bottom of
-          the comment body (`📎 filename.pdf`). The comment thread
-          renders those links naturally, so anyone reading the comment can
-          click straight through to the file.
+          Open the task and use the <strong>Add file</strong> button on the
+          Attachments card. The file uploads to both storages in the same
+          click. If your tenant isn't fully wired up for the list-item path
+          (the SharePoint admin hasn't granted the SP REST scope), the
+          project-folder copy still goes through and the file shows up
+          there — uploads never silently fail.
+        </P>
+        <P>
+          Project-folder routing: the app picks the folder tagged with your
+          task's <strong>Project Reference</strong>. If no folder matches,
+          the file lands in the shared <code>Miscellaneous</code> folder
+          with the project code prepended onto the filename (e.g.{" "}
+          <code>349-MT-ACI_drawing.pdf</code>) so it stays findable by
+          search.
         </P>
         <H3>Removing a file</H3>
         <P>
-          The trash icon next to each filename deletes the file from
-          SharePoint. It asks for confirmation first because files are
-          project-wide — removing a file affects every task on that
-          project, not just the one you're looking at.
+          The trash icon next to each filename deletes <em>only that
+          copy</em>. Removing a file from "On this task" doesn't touch the
+          project folder; removing from the project folder doesn't touch
+          the task. Each list has its own scoped delete confirmation so
+          there's no surprise.
+        </P>
+        <H3>Comment attachments</H3>
+        <P>
+          Files dropped into a task comment use the project-folder path
+          only — they end up as clickable hyperlinks inlined into the
+          comment body (`📎 filename.pdf`). No list-item attachment is
+          created for comment files, because the hyperlink in the comment
+          is already the durable reference.
         </P>
         <H3>Limits</H3>
         <P>
@@ -547,10 +556,9 @@ const SECTIONS: ManualSection[] = [
           directly and it'll show up on the next refresh.
         </P>
         <Tip>
-          EIRs use a different model for now — list-item attachments
-          attached to the EIR itself. That's an artifact of how the EIR
-          column was originally set up; the migration to the same
-          project-folder model is on the backlog.
+          EIRs still use a list-item-only model for now (attached to the
+          EIR itself, no project folder mirroring). The migration to the
+          same dual-routing model is on the backlog.
         </Tip>
       </>
     ),
