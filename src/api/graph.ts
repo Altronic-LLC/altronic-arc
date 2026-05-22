@@ -77,12 +77,22 @@ export async function graphFetch<T>(path: string, init: RequestInit = {}): Promi
     }
     // Always log the full failure to the console — minified production
     // errors collapse the body to just the URL otherwise, which makes
-    // diagnostics impossible. Include the request body too if there was
-    // one, so we can correlate what we sent with how Graph rejected it.
+    // diagnostics impossible.
+    //
+    // SECURITY (Finding B2): Request body is intentionally redacted here.
+    // Request bodies contain user-generated content (comment text, task
+    // descriptions, email addresses). The error buffer in errorBuffer.ts
+    // monkey-patches console.error and captures everything logged here into
+    // a ring buffer, which is then included verbatim in crash report emails
+    // sent to the app manager. Logging the full request body would cause
+    // confidential task/comment content to leak to the app manager via those
+    // reports — even for transient errors like a 429 rate limit or 503.
+    // The response body from Graph is safe to log — it's a diagnostic
+    // artifact from Microsoft's servers, not user-authored content.
     /* eslint-disable no-console */
     console.error(
       `[Graph ${response.status}] ${init.method ?? "GET"} ${url}\n` +
-        `Request body: ${typeof init.body === "string" ? init.body : "(non-string)"}\n` +
+        `Request body: (redacted)\n` +
         `Response body: ${body}`,
     );
     /* eslint-enable no-console */
@@ -103,7 +113,18 @@ export async function graphFetchAll<T>(path: string): Promise<T[]> {
   while (url) {
     const page: { value: T[]; "@odata.nextLink"?: string } = await graphFetch(url);
     all.push(...page.value);
-    url = page["@odata.nextLink"];
+    const nextLink = page["@odata.nextLink"];
+    // SECURITY (Finding G2): Validate the nextLink origin before following it.
+    // graphFetch() passes absolute URLs through as-is (path.startsWith("http")),
+    // which means a malicious or compromised Graph response could supply a
+    // nextLink pointing to an attacker-controlled domain. The Bearer token
+    // would then be sent to that domain in the Authorization header.
+    // In practice this requires a MITM or rogue Graph endpoint, but the
+    // defence-in-depth check costs nothing and eliminates the vector entirely.
+    if (nextLink?.startsWith("http") && !nextLink.startsWith("https://graph.microsoft.com/")) {
+      throw new Error(`Unexpected @odata.nextLink origin: ${nextLink}`);
+    }
+    url = nextLink;
   }
   return all;
 }

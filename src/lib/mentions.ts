@@ -12,6 +12,24 @@ import type { Person } from "@/types/task";
 // the email readable even if a recipient's mail client strips the span.
 // =============================================================================
 
+// SECURITY (Finding D2): Validate email addresses extracted from data-email
+// attributes before they are used as sendMail recipients.
+// DOMPurify permits the data-email attribute on mention spans (it's in the
+// ADD_ATTR allowlist in sanitiseHtml.ts) but does not validate the attribute
+// value itself — only that the attribute is allowed on the element.
+// A malformed value containing CRLF characters (\r or \n) could theoretically
+// inject extra headers into the Graph sendMail payload on a vulnerable mail
+// transport. Microsoft Graph validates recipients server-side and would reject
+// a malformed address with a 400, but this check stops it earlier and prevents
+// any malformed value from reaching the API call at all.
+function isValidEmail(email: string): boolean {
+  return (
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) &&
+    !email.includes("\n") &&
+    !email.includes("\r")
+  );
+}
+
 export function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")
@@ -108,7 +126,8 @@ export function extractMentionedRecipients(
   const nodes = doc.querySelectorAll("span.mention[data-email]");
   nodes.forEach((node) => {
     const email = node.getAttribute("data-email")?.trim();
-    if (!email) return;
+    // Skip missing or malformed addresses — see isValidEmail() above.
+    if (!email || !isValidEmail(email)) return;
     const key = email.toLowerCase();
     if (seen.has(key)) return;
     // The chip text is `@Name`; strip the leading @ for the display name.

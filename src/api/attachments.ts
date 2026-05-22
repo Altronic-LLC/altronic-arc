@@ -84,9 +84,19 @@ export async function uploadAttachment(
   const bytes = await file.arrayBuffer();
   // SP REST attachment upload requires a binary POST. The filename has to
   // travel as a URL parameter — encode it carefully.
+  //
+  // SECURITY (Finding F2): Sanitize the filename before embedding it in the
+  // SharePoint REST URL path. encodeURIComponent() handles forward slashes
+  // and ".." sequences, but does not strip null bytes (\0) or backslashes
+  // which some SharePoint versions may decode unexpectedly. The 256-char
+  // limit also prevents excessively long filenames from causing URL truncation
+  // issues in intermediate proxies. Replace only the minimal set of
+  // problematic characters so legitimate filenames (spaces, parentheses,
+  // hyphens, dots) are preserved.
+  const safeName = file.name.replace(/[/\\:\0]/g, "_").slice(0, 256);
   const path =
     `/_api/web/lists(guid'${listId}')/items(${itemId})` +
-    `/AttachmentFiles/add(FileName='${encodeURIComponent(file.name)}')`;
+    `/AttachmentFiles/add(FileName='${encodeURIComponent(safeName)}')`;
   const res = await spFetch<SpAttachmentFile>(path, {
     method: "POST",
     headers: { "Content-Type": "application/octet-stream" },
@@ -116,9 +126,12 @@ export async function deleteAttachment(
       `${parent === "eir" ? "VITE_SP_EIRS_LIST_ID" : "VITE_SP_LIST_ID"} is not set — attachments unavailable.`,
     );
   }
+  // SECURITY (Finding F2): Same filename sanitization as uploadAttachment —
+  // strip path separators, colons, and null bytes before encoding into the URL.
+  const safeFileName = fileName.replace(/[/\\:\0]/g, "_").slice(0, 256);
   const path =
     `/_api/web/lists(guid'${listId}')/items(${itemId})` +
-    `/AttachmentFiles/getByFileName('${encodeURIComponent(fileName)}')`;
+    `/AttachmentFiles/getByFileName('${encodeURIComponent(safeFileName)}')`;
   await spFetch(path, {
     method: "POST",
     headers: { "X-HTTP-Method": "DELETE", "If-Match": "*" },

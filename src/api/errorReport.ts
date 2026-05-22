@@ -128,7 +128,7 @@ function renderReportEmail(ctx: SendErrorReportInput): string {
       <tr>
         <td style="padding:24px 28px 8px 28px;color:#111827;font-size:14px;line-height:1.55;">
           <div style="margin-bottom:14px;"><span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">Reporter</span><br/>${reporterLine}</div>
-          <div style="margin-bottom:14px;"><span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">Page</span><br/><a href="${escapeHtml(ctx.pageUrl)}" style="color:#CB2C30;text-decoration:none;">${escapeHtml(ctx.pageUrl)}</a></div>
+          <div style="margin-bottom:14px;"><span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">Page</span><br/><a href="${safeHref(ctx.pageUrl)}" style="color:#CB2C30;text-decoration:none;">${escapeHtml(ctx.pageUrl)}</a></div>
           <div style="margin-bottom:14px;"><span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">Browser</span><br/><span style="color:#6b7280;font-size:12px;">${escapeHtml(ctx.userAgent)}</span></div>
           <div style="margin-bottom:6px;"><span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">Description</span></div>
           <div style="padding:14px 16px;background:#f9fafb;border-left:3px solid #CB2C30;border-radius:0 6px 6px 0;margin-bottom:20px;">${description}</div>
@@ -159,4 +159,21 @@ function escapeHtml(s: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+// SECURITY (Finding C2): Validate URL scheme before embedding as an href.
+// escapeHtml() sanitises HTML special characters (&, <, >, ", ') but it
+// does NOT check the URL scheme. A `javascript:` URI would survive escaping
+// and become a clickable link in the rendered email HTML. While pageUrl is
+// sourced from window.location.href (always https:// in practice), this
+// guard ensures a future code path or tampered value can never produce an
+// executable link. Falls back to "#" for any non-http(s) or unparseable URL.
+function safeHref(url: string): string {
+  try {
+    const u = new URL(url);
+    if (u.protocol !== "https:" && u.protocol !== "http:") return "#";
+    return escapeHtml(url);
+  } catch {
+    return "#";
+  }
 }

@@ -53,20 +53,13 @@ export async function listAdmins(): Promise<AdminEntry[]> {
     `/items?$expand=fields&$top=200`;
   const items = await graphFetchAll<GraphListItem>(path);
 
-  // One-time diagnostic to surface the actual column names on this list.
-  if (items.length > 0 && !adminsDebugLogged) {
-    adminsDebugLogged = true;
-    const sample = items[0].fields as Record<string, unknown>;
-    /* eslint-disable no-console */
-    console.group("%c[ADMINS DEBUG] first item field keys", "color:#CB2C30;font-weight:bold");
-    console.log("Keys:", Object.keys(sample).sort());
-    console.log("Title:", sample.Title);
-    console.log("DisplayName:", sample.DisplayName);
-    console.log("Display_x0020_Name:", sample.Display_x0020_Name);
-    console.log("Note:", sample.Note);
-    console.groupEnd();
-    /* eslint-enable no-console */
-  }
+  // SECURITY (Finding E2): A debug logging block that printed field keys and
+  // admin email addresses to the browser console was removed here. It was a
+  // one-time diagnostic aid used to discover SharePoint column names during
+  // initial setup. Leaving it in production meant any user opening browser
+  // DevTools (F12 → Console tab) could see admin email addresses on page load,
+  // and any screen share would passively leak them. The column names it was
+  // probing are now known and hardcoded in pickString() below.
 
   return items.map((it) => {
     const f = it.fields as Record<string, unknown>;
@@ -83,8 +76,6 @@ export async function listAdmins(): Promise<AdminEntry[]> {
     };
   });
 }
-
-let adminsDebugLogged = false;
 
 function pickString(f: Record<string, unknown>, keys: string[]): string {
   for (const k of keys) {
