@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.21.2",
+    date: "2026-05-22",
+    changes: [
+      "About page now opens with a 'What an SPA is' primer above the System flow and Data model diagrams — explains how the app actually works (browser is the runtime, GitHub Pages serves static files, Microsoft Graph is the data backend), why this architecture was chosen over Power Apps (sub-100ms interactions, zero infra cost, no delegation limits), what it costs (first-load latency, JS expertise required, framework churn), and the mental shift required for engineers coming from server-rendered frameworks; collapsible via a 'Read primer / Hide primer' affordance so it doesn't dominate the page for people who already know the model",
+    ],
+  },
+  {
     version: "0.21.1",
     date: "2026-05-21",
     changes: [

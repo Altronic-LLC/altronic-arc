@@ -393,6 +393,13 @@ export function AboutView() {
       </div>
 
       <Section
+        title="What an SPA is"
+        description="Using the Altronic Engineering Task System as an example — a primer for anyone used to server-rendered apps like Power Apps."
+      >
+        <SpaPrimer />
+      </Section>
+
+      <Section
         title="System flow"
         description="Top-down. A request starts in the browser, travels through the SPA's view → hook → API layers, then either short-circuits to the mock store (demo mode) or out to Graph / SharePoint REST. Tokens come from MSAL."
       >
@@ -454,6 +461,203 @@ function Section({
       <p className="mt-1 text-xs text-fg-muted">{description}</p>
       <div className="mt-4">{children}</div>
     </div>
+  );
+}
+
+// =============================================================================
+// SPA primer — long-form explanation of what a Single Page Application is and
+// why the Altronic app was built as one. Lives above the diagrams because the
+// diagrams assume you already know the SPA model. Collapsed by default via
+// <details> so it doesn't dominate the page for people who already get it.
+// =============================================================================
+function SpaPrimer() {
+  return (
+    <details className="group" open>
+      <summary className="cursor-pointer select-none rounded-md border border-border bg-bg px-3 py-2 text-xs font-medium text-fg-muted hover:text-fg group-open:mb-4">
+        <span className="group-open:hidden">Read primer</span>
+        <span className="hidden group-open:inline">Hide primer</span>
+      </summary>
+      <div className="space-y-4 text-sm leading-relaxed text-fg">
+        <p>
+          A Single Page Application loads one HTML document on first visit,
+          then runs entirely in the browser. Subsequent navigation and
+          interactions are handled by JavaScript locally rather than by
+          requesting new pages from a server. The browser becomes the
+          application runtime. The server becomes a data API.
+        </p>
+        <p>
+          This is fundamentally different from the traditional
+          request-response model used by Power Apps, classic ASP.NET, PHP,
+          Rails, and similar frameworks, where every click round-trips
+          through a server that renders HTML and sends it back.
+        </p>
+
+        <PrimerHeading>How the Altronic app works</PrimerHeading>
+        <p>When a user visits the app:</p>
+        <ol className="list-decimal space-y-1 pl-6 text-fg-muted">
+          <li>The browser requests the URL from GitHub Pages</li>
+          <li>
+            GitHub Pages returns a ~1 KB HTML shell plus references to a
+            JavaScript bundle (~125 KB gzipped) and a CSS file
+          </li>
+          <li>
+            The browser downloads and executes the JavaScript, which
+            constructs the entire UI in the empty root div
+          </li>
+          <li>
+            The JavaScript authenticates the user against Entra ID via MSAL
+            using OAuth 2.0 PKCE flow
+          </li>
+          <li>
+            Once authenticated, the JavaScript calls Microsoft Graph directly
+            to fetch task data from SharePoint
+          </li>
+          <li>The UI renders against that data</li>
+        </ol>
+        <p>
+          From this point forward, the browser does not request HTML from
+          any server. When the user clicks between List view, Kanban view,
+          and task detail pages, the URL updates via the History API, the
+          JavaScript swaps in the relevant component, and the screen
+          updates instantly with no network call. When the user edits a
+          task, the JavaScript makes a single PATCH request to Microsoft
+          Graph and updates local state. The user sees the change
+          immediately while the network request completes in the background.
+        </p>
+
+        <PrimerHeading>Three independent systems</PrimerHeading>
+        <p>The Altronic app has three completely independent participants:</p>
+        <ul className="space-y-2 pl-1 text-fg-muted">
+          <li>
+            <strong className="text-fg">GitHub Pages</strong> hosts the
+            static files. It serves the HTML, CSS, and JavaScript on first
+            visit and is never involved again. It never sees SharePoint
+            data, never sees user credentials, and could not access either
+            even if asked.
+          </li>
+          <li>
+            <strong className="text-fg">The user's browser</strong> is
+            where the application actually runs. After the initial
+            download, it talks directly to Microsoft Graph using the
+            user's auth token. The browser holds all the application
+            state, all the rendering logic, and all the business logic for
+            the UI.
+          </li>
+          <li>
+            <strong className="text-fg">Microsoft Graph and SharePoint</strong>{" "}
+            are the data backend. The browser reads and writes here,
+            authenticated as the user. Microsoft enforces all permissions.
+            We didn't build any of this.
+          </li>
+        </ul>
+        <p>
+          The user's identity is what ties them together. Their browser
+          downloads our code from GitHub, then uses their Microsoft
+          credentials to access their own SharePoint data.
+        </p>
+
+        <PrimerHeading>Why this was the right architecture for this app</PrimerHeading>
+        <ul className="space-y-2 pl-1 text-fg-muted">
+          <li>
+            <strong className="text-fg">Performance after first load.</strong>{" "}
+            Every interaction is local. Filtering the task list, switching
+            from List to Kanban, opening the detail view, applying a sort —
+            these all happen in memory with no network round-trip. Power
+            Apps round-trips through Microsoft's servers for nearly every
+            interaction. That's the latency difference users feel.
+          </li>
+          <li>
+            <strong className="text-fg">Deployment simplicity.</strong> Just
+            static files on a CDN. No application server to run, patch,
+            scale, or pay for. GitHub Pages costs nothing. Microsoft Graph
+            is included in the existing M365 license. Total infrastructure
+            cost for the app: zero additional dollars.
+          </li>
+          <li>
+            <strong className="text-fg">Architectural decoupling.</strong>{" "}
+            The frontend and backend are independent. We can rewrite the
+            frontend without touching SharePoint. If Microsoft replaces
+            Graph with something else, we'd swap the data layer without
+            changing the UI. With Power Apps, the frontend and backend are
+            entangled in a proprietary platform.
+          </li>
+          <li>
+            <strong className="text-fg">No delegation limits.</strong> Power
+            Apps' 2,000-record limit doesn't exist here. Microsoft Graph
+            handles pagination natively and we walk through it transparently.
+            Users see the complete dataset, always.
+          </li>
+          <li>
+            <strong className="text-fg">Modern interactivity.</strong>{" "}
+            Drag-and-drop Kanban, optimistic UI updates, smooth modal
+            transitions, mobile-responsive layouts. All standard SPA
+            patterns that would be either impossible or painful in Power Apps.
+          </li>
+        </ul>
+
+        <PrimerHeading>What this costs</PrimerHeading>
+        <ul className="space-y-2 pl-1 text-fg-muted">
+          <li>
+            <strong className="text-fg">First-load latency.</strong> The
+            user waits 500–1500&nbsp;ms on a fresh visit while the
+            JavaScript downloads and executes. After that, navigation is
+            instant. Power Apps has its own first-load cost (downloading
+            the Power Apps runtime, which is ~10&nbsp;MB), so we're
+            actually faster on first load too, but it's worth understanding
+            the trade-off exists.
+          </li>
+          <li>
+            <strong className="text-fg">JavaScript expertise required.</strong>{" "}
+            Maintaining the app requires real frontend skills. Power Apps
+            can be modified by anyone with the platform license. The SPA
+            can be modified by anyone who understands React and TypeScript,
+            which is a smaller pool but a more capable one.
+          </li>
+          <li>
+            <strong className="text-fg">Framework evolution.</strong> SPA
+            frameworks change faster than backend ones. We're using React 18
+            and modern patterns in 2026. In five years we may need to
+            migrate to whatever's current. This is a real maintenance
+            commitment.
+          </li>
+        </ul>
+
+        <PrimerHeading>The mental shift for someone coming from server-rendered apps</PrimerHeading>
+        <p>
+          The biggest conceptual change is that the server doesn't render
+          anything. There are no view templates, no controllers returning
+          HTML, no MVC pattern in the traditional sense. The server
+          (Microsoft Graph) only returns JSON. The browser owns the
+          entire UI.
+        </p>
+        <p>
+          If you've worked in XAML, SwiftUI, or any other declarative UI
+          framework, React will feel familiar — you describe what the UI
+          should look like given current state, and the framework handles
+          updating the DOM. If you're coming from imperative DOM
+          manipulation or server-side templating, the model takes a few
+          days to internalise, but the productivity gain is significant
+          once it clicks.
+        </p>
+        <p>
+          For an internal tool with the interactivity needs of the
+          Altronic Engineering Task System, the SPA architecture is the
+          right call. We get sub-100&nbsp;ms interactions, zero
+          infrastructure cost, full control over UX, and a stack we can
+          evolve over time. The trade-offs that hurt SPAs (SEO, first-load
+          on slow networks, framework churn) are non-issues for our use
+          case.
+        </p>
+      </div>
+    </details>
+  );
+}
+
+function PrimerHeading({ children }: { children: React.ReactNode }) {
+  return (
+    <h3 className="mt-2 font-display text-sm font-semibold text-fg sm:text-base">
+      {children}
+    </h3>
   );
 }
 
