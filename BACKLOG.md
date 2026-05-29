@@ -82,7 +82,21 @@ needs detail, add a sub-bullet underneath it.
 
 ## Later
 
-(empty)
+- **ECN list integration.** Wire the ECN (Engineering Change Notice)
+  SharePoint list into the app, similar to how EIRs and Test Sheets are
+  wired today: a list view, a detail page, optimistic CRUD via Graph,
+  inclusion in the Engineering Requests dropdown, and an entry in the
+  About-page data model.
+
+  **Blocker:** the ECN list + its underlying SharePoint site haven't
+  been migrated yet. Pick this up once the migration is complete.
+
+  **First step when picked up:** run the discovery PowerShell (list id +
+  columns + sample item) so we can build `src/types/ecn.ts`,
+  `src/lib/ecnMapper.ts`, and `src/api/ecns.ts` against the actual
+  schema. Mirror the EIR pattern (`src/lib/eirMapper.ts`,
+  `src/api/eirs.ts`, `src/views/EirsView.tsx`) — it's the closest
+  analogue and most things will line up structurally.
 
 ## Done / shipped
 
