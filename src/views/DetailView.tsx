@@ -787,7 +787,7 @@ function NewCommentsBanner({
       <span className="text-fg">{label}</span>
       <button
         onClick={onShow}
-        className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-black shadow-sm transition-colors hover:bg-accent/90"
+        className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-white shadow-sm transition-colors hover:bg-accent/90"
       >
         <RefreshCw className="h-3 w-3" />
         Show new

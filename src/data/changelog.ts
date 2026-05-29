@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.22.6",
+    date: "2026-05-29",
+    changes: [
+      "Reverted the accent colour back to Cooper Red — links, primary buttons, @-mention chips, active filter pills, and other highlights return to the red used before v0.22.5, with white text on the red fills",
+    ],
+  },
+  {
     version: "0.22.5",
     date: "2026-05-29",
     changes: [

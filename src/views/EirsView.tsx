@@ -169,7 +169,7 @@ export function EirsView() {
         </div>
         <button
           onClick={() => setShowNew(true)}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-black shadow-sm transition-all hover:bg-accent/90"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-accent/90"
         >
           <Plus className="h-4 w-4" />
           <span className="hidden sm:inline">New EIR</span>
@@ -312,7 +312,7 @@ function Pill({
       className={cn(
         "group flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-semibold uppercase tracking-wide transition-all",
         active
-          ? "border-accent bg-accent text-black shadow-sm"
+          ? "border-accent bg-accent text-white shadow-sm"
           : "border-border bg-surface text-fg-muted hover:border-fg-muted hover:text-fg",
         emphasized && !active && "border-accent/40 text-fg",
       )}
@@ -321,7 +321,7 @@ function Pill({
       <span
         className={cn(
           "rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums",
-          active ? "bg-black/10 text-black" : "bg-surface-2 text-fg",
+          active ? "bg-white/20 text-white" : "bg-surface-2 text-fg",
         )}
       >
         {count}

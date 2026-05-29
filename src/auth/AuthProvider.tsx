@@ -104,7 +104,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           <p className="mt-2 text-sm text-fg-muted">{state.error.message}</p>
           <button
             onClick={() => window.location.reload()}
-            className="mt-6 rounded-md bg-accent px-4 py-2 text-sm font-medium text-black shadow-sm hover:bg-accent/90"
+            className="mt-6 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-accent/90"
           >
             Reload page
           </button>

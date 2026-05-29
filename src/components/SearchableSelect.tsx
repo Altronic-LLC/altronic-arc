@@ -236,7 +236,7 @@ function SearchablePanel({
                   className={cn(
                     "flex h-4 w-4 shrink-0 items-center justify-center rounded border",
                     selected
-                      ? "border-accent bg-accent text-black"
+                      ? "border-accent bg-accent text-white"
                       : "border-border bg-surface",
                   )}
                 >

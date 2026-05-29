@@ -63,7 +63,7 @@ export function UserMenu() {
         className={cn(
           "flex h-8 w-8 items-center justify-center rounded-full border text-xs font-semibold transition-colors sm:h-9 sm:w-9",
           open
-            ? "border-accent bg-accent text-black"
+            ? "border-accent bg-accent text-white"
             : "border-border bg-surface-2 text-fg hover:border-fg-muted",
         )}
         aria-label="Account menu"

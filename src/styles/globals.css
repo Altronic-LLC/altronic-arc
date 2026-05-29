@@ -15,10 +15,7 @@
   --border: 220 220 218;
   --fg: 23 23 23;
   --fg-muted: 100 100 98;
-  --accent: 153 118 31; /* Altronic Gold, darkened (#99761F) for legible
-    contrast on the near-white light surfaces — the brand #CBA052 is too
-    pale for white-on-accent buttons and accent-coloured link text here.
-    The dark theme keeps the brighter brand gold below. */
+  --accent: 203 44 48; /* Cooper Red */
 }
 
 .dark {
@@ -29,7 +26,7 @@
   --border: 55 55 62;
   --fg: 240 240 240;
   --fg-muted: 160 160 165;
-  --accent: 215 178 102; /* Slightly brighter Altronic Gold for dark bg */
+  --accent: 220 60 64; /* Slightly brighter Cooper Red for dark bg */
 }
 
 html,

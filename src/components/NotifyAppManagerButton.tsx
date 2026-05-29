@@ -249,7 +249,7 @@ function NotifyAppManagerModal({ onClose }: { onClose: () => void }) {
             type="button"
             onClick={handleSend}
             disabled={sending || (!description.trim() && captured.length === 0)}
-            className="rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-black shadow-sm transition-colors hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {sending ? "Sending…" : useMailto ? "Open email draft" : "Send report"}
           </button>
