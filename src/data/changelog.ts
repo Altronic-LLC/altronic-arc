@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.22.5",
+    date: "2026-05-29",
+    changes: [
+      "The app's accent colour is now Altronic Gold instead of Cooper Red — links, primary buttons, @-mention chips, and other highlights pick up the new brand colour in both light and dark themes",
+      "On the light theme the gold is deepened slightly so links stay legible against the near-white background; the dark theme uses the brighter brand gold, which already stands out on dark surfaces",
+      "Primary buttons, active filter pills, and selected options now use dark text on their gold fill instead of white — much more readable on gold in both themes",
+    ],
+  },
+  {
     version: "0.22.4",
     date: "2026-05-27",
     changes: [

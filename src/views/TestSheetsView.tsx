@@ -51,7 +51,7 @@ export function TestSheetsView() {
         </div>
         <button
           onClick={() => setShowNew(true)}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-accent/90"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-black shadow-sm transition-all hover:bg-accent/90"
         >
           <Plus className="h-4 w-4" />
           <span className="hidden sm:inline">New Test Sheet</span>

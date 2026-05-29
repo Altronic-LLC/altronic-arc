@@ -539,7 +539,7 @@ export function TaskFormModal({ mode, task, onClose }: TaskFormModalProps) {
               !title.trim() ||
               (mode === "create" && parentProjectId === "")
             }
-            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-4 py-2 text-sm font-medium text-black shadow-sm transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busy ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -700,7 +700,7 @@ function RelatedProjectPicker({
                   )}
                   aria-hidden="true"
                 >
-                  {active && <Check className="h-3 w-3 text-white" />}
+                  {active && <Check className="h-3 w-3 text-black" />}
                 </span>
                 <span className="min-w-0 flex-1 truncate text-fg">{p.title}</span>
               </button>

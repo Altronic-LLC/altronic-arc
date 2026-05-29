@@ -179,7 +179,7 @@ function CommentEditor({
         <button
           onClick={handleSave}
           disabled={busy || text.trim().length === 0}
-          className="rounded-md bg-accent px-3 py-1 text-xs font-medium text-white shadow-sm transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-md bg-accent px-3 py-1 text-xs font-medium text-black shadow-sm transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {busy ? "Saving…" : "Save"}
         </button>

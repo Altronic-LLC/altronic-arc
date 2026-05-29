@@ -118,7 +118,7 @@ export function KanbanView() {
       <div className="flex items-start justify-end gap-3">
         <button
           onClick={() => setShowNewTask(true)}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-accent/90"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-black shadow-sm transition-all hover:bg-accent/90"
         >
           <Plus className="h-4 w-4" />
           <span className="hidden sm:inline">New Task</span>

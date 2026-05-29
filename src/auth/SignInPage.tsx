@@ -91,7 +91,7 @@ export function SignInPage({ onDemoBypass }: SignInPageProps) {
             <button
               onClick={handleSignIn}
               disabled={busy}
-              className="mt-6 inline-flex items-center gap-2 rounded-md bg-accent px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-60"
+              className="mt-6 inline-flex items-center gap-2 rounded-md bg-accent px-5 py-2.5 text-sm font-medium text-black shadow-sm transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <LogIn className="h-4 w-4" />
               {busy ? "Opening sign-in…" : "Sign in with Microsoft"}

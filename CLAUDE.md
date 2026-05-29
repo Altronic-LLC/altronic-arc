@@ -300,8 +300,10 @@ All colours flow through CSS variables defined in `src/styles/globals.css`
 and exposed to Tailwind as `bg-bg`, `text-fg`, `border-border`, etc.
 Adding a new colour means adding a CSS var first and then a Tailwind alias.
 
-The accent colour is Cooper Red (`#CB2C30`). Cooper brand secondary colours
-are available as Tailwind classes (`text-cooper-green`, `bg-ajax-yellow`, etc.).
+The accent colour is Altronic Gold (`#CBA052`), set on `--accent` in
+`globals.css` (light + a slightly brighter variant for dark). Cooper brand
+secondary colours are still available as Tailwind classes
+(`text-cooper-green`, `bg-ajax-yellow`, etc.).
 
 ## Common changes — recipes
 
