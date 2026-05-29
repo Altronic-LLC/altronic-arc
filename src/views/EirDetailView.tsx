@@ -305,7 +305,11 @@ export function EirDetailView() {
         {/* Sidebar */}
         <aside className="w-full shrink-0 lg:w-80">
           <div className="rounded-lg border border-border bg-surface p-4 sm:p-5">
-            <div className="grid gap-4">
+            {/* grid-cols-1 (= minmax(0,1fr)) keeps the single column from
+                growing to its widest child. A bare `grid` uses an auto
+                (max-content) column, so a long Project Reference summary
+                would stretch the column and every field in it. */}
+            <div className="grid grid-cols-1 gap-4">
               <SidebarSelect
                 icon={<CheckCircle2 />}
                 label="Status"

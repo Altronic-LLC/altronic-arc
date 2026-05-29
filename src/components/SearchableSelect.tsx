@@ -145,7 +145,7 @@ function DropdownShell({ summary, isEmpty, onClear, renderPanel }: DropdownShell
         aria-haspopup="listbox"
         aria-expanded={open}
       >
-        <span className={cn("truncate", isEmpty && "text-fg-muted")}>{summary}</span>
+        <span className={cn("min-w-0 flex-1 truncate", isEmpty && "text-fg-muted")}>{summary}</span>
         <div className="flex shrink-0 items-center gap-1">
           {onClear && (
             <button

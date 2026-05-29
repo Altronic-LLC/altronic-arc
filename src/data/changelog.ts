@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.22.7",
+    date: "2026-05-29",
+    changes: [
+      "Fixed the EIR detail sidebar stretching wider than its card when a Project Reference (or any field) had a long value — the panel and all its dropdowns now stay within the card and long selections truncate cleanly instead of pushing the layout out",
+    ],
+  },
+  {
     version: "0.22.6",
     date: "2026-05-29",
     changes: [
