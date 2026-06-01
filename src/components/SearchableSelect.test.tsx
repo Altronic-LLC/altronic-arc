@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -157,6 +158,108 @@ describe("MultiSelect — close behaviors", () => {
     expect(screen.getByRole("listbox")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /outside/ }));
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+  });
+});
+
+describe("MultiSelect — sorted dropdown", () => {
+  it("floats checked options to the top of the panel", async () => {
+    const user = userEvent.setup();
+    render(
+      <MultiSelect
+        options={OPTIONS}
+        selected={["carol@x.com"]}
+        onChange={() => {}}
+        allLabel="Anyone"
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /Carol/ }));
+    const optionLabels = screen.getAllByRole("option").map((o) => o.textContent);
+    // Carol was selected, so it should be first despite being 3rd in OPTIONS.
+    expect(optionLabels[0]).toMatch(/Carol/);
+  });
+
+  it("does not reorder rows as you toggle within the open panel", async () => {
+    const user = userEvent.setup();
+    const Wrapper = () => {
+      const [sel, setSel] = useState<string[]>([]);
+      return (
+        <MultiSelect options={OPTIONS} selected={sel} onChange={setSel} allLabel="Anyone" />
+      );
+    };
+    render(<Wrapper />);
+    await user.click(screen.getByRole("button", { name: /Anyone/ }));
+    // Nothing was selected when the panel opened, so order stays as-authored
+    // even after checking Dave.
+    await user.click(screen.getByRole("option", { name: /Dave/ }));
+    const optionLabels = screen.getAllByRole("option").map((o) => o.textContent);
+    expect(optionLabels[0]).toMatch(/Alice/);
+    expect(optionLabels[3]).toMatch(/Dave/);
+  });
+});
+
+describe("MultiSelect — chips variant", () => {
+  it("renders each selection as a removable chip plus an Add / edit row", () => {
+    render(
+      <MultiSelect
+        variant="chips"
+        options={OPTIONS}
+        selected={["alice@x.com", "carol@x.com"]}
+        onChange={() => {}}
+        allLabel="No project assigned"
+      />,
+    );
+    expect(screen.getByLabelText("Remove Alice")).toBeInTheDocument();
+    expect(screen.getByLabelText("Remove Carol")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Add \/ edit/ })).toBeInTheDocument();
+  });
+
+  it("removes a single selection when its chip ✕ is clicked", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <MultiSelect
+        variant="chips"
+        options={OPTIONS}
+        selected={["alice@x.com", "carol@x.com"]}
+        onChange={onChange}
+        allLabel="No project assigned"
+      />,
+    );
+    await user.click(screen.getByLabelText("Remove Alice"));
+    expect(onChange).toHaveBeenCalledWith(["carol@x.com"]);
+  });
+
+  it("opens the picker from the Add / edit row", async () => {
+    const user = userEvent.setup();
+    render(
+      <MultiSelect
+        variant="chips"
+        options={OPTIONS}
+        selected={["alice@x.com"]}
+        onChange={() => {}}
+        allLabel="No project assigned"
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /Add \/ edit/ }));
+    expect(screen.getByRole("listbox")).toBeInTheDocument();
+  });
+
+  it("falls back to the summary trigger when nothing is selected", async () => {
+    const user = userEvent.setup();
+    render(
+      <MultiSelect
+        variant="chips"
+        options={OPTIONS}
+        selected={[]}
+        onChange={() => {}}
+        allLabel="No project assigned"
+      />,
+    );
+    // No chips / no Add-edit row — just the empty summary button.
+    expect(screen.queryByRole("button", { name: /Add \/ edit/ })).not.toBeInTheDocument();
+    const trigger = screen.getByRole("button", { name: /No project assigned/ });
+    await user.click(trigger);
+    expect(screen.getByRole("listbox")).toBeInTheDocument();
   });
 });
 

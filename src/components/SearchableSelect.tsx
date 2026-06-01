@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronDown, Search, X } from "lucide-react";
+import { Check, ChevronDown, Plus, Search, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 export interface SelectOption {
@@ -18,6 +18,15 @@ interface BaseProps {
 export interface MultiSelectProps extends BaseProps {
   selected: string[];
   onChange: (next: string[]) => void;
+  /**
+   * Trigger display style.
+   * - "summary" (default): compact "<first> +N" line. Best for filter bars
+   *   where vertical space is tight.
+   * - "chips": each selection is stacked as its own removable chip so they
+   *   all stay visible, with an "Add / edit" row that opens the picker. Best
+   *   for form/detail fields where seeing the full selection matters.
+   */
+  variant?: "summary" | "chips";
 }
 
 export interface SingleSelectProps extends BaseProps {
@@ -37,6 +46,7 @@ export function MultiSelect({
   onChange,
   allLabel,
   searchPlaceholder,
+  variant = "summary",
 }: MultiSelectProps) {
   const selectedSet = useMemo(() => new Set(selected), [selected]);
 
@@ -51,6 +61,8 @@ export function MultiSelect({
       summary={summary}
       isEmpty={selectedOpts.length === 0}
       onClear={selectedOpts.length > 0 ? () => onChange([]) : undefined}
+      chips={variant === "chips" ? selectedOpts : undefined}
+      onRemoveChip={(value) => onChange(selected.filter((x) => x !== value))}
       renderPanel={({ close }) => (
         <SearchablePanel
           options={options}
@@ -108,6 +120,14 @@ interface DropdownShellProps {
   isEmpty: boolean;
   onClear?: () => void;
   renderPanel: (api: { close: () => void }) => React.ReactNode;
+  /**
+   * When provided AND non-empty, the trigger renders these as stacked,
+   * removable chips plus an "Add / edit" row instead of the one-line summary.
+   * (Nested chips can't live inside the summary <button>, so this swaps the
+   * whole trigger for a container with its own buttons.)
+   */
+  chips?: SelectOption[];
+  onRemoveChip?: (value: string) => void;
 }
 
 /**
@@ -116,9 +136,17 @@ interface DropdownShellProps {
  * click / Escape. The panel content is delegated to a render-prop so the
  * Multi vs Single variants can inject their own option list.
  */
-function DropdownShell({ summary, isEmpty, onClear, renderPanel }: DropdownShellProps) {
+function DropdownShell({
+  summary,
+  isEmpty,
+  onClear,
+  renderPanel,
+  chips,
+  onRemoveChip,
+}: DropdownShellProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const useChips = chips !== undefined && chips.length > 0;
 
   useEffect(() => {
     if (!open) return;
@@ -138,33 +166,68 @@ function DropdownShell({ summary, isEmpty, onClear, renderPanel }: DropdownShell
 
   return (
     <div ref={ref} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="select flex items-center justify-between gap-2 text-left"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-      >
-        <span className={cn("min-w-0 flex-1 truncate", isEmpty && "text-fg-muted")}>{summary}</span>
-        <div className="flex shrink-0 items-center gap-1">
-          {onClear && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onClear();
-              }}
-              className="rounded-full p-0.5 text-fg-muted hover:bg-surface-2 hover:text-fg"
-              aria-label="Clear selection"
+      {useChips ? (
+        <div className="flex flex-col gap-1 rounded-lg border border-border bg-surface p-1.5">
+          {chips!.map((c) => (
+            <span
+              key={c.value}
+              className="flex items-center justify-between gap-2 rounded-md bg-surface-2 px-2 py-1 text-sm text-fg"
             >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          )}
-          <ChevronDown
-            className={cn("h-4 w-4 text-fg-muted transition-transform", open && "rotate-180")}
-          />
+              <span className="min-w-0 flex-1 truncate">{c.label}</span>
+              {onRemoveChip && (
+                <button
+                  type="button"
+                  onClick={() => onRemoveChip(c.value)}
+                  className="shrink-0 rounded-full p-0.5 text-fg-muted hover:bg-bg hover:text-fg"
+                  aria-label={`Remove ${c.label}`}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </span>
+          ))}
+          <button
+            type="button"
+            onClick={() => setOpen((o) => !o)}
+            className="flex items-center justify-between gap-2 rounded-md px-2 py-1 text-sm text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
+            aria-haspopup="listbox"
+            aria-expanded={open}
+          >
+            <span className="flex items-center gap-1">
+              <Plus className="h-3.5 w-3.5" /> Add / edit
+            </span>
+            <ChevronDown className={cn("h-4 w-4 transition-transform", open && "rotate-180")} />
+          </button>
         </div>
-      </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className="select flex items-center justify-between gap-2 text-left"
+          aria-haspopup="listbox"
+          aria-expanded={open}
+        >
+          <span className={cn("min-w-0 flex-1 truncate", isEmpty && "text-fg-muted")}>{summary}</span>
+          <div className="flex shrink-0 items-center gap-1">
+            {onClear && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onClear();
+                }}
+                className="rounded-full p-0.5 text-fg-muted hover:bg-surface-2 hover:text-fg"
+                aria-label="Clear selection"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+            <ChevronDown
+              className={cn("h-4 w-4 text-fg-muted transition-transform", open && "rotate-180")}
+            />
+          </div>
+        </button>
+      )}
 
       {open && (
         <div
@@ -193,11 +256,30 @@ function SearchablePanel({
 }: SearchablePanelProps) {
   const [query, setQuery] = useState("");
 
+  // Snapshot which options were selected when the panel opened, so checked
+  // items float to the top — but DON'T re-sort as the user toggles them
+  // (that would make the row jump out from under the cursor mid-click).
+  const initiallySelected = useRef<Set<string> | null>(null);
+  if (initiallySelected.current === null) {
+    initiallySelected.current = new Set(
+      options.filter((o) => isSelected(o.value)).map((o) => o.value),
+    );
+  }
+
+  // Stable sort (selected-first) preserves the caller's original order
+  // within each group.
+  const ordered = useMemo(() => {
+    const sel = initiallySelected.current!;
+    return [...options].sort(
+      (a, b) => (sel.has(a.value) ? 0 : 1) - (sel.has(b.value) ? 0 : 1),
+    );
+  }, [options]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return options;
-    return options.filter((o) => o.label.toLowerCase().includes(q));
-  }, [options, query]);
+    if (!q) return ordered;
+    return ordered.filter((o) => o.label.toLowerCase().includes(q));
+  }, [ordered, query]);
 
   return (
     <>

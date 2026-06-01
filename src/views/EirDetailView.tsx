@@ -794,6 +794,7 @@ function ProjectLookupPicker({
 
   return (
     <MultiSelect
+      variant="chips"
       allLabel="No project assigned"
       searchPlaceholder="Search projects…"
       options={options}

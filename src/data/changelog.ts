@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.22.8",
+    date: "2026-06-01",
+    changes: [
+      "On an EIR, the Project Reference field now lists each selected project on its own line with a ✕ to remove it, instead of collapsing to 'First +N' — so you can see everything assigned at a glance. Click 'Add / edit' to change the selection",
+      "In multi-select dropdowns, the options you've already selected now sort to the top of the list when you open it (and stay put while you toggle, so rows don't jump under your cursor)",
+    ],
+  },
+  {
     version: "0.22.7",
     date: "2026-05-29",
     changes: [

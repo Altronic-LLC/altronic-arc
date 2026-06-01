@@ -626,10 +626,11 @@ const SECTIONS: ManualSection[] = [
         <P>
           The sidebar holds the workflow fields: Status, Resolution, Request
           Type, Requested Priority, Reporter, Assigned (Engineers), Project
-          Reference chips (read-only — the column is a multi-select choice
-          managed in SharePoint), Requested Completion Date, LTB Date, plus
-          Watchers at the bottom. Every change is optimistic with toast +
-          undo, same as everywhere else.
+          Reference (each assigned project is listed on its own line with a ✕
+          to remove it; click <strong>Add / edit</strong> to open the picker
+          and choose more), Requested Completion Date, LTB Date, plus Watchers
+          at the bottom. Every change is optimistic with toast + undo, same as
+          everywhere else.
         </P>
         <H3>Linked Task & promotion</H3>
         <P>
@@ -804,8 +805,9 @@ const SECTIONS: ManualSection[] = [
         </UL>
         <P>
           Every multi-select dropdown has a search box at the top for finding a
-          specific name or project quickly. Pick "Anyone" (or click the ✕ on
-          the dropdown) to clear that filter.
+          specific name or project quickly, and the options you've already
+          selected sort to the top of the list when you open it. Pick "Anyone"
+          (or click the ✕ on the dropdown) to clear that filter.
         </P>
         <Tip>
           Filters live in the URL (<code>?assigned=…&amp;project=…</code>) — so
