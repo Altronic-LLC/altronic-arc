@@ -116,59 +116,136 @@ of `CHANGELOG` is the only place you need to change the version itself.
 
 ## File-by-file overview
 
+Keep this current when adding/removing files (see "Architectural changes"
+below). Tests live next to their source as `*.test.ts(x)` and are omitted here.
+
 ```
 src/
-├── main.tsx                      Entry: providers (Auth, QueryClient, Router)
-├── App.tsx                       Top-level routes
+├── main.tsx                      Entry: providers + installErrorCapture()
+├── App.tsx                       Top-level routes (all pages wired here)
 ├── vite-env.d.ts                 TypeScript types for VITE_* env vars
 │
 ├── auth/
 │   ├── msalConfig.ts             Client ID, tenant, redirect URI, scopes
-│   └── AuthProvider.tsx          MSAL bootstrap + MsalProvider wrapper
+│   ├── AuthProvider.tsx          MSAL bootstrap + MsalProvider wrapper
+│   ├── AuthGate.tsx              Blocks the app until signed in (real mode)
+│   └── SignInPage.tsx            Sign-in screen (+ Report-issue button)
 │
-├── api/
-│   ├── config.ts                 USE_MOCK flag and SharePoint identifiers
-│   ├── graph.ts                  Authenticated fetch wrapper (graphFetch, graphFetchAll)
-│   └── tasks.ts                  All task CRUD (mock + real branches)
+├── api/                          All mock/real branches live here (USE_MOCK)
+│   ├── config.ts                 USE_MOCK, SharePoint list IDs, EIR_ROLES_ENFORCED
+│   ├── graph.ts                  graphFetch / graphFetchAll + JWT claim decode
+│   ├── sharepoint.ts             SharePoint REST helper (list-item attachments)
+│   ├── tasks.ts                  Task CRUD
+│   ├── taskColumns.ts            Task list column metadata / choice discovery
+│   ├── eirs.ts                   EIR CRUD
+│   ├── eirRoles.ts               EIR role tags (engineer / supply chain) CRUD
+│   ├── testSheets.ts             Test Results CRUD
+│   ├── admins.ts                 Admins list CRUD
+│   ├── projectFiles.ts           Documents-library project folders + files
+│   ├── attachments.ts            List-item attachments (task | eir) via SP REST
+│   ├── currentUser.ts            Resolve the signed-in user's SP lookupId
+│   ├── email.ts                  @-mention notification mail (shared mailbox)
+│   └── errorReport.ts            "Report issue" mail to the app manager
 │
 ├── data/
-│   ├── mockData.ts               Sample tasks, projects, people — matches real schema
-│   └── changelog.ts              Version history (drives the footer + history modal)
+│   ├── mockData.ts               Sample tasks, EIRs, projects, people
+│   ├── dashboardMockData.ts      Sample dashboard metrics
+│   └── changelog.ts              Version history (drives footer + history modal)
 │
 ├── hooks/
-│   ├── useTasks.ts               React Query hooks for tasks/projects/mutations
-│   └── useTheme.ts               Dark/light toggle with localStorage persistence
+│   ├── useTasks.ts               Tasks/projects queries + mutations
+│   ├── useEirs.ts                EIR queries + mutations (optimistic + undo)
+│   ├── useEirRoles.ts            EIR roles CRUD + useMyEirRoles() (field gating)
+│   ├── useTestSheets.ts          Test sheet queries + mutations
+│   ├── useAdmins.ts              Admins list CRUD
+│   ├── useIsAdmin.ts             Is the signed-in user an admin? (+ bootstrap set)
+│   ├── useCurrentUser.ts         Signed-in user as a Person
+│   ├── useTaskFiles.ts           Project-folder + list-item files for a task
+│   ├── useAttachments.ts         List-item attachment upload/list/delete
+│   ├── useFilters.ts             URL-backed task filter state
+│   ├── useTheme.ts               Dark/light toggle (localStorage)
+│   └── useIsPhone.ts             Narrow-viewport media query
 │
 ├── lib/
 │   ├── cn.ts                     clsx + tailwind-merge helper
-│   ├── communicationParser.ts    Parse and serialize the Communication field
-│   └── taskMapper.ts             Graph item → Task domain object
+│   ├── communicationParser.ts    Parse/serialize the Communication field
+│   ├── mentions.ts               @-mention parsing for comments
+│   ├── taskMapper.ts             Graph item → Task
+│   ├── eirMapper.ts              Graph item → Eir (field-name quirks)
+│   ├── testSheetMapper.ts        Graph item → TestSheet
+│   ├── taskGraph.ts              Parent/child task relationships + cycle checks
+│   ├── taskFilters.ts            Pure task filter predicates
+│   ├── graphFields.ts            multiPersonField / multiLookupField writers
+│   ├── sanitiseHtml.ts           DOMPurify wrapper for stored HTML
+│   ├── errorBuffer.ts            Bounded console-error capture (Report issue)
+│   └── pcbChecklist.ts           PCB-category task checklist logic
 │
 ├── types/
-│   └── task.ts                   All domain types (Task, Status, etc.) + constants
+│   └── task.ts                   All domain types + constants (Task, Eir,
+│                                 EirRole/EirRoleEntry, AdminEntry, Person, …)
 │
 ├── components/
-│   ├── Header.tsx                Top bar with logos, view switcher, theme toggle
-│   ├── Footer.tsx                Maintainer contact + version (opens changelog modal)
-│   ├── StatusPills.tsx           Top counter row on the list view
-│   ├── FilterBar.tsx             Project / Assigned / Search / Created By filters
-│   ├── TaskRow.tsx               One row in the list view
-│   ├── KanbanCard.tsx            One card in the Kanban view (whole card draggable)
-│   ├── CommentThread.tsx         Renders a sorted list of comments
-│   ├── CommentComposer.tsx       Textarea + Send button for new comments
-│   ├── atoms.tsx                 Small reusable atoms (badges, chips, icons)
-│   └── brand/
-│       ├── Brandmark.tsx         Official Altronic "A" mark — theme-aware
-│       └── Wordmark.tsx          Official ALTRONIC wordmark — theme-aware
+│   ├── Header.tsx                Top nav (view switcher, Admin link, theme, Report issue)
+│   ├── Footer.tsx                Maintainer contact + version → changelog modal
+│   ├── UserMenu.tsx              Account avatar menu
+│   ├── Toast.tsx                 Toast + undo container
+│   ├── LoadingTasks.tsx          Skeleton loading state
+│   ├── StatusPills.tsx           Task list status counters
+│   ├── FilterBar.tsx             Task Project / Assigned / Search / Created By filters
+│   ├── SearchableSelect.tsx      Single/Multi select (summary + chips variants)
+│   ├── PersonMultiField.tsx      Multi-person picker (pills + add)
+│   ├── TaskRow.tsx               One task row (list view)
+│   ├── KanbanCard.tsx            One Kanban card
+│   ├── EirRow.tsx                One EIR row (EIRs list)
+│   ├── TaskFormModal.tsx         Create/edit task
+│   ├── EirFormModal.tsx          Create/edit EIR
+│   ├── TestSheetFormModal.tsx    Create/edit test sheet
+│   ├── CommentThread.tsx         Sorted comment list
+│   ├── CommentComposer.tsx       New-comment editor (+ @-mentions)
+│   ├── AttachmentsSection.tsx    EIR/comment attachments UI
+│   ├── TaskAttachmentsSection.tsx  Task attachments (dual storage)
+│   ├── PcbChecklistCard.tsx      PCB checklist on a task
+│   ├── NotifyAppManagerButton.tsx  "Report issue" button + modal
+│   ├── MermaidDiagram.tsx        (legacy) Mermaid renderer
+│   ├── atoms.tsx                 Badges, chips, status colours
+│   └── brand/{Brandmark,Wordmark}.tsx   Official Altronic marks
 │
 ├── views/
-│   ├── ListView.tsx              The default list page
-│   ├── KanbanView.tsx            The drag-and-drop board
-│   └── DetailView.tsx            Task detail with description, sidebar, comments
+│   ├── DashboardView.tsx         Landing dashboard (metric cards + breakdown)
+│   ├── ListView.tsx              Task list
+│   ├── KanbanView.tsx            Task drag-and-drop board
+│   ├── DetailView.tsx            Task detail (description, sidebar, comments)
+│   ├── PrintTaskView.tsx         Chrome-less printable task page
+│   ├── ProjectView.tsx           Single-project task rollup
+│   ├── EirsView.tsx              EIRs list — View tabs (All / New / Needs Assigned),
+│   │                             status pills, filter bar
+│   ├── EirDetailView.tsx         EIR detail (+ role-gated fields, see below)
+│   ├── TestSheetsView.tsx        Test sheets list
+│   ├── TestSheetDetailView.tsx   Test sheet detail
+│   ├── AdminProjectsView.tsx     Admin → Project References (/admin/projects)
+│   ├── AdminAdminsView.tsx       Admin → Admins (/admin/admins)
+│   ├── AdminEirRolesView.tsx     Admin → EIR Roles (/admin/eir-roles)
+│   ├── AboutView.tsx             In-app architecture + ER diagrams
+│   └── ManualView.tsx            In-app user manual
 │
 └── styles/
     └── globals.css               Tailwind + CSS variable theme tokens
 ```
+
+### EIR list views (workflow tabs)
+
+`EirsView` has a **View** tab bar above the status pills, driven by a `view`
+URL param. The bucket predicate is `matchesEirView(eir, view)` (exported from
+`EirsView.tsx`, unit-tested):
+
+- **All** — no extra filter.
+- **New** — no project reference AND no engineer assigned (fresh, needs triage).
+- **Needs Assigned** — has a project reference but still no engineer assigned.
+
+Views compose with the status pills and the filter bar; all three axes live in
+the URL so a view is shareable. To add another view: extend the `EirView` union
++ `matchesEirView` predicate, add a `<ViewTab>`, and document it here and in the
+EIRs section of `ManualView.tsx`.
 
 ## Data model
 
