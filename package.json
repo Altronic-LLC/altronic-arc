@@ -1,7 +1,7 @@
 {
   "name": "altronic-arc",
   "private": true,
-  "version": "0.26.2",
+  "version": "0.27.0",
   "type": "module",
   "description": "ARC — Altronic Resource Center: a company-wide, SharePoint-backed platform unifying every department's tools (Engineering first)",
   "scripts": {

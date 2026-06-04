@@ -44,4 +44,11 @@ describe("matchesEirView", () => {
     expect(matchesEirView(withRisk("InActive"), "at-risk")).toBe(false);
     expect(matchesEirView(withRisk(null), "at-risk")).toBe(false);
   });
+
+  it("LTB = an LTB date is set", () => {
+    const withLtb = (ltbDate: Date | null) =>
+      ({ parentProjects: [], assignedEngineers: [], ltbDate }) as unknown as Eir;
+    expect(matchesEirView(withLtb(new Date("2026-09-30")), "ltb")).toBe(true);
+    expect(matchesEirView(withLtb(null), "ltb")).toBe(false);
+  });
 });

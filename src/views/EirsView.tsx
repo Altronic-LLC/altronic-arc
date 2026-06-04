@@ -30,13 +30,14 @@ function isOpen(status: EirStatus): boolean {
 }
 
 /** Workflow views (tabs above the status pills). */
-type EirView = "all" | "new" | "needs-assigned" | "at-risk";
+type EirView = "all" | "new" | "needs-assigned" | "at-risk" | "ltb";
 
 /**
  * Workflow buckets used by the view tabs:
  *  - "new"            → no project reference AND no engineer assigned
  *  - "needs-assigned" → has a project reference but still no engineer
  *  - "at-risk"        → RiskPart is "Active" (an at-risk part)
+ *  - "ltb"            → an LTB (last-time-buy) date is set
  *  - "all"            → everything (no extra predicate)
  * Exported for unit testing.
  */
@@ -46,6 +47,7 @@ export function matchesEirView(e: Eir, view: EirView): boolean {
   if (view === "new") return noProject && noEngineer;
   if (view === "needs-assigned") return !noProject && noEngineer;
   if (view === "at-risk") return e.riskPart === "Active";
+  if (view === "ltb") return e.ltbDate != null;
   return true;
 }
 
@@ -108,7 +110,10 @@ export function EirsView() {
 
   const rawView = searchParams.get("view");
   const view: EirView =
-    rawView === "new" || rawView === "needs-assigned" || rawView === "at-risk"
+    rawView === "new" ||
+    rawView === "needs-assigned" ||
+    rawView === "at-risk" ||
+    rawView === "ltb"
       ? rawView
       : "all";
   const setView = (next: EirView) => {
@@ -196,6 +201,10 @@ export function EirsView() {
     () => filteredByBar.filter((e) => matchesEirView(e, "at-risk")).length,
     [filteredByBar],
   );
+  const ltbCount = useMemo(
+    () => filteredByBar.filter((e) => matchesEirView(e, "ltb")).length,
+    [filteredByBar],
+  );
 
   // For the At Risk Parts view, group the filtered rows by RiskPart Level —
   // Unassigned first, then Level 1/2/3 — mirroring the SharePoint At Risk View.
@@ -256,6 +265,12 @@ export function EirsView() {
             count={atRiskCount}
             active={view === "at-risk"}
             onClick={() => setView("at-risk")}
+          />
+          <ViewTab
+            label="LTB"
+            count={ltbCount}
+            active={view === "ltb"}
+            onClick={() => setView("ltb")}
           />
         </div>
       </div>

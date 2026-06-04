@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.27.0",
+    date: "2026-06-04",
+    changes: [
+      "Added an 'LTB' view tab to the EIRs list — shows every EIR that has an LTB (last-time-buy) date set. Shows a live count like the other view tabs",
+    ],
+  },
+  {
     version: "0.26.2",
     date: "2026-06-04",
     changes: [
