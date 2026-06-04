@@ -53,10 +53,10 @@ const queryClient = new QueryClient({
   },
 });
 
-// In production we deploy to /altronic-engineering-tasks/ on GitHub Pages,
+// In production we deploy to /altronic-arc/ on GitHub Pages,
 // so React Router needs a matching basename. In dev it's the root.
 const basename =
-  import.meta.env.MODE === "production" ? "/altronic-engineering-tasks" : "/";
+  import.meta.env.MODE === "production" ? "/altronic-arc" : "/";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

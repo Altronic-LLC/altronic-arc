@@ -33,7 +33,7 @@ export function buildMsalConfig(): Configuration {
   }
 
   // Pin the redirect URI to the app's BASE URL (e.g.
-  // https://altronic-llc.github.io/altronic-engineering-tasks/), NOT the
+  // https://altronic-llc.github.io/altronic-arc/), NOT the
   // current pathname. The Entra app registration only has the base URL
   // registered — using window.location.pathname meant any page that
   // triggered a token refresh from /task/123, /eir/456, /list, etc. would

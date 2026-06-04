@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.25.1",
+    date: "2026-06-04",
+    changes: [
+      "Moved to the new home URL https://altronic-llc.github.io/altronic-arc/ after the repository was renamed to altronic-arc. Update any bookmarks to the old /altronic-engineering-tasks/ address",
+    ],
+  },
+  {
     version: "0.25.0",
     date: "2026-06-04",
     changes: [

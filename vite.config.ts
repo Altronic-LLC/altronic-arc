@@ -8,10 +8,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // GitHub Pages serves from /<repo-name>/, so we need a base path in production.
 // During `npm run dev`, base is "/" (no prefix). On build (GitHub Actions sets
-// NODE_ENV=production), we use /altronic-engineering-tasks/.
+// NODE_ENV=production), we use /altronic-arc/ (the GitHub repo name).
 export default defineConfig(({ mode }) => ({
   plugins: [react()],
-  base: mode === "production" ? "/altronic-engineering-tasks/" : "/",
+  base: mode === "production" ? "/altronic-arc/" : "/",
   resolve: {
     // Mirror the `@/*` alias declared in tsconfig.json so Rollup can resolve
     // imports during production builds (Vite dev relies on tsconfig directly

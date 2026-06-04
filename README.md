@@ -14,10 +14,7 @@ Service follow, each as its own module over the same foundation. Any tool that
 would otherwise spawn its own Power App, Power Automate flow, or one-off
 SharePoint view should land here instead.
 
-> Note: the repository is still named `altronic-engineering-tasks` (and the
-> Pages URL is <https://altronic-llc.github.io/altronic-engineering-tasks/>)
-> pending the repo rename to `altronic-arc`.
-
+Hosted at <https://altronic-llc.github.io/altronic-arc/>.
 Built to be iterated on with [Claude Code](https://claude.com/claude-code).
 
 ## What's in the app today
@@ -84,7 +81,7 @@ work locally and persist to `localStorage`; clear it to reset.
    - The other variables are already pre-populated with confirmed list
      and site IDs.
 3. The Entra app must list both `http://localhost:5173/` (dev) and your
-   GitHub Pages URL (`https://altronic-llc.github.io/altronic-engineering-tasks/`)
+   GitHub Pages URL (`https://altronic-llc.github.io/altronic-arc/`)
    as SPA redirect URIs.
 4. `npm run dev` — you'll be prompted to sign in on first load.
 

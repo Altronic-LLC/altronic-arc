@@ -69,8 +69,8 @@ needs detail, add a sub-bullet underneath it.
   Screen"). Concrete steps: add `public/manifest.webmanifest` with
   name, short_name, theme + background colour (Cooper Red on white),
   icons (192/512 PNG + maskable), `display: "standalone"`,
-  `start_url: "/altronic-engineering-tasks/"`,
-  `scope: "/altronic-engineering-tasks/"`. Link from `index.html`,
+  `start_url: "/altronic-arc/"`,
+  `scope: "/altronic-arc/"`. Link from `index.html`,
   add `<meta name="theme-color">`. Register a minimal service worker
   (consider `vite-plugin-pwa` — handles manifest + SW + auto-update
   pattern cleanly) with a network-first strategy for Graph calls and

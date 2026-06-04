@@ -15,10 +15,8 @@ SharePoint "Project Task List" viewer/editor (List + Kanban), EIRs, and Test
 Sheets. The project's scope is expanding to more departments — read the next
 section before reasoning about structure.
 
-(Naming note: the repo is still `altronic-engineering-tasks` and the Pages base
-path `/altronic-engineering-tasks/` until the rename to `altronic-arc` is
-executed — the in-app/doc branding is ARC, but those two are coupled to the
-GitHub repo name and change together.)
+(Repo: `altronic-arc`; Pages base path `/altronic-arc/`; live at
+<https://altronic-llc.github.io/altronic-arc/>.)
 
 ## Project direction — company-wide platform (read this)
 
