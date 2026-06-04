@@ -300,6 +300,7 @@ URL param. The bucket predicate is `matchesEirView(eir, view)` (exported from
 - **All** — no extra filter.
 - **New** — no project reference AND no engineer assigned (fresh, needs triage).
 - **Needs Assigned** — has a project reference but still no engineer assigned.
+- **At Risk Parts** — `riskPart === "Active"` (mirrors the SharePoint "At Risk View").
 
 Views compose with the status pills and the filter bar; all three axes live in
 the URL so a view is shareable. To add another view: extend the `EirView` union

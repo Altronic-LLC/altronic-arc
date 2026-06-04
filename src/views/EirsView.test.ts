@@ -36,4 +36,12 @@ describe("matchesEirView", () => {
     expect(matchesEirView(eir(1, 0), "all")).toBe(true);
     expect(matchesEirView(eir(2, 3), "all")).toBe(true);
   });
+
+  it("At Risk Parts = RiskPart is Active", () => {
+    const withRisk = (riskPart: string | null) =>
+      ({ parentProjects: [], assignedEngineers: [], riskPart }) as unknown as Eir;
+    expect(matchesEirView(withRisk("Active"), "at-risk")).toBe(true);
+    expect(matchesEirView(withRisk("InActive"), "at-risk")).toBe(false);
+    expect(matchesEirView(withRisk(null), "at-risk")).toBe(false);
+  });
 });

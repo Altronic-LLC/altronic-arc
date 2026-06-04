@@ -23,12 +23,13 @@ function isOpen(status: EirStatus): boolean {
 }
 
 /** Workflow views (tabs above the status pills). */
-type EirView = "all" | "new" | "needs-assigned";
+type EirView = "all" | "new" | "needs-assigned" | "at-risk";
 
 /**
  * Workflow buckets used by the view tabs:
  *  - "new"            → no project reference AND no engineer assigned
  *  - "needs-assigned" → has a project reference but still no engineer
+ *  - "at-risk"        → RiskPart is "Active" (an at-risk part)
  *  - "all"            → everything (no extra predicate)
  * Exported for unit testing.
  */
@@ -37,6 +38,7 @@ export function matchesEirView(e: Eir, view: EirView): boolean {
   const noEngineer = e.assignedEngineers.length === 0;
   if (view === "new") return noProject && noEngineer;
   if (view === "needs-assigned") return !noProject && noEngineer;
+  if (view === "at-risk") return e.riskPart === "Active";
   return true;
 }
 
@@ -89,7 +91,9 @@ export function EirsView() {
 
   const rawView = searchParams.get("view");
   const view: EirView =
-    rawView === "new" || rawView === "needs-assigned" ? rawView : "all";
+    rawView === "new" || rawView === "needs-assigned" || rawView === "at-risk"
+      ? rawView
+      : "all";
   const setView = (next: EirView) => {
     const sp = new URLSearchParams(searchParams);
     if (next === "all") sp.delete("view");
@@ -171,6 +175,10 @@ export function EirsView() {
     () => filteredByBar.filter((e) => matchesEirView(e, "needs-assigned")).length,
     [filteredByBar],
   );
+  const atRiskCount = useMemo(
+    () => filteredByBar.filter((e) => matchesEirView(e, "at-risk")).length,
+    [filteredByBar],
+  );
 
   // Status-pill counts reflect the active view.
   const countByStatus: Record<EirStatus, number> = {
@@ -209,6 +217,12 @@ export function EirsView() {
             count={needsAssignedCount}
             active={view === "needs-assigned"}
             onClick={() => setView("needs-assigned")}
+          />
+          <ViewTab
+            label="At Risk Parts"
+            count={atRiskCount}
+            active={view === "at-risk"}
+            onClick={() => setView("at-risk")}
           />
         </div>
       </div>

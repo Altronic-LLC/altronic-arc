@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.26.0",
+    date: "2026-06-04",
+    changes: [
+      "Added an 'At Risk Parts' view tab to the EIRs list — shows every EIR whose part is flagged at risk (RiskPart = Active), mirroring the SharePoint At Risk View. Shows a live count like the other view tabs",
+    ],
+  },
+  {
     version: "0.25.2",
     date: "2026-06-04",
     changes: [

@@ -593,7 +593,7 @@ const SECTIONS: ManualSection[] = [
       "triage",
     ],
     searchText:
-      "The EIRs tab shows Engineering Information Requests with workflow View tabs (All, New, Needs Assigned), status pills (Under Review, Response Accepted, Closed, etc.) and a filter bar for Project, Assigned Engineer, Reporter, and search. New = no project reference and no engineer assigned; Needs Assigned = has a project reference but still no engineer. Click an EIR to open the detail page with Description, Engineering Response, Part Details (MFG, P/N, EAU, etc.), Comments, and a sidebar to edit Status, Resolution, Request Type, Priority, Reporter, Assigned Engineers, Watchers, Project, Task Reference, Requested Completion Date, LTB Date.",
+      "The EIRs tab shows Engineering Information Requests with workflow View tabs (All, New, Needs Assigned, At Risk Parts), status pills (Under Review, Response Accepted, Closed, etc.) and a filter bar for Project, Assigned Engineer, Reporter, and search. New = no project reference and no engineer assigned; Needs Assigned = has a project reference but still no engineer. Click an EIR to open the detail page with Description, Engineering Response, Part Details (MFG, P/N, EAU, etc.), Comments, and a sidebar to edit Status, Resolution, Request Type, Priority, Reporter, Assigned Engineers, Watchers, Project, Task Reference, Requested Completion Date, LTB Date.",
     render: () => (
       <>
         <P>
@@ -608,8 +608,9 @@ const SECTIONS: ManualSection[] = [
           <strong>View tabs</strong> at the top group EIRs by triage stage:
           <strong> All</strong>, <strong>New</strong> (no project reference{" "}
           <em>and</em> no engineer assigned — freshly submitted, needs triage),
-          and <strong>Needs Assigned</strong> (a project reference has been set
-          but no engineer is assigned yet). Each tab shows a live count.
+          <strong> Needs Assigned</strong> (a project reference has been set
+          but no engineer is assigned yet), and <strong>At Risk Parts</strong>{" "}
+          (the part's RiskPart flag is Active). Each tab shows a live count.
         </P>
         <P>
           Below the tabs, status pills (Open, Under Review, Response Accepted,
