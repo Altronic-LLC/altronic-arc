@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.30.1",
+    date: "2026-06-04",
+    changes: [
+      "Notification email header now includes a one-line intro and the ARC tagline ('Every team. One ARC. Always forward.') so it's less plain",
+    ],
+  },
+  {
     version: "0.30.0",
     date: "2026-06-04",
     changes: [

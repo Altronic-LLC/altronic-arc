@@ -228,7 +228,9 @@ function renderMentionEmail(ctx: MentionEmailContext): string {
       <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width:600px;background:#ffffff;border-radius:8px;overflow:hidden;border:1px solid #e5e7eb;">
         <tr>
           <td style="background:#CB2C30;padding:22px 28px;">
-            <div style="color:#ffffff;font-weight:800;font-size:18px;letter-spacing:0.18em;text-transform:uppercase;line-height:1.1;">ARC</div>
+            <div style="color:#ffffff;font-weight:800;font-size:20px;letter-spacing:0.18em;text-transform:uppercase;line-height:1.1;">ARC</div>
+            <div style="color:#ffffff;font-size:12px;font-weight:600;letter-spacing:0.04em;margin-top:6px;">Altronic Resource Center — every team's tools in one place.</div>
+            <div style="color:#fbdcdc;font-size:12px;font-style:italic;margin-top:5px;">Every team. One ARC. Always forward.</div>
           </td>
         </tr>
         <tr>

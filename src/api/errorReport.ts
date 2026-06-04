@@ -126,7 +126,8 @@ function renderReportEmail(ctx: SendErrorReportInput): string {
       <tr>
         <td style="background:#CB2C30;padding:22px 28px;">
           <div style="color:#ffffff;font-weight:800;font-size:18px;letter-spacing:0.18em;text-transform:uppercase;line-height:1.1;">Issue Report</div>
-          <div style="color:#fbdcdc;margin-top:6px;font-size:12px;">ARC — Altronic Resource Center</div>
+          <div style="color:#ffffff;margin-top:6px;font-size:12px;font-weight:600;">ARC — Altronic Resource Center</div>
+          <div style="color:#fbdcdc;margin-top:4px;font-size:11px;font-style:italic;">Every team. One ARC. Always forward.</div>
         </td>
       </tr>
       <tr>
