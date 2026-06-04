@@ -182,9 +182,18 @@ export function EirsView() {
           if (statusFilter) return e.status === statusFilter;
           return true;
         })
-        // Newest first by creation date — matches the task list convention.
-        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()),
-    [filteredByView, statusFilter],
+        .sort((a, b) => {
+          // LTB view sorts by LTB date, soonest first (most urgent
+          // last-time-buys at the top); any missing date sinks to the bottom.
+          if (view === "ltb") {
+            const at = a.ltbDate ? a.ltbDate.getTime() : Infinity;
+            const bt = b.ltbDate ? b.ltbDate.getTime() : Infinity;
+            return at - bt;
+          }
+          // Everywhere else: newest first by creation date.
+          return b.createdAt.getTime() - a.createdAt.getTime();
+        }),
+    [filteredByView, statusFilter, view],
   );
 
   // View-tab counts reflect the bar filters but not the status pill, so each

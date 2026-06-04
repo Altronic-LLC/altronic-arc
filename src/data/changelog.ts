@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.27.1",
+    date: "2026-06-04",
+    changes: [
+      "The LTB view now sorts by LTB date, soonest first, so the most urgent last-time-buys are at the top",
+    ],
+  },
+  {
     version: "0.27.0",
     date: "2026-06-04",
     changes: [
