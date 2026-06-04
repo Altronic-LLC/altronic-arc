@@ -266,7 +266,9 @@ export function CommentComposer({
         setActiveIndex((i) => (i - 1 + candidates.length) % candidates.length);
         return;
       }
-      if (e.key === "Enter") {
+      if (e.key === "Enter" || e.key === "Tab") {
+        // Enter or Tab accepts the highlighted person (Tab is prevented from
+        // moving focus out of the textarea while the picker is open).
         e.preventDefault();
         pickMention(candidates[activeIndex]);
         return;

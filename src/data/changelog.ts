@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.31.1",
+    date: "2026-06-04",
+    changes: [
+      "You can now press Tab (as well as Enter) to accept the highlighted person in the @-mention dropdown",
+    ],
+  },
+  {
     version: "0.31.0",
     date: "2026-06-04",
     changes: [
