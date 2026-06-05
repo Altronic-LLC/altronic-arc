@@ -23,33 +23,95 @@ import { NotifyAppManagerButton } from "@/components/NotifyAppManagerButton";
 
 // =============================================================================
 // Top-level nav structure:
-//   Dashboard | List | Kanban | [Engineering Requests ▼] | (Admin)
+//   Dashboard | Departments ▼ | (Admin)
 //
-// "List" and "Kanban" are views of the Tasks dataset and stay top-level
-// because that's the most-used flow. EIRs and Test Sheets — and any future
-// request-style list — go under the Engineering Requests dropdown so the
-// top bar doesn't grow every time a new list is added.
+// The Departments dropdown groups related apps by department. Engineering
+// exposes EIRs, Test Sheets, Tasks, ECNs, and Build Requests. When the user
+// lands in the task context, List and Kanban appear as task views.
 // =============================================================================
 
-interface EngineeringListItem {
-  to: string;
+interface DepartmentItem {
+  to?: string;
   label: string;
   icon: React.ReactNode;
   matchesPath: (pathname: string) => boolean;
+  disabled?: boolean;
 }
 
-const ENGINEERING_LISTS: EngineeringListItem[] = [
+interface DepartmentGroup {
+  name: string;
+  items: DepartmentItem[];
+}
+
+const DEPARTMENTS: DepartmentGroup[] = [
   {
-    to: "/eirs",
-    label: "EIRs",
-    icon: <FileText className="h-4 w-4" />,
-    matchesPath: (p) => p.startsWith("/eirs") || p.startsWith("/eir/"),
+    name: "Engineering",
+    items: [
+      {
+        to: "/eirs",
+        label: "EIRs",
+        icon: <FileText className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/eirs") || p.startsWith("/eir/"),
+      },
+      {
+        to: "/test-sheets",
+        label: "Test Sheets",
+        icon: <ClipboardList className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/test-sheets") || p.startsWith("/test-sheet/"),
+      },
+      {
+        to: "/list",
+        label: "Tasks",
+        icon: <List className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/list") || p.startsWith("/kanban") || p.startsWith("/task/"),
+      },
+      {
+        label: "ECNs",
+        icon: <FileText className="h-4 w-4" />,
+        matchesPath: () => false,
+        disabled: true,
+      },
+      {
+        label: "Build Requests",
+        icon: <ClipboardList className="h-4 w-4" />,
+        matchesPath: () => false,
+        disabled: true,
+      },
+    ],
   },
   {
-    to: "/test-sheets",
-    label: "Test Sheets",
-    icon: <ClipboardList className="h-4 w-4" />,
-    matchesPath: (p) => p.startsWith("/test-sheets") || p.startsWith("/test-sheet/"),
+    name: "Supply Chain",
+    items: [
+      {
+        label: "Supplier Contacts",
+        icon: <Library className="h-4 w-4" />,
+        matchesPath: () => false,
+        disabled: true,
+      },
+      {
+        label: "GMR",
+        icon: <FileText className="h-4 w-4" />,
+        matchesPath: () => false,
+        disabled: true,
+      },
+    ],
+  },
+  {
+    name: "Operations",
+    items: [
+      {
+        to: "/list",
+        label: "Operations Tasks",
+        icon: <List className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/list") || p.startsWith("/kanban") || p.startsWith("/task/"),
+      },
+      {
+        label: "Maintenance",
+        icon: <LayoutGrid className="h-4 w-4" />,
+        matchesPath: () => false,
+        disabled: true,
+      },
+    ],
   },
 ];
 
@@ -61,16 +123,12 @@ export function Header() {
   const isDashboard = pathname === "/";
   const isList = pathname.startsWith("/list");
   const isKanban = pathname.startsWith("/kanban");
-  const isInLists = ENGINEERING_LISTS.some((l) => l.matchesPath(pathname));
+  const isDepartmentPage = DEPARTMENTS.some((group) =>
+    group.items.some((item) => item.matchesPath(pathname)),
+  );
   const isAdminPage = pathname.startsWith("/admin");
-
-  // List and Kanban are views of the Tasks dataset only. When the user is
-  // looking at a non-task page (an Engineering List or Admin), we dim them
-  // so it's visually obvious they don't apply to the current context — but
-  // we keep them clickable so they remain a one-click escape back to tasks.
-  const onTaskContext =
-    isDashboard || isList || isKanban || pathname.startsWith("/task/");
-  const taskControlsDimmed = !onTaskContext;
+  const showTaskViews =
+    isList || isKanban || pathname.startsWith("/task/");
 
   return (
     <header className="border-b border-border bg-surface">
@@ -104,25 +162,7 @@ export function Header() {
             <span className="hidden sm:inline">Dashboard</span>
             <span className="sm:hidden">Home</span>
           </NavLink>
-          <NavLink
-            to="/list"
-            active={isList}
-            dimmed={taskControlsDimmed}
-            title={taskControlsDimmed ? "List view applies to Tasks" : undefined}
-            icon={<List className="h-4 w-4" />}
-          >
-            List
-          </NavLink>
-          <NavLink
-            to="/kanban"
-            active={isKanban}
-            dimmed={taskControlsDimmed}
-            title={taskControlsDimmed ? "Kanban applies to Tasks" : undefined}
-            icon={<LayoutGrid className="h-4 w-4" />}
-          >
-            Kanban
-          </NavLink>
-          <EngineeringListsMenu active={isInLists} pathname={pathname} />
+          <DepartmentsMenu active={isDepartmentPage} pathname={pathname} />
           {isAdmin && (
             <NavLink
               to="/admin/admins"
@@ -133,6 +173,16 @@ export function Header() {
             </NavLink>
           )}
         </nav>
+        {showTaskViews && (
+          <nav className="mt-2 flex items-center justify-center gap-1 rounded-lg bg-surface-2 p-1 sm:justify-start">
+            <NavLink to="/list" active={isList} icon={<List className="h-4 w-4" />}>
+              List
+            </NavLink>
+            <NavLink to="/kanban" active={isKanban} icon={<LayoutGrid className="h-4 w-4" />}>
+              Kanban
+            </NavLink>
+          </nav>
+        )}
 
         <div className="ml-auto hidden items-center gap-3 sm:flex">
           <span className="hidden text-[11px] text-fg-muted md:inline">
@@ -189,7 +239,7 @@ function NavLink({
  * outside click / Escape / item navigation. Highlighted when any of its
  * items match the current path.
  */
-function EngineeringListsMenu({
+function DepartmentsMenu({
   active,
   pathname,
 }: {
@@ -228,8 +278,8 @@ function EngineeringListsMenu({
         )}
       >
         <Library className="h-4 w-4" />
-        <span className="hidden sm:inline">Engineering Requests</span>
-        <span className="sm:hidden">Requests</span>
+        <span className="hidden sm:inline">Departments</span>
+        <span className="sm:hidden">Depts</span>
         <ChevronDown
           className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")}
         />
@@ -238,28 +288,52 @@ function EngineeringListsMenu({
       {open && (
         <div
           role="menu"
-          className="absolute left-1/2 top-full z-30 mt-1 w-56 -translate-x-1/2 rounded-lg border border-border bg-surface p-1 shadow-lg sm:left-0 sm:translate-x-0"
+          className="absolute left-1/2 top-full z-30 mt-1 w-[320px] -translate-x-1/2 rounded-lg border border-border bg-surface p-2 shadow-lg sm:left-0 sm:translate-x-0"
         >
-          {ENGINEERING_LISTS.map((item) => {
-            const itemActive = item.matchesPath(pathname);
-            return (
-              <Link
-                key={item.to}
-                to={item.to}
-                role="menuitem"
-                onClick={() => setOpen(false)}
-                className={cn(
-                  "flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors",
-                  itemActive
-                    ? "bg-accent/10 text-accent"
-                    : "text-fg hover:bg-surface-2",
-                )}
-              >
-                {item.icon}
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
+          {DEPARTMENTS.map((group) => (
+            <div key={group.name} className="border-b border-border last:border-b-0 px-1 py-2">
+              <div className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
+                {group.name}
+              </div>
+              <div className="space-y-1">
+                {group.items.map((item) => {
+                  const itemActive = item.matchesPath(pathname);
+                  if (item.disabled || !item.to) {
+                    return (
+                      <div
+                        key={item.label}
+                        className="flex items-center gap-2 rounded-md px-2.5 py-2 text-sm text-fg-muted opacity-60"
+                      >
+                        {item.icon}
+                        <span>{item.label}</span>
+                        <span className="ml-auto rounded-full bg-surface-2 px-2 py-0.5 text-[10px] uppercase tracking-[0.18em] text-fg-muted">
+                          Soon
+                        </span>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <Link
+                      key={item.to}
+                      to={item.to}
+                      role="menuitem"
+                      onClick={() => setOpen(false)}
+                      className={cn(
+                        "flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors",
+                        itemActive
+                          ? "bg-accent/10 text-accent"
+                          : "text-fg hover:bg-surface-2",
+                      )}
+                    >
+                      {item.icon}
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>

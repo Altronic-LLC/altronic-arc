@@ -55,14 +55,13 @@ const SECTIONS: ManualSection[] = [
         <P>
           Sign in with your <code>@altronic-llc.com</code> Microsoft account when
           prompted. Once you're in, the <strong>Dashboard</strong> opens with a
-          summary of your open work. The top nav has direct links for the views
-          of the task list — <strong>Dashboard</strong>, <strong>List</strong>,
-          and the <strong>Kanban</strong> board — and an{" "}
-          <strong>Engineering Requests</strong> dropdown that holds the other
-          SharePoint lists (currently <strong>EIRs</strong> and{" "}
-          <strong>Test Sheets</strong>). Your tasks are filtered to you by
-          default — pick "Anyone" in the Assigned filter to see the rest of the
-          team's work.
+          summary of your open work. The top nav now has direct access to
+          <strong>Departments</strong>, where Engineering exposes EIRs, Test
+          Sheets, Tasks, ECNs, and Build Requests. Supply Chain and Operations
+          are grouped there too. When you open Engineering Tasks, the task
+          views appear as <strong>List</strong> and <strong>Kanban</strong>.
+          Your tasks are filtered to you by default — pick "Anyone" in the
+          Assigned filter to see the rest of the team's work.
         </P>
         <Tip>
           All views share the same data — a change you make in one shows up in
