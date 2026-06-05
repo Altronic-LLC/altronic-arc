@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { buildCommentHtml, extractMentionedRecipients } from "./mentions";
+import {
+  buildCommentHtml,
+  commentNotifyRecipients,
+  extractMentionedRecipients,
+} from "./mentions";
 import type { Person } from "@/types/task";
 
 const SARAH: Person = { displayName: "Sarah Shaffer", email: "sarah@x.com", lookupId: 1 };
@@ -111,6 +115,51 @@ describe("extractMentionedRecipients", () => {
 
   it("returns empty array for empty input", () => {
     expect(extractMentionedRecipients("")).toEqual([]);
+  });
+});
+
+describe("commentNotifyRecipients", () => {
+  const w = (displayName: string, email?: string) => ({ displayName, email });
+
+  it("notifies all watchers and all mentions, deduped (mention wins)", () => {
+    const out = commentNotifyRecipients({
+      bodyHtml: buildCommentHtml("@Sarah Shaffer take a look", [SARAH]),
+      watchers: [w("Sarah Shaffer", "sarah@x.com"), w("Ray White", "ray@x.com")],
+      authorEmail: "author@x.com",
+    });
+    const byEmail = Object.fromEntries(out.map((r) => [r.email.toLowerCase(), r.reason]));
+    expect(byEmail["sarah@x.com"]).toBe("mentioned"); // watcher + mention → mentioned
+    expect(byEmail["ray@x.com"]).toBe("watching");
+  });
+
+  it("excludes the author when they did not mention themselves", () => {
+    const out = commentNotifyRecipients({
+      bodyHtml: buildCommentHtml("no mentions here", []),
+      watchers: [w("Author", "author@x.com"), w("Ray White", "ray@x.com")],
+      authorEmail: "author@x.com",
+    });
+    expect(out.map((r) => r.email)).toEqual(["ray@x.com"]);
+  });
+
+  it("includes the author only when they self-mention", () => {
+    const self: Person = { displayName: "Author Person", email: "author@x.com", lookupId: 9 };
+    const out = commentNotifyRecipients({
+      bodyHtml: buildCommentHtml("@Author Person reminder", [self]),
+      watchers: [w("Author Person", "author@x.com")],
+      authorEmail: "author@x.com",
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0].email).toBe("author@x.com");
+    expect(out[0].reason).toBe("mentioned");
+  });
+
+  it("skips watchers without an email", () => {
+    const out = commentNotifyRecipients({
+      bodyHtml: buildCommentHtml("hi", []),
+      watchers: [w("No Email"), w("Has Email", "has@x.com")],
+      authorEmail: "author@x.com",
+    });
+    expect(out.map((r) => r.email)).toEqual(["has@x.com"]);
   });
 });
 

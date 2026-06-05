@@ -458,6 +458,15 @@ Pieces:
 
 When a user posts a comment with `@SomeoneName` chips (picked from the mention dropdown in CommentComposer), the app POSTs `/users/{shared-mailbox}/sendMail` for each mentioned person. The mail comes from the configured shared mailbox via Send-As, so every recipient sees a consistent "From" address rather than the sender's personal mailbox.
 
+**Recipients = every watcher + every @-mentioned person** (computed by
+`commentNotifyRecipients()` in `src/lib/mentions.ts`), deduped by email, **minus
+the comment's author** — even if the author is a watcher — **unless the author
+explicitly @-mentioned themselves**. Each recipient carries a `reason`:
+`"mentioned"` people get the "You were mentioned…" email; `"watching"` people get
+a "New comment on…" variant. Mentioning someone still auto-adds them as a watcher
+(so they keep getting future comment emails). Comment **edits** notify only the
+*newly* added mentions, not all watchers.
+
 This fires for comments on **both tasks and EIRs** — wired in `useTasks` / `useEirs` onSuccess → `notifyMentions()` in `src/api/email.ts`. The HTML template (`renderMentionEmail`) is shared and parametrised on `kind: "task" | "eir"` (wording, callout label, and the "Open this task/EIR" button). Design notes: the header bar is **Cooper Red** (a near-black header gets washed to muddy grey by Outlook dark mode; saturated red survives), with the ARC wordmark + intro + tagline; the button URL is built from `import.meta.env.BASE_URL` so it keeps the `/altronic-arc/` Pages sub-path. The Report-issue email (`src/api/errorReport.ts`) shares the same red-header styling.
 
 **One-time setup for the shared mailbox (Exchange admin task):**

@@ -409,8 +409,10 @@ const SECTIONS: ManualSection[] = [
         </P>
         <P>
           Anyone you @-mention also <strong>becomes a watcher</strong> on
-          the task or EIR automatically (unless they already are). They
-          get future notifications on follow-up activity. To stop
+          the task or EIR automatically (unless they already are).{" "}
+          <strong>Watchers are emailed on every new comment</strong> — not just
+          when they're mentioned — so the whole thread stays in the loop. You're
+          never emailed for your own comment, unless you @-mention yourself. To stop
           watching, the mentioned user removes themselves from the
           Watchers field on the detail sidebar. (Heads-up: a fresh
           @-mention will re-add them, so if you keep mentioning a

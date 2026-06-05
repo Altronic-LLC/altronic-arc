@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.32.0",
+    date: "2026-06-04",
+    changes: [
+      "Watchers now get an email on every new comment on a task or EIR (not only when @-mentioned), so the whole thread stays in the loop. Mentioned people get the 'You were mentioned' email; other watchers get a 'New comment on…' email",
+      "You're no longer emailed for your own comment, even if you're a watcher — unless you @-mention yourself",
+      "@-mentioning someone still auto-adds them as a watcher",
+    ],
+  },
+  {
     version: "0.31.1",
     date: "2026-06-04",
     changes: [

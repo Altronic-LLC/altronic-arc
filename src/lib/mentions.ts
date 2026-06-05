@@ -118,3 +118,48 @@ export function extractMentionedRecipients(
   });
   return Array.from(seen.values());
 }
+
+export interface CommentRecipient {
+  email: string;
+  displayName: string;
+  /** Why they're being notified — drives the email wording. */
+  reason: "mentioned" | "watching";
+}
+
+/**
+ * Who to email when a new comment is posted: everyone @-mentioned in the body
+ * PLUS every watcher of the task/EIR, deduped by email (a mention beats a plain
+ * watch). The comment's author is excluded — even if they're a watcher — UNLESS
+ * they explicitly @-mentioned themselves.
+ */
+export function commentNotifyRecipients(args: {
+  bodyHtml: string;
+  watchers: Array<{ displayName: string; email?: string }>;
+  authorEmail: string;
+}): CommentRecipient[] {
+  const author = (args.authorEmail ?? "").toLowerCase();
+  const mentions = extractMentionedRecipients(args.bodyHtml);
+  const selfMentioned = mentions.some((m) => m.email.toLowerCase() === author);
+
+  const byEmail = new Map<string, CommentRecipient>();
+  for (const w of args.watchers) {
+    const email = w.email?.trim();
+    if (!email) continue;
+    byEmail.set(email.toLowerCase(), {
+      email,
+      displayName: w.displayName,
+      reason: "watching",
+    });
+  }
+  // Mentions override watch — a mention is the stronger signal.
+  for (const m of mentions) {
+    byEmail.set(m.email.toLowerCase(), {
+      email: m.email,
+      displayName: m.displayName,
+      reason: "mentioned",
+    });
+  }
+  // Never notify the author of their own comment unless they self-mentioned.
+  if (!selfMentioned) byEmail.delete(author);
+  return Array.from(byEmail.values());
+}

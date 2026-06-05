@@ -19,6 +19,8 @@ import type { CommentAttachment, Person } from "@/types/task";
 export interface MentionRecipient {
   email: string;
   displayName: string;
+  /** Why they're being notified — "mentioned" or a "watching" comment alert. */
+  reason: "mentioned" | "watching";
 }
 
 /** What the mention is on — drives the wording, link, and button text. */
@@ -111,12 +113,17 @@ async function sendOne(input: {
   attachments: GraphFileAttachment[];
 }): Promise<void> {
   const { target } = input;
-  const subject = `You were mentioned in ${target.title}`;
+  const reason = input.recipient.reason;
+  const subject =
+    reason === "mentioned"
+      ? `You were mentioned in ${target.title}`
+      : `New comment on ${target.title}`;
   const url = itemUrl(target.kind, target.id);
   const bodyHtml = renderMentionEmail({
     recipientName: input.recipient.displayName,
     senderName: input.sender.displayName,
     kind: target.kind,
+    reason,
     itemTitle: target.title,
     commentExcerpt: input.commentExcerpt,
     url,
@@ -193,6 +200,7 @@ interface MentionEmailContext {
   recipientName: string;
   senderName: string;
   kind: "task" | "eir";
+  reason: "mentioned" | "watching";
   itemTitle: string;
   commentExcerpt: string;
   url: string;
@@ -220,6 +228,10 @@ function renderMentionEmail(ctx: MentionEmailContext): string {
   const phrase = isEir ? "an EIR" : "a task";
   const calloutLabel = isEir ? "EIR" : "Task";
   const buttonText = isEir ? "Open this EIR" : "Open this task";
+  const intro =
+    ctx.reason === "mentioned"
+      ? `You were mentioned in ${phrase} by <strong>${sender}</strong>.`
+      : `<strong>${sender}</strong> commented on ${phrase} you're watching.`;
 
   return `
 <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#f3f4f6;padding:24px 12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
@@ -236,7 +248,7 @@ function renderMentionEmail(ctx: MentionEmailContext): string {
         <tr>
           <td style="padding:28px 28px 8px 28px;color:#111827;font-size:15px;line-height:1.55;">
             <p style="margin:0 0 14px 0;font-size:16px;">Hello <strong>${recipient}</strong>,</p>
-            <p style="margin:0 0 18px 0;">You were mentioned in ${phrase} by <strong>${sender}</strong>.</p>
+            <p style="margin:0 0 18px 0;">${intro}</p>
             <div style="margin:0 0 18px 0;padding:14px 16px;background:#f9fafb;border-left:3px solid #CB2C30;border-radius:0 6px 6px 0;">
               <div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">${calloutLabel}</div>
               <div style="font-weight:600;color:#111827;">${itemTitle}</div>

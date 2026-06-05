@@ -32,7 +32,7 @@ import type {
 import { CATEGORIES, LABELS, PRIORITIES, STATUSES } from "@/types/task";
 import { pushToast } from "@/components/Toast";
 import { notifyMentions } from "@/api/email";
-import { extractMentionedRecipients } from "@/lib/mentions";
+import { commentNotifyRecipients, extractMentionedRecipients } from "@/lib/mentions";
 
 const TASK_LIST_KEY = ["tasks", "list"] as const;
 const PROJECTS_KEY = ["projects"] as const;
@@ -466,34 +466,43 @@ export function useAddComment() {
       ),
     onSuccess: (_data, { id, comment }) => {
       pushToast({ message: "Comment posted." });
-      const recipients = extractMentionedRecipients(comment.bodyHtml);
-      if (recipients.length === 0) return;
 
       const tasks = qc.getQueryData<Task[]>(TASK_LIST_KEY);
       const task = tasks?.find((t) => t.id === id);
       if (!task) return;
 
-      // Fire-and-forget @-mention emails. Failures logged inside
-      // notifyMentions — they don't bubble back to the user.
       const sender: Person = {
         displayName: comment.authorName,
         email: comment.authorEmail,
       };
-      void notifyMentions({
-        recipients,
-        sender,
-        target: { kind: "task", id: task.id, title: task.numberedTitle || task.title },
-        commentExcerpt: htmlToPlainText(comment.bodyHtml),
-        attachments: comment.attachments ?? [],
-      });
 
-      // Auto-watch: every mentioned user becomes a watcher on the task
-      // (unless they already are). Resolves the recipient email against
-      // the people directory built from every task's assigned + watchers
-      // so we get a real SharePoint LookupId — without one, Graph can't
-      // write the watcher entry. Silent on success; logs on failure.
+      // Email everyone watching the task + everyone @-mentioned, minus the
+      // author (unless they self-mentioned). Fire-and-forget; failures are
+      // logged inside notifyMentions and don't bubble back to the user.
+      const recipients = commentNotifyRecipients({
+        bodyHtml: comment.bodyHtml,
+        watchers: task.watchers,
+        authorEmail: comment.authorEmail,
+      });
+      if (recipients.length > 0) {
+        void notifyMentions({
+          recipients,
+          sender,
+          target: { kind: "task", id: task.id, title: task.numberedTitle || task.title },
+          commentExcerpt: htmlToPlainText(comment.bodyHtml),
+          attachments: comment.attachments ?? [],
+        });
+      }
+
+      // Auto-watch: every newly @-mentioned user becomes a watcher on the task
+      // (unless they already are). Resolves the recipient email against the
+      // people directory built from every task's assigned + watchers so we get
+      // a real SharePoint LookupId — without one, Graph can't write the watcher
+      // entry. Silent on success; logs on failure.
+      const mentioned = extractMentionedRecipients(comment.bodyHtml);
+      if (mentioned.length === 0) return;
       void autoWatchFromMentions({
-        recipients,
+        recipients: mentioned,
         currentWatchers: task.watchers,
         directory: tasks ? collectPeopleFromTasks(tasks) : [],
       })
@@ -630,7 +639,7 @@ export function useEditComment() {
             email: prevComment.authorEmail,
           };
           void notifyMentions({
-            recipients: newMentions,
+            recipients: newMentions.map((m) => ({ ...m, reason: "mentioned" as const })),
             sender,
             target: { kind: "task", id: task.id, title: task.numberedTitle || task.title },
             commentExcerpt: htmlToPlainText(newBodyHtml),

@@ -19,7 +19,7 @@ import type {
 } from "@/types/task";
 import { pushToast } from "@/components/Toast";
 import { multiLookupField } from "@/lib/graphFields";
-import { extractMentionedRecipients } from "@/lib/mentions";
+import { commentNotifyRecipients, extractMentionedRecipients } from "@/lib/mentions";
 import { notifyMentions } from "@/api/email";
 
 const EIRS_KEY = ["eirs", "list"] as const;
@@ -229,31 +229,37 @@ export function useAddEirComment() {
     onSuccess: (_data, { id, comment }) => {
       pushToast({ message: "Comment posted." });
 
-      // Auto-watch: anyone @-mentioned becomes a watcher on this EIR
-      // (unless they already are). Resolves the email against the people
-      // directory built from every EIR's reporter + engineers + watchers
-      // so we land a SharePoint LookupId — required to write the
-      // watcher entry. Silent on success, logs on failure.
-      const recipients = extractMentionedRecipients(comment.bodyHtml);
-      if (recipients.length === 0) return;
       const eirs = qc.getQueryData<Eir[]>(EIRS_KEY);
       const eir = eirs?.find((e) => e.id === id);
       if (!eir) return;
 
-      // Fire-and-forget @-mention emails (same as tasks). Failures are logged
-      // inside notifyMentions and never surface to the user.
-      void notifyMentions({
-        recipients,
-        sender: { displayName: comment.authorName, email: comment.authorEmail },
-        target: {
-          kind: "eir",
-          id: eir.id,
-          title: [eir.eirNo, eir.title].filter(Boolean).join(" — ") || eir.title,
-        },
-        commentExcerpt: eirCommentExcerpt(comment.bodyHtml),
-        attachments: [],
+      // Email everyone watching this EIR + everyone @-mentioned, minus the
+      // author (unless they self-mentioned). Fire-and-forget; failures are
+      // logged inside notifyMentions and never surface to the user.
+      const recipients = commentNotifyRecipients({
+        bodyHtml: comment.bodyHtml,
+        watchers: eir.watchers,
+        authorEmail: comment.authorEmail,
       });
+      if (recipients.length > 0) {
+        void notifyMentions({
+          recipients,
+          sender: { displayName: comment.authorName, email: comment.authorEmail },
+          target: {
+            kind: "eir",
+            id: eir.id,
+            title: [eir.eirNo, eir.title].filter(Boolean).join(" — ") || eir.title,
+          },
+          commentExcerpt: eirCommentExcerpt(comment.bodyHtml),
+          attachments: [],
+        });
+      }
 
+      // Auto-watch: anyone @-mentioned becomes a watcher on this EIR (unless
+      // they already are). Resolves the email against the people directory so
+      // we land a SharePoint LookupId — required to write the watcher entry.
+      const mentioned = extractMentionedRecipients(comment.bodyHtml);
+      if (mentioned.length === 0) return;
       const directory = eirs ? collectPeopleFromEirs(eirs) : [];
       const alreadyWatching = new Set(
         eir.watchers.map((w) => (w.email ?? w.displayName).toLowerCase()),
@@ -263,7 +269,7 @@ export function useAddEirComment() {
         if (p.email && p.lookupId) byEmail.set(p.email.toLowerCase(), p);
       }
       const additions: Person[] = [];
-      for (const r of recipients) {
+      for (const r of mentioned) {
         const key = (r.email ?? r.displayName).toLowerCase();
         if (alreadyWatching.has(key)) continue;
         if (!r.email) continue;
