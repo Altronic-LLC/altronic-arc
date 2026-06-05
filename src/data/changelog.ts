@@ -20,7 +20,7 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "0.33.3",
+    version: "0.34.0",
     date: "2026-06-05",
     changes: [
       "Make every User Manual section heading red so the manual is easier to scan, and publish the new app version.",
