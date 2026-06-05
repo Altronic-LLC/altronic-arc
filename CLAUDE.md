@@ -119,6 +119,11 @@ the backlog records what hasn't.
 The app shows its current version in the footer, with a "View history" modal
 that lists all releases. This is driven by `src/data/changelog.ts`.
 
+**From now on, every user-visible change must be versioned and recorded in
+`src/data/changelog.ts` before it is pushed.** This includes UI text, layout,
+navigation, feature visibility, and any change that affects what users see or
+how they interact with the app.
+
 **Every time you make a user-visible change, you MUST do both of these:**
 
 ### 1. Add a changelog entry

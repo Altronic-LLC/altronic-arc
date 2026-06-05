@@ -48,6 +48,12 @@ const DEPARTMENTS: DepartmentGroup[] = [
     name: "Engineering",
     items: [
       {
+        to: "/list",
+        label: "Tasks",
+        icon: <List className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/list") || p.startsWith("/kanban") || p.startsWith("/task/"),
+      },
+      {
         to: "/eirs",
         label: "EIRs",
         icon: <FileText className="h-4 w-4" />,
@@ -58,12 +64,6 @@ const DEPARTMENTS: DepartmentGroup[] = [
         label: "Test Sheets",
         icon: <ClipboardList className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/test-sheets") || p.startsWith("/test-sheet/"),
-      },
-      {
-        to: "/list",
-        label: "Tasks",
-        icon: <List className="h-4 w-4" />,
-        matchesPath: (p) => p.startsWith("/list") || p.startsWith("/kanban") || p.startsWith("/task/"),
       },
       {
         label: "ECNs",

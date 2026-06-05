@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.34.1",
+    date: "2026-06-05",
+    changes: [
+      "Update the Departments navigation so Engineering Tasks appear first and keep Operations Tasks separate.",
+    ],
+  },
+  {
     version: "0.34.0",
     date: "2026-06-05",
     changes: [
