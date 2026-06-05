@@ -588,6 +588,12 @@ const SECTIONS: ManualSection[] = [
       "where used",
       "create eir",
       "new eir",
+      "eir numbering",
+      "eir number",
+      "eir no",
+      "eir log no",
+      "auto number",
+      "number format",
       "views",
       "view tabs",
       "needs assigned",
@@ -595,7 +601,7 @@ const SECTIONS: ManualSection[] = [
       "triage",
     ],
     searchText:
-      "The EIRs tab shows Engineering Information Requests with workflow View tabs (All, New, Needs Assigned, At Risk Parts, LTB), status pills (Under Review, Response Accepted, Closed, etc.) and a filter bar for Project, Assigned Engineer, Reporter, and search. New = no project reference and no engineer assigned; Needs Assigned = has a project reference but still no engineer. Click an EIR to open the detail page with Description, Engineering Response, Part Details (MFG, P/N, EAU, etc.), Comments, and a sidebar to edit Status, Resolution, Request Type, Priority, Reporter, Assigned Engineers, Watchers, Project, Task Reference, Requested Completion Date, LTB Date.",
+      "The EIRs tab shows Engineering Information Requests with workflow View tabs (All, New, Needs Assigned, At Risk Parts, LTB), status pills (Under Review, Response Accepted, Closed, etc.) and a filter bar for Project, Assigned Engineer, Reporter, and search. New = no project reference and no engineer assigned; Needs Assigned = has a project reference but still no engineer. Click an EIR to open the detail page with Description, Engineering Response, Part Details (MFG, P/N, EAU, etc.), Comments, and a sidebar to edit Status, Resolution, Request Type, Priority, Reporter, Assigned Engineers, Watchers, Project, Task Reference, Requested Completion Date, LTB Date. New EIRs are auto-numbered as EIR_YYYY-#### (the next sequence for the year); the EIR Log No. is calculated from it.",
     render: () => (
       <>
         <P>
@@ -625,12 +631,25 @@ const SECTIONS: ManualSection[] = [
         </P>
         <H3>Creating one</H3>
         <P>
-          Click <strong>New EIR</strong> at the top right. <strong>Title</strong>{" "}
-          and <strong>Project Reference</strong> are required. The form pre-fills
-          Reporter to you and Request Type to "EIR". Optional fields on create
-          include the part details (Where Used, MFG, MFG P/N, Altronic Part
-          Number) and Requested Completion Date — everything else can be
-          completed from the detail sidebar after creation.
+          Click <strong>New EIR</strong> at the top right. Required:{" "}
+          <strong>Subject</strong>, <strong>Description</strong>,{" "}
+          <strong>Reporter</strong> (pre-filled to you),{" "}
+          <strong>Requested Priority</strong>, and <strong>Request Type</strong>{" "}
+          (defaults to "EIR"). The Purchasing section also takes EAU, Current
+          Stock, Current Price, MFG, MFG P/N, LTB Date, Buyer Code, Risk Part,
+          Risk Part Level, Technical Priority, Altronic Part Number, and Where
+          Used. Project Reference, Assigned Engineers, and attachments are set
+          from the detail page after creation.
+        </P>
+        <H3>EIR numbering</H3>
+        <P>
+          On save, each EIR is automatically assigned an <strong>EIR No</strong>{" "}
+          in the format <code>EIR_YYYY-####</code> — the current year plus the
+          next 4-digit sequence for that year (e.g. the 84th EIR logged in 2026
+          becomes <code>EIR_2026-0084</code>). The numbering restarts at{" "}
+          <code>0001</code> each new year. The SharePoint{" "}
+          <strong>EIR Log No.</strong> column is calculated from EIR No, so it
+          follows the same format automatically — you never type it in.
         </P>
         <H3>Detail page</H3>
         <P>
