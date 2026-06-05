@@ -893,28 +893,52 @@ const SECTIONS: ManualSection[] = [
       "stop watching",
       "get notified",
       "watch a task",
+      "comment notification",
+      "new comment email",
+      "watcher email",
+      "self mention",
+      "why did i get an email",
     ],
     searchText:
-      "Mention email goes to mentioned people from automation@altronic-llc.com with a link. Editing a comment only emails NEW mentions. Use the Watch button to subscribe to a task — Power Automate flows email watchers on changes.",
+      "Commenting on a task or EIR emails everyone watching it plus everyone you @-mention, from automation@altronic-llc.com. Mentioned people get a 'You were mentioned' email; other watchers get a 'New comment on' email. You're never emailed for your own comment unless you @-mention yourself. @-mentioning auto-adds the person as a watcher. Editing a comment emails only newly added mentions. Click Watch on the detail page to follow; click Watching to stop.",
     render: () => (
       <>
-        <H3>Email — @-mentions</H3>
+        <H3>Email on comments</H3>
         <P>
-          When you @-mention someone in a comment, they receive an email from{" "}
-          <strong>automation@altronic-llc.com</strong> with a greeting, the
-          task name, the comment quoted, and a button to open the task. Any
-          attachments you added ride along as email attachments.
+          Posting a comment on a task or EIR emails{" "}
+          <strong>everyone watching it</strong> plus{" "}
+          <strong>everyone you @-mention</strong>. Mail comes from{" "}
+          <strong>automation@altronic-llc.com</strong> with the item's name, the
+          comment quoted, and a button to open it. Any attachments you added ride
+          along as email attachments.
         </P>
+        <UL>
+          <LI>
+            People you <strong>@-mention</strong> get a "You were mentioned"
+            email.
+          </LI>
+          <LI>
+            Other <strong>watchers</strong> get a "New comment on…" email.
+          </LI>
+          <LI>
+            You are <strong>never emailed for your own comment</strong> — even if
+            you're a watcher — <em>unless</em> you @-mention yourself (handy as a
+            personal reminder).
+          </LI>
+        </UL>
         <P>
-          Editing a comment to add a NEW mention emails just the new person.
-          Existing mentions don't get re-spammed.
+          Editing a comment to add a NEW mention emails just that new person —
+          existing mentions and other watchers aren't re-notified.
         </P>
-        <H3>Watching a task</H3>
+        <H3>Watching a task or EIR</H3>
         <P>
-          Click <strong>Watch</strong> on the task detail page to add yourself
-          to the watchers list. Power Automate flows running on the SharePoint
-          list send watchers email updates when the task is changed or
-          commented on. Click <strong>Watching</strong> again to stop.
+          On a <strong>task</strong>, click <strong>Watch</strong> on the detail
+          page to add yourself (it toggles to <strong>Watching</strong> — click
+          again to stop). On an <strong>EIR</strong>, add or remove yourself via
+          the <strong>Watchers</strong> field in the detail sidebar. Either way,
+          watchers get an email on every new comment — and{" "}
+          <strong>@-mentioning someone adds them as a watcher</strong>{" "}
+          automatically.
         </P>
       </>
     ),
