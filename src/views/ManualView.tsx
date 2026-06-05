@@ -58,8 +58,9 @@ const SECTIONS: ManualSection[] = [
           summary of your open work. The top nav now has direct access to
           <strong>Departments</strong>, where Engineering exposes EIRs, Test
           Sheets, Tasks, ECNs, and Build Requests. Supply Chain and Operations
-          are grouped there too. When you open Engineering Tasks, the task
-          views appear as <strong>List</strong> and <strong>Kanban</strong>.
+          are grouped there too. Engineering Tasks use the <strong>List</strong>
+          and <strong>Kanban</strong> views. Operations Tasks are a separate
+          workload and will be added as their own app once ready.
           Your tasks are filtered to you by default — pick "Anyone" in the
           Assigned filter to see the rest of the team's work.
         </P>

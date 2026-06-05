@@ -100,10 +100,10 @@ const DEPARTMENTS: DepartmentGroup[] = [
     name: "Operations",
     items: [
       {
-        to: "/list",
         label: "Operations Tasks",
         icon: <List className="h-4 w-4" />,
-        matchesPath: (p) => p.startsWith("/list") || p.startsWith("/kanban") || p.startsWith("/task/"),
+        matchesPath: () => false,
+        disabled: true,
       },
       {
         label: "Maintenance",
