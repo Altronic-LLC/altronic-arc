@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.34.2",
+    date: "2026-06-05",
+    changes: [
+      "Keep the footer version badge highlighted until the user clicks it, so new release tracking stays visible after refresh.",
+    ],
+  },
+  {
     version: "0.34.1",
     date: "2026-06-05",
     changes: [

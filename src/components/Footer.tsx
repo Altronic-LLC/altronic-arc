@@ -1,14 +1,31 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { History, Info, Mail, X } from "lucide-react";
 import { CHANGELOG, CURRENT_VERSION } from "@/data/changelog";
 import { useVersionCheck } from "@/hooks/useVersionCheck";
 
 const MAINTAINER_EMAIL = "ray.white@altronic-llc.com";
+const VERSION_SEEN_KEY = "arc-version-seen";
 
 export function Footer() {
   const [showHistory, setShowHistory] = useState(false);
+  const [versionSeen, setVersionSeen] = useState(false);
   const { updateAvailable } = useVersionCheck();
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setVersionSeen(localStorage.getItem(VERSION_SEEN_KEY) === CURRENT_VERSION);
+  }, [CURRENT_VERSION]);
+
+  const highlightVersion = updateAvailable || !versionSeen;
+
+  const openHistory = () => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(VERSION_SEEN_KEY, CURRENT_VERSION);
+      setVersionSeen(true);
+    }
+    setShowHistory(true);
+  };
 
   return (
     <>
@@ -36,17 +53,17 @@ export function Footer() {
               About
             </Link>
             <button
-              onClick={() => setShowHistory(true)}
+              onClick={openHistory}
               className={
                 "inline-flex items-center gap-1.5 rounded-md border bg-surface px-2.5 py-1 font-mono text-[11px] transition-colors " +
-                (updateAvailable
+                (highlightVersion
                   ? "border-cooper-red text-cooper-red hover:border-cooper-red/80 hover:text-cooper-red/90"
                   : "border-border text-fg-muted hover:border-fg-muted hover:text-fg")
               }
             >
               <History className="h-3 w-3" />
               v{CURRENT_VERSION}
-              {updateAvailable && (
+              {highlightVersion && (
                 <span className="ml-1 rounded-full bg-cooper-red px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-white">
                   NEW
                 </span>
