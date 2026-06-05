@@ -11,6 +11,7 @@ import {
   LabelChip,
   PriorityFlag,
 } from "./atoms";
+import { useUnseenMentions } from "@/hooks/useUnseenMentions";
 
 interface KanbanCardProps {
   task: Task;
@@ -31,9 +32,19 @@ export function KanbanCard({ task, onOpen, dragDisabled = false }: KanbanCardPro
     disabled: dragDisabled,
   });
 
+  const { isUnseen, markAsSeen } = useUnseenMentions();
+  const hasMention = isUnseen(`task:${task.id}`);
+
   const style = {
     transform: CSS.Translate.toString(transform),
     transition,
+  };
+
+  const handleOpen = () => {
+    if (hasMention) {
+      markAsSeen(`task:${task.id}`);
+    }
+    onOpen(task.id);
   };
 
   const cardContent = (
@@ -57,7 +68,7 @@ export function KanbanCard({ task, onOpen, dragDisabled = false }: KanbanCardPro
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
-              onOpen(task.id);
+              handleOpen();
             }}
             className="shrink-0 rounded p-1 text-fg-muted opacity-0 transition-opacity hover:bg-surface-2 hover:text-fg group-hover:opacity-100"
             aria-label="Open task"
@@ -67,6 +78,14 @@ export function KanbanCard({ task, onOpen, dragDisabled = false }: KanbanCardPro
           </button>
         )}
       </div>
+
+      {hasMention && (
+        <div className="mt-2">
+          <span className="rounded-full bg-cooper-red px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-white">
+            Mentioned
+          </span>
+        </div>
+      )}
 
       {task.parentProject && (
         <div className="mt-2 flex items-center gap-1.5 text-[11px] text-fg-muted">
@@ -104,18 +123,12 @@ export function KanbanCard({ task, onOpen, dragDisabled = false }: KanbanCardPro
     </>
   );
 
-  // Two render modes:
-  // 1. dragDisabled — the card is a <button> that opens the task on tap.
-  //    No grab cursor, no drag listeners, but still sits inside SortableContext
-  //    so the column layout is identical to the drag-enabled version.
-  // 2. drag enabled — the card is a <div> with drag listeners spread onto it,
-  //    and the small "open" icon (rendered above) handles the open action.
   if (dragDisabled) {
     return (
       <button
         ref={setNodeRef}
         style={style}
-        onClick={() => onOpen(task.id)}
+        onClick={handleOpen}
         className="block w-full rounded-lg border border-border bg-surface p-3 text-left shadow-sm transition-all hover:border-fg-muted hover:shadow-md active:scale-[0.99]"
       >
         {cardContent}

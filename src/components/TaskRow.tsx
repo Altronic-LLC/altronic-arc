@@ -9,6 +9,7 @@ import {
   PriorityFlag,
   StatusBadge,
 } from "./atoms";
+import { useUnseenMentions } from "@/hooks/useUnseenMentions";
 
 interface TaskRowProps {
   task: Task;
@@ -17,14 +18,24 @@ interface TaskRowProps {
 
 export function TaskRow({ task, onOpen }: TaskRowProps) {
   const lastComment = task.comments[0];
+  const { isUnseen, markAsSeen } = useUnseenMentions();
+  const hasMention = isUnseen(`task:${task.id}`);
+
   const assignedSummary =
     task.assigned.length === 0
       ? "Unassigned"
       : task.assigned.map((p) => p.displayName).join(", ");
 
+  const handleOpen = () => {
+    if (hasMention) {
+      markAsSeen(`task:${task.id}`);
+    }
+    onOpen(task.id);
+  };
+
   return (
     <button
-      onClick={() => onOpen(task.id)}
+      onClick={handleOpen}
       // Mobile: stacks vertically (everything full-width, sections separated
       // by gap-3). Tablet+: horizontal layout with three columns.
       className="group flex w-full flex-col gap-3 rounded-lg border border-border bg-surface p-3 text-left transition-all hover:border-fg-muted hover:shadow-md sm:flex-row sm:items-stretch sm:gap-4 sm:p-4"
@@ -33,6 +44,11 @@ export function TaskRow({ task, onOpen }: TaskRowProps) {
       <div className="flex flex-col gap-2 sm:w-72 sm:shrink-0">
         <div className="flex flex-wrap items-center gap-2">
           <StatusBadge status={task.status} />
+          {hasMention && (
+            <span className="rounded-full bg-cooper-red px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-white">
+              Mentioned
+            </span>
+          )}
           {/* Show chevron inline on mobile so users see the open hint without scrolling right */}
           <ChevronRight className="ml-auto h-5 w-5 shrink-0 text-fg-muted transition-transform group-hover:translate-x-0.5 sm:hidden" />
         </div>

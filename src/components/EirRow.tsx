@@ -7,6 +7,7 @@ import {
   EirStatusBadge,
   PriorityFlag,
 } from "./atoms";
+import { useUnseenMentions } from "@/hooks/useUnseenMentions";
 
 interface EirRowProps {
   eir: Eir;
@@ -20,20 +21,34 @@ interface EirRowProps {
  */
 export function EirRow({ eir, onOpen }: EirRowProps) {
   const lastComment = eir.comments[0];
+  const { isUnseen, markAsSeen } = useUnseenMentions();
+  const hasMention = isUnseen(`eir:${eir.id}`);
   const assignedSummary =
     eir.assignedEngineers.length === 0
       ? "Unassigned"
       : eir.assignedEngineers.map((p) => p.displayName).join(", ");
 
+  const handleOpen = () => {
+    if (hasMention) {
+      markAsSeen(`eir:${eir.id}`);
+    }
+    onOpen(eir.id);
+  };
+
   return (
     <button
-      onClick={() => onOpen(eir.id)}
+      onClick={handleOpen}
       className="group flex w-full flex-col gap-3 rounded-lg border border-border bg-surface p-3 text-left transition-all hover:border-fg-muted hover:shadow-md sm:flex-row sm:items-stretch sm:gap-4 sm:p-4"
     >
       {/* Left column: identity. */}
       <div className="flex flex-col gap-2 sm:w-72 sm:shrink-0">
         <div className="flex flex-wrap items-center gap-2">
           <EirStatusBadge status={eir.status} />
+          {hasMention && (
+            <span className="rounded-full bg-cooper-red px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-white">
+              Mentioned
+            </span>
+          )}
           <ChevronRight className="ml-auto h-5 w-5 shrink-0 text-fg-muted transition-transform group-hover:translate-x-0.5 sm:hidden" />
         </div>
         <div className="font-display text-sm font-semibold leading-snug text-fg">

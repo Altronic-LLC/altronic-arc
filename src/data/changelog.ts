@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.35.0",
+    date: "2026-06-05",
+    changes: [
+      "Show a red 'Mentioned' badge on tasks and EIRs when you've been @-mentioned in a comment, and keep the badge highlighted until you open that item.",
+    ],
+  },
+  {
     version: "0.34.2",
     date: "2026-06-05",
     changes: [
