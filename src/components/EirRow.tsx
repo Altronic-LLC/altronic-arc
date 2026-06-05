@@ -1,4 +1,5 @@
 import { CalendarClock, ChevronRight, FileText, FolderOpen, User } from "lucide-react";
+import { useEffect, useRef } from "react";
 import type { Eir } from "@/types/task";
 import {
   AttachmentIndicator,
@@ -23,20 +24,34 @@ export function EirRow({ eir, onOpen }: EirRowProps) {
   const lastComment = eir.comments[0];
   const { isUnseen, markAsSeen } = useUnseenMentions();
   const hasMention = isUnseen(`eir:${eir.id}`);
+  const rowRef = useRef<HTMLButtonElement>(null);
   const assignedSummary =
     eir.assignedEngineers.length === 0
       ? "Unassigned"
       : eir.assignedEngineers.map((p) => p.displayName).join(", ");
 
   const handleOpen = () => {
-    if (hasMention) {
-      markAsSeen(`eir:${eir.id}`);
-    }
     onOpen(eir.id);
   };
 
+  // Mark mention as read when row becomes visible on screen
+  useEffect(() => {
+    if (!hasMention || !rowRef.current) return;
+
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        markAsSeen(`eir:${eir.id}`);
+        observer.disconnect();
+      }
+    });
+
+    observer.observe(rowRef.current);
+    return () => observer.disconnect();
+  }, [hasMention, eir.id, markAsSeen]);
+
   return (
     <button
+      ref={rowRef}
       onClick={handleOpen}
       className="group flex w-full flex-col gap-3 rounded-lg border border-border bg-surface p-3 text-left transition-all hover:border-fg-muted hover:shadow-md sm:flex-row sm:items-stretch sm:gap-4 sm:p-4"
     >

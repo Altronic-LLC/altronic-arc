@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.35.1",
+    date: "2026-06-05",
+    changes: [
+      "Mention badges now disappear as soon as the row or card becomes visible on screen, so they clear when you scroll to them rather than requiring you to open the item.",
+    ],
+  },
+  {
     version: "0.35.0",
     date: "2026-06-05",
     changes: [

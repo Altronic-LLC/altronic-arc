@@ -1,6 +1,7 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { FolderOpen, ExternalLink } from "lucide-react";
+import { useEffect, useRef } from "react";
 import type { Task } from "@/types/task";
 import { cn } from "@/lib/cn";
 import {
@@ -34,17 +35,36 @@ export function KanbanCard({ task, onOpen, dragDisabled = false }: KanbanCardPro
 
   const { isUnseen, markAsSeen } = useUnseenMentions();
   const hasMention = isUnseen(`task:${task.id}`);
+  const cardRef = useRef<HTMLDivElement | HTMLButtonElement>(null);
 
   const style = {
     transform: CSS.Translate.toString(transform),
     transition,
   };
 
+  // Mark mention as read when card becomes visible on screen
+  useEffect(() => {
+    if (!hasMention || !cardRef.current) return;
+
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        markAsSeen(`task:${task.id}`);
+        observer.disconnect();
+      }
+    });
+
+    observer.observe(cardRef.current);
+    return () => observer.disconnect();
+  }, [hasMention, task.id, markAsSeen]);
+
   const handleOpen = () => {
-    if (hasMention) {
-      markAsSeen(`task:${task.id}`);
-    }
     onOpen(task.id);
+  };
+
+  // Helper to merge refs: assign to both cardRef and setNodeRef
+  const mergeRefs = (el: HTMLDivElement | HTMLButtonElement | null) => {
+    (cardRef as any).current = el;
+    setNodeRef(el);
   };
 
   const cardContent = (
@@ -126,7 +146,7 @@ export function KanbanCard({ task, onOpen, dragDisabled = false }: KanbanCardPro
   if (dragDisabled) {
     return (
       <button
-        ref={setNodeRef}
+        ref={mergeRefs}
         style={style}
         onClick={handleOpen}
         className="block w-full rounded-lg border border-border bg-surface p-3 text-left shadow-sm transition-all hover:border-fg-muted hover:shadow-md active:scale-[0.99]"
@@ -138,7 +158,7 @@ export function KanbanCard({ task, onOpen, dragDisabled = false }: KanbanCardPro
 
   return (
     <div
-      ref={setNodeRef}
+      ref={mergeRefs}
       style={style}
       // The ENTIRE card is the drag handle — listeners and attributes are
       // spread onto the outer div so picking up the card anywhere works.

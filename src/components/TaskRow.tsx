@@ -1,4 +1,5 @@
 import { ChevronRight, FolderOpen } from "lucide-react";
+import { useEffect, useRef } from "react";
 import type { Task } from "@/types/task";
 import {
   AttachmentIndicator,
@@ -20,6 +21,7 @@ export function TaskRow({ task, onOpen }: TaskRowProps) {
   const lastComment = task.comments[0];
   const { isUnseen, markAsSeen } = useUnseenMentions();
   const hasMention = isUnseen(`task:${task.id}`);
+  const rowRef = useRef<HTMLButtonElement>(null);
 
   const assignedSummary =
     task.assigned.length === 0
@@ -27,14 +29,27 @@ export function TaskRow({ task, onOpen }: TaskRowProps) {
       : task.assigned.map((p) => p.displayName).join(", ");
 
   const handleOpen = () => {
-    if (hasMention) {
-      markAsSeen(`task:${task.id}`);
-    }
     onOpen(task.id);
   };
 
+  // Mark mention as read when row becomes visible on screen
+  useEffect(() => {
+    if (!hasMention || !rowRef.current) return;
+
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        markAsSeen(`task:${task.id}`);
+        observer.disconnect();
+      }
+    });
+
+    observer.observe(rowRef.current);
+    return () => observer.disconnect();
+  }, [hasMention, task.id, markAsSeen]);
+
   return (
     <button
+      ref={rowRef}
       onClick={handleOpen}
       // Mobile: stacks vertically (everything full-width, sections separated
       // by gap-3). Tablet+: horizontal layout with three columns.
