@@ -4,6 +4,7 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { ToastContainer } from "@/components/Toast";
 import { UpdateAvailableBanner } from "@/components/UpdateAvailableBanner";
+import { RequireAdmin } from "@/components/RequireAdmin";
 import { ListView } from "@/views/ListView";
 import { DashboardView } from "@/views/DashboardView";
 import { KanbanView } from "@/views/KanbanView";
@@ -54,9 +55,30 @@ export function App() {
           <Route path="/task/:id" element={<DetailView />} />
           <Route path="/task/:id/print" element={<PrintTaskView />} />
           <Route path="/project/:id" element={<ProjectView />} />
-          <Route path="/admin/projects" element={<AdminProjectsView />} />
-          <Route path="/admin/admins" element={<AdminAdminsView />} />
-          <Route path="/admin/eir-roles" element={<AdminEirRolesView />} />
+          <Route
+            path="/admin/projects"
+            element={
+              <RequireAdmin>
+                <AdminProjectsView />
+              </RequireAdmin>
+            }
+          />
+          <Route
+            path="/admin/admins"
+            element={
+              <RequireAdmin>
+                <AdminAdminsView />
+              </RequireAdmin>
+            }
+          />
+          <Route
+            path="/admin/eir-roles"
+            element={
+              <RequireAdmin>
+                <AdminEirRolesView />
+              </RequireAdmin>
+            }
+          />
           <Route path="/admin" element={<Navigate to="/admin/admins" replace />} />
           <Route path="/test-sheets" element={<TestSheetsView />} />
           <Route path="/test-sheet/:id" element={<TestSheetDetailView />} />

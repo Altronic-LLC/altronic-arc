@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.35.4",
+    date: "2026-06-09",
+    changes: [
+      "Non-admins who open an admin URL (/admin/...) directly are now redirected to the dashboard instead of seeing the admin page with a 'not authorised' notice. The Admin link already stays hidden for them.",
+    ],
+  },
+  {
     version: "0.35.3",
     date: "2026-06-09",
     changes: [

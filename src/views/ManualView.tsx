@@ -858,13 +858,15 @@ const SECTIONS: ManualSection[] = [
       "who can edit",
     ],
     searchText:
-      "Admins manage three things from the Admin section in the header: the list of admin users (/admin/admins), the project references catalogue (/admin/projects), and EIR roles (/admin/eir-roles) which control who can edit the Engineering Response (engineer role) and Buyer Code (supply chain role) fields on an EIR. The Admin link only appears in the header for users on the admin list. Add an admin from the Admins page; their name appears in the header on their next sign-in. Removing yourself is disabled to prevent lockouts. A small hardcoded bootstrap set of admins stays in the code as a safety net.",
+      "Admins manage three things from the Admin section in the header: the list of admin users (/admin/admins), the project references catalogue (/admin/projects), and EIR roles (/admin/eir-roles) which control who can edit the Engineering Response (engineer role) and Buyer Code (supply chain role) fields on an EIR. The Admin link only appears in the header for users on the admin list, and non-admins who open an /admin URL directly are sent back to the dashboard — the admin pages never show for them. Add an admin from the Admins page; their name appears in the header on their next sign-in. Removing yourself is disabled to prevent lockouts. A small hardcoded bootstrap set of admins stays in the code as a safety net.",
     render: () => (
       <>
         <P>
           The <strong>Admin</strong> link in the header only shows up for users
           whose email is in the Admins list. Click it to land on the Admins
-          page, which has a table of everyone who has admin access.
+          page, which has a table of everyone who has admin access. If a
+          non-admin opens an <code>/admin</code> URL directly, they're redirected
+          to the dashboard — the admin pages never render for them.
         </P>
         <H3>Adding or removing admins</H3>
         <P>
