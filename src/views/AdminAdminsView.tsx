@@ -43,11 +43,11 @@ export function AdminAdminsView() {
         <ArrowLeft className="h-4 w-4" /> Back
       </button>
 
-      <header className="flex items-center gap-3">
-        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-cooper-red/10 text-cooper-red">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-start">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cooper-red/10 text-cooper-red">
           <Shield className="h-5 w-5" />
         </span>
-        <div>
+        <div className="min-w-0 flex-1">
           <h1 className="font-display text-xl font-semibold text-fg sm:text-2xl">
             Admins
           </h1>
@@ -56,7 +56,7 @@ export function AdminAdminsView() {
             projects, the admin list, and any future admin-gated features.
           </p>
         </div>
-        <div className="ml-auto flex flex-col items-end gap-1">
+        <nav className="flex shrink-0 flex-wrap gap-x-4 gap-y-1 sm:flex-col sm:items-end">
           <Link
             to="/admin/projects"
             className="text-xs text-accent underline-offset-2 hover:underline"
@@ -69,7 +69,7 @@ export function AdminAdminsView() {
           >
             EIR Roles admin →
           </Link>
-        </div>
+        </nav>
       </header>
 
       {!USE_MOCK && !SP_ADMINS_LIST_ID && (

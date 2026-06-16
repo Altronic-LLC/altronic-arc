@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.35.5",
+    date: "2026-06-16",
+    changes: [
+      "Fix the cross-page links (Admins, Projects admin, EIR Roles) overlapping the page description on the EIR Roles and Admins admin pages. They now sit cleanly to the right and wrap to their own row on narrow screens.",
+    ],
+  },
+  {
     version: "0.35.4",
     date: "2026-06-09",
     changes: [
