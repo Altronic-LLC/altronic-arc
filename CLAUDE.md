@@ -169,14 +169,35 @@ When you run `git commit`, use the multi-line `-m` syntax or write the
 message in `git commit -F-` heredoc style so the bullets are preserved.
 Do NOT collapse everything onto one line.
 
+### 3. Bump `public/version.json` to the SAME version
+
+This file is the deploy-detection signal. `useVersionCheck` polls
+`public/version.json` and, when its `version` differs from the running
+bundle's `CURRENT_VERSION`, shows the "A new version of ARC is available"
+banner so users refresh to the latest build.
+
+**It must always equal the version you just put at the top of `CHANGELOG`.**
+If you bump the changelog but forget this file, every user already on the
+new build sees a spurious "new version available (old number)" banner
+(the two version sources have drifted). Update it in the SAME commit:
+
+```json
+{ "version": "0.35.5" }
+```
+
+There is no changelog/commit exception here — whenever you bump
+`CURRENT_VERSION`, bump `public/version.json` to match.
+
 **Skip the changelog AND short-form the commit** only for: internal-only
 refactors with zero behavior change, dependency bumps without user impact,
 comment edits, typo fixes in code comments. For these, a one-line commit
-like `chore: tidy useTasks comments` is fine and no changelog entry needed.
+like `chore: tidy useTasks comments` is fine and no changelog entry needed
+(and no `version.json` bump, since the version didn't change).
 When in doubt, do the full protocol — it's free.
 
-The footer reads `CURRENT_VERSION` automatically, so bumping the top entry
-of `CHANGELOG` is the only place you need to change the version itself.
+The footer reads `CURRENT_VERSION` automatically, so the two places you
+change the version are the top entry of `CHANGELOG` and `public/version.json`
+— and they must always match.
 
 ## File-by-file overview
 
