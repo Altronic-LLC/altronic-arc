@@ -25,6 +25,8 @@ export function PromoteEirModal({ eir, onClose }: { eir: Eir; onClose: () => voi
   const currentUser = useCurrentUser();
   const promote = usePromoteEirToTask();
 
+  // Editable task title, defaulted to the EIR's title.
+  const [title, setTitle] = useState(eir.title);
   // Default the target project to the EIR's first Project Reference.
   const [projectId, setProjectId] = useState<number | "">(
     eir.parentProjects[0]?.lookupId ?? "",
@@ -49,16 +51,26 @@ export function PromoteEirModal({ eir, onClose }: { eir: Eir; onClose: () => voi
   const chosenProject =
     projectId === "" ? null : projectOptions.find((p) => p.lookupId === projectId) ?? null;
 
-  const previewNumberedTitle = computeNumberedTitle(eir.title, chosenProject, allTasks);
+  const trimmedTitle = title.trim();
+  const previewNumberedTitle = computeNumberedTitle(
+    trimmedTitle || eir.title,
+    chosenProject,
+    allTasks,
+  );
   const carriedComments = eir.comments.length;
 
   const busy = promote.isPending;
 
   async function handleConfirm() {
+    if (!trimmedTitle) {
+      setError("Task title is required.");
+      return;
+    }
     setError(null);
     try {
       const task = await promote.mutateAsync({
         eir,
+        title: trimmedTitle,
         project: chosenProject,
         watchers: eir.watchers,
         numberedTitle: previewNumberedTitle,
@@ -119,9 +131,24 @@ export function PromoteEirModal({ eir, onClose }: { eir: Eir; onClose: () => voi
             over; the task links back to this EIR.
           </p>
 
+          {/* Editable task title (defaults to the EIR title). */}
+          <label className="mb-4 flex flex-col gap-1.5">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
+              Task title
+            </span>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              disabled={busy}
+              maxLength={255}
+              placeholder="Title for the new task"
+              className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 disabled:opacity-60"
+            />
+          </label>
+
           {/* What carries over */}
           <div className="mb-4 grid gap-2 rounded-md border border-border bg-surface p-3 text-sm">
-            <Row label="New task title" value={eir.title} />
             <Row
               label="Numbered as"
               value={<span className="font-mono">{previewNumberedTitle}</span>}
@@ -171,7 +198,7 @@ export function PromoteEirModal({ eir, onClose }: { eir: Eir; onClose: () => voi
           <button
             type="button"
             onClick={handleConfirm}
-            disabled={busy}
+            disabled={busy || !trimmedTitle}
             className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90 disabled:opacity-50"
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}

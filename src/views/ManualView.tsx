@@ -709,7 +709,8 @@ const SECTIONS: ManualSection[] = [
           <strong>Promote to Task</strong> button at the top of the EIR (or set
           the sidebar <strong>Resolution</strong> to{" "}
           <strong>Promoted to Task</strong>) and a confirmation window opens.
-          Pick the parent project (defaulted from
+          Adjust the <strong>task title</strong> if you want (it defaults to
+          the EIR's title). Pick the parent project (defaulted from
           the EIR's Project Reference — it sets the task's number prefix) and
           click <strong>Create task</strong>. The new task carries over the
           EIR's title, description, project, and watchers, and its whole

@@ -108,6 +108,8 @@ const TASK_LIST_KEY = ["tasks", "list"] as const;
 
 export interface PromoteEirInput {
   eir: Eir;
+  /** Title for the new task — defaults to the EIR's title but is editable. */
+  title: string;
   /** Parent project for the new task (drives numbering + the Parent Project). */
   project: ProjectReference | null;
   /** Watchers carried from the EIR onto the task. */
@@ -130,11 +132,11 @@ export interface PromoteEirInput {
 export function usePromoteEirToTask() {
   const qc = useQueryClient();
   return useMutation<Task, unknown, PromoteEirInput>({
-    mutationFn: async ({ eir, project, watchers, numberedTitle, promotedBy }) => {
+    mutationFn: async ({ eir, title, project, watchers, numberedTitle, promotedBy }) => {
       const now = new Date();
       const communication = buildPromotedCommunication({ eir, promotedBy, now });
       const task = await createTask({
-        title: eir.title,
+        title,
         numberedTitle,
         description: eir.description || undefined,
         parentProjectLookupId: project?.lookupId ?? null,

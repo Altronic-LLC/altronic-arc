@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.36.1",
+    date: "2026-07-08",
+    changes: [
+      "When promoting an EIR to a task, you can now edit the task's title in the confirmation window before creating it (it still defaults to the EIR's title). The preview task number updates as you type.",
+    ],
+  },
+  {
     version: "0.36.0",
     date: "2026-07-08",
     changes: [
