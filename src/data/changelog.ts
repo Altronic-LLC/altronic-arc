@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.42.0",
+    date: "2026-07-08",
+    changes: [
+      "Kanban now works on phones: since drag-and-drop is disabled on touch, each card has a \"Move to…\" status dropdown so you can move work across columns right on the board — no need to open each task. Drag-and-drop is unchanged on tablet and desktop.",
+    ],
+  },
+  {
     version: "0.41.2",
     date: "2026-07-08",
     changes: [

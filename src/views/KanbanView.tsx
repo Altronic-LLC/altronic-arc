@@ -132,8 +132,8 @@ export function KanbanView() {
         <div className="flex items-start gap-2 rounded-md border border-border bg-surface-2/60 px-3 py-2 text-xs text-fg-muted">
           <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>
-            Tap a card to open it. Change status from the detail page — drag
-            is available on tablet and desktop.
+            Tap a card to open it, or use <strong>Move to…</strong> on a card to
+            change its status. Drag-and-drop is available on tablet and desktop.
           </span>
         </div>
       )}
@@ -156,6 +156,11 @@ export function KanbanView() {
                 tasks={tasksByStatus[status]}
                 onOpen={(id) => navigate(`/task/${id}`)}
                 dragDisabled={isPhone}
+                onMove={
+                  isPhone
+                    ? (id, next) => setStatus.mutate({ id, status: next })
+                    : undefined
+                }
               />
             ))}
           </div>
@@ -178,9 +183,11 @@ interface ColumnProps {
   tasks: Task[];
   onOpen: (id: number) => void;
   dragDisabled: boolean;
+  /** When set (mobile), each card gets a "Move to…" status dropdown. */
+  onMove?: (id: number, status: Status) => void;
 }
 
-function Column({ status, tasks, onOpen, dragDisabled }: ColumnProps) {
+function Column({ status, tasks, onOpen, dragDisabled, onMove }: ColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: status, disabled: dragDisabled });
   return (
     <div className="flex w-72 shrink-0 flex-col sm:w-80">
@@ -206,7 +213,13 @@ function Column({ status, tasks, onOpen, dragDisabled }: ColumnProps) {
       >
         <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
           {tasks.map((t) => (
-            <KanbanCard key={t.id} task={t} onOpen={onOpen} dragDisabled={dragDisabled} />
+            <KanbanCard
+              key={t.id}
+              task={t}
+              onOpen={onOpen}
+              dragDisabled={dragDisabled}
+              onStatusChange={onMove ? (next) => onMove(t.id, next) : undefined}
+            />
           ))}
         </SortableContext>
         {tasks.length === 0 && (

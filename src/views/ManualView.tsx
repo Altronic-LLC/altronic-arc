@@ -222,7 +222,7 @@ const SECTIONS: ManualSection[] = [
       "change status",
     ],
     searchText:
-      "The Kanban board groups tasks by status across six columns. Drag a card between columns to change status. On phones, drag is disabled — tap to open and change status from the detail page.",
+      "The Kanban board groups tasks by status across six columns. Drag a card between columns to change status. On phones, drag is disabled — use the Move to… dropdown on each card to change its status, or tap to open.",
     render: () => (
       <>
         <P>
@@ -234,8 +234,9 @@ const SECTIONS: ManualSection[] = [
           <LI>
             <strong>Drag a card</strong> across columns to change its status.
             Works on desktop and tablet. On phones, drag is disabled to keep
-            horizontal scrolling smooth — tap a card to open it and change the
-            status from there.
+            horizontal scrolling smooth — instead, each card has a{" "}
+            <strong>Move to…</strong> dropdown to change its status right on the
+            board (or tap the card to open it).
           </LI>
           <LI>
             <strong>Click a card</strong> to open the task detail page.
@@ -1314,15 +1315,16 @@ const SECTIONS: ManualSection[] = [
       "theme",
     ],
     searchText:
-      "On phones, Kanban drag is disabled — tap a card to open it. Tablet and desktop work normally. Theme toggle (Sun / Moon) at the top-right switches light/dark and is remembered per browser.",
+      "On phones, Kanban drag is disabled — use the Move to… dropdown on each card to change status, or tap a card to open it. Tablet and desktop work normally. Theme toggle (Sun / Moon) at the top-right switches light/dark and is remembered per browser.",
     render: () => (
       <>
         <P>The app works on phones and tablets with a few intentional differences:</P>
         <UL>
           <LI>
             <strong>Phone (&lt; 640 px)</strong> — Kanban drag is disabled to
-            keep horizontal scrolling smooth. Tap a card to open it; change
-            the status from the detail page. Detail forms stack vertically
+            keep horizontal scrolling smooth. Each card has a{" "}
+            <strong>Move to…</strong> status dropdown so you can still move work
+            across columns; tap a card to open it. Detail forms stack vertically
             for readability.
           </LI>
           <LI>
