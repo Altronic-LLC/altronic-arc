@@ -1323,8 +1323,10 @@ const SECTIONS: ManualSection[] = [
           <LI>
             <strong>Phone</strong> — the <strong>Kanban board isn't offered</strong>{" "}
             (it needs more width than a phone has); the Kanban option is hidden
-            and Kanban links open the <strong>List</strong> view. Use the List to
-            see and update tasks. Detail forms stack vertically for readability.
+            and Kanban links open the <strong>List</strong> view. This holds{" "}
+            <em>even in landscape</em> — rotating a phone won't unlock Kanban.
+            Use the List to see and update tasks. Detail forms stack vertically
+            for readability.
           </LI>
           <LI>
             <strong>Tablet (larger than an iPad mini) / desktop</strong> — the

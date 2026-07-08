@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.43.1",
+    date: "2026-07-08",
+    changes: [
+      "Rotating a phone to landscape no longer unlocks the Kanban board. The tablet check now uses the device's physical screen size instead of the current window width, so a phone stays on the List view in any orientation while real tablets and desktops keep Kanban.",
+    ],
+  },
+  {
     version: "0.43.0",
     date: "2026-07-08",
     changes: [
