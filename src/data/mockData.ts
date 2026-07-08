@@ -31,7 +31,7 @@ const STEVEN = { displayName: "Steven Landreth", email: "steven.landreth@hoerbig
 const FEMI = { displayName: "femi Olugbon", email: "femi.olugbon@hoerbiger.com", lookupId: 198 };
 const BRANDON = { displayName: "Brandon Mirto", email: "brandon.mirto@hoerbiger.com", lookupId: 215 };
 
-const MOCK_TASKS_RAW: Omit<Task, "author">[] = [
+const MOCK_TASKS_RAW: Omit<Task, "author" | "eirReference">[] = [
   {
     id: 15,
     numberedTitle: "T0-335-Purchase Order from Jenbacher Needed",
@@ -408,6 +408,9 @@ const PEOPLE_BY_LOOKUP_ID = new Map(
 export const MOCK_TASKS: Task[] = MOCK_TASKS_RAW.map((t) => ({
   ...t,
   author: PEOPLE_BY_LOOKUP_ID.get(t.authorLookupId) ?? null,
+  // Tasks created directly aren't tied to an EIR; the promotion flow sets
+  // this on the tasks it creates.
+  eirReference: null,
 }));
 
 // =============================================================================
@@ -523,7 +526,22 @@ export const MOCK_EIRS: Eir[] = [
     createdAt: new Date("2026-05-10T13:22:00"),
     modifiedAt: new Date("2026-05-14T09:10:00"),
     author: SARAH,
-    comments: [],
+    comments: [
+      {
+        timestamp: new Date("2026-05-11T09:15:00"),
+        authorName: "Sarah Shaffer",
+        authorEmail: "sarah.shaffer@hoerbiger.com",
+        bodyHtml: "<p>Murata confirmed EOL. We need a drop-in with matching impedance.</p>",
+        attachments: [],
+      },
+      {
+        timestamp: new Date("2026-05-13T14:40:00"),
+        authorName: "Ray White",
+        authorEmail: "ray.white@altronic-llc.com",
+        bodyHtml: "<p>Found two candidates. Will spin a task to validate on the rev-D board.</p>",
+        attachments: [],
+      },
+    ],
     hasAttachments: false,
   },
   {

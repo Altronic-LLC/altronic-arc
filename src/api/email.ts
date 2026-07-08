@@ -1,6 +1,7 @@
 import { graphFetch } from "./graph";
 import { SHARED_MAILBOX, USE_MOCK } from "./config";
 import type { CommentAttachment, Person } from "@/types/task";
+import { appItemUrl } from "@/lib/appUrl";
 
 // =============================================================================
 // Email notifications via Microsoft Graph sendMail.
@@ -185,15 +186,11 @@ function blobToBase64(blob: Blob): Promise<string> {
 }
 
 /**
- * Absolute URL to a task/EIR detail page. Built from the app's deploy base
- * path (Vite's BASE_URL, e.g. "/altronic-arc/") so the link keeps the
- * GitHub Pages sub-path instead of dropping it.
+ * Absolute URL to a task/EIR detail page. Thin re-export of the shared
+ * `appItemUrl` helper so this module's existing call sites keep working.
  */
 function itemUrl(kind: "task" | "eir", id: number): string {
-  const seg = kind === "eir" ? "eir" : "task";
-  const base = import.meta.env.BASE_URL ?? "/"; // trailing slash, e.g. "/altronic-arc/"
-  const origin = typeof window !== "undefined" ? window.location.origin : "";
-  return `${origin}${base}${seg}/${id}`;
+  return appItemUrl(kind, id);
 }
 
 interface MentionEmailContext {

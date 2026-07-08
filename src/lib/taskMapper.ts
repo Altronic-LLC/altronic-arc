@@ -7,6 +7,7 @@ import type {
   ProjectReference,
   Status,
   Task,
+  TaskEirReference,
 } from "@/types/task";
 import { CATEGORIES, LABELS, PRIORITIES, STATUSES } from "@/types/task";
 import { parseCommunication } from "./communicationParser";
@@ -56,6 +57,7 @@ export function toTask(item: GraphListItem): Task {
     assigned: parsePersonField(f.Assigned),
     watchers: parsePersonField(f.Watchers),
     softwareRevision: (f.SoftwareRevision as string) ?? "",
+    eirReference: parseHyperlinkField(f.EIRReference),
     comments: parseCommunication(f.Communication as string),
     hasAttachments: !!f.Attachments,
     // Keep the raw bag so feature UIs (e.g. the PCB checklist) can read
@@ -100,6 +102,31 @@ function parseCreatedByUser(
     // No SharePoint lookupId available from this identity. Leaving it
     // undefined is fine — the "Created By" UI only needs the display name.
   };
+}
+
+/**
+ * Normalise a SharePoint **Hyperlink** column value to `{ url, label }`.
+ *
+ * Graph returns hyperlink/URL fields as an object `{ Url, Description }`
+ * (Description is the display text). Some responses or legacy data hand us
+ * a bare string instead — treated as both url and label. Returns null for
+ * empty / unrecognised values so `Task.eirReference` stays null when unset.
+ */
+function parseHyperlinkField(raw: unknown): TaskEirReference | null {
+  if (raw == null || raw === "") return null;
+  if (typeof raw === "string") {
+    const s = raw.trim();
+    return s ? { url: s, label: s } : null;
+  }
+  if (typeof raw === "object") {
+    const obj = raw as Record<string, unknown>;
+    const url = ((obj.Url as string) ?? (obj.url as string) ?? "").trim();
+    const label =
+      ((obj.Description as string) ?? (obj.description as string) ?? "").trim();
+    if (!url && !label) return null;
+    return { url, label: label || url };
+  }
+  return null;
 }
 
 function parseLabels(raw: string | undefined): Label[] {

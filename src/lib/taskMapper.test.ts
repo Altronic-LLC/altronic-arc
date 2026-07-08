@@ -357,3 +357,28 @@ describe("toTask — author (createdBy.user)", () => {
     expect(t.author).toBeNull();
   });
 });
+
+describe("toTask — EIRReference hyperlink", () => {
+  it("parses the { Url, Description } object shape", () => {
+    const t = toTask(
+      makeItem({ EIRReference: { Url: "https://x/eir/9", Description: "EIR_2026-0042" } }),
+    );
+    expect(t.eirReference).toEqual({ url: "https://x/eir/9", label: "EIR_2026-0042" });
+  });
+
+  it("falls back to the url as label when Description is missing", () => {
+    const t = toTask(makeItem({ EIRReference: { Url: "https://x/eir/9" } }));
+    expect(t.eirReference).toEqual({ url: "https://x/eir/9", label: "https://x/eir/9" });
+  });
+
+  it("accepts a bare string value", () => {
+    const t = toTask(makeItem({ EIRReference: "EIR_2026-0042" }));
+    expect(t.eirReference).toEqual({ url: "EIR_2026-0042", label: "EIR_2026-0042" });
+  });
+
+  it("is null when absent, empty, or an empty object", () => {
+    expect(toTask(makeItem({})).eirReference).toBeNull();
+    expect(toTask(makeItem({ EIRReference: "" })).eirReference).toBeNull();
+    expect(toTask(makeItem({ EIRReference: {} })).eirReference).toBeNull();
+  });
+});

@@ -79,6 +79,39 @@ export function appendComment(
 }
 
 /**
+ * Serialise a single comment to one Communication record, PRESERVING its
+ * timestamp (unlike `appendComment`, which stamps "now"). Used when we need
+ * to carry existing comments across — e.g. copying an EIR's discussion onto
+ * a task it was promoted into — without rewriting their history.
+ */
+export function serializeComment(comment: {
+  timestamp: Date;
+  authorName: string;
+  authorEmail: string;
+  bodyHtml: string;
+}): string {
+  return `${formatSpDate(comment.timestamp)}|||${comment.authorName}|||${
+    comment.authorEmail
+  }|||${comment.bodyHtml}`;
+}
+
+/**
+ * Serialise a list of comments into a full Communication string (records
+ * newline-joined, in the order given). The caller decides ordering; storage
+ * convention is oldest-first, but the parser sorts by timestamp regardless.
+ */
+export function serializeComments(
+  comments: {
+    timestamp: Date;
+    authorName: string;
+    authorEmail: string;
+    bodyHtml: string;
+  }[],
+): string {
+  return comments.map(serializeComment).join("\n");
+}
+
+/**
  * Replace the body of a single comment record matched by its timestamp
  * and author email. Returns the new full Communication string.
  *

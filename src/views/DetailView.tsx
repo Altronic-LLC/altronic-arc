@@ -11,6 +11,7 @@ import {
   Flag,
   FolderOpen,
   GitBranch,
+  Link2,
   Pencil,
   Plus,
   Printer,
@@ -34,6 +35,7 @@ import {
   useWatchTask,
 } from "@/hooks/useTasks";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useEirs, useUpdateEirFields } from "@/hooks/useEirs";
 import {
   CATEGORIES,
   LABELS,
@@ -41,11 +43,15 @@ import {
   STATUSES,
   type Category,
   type Comment,
+  type Eir,
   type Label,
   type Person,
   type Priority,
   type Status,
 } from "@/types/task";
+import { appendEngineeringResponse } from "@/lib/eirPromotion";
+import { TaskResolutionModal } from "@/components/TaskResolutionModal";
+import { pushToast } from "@/components/Toast";
 import { wouldCreateCycle } from "@/lib/taskGraph";
 import { sanitiseHtml } from "@/lib/sanitiseHtml";
 import { CommentThread } from "@/components/CommentThread";
@@ -68,10 +74,12 @@ export function DetailView() {
   const { data: task, isLoading } = useTask(taskId);
   const { data: allTasks = [] } = useTasks();
   const { data: projects = [] } = useProjects();
+  const { data: eirs = [] } = useEirs();
   const currentUser = useCurrentUser();
 
   const queryClient = useQueryClient();
   const updateFields = useUpdateTaskFields();
+  const updateEirFields = useUpdateEirFields();
   const addComment = useAddComment();
   const editComment = useEditComment();
   const setParentTask = useSetParentTask();
@@ -83,6 +91,8 @@ export function DetailView() {
   const uploadCommentFile = useUploadTaskFile(task ?? null);
   const [showEdit, setShowEdit] = useState(false);
   const [showNewTestSheet, setShowNewTestSheet] = useState(false);
+  // Final-resolution prompt shown when completing a task tied to an EIR.
+  const [showResolution, setShowResolution] = useState(false);
   const { data: allTestSheets = [] } = useTestSheets();
 
   // Comment-collision tracking: we render the comment thread from a frozen
@@ -154,6 +164,25 @@ export function DetailView() {
     return [...seen.values()].sort((a, b) => a.displayName.localeCompare(b.displayName));
   }, [allTasks]);
 
+  // The EIR this task was promoted from, if any. Resolved from the task's
+  // EIRReference hyperlink: prefer the item id embedded in the URL
+  // (…/eir/{id}), fall back to matching the EIR number shown as link text.
+  const linkedEir = useMemo<Eir | null>(() => {
+    const ref = task?.eirReference;
+    if (!ref) return null;
+    const idMatch = /\/eir\/(\d+)/.exec(ref.url ?? "");
+    if (idMatch) {
+      const byId = eirs.find((e) => e.id === parseInt(idMatch[1], 10));
+      if (byId) return byId;
+    }
+    const label = (ref.label ?? "").trim().toLowerCase();
+    if (label) {
+      const byNo = eirs.find((e) => (e.eirNo ?? "").trim().toLowerCase() === label);
+      if (byNo) return byNo;
+    }
+    return null;
+  }, [task?.eirReference, eirs]);
+
   if (isLoading) {
     return <LoadingTasks noun="this task" />;
   }
@@ -180,6 +209,12 @@ export function DetailView() {
 
   function handleStatusChange(next: Status) {
     if (!task) return;
+    // Completing a task tied to an EIR routes through the resolution prompt
+    // instead of writing the status directly.
+    if (next === "Complete" && task.eirReference && task.status !== "Complete") {
+      setShowResolution(true);
+      return;
+    }
     updateFields.mutate({ id: task.id, fields: { Status: next } });
   }
 
@@ -240,7 +275,42 @@ export function DetailView() {
 
   function handleMarkComplete() {
     if (!task) return;
+    if (task.eirReference && task.status !== "Complete") {
+      setShowResolution(true);
+      return;
+    }
     updateFields.mutate({ id: task.id, fields: { Status: "Complete" } });
+  }
+
+  // Confirm handler for the resolution prompt: complete the task, then push
+  // the entered resolution back to the source EIR's Engineering Response and
+  // mark that EIR Resolved & Closed. The EIR write is best-effort — if the
+  // EIR couldn't be resolved from the reference, the task still completes.
+  function handleConfirmResolution(resolutionText: string) {
+    if (!task) return;
+    updateFields.mutate({ id: task.id, fields: { Status: "Complete" } });
+    if (linkedEir) {
+      const next = appendEngineeringResponse(linkedEir.engineeringResponse, {
+        taskLabel: task.numberedTitle || task.title,
+        resolutionText,
+        now: new Date(),
+      });
+      updateEirFields.mutate({
+        id: linkedEir.id,
+        fields: {
+          EngineeringResponse: next,
+          Resolution: "Resolved",
+          Status: "Closed",
+        },
+      });
+    } else {
+      pushToast({
+        message:
+          "Task completed, but its source EIR couldn't be found to update — check the EIR reference.",
+        variant: "error",
+      });
+    }
+    setShowResolution(false);
   }
 
   function handleWatchToggle() {
@@ -341,6 +411,25 @@ export function DetailView() {
                   )}
                 >
                   {task.parentTask.status}
+                </span>
+              </button>
+            )}
+
+            {/* Source-EIR pill when this task was promoted from an EIR. */}
+            {task.eirReference && (
+              <button
+                onClick={() =>
+                  linkedEir
+                    ? navigate(`/eir/${linkedEir.id}`)
+                    : window.open(task.eirReference!.url, "_blank", "noreferrer")
+                }
+                className="mb-3 inline-flex items-center gap-2 rounded-md border border-border bg-surface-2 px-2.5 py-1 text-xs text-fg-muted transition-colors hover:border-fg-muted hover:text-fg"
+                title="Open the EIR this task was promoted from"
+              >
+                <Link2 className="h-3 w-3" />
+                <span className="text-fg-muted">From EIR:</span>
+                <span className="font-medium text-fg">
+                  {task.eirReference.label || "view"}
                 </span>
               </button>
             )}
@@ -755,6 +844,14 @@ export function DetailView() {
           mode="create"
           fromTask={task}
           onClose={() => setShowNewTestSheet(false)}
+        />
+      )}
+      {showResolution && task.eirReference && (
+        <TaskResolutionModal
+          eirLabel={task.eirReference.label || linkedEir?.eirNo || "the source EIR"}
+          busy={updateEirFields.isPending}
+          onConfirm={handleConfirmResolution}
+          onClose={() => setShowResolution(false)}
         />
       )}
     </div>

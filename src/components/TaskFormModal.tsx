@@ -26,6 +26,7 @@ import {
   type Task,
 } from "@/types/task";
 import { wouldCreateCycle } from "@/lib/taskGraph";
+import { computeNumberedTitle } from "@/lib/taskNumbering";
 import { MultiSelect } from "./SearchableSelect";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
 import { cn } from "@/lib/cn";
@@ -182,21 +183,13 @@ export function TaskFormModal({ mode, task, onClose }: TaskFormModalProps) {
       if (mode === "create") {
         // Compute NumberedTitle locally — per the project-task-numbering
         // memory, the app is responsible for this column (it's not a
-        // SharePoint calculated field). Format: T{n}-{projectRef}-{title}
-        // where n = (count of tasks under this project ref) + 1, and
-        // projectRef is the first four chars of the project title (the
-        // 0000-style code prefix). Unassigned-to-a-project tasks fall back
-        // to a "0000" project ref.
+        // SharePoint calculated field). Shared with the EIR→Task promotion
+        // flow via computeNumberedTitle so both number tasks identically.
         const chosenProject =
           parentProjectId === ""
             ? null
             : projects.find((p) => p.lookupId === parentProjectId) ?? null;
-        const tasksInProject = chosenProject
-          ? allTasks.filter((t) => t.parentProject?.lookupId === chosenProject.lookupId)
-          : allTasks.filter((t) => !t.parentProject);
-        const nextN = tasksInProject.length + 1;
-        const projectRef = chosenProject?.title.slice(0, 4) ?? "0000";
-        const numberedTitle = `T${nextN}-${projectRef}-${trimmedTitle}`;
+        const numberedTitle = computeNumberedTitle(trimmedTitle, chosenProject, allTasks);
 
         const created = await createTask.mutateAsync({
           title: trimmedTitle,

@@ -143,6 +143,21 @@ export interface TaskRef {
   status: Status;
 }
 
+/**
+ * Value of the task's `EIRReference` column — a SharePoint **Hyperlink**
+ * field. When a task is promoted from an EIR, `url` points at that EIR's
+ * detail page in ARC and `label` is the EIR number (shown as the link
+ * text). Graph reads/writes hyperlink columns as `{ Url, Description }`;
+ * this is the normalised domain shape (see `parseHyperlinkField` in
+ * `taskMapper.ts` and the write path in `createTask`).
+ */
+export interface TaskEirReference {
+  /** Absolute URL to the source EIR's detail page. */
+  url: string;
+  /** Display text — the EIR number, e.g. "EIR_2025-0001". */
+  label: string;
+}
+
 /** The fully-shaped task we work with in the UI. */
 export interface Task {
   /** SharePoint list item ID (numeric, used in API paths). */
@@ -199,6 +214,14 @@ export interface Task {
    * name needs to be verified; the mapper assumes `SoftwareRevision`.
    */
   softwareRevision: string;
+  /**
+   * Source EIR link, when this task was promoted from an EIR (the
+   * `EIRReference` Hyperlink column). Null for tasks created directly.
+   * Its presence is what ties a task back to an EIR — used to prompt for
+   * a final resolution on completion and to write that back to the EIR's
+   * Engineering Response. See `TaskEirReference`.
+   */
+  eirReference: TaskEirReference | null;
   /** Parsed comments, newest first. */
   comments: Comment[];
   /** Whether the item has SharePoint attachments. */
@@ -483,6 +506,12 @@ export interface GraphItemFields {
    * verify against the actual SharePoint column. Free-text in the Power App.
    */
   SoftwareRevision?: string;
+  /**
+   * `EIRReference` Hyperlink column. Graph returns hyperlink fields as
+   * `{ Url, Description }` (or occasionally a bare string). Parsed by
+   * `parseHyperlinkField` in taskMapper.ts.
+   */
+  EIRReference?: unknown;
   Attachments?: boolean;
   Communication?: string;
   /** Person-or-group fields are returned as hashtables/objects. Shape varies. */

@@ -10,17 +10,22 @@ import {
   updateEirFields,
   type CreateEirInput,
 } from "@/api/eirs";
+import { createTask } from "@/api/tasks";
 import type {
   Eir,
   EirRequestType,
   EirResolution,
   EirStatus,
   Person,
+  ProjectReference,
+  Task,
 } from "@/types/task";
 import { pushToast } from "@/components/Toast";
 import { multiLookupField } from "@/lib/graphFields";
 import { commentNotifyRecipients, extractMentionedRecipients } from "@/lib/mentions";
 import { notifyMentions } from "@/api/email";
+import { buildPromotedCommunication } from "@/lib/eirPromotion";
+import { appItemUrl } from "@/lib/appUrl";
 
 const EIRS_KEY = ["eirs", "list"] as const;
 
@@ -96,6 +101,69 @@ export function useCreateEir() {
       pushToast({ message: `Created ${created.eirNo || created.title}.` });
     },
     onError: () => pushToast({ message: "Couldn't create EIR — please retry.", variant: "error" }),
+  });
+}
+
+const TASK_LIST_KEY = ["tasks", "list"] as const;
+
+export interface PromoteEirInput {
+  eir: Eir;
+  /** Parent project for the new task (drives numbering + the Parent Project). */
+  project: ProjectReference | null;
+  /** Watchers carried from the EIR onto the task. */
+  watchers: Person[];
+  /** Pre-computed NumberedTitle (see computeNumberedTitle). */
+  numberedTitle: string;
+  /** Who is promoting — authors the "Promoted from EIR …" header comment. */
+  promotedBy: { displayName: string; email: string };
+}
+
+/**
+ * Promote an EIR to a Task. Creates the task (carrying the EIR's title,
+ * description, project, watchers, EIRReference link, and its whole comment
+ * thread tagged as from the EIR), then stamps the EIR: Resolution =
+ * "Promoted to Task", TaskPromotedFlag = true, and TaskReference pointed at
+ * the new task's numbered title (so the EIR's Linked Task card resolves it).
+ *
+ * Returns the created task so the caller can navigate to it.
+ */
+export function usePromoteEirToTask() {
+  const qc = useQueryClient();
+  return useMutation<Task, unknown, PromoteEirInput>({
+    mutationFn: async ({ eir, project, watchers, numberedTitle, promotedBy }) => {
+      const now = new Date();
+      const communication = buildPromotedCommunication({ eir, promotedBy, now });
+      const task = await createTask({
+        title: eir.title,
+        numberedTitle,
+        description: eir.description || undefined,
+        parentProjectLookupId: project?.lookupId ?? null,
+        watchers,
+        eirReference: {
+          url: appItemUrl("eir", eir.id),
+          label: eir.eirNo || `EIR #${eir.id}`,
+        },
+        communication: communication || undefined,
+      });
+      await updateEirFields(eir.id, {
+        Resolution: "Promoted to Task",
+        TaskPromotedFlag: true,
+        TaskReference: task.numberedTitle,
+      });
+      return task;
+    },
+    onSuccess: (task) => {
+      qc.invalidateQueries({ queryKey: TASK_LIST_KEY });
+      qc.invalidateQueries({ queryKey: EIRS_KEY });
+      pushToast({ message: `Created task ${task.numberedTitle || task.title} from EIR.` });
+    },
+    onError: (err) => {
+      const detail = err instanceof Error ? err.message : String(err);
+      pushToast({
+        message: `Couldn't promote EIR to a task. ${truncate(detail, 200)}`,
+        variant: "error",
+      });
+    },
   });
 }
 
@@ -409,6 +477,7 @@ function applyFieldsLocally(
   if ("Altronic_x0020_Part_x0020_Number" in fields)
     next.altronicPartNumber = (fields.Altronic_x0020_Part_x0020_Number as string) ?? "";
   if ("TaskReference" in fields) next.taskReference = (fields.TaskReference as string) ?? "";
+  if ("TaskPromotedFlag" in fields) next.taskPromotedFlag = !!fields.TaskPromotedFlag;
   if ("BuyerCode" in fields) next.buyerCode = (fields.BuyerCode as string) ?? "";
   if ("RiskPart" in fields) next.riskPart = (fields.RiskPart as Eir["riskPart"]) ?? null;
   if ("RiskPartLevel" in fields)

@@ -29,6 +29,7 @@ function makeTask(overrides: Partial<Task>): Task {
     assigned: [],
     watchers: [],
     softwareRevision: "",
+    eirReference: null,
     comments: [],
     hasAttachments: false,
     ...overrides,

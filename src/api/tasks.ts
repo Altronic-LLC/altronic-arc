@@ -7,9 +7,10 @@ import type {
   ProjectReference,
   Status,
   Task,
+  TaskEirReference,
 } from "@/types/task";
 import { toTask } from "@/lib/taskMapper";
-import { appendComment, replaceComment } from "@/lib/communicationParser";
+import { appendComment, parseCommunication, replaceComment } from "@/lib/communicationParser";
 import { attachProjectTitles, attachTaskRelationships } from "@/lib/taskGraph";
 import { multiPersonField } from "@/lib/graphFields";
 import { MOCK_PROJECTS, MOCK_TASKS } from "@/data/mockData";
@@ -72,6 +73,9 @@ function loadMockStoreFromStorage(): Task[] | null {
       // added won't have it. Default to null so the type stays satisfied
       // and the UI shows "Unknown" for those grandfathered tasks.
       author: t.author ?? null,
+      // Backwards compat: localStorage from before the EIR-promotion feature
+      // won't carry this field.
+      eirReference: t.eirReference ?? null,
       createdAt: new Date(t.createdAt),
       modifiedAt: new Date(t.modifiedAt),
       dueDate: t.dueDate ? new Date(t.dueDate) : null,
@@ -251,6 +255,12 @@ export async function updateTaskFields(
     }
     if ("SoftwareRevision" in fields) {
       next.softwareRevision = (fields.SoftwareRevision as string) ?? "";
+    }
+    if ("EIRReference" in fields) {
+      const v = fields.EIRReference as { Url?: string; Description?: string } | null;
+      next.eirReference = v
+        ? { url: v.Url ?? "", label: v.Description ?? v.Url ?? "" }
+        : null;
     }
     if ("ParentTaskLookupId" in fields) {
       const v = fields.ParentTaskLookupId;
@@ -504,6 +514,17 @@ export async function createTask(input: {
   assigned?: Person[];
   watchers?: Person[];
   softwareRevision?: string;
+  /**
+   * Source-EIR link for the `EIRReference` Hyperlink column, set when this
+   * task is being promoted from an EIR. Written as `{ Url, Description }`.
+   */
+  eirReference?: TaskEirReference | null;
+  /**
+   * Pre-serialised `Communication` value (raw pipe-delimited records) to
+   * seed the new task's comment thread — used by the EIR→Task promotion to
+   * carry the EIR's discussion across. See `buildPromotedCommunication`.
+   */
+  communication?: string;
 }): Promise<Task> {
   if (USE_MOCK) {
     const nextId = Math.max(0, ...mockStore.map((t) => t.id)) + 1;
@@ -535,7 +556,8 @@ export async function createTask(input: {
       assigned: input.assigned ?? [],
       watchers: input.watchers ?? [],
       softwareRevision: input.softwareRevision ?? "",
-      comments: [],
+      eirReference: input.eirReference ?? null,
+      comments: input.communication ? parseCommunication(input.communication) : [],
       hasAttachments: false,
     };
     mockStore = [task, ...mockStore];
@@ -577,6 +599,18 @@ export async function createTask(input: {
   if (input.watchers?.some((p) => !!p.lookupId)) {
     Object.assign(fields, multiPersonField("Watchers", input.watchers));
   }
+  // EIRReference is a Hyperlink column — Graph wants the nested
+  // { Url, Description } shape (Description = the link text). Skipped
+  // entirely when not promoting, so ordinary tasks leave the column empty.
+  if (input.eirReference && (input.eirReference.url || input.eirReference.label)) {
+    fields.EIRReference = {
+      Url: input.eirReference.url,
+      Description: input.eirReference.label,
+    };
+  }
+  // Seed the comment thread in the same POST when carrying an EIR's
+  // discussion across (already a serialised Communication string).
+  if (input.communication) fields.Communication = input.communication;
 
   const created = await graphFetch<GraphListItem>(path, {
     method: "POST",

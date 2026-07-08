@@ -3,6 +3,8 @@ import {
   parseCommunication,
   appendComment,
   replaceComment,
+  serializeComment,
+  serializeComments,
 } from "./communicationParser";
 
 describe("parseCommunication", () => {
@@ -263,5 +265,41 @@ describe("replaceComment", () => {
       "<p>y</p>",
     );
     expect(result).toContain("<p>x</p>");
+  });
+});
+
+describe("serializeComment / serializeComments", () => {
+  it("serialises one record preserving the original timestamp", () => {
+    const rec = serializeComment({
+      timestamp: new Date(2024, 6, 18, 19, 28, 33), // 07/18/2024 7:28:33 PM
+      authorName: "Sarah",
+      authorEmail: "s@e.com",
+      bodyHtml: "<p>x</p>",
+    });
+    expect(rec).toBe("07/18/2024 7:28:33 PM|||Sarah|||s@e.com|||<p>x</p>");
+  });
+
+  it("round-trips through parseCommunication, keeping timestamps + order", () => {
+    const older = {
+      timestamp: new Date(2024, 6, 18, 19, 28, 33),
+      authorName: "Sarah",
+      authorEmail: "s@e.com",
+      bodyHtml: "<p>older</p>",
+    };
+    const newer = {
+      timestamp: new Date(2024, 6, 19, 8, 0, 0),
+      authorName: "Ray",
+      authorEmail: "r@e.com",
+      bodyHtml: "<p>newer</p>",
+    };
+    const parsed = parseCommunication(serializeComments([older, newer]));
+    expect(parsed).toHaveLength(2);
+    // parser returns newest-first
+    expect(parsed[0].bodyHtml).toBe("<p>newer</p>");
+    expect(parsed[1].timestamp.getTime()).toBe(older.timestamp.getTime());
+  });
+
+  it("returns empty string for no comments", () => {
+    expect(serializeComments([])).toBe("");
   });
 });

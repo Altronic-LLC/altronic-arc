@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.36.0",
+    date: "2026-07-08",
+    changes: [
+      "You can now promote an EIR to a task: use the \"Promote to Task\" button at the top of the EIR, or set its Resolution to \"Promoted to Task\" — either opens a confirmation window to create a linked task, carrying over the EIR's title, description, project, watchers, and its full comment thread (each comment tagged as coming from the original EIR).",
+      "Promoted tasks show a \"From EIR\" link at the top that opens the source EIR, and the EIR's Linked Task card points back at the new task.",
+      "When you mark a task that came from an EIR as Complete, a prompt now asks for the final resolution. That text is added to the original EIR's Engineering Response, and the EIR is marked Resolved and Closed.",
+    ],
+  },
+  {
     version: "0.35.5",
     date: "2026-06-16",
     changes: [

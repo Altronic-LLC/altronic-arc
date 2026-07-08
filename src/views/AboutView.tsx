@@ -178,6 +178,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
       { name: "relatedProjects", type: "int[]", kind: "fk", references: "Project.id" },
       { name: "assigned", type: "int[]", kind: "fk", references: "Person.id" },
       { name: "watchers", type: "int[]", kind: "fk", references: "Person.id" },
+      { name: "eirReference", type: "hyperlink", kind: "fk", references: "EIR.id" },
     ],
   },
   {
@@ -239,7 +240,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "TestSheet",
     source: "Test Results",
     palette: "entity",
-    x: 20, y: 540, width: 360,
+    x: 20, y: 566, width: 360,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title", type: "text", kind: "field" },
@@ -277,7 +278,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "ProjectFile",
     source: "Files inside a ProjectFolder",
     palette: "shared",
-    x: 20, y: 760, width: 360,
+    x: 20, y: 792, width: 360,
     columns: [
       { name: "id", type: "driveItemId", kind: "pk" },
       { name: "folderId", type: "driveItemId", kind: "fk", references: "ProjectFolder.id" },
@@ -304,6 +305,8 @@ const CONNECTIONS: Connection[] = [
   { fromTable: "Task", fromColumn: "relatedProjects", toTable: "Project", toColumn: "id", fromCard: "many", toCard: "many" },
   { fromTable: "Task", fromColumn: "assigned", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
   { fromTable: "Task", fromColumn: "watchers", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
+  // Task → EIR (a promoted task links back to its source EIR, one-to-one)
+  { fromTable: "Task", fromColumn: "eirReference", toTable: "EIR", toColumn: "id", fromCard: "one", toCard: "one" },
   // EIR → Project, Person
   { fromTable: "EIR", fromColumn: "projectReferences", toTable: "Project", toColumn: "id", fromCard: "many", toCard: "many" },
   { fromTable: "EIR", fromColumn: "reporter", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },

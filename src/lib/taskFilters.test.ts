@@ -30,6 +30,7 @@ function task(over: Partial<Task> = {}): Task {
     assigned: [],
     watchers: [],
     softwareRevision: "",
+    eirReference: null,
     comments: [],
     hasAttachments: false,
     ...over,

@@ -349,6 +349,7 @@ export async function updateEirFields(
     if ("Altronic_x0020_Part_x0020_Number" in fields)
       next.altronicPartNumber = (fields.Altronic_x0020_Part_x0020_Number as string) ?? "";
     if ("TaskReference" in fields) next.taskReference = (fields.TaskReference as string) ?? "";
+    if ("TaskPromotedFlag" in fields) next.taskPromotedFlag = !!fields.TaskPromotedFlag;
     if ("BuyerCode" in fields) next.buyerCode = (fields.BuyerCode as string) ?? "";
     if ("RiskPart" in fields) next.riskPart = (fields.RiskPart as Eir["riskPart"]) ?? null;
     if ("RiskPartLevel" in fields)

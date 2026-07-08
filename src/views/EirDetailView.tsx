@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
+  ArrowUpRight,
   Calendar,
   CheckCircle2,
   FileText,
@@ -47,6 +48,7 @@ import { EirStatusBadge, statusColor } from "@/components/atoms";
 import { AttachmentsSection } from "@/components/AttachmentsSection";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { PersonMultiField } from "@/components/PersonMultiField";
+import { PromoteEirModal } from "@/components/PromoteEirModal";
 import { sanitiseHtml } from "@/lib/sanitiseHtml";
 import { multiLookupField } from "@/lib/graphFields";
 import { cn } from "@/lib/cn";
@@ -129,6 +131,11 @@ export function EirDetailView() {
     }
     return [...map.values()].sort((a, b) => a.displayName.localeCompare(b.displayName));
   }, [tasks, currentUser]);
+
+  // Controls the "Promote EIR to Task" confirmation modal. Opened when the
+  // user picks "Promoted to Task" in the Resolution dropdown (unless the EIR
+  // is already promoted); the modal — not this select — commits the change.
+  const [promoteOpen, setPromoteOpen] = useState(false);
 
   // Buyer Code options come from the canonical choice list, plus the current
   // EIR's own value if it happens to be a legacy code not in the list (so we
@@ -216,6 +223,24 @@ export function EirDetailView() {
                 updateFields.mutate({ id: eir.id, fields: { Title: next } })
               }
             />
+
+            {/* Promote-to-Task action. Same flow as picking "Promoted to
+                Task" in the Resolution dropdown — opens the confirmation
+                modal. Hidden once the EIR has been promoted (the Linked Task
+                card below then points at the created task). */}
+            {!eir.taskPromotedFlag && (
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={() => setPromoteOpen(true)}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90"
+                  title="Create a task from this EIR"
+                >
+                  <ArrowUpRight className="h-4 w-4" />
+                  Promote to Task
+                </button>
+              </div>
+            )}
           </div>
 
           <EditableTextCard
@@ -381,7 +406,16 @@ export function EirDetailView() {
                 label="Resolution"
                 value={eir.resolution}
                 options={EIR_RESOLUTIONS}
-                onChange={(v) => updateFields.mutate({ id: eir.id, fields: { Resolution: v } })}
+                onChange={(v) => {
+                  // Promoting is a create-a-task action, not a plain field
+                  // edit: open the confirmation modal instead of committing.
+                  // (Already-promoted EIRs just set the field normally.)
+                  if (v === "Promoted to Task" && !eir.taskPromotedFlag) {
+                    setPromoteOpen(true);
+                    return;
+                  }
+                  updateFields.mutate({ id: eir.id, fields: { Resolution: v } });
+                }}
               />
               <SidebarSelect<EirRequestType | "">
                 icon={<FileText />}
@@ -541,6 +575,10 @@ export function EirDetailView() {
           </div>
         </aside>
       </div>
+
+      {promoteOpen && (
+        <PromoteEirModal eir={eir} onClose={() => setPromoteOpen(false)} />
+      )}
     </div>
   );
 }

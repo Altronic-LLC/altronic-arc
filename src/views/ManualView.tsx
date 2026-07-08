@@ -298,6 +298,14 @@ const SECTIONS: ManualSection[] = [
           page, or change the Status to "Complete" via the dropdown, or drag
           the card to the Complete column on the Kanban.
         </P>
+        <P>
+          If the task was promoted from an EIR (it shows a{" "}
+          <strong>From EIR</strong> link at the top), completing it from the
+          detail page first asks for the <strong>final resolution</strong>.
+          What you enter is written back to the source EIR's Engineering
+          Response, and that EIR is marked Resolved &amp; Closed. See{" "}
+          <em>EIRs → Linked Task &amp; promotion</em> for the full round-trip.
+        </P>
       </>
     ),
   },
@@ -608,9 +616,17 @@ const SECTIONS: ManualSection[] = [
       "needs assigned",
       "unassigned",
       "triage",
+      "promote to task",
+      "promoted to task",
+      "promote eir",
+      "eir to task",
+      "convert eir",
+      "final resolution",
+      "close task",
+      "linked task",
     ],
     searchText:
-      "The EIRs tab shows Engineering Information Requests with workflow View tabs (All, New, Needs Assigned, At Risk Parts, LTB), status pills (Under Review, Response Accepted, Closed, etc.) and a filter bar for Project, Assigned Engineer, Reporter, and search. New = no project reference and no engineer assigned; Needs Assigned = has a project reference but still no engineer. Click an EIR to open the detail page with Description, Engineering Response, Part Details (MFG, P/N, EAU, etc.), Comments, and a sidebar to edit Status, Resolution, Request Type, Priority, Reporter, Assigned Engineers, Watchers, Project, Task Reference, Requested Completion Date, LTB Date. New EIRs are auto-numbered as EIR_YYYY-#### (the next sequence for the year); the EIR Log No. is calculated from it.",
+      "The EIRs tab shows Engineering Information Requests with workflow View tabs (All, New, Needs Assigned, At Risk Parts, LTB), status pills (Under Review, Response Accepted, Closed, etc.) and a filter bar for Project, Assigned Engineer, Reporter, and search. New = no project reference and no engineer assigned; Needs Assigned = has a project reference but still no engineer. Click an EIR to open the detail page with Description, Engineering Response, Part Details (MFG, P/N, EAU, etc.), Comments, and a sidebar to edit Status, Resolution, Request Type, Priority, Reporter, Assigned Engineers, Watchers, Project, Task Reference, Requested Completion Date, LTB Date. New EIRs are auto-numbered as EIR_YYYY-#### (the next sequence for the year); the EIR Log No. is calculated from it. Promote an EIR to a task by setting Resolution to Promoted to Task: a confirmation window creates a linked task carrying the title, description, project, watchers, and comment thread (tagged as from the EIR). Completing that task prompts for a final resolution, which is written back to the EIR's Engineering Response and marks the EIR Resolved and Closed.",
     render: () => (
       <>
         <P>
@@ -687,6 +703,30 @@ const SECTIONS: ManualSection[] = [
           card on the task detail. Hit <strong>Edit</strong> in the card
           header to type a new reference (e.g. <code>T115</code>) or paste a
           Power Apps task URL; the app extracts the task ID either way.
+        </P>
+        <P>
+          <strong>Promoting an EIR to a task.</strong> Click the{" "}
+          <strong>Promote to Task</strong> button at the top of the EIR (or set
+          the sidebar <strong>Resolution</strong> to{" "}
+          <strong>Promoted to Task</strong>) and a confirmation window opens.
+          Pick the parent project (defaulted from
+          the EIR's Project Reference — it sets the task's number prefix) and
+          click <strong>Create task</strong>. The new task carries over the
+          EIR's title, description, project, and watchers, and its whole
+          comment thread is copied across with each comment tagged{" "}
+          <em>"carried over from EIR …"</em>. The task opens with a{" "}
+          <strong>From EIR</strong> link at the top that returns to the source
+          EIR, and this EIR's Resolution, Linked Task card, and "Promoted to
+          task" badge all update to point at the new task. Promoting is
+          one-time — an EIR already marked promoted won't re-open the window.
+        </P>
+        <P>
+          <strong>Closing the loop.</strong> When someone marks the promoted
+          task <strong>Complete</strong>, they're asked for the final
+          resolution. That text is appended to this EIR's{" "}
+          <strong>Engineering Response</strong> (dated and credited to the
+          task), and the EIR is set to Resolution <strong>Resolved</strong> /
+          Status <strong>Closed</strong> automatically.
         </P>
         <H3>Attachments</H3>
         <P>
