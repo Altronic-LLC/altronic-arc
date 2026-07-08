@@ -81,7 +81,7 @@ const SECTIONS: ManualSection[] = [
       "cards",
       "counts",
       "active items",
-      "tasks card",
+      "engineering tasks card",
       "eirs card",
       "test sheets card",
       "build requests",
@@ -90,29 +90,43 @@ const SECTIONS: ManualSection[] = [
       "maintenance tasks",
       "coming soon",
       "placeholder",
+      "mine",
+      "company",
+      "my stats",
+      "company stats",
+      "per user",
     ],
     searchText:
-      "The Dashboard shows one card per work type — Tasks, EIRs, Test Sheets, and placeholders for Build Requests, ECNs, Operational Tasks, and Maintenance Tasks. Each wired card shows the count of active items (tasks not Complete, EIRs not Closed), a status mini-bar, and clicks through to that type's page. Placeholder cards are marked Coming soon until their SharePoint list is wired up.",
+      "The Dashboard shows one card per work type — Engineering Tasks, EIRs, Test Sheets, and placeholders for Build Requests, ECNs, Operational Tasks, and Maintenance Tasks. Each wired card shows the count of active items (tasks not Complete, EIRs not Closed), a colour-coded status mini-bar, and clicks through to that type's page. A Mine / Company switch flips every count and bar between your own items and the whole company's; Mine is the default. Placeholder cards are marked Coming soon until their SharePoint list is wired up.",
     render: () => (
       <>
         <P>
           The home page after sign-in gives you one <strong>card per work
           type</strong>. Each live card shows the count of{" "}
           <strong>active items</strong> for that type, a colour-coded status
-          mini-bar, and clicks through to that type's page.
+          mini-bar (each status a distinct colour), and clicks through to that
+          type's page.
+        </P>
+        <P>
+          A <strong>Mine / Company</strong> switch in the top right flips every
+          count and bar between <strong>your own items</strong> and the{" "}
+          <strong>whole company's</strong>. <strong>Mine</strong> is the default
+          — "yours" means items assigned to you (an assignee on a task, an
+          assigned engineer on an EIR, the tester on a test sheet).
         </P>
         <UL>
           <LI>
-            <strong>Tasks</strong> — tasks that aren't Complete. Opens the Task
-            List. The mini-bar splits the active tasks by status.
+            <strong>Engineering Tasks</strong> — tasks that aren't Complete.
+            Opens the Task List (filtered to you in Mine). The mini-bar splits
+            the active tasks by status.
           </LI>
           <LI>
-            <strong>EIRs</strong> — EIRs that aren't Closed. Opens the EIRs list,
-            with a status mini-bar.
+            <strong>EIRs</strong> — EIRs that aren't Closed. Opens the EIRs list
+            (filtered to you in Mine), with a status mini-bar.
           </LI>
           <LI>
-            <strong>Test Sheets</strong> — total test records. Opens the Test
-            Sheets list.
+            <strong>Test Sheets</strong> — test records (yours in Mine). Opens
+            the Test Sheets list.
           </LI>
         </UL>
         <P>

@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.40.0",
+    date: "2026-07-08",
+    changes: [
+      "Dashboard cards now count YOUR items by default — a new Mine / Company switch (top right) flips every count and status bar between your own work and the whole company's.",
+      "The Tasks card is now titled Engineering Tasks, to sit alongside the coming Operational Tasks and Maintenance Tasks.",
+      "Each status now has its own distinct colour in the dashboard mini-bars, so look-alike states (e.g. Backlog vs On Hold) are easy to tell apart.",
+    ],
+  },
+  {
     version: "0.39.0",
     date: "2026-07-08",
     changes: [
