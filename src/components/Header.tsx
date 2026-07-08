@@ -12,6 +12,7 @@ import {
   DollarSign,
   FileCheck,
   FileText,
+  FolderOpen,
   Gauge,
   Hammer,
   HardHat,
@@ -19,6 +20,7 @@ import {
   LayoutGrid,
   Library,
   List,
+  ListChecks,
   MapPin,
   MessageSquare,
   Moon,
@@ -96,6 +98,14 @@ const DEPARTMENTS: DepartmentGroup[] = [
       },
       soon("Build Requests", <HardHat className="h-4 w-4" />),
       soon("ECNs", <Wrench className="h-4 w-4" />),
+    ],
+  },
+  {
+    name: "Panels",
+    items: [
+      soon("Panel Dashboard", <LayoutDashboard className="h-4 w-4" />),
+      soon("Panel Tasks", <ListChecks className="h-4 w-4" />),
+      soon("Project Folders", <FolderOpen className="h-4 w-4" />),
     ],
   },
   {

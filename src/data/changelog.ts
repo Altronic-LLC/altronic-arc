@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.44.0",
+    date: "2026-07-08",
+    changes: [
+      "Added a Panels department to the dashboard and the Departments menu, with Coming soon cards for the Panel Dashboard (panel-order tracking), Panel Tasks (tied to that dashboard), and Project Folders.",
+    ],
+  },
+  {
     version: "0.43.1",
     date: "2026-07-08",
     changes: [

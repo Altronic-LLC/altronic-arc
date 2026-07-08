@@ -12,9 +12,11 @@ import {
   DollarSign,
   FileCheck,
   FileText,
+  FolderOpen,
   Gauge,
   Hammer,
   HardHat,
+  LayoutDashboard,
   ListChecks,
   MapPin,
   MessageSquare,
@@ -185,6 +187,12 @@ export function DashboardView() {
         />
         <PlaceholderCard name="Build Requests" icon={<HardHat className="h-5 w-5" />} />
         <PlaceholderCard name="ECNs" icon={<Wrench className="h-5 w-5" />} />
+      </DeptSection>
+
+      <DeptSection title="Panels">
+        <PlaceholderCard name="Panel Dashboard" icon={<LayoutDashboard className="h-5 w-5" />} />
+        <PlaceholderCard name="Panel Tasks" icon={<ListChecks className="h-5 w-5" />} />
+        <PlaceholderCard name="Project Folders" icon={<FolderOpen className="h-5 w-5" />} />
       </DeptSection>
 
       <DeptSection title="Operations">

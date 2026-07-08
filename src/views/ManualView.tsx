@@ -98,6 +98,10 @@ const SECTIONS: ManualSection[] = [
       "per user",
       "departments",
       "engineering",
+      "panels",
+      "panel dashboard",
+      "panel tasks",
+      "project folders",
       "operations",
       "supply chain",
       "customer service",
@@ -145,13 +149,15 @@ const SECTIONS: ManualSection[] = [
         </UL>
         <P>
           Types whose SharePoint list isn't built yet — Engineering's{" "}
-          <strong>Build Requests</strong> and <strong>ECNs</strong>, all of{" "}
-          <strong>Operations</strong> (Operational Tasks, Maintenance Tasks),{" "}
-          <strong>Supply Chain</strong> (Grey Market Part Requests, Supplier
-          Issue Tracking, Supplier List, Supplier Contacts, Cost Impact Notices,
-          FAIT), and <strong>Customer Service / Sales</strong> (Customer
-          Feedback, Visit Reporting, Customers, Customer Contacts List, Special
-          Pricing, Capacity Tracking, Pricing Requests) — appear as dimmed{" "}
+          <strong>Build Requests</strong> and <strong>ECNs</strong>,{" "}
+          <strong>Panels</strong> (Panel Dashboard, Panel Tasks, Project
+          Folders), all of <strong>Operations</strong> (Operational Tasks,
+          Maintenance Tasks), <strong>Supply Chain</strong> (Grey Market Part
+          Requests, Supplier Issue Tracking, Supplier List, Supplier Contacts,
+          Cost Impact Notices, FAIT), and{" "}
+          <strong>Customer Service / Sales</strong> (Customer Feedback, Visit
+          Reporting, Customers, Customer Contacts List, Special Pricing, Capacity
+          Tracking, Pricing Requests) — appear as dimmed{" "}
           <strong>Coming soon</strong> placeholders. They'll light up with live
           counts as each department comes online.
         </P>
