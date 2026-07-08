@@ -3,16 +3,25 @@ import { useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
   ArrowRight,
+  BookUser,
+  Building2,
+  Calculator,
   ClipboardCheck,
   Cog,
+  Contact,
+  DollarSign,
+  FileCheck,
   FileText,
+  Gauge,
   Hammer,
   HardHat,
-  Headset,
   ListChecks,
-  Receipt,
-  ShoppingCart,
+  MapPin,
+  MessageSquare,
+  PackageSearch,
   Sparkles,
+  Tag,
+  Users,
   Wrench,
 } from "lucide-react";
 import { useTasks } from "@/hooks/useTasks";
@@ -184,13 +193,22 @@ export function DashboardView() {
       </DeptSection>
 
       <DeptSection title="Supply Chain">
-        <PlaceholderCard name="Purchase Orders" icon={<ShoppingCart className="h-5 w-5" />} />
-        <PlaceholderCard name="At-Risk Parts" icon={<AlertTriangle className="h-5 w-5" />} />
+        <PlaceholderCard name="Grey Market Part Requests" icon={<PackageSearch className="h-5 w-5" />} />
+        <PlaceholderCard name="Supplier Issue Tracking" icon={<AlertTriangle className="h-5 w-5" />} />
+        <PlaceholderCard name="Supplier List" icon={<Building2 className="h-5 w-5" />} />
+        <PlaceholderCard name="Supplier Contacts" icon={<Contact className="h-5 w-5" />} />
+        <PlaceholderCard name="Cost Impact Notices" icon={<DollarSign className="h-5 w-5" />} />
+        <PlaceholderCard name="FAIT" icon={<FileCheck className="h-5 w-5" />} />
       </DeptSection>
 
       <DeptSection title="Customer Service / Sales">
-        <PlaceholderCard name="Customer Cases" icon={<Headset className="h-5 w-5" />} />
-        <PlaceholderCard name="Sales Orders" icon={<Receipt className="h-5 w-5" />} />
+        <PlaceholderCard name="Customer Feedback" icon={<MessageSquare className="h-5 w-5" />} />
+        <PlaceholderCard name="Visit Reporting" icon={<MapPin className="h-5 w-5" />} />
+        <PlaceholderCard name="Customers" icon={<Users className="h-5 w-5" />} />
+        <PlaceholderCard name="Customer Contacts List" icon={<BookUser className="h-5 w-5" />} />
+        <PlaceholderCard name="Special Pricing" icon={<Tag className="h-5 w-5" />} />
+        <PlaceholderCard name="Capacity Tracking" icon={<Gauge className="h-5 w-5" />} />
+        <PlaceholderCard name="Pricing Requests" icon={<Calculator className="h-5 w-5" />} />
       </DeptSection>
 
       <p className="text-center text-xs text-fg-muted">

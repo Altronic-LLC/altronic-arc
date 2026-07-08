@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.41.1",
+    date: "2026-07-08",
+    changes: [
+      "Filled in the real Coming soon cards for two departments. Supply Chain now shows Grey Market Part Requests, Supplier Issue Tracking, Supplier List, Supplier Contacts, Cost Impact Notices, and FAIT. Customer Service / Sales now shows Customer Feedback, Visit Reporting, Customers, Customer Contacts List, Special Pricing, Capacity Tracking, and Pricing Requests.",
+    ],
+  },
+  {
     version: "0.41.0",
     date: "2026-07-08",
     changes: [
