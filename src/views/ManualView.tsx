@@ -933,6 +933,8 @@ const SECTIONS: ManualSection[] = [
       "admin link",
       "project references",
       "projects admin",
+      "engineering project log",
+      "project log",
       "manage projects",
       "eir roles",
       "engineer role",
@@ -941,7 +943,7 @@ const SECTIONS: ManualSection[] = [
       "who can edit",
     ],
     searchText:
-      "Admins manage three things from the Admin section in the header: the list of admin users (/admin/admins), the project references catalogue (/admin/projects), and EIR roles (/admin/eir-roles) which control who can edit the Engineering Response (engineer role) and Buyer Code (supply chain role) fields on an EIR. The Admin link only appears in the header for users on the admin list, and non-admins who open an /admin URL directly are sent back to the dashboard — the admin pages never show for them. Add an admin from the Admins page; their name appears in the header on their next sign-in. Removing yourself is disabled to prevent lockouts. A small hardcoded bootstrap set of admins stays in the code as a safety net.",
+      "Admins manage three things from the Admin section in the header: the list of admin users (/admin/admins), the Engineering Project Log — the master project list (/admin/projects), and EIR roles (/admin/eir-roles) which control who can edit the Engineering Response (engineer role) and Buyer Code (supply chain role) fields on an EIR. The Admin link only appears in the header for users on the admin list, and non-admins who open an /admin URL directly are sent back to the dashboard — the admin pages never show for them. Add an admin from the Admins page; their name appears in the header on their next sign-in. Removing yourself is disabled to prevent lockouts. A small hardcoded bootstrap set of admins stays in the code as a safety net.",
     render: () => (
       <>
         <P>
@@ -964,12 +966,13 @@ const SECTIONS: ManualSection[] = [
           bootstrap set of accounts in the code as a safety net, so the system
           stays accessible even if the Admins list is emptied by accident.
         </P>
-        <H3>Project References admin</H3>
+        <H3>Engineering Project Log admin</H3>
         <P>
-          The <strong>Projects admin →</strong> link on the Admins page (or
-          navigate to <code>/admin/projects</code> directly) opens the Project
-          References editor. Add new projects there and they immediately
-          become available as parent / related project choices on every task.
+          The <strong>Engineering Project Log →</strong> link on the Admins page
+          (or navigate to <code>/admin/projects</code> directly) opens the
+          Engineering Project Log — the master list of projects. Add new projects
+          there and they immediately become available as Project Reference
+          choices on tasks, EIRs, and test sheets.
         </P>
         <H3>EIR Roles admin</H3>
         <P>

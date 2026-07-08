@@ -94,7 +94,7 @@ export function AdminEirRolesView() {
             Admins →
           </Link>
           <Link to="/admin/projects" className="text-xs text-accent underline-offset-2 hover:underline">
-            Projects admin →
+            Engineering Project Log →
           </Link>
         </nav>
       </header>

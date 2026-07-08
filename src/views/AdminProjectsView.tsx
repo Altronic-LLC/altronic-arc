@@ -6,11 +6,12 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { LoadingTasks } from "@/components/LoadingTasks";
 
 /**
- * Admin page for managing Project References.
+ * Admin page for the Engineering Project Log — the master list of projects.
  *
  * Today's scope: list existing projects, add new ones. Adding new ones
- * writes to the Project Overview SharePoint list (or to the mock store
- * in demo mode).
+ * writes to the Project Overview SharePoint list (VITE_SP_PROJECTS_LIST_ID)
+ * — the same list every Project Reference lookup in the app reads from — or
+ * to the mock store in demo mode.
  *
  * Access gated by useIsAdmin() — non-admins get a friendly notice rather
  * than a hard 404, since the page might be linked from elsewhere and we
@@ -30,8 +31,8 @@ export function AdminProjectsView() {
         <Shield className="mx-auto h-10 w-10 text-fg-muted" />
         <h1 className="mt-4 font-display text-xl font-semibold text-fg">Admin access required</h1>
         <p className="mt-2 text-sm text-fg-muted">
-          The Project References admin page is restricted to authorised users.
-          If you need access, contact your administrator.
+          The Engineering Project Log admin page is restricted to authorised
+          users. If you need access, contact your administrator.
         </p>
         <button
           onClick={() => navigate("/")}
@@ -70,11 +71,13 @@ export function AdminProjectsView() {
             <Shield className="h-3.5 w-3.5" />
             Admin
           </div>
-          <h1 className="mt-1 font-display text-2xl font-semibold text-fg">Project References</h1>
+          <h1 className="mt-1 font-display text-2xl font-semibold text-fg">
+            Engineering Project Log
+          </h1>
           <p className="mt-1 text-sm text-fg-muted">
-            Manage entries in the Project Overview SharePoint list. New projects
-            added here become available immediately as parent / related project
-            choices on every task.
+            The master list of projects. New projects added here become available
+            immediately as Project Reference choices on tasks, EIRs, and test
+            sheets.
           </p>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">

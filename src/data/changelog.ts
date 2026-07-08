@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.44.1",
+    date: "2026-07-08",
+    changes: [
+      "Renamed the admin \"Project References\" page to \"Engineering Project Log\" (the master list of projects). The cross-page links from the other admin pages and the user manual were updated to match. It's the same list under the hood — the source for every Project Reference picker across tasks, EIRs, and test sheets.",
+    ],
+  },
+  {
     version: "0.44.0",
     date: "2026-07-08",
     changes: [
