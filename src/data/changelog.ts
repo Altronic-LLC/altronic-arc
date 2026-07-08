@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.41.2",
+    date: "2026-07-08",
+    changes: [
+      "The top-nav Departments dropdown now mirrors the dashboard exactly — same departments in the same order (Engineering, Operations, Supply Chain, Customer Service / Sales) with the same items, including all the Coming soon placeholders. Longer than before, so the menu scrolls if it doesn't fit.",
+    ],
+  },
+  {
     version: "0.41.1",
     date: "2026-07-08",
     changes: [

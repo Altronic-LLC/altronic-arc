@@ -1,16 +1,33 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
+  AlertTriangle,
+  BookUser,
+  Building2,
+  Calculator,
   ChevronDown,
   ClipboardList,
+  Cog,
+  Contact,
+  DollarSign,
+  FileCheck,
   FileText,
+  Gauge,
+  Hammer,
+  HardHat,
   LayoutDashboard,
   LayoutGrid,
   Library,
   List,
+  MapPin,
+  MessageSquare,
   Moon,
+  PackageSearch,
   Shield,
   Sun,
+  Tag,
+  Users,
+  Wrench,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useTheme } from "@/hooks/useTheme";
@@ -25,9 +42,13 @@ import { NotifyAppManagerButton } from "@/components/NotifyAppManagerButton";
 // Top-level nav structure:
 //   Dashboard | Departments ▼ | (Admin)
 //
-// The Departments dropdown groups related apps by department. Engineering
-// exposes EIRs, Test Sheets, Tasks, ECNs, and Build Requests. When the user
-// lands in the task context, List and Kanban appear as task views.
+// The Departments dropdown mirrors the dashboard's department sections one-to-
+// one (same groups, order, card names + icons). Engineering has the wired
+// views (Engineering Tasks, EIRs, Test Sheets); everything else is a "Soon"
+// placeholder until its SharePoint list exists. When the user is in the task
+// context, List and Kanban appear as task views.
+//
+// Keep this in sync with the cards in src/views/DashboardView.tsx.
 // =============================================================================
 
 interface DepartmentItem {
@@ -43,13 +64,20 @@ interface DepartmentGroup {
   items: DepartmentItem[];
 }
 
+const soon = (label: string, icon: React.ReactNode): DepartmentItem => ({
+  label,
+  icon,
+  matchesPath: () => false,
+  disabled: true,
+});
+
 const DEPARTMENTS: DepartmentGroup[] = [
   {
     name: "Engineering",
     items: [
       {
         to: "/list",
-        label: "Tasks",
+        label: "Engineering Tasks",
         icon: <List className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/list") || p.startsWith("/kanban") || p.startsWith("/task/"),
       },
@@ -65,52 +93,38 @@ const DEPARTMENTS: DepartmentGroup[] = [
         icon: <ClipboardList className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/test-sheets") || p.startsWith("/test-sheet/"),
       },
-      {
-        label: "ECNs",
-        icon: <FileText className="h-4 w-4" />,
-        matchesPath: () => false,
-        disabled: true,
-      },
-      {
-        label: "Build Requests",
-        icon: <ClipboardList className="h-4 w-4" />,
-        matchesPath: () => false,
-        disabled: true,
-      },
-    ],
-  },
-  {
-    name: "Supply Chain",
-    items: [
-      {
-        label: "Supplier Contacts",
-        icon: <Library className="h-4 w-4" />,
-        matchesPath: () => false,
-        disabled: true,
-      },
-      {
-        label: "GMR",
-        icon: <FileText className="h-4 w-4" />,
-        matchesPath: () => false,
-        disabled: true,
-      },
+      soon("Build Requests", <HardHat className="h-4 w-4" />),
+      soon("ECNs", <Wrench className="h-4 w-4" />),
     ],
   },
   {
     name: "Operations",
     items: [
-      {
-        label: "Operations Tasks",
-        icon: <List className="h-4 w-4" />,
-        matchesPath: () => false,
-        disabled: true,
-      },
-      {
-        label: "Maintenance",
-        icon: <LayoutGrid className="h-4 w-4" />,
-        matchesPath: () => false,
-        disabled: true,
-      },
+      soon("Operational Tasks", <Cog className="h-4 w-4" />),
+      soon("Maintenance Tasks", <Hammer className="h-4 w-4" />),
+    ],
+  },
+  {
+    name: "Supply Chain",
+    items: [
+      soon("Grey Market Part Requests", <PackageSearch className="h-4 w-4" />),
+      soon("Supplier Issue Tracking", <AlertTriangle className="h-4 w-4" />),
+      soon("Supplier List", <Building2 className="h-4 w-4" />),
+      soon("Supplier Contacts", <Contact className="h-4 w-4" />),
+      soon("Cost Impact Notices", <DollarSign className="h-4 w-4" />),
+      soon("FAIT", <FileCheck className="h-4 w-4" />),
+    ],
+  },
+  {
+    name: "Customer Service / Sales",
+    items: [
+      soon("Customer Feedback", <MessageSquare className="h-4 w-4" />),
+      soon("Visit Reporting", <MapPin className="h-4 w-4" />),
+      soon("Customers", <Users className="h-4 w-4" />),
+      soon("Customer Contacts List", <BookUser className="h-4 w-4" />),
+      soon("Special Pricing", <Tag className="h-4 w-4" />),
+      soon("Capacity Tracking", <Gauge className="h-4 w-4" />),
+      soon("Pricing Requests", <Calculator className="h-4 w-4" />),
     ],
   },
 ];
@@ -288,7 +302,7 @@ function DepartmentsMenu({
       {open && (
         <div
           role="menu"
-          className="absolute left-1/2 top-full z-30 mt-1 w-[320px] -translate-x-1/2 rounded-lg border border-border bg-surface p-2 shadow-lg sm:left-0 sm:translate-x-0"
+          className="absolute left-1/2 top-full z-30 mt-1 max-h-[70vh] w-[320px] -translate-x-1/2 overflow-y-auto rounded-lg border border-border bg-surface p-2 shadow-lg sm:left-0 sm:translate-x-0"
         >
           {DEPARTMENTS.map((group) => (
             <div key={group.name} className="border-b border-border last:border-b-0 px-1 py-2">

@@ -49,18 +49,19 @@ const SECTIONS: ManualSection[] = [
       "where do i start",
     ],
     searchText:
-      "Sign in with your altronic-llc.com account. The Dashboard opens after sign-in with your open tasks. Use the top nav to switch between Dashboard, List, Kanban, and the Engineering Requests dropdown (EIRs, Test Sheets).",
+      "Sign in with your altronic-llc.com account. The Dashboard opens after sign-in. Use the top nav to switch between Dashboard, the Departments dropdown, and Admin. The Departments dropdown mirrors the dashboard: Engineering (Engineering Tasks, EIRs, Test Sheets, plus Build Requests and ECNs coming soon), Operations, Supply Chain, and Customer Service / Sales.",
     render: () => (
       <>
         <P>
           Sign in with your <code>@altronic-llc.com</code> Microsoft account when
           prompted. Once you're in, the <strong>Dashboard</strong> opens with a
-          summary of your open work. The top nav now has direct access to
-          <strong>Departments</strong>, where Engineering exposes EIRs, Test
-          Sheets, Tasks, ECNs, and Build Requests. Supply Chain and Operations
-          are grouped there too. Engineering Tasks use the <strong>List</strong>
-          and <strong>Kanban</strong> views. Operations Tasks are a separate
-          workload and will be added as their own app once ready.
+          summary of your open work. The top nav has a{" "}
+          <strong>Departments</strong> dropdown that mirrors the dashboard's
+          sections — <strong>Engineering</strong> (Engineering Tasks, EIRs, Test
+          Sheets, with Build Requests and ECNs coming soon),{" "}
+          <strong>Operations</strong>, <strong>Supply Chain</strong>, and{" "}
+          <strong>Customer Service / Sales</strong> (all coming soon). Engineering
+          Tasks use the <strong>List</strong> and <strong>Kanban</strong> views.
           Your tasks are filtered to you by default — pick "Anyone" in the
           Assigned filter to see the rest of the team's work.
         </P>
