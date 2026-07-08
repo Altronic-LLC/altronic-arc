@@ -1,125 +1,92 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Clock, Eye, PenSquare, Sparkles, UserCheck } from "lucide-react";
+import { ArrowRight, Clock, Eye, PenSquare, Sparkles, UserCheck } from "lucide-react";
 import { useTasks } from "@/hooks/useTasks";
 import { useEirs } from "@/hooks/useEirs";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { LoadingTasks } from "@/components/LoadingTasks";
-import { eirStatusColor, statusColor } from "@/components/atoms";
 import type { Eir, Person, Task } from "@/types/task";
 import { cn } from "@/lib/cn";
 
 // =============================================================================
-// User Dashboard — the landing page after sign-in. Personalised to the signed-
-// in user: the items they're Assigned to, Watching, and Created/Reported —
-// across BOTH tasks and EIRs — plus a "Recently updated" feed of everything
-// they're involved in. A compact stat row summarises the counts.
+// User Dashboard — the landing page after sign-in. Personalised count cards
+// summarising the work the signed-in user is involved in, across BOTH tasks
+// and EIRs: what they're Assigned to, Watching, Created/reported, and how much
+// has been updated this week. Each card shows the total plus a task/EIR split;
+// where a matching List filter exists the card links straight to it.
 //
-// Completed tasks / closed EIRs are hidden by default; the "Show completed"
-// toggle reveals them. Everything is derived from the tasks + EIRs already in
-// the React Query cache, so the dashboard stays in sync with the rest of the
-// app for free.
+// Completed tasks / closed EIRs are excluded by default; the "Show completed"
+// toggle includes them. All counts derive from the tasks + EIRs already in the
+// React Query cache, so the dashboard stays in sync with the rest of the app.
 // =============================================================================
 
-/** Normalised row shape so tasks and EIRs render side by side in one list. */
-interface DashItem {
-  key: string;
-  kind: "task" | "eir";
-  id: number;
-  title: string;
-  status: string;
-  colorClass: string;
-  modifiedAt: Date;
-  open: boolean;
-}
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 function matches(list: Person[], email: string): boolean {
   if (!email) return false;
   return list.some((p) => (p.email ?? "").toLowerCase() === email);
 }
 
-function taskToItem(t: Task): DashItem {
-  return {
-    key: `task-${t.id}`,
-    kind: "task",
-    id: t.id,
-    title: t.numberedTitle || t.title,
-    status: t.status,
-    colorClass: statusColor(t.status),
-    modifiedAt: t.modifiedAt,
-    open: t.status !== "Complete",
-  };
-}
-
-function eirToItem(e: Eir): DashItem {
-  return {
-    key: `eir-${e.id}`,
-    kind: "eir",
-    id: e.id,
-    title: [e.eirNo, e.title].filter(Boolean).join(" — ") || e.title,
-    status: e.status,
-    colorClass: eirStatusColor(e.status),
-    modifiedAt: e.modifiedAt,
-    open: e.status !== "Closed",
-  };
-}
-
-/** Filter by open/closed (unless showing completed) and sort newest-first. */
-function prep(items: DashItem[], showCompleted: boolean): DashItem[] {
-  const filtered = showCompleted ? items : items.filter((i) => i.open);
-  return [...filtered].sort((a, b) => b.modifiedAt.getTime() - a.modifiedAt.getTime());
-}
-
 export function DashboardView() {
+  const navigate = useNavigate();
   const { data: tasks = [], isLoading } = useTasks();
-  const { data: eirs = [] } = useEirs();
+  const { data: eirs = [], isLoading: eirsLoading } = useEirs();
   const currentUser = useCurrentUser();
   const [showCompleted, setShowCompleted] = useState(false);
 
   const myEmail = (currentUser.email ?? "").toLowerCase();
 
-  const buckets = useMemo(() => {
-    const assignedRaw = [
-      ...tasks.filter((t) => matches(t.assigned, myEmail)).map(taskToItem),
-      ...eirs.filter((e) => matches(e.assignedEngineers, myEmail)).map(eirToItem),
-    ];
-    const watchingRaw = [
-      ...tasks.filter((t) => matches(t.watchers, myEmail)).map(taskToItem),
-      ...eirs.filter((e) => matches(e.watchers, myEmail)).map(eirToItem),
-    ];
-    const createdRaw = [
-      ...tasks
-        .filter((t) => (t.author?.email ?? "").toLowerCase() === myEmail)
-        .map(taskToItem),
-      ...eirs
-        .filter(
-          (e) =>
-            (e.author?.email ?? "").toLowerCase() === myEmail ||
-            (e.reporter?.email ?? "").toLowerCase() === myEmail,
-        )
-        .map(eirToItem),
-    ];
+  const counts = useMemo(() => {
+    const openTask = (t: Task) => showCompleted || t.status !== "Complete";
+    const openEir = (e: Eir) => showCompleted || e.status !== "Closed";
+    const myTasks = tasks.filter(openTask);
+    const myEirs = eirs.filter(openEir);
 
-    // "Recently updated" = anything I'm involved in, deduped by key.
-    const involved = new Map<string, DashItem>();
-    for (const i of [...assignedRaw, ...watchingRaw, ...createdRaw]) {
-      if (!involved.has(i.key)) involved.set(i.key, i);
+    const assignedTasks = myTasks.filter((t) => matches(t.assigned, myEmail));
+    const assignedEirs = myEirs.filter((e) => matches(e.assignedEngineers, myEmail));
+    const watchingTasks = myTasks.filter((t) => matches(t.watchers, myEmail));
+    const watchingEirs = myEirs.filter((e) => matches(e.watchers, myEmail));
+    const createdTasks = myTasks.filter(
+      (t) => (t.author?.email ?? "").toLowerCase() === myEmail,
+    );
+    const createdEirs = myEirs.filter(
+      (e) =>
+        (e.author?.email ?? "").toLowerCase() === myEmail ||
+        (e.reporter?.email ?? "").toLowerCase() === myEmail,
+    );
+
+    // "Updated this week" = anything I'm involved in, modified in the last 7
+    // days, deduped so a task I both own and watch only counts once.
+    const involvedKeys = new Set<string>();
+    let recentTasks = 0;
+    let recentEirs = 0;
+    const cutoff = Date.now() - WEEK_MS;
+    for (const t of [...assignedTasks, ...watchingTasks, ...createdTasks]) {
+      const key = `task-${t.id}`;
+      if (involvedKeys.has(key)) continue;
+      involvedKeys.add(key);
+      if (t.modifiedAt.getTime() >= cutoff) recentTasks++;
+    }
+    const seenEir = new Set<string>();
+    for (const e of [...assignedEirs, ...watchingEirs, ...createdEirs]) {
+      const key = `eir-${e.id}`;
+      if (seenEir.has(key)) continue;
+      seenEir.add(key);
+      if (e.modifiedAt.getTime() >= cutoff) recentEirs++;
     }
 
     return {
-      assigned: prep(assignedRaw, showCompleted),
-      watching: prep(watchingRaw, showCompleted),
-      created: prep(createdRaw, showCompleted),
-      recent: prep([...involved.values()], showCompleted).slice(0, 10),
+      assigned: { tasks: assignedTasks.length, eirs: assignedEirs.length },
+      watching: { tasks: watchingTasks.length, eirs: watchingEirs.length },
+      created: { tasks: createdTasks.length, eirs: createdEirs.length },
+      recent: { tasks: recentTasks, eirs: recentEirs },
     };
   }, [tasks, eirs, myEmail, showCompleted]);
 
-  if (isLoading) return <LoadingTasks noun="your dashboard" />;
+  if (isLoading || eirsLoading) return <LoadingTasks noun="your dashboard" />;
 
-  const nothingYet =
-    buckets.assigned.length === 0 &&
-    buckets.watching.length === 0 &&
-    buckets.created.length === 0;
+  const listUrl = (param: "assigned" | "createdBy") =>
+    currentUser.email ? `/list?${param}=${encodeURIComponent(currentUser.email)}` : "/list";
 
   return (
     <div className="mx-auto flex max-w-[1200px] flex-col gap-5 px-4 py-4 sm:px-6 sm:py-6">
@@ -130,7 +97,7 @@ export function DashboardView() {
             My Dashboard
           </h1>
           <p className="mt-1 text-sm text-fg-muted">
-            {greet(currentUser.displayName)} — here's everything you're involved in.
+            {greet(currentUser.displayName)} — here's what you're involved in.
           </p>
         </div>
         <label className="inline-flex cursor-pointer items-center gap-2 self-start rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-fg">
@@ -144,133 +111,94 @@ export function DashboardView() {
         </label>
       </header>
 
-      {/* Compact stat row */}
-      <div className="grid grid-cols-3 gap-3">
-        <StatTile label="Assigned" value={buckets.assigned.length} icon={<UserCheck className="h-4 w-4" />} />
-        <StatTile label="Watching" value={buckets.watching.length} icon={<Eye className="h-4 w-4" />} />
-        <StatTile label="Created" value={buckets.created.length} icon={<PenSquare className="h-4 w-4" />} />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <CountCard
+          label="Assigned to me"
+          count={counts.assigned}
+          icon={<UserCheck className="h-5 w-5" />}
+          onClick={() => navigate(listUrl("assigned"))}
+          actionText="View my tasks"
+        />
+        <CountCard
+          label="Watching"
+          count={counts.watching}
+          icon={<Eye className="h-5 w-5" />}
+        />
+        <CountCard
+          label="Created / reported"
+          count={counts.created}
+          icon={<PenSquare className="h-5 w-5" />}
+          onClick={() => navigate(listUrl("createdBy"))}
+          actionText="View my tasks"
+        />
+        <CountCard
+          label="Updated this week"
+          count={counts.recent}
+          icon={<Clock className="h-5 w-5" />}
+        />
       </div>
-
-      {nothingYet && !showCompleted && (
-        <div className="rounded-lg border border-dashed border-border bg-surface p-8 text-center text-sm text-fg-muted">
-          Nothing active right now. Items you're assigned to, watching, or created
-          will show up here. Try <strong>Show completed</strong> to see finished work.
-        </div>
-      )}
-
-      <DashSection
-        title="Assigned to me"
-        icon={<UserCheck className="h-4 w-4" />}
-        items={buckets.assigned}
-        emptyText="Nothing is assigned to you."
-      />
-      <DashSection
-        title="Watching"
-        icon={<Eye className="h-4 w-4" />}
-        items={buckets.watching}
-        emptyText="You're not watching anything."
-      />
-      <DashSection
-        title="Created / reported by me"
-        icon={<PenSquare className="h-4 w-4" />}
-        items={buckets.created}
-        emptyText="You haven't created or reported anything."
-      />
-      <DashSection
-        title="Recently updated"
-        icon={<Clock className="h-4 w-4" />}
-        items={buckets.recent}
-        emptyText="No recent activity on your items."
-      />
     </div>
   );
 }
 
-function StatTile({
+interface Split {
+  tasks: number;
+  eirs: number;
+}
+
+function CountCard({
   label,
-  value,
+  count,
   icon,
+  onClick,
+  actionText,
 }: {
   label: string;
-  value: number;
+  count: Split;
   icon: React.ReactNode;
+  onClick?: () => void;
+  actionText?: string;
 }) {
-  return (
-    <div className="flex flex-col gap-1 rounded-lg border border-border bg-surface p-3 sm:p-4">
-      <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
-        <span className="text-accent">{icon}</span>
+  const total = count.tasks + count.eirs;
+  const subtitle = `${count.tasks} task${count.tasks === 1 ? "" : "s"} · ${
+    count.eirs
+  } EIR${count.eirs === 1 ? "" : "s"}`;
+
+  const body = (
+    <>
+      <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-accent">
+        <span className="flex h-7 w-7 items-center justify-center rounded-md bg-accent/10 text-accent">
+          {icon}
+        </span>
         {label}
       </div>
-      <div className="font-display text-3xl font-bold tabular-nums text-fg">{value}</div>
-    </div>
-  );
-}
-
-function DashSection({
-  title,
-  icon,
-  items,
-  emptyText,
-}: {
-  title: string;
-  icon: React.ReactNode;
-  items: DashItem[];
-  emptyText: string;
-}) {
-  const navigate = useNavigate();
-  return (
-    <section className="rounded-lg border border-border bg-surface p-4 sm:p-5">
-      <h2 className="mb-3 flex items-center gap-2 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
-        <span className="text-fg-muted">{icon}</span>
-        {title}
-        <span className="ml-1 rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-fg-muted">
-          {items.length}
-        </span>
-      </h2>
-      {items.length === 0 ? (
-        <p className="text-sm text-fg-muted">{emptyText}</p>
-      ) : (
-        <div className="flex flex-col gap-1.5">
-          {items.map((item) => (
-            <button
-              key={item.key}
-              onClick={() =>
-                navigate(item.kind === "eir" ? `/eir/${item.id}` : `/task/${item.id}`)
-              }
-              className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface px-3 py-2 text-left text-sm transition-colors hover:border-fg-muted hover:bg-surface-2"
-            >
-              <span className="flex min-w-0 items-center gap-2">
-                <TypeBadge kind={item.kind} />
-                <span className="truncate font-medium text-fg">{item.title}</span>
-              </span>
-              <span
-                className={cn(
-                  "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-                  item.colorClass,
-                )}
-              >
-                {item.status}
-              </span>
-            </button>
-          ))}
+      <div className="font-display text-4xl font-bold tabular-nums text-fg">{total}</div>
+      <div className="text-xs text-fg-muted">{subtitle}</div>
+      {onClick && actionText && (
+        <div className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-accent opacity-80 transition-opacity group-hover:opacity-100">
+          {actionText}
+          <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
         </div>
       )}
-    </section>
+    </>
   );
-}
 
-function TypeBadge({ kind }: { kind: "task" | "eir" }) {
+  const base =
+    "flex flex-col items-start gap-1 rounded-lg border border-border bg-surface p-4 text-left sm:p-5";
+
+  if (!onClick) {
+    return <div className={base}>{body}</div>;
+  }
   return (
-    <span
+    <button
+      onClick={onClick}
       className={cn(
-        "shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide",
-        kind === "eir"
-          ? "bg-cooper-red/10 text-cooper-red"
-          : "bg-accent/10 text-accent",
+        base,
+        "group transition-all hover:border-fg-muted hover:shadow-md",
       )}
     >
-      {kind === "eir" ? "EIR" : "Task"}
-    </span>
+      {body}
+    </button>
   );
 }
 

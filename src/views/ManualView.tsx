@@ -90,20 +90,17 @@ const SECTIONS: ManualSection[] = [
       "summary",
     ],
     searchText:
-      "The Dashboard is your personal home page after sign-in. It lists the tasks and EIRs you're Assigned to, Watching, and Created or reported, plus a Recently updated feed of everything you're involved in. A compact stat row shows the counts. Completed tasks and closed EIRs are hidden by default; use Show completed to reveal them. Each row shows a Task/EIR badge and its status; click to open it.",
+      "The Dashboard is your personal home page after sign-in. Count cards summarise the tasks and EIRs you're Assigned to, Watching, and Created or reported, plus how many of your items were Updated this week. Each card shows the total with a task/EIR split. Completed tasks and closed EIRs are excluded by default; use Show completed to include them. The Assigned and Created cards click through to your filtered task list.",
     render: () => (
       <>
         <P>
-          The home page after sign-in is <strong>your</strong> dashboard — it
-          pulls together every task and EIR you're involved in, so you don't
-          have to go hunting across the List and EIRs views. A compact stat row
-          at the top shows how many items you're <strong>Assigned</strong> to,{" "}
-          <strong>Watching</strong>, and have <strong>Created</strong>.
+          The home page after sign-in is <strong>your</strong> dashboard — count
+          cards that summarise the work you're involved in across both tasks and
+          EIRs, so you don't have to go hunting across the List and EIRs views.
         </P>
-        <P>Below the stats, four sections list the items themselves:</P>
         <UL>
           <LI>
-            <strong>Assigned to me</strong> — tasks where you're an assignee and
+            <strong>Assigned to me</strong> — tasks where you're an assignee plus
             EIRs where you're an assigned engineer.
           </LI>
           <LI>
@@ -111,19 +108,21 @@ const SECTIONS: ManualSection[] = [
             list for.
           </LI>
           <LI>
-            <strong>Created / reported by me</strong> — tasks you created and
-            EIRs you created or are the reporter on.
+            <strong>Created / reported</strong> — tasks you created plus EIRs you
+            created or are the reporter on.
           </LI>
           <LI>
-            <strong>Recently updated</strong> — everything you're involved in,
-            most-recently-changed first (a quick "what moved" feed).
+            <strong>Updated this week</strong> — how many of your items changed in
+            the last 7 days.
           </LI>
         </UL>
         <P>
-          Each row carries a <strong>Task</strong> or <strong>EIR</strong> badge
-          and its current status; click any row to open it. By default the lists
-          hide finished work — tick <strong>Show completed</strong> in the top
-          right to include Complete tasks and Closed EIRs.
+          Each card shows the total with a <strong>task / EIR split</strong>
+          underneath. The <strong>Assigned to me</strong> and{" "}
+          <strong>Created / reported</strong> cards click through to your task
+          list filtered accordingly. By default the counts exclude finished work
+          — tick <strong>Show completed</strong> in the top right to include
+          Complete tasks and Closed EIRs.
         </P>
       </>
     ),

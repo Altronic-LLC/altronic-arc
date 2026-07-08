@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.38.1",
+    date: "2026-07-08",
+    changes: [
+      "The dashboard now shows count cards instead of item lists: Assigned to me, Watching, Created / reported, and Updated this week — each with the total and a task/EIR split. The Assigned and Created cards click through to your filtered task list. Show completed still toggles whether finished work is counted.",
+    ],
+  },
+  {
     version: "0.38.0",
     date: "2026-07-08",
     changes: [
