@@ -23,7 +23,12 @@ import type {
 import { pushToast } from "@/components/Toast";
 import { multiLookupField } from "@/lib/graphFields";
 import { commentNotifyRecipients, extractMentionedRecipients } from "@/lib/mentions";
-import { fireAssigneeChangeAlert, fireFieldChangeAlert, notifyMentions } from "@/api/email";
+import {
+  fireAssigneeChangeAlert,
+  fireFieldChangeAlert,
+  firePromotionAlert,
+  notifyMentions,
+} from "@/api/email";
 import { buildPromotedCommunication } from "@/lib/eirPromotion";
 import { appItemUrl } from "@/lib/appUrl";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -152,6 +157,19 @@ export function usePromoteEirToTask() {
         Resolution: "Promoted to Task",
         TaskPromotedFlag: true,
         TaskReference: task.numberedTitle,
+      });
+      // Notify the EIR's watchers + reporter (minus the promoter) with a link
+      // to the new task. Fire-and-forget — never block the promotion on mail.
+      firePromotionAlert({
+        eir: {
+          id: eir.id,
+          eirNo: eir.eirNo,
+          title: eir.title,
+          watchers: eir.watchers,
+          reporter: eir.reporter,
+        },
+        task: { id: task.id, numberedTitle: task.numberedTitle, title: task.title },
+        actor: { displayName: promotedBy.displayName, email: promotedBy.email },
       });
       return task;
     },

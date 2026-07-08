@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.38.0",
+    date: "2026-07-08",
+    changes: [
+      "The home page is now a personal My Dashboard: it lists the tasks and EIRs you're assigned to, watching, and created or reported — plus a Recently updated feed — instead of the old engineering metric cards. Completed tasks and closed EIRs are hidden until you tick Show completed.",
+      "Each dashboard row shows a Task/EIR badge and its status and links straight to the item; a compact stat row up top counts your assigned, watching, and created work.",
+      "Promoting an EIR to a task now emails the EIR's watchers and reporter with a link to the new task, so followers know where the work moved.",
+    ],
+  },
+  {
     version: "0.37.1",
     date: "2026-07-08",
     changes: [

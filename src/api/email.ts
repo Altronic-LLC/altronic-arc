@@ -5,6 +5,7 @@ import { appItemUrl } from "@/lib/appUrl";
 import {
   buildAssigneeChangeEmails,
   buildFieldChangeEmails,
+  buildPromotionEmails,
   type ChangeEmail,
   type ChangeTarget,
 } from "@/lib/changeAlerts";
@@ -294,6 +295,33 @@ export function fireAssigneeChangeAlert(args: {
   const emails = buildAssigneeChangeEmails(args);
   if (emails.length === 0) return;
   void notifyChangeEmails({ target: args.target, emails });
+}
+
+/**
+ * Fire-and-forget alert when an EIR is promoted to a task. Goes to the EIR's
+ * watchers + reporter (minus the actor); the email links to the NEW TASK, so
+ * we send it with a task-kind target.
+ */
+export function firePromotionAlert(args: {
+  eir: { id: number; eirNo: string; title: string; watchers: Person[]; reporter?: Person | null };
+  task: { id: number; numberedTitle: string; title: string };
+  actor: Person;
+}): void {
+  const emails = buildPromotionEmails({
+    eirLabel: args.eir.eirNo || `EIR #${args.eir.id}`,
+    watchers: args.eir.watchers,
+    reporter: args.eir.reporter,
+    actor: args.actor,
+  });
+  if (emails.length === 0) return;
+  void notifyChangeEmails({
+    target: {
+      kind: "task",
+      id: args.task.id,
+      title: args.task.numberedTitle || args.task.title,
+    },
+    emails,
+  });
 }
 
 interface MentionEmailContext {

@@ -1,6 +1,10 @@
 import { describe, it, expect } from "vitest";
 import type { Person } from "@/types/task";
-import { buildAssigneeChangeEmails, buildFieldChangeEmails } from "./changeAlerts";
+import {
+  buildAssigneeChangeEmails,
+  buildFieldChangeEmails,
+  buildPromotionEmails,
+} from "./changeAlerts";
 
 const ACTOR: Person = { displayName: "Ray White", email: "ray@x.com", lookupId: 1 };
 const BOB: Person = { displayName: "Bob", email: "bob@x.com", lookupId: 2 };
@@ -128,5 +132,31 @@ describe("buildAssigneeChangeEmails", () => {
     const byEmail = Object.fromEntries(out.map((e) => [e.email, e]));
     expect(byEmail["bob@x.com"].subject).toBe("You've been assigned to EIR_2026-0042 — Coil");
     expect(byEmail["sarah@x.com"].subject).toBe("Assignees changed on EIR_2026-0042 — Coil");
+  });
+});
+
+describe("buildPromotionEmails", () => {
+  it("notifies watchers + reporter, excludes the actor, dedupes", () => {
+    const out = buildPromotionEmails({
+      eirLabel: "EIR_2026-0042",
+      watchers: [BOB, SARAH, ACTOR], // actor watching → dropped
+      reporter: SARAH, // also a watcher → deduped
+      actor: ACTOR,
+    });
+    const emails = out.map((e) => e.email).sort();
+    expect(emails).toEqual(["bob@x.com", "sarah@x.com"]);
+    expect(out[0].subject).toBe("EIR_2026-0042 was promoted to a task");
+    expect(out[0].headlineHtml).toContain("promoted EIR");
+    expect(out[0].headlineHtml).toContain("EIR_2026-0042");
+  });
+
+  it("returns [] when only the actor would be notified", () => {
+    const out = buildPromotionEmails({
+      eirLabel: "EIR_2026-0042",
+      watchers: [ACTOR],
+      reporter: ACTOR,
+      actor: ACTOR,
+    });
+    expect(out).toEqual([]);
   });
 });

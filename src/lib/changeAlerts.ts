@@ -194,3 +194,33 @@ export function buildAssigneeChangeEmails(args: {
 
   return emails;
 }
+
+/**
+ * Alerts for promoting an EIR to a task. Recipients = the EIR's watchers +
+ * reporter (minus the actor). The email links to the NEW TASK — callers send
+ * these with a task-kind target so the callout + button open the task.
+ *
+ * `eirLabel` is the EIR number (or "EIR #id"); it appears in the copy so
+ * recipients know which EIR spawned the task.
+ */
+export function buildPromotionEmails(args: {
+  eirLabel: string;
+  watchers: Person[];
+  reporter?: Person | null;
+  actor: Person;
+}): ChangeEmail[] {
+  const actorEmail = (args.actor.email ?? "").toLowerCase();
+  const recipients = dedupeMailable([...args.watchers, args.reporter ?? null], actorEmail);
+  if (recipients.length === 0) return [];
+
+  const actorName = escapeHtml(args.actor.displayName || "Someone");
+  const eir = escapeHtml(args.eirLabel);
+  return recipients.map((p) => ({
+    email: p.email,
+    displayName: p.displayName,
+    subject: `${args.eirLabel} was promoted to a task`,
+    headlineHtml: `<strong>${actorName}</strong> promoted EIR <strong>${eir}</strong> to a task.`,
+    detailHtml:
+      '<div style="font-size:14px;">A task has been created to carry this work forward — open it below.</div>',
+  }));
+}

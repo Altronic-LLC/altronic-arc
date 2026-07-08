@@ -78,47 +78,52 @@ const SECTIONS: ManualSection[] = [
       "dashboard",
       "home page",
       "landing page",
-      "metrics",
+      "my dashboard",
+      "user dashboard",
+      "my work",
+      "assigned to me",
+      "watching",
+      "created by me",
+      "reported by me",
+      "recently updated",
+      "show completed",
       "summary",
-      "open tasks count",
-      "how many tasks",
-      "EIR",
-      "ECN",
-      "build request",
     ],
     searchText:
-      "The Dashboard shows big-number cards for My Open Tasks, All Open Tasks, EIRs, ECNs, and Build Requests, plus a status breakdown panel. Filter by Project Reference at the top scopes every metric. Click a card to open the List with that filter.",
+      "The Dashboard is your personal home page after sign-in. It lists the tasks and EIRs you're Assigned to, Watching, and Created or reported, plus a Recently updated feed of everything you're involved in. A compact stat row shows the counts. Completed tasks and closed EIRs are hidden by default; use Show completed to reveal them. Each row shows a Task/EIR badge and its status; click to open it.",
     render: () => (
       <>
-        <P>The home page after sign-in. Five big-number cards show open-work counts:</P>
+        <P>
+          The home page after sign-in is <strong>your</strong> dashboard — it
+          pulls together every task and EIR you're involved in, so you don't
+          have to go hunting across the List and EIRs views. A compact stat row
+          at the top shows how many items you're <strong>Assigned</strong> to,{" "}
+          <strong>Watching</strong>, and have <strong>Created</strong>.
+        </P>
+        <P>Below the stats, four sections list the items themselves:</P>
         <UL>
           <LI>
-            <strong>My Open Tasks</strong> — assigned to you and not Complete.
-            Click to open the List view with that filter.
+            <strong>Assigned to me</strong> — tasks where you're an assignee and
+            EIRs where you're an assigned engineer.
           </LI>
           <LI>
-            <strong>All Open Tasks</strong> — the team's active backlog. Click
-            to open the List view with all assignees.
+            <strong>Watching</strong> — tasks and EIRs you're on the Watchers
+            list for.
           </LI>
           <LI>
-            <strong>EIRs</strong> (Engineering Information Requests),{" "}
-            <strong>ECNs</strong> (Engineering Change Notices), and{" "}
-            <strong>Build Requests</strong> show mock counts today — those
-            SharePoint lists aren't wired up yet. They'll switch to real numbers
-            automatically once the lists exist.
+            <strong>Created / reported by me</strong> — tasks you created and
+            EIRs you created or are the reporter on.
+          </LI>
+          <LI>
+            <strong>Recently updated</strong> — everything you're involved in,
+            most-recently-changed first (a quick "what moved" feed).
           </LI>
         </UL>
         <P>
-          Below the cards is a <strong>Task status breakdown</strong> panel —
-          mini bars showing how your (or the team's) tasks are split across
-          statuses. Toggle <strong>Mine / Company</strong> in the panel header
-          to switch scope. Click any bar to jump to the List filtered to that
-          status.
-        </P>
-        <P>
-          The <strong>Filter by Project</strong> dropdown at the top of the
-          page scopes every number on the dashboard to a single project. Pick a
-          project and every card + the breakdown panel re-counts for it.
+          Each row carries a <strong>Task</strong> or <strong>EIR</strong> badge
+          and its current status; click any row to open it. By default the lists
+          hide finished work — tick <strong>Show completed</strong> in the top
+          right to include Complete tasks and Closed EIRs.
         </P>
       </>
     ),
@@ -1041,9 +1046,11 @@ const SECTIONS: ManualSection[] = [
       "change alert",
       "reassignment notification",
       "resolution change email",
+      "promoted to task email",
+      "promotion notification",
     ],
     searchText:
-      "Commenting on a task or EIR emails everyone watching it plus everyone you @-mention, from automation@altronic-llc.com. Mentioned people get a 'You were mentioned' email; other watchers get a 'New comment on' email. You're never emailed for your own comment unless you @-mention yourself. @-mentioning auto-adds the person as a watcher. Editing a comment emails only newly added mentions. Click Watch on the detail page to follow; click Watching to stop. Change alerts: changing a Status, an EIR Resolution, or the assignees emails the watchers, current assignees, and (for EIRs) the reporter. Being added as an assignee emails you 'You've been assigned'; being removed emails 'You've been unassigned'; everyone else gets a broadcast. You're never emailed for a change you made yourself.",
+      "Commenting on a task or EIR emails everyone watching it plus everyone you @-mention, from automation@altronic-llc.com. Mentioned people get a 'You were mentioned' email; other watchers get a 'New comment on' email. You're never emailed for your own comment unless you @-mention yourself. @-mentioning auto-adds the person as a watcher. Editing a comment emails only newly added mentions. Click Watch on the detail page to follow; click Watching to stop. Change alerts: changing a Status, an EIR Resolution, or the assignees emails the watchers, current assignees, and (for EIRs) the reporter. Being added as an assignee emails you 'You've been assigned'; being removed emails 'You've been unassigned'; everyone else gets a broadcast. Promoting an EIR to a task emails the EIR's watchers and reporter with a link to the new task. You're never emailed for a change you made yourself.",
     render: () => (
       <>
         <P>
@@ -1106,6 +1113,11 @@ const SECTIONS: ManualSection[] = [
               "Assignees change (for everyone else)",
               "Watchers + remaining assignees + reporter (minus you and the added/removed people)",
               "Assignees changed on …",
+            ],
+            [
+              "An EIR is promoted to a task",
+              "The EIR's watchers + reporter (minus you)",
+              "… was promoted to a task (the button opens the new task)",
             ],
             [
               "A task promoted from an EIR is completed",
@@ -1173,14 +1185,22 @@ const SECTIONS: ManualSection[] = [
           </LI>
         </UL>
 
+        <H3>Promoting an EIR to a task</H3>
+        <P>
+          When an EIR is <strong>promoted to a task</strong>, the EIR's{" "}
+          <strong>watchers</strong> and <strong>reporter</strong> get an email
+          (minus whoever did the promoting) with a button that opens the new
+          task. Later, when that task is completed, the same followers hear about
+          it again as the EIR is closed out.
+        </P>
+
         <H3>What does NOT send email</H3>
         <P>
           To keep inboxes sane, most edits are silent. No email is sent for{" "}
           <strong>description or part-detail text edits</strong>,{" "}
           <strong>priority</strong>, <strong>due date</strong>,{" "}
           <strong>category</strong>, <strong>labels</strong>, or{" "}
-          <strong>project reference</strong> changes. Promoting an EIR to a task
-          is also silent — the alert comes later, when that task is completed.
+          <strong>project reference</strong> changes.
         </P>
 
         <H3>Watching a task or EIR</H3>

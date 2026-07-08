@@ -30,6 +30,10 @@ const AMANDA = { displayName: "Amanda Hoagland", email: "amanda.hoagland@hoerbig
 const STEVEN = { displayName: "Steven Landreth", email: "steven.landreth@hoerbiger.com", lookupId: 178 };
 const FEMI = { displayName: "femi Olugbon", email: "femi.olugbon@hoerbiger.com", lookupId: 198 };
 const BRANDON = { displayName: "Brandon Mirto", email: "brandon.mirto@hoerbiger.com", lookupId: 215 };
+// The signed-in user in mock/demo mode (see useCurrentUser). Sprinkled onto a
+// few items below so the personalised User Dashboard has something to show in
+// the demo. In real mode the current user comes from MSAL and this is unused.
+const DEMO = { displayName: "Demo User", email: "demo.user@altronic-llc.com", lookupId: 999 };
 
 const MOCK_TASKS_RAW: Omit<Task, "author" | "eirReference">[] = [
   {
@@ -78,13 +82,13 @@ const MOCK_TASKS_RAW: Omit<Task, "author" | "eirReference">[] = [
     dueDate: null,
     createdAt: new Date("2025-12-16T13:08:00"),
     modifiedAt: new Date("2025-12-16T13:08:00"),
-    authorLookupId: 215,
+    authorLookupId: 999,
     editorLookupId: 122,
     parentProject: projectByName("0000-Engineering Apps"),
     relatedProjects: [projectByName("0003-Engineering Task List")],
     parentTask: null,
     childTasks: [],
-    assigned: [RAY],
+    assigned: [RAY, DEMO],
     watchers: [],
     comments: [],
     softwareRevision: "",
@@ -109,7 +113,7 @@ const MOCK_TASKS_RAW: Omit<Task, "author" | "eirReference">[] = [
     parentTask: null,
     childTasks: [],
     assigned: [RAY, CHANDANA],
-    watchers: [],
+    watchers: [DEMO],
     comments: [
       {
         timestamp: new Date("2025-10-29T11:48:00"),
@@ -402,7 +406,7 @@ const MOCK_TASKS_RAW: Omit<Task, "author" | "eirReference">[] = [
 // per-task literals tidy and means we don't have to repeat the same object
 // on each task. New mock people just need to be added to this map.
 const PEOPLE_BY_LOOKUP_ID = new Map(
-  [SARAH, RAY, THOMAS, CHANDANA, AMANDA, STEVEN, FEMI, BRANDON].map((p) => [p.lookupId, p]),
+  [SARAH, RAY, THOMAS, CHANDANA, AMANDA, STEVEN, FEMI, BRANDON, DEMO].map((p) => [p.lookupId, p]),
 );
 
 export const MOCK_TASKS: Task[] = MOCK_TASKS_RAW.map((t) => ({
@@ -500,8 +504,8 @@ export const MOCK_EIRS: Eir[] = [
     resolution: "Pending",
     requestedPriority: "High",
     reporter: SARAH,
-    assignedEngineers: [RAY, THOMAS],
-    watchers: [CHANDANA],
+    assignedEngineers: [RAY, THOMAS, DEMO],
+    watchers: [CHANDANA, DEMO],
     parentProjects: [projectByName("0017-AMP-5000 Refresh")],
     taskReference: "T115",
     engineeringResponse: "",
