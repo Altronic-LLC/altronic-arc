@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import {
   DndContext,
   DragOverlay,
@@ -13,10 +13,10 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { Info, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useProjects, useSetStatus, useTasks } from "@/hooks/useTasks";
 import { useFilters } from "@/hooks/useFilters";
-import { useIsPhone } from "@/hooks/useIsPhone";
+import { useKanbanAvailable } from "@/hooks/useIsPhone";
 import { STATUSES, type Status, type Task } from "@/types/task";
 import { FilterBar } from "@/components/FilterBar";
 import { LoadingTasks } from "@/components/LoadingTasks";
@@ -34,17 +34,14 @@ export function KanbanView() {
   const setStatus = useSetStatus();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [showNewTask, setShowNewTask] = useState(false);
-  const isPhone = useIsPhone();
+  // Kanban is only offered on tablets wider than an iPad mini. Below that we
+  // bounce to the List view (drag-and-drop isn't a good touch experience on a
+  // phone-sized screen).
+  const kanbanAvailable = useKanbanAvailable();
 
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: isPhone ? { distance: 999999 } : { distance: 6 },
-    }),
-    useSensor(TouchSensor, {
-      activationConstraint: isPhone
-        ? { delay: 999999, tolerance: 0 }
-        : { delay: 200, tolerance: 8 },
-    }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
   );
 
   // People for the Assigned / Created By dropdowns — drawn from the full
@@ -103,6 +100,11 @@ export function KanbanView() {
     }
   }
 
+  // Phones / small tablets: Kanban isn't offered — send them to the List.
+  if (!kanbanAvailable) {
+    return <Navigate to="/list" replace />;
+  }
+
   if (isLoading) {
     return <LoadingTasks noun="the board" />;
   }
@@ -128,16 +130,6 @@ export function KanbanView() {
 
       <FilterBar filters={filters} onChange={setFilters} projects={projects} people={people} />
 
-      {isPhone && (
-        <div className="flex items-start gap-2 rounded-md border border-border bg-surface-2/60 px-3 py-2 text-xs text-fg-muted">
-          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          <span>
-            Tap a card to open it, or use <strong>Move to…</strong> on a card to
-            change its status. Drag-and-drop is available on tablet and desktop.
-          </span>
-        </div>
-      )}
-
       <DndContext
         sensors={sensors}
         collisionDetection={closestCorners}
@@ -155,12 +147,6 @@ export function KanbanView() {
                 status={status}
                 tasks={tasksByStatus[status]}
                 onOpen={(id) => navigate(`/task/${id}`)}
-                dragDisabled={isPhone}
-                onMove={
-                  isPhone
-                    ? (id, next) => setStatus.mutate({ id, status: next })
-                    : undefined
-                }
               />
             ))}
           </div>
@@ -182,13 +168,10 @@ interface ColumnProps {
   status: Status;
   tasks: Task[];
   onOpen: (id: number) => void;
-  dragDisabled: boolean;
-  /** When set (mobile), each card gets a "Move to…" status dropdown. */
-  onMove?: (id: number, status: Status) => void;
 }
 
-function Column({ status, tasks, onOpen, dragDisabled, onMove }: ColumnProps) {
-  const { setNodeRef, isOver } = useDroppable({ id: status, disabled: dragDisabled });
+function Column({ status, tasks, onOpen }: ColumnProps) {
+  const { setNodeRef, isOver } = useDroppable({ id: status });
   return (
     <div className="flex w-72 shrink-0 flex-col sm:w-80">
       <div className="mb-3 flex items-center justify-between">
@@ -213,18 +196,12 @@ function Column({ status, tasks, onOpen, dragDisabled, onMove }: ColumnProps) {
       >
         <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
           {tasks.map((t) => (
-            <KanbanCard
-              key={t.id}
-              task={t}
-              onOpen={onOpen}
-              dragDisabled={dragDisabled}
-              onStatusChange={onMove ? (next) => onMove(t.id, next) : undefined}
-            />
+            <KanbanCard key={t.id} task={t} onOpen={onOpen} />
           ))}
         </SortableContext>
         {tasks.length === 0 && (
           <div className="flex flex-1 items-center justify-center text-xs text-fg-muted">
-            {dragDisabled ? "No tasks" : "Drop tasks here"}
+            Drop tasks here
           </div>
         )}
       </div>

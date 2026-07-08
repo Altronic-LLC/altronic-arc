@@ -32,6 +32,7 @@ import {
 import { cn } from "@/lib/cn";
 import { useTheme } from "@/hooks/useTheme";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useKanbanAvailable } from "@/hooks/useIsPhone";
 import { USE_MOCK } from "@/api/config";
 import { Brandmark } from "@/components/brand/Brandmark";
 import { Wordmark } from "@/components/brand/Wordmark";
@@ -133,6 +134,7 @@ export function Header() {
   const { theme, toggle } = useTheme();
   const { pathname } = useLocation();
   const isAdmin = useIsAdmin();
+  const kanbanAvailable = useKanbanAvailable();
 
   const isDashboard = pathname === "/";
   const isList = pathname.startsWith("/list");
@@ -192,9 +194,11 @@ export function Header() {
             <NavLink to="/list" active={isList} icon={<List className="h-4 w-4" />}>
               List
             </NavLink>
-            <NavLink to="/kanban" active={isKanban} icon={<LayoutGrid className="h-4 w-4" />}>
-              Kanban
-            </NavLink>
+            {kanbanAvailable && (
+              <NavLink to="/kanban" active={isKanban} icon={<LayoutGrid className="h-4 w-4" />}>
+                Kanban
+              </NavLink>
+            )}
           </nav>
         )}
 

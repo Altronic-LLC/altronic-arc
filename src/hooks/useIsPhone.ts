@@ -35,3 +35,38 @@ export function useIsPhone(): boolean {
 
   return isPhone;
 }
+
+// Kanban is only offered on tablets larger than an iPad mini (mini portrait is
+// 768px CSS wide; full-size iPads are 810px+). We require strictly wider than
+// 768 so phones and the iPad mini are excluded while regular iPads, iPad Air,
+// and Pro qualify. (Width-based, so an iPad mini rotated to landscape can slip
+// past — acceptable; the intent is "no Kanban on phones / the smallest tablet".)
+const KANBAN_MIN_WIDTH = 768;
+
+/**
+ * Returns true when the viewport is wide enough to use the Kanban board
+ * (wider than an iPad mini). Re-evaluates on resize / orientation change.
+ *
+ * SSR-safe: returns `true` on the server so the desktop-first render includes
+ * Kanban, then the resize listener corrects it on first paint if needed.
+ */
+export function useKanbanAvailable(): boolean {
+  const [available, setAvailable] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return window.innerWidth > KANBAN_MIN_WIDTH;
+  });
+
+  useEffect(() => {
+    function handleResize() {
+      setAvailable(window.innerWidth > KANBAN_MIN_WIDTH);
+    }
+    window.addEventListener("resize", handleResize);
+    window.addEventListener("orientationchange", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("orientationchange", handleResize);
+    };
+  }, []);
+
+  return available;
+}

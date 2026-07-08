@@ -2,7 +2,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { FolderOpen, ExternalLink } from "lucide-react";
 import { useEffect, useRef } from "react";
-import { STATUSES, type Status, type Task } from "@/types/task";
+import type { Task } from "@/types/task";
 import { cn } from "@/lib/cn";
 import {
   AttachmentIndicator,
@@ -22,19 +22,9 @@ interface KanbanCardProps {
    * a draggable. Used on phones where dragging across columns is awkward.
    */
   dragDisabled?: boolean;
-  /**
-   * When provided (and drag is disabled), the card shows a "Move to…" status
-   * dropdown so touch users can change status without dragging.
-   */
-  onStatusChange?: (status: Status) => void;
 }
 
-export function KanbanCard({
-  task,
-  onOpen,
-  dragDisabled = false,
-  onStatusChange,
-}: KanbanCardProps) {
+export function KanbanCard({ task, onOpen, dragDisabled = false }: KanbanCardProps) {
   // useSortable still has to be called unconditionally (rules of hooks),
   // but we pass `disabled` so dnd-kit knows not to wire up listeners.
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -154,35 +144,14 @@ export function KanbanCard({
 
   if (dragDisabled) {
     return (
-      <div
+      <button
         ref={mergeRefs}
         style={style}
-        className="w-full overflow-hidden rounded-lg border border-border bg-surface shadow-sm transition-all hover:border-fg-muted hover:shadow-md"
+        onClick={handleOpen}
+        className="block w-full rounded-lg border border-border bg-surface p-3 text-left shadow-sm transition-all hover:border-fg-muted hover:shadow-md active:scale-[0.99]"
       >
-        <button
-          onClick={handleOpen}
-          className="block w-full p-3 text-left active:scale-[0.99]"
-        >
-          {cardContent}
-        </button>
-        {onStatusChange && (
-          <label className="flex items-center gap-2 border-t border-border px-3 py-2 text-[11px] font-medium text-fg-muted">
-            <span className="shrink-0">Move to</span>
-            <select
-              value={task.status}
-              onClick={(e) => e.stopPropagation()}
-              onChange={(e) => onStatusChange(e.target.value as Status)}
-              className="min-w-0 flex-1 rounded-md border border-border bg-bg px-2 py-1 text-xs text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-            >
-              {STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-      </div>
+        {cardContent}
+      </button>
     );
   }
 

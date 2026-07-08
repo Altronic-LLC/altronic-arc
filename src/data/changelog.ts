@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.43.0",
+    date: "2026-07-08",
+    changes: [
+      "Kanban is now available only on tablets larger than an iPad mini and on desktop. On phones the Kanban option is hidden and any Kanban link opens the List view instead — the board needs more width than a phone offers. (This replaces the phone-only \"Move to…\" control from the previous update.)",
+    ],
+  },
+  {
     version: "0.42.0",
     date: "2026-07-08",
     changes: [

@@ -222,7 +222,7 @@ const SECTIONS: ManualSection[] = [
       "change status",
     ],
     searchText:
-      "The Kanban board groups tasks by status across six columns. Drag a card between columns to change status. On phones, drag is disabled — use the Move to… dropdown on each card to change its status, or tap to open.",
+      "The Kanban board groups tasks by status across six columns. Drag a card between columns to change status. Kanban is only available on tablets larger than an iPad mini and on desktop — on phones the Kanban option is hidden and links open the List view instead.",
     render: () => (
       <>
         <P>
@@ -232,11 +232,11 @@ const SECTIONS: ManualSection[] = [
         </P>
         <UL>
           <LI>
-            <strong>Drag a card</strong> across columns to change its status.
-            Works on desktop and tablet. On phones, drag is disabled to keep
-            horizontal scrolling smooth — instead, each card has a{" "}
-            <strong>Move to…</strong> dropdown to change its status right on the
-            board (or tap the card to open it).
+            <strong>Drag a card</strong> across columns to change its status —
+            works on desktop and tablets. <strong>Kanban isn't available on
+            phones</strong> (the board needs more width than a phone offers); on
+            a phone the Kanban option is hidden and any Kanban link opens the{" "}
+            <strong>List</strong> view instead.
           </LI>
           <LI>
             <strong>Click a card</strong> to open the task detail page.
@@ -1315,21 +1315,22 @@ const SECTIONS: ManualSection[] = [
       "theme",
     ],
     searchText:
-      "On phones, Kanban drag is disabled — use the Move to… dropdown on each card to change status, or tap a card to open it. Tablet and desktop work normally. Theme toggle (Sun / Moon) at the top-right switches light/dark and is remembered per browser.",
+      "On phones the Kanban board isn't available — use the List view to see and update tasks; Kanban links open the List instead. Kanban works on tablets larger than an iPad mini and on desktop. Theme toggle (Sun / Moon) at the top-right switches light/dark and is remembered per browser.",
     render: () => (
       <>
         <P>The app works on phones and tablets with a few intentional differences:</P>
         <UL>
           <LI>
-            <strong>Phone (&lt; 640 px)</strong> — Kanban drag is disabled to
-            keep horizontal scrolling smooth. Each card has a{" "}
-            <strong>Move to…</strong> status dropdown so you can still move work
-            across columns; tap a card to open it. Detail forms stack vertically
-            for readability.
+            <strong>Phone</strong> — the <strong>Kanban board isn't offered</strong>{" "}
+            (it needs more width than a phone has); the Kanban option is hidden
+            and Kanban links open the <strong>List</strong> view. Use the List to
+            see and update tasks. Detail forms stack vertically for readability.
           </LI>
           <LI>
-            <strong>Tablet / desktop</strong> — drag works normally. List view
-            shows full task rows; sidebar editor opens beside the description.
+            <strong>Tablet (larger than an iPad mini) / desktop</strong> — the
+            full Kanban board is available with drag-and-drop; the List view
+            shows full task rows and the sidebar editor opens beside the
+            description.
           </LI>
           <LI>
             <strong>Theme toggle</strong> at the top-right (Sun / Moon)
