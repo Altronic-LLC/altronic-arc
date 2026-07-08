@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.39.0",
+    date: "2026-07-08",
+    changes: [
+      "The dashboard is now organised by work type: one card each for Tasks, EIRs, and Test Sheets, each showing its count of active items, a colour-coded status mini-bar, and a click-through to that type's page.",
+      "Work types that aren't wired up yet — Build Requests, ECNs, Operational Tasks, and Maintenance Tasks — show as dimmed \"Coming soon\" placeholder cards so the shape of the platform is visible before the data exists.",
+    ],
+  },
+  {
     version: "0.38.1",
     date: "2026-07-08",
     changes: [

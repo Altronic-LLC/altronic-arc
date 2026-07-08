@@ -78,51 +78,50 @@ const SECTIONS: ManualSection[] = [
       "dashboard",
       "home page",
       "landing page",
-      "my dashboard",
-      "user dashboard",
-      "my work",
-      "assigned to me",
-      "watching",
-      "created by me",
-      "reported by me",
-      "recently updated",
-      "show completed",
-      "summary",
+      "cards",
+      "counts",
+      "active items",
+      "tasks card",
+      "eirs card",
+      "test sheets card",
+      "build requests",
+      "ecns",
+      "operational tasks",
+      "maintenance tasks",
+      "coming soon",
+      "placeholder",
     ],
     searchText:
-      "The Dashboard is your personal home page after sign-in. Count cards summarise the tasks and EIRs you're Assigned to, Watching, and Created or reported, plus how many of your items were Updated this week. Each card shows the total with a task/EIR split. Completed tasks and closed EIRs are excluded by default; use Show completed to include them. The Assigned and Created cards click through to your filtered task list.",
+      "The Dashboard shows one card per work type — Tasks, EIRs, Test Sheets, and placeholders for Build Requests, ECNs, Operational Tasks, and Maintenance Tasks. Each wired card shows the count of active items (tasks not Complete, EIRs not Closed), a status mini-bar, and clicks through to that type's page. Placeholder cards are marked Coming soon until their SharePoint list is wired up.",
     render: () => (
       <>
         <P>
-          The home page after sign-in is <strong>your</strong> dashboard — count
-          cards that summarise the work you're involved in across both tasks and
-          EIRs, so you don't have to go hunting across the List and EIRs views.
+          The home page after sign-in gives you one <strong>card per work
+          type</strong>. Each live card shows the count of{" "}
+          <strong>active items</strong> for that type, a colour-coded status
+          mini-bar, and clicks through to that type's page.
         </P>
         <UL>
           <LI>
-            <strong>Assigned to me</strong> — tasks where you're an assignee plus
-            EIRs where you're an assigned engineer.
+            <strong>Tasks</strong> — tasks that aren't Complete. Opens the Task
+            List. The mini-bar splits the active tasks by status.
           </LI>
           <LI>
-            <strong>Watching</strong> — tasks and EIRs you're on the Watchers
-            list for.
+            <strong>EIRs</strong> — EIRs that aren't Closed. Opens the EIRs list,
+            with a status mini-bar.
           </LI>
           <LI>
-            <strong>Created / reported</strong> — tasks you created plus EIRs you
-            created or are the reporter on.
-          </LI>
-          <LI>
-            <strong>Updated this week</strong> — how many of your items changed in
-            the last 7 days.
+            <strong>Test Sheets</strong> — total test records. Opens the Test
+            Sheets list.
           </LI>
         </UL>
         <P>
-          Each card shows the total with a <strong>task / EIR split</strong>
-          underneath. The <strong>Assigned to me</strong> and{" "}
-          <strong>Created / reported</strong> cards click through to your task
-          list filtered accordingly. By default the counts exclude finished work
-          — tick <strong>Show completed</strong> in the top right to include
-          Complete tasks and Closed EIRs.
+          Types whose SharePoint list isn't built yet —{" "}
+          <strong>Build Requests</strong>, <strong>ECNs</strong>,{" "}
+          <strong>Operational Tasks</strong>, and{" "}
+          <strong>Maintenance Tasks</strong> — appear as dimmed{" "}
+          <strong>Coming soon</strong> placeholders. They'll light up with live
+          counts as each department comes online.
         </P>
       </>
     ),
