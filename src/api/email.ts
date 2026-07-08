@@ -2,6 +2,12 @@ import { graphFetch } from "./graph";
 import { SHARED_MAILBOX, USE_MOCK } from "./config";
 import type { CommentAttachment, Person } from "@/types/task";
 import { appItemUrl } from "@/lib/appUrl";
+import {
+  buildAssigneeChangeEmails,
+  buildFieldChangeEmails,
+  type ChangeEmail,
+  type ChangeTarget,
+} from "@/lib/changeAlerts";
 
 // =============================================================================
 // Email notifications via Microsoft Graph sendMail.
@@ -193,6 +199,103 @@ function itemUrl(kind: "task" | "eir", id: number): string {
   return appItemUrl(kind, id);
 }
 
+// =============================================================================
+// Change alerts — status / EIR-resolution / assignee changes.
+//
+// Same delivery path as mentions (shared mailbox, mock-logs in demo). The
+// recipient math + wording is built in src/lib/changeAlerts.ts; here we just
+// render + send. The `fire*` wrappers are the convenience entry points the
+// mutation hooks call in onSuccess (fire-and-forget).
+// =============================================================================
+
+/** Send a batch of pre-built change-alert emails for one item. Best-effort. */
+export async function notifyChangeEmails(input: {
+  target: ChangeTarget;
+  emails: ChangeEmail[];
+}): Promise<void> {
+  const emails = input.emails.filter((e) => !!e.email);
+  if (emails.length === 0) return;
+
+  if (USE_MOCK) {
+    // eslint-disable-next-line no-console
+    console.info("[email mock] change alerts:", {
+      from: SHARED_MAILBOX ?? "(no shared mailbox configured)",
+      kind: input.target.kind,
+      item: input.target.title,
+      url: appItemUrl(input.target.kind, input.target.id),
+      to: emails.map((e) => ({ email: e.email, subject: e.subject })),
+    });
+    return;
+  }
+
+  if (!SHARED_MAILBOX) {
+    console.warn(
+      "[email] VITE_SHARED_MAILBOX is not set — skipping change-alert emails. " +
+        "Set it to a mailbox that the signed-in user has Send-As permission on.",
+    );
+    return;
+  }
+
+  const url = appItemUrl(input.target.kind, input.target.id);
+  for (const e of emails) {
+    try {
+      const bodyHtml = renderChangeEmail({
+        recipientName: e.displayName,
+        headlineHtml: e.headlineHtml,
+        detailHtml: e.detailHtml,
+        kind: input.target.kind,
+        itemTitle: input.target.title,
+        url,
+      });
+      const message = {
+        subject: e.subject,
+        body: { contentType: "HTML", content: bodyHtml },
+        toRecipients: [{ emailAddress: { address: e.email, name: e.displayName } }],
+      };
+      await graphFetch(`/users/${encodeURIComponent(SHARED_MAILBOX)}/sendMail`, {
+        method: "POST",
+        body: JSON.stringify({ message, saveToSentItems: false }),
+      });
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error(`[email] Failed to send change alert to ${e.email}:`, err);
+    }
+  }
+}
+
+/**
+ * Fire-and-forget alert for a single-value field change (Status / Resolution).
+ * No-ops silently when the value didn't change or nobody needs notifying.
+ */
+export function fireFieldChangeAlert(args: {
+  target: ChangeTarget;
+  fieldLabel: string;
+  from: string;
+  to: string;
+  actor: Person;
+  watchers: Person[];
+  assignees: Person[];
+  reporter?: Person | null;
+}): void {
+  const emails = buildFieldChangeEmails(args);
+  if (emails.length === 0) return;
+  void notifyChangeEmails({ target: args.target, emails });
+}
+
+/** Fire-and-forget alert for an assignee change (added / removed / broadcast). */
+export function fireAssigneeChangeAlert(args: {
+  target: ChangeTarget;
+  prev: Person[];
+  next: Person[];
+  actor: Person;
+  watchers: Person[];
+  reporter?: Person | null;
+}): void {
+  const emails = buildAssigneeChangeEmails(args);
+  if (emails.length === 0) return;
+  void notifyChangeEmails({ target: args.target, emails });
+}
+
 interface MentionEmailContext {
   recipientName: string;
   senderName: string;
@@ -204,8 +307,8 @@ interface MentionEmailContext {
 }
 
 /**
- * Build the full HTML email body. Table-based layout with inline styles only,
- * so Outlook (which ignores most modern CSS) renders cleanly.
+ * Shared branded email shell. Table-based layout with inline styles only, so
+ * Outlook (which ignores most modern CSS) renders cleanly.
  *
  * The header bar uses Cooper Red (`#CB2C30`) with the ARC wordmark in white.
  * Red is deliberate: a near-black header gets remapped to a muddy grey by
@@ -213,22 +316,28 @@ interface MentionEmailContext {
  * both light and dark. The same red drives the call-to-action button. The
  * wordmark is styled text (not an image) so it renders identically everywhere
  * without blocked-image problems.
+ *
+ * `introHtml` and `messageHtml` are TRUSTED HTML — callers must escape any
+ * dynamic content they interpolate. `recipientName`, `calloutTitle`, and
+ * `url` are escaped here.
  */
-function renderMentionEmail(ctx: MentionEmailContext): string {
+function renderEmailShell(ctx: {
+  recipientName: string;
+  introHtml: string;
+  calloutLabel: string;
+  calloutTitle: string;
+  messageHtml?: string;
+  buttonText: string;
+  url: string;
+}): string {
   const recipient = escapeHtml(ctx.recipientName);
-  const sender = escapeHtml(ctx.senderName);
-  const itemTitle = escapeHtml(ctx.itemTitle);
-  const excerpt = escapeHtml(ctx.commentExcerpt).replace(/\n/g, "<br/>");
+  const calloutTitle = escapeHtml(ctx.calloutTitle);
   const url = escapeHtml(ctx.url);
-
-  const isEir = ctx.kind === "eir";
-  const phrase = isEir ? "an EIR" : "a task";
-  const calloutLabel = isEir ? "EIR" : "Task";
-  const buttonText = isEir ? "Open this EIR" : "Open this task";
-  const intro =
-    ctx.reason === "mentioned"
-      ? `You were mentioned in ${phrase} by <strong>${sender}</strong>.`
-      : `<strong>${sender}</strong> commented on ${phrase} you're watching.`;
+  const messageBlock = ctx.messageHtml
+    ? `<div style="margin:0 0 22px 0;padding:14px 16px;background:#ffffff;border:1px solid #e5e7eb;border-radius:6px;color:#374151;">
+              ${ctx.messageHtml}
+            </div>`
+    : "";
 
   return `
 <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#f3f4f6;padding:24px 12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
@@ -245,14 +354,12 @@ function renderMentionEmail(ctx: MentionEmailContext): string {
         <tr>
           <td style="padding:28px 28px 8px 28px;color:#111827;font-size:15px;line-height:1.55;">
             <p style="margin:0 0 14px 0;font-size:16px;">Hello <strong>${recipient}</strong>,</p>
-            <p style="margin:0 0 18px 0;">${intro}</p>
+            <p style="margin:0 0 18px 0;">${ctx.introHtml}</p>
             <div style="margin:0 0 18px 0;padding:14px 16px;background:#f9fafb;border-left:3px solid #CB2C30;border-radius:0 6px 6px 0;">
-              <div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">${calloutLabel}</div>
-              <div style="font-weight:600;color:#111827;">${itemTitle}</div>
+              <div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">${escapeHtml(ctx.calloutLabel)}</div>
+              <div style="font-weight:600;color:#111827;">${calloutTitle}</div>
             </div>
-            <div style="margin:0 0 22px 0;padding:14px 16px;background:#ffffff;border:1px solid #e5e7eb;border-radius:6px;color:#374151;">
-              ${excerpt || "<em style=\"color:#9ca3af;\">(no message body)</em>"}
-            </div>
+            ${messageBlock}
           </td>
         </tr>
         <tr>
@@ -260,7 +367,7 @@ function renderMentionEmail(ctx: MentionEmailContext): string {
             <table role="presentation" cellspacing="0" cellpadding="0" border="0">
               <tr>
                 <td align="center" style="background:#CB2C30;border-radius:6px;">
-                  <a href="${url}" style="display:inline-block;padding:12px 28px;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;letter-spacing:0.01em;">${buttonText}</a>
+                  <a href="${url}" style="display:inline-block;padding:12px 28px;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;letter-spacing:0.01em;">${ctx.buttonText}</a>
                 </td>
               </tr>
             </table>
@@ -275,6 +382,48 @@ function renderMentionEmail(ctx: MentionEmailContext): string {
     </td>
   </tr>
 </table>`.trim();
+}
+
+/** Build the @-mention / watching comment email body from the shared shell. */
+function renderMentionEmail(ctx: MentionEmailContext): string {
+  const sender = escapeHtml(ctx.senderName);
+  const excerpt = escapeHtml(ctx.commentExcerpt).replace(/\n/g, "<br/>");
+  const isEir = ctx.kind === "eir";
+  const phrase = isEir ? "an EIR" : "a task";
+  const intro =
+    ctx.reason === "mentioned"
+      ? `You were mentioned in ${phrase} by <strong>${sender}</strong>.`
+      : `<strong>${sender}</strong> commented on ${phrase} you're watching.`;
+
+  return renderEmailShell({
+    recipientName: ctx.recipientName,
+    introHtml: intro,
+    calloutLabel: isEir ? "EIR" : "Task",
+    calloutTitle: ctx.itemTitle,
+    messageHtml: excerpt || '<em style="color:#9ca3af;">(no message body)</em>',
+    buttonText: isEir ? "Open this EIR" : "Open this task",
+    url: ctx.url,
+  });
+}
+
+/** Build a change-alert email body (status / resolution / assignee) via the shell. */
+function renderChangeEmail(ctx: {
+  recipientName: string;
+  headlineHtml: string;
+  detailHtml?: string;
+  kind: "task" | "eir";
+  itemTitle: string;
+  url: string;
+}): string {
+  return renderEmailShell({
+    recipientName: ctx.recipientName,
+    introHtml: ctx.headlineHtml,
+    calloutLabel: ctx.kind === "eir" ? "EIR" : "Task",
+    calloutTitle: ctx.itemTitle,
+    messageHtml: ctx.detailHtml,
+    buttonText: ctx.kind === "eir" ? "Open this EIR" : "Open this task",
+    url: ctx.url,
+  });
 }
 
 function escapeHtml(s: string): string {

@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.37.0",
+    date: "2026-07-08",
+    changes: [
+      "Tasks and EIRs now send change alerts by email: changing a Status, an EIR's Resolution, or the assignees notifies the watchers, current assignees, and (for EIRs) the reporter — so people stay in the loop without watching the whole thread.",
+      "Assignment emails are personal: the person added gets a \"You've been assigned\" note, the person removed gets a \"You've been unassigned\" note, and everyone else watching gets a short \"assignees changed\" summary of who was added or removed.",
+      "Status / Resolution alerts spell out the change (\"changed from X to Y\") and who made it. You're never emailed about a change you made yourself.",
+    ],
+  },
+  {
     version: "0.36.1",
     date: "2026-07-08",
     changes: [

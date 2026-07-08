@@ -31,8 +31,9 @@ import type {
 } from "@/types/task";
 import { CATEGORIES, LABELS, PRIORITIES, STATUSES } from "@/types/task";
 import { pushToast } from "@/components/Toast";
-import { notifyMentions } from "@/api/email";
+import { fireAssigneeChangeAlert, fireFieldChangeAlert, notifyMentions } from "@/api/email";
 import { commentNotifyRecipients, extractMentionedRecipients } from "@/lib/mentions";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 const TASK_LIST_KEY = ["tasks", "list"] as const;
 const PROJECTS_KEY = ["projects"] as const;
@@ -168,6 +169,7 @@ function errorToast(message: string) {
 
 export function useSetStatus() {
   const qc = useQueryClient();
+  const actor = useCurrentUser();
   return useMutation({
     mutationFn: ({ id, status }: { id: number; status: Status }) => setTaskStatus(id, status),
     onMutate: ({ id, status }) =>
@@ -181,6 +183,17 @@ export function useSetStatus() {
             ? buildUndo(qc, ctx?.previous, () => setTaskStatus(id, prev))
             : undefined,
       });
+      if (ctx?.prevTask && prev) {
+        fireFieldChangeAlert({
+          target: { kind: "task", id, title: ctx.prevTask.numberedTitle || ctx.prevTask.title },
+          fieldLabel: "status",
+          from: prev,
+          to: status,
+          actor,
+          watchers: ctx.prevTask.watchers,
+          assignees: ctx.prevTask.assigned,
+        });
+      }
     },
     onError: (_err, _vars, ctx) => {
       rollback(qc, ctx);
@@ -192,6 +205,7 @@ export function useSetStatus() {
 
 export function useUpdateTaskFields() {
   const qc = useQueryClient();
+  const actor = useCurrentUser();
   return useMutation({
     mutationFn: ({ id, fields }: { id: number; fields: Record<string, unknown> }) =>
       updateTaskFields(id, fields),
@@ -206,6 +220,20 @@ export function useUpdateTaskFields() {
             ? buildUndo(qc, ctx?.previous, () => updateTaskFields(id, prevFields))
             : undefined,
       });
+      // Status is the only notify-worthy field routed through updateTaskFields
+      // (the detail view's Status dropdown). Assignment goes through
+      // useSetAssigned; other fields here (priority, due date, …) don't alert.
+      if ("Status" in fields && ctx?.prevTask) {
+        fireFieldChangeAlert({
+          target: { kind: "task", id, title: ctx.prevTask.numberedTitle || ctx.prevTask.title },
+          fieldLabel: "status",
+          from: ctx.prevTask.status,
+          to: String(fields.Status ?? ""),
+          actor,
+          watchers: ctx.prevTask.watchers,
+          assignees: ctx.prevTask.assigned,
+        });
+      }
     },
     onError: (_err, _vars, ctx) => {
       rollback(qc, ctx);
@@ -317,6 +345,7 @@ export function useSetRelatedProjects() {
 
 export function useSetAssigned() {
   const qc = useQueryClient();
+  const actor = useCurrentUser();
   return useMutation({
     mutationFn: ({ id, people }: { id: number; people: Person[] }) => setAssigned(id, people),
     onMutate: ({ id, people }) =>
@@ -325,12 +354,21 @@ export function useSetAssigned() {
         id,
         patchTask(id, (t) => ({ ...t, assigned: people, modifiedAt: new Date() })),
       ),
-    onSuccess: (_data, { id }, ctx) => {
+    onSuccess: (_data, { id, people }, ctx) => {
       const prev = ctx?.prevTask?.assigned ?? [];
       pushToast({
         message: "Assignees updated.",
         undo: buildUndo(qc, ctx?.previous, () => setAssigned(id, prev)),
       });
+      if (ctx?.prevTask) {
+        fireAssigneeChangeAlert({
+          target: { kind: "task", id, title: ctx.prevTask.numberedTitle || ctx.prevTask.title },
+          prev,
+          next: people,
+          actor,
+          watchers: ctx.prevTask.watchers,
+        });
+      }
     },
     onError: (_err, _vars, ctx) => {
       rollback(qc, ctx);

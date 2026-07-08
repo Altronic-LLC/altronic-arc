@@ -1034,9 +1034,16 @@ const SECTIONS: ManualSection[] = [
       "watcher email",
       "self mention",
       "why did i get an email",
+      "status change email",
+      "assigned email",
+      "you've been assigned",
+      "reassigned",
+      "change alert",
+      "reassignment notification",
+      "resolution change email",
     ],
     searchText:
-      "Commenting on a task or EIR emails everyone watching it plus everyone you @-mention, from automation@altronic-llc.com. Mentioned people get a 'You were mentioned' email; other watchers get a 'New comment on' email. You're never emailed for your own comment unless you @-mention yourself. @-mentioning auto-adds the person as a watcher. Editing a comment emails only newly added mentions. Click Watch on the detail page to follow; click Watching to stop.",
+      "Commenting on a task or EIR emails everyone watching it plus everyone you @-mention, from automation@altronic-llc.com. Mentioned people get a 'You were mentioned' email; other watchers get a 'New comment on' email. You're never emailed for your own comment unless you @-mention yourself. @-mentioning auto-adds the person as a watcher. Editing a comment emails only newly added mentions. Click Watch on the detail page to follow; click Watching to stop. Change alerts: changing a Status, an EIR Resolution, or the assignees emails the watchers, current assignees, and (for EIRs) the reporter. Being added as an assignee emails you 'You've been assigned'; being removed emails 'You've been unassigned'; everyone else gets a broadcast. You're never emailed for a change you made yourself.",
     render: () => (
       <>
         <H3>Email on comments</H3>
@@ -1065,6 +1072,30 @@ const SECTIONS: ManualSection[] = [
         <P>
           Editing a comment to add a NEW mention emails just that new person —
           existing mentions and other watchers aren't re-notified.
+        </P>
+        <H3>Email on changes</H3>
+        <P>
+          Key changes to a task or EIR also send an alert (from the same{" "}
+          <strong>automation@altronic-llc.com</strong> mailbox) to everyone who
+          cares — <strong>watchers</strong>, <strong>current assignees</strong>,
+          and, for EIRs, the <strong>reporter</strong>. You're{" "}
+          <strong>never emailed for a change you made yourself</strong>.
+        </P>
+        <UL>
+          <LI>
+            <strong>Status</strong> (task or EIR) and <strong>EIR Resolution</strong>{" "}
+            changes send a "changed from X to Y by <em>you</em>" alert.
+          </LI>
+          <LI>
+            <strong>Assignee</strong> changes: the person added gets a personal{" "}
+            "You've been assigned"; the person removed gets "You've been
+            unassigned"; everyone else watching gets a broadcast naming who was
+            added/removed.
+          </LI>
+        </UL>
+        <P>
+          Text edits (description, part details, etc.) and fields like priority
+          or due date don't send alerts — only the changes above do.
         </P>
         <H3>Watching a task or EIR</H3>
         <P>

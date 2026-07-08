@@ -23,9 +23,10 @@ import type {
 import { pushToast } from "@/components/Toast";
 import { multiLookupField } from "@/lib/graphFields";
 import { commentNotifyRecipients, extractMentionedRecipients } from "@/lib/mentions";
-import { notifyMentions } from "@/api/email";
+import { fireAssigneeChangeAlert, fireFieldChangeAlert, notifyMentions } from "@/api/email";
 import { buildPromotedCommunication } from "@/lib/eirPromotion";
 import { appItemUrl } from "@/lib/appUrl";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 const EIRS_KEY = ["eirs", "list"] as const;
 
@@ -171,6 +172,7 @@ export function usePromoteEirToTask() {
 
 export function useUpdateEirFields() {
   const qc = useQueryClient();
+  const actor = useCurrentUser();
   return useMutation({
     mutationFn: ({ id, fields }: { id: number; fields: Record<string, unknown> }) =>
       updateEirFields(id, fields),
@@ -185,6 +187,41 @@ export function useUpdateEirFields() {
             ? buildUndo(qc, ctx?.previous, () => updateEirFields(id, inverse))
             : undefined,
       });
+      // Status + Resolution are the notify-worthy EIR field changes. Both may
+      // change in one update (e.g. completing a linked task closes the EIR),
+      // so fire each independently. Recipients = watchers + assigned engineers
+      // + reporter, minus the actor.
+      if (ctx?.prevEir) {
+        const target = {
+          kind: "eir" as const,
+          id,
+          title: eirTargetTitle(ctx.prevEir),
+        };
+        const recipients = {
+          actor,
+          watchers: ctx.prevEir.watchers,
+          assignees: ctx.prevEir.assignedEngineers,
+          reporter: ctx.prevEir.reporter,
+        };
+        if ("Status" in fields) {
+          fireFieldChangeAlert({
+            target,
+            fieldLabel: "status",
+            from: ctx.prevEir.status,
+            to: String(fields.Status ?? ""),
+            ...recipients,
+          });
+        }
+        if ("Resolution" in fields) {
+          fireFieldChangeAlert({
+            target,
+            fieldLabel: "resolution",
+            from: ctx.prevEir.resolution,
+            to: String(fields.Resolution ?? ""),
+            ...recipients,
+          });
+        }
+      }
     },
     onError: (err, _vars, ctx) => {
       rollback(qc, ctx);
@@ -226,17 +263,28 @@ export function useSetEirReporter() {
 
 export function useSetEirAssignedEngineers() {
   const qc = useQueryClient();
+  const actor = useCurrentUser();
   return useMutation({
     mutationFn: ({ id, people }: { id: number; people: Person[] }) =>
       setEirAssignedEngineers(id, people),
     onMutate: ({ id, people }) =>
       snapshotAndPatch(qc, id, patchEir(id, (e) => ({ ...e, assignedEngineers: people, modifiedAt: new Date() }))),
-    onSuccess: (_d, { id }, ctx) => {
+    onSuccess: (_d, { id, people }, ctx) => {
       const prev = ctx?.prevEir?.assignedEngineers ?? [];
       pushToast({
         message: "Assigned engineers updated.",
         undo: buildUndo(qc, ctx?.previous, () => setEirAssignedEngineers(id, prev)),
       });
+      if (ctx?.prevEir) {
+        fireAssigneeChangeAlert({
+          target: { kind: "eir", id, title: eirTargetTitle(ctx.prevEir) },
+          prev,
+          next: people,
+          actor,
+          watchers: ctx.prevEir.watchers,
+          reporter: ctx.prevEir.reporter,
+        });
+      }
     },
     onError: (_err, _vars, ctx) => {
       rollback(qc, ctx);
@@ -439,6 +487,11 @@ export function useEditEirComment() {
 // =============================================================================
 // Helpers
 // =============================================================================
+
+/** Human-readable EIR label for email subjects/callouts ("EIR_2026-0042 — Title"). */
+function eirTargetTitle(e: Eir): string {
+  return [e.eirNo, e.title].filter(Boolean).join(" — ") || e.title;
+}
 
 /** Strip a comment's HTML to a plain-text excerpt for the notification email. */
 function eirCommentExcerpt(html: string): string {
