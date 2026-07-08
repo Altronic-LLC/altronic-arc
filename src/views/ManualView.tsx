@@ -1046,67 +1046,159 @@ const SECTIONS: ManualSection[] = [
       "Commenting on a task or EIR emails everyone watching it plus everyone you @-mention, from automation@altronic-llc.com. Mentioned people get a 'You were mentioned' email; other watchers get a 'New comment on' email. You're never emailed for your own comment unless you @-mention yourself. @-mentioning auto-adds the person as a watcher. Editing a comment emails only newly added mentions. Click Watch on the detail page to follow; click Watching to stop. Change alerts: changing a Status, an EIR Resolution, or the assignees emails the watchers, current assignees, and (for EIRs) the reporter. Being added as an assignee emails you 'You've been assigned'; being removed emails 'You've been unassigned'; everyone else gets a broadcast. You're never emailed for a change you made yourself.",
     render: () => (
       <>
-        <H3>Email on comments</H3>
         <P>
-          Posting a comment on a task or EIR emails{" "}
-          <strong>everyone watching it</strong> plus{" "}
-          <strong>everyone you @-mention</strong>. Mail comes from{" "}
-          <strong>automation@altronic-llc.com</strong> with the item's name, the
-          comment quoted, and a button to open it. Any attachments you added ride
-          along as email attachments.
+          ARC emails come from <strong>automation@altronic-llc.com</strong>, and
+          every one names the task or EIR and carries a button to open it. Two
+          rules hold across <em>all</em> of them:
+        </P>
+        <UL>
+          <LI>
+            You are <strong>never emailed about your own action</strong> — even
+            if you're a watcher or assignee — with the single exception of
+            @-mentioning yourself.
+          </LI>
+          <LI>
+            Recipients are <strong>deduped</strong>: you get at most one email
+            per event, and the most specific message wins (a mention beats a
+            watcher notice; a personal "assigned" note beats the broadcast).
+          </LI>
+        </UL>
+
+        <H3>Every alert at a glance</H3>
+        <AlertTable
+          rows={[
+            [
+              "You comment (no mention)",
+              "Everyone watching the item (minus you)",
+              "New comment on …",
+            ],
+            [
+              "You @-mention someone in a comment",
+              "The mentioned person (other watchers still get the comment email)",
+              "You were mentioned in …",
+            ],
+            [
+              "You edit a comment to add a new @-mention",
+              "Only the newly added person",
+              "You were mentioned in …",
+            ],
+            [
+              "Status changes (task or EIR)",
+              "Watchers + current assignees + EIR reporter (minus you)",
+              "Status changed on …",
+            ],
+            [
+              "EIR Resolution changes",
+              "Watchers + assignees + reporter (minus you)",
+              "Resolution changed on …",
+            ],
+            [
+              "Someone is added as an assignee",
+              "The person added",
+              "You've been assigned to …",
+            ],
+            [
+              "Someone is removed as an assignee",
+              "The person removed",
+              "You've been unassigned from …",
+            ],
+            [
+              "Assignees change (for everyone else)",
+              "Watchers + remaining assignees + reporter (minus you and the added/removed people)",
+              "Assignees changed on …",
+            ],
+            [
+              "A task promoted from an EIR is completed",
+              "The EIR's watchers + assignees + reporter",
+              "Status changed on … + Resolution changed on … (the EIR is set Closed / Resolved)",
+            ],
+          ]}
+        />
+
+        <H3>Comments &amp; @-mentions</H3>
+        <P>
+          Posting a comment emails <strong>everyone watching</strong> the item
+          plus <strong>everyone you @-mention</strong>. The mail quotes the
+          comment and carries along any files you attached.
         </P>
         <UL>
           <LI>
             People you <strong>@-mention</strong> get a "You were mentioned"
-            email.
+            email; other <strong>watchers</strong> get a "New comment on…" email.
           </LI>
           <LI>
-            Other <strong>watchers</strong> get a "New comment on…" email.
+            <strong>@-mentioning someone auto-adds them as a watcher</strong>, so
+            they stay on the thread for future comments.
           </LI>
           <LI>
-            You are <strong>never emailed for your own comment</strong> — even if
-            you're a watcher — <em>unless</em> you @-mention yourself (handy as a
-            personal reminder).
+            You are <strong>never emailed for your own comment</strong> —{" "}
+            <em>unless</em> you @-mention yourself (handy as a personal reminder).
+          </LI>
+          <LI>
+            Editing a comment to add a <strong>new</strong> mention emails just
+            that new person — existing mentions and other watchers aren't
+            re-notified.
           </LI>
         </UL>
+
+        <H3>Status &amp; resolution changes</H3>
         <P>
-          Editing a comment to add a NEW mention emails just that new person —
-          existing mentions and other watchers aren't re-notified.
+          Changing a task's or EIR's <strong>Status</strong>, or an EIR's{" "}
+          <strong>Resolution</strong>, alerts everyone who cares —{" "}
+          <strong>watchers</strong>, <strong>current assignees</strong>, and, for
+          EIRs, the <strong>reporter</strong>. The email spells out the change
+          (e.g. <em>"In Progress → Complete"</em>) and who made it. Completing a
+          task that was promoted from an EIR closes that EIR (Resolved &amp;
+          Closed), which alerts the EIR's followers too.
         </P>
-        <H3>Email on changes</H3>
+
+        <H3>Assignee changes</H3>
         <P>
-          Key changes to a task or EIR also send an alert (from the same{" "}
-          <strong>automation@altronic-llc.com</strong> mailbox) to everyone who
-          cares — <strong>watchers</strong>, <strong>current assignees</strong>,
-          and, for EIRs, the <strong>reporter</strong>. You're{" "}
-          <strong>never emailed for a change you made yourself</strong>.
+          When assignees change, the affected people get a{" "}
+          <strong>personal</strong> note and everyone else gets a{" "}
+          <strong>broadcast</strong>:
         </P>
         <UL>
           <LI>
-            <strong>Status</strong> (task or EIR) and <strong>EIR Resolution</strong>{" "}
-            changes send a "changed from X to Y by <em>you</em>" alert.
+            The person <strong>added</strong> → "You've been assigned to …".
           </LI>
           <LI>
-            <strong>Assignee</strong> changes: the person added gets a personal{" "}
-            "You've been assigned"; the person removed gets "You've been
-            unassigned"; everyone else watching gets a broadcast naming who was
-            added/removed.
+            The person <strong>removed</strong> → "You've been unassigned from
+            …".
+          </LI>
+          <LI>
+            Watchers, other assignees, and the EIR reporter → "Assignees changed
+            on …", naming who was added and removed. (People who already got a
+            personal note aren't sent this too.)
           </LI>
         </UL>
+
+        <H3>What does NOT send email</H3>
         <P>
-          Text edits (description, part details, etc.) and fields like priority
-          or due date don't send alerts — only the changes above do.
+          To keep inboxes sane, most edits are silent. No email is sent for{" "}
+          <strong>description or part-detail text edits</strong>,{" "}
+          <strong>priority</strong>, <strong>due date</strong>,{" "}
+          <strong>category</strong>, <strong>labels</strong>, or{" "}
+          <strong>project reference</strong> changes. Promoting an EIR to a task
+          is also silent — the alert comes later, when that task is completed.
         </P>
+
         <H3>Watching a task or EIR</H3>
         <P>
           On a <strong>task</strong>, click <strong>Watch</strong> on the detail
           page to add yourself (it toggles to <strong>Watching</strong> — click
           again to stop). On an <strong>EIR</strong>, add or remove yourself via
-          the <strong>Watchers</strong> field in the detail sidebar. Either way,
-          watchers get an email on every new comment — and{" "}
+          the <strong>Watchers</strong> field in the detail sidebar. Watchers get
+          comment emails and all the change alerts above, and{" "}
           <strong>@-mentioning someone adds them as a watcher</strong>{" "}
           automatically.
         </P>
+
+        <Tip>
+          Assignees and (for EIRs) the reporter are alerted on status/resolution
+          and assignment changes whether or not they're watching — so you don't
+          have to watch an item you're already responsible for.
+        </Tip>
       </>
     ),
   },
@@ -1544,6 +1636,38 @@ function Tip({ children }: { children: React.ReactNode }) {
   return (
     <div className="rounded-md border border-accent/30 bg-accent/5 px-3 py-2 text-sm text-fg">
       <strong className="text-accent">Tip:</strong> {children}
+    </div>
+  );
+}
+
+/**
+ * Compact three-column reference table (Trigger / Who's emailed / Subject),
+ * used by the Notifications section to catalog every alert. Scrolls
+ * horizontally on narrow screens rather than forcing the page to.
+ */
+function AlertTable({ rows }: { rows: [string, string, string][] }) {
+  return (
+    <div className="overflow-x-auto rounded-md border border-border">
+      <table className="w-full min-w-[540px] border-collapse text-left text-sm">
+        <thead>
+          <tr className="bg-surface-2 text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
+            <th className="border-b border-border px-3 py-2">When this happens</th>
+            <th className="border-b border-border px-3 py-2">Who gets emailed</th>
+            <th className="border-b border-border px-3 py-2">Subject line</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(([trigger, who, subject], i) => (
+            <tr key={i} className="align-top text-fg">
+              <td className="border-b border-border px-3 py-2 font-medium">{trigger}</td>
+              <td className="border-b border-border px-3 py-2 text-fg-muted">{who}</td>
+              <td className="border-b border-border px-3 py-2">
+                <span className="italic">{subject}</span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.37.1",
+    date: "2026-07-08",
+    changes: [
+      "The User Manual's Notifications section now documents every email scenario in one place — comments, @-mentions, status/resolution changes, and assignee add/remove/reassign — with an at-a-glance table of what triggers each email, who receives it, and the subject line.",
+    ],
+  },
+  {
     version: "0.37.0",
     date: "2026-07-08",
     changes: [
