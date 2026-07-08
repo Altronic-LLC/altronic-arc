@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.44.2",
+    date: "2026-07-08",
+    changes: [
+      "When creating a project fails, the error toast now shows the actual reason from SharePoint (e.g. a permissions or required-field error) instead of a generic \"please retry\", so the problem can be fixed.",
+    ],
+  },
+  {
     version: "0.44.1",
     date: "2026-07-08",
     changes: [

@@ -736,7 +736,12 @@ export function useCreateProject() {
       pushToast({ message: "Project created." });
       qc.invalidateQueries({ queryKey: PROJECTS_KEY });
     },
-    onError: () => errorToast("Couldn't create project — please retry."),
+    // Surface the underlying error (Graph often explains it: 403 = the app
+    // lacks write on the Projects list; 400 = a required column is missing).
+    onError: (err) => {
+      const detail = err instanceof Error ? err.message : String(err);
+      errorToast(`Couldn't create project. ${detail.slice(0, 240)}`);
+    },
   });
 }
 
