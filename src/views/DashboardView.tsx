@@ -1,13 +1,17 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
+  AlertTriangle,
   ArrowRight,
   ClipboardCheck,
   Cog,
   FileText,
   Hammer,
   HardHat,
+  Headset,
   ListChecks,
+  Receipt,
+  ShoppingCart,
   Sparkles,
   Wrench,
 } from "lucide-react";
@@ -142,7 +146,8 @@ export function DashboardView() {
         <ScopeToggle value={scope} onChange={setScope} />
       </header>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {/* Engineering — the only department with live data today. */}
+      <DeptSection title="Engineering">
         <TypeCard
           name="Engineering Tasks"
           icon={<ListChecks className="h-5 w-5" />}
@@ -169,12 +174,24 @@ export function DashboardView() {
           unit="records"
           onClick={() => navigate("/test-sheets")}
         />
-
         <PlaceholderCard name="Build Requests" icon={<HardHat className="h-5 w-5" />} />
         <PlaceholderCard name="ECNs" icon={<Wrench className="h-5 w-5" />} />
+      </DeptSection>
+
+      <DeptSection title="Operations">
         <PlaceholderCard name="Operational Tasks" icon={<Cog className="h-5 w-5" />} />
         <PlaceholderCard name="Maintenance Tasks" icon={<Hammer className="h-5 w-5" />} />
-      </div>
+      </DeptSection>
+
+      <DeptSection title="Supply Chain">
+        <PlaceholderCard name="Purchase Orders" icon={<ShoppingCart className="h-5 w-5" />} />
+        <PlaceholderCard name="At-Risk Parts" icon={<AlertTriangle className="h-5 w-5" />} />
+      </DeptSection>
+
+      <DeptSection title="Customer Service / Sales">
+        <PlaceholderCard name="Customer Cases" icon={<Headset className="h-5 w-5" />} />
+        <PlaceholderCard name="Sales Orders" icon={<Receipt className="h-5 w-5" />} />
+      </DeptSection>
 
       <p className="text-center text-xs text-fg-muted">
         Cards marked <span className="font-semibold">Coming soon</span> are
@@ -182,6 +199,21 @@ export function DashboardView() {
         light up with live counts as its department comes online.
       </p>
     </div>
+  );
+}
+
+/** A department band: a titled divider line across the page + a card grid. */
+function DeptSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="flex flex-col gap-3">
+      <div className="flex items-center gap-3">
+        <h2 className="font-display text-base font-semibold uppercase tracking-wider text-fg">
+          {title}
+        </h2>
+        <div className="h-px flex-1 bg-border" />
+      </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">{children}</div>
+    </section>
   );
 }
 

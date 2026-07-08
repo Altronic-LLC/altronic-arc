@@ -95,17 +95,30 @@ const SECTIONS: ManualSection[] = [
       "my stats",
       "company stats",
       "per user",
+      "departments",
+      "engineering",
+      "operations",
+      "supply chain",
+      "customer service",
+      "sales",
+      "sections",
     ],
     searchText:
-      "The Dashboard shows one card per work type — Engineering Tasks, EIRs, Test Sheets, and placeholders for Build Requests, ECNs, Operational Tasks, and Maintenance Tasks. Each wired card shows the count of active items (tasks not Complete, EIRs not Closed), a colour-coded status mini-bar, and clicks through to that type's page. A Mine / Company switch flips every count and bar between your own items and the whole company's; Mine is the default. Placeholder cards are marked Coming soon until their SharePoint list is wired up.",
+      "The Dashboard is grouped into department sections — Engineering, Operations, Supply Chain, and Customer Service / Sales — each a divider heading with its cards beneath. Engineering has live cards: Engineering Tasks, EIRs, Test Sheets, plus placeholders for Build Requests and ECNs. Operations, Supply Chain, and Customer Service / Sales show Coming soon placeholders. Each live card shows the count of active items (tasks not Complete, EIRs not Closed), a colour-coded status mini-bar, and clicks through to that type's page. A Mine / Company switch flips every count and bar between your own items and the whole company's; Mine is the default.",
     render: () => (
       <>
         <P>
-          The home page after sign-in gives you one <strong>card per work
-          type</strong>. Each live card shows the count of{" "}
-          <strong>active items</strong> for that type, a colour-coded status
-          mini-bar (each status a distinct colour), and clicks through to that
-          type's page.
+          The home page after sign-in is organised into{" "}
+          <strong>department sections</strong> — Engineering, Operations, Supply
+          Chain, and Customer Service / Sales — each a divider heading across the
+          page with that team's cards beneath it. Engineering is the only
+          department with live data today; the rest show placeholders.
+        </P>
+        <P>
+          Within a section you get one <strong>card per work type</strong>. Each
+          live card shows the count of <strong>active items</strong> for that
+          type, a colour-coded status mini-bar (each status a distinct colour),
+          and clicks through to that type's page.
         </P>
         <P>
           A <strong>Mine / Company</strong> switch in the top right flips every
@@ -130,12 +143,13 @@ const SECTIONS: ManualSection[] = [
           </LI>
         </UL>
         <P>
-          Types whose SharePoint list isn't built yet —{" "}
-          <strong>Build Requests</strong>, <strong>ECNs</strong>,{" "}
-          <strong>Operational Tasks</strong>, and{" "}
-          <strong>Maintenance Tasks</strong> — appear as dimmed{" "}
-          <strong>Coming soon</strong> placeholders. They'll light up with live
-          counts as each department comes online.
+          Types whose SharePoint list isn't built yet — Engineering's{" "}
+          <strong>Build Requests</strong> and <strong>ECNs</strong>, all of{" "}
+          <strong>Operations</strong> (Operational Tasks, Maintenance Tasks),{" "}
+          <strong>Supply Chain</strong> (Purchase Orders, At-Risk Parts), and{" "}
+          <strong>Customer Service / Sales</strong> (Customer Cases, Sales
+          Orders) — appear as dimmed <strong>Coming soon</strong> placeholders.
+          They'll light up with live counts as each department comes online.
         </P>
       </>
     ),

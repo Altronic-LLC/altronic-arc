@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.41.0",
+    date: "2026-07-08",
+    changes: [
+      "The dashboard is now split into department sections — Engineering, Operations, Supply Chain, and Customer Service / Sales — each with a divider heading and its own cards, so you can see the whole platform at a glance.",
+      "Engineering holds the live cards (Engineering Tasks, EIRs, Test Sheets) plus Build Requests and ECNs; Operations, Supply Chain, and Customer Service / Sales show Coming soon placeholder cards for the tools each team will get.",
+    ],
+  },
+  {
     version: "0.40.0",
     date: "2026-07-08",
     changes: [
