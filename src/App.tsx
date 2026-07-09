@@ -11,6 +11,7 @@ import { KanbanView } from "@/views/KanbanView";
 import { DetailView } from "@/views/DetailView";
 import { PrintTaskView } from "@/views/PrintTaskView";
 import { ProjectView } from "@/views/ProjectView";
+import { ProjectFoldersView } from "@/views/ProjectFoldersView";
 import { AdminProjectsView } from "@/views/AdminProjectsView";
 import { AdminAdminsView } from "@/views/AdminAdminsView";
 import { AdminEirRolesView } from "@/views/AdminEirRolesView";
@@ -55,6 +56,7 @@ export function App() {
           <Route path="/task/:id" element={<DetailView />} />
           <Route path="/task/:id/print" element={<PrintTaskView />} />
           <Route path="/project/:id" element={<ProjectView />} />
+          <Route path="/project-folders" element={<ProjectFoldersView />} />
           <Route
             path="/admin/projects"
             element={

@@ -332,3 +332,148 @@ export async function deleteTaskFile(driveItemId: string): Promise<void> {
     method: "DELETE",
   });
 }
+
+// =============================================================================
+// Project Folders browser — a nested file explorer over the same
+// "General/Project Folders" library, used by the Project Folders view.
+//
+// A single entry type covers both subfolders and files so one list renders
+// them together. Top-level project folders also carry their Project Reference
+// lookupId so the view can show the linked project's name.
+// =============================================================================
+
+export interface DriveEntry {
+  id: string;
+  name: string;
+  webUrl: string;
+  isFolder: boolean;
+  size: number;
+  lastModified: Date;
+  /** Number of children (folders only). */
+  childCount?: number;
+  /** Project Reference lookupId — only resolved for top-level project folders. */
+  projectLookupId?: number;
+}
+
+function mapEntry(c: GraphDriveChild, computeLookup: boolean): DriveEntry {
+  return {
+    id: c.id,
+    name: c.name,
+    webUrl: c.webUrl,
+    isFolder: !!c.folder,
+    size: c.size ?? 0,
+    lastModified: c.lastModifiedDateTime ? new Date(c.lastModifiedDateTime) : new Date(0),
+    childCount: c.folder?.childCount,
+    projectLookupId:
+      computeLookup && c.folder ? readLookupId(c.listItem?.fields ?? {}) : undefined,
+  };
+}
+
+/** Folders first, then files; each alphabetical (numeric-aware). */
+function sortEntries(entries: DriveEntry[]): DriveEntry[] {
+  return entries.sort((a, b) => {
+    if (a.isFolder !== b.isFolder) return a.isFolder ? -1 : 1;
+    return a.name.localeCompare(b.name, undefined, { numeric: true });
+  });
+}
+
+/**
+ * List the children (subfolders + files) of a project folder. Pass no
+ * `folderId` to list the top-level project folders (children of
+ * "General/Project Folders"); pass a drive-item id to browse into one.
+ */
+export async function listProjectFolderEntries(folderId?: string): Promise<DriveEntry[]> {
+  if (USE_MOCK) return sortEntries(mockEntries(folderId).map((e) => ({ ...e })));
+
+  const url = folderId
+    ? `/sites/${SP_SITE_ID}/drive/items/${folderId}/children` +
+      `?$top=999&$select=id,name,webUrl,size,lastModifiedDateTime,folder,file`
+    : `/sites/${SP_SITE_ID}/drive/root:/${encodeDrivePath(PROJECT_FOLDERS_PATH.split("/"))}` +
+      `:/children?$expand=listItem($expand=fields)&$top=999`;
+  const res = await graphFetch<{ value: GraphDriveChild[] }>(url);
+  const entries = (res.value ?? []).map((c) => mapEntry(c, !folderId));
+  return sortEntries(entries);
+}
+
+/** Upload a file into a folder by its drive-item id. Simple PUT (≤ 4 MB). */
+export async function uploadFileToFolder(folderId: string, file: File): Promise<DriveEntry> {
+  if (file.size > SIMPLE_UPLOAD_MAX_BYTES) {
+    throw new Error(
+      `File "${file.name}" is ${(file.size / 1024 / 1024).toFixed(1)} MB — larger than the 4 MB simple-upload limit.`,
+    );
+  }
+  if (USE_MOCK) {
+    const entry: DriveEntry = {
+      id: `mockde-${nextMockFileId++}`,
+      name: file.name,
+      webUrl: "#",
+      isFolder: false,
+      size: file.size,
+      lastModified: mockNow(),
+    };
+    const list = mockTree.get(folderId) ?? [];
+    mockTree.set(folderId, [...list, entry]);
+    return entry;
+  }
+  const bytes = await file.arrayBuffer();
+  const path =
+    `/sites/${SP_SITE_ID}/drive/items/${folderId}` +
+    `:/${encodeURIComponent(file.name)}:/content`;
+  const res = await graphFetch<GraphDriveChild>(path, {
+    method: "PUT",
+    headers: { "Content-Type": "application/octet-stream" },
+    body: bytes,
+  });
+  return mapEntry(res, false);
+}
+
+// ---- Mock project-folder tree (demo mode) ---------------------------------
+const MOCK_ROOT = "__root__";
+
+function seedMockTree(): Map<string, DriveEntry[]> {
+  const d = (name: string, id: string, extra: Partial<DriveEntry> = {}): DriveEntry => ({
+    id,
+    name,
+    webUrl: "#",
+    isFolder: true,
+    size: 0,
+    lastModified: new Date("2026-05-01T12:00:00"),
+    childCount: 0,
+    ...extra,
+  });
+  const f = (name: string, id: string, size = 24_000): DriveEntry => ({
+    id,
+    name,
+    webUrl: "#",
+    isFolder: false,
+    size,
+    lastModified: new Date("2026-05-10T09:30:00"),
+  });
+  return new Map<string, DriveEntry[]>([
+    [
+      MOCK_ROOT,
+      [
+        d("0017-AMP-5000 Refresh", "mf-amp", { projectLookupId: 17, childCount: 3 }),
+        d("0000-Engineering Apps", "mf-eng", { projectLookupId: 1, childCount: 1 }),
+        d("Miscellaneous", "mf-misc", { projectLookupId: 0, childCount: 1 }),
+      ],
+    ],
+    [
+      "mf-amp",
+      [
+        d("Drawings", "mf-amp-draw", { childCount: 1 }),
+        f("AMP-5000 Test Plan.pdf", "mf-amp-1", 512_000),
+        f("BOM.xlsx", "mf-amp-2", 88_000),
+      ],
+    ],
+    ["mf-amp-draw", [f("driver-board-revD.dwg", "mf-amp-draw-1", 1_200_000)]],
+    ["mf-eng", [f("App Backlog.docx", "mf-eng-1", 40_000)]],
+    ["mf-misc", [f("0000_scratch-notes.txt", "mf-misc-1", 2_000)]],
+  ]);
+}
+
+let mockTree = seedMockTree();
+
+function mockEntries(folderId?: string): DriveEntry[] {
+  return mockTree.get(folderId ?? MOCK_ROOT) ?? [];
+}

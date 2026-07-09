@@ -96,6 +96,12 @@ const DEPARTMENTS: DepartmentGroup[] = [
         icon: <ClipboardList className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/test-sheets") || p.startsWith("/test-sheet/"),
       },
+      {
+        to: "/project-folders",
+        label: "Project Folders",
+        icon: <FolderOpen className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/project-folders"),
+      },
       soon("Build Requests", <HardHat className="h-4 w-4" />),
       soon("ECNs", <Wrench className="h-4 w-4" />),
     ],

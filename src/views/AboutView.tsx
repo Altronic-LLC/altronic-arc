@@ -58,8 +58,8 @@ const SYSTEM_TIERS: Tier[] = [
   {
     label: "React SPA",
     nodes: [
-      { label: "Views", hint: "Dashboard · List · Kanban · Detail · EIRs · Test Sheets · Admin", palette: "ui" },
-      { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useAdmins · useEirRoles · useTaskFiles", palette: "ui" },
+      { label: "Views", hint: "Dashboard · List · Kanban · Detail · EIRs · Test Sheets · Project Folders · Admin", palette: "ui" },
+      { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useAdmins · useEirRoles · useTaskFiles · useProjectFolders", palette: "ui" },
       { label: "API layer", hint: "src/api/tasks · eirs · testSheets · admins · eirRoles · projectFiles · attachments · email · errorReport", palette: "ui" },
     ],
   },

@@ -836,6 +836,55 @@ const SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: "project-folders",
+    title: "Project Folders",
+    group: "Engineering requests",
+    keywords: [
+      "project folders",
+      "documents",
+      "document library",
+      "files",
+      "browse files",
+      "upload file",
+      "sharepoint files",
+      "folders",
+      "drawings",
+    ],
+    searchText:
+      "Project Folders is a browser over the Engineering document library (General/Project Folders). Open the Project Folders card on the dashboard or the Departments menu. Navigate into a project folder and its subfolders with the breadcrumb, click a file or folder to open it in SharePoint, and upload files into the folder you're in (up to 4 MB). Deleting is done in SharePoint itself.",
+    render: () => (
+      <>
+        <P>
+          <strong>Project Folders</strong> (dashboard card under Engineering, or
+          the Departments menu) browses the Engineering document library —{" "}
+          <code>General / Project Folders</code> — right inside ARC.
+        </P>
+        <UL>
+          <LI>
+            <strong>Navigate</strong> — the top level lists every project folder
+            (with its linked project name). Click a folder to go in; use the{" "}
+            <strong>breadcrumb</strong> at the top to come back up. Subfolders
+            are fully navigable.
+          </LI>
+          <LI>
+            <strong>Open</strong> — click a file to open it in SharePoint;
+            folders have an open-in-SharePoint icon too.
+          </LI>
+          <LI>
+            <strong>Upload</strong> — inside any folder, click{" "}
+            <strong>Upload file</strong> to add a file to that folder (up to
+            4&nbsp;MB per file). Uploading isn't offered at the top level — pick
+            a folder first.
+          </LI>
+        </UL>
+        <P>
+          Deleting isn't done from ARC — remove files in SharePoint directly, so
+          the shared library stays under its normal controls.
+        </P>
+      </>
+    ),
+  },
+  {
     id: "ecns",
     title: "ECNs (Engineering Change Notices)",
     group: "Engineering requests",

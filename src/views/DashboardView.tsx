@@ -29,6 +29,7 @@ import {
 import { useTasks } from "@/hooks/useTasks";
 import { useEirs } from "@/hooks/useEirs";
 import { useTestSheets } from "@/hooks/useTestSheets";
+import { useProjectFolderEntries } from "@/hooks/useProjectFolders";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import {
@@ -96,8 +97,11 @@ export function DashboardView() {
   const { data: tasks = [], isLoading } = useTasks();
   const { data: eirs = [], isLoading: eirsLoading } = useEirs();
   const { data: testSheets = [] } = useTestSheets();
+  const { data: folderEntries = [] } = useProjectFolderEntries(undefined);
   const currentUser = useCurrentUser();
   const [scope, setScope] = useState<Scope>("mine");
+
+  const folderCount = folderEntries.filter((e) => e.isFolder).length;
 
   const myEmail = (currentUser.email ?? "").toLowerCase();
   const mine = scope === "mine";
@@ -184,6 +188,14 @@ export function DashboardView() {
           count={testCount}
           unit="records"
           onClick={() => navigate("/test-sheets")}
+        />
+        <TypeCard
+          name="Project Folders"
+          icon={<FolderOpen className="h-5 w-5" />}
+          tone="ajax-yellow"
+          count={folderCount}
+          unit="folders"
+          onClick={() => navigate("/project-folders")}
         />
         <PlaceholderCard name="Build Requests" icon={<HardHat className="h-5 w-5" />} />
         <PlaceholderCard name="ECNs" icon={<Wrench className="h-5 w-5" />} />
@@ -273,6 +285,7 @@ const TONE: Record<string, { chip: string; text: string }> = {
   "superior-blue": { chip: "bg-superior-blue/10", text: "text-superior-blue" },
   "cooper-red": { chip: "bg-cooper-red/10", text: "text-cooper-red" },
   "cooper-green": { chip: "bg-cooper-green/10", text: "text-cooper-green" },
+  "ajax-yellow": { chip: "bg-ajax-yellow/15", text: "text-ajax-yellow" },
 };
 
 function TypeCard({

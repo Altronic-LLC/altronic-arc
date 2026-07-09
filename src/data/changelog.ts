@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.46.0",
+    date: "2026-07-09",
+    changes: [
+      "New Project Folders section (Engineering) — browse the General/Project Folders document library right inside ARC: navigate into project folders and their subfolders with a breadcrumb, open any file or folder in SharePoint, and upload files into the folder you're in (up to 4 MB).",
+      "Added a Project Folders card to the dashboard's Engineering section and a link in the Departments menu.",
+    ],
+  },
+  {
     version: "0.45.3",
     date: "2026-07-09",
     changes: [
