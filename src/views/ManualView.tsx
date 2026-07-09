@@ -976,7 +976,9 @@ const SECTIONS: ManualSection[] = [
         </P>
         <P>
           The existing projects are split into tables by the first digit of the
-          project number:
+          project number — shown as a 2×2 grid on wide screens and stacked one
+          below another on smaller screens, with the highest numbers listed
+          first in each table:
         </P>
         <UL>
           <LI>

@@ -99,8 +99,9 @@ export function AdminProjectsView() {
       other: [],
     };
     for (const p of projects) g[classifyProject(p.title)].push(p);
+    // Highest number first within each table (descending, numeric-aware).
     for (const key of Object.keys(g) as BucketKey[]) {
-      g[key].sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true }));
+      g[key].sort((a, b) => b.title.localeCompare(a.title, undefined, { numeric: true }));
     }
     return g;
   }, [projects]);
@@ -188,7 +189,9 @@ export function AdminProjectsView() {
           No projects yet. Add one above.
         </div>
       ) : (
-        <div className="flex flex-col gap-6">
+        // 2×2 quadrant grid on large screens (the four defined tables), single
+        // column on smaller screens. "Other" flows in as a fifth cell.
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           {BUCKETS.map((bucket) => {
             const items = grouped[bucket.key];
             // Hide the "Other" table entirely when there's nothing in it; the
@@ -237,7 +240,7 @@ function ProjectTable({
       {items.length === 0 ? (
         <p className="px-1 py-2 text-xs text-fg-muted">No projects in this series yet.</p>
       ) : (
-        <div className="flex flex-col gap-1.5">
+        <div className="scroll-elegant flex max-h-[26rem] flex-col gap-1.5 overflow-y-auto pr-1">
           {items.map((p) => (
             <button
               key={p.lookupId}
