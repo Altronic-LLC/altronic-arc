@@ -4,6 +4,7 @@ import {
   createProject,
   createTask,
   deleteTask,
+  updateProject,
   editComment,
   getTaskRawFields,
   listProjects,
@@ -741,6 +742,22 @@ export function useCreateProject() {
     onError: (err) => {
       const detail = err instanceof Error ? err.message : String(err);
       errorToast(`Couldn't create project. ${detail.slice(0, 240)}`);
+    },
+  });
+}
+
+export function useUpdateProject() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ lookupId, title }: { lookupId: number; title: string }) =>
+      updateProject(lookupId, title),
+    onSuccess: () => {
+      pushToast({ message: "Project updated." });
+      qc.invalidateQueries({ queryKey: PROJECTS_KEY });
+    },
+    onError: (err) => {
+      const detail = err instanceof Error ? err.message : String(err);
+      errorToast(`Couldn't update project. ${detail.slice(0, 240)}`);
     },
   });
 }

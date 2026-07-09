@@ -1024,6 +1024,13 @@ const SECTIONS: ManualSection[] = [
           choices on tasks, EIRs, and test sheets.
         </P>
         <P>
+          To <strong>edit an existing project's number or name</strong>, hover
+          the project and click the <strong>pencil</strong>. Both the number and
+          the name live in the project title (e.g. <code>0017-AMP-5000 Refresh</code>),
+          so one edit changes either — and if you change the leading number, the
+          project moves to the matching table automatically.
+        </P>
+        <P>
           The existing projects are split into tables by their project number —
           laid out as a 2×2 grid of quadrants on computer screens and stacked one
           below another on smaller screens, sorted by project title descending in

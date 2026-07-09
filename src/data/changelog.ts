@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.47.0",
+    date: "2026-07-09",
+    changes: [
+      "Admins can now edit an existing project's number and name in the Engineering Project Log — hover a project and click the pencil to rename it inline. Changing the leading number automatically moves it to the matching table.",
+    ],
+  },
+  {
     version: "0.46.0",
     date: "2026-07-09",
     changes: [

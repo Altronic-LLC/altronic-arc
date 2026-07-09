@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, Plus, Shield } from "lucide-react";
-import { useCreateProject, useProjects } from "@/hooks/useTasks";
+import { ArrowLeft, Pencil, Plus, Shield, X } from "lucide-react";
+import { useCreateProject, useProjects, useUpdateProject } from "@/hooks/useTasks";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { cn } from "@/lib/cn";
@@ -57,6 +57,7 @@ export function AdminProjectsView() {
   const isAdmin = useIsAdmin();
   const { data: projects = [], isLoading } = useProjects();
   const createProject = useCreateProject();
+  const updateProject = useUpdateProject();
   const [newTitle, setNewTitle] = useState("");
 
   if (!isAdmin) {
@@ -203,6 +204,7 @@ export function AdminProjectsView() {
                 dot={bucket.dot}
                 items={items}
                 onOpen={(id) => navigate(`/project/${id}`)}
+                onRename={(id, title) => updateProject.mutate({ lookupId: id, title })}
               />
             );
           })}
@@ -219,12 +221,14 @@ function ProjectTable({
   dot,
   items,
   onOpen,
+  onRename,
 }: {
   label: string;
   hint: string;
   dot: string;
   items: ProjectReference[];
   onOpen: (lookupId: number) => void;
+  onRename: (lookupId: number, title: string) => void;
 }) {
   return (
     <section className="flex flex-col rounded-lg border border-border bg-surface p-4">
@@ -245,17 +249,100 @@ function ProjectTable({
       ) : (
         <div className="scroll-elegant flex max-h-[22rem] flex-col gap-1.5 overflow-y-auto pr-1">
           {items.map((p) => (
-            <button
-              key={p.lookupId}
-              onClick={() => onOpen(p.lookupId)}
-              className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface px-3 py-2 text-left text-sm text-fg transition-colors hover:border-fg-muted hover:bg-surface-2"
-            >
-              <span className="truncate font-medium">{p.title}</span>
-              <span className="shrink-0 font-mono text-[11px] text-fg-muted">#{p.lookupId}</span>
-            </button>
+            <ProjectRow key={p.lookupId} project={p} onOpen={onOpen} onRename={onRename} />
           ))}
         </div>
       )}
     </section>
+  );
+}
+
+/**
+ * One project row. Click the title to open the project rollup; click the
+ * pencil (admin-only page) to edit the Title inline — which is where both the
+ * project number and name live, so one edit changes either. Enter saves,
+ * Escape cancels. On save the list refetches, so changing the number also
+ * re-sorts the project into the correct table.
+ */
+function ProjectRow({
+  project,
+  onOpen,
+  onRename,
+}: {
+  project: ProjectReference;
+  onOpen: (lookupId: number) => void;
+  onRename: (lookupId: number, title: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(project.title);
+
+  function startEdit() {
+    setDraft(project.title);
+    setEditing(true);
+  }
+  function save() {
+    const next = draft.trim();
+    if (next && next !== project.title) onRename(project.lookupId, next);
+    setEditing(false);
+  }
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-2 rounded-md border border-accent/50 bg-surface px-2 py-1.5">
+        <input
+          autoFocus
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              save();
+            } else if (e.key === "Escape") {
+              setEditing(false);
+            }
+          }}
+          placeholder="e.g. 0017-AMP-5000 Refresh (number + name)"
+          className="min-w-0 flex-1 rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+          maxLength={255}
+        />
+        <button
+          onClick={save}
+          className="shrink-0 rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-white hover:bg-accent/90"
+        >
+          Save
+        </button>
+        <button
+          onClick={() => setEditing(false)}
+          className="shrink-0 rounded-md p-1 text-fg-muted hover:bg-surface-2 hover:text-fg"
+          aria-label="Cancel"
+          title="Cancel"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="group flex items-center justify-between gap-2 rounded-md border border-border bg-surface px-3 py-2 transition-colors hover:border-fg-muted hover:bg-surface-2">
+      <button
+        onClick={() => onOpen(project.lookupId)}
+        className="min-w-0 flex-1 truncate text-left text-sm font-medium text-fg"
+        title="Open project"
+      >
+        {project.title}
+      </button>
+      <div className="flex shrink-0 items-center gap-2">
+        <button
+          onClick={startEdit}
+          className="rounded p-1 text-fg-muted opacity-0 transition-opacity hover:bg-surface hover:text-fg group-hover:opacity-100 focus:opacity-100"
+          aria-label="Edit project number / name"
+          title="Edit number / name"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </button>
+        <span className="font-mono text-[11px] text-fg-muted">#{project.lookupId}</span>
+      </div>
+    </div>
   );
 }

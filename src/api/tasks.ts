@@ -702,3 +702,35 @@ export async function createProject(input: { title: string }): Promise<ProjectRe
     title: (created.fields.Title as string) ?? input.title,
   };
 }
+
+/**
+ * Rename an existing project. The project number and name both live in the
+ * Title (e.g. "0017-AMP-5000 Refresh"), so this one write covers both. Used
+ * by the Engineering Project Log admin page.
+ */
+export async function updateProject(
+  lookupId: number,
+  title: string,
+): Promise<ProjectReference> {
+  if (USE_MOCK) {
+    const idx = mockProjectStore.findIndex((p) => p.lookupId === lookupId);
+    if (idx < 0) throw new Error(`Project ${lookupId} not found`);
+    mockProjectStore = [
+      ...mockProjectStore.slice(0, idx),
+      { ...mockProjectStore[idx], title },
+      ...mockProjectStore.slice(idx + 1),
+    ];
+    saveMockProjectsToStorage();
+    return delay({ lookupId, title });
+  }
+
+  const projectsListId = import.meta.env.VITE_SP_PROJECTS_LIST_ID;
+  if (!projectsListId) {
+    throw new Error("VITE_SP_PROJECTS_LIST_ID is not set — cannot update projects in real mode.");
+  }
+  await graphFetch(
+    `/sites/${SP_SITE_ID}/lists/${projectsListId}/items/${lookupId}/fields`,
+    { method: "PATCH", body: JSON.stringify({ Title: title }) },
+  );
+  return { lookupId, title };
+}
