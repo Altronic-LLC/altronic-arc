@@ -61,6 +61,38 @@ export const APP_MANAGER_EMAIL =
   (import.meta.env.VITE_APP_MANAGER_EMAIL as string | undefined) ??
   "ray.white@altronic-llc.com";
 
+// =============================================================================
+// SharePoint site registry — ARC is going multi-site (one site per team).
+//
+// Each value is a Graph site ID: "host,siteCollectionId,webId". `Sites.Selected`
+// is granted per SITE COLLECTION by an admin; a subsite shares its parent
+// collection's grant. Order Entry is a SUBSITE of the Sales Team collection
+// (same middle GUID) — one grant on ALTRONICSALESTEAM covers both.
+//
+// Values come from env vars when set (repo Action variables), otherwise the
+// documented defaults below (discovered via Graph; stable, not secret). New
+// cross-site api/<list>.ts modules should reference SITES.<name> instead of the
+// single SP_SITE_ID so their Graph paths hit the right site.
+// =============================================================================
+export const SITES = {
+  engineering:
+    import.meta.env.VITE_SP_ENGINEERING_SITE_ID ||
+    SP_SITE_ID ||
+    "coopermachineryservices.sharepoint.com,ddb5fc80-ea51-4d56-b008-ce6a82af49b0,aa6b9467-3f57-4213-bbd4-60b94403421a",
+  panelTeam:
+    import.meta.env.VITE_SP_PANELTEAM_SITE_ID ||
+    "coopermachineryservices.sharepoint.com,fdf31131-2076-4618-923b-a1856e6b0f2a,3eb6cb9c-6535-4c69-a8d7-e90b2f90a9eb",
+  salesTeam:
+    import.meta.env.VITE_SP_SALESTEAM_SITE_ID ||
+    "coopermachineryservices.sharepoint.com,dd86bf69-a010-481a-9920-78b079c5ec1e,aa6b9467-3f57-4213-bbd4-60b94403421a",
+  salesOrderEntry:
+    import.meta.env.VITE_SP_SALES_ORDERENTRY_SITE_ID ||
+    "coopermachineryservices.sharepoint.com,dd86bf69-a010-481a-9920-78b079c5ec1e,583688a6-3238-4f79-aed5-8e2d8ce38c41",
+  pmo:
+    import.meta.env.VITE_SP_PMO_SITE_ID ||
+    "coopermachineryservices.sharepoint.com,915a6183-2b71-4dfd-a8b9-181126dfbe78,3eb6cb9c-6535-4c69-a8d7-e90b2f90a9eb",
+} as const;
+
 export const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 
 /** Throw a clear error if the app tries to call Graph without being configured. */

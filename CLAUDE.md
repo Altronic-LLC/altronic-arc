@@ -438,6 +438,25 @@ Already confirmed (don't change without re-verifying):
 - **Tenant ID:** `bde86e02-c641-4952-97f2-99ea6d9b8e29`
 - **Site ID:** `coopermachineryservices.sharepoint.com,ddb5fc80-ea51-4d56-b008-ce6a82af49b0,aa6b9467-3f57-4213-bbd4-60b94403421a`
 - **Site URL:** <https://coopermachineryservices.sharepoint.com/sites/Altronic_Engineering>
+
+### Multi-site registry (`SITES` in `src/api/config.ts`)
+
+ARC is going multi-site — one SharePoint site per team. `Sites.Selected` is
+granted **per site collection** (write, by an admin, via
+`POST /sites/{siteId}/permissions`); a **subsite shares its parent collection's
+grant**. New cross-site `api/<list>.ts` modules reference `SITES.<name>` (env-
+overridable via `VITE_SP_*_SITE_ID`, else the documented default) instead of the
+single `SP_SITE_ID`.
+
+| `SITES` key | Team / ARC dept | Graph site ID |
+|---|---|---|
+| `engineering` | Altronic_Engineering | `…,ddb5fc80-ea51-4d56-b008-ce6a82af49b0,aa6b9467-3f57-4213-bbd4-60b94403421a` |
+| `panelTeam` | ALTRONICPANELTEAM → Panels | `…,fdf31131-2076-4618-923b-a1856e6b0f2a,3eb6cb9c-6535-4c69-a8d7-e90b2f90a9eb` |
+| `salesTeam` | ALTRONICSALESTEAM → Customer Service / Sales | `…,dd86bf69-a010-481a-9920-78b079c5ec1e,aa6b9467-3f57-4213-bbd4-60b94403421a` |
+| `salesOrderEntry` | ALTRONICSALESTEAM/OrderEntry (**subsite** of salesTeam — same collection, shares its grant) | `…,dd86bf69-a010-481a-9920-78b079c5ec1e,583688a6-3238-4f79-aed5-8e2d8ce38c41` |
+| `pmo` | Altronic_PMO | `…,915a6183-2b71-4dfd-a8b9-181126dfbe78,3eb6cb9c-6535-4c69-a8d7-e90b2f90a9eb` |
+
+(`…` = `coopermachineryservices.sharepoint.com`.) All granted **read + write**.
 - **Task List ID:** `42fb8c19-5f33-4fdd-9ef7-df6f21433588`
 - **Task List name:** Project Task List
 - **Projects List ID:** `6280c711-14f6-4546-b730-8781b9d3c960` (env: `VITE_SP_PROJECTS_LIST_ID`)
