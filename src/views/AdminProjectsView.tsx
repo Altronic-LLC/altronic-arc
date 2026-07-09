@@ -9,12 +9,12 @@ import type { ProjectReference } from "@/types/task";
 // The Engineering Project Log is organised into tables by the first digit of
 // each project's number:
 //   0xxx → Engineering items that aren't products
-//   2xxx → Legacy projects (no previously-assigned number)
 //   5xxx → Insourcing projects
-//   any other leading number (e.g. 347-RW) → New projects (next number +
-//     requesting engineer's initials)
+//   any other leading number → New & Legacy projects (new = next number +
+//     requesting engineer's initials; legacy = 2xxx, no prior number) — these
+//     are treated as one table
 //   no leading number → Other
-type BucketKey = "new" | "eng" | "insourcing" | "legacy" | "other";
+type BucketKey = "projects" | "eng" | "insourcing" | "other";
 
 function classifyProject(title: string): BucketKey {
   const m = /^\s*(\d)/.exec(title ?? "");
@@ -22,23 +22,21 @@ function classifyProject(title: string): BucketKey {
   switch (m[1]) {
     case "0":
       return "eng";
-    case "2":
-      return "legacy";
     case "5":
       return "insourcing";
     default:
-      return "new";
+      // 1–4, 6–9 → new projects + legacy 2xxx (one combined table).
+      return "projects";
   }
 }
 
 // Display order + labels for each table. "Other" is rendered only when it has
-// entries; the four defined tables always show (even empty) so the taxonomy
+// entries; the three defined tables always show (even empty) so the taxonomy
 // is visible.
 const BUCKETS: { key: BucketKey; label: string; hint: string }[] = [
-  { key: "new", label: "New Projects", hint: "next number + engineer initials" },
+  { key: "projects", label: "New & Legacy Projects", hint: "number + initials · 2xxx legacy" },
   { key: "eng", label: "Engineering Items", hint: "0xxx · not products" },
   { key: "insourcing", label: "Insourcing", hint: "5xxx" },
-  { key: "legacy", label: "Legacy Projects", hint: "2xxx · no prior number" },
   { key: "other", label: "Other", hint: "no number prefix" },
 ];
 
@@ -92,10 +90,9 @@ export function AdminProjectsView() {
 
   const grouped = useMemo(() => {
     const g: Record<BucketKey, ProjectReference[]> = {
-      new: [],
+      projects: [],
       eng: [],
       insourcing: [],
-      legacy: [],
       other: [],
     };
     for (const p of projects) g[classifyProject(p.title)].push(p);
@@ -189,9 +186,9 @@ export function AdminProjectsView() {
           No projects yet. Add one above.
         </div>
       ) : (
-        // 2×2 quadrant grid on large screens (the four defined tables), single
-        // column on smaller screens. "Other" flows in as a fifth cell.
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        // Three tables wide on large screens (New & Legacy · Engineering Items
+        // · Insourcing), single column on smaller screens. "Other" wraps below.
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
           {BUCKETS.map((bucket) => {
             const items = grouped[bucket.key];
             // Hide the "Other" table entirely when there's nothing in it; the

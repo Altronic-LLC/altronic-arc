@@ -976,14 +976,16 @@ const SECTIONS: ManualSection[] = [
         </P>
         <P>
           The existing projects are split into tables by the first digit of the
-          project number — shown as a 2×2 grid on wide screens and stacked one
-          below another on smaller screens, with the highest numbers listed
-          first in each table:
+          project number — shown three tables wide on computer screens and
+          stacked one below another on smaller screens, sorted by project title
+          descending (highest numbers first) in each table:
         </P>
         <UL>
           <LI>
-            <strong>New Projects</strong> — the next number in line plus the
-            requesting engineer's initials (e.g. <code>347-RW</code>).
+            <strong>New &amp; Legacy Projects</strong> — new projects (the next
+            number in line plus the requesting engineer's initials, e.g.{" "}
+            <code>347-RW</code>) together with legacy <code>2xxx</code> projects
+            that never had a number assigned previously.
           </LI>
           <LI>
             <strong>Engineering Items</strong> (<code>0xxx</code>) — engineering
@@ -991,10 +993,6 @@ const SECTIONS: ManualSection[] = [
           </LI>
           <LI>
             <strong>Insourcing</strong> (<code>5xxx</code>).
-          </LI>
-          <LI>
-            <strong>Legacy Projects</strong> (<code>2xxx</code>) — projects that
-            never had a number assigned previously.
           </LI>
           <LI>
             <strong>Other</strong> — anything without a leading number (only
