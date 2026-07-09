@@ -1,9 +1,46 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus, Shield } from "lucide-react";
 import { useCreateProject, useProjects } from "@/hooks/useTasks";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { LoadingTasks } from "@/components/LoadingTasks";
+import type { ProjectReference } from "@/types/task";
+
+// The Engineering Project Log is organised into tables by the first digit of
+// each project's number:
+//   0xxx → Engineering items that aren't products
+//   2xxx → Legacy projects (no previously-assigned number)
+//   5xxx → Insourcing projects
+//   any other leading number (e.g. 347-RW) → New projects (next number +
+//     requesting engineer's initials)
+//   no leading number → Other
+type BucketKey = "new" | "eng" | "insourcing" | "legacy" | "other";
+
+function classifyProject(title: string): BucketKey {
+  const m = /^\s*(\d)/.exec(title ?? "");
+  if (!m) return "other";
+  switch (m[1]) {
+    case "0":
+      return "eng";
+    case "2":
+      return "legacy";
+    case "5":
+      return "insourcing";
+    default:
+      return "new";
+  }
+}
+
+// Display order + labels for each table. "Other" is rendered only when it has
+// entries; the four defined tables always show (even empty) so the taxonomy
+// is visible.
+const BUCKETS: { key: BucketKey; label: string; hint: string }[] = [
+  { key: "new", label: "New Projects", hint: "next number + engineer initials" },
+  { key: "eng", label: "Engineering Items", hint: "0xxx · not products" },
+  { key: "insourcing", label: "Insourcing", hint: "5xxx" },
+  { key: "legacy", label: "Legacy Projects", hint: "2xxx · no prior number" },
+  { key: "other", label: "Other", hint: "no number prefix" },
+];
 
 /**
  * Admin page for the Engineering Project Log — the master list of projects.
@@ -53,7 +90,20 @@ export function AdminProjectsView() {
     setNewTitle("");
   }
 
-  const sorted = [...projects].sort((a, b) => a.title.localeCompare(b.title));
+  const grouped = useMemo(() => {
+    const g: Record<BucketKey, ProjectReference[]> = {
+      new: [],
+      eng: [],
+      insourcing: [],
+      legacy: [],
+      other: [],
+    };
+    for (const p of projects) g[classifyProject(p.title)].push(p);
+    for (const key of Object.keys(g) as BucketKey[]) {
+      g[key].sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true }));
+    }
+    return g;
+  }, [projects]);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-4 sm:px-6 sm:py-6">
@@ -125,33 +175,81 @@ export function AdminProjectsView() {
         </form>
       </section>
 
-      <section>
-        <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
+      <div className="mb-3 flex items-baseline justify-between gap-3">
+        <h2 className="font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
           Existing projects ({projects.length})
         </h2>
-        {isLoading ? (
-          <LoadingTasks noun="projects" />
-        ) : sorted.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border py-8 text-center text-sm text-fg-muted">
-            No projects yet. Add one above.
-          </div>
-        ) : (
-          <div className="flex flex-col gap-1.5">
-            {sorted.map((p) => (
-              <button
-                key={p.lookupId}
-                onClick={() => navigate(`/project/${p.lookupId}`)}
-                className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface px-3 py-2 text-left text-sm text-fg transition-colors hover:border-fg-muted hover:bg-surface-2"
-              >
-                <span className="truncate font-medium">{p.title}</span>
-                <span className="shrink-0 font-mono text-[11px] text-fg-muted">
-                  #{p.lookupId}
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
-      </section>
+      </div>
+
+      {isLoading ? (
+        <LoadingTasks noun="projects" />
+      ) : projects.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-border py-8 text-center text-sm text-fg-muted">
+          No projects yet. Add one above.
+        </div>
+      ) : (
+        <div className="flex flex-col gap-6">
+          {BUCKETS.map((bucket) => {
+            const items = grouped[bucket.key];
+            // Hide the "Other" table entirely when there's nothing in it; the
+            // four defined tables always render so the taxonomy is visible.
+            if (bucket.key === "other" && items.length === 0) return null;
+            return (
+              <ProjectTable
+                key={bucket.key}
+                label={bucket.label}
+                hint={bucket.hint}
+                items={items}
+                onOpen={(id) => navigate(`/project/${id}`)}
+              />
+            );
+          })}
+        </div>
+      )}
     </div>
+  );
+}
+
+/** One titled table of projects within the Engineering Project Log. */
+function ProjectTable({
+  label,
+  hint,
+  items,
+  onOpen,
+}: {
+  label: string;
+  hint: string;
+  items: ProjectReference[];
+  onOpen: (lookupId: number) => void;
+}) {
+  return (
+    <section>
+      <div className="mb-2 flex items-center gap-3">
+        <h3 className="flex items-baseline gap-2 font-display text-sm font-semibold uppercase tracking-wider text-fg">
+          {label}
+          <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-fg-muted">
+            {items.length}
+          </span>
+        </h3>
+        <span className="text-[11px] text-fg-muted">{hint}</span>
+        <div className="h-px flex-1 bg-border" />
+      </div>
+      {items.length === 0 ? (
+        <p className="px-1 py-2 text-xs text-fg-muted">No projects in this series yet.</p>
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          {items.map((p) => (
+            <button
+              key={p.lookupId}
+              onClick={() => onOpen(p.lookupId)}
+              className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface px-3 py-2 text-left text-sm text-fg transition-colors hover:border-fg-muted hover:bg-surface-2"
+            >
+              <span className="truncate font-medium">{p.title}</span>
+              <span className="shrink-0 font-mono text-[11px] text-fg-muted">#{p.lookupId}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }

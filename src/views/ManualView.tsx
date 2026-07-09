@@ -974,6 +974,31 @@ const SECTIONS: ManualSection[] = [
           there and they immediately become available as Project Reference
           choices on tasks, EIRs, and test sheets.
         </P>
+        <P>
+          The existing projects are split into tables by the first digit of the
+          project number:
+        </P>
+        <UL>
+          <LI>
+            <strong>New Projects</strong> — the next number in line plus the
+            requesting engineer's initials (e.g. <code>347-RW</code>).
+          </LI>
+          <LI>
+            <strong>Engineering Items</strong> (<code>0xxx</code>) — engineering
+            entries that aren't products.
+          </LI>
+          <LI>
+            <strong>Insourcing</strong> (<code>5xxx</code>).
+          </LI>
+          <LI>
+            <strong>Legacy Projects</strong> (<code>2xxx</code>) — projects that
+            never had a number assigned previously.
+          </LI>
+          <LI>
+            <strong>Other</strong> — anything without a leading number (only
+            shown when there's something in it).
+          </LI>
+        </UL>
         <H3>EIR Roles admin</H3>
         <P>
           The <strong>EIR Roles admin →</strong> link (or{" "}
