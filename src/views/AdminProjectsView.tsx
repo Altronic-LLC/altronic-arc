@@ -4,40 +4,39 @@ import { ArrowLeft, Plus, Shield } from "lucide-react";
 import { useCreateProject, useProjects } from "@/hooks/useTasks";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { LoadingTasks } from "@/components/LoadingTasks";
+import { cn } from "@/lib/cn";
 import type { ProjectReference } from "@/types/task";
 
-// The Engineering Project Log is organised into tables by the first digit of
-// each project's number:
-//   0xxx → Engineering items that aren't products
-//   5xxx → Insourcing projects
-//   any other leading number → New & Legacy projects (new = next number +
-//     requesting engineer's initials; legacy = 2xxx, no prior number) — these
-//     are treated as one table
-//   no leading number → Other
-type BucketKey = "projects" | "eng" | "insourcing" | "other";
+// The Engineering Project Log is organised into tables by the project number:
+//   0xxx        → Engineering items that aren't products
+//   2000-series → Legacy projects (four-digit 2xxx, no previously-assigned no.)
+//   5xxx        → Insourcing projects
+//   three-digit → New projects (next number + requesting engineer's initials)
+//   no number   → Other
+type BucketKey = "new" | "legacy" | "eng" | "insourcing" | "other";
 
 function classifyProject(title: string): BucketKey {
-  const m = /^\s*(\d)/.exec(title ?? "");
+  const m = /^\s*(\d+)/.exec(title ?? "");
   if (!m) return "other";
-  switch (m[1]) {
-    case "0":
-      return "eng";
-    case "5":
-      return "insourcing";
-    default:
-      // 1–4, 6–9 → new projects + legacy 2xxx (one combined table).
-      return "projects";
-  }
+  const num = m[1];
+  const first = num[0];
+  if (first === "0") return "eng"; // 0xxx
+  if (first === "5") return "insourcing"; // 5xxx
+  // 2000-series (four-digit 2xxx) is legacy; a three-digit 2xx is a new number.
+  if (first === "2" && num.length >= 4) return "legacy";
+  return "new"; // three-digit numbers (+ any other non-0/2xxx/5 leading number)
 }
 
-// Display order + labels for each table. "Other" is rendered only when it has
-// entries; the three defined tables always show (even empty) so the taxonomy
-// is visible.
-const BUCKETS: { key: BucketKey; label: string; hint: string }[] = [
-  { key: "projects", label: "New & Legacy Projects", hint: "number + initials · 2xxx legacy" },
-  { key: "eng", label: "Engineering Items", hint: "0xxx · not products" },
-  { key: "insourcing", label: "Insourcing", hint: "5xxx" },
-  { key: "other", label: "Other", hint: "no number prefix" },
+// Display order, labels, and an accent dot for each table. The 2×2 quadrant is
+// New / Legacy on top, Engineering Items / Insourcing below. "Other" renders
+// only when it has entries; the four defined tables always show so the
+// taxonomy is visible.
+const BUCKETS: { key: BucketKey; label: string; hint: string; dot: string }[] = [
+  { key: "new", label: "New Projects", hint: "3-digit number + engineer initials", dot: "bg-superior-blue" },
+  { key: "legacy", label: "Legacy Projects", hint: "2000-series", dot: "bg-slate-400" },
+  { key: "eng", label: "Engineering Items", hint: "0xxx · not products", dot: "bg-ajax-yellow" },
+  { key: "insourcing", label: "Insourcing", hint: "5xxx", dot: "bg-cooper-green" },
+  { key: "other", label: "Other", hint: "no number prefix", dot: "bg-fg-muted" },
 ];
 
 /**
@@ -90,7 +89,8 @@ export function AdminProjectsView() {
 
   const grouped = useMemo(() => {
     const g: Record<BucketKey, ProjectReference[]> = {
-      projects: [],
+      new: [],
+      legacy: [],
       eng: [],
       insourcing: [],
       other: [],
@@ -186,9 +186,10 @@ export function AdminProjectsView() {
           No projects yet. Add one above.
         </div>
       ) : (
-        // Three tables wide on large screens (New & Legacy · Engineering Items
-        // · Insourcing), single column on smaller screens. "Other" wraps below.
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+        // 2×2 quadrants on large screens (New / Legacy on top, Engineering
+        // Items / Insourcing below), single column on smaller screens.
+        // "Other" wraps in below when present.
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {BUCKETS.map((bucket) => {
             const items = grouped[bucket.key];
             // Hide the "Other" table entirely when there's nothing in it; the
@@ -199,6 +200,7 @@ export function AdminProjectsView() {
                 key={bucket.key}
                 label={bucket.label}
                 hint={bucket.hint}
+                dot={bucket.dot}
                 items={items}
                 onOpen={(id) => navigate(`/project/${id}`)}
               />
@@ -210,34 +212,38 @@ export function AdminProjectsView() {
   );
 }
 
-/** One titled table of projects within the Engineering Project Log. */
+/** One titled table (card) of projects within the Engineering Project Log. */
 function ProjectTable({
   label,
   hint,
+  dot,
   items,
   onOpen,
 }: {
   label: string;
   hint: string;
+  dot: string;
   items: ProjectReference[];
   onOpen: (lookupId: number) => void;
 }) {
   return (
-    <section>
-      <div className="mb-2 flex items-center gap-3">
-        <h3 className="flex items-baseline gap-2 font-display text-sm font-semibold uppercase tracking-wider text-fg">
-          {label}
-          <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-fg-muted">
+    <section className="flex flex-col rounded-lg border border-border bg-surface p-4">
+      <header className="mb-3 border-b border-border pb-2">
+        <div className="flex items-center gap-2">
+          <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full", dot)} />
+          <h3 className="font-display text-sm font-semibold uppercase tracking-wider text-fg">
+            {label}
+          </h3>
+          <span className="ml-auto rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-fg-muted">
             {items.length}
           </span>
-        </h3>
-        <span className="text-[11px] text-fg-muted">{hint}</span>
-        <div className="h-px flex-1 bg-border" />
-      </div>
+        </div>
+        <p className="mt-1 text-[11px] text-fg-muted">{hint}</p>
+      </header>
       {items.length === 0 ? (
-        <p className="px-1 py-2 text-xs text-fg-muted">No projects in this series yet.</p>
+        <p className="py-2 text-xs text-fg-muted">No projects in this series yet.</p>
       ) : (
-        <div className="scroll-elegant flex max-h-[26rem] flex-col gap-1.5 overflow-y-auto pr-1">
+        <div className="scroll-elegant flex max-h-[22rem] flex-col gap-1.5 overflow-y-auto pr-1">
           {items.map((p) => (
             <button
               key={p.lookupId}

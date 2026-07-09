@@ -975,17 +975,19 @@ const SECTIONS: ManualSection[] = [
           choices on tasks, EIRs, and test sheets.
         </P>
         <P>
-          The existing projects are split into tables by the first digit of the
-          project number — shown three tables wide on computer screens and
-          stacked one below another on smaller screens, sorted by project title
-          descending (highest numbers first) in each table:
+          The existing projects are split into tables by their project number —
+          laid out as a 2×2 grid of quadrants on computer screens and stacked one
+          below another on smaller screens, sorted by project title descending in
+          each table:
         </P>
         <UL>
           <LI>
-            <strong>New &amp; Legacy Projects</strong> — new projects (the next
-            number in line plus the requesting engineer's initials, e.g.{" "}
-            <code>347-RW</code>) together with legacy <code>2xxx</code> projects
-            that never had a number assigned previously.
+            <strong>New Projects</strong> — a three-digit number plus the
+            requesting engineer's initials (e.g. <code>347-RW</code>).
+          </LI>
+          <LI>
+            <strong>Legacy Projects</strong> — the four-digit <code>2000</code>
+            -series that never had a number assigned previously.
           </LI>
           <LI>
             <strong>Engineering Items</strong> (<code>0xxx</code>) — engineering

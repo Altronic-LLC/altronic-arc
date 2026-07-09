@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.45.3",
+    date: "2026-07-09",
+    changes: [
+      "Reworked the Engineering Project Log into a clean 2×2 quadrant of card tables: New Projects (3-digit number + initials), Legacy Projects (the 2000-series, now separate again), Engineering Items (0xxx), and Insourcing (5xxx), each with a colour dot, count, and short description. Other appears below when needed.",
+    ],
+  },
+  {
     version: "0.45.2",
     date: "2026-07-09",
     changes: [
