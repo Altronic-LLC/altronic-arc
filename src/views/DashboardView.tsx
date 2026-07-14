@@ -140,7 +140,14 @@ export function DashboardView() {
     ? projects.find((p) => p.lookupId === projectId)?.title ?? null
     : null;
 
-  const folderCount = folderEntries.filter((e) => e.isFolder).length;
+  const folderCount = useMemo(() => {
+    const folders = folderEntries.filter((e) => e.isFolder);
+    // Each top-level folder is tagged with a Project Reference lookupId
+    // (readLookupId in projectFiles.ts). When a project is picked, only
+    // count the one folder tagged for it instead of the whole library.
+    if (projectId == null) return folders.length;
+    return folders.filter((f) => f.projectLookupId === projectId).length;
+  }, [folderEntries, projectId]);
 
   const myEmail = (currentUser.email ?? "").toLowerCase();
   const mine = scope === "mine";

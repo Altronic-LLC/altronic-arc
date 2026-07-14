@@ -453,8 +453,10 @@ function seedMockTree(): Map<string, DriveEntry[]> {
     [
       MOCK_ROOT,
       [
-        d("0017-AMP-5000 Refresh", "mf-amp", { projectLookupId: 17, childCount: 3 }),
-        d("0000-Engineering Apps", "mf-eng", { projectLookupId: 1, childCount: 1 }),
+        // lookupIds match MOCK_PROJECTS in src/data/mockData.ts, so the
+        // Dashboard's project filter can match a folder to its project.
+        d("0017-AMP-5000 Refresh", "mf-amp", { projectLookupId: 501, childCount: 3 }),
+        d("0000-Engineering Apps", "mf-eng", { projectLookupId: 274, childCount: 1 }),
         d("Miscellaneous", "mf-misc", { projectLookupId: 0, childCount: 1 }),
       ],
     ],

@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.49.0",
+    date: "2026-07-14",
+    changes: [
+      "The Dashboard's Project Folders card now narrows to just the one folder tagged for the picked project, instead of always showing the whole library's folder count.",
+    ],
+  },
+  {
     version: "0.48.2",
     date: "2026-07-14",
     changes: [

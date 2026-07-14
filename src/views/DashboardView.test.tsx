@@ -3,6 +3,7 @@ import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
 import { MOCK_TASKS, MOCK_EIRS, MOCK_TEST_SHEETS, MOCK_PROJECTS } from "@/data/mockData";
+import { listProjectFolderEntries } from "@/api/projectFiles";
 
 const mockNavigate = vi.fn();
 vi.mock("react-router-dom", async (importOriginal) => {
@@ -22,29 +23,31 @@ const FOLDER_ENTRIES_KEY = ["project-folder-entries", "root"] as const;
 
 import { DashboardView } from "./DashboardView";
 
-function renderDashboard() {
+async function renderDashboard() {
+  const folderEntries = await listProjectFolderEntries();
   return renderWithProviders(<DashboardView />, {
     seedQueryData: [
       { key: TASK_LIST_KEY, data: MOCK_TASKS },
       { key: PROJECTS_KEY, data: MOCK_PROJECTS },
       { key: EIRS_KEY, data: MOCK_EIRS },
       { key: TEST_SHEETS_KEY, data: MOCK_TEST_SHEETS },
-      { key: FOLDER_ENTRIES_KEY, data: [] },
+      { key: FOLDER_ENTRIES_KEY, data: folderEntries },
     ],
   });
 }
 
+const bigCount = (card: HTMLElement) =>
+  within(card).getByText(/^\d+$/, { selector: "span.text-4xl" });
+
 describe("DashboardView", () => {
   it("filters every card's count in place when a project is picked, the same way Mine/Company does", async () => {
     const user = userEvent.setup();
-    renderDashboard();
+    await renderDashboard();
 
     // Switch to Company so counts aren't zeroed by the "assigned to me"
     // check (the mock current user isn't assigned to anything).
     await user.click(screen.getByRole("button", { name: "Company" }));
     const taskCard = screen.getByRole("button", { name: /Engineering Tasks/i });
-    const bigCount = (card: HTMLElement) =>
-      within(card).getByText(/^\d+$/, { selector: "span.text-4xl" });
     expect(bigCount(taskCard)).toHaveTextContent("9"); // active tasks company-wide
 
     // Only task #88 ("AMP-5000 redlines for build") is tied to this project.
@@ -58,7 +61,7 @@ describe("DashboardView", () => {
 
   it("carries the picked project into the Tasks/EIRs list URLs when a card is clicked", async () => {
     const user = userEvent.setup();
-    renderDashboard();
+    await renderDashboard();
 
     await user.click(screen.getByRole("button", { name: /all projects/i }));
     const project = MOCK_PROJECTS.find((p) => p.title === "0017-AMP-5000 Refresh")!;
@@ -68,5 +71,24 @@ describe("DashboardView", () => {
     expect(mockNavigate).toHaveBeenCalledWith(
       expect.stringContaining(`project=${project.lookupId}`),
     );
+  });
+
+  it("narrows the Project Folders count to just the picked project's tagged folder", async () => {
+    const user = userEvent.setup();
+    await renderDashboard();
+
+    const folderCard = screen.getByRole("button", { name: /Project Folders/i });
+    // Mock library root has 3 tagged folders (AMP-5000, Engineering Apps, Misc).
+    expect(bigCount(folderCard)).toHaveTextContent("3");
+
+    // Only "mf-amp" is tagged with this project's lookupId.
+    await user.click(screen.getByRole("button", { name: /all projects/i }));
+    await user.click(screen.getByRole("option", { name: "0017-AMP-5000 Refresh" }));
+    expect(bigCount(folderCard)).toHaveTextContent("1");
+
+    // A project with no matching folder narrows the count to zero.
+    await user.click(screen.getByRole("button", { name: "0017-AMP-5000 Refresh" }));
+    await user.click(screen.getByRole("option", { name: "0003-Engineering Task List" }));
+    expect(bigCount(folderCard)).toHaveTextContent("0");
   });
 });
