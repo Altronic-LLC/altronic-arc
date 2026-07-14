@@ -1698,13 +1698,16 @@ export function ManualView() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[220px_1fr]">
-        {/* Sidebar TOC — mirrors the filtered set when searching */}
+        {/* Sidebar TOC — mirrors the filtered set when searching. The panel
+            scrolls independently of the page once it's taller than the
+            viewport, so every section stays reachable without scrolling
+            through the whole manual to find it. */}
         <aside className="lg:sticky lg:top-4 lg:self-start">
-          <div className="rounded-lg border border-border bg-surface p-3">
-            <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-accent">
+          <div className="flex flex-col rounded-lg border border-border bg-surface p-3 lg:max-h-[calc(100vh-2rem)]">
+            <div className="mb-2 shrink-0 text-[11px] font-semibold uppercase tracking-wider text-accent">
               {tokens.length === 0 ? "Contents" : "Best matches"}
             </div>
-            <nav className="flex flex-col gap-3 text-sm">
+            <nav className="flex min-h-0 flex-col gap-3 overflow-y-auto text-sm">
               {filtered.length === 0 ? (
                 <div className="px-2 py-1 text-xs text-fg-muted">No matches</div>
               ) : (

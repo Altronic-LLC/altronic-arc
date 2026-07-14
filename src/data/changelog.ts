@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.50.2",
+    date: "2026-07-14",
+    changes: [
+      "The User Manual's table of contents now scrolls on its own when the section list is taller than your window, instead of relying on scrolling the whole page to reach the bottom entries.",
+    ],
+  },
+  {
     version: "0.50.1",
     date: "2026-07-14",
     changes: [
