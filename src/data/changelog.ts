@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.51.1",
+    date: "2026-07-14",
+    changes: [
+      "Fixed a new task briefly showing \"Task not found\" right after creation, before its detail page loaded — most noticeable when connected to real SharePoint rather than demo data.",
+    ],
+  },
+  {
     version: "0.51.0",
     date: "2026-07-14",
     changes: [

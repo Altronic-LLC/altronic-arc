@@ -733,6 +733,14 @@ export function useCreateTask() {
     // navigating to the new task). Toast confirms after the round-trip.
     onSuccess: (task) => {
       pushToast({ message: `Created task "${task.numberedTitle || task.title}".` });
+      // Seed the new task into the cache immediately — TaskFormModal
+      // navigates to /task/:id right after this resolves, and useTask()
+      // derives from this same cache. Without seeding it here, that
+      // navigation lands on a stale list that doesn't have the new task
+      // yet, flashing "Task not found" until invalidateTasks' background
+      // refetch catches up (a real, visible gap against SharePoint — the
+      // mock list updates near-instantly, which is why this went unnoticed).
+      qc.setQueryData<Task[]>(TASK_LIST_KEY, (old) => (old ? [task, ...old] : [task]));
       invalidateTasks(qc);
     },
     onError: () => errorToast("Couldn't create task — please retry."),
