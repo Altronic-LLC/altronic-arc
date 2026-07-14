@@ -53,7 +53,8 @@ import { appendEngineeringResponse } from "@/lib/eirPromotion";
 import { TaskResolutionModal } from "@/components/TaskResolutionModal";
 import { pushToast } from "@/components/Toast";
 import { wouldCreateCycle } from "@/lib/taskGraph";
-import { sanitiseHtml } from "@/lib/sanitiseHtml";
+import { toggleChecklistItem } from "@/lib/descriptionChecklist";
+import { DescriptionView } from "@/components/DescriptionView";
 import { CommentThread } from "@/components/CommentThread";
 import { CommentComposer } from "@/components/CommentComposer";
 import { useUploadTaskFile } from "@/hooks/useTaskFiles";
@@ -503,7 +504,15 @@ export function DetailView() {
               Description
             </h2>
             {task.description ? (
-              <div className="comment-html" dangerouslySetInnerHTML={{ __html: sanitiseHtml(task.description) }} />
+              <DescriptionView
+                text={task.description}
+                onToggle={(lineIndex) =>
+                  updateFields.mutate({
+                    id: task.id,
+                    fields: { Description: toggleChecklistItem(task.description, lineIndex) },
+                  })
+                }
+              />
             ) : (
               <div className="text-sm text-fg-muted">No description.</div>
             )}

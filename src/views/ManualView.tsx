@@ -289,9 +289,15 @@ const SECTIONS: ManualSection[] = [
       "numbered title",
       "complete a task",
       "mark complete",
+      "checklist",
+      "check list",
+      "checkbox in description",
+      "task list in description",
+      "turn into checklist",
+      "to-do list",
     ],
     searchText:
-      "Create tasks with the New Task button. Required: Title and Parent Project. NumberedTitle is auto-generated as T{n}-{projectRef}-{title}. Edit fields inline from the right sidebar of the detail page. Use Mark Complete or change Status to close out.",
+      "Create tasks with the New Task button. Required: Title and Parent Project. NumberedTitle is auto-generated as T{n}-{projectRef}-{title}. Edit fields inline from the right sidebar of the detail page. Use Mark Complete or change Status to close out. The Description field can hold a custom checklist — click Turn into checklist while editing, or type - [ ] lines yourself, and check items off directly from the detail page.",
     render: () => (
       <>
         <H3>Creating a task</H3>
@@ -346,6 +352,23 @@ const SECTIONS: ManualSection[] = [
         <P>
           The <strong>Edit</strong> button at the top of the detail page opens
           the full task form for bulk edits of title + description in one go.
+        </P>
+        <H3>Custom checklists in the Description</H3>
+        <P>
+          Any Description can double as a checklist. While editing, click{" "}
+          <strong>Turn into checklist</strong> next to the Description field —
+          it converts each existing line into its own checkable item (an
+          empty Description gets one blank item to start typing into). You
+          can also type the syntax yourself:{" "}
+          <code>- [ ] Buy the part</code> for an unchecked item,{" "}
+          <code>- [x] Buy the part</code> for a checked one.
+        </P>
+        <P>
+          Once saved, checklist items render as real checkboxes on the task
+          detail page — click one to check it off right there, no need to
+          open the edit form. Regular text lines can sit alongside checklist
+          lines in the same Description; only the <code>- [ ]</code>/
+          <code>- [x]</code> lines become checkboxes.
         </P>
         <H3>Marking complete</H3>
         <P>
@@ -687,9 +710,11 @@ const SECTIONS: ManualSection[] = [
       "final resolution",
       "close task",
       "linked task",
+      "checklist",
+      "turn into checklist",
     ],
     searchText:
-      "The EIRs tab shows Engineering Information Requests with workflow View tabs (All, New, Needs Assigned, At Risk Parts, LTB), status pills (Under Review, Response Accepted, Closed, etc.) and a filter bar for Project, Assigned Engineer, Reporter, and search. New = no project reference and no engineer assigned; Needs Assigned = has a project reference but still no engineer. Click an EIR to open the detail page with Description, Engineering Response, Part Details (MFG, P/N, EAU, etc.), Comments, and a sidebar to edit Status, Resolution, Request Type, Priority, Reporter, Assigned Engineers, Watchers, Project, Task Reference, Requested Completion Date, LTB Date. New EIRs are auto-numbered as EIR_YYYY-#### (the next sequence for the year); the EIR Log No. is calculated from it. Promote an EIR to a task by setting Resolution to Promoted to Task: a confirmation window creates a linked task carrying the title, description, project, watchers, and comment thread (tagged as from the EIR). Completing that task prompts for a final resolution, which is written back to the EIR's Engineering Response and marks the EIR Resolved and Closed.",
+      "The EIRs tab shows Engineering Information Requests with workflow View tabs (All, New, Needs Assigned, At Risk Parts, LTB), status pills (Under Review, Response Accepted, Closed, etc.) and a filter bar for Project, Assigned Engineer, Reporter, and search. The Description field supports the same custom checklist syntax as a task's Description. New = no project reference and no engineer assigned; Needs Assigned = has a project reference but still no engineer. Click an EIR to open the detail page with Description, Engineering Response, Part Details (MFG, P/N, EAU, etc.), Comments, and a sidebar to edit Status, Resolution, Request Type, Priority, Reporter, Assigned Engineers, Watchers, Project, Task Reference, Requested Completion Date, LTB Date. New EIRs are auto-numbered as EIR_YYYY-#### (the next sequence for the year); the EIR Log No. is calculated from it. Promote an EIR to a task by setting Resolution to Promoted to Task: a confirmation window creates a linked task carrying the title, description, project, watchers, and comment thread (tagged as from the EIR). Completing that task prompts for a final resolution, which is written back to the EIR's Engineering Response and marks the EIR Resolved and Closed.",
     render: () => (
       <>
         <P>
@@ -745,7 +770,11 @@ const SECTIONS: ManualSection[] = [
           Description, Engineering Response (with its own inline editor), Part
           Details (Where Used, MFG, MFG P/N, Altronic Part Number, EAU, Current
           Stock, Current Price, Buyer Code — all editable inline by clicking),
-          and the comments thread.
+          and the comments thread. Like a task's Description, the EIR's
+          Description can hold a custom checklist — click{" "}
+          <strong>Turn into checklist</strong> while editing it; see{" "}
+          <em>Working with tasks → Custom checklists in the Description</em>{" "}
+          for the syntax.
         </P>
         <P>
           The sidebar holds the workflow fields: Status, Resolution, Request

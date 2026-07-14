@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Check, ChevronDown, Loader2, Plus, X } from "lucide-react";
+import { Check, ChevronDown, ListChecks, Loader2, Plus, X } from "lucide-react";
 import {
   useCreateTask,
   useProjects,
@@ -27,6 +27,7 @@ import {
 } from "@/types/task";
 import { wouldCreateCycle } from "@/lib/taskGraph";
 import { computeNumberedTitle } from "@/lib/taskNumbering";
+import { convertToChecklist } from "@/lib/descriptionChecklist";
 import { MultiSelect } from "./SearchableSelect";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
 import { cn } from "@/lib/cn";
@@ -356,7 +357,21 @@ export function TaskFormModal({ mode, task, onClose }: TaskFormModalProps) {
               />
             </FieldLabel>
 
-            <FieldLabel label="Description">
+            <label className="block">
+              <div className="mb-1 flex items-center justify-between">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
+                  Description
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setDescription((d) => convertToChecklist(d))}
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-accent underline-offset-2 hover:underline"
+                  title='Adds "- [ ] " checklist items you can check off on the detail page'
+                >
+                  <ListChecks className="h-3 w-3" />
+                  Turn into checklist
+                </button>
+              </div>
               <AutoGrowTextarea
                 style={{ minHeight: "6.5rem" }}
                 value={description}
@@ -365,7 +380,7 @@ export function TaskFormModal({ mode, task, onClose }: TaskFormModalProps) {
                 placeholder="What needs to be done? Acceptance criteria, links, context…"
                 className="w-full resize-y rounded-md border border-border bg-surface px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
               />
-            </FieldLabel>
+            </label>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <FieldLabel label="Status">

@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.51.0",
+    date: "2026-07-14",
+    changes: [
+      "Task and EIR descriptions now support custom checklists — click \"Turn into checklist\" while editing, or type \"- [ ] item\" / \"- [x] item\" lines yourself, and check items off directly from the detail page.",
+    ],
+  },
+  {
     version: "0.50.3",
     date: "2026-07-14",
     changes: [

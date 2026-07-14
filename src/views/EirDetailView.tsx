@@ -9,6 +9,7 @@ import {
   Flag,
   FolderOpen,
   HardHat,
+  ListChecks,
   Lock,
   Pencil,
   Tag,
@@ -53,6 +54,12 @@ import { sanitiseHtml } from "@/lib/sanitiseHtml";
 import { multiLookupField } from "@/lib/graphFields";
 import { cn } from "@/lib/cn";
 import { AutoGrowTextarea } from "@/components/AutoGrowTextarea";
+import { DescriptionView } from "@/components/DescriptionView";
+import {
+  convertToChecklist,
+  looksLikeHtml,
+  toggleChecklistItem,
+} from "@/lib/descriptionChecklist";
 
 export function EirDetailView() {
   const { id } = useParams<{ id: string }>();
@@ -247,6 +254,7 @@ export function EirDetailView() {
           <EditableTextCard
             title="Description"
             value={eir.description}
+            allowChecklist
             onSave={(next) =>
               updateFields.mutate({ id: eir.id, fields: { Description: next } })
             }
@@ -656,6 +664,7 @@ function EditableTextCard({
   onSave,
   disabled = false,
   disabledHint,
+  allowChecklist = false,
 }: {
   title: string;
   value: string;
@@ -664,6 +673,14 @@ function EditableTextCard({
   disabled?: boolean;
   /** Tooltip explaining why editing is locked (shown on the lock badge). */
   disabledHint?: string;
+  /**
+   * When true, shows a "Turn into checklist" button while editing, and
+   * renders `- [ ]` / `- [x]` lines as clickable checkboxes (toggleable
+   * straight from the view, no need to open Edit first) instead of the
+   * plain HTML/text rendering. Off by default — only the Description field
+   * opts in.
+   */
+  allowChecklist?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -693,7 +710,18 @@ function EditableTextCard({
             Edit
           </button>
         ) : (
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
+            {allowChecklist && (
+              <button
+                type="button"
+                onClick={() => setDraft((d) => convertToChecklist(d))}
+                className="inline-flex items-center gap-1 text-xs font-medium text-accent underline-offset-2 hover:underline"
+                title='Adds "- [ ] " checklist items you can check off on the detail page'
+              >
+                <ListChecks className="h-3 w-3" />
+                Turn into checklist
+              </button>
+            )}
             <button
               onClick={() => setEditing(false)}
               className="text-xs text-fg-muted underline-offset-2 hover:underline"
@@ -721,7 +749,12 @@ function EditableTextCard({
           className="w-full resize-y rounded-md border border-border bg-bg p-3 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
         />
       ) : value ? (
-        // The Engineering Response field can be plain text or HTML (when
+        allowChecklist ? (
+          <DescriptionView
+            text={value}
+            onToggle={(lineIndex) => onSave(toggleChecklistItem(value, lineIndex))}
+          />
+        ) : // The Engineering Response field can be plain text or HTML (when
         // edits come from the original Power Apps form, they arrive as
         // <p>...</p>). Detect HTML by a tag presence test and render it
         // sanitised; otherwise treat as plain text and preserve newlines.
@@ -738,10 +771,6 @@ function EditableTextCard({
       )}
     </div>
   );
-}
-
-function looksLikeHtml(s: string): boolean {
-  return /<\/?[a-z][\s\S]*?>/i.test(s);
 }
 
 /**

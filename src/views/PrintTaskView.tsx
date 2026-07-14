@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { useTask, useTasks } from "@/hooks/useTasks";
 import { sanitiseHtml } from "@/lib/sanitiseHtml";
+import { DescriptionView } from "@/components/DescriptionView";
 import { Brandmark } from "@/components/brand/Brandmark";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { LoadingTasks } from "@/components/LoadingTasks";
@@ -110,10 +111,7 @@ export function PrintTaskView() {
       {task.description && (
         <section className="mb-5 break-inside-avoid">
           <SectionHeading>Description</SectionHeading>
-          <div
-            className="comment-html text-sm text-black"
-            dangerouslySetInnerHTML={{ __html: sanitiseHtml(task.description) }}
-          />
+          <DescriptionView text={task.description} tone="print" className="text-sm text-black" />
         </section>
       )}
 
