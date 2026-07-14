@@ -216,8 +216,8 @@ export function DashboardView() {
             {projectTitle ? ` on ${projectTitle}.` : " by type."}
           </p>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <div className="w-full sm:w-56">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="w-full sm:w-64">
             <SingleSelect
               allLabel="All projects"
               searchPlaceholder="Search projects…"
@@ -226,7 +226,7 @@ export function DashboardView() {
               onChange={setProjectFilter}
             />
           </div>
-          <ScopeToggle value={scope} onChange={setScope} />
+          <ScopeToggle value={scope} onChange={setScope} className="shrink-0" />
         </div>
       </header>
 
@@ -324,13 +324,26 @@ function DeptSection({ title, children }: { title: string; children: React.React
   );
 }
 
-function ScopeToggle({ value, onChange }: { value: Scope; onChange: (s: Scope) => void }) {
+function ScopeToggle({
+  value,
+  onChange,
+  className,
+}: {
+  value: Scope;
+  onChange: (s: Scope) => void;
+  className?: string;
+}) {
   const opts: { value: Scope; label: string }[] = [
     { value: "mine", label: "Mine" },
     { value: "company", label: "Company" },
   ];
   return (
-    <div className="inline-flex items-center rounded-md border border-border bg-surface-2 p-0.5 text-sm">
+    <div
+      className={cn(
+        "inline-flex items-center rounded-md border border-border bg-surface-2 p-0.5 text-sm",
+        className,
+      )}
+    >
       {opts.map((o) => (
         <button
           key={o.value}

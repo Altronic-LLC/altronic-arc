@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.48.1",
+    date: "2026-07-14",
+    changes: [
+      "Fixed the Dashboard's project filter and Mine/Company toggle crowding together with no visible gap between them.",
+    ],
+  },
+  {
     version: "0.48.0",
     date: "2026-07-14",
     changes: [
