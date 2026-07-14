@@ -357,12 +357,14 @@ export function DetailView() {
   async function handleEditComment(
     comment: import("@/types/task").Comment,
     newBodyHtml: string,
+    renotify: boolean,
   ) {
     if (!task) return;
     await editComment.mutateAsync({
       id: task.id,
       target: { timestamp: comment.timestamp, authorEmail: comment.authorEmail },
       newBodyHtml,
+      renotify,
     });
   }
 

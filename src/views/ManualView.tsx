@@ -457,9 +457,12 @@ const SECTIONS: ManualSection[] = [
       "edit comment",
       "delete comment",
       "thread",
+      "renotify",
+      "notify everyone again",
+      "resend notification",
     ],
     searchText:
-      "Type @ in the comment composer to open the mention picker. Arrow keys then Enter or Tab to pick. Comment boxes auto-grow as you type or paste. Mentioned people get an email with the task/EIR name, the comment quote, and a link. Attach files by drag-drop or click Attach. You can edit your own comments inline. Ctrl+Enter sends.",
+      "Type @ in the comment composer to open the mention picker. Arrow keys then Enter or Tab to pick. Comment boxes auto-grow as you type or paste. Mentioned people get an email with the task/EIR name, the comment quote, and a link. Attach files by drag-drop or click Attach. You can edit your own comments inline. Check Notify everyone again when editing to re-email every watcher and mention. Ctrl+Enter sends.",
     render: () => (
       <>
         <P>
@@ -509,7 +512,11 @@ const SECTIONS: ManualSection[] = [
         <P>
           A pencil icon appears next to comments you authored. Click it to
           edit in place. Editing won't re-spam mentions that were already
-          there — only newly added mentions get an email.
+          there — only newly added mentions get an email. If you'd rather
+          make sure everyone sees the update, check{" "}
+          <strong>Notify everyone again</strong> before saving — it re-emails
+          every watcher and mentioned person (marked as an update, not a
+          brand-new comment), regardless of who was already notified.
         </P>
         <H3>Sending and confirmation</H3>
         <P>

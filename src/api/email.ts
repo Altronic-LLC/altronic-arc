@@ -27,8 +27,12 @@ import {
 export interface MentionRecipient {
   email: string;
   displayName: string;
-  /** Why they're being notified — "mentioned" or a "watching" comment alert. */
-  reason: "mentioned" | "watching";
+  /**
+   * Why they're being notified — "mentioned" or a "watching" comment alert,
+   * or "edited" when the author checked "Notify everyone again" after
+   * editing an existing comment.
+   */
+  reason: "mentioned" | "watching" | "edited";
 }
 
 /** What the mention is on — drives the wording, link, and button text. */
@@ -125,7 +129,9 @@ async function sendOne(input: {
   const subject =
     reason === "mentioned"
       ? `You were mentioned in ${target.title}`
-      : `New comment on ${target.title}`;
+      : reason === "edited"
+        ? `Updated comment on ${target.title}`
+        : `New comment on ${target.title}`;
   const url = itemUrl(target.kind, target.id);
   const bodyHtml = renderMentionEmail({
     recipientName: input.recipient.displayName,
@@ -328,7 +334,7 @@ interface MentionEmailContext {
   recipientName: string;
   senderName: string;
   kind: "task" | "eir";
-  reason: "mentioned" | "watching";
+  reason: "mentioned" | "watching" | "edited";
   itemTitle: string;
   commentExcerpt: string;
   url: string;
@@ -421,7 +427,9 @@ function renderMentionEmail(ctx: MentionEmailContext): string {
   const intro =
     ctx.reason === "mentioned"
       ? `You were mentioned in ${phrase} by <strong>${sender}</strong>.`
-      : `<strong>${sender}</strong> commented on ${phrase} you're watching.`;
+      : ctx.reason === "edited"
+        ? `<strong>${sender}</strong> updated a comment on ${phrase} you're following — here's the latest version:`
+        : `<strong>${sender}</strong> commented on ${phrase} you're watching.`;
 
   return renderEmailShell({
     recipientName: ctx.recipientName,

@@ -179,12 +179,13 @@ export function EirDetailView() {
     });
   }
 
-  async function handleEditComment(comment: CommentType, newBodyHtml: string) {
+  async function handleEditComment(comment: CommentType, newBodyHtml: string, renotify: boolean) {
     if (!eir) return;
     await editComment.mutateAsync({
       id: eir.id,
       target: { timestamp: comment.timestamp, authorEmail: comment.authorEmail },
       newBodyHtml,
+      renotify,
     });
   }
 

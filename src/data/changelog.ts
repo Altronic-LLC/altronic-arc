@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.50.0",
+    date: "2026-07-14",
+    changes: [
+      "Editing a comment on a task or EIR now shows a \"Notify everyone again\" checkbox — check it to re-email every watcher and mentioned person about the update instead of the usual silent edit.",
+    ],
+  },
+  {
     version: "0.49.2",
     date: "2026-07-14",
     changes: [

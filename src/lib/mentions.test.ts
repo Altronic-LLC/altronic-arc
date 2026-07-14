@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   buildCommentHtml,
   commentNotifyRecipients,
+  commentRenotifyRecipients,
   extractMentionedRecipients,
 } from "./mentions";
 import type { Person } from "@/types/task";
@@ -160,6 +161,29 @@ describe("commentNotifyRecipients", () => {
       authorEmail: "author@x.com",
     });
     expect(out.map((r) => r.email)).toEqual(["has@x.com"]);
+  });
+});
+
+describe("commentRenotifyRecipients", () => {
+  const w = (displayName: string, email?: string) => ({ displayName, email });
+
+  it("tags every recipient 'edited' regardless of whether they were watching or mentioned", () => {
+    const out = commentRenotifyRecipients({
+      bodyHtml: buildCommentHtml("@Sarah Shaffer take another look", [SARAH]),
+      watchers: [w("Sarah Shaffer", "sarah@x.com"), w("Ray White", "ray@x.com")],
+      authorEmail: "author@x.com",
+    });
+    expect(out.every((r) => r.reason === "edited")).toBe(true);
+    expect(out.map((r) => r.email).sort()).toEqual(["ray@x.com", "sarah@x.com"]);
+  });
+
+  it("still excludes the author unless they self-mentioned", () => {
+    const out = commentRenotifyRecipients({
+      bodyHtml: buildCommentHtml("no mentions here", []),
+      watchers: [w("Author", "author@x.com"), w("Ray White", "ray@x.com")],
+      authorEmail: "author@x.com",
+    });
+    expect(out.map((r) => r.email)).toEqual(["ray@x.com"]);
   });
 });
 

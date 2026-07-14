@@ -7,8 +7,13 @@ import { AutoGrowTextarea } from "./AutoGrowTextarea";
 interface CommentThreadProps {
   comments: Comment[];
   currentUserEmail?: string;
-  /** Save handler. If omitted, the Edit button is hidden entirely. */
-  onEdit?: (comment: Comment, newBodyHtml: string) => Promise<void> | void;
+  /**
+   * Save handler. If omitted, the Edit button is hidden entirely.
+   * `renotify` is true when the author checked "Notify everyone again" —
+   * the caller should re-send the comment notification to watchers/mentions
+   * instead of the usual edit behavior of staying silent.
+   */
+  onEdit?: (comment: Comment, newBodyHtml: string, renotify: boolean) => Promise<void> | void;
 }
 
 export function CommentThread({ comments, currentUserEmail, onEdit }: CommentThreadProps) {
@@ -47,7 +52,7 @@ function CommentItem({
 }: {
   comment: Comment;
   canEdit: boolean;
-  onEdit?: (comment: Comment, newBodyHtml: string) => Promise<void> | void;
+  onEdit?: (comment: Comment, newBodyHtml: string, renotify: boolean) => Promise<void> | void;
 }) {
   const [editing, setEditing] = useState(false);
 
@@ -57,8 +62,8 @@ function CommentItem({
         <CommentEditor
           initialBodyHtml={comment.bodyHtml}
           onCancel={() => setEditing(false)}
-          onSave={async (newBodyHtml) => {
-            await onEdit(comment, newBodyHtml);
+          onSave={async (newBodyHtml, renotify) => {
+            await onEdit(comment, newBodyHtml, renotify);
             setEditing(false);
           }}
         />
@@ -127,11 +132,12 @@ function CommentEditor({
   onCancel,
 }: {
   initialBodyHtml: string;
-  onSave: (newBodyHtml: string) => Promise<void> | void;
+  onSave: (newBodyHtml: string, renotify: boolean) => Promise<void> | void;
   onCancel: () => void;
 }) {
   const [text, setText] = useState(() => htmlToPlainText(initialBodyHtml));
   const [busy, setBusy] = useState(false);
+  const [renotify, setRenotify] = useState(false);
 
   async function handleSave() {
     const trimmed = text.trim();
@@ -142,7 +148,7 @@ function CommentEditor({
         .split(/\n{2,}/)
         .map((p) => `<p>${escapeHtml(p).replace(/\n/g, "<br/>")}</p>`)
         .join("");
-      await onSave(html);
+      await onSave(html, renotify);
     } finally {
       setBusy(false);
     }
@@ -170,21 +176,36 @@ function CommentEditor({
         autoFocus
         className="w-full resize-y rounded-md bg-bg p-2.5 text-base text-fg placeholder:text-fg-muted focus:outline-none focus:ring-2 focus:ring-accent/30 sm:text-sm"
       />
-      <div className="mt-2 flex items-center justify-end gap-2">
-        <button
-          onClick={onCancel}
-          disabled={busy}
-          className="rounded-md border border-border bg-surface px-3 py-1 text-xs font-medium text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg disabled:opacity-50"
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <label
+          className="flex items-center gap-1.5 text-xs text-fg-muted"
+          title="Sends a fresh notification email to watchers and mentioned people about this update."
         >
-          Cancel
-        </button>
-        <button
-          onClick={handleSave}
-          disabled={busy || text.trim().length === 0}
-          className="rounded-md bg-accent px-3 py-1 text-xs font-medium text-white shadow-sm transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {busy ? "Saving…" : "Save"}
-        </button>
+          <input
+            type="checkbox"
+            checked={renotify}
+            onChange={(e) => setRenotify(e.target.checked)}
+            disabled={busy}
+            className="h-3.5 w-3.5 rounded border-border"
+          />
+          Notify everyone again
+        </label>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onCancel}
+            disabled={busy}
+            className="rounded-md border border-border bg-surface px-3 py-1 text-xs font-medium text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={busy || text.trim().length === 0}
+            className="rounded-md bg-accent px-3 py-1 text-xs font-medium text-white shadow-sm transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {busy ? "Saving…" : "Save"}
+          </button>
+        </div>
       </div>
     </div>
   );

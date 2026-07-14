@@ -22,7 +22,11 @@ import type {
 } from "@/types/task";
 import { pushToast } from "@/components/Toast";
 import { multiLookupField } from "@/lib/graphFields";
-import { commentNotifyRecipients, extractMentionedRecipients } from "@/lib/mentions";
+import {
+  commentNotifyRecipients,
+  commentRenotifyRecipients,
+  extractMentionedRecipients,
+} from "@/lib/mentions";
 import {
   fireAssigneeChangeAlert,
   fireFieldChangeAlert,
@@ -464,6 +468,8 @@ export function useEditEirComment() {
       id: number;
       target: { timestamp: Date; authorEmail: string };
       newBodyHtml: string;
+      /** Author opted in to "Notify everyone again" — see onSuccess below. */
+      renotify?: boolean;
     }) => editEirComment(id, target, newBodyHtml),
     onMutate: ({ id, target, newBodyHtml }) =>
       snapshotAndPatch(
@@ -480,18 +486,40 @@ export function useEditEirComment() {
           modifiedAt: new Date(),
         })),
       ),
-    onSuccess: (_d, { id, target }, ctx) => {
-      const prevBody = ctx?.prevEir?.comments.find(
+    onSuccess: (_d, { id, target, newBodyHtml, renotify }, ctx) => {
+      const prevComment = ctx?.prevEir?.comments.find(
         (c) =>
           c.timestamp.getTime() === target.timestamp.getTime() &&
           (c.authorEmail ?? "").toLowerCase() === target.authorEmail.toLowerCase(),
-      )?.bodyHtml;
+      );
+      const prevBody = prevComment?.bodyHtml;
       pushToast({
         message: "Comment updated.",
         undo:
           prevBody !== undefined
             ? buildUndo(qc, ctx?.previous, () => editEirComment(id, target, prevBody))
             : undefined,
+      });
+
+      if (!renotify || !prevComment) return;
+      const eir = qc.getQueryData<Eir[]>(EIRS_KEY)?.find((e) => e.id === id);
+      if (!eir) return;
+
+      // Author explicitly asked to renotify the group — resend to everyone
+      // who'd hear about this comment (watchers + current mentions), tagged
+      // "edited" so the email reads as an update, not a brand-new comment.
+      const recipients = commentRenotifyRecipients({
+        bodyHtml: newBodyHtml,
+        watchers: eir.watchers,
+        authorEmail: prevComment.authorEmail,
+      });
+      if (recipients.length === 0) return;
+      void notifyMentions({
+        recipients,
+        sender: { displayName: prevComment.authorName, email: prevComment.authorEmail },
+        target: { kind: "eir", id: eir.id, title: eirTargetTitle(eir) },
+        commentExcerpt: eirCommentExcerpt(newBodyHtml),
+        attachments: prevComment.attachments ?? [],
       });
     },
     onError: (_err, _vars, ctx) => {

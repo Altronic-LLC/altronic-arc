@@ -33,7 +33,11 @@ import type {
 import { CATEGORIES, LABELS, PRIORITIES, STATUSES } from "@/types/task";
 import { pushToast } from "@/components/Toast";
 import { fireAssigneeChangeAlert, fireFieldChangeAlert, notifyMentions } from "@/api/email";
-import { commentNotifyRecipients, extractMentionedRecipients } from "@/lib/mentions";
+import {
+  commentNotifyRecipients,
+  commentRenotifyRecipients,
+  extractMentionedRecipients,
+} from "@/lib/mentions";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 const TASK_LIST_KEY = ["tasks", "list"] as const;
@@ -629,6 +633,8 @@ export function useEditComment() {
       id: number;
       target: { timestamp: Date; authorEmail: string };
       newBodyHtml: string;
+      /** Author opted in to "Notify everyone again" — see onSuccess below. */
+      renotify?: boolean;
     }) => editComment(id, target, newBodyHtml),
     onMutate: ({ id, target, newBodyHtml }) =>
       snapshotAndPatch(
@@ -645,7 +651,7 @@ export function useEditComment() {
           modifiedAt: new Date(),
         })),
       ),
-    onSuccess: (_data, { id, target, newBodyHtml }, ctx) => {
+    onSuccess: (_data, { id, target, newBodyHtml, renotify }, ctx) => {
       const prevComment = ctx?.prevTask?.comments.find(
         (c) =>
           c.timestamp.getTime() === target.timestamp.getTime() &&
@@ -659,9 +665,38 @@ export function useEditComment() {
             ? buildUndo(qc, ctx?.previous, () => editComment(id, target, prevBody))
             : undefined,
       });
-      // Fire emails ONLY for mentions that weren't in the previous version —
-      // editing shouldn't re-spam people who were already pinged on the
-      // original post.
+      if (!prevComment) return;
+      const task = qc.getQueryData<Task[]>(TASK_LIST_KEY)?.find((t) => t.id === id);
+      if (!task) return;
+      const sender: Person = {
+        displayName: prevComment.authorName,
+        email: prevComment.authorEmail,
+      };
+
+      if (renotify) {
+        // Author explicitly asked to renotify the group — resend to
+        // everyone who'd hear about this comment (watchers + current
+        // mentions), tagged "edited" so the email reads as an update.
+        const recipients = commentRenotifyRecipients({
+          bodyHtml: newBodyHtml,
+          watchers: task.watchers,
+          authorEmail: prevComment.authorEmail,
+        });
+        if (recipients.length > 0) {
+          void notifyMentions({
+            recipients,
+            sender,
+            target: { kind: "task", id: task.id, title: task.numberedTitle || task.title },
+            commentExcerpt: htmlToPlainText(newBodyHtml),
+            attachments: prevComment.attachments ?? [],
+          });
+        }
+        return;
+      }
+
+      // Otherwise, fire emails ONLY for mentions that weren't in the
+      // previous version — editing shouldn't re-spam people who were
+      // already pinged on the original post.
       const prevMentions = new Set(
         prevBody
           ? extractMentionedRecipients(prevBody).map((r) => r.email.toLowerCase())
@@ -671,20 +706,13 @@ export function useEditComment() {
         (r) => !prevMentions.has(r.email.toLowerCase()),
       );
       if (newMentions.length > 0) {
-        const task = qc.getQueryData<Task[]>(TASK_LIST_KEY)?.find((t) => t.id === id);
-        if (task && prevComment) {
-          const sender: Person = {
-            displayName: prevComment.authorName,
-            email: prevComment.authorEmail,
-          };
-          void notifyMentions({
-            recipients: newMentions.map((m) => ({ ...m, reason: "mentioned" as const })),
-            sender,
-            target: { kind: "task", id: task.id, title: task.numberedTitle || task.title },
-            commentExcerpt: htmlToPlainText(newBodyHtml),
-            attachments: prevComment.attachments ?? [],
-          });
-        }
+        void notifyMentions({
+          recipients: newMentions.map((m) => ({ ...m, reason: "mentioned" as const })),
+          sender,
+          target: { kind: "task", id: task.id, title: task.numberedTitle || task.title },
+          commentExcerpt: htmlToPlainText(newBodyHtml),
+          attachments: prevComment.attachments ?? [],
+        });
       }
     },
     onError: (_err, _vars, ctx) => {

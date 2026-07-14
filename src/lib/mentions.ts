@@ -123,7 +123,7 @@ export interface CommentRecipient {
   email: string;
   displayName: string;
   /** Why they're being notified — drives the email wording. */
-  reason: "mentioned" | "watching";
+  reason: "mentioned" | "watching" | "edited";
 }
 
 /**
@@ -162,4 +162,19 @@ export function commentNotifyRecipients(args: {
   // Never notify the author of their own comment unless they self-mentioned.
   if (!selfMentioned) byEmail.delete(author);
   return Array.from(byEmail.values());
+}
+
+/**
+ * Who to (re-)email when the comment's author explicitly asks to renotify
+ * the group after editing — everyone who'd normally hear about this comment
+ * (watchers + anyone currently @-mentioned in the edited body), all tagged
+ * "edited" so the email reads as an update rather than a brand-new mention
+ * or a first-time comment. Same author-exclusion rule as a fresh post.
+ */
+export function commentRenotifyRecipients(args: {
+  bodyHtml: string;
+  watchers: Array<{ displayName: string; email?: string }>;
+  authorEmail: string;
+}): CommentRecipient[] {
+  return commentNotifyRecipients(args).map((r) => ({ ...r, reason: "edited" }));
 }
