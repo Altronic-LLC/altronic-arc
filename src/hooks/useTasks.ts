@@ -675,10 +675,12 @@ export function useEditComment() {
 
       if (renotify) {
         // Author explicitly asked to renotify the group — resend to
-        // everyone who'd hear about this comment (watchers + current
-        // mentions), tagged "edited" so the email reads as an update.
+        // everyone who'd hear about this comment (watchers + current AND
+        // previously @-mentioned people), tagged "edited" so the email
+        // reads as an update.
         const recipients = commentRenotifyRecipients({
           bodyHtml: newBodyHtml,
+          previousBodyHtml: prevBody,
           watchers: task.watchers,
           authorEmail: prevComment.authorEmail,
         });

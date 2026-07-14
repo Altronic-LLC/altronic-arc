@@ -1194,7 +1194,7 @@ const SECTIONS: ManualSection[] = [
       "promotion notification",
     ],
     searchText:
-      "Commenting on a task or EIR emails everyone watching it plus everyone you @-mention, from automation@altronic-llc.com. Mentioned people get a 'You were mentioned' email; other watchers get a 'New comment on' email. You're never emailed for your own comment unless you @-mention yourself. @-mentioning auto-adds the person as a watcher. Editing a comment emails only newly added mentions. Click Watch on the detail page to follow; click Watching to stop. Change alerts: changing a Status, an EIR Resolution, or the assignees emails the watchers, current assignees, and (for EIRs) the reporter. Being added as an assignee emails you 'You've been assigned'; being removed emails 'You've been unassigned'; everyone else gets a broadcast. Promoting an EIR to a task emails the EIR's watchers and reporter with a link to the new task. You're never emailed for a change you made yourself.",
+      "Commenting on a task or EIR emails everyone watching it plus everyone you @-mention, from automation@altronic-llc.com. Mentioned people get a 'You were mentioned' email; other watchers get a 'New comment on' email. You're never emailed for your own comment unless you @-mention yourself. @-mentioning auto-adds the person as a watcher. Editing a comment emails only newly added mentions by default, but checking 'Notify everyone again' resends an 'Updated comment on' email to watchers plus everyone mentioned in the new AND previous version of the comment. Click Watch on the detail page to follow; click Watching to stop. Change alerts: changing a Status, an EIR Resolution, or the assignees emails the watchers, current assignees, and (for EIRs) the reporter. Being added as an assignee emails you 'You've been assigned'; being removed emails 'You've been unassigned'; everyone else gets a broadcast. Promoting an EIR to a task emails the EIR's watchers and reporter with a link to the new task. You're never emailed for a change you made yourself.",
     render: () => (
       <>
         <P>
@@ -1232,6 +1232,11 @@ const SECTIONS: ManualSection[] = [
               "You edit a comment to add a new @-mention",
               "Only the newly added person",
               "You were mentioned in …",
+            ],
+            [
+              "You edit a comment and check \"Notify everyone again\"",
+              "Watchers + everyone @-mentioned in the new AND the previous version of the comment (minus you)",
+              "Updated comment on …",
             ],
             [
               "Status changes (task or EIR)",
@@ -1293,7 +1298,15 @@ const SECTIONS: ManualSection[] = [
           <LI>
             Editing a comment to add a <strong>new</strong> mention emails just
             that new person — existing mentions and other watchers aren't
-            re-notified.
+            re-notified, unless you use the checkbox below.
+          </LI>
+          <LI>
+            Checking <strong>"Notify everyone again"</strong> while editing
+            resends to the whole group — watchers, plus everyone
+            @-mentioned in the new comment <em>and</em> anyone who was
+            @-mentioned in the version you're replacing (even if you removed
+            or reworded their mention). The email is labelled "Updated
+            comment on …" so it reads as an edit, not a fresh post.
           </LI>
         </UL>
 

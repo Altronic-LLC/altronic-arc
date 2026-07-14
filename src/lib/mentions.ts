@@ -126,20 +126,14 @@ export interface CommentRecipient {
   reason: "mentioned" | "watching" | "edited";
 }
 
-/**
- * Who to email when a new comment is posted: everyone @-mentioned in the body
- * PLUS every watcher of the task/EIR, deduped by email (a mention beats a plain
- * watch). The comment's author is excluded — even if they're a watcher — UNLESS
- * they explicitly @-mentioned themselves.
- */
-export function commentNotifyRecipients(args: {
-  bodyHtml: string;
+/** Shared recipient math for {@link commentNotifyRecipients} and {@link commentRenotifyRecipients}. */
+function buildCommentRecipients(args: {
+  mentions: Array<{ email: string; displayName: string }>;
   watchers: Array<{ displayName: string; email?: string }>;
   authorEmail: string;
 }): CommentRecipient[] {
   const author = (args.authorEmail ?? "").toLowerCase();
-  const mentions = extractMentionedRecipients(args.bodyHtml);
-  const selfMentioned = mentions.some((m) => m.email.toLowerCase() === author);
+  const selfMentioned = args.mentions.some((m) => m.email.toLowerCase() === author);
 
   const byEmail = new Map<string, CommentRecipient>();
   for (const w of args.watchers) {
@@ -152,7 +146,7 @@ export function commentNotifyRecipients(args: {
     });
   }
   // Mentions override watch — a mention is the stronger signal.
-  for (const m of mentions) {
+  for (const m of args.mentions) {
     byEmail.set(m.email.toLowerCase(), {
       email: m.email,
       displayName: m.displayName,
@@ -165,16 +159,50 @@ export function commentNotifyRecipients(args: {
 }
 
 /**
- * Who to (re-)email when the comment's author explicitly asks to renotify
- * the group after editing — everyone who'd normally hear about this comment
- * (watchers + anyone currently @-mentioned in the edited body), all tagged
- * "edited" so the email reads as an update rather than a brand-new mention
- * or a first-time comment. Same author-exclusion rule as a fresh post.
+ * Who to email when a new comment is posted: everyone @-mentioned in the body
+ * PLUS every watcher of the task/EIR, deduped by email (a mention beats a plain
+ * watch). The comment's author is excluded — even if they're a watcher — UNLESS
+ * they explicitly @-mentioned themselves.
  */
-export function commentRenotifyRecipients(args: {
+export function commentNotifyRecipients(args: {
   bodyHtml: string;
   watchers: Array<{ displayName: string; email?: string }>;
   authorEmail: string;
 }): CommentRecipient[] {
-  return commentNotifyRecipients(args).map((r) => ({ ...r, reason: "edited" }));
+  return buildCommentRecipients({
+    mentions: extractMentionedRecipients(args.bodyHtml),
+    watchers: args.watchers,
+    authorEmail: args.authorEmail,
+  });
+}
+
+/**
+ * Who to (re-)email when the comment's author explicitly asks to renotify
+ * the group after editing — everyone who'd normally hear about this comment:
+ * watchers, anyone @-mentioned in the edited body, AND anyone who was
+ * @-mentioned in the comment's PREVIOUS body (`previousBodyHtml`), even if
+ * that mention was since removed or reworded. All tagged "edited" so the
+ * email reads as an update rather than a brand-new mention or first-time
+ * comment. Same author-exclusion rule as a fresh post.
+ */
+export function commentRenotifyRecipients(args: {
+  bodyHtml: string;
+  previousBodyHtml?: string;
+  watchers: Array<{ displayName: string; email?: string }>;
+  authorEmail: string;
+}): CommentRecipient[] {
+  const mentions = new Map<string, { email: string; displayName: string }>();
+  for (const m of extractMentionedRecipients(args.bodyHtml)) {
+    mentions.set(m.email.toLowerCase(), m);
+  }
+  if (args.previousBodyHtml) {
+    for (const m of extractMentionedRecipients(args.previousBodyHtml)) {
+      if (!mentions.has(m.email.toLowerCase())) mentions.set(m.email.toLowerCase(), m);
+    }
+  }
+  return buildCommentRecipients({
+    mentions: Array.from(mentions.values()),
+    watchers: args.watchers,
+    authorEmail: args.authorEmail,
+  }).map((r) => ({ ...r, reason: "edited" as const }));
 }

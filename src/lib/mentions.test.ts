@@ -185,6 +185,40 @@ describe("commentRenotifyRecipients", () => {
     });
     expect(out.map((r) => r.email)).toEqual(["ray@x.com"]);
   });
+
+  it("also notifies people @-mentioned in the previous version, even if the edit removed the mention", () => {
+    const out = commentRenotifyRecipients({
+      // Sarah's mention was dropped in this edit...
+      bodyHtml: buildCommentHtml("just a plain update now", []),
+      // ...but she was mentioned in the version being replaced.
+      previousBodyHtml: buildCommentHtml("@Sarah Shaffer take a look", [SARAH]),
+      watchers: [],
+      authorEmail: "author@x.com",
+    });
+    expect(out).toEqual([
+      { email: "sarah@x.com", displayName: "Sarah Shaffer", reason: "edited" },
+    ]);
+  });
+
+  it("dedupes someone mentioned in both the previous and the new body", () => {
+    const out = commentRenotifyRecipients({
+      bodyHtml: buildCommentHtml("@Sarah Shaffer still relevant", [SARAH]),
+      previousBodyHtml: buildCommentHtml("@Sarah Shaffer take a look", [SARAH]),
+      watchers: [],
+      authorEmail: "author@x.com",
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0].email).toBe("sarah@x.com");
+  });
+
+  it("works with no previousBodyHtml (e.g. no prior comment snapshot available)", () => {
+    const out = commentRenotifyRecipients({
+      bodyHtml: buildCommentHtml("@Sarah Shaffer take a look", [SARAH]),
+      watchers: [],
+      authorEmail: "author@x.com",
+    });
+    expect(out.map((r) => r.email)).toEqual(["sarah@x.com"]);
+  });
 });
 
 describe("round-trip", () => {

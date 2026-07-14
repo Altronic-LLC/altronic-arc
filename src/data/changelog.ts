@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.50.1",
+    date: "2026-07-14",
+    changes: [
+      "\"Notify everyone again\" on an edited comment now also reaches anyone who was @-mentioned in the comment's previous version, not just people mentioned in the edited text.",
+      "Documented \"Notify everyone again\" in the User Manual's notifications reference table.",
+    ],
+  },
+  {
     version: "0.50.0",
     date: "2026-07-14",
     changes: [

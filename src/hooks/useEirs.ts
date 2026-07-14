@@ -506,10 +506,12 @@ export function useEditEirComment() {
       if (!eir) return;
 
       // Author explicitly asked to renotify the group — resend to everyone
-      // who'd hear about this comment (watchers + current mentions), tagged
-      // "edited" so the email reads as an update, not a brand-new comment.
+      // who'd hear about this comment (watchers + current AND previously
+      // @-mentioned people), tagged "edited" so the email reads as an
+      // update, not a brand-new comment.
       const recipients = commentRenotifyRecipients({
         bodyHtml: newBodyHtml,
+        previousBodyHtml: prevBody,
         watchers: eir.watchers,
         authorEmail: prevComment.authorEmail,
       });
