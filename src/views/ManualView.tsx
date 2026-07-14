@@ -107,9 +107,13 @@ const SECTIONS: ManualSection[] = [
       "customer service",
       "sales",
       "sections",
+      "project filter",
+      "project picker",
+      "choose a project",
+      "all projects",
     ],
     searchText:
-      "The Dashboard is grouped into department sections — Engineering, Operations, Supply Chain, and Customer Service / Sales — each a divider heading with its cards beneath. Engineering has live cards: Engineering Tasks, EIRs, Test Sheets, plus placeholders for Build Requests and ECNs. Operations, Supply Chain, and Customer Service / Sales show Coming soon placeholders. Each live card shows the count of active items (tasks not Complete, EIRs not Closed), a colour-coded status mini-bar, and clicks through to that type's page. A Mine / Company switch flips every count and bar between your own items and the whole company's; Mine is the default.",
+      "The Dashboard is grouped into department sections — Engineering, Operations, Supply Chain, and Customer Service / Sales — each a divider heading with its cards beneath. Engineering has live cards: Engineering Tasks, EIRs, Test Sheets, plus placeholders for Build Requests and ECNs. Operations, Supply Chain, and Customer Service / Sales show Coming soon placeholders. Each live card shows the count of active items (tasks not Complete, EIRs not Closed), a colour-coded status mini-bar, and clicks through to that type's page. A Mine / Company switch flips every count and bar between your own items and the whole company's; Mine is the default. A project picker sits next to it and works the same way — pick a project and every card's count and mini-bar narrows to just that project, in place, combining with Mine/Company rather than navigating anywhere. Clicking a card afterward opens that type's full list pre-filtered to the picked project.",
     render: () => (
       <>
         <P>
@@ -131,6 +135,15 @@ const SECTIONS: ManualSection[] = [
           <strong>whole company's</strong>. <strong>Mine</strong> is the default
           — "yours" means items assigned to you (an assignee on a task, an
           assigned engineer on an EIR, the tester on a test sheet).
+        </P>
+        <P>
+          A <strong>project picker</strong> sits next to it and works the same
+          way. Pick a project and every card's count and mini-bar narrows down
+          to just <strong>tasks</strong>, <strong>EIRs</strong>, and{" "}
+          <strong>test sheets</strong> tied to that project reference — in
+          place, no navigation. It combines with Mine/Company (e.g. "my active
+          tasks on Project X"). Clicking a card afterward opens that type's
+          full list pre-filtered to the picked project.
         </P>
         <UL>
           <LI>

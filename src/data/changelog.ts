@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.48.0",
+    date: "2026-07-14",
+    changes: [
+      "Added a project filter to the Dashboard, right next to Mine / Company — pick a project and every card's count and mini-bar narrows to that project in place, then carries through to the Tasks/EIRs list when you click a card.",
+      "The project rollup page (opened from project chips throughout the app) now also shows EIRs and Test Sheets linked to that project, not just tasks.",
+    ],
+  },
+  {
     version: "0.47.0",
     date: "2026-07-09",
     changes: [
