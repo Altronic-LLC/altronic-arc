@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.48.2",
+    date: "2026-07-14",
+    changes: [
+      "Fixed long project names in the Dashboard's project filter overlapping the Mine/Company toggle instead of truncating with an ellipsis. Root cause was broader than the Dashboard: the shared dropdown/select styling only loaded on pages that also happened to render the task filter bar, so any picker used elsewhere (Dashboard, task/EIR/test-sheet forms, admin pages) was missing its width and truncation styling. It's now loaded globally.",
+    ],
+  },
+  {
     version: "0.48.1",
     date: "2026-07-14",
     changes: [

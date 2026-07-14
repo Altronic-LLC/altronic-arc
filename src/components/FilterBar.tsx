@@ -82,30 +82,6 @@ export function FilterBar({ filters, onChange, projects, people }: FilterBarProp
           onChange={(next) => onChange({ ...filters, createdByEmail: next })}
         />
       </Field>
-
-      <style>{`
-        .select {
-          width: 100%;
-          height: 38px;
-          padding: 0 0.75rem;
-          background: rgb(var(--surface));
-          color: rgb(var(--fg));
-          border: 1px solid rgb(var(--border));
-          border-radius: 8px;
-          /* 16px on mobile prevents iOS Safari from auto-zooming when an
-             input gets focus; smaller on tablet+ for visual density. */
-          font-size: 16px;
-          transition: border-color 120ms ease, box-shadow 120ms ease;
-        }
-        @media (min-width: 640px) {
-          .select { font-size: 0.875rem; }
-        }
-        .select:focus {
-          outline: none;
-          border-color: rgb(var(--accent));
-          box-shadow: 0 0 0 3px rgb(var(--accent) / 0.15);
-        }
-      `}</style>
     </div>
   );
 }
