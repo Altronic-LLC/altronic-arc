@@ -1707,7 +1707,7 @@ export function ManualView() {
             <div className="mb-2 shrink-0 text-[11px] font-semibold uppercase tracking-wider text-accent">
               {tokens.length === 0 ? "Contents" : "Best matches"}
             </div>
-            <nav className="flex min-h-0 flex-col gap-3 overflow-y-auto text-sm">
+            <nav className="scroll-hidden flex min-h-0 flex-col gap-3 overflow-y-auto text-sm">
               {filtered.length === 0 ? (
                 <div className="px-2 py-1 text-xs text-fg-muted">No matches</div>
               ) : (

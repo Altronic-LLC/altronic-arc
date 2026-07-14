@@ -65,6 +65,17 @@ h3,
   background: rgb(var(--fg-muted));
 }
 
+/* Scrollable but scrollbar-less — e.g. the User Manual's TOC panel, where a
+   visible scrollbar inside a small bordered box reads as clutter. Scrolling
+   (wheel, touch, keyboard) still works; only the bar itself is hidden. */
+.scroll-hidden {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* legacy Edge/IE */
+}
+.scroll-hidden::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, modern Edge */
+}
+
 /* Comment HTML content — preserves rendering of HTML stored in the
    Communication field. Constrains it so it can't blow out the layout. */
 .comment-html {

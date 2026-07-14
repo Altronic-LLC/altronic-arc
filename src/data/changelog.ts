@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.50.3",
+    date: "2026-07-14",
+    changes: [
+      "The User Manual TOC's scrollbar is now hidden — it still scrolls the same way, just without a visible bar cluttering the small panel.",
+    ],
+  },
+  {
     version: "0.50.2",
     date: "2026-07-14",
     changes: [
