@@ -435,6 +435,7 @@ const SECTIONS: ManualSection[] = [
   {
     id: "comments",
     title: "Comments & @-mentions",
+    group: "Tasks",
     keywords: [
       "comment",
       "mention",
@@ -1618,18 +1619,12 @@ export function ManualView() {
       if (!groups.has(group)) groups.set(group, []);
       groups.get(group)!.push(section);
     }
-    const orderedGroupNames = [
-      "Tasks",
-      "Engineering requests",
-      "Admin",
-      "General",
-      ...Array.from(groups.keys()).filter(
-        (name) => !["Tasks", "Engineering requests", "Admin", "General"].includes(name),
-      ),
-    ];
-    return orderedGroupNames
-      .filter((name) => groups.has(name))
-      .map((name) => ({ name, sections: groups.get(name)! }));
+    // Map preserves insertion order, and sections are inserted in manual
+    // order — so group order here naturally follows the manual's order.
+    return Array.from(groups.keys()).map((name) => ({
+      name,
+      sections: groups.get(name)!,
+    }));
   }, [filtered]);
 
   return (

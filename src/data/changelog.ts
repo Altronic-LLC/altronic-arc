@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.49.1",
+    date: "2026-07-14",
+    changes: [
+      "The User Manual's table of contents now lists sections in the same order they appear in the manual, instead of always putting Tasks/Engineering requests/Admin ahead of Quick Start and the Dashboard.",
+    ],
+  },
+  {
     version: "0.49.0",
     date: "2026-07-14",
     changes: [
