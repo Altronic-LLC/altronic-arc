@@ -194,7 +194,10 @@ export function DashboardView() {
 
   if (isLoading || eirsLoading) return <LoadingTasks noun="your dashboard" />;
 
-  const meParam = currentUser.email ? encodeURIComponent(currentUser.email) : "";
+  // URLSearchParams encodes its values itself — don't pre-encode here, or
+  // the email ends up double-encoded (e.g. "%2540" instead of "%40") and
+  // never matches a task's assigned email on the other side.
+  const meParam = currentUser.email ?? "";
   const projectParam = projectId != null ? String(projectId) : "";
   const tasksUrl = `/list?${new URLSearchParams({
     assigned: mine ? meParam : "",

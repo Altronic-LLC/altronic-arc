@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.49.2",
+    date: "2026-07-14",
+    changes: [
+      "Fixed clicking the Engineering Tasks or EIRs card while \"Mine\" was selected loading an empty list instead of your assigned items — your email was getting double-encoded in the link.",
+    ],
+  },
+  {
     version: "0.49.1",
     date: "2026-07-14",
     changes: [

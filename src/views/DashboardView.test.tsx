@@ -73,6 +73,25 @@ describe("DashboardView", () => {
     );
   });
 
+  it("carries the current user's email into the Tasks/EIRs URLs un-double-encoded", async () => {
+    const user = userEvent.setup();
+    await renderDashboard();
+
+    // Default scope is "mine" — the @ must survive as a single %40, not the
+    // double-encoded %2540 that URLSearchParams produces if the value was
+    // already run through encodeURIComponent before being handed to it.
+    await user.click(screen.getByRole("button", { name: /Engineering Tasks/i }));
+    expect(mockNavigate).toHaveBeenCalledWith(
+      expect.stringContaining("assigned=demo.user%40altronic-llc.com"),
+    );
+    expect(mockNavigate).not.toHaveBeenCalledWith(expect.stringContaining("%2540"));
+
+    await user.click(screen.getByRole("button", { name: /EIRs/i }));
+    expect(mockNavigate).toHaveBeenCalledWith(
+      expect.stringContaining("engineer=demo.user%40altronic-llc.com"),
+    );
+  });
+
   it("narrows the Project Folders count to just the picked project's tagged folder", async () => {
     const user = userEvent.setup();
     await renderDashboard();
