@@ -93,6 +93,37 @@ export const SITES = {
     "coopermachineryservices.sharepoint.com,915a6183-2b71-4dfd-a8b9-181126dfbe78,3eb6cb9c-6535-4c69-a8d7-e90b2f90a9eb",
 } as const;
 
+// =============================================================================
+// Operations department — all three lists live on the PMO site (SITES.pmo).
+// IDs discovered live via Graph on 2026-07-15; env-overridable, same pattern
+// as SITES above.
+// =============================================================================
+
+/** "Operations Task List" on the PMO site. */
+export const SP_OPERATIONS_TASKS_LIST_ID =
+  import.meta.env.VITE_SP_OPERATIONS_TASKS_LIST_ID ||
+  "298ac5c5-6c53-4262-95e7-e1cfca06978b";
+
+/** "Operations Projects" — this department's own parent-project reference list. */
+export const SP_OPERATIONS_PROJECTS_LIST_ID =
+  import.meta.env.VITE_SP_OPERATIONS_PROJECTS_LIST_ID ||
+  "6734ddec-95e0-4cc7-93af-7fd20bf7ac22";
+
+/** "Altronic Equipment List" — read-only reference for the task form's Equipment picker. */
+export const SP_ALTRONIC_EQUIPMENT_LIST_ID =
+  import.meta.env.VITE_SP_ALTRONIC_EQUIPMENT_LIST_ID ||
+  "6f2fb6e1-3b41-40de-b78b-2c43c3c3d068";
+
+/**
+ * PMO site's classic SharePoint REST root — needed for Operations task
+ * attachments (SP REST, not Graph; see src/api/attachments.ts). Same tenant
+ * as SP_SITE_URL, so the same acquired token covers both — only the path
+ * differs.
+ */
+export const SP_PMO_SITE_URL =
+  (import.meta.env.VITE_SP_PMO_SITE_URL as string | undefined) ??
+  "https://coopermachineryservices.sharepoint.com/sites/Altronic_PMO";
+
 export const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 
 /** Throw a clear error if the app tries to call Graph without being configured. */

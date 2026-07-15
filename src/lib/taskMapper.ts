@@ -165,7 +165,7 @@ function toInt(raw: unknown, fallback: number): number {
  *
  * We normalise to Person[] in all cases.
  */
-function parsePersonField(raw: unknown): Person[] {
+export function parsePersonField(raw: unknown): Person[] {
   if (!raw) return [];
 
   const items = Array.isArray(raw) ? raw : [raw];
@@ -187,6 +187,33 @@ function parsePersonField(raw: unknown): Person[] {
   }
 
   return people;
+}
+
+/**
+ * Single-person field handling — for columns where SharePoint disallows
+ * multiple values (e.g. Operations Task List's `Assigned`). Graph returns
+ * the exact same shape as one entry of a multi-person field; this just
+ * takes the first (and only) one.
+ */
+export function parseSinglePersonField(raw: unknown): Person | null {
+  return parsePersonField(raw)[0] ?? null;
+}
+
+/**
+ * Single-value lookup field handling — the counterpart to
+ * `parseProjectLookupMulti` for a lookup column that only allows one value
+ * (e.g. Operations Task List's `ProjectRef` and `AltronicEquipment`).
+ * Mirrors the shape/behavior of a single entry from the multi-value case.
+ */
+export function parseLookupSingle(raw: unknown): ProjectReference | null {
+  if (typeof raw !== "object" || raw === null) return null;
+  const obj = raw as Record<string, unknown>;
+  const lookupId = toInt(obj.LookupId ?? obj.lookupId, 0);
+  if (!lookupId) return null;
+  return {
+    lookupId,
+    title: (obj.LookupValue as string) ?? (obj.title as string) ?? "",
+  };
 }
 
 /**

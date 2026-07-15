@@ -1,4 +1,11 @@
-import { SP_EIRS_LIST_ID, SP_LIST_ID, USE_MOCK } from "./config";
+import {
+  SP_EIRS_LIST_ID,
+  SP_LIST_ID,
+  SP_OPERATIONS_TASKS_LIST_ID,
+  SP_PMO_SITE_URL,
+  SP_SITE_URL,
+  USE_MOCK,
+} from "./config";
 import { spFetch, SharePointUnavailableError } from "./sharepoint";
 
 // =============================================================================
@@ -22,10 +29,33 @@ export interface ListAttachment {
   serverRelativeUrl: string;
 }
 
-export type AttachmentParent = "task" | "eir";
+export type AttachmentParent = "task" | "eir" | "operationsTask";
 
-function resolveListId(parent: AttachmentParent): string | undefined {
-  return parent === "eir" ? SP_EIRS_LIST_ID : SP_LIST_ID;
+interface ParentConfig {
+  listId: string | undefined;
+  /** Classic SharePoint REST site root — Operations tasks live on a different site (PMO) from task/eir (Engineering). */
+  siteUrl: string | undefined;
+  /** Env var name to mention in the error when `listId` is unset. */
+  listIdEnvVar: string;
+}
+
+const PARENT_CONFIG: Record<AttachmentParent, ParentConfig> = {
+  task: { listId: SP_LIST_ID, siteUrl: SP_SITE_URL, listIdEnvVar: "VITE_SP_LIST_ID" },
+  eir: { listId: SP_EIRS_LIST_ID, siteUrl: SP_SITE_URL, listIdEnvVar: "VITE_SP_EIRS_LIST_ID" },
+  operationsTask: {
+    listId: SP_OPERATIONS_TASKS_LIST_ID,
+    siteUrl: SP_PMO_SITE_URL,
+    listIdEnvVar: "VITE_SP_OPERATIONS_TASKS_LIST_ID",
+  },
+};
+
+/** Build the absolute `/_api/web/lists(guid'...')/items(...)` path for a parent kind, or throw if unconfigured. */
+function resolveListPath(parent: AttachmentParent, itemId: number): string {
+  const cfg = PARENT_CONFIG[parent];
+  if (!cfg.listId || !cfg.siteUrl) {
+    throw new SharePointUnavailableError(`${cfg.listIdEnvVar} is not set — attachments unavailable.`);
+  }
+  return `${cfg.siteUrl}/_api/web/lists(guid'${cfg.listId}')/items(${itemId})`;
 }
 
 // In mock mode we keep a simple in-memory store per (parent,itemId) so the
@@ -42,13 +72,7 @@ export async function listAttachments(
   if (USE_MOCK) {
     return mockStore.get(mockKey(parent, itemId)) ?? [];
   }
-  const listId = resolveListId(parent);
-  if (!listId) {
-    throw new SharePointUnavailableError(
-      `${parent === "eir" ? "VITE_SP_EIRS_LIST_ID" : "VITE_SP_LIST_ID"} is not set — attachments unavailable.`,
-    );
-  }
-  const path = `/_api/web/lists(guid'${listId}')/items(${itemId})/AttachmentFiles`;
+  const path = `${resolveListPath(parent, itemId)}/AttachmentFiles`;
   const res = await spFetch<{ value: SpAttachmentFile[] }>(path);
   return res.value.map((f) => ({
     fileName: f.FileName,
@@ -75,17 +99,11 @@ export async function uploadAttachment(
     mockStore.set(key, next);
     return attachment;
   }
-  const listId = resolveListId(parent);
-  if (!listId) {
-    throw new SharePointUnavailableError(
-      `${parent === "eir" ? "VITE_SP_EIRS_LIST_ID" : "VITE_SP_LIST_ID"} is not set — attachments unavailable.`,
-    );
-  }
   const bytes = await file.arrayBuffer();
   // SP REST attachment upload requires a binary POST. The filename has to
   // travel as a URL parameter — encode it carefully.
   const path =
-    `/_api/web/lists(guid'${listId}')/items(${itemId})` +
+    `${resolveListPath(parent, itemId)}` +
     `/AttachmentFiles/add(FileName='${encodeURIComponent(file.name)}')`;
   const res = await spFetch<SpAttachmentFile>(path, {
     method: "POST",
@@ -110,14 +128,8 @@ export async function deleteAttachment(
     mockStore.set(key, filtered);
     return;
   }
-  const listId = resolveListId(parent);
-  if (!listId) {
-    throw new SharePointUnavailableError(
-      `${parent === "eir" ? "VITE_SP_EIRS_LIST_ID" : "VITE_SP_LIST_ID"} is not set — attachments unavailable.`,
-    );
-  }
   const path =
-    `/_api/web/lists(guid'${listId}')/items(${itemId})` +
+    `${resolveListPath(parent, itemId)}` +
     `/AttachmentFiles/getByFileName('${encodeURIComponent(fileName)}')`;
   await spFetch(path, {
     method: "POST",
@@ -126,10 +138,13 @@ export async function deleteAttachment(
 }
 
 function spAbsoluteUrl(serverRelative: string): string {
-  // SP_SITE_URL is the site root like https://x.sharepoint.com/sites/Y.
-  // ServerRelativeUrl is "/sites/Y/Lists/Z/Attachments/123/file.pdf".
-  // Absolute = origin + serverRelativeUrl.
-  const origin = new URL(import.meta.env.VITE_SP_SITE_URL ?? "https://example.com").origin;
+  // SP_SITE_URL is a site root like https://tenant.sharepoint.com/sites/Y.
+  // ServerRelativeUrl already carries the full site-specific path (e.g.
+  // "/sites/Altronic_PMO/Lists/Z/Attachments/123/file.pdf"), so only the
+  // tenant ORIGIN is needed here — identical across every ARC site
+  // (task/eir/operationsTask all live on the same tenant), so there's no
+  // need to pick a different one per parent kind.
+  const origin = new URL(SP_SITE_URL ?? "https://example.com").origin;
   return `${origin}${serverRelative}`;
 }
 

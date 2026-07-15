@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { toTask } from "./taskMapper";
+import { parseLookupSingle, parsePersonField, parseSinglePersonField, toTask } from "./taskMapper";
 import type { GraphItemFields, GraphListItem } from "@/types/task";
 
 function makeItem(fields: GraphItemFields = {}, overrides: Partial<GraphListItem> = {}): GraphListItem {
@@ -380,5 +380,63 @@ describe("toTask — EIRReference hyperlink", () => {
     expect(toTask(makeItem({})).eirReference).toBeNull();
     expect(toTask(makeItem({ EIRReference: "" })).eirReference).toBeNull();
     expect(toTask(makeItem({ EIRReference: {} })).eirReference).toBeNull();
+  });
+});
+
+describe("parseSinglePersonField — used by Operations Task List's single-value Assigned", () => {
+  it("returns the first (only) person for a single-person object", () => {
+    const p = parseSinglePersonField({ LookupId: 46, LookupValue: "Sarah", Email: "sarah@e.com" });
+    expect(p).toEqual({ displayName: "Sarah", email: "sarah@e.com", lookupId: 46 });
+  });
+
+  it("returns the first entry when handed a multi-person array (defensive)", () => {
+    const p = parseSinglePersonField([
+      { LookupId: 1, LookupValue: "A" },
+      { LookupId: 2, LookupValue: "B" },
+    ]);
+    expect(p?.displayName).toBe("A");
+  });
+
+  it("returns null for empty/missing input", () => {
+    expect(parseSinglePersonField(undefined)).toBeNull();
+    expect(parseSinglePersonField(null)).toBeNull();
+    expect(parseSinglePersonField([])).toBeNull();
+  });
+
+  it("is consistent with parsePersonField's first element", () => {
+    const raw = { LookupId: 9, LookupValue: "X", Email: "x@e.com" };
+    expect(parseSinglePersonField(raw)).toEqual(parsePersonField(raw)[0]);
+  });
+});
+
+describe("parseLookupSingle — used by Operations Task List's single lookups (Project Ref, Equipment)", () => {
+  it("parses a resolved lookup object", () => {
+    expect(parseLookupSingle({ LookupId: 3, LookupValue: "0002-PVA Machine" })).toEqual({
+      lookupId: 3,
+      title: "0002-PVA Machine",
+    });
+  });
+
+  it("accepts the lowercase alias keys", () => {
+    expect(parseLookupSingle({ lookupId: 4, title: "Lowercase" })).toEqual({
+      lookupId: 4,
+      title: "Lowercase",
+    });
+  });
+
+  it("falls back to empty title when LookupValue is missing", () => {
+    expect(parseLookupSingle({ LookupId: 5 })).toEqual({ lookupId: 5, title: "" });
+  });
+
+  it("returns null when there's no lookupId", () => {
+    expect(parseLookupSingle({ LookupValue: "No id" })).toBeNull();
+    expect(parseLookupSingle({ LookupId: 0 })).toBeNull();
+  });
+
+  it("returns null for non-object / empty input", () => {
+    expect(parseLookupSingle(null)).toBeNull();
+    expect(parseLookupSingle(undefined)).toBeNull();
+    expect(parseLookupSingle("garbage")).toBeNull();
+    expect(parseLookupSingle(42)).toBeNull();
   });
 });

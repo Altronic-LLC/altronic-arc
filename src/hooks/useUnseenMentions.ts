@@ -1,14 +1,18 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { useTasks } from "./useTasks";
 import { useEirs } from "./useEirs";
+import { useOperationsTasks } from "./useOperationsTasks";
 import { useCurrentUser } from "./useCurrentUser";
 import { isUserMentionedInComments } from "@/lib/mentionDetector";
 
 /**
  * Unique identifier for an item that has unseen mentions.
- * Format: "task:123" or "eir:456"
+ * Format: "task:123", "eir:456", or "operationsTask:789"
  */
-export type UnseenMentionId = `task:${number}` | `eir:${number}`;
+export type UnseenMentionId =
+  | `task:${number}`
+  | `eir:${number}`
+  | `operationsTask:${number}`;
 
 // ============================================================================
 // Global store for unseen mentions.
@@ -83,6 +87,7 @@ function persistUnseen(ids: Set<string>) {
 function checkForMentions(
   tasks: any[] | undefined,
   eirs: any[] | undefined,
+  operationsTasks: any[] | undefined,
   userEmail: string | undefined,
 ): Set<UnseenMentionId> {
   if (!userEmail) return new Set();
@@ -101,6 +106,14 @@ function checkForMentions(
     for (const eir of eirs) {
       if (Array.isArray(eir.comments) && isUserMentionedInComments(eir.comments, userEmail)) {
         mentioned.add(`eir:${eir.id}` as UnseenMentionId);
+      }
+    }
+  }
+
+  if (Array.isArray(operationsTasks)) {
+    for (const task of operationsTasks) {
+      if (Array.isArray(task.comments) && isUserMentionedInComments(task.comments, userEmail)) {
+        mentioned.add(`operationsTask:${task.id}` as UnseenMentionId);
       }
     }
   }
@@ -146,6 +159,7 @@ export function useIsMentioned(id: UnseenMentionId): boolean {
 export function useMentionScanner(): void {
   const { data: tasks } = useTasks();
   const { data: eirs } = useEirs();
+  const { data: operationsTasks } = useOperationsTasks();
   const user = useCurrentUser();
 
   const userEmail = user.email?.toLowerCase();
@@ -154,16 +168,19 @@ export function useMentionScanner(): void {
     if (!userEmail) return;
 
     const persisted = loadPersistedUnseen();
-    const currentlyMentioned = checkForMentions(tasks, eirs, userEmail);
+    const currentlyMentioned = checkForMentions(tasks, eirs, operationsTasks, userEmail);
     const combined = new Set([...persisted, ...currentlyMentioned]);
 
-    // Filter out any ids that no longer exist in the data (task/EIR deleted).
+    // Filter out any ids that no longer exist in the data (task/EIR/Operations task deleted).
     const allIds = new Set<UnseenMentionId>();
     if (Array.isArray(tasks)) {
       tasks.forEach((t) => allIds.add(`task:${t.id}` as UnseenMentionId));
     }
     if (Array.isArray(eirs)) {
       eirs.forEach((e) => allIds.add(`eir:${e.id}` as UnseenMentionId));
+    }
+    if (Array.isArray(operationsTasks)) {
+      operationsTasks.forEach((t) => allIds.add(`operationsTask:${t.id}` as UnseenMentionId));
     }
     const filtered = new Set<UnseenMentionId>(
       ([...combined].filter((id) => allIds.has(id as UnseenMentionId)) as UnseenMentionId[]),
@@ -174,5 +191,5 @@ export function useMentionScanner(): void {
       unseenIds: filtered,
       lastCheckTime: Date.now(),
     });
-  }, [tasks, eirs, userEmail]);
+  }, [tasks, eirs, operationsTasks, userEmail]);
 }

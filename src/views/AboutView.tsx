@@ -61,6 +61,11 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "Views", hint: "Dashboard · List · Kanban · Detail · EIRs · Test Sheets · Project Folders · Admin", palette: "ui" },
       { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useAdmins · useEirRoles · useTaskFiles · useProjectFolders", palette: "ui" },
       { label: "API layer", hint: "src/api/tasks · eirs · testSheets · admins · eirRoles · projectFiles · attachments · email · errorReport", palette: "ui" },
+      {
+        label: "Operations department (lazy-loaded bundle)",
+        hint: "OperationsListView · OperationsKanbanView · OperationsDetailView · AdminOperationsProjectsView — useOperationsTasks — api/operationsTasks · operationsProjects · operationsEquipment. Own site (PMO), own code-split chunk; no imports from the Engineering views/hooks above.",
+        palette: "ui",
+      },
     ],
   },
   {
@@ -68,7 +73,7 @@ const SYSTEM_TIERS: Tier[] = [
     nodes: [
       { label: "MSAL Entra ID", hint: "Sites.Selected · Mail.Send.Shared (AllSites.Manage optional)", palette: "auth" },
       { label: "Microsoft Graph v1.0", hint: "Lists, items, drives, users, mail", palette: "gateway" },
-      { label: "SharePoint REST", hint: "EIR list-item attachments only (optional)", palette: "gateway" },
+      { label: "SharePoint REST", hint: "List-item attachments (Task, EIR, and Operations Task List) — optional", palette: "gateway" },
       { label: "Mock store", hint: "in-memory + localStorage (demo mode)", palette: "mock" },
       { label: "Shared mailbox", hint: "@-mention notifications", palette: "mock" },
     ],
@@ -84,6 +89,9 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "EIR Roles", hint: "engineer / supply-chain field permissions", palette: "list" },
       { label: "Documents library", hint: "General/Project Folders/* — task & comment files land here", palette: "list" },
       { label: "List-item attachments", hint: "SharePoint REST · per-item files on Tasks & EIRs", palette: "list" },
+      { label: "Operations Task List", hint: "Altronic_PMO site — separate from Engineering's Task List", palette: "list" },
+      { label: "Operations Projects", hint: "Altronic_PMO site — Operations' own parent-project reference list", palette: "list" },
+      { label: "Altronic Equipment List", hint: "Altronic_PMO site — read-only reference for the Equipment picker", palette: "list" },
     ],
   },
 ];
@@ -230,7 +238,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     palette: "shared",
     x: 960, y: 380, width: 290,
     columns: [
-      { name: "parentId", type: "int", kind: "fk", references: "Task / EIR" },
+      { name: "parentId", type: "int", kind: "fk", references: "Task / EIR / OperationsTask" },
       { name: "timestamp", type: "datetime", kind: "field" },
       { name: "authorName", type: "text", kind: "field" },
       { name: "bodyHtml", type: "text", kind: "field" },
@@ -253,11 +261,11 @@ const SCHEMA_TABLES: SchemaTable[] = [
   },
   {
     name: "Attachment",
-    source: "Task & EIR list-item attachments (SP REST)",
+    source: "Task, EIR & Operations Task list-item attachments (SP REST)",
     palette: "shared",
     x: 960, y: 540, width: 290,
     columns: [
-      { name: "parentId", type: "int", kind: "fk", references: "Task / EIR" },
+      { name: "parentId", type: "int", kind: "fk", references: "Task / EIR / OperationsTask" },
       { name: "fileName", type: "text", kind: "field" },
       { name: "serverRelativeUrl", type: "text", kind: "field" },
     ],
@@ -285,6 +293,58 @@ const SCHEMA_TABLES: SchemaTable[] = [
       { name: "name", type: "text", kind: "field" },
       { name: "webUrl", type: "text", kind: "field" },
       { name: "lastModified", type: "datetime", kind: "field" },
+    ],
+  },
+  // ---- Operations department (Altronic_PMO site) — own cluster below
+  // everything else. Independent of the Engineering tables above: no
+  // shared Project/Person rows (Operations has its own Projects list, and
+  // its Person values come from the same tenant directory but aren't tied
+  // to the Engineering-site User Info list this diagram's `Person` concept
+  // represents).
+  {
+    name: "OperationsTask",
+    source: "Operations Task List (Altronic_PMO site)",
+    palette: "entity",
+    x: 20, y: 1000, width: 380,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title", type: "text", kind: "field" },
+      { name: "taskNumber", type: "text", kind: "field" },
+      { name: "status", type: "choice", kind: "field" },
+      { name: "priority", type: "choice", kind: "field" },
+      { name: "taskType", type: "choice", kind: "field" },
+      { name: "location", type: "choice", kind: "field" },
+      { name: "dueDate", type: "datetime", kind: "field" },
+      { name: "parentProjectId", type: "int", kind: "fk", references: "OperationsProject.id" },
+      { name: "equipmentId", type: "int", kind: "fk", references: "AltronicEquipment.id" },
+      { name: "assigned", type: "int", kind: "fk", references: "Person.id" },
+      { name: "watchers", type: "int[]", kind: "fk", references: "Person.id" },
+    ],
+  },
+  {
+    name: "OperationsProject",
+    source: "Operations Projects (Altronic_PMO site)",
+    palette: "entity",
+    x: 430, y: 1000, width: 260,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "projectNumber", type: "text", kind: "field" },
+      { name: "title", type: "text", kind: "field" },
+      { name: "projectRef", type: "text", kind: "field" },
+    ],
+  },
+  {
+    name: "AltronicEquipment",
+    source: "Altronic Equipment List (Altronic_PMO site, read-only)",
+    palette: "shared",
+    x: 720, y: 1000, width: 260,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title", type: "text", kind: "field" },
+      { name: "serialNo", type: "text", kind: "field" },
+      { name: "equipmentType", type: "choice", kind: "field" },
+      { name: "department", type: "choice", kind: "field" },
+      { name: "location", type: "choice", kind: "field" },
     ],
   },
 ];
@@ -332,6 +392,13 @@ const CONNECTIONS: Connection[] = [
   // holds many files. Tasks discover their folder by project lookupId.
   { fromTable: "ProjectFolder", fromColumn: "projectReference", toTable: "Project", toColumn: "id", fromCard: "one", toCard: "one" },
   { fromTable: "ProjectFile", fromColumn: "folderId", toTable: "ProjectFolder", toColumn: "id", fromCard: "many", toCard: "one" },
+  // Operations Task List — its own Project/Equipment lookups, not Engineering's.
+  { fromTable: "OperationsTask", fromColumn: "parentProjectId", toTable: "OperationsProject", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "OperationsTask", fromColumn: "equipmentId", toTable: "AltronicEquipment", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "OperationsTask", fromColumn: "assigned", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "OperationsTask", fromColumn: "watchers", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
+  { fromTable: "Comment", fromColumn: "parentId", toTable: "OperationsTask", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "Attachment", fromColumn: "parentId", toTable: "OperationsTask", toColumn: "id", fromCard: "many", toCard: "one" },
 ];
 
 export function AboutView() {

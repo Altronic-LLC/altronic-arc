@@ -668,6 +668,86 @@ const SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: "operations-tasks",
+    title: "Operations Tasks",
+    group: "Operations",
+    keywords: [
+      "operations",
+      "operational tasks",
+      "operations task list",
+      "operations projects",
+      "altronic equipment",
+      "equipment picker",
+      "task type",
+      "location field",
+      "shop floor",
+      "operations kanban",
+      "operations list view",
+      "pmo",
+    ],
+    searchText:
+      "Operations Tasks is the second department wired into ARC after Engineering, backed by the Operations Task List and Operations Projects lists on the Altronic_PMO SharePoint site. Same flow as Engineering tasks — List and Kanban views, a detail page, comments with @-mentions, watchers, attachments, and the Description checklist — with a few real differences: Assigned is a single person (not multiple), Status is Backlog/WIP/On Hold/Complete/Canceled, Priority is Low/Med/High, there's a Task Type field instead of Category, plus a Location field (shop-floor area) and an Equipment picker that Engineering tasks don't have. Reach it from the Dashboard's Operational Tasks card or the Departments dropdown's Operations group.",
+    render: () => (
+      <>
+        <P>
+          <strong>Operations Tasks</strong> is the second department wired
+          into ARC after Engineering — the same List/Kanban/Detail flow,
+          backed by a different SharePoint site (Altronic_PMO) and its own
+          Operations Task List. Reach it from the <strong>Operational
+          Tasks</strong> card on the Dashboard, or the{" "}
+          <strong>Departments</strong> dropdown's Operations group.
+        </P>
+        <H3>How it's different from Engineering tasks</H3>
+        <UL>
+          <LI>
+            <strong>Assigned is a single person</strong>, not a list — pick
+            one person from the dropdown instead of adding several.
+          </LI>
+          <LI>
+            <strong>Status</strong> is Backlog / WIP / On Hold / Complete /
+            Canceled (five values, two of which — Complete and Canceled —
+            count as "done" for the Active count and the status pills).
+          </LI>
+          <LI>
+            <strong>Priority</strong> is Low / Med / High (note "Med", not
+            "Medium").
+          </LI>
+          <LI>
+            <strong>Task Type</strong> takes the place of Category (Fixtures,
+            Programming, Plant Relayout, Quality Data Review, and so on).
+          </LI>
+          <LI>
+            <strong>Location</strong> (shop-floor area, e.g. Machine Shop,
+            Conformal Coating, Repair) and an <strong>Equipment</strong>{" "}
+            picker (sourced from the Altronic Equipment List) are new fields
+            Engineering tasks don't have.
+          </LI>
+          <LI>
+            No parent/child task hierarchy and no related projects — Operations
+            tasks are flat, each tied to at most one Project Ref.
+          </LI>
+        </UL>
+        <H3>What works exactly the same</H3>
+        <P>
+          Comments (with @-mentions, watchers, and the "Notify everyone
+          again" checkbox on edits), the Description field's custom
+          checklist support, and file attachments on the task itself all
+          work identically to Engineering tasks. The one attachments
+          difference: Operations tasks only support list-item attachments
+          (no project-folder mirroring) — same as EIRs today.
+        </P>
+        <H3>Operations Projects</H3>
+        <P>
+          Operations tasks reference their own project list — Operations
+          Projects — separate from the Engineering Project Log. Admins
+          manage it at <code>/admin/operations-projects</code>; see the{" "}
+          <em>Admin section → Operations Projects admin</em> topic for
+          details.
+        </P>
+      </>
+    ),
+  },
+  {
     id: "eirs",
     title: "EIRs (Engineering Information Requests)",
     group: "Engineering requests",
@@ -1040,9 +1120,11 @@ const SECTIONS: ManualSection[] = [
       "supply chain role",
       "field permissions",
       "who can edit",
+      "operations projects admin",
+      "operations project log",
     ],
     searchText:
-      "Admins manage three things from the Admin section in the header: the list of admin users (/admin/admins), the Engineering Project Log — the master project list (/admin/projects), and EIR roles (/admin/eir-roles) which control who can edit the Engineering Response (engineer role) and Buyer Code (supply chain role) fields on an EIR. The Admin link only appears in the header for users on the admin list, and non-admins who open an /admin URL directly are sent back to the dashboard — the admin pages never show for them. Add an admin from the Admins page; their name appears in the header on their next sign-in. Removing yourself is disabled to prevent lockouts. A small hardcoded bootstrap set of admins stays in the code as a safety net.",
+      "Admins manage four things from the Admin section in the header: the list of admin users (/admin/admins), the Engineering Project Log — the master project list (/admin/projects), EIR roles (/admin/eir-roles) which control who can edit the Engineering Response (engineer role) and Buyer Code (supply chain role) fields on an EIR, and the Operations Projects list (/admin/operations-projects) — the master project list for Operations tasks. The Admin link only appears in the header for users on the admin list, and non-admins who open an /admin URL directly are sent back to the dashboard — the admin pages never show for them. Add an admin from the Admins page; their name appears in the header on their next sign-in. Removing yourself is disabled to prevent lockouts. A small hardcoded bootstrap set of admins stays in the code as a safety net.",
     render: () => (
       <>
         <P>
@@ -1124,6 +1206,18 @@ const SECTIONS: ManualSection[] = [
           tooltip explaining which role is required. Until the EIR Roles list is
           set up in SharePoint (real mode), gating stays off and everyone can
           edit both fields.
+        </P>
+        <H3>Operations Projects admin</H3>
+        <P>
+          The <strong>Operations Projects →</strong> link (or navigate to{" "}
+          <code>/admin/operations-projects</code>) opens the master list of
+          Operations projects — a separate list from the Engineering Project
+          Log. Add a project's <strong>Number</strong> and <strong>Name</strong>{" "}
+          and it immediately becomes available as a Project Ref choice on
+          Operations tasks. Unlike the Engineering Project Log, there's no
+          bucketed 0xxx/2xxx/5xxx table split — Operations project numbers
+          are just sequential, so it's one flat list sorted newest-first.
+          Hover a project and click the pencil to edit its number or name.
         </P>
         <Tip>
           If you're trying to add yourself and the modal closes silently with

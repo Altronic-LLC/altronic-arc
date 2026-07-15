@@ -1,0 +1,425 @@
+import { graphFetch, graphFetchAll } from "./graph";
+import { SITES, SP_OPERATIONS_TASKS_LIST_ID, USE_MOCK } from "./config";
+import type { GraphListItem, OperationsTask, Person, ProjectReference } from "@/types/task";
+import { toOperationsTask } from "@/lib/operationsTaskMapper";
+import { appendComment, replaceComment } from "@/lib/communicationParser";
+import { multiPersonField } from "@/lib/graphFields";
+import { listOperationsProjects } from "./operationsProjects";
+import { listOperationsEquipment } from "./operationsEquipment";
+import { MOCK_OPERATIONS_TASKS } from "@/data/operationsMockData";
+
+// =============================================================================
+// Operations Tasks API — mirrors api/tasks.ts's USE_MOCK-branching structure,
+// against a different SharePoint site/list (Altronic_PMO's Operations Task
+// List instead of Engineering's Project Task List). Key differences from
+// Engineering tasks: Assigned is a SINGLE person (not multi), there's no
+// parent/child task hierarchy or related-projects, and there's an extra
+// single lookup to the Altronic Equipment List.
+// =============================================================================
+
+const OPERATIONS_FIELD_SELECT = [
+  "Title",
+  "TaskDescription",
+  "Status",
+  "PriorityRequest",
+  "TaskType",
+  "Location",
+  "DueDate",
+  "AuthorLookupId",
+  "EditorLookupId",
+  "Assigned",
+  "Watchers",
+  "ProjectRefLookupId",
+  "ProjectRef",
+  "AltronicEquipmentLookupId",
+  "AltronicEquipment",
+  "Communication",
+  "TaskNumber",
+  "Attachments",
+].join(",");
+
+const MOCK_STORAGE_KEY = "aets:mock-operations-store-v1";
+
+function loadMockStoreFromStorage(): OperationsTask[] | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(MOCK_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as OperationsTask[];
+    return parsed.map((t) => ({
+      ...t,
+      createdAt: new Date(t.createdAt),
+      modifiedAt: new Date(t.modifiedAt),
+      dueDate: t.dueDate ? new Date(t.dueDate) : null,
+      comments: t.comments.map((c) => ({
+        ...c,
+        timestamp: new Date(c.timestamp),
+        attachments: c.attachments ?? [],
+      })),
+    }));
+  } catch {
+    return null;
+  }
+}
+
+function saveMockStoreToStorage() {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(mockStore));
+  } catch {
+    // Storage quota exceeded, private mode, etc. — demo still works in-memory.
+  }
+}
+
+let mockStore: OperationsTask[] = loadMockStoreFromStorage() ?? [...MOCK_OPERATIONS_TASKS];
+
+/** Demo-mode-only: clear local data and reset to the bundled seed. */
+export function resetOperationsMockStore(): void {
+  if (typeof window !== "undefined") {
+    try {
+      window.localStorage.removeItem(MOCK_STORAGE_KEY);
+    } catch {
+      // ignored
+    }
+  }
+  mockStore = [...MOCK_OPERATIONS_TASKS];
+}
+
+function delay<T>(value: T, ms = 250): Promise<T> {
+  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
+}
+
+/**
+ * Resolve `parentProject.title` / `equipment.title` against the Operations
+ * Projects / Altronic Equipment directories. Mirrors `attachProjectTitles`
+ * in lib/taskGraph.ts. Mutates in place.
+ */
+function attachLookupTitles(
+  tasks: OperationsTask[],
+  projects: ProjectReference[],
+  equipment: ProjectReference[],
+): OperationsTask[] {
+  const projectsById = new Map(projects.map((p) => [p.lookupId, p]));
+  const equipmentById = new Map(equipment.map((e) => [e.lookupId, e]));
+
+  for (const task of tasks) {
+    if (task.parentProject && !task.parentProject.title) {
+      const resolved = projectsById.get(task.parentProject.lookupId);
+      if (resolved) task.parentProject = { ...task.parentProject, title: resolved.title };
+    }
+    if (task.equipment && !task.equipment.title) {
+      const resolved = equipmentById.get(task.equipment.lookupId);
+      if (resolved) task.equipment = { ...task.equipment, title: resolved.title };
+    }
+  }
+  return tasks;
+}
+
+/** List all Operations tasks, resolving project/equipment lookup titles. */
+export async function listOperationsTasks(): Promise<OperationsTask[]> {
+  if (USE_MOCK) {
+    const copy = mockStore.map((t) => ({ ...t }));
+    return delay(copy);
+  }
+
+  const path =
+    `/sites/${SITES.pmo}/lists/${SP_OPERATIONS_TASKS_LIST_ID}/items` +
+    `?$expand=fields($select=${OPERATIONS_FIELD_SELECT})&$top=200`;
+  const [items, projects, equipment] = await Promise.all([
+    graphFetchAll<GraphListItem>(path),
+    listOperationsProjects(),
+    listOperationsEquipment(),
+  ]);
+  const tasks = items.map(toOperationsTask);
+  attachLookupTitles(tasks, projects, equipment);
+  return tasks;
+}
+
+export async function getOperationsTask(id: number): Promise<OperationsTask | null> {
+  const all = await listOperationsTasks();
+  return all.find((t) => t.id === id) ?? null;
+}
+
+/** Update arbitrary fields on an Operations task. Returns the updated task. */
+export async function updateOperationsTaskFields(
+  id: number,
+  fields: Record<string, unknown>,
+): Promise<OperationsTask> {
+  if (USE_MOCK) {
+    const idx = mockStore.findIndex((t) => t.id === id);
+    if (idx < 0) throw new Error(`Operations task ${id} not found`);
+
+    const next = { ...mockStore[idx] };
+    if ("Status" in fields) next.status = fields.Status as OperationsTask["status"];
+    if ("Title" in fields) next.title = fields.Title as string;
+    if ("TaskDescription" in fields) next.description = fields.TaskDescription as string;
+    if ("PriorityRequest" in fields) next.priority = fields.PriorityRequest as OperationsTask["priority"];
+    if ("TaskType" in fields) next.taskType = fields.TaskType as OperationsTask["taskType"];
+    if ("Location" in fields) next.location = fields.Location as OperationsTask["location"];
+    if ("DueDate" in fields) {
+      const v = fields.DueDate;
+      next.dueDate = v ? new Date(v as string) : null;
+    }
+    if ("Assigned" in fields) {
+      next.assigned = (fields.Assigned as Person | null) ?? null;
+    }
+    if ("Watchers" in fields && Array.isArray(fields.Watchers)) {
+      next.watchers = fields.Watchers as Person[];
+    }
+    if ("ProjectRefLookupId" in fields) {
+      const v = fields.ProjectRefLookupId;
+      next.parentProject = v ? { lookupId: Number(v), title: next.parentProject?.title ?? "" } : null;
+    }
+    if ("AltronicEquipmentLookupId" in fields) {
+      const v = fields.AltronicEquipmentLookupId;
+      next.equipment = v ? { lookupId: Number(v), title: next.equipment?.title ?? "" } : null;
+    }
+    next.modifiedAt = new Date();
+    mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
+    saveMockStoreToStorage();
+    return delay({ ...next });
+  }
+
+  const path = `/sites/${SITES.pmo}/lists/${SP_OPERATIONS_TASKS_LIST_ID}/items/${id}/fields`;
+  await graphFetch(path, { method: "PATCH", body: JSON.stringify(fields) });
+
+  const reloaded = await getOperationsTask(id);
+  if (!reloaded) throw new Error(`Operations task ${id} disappeared after update`);
+  return reloaded;
+}
+
+/** Convenience: just change the status. Used by Kanban drag-and-drop. */
+export async function setOperationsStatus(
+  id: number,
+  status: OperationsTask["status"],
+): Promise<OperationsTask> {
+  return updateOperationsTaskFields(id, { Status: status });
+}
+
+/** Change the parent project (or clear with `null`). */
+export async function setOperationsParentProject(
+  id: number,
+  projectLookupId: number | null,
+): Promise<OperationsTask> {
+  return updateOperationsTaskFields(id, { ProjectRefLookupId: projectLookupId });
+}
+
+/** Change the equipment reference (or clear with `null`). */
+export async function setOperationsEquipment(
+  id: number,
+  equipmentLookupId: number | null,
+): Promise<OperationsTask> {
+  return updateOperationsTaskFields(id, { AltronicEquipmentLookupId: equipmentLookupId });
+}
+
+/**
+ * Replace the single Assigned person (or clear with `null`). Unlike
+ * Engineering's multi-person Assigned, this column disallows multiple
+ * values — the write is a plain scalar LookupId, same shape as any other
+ * single-person field (see setEirReporter in api/eirs.ts). No @odata.type
+ * annotation needed; that's only required for the Collection(Edm.Int32)
+ * multi-value case.
+ */
+export async function setOperationsAssigned(
+  id: number,
+  person: Person | null,
+): Promise<OperationsTask> {
+  if (USE_MOCK) {
+    return updateOperationsTaskFields(id, { Assigned: person });
+  }
+  if (person && !person.lookupId) {
+    throw new Error(
+      "Cannot update Assigned: the selected person has no resolved SharePoint lookupId. " +
+        "Try refreshing the page and signing in again.",
+    );
+  }
+  return updateOperationsTaskFields(id, { AssignedLookupId: person?.lookupId ?? null });
+}
+
+/** Replace the Watchers list. */
+export async function setOperationsWatchers(
+  id: number,
+  people: Person[],
+): Promise<OperationsTask> {
+  if (USE_MOCK) {
+    return updateOperationsTaskFields(id, { Watchers: people });
+  }
+  const resolved = people.filter((p) => !!p.lookupId);
+  if (people.length > 0 && resolved.length === 0) {
+    throw new Error(
+      "Cannot update Watchers: none of the watchers had a resolved SharePoint lookupId. " +
+        "Try refreshing the page and signing in again.",
+    );
+  }
+  return updateOperationsTaskFields(id, multiPersonField("Watchers", people));
+}
+
+/** Add the given person to the watchers list (if not already there). */
+export async function watchOperationsTask(id: number, person: Person): Promise<OperationsTask> {
+  if (!USE_MOCK && !person.lookupId) {
+    throw new Error(
+      "Cannot add to watchers: your SharePoint user lookupId hasn't been resolved yet. " +
+        "Please wait a moment and try again, or refresh the page.",
+    );
+  }
+  const task = await getOperationsTask(id);
+  if (!task) throw new Error(`Operations task ${id} not found`);
+  const alreadyWatching = task.watchers.some(
+    (w) => w.email === person.email || (w.lookupId && w.lookupId === person.lookupId),
+  );
+  if (alreadyWatching) return task;
+  return setOperationsWatchers(id, [...task.watchers, person]);
+}
+
+/** Remove the given person from the watchers list. */
+export async function unwatchOperationsTask(id: number, person: Person): Promise<OperationsTask> {
+  const task = await getOperationsTask(id);
+  if (!task) throw new Error(`Operations task ${id} not found`);
+  const next = task.watchers.filter(
+    (w) => !(w.email === person.email || (w.lookupId && w.lookupId === person.lookupId)),
+  );
+  if (next.length === task.watchers.length) return task;
+  return setOperationsWatchers(id, next);
+}
+
+/** Append a comment to an Operations task's Communication field. */
+export async function addOperationsComment(
+  id: number,
+  comment: { authorName: string; authorEmail: string; bodyHtml: string },
+): Promise<OperationsTask> {
+  if (USE_MOCK) {
+    const idx = mockStore.findIndex((t) => t.id === id);
+    if (idx < 0) throw new Error(`Operations task ${id} not found`);
+    const next = { ...mockStore[idx] };
+    next.comments = [
+      {
+        timestamp: new Date(),
+        authorName: comment.authorName,
+        authorEmail: comment.authorEmail,
+        bodyHtml: comment.bodyHtml,
+        attachments: [],
+      },
+      ...next.comments,
+    ];
+    next.modifiedAt = new Date();
+    mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
+    saveMockStoreToStorage();
+    return delay({ ...next });
+  }
+
+  const path =
+    `/sites/${SITES.pmo}/lists/${SP_OPERATIONS_TASKS_LIST_ID}/items/${id}` +
+    `?$expand=fields($select=Communication)`;
+  const existing = await graphFetch<GraphListItem>(path);
+  const existingRaw = (existing.fields.Communication as string | undefined) ?? "";
+  const newRaw = appendComment(existingRaw, comment);
+  return updateOperationsTaskFields(id, { Communication: newRaw });
+}
+
+/** Edit the body of an existing comment, matched by timestamp + author email. */
+export async function editOperationsComment(
+  id: number,
+  target: { timestamp: Date; authorEmail: string },
+  newBodyHtml: string,
+): Promise<OperationsTask> {
+  if (USE_MOCK) {
+    const idx = mockStore.findIndex((t) => t.id === id);
+    if (idx < 0) throw new Error(`Operations task ${id} not found`);
+    const next = { ...mockStore[idx] };
+    const targetEmail = target.authorEmail.toLowerCase();
+    next.comments = next.comments.map((c) =>
+      c.timestamp.getTime() === target.timestamp.getTime() &&
+      c.authorEmail.toLowerCase() === targetEmail
+        ? { ...c, bodyHtml: newBodyHtml }
+        : c,
+    );
+    next.modifiedAt = new Date();
+    mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
+    saveMockStoreToStorage();
+    return delay({ ...next });
+  }
+
+  const path =
+    `/sites/${SITES.pmo}/lists/${SP_OPERATIONS_TASKS_LIST_ID}/items/${id}` +
+    `?$expand=fields($select=Communication)`;
+  const existing = await graphFetch<GraphListItem>(path);
+  const existingRaw = (existing.fields.Communication as string | undefined) ?? "";
+  const newRaw = replaceComment(existingRaw, target, newBodyHtml);
+  return updateOperationsTaskFields(id, { Communication: newRaw });
+}
+
+/** Create a new Operations task. Title is required; everything else is optional. */
+export async function createOperationsTask(input: {
+  title: string;
+  taskNumber?: string;
+  description?: string;
+  status?: OperationsTask["status"];
+  priority?: string | null;
+  taskType?: string | null;
+  location?: string | null;
+  dueDate?: Date | null;
+  parentProjectLookupId?: number | null;
+  equipmentLookupId?: number | null;
+  assigned?: Person | null;
+  watchers?: Person[];
+}): Promise<OperationsTask> {
+  if (USE_MOCK) {
+    const nextId = Math.max(0, ...mockStore.map((t) => t.id)) + 1;
+    const now = new Date();
+    const parentProject = input.parentProjectLookupId
+      ? MOCK_OPERATIONS_TASKS.find((t) => t.parentProject?.lookupId === input.parentProjectLookupId)
+          ?.parentProject ?? { lookupId: input.parentProjectLookupId, title: "" }
+      : null;
+    const equipment = input.equipmentLookupId
+      ? MOCK_OPERATIONS_TASKS.find((t) => t.equipment?.lookupId === input.equipmentLookupId)
+          ?.equipment ?? { lookupId: input.equipmentLookupId, title: "" }
+      : null;
+    const task: OperationsTask = {
+      id: nextId,
+      taskNumber: input.taskNumber ?? `Task ${parentProject?.title.slice(0, 4) ?? "0000"}-${nextId}`,
+      title: input.title,
+      description: input.description ?? "",
+      status: input.status ?? "Backlog",
+      priority: (input.priority as OperationsTask["priority"]) ?? null,
+      taskType: (input.taskType as OperationsTask["taskType"]) ?? null,
+      location: (input.location as OperationsTask["location"]) ?? null,
+      dueDate: input.dueDate ?? null,
+      createdAt: now,
+      modifiedAt: now,
+      authorLookupId: 0,
+      author: null,
+      editorLookupId: 0,
+      assigned: input.assigned ?? null,
+      watchers: input.watchers ?? [],
+      parentProject,
+      equipment,
+      comments: [],
+      hasAttachments: false,
+    };
+    mockStore = [task, ...mockStore];
+    saveMockStoreToStorage();
+    return delay(task);
+  }
+
+  const path = `/sites/${SITES.pmo}/lists/${SP_OPERATIONS_TASKS_LIST_ID}/items`;
+  const fields: Record<string, unknown> = { Title: input.title };
+  if (input.taskNumber) fields.TaskNumber = input.taskNumber;
+  if (input.description) fields.TaskDescription = input.description;
+  if (input.status) fields.Status = input.status;
+  if (input.priority) fields.PriorityRequest = input.priority;
+  if (input.taskType) fields.TaskType = input.taskType;
+  if (input.location) fields.Location = input.location;
+  if (input.dueDate) fields.DueDate = input.dueDate.toISOString();
+  if (input.parentProjectLookupId) fields.ProjectRefLookupId = input.parentProjectLookupId;
+  if (input.equipmentLookupId) fields.AltronicEquipmentLookupId = input.equipmentLookupId;
+  if (input.assigned?.lookupId) fields.AssignedLookupId = input.assigned.lookupId;
+  if (input.watchers?.some((p) => !!p.lookupId)) {
+    Object.assign(fields, multiPersonField("Watchers", input.watchers));
+  }
+
+  const created = await graphFetch<GraphListItem>(path, {
+    method: "POST",
+    body: JSON.stringify({ fields }),
+  });
+  return toOperationsTask(created);
+}

@@ -1,10 +1,11 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { ToastContainer } from "@/components/Toast";
 import { UpdateAvailableBanner } from "@/components/UpdateAvailableBanner";
 import { RequireAdmin } from "@/components/RequireAdmin";
+import { LoadingTasks } from "@/components/LoadingTasks";
 import { ListView } from "@/views/ListView";
 import { DashboardView } from "@/views/DashboardView";
 import { KanbanView } from "@/views/KanbanView";
@@ -22,6 +23,26 @@ import { EirDetailView } from "@/views/EirDetailView";
 import { AboutView } from "@/views/AboutView";
 import { ManualView } from "@/views/ManualView";
 import { useMentionScanner } from "@/hooks/useUnseenMentions";
+
+// Operations is the first non-Engineering department — its views are code-
+// split into their own lazy-loaded chunk (rather than eagerly bundled with
+// everything else) per CLAUDE.md's "each department is a lazy-loaded route
+// bundle" rule. No Operations file imports anything Engineering-specific;
+// only the shared layer (components/hooks/lib) is imported by both.
+const OperationsListView = lazy(() =>
+  import("@/views/OperationsListView").then((m) => ({ default: m.OperationsListView })),
+);
+const OperationsKanbanView = lazy(() =>
+  import("@/views/OperationsKanbanView").then((m) => ({ default: m.OperationsKanbanView })),
+);
+const OperationsDetailView = lazy(() =>
+  import("@/views/OperationsDetailView").then((m) => ({ default: m.OperationsDetailView })),
+);
+const AdminOperationsProjectsView = lazy(() =>
+  import("@/views/AdminOperationsProjectsView").then((m) => ({
+    default: m.AdminOperationsProjectsView,
+  })),
+);
 
 export function App() {
   // The print route is intentionally chrome-less so the saved PDF doesn't
@@ -81,11 +102,45 @@ export function App() {
               </RequireAdmin>
             }
           />
+          <Route
+            path="/admin/operations-projects"
+            element={
+              <RequireAdmin>
+                <Suspense fallback={<LoadingTasks noun="the admin page" />}>
+                  <AdminOperationsProjectsView />
+                </Suspense>
+              </RequireAdmin>
+            }
+          />
           <Route path="/admin" element={<Navigate to="/admin/admins" replace />} />
           <Route path="/test-sheets" element={<TestSheetsView />} />
           <Route path="/test-sheet/:id" element={<TestSheetDetailView />} />
           <Route path="/eirs" element={<EirsView />} />
           <Route path="/eir/:id" element={<EirDetailView />} />
+          <Route
+            path="/operations/tasks"
+            element={
+              <Suspense fallback={<LoadingTasks />}>
+                <OperationsListView />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/operations/tasks/kanban"
+            element={
+              <Suspense fallback={<LoadingTasks noun="the board" />}>
+                <OperationsKanbanView />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/operations/task/:id"
+            element={
+              <Suspense fallback={<LoadingTasks noun="this task" />}>
+                <OperationsDetailView />
+              </Suspense>
+            }
+          />
           <Route path="/about" element={<AboutView />} />
           <Route path="/manual" element={<ManualView />} />
           <Route path="*" element={<Navigate to="/" replace />} />

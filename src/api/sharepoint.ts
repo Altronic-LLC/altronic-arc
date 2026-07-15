@@ -32,8 +32,13 @@ export class SharePointUnavailableError extends Error {
 /**
  * Make an authenticated request to the SharePoint REST API.
  *
- * `path` should be a /_api/... path relative to the site URL — we prepend
- * `${SP_SITE_URL}` automatically.
+ * `path` can be a /_api/... path relative to the (Engineering) site URL —
+ * we prepend `${SP_SITE_URL}` automatically — OR a full absolute URL for a
+ * different site (e.g. Operations attachments on the PMO site), passed
+ * through unchanged. Either way the SP-REST OAuth resource scope is derived
+ * from whichever host the request is actually going to, not always
+ * Engineering's — the two happen to share a tenant today, but this stays
+ * correct even if that ever changes.
  */
 export async function spFetch<T>(
   path: string,
@@ -42,7 +47,8 @@ export async function spFetch<T>(
   if (USE_MOCK) {
     throw new Error("spFetch called while VITE_USE_MOCK is true — check the call site.");
   }
-  if (!SP_SITE_URL) {
+  const isAbsolute = path.startsWith("http");
+  if (!isAbsolute && !SP_SITE_URL) {
     throw new SharePointUnavailableError(
       "VITE_SP_SITE_URL is not set. Add it to the GitHub repo variables to enable SharePoint REST features (e.g. attachments).",
     );
@@ -56,7 +62,7 @@ export async function spFetch<T>(
   // SP REST resource scope. AllSites.Manage covers read + write + attachment
   // mutations. If the admin only granted AllSites.Read, write calls will
   // 403 — that surfaces as GraphError to the UI.
-  const host = new URL(SP_SITE_URL).host;
+  const host = new URL(isAbsolute ? path : SP_SITE_URL!).host;
   const scopes = [`https://${host}/AllSites.Manage`];
 
   // Silent-only. We do NOT trigger an interactive popup if silent fails,

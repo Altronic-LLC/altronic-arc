@@ -37,7 +37,7 @@ export interface MentionRecipient {
 
 /** What the mention is on — drives the wording, link, and button text. */
 export interface MentionTarget {
-  kind: "task" | "eir";
+  kind: "task" | "eir" | "operationsTask";
   id: number;
   title: string;
 }
@@ -202,7 +202,7 @@ function blobToBase64(blob: Blob): Promise<string> {
  * Absolute URL to a task/EIR detail page. Thin re-export of the shared
  * `appItemUrl` helper so this module's existing call sites keep working.
  */
-function itemUrl(kind: "task" | "eir", id: number): string {
+function itemUrl(kind: "task" | "eir" | "operationsTask", id: number): string {
   return appItemUrl(kind, id);
 }
 
@@ -333,7 +333,7 @@ export function firePromotionAlert(args: {
 interface MentionEmailContext {
   recipientName: string;
   senderName: string;
-  kind: "task" | "eir";
+  kind: "task" | "eir" | "operationsTask";
   reason: "mentioned" | "watching" | "edited";
   itemTitle: string;
   commentExcerpt: string;
@@ -447,7 +447,7 @@ function renderChangeEmail(ctx: {
   recipientName: string;
   headlineHtml: string;
   detailHtml?: string;
-  kind: "task" | "eir";
+  kind: "task" | "eir" | "operationsTask";
   itemTitle: string;
   url: string;
 }): string {

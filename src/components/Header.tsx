@@ -117,7 +117,12 @@ const DEPARTMENTS: DepartmentGroup[] = [
   {
     name: "Operations",
     items: [
-      soon("Operational Tasks", <Cog className="h-4 w-4" />),
+      {
+        to: "/operations/tasks",
+        label: "Operational Tasks",
+        icon: <Cog className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/operations/task"),
+      },
       soon("Maintenance Tasks", <Hammer className="h-4 w-4" />),
     ],
   },
@@ -161,6 +166,10 @@ export function Header() {
   const isAdminPage = pathname.startsWith("/admin");
   const showTaskViews =
     isList || isKanban || pathname.startsWith("/task/");
+  const isOpsList = pathname === "/operations/tasks";
+  const isOpsKanban = pathname.startsWith("/operations/tasks/kanban");
+  const showOpsTaskViews =
+    isOpsList || isOpsKanban || pathname.startsWith("/operations/task/");
 
   return (
     <header className="border-b border-border bg-surface">
@@ -212,6 +221,22 @@ export function Header() {
             </NavLink>
             {kanbanAvailable && (
               <NavLink to="/kanban" active={isKanban} icon={<LayoutGrid className="h-4 w-4" />}>
+                Kanban
+              </NavLink>
+            )}
+          </nav>
+        )}
+        {showOpsTaskViews && (
+          <nav className="mt-2 flex items-center justify-center gap-1 rounded-lg bg-surface-2 p-1 sm:justify-start">
+            <NavLink to="/operations/tasks" active={isOpsList} icon={<List className="h-4 w-4" />}>
+              List
+            </NavLink>
+            {kanbanAvailable && (
+              <NavLink
+                to="/operations/tasks/kanban"
+                active={isOpsKanban}
+                icon={<LayoutGrid className="h-4 w-4" />}
+              >
                 Kanban
               </NavLink>
             )}

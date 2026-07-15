@@ -28,7 +28,7 @@ export interface ChangeEmail {
 
 /** What the change is on — drives the noun ("task"/"EIR") in the copy. */
 export interface ChangeTarget {
-  kind: "task" | "eir";
+  kind: "task" | "eir" | "operationsTask";
   id: number;
   title: string;
 }

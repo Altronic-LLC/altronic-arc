@@ -30,14 +30,18 @@ import { useProjects, useTasks } from "@/hooks/useTasks";
 import { useEirs } from "@/hooks/useEirs";
 import { useTestSheets } from "@/hooks/useTestSheets";
 import { useProjectFolderEntries } from "@/hooks/useProjectFolders";
+import { useOperationsTasks } from "@/hooks/useOperationsTasks";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { SingleSelect } from "@/components/SearchableSelect";
 import {
   EIR_STATUSES,
+  OPERATIONS_STATUSES,
   STATUSES,
   type Eir,
   type EirStatus,
+  type OperationsStatus,
+  type OperationsTask,
   type Person,
   type Status,
   type Task,
@@ -90,6 +94,11 @@ function testSheetMatchesProject(s: TestSheet, projectId: number | null): boolea
   return s.parentProject?.lookupId === projectId;
 }
 
+function operationsTaskMatchesProject(t: OperationsTask, projectId: number | null): boolean {
+  if (projectId == null) return true;
+  return t.parentProject?.lookupId === projectId;
+}
+
 // Bar-segment colours per status — each status gets a visually distinct hue so
 // neighbouring segments never blur together (BACKLOG grey vs On Hold purple,
 // etc.). Solid colours read clearly in both light and dark themes.
@@ -111,6 +120,20 @@ const EIR_BAR_COLOR: Record<EirStatus, string> = {
   Closed: "bg-slate-400",
 };
 
+const OPERATIONS_BAR_COLOR: Record<OperationsStatus, string> = {
+  Backlog: "bg-slate-400",
+  WIP: "bg-ajax-yellow",
+  "On Hold": "bg-violet-500",
+  Complete: "bg-cooper-green",
+  Canceled: "bg-cooper-red",
+};
+
+/** Operations tasks have a single Assigned person, not Engineering's multi-person array. */
+function personMatchesSingle(person: Person | null, email: string): boolean {
+  if (!email || !person) return false;
+  return (person.email ?? "").toLowerCase() === email;
+}
+
 interface Segment {
   label: string;
   count: number;
@@ -121,6 +144,11 @@ export function DashboardView() {
   const navigate = useNavigate();
   const { data: tasks = [], isLoading, isError: tasksError } = useTasks();
   const { data: eirs = [], isLoading: eirsLoading, isError: eirsError } = useEirs();
+  const {
+    data: operationsTasks = [],
+    isLoading: operationsTasksLoading,
+    isError: operationsTasksError,
+  } = useOperationsTasks();
   const { data: testSheets = [], isError: testSheetsError } = useTestSheets();
   const { data: folderEntries = [], isError: foldersError } = useProjectFolderEntries(undefined);
   const { data: projects = [] } = useProjects();
@@ -182,6 +210,24 @@ export function DashboardView() {
     return { count: active.length, segments };
   }, [eirs, mine, myEmail, projectId]);
 
+  const operationsTaskCard = useMemo(() => {
+    const active = operationsTasks.filter(
+      (t: OperationsTask) =>
+        t.status !== "Complete" &&
+        t.status !== "Canceled" &&
+        (!mine || personMatchesSingle(t.assigned, myEmail)) &&
+        operationsTaskMatchesProject(t, projectId),
+    );
+    const segments: Segment[] = OPERATIONS_STATUSES.filter(
+      (s) => s !== "Complete" && s !== "Canceled",
+    ).map((s) => ({
+      label: s,
+      count: active.filter((t) => t.status === s).length,
+      color: OPERATIONS_BAR_COLOR[s],
+    }));
+    return { count: active.length, segments };
+  }, [operationsTasks, mine, myEmail, projectId]);
+
   const testCount = useMemo(
     () =>
       testSheets.filter(
@@ -192,7 +238,9 @@ export function DashboardView() {
     [testSheets, mine, myEmail, projectId],
   );
 
-  if (isLoading || eirsLoading) return <LoadingTasks noun="your dashboard" />;
+  if (isLoading || eirsLoading || operationsTasksLoading) {
+    return <LoadingTasks noun="your dashboard" />;
+  }
 
   // URLSearchParams encodes its values itself — don't pre-encode here, or
   // the email ends up double-encoded (e.g. "%2540" instead of "%40") and
@@ -211,8 +259,13 @@ export function DashboardView() {
         }).toString()}`
       : ""
   }`;
+  const operationsTasksUrl = `/operations/tasks?${new URLSearchParams({
+    assigned: mine ? meParam : "",
+    ...(projectParam ? { project: projectParam } : {}),
+  }).toString()}`;
 
-  const hasLoadError = tasksError || eirsError || testSheetsError || foldersError;
+  const hasLoadError =
+    tasksError || eirsError || operationsTasksError || testSheetsError || foldersError;
 
   return (
     <div className="mx-auto flex max-w-[1200px] flex-col gap-5 px-4 py-4 sm:px-6 sm:py-6">
@@ -296,7 +349,15 @@ export function DashboardView() {
       </DeptSection>
 
       <DeptSection title="Operations">
-        <PlaceholderCard name="Operational Tasks" icon={<Cog className="h-5 w-5" />} />
+        <TypeCard
+          name="Operational Tasks"
+          icon={<Cog className="h-5 w-5" />}
+          tone="superior-blue"
+          count={operationsTaskCard.count}
+          unit="active"
+          segments={operationsTaskCard.segments}
+          onClick={() => navigate(operationsTasksUrl)}
+        />
         <PlaceholderCard name="Maintenance Tasks" icon={<Hammer className="h-5 w-5" />} />
       </DeptSection>
 

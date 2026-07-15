@@ -142,6 +142,12 @@ export function AdminProjectsView() {
           >
             EIR Roles →
           </Link>
+          <Link
+            to="/admin/operations-projects"
+            className="text-xs text-accent underline-offset-2 hover:underline"
+          >
+            Operations Projects →
+          </Link>
         </div>
       </div>
 

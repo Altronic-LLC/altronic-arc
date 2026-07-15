@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { screen } from "@testing-library/react";
 import { renderWithProviders } from "@/test/render";
 import { MOCK_EIRS, MOCK_TEST_SHEETS, MOCK_PROJECTS } from "@/data/mockData";
+import { MOCK_OPERATIONS_TASKS } from "@/data/operationsMockData";
 import { listProjectFolderEntries } from "@/api/projectFiles";
 
 // Isolated from DashboardView.test.tsx so this module-level mock (an errored
@@ -26,6 +27,7 @@ vi.mock("@/hooks/useCurrentUser", () => ({
 
 const PROJECTS_KEY = ["projects"] as const;
 const EIRS_KEY = ["eirs", "list"] as const;
+const OPERATIONS_TASKS_KEY = ["operationsTasks", "list"] as const;
 const TEST_SHEETS_KEY = ["testSheets", "list"] as const;
 const FOLDER_ENTRIES_KEY = ["project-folder-entries", "root"] as const;
 
@@ -38,6 +40,7 @@ describe("DashboardView — a failed query", () => {
       seedQueryData: [
         { key: PROJECTS_KEY, data: MOCK_PROJECTS },
         { key: EIRS_KEY, data: MOCK_EIRS },
+        { key: OPERATIONS_TASKS_KEY, data: MOCK_OPERATIONS_TASKS },
         { key: TEST_SHEETS_KEY, data: MOCK_TEST_SHEETS },
         { key: FOLDER_ENTRIES_KEY, data: folderEntries },
       ],

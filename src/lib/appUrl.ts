@@ -10,9 +10,10 @@
 // `${origin}${base}${seg}/${id}` — no hash.
 // =============================================================================
 
-/** Absolute URL to a task or EIR detail page in this app. */
-export function appItemUrl(kind: "task" | "eir", id: number): string {
-  const seg = kind === "eir" ? "eir" : "task";
+/** Absolute URL to a task, EIR, or Operations task detail page in this app. */
+export function appItemUrl(kind: "task" | "eir" | "operationsTask", id: number): string {
+  const seg =
+    kind === "eir" ? "eir" : kind === "operationsTask" ? "operations/task" : "task";
   const base = import.meta.env.BASE_URL ?? "/"; // trailing slash, e.g. "/altronic-arc/"
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   return `${origin}${base}${seg}/${id}`;

@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.53.0",
+    date: "2026-07-15",
+    changes: [
+      "Added Operations Tasks — the second department wired into ARC. Same List/Kanban/Detail flow as Engineering Tasks (comments, @-mentions, watchers, checklists, attachments), backed by the Operations Task List and Operations Projects on the Altronic_PMO site, with a single-person Assigned picker plus new Task Type, Location, and Equipment fields.",
+      "Added an admin page for managing Operations Projects at /admin/operations-projects.",
+      "The Dashboard's Operational Tasks card and the Departments menu's Operations group now link to the real Operations task list instead of showing \"Coming soon.\"",
+    ],
+  },
+  {
     version: "0.52.0",
     date: "2026-07-15",
     changes: [

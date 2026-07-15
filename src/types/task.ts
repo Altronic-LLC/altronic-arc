@@ -451,6 +451,123 @@ export interface EirItemFields {
 }
 
 // =============================================================================
+// Operations Task List — separate SharePoint site (Altronic_PMO), separate
+// list from Engineering's Task List:
+// https://coopermachineryservices.sharepoint.com/sites/Altronic_PMO/Lists/Operations%20Task%20List
+//
+// Structurally similar to a Task (Title, Description, Status, a comment
+// thread in the same Communication format, Due Date, Watchers) but: Assigned
+// is SINGLE-person (not multi), there's no parent/child task hierarchy, and
+// it has two fields Engineering tasks don't — Location (shop-floor area) and
+// a lookup to the Altronic Equipment List. Its own project reference list
+// (Operations Projects) is separate from Engineering's Project Overview list,
+// but resolves to the same `ProjectReference` shape used everywhere else.
+// =============================================================================
+
+export const OPERATIONS_STATUSES = ["Backlog", "WIP", "On Hold", "Complete", "Canceled"] as const;
+export type OperationsStatus = (typeof OPERATIONS_STATUSES)[number];
+
+/** "Priority Request" choice column — "Med" (not "Medium") is the actual SharePoint choice value. */
+export const OPERATIONS_PRIORITIES = ["Low", "Med", "High"] as const;
+export type OperationsPriority = (typeof OPERATIONS_PRIORITIES)[number];
+
+/** "Task Type" choice column — this list's Category-equivalent. */
+export const OPERATIONS_TASK_TYPES = [
+  "NEW Equipment",
+  "Administrative",
+  "Existing Equipment",
+  "Programming",
+  "Plant Relayout",
+  "Quality Data Review",
+  "Test Engineering",
+  "Fixtures",
+  "Packaging",
+  "Documentation",
+  "Routers/COGS",
+  "Process Improvement",
+  "Logistics",
+] as const;
+export type OperationsTaskType = (typeof OPERATIONS_TASK_TYPES)[number];
+
+/** "Location" choice column — shop-floor area. No Engineering Task equivalent. */
+export const OPERATIONS_LOCATIONS = [
+  "Office/Admin",
+  "SMT",
+  "Through Hole",
+  "Conformal Coating",
+  "Final Assy",
+  "QC",
+  "Harness",
+  "Coils",
+  "Shipping",
+  "Repair",
+  "Receiving",
+  "PCB Sub",
+  "Warehouse",
+  "Machine Shop",
+  "Panels",
+] as const;
+export type OperationsLocation = (typeof OPERATIONS_LOCATIONS)[number];
+
+/** A single task from the Operations Task List. */
+export interface OperationsTask {
+  id: number;
+  /** App-owned identifier, e.g. "Task 0002-4" — this list's NumberedTitle-equivalent (the `TaskNumber` column). */
+  taskNumber: string;
+  title: string;
+  /** Long-form description (the `TaskDescription` column) — HTML or plain text, same as a Task's Description. */
+  description: string;
+  status: OperationsStatus;
+  priority: OperationsPriority | null;
+  taskType: OperationsTaskType | null;
+  location: OperationsLocation | null;
+  dueDate: Date | null;
+  createdAt: Date;
+  modifiedAt: Date;
+  authorLookupId: number;
+  author: Person | null;
+  editorLookupId: number;
+  editor?: Person | null;
+  /** Single person — the `Assigned` column disallows multiple values, unlike a Task's. */
+  assigned: Person | null;
+  watchers: Person[];
+  /** Lookup into the Operations Projects list (a different list from Engineering's Project Overview). */
+  parentProject: ProjectReference | null;
+  /** Lookup into the Altronic Equipment List — read-only reference, no admin management in ARC. */
+  equipment: ProjectReference | null;
+  /** Parsed from the `Communication` field — identical pipe-delimited format to a Task's comments. */
+  comments: Comment[];
+  hasAttachments: boolean;
+  rawFields?: Record<string, unknown>;
+}
+
+/** Raw Operations Task field bag as returned by Graph under `item.fields`. */
+export interface OperationsTaskItemFields {
+  Title?: string;
+  TaskDescription?: string;
+  Status?: string;
+  PriorityRequest?: string;
+  TaskType?: string;
+  Location?: string;
+  DueDate?: string;
+  Created?: string;
+  Modified?: string;
+  AuthorLookupId?: string | number;
+  EditorLookupId?: string | number;
+  /** Single-person field — Graph returns the same `{LookupId, LookupValue, Email}` shape as a multi-person entry, just not wrapped in an array. */
+  Assigned?: unknown;
+  Watchers?: unknown;
+  ProjectRefLookupId?: string | number;
+  ProjectRef?: unknown;
+  AltronicEquipmentLookupId?: string | number;
+  AltronicEquipment?: unknown;
+  Communication?: string;
+  TaskNumber?: string;
+  Attachments?: boolean;
+  [key: string]: unknown;
+}
+
+// =============================================================================
 // Microsoft Graph response shapes — only the fields we touch
 // =============================================================================
 
