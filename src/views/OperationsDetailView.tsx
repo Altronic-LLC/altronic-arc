@@ -301,8 +301,13 @@ export function OperationsDetailView() {
               </button>
             </div>
 
+            {task.taskNumber && (
+              <div className="mb-1 inline-flex items-center gap-1.5 rounded-md bg-surface-2 px-2 py-1 font-mono text-xs font-semibold text-fg-muted">
+                {task.taskNumber}
+              </div>
+            )}
             <h1 className="font-display text-xl font-semibold leading-tight text-fg sm:text-2xl">
-              {task.taskNumber || task.title}
+              {task.title}
             </h1>
           </div>
 

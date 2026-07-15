@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.54.2",
+    date: "2026-07-15",
+    changes: [
+      "Operations tasks now show both the task number and the title on the list, board, and detail views (previously only one showed, hiding the other)",
+    ],
+  },
+  {
     version: "0.54.1",
     date: "2026-07-15",
     changes: [

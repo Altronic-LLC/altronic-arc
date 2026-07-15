@@ -62,10 +62,10 @@ export function OperationsKanbanCard({
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <div className="text-[10px] font-mono font-semibold uppercase tracking-wider text-fg-muted">
-            #{task.id}
+            {task.taskNumber || `#${task.id}`}
           </div>
           <div className="mt-0.5 line-clamp-2 text-sm font-medium leading-snug text-fg">
-            {task.taskNumber || task.title}
+            {task.title}
           </div>
         </div>
 

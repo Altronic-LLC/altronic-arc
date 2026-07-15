@@ -1,4 +1,4 @@
-import { ChevronRight, FolderOpen, MapPin } from "lucide-react";
+import { ChevronRight, FolderOpen, Hash, MapPin } from "lucide-react";
 import { useEffect, useRef } from "react";
 import type { OperationsTask } from "@/types/task";
 import {
@@ -53,8 +53,14 @@ export function OperationsTaskRow({ task, onOpen }: OperationsTaskRowProps) {
           <ChevronRight className="ml-auto h-5 w-5 shrink-0 text-fg-muted transition-transform group-hover:translate-x-0.5 sm:hidden" />
         </div>
         <div className="font-display text-sm font-semibold leading-snug text-fg">
-          {task.taskNumber || task.title}
+          {task.title}
         </div>
+        {task.taskNumber && (
+          <span className="inline-flex w-fit items-center gap-1 font-mono text-xs font-semibold uppercase tracking-wider text-fg-muted">
+            <Hash className="h-3 w-3" />
+            {task.taskNumber}
+          </span>
+        )}
         <div className="flex flex-wrap items-center gap-2">
           <OperationsPriorityFlag priority={task.priority} />
           <DueDateBadge due={task.dueDate} />
