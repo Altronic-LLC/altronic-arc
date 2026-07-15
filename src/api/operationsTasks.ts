@@ -28,6 +28,7 @@ const OPERATIONS_FIELD_SELECT = [
   "DueDate",
   "AuthorLookupId",
   "EditorLookupId",
+  "AssignedLookupId",
   "Assigned",
   "Watchers",
   "ProjectRefLookupId",

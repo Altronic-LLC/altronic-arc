@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.53.2",
+    date: "2026-07-15",
+    changes: [
+      "Fix Operations tasks still not showing the assigned person — the field wasn't requested from SharePoint at all",
+    ],
+  },
+  {
     version: "0.53.1",
     date: "2026-07-15",
     changes: ["Fix Operations tasks not showing the assigned person's name"],
