@@ -26,6 +26,7 @@ import {
   commentNotifyRecipients,
   commentRenotifyRecipients,
   extractMentionedRecipients,
+  mockLookupIdForEmail,
 } from "@/lib/mentions";
 import {
   fireAssigneeChangeAlert,
@@ -36,6 +37,8 @@ import {
 import { buildPromotedCommunication } from "@/lib/eirPromotion";
 import { appItemUrl } from "@/lib/appUrl";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { resolveCurrentUserLookupId } from "@/api/currentUser";
+import { USE_MOCK } from "@/api/config";
 
 const EIRS_KEY = ["eirs", "list"] as const;
 
@@ -396,38 +399,24 @@ export function useAddEirComment() {
       }
 
       // Auto-watch: anyone @-mentioned becomes a watcher on this EIR (unless
-      // they already are). Resolves the email against the people directory so
-      // we land a SharePoint LookupId — required to write the watcher entry.
+      // they already are).
       const mentioned = extractMentionedRecipients(comment.bodyHtml);
       if (mentioned.length === 0) return;
-      const directory = eirs ? collectPeopleFromEirs(eirs) : [];
-      const alreadyWatching = new Set(
-        eir.watchers.map((w) => (w.email ?? w.displayName).toLowerCase()),
-      );
-      const byEmail = new Map<string, Person>();
-      for (const p of directory) {
-        if (p.email && p.lookupId) byEmail.set(p.email.toLowerCase(), p);
-      }
-      const additions: Person[] = [];
-      for (const r of mentioned) {
-        const key = (r.email ?? r.displayName).toLowerCase();
-        if (alreadyWatching.has(key)) continue;
-        if (!r.email) continue;
-        const resolved = byEmail.get(r.email.toLowerCase());
-        if (!resolved) continue;
-        additions.push(resolved);
-        alreadyWatching.add(key);
-      }
-      if (additions.length === 0) return;
-
-      void setEirWatchers(id, [...eir.watchers, ...additions])
-        .then(() => {
-          qc.invalidateQueries({ queryKey: EIRS_KEY });
-          pushToast({
-            message:
-              additions.length === 1
-                ? `${additions[0].displayName} is now watching this EIR.`
-                : `${additions.length} people are now watching this EIR.`,
+      void autoWatchEirFromMentions({
+        recipients: mentioned,
+        currentWatchers: eir.watchers,
+        directory: eirs ? collectPeopleFromEirs(eirs) : [],
+      })
+        .then((additions) => {
+          if (additions.length === 0) return;
+          return setEirWatchers(id, [...eir.watchers, ...additions]).then(() => {
+            qc.invalidateQueries({ queryKey: EIRS_KEY });
+            pushToast({
+              message:
+                additions.length === 1
+                  ? `${additions[0].displayName} is now watching this EIR.`
+                  : `${additions.length} people are now watching this EIR.`,
+            });
           });
         })
         .catch((err) => {
@@ -440,6 +429,49 @@ export function useAddEirComment() {
     },
     onSettled: () => invalidate(qc),
   });
+}
+
+/**
+ * Resolve which @-mentioned people should become new watchers on an EIR.
+ * Prefers the EIR-derived directory (reporter/assignees/watchers across all
+ * EIRs); for someone mentioned for the first time who's never appeared
+ * there, falls back to resolving their SharePoint lookupId on demand from
+ * the site's User Information List — otherwise a cold-start mention (never
+ * an EIR participant before) could never be auto-watched.
+ */
+async function autoWatchEirFromMentions({
+  recipients,
+  currentWatchers,
+  directory,
+}: {
+  recipients: Person[];
+  currentWatchers: Person[];
+  directory: Person[];
+}): Promise<Person[]> {
+  const alreadyWatching = new Set(
+    currentWatchers.map((w) => (w.email ?? w.displayName).toLowerCase()),
+  );
+  const byEmail = new Map<string, Person>();
+  for (const p of directory) {
+    if (p.email && p.lookupId) byEmail.set(p.email.toLowerCase(), p);
+  }
+  const additions: Person[] = [];
+  for (const r of recipients) {
+    const key = (r.email ?? r.displayName).toLowerCase();
+    if (alreadyWatching.has(key)) continue;
+    if (!r.email) continue;
+    let resolved = byEmail.get(r.email.toLowerCase());
+    if (!resolved) {
+      const lookupId = USE_MOCK
+        ? mockLookupIdForEmail(r.email)
+        : await resolveCurrentUserLookupId(r.email);
+      if (!lookupId) continue;
+      resolved = { displayName: r.displayName, email: r.email, lookupId };
+    }
+    additions.push(resolved);
+    alreadyWatching.add(key);
+  }
+  return additions;
 }
 
 /** Flatten every Person across the EIR list, deduped, lookupId-only. */
@@ -533,34 +565,21 @@ export function useEditEirComment() {
       // comment, regardless of whether renotify was requested.
       const mentioned = extractMentionedRecipients(newBodyHtml);
       if (mentioned.length === 0) return;
-      const directory = eirs ? collectPeopleFromEirs(eirs) : [];
-      const alreadyWatching = new Set(
-        eir.watchers.map((w) => (w.email ?? w.displayName).toLowerCase()),
-      );
-      const byEmail = new Map<string, Person>();
-      for (const p of directory) {
-        if (p.email && p.lookupId) byEmail.set(p.email.toLowerCase(), p);
-      }
-      const additions: Person[] = [];
-      for (const r of mentioned) {
-        const key = (r.email ?? r.displayName).toLowerCase();
-        if (alreadyWatching.has(key)) continue;
-        if (!r.email) continue;
-        const resolved = byEmail.get(r.email.toLowerCase());
-        if (!resolved) continue;
-        additions.push(resolved);
-        alreadyWatching.add(key);
-      }
-      if (additions.length === 0) return;
-
-      void setEirWatchers(id, [...eir.watchers, ...additions])
-        .then(() => {
-          qc.invalidateQueries({ queryKey: EIRS_KEY });
-          pushToast({
-            message:
-              additions.length === 1
-                ? `${additions[0].displayName} is now watching this EIR.`
-                : `${additions.length} people are now watching this EIR.`,
+      void autoWatchEirFromMentions({
+        recipients: mentioned,
+        currentWatchers: eir.watchers,
+        directory: eirs ? collectPeopleFromEirs(eirs) : [],
+      })
+        .then((additions) => {
+          if (additions.length === 0) return;
+          return setEirWatchers(id, [...eir.watchers, ...additions]).then(() => {
+            qc.invalidateQueries({ queryKey: EIRS_KEY });
+            pushToast({
+              message:
+                additions.length === 1
+                  ? `${additions[0].displayName} is now watching this EIR.`
+                  : `${additions.length} people are now watching this EIR.`,
+            });
           });
         })
         .catch((err) => {

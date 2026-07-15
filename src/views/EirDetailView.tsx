@@ -27,6 +27,7 @@ import {
 } from "@/hooks/useEirs";
 import { useTasks, useProjects } from "@/hooks/useTasks";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useAdmins } from "@/hooks/useAdmins";
 import { useMyEirRoles } from "@/hooks/useEirRoles";
 import {
   EIR_BUYER_CODES,
@@ -138,6 +139,22 @@ export function EirDetailView() {
     }
     return [...map.values()].sort((a, b) => a.displayName.localeCompare(b.displayName));
   }, [tasks, currentUser]);
+
+  // @-mention candidates: allPeople PLUS the Admins list, so someone can be
+  // mentioned for the first time ever, before they've touched any task or
+  // EIR. Kept separate from allPeople — Admins entries have no lookupId, so
+  // using this list for the Assigned/Watchers pickers would fail on submit
+  // instead of working via the auto-watch cold-start resolution.
+  const { data: admins = [] } = useAdmins();
+  const mentionCandidates = useMemo<Person[]>(() => {
+    const map = new Map<string, Person>();
+    for (const p of allPeople) map.set((p.email ?? p.displayName).toLowerCase(), p);
+    for (const a of admins) {
+      const key = a.email.toLowerCase();
+      if (!map.has(key)) map.set(key, { displayName: a.displayName || a.email, email: a.email });
+    }
+    return [...map.values()].sort((a, b) => a.displayName.localeCompare(b.displayName));
+  }, [allPeople, admins]);
 
   // Controls the "Promote EIR to Task" confirmation modal. Opened when the
   // user picks "Promoted to Task" in the Resolution dropdown (unless the EIR
@@ -384,11 +401,12 @@ export function EirDetailView() {
             <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
               Comments
             </h2>
-            <CommentComposer onSubmit={handleAddComment} mentionablePeople={allPeople} />
+            <CommentComposer onSubmit={handleAddComment} mentionablePeople={mentionCandidates} />
             <div className="mt-5">
               <CommentThread
                 comments={eir.comments}
                 currentUserEmail={currentUser.email}
+                mentionablePeople={mentionCandidates}
                 onEdit={handleEditComment}
               />
             </div>

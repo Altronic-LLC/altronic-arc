@@ -1,12 +1,21 @@
-import { useState } from "react";
-import { Paperclip, Pencil } from "lucide-react";
-import type { Comment, CommentAttachment } from "@/types/task";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AtSign, Paperclip, Pencil } from "lucide-react";
+import type { Comment, CommentAttachment, Person } from "@/types/task";
 import { sanitiseHtml } from "@/lib/sanitiseHtml";
+import { buildCommentHtml, extractMentionedRecipients } from "@/lib/mentions";
+import { cn } from "@/lib/cn";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
 
 interface CommentThreadProps {
   comments: Comment[];
   currentUserEmail?: string;
+  /**
+   * People available for @-mentions while editing — same list the composer
+   * uses for new comments. Without this, edits can't add or preserve real
+   * mention chips (typed "@Name" text stays plain, so it neither notifies
+   * nor auto-watches).
+   */
+  mentionablePeople?: Person[];
   /**
    * Save handler. If omitted, the Edit button is hidden entirely.
    * `renotify` is true when the author checked "Notify everyone again" —
@@ -16,7 +25,12 @@ interface CommentThreadProps {
   onEdit?: (comment: Comment, newBodyHtml: string, renotify: boolean) => Promise<void> | void;
 }
 
-export function CommentThread({ comments, currentUserEmail, onEdit }: CommentThreadProps) {
+export function CommentThread({
+  comments,
+  currentUserEmail,
+  mentionablePeople = [],
+  onEdit,
+}: CommentThreadProps) {
   if (comments.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-fg-muted">
@@ -37,6 +51,7 @@ export function CommentThread({ comments, currentUserEmail, onEdit }: CommentThr
             key={`${c.timestamp.getTime()}-${i}`}
             comment={c}
             canEdit={isOwn && !!onEdit}
+            mentionablePeople={mentionablePeople}
             onEdit={onEdit}
           />
         );
@@ -48,10 +63,12 @@ export function CommentThread({ comments, currentUserEmail, onEdit }: CommentThr
 function CommentItem({
   comment,
   canEdit,
+  mentionablePeople,
   onEdit,
 }: {
   comment: Comment;
   canEdit: boolean;
+  mentionablePeople: Person[];
   onEdit?: (comment: Comment, newBodyHtml: string, renotify: boolean) => Promise<void> | void;
 }) {
   const [editing, setEditing] = useState(false);
@@ -61,6 +78,7 @@ function CommentItem({
       <article className="py-4 first:pt-0 last:pb-0">
         <CommentEditor
           initialBodyHtml={comment.bodyHtml}
+          mentionablePeople={mentionablePeople}
           onCancel={() => setEditing(false)}
           onSave={async (newBodyHtml, renotify) => {
             await onEdit(comment, newBodyHtml, renotify);
@@ -128,26 +146,110 @@ function CommentItem({
 
 function CommentEditor({
   initialBodyHtml,
+  mentionablePeople,
   onSave,
   onCancel,
 }: {
   initialBodyHtml: string;
+  mentionablePeople: Person[];
   onSave: (newBodyHtml: string, renotify: boolean) => Promise<void> | void;
   onCancel: () => void;
 }) {
   const [text, setText] = useState(() => htmlToPlainText(initialBodyHtml));
   const [busy, setBusy] = useState(false);
   const [renotify, setRenotify] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Seed with whatever mentions the comment already had, so leaving the
+  // visible "@Name" text untouched during an edit doesn't downgrade it back
+  // to plain text — only re-picking or removing changes the chip set.
+  const [mentions, setMentions] = useState<Person[]>(() =>
+    extractMentionedRecipients(initialBodyHtml),
+  );
+
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerQuery, setPickerQuery] = useState("");
+  const [activeIndex, setActiveIndex] = useState(0);
+  const atPosRef = useRef<number | null>(null);
+
+  const candidates = useMemo(() => {
+    const q = pickerQuery.trim().toLowerCase();
+    if (!pickerOpen) return [];
+    return mentionablePeople
+      .filter((p) => p.displayName.toLowerCase().includes(q))
+      .sort((a, b) => {
+        const ap = a.displayName.toLowerCase().startsWith(q) ? 0 : 1;
+        const bp = b.displayName.toLowerCase().startsWith(q) ? 0 : 1;
+        return ap - bp || a.displayName.localeCompare(b.displayName);
+      })
+      .slice(0, 6);
+  }, [mentionablePeople, pickerQuery, pickerOpen]);
+
+  useEffect(() => {
+    if (activeIndex >= candidates.length) setActiveIndex(0);
+  }, [candidates.length, activeIndex]);
+
+  function detectMention(nextText: string, caret: number) {
+    let i = caret - 1;
+    while (i >= 0) {
+      const ch = nextText[i];
+      if (ch === "@") {
+        const before = i > 0 ? nextText[i - 1] : "";
+        if (before === "" || /[\s(\[]/.test(before)) {
+          const query = nextText.slice(i + 1, caret);
+          if (!/\s/.test(query)) {
+            atPosRef.current = i;
+            setPickerQuery(query);
+            setPickerOpen(true);
+            return;
+          }
+        }
+        break;
+      }
+      if (/\s/.test(ch)) break;
+      i--;
+    }
+    setPickerOpen(false);
+    atPosRef.current = null;
+  }
+
+  function handleTextChange(next: string) {
+    setText(next);
+    const caret = textareaRef.current?.selectionStart ?? next.length;
+    detectMention(next, caret);
+  }
+
+  function pickMention(person: Person) {
+    const at = atPosRef.current;
+    if (at == null) return;
+    const caret = textareaRef.current?.selectionStart ?? text.length;
+    const before = text.slice(0, at);
+    const after = text.slice(caret);
+    const inserted = `@${person.displayName} `;
+    const nextText = before + inserted + after;
+    setText(nextText);
+    setMentions((prev) => {
+      const key = (person.email ?? person.displayName).toLowerCase();
+      const has = prev.some((p) => (p.email ?? p.displayName).toLowerCase() === key);
+      return has ? prev : [...prev, person];
+    });
+    setPickerOpen(false);
+    atPosRef.current = null;
+    requestAnimationFrame(() => {
+      const ta = textareaRef.current;
+      if (!ta) return;
+      const pos = before.length + inserted.length;
+      ta.focus();
+      ta.setSelectionRange(pos, pos);
+    });
+  }
 
   async function handleSave() {
     const trimmed = text.trim();
     if (!trimmed) return;
     setBusy(true);
     try {
-      const html = trimmed
-        .split(/\n{2,}/)
-        .map((p) => `<p>${escapeHtml(p).replace(/\n/g, "<br/>")}</p>`)
-        .join("");
+      const html = buildCommentHtml(trimmed, mentions);
       await onSave(html, renotify);
     } finally {
       setBusy(false);
@@ -155,6 +257,29 @@ function CommentEditor({
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (pickerOpen && candidates.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setActiveIndex((i) => (i + 1) % candidates.length);
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setActiveIndex((i) => (i - 1 + candidates.length) % candidates.length);
+        return;
+      }
+      if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        pickMention(candidates[activeIndex]);
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setPickerOpen(false);
+        atPosRef.current = null;
+        return;
+      }
+    }
     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
       e.preventDefault();
       handleSave();
@@ -165,17 +290,48 @@ function CommentEditor({
   }
 
   return (
-    <div className="rounded-md border border-accent/40 bg-surface-2 p-3">
+    <div className="relative rounded-md border border-accent/40 bg-surface-2 p-3">
       <AutoGrowTextarea
+        ref={textareaRef}
         style={{ minHeight: "6.5rem" }}
         value={text}
-        onChange={(e) => setText(e.target.value)}
+        onChange={(e) => handleTextChange(e.target.value)}
+        onSelect={() => {
+          const ta = textareaRef.current;
+          if (!ta) return;
+          detectMention(text, ta.selectionStart);
+        }}
         onKeyDown={handleKeyDown}
         disabled={busy}
         rows={4}
         autoFocus
         className="w-full resize-y rounded-md bg-bg p-2.5 text-base text-fg placeholder:text-fg-muted focus:outline-none focus:ring-2 focus:ring-accent/30 sm:text-sm"
       />
+
+      {pickerOpen && candidates.length > 0 && (
+        <div className="absolute left-3 right-3 top-full z-20 mt-1 max-h-56 overflow-y-auto rounded-lg border border-border bg-surface p-1 shadow-lg sm:max-w-xs">
+          {candidates.map((p, idx) => (
+            <button
+              key={p.email ?? p.displayName}
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                pickMention(p);
+              }}
+              onMouseEnter={() => setActiveIndex(idx)}
+              className={cn(
+                "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors",
+                idx === activeIndex ? "bg-accent/10 text-fg" : "text-fg hover:bg-surface-2",
+              )}
+            >
+              <AtSign className="h-3.5 w-3.5 text-fg-muted" />
+              <span className="truncate font-medium">{p.displayName}</span>
+              {p.email && <span className="truncate text-xs text-fg-muted">{p.email}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="mt-2 flex items-center justify-between gap-2">
         <label
           className="flex items-center gap-1.5 text-xs text-fg-muted"
@@ -283,13 +439,4 @@ function htmlToPlainText(html: string): string {
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
     .trim();
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
 }

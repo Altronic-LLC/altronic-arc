@@ -130,6 +130,23 @@ async function listPmoSiteUsers(): Promise<Map<number, Person>> {
 }
 
 /**
+ * Resolve a single email to its PMO site user lookupId — used to auto-watch
+ * someone @-mentioned for the first time who's never been an assignee or
+ * watcher on any Operations task (so they're not in the task-derived
+ * directory built from existing tasks). Re-fetches the site user list, same
+ * as `listPmoSiteUsers`; there's no caching layer here since this only runs
+ * on the rare cold-start mention.
+ */
+export async function resolvePmoSiteUserLookupId(email: string): Promise<number> {
+  const users = await listPmoSiteUsers();
+  const target = email.toLowerCase();
+  for (const u of users.values()) {
+    if (u.email?.toLowerCase() === target) return u.lookupId ?? 0;
+  }
+  return 0;
+}
+
+/**
  * Resolve `parentProject.title` / `equipment.title` / `assigned.displayName`
  * against the Operations Projects / Altronic Equipment / PMO site-user
  * directories. Mirrors `attachProjectTitles` in lib/taskGraph.ts. Mutates

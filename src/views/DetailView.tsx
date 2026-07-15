@@ -35,6 +35,7 @@ import {
   useWatchTask,
 } from "@/hooks/useTasks";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useAdmins } from "@/hooks/useAdmins";
 import { useEirs, useUpdateEirFields } from "@/hooks/useEirs";
 import {
   CATEGORIES,
@@ -164,6 +165,26 @@ export function DetailView() {
     }
     return [...seen.values()].sort((a, b) => a.displayName.localeCompare(b.displayName));
   }, [allTasks]);
+
+  // @-mention candidates: allPeople (who has a resolved lookupId, so they're
+  // also assignable) PLUS the Admins list, so someone can be mentioned for
+  // the first time ever — before they've ever been an assignee or watcher on
+  // anything — rather than only typing their name as unlinked plain text.
+  // Kept separate from allPeople (not merged into it) since Admins entries
+  // have no lookupId; using this list for the Assigned picker would produce
+  // a confusing error on submit instead of a working mention + auto-watch.
+  const { data: admins = [] } = useAdmins();
+  const mentionCandidates: Person[] = useMemo(() => {
+    const seen = new Map<string, Person>();
+    for (const p of allPeople) {
+      seen.set((p.email ?? p.displayName).toLowerCase(), p);
+    }
+    for (const a of admins) {
+      const key = a.email.toLowerCase();
+      if (!seen.has(key)) seen.set(key, { displayName: a.displayName || a.email, email: a.email });
+    }
+    return [...seen.values()].sort((a, b) => a.displayName.localeCompare(b.displayName));
+  }, [allPeople, admins]);
 
   // The EIR this task was promoted from, if any. Resolved from the task's
   // EIRReference hyperlink: prefer the item id embedded in the URL
@@ -602,7 +623,7 @@ export function DetailView() {
             )}
             <CommentComposer
               onSubmit={handleAddComment}
-              mentionablePeople={allPeople}
+              mentionablePeople={mentionCandidates}
               uploadFile={async (file) => {
                 // Route comment attachments to the SharePoint project folder
                 // (or Miscellaneous with prefix) — same path as Attachments
@@ -622,6 +643,7 @@ export function DetailView() {
               <CommentThread
                 comments={displayedComments}
                 currentUserEmail={currentUser.email}
+                mentionablePeople={mentionCandidates}
                 onEdit={handleEditComment}
               />
             </div>

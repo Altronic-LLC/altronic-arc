@@ -30,6 +30,7 @@ import {
   useWatchOperationsTask,
 } from "@/hooks/useOperationsTasks";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useAdmins } from "@/hooks/useAdmins";
 import {
   OPERATIONS_LOCATIONS,
   OPERATIONS_PRIORITIES,
@@ -131,6 +132,22 @@ export function OperationsDetailView() {
     }
     return [...seen.values()].sort((a, b) => a.displayName.localeCompare(b.displayName));
   }, [allTasks]);
+
+  // @-mention candidates: allPeople PLUS the Admins list, so someone can be
+  // mentioned for the first time ever, before they've touched any
+  // Operations task. Kept separate from allPeople — Admins entries have no
+  // lookupId, so using this list for the Assigned picker would fail on
+  // submit instead of working via the auto-watch cold-start resolution.
+  const { data: admins = [] } = useAdmins();
+  const mentionCandidates: Person[] = useMemo(() => {
+    const seen = new Map<string, Person>();
+    for (const p of allPeople) seen.set((p.email ?? p.displayName).toLowerCase(), p);
+    for (const a of admins) {
+      const key = a.email.toLowerCase();
+      if (!seen.has(key)) seen.set(key, { displayName: a.displayName || a.email, email: a.email });
+    }
+    return [...seen.values()].sort((a, b) => a.displayName.localeCompare(b.displayName));
+  }, [allPeople, admins]);
 
   if (isLoading) {
     return <LoadingTasks noun="this task" />;
@@ -343,7 +360,7 @@ export function OperationsDetailView() {
                 Your comment was removed from the thread — try again.
               </div>
             )}
-            <CommentComposer onSubmit={handleAddComment} mentionablePeople={allPeople} />
+            <CommentComposer onSubmit={handleAddComment} mentionablePeople={mentionCandidates} />
             {newExternalComments.length > 0 && (
               <NewCommentsBanner comments={newExternalComments} onShow={handleShowNewComments} />
             )}
@@ -351,6 +368,7 @@ export function OperationsDetailView() {
               <CommentThread
                 comments={displayedComments}
                 currentUserEmail={currentUser.email}
+                mentionablePeople={mentionCandidates}
                 onEdit={handleEditComment}
               />
             </div>

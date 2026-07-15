@@ -206,3 +206,20 @@ export function commentRenotifyRecipients(args: {
     authorEmail: args.authorEmail,
   }).map((r) => ({ ...r, reason: "edited" as const }));
 }
+
+/**
+ * Deterministic stand-in for a SharePoint lookupId in mock mode, used when
+ * auto-watching someone mentioned for the very first time (never an
+ * assignee/watcher before, so they're not in the task-derived directory).
+ * Real mode resolves this via the site's User Information List instead
+ * (see `resolveCurrentUserLookupId`) — this only exists so the same
+ * cold-start mention flow is demoable against mock data. Always non-zero
+ * so it passes the same `lookupId` truthiness checks real ids do.
+ */
+export function mockLookupIdForEmail(email: string): number {
+  let hash = 0;
+  for (let i = 0; i < email.length; i++) {
+    hash = (hash * 31 + email.charCodeAt(i)) >>> 0;
+  }
+  return (hash % 100000) + 900000;
+}

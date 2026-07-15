@@ -4,6 +4,7 @@ import {
   createOperationsTask,
   editOperationsComment,
   listOperationsTasks,
+  resolvePmoSiteUserLookupId,
   setOperationsAssigned,
   setOperationsEquipment,
   setOperationsParentProject,
@@ -25,8 +26,10 @@ import {
   commentNotifyRecipients,
   commentRenotifyRecipients,
   extractMentionedRecipients,
+  mockLookupIdForEmail,
 } from "@/lib/mentions";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { USE_MOCK } from "@/api/config";
 
 // =============================================================================
 // Operations department hooks — mirrors useTasks.ts's optimistic-update
@@ -411,8 +414,17 @@ async function autoWatchFromMentions({
     const key = (r.email ?? r.displayName).toLowerCase();
     if (alreadyWatching.has(key)) continue;
     if (!r.email) continue;
-    const resolved = byEmail.get(r.email.toLowerCase());
-    if (!resolved) continue;
+    let resolved = byEmail.get(r.email.toLowerCase());
+    if (!resolved) {
+      // Cold start: mentioned someone who's never been assigned/watching
+      // any Operations task, so they're not in the task-derived directory.
+      // Resolve their PMO site user lookupId on demand instead.
+      const lookupId = USE_MOCK
+        ? mockLookupIdForEmail(r.email)
+        : await resolvePmoSiteUserLookupId(r.email);
+      if (!lookupId) continue;
+      resolved = { displayName: r.displayName, email: r.email, lookupId };
+    }
     additions.push(resolved);
     alreadyWatching.add(key);
   }

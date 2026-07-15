@@ -495,12 +495,18 @@ const SECTIONS: ManualSection[] = [
         <H3>@-mentioning someone</H3>
         <P>
           Type <code>@</code> in the composer. A dropdown opens with everyone
-          who's been an assignee or watcher across the team. Use the arrow keys
-          to highlight, then <strong>Enter or Tab</strong> to pick (or click).
-          The mention becomes a styled chip in your comment and the mentioned
-          person receives an email notification when you send. The comment box
-          also grows automatically as you type or paste, so long comments stay
-          fully visible.
+          who's been an assignee or watcher across the team, plus every admin
+          — so you can mention someone the very first time, before they've
+          touched anything. Use the arrow keys to highlight, then{" "}
+          <strong>Enter or Tab</strong> to pick (or click). The mention
+          becomes a styled chip in your comment and the mentioned person
+          receives an email notification when you send. Typing a name without
+          picking it from the dropdown leaves it as plain text — it won't
+          notify anyone or add them as a watcher. The comment box also grows
+          automatically as you type or paste, so long comments stay fully
+          visible. Editing an existing comment has the same @-mention picker,
+          so you can add someone while making an edit, not just when first
+          posting.
         </P>
         <P>
           Anyone you @-mention also <strong>becomes a watcher</strong> on

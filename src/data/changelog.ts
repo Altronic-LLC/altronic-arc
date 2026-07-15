@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.55.0",
+    date: "2026-07-15",
+    changes: [
+      "The @-mention dropdown now includes every admin, not just people who've already been assigned or watched something — fixes mentioning someone for the very first time silently doing nothing",
+      "Editing a comment now has the same @-mention picker as posting a new one, so mentions added during an edit actually notify and auto-watch that person",
+    ],
+  },
+  {
     version: "0.54.3",
     date: "2026-07-15",
     changes: [

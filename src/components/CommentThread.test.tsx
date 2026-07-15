@@ -107,3 +107,63 @@ describe("CommentThread — editing with the renotify checkbox", () => {
     expect(screen.getByRole("button", { name: /^edit$/i })).toBeInTheDocument();
   });
 });
+
+describe("CommentThread — editing preserves and adds real @-mentions", () => {
+  async function openEditor(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByRole("button", { name: /^edit$/i }));
+  }
+
+  it("keeps an existing mention chip when the comment is saved unchanged", async () => {
+    const user = userEvent.setup();
+    const onEdit = vi.fn().mockResolvedValue(undefined);
+    const mentioned: Comment = {
+      timestamp: new Date("2026-01-03T12:00:00"),
+      authorName: "Ray White",
+      authorEmail: "ray.white@altronic-llc.com",
+      bodyHtml:
+        '<p><span class="mention" data-email="sarah.shaffer@altronic-llc.com">@Sarah Shaffer</span> check this out</p>',
+    };
+    render(
+      <CommentThread
+        comments={[mentioned]}
+        currentUserEmail="ray.white@altronic-llc.com"
+        mentionablePeople={[{ displayName: "Sarah Shaffer", email: "sarah.shaffer@altronic-llc.com" }]}
+        onEdit={onEdit}
+      />,
+    );
+
+    await openEditor(user);
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    expect(onEdit).toHaveBeenCalledWith(
+      mentioned,
+      expect.stringContaining('data-email="sarah.shaffer@altronic-llc.com"'),
+      false,
+    );
+  });
+
+  it("turns a newly picked @-mention into a real chip on save", async () => {
+    const user = userEvent.setup();
+    const onEdit = vi.fn().mockResolvedValue(undefined);
+    render(
+      <CommentThread
+        comments={[OWN_COMMENT]}
+        currentUserEmail="ray.white@altronic-llc.com"
+        mentionablePeople={[{ displayName: "Matthew Traina", email: "matthew.traina@altronic-llc.com" }]}
+        onEdit={onEdit}
+      />,
+    );
+
+    await openEditor(user);
+    const textarea = screen.getByDisplayValue("hello there");
+    await user.type(textarea, " @Matthew");
+    await user.keyboard("{Enter}");
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    expect(onEdit).toHaveBeenCalledWith(
+      OWN_COMMENT,
+      expect.stringContaining('data-email="matthew.traina@altronic-llc.com"'),
+      false,
+    );
+  });
+});
