@@ -1136,9 +1136,10 @@ const SECTIONS: ManualSection[] = [
         </P>
         <H3>Adding or removing admins</H3>
         <P>
-          Click <strong>Add admin</strong> on the Admins page. Enter the user's
-          @altronic-llc.com email, optionally a display name and a short note
-          about why they're being granted access, and hit Save. The new admin
+          Click <strong>Add admin</strong> on the Admins page and enter the
+          user's @altronic-llc.com email — that's the only field on the form.
+          The Name column in the table is derived from the email automatically
+          (e.g. <code>matt.smith@…</code> shows as "Matt Smith"). The new admin
           sees the Admin link the next time they reload the app.
         </P>
         <P>

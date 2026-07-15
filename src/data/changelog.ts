@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.54.1",
+    date: "2026-07-15",
+    changes: [
+      "Simplify the Add admin form to just an email address — the name shown in the table is always derived from the email",
+    ],
+  },
+  {
     version: "0.54.0",
     date: "2026-07-15",
     changes: ["Admins can now add and edit a description for each Operations project"],

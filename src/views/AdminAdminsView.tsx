@@ -206,8 +206,6 @@ function NewAdminModal({
   error: string | null;
 }) {
   const [email, setEmail] = useState("");
-  const [displayName, setDisplayName] = useState("");
-  const [note, setNote] = useState("");
 
   return (
     <div
@@ -227,8 +225,8 @@ function NewAdminModal({
             if (!email.trim()) return;
             onSubmit({
               email: email.trim().toLowerCase(),
-              displayName: displayName.trim(),
-              note: note.trim(),
+              displayName: "",
+              note: "",
             });
           }}
           className="flex flex-col gap-3"
@@ -243,30 +241,6 @@ function NewAdminModal({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="someone@altronic-llc.com"
-              className="rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-xs">
-            <span className="font-semibold uppercase tracking-wider text-fg-muted">
-              Display Name
-            </span>
-            <input
-              type="text"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="Jane Smith"
-              className="rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-xs">
-            <span className="font-semibold uppercase tracking-wider text-fg-muted">
-              Note (optional)
-            </span>
-            <input
-              type="text"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="Role / context for granting access"
               className="rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
             />
           </label>
