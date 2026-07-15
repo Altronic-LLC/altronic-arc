@@ -501,28 +501,71 @@ export function useEditEirComment() {
             : undefined,
       });
 
-      if (!renotify || !prevComment) return;
-      const eir = qc.getQueryData<Eir[]>(EIRS_KEY)?.find((e) => e.id === id);
+      if (!prevComment) return;
+      const eirs = qc.getQueryData<Eir[]>(EIRS_KEY);
+      const eir = eirs?.find((e) => e.id === id);
       if (!eir) return;
 
-      // Author explicitly asked to renotify the group — resend to everyone
-      // who'd hear about this comment (watchers + current AND previously
-      // @-mentioned people), tagged "edited" so the email reads as an
-      // update, not a brand-new comment.
-      const recipients = commentRenotifyRecipients({
-        bodyHtml: newBodyHtml,
-        previousBodyHtml: prevBody,
-        watchers: eir.watchers,
-        authorEmail: prevComment.authorEmail,
-      });
-      if (recipients.length === 0) return;
-      void notifyMentions({
-        recipients,
-        sender: { displayName: prevComment.authorName, email: prevComment.authorEmail },
-        target: { kind: "eir", id: eir.id, title: eirTargetTitle(eir) },
-        commentExcerpt: eirCommentExcerpt(newBodyHtml),
-        attachments: prevComment.attachments ?? [],
-      });
+      if (renotify) {
+        // Author explicitly asked to renotify the group — resend to everyone
+        // who'd hear about this comment (watchers + current AND previously
+        // @-mentioned people), tagged "edited" so the email reads as an
+        // update, not a brand-new comment.
+        const recipients = commentRenotifyRecipients({
+          bodyHtml: newBodyHtml,
+          previousBodyHtml: prevBody,
+          watchers: eir.watchers,
+          authorEmail: prevComment.authorEmail,
+        });
+        if (recipients.length > 0) {
+          void notifyMentions({
+            recipients,
+            sender: { displayName: prevComment.authorName, email: prevComment.authorEmail },
+            target: { kind: "eir", id: eir.id, title: eirTargetTitle(eir) },
+            commentExcerpt: eirCommentExcerpt(newBodyHtml),
+            attachments: prevComment.attachments ?? [],
+          });
+        }
+      }
+
+      // Auto-watch: anyone @-mentioned in the edited body becomes a watcher
+      // on this EIR (unless already watching) — same rule as posting a new
+      // comment, regardless of whether renotify was requested.
+      const mentioned = extractMentionedRecipients(newBodyHtml);
+      if (mentioned.length === 0) return;
+      const directory = eirs ? collectPeopleFromEirs(eirs) : [];
+      const alreadyWatching = new Set(
+        eir.watchers.map((w) => (w.email ?? w.displayName).toLowerCase()),
+      );
+      const byEmail = new Map<string, Person>();
+      for (const p of directory) {
+        if (p.email && p.lookupId) byEmail.set(p.email.toLowerCase(), p);
+      }
+      const additions: Person[] = [];
+      for (const r of mentioned) {
+        const key = (r.email ?? r.displayName).toLowerCase();
+        if (alreadyWatching.has(key)) continue;
+        if (!r.email) continue;
+        const resolved = byEmail.get(r.email.toLowerCase());
+        if (!resolved) continue;
+        additions.push(resolved);
+        alreadyWatching.add(key);
+      }
+      if (additions.length === 0) return;
+
+      void setEirWatchers(id, [...eir.watchers, ...additions])
+        .then(() => {
+          qc.invalidateQueries({ queryKey: EIRS_KEY });
+          pushToast({
+            message:
+              additions.length === 1
+                ? `${additions[0].displayName} is now watching this EIR.`
+                : `${additions.length} people are now watching this EIR.`,
+          });
+        })
+        .catch((err) => {
+          console.error("Auto-watch failed for edited EIR comment:", err);
+        });
     },
     onError: (_err, _vars, ctx) => {
       rollback(qc, ctx);

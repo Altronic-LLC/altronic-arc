@@ -501,24 +501,49 @@ export function useEditOperationsComment() {
             attachments: [],
           });
         }
-        return;
+      } else {
+        const prevMentions = new Set(
+          prevBody ? extractMentionedRecipients(prevBody).map((r) => r.email.toLowerCase()) : [],
+        );
+        const newMentions = extractMentionedRecipients(newBodyHtml).filter(
+          (r) => !prevMentions.has(r.email.toLowerCase()),
+        );
+        if (newMentions.length > 0) {
+          void notifyMentions({
+            recipients: newMentions.map((m) => ({ ...m, reason: "mentioned" as const })),
+            sender,
+            target: { kind: "operationsTask", id: task.id, title: task.taskNumber || task.title },
+            commentExcerpt: htmlToPlainText(newBodyHtml),
+            attachments: [],
+          });
+        }
       }
 
-      const prevMentions = new Set(
-        prevBody ? extractMentionedRecipients(prevBody).map((r) => r.email.toLowerCase()) : [],
-      );
-      const newMentions = extractMentionedRecipients(newBodyHtml).filter(
-        (r) => !prevMentions.has(r.email.toLowerCase()),
-      );
-      if (newMentions.length > 0) {
-        void notifyMentions({
-          recipients: newMentions.map((m) => ({ ...m, reason: "mentioned" as const })),
-          sender,
-          target: { kind: "operationsTask", id: task.id, title: task.taskNumber || task.title },
-          commentExcerpt: htmlToPlainText(newBodyHtml),
-          attachments: [],
+      // Auto-watch: anyone @-mentioned in the edited body becomes a watcher
+      // (unless already watching) — same rule as posting a new comment,
+      // regardless of whether this mention is new or being re-notified.
+      const mentioned = extractMentionedRecipients(newBodyHtml);
+      if (mentioned.length === 0) return;
+      const allTasks = qc.getQueryData<OperationsTask[]>(OPERATIONS_TASK_LIST_KEY);
+      void autoWatchFromMentions({
+        recipients: mentioned,
+        currentWatchers: task.watchers,
+        directory: allTasks ? collectPeopleFromOperationsTasks(allTasks) : [],
+      })
+        .then(async (additions) => {
+          if (additions.length === 0) return;
+          await setOperationsWatchers(id, [...task.watchers, ...additions]);
+          qc.invalidateQueries({ queryKey: OPERATIONS_TASK_LIST_KEY });
+          pushToast({
+            message:
+              additions.length === 1
+                ? `${additions[0].displayName} is now watching this task.`
+                : `${additions.length} people are now watching this task.`,
+          });
+        })
+        .catch((err) => {
+          console.error("Auto-watch failed for edited Operations task comment:", err);
         });
-      }
     },
     onError: (_err, _vars, ctx) => {
       rollback(qc, ctx);

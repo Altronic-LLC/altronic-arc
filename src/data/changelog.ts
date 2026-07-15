@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.54.3",
+    date: "2026-07-15",
+    changes: [
+      "Editing a comment to add a new @-mention now adds that person as a watcher too, on tasks, EIRs, and Operations tasks alike (previously this only happened when posting a brand-new comment)",
+    ],
+  },
+  {
     version: "0.54.2",
     date: "2026-07-15",
     changes: [

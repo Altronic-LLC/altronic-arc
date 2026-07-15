@@ -693,29 +693,54 @@ export function useEditComment() {
             attachments: prevComment.attachments ?? [],
           });
         }
-        return;
+      } else {
+        // Otherwise, fire emails ONLY for mentions that weren't in the
+        // previous version — editing shouldn't re-spam people who were
+        // already pinged on the original post.
+        const prevMentions = new Set(
+          prevBody
+            ? extractMentionedRecipients(prevBody).map((r) => r.email.toLowerCase())
+            : [],
+        );
+        const newMentions = extractMentionedRecipients(newBodyHtml).filter(
+          (r) => !prevMentions.has(r.email.toLowerCase()),
+        );
+        if (newMentions.length > 0) {
+          void notifyMentions({
+            recipients: newMentions.map((m) => ({ ...m, reason: "mentioned" as const })),
+            sender,
+            target: { kind: "task", id: task.id, title: task.numberedTitle || task.title },
+            commentExcerpt: htmlToPlainText(newBodyHtml),
+            attachments: prevComment.attachments ?? [],
+          });
+        }
       }
 
-      // Otherwise, fire emails ONLY for mentions that weren't in the
-      // previous version — editing shouldn't re-spam people who were
-      // already pinged on the original post.
-      const prevMentions = new Set(
-        prevBody
-          ? extractMentionedRecipients(prevBody).map((r) => r.email.toLowerCase())
-          : [],
-      );
-      const newMentions = extractMentionedRecipients(newBodyHtml).filter(
-        (r) => !prevMentions.has(r.email.toLowerCase()),
-      );
-      if (newMentions.length > 0) {
-        void notifyMentions({
-          recipients: newMentions.map((m) => ({ ...m, reason: "mentioned" as const })),
-          sender,
-          target: { kind: "task", id: task.id, title: task.numberedTitle || task.title },
-          commentExcerpt: htmlToPlainText(newBodyHtml),
-          attachments: prevComment.attachments ?? [],
+      // Auto-watch: anyone @-mentioned in the edited body becomes a watcher
+      // (unless already watching) — same rule as posting a new comment,
+      // regardless of whether this mention is new or being re-notified.
+      const mentioned = extractMentionedRecipients(newBodyHtml);
+      if (mentioned.length === 0) return;
+      const allTasks = qc.getQueryData<Task[]>(TASK_LIST_KEY);
+      void autoWatchFromMentions({
+        recipients: mentioned,
+        currentWatchers: task.watchers,
+        directory: allTasks ? collectPeopleFromTasks(allTasks) : [],
+      })
+        .then(async (additions) => {
+          if (additions.length === 0) return;
+          await setWatchers(id, [...task.watchers, ...additions]);
+          qc.invalidateQueries({ queryKey: TASK_LIST_KEY });
+          pushToast({
+            message:
+              additions.length === 1
+                ? `${additions[0].displayName} is now watching this task.`
+                : `${additions.length} people are now watching this task.`,
+          });
+        })
+        .catch((err) => {
+          console.error("Auto-watch failed for edited task comment:", err);
         });
-      }
     },
     onError: (_err, _vars, ctx) => {
       rollback(qc, ctx);
