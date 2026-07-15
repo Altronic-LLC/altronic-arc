@@ -1520,9 +1520,18 @@ const SECTIONS: ManualSection[] = [
       "report issue",
       "report bug",
       "notify app manager",
+      "session expired",
+      "signed out",
+      "signing you out",
+      "blank dashboard",
+      "everything shows zero",
+      "app went blank",
+      "left it open overnight",
+      "idle",
+      "stale session",
     ],
     searchText:
-      "Loading hangs? Often sign-in / permission. F12 console: 401 means token expired (re-sign-in), 403 means missing SharePoint access. Change reverted? Someone may have edited at the same time. New task missing? Default Assigned filter is you — pick Anyone. Mention email not sent? Manual @Name typing doesn't make a chip — pick from dropdown. Report issue button in the header captures console errors and emails them to the app manager.",
+      "Loading hangs? Often sign-in / permission. F12 console: 401 means token expired (re-sign-in), 403 means missing SharePoint access. Change reverted? Someone may have edited at the same time. New task missing? Default Assigned filter is you — pick Anyone. Mention email not sent? Manual @Name typing doesn't make a chip — pick from dropdown. Report issue button in the header captures console errors and emails them to the app manager. Left the tab open a long time and everything shows zero, or a 'Your session has expired' message appears? The app signs you out automatically and sends you back to the sign-in page — just sign in again.",
     render: () => (
       <>
         <H3>"Loading tasks…" hangs forever</H3>
@@ -1530,6 +1539,19 @@ const SECTIONS: ManualSection[] = [
           Usually a sign-in / permission issue. F12 → Console: a 401 means
           your token expired (sign out + sign in). A 403 means the app
           doesn't have read access to the SharePoint site — talk to IT.
+        </P>
+        <H3>The app was left open a long time and everything shows zero</H3>
+        <P>
+          If a browser tab sits idle for a long stretch, your Microsoft
+          sign-in can go stale in the background. Previously this showed a
+          confusing dashboard where every card read "0" instead of your real
+          counts. Now, the moment any data request notices the session has
+          gone stale, the app automatically signs you out and shows{" "}
+          <strong>"Your session has expired — signing you out so you can
+          sign back in…"</strong>, then returns you to the sign-in page.
+          Click <strong>Sign in with Microsoft</strong> again and you're
+          back to normal — no reload needed, and nothing you were doing is
+          lost beyond needing to re-sign-in.
         </P>
         <H3>A change didn't stick</H3>
         <P>

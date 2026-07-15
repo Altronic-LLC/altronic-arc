@@ -1,12 +1,13 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryCache, QueryClient, QueryClientProvider, MutationCache } from "@tanstack/react-query";
 import { App } from "./App";
 import { AuthProvider } from "./auth/AuthProvider";
 import { AuthGate } from "./auth/AuthGate";
 import { assertGraphConfigured } from "./api/config";
 import { installErrorCapture } from "./lib/errorBuffer";
+import { isSessionExpiredError, markSessionExpired } from "./hooks/useSessionExpiry";
 import "./styles/globals.css";
 
 // Mirror console errors + uncaught rejections into a bounded in-memory
@@ -39,7 +40,18 @@ try {
 // because the SharePoint data doesn't change that often. The DetailView
 // has its own 20s background poll for live comment updates, so this longer
 // default doesn't compromise that experience.
+// Any query OR mutation failing with SessionExpiredError flips the shared
+// flag AuthGate watches (src/hooks/useSessionExpiry.ts) — this is the other
+// half of the "let the AuthGate handle re-login" comment below; previously
+// nothing actually read that signal, so a stale session just rendered as
+// empty lists everywhere instead of prompting a fresh sign-in.
+function handlePossibleSessionExpiry(error: unknown) {
+  if (isSessionExpiredError(error)) markSessionExpired();
+}
+
 const queryClient = new QueryClient({
+  queryCache: new QueryCache({ onError: handlePossibleSessionExpiry }),
+  mutationCache: new MutationCache({ onError: handlePossibleSessionExpiry }),
   defaultOptions: {
     queries: {
       staleTime: 120_000,

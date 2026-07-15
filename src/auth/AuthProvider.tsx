@@ -3,6 +3,7 @@ import { MsalProvider } from "@azure/msal-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { buildMsalConfig } from "./msalConfig";
 import { USE_MOCK } from "@/api/config";
+import { resetSessionExpired } from "@/hooks/useSessionExpiry";
 
 let pca: PublicClientApplication | null = null;
 
@@ -24,6 +25,10 @@ function getPca(): PublicClientApplication {
         const result = event.payload as AuthenticationResult;
         if (result.account && pca) {
           pca.setActiveAccount(result.account);
+          // A fresh sign-in means whatever made the last session go stale
+          // no longer applies — clear the flag so AuthGate stops showing
+          // the "signing you out" screen and renders the app normally.
+          resetSessionExpired();
         }
       }
     });

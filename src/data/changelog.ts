@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.52.0",
+    date: "2026-07-15",
+    changes: [
+      "Fixed the app going blank/showing all-zero counts after sitting open a long time — a stale sign-in session is now detected automatically and signs you out to the sign-in page so a fresh sign-in brings your real data back, instead of silently rendering everything as empty.",
+      "The Dashboard now shows a warning banner instead of silently showing \"0\" everywhere when part of it fails to load.",
+    ],
+  },
+  {
     version: "0.51.1",
     date: "2026-07-14",
     changes: [

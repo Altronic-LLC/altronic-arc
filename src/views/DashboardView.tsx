@@ -119,10 +119,10 @@ interface Segment {
 
 export function DashboardView() {
   const navigate = useNavigate();
-  const { data: tasks = [], isLoading } = useTasks();
-  const { data: eirs = [], isLoading: eirsLoading } = useEirs();
-  const { data: testSheets = [] } = useTestSheets();
-  const { data: folderEntries = [] } = useProjectFolderEntries(undefined);
+  const { data: tasks = [], isLoading, isError: tasksError } = useTasks();
+  const { data: eirs = [], isLoading: eirsLoading, isError: eirsError } = useEirs();
+  const { data: testSheets = [], isError: testSheetsError } = useTestSheets();
+  const { data: folderEntries = [], isError: foldersError } = useProjectFolderEntries(undefined);
   const { data: projects = [] } = useProjects();
   const currentUser = useCurrentUser();
   const [scope, setScope] = useState<Scope>("mine");
@@ -212,8 +212,17 @@ export function DashboardView() {
       : ""
   }`;
 
+  const hasLoadError = tasksError || eirsError || testSheetsError || foldersError;
+
   return (
     <div className="mx-auto flex max-w-[1200px] flex-col gap-5 px-4 py-4 sm:px-6 sm:py-6">
+      {hasLoadError && (
+        <div className="flex items-center gap-2 rounded-lg border border-cooper-red/30 bg-cooper-red/10 px-4 py-2.5 text-sm text-cooper-red">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          Some of this dashboard couldn't load — the counts below may be
+          incomplete. Try refreshing the page.
+        </div>
+      )}
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="flex items-center gap-2 font-display text-xl font-semibold text-fg sm:text-2xl">
