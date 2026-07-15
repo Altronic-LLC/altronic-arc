@@ -48,7 +48,15 @@ export function toOperationsTask(item: GraphListItem): OperationsTask {
     author: parseCreatedByUser(item.createdBy),
     editor: parseCreatedByUser(item.lastModifiedBy),
     editorLookupId: toInt(f.EditorLookupId, 0),
-    assigned: parseSinglePersonField(f.Assigned),
+    // Single-value person fields have the same Graph limitation as single
+    // lookups (see parentProject/equipment below): no resolved display
+    // object comes back, only the bare AssignedLookupId. Fall back to a
+    // name-less Person so the id survives — listOperationsTasks() resolves
+    // the display name afterward via the PMO site's user list, the same
+    // "join after the fact" pattern used for parentProject/equipment.
+    assigned:
+      parseSinglePersonField(f.Assigned) ??
+      (f.AssignedLookupId ? { lookupId: toInt(f.AssignedLookupId, 0), displayName: "" } : null),
     watchers: parsePersonField(f.Watchers),
     parentProject:
       parseLookupSingle(f.ProjectRef) ??

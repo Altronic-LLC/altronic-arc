@@ -1,5 +1,6 @@
 import { graphFetch, graphFetchAll } from "./graph";
-import { SITES, SP_OPERATIONS_TASKS_LIST_ID, USE_MOCK } from "./config";
+import { SITES, SP_OPERATIONS_TASKS_LIST_ID, SP_PMO_SITE_URL, USE_MOCK } from "./config";
+import { spFetch } from "./sharepoint";
 import type { GraphListItem, OperationsTask, Person, ProjectReference } from "@/types/task";
 import { toOperationsTask } from "@/lib/operationsTaskMapper";
 import { appendComment, replaceComment } from "@/lib/communicationParser";
@@ -89,15 +90,55 @@ function delay<T>(value: T, ms = 250): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(value), ms));
 }
 
+interface SpSiteUser {
+  Id: number;
+  Title: string;
+  Email?: string;
+}
+
 /**
- * Resolve `parentProject.title` / `equipment.title` against the Operations
- * Projects / Altronic Equipment directories. Mirrors `attachProjectTitles`
- * in lib/taskGraph.ts. Mutates in place.
+ * Resolve the PMO site's user list (SharePoint's "site users" — the same
+ * directory `AssignedLookupId`/etc. point into) to a lookupId → Person map,
+ * via the classic SP REST API (same auth path as attachments). This is the
+ * only way to get a display name for a single-value person field — unlike
+ * multi-value person fields (Watchers), Graph never resolves single-value
+ * ones, only the bare LookupId (see toOperationsTask's comment).
+ *
+ * Best-effort: if SP REST isn't reachable (no AllSites.Manage consent yet),
+ * returns an empty map so callers just show the un-named fallback rather
+ * than breaking the whole task list.
+ */
+async function listPmoSiteUsers(): Promise<Map<number, Person>> {
+  try {
+    const res = await spFetch<{ value: SpSiteUser[] }>(
+      `${SP_PMO_SITE_URL}/_api/web/siteusers?$select=Id,Title,Email`,
+    );
+    const map = new Map<number, Person>();
+    for (const u of res.value) {
+      if (!u.Title) continue;
+      map.set(u.Id, { displayName: u.Title, email: u.Email || undefined, lookupId: u.Id });
+    }
+    return map;
+  } catch (err) {
+    console.warn(
+      "[operationsTasks] Couldn't resolve PMO site users — Assigned names will show blank until this works:",
+      err,
+    );
+    return new Map();
+  }
+}
+
+/**
+ * Resolve `parentProject.title` / `equipment.title` / `assigned.displayName`
+ * against the Operations Projects / Altronic Equipment / PMO site-user
+ * directories. Mirrors `attachProjectTitles` in lib/taskGraph.ts. Mutates
+ * in place.
  */
 function attachLookupTitles(
   tasks: OperationsTask[],
   projects: ProjectReference[],
   equipment: ProjectReference[],
+  usersById: Map<number, Person>,
 ): OperationsTask[] {
   const projectsById = new Map(projects.map((p) => [p.lookupId, p]));
   const equipmentById = new Map(equipment.map((e) => [e.lookupId, e]));
@@ -111,11 +152,15 @@ function attachLookupTitles(
       const resolved = equipmentById.get(task.equipment.lookupId);
       if (resolved) task.equipment = { ...task.equipment, title: resolved.title };
     }
+    if (task.assigned && !task.assigned.displayName && task.assigned.lookupId) {
+      const resolved = usersById.get(task.assigned.lookupId);
+      if (resolved) task.assigned = resolved;
+    }
   }
   return tasks;
 }
 
-/** List all Operations tasks, resolving project/equipment lookup titles. */
+/** List all Operations tasks, resolving project/equipment/assignee lookups. */
 export async function listOperationsTasks(): Promise<OperationsTask[]> {
   if (USE_MOCK) {
     const copy = mockStore.map((t) => ({ ...t }));
@@ -125,13 +170,14 @@ export async function listOperationsTasks(): Promise<OperationsTask[]> {
   const path =
     `/sites/${SITES.pmo}/lists/${SP_OPERATIONS_TASKS_LIST_ID}/items` +
     `?$expand=fields($select=${OPERATIONS_FIELD_SELECT})&$top=200`;
-  const [items, projects, equipment] = await Promise.all([
+  const [items, projects, equipment, users] = await Promise.all([
     graphFetchAll<GraphListItem>(path),
     listOperationsProjects(),
     listOperationsEquipment(),
+    listPmoSiteUsers(),
   ]);
   const tasks = items.map(toOperationsTask);
-  attachLookupTitles(tasks, projects, equipment);
+  attachLookupTitles(tasks, projects, equipment, users);
   return tasks;
 }
 

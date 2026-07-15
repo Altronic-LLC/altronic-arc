@@ -82,6 +82,11 @@ describe("toOperationsTask — Assigned is single-person", () => {
     expect(toOperationsTask(makeItem({})).assigned).toBeNull();
   });
 
+  it("falls back to a name-less Person when Assigned isn't expanded, using AssignedLookupId", () => {
+    const t = toOperationsTask(makeItem({ AssignedLookupId: "22" }));
+    expect(t.assigned).toEqual({ lookupId: 22, displayName: "" });
+  });
+
   it("still maps Watchers as a multi-person array", () => {
     const t = toOperationsTask(
       makeItem({
