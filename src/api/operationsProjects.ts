@@ -34,11 +34,12 @@ export async function listOperationsProjects(): Promise<ProjectReference[]> {
 
   const path =
     `/sites/${SITES.pmo}/lists/${SP_OPERATIONS_PROJECTS_LIST_ID}/items` +
-    `?$expand=fields($select=ProjectRef)&$top=200`;
+    `?$expand=fields($select=ProjectRef,ProjectDescription)&$top=200`;
   const items = await graphFetchAll<GraphListItem>(path);
   const projects = items.map((item) => ({
     lookupId: parseInt(item.id, 10),
     title: (item.fields.ProjectRef as string) ?? `(project #${item.id})`,
+    description: (item.fields.ProjectDescription as string) || undefined,
   }));
   projects.sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true }));
   return projects;
@@ -48,12 +49,17 @@ export async function listOperationsProjects(): Promise<ProjectReference[]> {
 export async function createOperationsProject(input: {
   projectNumber: string;
   title: string;
+  description?: string;
 }): Promise<ProjectReference> {
   const projectRef = buildProjectRef(input.projectNumber, input.title);
 
   if (USE_MOCK) {
     const nextId = Math.max(0, ...mockStore.map((p) => p.lookupId)) + 1;
-    const project: ProjectReference = { lookupId: nextId, title: projectRef };
+    const project: ProjectReference = {
+      lookupId: nextId,
+      title: projectRef,
+      description: input.description || undefined,
+    };
     mockStore = [...mockStore, project];
     return delay(project);
   }
@@ -66,30 +72,32 @@ export async function createOperationsProject(input: {
         Title: input.title,
         ProjectNumber: input.projectNumber,
         ProjectRef: projectRef,
+        ProjectDescription: input.description ?? "",
       },
     }),
   });
   return {
     lookupId: parseInt(created.id, 10),
     title: (created.fields.ProjectRef as string) ?? projectRef,
+    description: (created.fields.ProjectDescription as string) || undefined,
   };
 }
 
 /**
- * Rename an existing Operations Project. `projectNumber` stays fixed (it's
- * the identity of the project); only the name changes, and ProjectRef is
- * recomputed to match.
+ * Rename an existing Operations Project (and/or update its description).
+ * `projectNumber` stays fixed (it's the identity of the project); only the
+ * name changes, and ProjectRef is recomputed to match.
  */
 export async function updateOperationsProject(
   lookupId: number,
-  input: { projectNumber: string; title: string },
+  input: { projectNumber: string; title: string; description?: string },
 ): Promise<ProjectReference> {
   const projectRef = buildProjectRef(input.projectNumber, input.title);
 
   if (USE_MOCK) {
     const idx = mockStore.findIndex((p) => p.lookupId === lookupId);
     if (idx < 0) throw new Error(`Operations project ${lookupId} not found`);
-    const next = { lookupId, title: projectRef };
+    const next = { lookupId, title: projectRef, description: input.description || undefined };
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
     return delay(next);
   }
@@ -102,8 +110,9 @@ export async function updateOperationsProject(
         Title: input.title,
         ProjectNumber: input.projectNumber,
         ProjectRef: projectRef,
+        ProjectDescription: input.description ?? "",
       }),
     },
   );
-  return { lookupId, title: projectRef };
+  return { lookupId, title: projectRef, description: input.description || undefined };
 }

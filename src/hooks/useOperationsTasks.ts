@@ -565,11 +565,13 @@ export function useUpdateOperationsProject() {
       lookupId,
       projectNumber,
       title,
+      description,
     }: {
       lookupId: number;
       projectNumber: string;
       title: string;
-    }) => updateOperationsProject(lookupId, { projectNumber, title }),
+      description?: string;
+    }) => updateOperationsProject(lookupId, { projectNumber, title, description }),
     onSuccess: (project: ProjectReference) => {
       pushToast({ message: `Renamed to "${project.title}".` });
       qc.invalidateQueries({ queryKey: OPERATIONS_PROJECTS_KEY });

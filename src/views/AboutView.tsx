@@ -331,6 +331,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
       { name: "projectNumber", type: "text", kind: "field" },
       { name: "title", type: "text", kind: "field" },
       { name: "projectRef", type: "text", kind: "field" },
+      { name: "description", type: "text", kind: "field" },
     ],
   },
   {

@@ -20,6 +20,11 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.54.0",
+    date: "2026-07-15",
+    changes: ["Admins can now add and edit a description for each Operations project"],
+  },
+  {
     version: "0.53.2",
     date: "2026-07-15",
     changes: [

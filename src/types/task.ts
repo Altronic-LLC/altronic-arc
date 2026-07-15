@@ -95,6 +95,8 @@ export interface CommentAttachment {
 export interface ProjectReference {
   lookupId: number;
   title: string; // e.g. "0000-Engineering Apps"
+  /** Free-text project description. Only populated for lists that have one (e.g. Operations Projects' ProjectDescription column) — undefined elsewhere. */
+  description?: string;
 }
 
 /**

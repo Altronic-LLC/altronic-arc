@@ -1217,7 +1217,10 @@ const SECTIONS: ManualSection[] = [
           Operations tasks. Unlike the Engineering Project Log, there's no
           bucketed 0xxx/2xxx/5xxx table split — Operations project numbers
           are just sequential, so it's one flat list sorted newest-first.
-          Hover a project and click the pencil to edit its number or name.
+          Hover a project and click the pencil to edit its number, name, or
+          description. The optional description shows as a muted line under
+          the project name in the list — only Admins (who already have
+          access to this page) can add or edit it.
         </P>
         <Tip>
           If you're trying to add yourself and the modal closes silently with

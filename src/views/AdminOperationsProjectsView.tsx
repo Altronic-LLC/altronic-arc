@@ -27,6 +27,7 @@ export function AdminOperationsProjectsView() {
   const updateProject = useUpdateOperationsProject();
   const [newNumber, setNewNumber] = useState("");
   const [newTitle, setNewTitle] = useState("");
+  const [newDescription, setNewDescription] = useState("");
 
   if (!isAdmin) {
     return (
@@ -53,9 +54,14 @@ export function AdminOperationsProjectsView() {
     const projectNumber = newNumber.trim();
     const title = newTitle.trim();
     if (!projectNumber || !title) return;
-    await createProject.mutateAsync({ projectNumber, title });
+    await createProject.mutateAsync({
+      projectNumber,
+      title,
+      description: newDescription.trim() || undefined,
+    });
     setNewNumber("");
     setNewTitle("");
+    setNewDescription("");
   }
 
   const sorted = [...projects].sort((a, b) =>
@@ -140,6 +146,19 @@ export function AdminOperationsProjectsView() {
             {createProject.isPending ? "Creating…" : "Create"}
           </button>
         </form>
+        <label className="mt-2 flex flex-col gap-1">
+          <span className="text-xs font-semibold uppercase tracking-wider text-fg-muted">
+            Description (optional)
+          </span>
+          <textarea
+            value={newDescription}
+            onChange={(e) => setNewDescription(e.target.value)}
+            placeholder="What this project is for…"
+            rows={2}
+            className="rounded-md border border-border bg-bg px-3 py-2 text-sm text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+            disabled={createProject.isPending}
+          />
+        </label>
       </section>
 
       <div className="mb-3 flex items-baseline justify-between gap-3">
@@ -160,8 +179,8 @@ export function AdminOperationsProjectsView() {
             <ProjectRow
               key={p.lookupId}
               project={p}
-              onRename={(lookupId, projectNumber, title) =>
-                updateProject.mutate({ lookupId, projectNumber, title })
+              onRename={(lookupId, projectNumber, title, description) =>
+                updateProject.mutate({ lookupId, projectNumber, title, description })
               }
             />
           ))}
@@ -182,88 +201,97 @@ function ProjectRow({
   onRename,
 }: {
   project: ProjectReference;
-  onRename: (lookupId: number, projectNumber: string, title: string) => void;
+  onRename: (lookupId: number, projectNumber: string, title: string, description?: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const initial = splitRef(project.title);
   const [draftNumber, setDraftNumber] = useState(initial.projectNumber);
   const [draftName, setDraftName] = useState(initial.name);
+  const [draftDescription, setDraftDescription] = useState(project.description ?? "");
 
   function startEdit() {
     const parts = splitRef(project.title);
     setDraftNumber(parts.projectNumber);
     setDraftName(parts.name);
+    setDraftDescription(project.description ?? "");
     setEditing(true);
   }
 
   function save() {
     const number = draftNumber.trim();
     const name = draftName.trim();
-    if (number && name) onRename(project.lookupId, number, name);
+    if (number && name) onRename(project.lookupId, number, name, draftDescription.trim());
     setEditing(false);
   }
 
   if (editing) {
     return (
-      <div className="flex items-center gap-2 rounded-md border border-accent/50 bg-surface px-2 py-1.5">
-        <input
-          autoFocus
-          value={draftNumber}
-          onChange={(e) => setDraftNumber(e.target.value)}
+      <div className="flex flex-col gap-2 rounded-md border border-accent/50 bg-surface px-2 py-1.5">
+        <div className="flex items-center gap-2">
+          <input
+            autoFocus
+            value={draftNumber}
+            onChange={(e) => setDraftNumber(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setEditing(false);
+            }}
+            className="w-16 shrink-0 rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+            maxLength={10}
+          />
+          <input
+            value={draftName}
+            onChange={(e) => setDraftName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setEditing(false);
+            }}
+            className="min-w-0 flex-1 rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+            maxLength={255}
+          />
+          <button
+            onClick={save}
+            className="shrink-0 rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-white hover:bg-accent/90"
+          >
+            Save
+          </button>
+          <button
+            onClick={() => setEditing(false)}
+            className="shrink-0 rounded-md p-1 text-fg-muted hover:bg-surface-2 hover:text-fg"
+            aria-label="Cancel"
+            title="Cancel"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <textarea
+          value={draftDescription}
+          onChange={(e) => setDraftDescription(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              save();
-            } else if (e.key === "Escape") {
-              setEditing(false);
-            }
+            if (e.key === "Escape") setEditing(false);
           }}
-          className="w-16 shrink-0 rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-          maxLength={10}
+          placeholder="Description (optional)"
+          rows={2}
+          className="rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
         />
-        <input
-          value={draftName}
-          onChange={(e) => setDraftName(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              save();
-            } else if (e.key === "Escape") {
-              setEditing(false);
-            }
-          }}
-          className="min-w-0 flex-1 rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-          maxLength={255}
-        />
-        <button
-          onClick={save}
-          className="shrink-0 rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-white hover:bg-accent/90"
-        >
-          Save
-        </button>
-        <button
-          onClick={() => setEditing(false)}
-          className="shrink-0 rounded-md p-1 text-fg-muted hover:bg-surface-2 hover:text-fg"
-          aria-label="Cancel"
-          title="Cancel"
-        >
-          <X className="h-4 w-4" />
-        </button>
       </div>
     );
   }
 
   return (
     <div className="group flex items-center justify-between gap-2 rounded-md border border-border bg-surface px-3 py-2 transition-colors hover:border-fg-muted hover:bg-surface-2">
-      <span className="min-w-0 flex-1 truncate text-left text-sm font-medium text-fg">
-        {project.title}
-      </span>
+      <div className="min-w-0 flex-1 text-left">
+        <span className="block truncate text-sm font-medium text-fg">{project.title}</span>
+        {project.description && (
+          <span className="mt-0.5 block truncate text-xs text-fg-muted">
+            {project.description}
+          </span>
+        )}
+      </div>
       <div className="flex shrink-0 items-center gap-2">
         <button
           onClick={startEdit}
           className="rounded p-1 text-fg-muted opacity-0 transition-opacity hover:bg-surface hover:text-fg group-hover:opacity-100 focus:opacity-100"
-          aria-label="Edit project number / name"
-          title="Edit number / name"
+          aria-label="Edit project number / name / description"
+          title="Edit number / name / description"
         >
           <Pencil className="h-3.5 w-3.5" />
         </button>
