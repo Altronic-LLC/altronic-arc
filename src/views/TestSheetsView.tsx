@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ClipboardList, Plus, Search } from "lucide-react";
+import { ClipboardList, Plus } from "lucide-react";
 import { useTestSheets } from "@/hooks/useTestSheets";
 import { TestSheetFormModal } from "@/components/TestSheetFormModal";
 import { LoadingTasks } from "@/components/LoadingTasks";
+import { SearchInput } from "@/components/SearchInput";
+import { matchesSearch, tokenizeQuery } from "@/lib/itemSearch";
 import type { TestSheet } from "@/types/task";
 
 export function TestSheetsView() {
@@ -13,25 +15,9 @@ export function TestSheetsView() {
   const [showNew, setShowNew] = useState(false);
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const matched = q
-      ? sheets.filter((s) => {
-          const hay = [
-            s.title,
-            s.product,
-            s.serialNumber,
-            s.purpose,
-            s.results,
-            s.firmwareVersion,
-            s.parentProject?.title ?? "",
-            s.parentTask?.numberedTitle ?? "",
-            s.tester?.displayName ?? "",
-          ]
-            .join(" ")
-            .toLowerCase();
-          return hay.includes(q);
-        })
-      : sheets;
+    // Multi-keyword AND + quoted phrases + all-fields — see lib/itemSearch.ts.
+    const searchTokens = tokenizeQuery(query);
+    const matched = sheets.filter((s) => matchesSearch(s, searchTokens));
     // Newest first by creation date — matches the task & EIR list convention.
     return [...matched].sort(
       (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
@@ -59,16 +45,11 @@ export function TestSheetsView() {
         </button>
       </div>
 
-      <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-muted" />
-        <input
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search title, product, serial, results, project, task…"
-          className="h-10 w-full rounded-md border border-border bg-surface pl-9 pr-3 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
-        />
-      </div>
+      <SearchInput
+        value={query}
+        onChange={setQuery}
+        placeholder='Search all fields — space = AND, "quotes" = phrase'
+      />
 
       {isLoading ? (
         <LoadingTasks noun="test sheets" />

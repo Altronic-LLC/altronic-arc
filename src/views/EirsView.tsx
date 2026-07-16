@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ChevronDown, FileText, Plus, Search as SearchIcon } from "lucide-react";
+import { ChevronDown, FileText, Plus } from "lucide-react";
 import { useProjects } from "@/hooks/useTasks";
 import { useEirs } from "@/hooks/useEirs";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { MultiSelect, SingleSelect } from "@/components/SearchableSelect";
+import { SearchInput } from "@/components/SearchInput";
 import { EirFormModal } from "@/components/EirFormModal";
 import { EirRow } from "@/components/EirRow";
 import {
@@ -16,6 +17,7 @@ import {
   type Person,
 } from "@/types/task";
 import { cn } from "@/lib/cn";
+import { matchesSearch, tokenizeQuery } from "@/lib/itemSearch";
 
 // =============================================================================
 // EIRs list view — modelled on ListView for tasks. Status pills at top for
@@ -128,46 +130,31 @@ export function EirsView() {
   // EIR Project Reference is a multi-value Lookup column — same shape as
   // the Tasks Related Projects field. Filter matches by lookupId across
   // any of the EIR's selected projects.
-  const filteredByBar = useMemo(
-    () =>
-      eirs.filter((e) => {
-        if (projectIds.length > 0) {
-          const matched = e.parentProjects.some((p) =>
-            projectIds.includes(p.lookupId),
-          );
-          if (!matched) return false;
-        }
-        if (reporterEmail) {
-          const key = (e.reporter?.email ?? e.reporter?.displayName ?? "").toLowerCase();
-          if (key !== reporterEmail.toLowerCase()) return false;
-        }
-        if (engineerEmails.length > 0) {
-          const has = e.assignedEngineers.some((p) => {
-            const k = (p.email ?? p.displayName).toLowerCase();
-            return engineerEmails.map((s) => s.toLowerCase()).includes(k);
-          });
-          if (!has) return false;
-        }
-        if (query) {
-          const needle = query.toLowerCase();
-          const hay = [
-            e.title,
-            e.eirNo,
-            e.description,
-            e.engineeringResponse,
-            e.whereUsed,
-            e.mfg,
-            e.mfgPartNumber,
-            e.altronicPartNumber,
-          ]
-            .join(" ")
-            .toLowerCase();
-          if (!hay.includes(needle)) return false;
-        }
-        return true;
-      }),
-    [eirs, projectIds, reporterEmail, engineerEmails, query],
-  );
+  const filteredByBar = useMemo(() => {
+    // Multi-keyword AND + quoted phrases + all-fields — see lib/itemSearch.ts.
+    const searchTokens = tokenizeQuery(query);
+    return eirs.filter((e) => {
+      if (projectIds.length > 0) {
+        const matched = e.parentProjects.some((p) =>
+          projectIds.includes(p.lookupId),
+        );
+        if (!matched) return false;
+      }
+      if (reporterEmail) {
+        const key = (e.reporter?.email ?? e.reporter?.displayName ?? "").toLowerCase();
+        if (key !== reporterEmail.toLowerCase()) return false;
+      }
+      if (engineerEmails.length > 0) {
+        const has = e.assignedEngineers.some((p) => {
+          const k = (p.email ?? p.displayName).toLowerCase();
+          return engineerEmails.map((s) => s.toLowerCase()).includes(k);
+        });
+        if (!has) return false;
+      }
+      if (!matchesSearch(e, searchTokens)) return false;
+      return true;
+    });
+  }, [eirs, projectIds, reporterEmail, engineerEmails, query]);
 
   const filteredByView = useMemo(
     () => filteredByBar.filter((e) => matchesEirView(e, view)),
@@ -338,17 +325,12 @@ export function EirsView() {
           />
         </Field>
         <Field label="Search">
-          <div className="relative">
-            <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-muted" />
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Title, EIR No, MFG part, description…"
-              className="select"
-              style={{ paddingLeft: "2.25rem" }}
-            />
-          </div>
+          <SearchInput
+            value={query}
+            onChange={setQuery}
+            placeholder='All fields — space = AND, "quotes" = phrase'
+            className="select"
+          />
         </Field>
         <Field label="Reporter">
           <SingleSelect

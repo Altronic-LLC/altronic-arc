@@ -2,32 +2,37 @@ import { useEffect, useState } from "react";
 
 /**
  * Whimsical loader for the tasks list / kanban board. Rotates through a
- * small set of action verbs (Claude Code-style) so the user has something
- * to read while SharePoint pages through the list, plus a small note that
- * the first load is the slow one — subsequent loads are cached.
+ * small set of action verbs so the user has something to read while
+ * SharePoint pages through the list, plus a small note that the first load
+ * is the slow one — subsequent loads are cached.
+ *
+ * Verbs are themed around what Altronic actually builds: natural gas engine
+ * ignition. Sparking, arcing (ARC!), cranking, priming — every one should
+ * read like something you'd do to an engine or an ignition system.
  */
 const VERBS = [
-  "Wrangling",
-  "Cogitating",
-  "Untangling",
-  "Excavating",
-  "Marinating",
-  "Pondering",
-  "Conjuring",
-  "Harvesting",
-  "Whispering to",
-  "Reticulating",
-  "Synthesizing",
-  "Persuading",
-  "Cajoling",
-  "Bamboozling",
-  "Negotiating with",
-  "Polishing",
-  "Herding",
-  "Unfurling",
-  "Brewing",
-  "Coaxing",
-  "Reverse-engineering",
+  "Sparking",
+  "Arcing",
+  "Igniting",
+  "Starting",
+  "Loading",
+  "Producing",
+  "Cranking",
+  "Priming",
+  "Firing up",
+  "Warming up",
+  "Revving",
+  "Compressing",
+  "Energizing",
+  "Charging up",
+  "Pressurizing",
+  "Turbocharging",
+  "Spooling up",
+  "Timing",
+  "Gapping the plugs on",
+  "Advancing the timing on",
+  "Checking compression on",
+  "Torquing down",
 ] as const;
 
 export function LoadingTasks({ noun = "tasks" }: { noun?: string }) {
@@ -47,7 +52,7 @@ export function LoadingTasks({ noun = "tasks" }: { noun?: string }) {
         <DotDot />
       </div>
       <div className="mt-2 text-xs text-fg-muted">
-        The first load is a moment — subsequent loads come straight from cache.
+        Cold starts take a moment — once the engine's warm, loads come straight from cache.
       </div>
     </div>
   );

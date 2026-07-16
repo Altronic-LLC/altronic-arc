@@ -189,9 +189,14 @@ const SECTIONS: ManualSection[] = [
       "table view",
       "rows",
       "status pills",
+      "search",
+      "multiple keywords",
+      "search syntax",
+      "exact phrase",
+      "quotes",
     ],
     searchText:
-      "The List view shows every task with status pills at the top, a filter bar (Project, Assigned, Created By, Search), and a New Task button. Click a row to open the task detail. Filters live in the URL so views are shareable.",
+      "The List view shows every task with status pills at the top, a filter bar (Project, Assigned, Created By, Search), and a New Task button. Search matches all fields on every list; multiple words are ANDed together, and double quotes match an exact phrase. Click a row to open the task detail. Filters live in the URL so views are shareable.",
     render: () => (
       <>
         <P>
@@ -207,8 +212,7 @@ const SECTIONS: ManualSection[] = [
           <LI>
             <strong>Filter bar</strong> — Project Reference, Assigned, Created
             By (each multi-select with type-to-search), plus a free-text Search
-            field that matches title, description, comments, and the numbered
-            title.
+            field.
           </LI>
           <LI>
             <strong>New Task</strong> button — opens the create form (see{" "}
@@ -216,6 +220,34 @@ const SECTIONS: ManualSection[] = [
               Working with tasks
             </a>
             ).
+          </LI>
+        </UL>
+        <H3>How search works (all lists)</H3>
+        <P>
+          The Search box behaves the same on every list — Tasks, EIRs,
+          Operations Tasks, Test Sheets:
+        </P>
+        <UL>
+          <LI>
+            It matches against <strong>every field</strong> on the item —
+            title, description, status, people's names and emails, project
+            names, part numbers, comment text and authors, due dates
+            (as <code>2026-07-16</code>), everything.
+          </LI>
+          <LI>
+            <strong>Multiple words narrow the results</strong>: each word must
+            match somewhere, in any field, in any order.{" "}
+            <code>coil bracket</code> finds items that mention both "coil" and
+            "bracket" anywhere.
+          </LI>
+          <LI>
+            <strong>Quotes search an exact phrase</strong>:{" "}
+            <code>"purchase order"</code> only matches those two words
+            side-by-side, in that order.
+          </LI>
+          <LI>
+            Matching is case-insensitive, and results update a beat after you
+            stop typing.
           </LI>
         </UL>
         <P>

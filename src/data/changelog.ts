@@ -20,6 +20,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.57.0",
+    date: "2026-07-16",
+    changes: [
+      "Fix the search box freezing the app — typing is now instant, with results updating a beat after you stop typing",
+      "Search now looks at every field on an item (people, projects, statuses, part numbers, comments, dates), on every list — Tasks, EIRs, Operations Tasks, Test Sheets",
+      "Search multiple keywords by separating them with spaces (each must match somewhere), and use \"double quotes\" for an exact phrase",
+      "Loading messages are now themed for what we do: Sparking, Arcing, Cranking, Priming, Firing up…",
+    ],
+  },
+  {
     version: "0.56.0",
     date: "2026-07-16",
     changes: [

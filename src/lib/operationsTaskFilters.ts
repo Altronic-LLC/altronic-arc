@@ -1,5 +1,6 @@
 import type { Filters } from "@/components/FilterBar";
 import type { OperationsStatus, OperationsTask, Person } from "@/types/task";
+import { matchesSearch, tokenizeQuery } from "./itemSearch";
 
 export type OperationsStatusFilter = OperationsStatus | "ALL_ACTIVE" | null;
 
@@ -33,6 +34,8 @@ export function applyOperationsFilters(
   statusFilter: OperationsStatusFilter,
   filters: Filters,
 ): OperationsTask[] {
+  // Tokenize once per call, not once per task — see lib/itemSearch.ts.
+  const searchTokens = tokenizeQuery(filters.search);
   return tasks.filter((t) => {
     if (statusFilter === "ALL_ACTIVE" && TERMINAL_STATUSES.includes(t.status)) return false;
     if (statusFilter && statusFilter !== "ALL_ACTIVE" && t.status !== statusFilter) return false;
@@ -55,18 +58,7 @@ export function applyOperationsFilters(
       if (!has) return false;
     }
 
-    if (filters.search) {
-      const needle = filters.search.toLowerCase();
-      const hay = [
-        t.title,
-        t.taskNumber,
-        t.description,
-        ...t.comments.map((c) => c.bodyHtml.replace(/<[^>]+>/g, "")),
-      ]
-        .join(" ")
-        .toLowerCase();
-      if (!hay.includes(needle)) return false;
-    }
+    if (!matchesSearch(t, searchTokens)) return false;
 
     return true;
   });

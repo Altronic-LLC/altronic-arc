@@ -1,6 +1,6 @@
-import { Search } from "lucide-react";
 import type { Person, ProjectReference } from "@/types/task";
 import { MultiSelect, SingleSelect } from "./SearchableSelect";
+import { SearchInput } from "./SearchInput";
 
 export interface Filters {
   search: string;
@@ -60,17 +60,12 @@ export function FilterBar({ filters, onChange, projects, people }: FilterBarProp
       </Field>
 
       <Field label="Search">
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-muted" />
-          <input
-            type="search"
-            value={filters.search}
-            onChange={(e) => onChange({ ...filters, search: e.target.value })}
-            placeholder="Title, description, comments…"
-            className="select"
-            style={{ paddingLeft: "2.25rem" }}
-          />
-        </div>
+        <SearchInput
+          value={filters.search}
+          onChange={(search) => onChange({ ...filters, search })}
+          placeholder='All fields — space = AND, "quotes" = phrase'
+          className="select"
+        />
       </Field>
 
       <Field label="Created By">
