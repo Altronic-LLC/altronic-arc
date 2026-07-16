@@ -809,16 +809,26 @@ export function useCreateProject() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: createProject,
+    // Optimistic: show the new row immediately under a temporary negative
+    // lookupId; the settled refetch swaps in the server-assigned id.
+    onMutate: async (input: { title: string }) => {
+      await qc.cancelQueries({ queryKey: PROJECTS_KEY });
+      const previous = qc.getQueryData<ProjectReference[]>(PROJECTS_KEY);
+      const temp: ProjectReference = { lookupId: -Date.now(), title: input.title };
+      qc.setQueryData<ProjectReference[]>(PROJECTS_KEY, (old) => (old ? [...old, temp] : [temp]));
+      return { previous };
+    },
     onSuccess: () => {
       pushToast({ message: "Project created." });
-      qc.invalidateQueries({ queryKey: PROJECTS_KEY });
     },
     // Surface the underlying error (Graph often explains it: 403 = the app
     // lacks write on the Projects list; 400 = a required column is missing).
-    onError: (err) => {
+    onError: (err, _vars, ctx) => {
+      if (ctx?.previous) qc.setQueryData(PROJECTS_KEY, ctx.previous);
       const detail = err instanceof Error ? err.message : String(err);
       errorToast(`Couldn't create project. ${detail.slice(0, 240)}`);
     },
+    onSettled: () => qc.invalidateQueries({ queryKey: PROJECTS_KEY }),
   });
 }
 
@@ -827,14 +837,23 @@ export function useUpdateProject() {
   return useMutation({
     mutationFn: ({ lookupId, title }: { lookupId: number; title: string }) =>
       updateProject(lookupId, title),
+    onMutate: async ({ lookupId, title }) => {
+      await qc.cancelQueries({ queryKey: PROJECTS_KEY });
+      const previous = qc.getQueryData<ProjectReference[]>(PROJECTS_KEY);
+      qc.setQueryData<ProjectReference[]>(PROJECTS_KEY, (old) =>
+        old?.map((p) => (p.lookupId === lookupId ? { ...p, title } : p)),
+      );
+      return { previous };
+    },
     onSuccess: () => {
       pushToast({ message: "Project updated." });
-      qc.invalidateQueries({ queryKey: PROJECTS_KEY });
     },
-    onError: (err) => {
+    onError: (err, _vars, ctx) => {
+      if (ctx?.previous) qc.setQueryData(PROJECTS_KEY, ctx.previous);
       const detail = err instanceof Error ? err.message : String(err);
       errorToast(`Couldn't update project. ${detail.slice(0, 240)}`);
     },
+    onSettled: () => qc.invalidateQueries({ queryKey: PROJECTS_KEY }),
   });
 }
 

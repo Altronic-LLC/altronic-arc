@@ -164,13 +164,48 @@ export function useUpdateOperationsTaskFields() {
   });
 }
 
+/** Resolve a lookupId against a cached reference list (projects/equipment). */
+function resolveReference(
+  qc: QueryClient,
+  key: readonly unknown[],
+  lookupId: number,
+): ProjectReference | null {
+  const refs = qc.getQueryData<ProjectReference[]>(key as unknown[]);
+  return refs?.find((r) => r.lookupId === lookupId) ?? null;
+}
+
 export function useSetOperationsParentProject() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, projectLookupId }: { id: number; projectLookupId: number | null }) =>
       setOperationsParentProject(id, projectLookupId),
-    onSuccess: () => pushToast({ message: "Project reference updated." }),
-    onError: () => errorToast("Couldn't update the project reference — please retry."),
+    onMutate: ({ id, projectLookupId }) =>
+      snapshotAndPatch(
+        qc,
+        id,
+        patchOperationsTask(id, (t) => ({
+          ...t,
+          parentProject:
+            projectLookupId != null
+              ? resolveReference(qc, OPERATIONS_PROJECTS_KEY, projectLookupId) ?? {
+                  lookupId: projectLookupId,
+                  title: "",
+                }
+              : null,
+          modifiedAt: new Date(),
+        })),
+      ),
+    onSuccess: (_data, { id }, ctx) => {
+      const prev = ctx?.prevTask?.parentProject?.lookupId ?? null;
+      pushToast({
+        message: "Project reference updated.",
+        undo: buildUndo(qc, ctx?.previous, () => setOperationsParentProject(id, prev)),
+      });
+    },
+    onError: (_err, _vars, ctx) => {
+      rollback(qc, ctx);
+      errorToast("Couldn't update the project reference — reverted.");
+    },
     onSettled: () => invalidateOperationsTasks(qc),
   });
 }
@@ -180,8 +215,33 @@ export function useSetOperationsEquipment() {
   return useMutation({
     mutationFn: ({ id, equipmentLookupId }: { id: number; equipmentLookupId: number | null }) =>
       setOperationsEquipment(id, equipmentLookupId),
-    onSuccess: () => pushToast({ message: "Equipment reference updated." }),
-    onError: () => errorToast("Couldn't update the equipment reference — please retry."),
+    onMutate: ({ id, equipmentLookupId }) =>
+      snapshotAndPatch(
+        qc,
+        id,
+        patchOperationsTask(id, (t) => ({
+          ...t,
+          equipment:
+            equipmentLookupId != null
+              ? resolveReference(qc, OPERATIONS_EQUIPMENT_KEY, equipmentLookupId) ?? {
+                  lookupId: equipmentLookupId,
+                  title: "",
+                }
+              : null,
+          modifiedAt: new Date(),
+        })),
+      ),
+    onSuccess: (_data, { id }, ctx) => {
+      const prev = ctx?.prevTask?.equipment?.lookupId ?? null;
+      pushToast({
+        message: "Equipment reference updated.",
+        undo: buildUndo(qc, ctx?.previous, () => setOperationsEquipment(id, prev)),
+      });
+    },
+    onError: (_err, _vars, ctx) => {
+      rollback(qc, ctx);
+      errorToast("Couldn't update the equipment reference — reverted.");
+    },
     onSettled: () => invalidateOperationsTasks(qc),
   });
 }
@@ -587,11 +647,29 @@ export function useCreateOperationsProject() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: createOperationsProject,
+    // Optimistic: show the new row immediately under a temporary negative
+    // lookupId; the settled refetch swaps in the server-assigned id.
+    onMutate: async (input) => {
+      await qc.cancelQueries({ queryKey: OPERATIONS_PROJECTS_KEY });
+      const previous = qc.getQueryData<ProjectReference[]>(OPERATIONS_PROJECTS_KEY);
+      const temp: ProjectReference = {
+        lookupId: -Date.now(),
+        title: `${input.projectNumber}-${input.title}`,
+        description: input.description || undefined,
+      };
+      qc.setQueryData<ProjectReference[]>(OPERATIONS_PROJECTS_KEY, (old) =>
+        old ? [...old, temp] : [temp],
+      );
+      return { previous };
+    },
     onSuccess: (project) => {
       pushToast({ message: `Created project "${project.title}".` });
-      qc.invalidateQueries({ queryKey: OPERATIONS_PROJECTS_KEY });
     },
-    onError: () => errorToast("Couldn't create project — please retry."),
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previous) qc.setQueryData(OPERATIONS_PROJECTS_KEY, ctx.previous);
+      errorToast("Couldn't create project — please retry.");
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: OPERATIONS_PROJECTS_KEY }),
   });
 }
 
@@ -609,11 +687,26 @@ export function useUpdateOperationsProject() {
       title: string;
       description?: string;
     }) => updateOperationsProject(lookupId, { projectNumber, title, description }),
+    onMutate: async ({ lookupId, projectNumber, title, description }) => {
+      await qc.cancelQueries({ queryKey: OPERATIONS_PROJECTS_KEY });
+      const previous = qc.getQueryData<ProjectReference[]>(OPERATIONS_PROJECTS_KEY);
+      qc.setQueryData<ProjectReference[]>(OPERATIONS_PROJECTS_KEY, (old) =>
+        old?.map((p) =>
+          p.lookupId === lookupId
+            ? { ...p, title: `${projectNumber}-${title}`, description: description || undefined }
+            : p,
+        ),
+      );
+      return { previous };
+    },
     onSuccess: (project: ProjectReference) => {
       pushToast({ message: `Renamed to "${project.title}".` });
-      qc.invalidateQueries({ queryKey: OPERATIONS_PROJECTS_KEY });
     },
-    onError: () => errorToast("Couldn't update project — please retry."),
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previous) qc.setQueryData(OPERATIONS_PROJECTS_KEY, ctx.previous);
+      errorToast("Couldn't update project — reverted.");
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: OPERATIONS_PROJECTS_KEY }),
   });
 }
 

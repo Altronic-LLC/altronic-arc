@@ -1535,7 +1535,9 @@ const SECTIONS: ManualSection[] = [
       <>
         <P>
           Every change you make — status, priority, due date, parent project,
-          assignees, watchers, etc. — surfaces a confirmation toast at the
+          assignees, watchers, admin-list rows, attachment deletes, etc. —
+          applies <strong>instantly on screen</strong> while SharePoint saves
+          in the background, and surfaces a confirmation toast at the
           bottom-right of the screen. Most carry an <strong>Undo</strong>{" "}
           button.
         </P>

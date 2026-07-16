@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.56.0",
+    date: "2026-07-16",
+    changes: [
+      "Everything now updates instantly on screen instead of waiting for SharePoint: admin lists (Admins, EIR Roles, both Project Logs), the Operations task Project Ref and Equipment pickers, and attachment deletes all apply immediately and quietly revert if the save fails",
+      "Changing an Operations task's Project Ref or Equipment now offers Undo in the confirmation toast, matching Engineering tasks",
+    ],
+  },
+  {
     version: "0.55.0",
     date: "2026-07-15",
     changes: [

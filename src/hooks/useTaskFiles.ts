@@ -117,7 +117,19 @@ export function useDeleteTaskFile(task: Task | null | undefined) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (driveItemId: string) => deleteTaskFile(driveItemId),
-    onSuccess: () => {
+    // Optimistic: the row disappears immediately; restored on error.
+    onMutate: async (driveItemId) => {
+      if (!task) return {};
+      const key = filesKey(task.id);
+      await qc.cancelQueries({ queryKey: key });
+      const previous = qc.getQueryData<ProjectFile[]>(key);
+      qc.setQueryData<ProjectFile[]>(key, (old) => old?.filter((f) => f.id !== driveItemId));
+      return { previous };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (task && ctx?.previous) qc.setQueryData(filesKey(task.id), ctx.previous);
+    },
+    onSettled: () => {
       if (task) qc.invalidateQueries({ queryKey: filesKey(task.id) });
     },
   });
@@ -160,7 +172,21 @@ export function useDeleteTaskListAttachment(task: Task | null | undefined) {
       if (!task) throw new Error("No task to delete attachment from.");
       return deleteAttachment("task", task.id, fileName);
     },
-    onSuccess: () => {
+    // Optimistic: the row disappears immediately; restored on error.
+    onMutate: async (fileName) => {
+      if (!task) return {};
+      const key = listAttachmentsKey(task.id);
+      await qc.cancelQueries({ queryKey: key });
+      const previous = qc.getQueryData<ListAttachment[]>(key);
+      qc.setQueryData<ListAttachment[]>(key, (old) =>
+        old?.filter((a) => a.fileName !== fileName),
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (task && ctx?.previous) qc.setQueryData(listAttachmentsKey(task.id), ctx.previous);
+    },
+    onSettled: () => {
       if (task) qc.invalidateQueries({ queryKey: listAttachmentsKey(task.id) });
     },
   });

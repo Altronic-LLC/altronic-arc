@@ -34,7 +34,19 @@ export function useAddEirRole() {
       if (!isAdmin) throw new Error(NOT_ADMIN);
       return addEirRole(input);
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: EIR_ROLES_KEY }),
+    // Optimistic: show the new row immediately under a temporary negative
+    // id; the settled refetch swaps in the server-assigned id.
+    onMutate: async (input) => {
+      await qc.cancelQueries({ queryKey: EIR_ROLES_KEY });
+      const previous = qc.getQueryData<EirRoleEntry[]>(EIR_ROLES_KEY);
+      const temp: EirRoleEntry = { id: -Date.now(), ...input };
+      qc.setQueryData<EirRoleEntry[]>(EIR_ROLES_KEY, (old) => (old ? [...old, temp] : [temp]));
+      return { previous };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previous) qc.setQueryData(EIR_ROLES_KEY, ctx.previous);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: EIR_ROLES_KEY }),
   });
 }
 
@@ -46,7 +58,28 @@ export function useUpdateEirRole() {
       if (!isAdmin) throw new Error(NOT_ADMIN);
       return updateEirRole(input);
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: EIR_ROLES_KEY }),
+    // Optimistic: apply the field changes in place; restored on error.
+    onMutate: async (input) => {
+      await qc.cancelQueries({ queryKey: EIR_ROLES_KEY });
+      const previous = qc.getQueryData<EirRoleEntry[]>(EIR_ROLES_KEY);
+      qc.setQueryData<EirRoleEntry[]>(EIR_ROLES_KEY, (old) =>
+        old?.map((e) =>
+          e.id === input.id
+            ? {
+                ...e,
+                ...(input.displayName !== undefined && { displayName: input.displayName }),
+                ...(input.roles !== undefined && { roles: input.roles }),
+                ...(input.note !== undefined && { note: input.note }),
+              }
+            : e,
+        ),
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previous) qc.setQueryData(EIR_ROLES_KEY, ctx.previous);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: EIR_ROLES_KEY }),
   });
 }
 
@@ -58,7 +91,17 @@ export function useRemoveEirRole() {
       if (!isAdmin) throw new Error(NOT_ADMIN);
       return removeEirRole(id);
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: EIR_ROLES_KEY }),
+    // Optimistic: drop the row immediately; restored on error.
+    onMutate: async (id) => {
+      await qc.cancelQueries({ queryKey: EIR_ROLES_KEY });
+      const previous = qc.getQueryData<EirRoleEntry[]>(EIR_ROLES_KEY);
+      qc.setQueryData<EirRoleEntry[]>(EIR_ROLES_KEY, (old) => old?.filter((e) => e.id !== id));
+      return { previous };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previous) qc.setQueryData(EIR_ROLES_KEY, ctx.previous);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: EIR_ROLES_KEY }),
   });
 }
 

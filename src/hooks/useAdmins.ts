@@ -38,7 +38,24 @@ export function useAddAdmin() {
       }
       return addAdmin(input);
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ADMINS_KEY }),
+    // Optimistic: show the new row immediately under a temporary negative
+    // id; the settled refetch swaps in the server-assigned id.
+    onMutate: async (input) => {
+      await qc.cancelQueries({ queryKey: ADMINS_KEY });
+      const previous = qc.getQueryData<AdminEntry[]>(ADMINS_KEY);
+      const temp: AdminEntry = {
+        id: -Date.now(),
+        email: input.email,
+        displayName: input.displayName,
+        note: input.note,
+      };
+      qc.setQueryData<AdminEntry[]>(ADMINS_KEY, (old) => (old ? [...old, temp] : [temp]));
+      return { previous };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previous) qc.setQueryData(ADMINS_KEY, ctx.previous);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ADMINS_KEY }),
   });
 }
 
@@ -52,6 +69,16 @@ export function useRemoveAdmin() {
       }
       return removeAdmin(id);
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ADMINS_KEY }),
+    // Optimistic: drop the row immediately; restored on error.
+    onMutate: async (id) => {
+      await qc.cancelQueries({ queryKey: ADMINS_KEY });
+      const previous = qc.getQueryData<AdminEntry[]>(ADMINS_KEY);
+      qc.setQueryData<AdminEntry[]>(ADMINS_KEY, (old) => old?.filter((a) => a.id !== id));
+      return { previous };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previous) qc.setQueryData(ADMINS_KEY, ctx.previous);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ADMINS_KEY }),
   });
 }

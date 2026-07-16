@@ -41,7 +41,22 @@ export function useDeleteAttachment(parent: AttachmentParent, itemId: number | n
       if (itemId == null) throw new Error("No item id");
       return deleteAttachment(parent, itemId, fileName);
     },
-    onSuccess: () => {
+    // Optimistic: the row disappears immediately; restored on error.
+    onMutate: async (fileName) => {
+      const key = attachmentsKey(parent, itemId ?? 0);
+      await qc.cancelQueries({ queryKey: key });
+      const previous = qc.getQueryData<ListAttachment[]>(key);
+      qc.setQueryData<ListAttachment[]>(key, (old) =>
+        old?.filter((a) => a.fileName !== fileName),
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previous) {
+        qc.setQueryData(attachmentsKey(parent, itemId ?? 0), ctx.previous);
+      }
+    },
+    onSettled: () => {
       qc.invalidateQueries({ queryKey: attachmentsKey(parent, itemId ?? 0) });
     },
   });
