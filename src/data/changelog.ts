@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.57.2",
+    date: "2026-07-16",
+    changes: [
+      "The Dashboard's load-error banner now names exactly which data source failed (and why), with a Retry button that refetches just the failed ones — no more full-page refresh guessing",
+    ],
+  },
+  {
     version: "0.57.1",
     date: "2026-07-16",
     changes: [

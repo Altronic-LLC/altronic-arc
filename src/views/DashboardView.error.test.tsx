@@ -12,7 +12,13 @@ vi.mock("@/hooks/useTasks", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/hooks/useTasks")>();
   return {
     ...actual,
-    useTasks: () => ({ data: undefined, isLoading: false, isError: true }),
+    useTasks: () => ({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      error: new Error("Graph 401: token expired"),
+      refetch: vi.fn(),
+    }),
   };
 });
 
@@ -47,5 +53,11 @@ describe("DashboardView — a failed query", () => {
     });
 
     expect(screen.getByText(/couldn't load/i)).toBeInTheDocument();
+    // The banner names WHICH source failed and surfaces the underlying error,
+    // plus a Retry button — not just a generic "refresh the page".
+    expect(
+      screen.getByText(/Engineering Tasks: Graph 401: token expired/),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /retry/i })).toBeInTheDocument();
   });
 });

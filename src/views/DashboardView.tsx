@@ -142,15 +142,39 @@ interface Segment {
 
 export function DashboardView() {
   const navigate = useNavigate();
-  const { data: tasks = [], isLoading, isError: tasksError } = useTasks();
-  const { data: eirs = [], isLoading: eirsLoading, isError: eirsError } = useEirs();
+  const {
+    data: tasks = [],
+    isLoading,
+    isError: tasksError,
+    error: tasksErrorObj,
+    refetch: refetchTasks,
+  } = useTasks();
+  const {
+    data: eirs = [],
+    isLoading: eirsLoading,
+    isError: eirsError,
+    error: eirsErrorObj,
+    refetch: refetchEirs,
+  } = useEirs();
   const {
     data: operationsTasks = [],
     isLoading: operationsTasksLoading,
     isError: operationsTasksError,
+    error: operationsTasksErrorObj,
+    refetch: refetchOperationsTasks,
   } = useOperationsTasks();
-  const { data: testSheets = [], isError: testSheetsError } = useTestSheets();
-  const { data: folderEntries = [], isError: foldersError } = useProjectFolderEntries(undefined);
+  const {
+    data: testSheets = [],
+    isError: testSheetsError,
+    error: testSheetsErrorObj,
+    refetch: refetchTestSheets,
+  } = useTestSheets();
+  const {
+    data: folderEntries = [],
+    isError: foldersError,
+    error: foldersErrorObj,
+    refetch: refetchFolders,
+  } = useProjectFolderEntries(undefined);
   const { data: projects = [] } = useProjects();
   const currentUser = useCurrentUser();
   const [scope, setScope] = useState<Scope>("mine");
@@ -264,16 +288,53 @@ export function DashboardView() {
     ...(projectParam ? { project: projectParam } : {}),
   }).toString()}`;
 
-  const hasLoadError =
-    tasksError || eirsError || operationsTasksError || testSheetsError || foldersError;
+  // Name each failed source + its underlying error so the banner is
+  // self-diagnosing — "something failed, refresh" was undebuggable for
+  // users and maintainers alike.
+  const failedSources = [
+    { name: "Engineering Tasks", failed: tasksError, error: tasksErrorObj, retry: refetchTasks },
+    { name: "EIRs", failed: eirsError, error: eirsErrorObj, retry: refetchEirs },
+    {
+      name: "Operations Tasks",
+      failed: operationsTasksError,
+      error: operationsTasksErrorObj,
+      retry: refetchOperationsTasks,
+    },
+    {
+      name: "Test Sheets",
+      failed: testSheetsError,
+      error: testSheetsErrorObj,
+      retry: refetchTestSheets,
+    },
+    { name: "Project Folders", failed: foldersError, error: foldersErrorObj, retry: refetchFolders },
+  ].filter((s) => s.failed);
 
   return (
     <div className="mx-auto flex max-w-[1200px] flex-col gap-5 px-4 py-4 sm:px-6 sm:py-6">
-      {hasLoadError && (
-        <div className="flex items-center gap-2 rounded-lg border border-cooper-red/30 bg-cooper-red/10 px-4 py-2.5 text-sm text-cooper-red">
-          <AlertTriangle className="h-4 w-4 shrink-0" />
-          Some of this dashboard couldn't load — the counts below may be
-          incomplete. Try refreshing the page.
+      {failedSources.length > 0 && (
+        <div className="rounded-lg border border-cooper-red/30 bg-cooper-red/10 px-4 py-2.5 text-sm text-cooper-red">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span className="min-w-0 flex-1">
+              Couldn't load {failedSources.map((s) => s.name).join(", ")} — those counts are
+              missing from the numbers below.
+            </span>
+            <button
+              onClick={() => failedSources.forEach((s) => void s.retry())}
+              className="shrink-0 rounded-md border border-cooper-red/40 bg-surface px-2.5 py-1 text-xs font-medium text-cooper-red transition-colors hover:bg-cooper-red/10"
+            >
+              Retry
+            </button>
+          </div>
+          {failedSources.some((s) => s.error) && (
+            <div className="mt-1.5 break-words pl-6 font-mono text-[11px] opacity-80">
+              {failedSources
+                .filter((s) => s.error)
+                .map((s) => `${s.name}: ${(s.error as Error).message}`)
+                .join(" · ")
+                .slice(0, 500)}
+            </div>
+          )}
         </div>
       )}
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
