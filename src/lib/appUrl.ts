@@ -10,11 +10,21 @@
 // `${origin}${base}${seg}/${id}` — no hash.
 // =============================================================================
 
-/** Absolute URL to a task, EIR, or Operations task detail page in this app. */
-export function appItemUrl(kind: "task" | "eir" | "operationsTask", id: number): string {
-  const seg =
-    kind === "eir" ? "eir" : kind === "operationsTask" ? "operations/task" : "task";
+export type AppItemKind = "task" | "eir" | "operationsTask" | "buildRequest" | "buildRequestItem";
+
+const KIND_SEGMENTS: Record<AppItemKind, string> = {
+  task: "task",
+  eir: "eir",
+  operationsTask: "operations/task",
+  buildRequest: "build-request",
+  // A redirect route: App.tsx looks the item up and forwards to its parent
+  // header page with ?item=<id> so the right part card expands.
+  buildRequestItem: "build-request-item",
+};
+
+/** Absolute URL to an item's detail page in this app. */
+export function appItemUrl(kind: AppItemKind, id: number): string {
   const base = import.meta.env.BASE_URL ?? "/"; // trailing slash, e.g. "/altronic-arc/"
   const origin = typeof window !== "undefined" ? window.location.origin : "";
-  return `${origin}${base}${seg}/${id}`;
+  return `${origin}${base}${KIND_SEGMENTS[kind]}/${id}`;
 }

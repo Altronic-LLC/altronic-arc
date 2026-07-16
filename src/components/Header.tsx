@@ -102,7 +102,12 @@ const DEPARTMENTS: DepartmentGroup[] = [
         icon: <FolderOpen className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/project-folders"),
       },
-      soon("Build Requests", <HardHat className="h-4 w-4" />),
+      {
+        to: "/build-requests",
+        label: "Build Requests",
+        icon: <HardHat className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/build-request"),
+      },
       soon("ECNs", <Wrench className="h-4 w-4" />),
     ],
   },

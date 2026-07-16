@@ -37,10 +37,30 @@ export interface MentionRecipient {
 
 /** What the mention is on — drives the wording, link, and button text. */
 export interface MentionTarget {
-  kind: "task" | "eir" | "operationsTask";
+  kind: "task" | "eir" | "operationsTask" | "buildRequest" | "buildRequestItem";
   id: number;
   title: string;
 }
+
+/** Per-kind copy for the email templates — one row per notification target type. */
+const KIND_COPY: Record<
+  MentionTarget["kind"],
+  { phrase: string; calloutLabel: string; buttonText: string }
+> = {
+  task: { phrase: "a task", calloutLabel: "Task", buttonText: "Open this task" },
+  eir: { phrase: "an EIR", calloutLabel: "EIR", buttonText: "Open this EIR" },
+  operationsTask: { phrase: "a task", calloutLabel: "Task", buttonText: "Open this task" },
+  buildRequest: {
+    phrase: "a build request",
+    calloutLabel: "Build Request",
+    buttonText: "Open this build request",
+  },
+  buildRequestItem: {
+    phrase: "a build request part",
+    calloutLabel: "Build Request Part",
+    buttonText: "Open this part",
+  },
+};
 
 export interface NotifyMentionsInput {
   recipients: MentionRecipient[];
@@ -199,10 +219,10 @@ function blobToBase64(blob: Blob): Promise<string> {
 }
 
 /**
- * Absolute URL to a task/EIR detail page. Thin re-export of the shared
+ * Absolute URL to an item's detail page. Thin re-export of the shared
  * `appItemUrl` helper so this module's existing call sites keep working.
  */
-function itemUrl(kind: "task" | "eir" | "operationsTask", id: number): string {
+function itemUrl(kind: MentionTarget["kind"], id: number): string {
   return appItemUrl(kind, id);
 }
 
@@ -333,7 +353,7 @@ export function firePromotionAlert(args: {
 interface MentionEmailContext {
   recipientName: string;
   senderName: string;
-  kind: "task" | "eir" | "operationsTask";
+  kind: MentionTarget["kind"];
   reason: "mentioned" | "watching" | "edited";
   itemTitle: string;
   commentExcerpt: string;
@@ -422,22 +442,21 @@ function renderEmailShell(ctx: {
 function renderMentionEmail(ctx: MentionEmailContext): string {
   const sender = escapeHtml(ctx.senderName);
   const excerpt = escapeHtml(ctx.commentExcerpt).replace(/\n/g, "<br/>");
-  const isEir = ctx.kind === "eir";
-  const phrase = isEir ? "an EIR" : "a task";
+  const copy = KIND_COPY[ctx.kind];
   const intro =
     ctx.reason === "mentioned"
-      ? `You were mentioned in ${phrase} by <strong>${sender}</strong>.`
+      ? `You were mentioned in ${copy.phrase} by <strong>${sender}</strong>.`
       : ctx.reason === "edited"
-        ? `<strong>${sender}</strong> updated a comment on ${phrase} you're following — here's the latest version:`
-        : `<strong>${sender}</strong> commented on ${phrase} you're watching.`;
+        ? `<strong>${sender}</strong> updated a comment on ${copy.phrase} you're following — here's the latest version:`
+        : `<strong>${sender}</strong> commented on ${copy.phrase} you're watching.`;
 
   return renderEmailShell({
     recipientName: ctx.recipientName,
     introHtml: intro,
-    calloutLabel: isEir ? "EIR" : "Task",
+    calloutLabel: copy.calloutLabel,
     calloutTitle: ctx.itemTitle,
     messageHtml: excerpt || '<em style="color:#9ca3af;">(no message body)</em>',
-    buttonText: isEir ? "Open this EIR" : "Open this task",
+    buttonText: copy.buttonText,
     url: ctx.url,
   });
 }
@@ -447,17 +466,18 @@ function renderChangeEmail(ctx: {
   recipientName: string;
   headlineHtml: string;
   detailHtml?: string;
-  kind: "task" | "eir" | "operationsTask";
+  kind: MentionTarget["kind"];
   itemTitle: string;
   url: string;
 }): string {
+  const copy = KIND_COPY[ctx.kind];
   return renderEmailShell({
     recipientName: ctx.recipientName,
     introHtml: ctx.headlineHtml,
-    calloutLabel: ctx.kind === "eir" ? "EIR" : "Task",
+    calloutLabel: copy.calloutLabel,
     calloutTitle: ctx.itemTitle,
     messageHtml: ctx.detailHtml,
-    buttonText: ctx.kind === "eir" ? "Open this EIR" : "Open this task",
+    buttonText: copy.buttonText,
     url: ctx.url,
   });
 }

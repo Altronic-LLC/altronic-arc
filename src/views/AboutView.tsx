@@ -59,8 +59,13 @@ const SYSTEM_TIERS: Tier[] = [
     label: "React SPA",
     nodes: [
       { label: "Views", hint: "Dashboard · List · Kanban · Detail · EIRs · Test Sheets · Project Folders · Admin", palette: "ui" },
-      { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useAdmins · useEirRoles · useTaskFiles · useProjectFolders", palette: "ui" },
-      { label: "API layer", hint: "src/api/tasks · eirs · testSheets · admins · eirRoles · projectFiles · attachments · email · errorReport", palette: "ui" },
+      { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useBuildRequests · useAdmins · useEirRoles · useTaskFiles · useProjectFolders", palette: "ui" },
+      { label: "API layer", hint: "src/api/tasks · eirs · testSheets · buildRequests · buildRequestItems · admins · eirRoles · projectFiles · attachments · email · errorReport", palette: "ui" },
+      {
+        label: "Build Requests (lazy-loaded)",
+        hint: "BuildRequestsView · BuildRequestDetailView — a master-detail pair: the Tracker header list + any number of parts from the Items list, joined by BuildRequestNo. Own code-split chunk.",
+        palette: "ui",
+      },
       {
         label: "Operations department (lazy-loaded bundle)",
         hint: "OperationsListView · OperationsKanbanView · OperationsDetailView · AdminOperationsProjectsView — useOperationsTasks — api/operationsTasks · operationsProjects · operationsEquipment. Own site (PMO), own code-split chunk; no imports from the Engineering views/hooks above.",
@@ -92,6 +97,8 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "Operations Task List", hint: "Altronic_PMO site — separate from Engineering's Task List", palette: "list" },
       { label: "Operations Projects", hint: "Altronic_PMO site — Operations' own parent-project reference list", palette: "list" },
       { label: "Altronic Equipment List", hint: "Altronic_PMO site — read-only reference for the Equipment picker", palette: "list" },
+      { label: "Build Request Tracker", hint: "BR headers — status workflow, requestor/engineer, own comment thread", palette: "list" },
+      { label: "Build Request Items", hint: "parts per BR (lookup to the Tracker) — checklists + per-part comment threads", palette: "list" },
     ],
   },
 ];
@@ -348,6 +355,55 @@ const SCHEMA_TABLES: SchemaTable[] = [
       { name: "location", type: "choice", kind: "field" },
     ],
   },
+
+  // ---- Build Requests (Engineering site) — master-detail list pair ---------
+  {
+    name: "BuildRequest",
+    source: "Build Request Tracker (Engineering site)",
+    palette: "entity",
+    x: 20, y: 1370, width: 370,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "brNo", type: "text", kind: "field" },
+      { name: "title", type: "text", kind: "field" },
+      { name: "product", type: "text", kind: "field" },
+      { name: "status", type: "choice", kind: "field" },
+      { name: "brType", type: "choice", kind: "field" },
+      { name: "blockedReason", type: "choice", kind: "field" },
+      { name: "requiredLeadTime", type: "choice", kind: "field" },
+      { name: "quotedShipDate", type: "datetime", kind: "field" },
+      { name: "requestor", type: "int", kind: "fk", references: "Person.id" },
+      { name: "engineerAssigned", type: "int", kind: "fk", references: "Person.id" },
+      { name: "watchers", type: "int[]", kind: "fk", references: "Person.id" },
+      { name: "projectReference", type: "int[]", kind: "fk", references: "Project.id" },
+      { name: "taskReference", type: "int", kind: "fk", references: "Task.id" },
+      { name: "communication", type: "text", kind: "field" },
+    ],
+  },
+  {
+    name: "BuildRequestItem",
+    source: "Build Request Items (Engineering site)",
+    palette: "entity",
+    x: 440, y: 1370, width: 380,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "partNumber", type: "text", kind: "field" },
+      { name: "buildRequestId", type: "int", kind: "fk", references: "BuildRequest.id" },
+      { name: "partDesc", type: "text", kind: "field" },
+      { name: "drawingNo / drawingRev", type: "text", kind: "field" },
+      { name: "qty", type: "number", kind: "field" },
+      { name: "woNo", type: "text", kind: "field" },
+      { name: "partType", type: "choice", kind: "field" },
+      { name: "partStatus", type: "choice", kind: "field" },
+      { name: "disposition", type: "choice", kind: "field" },
+      { name: "assembly / operations / testing", type: "choice[]", kind: "field" },
+      { name: "checklist (17 booleans)", type: "bool", kind: "field" },
+      { name: "projectReference", type: "int", kind: "fk", references: "Project.id" },
+      { name: "taskRef", type: "int", kind: "fk", references: "Task.id" },
+      { name: "watchers", type: "int[]", kind: "fk", references: "Person.id" },
+      { name: "communication", type: "text", kind: "field" },
+    ],
+  },
 ];
 
 // ----- Connections (FK → target). Cardinality at each end: "one" | "many" --
@@ -400,6 +456,16 @@ const CONNECTIONS: Connection[] = [
   { fromTable: "OperationsTask", fromColumn: "watchers", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
   { fromTable: "Comment", fromColumn: "parentId", toTable: "OperationsTask", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "Attachment", fromColumn: "parentId", toTable: "OperationsTask", toColumn: "id", fromCard: "many", toCard: "one" },
+  // Build Requests — master-detail pair on the Engineering site. Items join
+  // to their header via BuildRequestNoLookupId; both levels have their own
+  // Communication thread + Watchers.
+  { fromTable: "BuildRequestItem", fromColumn: "buildRequestId", toTable: "BuildRequest", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "BuildRequest", fromColumn: "projectReference", toTable: "Project", toColumn: "id", fromCard: "many", toCard: "many" },
+  { fromTable: "BuildRequest", fromColumn: "taskReference", toTable: "Task", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "BuildRequest", fromColumn: "requestor", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "BuildRequest", fromColumn: "engineerAssigned", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "BuildRequestItem", fromColumn: "projectReference", toTable: "Project", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "BuildRequestItem", fromColumn: "taskRef", toTable: "Task", toColumn: "id", fromCard: "many", toCard: "one" },
 ];
 
 export function AboutView() {

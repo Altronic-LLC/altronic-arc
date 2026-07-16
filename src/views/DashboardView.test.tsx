@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
 import { MOCK_TASKS, MOCK_EIRS, MOCK_TEST_SHEETS, MOCK_PROJECTS } from "@/data/mockData";
 import { MOCK_OPERATIONS_TASKS } from "@/data/operationsMockData";
+import { MOCK_BUILD_REQUESTS } from "@/data/buildRequestMockData";
 import { listProjectFolderEntries } from "@/api/projectFiles";
 
 const mockNavigate = vi.fn();
@@ -21,6 +22,7 @@ const PROJECTS_KEY = ["projects"] as const;
 const EIRS_KEY = ["eirs", "list"] as const;
 const OPERATIONS_TASKS_KEY = ["operationsTasks", "list"] as const;
 const TEST_SHEETS_KEY = ["testSheets", "list"] as const;
+const BUILD_REQUESTS_KEY = ["buildRequests", "list"] as const;
 const FOLDER_ENTRIES_KEY = ["project-folder-entries", "root"] as const;
 
 import { DashboardView } from "./DashboardView";
@@ -34,6 +36,7 @@ async function renderDashboard() {
       { key: EIRS_KEY, data: MOCK_EIRS },
       { key: OPERATIONS_TASKS_KEY, data: MOCK_OPERATIONS_TASKS },
       { key: TEST_SHEETS_KEY, data: MOCK_TEST_SHEETS },
+      { key: BUILD_REQUESTS_KEY, data: MOCK_BUILD_REQUESTS },
       { key: FOLDER_ENTRIES_KEY, data: folderEntries },
     ],
   });

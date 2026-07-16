@@ -163,9 +163,13 @@ export async function listEirs(): Promise<Eir[]> {
  * a Person[] keyed by SP lookupId. Used to resolve Reporter / Author /
  * Watcher entries that only came back as bare lookupIds.
  *
+ * Exported for reuse by other Engineering-site modules with single-person
+ * columns (Build Requests' Requestor / EngineerAssigned have the same
+ * bare-LookupId limitation).
+ *
  * Throws on any 4xx/5xx so callers can `.catch(() => [])` and degrade.
  */
-async function listSiteUsers(): Promise<Person[]> {
+export async function listSiteUsers(): Promise<Person[]> {
   // Graph accepts the list's display name (URL-encoded) as the list
   // identifier on the /lists/{id} endpoint. The hidden list's title is
   // "User Information List" on every modern SP site.

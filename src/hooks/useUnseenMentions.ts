@@ -2,17 +2,21 @@ import { useEffect, useSyncExternalStore } from "react";
 import { useTasks } from "./useTasks";
 import { useEirs } from "./useEirs";
 import { useOperationsTasks } from "./useOperationsTasks";
+import { useBuildRequestItems, useBuildRequests } from "./useBuildRequests";
 import { useCurrentUser } from "./useCurrentUser";
 import { isUserMentionedInComments } from "@/lib/mentionDetector";
 
 /**
  * Unique identifier for an item that has unseen mentions.
- * Format: "task:123", "eir:456", or "operationsTask:789"
+ * Format: "task:123", "eir:456", "operationsTask:789",
+ * "buildRequest:12", or "buildRequestItem:45".
  */
 export type UnseenMentionId =
   | `task:${number}`
   | `eir:${number}`
-  | `operationsTask:${number}`;
+  | `operationsTask:${number}`
+  | `buildRequest:${number}`
+  | `buildRequestItem:${number}`;
 
 // ============================================================================
 // Global store for unseen mentions.
@@ -88,35 +92,28 @@ function checkForMentions(
   tasks: any[] | undefined,
   eirs: any[] | undefined,
   operationsTasks: any[] | undefined,
+  buildRequests: any[] | undefined,
+  buildRequestItems: any[] | undefined,
   userEmail: string | undefined,
 ): Set<UnseenMentionId> {
   if (!userEmail) return new Set();
 
   const mentioned = new Set<UnseenMentionId>();
 
-  if (Array.isArray(tasks)) {
-    for (const task of tasks) {
-      if (Array.isArray(task.comments) && isUserMentionedInComments(task.comments, userEmail)) {
-        mentioned.add(`task:${task.id}` as UnseenMentionId);
+  const scan = (items: any[] | undefined, prefix: string) => {
+    if (!Array.isArray(items)) return;
+    for (const item of items) {
+      if (Array.isArray(item.comments) && isUserMentionedInComments(item.comments, userEmail)) {
+        mentioned.add(`${prefix}:${item.id}` as UnseenMentionId);
       }
     }
-  }
+  };
 
-  if (Array.isArray(eirs)) {
-    for (const eir of eirs) {
-      if (Array.isArray(eir.comments) && isUserMentionedInComments(eir.comments, userEmail)) {
-        mentioned.add(`eir:${eir.id}` as UnseenMentionId);
-      }
-    }
-  }
-
-  if (Array.isArray(operationsTasks)) {
-    for (const task of operationsTasks) {
-      if (Array.isArray(task.comments) && isUserMentionedInComments(task.comments, userEmail)) {
-        mentioned.add(`operationsTask:${task.id}` as UnseenMentionId);
-      }
-    }
-  }
+  scan(tasks, "task");
+  scan(eirs, "eir");
+  scan(operationsTasks, "operationsTask");
+  scan(buildRequests, "buildRequest");
+  scan(buildRequestItems, "buildRequestItem");
 
   return mentioned;
 }
@@ -152,6 +149,21 @@ export function useIsMentioned(id: UnseenMentionId): boolean {
 }
 
 /**
+ * The whole unseen set. The Set identity only changes when the store updates,
+ * so this is a safe useSyncExternalStore snapshot. Used by views that need a
+ * derived membership check across many ids at once (e.g. "does any part of
+ * this build request have an unseen mention?") — deriving from one shared
+ * subscription instead of N useIsMentioned calls.
+ */
+export function useUnseenMentionSet(): ReadonlySet<UnseenMentionId> {
+  return useSyncExternalStore(
+    subscribeToStore,
+    () => storeState.unseenIds,
+    () => storeState.unseenIds,
+  );
+}
+
+/**
  * App-level hook: subscribes to tasks/EIRs and recomputes the unseen set
  * when data changes. Call this ONCE near the top of the tree. Calling it
  * from every row would re-run the full O(N) scan per row on every change.
@@ -160,6 +172,8 @@ export function useMentionScanner(): void {
   const { data: tasks } = useTasks();
   const { data: eirs } = useEirs();
   const { data: operationsTasks } = useOperationsTasks();
+  const { data: buildRequests } = useBuildRequests();
+  const { data: buildRequestItems } = useBuildRequestItems();
   const user = useCurrentUser();
 
   const userEmail = user.email?.toLowerCase();
@@ -168,20 +182,27 @@ export function useMentionScanner(): void {
     if (!userEmail) return;
 
     const persisted = loadPersistedUnseen();
-    const currentlyMentioned = checkForMentions(tasks, eirs, operationsTasks, userEmail);
+    const currentlyMentioned = checkForMentions(
+      tasks,
+      eirs,
+      operationsTasks,
+      buildRequests,
+      buildRequestItems,
+      userEmail,
+    );
     const combined = new Set([...persisted, ...currentlyMentioned]);
 
-    // Filter out any ids that no longer exist in the data (task/EIR/Operations task deleted).
+    // Filter out any ids that no longer exist in the data (item deleted).
     const allIds = new Set<UnseenMentionId>();
-    if (Array.isArray(tasks)) {
-      tasks.forEach((t) => allIds.add(`task:${t.id}` as UnseenMentionId));
-    }
-    if (Array.isArray(eirs)) {
-      eirs.forEach((e) => allIds.add(`eir:${e.id}` as UnseenMentionId));
-    }
-    if (Array.isArray(operationsTasks)) {
-      operationsTasks.forEach((t) => allIds.add(`operationsTask:${t.id}` as UnseenMentionId));
-    }
+    const noteAll = (items: Array<{ id: number }> | undefined, prefix: string) => {
+      if (!Array.isArray(items)) return;
+      items.forEach((i) => allIds.add(`${prefix}:${i.id}` as UnseenMentionId));
+    };
+    noteAll(tasks, "task");
+    noteAll(eirs, "eir");
+    noteAll(operationsTasks, "operationsTask");
+    noteAll(buildRequests, "buildRequest");
+    noteAll(buildRequestItems, "buildRequestItem");
     const filtered = new Set<UnseenMentionId>(
       ([...combined].filter((id) => allIds.has(id as UnseenMentionId)) as UnseenMentionId[]),
     );
@@ -191,5 +212,5 @@ export function useMentionScanner(): void {
       unseenIds: filtered,
       lastCheckTime: Date.now(),
     });
-  }, [tasks, eirs, operationsTasks, userEmail]);
+  }, [tasks, eirs, operationsTasks, buildRequests, buildRequestItems, userEmail]);
 }

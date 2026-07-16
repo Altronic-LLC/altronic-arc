@@ -570,6 +570,187 @@ export interface OperationsTaskItemFields {
 }
 
 // =============================================================================
+// Build Requests — TWO SharePoint lists on the Engineering site forming a
+// master-detail pair:
+//   - Build Request Tracker: the header (BR No, status workflow, requestor,
+//     engineer, customer info, its own Communication thread).
+//   - Build Request Items: any number of parts per request, joined via the
+//     `BuildRequestNo` lookup (items carry `BuildRequestNoLookupId` = the
+//     header's item id). Each item has its OWN Communication thread, own
+//     Watchers, Part-Type-dependent boolean checklists, and multi-choice
+//     Assembly / Operations / Testing columns.
+// =============================================================================
+
+export const BUILD_REQUEST_STATUSES = [
+  "Submitted",
+  "In-process",
+  "Blocked",
+  "Complete",
+  "Information Needed",
+  "On Hold",
+] as const;
+export type BuildRequestStatus = (typeof BUILD_REQUEST_STATUSES)[number];
+
+export const BUILD_REQUEST_TYPES = [
+  "Prototype",
+  "Standard",
+  "Sample (A-D)",
+  "Modification",
+  "NPI",
+  "Component Obsolescence",
+  "Design Update Testing (ECN)",
+] as const;
+export type BuildRequestType = (typeof BUILD_REQUEST_TYPES)[number];
+
+export const BUILD_REQUEST_BLOCKED_REASONS = [
+  "Engineering Feedback",
+  "Part Shortage",
+  "Costing",
+  "Sales Feedback",
+  "Manufacturing",
+] as const;
+export type BuildRequestBlockedReason = (typeof BUILD_REQUEST_BLOCKED_REASONS)[number];
+
+export const BUILD_REQUEST_LEAD_TIMES = ["STD Lead Time", "Rush", "Ship Date"] as const;
+export type BuildRequestLeadTime = (typeof BUILD_REQUEST_LEAD_TIMES)[number];
+
+export const BUILD_REQUEST_SAMPLE_PHASES = ["A", "B", "C", "D"] as const;
+export type BuildRequestSamplePhase = (typeof BUILD_REQUEST_SAMPLE_PHASES)[number];
+
+export const BUILD_REQUEST_PART_TYPES = [
+  "Product",
+  "PCB",
+  "Harness",
+  "Machining",
+  "Panel",
+] as const;
+export type BuildRequestPartType = (typeof BUILD_REQUEST_PART_TYPES)[number];
+
+export const BUILD_REQUEST_PART_STATUSES = [
+  "Review Checklist",
+  "Information Needed",
+  "Ready for Production",
+  "On Hold",
+] as const;
+export type BuildRequestPartStatus = (typeof BUILD_REQUEST_PART_STATUSES)[number];
+
+export const BUILD_REQUEST_DISPOSITIONS = ["For Stock", "For Requestor"] as const;
+export type BuildRequestDisposition = (typeof BUILD_REQUEST_DISPOSITIONS)[number];
+
+/** Multi-choice columns on Build Request Items — Graph returns arrays; write plain string arrays. */
+export const BUILD_REQUEST_ASSEMBLY_OPTIONS = [
+  "PCB Assy / Sub-Assy",
+  "PCB Final Assy",
+  "Final Assy",
+  "Harness Assy",
+  "Coil Assy",
+] as const;
+
+export const BUILD_REQUEST_OPERATIONS_OPTIONS = [
+  "Programming",
+  "Conformal Coating",
+  "Machining",
+  "Create Work Instruction",
+  "Create BOO",
+  "Create Packaging",
+  "Export Classification",
+] as const;
+
+export const BUILD_REQUEST_TESTING_OPTIONS = [
+  "AOI",
+  "X-RAY",
+  "In Circuit",
+  "Intermediate",
+  "HI-POT",
+  "Coil",
+  "Final",
+  "Visual",
+  "Safe Power-Up",
+  "PPAP/ Source Release",
+] as const;
+
+/** A header row from the Build Request Tracker list. */
+export interface BuildRequest {
+  id: number;
+  /** "BR No." — app-generated `BR_YYYY-####` (the `BRNo_x002e_` column). */
+  brNo: string;
+  /** "Product or Project Name" (the Title column). */
+  title: string;
+  product: string;
+  status: BuildRequestStatus;
+  brType: BuildRequestType | null;
+  blockedReason: BuildRequestBlockedReason | null;
+  requiredLeadTime: BuildRequestLeadTime | null;
+  quotedShipDate: Date | null;
+  samplePhase: BuildRequestSamplePhase | null;
+  /** Single-person columns — Graph returns bare LookupIds; names resolved via the site user list. */
+  requestor: Person | null;
+  engineerAssigned: Person | null;
+  customerName: string;
+  customerPO: string;
+  /** The "Lead Free" (RoHS) boolean. */
+  leadFree: boolean;
+  watchers: Person[];
+  /** Multi-value lookup into the Projects list (same shape as EIR's parentProjects). */
+  parentProjects: ProjectReference[];
+  /** Single lookup into the Task List (Task Reference) — bare id; title resolved from the tasks cache. */
+  taskReferenceLookupId: number | null;
+  createdAt: Date;
+  modifiedAt: Date;
+  author: Person | null;
+  editor?: Person | null;
+  /** Parsed from the `Communication` field — identical pipe format to tasks/EIRs. */
+  comments: Comment[];
+  hasAttachments: boolean;
+  rawFields?: Record<string, unknown>;
+}
+
+/** A part row from the Build Request Items list. */
+export interface BuildRequestItem {
+  id: number;
+  /** "Part Number" (the Title column). */
+  partNumber: string;
+  /** The parent header's list-item id (`BuildRequestNoLookupId`). */
+  buildRequestLookupId: number;
+  projectRef: ProjectReference | null;
+  partDesc: string;
+  drawingNo: string;
+  drawingRev: string;
+  qty: number | null;
+  /** "WO No." — filled in by manufacturing once a work order exists. */
+  woNo: string;
+  specialInstructions: string;
+  testPlan: string;
+  opSummary: string;
+  serialNos: string;
+  /** Free-text on the list (mixed formats in live data), so kept as text. */
+  revisionDate: string;
+  partType: BuildRequestPartType | null;
+  partStatus: BuildRequestPartStatus | null;
+  disposition: BuildRequestDisposition | null;
+  assembly: string[];
+  operations: string[];
+  testing: string[];
+  /**
+   * The boolean checklist columns, keyed by SharePoint internal name.
+   * Which keys are shown in the UI depends on partType — see
+   * lib/buildRequestChecklist.ts (PCB → 14 fields, Harness → 3).
+   */
+  checklist: Record<string, boolean>;
+  /** Single lookup into the Task List (Task Ref). */
+  taskRefLookupId: number | null;
+  watchers: Person[];
+  createdAt: Date;
+  modifiedAt: Date;
+  author: Person | null;
+  editor?: Person | null;
+  /** This item's OWN comment thread — separate from the header's. */
+  comments: Comment[];
+  hasAttachments: boolean;
+  rawFields?: Record<string, unknown>;
+}
+
+// =============================================================================
 // Microsoft Graph response shapes — only the fields we touch
 // =============================================================================
 

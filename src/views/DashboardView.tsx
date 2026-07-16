@@ -31,13 +31,17 @@ import { useEirs } from "@/hooks/useEirs";
 import { useTestSheets } from "@/hooks/useTestSheets";
 import { useProjectFolderEntries } from "@/hooks/useProjectFolders";
 import { useOperationsTasks } from "@/hooks/useOperationsTasks";
+import { useBuildRequests } from "@/hooks/useBuildRequests";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { SingleSelect } from "@/components/SearchableSelect";
 import {
+  BUILD_REQUEST_STATUSES,
   EIR_STATUSES,
   OPERATIONS_STATUSES,
   STATUSES,
+  type BuildRequest,
+  type BuildRequestStatus,
   type Eir,
   type EirStatus,
   type OperationsStatus,
@@ -99,6 +103,11 @@ function operationsTaskMatchesProject(t: OperationsTask, projectId: number | nul
   return t.parentProject?.lookupId === projectId;
 }
 
+function buildRequestMatchesProject(b: BuildRequest, projectId: number | null): boolean {
+  if (projectId == null) return true;
+  return b.parentProjects.some((p) => p.lookupId === projectId);
+}
+
 // Bar-segment colours per status — each status gets a visually distinct hue so
 // neighbouring segments never blur together (BACKLOG grey vs On Hold purple,
 // etc.). Solid colours read clearly in both light and dark themes.
@@ -126,6 +135,15 @@ const OPERATIONS_BAR_COLOR: Record<OperationsStatus, string> = {
   "On Hold": "bg-violet-500",
   Complete: "bg-cooper-green",
   Canceled: "bg-cooper-red",
+};
+
+const BUILD_REQUEST_BAR_COLOR: Record<BuildRequestStatus, string> = {
+  Submitted: "bg-superior-blue",
+  "In-process": "bg-ajax-yellow",
+  Blocked: "bg-cooper-red",
+  Complete: "bg-cooper-green",
+  "Information Needed": "bg-orange-500",
+  "On Hold": "bg-violet-500",
 };
 
 /** Operations tasks have a single Assigned person, not Engineering's multi-person array. */
@@ -169,6 +187,13 @@ export function DashboardView() {
     error: testSheetsErrorObj,
     refetch: refetchTestSheets,
   } = useTestSheets();
+  const {
+    data: buildRequests = [],
+    isLoading: buildRequestsLoading,
+    isError: buildRequestsError,
+    error: buildRequestsErrorObj,
+    refetch: refetchBuildRequests,
+  } = useBuildRequests();
   const {
     data: folderEntries = [],
     isError: foldersError,
@@ -262,7 +287,27 @@ export function DashboardView() {
     [testSheets, mine, myEmail, projectId],
   );
 
-  if (isLoading || eirsLoading || operationsTasksLoading) {
+  const buildRequestCard = useMemo(() => {
+    // "Mine" for a Build Request = I'm the requestor OR the assigned engineer.
+    const active = buildRequests.filter(
+      (b: BuildRequest) =>
+        b.status !== "Complete" &&
+        (!mine ||
+          personMatchesSingle(b.requestor, myEmail) ||
+          personMatchesSingle(b.engineerAssigned, myEmail)) &&
+        buildRequestMatchesProject(b, projectId),
+    );
+    const segments: Segment[] = BUILD_REQUEST_STATUSES.filter((s) => s !== "Complete").map(
+      (s) => ({
+        label: s,
+        count: active.filter((b) => b.status === s).length,
+        color: BUILD_REQUEST_BAR_COLOR[s],
+      }),
+    );
+    return { count: active.length, segments };
+  }, [buildRequests, mine, myEmail, projectId]);
+
+  if (isLoading || eirsLoading || operationsTasksLoading || buildRequestsLoading) {
     return <LoadingTasks noun="your dashboard" />;
   }
 
@@ -287,6 +332,14 @@ export function DashboardView() {
     assigned: mine ? meParam : "",
     ...(projectParam ? { project: projectParam } : {}),
   }).toString()}`;
+  const buildRequestsUrl = `/build-requests${
+    (mine && meParam) || projectParam
+      ? `?${new URLSearchParams({
+          ...(mine && meParam ? { engineer: meParam } : {}),
+          ...(projectParam ? { project: projectParam } : {}),
+        }).toString()}`
+      : ""
+  }`;
 
   // Name each failed source + its underlying error so the banner is
   // self-diagnosing — "something failed, refresh" was undebuggable for
@@ -305,6 +358,12 @@ export function DashboardView() {
       failed: testSheetsError,
       error: testSheetsErrorObj,
       retry: refetchTestSheets,
+    },
+    {
+      name: "Build Requests",
+      failed: buildRequestsError,
+      error: buildRequestsErrorObj,
+      retry: refetchBuildRequests,
     },
     { name: "Project Folders", failed: foldersError, error: foldersErrorObj, retry: refetchFolders },
   ].filter((s) => s.failed);
@@ -399,7 +458,15 @@ export function DashboardView() {
           unit="folders"
           onClick={() => navigate("/project-folders")}
         />
-        <PlaceholderCard name="Build Requests" icon={<HardHat className="h-5 w-5" />} />
+        <TypeCard
+          name="Build Requests"
+          icon={<HardHat className="h-5 w-5" />}
+          tone="ajax-yellow"
+          count={buildRequestCard.count}
+          unit="open"
+          segments={buildRequestCard.segments}
+          onClick={() => navigate(buildRequestsUrl)}
+        />
         <PlaceholderCard name="ECNs" icon={<Wrench className="h-5 w-5" />} />
       </DeptSection>
 

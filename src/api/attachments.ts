@@ -1,4 +1,6 @@
 import {
+  SP_BUILD_REQUEST_ITEMS_LIST_ID,
+  SP_BUILD_REQUESTS_LIST_ID,
   SP_EIRS_LIST_ID,
   SP_LIST_ID,
   SP_OPERATIONS_TASKS_LIST_ID,
@@ -29,7 +31,12 @@ export interface ListAttachment {
   serverRelativeUrl: string;
 }
 
-export type AttachmentParent = "task" | "eir" | "operationsTask";
+export type AttachmentParent =
+  | "task"
+  | "eir"
+  | "operationsTask"
+  | "buildRequest"
+  | "buildRequestItem";
 
 interface ParentConfig {
   listId: string | undefined;
@@ -46,6 +53,16 @@ const PARENT_CONFIG: Record<AttachmentParent, ParentConfig> = {
     listId: SP_OPERATIONS_TASKS_LIST_ID,
     siteUrl: SP_PMO_SITE_URL,
     listIdEnvVar: "VITE_SP_OPERATIONS_TASKS_LIST_ID",
+  },
+  buildRequest: {
+    listId: SP_BUILD_REQUESTS_LIST_ID,
+    siteUrl: SP_SITE_URL,
+    listIdEnvVar: "VITE_SP_BUILD_REQUESTS_LIST_ID",
+  },
+  buildRequestItem: {
+    listId: SP_BUILD_REQUEST_ITEMS_LIST_ID,
+    siteUrl: SP_SITE_URL,
+    listIdEnvVar: "VITE_SP_BUILD_REQUEST_ITEMS_LIST_ID",
   },
 };
 

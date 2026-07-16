@@ -20,6 +20,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.58.0",
+    date: "2026-07-16",
+    changes: [
+      "New: Build Requests — the full workflow from the old Power Apps dashboard, now in ARC (Engineering menu → Build Requests, plus a Dashboard card)",
+      "Each request gets an auto-assigned BR number and carries status, type, lead time, requestor, engineer, and customer info, with any number of parts underneath",
+      "Parts expand in place to edit everything inline — WO No, Part Status, Assembly/Operations/Testing — with the PCB data-package checklist on PCB parts and the harness checklist on Harness parts",
+      "Comments work at two levels: on the request and on each individual part, each with @-mentions, watchers, emails, and attachments — part mentions email a link that opens the request with that part expanded",
+      "Searching a part number finds its build request, and old comments migrated from Power Apps keep their @-mentions working",
+    ],
+  },
+  {
     version: "0.57.2",
     date: "2026-07-16",
     changes: [

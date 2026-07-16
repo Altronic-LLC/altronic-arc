@@ -103,7 +103,15 @@ export function AttachmentsSection({ parent, itemId }: AttachmentsSectionProps) 
                 onClick={() => {
                   if (
                     window.confirm(
-                      `Remove "${a.fileName}" from this ${parent === "eir" ? "EIR" : "task"}?`,
+                      `Remove "${a.fileName}" from this ${
+                        parent === "eir"
+                          ? "EIR"
+                          : parent === "buildRequest"
+                            ? "build request"
+                            : parent === "buildRequestItem"
+                              ? "part"
+                              : "task"
+                      }?`,
                     )
                   ) {
                     remove.mutate(a.fileName);

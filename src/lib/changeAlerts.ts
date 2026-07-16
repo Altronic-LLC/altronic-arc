@@ -26,15 +26,23 @@ export interface ChangeEmail {
   detailHtml?: string;
 }
 
-/** What the change is on — drives the noun ("task"/"EIR") in the copy. */
+/** What the change is on — drives the noun ("task"/"EIR"/…) in the copy. */
 export interface ChangeTarget {
-  kind: "task" | "eir" | "operationsTask";
+  kind: "task" | "eir" | "operationsTask" | "buildRequest" | "buildRequestItem";
   id: number;
   title: string;
 }
 
+const NOUNS: Record<ChangeTarget["kind"], string> = {
+  task: "task",
+  eir: "EIR",
+  operationsTask: "task",
+  buildRequest: "build request",
+  buildRequestItem: "build request part",
+};
+
 function nounFor(target: ChangeTarget): string {
-  return target.kind === "eir" ? "EIR" : "task";
+  return NOUNS[target.kind];
 }
 
 function keyOf(p: Person): string {

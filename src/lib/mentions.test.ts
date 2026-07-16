@@ -117,6 +117,29 @@ describe("extractMentionedRecipients", () => {
   it("returns empty array for empty input", () => {
     expect(extractMentionedRecipients("")).toEqual([]);
   });
+
+  it("recognizes legacy Power Apps mention anchors (href=\"mention:email\")", () => {
+    const html =
+      '<div><p><a href="mention:nick.sirianni@hoerbiger.com"><strong><u><em>Nick Sirianni</em></u></strong></a>' +
+      ' <a href="mention:matthew.traina@hoerbiger.com">Matthew Traina</a>&nbsp;is the data complete?</p></div>';
+    const out = extractMentionedRecipients(html);
+    expect(out).toEqual([
+      { email: "nick.sirianni@hoerbiger.com", displayName: "Nick Sirianni" },
+      { email: "matthew.traina@hoerbiger.com", displayName: "Matthew Traina" },
+    ]);
+  });
+
+  it("dedupes a person mentioned in both the modern and legacy shapes", () => {
+    const html =
+      '<p><span class="mention" data-email="nick@x.com">@Nick</span>' +
+      ' <a href="mention:NICK@x.com">Nick</a></p>';
+    expect(extractMentionedRecipients(html)).toHaveLength(1);
+  });
+
+  it("ignores ordinary (non-mention) links", () => {
+    const html = '<p><a href="https://example.com">a normal link</a></p>';
+    expect(extractMentionedRecipients(html)).toEqual([]);
+  });
 });
 
 describe("commentNotifyRecipients", () => {

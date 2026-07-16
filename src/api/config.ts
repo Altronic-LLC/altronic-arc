@@ -124,6 +124,22 @@ export const SP_PMO_SITE_URL =
   (import.meta.env.VITE_SP_PMO_SITE_URL as string | undefined) ??
   "https://coopermachineryservices.sharepoint.com/sites/Altronic_PMO";
 
+// =============================================================================
+// Build Requests — TWO lists on the Engineering site (SITES.engineering /
+// SP_SITE_ID) forming a master-detail pair. IDs discovered live via Graph on
+// 2026-07-16; env-overridable, same pattern as the Operations lists.
+// =============================================================================
+
+/** "Build Request Tracker" — the header list (BR No, status, requestor, …). */
+export const SP_BUILD_REQUESTS_LIST_ID =
+  import.meta.env.VITE_SP_BUILD_REQUESTS_LIST_ID ||
+  "7e0f94cc-b3a3-4c89-8552-7fd97cfa46d9";
+
+/** "Build Request Items" — the parts list; items join to headers via BuildRequestNoLookupId. */
+export const SP_BUILD_REQUEST_ITEMS_LIST_ID =
+  import.meta.env.VITE_SP_BUILD_REQUEST_ITEMS_LIST_ID ||
+  "5572f186-961d-44b1-b01d-1fffffe17b26";
+
 export const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 
 /** Throw a clear error if the app tries to call Graph without being configured. */

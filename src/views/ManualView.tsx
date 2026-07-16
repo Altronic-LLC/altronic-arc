@@ -542,7 +542,8 @@ const SECTIONS: ManualSection[] = [
         </P>
         <P>
           Anyone you @-mention also <strong>becomes a watcher</strong> on
-          the task or EIR automatically (unless they already are).{" "}
+          the item automatically (unless they already are) — tasks, EIRs,
+          build requests, and individual build request parts alike.{" "}
           <strong>Watchers are emailed on every new comment</strong> — not just
           when they're mentioned — so the whole thread stays in the loop. You're
           never emailed for your own comment, unless you @-mention yourself. To stop
@@ -1103,33 +1104,79 @@ const SECTIONS: ManualSection[] = [
     keywords: [
       "build request",
       "build requests",
-      "request for build",
-      "assembly request",
-      "dashboard",
-      "engineering request",
-      "production request",
-      "mock count",
+      "BR",
+      "br number",
+      "add part",
+      "parts",
+      "part status",
+      "pcb checklist",
+      "harness checklist",
+      "work order",
+      "wo no",
+      "rush",
+      "lead time",
+      "requestor",
+      "prototype",
+      "sample",
     ],
     searchText:
-      "Build Requests appear as a Dashboard metric today and will be connected to a real SharePoint list in a future update. The Dashboard card helps keep build activity visible while the rest of the app grows.",
+      "Build Requests ask manufacturing to build parts. Each request (BR_YYYY-####) has a header — status, type, lead time, requestor, engineer, customer — and any number of parts. Each part has its own comment thread, watchers, attachments, and a Part-Type checklist: PCB parts get the data-package checklist, Harness parts get the terminals checklist. Create from the Build Requests list; add parts from the detail page.",
     render: () => (
       <>
         <P>
-          The <strong>Build Requests</strong> card on the Dashboard is the home
-          for requests to build or kit hardware. It lives alongside Tasks,
-          EIRs, and ECNs so you can see overall engineering workload at a glance.
+          <strong>Build Requests</strong> (Engineering menu → Build Requests)
+          are how you ask manufacturing to build parts — prototypes, samples,
+          production updates. Every request gets a number like{" "}
+          <code>BR_2026-1019</code> (assigned automatically) and has two
+          levels: the <strong>request header</strong> (status, type, lead
+          time, requestor, engineer, customer) and any number of{" "}
+          <strong>parts</strong> underneath it.
         </P>
-        <H3>How it works today</H3>
+        <H3>Creating a request</H3>
         <P>
-          Today it is a <strong>dashboard-only metric</strong>. The app includes
-          the card to reserve the slot for Build Requests and to keep the
-          dashboard complete, even before the SharePoint list exists.
+          Click <strong>New Build Request</strong> on the list page. Give it a
+          product or project name, pick the Type (Prototype, Standard, Sample,
+          Modification, NPI, Component Obsolescence, or Design Update Testing)
+          and Required Lead Time — picking <strong>Ship Date</strong> reveals a
+          Quoted Ship Date field, and Type <strong>Sample (A-D)</strong>{" "}
+          reveals the Sample Phase. You're set as the Requestor and a watcher
+          automatically. The request opens ready for parts.
         </P>
-        <H3>Future behavior</H3>
+        <H3>Adding and editing parts</H3>
         <P>
-          When the Build Requests list is added, this section will describe how
-          to create, edit, and cross-reference build requests just like the
-          existing Tasks, EIRs, and Test Sheets workflows.
+          On the detail page, click <strong>Add Part</strong> and enter the
+          part number, quantity, drawing info, and Part Type. Each part shows
+          as a collapsible card — click it to expand and edit everything
+          inline: WO No (filled by manufacturing), Part Status, Disposition,
+          and the multi-select Assembly / Operations / Testing pickers.
+        </P>
+        <H3>Part-Type checklists</H3>
+        <P>
+          <strong>PCB</strong> parts show the 14-box data-package checklist
+          (BOMs, Gerbers, coordinate data, fiducials, schematic, HI-POT…);{" "}
+          <strong>Harness</strong> parts show the 3-box harness checklist
+          (Terminals Ordered, New Terminal Tool, New Harness Processes). Other
+          part types have no checklist. The card header shows checklist
+          progress (e.g. 6/14) and turns green when complete.
+        </P>
+        <H3>Two levels of comments</H3>
+        <P>
+          The <strong>request header</strong> has its own comment thread for
+          request-wide discussion, and <strong>each part</strong> has its own
+          thread for part-specific questions. @-mentions, auto-watching,
+          watcher emails, and the "Notify everyone again" edit checkbox all
+          work at both levels — a mention on a part emails a link that opens
+          the request with that part expanded. Attachments also exist at both
+          levels (on the header and on each part).
+        </P>
+        <H3>Finding requests</H3>
+        <P>
+          The list page has status pills (Open = everything not Complete),
+          filters for Project / Engineer / Requestor, and the standard
+          all-fields search — <strong>searching a part number finds its build
+          request</strong>, even though parts don't appear in the list. Rush
+          requests show a red Rush chip. The Dashboard's Build Requests card
+          counts open requests (Mine = you're the requestor or the engineer).
         </P>
       </>
     ),
@@ -1404,9 +1451,14 @@ const SECTIONS: ManualSection[] = [
               "Updated comment on …",
             ],
             [
-              "Status changes (task or EIR)",
-              "Watchers + current assignees + EIR reporter (minus you)",
+              "Status changes (task, EIR, or build request)",
+              "Watchers + current assignees + EIR reporter / BR requestor (minus you)",
               "Status changed on …",
+            ],
+            [
+              "A build request part's Part Status changes",
+              "That part's watchers (minus you)",
+              "Part status changed on …",
             ],
             [
               "EIR Resolution changes",

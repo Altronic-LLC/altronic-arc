@@ -116,6 +116,21 @@ export function extractMentionedRecipients(
     const displayName = raw.startsWith("@") ? raw.slice(1) : raw;
     seen.set(key, { email, displayName });
   });
+  // Legacy Power Apps mentions: <a href="mention:someone@email.com">Name</a>.
+  // Comment threads migrated from the old apps (Build Requests, EIRs) store
+  // mentions this way — recognizing them keeps renotify/auto-watch working
+  // on pre-ARC comments. Same dedup map so a person mentioned in both
+  // shapes is only counted once.
+  const legacy = doc.querySelectorAll('a[href^="mention:"]');
+  legacy.forEach((node) => {
+    const email = node.getAttribute("href")?.slice("mention:".length).trim();
+    if (!email) return;
+    const key = email.toLowerCase();
+    if (seen.has(key)) return;
+    const raw = (node.textContent ?? "").trim();
+    const displayName = raw.startsWith("@") ? raw.slice(1) : raw;
+    seen.set(key, { email, displayName: displayName || email });
+  });
   return Array.from(seen.values());
 }
 

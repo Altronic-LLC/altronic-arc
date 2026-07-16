@@ -44,6 +44,20 @@ const AdminOperationsProjectsView = lazy(() =>
   })),
 );
 
+// Build Requests — Engineering's master-detail feature (header + parts).
+// Lazy-loaded like the Operations bundle to keep the main chunk lean.
+const BuildRequestsView = lazy(() =>
+  import("@/views/BuildRequestsView").then((m) => ({ default: m.BuildRequestsView })),
+);
+const BuildRequestDetailView = lazy(() =>
+  import("@/views/BuildRequestDetailView").then((m) => ({ default: m.BuildRequestDetailView })),
+);
+const BuildRequestItemRedirect = lazy(() =>
+  import("@/views/BuildRequestItemRedirect").then((m) => ({
+    default: m.BuildRequestItemRedirect,
+  })),
+);
+
 export function App() {
   // The print route is intentionally chrome-less so the saved PDF doesn't
   // include the app header/footer. Match any /…/print path.
@@ -138,6 +152,30 @@ export function App() {
             element={
               <Suspense fallback={<LoadingTasks noun="this task" />}>
                 <OperationsDetailView />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/build-requests"
+            element={
+              <Suspense fallback={<LoadingTasks noun="build requests" />}>
+                <BuildRequestsView />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/build-request/:id"
+            element={
+              <Suspense fallback={<LoadingTasks noun="this build request" />}>
+                <BuildRequestDetailView />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/build-request-item/:itemId"
+            element={
+              <Suspense fallback={<LoadingTasks noun="this part" />}>
+                <BuildRequestItemRedirect />
               </Suspense>
             }
           />
