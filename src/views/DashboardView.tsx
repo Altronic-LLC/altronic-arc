@@ -18,6 +18,7 @@ import {
   HardHat,
   LayoutDashboard,
   ListChecks,
+  Lock,
   MapPin,
   MessageSquare,
   PackageSearch,
@@ -150,6 +151,17 @@ const BUILD_REQUEST_BAR_COLOR: Record<BuildRequestStatus, string> = {
 function personMatchesSingle(person: Person | null, email: string): boolean {
   if (!email || !person) return false;
   return (person.email ?? "").toLowerCase() === email;
+}
+
+/**
+ * True when a query failed because the signed-in USER lacks SharePoint
+ * permission on the site (Graph 403 accessDenied). Delegated auth means
+ * effective access = app grant ∩ user's own site permission, so this is a
+ * per-user onboarding state, not an app/config failure.
+ */
+function isAccessDenied(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err ?? "");
+  return /\b403\b|accessdenied|access denied/i.test(msg);
 }
 
 interface Segment {
@@ -346,30 +358,43 @@ export function DashboardView() {
 
   // Name each failed source + its underlying error so the banner is
   // self-diagnosing — "something failed, refresh" was undebuggable for
-  // users and maintainers alike.
-  const failedSources = [
-    { name: "Engineering Tasks", failed: tasksError, error: tasksErrorObj, retry: refetchTasks },
-    { name: "EIRs", failed: eirsError, error: eirsErrorObj, retry: refetchEirs },
+  // users and maintainers alike. Permission failures (403) are split out
+  // and shown as a calm per-department notice instead of the red banner:
+  // a user simply not having access to another team's site is a normal
+  // onboarding state, not an app failure.
+  const allFailures = [
+    { name: "Engineering Tasks", dept: "Engineering", failed: tasksError, error: tasksErrorObj, retry: refetchTasks },
+    { name: "EIRs", dept: "Engineering", failed: eirsError, error: eirsErrorObj, retry: refetchEirs },
     {
       name: "Operations Tasks",
+      dept: "Operations",
       failed: operationsTasksError,
       error: operationsTasksErrorObj,
       retry: refetchOperationsTasks,
     },
     {
       name: "Test Sheets",
+      dept: "Engineering",
       failed: testSheetsError,
       error: testSheetsErrorObj,
       retry: refetchTestSheets,
     },
     {
       name: "Build Requests",
+      dept: "Engineering",
       failed: buildRequestsError,
       error: buildRequestsErrorObj,
       retry: refetchBuildRequests,
     },
-    { name: "Project Folders", failed: foldersError, error: foldersErrorObj, retry: refetchFolders },
+    { name: "Project Folders", dept: "Engineering", failed: foldersError, error: foldersErrorObj, retry: refetchFolders },
   ].filter((s) => s.failed);
+  const failedSources = allFailures.filter((s) => !isAccessDenied(s.error));
+  const engineeringDenied = allFailures.some(
+    (s) => s.dept === "Engineering" && isAccessDenied(s.error),
+  );
+  const operationsDenied = allFailures.some(
+    (s) => s.dept === "Operations" && isAccessDenied(s.error),
+  );
 
   return (
     <div className="mx-auto flex max-w-[1200px] flex-col gap-5 px-4 py-4 sm:px-6 sm:py-6">
@@ -426,7 +451,14 @@ export function DashboardView() {
       </header>
 
       {/* Engineering — the only department with live data today. */}
-      <DeptSection title="Engineering">
+      <DeptSection
+        title="Engineering"
+        notice={
+          engineeringDenied ? (
+            <NoAccessNotice team="Engineering" site="Altronic_Engineering" />
+          ) : undefined
+        }
+      >
         <TypeCard
           name="Engineering Tasks"
           icon={<ListChecks className="h-5 w-5" />}
@@ -479,7 +511,12 @@ export function DashboardView() {
         <PlaceholderCard name="Project Folders" icon={<FolderOpen className="h-5 w-5" />} />
       </DeptSection>
 
-      <DeptSection title="Operations">
+      <DeptSection
+        title="Operations"
+        notice={
+          operationsDenied ? <NoAccessNotice team="Operations" site="Altronic_PMO" /> : undefined
+        }
+      >
         <TypeCard
           name="Operational Tasks"
           icon={<Cog className="h-5 w-5" />}
@@ -521,7 +558,16 @@ export function DashboardView() {
 }
 
 /** A department band: a titled divider line across the page + a card grid. */
-function DeptSection({ title, children }: { title: string; children: React.ReactNode }) {
+function DeptSection({
+  title,
+  notice,
+  children,
+}: {
+  title: string;
+  /** Full-width note rendered between the heading and the cards (e.g. a no-access explainer). */
+  notice?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
     <section className="flex flex-col gap-3">
       <div className="flex items-center gap-3">
@@ -530,8 +576,32 @@ function DeptSection({ title, children }: { title: string; children: React.React
         </h2>
         <div className="h-px flex-1 bg-border" />
       </div>
+      {notice}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">{children}</div>
     </section>
+  );
+}
+
+/**
+ * Friendly per-department notice for users who don't have SharePoint
+ * permission on that team's site (Graph 403). Deliberately calm — this is a
+ * normal onboarding state, not an app failure, and the rest of ARC works.
+ */
+function NoAccessNotice({ team, site }: { team: string; site: string }) {
+  return (
+    <div className="flex items-start gap-2.5 rounded-lg border border-border bg-surface px-4 py-3 text-sm">
+      <Lock className="mt-0.5 h-4 w-4 shrink-0 text-fg-muted" />
+      <div className="min-w-0">
+        <span className="font-medium text-fg">
+          You don't have access to the {team} team's SharePoint site yet
+        </span>{" "}
+        <span className="text-fg-muted">
+          — so these counts can't load. Everything else in ARC still works normally. To see{" "}
+          {team} data, ask an admin to share the{" "}
+          <span className="font-mono text-xs">{site}</span> site with you.
+        </span>
+      </div>
+    </div>
   );
 }
 

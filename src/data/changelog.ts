@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.59.2",
+    date: "2026-07-16",
+    changes: [
+      "When you don't have access to another team's SharePoint site, the Dashboard now shows a friendly note in that team's section (naming the site to request access to) instead of a scary red error — and reassures you the rest of ARC still works",
+    ],
+  },
+  {
     version: "0.59.1",
     date: "2026-07-16",
     changes: [
