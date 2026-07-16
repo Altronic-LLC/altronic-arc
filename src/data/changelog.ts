@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.59.3",
+    date: "2026-07-16",
+    changes: [
+      "Fix the Build Request detail sidebar spilling its fields outside the card when a project chip was long (same latent fix applied to the Task and Operations detail sidebars)",
+    ],
+  },
+  {
     version: "0.59.2",
     date: "2026-07-16",
     changes: [
