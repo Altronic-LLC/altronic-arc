@@ -63,7 +63,7 @@ export function FilterBar({ filters, onChange, projects, people }: FilterBarProp
         <SearchInput
           value={filters.search}
           onChange={(search) => onChange({ ...filters, search })}
-          placeholder='All fields — space = AND, "quotes" = phrase'
+          placeholder="Search anything — add words to narrow"
           className="select"
         />
       </Field>

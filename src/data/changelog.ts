@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.57.1",
+    date: "2026-07-16",
+    changes: [
+      'Rewrite the search box placeholder in plain language ("Search anything — add words to narrow")',
+    ],
+  },
+  {
     version: "0.57.0",
     date: "2026-07-16",
     changes: [

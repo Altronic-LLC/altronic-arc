@@ -328,7 +328,7 @@ export function EirsView() {
           <SearchInput
             value={query}
             onChange={setQuery}
-            placeholder='All fields — space = AND, "quotes" = phrase'
+            placeholder="Search anything — add words to narrow"
             className="select"
           />
         </Field>

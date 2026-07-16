@@ -48,7 +48,7 @@ export function TestSheetsView() {
       <SearchInput
         value={query}
         onChange={setQuery}
-        placeholder='Search all fields — space = AND, "quotes" = phrase'
+        placeholder="Search anything — add words to narrow"
       />
 
       {isLoading ? (
