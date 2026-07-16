@@ -31,12 +31,25 @@ export function PrintBuildRequestItemView() {
     [brs, item],
   );
 
+  // Fire the print dialog only once EVERYTHING the page renders is loaded —
+  // both queries settled AND the part found. Gating on just `item` fired the
+  // dialog while the header query was still loading, so the print preview
+  // snapshotted the loading screen. Fonts are awaited too so the condensed
+  // display face doesn't reflow after the snapshot.
+  const ready = !itemsLoading && !brsLoading && !!item;
   useEffect(() => {
-    if (!item) return;
-    // Small delay so fonts settle before the print dialog snapshots the page.
-    const t = window.setTimeout(() => window.print(), 500);
-    return () => window.clearTimeout(t);
-  }, [item]);
+    if (!ready) return;
+    let cancelled = false;
+    let timer = 0;
+    void document.fonts.ready.then(() => {
+      if (cancelled) return;
+      timer = window.setTimeout(() => window.print(), 400);
+    });
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [ready]);
 
   if (itemsLoading || brsLoading) {
     return <LoadingTasks noun="this part" />;

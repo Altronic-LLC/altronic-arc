@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.59.1",
+    date: "2026-07-16",
+    changes: [
+      "Fix the part print dialog opening before the page finished loading (it was snapshotting the loading screen)",
+    ],
+  },
+  {
     version: "0.59.0",
     date: "2026-07-16",
     changes: [
