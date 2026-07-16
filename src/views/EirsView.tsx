@@ -18,6 +18,8 @@ import {
 } from "@/types/task";
 import { cn } from "@/lib/cn";
 import { matchesSearch, tokenizeQuery } from "@/lib/itemSearch";
+import { withPerson } from "@/lib/people";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 // =============================================================================
 // EIRs list view — modelled on ListView for tasks. Status pills at top for
@@ -125,7 +127,8 @@ export function EirsView() {
     setSearchParams(sp, { replace: true });
   };
 
-  const people = useMemo(() => collectPeople(eirs), [eirs]);
+  const currentUser = useCurrentUser();
+  const people = useMemo(() => withPerson(collectPeople(eirs), currentUser), [eirs, currentUser]);
 
   // EIR Project Reference is a multi-value Lookup column — same shape as
   // the Tasks Related Projects field. Filter matches by lookupId across

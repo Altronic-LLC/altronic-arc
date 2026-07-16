@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { HardHat, Plus } from "lucide-react";
+import { HardHat, Plus, X } from "lucide-react";
 import { useBuildRequestItems, useBuildRequests } from "@/hooks/useBuildRequests";
 import { useProjects } from "@/hooks/useTasks";
 import { LoadingTasks } from "@/components/LoadingTasks";
@@ -16,6 +16,8 @@ import {
 } from "@/types/task";
 import { cn } from "@/lib/cn";
 import { matchesSearch, tokenizeQuery } from "@/lib/itemSearch";
+import { withPerson } from "@/lib/people";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useUnseenMentionSet } from "@/hooks/useUnseenMentions";
 
 // =============================================================================
@@ -74,8 +76,18 @@ export function BuildRequestsView() {
     else sp.delete("requestor");
     setSearchParams(sp, { replace: true });
   };
+  // "Mine" deep link from the Dashboard: requested-by OR engineer-assigned
+  // matches this email. Shown as a dismissible chip (not a hidden filter) so
+  // an empty result is self-explanatory.
+  const mineEmail = searchParams.get("mine");
+  const clearMine = () => {
+    const sp = new URLSearchParams(searchParams);
+    sp.delete("mine");
+    setSearchParams(sp, { replace: true });
+  };
 
-  const people = useMemo(() => collectPeople(brs), [brs]);
+  const currentUser = useCurrentUser();
+  const people = useMemo(() => withPerson(collectPeople(brs), currentUser), [brs, currentUser]);
 
   // Group items per header once — used for item counts, item-text search,
   // and the "any item mentioned" row badge.
@@ -91,7 +103,14 @@ export function BuildRequestsView() {
 
   const filteredByBar = useMemo(() => {
     const searchTokens = tokenizeQuery(query);
+    const mineKey = (mineEmail ?? "").toLowerCase();
     return brs.filter((b) => {
+      if (mineKey) {
+        const isMine =
+          (b.requestor?.email ?? "").toLowerCase() === mineKey ||
+          (b.engineerAssigned?.email ?? "").toLowerCase() === mineKey;
+        if (!isMine) return false;
+      }
       if (projectIds.length > 0) {
         const matched = b.parentProjects.some((p) => projectIds.includes(p.lookupId));
         if (!matched) return false;
@@ -112,7 +131,7 @@ export function BuildRequestsView() {
       }
       return true;
     });
-  }, [brs, projectIds, engineerEmails, requestorEmail, query, itemsByHeader]);
+  }, [brs, mineEmail, projectIds, engineerEmails, requestorEmail, query, itemsByHeader]);
 
   const filtered = useMemo(
     () =>
@@ -160,6 +179,22 @@ export function BuildRequestsView() {
           </p>
         </div>
       </header>
+
+      {mineEmail && (
+        <div className="flex items-center gap-2 rounded-lg border border-accent/30 bg-accent/5 px-3 py-2 text-sm text-fg">
+          <span>
+            Showing <strong>your</strong> build requests — where you're the requestor or the
+            assigned engineer.
+          </span>
+          <button
+            onClick={clearMine}
+            className="ml-auto inline-flex items-center gap-1 rounded-md border border-border bg-surface px-2 py-1 text-xs font-medium text-fg-muted transition-colors hover:text-fg"
+          >
+            <X className="h-3 w-3" />
+            Show all
+          </button>
+        </div>
+      )}
 
       <div className="flex items-start justify-between gap-3">
         <div className="flex flex-wrap gap-2">

@@ -9,6 +9,8 @@ import { LoadingTasks } from "@/components/LoadingTasks";
 import { TaskRow } from "@/components/TaskRow";
 import { TaskFormModal } from "@/components/TaskFormModal";
 import { applyFilters, collectPeople, type StatusFilter } from "@/lib/taskFilters";
+import { withPerson } from "@/lib/people";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { STATUSES, type Status } from "@/types/task";
 
 /**
@@ -33,8 +35,9 @@ export function ListView() {
   );
   const [filters, setFilters] = useFilters();
   const [showNewTask, setShowNewTask] = useState(false);
+  const currentUser = useCurrentUser();
 
-  const people = useMemo(() => collectPeople(tasks), [tasks]);
+  const people = useMemo(() => withPerson(collectPeople(tasks), currentUser), [tasks, currentUser]);
 
   // Two-pass filter so the StatusPills counts reflect the FilterBar
   // selection without including the status filter (which is what the pills

@@ -24,6 +24,8 @@ import { KanbanCard } from "@/components/KanbanCard";
 import { TaskFormModal } from "@/components/TaskFormModal";
 import { statusColor } from "@/components/atoms";
 import { applyFilters, collectPeople } from "@/lib/taskFilters";
+import { withPerson } from "@/lib/people";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { cn } from "@/lib/cn";
 
 export function KanbanView() {
@@ -46,8 +48,10 @@ export function KanbanView() {
 
   // People for the Assigned / Created By dropdowns — drawn from the full
   // task set, not the filtered subset, so the dropdown options are stable
-  // as the user filters.
-  const people = useMemo(() => collectPeople(tasks), [tasks]);
+  // as the user filters. The signed-in user is always included so a
+  // Dashboard "Mine" deep-link shows its filter chip.
+  const currentUser = useCurrentUser();
+  const people = useMemo(() => withPerson(collectPeople(tasks), currentUser), [tasks, currentUser]);
 
   // Apply the FilterBar filters before partitioning into columns. Status
   // filter is passed as null because the columns themselves are statuses.

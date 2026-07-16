@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.58.1",
+    date: "2026-07-16",
+    changes: [
+      "You now always appear in the people filter dropdowns (Assigned, Engineer, Requestor, Created By) on every list, even before you're on any item — so a Dashboard \"Mine\" click-through visibly shows who it's filtered to",
+      "Clicking the Build Requests card in Mine scope now shows a clear \"Showing your build requests\" banner with a Show-all button, and correctly matches the card's count (requests you made OR are the engineer on)",
+    ],
+  },
+  {
     version: "0.58.0",
     date: "2026-07-16",
     changes: [

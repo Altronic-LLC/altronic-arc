@@ -13,6 +13,8 @@ import {
   collectOperationsPeople,
   type OperationsStatusFilter,
 } from "@/lib/operationsTaskFilters";
+import { withPerson } from "@/lib/people";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { OPERATIONS_STATUSES, type OperationsStatus } from "@/types/task";
 
 /** Mirrors ListView.tsx's readInitialStatus — lets the Dashboard deep-link to a status. */
@@ -34,7 +36,11 @@ export function OperationsListView() {
   const [filters, setFilters] = useFilters();
   const [showNewTask, setShowNewTask] = useState(false);
 
-  const people = useMemo(() => collectOperationsPeople(tasks), [tasks]);
+  const currentUser = useCurrentUser();
+  const people = useMemo(
+    () => withPerson(collectOperationsPeople(tasks), currentUser),
+    [tasks, currentUser],
+  );
 
   const filteredByBar = useMemo(
     () => applyOperationsFilters(tasks, null, filters),

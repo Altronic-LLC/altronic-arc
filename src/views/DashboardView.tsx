@@ -332,10 +332,13 @@ export function DashboardView() {
     assigned: mine ? meParam : "",
     ...(projectParam ? { project: projectParam } : {}),
   }).toString()}`;
+  // BR "mine" = requestor OR engineer, so the click-through carries a `mine`
+  // param (rendered as a visible, dismissible chip on the list) instead of a
+  // single-role filter that wouldn't match the card's count.
   const buildRequestsUrl = `/build-requests${
     (mine && meParam) || projectParam
       ? `?${new URLSearchParams({
-          ...(mine && meParam ? { engineer: meParam } : {}),
+          ...(mine && meParam ? { mine: meParam } : {}),
           ...(projectParam ? { project: projectParam } : {}),
         }).toString()}`
       : ""

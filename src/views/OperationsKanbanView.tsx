@@ -28,6 +28,8 @@ import { OperationsKanbanCard } from "@/components/OperationsKanbanCard";
 import { OperationsTaskFormModal } from "@/components/OperationsTaskFormModal";
 import { operationsStatusColor } from "@/components/operationsAtoms";
 import { applyOperationsFilters, collectOperationsPeople } from "@/lib/operationsTaskFilters";
+import { withPerson } from "@/lib/people";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { cn } from "@/lib/cn";
 
 export function OperationsKanbanView() {
@@ -45,7 +47,11 @@ export function OperationsKanbanView() {
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
   );
 
-  const people = useMemo(() => collectOperationsPeople(tasks), [tasks]);
+  const currentUser = useCurrentUser();
+  const people = useMemo(
+    () => withPerson(collectOperationsPeople(tasks), currentUser),
+    [tasks, currentUser],
+  );
 
   const filteredTasks = useMemo(
     () => applyOperationsFilters(tasks, null, filters),
