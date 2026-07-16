@@ -1,3 +1,4 @@
+import { Leaf } from "lucide-react";
 import type { BuildRequestPartStatus, BuildRequestStatus } from "@/types/task";
 import { cn } from "@/lib/cn";
 
@@ -61,6 +62,20 @@ export function PartStatusBadge({ status }: { status: BuildRequestPartStatus | n
       )}
     >
       {status ?? "No status"}
+    </span>
+  );
+}
+
+/**
+ * Lead Free (RoHS) flag — green so it stands out on rows and detail headers.
+ * Production must not miss this: it changes solder/process requirements.
+ */
+export function LeadFreeChip({ leadFree }: { leadFree: boolean }) {
+  if (!leadFree) return null;
+  return (
+    <span className="inline-flex items-center gap-1 rounded border border-cooper-green/40 bg-cooper-green/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-cooper-green">
+      <Leaf className="h-3 w-3" />
+      Lead Free
     </span>
   );
 }

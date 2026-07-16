@@ -1159,6 +1159,23 @@ const SECTIONS: ManualSection[] = [
           part types have no checklist. The card header shows checklist
           progress (e.g. 6/14) and turns green when complete.
         </P>
+        <H3>Printing a part for the production floor</H3>
+        <P>
+          Expand a part and click <strong>Print part</strong> — a
+          printer-friendly page opens in a new tab and pops the print dialog
+          automatically (pick "Save as PDF" or a real printer). It carries
+          everything the floor needs: quantities, drawing info, WO No, the
+          process selections, the checklist state, special instructions and
+          test plan. If the request is <strong>Lead Free (RoHS)</strong>, the
+          printout carries a large warning banner.
+        </P>
+        <H3>Lead Free flag</H3>
+        <P>
+          Requests marked Lead Free (RoHS) show a green{" "}
+          <strong>Lead Free</strong> chip on the list row and the detail
+          header, and the banner on every part printout — it changes solder
+          and process requirements, so it's surfaced everywhere.
+        </P>
         <H3>Two levels of comments</H3>
         <P>
           The <strong>request header</strong> has its own comment thread for

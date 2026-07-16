@@ -36,7 +36,7 @@ import {
   type Comment,
   type Person,
 } from "@/types/task";
-import { BuildRequestStatusBadge, LeadTimeChip } from "@/components/buildRequestAtoms";
+import { BuildRequestStatusBadge, LeadFreeChip, LeadTimeChip } from "@/components/buildRequestAtoms";
 import { BuildRequestItemCard } from "@/components/BuildRequestItemCard";
 import { BuildRequestItemFormModal } from "@/components/BuildRequestItemFormModal";
 import { CommentComposer } from "@/components/CommentComposer";
@@ -218,17 +218,12 @@ export function BuildRequestDetailView() {
                 </span>
               )}
               <LeadTimeChip leadTime={br.requiredLeadTime} />
+              <LeadFreeChip leadFree={br.leadFree} />
               <span className="ml-auto inline-flex items-center gap-1.5 rounded-md bg-surface-2 px-2 py-1 font-mono text-xs font-semibold text-fg-muted">
                 {br.brNo || `#${br.id}`}
               </span>
             </div>
             <InlineTitle value={br.title} onSave={(next) => patch({ Title: next })} />
-            <InlineSubtext
-              label="Product"
-              value={br.product}
-              placeholder="Add a product…"
-              onSave={(next) => patch({ Product: next })}
-            />
           </div>
 
           {/* Parts */}
@@ -562,64 +557,6 @@ function InlineTitle({ value, onSave }: { value: string; onSave: (next: string) 
         }
       }}
       className="w-full rounded-md border border-border bg-bg px-3 py-2 font-display text-xl font-semibold leading-tight text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-2xl"
-    />
-  );
-}
-
-/** Small inline-editable one-liner under the title (the Product field). */
-function InlineSubtext({
-  label,
-  value,
-  placeholder,
-  onSave,
-}: {
-  label: string;
-  value: string;
-  placeholder: string;
-  onSave: (next: string) => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(value);
-
-  function commit() {
-    if (draft.trim() !== value) onSave(draft.trim());
-    setEditing(false);
-  }
-
-  if (!editing) {
-    return (
-      <button
-        onClick={() => {
-          setDraft(value);
-          setEditing(true);
-        }}
-        className="group mt-1 flex items-center gap-1.5 text-left text-sm text-fg-muted hover:text-fg"
-        title={`Edit ${label.toLowerCase()}`}
-      >
-        <span className="font-semibold uppercase tracking-wider text-[10px]">{label} ·</span>
-        <span>{value || placeholder}</span>
-        <Pencil className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-100" />
-      </button>
-    );
-  }
-
-  return (
-    <input
-      autoFocus
-      value={draft}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={commit}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") {
-          e.preventDefault();
-          commit();
-        } else if (e.key === "Escape") {
-          setDraft(value);
-          setEditing(false);
-        }
-      }}
-      placeholder={placeholder}
-      className="select mt-1"
     />
   );
 }

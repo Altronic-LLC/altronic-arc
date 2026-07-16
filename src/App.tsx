@@ -57,6 +57,11 @@ const BuildRequestItemRedirect = lazy(() =>
     default: m.BuildRequestItemRedirect,
   })),
 );
+const PrintBuildRequestItemView = lazy(() =>
+  import("@/views/PrintBuildRequestItemView").then((m) => ({
+    default: m.PrintBuildRequestItemView,
+  })),
+);
 
 export function App() {
   // The print route is intentionally chrome-less so the saved PDF doesn't
@@ -176,6 +181,14 @@ export function App() {
             element={
               <Suspense fallback={<LoadingTasks noun="this part" />}>
                 <BuildRequestItemRedirect />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/build-request-item/:itemId/print"
+            element={
+              <Suspense fallback={<LoadingTasks noun="this part" />}>
+                <PrintBuildRequestItemView />
               </Suspense>
             }
           />

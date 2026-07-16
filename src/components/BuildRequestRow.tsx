@@ -2,7 +2,7 @@ import { ChevronRight, FileText, FolderOpen, Package, User } from "lucide-react"
 import { useEffect, useRef } from "react";
 import type { BuildRequest } from "@/types/task";
 import { AttachmentIndicator, CommentCount } from "./atoms";
-import { BuildRequestStatusBadge, LeadTimeChip } from "./buildRequestAtoms";
+import { BuildRequestStatusBadge, LeadFreeChip, LeadTimeChip } from "./buildRequestAtoms";
 import { markAsSeen, useIsMentioned } from "@/hooks/useUnseenMentions";
 
 interface BuildRequestRowProps {
@@ -69,6 +69,7 @@ export function BuildRequestRow({ br, itemCount, hasItemMention, onOpen }: Build
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <LeadTimeChip leadTime={br.requiredLeadTime} />
+          <LeadFreeChip leadFree={br.leadFree} />
           <span className="inline-flex items-center gap-1 rounded border border-border bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
             <Package className="h-3 w-3" />
             {itemCount} {itemCount === 1 ? "part" : "parts"}

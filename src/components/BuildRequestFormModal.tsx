@@ -35,7 +35,6 @@ export function BuildRequestFormModal({ onClose }: BuildRequestFormModalProps) {
   const createBr = useCreateBuildRequest();
 
   const [title, setTitle] = useState("");
-  const [product, setProduct] = useState("");
   const [brType, setBrType] = useState<BuildRequestType | "">("");
   const [leadTime, setLeadTime] = useState<BuildRequestLeadTime | "">("STD Lead Time");
   const [shipDate, setShipDate] = useState("");
@@ -102,7 +101,6 @@ export function BuildRequestFormModal({ onClose }: BuildRequestFormModalProps) {
       const created = await createBr.mutateAsync({
         title: trimmedTitle,
         brNo: nextBuildRequestNo(allBrs),
-        product: product.trim() || undefined,
         brType: brType || null,
         requiredLeadTime: leadTime || null,
         quotedShipDate: leadTime === "Ship Date" && shipDate ? new Date(shipDate) : null,
@@ -155,17 +153,6 @@ export function BuildRequestFormModal({ onClose }: BuildRequestFormModalProps) {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. HUB V4"
-              className="select"
-              disabled={busy}
-            />
-          </FieldLabel>
-
-          <FieldLabel label="Product">
-            <input
-              type="text"
-              value={product}
-              onChange={(e) => setProduct(e.target.value)}
-              placeholder="e.g. 571004-1 Stator trial"
               className="select"
               disabled={busy}
             />

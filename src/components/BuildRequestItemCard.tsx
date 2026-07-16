@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, ClipboardCheck, Eye, Hash, Link2, Trash2 } from "lucide-react";
+import { ChevronDown, ClipboardCheck, Eye, Hash, Link2, Printer, Trash2 } from "lucide-react";
 import type { BuildRequestItem, Comment, Person } from "@/types/task";
 import {
   BUILD_REQUEST_ASSEMBLY_OPTIONS,
@@ -335,6 +335,20 @@ export function BuildRequestItemCard({
                 })}
                 {item.author?.displayName ? ` by ${item.author.displayName}` : ""}
               </div>
+
+              <button
+                onClick={() =>
+                  window.open(
+                    `${import.meta.env.BASE_URL}build-request-item/${item.id}/print`,
+                    "_blank",
+                  )
+                }
+                className="inline-flex w-fit items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs font-medium text-fg transition-colors hover:bg-surface-2"
+                title="Open a printer-friendly page for this part (production floor copy)"
+              >
+                <Printer className="h-3.5 w-3.5" />
+                Print part
+              </button>
 
               <button
                 onClick={() => {

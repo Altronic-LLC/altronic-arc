@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.59.0",
+    date: "2026-07-16",
+    changes: [
+      "Lead Free (RoHS) build requests now show a green Lead Free flag on the list and detail pages",
+      "Each build request part has a Print part button — a printer-friendly page for the production floor with quantities, drawings, WO No, process selections, checklist state, and a large Lead Free warning banner when applicable",
+      "Removed the Product field from the build request header — parts already carry the product details",
+    ],
+  },
+  {
     version: "0.58.1",
     date: "2026-07-16",
     changes: [
