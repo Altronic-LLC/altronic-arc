@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.59.4",
+    date: "2026-07-17",
+    changes: [
+      "User Manual now fully documents build request notifications — part comments going to the part's own watchers, Engineer Assigned and Part Status alerts, the requestor's role as a recipient, and which edits deliberately stay quiet",
+    ],
+  },
+  {
     version: "0.59.3",
     date: "2026-07-16",
     changes: [

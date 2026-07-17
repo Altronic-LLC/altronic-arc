@@ -1120,7 +1120,7 @@ const SECTIONS: ManualSection[] = [
       "sample",
     ],
     searchText:
-      "Build Requests ask manufacturing to build parts. Each request (BR_YYYY-####) has a header — status, type, lead time, requestor, engineer, customer — and any number of parts. Each part has its own comment thread, watchers, attachments, and a Part-Type checklist: PCB parts get the data-package checklist, Harness parts get the terminals checklist. Create from the Build Requests list; add parts from the detail page.",
+      "Build Requests ask manufacturing to build parts. Each request (BR_YYYY-####) has a header — status, type, lead time, requestor, engineer, customer — and any number of parts. Each part has its own comment thread, watchers, attachments, and a Part-Type checklist: PCB parts get the data-package checklist, Harness parts get the terminals checklist. Create from the Build Requests list; add parts from the detail page. Email notifications fire for comments (request or part level), BR Status changes, Engineer Assigned changes, and a part's Part Status changes; part-comment emails open the request with that part expanded. Lead Free requests show a green flag and a warning banner on part printouts; each part has a Print part button for the production floor.",
     render: () => (
       <>
         <P>
@@ -1185,6 +1185,22 @@ const SECTIONS: ManualSection[] = [
           work at both levels — a mention on a part emails a link that opens
           the request with that part expanded. Attachments also exist at both
           levels (on the header and on each part).
+        </P>
+        <H3>Email notifications</H3>
+        <P>
+          Build requests send email for: <strong>comments</strong> (request
+          watchers, or a part's own watchers for part comments, plus anyone
+          @-mentioned), <strong>BR Status changes</strong> (watchers + engineer
+          + requestor), <strong>Engineer Assigned changes</strong> (personal
+          "assigned / unassigned" notes plus a broadcast to watchers and the
+          requestor), and a part's <strong>Part Status changes</strong> (that
+          part's watchers). Nothing else emails — adding/removing parts,
+          checklist ticks, WO No, lead time, and customer edits are quiet. See
+          the{" "}
+          <a href="#notifications" className="text-accent underline-offset-2 hover:underline">
+            Notifications
+          </a>{" "}
+          section for the full recipient rules.
         </P>
         <H3>Finding requests</H3>
         <P>
@@ -1421,15 +1437,20 @@ const SECTIONS: ManualSection[] = [
       "resolution change email",
       "promoted to task email",
       "promotion notification",
+      "build request notification",
+      "part status email",
+      "engineer assigned email",
+      "part comment email",
     ],
     searchText:
-      "Commenting on a task or EIR emails everyone watching it plus everyone you @-mention, from automation@altronic-llc.com. Mentioned people get a 'You were mentioned' email; other watchers get a 'New comment on' email. You're never emailed for your own comment unless you @-mention yourself. @-mentioning auto-adds the person as a watcher. Editing a comment emails only newly added mentions by default, but checking 'Notify everyone again' resends an 'Updated comment on' email to watchers plus everyone mentioned in the new AND previous version of the comment. Click Watch on the detail page to follow; click Watching to stop. Change alerts: changing a Status, an EIR Resolution, or the assignees emails the watchers, current assignees, and (for EIRs) the reporter. Being added as an assignee emails you 'You've been assigned'; being removed emails 'You've been unassigned'; everyone else gets a broadcast. Promoting an EIR to a task emails the EIR's watchers and reporter with a link to the new task. You're never emailed for a change you made yourself.",
+      "Commenting on a task, EIR, build request, or build request part emails everyone watching it plus everyone you @-mention, from automation@altronic-llc.com. Mentioned people get a 'You were mentioned' email; other watchers get a 'New comment on' email. Build request parts have their own watcher lists; part-comment emails deep-link to the request with that part expanded. You're never emailed for your own comment unless you @-mention yourself. @-mentioning auto-adds the person as a watcher. Editing a comment emails only newly added mentions by default, but checking 'Notify everyone again' resends an 'Updated comment on' email to watchers plus everyone mentioned in the new AND previous version of the comment. Change alerts: changing a Status (task, EIR, or build request), an EIR Resolution, a build request part's Part Status, or the assignees (including a build request's Engineer Assigned) emails the watchers, current assignees, and the EIR reporter or BR requestor. Being added as an assignee emails you 'You've been assigned'; being removed emails 'You've been unassigned'; everyone else gets a broadcast. Promoting an EIR to a task emails the EIR's watchers and reporter with a link to the new task. Creating/deleting parts and other field edits (lead time, customer, checklist, WO No) send no email. You're never emailed for a change you made yourself.",
     render: () => (
       <>
         <P>
           ARC emails come from <strong>automation@altronic-llc.com</strong>, and
-          every one names the task or EIR and carries a button to open it. Two
-          rules hold across <em>all</em> of them:
+          every one names the item — a task, EIR, Operations task, build
+          request, or an individual build request part — and carries a button
+          to open it. Two rules hold across <em>all</em> of them:
         </P>
         <UL>
           <LI>
@@ -1449,8 +1470,13 @@ const SECTIONS: ManualSection[] = [
           rows={[
             [
               "You comment (no mention)",
-              "Everyone watching the item (minus you)",
+              "Everyone watching the item (minus you). Build request parts have their own watcher list — a part comment goes to that part's watchers, not the whole request's",
               "New comment on …",
+            ],
+            [
+              "You comment on a build request part",
+              "That part's watchers + anyone @-mentioned — the email's button opens the request with that part already expanded",
+              "New comment on a build request part …",
             ],
             [
               "You @-mention someone in a comment",
@@ -1483,7 +1509,7 @@ const SECTIONS: ManualSection[] = [
               "Resolution changed on …",
             ],
             [
-              "Someone is added as an assignee",
+              "Someone is added as an assignee (incl. a build request's Engineer Assigned)",
               "The person added",
               "You've been assigned to …",
             ],
@@ -1494,7 +1520,7 @@ const SECTIONS: ManualSection[] = [
             ],
             [
               "Assignees change (for everyone else)",
-              "Watchers + remaining assignees + reporter (minus you and the added/removed people)",
+              "Watchers + remaining assignees + EIR reporter / BR requestor (minus you and the added/removed people)",
               "Assignees changed on …",
             ],
             [
@@ -1546,18 +1572,23 @@ const SECTIONS: ManualSection[] = [
 
         <H3>Status &amp; resolution changes</H3>
         <P>
-          Changing a task's or EIR's <strong>Status</strong>, or an EIR's{" "}
-          <strong>Resolution</strong>, alerts everyone who cares —{" "}
-          <strong>watchers</strong>, <strong>current assignees</strong>, and, for
-          EIRs, the <strong>reporter</strong>. The email spells out the change
-          (e.g. <em>"In Progress → Complete"</em>) and who made it. Completing a
-          task that was promoted from an EIR closes that EIR (Resolved &amp;
-          Closed), which alerts the EIR's followers too.
+          Changing a task's, EIR's, or build request's <strong>Status</strong>,
+          or an EIR's <strong>Resolution</strong>, alerts everyone who cares —{" "}
+          <strong>watchers</strong>, <strong>current assignees</strong> (a build
+          request's Engineer Assigned), plus the EIR{" "}
+          <strong>reporter</strong> or build request <strong>requestor</strong>.
+          The email spells out the change (e.g.{" "}
+          <em>"In Progress → Complete"</em>) and who made it. On build requests,
+          each part's <strong>Part Status</strong> also alerts — that goes to
+          the part's own watchers. Completing a task that was promoted from an
+          EIR closes that EIR (Resolved &amp; Closed), which alerts the EIR's
+          followers too.
         </P>
 
         <H3>Assignee changes</H3>
         <P>
-          When assignees change, the affected people get a{" "}
+          When assignees change — including a build request's{" "}
+          <strong>Engineer Assigned</strong> — the affected people get a{" "}
           <strong>personal</strong> note and everyone else gets a{" "}
           <strong>broadcast</strong>:
         </P>
@@ -1570,11 +1601,21 @@ const SECTIONS: ManualSection[] = [
             …".
           </LI>
           <LI>
-            Watchers, other assignees, and the EIR reporter → "Assignees changed
-            on …", naming who was added and removed. (People who already got a
-            personal note aren't sent this too.)
+            Watchers, other assignees, and the EIR reporter / build request
+            requestor → "Assignees changed on …", naming who was added and
+            removed. (People who already got a personal note aren't sent this
+            too.)
           </LI>
         </UL>
+
+        <H3>What doesn't send email</H3>
+        <P>
+          Deliberately quiet: creating or deleting build request parts, and
+          edits to other fields — lead time, type, customer info, checklist
+          ticks, WO No, due dates, descriptions, and so on. Only Status
+          changes, assignee/engineer changes, Part Status changes, and
+          comments fire email.
+        </P>
 
         <H3>Promoting an EIR to a task</H3>
         <P>
