@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.60.1",
+    date: "2026-07-17",
+    changes: [
+      "Checking a checklist box is now instant — no confirmation pop-up; your name and the time are still recorded next to the item",
+      "Unchecking a checklist box now asks \"Are you sure?\" and records who unchecked it and when (✗ stamp), instead of silently clearing the record",
+    ],
+  },
+  {
     version: "0.60.0",
     date: "2026-07-17",
     changes: [

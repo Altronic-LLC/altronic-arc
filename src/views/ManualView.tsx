@@ -329,7 +329,7 @@ const SECTIONS: ManualSection[] = [
       "to-do list",
     ],
     searchText:
-      "Create tasks with the New Task button. Required: Title and Parent Project. NumberedTitle is auto-generated as T{n}-{projectRef}-{title}. Edit fields inline from the right sidebar of the detail page. Use Mark Complete or change Status to close out. The Description field can hold a custom checklist — click Turn into checklist while editing, or type - [ ] lines yourself, and check items off directly from the detail page. Checking a box asks Are you sure, then records your name and the time next to the item; unchecking clears the record.",
+      "Create tasks with the New Task button. Required: Title and Parent Project. NumberedTitle is auto-generated as T{n}-{projectRef}-{title}. Edit fields inline from the right sidebar of the detail page. Use Mark Complete or change Status to close out. The Description field can hold a custom checklist — click Turn into checklist while editing, or type - [ ] lines yourself, and check items off directly from the detail page. Checking a box instantly records your name and the time next to the item; unchecking asks Are you sure first and records who unchecked it.",
     render: () => (
       <>
         <H3>Creating a task</H3>
@@ -403,14 +403,15 @@ const SECTIONS: ManualSection[] = [
           <code>- [x]</code> lines become checkboxes.
         </P>
         <P>
-          Clicking a box first asks <strong>"Are you sure?"</strong> so an
-          accidental click doesn't count. When you confirm a check,{" "}
-          <strong>your name and the current time are recorded</strong> and
-          shown in small print right next to the item (e.g.{" "}
-          <em>✓ Ray White · 7/17/2026, 10:15 AM</em>). Unchecking clears that
-          record — the confirm dialog warns you before it does. This works
-          everywhere Description checklists exist: Engineering tasks,
-          Operations tasks, and EIR descriptions.
+          Checking a box is instant — <strong>your name and the current
+          time are recorded</strong> and shown in small print right next to
+          the item (e.g. <em>✓ Ray White · 7/17/2026, 10:15 AM</em>).
+          Unchecking asks <strong>"Are you sure?"</strong> first, since it
+          undoes recorded work — if you confirm, your name and the time are
+          recorded as unchecking it (shown as{" "}
+          <em>✗ Ray White · 7/17/2026, 10:15 AM</em>), replacing the
+          checked-by record. This works everywhere Description checklists
+          exist: Engineering tasks, Operations tasks, and EIR descriptions.
         </P>
         <H3>Marking complete</H3>
         <P>

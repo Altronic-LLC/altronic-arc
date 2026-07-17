@@ -31,10 +31,10 @@ interface DescriptionViewProps {
  * sanitised HTML for legacy Power Apps content, or whitespace-preserved
  * plain text.
  *
- * Checked items can carry a who/when attribution stamp (small detail next
- * to the item — see toggleChecklistItem). Clicking a box asks for
- * confirmation first, so an accidental click doesn't record a false
- * check (or wipe an existing one).
+ * Items carry a who/when attribution stamp (small detail next to the item —
+ * see toggleChecklistItem): ✓ for who checked it, ✗ for who unchecked it.
+ * Checking is instant (it just records the stamp); UNchecking asks for
+ * confirmation first, so an accidental click doesn't undo recorded work.
  */
 export function DescriptionView({ text, onToggle, className, tone = "theme" }: DescriptionViewProps) {
   const items = parseChecklistItems(text);
@@ -76,21 +76,27 @@ export function DescriptionView({ text, onToggle, className, tone = "theme" }: D
                 type="checkbox"
                 checked={item.checked}
                 disabled={!onToggle}
-                onChange={onToggle ? () => setPending(item) : undefined}
+                onChange={
+                  onToggle
+                    ? () =>
+                        // Checking is instant; only UNchecking needs a confirm.
+                        item.checked ? setPending(item) : onToggle(item.lineIndex)
+                    : undefined
+                }
                 className="mt-0.5 h-4 w-4 shrink-0 rounded border-border accent-accent"
               />
               <span className="min-w-0">
                 <span className={cn(item.checked && [mutedColor, "line-through"])}>
                   {item.text || <span className={cn("italic", mutedColor)}>(empty item)</span>}
                 </span>
-                {item.checked && item.stamp && (
+                {item.stamp && (
                   <span
                     className={cn(
                       "ml-2 whitespace-nowrap align-middle text-[11px] no-underline",
                       mutedColor,
                     )}
                   >
-                    ✓ {item.stamp}
+                    {item.checked ? "✓" : "✗"} {item.stamp}
                   </span>
                 )}
               </span>
@@ -120,8 +126,8 @@ export function DescriptionView({ text, onToggle, className, tone = "theme" }: D
 }
 
 /**
- * "Are you sure?" guard for checklist toggles. Checking records a who/when
- * stamp; unchecking erases one — both deserve a deliberate click.
+ * "Are you sure?" guard for UNchecking a box — it undoes recorded work, so
+ * it deserves a deliberate click. (Checking is instant, no modal.)
  */
 function ConfirmToggleModal({
   item,
@@ -132,7 +138,6 @@ function ConfirmToggleModal({
   onYes: () => void;
   onNo: () => void;
 }) {
-  const checking = !item.checked;
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
@@ -145,15 +150,12 @@ function ConfirmToggleModal({
         className="w-full max-w-sm rounded-lg border border-border bg-surface p-5 shadow-xl"
       >
         <h2 className="font-display text-base font-semibold text-fg">
-          {checking ? "Are you sure you want to check this box?" : "Are you sure you want to uncheck this box?"}
+          Are you sure you want to uncheck this box?
         </h2>
         <p className="mt-2 break-words text-sm text-fg-muted">
           "{item.text || "(empty item)"}"
-          {checking
-            ? " — your name and the current time will be recorded next to it."
-            : item.stamp
-              ? ` — this clears the record (${item.stamp}).`
-              : ""}
+          {item.stamp ? ` — it was checked by ${item.stamp}.` : ""}
+          {" "}Your name and the current time will be recorded as unchecking it.
         </p>
         <div className="mt-4 flex justify-end gap-2">
           <button

@@ -53,6 +53,18 @@ describe("parseChecklistItems", () => {
     ]);
   });
 
+  it("splits an unchecked-by ✗ stamp out of the item text too", () => {
+    const out = parseChecklistItems("- [ ] Buy the part ✗[Ray White · 7/17/2026, 10:15 AM]");
+    expect(out).toEqual([
+      {
+        lineIndex: 0,
+        checked: false,
+        text: "Buy the part",
+        stamp: "Ray White · 7/17/2026, 10:15 AM",
+      },
+    ]);
+  });
+
   it("does not match lines missing the space after the dash, or malformed brackets", () => {
     expect(parseChecklistItems("-[ ] not quite right")).toBeNull();
     expect(parseChecklistItems("- [y] invalid mark")).toBeNull();
@@ -91,13 +103,15 @@ describe("toggleChecklistItem", () => {
     );
   });
 
-  it("strips the stamp when unchecking", () => {
+  it("records who unchecked with a ✗ stamp, replacing the ✓ stamp", () => {
     const checked = "- [x] Buy the part ✓[Ray White · 7/17/2026, 10:15 AM]";
-    expect(toggleChecklistItem(checked, 0, "Someone Else", NOW)).toBe("- [ ] Buy the part");
+    expect(toggleChecklistItem(checked, 0, "Someone Else", NOW)).toBe(
+      "- [ ] Buy the part ✗[Someone Else · 7/17/2026, 10:15 AM]",
+    );
   });
 
   it("replaces a stale stamp instead of stacking a second one", () => {
-    const withOldStamp = "- [ ] Buy the part ✓[Old Name · 1/1/2020, 9:00 AM]";
+    const withOldStamp = "- [ ] Buy the part ✗[Old Name · 1/1/2020, 9:00 AM]";
     expect(toggleChecklistItem(withOldStamp, 0, "Ray White", NOW)).toBe(
       "- [x] Buy the part ✓[Ray White · 7/17/2026, 10:15 AM]",
     );
@@ -109,8 +123,11 @@ describe("toggleChecklistItem", () => {
     );
   });
 
-  it("checks without a stamp when no name is given (backwards compatible)", () => {
+  it("toggles without a stamp when no name is given (backwards compatible)", () => {
     expect(toggleChecklistItem("- [ ] Buy the part", 0)).toBe("- [x] Buy the part");
+    expect(
+      toggleChecklistItem("- [x] Buy the part ✓[Ray White · 7/17/2026, 10:15 AM]", 0),
+    ).toBe("- [ ] Buy the part");
   });
 });
 

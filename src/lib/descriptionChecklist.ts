@@ -12,13 +12,15 @@
 const CHECKLIST_LINE_RE = /^-\s\[([ xX])\]\s?(.*)$/;
 
 /**
- * Attribution stamp appended to a checked line's text, e.g.
- * `- [x] Buy the part ✓[Ray White · 7/17/2026, 10:15 AM]`.
+ * Attribution stamp appended to a line's text, e.g.
+ * `- [x] Buy the part ✓[Ray White · 7/17/2026, 10:15 AM]` (checked by) or
+ * `- [ ] Buy the part ✗[Ray White · 7/17/2026, 10:15 AM]` (unchecked by).
  * Lives in the Description string itself (same as the checked state), so it
- * survives round-trips through SharePoint and plain-text editing. The ✓[…]
- * shape is unlikely to appear in normal prose; unchecking strips it.
+ * survives round-trips through SharePoint and plain-text editing. The ✓[…]/✗[…]
+ * shapes are unlikely to appear in normal prose; each toggle replaces any
+ * existing stamp with its own.
  */
-const STAMP_RE = /\s*✓\[([^\]]*)\]\s*$/;
+const STAMP_RE = /\s*[✓✗]\[([^\]]*)\]\s*$/;
 
 export interface ChecklistItem {
   /** Index into `text.split("\n")` — identifies which line to toggle. */
@@ -56,14 +58,15 @@ export function parseChecklistItems(text: string): ChecklistItem[] | null {
  * Flip one item's checked state by line index. Returns `text` unchanged if
  * that line isn't a checklist line.
  *
- * When CHECKING and `checkedBy` is given, a who/when attribution stamp is
- * appended to the line (shown as small detail next to the item). Unchecking
- * always strips the stamp — the record belongs to the checked state.
+ * When `toggledBy` is given, a who/when attribution stamp is appended to the
+ * line (shown as small detail next to the item): ✓[…] when checking, ✗[…]
+ * when unchecking. Each toggle replaces whatever stamp was there before, so
+ * the line always records only the most recent action.
  */
 export function toggleChecklistItem(
   text: string,
   lineIndex: number,
-  checkedBy?: string,
+  toggledBy?: string,
   now: Date = new Date(),
 ): string {
   const lines = text.split("\n");
@@ -72,16 +75,12 @@ export function toggleChecklistItem(
   const m = CHECKLIST_LINE_RE.exec(line);
   if (!m) return text;
   const checked = m[1].toLowerCase() === "x";
-  // Strip any existing stamp; re-added below when checking.
+  // Strip any existing stamp; the new one (if any) is added below.
   const body = m[2].replace(STAMP_RE, "").trimEnd();
-  if (checked) {
-    lines[lineIndex] = `- [ ] ${body}`;
-  } else {
-    // Square brackets in a name would break the stamp's parseability.
-    const name = (checkedBy ?? "").replace(/[[\]]/g, "").trim();
-    const stamp = name ? ` ✓[${name} · ${formatStampDate(now)}]` : "";
-    lines[lineIndex] = `- [x] ${body}${stamp}`;
-  }
+  // Square brackets in a name would break the stamp's parseability.
+  const name = (toggledBy ?? "").replace(/[[\]]/g, "").trim();
+  const stamp = name ? ` ${checked ? "✗" : "✓"}[${name} · ${formatStampDate(now)}]` : "";
+  lines[lineIndex] = checked ? `- [ ] ${body}${stamp}` : `- [x] ${body}${stamp}`;
   return lines.join("\n");
 }
 

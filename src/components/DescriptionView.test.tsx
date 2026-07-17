@@ -39,7 +39,7 @@ describe("DescriptionView — checklist rendering", () => {
     expect(screen.getAllByRole("checkbox")).toHaveLength(1);
   });
 
-  it("asks for confirmation, then calls onToggle with the line index on Yes", async () => {
+  it("checking is instant — calls onToggle immediately, no modal", async () => {
     const user = userEvent.setup();
     const onToggle = vi.fn();
     render(
@@ -48,46 +48,54 @@ describe("DescriptionView — checklist rendering", () => {
     const boxes = screen.getAllByRole("checkbox");
     await user.click(boxes[1]);
 
+    expect(onToggle).toHaveBeenCalledWith(1);
+    expect(screen.queryByText(/are you sure/i)).not.toBeInTheDocument();
+  });
+
+  it("asks for confirmation before unchecking, then calls onToggle on Yes", async () => {
+    const user = userEvent.setup();
+    const onToggle = vi.fn();
+    render(
+      <DescriptionView
+        text="- [x] done thing ✓[Ray White · 7/17/2026, 10:15 AM]"
+        onToggle={onToggle}
+      />,
+    );
+    await user.click(screen.getByRole("checkbox"));
+
     // Nothing toggles until the user confirms.
     expect(onToggle).not.toHaveBeenCalled();
     expect(
-      screen.getByText(/are you sure you want to check this box/i),
+      screen.getByText(/are you sure you want to uncheck this box/i),
     ).toBeInTheDocument();
+    // Names who had checked it, and warns the uncheck is recorded too.
+    expect(screen.getByText(/it was checked by Ray White/i)).toBeInTheDocument();
+    expect(screen.getByText(/recorded as unchecking it/i)).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /^yes$/i }));
-    expect(onToggle).toHaveBeenCalledWith(1);
+    expect(onToggle).toHaveBeenCalledWith(0);
   });
 
-  it("does not toggle when the user answers No", async () => {
+  it("does not uncheck when the user answers No", async () => {
     const user = userEvent.setup();
     const onToggle = vi.fn();
-    render(<DescriptionView text="- [ ] one" onToggle={onToggle} />);
+    render(<DescriptionView text="- [x] one" onToggle={onToggle} />);
     await user.click(screen.getByRole("checkbox"));
     await user.click(screen.getByRole("button", { name: /^no$/i }));
     expect(onToggle).not.toHaveBeenCalled();
     expect(screen.queryByText(/are you sure/i)).not.toBeInTheDocument();
   });
 
-  it("asks the uncheck variant when the box is already checked", async () => {
-    const user = userEvent.setup();
-    render(
-      <DescriptionView
-        text="- [x] done thing ✓[Ray White · 7/17/2026, 10:15 AM]"
-        onToggle={() => {}}
-      />,
-    );
-    await user.click(screen.getByRole("checkbox"));
-    expect(
-      screen.getByText(/are you sure you want to uncheck this box/i),
-    ).toBeInTheDocument();
-    // Warns that unchecking clears the recorded stamp.
-    expect(screen.getByText(/this clears the record/i)).toBeInTheDocument();
-  });
-
   it("shows the who/when stamp as small detail next to a checked item", () => {
     render(<DescriptionView text="- [x] Buy the part ✓[Ray White · 7/17/2026, 10:15 AM]" />);
     expect(screen.getByText("Buy the part")).toBeInTheDocument();
     expect(screen.getByText(/✓ Ray White · 7\/17\/2026, 10:15 AM/)).toBeInTheDocument();
+  });
+
+  it("shows the unchecked-by ✗ stamp next to an unchecked item", () => {
+    render(<DescriptionView text="- [ ] Buy the part ✗[Ray White · 7/17/2026, 10:15 AM]" />);
+    expect(screen.getByText("Buy the part")).toBeInTheDocument();
+    expect(screen.getByText(/✗ Ray White · 7\/17\/2026, 10:15 AM/)).toBeInTheDocument();
   });
 
   it("renders read-only, disabled checkboxes when onToggle is omitted", () => {
