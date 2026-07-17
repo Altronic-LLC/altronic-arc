@@ -11,11 +11,23 @@
 
 const CHECKLIST_LINE_RE = /^-\s\[([ xX])\]\s?(.*)$/;
 
+/**
+ * Attribution stamp appended to a checked line's text, e.g.
+ * `- [x] Buy the part ✓[Ray White · 7/17/2026, 10:15 AM]`.
+ * Lives in the Description string itself (same as the checked state), so it
+ * survives round-trips through SharePoint and plain-text editing. The ✓[…]
+ * shape is unlikely to appear in normal prose; unchecking strips it.
+ */
+const STAMP_RE = /\s*✓\[([^\]]*)\]\s*$/;
+
 export interface ChecklistItem {
   /** Index into `text.split("\n")` — identifies which line to toggle. */
   lineIndex: number;
   checked: boolean;
+  /** The item's display text, with any attribution stamp stripped. */
   text: string;
+  /** "Ray White · 7/17/2026, 10:15 AM" when the line carries a who/when stamp. */
+  stamp: string | null;
 }
 
 /**
@@ -28,21 +40,60 @@ export function parseChecklistItems(text: string): ChecklistItem[] | null {
   const items: ChecklistItem[] = [];
   text.split("\n").forEach((line, lineIndex) => {
     const m = CHECKLIST_LINE_RE.exec(line);
-    if (m) items.push({ lineIndex, checked: m[1].toLowerCase() === "x", text: m[2] });
+    if (!m) return;
+    const stampMatch = STAMP_RE.exec(m[2]);
+    items.push({
+      lineIndex,
+      checked: m[1].toLowerCase() === "x",
+      text: stampMatch ? m[2].replace(STAMP_RE, "") : m[2],
+      stamp: stampMatch ? stampMatch[1] : null,
+    });
   });
   return items.length > 0 ? items : null;
 }
 
-/** Flip one item's checked state by line index. Returns `text` unchanged if that line isn't a checklist line. */
-export function toggleChecklistItem(text: string, lineIndex: number): string {
+/**
+ * Flip one item's checked state by line index. Returns `text` unchanged if
+ * that line isn't a checklist line.
+ *
+ * When CHECKING and `checkedBy` is given, a who/when attribution stamp is
+ * appended to the line (shown as small detail next to the item). Unchecking
+ * always strips the stamp — the record belongs to the checked state.
+ */
+export function toggleChecklistItem(
+  text: string,
+  lineIndex: number,
+  checkedBy?: string,
+  now: Date = new Date(),
+): string {
   const lines = text.split("\n");
   const line = lines[lineIndex];
   if (line === undefined) return text;
   const m = CHECKLIST_LINE_RE.exec(line);
   if (!m) return text;
   const checked = m[1].toLowerCase() === "x";
-  lines[lineIndex] = `- [${checked ? " " : "x"}] ${m[2]}`;
+  // Strip any existing stamp; re-added below when checking.
+  const body = m[2].replace(STAMP_RE, "").trimEnd();
+  if (checked) {
+    lines[lineIndex] = `- [ ] ${body}`;
+  } else {
+    // Square brackets in a name would break the stamp's parseability.
+    const name = (checkedBy ?? "").replace(/[[\]]/g, "").trim();
+    const stamp = name ? ` ✓[${name} · ${formatStampDate(now)}]` : "";
+    lines[lineIndex] = `- [x] ${body}${stamp}`;
+  }
   return lines.join("\n");
+}
+
+/** Deterministic en-US format so the stamp reads the same on every machine. */
+function formatStampDate(d: Date): string {
+  return d.toLocaleString("en-US", {
+    month: "numeric",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 /**

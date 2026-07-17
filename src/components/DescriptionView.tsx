@@ -1,12 +1,17 @@
+import { useState } from "react";
 import { cn } from "@/lib/cn";
 import { sanitiseHtml } from "@/lib/sanitiseHtml";
-import { looksLikeHtml, parseChecklistItems } from "@/lib/descriptionChecklist";
+import {
+  looksLikeHtml,
+  parseChecklistItems,
+  type ChecklistItem,
+} from "@/lib/descriptionChecklist";
 
 interface DescriptionViewProps {
   text: string;
   /**
-   * Called with the line index when a checklist box is clicked. Omit to
-   * render read-only checkboxes (print view, or a locked/disabled field).
+   * Called with the line index when a checklist box toggle is CONFIRMED.
+   * Omit to render read-only checkboxes (print view, or a locked field).
    */
   onToggle?: (lineIndex: number) => void;
   className?: string;
@@ -25,9 +30,15 @@ interface DescriptionViewProps {
  * lines as plain text); otherwise falls back to the existing behavior —
  * sanitised HTML for legacy Power Apps content, or whitespace-preserved
  * plain text.
+ *
+ * Checked items can carry a who/when attribution stamp (small detail next
+ * to the item — see toggleChecklistItem). Clicking a box asks for
+ * confirmation first, so an accidental click doesn't record a false
+ * check (or wipe an existing one).
  */
 export function DescriptionView({ text, onToggle, className, tone = "theme" }: DescriptionViewProps) {
   const items = parseChecklistItems(text);
+  const [pending, setPending] = useState<ChecklistItem | null>(null);
   const textColor = tone === "print" ? "text-black" : "text-fg";
   const mutedColor = tone === "print" ? "text-neutral-500" : "text-fg-muted";
 
@@ -65,11 +76,23 @@ export function DescriptionView({ text, onToggle, className, tone = "theme" }: D
                 type="checkbox"
                 checked={item.checked}
                 disabled={!onToggle}
-                onChange={onToggle ? () => onToggle(item.lineIndex) : undefined}
+                onChange={onToggle ? () => setPending(item) : undefined}
                 className="mt-0.5 h-4 w-4 shrink-0 rounded border-border accent-accent"
               />
-              <span className={cn(item.checked && [mutedColor, "line-through"])}>
-                {item.text || <span className={cn("italic", mutedColor)}>(empty item)</span>}
+              <span className="min-w-0">
+                <span className={cn(item.checked && [mutedColor, "line-through"])}>
+                  {item.text || <span className={cn("italic", mutedColor)}>(empty item)</span>}
+                </span>
+                {item.checked && item.stamp && (
+                  <span
+                    className={cn(
+                      "ml-2 whitespace-nowrap align-middle text-[11px] no-underline",
+                      mutedColor,
+                    )}
+                  >
+                    ✓ {item.stamp}
+                  </span>
+                )}
               </span>
             </label>
           );
@@ -81,6 +104,73 @@ export function DescriptionView({ text, onToggle, className, tone = "theme" }: D
           </div>
         );
       })}
+
+      {pending && onToggle && (
+        <ConfirmToggleModal
+          item={pending}
+          onYes={() => {
+            onToggle(pending.lineIndex);
+            setPending(null);
+          }}
+          onNo={() => setPending(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * "Are you sure?" guard for checklist toggles. Checking records a who/when
+ * stamp; unchecking erases one — both deserve a deliberate click.
+ */
+function ConfirmToggleModal({
+  item,
+  onYes,
+  onNo,
+}: {
+  item: ChecklistItem;
+  onYes: () => void;
+  onNo: () => void;
+}) {
+  const checking = !item.checked;
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onNo}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        className="w-full max-w-sm rounded-lg border border-border bg-surface p-5 shadow-xl"
+      >
+        <h2 className="font-display text-base font-semibold text-fg">
+          {checking ? "Are you sure you want to check this box?" : "Are you sure you want to uncheck this box?"}
+        </h2>
+        <p className="mt-2 break-words text-sm text-fg-muted">
+          "{item.text || "(empty item)"}"
+          {checking
+            ? " — your name and the current time will be recorded next to it."
+            : item.stamp
+              ? ` — this clears the record (${item.stamp}).`
+              : ""}
+        </p>
+        <div className="mt-4 flex justify-end gap-2">
+          <button
+            onClick={onNo}
+            className="rounded-md border border-border bg-surface px-4 py-1.5 text-sm font-medium text-fg transition-colors hover:bg-surface-2"
+          >
+            No
+          </button>
+          <button
+            onClick={onYes}
+            autoFocus
+            className="rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-accent/90"
+          >
+            Yes
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

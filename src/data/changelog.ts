@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.60.0",
+    date: "2026-07-17",
+    changes: [
+      "Checking a Description checklist box now records who checked it and when, shown in small print next to the item (works on Engineering tasks, Operations tasks, and EIRs)",
+      "Checklist boxes now ask \"Are you sure?\" before checking or unchecking, so an accidental click doesn't record a false check or wipe an existing record",
+    ],
+  },
+  {
     version: "0.59.4",
     date: "2026-07-17",
     changes: [

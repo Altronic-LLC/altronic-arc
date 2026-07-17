@@ -338,7 +338,13 @@ export function OperationsDetailView() {
                 onToggle={(lineIndex) =>
                   updateFields.mutate({
                     id: task.id,
-                    fields: { TaskDescription: toggleChecklistItem(task.description, lineIndex) },
+                    fields: {
+                      TaskDescription: toggleChecklistItem(
+                        task.description,
+                        lineIndex,
+                        currentUser.displayName,
+                      ),
+                    },
                   })
                 }
               />

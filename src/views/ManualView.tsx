@@ -329,7 +329,7 @@ const SECTIONS: ManualSection[] = [
       "to-do list",
     ],
     searchText:
-      "Create tasks with the New Task button. Required: Title and Parent Project. NumberedTitle is auto-generated as T{n}-{projectRef}-{title}. Edit fields inline from the right sidebar of the detail page. Use Mark Complete or change Status to close out. The Description field can hold a custom checklist — click Turn into checklist while editing, or type - [ ] lines yourself, and check items off directly from the detail page.",
+      "Create tasks with the New Task button. Required: Title and Parent Project. NumberedTitle is auto-generated as T{n}-{projectRef}-{title}. Edit fields inline from the right sidebar of the detail page. Use Mark Complete or change Status to close out. The Description field can hold a custom checklist — click Turn into checklist while editing, or type - [ ] lines yourself, and check items off directly from the detail page. Checking a box asks Are you sure, then records your name and the time next to the item; unchecking clears the record.",
     render: () => (
       <>
         <H3>Creating a task</H3>
@@ -401,6 +401,16 @@ const SECTIONS: ManualSection[] = [
           open the edit form. Regular text lines can sit alongside checklist
           lines in the same Description; only the <code>- [ ]</code>/
           <code>- [x]</code> lines become checkboxes.
+        </P>
+        <P>
+          Clicking a box first asks <strong>"Are you sure?"</strong> so an
+          accidental click doesn't count. When you confirm a check,{" "}
+          <strong>your name and the current time are recorded</strong> and
+          shown in small print right next to the item (e.g.{" "}
+          <em>✓ Ray White · 7/17/2026, 10:15 AM</em>). Unchecking clears that
+          record — the confirm dialog warns you before it does. This works
+          everywhere Description checklists exist: Engineering tasks,
+          Operations tasks, and EIR descriptions.
         </P>
         <H3>Marking complete</H3>
         <P>

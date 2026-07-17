@@ -702,6 +702,8 @@ function EditableTextCard({
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
+  // Who checked a checklist box — recorded as the ✓[name · time] stamp.
+  const checklistUser = useCurrentUser();
   // Never stay in editing mode if the field becomes locked.
   const isEditing = editing && !disabled;
   return (
@@ -770,7 +772,9 @@ function EditableTextCard({
         allowChecklist ? (
           <DescriptionView
             text={value}
-            onToggle={(lineIndex) => onSave(toggleChecklistItem(value, lineIndex))}
+            onToggle={(lineIndex) =>
+              onSave(toggleChecklistItem(value, lineIndex, checklistUser.displayName))
+            }
           />
         ) : // The Engineering Response field can be plain text or HTML (when
         // edits come from the original Power Apps form, they arrive as
