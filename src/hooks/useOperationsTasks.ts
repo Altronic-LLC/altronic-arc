@@ -449,17 +449,7 @@ export function useAddOperationsComment() {
         currentWatchers: task.watchers,
         directory: tasks ? collectPeopleFromOperationsTasks(tasks) : [],
       })
-        .then(async (additions) => {
-          if (additions.length === 0) return;
-          await setOperationsWatchers(id, [...task.watchers, ...additions]);
-          qc.invalidateQueries({ queryKey: OPERATIONS_TASK_LIST_KEY });
-          pushToast({
-            message:
-              additions.length === 1
-                ? `${additions[0].displayName} is now watching this task.`
-                : `${additions.length} people are now watching this task.`,
-          });
-        })
+        .then((additions) => applyOperationsWatcherAdditions(qc, id, task.watchers, additions))
         .catch((err) => {
           console.error("Auto-watch failed for Operations task comment:", err);
         });
@@ -470,6 +460,41 @@ export function useAddOperationsComment() {
     },
     onSettled: () => invalidateOperationsTasks(qc),
   });
+}
+
+/**
+ * Apply auto-watch additions optimistically — watcher chips + toast show
+ * immediately, the SharePoint write happens in the background (re-patching
+ * the cache after it lands in case a refetch overwrote the optimistic
+ * version). On failure: error toast + refetch so the UI doesn't lie.
+ */
+async function applyOperationsWatcherAdditions(
+  qc: QueryClient,
+  id: number,
+  currentWatchers: Person[],
+  additions: Person[],
+): Promise<void> {
+  if (additions.length === 0) return;
+  const next = [...currentWatchers, ...additions];
+  const patch = () =>
+    qc.setQueryData<OperationsTask[]>(OPERATIONS_TASK_LIST_KEY, (old) =>
+      old?.map((t) => (t.id === id ? { ...t, watchers: next } : t)),
+    );
+  patch();
+  pushToast({
+    message:
+      additions.length === 1
+        ? `${additions[0].displayName} is now watching this task.`
+        : `${additions.length} people are now watching this task.`,
+  });
+  try {
+    await setOperationsWatchers(id, next);
+    patch();
+  } catch (err) {
+    console.error("Couldn't save auto-watch additions:", err);
+    errorToast("Couldn't add the mentioned person as a watcher — refreshing.");
+    invalidateOperationsTasks(qc);
+  }
 }
 
 async function autoWatchFromMentions({
@@ -621,17 +646,7 @@ export function useEditOperationsComment() {
         currentWatchers: task.watchers,
         directory: allTasks ? collectPeopleFromOperationsTasks(allTasks) : [],
       })
-        .then(async (additions) => {
-          if (additions.length === 0) return;
-          await setOperationsWatchers(id, [...task.watchers, ...additions]);
-          qc.invalidateQueries({ queryKey: OPERATIONS_TASK_LIST_KEY });
-          pushToast({
-            message:
-              additions.length === 1
-                ? `${additions[0].displayName} is now watching this task.`
-                : `${additions.length} people are now watching this task.`,
-          });
-        })
+        .then((additions) => applyOperationsWatcherAdditions(qc, id, task.watchers, additions))
         .catch((err) => {
           console.error("Auto-watch failed for edited Operations task comment:", err);
         });

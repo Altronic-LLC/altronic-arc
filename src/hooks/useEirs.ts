@@ -423,18 +423,7 @@ export function useAddEirComment() {
         currentWatchers: eir.watchers,
         directory: eirs ? collectPeopleFromEirs(eirs) : [],
       })
-        .then((additions) => {
-          if (additions.length === 0) return;
-          return setEirWatchers(id, [...eir.watchers, ...additions]).then(() => {
-            qc.invalidateQueries({ queryKey: EIRS_KEY });
-            pushToast({
-              message:
-                additions.length === 1
-                  ? `${additions[0].displayName} is now watching this EIR.`
-                  : `${additions.length} people are now watching this EIR.`,
-            });
-          });
-        })
+        .then((additions) => applyEirWatcherAdditions(qc, id, eir.watchers, additions))
         .catch((err) => {
           console.error("Auto-watch failed for EIR comment:", err);
         });
@@ -445,6 +434,44 @@ export function useAddEirComment() {
     },
     onSettled: () => invalidate(qc),
   });
+}
+
+/**
+ * Apply auto-watch additions optimistically — watcher chips + toast show
+ * immediately, the SharePoint write happens in the background (re-patching
+ * the cache after it lands in case a refetch overwrote the optimistic
+ * version). On failure: error toast + refetch so the UI doesn't lie.
+ */
+async function applyEirWatcherAdditions(
+  qc: QueryClient,
+  id: number,
+  currentWatchers: Person[],
+  additions: Person[],
+): Promise<void> {
+  if (additions.length === 0) return;
+  const next = [...currentWatchers, ...additions];
+  const patch = () =>
+    qc.setQueryData<Eir[]>(EIRS_KEY, (old) =>
+      old?.map((e) => (e.id === id ? { ...e, watchers: next } : e)),
+    );
+  patch();
+  pushToast({
+    message:
+      additions.length === 1
+        ? `${additions[0].displayName} is now watching this EIR.`
+        : `${additions.length} people are now watching this EIR.`,
+  });
+  try {
+    await setEirWatchers(id, next);
+    patch();
+  } catch (err) {
+    console.error("Couldn't save auto-watch additions:", err);
+    pushToast({
+      message: "Couldn't add the mentioned person as a watcher — refreshing.",
+      variant: "error",
+    });
+    qc.invalidateQueries({ queryKey: EIRS_KEY });
+  }
 }
 
 /**
@@ -586,18 +613,7 @@ export function useEditEirComment() {
         currentWatchers: eir.watchers,
         directory: eirs ? collectPeopleFromEirs(eirs) : [],
       })
-        .then((additions) => {
-          if (additions.length === 0) return;
-          return setEirWatchers(id, [...eir.watchers, ...additions]).then(() => {
-            qc.invalidateQueries({ queryKey: EIRS_KEY });
-            pushToast({
-              message:
-                additions.length === 1
-                  ? `${additions[0].displayName} is now watching this EIR.`
-                  : `${additions.length} people are now watching this EIR.`,
-            });
-          });
-        })
+        .then((additions) => applyEirWatcherAdditions(qc, id, eir.watchers, additions))
         .catch((err) => {
           console.error("Auto-watch failed for edited EIR comment:", err);
         });

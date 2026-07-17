@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.61.1",
+    date: "2026-07-17",
+    changes: [
+      "@-mentioning someone now shows them in the watchers list immediately — no more waiting on the SharePoint save and list refresh (applies to tasks, Operations tasks, EIRs, and build requests + parts)",
+    ],
+  },
+  {
     version: "0.61.0",
     date: "2026-07-17",
     changes: [

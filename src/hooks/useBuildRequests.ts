@@ -330,6 +330,71 @@ export function useCreateBuildRequest() {
 // ---- auto-watch helpers -------------------------------------------------------
 
 /**
+ * Apply auto-watch additions optimistically — watcher chips + toast show
+ * immediately, the SharePoint write happens in the background (re-patching
+ * the cache after it lands in case a refetch overwrote the optimistic
+ * version). On failure: error toast + refetch so the UI doesn't lie.
+ */
+async function applyBrWatcherAdditions(
+  qc: QueryClient,
+  id: number,
+  currentWatchers: Person[],
+  additions: Person[],
+): Promise<void> {
+  if (additions.length === 0) return;
+  const next = [...currentWatchers, ...additions];
+  const patch = () =>
+    qc.setQueryData<BuildRequest[]>(BUILD_REQUESTS_KEY, (old) =>
+      old?.map((b) => (b.id === id ? { ...b, watchers: next } : b)),
+    );
+  patch();
+  pushToast({
+    message:
+      additions.length === 1
+        ? `${additions[0].displayName} is now watching this build request.`
+        : `${additions.length} people are now watching this build request.`,
+  });
+  try {
+    await setBuildRequestWatchers(id, next);
+    patch();
+  } catch (err) {
+    console.error("Couldn't save auto-watch additions:", err);
+    errorToast("Couldn't add the mentioned person as a watcher — refreshing.");
+    invalidateBrs(qc);
+  }
+}
+
+/** Same as applyBrWatcherAdditions, for a build request ITEM's watcher list. */
+async function applyItemWatcherAdditions(
+  qc: QueryClient,
+  id: number,
+  currentWatchers: Person[],
+  additions: Person[],
+): Promise<void> {
+  if (additions.length === 0) return;
+  const next = [...currentWatchers, ...additions];
+  const patch = () =>
+    qc.setQueryData<BuildRequestItem[]>(BUILD_REQUEST_ITEMS_KEY, (old) =>
+      old?.map((i) => (i.id === id ? { ...i, watchers: next } : i)),
+    );
+  patch();
+  pushToast({
+    message:
+      additions.length === 1
+        ? `${additions[0].displayName} is now watching this part.`
+        : `${additions.length} people are now watching this part.`,
+  });
+  try {
+    await setBuildRequestItemWatchers(id, next);
+    patch();
+  } catch (err) {
+    console.error("Couldn't save auto-watch additions:", err);
+    errorToast("Couldn't add the mentioned person as a watcher — refreshing.");
+    invalidateItems(qc);
+  }
+}
+
+/**
  * Resolve which @-mentioned people should become new watchers. Prefers the
  * directory built from all BR headers + items; cold-start mentions (never a
  * participant before) resolve their lookupId on demand from the Engineering
@@ -458,17 +523,7 @@ export function useAddBuildRequestComment() {
         currentWatchers: br.watchers,
         directory: collectBuildRequestPeople(brs, items),
       })
-        .then(async (additions) => {
-          if (additions.length === 0) return;
-          await setBuildRequestWatchers(id, [...br.watchers, ...additions]);
-          invalidateBrs(qc);
-          pushToast({
-            message:
-              additions.length === 1
-                ? `${additions[0].displayName} is now watching this build request.`
-                : `${additions.length} people are now watching this build request.`,
-          });
-        })
+        .then((additions) => applyBrWatcherAdditions(qc, id, br.watchers, additions))
         .catch((err) => {
           console.error("Auto-watch failed for build request comment:", err);
         });
@@ -576,17 +631,7 @@ export function useEditBuildRequestComment() {
         currentWatchers: br.watchers,
         directory: collectBuildRequestPeople(brs, items),
       })
-        .then(async (additions) => {
-          if (additions.length === 0) return;
-          await setBuildRequestWatchers(id, [...br.watchers, ...additions]);
-          invalidateBrs(qc);
-          pushToast({
-            message:
-              additions.length === 1
-                ? `${additions[0].displayName} is now watching this build request.`
-                : `${additions.length} people are now watching this build request.`,
-          });
-        })
+        .then((additions) => applyBrWatcherAdditions(qc, id, br.watchers, additions))
         .catch((err) => {
           console.error("Auto-watch failed for edited build request comment:", err);
         });
@@ -777,17 +822,7 @@ export function useAddBuildRequestItemComment() {
         currentWatchers: item.watchers,
         directory: collectBuildRequestPeople(brs, items),
       })
-        .then(async (additions) => {
-          if (additions.length === 0) return;
-          await setBuildRequestItemWatchers(id, [...item.watchers, ...additions]);
-          invalidateItems(qc);
-          pushToast({
-            message:
-              additions.length === 1
-                ? `${additions[0].displayName} is now watching this part.`
-                : `${additions.length} people are now watching this part.`,
-          });
-        })
+        .then((additions) => applyItemWatcherAdditions(qc, id, item.watchers, additions))
         .catch((err) => {
           console.error("Auto-watch failed for build request item comment:", err);
         });
@@ -885,17 +920,7 @@ export function useEditBuildRequestItemComment() {
         currentWatchers: item.watchers,
         directory: collectBuildRequestPeople(brs, items),
       })
-        .then(async (additions) => {
-          if (additions.length === 0) return;
-          await setBuildRequestItemWatchers(id, [...item.watchers, ...additions]);
-          invalidateItems(qc);
-          pushToast({
-            message:
-              additions.length === 1
-                ? `${additions[0].displayName} is now watching this part.`
-                : `${additions.length} people are now watching this part.`,
-          });
-        })
+        .then((additions) => applyItemWatcherAdditions(qc, id, item.watchers, additions))
         .catch((err) => {
           console.error("Auto-watch failed for edited build request item comment:", err);
         });
