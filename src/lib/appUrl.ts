@@ -16,7 +16,8 @@ export type AppItemKind =
   | "operationsTask"
   | "buildRequest"
   | "buildRequestItem"
-  | "panelOrder";
+  | "panelOrder"
+  | "panelTask";
 
 const KIND_SEGMENTS: Record<AppItemKind, string> = {
   task: "task",
@@ -27,6 +28,7 @@ const KIND_SEGMENTS: Record<AppItemKind, string> = {
   // header page with ?item=<id> so the right part card expands.
   buildRequestItem: "build-request-item",
   panelOrder: "panels/order",
+  panelTask: "panels/task",
 };
 
 /** Absolute URL to an item's detail page in this app. */

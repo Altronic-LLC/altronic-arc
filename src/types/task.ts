@@ -850,6 +850,39 @@ export interface PanelRoleEntry {
   note: string;
 }
 
+export const PANEL_TASK_STATUSES = ["Pending", "In Process", "On Hold", "Complete"] as const;
+export type PanelTaskStatus = (typeof PANEL_TASK_STATUSES)[number];
+
+export const PANEL_TASK_TYPES = ["Drawings", "SOO", "Quote", "Administrative"] as const;
+export type PanelTaskType = (typeof PANEL_TASK_TYPES)[number];
+
+/**
+ * A task from the Panel Tasks list (ALTRONICPANELTEAM site). Structurally a
+ * lighter panel order: single-person Assigned, a single lookup into the same
+ * Panel Project Reference list, a Description that supports checklists, its
+ * own Communication comment thread, and Watchers. No sales-order fields.
+ */
+export interface PanelTask {
+  id: number;
+  title: string;
+  status: PanelTaskStatus;
+  taskType: PanelTaskType | null;
+  /** Single lookup into the Panel Project Reference list (shared with panel orders). */
+  projectRef: ProjectReference | null;
+  /** Single person — Graph returns only the bare AssignedLookupId; resolved via panel site users. */
+  assigned: Person | null;
+  /** Long-form description — supports `- [ ]` checklists like a task Description. */
+  description: string;
+  watchers: Person[];
+  comments: Comment[];
+  hasAttachments: boolean;
+  createdAt: Date;
+  modifiedAt: Date;
+  author: Person | null;
+  editor?: Person | null;
+  rawFields?: Record<string, unknown>;
+}
+
 // =============================================================================
 // Microsoft Graph response shapes — only the fields we touch
 // =============================================================================

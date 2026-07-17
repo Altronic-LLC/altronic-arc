@@ -77,6 +77,12 @@ const AdminPanelProjectsView = lazy(() =>
 const AdminPanelRolesView = lazy(() =>
   import("@/views/AdminPanelRolesView").then((m) => ({ default: m.AdminPanelRolesView })),
 );
+const PanelTasksView = lazy(() =>
+  import("@/views/PanelTasksView").then((m) => ({ default: m.PanelTasksView })),
+);
+const PanelTaskDetailView = lazy(() =>
+  import("@/views/PanelTaskDetailView").then((m) => ({ default: m.PanelTaskDetailView })),
+);
 
 export function App() {
   // The print route is intentionally chrome-less so the saved PDF doesn't
@@ -220,6 +226,22 @@ export function App() {
             element={
               <Suspense fallback={<LoadingTasks noun="this panel order" />}>
                 <PanelOrderDetailView />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/panels/tasks"
+            element={
+              <Suspense fallback={<LoadingTasks noun="panel tasks" />}>
+                <PanelTasksView />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/panels/task/:id"
+            element={
+              <Suspense fallback={<LoadingTasks noun="this panel task" />}>
+                <PanelTaskDetailView />
               </Suspense>
             }
           />

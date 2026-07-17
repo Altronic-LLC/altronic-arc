@@ -161,6 +161,11 @@ export const SP_PANEL_ROLES_LIST_ID =
   import.meta.env.VITE_SP_PANEL_ROLES_LIST_ID ||
   "2d67d242-7419-453f-a388-7454bf3e7f4b";
 
+/** "Panel Tasks" — the panel team's task list (references the same Panel Project Reference list as orders). */
+export const SP_PANEL_TASKS_LIST_ID =
+  import.meta.env.VITE_SP_PANEL_TASKS_LIST_ID ||
+  "17a33ee1-c4aa-439b-9dc0-6269a8e04767";
+
 /**
  * Panel team site's classic SharePoint REST root — needed for panel order
  * attachments and site-user resolution (single-person fields only return a

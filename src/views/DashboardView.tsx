@@ -34,6 +34,7 @@ import { useProjectFolderEntries } from "@/hooks/useProjectFolders";
 import { useOperationsTasks } from "@/hooks/useOperationsTasks";
 import { useBuildRequests } from "@/hooks/useBuildRequests";
 import { usePanelOrders } from "@/hooks/usePanelOrders";
+import { usePanelTasks } from "@/hooks/usePanelTasks";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { SingleSelect } from "@/components/SearchableSelect";
@@ -42,6 +43,7 @@ import {
   EIR_STATUSES,
   OPERATIONS_STATUSES,
   PANEL_ORDER_STATUSES,
+  PANEL_TASK_STATUSES,
   STATUSES,
   type BuildRequest,
   type BuildRequestStatus,
@@ -51,6 +53,8 @@ import {
   type OperationsTask,
   type PanelOrder,
   type PanelOrderStatus,
+  type PanelTask,
+  type PanelTaskStatus,
   type Person,
   type Status,
   type Task,
@@ -160,6 +164,13 @@ const PANEL_ORDER_BAR_COLOR: Record<PanelOrderStatus, string> = {
   "On Hold": "bg-violet-500",
 };
 
+const PANEL_TASK_BAR_COLOR: Record<PanelTaskStatus, string> = {
+  Pending: "bg-slate-400",
+  "In Process": "bg-ajax-yellow",
+  "On Hold": "bg-violet-500",
+  Complete: "bg-cooper-green",
+};
+
 /** Operations tasks have a single Assigned person, not Engineering's multi-person array. */
 function personMatchesSingle(person: Person | null, email: string): boolean {
   if (!email || !person) return false;
@@ -226,6 +237,13 @@ export function DashboardView() {
     error: panelOrdersErrorObj,
     refetch: refetchPanelOrders,
   } = usePanelOrders();
+  const {
+    data: panelTasks = [],
+    isLoading: panelTasksLoading,
+    isError: panelTasksError,
+    error: panelTasksErrorObj,
+    refetch: refetchPanelTasks,
+  } = usePanelTasks();
   const {
     data: folderEntries = [],
     isError: foldersError,
@@ -359,7 +377,31 @@ export function DashboardView() {
     return { count: active.length, segments };
   }, [panelOrders, mine, myEmail]);
 
-  if (isLoading || eirsLoading || operationsTasksLoading || buildRequestsLoading || panelOrdersLoading) {
+  const panelTaskCard = useMemo(() => {
+    // "Mine" for a panel task = I'm the assignee or a watcher. Like panel
+    // orders, the dashboard's (Engineering) Project picker doesn't narrow
+    // this card — panel tasks reference the Panel Project Reference list.
+    const active = panelTasks.filter(
+      (t: PanelTask) =>
+        t.status !== "Complete" &&
+        (!mine || personMatchesSingle(t.assigned, myEmail) || personMatches(t.watchers, myEmail)),
+    );
+    const segments: Segment[] = PANEL_TASK_STATUSES.filter((s) => s !== "Complete").map((s) => ({
+      label: s,
+      count: active.filter((t) => t.status === s).length,
+      color: PANEL_TASK_BAR_COLOR[s],
+    }));
+    return { count: active.length, segments };
+  }, [panelTasks, mine, myEmail]);
+
+  if (
+    isLoading ||
+    eirsLoading ||
+    operationsTasksLoading ||
+    buildRequestsLoading ||
+    panelOrdersLoading ||
+    panelTasksLoading
+  ) {
     return <LoadingTasks noun="your dashboard" />;
   }
 
@@ -402,6 +444,11 @@ export function DashboardView() {
   const panelOrdersUrl = `/panels/orders${
     mine && meParam ? `?${new URLSearchParams({ mine: meParam }).toString()}` : ""
   }`;
+  // Panel "mine" = assignee OR watcher — carried as the visible `mine` chip.
+  // No project param (dashboard picker is the Engineering projects list).
+  const panelTasksUrl = `/panels/tasks${
+    mine && meParam ? `?${new URLSearchParams({ mine: meParam }).toString()}` : ""
+  }`;
 
   // Name each failed source + its underlying error so the banner is
   // self-diagnosing — "something failed, refresh" was undebuggable for
@@ -439,6 +486,13 @@ export function DashboardView() {
       failed: panelOrdersError,
       error: panelOrdersErrorObj,
       retry: refetchPanelOrders,
+    },
+    {
+      name: "Panel Tasks",
+      dept: "Panels",
+      failed: panelTasksError,
+      error: panelTasksErrorObj,
+      retry: refetchPanelTasks,
     },
     { name: "Project Folders", dept: "Engineering", failed: foldersError, error: foldersErrorObj, retry: refetchFolders },
   ].filter((s) => s.failed);
@@ -575,7 +629,15 @@ export function DashboardView() {
           segments={panelOrderCard.segments}
           onClick={() => navigate(panelOrdersUrl)}
         />
-        <PlaceholderCard name="Panel Tasks" icon={<ListChecks className="h-5 w-5" />} />
+        <TypeCard
+          name="Panel Tasks"
+          icon={<ListChecks className="h-5 w-5" />}
+          tone="superior-blue"
+          count={panelTaskCard.count}
+          unit="open"
+          segments={panelTaskCard.segments}
+          onClick={() => navigate(panelTasksUrl)}
+        />
         <PlaceholderCard name="Project Folders" icon={<FolderOpen className="h-5 w-5" />} />
       </DeptSection>
 

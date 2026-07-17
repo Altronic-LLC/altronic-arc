@@ -5,6 +5,7 @@ import {
   SP_LIST_ID,
   SP_OPERATIONS_TASKS_LIST_ID,
   SP_PANEL_ORDERS_LIST_ID,
+  SP_PANEL_TASKS_LIST_ID,
   SP_PANELTEAM_SITE_URL,
   SP_PMO_SITE_URL,
   SP_SITE_URL,
@@ -39,7 +40,8 @@ export type AttachmentParent =
   | "operationsTask"
   | "buildRequest"
   | "buildRequestItem"
-  | "panelOrder";
+  | "panelOrder"
+  | "panelTask";
 
 interface ParentConfig {
   listId: string | undefined;
@@ -71,6 +73,11 @@ const PARENT_CONFIG: Record<AttachmentParent, ParentConfig> = {
     listId: SP_PANEL_ORDERS_LIST_ID,
     siteUrl: SP_PANELTEAM_SITE_URL,
     listIdEnvVar: "VITE_SP_PANEL_ORDERS_LIST_ID",
+  },
+  panelTask: {
+    listId: SP_PANEL_TASKS_LIST_ID,
+    siteUrl: SP_PANELTEAM_SITE_URL,
+    listIdEnvVar: "VITE_SP_PANEL_TASKS_LIST_ID",
   },
 };
 

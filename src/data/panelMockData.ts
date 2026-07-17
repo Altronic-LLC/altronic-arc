@@ -1,4 +1,4 @@
-import type { PanelOrder, PanelProject, PanelRoleEntry } from "@/types/task";
+import type { PanelOrder, PanelProject, PanelRoleEntry, PanelTask } from "@/types/task";
 
 // =============================================================================
 // Mock data for the Panels department — modelled on the real Panel Order
@@ -186,4 +186,76 @@ export const MOCK_PANEL_ROLES: PanelRoleEntry[] = [
   { id: 3, user: ERIC, role: "Tech", note: "Panel shop lead" },
   { id: 4, user: DAVID, role: "Manager", note: "" },
   { id: 5, user: AMANDA, role: "Viewer", note: "Scheduling visibility" },
+];
+
+export const MOCK_PANEL_TASKS: PanelTask[] = [
+  {
+    id: 1,
+    title: "Draw up enclosure layout for Archrock skids",
+    status: "In Process",
+    taskType: "Drawings",
+    projectRef: projectRefByTitle("P-0001"),
+    assigned: SARAH,
+    description:
+      "Panel enclosure GA drawing for the June release.\n- [x] Rough layout ✓[Sarah Shaffer · 7/11/2026, 8:30 AM]\n- [ ] Dimension callouts\n- [ ] Send to customer for approval",
+    watchers: [SARAH, RAY],
+    comments: [
+      {
+        timestamp: new Date("2026-07-11T14:05:00"),
+        authorName: "Sarah Shaffer",
+        authorEmail: "sarah.shaffer@altronic-llc.com",
+        bodyHtml: "<p>Rough layout done — need the terminal count confirmed before dimensioning.</p>",
+        attachments: [],
+      },
+    ],
+    hasAttachments: false,
+    createdAt: new Date("2026-07-09T13:00:00Z"),
+    modifiedAt: new Date("2026-07-11T14:05:00Z"),
+    author: RAY,
+  },
+  {
+    id: 2,
+    title: "Write sequence of operations for annunciator prototype",
+    status: "Pending",
+    taskType: "SOO",
+    projectRef: projectRefByTitle("P-0002"),
+    assigned: ERIC,
+    description: "Draft SOO for the bench prototype ahead of programming.",
+    watchers: [ERIC],
+    comments: [],
+    hasAttachments: false,
+    createdAt: new Date("2026-07-14T09:00:00Z"),
+    modifiedAt: new Date("2026-07-14T09:00:00Z"),
+    author: SARAH,
+  },
+  {
+    id: 3,
+    title: "Quote panel rebuild for Kodiak retrofit",
+    status: "On Hold",
+    taskType: "Quote",
+    projectRef: projectRefByTitle("P-0003"),
+    assigned: DAVID,
+    description: "Waiting on updated BOM from engineering before quoting.",
+    watchers: [DAVID, AMANDA],
+    comments: [],
+    hasAttachments: false,
+    createdAt: new Date("2026-06-28T11:00:00Z"),
+    modifiedAt: new Date("2026-07-10T16:20:00Z"),
+    author: DAVID,
+  },
+  {
+    id: 4,
+    title: "File closeout paperwork for test-bench refresh",
+    status: "Complete",
+    taskType: "Administrative",
+    projectRef: projectRefByTitle("P-0005"),
+    assigned: AMANDA,
+    description: "",
+    watchers: [AMANDA],
+    comments: [],
+    hasAttachments: false,
+    createdAt: new Date("2026-05-06T10:00:00Z"),
+    modifiedAt: new Date("2026-06-11T15:00:00Z"),
+    author: AMANDA,
+  },
 ];

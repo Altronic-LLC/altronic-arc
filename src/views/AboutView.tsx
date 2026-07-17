@@ -60,7 +60,7 @@ const SYSTEM_TIERS: Tier[] = [
     nodes: [
       { label: "Views", hint: "Dashboard · List · Kanban · Detail · EIRs · Test Sheets · Project Folders · Admin", palette: "ui" },
       { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useBuildRequests · useAdmins · useEirRoles · useTaskFiles · useProjectFolders", palette: "ui" },
-      { label: "API layer", hint: "src/api/tasks · eirs · testSheets · buildRequests · buildRequestItems · panelOrders · admins · eirRoles · panelRoles · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
+      { label: "API layer", hint: "src/api/tasks · eirs · testSheets · buildRequests · buildRequestItems · panelOrders · panelTasks · admins · eirRoles · panelRoles · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
       {
         label: "Build Requests (lazy-loaded)",
         hint: "BuildRequestsView · BuildRequestDetailView — a master-detail pair: the Tracker header list + any number of parts from the Items list, joined by BuildRequestNo. Own code-split chunk.",
@@ -73,7 +73,7 @@ const SYSTEM_TIERS: Tier[] = [
       },
       {
         label: "Panels department (lazy-loaded bundle)",
-        hint: "PanelOrdersView · PanelOrderDetailView · AdminPanelProjectsView · AdminPanelRolesView — usePanelOrders · usePanelRoles — api/panelOrders · panelProjects · panelRoles. Own site (ALTRONICPANELTEAM), own code-split chunk; no cross-department imports.",
+        hint: "PanelOrdersView · PanelOrderDetailView · PanelTasksView · PanelTaskDetailView · AdminPanelProjectsView · AdminPanelRolesView — usePanelOrders · usePanelTasks · usePanelRoles — api/panelOrders · panelTasks · panelProjects · panelRoles. Own site (ALTRONICPANELTEAM), own code-split chunk; no cross-department imports.",
         palette: "ui",
       },
     ],
@@ -105,7 +105,8 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "Build Request Tracker", hint: "BR headers — status workflow, requestor/engineer, own comment thread", palette: "list" },
       { label: "Build Request Items", hint: "parts per BR (lookup to the Tracker) — checklists + per-part comment threads", palette: "list" },
       { label: "Panel Order Headers", hint: "ALTRONICPANELTEAM site — panel sales orders (status, SO/PO, engineer, own comment thread)", palette: "list" },
-      { label: "Panel Project Reference", hint: "ALTRONICPANELTEAM site — admin-managed project reference numbers", palette: "list" },
+      { label: "Panel Tasks", hint: "ALTRONICPANELTEAM site — panel team tasks (drawings, SOOs, quotes, admin), own comment thread", palette: "list" },
+      { label: "Panel Project Reference", hint: "ALTRONICPANELTEAM site — admin-managed project reference numbers (orders + tasks share it)", palette: "list" },
       { label: "Panel User Roles", hint: "ALTRONICPANELTEAM site — one row per user per role (gating ships dark in v1)", palette: "list" },
     ],
   },
@@ -462,6 +463,22 @@ const SCHEMA_TABLES: SchemaTable[] = [
       { name: "note (Title)", type: "text", kind: "field" },
     ],
   },
+  {
+    name: "PanelTask",
+    source: "Panel Tasks (ALTRONICPANELTEAM site)",
+    palette: "entity",
+    x: 760, y: 2030, width: 300,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title", type: "text", kind: "field" },
+      { name: "status", type: "choice", kind: "field" },
+      { name: "taskType", type: "choice", kind: "field" },
+      { name: "projectReference", type: "int", kind: "fk", references: "PanelProject.id" },
+      { name: "assigned", type: "int", kind: "fk", references: "Person.id" },
+      { name: "description", type: "text", kind: "field" },
+      { name: "watchers", type: "int[]", kind: "fk", references: "Person.id" },
+    ],
+  },
 ];
 
 // ----- Connections (FK → target). Cardinality at each end: "one" | "many" --
@@ -532,6 +549,12 @@ const CONNECTIONS: Connection[] = [
   { fromTable: "PanelUserRole", fromColumn: "user", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "Comment", fromColumn: "parentId", toTable: "PanelOrder", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "Attachment", fromColumn: "parentId", toTable: "PanelOrder", toColumn: "id", fromCard: "many", toCard: "one" },
+  // Panel Tasks — same site + shared Panel Project Reference list.
+  { fromTable: "PanelTask", fromColumn: "projectReference", toTable: "PanelProject", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "PanelTask", fromColumn: "assigned", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "PanelTask", fromColumn: "watchers", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
+  { fromTable: "Comment", fromColumn: "parentId", toTable: "PanelTask", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "Attachment", fromColumn: "parentId", toTable: "PanelTask", toColumn: "id", fromCard: "many", toCard: "one" },
 ];
 
 export function AboutView() {

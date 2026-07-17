@@ -415,7 +415,7 @@ const SECTIONS: ManualSection[] = [
           and whether it was checked or unchecked (see{" "}
           <em>Notifications → Checklist toggles</em>). This works everywhere
           Description checklists exist: Engineering tasks, Operations tasks,
-          EIR descriptions, and panel order notes.
+          EIR descriptions, panel order notes, and panel tasks.
         </P>
         <H3>Marking complete</H3>
         <P>
@@ -875,6 +875,61 @@ const SECTIONS: ManualSection[] = [
           Engineer, Admin, Viewer) — one row per user per role. Roles don't
           lock any panel order fields yet; they're recorded now so
           field-level permissions can be switched on later.
+        </P>
+      </>
+    ),
+  },
+  {
+    id: "panel-tasks",
+    title: "Panel Tasks",
+    group: "Panels",
+    keywords: [
+      "panel task",
+      "panel tasks",
+      "drawings",
+      "soo",
+      "sequence of operations",
+      "quote",
+      "administrative",
+      "panel to-do",
+      "panel work",
+    ],
+    searchText:
+      "Panel Tasks is the panel team's task list on the ALTRONICPANELTEAM SharePoint site — drawings, SOOs, quotes, and administrative work. Each task has a title, status (Pending, In Process, On Hold, Complete), a Task Type (Drawings, SOO, Quote, Administrative), a single Assigned person, a project reference picked from the same Panel Project Reference list panel orders use, a Description that supports checklists, watchers, attachments, and comments with @-mentions. Reach it from the Dashboard's Panel Tasks card or the Departments dropdown's Panels group. Create with New Panel Task; new tasks start Pending and you're auto-added as a watcher. The Open pill counts everything not Complete. Status changes, assignee changes, comments, and checklist toggles send email like the other departments.",
+    render: () => (
+      <>
+        <P>
+          <strong>Panel Tasks</strong> is the panel team's task list — drawings,
+          sequences of operations (SOOs), quotes, and administrative work.
+          Reach it from the <strong>Panel Tasks</strong> card on the
+          Dashboard, or the <strong>Departments</strong> dropdown's Panels
+          group.
+        </P>
+        <H3>The task list</H3>
+        <P>
+          Status pills sit above the list — <strong>Open</strong> counts
+          everything not yet Complete, and one pill each for Pending, In
+          Process, On Hold, and Complete. The filter bar adds Project
+          Reference, Assigned, and the multi-keyword Search; all filters live
+          in the URL so a filtered view is shareable. The Dashboard card's
+          click-through carries your <em>mine</em> scope as a dismissible chip
+          — "your" tasks are the ones you're assigned to or watching.
+        </P>
+        <H3>Creating &amp; working a task</H3>
+        <P>
+          Click <strong>New Panel Task</strong>. Only the title is required;
+          Task Type, Assigned person, project reference, and description are
+          optional and editable later. New tasks start as{" "}
+          <strong>Pending</strong> and you're auto-added as a watcher. On the
+          detail page everything edits in place — the title inline, the
+          sidebar's Status / Task Type / Project Reference / Assigned fields
+          directly, and the <strong>Description</strong> as a card that
+          supports <code>- [ ]</code> checklists (checked boxes record who and
+          when; unchecking asks first; toggles email watchers + the assignee).
+          Comments, watchers, and attachments behave exactly like every other
+          department. Panel tasks share the <em>Panel Project Reference</em>{" "}
+          list with panel orders, and admins manage it at{" "}
+          <code>/admin/panel-projects</code>.
         </P>
       </>
     ),
@@ -1606,7 +1661,7 @@ const SECTIONS: ManualSection[] = [
               "Updated comment on …",
             ],
             [
-              "Status changes (task, EIR, build request, or panel order)",
+              "Status changes (task, EIR, build request, panel order, or panel task)",
               "Watchers + current assignees + EIR reporter / BR requestor (minus you)",
               "Status changed on …",
             ],
@@ -1621,7 +1676,7 @@ const SECTIONS: ManualSection[] = [
               "Resolution changed on …",
             ],
             [
-              "A Description checklist box is checked or unchecked (task, Operations task, EIR, or panel order notes)",
+              "A Description checklist box is checked or unchecked (task, Operations task, EIR, panel order notes, or panel task)",
               "Watchers + current assignees (minus you)",
               "Checklist updated on …",
             ],
@@ -1710,8 +1765,8 @@ const SECTIONS: ManualSection[] = [
         <H3>Checklist toggles</H3>
         <P>
           Checking or unchecking a box in a Description checklist (Engineering
-          tasks, Operations tasks, EIRs, and panel order notes) emails the{" "}
-          <strong>watchers</strong> and{" "}
+          tasks, Operations tasks, EIRs, panel order notes, and panel tasks)
+          emails the <strong>watchers</strong> and{" "}
           <strong>current assignees / assigned engineers</strong> — minus
           whoever clicked the box. The email names the item and whether it was
           checked (✓) or unchecked (✗). Build request part checklists (the

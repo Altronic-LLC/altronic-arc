@@ -20,6 +20,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.64.0",
+    date: "2026-07-17",
+    changes: [
+      "New Panel Tasks feature in the Panels department — track drawings, SOOs, quotes, and admin work from the new Panels menu entry and Dashboard card",
+      "Each panel task has a status (Pending/In Process/On Hold/Complete), a task type, an assignee, a project reference, watchers, attachments, comments with @-mentions, and a Description that supports checklists",
+      "Status pills (Open = not Complete), project/assignee/search filters, and a 'mine' view from the Dashboard card (your tasks = assignee or watcher)",
+      "Status changes, assignee changes, comments, and checklist toggles on panel tasks send the same email alerts as everywhere else",
+    ],
+  },
+  {
     version: "0.63.0",
     date: "2026-07-17",
     changes: [

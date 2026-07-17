@@ -4,13 +4,15 @@ import { useEirs } from "./useEirs";
 import { useOperationsTasks } from "./useOperationsTasks";
 import { useBuildRequestItems, useBuildRequests } from "./useBuildRequests";
 import { usePanelOrders } from "./usePanelOrders";
+import { usePanelTasks } from "./usePanelTasks";
 import { useCurrentUser } from "./useCurrentUser";
 import { isUserMentionedInComments } from "@/lib/mentionDetector";
 
 /**
  * Unique identifier for an item that has unseen mentions.
  * Format: "task:123", "eir:456", "operationsTask:789",
- * "buildRequest:12", "buildRequestItem:45", or "panelOrder:7".
+ * "buildRequest:12", "buildRequestItem:45", "panelOrder:7",
+ * or "panelTask:3".
  */
 export type UnseenMentionId =
   | `task:${number}`
@@ -18,7 +20,8 @@ export type UnseenMentionId =
   | `operationsTask:${number}`
   | `buildRequest:${number}`
   | `buildRequestItem:${number}`
-  | `panelOrder:${number}`;
+  | `panelOrder:${number}`
+  | `panelTask:${number}`;
 
 // ============================================================================
 // Global store for unseen mentions.
@@ -97,6 +100,7 @@ function checkForMentions(
   buildRequests: any[] | undefined,
   buildRequestItems: any[] | undefined,
   panelOrders: any[] | undefined,
+  panelTasks: any[] | undefined,
   userEmail: string | undefined,
 ): Set<UnseenMentionId> {
   if (!userEmail) return new Set();
@@ -118,6 +122,7 @@ function checkForMentions(
   scan(buildRequests, "buildRequest");
   scan(buildRequestItems, "buildRequestItem");
   scan(panelOrders, "panelOrder");
+  scan(panelTasks, "panelTask");
 
   return mentioned;
 }
@@ -179,6 +184,7 @@ export function useMentionScanner(): void {
   const { data: buildRequests } = useBuildRequests();
   const { data: buildRequestItems } = useBuildRequestItems();
   const { data: panelOrders } = usePanelOrders();
+  const { data: panelTasks } = usePanelTasks();
   const user = useCurrentUser();
 
   const userEmail = user.email?.toLowerCase();
@@ -194,6 +200,7 @@ export function useMentionScanner(): void {
       buildRequests,
       buildRequestItems,
       panelOrders,
+      panelTasks,
       userEmail,
     );
     const combined = new Set([...persisted, ...currentlyMentioned]);
@@ -210,6 +217,7 @@ export function useMentionScanner(): void {
     noteAll(buildRequests, "buildRequest");
     noteAll(buildRequestItems, "buildRequestItem");
     noteAll(panelOrders, "panelOrder");
+    noteAll(panelTasks, "panelTask");
     const filtered = new Set<UnseenMentionId>(
       ([...combined].filter((id) => allIds.has(id as UnseenMentionId)) as UnseenMentionId[]),
     );
@@ -219,5 +227,5 @@ export function useMentionScanner(): void {
       unseenIds: filtered,
       lastCheckTime: Date.now(),
     });
-  }, [tasks, eirs, operationsTasks, buildRequests, buildRequestItems, panelOrders, userEmail]);
+  }, [tasks, eirs, operationsTasks, buildRequests, buildRequestItems, panelOrders, panelTasks, userEmail]);
 }

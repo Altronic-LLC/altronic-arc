@@ -28,7 +28,14 @@ export interface ChangeEmail {
 
 /** What the change is on — drives the noun ("task"/"EIR"/…) in the copy. */
 export interface ChangeTarget {
-  kind: "task" | "eir" | "operationsTask" | "buildRequest" | "buildRequestItem" | "panelOrder";
+  kind:
+    | "task"
+    | "eir"
+    | "operationsTask"
+    | "buildRequest"
+    | "buildRequestItem"
+    | "panelOrder"
+    | "panelTask";
   id: number;
   title: string;
 }
@@ -40,6 +47,7 @@ const NOUNS: Record<ChangeTarget["kind"], string> = {
   buildRequest: "build request",
   buildRequestItem: "build request part",
   panelOrder: "panel order",
+  panelTask: "panel task",
 };
 
 function nounFor(target: ChangeTarget): string {
