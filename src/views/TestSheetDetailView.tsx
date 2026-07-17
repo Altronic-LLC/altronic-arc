@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
-  ArrowLeft,
   Calendar,
   ClipboardList,
   FolderOpen,
@@ -14,6 +13,7 @@ import {
 import { useTestSheet } from "@/hooks/useTestSheets";
 import { TestSheetFormModal } from "@/components/TestSheetFormModal";
 import { LoadingTasks } from "@/components/LoadingTasks";
+import { DetailTopBar } from "@/components/DetailTopBar";
 
 export function TestSheetDetailView() {
   const { id } = useParams<{ id: string }>();
@@ -44,13 +44,7 @@ export function TestSheetDetailView() {
 
   return (
     <div className="mx-auto max-w-[1400px] px-4 py-4 sm:px-6 sm:py-6">
-      <button
-        onClick={() => navigate(-1)}
-        className="mb-4 inline-flex items-center gap-1.5 text-sm text-fg-muted transition-colors hover:text-fg"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back
-      </button>
+      <DetailTopBar category="Test Sheets" listTo="/test-sheets" />
 
       <div className="flex flex-col gap-4 lg:flex-row">
         <div className="flex min-w-0 flex-1 flex-col gap-4">

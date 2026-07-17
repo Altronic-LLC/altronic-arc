@@ -38,6 +38,7 @@ import { SingleSelect } from "@/components/SearchableSelect";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { DescriptionView } from "@/components/DescriptionView";
 import { AutoGrowTextarea } from "@/components/AutoGrowTextarea";
+import { DetailTopBar } from "@/components/DetailTopBar";
 import { convertToChecklist, toggleChecklistItem } from "@/lib/descriptionChecklist";
 import { cn } from "@/lib/cn";
 
@@ -172,13 +173,7 @@ export function PanelOrderDetailView() {
 
   return (
     <div className="mx-auto max-w-[1400px] px-4 py-4 sm:px-6 sm:py-6">
-      <button
-        onClick={() => navigate(-1)}
-        className="mb-4 inline-flex items-center gap-1.5 text-sm text-fg-muted transition-colors hover:text-fg"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back
-      </button>
+      <DetailTopBar category="Panel Orders" listTo="/panels/orders" />
 
       <div className="flex flex-col gap-4 lg:flex-row">
         {/* Main column */}

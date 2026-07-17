@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
-  ArrowLeft,
   ArrowUpRight,
   Calendar,
   CheckCircle2,
@@ -49,6 +48,7 @@ import { MultiSelect, SingleSelect } from "@/components/SearchableSelect";
 import { EirStatusBadge, statusColor } from "@/components/atoms";
 import { AttachmentsSection } from "@/components/AttachmentsSection";
 import { LoadingTasks } from "@/components/LoadingTasks";
+import { DetailTopBar } from "@/components/DetailTopBar";
 import { PersonMultiField } from "@/components/PersonMultiField";
 import { PromoteEirModal } from "@/components/PromoteEirModal";
 import { sanitiseHtml } from "@/lib/sanitiseHtml";
@@ -215,13 +215,7 @@ export function EirDetailView() {
 
   return (
     <div className="mx-auto max-w-[1400px] px-4 py-4 sm:px-6 sm:py-6">
-      <button
-        onClick={() => navigate(-1)}
-        className="mb-4 inline-flex items-center gap-1.5 text-sm text-fg-muted transition-colors hover:text-fg"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back
-      </button>
+      <DetailTopBar category="EIRs" listTo="/eirs" />
 
       <div className="flex flex-col gap-4 lg:flex-row">
         {/* Main column */}

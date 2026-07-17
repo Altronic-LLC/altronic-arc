@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  ArrowLeft,
   Calendar,
   CheckCircle2,
   ClipboardList,
@@ -66,6 +65,7 @@ import { LabelChip, StatusBadge, statusColor } from "@/components/atoms";
 import { TaskAttachmentsSection } from "@/components/TaskAttachmentsSection";
 import { PcbChecklistCard } from "@/components/PcbChecklistCard";
 import { LoadingTasks } from "@/components/LoadingTasks";
+import { DetailTopBar } from "@/components/DetailTopBar";
 import { PersonMultiField } from "@/components/PersonMultiField";
 import { cn } from "@/lib/cn";
 
@@ -400,13 +400,7 @@ export function DetailView() {
 
   return (
     <div className="mx-auto max-w-[1400px] px-4 py-4 sm:px-6 sm:py-6">
-      <button
-        onClick={() => navigate(-1)}
-        className="mb-4 inline-flex items-center gap-1.5 text-sm text-fg-muted transition-colors hover:text-fg"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back
-      </button>
+      <DetailTopBar category="Engineering Tasks" listTo="/list" />
 
       <div className="flex flex-col gap-4 lg:flex-row">
         {/* Main column.

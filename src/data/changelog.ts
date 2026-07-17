@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.64.1",
+    date: "2026-07-17",
+    changes: [
+      "Detail pages now show which section you're in at the top — a labelled chip (Engineering Tasks, EIRs, Build Requests, Panel Orders, Panel Tasks, Operational Tasks, Test Sheets) next to the Back button, and clicking it jumps straight to that section's list",
+    ],
+  },
+  {
     version: "0.64.0",
     date: "2026-07-17",
     changes: [

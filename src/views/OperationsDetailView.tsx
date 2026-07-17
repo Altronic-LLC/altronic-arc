@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  ArrowLeft,
   Calendar,
   CheckCircle2,
   Eye,
@@ -52,6 +51,7 @@ import { OperationsTaskFormModal } from "@/components/OperationsTaskFormModal";
 import { OperationsStatusBadge } from "@/components/operationsAtoms";
 import { SingleSelect } from "@/components/SearchableSelect";
 import { LoadingTasks } from "@/components/LoadingTasks";
+import { DetailTopBar } from "@/components/DetailTopBar";
 import { cn } from "@/lib/cn";
 
 /**
@@ -266,13 +266,7 @@ export function OperationsDetailView() {
 
   return (
     <div className="mx-auto max-w-[1400px] px-4 py-4 sm:px-6 sm:py-6">
-      <button
-        onClick={() => navigate(-1)}
-        className="mb-4 inline-flex items-center gap-1.5 text-sm text-fg-muted transition-colors hover:text-fg"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back
-      </button>
+      <DetailTopBar category="Operational Tasks" listTo="/operations/tasks" />
 
       <div className="flex flex-col gap-4 lg:flex-row">
         <div className="flex min-w-0 flex-1 flex-col gap-4">
