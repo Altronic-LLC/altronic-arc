@@ -102,7 +102,7 @@ describe("buildChecklistToggleEmails", () => {
     expect(out[0].detailHtml).toContain("✗ Unchecked");
   });
 
-  it("summarises multiple toggles and lists each one, including the EIR reporter", () => {
+  it("summarises multiple toggles and lists each one", () => {
     const out = buildChecklistToggleEmails({
       target: EIR,
       toggles: [
@@ -111,8 +111,7 @@ describe("buildChecklistToggleEmails", () => {
       ],
       actor: ACTOR,
       watchers: [],
-      assignees: [],
-      reporter: SARAH,
+      assignees: [SARAH],
     });
     expect(out.map((e) => e.email)).toEqual(["sarah@x.com"]);
     expect(out[0].headlineHtml).toContain("updated the checklist on this EIR");

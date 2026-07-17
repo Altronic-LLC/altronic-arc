@@ -248,7 +248,8 @@ export function useUpdateEirFields() {
             ...recipients,
           });
         }
-        // Description-checklist toggles alert too (same audience).
+        // Description-checklist toggles alert watchers + assigned engineers
+        // only (no reporter — checklist ticks are working detail).
         if ("Description" in fields) {
           fireChecklistToggleAlert({
             target,
@@ -256,7 +257,9 @@ export function useUpdateEirFields() {
               ctx.prevEir.description ?? "",
               String(fields.Description ?? ""),
             ),
-            ...recipients,
+            actor,
+            watchers: ctx.prevEir.watchers,
+            assignees: ctx.prevEir.assignedEngineers,
           });
         }
       }

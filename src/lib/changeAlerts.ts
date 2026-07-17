@@ -118,10 +118,10 @@ export function buildFieldChangeEmails(args: {
 /**
  * Alerts for Description-checklist toggles (a box was checked or unchecked).
  *
- * Recipients = watchers + assignees (+ reporter for EIRs), deduped, minus the
- * actor — the same audience as a status change. `toggles` carries each item's
- * text and its NEW checked state; returns [] when there's nothing to report
- * or nobody left to notify.
+ * Recipients = watchers + assignees ONLY, deduped, minus the actor. (No
+ * reporter — checklist ticks are working detail, tighter audience than a
+ * status change.) `toggles` carries each item's text and its NEW checked
+ * state; returns [] when there's nothing to report or nobody left to notify.
  */
 export function buildChecklistToggleEmails(args: {
   target: ChangeTarget;
@@ -129,15 +129,11 @@ export function buildChecklistToggleEmails(args: {
   actor: Person;
   watchers: Person[];
   assignees: Person[];
-  reporter?: Person | null;
 }): ChangeEmail[] {
   if (args.toggles.length === 0) return [];
 
   const actorEmail = (args.actor.email ?? "").toLowerCase();
-  const recipients = dedupeMailable(
-    [...args.watchers, ...args.assignees, args.reporter ?? null],
-    actorEmail,
-  );
+  const recipients = dedupeMailable([...args.watchers, ...args.assignees], actorEmail);
   if (recipients.length === 0) return [];
 
   const noun = nounFor(args.target);

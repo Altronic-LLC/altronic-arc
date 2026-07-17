@@ -320,7 +320,6 @@ export function fireChecklistToggleAlert(args: {
   actor: Person;
   watchers: Person[];
   assignees: Person[];
-  reporter?: Person | null;
 }): void {
   const emails = buildChecklistToggleEmails(args);
   if (emails.length === 0) return;
