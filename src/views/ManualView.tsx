@@ -1566,8 +1566,9 @@ const SECTIONS: ManualSection[] = [
         <UL>
           <LI>
             You are <strong>never emailed about your own action</strong> — even
-            if you're a watcher or assignee — with the single exception of
-            @-mentioning yourself.
+            if you're a watcher or assignee — with two exceptions:
+            @-mentioning yourself, and the recovery email you get if one of
+            your own saves fails to reach SharePoint (see below).
           </LI>
           <LI>
             Recipients are <strong>deduped</strong>: you get at most one email
@@ -1643,6 +1644,11 @@ const SECTIONS: ManualSection[] = [
               "An EIR is promoted to a task",
               "The EIR's watchers + reporter (minus you)",
               "… was promoted to a task (the button opens the new task)",
+            ],
+            [
+              "A save of yours fails to reach SharePoint (after automatic retries)",
+              "Just you — a recovery copy so your work isn't lost",
+              "ARC couldn't save your change — here's what you entered",
             ],
             [
               "A task promoted from an EIR is completed",
@@ -1752,6 +1758,20 @@ const SECTIONS: ManualSection[] = [
           (minus whoever did the promoting) with a button that opens the new
           task. Later, when that task is completed, the same followers hear about
           it again as the EIR is closed out.
+        </P>
+
+        <H3>If one of your saves fails</H3>
+        <P>
+          ARC waits out SharePoint throttling and brief network drops
+          automatically, so almost every save goes through even if it takes a
+          moment. In the rare case a save <em>still</em> can't be written —
+          usually a permissions problem or a longer outage — the app undoes
+          the change in the UI (so nothing looks saved when it isn't) and{" "}
+          <strong>emails you a copy of exactly what you entered</strong>, plus
+          the reason it failed. Look for <em>"ARC couldn't save your change —
+          here's what you entered"</em> in your inbox, then re-enter it. This
+          email goes only to you; it's the one time ARC emails you about your
+          own action.
         </P>
 
         <H3>What does NOT send email</H3>
@@ -1935,6 +1955,16 @@ const SECTIONS: ManualSection[] = [
           the task again to confirm. If the toast was green but the change
           reverted on refresh, someone else may have changed the same field
           at the same time; reapply your change.
+        </P>
+        <P>
+          <strong>You won't lose the work.</strong> Whenever a save truly
+          can't reach SharePoint — after ARC has automatically retried
+          through any throttling or network blip — the app emails{" "}
+          <em>you</em> a copy of exactly what you entered, along with the
+          reason it failed (for example, a permissions problem). Check your
+          inbox for <em>"ARC couldn't save your change — here's what you
+          entered"</em>, then re-enter it. If it keeps failing, use{" "}
+          <strong>Report Issue</strong> so the app manager can dig in.
         </P>
         <H3>A save felt slow for a few seconds</H3>
         <P>

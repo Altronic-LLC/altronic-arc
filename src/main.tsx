@@ -8,6 +8,7 @@ import { AuthGate } from "./auth/AuthGate";
 import { assertGraphConfigured } from "./api/config";
 import { installErrorCapture } from "./lib/errorBuffer";
 import { isSessionExpiredError, markSessionExpired } from "./hooks/useSessionExpiry";
+import { reportEditFailure } from "./api/editFailureReport";
 import "./styles/globals.css";
 
 // Mirror console errors + uncaught rejections into a bounded in-memory
@@ -49,9 +50,22 @@ function handlePossibleSessionExpiry(error: unknown) {
   if (isSessionExpiredError(error)) markSessionExpired();
 }
 
+// Global write-failure safety net. Every mutation error flows through here
+// (React Query calls this BEFORE each mutation's own onError rollback), so a
+// write that truly can't be saved — after fetchWithRetry has exhausted its
+// throttle/network retries — emails the signed-in user a recovery copy of
+// what they entered plus the reason. Session-expiry is skipped inside
+// reportEditFailure (that's a re-auth, not a lost edit). Fire-and-forget and
+// self-guarding: it never throws back into the cache. Covers every current
+// and future department for free — no per-mutation wiring.
+function handleMutationError(error: unknown, variables: unknown) {
+  handlePossibleSessionExpiry(error);
+  void reportEditFailure({ error, variables });
+}
+
 const queryClient = new QueryClient({
   queryCache: new QueryCache({ onError: handlePossibleSessionExpiry }),
-  mutationCache: new MutationCache({ onError: handlePossibleSessionExpiry }),
+  mutationCache: new MutationCache({ onError: handleMutationError }),
   defaultOptions: {
     queries: {
       staleTime: 120_000,

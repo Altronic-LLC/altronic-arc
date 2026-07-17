@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.63.0",
+    date: "2026-07-17",
+    changes: [
+      "If a change you make ever fails to save to SharePoint, ARC now emails you a copy of exactly what you entered plus the reason it failed — so your work is never silently lost, even when a save can't go through",
+      "The recovery email includes the specific fields or comment text you typed and plain-language guidance on what to do next",
+    ],
+  },
+  {
     version: "0.62.1",
     date: "2026-07-17",
     changes: [
