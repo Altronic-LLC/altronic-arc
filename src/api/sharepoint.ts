@@ -1,6 +1,6 @@
 import { getMsalInstance } from "@/auth/AuthProvider";
 import { SP_SITE_URL, USE_MOCK } from "./config";
-import { SessionExpiredError, GraphError } from "./graph";
+import { SessionExpiredError, GraphError, fetchWithRetry } from "./graph";
 
 // =============================================================================
 // SharePoint REST API helper.
@@ -85,7 +85,9 @@ export async function spFetch<T>(
   }
 
   const url = path.startsWith("http") ? path : `${SP_SITE_URL}${path}`;
-  const response = await fetch(url, {
+  // Throttle-aware: waits out 429/503 Retry-After inside the pending request
+  // (same policy as graphFetch — see fetchWithRetry in graph.ts).
+  const response = await fetchWithRetry(url, {
     ...init,
     headers: {
       Authorization: `Bearer ${accessToken}`,

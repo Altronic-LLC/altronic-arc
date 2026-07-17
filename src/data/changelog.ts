@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.62.1",
+    date: "2026-07-17",
+    changes: [
+      "Saves and loads now automatically wait out SharePoint throttling and brief network blips — the app retries in the background (honoring SharePoint's requested wait time) instead of failing and reverting your edit",
+      "Creates and emails never auto-retry after a network drop, so a hiccup can't double-post an item or double-send a notification",
+    ],
+  },
+  {
     version: "0.62.0",
     date: "2026-07-17",
     changes: [

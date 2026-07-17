@@ -3,6 +3,92 @@ import { getMsalInstance } from "@/auth/AuthProvider";
 import { graphScopes } from "@/auth/msalConfig";
 import { GRAPH_BASE, USE_MOCK } from "./config";
 
+// =============================================================================
+// Throttle-aware transport retry.
+//
+// SharePoint/Graph throttle with 429 (or 503/504 under load), carrying a
+// Retry-After header that says how long to back off. A throttled request was
+// REJECTED BEFORE PROCESSING, so retrying it is always safe — including
+// writes. The retry happens inside the still-pending request promise, so the
+// optimistic UI keeps showing the user's edit while we quietly wait out the
+// throttle; the user never sees it unless every attempt is exhausted (at
+// which point the mutation's onError rolls back with an error toast).
+//
+// Network failures (fetch TypeError — wifi blip, sleeping laptop) are also
+// retried, but ONLY for idempotent methods: a dropped POST may have reached
+// the server before the connection died, and retrying it could double-create
+// an item or double-send an email. PATCH/GET/PUT/DELETE are safe to repeat.
+// =============================================================================
+
+const RETRYABLE_STATUSES = new Set([429, 502, 503, 504]);
+const MAX_RETRIES = 4;
+/** Never wait longer than this for a single backoff, even if Retry-After asks. */
+const MAX_SINGLE_DELAY_MS = 60_000;
+
+/** Parse a Retry-After header (delta-seconds or HTTP-date) to milliseconds. */
+export function parseRetryAfterMs(header: string | null, now: number = Date.now()): number | null {
+  if (!header) return null;
+  const secs = Number(header);
+  if (Number.isFinite(secs)) return Math.max(0, secs * 1000);
+  const date = Date.parse(header);
+  if (!Number.isNaN(date)) return Math.max(0, date - now);
+  return null;
+}
+
+/**
+ * Delay before retry N (0-based). Honors the server's Retry-After when given
+ * (clamped to [1s, 60s]); otherwise exponential backoff 1s/2s/4s/8s plus a
+ * little jitter so a fleet of throttled tabs doesn't retry in lockstep.
+ */
+export function retryDelayMs(attempt: number, retryAfterMs: number | null): number {
+  if (retryAfterMs != null) {
+    return Math.min(Math.max(retryAfterMs, 1000), MAX_SINGLE_DELAY_MS);
+  }
+  const backoff = Math.min(1000 * 2 ** attempt, 8000);
+  return backoff + Math.round(Math.random() * 250);
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * `fetch` with throttle/transient-failure retries. Returns the final
+ * Response (which may still be an error status — non-retryable failures and
+ * exhausted retries pass through for the caller's normal error handling).
+ */
+export async function fetchWithRetry(url: string, init: RequestInit = {}): Promise<Response> {
+  const method = (init.method ?? "GET").toUpperCase();
+  for (let attempt = 0; ; attempt++) {
+    let response: Response;
+    try {
+      response = await fetch(url, init);
+    } catch (err) {
+      // Network-level failure — request may or may not have reached the
+      // server, so only idempotent methods retry (POST could duplicate).
+      if (attempt < MAX_RETRIES && method !== "POST") {
+        console.warn(
+          `[retry] network error on ${method} ${url} — retrying (${attempt + 1}/${MAX_RETRIES})`,
+          err,
+        );
+        await sleep(retryDelayMs(attempt, null));
+        continue;
+      }
+      throw err;
+    }
+    if (RETRYABLE_STATUSES.has(response.status) && attempt < MAX_RETRIES) {
+      const retryAfter = parseRetryAfterMs(response.headers.get("Retry-After"));
+      const delay = retryDelayMs(attempt, retryAfter);
+      console.warn(
+        `[retry] ${response.status} on ${method} ${url} — waiting ${delay}ms, then retrying (${attempt + 1}/${MAX_RETRIES})`,
+      );
+      await sleep(delay);
+      continue;
+    }
+    return response;
+  }
+}
+
 /**
  * Make an authenticated request to Microsoft Graph.
  *
@@ -57,7 +143,7 @@ export async function graphFetch<T>(path: string, init: RequestInit = {}): Promi
 
   const url = path.startsWith("http") ? path : `${GRAPH_BASE}${path}`;
 
-  const response = await fetch(url, {
+  const response = await fetchWithRetry(url, {
     ...init,
     headers: {
       Authorization: `Bearer ${accessToken}`,

@@ -1936,6 +1936,15 @@ const SECTIONS: ManualSection[] = [
           reverted on refresh, someone else may have changed the same field
           at the same time; reapply your change.
         </P>
+        <H3>A save felt slow for a few seconds</H3>
+        <P>
+          That's the app protecting your edit. If SharePoint is busy
+          (throttling) or your connection blips, ARC quietly waits and
+          retries in the background — for as long as SharePoint asks, up to
+          several attempts — while your edit stays on screen. You only see
+          a red toast if every retry fails, in which case the edit reverts
+          and you should try again.
+        </P>
         <H3>I don't see my new task</H3>
         <P>
           The default Assigned filter is set to your email. If you created a

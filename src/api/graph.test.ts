@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { decodeJwtClaims } from "./graph";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { decodeJwtClaims, fetchWithRetry, parseRetryAfterMs, retryDelayMs } from "./graph";
 
 // Build a fake JWT payload-only token. Header and signature don't matter for
 // the decoder — it only looks at the middle segment.
@@ -63,5 +63,137 @@ describe("decodeJwtClaims", () => {
     // No recognised diagnostic claims, but should still parse successfully.
     expect(claims).not.toBeNull();
     expect(claims!.scp).toBeUndefined();
+  });
+});
+
+describe("parseRetryAfterMs", () => {
+  it("parses delta-seconds", () => {
+    expect(parseRetryAfterMs("5")).toBe(5000);
+    expect(parseRetryAfterMs("0")).toBe(0);
+  });
+
+  it("parses an HTTP-date relative to now", () => {
+    const now = Date.parse("2026-07-17T10:00:00Z");
+    expect(parseRetryAfterMs("Fri, 17 Jul 2026 10:00:30 GMT", now)).toBe(30_000);
+    // A date in the past clamps to 0 rather than going negative.
+    expect(parseRetryAfterMs("Fri, 17 Jul 2026 09:59:00 GMT", now)).toBe(0);
+  });
+
+  it("returns null for missing or garbage headers", () => {
+    expect(parseRetryAfterMs(null)).toBeNull();
+    expect(parseRetryAfterMs("soon")).toBeNull();
+  });
+});
+
+describe("retryDelayMs", () => {
+  it("honors Retry-After, clamped to [1s, 60s]", () => {
+    expect(retryDelayMs(0, 5000)).toBe(5000);
+    expect(retryDelayMs(0, 0)).toBe(1000); // never hammer instantly
+    expect(retryDelayMs(0, 300_000)).toBe(60_000); // cap absurd waits
+  });
+
+  it("falls back to capped exponential backoff (plus jitter) without a header", () => {
+    for (const [attempt, base] of [
+      [0, 1000],
+      [1, 2000],
+      [2, 4000],
+      [3, 8000],
+      [4, 8000], // capped
+    ] as const) {
+      const d = retryDelayMs(attempt, null);
+      expect(d).toBeGreaterThanOrEqual(base);
+      expect(d).toBeLessThanOrEqual(base + 250);
+    }
+  });
+});
+
+describe("fetchWithRetry", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  function res(status: number, headers: Record<string, string> = {}): Response {
+    return new Response(status === 204 ? null : "{}", { status, headers });
+  }
+
+  it("waits out a 429 (honoring Retry-After) and returns the eventual success", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(res(429, { "Retry-After": "2" }))
+      .mockResolvedValueOnce(res(200));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const promise = fetchWithRetry("https://x.test/items", { method: "PATCH" });
+    await vi.advanceTimersByTimeAsync(2000);
+    const response = await promise;
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("gives up after the retry budget and returns the final throttle response", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn().mockResolvedValue(res(503, { "Retry-After": "1" }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const promise = fetchWithRetry("https://x.test/items");
+    await vi.advanceTimersByTimeAsync(60_000);
+    const response = await promise;
+
+    expect(response.status).toBe(503);
+    expect(fetchMock).toHaveBeenCalledTimes(5); // 1 initial + 4 retries
+  });
+
+  it("does not retry non-throttle errors (e.g. 400)", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(res(400));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await fetchWithRetry("https://x.test/items", { method: "POST" });
+    expect(response.status).toBe(400);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries a network failure for idempotent methods", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockResolvedValueOnce(res(200));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const promise = fetchWithRetry("https://x.test/items", { method: "PATCH" });
+    await vi.advanceTimersByTimeAsync(2000);
+    const response = await promise;
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("does NOT retry a network failure for POST (could double-create)", async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(fetchWithRetry("https://x.test/items", { method: "POST" })).rejects.toThrow(
+      "Failed to fetch",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("DOES retry a 429 on POST — a throttled request was rejected before processing", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(res(429, { "Retry-After": "1" }))
+      .mockResolvedValueOnce(res(201));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const promise = fetchWithRetry("https://x.test/items", { method: "POST" });
+    await vi.advanceTimersByTimeAsync(1000);
+    const response = await promise;
+
+    expect(response.status).toBe(201);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
