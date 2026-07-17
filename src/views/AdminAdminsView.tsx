@@ -75,6 +75,18 @@ export function AdminAdminsView() {
           >
             Operations Projects →
           </Link>
+          <Link
+            to="/admin/panel-projects"
+            className="text-xs text-accent underline-offset-2 hover:underline"
+          >
+            Panel Projects →
+          </Link>
+          <Link
+            to="/admin/panel-roles"
+            className="text-xs text-accent underline-offset-2 hover:underline"
+          >
+            Panel User Roles →
+          </Link>
         </nav>
       </header>
 

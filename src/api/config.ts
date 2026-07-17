@@ -140,6 +140,46 @@ export const SP_BUILD_REQUEST_ITEMS_LIST_ID =
   import.meta.env.VITE_SP_BUILD_REQUEST_ITEMS_LIST_ID ||
   "5572f186-961d-44b1-b01d-1fffffe17b26";
 
+// =============================================================================
+// Panels department — three lists on the ALTRONICPANELTEAM site
+// (SITES.panelTeam). IDs discovered live via Graph on 2026-07-17;
+// env-overridable, same pattern as the Operations lists.
+// =============================================================================
+
+/** "Panel Order Headers" — one item per panel sales order (the main entity). */
+export const SP_PANEL_ORDERS_LIST_ID =
+  import.meta.env.VITE_SP_PANEL_ORDERS_LIST_ID ||
+  "8561acf4-b583-459b-aafd-2106803a70c7";
+
+/** "Panel Project Reference" — admin-managed project reference list (Title = ref number). */
+export const SP_PANEL_PROJECTS_LIST_ID =
+  import.meta.env.VITE_SP_PANEL_PROJECTS_LIST_ID ||
+  "7b2927fb-468e-4305-8d97-7415e70ae986";
+
+/** "Panel User Roles" — admin-managed roles list (one row = one User person + one Role choice). */
+export const SP_PANEL_ROLES_LIST_ID =
+  import.meta.env.VITE_SP_PANEL_ROLES_LIST_ID ||
+  "2d67d242-7419-453f-a388-7454bf3e7f4b";
+
+/**
+ * Panel team site's classic SharePoint REST root — needed for panel order
+ * attachments and site-user resolution (single-person fields only return a
+ * bare LookupId via Graph). Same tenant/token as SP_SITE_URL.
+ */
+export const SP_PANELTEAM_SITE_URL =
+  (import.meta.env.VITE_SP_PANELTEAM_SITE_URL as string | undefined) ??
+  "https://coopermachineryservices.sharepoint.com/sites/ALTRONICPANELTEAM";
+
+/**
+ * Whether panel field-level role gating is active. No fields are gated in
+ * v1 — this flag (and useMyPanelRoles) ship dark, ready for the first gated
+ * field. Same lockout-safety shape as EIR_ROLES_ENFORCED: off in real mode
+ * until the roles list id is configured. (The default id above counts as
+ * configured, so this is effectively USE_MOCK || true — kept in this shape
+ * so an env override to "" can switch gating off without a code change.)
+ */
+export const PANEL_ROLES_ENFORCED = USE_MOCK || !!SP_PANEL_ROLES_LIST_ID;
+
 export const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 
 /** Throw a clear error if the app tries to call Graph without being configured. */

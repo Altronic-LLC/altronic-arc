@@ -10,7 +10,13 @@
 // `${origin}${base}${seg}/${id}` — no hash.
 // =============================================================================
 
-export type AppItemKind = "task" | "eir" | "operationsTask" | "buildRequest" | "buildRequestItem";
+export type AppItemKind =
+  | "task"
+  | "eir"
+  | "operationsTask"
+  | "buildRequest"
+  | "buildRequestItem"
+  | "panelOrder";
 
 const KIND_SEGMENTS: Record<AppItemKind, string> = {
   task: "task",
@@ -20,6 +26,7 @@ const KIND_SEGMENTS: Record<AppItemKind, string> = {
   // A redirect route: App.tsx looks the item up and forwards to its parent
   // header page with ?item=<id> so the right part card expands.
   buildRequestItem: "build-request-item",
+  panelOrder: "panels/order",
 };
 
 /** Absolute URL to an item's detail page in this app. */

@@ -415,7 +415,7 @@ const SECTIONS: ManualSection[] = [
           and whether it was checked or unchecked (see{" "}
           <em>Notifications → Checklist toggles</em>). This works everywhere
           Description checklists exist: Engineering tasks, Operations tasks,
-          and EIR descriptions.
+          EIR descriptions, and panel order notes.
         </P>
         <H3>Marking complete</H3>
         <P>
@@ -797,6 +797,84 @@ const SECTIONS: ManualSection[] = [
           manage it at <code>/admin/operations-projects</code>; see the{" "}
           <em>Admin section → Operations Projects admin</em> topic for
           details.
+        </P>
+      </>
+    ),
+  },
+  {
+    id: "panel-orders",
+    title: "Panel Orders",
+    group: "Panels",
+    keywords: [
+      "panel",
+      "panels",
+      "panel order",
+      "panel orders",
+      "panel dashboard",
+      "panel production",
+      "sales order",
+      "panel project reference",
+      "panel user roles",
+      "order notes",
+      "panel team",
+    ],
+    searchText:
+      "Panel Orders is the Panels department's first ARC feature, backed by the Panel Order Headers, Panel Project Reference, and Panel User Roles lists on the ALTRONICPANELTEAM SharePoint site. Each order tracks a panel sales order: title, status (Submitted, In Engineering, In Production, Testing, Shipped, On Hold), a project reference picked from the admin-managed Panel Project Reference list, sales order and purchase order numbers, customer, customer reference, customer contact email, an assigned engineer, watchers, attachments, comments with @-mentions, and Order Notes that support checklists. Reach it from the Dashboard's Panel Orders card or the Departments dropdown's Panels group. Create orders with the New Panel Order button; new orders start as Submitted and you're auto-added as a watcher. The Open pill counts everything not Shipped. Admins manage the project reference list at /admin/panel-projects and the Panel User Roles list at /admin/panel-roles; roles don't lock any fields yet.",
+    render: () => (
+      <>
+        <P>
+          <strong>Panel Orders</strong> is the Panels department's first ARC
+          feature — the panel production team's view of panel sales orders,
+          backed by its own SharePoint site (ALTRONICPANELTEAM). Reach it
+          from the <strong>Panel Orders</strong> card on the Dashboard, or
+          the <strong>Departments</strong> dropdown's Panels group.
+        </P>
+        <H3>The order list</H3>
+        <P>
+          Status pills sit above the list — <strong>Open</strong> counts
+          everything not yet Shipped, and one pill per status (Submitted, In
+          Engineering, In Production, Testing, Shipped, On Hold) narrows to
+          that status. The filter bar adds Project Reference, Engineer
+          Assigned, and the multi-keyword Search (same syntax as everywhere
+          else). All filters live in the URL, so a filtered view can be
+          shared. The Dashboard card's click-through carries your{" "}
+          <em>mine</em> scope as a visible, dismissible chip — "your" panel
+          orders are the ones where you're the assigned engineer or a
+          watcher.
+        </P>
+        <H3>Creating an order</H3>
+        <P>
+          Click <strong>New Panel Order</strong>. Title is required;
+          everything else — project reference (picked from the admin-managed
+          list), sales order, purchase order, customer, customer reference,
+          contact email, engineer, and order notes — is optional and can be
+          edited later from the detail page. New orders start as{" "}
+          <strong>Submitted</strong> and you're auto-added as a watcher.
+        </P>
+        <H3>The detail page</H3>
+        <P>
+          Everything is edited in place: the title inline, the sidebar's
+          Status / Project Reference / Engineer / order-number / customer
+          fields directly, and <strong>Order Notes</strong> as an editable
+          card that supports the same <code>- [ ]</code> checklists as a
+          task Description — checked boxes record who and when, unchecking
+          asks "Are you sure?", and toggles email the watchers and engineer.
+          Comments (with @-mentions and auto-watch), Watchers, and file
+          attachments work exactly like tasks and EIRs. Status changes and
+          engineer changes send the same email alerts other departments get.
+        </P>
+        <H3>Admin lists</H3>
+        <P>
+          Two admin-only pages back this feature (both restricted to ARC
+          admins): <strong>Panel Projects</strong>{" "}
+          (<code>/admin/panel-projects</code>) manages the project reference
+          numbers orders pick from — each row holds the reference number,
+          project type, description, DWG NO, customer, and department.{" "}
+          <strong>Panel User Roles</strong> (<code>/admin/panel-roles</code>)
+          tags panel team members with a role (Super User, Manager, Tech,
+          Engineer, Admin, Viewer) — one row per user per role. Roles don't
+          lock any panel order fields yet; they're recorded now so
+          field-level permissions can be switched on later.
         </P>
       </>
     ),
@@ -1255,6 +1333,8 @@ const SECTIONS: ManualSection[] = [
       "who can edit",
       "operations projects admin",
       "operations project log",
+      "panel projects admin",
+      "panel user roles admin",
     ],
     searchText:
       "Admins manage four things from the Admin section in the header: the list of admin users (/admin/admins), the Engineering Project Log — the master project list (/admin/projects), EIR roles (/admin/eir-roles) which control who can edit the Engineering Response (engineer role) and Buyer Code (supply chain role) fields on an EIR, and the Operations Projects list (/admin/operations-projects) — the master project list for Operations tasks. The Admin link only appears in the header for users on the admin list, and non-admins who open an /admin URL directly are sent back to the dashboard — the admin pages never show for them. Add an admin from the Admins page; their name appears in the header on their next sign-in. Removing yourself is disabled to prevent lockouts. A small hardcoded bootstrap set of admins stays in the code as a safety net.",
@@ -1355,6 +1435,20 @@ const SECTIONS: ManualSection[] = [
           description. The optional description shows as a muted line under
           the project name in the list — only Admins (who already have
           access to this page) can add or edit it.
+        </P>
+        <H3>Panel Projects &amp; Panel User Roles admin</H3>
+        <P>
+          The Panels department has two admin pages of its own.{" "}
+          <strong>Panel Projects</strong> (<code>/admin/panel-projects</code>)
+          is the master list of panel project reference numbers — each row
+          holds the reference number plus project type, description, DWG NO,
+          customer, and department; new rows appear immediately in the
+          Project Reference dropdown on panel orders.{" "}
+          <strong>Panel User Roles</strong> (<code>/admin/panel-roles</code>)
+          tags panel team members with a role (Super User, Manager, Tech,
+          Engineer, Admin, Viewer), one row per user per role. Roles don't
+          lock any panel order fields yet — see the <em>Panel Orders</em>{" "}
+          section.
         </P>
         <Tip>
           If you're trying to add yourself and the modal closes silently with
@@ -1511,7 +1605,7 @@ const SECTIONS: ManualSection[] = [
               "Updated comment on …",
             ],
             [
-              "Status changes (task, EIR, or build request)",
+              "Status changes (task, EIR, build request, or panel order)",
               "Watchers + current assignees + EIR reporter / BR requestor (minus you)",
               "Status changed on …",
             ],
@@ -1526,7 +1620,7 @@ const SECTIONS: ManualSection[] = [
               "Resolution changed on …",
             ],
             [
-              "A Description checklist box is checked or unchecked (task, Operations task, or EIR)",
+              "A Description checklist box is checked or unchecked (task, Operations task, EIR, or panel order notes)",
               "Watchers + current assignees (minus you)",
               "Checklist updated on …",
             ],
@@ -1610,7 +1704,7 @@ const SECTIONS: ManualSection[] = [
         <H3>Checklist toggles</H3>
         <P>
           Checking or unchecking a box in a Description checklist (Engineering
-          tasks, Operations tasks, and EIRs) emails the{" "}
+          tasks, Operations tasks, EIRs, and panel order notes) emails the{" "}
           <strong>watchers</strong> and{" "}
           <strong>current assignees / assigned engineers</strong> — minus
           whoever clicked the box. The email names the item and whether it was

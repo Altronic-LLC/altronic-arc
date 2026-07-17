@@ -38,7 +38,7 @@ export interface MentionRecipient {
 
 /** What the mention is on — drives the wording, link, and button text. */
 export interface MentionTarget {
-  kind: "task" | "eir" | "operationsTask" | "buildRequest" | "buildRequestItem";
+  kind: "task" | "eir" | "operationsTask" | "buildRequest" | "buildRequestItem" | "panelOrder";
   id: number;
   title: string;
 }
@@ -60,6 +60,11 @@ const KIND_COPY: Record<
     phrase: "a build request part",
     calloutLabel: "Build Request Part",
     buttonText: "Open this part",
+  },
+  panelOrder: {
+    phrase: "a panel order",
+    calloutLabel: "Panel Order",
+    buttonText: "Open this panel order",
   },
 };
 

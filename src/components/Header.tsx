@@ -114,7 +114,12 @@ const DEPARTMENTS: DepartmentGroup[] = [
   {
     name: "Panels",
     items: [
-      soon("Panel Dashboard", <LayoutDashboard className="h-4 w-4" />),
+      {
+        to: "/panels/orders",
+        label: "Panel Orders",
+        icon: <LayoutDashboard className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/panels/"),
+      },
       soon("Panel Tasks", <ListChecks className="h-4 w-4" />),
       soon("Project Folders", <FolderOpen className="h-4 w-4" />),
     ],

@@ -20,6 +20,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.62.0",
+    date: "2026-07-17",
+    changes: [
+      "New Panels department: Panel Orders — track panel sales orders (status, sales/purchase order numbers, customer, engineer, watchers) from the new Panels menu and Dashboard card",
+      "Panel order detail page with inline editing, comments with @-mentions, file attachments, and Order Notes that support checklists (who/when stamps + email alerts included)",
+      "Status pills (Open = not Shipped), project/engineer/search filters, and a 'mine' view from the Dashboard card (your orders = engineer or watcher)",
+      "Two new admin pages: Panel Projects (/admin/panel-projects) manages the project reference numbers orders pick from; Panel User Roles (/admin/panel-roles) tags panel team members with roles for future field-level permissions",
+      "Status changes, engineer changes, comments, and checklist toggles on panel orders send the same email alerts as other departments",
+    ],
+  },
+  {
     version: "0.61.1",
     date: "2026-07-17",
     changes: [

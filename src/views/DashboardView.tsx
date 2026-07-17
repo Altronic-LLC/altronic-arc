@@ -33,6 +33,7 @@ import { useTestSheets } from "@/hooks/useTestSheets";
 import { useProjectFolderEntries } from "@/hooks/useProjectFolders";
 import { useOperationsTasks } from "@/hooks/useOperationsTasks";
 import { useBuildRequests } from "@/hooks/useBuildRequests";
+import { usePanelOrders } from "@/hooks/usePanelOrders";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { SingleSelect } from "@/components/SearchableSelect";
@@ -40,6 +41,7 @@ import {
   BUILD_REQUEST_STATUSES,
   EIR_STATUSES,
   OPERATIONS_STATUSES,
+  PANEL_ORDER_STATUSES,
   STATUSES,
   type BuildRequest,
   type BuildRequestStatus,
@@ -47,6 +49,8 @@ import {
   type EirStatus,
   type OperationsStatus,
   type OperationsTask,
+  type PanelOrder,
+  type PanelOrderStatus,
   type Person,
   type Status,
   type Task,
@@ -147,6 +151,15 @@ const BUILD_REQUEST_BAR_COLOR: Record<BuildRequestStatus, string> = {
   "On Hold": "bg-violet-500",
 };
 
+const PANEL_ORDER_BAR_COLOR: Record<PanelOrderStatus, string> = {
+  Submitted: "bg-slate-400",
+  "In Engineering": "bg-superior-blue",
+  "In Production": "bg-ajax-yellow",
+  Testing: "bg-orange-500",
+  Shipped: "bg-cooper-green",
+  "On Hold": "bg-violet-500",
+};
+
 /** Operations tasks have a single Assigned person, not Engineering's multi-person array. */
 function personMatchesSingle(person: Person | null, email: string): boolean {
   if (!email || !person) return false;
@@ -206,6 +219,13 @@ export function DashboardView() {
     error: buildRequestsErrorObj,
     refetch: refetchBuildRequests,
   } = useBuildRequests();
+  const {
+    data: panelOrders = [],
+    isLoading: panelOrdersLoading,
+    isError: panelOrdersError,
+    error: panelOrdersErrorObj,
+    refetch: refetchPanelOrders,
+  } = usePanelOrders();
   const {
     data: folderEntries = [],
     isError: foldersError,
@@ -319,7 +339,27 @@ export function DashboardView() {
     return { count: active.length, segments };
   }, [buildRequests, mine, myEmail, projectId]);
 
-  if (isLoading || eirsLoading || operationsTasksLoading || buildRequestsLoading) {
+  const panelOrderCard = useMemo(() => {
+    // "Mine" for a panel order = I'm the assigned engineer or a watcher.
+    // The dashboard's Project picker is the ENGINEERING projects list —
+    // panel orders reference their own Panel Project Reference list, so the
+    // project filter deliberately doesn't narrow this card.
+    const active = panelOrders.filter(
+      (o: PanelOrder) =>
+        o.status !== "Shipped" &&
+        (!mine ||
+          personMatchesSingle(o.engineerAssigned, myEmail) ||
+          personMatches(o.watchers, myEmail)),
+    );
+    const segments: Segment[] = PANEL_ORDER_STATUSES.filter((s) => s !== "Shipped").map((s) => ({
+      label: s,
+      count: active.filter((o) => o.status === s).length,
+      color: PANEL_ORDER_BAR_COLOR[s],
+    }));
+    return { count: active.length, segments };
+  }, [panelOrders, mine, myEmail]);
+
+  if (isLoading || eirsLoading || operationsTasksLoading || buildRequestsLoading || panelOrdersLoading) {
     return <LoadingTasks noun="your dashboard" />;
   }
 
@@ -355,6 +395,13 @@ export function DashboardView() {
         }).toString()}`
       : ""
   }`;
+  // Panel "mine" = engineer OR watcher — carried as the visible, dismissible
+  // `mine` chip on the list (same convention as Build Requests). No project
+  // param: the dashboard picker is the Engineering projects list, not the
+  // Panel Project Reference list.
+  const panelOrdersUrl = `/panels/orders${
+    mine && meParam ? `?${new URLSearchParams({ mine: meParam }).toString()}` : ""
+  }`;
 
   // Name each failed source + its underlying error so the banner is
   // self-diagnosing — "something failed, refresh" was undebuggable for
@@ -386,6 +433,13 @@ export function DashboardView() {
       error: buildRequestsErrorObj,
       retry: refetchBuildRequests,
     },
+    {
+      name: "Panel Orders",
+      dept: "Panels",
+      failed: panelOrdersError,
+      error: panelOrdersErrorObj,
+      retry: refetchPanelOrders,
+    },
     { name: "Project Folders", dept: "Engineering", failed: foldersError, error: foldersErrorObj, retry: refetchFolders },
   ].filter((s) => s.failed);
   const failedSources = allFailures.filter((s) => !isAccessDenied(s.error));
@@ -395,6 +449,7 @@ export function DashboardView() {
   const operationsDenied = allFailures.some(
     (s) => s.dept === "Operations" && isAccessDenied(s.error),
   );
+  const panelsDenied = allFailures.some((s) => s.dept === "Panels" && isAccessDenied(s.error));
 
   return (
     <div className="mx-auto flex max-w-[1200px] flex-col gap-5 px-4 py-4 sm:px-6 sm:py-6">
@@ -505,8 +560,21 @@ export function DashboardView() {
         <PlaceholderCard name="ECNs" icon={<Wrench className="h-5 w-5" />} />
       </DeptSection>
 
-      <DeptSection title="Panels">
-        <PlaceholderCard name="Panel Dashboard" icon={<LayoutDashboard className="h-5 w-5" />} />
+      <DeptSection
+        title="Panels"
+        notice={
+          panelsDenied ? <NoAccessNotice team="Panels" site="ALTRONICPANELTEAM" /> : undefined
+        }
+      >
+        <TypeCard
+          name="Panel Orders"
+          icon={<LayoutDashboard className="h-5 w-5" />}
+          tone="cooper-red"
+          count={panelOrderCard.count}
+          unit="open"
+          segments={panelOrderCard.segments}
+          onClick={() => navigate(panelOrdersUrl)}
+        />
         <PlaceholderCard name="Panel Tasks" icon={<ListChecks className="h-5 w-5" />} />
         <PlaceholderCard name="Project Folders" icon={<FolderOpen className="h-5 w-5" />} />
       </DeptSection>

@@ -4,6 +4,8 @@ import {
   SP_EIRS_LIST_ID,
   SP_LIST_ID,
   SP_OPERATIONS_TASKS_LIST_ID,
+  SP_PANEL_ORDERS_LIST_ID,
+  SP_PANELTEAM_SITE_URL,
   SP_PMO_SITE_URL,
   SP_SITE_URL,
   USE_MOCK,
@@ -36,7 +38,8 @@ export type AttachmentParent =
   | "eir"
   | "operationsTask"
   | "buildRequest"
-  | "buildRequestItem";
+  | "buildRequestItem"
+  | "panelOrder";
 
 interface ParentConfig {
   listId: string | undefined;
@@ -63,6 +66,11 @@ const PARENT_CONFIG: Record<AttachmentParent, ParentConfig> = {
     listId: SP_BUILD_REQUEST_ITEMS_LIST_ID,
     siteUrl: SP_SITE_URL,
     listIdEnvVar: "VITE_SP_BUILD_REQUEST_ITEMS_LIST_ID",
+  },
+  panelOrder: {
+    listId: SP_PANEL_ORDERS_LIST_ID,
+    siteUrl: SP_PANELTEAM_SITE_URL,
+    listIdEnvVar: "VITE_SP_PANEL_ORDERS_LIST_ID",
   },
 };
 

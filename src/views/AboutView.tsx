@@ -71,6 +71,11 @@ const SYSTEM_TIERS: Tier[] = [
         hint: "OperationsListView · OperationsKanbanView · OperationsDetailView · AdminOperationsProjectsView — useOperationsTasks — api/operationsTasks · operationsProjects · operationsEquipment. Own site (PMO), own code-split chunk; no imports from the Engineering views/hooks above.",
         palette: "ui",
       },
+      {
+        label: "Panels department (lazy-loaded bundle)",
+        hint: "PanelOrdersView · PanelOrderDetailView · AdminPanelProjectsView · AdminPanelRolesView — usePanelOrders · usePanelRoles — api/panelOrders · panelProjects · panelRoles. Own site (ALTRONICPANELTEAM), own code-split chunk; no cross-department imports.",
+        palette: "ui",
+      },
     ],
   },
   {
@@ -78,7 +83,7 @@ const SYSTEM_TIERS: Tier[] = [
     nodes: [
       { label: "MSAL Entra ID", hint: "Sites.Selected · Mail.Send.Shared (AllSites.Manage optional)", palette: "auth" },
       { label: "Microsoft Graph v1.0", hint: "Lists, items, drives, users, mail", palette: "gateway" },
-      { label: "SharePoint REST", hint: "List-item attachments (Task, EIR, and Operations Task List) — optional", palette: "gateway" },
+      { label: "SharePoint REST", hint: "List-item attachments (Task, EIR, Operations Task, Panel Order) + site-user resolution — optional", palette: "gateway" },
       { label: "Mock store", hint: "in-memory + localStorage (demo mode)", palette: "mock" },
       { label: "Shared mailbox", hint: "@-mention notifications", palette: "mock" },
     ],
@@ -99,6 +104,9 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "Altronic Equipment List", hint: "Altronic_PMO site — read-only reference for the Equipment picker", palette: "list" },
       { label: "Build Request Tracker", hint: "BR headers — status workflow, requestor/engineer, own comment thread", palette: "list" },
       { label: "Build Request Items", hint: "parts per BR (lookup to the Tracker) — checklists + per-part comment threads", palette: "list" },
+      { label: "Panel Order Headers", hint: "ALTRONICPANELTEAM site — panel sales orders (status, SO/PO, engineer, own comment thread)", palette: "list" },
+      { label: "Panel Project Reference", hint: "ALTRONICPANELTEAM site — admin-managed project reference numbers", palette: "list" },
+      { label: "Panel User Roles", hint: "ALTRONICPANELTEAM site — one row per user per role (gating ships dark in v1)", palette: "list" },
     ],
   },
 ];
@@ -404,6 +412,56 @@ const SCHEMA_TABLES: SchemaTable[] = [
       { name: "communication", type: "text", kind: "field" },
     ],
   },
+
+  // ---- Panels department (ALTRONICPANELTEAM site) — own cluster ------------
+  {
+    name: "PanelOrder",
+    source: "Panel Order Headers (ALTRONICPANELTEAM site)",
+    palette: "entity",
+    x: 20, y: 1830, width: 380,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title", type: "text", kind: "field" },
+      { name: "status", type: "choice", kind: "field" },
+      { name: "salesOrder", type: "text", kind: "field" },
+      { name: "purchaseOrder", type: "text", kind: "field" },
+      { name: "customerReference", type: "text", kind: "field" },
+      { name: "customer", type: "choice", kind: "field" },
+      { name: "customerContactEmail", type: "text", kind: "field" },
+      { name: "orderNotes", type: "text", kind: "field" },
+      { name: "projectReference", type: "int", kind: "fk", references: "PanelProject.id" },
+      { name: "engineerAssigned", type: "int", kind: "fk", references: "Person.id" },
+      { name: "watchers", type: "int[]", kind: "fk", references: "Person.id" },
+      { name: "communication", type: "text", kind: "field" },
+    ],
+  },
+  {
+    name: "PanelProject",
+    source: "Panel Project Reference (ALTRONICPANELTEAM site)",
+    palette: "entity",
+    x: 440, y: 1830, width: 280,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title (ref no)", type: "text", kind: "field" },
+      { name: "projectType", type: "choice", kind: "field" },
+      { name: "description", type: "text", kind: "field" },
+      { name: "dwgNo", type: "text", kind: "field" },
+      { name: "customer", type: "choice", kind: "field" },
+      { name: "department", type: "choice", kind: "field" },
+    ],
+  },
+  {
+    name: "PanelUserRole",
+    source: "Panel User Roles (ALTRONICPANELTEAM site)",
+    palette: "entity",
+    x: 760, y: 1830, width: 280,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "user", type: "int", kind: "fk", references: "Person.id" },
+      { name: "role", type: "choice", kind: "field" },
+      { name: "note (Title)", type: "text", kind: "field" },
+    ],
+  },
 ];
 
 // ----- Connections (FK → target). Cardinality at each end: "one" | "many" --
@@ -466,6 +524,14 @@ const CONNECTIONS: Connection[] = [
   { fromTable: "BuildRequest", fromColumn: "engineerAssigned", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "BuildRequestItem", fromColumn: "projectReference", toTable: "Project", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "BuildRequestItem", fromColumn: "taskRef", toTable: "Task", toColumn: "id", fromCard: "many", toCard: "one" },
+  // Panels — own site + own project reference list; person/comment/attachment
+  // relationships mirror the Operations pattern.
+  { fromTable: "PanelOrder", fromColumn: "projectReference", toTable: "PanelProject", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "PanelOrder", fromColumn: "engineerAssigned", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "PanelOrder", fromColumn: "watchers", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
+  { fromTable: "PanelUserRole", fromColumn: "user", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "Comment", fromColumn: "parentId", toTable: "PanelOrder", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "Attachment", fromColumn: "parentId", toTable: "PanelOrder", toColumn: "id", fromCard: "many", toCard: "one" },
 ];
 
 export function AboutView() {

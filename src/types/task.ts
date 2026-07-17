@@ -751,6 +751,106 @@ export interface BuildRequestItem {
 }
 
 // =============================================================================
+// Panels department — three lists on the ALTRONICPANELTEAM site:
+//   - Panel Order Headers: one item per panel sales order (the main entity).
+//     Header-only — no line-items list. Has its own Communication thread,
+//     Watchers, a single-person Engineer Assigned, and a single lookup into
+//     the Panel Project Reference list.
+//   - Panel Project Reference: admin-managed; Title = the project reference
+//     number (numbering scheme TBD), plus type/description/DWG/customer/dept.
+//   - Panel User Roles: admin-managed; one row = one User + one Role choice.
+//     Multiple roles per user = multiple rows. Rights mapping lives in
+//     lib/panelRoles.ts; NO fields are gated in v1 (infra ships dark).
+// =============================================================================
+
+export const PANEL_ORDER_STATUSES = [
+  "Submitted",
+  "In Engineering",
+  "In Production",
+  "Testing",
+  "Shipped",
+  "On Hold",
+] as const;
+export type PanelOrderStatus = (typeof PANEL_ORDER_STATUSES)[number];
+
+export const PANEL_PROJECT_TYPES = [
+  "PRD-Production Order",
+  "FS-Field Support",
+  "IS-Internal Support",
+  "DEV-Product Development",
+  "PRG-Programming",
+  "MSC-Misc",
+] as const;
+export type PanelProjectType = (typeof PANEL_PROJECT_TYPES)[number];
+
+export const PANEL_PROJECT_DEPARTMENTS = ["Sales", "Engineering", "Operations"] as const;
+export type PanelProjectDepartment = (typeof PANEL_PROJECT_DEPARTMENTS)[number];
+
+/** The Panel User Roles list's `Role` choice values (as configured in SharePoint). */
+export const PANEL_ROLE_CHOICES = [
+  "Super User",
+  "Manager",
+  "Tech",
+  "Engineer",
+  "Admin",
+  "Viewer",
+] as const;
+export type PanelRole = (typeof PANEL_ROLE_CHOICES)[number];
+
+/** A panel sales order from the Panel Order Headers list. */
+export interface PanelOrder {
+  id: number;
+  title: string;
+  status: PanelOrderStatus;
+  /** Single lookup into the Panel Project Reference list. */
+  projectRef: ProjectReference | null;
+  salesOrder: string;
+  purchaseOrder: string;
+  customerReference: string;
+  /** Choice column — values discovered at runtime (mirrors the reference list's customer choices). */
+  customer: string;
+  customerContactEmail: string;
+  /** Long-form notes — supports `- [ ]` Description checklists like a Task's Description. */
+  orderNotes: string;
+  /** Single person — Graph returns only the bare EngineerAssignedLookupId; names resolve via panel site users. */
+  engineerAssigned: Person | null;
+  watchers: Person[];
+  /** Parsed from the `Communication` field — identical pipe format to tasks/EIRs. */
+  comments: Comment[];
+  hasAttachments: boolean;
+  createdAt: Date;
+  modifiedAt: Date;
+  author: Person | null;
+  editor?: Person | null;
+  rawFields?: Record<string, unknown>;
+}
+
+/** A row from the Panel Project Reference list (admin-managed). */
+export interface PanelProject {
+  id: number;
+  /** The project reference number — the list's Title column. */
+  title: string;
+  projectType: PanelProjectType | null;
+  description: string;
+  dwgNo: string;
+  customer: string;
+  department: PanelProjectDepartment | null;
+}
+
+/**
+ * Row in the Panel User Roles SharePoint list (admin-managed). One row per
+ * user PER role — a user holding two roles appears twice. `id` is the SP
+ * list item id (used for update/delete).
+ */
+export interface PanelRoleEntry {
+  id: number;
+  user: Person | null;
+  role: PanelRole | null;
+  /** The Title column — free-text note/label. */
+  note: string;
+}
+
+// =============================================================================
 // Microsoft Graph response shapes — only the fields we touch
 // =============================================================================
 

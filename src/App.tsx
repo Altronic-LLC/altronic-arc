@@ -63,6 +63,21 @@ const PrintBuildRequestItemView = lazy(() =>
   })),
 );
 
+// Panels — the panel production team's department bundle (ALTRONICPANELTEAM
+// site). Code-split like Operations; no cross-department imports.
+const PanelOrdersView = lazy(() =>
+  import("@/views/PanelOrdersView").then((m) => ({ default: m.PanelOrdersView })),
+);
+const PanelOrderDetailView = lazy(() =>
+  import("@/views/PanelOrderDetailView").then((m) => ({ default: m.PanelOrderDetailView })),
+);
+const AdminPanelProjectsView = lazy(() =>
+  import("@/views/AdminPanelProjectsView").then((m) => ({ default: m.AdminPanelProjectsView })),
+);
+const AdminPanelRolesView = lazy(() =>
+  import("@/views/AdminPanelRolesView").then((m) => ({ default: m.AdminPanelRolesView })),
+);
+
 export function App() {
   // The print route is intentionally chrome-less so the saved PDF doesn't
   // include the app header/footer. Match any /…/print path.
@@ -190,6 +205,42 @@ export function App() {
               <Suspense fallback={<LoadingTasks noun="this part" />}>
                 <PrintBuildRequestItemView />
               </Suspense>
+            }
+          />
+          <Route
+            path="/panels/orders"
+            element={
+              <Suspense fallback={<LoadingTasks noun="panel orders" />}>
+                <PanelOrdersView />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/panels/order/:id"
+            element={
+              <Suspense fallback={<LoadingTasks noun="this panel order" />}>
+                <PanelOrderDetailView />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/admin/panel-projects"
+            element={
+              <RequireAdmin>
+                <Suspense fallback={<LoadingTasks noun="the admin page" />}>
+                  <AdminPanelProjectsView />
+                </Suspense>
+              </RequireAdmin>
+            }
+          />
+          <Route
+            path="/admin/panel-roles"
+            element={
+              <RequireAdmin>
+                <Suspense fallback={<LoadingTasks noun="the admin page" />}>
+                  <AdminPanelRolesView />
+                </Suspense>
+              </RequireAdmin>
             }
           />
           <Route path="/about" element={<AboutView />} />
