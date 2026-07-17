@@ -21,7 +21,13 @@ import {
 import { listOperationsEquipment } from "@/api/operationsEquipment";
 import type { OperationsTask, Person, ProjectReference } from "@/types/task";
 import { pushToast } from "@/components/Toast";
-import { fireAssigneeChangeAlert, fireFieldChangeAlert, notifyMentions } from "@/api/email";
+import {
+  fireAssigneeChangeAlert,
+  fireChecklistToggleAlert,
+  fireFieldChangeAlert,
+  notifyMentions,
+} from "@/api/email";
+import { diffChecklistToggles } from "@/lib/descriptionChecklist";
 import {
   commentNotifyRecipients,
   commentRenotifyRecipients,
@@ -150,6 +156,19 @@ export function useUpdateOperationsTaskFields() {
           fieldLabel: "status",
           from: ctx.prevTask.status,
           to: String(fields.Status ?? ""),
+          actor,
+          watchers: ctx.prevTask.watchers,
+          assignees: ctx.prevTask.assigned ? [ctx.prevTask.assigned] : [],
+        });
+      }
+      // Description-checklist toggles alert too (same audience as Status).
+      if ("TaskDescription" in fields && ctx?.prevTask) {
+        fireChecklistToggleAlert({
+          target: { kind: "operationsTask", id, title: ctx.prevTask.taskNumber || ctx.prevTask.title },
+          toggles: diffChecklistToggles(
+            ctx.prevTask.description ?? "",
+            String(fields.TaskDescription ?? ""),
+          ),
           actor,
           watchers: ctx.prevTask.watchers,
           assignees: ctx.prevTask.assigned ? [ctx.prevTask.assigned] : [],

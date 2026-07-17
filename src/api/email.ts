@@ -4,6 +4,7 @@ import type { CommentAttachment, Person } from "@/types/task";
 import { appItemUrl } from "@/lib/appUrl";
 import {
   buildAssigneeChangeEmails,
+  buildChecklistToggleEmails,
   buildFieldChangeEmails,
   buildPromotionEmails,
   type ChangeEmail,
@@ -305,6 +306,23 @@ export function fireFieldChangeAlert(args: {
   reporter?: Person | null;
 }): void {
   const emails = buildFieldChangeEmails(args);
+  if (emails.length === 0) return;
+  void notifyChangeEmails({ target: args.target, emails });
+}
+
+/**
+ * Fire-and-forget alert for Description-checklist toggles (box checked /
+ * unchecked). No-ops silently when nothing flipped or nobody needs notifying.
+ */
+export function fireChecklistToggleAlert(args: {
+  target: ChangeTarget;
+  toggles: Array<{ text: string; checked: boolean }>;
+  actor: Person;
+  watchers: Person[];
+  assignees: Person[];
+  reporter?: Person | null;
+}): void {
+  const emails = buildChecklistToggleEmails(args);
   if (emails.length === 0) return;
   void notifyChangeEmails({ target: args.target, emails });
 }

@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import type { Person } from "@/types/task";
 import {
   buildAssigneeChangeEmails,
+  buildChecklistToggleEmails,
   buildFieldChangeEmails,
   buildPromotionEmails,
 } from "./changeAlerts";
@@ -59,6 +60,75 @@ describe("buildFieldChangeEmails", () => {
     });
     expect(out.map((e) => e.email)).toEqual(["sarah@x.com"]);
     expect(out[0].subject).toBe("Resolution changed on EIR_2026-0042 — Coil");
+  });
+});
+
+describe("buildChecklistToggleEmails", () => {
+  it("returns [] when nothing toggled", () => {
+    const out = buildChecklistToggleEmails({
+      target: TASK,
+      toggles: [],
+      actor: ACTOR,
+      watchers: [BOB],
+      assignees: [],
+    });
+    expect(out).toEqual([]);
+  });
+
+  it("notifies watchers + assignees minus the actor, wording a single check", () => {
+    const out = buildChecklistToggleEmails({
+      target: TASK,
+      toggles: [{ text: "Buy the part", checked: true }],
+      actor: ACTOR,
+      watchers: [BOB, ACTOR],
+      assignees: [JOHN],
+    });
+    expect(out.map((e) => e.email).sort()).toEqual(["bob@x.com", "john@x.com"]);
+    expect(out[0].subject).toBe("Checklist updated on T115-Coil");
+    expect(out[0].headlineHtml).toContain("checked off a checklist item");
+    expect(out[0].detailHtml).toContain("✓ Checked");
+    expect(out[0].detailHtml).toContain("Buy the part");
+  });
+
+  it("words a single uncheck as unchecked", () => {
+    const out = buildChecklistToggleEmails({
+      target: TASK,
+      toggles: [{ text: "Buy the part", checked: false }],
+      actor: ACTOR,
+      watchers: [BOB],
+      assignees: [],
+    });
+    expect(out[0].headlineHtml).toContain("unchecked a checklist item");
+    expect(out[0].detailHtml).toContain("✗ Unchecked");
+  });
+
+  it("summarises multiple toggles and lists each one, including the EIR reporter", () => {
+    const out = buildChecklistToggleEmails({
+      target: EIR,
+      toggles: [
+        { text: "Step one", checked: true },
+        { text: "Step two", checked: false },
+      ],
+      actor: ACTOR,
+      watchers: [],
+      assignees: [],
+      reporter: SARAH,
+    });
+    expect(out.map((e) => e.email)).toEqual(["sarah@x.com"]);
+    expect(out[0].headlineHtml).toContain("updated the checklist on this EIR");
+    expect(out[0].detailHtml).toContain("Step one");
+    expect(out[0].detailHtml).toContain("Step two");
+  });
+
+  it("returns [] when only the actor would be notified", () => {
+    const out = buildChecklistToggleEmails({
+      target: TASK,
+      toggles: [{ text: "x", checked: true }],
+      actor: ACTOR,
+      watchers: [ACTOR, NO_EMAIL],
+      assignees: [],
+    });
+    expect(out).toEqual([]);
   });
 });
 

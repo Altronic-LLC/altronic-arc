@@ -410,8 +410,12 @@ const SECTIONS: ManualSection[] = [
           undoes recorded work — if you confirm, your name and the time are
           recorded as unchecking it (shown as{" "}
           <em>✗ Ray White · 7/17/2026, 10:15 AM</em>), replacing the
-          checked-by record. This works everywhere Description checklists
-          exist: Engineering tasks, Operations tasks, and EIR descriptions.
+          checked-by record. Either way, the item's{" "}
+          <strong>watchers and assignees get an email</strong> naming the item
+          and whether it was checked or unchecked (see{" "}
+          <em>Notifications → Checklist toggles</em>). This works everywhere
+          Description checklists exist: Engineering tasks, Operations tasks,
+          and EIR descriptions.
         </P>
         <H3>Marking complete</H3>
         <P>
@@ -1452,9 +1456,11 @@ const SECTIONS: ManualSection[] = [
       "part status email",
       "engineer assigned email",
       "part comment email",
+      "checklist email",
+      "checkbox notification",
     ],
     searchText:
-      "Commenting on a task, EIR, build request, or build request part emails everyone watching it plus everyone you @-mention, from automation@altronic-llc.com. Mentioned people get a 'You were mentioned' email; other watchers get a 'New comment on' email. Build request parts have their own watcher lists; part-comment emails deep-link to the request with that part expanded. You're never emailed for your own comment unless you @-mention yourself. @-mentioning auto-adds the person as a watcher. Editing a comment emails only newly added mentions by default, but checking 'Notify everyone again' resends an 'Updated comment on' email to watchers plus everyone mentioned in the new AND previous version of the comment. Change alerts: changing a Status (task, EIR, or build request), an EIR Resolution, a build request part's Part Status, or the assignees (including a build request's Engineer Assigned) emails the watchers, current assignees, and the EIR reporter or BR requestor. Being added as an assignee emails you 'You've been assigned'; being removed emails 'You've been unassigned'; everyone else gets a broadcast. Promoting an EIR to a task emails the EIR's watchers and reporter with a link to the new task. Creating/deleting parts and other field edits (lead time, customer, checklist, WO No) send no email. You're never emailed for a change you made yourself.",
+      "Commenting on a task, EIR, build request, or build request part emails everyone watching it plus everyone you @-mention, from automation@altronic-llc.com. Mentioned people get a 'You were mentioned' email; other watchers get a 'New comment on' email. Build request parts have their own watcher lists; part-comment emails deep-link to the request with that part expanded. You're never emailed for your own comment unless you @-mention yourself. @-mentioning auto-adds the person as a watcher. Editing a comment emails only newly added mentions by default, but checking 'Notify everyone again' resends an 'Updated comment on' email to watchers plus everyone mentioned in the new AND previous version of the comment. Change alerts: changing a Status (task, EIR, or build request), an EIR Resolution, a build request part's Part Status, or the assignees (including a build request's Engineer Assigned) emails the watchers, current assignees, and the EIR reporter or BR requestor. Checking or unchecking a Description checklist box (task, Operations task, or EIR) emails the same audience with a Checklist updated on email naming the item. Being added as an assignee emails you 'You've been assigned'; being removed emails 'You've been unassigned'; everyone else gets a broadcast. Promoting an EIR to a task emails the EIR's watchers and reporter with a link to the new task. Creating/deleting parts and other field edits (lead time, customer, build request part checklists, WO No) send no email. You're never emailed for a change you made yourself.",
     render: () => (
       <>
         <P>
@@ -1518,6 +1524,11 @@ const SECTIONS: ManualSection[] = [
               "EIR Resolution changes",
               "Watchers + assignees + reporter (minus you)",
               "Resolution changed on …",
+            ],
+            [
+              "A Description checklist box is checked or unchecked (task, Operations task, or EIR)",
+              "Watchers + current assignees + EIR reporter (minus you)",
+              "Checklist updated on …",
             ],
             [
               "Someone is added as an assignee (incl. a build request's Engineer Assigned)",
@@ -1596,6 +1607,18 @@ const SECTIONS: ManualSection[] = [
           followers too.
         </P>
 
+        <H3>Checklist toggles</H3>
+        <P>
+          Checking or unchecking a box in a Description checklist (Engineering
+          tasks, Operations tasks, and EIRs) emails the same audience as a
+          Status change — <strong>watchers</strong>,{" "}
+          <strong>current assignees</strong>, and the EIR{" "}
+          <strong>reporter</strong>, minus you. The email names the item and
+          whether it was checked (✓) or unchecked (✗). Build request part
+          checklists (the PCB / Harness data-package boxes) are separate and
+          stay quiet.
+        </P>
+
         <H3>Assignee changes</H3>
         <P>
           When assignees change — including a build request's{" "}
@@ -1622,10 +1645,11 @@ const SECTIONS: ManualSection[] = [
         <H3>What doesn't send email</H3>
         <P>
           Deliberately quiet: creating or deleting build request parts, and
-          edits to other fields — lead time, type, customer info, checklist
-          ticks, WO No, due dates, descriptions, and so on. Only Status
-          changes, assignee/engineer changes, Part Status changes, and
-          comments fire email.
+          edits to other fields — lead time, type, customer info, build
+          request part checklist ticks, WO No, due dates, description text
+          edits, and so on. Only Status changes, assignee/engineer changes,
+          Part Status changes, Description checklist toggles, and comments
+          fire email.
         </P>
 
         <H3>Promoting an EIR to a task</H3>

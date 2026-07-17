@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.61.0",
+    date: "2026-07-17",
+    changes: [
+      "Checking or unchecking a Description checklist box now emails the item's watchers, assignees, and (for EIRs) the reporter — the email names the item and whether it was checked (✓) or unchecked (✗)",
+      "Works on Engineering tasks, Operations tasks, and EIRs; as always, you're never emailed for your own action",
+    ],
+  },
+  {
     version: "0.60.1",
     date: "2026-07-17",
     changes: [

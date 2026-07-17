@@ -32,7 +32,13 @@ import type {
 } from "@/types/task";
 import { CATEGORIES, LABELS, PRIORITIES, STATUSES } from "@/types/task";
 import { pushToast } from "@/components/Toast";
-import { fireAssigneeChangeAlert, fireFieldChangeAlert, notifyMentions } from "@/api/email";
+import {
+  fireAssigneeChangeAlert,
+  fireChecklistToggleAlert,
+  fireFieldChangeAlert,
+  notifyMentions,
+} from "@/api/email";
+import { diffChecklistToggles } from "@/lib/descriptionChecklist";
 import {
   commentNotifyRecipients,
   commentRenotifyRecipients,
@@ -228,15 +234,29 @@ export function useUpdateTaskFields() {
             ? buildUndo(qc, ctx?.previous, () => updateTaskFields(id, prevFields))
             : undefined,
       });
-      // Status is the only notify-worthy field routed through updateTaskFields
-      // (the detail view's Status dropdown). Assignment goes through
-      // useSetAssigned; other fields here (priority, due date, …) don't alert.
+      // Status is the only notify-worthy single field routed through
+      // updateTaskFields (the detail view's Status dropdown). Assignment goes
+      // through useSetAssigned; other fields here (priority, due date, …)
+      // don't alert — EXCEPT Description-checklist toggles, detected by
+      // diffing the checklist items below.
       if ("Status" in fields && ctx?.prevTask) {
         fireFieldChangeAlert({
           target: { kind: "task", id, title: ctx.prevTask.numberedTitle || ctx.prevTask.title },
           fieldLabel: "status",
           from: ctx.prevTask.status,
           to: String(fields.Status ?? ""),
+          actor,
+          watchers: ctx.prevTask.watchers,
+          assignees: ctx.prevTask.assigned,
+        });
+      }
+      if ("Description" in fields && ctx?.prevTask) {
+        fireChecklistToggleAlert({
+          target: { kind: "task", id, title: ctx.prevTask.numberedTitle || ctx.prevTask.title },
+          toggles: diffChecklistToggles(
+            ctx.prevTask.description ?? "",
+            String(fields.Description ?? ""),
+          ),
           actor,
           watchers: ctx.prevTask.watchers,
           assignees: ctx.prevTask.assigned,

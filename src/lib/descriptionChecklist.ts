@@ -95,6 +95,44 @@ function formatStampDate(d: Date): string {
   });
 }
 
+/** One checklist item whose checked state changed between two Description versions. */
+export interface ChecklistToggle {
+  /** The item's display text (stamp stripped). */
+  text: string;
+  /** The NEW checked state — true = it was just checked, false = unchecked. */
+  checked: boolean;
+}
+
+/**
+ * Diff two versions of a Description and return the checklist items whose
+ * checked state flipped. Items are matched by their (stamp-stripped) text, so
+ * this catches the detail-page checkbox click AND a `- [ ]` → `- [x]` edit
+ * made through the edit form. Reworded, added, or removed items are NOT
+ * reported — only a state flip on an item present in both versions.
+ */
+export function diffChecklistToggles(prevText: string, nextText: string): ChecklistToggle[] {
+  const prev = parseChecklistItems(prevText);
+  const next = parseChecklistItems(nextText);
+  if (!prev || !next) return [];
+
+  // Multiple items may share the same text — consume prev states in order.
+  const pool = new Map<string, boolean[]>();
+  for (const p of prev) {
+    const states = pool.get(p.text);
+    if (states) states.push(p.checked);
+    else pool.set(p.text, [p.checked]);
+  }
+
+  const toggles: ChecklistToggle[] = [];
+  for (const n of next) {
+    const states = pool.get(n.text);
+    if (!states || states.length === 0) continue;
+    const wasChecked = states.shift()!;
+    if (wasChecked !== n.checked) toggles.push({ text: n.text, checked: n.checked });
+  }
+  return toggles;
+}
+
 /**
  * Turn free text into a checklist for the "Turn into checklist" button.
  * - Empty description → one blank item to start typing into.

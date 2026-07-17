@@ -30,10 +30,12 @@ import {
 } from "@/lib/mentions";
 import {
   fireAssigneeChangeAlert,
+  fireChecklistToggleAlert,
   fireFieldChangeAlert,
   firePromotionAlert,
   notifyMentions,
 } from "@/api/email";
+import { diffChecklistToggles } from "@/lib/descriptionChecklist";
 import { buildPromotedCommunication } from "@/lib/eirPromotion";
 import { appItemUrl } from "@/lib/appUrl";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -243,6 +245,17 @@ export function useUpdateEirFields() {
             fieldLabel: "resolution",
             from: ctx.prevEir.resolution,
             to: String(fields.Resolution ?? ""),
+            ...recipients,
+          });
+        }
+        // Description-checklist toggles alert too (same audience).
+        if ("Description" in fields) {
+          fireChecklistToggleAlert({
+            target,
+            toggles: diffChecklistToggles(
+              ctx.prevEir.description ?? "",
+              String(fields.Description ?? ""),
+            ),
             ...recipients,
           });
         }

@@ -116,6 +116,53 @@ export function buildFieldChangeEmails(args: {
 }
 
 /**
+ * Alerts for Description-checklist toggles (a box was checked or unchecked).
+ *
+ * Recipients = watchers + assignees (+ reporter for EIRs), deduped, minus the
+ * actor — the same audience as a status change. `toggles` carries each item's
+ * text and its NEW checked state; returns [] when there's nothing to report
+ * or nobody left to notify.
+ */
+export function buildChecklistToggleEmails(args: {
+  target: ChangeTarget;
+  toggles: Array<{ text: string; checked: boolean }>;
+  actor: Person;
+  watchers: Person[];
+  assignees: Person[];
+  reporter?: Person | null;
+}): ChangeEmail[] {
+  if (args.toggles.length === 0) return [];
+
+  const actorEmail = (args.actor.email ?? "").toLowerCase();
+  const recipients = dedupeMailable(
+    [...args.watchers, ...args.assignees, args.reporter ?? null],
+    actorEmail,
+  );
+  if (recipients.length === 0) return [];
+
+  const noun = nounFor(args.target);
+  const actorName = escapeHtml(args.actor.displayName || "Someone");
+  const single = args.toggles.length === 1 ? args.toggles[0] : null;
+  const headlineHtml = single
+    ? `<strong>${actorName}</strong> ${single.checked ? "checked off" : "unchecked"} a checklist item on this ${noun}.`
+    : `<strong>${actorName}</strong> updated the checklist on this ${noun}.`;
+  const detailHtml = args.toggles
+    .map(
+      (t) =>
+        `<div style="font-size:14px;">${t.checked ? "✓ Checked" : "✗ Unchecked"}: <strong>${escapeHtml(t.text || "(empty item)")}</strong></div>`,
+    )
+    .join("");
+
+  return recipients.map((p) => ({
+    email: p.email,
+    displayName: p.displayName,
+    subject: `Checklist updated on ${args.target.title}`,
+    headlineHtml,
+    detailHtml,
+  }));
+}
+
+/**
  * Alerts for an assignee change.
  *
  * - Each newly ADDED person gets a personal "You've been assigned…" email.

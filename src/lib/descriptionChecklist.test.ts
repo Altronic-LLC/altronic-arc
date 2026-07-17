@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   convertToChecklist,
+  diffChecklistToggles,
   looksLikeHtml,
   parseChecklistItems,
   toggleChecklistItem,
@@ -128,6 +129,44 @@ describe("toggleChecklistItem", () => {
     expect(
       toggleChecklistItem("- [x] Buy the part ✓[Ray White · 7/17/2026, 10:15 AM]", 0),
     ).toBe("- [ ] Buy the part");
+  });
+});
+
+describe("diffChecklistToggles", () => {
+  it("detects a check made via toggleChecklistItem (stamp added)", () => {
+    const prev = "- [ ] Buy the part\n- [ ] Order the box";
+    const next = toggleChecklistItem(prev, 0, "Ray White", new Date("2026-07-17T10:15:00"));
+    expect(diffChecklistToggles(prev, next)).toEqual([{ text: "Buy the part", checked: true }]);
+  });
+
+  it("detects an uncheck (✗ stamp replaces ✓)", () => {
+    const prev = "- [x] Buy the part ✓[Ray White · 7/17/2026, 10:15 AM]";
+    const next = toggleChecklistItem(prev, 0, "Bob", new Date("2026-07-18T09:00:00"));
+    expect(diffChecklistToggles(prev, next)).toEqual([{ text: "Buy the part", checked: false }]);
+  });
+
+  it("detects a raw-text edit flip made through the edit form", () => {
+    expect(diffChecklistToggles("- [ ] one\n- [ ] two", "- [ ] one\n- [x] two")).toEqual([
+      { text: "two", checked: true },
+    ]);
+  });
+
+  it("returns [] when nothing flipped, or an item was reworded/added/removed", () => {
+    expect(diffChecklistToggles("- [ ] one", "- [ ] one")).toEqual([]);
+    expect(diffChecklistToggles("- [ ] one", "- [x] won")).toEqual([]);
+    expect(diffChecklistToggles("- [ ] one", "- [ ] one\n- [x] new item")).toEqual([]);
+    expect(diffChecklistToggles("- [ ] one\n- [x] gone", "- [ ] one")).toEqual([]);
+  });
+
+  it("returns [] when either side isn't a checklist", () => {
+    expect(diffChecklistToggles("plain prose", "- [x] one")).toEqual([]);
+    expect(diffChecklistToggles("- [ ] one", "plain prose")).toEqual([]);
+  });
+
+  it("matches duplicate-text items in order", () => {
+    const prev = "- [ ] test\n- [x] test";
+    const next = "- [x] test\n- [x] test";
+    expect(diffChecklistToggles(prev, next)).toEqual([{ text: "test", checked: true }]);
   });
 });
 
