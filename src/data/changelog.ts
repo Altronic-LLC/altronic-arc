@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.65.0",
+    date: "2026-07-20",
+    changes: [
+      "You can now assign or @-mention anyone at Altronic — the person pickers and mention dropdown list the whole staff directory, not just people already on an item",
+      "Picking someone the app has never seen wires up their SharePoint access automatically the first time you assign or mention them, so it just works",
+      "Until IT enables the staff directory, the pickers safely fall back to people already known to the app — nothing breaks in the meantime",
+    ],
+  },
+  {
     version: "0.64.1",
     date: "2026-07-17",
     changes: [

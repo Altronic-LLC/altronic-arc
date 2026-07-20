@@ -52,6 +52,8 @@ import { OperationsStatusBadge } from "@/components/operationsAtoms";
 import { SingleSelect } from "@/components/SearchableSelect";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { DetailTopBar } from "@/components/DetailTopBar";
+import { useDirectoryPeople } from "@/hooks/useDirectory";
+import { mergePeople } from "@/lib/people";
 import { cn } from "@/lib/cn";
 
 /**
@@ -122,6 +124,7 @@ export function OperationsDetailView() {
     });
   }, [task, seenCommentKeys, snapshotInitialised, currentUser.email]);
 
+  const directory = useDirectoryPeople();
   const allPeople: Person[] = useMemo(() => {
     const seen = new Map<string, Person>();
     for (const t of allTasks) {
@@ -130,8 +133,10 @@ export function OperationsDetailView() {
         if (!seen.has(key)) seen.set(key, p);
       }
     }
-    return [...seen.values()].sort((a, b) => a.displayName.localeCompare(b.displayName));
-  }, [allTasks]);
+    // Fold in the whole staff directory so any Altronic person is assignable
+    // / @-mentionable — lookupId-less directory entries are resolved on write.
+    return mergePeople([...seen.values()], directory);
+  }, [allTasks, directory]);
 
   // @-mention candidates: allPeople PLUS the Admins list, so someone can be
   // mentioned for the first time ever, before they've touched any

@@ -46,6 +46,8 @@ import { PersonMultiField } from "@/components/PersonMultiField";
 import { MultiSelect, SingleSelect } from "@/components/SearchableSelect";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { DetailTopBar } from "@/components/DetailTopBar";
+import { useDirectoryPeople } from "@/hooks/useDirectory";
+import { mergePeople } from "@/lib/people";
 
 export function BuildRequestDetailView() {
   const { id } = useParams<{ id: string }>();
@@ -83,6 +85,7 @@ export function BuildRequestDetailView() {
   // People directory: everyone on any BR (requestors/engineers/watchers on
   // headers + items) + the Admins list, so brand-new people can be picked
   // and @-mentioned (the cold-start lesson).
+  const directory = useDirectoryPeople();
   const allPeople: Person[] = useMemo(() => {
     const map = new Map<string, Person>();
     const note = (p: Person | null | undefined) => {
@@ -100,8 +103,10 @@ export function BuildRequestDetailView() {
       for (const p of [...t.assigned, ...t.watchers]) note(p);
     }
     note(currentUser);
-    return [...map.values()].sort((a, b) => a.displayName.localeCompare(b.displayName));
-  }, [allBrs, allItems, tasks, currentUser]);
+    // Fold in the whole staff directory so any Altronic person is assignable
+    // / @-mentionable — lookupId-less directory entries are resolved on write.
+    return mergePeople([...map.values()], directory);
+  }, [allBrs, allItems, tasks, currentUser, directory]);
 
   const mentionCandidates: Person[] = useMemo(() => {
     const map = new Map<string, Person>();

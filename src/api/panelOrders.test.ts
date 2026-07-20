@@ -102,7 +102,9 @@ describe("panelOrders mock CRUD", () => {
   it("resolves a mock site user by email (cold-start auto-watch)", async () => {
     const id = await resolvePanelSiteUserLookupId("sarah.shaffer@altronic-llc.com");
     expect(id).toBe(46);
-    expect(await resolvePanelSiteUserLookupId("nobody@nowhere.example")).toBe(0);
+    // An unknown email now falls back to ensureuser (mock mode returns a
+    // deterministic positive id) so anyone from the directory can be resolved.
+    expect(await resolvePanelSiteUserLookupId("nobody@nowhere.example")).toBeGreaterThan(0);
   });
 
   it("returns the confirmed statuses + a customer list from choice discovery", async () => {

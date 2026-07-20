@@ -1,5 +1,6 @@
 import { graphFetch, graphFetchAll } from "./graph";
-import { SP_EIRS_LIST_ID, SP_SITE_ID, USE_MOCK } from "./config";
+import { SP_EIRS_LIST_ID, SP_SITE_ID, SP_SITE_URL, USE_MOCK } from "./config";
+import { ensureLookupIds, ensurePersonLookupId } from "./siteUsers";
 import type {
   Eir,
   GraphListItem,
@@ -297,12 +298,18 @@ export async function createEir(input: CreateEirInput): Promise<Eir> {
     // requires for multi-value lookup writes.
     Object.assign(fields, multiLookupField("ProjectReference", [input.parentProjectLookupId]));
   }
-  if (input.reporter?.lookupId) fields.ReporterLookupId = input.reporter.lookupId;
-  if (input.assignedEngineers?.some((p) => !!p.lookupId)) {
-    Object.assign(fields, multiPersonField("AssignedEngineer", input.assignedEngineers));
+  // Resolve lookupIds (creating on demand) for directory-picked people.
+  const reporter = await ensurePersonLookupId(SP_SITE_URL, input.reporter ?? null);
+  if (reporter?.lookupId) fields.ReporterLookupId = reporter.lookupId;
+  const engineers = input.assignedEngineers
+    ? await ensureLookupIds(SP_SITE_URL, input.assignedEngineers)
+    : [];
+  if (engineers.some((p) => !!p.lookupId)) {
+    Object.assign(fields, multiPersonField("AssignedEngineer", engineers));
   }
-  if (input.watchers?.some((p) => !!p.lookupId)) {
-    Object.assign(fields, multiPersonField("Watchers", input.watchers));
+  const watchers = input.watchers ? await ensureLookupIds(SP_SITE_URL, input.watchers) : [];
+  if (watchers.some((p) => !!p.lookupId)) {
+    Object.assign(fields, multiPersonField("Watchers", watchers));
   }
   if (input.taskReference) fields.TaskReference = input.taskReference;
   if (input.whereUsed) fields.WhereUsed = input.whereUsed;
@@ -429,13 +436,13 @@ export async function setEirAssignedEngineers(id: number, people: Person[]): Pro
   if (USE_MOCK) {
     return updateEirFields(id, { AssignedEngineer: people });
   }
-  const resolved = people.filter((p) => !!p.lookupId);
-  if (people.length > 0 && resolved.length === 0) {
+  const ensured = await ensureLookupIds(SP_SITE_URL, people);
+  if (people.length > 0 && !ensured.some((p) => p.lookupId)) {
     throw new Error(
-      "Cannot update Assigned Engineer: none of the selected people had a resolved lookupId.",
+      "Cannot update Assigned Engineer: couldn't resolve a SharePoint user for any selected person.",
     );
   }
-  return updateEirFields(id, multiPersonField("AssignedEngineer", people));
+  return updateEirFields(id, multiPersonField("AssignedEngineer", ensured));
 }
 
 /** Replace the Watchers list. */
@@ -443,11 +450,11 @@ export async function setEirWatchers(id: number, people: Person[]): Promise<Eir>
   if (USE_MOCK) {
     return updateEirFields(id, { Watchers: people });
   }
-  const resolved = people.filter((p) => !!p.lookupId);
-  if (people.length > 0 && resolved.length === 0) {
-    throw new Error("Cannot update Watchers: none of the selected people had a resolved lookupId.");
+  const ensured = await ensureLookupIds(SP_SITE_URL, people);
+  if (people.length > 0 && !ensured.some((p) => p.lookupId)) {
+    throw new Error("Cannot update Watchers: couldn't resolve a SharePoint user for any selected person.");
   }
-  return updateEirFields(id, multiPersonField("Watchers", people));
+  return updateEirFields(id, multiPersonField("Watchers", ensured));
 }
 
 /** Set the single-person Reporter field. */
@@ -459,7 +466,8 @@ export async function setEirReporter(id: number, person: Person | null): Promise
     saveToStorage();
     return delay({ ...mockStore[idx] });
   }
-  return updateEirFields(id, { ReporterLookupId: person?.lookupId ?? null });
+  const ensured = await ensurePersonLookupId(SP_SITE_URL, person);
+  return updateEirFields(id, { ReporterLookupId: ensured?.lookupId ?? null });
 }
 
 /** Append a comment to the EIR's Communication field. */

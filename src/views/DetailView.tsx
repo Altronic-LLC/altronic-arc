@@ -66,6 +66,8 @@ import { TaskAttachmentsSection } from "@/components/TaskAttachmentsSection";
 import { PcbChecklistCard } from "@/components/PcbChecklistCard";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { DetailTopBar } from "@/components/DetailTopBar";
+import { useDirectoryPeople } from "@/hooks/useDirectory";
+import { mergePeople } from "@/lib/people";
 import { PersonMultiField } from "@/components/PersonMultiField";
 import { cn } from "@/lib/cn";
 
@@ -154,7 +156,11 @@ export function DetailView() {
     });
   }, [task, seenCommentKeys, snapshotInitialised, currentUser.email]);
 
-  // Build the set of people who appear on any task for the Assigned picker.
+  // People for the Assigned / Watchers pickers: everyone on any task, PLUS
+  // the whole staff directory so you can assign anyone at Altronic — not just
+  // people already on an item. Directory people have no lookupId, but that's
+  // fine now: the write path resolves it on demand via ensureuser.
+  const directory = useDirectoryPeople();
   const allPeople: Person[] = useMemo(() => {
     const seen = new Map<string, Person>();
     for (const t of allTasks) {
@@ -163,8 +169,8 @@ export function DetailView() {
         if (!seen.has(key)) seen.set(key, p);
       }
     }
-    return [...seen.values()].sort((a, b) => a.displayName.localeCompare(b.displayName));
-  }, [allTasks]);
+    return mergePeople([...seen.values()], directory);
+  }, [allTasks, directory]);
 
   // @-mention candidates: allPeople (who has a resolved lookupId, so they're
   // also assignable) PLUS the Admins list, so someone can be mentioned for

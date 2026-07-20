@@ -50,6 +50,8 @@ import { AttachmentsSection } from "@/components/AttachmentsSection";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { DetailTopBar } from "@/components/DetailTopBar";
 import { PersonMultiField } from "@/components/PersonMultiField";
+import { useDirectoryPeople } from "@/hooks/useDirectory";
+import { mergePeople } from "@/lib/people";
 import { PromoteEirModal } from "@/components/PromoteEirModal";
 import { sanitiseHtml } from "@/lib/sanitiseHtml";
 import { multiLookupField } from "@/lib/graphFields";
@@ -125,6 +127,7 @@ export function EirDetailView() {
 
   // People directory — collected across tasks + EIRs to give the pickers
   // a useful starting set even before the EIR list itself has watchers.
+  const directory = useDirectoryPeople();
   const allPeople = useMemo<Person[]>(() => {
     const map = new Map<string, Person>();
     for (const t of tasks) {
@@ -137,8 +140,10 @@ export function EirDetailView() {
       const k = currentUser.email.toLowerCase();
       if (!map.has(k)) map.set(k, currentUser);
     }
-    return [...map.values()].sort((a, b) => a.displayName.localeCompare(b.displayName));
-  }, [tasks, currentUser]);
+    // Fold in the whole staff directory so any Altronic person can be the
+    // Reporter / Engineer or be @-mentioned — resolved on write via ensureuser.
+    return mergePeople([...map.values()], directory);
+  }, [tasks, currentUser, directory]);
 
   // @-mention candidates: allPeople PLUS the Admins list, so someone can be
   // mentioned for the first time ever, before they've touched any task or

@@ -1,6 +1,7 @@
 import { graphFetch, graphFetchAll } from "./graph";
 import { SITES, SP_OPERATIONS_TASKS_LIST_ID, SP_PMO_SITE_URL, USE_MOCK } from "./config";
 import { spFetch } from "./sharepoint";
+import { ensureLookupIds, ensurePersonLookupId, ensureSiteUserLookupId } from "./siteUsers";
 import type { GraphListItem, OperationsTask, Person, ProjectReference } from "@/types/task";
 import { toOperationsTask } from "@/lib/operationsTaskMapper";
 import { appendComment, replaceComment } from "@/lib/communicationParser";
@@ -143,7 +144,9 @@ export async function resolvePmoSiteUserLookupId(email: string): Promise<number>
   for (const u of users.values()) {
     if (u.email?.toLowerCase() === target) return u.lookupId ?? 0;
   }
-  return 0;
+  // Not a known PMO site user yet (e.g. picked from the staff directory) —
+  // ensure them on the site so they can be assigned / auto-watched.
+  return ensureSiteUserLookupId(SP_PMO_SITE_URL, email);
 }
 
 /**
@@ -291,13 +294,15 @@ export async function setOperationsAssigned(
   if (USE_MOCK) {
     return updateOperationsTaskFields(id, { Assigned: person });
   }
-  if (person && !person.lookupId) {
+  // Resolve (creating if needed) the site lookupId — the person may have been
+  // picked from the staff directory and never seen on this site before.
+  const ensured = await ensurePersonLookupId(SP_PMO_SITE_URL, person);
+  if (person && !ensured?.lookupId) {
     throw new Error(
-      "Cannot update Assigned: the selected person has no resolved SharePoint lookupId. " +
-        "Try refreshing the page and signing in again.",
+      "Cannot update Assigned: couldn't resolve a SharePoint user for the selected person.",
     );
   }
-  return updateOperationsTaskFields(id, { AssignedLookupId: person?.lookupId ?? null });
+  return updateOperationsTaskFields(id, { AssignedLookupId: ensured?.lookupId ?? null });
 }
 
 /** Replace the Watchers list. */
@@ -308,14 +313,13 @@ export async function setOperationsWatchers(
   if (USE_MOCK) {
     return updateOperationsTaskFields(id, { Watchers: people });
   }
-  const resolved = people.filter((p) => !!p.lookupId);
-  if (people.length > 0 && resolved.length === 0) {
+  const ensured = await ensureLookupIds(SP_PMO_SITE_URL, people);
+  if (people.length > 0 && !ensured.some((p) => p.lookupId)) {
     throw new Error(
-      "Cannot update Watchers: none of the watchers had a resolved SharePoint lookupId. " +
-        "Try refreshing the page and signing in again.",
+      "Cannot update Watchers: couldn't resolve a SharePoint user for any of the selected people.",
     );
   }
-  return updateOperationsTaskFields(id, multiPersonField("Watchers", people));
+  return updateOperationsTaskFields(id, multiPersonField("Watchers", ensured));
 }
 
 /** Add the given person to the watchers list (if not already there). */
@@ -476,9 +480,12 @@ export async function createOperationsTask(input: {
   if (input.dueDate) fields.DueDate = input.dueDate.toISOString();
   if (input.parentProjectLookupId) fields.ProjectRefLookupId = input.parentProjectLookupId;
   if (input.equipmentLookupId) fields.AltronicEquipmentLookupId = input.equipmentLookupId;
-  if (input.assigned?.lookupId) fields.AssignedLookupId = input.assigned.lookupId;
-  if (input.watchers?.some((p) => !!p.lookupId)) {
-    Object.assign(fields, multiPersonField("Watchers", input.watchers));
+  // Resolve lookupIds (creating on demand) for directory-picked people.
+  const assigned = await ensurePersonLookupId(SP_PMO_SITE_URL, input.assigned ?? null);
+  if (assigned?.lookupId) fields.AssignedLookupId = assigned.lookupId;
+  const watchers = input.watchers ? await ensureLookupIds(SP_PMO_SITE_URL, input.watchers) : [];
+  if (watchers.some((p) => !!p.lookupId)) {
+    Object.assign(fields, multiPersonField("Watchers", watchers));
   }
 
   const created = await graphFetch<GraphListItem>(path, {

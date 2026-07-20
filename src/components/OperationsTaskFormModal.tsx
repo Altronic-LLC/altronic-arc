@@ -28,6 +28,8 @@ import { computeOperationsTaskNumber } from "@/lib/operationsTaskNumbering";
 import { convertToChecklist } from "@/lib/descriptionChecklist";
 import { MultiSelect, SingleSelect } from "./SearchableSelect";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
+import { useDirectoryPeople } from "@/hooks/useDirectory";
+import { mergePeople } from "@/lib/people";
 
 interface OperationsTaskFormModalProps {
   mode: "create" | "edit";
@@ -54,6 +56,7 @@ export function OperationsTaskFormModal({ mode, task, onClose }: OperationsTaskF
   const setEquipment = useSetOperationsEquipment();
   const setAssigned = useSetOperationsAssigned();
   const setWatchers = useSetOperationsWatchers();
+  const directory = useDirectoryPeople();
 
   const [title, setTitle] = useState(task?.title ?? "");
   const [description, setDescription] = useState(task?.description ?? "");
@@ -104,7 +107,7 @@ export function OperationsTaskFormModal({ mode, task, onClose }: OperationsTaskF
         if (!seen.has(key)) seen.set(key, p);
       }
     }
-    return [...seen.values()].sort((a, b) => a.displayName.localeCompare(b.displayName));
+    return mergePeople([...seen.values()], directory);
   })();
 
   async function handleSubmit(e: React.FormEvent) {

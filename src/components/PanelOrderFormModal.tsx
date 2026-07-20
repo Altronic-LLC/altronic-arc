@@ -10,6 +10,8 @@ import {
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import type { PanelOrder, PanelOrderStatus, Person } from "@/types/task";
 import { SingleSelect } from "./SearchableSelect";
+import { useDirectoryPeople } from "@/hooks/useDirectory";
+import { mergePeople } from "@/lib/people";
 
 interface PanelOrderFormModalProps {
   onClose: () => void;
@@ -28,6 +30,7 @@ export function PanelOrderFormModal({ onClose }: PanelOrderFormModalProps) {
   const { data: projects = [] } = usePanelProjects();
   const { data: choices } = usePanelOrderChoices();
   const createOrder = useCreatePanelOrder();
+  const directory = useDirectoryPeople();
 
   const [title, setTitle] = useState("");
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -78,7 +81,7 @@ export function PanelOrderFormModal({ onClose }: PanelOrderFormModalProps) {
     if (currentUser.email && !seen.has(currentUser.email.toLowerCase())) {
       seen.set(currentUser.email.toLowerCase(), currentUser);
     }
-    return [...seen.values()].sort((a, b) => a.displayName.localeCompare(b.displayName));
+    return mergePeople([...seen.values()], directory);
   })();
 
   async function handleSubmit(e: React.FormEvent) {

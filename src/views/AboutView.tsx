@@ -60,7 +60,7 @@ const SYSTEM_TIERS: Tier[] = [
     nodes: [
       { label: "Views", hint: "Dashboard · List · Kanban · Detail · EIRs · Test Sheets · Project Folders · Admin", palette: "ui" },
       { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useBuildRequests · useAdmins · useEirRoles · useTaskFiles · useProjectFolders", palette: "ui" },
-      { label: "API layer", hint: "src/api/tasks · eirs · testSheets · buildRequests · buildRequestItems · panelOrders · panelTasks · admins · eirRoles · panelRoles · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
+      { label: "API layer", hint: "src/api/tasks · eirs · testSheets · buildRequests · buildRequestItems · panelOrders · panelTasks · admins · eirRoles · panelRoles · directory · siteUsers · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
       {
         label: "Build Requests (lazy-loaded)",
         hint: "BuildRequestsView · BuildRequestDetailView — a master-detail pair: the Tracker header list + any number of parts from the Items list, joined by BuildRequestNo. Own code-split chunk.",
@@ -81,7 +81,7 @@ const SYSTEM_TIERS: Tier[] = [
   {
     label: "Auth & transport",
     nodes: [
-      { label: "MSAL Entra ID", hint: "Sites.Selected · Mail.Send.Shared (AllSites.Manage optional)", palette: "auth" },
+      { label: "MSAL Entra ID", hint: "Sites.Selected · Mail.Send.Shared · GroupMember.Read.All (staff directory, optional) · AllSites.Manage (optional)", palette: "auth" },
       { label: "Microsoft Graph v1.0", hint: "Lists, items, drives, users, mail", palette: "gateway" },
       { label: "SharePoint REST", hint: "List-item attachments (Task, EIR, Operations Task, Panel Order) + site-user resolution — optional", palette: "gateway" },
       { label: "Mock store", hint: "in-memory + localStorage (demo mode)", palette: "mock" },

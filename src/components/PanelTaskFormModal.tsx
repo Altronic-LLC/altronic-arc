@@ -11,6 +11,8 @@ import {
   type Person,
 } from "@/types/task";
 import { SingleSelect } from "./SearchableSelect";
+import { useDirectoryPeople } from "@/hooks/useDirectory";
+import { mergePeople } from "@/lib/people";
 
 interface PanelTaskFormModalProps {
   onClose: () => void;
@@ -27,6 +29,7 @@ export function PanelTaskFormModal({ onClose }: PanelTaskFormModalProps) {
   const { data: tasks = [] } = usePanelTasks();
   const { data: projects = [] } = usePanelProjects();
   const createTask = useCreatePanelTask();
+  const directory = useDirectoryPeople();
 
   const [title, setTitle] = useState("");
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -73,7 +76,7 @@ export function PanelTaskFormModal({ onClose }: PanelTaskFormModalProps) {
     if (currentUser.email && !seen.has(currentUser.email.toLowerCase())) {
       seen.set(currentUser.email.toLowerCase(), currentUser);
     }
-    return [...seen.values()].sort((a, b) => a.displayName.localeCompare(b.displayName));
+    return mergePeople([...seen.values()], directory);
   })();
 
   async function handleSubmit(e: React.FormEvent) {

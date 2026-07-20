@@ -15,6 +15,8 @@ import {
 } from "@/types/task";
 import { nextBuildRequestNo } from "@/lib/buildRequestNumber";
 import { MultiSelect, SingleSelect } from "./SearchableSelect";
+import { useDirectoryPeople } from "@/hooks/useDirectory";
+import { mergePeople } from "@/lib/people";
 
 interface BuildRequestFormModalProps {
   onClose: () => void;
@@ -33,6 +35,7 @@ export function BuildRequestFormModal({ onClose }: BuildRequestFormModalProps) {
   const { data: projects = [] } = useProjects();
   const { data: tasks = [] } = useTasks();
   const createBr = useCreateBuildRequest();
+  const directory = useDirectoryPeople();
 
   const [title, setTitle] = useState("");
   const [brType, setBrType] = useState<BuildRequestType | "">("");
@@ -81,7 +84,7 @@ export function BuildRequestFormModal({ onClose }: BuildRequestFormModalProps) {
     if (currentUser.email && !seen.has(currentUser.email.toLowerCase())) {
       seen.set(currentUser.email.toLowerCase(), currentUser);
     }
-    return [...seen.values()].sort((a, b) => a.displayName.localeCompare(b.displayName));
+    return mergePeople([...seen.values()], directory);
   })();
 
   async function handleSubmit(e: React.FormEvent) {

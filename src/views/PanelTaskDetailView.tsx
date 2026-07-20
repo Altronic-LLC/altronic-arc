@@ -27,6 +27,8 @@ import { LoadingTasks } from "@/components/LoadingTasks";
 import { DescriptionView } from "@/components/DescriptionView";
 import { AutoGrowTextarea } from "@/components/AutoGrowTextarea";
 import { DetailTopBar } from "@/components/DetailTopBar";
+import { useDirectoryPeople } from "@/hooks/useDirectory";
+import { mergePeople } from "@/lib/people";
 import { convertToChecklist, toggleChecklistItem } from "@/lib/descriptionChecklist";
 import { cn } from "@/lib/cn";
 
@@ -52,6 +54,7 @@ export function PanelTaskDetailView() {
 
   // People directory: everyone on any panel task + the Admins list, so
   // brand-new people can be picked and @-mentioned (the cold-start lesson).
+  const directory = useDirectoryPeople();
   const allPeople: Person[] = useMemo(() => {
     const map = new Map<string, Person>();
     const note = (p: Person | null | undefined) => {
@@ -65,8 +68,10 @@ export function PanelTaskDetailView() {
       t.watchers.forEach(note);
     }
     note(currentUser);
-    return [...map.values()].sort((a, b) => a.displayName.localeCompare(b.displayName));
-  }, [allTasks, currentUser]);
+    // Fold in the whole staff directory so any Altronic person is assignable
+    // / @-mentionable — lookupId-less directory entries are resolved on write.
+    return mergePeople([...map.values()], directory);
+  }, [allTasks, currentUser, directory]);
 
   const mentionCandidates: Person[] = useMemo(() => {
     const map = new Map<string, Person>();

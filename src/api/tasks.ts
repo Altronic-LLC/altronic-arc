@@ -1,5 +1,6 @@
 import { graphFetch, graphFetchAll } from "./graph";
-import { SP_LIST_ID, SP_SITE_ID, USE_MOCK } from "./config";
+import { SP_LIST_ID, SP_SITE_ID, SP_SITE_URL, USE_MOCK } from "./config";
+import { ensureLookupIds } from "./siteUsers";
 import type {
   CommentAttachment,
   GraphListItem,
@@ -330,17 +331,16 @@ export async function setAssigned(id: number, people: Person[]): Promise<Task> {
   }
   // Multi-person writes go through the shared helper so the @odata.type
   // annotation is never forgotten (see src/lib/graphFields.ts for the
-  // history of why this matters). The helper always emits the annotated
-  // shape; passing only-unresolved people would silently clear the field,
-  // so we guard that case here.
-  const resolved = people.filter((p) => !!p.lookupId);
-  if (people.length > 0 && resolved.length === 0) {
+  // history of why this matters). Directory-picked people arrive without a
+  // lookupId — ensureLookupIds resolves (creating on demand) each one first,
+  // then multiPersonField drops any that still couldn't be resolved.
+  const ensured = await ensureLookupIds(SP_SITE_URL, people);
+  if (people.length > 0 && !ensured.some((p) => p.lookupId)) {
     throw new Error(
-      "Cannot update Assigned: none of the selected people had a resolved SharePoint lookupId. " +
-        "Try refreshing the page and signing in again.",
+      "Cannot update Assigned: couldn't resolve a SharePoint user for any of the selected people.",
     );
   }
-  return updateTaskFields(id, multiPersonField("Assigned", people));
+  return updateTaskFields(id, multiPersonField("Assigned", ensured));
 }
 
 /** Replace the Watchers list. */
@@ -348,14 +348,13 @@ export async function setWatchers(id: number, people: Person[]): Promise<Task> {
   if (USE_MOCK) {
     return updateTaskFields(id, { Watchers: people });
   }
-  const resolved = people.filter((p) => !!p.lookupId);
-  if (people.length > 0 && resolved.length === 0) {
+  const ensured = await ensureLookupIds(SP_SITE_URL, people);
+  if (people.length > 0 && !ensured.some((p) => p.lookupId)) {
     throw new Error(
-      "Cannot update Watchers: none of the watchers had a resolved SharePoint lookupId. " +
-        "Try refreshing the page and signing in again.",
+      "Cannot update Watchers: couldn't resolve a SharePoint user for any of the selected people.",
     );
   }
-  return updateTaskFields(id, multiPersonField("Watchers", people));
+  return updateTaskFields(id, multiPersonField("Watchers", ensured));
 }
 
 /** Add the given person to the watchers list (if not already there). */
@@ -592,12 +591,15 @@ export async function createTask(input: {
   // Person fields: only include real lookup IDs. The current user's
   // lookupId is resolved async — if it isn't ready yet (lookupId === 0)
   // we just skip the field rather than failing the entire create. The
-  // user can re-assign afterward once their identity is known.
-  if (input.assigned?.some((p) => !!p.lookupId)) {
-    Object.assign(fields, multiPersonField("Assigned", input.assigned));
+  // user can re-assign afterward once their identity is known. Directory-
+  // picked people are resolved (creating on demand) via ensureLookupIds first.
+  const assigned = input.assigned ? await ensureLookupIds(SP_SITE_URL, input.assigned) : [];
+  if (assigned.some((p) => !!p.lookupId)) {
+    Object.assign(fields, multiPersonField("Assigned", assigned));
   }
-  if (input.watchers?.some((p) => !!p.lookupId)) {
-    Object.assign(fields, multiPersonField("Watchers", input.watchers));
+  const watchers = input.watchers ? await ensureLookupIds(SP_SITE_URL, input.watchers) : [];
+  if (watchers.some((p) => !!p.lookupId)) {
+    Object.assign(fields, multiPersonField("Watchers", watchers));
   }
   // EIRReference is a Hyperlink column — Graph wants the nested
   // { Url, Description } shape (Description = the link text). Skipped

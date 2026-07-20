@@ -29,6 +29,8 @@ import { wouldCreateCycle } from "@/lib/taskGraph";
 import { computeNumberedTitle } from "@/lib/taskNumbering";
 import { convertToChecklist } from "@/lib/descriptionChecklist";
 import { MultiSelect } from "./SearchableSelect";
+import { useDirectoryPeople } from "@/hooks/useDirectory";
+import { mergePeople } from "@/lib/people";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
 import { cn } from "@/lib/cn";
 
@@ -140,11 +142,11 @@ export function TaskFormModal({ mode, task, onClose }: TaskFormModalProps) {
     );
   }, [mode, task, allTasks]);
 
-  // Build the people directory for the Assigned picker. Same approach as
-  // DetailView — union of every person appearing on any task. In a real
-  // organisation you'd resolve from /me/directReports or a tenant
-  // directory, but those need extra permissions. This works for now and
-  // covers everyone who's already engaged with the system.
+  // People for the Assigned picker: everyone on any task PLUS the whole staff
+  // directory (members of the AllAltronic group), so you can assign anyone at
+  // Altronic. Directory people have no lookupId, but the write path resolves
+  // it on demand via ensureuser, so picking one works.
+  const directory = useDirectoryPeople();
   const allPeople: Person[] = useMemo(() => {
     const seen = new Map<string, Person>();
     for (const t of allTasks) {
@@ -153,8 +155,8 @@ export function TaskFormModal({ mode, task, onClose }: TaskFormModalProps) {
         if (!seen.has(key)) seen.set(key, p);
       }
     }
-    return [...seen.values()].sort((a, b) => a.displayName.localeCompare(b.displayName));
-  }, [allTasks]);
+    return mergePeople([...seen.values()], directory);
+  }, [allTasks, directory]);
 
   function toggleLabel(l: Label) {
     setLabels((prev) => (prev.includes(l) ? prev.filter((x) => x !== l) : [...prev, l]));

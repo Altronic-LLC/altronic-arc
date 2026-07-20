@@ -104,7 +104,32 @@ export async function graphFetch<T>(path: string, init: RequestInit = {}): Promi
   if (USE_MOCK) {
     throw new Error("graphFetch called while VITE_USE_MOCK is true — check the call site.");
   }
+  const accessToken = await acquireGraphToken(graphScopes, true);
+  return runGraphRequest<T>(path, accessToken, init);
+}
 
+/**
+ * Like graphFetch but for an ADDITIONAL, non-default scope (e.g.
+ * GroupMember.Read.All for the tenant directory). Token acquisition is
+ * SILENT-ONLY — it never pops an interactive prompt, so requesting a scope
+ * the tenant hasn't admin-consented to fails cleanly (the caller catches and
+ * degrades) instead of disrupting the signed-in session. Mirrors the
+ * degrade-gracefully policy spFetch uses for its separate SharePoint scope.
+ */
+export async function graphFetchScoped<T>(
+  path: string,
+  scopes: string[],
+  init: RequestInit = {},
+): Promise<T> {
+  if (USE_MOCK) {
+    throw new Error("graphFetchScoped called while VITE_USE_MOCK is true — check the call site.");
+  }
+  const accessToken = await acquireGraphToken(scopes, false);
+  return runGraphRequest<T>(path, accessToken, init);
+}
+
+/** Acquire a Graph token for the given scopes. `allowInteractive` gates the popup fallback. */
+async function acquireGraphToken(scopes: string[], allowInteractive: boolean): Promise<string> {
   const instance = getMsalInstance();
   if (!instance) throw new Error("MSAL instance not initialised");
 
@@ -115,19 +140,15 @@ export async function graphFetch<T>(path: string, init: RequestInit = {}): Promi
     throw new SessionExpiredError("Not signed in");
   }
 
-  let accessToken: string;
   try {
-    const result = await instance.acquireTokenSilent({
-      scopes: graphScopes,
-      account: instance.getActiveAccount()!,
-    });
-    accessToken = result.accessToken;
+    const result = await instance.acquireTokenSilent({ scopes, account });
+    return result.accessToken;
   } catch (err) {
-    if (err instanceof InteractionRequiredAuthError) {
+    if (allowInteractive && err instanceof InteractionRequiredAuthError) {
       // Silent refresh failed — trigger a popup to re-authenticate.
       try {
-        const result = await instance.acquireTokenPopup({ scopes: graphScopes });
-        accessToken = result.accessToken;
+        const result = await instance.acquireTokenPopup({ scopes });
+        return result.accessToken;
       } catch (popupErr) {
         // Popup blocked, user cancelled, or popup errored — bubble up as
         // a session-expired so the app can show a friendly re-sign-in UI.
@@ -136,11 +157,15 @@ export async function graphFetch<T>(path: string, init: RequestInit = {}): Promi
         }
         throw popupErr;
       }
-    } else {
-      throw err;
     }
+    // Silent-only path (or a non-interaction error): bubble up so the caller
+    // can degrade. Never pops a prompt for an un-consented optional scope.
+    throw err;
   }
+}
 
+/** Issue the actual Graph request with an already-acquired token, incl. retries + error handling. */
+async function runGraphRequest<T>(path: string, accessToken: string, init: RequestInit): Promise<T> {
   const url = path.startsWith("http") ? path : `${GRAPH_BASE}${path}`;
 
   const response = await fetchWithRetry(url, {
@@ -209,6 +234,18 @@ export async function graphFetchAll<T>(path: string): Promise<T[]> {
   const all: T[] = [];
   while (url) {
     const page: { value: T[]; "@odata.nextLink"?: string } = await graphFetch(url);
+    all.push(...page.value);
+    url = page["@odata.nextLink"];
+  }
+  return all;
+}
+
+/** Paged variant of graphFetchScoped — walks @odata.nextLink under the given scopes. */
+export async function graphFetchAllScoped<T>(path: string, scopes: string[]): Promise<T[]> {
+  let url: string | undefined = path;
+  const all: T[] = [];
+  while (url) {
+    const page: { value: T[]; "@odata.nextLink"?: string } = await graphFetchScoped(url, scopes);
     all.push(...page.value);
     url = page["@odata.nextLink"];
   }

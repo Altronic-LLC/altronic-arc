@@ -15,6 +15,9 @@ vi.mock("./graph", () => ({
 const configMock = vi.hoisted(() => ({
   USE_MOCK: false,
   SP_SITE_ID: "site-id-123",
+  // Left undefined so the ensureuser fallback (see below) can't reach a real
+  // SharePoint site in unit tests — it returns 0 without a network call.
+  SP_SITE_URL: undefined as string | undefined,
 }));
 
 vi.mock("./config", () => configMock);
@@ -41,17 +44,17 @@ describe("resolveCurrentUserLookupId", () => {
     expect(graphFetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it("returns 0 when no User Information List item matches", async () => {
+  it("falls back to ensureuser when no User Information List item matches", async () => {
+    // Someone not yet in the UIL (e.g. picked from the staff directory) now
+    // falls back to ensureuser rather than returning 0. With no SP_SITE_URL
+    // configured in this test, ensureuser can't run and yields 0.
     graphFetchMock.mockResolvedValueOnce({ value: [] });
     const resolve = await loadSubject();
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const id = await resolve("nobody@example.com");
     expect(id).toBe(0);
-    expect(warn).toHaveBeenCalled();
-    warn.mockRestore();
   });
 
-  it("returns 0 on Graph error and logs a warning", async () => {
+  it("falls back to ensureuser (and logs) on a Graph error", async () => {
     graphFetchMock.mockRejectedValueOnce(new Error("Graph 403"));
     const resolve = await loadSubject();
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});

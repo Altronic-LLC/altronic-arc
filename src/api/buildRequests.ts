@@ -1,5 +1,6 @@
 import { graphFetch, graphFetchAll } from "./graph";
-import { SP_BUILD_REQUESTS_LIST_ID, SP_SITE_ID, USE_MOCK } from "./config";
+import { SP_BUILD_REQUESTS_LIST_ID, SP_SITE_ID, SP_SITE_URL, USE_MOCK } from "./config";
+import { ensureLookupIds, ensurePersonLookupId } from "./siteUsers";
 import type { BuildRequest, GraphListItem, Person } from "@/types/task";
 import { attachBuildRequestReferences, toBuildRequest } from "@/lib/buildRequestMapper";
 import { multiLookupField, multiPersonField } from "@/lib/graphFields";
@@ -172,18 +173,20 @@ export async function createBuildRequest(input: CreateBuildRequestInput): Promis
   if (input.requiredLeadTime) fields.RequiredLeadTime = input.requiredLeadTime;
   if (input.quotedShipDate) fields.QuotedShipDate = input.quotedShipDate.toISOString();
   if (input.samplePhase) fields.SamplePhase = input.samplePhase;
-  if (input.requestor?.lookupId) fields.RequestorLookupId = input.requestor.lookupId;
-  if (input.engineerAssigned?.lookupId) {
-    fields.EngineerAssignedLookupId = input.engineerAssigned.lookupId;
-  }
+  // Resolve lookupIds (creating on demand) for directory-picked people.
+  const requestor = await ensurePersonLookupId(SP_SITE_URL, input.requestor ?? null);
+  if (requestor?.lookupId) fields.RequestorLookupId = requestor.lookupId;
+  const engineer = await ensurePersonLookupId(SP_SITE_URL, input.engineerAssigned ?? null);
+  if (engineer?.lookupId) fields.EngineerAssignedLookupId = engineer.lookupId;
   if (input.customerName) fields.CustomerName = input.customerName;
   if (input.customerPO) fields.CustomerPurchaseOrder = input.customerPO;
   if (input.leadFree != null) fields.RoHS = input.leadFree;
   if (input.parentProjectLookupIds && input.parentProjectLookupIds.length > 0) {
     Object.assign(fields, multiLookupField("ProjectReference", input.parentProjectLookupIds));
   }
-  if (input.watchers?.some((p) => !!p.lookupId)) {
-    Object.assign(fields, multiPersonField("Watchers", input.watchers));
+  const watchers = input.watchers ? await ensureLookupIds(SP_SITE_URL, input.watchers) : [];
+  if (watchers.some((p) => !!p.lookupId)) {
+    Object.assign(fields, multiPersonField("Watchers", watchers));
   }
 
   const created = await graphFetch<GraphListItem>(
@@ -265,7 +268,8 @@ export async function setBuildRequestRequestor(
     saveToStorage();
     return delay({ ...mockStore[idx] });
   }
-  return updateBuildRequestFields(id, { RequestorLookupId: person?.lookupId ?? null });
+  const ensured = await ensurePersonLookupId(SP_SITE_URL, person);
+  return updateBuildRequestFields(id, { RequestorLookupId: ensured?.lookupId ?? null });
 }
 
 /** Set the single-person Engineer Assigned field (or clear with null). */
@@ -280,7 +284,8 @@ export async function setBuildRequestEngineer(
     saveToStorage();
     return delay({ ...mockStore[idx] });
   }
-  return updateBuildRequestFields(id, { EngineerAssignedLookupId: person?.lookupId ?? null });
+  const ensured = await ensurePersonLookupId(SP_SITE_URL, person);
+  return updateBuildRequestFields(id, { EngineerAssignedLookupId: ensured?.lookupId ?? null });
 }
 
 /** Replace the header's project references (multi-lookup). */
@@ -302,14 +307,13 @@ export async function setBuildRequestWatchers(
   if (USE_MOCK) {
     return updateBuildRequestFields(id, { Watchers: people });
   }
-  const resolved = people.filter((p) => !!p.lookupId);
-  if (people.length > 0 && resolved.length === 0) {
+  const ensured = await ensureLookupIds(SP_SITE_URL, people);
+  if (people.length > 0 && !ensured.some((p) => p.lookupId)) {
     throw new Error(
-      "Cannot update Watchers: none of the watchers had a resolved SharePoint lookupId. " +
-        "Try refreshing the page and signing in again.",
+      "Cannot update Watchers: couldn't resolve a SharePoint user for any of the selected people.",
     );
   }
-  return updateBuildRequestFields(id, multiPersonField("Watchers", people));
+  return updateBuildRequestFields(id, multiPersonField("Watchers", ensured));
 }
 
 /** Append a comment to a header's Communication field. */

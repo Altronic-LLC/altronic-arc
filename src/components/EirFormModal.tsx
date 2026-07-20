@@ -16,6 +16,8 @@ import {
   type Person,
 } from "@/types/task";
 import { SingleSelect } from "./SearchableSelect";
+import { useDirectoryPeople } from "@/hooks/useDirectory";
+import { mergePeople } from "@/lib/people";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
 
 interface EirFormModalProps {
@@ -72,6 +74,7 @@ export function EirFormModal({ onClose }: EirFormModalProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const directory = useDirectoryPeople();
   const people = useMemo(() => {
     const map = new Map<string, Person>();
     for (const t of tasks) {
@@ -84,8 +87,9 @@ export function EirFormModal({ onClose }: EirFormModalProps) {
       const k = currentUser.email.toLowerCase();
       if (!map.has(k)) map.set(k, currentUser);
     }
-    return [...map.values()].sort((a, b) => a.displayName.localeCompare(b.displayName));
-  }, [tasks, currentUser]);
+    // Fold in the staff directory so any Altronic person can be the Reporter.
+    return mergePeople([...map.values()], directory);
+  }, [tasks, currentUser, directory]);
 
   const peopleOptions = people.map((p) => ({
     value: p.email ?? p.displayName,

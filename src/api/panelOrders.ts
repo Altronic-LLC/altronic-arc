@@ -13,6 +13,7 @@ import { attachPanelReferences, toPanelOrder } from "@/lib/panelOrderMapper";
 import { appendComment, replaceComment } from "@/lib/communicationParser";
 import { multiPersonField } from "@/lib/graphFields";
 import { listPanelProjects } from "./panelProjects";
+import { ensureLookupIds, ensurePersonLookupId, ensureSiteUserLookupId } from "./siteUsers";
 import { MOCK_PANEL_ORDERS, MOCK_PANEL_PROJECTS, MOCK_PANEL_ROLES } from "@/data/panelMockData";
 
 // =============================================================================
@@ -150,7 +151,9 @@ export async function resolvePanelSiteUserLookupId(email: string): Promise<numbe
   for (const u of users.values()) {
     if (u.email?.toLowerCase() === target) return u.lookupId ?? 0;
   }
-  return 0;
+  // Not a known panel site user yet (e.g. picked from the staff directory) —
+  // ensure them on the site so they can be assigned / auto-watched.
+  return ensureSiteUserLookupId(SP_PANELTEAM_SITE_URL, email);
 }
 
 /** List all panel orders, resolving project titles + engineer names. */
@@ -250,13 +253,15 @@ export async function setPanelOrderEngineer(
   if (USE_MOCK) {
     return updatePanelOrderFields(id, { EngineerAssigned: person });
   }
-  if (person && !person.lookupId) {
+  // Resolve (creating if needed) the site lookupId — the person may have been
+  // picked from the staff directory and never seen on this site before.
+  const ensured = await ensurePersonLookupId(SP_PANELTEAM_SITE_URL, person);
+  if (person && !ensured?.lookupId) {
     throw new Error(
-      "Cannot update Engineer Assigned: the selected person has no resolved SharePoint lookupId. " +
-        "Try refreshing the page and signing in again.",
+      "Cannot update Engineer Assigned: couldn't resolve a SharePoint user for the selected person.",
     );
   }
-  return updatePanelOrderFields(id, { EngineerAssignedLookupId: person?.lookupId ?? null });
+  return updatePanelOrderFields(id, { EngineerAssignedLookupId: ensured?.lookupId ?? null });
 }
 
 /** Replace the Watchers list. */
@@ -264,14 +269,15 @@ export async function setPanelOrderWatchers(id: number, people: Person[]): Promi
   if (USE_MOCK) {
     return updatePanelOrderFields(id, { Watchers: people });
   }
-  const resolved = people.filter((p) => !!p.lookupId);
-  if (people.length > 0 && resolved.length === 0) {
+  // Ensure lookupIds for any directory-picked watchers, then let
+  // multiPersonField drop any that still couldn't be resolved.
+  const ensured = await ensureLookupIds(SP_PANELTEAM_SITE_URL, people);
+  if (people.length > 0 && !ensured.some((p) => p.lookupId)) {
     throw new Error(
-      "Cannot update Watchers: none of the watchers had a resolved SharePoint lookupId. " +
-        "Try refreshing the page and signing in again.",
+      "Cannot update Watchers: couldn't resolve a SharePoint user for any of the selected people.",
     );
   }
-  return updatePanelOrderFields(id, multiPersonField("Watchers", people));
+  return updatePanelOrderFields(id, multiPersonField("Watchers", ensured));
 }
 
 /** Add the given person to the watchers list (if not already there). */
@@ -425,10 +431,14 @@ export async function createPanelOrder(input: {
   if (input.customer) fields.Customer = input.customer;
   if (input.customerContactEmail) fields.CustomerContactEmail = input.customerContactEmail;
   if (input.orderNotes) fields.OrderNotes = input.orderNotes;
-  if (input.engineerAssigned?.lookupId)
-    fields.EngineerAssignedLookupId = input.engineerAssigned.lookupId;
-  if (input.watchers?.some((p) => !!p.lookupId)) {
-    Object.assign(fields, multiPersonField("Watchers", input.watchers));
+  // Resolve lookupIds (creating on demand) for directory-picked people.
+  const engineer = await ensurePersonLookupId(SP_PANELTEAM_SITE_URL, input.engineerAssigned ?? null);
+  if (engineer?.lookupId) fields.EngineerAssignedLookupId = engineer.lookupId;
+  const watchers = input.watchers
+    ? await ensureLookupIds(SP_PANELTEAM_SITE_URL, input.watchers)
+    : [];
+  if (watchers.some((p) => !!p.lookupId)) {
+    Object.assign(fields, multiPersonField("Watchers", watchers));
   }
 
   const created = await graphFetch<GraphListItem>(

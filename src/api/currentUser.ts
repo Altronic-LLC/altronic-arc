@@ -1,5 +1,6 @@
 import { graphFetch } from "./graph";
-import { SP_SITE_ID, USE_MOCK } from "./config";
+import { SP_SITE_ID, SP_SITE_URL, USE_MOCK } from "./config";
+import { ensureSiteUserLookupId } from "./siteUsers";
 
 // Module-level dedup map. Multiple components (DetailView, CommentComposer,
 // Header) can call useCurrentUser on first page mount, each firing its own
@@ -76,21 +77,21 @@ async function doResolve(email: string): Promise<number> {
     });
 
     const match = result.value[0];
-    if (!match) {
-      console.warn(
-        `Could not resolve SharePoint lookupId for ${email}. ` +
-          `Person fields will fall back to email matching where possible.`,
-      );
-      return 0;
+    if (match) {
+      // item.id is the lookupId for the User Information List entry.
+      const id = parseInt(match.id, 10) || 0;
+      if (id) return id;
     }
-    // item.id is the lookupId for the User Information List entry.
-    return parseInt(match.id, 10) || 0;
+    // Not in the User Information List yet — e.g. someone picked from the
+    // staff directory who's never touched this site. Create their entry on
+    // demand via ensureuser so they can be assigned / auto-watched.
+    return ensureSiteUserLookupId(SP_SITE_URL, email);
   } catch (err) {
     console.warn(
-      `Failed to resolve SharePoint lookupId for ${email}:`,
+      `Failed to resolve SharePoint lookupId for ${email} via the User Information List; ` +
+        `trying ensureuser. Original error:`,
       err,
-      "Person-field writes may exclude the current user.",
     );
-    return 0;
+    return ensureSiteUserLookupId(SP_SITE_URL, email);
   }
 }

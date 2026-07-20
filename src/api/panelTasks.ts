@@ -1,5 +1,6 @@
 import { graphFetch, graphFetchAll } from "./graph";
-import { SITES, SP_PANEL_TASKS_LIST_ID, USE_MOCK } from "./config";
+import { SITES, SP_PANEL_TASKS_LIST_ID, SP_PANELTEAM_SITE_URL, USE_MOCK } from "./config";
+import { ensureLookupIds, ensurePersonLookupId } from "./siteUsers";
 import type { GraphListItem, PanelTask, Person } from "@/types/task";
 import { attachPanelTaskReferences, toPanelTask } from "@/lib/panelTaskMapper";
 import { appendComment, replaceComment } from "@/lib/communicationParser";
@@ -161,13 +162,15 @@ export async function setPanelTaskAssigned(id: number, person: Person | null): P
   if (USE_MOCK) {
     return updatePanelTaskFields(id, { Assigned: person });
   }
-  if (person && !person.lookupId) {
+  // Resolve (creating if needed) the site lookupId — the person may have been
+  // picked from the staff directory and never seen on this site before.
+  const ensured = await ensurePersonLookupId(SP_PANELTEAM_SITE_URL, person);
+  if (person && !ensured?.lookupId) {
     throw new Error(
-      "Cannot update Assigned: the selected person has no resolved SharePoint lookupId. " +
-        "Try refreshing the page and signing in again.",
+      "Cannot update Assigned: couldn't resolve a SharePoint user for the selected person.",
     );
   }
-  return updatePanelTaskFields(id, { AssignedLookupId: person?.lookupId ?? null });
+  return updatePanelTaskFields(id, { AssignedLookupId: ensured?.lookupId ?? null });
 }
 
 /** Replace the Watchers list. */
@@ -175,14 +178,13 @@ export async function setPanelTaskWatchers(id: number, people: Person[]): Promis
   if (USE_MOCK) {
     return updatePanelTaskFields(id, { Watchers: people });
   }
-  const resolved = people.filter((p) => !!p.lookupId);
-  if (people.length > 0 && resolved.length === 0) {
+  const ensured = await ensureLookupIds(SP_PANELTEAM_SITE_URL, people);
+  if (people.length > 0 && !ensured.some((p) => p.lookupId)) {
     throw new Error(
-      "Cannot update Watchers: none of the watchers had a resolved SharePoint lookupId. " +
-        "Try refreshing the page and signing in again.",
+      "Cannot update Watchers: couldn't resolve a SharePoint user for any of the selected people.",
     );
   }
-  return updatePanelTaskFields(id, multiPersonField("Watchers", people));
+  return updatePanelTaskFields(id, multiPersonField("Watchers", ensured));
 }
 
 /** Add the given person to the watchers list (if not already there). */
@@ -324,9 +326,14 @@ export async function createPanelTask(input: {
   if (input.taskType) fields.TaskType = input.taskType;
   if (input.projectLookupId) fields.ProjectReferenceLookupId = input.projectLookupId;
   if (input.description) fields.Description = input.description;
-  if (input.assigned?.lookupId) fields.AssignedLookupId = input.assigned.lookupId;
-  if (input.watchers?.some((p) => !!p.lookupId)) {
-    Object.assign(fields, multiPersonField("Watchers", input.watchers));
+  // Resolve lookupIds (creating on demand) for directory-picked people.
+  const assigned = await ensurePersonLookupId(SP_PANELTEAM_SITE_URL, input.assigned ?? null);
+  if (assigned?.lookupId) fields.AssignedLookupId = assigned.lookupId;
+  const watchers = input.watchers
+    ? await ensureLookupIds(SP_PANELTEAM_SITE_URL, input.watchers)
+    : [];
+  if (watchers.some((p) => !!p.lookupId)) {
+    Object.assign(fields, multiPersonField("Watchers", watchers));
   }
 
   const created = await graphFetch<GraphListItem>(

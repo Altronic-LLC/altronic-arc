@@ -1721,6 +1721,14 @@ const SECTIONS: ManualSection[] = [
         </P>
         <UL>
           <LI>
+            You can <strong>@-mention or assign anyone at Altronic</strong> —
+            the pickers list every staff member, not just people already on an
+            item. Pick someone the app has never seen and it wires up their
+            SharePoint access automatically the first time you assign or
+            mention them. (If the directory hasn't been enabled by IT yet, the
+            pickers fall back to people already known to the app.)
+          </LI>
+          <LI>
             People you <strong>@-mention</strong> get a "You were mentioned"
             email; other <strong>watchers</strong> get a "New comment on…" email.
           </LI>
