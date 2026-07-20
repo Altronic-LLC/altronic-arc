@@ -1,7 +1,21 @@
-import { ArrowDown, ArrowLeft, BookOpen, ExternalLink, Info } from "lucide-react";
+import { useState } from "react";
+import {
+  AlertTriangle,
+  ArrowDown,
+  ArrowLeft,
+  BookOpen,
+  CheckCircle2,
+  ExternalLink,
+  Info,
+  RefreshCw,
+  Users,
+} from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { CURRENT_VERSION } from "@/data/changelog";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { DIRECTORY_KEY, useDirectoryDiagnostics } from "@/hooks/useDirectory";
+import { grantDirectoryAccess } from "@/api/directory";
 import { cn } from "@/lib/cn";
 
 // =============================================================================
@@ -640,6 +654,8 @@ export function AboutView() {
         </div>
       </div>
 
+      <DirectoryStatusSection />
+
       <Section
         title="What an SPA is"
         description="Using ARC as an example — a primer for anyone used to server-rendered apps like Power Apps."
@@ -709,6 +725,124 @@ function Section({
       <p className="mt-1 text-xs text-fg-muted">{description}</p>
       <div className="mt-4">{children}</div>
     </div>
+  );
+}
+
+// =============================================================================
+// Staff-directory status — makes the (otherwise silent) tenant-directory read
+// visible, and offers a one-click recovery. This is where you look when
+// someone reports "I can't see / @-mention certain people": either the
+// directory loaded (count shown) or it didn't (reason shown + a Retry button
+// that re-requests access and surfaces a missing admin consent).
+// =============================================================================
+
+function StatusLine({
+  tone,
+  icon,
+  children,
+}: {
+  tone: "ok" | "error";
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        "inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm",
+        tone === "ok"
+          ? "border-cooper-green/40 bg-cooper-green/10 text-fg"
+          : "border-cooper-red/40 bg-cooper-red/10 text-fg",
+      )}
+    >
+      <span className={tone === "ok" ? "text-cooper-green" : "text-cooper-red"}>{icon}</span>
+      <span>{children}</span>
+    </div>
+  );
+}
+
+function DirectoryStatusSection() {
+  const diag = useDirectoryDiagnostics(true);
+  const qc = useQueryClient();
+  const [granting, setGranting] = useState(false);
+  const [grantError, setGrantError] = useState<string | null>(null);
+
+  const probe = diag.data;
+
+  async function handleGrant() {
+    setGranting(true);
+    setGrantError(null);
+    try {
+      await grantDirectoryAccess();
+      // New token now carries the scope — refresh both the pickers' directory
+      // and this card's probe so the fix is visible immediately.
+      await qc.invalidateQueries({ queryKey: DIRECTORY_KEY });
+      await diag.refetch();
+    } catch (err) {
+      const msg =
+        err && typeof err === "object" && "errorMessage" in err
+          ? String((err as { errorMessage?: string }).errorMessage ?? "").split("\n")[0]
+          : "";
+      setGrantError(msg || "Sign-in was cancelled or blocked.");
+    } finally {
+      setGranting(false);
+    }
+  }
+
+  return (
+    <Section
+      title="Staff directory (assignment & @-mentions)"
+      description="Powers who you can pick to assign or @-mention. It reads the company directory from Microsoft Graph under a separate permission (User.ReadBasic.All). When it can't, the pickers quietly fall back to only people already on an item — which looks like 'certain people are missing.'"
+    >
+      <div className="space-y-3">
+        {diag.isLoading ? (
+          <p className="text-sm text-fg-muted">Checking directory access…</p>
+        ) : probe?.mock ? (
+          <StatusLine tone="ok" icon={<Users className="h-4 w-4" />}>
+            Demo mode — {probe.count} sample people.
+          </StatusLine>
+        ) : probe?.ok ? (
+          <StatusLine tone="ok" icon={<CheckCircle2 className="h-4 w-4" />}>
+            Connected — {probe.count.toLocaleString()} people loaded from the company directory.
+          </StatusLine>
+        ) : (
+          <>
+            <StatusLine tone="error" icon={<AlertTriangle className="h-4 w-4" />}>
+              Couldn't read the directory
+              {probe?.error ? (
+                <>
+                  {" — "}
+                  <span className="font-mono text-xs">{probe.error}</span>
+                </>
+              ) : null}
+              .
+            </StatusLine>
+            <p className="text-xs leading-relaxed text-fg-muted">
+              Most often this means your signed-in session predates the permission being
+              granted, or{" "}
+              <code className="rounded bg-bg px-1 py-0.5">User.ReadBasic.All</code> hasn't been
+              admin-consented on the <strong>Engineering Task System</strong> app registration
+              yet. Click below to re-request access — if a Microsoft prompt appears asking to
+              “read all users’ basic profiles,” the consent hasn't been granted (an admin can
+              approve it right there; otherwise send it to IT).
+            </p>
+          </>
+        )}
+
+        {!probe?.mock && (
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={handleGrant}
+              disabled={granting}
+              className="inline-flex items-center gap-1.5 rounded-md border border-accent bg-accent/10 px-3 py-1.5 text-xs font-medium text-accent transition-colors hover:bg-accent/20 disabled:opacity-60"
+            >
+              <RefreshCw className={cn("h-3.5 w-3.5", granting && "animate-spin")} />
+              {granting ? "Requesting…" : "Retry / grant access"}
+            </button>
+            {grantError && <span className="text-xs text-cooper-red">{grantError}</span>}
+          </div>
+        )}
+      </div>
+    </Section>
   );
 }
 

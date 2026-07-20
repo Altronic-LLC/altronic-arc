@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { listDirectoryPeople, mapDirectoryUsers } from "./directory";
+import {
+  grantDirectoryAccess,
+  listDirectoryPeople,
+  mapDirectoryUsers,
+  probeDirectory,
+} from "./directory";
 
 describe("mapDirectoryUsers", () => {
   it("maps Graph users to Person, preferring mail over UPN", () => {
@@ -52,5 +57,26 @@ describe("listDirectoryPeople (mock mode)", () => {
     expect(people.some((p) => p.email === "marcus.webb@altronic-llc.com")).toBe(true);
     // Mock directory people carry a lookupId so demo assignment works.
     expect(people.every((p) => typeof p.lookupId === "number")).toBe(true);
+  });
+});
+
+describe("probeDirectory (mock mode)", () => {
+  it("reports ok with a sample count and the mock flag", async () => {
+    const probe = await probeDirectory();
+    expect(probe.ok).toBe(true);
+    expect(probe.mock).toBe(true);
+    expect(probe.count).toBeGreaterThan(0);
+    expect(probe.error).toBeNull();
+  });
+
+  it("count matches the people the pickers would see", async () => {
+    const [probe, people] = await Promise.all([probeDirectory(), listDirectoryPeople()]);
+    expect(probe.count).toBe(people.length);
+  });
+});
+
+describe("grantDirectoryAccess (mock mode)", () => {
+  it("is a no-op in demo mode (never touches MSAL)", async () => {
+    await expect(grantDirectoryAccess()).resolves.toBeUndefined();
   });
 });

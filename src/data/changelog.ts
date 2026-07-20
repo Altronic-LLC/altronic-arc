@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.66.0",
+    date: "2026-07-20",
+    changes: [
+      "The About page now shows a live \"Staff directory\" status — how many people the assign / @-mention pickers loaded from the company directory, or the exact reason it couldn't — so a \"can't see certain people\" problem is no longer invisible",
+      "Added a \"Retry / grant access\" button there that re-requests directory access without a full sign-out: it recovers a session that predates the permission, and pops the Microsoft consent prompt if User.ReadBasic.All still needs admin approval",
+      "If the directory ever comes back empty, the app now retries it shortly after instead of caching the empty result for hours, so the pickers recover on their own once access is fixed",
+    ],
+  },
+  {
     version: "0.65.1",
     date: "2026-07-20",
     changes: [
