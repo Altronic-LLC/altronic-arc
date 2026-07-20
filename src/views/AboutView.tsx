@@ -81,7 +81,7 @@ const SYSTEM_TIERS: Tier[] = [
   {
     label: "Auth & transport",
     nodes: [
-      { label: "MSAL Entra ID", hint: "Sites.Selected · Mail.Send.Shared · GroupMember.Read.All (staff directory, optional) · AllSites.Manage (optional)", palette: "auth" },
+      { label: "MSAL Entra ID", hint: "Sites.Selected · Mail.Send.Shared · User.ReadBasic.All (tenant directory, optional) · AllSites.Manage (optional)", palette: "auth" },
       { label: "Microsoft Graph v1.0", hint: "Lists, items, drives, users, mail", palette: "gateway" },
       { label: "SharePoint REST", hint: "List-item attachments (Task, EIR, Operations Task, Panel Order) + site-user resolution — optional", palette: "gateway" },
       { label: "Mock store", hint: "in-memory + localStorage (demo mode)", palette: "mock" },

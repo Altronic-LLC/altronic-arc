@@ -185,16 +185,6 @@ export const SP_PANELTEAM_SITE_URL =
  */
 export const PANEL_ROLES_ENFORCED = USE_MOCK || !!SP_PANEL_ROLES_LIST_ID;
 
-/**
- * Mail address of the staff group whose members populate the assignment +
- * @-mention pickers (so you can pick anyone at Altronic, not just people
- * already on an item). Expanded via Graph — see src/api/directory.ts. If the
- * group can't be read (scope not consented yet), the pickers fall back to
- * people already known to the app. Env-overridable.
- */
-export const ALL_STAFF_GROUP =
-  (import.meta.env.VITE_ALL_STAFF_GROUP as string | undefined) ?? "AllAltronic@altronic-llc.com";
-
 export const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 
 /** Throw a clear error if the app tries to call Graph without being configured. */

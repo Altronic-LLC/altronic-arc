@@ -1,21 +1,25 @@
-import { graphFetchScoped, graphFetchAllScoped } from "./graph";
-import { ALL_STAFF_GROUP, USE_MOCK } from "./config";
+import { graphFetchAllScoped } from "./graph";
+import { USE_MOCK } from "./config";
 import { directoryScopes } from "@/auth/msalConfig";
 import type { Person } from "@/types/task";
 import { mockLookupIdForEmail } from "@/lib/mentions";
 
 // =============================================================================
-// Staff directory — expands the "everyone" group (ALL_STAFF_GROUP, e.g.
-// AllAltronic@altronic-llc.com) so the assignment + @-mention pickers can
-// offer ANY staff member, not just people already on an item.
+// Staff directory — the whole tenant's users (Graph /users) so the
+// assignment + @-mention pickers can offer ANY person at Altronic, not just
+// people already on an item.
+//
+// (We originally expanded a specific "all staff" group, but AllAltronic is an
+// Exchange distribution list, which Graph can't expand into members — so we
+// read the tenant directory directly instead. Simpler and always current.)
 //
 // Read via Graph under a SEPARATE, lazily-requested scope
-// (directoryScopes / GroupMember.Read.All) so a tenant that hasn't
+// (directoryScopes / User.ReadBasic.All) so a tenant that hasn't
 // admin-consented to it can't break sign-in — token acquisition fails
 // silently and this returns [], and the pickers fall back to people already
 // known to the app. See graphFetchScoped in api/graph.ts.
 //
-// Directory people carry NO SharePoint lookupId (the group is a tenant/Entra
+// Directory people carry NO SharePoint lookupId (this is a tenant/Entra
 // concept, not a per-site one). The lookupId needed to actually WRITE a
 // person field is resolved on demand at write time via ensureuser — see
 // api/siteUsers.ts.
@@ -50,57 +54,48 @@ const MOCK_DIRECTORY: Person[] = [
 });
 
 /**
- * Every staff member from the directory group, as `Person[]` (displayName +
- * email; no lookupId). Returns [] — never throws — when the group can't be
- * read, so callers can merge it in unconditionally.
+ * Every user in the tenant directory, as `Person[]` (displayName + email; no
+ * lookupId). Returns [] — never throws — when the directory can't be read,
+ * so callers can merge it in unconditionally.
  */
 export async function listDirectoryPeople(): Promise<Person[]> {
   if (USE_MOCK) return MOCK_DIRECTORY.map((p) => ({ ...p }));
 
   try {
-    const groupPath =
-      `/groups?$filter=mail eq '${encodeURIComponent(ALL_STAFF_GROUP)}'` + `&$select=id&$top=1`;
-    const groups = await graphFetchScoped<{ value: Array<{ id: string }> }>(
-      groupPath,
+    // $top=999 is the max page size; graphFetchAllScoped walks @odata.nextLink
+    // for tenants larger than one page. userType isn't in the ReadBasic
+    // property set, so external guests are filtered client-side by UPN.
+    const users = await graphFetchAllScoped<GraphDirectoryUser>(
+      "/users?$select=id,displayName,mail,userPrincipalName&$top=999",
       directoryScopes,
     );
-    const groupId = groups.value[0]?.id;
-    if (!groupId) {
-      console.warn(
-        `[directory] Group ${ALL_STAFF_GROUP} not found (or not visible). ` +
-          "Assign/@-mention will use people already known to the app.",
-      );
-      return [];
-    }
-
-    // transitiveMembers flattens nested groups; the /microsoft.graph.user cast
-    // keeps only user members (drops any nested group objects).
-    const membersPath =
-      `/groups/${groupId}/transitiveMembers/microsoft.graph.user` +
-      `?$select=id,displayName,mail,userPrincipalName&$top=999`;
-    const users = await graphFetchAllScoped<GraphDirectoryUser>(membersPath, directoryScopes);
-
     return mapDirectoryUsers(users);
   } catch (err) {
-    // Expected until an Entra admin consents to GroupMember.Read.All — the
+    // Expected until an Entra admin consents to User.ReadBasic.All — the
     // silent token request throws and we degrade to known people. Warn (not
     // error) so it's discoverable without alarming.
     console.warn(
-      `[directory] Couldn't read ${ALL_STAFF_GROUP} — assign/@-mention will use ` +
-        "people already known to the app until GroupMember.Read.All is consented:",
+      "[directory] Couldn't read the tenant directory — assign/@-mention will use " +
+        "people already known to the app until User.ReadBasic.All is consented:",
       err,
     );
     return [];
   }
 }
 
-/** Map raw Graph users → deduped, sorted Person[]. Exported for testing. */
+/**
+ * Map raw Graph users → deduped, sorted Person[]. Skips accounts with no
+ * display name or no email/UPN (service accounts) and external guests
+ * (`#EXT#` UPNs). Exported for testing.
+ */
 export function mapDirectoryUsers(users: GraphDirectoryUser[]): Person[] {
   const byEmail = new Map<string, Person>();
   for (const u of users) {
     const displayName = (u.displayName ?? "").trim();
-    const email = (u.mail ?? u.userPrincipalName ?? "").trim();
+    const upn = (u.userPrincipalName ?? "").trim();
+    const email = (u.mail ?? upn).trim();
     if (!displayName || !email) continue; // skip mail-less service accounts
+    if (upn.includes("#EXT#")) continue; // skip external guests
     const key = email.toLowerCase();
     if (!byEmail.has(key)) byEmail.set(key, { displayName, email });
   }

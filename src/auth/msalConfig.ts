@@ -86,13 +86,14 @@ export const graphScopes = [
 ];
 
 /**
- * Extra Graph scope used ONLY to read the staff directory group's members
- * (so you can assign / @-mention anyone at Altronic, not just people already
- * on an item). Deliberately NOT in `graphScopes`: it's requested lazily and
- * silently via graphFetchScoped, so a tenant that hasn't admin-consented to
- * it can't break sign-in — the directory just falls back to people already
- * known to the app. Needs a one-time Entra admin consent to light up.
+ * Extra Graph scope used ONLY to read the tenant user directory (so you can
+ * assign / @-mention anyone at Altronic, not just people already on an item).
+ * Deliberately NOT in `graphScopes`: it's requested lazily and silently via
+ * graphFetchScoped, so a tenant that hasn't admin-consented to it can't break
+ * sign-in — the directory just falls back to people already known to the app.
+ * Needs a one-time Entra admin consent to light up.
  *
- * GroupMember.Read.All is the least-privilege read for group membership.
+ * User.ReadBasic.All is the least-privilege read of other users' basic
+ * profile (name + email) across the tenant.
  */
-export const directoryScopes = ["GroupMember.Read.All"];
+export const directoryScopes = ["User.ReadBasic.All"];

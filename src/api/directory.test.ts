@@ -29,6 +29,19 @@ describe("mapDirectoryUsers", () => {
     ]);
     expect(out).toHaveLength(1);
   });
+
+  it("skips external guests (#EXT# UPNs)", () => {
+    const out = mapDirectoryUsers([
+      {
+        id: "1",
+        displayName: "Vendor Guest",
+        mail: "guest@vendor.com",
+        userPrincipalName: "guest_vendor.com#EXT#@altronic.onmicrosoft.com",
+      },
+      { id: "2", displayName: "Staff Member", mail: "staff@altronic-llc.com" },
+    ]);
+    expect(out).toEqual([{ displayName: "Staff Member", email: "staff@altronic-llc.com" }]);
+  });
 });
 
 describe("listDirectoryPeople (mock mode)", () => {

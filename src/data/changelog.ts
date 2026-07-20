@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.65.1",
+    date: "2026-07-20",
+    changes: [
+      "The assign / @-mention people list now draws from the whole company directory (all Entra users, external guests excluded) instead of a specific group — simpler and always current",
+    ],
+  },
+  {
     version: "0.65.0",
     date: "2026-07-20",
     changes: [
