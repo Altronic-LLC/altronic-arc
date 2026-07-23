@@ -271,6 +271,7 @@ export function BuildRequestDetailView() {
               <CommentThread
                 comments={br.comments}
                 currentUserEmail={currentUser.email}
+                currentUserName={currentUser.displayName}
                 mentionablePeople={mentionCandidates}
                 onEdit={handleEditComment}
               />

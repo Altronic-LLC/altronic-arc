@@ -292,6 +292,7 @@ export function BuildRequestItemCard({
                   <CommentThread
                     comments={item.comments}
                     currentUserEmail={currentUser.email}
+                    currentUserName={currentUser.displayName}
                     mentionablePeople={mentionCandidates}
                     onEdit={handleEditComment}
                   />

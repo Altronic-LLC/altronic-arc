@@ -45,6 +45,65 @@ describe("CommentThread — edit permissions", () => {
   });
 });
 
+describe("CommentThread — ownership by name (older / imported comments)", () => {
+  // Imported from the previous app: the saved email doesn't equal the current
+  // login, but the saved name does — should still be editable.
+  const LEGACY_OWN: Comment = {
+    timestamp: new Date("2026-01-04T12:00:00"),
+    authorName: "Ray White",
+    authorEmail: "rwhite@legacy-domain.com",
+    bodyHtml: "<p>an imported comment</p>",
+  };
+
+  it("shows Edit when the saved NAME matches, even if the email doesn't", () => {
+    render(
+      <CommentThread
+        comments={[LEGACY_OWN]}
+        currentUserEmail="ray.white@altronic-llc.com"
+        currentUserName="Ray White"
+        onEdit={() => {}}
+      />,
+    );
+    expect(screen.getByRole("button", { name: /^edit$/i })).toBeInTheDocument();
+  });
+
+  it("matches the name case-insensitively", () => {
+    render(
+      <CommentThread
+        comments={[LEGACY_OWN]}
+        currentUserEmail=""
+        currentUserName="  ray white  "
+        onEdit={() => {}}
+      />,
+    );
+    expect(screen.getByRole("button", { name: /^edit$/i })).toBeInTheDocument();
+  });
+
+  it("still hides Edit when neither email nor name matches", () => {
+    render(
+      <CommentThread
+        comments={[OTHERS_COMMENT]}
+        currentUserEmail="ray.white@altronic-llc.com"
+        currentUserName="Ray White"
+        onEdit={() => {}}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: /^edit$/i })).not.toBeInTheDocument();
+  });
+
+  it("does not treat blank name/email as a match (empty author stays locked)", () => {
+    render(
+      <CommentThread
+        comments={[{ ...OTHERS_COMMENT, authorName: "", authorEmail: "" }]}
+        currentUserEmail=""
+        currentUserName=""
+        onEdit={() => {}}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: /^edit$/i })).not.toBeInTheDocument();
+  });
+});
+
 describe("CommentThread — editing with the renotify checkbox", () => {
   async function openEditor(user: ReturnType<typeof userEvent.setup>) {
     await user.click(screen.getByRole("button", { name: /^edit$/i }));

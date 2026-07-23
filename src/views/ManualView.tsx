@@ -532,7 +532,7 @@ const SECTIONS: ManualSection[] = [
       "resend notification",
     ],
     searchText:
-      "Type @ in the comment composer to open the mention picker. Arrow keys then Enter or Tab to pick. Comment boxes auto-grow as you type or paste. Mentioned people get an email with the task/EIR name, the comment quote, and a link. Attach files by drag-drop or click Attach. You can edit your own comments inline. Check Notify everyone again when editing to re-email every watcher and mention. Ctrl+Enter sends.",
+      "Type @ in the comment composer to open the mention picker. Arrow keys then Enter or Tab to pick. Comment boxes auto-grow as you type or paste. Mentioned people get an email with the task/EIR name, the comment quote, and a link. Attach files by drag-drop or click Attach. You can edit your own comments inline (a comment is yours if its saved name or email matches you, so older imported comments count too). Check Notify everyone again when editing to re-email every watcher and mention. Ctrl+Enter sends.",
     render: () => (
       <>
         <P>
@@ -587,7 +587,11 @@ const SECTIONS: ManualSection[] = [
         </P>
         <H3>Editing your own comments</H3>
         <P>
-          A pencil icon appears next to comments you authored. Click it to
+          A pencil icon appears next to comments you authored — in every area
+          (Engineering, EIRs, Operations, Build Requests, Panels). A comment
+          counts as yours if its saved <strong>name or email</strong> matches
+          your account, so older comments carried over from the previous system
+          are editable too. Click the pencil to
           edit in place. Editing won't re-spam mentions that were already
           there — only newly added mentions get an email. If you'd rather
           make sure everyone sees the update, check{" "}

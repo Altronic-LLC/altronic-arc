@@ -237,6 +237,7 @@ export function PanelOrderDetailView() {
               <CommentThread
                 comments={order.comments}
                 currentUserEmail={currentUser.email}
+                currentUserName={currentUser.displayName}
                 mentionablePeople={mentionCandidates}
                 onEdit={handleEditComment}
               />

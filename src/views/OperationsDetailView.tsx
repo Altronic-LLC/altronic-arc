@@ -373,6 +373,7 @@ export function OperationsDetailView() {
               <CommentThread
                 comments={displayedComments}
                 currentUserEmail={currentUser.email}
+                currentUserName={currentUser.displayName}
                 mentionablePeople={mentionCandidates}
                 onEdit={handleEditComment}
               />

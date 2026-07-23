@@ -10,6 +10,15 @@ interface CommentThreadProps {
   comments: Comment[];
   currentUserEmail?: string;
   /**
+   * The signed-in user's display name. Used ALONGSIDE currentUserEmail to
+   * decide which comments are "yours" (and therefore editable): a comment
+   * matches if EITHER its saved email OR its saved author name equals yours.
+   * The name fallback lets you edit older / imported comments whose stored
+   * author email doesn't equal your current sign-in (e.g. threads migrated
+   * from the previous app, where the email slot may differ or be blank).
+   */
+  currentUserName?: string;
+  /**
    * People available for @-mentions while editing — same list the composer
    * uses for new comments. Without this, edits can't add or preserve real
    * mention chips (typed "@Name" text stays plain, so it neither notifies
@@ -28,6 +37,7 @@ interface CommentThreadProps {
 export function CommentThread({
   comments,
   currentUserEmail,
+  currentUserName,
   mentionablePeople = [],
   onEdit,
 }: CommentThreadProps) {
@@ -39,13 +49,20 @@ export function CommentThread({
     );
   }
 
-  const myEmail = (currentUserEmail ?? "").toLowerCase();
+  const myEmail = (currentUserEmail ?? "").toLowerCase().trim();
+  const myName = (currentUserName ?? "").toLowerCase().trim();
 
   return (
     <div className="divide-y divide-border">
       {comments.map((c, i) => {
+        // A comment is "yours" (editable) if its saved email OR its saved
+        // author name matches you. The name fallback covers older / imported
+        // comments whose stored email doesn't equal your current sign-in.
+        const authorEmail = (c.authorEmail ?? "").toLowerCase().trim();
+        const authorName = (c.authorName ?? "").toLowerCase().trim();
         const isOwn =
-          !!myEmail && (c.authorEmail ?? "").toLowerCase() === myEmail;
+          (!!myEmail && authorEmail === myEmail) ||
+          (!!myName && authorName === myName);
         return (
           <CommentItem
             key={`${c.timestamp.getTime()}-${i}`}

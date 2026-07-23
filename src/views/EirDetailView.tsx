@@ -405,6 +405,7 @@ export function EirDetailView() {
               <CommentThread
                 comments={eir.comments}
                 currentUserEmail={currentUser.email}
+                currentUserName={currentUser.displayName}
                 mentionablePeople={mentionCandidates}
                 onEdit={handleEditComment}
               />

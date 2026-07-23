@@ -227,6 +227,7 @@ export function PanelTaskDetailView() {
               <CommentThread
                 comments={task.comments}
                 currentUserEmail={currentUser.email}
+                currentUserName={currentUser.displayName}
                 mentionablePeople={mentionCandidates}
                 onEdit={handleEditComment}
               />

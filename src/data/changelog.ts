@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.67.0",
+    date: "2026-07-23",
+    changes: [
+      "You can now edit your own older / imported comments across every area (Engineering, EIRs, Operations, Build Requests, Panels) — the Edit pencil now recognizes a comment as yours by your name as well as your email, so comments carried over from the previous system are editable too",
+    ],
+  },
+  {
     version: "0.66.0",
     date: "2026-07-20",
     changes: [
