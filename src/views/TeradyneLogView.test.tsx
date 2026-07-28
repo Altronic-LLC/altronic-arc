@@ -33,6 +33,23 @@ describe("TeradyneLogView", () => {
     expect(within(table).getByText("#88")).toBeInTheDocument();
   });
 
+  it("gives the SAP number and the Altronic part number their own columns", async () => {
+    await renderView();
+    const headers = screen.getAllByRole("columnheader").map((h) => h.textContent);
+    expect(headers).toContain("SAP No.");
+    expect(headers).toContain("Altronic Part No.");
+    // Entry 4800 has SAP 672337 and Altronic part number 672337-1 — the two
+    // must land in different cells rather than one falling back to the other.
+    const row = screen.getByText("EX-4000 DA").closest("tr")!;
+    expect(within(row).getByText("672337")).toBeInTheDocument();
+    expect(within(row).getByText("672337-1")).toBeInTheDocument();
+  });
+
+  it("no longer offers the old 'Old SAP Number' label anywhere", async () => {
+    await renderView();
+    expect(screen.queryByText(/old sap/i)).not.toBeInTheDocument();
+  });
+
   it("shows how many entries are displayed and their board totals", async () => {
     await renderView();
     expect(screen.getByText(/showing 5 of 5 entries/i)).toBeInTheDocument();
@@ -142,7 +159,7 @@ describe("TeradyneLogView — a log too big to render whole", () => {
       boardsTested: 2,
       failuresPerBoard: 1,
       sapNumber: "",
-      oldSapNumber: "",
+      altronicPartNumber: "",
       operatorNotes: "",
       createdAt: new Date("2026-01-01T00:00:00Z"),
       modifiedAt: new Date("2026-01-01T00:00:00Z"),

@@ -23,7 +23,7 @@ const baseInput: TeradyneLogInput = {
   boardsTested: 20,
   failuresPerBoard: 1,
   sapNumber: "601999",
-  oldSapNumber: "",
+  altronicPartNumber: "",
   operatorNotes: "  trailing space  ",
 };
 
@@ -68,6 +68,26 @@ describe("buildLogWriteFields", () => {
   it("trims the free-text columns", () => {
     const fields = buildLogWriteFields(baseInput, "x");
     expect(fields.OperatorNotes).toBe("trailing space");
+  });
+
+  it("writes the Altronic part number to the SharePoint column still named OldSAPNumber", () => {
+    // The user-facing field was renamed from "Old SAP Number"; the SharePoint
+    // column was NOT renamed, so this mapping is the thing that must not drift.
+    const fields = buildLogWriteFields(
+      { ...baseInput, altronicPartNumber: " 672337-1 " },
+      "x",
+    );
+    expect(fields.OldSAPNumber).toBe("672337-1");
+    expect(fields).not.toHaveProperty("AltronicPartNumber");
+  });
+
+  it("keeps the SAP number and the Altronic part number as separate columns", () => {
+    const fields = buildLogWriteFields(
+      { ...baseInput, sapNumber: "601999", altronicPartNumber: "672337-1" },
+      "x",
+    );
+    expect(fields.SAPNumber).toBe("601999");
+    expect(fields.OldSAPNumber).toBe("672337-1");
   });
 });
 

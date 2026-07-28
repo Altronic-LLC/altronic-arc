@@ -72,7 +72,7 @@ export const MOCK_TERADYNE_LOG: TeradyneLogEntry[] = [
     boardsTested: 12,
     failuresPerBoard: 1,
     sapNumber: "601413",
-    oldSapNumber: "",
+    altronicPartNumber: "",
     operatorNotes: "Reading 4.2V on CH2, spec is 5V ±0.25.",
   }),
   entry({
@@ -89,7 +89,7 @@ export const MOCK_TERADYNE_LOG: TeradyneLogEntry[] = [
     boardsTested: 40,
     failuresPerBoard: 1,
     sapNumber: "672337",
-    oldSapNumber: "672337-1",
+    altronicPartNumber: "672337-1",
     operatorNotes: "Both boards from the same reflow run.",
   }),
   entry({
@@ -106,7 +106,7 @@ export const MOCK_TERADYNE_LOG: TeradyneLogEntry[] = [
     boardsTested: 8,
     failuresPerBoard: 1,
     sapNumber: "",
-    oldSapNumber: "",
+    altronicPartNumber: "",
     operatorNotes: "",
   }),
   entry({
@@ -123,7 +123,7 @@ export const MOCK_TERADYNE_LOG: TeradyneLogEntry[] = [
     boardsTested: 30,
     failuresPerBoard: 1,
     sapNumber: "",
-    oldSapNumber: "",
+    altronicPartNumber: "",
     operatorNotes: "Via lifted on rework.",
   }),
   entry({
@@ -140,7 +140,7 @@ export const MOCK_TERADYNE_LOG: TeradyneLogEntry[] = [
     boardsTested: 25,
     failuresPerBoard: 1,
     sapNumber: "594120",
-    oldSapNumber: "",
+    altronicPartNumber: "",
     operatorNotes: "",
   }),
 ];

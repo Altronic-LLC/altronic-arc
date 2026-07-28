@@ -91,7 +91,7 @@ export function TeradyneLogView() {
           e.employee1?.title,
           e.employee2?.title,
           e.sapNumber,
-          e.oldSapNumber,
+          e.altronicPartNumber,
           e.operatorNotes,
         ]
           .filter(Boolean)
@@ -246,7 +246,7 @@ export function TeradyneLogView() {
           {/* Wide table scrolls inside its own container so the page never
               scrolls sideways on a phone. */}
           <div className="scroll-elegant overflow-x-auto rounded-lg border border-border">
-            <table className="w-full min-w-[1000px] border-collapse text-sm">
+            <table className="w-full min-w-[1120px] border-collapse text-sm">
               <thead>
                 <tr className="border-b border-border bg-surface-2 text-left">
                   <Th>Date</Th>
@@ -256,7 +256,8 @@ export function TeradyneLogView() {
                   <Th className="text-right">Boards</Th>
                   <Th className="text-right">Tested</Th>
                   <Th className="text-right">Fails/Bd</Th>
-                  <Th>SAP</Th>
+                  <Th>SAP No.</Th>
+                  <Th>Altronic Part No.</Th>
                   <Th>Employees</Th>
                   <Th className="text-right">Actions</Th>
                 </tr>
@@ -276,8 +277,14 @@ export function TeradyneLogView() {
                     <Td className="text-right tabular-nums">{e.numberOfBoards ?? "—"}</Td>
                     <Td className="text-right tabular-nums">{e.boardsTested ?? "—"}</Td>
                     <Td className="text-right tabular-nums">{e.failuresPerBoard ?? "—"}</Td>
+                    {/* Two columns, not one: these are different numbers, so
+                        falling back from one to the other would show an
+                        Altronic part number under the SAP heading. */}
                     <Td className="whitespace-nowrap font-mono text-[11px] text-fg-muted">
-                      {e.sapNumber || e.oldSapNumber || "—"}
+                      {e.sapNumber || "—"}
+                    </Td>
+                    <Td className="whitespace-nowrap font-mono text-[11px] text-fg-muted">
+                      {e.altronicPartNumber || "—"}
                     </Td>
                     <Td className="text-fg-muted">
                       <EmployeeCell entry={e} />

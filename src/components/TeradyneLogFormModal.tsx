@@ -64,7 +64,7 @@ export function TeradyneLogFormModal({ entry, onClose }: TeradyneLogFormModalPro
   const [boardsTested, setBoardsTested] = useState(numToInput(entry?.boardsTested));
   const [failuresPerBoard, setFailuresPerBoard] = useState(numToInput(entry?.failuresPerBoard));
   const [sapNumber, setSapNumber] = useState(entry?.sapNumber ?? "");
-  const [oldSapNumber, setOldSapNumber] = useState(entry?.oldSapNumber ?? "");
+  const [altronicPartNumber, setAltronicPartNumber] = useState(entry?.altronicPartNumber ?? "");
   const [operatorNotes, setOperatorNotes] = useState(entry?.operatorNotes ?? "");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -140,7 +140,7 @@ export function TeradyneLogFormModal({ entry, onClose }: TeradyneLogFormModalPro
       boardsTested: inputToNum(boardsTested),
       failuresPerBoard: inputToNum(failuresPerBoard),
       sapNumber,
-      oldSapNumber,
+      altronicPartNumber,
       operatorNotes,
     };
     const titles = {
@@ -323,11 +323,11 @@ export function TeradyneLogFormModal({ entry, onClose }: TeradyneLogFormModalPro
                 disabled={busy}
               />
             </FieldLabel>
-            <FieldLabel label="Old SAP Number">
+            <FieldLabel label="Altronic Part Number">
               <input
                 type="text"
-                value={oldSapNumber}
-                onChange={(e) => setOldSapNumber(e.target.value)}
+                value={altronicPartNumber}
+                onChange={(e) => setAltronicPartNumber(e.target.value)}
                 className="select"
                 disabled={busy}
               />

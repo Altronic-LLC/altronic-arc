@@ -528,6 +528,14 @@ clock number belongs to the employee, maintained once on the Employees list.
 The value is seeded from the entry being edited rather than re-derived on open,
 so an old entry keeps the clock number it was logged with.
 
+**"Altronic Part Number" lives in the `OldSAPNumber` column.** The field was
+renamed for users (2026-07-28); the SharePoint column was deliberately NOT
+renamed, since existing SharePoint views and anything reporting off the list
+point at `OldSAPNumber`. The domain field is `altronicPartNumber` and the
+mapping is pinned by tests in `teradyneLog.test.ts` / `teradyneMapper.test.ts`.
+It's a separate value from `sapNumber` — don't collapse the two into one column
+again; a fallback between them shows one under the other's heading.
+
 **`IDRem` is writable; `IDEmp` and `IDProd` are not.** The remark number is a
 code operators use, so it's entered when adding a remark and editable after —
 which is why `readOnlyLegacyIdOf` in `teradyneRefs.ts` deliberately omits

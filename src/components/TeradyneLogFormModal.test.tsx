@@ -88,6 +88,27 @@ describe("TeradyneLogFormModal — clock auto-fill", () => {
   });
 });
 
+describe("TeradyneLogFormModal — part numbers", () => {
+  it("labels the field Altronic Part Number, not Old SAP Number", async () => {
+    await renderForm();
+    expect(screen.getByText(/^altronic part number$/i)).toBeInTheDocument();
+    expect(screen.queryByText(/old sap/i)).not.toBeInTheDocument();
+  });
+
+  it("keeps it separate from the SAP number field", async () => {
+    await renderForm();
+    const sap = within(screen.getByText(/^sap number$/i).closest("label")!).getByRole("textbox");
+    const part = within(
+      screen.getByText(/^altronic part number$/i).closest("label")!,
+    ).getByRole("textbox");
+
+    await userEvent.type(sap, "601999");
+    await userEvent.type(part, "672337-1");
+    expect(sap).toHaveValue("601999");
+    expect(part).toHaveValue("672337-1");
+  });
+});
+
 describe("TeradyneLogFormModal — derived name", () => {
   it("previews the entry name as the product and defective parts are set", async () => {
     await renderForm();

@@ -925,7 +925,13 @@ export interface TeradyneLogEntry {
   boardsTested: number | null;
   failuresPerBoard: number | null;
   sapNumber: string;
-  oldSapNumber: string;
+  /**
+   * The Altronic part number. Stored in the SharePoint column still named
+   * `OldSAPNumber` — the column predates the rename and renaming it in
+   * SharePoint would break the existing views and any report pointing at it,
+   * so the mapping lives in teradyneMapper.ts instead.
+   */
+  altronicPartNumber: string;
   operatorNotes: string;
   createdAt: Date;
   modifiedAt: Date;
@@ -945,7 +951,7 @@ export interface TeradyneLogInput {
   boardsTested: number | null;
   failuresPerBoard: number | null;
   sapNumber: string;
-  oldSapNumber: string;
+  altronicPartNumber: string;
   operatorNotes: string;
 }
 

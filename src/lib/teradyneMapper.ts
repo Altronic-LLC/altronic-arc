@@ -205,7 +205,9 @@ export function toTeradyneLogEntry(item: GraphListItem, maps: TeradyneRefMaps): 
     boardsTested: toNumberOrNull(f.BoardsTested),
     failuresPerBoard: toNumberOrNull(f.FailuresPerBoard),
     sapNumber: toText(f.SAPNumber),
-    oldSapNumber: toText(f.OldSAPNumber),
+    // "Altronic Part Number" to users; the SharePoint column is still
+    // OldSAPNumber (see the note on TeradyneLogEntry in types/task.ts).
+    altronicPartNumber: toText(f.OldSAPNumber),
     operatorNotes: toText(f.OperatorNotes),
     createdAt: new Date(item.createdDateTime),
     modifiedAt: new Date(item.lastModifiedDateTime),

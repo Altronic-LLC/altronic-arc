@@ -18,7 +18,7 @@ function entry(partial: Partial<TeradyneLogEntry>): TeradyneLogEntry {
     boardsTested: null,
     failuresPerBoard: null,
     sapNumber: "",
-    oldSapNumber: "",
+    altronicPartNumber: "",
     operatorNotes: "",
     createdAt: new Date(),
     modifiedAt: new Date(),

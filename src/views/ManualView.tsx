@@ -823,6 +823,9 @@ const SECTIONS: ManualSection[] = [
       "clock number",
       "employee clock",
       "sap number",
+      "altronic part number",
+      "old sap number",
+      "part number",
       "operator notes",
       "remark",
       "manage lists",
@@ -833,7 +836,7 @@ const SECTIONS: ManualSection[] = [
       "lookup list",
     ],
     searchText:
-      "The table shows the newest 200 matching entries with a Show all button underneath, so searching stays quick on a log thousands of rows deep; filters and totals always cover the whole log. Teradyne Log records board test failures off the Teradyne / Spea stations — the product tested, which parts were defective, a canned remark, board counts, SAP numbers, and up to two employees with their clock numbers. It's a table, not a detail page: rows are added and edited in a modal, and there are no comments or attachments. The entry's name is built automatically as 'Product - Defective Parts' — there's no name field to fill in. Picking an employee fills in their clock number, which is displayed read-only — clock numbers are maintained on the Employees list, not per entry. Remarks carry a remark number you enter when adding one and can edit afterwards. Filter by Product, Remark, Employee, or free-text search; all filters live in the URL so a filtered view is shareable. The three lookup lists (Employees, Products, Remarks) are edited from the Manage lists menu on the Teradyne Log toolbar — any signed-in user can add or rename rows, no admin needed. A row already used by a log entry can't be deleted; rename it instead so past entries keep reading correctly.",
+      "The table shows the newest 200 matching entries with a Show all button underneath, so searching stays quick on a log thousands of rows deep; filters and totals always cover the whole log. Teradyne Log records board test failures off the Teradyne / Spea stations — the product tested, which parts were defective, a canned remark, board counts, the SAP number and the Altronic part number, and up to two employees with their clock numbers. The Altronic part number is the field previously labelled 'Old SAP Number'; it has its own column in the table. It's a table, not a detail page: rows are added and edited in a modal, and there are no comments or attachments. The entry's name is built automatically as 'Product - Defective Parts' — there's no name field to fill in. Picking an employee fills in their clock number, which is displayed read-only — clock numbers are maintained on the Employees list, not per entry. Remarks carry a remark number you enter when adding one and can edit afterwards. Filter by Product, Remark, Employee, or free-text search; all filters live in the URL so a filtered view is shareable. The three lookup lists (Employees, Products, Remarks) are edited from the Manage lists menu on the Teradyne Log toolbar — any signed-in user can add or rename rows, no admin needed. A row already used by a log entry can't be deleted; rename it instead so past entries keep reading correctly.",
     render: () => (
       <>
         <P>
@@ -881,7 +884,8 @@ const SECTIONS: ManualSection[] = [
         <P>
           Filter by <strong>Product</strong>, <strong>Remark</strong>, or{" "}
           <strong>Employee</strong> (each accepts several values), and search
-          across everything — including SAP numbers and operator notes. Adding
+          across everything — including SAP and Altronic part numbers, and
+          operator notes. Adding
           more words narrows the results. Every filter lives in the URL, so you
           can send someone a link to exactly what you're looking at. The line
           above the table totals the defective and tested boards for whatever

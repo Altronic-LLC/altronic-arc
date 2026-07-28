@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.70.0",
+    date: "2026-07-28",
+    changes: [
+      "\"Old SAP Number\" on a Teradyne log entry is now \"Altronic Part Number\"",
+      "The log table gives the SAP number and the Altronic part number their own columns, instead of showing whichever one was filled in under a single \"SAP\" heading",
+      "Searching the log still matches both numbers, and the manual finds the field under either its old or new name",
+    ],
+  },
+  {
     version: "0.69.1",
     date: "2026-07-28",
     changes: [

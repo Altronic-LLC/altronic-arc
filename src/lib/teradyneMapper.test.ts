@@ -214,9 +214,19 @@ describe("toTeradyneLogEntry", () => {
     expect(entry.title).toBe("Moris Power Supply - R4");
   });
 
+  it("reads the Altronic part number out of the OldSAPNumber column", () => {
+    const entry = toTeradyneLogEntry(
+      item({ SAPNumber: "601999", OldSAPNumber: "672337-1" }),
+      maps,
+    );
+    expect(entry.altronicPartNumber).toBe("672337-1");
+    expect(entry.sapNumber).toBe("601999");
+  });
+
   it("defaults absent text columns to empty strings, not undefined", () => {
     const entry = toTeradyneLogEntry(item({}), maps);
     expect(entry.sapNumber).toBe("");
+    expect(entry.altronicPartNumber).toBe("");
     expect(entry.operatorNotes).toBe("");
     expect(entry.defectiveParts).toBe("");
     expect(entry.enterDate).toBeNull();
