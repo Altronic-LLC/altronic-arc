@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.71.0",
+    date: "2026-07-28",
+    changes: [
+      "Editing and deleting Teradyne log entries is now limited to admins — anyone signed in can still add an entry",
+      "Non-admins no longer see an Actions column on the log, with a note under the table explaining who to ask when something needs correcting",
+      "Operator notes now show in the table under Defective Parts, so everyone can read them without opening an entry",
+    ],
+  },
+  {
     version: "0.70.0",
     date: "2026-07-28",
     changes: [

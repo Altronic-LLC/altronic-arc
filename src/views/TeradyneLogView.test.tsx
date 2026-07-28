@@ -7,10 +7,20 @@ import type { TeradyneLogEntry } from "@/types/task";
 import { TeradyneLogView } from "./TeradyneLogView";
 
 // USE_MOCK is true under Vitest, so the view renders against the mock log.
+// The mock signed-in user (demo.user@) is a bootstrap admin, so the default is
+// the admin experience; the non-admin suite at the bottom overrides the hook.
 
 beforeEach(() => {
   vi.restoreAllMocks();
+  adminAccess.isAdmin = true;
+  adminAccess.isResolving = false;
 });
+
+const adminAccess = vi.hoisted(() => ({ isAdmin: true, isResolving: false }));
+vi.mock("@/hooks/useIsAdmin", () => ({
+  useAdminAccess: () => adminAccess,
+  useIsAdmin: () => adminAccess.isAdmin,
+}));
 
 async function renderView(route = "/operations/teradyne") {
   const result = renderWithProviders(<TeradyneLogView />, { route });
@@ -136,6 +146,57 @@ describe("TeradyneLogView", () => {
     await renderView();
     await userEvent.click(screen.getByRole("button", { name: /^delete moris power supply - u1$/i }));
     await waitFor(() => expect(screen.getByText(/showing 4 of 4 entries/i)).toBeInTheDocument());
+  });
+});
+
+describe("TeradyneLogView — edit/delete gated to admins", () => {
+  it("hides the row actions and the Actions column from a non-admin", async () => {
+    adminAccess.isAdmin = false;
+    await renderView();
+
+    expect(screen.queryByRole("button", { name: /^edit /i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^delete /i })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("columnheader").map((h) => h.textContent)).not.toContain("Actions");
+  });
+
+  it("still lets a non-admin add an entry — only changing one is restricted", async () => {
+    adminAccess.isAdmin = false;
+    await renderView();
+
+    await userEvent.click(screen.getByRole("button", { name: /new/i }));
+    expect(await screen.findByText(/new log entry/i)).toBeInTheDocument();
+  });
+
+  it("explains the restriction to a non-admin", async () => {
+    adminAccess.isAdmin = false;
+    await renderView();
+    expect(screen.getByText(/changing or deleting one is limited to admins/i)).toBeInTheDocument();
+  });
+
+  it("holds the explanation back while admin status is still resolving", async () => {
+    // Otherwise a real admin whose access comes from the Admins list sees
+    // "limited to admins" flash up and then vanish.
+    adminAccess.isAdmin = false;
+    adminAccess.isResolving = true;
+    await renderView();
+    expect(
+      screen.queryByText(/changing or deleting one is limited to admins/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows the actions and no restriction note to an admin", async () => {
+    await renderView();
+    expect(screen.getAllByRole("columnheader").map((h) => h.textContent)).toContain("Actions");
+    expect(
+      screen.queryByText(/changing or deleting one is limited to admins/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows operator notes in the table, so they're readable without opening an entry", async () => {
+    adminAccess.isAdmin = false;
+    await renderView();
+    // Entry 4801's note — previously only visible via the (now admin-only) form.
+    expect(screen.getByText(/Reading 4\.2V on CH2/)).toBeInTheDocument();
   });
 });
 

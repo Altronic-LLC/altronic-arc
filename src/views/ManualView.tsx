@@ -829,6 +829,10 @@ const SECTIONS: ManualSection[] = [
       "operator notes",
       "remark",
       "manage lists",
+      "admin only",
+      "can't edit entry",
+      "no edit button",
+      "who can delete",
       "teradyne employees",
       "teradyne products",
       "teradyne remarks",
@@ -836,7 +840,7 @@ const SECTIONS: ManualSection[] = [
       "lookup list",
     ],
     searchText:
-      "The table shows the newest 200 matching entries with a Show all button underneath, so searching stays quick on a log thousands of rows deep; filters and totals always cover the whole log. Teradyne Log records board test failures off the Teradyne / Spea stations — the product tested, which parts were defective, a canned remark, board counts, the SAP number and the Altronic part number, and up to two employees with their clock numbers. The Altronic part number is the field previously labelled 'Old SAP Number'; it has its own column in the table. It's a table, not a detail page: rows are added and edited in a modal, and there are no comments or attachments. The entry's name is built automatically as 'Product - Defective Parts' — there's no name field to fill in. Picking an employee fills in their clock number, which is displayed read-only — clock numbers are maintained on the Employees list, not per entry. Remarks carry a remark number you enter when adding one and can edit afterwards. Filter by Product, Remark, Employee, or free-text search; all filters live in the URL so a filtered view is shareable. The three lookup lists (Employees, Products, Remarks) are edited from the Manage lists menu on the Teradyne Log toolbar — any signed-in user can add or rename rows, no admin needed. A row already used by a log entry can't be deleted; rename it instead so past entries keep reading correctly.",
+      "The table shows the newest 200 matching entries with a Show all button underneath, so searching stays quick on a log thousands of rows deep; filters and totals always cover the whole log. Teradyne Log records board test failures off the Teradyne / Spea stations — the product tested, which parts were defective, a canned remark, board counts, the SAP number and the Altronic part number, and up to two employees with their clock numbers. The Altronic part number is the field previously labelled 'Old SAP Number'; it has its own column in the table. It's a table, not a detail page: rows are added and edited in a modal, and there are no comments or attachments. Anyone signed in can add an entry, but editing or deleting an existing entry is limited to admins — non-admins see no Actions column and a note explaining why. Operator notes show inline under Defective Parts. The entry's name is built automatically as 'Product - Defective Parts' — there's no name field to fill in. Picking an employee fills in their clock number, which is displayed read-only — clock numbers are maintained on the Employees list, not per entry. Remarks carry a remark number you enter when adding one and can edit afterwards. Filter by Product, Remark, Employee, or free-text search; all filters live in the URL so a filtered view is shareable. The three lookup lists (Employees, Products, Remarks) are edited from the Manage lists menu on the Teradyne Log toolbar — any signed-in user can add or rename rows, no admin needed. A row already used by a log entry can't be deleted; rename it instead so past entries keep reading correctly.",
     render: () => (
       <>
         <P>
@@ -892,8 +896,8 @@ const SECTIONS: ManualSection[] = [
           is currently showing.
         </P>
         <P>
-          Operator notes aren't a table column — open the entry with the pencil
-          to read them.
+          Operator notes appear under the Defective Parts column, trimmed to one
+          line — hover to read a long one in full.
         </P>
         <P>
           The log is a few thousand rows deep, so the table shows the{" "}
@@ -902,10 +906,15 @@ const SECTIONS: ManualSection[] = [
           filtering quick. Filters and the board totals always cover the whole
           log, not just the rows on screen, so a count never lies to you.
         </P>
-        <H3>Editing and deleting</H3>
+        <H3>Editing and deleting — admins only</H3>
         <P>
-          Hover a row for the pencil (edit) and bin (delete) buttons. Deleting
-          asks first and can't be undone from the app.
+          <strong>Anyone can add an entry.</strong> Changing or deleting an
+          existing one is limited to admins, because the log is a record of what
+          happened rather than a working document. Admins get a pencil (edit) and
+          a bin (delete) on each row when hovering; deleting asks first and can't
+          be undone from the app. If you're not an admin the Actions column
+          isn't there at all, and a note under the table says so — ask an admin
+          if something needs correcting.
         </P>
         <H3>Manage lists — Employees, Products, Remarks</H3>
         <P>

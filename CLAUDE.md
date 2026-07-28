@@ -543,6 +543,16 @@ which is why `readOnlyLegacyIdOf` in `teradyneRefs.ts` deliberately omits
 Employee and product legacy ids stay read-only import artefacts. Remark numbers
 are NOT enforced unique — SharePoint doesn't, and no rule was specified.
 
+**Who can do what on the log:** anyone signed in can **add** an entry;
+**editing and deleting are admin-only** (`useAdminAccess()` in
+`src/hooks/useIsAdmin.ts`). Non-admins get no Actions column and a one-line
+explanation under the table. Use `useAdminAccess()` rather than `useIsAdmin()`
+wherever the UI would otherwise say "you lack access" before the Admins list has
+loaded — it reports `isResolving` so the message can wait. As ever this is
+UI-level gating; SharePoint list permissions are the real boundary. Note the
+knock-on: because the form is now admin-only, **operator notes render inline**
+under Defective Parts — the pencil used to be everyone's way of reading them.
+
 The three reference lists are editable by **any signed-in user** from the
 "Manage lists" menu on the Teradyne Log — no admin gate, by design. Deleting a
 row is blocked while the log still references it (`useTeradyneRefUsage`), since
