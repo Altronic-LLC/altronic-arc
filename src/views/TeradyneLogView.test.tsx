@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
-import { TERADYNE_LOG_KEY } from "@/hooks/useTeradyne";
+import { teradyneLogKey } from "@/hooks/useTeradyne";
 import type { TeradyneLogEntry } from "@/types/task";
 import { TeradyneLogView } from "./TeradyneLogView";
 
@@ -149,6 +149,69 @@ describe("TeradyneLogView", () => {
   });
 });
 
+describe("TeradyneLogView — year scope", () => {
+  const thisYear = new Date().getFullYear();
+
+  it("defaults to the current year and says so in the count line", async () => {
+    await renderView();
+    expect(screen.getByText(new RegExp(`entries in ${thisYear}`))).toBeInTheDocument();
+  });
+
+  it("offers previous years and an all-years option", async () => {
+    await renderView();
+    const yearField = screen.getByText(/^year$/i).closest("label")!;
+    await userEvent.click(within(yearField).getAllByRole("button")[0]);
+
+    expect(
+      await screen.findByRole("option", { name: `${thisYear} (this year)` }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: String(thisYear - 1) })).toBeInTheDocument();
+    // Labelled slow on purpose — it pulls the whole 16k-row archive.
+    expect(screen.getByRole("option", { name: /all years \(slow\)/i })).toBeInTheDocument();
+  });
+
+  it("reads the year from the URL, so a year's view is shareable", async () => {
+    // 2019 has nothing in the fixture — the empty state should name the year
+    // rather than implying the whole log is empty.
+    renderWithProviders(<TeradyneLogView />, { route: "/operations/teradyne?year=2019" });
+    expect(await screen.findByText(/nothing logged in 2019/i)).toBeInTheDocument();
+  });
+
+  it("falls back to the current year for a nonsense year param", async () => {
+    await renderView("/operations/teradyne?year=banana");
+    expect(screen.getByText(new RegExp(`entries in ${thisYear}`))).toBeInTheDocument();
+  });
+
+  it("loads every year when the scope is all", async () => {
+    await renderView("/operations/teradyne?year=all");
+    expect(screen.getByText(/entries in all years/i)).toBeInTheDocument();
+  });
+
+  it("warns when SharePoint couldn't filter by year, naming the fix", async () => {
+    const entries = [] as TeradyneLogEntry[];
+    renderWithProviders(<TeradyneLogView />, {
+      route: "/operations/teradyne",
+      seedQueryData: [
+        {
+          key: teradyneLogKey({ kind: "year", year: thisYear }),
+          // What the API returns when the EnterDate filter was rejected and it
+          // had to download the whole list instead.
+          data: { entries, filteredServerSide: false, fetchedRows: 16234 },
+        },
+      ],
+    });
+
+    expect(await screen.findByText(/loading the slow way/i)).toBeInTheDocument();
+    expect(screen.getByText(/16,234 rows/)).toBeInTheDocument();
+    expect(screen.getByText(/index the/i)).toBeInTheDocument();
+  });
+
+  it("says nothing about slowness when the filter worked", async () => {
+    await renderView();
+    expect(screen.queryByText(/loading the slow way/i)).not.toBeInTheDocument();
+  });
+});
+
 describe("TeradyneLogView — edit/delete gated to admins", () => {
   it("hides the row actions and the Actions column from a non-admin", async () => {
     adminAccess.isAdmin = false;
@@ -207,8 +270,9 @@ describe("TeradyneLogView — a log too big to render whole", () => {
     return Array.from({ length: 500 }, (_, i) => ({
       id: 10_000 - i,
       title: `Board ${i} - U${i}`,
-      // Descending dates, matching how the API hands entries back.
-      enterDate: new Date(Date.UTC(2026, 0, 1) - i * 86_400_000),
+      // Descending dates within the current year, matching how the API hands
+      // entries back for the default (current-year) scope.
+      enterDate: new Date(Date.UTC(new Date().getFullYear(), 11, 31) - i * 86_400_000),
       product: { lookupId: 1, title: `Board ${i}` },
       employee1: null,
       employee2: null,
@@ -228,9 +292,15 @@ describe("TeradyneLogView — a log too big to render whole", () => {
   }
 
   async function renderBig() {
+    const entries = bigLog();
     const result = renderWithProviders(<TeradyneLogView />, {
       route: "/operations/teradyne",
-      seedQueryData: [{ key: TERADYNE_LOG_KEY, data: bigLog() }],
+      seedQueryData: [
+        {
+          key: teradyneLogKey({ kind: "year", year: new Date().getFullYear() }),
+          data: { entries, filteredServerSide: true, fetchedRows: entries.length },
+        },
+      ],
     });
     await waitFor(() => expect(screen.getByRole("table")).toBeInTheDocument());
     return result;

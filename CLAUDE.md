@@ -511,15 +511,37 @@ Four things about this data that will bite if forgotten:
    previous day for every US timezone — use `toSpDateOnly` / `parseSpDate` and
    format with `timeZone: "UTC"`.
 
-**Volume:** the log was **~1,472 rows** on 2026-07-28 and only grows. It's
-fetched whole (`$top=999` + `graphFetchAll`) and sorted client-side like every
-other list module — fine well past 5,000, which is where SharePoint's list-view
-threshold starts mattering for server-side filters. What the size *does* affect
-is rendering: `TeradyneLogView` caps the table at `INITIAL_ROWS` (200) with a
-"Show all" escape hatch, because ~1,500 rows × 10 cells makes typing in the
-search box stutter. Filters and totals always run over the full log — only the
-rows put in the DOM are capped. If this ever needs true paging, that's the
-place to start.
+**Volume — the log is fetched ONE YEAR AT A TIME.** Legacy history was imported
+in 2026, taking the list past **16,000 rows**, and it grows. Almost all of that
+is historical: ARC is for the current year's work, and the legacy rows are read
+directly in SharePoint for reporting. So `listTeradyneLog(scope)` filters
+server-side by `EnterDate` year and defaults to `CURRENT_YEAR_SCOPE()`; the view
+exposes a Year picker (`?year=2026` / `?year=all`) and the React Query key is
+scoped per year, so mutations invalidate the `["teradyneLog"]` *prefix*.
+
+**This needs `EnterDate` INDEXED in SharePoint.** Past 5,000 items SharePoint
+refuses to filter or sort on an unindexed column no matter how few rows match
+(list settings → Indexed columns). If the filtered request fails, the API falls
+back to fetching everything and filtering in the browser, returns
+`filteredServerSide: false`, and the view shows a "loading the slow way" banner
+naming the fix — a deliberate loud degrade rather than a mystery slowdown.
+
+Two consequences worth remembering:
+
+- **Lookup-usage counts have their own all-years query**
+  (`listTeradyneLookupUsage`, keyed `["teradyneLookupUsage"]`). The delete guard
+  on the reference lists asks "does ANY log row use this", and a product used
+  only by 2019 rows is still in use — scoping that to the loaded year would make
+  the guard confidently wrong. It selects only the four lookup-id columns, so
+  16k rows is a small payload, and it only loads on the manage screens.
+- **Anything time-windowed must match the loaded scope.** The dashboard card
+  counts "this year", not a rolling 30 days: a 30-day window reaches into the
+  previous year every January, which is no longer fetched.
+
+Rendering is capped separately: `TeradyneLogView` shows `INITIAL_ROWS` (200) with
+a "Show all" escape hatch, because thousands of rows × 10 cells makes typing in
+the search box stutter. Filters and totals always run over the whole loaded
+scope — only the rows put in the DOM are capped.
 
 **Clock numbers are read-only on the log form.** `Employee1Clock` /
 `Employee2Clock` are real columns the app writes, but they're derived from the

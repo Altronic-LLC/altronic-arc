@@ -17,9 +17,10 @@ import {
   useTeradyneProducts,
   useTeradyneRemarks,
 } from "@/hooks/useTeradyne";
+import type { TeradyneLogScope } from "@/api/teradyneLog";
 import { useAdminAccess } from "@/hooks/useIsAdmin";
 import { LoadingTasks } from "@/components/LoadingTasks";
-import { MultiSelect } from "@/components/SearchableSelect";
+import { MultiSelect, SingleSelect } from "@/components/SearchableSelect";
 import { SearchInput } from "@/components/SearchInput";
 import { TeradyneLogFormModal } from "@/components/TeradyneLogFormModal";
 import { formatTeradyneDate } from "@/lib/teradyneMapper";
@@ -49,8 +50,40 @@ import { cn } from "@/lib/cn";
  */
 const INITIAL_ROWS = 200;
 
+/**
+ * Years offered in the picker: this year back four, plus All years.
+ *
+ * The list holds 16k+ rows of imported legacy history, so it loads one year at a
+ * time (see src/api/teradyneLog.ts) and defaults to the current year — that's
+ * what people work from. Older years are there for the occasional look back;
+ * "All years" pulls the whole archive and is correspondingly slow, which the
+ * option label says out loud.
+ */
+function yearOptions(): { value: string; label: string }[] {
+  const thisYear = new Date().getFullYear();
+  const years = Array.from({ length: 5 }, (_, i) => thisYear - i);
+  return [
+    ...years.map((y) => ({ value: String(y), label: y === thisYear ? `${y} (this year)` : String(y) })),
+    { value: "all", label: "All years (slow)" },
+  ];
+}
+
+function scopeLabel(scope: TeradyneLogScope): string {
+  return scope.kind === "all" ? "all years" : String(scope.year);
+}
+
+/** Parse the `year` URL param into a scope. Anything unrecognised → this year. */
+function scopeFromParam(raw: string | null): TeradyneLogScope {
+  if (raw === "all") return { kind: "all" };
+  if (raw && /^\d{4}$/.test(raw)) return { kind: "year", year: parseInt(raw, 10) };
+  return { kind: "year", year: new Date().getFullYear() };
+}
+
 export function TeradyneLogView() {
-  const { data: log = [], isLoading, error } = useTeradyneLog();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const scope = scopeFromParam(searchParams.get("year"));
+  const { data: result, isLoading, error } = useTeradyneLog(scope);
+  const log = result?.entries ?? [];
   const { data: products = [] } = useTeradyneProducts();
   const { data: employees = [] } = useTeradyneEmployees();
   const { data: remarks = [] } = useTeradyneRemarks();
@@ -66,7 +99,6 @@ export function TeradyneLogView() {
   const [editing, setEditing] = useState<TeradyneLogEntry | null>(null);
   const [showAll, setShowAll] = useState(false);
 
-  const [searchParams, setSearchParams] = useSearchParams();
   const setParam = (key: string, value: string) => {
     const sp = new URLSearchParams(searchParams);
     if (value) sp.set(key, value);
@@ -167,7 +199,22 @@ export function TeradyneLogView() {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
+        <Field label="Year">
+          {/* First filter, because it decides what's even loaded — the others
+              narrow within it. */}
+          <SingleSelect
+            allLabel="This year"
+            options={yearOptions()}
+            selected={scope.kind === "all" ? "all" : String(scope.year)}
+            onChange={(v) => {
+              setParam("year", v ?? "");
+              // A different year is a different dataset; don't carry over an
+              // expanded row cap from the last one.
+              setShowAll(false);
+            }}
+          />
+        </Field>
         <Field label="Product">
           <MultiSelect
             allLabel="All products"
@@ -216,12 +263,25 @@ export function TeradyneLogView() {
         </div>
       )}
 
+      {/* The year filter is meant to run in SharePoint. If it couldn't (the
+          EnterDate column needs an index once a list passes 5,000 items), the
+          app still shows the right rows — it just had to download the whole
+          archive to do it. Say so, rather than being mysteriously slow. */}
+      {result && !result.filteredServerSide && scope.kind === "year" && (
+        <div className="rounded-lg border border-ajax-yellow/40 bg-ajax-yellow/10 p-3 text-xs text-fg">
+          <span className="font-semibold">This log is loading the slow way.</span>{" "}
+          SharePoint couldn't filter by year, so all {result.fetchedRows.toLocaleString()} rows were
+          downloaded and filtered here. Ask IT to index the <code>EnterDate</code> column on the
+          Teradyne Log list — list settings → Indexed columns — and this gets much faster.
+        </div>
+      )}
+
       {isLoading ? (
         <LoadingTasks noun="the Teradyne log" />
       ) : filtered.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border py-16 text-center text-fg-muted">
           {log.length === 0
-            ? "Nothing logged yet. Click 'New entry' to add the first one."
+            ? `Nothing logged in ${scopeLabel(scope)}. Add an entry, or pick another year above.`
             : "No entries match the current filters."}
         </div>
       ) : (
@@ -236,7 +296,7 @@ export function TeradyneLogView() {
               ) : (
                 <>
                   Showing {filtered.length.toLocaleString()} of {log.length.toLocaleString()}{" "}
-                  entries
+                  entries in {scopeLabel(scope)}
                 </>
               )}
             </span>

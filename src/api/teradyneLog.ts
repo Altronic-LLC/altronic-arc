@@ -12,6 +12,7 @@ import {
   buildTeradyneLogTitle,
   buildTeradyneRefMaps,
   compareTeradyneLogEntries,
+  toLookupId,
   toSpDateOnly,
   toTeradyneLogEntry,
 } from "@/lib/teradyneMapper";
@@ -33,6 +34,21 @@ import { MOCK_TERADYNE_LOG } from "@/data/teradyneMockData";
 // The three reference lists are small (hundreds of rows) and cached separately
 // by React Query, so the join costs one extra round of requests on a cold load
 // and nothing thereafter.
+//
+// SCALE. Legacy history was imported in 2026, taking the list past 16,000 rows,
+// and it keeps growing. Nearly all of that is historical: the app is for the
+// current year's work, and the legacy rows are read directly in SharePoint for
+// reporting. So the log is fetched ONE YEAR AT A TIME, filtered server-side —
+// pulling 16k rows over ~18 sequential pages to then throw most of them away
+// was both slow and pointless.
+//
+// That server-side filter needs the `EnterDate` column INDEXED in SharePoint:
+// above 5,000 items, SharePoint refuses to filter or sort on an unindexed
+// column regardless of how few rows match. If the filtered request fails for
+// any reason (no index, or a filter syntax the tenant rejects), we fall back to
+// fetching everything and filtering in the browser — correct, just slow — and
+// report `filteredServerSide: false` so the UI can say why it's crawling
+// instead of leaving it a mystery.
 // =============================================================================
 
 const LOG_SELECT =
@@ -40,36 +56,171 @@ const LOG_SELECT =
   "SAPNumber,OldSAPNumber,OperatorNotes,ProductLookupId,Employee1LookupId," +
   "Employee2LookupId,RemarkLookupId,Employee1Clock,Employee2Clock";
 
+/** Which slice of the log to load. Default everywhere is the current year. */
+export type TeradyneLogScope = { kind: "year"; year: number } | { kind: "all" };
+
+export const CURRENT_YEAR_SCOPE = (): TeradyneLogScope => ({
+  kind: "year",
+  year: new Date().getFullYear(),
+});
+
+export interface TeradyneLogResult {
+  entries: TeradyneLogEntry[];
+  /**
+   * False when SharePoint wouldn't apply the year filter and we had to fetch
+   * the whole list and filter locally — the signal that `EnterDate` needs an
+   * index. Always true in mock mode and for the "all" scope (nothing to filter).
+   */
+  filteredServerSide: boolean;
+  /** Raw rows fetched, so the UI can show what the fallback actually cost. */
+  fetchedRows: number;
+}
+
 let mockStore: TeradyneLogEntry[] = MOCK_TERADYNE_LOG.map((e) => ({ ...e }));
 
 function delay<T>(value: T, ms = 250): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(value), ms));
 }
 
-/** Every log entry, newest Enter Date first, with lookups resolved to titles. */
-export async function listTeradyneLog(): Promise<TeradyneLogEntry[]> {
+/** True when the entry falls inside the scope. Used by the mock + fallback paths. */
+export function entryInScope(entry: TeradyneLogEntry, scope: TeradyneLogScope): boolean {
+  if (scope.kind === "all") return true;
+  // Undated rows belong to no year — they'd otherwise vanish entirely, so they
+  // show in the current year's view where someone can notice and fix them.
+  if (!entry.enterDate) return scope.year === new Date().getFullYear();
+  return entry.enterDate.getUTCFullYear() === scope.year;
+}
+
+/** The `$filter` clause for a year, or "" for the all-time scope. */
+function scopeFilter(scope: TeradyneLogScope): string {
+  if (scope.kind === "all") return "";
+  const from = `${scope.year}-01-01T00:00:00Z`;
+  const to = `${scope.year + 1}-01-01T00:00:00Z`;
+  return `fields/EnterDate ge '${from}' and fields/EnterDate lt '${to}'`;
+}
+
+/**
+ * Log entries for one scope, newest Enter Date first, lookups resolved to titles.
+ *
+ * @param scope Defaults to the current year — see the SCALE note above.
+ */
+export async function listTeradyneLog(
+  scope: TeradyneLogScope = CURRENT_YEAR_SCOPE(),
+): Promise<TeradyneLogResult> {
   if (USE_MOCK) {
-    return delay([...mockStore].sort(compareTeradyneLogEntries).map((e) => ({ ...e })));
+    const entries = [...mockStore]
+      .filter((e) => entryInScope(e, scope))
+      .sort(compareTeradyneLogEntries)
+      .map((e) => ({ ...e }));
+    return delay({ entries, filteredServerSide: true, fetchedRows: entries.length });
   }
 
-  // $top=999 is Graph's max page size. Worth asking for here rather than the
-  // 200 most list modules use: the log was ~1,470 rows as of 2026-07-28 and
-  // only grows, so this is 2 sequential round trips instead of 8.
-  // graphFetchAll walks @odata.nextLink for the rest.
-  const path =
-    `/sites/${SITES.pmo}/lists/${SP_TERADYNE_LOG_LIST_ID}/items` +
-    `?$expand=fields($select=${LOG_SELECT})&$top=999`;
+  const base = `/sites/${SITES.pmo}/lists/${SP_TERADYNE_LOG_LIST_ID}/items`;
+  // $top=999 is Graph's max page size, so a normal year is one request.
+  const query = `?$expand=fields($select=${LOG_SELECT})&$top=999`;
+  const filter = scopeFilter(scope);
 
-  // All four in parallel — the reference lists don't depend on the log.
-  const [items, products, employees, remarks] = await Promise.all([
-    graphFetchAll<GraphListItem>(path),
+  // Reference lists first — needed for the join either way, and they're cheap.
+  const [products, employees, remarks] = await Promise.all([
     listTeradyneRefs("products") as Promise<TeradyneProduct[]>,
     listTeradyneRefs("employees") as Promise<TeradyneEmployee[]>,
     listTeradyneRefs("remarks") as Promise<TeradyneRemark[]>,
   ]);
-
   const maps = buildTeradyneRefMaps(products, employees, remarks);
-  return items.map((item) => toTeradyneLogEntry(item, maps)).sort(compareTeradyneLogEntries);
+
+  const build = (items: GraphListItem[]) =>
+    items.map((item) => toTeradyneLogEntry(item, maps)).sort(compareTeradyneLogEntries);
+
+  if (filter) {
+    try {
+      const items = await graphFetchAll<GraphListItem>(
+        `${base}${query}&$filter=${encodeURIComponent(filter)}`,
+      );
+      return { entries: build(items), filteredServerSide: true, fetchedRows: items.length };
+    } catch (err) {
+      // Almost always "EnterDate isn't indexed" (SharePoint's list view
+      // threshold) — log it plainly, then degrade rather than showing an
+      // empty log.
+      /* eslint-disable-next-line no-console */
+      console.warn(
+        "[Teradyne] Server-side EnterDate filter failed; falling back to fetching the " +
+          "whole list and filtering in the browser. Index the EnterDate column on the " +
+          "Teradyne Log list to fix this.",
+        err,
+      );
+    }
+  }
+
+  const items = await graphFetchAll<GraphListItem>(`${base}${query}`);
+  const all = build(items);
+  return {
+    entries: all.filter((e) => entryInScope(e, scope)),
+    filteredServerSide: filter === "",
+    fetchedRows: items.length,
+  };
+}
+
+/**
+ * Lookup-usage counts across the WHOLE log, every year.
+ *
+ * Separate from `listTeradyneLog` on purpose. The reference-list screens use
+ * this to decide whether a row can be deleted, and that question spans all
+ * history: a product referenced only by 2019 rows is still in use, and deleting
+ * it would break rows that SharePoint reporting depends on. Scoping the guard
+ * to the current year would quietly make it wrong.
+ *
+ * It's affordable because it selects only the four lookup id columns — no
+ * titles, notes, or numbers — so even 16k+ rows is a small payload, and it's
+ * only fetched on the manage screens.
+ */
+export interface TeradyneLookupUsage {
+  products: Map<number, number>;
+  employees: Map<number, number>;
+  remarks: Map<number, number>;
+}
+
+export async function listTeradyneLookupUsage(): Promise<TeradyneLookupUsage> {
+  const usage: TeradyneLookupUsage = {
+    products: new Map(),
+    employees: new Map(),
+    remarks: new Map(),
+  };
+  const bump = (map: Map<number, number>, id: number | null) => {
+    if (id === null) return;
+    map.set(id, (map.get(id) ?? 0) + 1);
+  };
+
+  if (USE_MOCK) {
+    for (const e of mockStore) {
+      bump(usage.products, e.product?.lookupId ?? null);
+      bump(usage.remarks, e.remark?.lookupId ?? null);
+      // An employee counts once per entry even when they hold both slots.
+      const empIds = new Set(
+        [e.employee1?.lookupId, e.employee2?.lookupId].filter((x): x is number => x != null),
+      );
+      empIds.forEach((id) => bump(usage.employees, id));
+    }
+    return delay(usage);
+  }
+
+  const items = await graphFetchAll<GraphListItem>(
+    `/sites/${SITES.pmo}/lists/${SP_TERADYNE_LOG_LIST_ID}/items` +
+      `?$expand=fields($select=ProductLookupId,Employee1LookupId,Employee2LookupId,RemarkLookupId)` +
+      `&$top=999`,
+  );
+
+  for (const item of items) {
+    const f = item.fields as Record<string, unknown>;
+    bump(usage.products, toLookupId(f.ProductLookupId));
+    bump(usage.remarks, toLookupId(f.RemarkLookupId));
+    const empIds = new Set(
+      [toLookupId(f.Employee1LookupId), toLookupId(f.Employee2LookupId)].filter(
+        (x): x is number => x != null,
+      ),
+    );
+    empIds.forEach((id) => bump(usage.employees, id));
+  }
+  return usage;
 }
 
 /**

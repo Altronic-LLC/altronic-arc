@@ -222,8 +222,12 @@ export function DashboardView() {
   // Deliberately NOT part of the blocking loading gate below (same as Test
   // Sheets and Project Folders): the Teradyne card filling in a moment late
   // beats holding the whole dashboard on a fourth site's query.
+  //
+  // Current year only — the log holds 16k+ rows of imported legacy history that
+  // nobody works from in ARC, so the card counts this year's entries rather
+  // than dragging the whole archive into the dashboard.
   const {
-    data: teradyneLog = [],
+    data: teradyne,
     isError: teradyneError,
     error: teradyneErrorObj,
     refetch: refetchTeradyne,
@@ -340,20 +344,22 @@ export function DashboardView() {
 
   /**
    * Teradyne isn't a workflow with statuses to break down — it's an append-only
-   * log — so the card reports recent throughput (entries in the last 30 days)
-   * rather than "open" work, and has NO status segments at all. It deliberately
-   * returns a bare count and the card omits TypeCard's `segments` prop: passing
-   * an empty array still renders MiniBar, which then claims "Nothing active
-   * right now" — meaningless for a list that has no active/done concept.
+   * log — so the card reports throughput rather than "open" work, and has NO
+   * status segments at all. It deliberately returns a bare count and the card
+   * omits TypeCard's `segments` prop: passing an empty array still renders
+   * MiniBar, which then claims "Nothing active right now" — meaningless for a
+   * list that has no active/done concept.
+   *
+   * The count is "this year", matching exactly what the query loads. It used to
+   * be a rolling 30 days, which was subtly wrong once the query became
+   * year-scoped: every January the window would reach back into a year that's no
+   * longer loaded and silently undercount.
    *
    * The dashboard's Project and "mine" filters don't apply either: the log
    * references the Teradyne Products list, not a projects list, and records
    * employees from its own Employees list rather than ARC sign-ins.
    */
-  const teradyneRecentCount = useMemo(() => {
-    const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
-    return teradyneLog.filter((e) => (e.enterDate?.getTime() ?? 0) >= cutoff).length;
-  }, [teradyneLog]);
+  const teradyneYearCount = teradyne?.entries.length ?? 0;
 
   const testCount = useMemo(
     () =>
@@ -695,9 +701,9 @@ export function DashboardView() {
           name="Teradyne Log"
           icon={<CircuitBoard className="h-5 w-5" />}
           tone="cooper-red"
-          count={teradyneRecentCount}
-          unit="last 30 days"
-          // No `segments` — see teradyneRecentCount above.
+          count={teradyneYearCount}
+          unit="this year"
+          // No `segments` — see teradyneYearCount above.
           onClick={() => navigate("/operations/teradyne")}
         />
         <PlaceholderCard name="Maintenance Tasks" icon={<Hammer className="h-5 w-5" />} />

@@ -20,6 +20,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.72.0",
+    date: "2026-07-28",
+    changes: [
+      "The Teradyne Log now opens on the current year instead of loading every entry — with the legacy history imported the list runs past 16,000 rows, and pulling all of it made the page slow for no benefit",
+      "Added a Year picker: any of the last five years, or All years when you really need the archive. The year is part of the link, so a shared URL opens on the same year",
+      "The Dashboard's Teradyne card now counts entries logged this year (it used to say \"last 30 days\", which would have quietly undercounted each January)",
+      "Reference lists still check every year before letting you delete a product, employee or remark — so a row used only by legacy entries can't be removed",
+      "If SharePoint can't filter the log by year, the app says so and names the fix instead of just being slow",
+    ],
+  },
+  {
     version: "0.71.0",
     date: "2026-07-28",
     changes: [

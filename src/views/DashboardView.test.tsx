@@ -28,7 +28,8 @@ const BUILD_REQUESTS_KEY = ["buildRequests", "list"] as const;
 const PANEL_ORDERS_KEY = ["panelOrders", "list"] as const;
 const PANEL_TASKS_KEY = ["panelTasks", "list"] as const;
 const FOLDER_ENTRIES_KEY = ["project-folder-entries", "root"] as const;
-const TERADYNE_LOG_KEY = ["teradyneLog"] as const;
+// The log query is scoped per year (16k+ rows, so it loads a year at a time).
+const TERADYNE_LOG_KEY = ["teradyneLog", new Date().getFullYear()] as const;
 
 import { DashboardView } from "./DashboardView";
 
@@ -45,7 +46,14 @@ async function renderDashboard() {
       { key: PANEL_ORDERS_KEY, data: MOCK_PANEL_ORDERS },
       { key: PANEL_TASKS_KEY, data: MOCK_PANEL_TASKS },
       { key: FOLDER_ENTRIES_KEY, data: folderEntries },
-      { key: TERADYNE_LOG_KEY, data: MOCK_TERADYNE_LOG },
+      {
+        key: TERADYNE_LOG_KEY,
+        data: {
+          entries: MOCK_TERADYNE_LOG,
+          filteredServerSide: true,
+          fetchedRows: MOCK_TERADYNE_LOG.length,
+        },
+      },
     ],
   });
 }
@@ -140,9 +148,11 @@ describe("DashboardView — the Teradyne Log card", () => {
     expect(card.querySelector(".rounded-full")).toBeNull();
   });
 
-  it("reports recent throughput rather than open work", async () => {
+  it("reports this year's throughput rather than open work", async () => {
+    // "This year" matches exactly what the query loads — a rolling 30-day
+    // window would reach into a year that isn't fetched every January.
     await renderDashboard();
-    expect(within(teradyneCard()).getByText(/last 30 days/i)).toBeInTheDocument();
+    expect(within(teradyneCard()).getByText(/this year/i)).toBeInTheDocument();
   });
 
   it("links straight to the log", async () => {

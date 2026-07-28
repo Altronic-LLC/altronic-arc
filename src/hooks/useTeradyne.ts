@@ -1,10 +1,14 @@
 import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  CURRENT_YEAR_SCOPE,
   createTeradyneLogEntry,
   deleteTeradyneLogEntry,
   listTeradyneLog,
+  listTeradyneLookupUsage,
   updateTeradyneLogEntry,
+  type TeradyneLogResult,
+  type TeradyneLogScope,
   type TeradyneRefTitles,
 } from "@/api/teradyneLog";
 import {
@@ -35,15 +39,32 @@ import { pushToast } from "@/components/Toast";
 // mutation invalidates the log query too, not just its own list.
 // =============================================================================
 
+/**
+ * Root key for every scope of the log. Mutations invalidate this prefix so all
+ * loaded years refresh, not just the one on screen.
+ */
 export const TERADYNE_LOG_KEY = ["teradyneLog"] as const;
+export const teradyneLogKey = (scope: TeradyneLogScope) =>
+  [...TERADYNE_LOG_KEY, scope.kind === "all" ? "all" : scope.year] as const;
+export const TERADYNE_USAGE_KEY = ["teradyneLookupUsage"] as const;
 export const teradyneRefKey = (kind: TeradyneRefKind) => ["teradyneRefs", kind] as const;
 
-export function useTeradyneLog() {
+/**
+ * The log for one scope — the current year unless told otherwise. The list is
+ * 16k+ rows with legacy history in it, so loading a year at a time is the
+ * difference between one request and eighteen (see src/api/teradyneLog.ts).
+ */
+export function useTeradyneLog(scope: TeradyneLogScope = CURRENT_YEAR_SCOPE()) {
   return useQuery({
-    queryKey: TERADYNE_LOG_KEY,
-    queryFn: listTeradyneLog,
+    queryKey: teradyneLogKey(scope),
+    queryFn: () => listTeradyneLog(scope),
     staleTime: 120_000,
   });
+}
+
+/** Just the entries, for callers that don't care how the fetch went. */
+export function useTeradyneLogEntries(scope?: TeradyneLogScope): TeradyneLogEntry[] {
+  return useTeradyneLog(scope).data?.entries ?? [];
 }
 
 export function useTeradyneEmployees() {
@@ -80,22 +101,31 @@ export function useTeradyneRefs(kind: TeradyneRefKind) {
 }
 
 /**
- * How many log entries point at each row of a reference list.
+ * How many log entries point at each row of a reference list — across ALL
+ * years, not just the year on screen.
  *
  * Two jobs: it powers the "used by N entries" hint on the manage screens, and
  * it's what stops a delete from orphaning lookups — a row still in use can't be
  * removed, because the log rows referencing it would degrade to "(missing #n)".
  *
- * `isLoading` matters: until the log has loaded, EVERY row looks unused, so a
- * caller that gates deletes on the counts has to keep them disabled while this
- * is true or the guard has a hole exactly the width of the log's load time.
+ * Deliberately its own query rather than reading the loaded year: a product used
+ * only by legacy rows is still in use, and those rows feed SharePoint reporting.
+ * Scoping this to the current year would make the guard confidently wrong.
+ *
+ * `isLoading` matters: until it resolves, EVERY row looks unused, so a caller
+ * that gates deletes on the counts has to keep them disabled while this is true
+ * or the guard has a hole exactly the width of the load.
  */
 export function useTeradyneRefUsage(kind: TeradyneRefKind): {
   usage: Map<number, number>;
   isLoading: boolean;
 } {
-  const { data: log = [], isPending } = useTeradyneLog();
-  const usage = useMemo(() => teradyneRefUsage(log, kind), [log, kind]);
+  const { data, isPending } = useQuery({
+    queryKey: TERADYNE_USAGE_KEY,
+    queryFn: listTeradyneLookupUsage,
+    staleTime: 5 * 60_000,
+  });
+  const usage = useMemo(() => data?.[kind] ?? new Map<number, number>(), [data, kind]);
   return { usage, isLoading: isPending };
 }
 
@@ -127,6 +157,25 @@ export function teradyneRefUsage(
 // Log mutations
 // -----------------------------------------------------------------------------
 
+/**
+ * Refresh every loaded year of the log plus the all-time usage counts. The log
+ * key is a prefix, so one invalidate covers whichever scopes are cached.
+ */
+function invalidateLogAndUsage(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: TERADYNE_LOG_KEY });
+  qc.invalidateQueries({ queryKey: TERADYNE_USAGE_KEY });
+}
+
+/** Patch one entry across every cached scope of the log. */
+function patchCachedEntry(
+  qc: ReturnType<typeof useQueryClient>,
+  update: (entries: TeradyneLogEntry[]) => TeradyneLogEntry[],
+) {
+  qc.setQueriesData<TeradyneLogResult>({ queryKey: TERADYNE_LOG_KEY }, (prev) =>
+    prev ? { ...prev, entries: update(prev.entries) } : prev,
+  );
+}
+
 export function useCreateTeradyneLogEntry() {
   const qc = useQueryClient();
   return useMutation({
@@ -134,7 +183,7 @@ export function useCreateTeradyneLogEntry() {
       createTeradyneLogEntry(input, titles),
     onSuccess: (created) => {
       pushToast({ message: `Logged “${created.title}”`});
-      qc.invalidateQueries({ queryKey: TERADYNE_LOG_KEY });
+      invalidateLogAndUsage(qc);
     },
     onError: (err: Error) => {
       pushToast({ message: `Couldn't save the entry: ${err.message}`, variant: "error" });
@@ -157,11 +206,11 @@ export function useUpdateTeradyneLogEntry() {
     onSuccess: (updated) => {
       // Patch the cached row in place so the table updates immediately, keeping
       // the fields a PATCH can't return (createdAt) from the loaded copy.
-      qc.setQueryData<TeradyneLogEntry[]>(TERADYNE_LOG_KEY, (prev) =>
-        prev?.map((e) => (e.id === updated.id ? { ...updated, createdAt: e.createdAt } : e)),
+      patchCachedEntry(qc, (entries) =>
+        entries.map((e) => (e.id === updated.id ? { ...updated, createdAt: e.createdAt } : e)),
       );
       pushToast({ message: "Entry updated"});
-      qc.invalidateQueries({ queryKey: TERADYNE_LOG_KEY });
+      invalidateLogAndUsage(qc);
     },
     onError: (err: Error) => {
       pushToast({ message: `Couldn't update the entry: ${err.message}`, variant: "error" });
@@ -174,11 +223,9 @@ export function useDeleteTeradyneLogEntry() {
   return useMutation({
     mutationFn: (id: number) => deleteTeradyneLogEntry(id),
     onSuccess: (_void, id) => {
-      qc.setQueryData<TeradyneLogEntry[]>(TERADYNE_LOG_KEY, (prev) =>
-        prev?.filter((e) => e.id !== id),
-      );
+      patchCachedEntry(qc, (entries) => entries.filter((e) => e.id !== id));
       pushToast({ message: "Entry deleted"});
-      qc.invalidateQueries({ queryKey: TERADYNE_LOG_KEY });
+      invalidateLogAndUsage(qc);
     },
     onError: (err: Error) => {
       pushToast({ message: `Couldn't delete the entry: ${err.message}`, variant: "error" });
@@ -193,7 +240,7 @@ export function useDeleteTeradyneLogEntry() {
 /** Invalidate one reference list AND the log (whose rows display its titles). */
 function invalidateRefAndLog(qc: ReturnType<typeof useQueryClient>, kind: TeradyneRefKind) {
   qc.invalidateQueries({ queryKey: teradyneRefKey(kind) });
-  qc.invalidateQueries({ queryKey: TERADYNE_LOG_KEY });
+  invalidateLogAndUsage(qc);
 }
 
 export function useCreateTeradyneRef(kind: TeradyneRefKind) {

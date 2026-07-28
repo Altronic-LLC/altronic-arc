@@ -829,6 +829,15 @@ const SECTIONS: ManualSection[] = [
       "operator notes",
       "remark",
       "manage lists",
+      "year",
+      "current year",
+      "all years",
+      "legacy data",
+      "old entries",
+      "history",
+      "slow",
+      "16000 rows",
+      "indexed column",
       "admin only",
       "can't edit entry",
       "no edit button",
@@ -840,7 +849,7 @@ const SECTIONS: ManualSection[] = [
       "lookup list",
     ],
     searchText:
-      "The table shows the newest 200 matching entries with a Show all button underneath, so searching stays quick on a log thousands of rows deep; filters and totals always cover the whole log. Teradyne Log records board test failures off the Teradyne / Spea stations — the product tested, which parts were defective, a canned remark, board counts, the SAP number and the Altronic part number, and up to two employees with their clock numbers. The Altronic part number is the field previously labelled 'Old SAP Number'; it has its own column in the table. It's a table, not a detail page: rows are added and edited in a modal, and there are no comments or attachments. Anyone signed in can add an entry, but editing or deleting an existing entry is limited to admins — non-admins see no Actions column and a note explaining why. Operator notes show inline under Defective Parts. The entry's name is built automatically as 'Product - Defective Parts' — there's no name field to fill in. Picking an employee fills in their clock number, which is displayed read-only — clock numbers are maintained on the Employees list, not per entry. Remarks carry a remark number you enter when adding one and can edit afterwards. Filter by Product, Remark, Employee, or free-text search; all filters live in the URL so a filtered view is shareable. The three lookup lists (Employees, Products, Remarks) are edited from the Manage lists menu on the Teradyne Log toolbar — any signed-in user can add or rename rows, no admin needed. A row already used by a log entry can't be deleted; rename it instead so past entries keep reading correctly.",
+      "The log opens on the current year because the list holds over 16,000 entries of imported history; use the Year picker for an earlier year or All years (slow). The legacy entries are used for reporting directly in SharePoint, not in ARC. The table shows the newest 200 matching entries with a Show all button underneath, so searching stays quick; filters and totals always cover the whole chosen year. A 'loading the slow way' notice means the Enter Date column needs indexing in SharePoint. Teradyne Log records board test failures off the Teradyne / Spea stations — the product tested, which parts were defective, a canned remark, board counts, the SAP number and the Altronic part number, and up to two employees with their clock numbers. The Altronic part number is the field previously labelled 'Old SAP Number'; it has its own column in the table. It's a table, not a detail page: rows are added and edited in a modal, and there are no comments or attachments. Anyone signed in can add an entry, but editing or deleting an existing entry is limited to admins — non-admins see no Actions column and a note explaining why. Operator notes show inline under Defective Parts. The entry's name is built automatically as 'Product - Defective Parts' — there's no name field to fill in. Picking an employee fills in their clock number, which is displayed read-only — clock numbers are maintained on the Employees list, not per entry. Remarks carry a remark number you enter when adding one and can edit afterwards. Filter by Product, Remark, Employee, or free-text search; all filters live in the URL so a filtered view is shareable. The three lookup lists (Employees, Products, Remarks) are edited from the Manage lists menu on the Teradyne Log toolbar — any signed-in user can add or rename rows, no admin needed. A row already used by a log entry can't be deleted; rename it instead so past entries keep reading correctly.",
     render: () => (
       <>
         <P>
@@ -886,8 +895,18 @@ const SECTIONS: ManualSection[] = [
         </UL>
         <H3>Finding entries</H3>
         <P>
-          Filter by <strong>Product</strong>, <strong>Remark</strong>, or{" "}
-          <strong>Employee</strong> (each accepts several values), and search
+          <strong>Year comes first</strong>, because it decides what gets loaded.
+          The list holds years of imported history — well over 16,000 entries —
+          so the log opens on the <strong>current year</strong>, which is what
+          almost everyone wants. Pick an earlier year to look back, or{" "}
+          <strong>All years</strong> to load the whole archive (slow, and rarely
+          what you need — the legacy rows are there for SharePoint reporting).
+          The year is part of the link, so a shared URL opens on the same year.
+        </P>
+        <P>
+          Within that year, filter by <strong>Product</strong>,{" "}
+          <strong>Remark</strong>, or <strong>Employee</strong> (each accepts
+          several values), and search
           across everything — including SAP and Altronic part numbers, and
           operator notes. Adding
           more words narrows the results. Every filter lives in the URL, so you
@@ -900,11 +919,18 @@ const SECTIONS: ManualSection[] = [
           line — hover to read a long one in full.
         </P>
         <P>
-          The log is a few thousand rows deep, so the table shows the{" "}
+          Even one year can run long, so the table shows the{" "}
           <strong>newest 200</strong> matching entries and offers{" "}
           <strong>Show all</strong> underneath — that keeps searching and
-          filtering quick. Filters and the board totals always cover the whole
-          log, not just the rows on screen, so a count never lies to you.
+          filtering quick. Filters and the board totals always cover every entry
+          in the chosen year, not just the rows on screen, so a count never lies
+          to you.
+        </P>
+        <P>
+          If a yellow <strong>"loading the slow way"</strong> notice appears, the
+          SharePoint list needs its <strong>Enter Date</strong> column indexed —
+          the notice says exactly what to ask IT for. The log still shows the
+          right entries meanwhile, it just has to download a lot more to do it.
         </P>
         <H3>Editing and deleting — admins only</H3>
         <P>

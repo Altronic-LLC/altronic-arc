@@ -3,10 +3,12 @@ import {
   buildLogWriteFields,
   createTeradyneLogEntry,
   deleteTeradyneLogEntry,
+  entryInScope,
   listTeradyneLog,
+  listTeradyneLookupUsage,
   updateTeradyneLogEntry,
 } from "./teradyneLog";
-import type { TeradyneLogInput } from "@/types/task";
+import type { TeradyneLogEntry, TeradyneLogInput } from "@/types/task";
 
 // USE_MOCK is true under Vitest — these exercise the in-memory log store.
 
@@ -93,17 +95,87 @@ describe("buildLogWriteFields", () => {
 
 describe("listTeradyneLog (mock)", () => {
   it("returns entries newest Enter Date first", async () => {
-    const entries = await listTeradyneLog();
+    const { entries } = await listTeradyneLog({ kind: "all" });
     expect(entries.length).toBeGreaterThan(0);
     const dates = entries.map((e) => e.enterDate?.getTime() ?? 0);
     expect([...dates].sort((a, b) => b - a)).toEqual(dates);
   });
 
   it("hands back entries with lookups already resolved to titles", async () => {
-    const entries = await listTeradyneLog();
+    const { entries } = await listTeradyneLog({ kind: "all" });
     const withProduct = entries.find((e) => e.product != null);
     expect(withProduct?.product?.title).toBeTruthy();
     expect(withProduct?.product?.title).not.toMatch(/^\(missing/);
+  });
+
+  it("loads one year at a time — the list holds 16k+ rows of legacy history", async () => {
+    // The fixture is all 2026; asking for another year must come back empty
+    // rather than quietly returning everything.
+    const y2026 = await listTeradyneLog({ kind: "year", year: 2026 });
+    expect(y2026.entries.length).toBeGreaterThan(0);
+    expect(y2026.entries.every((e) => e.enterDate?.getUTCFullYear() === 2026)).toBe(true);
+
+    const y2019 = await listTeradyneLog({ kind: "year", year: 2019 });
+    expect(y2019.entries).toHaveLength(0);
+  });
+
+  it("the all-years scope returns every entry", async () => {
+    const all = await listTeradyneLog({ kind: "all" });
+    const year = await listTeradyneLog({ kind: "year", year: 2026 });
+    expect(all.entries.length).toBeGreaterThanOrEqual(year.entries.length);
+  });
+
+  it("reports that the filter was applied server-side", async () => {
+    // Mock mode always filters at "the source"; the flag exists so the real
+    // path can admit when it had to fall back to filtering in the browser.
+    const { filteredServerSide } = await listTeradyneLog({ kind: "year", year: 2026 });
+    expect(filteredServerSide).toBe(true);
+  });
+});
+
+describe("entryInScope", () => {
+  const dated = (iso: string | null) =>
+    ({ enterDate: iso ? new Date(iso) : null }) as TeradyneLogEntry;
+
+  it("matches on the UTC year, so a date-only value can't slip into the year before", () => {
+    // 2026-01-01T12:00:00Z is how the app stores 1 Jan; a local-time reading
+    // would call this 2025 for any US timezone.
+    expect(entryInScope(dated("2026-01-01T12:00:00Z"), { kind: "year", year: 2026 })).toBe(true);
+    expect(entryInScope(dated("2026-01-01T12:00:00Z"), { kind: "year", year: 2025 })).toBe(false);
+  });
+
+  it("keeps undated rows visible in the current year so they can be fixed", () => {
+    const thisYear = new Date().getFullYear();
+    expect(entryInScope(dated(null), { kind: "year", year: thisYear })).toBe(true);
+    expect(entryInScope(dated(null), { kind: "year", year: thisYear - 3 })).toBe(false);
+  });
+
+  it("accepts everything for the all-years scope", () => {
+    expect(entryInScope(dated("2011-06-01T12:00:00Z"), { kind: "all" })).toBe(true);
+    expect(entryInScope(dated(null), { kind: "all" })).toBe(true);
+  });
+});
+
+describe("listTeradyneLookupUsage (mock)", () => {
+  it("counts usage across every year, not just the loaded scope", async () => {
+    const usage = await listTeradyneLookupUsage();
+    // "Wrong board" (remark 4) is on two fixture entries.
+    expect(usage.remarks.get(4)).toBe(2);
+    // Every fixture product is used exactly once.
+    expect(usage.products.get(201)).toBe(1);
+  });
+
+  it("counts an employee once per entry even when they hold both slots", async () => {
+    const usage = await listTeradyneLookupUsage();
+    for (const count of usage.employees.values()) {
+      expect(count).toBeGreaterThan(0);
+    }
+  });
+
+  it("omits reference rows nothing points at", async () => {
+    const usage = await listTeradyneLookupUsage();
+    // Remark 9 ("Cold joint") is unused in the fixture.
+    expect(usage.remarks.has(9)).toBe(false);
   });
 });
 
@@ -116,8 +188,8 @@ describe("createTeradyneLogEntry / updateTeradyneLogEntry / delete (mock)", () =
     expect(created.employee2).toBeNull();
     expect(created.operatorNotes).toBe("trailing space");
 
-    const all = await listTeradyneLog();
-    expect(all.some((e) => e.id === created.id)).toBe(true);
+    const { entries } = await listTeradyneLog({ kind: "all" });
+    expect(entries.some((e) => e.id === created.id)).toBe(true);
   });
 
   it("re-derives the title when the product changes", async () => {
@@ -147,8 +219,8 @@ describe("createTeradyneLogEntry / updateTeradyneLogEntry / delete (mock)", () =
   it("deletes an entry", async () => {
     const created = await createTeradyneLogEntry(baseInput, baseTitles);
     await deleteTeradyneLogEntry(created.id);
-    const all = await listTeradyneLog();
-    expect(all.some((e) => e.id === created.id)).toBe(false);
+    const { entries } = await listTeradyneLog({ kind: "all" });
+    expect(entries.some((e) => e.id === created.id)).toBe(false);
   });
 
   it("ignores a delete for an id that isn't there", async () => {
