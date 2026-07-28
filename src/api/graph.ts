@@ -133,9 +133,18 @@ async function acquireGraphToken(scopes: string[], allowInteractive: boolean): P
   const instance = getMsalInstance();
   if (!instance) throw new Error("MSAL instance not initialised");
 
-  const account = instance.getActiveAccount();
+  // Fall back to the first known account when no active one is selected yet.
+  // Queries in the app tree can fire in the same commit that MSAL reports an
+  // authenticated user but before the active account has been set (child
+  // effects run before the parent's), and treating that as "session expired"
+  // meant a perfectly good sign-in immediately surfaced a session warning.
+  let account = instance.getActiveAccount();
   if (!account) {
-    // No active account — caller should have routed to SignInPage. Throw
+    account = instance.getAllAccounts()[0] ?? null;
+    if (account) instance.setActiveAccount(account);
+  }
+  if (!account) {
+    // Genuinely signed out — caller should have routed to SignInPage. Throw
     // SessionExpiredError so the gate re-renders cleanly.
     throw new SessionExpiredError("Not signed in");
   }

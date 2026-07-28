@@ -20,6 +20,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.67.1",
+    date: "2026-07-28",
+    changes: [
+      "Fixed the \"session expired\" screen that could block sign-in: a stale session no longer takes over the whole page or signs you out — the app just loads",
+      "If a request does find your Microsoft sign-in has gone stale, you now get a banner at the top instead, with a \"Sign in again\" button that reloads the page's data in place (and a × to dismiss it)",
+      "Attachment and site-user calls that SharePoint rejects no longer make the whole app claim your session expired — they show the existing \"attachments unavailable\" notice on their own",
+      "A freshly completed sign-in no longer briefly reports itself as expired",
+    ],
+  },
+  {
     version: "0.67.0",
     date: "2026-07-23",
     changes: [

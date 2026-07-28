@@ -1,6 +1,6 @@
 import { getMsalInstance } from "@/auth/AuthProvider";
 import { SP_SITE_URL, USE_MOCK } from "./config";
-import { SessionExpiredError, GraphError, fetchWithRetry } from "./graph";
+import { GraphError, fetchWithRetry } from "./graph";
 
 // =============================================================================
 // SharePoint REST API helper.
@@ -56,8 +56,15 @@ export async function spFetch<T>(
 
   const instance = getMsalInstance();
   if (!instance) throw new Error("MSAL instance not initialised");
-  const account = instance.getActiveAccount();
-  if (!account) throw new SessionExpiredError("Not signed in");
+  // No active account yet (e.g. this fired during the moment right after a
+  // sign-in, before the active account was selected). Degrade rather than
+  // reporting a session expiry — SP REST is a best-effort side channel here
+  // (attachments, site users) and must never be able to take the whole app
+  // into "your session expired".
+  const account = instance.getActiveAccount() ?? instance.getAllAccounts()[0];
+  if (!account) {
+    throw new SharePointUnavailableError("Not signed in yet — SharePoint REST call skipped.");
+  }
 
   // SP REST resource scope. AllSites.Manage covers read + write + attachment
   // mutations. If the admin only granted AllSites.Read, write calls will
@@ -98,7 +105,14 @@ export async function spFetch<T>(
 
   if (!response.ok) {
     const body = await response.text();
-    if (response.status === 401) throw new SessionExpiredError(`SP returned 401: ${body}`);
+    // A 401 from SP REST is NOT treated as an app-wide session expiry. The
+    // SP-REST audience has its own separate admin-consent grant, so a 401
+    // here usually means that grant is missing/partial — not that the Graph
+    // session is dead. Reporting it as an expiry made the whole app offer to
+    // sign the user out whenever an attachments call failed.
+    if (response.status === 401) {
+      throw new SharePointUnavailableError(`SharePoint rejected the request (401): ${body}`);
+    }
     throw new GraphError(response.status, response.statusText, body, url);
   }
   if (response.status === 204) return undefined as T;

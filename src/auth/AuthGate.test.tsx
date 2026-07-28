@@ -1,8 +1,12 @@
-import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act } from "@testing-library/react";
 import { screen } from "@testing-library/react";
 import { renderWithProviders } from "@/test/render";
-import { markSessionExpired, resetSessionExpired } from "@/hooks/useSessionExpiry";
+import {
+  markSessionExpired,
+  resetSessionExpired,
+  useSessionExpired,
+} from "@/hooks/useSessionExpiry";
 
 const mocks = vi.hoisted(() => ({
   isAuthenticated: true,
@@ -62,7 +66,7 @@ describe("AuthGate — real mode, healthy session", () => {
 });
 
 describe("AuthGate — session expiry", () => {
-  it("hides the app, shows a 'signing you out' message, and calls logoutRedirect once the session is marked expired", async () => {
+  it("keeps rendering the app (and never auto-signs-out) when the session is marked expired", () => {
     renderWithProviders(
       <AuthGate>
         <div>App content</div>
@@ -71,22 +75,30 @@ describe("AuthGate — session expiry", () => {
 
     act(() => markSessionExpired());
 
-    expect(screen.queryByText("App content")).not.toBeInTheDocument();
-    expect(screen.getByText(/your session has expired/i)).toBeInTheDocument();
-    expect(mocks.logoutRedirect as Mock).toHaveBeenCalledTimes(1);
+    // The app stays usable — SessionExpiredBanner handles the re-auth prompt.
+    expect(screen.getByText("App content")).toBeInTheDocument();
+    expect(screen.queryByText(/your session has expired/i)).not.toBeInTheDocument();
+    expect(mocks.logoutRedirect).not.toHaveBeenCalled();
   });
 
-  it("goes back to rendering children after resetSessionExpired (e.g. a fresh sign-in)", () => {
+  it("clears a lingering expiry flag when it's showing the sign-in page, so a fresh sign-in starts clean", () => {
+    mocks.isAuthenticated = false;
+    act(() => markSessionExpired());
+
+    function FlagProbe() {
+      return <span>flag:{String(useSessionExpired())}</span>;
+    }
+
     renderWithProviders(
-      <AuthGate>
-        <div>App content</div>
-      </AuthGate>,
+      <>
+        <AuthGate>
+          <div>App content</div>
+        </AuthGate>
+        <FlagProbe />
+      </>,
     );
 
-    act(() => markSessionExpired());
-    expect(screen.queryByText("App content")).not.toBeInTheDocument();
-
-    act(() => resetSessionExpired());
-    expect(screen.getByText("App content")).toBeInTheDocument();
+    expect(screen.getByText(/sign in with microsoft/i)).toBeInTheDocument();
+    expect(screen.getByText("flag:false")).toBeInTheDocument();
   });
 });
