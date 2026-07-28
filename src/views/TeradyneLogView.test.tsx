@@ -149,42 +149,24 @@ describe("TeradyneLogView", () => {
   });
 });
 
-describe("TeradyneLogView — year scope", () => {
+describe("TeradyneLogView — current year only", () => {
   const thisYear = new Date().getFullYear();
 
-  it("defaults to the current year and says so in the count line", async () => {
+  it("says which year it's showing, in the header and the count line", async () => {
     await renderView();
+    expect(screen.getByText(new RegExp(`Showing ${thisYear}`))).toBeInTheDocument();
     expect(screen.getByText(new RegExp(`entries in ${thisYear}`))).toBeInTheDocument();
   });
 
-  it("offers previous years and an all-years option", async () => {
+  it("offers no year picker — the log is this year's log", async () => {
     await renderView();
-    const yearField = screen.getByText(/^year$/i).closest("label")!;
-    await userEvent.click(within(yearField).getAllByRole("button")[0]);
-
-    expect(
-      await screen.findByRole("option", { name: `${thisYear} (this year)` }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: String(thisYear - 1) })).toBeInTheDocument();
-    // Labelled slow on purpose — it pulls the whole 16k-row archive.
-    expect(screen.getByRole("option", { name: /all years \(slow\)/i })).toBeInTheDocument();
+    expect(screen.queryByText(/^year$/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: /all years/i })).not.toBeInTheDocument();
   });
 
-  it("reads the year from the URL, so a year's view is shareable", async () => {
-    // 2019 has nothing in the fixture — the empty state should name the year
-    // rather than implying the whole log is empty.
-    renderWithProviders(<TeradyneLogView />, { route: "/operations/teradyne?year=2019" });
-    expect(await screen.findByText(/nothing logged in 2019/i)).toBeInTheDocument();
-  });
-
-  it("falls back to the current year for a nonsense year param", async () => {
-    await renderView("/operations/teradyne?year=banana");
+  it("ignores a year in the URL rather than honouring a filter that no longer exists", async () => {
+    await renderView("/operations/teradyne?year=2019");
     expect(screen.getByText(new RegExp(`entries in ${thisYear}`))).toBeInTheDocument();
-  });
-
-  it("loads every year when the scope is all", async () => {
-    await renderView("/operations/teradyne?year=all");
-    expect(screen.getByText(/entries in all years/i)).toBeInTheDocument();
   });
 
   it("says nothing on the page when SharePoint wouldn't filter by year", async () => {
@@ -209,7 +191,6 @@ describe("TeradyneLogView — year scope", () => {
 
     await waitFor(() => expect(screen.getByText(/nothing logged in/i)).toBeInTheDocument());
     expect(screen.queryByText(/loading the slow way/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/what sharepoint said/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/16,234/)).not.toBeInTheDocument();
   });
 });

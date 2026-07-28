@@ -17,10 +17,9 @@ import {
   useTeradyneProducts,
   useTeradyneRemarks,
 } from "@/hooks/useTeradyne";
-import type { TeradyneLogScope } from "@/api/teradyneLog";
 import { useAdminAccess } from "@/hooks/useIsAdmin";
 import { LoadingTasks } from "@/components/LoadingTasks";
-import { MultiSelect, SingleSelect } from "@/components/SearchableSelect";
+import { MultiSelect } from "@/components/SearchableSelect";
 import { SearchInput } from "@/components/SearchInput";
 import { TeradyneLogFormModal } from "@/components/TeradyneLogFormModal";
 import { formatTeradyneDate } from "@/lib/teradyneMapper";
@@ -40,49 +39,21 @@ import { cn } from "@/lib/cn";
 /**
  * How many rows to put in the DOM before requiring a "Show all" click.
  *
- * The log is a real archive — ~1,470 rows as of 2026-07-28 and growing — and at
- * ten cells a row, rendering all of it is ~15k DOM nodes, which is enough to
- * make typing in the search box stutter on a shop-floor PC. Entries are sorted
- * newest-first and the filters run over the WHOLE log before this cap applies,
- * so the rows you're looking for are either in the first screenful or one
- * filter away; "Show all" is there for the rare times you genuinely want the
- * lot (printing, scrolling a year back).
+ * At ten cells a row, a busy year is enough DOM to make typing in the search box
+ * stutter on a shop-floor PC. Entries are sorted newest-first and the filters run
+ * over the whole year before this cap applies, so what you're after is either in
+ * the first screenful or one filter away; "Show all" covers printing and the
+ * occasional full read-through.
  */
 const INITIAL_ROWS = 200;
 
-/**
- * Years offered in the picker: this year back four, plus All years.
- *
- * The list holds 16k+ rows of imported legacy history, so it loads one year at a
- * time (see src/api/teradyneLog.ts) and defaults to the current year — that's
- * what people work from. Older years are there for the occasional look back;
- * "All years" pulls the whole archive and is correspondingly slow, which the
- * option label says out loud.
- */
-function yearOptions(): { value: string; label: string }[] {
-  const thisYear = new Date().getFullYear();
-  const years = Array.from({ length: 5 }, (_, i) => thisYear - i);
-  return [
-    ...years.map((y) => ({ value: String(y), label: y === thisYear ? `${y} (this year)` : String(y) })),
-    { value: "all", label: "All years (slow)" },
-  ];
-}
-
-function scopeLabel(scope: TeradyneLogScope): string {
-  return scope.kind === "all" ? "all years" : String(scope.year);
-}
-
-/** Parse the `year` URL param into a scope. Anything unrecognised → this year. */
-function scopeFromParam(raw: string | null): TeradyneLogScope {
-  if (raw === "all") return { kind: "all" };
-  if (raw && /^\d{4}$/.test(raw)) return { kind: "year", year: parseInt(raw, 10) };
-  return { kind: "year", year: new Date().getFullYear() };
-}
-
 export function TeradyneLogView() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const scope = scopeFromParam(searchParams.get("year"));
-  const { data: result, isLoading, error } = useTeradyneLog(scope);
+  // Always the current year. The list carries 16k+ rows of imported history that
+  // nobody works from in ARC — it's read straight from SharePoint for reporting
+  // — so there's no year picker: the log is this year's log.
+  const thisYear = new Date().getFullYear();
+  const { data: result, isLoading, error } = useTeradyneLog();
   const log = result?.entries ?? [];
   const { data: products = [] } = useTeradyneProducts();
   const { data: employees = [] } = useTeradyneEmployees();
@@ -183,7 +154,7 @@ export function TeradyneLogView() {
           <h1 className="font-display text-xl font-semibold text-fg sm:text-2xl">Teradyne Log</h1>
           <p className="text-xs text-fg-muted">
             Board test failures logged off the Teradyne / Spea stations — what failed, on which
-            product, and who ran it.
+            product, and who ran it. Showing {thisYear}; earlier years live in SharePoint.
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -199,22 +170,7 @@ export function TeradyneLogView() {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
-        <Field label="Year">
-          {/* First filter, because it decides what's even loaded — the others
-              narrow within it. */}
-          <SingleSelect
-            allLabel="This year"
-            options={yearOptions()}
-            selected={scope.kind === "all" ? "all" : String(scope.year)}
-            onChange={(v) => {
-              setParam("year", v ?? "");
-              // A different year is a different dataset; don't carry over an
-              // expanded row cap from the last one.
-              setShowAll(false);
-            }}
-          />
-        </Field>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
         <Field label="Product">
           <MultiSelect
             allLabel="All products"
@@ -272,7 +228,7 @@ export function TeradyneLogView() {
       ) : filtered.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border py-16 text-center text-fg-muted">
           {log.length === 0
-            ? `Nothing logged in ${scopeLabel(scope)}. Add an entry, or pick another year above.`
+            ? `Nothing logged in ${thisYear} yet. Click 'New entry' to add the first one.`
             : "No entries match the current filters."}
         </div>
       ) : (
@@ -287,7 +243,7 @@ export function TeradyneLogView() {
               ) : (
                 <>
                   Showing {filtered.length.toLocaleString()} of {log.length.toLocaleString()}{" "}
-                  entries in {scopeLabel(scope)}
+                  entries in {thisYear}
                 </>
               )}
             </span>

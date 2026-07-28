@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.73.0",
+    date: "2026-07-28",
+    changes: [
+      "Removed the year picker from the Teradyne Log — it shows the current year, and the header says so; older entries are read in SharePoint where the reporting lives",
+    ],
+  },
+  {
     version: "0.72.2",
     date: "2026-07-28",
     changes: [

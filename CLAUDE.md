@@ -515,9 +515,13 @@ Four things about this data that will bite if forgotten:
 in 2026, taking the list past **16,000 rows**, and it grows. Almost all of that
 is historical: ARC is for the current year's work, and the legacy rows are read
 directly in SharePoint for reporting. So `listTeradyneLog(scope)` filters
-server-side by `EnterDate` year and defaults to `CURRENT_YEAR_SCOPE()`; the view
-exposes a Year picker (`?year=2026` / `?year=all`) and the React Query key is
-scoped per year, so mutations invalidate the `["teradyneLog"]` *prefix*.
+server-side by `EnterDate` year and defaults to `CURRENT_YEAR_SCOPE()`.
+
+**There is no year picker in the UI, deliberately** — the log is this year's log
+(Ray, 2026-07-28). The `scope` parameter stays on the API for tests and any
+future need; don't surface it as a filter again without being asked. The React
+Query key is still scoped per year, so mutations invalidate the
+`["teradyneLog"]` *prefix*.
 
 **The date literal must be BARE, not quoted.** Graph is OData v4:
 `fields/EnterDate ge 2026-01-01T00:00:00Z`. Quoting it (`ge '2026-01-01…'`)
