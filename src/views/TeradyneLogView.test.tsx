@@ -187,15 +187,16 @@ describe("TeradyneLogView — year scope", () => {
     expect(screen.getByText(/entries in all years/i)).toBeInTheDocument();
   });
 
-  it("warns when SharePoint couldn't filter by year, and shows what it said", async () => {
+  it("says nothing on the page when SharePoint wouldn't filter by year", async () => {
+    // The rows shown are the right year either way, so a browser-side filter is
+    // a speed detail, not something to interrupt the user with. It's logged to
+    // the console for whoever is diagnosing load times.
     const entries = [] as TeradyneLogEntry[];
     renderWithProviders(<TeradyneLogView />, {
       route: "/operations/teradyne",
       seedQueryData: [
         {
           key: teradyneLogKey({ kind: "year", year: thisYear }),
-          // What the API returns when the EnterDate filter was rejected and it
-          // had to download the whole list instead.
           data: {
             entries,
             filteredServerSide: false,
@@ -206,17 +207,10 @@ describe("TeradyneLogView — year scope", () => {
       ],
     });
 
-    expect(await screen.findByText(/loading the slow way/i)).toBeInTheDocument();
-    expect(screen.getByText(/16,234 rows/)).toBeInTheDocument();
-    // The error is disclosed rather than guessed at — the first version of this
-    // banner asserted a missing index, which was wrong under 5,000 rows.
-    expect(screen.getByText(/what sharepoint said/i)).toBeInTheDocument();
-    expect(screen.getByText(/invalid filter clause/i)).toBeInTheDocument();
-  });
-
-  it("says nothing about slowness when the filter worked", async () => {
-    await renderView();
+    await waitFor(() => expect(screen.getByText(/nothing logged in/i)).toBeInTheDocument());
     expect(screen.queryByText(/loading the slow way/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/what sharepoint said/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/16,234/)).not.toBeInTheDocument();
   });
 });
 

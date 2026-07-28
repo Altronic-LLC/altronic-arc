@@ -83,6 +83,18 @@ export interface TeradyneLogResult {
 
 let mockStore: TeradyneLogEntry[] = MOCK_TERADYNE_LOG.map((e) => ({ ...e }));
 
+/**
+ * Set once SharePoint has refused the date filter, so we don't re-try a request
+ * we know will fail on every subsequent load. Module-level = per page session;
+ * a reload re-tests it, which is what you want after someone adds the index.
+ */
+let serverFilterUnavailable = false;
+
+/** Test seam — resets the session memo above. */
+export function resetTeradyneFilterProbe() {
+  serverFilterUnavailable = false;
+}
+
 function delay<T>(value: T, ms = 250): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(value), ms));
 }
@@ -161,7 +173,7 @@ export async function listTeradyneLog(
     items.map((item) => toTeradyneLogEntry(item, maps)).sort(compareTeradyneLogEntries);
 
   let lastError: string | undefined;
-  for (const filter of variants) {
+  for (const filter of serverFilterUnavailable ? [] : variants) {
     try {
       const items = await graphFetchAll<GraphListItem>(
         `${base}${query}&$filter=${encodeFilter(filter)}`,
@@ -174,11 +186,17 @@ export async function listTeradyneLog(
     }
   }
 
-  if (variants.length > 0) {
+  if (variants.length > 0 && !serverFilterUnavailable) {
+    // Remember for the rest of the session. Whatever the reason (unindexed
+    // column above the 5,000-item threshold being the usual one), it won't
+    // change between two page loads — so stop paying a doomed request every
+    // time and go straight to the local filter.
+    serverFilterUnavailable = true;
     /* eslint-disable-next-line no-console */
     console.warn(
-      "[Teradyne] No server-side date filter worked; falling back to fetching the whole " +
-        "list and filtering in the browser.",
+      "[Teradyne] No server-side date filter worked; fetching the whole list and filtering " +
+        "in the browser for the rest of this session. Indexing EnterDate on the list makes " +
+        "this a single request instead of one per 999 rows.",
     );
   }
 

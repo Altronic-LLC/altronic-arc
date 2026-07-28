@@ -529,12 +529,18 @@ pinned by tests. Encode with `encodeFilter()`, not `encodeURIComponent` — the
 latter turns the literal's colons into `%3A`, which some OData parsers reject.
 
 **Above ~5,000 items `EnterDate` also needs an INDEX** (list settings → Indexed
-columns): past the threshold SharePoint refuses to filter or sort on an
-unindexed column however few rows match. If every filter attempt fails the API
-falls back to fetching everything and filtering in the browser, returns
-`filteredServerSide: false` plus `filterError`, and the view shows a "loading the
-slow way" banner that DISCLOSES the Graph error rather than asserting a cause —
-a deliberate loud degrade, and one that doesn't send people to IT for nothing.
+columns): past the threshold SharePoint refuses to filter or sort on an unindexed
+column however few rows match — which is where the PMO list now sits, so the
+server-side filter is currently being refused.
+
+That is a **performance** concern only, and is deliberately NOT surfaced in the
+UI. When the filter is refused the API fetches the list and applies the same year
+filter in the browser, so the user still sees exactly the year they asked for;
+`filteredServerSide: false` + `filterError` are returned for diagnostics and
+logged to the console, and `serverFilterUnavailable` remembers the refusal for
+the rest of the page session so a doomed request isn't repeated on every load. An
+earlier version showed a warning banner about this — it read as a fault when
+nothing was actually wrong. Don't re-add it.
 
 Two consequences worth remembering:
 

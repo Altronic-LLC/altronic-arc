@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.72.2",
+    date: "2026-07-28",
+    changes: [
+      "Removed the \"loading the slow way\" notice from the Teradyne Log — the entries shown were always the year you picked, so it flagged a fault where there wasn't one",
+      "The log stops re-trying a filter SharePoint has already refused, saving a wasted request on every load",
+    ],
+  },
+  {
     version: "0.72.1",
     date: "2026-07-28",
     changes: [
