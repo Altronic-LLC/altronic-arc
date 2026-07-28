@@ -110,7 +110,10 @@ export function TeradyneLogFormModal({ entry, onClose }: TeradyneLogFormModalPro
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!productId) {
-      setError("Pick a product — it's what names the entry.");
+      // Deliberately not the same words as the picker's own "Pick a product"
+      // placeholder — an error that echoes the placeholder verbatim reads like
+      // a glitch rather than an instruction.
+      setError("Choose a product above — the entry's name is built from it.");
       return;
     }
     setError(null);

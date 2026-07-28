@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.68.2",
+    date: "2026-07-28",
+    changes: [
+      "Clearer wording when a Teradyne log entry is missing its product — the message no longer just repeats the dropdown's own \"Pick a product\" text",
+    ],
+  },
+  {
     version: "0.68.1",
     date: "2026-07-28",
     changes: [
