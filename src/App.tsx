@@ -44,6 +44,14 @@ const AdminOperationsProjectsView = lazy(() =>
     default: m.AdminOperationsProjectsView,
   })),
 );
+// Teradyne — the board-test log, part of the Operations bundle. Its reference
+// lists (Employees / Products / Remarks) all share one view, keyed by :kind.
+const TeradyneLogView = lazy(() =>
+  import("@/views/TeradyneLogView").then((m) => ({ default: m.TeradyneLogView })),
+);
+const TeradyneRefListView = lazy(() =>
+  import("@/views/TeradyneRefListView").then((m) => ({ default: m.TeradyneRefListView })),
+);
 
 // Build Requests — Engineering's master-detail feature (header + parts).
 // Lazy-loaded like the Operations bundle to keep the main chunk lean.
@@ -180,6 +188,22 @@ export function App() {
             element={
               <Suspense fallback={<LoadingTasks noun="this task" />}>
                 <OperationsDetailView />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/operations/teradyne"
+            element={
+              <Suspense fallback={<LoadingTasks noun="the Teradyne log" />}>
+                <TeradyneLogView />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/operations/teradyne/:kind"
+            element={
+              <Suspense fallback={<LoadingTasks noun="the list" />}>
+                <TeradyneRefListView />
               </Suspense>
             }
           />

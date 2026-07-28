@@ -82,7 +82,7 @@ const SYSTEM_TIERS: Tier[] = [
       },
       {
         label: "Operations department (lazy-loaded bundle)",
-        hint: "OperationsListView · OperationsKanbanView · OperationsDetailView · AdminOperationsProjectsView — useOperationsTasks — api/operationsTasks · operationsProjects · operationsEquipment. Own site (PMO), own code-split chunk; no imports from the Engineering views/hooks above.",
+        hint: "OperationsListView · OperationsKanbanView · OperationsDetailView · AdminOperationsProjectsView · TeradyneLogView · TeradyneRefListView — useOperationsTasks · useTeradyne — api/operationsTasks · operationsProjects · operationsEquipment · teradyneLog · teradyneRefs. Own site (PMO), own code-split chunk; no imports from the Engineering views/hooks above.",
         palette: "ui",
       },
       {
@@ -116,6 +116,8 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "Operations Task List", hint: "Altronic_PMO site — separate from Engineering's Task List", palette: "list" },
       { label: "Operations Projects", hint: "Altronic_PMO site — Operations' own parent-project reference list", palette: "list" },
       { label: "Altronic Equipment List", hint: "Altronic_PMO site — read-only reference for the Equipment picker", palette: "list" },
+      { label: "Teradyne Log", hint: "Altronic_PMO site — board test failures; Title is app-derived from Product + Defective Parts", palette: "list" },
+      { label: "Teradyne Employees / Products / Remarks", hint: "Altronic_PMO site — the log's three lookup lists, editable in-app by any signed-in user", palette: "list" },
       { label: "Build Request Tracker", hint: "BR headers — status workflow, requestor/engineer, own comment thread", palette: "list" },
       { label: "Build Request Items", hint: "parts per BR (lookup to the Tracker) — checklists + per-part comment threads", palette: "list" },
       { label: "Panel Order Headers", hint: "ALTRONICPANELTEAM site — panel sales orders (status, SO/PO, engineer, own comment thread)", palette: "list" },
@@ -493,6 +495,70 @@ const SCHEMA_TABLES: SchemaTable[] = [
       { name: "watchers", type: "int[]", kind: "fk", references: "Person.id" },
     ],
   },
+
+  // ---- Teradyne (Operations, Altronic_PMO site) — own cluster -------------
+  // Note how this cluster references NO Person table: the log records who ran
+  // a test from its own Employees list (shop-floor people with clock numbers,
+  // not ARC sign-ins), which is why it has its own employee entity.
+  {
+    name: "TeradyneLogEntry",
+    source: "Teradyne Log (Altronic_PMO site)",
+    palette: "entity",
+    x: 20, y: 2330, width: 380,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title (derived)", type: "text", kind: "field" },
+      { name: "enterDate", type: "date", kind: "field" },
+      { name: "product", type: "int", kind: "fk", references: "TeradyneProduct.id" },
+      { name: "employee1", type: "int", kind: "fk", references: "TeradyneEmployee.id" },
+      { name: "employee2", type: "int", kind: "fk", references: "TeradyneEmployee.id" },
+      { name: "remark", type: "int", kind: "fk", references: "TeradyneRemark.id" },
+      { name: "employee1Clock / employee2Clock", type: "number", kind: "field" },
+      { name: "defectiveParts", type: "text", kind: "field" },
+      { name: "numberOfBoards", type: "number", kind: "field" },
+      { name: "boardsTested", type: "number", kind: "field" },
+      { name: "failuresPerBoard", type: "number", kind: "field" },
+      { name: "sapNumber / oldSapNumber", type: "text", kind: "field" },
+      { name: "operatorNotes", type: "text", kind: "field" },
+    ],
+  },
+  {
+    name: "TeradyneProduct",
+    source: "Teradyne Products (Altronic_PMO site)",
+    palette: "entity",
+    x: 440, y: 2330, width: 270,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title (Product)", type: "text", kind: "field" },
+      { name: "testOnStation", type: "text", kind: "field" },
+      { name: "idProd (legacy)", type: "number", kind: "field" },
+    ],
+  },
+  {
+    name: "TeradyneEmployee",
+    source: "Teradyne Employees (Altronic_PMO site)",
+    palette: "entity",
+    x: 750, y: 2330, width: 290,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title (derived name)", type: "text", kind: "field" },
+      { name: "firstName / lastName", type: "text", kind: "field" },
+      { name: "clockNum", type: "number", kind: "field" },
+      { name: "workCenter", type: "text", kind: "field" },
+      { name: "idEmp (legacy)", type: "number", kind: "field" },
+    ],
+  },
+  {
+    name: "TeradyneRemark",
+    source: "Teradyne Remarks (Altronic_PMO site)",
+    palette: "entity",
+    x: 440, y: 2470, width: 270,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title", type: "text", kind: "field" },
+      { name: "idRem (legacy)", type: "number", kind: "field" },
+    ],
+  },
 ];
 
 // ----- Connections (FK → target). Cardinality at each end: "one" | "many" --
@@ -569,6 +635,14 @@ const CONNECTIONS: Connection[] = [
   { fromTable: "PanelTask", fromColumn: "watchers", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
   { fromTable: "Comment", fromColumn: "parentId", toTable: "PanelTask", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "Attachment", fromColumn: "parentId", toTable: "PanelTask", toColumn: "id", fromCard: "many", toCard: "one" },
+  // Teradyne — four lists on the PMO site, all single-value lookups pointing
+  // INTO the three reference lists. No Comment/Attachment rows: the log has no
+  // Communication column and takes no files. Employee 1 and Employee 2 are two
+  // separate columns aimed at the same list, not one multi-value lookup.
+  { fromTable: "TeradyneLogEntry", fromColumn: "product", toTable: "TeradyneProduct", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "TeradyneLogEntry", fromColumn: "employee1", toTable: "TeradyneEmployee", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "TeradyneLogEntry", fromColumn: "employee2", toTable: "TeradyneEmployee", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "TeradyneLogEntry", fromColumn: "remark", toTable: "TeradyneRemark", toColumn: "id", fromCard: "many", toCard: "one" },
 ];
 
 export function AboutView() {

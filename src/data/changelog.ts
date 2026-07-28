@@ -20,6 +20,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.68.0",
+    date: "2026-07-28",
+    changes: [
+      "New under Operations: the Teradyne Log — board test failures off the Teradyne / Spea stations, as a filterable table with a form for adding and editing entries",
+      "Filter the log by Product, Remark or Employee, or search across everything including SAP numbers and operator notes; the filters live in the URL so you can share exactly what you're looking at",
+      "An entry's name is built for you as \"Product - Defective Parts\" and previewed as you type, so it can never drift from the fields it's made of",
+      "Picking an employee fills in their clock number automatically, and you can still override it",
+      "New \"Manage lists\" menu on the Teradyne Log for editing its three lookup lists — Employees, Products and Remarks — with no admin rights needed",
+      "Each lookup row shows how many log entries use it, and rows still in use can't be deleted, so past entries can't be broken by tidying up",
+      "A Teradyne Log card on the Dashboard shows how many entries were logged in the last 30 days",
+    ],
+  },
+  {
     version: "0.67.1",
     date: "2026-07-28",
     changes: [

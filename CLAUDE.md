@@ -226,6 +226,8 @@ src/
 │   ├── eirRoles.ts               EIR role tags (engineer / supply chain) CRUD
 │   ├── testSheets.ts             Test Results CRUD
 │   ├── admins.ts                 Admins list CRUD
+│   ├── teradyneLog.ts            Teradyne Log CRUD (Operations, PMO site)
+│   ├── teradyneRefs.ts           Teradyne Employees/Products/Remarks (one parametrised module)
 │   ├── projectFiles.ts           Documents-library project folders + files
 │   ├── attachments.ts            List-item attachments (task | eir) via SP REST
 │   ├── currentUser.ts            Resolve the signed-in user's SP lookupId
@@ -235,12 +237,14 @@ src/
 ├── data/
 │   ├── mockData.ts               Sample tasks, EIRs, projects, people
 │   ├── dashboardMockData.ts      Sample dashboard metrics
+│   ├── teradyneMockData.ts       Sample Teradyne log + reference rows
 │   └── changelog.ts              Version history (drives footer + history modal)
 │
 ├── hooks/
 │   ├── useTasks.ts               Tasks/projects queries + mutations
 │   ├── useEirs.ts                EIR queries + mutations (optimistic + undo)
 │   ├── useEirRoles.ts            EIR roles CRUD + useMyEirRoles() (field gating)
+│   ├── useTeradyne.ts            Teradyne log + ref-list queries/mutations (+ usage counts)
 │   ├── useTestSheets.ts          Test sheet queries + mutations
 │   ├── useAdmins.ts              Admins list CRUD
 │   ├── useIsAdmin.ts             Is the signed-in user an admin? (+ bootstrap set)
@@ -259,6 +263,7 @@ src/
 │   ├── eirMapper.ts              Graph item → Eir (field-name quirks)
 │   ├── eirNumber.ts              nextEirNo() — EIR_YYYY-#### auto-numbering
 │   ├── testSheetMapper.ts        Graph item → TestSheet
+│   ├── teradyneMapper.ts         Graph item → Teradyne entities; derived titles + date-only helpers
 │   ├── taskGraph.ts              Parent/child task relationships + cycle checks
 │   ├── taskFilters.ts            Pure task filter predicates
 │   ├── graphFields.ts            multiPersonField / multiLookupField writers
@@ -287,6 +292,7 @@ src/
 │   ├── TaskFormModal.tsx         Create/edit task
 │   ├── EirFormModal.tsx          Create/edit EIR
 │   ├── TestSheetFormModal.tsx    Create/edit test sheet
+│   ├── TeradyneLogFormModal.tsx  Create/edit a Teradyne log entry
 │   ├── CommentThread.tsx         Sorted comment list
 │   ├── CommentComposer.tsx       New-comment editor (+ @-mentions)
 │   ├── AttachmentsSection.tsx    EIR/comment attachments UI
@@ -307,6 +313,8 @@ src/
 │   ├── EirsView.tsx              EIRs list — View tabs (All / New / Needs Assigned),
 │   │                             status pills, filter bar
 │   ├── EirDetailView.tsx         EIR detail (+ role-gated fields, see below)
+│   ├── TeradyneLogView.tsx       Teradyne Log table + "Manage lists" menu (Operations)
+│   ├── TeradyneRefListView.tsx   Edit one Teradyne reference list (:kind)
 │   ├── TestSheetsView.tsx        Test sheets list
 │   ├── TestSheetDetailView.tsx   Test sheet detail
 │   ├── AdminProjectsView.tsx     Admin → Project References (/admin/projects)
@@ -468,6 +476,48 @@ calculated **EIR Log No.** derives from it, so we only write `EIRNo`.
 - **EIR Roles List ID** (env: `VITE_SP_EIR_ROLES_LIST_ID`) — admin-managed list (Title = email, plus `DisplayName`, `Note`, and `Roles` text columns). `Roles` holds a lowercase CSV of role tags (`engineer`, `supply chain`). Gates which EIR fields a user may edit (see "EIR field permissions" below). Not yet created — set the env var once the list exists. Managed at `/admin/eir-roles`.
 - **Shared mailbox** (env: `VITE_SHARED_MAILBOX`) — email address that @-mention notifications send FROM. See setup below.
 - **App manager email** (env: `VITE_APP_MANAGER_EMAIL`) — recipient of "Report issue" reports sent from the life-buoy button in the header. Falls back to `ray.white@altronic-llc.com` if unset, so the button works on day one. Sent FROM the same shared mailbox, with the reporter CC'd. See `src/api/errorReport.ts`.
+
+### Teradyne lists (Operations, PMO site)
+
+Four lists on `SITES.pmo`, discovered live 2026-07-28
+(`scripts/discover-teradyne-lists.ps1`). All env-overridable:
+
+| List | env | Default ID |
+|---|---|---|
+| Teradyne Log | `VITE_SP_TERADYNE_LOG_LIST_ID` | `1fc8d786-cbc0-4c0d-8473-b1eb7aca8f3d` |
+| Teradyne Employees | `VITE_SP_TERADYNE_EMPLOYEES_LIST_ID` | `1d7900c4-a6a0-4a14-86f7-62024d846a7a` |
+| Teradyne Products | `VITE_SP_TERADYNE_PRODUCTS_LIST_ID` | `0113f8d2-4c8b-4bba-955f-323c90a91a16` |
+| Teradyne Remarks | `VITE_SP_TERADYNE_REMARKS_LIST_ID` | `3d7ccd9a-e1d8-4faa-9d46-bcbf94d76e3b` |
+
+Four things about this data that will bite if forgotten:
+
+1. **Lookups come back as ids only.** `$expand=fields` returns
+   `ProductLookupId: "201"` with **no** `LookupValue`, so display names must be
+   joined client-side. `listTeradyneLog()` fetches the log + all three reference
+   lists in parallel and returns entries with lookups already resolved. A lookup
+   whose target is gone resolves to `(missing #n)` rather than null, so a
+   dangling pointer stays visible.
+2. **These are SINGLE-value lookups** — write a bare integer
+   (`ProductLookupId: 201`). Do **not** use `multiLookupField`; the
+   `Collection(Edm.Int32)` annotation is for multi-value lookups and 400s here.
+   Employee 1 and Employee 2 are two separate columns, not one multi-value one.
+3. **`Title` is app-derived on two lists.** Teradyne Log's Title is
+   `{Product} - {Defective Parts}`; an Employee's Title is `{First} {Last}`.
+   Both are writable text columns that no user types — `teradyneMapper.ts` owns
+   the formats and every create/update recomputes them (same arrangement as
+   `NumberedTitle` on Engineering tasks).
+4. **`EnterDate` is a date-only column stored at midday UTC**
+   (`2026-02-17T12:00:00Z`). Match that on write. Midnight UTC renders as the
+   previous day for every US timezone — use `toSpDateOnly` / `parseSpDate` and
+   format with `timeZone: "UTC"`.
+
+The three reference lists are editable by **any signed-in user** from the
+"Manage lists" menu on the Teradyne Log — no admin gate, by design. Deleting a
+row is blocked while the log still references it (`useTeradyneRefUsage`), since
+these lists don't have SharePoint referential integrity enabled. That guard also
+holds while the log query is still loading, when every row would otherwise look
+unused. `IDEmp` / `IDProd` / `IDRem` are legacy ids from the original import —
+read and preserved, never written.
 
 ## EIR field permissions (roles)
 

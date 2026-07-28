@@ -125,6 +125,35 @@ export const SP_PMO_SITE_URL =
   "https://coopermachineryservices.sharepoint.com/sites/Altronic_PMO";
 
 // =============================================================================
+// Teradyne — FOUR lists on the PMO site (SITES.pmo), part of the Operations
+// department. "Teradyne Log" is the primary entity; the other three are its
+// lookup/reference lists, each editable in-app from the Teradyne Log screen's
+// "Manage lists" menu (no admin gate — any signed-in user, per Ray 2026-07-28).
+// Site confirmed by Ray; list IDs supplied by Ray. Env-overridable, same
+// pattern as the Operations lists above.
+// =============================================================================
+
+/** "Teradyne Log" — the primary log list. Every row references the three lists below. */
+export const SP_TERADYNE_LOG_LIST_ID =
+  import.meta.env.VITE_SP_TERADYNE_LOG_LIST_ID ||
+  "1fc8d786-cbc0-4c0d-8473-b1eb7aca8f3d";
+
+/** "Teradyne Employees" — lookup source for the log's employee field. */
+export const SP_TERADYNE_EMPLOYEES_LIST_ID =
+  import.meta.env.VITE_SP_TERADYNE_EMPLOYEES_LIST_ID ||
+  "1d7900c4-a6a0-4a14-86f7-62024d846a7a";
+
+/** "Teradyne Products" — lookup source for the log's product field. */
+export const SP_TERADYNE_PRODUCTS_LIST_ID =
+  import.meta.env.VITE_SP_TERADYNE_PRODUCTS_LIST_ID ||
+  "0113f8d2-4c8b-4bba-955f-323c90a91a16";
+
+/** "Teradyne Remarks" — lookup source for the log's remark field. */
+export const SP_TERADYNE_REMARKS_LIST_ID =
+  import.meta.env.VITE_SP_TERADYNE_REMARKS_LIST_ID ||
+  "3d7ccd9a-e1d8-4faa-9d46-bcbf94d76e3b";
+
+// =============================================================================
 // Build Requests — TWO lists on the Engineering site (SITES.engineering /
 // SP_SITE_ID) forming a master-detail pair. IDs discovered live via Graph on
 // 2026-07-16; env-overridable, same pattern as the Operations lists.

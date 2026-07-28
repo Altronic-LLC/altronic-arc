@@ -884,6 +884,124 @@ export interface PanelTask {
 }
 
 // =============================================================================
+// Teradyne — the PCB test log run by Operations, on the PMO site. Four lists:
+// "Teradyne Log" (the entity) plus three reference lists it looks up against
+// (Employees, Products, Remarks), all editable in-app.
+//
+// Two things about this data are load-bearing and easy to get wrong:
+//
+//  1. Graph returns single-value lookups under `<Field>LookupId` ONLY — there
+//     is no `LookupValue` in the `expand=fields` payload. Every display name
+//     has to be joined client-side against the reference lists, which is why
+//     `listTeradyneLog()` fetches all four lists and hands back entries whose
+//     lookups are already resolved to `TeradyneRef`.
+//  2. `Title` on both the log and the Employees list is DERIVED. The app owns
+//     the format (see buildTeradyneLogTitle / buildTeradyneEmployeeTitle in
+//     src/lib/teradyneMapper.ts) and writes it on every create/update, the
+//     same way it owns `NumberedTitle` on Engineering tasks.
+// =============================================================================
+
+/** A resolved single-value lookup — the target item's SP id plus its Title. */
+export interface TeradyneRef {
+  lookupId: number;
+  title: string;
+}
+
+/** One row of the Teradyne Log, with its four lookups already resolved. */
+export interface TeradyneLogEntry {
+  id: number;
+  /** App-derived: "{Product} - {Defective Parts}". Not user-editable. */
+  title: string;
+  enterDate: Date | null;
+  product: TeradyneRef | null;
+  employee1: TeradyneRef | null;
+  employee2: TeradyneRef | null;
+  remark: TeradyneRef | null;
+  /** Denormalised copy of the picked employee's ClockNum, as the source data does it. */
+  employee1Clock: number | null;
+  employee2Clock: number | null;
+  defectiveParts: string;
+  numberOfBoards: number | null;
+  boardsTested: number | null;
+  failuresPerBoard: number | null;
+  sapNumber: string;
+  oldSapNumber: string;
+  operatorNotes: string;
+  createdAt: Date;
+  modifiedAt: Date;
+}
+
+/** Everything a create/update of a log entry needs. `title` is computed, never passed. */
+export interface TeradyneLogInput {
+  enterDate: Date | null;
+  productLookupId: number | null;
+  employee1LookupId: number | null;
+  employee2LookupId: number | null;
+  remarkLookupId: number | null;
+  employee1Clock: number | null;
+  employee2Clock: number | null;
+  defectiveParts: string;
+  numberOfBoards: number | null;
+  boardsTested: number | null;
+  failuresPerBoard: number | null;
+  sapNumber: string;
+  oldSapNumber: string;
+  operatorNotes: string;
+}
+
+/** Row in "Teradyne Employees". Title is derived from first + last name. */
+export interface TeradyneEmployee {
+  lookupId: number;
+  title: string;
+  firstName: string;
+  lastName: string;
+  clockNum: number | null;
+  workCenter: string;
+  /** Legacy id carried over from the imported source data. Read-only here. */
+  idEmp: number | null;
+}
+
+/** Row in "Teradyne Products". The Title column displays as "Product". */
+export interface TeradyneProduct {
+  lookupId: number;
+  title: string;
+  testOnStation: string;
+  /** Legacy id carried over from the imported source data. Read-only here. */
+  idProd: number | null;
+}
+
+/** Row in "Teradyne Remarks" — a canned defect description. */
+export interface TeradyneRemark {
+  lookupId: number;
+  title: string;
+  /** Legacy id carried over from the imported source data. Read-only here. */
+  idRem: number | null;
+}
+
+/** Which of the three reference lists a generic ref operation is targeting. */
+export const TERADYNE_REF_KINDS = ["employees", "products", "remarks"] as const;
+export type TeradyneRefKind = (typeof TERADYNE_REF_KINDS)[number];
+
+/** Union of the three reference row shapes. */
+export type TeradyneRefRow = TeradyneEmployee | TeradyneProduct | TeradyneRemark;
+
+/**
+ * Editable payload for a reference row. Which keys matter depends on the kind:
+ * employees use firstName/lastName/clockNum/workCenter (title is derived from
+ * the names), products use title + testOnStation, remarks use title only. The
+ * legacy IDEmp/IDProd/IDRem columns are deliberately NOT written — they belong
+ * to the original import, and new rows leave them blank.
+ */
+export interface TeradyneRefInput {
+  title: string;
+  firstName?: string;
+  lastName?: string;
+  clockNum?: number | null;
+  workCenter?: string;
+  testOnStation?: string;
+}
+
+// =============================================================================
 // Microsoft Graph response shapes — only the fields we touch
 // =============================================================================
 

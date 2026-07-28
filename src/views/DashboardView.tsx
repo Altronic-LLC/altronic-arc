@@ -6,6 +6,7 @@ import {
   BookUser,
   Building2,
   Calculator,
+  CircuitBoard,
   ClipboardCheck,
   Cog,
   Contact,
@@ -32,6 +33,7 @@ import { useEirs } from "@/hooks/useEirs";
 import { useTestSheets } from "@/hooks/useTestSheets";
 import { useProjectFolderEntries } from "@/hooks/useProjectFolders";
 import { useOperationsTasks } from "@/hooks/useOperationsTasks";
+import { useTeradyneLog } from "@/hooks/useTeradyne";
 import { useBuildRequests } from "@/hooks/useBuildRequests";
 import { usePanelOrders } from "@/hooks/usePanelOrders";
 import { usePanelTasks } from "@/hooks/usePanelTasks";
@@ -217,6 +219,15 @@ export function DashboardView() {
     error: operationsTasksErrorObj,
     refetch: refetchOperationsTasks,
   } = useOperationsTasks();
+  // Deliberately NOT part of the blocking loading gate below (same as Test
+  // Sheets and Project Folders): the Teradyne card filling in a moment late
+  // beats holding the whole dashboard on a fourth site's query.
+  const {
+    data: teradyneLog = [],
+    isError: teradyneError,
+    error: teradyneErrorObj,
+    refetch: refetchTeradyne,
+  } = useTeradyneLog();
   const {
     data: testSheets = [],
     isError: testSheetsError,
@@ -326,6 +337,20 @@ export function DashboardView() {
     }));
     return { count: active.length, segments };
   }, [operationsTasks, mine, myEmail, projectId]);
+
+  /**
+   * Teradyne isn't a workflow with statuses to break down — it's an append-only
+   * log — so the card reports recent throughput (entries in the last 30 days)
+   * rather than "open" work, and carries no status segments. The dashboard's
+   * Project and "mine" filters don't apply: the log references the Teradyne
+   * Products list, not a projects list, and records employees from its own
+   * Employees list rather than ARC sign-ins.
+   */
+  const teradyneCard = useMemo(() => {
+    const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const recent = teradyneLog.filter((e) => (e.enterDate?.getTime() ?? 0) >= cutoff);
+    return { count: recent.length, segments: [] as Segment[] };
+  }, [teradyneLog]);
 
   const testCount = useMemo(
     () =>
@@ -465,6 +490,13 @@ export function DashboardView() {
       failed: operationsTasksError,
       error: operationsTasksErrorObj,
       retry: refetchOperationsTasks,
+    },
+    {
+      name: "Teradyne Log",
+      dept: "Operations",
+      failed: teradyneError,
+      error: teradyneErrorObj,
+      retry: refetchTeradyne,
     },
     {
       name: "Test Sheets",
@@ -655,6 +687,15 @@ export function DashboardView() {
           unit="active"
           segments={operationsTaskCard.segments}
           onClick={() => navigate(operationsTasksUrl)}
+        />
+        <TypeCard
+          name="Teradyne Log"
+          icon={<CircuitBoard className="h-5 w-5" />}
+          tone="cooper-red"
+          count={teradyneCard.count}
+          unit="last 30 days"
+          segments={teradyneCard.segments}
+          onClick={() => navigate("/operations/teradyne")}
         />
         <PlaceholderCard name="Maintenance Tasks" icon={<Hammer className="h-5 w-5" />} />
       </DeptSection>

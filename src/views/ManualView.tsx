@@ -806,6 +806,127 @@ const SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: "teradyne-log",
+    title: "Teradyne Log",
+    group: "Operations",
+    keywords: [
+      "teradyne",
+      "teradyne log",
+      "board test",
+      "test log",
+      "pcb test",
+      "spea",
+      "test station",
+      "defective parts",
+      "boards tested",
+      "failures per board",
+      "clock number",
+      "employee clock",
+      "sap number",
+      "operator notes",
+      "remark",
+      "manage lists",
+      "teradyne employees",
+      "teradyne products",
+      "teradyne remarks",
+      "reference list",
+      "lookup list",
+    ],
+    searchText:
+      "Teradyne Log records board test failures off the Teradyne / Spea stations — the product tested, which parts were defective, a canned remark, board counts, SAP numbers, and up to two employees with their clock numbers. It's a table, not a detail page: rows are added and edited in a modal, and there are no comments or attachments. The entry's name is built automatically as 'Product - Defective Parts' — there's no name field to fill in. Picking an employee auto-fills their clock number, which you can override. Filter by Product, Remark, Employee, or free-text search; all filters live in the URL so a filtered view is shareable. The three lookup lists (Employees, Products, Remarks) are edited from the Manage lists menu on the Teradyne Log toolbar — any signed-in user can add or rename rows, no admin needed. A row already used by a log entry can't be deleted; rename it instead so past entries keep reading correctly.",
+    render: () => (
+      <>
+        <P>
+          <strong>Teradyne Log</strong> is where board test failures off the
+          Teradyne / Spea stations get recorded. Reach it from the{" "}
+          <strong>Teradyne Log</strong> card on the Dashboard, or the{" "}
+          <strong>Departments</strong> dropdown's Operations group.
+        </P>
+        <P>
+          It's deliberately a <strong>table</strong>, not a detail page — this
+          list gets appended to and scanned far more than it gets discussed, so
+          there are no comments and no attachments. Adding or editing a row
+          opens a form; everything else happens in the table.
+        </P>
+        <H3>Adding an entry</H3>
+        <P>
+          Click <strong>New entry</strong>. Enter Date defaults to today.{" "}
+          <strong>Product</strong> is the only required field, because it's half
+          of the entry's name.
+        </P>
+        <UL>
+          <LI>
+            <strong>The entry's name is built for you</strong> —{" "}
+            <em>Product - Defective Parts</em>, shown live in the form as you
+            type. There's no name box to fill in, and it can never drift from
+            the two fields it's made of.
+          </LI>
+          <LI>
+            <strong>Picking an employee fills in their clock number</strong>{" "}
+            from the Employees list. It stays editable, for the case where
+            someone clocked in under a different number.
+          </LI>
+          <LI>
+            <strong>Two employee slots</strong> — Employee 1 and Employee 2 are
+            separate fields, so a two-person test records both.
+          </LI>
+          <LI>
+            Leaving a number field blank clears it rather than writing a zero.
+          </LI>
+        </UL>
+        <H3>Finding entries</H3>
+        <P>
+          Filter by <strong>Product</strong>, <strong>Remark</strong>, or{" "}
+          <strong>Employee</strong> (each accepts several values), and search
+          across everything — including SAP numbers and operator notes. Adding
+          more words narrows the results. Every filter lives in the URL, so you
+          can send someone a link to exactly what you're looking at. The line
+          above the table totals the defective and tested boards for whatever
+          is currently showing.
+        </P>
+        <P>
+          Operator notes aren't a table column — open the entry with the pencil
+          to read them.
+        </P>
+        <H3>Editing and deleting</H3>
+        <P>
+          Hover a row for the pencil (edit) and bin (delete) buttons. Deleting
+          asks first and can't be undone from the app.
+        </P>
+        <H3>Manage lists — Employees, Products, Remarks</H3>
+        <P>
+          The Product, Employee and Remark dropdowns are fed by three
+          SharePoint lists, and you maintain them yourself from{" "}
+          <strong>Manage lists</strong> on the Teradyne Log toolbar. No admin
+          rights needed — the people running the tester are the ones who know
+          when a new product or remark is required.
+        </P>
+        <UL>
+          <LI>
+            <strong>Employees</strong> — first name, last name, clock number,
+            work center. The displayed name is built from the first and last
+            name, so renaming someone updates them everywhere the log shows
+            them.
+          </LI>
+          <LI>
+            <strong>Products</strong> — the product name (keep it as it appears
+            on the tester, since it's half of every entry's name) and which
+            station it's tested on.
+          </LI>
+          <LI>
+            <strong>Remarks</strong> — the canned failure descriptions. Add one
+            and it's immediately available on the log.
+          </LI>
+        </UL>
+        <P>
+          Each row shows how many log entries use it. A row that's{" "}
+          <strong>in use can't be deleted</strong> — edit it instead, so past
+          entries keep reading correctly. Only unused rows offer the bin.
+        </P>
+      </>
+    ),
+  },
+  {
     id: "panel-orders",
     title: "Panel Orders",
     group: "Panels",
