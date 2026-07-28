@@ -974,7 +974,11 @@ export interface TeradyneProduct {
 export interface TeradyneRemark {
   lookupId: number;
   title: string;
-  /** Legacy id carried over from the imported source data. Read-only here. */
+  /**
+   * The remark's number — the code operators know a remark by. Unlike the
+   * Employees/Products legacy ids, this one IS user-maintained: it's set when
+   * adding a remark and editable afterwards.
+   */
   idRem: number | null;
 }
 
@@ -988,9 +992,11 @@ export type TeradyneRefRow = TeradyneEmployee | TeradyneProduct | TeradyneRemark
 /**
  * Editable payload for a reference row. Which keys matter depends on the kind:
  * employees use firstName/lastName/clockNum/workCenter (title is derived from
- * the names), products use title + testOnStation, remarks use title only. The
- * legacy IDEmp/IDProd/IDRem columns are deliberately NOT written — they belong
- * to the original import, and new rows leave them blank.
+ * the names), products use title + testOnStation, remarks use title + idRem.
+ *
+ * `IDEmp` and `IDProd` are deliberately NOT writable — they belong to the
+ * original import and new rows leave them blank. `IDRem` is the exception: the
+ * remark number is a code operators use, so they set and edit it here.
  */
 export interface TeradyneRefInput {
   title: string;
@@ -999,6 +1005,8 @@ export interface TeradyneRefInput {
   clockNum?: number | null;
   workCenter?: string;
   testOnStation?: string;
+  /** Remarks only — the remark's number. */
+  idRem?: number | null;
 }
 
 // =============================================================================

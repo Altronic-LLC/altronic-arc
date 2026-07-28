@@ -20,6 +20,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.69.0",
+    date: "2026-07-28",
+    changes: [
+      "Clock numbers on a Teradyne log entry are now view-only — they fill in from the employee you pick and are maintained in one place, under Manage lists → Employees",
+      "If a picked employee has no clock number, the entry now says so instead of showing an empty box",
+      "Teradyne Remarks now show their remark number, and you enter one when adding a remark",
+      "A remark's number can be corrected later with the pencil, and remarks without a number are clearly marked",
+    ],
+  },
+  {
     version: "0.68.2",
     date: "2026-07-28",
     changes: [

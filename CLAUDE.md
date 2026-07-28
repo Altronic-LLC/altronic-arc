@@ -521,6 +521,20 @@ search box stutter. Filters and totals always run over the full log — only the
 rows put in the DOM are capped. If this ever needs true paging, that's the
 place to start.
 
+**Clock numbers are read-only on the log form.** `Employee1Clock` /
+`Employee2Clock` are real columns the app writes, but they're derived from the
+picked employee's `ClockNum` and rendered as a display box, not an input — the
+clock number belongs to the employee, maintained once on the Employees list.
+The value is seeded from the entry being edited rather than re-derived on open,
+so an old entry keeps the clock number it was logged with.
+
+**`IDRem` is writable; `IDEmp` and `IDProd` are not.** The remark number is a
+code operators use, so it's entered when adding a remark and editable after —
+which is why `readOnlyLegacyIdOf` in `teradyneRefs.ts` deliberately omits
+`idRem` (re-applying the old value after an edit would silently revert it).
+Employee and product legacy ids stay read-only import artefacts. Remark numbers
+are NOT enforced unique — SharePoint doesn't, and no rule was specified.
+
 The three reference lists are editable by **any signed-in user** from the
 "Manage lists" menu on the Teradyne Log — no admin gate, by design. Deleting a
 row is blocked while the log still references it (`useTeradyneRefUsage`), since

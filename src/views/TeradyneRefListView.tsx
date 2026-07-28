@@ -17,7 +17,9 @@ import {
   type TeradyneRefInput,
   type TeradyneRefKind,
   type TeradyneRefRow,
+  type TeradyneRemark,
 } from "@/types/task";
+import { cn } from "@/lib/cn";
 
 // =============================================================================
 // Manage one of the three Teradyne reference lists (Employees / Products /
@@ -39,7 +41,7 @@ interface KindConfig {
   singular: string;
   blurb: string;
   /** Which editable fields this list shows. */
-  fields: Array<"name" | "firstLast" | "clockNum" | "workCenter" | "testOnStation">;
+  fields: Array<"name" | "firstLast" | "clockNum" | "workCenter" | "testOnStation" | "remarkNo">;
 }
 
 const KINDS: Record<TeradyneRefKind, KindConfig> = {
@@ -61,8 +63,8 @@ const KINDS: Record<TeradyneRefKind, KindConfig> = {
     title: "Teradyne Remarks",
     singular: "remark",
     blurb:
-      "The canned failure descriptions operators pick from. Add one here and it's immediately available on the log.",
-    fields: ["name"],
+      "The canned failure descriptions operators pick from, each with its remark number. Add one here and it's immediately available on the log.",
+    fields: ["remarkNo", "name"],
   },
 };
 
@@ -71,6 +73,9 @@ function isEmployee(row: TeradyneRefRow): row is TeradyneEmployee {
 }
 function isProduct(row: TeradyneRefRow): row is TeradyneProduct {
   return "testOnStation" in row;
+}
+function isRemark(row: TeradyneRefRow): row is TeradyneRemark {
+  return "idRem" in row;
 }
 
 export function TeradyneRefListView() {
@@ -165,6 +170,23 @@ function RefList({ kind }: { kind: TeradyneRefKind }) {
         </h2>
         <form onSubmit={handleCreate} className="flex flex-col gap-2">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+            {config.fields.includes("remarkNo") && (
+              <Labelled label="Number" className="sm:w-24">
+                <input
+                  type="number"
+                  value={draft.idRem ?? ""}
+                  onChange={(e) =>
+                    setDraft({
+                      ...draft,
+                      idRem: e.target.value === "" ? null : Number(e.target.value),
+                    })
+                  }
+                  placeholder="e.g. 21"
+                  className="select"
+                  disabled={createRef.isPending}
+                />
+              </Labelled>
+            )}
             {config.fields.includes("firstLast") && (
               <>
                 <Labelled label="First name" className="flex-1">
@@ -300,6 +322,7 @@ function emptyInput(): TeradyneRefInput {
     clockNum: null,
     workCenter: "",
     testOnStation: "",
+    idRem: null,
   };
 }
 
@@ -311,6 +334,7 @@ function rowToInput(row: TeradyneRefRow): TeradyneRefInput {
     clockNum: isEmployee(row) ? row.clockNum : null,
     workCenter: isEmployee(row) ? row.workCenter : "",
     testOnStation: isProduct(row) ? row.testOnStation : "",
+    idRem: isRemark(row) ? row.idRem : null,
   };
 }
 
@@ -350,6 +374,19 @@ function RefRow({
   if (editing) {
     return (
       <div className="flex flex-wrap items-center gap-2 rounded-md border border-accent/50 bg-surface px-2 py-1.5">
+        {config.fields.includes("remarkNo") && (
+          <input
+            type="number"
+            value={draft.idRem ?? ""}
+            onChange={(e) =>
+              setDraft({ ...draft, idRem: e.target.value === "" ? null : Number(e.target.value) })
+            }
+            onKeyDown={(e) => e.key === "Escape" && setEditing(false)}
+            aria-label="Remark number"
+            placeholder="No."
+            className="w-16 shrink-0 rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+          />
+        )}
         {config.fields.includes("firstLast") && (
           <>
             <input
@@ -437,7 +474,27 @@ function RefRow({
   return (
     <div className="group flex items-center justify-between gap-2 rounded-md border border-border bg-surface px-3 py-2 transition-colors hover:border-fg-muted hover:bg-surface-2">
       <div className="min-w-0 flex-1 text-left">
-        <span className="block truncate text-sm font-medium text-fg">{row.title || "(no name)"}</span>
+        <span className="flex items-center gap-2">
+          {/* Remarks lead with their number — that's the code operators know a
+              remark by. Distinct from the small #id chip on the right, which is
+              the SharePoint item id the log actually points at. */}
+          {isRemark(row) && (
+            <span
+              className={cn(
+                "shrink-0 rounded px-1.5 py-0.5 font-mono text-[11px]",
+                row.idRem != null
+                  ? "bg-surface-2 text-fg"
+                  : "border border-dashed border-border text-fg-muted",
+              )}
+              title={row.idRem != null ? `Remark number ${row.idRem}` : "No remark number set"}
+            >
+              {row.idRem ?? "—"}
+            </span>
+          )}
+          <span className="min-w-0 truncate text-sm font-medium text-fg">
+            {row.title || "(no name)"}
+          </span>
+        </span>
         {meta.length > 0 && (
           <span className="mt-0.5 block truncate text-xs text-fg-muted">{meta.join(" · ")}</span>
         )}

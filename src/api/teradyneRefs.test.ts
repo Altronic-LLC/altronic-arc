@@ -6,7 +6,7 @@ import {
   listTeradyneRefs,
   updateTeradyneRef,
 } from "./teradyneRefs";
-import type { TeradyneEmployee, TeradyneProduct } from "@/types/task";
+import type { TeradyneEmployee, TeradyneProduct, TeradyneRemark } from "@/types/task";
 
 // USE_MOCK is true under Vitest — these exercise the in-memory reference stores.
 
@@ -42,20 +42,33 @@ describe("REF_LISTS write payloads", () => {
     ).toBeNull();
   });
 
-  it("writes only Title + station for products, and only Title for remarks", () => {
+  it("writes only Title + station for products", () => {
     expect(REF_LISTS.products.writeFields({ title: " SAVES ", testOnStation: " Spea " })).toEqual({
       Title: "SAVES",
       TestOnStation: "Spea",
     });
-    expect(REF_LISTS.remarks.writeFields({ title: " Solder bridge " })).toEqual({
+  });
+
+  it("writes the remark's number alongside its title", () => {
+    expect(REF_LISTS.remarks.writeFields({ title: " Solder bridge ", idRem: 21 })).toEqual({
       Title: "Solder bridge",
+      IDRem: 21,
     });
   });
 
-  it("never writes the legacy import ids — they belong to the original data", () => {
-    for (const kind of ["employees", "products", "remarks"] as const) {
+  it("writes a remark with no number as null, not 0", () => {
+    expect(REF_LISTS.remarks.writeFields({ title: "Unnumbered" }).IDRem).toBeNull();
+    expect(REF_LISTS.remarks.writeFields({ title: "Cleared", idRem: null }).IDRem).toBeNull();
+  });
+
+  it("accepts 0 as a remark number — the real data has one", () => {
+    expect(REF_LISTS.remarks.writeFields({ title: "------", idRem: 0 }).IDRem).toBe(0);
+  });
+
+  it("never writes the read-only legacy ids on employees or products", () => {
+    for (const kind of ["employees", "products"] as const) {
       const keys = Object.keys(REF_LISTS[kind].writeFields({ title: "x" }));
-      expect(keys.some((k) => /^ID(Emp|Prod|Rem)$/.test(k))).toBe(false);
+      expect(keys.some((k) => /^ID(Emp|Prod)$/.test(k))).toBe(false);
     }
   });
 });
@@ -97,8 +110,40 @@ describe("createTeradyneRef / updateTeradyneRef / deleteTeradyneRef (mock)", () 
     expect(product.title).toBe("New Board 12");
     expect(product.testOnStation).toBe("Spea");
 
-    const remark = await createTeradyneRef("remarks", { title: "Tombstoned part" });
+    const remark = (await createTeradyneRef("remarks", {
+      title: "Tombstoned part",
+      idRem: 42,
+    })) as TeradyneRemark;
     expect(remark.title).toBe("Tombstoned part");
+    expect(remark.idRem).toBe(42);
+  });
+
+  it("keeps a remark's number editable, unlike the employee/product legacy ids", async () => {
+    const created = (await createTeradyneRef("remarks", {
+      title: "Renumber me",
+      idRem: 7,
+    })) as TeradyneRemark;
+
+    const updated = (await updateTeradyneRef("remarks", created.lookupId, {
+      title: "Renumber me",
+      idRem: 8,
+    })) as TeradyneRemark;
+    expect(updated.idRem).toBe(8);
+
+    const rows = (await listTeradyneRefs("remarks")) as TeradyneRemark[];
+    expect(rows.find((r) => r.lookupId === created.lookupId)?.idRem).toBe(8);
+  });
+
+  it("can clear a remark's number back to blank", async () => {
+    const created = (await createTeradyneRef("remarks", {
+      title: "Numberless soon",
+      idRem: 9,
+    })) as TeradyneRemark;
+    const updated = (await updateTeradyneRef("remarks", created.lookupId, {
+      title: "Numberless soon",
+      idRem: null,
+    })) as TeradyneRemark;
+    expect(updated.idRem).toBeNull();
   });
 
   it("renames a row and keeps the legacy import id intact", async () => {

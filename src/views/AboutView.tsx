@@ -556,7 +556,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title", type: "text", kind: "field" },
-      { name: "idRem (legacy)", type: "number", kind: "field" },
+      { name: "idRem (remark no.)", type: "number", kind: "field" },
     ],
   },
 ];

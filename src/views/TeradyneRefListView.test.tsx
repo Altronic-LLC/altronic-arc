@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
 import { TeradyneRefListView } from "./TeradyneRefListView";
@@ -64,15 +64,48 @@ describe("TeradyneRefListView — products and remarks", () => {
     expect(screen.getAllByText("Spea").length).toBeGreaterThan(0);
   });
 
-  it("adds a remark from a single field", async () => {
+  it("adds a remark with its number", async () => {
     await renderKind("remarks");
+    await userEvent.type(screen.getByLabelText(/^number$/i), "42");
     await userEvent.type(screen.getByLabelText(/^remark$/i), "Tombstoned part");
     await userEvent.click(screen.getByRole("button", { name: /^add$/i }));
-    expect(await screen.findByText("Tombstoned part")).toBeInTheDocument();
+
+    const row = (await screen.findByText("Tombstoned part")).closest("div")!;
+    expect(within(row).getByText("42")).toBeInTheDocument();
   });
 
-  it("keeps Add disabled until something is typed", async () => {
+  it("adds a remark with no number, showing a placeholder in its place", async () => {
     await renderKind("remarks");
+    await userEvent.type(screen.getByLabelText(/^remark$/i), "No number given");
+    await userEvent.click(screen.getByRole("button", { name: /^add$/i }));
+
+    const row = (await screen.findByText("No number given")).closest("div")!;
+    expect(within(row).getByTitle(/no remark number set/i)).toBeInTheDocument();
+  });
+
+  it("shows each existing remark's number", async () => {
+    await renderKind("remarks");
+    const row = (await screen.findByText("Wrong board")).closest("div")!;
+    // "Wrong board" is IDRem 4 in the fixture.
+    expect(within(row).getByTitle(/remark number 4/i)).toBeInTheDocument();
+  });
+
+  it("edits a remark's number in place", async () => {
+    await renderKind("remarks");
+    await userEvent.click(await screen.findByRole("button", { name: /edit Cold joint/i }));
+    const numberField = screen.getByLabelText(/remark number/i);
+    await userEvent.clear(numberField);
+    await userEvent.type(numberField, "99");
+    await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+    const row = (await screen.findByText("Cold joint")).closest("div")!;
+    await waitFor(() => expect(within(row).getByText("99")).toBeInTheDocument());
+  });
+
+  it("keeps Add disabled until a remark description is typed — the number alone isn't enough", async () => {
+    await renderKind("remarks");
+    expect(screen.getByRole("button", { name: /^add$/i })).toBeDisabled();
+    await userEvent.type(screen.getByLabelText(/^number$/i), "7");
     expect(screen.getByRole("button", { name: /^add$/i })).toBeDisabled();
     await userEvent.type(screen.getByLabelText(/^remark$/i), "x");
     expect(screen.getByRole("button", { name: /^add$/i })).toBeEnabled();

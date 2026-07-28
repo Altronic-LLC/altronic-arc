@@ -23,11 +23,11 @@ async function pick(label: RegExp, option: RegExp) {
   await userEvent.click(await screen.findByRole("option", { name: option }));
 }
 
-function clockInput(which: 1 | 2): HTMLInputElement {
+/** The clock number is displayed, not editable — read its rendered text. */
+function clockText(which: 1 | 2): string {
   const label = which === 1 ? /employee 1 clock/i : /employee 2 clock/i;
-  return within(screen.getByText(label).closest("label")!).getByRole(
-    "spinbutton",
-  ) as HTMLInputElement;
+  const field = screen.getByText(label).closest("label")!;
+  return within(field).getByRole("status").textContent ?? "";
 }
 
 async function renderForm() {
@@ -42,10 +42,10 @@ async function renderForm() {
 describe("TeradyneLogFormModal — clock auto-fill", () => {
   it("fills Employee 1 Clock from the employee's record when one is picked", async () => {
     await renderForm();
-    expect(clockInput(1).value).toBe("");
+    expect(clockText(1)).toMatch(/pick an employee/i);
 
     await pick(/^employee 1$/i, /Melissa Fuentes/);
-    await waitFor(() => expect(clockInput(1).value).toBe("88"));
+    await waitFor(() => expect(clockText(1)).toBe("88"));
   });
 
   it("fills the Employee 2 slot independently of Employee 1", async () => {
@@ -53,38 +53,38 @@ describe("TeradyneLogFormModal — clock auto-fill", () => {
     await pick(/^employee 1$/i, /Melissa Fuentes/);
     await pick(/^employee 2$/i, /Dave Anderson/);
 
-    await waitFor(() => expect(clockInput(2).value).toBe("312"));
+    await waitFor(() => expect(clockText(2)).toBe("312"));
     // Slot 1 untouched by slot 2's pick.
-    expect(clockInput(1).value).toBe("88");
+    expect(clockText(1)).toBe("88");
   });
 
   it("replaces the clock number when the employee is changed", async () => {
     await renderForm();
     await pick(/^employee 1$/i, /Melissa Fuentes/);
-    await waitFor(() => expect(clockInput(1).value).toBe("88"));
+    await waitFor(() => expect(clockText(1)).toBe("88"));
 
     await pick(/^employee 1$/i, /Sandy Bindas/);
-    await waitFor(() => expect(clockInput(1).value).toBe("189"));
+    await waitFor(() => expect(clockText(1)).toBe("189"));
   });
 
   it("clears the clock number when the employee is cleared", async () => {
     await renderForm();
     await pick(/^employee 1$/i, /Melissa Fuentes/);
-    await waitFor(() => expect(clockInput(1).value).toBe("88"));
+    await waitFor(() => expect(clockText(1)).toBe("88"));
 
     // Re-picking the selected option clears a SingleSelect.
     await pick(/^employee 1$/i, /Melissa Fuentes/);
-    await waitFor(() => expect(clockInput(1).value).toBe(""));
+    await waitFor(() => expect(clockText(1)).toMatch(/pick an employee/i));
   });
 
-  it("still lets the clock number be overridden by hand after auto-filling", async () => {
+  it("offers no way to type a clock number — it belongs to the employee record", async () => {
     await renderForm();
     await pick(/^employee 1$/i, /Melissa Fuentes/);
-    await waitFor(() => expect(clockInput(1).value).toBe("88"));
+    await waitFor(() => expect(clockText(1)).toBe("88"));
 
-    await userEvent.clear(clockInput(1));
-    await userEvent.type(clockInput(1), "777");
-    expect(clockInput(1).value).toBe("777");
+    const field = screen.getByText(/employee 1 clock/i).closest("label")!;
+    expect(within(field).queryByRole("spinbutton")).not.toBeInTheDocument();
+    expect(within(field).queryByRole("textbox")).not.toBeInTheDocument();
   });
 });
 

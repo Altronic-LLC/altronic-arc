@@ -833,7 +833,7 @@ const SECTIONS: ManualSection[] = [
       "lookup list",
     ],
     searchText:
-      "The table shows the newest 200 matching entries with a Show all button underneath, so searching stays quick on a log thousands of rows deep; filters and totals always cover the whole log. Teradyne Log records board test failures off the Teradyne / Spea stations — the product tested, which parts were defective, a canned remark, board counts, SAP numbers, and up to two employees with their clock numbers. It's a table, not a detail page: rows are added and edited in a modal, and there are no comments or attachments. The entry's name is built automatically as 'Product - Defective Parts' — there's no name field to fill in. Picking an employee auto-fills their clock number, which you can override. Filter by Product, Remark, Employee, or free-text search; all filters live in the URL so a filtered view is shareable. The three lookup lists (Employees, Products, Remarks) are edited from the Manage lists menu on the Teradyne Log toolbar — any signed-in user can add or rename rows, no admin needed. A row already used by a log entry can't be deleted; rename it instead so past entries keep reading correctly.",
+      "The table shows the newest 200 matching entries with a Show all button underneath, so searching stays quick on a log thousands of rows deep; filters and totals always cover the whole log. Teradyne Log records board test failures off the Teradyne / Spea stations — the product tested, which parts were defective, a canned remark, board counts, SAP numbers, and up to two employees with their clock numbers. It's a table, not a detail page: rows are added and edited in a modal, and there are no comments or attachments. The entry's name is built automatically as 'Product - Defective Parts' — there's no name field to fill in. Picking an employee fills in their clock number, which is displayed read-only — clock numbers are maintained on the Employees list, not per entry. Remarks carry a remark number you enter when adding one and can edit afterwards. Filter by Product, Remark, Employee, or free-text search; all filters live in the URL so a filtered view is shareable. The three lookup lists (Employees, Products, Remarks) are edited from the Manage lists menu on the Teradyne Log toolbar — any signed-in user can add or rename rows, no admin needed. A row already used by a log entry can't be deleted; rename it instead so past entries keep reading correctly.",
     render: () => (
       <>
         <P>
@@ -863,8 +863,11 @@ const SECTIONS: ManualSection[] = [
           </LI>
           <LI>
             <strong>Picking an employee fills in their clock number</strong>{" "}
-            from the Employees list. It stays editable, for the case where
-            someone clocked in under a different number.
+            from the Employees list. It's shown but not typeable — a clock number
+            belongs to the employee, so you change it once under{" "}
+            <em>Manage lists → Employees</em> rather than per entry. If the box
+            says "No clock number on this employee", that employee's row needs
+            one filled in.
           </LI>
           <LI>
             <strong>Two employee slots</strong> — Employee 1 and Employee 2 are
@@ -921,8 +924,13 @@ const SECTIONS: ManualSection[] = [
             station it's tested on.
           </LI>
           <LI>
-            <strong>Remarks</strong> — the canned failure descriptions. Add one
-            and it's immediately available on the log.
+            <strong>Remarks</strong> — the canned failure descriptions, each with
+            its <strong>remark number</strong>. Enter the number alongside the
+            description when adding one, and correct it later with the pencil.
+            The number shows as a badge at the front of each row; the smaller
+            grey <code>#n</code> on the right is SharePoint's own item id, not
+            the remark number. A remark with no number shows a dashed
+            placeholder. Add one and it's immediately available on the log.
           </LI>
         </UL>
         <P>

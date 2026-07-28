@@ -28,9 +28,11 @@ interface TeradyneLogFormModalProps {
  *  - The log's `Title` is app-derived ("{Product} - {Defective Parts}"), so
  *    there's no Title input; the computed value is previewed instead, which
  *    makes it obvious why picking a product changes the row label.
- *  - Picking an employee auto-fills their clock number, because the log stores
- *    a denormalised copy of it (that's how the source data does it). The field
- *    stays editable for the case where someone clocked in under another number.
+ *  - Picking an employee fills in their clock number, because the log stores a
+ *    denormalised copy of it (that's how the source data does it). It's shown
+ *    read-only: the clock number belongs to the employee, so it's maintained
+ *    once on Manage lists → Employees rather than retyped per entry, where it
+ *    could silently disagree with the employee record.
  */
 export function TeradyneLogFormModal({ entry, onClose }: TeradyneLogFormModalProps) {
   const isEdit = entry != null;
@@ -94,7 +96,13 @@ export function TeradyneLogFormModal({ entry, onClose }: TeradyneLogFormModalPro
   );
   const previewTitle = buildTeradyneLogTitle(productTitle, defectiveParts);
 
-  /** Pick an employee → fill that slot's clock number from their record. */
+  /**
+   * Pick an employee → fill that slot's clock number from their record.
+   *
+   * The clock state is seeded from the entry being edited rather than re-derived
+   * on open, so an old entry keeps the clock number it was logged with; it only
+   * changes when someone actually changes the employee on the entry.
+   */
   function pickEmployee(slot: 1 | 2, value: string | null) {
     const setId = slot === 1 ? setEmployee1Id : setEmployee2Id;
     const setClock = slot === 1 ? setEmployee1Clock : setEmployee2Clock;
@@ -253,13 +261,7 @@ export function TeradyneLogFormModal({ entry, onClose }: TeradyneLogFormModalPro
               />
             </FieldLabel>
             <FieldLabel label="Employee 1 Clock">
-              <input
-                type="number"
-                value={employee1Clock}
-                onChange={(e) => setEmployee1Clock(e.target.value)}
-                className="select"
-                disabled={busy}
-              />
+              <ReadOnlyClock value={employee1Clock} hasEmployee={employee1Id !== null} />
             </FieldLabel>
           </div>
 
@@ -277,13 +279,7 @@ export function TeradyneLogFormModal({ entry, onClose }: TeradyneLogFormModalPro
               />
             </FieldLabel>
             <FieldLabel label="Employee 2 Clock">
-              <input
-                type="number"
-                value={employee2Clock}
-                onChange={(e) => setEmployee2Clock(e.target.value)}
-                className="select"
-                disabled={busy}
-              />
+              <ReadOnlyClock value={employee2Clock} hasEmployee={employee2Id !== null} />
             </FieldLabel>
           </div>
 
@@ -374,6 +370,30 @@ export function TeradyneLogFormModal({ entry, onClose }: TeradyneLogFormModalPro
           </div>
         </form>
       </div>
+    </div>
+  );
+}
+
+/**
+ * The clock number, shown but not editable — it comes from the employee's row
+ * on Manage lists → Employees. Rendered as a styled box rather than a disabled
+ * <input> so it doesn't look like a field someone failed to enable, and so it
+ * can explain itself when there's nothing to show.
+ */
+function ReadOnlyClock({ value, hasEmployee }: { value: string; hasEmployee: boolean }) {
+  return (
+    <div
+      // Announced to screen readers as a value, since there's no input to label.
+      role="status"
+      className="flex min-h-[38px] items-center rounded-md border border-border bg-surface-2 px-3 py-2 text-sm tabular-nums text-fg"
+    >
+      {value ? (
+        value
+      ) : (
+        <span className="text-xs text-fg-muted">
+          {hasEmployee ? "No clock number on this employee" : "Pick an employee"}
+        </span>
+      )}
     </div>
   );
 }

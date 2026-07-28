@@ -98,7 +98,12 @@ export const REF_LISTS: Record<TeradyneRefKind, RefListSpec> = {
     listId: SP_TERADYNE_REMARKS_LIST_ID,
     select: "Title,IDRem",
     toRow: toTeradyneRemark,
-    writeFields: (input) => ({ Title: input.title.trim() }),
+    // IDRem is writable here (unlike IDEmp/IDProd): the remark number is a code
+    // operators use, so they set it when adding and can correct it later.
+    writeFields: (input) => ({
+      Title: input.title.trim(),
+      IDRem: input.idRem ?? null,
+    }),
   },
 };
 
@@ -144,17 +149,23 @@ function mockRowFrom(kind: TeradyneRefKind, lookupId: number, input: TeradyneRef
       idProd: null,
     } satisfies TeradyneProduct;
   }
-  return { lookupId, title: input.title.trim(), idRem: null } satisfies TeradyneRemark;
+  return {
+    lookupId,
+    title: input.title.trim(),
+    idRem: input.idRem ?? null,
+  } satisfies TeradyneRemark;
 }
 
 /**
- * The legacy import id of a row, as a spreadable object — `{ idEmp: 2 }`,
- * `{ idProd: 208 }`, `{ idRem: 4 }`, or `{}` for a row that never had one.
+ * A row's READ-ONLY legacy import id, as a spreadable object — `{ idEmp: 2 }`,
+ * `{ idProd: 208 }`, or `{}`.
+ *
+ * `idRem` is deliberately absent: remark numbers are user-maintained, so
+ * re-applying the old value after an edit would silently revert the change.
  */
-function legacyIdOf(row: TeradyneRefRow): Partial<TeradyneRefRow> {
+function readOnlyLegacyIdOf(row: TeradyneRefRow): Partial<TeradyneRefRow> {
   if ("idEmp" in row) return { idEmp: row.idEmp };
   if ("idProd" in row) return { idProd: row.idProd };
-  if ("idRem" in row) return { idRem: row.idRem };
   return {};
 }
 
@@ -216,10 +227,11 @@ export async function updateTeradyneRef(
     if (idx < 0) throw new Error(`${spec.singular} ${lookupId} not found`);
     const existing = store[idx];
     const next = mockRowFrom(kind, lookupId, input);
-    // Preserve the legacy import ids. mockRowFrom sets them to null (new rows
-    // don't get one), so they have to be re-applied AFTER the spread or an edit
-    // would blank the id the imported row came in with.
-    const merged = { ...existing, ...next, ...legacyIdOf(existing) } as TeradyneRefRow;
+    // Preserve the read-only legacy ids. mockRowFrom sets them to null (new
+    // rows don't get one), so they have to be re-applied AFTER the spread or an
+    // edit would blank the id the imported row came in with. Remark numbers are
+    // NOT in there — those come from the input, because users maintain them.
+    const merged = { ...existing, ...next, ...readOnlyLegacyIdOf(existing) } as TeradyneRefRow;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (store as any[])[idx] = merged;
     return delay({ ...merged });
