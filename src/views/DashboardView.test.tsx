@@ -6,6 +6,7 @@ import { MOCK_TASKS, MOCK_EIRS, MOCK_TEST_SHEETS, MOCK_PROJECTS } from "@/data/m
 import { MOCK_OPERATIONS_TASKS } from "@/data/operationsMockData";
 import { MOCK_BUILD_REQUESTS } from "@/data/buildRequestMockData";
 import { MOCK_PANEL_ORDERS, MOCK_PANEL_TASKS } from "@/data/panelMockData";
+import { MOCK_TERADYNE_LOG } from "@/data/teradyneMockData";
 import { listProjectFolderEntries } from "@/api/projectFiles";
 
 const mockNavigate = vi.fn();
@@ -27,6 +28,7 @@ const BUILD_REQUESTS_KEY = ["buildRequests", "list"] as const;
 const PANEL_ORDERS_KEY = ["panelOrders", "list"] as const;
 const PANEL_TASKS_KEY = ["panelTasks", "list"] as const;
 const FOLDER_ENTRIES_KEY = ["project-folder-entries", "root"] as const;
+const TERADYNE_LOG_KEY = ["teradyneLog"] as const;
 
 import { DashboardView } from "./DashboardView";
 
@@ -43,6 +45,7 @@ async function renderDashboard() {
       { key: PANEL_ORDERS_KEY, data: MOCK_PANEL_ORDERS },
       { key: PANEL_TASKS_KEY, data: MOCK_PANEL_TASKS },
       { key: FOLDER_ENTRIES_KEY, data: folderEntries },
+      { key: TERADYNE_LOG_KEY, data: MOCK_TERADYNE_LOG },
     ],
   });
 }
@@ -120,5 +123,32 @@ describe("DashboardView", () => {
     await user.click(screen.getByRole("button", { name: "0017-AMP-5000 Refresh" }));
     await user.click(screen.getByRole("option", { name: "0003-Engineering Task List" }));
     expect(bigCount(folderCard)).toHaveTextContent("0");
+  });
+});
+
+describe("DashboardView — the Teradyne Log card", () => {
+  const teradyneCard = () => screen.getByRole("button", { name: /Teradyne Log/i });
+
+  it("shows no status breakdown at all — the log has no active/done concept", async () => {
+    await renderDashboard();
+    const card = teradyneCard();
+
+    // The bug this guards: passing segments={[]} is truthy, so the status strip
+    // still renders and claims "Nothing active right now" on a list that has no
+    // statuses to be active in.
+    expect(within(card).queryByText(/nothing active right now/i)).not.toBeInTheDocument();
+    expect(card.querySelector(".rounded-full")).toBeNull();
+  });
+
+  it("reports recent throughput rather than open work", async () => {
+    await renderDashboard();
+    expect(within(teradyneCard()).getByText(/last 30 days/i)).toBeInTheDocument();
+  });
+
+  it("links straight to the log", async () => {
+    const user = userEvent.setup();
+    await renderDashboard();
+    await user.click(teradyneCard());
+    expect(mockNavigate).toHaveBeenCalledWith("/operations/teradyne");
   });
 });

@@ -341,15 +341,18 @@ export function DashboardView() {
   /**
    * Teradyne isn't a workflow with statuses to break down — it's an append-only
    * log — so the card reports recent throughput (entries in the last 30 days)
-   * rather than "open" work, and carries no status segments. The dashboard's
-   * Project and "mine" filters don't apply: the log references the Teradyne
-   * Products list, not a projects list, and records employees from its own
-   * Employees list rather than ARC sign-ins.
+   * rather than "open" work, and has NO status segments at all. It deliberately
+   * returns a bare count and the card omits TypeCard's `segments` prop: passing
+   * an empty array still renders MiniBar, which then claims "Nothing active
+   * right now" — meaningless for a list that has no active/done concept.
+   *
+   * The dashboard's Project and "mine" filters don't apply either: the log
+   * references the Teradyne Products list, not a projects list, and records
+   * employees from its own Employees list rather than ARC sign-ins.
    */
-  const teradyneCard = useMemo(() => {
+  const teradyneRecentCount = useMemo(() => {
     const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
-    const recent = teradyneLog.filter((e) => (e.enterDate?.getTime() ?? 0) >= cutoff);
-    return { count: recent.length, segments: [] as Segment[] };
+    return teradyneLog.filter((e) => (e.enterDate?.getTime() ?? 0) >= cutoff).length;
   }, [teradyneLog]);
 
   const testCount = useMemo(
@@ -692,9 +695,9 @@ export function DashboardView() {
           name="Teradyne Log"
           icon={<CircuitBoard className="h-5 w-5" />}
           tone="cooper-red"
-          count={teradyneCard.count}
+          count={teradyneRecentCount}
           unit="last 30 days"
-          segments={teradyneCard.segments}
+          // No `segments` — see teradyneRecentCount above.
           onClick={() => navigate("/operations/teradyne")}
         />
         <PlaceholderCard name="Maintenance Tasks" icon={<Hammer className="h-5 w-5" />} />

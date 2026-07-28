@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.69.1",
+    date: "2026-07-28",
+    changes: [
+      "The Dashboard's Teradyne Log card no longer shows an empty status bar reading \"Nothing active right now\" — the log is a record of what happened, not open work with statuses",
+    ],
+  },
+  {
     version: "0.69.0",
     date: "2026-07-28",
     changes: [
