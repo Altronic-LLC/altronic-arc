@@ -3,9 +3,11 @@ import {
   buildLogWriteFields,
   createTeradyneLogEntry,
   deleteTeradyneLogEntry,
+  encodeFilter,
   entryInScope,
   listTeradyneLog,
   listTeradyneLookupUsage,
+  scopeFilterVariants,
   updateTeradyneLogEntry,
 } from "./teradyneLog";
 import type { TeradyneLogEntry, TeradyneLogInput } from "@/types/task";
@@ -130,6 +132,50 @@ describe("listTeradyneLog (mock)", () => {
     // path can admit when it had to fall back to filtering in the browser.
     const { filteredServerSide } = await listTeradyneLog({ kind: "year", year: 2026 });
     expect(filteredServerSide).toBe(true);
+  });
+});
+
+describe("scopeFilterVariants", () => {
+  it("tries the BARE OData datetime literal first", () => {
+    // This is the bug that shipped in v0.72.0: quoting a datetime makes it a
+    // string literal, SharePoint rejects the comparison, and the log silently
+    // fell back to downloading every row — on a list of 2,926, well under the
+    // 5,000 threshold where indexing is the usual culprit.
+    const [first] = scopeFilterVariants({ kind: "year", year: 2026 });
+    expect(first).toBe(
+      "fields/EnterDate ge 2026-01-01T00:00:00Z and fields/EnterDate lt 2027-01-01T00:00:00Z",
+    );
+    expect(first).not.toContain("'");
+  });
+
+  it("keeps a quoted form as a second attempt", () => {
+    const variants = scopeFilterVariants({ kind: "year", year: 2026 });
+    expect(variants).toHaveLength(2);
+    expect(variants[1]).toContain("'2026-01-01T00:00:00Z'");
+  });
+
+  it("spans exactly one year, half-open so 31 Dec is in and 1 Jan next isn't", () => {
+    const [f] = scopeFilterVariants({ kind: "year", year: 2019 });
+    expect(f).toContain("ge 2019-01-01T00:00:00Z");
+    expect(f).toContain("lt 2020-01-01T00:00:00Z");
+  });
+
+  it("has nothing to filter for the all-years scope", () => {
+    expect(scopeFilterVariants({ kind: "all" })).toEqual([]);
+  });
+});
+
+describe("encodeFilter", () => {
+  it("escapes spaces but leaves OData literal punctuation intact", () => {
+    // encodeURIComponent would turn the colons into %3A, which some OData
+    // parsers reject outright.
+    const encoded = encodeFilter("fields/EnterDate ge 2026-01-01T00:00:00Z");
+    expect(encoded).toBe("fields/EnterDate%20ge%202026-01-01T00:00:00Z");
+    expect(encoded).not.toContain("%3A");
+  });
+
+  it("keeps quotes usable for the string-literal variant", () => {
+    expect(encodeFilter("a eq 'b c'")).toBe("a%20eq%20'b%20c'");
   });
 });
 

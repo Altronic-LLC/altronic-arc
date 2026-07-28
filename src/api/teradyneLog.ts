@@ -74,6 +74,11 @@ export interface TeradyneLogResult {
   filteredServerSide: boolean;
   /** Raw rows fetched, so the UI can show what the fallback actually cost. */
   fetchedRows: number;
+  /**
+   * Why the server-side filter was refused, when it was. Surfaced in the UI:
+   * "SharePoint said no" is only actionable if you can see what it said.
+   */
+  filterError?: string;
 }
 
 let mockStore: TeradyneLogEntry[] = MOCK_TERADYNE_LOG.map((e) => ({ ...e }));
@@ -91,12 +96,36 @@ export function entryInScope(entry: TeradyneLogEntry, scope: TeradyneLogScope): 
   return entry.enterDate.getUTCFullYear() === scope.year;
 }
 
-/** The `$filter` clause for a year, or "" for the all-time scope. */
-function scopeFilter(scope: TeradyneLogScope): string {
-  if (scope.kind === "all") return "";
+/**
+ * The filter forms to try, in order, before giving up and filtering locally.
+ *
+ * Graph is OData v4, where a DateTimeOffset literal is written BARE
+ * (`ge 2026-01-01T00:00:00Z`). Quoting it makes it a string literal and the
+ * comparison is rejected as a type mismatch — which is exactly what bit us
+ * first time round: the log fell back to downloading all 2,926 rows on a list
+ * well under SharePoint's 5,000-item threshold, so the index was never the
+ * problem. The quoted form is kept as a second attempt because some SharePoint
+ * columns surfaced through Graph do behave like text.
+ */
+export function scopeFilterVariants(scope: TeradyneLogScope): string[] {
+  if (scope.kind === "all") return [];
   const from = `${scope.year}-01-01T00:00:00Z`;
   const to = `${scope.year + 1}-01-01T00:00:00Z`;
-  return `fields/EnterDate ge '${from}' and fields/EnterDate lt '${to}'`;
+  return [
+    `fields/EnterDate ge ${from} and fields/EnterDate lt ${to}`,
+    `fields/EnterDate ge '${from}' and fields/EnterDate lt '${to}'`,
+  ];
+}
+
+/**
+ * Encode a filter for the query string WITHOUT mangling OData literal syntax.
+ *
+ * `encodeURIComponent` would turn the colons in a bare datetime into `%3A`,
+ * which some OData parsers reject. Only spaces and `#` actually need escaping
+ * here; `'`, `:` and `-` are all legal in a query value.
+ */
+export function encodeFilter(filter: string): string {
+  return filter.replace(/ /g, "%20").replace(/#/g, "%23");
 }
 
 /**
@@ -118,7 +147,7 @@ export async function listTeradyneLog(
   const base = `/sites/${SITES.pmo}/lists/${SP_TERADYNE_LOG_LIST_ID}/items`;
   // $top=999 is Graph's max page size, so a normal year is one request.
   const query = `?$expand=fields($select=${LOG_SELECT})&$top=999`;
-  const filter = scopeFilter(scope);
+  const variants = scopeFilterVariants(scope);
 
   // Reference lists first — needed for the join either way, and they're cheap.
   const [products, employees, remarks] = await Promise.all([
@@ -131,32 +160,35 @@ export async function listTeradyneLog(
   const build = (items: GraphListItem[]) =>
     items.map((item) => toTeradyneLogEntry(item, maps)).sort(compareTeradyneLogEntries);
 
-  if (filter) {
+  let lastError: string | undefined;
+  for (const filter of variants) {
     try {
       const items = await graphFetchAll<GraphListItem>(
-        `${base}${query}&$filter=${encodeURIComponent(filter)}`,
+        `${base}${query}&$filter=${encodeFilter(filter)}`,
       );
       return { entries: build(items), filteredServerSide: true, fetchedRows: items.length };
     } catch (err) {
-      // Almost always "EnterDate isn't indexed" (SharePoint's list view
-      // threshold) — log it plainly, then degrade rather than showing an
-      // empty log.
+      lastError = err instanceof Error ? err.message : String(err);
       /* eslint-disable-next-line no-console */
-      console.warn(
-        "[Teradyne] Server-side EnterDate filter failed; falling back to fetching the " +
-          "whole list and filtering in the browser. Index the EnterDate column on the " +
-          "Teradyne Log list to fix this.",
-        err,
-      );
+      console.warn(`[Teradyne] EnterDate filter rejected: ${filter}`, err);
     }
+  }
+
+  if (variants.length > 0) {
+    /* eslint-disable-next-line no-console */
+    console.warn(
+      "[Teradyne] No server-side date filter worked; falling back to fetching the whole " +
+        "list and filtering in the browser.",
+    );
   }
 
   const items = await graphFetchAll<GraphListItem>(`${base}${query}`);
   const all = build(items);
   return {
     entries: all.filter((e) => entryInScope(e, scope)),
-    filteredServerSide: filter === "",
+    filteredServerSide: variants.length === 0,
     fetchedRows: items.length,
+    filterError: lastError,
   };
 }
 

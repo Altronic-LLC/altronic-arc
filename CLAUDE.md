@@ -519,12 +519,22 @@ server-side by `EnterDate` year and defaults to `CURRENT_YEAR_SCOPE()`; the view
 exposes a Year picker (`?year=2026` / `?year=all`) and the React Query key is
 scoped per year, so mutations invalidate the `["teradyneLog"]` *prefix*.
 
-**This needs `EnterDate` INDEXED in SharePoint.** Past 5,000 items SharePoint
-refuses to filter or sort on an unindexed column no matter how few rows match
-(list settings → Indexed columns). If the filtered request fails, the API falls
-back to fetching everything and filtering in the browser, returns
-`filteredServerSide: false`, and the view shows a "loading the slow way" banner
-naming the fix — a deliberate loud degrade rather than a mystery slowdown.
+**The date literal must be BARE, not quoted.** Graph is OData v4:
+`fields/EnterDate ge 2026-01-01T00:00:00Z`. Quoting it (`ge '2026-01-01…'`)
+makes it a string literal and SharePoint rejects the comparison — that shipped in
+v0.72.0 and made the log fall back to downloading all 2,926 rows on a list well
+under the 5,000-item threshold, so the "index it" advice was a red herring.
+`scopeFilterVariants()` now tries bare first, then quoted, and both forms are
+pinned by tests. Encode with `encodeFilter()`, not `encodeURIComponent` — the
+latter turns the literal's colons into `%3A`, which some OData parsers reject.
+
+**Above ~5,000 items `EnterDate` also needs an INDEX** (list settings → Indexed
+columns): past the threshold SharePoint refuses to filter or sort on an
+unindexed column however few rows match. If every filter attempt fails the API
+falls back to fetching everything and filtering in the browser, returns
+`filteredServerSide: false` plus `filterError`, and the view shows a "loading the
+slow way" banner that DISCLOSES the Graph error rather than asserting a cause —
+a deliberate loud degrade, and one that doesn't send people to IT for nothing.
 
 Two consequences worth remembering:
 

@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.72.1",
+    date: "2026-07-28",
+    changes: [
+      "Fixed the Teradyne Log loading every row instead of just the chosen year — the date filter sent to SharePoint was malformed, so it was being rejected",
+      "The \"loading the slow way\" notice no longer blames a missing column index (wrong below 5,000 rows) — it now shows exactly what SharePoint said, so the real cause is visible",
+    ],
+  },
+  {
     version: "0.72.0",
     date: "2026-07-28",
     changes: [

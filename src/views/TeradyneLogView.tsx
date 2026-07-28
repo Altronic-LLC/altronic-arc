@@ -263,16 +263,27 @@ export function TeradyneLogView() {
         </div>
       )}
 
-      {/* The year filter is meant to run in SharePoint. If it couldn't (the
-          EnterDate column needs an index once a list passes 5,000 items), the
-          app still shows the right rows — it just had to download the whole
-          archive to do it. Say so, rather than being mysteriously slow. */}
+      {/* The year filter is meant to run in SharePoint. If it couldn't, the app
+          still shows the right rows — it just had to download everything to do
+          it. Report that plainly, including what SharePoint actually said: the
+          first version of this banner blamed a missing index, which was wrong
+          (the list was under the 5,000-row threshold where indexing matters) and
+          would have sent someone to IT for nothing. */}
       {result && !result.filteredServerSide && scope.kind === "year" && (
         <div className="rounded-lg border border-ajax-yellow/40 bg-ajax-yellow/10 p-3 text-xs text-fg">
           <span className="font-semibold">This log is loading the slow way.</span>{" "}
-          SharePoint couldn't filter by year, so all {result.fetchedRows.toLocaleString()} rows were
-          downloaded and filtered here. Ask IT to index the <code>EnterDate</code> column on the
-          Teradyne Log list — list settings → Indexed columns — and this gets much faster.
+          SharePoint wouldn't filter by year, so all {result.fetchedRows.toLocaleString()} rows were
+          downloaded and filtered here. Everything below is correct — it just took longer than it
+          should. Above about 5,000 rows the fix is usually indexing the <code>EnterDate</code>{" "}
+          column (list settings → Indexed columns); below that it's worth reporting.
+          {result.filterError && (
+            <details className="mt-1.5">
+              <summary className="cursor-pointer text-fg-muted">What SharePoint said</summary>
+              <pre className="mt-1 overflow-auto whitespace-pre-wrap font-mono text-[11px] text-fg-muted">
+                {result.filterError}
+              </pre>
+            </details>
+          )}
         </div>
       )}
 
