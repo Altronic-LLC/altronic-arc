@@ -511,6 +511,16 @@ Four things about this data that will bite if forgotten:
    previous day for every US timezone — use `toSpDateOnly` / `parseSpDate` and
    format with `timeZone: "UTC"`.
 
+**Volume:** the log was **~1,472 rows** on 2026-07-28 and only grows. It's
+fetched whole (`$top=999` + `graphFetchAll`) and sorted client-side like every
+other list module — fine well past 5,000, which is where SharePoint's list-view
+threshold starts mattering for server-side filters. What the size *does* affect
+is rendering: `TeradyneLogView` caps the table at `INITIAL_ROWS` (200) with a
+"Show all" escape hatch, because ~1,500 rows × 10 cells makes typing in the
+search box stutter. Filters and totals always run over the full log — only the
+rows put in the DOM are capped. If this ever needs true paging, that's the
+place to start.
+
 The three reference lists are editable by **any signed-in user** from the
 "Manage lists" menu on the Teradyne Log — no admin gate, by design. Deleting a
 row is blocked while the log still references it (`useTeradyneRefUsage`), since

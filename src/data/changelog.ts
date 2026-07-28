@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.68.1",
+    date: "2026-07-28",
+    changes: [
+      "Teradyne Log now handles its real size (~1,470 entries and growing): the table shows the newest 200 matching entries with a \"Show all\" button underneath, so searching and filtering stay quick",
+      "Filters, the entry count and the board totals still cover the whole log — only the rows drawn on screen are limited",
+      "The log loads in fewer round trips from SharePoint",
+    ],
+  },
+  {
     version: "0.68.0",
     date: "2026-07-28",
     changes: [

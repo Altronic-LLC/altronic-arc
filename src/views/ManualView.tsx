@@ -833,7 +833,7 @@ const SECTIONS: ManualSection[] = [
       "lookup list",
     ],
     searchText:
-      "Teradyne Log records board test failures off the Teradyne / Spea stations — the product tested, which parts were defective, a canned remark, board counts, SAP numbers, and up to two employees with their clock numbers. It's a table, not a detail page: rows are added and edited in a modal, and there are no comments or attachments. The entry's name is built automatically as 'Product - Defective Parts' — there's no name field to fill in. Picking an employee auto-fills their clock number, which you can override. Filter by Product, Remark, Employee, or free-text search; all filters live in the URL so a filtered view is shareable. The three lookup lists (Employees, Products, Remarks) are edited from the Manage lists menu on the Teradyne Log toolbar — any signed-in user can add or rename rows, no admin needed. A row already used by a log entry can't be deleted; rename it instead so past entries keep reading correctly.",
+      "The table shows the newest 200 matching entries with a Show all button underneath, so searching stays quick on a log thousands of rows deep; filters and totals always cover the whole log. Teradyne Log records board test failures off the Teradyne / Spea stations — the product tested, which parts were defective, a canned remark, board counts, SAP numbers, and up to two employees with their clock numbers. It's a table, not a detail page: rows are added and edited in a modal, and there are no comments or attachments. The entry's name is built automatically as 'Product - Defective Parts' — there's no name field to fill in. Picking an employee auto-fills their clock number, which you can override. Filter by Product, Remark, Employee, or free-text search; all filters live in the URL so a filtered view is shareable. The three lookup lists (Employees, Products, Remarks) are edited from the Manage lists menu on the Teradyne Log toolbar — any signed-in user can add or rename rows, no admin needed. A row already used by a log entry can't be deleted; rename it instead so past entries keep reading correctly.",
     render: () => (
       <>
         <P>
@@ -887,6 +887,13 @@ const SECTIONS: ManualSection[] = [
         <P>
           Operator notes aren't a table column — open the entry with the pencil
           to read them.
+        </P>
+        <P>
+          The log is a few thousand rows deep, so the table shows the{" "}
+          <strong>newest 200</strong> matching entries and offers{" "}
+          <strong>Show all</strong> underneath — that keeps searching and
+          filtering quick. Filters and the board totals always cover the whole
+          log, not just the rows on screen, so a count never lies to you.
         </P>
         <H3>Editing and deleting</H3>
         <P>

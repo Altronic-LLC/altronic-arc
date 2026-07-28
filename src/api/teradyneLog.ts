@@ -52,9 +52,13 @@ export async function listTeradyneLog(): Promise<TeradyneLogEntry[]> {
     return delay([...mockStore].sort(compareTeradyneLogEntries).map((e) => ({ ...e })));
   }
 
+  // $top=999 is Graph's max page size. Worth asking for here rather than the
+  // 200 most list modules use: the log was ~1,470 rows as of 2026-07-28 and
+  // only grows, so this is 2 sequential round trips instead of 8.
+  // graphFetchAll walks @odata.nextLink for the rest.
   const path =
     `/sites/${SITES.pmo}/lists/${SP_TERADYNE_LOG_LIST_ID}/items` +
-    `?$expand=fields($select=${LOG_SELECT})&$top=500`;
+    `?$expand=fields($select=${LOG_SELECT})&$top=999`;
 
   // All four in parallel — the reference lists don't depend on the log.
   const [items, products, employees, remarks] = await Promise.all([

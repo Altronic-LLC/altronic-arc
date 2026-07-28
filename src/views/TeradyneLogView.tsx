@@ -34,6 +34,19 @@ import { cn } from "@/lib/cn";
 // filtered view is shareable, matching EirsView / PanelOrdersView.
 // =============================================================================
 
+/**
+ * How many rows to put in the DOM before requiring a "Show all" click.
+ *
+ * The log is a real archive — ~1,470 rows as of 2026-07-28 and growing — and at
+ * ten cells a row, rendering all of it is ~15k DOM nodes, which is enough to
+ * make typing in the search box stutter on a shop-floor PC. Entries are sorted
+ * newest-first and the filters run over the WHOLE log before this cap applies,
+ * so the rows you're looking for are either in the first screenful or one
+ * filter away; "Show all" is there for the rare times you genuinely want the
+ * lot (printing, scrolling a year back).
+ */
+const INITIAL_ROWS = 200;
+
 export function TeradyneLogView() {
   const { data: log = [], isLoading, error } = useTeradyneLog();
   const { data: products = [] } = useTeradyneProducts();
@@ -43,6 +56,7 @@ export function TeradyneLogView() {
 
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<TeradyneLogEntry | null>(null);
+  const [showAll, setShowAll] = useState(false);
 
   const [searchParams, setSearchParams] = useSearchParams();
   const setParam = (key: string, value: string) => {
@@ -90,6 +104,8 @@ export function TeradyneLogView() {
     });
   }, [log, query, productIds, remarkIds, employeeIds]);
 
+  // Totals cover every MATCHING entry, not just the rows rendered below —
+  // a capped table would otherwise under-report the boards for a filter.
   const totals = useMemo(() => {
     let boards = 0;
     let tested = 0;
@@ -99,6 +115,12 @@ export function TeradyneLogView() {
     }
     return { boards, tested };
   }, [filtered]);
+
+  const capped = !showAll && filtered.length > INITIAL_ROWS;
+  const visible = useMemo(
+    () => (capped ? filtered.slice(0, INITIAL_ROWS) : filtered),
+    [filtered, capped],
+  );
 
   async function handleDelete(entry: TeradyneLogEntry) {
     const ok = window.confirm(
@@ -195,12 +217,30 @@ export function TeradyneLogView() {
         <>
           <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-xs text-fg-muted">
             <span>
-              Showing {filtered.length} of {log.length} entries
+              {capped ? (
+                <>
+                  Showing the newest {INITIAL_ROWS.toLocaleString()} of{" "}
+                  {filtered.length.toLocaleString()} matching entries
+                </>
+              ) : (
+                <>
+                  Showing {filtered.length.toLocaleString()} of {log.length.toLocaleString()}{" "}
+                  entries
+                </>
+              )}
             </span>
             <span>
-              {totals.boards} defective {totals.boards === 1 ? "board" : "boards"} ·{" "}
-              {totals.tested} tested
+              {totals.boards.toLocaleString()} defective{" "}
+              {totals.boards === 1 ? "board" : "boards"} · {totals.tested.toLocaleString()} tested
             </span>
+            {capped && (
+              <button
+                onClick={() => setShowAll(true)}
+                className="font-semibold text-accent underline-offset-2 hover:underline"
+              >
+                Show all {filtered.length.toLocaleString()}
+              </button>
+            )}
           </div>
 
           {/* Wide table scrolls inside its own container so the page never
@@ -222,7 +262,7 @@ export function TeradyneLogView() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((e) => (
+                {visible.map((e) => (
                   <tr
                     key={e.id}
                     className="group border-b border-border last:border-0 hover:bg-surface-2/60"
@@ -266,7 +306,18 @@ export function TeradyneLogView() {
             </table>
           </div>
 
-          {filtered.some((e) => e.operatorNotes) && (
+          {capped && (
+            <div className="flex justify-center">
+              <button
+                onClick={() => setShowAll(true)}
+                className="rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium text-fg-muted transition-colors hover:border-fg-muted hover:text-fg"
+              >
+                Show all {filtered.length.toLocaleString()} entries
+              </button>
+            </div>
+          )}
+
+          {visible.some((e) => e.operatorNotes) && (
             <p className="text-[11px] text-fg-muted">
               Operator notes aren't shown in the table — open an entry with the pencil to read
               them.
