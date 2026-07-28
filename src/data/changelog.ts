@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.74.0",
+    date: "2026-07-28",
+    changes: [
+      "Admins can now pull up a past year on the Teradyne Log (five years back) — so an entry made in late December can still be corrected in January instead of disappearing on the 1st",
+      "While a past year is showing, the page says so and offers a one-click way back to the current year; new entries are still logged against today's date",
+      "Everyone else continues to see the current year only",
+    ],
+  },
+  {
     version: "0.73.0",
     date: "2026-07-28",
     changes: [

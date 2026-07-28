@@ -3,12 +3,14 @@ import { Link, useSearchParams } from "react-router-dom";
 import {
   ChevronDown,
   CircuitBoard,
+  History,
   Lock,
   Pencil,
   Plus,
   Settings2,
   Trash2,
   Users,
+  X,
 } from "lucide-react";
 import {
   useDeleteTeradyneLogEntry,
@@ -19,7 +21,7 @@ import {
 } from "@/hooks/useTeradyne";
 import { useAdminAccess } from "@/hooks/useIsAdmin";
 import { LoadingTasks } from "@/components/LoadingTasks";
-import { MultiSelect } from "@/components/SearchableSelect";
+import { MultiSelect, SingleSelect } from "@/components/SearchableSelect";
 import { SearchInput } from "@/components/SearchInput";
 import { TeradyneLogFormModal } from "@/components/TeradyneLogFormModal";
 import { formatTeradyneDate } from "@/lib/teradyneMapper";
@@ -47,14 +49,24 @@ import { cn } from "@/lib/cn";
  */
 const INITIAL_ROWS = 200;
 
+/** How many past years an admin can reach back through. */
+const ADMIN_YEARS_BACK = 5;
+
+/**
+ * A `year` URL param, if it names a year an admin may look at.
+ *
+ * Bounded rather than free-form: a typo'd or crawled year shouldn't send a
+ * pointless filtered query at SharePoint.
+ */
+function parseYearParam(raw: string | null, thisYear: number): number | null {
+  if (!raw || !/^\d{4}$/.test(raw)) return null;
+  const year = parseInt(raw, 10);
+  if (year > thisYear || year < thisYear - ADMIN_YEARS_BACK) return null;
+  return year;
+}
+
 export function TeradyneLogView() {
   const [searchParams, setSearchParams] = useSearchParams();
-  // Always the current year. The list carries 16k+ rows of imported history that
-  // nobody works from in ARC — it's read straight from SharePoint for reporting
-  // — so there's no year picker: the log is this year's log.
-  const thisYear = new Date().getFullYear();
-  const { data: result, isLoading, error } = useTeradyneLog();
-  const log = result?.entries ?? [];
   const { data: products = [] } = useTeradyneProducts();
   const { data: employees = [] } = useTeradyneEmployees();
   const { data: remarks = [] } = useTeradyneRemarks();
@@ -65,6 +77,21 @@ export function TeradyneLogView() {
   // UI-level gating, as everywhere in ARC; SharePoint list permissions are the
   // real boundary.
   const { isAdmin, isResolving: adminResolving } = useAdminAccess();
+
+  // The log is this year's log — that's what everyone works from, and the list
+  // carries years of imported history that's read in SharePoint for reporting.
+  //
+  // Admins can step back a year, though: an entry made on 30 December still
+  // needs correcting on 2 January, and without this it simply isn't reachable.
+  // Non-admins always get the current year no matter what the URL says — they
+  // can't edit history anyway, so offering it would only confuse.
+  const thisYear = new Date().getFullYear();
+  const requestedYear = parseYearParam(searchParams.get("year"), thisYear);
+  const year = isAdmin && requestedYear !== null ? requestedYear : thisYear;
+  const viewingHistory = year !== thisYear;
+
+  const { data: result, isLoading, error } = useTeradyneLog({ kind: "year", year });
+  const log = result?.entries ?? [];
 
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<TeradyneLogEntry | null>(null);
@@ -154,7 +181,8 @@ export function TeradyneLogView() {
           <h1 className="font-display text-xl font-semibold text-fg sm:text-2xl">Teradyne Log</h1>
           <p className="text-xs text-fg-muted">
             Board test failures logged off the Teradyne / Spea stations — what failed, on which
-            product, and who ran it. Showing {thisYear}; earlier years live in SharePoint.
+            product, and who ran it. Showing {year}
+            {!viewingHistory && "; earlier years live in SharePoint"}.
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -170,7 +198,50 @@ export function TeradyneLogView() {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+      {/* Viewing a past year is a deliberate, temporary act — make it obvious,
+          and make getting back one click. Without this an admin who wandered
+          into last year could easily read it as "this year's entries are
+          missing". */}
+      {viewingHistory && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-accent/30 bg-accent/5 px-3 py-2 text-sm text-fg">
+          <History className="h-4 w-4 shrink-0 text-accent" />
+          <span>
+            Viewing <strong>{year}</strong> — past entries, kept for corrections. New entries are
+            still logged against today's date.
+          </span>
+          <button
+            onClick={() => setParam("year", "")}
+            className="ml-auto inline-flex items-center gap-1 rounded-md border border-border bg-surface px-2 py-1 text-xs font-medium text-fg-muted transition-colors hover:text-fg"
+          >
+            <X className="h-3 w-3" />
+            Back to {thisYear}
+          </button>
+        </div>
+      )}
+
+      <div className={cn("grid grid-cols-1 gap-3", isAdmin ? "md:grid-cols-5" : "md:grid-cols-4")}>
+        {/* Admin-only: the year to work in. Everyone else gets this year, so
+            there's nothing to choose. */}
+        {isAdmin && (
+          <Field label="Year">
+            <SingleSelect
+              allLabel={String(thisYear)}
+              options={Array.from({ length: ADMIN_YEARS_BACK + 1 }, (_, i) => {
+                const y = thisYear - i;
+                return { value: String(y), label: i === 0 ? `${y} (current)` : String(y) };
+              })}
+              selected={String(year)}
+              onChange={(v) => {
+                // Clearing, or picking the current year, drops the param so the
+                // default URL stays clean.
+                setParam("year", !v || v === String(thisYear) ? "" : v);
+                // A different year is a different dataset — don't carry over an
+                // expanded row cap from the last one.
+                setShowAll(false);
+              }}
+            />
+          </Field>
+        )}
         <Field label="Product">
           <MultiSelect
             allLabel="All products"
@@ -228,7 +299,7 @@ export function TeradyneLogView() {
       ) : filtered.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border py-16 text-center text-fg-muted">
           {log.length === 0
-            ? `Nothing logged in ${thisYear} yet. Click 'New entry' to add the first one.`
+            ? `Nothing logged in ${year} yet. Click 'New entry' to add the first one.`
             : "No entries match the current filters."}
         </div>
       ) : (
@@ -243,7 +314,7 @@ export function TeradyneLogView() {
               ) : (
                 <>
                   Showing {filtered.length.toLocaleString()} of {log.length.toLocaleString()}{" "}
-                  entries in {thisYear}
+                  entries in {year}
                 </>
               )}
             </span>

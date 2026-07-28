@@ -149,24 +149,62 @@ describe("TeradyneLogView", () => {
   });
 });
 
-describe("TeradyneLogView — current year only", () => {
+describe("TeradyneLogView — year scope", () => {
   const thisYear = new Date().getFullYear();
 
-  it("says which year it's showing, in the header and the count line", async () => {
+  it("defaults to the current year, in the header and the count line", async () => {
     await renderView();
     expect(screen.getByText(new RegExp(`Showing ${thisYear}`))).toBeInTheDocument();
     expect(screen.getByText(new RegExp(`entries in ${thisYear}`))).toBeInTheDocument();
   });
 
-  it("offers no year picker — the log is this year's log", async () => {
+  it("offers admins a year to work in, so a December entry stays reachable in January", async () => {
     await renderView();
-    expect(screen.queryByText(/^year$/i)).not.toBeInTheDocument();
-    expect(screen.queryByRole("option", { name: /all years/i })).not.toBeInTheDocument();
+    const yearField = screen.getByText(/^year$/i).closest("label")!;
+    await userEvent.click(within(yearField).getAllByRole("button")[0]);
+
+    expect(await screen.findByRole("option", { name: `${thisYear} (current)` })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: String(thisYear - 1) })).toBeInTheDocument();
+    // Five years back, no further.
+    expect(screen.getByRole("option", { name: String(thisYear - 5) })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: String(thisYear - 6) })).not.toBeInTheDocument();
   });
 
-  it("ignores a year in the URL rather than honouring a filter that no longer exists", async () => {
-    await renderView("/operations/teradyne?year=2019");
+  it("hides the year picker from non-admins — they can't edit history anyway", async () => {
+    adminAccess.isAdmin = false;
+    await renderView();
+    expect(screen.queryByText(/^year$/i)).not.toBeInTheDocument();
+  });
+
+  it("ignores a year in the URL for a non-admin", async () => {
+    adminAccess.isAdmin = false;
+    await renderView(`/operations/teradyne?year=${thisYear - 1}`);
     expect(screen.getByText(new RegExp(`entries in ${thisYear}`))).toBeInTheDocument();
+  });
+
+  it("honours a year in the URL for an admin, and flags that it's history", async () => {
+    const lastYear = thisYear - 1;
+    renderWithProviders(<TeradyneLogView />, { route: `/operations/teradyne?year=${lastYear}` });
+
+    // Nothing in the fixture for last year, so the empty state names the year.
+    expect(await screen.findByText(new RegExp(`Nothing logged in ${lastYear}`))).toBeInTheDocument();
+    expect(screen.getByText(/past entries, kept for corrections/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: new RegExp(`back to ${thisYear}`, "i") }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows no history banner on the current year", async () => {
+    await renderView();
+    expect(screen.queryByText(/past entries, kept for corrections/i)).not.toBeInTheDocument();
+  });
+
+  it("rejects an out-of-range or malformed year rather than querying for it", async () => {
+    await renderView("/operations/teradyne?year=1998");
+    expect(screen.getByText(new RegExp(`entries in ${thisYear}`))).toBeInTheDocument();
+
+    await renderView("/operations/teradyne?year=banana");
+    expect(screen.getAllByText(new RegExp(`entries in ${thisYear}`)).length).toBeGreaterThan(0);
   });
 
   it("says nothing on the page when SharePoint wouldn't filter by year", async () => {

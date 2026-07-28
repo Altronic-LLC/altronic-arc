@@ -517,11 +517,14 @@ is historical: ARC is for the current year's work, and the legacy rows are read
 directly in SharePoint for reporting. So `listTeradyneLog(scope)` filters
 server-side by `EnterDate` year and defaults to `CURRENT_YEAR_SCOPE()`.
 
-**There is no year picker in the UI, deliberately** — the log is this year's log
-(Ray, 2026-07-28). The `scope` parameter stays on the API for tests and any
-future need; don't surface it as a filter again without being asked. The React
-Query key is still scoped per year, so mutations invalidate the
-`["teradyneLog"]` *prefix*.
+**The year picker is ADMIN-ONLY** (Ray, 2026-07-28): the log is this year's log
+for everyone, but admins can step back up to `ADMIN_YEARS_BACK` (5) years,
+because an entry made on 30 December still needs correcting on 2 January and
+would otherwise be unreachable. `?year=` is honoured only for admins and only
+inside that range — non-admins always get the current year whatever the URL
+says, and a past year shows a banner plus a one-click way back so it can't be
+mistaken for "this year's entries are missing". The React Query key is scoped per
+year, so mutations invalidate the `["teradyneLog"]` *prefix*.
 
 **The date literal must be BARE, not quoted.** Graph is OData v4:
 `fields/EnterDate ge 2026-01-01T00:00:00Z`. Quoting it (`ge '2026-01-01…'`)
