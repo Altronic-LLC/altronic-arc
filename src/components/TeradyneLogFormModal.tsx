@@ -7,7 +7,7 @@ import {
   useTeradyneRemarks,
   useUpdateTeradyneLogEntry,
 } from "@/hooks/useTeradyne";
-import type { TeradyneLogEntry, TeradyneLogInput } from "@/types/task";
+import type { TeradyneEmployee, TeradyneLogEntry, TeradyneLogInput } from "@/types/task";
 import {
   buildTeradyneLogTitle,
   fromDateInputValue,
@@ -251,10 +251,10 @@ export function TeradyneLogFormModal({ entry, onClose }: TeradyneLogFormModalPro
             <FieldLabel label="Employee 1">
               <SingleSelect
                 allLabel="Nobody"
-                searchPlaceholder="Search employees…"
+                searchPlaceholder="Name or clock number…"
                 options={employees.map((e) => ({
                   value: String(e.lookupId),
-                  label: e.workCenter ? `${e.title} — ${e.workCenter}` : e.title,
+                  label: employeeOptionLabel(e),
                 }))}
                 selected={employee1Id}
                 onChange={(v) => pickEmployee(1, v)}
@@ -269,10 +269,10 @@ export function TeradyneLogFormModal({ entry, onClose }: TeradyneLogFormModalPro
             <FieldLabel label="Employee 2">
               <SingleSelect
                 allLabel="Nobody"
-                searchPlaceholder="Search employees…"
+                searchPlaceholder="Name or clock number…"
                 options={employees.map((e) => ({
                   value: String(e.lookupId),
-                  label: e.workCenter ? `${e.title} — ${e.workCenter}` : e.title,
+                  label: employeeOptionLabel(e),
                 }))}
                 selected={employee2Id}
                 onChange={(v) => pickEmployee(2, v)}
@@ -405,6 +405,20 @@ function FieldLabel({ label, children }: { label: string; children: React.ReactN
       {children}
     </label>
   );
+}
+
+/**
+ * How an employee reads in the picker: name, clock number, then work centre.
+ *
+ * The clock number is in the LABEL on purpose — the picker filters on label text,
+ * so including it means someone can find themselves by typing either their name
+ * or their number, which is how people on the floor actually identify themselves.
+ */
+function employeeOptionLabel(e: TeradyneEmployee): string {
+  const parts = [e.title.trim() || "(unnamed)"];
+  if (e.clockNum !== null) parts.push(`#${e.clockNum}`);
+  if (e.workCenter.trim()) parts.push(e.workCenter.trim());
+  return parts.join(" · ");
 }
 
 function numToInput(n: number | null | undefined): string {

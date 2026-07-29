@@ -28,6 +28,7 @@ import type {
   TeradyneRemark,
 } from "@/types/task";
 import { pushToast } from "@/components/Toast";
+import { useIsAdmin } from "./useIsAdmin";
 
 // =============================================================================
 // Teradyne hooks — queries + mutations for the log and its three reference
@@ -218,10 +219,21 @@ export function useUpdateTeradyneLogEntry() {
   });
 }
 
+/**
+ * Deleting a log entry is ADMIN-ONLY, guarded here as well as in the view.
+ *
+ * Editing deliberately isn't: an operator correcting their own entry leaves a
+ * corrected record, where a delete leaves nothing. This stops any future call
+ * path from deleting without the check.
+ */
 export function useDeleteTeradyneLogEntry() {
   const qc = useQueryClient();
+  const isAdmin = useIsAdmin();
   return useMutation({
-    mutationFn: (id: number) => deleteTeradyneLogEntry(id),
+    mutationFn: (id: number) => {
+      if (!isAdmin) throw new Error("Only admins can delete Teradyne log entries.");
+      return deleteTeradyneLogEntry(id);
+    },
     onSuccess: (_void, id) => {
       patchCachedEntry(qc, (entries) => entries.filter((e) => e.id !== id));
       pushToast({ message: "Entry deleted"});

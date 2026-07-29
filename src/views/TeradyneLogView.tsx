@@ -71,11 +71,11 @@ export function TeradyneLogView() {
   const { data: employees = [] } = useTeradyneEmployees();
   const { data: remarks = [] } = useTeradyneRemarks();
   const deleteEntry = useDeleteTeradyneLogEntry();
-  // Anyone signed in can ADD to the log — operators are the ones logging
-  // failures. Changing or removing an existing entry is admin-only: this is a
-  // record of what happened, so corrections go through someone accountable.
-  // UI-level gating, as everywhere in ARC; SharePoint list permissions are the
-  // real boundary.
+  // Anyone signed in can ADD to the log and CORRECT an entry — operators are the
+  // ones running the tester, and a typo caught at the bench shouldn't need an
+  // admin. DELETING is admin-only: an edit leaves a corrected record, a delete
+  // leaves nothing. UI-level gating, as everywhere in ARC; SharePoint list
+  // permissions are the real boundary.
   const { isAdmin, isResolving: adminResolving } = useAdminAccess();
 
   // The log is this year's log — that's what everyone works from, and the list
@@ -161,8 +161,8 @@ export function TeradyneLogView() {
   );
 
   async function handleDelete(entry: TeradyneLogEntry) {
-    // The button isn't rendered for non-admins; this is the belt to that
-    // braces, so no future call path can delete without the check.
+    // The bin isn't rendered for non-admins; this is the belt to that braces, so
+    // no future call path can delete without the check.
     if (!isAdmin) return;
     const ok = window.confirm(
       `Delete this log entry?\n\n${entry.title}\n${formatTeradyneDate(entry.enterDate)}\n\nThis removes it from SharePoint and can't be undone.`,
@@ -348,10 +348,9 @@ export function TeradyneLogView() {
                   <Th>SAP No.</Th>
                   <Th>Altronic Part No.</Th>
                   <Th>Employees</Th>
-                  {/* No Actions column at all for non-admins — a column of
-                      permanently disabled buttons is just noise. The note under
-                      the table explains the absence once. */}
-                  {isAdmin && <Th className="text-right">Actions</Th>}
+                  {/* Always present now: everyone gets the edit pencil, and
+                      only admins additionally get the bin. */}
+                  <Th className="text-right">Actions</Th>
                 </tr>
               </thead>
               <tbody>
@@ -394,16 +393,16 @@ export function TeradyneLogView() {
                     <Td className="text-fg-muted">
                       <EmployeeCell entry={e} />
                     </Td>
-                    {isAdmin && (
-                      <Td className="whitespace-nowrap text-right">
-                        <button
-                          onClick={() => setEditing(e)}
-                          className="rounded p-1 text-fg-muted opacity-0 transition-opacity hover:bg-surface hover:text-fg focus:opacity-100 group-hover:opacity-100"
-                          aria-label={`Edit ${e.title}`}
-                          title="Edit entry"
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </button>
+                    <Td className="whitespace-nowrap text-right">
+                      <button
+                        onClick={() => setEditing(e)}
+                        className="rounded p-1 text-fg-muted opacity-0 transition-opacity hover:bg-surface hover:text-fg focus:opacity-100 group-hover:opacity-100"
+                        aria-label={`Edit ${e.title}`}
+                        title="Edit entry"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      {isAdmin && (
                         <button
                           onClick={() => handleDelete(e)}
                           className="rounded p-1 text-fg-muted opacity-0 transition-opacity hover:bg-surface hover:text-cooper-red focus:opacity-100 group-hover:opacity-100"
@@ -412,8 +411,8 @@ export function TeradyneLogView() {
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
-                      </Td>
-                    )}
+                      )}
+                    </Td>
                   </tr>
                 ))}
               </tbody>
@@ -435,8 +434,8 @@ export function TeradyneLogView() {
             <p className="flex items-start gap-1.5 text-[11px] text-fg-muted">
               <Lock className="mt-px h-3.5 w-3.5 shrink-0" />
               <span>
-                Anyone can add an entry, but changing or deleting one is limited to admins — the
-                log is a record of what happened. Ask an admin if something needs correcting.
+                You can add entries and correct your own mistakes. Deleting an entry is limited to
+                admins — ask one if a row needs removing rather than fixing.
               </span>
             </p>
           )}

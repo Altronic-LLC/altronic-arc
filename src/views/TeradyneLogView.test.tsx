@@ -234,16 +234,27 @@ describe("TeradyneLogView — year scope", () => {
 });
 
 describe("TeradyneLogView — edit/delete gated to admins", () => {
-  it("hides the row actions and the Actions column from a non-admin", async () => {
+  it("lets a non-admin edit but not delete", async () => {
+    // Correcting your own entry leaves a corrected record; deleting leaves
+    // nothing, which is why only the bin is restricted.
     adminAccess.isAdmin = false;
     await renderView();
 
-    expect(screen.queryByRole("button", { name: /^edit /i })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /^edit /i }).length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: /^delete /i })).not.toBeInTheDocument();
-    expect(screen.getAllByRole("columnheader").map((h) => h.textContent)).not.toContain("Actions");
+    expect(screen.getAllByRole("columnheader").map((h) => h.textContent)).toContain("Actions");
   });
 
-  it("still lets a non-admin add an entry — only changing one is restricted", async () => {
+  it("opens the edit form for a non-admin", async () => {
+    adminAccess.isAdmin = false;
+    await renderView();
+    // First available row rather than a named one: the delete test above removes
+    // a row from the shared mock store, so naming one couples the tests.
+    await userEvent.click(screen.getAllByRole("button", { name: /^edit /i })[0]);
+    expect(await screen.findByText(/edit log entry/i)).toBeInTheDocument();
+  });
+
+  it("still lets a non-admin add an entry", async () => {
     adminAccess.isAdmin = false;
     await renderView();
 
@@ -251,10 +262,10 @@ describe("TeradyneLogView — edit/delete gated to admins", () => {
     expect(await screen.findByText(/new log entry/i)).toBeInTheDocument();
   });
 
-  it("explains the restriction to a non-admin", async () => {
+  it("explains to a non-admin that only deleting is restricted", async () => {
     adminAccess.isAdmin = false;
     await renderView();
-    expect(screen.getByText(/changing or deleting one is limited to admins/i)).toBeInTheDocument();
+    expect(screen.getByText(/deleting an entry is limited to admins/i)).toBeInTheDocument();
   });
 
   it("holds the explanation back while admin status is still resolving", async () => {
@@ -263,17 +274,14 @@ describe("TeradyneLogView — edit/delete gated to admins", () => {
     adminAccess.isAdmin = false;
     adminAccess.isResolving = true;
     await renderView();
-    expect(
-      screen.queryByText(/changing or deleting one is limited to admins/i),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/limited to admins/i)).not.toBeInTheDocument();
   });
 
-  it("shows the actions and no restriction note to an admin", async () => {
+  it("gives an admin both the pencil and the bin, with no restriction note", async () => {
     await renderView();
-    expect(screen.getAllByRole("columnheader").map((h) => h.textContent)).toContain("Actions");
-    expect(
-      screen.queryByText(/changing or deleting one is limited to admins/i),
-    ).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /^edit /i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: /^delete /i }).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/limited to admins/i)).not.toBeInTheDocument();
   });
 
   it("shows operator notes in the table, so they're readable without opening an entry", async () => {

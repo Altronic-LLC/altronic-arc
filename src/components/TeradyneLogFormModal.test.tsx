@@ -88,6 +88,37 @@ describe("TeradyneLogFormModal — clock auto-fill", () => {
   });
 });
 
+describe("TeradyneLogFormModal — finding an employee", () => {
+  it("finds an employee by their clock number as well as their name", async () => {
+    // People on the floor identify themselves by either, so the clock number is
+    // in the option label — which is what the picker filters on.
+    await renderForm();
+    const field = screen.getByText(/^employee 1$/i).closest("label")!;
+    await userEvent.click(within(field).getAllByRole("button")[0]);
+
+    await userEvent.type(screen.getByPlaceholderText(/name or clock number/i), "88");
+    expect(await screen.findByRole("option", { name: /Melissa Fuentes/ })).toBeInTheDocument();
+  });
+
+  it("still finds them by name", async () => {
+    await renderForm();
+    const field = screen.getByText(/^employee 1$/i).closest("label")!;
+    await userEvent.click(within(field).getAllByRole("button")[0]);
+
+    await userEvent.type(screen.getByPlaceholderText(/name or clock number/i), "Bindas");
+    expect(await screen.findByRole("option", { name: /Sandy Bindas/ })).toBeInTheDocument();
+  });
+
+  it("shows the clock number and work centre alongside the name", async () => {
+    await renderForm();
+    const field = screen.getByText(/^employee 1$/i).closest("label")!;
+    await userEvent.click(within(field).getAllByRole("button")[0]);
+    expect(
+      await screen.findByRole("option", { name: "Melissa Fuentes · #88 · PCB" }),
+    ).toBeInTheDocument();
+  });
+});
+
 describe("TeradyneLogFormModal — part numbers", () => {
   it("labels the field Altronic Part Number, not Old SAP Number", async () => {
     await renderForm();

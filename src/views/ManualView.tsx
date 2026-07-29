@@ -853,7 +853,7 @@ const SECTIONS: ManualSection[] = [
       "lookup list",
     ],
     searchText:
-      "The log shows the current year. Admins also get a Year picker going five years back, so an entry made in late December can still be corrected in January; a banner marks when you're viewing a past year and offers a way back. Non-admins always see the current year. Older history was imported into the SharePoint list for reporting and is normally read there, not in ARC. The table shows the newest 200 matching entries with a Show all button underneath, so searching stays quick; filters and totals always cover the whole chosen year. The log can take a few seconds to open on a big list; the entries shown are always the year you picked. Teradyne Log records board test failures off the Teradyne / Spea stations — the product tested, which parts were defective, a canned remark, board counts, the SAP number and the Altronic part number, and up to two employees with their clock numbers. The Altronic part number is the field previously labelled 'Old SAP Number'; it has its own column in the table. It's a table, not a detail page: rows are added and edited in a modal, and there are no comments or attachments. Anyone signed in can add an entry, but editing or deleting an existing entry is limited to admins — non-admins see no Actions column and a note explaining why. Operator notes show inline under Defective Parts. The entry's name is built automatically as 'Product - Defective Parts' — there's no name field to fill in. Picking an employee fills in their clock number, which is displayed read-only — clock numbers are maintained on the Employees list, not per entry. Remarks carry a remark number you enter when adding one and can edit afterwards. Filter by Product, Remark, Employee, or free-text search; all filters live in the URL so a filtered view is shareable. The three lookup lists (Employees, Products, Remarks) are edited from the Manage lists menu on the Teradyne Log toolbar — any signed-in user can add or rename rows, no admin needed. A row already used by a log entry can't be deleted; rename it instead so past entries keep reading correctly.",
+      "The log shows the current year. Admins also get a Year picker going five years back, so an entry made in late December can still be corrected in January; a banner marks when you're viewing a past year and offers a way back. Non-admins always see the current year. Older history was imported into the SharePoint list for reporting and is normally read there, not in ARC. The table shows the newest 200 matching entries with a Show all button underneath, so searching stays quick; filters and totals always cover the whole chosen year. The log can take a few seconds to open on a big list; the entries shown are always the year you picked. Teradyne Log records board test failures off the Teradyne / Spea stations — the product tested, which parts were defective, a canned remark, board counts, the SAP number and the Altronic part number, and up to two employees with their clock numbers. The Altronic part number is the field previously labelled 'Old SAP Number'; it has its own column in the table. It's a table, not a detail page: rows are added and edited in a modal, and there are no comments or attachments. Anyone signed in can add an entry and correct one; only admins can delete. In the Employee box you can type either a name or a clock number to find someone. Operator notes show inline under Defective Parts. The entry's name is built automatically as 'Product - Defective Parts' — there's no name field to fill in. Picking an employee fills in their clock number, which is displayed read-only — clock numbers are maintained on the Employees list, not per entry. Remarks carry a remark number you enter when adding one and can edit afterwards. Filter by Product, Remark, Employee, or free-text search; all filters live in the URL so a filtered view is shareable. The three lookup lists (Employees, Products, Remarks) are edited from the Manage lists menu on the Teradyne Log toolbar — any signed-in user can add or rename rows, no admin needed. A row already used by a log entry can't be deleted; rename it instead so past entries keep reading correctly.",
     render: () => (
       <>
         <P>
@@ -880,6 +880,11 @@ const SECTIONS: ManualSection[] = [
             <em>Product - Defective Parts</em>, shown live in the form as you
             type. There's no name box to fill in, and it can never drift from
             the two fields it's made of.
+          </LI>
+          <LI>
+            <strong>Find yourself by name or by clock number</strong> — type either
+            into the Employee box and it'll match. Each person reads as
+            "Name · #Clock · Work centre".
           </LI>
           <LI>
             <strong>Picking an employee fills in their clock number</strong>{" "}
@@ -934,15 +939,13 @@ const SECTIONS: ManualSection[] = [
           to you.
         </P>
 
-        <H3>Editing and deleting — admins only</H3>
+        <H3>Editing and deleting</H3>
         <P>
-          <strong>Anyone can add an entry.</strong> Changing or deleting an
-          existing one is limited to admins, because the log is a record of what
-          happened rather than a working document. Admins get a pencil (edit) and
-          a bin (delete) on each row when hovering; deleting asks first and can't
-          be undone from the app. If you're not an admin the Actions column
-          isn't there at all, and a note under the table says so — ask an admin
-          if something needs correcting.
+          <strong>Anyone can add an entry and correct one</strong> — hover a row
+          for the pencil. Only <strong>admins can delete</strong>: an edit leaves a
+          corrected record where a delete leaves nothing, so if a row needs
+          removing rather than fixing, ask an admin. Deleting asks first and can't
+          be undone from the app.
         </P>
         <H3>Manage lists — Employees, Products, Remarks</H3>
         <P>

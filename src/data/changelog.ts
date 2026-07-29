@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.79.0",
+    date: "2026-07-29",
+    changes: [
+      "Anyone can now correct a Teradyne log entry, not just admins — deleting one is still admin-only, since an edit leaves a corrected record where a delete leaves nothing",
+      "You can find yourself in the Employee box by typing either your name or your clock number; each person now reads as \"Name · #Clock · Work centre\"",
+    ],
+  },
+  {
     version: "0.78.0",
     date: "2026-07-29",
     changes: [

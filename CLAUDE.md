@@ -715,15 +715,24 @@ which is why `readOnlyLegacyIdOf` in `teradyneRefs.ts` deliberately omits
 Employee and product legacy ids stay read-only import artefacts. Remark numbers
 are NOT enforced unique — SharePoint doesn't, and no rule was specified.
 
-**Who can do what on the log:** anyone signed in can **add** an entry;
-**editing and deleting are admin-only** (`useAdminAccess()` in
-`src/hooks/useIsAdmin.ts`). Non-admins get no Actions column and a one-line
-explanation under the table. Use `useAdminAccess()` rather than `useIsAdmin()`
-wherever the UI would otherwise say "you lack access" before the Admins list has
-loaded — it reports `isResolving` so the message can wait. As ever this is
-UI-level gating; SharePoint list permissions are the real boundary. Note the
-knock-on: because the form is now admin-only, **operator notes render inline**
-under Defective Parts — the pencil used to be everyone's way of reading them.
+**Who can do what on the log:** anyone signed in can **add** an entry and
+**edit** one; only admins can **delete** (Ray, 2026-07-29). The asymmetry is
+deliberate — an edit leaves a corrected record, a delete leaves nothing, so an
+operator fixing their own typo at the bench shouldn't need an admin. Enforced in
+the view AND in `useDeleteTeradyneLogEntry`'s `mutationFn`.
+
+Use `useAdminAccess()` rather than `useIsAdmin()` wherever the UI would otherwise
+say "you lack access" before the Admins list has loaded — it reports
+`isResolving` so the message can wait. As ever this is UI-level gating;
+SharePoint list permissions are the real boundary.
+
+**An employee is findable by name OR clock number.** The picker filters on option
+label text, so the label is `Name · #Clock · WorkCentre`; people on the floor
+identify themselves by either. Don't shorten it back to just the name.
+
+**Operator notes render inline** under Defective Parts. That dates from when the
+form was admin-only and the pencil was the only way to read them; it's still the
+better default for scanning a shift's failures.
 
 The three reference lists are editable by **any signed-in user** from the
 "Manage lists" menu on the Teradyne Log — no admin gate, by design. Deleting a
