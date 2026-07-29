@@ -15,3 +15,7 @@ tsconfig.tsbuildinfo
 # Local-only — never push to the public repo.
 .claude/
 SESSION-NOTES.md
+
+# Discovery snapshots from scripts/discover-list.ps1 — dumped SharePoint content.
+# Useful locally, not something to commit; the schema itself is documented in CLAUDE.md.
+scripts/*-schema.json
