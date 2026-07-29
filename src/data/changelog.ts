@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.75.1",
+    date: "2026-07-29",
+    changes: [
+      "Adding, editing and deleting a CSA listing is now blocked for non-admins at the point of saving as well as in the UI, so the restriction holds however the app grows",
+    ],
+  },
+  {
     version: "0.75.0",
     date: "2026-07-29",
     changes: [

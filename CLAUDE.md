@@ -501,8 +501,13 @@ calculated **EIR Log No.** derives from it, so we only write `EIRNo`.
 | `csaId` | `CSA_ID` | legacy id from the original data — **read-only, never written** |
 | `hasAttachments` | `Attachments` | attachments are enabled on the list; kind `csaListing` in `api/attachments.ts` |
 
-**Adding / editing / deleting is admin-only** (`useAdminAccess()`); reading and
-searching are open to any signed-in user. Search deliberately covers the
+**Adding / editing / deleting is admin-only**, enforced in TWO places: the view
+hides the controls (`useAdminAccess()`), and each mutation in
+`useCsaListings.ts` re-checks `useIsAdmin()` and throws before touching the API —
+the same defence-in-depth as `useAdmins` / `useEirRoles`, so a future screen or
+bulk action can't write without the check. Pinned by
+`useCsaListings.guard.test.tsx`. Reading and searching are open to any signed-in
+user, and the real boundary remains SharePoint's per-list permissions. Search deliberately covers the
 multi-line fields — a part number people are chasing lives in `PartNoIncluded`,
 not in the file number, and the table can only show its first line.
 
