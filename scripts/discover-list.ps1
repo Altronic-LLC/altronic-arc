@@ -21,7 +21,9 @@
     directly, so there's nothing to copy and paste.
 
 .PARAMETER ListName
-    The list's display name, e.g. "CSA Listings" (from .../Lists/CSA%20Listings/).
+    One or more list display names, e.g. "CSA Listings" (from
+    .../Lists/CSA%20Listings/). Pass several comma-separated to snapshot a whole
+    feature's lists in one go.
 
 .PARAMETER Site
     Which ARC site to look on. Defaults to engineering.
@@ -33,6 +35,9 @@
     ./scripts/discover-list.ps1 -ListName "CSA Listings"
 
 .EXAMPLE
+    ./scripts/discover-list.ps1 -ListName "CAD Drawings","CCC Drawings","CEC Drawings"
+
+.EXAMPLE
     ./scripts/discover-list.ps1 -ListName "Panel Order Headers" -Site panelTeam
 
 .NOTES
@@ -42,7 +47,7 @@
 
 param(
     [Parameter(Mandatory = $true)]
-    [string]$ListName,
+    [string[]]$ListName,
 
     [ValidateSet("engineering", "pmo", "panelTeam", "salesTeam", "salesOrderEntry")]
     [string]$Site = "engineering",
@@ -74,26 +79,33 @@ if (-not (Get-MgContext)) {
     Connect-MgGraph -Scopes "Sites.Read.All" -NoWelcome
 }
 
+# One call for the site's lists, reused for every requested name.
+Write-Host "Reading lists on $Site..." -ForegroundColor Cyan
+$allLists = (Invoke-MgGraphRequest -Method GET `
+    -Uri "https://graph.microsoft.com/v1.0/sites/$targetSite/lists?`$top=200").value
+
+$written = @()
+foreach ($name in $ListName) {
+
 # ---------------------------------------------------------------------------
 # 1. Find the list by display name.
 # ---------------------------------------------------------------------------
-Write-Host "Looking for '$ListName' on $Site..." -ForegroundColor Cyan
-$lists = (Invoke-MgGraphRequest -Method GET `
-    -Uri "https://graph.microsoft.com/v1.0/sites/$targetSite/lists?`$top=200").value
-
-$list = $lists | Where-Object { $_["displayName"] -eq $ListName }
+Write-Host ""
+Write-Host "=== $name ===" -ForegroundColor Cyan
+$lists = $allLists
+$list = $lists | Where-Object { $_["displayName"] -eq $name }
 if (-not $list) {
     # Be forgiving about spacing/case before giving up.
     $list = $lists | Where-Object {
-        $_["displayName"].Replace(" ", "").ToLower() -eq $ListName.Replace(" ", "").ToLower()
+        $_["displayName"].Replace(" ", "").ToLower() -eq $name.Replace(" ", "").ToLower()
     }
 }
 
 if (-not $list) {
-    Write-Host "No list named '$ListName' on $Site." -ForegroundColor Red
-    Write-Host "Lists visible to you there:" -ForegroundColor Yellow
-    $lists | ForEach-Object { "  $($_['displayName'])" } | Sort-Object
-    exit 1
+    Write-Host "  No list named '$name' on $Site. Skipping." -ForegroundColor Red
+    Write-Host "  Lists visible to you there:" -ForegroundColor Yellow
+    $lists | ForEach-Object { "    $($_['displayName'])" } | Sort-Object
+    continue
 }
 
 $listId = $list["id"]
@@ -194,10 +206,16 @@ $report = [ordered]@{
     sampleRows  = $samples
 }
 
-$slug = ($ListName.ToLower() -replace '[^a-z0-9]+', '-').Trim('-')
+$slug = ($name.ToLower() -replace '[^a-z0-9]+', '-').Trim('-')
 $outPath = Join-Path $PSScriptRoot "$slug-schema.json"
 $report | ConvertTo-Json -Depth 12 | Set-Content -Path $outPath -Encoding utf8
 
+Write-Host "  Wrote $outPath" -ForegroundColor Green
+Write-Host "  List id for src/api/config.ts: $listId" -ForegroundColor Green
+$written += [pscustomobject]@{ List = $list["displayName"]; Id = $listId; File = $outPath }
+
+}  # end foreach list
+
 Write-Host ""
-Write-Host "Wrote $outPath" -ForegroundColor Green
-Write-Host "List id for src/api/config.ts: $listId" -ForegroundColor Green
+Write-Host "=== Snapshots written ===" -ForegroundColor Green
+$written | Format-Table -AutoSize
