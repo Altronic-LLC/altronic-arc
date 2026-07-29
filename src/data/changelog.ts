@@ -20,6 +20,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.76.0",
+    date: "2026-07-29",
+    changes: [
+      "New under Engineering: Drawing File Logs — CCC Drawings, CEC Drawings and Engineering Sketches as tabs on one screen, with CAD Drawings to follow",
+      "Click any drawing for its full record and its change log — the revisions and ECNs that SharePoint keeps spread across 48 columns, shown as a readable table",
+      "Search finds a drawing by its ECN as well as by number, part number or description, so you can ask which drawing a change notice affected",
+      "Admins can add drawings, edit details, and record a change — which also updates the drawing's current revision",
+      "Recording a change is refused, with an explanation, once a drawing's sixteen change slots are used, rather than overwriting the oldest entry",
+      "Engineering Sketches is shown with its own columns and no change log, because the list genuinely doesn't have one",
+    ],
+  },
+  {
     version: "0.75.1",
     date: "2026-07-29",
     changes: [

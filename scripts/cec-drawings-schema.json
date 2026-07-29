@@ -1,0 +1,839 @@
+{
+  "listName": "CEC Drawings",
+  "listId": "5d2d478a-ae19-47a9-8836-453001b756dc",
+  "siteId": "coopermachineryservices.sharepoint.com,ddb5fc80-ea51-4d56-b008-ce6a82af49b0,aa6b9467-3f57-4213-bbd4-60b94403421a",
+  "webUrl": "https://coopermachineryservices.sharepoint.com/sites/Altronic_Engineering/Lists/CEC%20Drawings",
+  "itemCount": 263,
+  "columns": [
+    {
+      "internalName": "Title",
+      "displayName": "CAD_DWG",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "LinkTitle",
+      "displayName": "CAD_DWG",
+      "type": "unknown",
+      "required": false,
+      "readOnly": true,
+      "hidden": false
+    },
+    {
+      "internalName": "_ColorTag",
+      "displayName": "Color Tag",
+      "type": "text",
+      "required": false,
+      "readOnly": true,
+      "hidden": false
+    },
+    {
+      "internalName": "ComplianceAssetId",
+      "displayName": "Compliance Asset Id",
+      "type": "text",
+      "required": false,
+      "readOnly": true,
+      "hidden": false
+    },
+    {
+      "internalName": "CEC_ID",
+      "displayName": "ID",
+      "type": "number",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "PARTNO",
+      "displayName": "PARTNO",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "DESCR",
+      "displayName": "DESCR",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "DATE_ST",
+      "displayName": "DATE_ST",
+      "type": "dateTime",
+      "required": false,
+      "readOnly": false,
+      "hidden": false,
+      "format": "dateOnly"
+    },
+    {
+      "internalName": "DATE_REV",
+      "displayName": "DATE_REV",
+      "type": "dateTime",
+      "required": false,
+      "readOnly": false,
+      "hidden": false,
+      "format": "dateOnly"
+    },
+    {
+      "internalName": "DWG_SIZE",
+      "displayName": "DWG_SIZE",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "REV_NO",
+      "displayName": "REV_NO",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_DAT01",
+      "displayName": "CH_DAT01",
+      "type": "dateTime",
+      "required": false,
+      "readOnly": false,
+      "hidden": false,
+      "format": "dateOnly"
+    },
+    {
+      "internalName": "CH_ECN01",
+      "displayName": "CH_ECN01",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_REV01",
+      "displayName": "CH_REV01",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_DAT02",
+      "displayName": "CH_DAT02",
+      "type": "dateTime",
+      "required": false,
+      "readOnly": false,
+      "hidden": false,
+      "format": "dateOnly"
+    },
+    {
+      "internalName": "CH_ECN02",
+      "displayName": "CH_ECN02",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_REV02",
+      "displayName": "CH_REV02",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_DAT03",
+      "displayName": "CH_DAT03",
+      "type": "dateTime",
+      "required": false,
+      "readOnly": false,
+      "hidden": false,
+      "format": "dateOnly"
+    },
+    {
+      "internalName": "CH_ECN03",
+      "displayName": "CH_ECN03",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_REV03",
+      "displayName": "CH_REV03",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_DAT04",
+      "displayName": "CH_DAT04",
+      "type": "dateTime",
+      "required": false,
+      "readOnly": false,
+      "hidden": false,
+      "format": "dateOnly"
+    },
+    {
+      "internalName": "CH_ECN04",
+      "displayName": "CH_ECN04",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_REV04",
+      "displayName": "CH_REV04",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_DAT05",
+      "displayName": "CH_DAT05",
+      "type": "dateTime",
+      "required": false,
+      "readOnly": false,
+      "hidden": false,
+      "format": "dateOnly"
+    },
+    {
+      "internalName": "CH_ECN05",
+      "displayName": "CH_ECN05",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_REV05",
+      "displayName": "CH_REV05",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_DAT06",
+      "displayName": "CH_DAT06",
+      "type": "dateTime",
+      "required": false,
+      "readOnly": false,
+      "hidden": false,
+      "format": "dateOnly"
+    },
+    {
+      "internalName": "CH_ECN06",
+      "displayName": "CH_ECN06",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_REV06",
+      "displayName": "CH_REV06",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_DAT07",
+      "displayName": "CH_DAT07",
+      "type": "dateTime",
+      "required": false,
+      "readOnly": false,
+      "hidden": false,
+      "format": "dateOnly"
+    },
+    {
+      "internalName": "CH_ECN07",
+      "displayName": "CH_ECN07",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_REV07",
+      "displayName": "CH_REV07",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_DAT08",
+      "displayName": "CH_DAT08",
+      "type": "dateTime",
+      "required": false,
+      "readOnly": false,
+      "hidden": false,
+      "format": "dateOnly"
+    },
+    {
+      "internalName": "CH_ECN08",
+      "displayName": "CH_ECN08",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_REV08",
+      "displayName": "CH_REV08",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_DAT09",
+      "displayName": "CH_DAT09",
+      "type": "dateTime",
+      "required": false,
+      "readOnly": false,
+      "hidden": false,
+      "format": "dateOnly"
+    },
+    {
+      "internalName": "CH_ECN09",
+      "displayName": "CH_ECN09",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_REV09",
+      "displayName": "CH_REV09",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_DAT10",
+      "displayName": "CH_DAT10",
+      "type": "dateTime",
+      "required": false,
+      "readOnly": false,
+      "hidden": false,
+      "format": "dateOnly"
+    },
+    {
+      "internalName": "CH_ECN10",
+      "displayName": "CH_ECN10",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_REV10",
+      "displayName": "CH_REV10",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_DAT11",
+      "displayName": "CH_DAT11",
+      "type": "dateTime",
+      "required": false,
+      "readOnly": false,
+      "hidden": false,
+      "format": "dateOnly"
+    },
+    {
+      "internalName": "CH_ECN11",
+      "displayName": "CH_ECN11",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_REV11",
+      "displayName": "CH_REV11",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_DAT12",
+      "displayName": "CH_DAT12",
+      "type": "dateTime",
+      "required": false,
+      "readOnly": false,
+      "hidden": false,
+      "format": "dateOnly"
+    },
+    {
+      "internalName": "CH_ECN12",
+      "displayName": "CH_ECN12",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_REV12",
+      "displayName": "CH_REV12",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_DAT13",
+      "displayName": "CH_DAT13",
+      "type": "dateTime",
+      "required": false,
+      "readOnly": false,
+      "hidden": false,
+      "format": "dateOnly"
+    },
+    {
+      "internalName": "CH_ECN13",
+      "displayName": "CH_ECN13",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_REV13",
+      "displayName": "CH_REV13",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_DAT14",
+      "displayName": "CH_DAT14",
+      "type": "dateTime",
+      "required": false,
+      "readOnly": false,
+      "hidden": false,
+      "format": "dateOnly"
+    },
+    {
+      "internalName": "CH_ECN14",
+      "displayName": "CH_ECN14",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_REV14",
+      "displayName": "CH_REV14",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_DAT15",
+      "displayName": "CH_DAT15",
+      "type": "dateTime",
+      "required": false,
+      "readOnly": false,
+      "hidden": false,
+      "format": "dateOnly"
+    },
+    {
+      "internalName": "CH_ECN15",
+      "displayName": "CH_ECN15",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_REV15",
+      "displayName": "CH_REV15",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_DAT16",
+      "displayName": "CH_DAT16",
+      "type": "dateTime",
+      "required": false,
+      "readOnly": false,
+      "hidden": false,
+      "format": "dateOnly"
+    },
+    {
+      "internalName": "CH_ECN16",
+      "displayName": "CH_ECN16",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_REV16",
+      "displayName": "CH_REV16",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "LinkTitleNoMenu",
+      "displayName": "CAD_DWG",
+      "type": "unknown",
+      "required": false,
+      "readOnly": true,
+      "hidden": false
+    },
+    {
+      "internalName": "ID",
+      "displayName": "ID",
+      "type": "unknown",
+      "required": false,
+      "readOnly": true,
+      "hidden": false
+    },
+    {
+      "internalName": "ContentType",
+      "displayName": "Content Type",
+      "type": "unknown",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "Modified",
+      "displayName": "Modified",
+      "type": "dateTime",
+      "required": false,
+      "readOnly": true,
+      "hidden": false,
+      "format": "dateTime"
+    },
+    {
+      "internalName": "Created",
+      "displayName": "Created",
+      "type": "dateTime",
+      "required": false,
+      "readOnly": true,
+      "hidden": false,
+      "format": "dateTime"
+    },
+    {
+      "internalName": "Author",
+      "displayName": "Created By",
+      "type": "personOrGroup",
+      "required": false,
+      "readOnly": true,
+      "hidden": false,
+      "allowMultiple": false
+    },
+    {
+      "internalName": "Editor",
+      "displayName": "Modified By",
+      "type": "personOrGroup",
+      "required": false,
+      "readOnly": true,
+      "hidden": false,
+      "allowMultiple": false
+    },
+    {
+      "internalName": "_UIVersionString",
+      "displayName": "Version",
+      "type": "text",
+      "required": false,
+      "readOnly": true,
+      "hidden": false
+    },
+    {
+      "internalName": "Attachments",
+      "displayName": "Attachments",
+      "type": "unknown",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "Edit",
+      "displayName": "Edit",
+      "type": "unknown",
+      "required": false,
+      "readOnly": true,
+      "hidden": false
+    },
+    {
+      "internalName": "DocIcon",
+      "displayName": "Type",
+      "type": "unknown",
+      "required": false,
+      "readOnly": true,
+      "hidden": false
+    },
+    {
+      "internalName": "ItemChildCount",
+      "displayName": "Item Child Count",
+      "type": "lookup",
+      "required": false,
+      "readOnly": true,
+      "hidden": false,
+      "lookupListId": "",
+      "lookupColumn": "ItemChildCount",
+      "allowMultiple": false
+    },
+    {
+      "internalName": "FolderChildCount",
+      "displayName": "Folder Child Count",
+      "type": "lookup",
+      "required": false,
+      "readOnly": true,
+      "hidden": false,
+      "lookupListId": "",
+      "lookupColumn": "FolderChildCount",
+      "allowMultiple": false
+    },
+    {
+      "internalName": "_ComplianceFlags",
+      "displayName": "Label setting",
+      "type": "lookup",
+      "required": false,
+      "readOnly": true,
+      "hidden": false,
+      "lookupListId": "",
+      "lookupColumn": "ComplianceFlags",
+      "allowMultiple": false
+    },
+    {
+      "internalName": "_ComplianceTag",
+      "displayName": "Retention label",
+      "type": "lookup",
+      "required": false,
+      "readOnly": true,
+      "hidden": false,
+      "lookupListId": "",
+      "lookupColumn": "ComplianceTag",
+      "allowMultiple": false
+    },
+    {
+      "internalName": "_ComplianceTagWrittenTime",
+      "displayName": "Retention label Applied",
+      "type": "lookup",
+      "required": false,
+      "readOnly": true,
+      "hidden": false,
+      "lookupListId": "",
+      "lookupColumn": "ComplianceTagWrittenTime",
+      "allowMultiple": false
+    },
+    {
+      "internalName": "_ComplianceTagUserId",
+      "displayName": "Label applied by",
+      "type": "lookup",
+      "required": false,
+      "readOnly": true,
+      "hidden": false,
+      "lookupListId": "",
+      "lookupColumn": "ComplianceTagUserId",
+      "allowMultiple": false
+    },
+    {
+      "internalName": "_IsRecord",
+      "displayName": "Item is a Record",
+      "type": "unknown",
+      "required": false,
+      "readOnly": true,
+      "hidden": false
+    },
+    {
+      "internalName": "AppAuthor",
+      "displayName": "App Created By",
+      "type": "lookup",
+      "required": false,
+      "readOnly": true,
+      "hidden": false,
+      "lookupListId": "AppPrincipals",
+      "lookupColumn": "Title",
+      "allowMultiple": false
+    },
+    {
+      "internalName": "AppEditor",
+      "displayName": "App Modified By",
+      "type": "lookup",
+      "required": false,
+      "readOnly": true,
+      "hidden": false,
+      "lookupListId": "AppPrincipals",
+      "lookupColumn": "Title",
+      "allowMultiple": false
+    }
+  ],
+  "sampleRows": [
+    {
+      "AppAuthorLookupId": "18",
+      "DATE_ST": "1989-10-25T12:00:00Z",
+      "CEC_ID": 1.0,
+      "ContentType": "Item",
+      "_ComplianceTagUserId": "",
+      "ItemChildCount": "0",
+      "EditorLookupId": "12",
+      "Created": "2026-07-28T19:29:44Z",
+      "LinkTitleNoMenu": "EC09002",
+      "FolderChildCount": "0",
+      "Attachments": false,
+      "Edit": "",
+      "DESCR": "PICK-UP / DISC INSTALLATION EVEN FIRING ENGINE FOR ECIS 601",
+      "PARTNO": "501500",
+      "_UIVersionString": "1.0",
+      "REV_NO": "0",
+      "@odata.etag": "\"dd17630d-61ce-493b-8daa-3457cf60db04,1\"",
+      "DWG_SIZE": "B",
+      "_ComplianceTagWrittenTime": "",
+      "AppEditorLookupId": "18",
+      "LinkTitle": "EC09002",
+      "_ComplianceTag": "",
+      "Modified": "2026-07-28T19:29:44Z",
+      "DATE_REV": "1990-01-12T12:00:00Z",
+      "AuthorLookupId": "12",
+      "_ComplianceFlags": "",
+      "id": "1",
+      "Title": "EC09002"
+    },
+    {
+      "AppAuthorLookupId": "18",
+      "DATE_ST": "1989-10-25T12:00:00Z",
+      "CEC_ID": 2.0,
+      "ContentType": "Item",
+      "_ComplianceTagUserId": "",
+      "ItemChildCount": "0",
+      "EditorLookupId": "12",
+      "Created": "2026-07-28T19:29:44Z",
+      "LinkTitleNoMenu": "EC09003",
+      "FolderChildCount": "0",
+      "Attachments": false,
+      "Edit": "",
+      "DESCR": "PICK-UP / DISC INSTALLATION EVEN FIRING ENGINES FOR ECIS 801 IGNITION",
+      "PARTNO": "EC09 003",
+      "_UIVersionString": "1.0",
+      "REV_NO": "0",
+      "@odata.etag": "\"3fe41597-afdf-4e49-96cf-fd5bb2952a18,1\"",
+      "DWG_SIZE": "B",
+      "_ComplianceTagWrittenTime": "",
+      "AppEditorLookupId": "18",
+      "LinkTitle": "EC09003",
+      "_ComplianceTag": "",
+      "Modified": "2026-07-28T19:29:44Z",
+      "DATE_REV": "1990-01-12T12:00:00Z",
+      "AuthorLookupId": "12",
+      "_ComplianceFlags": "",
+      "id": "2",
+      "Title": "EC09003"
+    },
+    {
+      "AppAuthorLookupId": "18",
+      "DATE_ST": "1989-10-25T12:00:00Z",
+      "CEC_ID": 3.0,
+      "ContentType": "Item",
+      "_ComplianceTagUserId": "",
+      "ItemChildCount": "0",
+      "EditorLookupId": "12",
+      "Created": "2026-07-28T19:29:44Z",
+      "LinkTitleNoMenu": "EC09004",
+      "FolderChildCount": "0",
+      "Attachments": false,
+      "Edit": "",
+      "DESCR": "PICK-UP / DISC INSTALLATION EVEN FIRING ENGINES FOR ECIS 1201 IGNITION",
+      "PARTNO": "EC09 004",
+      "_UIVersionString": "1.0",
+      "REV_NO": "0",
+      "@odata.etag": "\"f6fc7077-2878-4b3e-a15c-38f330d3abce,1\"",
+      "DWG_SIZE": "B",
+      "_ComplianceTagWrittenTime": "",
+      "AppEditorLookupId": "18",
+      "LinkTitle": "EC09004",
+      "_ComplianceTag": "",
+      "Modified": "2026-07-28T19:29:44Z",
+      "DATE_REV": "1990-01-04T12:00:00Z",
+      "AuthorLookupId": "12",
+      "_ComplianceFlags": "",
+      "id": "3",
+      "Title": "EC09004"
+    },
+    {
+      "AppAuthorLookupId": "18",
+      "DATE_ST": "1989-10-25T12:00:00Z",
+      "CEC_ID": 4.0,
+      "ContentType": "Item",
+      "_ComplianceTagUserId": "",
+      "ItemChildCount": "0",
+      "EditorLookupId": "12",
+      "Created": "2026-07-28T19:29:45Z",
+      "LinkTitleNoMenu": "EC09005",
+      "FolderChildCount": "0",
+      "Attachments": false,
+      "Edit": "",
+      "DESCR": "PICK-UP / DISC INSTALLATION ODD FIRING ENGINES FOR ECIS 1202 IGNITION",
+      "PARTNO": "EC09 005",
+      "_UIVersionString": "1.0",
+      "REV_NO": "0",
+      "@odata.etag": "\"98e7a4ac-274e-4279-9d54-3352c3306f79,1\"",
+      "DWG_SIZE": "B",
+      "_ComplianceTagWrittenTime": "",
+      "AppEditorLookupId": "18",
+      "LinkTitle": "EC09005",
+      "_ComplianceTag": "",
+      "Modified": "2026-07-28T19:29:45Z",
+      "DATE_REV": "1990-01-04T12:00:00Z",
+      "AuthorLookupId": "12",
+      "_ComplianceFlags": "",
+      "id": "4",
+      "Title": "EC09005"
+    },
+    {
+      "AppAuthorLookupId": "18",
+      "DATE_ST": "1989-10-25T12:00:00Z",
+      "CEC_ID": 5.0,
+      "ContentType": "Item",
+      "_ComplianceTagUserId": "",
+      "ItemChildCount": "0",
+      "EditorLookupId": "12",
+      "Created": "2026-07-28T19:29:45Z",
+      "LinkTitleNoMenu": "EC09006",
+      "FolderChildCount": "0",
+      "Attachments": false,
+      "Edit": "",
+      "DESCR": "PICK-UP / DISC INSTALLATION ODD FIRING ENGINES FOR ECIS 1601 IGNITION",
+      "PARTNO": "EC09 006",
+      "_UIVersionString": "1.0",
+      "REV_NO": "0",
+      "@odata.etag": "\"864af3dd-b0b8-4c8a-8ad9-e4812d02f8a8,1\"",
+      "DWG_SIZE": "B",
+      "_ComplianceTagWrittenTime": "",
+      "AppEditorLookupId": "18",
+      "LinkTitle": "EC09006",
+      "_ComplianceTag": "",
+      "Modified": "2026-07-28T19:29:45Z",
+      "DATE_REV": "1990-01-04T12:00:00Z",
+      "AuthorLookupId": "12",
+      "_ComplianceFlags": "",
+      "id": "5",
+      "Title": "EC09006"
+    }
+  ]
+}

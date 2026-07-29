@@ -1,0 +1,832 @@
+{
+  "listName": "CCC Drawings",
+  "listId": "0ac690f8-1374-4df1-8057-35eb4220e54b",
+  "siteId": "coopermachineryservices.sharepoint.com,ddb5fc80-ea51-4d56-b008-ce6a82af49b0,aa6b9467-3f57-4213-bbd4-60b94403421a",
+  "webUrl": "https://coopermachineryservices.sharepoint.com/sites/Altronic_Engineering/Lists/CCC%20Drawings",
+  "itemCount": 105,
+  "columns": [
+    {
+      "internalName": "Title",
+      "displayName": "CAD_DWG",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "LinkTitle",
+      "displayName": "CAD_DWG",
+      "type": "unknown",
+      "required": false,
+      "readOnly": true,
+      "hidden": false
+    },
+    {
+      "internalName": "_ColorTag",
+      "displayName": "Color Tag",
+      "type": "text",
+      "required": false,
+      "readOnly": true,
+      "hidden": false
+    },
+    {
+      "internalName": "ComplianceAssetId",
+      "displayName": "Compliance Asset Id",
+      "type": "text",
+      "required": false,
+      "readOnly": true,
+      "hidden": false
+    },
+    {
+      "internalName": "CCC_ID",
+      "displayName": "ID",
+      "type": "number",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "PARTNO",
+      "displayName": "PARTNO",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "DESCR",
+      "displayName": "DESCR",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "DATE_ST",
+      "displayName": "DATE_ST",
+      "type": "dateTime",
+      "required": false,
+      "readOnly": false,
+      "hidden": false,
+      "format": "dateOnly"
+    },
+    {
+      "internalName": "DATE_REV",
+      "displayName": "DATE_REV",
+      "type": "dateTime",
+      "required": false,
+      "readOnly": false,
+      "hidden": false,
+      "format": "dateOnly"
+    },
+    {
+      "internalName": "DWG_SIZE",
+      "displayName": "DWG_SIZE",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "REV_NO",
+      "displayName": "REV_NO",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_DAT01",
+      "displayName": "CH_DAT01",
+      "type": "dateTime",
+      "required": false,
+      "readOnly": false,
+      "hidden": false,
+      "format": "dateOnly"
+    },
+    {
+      "internalName": "CH_ECN01",
+      "displayName": "CH_ECN01",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_REV01",
+      "displayName": "CH_REV01",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_DAT02",
+      "displayName": "CH_DAT02",
+      "type": "dateTime",
+      "required": false,
+      "readOnly": false,
+      "hidden": false,
+      "format": "dateOnly"
+    },
+    {
+      "internalName": "CH_ECN02",
+      "displayName": "CH_ECN02",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_REV02",
+      "displayName": "CH_REV02",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_DAT03",
+      "displayName": "CH_DAT03",
+      "type": "dateTime",
+      "required": false,
+      "readOnly": false,
+      "hidden": false,
+      "format": "dateOnly"
+    },
+    {
+      "internalName": "CH_ECN03",
+      "displayName": "CH_ECN03",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_REV03",
+      "displayName": "CH_REV03",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_DAT04",
+      "displayName": "CH_DAT04",
+      "type": "dateTime",
+      "required": false,
+      "readOnly": false,
+      "hidden": false,
+      "format": "dateOnly"
+    },
+    {
+      "internalName": "CH_ECN04",
+      "displayName": "CH_ECN04",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_REV04",
+      "displayName": "CH_REV04",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_DAT05",
+      "displayName": "CH_DAT05",
+      "type": "dateTime",
+      "required": false,
+      "readOnly": false,
+      "hidden": false,
+      "format": "dateOnly"
+    },
+    {
+      "internalName": "CH_ECN05",
+      "displayName": "CH_ECN05",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_REV05",
+      "displayName": "CH_REV05",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_DAT06",
+      "displayName": "CH_DAT06",
+      "type": "dateTime",
+      "required": false,
+      "readOnly": false,
+      "hidden": false,
+      "format": "dateOnly"
+    },
+    {
+      "internalName": "CH_ECN06",
+      "displayName": "CH_ECN06",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_REV06",
+      "displayName": "CH_REV06",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_DAT07",
+      "displayName": "CH_DAT07",
+      "type": "dateTime",
+      "required": false,
+      "readOnly": false,
+      "hidden": false,
+      "format": "dateOnly"
+    },
+    {
+      "internalName": "CH_ECN07",
+      "displayName": "CH_ECN07",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_REV07",
+      "displayName": "CH_REV07",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_DAT08",
+      "displayName": "CH_DAT08",
+      "type": "dateTime",
+      "required": false,
+      "readOnly": false,
+      "hidden": false,
+      "format": "dateOnly"
+    },
+    {
+      "internalName": "CH_ECN08",
+      "displayName": "CH_ECN08",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_REV08",
+      "displayName": "CH_REV08",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_DAT09",
+      "displayName": "CH_DAT09",
+      "type": "dateTime",
+      "required": false,
+      "readOnly": false,
+      "hidden": false,
+      "format": "dateOnly"
+    },
+    {
+      "internalName": "CH_ECN09",
+      "displayName": "CH_ECN09",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_REV09",
+      "displayName": "CH_REV09",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_DAT10",
+      "displayName": "CH_DAT10",
+      "type": "dateTime",
+      "required": false,
+      "readOnly": false,
+      "hidden": false,
+      "format": "dateOnly"
+    },
+    {
+      "internalName": "CH_ECN10",
+      "displayName": "CH_ECN10",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_REV10",
+      "displayName": "CH_REV10",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_DAT11",
+      "displayName": "CH_DAT11",
+      "type": "dateTime",
+      "required": false,
+      "readOnly": false,
+      "hidden": false,
+      "format": "dateOnly"
+    },
+    {
+      "internalName": "CH_ECN11",
+      "displayName": "CH_ECN11",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_REV11",
+      "displayName": "CH_REV11",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_DAT12",
+      "displayName": "CH_DAT12",
+      "type": "dateTime",
+      "required": false,
+      "readOnly": false,
+      "hidden": false,
+      "format": "dateOnly"
+    },
+    {
+      "internalName": "CH_ECN12",
+      "displayName": "CH_ECN12",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_REV12",
+      "displayName": "CH_REV12",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_DAT13",
+      "displayName": "CH_DAT13",
+      "type": "dateTime",
+      "required": false,
+      "readOnly": false,
+      "hidden": false,
+      "format": "dateOnly"
+    },
+    {
+      "internalName": "CH_ECN13",
+      "displayName": "CH_ECN13",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_REV13",
+      "displayName": "CH_REV13",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_DAT14",
+      "displayName": "CH_DAT14",
+      "type": "dateTime",
+      "required": false,
+      "readOnly": false,
+      "hidden": false,
+      "format": "dateOnly"
+    },
+    {
+      "internalName": "CH_ECN14",
+      "displayName": "CH_ECN14",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_REV14",
+      "displayName": "CH_REV14",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_DAT15",
+      "displayName": "CH_DAT15",
+      "type": "dateTime",
+      "required": false,
+      "readOnly": false,
+      "hidden": false,
+      "format": "dateOnly"
+    },
+    {
+      "internalName": "CH_ECN15",
+      "displayName": "CH_ECN15",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_REV15",
+      "displayName": "CH_REV15",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_DAT16",
+      "displayName": "CH_DAT16",
+      "type": "dateTime",
+      "required": false,
+      "readOnly": false,
+      "hidden": false,
+      "format": "dateOnly"
+    },
+    {
+      "internalName": "CH_ECN16",
+      "displayName": "CH_ECN16",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "CH_REV16",
+      "displayName": "CH_REV16",
+      "type": "text",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "LinkTitleNoMenu",
+      "displayName": "CAD_DWG",
+      "type": "unknown",
+      "required": false,
+      "readOnly": true,
+      "hidden": false
+    },
+    {
+      "internalName": "ID",
+      "displayName": "ID",
+      "type": "unknown",
+      "required": false,
+      "readOnly": true,
+      "hidden": false
+    },
+    {
+      "internalName": "ContentType",
+      "displayName": "Content Type",
+      "type": "unknown",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "Modified",
+      "displayName": "Modified",
+      "type": "dateTime",
+      "required": false,
+      "readOnly": true,
+      "hidden": false,
+      "format": "dateTime"
+    },
+    {
+      "internalName": "Created",
+      "displayName": "Created",
+      "type": "dateTime",
+      "required": false,
+      "readOnly": true,
+      "hidden": false,
+      "format": "dateTime"
+    },
+    {
+      "internalName": "Author",
+      "displayName": "Created By",
+      "type": "personOrGroup",
+      "required": false,
+      "readOnly": true,
+      "hidden": false,
+      "allowMultiple": false
+    },
+    {
+      "internalName": "Editor",
+      "displayName": "Modified By",
+      "type": "personOrGroup",
+      "required": false,
+      "readOnly": true,
+      "hidden": false,
+      "allowMultiple": false
+    },
+    {
+      "internalName": "_UIVersionString",
+      "displayName": "Version",
+      "type": "text",
+      "required": false,
+      "readOnly": true,
+      "hidden": false
+    },
+    {
+      "internalName": "Attachments",
+      "displayName": "Attachments",
+      "type": "unknown",
+      "required": false,
+      "readOnly": false,
+      "hidden": false
+    },
+    {
+      "internalName": "Edit",
+      "displayName": "Edit",
+      "type": "unknown",
+      "required": false,
+      "readOnly": true,
+      "hidden": false
+    },
+    {
+      "internalName": "DocIcon",
+      "displayName": "Type",
+      "type": "unknown",
+      "required": false,
+      "readOnly": true,
+      "hidden": false
+    },
+    {
+      "internalName": "ItemChildCount",
+      "displayName": "Item Child Count",
+      "type": "lookup",
+      "required": false,
+      "readOnly": true,
+      "hidden": false,
+      "lookupListId": "",
+      "lookupColumn": "ItemChildCount",
+      "allowMultiple": false
+    },
+    {
+      "internalName": "FolderChildCount",
+      "displayName": "Folder Child Count",
+      "type": "lookup",
+      "required": false,
+      "readOnly": true,
+      "hidden": false,
+      "lookupListId": "",
+      "lookupColumn": "FolderChildCount",
+      "allowMultiple": false
+    },
+    {
+      "internalName": "_ComplianceFlags",
+      "displayName": "Label setting",
+      "type": "lookup",
+      "required": false,
+      "readOnly": true,
+      "hidden": false,
+      "lookupListId": "",
+      "lookupColumn": "ComplianceFlags",
+      "allowMultiple": false
+    },
+    {
+      "internalName": "_ComplianceTag",
+      "displayName": "Retention label",
+      "type": "lookup",
+      "required": false,
+      "readOnly": true,
+      "hidden": false,
+      "lookupListId": "",
+      "lookupColumn": "ComplianceTag",
+      "allowMultiple": false
+    },
+    {
+      "internalName": "_ComplianceTagWrittenTime",
+      "displayName": "Retention label Applied",
+      "type": "lookup",
+      "required": false,
+      "readOnly": true,
+      "hidden": false,
+      "lookupListId": "",
+      "lookupColumn": "ComplianceTagWrittenTime",
+      "allowMultiple": false
+    },
+    {
+      "internalName": "_ComplianceTagUserId",
+      "displayName": "Label applied by",
+      "type": "lookup",
+      "required": false,
+      "readOnly": true,
+      "hidden": false,
+      "lookupListId": "",
+      "lookupColumn": "ComplianceTagUserId",
+      "allowMultiple": false
+    },
+    {
+      "internalName": "_IsRecord",
+      "displayName": "Item is a Record",
+      "type": "unknown",
+      "required": false,
+      "readOnly": true,
+      "hidden": false
+    },
+    {
+      "internalName": "AppAuthor",
+      "displayName": "App Created By",
+      "type": "lookup",
+      "required": false,
+      "readOnly": true,
+      "hidden": false,
+      "lookupListId": "AppPrincipals",
+      "lookupColumn": "Title",
+      "allowMultiple": false
+    },
+    {
+      "internalName": "AppEditor",
+      "displayName": "App Modified By",
+      "type": "lookup",
+      "required": false,
+      "readOnly": true,
+      "hidden": false,
+      "lookupListId": "AppPrincipals",
+      "lookupColumn": "Title",
+      "allowMultiple": false
+    }
+  ],
+  "sampleRows": [
+    {
+      "DATE_REV": "2003-02-13T12:00:00Z",
+      "AppEditorLookupId": "18",
+      "_ComplianceTagWrittenTime": "",
+      "Title": "50100008",
+      "AuthorLookupId": "12",
+      "DATE_ST": "2002-01-15T12:00:00Z",
+      "FolderChildCount": "0",
+      "AppAuthorLookupId": "18",
+      "_ComplianceFlags": "",
+      "ItemChildCount": "0",
+      "Edit": "",
+      "_ComplianceTagUserId": "",
+      "REV_NO": "B",
+      "LinkTitle": "50100008",
+      "Modified": "2026-07-28T19:25:30Z",
+      "PARTNO": "50100008",
+      "id": "1",
+      "EditorLookupId": "12",
+      "_ComplianceTag": "",
+      "CCC_ID": 1.0,
+      "ContentType": "Item",
+      "Attachments": false,
+      "Created": "2026-07-28T19:25:30Z",
+      "@odata.etag": "\"573c7272-3ea4-4526-b695-abd0dd96d263,1\"",
+      "DESCR": "ASSEMBLY, EXPLODED, AGV10",
+      "LinkTitleNoMenu": "50100008",
+      "_UIVersionString": "1.0"
+    },
+    {
+      "_ComplianceTagUserId": "",
+      "PARTNO": "50100028",
+      "_ComplianceTagWrittenTime": "",
+      "_ComplianceFlags": "",
+      "AppAuthorLookupId": "18",
+      "Modified": "2026-07-28T19:25:31Z",
+      "LinkTitleNoMenu": "50100028",
+      "_ComplianceTag": "",
+      "ContentType": "Item",
+      "Title": "50100028",
+      "LinkTitle": "50100028",
+      "Created": "2026-07-28T19:25:31Z",
+      "Edit": "",
+      "DATE_ST": "2002-07-17T12:00:00Z",
+      "id": "2",
+      "AppEditorLookupId": "18",
+      "EditorLookupId": "12",
+      "ItemChildCount": "0",
+      "FolderChildCount": "0",
+      "Attachments": false,
+      "_UIVersionString": "1.0",
+      "DESCR": "ASSEMBLY, BASIC SERVICE, AGV10",
+      "@odata.etag": "\"574f0cba-061b-4eb8-bf20-0f9e45b69714,1\"",
+      "AuthorLookupId": "12",
+      "REV_NO": "B",
+      "CCC_ID": 2.0
+    },
+    {
+      "DATE_REV": "2002-09-25T12:00:00Z",
+      "AppEditorLookupId": "18",
+      "_ComplianceTagWrittenTime": "",
+      "Title": "50101008",
+      "AuthorLookupId": "12",
+      "DATE_ST": "2000-06-21T12:00:00Z",
+      "FolderChildCount": "0",
+      "AppAuthorLookupId": "18",
+      "_ComplianceFlags": "",
+      "ItemChildCount": "0",
+      "Edit": "",
+      "_ComplianceTagUserId": "",
+      "REV_NO": "C",
+      "LinkTitle": "50101008",
+      "Modified": "2026-07-28T19:25:31Z",
+      "PARTNO": "50101008",
+      "id": "3",
+      "EditorLookupId": "12",
+      "_ComplianceTag": "",
+      "CCC_ID": 3.0,
+      "ContentType": "Item",
+      "Attachments": false,
+      "Created": "2026-07-28T19:25:31Z",
+      "@odata.etag": "\"dff5c3aa-4f96-4072-839a-508b7286abfb,1\"",
+      "DESCR": "ASSEMBLY, PRESSURE TRANSDUCER",
+      "LinkTitleNoMenu": "50101008",
+      "_UIVersionString": "1.0"
+    },
+    {
+      "DATE_REV": "2001-07-24T12:00:00Z",
+      "AppEditorLookupId": "18",
+      "_ComplianceTagWrittenTime": "",
+      "Title": "50101039",
+      "AuthorLookupId": "12",
+      "DATE_ST": "2001-02-16T12:00:00Z",
+      "FolderChildCount": "0",
+      "AppAuthorLookupId": "18",
+      "_ComplianceFlags": "",
+      "ItemChildCount": "0",
+      "Edit": "",
+      "_ComplianceTagUserId": "",
+      "REV_NO": "C",
+      "LinkTitle": "50101039",
+      "Modified": "2026-07-28T19:25:32Z",
+      "PARTNO": "50101039",
+      "id": "4",
+      "EditorLookupId": "12",
+      "_ComplianceTag": "",
+      "CCC_ID": 4.0,
+      "ContentType": "Item",
+      "Attachments": false,
+      "Created": "2026-07-28T19:25:32Z",
+      "@odata.etag": "\"c0d47050-812a-4093-9823-aea30ed239cc,1\"",
+      "DESCR": "HOUSING, PRESSURE TRANSDUCER",
+      "LinkTitleNoMenu": "50101039",
+      "_UIVersionString": "1.0"
+    },
+    {
+      "_ComplianceTagUserId": "",
+      "PARTNO": "50102008",
+      "_ComplianceTagWrittenTime": "",
+      "_ComplianceFlags": "",
+      "AppAuthorLookupId": "18",
+      "Modified": "2026-07-28T19:25:32Z",
+      "LinkTitleNoMenu": "50102008",
+      "_ComplianceTag": "",
+      "ContentType": "Item",
+      "Title": "50102008",
+      "LinkTitle": "50102008",
+      "Created": "2026-07-28T19:25:32Z",
+      "Edit": "",
+      "DATE_ST": "2001-12-18T12:00:00Z",
+      "id": "5",
+      "AppEditorLookupId": "18",
+      "EditorLookupId": "12",
+      "ItemChildCount": "0",
+      "FolderChildCount": "0",
+      "Attachments": false,
+      "_UIVersionString": "1.0",
+      "DESCR": "ASSEMBLY, dP TRANSDUCER",
+      "@odata.etag": "\"f3f4a08d-ad9f-4542-8f37-8ceb877e001d,1\"",
+      "AuthorLookupId": "12",
+      "REV_NO": "A",
+      "CCC_ID": 5.0
+    }
+  ]
+}

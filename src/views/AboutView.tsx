@@ -72,9 +72,9 @@ const SYSTEM_TIERS: Tier[] = [
   {
     label: "React SPA",
     nodes: [
-      { label: "Views", hint: "Dashboard · List · Kanban · Detail · EIRs · Test Sheets · Project Folders · CSA Listings · Admin", palette: "ui" },
-      { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useBuildRequests · useCsaListings · useAdmins · useEirRoles · useTaskFiles · useProjectFolders", palette: "ui" },
-      { label: "API layer", hint: "src/api/tasks · eirs · testSheets · buildRequests · buildRequestItems · csaListings · panelOrders · panelTasks · admins · eirRoles · panelRoles · directory · siteUsers · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
+      { label: "Views", hint: "Dashboard · List · Kanban · Detail · EIRs · Test Sheets · Project Folders · CSA Listings · Drawing File Logs · Admin", palette: "ui" },
+      { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useBuildRequests · useCsaListings · useDrawingLogs · useAdmins · useEirRoles · useTaskFiles · useProjectFolders", palette: "ui" },
+      { label: "API layer", hint: "src/api/tasks · eirs · testSheets · buildRequests · buildRequestItems · csaListings · drawingLogs · panelOrders · panelTasks · admins · eirRoles · panelRoles · directory · siteUsers · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
       {
         label: "Build Requests (lazy-loaded)",
         hint: "BuildRequestsView · BuildRequestDetailView — a master-detail pair: the Tracker header list + any number of parts from the Items list, joined by BuildRequestNo. Own code-split chunk.",
@@ -112,6 +112,8 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "Admins", palette: "list" },
       { label: "EIR Roles", hint: "engineer / supply-chain field permissions", palette: "list" },
       { label: "CSA Listings", hint: "Engineering site — CSA certification files; Title is the File Number, admin-only writes", palette: "list" },
+      { label: "CAD / CCC / CEC Drawings", hint: "Engineering site — drawing registers; a 16-slot change log across 48 CH_* columns", palette: "list" },
+      { label: "Engineering Sketches", hint: "Engineering site — sketch register; own columns, no change log", palette: "list" },
       { label: "Documents library", hint: "General/Project Folders/* — task & comment files land here", palette: "list" },
       { label: "List-item attachments", hint: "SharePoint REST · per-item files on Tasks, EIRs, CSA Listings and more", palette: "list" },
       { label: "Operations Task List", hint: "Altronic_PMO site — separate from Engineering's Task List", palette: "list" },
@@ -514,6 +516,41 @@ const SCHEMA_TABLES: SchemaTable[] = [
       { name: "history", type: "note", kind: "field" },
       { name: "dateCertified", type: "date", kind: "field" },
       { name: "csaId (legacy)", type: "number", kind: "field" },
+    ],
+  },
+
+  // ---- Drawing File Logs (Engineering) ------------------------------------
+  // Three of the four lists share this shape. The change log is NOT a table of
+  // its own: it's 16 fixed (date, ECN, rev) slots inside the same row, which the
+  // mapper folds into an array. Modelled here as one column so the diagram
+  // reflects the storage rather than the shape the app presents.
+  {
+    name: "DrawingLogEntry",
+    source: "CAD / CCC / CEC Drawings (Engineering site)",
+    palette: "entity",
+    x: 1080, y: 2620, width: 320,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title (drawing no.)", type: "text", kind: "field" },
+      { name: "partNo / descr", type: "text", kind: "field" },
+      { name: "dateStarted / dateRevised", type: "date", kind: "field" },
+      { name: "size / revNo", type: "text", kind: "field" },
+      { name: "changes[16] (CH_DAT/ECN/REV)", type: "text", kind: "field" },
+      { name: "legacyId (CCC_ID/CEC_ID)", type: "number", kind: "field" },
+    ],
+  },
+  {
+    name: "SketchLogEntry",
+    source: "Engineering Sketches (Engineering site)",
+    palette: "entity",
+    x: 1080, y: 2860, width: 320,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title", type: "text", kind: "field" },
+      { name: "sketchNumber (SK_Num)", type: "number", kind: "field" },
+      { name: "dateStarted / dateRevised", type: "date", kind: "field" },
+      { name: "size / vCode / ventura", type: "text", kind: "field" },
+      { name: "legacyId (SK_ID)", type: "number", kind: "field" },
     ],
   },
 

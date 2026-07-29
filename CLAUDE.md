@@ -227,6 +227,7 @@ src/
 │   ├── testSheets.ts             Test Results CRUD
 │   ├── admins.ts                 Admins list CRUD
 │   ├── csaListings.ts            CSA Listings CRUD (Engineering certification register)
+│   ├── drawingLogs.ts            Drawing File Logs — 4 registers, one parametrised module
 │   ├── teradyneLog.ts            Teradyne Log CRUD (Operations, PMO site)
 │   ├── teradyneRefs.ts           Teradyne Employees/Products/Remarks (one parametrised module)
 │   ├── projectFiles.ts           Documents-library project folders + files
@@ -239,6 +240,7 @@ src/
 │   ├── mockData.ts               Sample tasks, EIRs, projects, people
 │   ├── dashboardMockData.ts      Sample dashboard metrics
 │   ├── csaMockData.ts            Sample CSA certification files
+│   ├── drawingLogMockData.ts     Sample drawings + sketches (incl. sparse & full change logs)
 │   ├── teradyneMockData.ts       Sample Teradyne log + reference rows
 │   └── changelog.ts              Version history (drives footer + history modal)
 │
@@ -247,6 +249,7 @@ src/
 │   ├── useEirs.ts                EIR queries + mutations (optimistic + undo)
 │   ├── useEirRoles.ts            EIR roles CRUD + useMyEirRoles() (field gating)
 │   ├── useCsaListings.ts         CSA Listings queries + mutations
+│   ├── useDrawingLogs.ts         Drawing log queries + admin-guarded mutations
 │   ├── useTeradyne.ts            Teradyne log + ref-list queries/mutations (+ usage counts)
 │   ├── useTestSheets.ts          Test sheet queries + mutations
 │   ├── useAdmins.ts              Admins list CRUD
@@ -267,6 +270,7 @@ src/
 │   ├── eirNumber.ts              nextEirNo() — EIR_YYYY-#### auto-numbering
 │   ├── testSheetMapper.ts        Graph item → TestSheet
 │   ├── csaListingMapper.ts       Graph item → CsaListing (+ label, sort, search)
+│   ├── drawingLogMapper.ts       Graph item → DrawingLogEntry + the 16-slot change-log codec
 │   ├── certificationExpiry.ts    Expiry buckets for dated certificates (built, not yet wired)
 │   ├── spDates.ts                Shared SharePoint date-only helpers (midday-UTC rule)
 │   ├── teradyneMapper.ts         Graph item → Teradyne entities; derived titles + date-only helpers
@@ -299,6 +303,8 @@ src/
 │   ├── EirFormModal.tsx          Create/edit EIR
 │   ├── TestSheetFormModal.tsx    Create/edit test sheet
 │   ├── CsaListingFormModal.tsx   Create/edit a CSA listing (+ attachments when editing)
+│   ├── DrawingLogDetailModal.tsx  Drawing detail + change log (+ record a change)
+│   ├── DrawingLogCreateModal.tsx  Add a drawing to a register
 │   ├── TeradyneLogFormModal.tsx  Create/edit a Teradyne log entry
 │   ├── CommentThread.tsx         Sorted comment list
 │   ├── CommentComposer.tsx       New-comment editor (+ @-mentions)
@@ -321,6 +327,7 @@ src/
 │   │                             status pills, filter bar
 │   ├── EirDetailView.tsx         EIR detail (+ role-gated fields, see below)
 │   ├── CsaListingsView.tsx       CSA Listings table (Engineering, admin-gated writes)
+│   ├── DrawingLogsView.tsx       Drawing File Logs — four tabbed registers
 │   ├── TeradyneLogView.tsx       Teradyne Log table + "Manage lists" menu (Operations)
 │   ├── TeradyneRefListView.tsx   Edit one Teradyne reference list (:kind)
 │   ├── TestSheetsView.tsx        Test sheets list
@@ -484,6 +491,51 @@ calculated **EIR Log No.** derives from it, so we only write `EIRNo`.
 - **EIR Roles List ID** (env: `VITE_SP_EIR_ROLES_LIST_ID`) — admin-managed list (Title = email, plus `DisplayName`, `Note`, and `Roles` text columns). `Roles` holds a lowercase CSV of role tags (`engineer`, `supply chain`). Gates which EIR fields a user may edit (see "EIR field permissions" below). Not yet created — set the env var once the list exists. Managed at `/admin/eir-roles`.
 - **Shared mailbox** (env: `VITE_SHARED_MAILBOX`) — email address that @-mention notifications send FROM. See setup below.
 - **App manager email** (env: `VITE_APP_MANAGER_EMAIL`) — recipient of "Report issue" reports sent from the life-buoy button in the header. Falls back to `ray.white@altronic-llc.com` if unset, so the button works on day one. Sent FROM the same shared mailbox, with the reporter CC'd. See `src/api/errorReport.ts`.
+
+### Drawing File Logs (Engineering)
+
+Four registers behind one tabbed screen at `/drawing-logs`, all on
+`SITES.engineering`. IDs discovered live 2026-07-29.
+
+| Log | env / id | Shape |
+|---|---|---|
+| CAD Drawings | `VITE_SP_CAD_DRAWINGS_LIST_ID` — **id unknown** | drawing + change log |
+| CCC Drawings | `0ac690f8-1374-4df1-8057-35eb4220e54b` (105 rows) | drawing + change log |
+| CEC Drawings | `5d2d478a-ae19-47a9-8836-453001b756dc` (263 rows) | drawing + change log |
+| Engineering Sketches | `dc9c015c-5284-43b4-ab90-40d73d515896` (1,000+ rows) | sketch, **no change log** |
+
+**CAD is unwired on purpose.** Its SharePoint display name no longer matches the
+"CAD Drawings" in its URL, so the id couldn't be resolved by name. A log with no
+id simply doesn't appear as a tab (`availableDrawingLogs()`), so setting the env
+var is the only step needed to light it up.
+
+**The change log is 16 FIXED SLOTS across 48 columns**: `CH_DAT01…16`,
+`CH_ECN01…16`, `CH_REV01…16`. That spreadsheet habit is contained entirely in
+`src/lib/drawingLogMapper.ts` — everything above sees a `changes` array. Three
+things it handles that will bite anyone who bypasses it:
+
+- **Slots are sparse.** Real rows have gaps (01 and 03 used, 02 empty), so
+  `nextFreeChangeSlot()` fills the FIRST gap rather than `highest + 1` — on a
+  list with only sixteen slots, skipping one wastes it.
+- **A slot counts as used if ANY of its three columns has a value.** A change
+  with an ECN but no date is still a change.
+- **There is no seventeenth slot.** `appendDrawingChange` re-reads the row before
+  writing (so two people recording minutes apart don't target the same slot) and
+  THROWS when full rather than overwriting the oldest entry. The UI disables the
+  button and explains.
+
+Recording a change also advances the row's own `REV_NO` / `DATE_REV`, because
+otherwise the table disagrees with the change log beneath it.
+
+**Two shapes, one type.** Sketches has no `PARTNO` / `DESCR` / `REV_NO` / `CH_*`
+columns and carries `SK_Num` / `V_CODE` / `VENTURA` instead. `hasChangeLog` and
+`hasSketchFields` on the `DRAWING_LOGS` spec drive which columns are selected,
+written and displayed — writing a column a list hasn't got is a 400.
+
+**Writes are admin-only**, in the view and in every mutation
+(`useDrawingLogs.guard.test.tsx`). Reading and searching are open; search
+deliberately covers the change log's ECNs, since "which drawing did ECN-0031
+change?" is otherwise unanswerable.
 
 ### CSA Listings (Engineering)
 

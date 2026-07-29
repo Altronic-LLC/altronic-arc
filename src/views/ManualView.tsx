@@ -1427,6 +1427,94 @@ const SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: "drawing-file-logs",
+    title: "Drawing File Logs",
+    group: "Engineering",
+    keywords: [
+      "drawing",
+      "drawings",
+      "drawing log",
+      "drawing file logs",
+      "cad",
+      "ccc",
+      "cec",
+      "sketch",
+      "sketches",
+      "engineering sketches",
+      "change log",
+      "ecn",
+      "revision",
+      "rev",
+      "dwg",
+      "part number",
+      "sk_num",
+      "ventura",
+      "record a change",
+    ],
+    searchText:
+      "Drawing File Logs brings Engineering's drawing registers together on one screen as tabs: CCC Drawings, CEC Drawings and Engineering Sketches, with CAD Drawings to follow. Each tab is a searchable table; click any row for the full record and its change log — the dated revisions and ECNs that SharePoint stores across 48 columns. Search covers the ECNs too, so you can find which drawing a change notice affected. Admins can add a drawing, edit its details, and record a change, which also updates the drawing's current revision. A drawing has sixteen change slots; once they're used the app says so rather than overwriting an old entry. Engineering Sketches has its own columns (sketch number, V code, Ventura) and no change log, because the list doesn't have one. Reading and searching are open to everyone.",
+    render: () => (
+      <>
+        <P>
+          <strong>Drawing File Logs</strong> puts Engineering's drawing registers
+          on one screen. Reach it from the <strong>Drawing File Logs</strong> card
+          on the Dashboard, or the <strong>Departments</strong> dropdown's
+          Engineering group.
+        </P>
+        <P>
+          The registers are <strong>tabs</strong>: CCC Drawings, CEC Drawings and
+          Engineering Sketches (CAD Drawings joins them shortly). The tab is part
+          of the link, so a shared URL opens on the same register.
+        </P>
+        <H3>The change log</H3>
+        <P>
+          <strong>Click any row</strong> for the full record. On the drawing
+          registers that includes the <strong>change log</strong> — each revision
+          with its date and the ECN that caused it. SharePoint keeps this spread
+          across forty-eight columns where nobody can read it; here it's a table.
+        </P>
+        <P>
+          Search covers the ECNs as well as drawing numbers, part numbers and
+          descriptions — so "which drawing did ECN-0031 change?" is a question you
+          can actually answer. Type the ECN.
+        </P>
+        <H3>Recording a change — admins</H3>
+        <P>
+          Open a drawing and use <strong>Record a change</strong>: a date, the ECN
+          and the new revision. The revision you enter also becomes the drawing's
+          current revision, so the table and the change log can't drift apart.
+        </P>
+        <P>
+          Each drawing has <strong>sixteen change slots</strong> — that's the
+          SharePoint list's limit, not the app's. The panel shows how many are
+          used (e.g. "3/16"). Once all sixteen are full the button is disabled and
+          the app explains why; it won't quietly overwrite the oldest entry.
+          Further changes need recording in SharePoint, or more columns adding to
+          the list.
+        </P>
+        <H3>Engineering Sketches is different</H3>
+        <P>
+          The sketch register has <strong>no change log</strong> — the list simply
+          doesn't have those columns. It carries a sketch number, V code and
+          Ventura reference instead, and the table and detail panel show those.
+        </P>
+        <H3>Who can change what</H3>
+        <P>
+          Drawing records are controlled documents, so{" "}
+          <strong>adding, editing and recording changes is limited to admins</strong>.
+          Everyone else gets the full table, the search and the change log —
+          reading is the point — but no New button and no row actions.
+        </P>
+        <Tip>
+          The table shows the first 200 matching rows with a "Show all" link
+          underneath. Engineering Sketches runs to well over a thousand, so that
+          keeps searching quick; the filters and counts always cover the whole
+          register.
+        </Tip>
+      </>
+    ),
+  },
+  {
     id: "csa-listings",
     title: "CSA Listings",
     group: "Engineering",

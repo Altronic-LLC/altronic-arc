@@ -66,6 +66,10 @@ const BuildRequestItemRedirect = lazy(() =>
     default: m.BuildRequestItemRedirect,
   })),
 );
+// Drawing File Logs — Engineering's four drawing registers behind one screen.
+const DrawingLogsView = lazy(() =>
+  import("@/views/DrawingLogsView").then((m) => ({ default: m.DrawingLogsView })),
+);
 // CSA Listings — Engineering's certification register. Lazy like the other
 // Engineering extras so it stays out of the main chunk.
 const CsaListingsView = lazy(() =>
@@ -193,6 +197,14 @@ export function App() {
             element={
               <Suspense fallback={<LoadingTasks noun="this task" />}>
                 <OperationsDetailView />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/drawing-logs"
+            element={
+              <Suspense fallback={<LoadingTasks noun="the drawing logs" />}>
+                <DrawingLogsView />
               </Suspense>
             }
           />

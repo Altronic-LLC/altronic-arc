@@ -13,6 +13,7 @@ import {
   Contact,
   DollarSign,
   FileCheck,
+  FileStack,
   FileText,
   FolderOpen,
   Gauge,
@@ -109,6 +110,12 @@ const DEPARTMENTS: DepartmentGroup[] = [
         label: "Build Requests",
         icon: <HardHat className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/build-request"),
+      },
+      {
+        to: "/drawing-logs",
+        label: "Drawing File Logs",
+        icon: <FileStack className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/drawing-logs"),
       },
       {
         to: "/csa-listings",

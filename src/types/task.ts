@@ -884,6 +884,92 @@ export interface PanelTask {
 }
 
 // =============================================================================
+// Drawing File Logs — Engineering's drawing registers, on the Engineering site.
+// Four lists behind one screen: CAD, CCC and CEC Drawings plus Engineering
+// Sketches.
+//
+// Two shapes, not one:
+//
+//  - The DRAWING logs (CAD / CCC / CEC) share a column set: `Title` is the
+//    drawing number (SharePoint displays it as "CAD_DWG"), plus part number,
+//    description, sizes, dates and a revision — and a CHANGE LOG spread across
+//    48 columns: CH_DAT01…16, CH_ECN01…16, CH_REV01…16. Sixteen fixed slots,
+//    each a (date, ECN, revision) triple. `drawingLogMapper.ts` folds them into
+//    a `changes` array so nothing else has to know about the numbering.
+//  - SKETCHES has no change log at all, and carries its own fields instead
+//    (SK_Num, V_CODE, VENTURA).
+//
+// One type covers both, with the log's `kind` saying which fields mean anything.
+// =============================================================================
+
+export const DRAWING_LOG_KINDS = ["cad", "ccc", "cec", "sketches"] as const;
+export type DrawingLogKind = (typeof DRAWING_LOG_KINDS)[number];
+
+/** One entry in a drawing's change log — one CH_DAT/CH_ECN/CH_REV triple. */
+export interface DrawingChange {
+  /** 1-based slot number, i.e. which CH_*nn* columns this came from. */
+  slot: number;
+  date: Date | null;
+  /** Engineering Change Notice reference. */
+  ecn: string;
+  /** Revision this change produced. */
+  rev: string;
+}
+
+export interface DrawingLogEntry {
+  id: number;
+  /** Which log this row came from — the four lists share one screen. */
+  kind: DrawingLogKind;
+  /**
+   * `Title`. The drawing number on CAD/CCC/CEC; a descriptive name on Sketches.
+   */
+  title: string;
+  partNo: string;
+  description: string;
+  /** `DATE_ST` — when the drawing was started/issued. */
+  dateStarted: Date | null;
+  /** `DATE_REV` — when it was last revised. */
+  dateRevised: Date | null;
+  /** `DWG_SIZE` — sheet size (A/B/C/D…). */
+  size: string;
+  /** `REV_NO` — the drawing's current revision. */
+  revNo: string;
+  /** Parsed change log, oldest slot first. Always empty for Sketches. */
+  changes: DrawingChange[];
+  /** Legacy id from the original data (CCC_ID / CEC_ID / SK_ID). Read-only. */
+  legacyId: number | null;
+  /** Sketches only — `SK_Num`. */
+  sketchNumber: number | null;
+  /** Sketches only — `V_CODE`. */
+  vCode: number | null;
+  /** Sketches only — `VENTURA`. */
+  ventura: string;
+  createdAt: Date;
+  modifiedAt: Date;
+}
+
+/** Editable core fields of a drawing log row. The change log is appended separately. */
+export interface DrawingLogInput {
+  title: string;
+  partNo: string;
+  description: string;
+  dateStarted: Date | null;
+  dateRevised: Date | null;
+  size: string;
+  revNo: string;
+  sketchNumber: number | null;
+  vCode: number | null;
+  ventura: string;
+}
+
+/** A new change-log entry, appended to the next free slot. */
+export interface DrawingChangeInput {
+  date: Date | null;
+  ecn: string;
+  rev: string;
+}
+
+// =============================================================================
 // CSA Listings — Engineering's CSA product-certification register, on the
 // Engineering site.
 //

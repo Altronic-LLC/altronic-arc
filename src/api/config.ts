@@ -124,6 +124,37 @@ export const SP_PMO_SITE_URL =
   (import.meta.env.VITE_SP_PMO_SITE_URL as string | undefined) ??
   "https://coopermachineryservices.sharepoint.com/sites/Altronic_PMO";
 
+// =============================================================================
+// Drawing File Logs — FOUR drawing registers on the Engineering site, shown
+// together under one screen. IDs discovered live 2026-07-29.
+//
+// CAD Drawings is the exception: its SharePoint display name no longer matches
+// the "CAD Drawings" in its URL (renamed at some point, and SharePoint keeps the
+// original URL), so its id isn't known yet. Left env-only and undefined — the
+// screen hides a log whose id is missing rather than showing a broken tab, so
+// wiring CAD up later is one value here and nothing else.
+// =============================================================================
+
+/** "CAD Drawings" — id pending; set VITE_SP_CAD_DRAWINGS_LIST_ID to light it up. */
+export const SP_CAD_DRAWINGS_LIST_ID = import.meta.env.VITE_SP_CAD_DRAWINGS_LIST_ID as
+  | string
+  | undefined;
+
+/** "CCC Drawings" — 105 rows, with the 16-slot change log. */
+export const SP_CCC_DRAWINGS_LIST_ID =
+  import.meta.env.VITE_SP_CCC_DRAWINGS_LIST_ID ||
+  "0ac690f8-1374-4df1-8057-35eb4220e54b";
+
+/** "CEC Drawings" — 263 rows, same shape as CCC. */
+export const SP_CEC_DRAWINGS_LIST_ID =
+  import.meta.env.VITE_SP_CEC_DRAWINGS_LIST_ID ||
+  "5d2d478a-ae19-47a9-8836-453001b756dc";
+
+/** "Engineering Sketches" — 1,000+ rows, its own columns and NO change log. */
+export const SP_ENGINEERING_SKETCHES_LIST_ID =
+  import.meta.env.VITE_SP_ENGINEERING_SKETCHES_LIST_ID ||
+  "dc9c015c-5284-43b4-ab90-40d73d515896";
+
 /**
  * "CSA Listings" — Engineering's CSA product-certification register on the
  * Engineering site. `Title` is repurposed as the File Number; `CSA_ID` is a

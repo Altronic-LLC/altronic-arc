@@ -13,6 +13,7 @@ import {
   Contact,
   DollarSign,
   FileCheck,
+  FileStack,
   FileText,
   FolderOpen,
   Gauge,
@@ -36,6 +37,7 @@ import { useProjectFolderEntries } from "@/hooks/useProjectFolders";
 import { useOperationsTasks } from "@/hooks/useOperationsTasks";
 import { useTeradyneLog } from "@/hooks/useTeradyne";
 import { useCsaListings } from "@/hooks/useCsaListings";
+import { useDrawingLog } from "@/hooks/useDrawingLogs";
 import { useBuildRequests } from "@/hooks/useBuildRequests";
 import { usePanelOrders } from "@/hooks/usePanelOrders";
 import { usePanelTasks } from "@/hooks/usePanelTasks";
@@ -228,6 +230,15 @@ export function DashboardView() {
   // Current year only — the log holds 16k+ rows of imported legacy history that
   // nobody works from in ARC, so the card counts this year's entries rather
   // than dragging the whole archive into the dashboard.
+  // Drawing registers — the card counts the biggest register (Sketches) since a
+  // single number across four differently-shaped lists would mean little; the
+  // screen itself is tabbed. No status workflow, so no segments.
+  const {
+    data: sketches = [],
+    isError: drawingsError,
+    error: drawingsErrorObj,
+    refetch: refetchDrawings,
+  } = useDrawingLog("sketches");
   // Certification register — small, changes rarely, and like Teradyne it has no
   // status workflow, so the card is a plain count with no segments.
   const {
@@ -511,6 +522,13 @@ export function DashboardView() {
       retry: refetchOperationsTasks,
     },
     {
+      name: "Drawing File Logs",
+      dept: "Engineering",
+      failed: drawingsError,
+      error: drawingsErrorObj,
+      retry: refetchDrawings,
+    },
+    {
       name: "CSA Listings",
       dept: "Engineering",
       failed: csaError,
@@ -668,6 +686,15 @@ export function DashboardView() {
           unit="open"
           segments={buildRequestCard.segments}
           onClick={() => navigate(buildRequestsUrl)}
+        />
+        <TypeCard
+          name="Drawing File Logs"
+          icon={<FileStack className="h-5 w-5" />}
+          tone="superior-blue"
+          count={sketches.length}
+          unit="sketches on file"
+          // No `segments` — a drawing register has no active/done states.
+          onClick={() => navigate("/drawing-logs")}
         />
         <TypeCard
           name="CSA Listings"
