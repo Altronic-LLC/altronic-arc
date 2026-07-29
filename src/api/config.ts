@@ -128,17 +128,18 @@ export const SP_PMO_SITE_URL =
 // Drawing File Logs — FOUR drawing registers on the Engineering site, shown
 // together under one screen. IDs discovered live 2026-07-29.
 //
-// CAD Drawings is the exception: its SharePoint display name no longer matches
-// the "CAD Drawings" in its URL (renamed at some point, and SharePoint keeps the
-// original URL), so its id isn't known yet. Left env-only and undefined — the
-// screen hides a log whose id is missing rather than showing a broken tab, so
-// wiring CAD up later is one value here and nothing else.
+// A log with no configured id doesn't appear as a tab at all, so this stays
+// tolerant of a list we can't resolve.
 // =============================================================================
 
-/** "CAD Drawings" — id pending; set VITE_SP_CAD_DRAWINGS_LIST_ID to light it up. */
-export const SP_CAD_DRAWINGS_LIST_ID = import.meta.env.VITE_SP_CAD_DRAWINGS_LIST_ID as
-  | string
-  | undefined;
+/**
+ * "CAD Drawings" — 1,000+ rows. Its columns haven't been captured yet (only its
+ * identity), so `api/drawingLogs.ts` deliberately fetches all fields for this one
+ * rather than naming columns that might not exist. See the note there.
+ */
+export const SP_CAD_DRAWINGS_LIST_ID =
+  import.meta.env.VITE_SP_CAD_DRAWINGS_LIST_ID ||
+  "d1f818e9-a547-4277-a233-a9a790b79762";
 
 /** "CCC Drawings" — 105 rows, with the 16-slot change log. */
 export const SP_CCC_DRAWINGS_LIST_ID =

@@ -499,15 +499,29 @@ Four registers behind one tabbed screen at `/drawing-logs`, all on
 
 | Log | env / id | Shape |
 |---|---|---|
-| CAD Drawings | `VITE_SP_CAD_DRAWINGS_LIST_ID` — **id unknown** | drawing + change log |
+| CAD Drawings | `d1f818e9-a547-4277-a233-a9a790b79762` (1,000+ rows) | drawing + change log |
 | CCC Drawings | `0ac690f8-1374-4df1-8057-35eb4220e54b` (105 rows) | drawing + change log |
 | CEC Drawings | `5d2d478a-ae19-47a9-8836-453001b756dc` (263 rows) | drawing + change log |
 | Engineering Sketches | `dc9c015c-5284-43b4-ab90-40d73d515896` (1,000+ rows) | sketch, **no change log** |
 
-**CAD is unwired on purpose.** Its SharePoint display name no longer matches the
-"CAD Drawings" in its URL, so the id couldn't be resolved by name. A log with no
-id simply doesn't appear as a tab (`availableDrawingLogs()`), so setting the env
-var is the only step needed to light it up.
+**CAD fetches ALL fields, not a narrow `$select`.** Its columns have never been
+captured — only its id. CCC and CEC were almost certainly cloned from it (their
+`Title` still displays as "CAD_DWG") so the same shape is expected, but a
+`$select` naming a column the list hasn't got is a Graph 400 that would break the
+whole tab. `fieldsExpand()` omits the select for CAD; tighten it to a narrow one
+once the columns are confirmed with `scripts/discover-list.ps1 -ListName "CAD Drawings"`.
+
+A log with no configured id doesn't appear as a tab at all
+(`availableDrawingLogs()`). All four are configured now, but that tolerance is
+what let the screen ship useful while CAD's id was still unknown.
+
+**Discovery gotcha worth remembering:** `/sites/{id}/lists` is PAGED. The
+Engineering site has more lists than one `$top=200` page, and an unpaged call
+silently returned a subset — which made CAD look missing when it was there all
+along. `discover-list.ps1` now follows `@odata.nextLink`, and matches a list by
+display name, URL name, OR the webUrl's trailing segment (SharePoint fixes a
+list's URL at creation and keeps it through later renames, so the three drift
+apart).
 
 **The change log is 16 FIXED SLOTS across 48 columns**: `CH_DAT01…16`,
 `CH_ECN01…16`, `CH_REV01…16`. That spreadsheet habit is contained entirely in

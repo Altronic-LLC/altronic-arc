@@ -33,9 +33,10 @@ import { MOCK_DRAWING_LOGS } from "@/data/drawingLogMockData";
 // four modules would be four places to fix every bug. The per-log variation
 // lives in DRAWING_LOGS below.
 //
-// A log with no configured list id is simply UNAVAILABLE (`listId: undefined`) —
-// that's CAD's state until its SharePoint display name is confirmed. Callers ask
-// `availableDrawingLogs()` rather than assuming all four are live.
+// A log with no configured list id is simply UNAVAILABLE (`listId: undefined`):
+// callers ask `availableDrawingLogs()` rather than assuming all four are live.
+// All four are configured today, but the tolerance costs nothing and meant the
+// screen shipped useful while CAD's id was still unknown.
 // =============================================================================
 
 interface DrawingLogSpec {
@@ -49,8 +50,13 @@ interface DrawingLogSpec {
   hasChangeLog: boolean;
   /** Whether the list carries the Sketches-only columns. */
   hasSketchFields: boolean;
-  /** Columns to $select. */
-  select: string;
+  /**
+   * Columns to `$select`, or undefined to fetch ALL fields.
+   *
+   * Naming a column a list doesn't have is a Graph 400, so a narrow select is
+   * only safe on a list whose columns we've actually captured.
+   */
+  select: string | undefined;
 }
 
 /** The CH_DAT/CH_ECN/CH_REV column names, all 48 of them. */
@@ -69,7 +75,13 @@ export const DRAWING_LOGS: Record<DrawingLogKind, DrawingLogSpec> = {
     listId: SP_CAD_DRAWINGS_LIST_ID,
     hasChangeLog: true,
     hasSketchFields: false,
-    select: `${DRAWING_CORE},CAD_ID,${CHANGE_COLUMNS}`,
+    // No $select on purpose: CAD's columns haven't been captured, only its id.
+    // CCC and CEC were almost certainly cloned from this list (their Title still
+    // displays as "CAD_DWG"), so the same shape is expected — but expecting
+    // isn't knowing, and a $select naming a missing column would 400 the whole
+    // tab. Fetching all fields always works; the mapper picks out what it
+    // recognises. Tighten this to a narrow select once the columns are confirmed.
+    select: undefined,
   },
   ccc: {
     kind: "ccc",
@@ -137,6 +149,15 @@ function itemsPath(kind: DrawingLogKind): string {
   return `/sites/${SITES.engineering}/lists/${requireListId(kind)}/items`;
 }
 
+/**
+ * The `$expand` clause for a log — a narrow field select where we've captured the
+ * columns, or all fields where we haven't (see the CAD note above).
+ */
+function fieldsExpand(kind: DrawingLogKind): string {
+  const select = DRAWING_LOGS[kind].select;
+  return select ? `fields($select=${select})` : "fields";
+}
+
 /** Every row of one log, most recently revised first. */
 export async function listDrawingLog(kind: DrawingLogKind): Promise<DrawingLogEntry[]> {
   if (USE_MOCK) {
@@ -151,7 +172,7 @@ export async function listDrawingLog(kind: DrawingLogKind): Promise<DrawingLogEn
   // $top=999 is Graph's max page size; Sketches is 1,000+ rows so this is two
   // requests rather than five. graphFetchAll walks the rest.
   const items = await graphFetchAll<GraphListItem>(
-    `${itemsPath(kind)}?$expand=fields($select=${DRAWING_LOGS[kind].select})&$top=999`,
+    `${itemsPath(kind)}?$expand=${fieldsExpand(kind)}&$top=999`,
   );
   return items.map((item) => toDrawingLogEntry(item, kind)).sort(compareDrawingLogEntries);
 }
@@ -302,7 +323,7 @@ export async function appendDrawingChange(
   // people recording a revision minutes apart would otherwise both target the
   // same slot and one would overwrite the other.
   const current = await graphFetch<GraphListItem>(
-    `${itemsPath(kind)}/${id}?$expand=fields($select=${spec.select})`,
+    `${itemsPath(kind)}/${id}?$expand=${fieldsExpand(kind)}`,
   );
   const slot = nextFreeChangeSlot(parseChangeLog(current.fields as Record<string, unknown>));
   if (slot === null) throw new Error(CHANGE_LOG_FULL);
@@ -313,7 +334,7 @@ export async function appendDrawingChange(
   });
 
   const refreshed = await graphFetch<GraphListItem>(
-    `${itemsPath(kind)}/${id}?$expand=fields($select=${spec.select})`,
+    `${itemsPath(kind)}/${id}?$expand=${fieldsExpand(kind)}`,
   );
   return toDrawingLogEntry(refreshed, kind);
 }

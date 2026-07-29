@@ -44,14 +44,20 @@ describe("DRAWING_LOGS registry", () => {
     expect(DRAWING_LOGS.sketches.hasChangeLog).toBe(false);
   });
 
-  it("selects all 48 change columns for the drawing logs", () => {
-    for (const kind of ["ccc", "cec", "cad"] as const) {
-      const select = DRAWING_LOGS[kind].select;
+  it("selects all 48 change columns for the logs whose columns we've captured", () => {
+    for (const kind of ["ccc", "cec"] as const) {
+      const select = DRAWING_LOGS[kind].select!;
       expect(select).toContain("CH_DAT01");
       expect(select).toContain("CH_REV16");
       // 16 slots × 3 columns.
       expect(select.match(/CH_/g)).toHaveLength(48);
     }
+  });
+
+  it("fetches ALL fields for CAD, whose columns haven't been captured", () => {
+    // A $select naming a column the list hasn't got is a Graph 400 that would
+    // break the whole tab. No select always works.
+    expect(DRAWING_LOGS.cad.select).toBeUndefined();
   });
 
   it("doesn't ask the Sketches list for columns it hasn't got", () => {

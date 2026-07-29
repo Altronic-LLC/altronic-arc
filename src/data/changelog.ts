@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.76.1",
+    date: "2026-07-29",
+    changes: [
+      "CAD Drawings now appears as the fourth tab on Drawing File Logs",
+    ],
+  },
+  {
     version: "0.76.0",
     date: "2026-07-29",
     changes: [

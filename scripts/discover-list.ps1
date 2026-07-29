@@ -79,10 +79,20 @@ if (-not (Get-MgContext)) {
     Connect-MgGraph -Scopes "Sites.Read.All" -NoWelcome
 }
 
-# One call for the site's lists, reused for every requested name.
+# Every list on the site, following @odata.nextLink.
+#
+# The paging matters: the Engineering site has more lists than one page holds, and
+# a single $top=200 call silently returned a subset — which is why this script
+# once reported "CAD Drawings" as missing when the list was there all along.
 Write-Host "Reading lists on $Site..." -ForegroundColor Cyan
-$allLists = (Invoke-MgGraphRequest -Method GET `
-    -Uri "https://graph.microsoft.com/v1.0/sites/$targetSite/lists?`$top=200").value
+$allLists = @()
+$next = "https://graph.microsoft.com/v1.0/sites/$targetSite/lists?`$top=200"
+while ($next) {
+    $page = Invoke-MgGraphRequest -Method GET -Uri $next
+    $allLists += $page.value
+    $next = if ($page.ContainsKey('@odata.nextLink')) { $page['@odata.nextLink'] } else { $null }
+}
+Write-Host "  $($allLists.Count) lists" -ForegroundColor Cyan
 
 $written = @()
 foreach ($name in $ListName) {
@@ -93,18 +103,31 @@ foreach ($name in $ListName) {
 Write-Host ""
 Write-Host "=== $name ===" -ForegroundColor Cyan
 $lists = $allLists
+$squash = { param($t) if ($t) { $t.Replace(" ", "").ToLower() } else { "" } }
+$want = & $squash $name
+
+# Match on DISPLAY name, then on URL name, then on the webUrl's /Lists/<name>
+# segment. Those three drift apart: SharePoint fixes a list's URL when it's
+# created and keeps it through every later rename, so a list whose URL still says
+# "CAD Drawings" can have any display name at all. Comparing only display names
+# is how this script first failed to find one.
 $list = $lists | Where-Object { $_["displayName"] -eq $name }
+if (-not $list) { $list = $lists | Where-Object { (& $squash $_["displayName"]) -eq $want } }
+if (-not $list) { $list = $lists | Where-Object { (& $squash $_["name"]) -eq $want } }
 if (-not $list) {
-    # Be forgiving about spacing/case before giving up.
     $list = $lists | Where-Object {
-        $_["displayName"].Replace(" ", "").ToLower() -eq $name.Replace(" ", "").ToLower()
+        $leaf = ($_["webUrl"] -split "/" | Where-Object { $_ } | Select-Object -Last 1)
+        (& $squash ([System.Uri]::UnescapeDataString($leaf))) -eq $want
     }
 }
+if ($list -is [array]) { $list = $list[0] }
 
 if (-not $list) {
-    Write-Host "  No list named '$name' on $Site. Skipping." -ForegroundColor Red
-    Write-Host "  Lists visible to you there:" -ForegroundColor Yellow
-    $lists | ForEach-Object { "    $($_['displayName'])" } | Sort-Object
+    Write-Host "  No list matching '$name' on $Site. Skipping." -ForegroundColor Red
+    Write-Host "  Lists visible to you there (display name <- URL name):" -ForegroundColor Yellow
+    $lists |
+        Sort-Object { $_["displayName"] } |
+        ForEach-Object { "    {0}  <-  {1}" -f $_["displayName"], $_["name"] }
     continue
 }
 
