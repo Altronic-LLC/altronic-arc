@@ -916,51 +916,29 @@ export interface DrawingChange {
   rev: string;
 }
 
+/** A single field's value. Dates stay Dates so formatting and sorting are honest. */
+export type DrawingFieldValue = string | number | Date | null;
+
+/**
+ * One row of a drawing register.
+ *
+ * The per-register columns live in `values`, keyed by the descriptors in
+ * `src/lib/drawingLogFields.ts`, because the four lists share almost no columns
+ * — see the note in that file. `changes` is modelled properly rather than as
+ * values, since the 16-slot change log is the one structure the registers do
+ * share and it needs its own handling.
+ */
 export interface DrawingLogEntry {
   id: number;
-  /** Which log this row came from — the four lists share one screen. */
   kind: DrawingLogKind;
-  /**
-   * `Title`. The drawing number on CAD/CCC/CEC; a descriptive name on Sketches.
-   */
-  title: string;
-  partNo: string;
-  description: string;
-  /** `DATE_ST` — when the drawing was started/issued. */
-  dateStarted: Date | null;
-  /** `DATE_REV` — when it was last revised. */
-  dateRevised: Date | null;
-  /** `DWG_SIZE` — sheet size (A/B/C/D…). */
-  size: string;
-  /** `REV_NO` — the drawing's current revision. */
-  revNo: string;
-  /** Parsed change log, oldest slot first. Always empty for Sketches. */
+  values: Record<string, DrawingFieldValue>;
   changes: DrawingChange[];
-  /** Legacy id from the original data (CCC_ID / CEC_ID / SK_ID). Read-only. */
-  legacyId: number | null;
-  /** Sketches only — `SK_Num`. */
-  sketchNumber: number | null;
-  /** Sketches only — `V_CODE`. */
-  vCode: number | null;
-  /** Sketches only — `VENTURA`. */
-  ventura: string;
   createdAt: Date;
   modifiedAt: Date;
 }
 
-/** Editable core fields of a drawing log row. The change log is appended separately. */
-export interface DrawingLogInput {
-  title: string;
-  partNo: string;
-  description: string;
-  dateStarted: Date | null;
-  dateRevised: Date | null;
-  size: string;
-  revNo: string;
-  sketchNumber: number | null;
-  vCode: number | null;
-  ventura: string;
-}
+/** Editable values for a create/update, keyed the same way as `values`. */
+export type DrawingLogInput = Record<string, DrawingFieldValue>;
 
 /** A new change-log entry, appended to the next free slot. */
 export interface DrawingChangeInput {

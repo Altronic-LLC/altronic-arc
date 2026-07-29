@@ -72,7 +72,7 @@ describe("DrawingLogsView — tabs", () => {
       "aria-selected",
       "true",
     );
-    expect(screen.getByText("PCB ASSEMBLY, DSG-1201 IGNITION")).toBeInTheDocument();
+    expect(screen.getByText("CAPACITOR 66µF, 250VDC")).toBeInTheDocument();
   });
 });
 

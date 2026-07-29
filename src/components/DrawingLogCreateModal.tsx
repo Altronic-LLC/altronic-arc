@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, X } from "lucide-react";
 import { DRAWING_LOGS } from "@/api/drawingLogs";
+import { writableFields } from "@/lib/drawingLogFields";
 import { useCreateDrawingLogEntry } from "@/hooks/useDrawingLogs";
-import { fromDateInputValue, toDateInputValue } from "@/lib/spDates";
 import type { DrawingLogKind } from "@/types/task";
+import { FieldInputs, draftToInput, emptyDraft } from "./DrawingLogFields";
 
 interface DrawingLogCreateModalProps {
   kind: DrawingLogKind;
@@ -13,32 +14,19 @@ interface DrawingLogCreateModalProps {
 /**
  * Add a drawing to one of the registers.
  *
- * Only the core fields — a brand-new drawing has no change history, and the
- * change log is appended from the detail panel once the row exists. Which fields
- * appear depends on the log: Sketches has a sketch number, V code and Ventura
- * where the drawing registers have a part number, description and revision.
+ * Fields come from the register's descriptors, so CAD's drawing number / CAD
+ * number / drawing title and CCC's part number / description need no special
+ * casing here. Only the core fields: a brand-new drawing has no change history,
+ * and the change log is appended from the detail panel once the row exists.
  */
 export function DrawingLogCreateModal({ kind, onClose }: DrawingLogCreateModalProps) {
   const spec = DRAWING_LOGS[kind];
+  const editable = writableFields(kind);
   const createEntry = useCreateDrawingLogEntry(kind);
 
-  const [title, setTitle] = useState("");
-  const [partNo, setPartNo] = useState("");
-  const [description, setDescription] = useState("");
-  const [size, setSize] = useState("");
-  const [revNo, setRevNo] = useState("");
-  const [dateStarted, setDateStarted] = useState(toDateInputValue(new Date()));
-  const [dateRevised, setDateRevised] = useState("");
-  const [sketchNumber, setSketchNumber] = useState("");
-  const [vCode, setVCode] = useState("");
-  const [ventura, setVentura] = useState("");
+  const [draft, setDraft] = useState<Record<string, string>>(() => emptyDraft(editable));
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-
-  const firstRef = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    firstRef.current?.focus();
-  }, []);
 
   useEffect(() => {
     const original = document.body.style.overflow;
@@ -56,38 +44,18 @@ export function DrawingLogCreateModal({ kind, onClose }: DrawingLogCreateModalPr
     return () => document.removeEventListener("keydown", handleKey);
   }, [busy, onClose]);
 
-  const num = (raw: string): number | null => {
-    const t = raw.trim();
-    if (!t) return null;
-    const n = Number(t);
-    return Number.isFinite(n) ? n : null;
-  };
+  const primaryLabel = spec.fields.find((f) => f.key === spec.primaryKey)?.label ?? "Title";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!title.trim()) {
-      setError(
-        spec.hasSketchFields
-          ? "A title is required."
-          : "A drawing number is required — it's how the drawing is identified.",
-      );
+    if (!(draft[spec.primaryKey] ?? "").trim()) {
+      setError(`${primaryLabel} is required — it's how the drawing is identified.`);
       return;
     }
     setError(null);
     setBusy(true);
     try {
-      await createEntry.mutateAsync({
-        title,
-        partNo,
-        description,
-        size,
-        revNo,
-        dateStarted: fromDateInputValue(dateStarted),
-        dateRevised: fromDateInputValue(dateRevised),
-        sketchNumber: num(sketchNumber),
-        vCode: num(vCode),
-        ventura,
-      });
+      await createEntry.mutateAsync(draftToInput(draft, editable));
       onClose();
     } catch {
       setError("Couldn't save to SharePoint — your entry is still here, try again.");
@@ -122,111 +90,13 @@ export function DrawingLogCreateModal({ kind, onClose }: DrawingLogCreateModalPr
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field label={spec.hasSketchFields ? "Title *" : "Drawing No. *"}>
-              <input
-                ref={firstRef}
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="select"
-                disabled={busy}
-              />
-            </Field>
-            {spec.hasSketchFields ? (
-              <Field label="Sketch No.">
-                <input
-                  type="number"
-                  value={sketchNumber}
-                  onChange={(e) => setSketchNumber(e.target.value)}
-                  className="select"
-                  disabled={busy}
-                />
-              </Field>
-            ) : (
-              <Field label="Part No.">
-                <input
-                  value={partNo}
-                  onChange={(e) => setPartNo(e.target.value)}
-                  className="select"
-                  disabled={busy}
-                />
-              </Field>
-            )}
-          </div>
-
-          {!spec.hasSketchFields && (
-            <Field label="Description">
-              <input
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="select"
-                disabled={busy}
-              />
-            </Field>
-          )}
-
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Field label="Size">
-              <input
-                value={size}
-                onChange={(e) => setSize(e.target.value)}
-                placeholder="B"
-                className="select"
-                disabled={busy}
-              />
-            </Field>
-            {!spec.hasSketchFields && (
-              <Field label="Revision">
-                <input
-                  value={revNo}
-                  onChange={(e) => setRevNo(e.target.value)}
-                  placeholder="0"
-                  className="select"
-                  disabled={busy}
-                />
-              </Field>
-            )}
-            <Field label="Started">
-              <input
-                type="date"
-                value={dateStarted}
-                onChange={(e) => setDateStarted(e.target.value)}
-                className="select"
-                disabled={busy}
-              />
-            </Field>
-            <Field label="Last revised">
-              <input
-                type="date"
-                value={dateRevised}
-                onChange={(e) => setDateRevised(e.target.value)}
-                className="select"
-                disabled={busy}
-              />
-            </Field>
-          </div>
-
-          {spec.hasSketchFields && (
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="V Code">
-                <input
-                  type="number"
-                  value={vCode}
-                  onChange={(e) => setVCode(e.target.value)}
-                  className="select"
-                  disabled={busy}
-                />
-              </Field>
-              <Field label="Ventura">
-                <input
-                  value={ventura}
-                  onChange={(e) => setVentura(e.target.value)}
-                  className="select"
-                  disabled={busy}
-                />
-              </Field>
-            </div>
-          )}
+          <FieldInputs
+            fields={editable}
+            draft={draft}
+            onChange={(key, value) => setDraft((d) => ({ ...d, [key]: value }))}
+            disabled={busy}
+            autoFocusFirst
+          />
 
           {spec.hasChangeLog && (
             <p className="text-[11px] text-fg-muted">
@@ -261,14 +131,5 @@ export function DrawingLogCreateModal({ kind, onClose }: DrawingLogCreateModalPr
         </form>
       </div>
     </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="flex flex-col gap-1.5">
-      <span className="text-xs font-semibold uppercase tracking-wider text-fg-muted">{label}</span>
-      {children}
-    </label>
   );
 }

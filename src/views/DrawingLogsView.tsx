@@ -2,13 +2,14 @@ import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { FileStack, History, Lock, Plus } from "lucide-react";
 import { DRAWING_LOGS, availableDrawingLogs } from "@/api/drawingLogs";
+import { tableFields, type LogField } from "@/lib/drawingLogFields";
 import { useDrawingLog } from "@/hooks/useDrawingLogs";
 import { useAdminAccess } from "@/hooks/useIsAdmin";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { SearchInput } from "@/components/SearchInput";
 import { DrawingLogDetailModal } from "@/components/DrawingLogDetailModal";
 import { DrawingLogCreateModal } from "@/components/DrawingLogCreateModal";
-import { drawingLogMatches } from "@/lib/drawingLogMapper";
+import { drawingLogLabel, drawingLogMatches } from "@/lib/drawingLogMapper";
 import { formatSpDate } from "@/lib/spDates";
 import { DRAWING_LOG_KINDS, type DrawingLogEntry, type DrawingLogKind } from "@/types/task";
 import { cn } from "@/lib/cn";
@@ -17,18 +18,19 @@ import { cn } from "@/lib/cn";
 // Drawing File Logs — Engineering's four drawing registers behind one screen.
 //
 // Tabs rather than one merged table, because the registers genuinely differ:
-// CAD/CCC/CEC share a column set including a 16-slot change log, while
-// Engineering Sketches has its own fields and no change log at all. Merging them
-// would mean a table half full of columns that don't apply to whichever rows
-// you're looking at.
+// CAD has a drawing number AND a separate CAD number, CCC/CEC have part numbers
+// and descriptions, Sketches has a sketch number and no change log. Merged, every
+// row would sit under columns that don't apply to it.
 //
-// Rows open a detail panel — that's where the change log lives, since 48 CH_*
+// The columns themselves come from the per-register field descriptors
+// (src/lib/drawingLogFields.ts), so this view has no per-register branching at
+// all — a fifth register would be a descriptor, not an edit here.
+//
+// Rows open a detail panel: that's where the change log lives, since 48 CH_*
 // columns can't sensibly go in a table.
-//
-// The active tab and the search both live in the URL, so a view is shareable.
 // =============================================================================
 
-/** How many rows to put in the DOM before "Show all" — Sketches runs to 1,000+. */
+/** How many rows to put in the DOM before "Show all" — CAD and Sketches are 1,000+. */
 const INITIAL_ROWS = 200;
 
 function kindFromParam(raw: string | null): DrawingLogKind {
@@ -40,6 +42,14 @@ function kindFromParam(raw: string | null): DrawingLogKind {
   return available[0]?.kind ?? "ccc";
 }
 
+/** One cell's text, formatted for its declared type. */
+function cellText(entry: DrawingLogEntry, field: LogField): string {
+  const value = entry.values[field.key];
+  if (field.type === "date") return formatSpDate(value instanceof Date ? value : null);
+  if (value === null || value === undefined || value === "") return "—";
+  return String(value);
+}
+
 export function DrawingLogsView() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { isAdmin, isResolving: adminResolving } = useAdminAccess();
@@ -47,10 +57,11 @@ export function DrawingLogsView() {
   const logs = availableDrawingLogs();
   const kind = kindFromParam(searchParams.get("log"));
   const spec = DRAWING_LOGS[kind];
+  const columns = tableFields(kind);
 
   const { data: entries = [], isLoading, error } = useDrawingLog(kind);
 
-  const [selected, setSelected] = useState<DrawingLogEntry | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
   const [showAll, setShowAll] = useState(false);
 
@@ -70,9 +81,9 @@ export function DrawingLogsView() {
   const capped = !showAll && filtered.length > INITIAL_ROWS;
   const visible = capped ? filtered.slice(0, INITIAL_ROWS) : filtered;
 
-  // Keep the selected row in step with refetched data, so recording a change
-  // updates the open panel instead of leaving it showing a stale copy.
-  const selectedLive = selected ? entries.find((e) => e.id === selected.id) ?? selected : null;
+  // Look the selection up by id each render, so recording a change updates the
+  // open panel instead of leaving it showing a stale copy.
+  const selected = selectedId === null ? null : entries.find((e) => e.id === selectedId) ?? null;
 
   return (
     <div className="mx-auto flex max-w-[1600px] flex-col gap-4 px-4 py-4 sm:gap-5 sm:px-6 sm:py-6">
@@ -98,8 +109,7 @@ export function DrawingLogsView() {
         )}
       </header>
 
-      {/* Tab bar — one per configured log. A log with no list id doesn't appear
-          at all, which is how CAD stays hidden until its id is known. */}
+      {/* One tab per configured register. A log with no list id doesn't appear. */}
       <div className="flex flex-wrap gap-2" role="tablist">
         {logs.map((log) => (
           <button
@@ -110,7 +120,7 @@ export function DrawingLogsView() {
               setParam("log", log.kind);
               // Different register, different dataset — reset the row cap.
               setShowAll(false);
-              setSelected(null);
+              setSelectedId(null);
             }}
             className={cn(
               "rounded-full border px-4 py-1.5 text-xs font-semibold uppercase tracking-wide transition-all",
@@ -132,11 +142,7 @@ export function DrawingLogsView() {
           <SearchInput
             value={query}
             onChange={(q) => setParam("q", q)}
-            placeholder={
-              spec.hasChangeLog
-                ? "Drawing no., part no., description, ECN…"
-                : "Title, sketch no., Ventura…"
-            }
+            placeholder={spec.searchPlaceholder}
             className="select"
           />
         </label>
@@ -191,14 +197,11 @@ export function DrawingLogsView() {
             <table className="w-full min-w-[900px] border-collapse text-sm">
               <thead>
                 <tr className="border-b border-border bg-surface-2 text-left">
-                  <Th>{spec.hasSketchFields ? "Title" : "Drawing No."}</Th>
-                  {spec.hasSketchFields ? <Th>Sketch No.</Th> : <Th>Part No.</Th>}
-                  {!spec.hasSketchFields && <Th>Description</Th>}
-                  {spec.hasSketchFields && <Th>Ventura</Th>}
-                  <Th>Size</Th>
-                  {!spec.hasSketchFields && <Th>Rev</Th>}
-                  <Th>Started</Th>
-                  <Th>Revised</Th>
+                  {columns.map((f) => (
+                    <Th key={f.key} className={f.numeric ? "text-right" : undefined}>
+                      {f.label}
+                    </Th>
+                  ))}
                   {spec.hasChangeLog && <Th className="text-center">Changes</Th>}
                 </tr>
               </thead>
@@ -208,39 +211,36 @@ export function DrawingLogsView() {
                     key={e.id}
                     // The whole row opens the detail — that's the described
                     // interaction, and the change log has nowhere else to live.
-                    onClick={() => setSelected(e)}
+                    onClick={() => setSelectedId(e.id)}
                     tabIndex={0}
                     onKeyDown={(ev) => {
                       if (ev.key === "Enter" || ev.key === " ") {
                         ev.preventDefault();
-                        setSelected(e);
+                        setSelectedId(e.id);
                       }
                     }}
-                    aria-label={`Open ${e.title}`}
+                    aria-label={`Open ${drawingLogLabel(e)}`}
                     className="cursor-pointer border-b border-border last:border-0 hover:bg-surface-2/60 focus:bg-surface-2 focus:outline-none"
                   >
-                    <Td className="whitespace-nowrap font-medium text-fg">{e.title || "—"}</Td>
-                    {spec.hasSketchFields ? (
-                      <Td className="tabular-nums">{e.sketchNumber ?? "—"}</Td>
-                    ) : (
-                      <Td className="whitespace-nowrap">{e.partNo || "—"}</Td>
-                    )}
-                    {!spec.hasSketchFields && (
-                      <Td className="max-w-[24rem]">
-                        <span className="block truncate" title={e.description}>
-                          {e.description || "—"}
-                        </span>
+                    {columns.map((f, i) => (
+                      <Td
+                        key={f.key}
+                        className={cn(
+                          i === 0 && "font-medium text-fg",
+                          f.numeric && "text-right tabular-nums",
+                          f.type === "date" && "whitespace-nowrap tabular-nums text-fg-muted",
+                          f.wide ? "max-w-[24rem]" : "whitespace-nowrap",
+                        )}
+                      >
+                        {f.wide ? (
+                          <span className="block truncate" title={cellText(e, f)}>
+                            {cellText(e, f)}
+                          </span>
+                        ) : (
+                          cellText(e, f)
+                        )}
                       </Td>
-                    )}
-                    {spec.hasSketchFields && <Td>{e.ventura || "—"}</Td>}
-                    <Td>{e.size || "—"}</Td>
-                    {!spec.hasSketchFields && <Td className="font-medium">{e.revNo || "—"}</Td>}
-                    <Td className="whitespace-nowrap tabular-nums text-fg-muted">
-                      {formatSpDate(e.dateStarted)}
-                    </Td>
-                    <Td className="whitespace-nowrap tabular-nums text-fg-muted">
-                      {formatSpDate(e.dateRevised)}
-                    </Td>
+                    ))}
                     {spec.hasChangeLog && (
                       <Td className="text-center">
                         {e.changes.length > 0 ? (
@@ -276,11 +276,11 @@ export function DrawingLogsView() {
         </>
       )}
 
-      {selectedLive && (
+      {selected && (
         <DrawingLogDetailModal
-          entry={selectedLive}
+          entry={selected}
           isAdmin={isAdmin}
-          onClose={() => setSelected(null)}
+          onClose={() => setSelectedId(null)}
         />
       )}
       {creating && <DrawingLogCreateModal kind={kind} onClose={() => setCreating(false)} />}

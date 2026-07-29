@@ -13,12 +13,19 @@ vi.mock("./useIsAdmin", () => ({
   useIsAdmin: () => mocks.isAdmin,
   useAdminAccess: () => ({ isAdmin: mocks.isAdmin, isResolving: false }),
 }));
+// Entries are shaped as the real API returns them — `kind` and `values` — so the
+// hooks' success toasts (which label the entry) behave as they do in the app.
+// Built inside vi.hoisted because a vi.mock factory is lifted above plain consts.
+const fake = vi.hoisted(() => ({
+  entry: { id: 1, kind: "ccc", values: { drawingNo: "999 000" }, changes: [] },
+}));
+
 vi.mock("@/api/drawingLogs", () => ({
   DRAWING_LOGS: { ccc: { label: "CCC Drawings" } },
   listDrawingLog: vi.fn().mockResolvedValue([]),
-  createDrawingLogEntry: vi.fn().mockResolvedValue({ id: 1, title: "X", partNo: "" }),
-  updateDrawingLogEntry: vi.fn().mockResolvedValue({ id: 1, title: "X", partNo: "" }),
-  appendDrawingChange: vi.fn().mockResolvedValue({ id: 1, title: "X", partNo: "" }),
+  createDrawingLogEntry: vi.fn().mockResolvedValue(fake.entry),
+  updateDrawingLogEntry: vi.fn().mockResolvedValue(fake.entry),
+  appendDrawingChange: vi.fn().mockResolvedValue(fake.entry),
   deleteDrawingLogEntry: vi.fn().mockResolvedValue(undefined),
 }));
 
@@ -42,18 +49,7 @@ function wrapper({ children }: { children: ReactNode }) {
   return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
 }
 
-const input: DrawingLogInput = {
-  title: "90000001",
-  partNo: "",
-  description: "",
-  size: "",
-  revNo: "",
-  dateStarted: null,
-  dateRevised: null,
-  sketchNumber: null,
-  vCode: null,
-  ventura: "",
-};
+const input: DrawingLogInput = { drawingNo: "90000001", partNo: "", description: "" };
 
 beforeEach(() => {
   vi.clearAllMocks();

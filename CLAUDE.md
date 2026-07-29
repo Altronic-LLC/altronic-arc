@@ -504,12 +504,33 @@ Four registers behind one tabbed screen at `/drawing-logs`, all on
 | CEC Drawings | `5d2d478a-ae19-47a9-8836-453001b756dc` (263 rows) | drawing + change log |
 | Engineering Sketches | `dc9c015c-5284-43b4-ab90-40d73d515896` (1,000+ rows) | sketch, **no change log** |
 
-**CAD fetches ALL fields, not a narrow `$select`.** Its columns have never been
-captured — only its id. CCC and CEC were almost certainly cloned from it (their
-`Title` still displays as "CAD_DWG") so the same shape is expected, but a
-`$select` naming a column the list hasn't got is a Graph 400 that would break the
-whole tab. `fieldsExpand()` omits the select for CAD; tighten it to a narrow one
-once the columns are confirmed with `scripts/discover-list.ps1 -ListName "CAD Drawings"`.
+**The four registers share almost NO columns.** This looked like one shape with
+variations and isn't:
+
+| | CCC / CEC | CAD | Sketches |
+|---|---|---|---|
+| identifier | `Title` | `Title` **plus** separate `CADNumber` | `Title` |
+| description | `DESCR` | `DrawingTitle` | — |
+| part | `PARTNO` | — | — |
+| size | `DWG_SIZE` | `SIZE` | `DWG_SIZE` |
+| revision | `REV_NO` | `NewRevision` | — |
+| dates | `DATE_ST`, `DATE_REV` | `DateCompleted`, `DrawingDATE`, `LogBookDate` | `DATE_ST`, `DATE_REV` |
+| own fields | — | `NewDrawing`, `Software` | `SK_Num`, `V_CODE`, `VENTURA` |
+| legacy id | `CCC_ID` / `CEC_ID` | `PrimKey` | `SK_ID` |
+| change log | 16 slots | 16 slots | **none** |
+
+So **the columns are DATA, not code**: each register declares its fields once in
+`src/lib/drawingLogFields.ts`, and the mapper, write payload, `$select`, table,
+detail panel and edit form are all driven from that. `DrawingLogEntry.values` is a
+keyed map rather than fixed properties for the same reason. A fifth register
+should be a descriptor and nothing else.
+
+That structure exists because the first version mapped CAD with CCC's names and
+every CAD field rendered blank — the failure mode of guessing that two
+similar-looking lists match.
+
+Note `CADNumber` is NOT a duplicate of `Title`: e.g. Title `"501 505"` vs
+CADNumber `"501505"`. Both are shown.
 
 A log with no configured id doesn't appear as a tab at all
 (`availableDrawingLogs()`). All four are configured now, but that tolerance is

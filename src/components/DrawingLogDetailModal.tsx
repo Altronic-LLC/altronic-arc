@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { History, Pencil, Plus, Trash2, X } from "lucide-react";
 import { DRAWING_LOGS } from "@/api/drawingLogs";
+import { writableFields } from "@/lib/drawingLogFields";
 import {
   useAppendDrawingChange,
   useDeleteDrawingLogEntry,
@@ -8,7 +9,13 @@ import {
 } from "@/hooks/useDrawingLogs";
 import { CHANGE_SLOTS, drawingLogLabel, nextFreeChangeSlot } from "@/lib/drawingLogMapper";
 import { formatSpDate, fromDateInputValue, toDateInputValue } from "@/lib/spDates";
-import type { DrawingLogEntry, DrawingLogInput } from "@/types/task";
+import type { DrawingLogEntry } from "@/types/task";
+import {
+  DetailGrid,
+  FieldInputs,
+  draftFromEntry,
+  draftToInput,
+} from "./DrawingLogFields";
 
 interface DrawingLogDetailModalProps {
   entry: DrawingLogEntry;
@@ -21,23 +28,32 @@ interface DrawingLogDetailModalProps {
  * The detail view for one drawing — what opens when a table row is clicked.
  *
  * The change log is the point of this screen. In SharePoint it's 48 columns of
- * CH_DAT/CH_ECN/CH_REV that no one can read; here it's a table of dated
- * revisions with the ECN that caused each one.
+ * CH_DAT/CH_ECN/CH_REV that no one can read; here it's a table of dated revisions
+ * with the ECN that caused each one.
  *
  * Recording a change APPENDS to the next free slot rather than editing the
  * columns directly, because that's the only operation that makes sense on a
- * fixed-slot log — and it refuses when all 16 are used instead of overwriting
- * the oldest entry.
+ * fixed-slot log — and it refuses when all 16 are used instead of overwriting the
+ * oldest entry.
+ *
+ * Which fields show is driven by the register's descriptors, so CAD's drawing
+ * number / CAD number / drawing title and CCC's part number / description are the
+ * same code path.
  */
 export function DrawingLogDetailModal({ entry, isAdmin, onClose }: DrawingLogDetailModalProps) {
   const spec = DRAWING_LOGS[entry.kind];
+  const editable = writableFields(entry.kind);
   const updateEntry = useUpdateDrawingLogEntry(entry.kind);
   const appendChange = useAppendDrawingChange(entry.kind);
   const deleteEntry = useDeleteDrawingLogEntry(entry.kind);
 
   const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<Record<string, string>>(() =>
+    draftFromEntry(entry, editable),
+  );
   const [addingChange, setAddingChange] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const original = document.body.style.overflow;
@@ -57,6 +73,22 @@ export function DrawingLogDetailModal({ entry, isAdmin, onClose }: DrawingLogDet
 
   const freeSlot = nextFreeChangeSlot(entry.changes);
   const logFull = freeSlot === null;
+
+  async function handleSaveDetails(e: React.FormEvent) {
+    e.preventDefault();
+    if (!(draft[spec.primaryKey] ?? "").trim()) {
+      setError(`${spec.fields.find((f) => f.key === spec.primaryKey)?.label} is required.`);
+      return;
+    }
+    setError(null);
+    setBusy(true);
+    try {
+      await updateEntry.mutateAsync({ id: entry.id, input: draftToInput(draft, editable) });
+      setEditing(false);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function handleDelete() {
     const ok = window.confirm(
@@ -92,9 +124,6 @@ export function DrawingLogDetailModal({ entry, isAdmin, onClose }: DrawingLogDet
             <h2 className="mt-0.5 font-display text-lg font-semibold text-fg">
               {drawingLogLabel(entry)}
             </h2>
-            {entry.description && (
-              <p className="mt-1 text-sm text-fg-muted">{entry.description}</p>
-            )}
           </div>
           <button
             onClick={onClose}
@@ -107,43 +136,41 @@ export function DrawingLogDetailModal({ entry, isAdmin, onClose }: DrawingLogDet
         </div>
 
         {editing ? (
-          <CoreFieldsForm
-            entry={entry}
-            onCancel={() => setEditing(false)}
-            onSave={async (input) => {
-              setBusy(true);
-              try {
-                await updateEntry.mutateAsync({ id: entry.id, input });
-                setEditing(false);
-              } finally {
-                setBusy(false);
-              }
-            }}
-          />
+          <form onSubmit={handleSaveDetails} className="flex flex-col gap-3">
+            <FieldInputs
+              fields={editable}
+              draft={draft}
+              onChange={(key, value) => setDraft((d) => ({ ...d, [key]: value }))}
+              disabled={busy}
+            />
+            {error && (
+              <div className="rounded-md border border-cooper-red/30 bg-cooper-red/10 px-3 py-2 text-xs text-cooper-red">
+                {error}
+              </div>
+            )}
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setDraft(draftFromEntry(entry, editable));
+                  setEditing(false);
+                }}
+                disabled={busy}
+                className="rounded-md border border-border px-3 py-1.5 text-sm font-medium text-fg-muted hover:text-fg disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={busy}
+                className="rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-accent/90 disabled:opacity-60"
+              >
+                {busy ? "Saving…" : "Save details"}
+              </button>
+            </div>
+          </form>
         ) : (
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
-            <Detail label={spec.hasSketchFields ? "Title" : "Drawing No."} value={entry.title} />
-            {!spec.hasSketchFields && <Detail label="Part No." value={entry.partNo} />}
-            {spec.hasSketchFields && (
-              <Detail
-                label="Sketch No."
-                value={entry.sketchNumber === null ? "" : String(entry.sketchNumber)}
-              />
-            )}
-            <Detail label="Size" value={entry.size} />
-            {!spec.hasSketchFields && <Detail label="Revision" value={entry.revNo} />}
-            <Detail label="Started" value={formatSpDate(entry.dateStarted)} />
-            <Detail label="Last revised" value={formatSpDate(entry.dateRevised)} />
-            {spec.hasSketchFields && (
-              <>
-                <Detail label="V Code" value={entry.vCode === null ? "" : String(entry.vCode)} />
-                <Detail label="Ventura" value={entry.ventura} />
-              </>
-            )}
-            {entry.legacyId !== null && (
-              <Detail label="Legacy ID" value={String(entry.legacyId)} mono />
-            )}
-          </dl>
+          <DetailGrid entry={entry} fields={spec.fields} />
         )}
 
         {/* ---- Change log ---------------------------------------------- */}
@@ -157,7 +184,7 @@ export function DrawingLogDetailModal({ entry, isAdmin, onClose }: DrawingLogDet
                   {entry.changes.length}/{CHANGE_SLOTS}
                 </span>
               </h3>
-              {isAdmin && !addingChange && (
+              {isAdmin && !addingChange && !editing && (
                 <button
                   onClick={() => setAddingChange(true)}
                   disabled={logFull || busy}
@@ -187,9 +214,7 @@ export function DrawingLogDetailModal({ entry, isAdmin, onClose }: DrawingLogDet
             )}
 
             {entry.changes.length === 0 ? (
-              <p className="text-xs text-fg-muted">
-                No changes recorded against this drawing.
-              </p>
+              <p className="text-xs text-fg-muted">No changes recorded against this drawing.</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-sm">
@@ -241,7 +266,10 @@ export function DrawingLogDetailModal({ entry, isAdmin, onClose }: DrawingLogDet
               Delete
             </button>
             <button
-              onClick={() => setEditing(true)}
+              onClick={() => {
+                setDraft(draftFromEntry(entry, editable));
+                setEditing(true);
+              }}
               disabled={busy}
               className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-accent/90 disabled:opacity-50"
             >
@@ -252,164 +280,6 @@ export function DrawingLogDetailModal({ entry, isAdmin, onClose }: DrawingLogDet
         )}
       </div>
     </div>
-  );
-}
-
-/** Editable core fields. Which ones show depends on the log. */
-function CoreFieldsForm({
-  entry,
-  onSave,
-  onCancel,
-}: {
-  entry: DrawingLogEntry;
-  onSave: (input: DrawingLogInput) => Promise<void>;
-  onCancel: () => void;
-}) {
-  const spec = DRAWING_LOGS[entry.kind];
-  const [title, setTitle] = useState(entry.title);
-  const [partNo, setPartNo] = useState(entry.partNo);
-  const [description, setDescription] = useState(entry.description);
-  const [size, setSize] = useState(entry.size);
-  const [revNo, setRevNo] = useState(entry.revNo);
-  const [dateStarted, setDateStarted] = useState(toDateInputValue(entry.dateStarted));
-  const [dateRevised, setDateRevised] = useState(toDateInputValue(entry.dateRevised));
-  const [sketchNumber, setSketchNumber] = useState(
-    entry.sketchNumber === null ? "" : String(entry.sketchNumber),
-  );
-  const [vCode, setVCode] = useState(entry.vCode === null ? "" : String(entry.vCode));
-  const [ventura, setVentura] = useState(entry.ventura);
-  const [error, setError] = useState<string | null>(null);
-
-  const num = (raw: string): number | null => {
-    const t = raw.trim();
-    if (!t) return null;
-    const n = Number(t);
-    return Number.isFinite(n) ? n : null;
-  };
-
-  return (
-    <form
-      className="flex flex-col gap-3"
-      onSubmit={async (e) => {
-        e.preventDefault();
-        if (!title.trim()) {
-          setError(
-            spec.hasSketchFields
-              ? "A title is required."
-              : "A drawing number is required — it's how the drawing is identified.",
-          );
-          return;
-        }
-        setError(null);
-        await onSave({
-          title,
-          partNo,
-          description,
-          size,
-          revNo,
-          dateStarted: fromDateInputValue(dateStarted),
-          dateRevised: fromDateInputValue(dateRevised),
-          sketchNumber: num(sketchNumber),
-          vCode: num(vCode),
-          ventura,
-        });
-      }}
-    >
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Field label={spec.hasSketchFields ? "Title" : "Drawing No."}>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} className="select" />
-        </Field>
-        {spec.hasSketchFields ? (
-          <Field label="Sketch No.">
-            <input
-              type="number"
-              value={sketchNumber}
-              onChange={(e) => setSketchNumber(e.target.value)}
-              className="select"
-            />
-          </Field>
-        ) : (
-          <Field label="Part No.">
-            <input value={partNo} onChange={(e) => setPartNo(e.target.value)} className="select" />
-          </Field>
-        )}
-      </div>
-
-      {!spec.hasSketchFields && (
-        <Field label="Description">
-          <input
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="select"
-          />
-        </Field>
-      )}
-
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Field label="Size">
-          <input value={size} onChange={(e) => setSize(e.target.value)} className="select" />
-        </Field>
-        {!spec.hasSketchFields && (
-          <Field label="Revision">
-            <input value={revNo} onChange={(e) => setRevNo(e.target.value)} className="select" />
-          </Field>
-        )}
-        <Field label="Started">
-          <input
-            type="date"
-            value={dateStarted}
-            onChange={(e) => setDateStarted(e.target.value)}
-            className="select"
-          />
-        </Field>
-        <Field label="Last revised">
-          <input
-            type="date"
-            value={dateRevised}
-            onChange={(e) => setDateRevised(e.target.value)}
-            className="select"
-          />
-        </Field>
-      </div>
-
-      {spec.hasSketchFields && (
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="V Code">
-            <input
-              type="number"
-              value={vCode}
-              onChange={(e) => setVCode(e.target.value)}
-              className="select"
-            />
-          </Field>
-          <Field label="Ventura">
-            <input value={ventura} onChange={(e) => setVentura(e.target.value)} className="select" />
-          </Field>
-        </div>
-      )}
-
-      {error && (
-        <div className="rounded-md border border-cooper-red/30 bg-cooper-red/10 px-3 py-2 text-xs text-cooper-red">
-          {error}
-        </div>
-      )}
-
-      <div className="flex items-center justify-end gap-2">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="rounded-md border border-border px-3 py-1.5 text-sm font-medium text-fg-muted hover:text-fg"
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          className="rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-accent/90"
-        >
-          Save details
-        </button>
-      </div>
-    </form>
   );
 }
 
@@ -446,30 +316,30 @@ function AddChangeForm({
         becomes the drawing's current revision.
       </div>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-4">
-        <Field label="Date">
+        <Labelled label="Date">
           <input
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
             className="select"
           />
-        </Field>
-        <Field label="ECN">
+        </Labelled>
+        <Labelled label="ECN">
           <input
             value={ecn}
             onChange={(e) => setEcn(e.target.value)}
             placeholder="e.g. ECN-1187"
             className="select"
           />
-        </Field>
-        <Field label="Revision">
+        </Labelled>
+        <Labelled label="Revision">
           <input
             value={rev}
             onChange={(e) => setRev(e.target.value)}
             placeholder="e.g. C"
             className="select"
           />
-        </Field>
+        </Labelled>
         <div className="flex items-end gap-2">
           <button
             type="submit"
@@ -491,18 +361,7 @@ function AddChangeForm({
   );
 }
 
-function Detail({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <div>
-      <dt className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted">{label}</dt>
-      <dd className={`mt-0.5 text-sm text-fg ${mono ? "font-mono text-xs" : ""}`}>
-        {value || "—"}
-      </dd>
-    </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Labelled({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="flex flex-col gap-1">
       <span className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted">

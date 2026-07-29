@@ -20,6 +20,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.78.0",
+    date: "2026-07-29",
+    changes: [
+      "Fixed the CAD Drawings tab showing empty rows — CAD stores its drawing title, CAD number, dates and size under different column names from the other registers, and the app was looking for the wrong ones",
+      "Each register now shows its own columns: CAD has a drawing number and a separate CAD number, completed and drawing dates; CCC and CEC keep part number and description; Sketches keeps its sketch number and Ventura reference",
+      "Recording a change updates whichever revision and date columns that particular register uses",
+      "Searching a register now covers every field it actually has, including its ECNs",
+    ],
+  },
+  {
     version: "0.77.0",
     date: "2026-07-29",
     changes: [
