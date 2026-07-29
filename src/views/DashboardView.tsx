@@ -35,9 +35,7 @@ import { useEirs } from "@/hooks/useEirs";
 import { useTestSheets } from "@/hooks/useTestSheets";
 import { useProjectFolderEntries } from "@/hooks/useProjectFolders";
 import { useOperationsTasks } from "@/hooks/useOperationsTasks";
-import { useTeradyneLog } from "@/hooks/useTeradyne";
 import { useCsaListings } from "@/hooks/useCsaListings";
-import { useDrawingLog } from "@/hooks/useDrawingLogs";
 import { useBuildRequests } from "@/hooks/useBuildRequests";
 import { usePanelOrders } from "@/hooks/usePanelOrders";
 import { usePanelTasks } from "@/hooks/usePanelTasks";
@@ -223,22 +221,6 @@ export function DashboardView() {
     error: operationsTasksErrorObj,
     refetch: refetchOperationsTasks,
   } = useOperationsTasks();
-  // Deliberately NOT part of the blocking loading gate below (same as Test
-  // Sheets and Project Folders): the Teradyne card filling in a moment late
-  // beats holding the whole dashboard on a fourth site's query.
-  //
-  // Current year only — the log holds 16k+ rows of imported legacy history that
-  // nobody works from in ARC, so the card counts this year's entries rather
-  // than dragging the whole archive into the dashboard.
-  // Drawing registers — the card counts the biggest register (Sketches) since a
-  // single number across four differently-shaped lists would mean little; the
-  // screen itself is tabbed. No status workflow, so no segments.
-  const {
-    data: sketches = [],
-    isError: drawingsError,
-    error: drawingsErrorObj,
-    refetch: refetchDrawings,
-  } = useDrawingLog("sketches");
   // Certification register — small, changes rarely, and like Teradyne it has no
   // status workflow, so the card is a plain count with no segments.
   const {
@@ -247,12 +229,6 @@ export function DashboardView() {
     error: csaErrorObj,
     refetch: refetchCsa,
   } = useCsaListings();
-  const {
-    data: teradyne,
-    isError: teradyneError,
-    error: teradyneErrorObj,
-    refetch: refetchTeradyne,
-  } = useTeradyneLog();
   const {
     data: testSheets = [],
     isError: testSheetsError,
@@ -362,25 +338,6 @@ export function DashboardView() {
     }));
     return { count: active.length, segments };
   }, [operationsTasks, mine, myEmail, projectId]);
-
-  /**
-   * Teradyne isn't a workflow with statuses to break down — it's an append-only
-   * log — so the card reports throughput rather than "open" work, and has NO
-   * status segments at all. It deliberately returns a bare count and the card
-   * omits TypeCard's `segments` prop: passing an empty array still renders
-   * MiniBar, which then claims "Nothing active right now" — meaningless for a
-   * list that has no active/done concept.
-   *
-   * The count is "this year", matching exactly what the query loads. It used to
-   * be a rolling 30 days, which was subtly wrong once the query became
-   * year-scoped: every January the window would reach back into a year that's no
-   * longer loaded and silently undercount.
-   *
-   * The dashboard's Project and "mine" filters don't apply either: the log
-   * references the Teradyne Products list, not a projects list, and records
-   * employees from its own Employees list rather than ARC sign-ins.
-   */
-  const teradyneYearCount = teradyne?.entries.length ?? 0;
 
   const testCount = useMemo(
     () =>
@@ -522,25 +479,11 @@ export function DashboardView() {
       retry: refetchOperationsTasks,
     },
     {
-      name: "Drawing File Logs",
-      dept: "Engineering",
-      failed: drawingsError,
-      error: drawingsErrorObj,
-      retry: refetchDrawings,
-    },
-    {
       name: "CSA Listings",
       dept: "Engineering",
       failed: csaError,
       error: csaErrorObj,
       retry: refetchCsa,
-    },
-    {
-      name: "Teradyne Log",
-      dept: "Operations",
-      failed: teradyneError,
-      error: teradyneErrorObj,
-      retry: refetchTeradyne,
     },
     {
       name: "Test Sheets",
@@ -691,9 +634,9 @@ export function DashboardView() {
           name="Drawing File Logs"
           icon={<FileStack className="h-5 w-5" />}
           tone="superior-blue"
-          count={sketches.length}
-          unit="sketches on file"
-          // No `segments` — a drawing register has no active/done states.
+          description="CAD, CCC and CEC drawings plus Engineering Sketches — part numbers, revisions and change logs."
+          // No count: four registers of different shapes have no one meaningful
+          // number, and no `segments` either — a register has no active/done state.
           onClick={() => navigate("/drawing-logs")}
         />
         <TypeCard
@@ -754,9 +697,9 @@ export function DashboardView() {
           name="Teradyne Log"
           icon={<CircuitBoard className="h-5 w-5" />}
           tone="cooper-red"
-          count={teradyneYearCount}
-          unit="this year"
-          // No `segments` — see teradyneYearCount above.
+          description="Board test failures off the Teradyne / Spea stations — what failed, on which product, and who ran it."
+          // No count, and no `segments` — an append-only log has no active/done
+          // state, and the year's running total isn't what anyone comes here for.
           onClick={() => navigate("/operations/teradyne")}
         />
         <PlaceholderCard name="Maintenance Tasks" icon={<Hammer className="h-5 w-5" />} />
@@ -890,14 +833,22 @@ function TypeCard({
   tone,
   count,
   unit,
+  description,
   segments,
   onClick,
 }: {
   name: string;
   icon: React.ReactNode;
   tone: keyof typeof TONE | string;
-  count: number;
-  unit: string;
+  /** Headline number. Omit and pass `description` instead for reference data. */
+  count?: number;
+  unit?: string;
+  /**
+   * Shown instead of a count. For cards where a single number would be
+   * arbitrary or misleading — a register of drawings has no meaningful "active"
+   * figure, and a count across four differently-shaped lists says nothing.
+   */
+  description?: string;
   segments?: Segment[];
   onClick: () => void;
 }) {
@@ -917,10 +868,14 @@ function TypeCard({
         <ArrowRight className="h-4 w-4 text-fg-muted transition-transform group-hover:translate-x-0.5 group-hover:text-fg" />
       </div>
 
-      <div className="flex items-baseline gap-1.5">
-        <span className="font-display text-4xl font-bold tabular-nums text-fg">{count}</span>
-        <span className="text-xs font-medium uppercase tracking-wider text-fg-muted">{unit}</span>
-      </div>
+      {description !== undefined ? (
+        <p className="text-sm leading-snug text-fg-muted">{description}</p>
+      ) : (
+        <div className="flex items-baseline gap-1.5">
+          <span className="font-display text-4xl font-bold tabular-nums text-fg">{count}</span>
+          <span className="text-xs font-medium uppercase tracking-wider text-fg-muted">{unit}</span>
+        </div>
+      )}
 
       {segments && <MiniBar segments={segments} />}
     </button>

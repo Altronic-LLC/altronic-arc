@@ -6,7 +6,6 @@ import { MOCK_TASKS, MOCK_EIRS, MOCK_TEST_SHEETS, MOCK_PROJECTS } from "@/data/m
 import { MOCK_OPERATIONS_TASKS } from "@/data/operationsMockData";
 import { MOCK_BUILD_REQUESTS } from "@/data/buildRequestMockData";
 import { MOCK_PANEL_ORDERS, MOCK_PANEL_TASKS } from "@/data/panelMockData";
-import { MOCK_TERADYNE_LOG } from "@/data/teradyneMockData";
 import { listProjectFolderEntries } from "@/api/projectFiles";
 
 const mockNavigate = vi.fn();
@@ -28,8 +27,6 @@ const BUILD_REQUESTS_KEY = ["buildRequests", "list"] as const;
 const PANEL_ORDERS_KEY = ["panelOrders", "list"] as const;
 const PANEL_TASKS_KEY = ["panelTasks", "list"] as const;
 const FOLDER_ENTRIES_KEY = ["project-folder-entries", "root"] as const;
-// The log query is scoped per year (16k+ rows, so it loads a year at a time).
-const TERADYNE_LOG_KEY = ["teradyneLog", new Date().getFullYear()] as const;
 
 import { DashboardView } from "./DashboardView";
 
@@ -46,14 +43,6 @@ async function renderDashboard() {
       { key: PANEL_ORDERS_KEY, data: MOCK_PANEL_ORDERS },
       { key: PANEL_TASKS_KEY, data: MOCK_PANEL_TASKS },
       { key: FOLDER_ENTRIES_KEY, data: folderEntries },
-      {
-        key: TERADYNE_LOG_KEY,
-        data: {
-          entries: MOCK_TERADYNE_LOG,
-          filteredServerSide: true,
-          fetchedRows: MOCK_TERADYNE_LOG.length,
-        },
-      },
     ],
   });
 }
@@ -134,6 +123,16 @@ describe("DashboardView", () => {
   });
 });
 
+describe("DashboardView — the Drawing File Logs card", () => {
+  it("describes the registers instead of counting one of them", async () => {
+    // Four registers of different shapes have no single meaningful number.
+    await renderDashboard();
+    const card = screen.getByRole("button", { name: /Drawing File Logs/i });
+    expect(within(card).getByText(/CAD, CCC and CEC drawings/i)).toBeInTheDocument();
+    expect(within(card).queryByText(/^\d+$/, { selector: "span.text-4xl" })).toBeNull();
+  });
+});
+
 describe("DashboardView — the Teradyne Log card", () => {
   const teradyneCard = () => screen.getByRole("button", { name: /Teradyne Log/i });
 
@@ -148,11 +147,14 @@ describe("DashboardView — the Teradyne Log card", () => {
     expect(card.querySelector(".rounded-full")).toBeNull();
   });
 
-  it("reports this year's throughput rather than open work", async () => {
-    // "This year" matches exactly what the query loads — a rolling 30-day
-    // window would reach into a year that isn't fetched every January.
+  it("describes the log instead of showing a count", async () => {
+    // A running total isn't what anyone comes to an append-only log for, and
+    // dropping it also drops a 16k-row query from the dashboard.
     await renderDashboard();
-    expect(within(teradyneCard()).getByText(/this year/i)).toBeInTheDocument();
+    const card = teradyneCard();
+    expect(within(card).getByText(/board test failures/i)).toBeInTheDocument();
+    // No headline number at all.
+    expect(within(card).queryByText(/^\d+$/, { selector: "span.text-4xl" })).toBeNull();
   });
 
   it("links straight to the log", async () => {

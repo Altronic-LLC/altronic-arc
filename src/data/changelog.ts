@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.77.0",
+    date: "2026-07-29",
+    changes: [
+      "The Dashboard's Drawing File Logs and Teradyne Log cards now describe what they hold instead of showing a count — neither is \"open work\", so a running total said little",
+      "The Dashboard loads faster as a result: it no longer pulls the drawing and Teradyne registers just to put a number on a card",
+    ],
+  },
+  {
     version: "0.76.1",
     date: "2026-07-29",
     changes: [
