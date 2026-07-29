@@ -1427,6 +1427,79 @@ const SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: "csa-listings",
+    title: "CSA Listings",
+    group: "Engineering",
+    keywords: [
+      "csa",
+      "csa listings",
+      "certification",
+      "certified",
+      "listing",
+      "file number",
+      "lr number",
+      "date certified",
+      "also cover",
+      "part no included",
+      "certificate",
+      "compliance",
+      "approval",
+      "standards",
+    ],
+    searchText:
+      "CSA Listings is Altronic's register of CSA certification files, under Engineering. Each row is one file: its File Number (the CSA file identifier), the product, other products or variants the file also covers, the part numbers included, the certification date, and a running History. Certificates and supporting documents attach to a listing. Search covers everything including the long fields, so you can find a listing by a part number buried in Part No Included. Adding, editing and deleting listings is limited to admins because these are compliance records; reading and searching are open to everyone. Reach it from the CSA Listings card on the Dashboard or the Departments dropdown's Engineering group.",
+    render: () => (
+      <>
+        <P>
+          <strong>CSA Listings</strong> is the register of Altronic's CSA
+          certification files. Reach it from the <strong>CSA Listings</strong>{" "}
+          card on the Dashboard, or the <strong>Departments</strong> dropdown's
+          Engineering group.
+        </P>
+        <P>
+          Each row is one certification file. <strong>File Number</strong> is the
+          CSA file identifier and how everyone refers to a listing;{" "}
+          <strong>Also Cover</strong> and <strong>Part No Included</strong> list
+          the other variants and the part numbers the file covers, and{" "}
+          <strong>History</strong> is a running note of amendments and audits.
+        </P>
+        <H3>Finding a listing</H3>
+        <P>
+          One search box, and it reaches <em>everything</em> — including the long
+          fields. That matters: if you're chasing whether a particular part number
+          is covered, it's almost certainly buried in Part No Included rather than
+          in the file number, and the table can only show the first line of those
+          fields. Type the part number and the right file surfaces. Adding more
+          words narrows. The search sits in the URL, so you can send someone a
+          link to the listing you're looking at.
+        </P>
+        <P>
+          Long fields show their first line with a <strong>+N more</strong> hint —
+          hover to see the whole thing, or open the listing.
+        </P>
+        <H3>Certificates and documents</H3>
+        <P>
+          Files attach to a listing: open it and use the Attachments panel at the
+          bottom. On a <em>new</em> listing you'll be asked to save first — a file
+          needs a saved record to attach to.
+        </P>
+        <H3>Who can change what — admins only</H3>
+        <P>
+          Certification files are compliance records, so{" "}
+          <strong>adding, editing and deleting are limited to admins</strong>.
+          Everyone else gets the full table and search but no New button and no
+          row actions, with a note saying so. Ask an admin if a listing needs
+          updating.
+        </P>
+        <Tip>
+          The small grey number beside a file number is the id the listing carried
+          over from the original data. It's shown so you can tie a row back to the
+          old records; nothing in ARC writes it.
+        </Tip>
+      </>
+    ),
+  },
+  {
     id: "build-requests",
     title: "Build Requests",
     group: "Engineering requests",

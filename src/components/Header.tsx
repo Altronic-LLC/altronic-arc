@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   AlertTriangle,
+  BadgeCheck,
   BookUser,
   Building2,
   Calculator,
@@ -108,6 +109,12 @@ const DEPARTMENTS: DepartmentGroup[] = [
         label: "Build Requests",
         icon: <HardHat className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/build-request"),
+      },
+      {
+        to: "/csa-listings",
+        label: "CSA Listings",
+        icon: <BadgeCheck className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/csa-listings"),
       },
       soon("ECNs", <Wrench className="h-4 w-4" />),
     ],

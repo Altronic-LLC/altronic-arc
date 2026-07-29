@@ -1,6 +1,7 @@
 import {
   SP_BUILD_REQUEST_ITEMS_LIST_ID,
   SP_BUILD_REQUESTS_LIST_ID,
+  SP_CSA_LISTINGS_LIST_ID,
   SP_EIRS_LIST_ID,
   SP_LIST_ID,
   SP_OPERATIONS_TASKS_LIST_ID,
@@ -41,7 +42,8 @@ export type AttachmentParent =
   | "buildRequest"
   | "buildRequestItem"
   | "panelOrder"
-  | "panelTask";
+  | "panelTask"
+  | "csaListing";
 
 interface ParentConfig {
   listId: string | undefined;
@@ -78,6 +80,14 @@ const PARENT_CONFIG: Record<AttachmentParent, ParentConfig> = {
     listId: SP_PANEL_TASKS_LIST_ID,
     siteUrl: SP_PANELTEAM_SITE_URL,
     listIdEnvVar: "VITE_SP_PANEL_TASKS_LIST_ID",
+  },
+  // CSA certificate PDFs. Attachments are already enabled on the list, so this
+  // needs nothing in SharePoint beyond the AllSites.Manage consent every other
+  // attachment path depends on.
+  csaListing: {
+    listId: SP_CSA_LISTINGS_LIST_ID,
+    siteUrl: SP_SITE_URL,
+    listIdEnvVar: "VITE_SP_CSA_LISTINGS_LIST_ID",
   },
 };
 

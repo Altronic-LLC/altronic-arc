@@ -66,6 +66,11 @@ const BuildRequestItemRedirect = lazy(() =>
     default: m.BuildRequestItemRedirect,
   })),
 );
+// CSA Listings — Engineering's certification register. Lazy like the other
+// Engineering extras so it stays out of the main chunk.
+const CsaListingsView = lazy(() =>
+  import("@/views/CsaListingsView").then((m) => ({ default: m.CsaListingsView })),
+);
 const PrintBuildRequestItemView = lazy(() =>
   import("@/views/PrintBuildRequestItemView").then((m) => ({
     default: m.PrintBuildRequestItemView,
@@ -188,6 +193,14 @@ export function App() {
             element={
               <Suspense fallback={<LoadingTasks noun="this task" />}>
                 <OperationsDetailView />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/csa-listings"
+            element={
+              <Suspense fallback={<LoadingTasks noun="CSA listings" />}>
+                <CsaListingsView />
               </Suspense>
             }
           />

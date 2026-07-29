@@ -124,6 +124,16 @@ export const SP_PMO_SITE_URL =
   (import.meta.env.VITE_SP_PMO_SITE_URL as string | undefined) ??
   "https://coopermachineryservices.sharepoint.com/sites/Altronic_PMO";
 
+/**
+ * "CSA Listings" — Engineering's CSA product-certification register on the
+ * Engineering site. `Title` is repurposed as the File Number; `CSA_ID` is a
+ * legacy id from the original data. Attachments are enabled on the list (the
+ * certificate PDFs). Schema discovered live 2026-07-29.
+ */
+export const SP_CSA_LISTINGS_LIST_ID =
+  import.meta.env.VITE_SP_CSA_LISTINGS_LIST_ID ||
+  "758defd2-693c-4324-9e0b-dd2a12c341fa";
+
 // =============================================================================
 // Teradyne — FOUR lists on the PMO site (SITES.pmo), part of the Operations
 // department. "Teradyne Log" is the primary entity; the other three are its

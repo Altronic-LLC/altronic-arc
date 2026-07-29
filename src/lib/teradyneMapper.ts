@@ -1,3 +1,5 @@
+import { formatSpDate } from "./spDates";
+import { parseSpDate as parseDate } from "./spDates";
 import type {
   GraphListItem,
   TeradyneEmployee,
@@ -34,60 +36,19 @@ function toText(raw: unknown): string {
   return typeof raw === "string" ? raw : "";
 }
 
-/**
- * SharePoint date-only columns.
- *
- * `EnterDate` is a dateOnly column and every existing row stores it as
- * midday UTC ("2026-02-17T12:00:00Z"). That is not an accident: writing
- * midnight UTC makes the date render as the PREVIOUS day for anyone west of
- * Greenwich, which is everyone at Altronic. We match the existing convention
- * on write, and read the date back in UTC terms so a round-trip is stable.
- */
-export function toSpDateOnly(date: Date | null): string | null {
-  if (!date || Number.isNaN(date.getTime())) return null;
-  const yyyy = date.getUTCFullYear();
-  const mm = String(date.getUTCMonth() + 1).padStart(2, "0");
-  const dd = String(date.getUTCDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}T12:00:00Z`;
-}
+// Date-only handling now lives in src/lib/spDates.ts so Engineering features can
+// share it without importing from an Operations module. Re-exported here because
+// this module is the Teradyne mapper's public face and callers already import
+// them from it.
+export {
+  fromDateInputValue,
+  parseSpDate,
+  toDateInputValue,
+  toSpDateOnly,
+} from "./spDates";
 
-/** Parse a stored date-only value. Returns null for missing/garbage values. */
-export function parseSpDate(raw: unknown): Date | null {
-  if (typeof raw !== "string" || !raw) return null;
-  const d = new Date(raw);
-  return Number.isNaN(d.getTime()) ? null : d;
-}
-
-/**
- * Format a date-only value for `<input type="date">` (yyyy-MM-dd), in UTC
- * terms so it shows the day that's actually stored rather than shifting it
- * into the browser's timezone.
- */
-export function toDateInputValue(date: Date | null): string {
-  if (!date || Number.isNaN(date.getTime())) return "";
-  const yyyy = date.getUTCFullYear();
-  const mm = String(date.getUTCMonth() + 1).padStart(2, "0");
-  const dd = String(date.getUTCDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-/** Parse an `<input type="date">` value back to a UTC-midday Date. */
-export function fromDateInputValue(value: string): Date | null {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
-  const d = new Date(`${value}T12:00:00Z`);
-  return Number.isNaN(d.getTime()) ? null : d;
-}
-
-/** Display a date-only value without letting the local timezone shift the day. */
-export function formatTeradyneDate(date: Date | null): string {
-  if (!date) return "—";
-  return date.toLocaleDateString(undefined, {
-    timeZone: "UTC",
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
+/** Display a Teradyne date. Alias of the shared formatter; kept for call sites. */
+export const formatTeradyneDate = formatSpDate;
 
 /**
  * The log's `Title` column, as the existing rows are formatted:
@@ -193,7 +154,7 @@ export function toTeradyneLogEntry(item: GraphListItem, maps: TeradyneRefMaps): 
     // Trust the stored Title when present (that's what SharePoint views show),
     // but derive it when a row predates the app or was created without one.
     title: toText(f.Title) || buildTeradyneLogTitle(product?.title, defectiveParts),
-    enterDate: parseSpDate(f.EnterDate),
+    enterDate: parseDate(f.EnterDate),
     product,
     employee1: resolveRef(f.Employee1LookupId, maps.employees),
     employee2: resolveRef(f.Employee2LookupId, maps.employees),

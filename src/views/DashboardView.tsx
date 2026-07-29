@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
   ArrowRight,
+  BadgeCheck,
   BookUser,
   Building2,
   Calculator,
@@ -34,6 +35,7 @@ import { useTestSheets } from "@/hooks/useTestSheets";
 import { useProjectFolderEntries } from "@/hooks/useProjectFolders";
 import { useOperationsTasks } from "@/hooks/useOperationsTasks";
 import { useTeradyneLog } from "@/hooks/useTeradyne";
+import { useCsaListings } from "@/hooks/useCsaListings";
 import { useBuildRequests } from "@/hooks/useBuildRequests";
 import { usePanelOrders } from "@/hooks/usePanelOrders";
 import { usePanelTasks } from "@/hooks/usePanelTasks";
@@ -226,6 +228,14 @@ export function DashboardView() {
   // Current year only — the log holds 16k+ rows of imported legacy history that
   // nobody works from in ARC, so the card counts this year's entries rather
   // than dragging the whole archive into the dashboard.
+  // Certification register — small, changes rarely, and like Teradyne it has no
+  // status workflow, so the card is a plain count with no segments.
+  const {
+    data: csaListings = [],
+    isError: csaError,
+    error: csaErrorObj,
+    refetch: refetchCsa,
+  } = useCsaListings();
   const {
     data: teradyne,
     isError: teradyneError,
@@ -501,6 +511,13 @@ export function DashboardView() {
       retry: refetchOperationsTasks,
     },
     {
+      name: "CSA Listings",
+      dept: "Engineering",
+      failed: csaError,
+      error: csaErrorObj,
+      retry: refetchCsa,
+    },
+    {
       name: "Teradyne Log",
       dept: "Operations",
       failed: teradyneError,
@@ -651,6 +668,15 @@ export function DashboardView() {
           unit="open"
           segments={buildRequestCard.segments}
           onClick={() => navigate(buildRequestsUrl)}
+        />
+        <TypeCard
+          name="CSA Listings"
+          icon={<BadgeCheck className="h-5 w-5" />}
+          tone="cooper-green"
+          count={csaListings.length}
+          unit="on file"
+          // No `segments` — a certification register has no active/done states.
+          onClick={() => navigate("/csa-listings")}
         />
         <PlaceholderCard name="ECNs" icon={<Wrench className="h-5 w-5" />} />
       </DeptSection>

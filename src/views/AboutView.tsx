@@ -72,9 +72,9 @@ const SYSTEM_TIERS: Tier[] = [
   {
     label: "React SPA",
     nodes: [
-      { label: "Views", hint: "Dashboard · List · Kanban · Detail · EIRs · Test Sheets · Project Folders · Admin", palette: "ui" },
-      { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useBuildRequests · useAdmins · useEirRoles · useTaskFiles · useProjectFolders", palette: "ui" },
-      { label: "API layer", hint: "src/api/tasks · eirs · testSheets · buildRequests · buildRequestItems · panelOrders · panelTasks · admins · eirRoles · panelRoles · directory · siteUsers · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
+      { label: "Views", hint: "Dashboard · List · Kanban · Detail · EIRs · Test Sheets · Project Folders · CSA Listings · Admin", palette: "ui" },
+      { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useBuildRequests · useCsaListings · useAdmins · useEirRoles · useTaskFiles · useProjectFolders", palette: "ui" },
+      { label: "API layer", hint: "src/api/tasks · eirs · testSheets · buildRequests · buildRequestItems · csaListings · panelOrders · panelTasks · admins · eirRoles · panelRoles · directory · siteUsers · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
       {
         label: "Build Requests (lazy-loaded)",
         hint: "BuildRequestsView · BuildRequestDetailView — a master-detail pair: the Tracker header list + any number of parts from the Items list, joined by BuildRequestNo. Own code-split chunk.",
@@ -111,8 +111,9 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "EIRs", palette: "list" },
       { label: "Admins", palette: "list" },
       { label: "EIR Roles", hint: "engineer / supply-chain field permissions", palette: "list" },
+      { label: "CSA Listings", hint: "Engineering site — CSA certification files; Title is the File Number, admin-only writes", palette: "list" },
       { label: "Documents library", hint: "General/Project Folders/* — task & comment files land here", palette: "list" },
-      { label: "List-item attachments", hint: "SharePoint REST · per-item files on Tasks & EIRs", palette: "list" },
+      { label: "List-item attachments", hint: "SharePoint REST · per-item files on Tasks, EIRs, CSA Listings and more", palette: "list" },
       { label: "Operations Task List", hint: "Altronic_PMO site — separate from Engineering's Task List", palette: "list" },
       { label: "Operations Projects", hint: "Altronic_PMO site — Operations' own parent-project reference list", palette: "list" },
       { label: "Altronic Equipment List", hint: "Altronic_PMO site — read-only reference for the Equipment picker", palette: "list" },
@@ -293,11 +294,11 @@ const SCHEMA_TABLES: SchemaTable[] = [
   },
   {
     name: "Attachment",
-    source: "Task, EIR & Operations Task list-item attachments (SP REST)",
+    source: "List-item attachments across entities (SP REST)",
     palette: "shared",
     x: 960, y: 540, width: 290,
     columns: [
-      { name: "parentId", type: "int", kind: "fk", references: "Task / EIR / OperationsTask" },
+      { name: "parentId", type: "int", kind: "fk", references: "Task / EIR / CsaListing / …" },
       { name: "fileName", type: "text", kind: "field" },
       { name: "serverRelativeUrl", type: "text", kind: "field" },
     ],
@@ -496,6 +497,26 @@ const SCHEMA_TABLES: SchemaTable[] = [
     ],
   },
 
+  // ---- CSA Listings (Engineering) -----------------------------------------
+  // Standalone: no lookups, no people fields. Attachments hang off it (the
+  // certificate PDFs), which is the only relationship it has.
+  {
+    name: "CsaListing",
+    source: "CSA Listings (Engineering site)",
+    palette: "entity",
+    x: 1080, y: 2330, width: 300,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "fileNumber (Title)", type: "text", kind: "field" },
+      { name: "product", type: "text", kind: "field" },
+      { name: "alsoCover", type: "note", kind: "field" },
+      { name: "partNoIncluded", type: "note", kind: "field" },
+      { name: "history", type: "note", kind: "field" },
+      { name: "dateCertified", type: "date", kind: "field" },
+      { name: "csaId (legacy)", type: "number", kind: "field" },
+    ],
+  },
+
   // ---- Teradyne (Operations, Altronic_PMO site) — own cluster -------------
   // Note how this cluster references NO Person table: the log records who ran
   // a test from its own Employees list (shop-floor people with clock numbers,
@@ -644,6 +665,8 @@ const CONNECTIONS: Connection[] = [
   { fromTable: "TeradyneLogEntry", fromColumn: "employee1", toTable: "TeradyneEmployee", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "TeradyneLogEntry", fromColumn: "employee2", toTable: "TeradyneEmployee", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "TeradyneLogEntry", fromColumn: "remark", toTable: "TeradyneRemark", toColumn: "id", fromCard: "many", toCard: "one" },
+  // CSA Listings — certificates attach to the list item; no other relationships.
+  { fromTable: "Attachment", fromColumn: "parentId", toTable: "CsaListing", toColumn: "id", fromCard: "many", toCard: "one" },
 ];
 
 export function AboutView() {

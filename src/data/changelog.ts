@@ -20,6 +20,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.75.0",
+    date: "2026-07-29",
+    changes: [
+      "New under Engineering: CSA Listings — the register of Altronic's CSA certification files, with the products and part numbers each file covers, when it was certified, and its history",
+      "Certificates and supporting documents attach to a listing",
+      "One search box covers everything including the long fields, so you can find a file by a part number listed inside it — not just by file number or product",
+      "Adding, editing and deleting listings is limited to admins, since these are compliance records; reading and searching are open to everyone",
+      "A CSA Listings card on the Dashboard shows how many files are on record",
+    ],
+  },
+  {
     version: "0.74.0",
     date: "2026-07-28",
     changes: [

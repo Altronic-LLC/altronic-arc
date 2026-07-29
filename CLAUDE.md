@@ -226,6 +226,7 @@ src/
 │   ├── eirRoles.ts               EIR role tags (engineer / supply chain) CRUD
 │   ├── testSheets.ts             Test Results CRUD
 │   ├── admins.ts                 Admins list CRUD
+│   ├── csaListings.ts            CSA Listings CRUD (Engineering certification register)
 │   ├── teradyneLog.ts            Teradyne Log CRUD (Operations, PMO site)
 │   ├── teradyneRefs.ts           Teradyne Employees/Products/Remarks (one parametrised module)
 │   ├── projectFiles.ts           Documents-library project folders + files
@@ -237,6 +238,7 @@ src/
 ├── data/
 │   ├── mockData.ts               Sample tasks, EIRs, projects, people
 │   ├── dashboardMockData.ts      Sample dashboard metrics
+│   ├── csaMockData.ts            Sample CSA certification files
 │   ├── teradyneMockData.ts       Sample Teradyne log + reference rows
 │   └── changelog.ts              Version history (drives footer + history modal)
 │
@@ -244,6 +246,7 @@ src/
 │   ├── useTasks.ts               Tasks/projects queries + mutations
 │   ├── useEirs.ts                EIR queries + mutations (optimistic + undo)
 │   ├── useEirRoles.ts            EIR roles CRUD + useMyEirRoles() (field gating)
+│   ├── useCsaListings.ts         CSA Listings queries + mutations
 │   ├── useTeradyne.ts            Teradyne log + ref-list queries/mutations (+ usage counts)
 │   ├── useTestSheets.ts          Test sheet queries + mutations
 │   ├── useAdmins.ts              Admins list CRUD
@@ -263,6 +266,9 @@ src/
 │   ├── eirMapper.ts              Graph item → Eir (field-name quirks)
 │   ├── eirNumber.ts              nextEirNo() — EIR_YYYY-#### auto-numbering
 │   ├── testSheetMapper.ts        Graph item → TestSheet
+│   ├── csaListingMapper.ts       Graph item → CsaListing (+ label, sort, search)
+│   ├── certificationExpiry.ts    Expiry buckets for dated certificates (built, not yet wired)
+│   ├── spDates.ts                Shared SharePoint date-only helpers (midday-UTC rule)
 │   ├── teradyneMapper.ts         Graph item → Teradyne entities; derived titles + date-only helpers
 │   ├── taskGraph.ts              Parent/child task relationships + cycle checks
 │   ├── taskFilters.ts            Pure task filter predicates
@@ -292,6 +298,7 @@ src/
 │   ├── TaskFormModal.tsx         Create/edit task
 │   ├── EirFormModal.tsx          Create/edit EIR
 │   ├── TestSheetFormModal.tsx    Create/edit test sheet
+│   ├── CsaListingFormModal.tsx   Create/edit a CSA listing (+ attachments when editing)
 │   ├── TeradyneLogFormModal.tsx  Create/edit a Teradyne log entry
 │   ├── CommentThread.tsx         Sorted comment list
 │   ├── CommentComposer.tsx       New-comment editor (+ @-mentions)
@@ -313,6 +320,7 @@ src/
 │   ├── EirsView.tsx              EIRs list — View tabs (All / New / Needs Assigned),
 │   │                             status pills, filter bar
 │   ├── EirDetailView.tsx         EIR detail (+ role-gated fields, see below)
+│   ├── CsaListingsView.tsx       CSA Listings table (Engineering, admin-gated writes)
 │   ├── TeradyneLogView.tsx       Teradyne Log table + "Manage lists" menu (Operations)
 │   ├── TeradyneRefListView.tsx   Edit one Teradyne reference list (:kind)
 │   ├── TestSheetsView.tsx        Test sheets list
@@ -476,6 +484,33 @@ calculated **EIR Log No.** derives from it, so we only write `EIRNo`.
 - **EIR Roles List ID** (env: `VITE_SP_EIR_ROLES_LIST_ID`) — admin-managed list (Title = email, plus `DisplayName`, `Note`, and `Roles` text columns). `Roles` holds a lowercase CSV of role tags (`engineer`, `supply chain`). Gates which EIR fields a user may edit (see "EIR field permissions" below). Not yet created — set the env var once the list exists. Managed at `/admin/eir-roles`.
 - **Shared mailbox** (env: `VITE_SHARED_MAILBOX`) — email address that @-mention notifications send FROM. See setup below.
 - **App manager email** (env: `VITE_APP_MANAGER_EMAIL`) — recipient of "Report issue" reports sent from the life-buoy button in the header. Falls back to `ray.white@altronic-llc.com` if unset, so the button works on day one. Sent FROM the same shared mailbox, with the reporter CC'd. See `src/api/errorReport.ts`.
+
+### CSA Listings (Engineering)
+
+`758defd2-693c-4324-9e0b-dd2a12c341fa` (env: `VITE_SP_CSA_LISTINGS_LIST_ID`) on
+`SITES.engineering`. Schema discovered live 2026-07-29.
+
+| Domain field | Column | Notes |
+|---|---|---|
+| `fileNumber` | `Title` | **The list repurposes Title as the CSA File Number** — there is no "title" anywhere in the domain type. |
+| `product` | `Product` | text |
+| `alsoCover` | `AlsoCover` | multi-line |
+| `partNoIncluded` | `PartNoIncluded` | multi-line |
+| `history` | `History` | multi-line |
+| `dateCertified` | `DateCertified` | date-only; use `src/lib/spDates.ts` (midday-UTC rule) |
+| `csaId` | `CSA_ID` | legacy id from the original data — **read-only, never written** |
+| `hasAttachments` | `Attachments` | attachments are enabled on the list; kind `csaListing` in `api/attachments.ts` |
+
+**Adding / editing / deleting is admin-only** (`useAdminAccess()`); reading and
+searching are open to any signed-in user. Search deliberately covers the
+multi-line fields — a part number people are chasing lives in `PartNoIncluded`,
+not in the file number, and the table can only show its first line.
+
+**There is NO expiry column** on this list. `certificationExpiry.ts` exists
+(buckets, urgency sort, counts, tested) but is deliberately **not wired to
+anything**: Ray chose to hold off on the expiry feature until the real data has
+been used in the app. Wiring it needs a decision first — a new Expiry Date column
+in SharePoint, or a rule deriving it from `DateCertified`.
 
 ### Teradyne lists (Operations, PMO site)
 

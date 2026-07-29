@@ -884,6 +884,48 @@ export interface PanelTask {
 }
 
 // =============================================================================
+// CSA Listings — Engineering's CSA product-certification register, on the
+// Engineering site.
+//
+// One quirk worth knowing: the list's `Title` column is repurposed as the
+// **File Number** (the CSA file identifier), so nothing here is called "title".
+// The three long fields are SharePoint multi-line ("Note") columns.
+// =============================================================================
+
+export interface CsaListing {
+  id: number;
+  /** CSA file number. Stored in the list's `Title` column. */
+  fileNumber: string;
+  product: string;
+  /** Multi-line: other products/models the same file covers. */
+  alsoCover: string;
+  /** Multi-line: part numbers included under the listing. */
+  partNoIncluded: string;
+  /** Multi-line: running notes on the listing's history. */
+  history: string;
+  dateCertified: Date | null;
+  /**
+   * Legacy id from the original data (`CSA_ID`). Read and displayed, never
+   * written — same arrangement as Teradyne's IDEmp / IDProd.
+   */
+  csaId: number | null;
+  /** Whether the list item has files attached (certificate PDFs and the like). */
+  hasAttachments: boolean;
+  createdAt: Date;
+  modifiedAt: Date;
+}
+
+/** Everything a create/update of a CSA listing needs. */
+export interface CsaListingInput {
+  fileNumber: string;
+  product: string;
+  alsoCover: string;
+  partNoIncluded: string;
+  history: string;
+  dateCertified: Date | null;
+}
+
+// =============================================================================
 // Teradyne — the PCB test log run by Operations, on the PMO site. Four lists:
 // "Teradyne Log" (the entity) plus three reference lists it looks up against
 // (Employees, Products, Remarks), all editable in-app.
