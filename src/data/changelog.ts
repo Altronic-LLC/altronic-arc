@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.82.2",
+    date: "2026-07-30",
+    changes: [
+      "Bigger type on the Drawing Work Sheet's top three sections, using up the extra height the blank lines didn't need — the change history keeps its smaller type so its columns still fit",
+      "More space above each of the sheet's three section rules, so it sits better on the page",
+    ],
+  },
+  {
     version: "0.82.1",
     date: "2026-07-30",
     changes: [

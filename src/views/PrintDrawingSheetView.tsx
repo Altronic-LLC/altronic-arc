@@ -117,18 +117,18 @@ export function PrintDrawingSheetView() {
       {/* ---------------------------------------------------------------- head */}
       <div className="flex items-start justify-between">
         <div className="flex items-baseline gap-1.5">
-          <span className="text-[7pt] font-bold uppercase tracking-wider text-gray-600">
+          <span className="text-[8pt] font-bold uppercase tracking-wider text-gray-600">
             Prim Key:
           </span>
-          <span className="text-[8pt]">{text(entry, "legacyId")}</span>
+          <span className="text-[9pt]">{text(entry, "legacyId")}</span>
         </div>
       </div>
 
       <div className="text-center">
-        <h1 className="font-display text-[17pt] font-bold uppercase leading-none tracking-tight">
+        <h1 className="font-display text-[19pt] font-bold uppercase leading-none tracking-tight">
           Drawing Work Sheet
         </h1>
-        <div className="mt-0.5 text-[8pt] font-semibold uppercase tracking-wider">
+        <div className="mt-0.5 text-[9.5pt] font-semibold uppercase tracking-wider">
           {text(entry, "software") || " "}
         </div>
       </div>
@@ -150,10 +150,10 @@ export function PrintDrawingSheetView() {
         </div>
       </div>
 
-      <hr className="my-2 border-t-2 border-black" />
+      <hr className="mb-2 mt-5 border-t-2 border-black" />
 
       {/* -------------------------------------------------------- dates and by */}
-      <div className="text-center text-[9pt] font-bold uppercase tracking-wide">
+      <div className="text-center text-[11pt] font-bold uppercase tracking-wide">
         New Revision: <span className="font-normal">{text(entry, "newRevision")}</span>
       </div>
 
@@ -181,10 +181,10 @@ export function PrintDrawingSheetView() {
         </div>
       )}
 
-      <hr className="my-2 border-t-2 border-black" />
+      <hr className="mb-2 mt-5 border-t-2 border-black" />
 
       {/* -------------------------------------------------- print distribution */}
-      <div className="text-center text-[10pt] font-bold uppercase tracking-wide">
+      <div className="text-center text-[11.5pt] font-bold uppercase tracking-wide">
         Print Distribution
       </div>
 
@@ -193,7 +193,7 @@ export function PrintDrawingSheetView() {
         <Row label="By" value="" />
       </div>
 
-      <p className="mt-1.5 text-[7.5pt] font-bold leading-snug">
+      <p className="mt-1.5 text-[8.5pt] font-bold leading-snug">
         NOTE: PROTOTYPE AND PRELIMINARY DRAWINGS SHOULD NOT BE DISTRIBUTED UNLESS
         SPECIFIED BY DESIGN ENGINEER, APPROVED ORIGINALS SHOULD BE GIVEN TO
         DOCUMENT CONTROL FOR THE PROJECT FILE ENVELOPES.
@@ -212,13 +212,13 @@ export function PrintDrawingSheetView() {
             <Recipient key={r} label={r} />
           ))}
           <div className="mt-0.5 flex items-baseline gap-1.5">
-            <span className="text-[8pt] font-bold uppercase">Other:</span>
+            <span className="text-[9.5pt] font-bold uppercase">Other:</span>
             <span className="min-w-[1.2in] flex-1 border-b border-gray-500">&nbsp;</span>
           </div>
         </div>
       </div>
 
-      <hr className="my-2 border-t-2 border-black" />
+      <hr className="mb-2 mt-5 border-t-2 border-black" />
 
       {/* ------------------------------------------------------ drawing history */}
       <div className="text-center text-[10pt] font-bold uppercase tracking-wide">
@@ -265,12 +265,19 @@ const PRODUCTION_RECIPIENTS = [
 /**
  * One labelled value on a ruled line. An empty value still prints its line —
  * that's how the blank-by-design fields get somewhere to write.
+ *
+ * Type is 2pt up on the first transcription and the leading is pulled in
+ * (Ray, 2026-07-30): the ruled lines had more height than a handwritten entry
+ * needs, so that slack pays for the bigger type and the form barely grows. Used
+ * by the top three sections only — the change history keeps its smaller type
+ * deliberately, since it fits four columns twice across the page. Don't
+ * "harmonise" the two.
  */
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-baseline gap-1.5 leading-[1.6]">
-      <span className="shrink-0 text-[8pt] font-bold uppercase">{label}:</span>
-      <span className="min-w-0 flex-1 border-b border-gray-400 text-[9pt]">
+    <div className="flex items-baseline gap-1.5 leading-[1.4]">
+      <span className="shrink-0 text-[10pt] font-bold uppercase">{label}:</span>
+      <span className="min-w-0 flex-1 border-b border-gray-400 text-[11pt]">
         {value || " "}
       </span>
     </div>
@@ -278,17 +285,15 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 function ColumnHeading({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="mb-0.5 text-[8pt] font-bold uppercase">{children}</div>
-  );
+  return <div className="mb-0.5 text-[9.5pt] font-bold uppercase">{children}</div>;
 }
 
 /** A tick line plus the role — initialled by whoever takes the print. */
 function Recipient({ label }: { label: string }) {
   return (
-    <div className="flex items-baseline gap-2 leading-[1.55]">
+    <div className="flex items-baseline gap-2 leading-[1.45]">
       <span className="w-[0.55in] shrink-0 border-b border-gray-500">&nbsp;</span>
-      <span className="text-[8pt] font-semibold uppercase">{label}</span>
+      <span className="text-[9.5pt] font-semibold uppercase">{label}</span>
     </div>
   );
 }
