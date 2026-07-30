@@ -263,8 +263,15 @@ const PRODUCTION_RECIPIENTS = [
 ];
 
 /**
- * One labelled value on a ruled line. An empty value still prints its line —
- * that's how the blank-by-design fields get somewhere to write.
+ * One labelled field: the label, then either the value or somewhere to write it.
+ *
+ * THE RULE PRINTS ONLY WHEN THE FIELD IS EMPTY (Ray, 2026-07-30). A line under
+ * printed text is just noise — the value is legible on its own — while a line
+ * under nothing is the entire point, since Prototype / Preliminary / Production
+ * and the checked-approved / entered-in-system / to-mylar dates are completed by
+ * hand. So the top of the sheet comes out clean where it's filled in and ruled
+ * where it isn't, from one rule rather than a flag on every field. Values are
+ * semibold to carry that without the line under them.
  *
  * Type is 2pt up on the first transcription and the leading is pulled in
  * (Ray, 2026-07-30): the ruled lines had more height than a handwritten entry
@@ -274,10 +281,17 @@ const PRODUCTION_RECIPIENTS = [
  * "harmonise" the two.
  */
 function Row({ label, value }: { label: string; value: string }) {
+  const blank = value.trim() === "";
   return (
     <div className="flex items-baseline gap-1.5 leading-[1.4]">
       <span className="shrink-0 text-[10pt] font-bold uppercase">{label}:</span>
-      <span className="min-w-0 flex-1 border-b border-gray-400 text-[11pt]">
+      <span
+        className={
+          blank
+            ? "min-w-0 flex-1 border-b border-gray-400 text-[11pt]"
+            : "min-w-0 flex-1 text-[11pt] font-semibold"
+        }
+      >
         {value || " "}
       </span>
     </div>

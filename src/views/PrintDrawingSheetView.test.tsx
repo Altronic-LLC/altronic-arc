@@ -187,3 +187,38 @@ describe("PrintDrawingSheetView — the parts with no data behind them", () => {
     await waitFor(() => expect(window.print).toHaveBeenCalled());
   });
 });
+
+describe("PrintDrawingSheetView — ruled lines only where they're needed", () => {
+  /** The value span of a labelled field. */
+  function valueOf(label: string) {
+    return screen.getByText(label).parentElement!.querySelector("span:last-of-type")!;
+  }
+
+  it("prints no line under a field that already has a value", async () => {
+    // A rule under printed text is noise — the value reads fine on its own.
+    const row = await cadRow((v) => v.drawingNo === "501 505");
+    await renderSheet(row.id);
+
+    for (const label of ["Date:", "Drawing Number:", "CAD Drawing Number:", "Drawing Title:"]) {
+      expect(valueOf(label).className).not.toMatch(/border-b/);
+    }
+  });
+
+  it("keeps the line under a field left blank for hand entry", async () => {
+    // Prototype / Preliminary / Production and the sign-off dates are completed
+    // on paper — without a rule there'd be nothing to write on.
+    const row = await cadRow((v) => v.drawingNo === "501 505");
+    await renderSheet(row.id);
+
+    for (const label of [
+      "Prototype:",
+      "Preliminary:",
+      "Production:",
+      "Date Checked/Approved:",
+      "Date Entered in Sys:",
+      "Date to Mylar:",
+    ]) {
+      expect(valueOf(label).className).toMatch(/border-b/);
+    }
+  });
+});

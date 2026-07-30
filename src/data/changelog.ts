@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.82.3",
+    date: "2026-07-30",
+    changes: [
+      "Cleaner top half on the Drawing Work Sheet: the underline is gone from any field that already has a value, and stays only on the fields you fill in by hand",
+    ],
+  },
+  {
     version: "0.82.2",
     date: "2026-07-30",
     changes: [
