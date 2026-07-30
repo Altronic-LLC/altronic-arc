@@ -712,12 +712,30 @@ a "Show all" escape hatch, because thousands of rows × 10 cells makes typing in
 the search box stutter. Filters and totals always run over the whole loaded
 scope — only the rows put in the DOM are capped.
 
-**Clock numbers are read-only on the log form.** `Employee1Clock` /
-`Employee2Clock` are real columns the app writes, but they're derived from the
-picked employee's `ClockNum` and rendered as a display box, not an input — the
-clock number belongs to the employee, maintained once on the Employees list.
-The value is seeded from the entry being edited rather than re-derived on open,
-so an old entry keeps the clock number it was logged with.
+**Name and clock number are two pickers over the same person, and each fills the
+other** (Ray, 2026-07-30). `Employee1Clock` / `Employee2Clock` are real columns
+the app writes; the clock control is a `SingleSelect` over the Employees list
+keyed on `ClockNum` (label `#Clock · Name`), so picking a number sets the
+employee lookup and picking an employee sets the number. Clearing either clears
+both — they identify one person, and a name left behind a cleared number is
+exactly the mismatch this shape prevents.
+
+Neither box is free text, so an entry can't carry a clock number that disagrees
+with the employee record; a number is still maintained once on the Employees
+list. It was a read-only display box until 2026-07-30 — the reason it isn't an
+`<input>` now is the same reason it was read-only then.
+
+Two details in `TeradyneLogFormModal`:
+
+- Clock options are **deduped by number** — the legacy import can repeat one, and
+  two options sharing a value makes the pick ambiguous.
+- `clockOptionsWith()` prepends a **stand-in option for a stored number that
+  matches nobody** (`#9001 · not on the employee list`). The log keeps its own
+  copy of the number, so an old entry can carry one whose employee was since
+  renumbered or removed; without the stand-in the picker falls back to its
+  placeholder, the entry looks like it never had a clock number, and saving
+  quietly agrees. The clock state is still seeded from the entry being edited
+  rather than re-derived on open, so an old entry keeps what it was logged with.
 
 **"Altronic Part Number" lives in the `OldSAPNumber` column.** The field was
 renamed for users (2026-07-28); the SharePoint column was deliberately NOT

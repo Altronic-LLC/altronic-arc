@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.81.0",
+    date: "2026-07-30",
+    changes: [
+      "On a Teradyne log entry you can now pick the clock number as well as the name, and each fills the other in — pick a person and their number appears, pick a number and their name appears",
+      "Clock numbers read as \"#Clock · Name\" in their own list, so you can find someone by number without knowing the spelling of their name",
+      "Clearing either the name or the clock number clears both, since they're two ways of naming the same person",
+    ],
+  },
+  {
     version: "0.80.1",
     date: "2026-07-30",
     changes: [

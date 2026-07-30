@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
-import { TeradyneLogFormModal } from "./TeradyneLogFormModal";
+import { TeradyneLogFormModal, clockOptionsWith } from "./TeradyneLogFormModal";
 
 // USE_MOCK is true under Vitest — the pickers read the mock reference lists.
 // Melissa Fuentes is clock #88, Dave Anderson #312, Sandy Bindas #189.
@@ -23,11 +23,18 @@ async function pick(label: RegExp, option: RegExp) {
   await userEvent.click(await screen.findByRole("option", { name: option }));
 }
 
-/** The clock number is displayed, not editable — read its rendered text. */
-function clockText(which: 1 | 2): string {
-  const label = which === 1 ? /employee 1 clock/i : /employee 2 clock/i;
+/** What a picker currently reads as — the trigger button's own text. */
+function summaryOf(label: RegExp): string {
   const field = screen.getByText(label).closest("label")!;
-  return within(field).getByRole("status").textContent ?? "";
+  return within(field).getAllByRole("button")[0].textContent ?? "";
+}
+
+function clockText(which: 1 | 2): string {
+  return summaryOf(which === 1 ? /employee 1 clock/i : /employee 2 clock/i);
+}
+
+function employeeText(which: 1 | 2): string {
+  return summaryOf(which === 1 ? /^employee 1$/i : /^employee 2$/i);
 }
 
 async function renderForm() {
@@ -39,52 +46,105 @@ async function renderForm() {
   return result;
 }
 
-describe("TeradyneLogFormModal — clock auto-fill", () => {
-  it("fills Employee 1 Clock from the employee's record when one is picked", async () => {
+describe("TeradyneLogFormModal — name and clock fill each other", () => {
+  it("fills Employee 1 Clock from the employee's record when a name is picked", async () => {
     await renderForm();
-    expect(clockText(1)).toMatch(/pick an employee/i);
+    expect(clockText(1)).toMatch(/pick a clock number/i);
 
     await pick(/^employee 1$/i, /Melissa Fuentes/);
-    await waitFor(() => expect(clockText(1)).toBe("88"));
+    await waitFor(() => expect(clockText(1)).toContain("88"));
+  });
+
+  it("fills Employee 1 from the clock number when a number is picked", async () => {
+    // The reverse direction: on the floor people identify themselves by number.
+    await renderForm();
+    await pick(/employee 1 clock/i, /^#88 · Melissa Fuentes$/);
+
+    await waitFor(() => expect(employeeText(1)).toContain("Melissa Fuentes"));
+    expect(clockText(1)).toContain("88");
   });
 
   it("fills the Employee 2 slot independently of Employee 1", async () => {
     await renderForm();
     await pick(/^employee 1$/i, /Melissa Fuentes/);
-    await pick(/^employee 2$/i, /Dave Anderson/);
+    await pick(/employee 2 clock/i, /^#312 · Dave Anderson$/);
 
-    await waitFor(() => expect(clockText(2)).toBe("312"));
+    await waitFor(() => expect(employeeText(2)).toContain("Dave Anderson"));
     // Slot 1 untouched by slot 2's pick.
-    expect(clockText(1)).toBe("88");
+    expect(clockText(1)).toContain("88");
+    expect(employeeText(1)).toContain("Melissa Fuentes");
   });
 
   it("replaces the clock number when the employee is changed", async () => {
     await renderForm();
     await pick(/^employee 1$/i, /Melissa Fuentes/);
-    await waitFor(() => expect(clockText(1)).toBe("88"));
+    await waitFor(() => expect(clockText(1)).toContain("88"));
 
     await pick(/^employee 1$/i, /Sandy Bindas/);
-    await waitFor(() => expect(clockText(1)).toBe("189"));
+    await waitFor(() => expect(clockText(1)).toContain("189"));
+  });
+
+  it("replaces the employee when the clock number is changed", async () => {
+    await renderForm();
+    await pick(/^employee 1$/i, /Melissa Fuentes/);
+    await waitFor(() => expect(clockText(1)).toContain("88"));
+
+    await pick(/employee 1 clock/i, /^#189 · Sandy Bindas$/);
+    await waitFor(() => expect(employeeText(1)).toContain("Sandy Bindas"));
   });
 
   it("clears the clock number when the employee is cleared", async () => {
     await renderForm();
     await pick(/^employee 1$/i, /Melissa Fuentes/);
-    await waitFor(() => expect(clockText(1)).toBe("88"));
+    await waitFor(() => expect(clockText(1)).toContain("88"));
 
     // Re-picking the selected option clears a SingleSelect.
     await pick(/^employee 1$/i, /Melissa Fuentes/);
-    await waitFor(() => expect(clockText(1)).toMatch(/pick an employee/i));
+    await waitFor(() => expect(clockText(1)).toMatch(/pick a clock number/i));
   });
 
-  it("offers no way to type a clock number — it belongs to the employee record", async () => {
+  it("clears the employee when the clock number is cleared — they're one person", async () => {
     await renderForm();
     await pick(/^employee 1$/i, /Melissa Fuentes/);
-    await waitFor(() => expect(clockText(1)).toBe("88"));
+    await waitFor(() => expect(clockText(1)).toContain("88"));
 
+    await pick(/employee 1 clock/i, /^#88 · Melissa Fuentes$/);
+    await waitFor(() => expect(employeeText(1)).toMatch(/nobody/i));
+    expect(clockText(1)).toMatch(/pick a clock number/i);
+  });
+
+  it("still offers no way to TYPE a clock number — it comes from the Employees list", async () => {
+    await renderForm();
     const field = screen.getByText(/employee 1 clock/i).closest("label")!;
     expect(within(field).queryByRole("spinbutton")).not.toBeInTheDocument();
     expect(within(field).queryByRole("textbox")).not.toBeInTheDocument();
+  });
+
+  it("labels each clock option with whose number it is", async () => {
+    await renderForm();
+    const field = screen.getByText(/employee 1 clock/i).closest("label")!;
+    await userEvent.click(within(field).getAllByRole("button")[0]);
+    expect(await screen.findByRole("option", { name: "#88 · Melissa Fuentes" })).toBeInTheDocument();
+  });
+});
+
+describe("clockOptionsWith", () => {
+  const options = [
+    { value: "88", label: "#88 · Melissa Fuentes" },
+    { value: "312", label: "#312 · Dave Anderson" },
+  ];
+
+  it("leaves the list alone when the stored number is one of them", () => {
+    expect(clockOptionsWith(options, "88")).toBe(options);
+    expect(clockOptionsWith(options, "")).toBe(options);
+  });
+
+  it("keeps an old entry's unrecognised number visible instead of blanking it", () => {
+    // Otherwise the entry looks like it never had a clock number, and saving
+    // would quietly agree.
+    const withStored = clockOptionsWith(options, "9001");
+    expect(withStored[0]).toEqual({ value: "9001", label: "#9001 · not on the employee list" });
+    expect(withStored).toHaveLength(3);
   });
 });
 

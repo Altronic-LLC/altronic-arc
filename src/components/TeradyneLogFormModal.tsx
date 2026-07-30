@@ -28,11 +28,13 @@ interface TeradyneLogFormModalProps {
  *  - The log's `Title` is app-derived ("{Product} - {Defective Parts}"), so
  *    there's no Title input; the computed value is previewed instead, which
  *    makes it obvious why picking a product changes the row label.
- *  - Picking an employee fills in their clock number, because the log stores a
- *    denormalised copy of it (that's how the source data does it). It's shown
- *    read-only: the clock number belongs to the employee, so it's maintained
- *    once on Manage lists → Employees rather than retyped per entry, where it
- *    could silently disagree with the employee record.
+ *  - Name and clock number are TWO WAYS TO PICK THE SAME PERSON, and each fills
+ *    the other. Pick a name and the clock number appears; pick a clock number
+ *    and the name appears. The log stores a denormalised copy of the clock
+ *    number (that's how the source data does it), but neither box is free text:
+ *    both choose from the Employees list, so an entry can't end up with a clock
+ *    number that disagrees with the employee record. A number is still
+ *    maintained in one place — Manage lists → Employees.
  */
 export function TeradyneLogFormModal({ entry, onClose }: TeradyneLogFormModalProps) {
   const isEdit = entry != null;
@@ -97,6 +99,30 @@ export function TeradyneLogFormModal({ entry, onClose }: TeradyneLogFormModalPro
   const previewTitle = buildTeradyneLogTitle(productTitle, defectiveParts);
 
   /**
+   * The clock-number picker's options: one per clock number, labelled with the
+   * name it belongs to.
+   *
+   * Deduped because the legacy import can carry the same number twice — two
+   * options with the same value would make the picker ambiguous about which
+   * person a click meant. Sorted numerically, since someone looking for #88 is
+   * scanning numbers, not names.
+   */
+  const clockOptions = useMemo(() => {
+    const byClock = new Map<string, TeradyneEmployee>();
+    for (const e of employees) {
+      if (e.clockNum === null) continue;
+      const key = String(e.clockNum);
+      if (!byClock.has(key)) byClock.set(key, e);
+    }
+    return [...byClock.entries()]
+      .sort((a, b) => Number(a[0]) - Number(b[0]))
+      .map(([clock, e]) => ({
+        value: clock,
+        label: `#${clock} · ${e.title.trim() || "(unnamed)"}`,
+      }));
+  }, [employees]);
+
+  /**
    * Pick an employee → fill that slot's clock number from their record.
    *
    * The clock state is seeded from the entry being edited rather than re-derived
@@ -113,6 +139,26 @@ export function TeradyneLogFormModal({ entry, onClose }: TeradyneLogFormModalPro
     }
     const match = employees.find((e) => String(e.lookupId) === value);
     setClock(match?.clockNum != null ? String(match.clockNum) : "");
+  }
+
+  /**
+   * Pick a clock number → fill in whose it is. The mirror image of
+   * pickEmployee, because on the floor people identify themselves by either.
+   *
+   * Clearing the number clears the name too: both boxes are the same person, so
+   * leaving a name behind a cleared number would be the mismatch this design
+   * exists to prevent.
+   */
+  function pickClock(slot: 1 | 2, value: string | null) {
+    const setId = slot === 1 ? setEmployee1Id : setEmployee2Id;
+    const setClock = slot === 1 ? setEmployee1Clock : setEmployee2Clock;
+    setClock(value ?? "");
+    if (value === null) {
+      setId(null);
+      return;
+    }
+    const match = employees.find((e) => e.clockNum !== null && String(e.clockNum) === value);
+    setId(match ? String(match.lookupId) : null);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -261,7 +307,13 @@ export function TeradyneLogFormModal({ entry, onClose }: TeradyneLogFormModalPro
               />
             </FieldLabel>
             <FieldLabel label="Employee 1 Clock">
-              <ReadOnlyClock value={employee1Clock} hasEmployee={employee1Id !== null} />
+              <SingleSelect
+                allLabel="Pick a clock number"
+                searchPlaceholder="Clock number…"
+                options={clockOptionsWith(clockOptions, employee1Clock)}
+                selected={employee1Clock || null}
+                onChange={(v) => pickClock(1, v)}
+              />
             </FieldLabel>
           </div>
 
@@ -279,7 +331,13 @@ export function TeradyneLogFormModal({ entry, onClose }: TeradyneLogFormModalPro
               />
             </FieldLabel>
             <FieldLabel label="Employee 2 Clock">
-              <ReadOnlyClock value={employee2Clock} hasEmployee={employee2Id !== null} />
+              <SingleSelect
+                allLabel="Pick a clock number"
+                searchPlaceholder="Clock number…"
+                options={clockOptionsWith(clockOptions, employee2Clock)}
+                selected={employee2Clock || null}
+                onChange={(v) => pickClock(2, v)}
+              />
             </FieldLabel>
           </div>
 
@@ -375,27 +433,21 @@ export function TeradyneLogFormModal({ entry, onClose }: TeradyneLogFormModalPro
 }
 
 /**
- * The clock number, shown but not editable — it comes from the employee's row
- * on Manage lists → Employees. Rendered as a styled box rather than a disabled
- * <input> so it doesn't look like a field someone failed to enable, and so it
- * can explain itself when there's nothing to show.
+ * The clock options, plus a stand-in for a stored number that matches nobody on
+ * the Employees list.
+ *
+ * The log keeps its own copy of the clock number, so an entry from years ago can
+ * carry a number whose employee has since been renumbered or removed. Without a
+ * stand-in option the picker would fall back to its placeholder and the entry
+ * would look like it never had a clock number — then quietly save as if it
+ * hadn't. Better to show the number and say it isn't recognised.
  */
-function ReadOnlyClock({ value, hasEmployee }: { value: string; hasEmployee: boolean }) {
-  return (
-    <div
-      // Announced to screen readers as a value, since there's no input to label.
-      role="status"
-      className="flex min-h-[38px] items-center rounded-md border border-border bg-surface-2 px-3 py-2 text-sm tabular-nums text-fg"
-    >
-      {value ? (
-        value
-      ) : (
-        <span className="text-xs text-fg-muted">
-          {hasEmployee ? "No clock number on this employee" : "Pick an employee"}
-        </span>
-      )}
-    </div>
-  );
+export function clockOptionsWith(
+  options: Array<{ value: string; label: string }>,
+  stored: string,
+): Array<{ value: string; label: string }> {
+  if (!stored || options.some((o) => o.value === stored)) return options;
+  return [{ value: stored, label: `#${stored} · not on the employee list` }, ...options];
 }
 
 function FieldLabel({ label, children }: { label: string; children: React.ReactNode }) {

@@ -354,13 +354,17 @@ describe("TeradyneLogView — a log too big to render whole", () => {
     );
   });
 
+  // Putting 500 rows × 10 cells into jsdom and then querying them all is
+  // genuinely slow — comfortably inside the 5s default alone, but not when the
+  // suite runs this file alongside everything else. The generous timeout is
+  // about machine load, not about the assertion being uncertain.
   it("renders the rest on 'Show all'", async () => {
     await renderBig();
     await userEvent.click(await screen.findByRole("button", { name: /show all 500 entries/i }));
     await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(501));
     expect(screen.getByText("Board 400")).toBeInTheDocument();
     expect(screen.queryByText(/showing the newest/i)).not.toBeInTheDocument();
-  });
+  }, 20_000);
 
   it("drops the cap once a filter narrows the log below it", async () => {
     await renderBig();
