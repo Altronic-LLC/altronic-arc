@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.82.0",
+    date: "2026-07-30",
+    changes: [
+      "New Work Sheet button on a CAD drawing prints the Drawing Work Sheet (FORM #E006) on 8.5 × 11, filled in from the register and ready to accompany the drawing",
+      "The printed sheet includes what the old form left off — the Entered By and By initials, and the second half of the change history (revisions 9–16); all sixteen slots print, numbered",
+      "Prototype / Preliminary / Production, the checked-approved, entered-in-system and to-mylar dates, and the whole Print Distribution block print as blank ruled lines to complete by hand",
+    ],
+  },
+  {
     version: "0.81.2",
     date: "2026-07-30",
     changes: [

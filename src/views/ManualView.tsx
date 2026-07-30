@@ -1453,6 +1453,11 @@ const SECTIONS: ManualSection[] = [
       "sketches",
       "engineering sketches",
       "change log",
+      "drawing work sheet",
+      "work sheet",
+      "form e006",
+      "print a drawing",
+      "print distribution",
       "ecn",
       "revision",
       "rev",
@@ -1463,7 +1468,7 @@ const SECTIONS: ManualSection[] = [
       "record a change",
     ],
     searchText:
-      "Drawing File Logs brings Engineering's drawing registers together on one screen as tabs: CAD Drawings, CCC Drawings, CEC Drawings and Engineering Sketches. Each tab is a searchable table; click any row for the full record and its change log — the dated revisions and ECNs that SharePoint stores across 48 columns. Search covers the ECNs too, so you can find which drawing a change notice affected. Admins can add a drawing, edit its details, and record a change, which also updates the drawing's current revision. Admins can also correct an existing change entry with the pencil beside it, which edits just that entry without moving the drawing's current revision; clearing all three values empties the slot and frees it for reuse. A drawing has sixteen change slots; once they're used the app says so rather than overwriting an old entry. CAD drawings carry By, Entered By and Software, which behave like drop-downs built from the values already in use while still accepting a new one, and the New Drawing field is no longer on the add or edit form. Engineering Sketches has its own columns (sketch number, V code, Ventura) and no change log, because the list doesn't have one. Reading and searching are open to everyone.",
+      "Drawing File Logs brings Engineering's drawing registers together on one screen as tabs: CAD Drawings, CCC Drawings, CEC Drawings and Engineering Sketches. Each tab is a searchable table; click any row for the full record and its change log — the dated revisions and ECNs that SharePoint stores across 48 columns. Search covers the ECNs too, so you can find which drawing a change notice affected. Admins can add a drawing, edit its details, and record a change, which also updates the drawing's current revision. Admins can also correct an existing change entry with the pencil beside it, which edits just that entry without moving the drawing's current revision; clearing all three values empties the slot and frees it for reuse. A drawing has sixteen change slots; once they're used the app says so rather than overwriting an old entry. CAD drawings carry By, Entered By and Software, which behave like drop-downs built from the values already in use while still accepting a new one, and the New Drawing field is no longer on the add or edit form. Engineering Sketches has its own columns (sketch number, V code, Ventura) and no change log, because the list doesn't have one. Reading and searching are open to everyone. Open a CAD drawing and click Work Sheet to print FORM #E006, the Drawing Work Sheet that accompanies a drawing until release: it opens in a new tab already filled in from the register, laid out for 8.5 x 11 portrait, with the print dialog open so you can print it or Save as PDF. It prints everything the register holds — including the Entered By / By initials and all sixteen change slots, both of which the old form left off — plus the sections that exist only on paper: Prototype / Preliminary / Production, the checked-approved, entered-in-system and to-mylar dates, and the Print Distribution block, all left blank to fill in by hand. The Work Sheet is CAD only.",
     render: () => (
       <>
         <P>
@@ -1522,6 +1527,35 @@ const SECTIONS: ManualSection[] = [
         <P>
           The <strong>New Drawing</strong> field is no longer on the add or edit
           form; existing values still show on the drawing's panel.
+        </P>
+
+        <H3>Printing the Drawing Work Sheet</H3>
+        <P>
+          Open a CAD drawing and click <strong>Work Sheet</strong>. That opens{" "}
+          <strong>FORM #E006</strong> — the Drawing Work Sheet that accompanies a
+          drawing until it's released to production — in a new tab, already filled
+          in from the register, with the print dialog open. Choose your printer, or{" "}
+          <em>Save as PDF</em>. It's laid out for 8.5 × 11 portrait.
+        </P>
+        <P>
+          It prints <strong>everything the register holds</strong>, including two
+          things the old form left off: the <strong>Entered By</strong> and{" "}
+          <strong>By</strong> initials, and the <strong>second half of the change
+          history</strong> (revisions 9–16). All sixteen slots are printed, in the
+          two columns the paper form uses, numbered so you can tell slot 4 from the
+          fourth line down on a drawing with gaps.
+        </P>
+        <P>
+          The rest of the form is <strong>deliberately blank</strong> — Prototype /
+          Preliminary / Production, the checked-approved, entered-in-system and
+          to-mylar dates, and the whole <strong>Print Distribution</strong> block.
+          None of those exist in SharePoint; they're ruled lines to complete by hand
+          as the drawing moves. The distribution note about prototype and
+          preliminary prints is on there too.
+        </P>
+        <P>
+          It's <strong>CAD only</strong>. The sheet is CAD's form, and the other
+          registers don't carry the fields it prints.
         </P>
 
         <H3>Engineering Sketches is different</H3>

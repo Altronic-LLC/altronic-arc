@@ -184,8 +184,14 @@ h3,
   box-shadow: 0 0 0 3px rgb(var(--accent) / 0.15);
 }
 
-/* Print page margins. The PrintTaskView component handles its own light
-   styling, so we only need to control the paper margin here. */
+/* Print page setup. The Print* views handle their own light styling, so we only
+   control the paper here.
+
+   `size: letter portrait` is stated rather than left to the browser default:
+   the Drawing Work Sheet reproduces a physical form (FORM #E006) that has to
+   come out 8.5 x 11, and a machine defaulted to A4 would rescale it. A tighter
+   margin than the 0.6in used elsewhere, because that form fills the page. */
 @page {
-  margin: 0.6in;
+  size: letter portrait;
+  margin: 0.4in;
 }

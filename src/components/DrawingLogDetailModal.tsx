@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { History, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Link } from "react-router-dom";
+import { History, Pencil, Plus, Printer, Trash2, X } from "lucide-react";
 import { DRAWING_LOGS } from "@/api/drawingLogs";
 import { writableFields } from "@/lib/drawingLogFields";
 import {
@@ -134,14 +135,31 @@ export function DrawingLogDetailModal({ entry, isAdmin, onClose }: DrawingLogDet
               {drawingLogLabel(entry)}
             </h2>
           </div>
-          <button
-            onClick={onClose}
-            disabled={busy}
-            className="shrink-0 rounded-md p-1 text-fg-muted hover:bg-surface-2 hover:text-fg"
-            aria-label="Close"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <div className="flex shrink-0 items-center gap-1">
+            {/* CAD only: the Drawing Work Sheet is CAD's paper form, and the
+                other registers don't carry the By / Entered By / Software fields
+                it prints. */}
+            {entry.kind === "cad" && (
+              <Link
+                to={`/drawing-logs/cad/${entry.id}/print`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm font-medium text-fg transition-colors hover:bg-surface-2"
+                title="Open the Drawing Work Sheet (FORM #E006) in a new tab — use Save as PDF or print it"
+              >
+                <Printer className="h-4 w-4" />
+                Work Sheet
+              </Link>
+            )}
+            <button
+              onClick={onClose}
+              disabled={busy}
+              className="rounded-md p-1 text-fg-muted hover:bg-surface-2 hover:text-fg"
+              aria-label="Close"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         {editing ? (

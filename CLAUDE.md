@@ -550,6 +550,26 @@ columns — correcting a 1994 typo must not make 1994 the drawing's latest
 revision. Clearing all three empties the slot and frees it for reuse, which is
 the only way to undo a mistaken change on a fixed sixteen-slot log.
 
+**The Drawing Work Sheet is a physical form, reproduced** —
+`views/PrintDrawingSheetView.tsx` at `/drawing-logs/:kind/:id/print`, from Ray's
+marked-up FORM #E006 REV. 7 (2026-07-30). Two rules come from that markup and
+should survive future edits:
+
+- **It prints everything the register holds.** The form Hoerbiger generates omits
+  the `By` / `EnteredBy` initials and change slots 9–16 — both annotated "in DB
+  but doesn't print". So the sheet renders all 16 slots (padded, not filtered:
+  it's a fixed grid of ruled lines) and every CAD field including read-only ones.
+- **Half of it is deliberately blank.** Prototype / Preliminary / Production, the
+  checked-approved / entered-in-system / to-mylar dates, and the whole Print
+  Distribution block have no SharePoint columns behind them and are filled in by
+  hand. Printing them as empty ruled lines IS the feature — don't "clean up" the
+  unbound fields.
+
+`@page` in `globals.css` states `size: letter portrait` rather than relying on
+the browser default, because a machine defaulted to A4 rescales the form.
+**CAD only**: the labels are CAD's and the other registers have no
+`By`/`EnteredBy`/`Software`, so pointing it at one would print blank rows.
+
 A log with no configured id doesn't appear as a tab at all
 (`availableDrawingLogs()`). All four are configured now, but that tolerance is
 what let the screen ship useful while CAD's id was still unknown.

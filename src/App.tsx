@@ -79,6 +79,11 @@ const PrintBuildRequestItemView = lazy(() =>
     default: m.PrintBuildRequestItemView,
   })),
 );
+const PrintDrawingSheetView = lazy(() =>
+  import("@/views/PrintDrawingSheetView").then((m) => ({
+    default: m.PrintDrawingSheetView,
+  })),
+);
 
 // Panels — the panel production team's department bundle (ALTRONICPANELTEAM
 // site). Code-split like Operations; no cross-department imports.
@@ -203,6 +208,17 @@ export function App() {
             element={
               <Suspense fallback={<LoadingTasks noun="the drawing logs" />}>
                 <DrawingLogsView />
+              </Suspense>
+            }
+          />
+          {/* Chrome-less: the path ends in /print, which hides the header and
+              footer (and skips the auth gate, since the tab is opened from an
+              already-signed-in one). */}
+          <Route
+            path="/drawing-logs/:kind/:id/print"
+            element={
+              <Suspense fallback={<LoadingTasks noun="this drawing" />}>
+                <PrintDrawingSheetView />
               </Suspense>
             }
           />
