@@ -2356,7 +2356,7 @@ const SECTIONS: ManualSection[] = [
       "stale session",
     ],
     searchText:
-      "Loading hangs? Often sign-in / permission. F12 console: 401 means token expired (re-sign-in), 403 means missing SharePoint access. Change reverted? Someone may have edited at the same time. New task missing? Default Assigned filter is you — pick Anyone. Mention email not sent? Manual @Name typing doesn't make a chip — pick from dropdown. Report issue button in the header captures console errors and emails them to the app manager. Left the tab open a long time and some data looks missing or stale? A 'Your Microsoft sign-in has expired' banner appears at the top of the page — the app keeps working, click 'Sign in again' in the banner to reload the data without leaving what you were doing.",
+      "Loading hangs? Often sign-in / permission. F12 console: 401 means token expired (re-sign-in), 403 means missing SharePoint access. Change reverted? Someone may have edited at the same time. New task missing? Default Assigned filter is you — pick Anyone. Mention email not sent? Manual @Name typing doesn't make a chip — pick from dropdown. Report issue button in the header captures console errors and emails them to the app manager. Left the tab open a long time? Your Microsoft sign-in expires while idle and ARC shows the sign-in screen — click 'Sign in again', enter your password once, and the app comes back with fresh data. No sign-out, no refresh, no clicking Retry.",
     render: () => (
       <>
         <H3>"Loading tasks…" hangs forever</H3>
@@ -2365,20 +2365,16 @@ const SECTIONS: ManualSection[] = [
           your token expired (sign out + sign in). A 403 means the app
           doesn't have read access to the SharePoint site — talk to IT.
         </P>
-        <H3>The app was left open a long time and some data looks missing</H3>
+        <H3>The app was left open a long time and asks you to sign in again</H3>
         <P>
           If a browser tab sits idle for a long stretch, your Microsoft
-          sign-in can go stale in the background — which used to show a
-          dashboard where every card read "0" instead of your real counts.
-          Now, the moment a data request notices the session has gone stale,
-          a banner appears across the top of the page:{" "}
-          <strong>"Your Microsoft sign-in has expired, so some data on this
-          page may be missing or out of date."</strong> The app itself keeps
-          working and stays exactly where you were. Click{" "}
-          <strong>Sign in again</strong> in the banner and the page reloads
-          its data in place — no sign-out, no page refresh, nothing lost.
-          You can dismiss the banner with the × if you'd rather deal with it
-          later.
+          sign-in goes stale in the background. When ARC notices, it shows you
+          the sign-in screen with{" "}
+          <strong>"Your Microsoft sign-in expired while the tab was
+          idle"</strong> and a <strong>Sign in again</strong> button. One
+          password prompt is all it takes — the app comes straight back with
+          fresh data. You do not need to sign out, refresh the page, or click
+          anything twice.
         </P>
         <H3>A change didn't stick</H3>
         <P>

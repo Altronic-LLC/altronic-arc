@@ -153,24 +153,81 @@ async function acquireGraphToken(scopes: string[], allowInteractive: boolean): P
     const result = await instance.acquireTokenSilent({ scopes, account });
     return result.accessToken;
   } catch (err) {
-    if (allowInteractive && err instanceof InteractionRequiredAuthError) {
-      // Silent refresh failed — trigger a popup to re-authenticate.
-      try {
-        const result = await instance.acquireTokenPopup({ scopes });
-        return result.accessToken;
-      } catch (popupErr) {
-        // Popup blocked, user cancelled, or popup errored — bubble up as
-        // a session-expired so the app can show a friendly re-sign-in UI.
-        if (popupErr instanceof BrowserAuthError) {
-          throw new SessionExpiredError(popupErr.message);
-        }
-        throw popupErr;
-      }
+    // MSAL raises `interaction_in_progress` when another caller is already
+    // showing a prompt. That's not a failure — it means "wait for that one".
+    const inProgress =
+      err instanceof BrowserAuthError && err.errorCode === "interaction_in_progress";
+    const needsInteraction = err instanceof InteractionRequiredAuthError || inProgress;
+
+    if (!allowInteractive || !needsInteraction) {
+      // Silent-only path (or a non-interaction error): bubble up so the caller
+      // can degrade. Never pops a prompt for an un-consented optional scope.
+      throw err;
     }
-    // Silent-only path (or a non-interaction error): bubble up so the caller
-    // can degrade. Never pops a prompt for an un-consented optional scope.
-    throw err;
+
+    try {
+      await signInInteractively(instance, scopes);
+    } catch (popupErr) {
+      // Popup blocked, user cancelled, or popup errored — bubble up as a
+      // session-expired so the app can show the sign-in screen.
+      if (popupErr instanceof BrowserAuthError) {
+        throw new SessionExpiredError(popupErr.message);
+      }
+      throw popupErr;
+    }
+
+    // The interaction succeeded, so a fresh token is in the cache. Take it
+    // silently rather than returning the popup's own result: the caller that
+    // opened the popup may have asked for different scopes than this one.
+    try {
+      const result = await instance.acquireTokenSilent({
+        scopes,
+        account: instance.getActiveAccount() ?? account,
+      });
+      return result.accessToken;
+    } catch (afterErr) {
+      throw new SessionExpiredError(
+        afterErr instanceof Error ? afterErr.message : String(afterErr),
+      );
+    }
   }
+}
+
+/**
+ * The single in-flight interactive sign-in, shared by every caller.
+ *
+ * MSAL allows ONE interactive request at a time. The dashboard fires nine
+ * queries at once, so when a session goes stale they all hit this path together:
+ * without sharing, the first opens a popup and the other eight reject
+ * immediately with `interaction_in_progress`. The user then signs in, one query
+ * recovers, and the rest stay failed — which is exactly the "sign in, then click
+ * Retry over and over" behaviour this replaces.
+ *
+ * With one shared promise they all wait for the same prompt and then re-read the
+ * token from the cache, so a single sign-in fixes the whole page.
+ */
+let interactiveSignIn: Promise<void> | null = null;
+
+function signInInteractively(
+  instance: NonNullable<ReturnType<typeof getMsalInstance>>,
+  scopes: string[],
+): Promise<void> {
+  if (!interactiveSignIn) {
+    interactiveSignIn = instance
+      .acquireTokenPopup({ scopes })
+      .then((result) => {
+        if (result.account) instance.setActiveAccount(result.account);
+      })
+      .finally(() => {
+        interactiveSignIn = null;
+      });
+  }
+  return interactiveSignIn;
+}
+
+/** Test seam — drops any remembered in-flight sign-in. */
+export function resetInteractiveSignIn() {
+  interactiveSignIn = null;
 }
 
 /** Issue the actual Graph request with an already-acquired token, incl. retries + error handling. */

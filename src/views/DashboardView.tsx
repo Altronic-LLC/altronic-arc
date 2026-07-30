@@ -40,6 +40,7 @@ import { useBuildRequests } from "@/hooks/useBuildRequests";
 import { usePanelOrders } from "@/hooks/usePanelOrders";
 import { usePanelTasks } from "@/hooks/usePanelTasks";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { isSessionExpiredError } from "@/hooks/useSessionExpiry";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { SingleSelect } from "@/components/SearchableSelect";
 import {
@@ -514,7 +515,10 @@ export function DashboardView() {
       retry: refetchPanelTasks,
     },
     { name: "Project Folders", dept: "Engineering", failed: foldersError, error: foldersErrorObj, retry: refetchFolders },
-  ].filter((s) => s.failed);
+    // A dead token fails every source at once, and naming all nine of them in
+    // red is noise: AuthGate is already swapping this page for the sign-in
+    // screen, which is the only action that actually helps.
+  ].filter((s) => s.failed && !isSessionExpiredError(s.error));
   const failedSources = allFailures.filter((s) => !isAccessDenied(s.error));
   const engineeringDenied = allFailures.some(
     (s) => s.dept === "Engineering" && isAccessDenied(s.error),

@@ -66,7 +66,7 @@ describe("AuthGate — real mode, healthy session", () => {
 });
 
 describe("AuthGate — session expiry", () => {
-  it("keeps rendering the app (and never auto-signs-out) when the session is marked expired", () => {
+  it("shows the sign-in screen — not the app behind an error banner", () => {
     renderWithProviders(
       <AuthGate>
         <div>App content</div>
@@ -75,9 +75,23 @@ describe("AuthGate — session expiry", () => {
 
     act(() => markSessionExpired());
 
-    // The app stays usable — SessionExpiredBanner handles the re-auth prompt.
-    expect(screen.getByText("App content")).toBeInTheDocument();
-    expect(screen.queryByText(/your session has expired/i)).not.toBeInTheDocument();
+    // A banner over a half-loaded page left every failed query failed, so the
+    // page underneath was a wall of red and the way back in was repeated Retry
+    // clicks. The sign-in screen is the one thing that actually fixes it.
+    expect(screen.queryByText("App content")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /sign in again/i })).toBeInTheDocument();
+    expect(screen.getByText(/expired while the tab was idle/i)).toBeInTheDocument();
+  });
+
+  it("never signs the user out on its own — re-auth stays a click, not a redirect", () => {
+    // An automatic logoutRedirect here used to bounce users between the
+    // sign-out redirect and the sign-in page instead of ever loading the app.
+    renderWithProviders(
+      <AuthGate>
+        <div>App content</div>
+      </AuthGate>,
+    );
+    act(() => markSessionExpired());
     expect(mocks.logoutRedirect).not.toHaveBeenCalled();
   });
 

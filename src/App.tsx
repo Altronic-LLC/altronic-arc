@@ -4,7 +4,6 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { ToastContainer } from "@/components/Toast";
 import { UpdateAvailableBanner } from "@/components/UpdateAvailableBanner";
-import { SessionExpiredBanner } from "@/components/SessionExpiredBanner";
 import { RequireAdmin } from "@/components/RequireAdmin";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { ListView } from "@/views/ListView";
@@ -127,7 +126,6 @@ export function App() {
     <div className="flex min-h-full flex-col bg-bg">
       {!isPrintRoute && <Header />}
       {!isPrintRoute && <UpdateAvailableBanner />}
-      {!isPrintRoute && <SessionExpiredBanner />}
       <main className="flex-1">
         <Routes>
           <Route path="/" element={<DashboardView />} />

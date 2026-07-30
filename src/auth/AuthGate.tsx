@@ -68,18 +68,9 @@ export function AuthGate({ children }: { children: ReactNode }) {
     }
   }, [accounts, instance]);
 
-  // A stale-session report (see src/hooks/useSessionExpiry.ts) NEVER blocks
-  // the app any more. It used to take over the whole screen and immediately
-  // logoutRedirect() — so a single failed token refresh (usually just the
-  // popup getting blocked, because a background refetch has no user gesture
-  // behind it) ejected the user mid-task, and landing back here with the flag
-  // re-tripping could bounce them between the sign-out redirect and the
-  // sign-in page instead of ever loading the app. Now the app renders and
-  // SessionExpiredBanner (rendered in App.tsx) offers a one-click re-auth.
-  //
-  // The one thing left to do here: if we're showing the sign-in page anyway,
-  // clear the flag so a fresh sign-in doesn't inherit the previous session's
-  // warning banner.
+  // If we're showing the sign-in page because MSAL has no account at all,
+  // clear any expiry flag so a fresh sign-in doesn't inherit the previous
+  // session's state.
   useEffect(() => {
     if (USE_MOCK) return;
     if (sessionExpired && !isAuthenticated) resetSessionExpired();
@@ -101,5 +92,13 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   // Real mode: show the sign-in page until MSAL reports a signed-in user.
   if (!isAuthenticated) return <SignInPage />;
+
+  // Token dead but the account is still cached: same screen, different message.
+  // A banner over a half-loaded page was the wrong shape for this — every query
+  // that failed while the token was dead stayed failed, so the page underneath
+  // was a wall of red errors and the only way back in was hammering Retry.
+  // Signing in from here refetches everything at once.
+  if (sessionExpired) return <SignInPage reason="expired" />;
+
   return <>{children}</>;
 }

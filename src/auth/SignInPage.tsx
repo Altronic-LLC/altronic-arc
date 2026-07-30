@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { LogIn, PlayCircle } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { getMsalInstance } from "@/auth/AuthProvider";
 import { graphScopes } from "@/auth/msalConfig";
 import { USE_MOCK } from "@/api/config";
+import { resetSessionExpired } from "@/hooks/useSessionExpiry";
 import { Brandmark } from "@/components/brand/Brandmark";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { NotifyAppManagerButton } from "@/components/NotifyAppManagerButton";
@@ -16,6 +18,29 @@ interface SignInPageProps {
    * In real mode this prop is undefined and the bypass button isn't shown.
    */
   onDemoBypass?: () => void;
+  /**
+   * `"expired"` when the user was already signed in and the token went stale —
+   * they're being asked to sign in again, not for the first time. Changes the
+   * wording only; the button does the same thing.
+   */
+  reason?: "expired";
+}
+
+/**
+ * Turn an MSAL failure into something worth reading.
+ *
+ * `interaction_in_progress` is the one worth translating: raw, it tells the user
+ * to "ensure that this interaction has been completed before calling an
+ * interactive API", which is advice for a developer, not for someone trying to
+ * get back into their dashboard. It means a prompt is already open (or a
+ * previous one was abandoned), and reloading is the way out.
+ */
+export function signInErrorMessage(err: unknown): string {
+  const raw = err instanceof Error ? err.message : "";
+  if (raw.includes("interaction_in_progress")) {
+    return "A sign-in prompt is already open. Finish it, or reload this page and try again.";
+  }
+  return raw || "Sign-in was cancelled or failed.";
 }
 
 /**
@@ -27,9 +52,10 @@ interface SignInPageProps {
  *      nothing useful in demo because there's no client ID) or click
  *      "Continue as Demo User" to bypass.
  */
-export function SignInPage({ onDemoBypass }: SignInPageProps) {
+export function SignInPage({ onDemoBypass, reason }: SignInPageProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   async function handleSignIn() {
     if (USE_MOCK) {
@@ -49,13 +75,19 @@ export function SignInPage({ onDemoBypass }: SignInPageProps) {
     setBusy(true);
     setError(null);
     try {
-      await msal.loginPopup({ scopes: graphScopes });
+      const result = await msal.loginPopup({ scopes: graphScopes });
       // On success, AuthProvider's LOGIN_SUCCESS handler sets the active
       // account, and the parent AuthGate re-renders to show the app.
+      if (result?.account) msal.setActiveAccount(result.account);
+
+      // Coming back from an expired session: drop the flag so AuthGate lets us
+      // through, and clear the cache. Everything that failed while the token was
+      // dead is cached as an error, and without this the app would come back
+      // still showing those errors — the "click Retry over and over" problem.
+      resetSessionExpired();
+      queryClient.clear();
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Sign-in was cancelled or failed.";
-      setError(message);
+      setError(signInErrorMessage(err));
     } finally {
       setBusy(false);
     }
@@ -82,11 +114,18 @@ export function SignInPage({ onDemoBypass }: SignInPageProps) {
               </div>
             </div>
 
-            <p className="mt-8 max-w-sm text-sm text-fg-muted">
-              Sign in with your altronic-llc email to reach your team's tools
-              and resources. You'll only see data you already have access to in
-              SharePoint.
-            </p>
+            {reason === "expired" ? (
+              <p className="mt-8 max-w-sm text-sm text-fg-muted">
+                Your Microsoft sign-in expired while the tab was idle. Sign in
+                again to pick up where you left off — nothing has been lost.
+              </p>
+            ) : (
+              <p className="mt-8 max-w-sm text-sm text-fg-muted">
+                Sign in with your altronic-llc email to reach your team's tools
+                and resources. You'll only see data you already have access to in
+                SharePoint.
+              </p>
+            )}
 
             <button
               onClick={handleSignIn}
@@ -94,7 +133,11 @@ export function SignInPage({ onDemoBypass }: SignInPageProps) {
               className="mt-6 inline-flex items-center gap-2 rounded-md bg-accent px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <LogIn className="h-4 w-4" />
-              {busy ? "Opening sign-in…" : "Sign in with Microsoft"}
+              {busy
+                ? "Opening sign-in…"
+                : reason === "expired"
+                  ? "Sign in again"
+                  : "Sign in with Microsoft"}
             </button>
 
             {/* Demo-only bypass. Shown when AuthGate passes onDemoBypass,

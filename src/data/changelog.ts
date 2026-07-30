@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.80.1",
+    date: "2026-07-30",
+    changes: [
+      "Signing back in after a timeout now works on the first try — one password prompt puts the whole page back, instead of leaving a row of red \"couldn't load\" errors that had to be cleared with repeated Retry clicks",
+      "When your sign-in expires you now get the sign-in screen, which says what happened and that nothing has been lost, rather than the app half-loaded behind a warning banner",
+      "Sign-in problems are explained in plain words instead of the raw Microsoft error text",
+    ],
+  },
+  {
     version: "0.80.0",
     date: "2026-07-30",
     changes: [

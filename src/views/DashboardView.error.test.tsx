@@ -93,4 +93,16 @@ describe("DashboardView — a failed query", () => {
     expect(screen.queryByText(/couldn't load/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /retry/i })).not.toBeInTheDocument();
   });
+
+  it("stays quiet about a dead token — AuthGate is already showing the sign-in screen", async () => {
+    // A dead token fails all nine sources at once. Naming them in red gave the
+    // user nine problems and a Retry button, when the only fix is signing in.
+    const expired = new Error("Graph 401: token expired");
+    expired.name = "SessionExpiredError";
+    mockTasksError = expired;
+    await renderDashboard();
+
+    expect(screen.queryByText(/couldn't load/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /retry/i })).not.toBeInTheDocument();
+  });
 });
