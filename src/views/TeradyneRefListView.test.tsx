@@ -2,13 +2,48 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
-import { TeradyneRefListView } from "./TeradyneRefListView";
 
 // USE_MOCK is true under Vitest — this renders against the mock reference lists.
 
+/**
+ * Lets one test hold the lookup-usage query open.
+ *
+ * The delete guard's whole point is that it stays disabled while usage is still
+ * unknown, so testing it means observing that window — and timing alone can't
+ * guarantee it: both the ref list and the usage query resolve off the mock
+ * delay, and under suite load the usage one could win the race, leaving the
+ * "still loading" assertion looking at a loaded page. When `hold` is set the
+ * query resolves only when the test says so; otherwise the real implementation
+ * runs, so every other test still exercises genuine counts.
+ */
+const usage = vi.hoisted(() => ({ hold: null as null | Promise<unknown> }));
+
+vi.mock("@/api/teradyneLog", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/api/teradyneLog")>();
+  return {
+    ...actual,
+    listTeradyneLookupUsage: async () => {
+      if (usage.hold) await usage.hold;
+      return actual.listTeradyneLookupUsage();
+    },
+  };
+});
+
+import { TeradyneRefListView } from "./TeradyneRefListView";
+
 beforeEach(() => {
   vi.restoreAllMocks();
+  usage.hold = null;
 });
+
+/** A promise plus the handle to settle it later. */
+function gate() {
+  let open!: () => void;
+  const promise = new Promise<void>((resolve) => {
+    open = resolve;
+  });
+  return { promise, open };
+}
 
 async function renderKind(kind: string) {
   const result = renderWithProviders(<TeradyneRefListView />, {
@@ -114,13 +149,19 @@ describe("TeradyneRefListView — products and remarks", () => {
 
 describe("TeradyneRefListView — delete guard", () => {
   it("keeps delete disabled until the log has loaded, so usage can be trusted", async () => {
+    // Hold the usage query open rather than racing it — see the note at the top.
+    const log = gate();
+    usage.hold = log.promise;
+
     await renderKind("remarks");
     const btn = await screen.findByRole("button", { name: /delete Cold joint/i });
-    // Before the log resolves the row looks unused — the button must not be
+    // With usage unknown, every row looks unused. The button must not be
     // clickable on that basis.
     expect(btn).toBeDisabled();
     expect(btn).toHaveAttribute("title", expect.stringMatching(/checking whether/i));
-    // Once the log lands, an genuinely unused row becomes deletable.
+
+    // Once the log lands, a genuinely unused row becomes deletable.
+    log.open();
     await waitFor(() => expect(btn).toBeEnabled());
   });
 

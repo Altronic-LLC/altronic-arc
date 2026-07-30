@@ -271,7 +271,6 @@ src/
 │   ├── testSheetMapper.ts        Graph item → TestSheet
 │   ├── csaListingMapper.ts       Graph item → CsaListing (+ label, sort, search)
 │   ├── drawingLogMapper.ts       Graph item → DrawingLogEntry + the 16-slot change-log codec
-│   ├── certificationExpiry.ts    Expiry buckets for dated certificates (built, not yet wired)
 │   ├── spDates.ts                Shared SharePoint date-only helpers (midday-UTC rule)
 │   ├── teradyneMapper.ts         Graph item → Teradyne entities; derived titles + date-only helpers
 │   ├── taskGraph.ts              Parent/child task relationships + cycle checks
@@ -617,11 +616,14 @@ user, and the real boundary remains SharePoint's per-list permissions. Search de
 multi-line fields — a part number people are chasing lives in `PartNoIncluded`,
 not in the file number, and the table can only show its first line.
 
-**There is NO expiry column** on this list. `certificationExpiry.ts` exists
-(buckets, urgency sort, counts, tested) but is deliberately **not wired to
-anything**: Ray chose to hold off on the expiry feature until the real data has
-been used in the app. Wiring it needs a decision first — a new Expiry Date column
-in SharePoint, or a rule deriving it from `DateCertified`.
+**There is NO expiry column** on this list, and no expiry feature. A
+`certificationExpiry.ts` (buckets, urgency sort, counts, tested) sat unwired here
+from 2026-07-29 and was **deleted on 2026-07-30** at Ray's request rather than
+kept waiting for a decision — dead code that looks load-bearing is worse than no
+code. If expiry comes back, it needs the decision first: a new Expiry Date column
+in SharePoint, or a rule deriving it from `DateCertified`. Recover the old
+implementation from git history rather than rewriting it (`git log --
+src/lib/certificationExpiry.ts`).
 
 ### Teradyne lists (Operations, PMO site)
 
