@@ -715,10 +715,15 @@ scope — only the rows put in the DOM are capped.
 **Name and clock number are two pickers over the same person, and each fills the
 other** (Ray, 2026-07-30). `Employee1Clock` / `Employee2Clock` are real columns
 the app writes; the clock control is a `SingleSelect` over the Employees list
-keyed on `ClockNum` (label `#Clock · Name`), so picking a number sets the
-employee lookup and picking an employee sets the number. Clearing either clears
-both — they identify one person, and a name left behind a cleared number is
-exactly the mismatch this shape prevents.
+keyed on `ClockNum`, so picking a number sets the employee lookup and picking an
+employee sets the number. Clearing either clears both — they identify one person,
+and a name left behind a cleared number is exactly the mismatch this shape
+prevents.
+
+**The clock options are bare numbers — no name on the label** (Ray, 2026-07-30).
+They briefly read `#Clock · Name`, which repeated what the Employee box beside it
+already says. The employee picker's own label keeps `Name · #Clock · WorkCentre`,
+because that one filters on label text and finding someone by number is the point.
 
 Neither box is free text, so an entry can't carry a clock number that disagrees
 with the employee record; a number is still maintained once on the Employees
@@ -730,7 +735,7 @@ Two details in `TeradyneLogFormModal`:
 - Clock options are **deduped by number** — the legacy import can repeat one, and
   two options sharing a value makes the pick ambiguous.
 - `clockOptionsWith()` prepends a **stand-in option for a stored number that
-  matches nobody** (`#9001 · not on the employee list`). The log keeps its own
+  matches nobody** (`9001 · not on the employee list`). The log keeps its own
   copy of the number, so an old entry can carry one whose employee was since
   renumbered or removed; without the stand-in the picker falls back to its
   placeholder, the entry looks like it never had a clock number, and saving

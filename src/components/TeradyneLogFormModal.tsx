@@ -99,27 +99,26 @@ export function TeradyneLogFormModal({ entry, onClose }: TeradyneLogFormModalPro
   const previewTitle = buildTeradyneLogTitle(productTitle, defectiveParts);
 
   /**
-   * The clock-number picker's options: one per clock number, labelled with the
-   * name it belongs to.
+   * The clock-number picker's options: the numbers, and nothing else.
+   *
+   * No name on the label — the Employee box sits right beside this one and fills
+   * in as soon as a number is picked, so repeating the name here would say the
+   * same thing twice (Ray, 2026-07-30).
    *
    * Deduped because the legacy import can carry the same number twice — two
    * options with the same value would make the picker ambiguous about which
-   * person a click meant. Sorted numerically, since someone looking for #88 is
-   * scanning numbers, not names.
+   * person a click meant. Sorted numerically, since someone looking for 88 is
+   * scanning numbers.
    */
   const clockOptions = useMemo(() => {
-    const byClock = new Map<string, TeradyneEmployee>();
+    const seen = new Set<string>();
     for (const e of employees) {
       if (e.clockNum === null) continue;
-      const key = String(e.clockNum);
-      if (!byClock.has(key)) byClock.set(key, e);
+      seen.add(String(e.clockNum));
     }
-    return [...byClock.entries()]
-      .sort((a, b) => Number(a[0]) - Number(b[0]))
-      .map(([clock, e]) => ({
-        value: clock,
-        label: `#${clock} · ${e.title.trim() || "(unnamed)"}`,
-      }));
+    return [...seen]
+      .sort((a, b) => Number(a) - Number(b))
+      .map((clock) => ({ value: clock, label: clock }));
   }, [employees]);
 
   /**
@@ -447,7 +446,7 @@ export function clockOptionsWith(
   stored: string,
 ): Array<{ value: string; label: string }> {
   if (!stored || options.some((o) => o.value === stored)) return options;
-  return [{ value: stored, label: `#${stored} · not on the employee list` }, ...options];
+  return [{ value: stored, label: `${stored} · not on the employee list` }, ...options];
 }
 
 function FieldLabel({ label, children }: { label: string; children: React.ReactNode }) {

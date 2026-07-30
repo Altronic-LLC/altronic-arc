@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.81.1",
+    date: "2026-07-30",
+    changes: [
+      "The Teradyne clock-number list now shows just the numbers — the name appeared twice, once in each box, and the Employee field beside it already says who it is",
+    ],
+  },
+  {
     version: "0.81.0",
     date: "2026-07-30",
     changes: [

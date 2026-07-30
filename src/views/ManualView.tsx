@@ -899,8 +899,8 @@ const SECTIONS: ManualSection[] = [
           <LI>
             <strong>Find yourself by name or by clock number</strong> — type
             either into the Employee box and it'll match. Each person reads as
-            "Name · #Clock · Work centre"; in the clock box they read as
-            "#Clock · Name".
+            "Name · #Clock · Work centre". The clock box lists the numbers on
+            their own, since the name appears beside it as soon as you pick one.
           </LI>
           <LI>
             <strong>Two employee slots</strong> — Employee 1 and Employee 2 are

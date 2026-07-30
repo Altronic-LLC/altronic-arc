@@ -58,7 +58,7 @@ describe("TeradyneLogFormModal — name and clock fill each other", () => {
   it("fills Employee 1 from the clock number when a number is picked", async () => {
     // The reverse direction: on the floor people identify themselves by number.
     await renderForm();
-    await pick(/employee 1 clock/i, /^#88 · Melissa Fuentes$/);
+    await pick(/employee 1 clock/i, /^88$/);
 
     await waitFor(() => expect(employeeText(1)).toContain("Melissa Fuentes"));
     expect(clockText(1)).toContain("88");
@@ -67,7 +67,7 @@ describe("TeradyneLogFormModal — name and clock fill each other", () => {
   it("fills the Employee 2 slot independently of Employee 1", async () => {
     await renderForm();
     await pick(/^employee 1$/i, /Melissa Fuentes/);
-    await pick(/employee 2 clock/i, /^#312 · Dave Anderson$/);
+    await pick(/employee 2 clock/i, /^312$/);
 
     await waitFor(() => expect(employeeText(2)).toContain("Dave Anderson"));
     // Slot 1 untouched by slot 2's pick.
@@ -89,7 +89,7 @@ describe("TeradyneLogFormModal — name and clock fill each other", () => {
     await pick(/^employee 1$/i, /Melissa Fuentes/);
     await waitFor(() => expect(clockText(1)).toContain("88"));
 
-    await pick(/employee 1 clock/i, /^#189 · Sandy Bindas$/);
+    await pick(/employee 1 clock/i, /^189$/);
     await waitFor(() => expect(employeeText(1)).toContain("Sandy Bindas"));
   });
 
@@ -108,7 +108,7 @@ describe("TeradyneLogFormModal — name and clock fill each other", () => {
     await pick(/^employee 1$/i, /Melissa Fuentes/);
     await waitFor(() => expect(clockText(1)).toContain("88"));
 
-    await pick(/employee 1 clock/i, /^#88 · Melissa Fuentes$/);
+    await pick(/employee 1 clock/i, /^88$/);
     await waitFor(() => expect(employeeText(1)).toMatch(/nobody/i));
     expect(clockText(1)).toMatch(/pick a clock number/i);
   });
@@ -120,18 +120,32 @@ describe("TeradyneLogFormModal — name and clock fill each other", () => {
     expect(within(field).queryByRole("textbox")).not.toBeInTheDocument();
   });
 
-  it("labels each clock option with whose number it is", async () => {
+  it("lists clock numbers ALONE — the name field beside it already says who", async () => {
     await renderForm();
     const field = screen.getByText(/employee 1 clock/i).closest("label")!;
     await userEvent.click(within(field).getAllByRole("button")[0]);
-    expect(await screen.findByRole("option", { name: "#88 · Melissa Fuentes" })).toBeInTheDocument();
+
+    expect(await screen.findByRole("option", { name: "88" })).toBeInTheDocument();
+    // No name, and no duplicate of an employee whose number repeats.
+    expect(screen.queryByRole("option", { name: /Melissa/ })).not.toBeInTheDocument();
+    const numbers = screen.getAllByRole("option").map((o) => o.textContent);
+    expect(new Set(numbers).size).toBe(numbers.length);
+  });
+
+  it("orders the numbers numerically, since that's what you're scanning", async () => {
+    await renderForm();
+    const field = screen.getByText(/employee 1 clock/i).closest("label")!;
+    await userEvent.click(within(field).getAllByRole("button")[0]);
+
+    const numbers = (await screen.findAllByRole("option")).map((o) => Number(o.textContent));
+    expect(numbers).toEqual([...numbers].sort((a, b) => a - b));
   });
 });
 
 describe("clockOptionsWith", () => {
   const options = [
-    { value: "88", label: "#88 · Melissa Fuentes" },
-    { value: "312", label: "#312 · Dave Anderson" },
+    { value: "88", label: "88" },
+    { value: "312", label: "312" },
   ];
 
   it("leaves the list alone when the stored number is one of them", () => {
@@ -143,7 +157,7 @@ describe("clockOptionsWith", () => {
     // Otherwise the entry looks like it never had a clock number, and saving
     // would quietly agree.
     const withStored = clockOptionsWith(options, "9001");
-    expect(withStored[0]).toEqual({ value: "9001", label: "#9001 · not on the employee list" });
+    expect(withStored[0]).toEqual({ value: "9001", label: "9001 · not on the employee list" });
     expect(withStored).toHaveLength(3);
   });
 });
