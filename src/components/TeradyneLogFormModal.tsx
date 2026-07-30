@@ -8,11 +8,7 @@ import {
   useUpdateTeradyneLogEntry,
 } from "@/hooks/useTeradyne";
 import type { TeradyneEmployee, TeradyneLogEntry, TeradyneLogInput } from "@/types/task";
-import {
-  buildTeradyneLogTitle,
-  fromDateInputValue,
-  toDateInputValue,
-} from "@/lib/teradyneMapper";
+import { fromDateInputValue, toDateInputValue } from "@/lib/teradyneMapper";
 import { SingleSelect } from "./SearchableSelect";
 
 interface TeradyneLogFormModalProps {
@@ -26,8 +22,10 @@ interface TeradyneLogFormModalProps {
  *
  * Two behaviours worth knowing:
  *  - The log's `Title` is app-derived ("{Product} - {Defective Parts}"), so
- *    there's no Title input; the computed value is previewed instead, which
- *    makes it obvious why picking a product changes the row label.
+ *    there's no Title input and nothing on screen about it — it's assembled when
+ *    the entry is saved. A preview of it used to sit mid-form; it only restated
+ *    two fields the user had just filled in (Ray, 2026-07-30). Product is still
+ *    required, because half the name comes from it.
  *  - Name and clock number are TWO WAYS TO PICK THE SAME PERSON, and each fills
  *    the other. Pick a name and the clock number appears; pick a clock number
  *    and the name appears. The log stores a denormalised copy of the clock
@@ -92,11 +90,14 @@ export function TeradyneLogFormModal({ entry, onClose }: TeradyneLogFormModalPro
     return () => document.removeEventListener("keydown", handleKey);
   }, [busy, onClose]);
 
+  // Passed to the mutation so the entry's derived name can be built without a
+  // re-read. Not shown anywhere: the name is assembled in the background from
+  // the product and defective parts, so previewing it just restated two fields
+  // the user had already filled in (Ray, 2026-07-30).
   const productTitle = useMemo(
     () => products.find((p) => String(p.lookupId) === productId)?.title ?? null,
     [products, productId],
   );
-  const previewTitle = buildTeradyneLogTitle(productTitle, defectiveParts);
 
   /**
    * The clock-number picker's options: the numbers, and nothing else.
@@ -284,13 +285,6 @@ export function TeradyneLogFormModal({ entry, onClose }: TeradyneLogFormModalPro
               onChange={setRemarkId}
             />
           </FieldLabel>
-
-          <div className="rounded-md border border-border bg-bg px-3 py-2">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
-              Entry name (built automatically)
-            </div>
-            <div className="mt-0.5 truncate text-sm text-fg">{previewTitle}</div>
-          </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <FieldLabel label="Employee 1">

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
+import { listTeradyneLog } from "@/api/teradyneLog";
 import { TeradyneLogFormModal, clockOptionsWith } from "./TeradyneLogFormModal";
 
 // USE_MOCK is true under Vitest — the pickers read the mock reference lists.
@@ -37,11 +38,10 @@ function employeeText(which: 1 | 2): string {
   return summaryOf(which === 1 ? /^employee 1$/i : /^employee 2$/i);
 }
 
-async function renderForm() {
-  const result = renderWithProviders(<TeradyneLogFormModal onClose={vi.fn()} />);
-  // Wait for the reference lists so the pickers have options.
+async function renderForm(onClose: () => void = vi.fn()) {
+  const result = renderWithProviders(<TeradyneLogFormModal onClose={onClose} />);
   await waitFor(() =>
-    expect(screen.getByText(/entry name \(built automatically\)/i)).toBeInTheDocument(),
+    expect(screen.getByRole("button", { name: /add entry/i })).toBeInTheDocument(),
   );
   return result;
 }
@@ -215,19 +215,28 @@ describe("TeradyneLogFormModal — part numbers", () => {
 });
 
 describe("TeradyneLogFormModal — derived name", () => {
-  it("previews the entry name as the product and defective parts are set", async () => {
-    await renderForm();
+  it("builds the entry's name on save without showing it in the form", async () => {
+    // The preview box was removed (Ray, 2026-07-30) because it restated two
+    // fields already on screen. What matters is that the name still gets built —
+    // so assert the saved entry, not the form.
+    const onClose = vi.fn();
+    await renderForm(onClose);
     await pick(/^product \*$/i, /Moris Power Supply/);
     await userEvent.type(screen.getByPlaceholderText(/e\.g\. U1/i), "U7");
-    expect(await screen.findByText("Moris Power Supply - U7")).toBeInTheDocument();
+
+    expect(screen.queryByText(/built automatically/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("Moris Power Supply - U7")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /add entry/i }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+
+    const { entries } = await listTeradyneLog();
+    expect(entries.some((e) => e.title === "Moris Power Supply - U7")).toBe(true);
   });
 
   it("refuses to save without a product, since the name is built from it", async () => {
     const onClose = vi.fn();
-    renderWithProviders(<TeradyneLogFormModal onClose={onClose} />);
-    await waitFor(() =>
-      expect(screen.getByText(/entry name \(built automatically\)/i)).toBeInTheDocument(),
-    );
+    await renderForm(onClose);
 
     await userEvent.click(screen.getByRole("button", { name: /add entry/i }));
     // Distinct from the picker's own "Pick a product" placeholder.

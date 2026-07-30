@@ -95,8 +95,9 @@ describe("TeradyneLogView", () => {
     await renderView();
     await userEvent.click(screen.getByRole("button", { name: /new/i }));
     expect(await screen.findByText(/new log entry/i)).toBeInTheDocument();
-    // The derived-name preview is what tells the user why Product matters.
-    expect(screen.getByText(/built automatically/i)).toBeInTheDocument();
+    // Product carries the asterisk because half the entry's derived name comes
+    // from it — the name itself is built on save, with nothing shown in the form.
+    expect(screen.getByText(/^product \*$/i)).toBeInTheDocument();
   });
 
   it("opens the edit form pre-filled from the row's pencil", async () => {

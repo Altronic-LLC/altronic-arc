@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.81.2",
+    date: "2026-07-30",
+    changes: [
+      "Dropped the \"Entry name (built automatically)\" box from the Teradyne entry form — it only repeated the product and defective parts you'd just entered; the name is still built for you when you save",
+    ],
+  },
+  {
     version: "0.81.1",
     date: "2026-07-30",
     changes: [
