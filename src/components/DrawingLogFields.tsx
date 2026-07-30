@@ -1,6 +1,13 @@
-import type { DrawingFieldValue, DrawingLogEntry, DrawingLogInput } from "@/types/task";
+import type {
+  DrawingFieldValue,
+  DrawingLogEntry,
+  DrawingLogInput,
+  DrawingLogKind,
+} from "@/types/task";
 import type { LogField } from "@/lib/drawingLogFields";
 import { formatSpDate, fromDateInputValue, toDateInputValue } from "@/lib/spDates";
+import { SuggestInput, distinctValues } from "./SuggestInput";
+import { suggestFields } from "@/lib/drawingLogFields";
 
 // =============================================================================
 // Rendering and editing for descriptor-declared drawing fields.
@@ -9,6 +16,29 @@ import { formatSpDate, fromDateInputValue, toDateInputValue } from "@/lib/spDate
 // described once (src/lib/drawingLogFields.ts) and every screen follows. Adding a
 // register means adding a descriptor — no edits here.
 // =============================================================================
+
+/**
+ * Existing values for each `suggest` field, from the register's loaded rows.
+ *
+ * This is what makes a text column behave like a choice column: the options ARE
+ * the data, so a value entered today is offered tomorrow with nothing to
+ * maintain. Reads the same cached query the table uses — no extra fetch.
+ */
+export function suggestionsFor(
+  kind: DrawingLogKind,
+  entries: DrawingLogEntry[],
+): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  for (const field of suggestFields(kind)) {
+    out[field.key] = distinctValues(
+      entries.map((e) => {
+        const v = e.values[field.key];
+        return typeof v === "string" ? v : null;
+      }),
+    );
+  }
+  return out;
+}
 
 /** A field's value as display text. */
 export function displayValue(entry: DrawingLogEntry, field: LogField): string {
@@ -92,12 +122,15 @@ export function FieldInputs({
   onChange,
   disabled,
   autoFocusFirst,
+  suggestions = {},
 }: {
   fields: LogField[];
   draft: Record<string, string>;
   onChange: (key: string, value: string) => void;
   disabled?: boolean;
   autoFocusFirst?: boolean;
+  /** Existing values per field key, for fields declared `suggest`. */
+  suggestions?: Record<string, string[]>;
 }) {
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -106,15 +139,25 @@ export function FieldInputs({
           <span className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
             {f.label}
           </span>
-          <input
-            // eslint-disable-next-line jsx-a11y/no-autofocus
-            autoFocus={autoFocusFirst && i === 0}
-            type={f.type === "date" ? "date" : f.type === "number" ? "number" : "text"}
-            value={draft[f.key] ?? ""}
-            onChange={(e) => onChange(f.key, e.target.value)}
-            className="select"
-            disabled={disabled}
-          />
+          {f.suggest ? (
+            <SuggestInput
+              value={draft[f.key] ?? ""}
+              onChange={(next) => onChange(f.key, next)}
+              options={suggestions[f.key] ?? []}
+              disabled={disabled}
+              ariaLabel={f.label}
+            />
+          ) : (
+            <input
+              // eslint-disable-next-line jsx-a11y/no-autofocus
+              autoFocus={autoFocusFirst && i === 0}
+              type={f.type === "date" ? "date" : f.type === "number" ? "number" : "text"}
+              value={draft[f.key] ?? ""}
+              onChange={(e) => onChange(f.key, e.target.value)}
+              className="select"
+              disabled={disabled}
+            />
+          )}
         </label>
       ))}
     </div>

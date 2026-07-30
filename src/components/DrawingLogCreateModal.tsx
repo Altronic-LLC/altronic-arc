@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import { Plus, X } from "lucide-react";
 import { DRAWING_LOGS } from "@/api/drawingLogs";
 import { writableFields } from "@/lib/drawingLogFields";
-import { useCreateDrawingLogEntry } from "@/hooks/useDrawingLogs";
+import { useCreateDrawingLogEntry, useDrawingLog } from "@/hooks/useDrawingLogs";
 import type { DrawingLogKind } from "@/types/task";
-import { FieldInputs, draftToInput, emptyDraft } from "./DrawingLogFields";
+import { FieldInputs, draftToInput, emptyDraft, suggestionsFor } from "./DrawingLogFields";
 
 interface DrawingLogCreateModalProps {
   kind: DrawingLogKind;
@@ -23,6 +23,9 @@ export function DrawingLogCreateModal({ kind, onClose }: DrawingLogCreateModalPr
   const spec = DRAWING_LOGS[kind];
   const editable = writableFields(kind);
   const createEntry = useCreateDrawingLogEntry(kind);
+  // Same cached query the table uses, so this costs nothing extra.
+  const { data: entries = [] } = useDrawingLog(kind);
+  const suggestions = suggestionsFor(kind, entries);
 
   const [draft, setDraft] = useState<Record<string, string>>(() => emptyDraft(editable));
   const [error, setError] = useState<string | null>(null);
@@ -96,6 +99,7 @@ export function DrawingLogCreateModal({ kind, onClose }: DrawingLogCreateModalPr
             onChange={(key, value) => setDraft((d) => ({ ...d, [key]: value }))}
             disabled={busy}
             autoFocusFirst
+            suggestions={suggestions}
           />
 
           {spec.hasChangeLog && (

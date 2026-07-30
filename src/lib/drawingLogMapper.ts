@@ -137,6 +137,25 @@ export function buildChangeWriteFields(
   return fields;
 }
 
+/**
+ * SharePoint fields for CORRECTING an existing slot.
+ *
+ * Unlike `buildChangeWriteFields`, this touches only that slot's three columns —
+ * it does NOT advance the drawing's current revision or revised date. Fixing a
+ * typo in a 1994 entry shouldn't make 1994 the drawing's latest revision, and the
+ * current revision stays editable through "Edit details".
+ */
+export function buildChangeUpdateFields(
+  slot: number,
+  change: DrawingChangeInput,
+): Record<string, unknown> {
+  return {
+    [changeDateField(slot)]: toSpDateOnly(change.date),
+    [changeEcnField(slot)]: change.ecn.trim(),
+    [changeRevField(slot)]: change.rev.trim(),
+  };
+}
+
 export function toDrawingLogEntry(item: GraphListItem, kind: DrawingLogKind): DrawingLogEntry {
   const f = item.fields as Record<string, unknown>;
   const spec = DRAWING_LOG_FIELDS[kind];

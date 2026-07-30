@@ -532,6 +532,25 @@ similar-looking lists match.
 Note `CADNumber` is NOT a duplicate of `Title`: e.g. Title `"501 505"` vs
 CADNumber `"501505"`. Both are shown.
 
+**`By`, `EnteredBy` and `Software` are CAD-ONLY text columns that behave like
+choice fields.** Declared `suggest: true`, which makes the form offer the values
+already stored in that register (`suggestionsFor()` → `distinctValues()`, ordered
+by frequency) while still accepting a new one — so a value entered today becomes a
+suggestion tomorrow, with no list to maintain and no SharePoint Choice column to
+keep in step. `SuggestInput` is the control. These three exist on CAD only;
+declaring them elsewhere would put them in another register's `$select` and 400
+the tab.
+
+**`NewDrawing` is `readOnly`** — dropped from the new-drawing and edit forms
+(Ray, 2026-07-30) while still showing on the detail panel, since existing rows
+carry values.
+
+**Change-log entries are editable in place** (`updateDrawingChange` →
+`buildChangeUpdateFields`). Unlike appending, that writes ONLY the slot's three
+columns — correcting a 1994 typo must not make 1994 the drawing's latest
+revision. Clearing all three empties the slot and frees it for reuse, which is
+the only way to undo a mistaken change on a fixed sixteen-slot log.
+
 A log with no configured id doesn't appear as a tab at all
 (`availableDrawingLogs()`). All four are configured now, but that tolerance is
 what let the screen ship useful while CAD's id was still unknown.

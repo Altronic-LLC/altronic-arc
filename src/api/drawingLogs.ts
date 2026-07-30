@@ -21,6 +21,7 @@ import {
   type DrawingLogFieldSpec,
 } from "@/lib/drawingLogFields";
 import {
+  buildChangeUpdateFields,
   buildChangeWriteFields,
   buildDrawingWriteFields,
   compareDrawingLogEntries,
@@ -243,6 +244,55 @@ export async function appendDrawingChange(
   await graphFetch(`${itemsPath(kind)}/${id}/fields`, {
     method: "PATCH",
     body: JSON.stringify(buildChangeWriteFields(kind, slot, change)),
+  });
+
+  const refreshed = await graphFetch<GraphListItem>(
+    `${itemsPath(kind)}/${id}?$expand=fields($select=${selectColumns(kind)})`,
+  );
+  return toDrawingLogEntry(refreshed, kind);
+}
+
+/**
+ * Correct an existing change-log entry, in place.
+ *
+ * Writes only that slot. Clearing all three values empties the slot, which frees
+ * it for reuse — the only way to undo a change recorded by mistake, since the log
+ * is a fixed sixteen slots and there's no "remove a row".
+ */
+export async function updateDrawingChange(
+  kind: DrawingLogKind,
+  id: number,
+  slot: number,
+  change: DrawingChangeInput,
+): Promise<DrawingLogEntry> {
+  const spec = DRAWING_LOGS[kind];
+  if (!spec.hasChangeLog) {
+    throw new Error(`${spec.label} doesn't have a change log.`);
+  }
+
+  if (USE_MOCK) {
+    const idx = mockStore.findIndex((e) => e.id === id && e.kind === kind);
+    if (idx < 0) throw new Error(`Drawing ${id} not found in ${spec.label}`);
+    const existing = mockStore[idx];
+    const ecn = change.ecn.trim();
+    const rev = change.rev.trim();
+    const emptied = change.date === null && !ecn && !rev;
+    const next: DrawingLogEntry = {
+      ...existing,
+      changes: emptied
+        ? existing.changes.filter((c) => c.slot !== slot)
+        : existing.changes.map((c) =>
+            c.slot === slot ? { slot, date: change.date, ecn, rev } : c,
+          ),
+      modifiedAt: new Date(),
+    };
+    mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
+    return delay(clone(next));
+  }
+
+  await graphFetch(`${itemsPath(kind)}/${id}/fields`, {
+    method: "PATCH",
+    body: JSON.stringify(buildChangeUpdateFields(slot, change)),
   });
 
   const refreshed = await graphFetch<GraphListItem>(

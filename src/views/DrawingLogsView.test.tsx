@@ -188,6 +188,86 @@ describe("DrawingLogsView — the detail panel", () => {
   });
 });
 
+describe("DrawingLogsView — CAD's choice-like text fields", () => {
+  it("offers the initials already in use, and accepts a new one", async () => {
+    await renderView("/drawing-logs?log=cad");
+    await userEvent.click(screen.getByRole("button", { name: /new drawing/i }));
+    const form = await screen.findByRole("dialog", { name: /new drawing/i });
+
+    // "By" is a text column treated as a choice field: the options come from the
+    // register's own data, so a new value entered today is offered tomorrow.
+    const by = within(form).getByLabelText("By");
+    await userEvent.click(within(form).getAllByRole("button", { name: /show existing values/i })[0]);
+    expect(await screen.findByRole("option", { name: "JFD" })).toBeInTheDocument();
+
+    await userEvent.type(by, "ZZZ");
+    expect(within(form).getByText(/new value/i)).toBeInTheDocument();
+  });
+
+  it("offers the software already in use", async () => {
+    await renderView("/drawing-logs?log=cad");
+    await userEvent.click(screen.getByRole("button", { name: /new drawing/i }));
+    const form = await screen.findByRole("dialog", { name: /new drawing/i });
+
+    const buttons = within(form).getAllByRole("button", { name: /show existing values/i });
+    // Third suggest field on CAD: By, Entered By, Software.
+    await userEvent.click(buttons[buttons.length - 1]);
+    expect(await screen.findByRole("option", { name: "SolidWorks" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "AutoCAD" })).toBeInTheDocument();
+  });
+
+  it("leaves New Drawing out of the new-drawing form", async () => {
+    await renderView("/drawing-logs?log=cad");
+    await userEvent.click(screen.getByRole("button", { name: /new drawing/i }));
+    const form = await screen.findByRole("dialog", { name: /new drawing/i });
+    expect(within(form).queryByText(/^new drawing$/i)).not.toBeInTheDocument();
+  });
+
+  it("still shows New Drawing on the detail panel", async () => {
+    // Read-only, not gone: existing rows carry the value.
+    await renderView("/drawing-logs?log=cad");
+    const panel = await openRow("501 505");
+    expect(within(panel).getByText(/^new drawing$/i)).toBeInTheDocument();
+  });
+});
+
+describe("DrawingLogsView — correcting a change", () => {
+  it("lets an admin edit an existing change entry in place", async () => {
+    await renderView("/drawing-logs?log=cad");
+    const panel = await openRow("501 505");
+
+    await userEvent.click(within(panel).getByRole("button", { name: /edit change in slot 01/i }));
+    const ecn = within(dialog()).getByLabelText("Change ECN");
+    await userEvent.clear(ecn);
+    await userEvent.type(ecn, "100999");
+    await userEvent.click(within(dialog()).getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => expect(within(dialog()).getByText("100999")).toBeInTheDocument());
+  });
+
+  it("doesn't offer change editing to a non-admin", async () => {
+    adminAccess.isAdmin = false;
+    await renderView("/drawing-logs?log=cad");
+    const panel = await openRow("501 505");
+
+    // Reading the change log stays available — that's the main value. Asserting
+    // on the slot number rather than an ECN: the edit test above changes one in
+    // the shared mock store.
+    expect(within(panel).getByText(/change log/i)).toBeInTheDocument();
+    expect(within(panel).getByText("01")).toBeInTheDocument();
+    expect(
+      within(panel).queryByRole("button", { name: /edit change in slot/i }),
+    ).not.toBeInTheDocument();
+    expect(within(panel).queryByText(/frees it for reuse/i)).not.toBeInTheDocument();
+  });
+
+  it("tells an admin that clearing a change frees its slot", async () => {
+    await renderView("/drawing-logs?log=cad");
+    const panel = await openRow("501 505");
+    expect(within(panel).getByText(/frees it for reuse/i)).toBeInTheDocument();
+  });
+});
+
 describe("DrawingLogsView — admin gating", () => {
   it("offers an admin New / Edit / Delete", async () => {
     await renderView();

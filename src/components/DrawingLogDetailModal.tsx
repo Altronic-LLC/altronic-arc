@@ -5,16 +5,19 @@ import { writableFields } from "@/lib/drawingLogFields";
 import {
   useAppendDrawingChange,
   useDeleteDrawingLogEntry,
+  useDrawingLog,
+  useUpdateDrawingChange,
   useUpdateDrawingLogEntry,
 } from "@/hooks/useDrawingLogs";
 import { CHANGE_SLOTS, drawingLogLabel, nextFreeChangeSlot } from "@/lib/drawingLogMapper";
 import { formatSpDate, fromDateInputValue, toDateInputValue } from "@/lib/spDates";
-import type { DrawingLogEntry } from "@/types/task";
+import type { DrawingChange, DrawingLogEntry } from "@/types/task";
 import {
   DetailGrid,
   FieldInputs,
   draftFromEntry,
   draftToInput,
+  suggestionsFor,
 } from "./DrawingLogFields";
 
 interface DrawingLogDetailModalProps {
@@ -45,13 +48,19 @@ export function DrawingLogDetailModal({ entry, isAdmin, onClose }: DrawingLogDet
   const editable = writableFields(entry.kind);
   const updateEntry = useUpdateDrawingLogEntry(entry.kind);
   const appendChange = useAppendDrawingChange(entry.kind);
+  const updateChange = useUpdateDrawingChange(entry.kind);
   const deleteEntry = useDeleteDrawingLogEntry(entry.kind);
+  // Same cached query the table uses — no extra fetch.
+  const { data: entries = [] } = useDrawingLog(entry.kind);
+  const suggestions = suggestionsFor(entry.kind, entries);
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<Record<string, string>>(() =>
     draftFromEntry(entry, editable),
   );
   const [addingChange, setAddingChange] = useState(false);
+  /** Slot currently being corrected, if any. */
+  const [editingSlot, setEditingSlot] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -142,6 +151,7 @@ export function DrawingLogDetailModal({ entry, isAdmin, onClose }: DrawingLogDet
               draft={draft}
               onChange={(key, value) => setDraft((d) => ({ ...d, [key]: value }))}
               disabled={busy}
+              suggestions={suggestions}
             />
             {error && (
               <div className="rounded-md border border-cooper-red/30 bg-cooper-red/10 px-3 py-2 text-xs text-cooper-red">
@@ -224,24 +234,67 @@ export function DrawingLogDetailModal({ entry, isAdmin, onClose }: DrawingLogDet
                       <ChTh>Date</ChTh>
                       <ChTh>ECN</ChTh>
                       <ChTh>Rev</ChTh>
+                      <ChTh>{""}</ChTh>
                     </tr>
                   </thead>
                   <tbody>
-                    {entry.changes.map((c) => (
-                      <tr key={c.slot} className="border-b border-border last:border-0">
-                        <ChTd className="font-mono text-[11px] text-fg-muted">
-                          {String(c.slot).padStart(2, "0")}
-                        </ChTd>
-                        <ChTd className="whitespace-nowrap tabular-nums">
-                          {formatSpDate(c.date)}
-                        </ChTd>
-                        <ChTd>{c.ecn || "—"}</ChTd>
-                        <ChTd className="font-medium">{c.rev || "—"}</ChTd>
-                      </tr>
-                    ))}
+                    {entry.changes.map((c) =>
+                      editingSlot === c.slot ? (
+                        <EditChangeRow
+                          key={c.slot}
+                          change={c}
+                          onCancel={() => setEditingSlot(null)}
+                          onSave={async (next) => {
+                            setBusy(true);
+                            try {
+                              await updateChange.mutateAsync({
+                                id: entry.id,
+                                slot: c.slot,
+                                change: next,
+                              });
+                              setEditingSlot(null);
+                            } finally {
+                              setBusy(false);
+                            }
+                          }}
+                        />
+                      ) : (
+                        <tr key={c.slot} className="group border-b border-border last:border-0">
+                          <ChTd className="font-mono text-[11px] text-fg-muted">
+                            {String(c.slot).padStart(2, "0")}
+                          </ChTd>
+                          <ChTd className="whitespace-nowrap tabular-nums">
+                            {formatSpDate(c.date)}
+                          </ChTd>
+                          <ChTd>{c.ecn || "\u2014"}</ChTd>
+                          <ChTd className="font-medium">{c.rev || "\u2014"}</ChTd>
+                          <ChTd className="text-right">
+                            {isAdmin && !editing && (
+                              <button
+                                type="button"
+                                onClick={() => setEditingSlot(c.slot)}
+                                disabled={busy}
+                                aria-label={`Edit change in slot ${String(c.slot).padStart(2, "0")}`}
+                                title="Correct this change"
+                                className="rounded p-1 text-fg-muted opacity-0 transition-opacity hover:bg-surface-2 hover:text-fg focus:opacity-100 group-hover:opacity-100 disabled:opacity-30"
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </button>
+                            )}
+                          </ChTd>
+                        </tr>
+                      ),
+                    )}
                   </tbody>
                 </table>
               </div>
+            )}
+
+            {isAdmin && entry.changes.length > 0 && (
+              <p className="mt-2 text-[11px] text-fg-muted">
+                Hover a change to correct it. Clearing all three values empties that
+                slot and frees it for reuse.
+              </p>
             )}
 
             {logFull && (
@@ -280,6 +333,77 @@ export function DrawingLogDetailModal({ entry, isAdmin, onClose }: DrawingLogDet
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * Correct one change in place.
+ *
+ * Clearing all three values empties the slot, which frees it for reuse — the only
+ * way to undo a change recorded by mistake, since the log is a fixed sixteen slots
+ * with no "remove a row".
+ */
+function EditChangeRow({
+  change,
+  onSave,
+  onCancel,
+}: {
+  change: DrawingChange;
+  onSave: (next: { date: Date | null; ecn: string; rev: string }) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const [date, setDate] = useState(toDateInputValue(change.date));
+  const [ecn, setEcn] = useState(change.ecn);
+  const [rev, setRev] = useState(change.rev);
+
+  return (
+    <tr className="border-b border-border bg-accent/5 last:border-0">
+      <ChTd className="font-mono text-[11px] text-fg-muted">
+        {String(change.slot).padStart(2, "0")}
+      </ChTd>
+      <ChTd>
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          aria-label="Change date"
+          className="select py-1"
+        />
+      </ChTd>
+      <ChTd>
+        <input
+          value={ecn}
+          onChange={(e) => setEcn(e.target.value)}
+          aria-label="Change ECN"
+          className="select py-1"
+        />
+      </ChTd>
+      <ChTd>
+        <input
+          value={rev}
+          onChange={(e) => setRev(e.target.value)}
+          aria-label="Change revision"
+          className="select w-16 py-1"
+        />
+      </ChTd>
+      <ChTd className="whitespace-nowrap text-right">
+        <button
+          type="button"
+          onClick={() => onSave({ date: fromDateInputValue(date), ecn, rev })}
+          className="rounded-md bg-accent px-2 py-1 text-xs font-medium text-white hover:bg-accent/90"
+        >
+          Save
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          aria-label="Cancel"
+          className="ml-1 rounded-md p-1 text-fg-muted hover:bg-surface-2 hover:text-fg"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </ChTd>
+    </tr>
   );
 }
 

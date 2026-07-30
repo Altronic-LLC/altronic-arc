@@ -517,6 +517,19 @@ export function DetailView() {
             <h1 className="font-display text-xl font-semibold leading-tight text-fg sm:text-2xl">
               {task.numberedTitle}
             </h1>
+
+            {/* Project reference, read-only, directly under the title. It's also
+                editable in the sidebar; this is the at-a-glance copy, so which
+                project a task belongs to doesn't need hunting for. Plain text
+                rather than a link on purpose — the sidebar chip is the way
+                through to the project. */}
+            <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-fg-muted">
+              <FolderOpen className="h-3.5 w-3.5 shrink-0" />
+              <span className="uppercase tracking-wider">Project</span>
+              <span className="font-medium text-fg">
+                {task.parentProject?.title || "None set"}
+              </span>
+            </p>
           </div>
 
           {/* Description card */}

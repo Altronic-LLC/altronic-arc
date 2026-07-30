@@ -20,6 +20,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.80.0",
+    date: "2026-07-30",
+    changes: [
+      "Change-log entries on a drawing can now be corrected, not just added — hover a row and use the pencil; clearing all three values empties that slot and frees it for reuse",
+      "CAD drawings now carry By, Entered By and Software, which work like drop-downs built from the values already in use while still letting you type a new one — a new value becomes a choice for everyone once saved",
+      "Removed the New Drawing field from the add and edit forms for CAD drawings; existing values still show on the drawing's panel",
+      "A task's project reference now shows read-only directly under the task title, so which project a task belongs to no longer needs hunting for",
+    ],
+  },
+  {
     version: "0.79.0",
     date: "2026-07-29",
     changes: [

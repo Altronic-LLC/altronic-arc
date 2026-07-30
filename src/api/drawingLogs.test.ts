@@ -7,6 +7,7 @@ import {
   deleteDrawingLogEntry,
   isDrawingLogAvailable,
   listDrawingLog,
+  updateDrawingChange,
   updateDrawingLogEntry,
 } from "./drawingLogs";
 
@@ -126,6 +127,94 @@ describe("create / update / delete (mock)", () => {
     await deleteDrawingLogEntry("ccc", created.id);
     const rows = await listDrawingLog("ccc");
     expect(rows.some((e) => e.id === created.id)).toBe(false);
+  });
+});
+
+describe("CAD's suggest columns", () => {
+  it("carries By / Entered By / Software, and only on CAD", async () => {
+    const cad = await listDrawingLog("cad");
+    const row = cad.find((e) => e.values.by !== "");
+    expect(row).toBeDefined();
+    expect(row!.values.by).toBeTruthy();
+    expect(row!.values.enteredBy).toBeTruthy();
+    expect(row!.values.software).toBeTruthy();
+
+    // Naming these in another register's $select would 400, so they must not be
+    // declared there.
+    for (const kind of ["ccc", "cec", "sketches"] as const) {
+      const keys = DRAWING_LOGS[kind].fields.map((f) => f.key);
+      expect(keys).not.toContain("by");
+      expect(keys).not.toContain("enteredBy");
+      expect(keys).not.toContain("software");
+    }
+  });
+
+  it("writes them as ordinary text columns", async () => {
+    const created = await createDrawingLogEntry("cad", {
+      drawingNo: "999 020",
+      by: "ZZZ",
+      enteredBy: "ZZZ",
+      software: "Fusion 360",
+    });
+    expect(created.values.by).toBe("ZZZ");
+    expect(created.values.software).toBe("Fusion 360");
+  });
+
+  it("keeps New Drawing out of the writable fields", async () => {
+    // Removed from the new-drawing and edit forms (Ray, 2026-07-30) while
+    // staying visible on the detail panel.
+    const keys = DRAWING_LOGS.cad.fields.filter((f) => !f.readOnly).map((f) => f.key);
+    expect(keys).not.toContain("newDrawing");
+    expect(DRAWING_LOGS.cad.fields.map((f) => f.key)).toContain("newDrawing");
+  });
+});
+
+describe("updateDrawingChange (mock)", () => {
+  it("corrects one slot without touching the drawing's current revision", async () => {
+    const created = await createDrawingLogEntry("ccc", { drawingNo: "999 030", revNo: "C" });
+    await appendDrawingChange("ccc", created.id, {
+      date: new Date("2020-01-01T12:00:00Z"),
+      ecn: "ECN-OLD",
+      rev: "A",
+    });
+
+    const fixed = await updateDrawingChange("ccc", created.id, 1, {
+      date: new Date("2019-06-06T12:00:00Z"),
+      ecn: "ECN-NEW",
+      rev: "A",
+    });
+    expect(fixed.changes[0]).toMatchObject({ slot: 1, ecn: "ECN-NEW" });
+    expect((fixed.changes[0].date as Date).getUTCFullYear()).toBe(2019);
+  });
+
+  it("empties the slot when all three values are cleared, freeing it for reuse", async () => {
+    // The log is a fixed sixteen slots with no "remove a row", so clearing is the
+    // only way to undo a change recorded by mistake.
+    const created = await createDrawingLogEntry("ccc", { drawingNo: "999 031" });
+    await appendDrawingChange("ccc", created.id, { date: null, ecn: "ECN-OOPS", rev: "" });
+    expect((await listDrawingLog("ccc")).find((e) => e.id === created.id)!.changes).toHaveLength(1);
+
+    const emptied = await updateDrawingChange("ccc", created.id, 1, {
+      date: null,
+      ecn: "",
+      rev: "",
+    });
+    expect(emptied.changes).toHaveLength(0);
+
+    // And the freed slot is offered again.
+    const reused = await appendDrawingChange("ccc", created.id, {
+      date: null,
+      ecn: "ECN-AGAIN",
+      rev: "",
+    });
+    expect(reused.changes[0].slot).toBe(1);
+  });
+
+  it("refuses on a register with no change log", async () => {
+    const sketches = await listDrawingLog("sketches");
+    await expect(
+      updateDrawingChange("sketches", sketches[0].id, 1, { date: null, ecn: "X", rev: "" }),
+    ).rejects.toThrow(/doesn't have a change log/i);
   });
 });
 

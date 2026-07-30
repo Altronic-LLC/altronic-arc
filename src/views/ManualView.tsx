@@ -1455,7 +1455,7 @@ const SECTIONS: ManualSection[] = [
       "record a change",
     ],
     searchText:
-      "Drawing File Logs brings Engineering's drawing registers together on one screen as tabs: CCC Drawings, CEC Drawings and Engineering Sketches, with CAD Drawings to follow. Each tab is a searchable table; click any row for the full record and its change log — the dated revisions and ECNs that SharePoint stores across 48 columns. Search covers the ECNs too, so you can find which drawing a change notice affected. Admins can add a drawing, edit its details, and record a change, which also updates the drawing's current revision. A drawing has sixteen change slots; once they're used the app says so rather than overwriting an old entry. Engineering Sketches has its own columns (sketch number, V code, Ventura) and no change log, because the list doesn't have one. Reading and searching are open to everyone.",
+      "Drawing File Logs brings Engineering's drawing registers together on one screen as tabs: CAD Drawings, CCC Drawings, CEC Drawings and Engineering Sketches. Each tab is a searchable table; click any row for the full record and its change log — the dated revisions and ECNs that SharePoint stores across 48 columns. Search covers the ECNs too, so you can find which drawing a change notice affected. Admins can add a drawing, edit its details, and record a change, which also updates the drawing's current revision. Admins can also correct an existing change entry with the pencil beside it, which edits just that entry without moving the drawing's current revision; clearing all three values empties the slot and frees it for reuse. A drawing has sixteen change slots; once they're used the app says so rather than overwriting an old entry. CAD drawings carry By, Entered By and Software, which behave like drop-downs built from the values already in use while still accepting a new one, and the New Drawing field is no longer on the add or edit form. Engineering Sketches has its own columns (sketch number, V code, Ventura) and no change log, because the list doesn't have one. Reading and searching are open to everyone.",
     render: () => (
       <>
         <P>
@@ -1488,6 +1488,13 @@ const SECTIONS: ManualSection[] = [
           current revision, so the table and the change log can't drift apart.
         </P>
         <P>
+          <strong>Correcting a change:</strong> hover a row in the change log and
+          use the pencil. That edits just that entry — it doesn't touch the
+          drawing's current revision, since fixing an old typo shouldn't make an
+          old date the latest. Clearing all three values empties the slot and frees
+          it for reuse, which is how you undo a change recorded by mistake.
+        </P>
+        <P>
           Each drawing has <strong>sixteen change slots</strong> — that's the
           SharePoint list's limit, not the app's. The panel shows how many are
           used (e.g. "3/16"). Once all sixteen are full the button is disabled and
@@ -1495,6 +1502,20 @@ const SECTIONS: ManualSection[] = [
           Further changes need recording in SharePoint, or more columns adding to
           the list.
         </P>
+        <H3>Initials and software on CAD</H3>
+        <P>
+          CAD drawings carry <strong>By</strong>, <strong>Entered By</strong> and{" "}
+          <strong>Software</strong>. These behave like drop-downs: click the arrow
+          to pick from what's already been used, or just type. A value nobody has
+          used before is flagged as new, and once saved it becomes one of the
+          choices for everyone next time — so the lists build themselves and nobody
+          has to maintain them.
+        </P>
+        <P>
+          The <strong>New Drawing</strong> field is no longer on the add or edit
+          form; existing values still show on the drawing's panel.
+        </P>
+
         <H3>Engineering Sketches is different</H3>
         <P>
           The sketch register has <strong>no change log</strong> — the list simply

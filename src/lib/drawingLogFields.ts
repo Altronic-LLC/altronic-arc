@@ -38,6 +38,13 @@ export interface LogField {
   wide?: boolean;
   /** Right-align in the table (numbers). */
   numeric?: boolean;
+  /**
+   * A TEXT column that behaves like a choice field: the form offers the values
+   * already stored in the register and still accepts a new one, which becomes a
+   * suggestion from then on. For columns people treat as a fixed set that isn't
+   * actually fixed — initials, the CAD software used.
+   */
+  suggest?: boolean;
 }
 
 export interface DrawingLogFieldSpec {
@@ -87,8 +94,16 @@ export const DRAWING_LOG_FIELDS: Record<DrawingLogKind, DrawingLogFieldSpec> = {
       { key: "dateCompleted", column: "DateCompleted", label: "Completed", type: "date", table: true },
       { key: "drawingDate", column: "DrawingDATE", label: "Date", type: "date", table: true },
       { key: "logBookDate", column: "LogBookDate", label: "Log Book Date", type: "date" },
-      { key: "newDrawing", column: "NewDrawing", label: "New Drawing", type: "text" },
-      { key: "software", column: "Software", label: "Software", type: "text" },
+      // Read-only: dropped from the new-drawing and edit forms (Ray, 2026-07-30)
+      // while staying visible on the detail panel, since existing rows carry it.
+      { key: "newDrawing", column: "NewDrawing", label: "New Drawing", type: "text", readOnly: true },
+      // By / EnteredBy / Software are TEXT columns that people use as fixed sets.
+      // Declared `suggest` so the form offers what's already stored and still
+      // accepts something new. CAD ONLY — naming them in another register's
+      // $select would 400, which is why the columns are per-register data.
+      { key: "by", column: "By", label: "By", type: "text", table: true, suggest: true },
+      { key: "enteredBy", column: "EnteredBy", label: "Entered By", type: "text", suggest: true },
+      { key: "software", column: "Software", label: "Software", type: "text", suggest: true },
       { key: "legacyId", column: "PrimKey", label: "Prim Key", type: "number", readOnly: true },
     ],
     primaryKey: "drawingNo",
@@ -141,7 +156,12 @@ export function tableFields(kind: DrawingLogKind): LogField[] {
   return DRAWING_LOG_FIELDS[kind].fields.filter((f) => f.table);
 }
 
-/** Fields the app may write — everything except the legacy ids. */
+/** Text fields offering their existing values — see `suggest` above. */
+export function suggestFields(kind: DrawingLogKind): LogField[] {
+  return DRAWING_LOG_FIELDS[kind].fields.filter((f) => f.suggest);
+}
+
+/** Fields the app may write — everything except the read-only ones. */
 export function writableFields(kind: DrawingLogKind): LogField[] {
   return DRAWING_LOG_FIELDS[kind].fields.filter((f) => !f.readOnly);
 }

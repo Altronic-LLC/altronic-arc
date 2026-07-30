@@ -45,7 +45,9 @@ export const MOCK_DRAWING_LOGS: DrawingLogEntry[] = [
       drawingDate: d("2025-12-30T12:00:00Z"),
       logBookDate: null,
       newDrawing: "",
-      software: "",
+      software: "SolidWorks",
+      by: "JFD",
+      enteredBy: "JFD",
       legacyId: 17832,
     },
     [
@@ -63,7 +65,9 @@ export const MOCK_DRAWING_LOGS: DrawingLogEntry[] = [
     drawingDate: d("2026-03-13T12:00:00Z"),
     logBookDate: null,
     newDrawing: "",
-    software: "",
+    software: "AutoCAD",
+    by: "JFD",
+    enteredBy: "RJW",
     legacyId: 17846,
   }),
   entry("cad", 403, {
@@ -77,6 +81,8 @@ export const MOCK_DRAWING_LOGS: DrawingLogEntry[] = [
     logBookDate: null,
     newDrawing: "",
     software: "SolidWorks",
+    by: "MTK",
+    enteredBy: "JFD",
     legacyId: 17858,
   }),
 

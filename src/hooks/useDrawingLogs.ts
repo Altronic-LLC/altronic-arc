@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   appendDrawingChange,
+  updateDrawingChange,
   createDrawingLogEntry,
   deleteDrawingLogEntry,
   listDrawingLog,
@@ -97,6 +98,33 @@ export function useAppendDrawingChange(kind: DrawingLogKind) {
     },
     onError: (err: Error) => {
       pushToast({ message: err.message, variant: "error" });
+    },
+  });
+}
+
+/** Correct an existing change-log entry. Writes only that slot — see the API note. */
+export function useUpdateDrawingChange(kind: DrawingLogKind) {
+  const qc = useQueryClient();
+  const isAdmin = useIsAdmin();
+  return useMutation({
+    mutationFn: ({
+      id,
+      slot,
+      change,
+    }: {
+      id: number;
+      slot: number;
+      change: DrawingChangeInput;
+    }) => {
+      if (!isAdmin) throw new Error(ADMIN_ONLY);
+      return updateDrawingChange(kind, id, slot, change);
+    },
+    onSuccess: () => {
+      pushToast({ message: "Change updated" });
+      qc.invalidateQueries({ queryKey: drawingLogKey(kind) });
+    },
+    onError: (err: Error) => {
+      pushToast({ message: `Couldn't update the change: ${err.message}`, variant: "error" });
     },
   });
 }
