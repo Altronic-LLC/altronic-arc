@@ -178,4 +178,12 @@ describe("PrintDrawingSheetView — the parts with no data behind them", () => {
     await screen.findByText(/isn't in the CAD register/i);
     expect(window.print).not.toHaveBeenCalled();
   });
+
+  it("opens the print dialog as soon as the sheet is on the page", async () => {
+    // No fixed delay to wait out — fonts plus one paint, which is why the dialog
+    // appears immediately rather than half a second later.
+    const row = await cadRow(() => true);
+    await renderSheet(row.id);
+    await waitFor(() => expect(window.print).toHaveBeenCalled());
+  });
 });

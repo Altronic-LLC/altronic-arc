@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.82.1",
+    date: "2026-07-30",
+    changes: [
+      "The print dialog for a Drawing Work Sheet now opens as soon as the sheet is ready instead of after a fixed pause",
+      "A drawing with a long change log no longer pushes the panel past the screen: the header stays put — so the Work Sheet button is always reachable — and the change log scrolls inside it",
+      "Delete and Edit details stay pinned at the bottom of the panel for the same reason",
+    ],
+  },
+  {
     version: "0.82.0",
     date: "2026-07-30",
     changes: [

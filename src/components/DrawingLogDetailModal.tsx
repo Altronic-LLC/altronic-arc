@@ -116,17 +116,25 @@ export function DrawingLogDetailModal({ entry, isAdmin, onClose }: DrawingLogDet
 
   return (
     <div
-      className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-black/40 p-4 sm:items-center"
+      className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4"
       onClick={() => !busy && onClose()}
     >
+      {/*
+        Capped to the viewport with the CONTENT scrolling inside, not the whole
+        dialog. A drawing with fifteen revisions made the modal taller than the
+        screen, so the header scrolled away and took the Work Sheet button with it
+        (Ray, 2026-07-30). Header and admin actions are now pinned; only the middle
+        moves. `min-h-0` on the scroller is what lets a flex child shrink enough to
+        scroll at all.
+      */}
       <div
         role="dialog"
         aria-modal="true"
         aria-label="Drawing details"
         onClick={(e) => e.stopPropagation()}
-        className="my-4 w-full max-w-3xl rounded-lg border border-border bg-surface p-5 shadow-xl"
+        className="flex max-h-[calc(100vh-2rem)] w-full max-w-3xl flex-col rounded-lg border border-border bg-surface shadow-xl"
       >
-        <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-5 py-4">
           <div className="min-w-0">
             <div className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
               {spec.label}
@@ -162,172 +170,174 @@ export function DrawingLogDetailModal({ entry, isAdmin, onClose }: DrawingLogDet
           </div>
         </div>
 
-        {editing ? (
-          <form onSubmit={handleSaveDetails} className="flex flex-col gap-3">
-            <FieldInputs
-              fields={editable}
-              draft={draft}
-              onChange={(key, value) => setDraft((d) => ({ ...d, [key]: value }))}
-              disabled={busy}
-              suggestions={suggestions}
-            />
-            {error && (
-              <div className="rounded-md border border-cooper-red/30 bg-cooper-red/10 px-3 py-2 text-xs text-cooper-red">
-                {error}
-              </div>
-            )}
-            <div className="flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setDraft(draftFromEntry(entry, editable));
-                  setEditing(false);
-                }}
+        <div className="scroll-elegant min-h-0 flex-1 overflow-y-auto px-5 py-4">
+          {editing ? (
+            <form onSubmit={handleSaveDetails} className="flex flex-col gap-3">
+              <FieldInputs
+                fields={editable}
+                draft={draft}
+                onChange={(key, value) => setDraft((d) => ({ ...d, [key]: value }))}
                 disabled={busy}
-                className="rounded-md border border-border px-3 py-1.5 text-sm font-medium text-fg-muted hover:text-fg disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={busy}
-                className="rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-accent/90 disabled:opacity-60"
-              >
-                {busy ? "Saving…" : "Save details"}
-              </button>
-            </div>
-          </form>
-        ) : (
-          <DetailGrid entry={entry} fields={spec.fields} />
-        )}
-
-        {/* ---- Change log ---------------------------------------------- */}
-        {spec.hasChangeLog && (
-          <div className="mt-6 border-t border-border pt-4">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <h3 className="flex items-center gap-2 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
-                <History className="h-4 w-4" />
-                Change log
-                <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-bold tabular-nums text-fg">
-                  {entry.changes.length}/{CHANGE_SLOTS}
-                </span>
-              </h3>
-              {isAdmin && !addingChange && !editing && (
+                suggestions={suggestions}
+              />
+              {error && (
+                <div className="rounded-md border border-cooper-red/30 bg-cooper-red/10 px-3 py-2 text-xs text-cooper-red">
+                  {error}
+                </div>
+              )}
+              <div className="flex items-center justify-end gap-2">
                 <button
-                  onClick={() => setAddingChange(true)}
-                  disabled={logFull || busy}
-                  title={logFull ? "All 16 change slots on this drawing are used" : undefined}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1 text-xs font-medium text-fg-muted transition-colors hover:text-fg disabled:cursor-not-allowed disabled:opacity-50"
+                  type="button"
+                  onClick={() => {
+                    setDraft(draftFromEntry(entry, editable));
+                    setEditing(false);
+                  }}
+                  disabled={busy}
+                  className="rounded-md border border-border px-3 py-1.5 text-sm font-medium text-fg-muted hover:text-fg disabled:opacity-50"
                 >
-                  <Plus className="h-3.5 w-3.5" />
-                  Record a change
+                  Cancel
                 </button>
+                <button
+                  type="submit"
+                  disabled={busy}
+                  className="rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-accent/90 disabled:opacity-60"
+                >
+                  {busy ? "Saving…" : "Save details"}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <DetailGrid entry={entry} fields={spec.fields} />
+          )}
+
+          {/* ---- Change log ---------------------------------------------- */}
+          {spec.hasChangeLog && (
+            <div className="mt-6 border-t border-border pt-4">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <h3 className="flex items-center gap-2 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
+                  <History className="h-4 w-4" />
+                  Change log
+                  <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-bold tabular-nums text-fg">
+                    {entry.changes.length}/{CHANGE_SLOTS}
+                  </span>
+                </h3>
+                {isAdmin && !addingChange && !editing && (
+                  <button
+                    onClick={() => setAddingChange(true)}
+                    disabled={logFull || busy}
+                    title={logFull ? "All 16 change slots on this drawing are used" : undefined}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1 text-xs font-medium text-fg-muted transition-colors hover:text-fg disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Record a change
+                  </button>
+                )}
+              </div>
+
+              {addingChange && (
+                <AddChangeForm
+                  slot={freeSlot ?? 0}
+                  onCancel={() => setAddingChange(false)}
+                  onSave={async (change) => {
+                    setBusy(true);
+                    try {
+                      await appendChange.mutateAsync({ id: entry.id, change });
+                      setAddingChange(false);
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}
+                />
+              )}
+
+              {entry.changes.length === 0 ? (
+                <p className="text-xs text-fg-muted">No changes recorded against this drawing.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse text-sm">
+                    <thead>
+                      <tr className="border-b border-border text-left">
+                        <ChTh>Slot</ChTh>
+                        <ChTh>Date</ChTh>
+                        <ChTh>ECN</ChTh>
+                        <ChTh>Rev</ChTh>
+                        <ChTh>{""}</ChTh>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {entry.changes.map((c) =>
+                        editingSlot === c.slot ? (
+                          <EditChangeRow
+                            key={c.slot}
+                            change={c}
+                            onCancel={() => setEditingSlot(null)}
+                            onSave={async (next) => {
+                              setBusy(true);
+                              try {
+                                await updateChange.mutateAsync({
+                                  id: entry.id,
+                                  slot: c.slot,
+                                  change: next,
+                                });
+                                setEditingSlot(null);
+                              } finally {
+                                setBusy(false);
+                              }
+                            }}
+                          />
+                        ) : (
+                          <tr key={c.slot} className="group border-b border-border last:border-0">
+                            <ChTd className="font-mono text-[11px] text-fg-muted">
+                              {String(c.slot).padStart(2, "0")}
+                            </ChTd>
+                            <ChTd className="whitespace-nowrap tabular-nums">
+                              {formatSpDate(c.date)}
+                            </ChTd>
+                            <ChTd>{c.ecn || "\u2014"}</ChTd>
+                            <ChTd className="font-medium">{c.rev || "\u2014"}</ChTd>
+                            <ChTd className="text-right">
+                              {isAdmin && !editing && (
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingSlot(c.slot)}
+                                  disabled={busy}
+                                  aria-label={`Edit change in slot ${String(c.slot).padStart(2, "0")}`}
+                                  title="Correct this change"
+                                  className="rounded p-1 text-fg-muted opacity-0 transition-opacity hover:bg-surface-2 hover:text-fg focus:opacity-100 group-hover:opacity-100 disabled:opacity-30"
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                </button>
+                              )}
+                            </ChTd>
+                          </tr>
+                        ),
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {isAdmin && entry.changes.length > 0 && (
+                <p className="mt-2 text-[11px] text-fg-muted">
+                  Hover a change to correct it. Clearing all three values empties that
+                  slot and frees it for reuse.
+                </p>
+              )}
+
+              {logFull && (
+                <p className="mt-2 text-[11px] text-fg-muted">
+                  All {CHANGE_SLOTS} change slots on this drawing are used — the SharePoint list has
+                  no room for another. Further changes need recording in SharePoint, or more CH_
+                  columns adding to the list.
+                </p>
               )}
             </div>
+          )}
+        </div>
 
-            {addingChange && (
-              <AddChangeForm
-                slot={freeSlot ?? 0}
-                onCancel={() => setAddingChange(false)}
-                onSave={async (change) => {
-                  setBusy(true);
-                  try {
-                    await appendChange.mutateAsync({ id: entry.id, change });
-                    setAddingChange(false);
-                  } finally {
-                    setBusy(false);
-                  }
-                }}
-              />
-            )}
-
-            {entry.changes.length === 0 ? (
-              <p className="text-xs text-fg-muted">No changes recorded against this drawing.</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-sm">
-                  <thead>
-                    <tr className="border-b border-border text-left">
-                      <ChTh>Slot</ChTh>
-                      <ChTh>Date</ChTh>
-                      <ChTh>ECN</ChTh>
-                      <ChTh>Rev</ChTh>
-                      <ChTh>{""}</ChTh>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {entry.changes.map((c) =>
-                      editingSlot === c.slot ? (
-                        <EditChangeRow
-                          key={c.slot}
-                          change={c}
-                          onCancel={() => setEditingSlot(null)}
-                          onSave={async (next) => {
-                            setBusy(true);
-                            try {
-                              await updateChange.mutateAsync({
-                                id: entry.id,
-                                slot: c.slot,
-                                change: next,
-                              });
-                              setEditingSlot(null);
-                            } finally {
-                              setBusy(false);
-                            }
-                          }}
-                        />
-                      ) : (
-                        <tr key={c.slot} className="group border-b border-border last:border-0">
-                          <ChTd className="font-mono text-[11px] text-fg-muted">
-                            {String(c.slot).padStart(2, "0")}
-                          </ChTd>
-                          <ChTd className="whitespace-nowrap tabular-nums">
-                            {formatSpDate(c.date)}
-                          </ChTd>
-                          <ChTd>{c.ecn || "\u2014"}</ChTd>
-                          <ChTd className="font-medium">{c.rev || "\u2014"}</ChTd>
-                          <ChTd className="text-right">
-                            {isAdmin && !editing && (
-                              <button
-                                type="button"
-                                onClick={() => setEditingSlot(c.slot)}
-                                disabled={busy}
-                                aria-label={`Edit change in slot ${String(c.slot).padStart(2, "0")}`}
-                                title="Correct this change"
-                                className="rounded p-1 text-fg-muted opacity-0 transition-opacity hover:bg-surface-2 hover:text-fg focus:opacity-100 group-hover:opacity-100 disabled:opacity-30"
-                              >
-                                <Pencil className="h-3 w-3" />
-                              </button>
-                            )}
-                          </ChTd>
-                        </tr>
-                      ),
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {isAdmin && entry.changes.length > 0 && (
-              <p className="mt-2 text-[11px] text-fg-muted">
-                Hover a change to correct it. Clearing all three values empties that
-                slot and frees it for reuse.
-              </p>
-            )}
-
-            {logFull && (
-              <p className="mt-2 text-[11px] text-fg-muted">
-                All {CHANGE_SLOTS} change slots on this drawing are used — the SharePoint list has
-                no room for another. Further changes need recording in SharePoint, or more CH_
-                columns adding to the list.
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* ---- Admin actions ------------------------------------------- */}
+        {/* ---- Admin actions — pinned, so Delete / Edit stay reachable --- */}
         {isAdmin && !editing && (
-          <div className="mt-6 flex items-center justify-end gap-2 border-t border-border pt-4">
+          <div className="flex shrink-0 items-center justify-end gap-2 border-t border-border px-5 py-3">
             <button
               onClick={handleDelete}
               disabled={busy}

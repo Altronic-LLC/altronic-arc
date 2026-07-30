@@ -302,3 +302,57 @@ describe("DrawingLogsView — admin gating", () => {
     expect(screen.queryByText(/limited to admins/i)).not.toBeInTheDocument();
   });
 });
+
+describe("DrawingLogsView — the detail panel on a long change log", () => {
+  /** The CAD fixture row with the fullest change log. */
+  async function openBusiestCadRow() {
+    await renderView("/drawing-logs?log=cad");
+    const rows = screen.getAllByRole("row", { name: /^Open / });
+    await userEvent.click(rows[0]);
+    return screen.findByRole("dialog", { name: /drawing details/i });
+  }
+
+  it("scrolls the CONTENT, not the whole panel, so the header can't leave the screen", async () => {
+    // A drawing with fifteen revisions made the panel taller than the viewport,
+    // so the header scrolled away and took the Work Sheet button with it.
+    const panel = await openBusiestCadRow();
+
+    // Capped to the viewport and laid out as a column…
+    expect(panel.className).toMatch(/max-h-\[calc\(100vh-2rem\)\]/);
+    expect(panel.className).toMatch(/flex-col/);
+
+    // …with exactly one internal scroller, which can actually shrink (min-h-0).
+    const scroller = panel.querySelector(".overflow-y-auto")!;
+    expect(scroller).not.toBeNull();
+    expect(scroller.className).toMatch(/min-h-0/);
+    expect(scroller.className).toMatch(/flex-1/);
+  });
+
+  it("keeps the Work Sheet button OUT of the scrolling region", async () => {
+    const panel = await openBusiestCadRow();
+    const workSheet = within(panel).getByRole("link", { name: /work sheet/i });
+    const scroller = panel.querySelector(".overflow-y-auto")!;
+
+    // The whole point: it stays put however long the change log gets.
+    expect(scroller.contains(workSheet)).toBe(false);
+    expect(workSheet.getAttribute("href")).toMatch(/\/drawing-logs\/cad\/\d+\/print$/);
+    expect(workSheet).toHaveAttribute("target", "_blank");
+  });
+
+  it("keeps the admin actions out of it too, so Delete and Edit stay reachable", async () => {
+    const panel = await openBusiestCadRow();
+    const scroller = panel.querySelector(".overflow-y-auto")!;
+    for (const name of [/edit details/i, /delete/i]) {
+      const btn = within(panel).getByRole("button", { name });
+      expect(scroller.contains(btn)).toBe(false);
+    }
+  });
+
+  it("offers no Work Sheet on the registers that don't have its fields", async () => {
+    // CCC/CEC/Sketches carry no By / Entered By / Software, so the form would
+    // print a page of blank rows.
+    await renderView(); // defaults to the CCC tab
+    const panel = await openRow("50100008");
+    expect(within(panel).queryByRole("link", { name: /work sheet/i })).not.toBeInTheDocument();
+  });
+});

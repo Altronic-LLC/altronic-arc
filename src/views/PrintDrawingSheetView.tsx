@@ -70,12 +70,33 @@ export function PrintDrawingSheetView() {
     [entries, entryId],
   );
 
-  // Print only once the drawing is actually on the page — firing on load alone
-  // snapshots the loading screen (the mistake PrintBuildRequestItemView records).
+  // Open the dialog as soon as the page is genuinely ready, rather than after a
+  // fixed delay.
+  //
+  // Print only once the drawing is on the page — firing on mount snapshots the
+  // loading screen (the mistake PrintBuildRequestItemView records). But the wait
+  // is for the real signals and nothing more: `fonts.ready` (so the condensed
+  // heading doesn't reflow after the snapshot) plus one paint. On a warm cache
+  // that resolves in single-digit milliseconds, where a fixed timeout made every
+  // print wait out the worst case. There are no images on this sheet, so there's
+  // nothing else to settle for.
   useEffect(() => {
     if (isLoading || !entry) return;
-    const t = window.setTimeout(() => window.print(), 500);
-    return () => window.clearTimeout(t);
+    let cancelled = false;
+    let frame = 0;
+    // `document.fonts` is absent in jsdom and older browsers — a resolved promise
+    // keeps the path identical rather than skipping the print entirely.
+    const fontsReady = document.fonts?.ready ?? Promise.resolve();
+    void fontsReady.then(() => {
+      if (cancelled) return;
+      frame = requestAnimationFrame(() => {
+        if (!cancelled) window.print();
+      });
+    });
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frame);
+    };
   }, [isLoading, entry]);
 
   if (isLoading) return <LoadingTasks noun="this drawing" />;
