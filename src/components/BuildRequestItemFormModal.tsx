@@ -9,6 +9,7 @@ import {
   type BuildRequestPartType,
 } from "@/types/task";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
+import { ChoiceSelect } from "./SearchableSelect";
 
 interface BuildRequestItemFormModalProps {
   buildRequest: BuildRequest;
@@ -187,34 +188,24 @@ export function BuildRequestItemFormModal({ buildRequest, onClose }: BuildReques
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <FieldLabel label="Part Type">
-              <select
+              <ChoiceSelect
                 value={partType}
-                onChange={(e) => setPartType(e.target.value as BuildRequestPartType | "")}
-                className="select"
+                onChange={(v) => setPartType(v as BuildRequestPartType | "")}
+                options={BUILD_REQUEST_PART_TYPES}
+                emptyLabel="Not set"
+                searchPlaceholder="Search part types…"
                 disabled={busy}
-              >
-                <option value="">Not set</option>
-                {BUILD_REQUEST_PART_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
+              />
             </FieldLabel>
             <FieldLabel label="Disposition">
-              <select
+              <ChoiceSelect
                 value={disposition}
-                onChange={(e) => setDisposition(e.target.value as BuildRequestDisposition | "")}
-                className="select"
+                onChange={(v) => setDisposition(v as BuildRequestDisposition | "")}
+                options={BUILD_REQUEST_DISPOSITIONS}
+                emptyLabel="Not set"
+                searchPlaceholder="Search dispositions…"
                 disabled={busy}
-              >
-                <option value="">Not set</option>
-                {BUILD_REQUEST_DISPOSITIONS.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </select>
+              />
             </FieldLabel>
           </div>
 

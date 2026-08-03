@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.83.0",
+    date: "2026-08-03",
+    changes: [
+      "Every dropdown in every form now has a search box — Status, Priority, Category, Parent Project, Parent Task, EIR request type and buyer code, Operations task type and location, Panel task type, Build Request type, lead time, sample phase, part type and disposition, and the project picker when promoting an EIR",
+      "Type to filter instead of scrolling: picking a project out of a long list no longer means hunting through it",
+      "Fields that must always hold a value (a task Status, an EIR request type) no longer offer a way to empty them by mistake",
+    ],
+  },
+  {
     version: "0.82.3",
     date: "2026-07-30",
     changes: [

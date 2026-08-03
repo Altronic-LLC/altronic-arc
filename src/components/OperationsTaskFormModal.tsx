@@ -26,7 +26,7 @@ import {
 } from "@/types/task";
 import { computeOperationsTaskNumber } from "@/lib/operationsTaskNumbering";
 import { convertToChecklist } from "@/lib/descriptionChecklist";
-import { MultiSelect, SingleSelect } from "./SearchableSelect";
+import { ChoiceSelect, MultiSelect, SingleSelect } from "./SearchableSelect";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { mergePeople } from "@/lib/people";
@@ -275,64 +275,46 @@ export function OperationsTaskFormModal({ mode, task, onClose }: OperationsTaskF
 
             <div className="grid gap-4 sm:grid-cols-2">
               <FieldLabel label="Status">
-                <select
+                <ChoiceSelect
                   value={status}
-                  onChange={(e) => setStatus(e.target.value as OperationsStatus)}
-                  className="w-full rounded-md border border-border bg-surface px-3 py-2 text-base text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
-                >
-                  {OPERATIONS_STATUSES.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => setStatus(v as OperationsStatus)}
+                  options={OPERATIONS_STATUSES}
+                  emptyLabel="Select a status…"
+                  searchPlaceholder="Search statuses…"
+                  clearable={false}
+                />
               </FieldLabel>
 
               <FieldLabel label="Priority">
-                <select
+                <ChoiceSelect
                   value={priority}
-                  onChange={(e) => setPriority(e.target.value as OperationsPriority | "")}
-                  className="w-full rounded-md border border-border bg-surface px-3 py-2 text-base text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
-                >
-                  <option value="">Not set</option>
-                  {OPERATIONS_PRIORITIES.map((p) => (
-                    <option key={p} value={p}>
-                      {p}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => setPriority(v as OperationsPriority | "")}
+                  options={OPERATIONS_PRIORITIES}
+                  emptyLabel="Not set"
+                  searchPlaceholder="Search priorities…"
+                />
               </FieldLabel>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <FieldLabel label="Task Type">
-                <select
+                <ChoiceSelect
                   value={taskType}
-                  onChange={(e) => setTaskType(e.target.value as OperationsTaskType | "")}
-                  className="w-full rounded-md border border-border bg-surface px-3 py-2 text-base text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
-                >
-                  <option value="">Not set</option>
-                  {OPERATIONS_TASK_TYPES.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => setTaskType(v as OperationsTaskType | "")}
+                  options={OPERATIONS_TASK_TYPES}
+                  emptyLabel="Not set"
+                  searchPlaceholder="Search task types…"
+                />
               </FieldLabel>
 
               <FieldLabel label="Location">
-                <select
+                <ChoiceSelect
                   value={location}
-                  onChange={(e) => setLocation(e.target.value as OperationsLocation | "")}
-                  className="w-full rounded-md border border-border bg-surface px-3 py-2 text-base text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
-                >
-                  <option value="">Not set</option>
-                  {OPERATIONS_LOCATIONS.map((l) => (
-                    <option key={l} value={l}>
-                      {l}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => setLocation(v as OperationsLocation | "")}
+                  options={OPERATIONS_LOCATIONS}
+                  emptyLabel="Not set"
+                  searchPlaceholder="Search locations…"
+                />
               </FieldLabel>
             </div>
 
@@ -346,20 +328,13 @@ export function OperationsTaskFormModal({ mode, task, onClose }: OperationsTaskF
             </FieldLabel>
 
             <FieldLabel label="Project Ref">
-              <select
+              <ChoiceSelect
                 value={parentProjectId === "" ? "" : String(parentProjectId)}
-                onChange={(e) =>
-                  setParentProjectId(e.target.value === "" ? "" : parseInt(e.target.value, 10))
-                }
-                className="w-full rounded-md border border-border bg-surface px-3 py-2 text-base text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
-              >
-                <option value="">None</option>
-                {projects.map((p) => (
-                  <option key={p.lookupId} value={p.lookupId}>
-                    {p.title}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => setParentProjectId(v === "" ? "" : parseInt(v, 10))}
+                options={projects.map((p) => ({ value: String(p.lookupId), label: p.title }))}
+                emptyLabel="None"
+                searchPlaceholder="Search projects…"
+              />
             </FieldLabel>
 
             <FieldLabel label="Equipment">

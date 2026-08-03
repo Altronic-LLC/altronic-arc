@@ -6,6 +6,7 @@ import { useProjects, useTasks } from "@/hooks/useTasks";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { computeNumberedTitle } from "@/lib/taskNumbering";
 import type { Eir, ProjectReference } from "@/types/task";
+import { ChoiceSelect } from "./SearchableSelect";
 
 /**
  * Modal shown when an EIR's Resolution is set to "Promoted to Task".
@@ -165,21 +166,17 @@ export function PromoteEirModal({ eir, onClose }: { eir: Eir; onClose: () => voi
             <span className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
               Parent project
             </span>
-            <select
-              value={projectId}
-              onChange={(e) =>
-                setProjectId(e.target.value === "" ? "" : parseInt(e.target.value, 10))
-              }
+            <ChoiceSelect
+              value={projectId === "" ? "" : String(projectId)}
+              onChange={(v) => setProjectId(v === "" ? "" : parseInt(v, 10))}
+              options={projectOptions.map((p) => ({
+                value: String(p.lookupId),
+                label: p.title,
+              }))}
+              emptyLabel="No project (numbers under 0000)"
+              searchPlaceholder="Search projects…"
               disabled={busy}
-              className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 disabled:opacity-60"
-            >
-              <option value="">No project (numbers under 0000)</option>
-              {projectOptions.map((p) => (
-                <option key={p.lookupId} value={p.lookupId}>
-                  {p.title}
-                </option>
-              ))}
-            </select>
+            />
             <span className="text-xs text-fg-muted">
               Sets the task's Parent Project and its number prefix.
             </span>

@@ -32,6 +32,14 @@ export interface MultiSelectProps extends BaseProps {
 export interface SingleSelectProps extends BaseProps {
   selected: string | null;
   onChange: (next: string | null) => void;
+  /** Greyed out and unopenable — for a form that's mid-save. */
+  disabled?: boolean;
+  /**
+   * false for a field that must always hold a value (a task's Status, say):
+   * hides the clear button and makes re-picking the current option a no-op
+   * rather than emptying the field.
+   */
+  clearable?: boolean;
 }
 
 /**
@@ -91,6 +99,8 @@ export function SingleSelect({
   onChange,
   allLabel,
   searchPlaceholder,
+  clearable = true,
+  disabled,
 }: SingleSelectProps) {
   const selectedOpt = options.find((o) => o.value === selected) ?? null;
   const summary = selectedOpt?.label ?? allLabel;
@@ -99,14 +109,15 @@ export function SingleSelect({
     <DropdownShell
       summary={summary}
       isEmpty={selectedOpt == null}
-      onClear={selectedOpt ? () => onChange(null) : undefined}
+      disabled={disabled}
+      onClear={selectedOpt && clearable && !disabled ? () => onChange(null) : undefined}
       renderPanel={({ close }) => (
         <SearchablePanel
           options={options}
           searchPlaceholder={searchPlaceholder}
           isSelected={(v) => v === selected}
           onToggle={(v) => {
-            onChange(v === selected ? null : v);
+            onChange(v === selected && clearable ? null : v);
             close();
           }}
         />
@@ -115,9 +126,59 @@ export function SingleSelect({
   );
 }
 
+/**
+ * A choice field with search, as a drop-in for a plain `<select>`.
+ *
+ * Every dropdown in a form should be searchable (Ray, 2026-08-03) — scanning
+ * forty projects or a hundred parent tasks by eye is the slow way, and a user
+ * shouldn't have to remember which dropdowns happen to have a search box. This
+ * wrapper exists so converting one is a six-line swap rather than hand-mapping
+ * the empty value each time:
+ *
+ *   - `""` (a plain select's empty `<option>`) maps to `null` and back, so
+ *     callers keep the string state they already have.
+ *   - `options` takes bare strings, since most of these come straight from a
+ *     const array of SharePoint choices.
+ *   - `clearable={false}` for a field that must always hold a value.
+ */
+export function ChoiceSelect({
+  value,
+  onChange,
+  options,
+  emptyLabel,
+  searchPlaceholder,
+  clearable = true,
+  disabled,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  options: readonly string[] | readonly SelectOption[];
+  disabled?: boolean;
+  /** Trigger text when nothing is chosen — the old empty `<option>`'s label. */
+  emptyLabel: string;
+  searchPlaceholder?: string;
+  clearable?: boolean;
+}) {
+  const opts: SelectOption[] = options.map((o) =>
+    typeof o === "string" ? { value: o, label: o } : o,
+  );
+  return (
+    <SingleSelect
+      options={opts}
+      selected={value === "" ? null : value}
+      onChange={(next) => onChange(next ?? "")}
+      allLabel={emptyLabel}
+      searchPlaceholder={searchPlaceholder}
+      clearable={clearable}
+      disabled={disabled}
+    />
+  );
+}
+
 interface DropdownShellProps {
   summary: string;
   isEmpty: boolean;
+  disabled?: boolean;
   onClear?: () => void;
   renderPanel: (api: { close: () => void }) => React.ReactNode;
   /**
@@ -139,6 +200,7 @@ interface DropdownShellProps {
 function DropdownShell({
   summary,
   isEmpty,
+  disabled,
   onClear,
   renderPanel,
   chips,
@@ -203,7 +265,8 @@ function DropdownShell({
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
-          className="select flex items-center justify-between gap-2 text-left"
+          disabled={disabled}
+          className="select flex items-center justify-between gap-2 text-left disabled:cursor-not-allowed disabled:opacity-60"
           aria-haspopup="listbox"
           aria-expanded={open}
         >

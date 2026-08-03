@@ -10,7 +10,7 @@ import {
   type PanelTaskType,
   type Person,
 } from "@/types/task";
-import { SingleSelect } from "./SearchableSelect";
+import { ChoiceSelect, SingleSelect } from "./SearchableSelect";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { mergePeople } from "@/lib/people";
 
@@ -148,19 +148,14 @@ export function PanelTaskFormModal({ onClose }: PanelTaskFormModalProps) {
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <FieldLabel label="Task Type">
-              <select
+              <ChoiceSelect
                 value={taskType}
-                onChange={(e) => setTaskType(e.target.value as PanelTaskType | "")}
-                className="select"
+                onChange={(v) => setTaskType(v as PanelTaskType | "")}
+                options={PANEL_TASK_TYPES}
+                emptyLabel="Not set"
+                searchPlaceholder="Search task types…"
                 disabled={busy}
-              >
-                <option value="">Not set</option>
-                {PANEL_TASK_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
+              />
             </FieldLabel>
             <FieldLabel label="Assigned">
               <SingleSelect

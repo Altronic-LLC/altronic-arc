@@ -14,7 +14,7 @@ import {
   type Person,
 } from "@/types/task";
 import { nextBuildRequestNo } from "@/lib/buildRequestNumber";
-import { MultiSelect, SingleSelect } from "./SearchableSelect";
+import { ChoiceSelect, MultiSelect, SingleSelect } from "./SearchableSelect";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { mergePeople } from "@/lib/people";
 
@@ -163,35 +163,25 @@ export function BuildRequestFormModal({ onClose }: BuildRequestFormModalProps) {
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <FieldLabel label="Type">
-              <select
+              <ChoiceSelect
                 value={brType}
-                onChange={(e) => setBrType(e.target.value as BuildRequestType | "")}
-                className="select"
+                onChange={(v) => setBrType(v as BuildRequestType | "")}
+                options={BUILD_REQUEST_TYPES}
+                emptyLabel="Not set"
+                searchPlaceholder="Search types…"
                 disabled={busy}
-              >
-                <option value="">Not set</option>
-                {BUILD_REQUEST_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
+              />
             </FieldLabel>
 
             <FieldLabel label="Required Lead Time">
-              <select
+              <ChoiceSelect
                 value={leadTime}
-                onChange={(e) => setLeadTime(e.target.value as BuildRequestLeadTime | "")}
-                className="select"
+                onChange={(v) => setLeadTime(v as BuildRequestLeadTime | "")}
+                options={BUILD_REQUEST_LEAD_TIMES}
+                emptyLabel="Not set"
+                searchPlaceholder="Search lead times…"
                 disabled={busy}
-              >
-                <option value="">Not set</option>
-                {BUILD_REQUEST_LEAD_TIMES.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
+              />
             </FieldLabel>
           </div>
 
@@ -209,19 +199,14 @@ export function BuildRequestFormModal({ onClose }: BuildRequestFormModalProps) {
 
           {brType === "Sample (A-D)" && (
             <FieldLabel label="Sample Phase">
-              <select
+              <ChoiceSelect
                 value={samplePhase}
-                onChange={(e) => setSamplePhase(e.target.value as BuildRequestSamplePhase | "")}
-                className="select"
+                onChange={(v) => setSamplePhase(v as BuildRequestSamplePhase | "")}
+                options={BUILD_REQUEST_SAMPLE_PHASES}
+                emptyLabel="Not set"
+                searchPlaceholder="Search phases…"
                 disabled={busy}
-              >
-                <option value="">Not set</option>
-                {BUILD_REQUEST_SAMPLE_PHASES.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
-                ))}
-              </select>
+              />
             </FieldLabel>
           )}
 

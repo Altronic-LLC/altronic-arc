@@ -15,7 +15,7 @@ import {
   type EirRiskPart,
   type Person,
 } from "@/types/task";
-import { SingleSelect } from "./SearchableSelect";
+import { ChoiceSelect, SingleSelect } from "./SearchableSelect";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { mergePeople } from "@/lib/people";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
@@ -195,19 +195,14 @@ export function EirFormModal({ onClose }: EirFormModalProps) {
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <FieldLabel label="Request Type" required>
-              <select
+              <ChoiceSelect
                 value={requestType}
-                onChange={(e) =>
-                  setRequestType(e.target.value as (typeof EIR_REQUEST_TYPES)[number])
-                }
-                className="input"
-              >
-                {EIR_REQUEST_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => setRequestType(v as (typeof EIR_REQUEST_TYPES)[number])}
+                options={EIR_REQUEST_TYPES}
+                emptyLabel="Select a request type…"
+                searchPlaceholder="Search request types…"
+                clearable={false}
+              />
             </FieldLabel>
 
             <FieldLabel label="Reporter" required>
@@ -221,22 +216,15 @@ export function EirFormModal({ onClose }: EirFormModalProps) {
             </FieldLabel>
 
             <FieldLabel label="Requested Priority" required>
-              <select
+              <ChoiceSelect
                 value={requestedPriority}
-                onChange={(e) =>
-                  setRequestedPriority(
-                    e.target.value as (typeof EIR_REQUESTED_PRIORITIES)[number] | "",
-                  )
+                onChange={(v) =>
+                  setRequestedPriority(v as (typeof EIR_REQUESTED_PRIORITIES)[number] | "")
                 }
-                className="input"
-              >
-                <option value="">Select priority</option>
-                {EIR_REQUESTED_PRIORITIES.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
-                ))}
-              </select>
+                options={EIR_REQUESTED_PRIORITIES}
+                emptyLabel="Select priority"
+                searchPlaceholder="Search priorities…"
+              />
             </FieldLabel>
 
             <FieldLabel label="Requested Completion Date">
@@ -332,63 +320,43 @@ export function EirFormModal({ onClose }: EirFormModalProps) {
             </FieldLabel>
 
             <FieldLabel label="Buyer Code">
-              <select
+              <ChoiceSelect
                 value={buyerCode}
-                onChange={(e) => setBuyerCode(e.target.value)}
-                className="input"
-              >
-                <option value="">Select buyer code</option>
-                {EIR_BUYER_CODES.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
+                onChange={setBuyerCode}
+                options={EIR_BUYER_CODES}
+                emptyLabel="Select buyer code"
+                searchPlaceholder="Search buyer codes…"
+              />
             </FieldLabel>
 
             <FieldLabel label="Risk Part">
-              <select
+              <ChoiceSelect
                 value={riskPart}
-                onChange={(e) => setRiskPart(e.target.value)}
-                className="input"
-              >
-                <option value="">Not set</option>
-                {EIR_RISK_PARTS.map((r) => (
-                  <option key={r} value={r}>
-                    {r}
-                  </option>
-                ))}
-              </select>
+                onChange={setRiskPart}
+                options={EIR_RISK_PARTS}
+                emptyLabel="Not set"
+                searchPlaceholder="Search…"
+              />
             </FieldLabel>
 
             <FieldLabel label="Risk Part Level">
-              <select
+              <ChoiceSelect
                 value={riskPartLevel}
-                onChange={(e) => setRiskPartLevel(e.target.value)}
-                className="input"
-              >
-                <option value="">Not set</option>
-                {EIR_RISK_LEVELS.map((l) => (
-                  <option key={l} value={l}>
-                    {l}
-                  </option>
-                ))}
-              </select>
+                onChange={setRiskPartLevel}
+                options={EIR_RISK_LEVELS}
+                emptyLabel="Not set"
+                searchPlaceholder="Search levels…"
+              />
             </FieldLabel>
 
             <FieldLabel label="Technical Priority">
-              <select
+              <ChoiceSelect
                 value={technicalPriority}
-                onChange={(e) => setTechnicalPriority(e.target.value)}
-                className="input"
-              >
-                <option value="">Not set</option>
-                {EIR_RISK_LEVELS.map((l) => (
-                  <option key={l} value={l}>
-                    {l}
-                  </option>
-                ))}
-              </select>
+                onChange={setTechnicalPriority}
+                options={EIR_RISK_LEVELS}
+                emptyLabel="Not set"
+                searchPlaceholder="Search levels…"
+              />
             </FieldLabel>
 
             <FieldLabel label="Altronic Part Number" className="sm:col-span-3">

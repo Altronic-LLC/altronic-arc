@@ -2,7 +2,7 @@ import { useState } from "react";
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MultiSelect, SingleSelect, type SelectOption } from "./SearchableSelect";
+import { ChoiceSelect, MultiSelect, SingleSelect, type SelectOption } from "./SearchableSelect";
 
 const OPTIONS: SelectOption[] = [
   { value: "alice@x.com", label: "Alice" },
@@ -340,5 +340,98 @@ describe("SingleSelect", () => {
     await user.type(screen.getByPlaceholderText(/search/i), "dav");
     expect(screen.getByRole("option", { name: /Dave/ })).toBeInTheDocument();
     expect(screen.queryByRole("option", { name: /Alice/ })).not.toBeInTheDocument();
+  });
+});
+
+describe("ChoiceSelect", () => {
+  const CHOICES = ["BACKLOG", "In Progress", "On Hold", "Blocked", "Complete"] as const;
+
+  it("gives a plain choice field the same search box every other dropdown has", async () => {
+    // The reason this wrapper exists: these were native <select>s, so scanning
+    // was the only option (Ray, 2026-08-03).
+    const user = userEvent.setup();
+    render(
+      <ChoiceSelect value="" onChange={() => {}} options={CHOICES} emptyLabel="Not set" />,
+    );
+    await user.click(screen.getByRole("button", { name: /Not set/ }));
+    await user.type(screen.getByPlaceholderText(/search/i), "hold");
+
+    expect(screen.getByRole("option", { name: "On Hold" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "BACKLOG" })).not.toBeInTheDocument();
+  });
+
+  it("reports the picked value as a plain string, not null", async () => {
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <ChoiceSelect value="" onChange={onChange} options={CHOICES} emptyLabel="Not set" />,
+    );
+    await user.click(screen.getByRole("button", { name: /Not set/ }));
+    await user.click(screen.getByRole("option", { name: "Blocked" }));
+    expect(onChange).toHaveBeenCalledWith("Blocked");
+  });
+
+  it("maps a cleared field back to the empty string the caller's state uses", async () => {
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <ChoiceSelect value="Blocked" onChange={onChange} options={CHOICES} emptyLabel="Not set" />,
+    );
+    await user.click(screen.getByLabelText(/clear selection/i));
+    expect(onChange).toHaveBeenCalledWith("");
+  });
+
+  it("won't let a required field be emptied", async () => {
+    // A task's Status has to hold something — re-picking it must not blank it.
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <ChoiceSelect
+        value="Blocked"
+        onChange={onChange}
+        options={CHOICES}
+        emptyLabel="Not set"
+        clearable={false}
+      />,
+    );
+    expect(screen.queryByLabelText(/clear selection/i)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Blocked/ }));
+    await user.click(screen.getByRole("option", { name: "Blocked" }));
+    expect(onChange).toHaveBeenCalledWith("Blocked");
+    expect(onChange).not.toHaveBeenCalledWith("");
+  });
+
+  it("takes {value,label} pairs, for lookups whose label isn't the value", async () => {
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <ChoiceSelect
+        value=""
+        onChange={onChange}
+        options={[{ value: "17", label: "0042 - EZRail" }]}
+        emptyLabel="None"
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /None/ }));
+    await user.click(screen.getByRole("option", { name: "0042 - EZRail" }));
+    expect(onChange).toHaveBeenCalledWith("17");
+  });
+
+  it("can't be opened while the form is saving", async () => {
+    const user = userEvent.setup();
+    render(
+      <ChoiceSelect
+        value=""
+        onChange={() => {}}
+        options={CHOICES}
+        emptyLabel="Not set"
+        disabled
+      />,
+    );
+    const trigger = screen.getByRole("button", { name: /Not set/ });
+    expect(trigger).toBeDisabled();
+    await user.click(trigger);
+    expect(screen.queryByPlaceholderText(/search/i)).not.toBeInTheDocument();
   });
 });

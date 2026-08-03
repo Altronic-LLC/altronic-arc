@@ -28,7 +28,7 @@ import {
 import { wouldCreateCycle } from "@/lib/taskGraph";
 import { computeNumberedTitle } from "@/lib/taskNumbering";
 import { convertToChecklist } from "@/lib/descriptionChecklist";
-import { MultiSelect } from "./SearchableSelect";
+import { ChoiceSelect, MultiSelect } from "./SearchableSelect";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { mergePeople } from "@/lib/people";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
@@ -386,49 +386,36 @@ export function TaskFormModal({ mode, task, onClose }: TaskFormModalProps) {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <FieldLabel label="Status">
-                <select
+                <ChoiceSelect
                   value={status}
-                  onChange={(e) => setStatus(e.target.value as Status)}
-                  className="w-full rounded-md border border-border bg-surface px-3 py-2 text-base text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
-                >
-                  {STATUSES.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => setStatus(v as Status)}
+                  options={STATUSES}
+                  emptyLabel="Select a status…"
+                  searchPlaceholder="Search statuses…"
+                  clearable={false}
+                />
               </FieldLabel>
 
               <FieldLabel label="Priority">
-                <select
+                <ChoiceSelect
                   value={priority}
-                  onChange={(e) => setPriority(e.target.value as Priority | "")}
-                  className="w-full rounded-md border border-border bg-surface px-3 py-2 text-base text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
-                >
-                  <option value="">Not set</option>
-                  {PRIORITIES.map((p) => (
-                    <option key={p} value={p}>
-                      {p}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => setPriority(v as Priority | "")}
+                  options={PRIORITIES}
+                  emptyLabel="Not set"
+                  searchPlaceholder="Search priorities…"
+                />
               </FieldLabel>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <FieldLabel label="Category">
-                <select
+                <ChoiceSelect
                   value={category}
-                  onChange={(e) => setCategory(e.target.value as Category | "")}
-                  className="w-full rounded-md border border-border bg-surface px-3 py-2 text-base text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
-                >
-                  <option value="">Not set</option>
-                  {CATEGORIES.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => setCategory(v as Category | "")}
+                  options={CATEGORIES}
+                  emptyLabel="Not set"
+                  searchPlaceholder="Search categories…"
+                />
               </FieldLabel>
 
               <FieldLabel label="Due Date">
@@ -462,38 +449,26 @@ export function TaskFormModal({ mode, task, onClose }: TaskFormModalProps) {
             </FieldLabel>
 
             <FieldLabel label="Parent Project" required={mode === "create"}>
-              <select
+              <ChoiceSelect
                 value={parentProjectId === "" ? "" : String(parentProjectId)}
-                onChange={(e) =>
-                  setParentProjectId(e.target.value === "" ? "" : parseInt(e.target.value, 10))
-                }
-                required={mode === "create"}
-                className="w-full rounded-md border border-border bg-surface px-3 py-2 text-base text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
-              >
-                <option value="">{mode === "create" ? "Select a project…" : "None"}</option>
-                {projects.map((p) => (
-                  <option key={p.lookupId} value={p.lookupId}>
-                    {p.title}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => setParentProjectId(v === "" ? "" : parseInt(v, 10))}
+                options={projects.map((p) => ({ value: String(p.lookupId), label: p.title }))}
+                emptyLabel={mode === "create" ? "Select a project…" : "None"}
+                searchPlaceholder="Search projects…"
+              />
             </FieldLabel>
 
             <FieldLabel label="Parent Task">
-              <select
+              <ChoiceSelect
                 value={parentTaskId === "" ? "" : String(parentTaskId)}
-                onChange={(e) =>
-                  setParentTaskId(e.target.value === "" ? "" : parseInt(e.target.value, 10))
-                }
-                className="w-full rounded-md border border-border bg-surface px-3 py-2 text-base text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
-              >
-                <option value="">None</option>
-                {parentTaskCandidates.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.numberedTitle}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => setParentTaskId(v === "" ? "" : parseInt(v, 10))}
+                options={parentTaskCandidates.map((t) => ({
+                  value: String(t.id),
+                  label: t.numberedTitle,
+                }))}
+                emptyLabel="None"
+                searchPlaceholder="Search tasks…"
+              />
             </FieldLabel>
 
             <FieldLabel label="Related Projects">
