@@ -44,7 +44,10 @@ import {
   fireFieldChangeAlert,
   notifyMentions,
 } from "@/api/email";
-import { diffChecklistToggles } from "@/lib/descriptionChecklist";
+import {
+  diffChecklistToggles,
+  stampManualChecklistEdits,
+} from "@/lib/descriptionChecklist";
 import {
   commentNotifyRecipients,
   commentRenotifyRecipients,
@@ -302,13 +305,39 @@ export function useSetStatus() {
   });
 }
 
+/**
+ * Attribute a checkbox that was flipped by editing the Description text.
+ *
+ * The detail page's checkbox click records who and when; typing `- [ ]` into
+ * `- [x]` in the edit form did not, so the box moved with no name against it and
+ * any stamp already there was left contradicting the new state. This runs on the
+ * way out so the written text carries the same stamp a click would have.
+ *
+ * In the mutationFn rather than onMutate because it has to change what is SENT,
+ * not just what is shown. The optimistic patch briefly shows the user's own
+ * un-stamped text; reconcile() then lands the server's copy, stamp included.
+ */
+function stampChecklistEdits(
+  qc: QueryClient,
+  id: number,
+  fields: Record<string, unknown>,
+  editedBy?: string,
+): Record<string, unknown> {
+  if (!("Description" in fields)) return fields;
+  const prev = findTask(qc.getQueriesData<Task[]>(TASK_LIST_FILTER), id)?.description ?? "";
+  const stamped = stampManualChecklistEdits(prev, String(fields.Description ?? ""), editedBy);
+  if (stamped === fields.Description) return fields;
+  return { ...fields, Description: stamped };
+}
+
+
 export function useUpdateTaskFields() {
   const qc = useQueryClient();
   const actor = useCurrentUser();
   return useMutation({
     mutationKey: TASK_WRITE_KEY,
     mutationFn: ({ id, fields }: { id: number; fields: Record<string, unknown> }) =>
-      updateTaskFields(id, fields),
+      updateTaskFields(id, stampChecklistEdits(qc, id, fields, actor?.displayName)),
     onMutate: ({ id, fields }) =>
       snapshotAndPatch(qc, id, patchTask(id, (t) => applyFieldsLocally(t, fields))),
     onSuccess: (_data, { id, fields }, ctx) => {

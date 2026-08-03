@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.86.0",
+    date: "2026-08-03",
+    changes: [
+      "Saving a task edit now closes the form straight away instead of waiting on SharePoint \u2014 the change was already showing on the page behind it",
+      "Checking or unchecking a box by editing the description text now records your name and the time, the same as clicking the checkbox does; a timestamp left over from an earlier click no longer contradicts the box beside it",
+      "Saving a task you didn't change no longer rewrites its due date, which was a wasted write on every save and could shift the date a day",
+    ],
+  },
+  {
     version: "0.85.0",
     date: "2026-08-03",
     changes: [

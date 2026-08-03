@@ -6,6 +6,7 @@ import {
   indentChecklistLine,
   looksLikeHtml,
   parseChecklistItems,
+  stampManualChecklistEdits,
   toggleChecklistItem,
 } from "./descriptionChecklist";
 
@@ -460,5 +461,82 @@ describe("indentChecklistLine", () => {
     const inOne = indentChecklistLine(text, text.indexOf("Child"))!;
     const back = indentChecklistLine(inOne.text, inOne.selectionStart, true)!;
     expect(back.text).toBe(text);
+  });
+});
+
+describe("stampManualChecklistEdits", () => {
+  const NOW = new Date("2026-08-03T17:50:00Z");
+  const WHO = "Ray White";
+
+  it("stamps a box flipped by editing the text, as a click would", () => {
+    // The reported bug: typing - [ ] into - [x] moved the box with nobody's name
+    // against it, so the page showed a checked item and no attribution.
+    const prev = "- [ ] Fit the sensor";
+    const next = "- [x] Fit the sensor";
+    const out = stampManualChecklistEdits(prev, next, WHO, NOW);
+    expect(out).toMatch(/^- \[x\] Fit the sensor ✓\[Ray White · /);
+  });
+
+  it("uses ✗ when the edit unchecked it", () => {
+    const out = stampManualChecklistEdits("- [x] Fit", "- [ ] Fit", WHO, NOW);
+    expect(out).toMatch(/^- \[ \] Fit ✗\[Ray White · /);
+  });
+
+  it("replaces a stamp that now contradicts the box", () => {
+    // The other half of the report: an existing stamp stayed put, so the page's
+    // ✓/✗ disagreed with the checkbox next to it.
+    const prev = "- [x] Fit ✓[Alex Masgras · 8/1/2026, 9:00 AM]";
+    const next = "- [ ] Fit ✓[Alex Masgras · 8/1/2026, 9:00 AM]";
+    const out = stampManualChecklistEdits(prev, next, WHO, NOW);
+    expect(out).toContain("✗[Ray White · ");
+    expect(out).not.toContain("Alex Masgras");
+    // Exactly one stamp is left behind, not two.
+    expect(out.match(/[✓✗]\[/g)).toHaveLength(1);
+  });
+
+  it("leaves items whose state didn't change completely alone", () => {
+    // Including a hand-edited time: we can't tell it from a real one, and
+    // rewriting every stamp to tidy up a few would destroy real attribution.
+    const text =
+      "- [x] Done ✓[Alex Masgras · 8/1/2026, 5:50 PM]\n- [ ] Not done\nSome prose";
+    expect(stampManualChecklistEdits(text, text, WHO, NOW)).toBe(text);
+  });
+
+  it("keeps a sub-task's indent, and stamps only the line that flipped", () => {
+    const prev = "- [ ] Parent\n\t- [ ] Child\n\t- [ ] Sibling";
+    const next = "- [ ] Parent\n\t- [x] Child\n\t- [ ] Sibling";
+    const out = stampManualChecklistEdits(prev, next, WHO, NOW);
+    const lines = out.split("\n");
+    expect(lines[0]).toBe("- [ ] Parent");
+    expect(lines[1]).toMatch(/^\t- \[x\] Child ✓\[Ray White · /);
+    expect(lines[2]).toBe("\t- [ ] Sibling");
+  });
+
+  it("returns the text untouched with no name to attribute it to", () => {
+    // Better an unattributed box than one stamped "undefined".
+    const next = "- [x] Fit";
+    expect(stampManualChecklistEdits("- [ ] Fit", next, undefined, NOW)).toBe(next);
+    expect(stampManualChecklistEdits("- [ ] Fit", next, "   ", NOW)).toBe(next);
+  });
+
+  it("ignores a newly added item — it wasn't toggled by anyone", () => {
+    const out = stampManualChecklistEdits("- [ ] One", "- [ ] One\n- [x] Two", WHO, NOW);
+    expect(out).toBe("- [ ] One\n- [x] Two");
+  });
+
+  it("leaves a description with no checklist in it alone", () => {
+    expect(stampManualChecklistEdits("just prose", "just prose edited", WHO, NOW)).toBe(
+      "just prose edited",
+    );
+  });
+
+  it("produces a stamp the parser and the diff both still read", () => {
+    const out = stampManualChecklistEdits("- [ ] Fit", "- [x] Fit", WHO, NOW);
+    const items = parseChecklistItems(out)!;
+    expect(items).toHaveLength(1);
+    expect(items[0].checked).toBe(true);
+    // Stamp stripped from the display text, so a later diff still matches it.
+    expect(items[0].text).toBe("Fit");
+    expect(diffChecklistToggles("- [ ] Fit", out)).toEqual([{ text: "Fit", checked: true }]);
   });
 });

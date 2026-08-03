@@ -298,3 +298,74 @@ export function indentChecklistLine(
   const moved = caret + INDENT.length;
   return { text: next, selectionStart: moved, selectionEnd: moved };
 }
+
+// =============================================================================
+// Stamping a checkbox that was flipped by editing the text.
+//
+// Clicking a checkbox on the detail page goes through toggleChecklistItem, which
+// records who did it and when. Editing the Description and typing `- [ ]` into
+// `- [x]` bypasses that entirely, so the box changed with nobody's name against
+// it — and if a stamp was ALREADY there from an earlier click, it stayed,
+// contradicting the new state: the page rendered the old stamp's ✓/✗ next to a
+// box in the opposite position (Ray, 2026-08-03).
+//
+// So a manual flip gets stamped exactly like a click. Items whose state didn't
+// change are left completely alone, including any timestamp someone hand-edited:
+// we have no way to tell a hand-typed time from a real one, and rewriting the
+// lot would destroy real attribution to tidy up a few.
+// =============================================================================
+
+/**
+ * Stamp every checklist item whose checked state changed between `prevText` and
+ * `nextText`, as if each had been clicked by `editedBy` at `now`.
+ *
+ * Matches items by their stamp-stripped text, the same way
+ * `diffChecklistToggles` does, so a reworded item counts as new rather than as a
+ * flip. Returns `nextText` unchanged when nothing flipped, when there's no
+ * checklist, or when there's no name to attribute it to.
+ */
+export function stampManualChecklistEdits(
+  prevText: string,
+  nextText: string,
+  editedBy?: string,
+  now: Date = new Date(),
+): string {
+  const name = (editedBy ?? "").replace(/[[\]]/g, "").trim();
+  if (!name) return nextText;
+
+  const prev = parseChecklistItems(prevText);
+  const next = parseChecklistItems(nextText);
+  if (!prev || !next) return nextText;
+
+  // Consume previous states in order, so two items sharing text still line up.
+  const pool = new Map<string, boolean[]>();
+  for (const p of prev) {
+    const states = pool.get(p.text);
+    if (states) states.push(p.checked);
+    else pool.set(p.text, [p.checked]);
+  }
+
+  const lines = nextText.split("\n");
+  let changed = false;
+
+  for (const n of next) {
+    const states = pool.get(n.text);
+    if (!states || states.length === 0) continue; // new item, not a flip
+    const wasChecked = states.shift()!;
+    if (wasChecked === n.checked) continue;
+
+    const line = lines[n.lineIndex];
+    const m = line === undefined ? null : CHECKLIST_LINE_RE.exec(line);
+    if (!m) continue;
+    const [, indent, mark, gap, rawBody] = m;
+    const body = rawBody.replace(STAMP_RE, "").trimEnd();
+    // The glyph follows the NEW state: ✓ checked by, ✗ unchecked by. Note this
+    // is the opposite sense to toggleChecklistItem, which is handed the state
+    // BEFORE the flip.
+    const stamp = ` ${n.checked ? "✓" : "✗"}[${name} · ${formatStampDate(now)}]`;
+    lines[n.lineIndex] = `${indent}- [${mark}]${gap}${body}${stamp}`;
+    changed = true;
+  }
+
+  return changed ? lines.join("\n") : nextText;
+}

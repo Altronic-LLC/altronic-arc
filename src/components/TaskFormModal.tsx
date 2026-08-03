@@ -237,9 +237,16 @@ export function TaskFormModal({ mode, task, onClose }: TaskFormModalProps) {
       if (status !== task.status) baseFields.Status = status;
       if ((priority || null) !== task.priority) baseFields.Priority = priority || null;
       if ((category || null) !== task.category) baseFields.Category = category || null;
-      const newDue = dueDate ? new Date(dueDate).toISOString() : null;
-      const oldDue = task.dueDate ? task.dueDate.toISOString() : null;
-      if (newDue !== oldDue) baseFields.DueDate = newDue;
+      // Compare DATE TO DATE. The input holds "YYYY-MM-DD" while the task holds a
+      // full timestamp, so comparing the ISO strings said "changed" on every open
+      // whenever the stored time wasn't exactly midnight UTC — a pointless write
+      // on every save, and one that would drag the date backwards a day for a US
+      // timezone (the same midnight-UTC trap the SharePoint date helpers exist
+      // for). The written value is unchanged; only the equality test is fixed.
+      const oldDueDay = task.dueDate ? task.dueDate.toISOString().slice(0, 10) : "";
+      if (dueDate !== oldDueDay) {
+        baseFields.DueDate = dueDate ? new Date(dueDate).toISOString() : null;
+      }
       const labelsSame =
         labels.length === task.labels.length &&
         labels.every((l) => task.labels.includes(l));
@@ -316,11 +323,18 @@ export function TaskFormModal({ mode, task, onClose }: TaskFormModalProps) {
         writes.push(setWatchers.mutateAsync({ id: task.id, people: watchers }));
       }
 
-      const results = await Promise.allSettled(writes);
-      const failure = results.find((r) => r.status === "rejected");
-      if (failure) throw (failure as PromiseRejectedResult).reason;
-
+      // Close NOW rather than waiting for SharePoint. Every write above is
+      // already applied optimistically, so the task behind the modal is showing
+      // the new values — holding the modal open on a spinner only hid a page that
+      // was already correct (Ray, 2026-08-03).
+      //
+      // Safe to stop awaiting: a failed write rolls its own field back and raises
+      // an error toast from the hook, and main.tsx's mutation-error handler emails
+      // the user a copy of what they entered. React Query mutations run to
+      // completion after the component unmounts, so nothing is cancelled.
       onClose();
+      void Promise.allSettled(writes);
+      return;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save task.");
     } finally {
