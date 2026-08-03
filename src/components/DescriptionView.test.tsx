@@ -114,3 +114,92 @@ describe("DescriptionView — checklist rendering", () => {
     expect(label?.className).toContain("text-black");
   });
 });
+
+describe("DescriptionView — sub-tasks (indented checklist lines)", () => {
+  const NESTED = "- [ ] Fit the sensor\n\t- [x] Order the bracket\n\t- [ ] Update the drawing";
+
+  it("renders an indented line as its own checkbox, indented under the parent", () => {
+    const { container } = render(<DescriptionView text={NESTED} />);
+    const labels = Array.from(container.querySelectorAll("label"));
+    expect(labels).toHaveLength(3);
+    // The parent sits flush; both sub-tasks are stepped in.
+    expect(labels[0].className).not.toContain("pl-6");
+    expect(labels[1].className).toContain("pl-6");
+    expect(labels[2].className).toContain("pl-6");
+    expect(screen.getByText("Order the bracket")).toBeInTheDocument();
+  });
+
+  it("indents with a leading-space indent as well as a tab", () => {
+    const { container } = render(<DescriptionView text={"- [ ] parent\n  - [ ] child"} />);
+    const labels = Array.from(container.querySelectorAll("label"));
+    expect(labels[1].className).toContain("pl-6");
+  });
+
+  it("does not show the raw indent characters as part of the item text", () => {
+    render(<DescriptionView text={"- [ ] parent\n\t- [ ] child"} />);
+    // The text node is the item text alone — the tab lives in the stored
+    // string, not in what the user reads.
+    expect(screen.getByText("child").textContent).toBe("child");
+  });
+
+  it("shows a sub-task count on the parent, and none on a childless item", () => {
+    render(<DescriptionView text={NESTED} />);
+    const count = screen.getByText("1/2");
+    expect(count).toBeInTheDocument();
+    expect(count).toHaveAttribute("title", "1 of 2 sub-tasks done");
+  });
+
+  it("counts every sub-task done once they all are (without ticking the parent)", () => {
+    render(<DescriptionView text={"- [ ] parent\n\t- [x] a\n\t- [x] b"} />);
+    expect(screen.getByText("2/2")).toBeInTheDocument();
+    // The parent's own box stays unchecked — nothing auto-ticks it.
+    expect(screen.getAllByRole("checkbox")[0]).not.toBeChecked();
+  });
+
+  it("shows no count when an item has no sub-tasks", () => {
+    render(<DescriptionView text={"- [ ] alone\n- [ ] also alone"} />);
+    expect(screen.queryByText(/^\d+\/\d+$/)).not.toBeInTheDocument();
+  });
+
+  it("ticking a sub-task reports only that line, leaving the parent's box alone", async () => {
+    const user = userEvent.setup();
+    const onToggle = vi.fn();
+    render(<DescriptionView text={NESTED} onToggle={onToggle} />);
+    const boxes = screen.getAllByRole("checkbox");
+    await user.click(boxes[2]);
+
+    expect(onToggle).toHaveBeenCalledTimes(1);
+    expect(onToggle).toHaveBeenCalledWith(2);
+    // The parent box is untouched in the DOM too.
+    expect(boxes[0]).not.toBeChecked();
+  });
+
+  it("ticking the parent reports only the parent's line", async () => {
+    const user = userEvent.setup();
+    const onToggle = vi.fn();
+    render(<DescriptionView text={"- [ ] parent\n\t- [ ] child"} onToggle={onToggle} />);
+    await user.click(screen.getAllByRole("checkbox")[0]);
+    expect(onToggle).toHaveBeenCalledTimes(1);
+    expect(onToggle).toHaveBeenCalledWith(0);
+  });
+
+  it("unchecking a sub-task still asks for confirmation first", async () => {
+    const user = userEvent.setup();
+    const onToggle = vi.fn();
+    render(<DescriptionView text={NESTED} onToggle={onToggle} />);
+    await user.click(screen.getAllByRole("checkbox")[1]);
+    expect(onToggle).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: /^yes$/i }));
+    expect(onToggle).toHaveBeenCalledWith(1);
+  });
+
+  it("shows a sub-task's own stamp, and counts it on the parent", () => {
+    render(
+      <DescriptionView
+        text={"- [ ] parent\n\t- [x] child ✓[Ray White · 7/17/2026, 10:15 AM]"}
+      />,
+    );
+    expect(screen.getByText(/✓ Ray White · 7\/17\/2026, 10:15 AM/)).toBeInTheDocument();
+    expect(screen.getByText("1/1")).toBeInTheDocument();
+  });
+});

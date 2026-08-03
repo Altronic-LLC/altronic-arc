@@ -1,7 +1,11 @@
 import { AtSign, Paperclip, Send, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CommentAttachment, Person } from "@/types/task";
-import { buildCommentHtml } from "@/lib/mentions";
+import {
+  buildCommentHtml,
+  rankMentionCandidates,
+  type MentionCandidates,
+} from "@/lib/mentions";
 import { cn } from "@/lib/cn";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
 
@@ -44,6 +48,9 @@ interface CommentComposerProps {
 interface PendingAttachment extends CommentAttachment {
   file: File;
 }
+
+/** Stable empty result so the closed picker doesn't churn the memo. */
+const NO_CANDIDATES: MentionCandidates = { people: [], total: 0, truncated: false };
 
 export function CommentComposer({
   onSubmit,
@@ -98,24 +105,35 @@ export function CommentComposer({
   }
 
   // People filtered by the user's query after the @ — first-letter and
-  // substring matches both count, scored slightly higher for prefix.
-  const candidates = useMemo(() => {
-    const q = pickerQuery.trim().toLowerCase();
-    if (!pickerOpen) return [];
-    const matches = mentionablePeople
-      .filter((p) => p.displayName.toLowerCase().includes(q))
-      .sort((a, b) => {
-        const ap = a.displayName.toLowerCase().startsWith(q) ? 0 : 1;
-        const bp = b.displayName.toLowerCase().startsWith(q) ? 0 : 1;
-        return ap - bp || a.displayName.localeCompare(b.displayName);
-      });
-    return matches.slice(0, 6);
-  }, [mentionablePeople, pickerQuery, pickerOpen]);
+  // substring matches both count, scored slightly higher for prefix. The
+  // ranking + cap live in `rankMentionCandidates` so the cap is one shared
+  // number and `total` comes back with the list: several people share a common
+  // first name at Altronic, and every match has to stay reachable by scrolling
+  // rather than being chopped off the end of a short list.
+  const {
+    people: candidates,
+    total: candidateTotal,
+    truncated: candidatesTruncated,
+  } = useMemo(
+    () =>
+      pickerOpen ? rankMentionCandidates(mentionablePeople, pickerQuery) : NO_CANDIDATES,
+    [mentionablePeople, pickerQuery, pickerOpen],
+  );
 
   // Keep activeIndex in range when candidates change.
   useEffect(() => {
     if (activeIndex >= candidates.length) setActiveIndex(0);
   }, [candidates.length, activeIndex]);
+
+  // Keep the keyboard-highlighted option inside the scroll area. Without this,
+  // arrowing past the ~8 visible rows moves an invisible highlight. `nearest`
+  // scrolls the minimum needed, so it doesn't jump when the row is already in
+  // view. Optional-called because jsdom (tests) doesn't implement it.
+  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  useEffect(() => {
+    if (!pickerOpen) return;
+    optionRefs.current[activeIndex]?.scrollIntoView?.({ block: "nearest" });
+  }, [activeIndex, pickerOpen, candidates.length]);
 
   /**
    * Inspect the text up to the caret and decide whether the user is
@@ -320,11 +338,22 @@ export function CommentComposer({
       />
 
       {pickerOpen && candidates.length > 0 && (
-        <div className="absolute left-3 right-3 top-full z-20 mt-1 max-h-56 overflow-y-auto rounded-lg border border-border bg-surface p-1 shadow-lg sm:max-w-xs">
+        // max-h-72 fits ~8 rows and clips the ninth, so a long list visibly
+        // continues past the bottom edge instead of looking complete.
+        <div
+          role="listbox"
+          aria-label="Mention someone"
+          className="absolute left-3 right-3 top-full z-20 mt-1 max-h-72 overflow-y-auto rounded-lg border border-border bg-surface p-1 shadow-lg sm:max-w-xs"
+        >
           {candidates.map((p, idx) => (
             <button
               key={p.email ?? p.displayName}
+              ref={(el) => {
+                optionRefs.current[idx] = el;
+              }}
               type="button"
+              role="option"
+              aria-selected={idx === activeIndex}
               onMouseDown={(e) => {
                 // Use mousedown not click so the textarea doesn't lose focus
                 // before we read selection state.
@@ -344,6 +373,14 @@ export function CommentComposer({
               )}
             </button>
           ))}
+          {candidatesTruncated && (
+            // Never cut the list silently — a truncated popup otherwise reads
+            // as "that's everyone" when the person you want is just past it.
+            <div className="mt-1 border-t border-border px-2 py-1.5 text-[11px] text-fg-muted">
+              Showing {candidates.length} of {candidateTotal} matches — keep typing to
+              narrow.
+            </div>
+          )}
         </div>
       )}
 

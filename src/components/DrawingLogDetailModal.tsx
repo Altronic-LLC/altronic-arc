@@ -20,6 +20,7 @@ import {
   draftToInput,
   suggestionsFor,
 } from "./DrawingLogFields";
+import { useOverlayDismiss } from "./useOverlayDismiss";
 
 interface DrawingLogDetailModalProps {
   entry: DrawingLogEntry;
@@ -114,10 +115,14 @@ export function DrawingLogDetailModal({ entry, isAdmin, onClose }: DrawingLogDet
     }
   }
 
+  // Dismiss on a genuine backdrop click only — never when a text-selection
+  // drag merely happens to end out here (see useOverlayDismiss).
+  const overlayDismiss = useOverlayDismiss(onClose, busy);
+
   return (
     <div
       className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4"
-      onClick={() => !busy && onClose()}
+      {...overlayDismiss}
     >
       {/*
         Capped to the viewport with the CONTENT scrolling inside, not the whole

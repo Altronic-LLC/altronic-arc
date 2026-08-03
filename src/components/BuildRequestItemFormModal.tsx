@@ -10,6 +10,7 @@ import {
 } from "@/types/task";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
 import { ChoiceSelect } from "./SearchableSelect";
+import { useOverlayDismiss } from "./useOverlayDismiss";
 
 interface BuildRequestItemFormModalProps {
   buildRequest: BuildRequest;
@@ -91,10 +92,14 @@ export function BuildRequestItemFormModal({ buildRequest, onClose }: BuildReques
     }
   }
 
+  // Dismiss on a genuine backdrop click only — never when a text-selection
+  // drag merely happens to end out here (see useOverlayDismiss).
+  const overlayDismiss = useOverlayDismiss(onClose, busy);
+
   return (
     <div
       className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-black/40 p-4 sm:items-center"
-      onClick={() => !busy && onClose()}
+      {...overlayDismiss}
     >
       <div
         onClick={(e) => e.stopPropagation()}

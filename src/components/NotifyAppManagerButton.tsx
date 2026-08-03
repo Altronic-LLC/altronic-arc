@@ -11,6 +11,7 @@ import {
 } from "@/lib/errorBuffer";
 import { pushToast } from "@/components/Toast";
 import { APP_MANAGER_EMAIL } from "@/api/config";
+import { useOverlayDismiss } from "./useOverlayDismiss";
 
 // =============================================================================
 // "Notify app manager" button + modal. Lives in the Header so it's reachable
@@ -133,18 +134,29 @@ function NotifyAppManagerModal({ onClose }: { onClose: () => void }) {
     }
   }
 
+  // Dismiss on a genuine backdrop click only — never when a text-selection
+  // drag merely happens to end out here (see useOverlayDismiss). Losing a
+  // half-typed bug report to a backwards highlight is exactly the kind of
+  // thing people then can't be bothered to report twice.
+  const overlayDismiss = useOverlayDismiss(onClose, sending);
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      onClick={onClose}
+      {...overlayDismiss}
     >
+      {/*
+        Capped to the viewport with the BODY scrolling inside, not the whole
+        dialog: the description box grows with what you type, and without this
+        a long report pushed the Send button off the bottom of the screen.
+      */}
       <div
         role="dialog"
         aria-labelledby="notify-title"
-        className="w-full max-w-lg rounded-lg border border-border bg-surface shadow-xl"
+        className="flex max-h-[calc(100vh-2rem)] w-full max-w-lg flex-col rounded-lg border border-border bg-surface shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-5 py-4">
           <div>
             <h2 id="notify-title" className="text-base font-semibold text-fg">
               Report an issue
@@ -165,11 +177,14 @@ function NotifyAppManagerModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        <div className="space-y-3 px-5 py-4">
+        <div className="scroll-elegant flex-1 space-y-3 overflow-y-auto px-5 py-4">
           <label className="block">
             <span className="text-xs font-medium text-fg-muted">
               What were you trying to do?
             </span>
+            {/* Grows with the description — people writing out what they did
+                shouldn't be typing into a three-line letterbox. `resize-y` is
+                deliberately absent: the height is managed. */}
             <AutoGrowTextarea
               autoFocus
               style={{ minHeight: "8rem" }}
@@ -177,7 +192,7 @@ function NotifyAppManagerModal({ onClose }: { onClose: () => void }) {
               onChange={(e) => setDescription(e.target.value)}
               rows={5}
               placeholder="e.g. I tried to drag a card to In Progress on the Kanban and the page reloaded."
-              className="mt-1 block w-full resize-y rounded-md border border-border bg-surface px-3 py-2 text-sm text-fg outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+              className="mt-1 block w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-fg outline-none focus:border-accent focus:ring-1 focus:ring-accent"
             />
           </label>
 
@@ -198,9 +213,13 @@ function NotifyAppManagerModal({ onClose }: { onClose: () => void }) {
               </button>
             </div>
             {showCaptured && captured.length > 0 && (
+              // Messages wrap instead of being clipped: the useful half of a
+              // console error is usually past the width of this box, and the
+              // person reading the preview is deciding whether it's the error
+              // they just hit.
               <ul className="mt-2 max-h-40 space-y-1 overflow-auto rounded bg-bg p-2 font-mono text-[11px] leading-snug text-fg">
                 {captured.map((e, i) => (
-                  <li key={i} className="truncate" title={e.message}>
+                  <li key={i} className="whitespace-pre-wrap break-words" title={e.message}>
                     <span
                       className={cn(
                         "mr-1 font-semibold uppercase",
@@ -238,7 +257,7 @@ function NotifyAppManagerModal({ onClose }: { onClose: () => void }) {
           </p>
         </div>
 
-        <div className="flex items-center justify-end gap-2 border-t border-border bg-surface-2 px-5 py-3">
+        <div className="flex shrink-0 items-center justify-end gap-2 border-t border-border bg-surface-2 px-5 py-3">
           <button
             type="button"
             onClick={onClose}
@@ -262,24 +281,47 @@ function NotifyAppManagerModal({ onClose }: { onClose: () => void }) {
 }
 
 /**
- * Open a mailto: draft pre-filled with the description + captured errors.
- * Used as the fallback when there's no signed-in user (so Graph sendMail
- * isn't reachable). The user composes from their own mailbox, which is
- * actually a nice side effect — the maintainer knows exactly who reported
- * what.
- *
- * mailto URLs have a practical length limit (~2000 chars on most clients).
- * We cap the captured-error section so we don't blow it up; if there's a
- * lot of noise, we truncate with a note.
+ * Format one captured console entry for a plain-text report. Whole — message
+ * and stack — because a half-quoted error is a maintainer asking the reporter
+ * to try again with DevTools open.
  */
-function openMailtoDraft(input: {
+export function formatCapturedEntry(e: CapturedError): string {
+  const head = `[${e.level.toUpperCase()}] ${e.at.toISOString()} ${e.message}`;
+  const source = e.source ? `\n    at ${e.source}` : "";
+  const stack = e.stack ? `\n${indent(e.stack)}` : "";
+  return `${head}${source}${stack}`;
+}
+
+function indent(s: string): string {
+  return s
+    .split("\n")
+    .map((l) => `    ${l}`)
+    .join("\n");
+}
+
+/**
+ * Practical ceiling for what we put in a mailto: URL. Windows caps the whole
+ * shell command around 2,000 chars and other clients aren't much more
+ * generous, so past this the mail client itself starts silently chopping the
+ * body — the failure mode we're trying to avoid. Newest entries are kept
+ * (they're the ones next to the failure), whole, and anything left out is
+ * stated in the body AND dumped to the console rather than vanishing.
+ */
+const MAILTO_MAX_CAPTURED_CHARS = 6000;
+
+/**
+ * Build the plain-text report body for the mailto: fallback.
+ *
+ * Every captured entry that fits goes in whole. Exported for tests: the
+ * "don't drop console entries" rule is the point of this function, so it's
+ * asserted directly rather than through an encoded URL.
+ */
+export function buildMailtoBody(input: {
   description: string;
   captured: CapturedError[];
   pageUrl: string;
   userAgent: string;
-}): void {
-  const subject = "[ARC] Issue report";
-
+}): string {
   const lines: string[] = [];
   lines.push("Description:");
   lines.push(input.description || "(no description provided)");
@@ -290,24 +332,71 @@ function openMailtoDraft(input: {
 
   if (input.captured.length === 0) {
     lines.push("No console errors were captured during this session.");
-  } else {
-    lines.push(`Captured console output (${input.captured.length}):`);
-    let totalChars = 0;
-    const MAX_CHARS = 1500;
-    for (const e of input.captured) {
-      const chunk = `[${e.level.toUpperCase()}] ${e.at.toISOString()} ${e.message}`;
-      if (totalChars + chunk.length > MAX_CHARS) {
-        lines.push(
-          `… (${input.captured.length - lines.length} more entries truncated; open DevTools to see all)`,
-        );
-        break;
-      }
-      lines.push(chunk);
-      totalChars += chunk.length;
-    }
+    return lines.join("\n");
   }
 
-  const body = lines.join("\n");
+  // Newest first, so what the mail client shows first is what happened last.
+  const newestFirst = input.captured.slice().reverse();
+  const included: string[] = [];
+  let chars = 0;
+  for (const e of newestFirst) {
+    const chunk = formatCapturedEntry(e);
+    if (included.length > 0 && chars + chunk.length > MAILTO_MAX_CAPTURED_CHARS) break;
+    included.push(chunk);
+    chars += chunk.length;
+  }
+
+  const omitted = input.captured.length - included.length;
+  lines.push(
+    omitted > 0
+      ? `Captured console output — newest first, ${included.length} of ${input.captured.length} below:`
+      : `Captured console output (${input.captured.length}), newest first:`,
+  );
+  lines.push(...included);
+  if (omitted > 0) {
+    lines.push("");
+    lines.push(
+      `NOTE: ${omitted} older ${omitted === 1 ? "entry" : "entries"} would push this ` +
+        `draft past what an email client can carry in a mailto link, so ${omitted === 1 ? "it is" : "they are"} ` +
+        `not pasted above. The full list was printed to the browser console — press F12, ` +
+        `open Console, and copy the "[notifyAppManager] full captured console output" entry.`,
+    );
+  }
+  return lines.join("\n");
+}
+
+/**
+ * Open a mailto: draft pre-filled with the description + captured errors.
+ * Used as the fallback when there's no signed-in user (so Graph sendMail
+ * isn't reachable), or when Graph sendMail failed. The user composes from
+ * their own mailbox, which is actually a nice side effect — the maintainer
+ * knows exactly who reported what.
+ *
+ * The Graph path (src/api/errorReport.ts) sends every captured entry with its
+ * stack. This path can't always: mailto URLs have a hard practical length
+ * limit. So we fit as many whole entries as we safely can, say in the body
+ * exactly how many were left out, and log the complete set to the console so
+ * it's still recoverable.
+ */
+function openMailtoDraft(input: {
+  description: string;
+  captured: CapturedError[];
+  pageUrl: string;
+  userAgent: string;
+}): void {
+  const subject = "[ARC] Issue report";
+  const body = buildMailtoBody(input);
+
+  if (input.captured.length > 0) {
+    // Always dump the lot before the buffer is cleared — this is the copy
+    // that is guaranteed complete.
+    // eslint-disable-next-line no-console
+    console.info(
+      "[notifyAppManager] full captured console output:\n" +
+        input.captured.map(formatCapturedEntry).join("\n"),
+    );
+  }
+
   const href = `mailto:${APP_MANAGER_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   if (typeof window !== "undefined") {
     window.location.href = href;

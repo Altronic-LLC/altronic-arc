@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import {
   DndContext,
   DragOverlay,
@@ -15,7 +15,7 @@ import {
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { Plus } from "lucide-react";
 import { useProjects, useSetStatus, useTasks } from "@/hooks/useTasks";
-import { useFilters } from "@/hooks/useFilters";
+import { filterSearch, useFilters } from "@/hooks/useFilters";
 import { useKanbanAvailable } from "@/hooks/useIsPhone";
 import { STATUSES, type Status, type Task } from "@/types/task";
 import { FilterBar } from "@/components/FilterBar";
@@ -30,6 +30,7 @@ import { cn } from "@/lib/cn";
 
 export function KanbanView() {
   const navigate = useNavigate();
+  const { search } = useLocation();
   const { data: tasks = [], isLoading } = useTasks();
   const { data: projects = [] } = useProjects();
   const [filters, setFilters] = useFilters();
@@ -104,9 +105,10 @@ export function KanbanView() {
     }
   }
 
-  // Phones / small tablets: Kanban isn't offered — send them to the List.
+  // Phones / small tablets: Kanban isn't offered — send them to the List,
+  // carrying the filters so the bounce doesn't reset them.
   if (!kanbanAvailable) {
-    return <Navigate to="/list" replace />;
+    return <Navigate to={`/list${filterSearch(search)}`} replace />;
   }
 
   if (isLoading) {

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import {
   DndContext,
   DragOverlay,
@@ -19,7 +19,7 @@ import {
   useOperationsTasks,
   useUpdateOperationsTaskFields,
 } from "@/hooks/useOperationsTasks";
-import { useFilters } from "@/hooks/useFilters";
+import { filterSearch, useFilters } from "@/hooks/useFilters";
 import { useKanbanAvailable } from "@/hooks/useIsPhone";
 import { OPERATIONS_STATUSES, type OperationsStatus, type OperationsTask } from "@/types/task";
 import { FilterBar } from "@/components/FilterBar";
@@ -34,6 +34,7 @@ import { cn } from "@/lib/cn";
 
 export function OperationsKanbanView() {
   const navigate = useNavigate();
+  const { search } = useLocation();
   const { data: tasks = [], isLoading } = useOperationsTasks();
   const { data: projects = [] } = useOperationsProjects();
   const [filters, setFilters] = useFilters();
@@ -100,8 +101,10 @@ export function OperationsKanbanView() {
     }
   }
 
+  // Phones / small tablets bounce to the List — carrying the filters, so the
+  // redirect doesn't reset them (mirrors KanbanView).
   if (!kanbanAvailable) {
-    return <Navigate to="/operations/tasks" replace />;
+    return <Navigate to={`/operations/tasks${filterSearch(search)}`} replace />;
   }
 
   if (isLoading) {

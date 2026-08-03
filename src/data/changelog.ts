@@ -20,6 +20,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.84.0",
+    date: "2026-08-03",
+    changes: [
+      "Selecting text in a form no longer closes the window and loses what you typed \u2014 dragging past the edge of a dialog to highlight (backwards or forwards) used to be read as clicking outside it",
+      "Indent a checklist line with Tab to make it a sub-task of the item above it; Shift+Tab outdents, and the parent shows how many of its sub-tasks are done",
+      "Filters now survive switching between List and Kanban, in both directions and for Operations tasks too \u2014 the Assigned filter no longer snaps back to just your own tasks",
+      "The @-mention list reaches everyone who matches instead of stopping at six, scrolls with the arrow keys, and says when there are more matches to narrow down; the comment edit box got the same fix",
+      "Task edits show up immediately and the save no longer waits on one round-trip per changed field; a failed write rolls back and tells you",
+      "Single-select dropdowns no longer show checkboxes, which promised you could tick several",
+      "The Report Issue description box grows as you type, and its window scrolls instead of pushing Send off-screen",
+      "Report Issue now sends every captured console error rather than trimming the list, and shows them in full instead of cut off",
+    ],
+  },
+  {
     version: "0.83.0",
     date: "2026-08-03",
     changes: [

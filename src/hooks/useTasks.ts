@@ -1,4 +1,10 @@
-import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  type QueryClient,
+  type QueryKey,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import {
   addComment,
   createProject,
@@ -108,40 +114,118 @@ export function useProjects() {
 // =============================================================================
 // Optimistic update + toast/undo infrastructure
 //
-// Every mutation:
-//   1. onMutate snapshots the cache, applies the optimistic change, and
-//      stashes both the full previous list and the specific task that was
-//      mutated. Stashing the snapshot is what lets undo work.
+// SharePoint-via-Graph writes take a second or more, so no edit waits on the
+// round-trip: the change is on screen before the request leaves. Every
+// mutation:
+//   1. onMutate cancels any in-flight list fetch, snapshots EVERY cached
+//      tasks-list query, applies the optimistic change to all of them, and
+//      stashes the snapshots plus the specific task that was mutated.
+//      Stashing the snapshots is what lets both undo and rollback work.
 //   2. onSuccess pushes a toast confirming the change. Where the inverse
 //      operation is well-defined, the toast carries an Undo button that
-//      (a) restores the snapshot to the cache and (b) fires the inverse
+//      (a) restores the snapshots to the cache and (b) fires the inverse
 //      API call so SharePoint catches up.
-//   3. onError rolls back to the snapshot and surfaces an error toast.
-//   4. onSettled invalidates so the next list refetch reconciles with the
-//      true server state.
+//   3. onError rolls back to the snapshots — byte-for-byte what was there
+//      before — and surfaces an error toast. (main.tsx's MutationCache
+//      onError has already run by then and emailed the user a recovery copy
+//      of the lost input.)
+//   4. onSettled reconciles with the Task the write returned, so the server's
+//      own version replaces the optimistic guess without waiting for a list
+//      download, then invalidates so the next refetch confirms it. Both steps
+//      wait for sibling writes to finish — see settleTasks.
 // =============================================================================
 
-type TaskCtx = { previous?: Task[]; prevTask?: Task };
+/** One cached tasks-list query as it was before an optimistic patch. */
+type TaskListSnapshot = [QueryKey, Task[] | undefined];
+
+type TaskCtx = { snapshots?: TaskListSnapshot[]; prevTask?: Task };
+
+/**
+ * Matches EVERY cached tasks-list query — the key is treated as a prefix, so
+ * a future `["tasks", "list", <scope>]` variant is patched too. Using the
+ * exact key would leave whichever list is actually on screen unpatched, and
+ * the edit would appear to do nothing until the refetch landed.
+ */
+const TASK_LIST_FILTER = { queryKey: TASK_LIST_KEY } as const;
+
+/**
+ * Shared mutation key carried by every task write, so a write can ask — in
+ * its own onSettled — whether it is the last one still in flight. See
+ * `settleTasks`.
+ */
+const TASK_WRITE_KEY = ["tasks", "write"] as const;
 
 async function snapshotAndPatch(
   qc: QueryClient,
   prevTaskId: number | null,
   patch: (tasks: Task[]) => Task[],
 ): Promise<TaskCtx> {
-  await qc.cancelQueries({ queryKey: TASK_LIST_KEY });
-  const previous = qc.getQueryData<Task[]>(TASK_LIST_KEY);
-  const prevTask =
-    prevTaskId != null ? previous?.find((t) => t.id === prevTaskId) : undefined;
-  qc.setQueryData<Task[]>(TASK_LIST_KEY, (old) => (old ? patch(old) : []));
-  return { previous, prevTask };
+  // Cancel FIRST. A list refetch already in flight (DetailView polls every
+  // 20s, and every write invalidates when it settles) would otherwise resolve
+  // with pre-write data *after* the patch below and silently wipe it off the
+  // screen — the classic optimistic-update-eaten-by-a-refetch bug.
+  await qc.cancelQueries(TASK_LIST_FILTER);
+  const snapshots = qc.getQueriesData<Task[]>(TASK_LIST_FILTER);
+  const prevTask = prevTaskId != null ? findTask(snapshots, prevTaskId) : undefined;
+  // Queries with no data yet are left alone: writing `[]` into one would
+  // render "no tasks", and the rollback below would have nothing to restore
+  // over it — the cache would NOT return to exactly what it was.
+  qc.setQueriesData<Task[]>(TASK_LIST_FILTER, (old) => (old ? patch(old) : old));
+  return { snapshots, prevTask };
+}
+
+function findTask(snapshots: TaskListSnapshot[], id: number): Task | undefined {
+  for (const [, tasks] of snapshots) {
+    const hit = tasks?.find((t) => t.id === id);
+    if (hit) return hit;
+  }
+  return undefined;
+}
+
+/** Put every tasks-list query back to exactly the data it held pre-patch. */
+function restore(qc: QueryClient, snapshots: TaskListSnapshot[] | undefined) {
+  for (const [key, tasks] of snapshots ?? []) {
+    if (tasks !== undefined) qc.setQueryData(key, tasks);
+  }
 }
 
 function rollback(qc: QueryClient, ctx: TaskCtx | undefined) {
-  if (ctx?.previous) qc.setQueryData(TASK_LIST_KEY, ctx.previous);
+  restore(qc, ctx?.snapshots);
 }
 
 function invalidateTasks(qc: QueryClient) {
-  qc.invalidateQueries({ queryKey: TASK_LIST_KEY });
+  qc.invalidateQueries(TASK_LIST_FILTER);
+}
+
+/**
+ * Every task write returns the row as SharePoint now holds it
+ * (`updateTaskFields` re-reads it after the PATCH). Land that canonical Task
+ * in the cache as soon as the write resolves so the server's version replaces
+ * the optimistic guess immediately, instead of the guess sitting there until a
+ * full list download comes back.
+ */
+function reconcile(qc: QueryClient, server: Task | undefined) {
+  if (!server) return;
+  qc.setQueriesData<Task[]>(TASK_LIST_FILTER, (old) =>
+    old?.map((t) => (t.id === server.id ? server : t)),
+  );
+}
+
+/**
+ * onSettled for a task write: reconcile with the server's copy, then
+ * invalidate so the next refetch confirms it and picks up anything else the
+ * write moved (sibling NumberedTitle counts, parent/child rollups).
+ *
+ * Both are SKIPPED while a sibling task write is still in flight. A server row
+ * fetched before that write was sent doesn't contain it, so pasting it in mid-
+ * burst makes the pending edit visibly bounce back and then re-apply; a
+ * refetch mid-burst does the same. The last write to settle does both, so the
+ * server still gets the final say.
+ */
+function settleTasks(qc: QueryClient, server?: Task) {
+  if (qc.isMutating({ mutationKey: TASK_WRITE_KEY }) > 1) return;
+  reconcile(qc, server);
+  invalidateTasks(qc);
 }
 
 function patchTask(id: number, transform: (t: Task) => Task) {
@@ -156,12 +240,12 @@ function patchTask(id: number, transform: (t: Task) => Task) {
  */
 function buildUndo(
   qc: QueryClient,
-  snapshot: Task[] | undefined,
+  snapshots: TaskListSnapshot[] | undefined,
   serverRevert: () => Promise<unknown>,
 ): (() => void) | undefined {
-  if (!snapshot) return undefined;
+  if (!snapshots?.some(([, tasks]) => tasks !== undefined)) return undefined;
   return () => {
-    qc.setQueryData<Task[]>(TASK_LIST_KEY, snapshot);
+    restore(qc, snapshots);
     serverRevert().catch((err) => {
       console.error("Undo failed:", err);
       pushToast({
@@ -185,6 +269,7 @@ export function useSetStatus() {
   const qc = useQueryClient();
   const actor = useCurrentUser();
   return useMutation({
+    mutationKey: TASK_WRITE_KEY,
     mutationFn: ({ id, status }: { id: number; status: Status }) => setTaskStatus(id, status),
     onMutate: ({ id, status }) =>
       snapshotAndPatch(qc, id, patchTask(id, (t) => ({ ...t, status, modifiedAt: new Date() }))),
@@ -194,7 +279,7 @@ export function useSetStatus() {
         message: `Status changed to "${status}"`,
         undo:
           prev && prev !== status
-            ? buildUndo(qc, ctx?.previous, () => setTaskStatus(id, prev))
+            ? buildUndo(qc, ctx?.snapshots, () => setTaskStatus(id, prev))
             : undefined,
       });
       if (ctx?.prevTask && prev) {
@@ -213,7 +298,7 @@ export function useSetStatus() {
       rollback(qc, ctx);
       errorToast("Couldn't change status — change reverted.");
     },
-    onSettled: () => invalidateTasks(qc),
+    onSettled: (server) => settleTasks(qc, server),
   });
 }
 
@@ -221,6 +306,7 @@ export function useUpdateTaskFields() {
   const qc = useQueryClient();
   const actor = useCurrentUser();
   return useMutation({
+    mutationKey: TASK_WRITE_KEY,
     mutationFn: ({ id, fields }: { id: number; fields: Record<string, unknown> }) =>
       updateTaskFields(id, fields),
     onMutate: ({ id, fields }) =>
@@ -231,7 +317,7 @@ export function useUpdateTaskFields() {
         message: messageForFieldsUpdate(fields),
         undo:
           prevFields && Object.keys(prevFields).length > 0
-            ? buildUndo(qc, ctx?.previous, () => updateTaskFields(id, prevFields))
+            ? buildUndo(qc, ctx?.snapshots, () => updateTaskFields(id, prevFields))
             : undefined,
       });
       // Status is the only notify-worthy single field routed through
@@ -267,13 +353,14 @@ export function useUpdateTaskFields() {
       rollback(qc, ctx);
       errorToast("Couldn't save changes — they have been reverted.");
     },
-    onSettled: () => invalidateTasks(qc),
+    onSettled: (server) => settleTasks(qc, server),
   });
 }
 
 export function useSetParentTask() {
   const qc = useQueryClient();
   return useMutation({
+    mutationKey: TASK_WRITE_KEY,
     mutationFn: ({ id, parentId }: { id: number; parentId: number | null }) =>
       setParentTask(id, parentId),
     onMutate: ({ id, parentId }) =>
@@ -295,20 +382,21 @@ export function useSetParentTask() {
       const prev = ctx?.prevTask?.parentTask?.id ?? null;
       pushToast({
         message: "Parent task updated.",
-        undo: buildUndo(qc, ctx?.previous, () => setParentTask(id, prev)),
+        undo: buildUndo(qc, ctx?.snapshots, () => setParentTask(id, prev)),
       });
     },
     onError: (_err, _vars, ctx) => {
       rollback(qc, ctx);
       errorToast("Couldn't update parent task — reverted.");
     },
-    onSettled: () => invalidateTasks(qc),
+    onSettled: (server) => settleTasks(qc, server),
   });
 }
 
 export function useSetParentProject() {
   const qc = useQueryClient();
   return useMutation({
+    mutationKey: TASK_WRITE_KEY,
     mutationFn: ({ id, projectLookupId }: { id: number; projectLookupId: number | null }) =>
       setParentProject(id, projectLookupId),
     onMutate: ({ id, projectLookupId }) =>
@@ -328,20 +416,21 @@ export function useSetParentProject() {
       const prev = ctx?.prevTask?.parentProject?.lookupId ?? null;
       pushToast({
         message: "Parent project updated.",
-        undo: buildUndo(qc, ctx?.previous, () => setParentProject(id, prev)),
+        undo: buildUndo(qc, ctx?.snapshots, () => setParentProject(id, prev)),
       });
     },
     onError: (_err, _vars, ctx) => {
       rollback(qc, ctx);
       errorToast("Couldn't change parent project — reverted.");
     },
-    onSettled: () => invalidateTasks(qc),
+    onSettled: (server) => settleTasks(qc, server),
   });
 }
 
 export function useSetRelatedProjects() {
   const qc = useQueryClient();
   return useMutation({
+    mutationKey: TASK_WRITE_KEY,
     mutationFn: ({ id, lookupIds }: { id: number; lookupIds: number[] }) =>
       setRelatedProjects(id, lookupIds),
     onMutate: ({ id, lookupIds }) =>
@@ -360,14 +449,14 @@ export function useSetRelatedProjects() {
       const prev = ctx?.prevTask?.relatedProjects.map((p) => p.lookupId) ?? [];
       pushToast({
         message: "Related projects updated.",
-        undo: buildUndo(qc, ctx?.previous, () => setRelatedProjects(id, prev)),
+        undo: buildUndo(qc, ctx?.snapshots, () => setRelatedProjects(id, prev)),
       });
     },
     onError: (_err, _vars, ctx) => {
       rollback(qc, ctx);
       errorToast("Couldn't update related projects — reverted.");
     },
-    onSettled: () => invalidateTasks(qc),
+    onSettled: (server) => settleTasks(qc, server),
   });
 }
 
@@ -375,6 +464,7 @@ export function useSetAssigned() {
   const qc = useQueryClient();
   const actor = useCurrentUser();
   return useMutation({
+    mutationKey: TASK_WRITE_KEY,
     mutationFn: ({ id, people }: { id: number; people: Person[] }) => setAssigned(id, people),
     onMutate: ({ id, people }) =>
       snapshotAndPatch(
@@ -386,7 +476,7 @@ export function useSetAssigned() {
       const prev = ctx?.prevTask?.assigned ?? [];
       pushToast({
         message: "Assignees updated.",
-        undo: buildUndo(qc, ctx?.previous, () => setAssigned(id, prev)),
+        undo: buildUndo(qc, ctx?.snapshots, () => setAssigned(id, prev)),
       });
       if (ctx?.prevTask) {
         fireAssigneeChangeAlert({
@@ -402,13 +492,14 @@ export function useSetAssigned() {
       rollback(qc, ctx);
       errorToast("Couldn't update assignees — reverted.");
     },
-    onSettled: () => invalidateTasks(qc),
+    onSettled: (server) => settleTasks(qc, server),
   });
 }
 
 export function useSetWatchers() {
   const qc = useQueryClient();
   return useMutation({
+    mutationKey: TASK_WRITE_KEY,
     mutationFn: ({ id, people }: { id: number; people: Person[] }) => setWatchers(id, people),
     onMutate: ({ id, people }) =>
       snapshotAndPatch(
@@ -420,20 +511,21 @@ export function useSetWatchers() {
       const prev = ctx?.prevTask?.watchers ?? [];
       pushToast({
         message: "Watchers updated.",
-        undo: buildUndo(qc, ctx?.previous, () => setWatchers(id, prev)),
+        undo: buildUndo(qc, ctx?.snapshots, () => setWatchers(id, prev)),
       });
     },
     onError: (_err, _vars, ctx) => {
       rollback(qc, ctx);
       errorToast("Couldn't update watchers — reverted.");
     },
-    onSettled: () => invalidateTasks(qc),
+    onSettled: (server) => settleTasks(qc, server),
   });
 }
 
 export function useWatchTask() {
   const qc = useQueryClient();
   return useMutation({
+    mutationKey: TASK_WRITE_KEY,
     mutationFn: ({ id, person }: { id: number; person: Person }) => watchTask(id, person),
     onMutate: ({ id, person }) =>
       snapshotAndPatch(
@@ -450,20 +542,21 @@ export function useWatchTask() {
     onSuccess: (_data, { id, person }, ctx) => {
       pushToast({
         message: "You're now watching this task.",
-        undo: buildUndo(qc, ctx?.previous, () => unwatchTask(id, person)),
+        undo: buildUndo(qc, ctx?.snapshots, () => unwatchTask(id, person)),
       });
     },
     onError: (_err, _vars, ctx) => {
       rollback(qc, ctx);
       errorToast("Couldn't start watching — reverted.");
     },
-    onSettled: () => invalidateTasks(qc),
+    onSettled: (server) => settleTasks(qc, server),
   });
 }
 
 export function useUnwatchTask() {
   const qc = useQueryClient();
   return useMutation({
+    mutationKey: TASK_WRITE_KEY,
     mutationFn: ({ id, person }: { id: number; person: Person }) => unwatchTask(id, person),
     onMutate: ({ id, person }) =>
       snapshotAndPatch(
@@ -483,20 +576,21 @@ export function useUnwatchTask() {
     onSuccess: (_data, { id, person }, ctx) => {
       pushToast({
         message: "Stopped watching this task.",
-        undo: buildUndo(qc, ctx?.previous, () => watchTask(id, person)),
+        undo: buildUndo(qc, ctx?.snapshots, () => watchTask(id, person)),
       });
     },
     onError: (_err, _vars, ctx) => {
       rollback(qc, ctx);
       errorToast("Couldn't stop watching — reverted.");
     },
-    onSettled: () => invalidateTasks(qc),
+    onSettled: (server) => settleTasks(qc, server),
   });
 }
 
 export function useAddComment() {
   const qc = useQueryClient();
   return useMutation({
+    mutationKey: TASK_WRITE_KEY,
     mutationFn: ({
       id,
       comment,
@@ -581,7 +675,7 @@ export function useAddComment() {
       rollback(qc, ctx);
       errorToast("Couldn't post comment — please retry.");
     },
-    onSettled: () => invalidateTasks(qc),
+    onSettled: (server) => settleTasks(qc, server),
   });
 }
 
@@ -686,6 +780,7 @@ function collectPeopleFromTasks(tasks: Task[]): Person[] {
 export function useEditComment() {
   const qc = useQueryClient();
   return useMutation({
+    mutationKey: TASK_WRITE_KEY,
     mutationFn: ({
       id,
       target,
@@ -723,7 +818,7 @@ export function useEditComment() {
         message: "Comment updated.",
         undo:
           prevBody !== undefined
-            ? buildUndo(qc, ctx?.previous, () => editComment(id, target, prevBody))
+            ? buildUndo(qc, ctx?.snapshots, () => editComment(id, target, prevBody))
             : undefined,
       });
       if (!prevComment) return;
@@ -797,13 +892,14 @@ export function useEditComment() {
       rollback(qc, ctx);
       errorToast("Couldn't save comment — reverted.");
     },
-    onSettled: () => invalidateTasks(qc),
+    onSettled: (server) => settleTasks(qc, server),
   });
 }
 
 export function useCreateTask() {
   const qc = useQueryClient();
   return useMutation({
+    mutationKey: TASK_WRITE_KEY,
     mutationFn: createTask,
     // Create isn't optimistic (we need the server-assigned id before
     // navigating to the new task). Toast confirms after the round-trip.
@@ -826,6 +922,7 @@ export function useCreateTask() {
 export function useDeleteTask() {
   const qc = useQueryClient();
   return useMutation({
+    mutationKey: TASK_WRITE_KEY,
     mutationFn: deleteTask,
     onMutate: (id: number) =>
       snapshotAndPatch(qc, id, (tasks) => tasks.filter((t) => t.id !== id)),
@@ -839,7 +936,9 @@ export function useDeleteTask() {
       rollback(qc, ctx);
       errorToast("Couldn't delete task — restored.");
     },
-    onSettled: () => invalidateTasks(qc),
+    // Delete returns nothing to reconcile — the optimistic removal IS the
+    // final state; the invalidate just confirms it.
+    onSettled: () => settleTasks(qc),
   });
 }
 

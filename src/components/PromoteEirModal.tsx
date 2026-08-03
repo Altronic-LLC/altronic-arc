@@ -7,6 +7,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { computeNumberedTitle } from "@/lib/taskNumbering";
 import type { Eir, ProjectReference } from "@/types/task";
 import { ChoiceSelect } from "./SearchableSelect";
+import { useOverlayDismiss } from "./useOverlayDismiss";
 
 /**
  * Modal shown when an EIR's Resolution is set to "Promoted to Task".
@@ -87,15 +88,17 @@ export function PromoteEirModal({ eir, onClose }: { eir: Eir; onClose: () => voi
     }
   }
 
+  // Dismiss on a genuine backdrop click only — never when a text-selection
+  // drag merely happens to end out here (see useOverlayDismiss).
+  const overlayDismiss = useOverlayDismiss(onClose, busy);
+
   return (
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="promote-eir-heading"
       className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/40 backdrop-blur-sm sm:items-center sm:p-4"
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !busy) onClose();
-      }}
+      {...overlayDismiss}
     >
       <div className="flex w-full max-w-lg flex-col bg-bg shadow-2xl sm:max-h-[90vh] sm:rounded-lg">
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-5">

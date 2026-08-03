@@ -27,12 +27,16 @@ import {
 } from "@/types/task";
 import { wouldCreateCycle } from "@/lib/taskGraph";
 import { computeNumberedTitle } from "@/lib/taskNumbering";
-import { convertToChecklist } from "@/lib/descriptionChecklist";
+import {
+  convertToChecklist,
+  indentChecklistLine,
+} from "@/lib/descriptionChecklist";
 import { ChoiceSelect, MultiSelect } from "./SearchableSelect";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { mergePeople } from "@/lib/people";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
 import { cn } from "@/lib/cn";
+import { useOverlayDismiss } from "./useOverlayDismiss";
 
 interface TaskFormModalProps {
   /**
@@ -244,21 +248,32 @@ export function TaskFormModal({ mode, task, onClose }: TaskFormModalProps) {
         baseFields.SoftwareRevision = softwareRevision;
       }
 
+      // Every write below targets a DIFFERENT set of columns on the same row, so
+      // there is no ordering dependency between them. They used to be awaited one
+      // at a time, which held the modal on a spinner for up to six SharePoint
+      // round-trips even though the cache is patched optimistically at each step.
+      // Collected and fired together instead; `allSettled` so one failure doesn't
+      // abandon writes that were already in flight, with the first reason
+      // re-thrown for the catch below to surface.
+      const writes: Array<Promise<unknown>> = [];
+
       if (Object.keys(baseFields).length > 0) {
-        await updateFields.mutateAsync({ id: task.id, fields: baseFields });
+        writes.push(updateFields.mutateAsync({ id: task.id, fields: baseFields }));
       }
 
       const newParentProjectId = parentProjectId === "" ? null : parentProjectId;
       if (newParentProjectId !== (task.parentProject?.lookupId ?? null)) {
-        await setParentProject.mutateAsync({
-          id: task.id,
-          projectLookupId: newParentProjectId,
-        });
+        writes.push(
+          setParentProject.mutateAsync({
+            id: task.id,
+            projectLookupId: newParentProjectId,
+          }),
+        );
       }
 
       const newParentTaskId = parentTaskId === "" ? null : parentTaskId;
       if (newParentTaskId !== (task.parentTask?.id ?? null)) {
-        await setParentTask.mutateAsync({ id: task.id, parentId: newParentTaskId });
+        writes.push(setParentTask.mutateAsync({ id: task.id, parentId: newParentTaskId }));
       }
 
       const currentRelated = task.relatedProjects.map((r) => r.lookupId).sort();
@@ -267,10 +282,12 @@ export function TaskFormModal({ mode, task, onClose }: TaskFormModalProps) {
         currentRelated.length === nextRelated.length &&
         currentRelated.every((id, i) => id === nextRelated[i]);
       if (!relatedSame) {
-        await setRelatedProjects.mutateAsync({
-          id: task.id,
-          lookupIds: relatedProjectIds,
-        });
+        writes.push(
+          setRelatedProjects.mutateAsync({
+            id: task.id,
+            lookupIds: relatedProjectIds,
+          }),
+        );
       }
 
       const currentAssignedKeys = new Set(
@@ -283,7 +300,7 @@ export function TaskFormModal({ mode, task, onClose }: TaskFormModalProps) {
         currentAssignedKeys.size === nextAssignedKeys.size &&
         [...currentAssignedKeys].every((k) => nextAssignedKeys.has(k));
       if (!assignedSame) {
-        await setAssigned.mutateAsync({ id: task.id, people: assigned });
+        writes.push(setAssigned.mutateAsync({ id: task.id, people: assigned }));
       }
 
       const currentWatcherKeys = new Set(
@@ -296,8 +313,12 @@ export function TaskFormModal({ mode, task, onClose }: TaskFormModalProps) {
         currentWatcherKeys.size === nextWatcherKeys.size &&
         [...currentWatcherKeys].every((k) => nextWatcherKeys.has(k));
       if (!watchersSame) {
-        await setWatchers.mutateAsync({ id: task.id, people: watchers });
+        writes.push(setWatchers.mutateAsync({ id: task.id, people: watchers }));
       }
+
+      const results = await Promise.allSettled(writes);
+      const failure = results.find((r) => r.status === "rejected");
+      if (failure) throw (failure as PromiseRejectedResult).reason;
 
       onClose();
     } catch (err) {
@@ -307,17 +328,17 @@ export function TaskFormModal({ mode, task, onClose }: TaskFormModalProps) {
     }
   }
 
+  // Dismiss on a genuine backdrop click only — never when a text-selection
+  // drag merely happens to end out here (see useOverlayDismiss).
+  const overlayDismiss = useOverlayDismiss(onClose, busy);
+
   return (
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="task-form-heading"
       className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/40 backdrop-blur-sm sm:items-center sm:p-4"
-      onClick={(e) => {
-        // Click outside the dialog body closes the modal — but only if not
-        // currently saving and only if it's actually the backdrop.
-        if (e.target === e.currentTarget && !busy) onClose();
-      }}
+      {...overlayDismiss}
     >
       <form
         onSubmit={handleSubmit}
@@ -378,6 +399,27 @@ export function TaskFormModal({ mode, task, onClose }: TaskFormModalProps) {
                 style={{ minHeight: "6.5rem" }}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
+                onKeyDown={(e) => {
+                  // Tab indents a checklist line into a sub-task (Shift+Tab
+                  // outdents). Only on checklist lines — everywhere else Tab
+                  // still moves focus, which is how a keyboard user gets out of
+                  // the field. See indentChecklistLine.
+                  if (e.key !== "Tab") return;
+                  const el = e.currentTarget;
+                  const next = indentChecklistLine(
+                    el.value,
+                    el.selectionStart ?? 0,
+                    e.shiftKey,
+                  );
+                  if (!next) return;
+                  e.preventDefault();
+                  setDescription(next.text);
+                  // The value change resets the caret to the end, so put it back
+                  // after React has re-rendered.
+                  requestAnimationFrame(() => {
+                    el.setSelectionRange(next.selectionStart, next.selectionEnd);
+                  });
+                }}
                 rows={4}
                 placeholder="What needs to be done? Acceptance criteria, links, context…"
                 className="w-full resize-y rounded-md border border-border bg-surface px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"

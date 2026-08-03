@@ -343,6 +343,118 @@ describe("SingleSelect", () => {
   });
 });
 
+describe("option indicators", () => {
+  // A checkbox promises "tick several". Picking a single-select option replaces
+  // the previous choice and closes the panel, so it gets a bare check instead.
+  it("gives multi-select options a tickable checkbox", async () => {
+    const user = userEvent.setup();
+    render(
+      <MultiSelect
+        options={OPTIONS}
+        selected={["carol@x.com"]}
+        onChange={() => {}}
+        allLabel="Anyone"
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /Carol/ }));
+    const options = screen.getAllByRole("option");
+    expect(options).toHaveLength(OPTIONS.length);
+    // Every row has a box — that's what makes an unticked one look tickable.
+    for (const option of options) {
+      expect(option.querySelector('[data-indicator="checkbox"]')).not.toBeNull();
+      expect(option.querySelector('[data-indicator="check"]')).toBeNull();
+    }
+  });
+
+  it("gives single-select options no checkbox at all", async () => {
+    const user = userEvent.setup();
+    render(
+      <SingleSelect
+        options={OPTIONS}
+        selected={"carol@x.com"}
+        onChange={() => {}}
+        allLabel="Anyone"
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /Carol/ }));
+    const options = screen.getAllByRole("option");
+    expect(options).toHaveLength(OPTIONS.length);
+    for (const option of options) {
+      expect(option.querySelector('[data-indicator="checkbox"]')).toBeNull();
+    }
+  });
+
+  it("reserves the indicator's width on unselected single-select rows so labels line up", async () => {
+    const user = userEvent.setup();
+    render(
+      <SingleSelect
+        options={OPTIONS}
+        selected={"carol@x.com"}
+        onChange={() => {}}
+        allLabel="Anyone"
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /Carol/ }));
+    for (const option of screen.getAllByRole("option")) {
+      const slot = option.querySelector('[data-indicator="check"]');
+      expect(slot).not.toBeNull();
+      expect(slot).toHaveClass("h-4", "w-4", "shrink-0");
+    }
+  });
+
+  it("marks only the current single-select row with a check mark", async () => {
+    const user = userEvent.setup();
+    render(
+      <SingleSelect
+        options={OPTIONS}
+        selected={"carol@x.com"}
+        onChange={() => {}}
+        allLabel="Anyone"
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /Carol/ }));
+    const withCheck = screen
+      .getAllByRole("option")
+      .filter((o) => o.querySelector('[data-indicator="check"] svg') !== null)
+      .map((o) => o.textContent);
+    expect(withCheck).toEqual(["Carol"]);
+  });
+
+  it("keeps the selected row highlighted in both variants", async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(
+      <SingleSelect
+        options={OPTIONS}
+        selected={"carol@x.com"}
+        onChange={() => {}}
+        allLabel="Anyone"
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /Carol/ }));
+    const singleRow = screen.getByRole("option", { name: /Carol/ });
+    expect(singleRow).toHaveAttribute("aria-selected", "true");
+    expect(singleRow).toHaveClass("bg-accent/10");
+    expect(screen.getByRole("option", { name: /Alice/ })).toHaveAttribute(
+      "aria-selected",
+      "false",
+    );
+    unmount();
+
+    render(
+      <MultiSelect
+        options={OPTIONS}
+        selected={["carol@x.com"]}
+        onChange={() => {}}
+        allLabel="Anyone"
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /Carol/ }));
+    const multiRow = screen.getByRole("option", { name: /Carol/ });
+    expect(multiRow).toHaveAttribute("aria-selected", "true");
+    expect(multiRow).toHaveClass("bg-accent/10");
+  });
+});
+
 describe("ChoiceSelect", () => {
   const CHOICES = ["BACKLOG", "In Progress", "On Hold", "Blocked", "Complete"] as const;
 
@@ -416,6 +528,18 @@ describe("ChoiceSelect", () => {
     await user.click(screen.getByRole("button", { name: /None/ }));
     await user.click(screen.getByRole("option", { name: "0042 - EZRail" }));
     expect(onChange).toHaveBeenCalledWith("17");
+  });
+
+  it("inherits the single-select's bare check mark, not a checkbox", async () => {
+    const user = userEvent.setup();
+    render(
+      <ChoiceSelect value="Blocked" onChange={() => {}} options={CHOICES} emptyLabel="Not set" />,
+    );
+    await user.click(screen.getByRole("button", { name: /Blocked/ }));
+    for (const option of screen.getAllByRole("option")) {
+      expect(option.querySelector('[data-indicator="checkbox"]')).toBeNull();
+      expect(option.querySelector('[data-indicator="check"]')).not.toBeNull();
+    }
   });
 
   it("can't be opened while the form is saving", async () => {

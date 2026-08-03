@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { CheckCircle2, Loader2, X } from "lucide-react";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
+import { useOverlayDismiss } from "./useOverlayDismiss";
 
 /**
  * Prompt shown when a user marks a task Complete that is tied to an EIR
@@ -27,15 +28,17 @@ export function TaskResolutionModal({
   const [text, setText] = useState("");
   const trimmed = text.trim();
 
+  // Dismiss on a genuine backdrop click only — never when a text-selection
+  // drag merely happens to end out here (see useOverlayDismiss).
+  const overlayDismiss = useOverlayDismiss(onClose, busy);
+
   return (
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="task-resolution-heading"
       className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/40 backdrop-blur-sm sm:items-center sm:p-4"
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !busy) onClose();
-      }}
+      {...overlayDismiss}
     >
       <div className="flex w-full max-w-lg flex-col bg-bg shadow-2xl sm:max-h-[90vh] sm:rounded-lg">
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-5">

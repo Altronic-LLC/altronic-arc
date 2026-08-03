@@ -4,6 +4,43 @@ import type { Filters } from "@/components/FilterBar";
 import { useCurrentUser } from "./useCurrentUser";
 
 /**
+ * The URL params that carry filter state. Anything that links between two
+ * views of the SAME task list (List ⇄ Kanban) must hand these on, or the
+ * filters reset — see `filterSearch()`.
+ */
+export const FILTER_PARAM_KEYS = ["q", "project", "assigned", "createdBy"] as const;
+
+/**
+ * Pick just the filter params out of a location's search string and return
+ * them as a `?…` suffix ready to append to a path (`""` when none are set).
+ *
+ * Used by the List/Kanban switcher in the Header: those are two views of one
+ * filtered task list, so switching must not drop the filters. Linking to a
+ * bare `/kanban` did exactly that, and because the Assigned filter DEFAULTS
+ * to the signed-in user, a user who had widened it to "Anyone" got snapped
+ * back to their own tasks.
+ *
+ * A present-but-empty `assigned=` is deliberately preserved: that is the
+ * encoding of an explicit "Anyone", and dropping it lets the first-visit
+ * default re-apply on the other view.
+ *
+ * Only these params travel. `status` is left behind on purpose — the status
+ * pills are component state that the URL isn't kept in step with, so
+ * carrying a stale `status=` back to the List would restore a filter the
+ * user had already clicked away from.
+ */
+export function filterSearch(search: string): string {
+  const from = new URLSearchParams(search);
+  const out = new URLSearchParams();
+  for (const key of FILTER_PARAM_KEYS) {
+    const value = from.get(key);
+    if (value !== null) out.set(key, value);
+  }
+  const query = out.toString();
+  return query ? `?${query}` : "";
+}
+
+/**
  * Filter state lifted into URL search params so it survives view switching,
  * refreshes, and shared links. Both ListView and KanbanView use this hook
  * to read/write the same source of truth.
@@ -19,6 +56,9 @@ import { useCurrentUser } from "./useCurrentUser";
  * shows their tasks. If the URL has `?assigned=` (empty value, meaning the
  * user previously picked "Anyone"), we respect that — the default doesn't
  * re-apply on refresh / back-navigation.
+ *
+ * Because the state lives in the URL, any link BETWEEN two views of the same
+ * list has to carry these params along — that's what `filterSearch()` is for.
  */
 export function useFilters(): [Filters, (next: Filters) => void] {
   const [searchParams, setSearchParams] = useSearchParams();

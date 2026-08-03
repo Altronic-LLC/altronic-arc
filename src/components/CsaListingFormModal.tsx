@@ -4,6 +4,7 @@ import { useCreateCsaListing, useUpdateCsaListing } from "@/hooks/useCsaListings
 import type { CsaListing, CsaListingInput } from "@/types/task";
 import { fromDateInputValue, toDateInputValue } from "@/lib/spDates";
 import { AttachmentsSection } from "./AttachmentsSection";
+import { useOverlayDismiss } from "./useOverlayDismiss";
 
 interface CsaListingFormModalProps {
   /** Omit to create; pass a listing to edit it. */
@@ -86,10 +87,14 @@ export function CsaListingFormModal({ listing, onClose }: CsaListingFormModalPro
     }
   }
 
+  // Dismiss on a genuine backdrop click only — never when a text-selection
+  // drag merely happens to end out here (see useOverlayDismiss).
+  const overlayDismiss = useOverlayDismiss(onClose, busy);
+
   return (
     <div
       className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-black/40 p-4 sm:items-center"
-      onClick={() => !busy && onClose()}
+      {...overlayDismiss}
     >
       <div
         onClick={(e) => e.stopPropagation()}

@@ -2,7 +2,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AtSign, Paperclip, Pencil } from "lucide-react";
 import type { Comment, CommentAttachment, Person } from "@/types/task";
 import { sanitiseHtml } from "@/lib/sanitiseHtml";
-import { buildCommentHtml, extractMentionedRecipients } from "@/lib/mentions";
+import {
+  buildCommentHtml,
+  extractMentionedRecipients,
+  rankMentionCandidates,
+  type MentionCandidates,
+} from "@/lib/mentions";
 import { cn } from "@/lib/cn";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
 
@@ -33,6 +38,8 @@ interface CommentThreadProps {
    */
   onEdit?: (comment: Comment, newBodyHtml: string, renotify: boolean) => Promise<void> | void;
 }
+
+const NO_CANDIDATES: MentionCandidates = { people: [], total: 0, truncated: false };
 
 export function CommentThread({
   comments,
@@ -189,22 +196,32 @@ function CommentEditor({
   const [activeIndex, setActiveIndex] = useState(0);
   const atPosRef = useRef<number | null>(null);
 
-  const candidates = useMemo(() => {
-    const q = pickerQuery.trim().toLowerCase();
-    if (!pickerOpen) return [];
-    return mentionablePeople
-      .filter((p) => p.displayName.toLowerCase().includes(q))
-      .sort((a, b) => {
-        const ap = a.displayName.toLowerCase().startsWith(q) ? 0 : 1;
-        const bp = b.displayName.toLowerCase().startsWith(q) ? 0 : 1;
-        return ap - bp || a.displayName.localeCompare(b.displayName);
-      })
-      .slice(0, 6);
-  }, [mentionablePeople, pickerQuery, pickerOpen]);
+  // Same ranking + cap as the new-comment composer, from the shared helper.
+  // This box had its own copy of the filter with its own `slice(0, 6)`, so
+  // editing a comment still couldn't reach a common name however far you
+  // scrolled — the bug was fixed in one picker and not the other.
+  const {
+    people: candidates,
+    total: candidateTotal,
+    truncated: candidatesTruncated,
+  } = useMemo(
+    () =>
+      pickerOpen ? rankMentionCandidates(mentionablePeople, pickerQuery) : NO_CANDIDATES,
+    [mentionablePeople, pickerQuery, pickerOpen],
+  );
 
   useEffect(() => {
     if (activeIndex >= candidates.length) setActiveIndex(0);
   }, [candidates.length, activeIndex]);
+
+  // Keep the keyboard-highlighted row visible: with 50 reachable matches the
+  // active one is otherwise below the fold and arrowing down looks like nothing
+  // is happening. Optional-called because jsdom has no scrollIntoView.
+  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  useEffect(() => {
+    if (!pickerOpen) return;
+    optionRefs.current[activeIndex]?.scrollIntoView?.({ block: "nearest" });
+  }, [activeIndex, pickerOpen]);
 
   function detectMention(nextText: string, caret: number) {
     let i = caret - 1;
@@ -326,11 +343,19 @@ function CommentEditor({
       />
 
       {pickerOpen && candidates.length > 0 && (
-        <div className="absolute left-3 right-3 top-full z-20 mt-1 max-h-56 overflow-y-auto rounded-lg border border-border bg-surface p-1 shadow-lg sm:max-w-xs">
+        <div
+          role="listbox"
+          className="absolute left-3 right-3 top-full z-20 mt-1 max-h-72 overflow-y-auto rounded-lg border border-border bg-surface p-1 shadow-lg sm:max-w-xs"
+        >
           {candidates.map((p, idx) => (
             <button
               key={p.email ?? p.displayName}
+              ref={(el) => {
+                optionRefs.current[idx] = el;
+              }}
               type="button"
+              role="option"
+              aria-selected={idx === activeIndex}
               onMouseDown={(e) => {
                 e.preventDefault();
                 pickMention(p);
@@ -346,6 +371,14 @@ function CommentEditor({
               {p.email && <span className="truncate text-xs text-fg-muted">{p.email}</span>}
             </button>
           ))}
+          {candidatesTruncated && (
+            // Never cut the list silently — a truncated popup otherwise reads
+            // as "that's everyone" when the person you want is just past it.
+            <div className="mt-1 border-t border-border px-2 py-1.5 text-[11px] text-fg-muted">
+              Showing {candidates.length} of {candidateTotal} matches — keep typing to
+              narrow.
+            </div>
+          )}
         </div>
       )}
 

@@ -7,9 +7,46 @@
 // There's no separate storage: the checked state lives in the Description
 // string itself, so toggling a box is just a text edit written back through
 // the same field-update mutation as every other Description change.
+//
+// SUB-TASKS. Indenting a checklist line — a leading tab, or leading spaces —
+// makes it a sub-task of the item above it:
+//
+//     - [ ] Fit the new sensor
+//     \t- [ ] Order the bracket
+//     \t- [ ] Update the drawing
+//     - [ ] Bench test
+//
+// Rules, deliberately boring so they stay predictable:
+//
+//  - **One level only.** A line is a sub-task when its indent is strictly
+//    longer than the indent of the nearest preceding NON-sub-task item; it
+//    becomes that item's child. A doubly-indented line is still just a child
+//    of the same parent — there is no grandchild. Deeper levels would need a
+//    tab-width convention (is a tab one level or eight?) and would
+//    mis-nest whenever tabs and spaces got mixed, so the depth is capped.
+//  - **The indent is compared by character count**, not visual width, and is
+//    stored on the item verbatim.
+//  - **An indented line with nothing above it to nest under is top-level** —
+//    it renders flush, and its indent is still preserved on write.
+//  - **Only LEADING whitespace indents.** Whitespace after the `]` is part of
+//    the gap before the text, not an indent — it's invisible mid-line, so
+//    nesting on it would be un-guessable. It is preserved verbatim all the
+//    same, so nothing a user typed is eaten.
+//
+// Round-tripping is the whole ballgame here: this string goes to a SharePoint
+// text field and is re-parsed later, so `indent` and `gap` are CAPTURED rather
+// than discarded and written back exactly as they came in. Toggling a box
+// twice returns the original bytes.
 // =============================================================================
 
-const CHECKLIST_LINE_RE = /^-\s\[([ xX])\]\s?(.*)$/;
+/**
+ * Groups: 1 = the indent, 2 = the checkbox mark, 3 = the gap between `]` and
+ * the text, 4 = the text (which may carry an attribution stamp).
+ *
+ * Non-breaking space counts as indent/gap whitespace: descriptions get pasted
+ * out of Word and Outlook, where an indent often arrives as U+00A0.
+ */
+const CHECKLIST_LINE_RE = /^([ \t\u00a0]*)-\s\[([ xX])\]([ \t\u00a0]?)(.*)$/;
 
 /**
  * Attribution stamp appended to a line's text, e.g.
@@ -30,6 +67,15 @@ export interface ChecklistItem {
   text: string;
   /** "Ray White · 7/17/2026, 10:15 AM" when the line carries a who/when stamp. */
   stamp: string | null;
+  /**
+   * The line's exact leading whitespace, kept so a toggle can write the line
+   * back byte-for-byte. Never re-formatted — a user's tab stays a tab.
+   */
+  indent: string;
+  /** 0 = top-level item, 1 = sub-task indented under `parentLineIndex`. */
+  depth: 0 | 1;
+  /** The parent item's `lineIndex` when `depth === 1`, otherwise null. */
+  parentLineIndex: number | null;
 }
 
 /**
@@ -40,18 +86,37 @@ export interface ChecklistItem {
 export function parseChecklistItems(text: string): ChecklistItem[] | null {
   if (!text) return null;
   const items: ChecklistItem[] = [];
+  // The item any following, more-indented line nests under. Only top-level
+  // items become candidates, which is what caps nesting at one level.
+  let parent: { lineIndex: number; indentLength: number } | null = null;
+
   text.split("\n").forEach((line, lineIndex) => {
     const m = CHECKLIST_LINE_RE.exec(line);
     if (!m) return;
-    const stampMatch = STAMP_RE.exec(m[2]);
+    const [, indent, mark, , body] = m;
+    const parentLineIndex =
+      parent && indent.length > parent.indentLength ? parent.lineIndex : null;
+    const stampMatch = STAMP_RE.exec(body);
     items.push({
       lineIndex,
-      checked: m[1].toLowerCase() === "x",
-      text: stampMatch ? m[2].replace(STAMP_RE, "") : m[2],
+      checked: mark.toLowerCase() === "x",
+      text: stampMatch ? body.replace(STAMP_RE, "") : body,
       stamp: stampMatch ? stampMatch[1] : null,
+      indent,
+      depth: parentLineIndex === null ? 0 : 1,
+      parentLineIndex,
     });
+    if (parentLineIndex === null) parent = { lineIndex, indentLength: indent.length };
   });
   return items.length > 0 ? items : null;
+}
+
+/**
+ * The sub-tasks nested under one item, in document order. Empty for a
+ * sub-task (there is no second level) and for a childless top-level item.
+ */
+export function childrenOf(items: ChecklistItem[], parentLineIndex: number): ChecklistItem[] {
+  return items.filter((i) => i.parentLineIndex === parentLineIndex);
 }
 
 /**
@@ -74,13 +139,18 @@ export function toggleChecklistItem(
   if (line === undefined) return text;
   const m = CHECKLIST_LINE_RE.exec(line);
   if (!m) return text;
-  const checked = m[1].toLowerCase() === "x";
+  const [, indent, mark, gap, rawBody] = m;
+  const checked = mark.toLowerCase() === "x";
   // Strip any existing stamp; the new one (if any) is added below.
-  const body = m[2].replace(STAMP_RE, "").trimEnd();
+  const body = rawBody.replace(STAMP_RE, "").trimEnd();
   // Square brackets in a name would break the stamp's parseability.
   const name = (toggledBy ?? "").replace(/[[\]]/g, "").trim();
   const stamp = name ? ` ${checked ? "✗" : "✓"}[${name} · ${formatStampDate(now)}]` : "";
-  lines[lineIndex] = checked ? `- [ ] ${body}${stamp}` : `- [x] ${body}${stamp}`;
+  // `indent` and `gap` go back verbatim: only this line's mark changes, so a
+  // sub-task stays a sub-task and nobody's tabs are eaten or doubled. Every
+  // other line is untouched — ticking a sub-task cannot disturb its parent,
+  // and ticking a parent cannot disturb its sub-tasks.
+  lines[lineIndex] = `${indent}- [${checked ? " " : "x"}]${gap}${body}${stamp}`;
   return lines.join("\n");
 }
 
@@ -139,7 +209,9 @@ export function diffChecklistToggles(prevText: string, nextText: string): Checkl
  * - Already has checklist lines → append one new blank item (don't disturb
  *   existing items or any prose mixed in with them).
  * - Otherwise → prefix every non-blank line with "- [ ] ", turning each
- *   existing line into its own item.
+ *   existing line into its own item. A line's own indentation is kept AHEAD
+ *   of the marker, so an already-indented note becomes a sub-task rather than
+ *   losing its indent.
  */
 export function convertToChecklist(text: string): string {
   const trimmed = text.trim();
@@ -149,12 +221,80 @@ export function convertToChecklist(text: string): string {
     .split("\n")
     .map((line) => {
       const t = line.trim();
-      return t ? `- [ ] ${t}` : line;
+      const indent = LEADING_WHITESPACE_RE.exec(line)![1];
+      return t ? `${indent}- [ ] ${t}` : line;
     })
     .join("\n");
 }
 
+/** Same whitespace set as the checklist line's indent group. */
+const LEADING_WHITESPACE_RE = /^([ \t\u00a0]*)/;
+
 /** Detect HTML content (vs. plain text) — legacy Power Apps descriptions arrive as `<p>...</p>`. */
 export function looksLikeHtml(s: string): boolean {
   return /<\/?[a-z][\s\S]*?>/i.test(s);
+}
+
+// =============================================================================
+// Indenting a checklist line from the keyboard.
+//
+// The sub-task syntax is "indent the line", and the user asked for it in terms
+// of the Tab key — but Tab in a <textarea> moves focus, so without this a tab
+// simply cannot be typed and the feature only works by pasting or by pressing
+// space several times.
+//
+// So Tab indents, Shift+Tab outdents, and — this is the part that keeps the
+// field accessible — it ONLY does so when the caret is on a line that is already
+// a checklist item. Anywhere else Tab still moves focus, which is how a keyboard
+// user leaves the field. Hijacking Tab unconditionally would trap them in it.
+// =============================================================================
+
+/** One tab per level. Matches what the parser treats as an indent. */
+const INDENT = "\t";
+
+export interface IndentResult {
+  text: string;
+  /** Where to put the caret afterwards — the browser resets it on a value change. */
+  selectionStart: number;
+  selectionEnd: number;
+}
+
+/**
+ * Indent (or with `outdent`, un-indent) the checklist line the caret sits on.
+ *
+ * Returns `null` when the caret isn't on a checklist line, or when outdenting a
+ * line that has no indent left — meaning "we didn't handle this key, let the
+ * browser do its normal thing". Callers must only `preventDefault()` on a
+ * non-null result.
+ *
+ * Deliberately single-line: it acts on the caret's line, not on a multi-line
+ * selection. Bulk re-indenting is a text-editor feature, and guessing at it here
+ * would fight the checklist's one-level nesting rule.
+ */
+export function indentChecklistLine(
+  text: string,
+  caret: number,
+  outdent = false,
+): IndentResult | null {
+  const lineStart = text.lastIndexOf("\n", Math.max(0, caret - 1)) + 1;
+  const nlAfter = text.indexOf("\n", caret);
+  const lineEnd = nlAfter === -1 ? text.length : nlAfter;
+  const line = text.slice(lineStart, lineEnd);
+
+  const m = CHECKLIST_LINE_RE.exec(line);
+  if (!m) return null;
+
+  if (outdent) {
+    const existing = m[1];
+    if (existing.length === 0) return null;
+    // Drop one indent character — tabs and spaces are both single characters
+    // here, matching how the parser compares indent lengths.
+    const next = text.slice(0, lineStart) + line.slice(1) + text.slice(lineEnd);
+    const moved = Math.max(lineStart, caret - 1);
+    return { text: next, selectionStart: moved, selectionEnd: moved };
+  }
+
+  const next = text.slice(0, lineStart) + INDENT + line + text.slice(lineEnd);
+  const moved = caret + INDENT.length;
+  return { text: next, selectionStart: moved, selectionEnd: moved };
 }

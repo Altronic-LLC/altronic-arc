@@ -13,6 +13,7 @@ import {
   PANEL_PROJECT_TYPES,
   type PanelProject,
 } from "@/types/task";
+import { useOverlayDismiss } from "@/components/useOverlayDismiss";
 
 /**
  * Admin page for the Panel Project Reference list — mirrors
@@ -231,10 +232,12 @@ function ProjectFormModal({
   const [customer, setCustomer] = useState(initial.customer);
   const [department, setDepartment] = useState<string>(initial.department ?? "");
 
+  const overlayDismiss = useOverlayDismiss(onClose);
+
   return (
     <div
       className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4"
-      onClick={onClose}
+      {...overlayDismiss}
     >
       <div
         onClick={(ev) => ev.stopPropagation()}

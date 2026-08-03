@@ -12,6 +12,63 @@ import type { Person } from "@/types/task";
 // the email readable even if a recipient's mail client strips the span.
 // =============================================================================
 
+/**
+ * Upper bound on how many @-mention candidates a composer renders at once.
+ *
+ * The mentionable directory is the whole tenant (200+ people), so SOME bound
+ * is needed — dumping 200 rows into the popup is slow to render and useless to
+ * read. But the bound has to be generous enough that a common name never gets
+ * cut: "Mike", "Smith" or "J" can legitimately match a couple of dozen people
+ * and every one of them must be reachable by scrolling.
+ *
+ * 50 covers any realistic name query at Altronic with room to spare. When it
+ * DOES bite (typically an empty query, i.e. the user just typed `@`), the popup
+ * must say so — see the "keep typing to narrow" footer in CommentComposer.
+ * A silent cut reads as "that's everyone" when it isn't, which is the bug this
+ * constant replaced (the old cap was a hard, unannounced 6).
+ */
+export const MENTION_CANDIDATE_LIMIT = 50;
+
+export interface MentionCandidates {
+  /** The matches to render, capped at `limit`. */
+  people: Person[];
+  /** How many people matched in total, BEFORE the render cap. */
+  total: number;
+  /** True when `total > limit`, i.e. the popup is hiding matches. */
+  truncated: boolean;
+}
+
+/**
+ * Filter + rank the mentionable directory for what the user typed after `@`.
+ *
+ * Substring matches count, with prefix matches sorted first and ties broken
+ * alphabetically, so typing "sha" offers "Shaffer" ahead of "Marshall". The
+ * result is capped at `limit` but reports `total`, so the caller can tell the
+ * user matches are being withheld instead of silently truncating the list.
+ *
+ * An empty query matches everyone (that's the "just typed @" case).
+ */
+export function rankMentionCandidates(
+  people: Person[],
+  query: string,
+  limit: number = MENTION_CANDIDATE_LIMIT,
+): MentionCandidates {
+  const q = query.trim().toLowerCase();
+  const matches = people
+    .filter((p) => p.displayName.toLowerCase().includes(q))
+    .sort((a, b) => {
+      const ap = a.displayName.toLowerCase().startsWith(q) ? 0 : 1;
+      const bp = b.displayName.toLowerCase().startsWith(q) ? 0 : 1;
+      return ap - bp || a.displayName.localeCompare(b.displayName);
+    });
+  const capped = limit >= 0 ? matches.slice(0, limit) : matches;
+  return {
+    people: capped,
+    total: matches.length,
+    truncated: matches.length > capped.length,
+  };
+}
+
 export function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")

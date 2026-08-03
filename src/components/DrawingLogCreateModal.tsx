@@ -5,6 +5,7 @@ import { writableFields } from "@/lib/drawingLogFields";
 import { useCreateDrawingLogEntry, useDrawingLog } from "@/hooks/useDrawingLogs";
 import type { DrawingLogKind } from "@/types/task";
 import { FieldInputs, draftToInput, emptyDraft, suggestionsFor } from "./DrawingLogFields";
+import { useOverlayDismiss } from "./useOverlayDismiss";
 
 interface DrawingLogCreateModalProps {
   kind: DrawingLogKind;
@@ -66,10 +67,14 @@ export function DrawingLogCreateModal({ kind, onClose }: DrawingLogCreateModalPr
     }
   }
 
+  // Dismiss on a genuine backdrop click only — never when a text-selection
+  // drag merely happens to end out here (see useOverlayDismiss).
+  const overlayDismiss = useOverlayDismiss(onClose, busy);
+
   return (
     <div
       className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-black/40 p-4 sm:items-center"
-      onClick={() => !busy && onClose()}
+      {...overlayDismiss}
     >
       <div
         role="dialog"

@@ -10,6 +10,7 @@ import {
 import type { TeradyneEmployee, TeradyneLogEntry, TeradyneLogInput } from "@/types/task";
 import { fromDateInputValue, toDateInputValue } from "@/lib/teradyneMapper";
 import { SingleSelect } from "./SearchableSelect";
+import { useOverlayDismiss } from "./useOverlayDismiss";
 
 interface TeradyneLogFormModalProps {
   /** Omit to create; pass an entry to edit it. */
@@ -208,10 +209,14 @@ export function TeradyneLogFormModal({ entry, onClose }: TeradyneLogFormModalPro
     }
   }
 
+  // Dismiss on a genuine backdrop click only — never when a text-selection
+  // drag merely happens to end out here (see useOverlayDismiss).
+  const overlayDismiss = useOverlayDismiss(onClose, busy);
+
   return (
     <div
       className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-black/40 p-4 sm:items-center"
-      onClick={() => !busy && onClose()}
+      {...overlayDismiss}
     >
       <div
         onClick={(e) => e.stopPropagation()}

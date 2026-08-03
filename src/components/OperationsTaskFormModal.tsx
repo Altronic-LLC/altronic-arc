@@ -25,11 +25,15 @@ import {
   type Person,
 } from "@/types/task";
 import { computeOperationsTaskNumber } from "@/lib/operationsTaskNumbering";
-import { convertToChecklist } from "@/lib/descriptionChecklist";
+import {
+  convertToChecklist,
+  indentChecklistLine,
+} from "@/lib/descriptionChecklist";
 import { ChoiceSelect, MultiSelect, SingleSelect } from "./SearchableSelect";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { mergePeople } from "@/lib/people";
+import { useOverlayDismiss } from "./useOverlayDismiss";
 
 interface OperationsTaskFormModalProps {
   mode: "create" | "edit";
@@ -195,15 +199,17 @@ export function OperationsTaskFormModal({ mode, task, onClose }: OperationsTaskF
     }
   }
 
+  // Dismiss on a genuine backdrop click only — never when a text-selection
+  // drag merely happens to end out here (see useOverlayDismiss).
+  const overlayDismiss = useOverlayDismiss(onClose, busy);
+
   return (
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="operations-task-form-heading"
       className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/40 backdrop-blur-sm sm:items-center sm:p-4"
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !busy) onClose();
-      }}
+      {...overlayDismiss}
     >
       <form
         onSubmit={handleSubmit}
@@ -267,6 +273,27 @@ export function OperationsTaskFormModal({ mode, task, onClose }: OperationsTaskF
                 style={{ minHeight: "6.5rem" }}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
+                onKeyDown={(e) => {
+                  // Tab indents a checklist line into a sub-task (Shift+Tab
+                  // outdents). Only on checklist lines — everywhere else Tab
+                  // still moves focus, which is how a keyboard user gets out of
+                  // the field. See indentChecklistLine.
+                  if (e.key !== "Tab") return;
+                  const el = e.currentTarget;
+                  const next = indentChecklistLine(
+                    el.value,
+                    el.selectionStart ?? 0,
+                    e.shiftKey,
+                  );
+                  if (!next) return;
+                  e.preventDefault();
+                  setDescription(next.text);
+                  // The value change resets the caret to the end, so put it back
+                  // after React has re-rendered.
+                  requestAnimationFrame(() => {
+                    el.setSelectionRange(next.selectionStart, next.selectionEnd);
+                  });
+                }}
                 rows={4}
                 placeholder="What needs to be done?"
                 className="w-full resize-y rounded-md border border-border bg-surface px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"

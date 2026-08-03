@@ -7,6 +7,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import type { Person, Task, TestSheet } from "@/types/task";
 import { SingleSelect } from "./SearchableSelect";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
+import { useOverlayDismiss } from "./useOverlayDismiss";
 
 interface TestSheetFormModalProps {
   /** "create" opens an empty form; "edit" pre-fills from `sheet` and PATCHes. */
@@ -163,15 +164,17 @@ export function TestSheetFormModal({ mode, sheet, fromTask, onClose }: TestSheet
     }
   }
 
+  // Dismiss on a genuine backdrop click only — never when a text-selection
+  // drag merely happens to end out here (see useOverlayDismiss).
+  const overlayDismiss = useOverlayDismiss(onClose, busy);
+
   return (
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="ts-form-heading"
       className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/40 backdrop-blur-sm sm:items-center sm:p-4"
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !busy) onClose();
-      }}
+      {...overlayDismiss}
     >
       <form
         onSubmit={handleSubmit}

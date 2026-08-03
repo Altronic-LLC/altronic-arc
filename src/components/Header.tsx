@@ -38,6 +38,7 @@ import { cn } from "@/lib/cn";
 import { useTheme } from "@/hooks/useTheme";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useKanbanAvailable } from "@/hooks/useIsPhone";
+import { filterSearch } from "@/hooks/useFilters";
 import { USE_MOCK } from "@/api/config";
 import { Brandmark } from "@/components/brand/Brandmark";
 import { Wordmark } from "@/components/brand/Wordmark";
@@ -189,7 +190,7 @@ const DEPARTMENTS: DepartmentGroup[] = [
 
 export function Header() {
   const { theme, toggle } = useTheme();
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const isAdmin = useIsAdmin();
   const kanbanAvailable = useKanbanAvailable();
 
@@ -206,6 +207,13 @@ export function Header() {
   const isOpsKanban = pathname.startsWith("/operations/tasks/kanban");
   const showOpsTaskViews =
     isOpsList || isOpsKanban || pathname.startsWith("/operations/task/");
+
+  // List and Kanban are two views of ONE filtered task list, so the switcher
+  // hands the filter params on. Linking to a bare `/kanban` dropped them and
+  // the filters reset to their defaults — and since Assigned defaults to the
+  // signed-in user, anyone who had widened it to "Anyone" got snapped back to
+  // just their own tasks on every switch.
+  const filterQuery = filterSearch(search);
 
   return (
     <header className="border-b border-border bg-surface">
@@ -252,11 +260,15 @@ export function Header() {
         </nav>
         {showTaskViews && (
           <nav className="mt-2 flex items-center justify-center gap-1 rounded-lg bg-surface-2 p-1 sm:justify-start">
-            <NavLink to="/list" active={isList} icon={<List className="h-4 w-4" />}>
+            <NavLink to={`/list${filterQuery}`} active={isList} icon={<List className="h-4 w-4" />}>
               List
             </NavLink>
             {kanbanAvailable && (
-              <NavLink to="/kanban" active={isKanban} icon={<LayoutGrid className="h-4 w-4" />}>
+              <NavLink
+                to={`/kanban${filterQuery}`}
+                active={isKanban}
+                icon={<LayoutGrid className="h-4 w-4" />}
+              >
                 Kanban
               </NavLink>
             )}
@@ -264,12 +276,16 @@ export function Header() {
         )}
         {showOpsTaskViews && (
           <nav className="mt-2 flex items-center justify-center gap-1 rounded-lg bg-surface-2 p-1 sm:justify-start">
-            <NavLink to="/operations/tasks" active={isOpsList} icon={<List className="h-4 w-4" />}>
+            <NavLink
+              to={`/operations/tasks${filterQuery}`}
+              active={isOpsList}
+              icon={<List className="h-4 w-4" />}
+            >
               List
             </NavLink>
             {kanbanAvailable && (
               <NavLink
-                to="/operations/tasks/kanban"
+                to={`/operations/tasks/kanban${filterQuery}`}
                 active={isOpsKanban}
                 icon={<LayoutGrid className="h-4 w-4" />}
               >

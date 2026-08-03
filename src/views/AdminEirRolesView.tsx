@@ -12,6 +12,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { EIR_ROLES, type EirRole } from "@/types/task";
 import { SP_EIR_ROLES_LIST_ID, USE_MOCK } from "@/api/config";
+import { useOverlayDismiss } from "@/components/useOverlayDismiss";
 
 const ROLE_LABELS: Record<EirRole, string> = {
   engineer: "Engineer",
@@ -264,10 +265,12 @@ function NewEirRoleModal({
     setRoles((prev) => (prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role]));
   }
 
+  const overlayDismiss = useOverlayDismiss(onClose);
+
   return (
     <div
       className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4"
-      onClick={onClose}
+      {...overlayDismiss}
     >
       <div
         onClick={(ev) => ev.stopPropagation()}

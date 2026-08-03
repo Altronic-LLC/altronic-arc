@@ -13,6 +13,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { SingleSelect } from "@/components/SearchableSelect";
 import { PANEL_ROLE_CHOICES, type PanelRole, type Person } from "@/types/task";
+import { useOverlayDismiss } from "@/components/useOverlayDismiss";
 
 /**
  * Admin → Panel User Roles page. One row per user PER role (the SharePoint
@@ -235,10 +236,12 @@ function NewPanelRoleModal({
     ? siteUsers.find((p) => String(p.lookupId ?? p.email ?? p.displayName) === userKey) ?? null
     : null;
 
+  const overlayDismiss = useOverlayDismiss(onClose);
+
   return (
     <div
       className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4"
-      onClick={onClose}
+      {...overlayDismiss}
     >
       <div
         onClick={(ev) => ev.stopPropagation()}

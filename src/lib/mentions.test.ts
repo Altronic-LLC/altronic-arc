@@ -4,6 +4,8 @@ import {
   commentNotifyRecipients,
   commentRenotifyRecipients,
   extractMentionedRecipients,
+  rankMentionCandidates,
+  MENTION_CANDIDATE_LIMIT,
 } from "./mentions";
 import type { Person } from "@/types/task";
 
@@ -253,5 +255,103 @@ describe("round-trip", () => {
     const out = extractMentionedRecipients(html);
     expect(out.map((r) => r.email).sort()).toEqual(["ray@x.com", "sarah@x.com"]);
     expect(out.map((r) => r.displayName).sort()).toEqual(["Ray White", "Sarah Shaffer"]);
+  });
+});
+
+// =============================================================================
+// rankMentionCandidates — the @-mention picker's filter + cap.
+// =============================================================================
+
+/** A directory of `count` people who all share the first name "Mike". */
+function manyMikes(count: number): Person[] {
+  return Array.from({ length: count }, (_, i) => ({
+    displayName: `Mike Surname${String(i + 1).padStart(2, "0")}`,
+    email: `mike${i + 1}@x.com`,
+    lookupId: 100 + i,
+  }));
+}
+
+describe("rankMentionCandidates — filtering", () => {
+  it("matches on any substring of the display name, case-insensitively", () => {
+    const out = rankMentionCandidates([SARAH, RAY, NO_EMAIL], "SHAF");
+    expect(out.people.map((p) => p.displayName)).toEqual(["Sarah Shaffer"]);
+    expect(out.total).toBe(1);
+    expect(out.truncated).toBe(false);
+  });
+
+  it("returns everyone for an empty query", () => {
+    const out = rankMentionCandidates([SARAH, RAY, NO_EMAIL], "");
+    expect(out.people).toHaveLength(3);
+  });
+
+  it("ignores surrounding whitespace in the query", () => {
+    expect(rankMentionCandidates([SARAH, RAY], "  ray  ").people).toEqual([RAY]);
+  });
+
+  it("returns an empty result when nothing matches", () => {
+    const out = rankMentionCandidates([SARAH, RAY], "zzz");
+    expect(out.people).toEqual([]);
+    expect(out.total).toBe(0);
+    expect(out.truncated).toBe(false);
+  });
+});
+
+describe("rankMentionCandidates — ordering", () => {
+  it("puts prefix matches ahead of mid-name matches", () => {
+    const caesar: Person = { displayName: "Ann Caesar", email: "ann@x.com", lookupId: 9 };
+    // "sar" starts "Sarah Shaffer" and sits mid-name in "Ann Caesar".
+    const out = rankMentionCandidates([caesar, SARAH], "sar");
+    expect(out.people.map((p) => p.displayName)).toEqual(["Sarah Shaffer", "Ann Caesar"]);
+  });
+
+  it("breaks ties alphabetically", () => {
+    const out = rankMentionCandidates(
+      [
+        { displayName: "Mike Zeller", lookupId: 1 },
+        { displayName: "Mike Adams", lookupId: 2 },
+      ],
+      "mike",
+    );
+    expect(out.people.map((p) => p.displayName)).toEqual(["Mike Adams", "Mike Zeller"]);
+  });
+});
+
+describe("rankMentionCandidates — the cap is generous and never silent", () => {
+  // The regression this guards: the picker used to hard-cap at 6, so the 7th
+  // Mike in a 200-person directory could not be reached at all.
+  it("offers far more than the old six matches for a common first name", () => {
+    const out = rankMentionCandidates(manyMikes(20), "mike");
+    expect(out.people).toHaveLength(20);
+    expect(out.people[19]!.displayName).toBe("Mike Surname20");
+    expect(out.truncated).toBe(false);
+  });
+
+  it("reaches the 30th person sharing a name", () => {
+    const out = rankMentionCandidates(manyMikes(30), "Mike");
+    expect(out.people.map((p) => p.email)).toContain("mike30@x.com");
+  });
+
+  it("caps at MENTION_CANDIDATE_LIMIT and reports the true total when it bites", () => {
+    const out = rankMentionCandidates(manyMikes(MENTION_CANDIDATE_LIMIT + 12), "mike");
+    expect(out.people).toHaveLength(MENTION_CANDIDATE_LIMIT);
+    expect(out.total).toBe(MENTION_CANDIDATE_LIMIT + 12);
+    expect(out.truncated).toBe(true);
+  });
+
+  it("keeps the limit high enough for a 200-person directory's common name", () => {
+    expect(MENTION_CANDIDATE_LIMIT).toBeGreaterThanOrEqual(25);
+  });
+
+  it("honours an explicit limit override", () => {
+    const out = rankMentionCandidates(manyMikes(10), "mike", 3);
+    expect(out.people).toHaveLength(3);
+    expect(out.total).toBe(10);
+    expect(out.truncated).toBe(true);
+  });
+
+  it("treats a negative limit as no cap at all", () => {
+    const out = rankMentionCandidates(manyMikes(10), "mike", -1);
+    expect(out.people).toHaveLength(10);
+    expect(out.truncated).toBe(false);
   });
 });

@@ -2,10 +2,12 @@ import { useState } from "react";
 import { cn } from "@/lib/cn";
 import { sanitiseHtml } from "@/lib/sanitiseHtml";
 import {
+  childrenOf,
   looksLikeHtml,
   parseChecklistItems,
   type ChecklistItem,
 } from "@/lib/descriptionChecklist";
+import { useOverlayDismiss } from "./useOverlayDismiss";
 
 interface DescriptionViewProps {
   text: string;
@@ -30,6 +32,16 @@ interface DescriptionViewProps {
  * lines as plain text); otherwise falls back to the existing behavior —
  * sanitised HTML for legacy Power Apps content, or whitespace-preserved
  * plain text.
+ *
+ * An INDENTED checklist line (leading tab or spaces) is a sub-task and renders
+ * indented under the item above it — see descriptionChecklist.ts for the
+ * nesting rules. Every box is still an independent line in the stored text:
+ * ticking a sub-task changes only that line, and a parent is never auto-ticked
+ * when its sub-tasks all are. Auto-ticking would have to invent an attribution
+ * stamp ("✓ who?") for a box nobody clicked, and would then silently wipe a
+ * real person's ✓ off the parent the moment a sub-task was unticked — so
+ * parents instead show a read-only `2/3` count of their sub-tasks, which is the
+ * same information without writing anything the user didn't ask for.
  *
  * Items carry a who/when attribution stamp (small detail next to the item —
  * see toggleChecklistItem): ✓ for who checked it, ✗ for who unchecked it.
@@ -63,12 +75,15 @@ export function DescriptionView({ text, onToggle, className, tone = "theme" }: D
       {lines.map((line, i) => {
         const item = byLine.get(i);
         if (item) {
+          const kids = childrenOf(items, i);
           return (
             <label
               key={i}
               className={cn(
                 "flex items-start gap-2 text-sm leading-relaxed",
                 textColor,
+                // Sub-task: one fixed step in, whatever the source indent was.
+                item.depth === 1 && "pl-6",
                 onToggle && "cursor-pointer",
               )}
             >
@@ -89,6 +104,17 @@ export function DescriptionView({ text, onToggle, className, tone = "theme" }: D
                 <span className={cn(item.checked && [mutedColor, "line-through"])}>
                   {item.text || <span className={cn("italic", mutedColor)}>(empty item)</span>}
                 </span>
+                {kids.length > 0 && (
+                  <span
+                    className={cn(
+                      "ml-2 whitespace-nowrap align-middle text-[11px] no-underline",
+                      mutedColor,
+                    )}
+                    title={`${kids.filter((k) => k.checked).length} of ${kids.length} sub-tasks done`}
+                  >
+                    {kids.filter((k) => k.checked).length}/{kids.length}
+                  </span>
+                )}
                 {item.stamp && (
                   <span
                     className={cn(
@@ -138,10 +164,12 @@ function ConfirmToggleModal({
   onYes: () => void;
   onNo: () => void;
 }) {
+  const overlayDismiss = useOverlayDismiss(onNo);
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      onClick={onNo}
+      {...overlayDismiss}
     >
       <div
         onClick={(e) => e.stopPropagation()}

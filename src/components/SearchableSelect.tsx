@@ -75,6 +75,7 @@ export function MultiSelect({
         <SearchablePanel
           options={options}
           searchPlaceholder={searchPlaceholder}
+          indicator="checkbox"
           isSelected={(v) => selectedSet.has(v)}
           onToggle={(v) => {
             if (selectedSet.has(v)) onChange(selected.filter((x) => x !== v));
@@ -115,6 +116,7 @@ export function SingleSelect({
         <SearchablePanel
           options={options}
           searchPlaceholder={searchPlaceholder}
+          indicator="check"
           isSelected={(v) => v === selected}
           onToggle={(v) => {
             onChange(v === selected && clearable ? null : v);
@@ -307,6 +309,16 @@ function DropdownShell({
 interface SearchablePanelProps {
   options: SelectOption[];
   searchPlaceholder?: string;
+  /**
+   * What the per-row selection indicator looks like.
+   * - "checkbox": a tickable box — the multi-select affordance, since the panel
+   *   stays open and several rows can be ticked at once.
+   * - "check": a bare check mark on the current row only. A single-select
+   *   replaces the previous choice and closes, so a box would promise
+   *   "tick several" and be a lie. Unselected rows still reserve the
+   *   indicator's width so the labels line up down the list.
+   */
+  indicator: "checkbox" | "check";
   isSelected: (value: string) => boolean;
   onToggle: (value: string) => void;
 }
@@ -314,6 +326,7 @@ interface SearchablePanelProps {
 function SearchablePanel({
   options,
   searchPlaceholder,
+  indicator,
   isSelected,
   onToggle,
 }: SearchablePanelProps) {
@@ -377,17 +390,27 @@ function SearchablePanel({
                   selected ? "bg-accent/10 text-fg" : "text-fg hover:bg-surface-2",
                 )}
               >
-                <span
-                  className={cn(
-                    "flex h-4 w-4 shrink-0 items-center justify-center rounded border",
-                    selected
-                      ? "border-accent bg-accent text-white"
-                      : "border-border bg-surface",
-                  )}
-                >
-                  {selected && <Check className="h-3 w-3" />}
-                </span>
-                <span className="truncate">{o.label}</span>
+                {indicator === "checkbox" ? (
+                  <span
+                    data-indicator="checkbox"
+                    className={cn(
+                      "flex h-4 w-4 shrink-0 items-center justify-center rounded border",
+                      selected
+                        ? "border-accent bg-accent text-white"
+                        : "border-border bg-surface",
+                    )}
+                  >
+                    {selected && <Check className="h-3 w-3" />}
+                  </span>
+                ) : (
+                  <span
+                    data-indicator="check"
+                    className="flex h-4 w-4 shrink-0 items-center justify-center text-accent"
+                  >
+                    {selected && <Check className="h-4 w-4" />}
+                  </span>
+                )}
+                <span className={cn("truncate", selected && "font-medium")}>{o.label}</span>
               </button>
             );
           })

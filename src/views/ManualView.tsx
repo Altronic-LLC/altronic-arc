@@ -326,10 +326,14 @@ const SECTIONS: ManualSection[] = [
       "checkbox in description",
       "task list in description",
       "turn into checklist",
+      "sub-task",
+      "subtask",
+      "indent",
+      "nested checklist",
       "to-do list",
     ],
     searchText:
-      "Create tasks with the New Task button. Required: Title and Parent Project. NumberedTitle is auto-generated as T{n}-{projectRef}-{title}. Edit fields inline from the right sidebar of the detail page. Use Mark Complete or change Status to close out. The Description field can hold a custom checklist — click Turn into checklist while editing, or type - [ ] lines yourself, and check items off directly from the detail page. Checking a box instantly records your name and the time next to the item; unchecking asks Are you sure first and records who unchecked it.",
+      "Create tasks with the New Task button. Required: Title and Parent Project. NumberedTitle is auto-generated as T{n}-{projectRef}-{title}. Edit fields inline from the right sidebar of the detail page. Use Mark Complete or change Status to close out. The Description field can hold a custom checklist — click Turn into checklist while editing, or type - [ ] lines yourself, and check items off directly from the detail page. Checking a box instantly records your name and the time next to the item; unchecking asks Are you sure first and records who unchecked it. Indent a checklist line with Tab (or spaces) to make it a sub-task of the item above it; Shift+Tab outdents. One level of nesting; the parent shows a 1/2 count of its sub-tasks done and is never ticked automatically. Tab only indents on a checklist line — elsewhere it moves to the next field.",
     render: () => (
       <>
         <H3>Creating a task</H3>
@@ -416,6 +420,41 @@ const SECTIONS: ManualSection[] = [
           <em>Notifications → Checklist toggles</em>). This works everywhere
           Description checklists exist: Engineering tasks, Operations tasks,
           EIR descriptions, panel order notes, and panel tasks.
+        </P>
+        <H3>Sub-tasks: indent a checklist line</H3>
+        <P>
+          <strong>Indent a checklist line to make it a sub-task</strong> of the
+          item above it. Press <strong>Tab</strong> on the line while editing the
+          Description — or type spaces, both work the same way.{" "}
+          <strong>Shift+Tab</strong> takes the indent back off.
+        </P>
+        <P>So this:</P>
+        <P>
+          <code>- [ ] Fit the new sensor</code>
+          <br />
+          <code>&nbsp;&nbsp;&nbsp;&nbsp;- [ ] Order the bracket</code>
+          <br />
+          <code>&nbsp;&nbsp;&nbsp;&nbsp;- [x] Update the drawing</code>
+          <br />
+          <code>- [ ] Bench test</code>
+        </P>
+        <P>
+          renders the two middle items indented under "Fit the new sensor", and
+          that parent shows a small <strong>1/2</strong> count of how many of its
+          sub-tasks are done.
+        </P>
+        <P>
+          Three things worth knowing. There is <strong>one level</strong> of
+          nesting — indenting twice still makes a sub-task of the same parent,
+          not a sub-sub-task. A parent is{" "}
+          <strong>never ticked automatically</strong> when its sub-tasks are all
+          done, because that would put a name and time against a box nobody
+          clicked — tick it yourself when the work is finished. And ticking a
+          sub-task leaves the parent and the other sub-tasks exactly as they were.
+        </P>
+        <P>
+          Tab only indents when the cursor is already on a checklist line.
+          Anywhere else in the Description it moves to the next field, as usual.
         </P>
         <H3>Marking complete</H3>
         <P>

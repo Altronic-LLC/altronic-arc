@@ -3,7 +3,7 @@ import { act } from "@testing-library/react";
 import { renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { MemoryRouter, useLocation } from "react-router-dom";
-import { useFilters } from "./useFilters";
+import { FILTER_PARAM_KEYS, filterSearch, useFilters } from "./useFilters";
 
 // Mock useCurrentUser so we can control what email "the signed-in user" has
 // without standing up MSAL. The hook only reads `me.email`.
@@ -67,6 +67,46 @@ describe("useFilters — first-visit default", () => {
     rerender();
     expect(result.current.filters.assignedEmails).toEqual([]);
     expect(result.current.search).toBe("");
+  });
+});
+
+describe("filterSearch — handing filters between List and Kanban", () => {
+  it("keeps every filter param", () => {
+    const out = filterSearch(
+      "?q=pump&project=10,20&assigned=alice@x.com&createdBy=bob@x.com",
+    );
+    expect(out.startsWith("?")).toBe(true);
+    const params = new URLSearchParams(out);
+    expect(params.get("q")).toBe("pump");
+    expect(params.get("project")).toBe("10,20");
+    expect(params.get("assigned")).toBe("alice@x.com");
+    expect(params.get("createdBy")).toBe("bob@x.com");
+  });
+
+  it("keeps a present-but-empty assigned= (explicit 'Anyone')", () => {
+    // Dropping it would let the first-visit default re-apply on the other
+    // view and snap the user back to their own tasks — the reported bug.
+    expect(filterSearch("?assigned=")).toBe("?assigned=");
+  });
+
+  it("drops params that aren't filters", () => {
+    const out = filterSearch("?assigned=alice@x.com&status=Blocked&view=All");
+    expect(out).not.toContain("status=");
+    expect(out).not.toContain("view=");
+    expect(out).toContain("assigned=alice");
+  });
+
+  it("returns an empty string when there are no filter params", () => {
+    expect(filterSearch("")).toBe("");
+    expect(filterSearch("?status=Blocked")).toBe("");
+  });
+
+  it("tolerates a search string without the leading ?", () => {
+    expect(new URLSearchParams(filterSearch("q=pump")).get("q")).toBe("pump");
+  });
+
+  it("exposes the param keys it carries", () => {
+    expect([...FILTER_PARAM_KEYS]).toEqual(["q", "project", "assigned", "createdBy"]);
   });
 });
 

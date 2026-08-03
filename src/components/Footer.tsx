@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { History, Info, Mail, X } from "lucide-react";
 import { CHANGELOG, CURRENT_VERSION } from "@/data/changelog";
 import { useVersionCheck } from "@/hooks/useVersionCheck";
+import { useOverlayDismiss } from "./useOverlayDismiss";
 
 const MAINTAINER_EMAIL = "ray.white@altronic-llc.com";
 const VERSION_SEEN_KEY = "arc-version-seen";
@@ -79,10 +80,14 @@ export function Footer() {
 }
 
 function ChangelogModal({ onClose }: { onClose: () => void }) {
+  // Dismiss on a genuine backdrop click only — never when a text-selection
+  // drag merely happens to end out here (see useOverlayDismiss).
+  const overlayDismiss = useOverlayDismiss(onClose);
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
-      onClick={onClose}
+      {...overlayDismiss}
     >
       <div
         className="max-h-[80vh] w-full max-w-2xl overflow-hidden rounded-xl border border-border bg-surface shadow-2xl"
