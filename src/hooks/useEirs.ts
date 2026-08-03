@@ -392,9 +392,11 @@ export function useAddEirComment() {
       const eir = eirs?.find((e) => e.id === id);
       if (!eir) return;
 
-      // Email everyone watching this EIR + everyone @-mentioned, minus the
-      // author (unless they self-mentioned). Fire-and-forget; failures are
-      // logged inside notifyMentions and never surface to the user.
+      // Email everyone watching + everyone @-mentioned, minus the author
+      // (unless they self-mentioned). Fire-and-forget for the comment itself,
+      // but NOT silent: notifyMentions toasts when a send fails, since a
+      // sender who lacks Send-As on the shared mailbox would otherwise think
+      // people had been notified when nobody was.
       const recipients = commentNotifyRecipients({
         bodyHtml: comment.bodyHtml,
         watchers: eir.watchers,

@@ -421,6 +421,20 @@ const SECTIONS: ManualSection[] = [
           Description checklists exist: Engineering tasks, Operations tasks,
           EIR descriptions, panel order notes, and panel tasks.
         </P>
+        <H3>If a notification can't be sent</H3>
+        <P>
+          Notification emails go out from a shared mailbox, and each person has to
+          be granted permission to send from it. If you post a comment and see{" "}
+          <strong>"you don't have access to send notification email"</strong>, then{" "}
+          <strong>your comment saved normally</strong> — but the people you
+          mentioned were <em>not</em> emailed, and the message names who missed out.
+        </P>
+        <P>
+          Send the wording to IT and ask to be added to <strong>Send As</strong> on
+          the notifications mailbox. Until that's done, mentions still appear in
+          the app but no email goes out, so tell anyone you needed to reach
+          directly. This applies to change alerts too, not just comments.
+        </P>
         <H3>Sub-tasks: indent a checklist line</H3>
         <P>
           <strong>Indent a checklist line to make it a sub-task</strong> of the

@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.85.0",
+    date: "2026-08-03",
+    changes: [
+      "If you don't have permission to send notification email, posting a comment now tells you so and names who wasn't notified, instead of looking like it worked \u2014 the message says to ask IT for Send As on the notifications mailbox",
+      "The same message appears when a change alert can't be sent, and an ordinary send failure (a network blip, a bad address) is reported separately so it isn't mistaken for a permissions problem",
+      "Either way the comment or change is still saved \u2014 the message says so, so nothing gets retyped",
+    ],
+  },
+  {
     version: "0.84.0",
     date: "2026-08-03",
     changes: [

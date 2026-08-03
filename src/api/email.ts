@@ -1,5 +1,6 @@
-import { graphFetch } from "./graph";
+import { GraphError, graphFetch } from "./graph";
 import { SHARED_MAILBOX, USE_MOCK } from "./config";
+import { pushToast } from "@/components/Toast";
 import type { CommentAttachment, Person } from "@/types/task";
 import { appItemUrl } from "@/lib/appUrl";
 import {
@@ -95,11 +96,13 @@ export interface NotifyMentionsInput {
  * Comment posting is the user-visible action; we don't want a flaky mail
  * server to make the comment look like it failed.
  */
-export async function notifyMentions(input: NotifyMentionsInput): Promise<void> {
+export async function notifyMentions(
+  input: NotifyMentionsInput,
+): Promise<MailSendResult> {
   // Send to every mention, including self-mentions — some users like to
   // @-themselves as a "remind me later" mechanism that lands in their inbox.
   const recipients = input.recipients.filter((r) => !!r.email);
-  if (recipients.length === 0) return;
+  if (recipients.length === 0) return NOTHING_SENT;
 
   // Mock mode: no real send. Log so the user can verify in console.
   if (USE_MOCK) {
@@ -113,7 +116,7 @@ export async function notifyMentions(input: NotifyMentionsInput): Promise<void> 
       url: itemUrl(input.target.kind, input.target.id),
       attachmentCount: input.attachments.length,
     });
-    return;
+    return { sent: recipients.map((r) => r.email!), failed: [] };
   }
 
   if (!SHARED_MAILBOX) {
@@ -121,7 +124,11 @@ export async function notifyMentions(input: NotifyMentionsInput): Promise<void> 
       "[email] VITE_SHARED_MAILBOX is not set — skipping @-mention emails. " +
         "Set it to a mailbox that the signed-in user has Send-As permission on.",
     );
-    return;
+    // Deliberately NOT surfaced to the user: an unset mailbox is a deploy
+    // misconfiguration that breaks every notification for everyone, so a toast
+    // per comment would be pure noise. The per-user Send-As failure below IS
+    // worth interrupting for, because one person can act on it.
+    return NOTHING_SENT;
   }
 
   // Encode each attachment to base64 once (rather than per-recipient).
@@ -132,6 +139,8 @@ export async function notifyMentions(input: NotifyMentionsInput): Promise<void> 
     return [] as GraphFileAttachment[];
   });
 
+  const result: MailSendResult = { sent: [], failed: [] };
+
   for (const recipient of recipients) {
     try {
       await sendOne({
@@ -141,10 +150,111 @@ export async function notifyMentions(input: NotifyMentionsInput): Promise<void> 
         commentExcerpt: input.commentExcerpt,
         attachments: encoded,
       });
+      result.sent.push(recipient.email!);
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error(`[email] Failed to notify ${recipient.email}:`, err);
+      result.failed.push(describeFailure(recipient.email!, err));
     }
+  }
+
+  reportSendFailures(result, "comment");
+  return result;
+}
+
+// =============================================================================
+// Reporting a send that didn't happen.
+//
+// Both senders above used to log a failure and carry on, so a comment that
+// notified NOBODY was indistinguishable from one that notified everyone: the
+// sender assumed the person had been pinged, and the person never heard. That
+// matters most for the permission case, because Send-As on the shared mailbox is
+// granted PER USER in Exchange — a new starter's mentions silently go nowhere
+// until an admin adds them, and nothing anywhere says so (Ray, 2026-08-03).
+// =============================================================================
+
+/** What became of a batch of notification emails. */
+export interface MailSendResult {
+  sent: string[];
+  failed: MailSendFailure[];
+}
+
+export interface MailSendFailure {
+  email: string;
+  reason: string;
+  /**
+   * "permission" = the SENDER may not send as the shared mailbox, so somebody
+   * needs adding to Send As. Anything else (throttling, bad address, network) is
+   * "other" and granting access won't fix it.
+   */
+  kind: "permission" | "other";
+}
+
+const NOTHING_SENT: MailSendResult = { sent: [], failed: [] };
+
+/**
+ * Is this failure the signed-in user lacking Send-As on the shared mailbox?
+ *
+ * Exchange answers a sendMail the caller isn't delegated for with 403
+ * ErrorAccessDenied. 401 counts too: an expired or unconsented token lands here
+ * the same way, and the advice — someone look at access — is identical.
+ */
+export function isSendAsDenied(err: unknown): boolean {
+  if (err instanceof GraphError) {
+    if (err.status === 403 || err.status === 401) return true;
+    return /accessdenied|sendasdenied/i.test(err.body);
+  }
+  return err instanceof Error && /access denied|forbidden/i.test(err.message);
+}
+
+export function describeFailure(email: string, err: unknown): MailSendFailure {
+  return {
+    email,
+    reason: err instanceof Error ? err.message : String(err),
+    kind: isSendAsDenied(err) ? "permission" : "other",
+  };
+}
+
+/**
+ * Tell the user what didn't go out.
+ *
+ * The comment or the edit is already SAVED by the time this runs, so the wording
+ * leads with that — otherwise people retype work that was never lost. The
+ * permission message names the actual Exchange grant, because it has to travel
+ * from whoever hit it to whoever can fix it.
+ */
+export function reportSendFailures(
+  result: MailSendResult,
+  what: "comment" | "change",
+): void {
+  if (result.failed.length === 0) return;
+
+  const saved = what === "comment" ? "Your comment saved" : "Your change saved";
+  const denied = result.failed.filter((f) => f.kind === "permission");
+  const others = result.failed.filter((f) => f.kind === "other");
+
+  if (denied.length > 0) {
+    const mailbox = SHARED_MAILBOX ?? "the notifications mailbox";
+    const names = denied.map((f) => f.email).join(", ");
+    pushToast({
+      variant: "error",
+      message:
+        `${saved}, but you don't have access to send notification email — ` +
+        `${names} ${denied.length > 1 ? "were" : "was"} NOT notified. ` +
+        `Ask IT to add you to Send As on ${mailbox}.`,
+      durationMs: 20_000,
+    });
+  }
+
+  if (others.length > 0) {
+    const names = others.map((f) => f.email).join(", ");
+    pushToast({
+      variant: "error",
+      message:
+        `${saved}, but the notification to ${names} couldn't be sent. ` +
+        `${others[0].reason}`,
+      durationMs: 15_000,
+    });
   }
 }
 
@@ -257,9 +367,9 @@ function itemUrl(kind: MentionTarget["kind"], id: number): string {
 export async function notifyChangeEmails(input: {
   target: ChangeTarget;
   emails: ChangeEmail[];
-}): Promise<void> {
+}): Promise<MailSendResult> {
   const emails = input.emails.filter((e) => !!e.email);
-  if (emails.length === 0) return;
+  if (emails.length === 0) return NOTHING_SENT;
 
   if (USE_MOCK) {
     // eslint-disable-next-line no-console
@@ -270,7 +380,7 @@ export async function notifyChangeEmails(input: {
       url: appItemUrl(input.target.kind, input.target.id),
       to: emails.map((e) => ({ email: e.email, subject: e.subject })),
     });
-    return;
+    return { sent: emails.map((e) => e.email!), failed: [] };
   }
 
   if (!SHARED_MAILBOX) {
@@ -278,10 +388,12 @@ export async function notifyChangeEmails(input: {
       "[email] VITE_SHARED_MAILBOX is not set — skipping change-alert emails. " +
         "Set it to a mailbox that the signed-in user has Send-As permission on.",
     );
-    return;
+    return NOTHING_SENT;
   }
 
   const url = appItemUrl(input.target.kind, input.target.id);
+  const result: MailSendResult = { sent: [], failed: [] };
+
   for (const e of emails) {
     try {
       const bodyHtml = renderChangeEmail({
@@ -301,11 +413,16 @@ export async function notifyChangeEmails(input: {
         method: "POST",
         body: JSON.stringify({ message, saveToSentItems: false }),
       });
+      result.sent.push(e.email!);
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error(`[email] Failed to send change alert to ${e.email}:`, err);
+      result.failed.push(describeFailure(e.email!, err));
     }
   }
+
+  reportSendFailures(result, "change");
+  return result;
 }
 
 /**
