@@ -203,6 +203,8 @@ change the version are the top entry of `CHANGELOG` and `public/version.json`
 
 Keep this current when adding/removing files (see "Architectural changes"
 below). Tests live next to their source as `*.test.ts(x)` and are omitted here.
+This list went 85 files stale once — whole departments were missing — so when
+you add a file, add its line in the same commit.
 
 ```
 src/
@@ -213,14 +215,17 @@ src/
 ├── auth/
 │   ├── msalConfig.ts             Client ID, tenant, redirect URI, scopes
 │   ├── AuthProvider.tsx          MSAL bootstrap + MsalProvider wrapper
-│   ├── AuthGate.tsx              Blocks the app until signed in (real mode)
-│   └── SignInPage.tsx            Sign-in screen (+ Report-issue button)
+│   ├── AuthGate.tsx              Blocks the app until signed in; shows SignInPage on expiry
+│   └── SignInPage.tsx            Sign-in screen (first sign-in AND re-auth)
 │
 ├── api/                          All mock/real branches live here (USE_MOCK)
-│   ├── config.ts                 USE_MOCK, SharePoint list IDs, EIR_ROLES_ENFORCED
-│   ├── graph.ts                  graphFetch / graphFetchAll + JWT claim decode
+│   ├── config.ts                 USE_MOCK, SITES registry, every list ID, role-enforcement flags
+│   ├── graph.ts                  graphFetch / graphFetchAll, throttle retry, ONE shared interactive sign-in
 │   ├── sharepoint.ts             SharePoint REST helper (list-item attachments)
-│   ├── tasks.ts                  Task CRUD
+│   ├── directory.ts              Tenant staff directory (Graph /users) for the pickers
+│   ├── siteUsers.ts              On-demand SharePoint user resolution ("ensure user")
+│   ├── currentUser.ts            Resolve the signed-in user's SP lookupId
+│   ├── tasks.ts                  Engineering task CRUD
 │   ├── taskColumns.ts            Task list column metadata / choice discovery
 │   ├── eirs.ts                   EIR CRUD
 │   ├── eirRoles.ts               EIR role tags (engineer / supply chain) CRUD
@@ -228,13 +233,22 @@ src/
 │   ├── admins.ts                 Admins list CRUD
 │   ├── csaListings.ts            CSA Listings CRUD (Engineering certification register)
 │   ├── drawingLogs.ts            Drawing File Logs — 4 registers, one parametrised module
-│   ├── teradyneLog.ts            Teradyne Log CRUD (Operations, PMO site)
+│   ├── buildRequests.ts          Build Requests (master) CRUD
+│   ├── buildRequestItems.ts      Build Request Items (detail) CRUD
+│   ├── operationsTasks.ts        Operations Task List CRUD (PMO site)
+│   ├── operationsProjects.ts     Operations Projects reference list
+│   ├── operationsEquipment.ts    Altronic Equipment List — read-only reference
+│   ├── teradyneLog.ts            Teradyne Log CRUD, year-scoped (Operations, PMO site)
 │   ├── teradyneRefs.ts           Teradyne Employees/Products/Remarks (one parametrised module)
+│   ├── panelOrders.ts            Panel Orders CRUD (panelTeam site)
+│   ├── panelTasks.ts             Panel Tasks CRUD
+│   ├── panelProjects.ts          Panel Project Reference list
+│   ├── panelRoles.ts             Panel User Roles list CRUD
 │   ├── projectFiles.ts           Documents-library project folders + files
-│   ├── attachments.ts            List-item attachments (task | eir) via SP REST
-│   ├── currentUser.ts            Resolve the signed-in user's SP lookupId
-│   ├── email.ts                  @-mention notification mail (shared mailbox)
-│   └── errorReport.ts            "Report issue" mail to the app manager
+│   ├── attachments.ts            List-item attachments (task | eir | csaListing) via SP REST
+│   ├── email.ts                  Mention + change-alert mail; reports sends that FAIL
+│   ├── errorReport.ts            "Report issue" mail to the app manager
+│   └── editFailureReport.ts      Emails the user their input when a write can't be saved
 │
 ├── data/
 │   ├── mockData.ts               Sample tasks, EIRs, projects, people
@@ -242,70 +256,123 @@ src/
 │   ├── csaMockData.ts            Sample CSA certification files
 │   ├── drawingLogMockData.ts     Sample drawings + sketches (incl. sparse & full change logs)
 │   ├── teradyneMockData.ts       Sample Teradyne log + reference rows
+│   ├── operationsMockData.ts     Sample Operations tasks + projects
+│   ├── panelMockData.ts          Sample panel orders + panel tasks
+│   ├── buildRequestMockData.ts   Sample build requests + items
 │   └── changelog.ts              Version history (drives footer + history modal)
 │
 ├── hooks/
-│   ├── useTasks.ts               Tasks/projects queries + mutations
+│   ├── useTasks.ts               Task queries + OPTIMISTIC mutations (see below)
 │   ├── useEirs.ts                EIR queries + mutations (optimistic + undo)
 │   ├── useEirRoles.ts            EIR roles CRUD + useMyEirRoles() (field gating)
-│   ├── useCsaListings.ts         CSA Listings queries + mutations
+│   ├── useCsaListings.ts         CSA Listings queries + admin-guarded mutations
 │   ├── useDrawingLogs.ts         Drawing log queries + admin-guarded mutations
 │   ├── useTeradyne.ts            Teradyne log + ref-list queries/mutations (+ usage counts)
+│   ├── useOperationsTasks.ts     Operations task queries + mutations
+│   ├── usePanelOrders.ts         Panel order queries + mutations
+│   ├── usePanelTasks.ts          Panel task queries + mutations
+│   ├── usePanelRoles.ts          Panel User Roles CRUD (admin-guarded)
+│   ├── useBuildRequests.ts       Build Requests + Items queries/mutations
 │   ├── useTestSheets.ts          Test sheet queries + mutations
 │   ├── useAdmins.ts              Admins list CRUD
-│   ├── useIsAdmin.ts             Is the signed-in user an admin? (+ bootstrap set)
+│   ├── useIsAdmin.ts             Is the signed-in user an admin? (+ useAdminAccess)
 │   ├── useCurrentUser.ts         Signed-in user as a Person
+│   ├── useDirectory.ts           Tenant directory for pickers (+ diagnostics probe)
 │   ├── useTaskFiles.ts           Project-folder + list-item files for a task
+│   ├── useProjectFolders.ts      Project-folder browsing queries
 │   ├── useAttachments.ts         List-item attachment upload/list/delete
-│   ├── useFilters.ts             URL-backed task filter state
+│   ├── useFilters.ts             URL-backed task filter state + filterSearch()
+│   ├── useSessionExpiry.ts       Shared "the token died" flag AuthGate watches
+│   ├── useVersionCheck.ts        Polls version.json → update banner
+│   ├── useUnseenMentions.ts      Unseen-@-mention badge state
 │   ├── useTheme.ts               Dark/light toggle (localStorage)
 │   └── useIsPhone.ts             Narrow-viewport media query
 │
 ├── lib/
 │   ├── cn.ts                     clsx + tailwind-merge helper
 │   ├── communicationParser.ts    Parse/serialize the Communication field
-│   ├── mentions.ts               @-mention parsing for comments
+│   ├── mentions.ts               @-mention parsing, recipients, rankMentionCandidates
+│   ├── mentionDetector.ts        Detecting @-mentions in stored comment HTML
+│   ├── people.ts                 Merge/dedupe Person lists (by lowercased email)
+│   ├── itemSearch.ts             Shared multi-keyword all-fields search for list views
+│   ├── adminAccess.ts            Bootstrap admin set (admins before the list loads)
+│   ├── appUrl.ts                 Absolute in-app links that keep the Pages sub-path
+│   ├── descriptionChecklist.ts   Checklist parse/toggle/stamp + sub-task indent
 │   ├── taskMapper.ts             Graph item → Task
-│   ├── eirMapper.ts              Graph item → Eir (field-name quirks)
-│   ├── eirNumber.ts              nextEirNo() — EIR_YYYY-#### auto-numbering
-│   ├── testSheetMapper.ts        Graph item → TestSheet
-│   ├── csaListingMapper.ts       Graph item → CsaListing (+ label, sort, search)
-│   ├── drawingLogMapper.ts       Graph item → DrawingLogEntry + the 16-slot change-log codec
-│   ├── spDates.ts                Shared SharePoint date-only helpers (midday-UTC rule)
-│   ├── teradyneMapper.ts         Graph item → Teradyne entities; derived titles + date-only helpers
+│   ├── taskNumbering.ts          NumberedTitle computation (the app owns that column)
 │   ├── taskGraph.ts              Parent/child task relationships + cycle checks
 │   ├── taskFilters.ts            Pure task filter predicates
-│   ├── graphFields.ts            multiPersonField / multiLookupField writers
+│   ├── eirMapper.ts              Graph item → Eir (field-name quirks)
+│   ├── eirNumber.ts              nextEirNo() — EIR_YYYY-#### auto-numbering
+│   ├── eirPromotion.ts           EIR → Task promotion helpers
+│   ├── testSheetMapper.ts        Graph item → TestSheet
+│   ├── csaListingMapper.ts       Graph item → CsaListing (+ label, sort, search)
+│   ├── drawingLogFields.ts       Per-register column descriptors (columns are DATA)
+│   ├── drawingLogMapper.ts       Graph item → DrawingLogEntry + the 16-slot change-log codec
+│   ├── buildRequestMapper.ts     Graph item → BuildRequest / BuildRequestItem
+│   ├── buildRequestNumber.ts     Next BR No for a new Build Request
+│   ├── buildRequestChecklist.ts  Build Request item checklist columns + progress
+│   ├── operationsTaskMapper.ts   Graph item → OperationsTask
+│   ├── operationsTaskFilters.ts  Pure Operations task filter predicates
+│   ├── operationsTaskNumbering.ts Operations task numbering (mirrors taskNumbering)
+│   ├── panelOrderMapper.ts       Graph item → PanelOrder
+│   ├── panelTaskMapper.ts        Graph item → PanelTask
+│   ├── panelRoles.ts             Panel role → editing-rights mapping (pure)
+│   ├── teradyneMapper.ts         Graph item → Teradyne entities; derived titles
+│   ├── spDates.ts                Shared SharePoint date-only helpers (midday-UTC rule)
+│   ├── changeAlerts.ts           Change-alert email construction (pure)
+│   ├── graphFields.ts            multiPersonField / multiLookupField / multiChoiceField
 │   ├── sanitiseHtml.ts           DOMPurify wrapper for stored HTML
 │   ├── errorBuffer.ts            Bounded console-error capture (Report issue)
 │   └── pcbChecklist.ts           PCB-category task checklist logic
 │
 ├── types/
-│   └── task.ts                   All domain types + constants (Task, Eir,
-│                                 EirRole/EirRoleEntry, AdminEntry, Person, …)
+│   └── task.ts                   All domain types + constants (Task, Eir, Panel*, …)
 │
 ├── components/
-│   ├── Header.tsx                Top nav (view switcher, Admin link, theme, Report issue)
+│   ├── Header.tsx                Top nav (departments menu, view switcher, theme, Report issue)
 │   ├── Footer.tsx                Maintainer contact + version → changelog modal
 │   ├── UserMenu.tsx              Account avatar menu
-│   ├── Toast.tsx                 Toast + undo container
+│   ├── Toast.tsx                 Toast + undo container (pushToast)
+│   ├── UpdateAvailableBanner.tsx "A new version of ARC is available"
 │   ├── LoadingTasks.tsx          Skeleton loading state
+│   ├── RequireAdmin.tsx          Route guard for /admin/*
+│   ├── DetailTopBar.tsx          Shared "you are here" bar on detail pages
 │   ├── StatusPills.tsx           Task list status counters
+│   ├── OperationsStatusPills.tsx Operations equivalent
 │   ├── FilterBar.tsx             Task Project / Assigned / Search / Created By filters
-│   ├── SearchableSelect.tsx      Single/Multi select (summary + chips variants)
-│   ├── AutoGrowTextarea.tsx      <textarea> that grows to fit content (typed/pasted)
+│   ├── SearchInput.tsx           Shared debounced search box
+│   ├── SearchableSelect.tsx      MultiSelect / SingleSelect / ChoiceSelect (all searchable)
+│   ├── SuggestInput.tsx          Text field that behaves like a choice field (CAD initials)
+│   ├── AutoGrowTextarea.tsx      <textarea> that grows to fit content
 │   ├── PersonMultiField.tsx      Multi-person picker (pills + add)
+│   ├── useOverlayDismiss.ts      Backdrop dismissal that survives a text-selection drag
+│   ├── DescriptionView.tsx       Renders a Description incl. checklists + sub-tasks
 │   ├── TaskRow.tsx               One task row (list view)
 │   ├── KanbanCard.tsx            One Kanban card
+│   ├── OperationsTaskRow.tsx     One Operations task row
+│   ├── OperationsKanbanCard.tsx  One Operations Kanban card
+│   ├── PanelOrderRow.tsx         One panel order row
+│   ├── PanelTaskRow.tsx          One panel task row
+│   ├── BuildRequestRow.tsx       One build request row
+│   ├── BuildRequestItemCard.tsx  One part on a build request
 │   ├── EirRow.tsx                One EIR row (EIRs list)
 │   ├── TaskFormModal.tsx         Create/edit task
+│   ├── TaskResolutionModal.tsx   "Mark complete" resolution capture
+│   ├── OperationsTaskFormModal.tsx  Create/edit Operations task
+│   ├── PanelOrderFormModal.tsx   Create/edit panel order
+│   ├── PanelTaskFormModal.tsx    Create/edit panel task
+│   ├── BuildRequestFormModal.tsx Create/edit build request
+│   ├── BuildRequestItemFormModal.tsx  Add/edit a part
 │   ├── EirFormModal.tsx          Create/edit EIR
+│   ├── PromoteEirModal.tsx       Promote an EIR into a task
 │   ├── TestSheetFormModal.tsx    Create/edit test sheet
 │   ├── CsaListingFormModal.tsx   Create/edit a CSA listing (+ attachments when editing)
-│   ├── DrawingLogDetailModal.tsx  Drawing detail + change log (+ record a change)
-│   ├── DrawingLogCreateModal.tsx  Add a drawing to a register
+│   ├── DrawingLogDetailModal.tsx Drawing detail + change log (+ record a change)
+│   ├── DrawingLogCreateModal.tsx Add a drawing to a register
+│   ├── DrawingLogFields.tsx      Descriptor-driven detail grid + form inputs
 │   ├── TeradyneLogFormModal.tsx  Create/edit a Teradyne log entry
-│   ├── CommentThread.tsx         Sorted comment list
+│   ├── CommentThread.tsx         Sorted comment list + inline edit (own mention picker)
 │   ├── CommentComposer.tsx       New-comment editor (+ @-mentions)
 │   ├── AttachmentsSection.tsx    EIR/comment attachments UI
 │   ├── TaskAttachmentsSection.tsx  Task attachments (dual storage)
@@ -313,32 +380,50 @@ src/
 │   ├── NotifyAppManagerButton.tsx  "Report issue" button + modal
 │   ├── MermaidDiagram.tsx        (legacy) Mermaid renderer
 │   ├── atoms.tsx                 Badges, chips, status colours
+│   ├── operationsAtoms.tsx       Operations-specific badges/chips
+│   ├── panelAtoms.tsx            Panel-specific badges/chips
+│   ├── buildRequestAtoms.tsx     Build-request-specific badges/chips
 │   └── brand/{Brandmark,Wordmark}.tsx   Official Altronic marks
 │
 ├── views/
 │   ├── DashboardView.tsx         Landing dashboard (metric cards + breakdown)
-│   ├── ListView.tsx              Task list
-│   ├── KanbanView.tsx            Task drag-and-drop board
+│   ├── ListView.tsx              Engineering task list
+│   ├── KanbanView.tsx            Engineering task board
 │   ├── DetailView.tsx            Task detail (description, sidebar, comments)
 │   ├── PrintTaskView.tsx         Chrome-less printable task page
 │   ├── ProjectView.tsx           Single-project task rollup
-│   ├── EirsView.tsx              EIRs list — View tabs (All / New / Needs Assigned),
-│   │                             status pills, filter bar
+│   ├── ProjectFoldersView.tsx    Nested browser over the Documents library folders
+│   ├── EirsView.tsx              EIRs list — View tabs, status pills, filter bar
 │   ├── EirDetailView.tsx         EIR detail (+ role-gated fields, see below)
 │   ├── CsaListingsView.tsx       CSA Listings table (Engineering, admin-gated writes)
 │   ├── DrawingLogsView.tsx       Drawing File Logs — four tabbed registers
-│   ├── TeradyneLogView.tsx       Teradyne Log table + "Manage lists" menu (Operations)
+│   ├── PrintDrawingSheetView.tsx CAD Drawing Work Sheet (FORM #E006), letter portrait
+│   ├── BuildRequestsView.tsx     Build Requests list
+│   ├── BuildRequestDetailView.tsx  One request + its parts
+│   ├── BuildRequestItemRedirect.tsx  Deep-link target for part-comment emails
+│   ├── PrintBuildRequestItemView.tsx  One part per page, for the floor
+│   ├── OperationsListView.tsx    Operations task list
+│   ├── OperationsKanbanView.tsx  Operations task board
+│   ├── OperationsDetailView.tsx  Operations task detail
+│   ├── TeradyneLogView.tsx       Teradyne Log table + "Manage lists" menu
 │   ├── TeradyneRefListView.tsx   Edit one Teradyne reference list (:kind)
+│   ├── PanelOrdersView.tsx       Panel Orders list
+│   ├── PanelOrderDetailView.tsx  Panel order detail
+│   ├── PanelTasksView.tsx        Panel Tasks list
+│   ├── PanelTaskDetailView.tsx   Panel task detail
 │   ├── TestSheetsView.tsx        Test sheets list
 │   ├── TestSheetDetailView.tsx   Test sheet detail
-│   ├── AdminProjectsView.tsx     Admin → Project References (/admin/projects)
-│   ├── AdminAdminsView.tsx       Admin → Admins (/admin/admins)
-│   ├── AdminEirRolesView.tsx     Admin → EIR Roles (/admin/eir-roles)
+│   ├── AdminProjectsView.tsx     Admin → Project References
+│   ├── AdminOperationsProjectsView.tsx  Admin → Operations Projects
+│   ├── AdminPanelProjectsView.tsx  Admin → Panel Projects
+│   ├── AdminPanelRolesView.tsx   Admin → Panel User Roles
+│   ├── AdminAdminsView.tsx       Admin → Admins
+│   ├── AdminEirRolesView.tsx     Admin → EIR Roles
 │   ├── AboutView.tsx             In-app architecture + ER diagrams
 │   └── ManualView.tsx            In-app user manual
 │
 └── styles/
-    └── globals.css               Tailwind + CSS variable theme tokens
+    └── globals.css               Tailwind + CSS variable theme tokens + @page (letter)
 ```
 
 ### EIR list views (workflow tabs)
@@ -431,9 +516,12 @@ For writing: SharePoint person fields go in via `LookupId` only.
 ## Parent project resolution
 
 The `Parent_x0020_Project_x0020_ReferLookupId` field is a SharePoint lookup
-into another list — the "Projects" list — which we haven't identified yet.
+into the "Projects" list, which IS identified:
+`6280c711-14f6-4546-b730-8781b9d3c960` (env `VITE_SP_PROJECTS_LIST_ID`, with
+that value as the built-in default). Project titles resolve today.
 
-To find its list ID, run in PowerShell:
+Kept because the discovery recipe below is the one to reuse for the NEXT lookup
+column on a list nobody has mapped yet:
 
 ```powershell
 $siteId = "coopermachineryservices.sharepoint.com,ddb5fc80-ea51-4d56-b008-ce6a82af49b0,aa6b9467-3f57-4213-bbd4-60b94403421a"
@@ -849,7 +937,7 @@ a "New comment on…" variant. Mentioning someone still auto-adds them as a watc
 (so they keep getting future comment emails). Comment **edits** notify only the
 *newly* added mentions, not all watchers.
 
-This fires for comments on **both tasks and EIRs** — wired in `useTasks` / `useEirs` onSuccess → `notifyMentions()` in `src/api/email.ts`. The HTML template (`renderMentionEmail`) is shared and parametrised on `kind: "task" | "eir"` (wording, callout label, and the "Open this task/EIR" button). Design notes: the header bar is **Cooper Red** (a near-black header gets washed to muddy grey by Outlook dark mode; saturated red survives), with the ARC wordmark + intro + tagline; the button URL is built from `import.meta.env.BASE_URL` so it keeps the `/altronic-arc/` Pages sub-path. The Report-issue email (`src/api/errorReport.ts`) shares the same red-header styling.
+This fires for comments on **six entities** — Engineering tasks, EIRs, Operations tasks, panel orders, panel tasks and build-request parts — wired in each of `useTasks` / `useEirs` / `useOperationsTasks` / `usePanelOrders` / `usePanelTasks` / `useBuildRequests` onSuccess → `notifyMentions()` in `src/api/email.ts` (20 call sites, all fire-and-forget). The HTML template (`renderMentionEmail`) is shared and parametrised on `kind: "task" | "eir"` (wording, callout label, and the "Open this task/EIR" button). Design notes: the header bar is **Cooper Red** (a near-black header gets washed to muddy grey by Outlook dark mode; saturated red survives), with the ARC wordmark + intro + tagline; the button URL is built from `import.meta.env.BASE_URL` so it keeps the `/altronic-arc/` Pages sub-path. The Report-issue email (`src/api/errorReport.ts`) shares the same red-header styling.
 
 **One-time setup for the shared mailbox (Exchange admin task):**
 
@@ -860,6 +948,8 @@ This fires for comments on **both tasks and EIRs** — wired in `useTasks` / `us
 
 If `VITE_SHARED_MAILBOX` is unset, the app falls back to a console.warn (real mode) or console.info (mock mode) — no mail goes out, comments still post normally.
 
+**A send that FAILS is no longer silent** — see "Mail that doesn't send says so" under Cross-cutting rules. Step 2 above (Send As per user) is the one that bites in practice: a person who was never added notifies nobody, and before the toast existed nothing anywhere said so.
+
 ## Theming
 
 Two themes, light and dark, controlled by a `.dark` class on `<html>`.
@@ -869,6 +959,144 @@ Adding a new colour means adding a CSS var first and then a Tailwind alias.
 
 The accent colour is Cooper Red (`#CB2C30`). Cooper brand secondary colours
 are available as Tailwind classes (`text-cooper-green`, `bg-ajax-yellow`, etc.).
+
+## Cross-cutting rules (each one is here because a bug taught it)
+
+These apply app-wide, not to one department. They were all learned from a real
+report, and each has tests pinning it — if you change one, expect a test to
+argue with you.
+
+### Modal backdrops: use `useOverlayDismiss`, never a bare `onClick`
+
+`<div className="fixed inset-0 …" onClick={onClose}>` LOSES USER WORK. The
+browser fires `click` on the nearest common ancestor of `mousedown` and
+`mouseup`, so selecting text in a field and releasing a few pixels outside the
+dialog dispatches a click whose target is the overlay — and the modal closes with
+everything typed in it. `e.target === e.currentTarget` does NOT save you: on that
+drag the target genuinely IS the overlay.
+
+`src/components/useOverlayDismiss.ts` requires the press, the release AND the
+click to be on the overlay. Spread it on every modal overlay:
+`<div className="fixed inset-0 …" {...useOverlayDismiss(onClose, busy)}>`. It is
+applied to all 21 modals; a new modal must use it too.
+
+**Also cap tall modals.** A modal whose content can grow (a change log, a long
+description) needs `flex max-h-[calc(100vh-2rem)] flex-col` with the body in a
+`min-h-0 flex-1 overflow-y-auto` scroller and the header/footer pinned OUTSIDE
+it. Otherwise the dialog grows past the viewport and the header scrolls away,
+taking its buttons with it.
+
+### Every dropdown in a form is searchable
+
+`SearchableSelect.tsx` exports three: `MultiSelect`, `SingleSelect`, and
+`ChoiceSelect` — a drop-in for a plain `<select>` that maps `""` ↔ `null` so
+callers keep their existing string state and takes bare string arrays for choice
+constants. **Do not add a native `<select>` to a form.** 23 of them were
+converted at once; there are none left in a modal.
+
+- `clearable={false}` for a field that must always hold a value (a task's Status,
+  an EIR's Request Type) — hides the clear button and makes re-picking a no-op.
+- `disabled` greys it out for a form that's mid-save.
+- Single-select shows a bare check, multi-select a checkbox. A checkbox on a
+  single-select promises "tick several" and is wrong.
+- Dropping a native `required` in favour of a picker is a FIX, not a regression:
+  the browser's validation bubble was pre-empting the form's own message, so the
+  better wording never appeared. Both the task form and the CSA form hit this.
+
+### @-mentions: two pickers, one ranking
+
+`rankMentionCandidates()` in `src/lib/mentions.ts` owns filtering, ranking and
+the cap (`MENTION_CANDIDATE_LIMIT`, currently 50), and returns `total` +
+`truncated` alongside the list. It was a silent `slice(0, 6)`, which made a
+common first name unreachable in a 200-person tenant with nothing saying so.
+
+**There are TWO mention pickers** — `CommentComposer` (new comment) and
+`CommentThread` (editing an existing one). They had separate copies of the
+filter, so the first fix reached only one of them. Change both, or better, change
+the shared helper. If a cap ever bites, SAY SO in the list ("Showing 50 of 62 —
+keep typing to narrow"); a silently truncated list reads as "that's everyone".
+
+### Task filters live in the URL and must survive navigation
+
+`filterSearch(search)` in `useFilters.ts` extracts the filter params
+(`q`, `project`, `assigned`, `createdBy`) so links between List and Kanban carry
+them. The switcher used to link to bare paths, which reset the filters — most
+visibly the Assigned filter, which DEFAULTS TO THE CURRENT USER, so widening it
+to "Anyone" got silently undone.
+
+Two details: a present-but-empty `assigned=` is preserved (that's how "Anyone" is
+encoded — drop it and the default comes back), and `status=` is deliberately NOT
+carried, since the status pills are component state the URL isn't kept in step
+with. Keep the URL as the source of truth — a filtered view being shareable is
+promised in the manual.
+
+### Task writes are optimistic; the form closes immediately
+
+`useTasks.ts` patches the cache, then `reconcile()` lands the `Task` the write
+returns, and only then invalidates. Four things worth not breaking:
+
+- **Use the returned row.** Every task write returns the canonical `Task`.
+  Throwing it away and waiting for `invalidateQueries` means waiting on a full
+  list download before the true value shows.
+- **Patch every cached list.** Use `getQueriesData`/`setQueriesData` against
+  `TASK_LIST_FILTER`, not the exact key — several list queries can be cached.
+- **Roll back only what you snapshotted.** Writing `[]` into a list query that
+  had no data yet renders "no tasks" and then survives the rollback.
+- **Don't clobber a sibling write.** `settleTasks()` skips reconcile/invalidate
+  while another task write is in flight, because a row read before the second
+  write was sent doesn't contain it.
+
+`TaskFormModal`'s edit path fires its writes in PARALLEL (they touch different
+columns) and calls `onClose()` without awaiting them. That's safe because a
+failed write rolls its own field back and toasts, and React Query finishes
+mutations after unmount. Validation still runs first.
+
+### Description checklists: sub-tasks and attribution
+
+- **Indent = sub-task.** A checklist line indented with tab, spaces or NBSP is a
+  child of the item above it. ONE level only. `Tab` in the description indents,
+  `Shift+Tab` outdents — but ONLY when the caret is on a checklist line
+  (`indentChecklistLine`), because hijacking Tab everywhere traps keyboard users
+  in the textarea.
+- **A parent never auto-ticks.** Ticking a parent because its children are done
+  would stamp a name and time on a box nobody clicked, and wipe a real person's
+  record when a child is unticked. Parents show a read-only `1/2` count instead.
+- **A manual edit is stamped like a click.** Typing `- [ ]` into `- [x]` used to
+  move the box with no attribution, leaving any earlier stamp contradicting it.
+  `stampManualChecklistEdits` re-stamps items whose state CHANGED and leaves
+  everything else alone — including hand-edited timestamps, which are
+  indistinguishable from real ones.
+- Indentation and the post-`]` gap round-trip verbatim. This text lives in a
+  SharePoint field and is re-parsed, so anything lossy corrupts real data.
+
+### Mail that doesn't send says so
+
+`notifyMentions` / `notifyChangeEmails` return a `MailSendResult` and raise a
+toast when a send fails. They used to `console.error` and return `void`, so a
+comment that notified NOBODY looked exactly like one that notified everyone.
+**Send-As on the shared mailbox is granted per user in Exchange**, so a new
+starter's mentions silently went nowhere until an admin added them.
+
+403/401 (or an `ErrorAccessDenied` body) is classified `"permission"` and gets a
+message naming the grant to ask for; anything else is `"other"` and reported
+separately, because access wouldn't fix a bad address or a throttle. An unset
+`VITE_SHARED_MAILBOX` is deliberately NOT toasted — it breaks every notification
+for everyone, so a per-comment toast would be noise rather than something one
+person can act on.
+
+### Session expiry: one prompt, then the sign-in screen
+
+MSAL allows ONE interactive request at a time. The dashboard fires nine queries,
+so when a token died each called `acquireTokenPopup` independently: one popup
+opened and the other eight rejected instantly with `interaction_in_progress`,
+leaving eight failed queries that only a manual Retry cleared.
+
+`graph.ts` now serialises interactive sign-in behind a single shared promise —
+every waiter re-reads the fresh token from the cache, so one prompt recovers the
+whole page. `interaction_in_progress` is treated as "wait for the prompt already
+open", not a failure. When the session IS dead, `AuthGate` renders
+`SignInPage reason="expired"` rather than the app behind a banner, and signing in
+clears the query cache so nothing comes back still showing the old errors.
 
 ## Common changes — recipes
 
@@ -1022,9 +1250,6 @@ If you add a new attachment field to either entity, update:
 
 ## Known limitations / TODO
 
-- **Person picker (write):** Assigning users isn't wired up — currently the
-  detail view only edits Status. Adding it requires writing to the
-  `AssignedLookupId` field (see "Person fields" above).
 - **Rich-text comment editor:** The composer is plain text wrapped in `<p>`
   tags. The Power Apps version uses a full WYSIWYG. If you want feature
   parity, swap `CommentComposer.tsx` for a Tiptap-based editor.
@@ -1033,8 +1258,13 @@ If you add a new attachment field to either entity, update:
   side). See **Attachments** section below for the full picture.
 - **Workflow buttons** (New Test, New Field Trial, Form E028, Form E029)
   from the original app are intentionally not implemented in the MVP.
-- **Parent project resolution:** Needs the projects list ID
-  (`VITE_SP_PROJECTS_LIST_ID`) — currently falls back to empty title until set.
+- **Detail views and admin screens still have native `<select>`s.** The
+  modals were all converted to searchable `ChoiceSelect`; the inline pickers on
+  the task / EIR / panel / build-request detail pages and two admin screens were
+  not. Same swap when someone asks.
+- **The no-access notice has no "check again".** A user whose SharePoint access
+  was just granted has no way to re-check from the app short of knowing to
+  reload, so the fix routes through whoever granted it.
 
 ## Testing standard
 
