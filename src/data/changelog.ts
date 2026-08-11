@@ -20,6 +20,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.89.0",
+    date: "2026-08-11",
+    changes: [
+      "Admin → EIR Roles: adding someone is now a search over people already in the system — pick a name and their email fills itself in, instead of typing an address that has to match exactly",
+      "Someone already on the roles list is no longer offered a second time, which used to create a duplicate row whose roles silently did nothing",
+      "If the staff directory can't be loaded, the page says so and still lets an admin enter an email by hand rather than leaving them stuck",
+      "The EIR Roles page now spells out what each role unlocks — Engineer covers Engineering Response and Technical Priority, Supply Chain covers Buyer Code, Risk Part and Risk Part Level — and states plainly that every other EIR field stays open to everyone",
+      "EIR Roles is now linked from the Panel Projects admin page too, so it's reachable from every page in the Admin Center",
+    ],
+  },
+  {
     version: "0.88.2",
     date: "2026-08-11",
     changes: [

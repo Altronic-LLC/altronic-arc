@@ -1981,6 +1981,19 @@ const SECTIONS: ManualSection[] = [
           and <strong>Risk Part Level</strong>). A user can hold both. Everyone
           signed in can still edit every other EIR field — only those are gated.
           The checkboxes save instantly; remove a user to drop all their EIR roles.
+          The page lists what each role unlocks, so you can see what you're
+          granting before you tick it.
+        </P>
+        <P>
+          <strong>Add user</strong> is a <strong>search over people already in
+          the system</strong> — type a few letters of a name or email address
+          and pick the person; their email and display name are filled in for
+          you, so there's no address to type and no typo to make. Anyone already
+          on the list is left out of the results (adding them twice would create
+          a second row that quietly does nothing). If the staff directory can't
+          be read, the page says so and offers a manual email box as a fallback
+          — a hand-typed address has to match exactly how the person signs in,
+          or the row grants nothing.
         </P>
         <P>
           On the EIR itself, a locked field shows a small lock icon and a

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus, ShieldCheck, Trash2, UserPlus } from "lucide-react";
 import {
@@ -9,10 +9,14 @@ import {
 } from "@/hooks/useEirRoles";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useDirectoryPeople } from "@/hooks/useDirectory";
+import { useAdmins } from "@/hooks/useAdmins";
 import { LoadingTasks } from "@/components/LoadingTasks";
-import { EIR_ROLES, type EirRole } from "@/types/task";
+import { SingleSelect } from "@/components/SearchableSelect";
+import { EIR_ROLES, type EirRole, type Person } from "@/types/task";
 import { SP_EIR_ROLES_LIST_ID, USE_MOCK } from "@/api/config";
 import { useOverlayDismiss } from "@/components/useOverlayDismiss";
+import { mergePeople, personKey } from "@/lib/people";
 
 const ROLE_LABELS: Record<EirRole, string> = {
   engineer: "Engineer",
@@ -39,6 +43,28 @@ export function AdminEirRolesView() {
   const update = useUpdateEirRole();
   const remove = useRemoveEirRole();
   const [showNew, setShowNew] = useState(false);
+
+  // People to offer in the "Add user" picker: the staff directory, plus the
+  // Admins list so an admin can always be tagged even before they appear in
+  // the directory (or if the directory read isn't consented in this tenant).
+  const directory = useDirectoryPeople();
+  const { data: admins = [] } = useAdmins();
+  const pickablePeople = useMemo<Person[]>(
+    () =>
+      mergePeople(
+        directory,
+        admins.map((a) => ({ displayName: a.displayName || a.email, email: a.email })),
+      ),
+    [directory, admins],
+  );
+
+  // Someone already tagged shouldn't be offered again — adding them a second
+  // time creates a duplicate row, and `useMyEirRoles` only ever reads the
+  // first match, so the second row's roles would silently do nothing.
+  const alreadyTagged = useMemo(
+    () => new Set(entries.map((e) => e.email.trim().toLowerCase())),
+    [entries],
+  );
 
   if (!isAdmin) {
     return (
@@ -114,6 +140,30 @@ export function AdminEirRolesView() {
           (everyone can edit every field) and this page can't store changes.
         </div>
       )}
+
+      {/*
+       * What each role actually unlocks, stated on the page rather than only
+       * in a checkbox tooltip: an admin granting a role needs to know what
+       * they're granting without hovering to find out.
+       */}
+      <div className="rounded-lg border border-border bg-surface-2/40 p-3">
+        <h2 className="mb-2 font-display text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
+          What these roles gate
+        </h2>
+        <ul className="flex flex-col gap-1.5 text-xs text-fg">
+          {EIR_ROLES.map((role) => (
+            <li key={role} className="flex flex-wrap items-baseline gap-x-2">
+              <span className="font-semibold">{ROLE_LABELS[role]}</span>
+              <span className="text-fg-muted">{ROLE_GATES[role]}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-2 text-[11px] text-fg-muted">
+          Every other EIR field — status, resolution, description, purchasing
+          details, comments and attachments — stays editable by anyone signed
+          in. These roles restrict five fields, nothing else.
+        </p>
+      </div>
 
       <div className="flex justify-end">
         <button
@@ -209,6 +259,8 @@ export function AdminEirRolesView() {
 
       {showNew && (
         <NewEirRoleModal
+          people={pickablePeople}
+          alreadyTagged={alreadyTagged}
           onClose={() => {
             setShowNew(false);
             add.reset();
@@ -241,11 +293,17 @@ export function AdminEirRolesView() {
 }
 
 function NewEirRoleModal({
+  people,
+  alreadyTagged,
   onClose,
   onSubmit,
   submitting,
   error,
 }: {
+  /** Directory + admins, the people an admin can pick from. */
+  people: Person[];
+  /** Lowercased emails already on the roles list — not offered again. */
+  alreadyTagged: Set<string>;
   onClose: () => void;
   onSubmit: (input: {
     email: string;
@@ -256,10 +314,43 @@ function NewEirRoleModal({
   submitting: boolean;
   error: string | null;
 }) {
-  const [email, setEmail] = useState("");
-  const [displayName, setDisplayName] = useState("");
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [roles, setRoles] = useState<EirRole[]>([]);
+  /**
+   * Escape hatch. `useDirectoryPeople` degrades to [] when the tenant
+   * directory can't be read, and a brand-new starter may not be in it yet —
+   * without a manual route an admin would simply be stuck. Off by default so
+   * the safe path (pick a known person) is the one people take.
+   */
+  const [manual, setManual] = useState(false);
+  const [manualEmail, setManualEmail] = useState("");
+  const [manualName, setManualName] = useState("");
+
+  const options = useMemo(() => {
+    return people
+      .filter((p) => p.email && !alreadyTagged.has(p.email.toLowerCase()))
+      .map((p) => ({
+        value: personKey(p),
+        // The email is part of the LABEL, not just the value, for two
+        // reasons: searching matches on the label (so typing part of an
+        // address finds them), and two people who share a name are otherwise
+        // indistinguishable in the list.
+        label: p.email ? `${p.displayName} — ${p.email}` : p.displayName,
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [people, alreadyTagged]);
+
+  const selectedPerson = useMemo(
+    () => people.find((p) => personKey(p) === selectedKey) ?? null,
+    [people, selectedKey],
+  );
+
+  const directoryEmpty = people.length === 0;
+  const email = manual ? manualEmail.trim().toLowerCase() : (selectedPerson?.email ?? "");
+  const displayName = manual ? manualName.trim() : (selectedPerson?.displayName ?? "");
+  const duplicate = !!email && alreadyTagged.has(email.toLowerCase());
+  const canSubmit = !!email && !duplicate && !submitting;
 
   function toggle(role: EirRole) {
     setRoles((prev) => (prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role]));
@@ -282,37 +373,88 @@ function NewEirRoleModal({
         <form
           onSubmit={(ev) => {
             ev.preventDefault();
-            if (!email.trim()) return;
+            if (!canSubmit) return;
             onSubmit({
-              email: email.trim().toLowerCase(),
-              displayName: displayName.trim(),
+              email: email.toLowerCase(),
+              displayName,
               roles,
               note: note.trim(),
             });
           }}
           className="flex flex-col gap-3"
         >
-          <label className="flex flex-col gap-1 text-xs">
-            <span className="font-semibold uppercase tracking-wider text-fg-muted">Email</span>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(ev) => setEmail(ev.target.value)}
-              placeholder="someone@altronic-llc.com"
-              className="rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-xs">
-            <span className="font-semibold uppercase tracking-wider text-fg-muted">Display Name</span>
-            <input
-              type="text"
-              value={displayName}
-              onChange={(ev) => setDisplayName(ev.target.value)}
-              placeholder="Jane Smith"
-              className="rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-            />
-          </label>
+          {!manual ? (
+            <div className="flex flex-col gap-1 text-xs">
+              <span className="font-semibold uppercase tracking-wider text-fg-muted">
+                Person
+              </span>
+              <SingleSelect
+                allLabel="Search for a person…"
+                searchPlaceholder="Type a name or email…"
+                options={options}
+                selected={selectedKey}
+                onChange={setSelectedKey}
+              />
+              {selectedPerson && (
+                <span className="mt-0.5 font-mono text-[11px] text-fg-muted">
+                  {selectedPerson.email}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => setManual(true)}
+                className="mt-1 w-fit text-[11px] text-accent underline-offset-2 hover:underline"
+              >
+                {directoryEmpty
+                  ? "No people loaded — enter an email manually"
+                  : "Can't find them? Enter an email manually"}
+              </button>
+            </div>
+          ) : (
+            <>
+              <label className="flex flex-col gap-1 text-xs">
+                <span className="font-semibold uppercase tracking-wider text-fg-muted">Email</span>
+                <input
+                  type="email"
+                  required
+                  value={manualEmail}
+                  onChange={(ev) => setManualEmail(ev.target.value)}
+                  placeholder="someone@altronic-llc.com"
+                  className="rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                />
+                <span className="text-[11px] text-fg-muted">
+                  Must match how the person signs in — a typo here creates a row
+                  that silently grants nothing.
+                </span>
+              </label>
+              <label className="flex flex-col gap-1 text-xs">
+                <span className="font-semibold uppercase tracking-wider text-fg-muted">
+                  Display Name
+                </span>
+                <input
+                  type="text"
+                  value={manualName}
+                  onChange={(ev) => setManualName(ev.target.value)}
+                  placeholder="Jane Smith"
+                  className="rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => setManual(false)}
+                className="w-fit text-[11px] text-accent underline-offset-2 hover:underline"
+              >
+                ← Back to searching people
+              </button>
+            </>
+          )}
+
+          {duplicate && (
+            <div className="rounded-md border border-ajax-yellow/40 bg-ajax-yellow/5 px-2 py-1.5 text-xs text-fg">
+              That person is already on the list — edit their roles in the table
+              instead of adding them twice.
+            </div>
+          )}
           <fieldset className="flex flex-col gap-1.5 text-xs">
             <span className="font-semibold uppercase tracking-wider text-fg-muted">Roles</span>
             <div className="flex flex-wrap gap-4">
@@ -354,7 +496,7 @@ function NewEirRoleModal({
             </button>
             <button
               type="submit"
-              disabled={submitting || !email.trim()}
+              disabled={!canSubmit}
               className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90 disabled:opacity-50"
             >
               {submitting ? "Adding…" : "Add user"}

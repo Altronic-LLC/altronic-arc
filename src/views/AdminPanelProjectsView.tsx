@@ -90,6 +90,10 @@ export function AdminPanelProjectsView() {
           <Link to="/admin/operations-projects" className="text-xs text-accent underline-offset-2 hover:underline">
             Operations Projects →
           </Link>
+          {/* Every other admin page links EIR Roles; this one was the gap. */}
+          <Link to="/admin/eir-roles" className="text-xs text-accent underline-offset-2 hover:underline">
+            EIR Roles →
+          </Link>
         </div>
       </div>
 
