@@ -66,10 +66,25 @@ describe("sanitiseFilename", () => {
     expect(sanitiseFilename("a    b.png")).toBe("a b.png");
   });
 
-  it("strips control characters (each becomes its own '-')", () => {
-    // Tabs/newlines aren't in the visible illegal-character list but are
-    // still rejected by SharePoint; they fall under the \x00-\x1F range.
-    expect(sanitiseFilename("a\nb.png")).toBe("a-b.png");
+  it("turns pasted line breaks and tabs into a single space", () => {
+    // Tabs/newlines are rejected by SharePoint but they're also what you get
+    // when someone pastes a line of text into the name box, so they read as
+    // word separators rather than being deleted outright.
+    expect(sanitiseFilename("a\nb.png")).toBe("a b.png");
+    expect(sanitiseFilename("pump\tcurve.png")).toBe("pump curve.png");
+    expect(sanitiseFilename("a\r\n\tb.png")).toBe("a b.png");
+  });
+
+  it("drops other control characters entirely", () => {
+    // Built with fromCharCode rather than as string literals: a raw control
+    // byte in a source file makes git classify the file as BINARY (no diff,
+    // no review), and renders as an ordinary space in most editors — which is
+    // how the production regex this replaced got misread twice.
+    const nul = String.fromCharCode(0);
+    const unitSeparator = String.fromCharCode(31);
+    // A stray NUL is noise, not a word separator — it shouldn't leave a mark.
+    expect(sanitiseFilename(`a${nul}b.png`)).toBe("ab.png");
+    expect(sanitiseFilename(`a${unitSeparator}b.png`)).toBe("ab.png");
   });
 
   it("trims surrounding whitespace", () => {
