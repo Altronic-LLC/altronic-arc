@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.88.1",
+    date: "2026-08-11",
+    changes: [
+      "Naming a pasted screenshot now handles a name pasted in from somewhere else: a line break or tab inside it reads as a space, so \"pump curve.png\" comes out as you'd expect instead of \"pumpcurve.png\"",
+      "Stray invisible characters in a typed name are dropped silently rather than leaving a stray dash in the filename",
+      "Internal: the filename module no longer stores those invisible characters in its own source, which had made the file unreadable to code review",
+    ],
+  },
+  {
     version: "0.88.0",
     date: "2026-08-11",
     changes: [
