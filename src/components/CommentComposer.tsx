@@ -1,6 +1,7 @@
 import { AtSign, Paperclip, Send, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CommentAttachment, Person } from "@/types/task";
+import { filesFromClipboard } from "@/lib/pasteFiles";
 import {
   buildCommentHtml,
   rankMentionCandidates,
@@ -8,6 +9,7 @@ import {
 } from "@/lib/mentions";
 import { cn } from "@/lib/cn";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
+import { NameAttachmentDialog, needsAttachmentName } from "./NameAttachmentDialog";
 
 interface CommentComposerProps {
   onSubmit: (
@@ -65,6 +67,11 @@ export function CommentComposer({
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Unnamed screenshots wait here for the user to name them before they
+  // become attachments — one dialog at a time, so pasting several in a row
+  // prompts for each rather than dropping the ones after the first.
+  const [namingQueue, setNamingQueue] = useState<File[]>([]);
 
   // Picked mentions stay in their own array so we know which `@Name`
   // substrings to convert to chips at submit time. Users can manually
@@ -272,6 +279,29 @@ export function CommentComposer({
     }
   }
 
+  /**
+   * Ctrl+V attaches screenshots and copied files. `filesFromClipboard` returns
+   * [] for an ordinary text paste, so the default paste behaviour is left
+   * alone in that case — only prevented when we're actually taking files.
+   *
+   * A pasted file with a real name (copied from File Explorer) attaches
+   * immediately, same as before. An unnamed screenshot — recognisable by
+   * the timestamped name `filesFromClipboard` gave it — is queued for the
+   * naming prompt instead of attaching under that generated name.
+   */
+  function handlePaste(e: React.ClipboardEvent) {
+    const pasted = filesFromClipboard(e.clipboardData);
+    if (pasted.length === 0) return;
+    e.preventDefault();
+    const named: File[] = [];
+    const unnamed: File[] = [];
+    for (const file of pasted) {
+      (needsAttachmentName(file) ? unnamed : named).push(file);
+    }
+    if (named.length > 0) addFiles(named);
+    if (unnamed.length > 0) setNamingQueue((prev) => [...prev, ...unnamed]);
+  }
+
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (pickerOpen && candidates.length > 0) {
       if (e.key === "ArrowDown") {
@@ -315,6 +345,7 @@ export function CommentComposer({
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
+      onPaste={handlePaste}
     >
       <AutoGrowTextarea
         ref={textareaRef}
@@ -330,7 +361,7 @@ export function CommentComposer({
         placeholder={
           isDragging
             ? "Drop files here…"
-            : "Write a comment… (type @ to mention someone, drop files to attach)"
+            : "Write a comment… (type @ to mention someone, drop or paste files to attach)"
         }
         disabled={disabled || busy}
         rows={4}
@@ -442,6 +473,17 @@ export function CommentComposer({
         <div className="mt-2 rounded-md border border-cooper-red/30 bg-cooper-red/10 px-2 py-1 text-xs text-cooper-red">
           {uploadError}
         </div>
+      )}
+
+      {namingQueue.length > 0 && (
+        <NameAttachmentDialog
+          file={namingQueue[0]}
+          onConfirm={(renamed) => {
+            addFiles([renamed]);
+            setNamingQueue((prev) => prev.slice(1));
+          }}
+          onCancel={() => setNamingQueue((prev) => prev.slice(1))}
+        />
       )}
     </div>
   );

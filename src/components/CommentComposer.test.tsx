@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CommentComposer } from "./CommentComposer";
 import { MENTION_CANDIDATE_LIMIT } from "@/lib/mentions";
@@ -40,6 +40,23 @@ function setup(people: Person[], onSubmit = vi.fn().mockResolvedValue(undefined)
 }
 
 const listbox = () => screen.getByRole("listbox", { name: /mention someone/i });
+
+// jsdom has no object-URL implementation; the composer makes one per
+// attachment for the preview thumbnail.
+beforeAll(() => {
+  if (!URL.createObjectURL) {
+    URL.createObjectURL = vi.fn(() => "blob:mock");
+    URL.revokeObjectURL = vi.fn();
+  }
+});
+
+/** Stand-in for the DataTransfer a paste carries — files plus optional text. */
+function clipboardWith(files: File[], text = ""): DataTransfer {
+  return {
+    files: files as unknown as FileList,
+    getData: (type: string) => (type === "text/plain" ? text : ""),
+  } as unknown as DataTransfer;
+}
 
 describe("CommentComposer — mention picker opens", () => {
   it("shows the picker when the user types @", async () => {
@@ -187,5 +204,87 @@ describe("CommentComposer — keyboard navigation covers the whole list", () => 
       expect.stringContaining('data-email="mike7@altronic-llc.com"'),
       [],
     );
+  });
+});
+
+describe("CommentComposer — paste to attach", () => {
+  const png = (name: string) =>
+    new File([new Uint8Array([1, 2, 3])], name, { type: "image/png" });
+
+  it("opens the naming prompt for an unnamed screenshot and attaches it under the typed name", async () => {
+    const { user, textarea } = setup([]);
+    fireEvent.paste(textarea, { clipboardData: clipboardWith([png("image.png")]) });
+
+    const dialog = screen.getByRole("dialog");
+    const input = within(dialog).getByLabelText(/file name/i) as HTMLInputElement;
+    // The default is the generated screenshot name minus its extension.
+    expect(input.value).toMatch(/^screenshot-\d{4}-\d{2}-\d{2}-\d{6}$/);
+
+    await user.clear(input);
+    await user.type(input, "pump curve");
+    await user.click(within(dialog).getByRole("button", { name: /^attach$/i }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByText("pump curve.png")).toBeInTheDocument();
+  });
+
+  it("discards the pasted screenshot on Escape instead of attaching it", async () => {
+    const { user, textarea } = setup([]);
+    fireEvent.paste(textarea, { clipboardData: clipboardWith([png("image.png")]) });
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.queryByText(/\.png$/)).not.toBeInTheDocument();
+  });
+
+  it("keeps the real name when a named file is pasted — no prompt", () => {
+    const { textarea } = setup([]);
+    fireEvent.paste(textarea, {
+      clipboardData: clipboardWith([png("pump-curve.png")], "pump-curve.png"),
+    });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByText("pump-curve.png")).toBeInTheDocument();
+  });
+
+  it("leaves an ordinary text paste to the textarea — no prompt", () => {
+    const { textarea } = setup([]);
+    fireEvent.paste(textarea, { clipboardData: clipboardWith([], "some text") });
+    // No prompt and no attachment chip appeared — the paste fell through to
+    // the textarea.
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.queryByText(/screenshot-/)).not.toBeInTheDocument();
+  });
+
+  it("does not attach the image Excel bundles with copied cells", () => {
+    const { textarea } = setup([]);
+    fireEvent.paste(textarea, {
+      clipboardData: clipboardWith([png("image.png")], "Serial\tQty\n1234\t2"),
+    });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.queryByText(/screenshot-/)).not.toBeInTheDocument();
+  });
+
+  it("prompts for each screenshot in turn when several are pasted at once", async () => {
+    const { user, textarea } = setup([]);
+    fireEvent.paste(textarea, {
+      clipboardData: clipboardWith([png("image.png"), png("image.png")]),
+    });
+
+    let dialog = screen.getByRole("dialog");
+    await user.clear(within(dialog).getByLabelText(/file name/i));
+    await user.type(within(dialog).getByLabelText(/file name/i), "first shot");
+    await user.click(within(dialog).getByRole("button", { name: /^attach$/i }));
+
+    // Second screenshot still prompts — it wasn't dropped.
+    dialog = screen.getByRole("dialog");
+    await user.clear(within(dialog).getByLabelText(/file name/i));
+    await user.type(within(dialog).getByLabelText(/file name/i), "second shot");
+    await user.click(within(dialog).getByRole("button", { name: /^attach$/i }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByText("first shot.png")).toBeInTheDocument();
+    expect(screen.getByText("second shot.png")).toBeInTheDocument();
   });
 });

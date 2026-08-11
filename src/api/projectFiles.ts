@@ -1,5 +1,6 @@
 import { graphFetch } from "./graph";
 import { SP_SITE_ID, USE_MOCK } from "./config";
+import { safeUniqueFilename } from "@/lib/uniqueFilename";
 
 // =============================================================================
 // Project-folder attachments for tasks.
@@ -40,8 +41,192 @@ function isMiscFolder(name: string): boolean {
 /** How many recent files to surface on the task detail page. */
 export const RECENT_FILES_LIMIT = 5;
 
-/** Largest file we support via the simple PUT upload path (Graph limit ≈ 4 MB). */
+/**
+ * Largest body Graph accepts on the simple PUT path (≈ 4 MB). This is NOT the
+ * app's upload limit — it's just the point where we switch to a chunked
+ * upload session. See {@link MAX_UPLOAD_BYTES}.
+ */
 const SIMPLE_UPLOAD_MAX_BYTES = 4 * 1024 * 1024;
+
+/**
+ * The app's actual upload ceiling.
+ *
+ * Files up to this size go through a resumable upload session (Graph accepts
+ * far larger, but a browser tab pushing multi-gigabyte files over VPN is a
+ * bad bet — one dropped connection wastes the whole transfer). Raise this
+ * constant if the appetite changes; nothing else needs to move.
+ */
+export const MAX_UPLOAD_BYTES = 250 * 1024 * 1024;
+
+/**
+ * Bytes per chunk in an upload session. Graph REQUIRES a multiple of 320 KiB
+ * for every chunk except the last, and rejects the whole session otherwise —
+ * so this is 25 × 320 KiB, not a round 8 MB.
+ */
+const UPLOAD_CHUNK_BYTES = 25 * 320 * 1024;
+
+/** How many times to re-send a single chunk before giving up on the upload. */
+const CHUNK_RETRIES = 3;
+
+/** Human-readable size for messages ("12.4 MB"). */
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+/** Reports fraction complete, 0–1. Called at least once per chunk. */
+export type UploadProgress = (fraction: number) => void;
+
+/**
+ * Send one file to a drive folder, picking the transport by size: a single
+ * PUT under 4 MB, a resumable chunked session above it.
+ *
+ * `basePath` is the Graph path of the PARENT folder
+ * (e.g. `/sites/{id}/drive/items/{folderId}`); `name` is the final filename.
+ */
+async function uploadToDrive(
+  basePath: string,
+  name: string,
+  file: File,
+  onProgress?: UploadProgress,
+): Promise<GraphDriveChild> {
+  if (file.size > MAX_UPLOAD_BYTES) {
+    throw new Error(
+      `"${file.name}" is ${formatBytes(file.size)} — over the ` +
+        `${formatBytes(MAX_UPLOAD_BYTES)} upload limit. Put it in the project ` +
+        `folder in SharePoint directly and paste the link into a comment.`,
+    );
+  }
+  const target = `${basePath}:/${encodeURIComponent(name)}:`;
+
+  if (file.size <= SIMPLE_UPLOAD_MAX_BYTES) {
+    // Server-side backstop for the race between our pre-upload dedupe listing
+    // (see resolveUniqueName) and this PUT: if someone else wrote the same
+    // name in that window, Graph renames ours instead of clobbering theirs.
+    // The chunked path below gets the equivalent via a body param on
+    // createUploadSession — the simple PUT has no body-shaped place for it,
+    // only this query param.
+    const res = await graphFetch<GraphDriveChild>(
+      `${target}/content?@microsoft.graph.conflictBehavior=rename`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/octet-stream" },
+        body: await file.arrayBuffer(),
+      },
+    );
+    onProgress?.(1);
+    return res;
+  }
+  return uploadViaSession(target, file, onProgress);
+}
+
+/**
+ * Resumable upload for files too big for one PUT.
+ *
+ * Graph hands back a short-lived, PRE-AUTHENTICATED `uploadUrl`; chunks go to
+ * it with a plain `fetch` and NO Authorization header — attaching our bearer
+ * token to that URL is both unnecessary and a way to get the session rejected.
+ * Intermediate chunks answer 202; the last one answers 200/201 carrying the
+ * finished driveItem.
+ *
+ * On failure the session is cancelled (best-effort DELETE) so a half-written
+ * file doesn't linger in the library waiting to confuse someone.
+ */
+async function uploadViaSession(
+  target: string,
+  file: File,
+  onProgress?: UploadProgress,
+): Promise<GraphDriveChild> {
+  const session = await graphFetch<{ uploadUrl: string }>(
+    `${target}/createUploadSession`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        item: { "@microsoft.graph.conflictBehavior": "rename" },
+      }),
+    },
+  );
+  if (!session?.uploadUrl) {
+    throw new Error(`Couldn't start an upload session for "${file.name}".`);
+  }
+
+  try {
+    for (let start = 0; start < file.size; start += UPLOAD_CHUNK_BYTES) {
+      const end = Math.min(start + UPLOAD_CHUNK_BYTES, file.size);
+      const finished = await putChunk(session.uploadUrl, file, start, end);
+      onProgress?.(end / file.size);
+      if (finished) return finished;
+    }
+  } catch (err) {
+    void cancelUploadSession(session.uploadUrl);
+    throw err;
+  }
+  // Every chunk went up but Graph never returned the finished item.
+  void cancelUploadSession(session.uploadUrl);
+  throw new Error(`Upload of "${file.name}" ended without a completed file.`);
+}
+
+/**
+ * PUT one byte range. Returns the finished driveItem when this was the last
+ * chunk, or null when Graph wants more (202). Retries the SAME range on
+ * transport errors and 5xx/429 — chunk PUTs are idempotent, so a retry is
+ * always safe.
+ */
+async function putChunk(
+  uploadUrl: string,
+  file: File,
+  start: number,
+  end: number,
+): Promise<GraphDriveChild | null> {
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt <= CHUNK_RETRIES; attempt++) {
+    if (attempt > 0) await sleep(500 * 2 ** (attempt - 1));
+    let res: Response;
+    try {
+      res = await fetch(uploadUrl, {
+        method: "PUT",
+        headers: {
+          "Content-Length": String(end - start),
+          "Content-Range": `bytes ${start}-${end - 1}/${file.size}`,
+        },
+        body: file.slice(start, end),
+      });
+    } catch (err) {
+      lastError = err;
+      continue;
+    }
+    if (res.status === 200 || res.status === 201) {
+      return (await res.json()) as GraphDriveChild;
+    }
+    if (res.status === 202) return null;
+    if (res.status === 429 || res.status >= 500) {
+      lastError = new Error(`Graph answered ${res.status} for bytes ${start}-${end - 1}`);
+      continue;
+    }
+    // 4xx other than 429 won't improve on retry (expired session, bad range).
+    throw new Error(
+      `Upload failed at ${formatBytes(start)} of ${formatBytes(file.size)} ` +
+        `(HTTP ${res.status}). ${await res.text().catch(() => "")}`.trim(),
+    );
+  }
+  throw lastError instanceof Error
+    ? lastError
+    : new Error(`Upload stalled at ${formatBytes(start)}.`);
+}
+
+/** Best-effort session teardown — failures here are not worth surfacing. */
+async function cancelUploadSession(uploadUrl: string): Promise<void> {
+  try {
+    await fetch(uploadUrl, { method: "DELETE" });
+  } catch {
+    /* the session expires on its own soon enough */
+  }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 export interface ProjectFile {
   /** Drive item id — used for delete. */
@@ -272,16 +457,34 @@ export function targetFilename(resolved: ResolvedFolder, originalName: string): 
   return originalName;
 }
 
+/**
+ * Dedupe `desiredName` against what's already sitting in the destination
+ * folder before we upload, so two people pasting "screenshot.png" into the
+ * same project get two files instead of one clobbering the other. Reuses
+ * `listProjectFolderEntries` — it already knows how to list a folder's
+ * children in both mock and real mode, so this needs no new Graph call shape.
+ *
+ * If the listing itself fails (transient Graph error, permissions blip), we
+ * upload the name as-is rather than blocking the user — the
+ * conflictBehavior=rename param on the PUT (see uploadToDrive) is the
+ * server-side backstop for exactly that case.
+ */
+async function resolveUniqueName(folderId: string, desiredName: string): Promise<string> {
+  try {
+    const existing = await listProjectFolderEntries(folderId);
+    return safeUniqueFilename(desiredName, existing.map((e) => e.name));
+  } catch {
+    return desiredName;
+  }
+}
+
 export async function uploadTaskFile(
   resolved: ResolvedFolder,
   file: File,
+  onProgress?: UploadProgress,
 ): Promise<ProjectFile> {
-  if (file.size > SIMPLE_UPLOAD_MAX_BYTES) {
-    throw new Error(
-      `File "${file.name}" is ${(file.size / 1024 / 1024).toFixed(1)} MB — larger than the 4 MB simple-upload limit. Large-file upload sessions are on the backlog.`,
-    );
-  }
-  const finalName = targetFilename(resolved, file.name);
+  const desiredName = targetFilename(resolved, file.name);
+  const finalName = await resolveUniqueName(resolved.folder.id, desiredName);
 
   /* eslint-disable no-console */
   console.log(
@@ -305,15 +508,12 @@ export async function uploadTaskFile(
     mockFiles.set(key, next);
     return entry;
   }
-  const bytes = await file.arrayBuffer();
-  const path =
-    `/sites/${SP_SITE_ID}/drive/items/${resolved.folder.id}` +
-    `:/${encodeURIComponent(finalName)}:/content`;
-  const res = await graphFetch<GraphDriveChild>(path, {
-    method: "PUT",
-    headers: { "Content-Type": "application/octet-stream" },
-    body: bytes,
-  });
+  const res = await uploadToDrive(
+    `/sites/${SP_SITE_ID}/drive/items/${resolved.folder.id}`,
+    finalName,
+    file,
+    onProgress,
+  );
   return mapDriveFile(res);
 }
 
@@ -395,17 +595,27 @@ export async function listProjectFolderEntries(folderId?: string): Promise<Drive
   return sortEntries(entries);
 }
 
-/** Upload a file into a folder by its drive-item id. Simple PUT (≤ 4 MB). */
-export async function uploadFileToFolder(folderId: string, file: File): Promise<DriveEntry> {
-  if (file.size > SIMPLE_UPLOAD_MAX_BYTES) {
+/**
+ * Upload a file into a folder by its drive-item id. Chunks automatically once
+ * the file is bigger than a single PUT can carry — see {@link MAX_UPLOAD_BYTES}.
+ */
+export async function uploadFileToFolder(
+  folderId: string,
+  file: File,
+  onProgress?: UploadProgress,
+): Promise<DriveEntry> {
+  if (file.size > MAX_UPLOAD_BYTES) {
     throw new Error(
-      `File "${file.name}" is ${(file.size / 1024 / 1024).toFixed(1)} MB — larger than the 4 MB simple-upload limit.`,
+      `"${file.name}" is ${formatBytes(file.size)} — over the ` +
+        `${formatBytes(MAX_UPLOAD_BYTES)} upload limit.`,
     );
   }
+  const finalName = await resolveUniqueName(folderId, file.name);
+
   if (USE_MOCK) {
     const entry: DriveEntry = {
       id: `mockde-${nextMockFileId++}`,
-      name: file.name,
+      name: finalName,
       webUrl: "#",
       isFolder: false,
       size: file.size,
@@ -415,15 +625,12 @@ export async function uploadFileToFolder(folderId: string, file: File): Promise<
     mockTree.set(folderId, [...list, entry]);
     return entry;
   }
-  const bytes = await file.arrayBuffer();
-  const path =
-    `/sites/${SP_SITE_ID}/drive/items/${folderId}` +
-    `:/${encodeURIComponent(file.name)}:/content`;
-  const res = await graphFetch<GraphDriveChild>(path, {
-    method: "PUT",
-    headers: { "Content-Type": "application/octet-stream" },
-    body: bytes,
-  });
+  const res = await uploadToDrive(
+    `/sites/${SP_SITE_ID}/drive/items/${folderId}`,
+    finalName,
+    file,
+    onProgress,
+  );
   return mapEntry(res, false);
 }
 

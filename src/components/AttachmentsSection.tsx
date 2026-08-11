@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Download, FileText, Paperclip, Trash2, Upload } from "lucide-react";
 import {
   useAttachments,
@@ -7,6 +7,8 @@ import {
 } from "@/hooks/useAttachments";
 import { SharePointUnavailableError } from "@/api/sharepoint";
 import type { AttachmentParent } from "@/api/attachments";
+import { filesFromClipboard } from "@/lib/pasteFiles";
+import { NameAttachmentDialog, needsAttachmentName } from "./NameAttachmentDialog";
 
 interface AttachmentsSectionProps {
   parent: AttachmentParent;
@@ -26,14 +28,44 @@ export function AttachmentsSection({ parent, itemId }: AttachmentsSectionProps) 
   const upload = useUploadAttachment(parent, itemId);
   const remove = useDeleteAttachment(parent, itemId);
 
+  // Unnamed screenshots wait here for the user to name them before they're
+  // uploaded — one dialog at a time, so pasting several in a row prompts for
+  // each rather than dropping the ones after the first.
+  const [namingQueue, setNamingQueue] = useState<File[]>([]);
+
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (file) upload.mutate(file);
     e.target.value = ""; // allow re-selecting the same file
   }
 
+  /**
+   * Paste a screenshot straight into the card. The card carries tabIndex so it
+   * can hold focus and receive the paste at all — a document-level listener
+   * isn't an option here, because a build request renders one of these cards
+   * per part and every one of them would claim the same paste.
+   *
+   * A file pasted with a real name uploads immediately, as before. An
+   * unnamed screenshot is queued for the naming prompt instead.
+   */
+  function handlePaste(e: React.ClipboardEvent) {
+    const pasted = filesFromClipboard(e.clipboardData);
+    if (pasted.length === 0) return;
+    e.preventDefault();
+    const unnamed: File[] = [];
+    for (const file of pasted) {
+      if (needsAttachmentName(file)) unnamed.push(file);
+      else upload.mutate(file);
+    }
+    if (unnamed.length > 0) setNamingQueue((prev) => [...prev, ...unnamed]);
+  }
+
   return (
-    <div className="rounded-lg border border-border bg-surface p-4 sm:p-5">
+    <div
+      tabIndex={0}
+      onPaste={handlePaste}
+      className="rounded-lg border border-border bg-surface p-4 focus:outline-none focus:ring-2 focus:ring-accent/30 sm:p-5"
+    >
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 className="flex items-center gap-2 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
           <Paperclip className="h-4 w-4" />
@@ -133,6 +165,17 @@ export function AttachmentsSection({ parent, itemId }: AttachmentsSectionProps) 
         <div className="mt-2 text-xs text-cooper-red">
           Upload failed: {(upload.error as Error).message}
         </div>
+      )}
+
+      {namingQueue.length > 0 && (
+        <NameAttachmentDialog
+          file={namingQueue[0]}
+          onConfirm={(renamed) => {
+            upload.mutate(renamed);
+            setNamingQueue((prev) => prev.slice(1));
+          }}
+          onCancel={() => setNamingQueue((prev) => prev.slice(1))}
+        />
       )}
     </div>
   );

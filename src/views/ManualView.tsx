@@ -577,6 +577,11 @@ const SECTIONS: ManualSection[] = [
       "attachment",
       "attach file",
       "screenshot",
+      "paste screenshot",
+      "name screenshot",
+      "rename attachment",
+      "duplicate file name",
+      "overwrite",
       "edit comment",
       "delete comment",
       "thread",
@@ -585,7 +590,7 @@ const SECTIONS: ManualSection[] = [
       "resend notification",
     ],
     searchText:
-      "Type @ in the comment composer to open the mention picker. Arrow keys then Enter or Tab to pick. Comment boxes auto-grow as you type or paste. Mentioned people get an email with the task/EIR name, the comment quote, and a link. Attach files by drag-drop or click Attach. You can edit your own comments inline (a comment is yours if its saved name or email matches you, so older imported comments count too). Check Notify everyone again when editing to re-email every watcher and mention. Ctrl+Enter sends.",
+      "Type @ in the comment composer to open the mention picker. Arrow keys then Enter or Tab to pick. Comment boxes auto-grow as you type or paste. Mentioned people get an email with the task/EIR name, the comment quote, and a link. Attach files by drag-drop, click Attach, or paste with Ctrl+V. Pasting a screenshot opens a naming prompt before it attaches anywhere — Cancel discards it instead of attaching it — and the named file uploads to the task's SharePoint project folder like any other attachment; a name already taken there is saved as name (2).ext instead of overwriting it. You can edit your own comments inline (a comment is yours if its saved name or email matches you, so older imported comments count too). Check Notify everyone again when editing to re-email every watcher and mention. Ctrl+Enter sends.",
     render: () => (
       <>
         <P>
@@ -633,8 +638,29 @@ const SECTIONS: ManualSection[] = [
         </Tip>
         <H3>Attachments</H3>
         <P>
-          Drag a file onto the composer, or click <strong>Attach</strong>.
-          Multiple files OK; previewed inline. On a <strong>task</strong>{" "}
+          Drag a file onto the composer, click <strong>Attach</strong>, or{" "}
+          <strong>paste with Ctrl+V</strong>. Multiple files OK; previewed
+          inline. Pasting is the quick way to get a screenshot in: take one
+          with <strong>Win+Shift+S</strong> (or Print Screen) and paste it
+          straight into the comment box — a{" "}
+          <strong>Name this screenshot</strong> prompt appears before it's
+          attached anywhere. Type a real name (or keep the suggested one)
+          and click <strong>Attach</strong> or press Enter; click{" "}
+          <strong>Cancel</strong> or press Escape and the screenshot is
+          discarded instead of attached. A pasted image that already has a
+          real filename — copied from File Explorer or off a web page, say —
+          skips the prompt. The named file uploads to the task's SharePoint
+          project folder exactly like every other attachment; it isn't
+          embedded as a picture in the comment. If that name is already
+          taken in the folder, the file is saved as{" "}
+          <code>name (2).ext</code> instead of overwriting what's already
+          there, so two people naming a screenshot the same thing never
+          clobber each other. Copying cells out of Excel or text out of
+          Word still pastes as text, not as a picture of it. You can also
+          paste a screenshot directly into the{" "}
+          <strong>Attachments</strong> card — click the card first so it has
+          focus, then Ctrl+V; the same naming prompt and no-overwrite rule
+          apply there. On a <strong>task</strong>{" "}
           comment, dropped files upload to the task's SharePoint project
           folder before the comment posts, and a clickable hyperlink to
           each file is inlined into the comment body — same routing
@@ -695,9 +721,12 @@ const SECTIONS: ManualSection[] = [
       "where do files go",
       "sharepoint folder",
       "where used",
+      "duplicate file name",
+      "overwrite",
+      "rename attachment",
     ],
     searchText:
-      "Task attachments are stored in two places at once: the task itself in SharePoint (as list-item attachments) and the project folder under General/Project Folders. Files specific to a task show under 'On this task'; shared project files show under 'From <folder name>'. Task-specific attachments take priority and appear first. Deletes are scoped — removing from one place doesn't touch the other. Comment attachments use the project-folder path only, since they end up as hyperlinks inside the comment body.",
+      "Task attachments are stored in two places at once: the task itself in SharePoint (as list-item attachments) and the project folder under General/Project Folders. Files specific to a task show under 'On this task'; shared project files show under 'From <folder name>'. Task-specific attachments take priority and appear first. Deletes are scoped — removing from one place doesn't touch the other. Comment attachments use the project-folder path only, since they end up as hyperlinks inside the comment body. Uploading a file whose name is already used in the project folder doesn't overwrite it — it's saved as name (2).ext instead.",
     render: () => (
       <>
         <P>
@@ -771,9 +800,22 @@ const SECTIONS: ManualSection[] = [
         </P>
         <H3>Limits</H3>
         <P>
-          Files up to 4 MB upload directly. Above that, large-file upload
-          sessions aren't wired up yet — drop the file into SharePoint
-          directly and it'll show up on the next refresh.
+          Files up to <strong>250 MB</strong> upload. Anything over about 4 MB
+          is sent in chunks, so a big drawing or a short video goes up the same
+          way a small file does — it just takes longer, and the Uploading…
+          state stays put until it finishes. Past 250 MB, put the file into the
+          project folder in SharePoint directly and paste the link into a
+          comment; it'll show up in the file list on the next refresh.
+        </P>
+        <P>
+          Uploading a file whose name is already sitting in that project
+          folder doesn't overwrite it — the new file is saved as{" "}
+          <code>name (2).ext</code> (then <code>(3)</code>, and so on)
+          instead, so nothing gets silently replaced. A pasted screenshot
+          works the same way: it gets a naming prompt before it attaches
+          anywhere, and the name it's given is checked against the folder
+          the same as any other upload — see the Attachments section under
+          Comments for the prompt itself.
         </P>
         <Tip>
           EIRs still use a list-item-only model for now (attached to the
@@ -1418,7 +1460,7 @@ const SECTIONS: ManualSection[] = [
       "drawings",
     ],
     searchText:
-      "Project Folders is a browser over the Engineering document library (General/Project Folders). Open the Project Folders card on the dashboard or the Departments menu. Navigate into a project folder and its subfolders with the breadcrumb, click a file or folder to open it in SharePoint, and upload files into the folder you're in (up to 4 MB). Deleting is done in SharePoint itself.",
+      "Project Folders is a browser over the Engineering document library (General/Project Folders). Open the Project Folders card on the dashboard or the Departments menu. Navigate into a project folder and its subfolders with the breadcrumb, click a file or folder to open it in SharePoint, and upload files into the folder you're in (up to 250 MB — files over about 4 MB upload in chunks). Deleting is done in SharePoint itself.",
     render: () => (
       <>
         <P>

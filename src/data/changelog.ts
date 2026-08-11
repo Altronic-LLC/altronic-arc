@@ -20,6 +20,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.88.0",
+    date: "2026-08-11",
+    changes: [
+      "Uploads now go up to 250 MB instead of 4 MB — a big drawing, a photo set or a short video attaches like any other file; anything over about 4 MB is sent in chunks, so it just takes longer rather than being refused",
+      "Paste a screenshot straight into a comment with Ctrl+V — take it with Win+Shift+S and paste",
+      "Pasting a screenshot now asks you to name it before it attaches, instead of silently filing it away as screenshot-date-time.png; Cancel discards the paste instead of attaching it",
+      "The named screenshot uploads to the task's SharePoint project folder like any other attachment, not as a picture pasted into the comment itself",
+      "Ctrl+V also works in the Attachments card — click the card first so it has focus, then paste",
+      "Naming a file the same as one already in the project folder no longer overwrites it — it's saved as name (2).ext instead",
+      "Copying cells from Excel or text from Word still pastes as text, not as a picture of it",
+      "A failed large upload no longer leaves a half-written file behind, and a dropped chunk is retried before the upload gives up",
+    ],
+  },
+  {
     version: "0.87.0",
     date: "2026-08-11",
     changes: [

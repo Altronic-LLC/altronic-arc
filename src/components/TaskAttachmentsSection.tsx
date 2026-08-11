@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import {
   ExternalLink,
   FileText,
@@ -20,6 +20,8 @@ import {
   useUploadTaskFile,
 } from "@/hooks/useTaskFiles";
 import type { Task } from "@/types/task";
+import { filesFromClipboard } from "@/lib/pasteFiles";
+import { NameAttachmentDialog, needsAttachmentName } from "./NameAttachmentDialog";
 
 /**
  * Task detail Attachments card — routes through the site's Project
@@ -48,14 +50,40 @@ export function TaskAttachmentsSection({ task }: { task: Task }) {
   // across every task in the same project.
   const totalCount = listAttachments.length + files.length;
 
+  // Unnamed screenshots wait here for the user to name them before they're
+  // uploaded — one dialog at a time, so pasting several in a row prompts for
+  // each rather than dropping the ones after the first.
+  const [namingQueue, setNamingQueue] = useState<File[]>([]);
+
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (file) upload.mutate(file);
     e.target.value = ""; // allow re-selecting the same file
   }
 
+  /**
+   * Paste a screenshot into the card — same rules as the comment composer.
+   * A named file uploads immediately; an unnamed screenshot is queued for
+   * the naming prompt instead.
+   */
+  function handlePaste(e: React.ClipboardEvent) {
+    const pasted = filesFromClipboard(e.clipboardData);
+    if (pasted.length === 0) return;
+    e.preventDefault();
+    const unnamed: File[] = [];
+    for (const file of pasted) {
+      if (needsAttachmentName(file)) unnamed.push(file);
+      else upload.mutate(file);
+    }
+    if (unnamed.length > 0) setNamingQueue((prev) => [...prev, ...unnamed]);
+  }
+
   return (
-    <div className="rounded-lg border border-border bg-surface p-4 sm:p-5">
+    <div
+      tabIndex={0}
+      onPaste={handlePaste}
+      className="rounded-lg border border-border bg-surface p-4 focus:outline-none focus:ring-2 focus:ring-accent/30 sm:p-5"
+    >
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 className="flex items-center gap-2 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
           <Paperclip className="h-4 w-4" />
@@ -277,6 +305,17 @@ export function TaskAttachmentsSection({ task }: { task: Task }) {
           Uploading <span className="font-mono">{targetFilename(resolved, upload.variables.name)}</span> to{" "}
           <span className="font-mono">{resolved.folder.name}</span>…
         </div>
+      )}
+
+      {namingQueue.length > 0 && (
+        <NameAttachmentDialog
+          file={namingQueue[0]}
+          onConfirm={(renamed) => {
+            upload.mutate(renamed);
+            setNamingQueue((prev) => prev.slice(1));
+          }}
+          onCancel={() => setNamingQueue((prev) => prev.slice(1))}
+        />
       )}
     </div>
   );
