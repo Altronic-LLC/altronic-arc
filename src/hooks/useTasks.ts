@@ -665,14 +665,15 @@ export function useAddComment() {
         email: comment.authorEmail,
       };
 
-      // Email everyone watching + everyone @-mentioned, minus the author
-      // (unless they self-mentioned). Fire-and-forget for the comment itself,
-      // but NOT silent: notifyMentions toasts when a send fails, since a
-      // sender who lacks Send-As on the shared mailbox would otherwise think
-      // people had been notified when nobody was.
+      // Email everyone watching + everyone assigned + everyone @-mentioned,
+      // minus the author (unless they self-mentioned). Fire-and-forget for the
+      // comment itself, but NOT silent: notifyMentions toasts when a send
+      // fails, since a sender who lacks Send-As on the shared mailbox would
+      // otherwise think people had been notified when nobody was.
       const recipients = commentNotifyRecipients({
         bodyHtml: comment.bodyHtml,
         watchers: task.watchers,
+        assignees: task.assigned,
         authorEmail: comment.authorEmail,
       });
       if (recipients.length > 0) {
@@ -862,13 +863,14 @@ export function useEditComment() {
 
       if (renotify) {
         // Author explicitly asked to renotify the group — resend to
-        // everyone who'd hear about this comment (watchers + current AND
-        // previously @-mentioned people), tagged "edited" so the email
-        // reads as an update.
+        // everyone who'd hear about this comment (watchers + assignees +
+        // current AND previously @-mentioned people), tagged "edited" so the
+        // email reads as an update.
         const recipients = commentRenotifyRecipients({
           bodyHtml: newBodyHtml,
           previousBodyHtml: prevBody,
           watchers: task.watchers,
+          assignees: task.assigned,
           authorEmail: prevComment.authorEmail,
         });
         if (recipients.length > 0) {

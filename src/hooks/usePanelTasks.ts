@@ -350,6 +350,7 @@ export function useAddPanelTaskComment() {
       const recipients = commentNotifyRecipients({
         bodyHtml: comment.bodyHtml,
         watchers: task.watchers,
+        assignees: task.assigned ? [task.assigned] : [],
         authorEmail: comment.authorEmail,
       });
       if (recipients.length > 0) {
@@ -519,6 +520,7 @@ export function useEditPanelTaskComment() {
           bodyHtml: newBodyHtml,
           previousBodyHtml: prevBody,
           watchers: task.watchers,
+          assignees: task.assigned ? [task.assigned] : [],
           authorEmail: prevComment.authorEmail,
         });
         if (recipients.length > 0) {

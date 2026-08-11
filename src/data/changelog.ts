@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.87.0",
+    date: "2026-08-11",
+    changes: [
+      "Comments now email whoever the item is assigned to as well as its watchers, whether or not anyone was @-mentioned — an update on a task, EIR, Operations task, build request, panel order or panel task no longer reaches only the people tagged in it",
+      "The email says why it arrived: mentioned, assigned to you, or watching",
+      "Build request parts don't have an Assigned field, so comments on a part still go to its watchers and anyone mentioned",
+    ],
+  },
+  {
     version: "0.86.0",
     date: "2026-08-03",
     changes: [

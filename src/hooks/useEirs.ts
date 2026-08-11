@@ -392,14 +392,16 @@ export function useAddEirComment() {
       const eir = eirs?.find((e) => e.id === id);
       if (!eir) return;
 
-      // Email everyone watching + everyone @-mentioned, minus the author
-      // (unless they self-mentioned). Fire-and-forget for the comment itself,
-      // but NOT silent: notifyMentions toasts when a send fails, since a
-      // sender who lacks Send-As on the shared mailbox would otherwise think
-      // people had been notified when nobody was.
+      // Email everyone watching + every assigned engineer + everyone
+      // @-mentioned, minus the author (unless they self-mentioned).
+      // Fire-and-forget for the comment itself, but NOT silent: notifyMentions
+      // toasts when a send fails, since a sender who lacks Send-As on the
+      // shared mailbox would otherwise think people had been notified when
+      // nobody was.
       const recipients = commentNotifyRecipients({
         bodyHtml: comment.bodyHtml,
         watchers: eir.watchers,
+        assignees: eir.assignedEngineers,
         authorEmail: comment.authorEmail,
       });
       if (recipients.length > 0) {
@@ -585,13 +587,14 @@ export function useEditEirComment() {
 
       if (renotify) {
         // Author explicitly asked to renotify the group — resend to everyone
-        // who'd hear about this comment (watchers + current AND previously
-        // @-mentioned people), tagged "edited" so the email reads as an
-        // update, not a brand-new comment.
+        // who'd hear about this comment (watchers + assigned engineers +
+        // current AND previously @-mentioned people), tagged "edited" so the
+        // email reads as an update, not a brand-new comment.
         const recipients = commentRenotifyRecipients({
           bodyHtml: newBodyHtml,
           previousBodyHtml: prevBody,
           watchers: eir.watchers,
+          assignees: eir.assignedEngineers,
           authorEmail: prevComment.authorEmail,
         });
         if (recipients.length > 0) {

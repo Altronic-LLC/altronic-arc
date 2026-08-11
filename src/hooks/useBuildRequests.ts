@@ -499,6 +499,7 @@ export function useAddBuildRequestComment() {
       const recipients = commentNotifyRecipients({
         bodyHtml: comment.bodyHtml,
         watchers: br.watchers,
+        assignees: br.engineerAssigned ? [br.engineerAssigned] : [],
         authorEmail: comment.authorEmail,
       });
       if (recipients.length > 0) {
@@ -594,6 +595,7 @@ export function useEditBuildRequestComment() {
           bodyHtml: newBodyHtml,
           previousBodyHtml: prevBody,
           watchers: br.watchers,
+          assignees: br.engineerAssigned ? [br.engineerAssigned] : [],
           authorEmail: prevComment.authorEmail,
         });
         if (recipients.length > 0) {
@@ -802,6 +804,10 @@ export function useAddBuildRequestItemComment() {
       const recipients = commentNotifyRecipients({
         bodyHtml: comment.bodyHtml,
         watchers: item.watchers,
+        // Parts have no Assigned column of their own — the Build Request
+        // Items list doesn't carry one, same reason its change alerts pass
+        // no assignees. Watchers + mentions are the whole audience here.
+        assignees: [],
         authorEmail: comment.authorEmail,
       });
       if (recipients.length > 0) {
@@ -883,6 +889,8 @@ export function useEditBuildRequestItemComment() {
           bodyHtml: newBodyHtml,
           previousBodyHtml: prevBody,
           watchers: item.watchers,
+          // No Assigned column on parts — see the comment on posting above.
+          assignees: [],
           authorEmail: prevComment.authorEmail,
         });
         if (recipients.length > 0) {

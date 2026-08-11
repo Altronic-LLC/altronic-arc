@@ -401,6 +401,7 @@ export function useAddPanelOrderComment() {
       const recipients = commentNotifyRecipients({
         bodyHtml: comment.bodyHtml,
         watchers: order.watchers,
+        assignees: order.engineerAssigned ? [order.engineerAssigned] : [],
         authorEmail: comment.authorEmail,
       });
       if (recipients.length > 0) {
@@ -574,6 +575,7 @@ export function useEditPanelOrderComment() {
           bodyHtml: newBodyHtml,
           previousBodyHtml: prevBody,
           watchers: order.watchers,
+          assignees: order.engineerAssigned ? [order.engineerAssigned] : [],
           authorEmail: prevComment.authorEmail,
         });
         if (recipients.length > 0) {

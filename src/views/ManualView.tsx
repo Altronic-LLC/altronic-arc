@@ -612,8 +612,13 @@ const SECTIONS: ManualSection[] = [
           Anyone you @-mention also <strong>becomes a watcher</strong> on
           the item automatically (unless they already are) — tasks, EIRs,
           build requests, and individual build request parts alike.{" "}
-          <strong>Watchers are emailed on every new comment</strong> — not just
-          when they're mentioned — so the whole thread stays in the loop. You're
+          <strong>
+            Watchers and whoever the item is assigned to are emailed on every new
+            comment
+          </strong>{" "}
+          — not just when they're mentioned — so the whole thread stays in the
+          loop. The email says why it reached you: mentioned, assigned to you, or
+          watching. You're
           never emailed for your own comment, unless you @-mention yourself. To stop
           watching, the mentioned user removes themselves from the
           Watchers field on the detail sidebar. (Heads-up: a fresh
@@ -649,8 +654,8 @@ const SECTIONS: ManualSection[] = [
           there — only newly added mentions get an email. If you'd rather
           make sure everyone sees the update, check{" "}
           <strong>Notify everyone again</strong> before saving — it re-emails
-          every watcher and mentioned person (marked as an update, not a
-          brand-new comment), regardless of who was already notified.
+          every watcher, assignee and mentioned person (marked as an update, not
+          a brand-new comment), regardless of who was already notified.
         </P>
         <H3>Sending and confirmation</H3>
         <P>
@@ -1798,7 +1803,8 @@ const SECTIONS: ManualSection[] = [
         <H3>Email notifications</H3>
         <P>
           Build requests send email for: <strong>comments</strong> (request
-          watchers, or a part's own watchers for part comments, plus anyone
+          watchers + the assigned engineer, or a part's own watchers for part
+          comments, plus anyone
           @-mentioned), <strong>BR Status changes</strong> (watchers + engineer
           + requestor), <strong>Engineer Assigned changes</strong> (personal
           "assigned / unassigned" notes plus a broadcast to watchers and the
@@ -2070,7 +2076,7 @@ const SECTIONS: ManualSection[] = [
       "checkbox notification",
     ],
     searchText:
-      "Commenting on a task, EIR, build request, or build request part emails everyone watching it plus everyone you @-mention, from automation@altronic-llc.com. Mentioned people get a 'You were mentioned' email; other watchers get a 'New comment on' email. Build request parts have their own watcher lists; part-comment emails deep-link to the request with that part expanded. You're never emailed for your own comment unless you @-mention yourself. @-mentioning auto-adds the person as a watcher. Editing a comment emails only newly added mentions by default, but checking 'Notify everyone again' resends an 'Updated comment on' email to watchers plus everyone mentioned in the new AND previous version of the comment. Change alerts: changing a Status (task, EIR, or build request), an EIR Resolution, a build request part's Part Status, or the assignees (including a build request's Engineer Assigned) emails the watchers, current assignees, and the EIR reporter or BR requestor. Checking or unchecking a Description checklist box (task, Operations task, or EIR) emails the watchers and current assignees with a Checklist updated on email naming the item. Being added as an assignee emails you 'You've been assigned'; being removed emails 'You've been unassigned'; everyone else gets a broadcast. Promoting an EIR to a task emails the EIR's watchers and reporter with a link to the new task. Creating/deleting parts and other field edits (lead time, customer, build request part checklists, WO No) send no email. You're never emailed for a change you made yourself.",
+      "Commenting on a task, EIR, build request, or build request part emails everyone watching it, whoever it's assigned to, plus everyone you @-mention, from automation@altronic-llc.com. A comment with no mention at all still emails watchers and assignees. Mentioned people get a 'You were mentioned' email; assignees and other watchers get a 'New comment on' email that says whether it's assigned to them or they're watching. Build request parts have their own watcher lists and no Assigned field; part-comment emails deep-link to the request with that part expanded. You're never emailed for your own comment unless you @-mention yourself. @-mentioning auto-adds the person as a watcher. Editing a comment emails only newly added mentions by default, but checking 'Notify everyone again' resends an 'Updated comment on' email to watchers and assignees plus everyone mentioned in the new AND previous version of the comment. Change alerts: changing a Status (task, EIR, or build request), an EIR Resolution, a build request part's Part Status, or the assignees (including a build request's Engineer Assigned) emails the watchers, current assignees, and the EIR reporter or BR requestor. Checking or unchecking a Description checklist box (task, Operations task, or EIR) emails the watchers and current assignees with a Checklist updated on email naming the item. Being added as an assignee emails you 'You've been assigned'; being removed emails 'You've been unassigned'; everyone else gets a broadcast. Promoting an EIR to a task emails the EIR's watchers and reporter with a link to the new task. Creating/deleting parts and other field edits (lead time, customer, build request part checklists, WO No) send no email. You're never emailed for a change you made yourself.",
     render: () => (
       <>
         <P>
@@ -2088,8 +2094,9 @@ const SECTIONS: ManualSection[] = [
           </LI>
           <LI>
             Recipients are <strong>deduped</strong>: you get at most one email
-            per event, and the most specific message wins (a mention beats a
-            watcher notice; a personal "assigned" note beats the broadcast).
+            per event, and the most specific message wins (a mention beats an
+            "assigned to you" notice, which beats a watcher notice; a personal
+            "assigned" note beats the broadcast).
           </LI>
         </UL>
 
@@ -2098,17 +2105,17 @@ const SECTIONS: ManualSection[] = [
           rows={[
             [
               "You comment (no mention)",
-              "Everyone watching the item (minus you). Build request parts have their own watcher list — a part comment goes to that part's watchers, not the whole request's",
+              "Everyone watching the item + whoever it's assigned to (minus you). Build request parts have their own watcher list — a part comment goes to that part's watchers, not the whole request's",
               "New comment on …",
             ],
             [
               "You comment on a build request part",
-              "That part's watchers + anyone @-mentioned — the email's button opens the request with that part already expanded",
+              "That part's watchers + anyone @-mentioned — parts have no Assigned field of their own. The email's button opens the request with that part already expanded",
               "New comment on a build request part …",
             ],
             [
               "You @-mention someone in a comment",
-              "The mentioned person (other watchers still get the comment email)",
+              "The mentioned person (watchers and assignees still get the comment email)",
               "You were mentioned in …",
             ],
             [
@@ -2118,7 +2125,7 @@ const SECTIONS: ManualSection[] = [
             ],
             [
               "You edit a comment and check \"Notify everyone again\"",
-              "Watchers + everyone @-mentioned in the new AND the previous version of the comment (minus you)",
+              "Watchers + assignees + everyone @-mentioned in the new AND the previous version of the comment (minus you)",
               "Updated comment on …",
             ],
             [

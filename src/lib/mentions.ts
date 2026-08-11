@@ -195,13 +195,25 @@ export interface CommentRecipient {
   email: string;
   displayName: string;
   /** Why they're being notified — drives the email wording. */
-  reason: "mentioned" | "watching" | "edited";
+  reason: "mentioned" | "assigned" | "watching" | "edited";
 }
 
-/** Shared recipient math for {@link commentNotifyRecipients} and {@link commentRenotifyRecipients}. */
+/** A person as the recipient math needs them — a name plus a maybe-missing email. */
+export type NotifiablePerson = { displayName: string; email?: string };
+
+/**
+ * Shared recipient math for {@link commentNotifyRecipients} and
+ * {@link commentRenotifyRecipients}.
+ *
+ * `assignees` is a REQUIRED parameter rather than an optional one on purpose:
+ * every comment call site has to make a deliberate decision about it, and a
+ * forgotten argument is exactly the bug this replaced — see the note on
+ * `commentNotifyRecipients`.
+ */
 function buildCommentRecipients(args: {
   mentions: Array<{ email: string; displayName: string }>;
-  watchers: Array<{ displayName: string; email?: string }>;
+  watchers: NotifiablePerson[];
+  assignees: Array<NotifiablePerson | null | undefined>;
   authorEmail: string;
 }): CommentRecipient[] {
   const author = (args.authorEmail ?? "").toLowerCase();
@@ -217,7 +229,18 @@ function buildCommentRecipients(args: {
       reason: "watching",
     });
   }
-  // Mentions override watch — a mention is the stronger signal.
+  // Assignment outranks a plain watch — "assigned to you" is the more
+  // actionable wording for someone who owns the work.
+  for (const a of args.assignees) {
+    const email = a?.email?.trim();
+    if (!a || !email) continue;
+    byEmail.set(email.toLowerCase(), {
+      email,
+      displayName: a.displayName,
+      reason: "assigned",
+    });
+  }
+  // Mentions override both — a mention is the strongest signal.
   for (const m of args.mentions) {
     byEmail.set(m.email.toLowerCase(), {
       email: m.email,
@@ -232,18 +255,26 @@ function buildCommentRecipients(args: {
 
 /**
  * Who to email when a new comment is posted: everyone @-mentioned in the body
- * PLUS every watcher of the task/EIR, deduped by email (a mention beats a plain
- * watch). The comment's author is excluded — even if they're a watcher — UNLESS
- * they explicitly @-mentioned themselves.
+ * PLUS every watcher PLUS everyone the item is assigned to, deduped by email
+ * (mention beats assignment beats a plain watch). The comment's author is
+ * excluded — even if they're a watcher or an assignee — UNLESS they explicitly
+ * @-mentioned themselves.
+ *
+ * Assignees used to be left out entirely, so a comment with no @-mention
+ * reached only watchers and the person actually doing the work heard nothing
+ * unless they'd separately added themselves as a watcher (Ray, 2026-08-11).
+ * Items with no assignee concept (e.g. build request parts) pass [].
  */
 export function commentNotifyRecipients(args: {
   bodyHtml: string;
-  watchers: Array<{ displayName: string; email?: string }>;
+  watchers: NotifiablePerson[];
+  assignees: Array<NotifiablePerson | null | undefined>;
   authorEmail: string;
 }): CommentRecipient[] {
   return buildCommentRecipients({
     mentions: extractMentionedRecipients(args.bodyHtml),
     watchers: args.watchers,
+    assignees: args.assignees,
     authorEmail: args.authorEmail,
   });
 }
@@ -251,8 +282,8 @@ export function commentNotifyRecipients(args: {
 /**
  * Who to (re-)email when the comment's author explicitly asks to renotify
  * the group after editing — everyone who'd normally hear about this comment:
- * watchers, anyone @-mentioned in the edited body, AND anyone who was
- * @-mentioned in the comment's PREVIOUS body (`previousBodyHtml`), even if
+ * watchers, assignees, anyone @-mentioned in the edited body, AND anyone who
+ * was @-mentioned in the comment's PREVIOUS body (`previousBodyHtml`), even if
  * that mention was since removed or reworded. All tagged "edited" so the
  * email reads as an update rather than a brand-new mention or first-time
  * comment. Same author-exclusion rule as a fresh post.
@@ -260,7 +291,8 @@ export function commentNotifyRecipients(args: {
 export function commentRenotifyRecipients(args: {
   bodyHtml: string;
   previousBodyHtml?: string;
-  watchers: Array<{ displayName: string; email?: string }>;
+  watchers: NotifiablePerson[];
+  assignees: Array<NotifiablePerson | null | undefined>;
   authorEmail: string;
 }): CommentRecipient[] {
   const mentions = new Map<string, { email: string; displayName: string }>();
@@ -275,6 +307,7 @@ export function commentRenotifyRecipients(args: {
   return buildCommentRecipients({
     mentions: Array.from(mentions.values()),
     watchers: args.watchers,
+    assignees: args.assignees,
     authorEmail: args.authorEmail,
   }).map((r) => ({ ...r, reason: "edited" as const }));
 }

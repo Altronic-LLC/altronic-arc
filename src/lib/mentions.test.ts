@@ -151,6 +151,7 @@ describe("commentNotifyRecipients", () => {
     const out = commentNotifyRecipients({
       bodyHtml: buildCommentHtml("@Sarah Shaffer take a look", [SARAH]),
       watchers: [w("Sarah Shaffer", "sarah@x.com"), w("Ray White", "ray@x.com")],
+      assignees: [],
       authorEmail: "author@x.com",
     });
     const byEmail = Object.fromEntries(out.map((r) => [r.email.toLowerCase(), r.reason]));
@@ -158,13 +159,66 @@ describe("commentNotifyRecipients", () => {
     expect(byEmail["ray@x.com"]).toBe("watching");
   });
 
+  it("notifies assignees on a comment with NO mentions at all", () => {
+    const out = commentNotifyRecipients({
+      bodyHtml: buildCommentHtml("status update, no mentions", []),
+      watchers: [],
+      assignees: [w("Sarah Shaffer", "sarah@x.com")],
+      authorEmail: "author@x.com",
+    });
+    expect(out).toEqual([
+      { email: "sarah@x.com", displayName: "Sarah Shaffer", reason: "assigned" },
+    ]);
+  });
+
+  it("ranks mentioned over assigned over watching for the same person", () => {
+    const both = commentNotifyRecipients({
+      bodyHtml: buildCommentHtml("no mentions", []),
+      watchers: [w("Sarah Shaffer", "sarah@x.com")],
+      assignees: [w("Sarah Shaffer", "sarah@x.com")],
+      authorEmail: "author@x.com",
+    });
+    expect(both).toHaveLength(1);
+    expect(both[0].reason).toBe("assigned");
+
+    const mentioned = commentNotifyRecipients({
+      bodyHtml: buildCommentHtml("@Sarah Shaffer take a look", [SARAH]),
+      watchers: [w("Sarah Shaffer", "sarah@x.com")],
+      assignees: [w("Sarah Shaffer", "sarah@x.com")],
+      authorEmail: "author@x.com",
+    });
+    expect(mentioned).toHaveLength(1);
+    expect(mentioned[0].reason).toBe("mentioned");
+  });
+
+  it("tolerates a null assignee (single-person columns that aren't filled in)", () => {
+    const out = commentNotifyRecipients({
+      bodyHtml: buildCommentHtml("hi", []),
+      watchers: [w("Ray White", "ray@x.com")],
+      assignees: [null],
+      authorEmail: "author@x.com",
+    });
+    expect(out.map((r) => r.email)).toEqual(["ray@x.com"]);
+  });
+
   it("excludes the author when they did not mention themselves", () => {
     const out = commentNotifyRecipients({
       bodyHtml: buildCommentHtml("no mentions here", []),
       watchers: [w("Author", "author@x.com"), w("Ray White", "ray@x.com")],
+      assignees: [],
       authorEmail: "author@x.com",
     });
     expect(out.map((r) => r.email)).toEqual(["ray@x.com"]);
+  });
+
+  it("excludes the author even when the item is assigned to them", () => {
+    const out = commentNotifyRecipients({
+      bodyHtml: buildCommentHtml("commenting on my own task", []),
+      watchers: [],
+      assignees: [w("Author", "author@x.com")],
+      authorEmail: "AUTHOR@x.com",
+    });
+    expect(out).toEqual([]);
   });
 
   it("includes the author only when they self-mention", () => {
@@ -172,6 +226,7 @@ describe("commentNotifyRecipients", () => {
     const out = commentNotifyRecipients({
       bodyHtml: buildCommentHtml("@Author Person reminder", [self]),
       watchers: [w("Author Person", "author@x.com")],
+      assignees: [],
       authorEmail: "author@x.com",
     });
     expect(out).toHaveLength(1);
@@ -179,10 +234,11 @@ describe("commentNotifyRecipients", () => {
     expect(out[0].reason).toBe("mentioned");
   });
 
-  it("skips watchers without an email", () => {
+  it("skips watchers and assignees without an email", () => {
     const out = commentNotifyRecipients({
       bodyHtml: buildCommentHtml("hi", []),
       watchers: [w("No Email"), w("Has Email", "has@x.com")],
+      assignees: [w("Assigned No Email")],
       authorEmail: "author@x.com",
     });
     expect(out.map((r) => r.email)).toEqual(["has@x.com"]);
@@ -192,20 +248,26 @@ describe("commentNotifyRecipients", () => {
 describe("commentRenotifyRecipients", () => {
   const w = (displayName: string, email?: string) => ({ displayName, email });
 
-  it("tags every recipient 'edited' regardless of whether they were watching or mentioned", () => {
+  it("tags every recipient 'edited' regardless of whether they were watching, assigned or mentioned", () => {
     const out = commentRenotifyRecipients({
       bodyHtml: buildCommentHtml("@Sarah Shaffer take another look", [SARAH]),
       watchers: [w("Sarah Shaffer", "sarah@x.com"), w("Ray White", "ray@x.com")],
+      assignees: [w("Matt Traina", "matt@x.com")],
       authorEmail: "author@x.com",
     });
     expect(out.every((r) => r.reason === "edited")).toBe(true);
-    expect(out.map((r) => r.email).sort()).toEqual(["ray@x.com", "sarah@x.com"]);
+    expect(out.map((r) => r.email).sort()).toEqual([
+      "matt@x.com",
+      "ray@x.com",
+      "sarah@x.com",
+    ]);
   });
 
   it("still excludes the author unless they self-mentioned", () => {
     const out = commentRenotifyRecipients({
       bodyHtml: buildCommentHtml("no mentions here", []),
       watchers: [w("Author", "author@x.com"), w("Ray White", "ray@x.com")],
+      assignees: [],
       authorEmail: "author@x.com",
     });
     expect(out.map((r) => r.email)).toEqual(["ray@x.com"]);
@@ -218,6 +280,7 @@ describe("commentRenotifyRecipients", () => {
       // ...but she was mentioned in the version being replaced.
       previousBodyHtml: buildCommentHtml("@Sarah Shaffer take a look", [SARAH]),
       watchers: [],
+      assignees: [],
       authorEmail: "author@x.com",
     });
     expect(out).toEqual([
@@ -230,6 +293,7 @@ describe("commentRenotifyRecipients", () => {
       bodyHtml: buildCommentHtml("@Sarah Shaffer still relevant", [SARAH]),
       previousBodyHtml: buildCommentHtml("@Sarah Shaffer take a look", [SARAH]),
       watchers: [],
+      assignees: [],
       authorEmail: "author@x.com",
     });
     expect(out).toHaveLength(1);
@@ -240,6 +304,7 @@ describe("commentRenotifyRecipients", () => {
     const out = commentRenotifyRecipients({
       bodyHtml: buildCommentHtml("@Sarah Shaffer take a look", [SARAH]),
       watchers: [],
+      assignees: [],
       authorEmail: "author@x.com",
     });
     expect(out.map((r) => r.email)).toEqual(["sarah@x.com"]);

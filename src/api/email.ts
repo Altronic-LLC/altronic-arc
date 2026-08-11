@@ -30,11 +30,11 @@ export interface MentionRecipient {
   email: string;
   displayName: string;
   /**
-   * Why they're being notified — "mentioned" or a "watching" comment alert,
-   * or "edited" when the author checked "Notify everyone again" after
-   * editing an existing comment.
+   * Why they're being notified — "mentioned", "assigned" (the item is assigned
+   * to them), or a plain "watching" comment alert; "edited" when the author
+   * checked "Notify everyone again" after editing an existing comment.
    */
-  reason: "mentioned" | "watching" | "edited";
+  reason: "mentioned" | "assigned" | "watching" | "edited";
 }
 
 /** What the mention is on — drives the wording, link, and button text. */
@@ -505,7 +505,7 @@ interface MentionEmailContext {
   recipientName: string;
   senderName: string;
   kind: MentionTarget["kind"];
-  reason: "mentioned" | "watching" | "edited";
+  reason: MentionRecipient["reason"];
   itemTitle: string;
   commentExcerpt: string;
   url: string;
@@ -599,7 +599,9 @@ function renderMentionEmail(ctx: MentionEmailContext): string {
       ? `You were mentioned in ${copy.phrase} by <strong>${sender}</strong>.`
       : ctx.reason === "edited"
         ? `<strong>${sender}</strong> updated a comment on ${copy.phrase} you're following — here's the latest version:`
-        : `<strong>${sender}</strong> commented on ${copy.phrase} you're watching.`;
+        : ctx.reason === "assigned"
+          ? `<strong>${sender}</strong> commented on ${copy.phrase} assigned to you.`
+          : `<strong>${sender}</strong> commented on ${copy.phrase} you're watching.`;
 
   return renderEmailShell({
     recipientName: ctx.recipientName,
