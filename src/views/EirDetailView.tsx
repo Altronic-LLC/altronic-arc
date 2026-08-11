@@ -51,7 +51,7 @@ import { LoadingTasks } from "@/components/LoadingTasks";
 import { DetailTopBar } from "@/components/DetailTopBar";
 import { PersonMultiField } from "@/components/PersonMultiField";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
-import { mergePeople } from "@/lib/people";
+import { mergePeople, personKey } from "@/lib/people";
 import { PromoteEirModal } from "@/components/PromoteEirModal";
 import { sanitiseHtml } from "@/lib/sanitiseHtml";
 import { multiLookupField } from "@/lib/graphFields";
@@ -144,6 +144,18 @@ export function EirDetailView() {
     // Reporter / Engineer or be @-mentioned — resolved on write via ensureuser.
     return mergePeople([...map.values()], directory);
   }, [tasks, currentUser, directory]);
+
+  /**
+   * Options for the Assigned dropdown. Whoever is ALREADY assigned is folded
+   * in, even if they're no longer in the staff directory (left the company,
+   * or the directory call failed): the dropdown can only round-trip people it
+   * has options for, so without this, editing the field would silently drop
+   * an engineer who isn't listed.
+   */
+  const engineerOptions = useMemo<Person[]>(
+    () => mergePeople(allPeople, eir?.assignedEngineers ?? []),
+    [allPeople, eir?.assignedEngineers],
+  );
 
   // @-mention candidates: allPeople PLUS the Admins list, so someone can be
   // mentioned for the first time ever, before they've touched any task or
@@ -484,20 +496,28 @@ export function EirDetailView() {
               </SidebarField>
 
               <SidebarField icon={<Users />} label="Assigned">
-                <PersonMultiField
-                  value={eir.assignedEngineers}
-                  allPeople={allPeople}
-                  onToggle={(p) => {
-                    const key = (p.email ?? p.displayName).toLowerCase();
-                    const isSelected = eir.assignedEngineers.some(
-                      (x) => (x.email ?? x.displayName).toLowerCase() === key,
-                    );
-                    const next = isSelected
-                      ? eir.assignedEngineers.filter(
-                          (x) => (x.email ?? x.displayName).toLowerCase() !== key,
-                        )
-                      : [...eir.assignedEngineers, p];
-                    setEngineers.mutate({ id: eir.id, people: next });
+                {/*
+                 * Type-to-filter dropdown rather than a flat list of every
+                 * person: the options are the whole staff directory (200+),
+                 * which is unusable as a wall of chips. "chips" keeps the
+                 * selected engineers visible and individually removable,
+                 * the way the field has always looked.
+                 */}
+                <MultiSelect
+                  variant="chips"
+                  allLabel="Unassigned"
+                  searchPlaceholder="Search people…"
+                  options={engineerOptions.map((p) => ({
+                    value: personKey(p),
+                    label: p.displayName,
+                  }))}
+                  selected={eir.assignedEngineers.map(personKey)}
+                  onChange={(keys) => {
+                    const byKey = new Map(engineerOptions.map((p) => [personKey(p), p]));
+                    const people = keys
+                      .map((k) => byKey.get(k))
+                      .filter((p): p is Person => !!p);
+                    setEngineers.mutate({ id: eir.id, people });
                   }}
                 />
               </SidebarField>

@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.88.2",
+    date: "2026-08-11",
+    changes: [
+      "An EIR's Assigned engineers is now a dropdown with a search box — type a few letters to find someone instead of hunting through every name in the company",
+      "The people already assigned stay visible as chips you can remove individually, and anyone currently assigned still appears in the list even if they've since left the staff directory",
+    ],
+  },
+  {
     version: "0.88.1",
     date: "2026-08-11",
     changes: [

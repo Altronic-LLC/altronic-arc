@@ -1,6 +1,20 @@
 import type { Person } from "@/types/task";
 
 /**
+ * The identity key used for a person throughout the app: their email, folded
+ * to lowercase, falling back to display name for the rare directory entry
+ * without one. SharePoint hands the same person back with inconsistent
+ * casing between lists, so comparisons have to be case-insensitive.
+ *
+ * Exported because dropdowns key their options on it — an option value and
+ * the selected value have to be computed the same way or the selection
+ * silently fails to match.
+ */
+export function personKey(person: Person): string {
+  return (person.email ?? person.displayName).toLowerCase();
+}
+
+/**
  * Return `people` with `person` merged in if missing (deduped by lowercase
  * email/displayName), kept alphabetical.
  *

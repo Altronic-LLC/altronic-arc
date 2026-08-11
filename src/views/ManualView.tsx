@@ -1311,7 +1311,10 @@ const SECTIONS: ManualSection[] = [
           Stock, Current Price, MFG, MFG P/N, LTB Date, Buyer Code, Risk Part,
           Risk Part Level, Technical Priority, Altronic Part Number, and Where
           Used. Project Reference, Assigned Engineers, and attachments are set
-          from the detail page after creation.
+          from the detail page after creation — <strong>Assigned</strong> is a
+          dropdown with a search box, so type a few letters of a name rather
+          than scanning the whole staff list; the people already assigned show
+          as chips you can remove one at a time.
         </P>
         <H3>EIR numbering</H3>
         <P>
