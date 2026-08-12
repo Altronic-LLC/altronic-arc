@@ -282,6 +282,7 @@ src/
 │   ├── useProjectFolders.ts      Project-folder browsing queries
 │   ├── useAttachments.ts         List-item attachment upload/list/delete
 │   ├── useFilters.ts             URL-backed task filter state + filterSearch()
+│   ├── useEirFilters.ts          URL-backed EIR filter state + eirFilterSearch()
 │   ├── useSessionExpiry.ts       Shared "the token died" flag AuthGate watches
 │   ├── useVersionCheck.ts        Polls version.json → update banner
 │   ├── useUnseenMentions.ts      Unseen-@-mention badge state
@@ -302,6 +303,7 @@ src/
 │   ├── taskNumbering.ts          NumberedTitle computation (the app owns that column)
 │   ├── taskGraph.ts              Parent/child task relationships + cycle checks
 │   ├── taskFilters.ts            Pure task filter predicates
+│   ├── eirFilters.ts             Pure EIR filter/sort/count predicates (list + board)
 │   ├── eirMapper.ts              Graph item → Eir (field-name quirks)
 │   ├── eirNumber.ts              nextEirNo() — EIR_YYYY-#### auto-numbering
 │   ├── eirPromotion.ts           EIR → Task promotion helpers
@@ -341,6 +343,8 @@ src/
 │   ├── StatusPills.tsx           Task list status counters
 │   ├── OperationsStatusPills.tsx Operations equivalent
 │   ├── FilterBar.tsx             Task Project / Assigned / Search / Created By filters
+│   ├── EirFilterBar.tsx          EIR Project / Engineer / Search / Reporter filters
+│   ├── EirViewTabs.tsx           EIR workflow view tabs + counts (list + board)
 │   ├── SearchInput.tsx           Shared debounced search box
 │   ├── SearchableSelect.tsx      MultiSelect / SingleSelect / ChoiceSelect (all searchable)
 │   ├── SuggestInput.tsx          Text field that behaves like a choice field (CAD initials)
@@ -357,6 +361,7 @@ src/
 │   ├── BuildRequestRow.tsx       One build request row
 │   ├── BuildRequestItemCard.tsx  One part on a build request
 │   ├── EirRow.tsx                One EIR row (EIRs list)
+│   ├── EirKanbanCard.tsx         One EIR card (EIRs board)
 │   ├── TaskFormModal.tsx         Create/edit task
 │   ├── TaskResolutionModal.tsx   "Mark complete" resolution capture
 │   ├── OperationsTaskFormModal.tsx  Create/edit Operations task
@@ -394,6 +399,7 @@ src/
 │   ├── ProjectView.tsx           Single-project task rollup
 │   ├── ProjectFoldersView.tsx    Nested browser over the Documents library folders
 │   ├── EirsView.tsx              EIRs list — View tabs, status pills, filter bar
+│   ├── EirKanbanView.tsx         EIRs board — one column per EIR status, drag to set it
 │   ├── EirDetailView.tsx         EIR detail (+ role-gated fields, see below)
 │   ├── CsaListingsView.tsx       CSA Listings table (Engineering, admin-gated writes)
 │   ├── DrawingLogsView.tsx       Drawing File Logs — four tabbed registers
@@ -428,9 +434,9 @@ src/
 
 ### EIR list views (workflow tabs)
 
-`EirsView` has a **View** tab bar above the status pills, driven by a `view`
-URL param. The bucket predicate is `matchesEirView(eir, view)` (exported from
-`EirsView.tsx`, unit-tested):
+Both EIR views have a **View** tab bar (`EirViewTabs`) at the top, driven by a
+`view` URL param. The bucket predicate is `matchesEirView(eir, view)` in
+`src/lib/eirFilters.ts` (unit-tested):
 
 - **All** — no extra filter.
 - **New** — no project reference AND no engineer assigned (fresh, needs triage).
@@ -440,8 +446,35 @@ URL param. The bucket predicate is `matchesEirView(eir, view)` (exported from
 
 Views compose with the status pills and the filter bar; all three axes live in
 the URL so a view is shareable. To add another view: extend the `EirView` union
-+ `matchesEirView` predicate, add a `<ViewTab>`, and document it here and in the
-EIRs section of `ManualView.tsx`.
++ `matchesEirView` predicate in `lib/eirFilters.ts`, add an entry to the `tabs`
+array in `EirViewTabs.tsx`, and document it here and in the EIRs section of
+`ManualView.tsx`.
+
+### EIRs: one filtered set, two views (list + board)
+
+`EirsView` (`/eirs`) and `EirKanbanView` (`/eirs/kanban`) are two views of ONE
+filtered set, exactly like List/Kanban for tasks. Everything they share lives
+outside both of them, because two copies of a filter is how a fix reaches only
+one view (see the @-mention pickers below):
+
+- **`lib/eirFilters.ts`** — pure predicates: `applyEirFilters` (bar),
+  `matchesEirView` (tab), `applyEirStatusFilter` (pill), `sortEirsForView`,
+  `countEirsByStatus`, `collectEirPeople`. No React, no URL.
+- **`hooks/useEirFilters.ts`** — the URL state (`q`, `project`, `reporter`,
+  `engineer`, `view`, `status`) plus `eirFilterSearch()` for the switcher.
+- **`EirFilterBar` / `EirViewTabs`** — the shared chrome above each view.
+
+Two things that are deliberate:
+
+- **`eirFilterSearch` carries everything EXCEPT `status`.** The task helper
+  (`filterSearch`) only knows the task keys and would silently drop
+  reporter/engineer/view — don't point the EIR switcher at it. `status` stays
+  behind because on the board the columns ARE the statuses, so carrying
+  `status=Closed` across leaves four empty columns, which reads as broken.
+- **A drop writes Status through `useUpdateEirFields`** — no dedicated API
+  function, since that mutation is already optimistic with rollback, toast,
+  Undo and the watcher/engineer/reporter status-change email. Status is not
+  one of the role-gated EIR fields, so any signed-in user can drag.
 
 ## Data model
 

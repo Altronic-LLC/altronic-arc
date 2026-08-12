@@ -19,6 +19,7 @@ import { AdminEirRolesView } from "@/views/AdminEirRolesView";
 import { TestSheetsView } from "@/views/TestSheetsView";
 import { TestSheetDetailView } from "@/views/TestSheetDetailView";
 import { EirsView } from "@/views/EirsView";
+import { EirKanbanView } from "@/views/EirKanbanView";
 import { EirDetailView } from "@/views/EirDetailView";
 import { AboutView } from "@/views/AboutView";
 import { ManualView } from "@/views/ManualView";
@@ -178,6 +179,7 @@ export function App() {
           <Route path="/test-sheets" element={<TestSheetsView />} />
           <Route path="/test-sheet/:id" element={<TestSheetDetailView />} />
           <Route path="/eirs" element={<EirsView />} />
+          <Route path="/eirs/kanban" element={<EirKanbanView />} />
           <Route path="/eir/:id" element={<EirDetailView />} />
           <Route
             path="/operations/tasks"

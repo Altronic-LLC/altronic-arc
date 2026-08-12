@@ -20,6 +20,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.90.0",
+    date: "2026-08-12",
+    changes: [
+      "EIRs now have a Board as well as a List — List and Board buttons appear under the top nav whenever you're on an EIR",
+      "The board has one column per EIR status; drag a card to another column to change its status, with a toast and Undo, and the usual email to watchers, assigned engineers and the reporter",
+      "The View tabs (All, New, Needs Assigned, At Risk Parts, LTB) and the filter bar work the same on the board as on the list, and switching between the two keeps your filters and the tab you were on",
+      "The board isn't offered on phone-sized screens — opening it there shows the list instead, filters intact",
+      "Demo mode now carries 20 EIRs instead of 4 — every status, resolution and workflow view has real-looking entries behind it, so the board and the View tabs can actually be tried out before the SharePoint data is in front of you",
+      "Fixed demo EIR dates showing a day early — an LTB of 30 September read \"LTB SEP 29\" on the card",
+    ],
+  },
+  {
     version: "0.89.0",
     date: "2026-08-11",
     changes: [
