@@ -31,6 +31,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "The Physical Damage label is corrected in the form while preserving the existing SharePoint column name",
       "The QC department now includes a working Digital QC page backed by live SharePoint product-family lists",
       "Pyrometer now shows the latest EndSN used this calendar month for each tracked Old Material number",
+      "The About page now documents the Digital QC views, hook, API, 18 SharePoint lists, and shared data shape",
     ],
   },
   {
