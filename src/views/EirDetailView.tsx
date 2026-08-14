@@ -52,6 +52,8 @@ import { DetailTopBar } from "@/components/DetailTopBar";
 import { PersonMultiField } from "@/components/PersonMultiField";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { mergePeople, personKey } from "@/lib/people";
+import { toIsoDate } from "@/lib/dateInput";
+import { DateField } from "@/components/DateField";
 import { PromoteEirModal } from "@/components/PromoteEirModal";
 import { sanitiseHtml } from "@/lib/sanitiseHtml";
 import { multiLookupField } from "@/lib/graphFields";
@@ -75,6 +77,9 @@ export function EirDetailView() {
   // Buyer Code = supply chain. `enforced` is false (gating off) when the
   // EIR Roles list isn't configured in real mode — see useMyEirRoles.
   const { isEngineer, isSupplyChain, enforced } = useMyEirRoles();
+  // LTB Date is set freely on the New EIR form; once the EIR is submitted it
+  // belongs to Supply Chain, so the detail view locks it for everyone else.
+  const supplyChainLocked = enforced && !isSupplyChain;
 
   const updateFields = useUpdateEirFields();
   const setReporter = useSetEirReporter();
@@ -536,34 +541,38 @@ export function EirDetailView() {
 
 
               <SidebarField icon={<Calendar />} label="Requested Completion">
-                <input
-                  type="date"
+                <DateField
+                  aria-label="Requested Completion"
                   value={
                     eir.requestedCompletionDate
-                      ? eir.requestedCompletionDate.toISOString().slice(0, 10)
+                      ? toIsoDate(eir.requestedCompletionDate)
                       : ""
                   }
-                  onChange={(e) =>
+                  onChange={(next) =>
                     updateFields.mutate({
                       id: eir.id,
-                      fields: { Requested_x0020_Completion_x0020: e.target.value || null },
+                      fields: { Requested_x0020_Completion_x0020: next || null },
                     })
                   }
-                  className="w-full rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
                 />
               </SidebarField>
 
-              <SidebarField icon={<Calendar />} label="LTB Date">
-                <input
-                  type="date"
-                  value={eir.ltbDate ? eir.ltbDate.toISOString().slice(0, 10) : ""}
-                  onChange={(e) =>
+              <SidebarField icon={<Calendar />} label="LTB Date" locked={supplyChainLocked}>
+                <DateField
+                  aria-label="LTB Date"
+                  value={eir.ltbDate ? toIsoDate(eir.ltbDate) : ""}
+                  disabled={supplyChainLocked}
+                  title={
+                    supplyChainLocked
+                      ? "Only users with the Supply Chain role can edit the LTB Date."
+                      : undefined
+                  }
+                  onChange={(next) =>
                     updateFields.mutate({
                       id: eir.id,
-                      fields: { LTBDate: e.target.value || null },
+                      fields: { LTBDate: next || null },
                     })
                   }
-                  className="w-full rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
                 />
               </SidebarField>
 
@@ -1114,15 +1123,21 @@ function SidebarField({
   label,
   children,
   footer,
+  locked = false,
 }: {
   icon: React.ReactNode;
   label: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  /** Show the padlock next to the label — same affordance as InlineSelectField. */
+  locked?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <SidebarLabel icon={icon}>{label}</SidebarLabel>
+      <SidebarLabel icon={icon}>
+        {label}
+        {locked && <Lock className="h-3 w-3" aria-label="Locked" />}
+      </SidebarLabel>
       {children}
       {footer}
     </div>

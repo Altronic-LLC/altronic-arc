@@ -68,6 +68,9 @@ import { LoadingTasks } from "@/components/LoadingTasks";
 import { DetailTopBar } from "@/components/DetailTopBar";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { mergePeople } from "@/lib/people";
+import { isCommittableDate, toIsoDate } from "@/lib/dateInput";
+import { DateField } from "@/components/DateField";
+import { toLabelsField } from "@/lib/labels";
 import { PersonMultiField } from "@/components/PersonMultiField";
 import { cn } from "@/lib/cn";
 
@@ -256,15 +259,18 @@ export function DetailView() {
     updateFields.mutate({ id: task.id, fields: { Category: next } });
   }
 
+  // Single-select: the SharePoint column holds one choice, so picking a label
+  // replaces the current one and clicking the current one clears it.
   function handleLabelToggle(label: Label) {
     if (!task) return;
-    const has = task.labels.includes(label);
-    const next = has ? task.labels.filter((l) => l !== label) : [...task.labels, label];
-    updateFields.mutate({ id: task.id, fields: { Labels: next } });
+    const next: Label[] = task.labels.includes(label) ? [] : [label];
+    updateFields.mutate({ id: task.id, fields: { Labels: toLabelsField(next) } });
   }
 
   function handleDueDateChange(next: string) {
     if (!task) return;
+    // Skip the half-typed years a date input emits mid-entry — see dateInput.ts.
+    if (!isCommittableDate(next)) return;
     updateFields.mutate({ id: task.id, fields: { DueDate: next || null } });
   }
 
@@ -402,7 +408,7 @@ export function DetailView() {
     (t) => t.id !== task.id && !wouldCreateCycle(task.id, t.id, allTasks),
   );
 
-  const dueDateInput = task.dueDate ? task.dueDate.toISOString().slice(0, 10) : "";
+  const dueDateInput = task.dueDate ? toIsoDate(task.dueDate) : "";
 
   return (
     <div className="mx-auto max-w-[1400px] px-4 py-4 sm:px-6 sm:py-6">
@@ -709,11 +715,10 @@ export function DetailView() {
               </Field>
 
               <Field icon={<Calendar />} label="Due Date">
-                <input
-                  type="date"
+                <DateField
+                  aria-label="Due Date"
                   value={dueDateInput}
-                  onChange={(e) => handleDueDateChange(e.target.value)}
-                  className="w-full rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                  onChange={handleDueDateChange}
                 />
               </Field>
 
@@ -827,7 +832,7 @@ export function DetailView() {
               </div>
 
               <div>
-                <FieldLabel icon={<Tag />}>Labels</FieldLabel>
+                <FieldLabel icon={<Tag />}>Label</FieldLabel>
                 <div className="flex flex-wrap gap-1.5">
                   {task.labels.map((l) => (
                     <button
@@ -842,7 +847,7 @@ export function DetailView() {
                 </div>
                 <details className="mt-1.5 text-xs">
                   <summary className="cursor-pointer text-fg-muted hover:text-fg">
-                    + Add label
+                    {task.labels.length === 0 ? "+ Add label" : "Change label"}
                   </summary>
                   <div className="mt-1 flex flex-wrap gap-1">
                     {LABELS.filter((l) => !task.labels.includes(l)).map((l) => (

@@ -19,3 +19,7 @@ SESSION-NOTES.md
 # Discovery snapshots from scripts/discover-list.ps1 — dumped SharePoint content.
 # Useful locally, not something to commit; the schema itself is documented in CLAUDE.md.
 scripts/*-schema.json
+
+# Before/after records from scripts/reassign-site-user.ps1 — real item titles,
+# and the only rollback reference for an applied run. Keep locally, don't commit.
+scripts/reassign-*.csv

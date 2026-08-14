@@ -48,6 +48,8 @@ import { LoadingTasks } from "@/components/LoadingTasks";
 import { DetailTopBar } from "@/components/DetailTopBar";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { mergePeople } from "@/lib/people";
+import { parseIsoDate, toIsoDate } from "@/lib/dateInput";
+import { DateField } from "@/components/DateField";
 
 export function BuildRequestDetailView() {
   const { id } = useParams<{ id: string }>();
@@ -199,7 +201,7 @@ export function BuildRequestDetailView() {
     setWatchers.mutate({ id: br.id, people: next });
   }
 
-  const shipDateInput = br.quotedShipDate ? br.quotedShipDate.toISOString().slice(0, 10) : "";
+  const shipDateInput = br.quotedShipDate ? toIsoDate(br.quotedShipDate) : "";
 
   return (
     <div className="mx-auto max-w-[1400px] px-4 py-4 sm:px-6 sm:py-6">
@@ -366,17 +368,14 @@ export function BuildRequestDetailView() {
 
               {br.requiredLeadTime === "Ship Date" && (
                 <SideField label="Quoted Ship Date" icon={<Calendar />}>
-                  <input
-                    type="date"
+                  <DateField
+                    aria-label="Quoted Ship Date"
                     value={shipDateInput}
-                    onChange={(e) =>
+                    onChange={(next) =>
                       patch({
-                        QuotedShipDate: e.target.value
-                          ? new Date(e.target.value).toISOString()
-                          : null,
+                        QuotedShipDate: next ? parseIsoDate(next)!.toISOString() : null,
                       })
                     }
-                    className="select"
                   />
                 </SideField>
               )}

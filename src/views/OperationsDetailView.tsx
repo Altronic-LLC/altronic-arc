@@ -54,6 +54,8 @@ import { LoadingTasks } from "@/components/LoadingTasks";
 import { DetailTopBar } from "@/components/DetailTopBar";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { mergePeople } from "@/lib/people";
+import { isCommittableDate, toIsoDate } from "@/lib/dateInput";
+import { DateField } from "@/components/DateField";
 import { cn } from "@/lib/cn";
 
 /**
@@ -200,6 +202,8 @@ export function OperationsDetailView() {
 
   function handleDueDateChange(next: string) {
     if (!task) return;
+    // Skip the half-typed years a date input emits mid-entry — see dateInput.ts.
+    if (!isCommittableDate(next)) return;
     updateFields.mutate({ id: task.id, fields: { DueDate: next || null } });
   }
 
@@ -267,7 +271,7 @@ export function OperationsDetailView() {
     });
   }
 
-  const dueDateInput = task.dueDate ? task.dueDate.toISOString().slice(0, 10) : "";
+  const dueDateInput = task.dueDate ? toIsoDate(task.dueDate) : "";
 
   return (
     <div className="mx-auto max-w-[1400px] px-4 py-4 sm:px-6 sm:py-6">
@@ -417,11 +421,10 @@ export function OperationsDetailView() {
               </Field>
 
               <Field icon={<Calendar />} label="Due Date">
-                <input
-                  type="date"
+                <DateField
+                  aria-label="Due Date"
                   value={dueDateInput}
-                  onChange={(e) => handleDueDateChange(e.target.value)}
-                  className="w-full rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                  onChange={handleDueDateChange}
                 />
               </Field>
 

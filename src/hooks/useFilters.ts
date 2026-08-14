@@ -77,7 +77,10 @@ export function useFilters(): [Filters, (next: Filters) => void] {
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
-        next.set("assigned", me.email!);
+        // Lowercased: MSAL hands back the proper-cased UPN
+        // ("Nicholas.Sirianni@…") while SharePoint stores it lowercased, and
+        // "Assigned to me" then matched none of the user's own tasks.
+        next.set("assigned", me.email!.toLowerCase());
         return next;
       },
       { replace: true },
@@ -95,8 +98,10 @@ export function useFilters(): [Filters, (next: Filters) => void] {
       // assignedEmails: empty array means explicit "Anyone" when the param
       // is present, OR not-yet-defaulted when the param is absent. Either
       // way, applyFilters skips the assigned check.
-      assignedEmails: parseStringList(assignedRaw),
-      createdByEmail: createdByRaw ? createdByRaw : null,
+      // Lowercased on the way in so links shared before this fix — which carry
+      // the proper-cased UPN — still select the right person.
+      assignedEmails: parseStringList(assignedRaw).map((e) => e.toLowerCase()),
+      createdByEmail: createdByRaw ? createdByRaw.toLowerCase() : null,
     };
   }, [searchParams]);
 

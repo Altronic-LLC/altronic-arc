@@ -20,6 +20,7 @@ import {
   draftToInput,
   suggestionsFor,
 } from "./DrawingLogFields";
+import { DateField } from "./DateField";
 import { useOverlayDismiss } from "./useOverlayDismiss";
 
 interface DrawingLogDetailModalProps {
@@ -395,12 +396,11 @@ function EditChangeRow({
         {String(change.slot).padStart(2, "0")}
       </ChTd>
       <ChTd>
-        <input
-          type="date"
+        <DateField
           value={date}
-          onChange={(e) => setDate(e.target.value)}
+          onChange={setDate}
           aria-label="Change date"
-          className="select py-1"
+          className="py-1"
         />
       </ChTd>
       <ChTd>
@@ -474,11 +474,10 @@ function AddChangeForm({
       </div>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-4">
         <Labelled label="Date">
-          <input
-            type="date"
+          <DateField
             value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="select"
+            onChange={setDate}
+            aria-label="Date"
           />
         </Labelled>
         <Labelled label="ECN">

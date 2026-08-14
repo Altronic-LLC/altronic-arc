@@ -458,7 +458,7 @@ SharePoint internal column names (which is what Graph returns under
 | `status` | `Status` | One of `STATUSES` |
 | `priority` | `Priority` | One of `PRIORITIES`, nullable |
 | `category` | `Category` | One of `CATEGORIES`, nullable |
-| `labels` | `Labels` | Multi-choice, parsed from `;#` delimited string |
+| `labels` | `Labels` | **Single-value `choice`, NOT multi** — the wire value is a bare string (`"documentation"`). Verified against the live list 2026-08-14. Writing an array 400s; `";#"`-joining 400s too (not an allowed choice). The domain keeps `Label[]` for rendering but holds at most one. Read/write ONLY through `fromLabelsField`/`toLabelsField` in `src/lib/labels.ts`. |
 | `dueDate` | `DueDate` | ISO 8601 string |
 | `assigned` | `Assigned` | Person-or-group (single or multi), shape varies |
 | `watchers` | `Watchers` | Multi-person |
@@ -894,16 +894,44 @@ holds while the log query is still loading, when every row would otherwise look
 unused. `IDEmp` / `IDProd` / `IDRem` are legacy ids from the original import —
 read and preserved, never written.
 
+## Dates: always `DateField`, never `<input type="date">`
+
+**Every date in the app is picked from a calendar. Never add a bare
+`<input type="date">`** (Ray, 2026-08-14) — use `src/components/DateField.tsx`.
+
+A native date input reports a COMPLETE value as soon as all three segments hold
+anything, so typing the year of 05/01/2026 emits `0002-05-01` after the first
+keystroke, then `0020-`, `0202-`, `2026-`. Fields that save on change PATCHed
+each one. SharePoint DateTime can't store a year below 1900 and Graph rejects it
+as a misleading `404 itemNotFound` — which reached users as "Couldn't save
+changes — reverted. Graph 404 Not Found" on the EIR's LTB Date.
+
+`DateField` has no text entry at all, so an out-of-range or half-formed date
+isn't reachable. It speaks `yyyy-mm-dd` (`""` = unset) like the native input did,
+takes `disabled`/`title` for role-gated fields, and forwards a ref to its trigger
+for modal autofocus.
+
+Date maths goes through `src/lib/dateInput.ts` — `parseIsoDate` / `toIsoDate`
+build and read LOCAL dates. Don't use `new Date("2026-05-01")` (parses as UTC,
+lands on the previous day in every US timezone) or `.toISOString().slice(0, 10)`
+(same shift in reverse). `isCommittableDate` and the 1900–2999 bounds remain as
+the last line of defence for any value arriving from elsewhere.
+
 ## EIR field permissions (roles)
 
 Several EIR fields are edit-gated by role tags from the **EIR Roles** list:
 
 - **Engineering Response**, **Technical Priority** → require the `engineer` role.
-- **Buyer Code**, **Risk Part**, **Risk Part Level** → require the `supply chain` role.
+- **Buyer Code**, **Risk Part**, **Risk Part Level**, **LTB Date** → require the
+  `supply chain` role.
 
 These are editable on the EIR detail (the Part Details choice fields, gated via
-`InlineSelectField`'s `disabled` prop) and also appear on the New EIR form's
-Purchasing section. Every other EIR field stays editable by any signed-in user. A user can hold
+`InlineSelectField`'s `disabled` prop; LTB Date is a sidebar date input gated the
+same way, with `SidebarField`'s `locked` prop drawing the padlock) and also appear
+on the New EIR form's Purchasing section. **Gating is detail-view only** — the New
+EIR form deliberately leaves them open, so whoever raises the EIR can fill in an
+LTB date; it locks to Supply Chain once the EIR is submitted.
+Every other EIR field stays editable by any signed-in user. A user can hold
 both roles. This is **UI-level gating only** — it disables/locks the controls;
 it is not a server-side security boundary (a user with SharePoint write access
 could still edit the column directly in SharePoint).
