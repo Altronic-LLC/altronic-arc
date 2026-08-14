@@ -20,6 +20,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.91.1",
+    date: "2026-08-14",
+    changes: [
+      "Fixed the Assigned filter finding none of your tasks — your sign-in spells your address with capitals while SharePoint stores it lowercase, and the two weren't being treated as the same person",
+      "This also fixes the list opening empty on \"Assigned to me\", and the same problem on the Created By filter and the Operations task list",
+      "Someone assigned under two spellings of their name is now one entry in the dropdown that finds all of their tasks",
+      "Filter links shared before this fix still work",
+    ],
+  },
+  {
     version: "0.91.0",
     date: "2026-08-14",
     changes: [

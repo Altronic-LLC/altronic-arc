@@ -226,6 +226,57 @@ describe("applyFilters", () => {
     });
   });
 
+  // Reported 2026-08-14: "Assigned to me" listed none of the user's own tasks.
+  // MSAL hands back the proper-cased UPN while SharePoint stores the person's
+  // email lowercased, and the compare was case-sensitive.
+  describe("person identity is case-insensitive", () => {
+    const NICK_SP: Person = {
+      displayName: "Nick Sirianni",
+      email: "nicholas.sirianni@altronic-llc.com",
+      lookupId: 9,
+    };
+    const NICK_MSAL_EMAIL = "Nicholas.Sirianni@altronic-llc.com";
+
+    it("matches a task when the filter value is cased differently", () => {
+      const out = applyFilters([task({ assigned: [NICK_SP] })], null, {
+        ...NO_FILTERS,
+        assignedEmails: [NICK_MSAL_EMAIL],
+      });
+      expect(out).toHaveLength(1);
+    });
+
+    it("matches Created By the same way", () => {
+      const out = applyFilters([task({ assigned: [NICK_SP] })], null, {
+        ...NO_FILTERS,
+        createdByEmail: NICK_MSAL_EMAIL,
+      });
+      expect(out).toHaveLength(1);
+    });
+
+    // The same person under two display-name spellings is ONE dropdown entry,
+    // because identity comes from the email, not the name shown.
+    it("lists a person once across spellings and casings of the same email", () => {
+      const people = collectPeople([
+        task({ assigned: [NICK_SP] }),
+        task({ id: 2, assigned: [{ ...NICK_SP, displayName: "Nicholas Sirianni" }] }),
+        task({ id: 3, assigned: [{ ...NICK_SP, email: NICK_MSAL_EMAIL }] }),
+      ]);
+      expect(people).toHaveLength(1);
+    });
+
+    it("still finds tasks assigned under the other spelling", () => {
+      const tasks = [
+        task({ assigned: [NICK_SP] }),
+        task({ id: 2, assigned: [{ ...NICK_SP, displayName: "Nicholas Sirianni" }] }),
+      ];
+      const out = applyFilters(tasks, null, {
+        ...NO_FILTERS,
+        assignedEmails: [NICK_MSAL_EMAIL],
+      });
+      expect(out.map((t) => t.id)).toEqual([1, 2]);
+    });
+  });
+
   it("combines multiple filters with AND semantics", () => {
     const tasks = [
       task({ assigned: [ALICE], parentProject: { lookupId: 10, title: "P" }, title: "Match" }),
