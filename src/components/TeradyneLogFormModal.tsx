@@ -10,7 +10,7 @@ import {
 import type { TeradyneEmployee, TeradyneLogEntry, TeradyneLogInput } from "@/types/task";
 import { fromDateInputValue, toDateInputValue } from "@/lib/teradyneMapper";
 import { SingleSelect } from "./SearchableSelect";
-import { DATE_INPUT_MIN, DATE_INPUT_MAX } from "@/lib/dateInput";
+import { DateField } from "./DateField";
 import { useOverlayDismiss } from "./useOverlayDismiss";
 
 interface TeradyneLogFormModalProps {
@@ -71,7 +71,7 @@ export function TeradyneLogFormModal({ entry, onClose }: TeradyneLogFormModalPro
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const firstFieldRef = useRef<HTMLInputElement>(null);
+  const firstFieldRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     firstFieldRef.current?.focus();
   }, []);
@@ -248,15 +248,12 @@ export function TeradyneLogFormModal({ entry, onClose }: TeradyneLogFormModalPro
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <FieldLabel label="Enter Date">
-              <input
+              <DateField
                 ref={firstFieldRef}
-                type="date"
                 value={enterDate}
-                min={DATE_INPUT_MIN}
-                max={DATE_INPUT_MAX}
-                onChange={(e) => setEnterDate(e.target.value)}
-                className="select"
+                onChange={setEnterDate}
                 disabled={busy}
+                aria-label="Enter Date"
               />
             </FieldLabel>
             <FieldLabel label="Product *">

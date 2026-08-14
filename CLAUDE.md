@@ -894,6 +894,29 @@ holds while the log query is still loading, when every row would otherwise look
 unused. `IDEmp` / `IDProd` / `IDRem` are legacy ids from the original import —
 read and preserved, never written.
 
+## Dates: always `DateField`, never `<input type="date">`
+
+**Every date in the app is picked from a calendar. Never add a bare
+`<input type="date">`** (Ray, 2026-08-14) — use `src/components/DateField.tsx`.
+
+A native date input reports a COMPLETE value as soon as all three segments hold
+anything, so typing the year of 05/01/2026 emits `0002-05-01` after the first
+keystroke, then `0020-`, `0202-`, `2026-`. Fields that save on change PATCHed
+each one. SharePoint DateTime can't store a year below 1900 and Graph rejects it
+as a misleading `404 itemNotFound` — which reached users as "Couldn't save
+changes — reverted. Graph 404 Not Found" on the EIR's LTB Date.
+
+`DateField` has no text entry at all, so an out-of-range or half-formed date
+isn't reachable. It speaks `yyyy-mm-dd` (`""` = unset) like the native input did,
+takes `disabled`/`title` for role-gated fields, and forwards a ref to its trigger
+for modal autofocus.
+
+Date maths goes through `src/lib/dateInput.ts` — `parseIsoDate` / `toIsoDate`
+build and read LOCAL dates. Don't use `new Date("2026-05-01")` (parses as UTC,
+lands on the previous day in every US timezone) or `.toISOString().slice(0, 10)`
+(same shift in reverse). `isCommittableDate` and the 1900–2999 bounds remain as
+the last line of defence for any value arriving from elsewhere.
+
 ## EIR field permissions (roles)
 
 Several EIR fields are edit-gated by role tags from the **EIR Roles** list:

@@ -52,7 +52,8 @@ import { DetailTopBar } from "@/components/DetailTopBar";
 import { PersonMultiField } from "@/components/PersonMultiField";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { mergePeople, personKey } from "@/lib/people";
-import { isCommittableDate, DATE_INPUT_MIN, DATE_INPUT_MAX } from "@/lib/dateInput";
+import { toIsoDate } from "@/lib/dateInput";
+import { DateField } from "@/components/DateField";
 import { PromoteEirModal } from "@/components/PromoteEirModal";
 import { sanitiseHtml } from "@/lib/sanitiseHtml";
 import { multiLookupField } from "@/lib/graphFields";
@@ -540,46 +541,38 @@ export function EirDetailView() {
 
 
               <SidebarField icon={<Calendar />} label="Requested Completion">
-                <input
-                  type="date"
+                <DateField
+                  aria-label="Requested Completion"
                   value={
                     eir.requestedCompletionDate
-                      ? eir.requestedCompletionDate.toISOString().slice(0, 10)
+                      ? toIsoDate(eir.requestedCompletionDate)
                       : ""
                   }
-                  min={DATE_INPUT_MIN}
-                  max={DATE_INPUT_MAX}
-                  onChange={(e) => {
-                    if (!isCommittableDate(e.target.value)) return;
+                  onChange={(next) =>
                     updateFields.mutate({
                       id: eir.id,
-                      fields: { Requested_x0020_Completion_x0020: e.target.value || null },
-                    });
-                  }}
-                  className="w-full rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                      fields: { Requested_x0020_Completion_x0020: next || null },
+                    })
+                  }
                 />
               </SidebarField>
 
               <SidebarField icon={<Calendar />} label="LTB Date" locked={supplyChainLocked}>
-                <input
-                  type="date"
-                  value={eir.ltbDate ? eir.ltbDate.toISOString().slice(0, 10) : ""}
+                <DateField
+                  aria-label="LTB Date"
+                  value={eir.ltbDate ? toIsoDate(eir.ltbDate) : ""}
                   disabled={supplyChainLocked}
                   title={
                     supplyChainLocked
                       ? "Only users with the Supply Chain role can edit the LTB Date."
                       : undefined
                   }
-                  min={DATE_INPUT_MIN}
-                  max={DATE_INPUT_MAX}
-                  onChange={(e) => {
-                    if (!isCommittableDate(e.target.value)) return;
+                  onChange={(next) =>
                     updateFields.mutate({
                       id: eir.id,
-                      fields: { LTBDate: e.target.value || null },
-                    });
-                  }}
-                  className="w-full rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 disabled:cursor-not-allowed disabled:opacity-60"
+                      fields: { LTBDate: next || null },
+                    })
+                  }
                 />
               </SidebarField>
 

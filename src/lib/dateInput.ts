@@ -20,9 +20,41 @@ export const DATE_INPUT_MIN = "1900-01-01";
 /** Far enough out for any real due date; blocks fat-fingered years like 20260. */
 export const DATE_INPUT_MAX = "2999-12-31";
 
-const MIN_YEAR = 1900;
-const MAX_YEAR = 2999;
+export const MIN_YEAR = 1900;
+export const MAX_YEAR = 2999;
 const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/**
+ * Parse `yyyy-mm-dd` into a LOCAL-midnight Date, or null.
+ *
+ * Deliberately not `new Date("2026-05-01")` — that parses as UTC midnight, and
+ * reading it back with local getters lands on the previous day for every US
+ * timezone. Same trap CLAUDE.md flags for the Teradyne log.
+ */
+export function parseIsoDate(value: string): Date | null {
+  if (!isCommittableDate(value) || value === "") return null;
+  const [, y, m, d] = ISO_DATE.exec(value)!;
+  return new Date(Number(y), Number(m) - 1, Number(d));
+}
+
+/** Format a local Date back to `yyyy-mm-dd` without a UTC round-trip. */
+export function toIsoDate(date: Date): string {
+  const y = String(date.getFullYear()).padStart(4, "0");
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+/** Human-readable form for a picker trigger, e.g. "May 1, 2026". */
+export function formatDisplayDate(value: string): string | null {
+  const parsed = parseIsoDate(value);
+  if (!parsed) return null;
+  return parsed.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
 
 /**
  * Whether a raw `<input type="date">` value is safe to persist.

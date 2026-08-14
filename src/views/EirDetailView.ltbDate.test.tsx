@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import { renderWithProviders } from "@/test/render";
 import { MOCK_EIRS } from "@/data/mockData";
-import { isCommittableDate, DATE_INPUT_MIN, DATE_INPUT_MAX } from "@/lib/dateInput";
 import { EirDetailView } from "./EirDetailView";
 
 // LTB Date belongs to Supply Chain once an EIR is submitted: the New EIR form
@@ -33,11 +32,9 @@ async function renderEir() {
   return result;
 }
 
-/** The LTB Date input, scoped to its sidebar row (the label isn't wired up via htmlFor). */
-function ltbInput(): HTMLInputElement {
-  const label = screen.getByText("LTB Date");
-  const row = label.closest("div")!.parentElement as HTMLElement;
-  return row.querySelector('input[type="date"]') as HTMLInputElement;
+/** The LTB Date picker's trigger button. */
+function ltbTrigger(): HTMLButtonElement {
+  return screen.getByRole("button", { name: "LTB Date" }) as HTMLButtonElement;
 }
 
 describe("EirDetailView — LTB Date is a Supply Chain field", () => {
@@ -47,12 +44,12 @@ describe("EirDetailView — LTB Date is a Supply Chain field", () => {
 
   it("locks the field for someone without the Supply Chain role", async () => {
     await renderEir();
-    expect(ltbInput()).toBeDisabled();
+    expect(ltbTrigger()).toBeDisabled();
   });
 
   it("says why it's locked rather than just greying out", async () => {
     await renderEir();
-    expect(ltbInput().title).toMatch(/supply chain/i);
+    expect(ltbTrigger().title).toMatch(/supply chain/i);
     const row = screen.getByText("LTB Date").closest("div")!.parentElement as HTMLElement;
     expect(within(row).getByLabelText("Locked")).toBeInTheDocument();
   });
@@ -60,33 +57,29 @@ describe("EirDetailView — LTB Date is a Supply Chain field", () => {
   it("lets a Supply Chain user edit it", async () => {
     roles = { isEngineer: false, isSupplyChain: true, enforced: true };
     await renderEir();
-    expect(ltbInput()).toBeEnabled();
-    expect(screen.getByText("LTB Date").parentElement).not.toHaveTextContent(/locked/i);
+    expect(ltbTrigger()).toBeEnabled();
   });
 
   it("leaves the field open to everyone when role gating isn't configured", async () => {
     roles = { isEngineer: false, isSupplyChain: false, enforced: false };
     await renderEir();
-    expect(ltbInput()).toBeEnabled();
+    expect(ltbTrigger()).toBeEnabled();
   });
 
   // The Engineer role gates its own fields — it must not unlock this one.
   it("does not open up for an Engineer who isn't also Supply Chain", async () => {
     roles = { isEngineer: true, isSupplyChain: false, enforced: true };
     await renderEir();
-    expect(ltbInput()).toBeDisabled();
+    expect(ltbTrigger()).toBeDisabled();
   });
 
-  // Regression: a half-typed year used to be PATCHed straight through and came
-  // back as "Graph 404 Not Found". The range bound is the browser's half of the
-  // guard — isCommittableDate covers the rest (see lib/dateInput.test.ts).
-  it("bounds the year so a half-typed date can't reach SharePoint", async () => {
+  // Regression: a half-typed year ("0002-05-01") used to be PATCHed straight
+  // through and came back as "Graph 404 Not Found". The date is now picked from
+  // a calendar, so there is no text entry to half-type into.
+  it("offers no typable date input at all", async () => {
     roles = { isEngineer: false, isSupplyChain: true, enforced: true };
-    await renderEir();
-    const input = ltbInput();
-    expect(input.min).toBe(DATE_INPUT_MIN);
-    expect(input.max).toBe(DATE_INPUT_MAX);
-    // The value that actually broke it.
-    expect(isCommittableDate("0002-05-01")).toBe(false);
+    const { container } = await renderEir();
+    expect(container.querySelector('input[type="date"]')).toBeNull();
+    expect(container.querySelector('input[type="text"]')).toBeNull();
   });
 });

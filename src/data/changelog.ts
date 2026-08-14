@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.91.0",
+    date: "2026-08-14",
+    changes: [
+      "Every date in the app is now picked from a calendar instead of typed — click the field, click the day",
+      "This ends the save errors when entering a date: a typed date briefly looked like the year 0002 while you were still typing it, and that was being sent to SharePoint",
+      "Dates now read as \"May 1, 2026\" rather than 2026-05-01, with Today and Clear shortcuts and arrow-key navigation",
+    ],
+  },
+  {
     version: "0.90.0",
     date: "2026-08-14",
     changes: [
