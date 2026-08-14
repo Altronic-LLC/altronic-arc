@@ -266,7 +266,20 @@ if ($changes.Count -eq 0) {
     Write-Host "  No item on the scanned lists references site user $FromUserId." -ForegroundColor Green
     Write-Host "  Nothing to change." -ForegroundColor Green
 } else {
-    $changes | Format-Table List, ItemId, Column, Title, Before, After -AutoSize
+    # Always write the CSV. In a dry run it's the plan to check with the person
+    # whose work this is; in apply mode it's the only record of what the field
+    # held before — SharePoint has no undo for this.
+    $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
+    $mode = if ($Apply) { "applied" } else { "dryrun" }
+    $csvPath = Join-Path $PSScriptRoot "reassign-$FromUserId-to-$ToUserId-$mode-$stamp.csv"
+    $changes | Export-Csv -NoTypeInformation -Encoding UTF8 -Path $csvPath
+
+    $changes | Select-Object -First 25 | Format-Table List, ItemId, Column, Title -AutoSize
+    if ($changes.Count -gt 25) {
+        Write-Host "  … first 25 of $($changes.Count) shown. Full detail in the CSV." -ForegroundColor DarkGray
+    }
+    Write-Host ""
+    Write-Host "  Before/after values: $csvPath" -ForegroundColor Cyan
     Write-Host "  $($changes.Count) field(s) on $(($changes | Select-Object -Unique ItemId).Count) item(s)."
     if ($Apply) {
         Write-Host "  Applied. Failures: $($failures.Count)" -ForegroundColor $(if ($failures.Count) { "Red" } else { "Green" })
