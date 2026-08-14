@@ -23,9 +23,13 @@ export const CHANGELOG: ChangelogEntry[] = [
     version: "0.91.2",
     date: "2026-08-14",
     changes: [
-      "Digital QC Defect Log now has a live product-family selector, family-specific records, and a form to add new defect entries",
-      "The QC department now includes a working Digital QC page backed by mock data for the DE-Term family and sample QC families",
-      "The app can filter a defect log by product family and keeps the newest records at the top for quick review",
+      "Digital QC now has a live product-family selector with family-specific records and a form for adding defect entries",
+      "Digital QC forms now include Comments, StartSN, EndSN, To RP, and Other, with numeric fields defaulting to 0",
+      "Digital QC entries resolve each SharePoint list's actual column names before loading or saving",
+      "Digital QC lists can now be filtered across all fields and sorted by any data column",
+      "Comments now appear as a hoverable icon in the list and as a larger multiline field at the bottom of the form",
+      "The Physical Damage label is corrected in the form while preserving the existing SharePoint column name",
+      "The QC department now includes a working Digital QC page backed by live SharePoint product-family lists",
     ],
   },
   {

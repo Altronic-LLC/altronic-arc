@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Pencil, Plus, TestTubes } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ArrowDown, ArrowUp, ArrowUpDown, MessageSquare, Pencil, Plus, Search, TestTubes, X } from "lucide-react";
 import { DIGITAL_QC_FAMILY_LIST_IDS } from "@/api/digitalQc";
 import {
   useCreateDigitalQcRecord,
@@ -9,6 +9,35 @@ import {
 import type { DigitalQcRecord } from "@/lib/digitalQc";
 
 type ProductFamily = keyof typeof DIGITAL_QC_FAMILY_LIST_IDS;
+type SortKey = keyof Omit<DigitalQcRecord, "id" | "productFamily">;
+
+const SORTABLE_COLUMNS: { key: SortKey; label: string }[] = [
+  { key: "workOrder", label: "Work Order" },
+  { key: "dateTested", label: "Date Tested" },
+  { key: "operator", label: "Operator" },
+  { key: "oldNumber", label: "Old No" },
+  { key: "sapNumber", label: "SAP No" },
+  { key: "revisionNoFirmwareDate", label: "Rev Date" },
+  { key: "startSN", label: "StartSN" },
+  { key: "endSN", label: "EndSN" },
+  { key: "quantityTested", label: "Qty Test" },
+  { key: "quantityRejected", label: "Qty Reject" },
+  { key: "processSolderDefect", label: "Proc" },
+  { key: "aeSolderDefect", label: "AE Sold" },
+  { key: "aeWiringDeficiency", label: "AE Wiring" },
+  { key: "aeWrongOrMissingComponent", label: "AE Miss" },
+  { key: "aeAssemblyDeficiency", label: "AE Assy" },
+  { key: "aeIdentificationDeficiency", label: "AE ID" },
+  { key: "programmingFirmware", label: "Prog" },
+  { key: "coatingPottingDeficiency", label: "Coat" },
+  { key: "machinePartPlacementDeficiency", label: "Machine" },
+  { key: "physicalDamage", label: "Damage" },
+  { key: "ncmVendor", label: "NCM Vend" },
+  { key: "ncmInternal", label: "NCM Int" },
+  { key: "toRP", label: "To RP" },
+  { key: "other", label: "Other" },
+  { key: "comments", label: "Comments" },
+];
 
 const DEFAULT_FORM = {
   workOrder: "",
@@ -17,20 +46,25 @@ const DEFAULT_FORM = {
   oldNumber: "",
   sapNumber: "",
   revisionNoFirmwareDate: "",
-  quantityTested: "",
-  quantityRejected: "",
-  processSolderDefect: "",
-  aeSolderDefect: "",
-  aeWiringDeficiency: "",
-  aeWrongOrMissingComponent: "",
-  aeAssemblyDeficiency: "",
-  aeIdentificationDeficiency: "",
-  programmingFirmware: "",
-  coatingPottingDeficiency: "",
-  machinePartPlacementDeficiency: "",
-  physicalDamage: "",
-  ncmVendor: "",
-  ncmInternal: "",
+  startSN: "",
+  endSN: "",
+  comments: "",
+  quantityTested: "0",
+  quantityRejected: "0",
+  processSolderDefect: "0",
+  aeSolderDefect: "0",
+  aeWiringDeficiency: "0",
+  aeWrongOrMissingComponent: "0",
+  aeAssemblyDeficiency: "0",
+  aeIdentificationDeficiency: "0",
+  programmingFirmware: "0",
+  coatingPottingDeficiency: "0",
+  machinePartPlacementDeficiency: "0",
+  physicalDamage: "0",
+  ncmVendor: "0",
+  ncmInternal: "0",
+  toRP: "0",
+  other: "0",
 };
 
 export function DigitalQcView() {
@@ -38,12 +72,53 @@ export function DigitalQcView() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState(DEFAULT_FORM);
+  const [filterText, setFilterText] = useState("");
+  const [sortKey, setSortKey] = useState<SortKey>("dateTested");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
   const { data: records = [], isLoading, error } = useListDigitalQcRecords(selectedFamily);
   const createMutation = useCreateDigitalQcRecord(selectedFamily);
   const updateMutation = useUpdateDigitalQcRecord(selectedFamily);
 
   const families = Object.keys(DIGITAL_QC_FAMILY_LIST_IDS) as ProductFamily[];
+
+  const visibleRecords = useMemo(() => {
+    const query = filterText.trim().toLowerCase();
+    const filtered = query
+      ? records.filter((record) =>
+          Object.entries(record).some(
+            ([key, value]) =>
+              key !== "id" && key !== "productFamily" && String(value ?? "").toLowerCase().includes(query),
+          ),
+        )
+      : records;
+
+    return [...filtered].sort((left, right) => {
+      const leftValue = left[sortKey] ?? "";
+      const rightValue = right[sortKey] ?? "";
+      const leftNumber = typeof leftValue === "number" ? leftValue : Number(leftValue);
+      const rightNumber = typeof rightValue === "number" ? rightValue : Number(rightValue);
+      const comparison =
+        !Number.isNaN(leftNumber) && !Number.isNaN(rightNumber)
+          ? leftNumber - rightNumber
+          : String(leftValue).localeCompare(String(rightValue), undefined, { numeric: true, sensitivity: "base" });
+      return sortDirection === "asc" ? comparison : -comparison;
+    });
+  }, [filterText, records, sortDirection, sortKey]);
+
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDirection((direction) => (direction === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDirection("asc");
+    }
+  }
+
+  function sortIcon(key: SortKey) {
+    if (sortKey !== key) return <ArrowUpDown className="h-3 w-3 opacity-50" />;
+    return sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
+  }
 
   function toDraft(record?: DigitalQcRecord): typeof DEFAULT_FORM {
     if (!record) {
@@ -57,6 +132,9 @@ export function DigitalQcView() {
       oldNumber: record.oldNumber,
       sapNumber: record.sapNumber,
       revisionNoFirmwareDate: record.revisionNoFirmwareDate,
+      startSN: record.startSN ?? "",
+      endSN: record.endSN ?? "",
+      comments: record.comments ?? "",
       quantityTested: String(record.quantityTested),
       quantityRejected: String(record.quantityRejected),
       processSolderDefect: String(record.processSolderDefect),
@@ -71,6 +149,8 @@ export function DigitalQcView() {
       physicalDamage: String(record.physicalDamage),
       ncmVendor: String(record.ncmVendor),
       ncmInternal: String(record.ncmInternal),
+      toRP: String(record.toRP ?? 0),
+      other: String(record.other ?? 0),
     };
   }
 
@@ -111,11 +191,6 @@ export function DigitalQcView() {
     });
   }
 
-  function compactValue(value: string | number): string {
-    const text = String(value ?? "");
-    return text.length > 10 ? `${text.slice(0, 9)}…` : text;
-  }
-
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -126,6 +201,9 @@ export function DigitalQcView() {
       oldNumber: draft.oldNumber || "",
       sapNumber: draft.sapNumber || "",
       revisionNoFirmwareDate: draft.revisionNoFirmwareDate || "",
+      startSN: draft.startSN || "",
+      endSN: draft.endSN || "",
+      comments: draft.comments,
       quantityTested: toNumber(draft.quantityTested),
       quantityRejected: toNumber(draft.quantityRejected),
       processSolderDefect: toNumber(draft.processSolderDefect),
@@ -140,6 +218,8 @@ export function DigitalQcView() {
       physicalDamage: toNumber(draft.physicalDamage),
       ncmVendor: toNumber(draft.ncmVendor),
       ncmInternal: toNumber(draft.ncmInternal),
+      toRP: toNumber(draft.toRP),
+      other: toNumber(draft.other),
     };
 
     if (editingId) {
@@ -264,6 +344,22 @@ export function DigitalQcView() {
               />
             </label>
             <label className="flex flex-col gap-1 text-sm text-fg-muted">
+              StartSN
+              <input
+                value={draft.startSN}
+                onChange={(e) => updateField("startSN", e.target.value)}
+                className="rounded-md border border-border bg-surface-2 px-3 py-2 text-fg"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm text-fg-muted">
+              EndSN
+              <input
+                value={draft.endSN}
+                onChange={(e) => updateField("endSN", e.target.value)}
+                className="rounded-md border border-border bg-surface-2 px-3 py-2 text-fg"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm text-fg-muted">
               Quantity Tested
               <input
                 type="number"
@@ -363,7 +459,7 @@ export function DigitalQcView() {
               />
             </label>
             <label className="flex flex-col gap-1 text-sm text-fg-muted">
-              Physical Damge
+              Physical Damage
               <input
                 type="number"
                 value={draft.physicalDamage}
@@ -389,7 +485,43 @@ export function DigitalQcView() {
                 className="rounded-md border border-border bg-surface-2 px-3 py-2 text-fg"
               />
             </label>
+            <label className="flex items-center gap-3 text-sm text-fg-muted">
+              <span>To RP</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={draft.toRP === "1"}
+                onClick={() => updateField("toRP", draft.toRP === "1" ? "0" : "1")}
+                className={`relative h-6 w-11 rounded-full transition-colors ${
+                  draft.toRP === "1" ? "bg-accent" : "bg-border"
+                }`}
+              >
+                <span
+                  className={`absolute top-1 h-4 w-4 rounded-full bg-white transition-transform ${
+                    draft.toRP === "1" ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </label>
+            <label className="flex flex-col gap-1 text-sm text-fg-muted">
+              Other
+              <input
+                type="number"
+                value={draft.other}
+                onChange={(e) => updateField("other", e.target.value)}
+                className="rounded-md border border-border bg-surface-2 px-3 py-2 text-fg"
+              />
+            </label>
           </div>
+          <label className="mt-3 flex flex-col gap-1 text-sm text-fg-muted">
+            Comments
+            <textarea
+              value={draft.comments}
+              onChange={(e) => updateField("comments", e.target.value)}
+              rows={5}
+              className="min-h-32 w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-fg"
+            />
+          </label>
           <div className="mt-4 flex justify-end gap-2">
             <button
               type="button"
@@ -412,8 +544,31 @@ export function DigitalQcView() {
         <div className="flex items-center justify-between border-b border-border bg-surface-2 px-4 py-3">
           <h2 className="font-medium text-fg">{selectedFamily} entries</h2>
           <span className="text-xs uppercase tracking-[0.2em] text-fg-muted">
-            {isLoading ? "loading…" : `${records.length} records`}
+            {isLoading ? "loading…" : `${visibleRecords.length}${filterText ? ` of ${records.length}` : ""} records`}
           </span>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
+          <label className="relative min-w-[240px] flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-muted" />
+            <input
+              value={filterText}
+              onChange={(event) => setFilterText(event.target.value)}
+              placeholder="Filter all fields"
+              aria-label="Filter all fields"
+              className="w-full rounded-md border border-border bg-surface-2 py-2 pl-9 pr-3 text-sm text-fg outline-none focus:border-accent"
+            />
+          </label>
+          {filterText && (
+            <button
+              type="button"
+              onClick={() => setFilterText("")}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-2 text-sm font-medium text-fg-muted hover:bg-surface-2"
+            >
+              <X className="h-3.5 w-3.5" />
+              Clear filters
+            </button>
+          )}
         </div>
 
         {error && (
@@ -426,66 +581,86 @@ export function DigitalQcView() {
           <div className="flex items-center justify-center px-4 py-8 text-sm text-fg-muted">
             Loading records…
           </div>
-        ) : records.length === 0 ? (
+        ) : visibleRecords.length === 0 ? (
           <div className="flex items-center justify-center px-4 py-8 text-sm text-fg-muted">
-            No records for {selectedFamily}. Click "Add entry" to create one.
+            {filterText ? "No records match the current filter." : `No records for ${selectedFamily}. Click "Add entry" to create one.`}
           </div>
         ) : (
           <div className="overflow-hidden">
-            <table className="w-full table-fixed text-left text-xs">
+            <table className="w-full table-fixed text-left text-[10px]">
               <thead className="bg-surface-2 text-fg-muted">
                 <tr>
-                  <th className="px-1.5 py-2">Work Order</th>
-                  <th className="px-1.5 py-2">Date Tested</th>
-                  <th className="px-1.5 py-2">Operator</th>
-                  <th className="px-1.5 py-2">Old No</th>
-                  <th className="px-1.5 py-2">SAP No</th>
-                  <th className="px-1.5 py-2">Rev Date</th>
-                  <th className="px-1.5 py-2">Qty Test</th>
-                  <th className="px-1.5 py-2">Qty Reject</th>
-                  <th className="px-1.5 py-2">Proc</th>
-                  <th className="px-1.5 py-2">AE Sold</th>
-                  <th className="px-1.5 py-2">AE Wiring</th>
-                  <th className="px-1.5 py-2">AE Miss</th>
-                  <th className="px-1.5 py-2">AE Assy</th>
-                  <th className="px-1.5 py-2">AE ID</th>
-                  <th className="px-1.5 py-2">Prog</th>
-                  <th className="px-1.5 py-2">Coat</th>
-                  <th className="px-1.5 py-2">Machine</th>
-                  <th className="px-1.5 py-2">Damage</th>
-                  <th className="px-1.5 py-2">NCM Vend</th>
-                  <th className="px-1.5 py-2">NCM Int</th>
-                  <th className="w-12 px-1.5 py-2 text-right">Edit</th>
+                  {SORTABLE_COLUMNS.map(({ key, label }) => (
+                    <th
+                      key={key}
+                      className={`min-w-0 px-1 py-2 ${key === "workOrder" ? "w-[7%]" : ""} ${
+                        key === "toRP" || key === "comments" ? "w-[3%] px-0" : ""
+                      }`}
+                      aria-sort={sortKey === key ? (sortDirection === "asc" ? "ascending" : "descending") : "none"}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => toggleSort(key)}
+                        className="inline-flex max-w-full items-center gap-0.5 text-left font-semibold hover:text-fg"
+                        title={`Sort by ${label}`}
+                      >
+                        <span className="truncate">{label}</span>
+                        <span className="shrink-0">{sortIcon(key)}</span>
+                      </button>
+                    </th>
+                  ))}
+                  <th className="w-[3%] px-0 py-2 text-right">Edit</th>
                 </tr>
               </thead>
               <tbody>
-                {records.map((record) => (
+                {visibleRecords.map((record) => (
                 <tr
                   key={record.id}
                   className="cursor-pointer border-t border-border align-top hover:bg-surface-2/60"
                   onClick={() => openEditForm(record)}
                 >
-                  <td className="px-1.5 py-1.5 font-medium text-fg">{compactValue(record.workOrder)}</td>
-                  <td className="px-1.5 py-1.5 text-fg-muted">{formatDateOnly(record.dateTested)}</td>
-                  <td className="px-1.5 py-1.5">{compactValue(record.operator)}</td>
-                  <td className="px-1.5 py-1.5">{compactValue(record.oldNumber)}</td>
-                  <td className="px-1.5 py-1.5">{compactValue(record.sapNumber)}</td>
-                  <td className="px-1.5 py-1.5">{compactValue(record.revisionNoFirmwareDate)}</td>
-                  <td className="px-1.5 py-1.5">{record.quantityTested}</td>
-                  <td className="px-1.5 py-1.5">{record.quantityRejected}</td>
-                  <td className="px-1.5 py-1.5">{record.processSolderDefect}</td>
-                  <td className="px-1.5 py-1.5">{record.aeSolderDefect}</td>
-                  <td className="px-1.5 py-1.5">{record.aeWiringDeficiency}</td>
-                  <td className="px-1.5 py-1.5">{record.aeWrongOrMissingComponent}</td>
-                  <td className="px-1.5 py-1.5">{record.aeAssemblyDeficiency}</td>
-                  <td className="px-1.5 py-1.5">{record.aeIdentificationDeficiency}</td>
-                  <td className="px-1.5 py-1.5">{record.programmingFirmware}</td>
-                  <td className="px-1.5 py-1.5">{record.coatingPottingDeficiency}</td>
-                  <td className="px-1.5 py-1.5">{record.machinePartPlacementDeficiency}</td>
-                  <td className="px-1.5 py-1.5">{record.physicalDamage}</td>
-                  <td className="px-1.5 py-1.5">{record.ncmVendor}</td>
-                  <td className="px-1.5 py-1.5">{record.ncmInternal}</td>
-                  <td className="w-12 px-1.5 py-1.5 text-right">
+                  <td className="max-w-0 overflow-hidden text-ellipsis whitespace-nowrap px-1 py-1.5 font-medium text-fg" title={record.workOrder}>{record.workOrder}</td>
+                  <td className="max-w-0 overflow-hidden text-ellipsis whitespace-nowrap px-1 py-1.5 text-fg-muted">{formatDateOnly(record.dateTested)}</td>
+                  <td className="max-w-0 overflow-hidden text-ellipsis whitespace-nowrap px-1 py-1.5" title={record.operator}>{record.operator}</td>
+                  <td className="max-w-0 overflow-hidden text-ellipsis whitespace-nowrap px-1 py-1.5" title={record.oldNumber}>{record.oldNumber}</td>
+                  <td className="max-w-0 overflow-hidden text-ellipsis whitespace-nowrap px-1 py-1.5" title={record.sapNumber}>{record.sapNumber}</td>
+                  <td className="max-w-0 overflow-hidden text-ellipsis whitespace-nowrap px-1 py-1.5" title={record.revisionNoFirmwareDate}>{record.revisionNoFirmwareDate}</td>
+                  <td className="max-w-0 overflow-hidden text-ellipsis whitespace-nowrap px-1 py-1.5" title={record.startSN ?? ""}>{record.startSN ?? ""}</td>
+                  <td className="max-w-0 overflow-hidden text-ellipsis whitespace-nowrap px-1 py-1.5" title={record.endSN ?? ""}>{record.endSN ?? ""}</td>
+                  <td className="max-w-0 overflow-hidden text-ellipsis whitespace-nowrap px-1 py-1.5">{record.quantityTested}</td>
+                  <td className="max-w-0 overflow-hidden text-ellipsis whitespace-nowrap px-1 py-1.5">{record.quantityRejected}</td>
+                  <td className="max-w-0 overflow-hidden text-ellipsis whitespace-nowrap px-1 py-1.5">{record.processSolderDefect}</td>
+                  <td className="max-w-0 overflow-hidden text-ellipsis whitespace-nowrap px-1 py-1.5">{record.aeSolderDefect}</td>
+                  <td className="max-w-0 overflow-hidden text-ellipsis whitespace-nowrap px-1 py-1.5">{record.aeWiringDeficiency}</td>
+                  <td className="max-w-0 overflow-hidden text-ellipsis whitespace-nowrap px-1 py-1.5">{record.aeWrongOrMissingComponent}</td>
+                  <td className="max-w-0 overflow-hidden text-ellipsis whitespace-nowrap px-1 py-1.5">{record.aeAssemblyDeficiency}</td>
+                  <td className="max-w-0 overflow-hidden text-ellipsis whitespace-nowrap px-1 py-1.5">{record.aeIdentificationDeficiency}</td>
+                  <td className="max-w-0 overflow-hidden text-ellipsis whitespace-nowrap px-1 py-1.5">{record.programmingFirmware}</td>
+                  <td className="max-w-0 overflow-hidden text-ellipsis whitespace-nowrap px-1 py-1.5">{record.coatingPottingDeficiency}</td>
+                  <td className="max-w-0 overflow-hidden text-ellipsis whitespace-nowrap px-1 py-1.5">{record.machinePartPlacementDeficiency}</td>
+                  <td className="max-w-0 overflow-hidden text-ellipsis whitespace-nowrap px-1 py-1.5">{record.physicalDamage}</td>
+                  <td className="max-w-0 overflow-hidden text-ellipsis whitespace-nowrap px-1 py-1.5">{record.ncmVendor}</td>
+                  <td className="max-w-0 overflow-hidden text-ellipsis whitespace-nowrap px-1 py-1.5">{record.ncmInternal}</td>
+                  <td className="w-[3%] px-0 py-1.5 text-center">
+                    <span
+                      title={record.toRP === 1 ? "To RP: on" : "To RP: off"}
+                      aria-label={record.toRP === 1 ? "To RP on" : "To RP off"}
+                      className={`inline-block h-3 w-3 rounded-full border border-border ${
+                        record.toRP === 1 ? "bg-emerald-400 shadow-[0_0_7px_rgba(52,211,153,0.9)]" : "bg-surface-2"
+                      }`}
+                    />
+                  </td>
+                  <td className="px-1.5 py-1.5">{record.other ?? 0}</td>
+                  <td className="w-[3%] px-0 py-1.5 text-center">
+                    <span
+                      title={record.comments || "No comments"}
+                      aria-label={record.comments || "No comments"}
+                      className={record.comments ? "text-accent" : "text-fg-muted/50"}
+                    >
+                      <MessageSquare className="mx-auto h-4 w-4" />
+                    </span>
+                  </td>
+                  <td className="w-[3%] px-0 py-1.5 text-right">
                     <button
                       type="button"
                       aria-label={`Edit ${record.workOrder}`}

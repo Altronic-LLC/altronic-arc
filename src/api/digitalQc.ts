@@ -53,31 +53,118 @@ export const DIGITAL_QC_FAMILY_LIST_IDS = {
 
 type ProductFamily = keyof typeof DIGITAL_QC_FAMILY_LIST_IDS;
 
-function toDigitalQcRecord(item: GraphListItem, family: ProductFamily): DigitalQcRecord {
+type QcFieldKey = keyof Omit<DigitalQcRecord, "id" | "productFamily">;
+
+interface GraphColumnDef {
+  name?: string;
+  displayName?: string;
+}
+
+const QC_FIELD_NAMES: Record<QcFieldKey, string[]> = {
+  workOrder: ["Title", "Work Order"],
+  dateTested: ["DateTested", "Date Tested"],
+  operator: ["Operator"],
+  oldNumber: ["OldNumber", "Old Number"],
+  sapNumber: ["SAPNumber", "SAP Number"],
+  revisionNoFirmwareDate: ["RevisionNoFirmwareDate", "Revision No Firmware Date"],
+  startSN: ["StartSN", "Start SN"],
+  endSN: ["EndSN", "End SN"],
+  comments: ["Comments", "Comment", "Notes"],
+  quantityTested: ["QuantityTested", "Quantity Tested"],
+  quantityRejected: ["QuantityRejected", "Quantity Rejected"],
+  processSolderDefect: ["ProcessSolderDefect", "Process Solder Defect"],
+  aeSolderDefect: ["AESolderDefect", "AE Solder Defect"],
+  aeWiringDeficiency: ["AEWiringDeficiency", "AE Wiring Deficiency"],
+  aeWrongOrMissingComponent: ["AEWrongOrMissingComponent", "AE Wrong or Missing Component"],
+  aeAssemblyDeficiency: ["AEAssemblyDeficiency", "AE Assembly Deficiency"],
+  aeIdentificationDeficiency: ["AEIdentificationDeficiency", "AE Identification Deficiency"],
+  programmingFirmware: ["ProgrammingFirmware", "ProgrammingFirmware"],
+  coatingPottingDeficiency: ["CoatingPottingDeficiency", "CoatingPotting Deficiency"],
+  machinePartPlacementDeficiency: ["MachinePartPlacementDeficiency", "Machine Part Placement Deficiency"],
+  physicalDamage: ["PhysicalDamage", "Physical Damge", "Physical Damage"],
+  ncmVendor: ["NCMVendor", "NCM Vendor"],
+  ncmInternal: ["NCMInternal", "NCM Internal"],
+  toRP: ["ToRP", "To RP"],
+  other: ["Other"],
+};
+
+function normaliseColumnName(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+const qcColumnCache = new Map<ProductFamily, Record<QcFieldKey, string>>();
+
+async function getQcColumnNames(family: ProductFamily): Promise<Record<QcFieldKey, string>> {
+  const cached = qcColumnCache.get(family);
+  if (cached) return cached;
+
+  const listId = DIGITAL_QC_FAMILY_LIST_IDS[family];
+  const response = await graphFetch<{ value: GraphColumnDef[] }>(
+    `/sites/${SITES.engineering}/lists/${listId}/columns?$select=name,displayName`,
+  );
+  const columns = response.value ?? [];
+  const byName = new Map(
+    columns.flatMap((column) =>
+      column.name ? [[normaliseColumnName(column.name), column.name] as const] : [],
+    ),
+  );
+  const byDisplayName = new Map(
+    columns.flatMap((column) =>
+      column.displayName && column.name
+        ? [[normaliseColumnName(column.displayName), column.name] as const]
+        : [],
+    ),
+  );
+  const resolved = {} as Record<QcFieldKey, string>;
+
+  for (const [key, candidates] of Object.entries(QC_FIELD_NAMES) as [QcFieldKey, string[]][]) {
+    const name = candidates
+      .map(normaliseColumnName)
+      .map((candidate) => byName.get(candidate) ?? byDisplayName.get(candidate))
+      .find(Boolean);
+    if (!name) throw new Error(`SharePoint column not found for Digital QC field: ${key}`);
+    resolved[key] = name;
+  }
+
+  qcColumnCache.set(family, resolved);
+  return resolved;
+}
+
+function toDigitalQcRecord(
+  item: GraphListItem,
+  family: ProductFamily,
+  names?: Record<QcFieldKey, string>,
+): DigitalQcRecord {
   const fields = item.fields as Record<string, unknown>;
+  const field = (key: QcFieldKey) => fields[names?.[key] ?? QC_FIELD_NAMES[key][0]];
   return {
     id: item.id,
     productFamily: family,
-    workOrder: String(fields.Title ?? ""),
-    dateTested: String(fields.DateTested ?? ""),
-    operator: String(fields.Operator ?? ""),
-    oldNumber: String(fields.OldNumber ?? ""),
-    sapNumber: String(fields.SAPNumber ?? ""),
-    revisionNoFirmwareDate: String(fields.RevisionNoFirmwareDate ?? ""),
-    quantityTested: Number(fields.QuantityTested ?? 0),
-    quantityRejected: Number(fields.QuantityRejected ?? 0),
-    processSolderDefect: Number(fields.ProcessSolderDefect ?? 0),
-    aeSolderDefect: Number(fields.AESolderDefect ?? 0),
-    aeWiringDeficiency: Number(fields.AEWiringDeficiency ?? 0),
-    aeWrongOrMissingComponent: Number(fields.AEWrongOrMissingComponent ?? 0),
-    aeAssemblyDeficiency: Number(fields.AEAssemblyDeficiency ?? 0),
-    aeIdentificationDeficiency: Number(fields.AEIdentificationDeficiency ?? 0),
-    programmingFirmware: Number(fields.ProgrammingFirmware ?? 0),
-    coatingPottingDeficiency: Number(fields.CoatingPottingDeficiency ?? 0),
-    machinePartPlacementDeficiency: Number(fields.MachinePartPlacementDeficiency ?? 0),
-    physicalDamage: Number(fields.PhysicalDamage ?? 0),
-    ncmVendor: Number(fields.NCMVendor ?? 0),
-    ncmInternal: Number(fields.NCMInternal ?? 0),
+    workOrder: String(field("workOrder") ?? ""),
+    dateTested: String(field("dateTested") ?? ""),
+    operator: String(field("operator") ?? ""),
+    oldNumber: String(field("oldNumber") ?? ""),
+    sapNumber: String(field("sapNumber") ?? ""),
+    revisionNoFirmwareDate: String(field("revisionNoFirmwareDate") ?? ""),
+    startSN: String(field("startSN") ?? ""),
+    endSN: String(field("endSN") ?? ""),
+    comments: String(field("comments") ?? ""),
+    quantityTested: Number(field("quantityTested") ?? 0),
+    quantityRejected: Number(field("quantityRejected") ?? 0),
+    processSolderDefect: Number(field("processSolderDefect") ?? 0),
+    aeSolderDefect: Number(field("aeSolderDefect") ?? 0),
+    aeWiringDeficiency: Number(field("aeWiringDeficiency") ?? 0),
+    aeWrongOrMissingComponent: Number(field("aeWrongOrMissingComponent") ?? 0),
+    aeAssemblyDeficiency: Number(field("aeAssemblyDeficiency") ?? 0),
+    aeIdentificationDeficiency: Number(field("aeIdentificationDeficiency") ?? 0),
+    programmingFirmware: Number(field("programmingFirmware") ?? 0),
+    coatingPottingDeficiency: Number(field("coatingPottingDeficiency") ?? 0),
+    machinePartPlacementDeficiency: Number(field("machinePartPlacementDeficiency") ?? 0),
+    physicalDamage: Number(field("physicalDamage") ?? 0),
+    ncmVendor: Number(field("ncmVendor") ?? 0),
+    ncmInternal: Number(field("ncmInternal") ?? 0),
+    toRP: Number(field("toRP") ?? 0),
+    other: Number(field("other") ?? 0),
   };
 }
 
@@ -104,34 +191,14 @@ export async function listDigitalQcRecords(family: ProductFamily): Promise<Digit
     return [];
   }
 
-  const FIELD_SELECT = [
-    "Title",
-    "DateTested",
-    "Operator",
-    "OldNumber",
-    "SAPNumber",
-    "RevisionNoFirmwareDate",
-    "QuantityTested",
-    "QuantityRejected",
-    "ProcessSolderDefect",
-    "AESolderDefect",
-    "AEWiringDeficiency",
-    "AEWrongOrMissingComponent",
-    "AEAssemblyDeficiency",
-    "AEIdentificationDeficiency",
-    "ProgrammingFirmware",
-    "CoatingPottingDeficiency",
-    "MachinePartPlacementDeficiency",
-    "PhysicalDamage",
-    "NCMVendor",
-    "NCMInternal",
-  ].join(",");
+  const names = await getQcColumnNames(family);
+  const FIELD_SELECT = Object.values(names).join(",");
 
   const items = await graphFetchAll<GraphListItem>(
     `/sites/${SITES.engineering}/lists/${listId}/items?$expand=fields($select=${FIELD_SELECT})`,
   );
 
-  return items.map((item) => toDigitalQcRecord(item, family));
+  return items.map((item) => toDigitalQcRecord(item, family, names));
 }
 
 export async function createDigitalQcRecord(
@@ -155,28 +222,10 @@ export async function createDigitalQcRecord(
     throw new Error(`No list ID configured for product family: ${family}`);
   }
 
-  const fields = {
-    Title: record.workOrder,
-    DateTested: record.dateTested,
-    Operator: record.operator,
-    OldNumber: record.oldNumber,
-    SAPNumber: record.sapNumber,
-    RevisionNoFirmwareDate: record.revisionNoFirmwareDate,
-    QuantityTested: record.quantityTested,
-    QuantityRejected: record.quantityRejected,
-    ProcessSolderDefect: record.processSolderDefect,
-    AESolderDefect: record.aeSolderDefect,
-    AEWiringDeficiency: record.aeWiringDeficiency,
-    AEWrongOrMissingComponent: record.aeWrongOrMissingComponent,
-    AEAssemblyDeficiency: record.aeAssemblyDeficiency,
-    AEIdentificationDeficiency: record.aeIdentificationDeficiency,
-    ProgrammingFirmware: record.programmingFirmware,
-    CoatingPottingDeficiency: record.coatingPottingDeficiency,
-    MachinePartPlacementDeficiency: record.machinePartPlacementDeficiency,
-    PhysicalDamage: record.physicalDamage,
-    NCMVendor: record.ncmVendor,
-    NCMInternal: record.ncmInternal,
-  };
+  const names = await getQcColumnNames(family);
+  const fields = Object.fromEntries(
+    Object.entries(record).map(([key, value]) => [names[key as QcFieldKey], value]),
+  );
 
   const item = await graphFetch<GraphListItem>(
     `/sites/${SITES.engineering}/lists/${listId}/items`,
@@ -186,7 +235,7 @@ export async function createDigitalQcRecord(
     },
   );
 
-  return toDigitalQcRecord(item, family);
+  return toDigitalQcRecord(item, family, names);
 }
 
 export async function updateDigitalQcRecord(
@@ -212,28 +261,10 @@ export async function updateDigitalQcRecord(
     throw new Error(`No list ID configured for product family: ${family}`);
   }
 
-  const fields = {
-    Title: record.workOrder,
-    DateTested: record.dateTested,
-    Operator: record.operator,
-    OldNumber: record.oldNumber,
-    SAPNumber: record.sapNumber,
-    RevisionNoFirmwareDate: record.revisionNoFirmwareDate,
-    QuantityTested: record.quantityTested,
-    QuantityRejected: record.quantityRejected,
-    ProcessSolderDefect: record.processSolderDefect,
-    AESolderDefect: record.aeSolderDefect,
-    AEWiringDeficiency: record.aeWiringDeficiency,
-    AEWrongOrMissingComponent: record.aeWrongOrMissingComponent,
-    AEAssemblyDeficiency: record.aeAssemblyDeficiency,
-    AEIdentificationDeficiency: record.aeIdentificationDeficiency,
-    ProgrammingFirmware: record.programmingFirmware,
-    CoatingPottingDeficiency: record.coatingPottingDeficiency,
-    MachinePartPlacementDeficiency: record.machinePartPlacementDeficiency,
-    PhysicalDamage: record.physicalDamage,
-    NCMVendor: record.ncmVendor,
-    NCMInternal: record.ncmInternal,
-  };
+  const names = await getQcColumnNames(family);
+  const fields = Object.fromEntries(
+    Object.entries(record).map(([key, value]) => [names[key as QcFieldKey], value]),
+  );
 
   const item = await graphFetch<GraphListItem>(
     `/sites/${SITES.engineering}/lists/${listId}/items/${recordId}`,
@@ -243,7 +274,7 @@ export async function updateDigitalQcRecord(
     },
   );
 
-  return toDigitalQcRecord(item, family);
+  return toDigitalQcRecord(item, family, names);
 }
 
 export async function deleteDigitalQcRecord(

@@ -7,6 +7,9 @@ export interface DigitalQcRecord {
   oldNumber: string;
   sapNumber: string;
   revisionNoFirmwareDate: string;
+  startSN?: string;
+  endSN?: string;
+  comments?: string;
   quantityTested: number;
   quantityRejected: number;
   processSolderDefect: number;
@@ -21,6 +24,8 @@ export interface DigitalQcRecord {
   physicalDamage: number;
   ncmVendor: number;
   ncmInternal: number;
+  toRP?: number;
+  other?: number;
 }
 
 export const DIGITAL_QC_FAMILY_OPTIONS = [
