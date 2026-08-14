@@ -30,6 +30,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Comments now appear as a hoverable icon in the list and as a larger multiline field at the bottom of the form",
       "The Physical Damage label is corrected in the form while preserving the existing SharePoint column name",
       "The QC department now includes a working Digital QC page backed by live SharePoint product-family lists",
+      "Pyrometer now shows the latest EndSN used this calendar month for each tracked Old Material number",
     ],
   },
   {

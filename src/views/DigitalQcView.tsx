@@ -39,6 +39,8 @@ const SORTABLE_COLUMNS: { key: SortKey; label: string }[] = [
   { key: "comments", label: "Comments" },
 ];
 
+const PYROMETER_MATERIALS = ["378-1443", "357-4880", "343-4631"] as const;
+
 const DEFAULT_FORM = {
   workOrder: "",
   dateTested: new Date().toISOString(),
@@ -105,6 +107,42 @@ export function DigitalQcView() {
       return sortDirection === "asc" ? comparison : -comparison;
     });
   }, [filterText, records, sortDirection, sortKey]);
+
+  const pyrometerSerialSummary = useMemo(() => {
+    const summary = Object.fromEntries(PYROMETER_MATERIALS.map((material) => [material, ""])) as Record<
+      (typeof PYROMETER_MATERIALS)[number],
+      string
+    >;
+
+    if (selectedFamily !== "Pyrometer") return summary;
+
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const highestByMaterial = new Map<string, number>();
+
+    for (const record of records) {
+      const testedAt = new Date(record.dateTested);
+      const endSerial = Number(record.endSN?.trim() ?? "");
+      if (
+        !Number.isNaN(testedAt.getTime()) &&
+        testedAt >= monthStart &&
+        testedAt < nextMonthStart &&
+        PYROMETER_MATERIALS.includes(record.oldNumber as (typeof PYROMETER_MATERIALS)[number]) &&
+        Number.isFinite(endSerial)
+      ) {
+        const previous = highestByMaterial.get(record.oldNumber) ?? -Infinity;
+        if (endSerial > previous) highestByMaterial.set(record.oldNumber, endSerial);
+      }
+    }
+
+    for (const material of PYROMETER_MATERIALS) {
+      const latestSerial = highestByMaterial.get(material);
+      if (latestSerial !== undefined) summary[material] = String(latestSerial);
+    }
+
+    return summary;
+  }, [records, selectedFamily]);
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -570,6 +608,21 @@ export function DigitalQcView() {
             </button>
           )}
         </div>
+
+        {selectedFamily === "Pyrometer" && (
+          <div className="grid grid-cols-1 gap-2 border-b border-border px-4 py-3 sm:grid-cols-3">
+            {PYROMETER_MATERIALS.map((material) => (
+              <div key={material} className="rounded-md border border-border bg-surface-2 px-3 py-2">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-fg-muted">
+                  Old Material {material}
+                </div>
+                <div className="mt-1 text-lg font-semibold tabular-nums text-fg">
+                  {pyrometerSerialSummary[material]}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {error && (
           <div className="border-t border-border bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
