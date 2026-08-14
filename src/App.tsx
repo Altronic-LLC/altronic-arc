@@ -20,6 +20,7 @@ import { TestSheetsView } from "@/views/TestSheetsView";
 import { TestSheetDetailView } from "@/views/TestSheetDetailView";
 import { EirsView } from "@/views/EirsView";
 import { EirDetailView } from "@/views/EirDetailView";
+import { DigitalQcView } from "@/views/DigitalQcView";
 import { AboutView } from "@/views/AboutView";
 import { ManualView } from "@/views/ManualView";
 import { useMentionScanner } from "@/hooks/useUnseenMentions";
@@ -177,6 +178,7 @@ export function App() {
           <Route path="/admin" element={<Navigate to="/admin/admins" replace />} />
           <Route path="/test-sheets" element={<TestSheetsView />} />
           <Route path="/test-sheet/:id" element={<TestSheetDetailView />} />
+          <Route path="/digital-qc" element={<DigitalQcView />} />
           <Route path="/eirs" element={<EirsView />} />
           <Route path="/eir/:id" element={<EirDetailView />} />
           <Route

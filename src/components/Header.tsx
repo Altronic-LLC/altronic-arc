@@ -174,7 +174,12 @@ const DEPARTMENTS: DepartmentGroup[] = [
   {
     name: "Quality Control",
     items: [
-      soon("Digital QC Defect Log", <TestTubes className="h-4 w-4" />),
+      {
+        to: "/digital-qc",
+        label: "Digital QC Defect Log",
+        icon: <TestTubes className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/digital-qc"),
+      },
       soon("Ignition QC Defect Log", <TestTubes className="h-4 w-4" />),
       soon("QC Forms", <FileCheck className="h-4 w-4" />),
     ],

@@ -167,6 +167,54 @@ export const SP_CSA_LISTINGS_LIST_ID =
   "758defd2-693c-4324-9e0b-dd2a12c341fa";
 
 // =============================================================================
+// Digital QC — EIGHTEEN lists on the Engineering site (SITES.engineering),
+// one per product family. QC defect log entries are stored per-family list.
+// IDs discovered live 2026-08-14; env-overridable using the pattern below.
+// =============================================================================
+
+export const SP_QC_DIG_AFM_LIST_ID =
+  import.meta.env.VITE_SP_QC_DIG_AFM_LIST_ID || "9f648055-ae05-4a00-87ef-61ce9f63df74";
+export const SP_QC_DIG_AFC_LIST_ID =
+  import.meta.env.VITE_SP_QC_DIG_AFC_LIST_ID || "d9455d57-5666-4cdd-928e-895dd46a7ad7";
+export const SP_QC_DIG_ANNUNCIATOR_LIST_ID =
+  import.meta.env.VITE_SP_QC_DIG_ANNUNCIATOR_LIST_ID ||
+  "e0c9306c-8534-408b-b222-48d0e1430e3c";
+export const SP_QC_DIG_DE_DISPLAY_LIST_ID =
+  import.meta.env.VITE_SP_QC_DIG_DE_DISPLAY_LIST_ID ||
+  "b9160945-e0a4-4545-9795-616bdf0208e2";
+export const SP_QC_DIG_DE_TERM_LIST_ID =
+  import.meta.env.VITE_SP_QC_DIG_DE_TERM_LIST_ID || "8b940361-a82b-4de5-827e-787d1869bba0";
+export const SP_QC_DIG_DRIVECOM_LIST_ID =
+  import.meta.env.VITE_SP_QC_DIG_DRIVECOM_LIST_ID || "c6260e37-2173-4d65-82b3-9382a8b57646";
+export const SP_QC_DIG_ENBASE_LIST_ID =
+  import.meta.env.VITE_SP_QC_DIG_ENBASE_LIST_ID || "70e098de-6e14-4851-86d7-89d0dd81172e";
+export const SP_QC_DIG_EPC_10X_50_LIST_ID =
+  import.meta.env.VITE_SP_QC_DIG_EPC_10X_50_LIST_ID ||
+  "c683a352-acef-45e5-a48c-339fa1adcb89";
+export const SP_QC_DIG_EX_200_LIST_ID =
+  import.meta.env.VITE_SP_QC_DIG_EX_200_LIST_ID || "afe12cfd-9033-47bd-a3b1-4fb3da8c04f2";
+export const SP_QC_DIG_EXACTA_LIST_ID =
+  import.meta.env.VITE_SP_QC_DIG_EXACTA_LIST_ID || "ab1b98b3-6317-4950-8ccb-0ef99990339b";
+export const SP_QC_DIG_MISC_LIST_ID =
+  import.meta.env.VITE_SP_QC_DIG_MISC_LIST_ID || "f2c8168a-1819-49ee-8f7f-40eacd105a99";
+export const SP_QC_DIG_MORIS_LIST_ID =
+  import.meta.env.VITE_SP_QC_DIG_MORIS_LIST_ID || "5727f6c4-d3dc-4903-92f2-c0883d24b578";
+export const SP_QC_DIG_PMM_LIST_ID =
+  import.meta.env.VITE_SP_QC_DIG_PMM_LIST_ID || "95b89df8-5c86-43a2-96d2-4ef255169141";
+export const SP_QC_DIG_POWER_SUPPLY_LIST_ID =
+  import.meta.env.VITE_SP_QC_DIG_POWER_SUPPLY_LIST_ID ||
+  "e5c881f6-c96a-43a1-9a08-c851e51a6cd7";
+export const SP_QC_DIG_PRESSURE_GAGE_LIST_ID =
+  import.meta.env.VITE_SP_QC_DIG_PRESSURE_GAGE_LIST_ID ||
+  "41a5e25b-003d-49f2-998c-ba55a23904aa";
+export const SP_QC_DIG_PYRO_LIST_ID =
+  import.meta.env.VITE_SP_QC_DIG_PYRO_LIST_ID || "146e0008-712e-416a-967b-dad90e019c7e";
+export const SP_QC_DIG_SAVES_LIST_ID =
+  import.meta.env.VITE_SP_QC_DIG_SAVES_LIST_ID || "fcdcb85d-9676-44ac-95c8-dea8d2e8979d";
+export const SP_QC_DIG_TAC_LIST_ID =
+  import.meta.env.VITE_SP_QC_DIG_TAC_LIST_ID || "404f99fb-1848-476c-a033-04204510a132";
+
+// =============================================================================
 // Teradyne — FOUR lists on the PMO site (SITES.pmo), part of the Operations
 // department. "Teradyne Log" is the primary entity; the other three are its
 // lookup/reference lists, each editable in-app from the Teradyne Log screen's

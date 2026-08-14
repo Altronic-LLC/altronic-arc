@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.90.0",
+    date: "2026-08-14",
+    changes: [
+      "Digital QC Defect Log now has a live product-family selector, family-specific records, and a form to add new defect entries",
+      "The QC department now includes a working Digital QC page backed by mock data for the DE-Term family and sample QC families",
+      "The app can filter a defect log by product family and keeps the newest records at the top for quick review",
+    ],
+  },
+  {
     version: "0.89.0",
     date: "2026-08-11",
     changes: [
