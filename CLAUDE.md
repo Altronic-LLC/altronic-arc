@@ -899,11 +899,16 @@ read and preserved, never written.
 Several EIR fields are edit-gated by role tags from the **EIR Roles** list:
 
 - **Engineering Response**, **Technical Priority** → require the `engineer` role.
-- **Buyer Code**, **Risk Part**, **Risk Part Level** → require the `supply chain` role.
+- **Buyer Code**, **Risk Part**, **Risk Part Level**, **LTB Date** → require the
+  `supply chain` role.
 
 These are editable on the EIR detail (the Part Details choice fields, gated via
-`InlineSelectField`'s `disabled` prop) and also appear on the New EIR form's
-Purchasing section. Every other EIR field stays editable by any signed-in user. A user can hold
+`InlineSelectField`'s `disabled` prop; LTB Date is a sidebar date input gated the
+same way, with `SidebarField`'s `locked` prop drawing the padlock) and also appear
+on the New EIR form's Purchasing section. **Gating is detail-view only** — the New
+EIR form deliberately leaves them open, so whoever raises the EIR can fill in an
+LTB date; it locks to Supply Chain once the EIR is submitted.
+Every other EIR field stays editable by any signed-in user. A user can hold
 both roles. This is **UI-level gating only** — it disables/locks the controls;
 it is not a server-side security boundary (a user with SharePoint write access
 could still edit the column directly in SharePoint).

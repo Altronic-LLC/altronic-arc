@@ -75,6 +75,9 @@ export function EirDetailView() {
   // Buyer Code = supply chain. `enforced` is false (gating off) when the
   // EIR Roles list isn't configured in real mode — see useMyEirRoles.
   const { isEngineer, isSupplyChain, enforced } = useMyEirRoles();
+  // LTB Date is set freely on the New EIR form; once the EIR is submitted it
+  // belongs to Supply Chain, so the detail view locks it for everyone else.
+  const supplyChainLocked = enforced && !isSupplyChain;
 
   const updateFields = useUpdateEirFields();
   const setReporter = useSetEirReporter();
@@ -553,17 +556,23 @@ export function EirDetailView() {
                 />
               </SidebarField>
 
-              <SidebarField icon={<Calendar />} label="LTB Date">
+              <SidebarField icon={<Calendar />} label="LTB Date" locked={supplyChainLocked}>
                 <input
                   type="date"
                   value={eir.ltbDate ? eir.ltbDate.toISOString().slice(0, 10) : ""}
+                  disabled={supplyChainLocked}
+                  title={
+                    supplyChainLocked
+                      ? "Only users with the Supply Chain role can edit the LTB Date."
+                      : undefined
+                  }
                   onChange={(e) =>
                     updateFields.mutate({
                       id: eir.id,
                       fields: { LTBDate: e.target.value || null },
                     })
                   }
-                  className="w-full rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                  className="w-full rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 disabled:cursor-not-allowed disabled:opacity-60"
                 />
               </SidebarField>
 
@@ -1114,15 +1123,21 @@ function SidebarField({
   label,
   children,
   footer,
+  locked = false,
 }: {
   icon: React.ReactNode;
   label: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  /** Show the padlock next to the label — same affordance as InlineSelectField. */
+  locked?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <SidebarLabel icon={icon}>{label}</SidebarLabel>
+      <SidebarLabel icon={icon}>
+        {label}
+        {locked && <Lock className="h-3 w-3" aria-label="Locked" />}
+      </SidebarLabel>
       {children}
       {footer}
     </div>

@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.89.2",
+    date: "2026-08-14",
+    changes: [
+      "An EIR's LTB Date is now a Supply Chain field once the EIR is submitted — anyone can still enter one on the New EIR form, but only Supply Chain can change it afterwards",
+      "The locked field shows a padlock and says who can edit it, instead of just refusing to change",
+      "The EIR Roles admin page now lists LTB Date among what the Supply Chain role unlocks",
+    ],
+  },
+  {
     version: "0.89.1",
     date: "2026-08-14",
     changes: [
