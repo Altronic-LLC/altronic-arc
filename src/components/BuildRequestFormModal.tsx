@@ -17,6 +17,7 @@ import { nextBuildRequestNo } from "@/lib/buildRequestNumber";
 import { ChoiceSelect, MultiSelect, SingleSelect } from "./SearchableSelect";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { mergePeople } from "@/lib/people";
+import { DATE_INPUT_MIN, DATE_INPUT_MAX } from "@/lib/dateInput";
 import { useOverlayDismiss } from "./useOverlayDismiss";
 
 interface BuildRequestFormModalProps {
@@ -195,6 +196,8 @@ export function BuildRequestFormModal({ onClose }: BuildRequestFormModalProps) {
               <input
                 type="date"
                 value={shipDate}
+                min={DATE_INPUT_MIN}
+                max={DATE_INPUT_MAX}
                 onChange={(e) => setShipDate(e.target.value)}
                 className="select"
                 disabled={busy}

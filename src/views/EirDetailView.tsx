@@ -52,6 +52,7 @@ import { DetailTopBar } from "@/components/DetailTopBar";
 import { PersonMultiField } from "@/components/PersonMultiField";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { mergePeople, personKey } from "@/lib/people";
+import { isCommittableDate, DATE_INPUT_MIN, DATE_INPUT_MAX } from "@/lib/dateInput";
 import { PromoteEirModal } from "@/components/PromoteEirModal";
 import { sanitiseHtml } from "@/lib/sanitiseHtml";
 import { multiLookupField } from "@/lib/graphFields";
@@ -546,12 +547,15 @@ export function EirDetailView() {
                       ? eir.requestedCompletionDate.toISOString().slice(0, 10)
                       : ""
                   }
-                  onChange={(e) =>
+                  min={DATE_INPUT_MIN}
+                  max={DATE_INPUT_MAX}
+                  onChange={(e) => {
+                    if (!isCommittableDate(e.target.value)) return;
                     updateFields.mutate({
                       id: eir.id,
                       fields: { Requested_x0020_Completion_x0020: e.target.value || null },
-                    })
-                  }
+                    });
+                  }}
                   className="w-full rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
                 />
               </SidebarField>
@@ -566,12 +570,15 @@ export function EirDetailView() {
                       ? "Only users with the Supply Chain role can edit the LTB Date."
                       : undefined
                   }
-                  onChange={(e) =>
+                  min={DATE_INPUT_MIN}
+                  max={DATE_INPUT_MAX}
+                  onChange={(e) => {
+                    if (!isCommittableDate(e.target.value)) return;
                     updateFields.mutate({
                       id: eir.id,
                       fields: { LTBDate: e.target.value || null },
-                    })
-                  }
+                    });
+                  }}
                   className="w-full rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 disabled:cursor-not-allowed disabled:opacity-60"
                 />
               </SidebarField>

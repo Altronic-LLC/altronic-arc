@@ -7,6 +7,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import type { Person, Task, TestSheet } from "@/types/task";
 import { SingleSelect } from "./SearchableSelect";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
+import { DATE_INPUT_MIN, DATE_INPUT_MAX } from "@/lib/dateInput";
 import { useOverlayDismiss } from "./useOverlayDismiss";
 
 interface TestSheetFormModalProps {
@@ -233,6 +234,8 @@ export function TestSheetFormModal({ mode, sheet, fromTask, onClose }: TestSheet
               <input
                 type="date"
                 value={testDate}
+                min={DATE_INPUT_MIN}
+                max={DATE_INPUT_MAX}
                 onChange={(e) => setTestDate(e.target.value)}
                 className="input"
               />

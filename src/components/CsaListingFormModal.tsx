@@ -4,6 +4,7 @@ import { useCreateCsaListing, useUpdateCsaListing } from "@/hooks/useCsaListings
 import type { CsaListing, CsaListingInput } from "@/types/task";
 import { fromDateInputValue, toDateInputValue } from "@/lib/spDates";
 import { AttachmentsSection } from "./AttachmentsSection";
+import { DATE_INPUT_MIN, DATE_INPUT_MAX } from "@/lib/dateInput";
 import { useOverlayDismiss } from "./useOverlayDismiss";
 
 interface CsaListingFormModalProps {
@@ -143,6 +144,8 @@ export function CsaListingFormModal({ listing, onClose }: CsaListingFormModalPro
               <input
                 type="date"
                 value={dateCertified}
+                min={DATE_INPUT_MIN}
+                max={DATE_INPUT_MAX}
                 onChange={(e) => setDateCertified(e.target.value)}
                 className="select"
                 disabled={busy}

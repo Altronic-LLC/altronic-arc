@@ -48,6 +48,7 @@ import { LoadingTasks } from "@/components/LoadingTasks";
 import { DetailTopBar } from "@/components/DetailTopBar";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { mergePeople } from "@/lib/people";
+import { isCommittableDate, DATE_INPUT_MIN, DATE_INPUT_MAX } from "@/lib/dateInput";
 
 export function BuildRequestDetailView() {
   const { id } = useParams<{ id: string }>();
@@ -369,13 +370,16 @@ export function BuildRequestDetailView() {
                   <input
                     type="date"
                     value={shipDateInput}
-                    onChange={(e) =>
+                    min={DATE_INPUT_MIN}
+                    max={DATE_INPUT_MAX}
+                    onChange={(e) => {
+                      if (!isCommittableDate(e.target.value)) return;
                       patch({
                         QuotedShipDate: e.target.value
                           ? new Date(e.target.value).toISOString()
                           : null,
-                      })
-                    }
+                      });
+                    }}
                     className="select"
                   />
                 </SideField>

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import { renderWithProviders } from "@/test/render";
 import { MOCK_EIRS } from "@/data/mockData";
+import { isCommittableDate, DATE_INPUT_MIN, DATE_INPUT_MAX } from "@/lib/dateInput";
 import { EirDetailView } from "./EirDetailView";
 
 // LTB Date belongs to Supply Chain once an EIR is submitted: the New EIR form
@@ -74,5 +75,18 @@ describe("EirDetailView — LTB Date is a Supply Chain field", () => {
     roles = { isEngineer: true, isSupplyChain: false, enforced: true };
     await renderEir();
     expect(ltbInput()).toBeDisabled();
+  });
+
+  // Regression: a half-typed year used to be PATCHed straight through and came
+  // back as "Graph 404 Not Found". The range bound is the browser's half of the
+  // guard — isCommittableDate covers the rest (see lib/dateInput.test.ts).
+  it("bounds the year so a half-typed date can't reach SharePoint", async () => {
+    roles = { isEngineer: false, isSupplyChain: true, enforced: true };
+    await renderEir();
+    const input = ltbInput();
+    expect(input.min).toBe(DATE_INPUT_MIN);
+    expect(input.max).toBe(DATE_INPUT_MAX);
+    // The value that actually broke it.
+    expect(isCommittableDate("0002-05-01")).toBe(false);
   });
 });

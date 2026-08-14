@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.89.3",
+    date: "2026-08-14",
+    changes: [
+      "Fixed \"Couldn't save changes — reverted. Graph 404 Not Found\" when typing a date: the field saved after the first digit of the year, sending a year like 0002 that SharePoint can't store",
+      "Date fields now wait for a real year before saving, so you can type the whole date without an error",
+      "Every date field in the app now refuses years before 1900 or after 2999 instead of accepting a typo",
+    ],
+  },
+  {
     version: "0.89.2",
     date: "2026-08-14",
     changes: [

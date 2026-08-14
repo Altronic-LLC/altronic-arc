@@ -10,6 +10,7 @@ import {
 import type { TeradyneEmployee, TeradyneLogEntry, TeradyneLogInput } from "@/types/task";
 import { fromDateInputValue, toDateInputValue } from "@/lib/teradyneMapper";
 import { SingleSelect } from "./SearchableSelect";
+import { DATE_INPUT_MIN, DATE_INPUT_MAX } from "@/lib/dateInput";
 import { useOverlayDismiss } from "./useOverlayDismiss";
 
 interface TeradyneLogFormModalProps {
@@ -251,6 +252,8 @@ export function TeradyneLogFormModal({ entry, onClose }: TeradyneLogFormModalPro
                 ref={firstFieldRef}
                 type="date"
                 value={enterDate}
+                min={DATE_INPUT_MIN}
+                max={DATE_INPUT_MAX}
                 onChange={(e) => setEnterDate(e.target.value)}
                 className="select"
                 disabled={busy}

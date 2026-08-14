@@ -68,6 +68,7 @@ import { LoadingTasks } from "@/components/LoadingTasks";
 import { DetailTopBar } from "@/components/DetailTopBar";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { mergePeople } from "@/lib/people";
+import { isCommittableDate, DATE_INPUT_MIN, DATE_INPUT_MAX } from "@/lib/dateInput";
 import { PersonMultiField } from "@/components/PersonMultiField";
 import { cn } from "@/lib/cn";
 
@@ -265,6 +266,8 @@ export function DetailView() {
 
   function handleDueDateChange(next: string) {
     if (!task) return;
+    // Skip the half-typed years a date input emits mid-entry — see dateInput.ts.
+    if (!isCommittableDate(next)) return;
     updateFields.mutate({ id: task.id, fields: { DueDate: next || null } });
   }
 
@@ -712,6 +715,8 @@ export function DetailView() {
                 <input
                   type="date"
                   value={dueDateInput}
+                  min={DATE_INPUT_MIN}
+                  max={DATE_INPUT_MAX}
                   onChange={(e) => handleDueDateChange(e.target.value)}
                   className="w-full rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
                 />

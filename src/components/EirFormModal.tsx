@@ -19,6 +19,7 @@ import { ChoiceSelect, SingleSelect } from "./SearchableSelect";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { mergePeople } from "@/lib/people";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
+import { DATE_INPUT_MIN, DATE_INPUT_MAX } from "@/lib/dateInput";
 import { useOverlayDismiss } from "./useOverlayDismiss";
 
 interface EirFormModalProps {
@@ -234,6 +235,8 @@ export function EirFormModal({ onClose }: EirFormModalProps) {
               <input
                 type="date"
                 value={requestedCompletionDate}
+                min={DATE_INPUT_MIN}
+                max={DATE_INPUT_MAX}
                 onChange={(e) => setRequestedCompletionDate(e.target.value)}
                 className="input"
               />
@@ -317,6 +320,8 @@ export function EirFormModal({ onClose }: EirFormModalProps) {
               <input
                 type="date"
                 value={ltbDate}
+                min={DATE_INPUT_MIN}
+                max={DATE_INPUT_MAX}
                 onChange={(e) => setLtbDate(e.target.value)}
                 className="input"
               />
