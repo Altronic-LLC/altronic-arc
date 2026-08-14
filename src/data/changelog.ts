@@ -20,6 +20,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.89.1",
+    date: "2026-08-14",
+    changes: [
+      "A task's Assigned field is now a dropdown with a search box — type a few letters to find someone instead of scanning a wall of names",
+      "Watchers changed the same way on tasks, EIRs, build requests, build request parts, panel orders and panel tasks, so every people field in the app now works alike",
+      "The people already picked stay visible as chips you can remove one at a time",
+      "Anyone already on an item still appears in the list even if they've since dropped out of the staff directory",
+    ],
+  },
+  {
     version: "0.89.0",
     date: "2026-08-11",
     changes: [
