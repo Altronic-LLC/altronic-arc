@@ -69,6 +69,7 @@ import { DetailTopBar } from "@/components/DetailTopBar";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { mergePeople } from "@/lib/people";
 import { isCommittableDate, DATE_INPUT_MIN, DATE_INPUT_MAX } from "@/lib/dateInput";
+import { toLabelsField } from "@/lib/labels";
 import { PersonMultiField } from "@/components/PersonMultiField";
 import { cn } from "@/lib/cn";
 
@@ -257,11 +258,12 @@ export function DetailView() {
     updateFields.mutate({ id: task.id, fields: { Category: next } });
   }
 
+  // Single-select: the SharePoint column holds one choice, so picking a label
+  // replaces the current one and clicking the current one clears it.
   function handleLabelToggle(label: Label) {
     if (!task) return;
-    const has = task.labels.includes(label);
-    const next = has ? task.labels.filter((l) => l !== label) : [...task.labels, label];
-    updateFields.mutate({ id: task.id, fields: { Labels: next } });
+    const next: Label[] = task.labels.includes(label) ? [] : [label];
+    updateFields.mutate({ id: task.id, fields: { Labels: toLabelsField(next) } });
   }
 
   function handleDueDateChange(next: string) {
@@ -832,7 +834,7 @@ export function DetailView() {
               </div>
 
               <div>
-                <FieldLabel icon={<Tag />}>Labels</FieldLabel>
+                <FieldLabel icon={<Tag />}>Label</FieldLabel>
                 <div className="flex flex-wrap gap-1.5">
                   {task.labels.map((l) => (
                     <button
@@ -847,7 +849,7 @@ export function DetailView() {
                 </div>
                 <details className="mt-1.5 text-xs">
                   <summary className="cursor-pointer text-fg-muted hover:text-fg">
-                    + Add label
+                    {task.labels.length === 0 ? "+ Add label" : "Change label"}
                   </summary>
                   <div className="mt-1 flex flex-wrap gap-1">
                     {LABELS.filter((l) => !task.labels.includes(l)).map((l) => (

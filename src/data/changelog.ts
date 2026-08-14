@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.90.0",
+    date: "2026-08-14",
+    changes: [
+      "Fixed tasks refusing to save with \"Invalid request\" whenever a label was picked — creating or editing a labelled task works again",
+      "A task now takes one label instead of several, which is all the SharePoint list has ever been able to store; picking a label replaces the current one",
+      "Existing tasks keep the label they already have",
+    ],
+  },
+  {
     version: "0.89.3",
     date: "2026-08-14",
     changes: [

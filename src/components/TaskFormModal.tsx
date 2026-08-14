@@ -37,6 +37,7 @@ import { mergePeople } from "@/lib/people";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
 import { cn } from "@/lib/cn";
 import { DATE_INPUT_MIN, DATE_INPUT_MAX } from "@/lib/dateInput";
+import { toLabelsField } from "@/lib/labels";
 import { useOverlayDismiss } from "./useOverlayDismiss";
 
 interface TaskFormModalProps {
@@ -163,8 +164,10 @@ export function TaskFormModal({ mode, task, onClose }: TaskFormModalProps) {
     return mergePeople([...seen.values()], directory);
   }, [allTasks, directory]);
 
+  // Single-select: the SharePoint column holds one choice, so picking a label
+  // replaces whatever was there and clicking the current one clears it.
   function toggleLabel(l: Label) {
-    setLabels((prev) => (prev.includes(l) ? prev.filter((x) => x !== l) : [...prev, l]));
+    setLabels((prev) => (prev.includes(l) ? [] : [l]));
   }
 
   function toggleRelated(id: number) {
@@ -251,7 +254,7 @@ export function TaskFormModal({ mode, task, onClose }: TaskFormModalProps) {
       const labelsSame =
         labels.length === task.labels.length &&
         labels.every((l) => task.labels.includes(l));
-      if (!labelsSame) baseFields.Labels = labels;
+      if (!labelsSame) baseFields.Labels = toLabelsField(labels);
       if (softwareRevision !== task.softwareRevision) {
         baseFields.SoftwareRevision = softwareRevision;
       }
@@ -487,13 +490,14 @@ export function TaskFormModal({ mode, task, onClose }: TaskFormModalProps) {
               </FieldLabel>
             </div>
 
-            <FieldLabel label="Labels">
+            <FieldLabel label="Label">
               <div className="flex flex-wrap gap-1.5">
                 {LABELS.map((l) => (
                   <button
                     key={l}
                     type="button"
                     onClick={() => toggleLabel(l)}
+                    aria-pressed={labels.includes(l)}
                     className={cn(
                       "rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors",
                       labels.includes(l)

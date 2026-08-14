@@ -9,8 +9,9 @@ import type {
   Task,
   TaskEirReference,
 } from "@/types/task";
-import { CATEGORIES, LABELS, PRIORITIES, STATUSES } from "@/types/task";
+import { CATEGORIES, PRIORITIES, STATUSES } from "@/types/task";
 import { parseCommunication } from "./communicationParser";
+import { fromLabelsField } from "./labels";
 
 /**
  * Map a raw Graph list item to a Task. This is the boundary between the
@@ -129,15 +130,9 @@ function parseHyperlinkField(raw: unknown): TaskEirReference | null {
   return null;
 }
 
-function parseLabels(raw: string | undefined): Label[] {
-  if (!raw) return [];
-  // SharePoint multi-choice values come back as ";#"-separated strings.
-  // But sometimes they come as plain strings (single-choice degenerate case).
-  const parts = raw
-    .split(/[;#,]/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-  return parts.filter((p): p is Label => (LABELS as readonly string[]).includes(p));
+/** Labels is a single-value choice column — see lib/labels.ts for the why. */
+function parseLabels(raw: unknown): Label[] {
+  return fromLabelsField(raw);
 }
 
 function parseDate(raw: string | undefined): Date | null {

@@ -458,7 +458,7 @@ SharePoint internal column names (which is what Graph returns under
 | `status` | `Status` | One of `STATUSES` |
 | `priority` | `Priority` | One of `PRIORITIES`, nullable |
 | `category` | `Category` | One of `CATEGORIES`, nullable |
-| `labels` | `Labels` | Multi-choice, parsed from `;#` delimited string |
+| `labels` | `Labels` | **Single-value `choice`, NOT multi** — the wire value is a bare string (`"documentation"`). Verified against the live list 2026-08-14. Writing an array 400s; `";#"`-joining 400s too (not an allowed choice). The domain keeps `Label[]` for rendering but holds at most one. Read/write ONLY through `fromLabelsField`/`toLabelsField` in `src/lib/labels.ts`. |
 | `dueDate` | `DueDate` | ISO 8601 string |
 | `assigned` | `Assigned` | Person-or-group (single or multi), shape varies |
 | `watchers` | `Watchers` | Multi-person |

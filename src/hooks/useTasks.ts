@@ -29,14 +29,13 @@ import { listTaskColumns } from "@/api/taskColumns";
 import type {
   Category,
   CommentAttachment,
-  Label,
   Person,
   Priority,
   ProjectReference,
   Status,
   Task,
 } from "@/types/task";
-import { CATEGORIES, LABELS, PRIORITIES, STATUSES } from "@/types/task";
+import { CATEGORIES, PRIORITIES, STATUSES } from "@/types/task";
 import { pushToast } from "@/components/Toast";
 import {
   fireAssigneeChangeAlert,
@@ -57,6 +56,7 @@ import {
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { resolveCurrentUserLookupId } from "@/api/currentUser";
 import { USE_MOCK } from "@/api/config";
+import { fromLabelsField, toLabelsField } from "@/lib/labels";
 
 const TASK_LIST_KEY = ["tasks", "list"] as const;
 const PROJECTS_KEY = ["projects"] as const;
@@ -1070,11 +1070,9 @@ function applyFieldsLocally(t: Task, fields: Record<string, unknown>): Task {
     const v = fields.DueDate;
     next.dueDate = v ? new Date(v as string) : null;
   }
-  if ("Labels" in fields && Array.isArray(fields.Labels)) {
-    next.labels = (fields.Labels as string[]).filter((l): l is Label =>
-      (LABELS as readonly string[]).includes(l),
-    );
-  }
+  // Labels arrives as a bare choice string (single-value column) — the shared
+  // reader also tolerates the old array shape. See lib/labels.ts.
+  if ("Labels" in fields) next.labels = fromLabelsField(fields.Labels);
   if ("SoftwareRevision" in fields)
     next.softwareRevision = (fields.SoftwareRevision as string) ?? "";
   return next;
@@ -1095,7 +1093,8 @@ function extractInverseFields(prev: Task, fields: Record<string, unknown>): Reco
   if ("Category" in fields) inv.Category = prev.category;
   if ("DueDate" in fields)
     inv.DueDate = prev.dueDate ? prev.dueDate.toISOString() : null;
-  if ("Labels" in fields) inv.Labels = prev.labels;
+  // Undo has to send the same wire shape the forward write did.
+  if ("Labels" in fields) inv.Labels = toLabelsField(prev.labels);
   if ("SoftwareRevision" in fields) inv.SoftwareRevision = prev.softwareRevision;
   return inv;
 }
