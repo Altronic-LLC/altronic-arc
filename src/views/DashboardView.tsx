@@ -9,6 +9,7 @@ import {
   Calculator,
   CircuitBoard,
   ClipboardCheck,
+  ClipboardList,
   Cog,
   Contact,
   DollarSign,
@@ -27,6 +28,7 @@ import {
   PackageSearch,
   Sparkles,
   Tag,
+  TestTubes,
   Users,
   Wrench,
 } from "lucide-react";
@@ -707,6 +709,17 @@ export function DashboardView() {
           onClick={() => navigate("/operations/teradyne")}
         />
         <PlaceholderCard name="Maintenance Tasks" icon={<Hammer className="h-5 w-5" />} />
+      </DeptSection>
+
+      <DeptSection title="Coils">
+        <PlaceholderCard name="Coil Defect Log" icon={<FileText className="h-5 w-5" />} />
+        <PlaceholderCard name="Potting Sample Log" icon={<ClipboardList className="h-5 w-5" />} />
+      </DeptSection>
+
+      <DeptSection title="Quality Control">
+        <PlaceholderCard name="Digital QC Defect Log" icon={<TestTubes className="h-5 w-5" />} />
+        <PlaceholderCard name="Ignition QC Defect Log" icon={<TestTubes className="h-5 w-5" />} />
+        <PlaceholderCard name="QC Forms" icon={<FileCheck className="h-5 w-5" />} />
       </DeptSection>
 
       <DeptSection title="Supply Chain">

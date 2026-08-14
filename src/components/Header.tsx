@@ -31,6 +31,7 @@ import {
   Shield,
   Sun,
   Tag,
+  TestTubes,
   Users,
   Wrench,
 } from "lucide-react";
@@ -161,6 +162,21 @@ const DEPARTMENTS: DepartmentGroup[] = [
         matchesPath: (p) => p.startsWith("/operations/teradyne"),
       },
       soon("Maintenance Tasks", <Hammer className="h-4 w-4" />),
+    ],
+  },
+  {
+    name: "Coils",
+    items: [
+      soon("Coil Defect Log", <FileText className="h-4 w-4" />),
+      soon("Potting Sample Log", <ClipboardList className="h-4 w-4" />),
+    ],
+  },
+  {
+    name: "Quality Control",
+    items: [
+      soon("Digital QC Defect Log", <TestTubes className="h-4 w-4" />),
+      soon("Ignition QC Defect Log", <TestTubes className="h-4 w-4" />),
+      soon("QC Forms", <FileCheck className="h-4 w-4" />),
     ],
   },
   {
