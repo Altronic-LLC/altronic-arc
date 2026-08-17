@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.92.0",
+    date: "2026-08-17",
+    changes: [
+      "Assigning someone when you create a task now emails them \"You've been assigned\" — previously only a later reassignment did, so anyone assigned at creation was never told",
+      "Applies to Operations tasks and Engineering tasks alike",
+      "Assigning a task to yourself still doesn't email you, and watchers aren't mailed about a task they're only just being added to",
+    ],
+  },
+  {
     version: "0.91.1",
     date: "2026-08-14",
     changes: [

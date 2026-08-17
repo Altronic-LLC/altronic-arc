@@ -931,13 +931,27 @@ export function useEditComment() {
 
 export function useCreateTask() {
   const qc = useQueryClient();
+  const actor = useCurrentUser();
   return useMutation({
     mutationKey: TASK_WRITE_KEY,
     mutationFn: createTask,
     // Create isn't optimistic (we need the server-assigned id before
     // navigating to the new task). Toast confirms after the round-trip.
-    onSuccess: (task) => {
+    onSuccess: (task, variables) => {
       pushToast({ message: `Created task "${task.numberedTitle || task.title}".` });
+      // See the matching note in useOperationsTasks.ts's useCreateOperationsTask:
+      // assigning someone at creation notified nobody. Assignees come off the
+      // mutation input because the create response doesn't expand person fields.
+      const assignees = variables.assigned ?? [];
+      if (assignees.length > 0) {
+        fireAssigneeChangeAlert({
+          target: { kind: "task", id: task.id, title: task.numberedTitle || task.title },
+          prev: [],
+          next: assignees,
+          actor,
+          watchers: [],
+        });
+      }
       // Seed the new task into the cache immediately — TaskFormModal
       // navigates to /task/:id right after this resolves, and useTask()
       // derives from this same cache. Without seeding it here, that

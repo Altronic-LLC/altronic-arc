@@ -663,10 +663,32 @@ export function useEditOperationsComment() {
 
 export function useCreateOperationsTask() {
   const qc = useQueryClient();
+  const actor = useCurrentUser();
   return useMutation({
     mutationFn: createOperationsTask,
-    onSuccess: (task) => {
+    onSuccess: (task, variables) => {
       pushToast({ message: `Created task "${task.taskNumber || task.title}".` });
+      // Assigning someone AS the task is created used to tell them nothing —
+      // only a LATER reassignment fired the alert (Ray, 2026-08-17).
+      //
+      // The assignee is read off the mutation input, not the created task: the
+      // create response carries AssignedLookupId but not the expanded person
+      // envelope, so `task.assigned` can be null even when one was set.
+      //
+      // watchers: [] is deliberate. That leaves only the personal "You've been
+      // assigned" email. The broadcast copy is meant for someone CHANGING the
+      // assignees on an item people already follow; on a brand-new task it
+      // would mail watchers about a task they're only just being added to.
+      const assignee = variables.assigned ?? null;
+      if (assignee) {
+        fireAssigneeChangeAlert({
+          target: { kind: "operationsTask", id: task.id, title: task.taskNumber || task.title },
+          prev: [],
+          next: [assignee],
+          actor,
+          watchers: [],
+        });
+      }
       // Seed the cache immediately — see the identical fix in useTasks.ts's
       // useCreateTask for why (navigating straight to the new task's detail
       // page otherwise briefly shows "not found" against the stale list).
