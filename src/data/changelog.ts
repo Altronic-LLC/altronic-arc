@@ -20,6 +20,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.92.0",
+    date: "2026-08-17",
+    changes: [
+      "Added the Ignition QC Defect Log, with 36 product families each backed by their own live SharePoint list",
+      "Ignition QC has the same add/edit form, all-fields filter, sortable columns, and hoverable Comments icon as Digital QC",
+      "Ignition QC entries resolve each SharePoint list's actual column names before loading or saving",
+      "The About page now documents the Ignition QC view, hook, API, and 36 SharePoint lists",
+      "The Ignition QC Defect Log card on the Dashboard now links to the real page instead of showing \"Coming soon\"",
+      "Digital QC and Ignition QC now show the product-family buttons full width first; picking one opens that family's table and a \"Change product family\" button brings the buttons back",
+    ],
+  },
+  {
     version: "0.91.2",
     date: "2026-08-14",
     changes: [

@@ -72,9 +72,9 @@ const SYSTEM_TIERS: Tier[] = [
   {
     label: "React SPA",
     nodes: [
-      { label: "Views", hint: "Dashboard · List · Kanban · Detail · EIRs · Test Sheets · Project Folders · CSA Listings · Drawing File Logs · Digital QC · Drawing Work Sheet (print) · Admin", palette: "ui" },
-      { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useBuildRequests · useCsaListings · useDrawingLogs · useDigitalQc · useAdmins · useEirRoles · useTaskFiles · useProjectFolders", palette: "ui" },
-      { label: "API layer", hint: "src/api/tasks · eirs · testSheets · buildRequests · buildRequestItems · csaListings · drawingLogs · digitalQc · panelOrders · panelTasks · admins · eirRoles · panelRoles · directory · siteUsers · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
+      { label: "Views", hint: "Dashboard · List · Kanban · Detail · EIRs · Test Sheets · Project Folders · CSA Listings · Drawing File Logs · Digital QC · Ignition QC · Drawing Work Sheet (print) · Admin", palette: "ui" },
+      { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useBuildRequests · useCsaListings · useDrawingLogs · useDigitalQc · useIgnitionQc · useAdmins · useEirRoles · useTaskFiles · useProjectFolders", palette: "ui" },
+      { label: "API layer", hint: "src/api/tasks · eirs · testSheets · buildRequests · buildRequestItems · csaListings · drawingLogs · digitalQc · ignitionQc · panelOrders · panelTasks · admins · eirRoles · panelRoles · directory · siteUsers · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
       {
         label: "Build Requests (lazy-loaded)",
         hint: "BuildRequestsView · BuildRequestDetailView — a master-detail pair: the Tracker header list + any number of parts from the Items list, joined by BuildRequestNo. Own code-split chunk.",
@@ -113,6 +113,7 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "EIR Roles", hint: "engineer / supply-chain field permissions", palette: "list" },
       { label: "CSA Listings", hint: "Engineering site — CSA certification files; Title is the File Number, admin-only writes", palette: "list" },
       { label: "Digital QC product-family lists (18)", hint: "Engineering site — one list per product family; shared defect-log fields, with Pyrometer monthly EndSN tracking", palette: "list" },
+      { label: "Ignition QC product-family lists (36)", hint: "Engineering site — one list per product family; same shared defect-log fields as Digital QC", palette: "list" },
       { label: "CAD / CCC / CEC Drawings", hint: "Engineering site — drawing registers; a 16-slot change log across 48 CH_* columns", palette: "list" },
       { label: "Engineering Sketches", hint: "Engineering site — sketch register; own columns, no change log", palette: "list" },
       { label: "Documents library", hint: "General/Project Folders/* — task & comment files land here", palette: "list" },
@@ -574,6 +575,22 @@ const SCHEMA_TABLES: SchemaTable[] = [
       { name: "other", type: "number", kind: "field" },
       { name: "comments", type: "multiline text", kind: "field" },
       { name: "Pyrometer monthly EndSN", type: "derived", kind: "field" },
+    ],
+  },
+  {
+    name: "IgnitionQc",
+    source: "36 Ignition QC product-family lists (Engineering site)",
+    palette: "entity",
+    x: 990, y: 2620, width: 480,
+    columns: [
+      { name: "id", type: "text", kind: "pk" },
+      { name: "workOrder / dateTested / operator", type: "text / date", kind: "field" },
+      { name: "oldNumber / SAPNumber", type: "text", kind: "field" },
+      { name: "quantityTested / quantityRejected", type: "number", kind: "field" },
+      { name: "defect counters", type: "number", kind: "field" },
+      { name: "toRP", type: "0 | 1", kind: "field" },
+      { name: "other", type: "number", kind: "field" },
+      { name: "comments", type: "multiline text", kind: "field" },
     ],
   },
 

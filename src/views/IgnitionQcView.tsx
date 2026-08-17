@@ -11,16 +11,16 @@ import {
   TestTubes,
   X,
 } from "lucide-react";
-import { DIGITAL_QC_FAMILY_LIST_IDS } from "@/api/digitalQc";
+import { IGNITION_QC_FAMILY_LIST_IDS } from "@/api/ignitionQc";
 import {
-  useCreateDigitalQcRecord,
-  useListDigitalQcRecords,
-  useUpdateDigitalQcRecord,
-} from "@/hooks/useDigitalQc";
-import type { DigitalQcRecord } from "@/lib/digitalQc";
+  useCreateIgnitionQcRecord,
+  useListIgnitionQcRecords,
+  useUpdateIgnitionQcRecord,
+} from "@/hooks/useIgnitionQc";
+import type { IgnitionQcRecord } from "@/lib/ignitionQc";
 
-type ProductFamily = keyof typeof DIGITAL_QC_FAMILY_LIST_IDS;
-type SortKey = keyof Omit<DigitalQcRecord, "id" | "productFamily">;
+type ProductFamily = keyof typeof IGNITION_QC_FAMILY_LIST_IDS;
+type SortKey = keyof Omit<IgnitionQcRecord, "id" | "productFamily">;
 
 const SORTABLE_COLUMNS: { key: SortKey; label: string }[] = [
   { key: "workOrder", label: "Work Order" },
@@ -29,8 +29,6 @@ const SORTABLE_COLUMNS: { key: SortKey; label: string }[] = [
   { key: "oldNumber", label: "Old No" },
   { key: "sapNumber", label: "SAP No" },
   { key: "revisionNoFirmwareDate", label: "Rev Date" },
-  { key: "startSN", label: "StartSN" },
-  { key: "endSN", label: "EndSN" },
   { key: "quantityTested", label: "Qty Test" },
   { key: "quantityRejected", label: "Qty Reject" },
   { key: "processSolderDefect", label: "Proc" },
@@ -50,8 +48,6 @@ const SORTABLE_COLUMNS: { key: SortKey; label: string }[] = [
   { key: "comments", label: "Comments" },
 ];
 
-const PYROMETER_MATERIALS = ["378-1443", "357-4880", "343-4631"] as const;
-
 const DEFAULT_FORM = {
   workOrder: "",
   dateTested: new Date().toISOString(),
@@ -59,8 +55,6 @@ const DEFAULT_FORM = {
   oldNumber: "",
   sapNumber: "",
   revisionNoFirmwareDate: "",
-  startSN: "",
-  endSN: "",
   comments: "",
   quantityTested: "0",
   quantityRejected: "0",
@@ -80,8 +74,8 @@ const DEFAULT_FORM = {
   other: "0",
 };
 
-export function DigitalQcView() {
-  const [selectedFamily, setSelectedFamily] = useState<ProductFamily>("DE Terminal");
+export function IgnitionQcView() {
+  const [selectedFamily, setSelectedFamily] = useState<ProductFamily>("NGI5K,CPU2K Unit");
   const [pickerOpen, setPickerOpen] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -90,11 +84,11 @@ export function DigitalQcView() {
   const [sortKey, setSortKey] = useState<SortKey>("dateTested");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
-  const { data: records = [], isLoading, error } = useListDigitalQcRecords(selectedFamily);
-  const createMutation = useCreateDigitalQcRecord(selectedFamily);
-  const updateMutation = useUpdateDigitalQcRecord(selectedFamily);
+  const { data: records = [], isLoading, error } = useListIgnitionQcRecords(selectedFamily);
+  const createMutation = useCreateIgnitionQcRecord(selectedFamily);
+  const updateMutation = useUpdateIgnitionQcRecord(selectedFamily);
 
-  const families = Object.keys(DIGITAL_QC_FAMILY_LIST_IDS) as ProductFamily[];
+  const families = Object.keys(IGNITION_QC_FAMILY_LIST_IDS) as ProductFamily[];
 
   const visibleRecords = useMemo(() => {
     const query = filterText.trim().toLowerCase();
@@ -120,42 +114,6 @@ export function DigitalQcView() {
     });
   }, [filterText, records, sortDirection, sortKey]);
 
-  const pyrometerSerialSummary = useMemo(() => {
-    const summary = Object.fromEntries(PYROMETER_MATERIALS.map((material) => [material, ""])) as Record<
-      (typeof PYROMETER_MATERIALS)[number],
-      string
-    >;
-
-    if (selectedFamily !== "Pyrometer") return summary;
-
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-    const highestByMaterial = new Map<string, number>();
-
-    for (const record of records) {
-      const testedAt = new Date(record.dateTested);
-      const endSerial = Number(record.endSN?.trim() ?? "");
-      if (
-        !Number.isNaN(testedAt.getTime()) &&
-        testedAt >= monthStart &&
-        testedAt < nextMonthStart &&
-        PYROMETER_MATERIALS.includes(record.oldNumber as (typeof PYROMETER_MATERIALS)[number]) &&
-        Number.isFinite(endSerial)
-      ) {
-        const previous = highestByMaterial.get(record.oldNumber) ?? -Infinity;
-        if (endSerial > previous) highestByMaterial.set(record.oldNumber, endSerial);
-      }
-    }
-
-    for (const material of PYROMETER_MATERIALS) {
-      const latestSerial = highestByMaterial.get(material);
-      if (latestSerial !== undefined) summary[material] = String(latestSerial);
-    }
-
-    return summary;
-  }, [records, selectedFamily]);
-
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
       setSortDirection((direction) => (direction === "asc" ? "desc" : "asc"));
@@ -175,7 +133,7 @@ export function DigitalQcView() {
     setPickerOpen(false);
   }
 
-  function toDraft(record?: DigitalQcRecord): typeof DEFAULT_FORM {
+  function toDraft(record?: IgnitionQcRecord): typeof DEFAULT_FORM {
     if (!record) {
       return DEFAULT_FORM;
     }
@@ -187,8 +145,6 @@ export function DigitalQcView() {
       oldNumber: record.oldNumber,
       sapNumber: record.sapNumber,
       revisionNoFirmwareDate: record.revisionNoFirmwareDate,
-      startSN: record.startSN ?? "",
-      endSN: record.endSN ?? "",
       comments: record.comments ?? "",
       quantityTested: String(record.quantityTested),
       quantityRejected: String(record.quantityRejected),
@@ -219,7 +175,7 @@ export function DigitalQcView() {
     setShowForm(true);
   }
 
-  function openEditForm(record: DigitalQcRecord) {
+  function openEditForm(record: IgnitionQcRecord) {
     setEditingId(record.id);
     setDraft(toDraft(record));
     setShowForm(true);
@@ -256,8 +212,6 @@ export function DigitalQcView() {
       oldNumber: draft.oldNumber || "",
       sapNumber: draft.sapNumber || "",
       revisionNoFirmwareDate: draft.revisionNoFirmwareDate || "",
-      startSN: draft.startSN || "",
-      endSN: draft.endSN || "",
       comments: draft.comments,
       quantityTested: toNumber(draft.quantityTested),
       quantityRejected: toNumber(draft.quantityRejected),
@@ -294,10 +248,10 @@ export function DigitalQcView() {
         </span>
         <div className="min-w-0 flex-1">
           <h1 className="font-display text-xl font-semibold text-fg sm:text-2xl">
-            Digital QC Defect Log
+            Ignition QC Defect Log
           </h1>
           <p className="text-sm text-fg-muted">
-            Product family overview from the workbook, with the DE Terminal sheet loaded when selected.
+            Product family overview from the workbook, with each family's own SharePoint list loaded when selected.
           </p>
         </div>
         {!pickerOpen && (
@@ -408,22 +362,6 @@ export function DigitalQcView() {
               <input
                 value={draft.revisionNoFirmwareDate}
                 onChange={(e) => updateField("revisionNoFirmwareDate", e.target.value)}
-                className="rounded-md border border-border bg-surface-2 px-3 py-2 text-fg"
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-sm text-fg-muted">
-              StartSN
-              <input
-                value={draft.startSN}
-                onChange={(e) => updateField("startSN", e.target.value)}
-                className="rounded-md border border-border bg-surface-2 px-3 py-2 text-fg"
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-sm text-fg-muted">
-              EndSN
-              <input
-                value={draft.endSN}
-                onChange={(e) => updateField("endSN", e.target.value)}
                 className="rounded-md border border-border bg-surface-2 px-3 py-2 text-fg"
               />
             </label>
@@ -640,21 +578,6 @@ export function DigitalQcView() {
           )}
         </div>
 
-        {selectedFamily === "Pyrometer" && (
-          <div className="grid grid-cols-1 gap-2 border-b border-border px-4 py-3 sm:grid-cols-3">
-            {PYROMETER_MATERIALS.map((material) => (
-              <div key={material} className="rounded-md border border-border bg-surface-2 px-3 py-2">
-                <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-fg-muted">
-                  Old Material {material}
-                </div>
-                <div className="mt-1 text-lg font-semibold tabular-nums text-fg">
-                  {pyrometerSerialSummary[material]}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
         {error && (
           <div className="border-t border-border bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
             Failed to load records: {error instanceof Error ? error.message : "unknown error"}
@@ -709,8 +632,6 @@ export function DigitalQcView() {
                   <td className="max-w-0 overflow-hidden text-ellipsis whitespace-nowrap px-1 py-1.5" title={record.oldNumber}>{record.oldNumber}</td>
                   <td className="max-w-0 overflow-hidden text-ellipsis whitespace-nowrap px-1 py-1.5" title={record.sapNumber}>{record.sapNumber}</td>
                   <td className="max-w-0 overflow-hidden text-ellipsis whitespace-nowrap px-1 py-1.5" title={record.revisionNoFirmwareDate}>{record.revisionNoFirmwareDate}</td>
-                  <td className="max-w-0 overflow-hidden text-ellipsis whitespace-nowrap px-1 py-1.5" title={record.startSN ?? ""}>{record.startSN ?? ""}</td>
-                  <td className="max-w-0 overflow-hidden text-ellipsis whitespace-nowrap px-1 py-1.5" title={record.endSN ?? ""}>{record.endSN ?? ""}</td>
                   <td className="max-w-0 overflow-hidden text-ellipsis whitespace-nowrap px-1 py-1.5">{record.quantityTested}</td>
                   <td className="max-w-0 overflow-hidden text-ellipsis whitespace-nowrap px-1 py-1.5">{record.quantityRejected}</td>
                   <td className="max-w-0 overflow-hidden text-ellipsis whitespace-nowrap px-1 py-1.5">{record.processSolderDefect}</td>
@@ -734,7 +655,7 @@ export function DigitalQcView() {
                       }`}
                     />
                   </td>
-                  <td className="px-1.5 py-1.5">{record.other ?? 0}</td>
+                  <td className="max-w-0 overflow-hidden text-ellipsis whitespace-nowrap px-1 py-1.5">{record.other ?? 0}</td>
                   <td className="w-[3%] px-0 py-1.5 text-center">
                     <span
                       title={record.comments || "No comments"}

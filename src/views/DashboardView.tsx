@@ -724,7 +724,13 @@ export function DashboardView() {
           description="Product-family defect tracking with quick filtering and add-entry capture."
           onClick={() => navigate("/digital-qc")}
         />
-        <PlaceholderCard name="Ignition QC Defect Log" icon={<TestTubes className="h-5 w-5" />} />
+        <TypeCard
+          name="Ignition QC Defect Log"
+          icon={<TestTubes className="h-5 w-5" />}
+          tone="cooper-red"
+          description="Product-family defect tracking with quick filtering and add-entry capture."
+          onClick={() => navigate("/ignition-qc")}
+        />
         <PlaceholderCard name="QC Forms" icon={<FileCheck className="h-5 w-5" />} />
       </DeptSection>
 

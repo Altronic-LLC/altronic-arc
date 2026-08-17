@@ -180,7 +180,12 @@ const DEPARTMENTS: DepartmentGroup[] = [
         icon: <TestTubes className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/digital-qc"),
       },
-      soon("Ignition QC Defect Log", <TestTubes className="h-4 w-4" />),
+      {
+        to: "/ignition-qc",
+        label: "Ignition QC Defect Log",
+        icon: <TestTubes className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/ignition-qc"),
+      },
       soon("QC Forms", <FileCheck className="h-4 w-4" />),
     ],
   },
