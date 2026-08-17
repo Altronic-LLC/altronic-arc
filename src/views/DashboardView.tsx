@@ -713,7 +713,13 @@ export function DashboardView() {
 
       <DeptSection title="Coils">
         <PlaceholderCard name="Coil Defect Log" icon={<FileText className="h-5 w-5" />} />
-        <PlaceholderCard name="Potting Sample Log" icon={<ClipboardList className="h-5 w-5" />} />
+        <TypeCard
+          name="Potting Sample Log"
+          icon={<ClipboardList className="h-5 w-5" />}
+          tone="cooper-red"
+          description="Log potting sample weight and volume; out-of-limit samples email the PSR notification list."
+          onClick={() => navigate("/coils/potting-sample-log")}
+        />
       </DeptSection>
 
       <DeptSection title="Quality Control">

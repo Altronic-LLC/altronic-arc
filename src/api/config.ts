@@ -244,6 +244,28 @@ export const SP_TERADYNE_REMARKS_LIST_ID =
   "3d7ccd9a-e1d8-4faa-9d46-bcbf94d76e3b";
 
 // =============================================================================
+// Coils — Potting Sample Log, THREE lists on the PMO site (SITES.pmo). The
+// sample log is operator-entered (any signed-in user); the limit + PSR
+// notification lists are editable by any signed-in user (same pattern as
+// Teradyne's reference lists). IDs supplied by Ray 2026-08-17.
+// =============================================================================
+
+/** "Coil-PottingSampleLog" — one row per potting sample (Date, Volume, Weight). */
+export const SP_POTTING_SAMPLE_LOG_LIST_ID =
+  import.meta.env.VITE_SP_POTTING_SAMPLE_LOG_LIST_ID ||
+  "43d87a74-250c-41e7-8365-6d5b4f2bd095";
+
+/** "Coil-PottingLimit" — two rows (Title = "Lower Spec Limit" / "Upper Spec Limit"). */
+export const SP_POTTING_LIMIT_LIST_ID =
+  import.meta.env.VITE_SP_POTTING_LIMIT_LIST_ID ||
+  "a495c2fa-a194-4d49-8a3b-ce00d496e7cf";
+
+/** "Coil PSR Notification List" — Title = display name, Email = notify address. */
+export const SP_PSR_NOTIFICATION_LIST_ID =
+  import.meta.env.VITE_SP_PSR_NOTIFICATION_LIST_ID ||
+  "fe452a97-59e4-4d9d-88a6-f064c6040033";
+
+// =============================================================================
 // Build Requests — TWO lists on the Engineering site (SITES.engineering /
 // SP_SITE_ID) forming a master-detail pair. IDs discovered live via Graph on
 // 2026-07-16; env-overridable, same pattern as the Operations lists.

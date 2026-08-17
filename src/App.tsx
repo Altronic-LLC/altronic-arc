@@ -22,6 +22,9 @@ import { EirsView } from "@/views/EirsView";
 import { EirDetailView } from "@/views/EirDetailView";
 import { DigitalQcView } from "@/views/DigitalQcView";
 import { IgnitionQcView } from "@/views/IgnitionQcView";
+import { PottingSampleLogView } from "@/views/PottingSampleLogView";
+import { PottingLimitsView } from "@/views/PottingLimitsView";
+import { PsrNotificationView } from "@/views/PsrNotificationView";
 import { AboutView } from "@/views/AboutView";
 import { ManualView } from "@/views/ManualView";
 import { useMentionScanner } from "@/hooks/useUnseenMentions";
@@ -181,6 +184,9 @@ export function App() {
           <Route path="/test-sheet/:id" element={<TestSheetDetailView />} />
           <Route path="/digital-qc" element={<DigitalQcView />} />
           <Route path="/ignition-qc" element={<IgnitionQcView />} />
+          <Route path="/coils/potting-sample-log" element={<PottingSampleLogView />} />
+          <Route path="/coils/potting-limits" element={<PottingLimitsView />} />
+          <Route path="/coils/psr-notifications" element={<PsrNotificationView />} />
           <Route path="/eirs" element={<EirsView />} />
           <Route path="/eir/:id" element={<EirDetailView />} />
           <Route

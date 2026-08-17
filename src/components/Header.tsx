@@ -168,7 +168,12 @@ const DEPARTMENTS: DepartmentGroup[] = [
     name: "Coils",
     items: [
       soon("Coil Defect Log", <FileText className="h-4 w-4" />),
-      soon("Potting Sample Log", <ClipboardList className="h-4 w-4" />),
+      {
+        to: "/coils/potting-sample-log",
+        label: "Potting Sample Log",
+        icon: <ClipboardList className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/coils/potting-sample-log"),
+      },
     ],
   },
   {

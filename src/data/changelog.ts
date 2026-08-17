@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.93.0",
+    date: "2026-08-17",
+    changes: [
+      "Added the Coils department's Potting Sample Log — operators log a sample's date, volume, and weight, with today's date and a volume of 125 filled in by default",
+      "A saved sample outside the spec limits automatically emails the Coil PSR Notification List with the entry's values and the current limits",
+      "Any signed-in user can edit the Lower/Upper Spec Limit and manage the PSR Notification List from a \"Manage lists\" menu on the Potting Sample Log page, same as Teradyne's reference lists",
+    ],
+  },
+  {
     version: "0.92.0",
     date: "2026-08-17",
     changes: [
