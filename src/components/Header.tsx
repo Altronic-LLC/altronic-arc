@@ -210,7 +210,12 @@ const DEPARTMENTS: DepartmentGroup[] = [
     name: "Customer Service / Sales",
     items: [
       soon("Customer Feedback", <MessageSquare className="h-4 w-4" />),
-      soon("Visit Reporting", <MapPin className="h-4 w-4" />),
+      {
+        to: "/sales/visit-reports",
+        label: "Visit Reports",
+        icon: <MapPin className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/sales/visit-report"),
+      },
       soon("Customers", <Users className="h-4 w-4" />),
       soon("Customer Contacts List", <BookUser className="h-4 w-4" />),
       soon("Special Pricing", <Tag className="h-4 w-4" />),

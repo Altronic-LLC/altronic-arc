@@ -751,7 +751,13 @@ export function DashboardView() {
 
       <DeptSection title="Customer Service / Sales">
         <PlaceholderCard name="Customer Feedback" icon={<MessageSquare className="h-5 w-5" />} />
-        <PlaceholderCard name="Visit Reporting" icon={<MapPin className="h-5 w-5" />} />
+        <TypeCard
+          name="Visit Reports"
+          icon={<MapPin className="h-5 w-5" />}
+          tone="cooper-red"
+          description="Customer visits filed by the regional managers — who they saw, why, and what needs doing next."
+          onClick={() => navigate("/sales/visit-reports")}
+        />
         <PlaceholderCard name="Customers" icon={<Users className="h-5 w-5" />} />
         <PlaceholderCard name="Customer Contacts List" icon={<BookUser className="h-5 w-5" />} />
         <PlaceholderCard name="Special Pricing" icon={<Tag className="h-5 w-5" />} />

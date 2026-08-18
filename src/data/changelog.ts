@@ -20,13 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "0.96.1",
+    version: "0.97.0",
     date: "2026-08-18",
     changes: [
-      "You can now search people fields by first name AND surname — Assigned, Assigned Engineer, Reporter, Requestor, Watchers and Created By all kept finding nothing as soon as you typed a space",
-      "The words match in any order, so \"jerrod w\" and \"waldron jerrod\" find the same person, and typing an email address finds them too",
-      "@-mentions accept a full name as well: typing a space after the first name no longer closes the picker",
-      "admin.first.last accounts are no longer listed in people fields — they don't receive email, so anything assigned to one went nowhere",
+      "Customer Service / Sales joins ARC with Visit Reports — the regional managers' record of customer visits, reading and writing the same SharePoint list the team already uses",
+      "File a visit with New Visit Report: customer, RM, reason, date, customer status and summary, plus action items, product, city and state",
+      "Everything edits in place on the report page, and photos or quotes can be dragged onto its Attachments card",
+      "Filter by RM, year, reason or customer status and search every field at once — a filtered view can be shared as a link",
+      "The RM picker lists the current managers plus anyone already on an existing report, so older reports keep whoever actually filed them",
+      "Visit reports can't be deleted from ARC — a report is a record of something that happened, so correcting one is an edit",
     ],
   },
   {

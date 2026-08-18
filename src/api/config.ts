@@ -120,6 +120,15 @@ export const SP_ALTRONIC_EQUIPMENT_LIST_ID =
  * as SP_SITE_URL, so the same acquired token covers both — only the path
  * differs.
  */
+/**
+ * Sales Team site's classic SharePoint REST root — needed for Visit Report
+ * attachments (SP REST, not Graph; see src/api/attachments.ts). Same tenant as
+ * SP_SITE_URL, so the same acquired token covers both — only the path differs.
+ */
+export const SP_SALESTEAM_SITE_URL =
+  (import.meta.env.VITE_SP_SALESTEAM_SITE_URL as string | undefined) ??
+  "https://coopermachineryservices.sharepoint.com/sites/ALTRONICSALESTEAM";
+
 export const SP_PMO_SITE_URL =
   (import.meta.env.VITE_SP_PMO_SITE_URL as string | undefined) ??
   "https://coopermachineryservices.sharepoint.com/sites/Altronic_PMO";
@@ -165,6 +174,17 @@ export const SP_ENGINEERING_SKETCHES_LIST_ID =
 export const SP_CSA_LISTINGS_LIST_ID =
   import.meta.env.VITE_SP_CSA_LISTINGS_LIST_ID ||
   "758defd2-693c-4324-9e0b-dd2a12c341fa";
+
+/**
+ * "Visit Reports" — Customer Service / Sales' record of customer visits, on
+ * the ALTRONICSALESTEAM site (SITES.salesTeam). `Title` is repurposed as the
+ * Customer Name, City/State are `City0`/`State0`, and Month/Year/Day/Cal Title
+ * are calculated off Visit Date (never written). Attachments are enabled.
+ * Schema discovered live 2026-08-18 — scripts/visit-reports-schema.json.
+ */
+export const SP_VISIT_REPORTS_LIST_ID =
+  import.meta.env.VITE_SP_VISIT_REPORTS_LIST_ID ||
+  "7cc4db39-6612-4c2d-b1b2-1af34d0564e7";
 
 // =============================================================================
 // Digital QC — EIGHTEEN lists on the Engineering site (SITES.engineering),
