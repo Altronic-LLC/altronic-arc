@@ -143,8 +143,99 @@ export function replaceComment(
   return updated.join("\n");
 }
 
+// =============================================================================
+// One clock for every author, whatever time zone they're in.
+//
+// The stored timestamp is a bare wall-clock string with NO time zone in it.
+// It used to be written in the AUTHOR's local time and read back in the
+// READER's local time, which meant the records weren't comparable to each
+// other at all:
+//
+//   09:00 IST (03:30 UTC) stored "09:00:00 AM"
+//   08:00 CDT (13:00 UTC) stored "08:00:00 AM"   ← posted 9½ hours LATER
+//
+// Sorted by that number, the later comment sorts first, so a thread with
+// authors in different time zones came out shuffled (reported 2026-08-18).
+//
+// The format can't change — the original Power Apps app and SharePoint's own
+// views read the same column. So instead every record is written and read in
+// ONE fixed zone. Eastern is that zone: Altronic is in Girard, Ohio, so the
+// existing records (all written before this, nearly all by Eastern-time
+// authors) keep displaying the time they always did, and new records from any
+// zone line up with them. Timestamps are still SHOWN in each reader's own
+// local time — parsing gives a true instant, and the UI formats it.
+//
+// If the company clock ever needs to be a different one, this constant is the
+// only thing to change.
+// =============================================================================
+const COMMENT_TIMEZONE = "America/New_York";
+
+const ZONE_PARTS = new Intl.DateTimeFormat("en-US", {
+  timeZone: COMMENT_TIMEZONE,
+  hourCycle: "h23",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+});
+
+/** The wall-clock reading in COMMENT_TIMEZONE at a given instant. */
+function zoneWallClock(instant: Date): {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+  second: number;
+} {
+  const parts = ZONE_PARTS.formatToParts(instant);
+  const read = (type: Intl.DateTimeFormatPartTypes) =>
+    parseInt(parts.find((p) => p.type === type)?.value ?? "0", 10);
+  return {
+    year: read("year"),
+    month: read("month"),
+    day: read("day"),
+    // h23 still reports midnight as 24 in some ICU builds.
+    hour: read("hour") % 24,
+    minute: read("minute"),
+    second: read("second"),
+  };
+}
+
+/** How far COMMENT_TIMEZONE is from UTC at a given instant, in ms. */
+function zoneOffsetMs(instant: Date): number {
+  const w = zoneWallClock(instant);
+  const asUtc = Date.UTC(w.year, w.month - 1, w.day, w.hour, w.minute, w.second);
+  // The wall clock has no sub-second part, so drop it from the instant too —
+  // otherwise the difference carries stray milliseconds into the offset.
+  return asUtc - Math.floor(instant.getTime() / 1000) * 1000;
+}
+
 /**
- * "MM/DD/YYYY H:MM:SS AM/PM" → Date.
+ * A wall-clock reading in COMMENT_TIMEZONE → the instant it refers to.
+ *
+ * The offset depends on the instant we're solving for, so it's applied once
+ * and then re-checked: on the two DST changeover days the first guess can land
+ * on the wrong side of the switch, and the second pass corrects it.
+ */
+function zonedTimeToInstant(
+  year: number,
+  month: number,
+  day: number,
+  hour: number,
+  minute: number,
+  second: number,
+): Date {
+  const asUtc = Date.UTC(year, month - 1, day, hour, minute, second);
+  const firstGuess = asUtc - zoneOffsetMs(new Date(asUtc));
+  const refined = asUtc - zoneOffsetMs(new Date(firstGuess));
+  return new Date(refined);
+}
+
+/**
+ * "MM/DD/YYYY H:MM:SS AM/PM" (Eastern) → Date.
  *
  * Internal: only called from parseCommunication and replaceComment, both
  * of which pre-filter records via TIMESTAMP_SPLIT_RE — so by the time the
@@ -160,9 +251,9 @@ function parseSpDate(s: string): Date | null {
   let hour = parseInt(hh, 10);
   if (ampm === "PM" && hour !== 12) hour += 12;
   if (ampm === "AM" && hour === 12) hour = 0;
-  const d = new Date(
+  const d = zonedTimeToInstant(
     parseInt(yr, 10),
-    parseInt(mo, 10) - 1,
+    parseInt(mo, 10),
     parseInt(da, 10),
     hour,
     parseInt(mm, 10),
@@ -172,18 +263,15 @@ function parseSpDate(s: string): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-/** Date → "MM/DD/YYYY H:MM:SS AM/PM" */
+/** Date → "MM/DD/YYYY H:MM:SS AM/PM", always in COMMENT_TIMEZONE. */
 function formatSpDate(d: Date): string {
-  const mo = d.getMonth() + 1;
-  const da = d.getDate();
-  const yr = d.getFullYear();
-  let hh = d.getHours();
-  const ampm = hh >= 12 ? "PM" : "AM";
-  hh = hh % 12;
+  const w = zoneWallClock(d);
+  let hh = w.hour % 12;
   if (hh === 0) hh = 12;
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  const ss = String(d.getSeconds()).padStart(2, "0");
-  return `${pad2(mo)}/${pad2(da)}/${yr} ${hh}:${mm}:${ss} ${ampm}`;
+  const ampm = w.hour >= 12 ? "PM" : "AM";
+  const mm = String(w.minute).padStart(2, "0");
+  const ss = String(w.second).padStart(2, "0");
+  return `${pad2(w.month)}/${pad2(w.day)}/${w.year} ${hh}:${mm}:${ss} ${ampm}`;
 }
 
 function pad2(n: number): string {

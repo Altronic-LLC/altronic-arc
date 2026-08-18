@@ -33,6 +33,7 @@ import {
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { resolveCurrentUserLookupId } from "@/api/currentUser";
 import { USE_MOCK } from "@/api/config";
+import { autoWatchers } from "@/lib/people";
 
 // =============================================================================
 // Build Request hooks — two query caches (headers + items) with the same
@@ -317,7 +318,12 @@ export function useCreateBuildRequest() {
   const qc = useQueryClient();
   const actor = useCurrentUser();
   return useMutation({
-    mutationFn: createBuildRequest,
+    // Creator + assigned engineer watch the new request — lib/people.ts.
+    mutationFn: (input: Parameters<typeof createBuildRequest>[0]) =>
+      createBuildRequest({
+        ...input,
+        watchers: autoWatchers(input.watchers, input.engineerAssigned, actor),
+      }),
     onSuccess: (br, variables) => {
       pushToast({ message: `Created ${br.brNo}.` });
       // Seed the cache so navigating straight to the new detail page works
@@ -664,8 +670,15 @@ export function useEditBuildRequestComment() {
 
 export function useCreateBuildRequestItem() {
   const qc = useQueryClient();
+  const actor = useCurrentUser();
   return useMutation({
-    mutationFn: createBuildRequestItem,
+    // Whoever adds a part watches it — parts carry their own comment thread,
+    // so without this the person who added it misses every question about it.
+    mutationFn: (input: Parameters<typeof createBuildRequestItem>[0]) =>
+      createBuildRequestItem({
+        ...input,
+        watchers: autoWatchers(input.watchers, actor),
+      }),
     onSuccess: (item) => {
       pushToast({ message: `Added part "${item.partNumber}".` });
       qc.setQueryData<BuildRequestItem[]>(BUILD_REQUEST_ITEMS_KEY, (old) =>

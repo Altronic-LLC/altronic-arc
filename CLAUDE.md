@@ -1165,6 +1165,59 @@ A field whose stored value is a checklist falls back to the plain textarea —
 If another list turns out to have rich-text columns, reuse `toStoredRichText`
 in that module's write path; don't re-derive it.
 
+### Creators and assignees watch what they're involved in
+
+Watchers drive every notification, so the watcher list has to fill itself.
+Three of the four routes onto it are automatic (Ray, 2026-08-18):
+
+| Route | Where it happens |
+|---|---|
+| **You created it** | the `useCreate*` hook wraps `mutationFn` and passes `autoWatchers(input.watchers, <assignee>, actor)` |
+| **It's assigned to you** | the API's `set*Assigned` / `set*Engineer` writes Assigned **and** Watchers in ONE PATCH |
+| **You were @-mentioned** | `autoWatchFromMentions` (tasks/ops/panels/BRs) and `autoWatchEirFromMentions` (EIRs), already there |
+| You were added by hand | the Watchers field / Watch button |
+
+`autoWatchers()` in `src/lib/people.ts` is the union — it takes people and
+lists of people in any mix (Operations, panels and build requests assign ONE
+person; tasks and EIRs take several) and dedupes through `mergePeople`, which
+keeps the copy carrying a `lookupId` because only that one can be written to a
+person column.
+
+Two things to preserve:
+
+- **Nobody is ever removed.** Unassigning leaves the person watching; Unwatch
+  is the deliberate way off. Auto-removing would also silently undo someone
+  adding *themselves*.
+- **The assign path re-reads the item** rather than trusting the caller's
+  cache, so a watcher added elsewhere isn't clobbered, and writes both columns
+  together so they can't disagree.
+
+A new entity with a Watchers column gets the same treatment in its create hook
+and its assign path — that's six departments doing it identically now.
+
+### Comment timestamps are on one clock, not the author's
+
+The `Communication` record starts with a bare `MM/DD/YYYY HH:MM:SS AM/PM` and
+**no time zone**. It used to be written in the author's local time and read
+back in the reader's, so records weren't comparable: 09:00 IST (03:30 UTC)
+sorts after 08:00 CDT (13:00 UTC) even though it was posted 9½ hours earlier.
+Threads with authors in different zones came out shuffled (reported
+2026-08-18).
+
+The format can't change — the Power Apps app and SharePoint's own views read
+the same column — so `src/lib/communicationParser.ts` writes and reads every
+record in ONE zone, `COMMENT_TIMEZONE = "America/New_York"`. Altronic is in
+Girard, Ohio, so existing records (nearly all written by Eastern-time authors)
+keep the time they always showed, and new records from any zone line up with
+them. Parsing yields a true instant; the UI still formats it in each reader's
+local time, so nobody sees Eastern unless they're in it.
+
+`formatSpDate`/`parseSpDate` do the conversion via `Intl.DateTimeFormat` — no
+dependency, DST handled by re-checking the offset at the instant being solved
+for. Don't reintroduce `d.getHours()` / `new Date(y, m, d, …)` here: those are
+the author's-local-time bug. Tests set `process.env.TZ` explicitly, because
+"it depends where you are" IS the bug.
+
 ### Mail that doesn't send says so
 
 `notifyMentions` / `notifyChangeEmails` return a `MailSendResult` and raise a

@@ -31,6 +31,7 @@ import { htmlToPlainText } from "@/lib/htmlText";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { USE_MOCK } from "@/api/config";
 import { PANEL_PROJECTS_KEY } from "./usePanelOrders";
+import { autoWatchers } from "@/lib/people";
 
 // =============================================================================
 // Panel Tasks hooks — mirrors usePanelOrders.ts's optimistic-update infra,
@@ -576,7 +577,12 @@ export function useCreatePanelTask() {
   const qc = useQueryClient();
   const actor = useCurrentUser();
   return useMutation({
-    mutationFn: createPanelTask,
+    // Creator + assignee watch the new task — lib/people.ts autoWatchers().
+    mutationFn: (input: Parameters<typeof createPanelTask>[0]) =>
+      createPanelTask({
+        ...input,
+        watchers: autoWatchers(input.watchers, input.assigned, actor),
+      }),
     onSuccess: (task, variables) => {
       pushToast({ message: `Created panel task "${task.title}".` });
       // Seed the cache immediately so navigating to the new task's detail

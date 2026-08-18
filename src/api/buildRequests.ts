@@ -8,6 +8,7 @@ import { appendComment, replaceComment } from "@/lib/communicationParser";
 import { listProjects } from "./tasks";
 import { listSiteUsers } from "./eirs";
 import { MOCK_BUILD_REQUESTS } from "@/data/buildRequestMockData";
+import { autoWatchers } from "@/lib/people";
 
 // =============================================================================
 // Build Request headers API — the "Build Request Tracker" list on the
@@ -277,15 +278,26 @@ export async function setBuildRequestEngineer(
   id: number,
   person: Person | null,
 ): Promise<BuildRequest> {
+  // The assigned engineer also becomes a watcher — see api/tasks.ts.
   if (USE_MOCK) {
     const idx = mockStore.findIndex((b) => b.id === id);
     if (idx < 0) throw new Error(`Build request ${id} not found`);
-    mockStore[idx] = { ...mockStore[idx], engineerAssigned: person, modifiedAt: new Date() };
+    mockStore[idx] = {
+      ...mockStore[idx],
+      engineerAssigned: person,
+      watchers: autoWatchers(mockStore[idx].watchers, person),
+      modifiedAt: new Date(),
+    };
     saveToStorage();
     return delay({ ...mockStore[idx] });
   }
+  const current = await getBuildRequest(id);
+  const watchers = autoWatchers(current?.watchers, person);
   const ensured = await ensurePersonLookupId(SP_SITE_URL, person);
-  return updateBuildRequestFields(id, { EngineerAssignedLookupId: ensured?.lookupId ?? null });
+  return updateBuildRequestFields(id, {
+    EngineerAssignedLookupId: ensured?.lookupId ?? null,
+    ...multiPersonField("Watchers", await ensureLookupIds(SP_SITE_URL, watchers)),
+  });
 }
 
 /** Replace the header's project references (multi-lookup). */

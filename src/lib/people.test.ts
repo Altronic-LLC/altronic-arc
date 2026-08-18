@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { mergePeople, withPerson } from "./people";
+import { autoWatchers, mergePeople, withPerson } from "./people";
 import type { Person } from "@/types/task";
 
 const RAY: Person = { displayName: "Ray White", email: "ray@x.com", lookupId: 22 };
@@ -48,5 +48,45 @@ describe("mergePeople", () => {
   it("skips name-less entries and undefined lists", () => {
     const out = mergePeople(undefined, [{ displayName: "", email: "x@x.com" }, AMY]);
     expect(out).toEqual([AMY]);
+  });
+});
+
+describe("autoWatchers", () => {
+  const CREATOR: Person = { displayName: "Ray White", email: "ray@x.com", lookupId: 22 };
+  const ASSIGNEE: Person = { displayName: "Amy Adams", email: "amy@x.com", lookupId: 7 };
+  const MANUAL: Person = { displayName: "Sam Shah", email: "sam@x.com", lookupId: 9 };
+
+  it("folds the creator and the assignee in with the explicit watchers", () => {
+    const out = autoWatchers([MANUAL], [ASSIGNEE], CREATOR);
+    expect(out.map((p) => p.displayName)).toEqual([
+      "Amy Adams",
+      "Ray White",
+      "Sam Shah",
+    ]);
+  });
+
+  it("takes a single person as readily as a list", () => {
+    // Operations, panel and build-request items assign ONE person, not a list.
+    const out = autoWatchers(undefined, ASSIGNEE, CREATOR);
+    expect(out.map((p) => p.displayName)).toEqual(["Amy Adams", "Ray White"]);
+  });
+
+  it("never lists the same person twice, whatever the email casing", () => {
+    const sameRay: Person = { displayName: "Ray White", email: "RAY@x.com" };
+    const out = autoWatchers([sameRay], [CREATOR], CREATOR);
+    expect(out).toHaveLength(1);
+    // …and keeps the copy that can actually be written to SharePoint.
+    expect(out[0].lookupId).toBe(22);
+  });
+
+  it("ignores nulls, so an unassigned item just gets its creator", () => {
+    expect(autoWatchers(undefined, null, CREATOR)).toEqual([CREATOR]);
+    expect(autoWatchers([], undefined, null)).toEqual([]);
+  });
+
+  it("keeps existing watchers when the assignee is cleared", () => {
+    // Unassigning does not un-watch — the person was involved, and Unwatch
+    // is one click away.
+    expect(autoWatchers([ASSIGNEE], null, undefined)).toEqual([ASSIGNEE]);
   });
 });

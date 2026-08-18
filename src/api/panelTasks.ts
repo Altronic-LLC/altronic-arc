@@ -8,6 +8,7 @@ import { multiPersonField } from "@/lib/graphFields";
 import { listPanelProjects } from "./panelProjects";
 import { listPanelSiteUsers } from "./panelOrders";
 import { MOCK_PANEL_PROJECTS, MOCK_PANEL_TASKS } from "@/data/panelMockData";
+import { autoWatchers } from "@/lib/people";
 
 // =============================================================================
 // Panel Tasks API — the panel team's task list on the ALTRONICPANELTEAM site.
@@ -159,8 +160,11 @@ export async function setPanelTaskProject(
 
 /** Replace the single Assigned person (or clear with `null`) — plain scalar LookupId. */
 export async function setPanelTaskAssigned(id: number, person: Person | null): Promise<PanelTask> {
+  // The assignee also becomes a watcher — see api/tasks.ts.
+  const current = await getPanelTask(id);
+  const watchers = autoWatchers(current?.watchers, person);
   if (USE_MOCK) {
-    return updatePanelTaskFields(id, { Assigned: person });
+    return updatePanelTaskFields(id, { Assigned: person, Watchers: watchers });
   }
   // Resolve (creating if needed) the site lookupId — the person may have been
   // picked from the staff directory and never seen on this site before.
@@ -170,7 +174,10 @@ export async function setPanelTaskAssigned(id: number, person: Person | null): P
       "Cannot update Assigned: couldn't resolve a SharePoint user for the selected person.",
     );
   }
-  return updatePanelTaskFields(id, { AssignedLookupId: ensured?.lookupId ?? null });
+  return updatePanelTaskFields(id, {
+    AssignedLookupId: ensured?.lookupId ?? null,
+    ...multiPersonField("Watchers", await ensureLookupIds(SP_PANELTEAM_SITE_URL, watchers)),
+  });
 }
 
 /** Replace the Watchers list. */

@@ -15,6 +15,7 @@ import { multiPersonField } from "@/lib/graphFields";
 import { listPanelProjects } from "./panelProjects";
 import { ensureLookupIds, ensurePersonLookupId, ensureSiteUserLookupId } from "./siteUsers";
 import { MOCK_PANEL_ORDERS, MOCK_PANEL_PROJECTS, MOCK_PANEL_ROLES } from "@/data/panelMockData";
+import { autoWatchers } from "@/lib/people";
 
 // =============================================================================
 // Panel Orders API — mirrors api/operationsTasks.ts's USE_MOCK-branching
@@ -250,8 +251,11 @@ export async function setPanelOrderEngineer(
   id: number,
   person: Person | null,
 ): Promise<PanelOrder> {
+  // The assigned engineer also becomes a watcher — see api/tasks.ts.
+  const current = await getPanelOrder(id);
+  const watchers = autoWatchers(current?.watchers, person);
   if (USE_MOCK) {
-    return updatePanelOrderFields(id, { EngineerAssigned: person });
+    return updatePanelOrderFields(id, { EngineerAssigned: person, Watchers: watchers });
   }
   // Resolve (creating if needed) the site lookupId — the person may have been
   // picked from the staff directory and never seen on this site before.
@@ -261,7 +265,10 @@ export async function setPanelOrderEngineer(
       "Cannot update Engineer Assigned: couldn't resolve a SharePoint user for the selected person.",
     );
   }
-  return updatePanelOrderFields(id, { EngineerAssignedLookupId: ensured?.lookupId ?? null });
+  return updatePanelOrderFields(id, {
+    EngineerAssignedLookupId: ensured?.lookupId ?? null,
+    ...multiPersonField("Watchers", await ensureLookupIds(SP_PANELTEAM_SITE_URL, watchers)),
+  });
 }
 
 /** Replace the Watchers list. */

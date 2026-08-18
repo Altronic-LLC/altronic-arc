@@ -33,6 +33,7 @@ import {
 import { htmlToPlainText } from "@/lib/htmlText";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { USE_MOCK } from "@/api/config";
+import { autoWatchers } from "@/lib/people";
 
 // =============================================================================
 // Panels department hooks — mirrors useOperationsTasks.ts's optimistic-update
@@ -633,7 +634,12 @@ export function useCreatePanelOrder() {
   const qc = useQueryClient();
   const actor = useCurrentUser();
   return useMutation({
-    mutationFn: createPanelOrder,
+    // Creator + assigned engineer watch the new order — lib/people.ts.
+    mutationFn: (input: Parameters<typeof createPanelOrder>[0]) =>
+      createPanelOrder({
+        ...input,
+        watchers: autoWatchers(input.watchers, input.engineerAssigned, actor),
+      }),
     onSuccess: (order, variables) => {
       pushToast({ message: `Created panel order "${order.title}".` });
       // Seed the cache immediately — navigating straight to the new order's

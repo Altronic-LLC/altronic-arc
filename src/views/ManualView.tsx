@@ -639,6 +639,12 @@ const SECTIONS: ManualSection[] = [
           posting.
         </P>
         <P>
+          Comments are listed <strong>newest first</strong>, in the order they
+          were actually posted — every timestamp is recorded on one company
+          clock and then shown in your local time, so a thread between people
+          in different time zones still reads in order.
+        </P>
+        <P>
           Anyone you @-mention also <strong>becomes a watcher</strong> on
           the item automatically (unless they already are) — tasks, EIRs,
           build requests, and individual build request parts alike.{" "}
@@ -2444,7 +2450,7 @@ const SECTIONS: ManualSection[] = [
       "checkbox notification",
     ],
     searchText:
-      "Commenting on a task, EIR, build request, or build request part emails everyone watching it, whoever it's assigned to, plus everyone you @-mention, from automation@altronic-llc.com. A comment with no mention at all still emails watchers and assignees. Mentioned people get a 'You were mentioned' email; assignees and other watchers get a 'New comment on' email that says whether it's assigned to them or they're watching. Build request parts have their own watcher lists and no Assigned field; part-comment emails deep-link to the request with that part expanded. You're never emailed for your own comment unless you @-mention yourself. @-mentioning auto-adds the person as a watcher. Editing a comment emails only newly added mentions by default, but checking 'Notify everyone again' resends an 'Updated comment on' email to watchers and assignees plus everyone mentioned in the new AND previous version of the comment. Change alerts: changing a Status (task, EIR, or build request), an EIR Resolution, a build request part's Part Status, or the assignees (including a build request's Engineer Assigned) emails the watchers, current assignees, and the EIR reporter or BR requestor. Checking or unchecking a Description checklist box (task, Operations task, or EIR) emails the watchers and current assignees with a Checklist updated on email naming the item. Being added as an assignee emails you 'You've been assigned'; being removed emails 'You've been unassigned'; everyone else gets a broadcast. Promoting an EIR to a task emails the EIR's watchers and reporter with a link to the new task. Creating/deleting parts and other field edits (lead time, customer, build request part checklists, WO No) send no email. You're never emailed for a change you made yourself.",
+      "Commenting on a task, EIR, build request, or build request part emails everyone watching it, whoever it's assigned to, plus everyone you @-mention, from automation@altronic-llc.com. A comment with no mention at all still emails watchers and assignees. Mentioned people get a 'You were mentioned' email; assignees and other watchers get a 'New comment on' email that says whether it's assigned to them or they're watching. Build request parts have their own watcher lists and no Assigned field; part-comment emails deep-link to the request with that part expanded. You're never emailed for your own comment unless you @-mention yourself. @-mentioning auto-adds the person as a watcher. You also become a watcher automatically when you create an item and when something is assigned to you — on the create form and on later reassignments — alongside anyone added by hand to the Watchers field. Being unassigned does not remove you; use Unwatch. Comment timestamps are recorded on one company clock (Eastern) and displayed in your own local time, so a thread reads in the order it was written even when the authors are in different time zones. Editing a comment emails only newly added mentions by default, but checking 'Notify everyone again' resends an 'Updated comment on' email to watchers and assignees plus everyone mentioned in the new AND previous version of the comment. Change alerts: changing a Status (task, EIR, or build request), an EIR Resolution, a build request part's Part Status, or the assignees (including a build request's Engineer Assigned) emails the watchers, current assignees, and the EIR reporter or BR requestor. Checking or unchecking a Description checklist box (task, Operations task, or EIR) emails the watchers and current assignees with a Checklist updated on email naming the item. Being added as an assignee emails you 'You've been assigned'; being removed emails 'You've been unassigned'; everyone else gets a broadcast. Promoting an EIR to a task emails the EIR's watchers and reporter with a link to the new task. Creating/deleting parts and other field edits (lead time, customer, build request part checklists, WO No) send no email. You're never emailed for a change you made yourself.",
     render: () => (
       <>
         <P>
@@ -2468,6 +2474,43 @@ const SECTIONS: ManualSection[] = [
           </LI>
         </UL>
 
+        <H3>Who is watching, and how you get there</H3>
+        <P>
+          Watchers are how ARC decides who to email. You join an item's watcher
+          list in four ways — three of them automatic:
+        </P>
+        <UL>
+          <LI>
+            <strong>You created it.</strong> Whoever raises a task, EIR,
+            Operations task, panel order, panel task, build request or build
+            request part watches it from the moment it's saved.
+          </LI>
+          <LI>
+            <strong>It's assigned to you.</strong> Assigning someone adds them
+            as a watcher too — on the create form and on every later
+            reassignment.
+          </LI>
+          <LI>
+            <strong>Someone @-mentioned you</strong> in a comment.
+          </LI>
+          <LI>
+            <strong>You were added by hand</strong> — the Watchers field on the
+            item, or the Watch button.
+          </LI>
+        </UL>
+        <P>
+          Being <em>unassigned</em> doesn't remove you: you stay on the watcher
+          list until you take yourself off with <strong>Unwatch</strong>, or
+          someone removes you from the Watchers field. Nothing here emails you
+          about your own actions — the rule above still holds.
+        </P>
+        <H3>Comment times</H3>
+        <P>
+          Comment timestamps are recorded on <strong>one company clock</strong>{" "}
+          (Eastern) and shown to you in <strong>your own local time</strong>.
+          A thread therefore reads in the order it was actually written, even
+          when the people in it are in different time zones.
+        </P>
         <H3>Every alert at a glance</H3>
         <AlertTable
           rows={[
