@@ -4,6 +4,7 @@ import type { Comment, CommentAttachment, Person } from "@/types/task";
 import { sanitiseHtml } from "@/lib/sanitiseHtml";
 import {
   buildCommentHtml,
+  detectMentionQuery,
   extractMentionedRecipients,
   rankMentionCandidates,
   type MentionCandidates,
@@ -224,24 +225,15 @@ function CommentEditor({
   }, [activeIndex, pickerOpen]);
 
   function detectMention(nextText: string, caret: number) {
-    let i = caret - 1;
-    while (i >= 0) {
-      const ch = nextText[i];
-      if (ch === "@") {
-        const before = i > 0 ? nextText[i - 1] : "";
-        if (before === "" || /[\s(\[]/.test(before)) {
-          const query = nextText.slice(i + 1, caret);
-          if (!/\s/.test(query)) {
-            atPosRef.current = i;
-            setPickerQuery(query);
-            setPickerOpen(true);
-            return;
-          }
-        }
-        break;
-      }
-      if (/\s/.test(ch)) break;
-      i--;
+    // Shared with the other mention picker — see detectMentionQuery in
+    // lib/mentions.ts. It allows one space in the query, so a full
+    // "First Last" can be typed.
+    const found = detectMentionQuery(nextText, caret);
+    if (found) {
+      atPosRef.current = found.at;
+      setPickerQuery(found.query);
+      setPickerOpen(true);
+      return;
     }
     setPickerOpen(false);
     atPosRef.current = null;

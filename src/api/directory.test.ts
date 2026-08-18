@@ -47,6 +47,28 @@ describe("mapDirectoryUsers", () => {
     ]);
     expect(out).toEqual([{ displayName: "Staff Member", email: "staff@altronic-llc.com" }]);
   });
+
+  // Every colleague has an admin.first.last shadow account beside their real
+  // one. They don't read mail, so anything assigned or notified to one goes
+  // nowhere — and having each person listed twice makes picking the right
+  // one a coin flip (Ray, 2026-08-18).
+  it("skips admin.first.last shadow accounts", () => {
+    const out = mapDirectoryUsers([
+      { id: "1", displayName: "Ray White", mail: "admin.ray.white@altronic-llc.com" },
+      { id: "2", displayName: "Ray White", mail: "ray.white@altronic-llc.com" },
+    ]);
+    expect(out).toEqual([
+      { displayName: "Ray White", email: "ray.white@altronic-llc.com" },
+    ]);
+  });
+
+  it("keeps a real person or shared mailbox whose name merely starts with admin", () => {
+    const out = mapDirectoryUsers([
+      { id: "1", displayName: "Adminska, Eva", mail: "eva@altronic-llc.com" },
+      { id: "2", displayName: "Admin Team", mail: "admin@altronic-llc.com" },
+    ]);
+    expect(out.map((p) => p.displayName)).toEqual(["Admin Team", "Adminska, Eva"]);
+  });
 });
 
 describe("listDirectoryPeople (mock mode)", () => {

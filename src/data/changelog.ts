@@ -20,6 +20,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.96.1",
+    date: "2026-08-18",
+    changes: [
+      "You can now search people fields by first name AND surname — Assigned, Assigned Engineer, Reporter, Requestor, Watchers and Created By all kept finding nothing as soon as you typed a space",
+      "The words match in any order, so \"jerrod w\" and \"waldron jerrod\" find the same person, and typing an email address finds them too",
+      "@-mentions accept a full name as well: typing a space after the first name no longer closes the picker",
+      "admin.first.last accounts are no longer listed in people fields — they don't receive email, so anything assigned to one went nowhere",
+    ],
+  },
+  {
     version: "0.96.0",
     date: "2026-08-18",
     changes: [

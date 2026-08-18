@@ -615,7 +615,7 @@ const SECTIONS: ManualSection[] = [
       "resend notification",
     ],
     searchText:
-      "Type @ in the comment composer to open the mention picker. Arrow keys then Enter or Tab to pick. Comment boxes auto-grow as you type or paste. Mentioned people get an email with the task/EIR name, the comment quote, and a link. Attach files by drag-drop, click Attach, or paste with Ctrl+V. Pasting a screenshot opens a naming prompt before it attaches anywhere — Cancel discards it instead of attaching it — and the named file uploads to the task's SharePoint project folder like any other attachment; a name already taken there is saved as name (2).ext instead of overwriting it. You can edit your own comments inline (a comment is yours if its saved name or email matches you, so older imported comments count too). Check Notify everyone again when editing to re-email every watcher and mention. Ctrl+Enter sends.",
+      "Type @ in the comment composer to open the mention picker. Arrow keys then Enter or Tab to pick. You can type a first name and surname after the @ — the space no longer closes the picker — and matching works in any order or by email address. admin.first.last accounts are not listed. Comment boxes auto-grow as you type or paste. Mentioned people get an email with the task/EIR name, the comment quote, and a link. Attach files by drag-drop, click Attach, or paste with Ctrl+V. Pasting a screenshot opens a naming prompt before it attaches anywhere — Cancel discards it instead of attaching it — and the named file uploads to the task's SharePoint project folder like any other attachment; a name already taken there is saved as name (2).ext instead of overwriting it. You can edit your own comments inline (a comment is yours if its saved name or email matches you, so older imported comments count too). Check Notify everyone again when editing to re-email every watcher and mention. Ctrl+Enter sends.",
     render: () => (
       <>
         <P>
@@ -634,7 +634,10 @@ const SECTIONS: ManualSection[] = [
           picking it from the dropdown leaves it as plain text — it won't
           notify anyone or add them as a watcher. The comment box also grows
           automatically as you type or paste, so long comments stay fully
-          visible. Editing an existing comment has the same @-mention picker,
+          visible. You can type a <strong>full name</strong> after the @ —
+          "@Jerrod W" keeps the picker open and narrows it, which matters when
+          two people share a first name. Editing an existing comment has the
+          same @-mention picker,
           so you can add someone while making an edit, not just when first
           posting.
         </P>
@@ -2373,7 +2376,7 @@ const SECTIONS: ManualSection[] = [
       "url filter",
     ],
     searchText:
-      "The filter bar on List, Kanban, and Test Sheets has Project Reference (multi), Assigned (multi, defaults to you), free-text Search, and Created By (single). Filters live in the URL — bookmark or share a filtered view as a link.",
+      "The filter bar on List, Kanban, and Test Sheets has Project Reference (multi), Assigned (multi, defaults to you), free-text Search, and Created By (single). Filters live in the URL — bookmark or share a filtered view as a link. People dropdowns (Assigned, Assigned Engineer, Reporter, Requestor, Watchers, Created By) match every word you type in any order, so first name plus surname works whichever way round the name is stored, and an email address finds someone too. admin.first.last accounts are hidden from people lists.",
     render: () => (
       <>
         <P>
@@ -2403,6 +2406,31 @@ const SECTIONS: ManualSection[] = [
           specific name or project quickly, and the options you've already
           selected sort to the top of the list when you open it. Pick "Anyone"
           (or click the ✕ on the dropdown) to clear that filter.
+        </P>
+        <H3>Searching for a person</H3>
+        <P>
+          Any dropdown that lists people — <strong>Assigned</strong>,{" "}
+          <strong>Assigned Engineer</strong>, <strong>Reporter</strong>,{" "}
+          <strong>Requestor</strong>, <strong>Watchers</strong>,{" "}
+          <strong>Created By</strong> — searches on <strong>every word you
+          type, in any order</strong>:
+        </P>
+        <UL>
+          <LI>
+            <strong>First name then surname</strong> both work, whichever way
+            round the name is stored: <code>jerrod w</code> and{" "}
+            <code>waldron jerrod</code> find the same person.
+          </LI>
+          <LI>
+            <strong>An email address</strong> finds them too — type{" "}
+            <code>jerrod.waldron</code> if two colleagues share a first name.
+          </LI>
+        </UL>
+        <P>
+          <strong>admin.</strong> accounts (the{" "}
+          <code>admin.first.last</code> logins IT issues alongside a person's
+          real account) are left out of these lists. They don't receive email,
+          so anything assigned to one would go nowhere.
         </P>
         <Tip>
           Filters live in the URL (<code>?assigned=…&amp;project=…</code>) — so

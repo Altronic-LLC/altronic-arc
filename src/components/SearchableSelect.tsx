@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, Plus, Search, X } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { matchesTokens } from "@/lib/itemSearch";
 
 export interface SelectOption {
   value: string;
@@ -352,9 +353,19 @@ function SearchablePanel({
   }, [options]);
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = query.trim();
     if (!q) return ordered;
-    return ordered.filter((o) => o.label.toLowerCase().includes(q));
+    // Every word has to match, in any order — so "Jerrod W" finds
+    // "Waldron, Jerrod" and "Sarah Shaffer" alike. A plain substring test
+    // failed the moment the user typed a space.
+    //
+    // People options carry the person's email as their `value`; matching it
+    // too means typing an address (or the part before the @) finds them.
+    // Options keyed by a numeric id are NOT matched on value — "5" would
+    // otherwise pull in every project whose id contains a 5.
+    return ordered.filter((o) =>
+      matchesTokens(o.value.includes("@") ? `${o.label} ${o.value}` : o.label, q),
+    );
   }, [ordered, query]);
 
   return (

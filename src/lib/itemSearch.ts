@@ -61,6 +61,25 @@ export function tokenizeQuery(query: string): string[] {
   return tokens;
 }
 
+/**
+ * True when every token in `query` appears somewhere in `text` (AND, any
+ * order). The plain-text sibling of `matchesSearch` — for the places that
+ * search ONE string rather than a whole item: the dropdown panels and the
+ * @-mention picker.
+ *
+ * This exists because those used to do `text.includes(query)`, which breaks
+ * the moment someone types a space (Ray, 2026-08-18). "Jerrod W" found
+ * nothing when the display name reads "Waldron, Jerrod" — and typing a first
+ * name then a space is exactly how people search for a person. Token
+ * matching finds them whichever order the name is stored in.
+ */
+export function matchesTokens(text: string, query: string): boolean {
+  const tokens = tokenizeQuery(query);
+  if (tokens.length === 0) return true;
+  const hay = text.toLowerCase();
+  return tokens.every((t) => hay.includes(t));
+}
+
 /** Strip HTML tags and collapse entities we care about into plain text. */
 function stripHtml(s: string): string {
   return s

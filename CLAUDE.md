@@ -1080,6 +1080,18 @@ filter, so the first fix reached only one of them. Change both, or better, chang
 the shared helper. If a cap ever bites, SAY SO in the list ("Showing 50 of 62 —
 keep typing to narrow"); a silently truncated list reads as "that's everyone".
 
+As of 2026-08-18 the *detector* is shared too —
+`detectMentionQuery(text, caret)` in `lib/mentions.ts` — because both files
+also carried identical copies of the backwards-walk that decides whether the
+caret is inside a mention.
+
+**A mention query may contain ONE space.** It used to close the picker at the
+first whitespace, so `@Jerrod W` was unreachable and anyone who had to be
+disambiguated by surname couldn't be mentioned at all. Two spaces ends it (the
+user has moved on to a sentence) and a newline always does. Nothing renders
+when there are no candidates, so an over-long query hides the picker by
+itself.
+
 ### Task filters live in the URL and must survive navigation
 
 `filterSearch(search)` in `useFilters.ts` extracts the filter params
@@ -1217,6 +1229,36 @@ dependency, DST handled by re-checking the offset at the instant being solved
 for. Don't reintroduce `d.getHours()` / `new Date(y, m, d, …)` here: those are
 the author's-local-time bug. Tests set `process.env.TZ` explicitly, because
 "it depends where you are" IS the bug.
+
+### People search is token-based, and hides `admin.` accounts
+
+Two rules for anything that lets a user pick a person.
+
+**Every word must match, in any order.** `matchesTokens(text, query)` in
+`lib/itemSearch.ts` (built on the same `tokenizeQuery` the list views use) is
+the one matcher — used by `SearchablePanel` in `SearchableSelect.tsx` and by
+`rankMentionCandidates`. A plain `label.includes(query)` was there before and
+broke the moment a space was typed: display names come out of Entra as
+`Waldron, Jerrod`, so `Jerrod W` matched nobody (Ray, 2026-08-18). Typing a
+first name and then a space is how people search for a person, so this is the
+default everywhere, not a people-picker special case.
+
+The panel also matches an option's **`value` when it is an email** — people
+options are keyed by address, so typing `jerrod.waldron` finds them. Options
+keyed by a numeric id (projects, tasks) are matched on label ONLY; matching
+those would make `5` pull in every id containing a five.
+
+**`admin.first.last` accounts are hidden.** `isHiddenDirectoryAccount()` in
+`lib/people.ts` is applied in `mapDirectoryUsers` (api/directory.ts) and again
+in `mergePeople`, so it holds whether the person came from the tenant
+directory or off an existing item. They don't receive mail — assigning work or
+a notification to one sends it nowhere — and listing every colleague twice
+makes picking the right one a coin flip.
+
+It matches the exact `admin.` prefix on the display name or the email's local
+part, and nothing looser: a colleague surnamed Adminski, and a shared
+`admin@` mailbox people really do assign to, both have to survive. Don't
+"improve" this into a general `admin` contains-match.
 
 ### Mail that doesn't send says so
 
