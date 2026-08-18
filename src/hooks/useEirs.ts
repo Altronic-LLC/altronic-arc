@@ -42,6 +42,7 @@ import { htmlToPlainText } from "@/lib/htmlText";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { resolveCurrentUserLookupId } from "@/api/currentUser";
 import { USE_MOCK } from "@/api/config";
+import { autoWatchers } from "@/lib/people";
 
 const EIRS_KEY = ["eirs", "list"] as const;
 
@@ -111,7 +112,13 @@ export function useCreateEir() {
   const qc = useQueryClient();
   const actor = useCurrentUser();
   return useMutation({
-    mutationFn: (input: CreateEirInput) => createEir(input),
+    // Whoever raises an EIR watches it, and so does any engineer assigned
+    // on the form — see autoWatchers() in lib/people.ts.
+    mutationFn: (input: CreateEirInput) =>
+      createEir({
+        ...input,
+        watchers: autoWatchers(input.watchers, input.assignedEngineers, actor),
+      }),
     onSuccess: (created, variables) => {
       qc.setQueryData<Eir[]>(EIRS_KEY, (old) => (old ? [created, ...old] : [created]));
       qc.invalidateQueries({ queryKey: EIRS_KEY });

@@ -37,6 +37,7 @@ import {
 } from "@/lib/mentions";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { USE_MOCK } from "@/api/config";
+import { autoWatchers } from "@/lib/people";
 
 // =============================================================================
 // Operations department hooks — mirrors useTasks.ts's optimistic-update
@@ -666,7 +667,12 @@ export function useCreateOperationsTask() {
   const qc = useQueryClient();
   const actor = useCurrentUser();
   return useMutation({
-    mutationFn: createOperationsTask,
+    // Creator + assignee watch the new task — see lib/people.ts autoWatchers().
+    mutationFn: (input: Parameters<typeof createOperationsTask>[0]) =>
+      createOperationsTask({
+        ...input,
+        watchers: autoWatchers(input.watchers, input.assigned, actor),
+      }),
     onSuccess: (task, variables) => {
       pushToast({ message: `Created task "${task.taskNumber || task.title}".` });
       // Assigning someone AS the task is created used to tell them nothing —

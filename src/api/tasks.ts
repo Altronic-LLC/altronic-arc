@@ -16,6 +16,7 @@ import { attachProjectTitles, attachTaskRelationships } from "@/lib/taskGraph";
 import { multiPersonField } from "@/lib/graphFields";
 import { fromLabelsField, toLabelsField } from "@/lib/labels";
 import { MOCK_PROJECTS, MOCK_TASKS } from "@/data/mockData";
+import { autoWatchers } from "@/lib/people";
 
 // =============================================================================
 // Tasks API
@@ -326,10 +327,28 @@ export async function setRelatedProjects(id: number, lookupIds: number[]): Promi
   return updateTaskFields(id, { ProjectReference: lookupIds });
 }
 
-/** Replace the Assigned people list. */
+/**
+ * Watchers for an item with the assignees folded in.
+ *
+ * Whoever a thing is assigned to watches it (Ray, 2026-08-18) — otherwise the
+ * person doing the work misses every comment on it. Both columns go out in ONE
+ * PATCH so they cannot disagree, and the current watchers are re-read rather
+ * than taken from a cache, so a watcher added elsewhere is not silently
+ * dropped.
+ */
+async function watchersWithAssignees(
+  id: number,
+  assignees: Array<Person | null | undefined>,
+): Promise<Person[]> {
+  const current = await getTask(id);
+  return autoWatchers(current?.watchers, assignees.filter((p): p is Person => !!p));
+}
+
+/** Replace the Assigned people list. The assignees also become watchers. */
 export async function setAssigned(id: number, people: Person[]): Promise<Task> {
+  const watchers = await watchersWithAssignees(id, people);
   if (USE_MOCK) {
-    return updateTaskFields(id, { Assigned: people });
+    return updateTaskFields(id, { Assigned: people, Watchers: watchers });
   }
   // Multi-person writes go through the shared helper so the @odata.type
   // annotation is never forgotten (see src/lib/graphFields.ts for the
@@ -342,7 +361,10 @@ export async function setAssigned(id: number, people: Person[]): Promise<Task> {
       "Cannot update Assigned: couldn't resolve a SharePoint user for any of the selected people.",
     );
   }
-  return updateTaskFields(id, multiPersonField("Assigned", ensured));
+  return updateTaskFields(id, {
+    ...multiPersonField("Assigned", ensured),
+    ...multiPersonField("Watchers", await ensureLookupIds(SP_SITE_URL, watchers)),
+  });
 }
 
 /** Replace the Watchers list. */

@@ -20,6 +20,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.96.0",
+    date: "2026-08-18",
+    changes: [
+      "You now automatically watch anything you create — tasks, EIRs, Operations tasks, panel orders, panel tasks, build requests and their parts — so you hear about comments and changes on your own work",
+      "Assigning something to someone adds them as a watcher too, on the create form and on every later reassignment",
+      "Being unassigned no longer stops you watching — use Unwatch when you want off a thread",
+      "Comment threads now read in the order they were actually posted; comments from people in other time zones were being shuffled in among the rest",
+      "Comment times are shown in your own local time whoever wrote them",
+    ],
+  },
+  {
     version: "0.95.0",
     date: "2026-08-18",
     changes: [

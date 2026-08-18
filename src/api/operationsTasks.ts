@@ -9,6 +9,7 @@ import { multiPersonField } from "@/lib/graphFields";
 import { listOperationsProjects } from "./operationsProjects";
 import { listOperationsEquipment } from "./operationsEquipment";
 import { MOCK_OPERATIONS_TASKS } from "@/data/operationsMockData";
+import { autoWatchers } from "@/lib/people";
 
 // =============================================================================
 // Operations Tasks API — mirrors api/tasks.ts's USE_MOCK-branching structure,
@@ -291,8 +292,12 @@ export async function setOperationsAssigned(
   id: number,
   person: Person | null,
 ): Promise<OperationsTask> {
+  // The assignee also becomes a watcher — see watchersWithAssignees in
+  // api/tasks.ts for why both columns go out together.
+  const current = await getOperationsTask(id);
+  const watchers = autoWatchers(current?.watchers, person);
   if (USE_MOCK) {
-    return updateOperationsTaskFields(id, { Assigned: person });
+    return updateOperationsTaskFields(id, { Assigned: person, Watchers: watchers });
   }
   // Resolve (creating if needed) the site lookupId — the person may have been
   // picked from the staff directory and never seen on this site before.
@@ -302,7 +307,10 @@ export async function setOperationsAssigned(
       "Cannot update Assigned: couldn't resolve a SharePoint user for the selected person.",
     );
   }
-  return updateOperationsTaskFields(id, { AssignedLookupId: ensured?.lookupId ?? null });
+  return updateOperationsTaskFields(id, {
+    AssignedLookupId: ensured?.lookupId ?? null,
+    ...multiPersonField("Watchers", await ensureLookupIds(SP_PMO_SITE_URL, watchers)),
+  });
 }
 
 /** Replace the Watchers list. */

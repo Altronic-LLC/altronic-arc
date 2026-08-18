@@ -58,6 +58,7 @@ import { resolveCurrentUserLookupId } from "@/api/currentUser";
 import { USE_MOCK } from "@/api/config";
 import { fromLabelsField, toLabelsField } from "@/lib/labels";
 import { htmlToPlainText } from "@/lib/htmlText";
+import { autoWatchers } from "@/lib/people";
 
 const TASK_LIST_KEY = ["tasks", "list"] as const;
 const PROJECTS_KEY = ["projects"] as const;
@@ -935,7 +936,13 @@ export function useCreateTask() {
   const actor = useCurrentUser();
   return useMutation({
     mutationKey: TASK_WRITE_KEY,
-    mutationFn: createTask,
+    // Whoever creates a task watches it, and so does whoever it's assigned
+    // to — see autoWatchers() in lib/people.ts for why.
+    mutationFn: (input: Parameters<typeof createTask>[0]) =>
+      createTask({
+        ...input,
+        watchers: autoWatchers(input.watchers, input.assigned, actor),
+      }),
     // Create isn't optimistic (we need the server-assigned id before
     // navigating to the new task). Toast confirms after the round-trip.
     onSuccess: (task, variables) => {
