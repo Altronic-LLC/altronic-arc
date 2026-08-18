@@ -49,7 +49,7 @@ const SECTIONS: ManualSection[] = [
       "where do i start",
     ],
     searchText:
-      "Sign in with your altronic-llc.com account. The Dashboard opens after sign-in. Use the top nav to switch between Dashboard, the Departments dropdown, and Admin. The Departments dropdown mirrors the dashboard: Engineering (Engineering Tasks, EIRs, Test Sheets, plus Build Requests and ECNs coming soon), Operations, Supply Chain, and Customer Service / Sales.",
+      "Sign in with your altronic-llc.com account. The Dashboard opens after sign-in. Use the top nav to switch between Dashboard, the Departments dropdown, and Admin. The Departments dropdown mirrors the dashboard: Engineering (Engineering Tasks, EIRs, Test Sheets, Project Folders, Build Requests, Drawing File Logs, CSA Listings, with ECNs coming soon), Panels, Operations, Coils (Potting Sample Log), Quality Control (Digital QC and Ignition QC Defect Logs), Supply Chain, and Customer Service / Sales.",
     render: () => (
       <>
         <P>
@@ -58,10 +58,14 @@ const SECTIONS: ManualSection[] = [
           summary of your open work. The top nav has a{" "}
           <strong>Departments</strong> dropdown that mirrors the dashboard's
           sections — <strong>Engineering</strong> (Engineering Tasks, EIRs, Test
-          Sheets, with Build Requests and ECNs coming soon),{" "}
-          <strong>Operations</strong>, <strong>Supply Chain</strong>, and{" "}
-          <strong>Customer Service / Sales</strong> (all coming soon). Engineering
-          Tasks use the <strong>List</strong> and <strong>Kanban</strong> views.
+          Sheets, Project Folders, Build Requests, Drawing File Logs, CSA
+          Listings, with ECNs coming soon), <strong>Panels</strong>,{" "}
+          <strong>Operations</strong>, <strong>Coils</strong> (Potting Sample
+          Log), <strong>Quality Control</strong> (Digital QC and Ignition QC
+          Defect Logs), <strong>Supply Chain</strong>, and{" "}
+          <strong>Customer Service / Sales</strong> (the last two still coming
+          soon). Engineering Tasks use the <strong>List</strong> and{" "}
+          <strong>Kanban</strong> views.
           Your tasks are filtered to you by default — pick "Anyone" in the
           Assigned filter to see the rest of the team's work.
         </P>
@@ -113,15 +117,17 @@ const SECTIONS: ManualSection[] = [
       "all projects",
     ],
     searchText:
-      "The Dashboard is grouped into department sections — Engineering, Operations, Supply Chain, and Customer Service / Sales — each a divider heading with its cards beneath. Engineering has live cards: Engineering Tasks, EIRs, Test Sheets, plus placeholders for Build Requests and ECNs. Operations, Supply Chain, and Customer Service / Sales show Coming soon placeholders. Each live card shows the count of active items (tasks not Complete, EIRs not Closed), a colour-coded status mini-bar, and clicks through to that type's page. A Mine / Company switch flips every count and bar between your own items and the whole company's; Mine is the default. A project picker sits next to it and works the same way — pick a project and every card's count and mini-bar narrows to just that project, in place, combining with Mine/Company rather than navigating anywhere. Clicking a card afterward opens that type's full list pre-filtered to the picked project.",
+      "The Dashboard is grouped into department sections — Engineering, Panels, Operations, Coils, Quality Control, Supply Chain, and Customer Service / Sales — each a divider heading with its cards beneath. Engineering has live cards: Engineering Tasks, EIRs, Test Sheets and more. Coils has the Potting Sample Log; Quality Control has the Digital QC and Ignition QC Defect Logs. Supply Chain and Customer Service / Sales show Coming soon placeholders. Each live card shows the count of active items (tasks not Complete, EIRs not Closed), a colour-coded status mini-bar, and clicks through to that type's page. A Mine / Company switch flips every count and bar between your own items and the whole company's; Mine is the default. A project picker sits next to it and works the same way — pick a project and every card's count and mini-bar narrows to just that project, in place, combining with Mine/Company rather than navigating anywhere. Clicking a card afterward opens that type's full list pre-filtered to the picked project.",
     render: () => (
       <>
         <P>
           The home page after sign-in is organised into{" "}
-          <strong>department sections</strong> — Engineering, Operations, Supply
-          Chain, and Customer Service / Sales — each a divider heading across the
-          page with that team's cards beneath it. Engineering is the only
-          department with live data today; the rest show placeholders.
+          <strong>department sections</strong> — Engineering, Panels,
+          Operations, Coils, Quality Control, Supply Chain, and Customer Service
+          / Sales — each a divider heading across the page with that team's
+          cards beneath it. A card is either live or a dimmed{" "}
+          <strong>Coming soon</strong> placeholder, so the sections fill in as
+          each team's tools come online.
         </P>
         <P>
           Within a section you get one <strong>card per work type</strong>. Each
@@ -161,16 +167,23 @@ const SECTIONS: ManualSection[] = [
           </LI>
         </UL>
         <P>
+          Other departments have their own cards further down the page —{" "}
+          <strong>Coils</strong> (Potting Sample Log) and{" "}
+          <strong>Quality Control</strong> (Digital QC Defect Log, Ignition QC
+          Defect Log) both open straight to their logs, and{" "}
+          <strong>Panels</strong> and <strong>Operations</strong> link to their
+          orders, tasks and the Teradyne Log.
+        </P>
+        <P>
           Types whose SharePoint list isn't built yet — Engineering's{" "}
-          <strong>Build Requests</strong> and <strong>ECNs</strong>,{" "}
-          <strong>Panels</strong> (Panel Dashboard, Panel Tasks, Project
-          Folders), all of <strong>Operations</strong> (Operational Tasks,
-          Maintenance Tasks), <strong>Supply Chain</strong> (Grey Market Part
-          Requests, Supplier Issue Tracking, Supplier List, Supplier Contacts,
-          Cost Impact Notices, FAIT), and{" "}
-          <strong>Customer Service / Sales</strong> (Customer Feedback, Visit
-          Reporting, Customers, Customer Contacts List, Special Pricing, Capacity
-          Tracking, Pricing Requests) — appear as dimmed{" "}
+          <strong>ECNs</strong>, Coils' <strong>Coil Defect Log</strong>,
+          Quality Control's <strong>QC Forms</strong>, Operations'{" "}
+          <strong>Maintenance Tasks</strong>, all of{" "}
+          <strong>Supply Chain</strong> (Grey Market Part Requests, Supplier
+          Issue Tracking, Supplier List, Supplier Contacts, Cost Impact Notices,
+          FAIT), and <strong>Customer Service / Sales</strong> (Customer
+          Feedback, Visit Reporting, Customers, Customer Contacts List, Special
+          Pricing, Capacity Tracking, Pricing Requests) — appear as dimmed{" "}
           <strong>Coming soon</strong> placeholders. They'll light up with live
           counts as each department comes online.
         </P>
@@ -366,7 +379,11 @@ const SECTIONS: ManualSection[] = [
           </LI>
           <LI>
             <strong>Parent Task / Related Projects</strong> — for tasks that
-            belong under a larger one or touch multiple projects.
+            belong under a larger one or touch multiple projects. Both are{" "}
+            <strong>searchable dropdowns</strong>: open one and start typing to
+            narrow the list rather than scrolling it. Related Projects takes
+            several — each pick lands as a chip you can remove with its ✕, and
+            the task's own parent project isn't offered.
           </LI>
         </UL>
         <P>
@@ -384,6 +401,14 @@ const SECTIONS: ManualSection[] = [
           revision inline — no need to open a separate form. Every change is
           optimistic: the UI updates the moment you click, SharePoint catches
           up in the background.
+        </P>
+        <P>
+          <strong>Related Projects</strong> in the sidebar is a{" "}
+          <strong>searchable dropdown</strong> — open it, type to find the
+          project, and tick it. Ticking a project that's already on the task
+          takes it off again, so the same control both adds and removes. The
+          projects currently on the task stay above it as chips you can click
+          to open that project.
         </P>
         <P>
           The <strong>Edit</strong> button at the top of the detail page opens
@@ -767,9 +792,12 @@ const SECTIONS: ManualSection[] = [
         </ul>
         <H3>Uploading a file</H3>
         <P>
-          Open the task and use the <strong>Add file</strong> button on the
-          Attachments card. The file uploads to both storages in the same
-          click. If your tenant isn't fully wired up for the list-item path
+          Open the task and <strong>drag the files onto the Attachments
+          card</strong> — the card highlights while you're over it, and
+          several at once is fine. You can also{" "}
+          <strong>paste a screenshot</strong> into the card with Ctrl+V, or
+          click <strong>Add file</strong> and pick them. However they arrive,
+          they upload to both storages in the same step. If your tenant isn't fully wired up for the list-item path
           (the SharePoint admin hasn't granted the SP REST scope), the
           project-folder copy still goes through and the file shows up
           there — uploads never silently fail.
@@ -1227,6 +1255,237 @@ const SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: "digital-qc",
+    title: "Digital QC Defect Log",
+    group: "Quality Control",
+    keywords: [
+      "qc",
+      "quality control",
+      "digital qc",
+      "defect log",
+      "defects",
+      "product family",
+      "pyrometer",
+      "serial number",
+      "endsn",
+      "startsn",
+      "work order",
+      "operator",
+      "qty tested",
+      "qty rejected",
+      "solder",
+      "ncm",
+      "to rp",
+      "tachometer",
+      "annunciator",
+      "exacta",
+      "enbase",
+    ],
+    searchText:
+      "Digital QC Defect Log at /digital-qc, under Departments > Quality Control. 18 product families, each backed by its own SharePoint list: A.F.M., A.F.C., Annunciators, DE Display, DE Terminal, DriveCOM, EnBase, EPC-10X/50, EX-200, Exacta, Digital Misc., Moris 1,2, P.M.M., Power Supply, Pressure Gauges, Pyrometer, Saves, Tachometer. Pick a family to open its table; Change product family goes back to the buttons. Add entry opens the form; the pencil on a row edits it. Date Tested defaults to now, every count field defaults to 0, and a blank Work Order saves as N/A. The filter box searches every field at once and any column header sorts, click again to reverse. Comments show as a hoverable icon in the table and as a large multi-line box at the bottom of the form. On Pyrometer, three tiles show the highest EndSN used this calendar month for old material 378-1443, 357-4880 and 343-4631. Any signed-in user can add and edit entries; entries cannot be deleted from ARC.",
+    render: () => (
+      <>
+        <P>
+          <strong>Departments → Quality Control → Digital QC Defect Log</strong>{" "}
+          (<code>/digital-qc</code>) is the digital product test log — one row
+          per work order tested, with the reject counts broken out by defect
+          type.
+        </P>
+        <H3>Pick a product family first</H3>
+        <P>
+          The page opens on a grid of <strong>18 product family</strong> buttons
+          — A.F.M., A.F.C., Annunciators, DE Display, DE Terminal, DriveCOM,
+          EnBase, EPC-10X/50, EX-200, Exacta, Digital Misc., Moris 1,2, P.M.M.,
+          Power Supply, Pressure Gauges, Pyrometer, Saves and Tachometer. Each
+          family is its own log, so pick one to open its table.{" "}
+          <strong>Change product family</strong> at the top left brings the
+          buttons back.
+        </P>
+        <H3>Adding and editing entries</H3>
+        <UL>
+          <LI>
+            <strong>Add entry</strong> (top right) opens the form. The{" "}
+            <strong>pencil</strong> at the end of a row opens the same form on
+            that entry.
+          </LI>
+          <LI>
+            <strong>Date Tested</strong> starts at the current date and time,
+            every count field starts at <strong>0</strong>, and a blank{" "}
+            <strong>Work Order</strong> saves as <code>N/A</code> — so a clean
+            run only needs the fields that actually changed.
+          </LI>
+          <LI>
+            <strong>Comments</strong> is the large box at the bottom of the
+            form. In the table it's a small icon — hover it to read the comment
+            without opening the entry.
+          </LI>
+          <LI>
+            Saving writes straight to that family's SharePoint list. Any
+            signed-in user can add and edit; there is no delete in ARC — a wrong
+            entry gets corrected, or removed by an admin in SharePoint.
+          </LI>
+        </UL>
+        <H3>Finding an entry</H3>
+        <P>
+          The <strong>filter box</strong> searches every field at once — work
+          order, operator, part numbers, serial numbers, comments — and{" "}
+          <strong>Clear filters</strong> resets it. Click any{" "}
+          <strong>column header</strong> to sort by it; click the same header
+          again to reverse the order.
+        </P>
+        <H3>Pyrometer serial tracking</H3>
+        <P>
+          The <strong>Pyrometer</strong> family shows three tiles above the
+          table for old material <code>378-1443</code>, <code>357-4880</code>{" "}
+          and <code>343-4631</code>. Each shows the{" "}
+          <strong>highest EndSN recorded this calendar month</strong> for that
+          material, so the next unit's starting serial is on screen rather than
+          scrolled for. The tiles reset when the month rolls over.
+        </P>
+      </>
+    ),
+  },
+  {
+    id: "ignition-qc",
+    title: "Ignition QC Defect Log",
+    group: "Quality Control",
+    keywords: [
+      "ignition qc",
+      "ignition",
+      "qc",
+      "quality control",
+      "defect log",
+      "defects",
+      "product family",
+      "cpu95",
+      "cpu2k",
+      "cpu-xl",
+      "altronic iii",
+      "altronic v",
+      "alternator",
+      "regulator",
+      "distributor",
+      "cd200",
+      "work order",
+    ],
+    searchText:
+      "Ignition QC Defect Log at /ignition-qc, under Departments > Quality Control. 37 ignition product families, each backed by its own SharePoint list — 24V Alternator, 24V Regulator, Alt 1 Module and Unit, Altronic III and V boards and units, CCD/WCD, CD200, CIM, the CPU II / CPU2K / CPU95 / CPU-XL families, DISN/CEC/IPMD, GOV/AGV and more. Works exactly like Digital QC: pick a family, Add entry or the pencil to edit, Date Tested defaults to now, counts default to 0, blank Work Order saves as N/A, all-fields filter box, sortable column headers, and Comments as a hoverable icon plus a large box in the form. There are no StartSN/EndSN columns and no Pyrometer tiles — those are Digital QC only. Any signed-in user can add and edit; entries cannot be deleted from ARC.",
+    render: () => (
+      <>
+        <P>
+          <strong>
+            Departments → Quality Control → Ignition QC Defect Log
+          </strong>{" "}
+          (<code>/ignition-qc</code>) is the ignition-side counterpart to
+          Digital QC, covering <strong>37 product families</strong> — the 24V
+          Alternator and Regulator, the Altronic I / III / V boards and units,
+          CCD/WCD, CD200, CIM, the CPU II, CPU2K, CPU95/TEM and CPU-XL families,
+          DISN/CEC/IPMD, GOV/AGV and the rest.
+        </P>
+        <P>
+          Everything works the same way as <strong>Digital QC</strong>: pick a
+          family to open its table, <strong>Change product family</strong> to go
+          back, <strong>Add entry</strong> or the row <strong>pencil</strong> to
+          record or correct one, Date Tested pre-filled with now, counts
+          starting at <strong>0</strong>, a blank Work Order saved as{" "}
+          <code>N/A</code>, an all-fields filter box, sortable column headers,
+          and Comments as a hoverable icon in the table with a large box at the
+          bottom of the form.
+        </P>
+        <Tip>
+          Ignition entries have <strong>no StartSN / EndSN columns</strong> and
+          no Pyrometer tiles — serial tracking is a Digital QC feature. Every
+          other column, including the defect-type counts, matches.
+        </Tip>
+      </>
+    ),
+  },
+  {
+    id: "potting-sample-log",
+    title: "Potting Sample Log (Coils)",
+    group: "Coils",
+    keywords: [
+      "coils",
+      "coil",
+      "potting",
+      "potting sample",
+      "psr",
+      "sample log",
+      "spec limit",
+      "lower limit",
+      "upper limit",
+      "out of limit",
+      "weight",
+      "volume",
+      "notification list",
+      "psr notification",
+    ],
+    searchText:
+      "Potting Sample Log at /coils/potting-sample-log, under Departments > Coils. Record a potting sample's date, volume and weight. The date defaults to now and the volume to 125, so a normal sample is just the weight plus Save entry. The current Lower and Upper Spec Limits show above the form, and any saved sample outside them is flagged in red in the table as Below lower limit or Above upper limit. Saving an out-of-limit sample automatically emails everyone on the Coil PSR Notification List with the entry's date, volume and weight and both spec limits. Manage lists opens the two reference lists: Spec Limits at /coils/potting-limits and the PSR Notification List at /coils/psr-notifications, where you add or remove people by name and email. Both are editable by any signed-in user, the same as the Teradyne reference lists.",
+    render: () => (
+      <>
+        <P>
+          <strong>Departments → Coils → Potting Sample Log</strong> (
+          <code>/coils/potting-sample-log</code>) records the weight of a
+          potting sample and raises the alarm when one falls outside spec.
+        </P>
+        <H3>Logging a sample</H3>
+        <UL>
+          <LI>
+            <strong>Date</strong> is pre-filled with the current date and time
+            and <strong>Volume</strong> with <strong>125</strong>, so a routine
+            sample is just the <strong>Weight</strong> and{" "}
+            <strong>Save entry</strong>.
+          </LI>
+          <LI>
+            The current <strong>spec limits</strong> show in a strip above the
+            form, so you can see what you're measuring against before you save.
+          </LI>
+          <LI>
+            The entry appears in the table below immediately. A weight outside
+            the limits is shown in red with a{" "}
+            <strong>Below lower limit</strong> or{" "}
+            <strong>Above upper limit</strong> flag beside it.
+          </LI>
+        </UL>
+        <H3>Out-of-limit alerts</H3>
+        <P>
+          Saving a sample outside the limits{" "}
+          <strong>automatically emails</strong> everyone on the{" "}
+          <strong>Coil PSR Notification List</strong>. The email gives the
+          entry's date, volume and weight alongside both spec limits, so the
+          reader can see how far out it landed without opening ARC. Nothing is
+          sent for a sample inside the limits.
+        </P>
+        <H3>Manage lists</H3>
+        <P>
+          The <strong>Manage lists</strong> menu in the page header opens the
+          two reference lists behind the log:
+        </P>
+        <UL>
+          <LI>
+            <strong>Spec Limits</strong> (<code>/coils/potting-limits</code>) —
+            the Lower and Upper Spec Limit used for the flags and the alert
+            email. Changing them affects every row on the log, since the flag is
+            worked out from the current limits each time the page loads.
+          </LI>
+          <LI>
+            <strong>PSR Notification List</strong> (
+            <code>/coils/psr-notifications</code>) — who gets the out-of-limit
+            email. <strong>Add person</strong> takes a name and an email
+            address; the bin icon removes someone.
+          </LI>
+        </UL>
+        <Tip>
+          Both reference lists are editable by{" "}
+          <strong>any signed-in user</strong>, the same arrangement as the
+          Teradyne reference lists — no admin needed to add a name or nudge a
+          limit.
+        </Tip>
+      </>
+    ),
+  },
+  {
     id: "eirs",
     title: "EIRs (Engineering Information Requests)",
     group: "Engineering requests",
@@ -1277,7 +1536,7 @@ const SECTIONS: ManualSection[] = [
       "eir columns",
     ],
     searchText:
-      "The EIRs tab shows Engineering Information Requests with workflow View tabs (All, New, Needs Assigned, At Risk Parts, LTB), status pills (Under Review, Response Accepted, Closed, etc.) and a filter bar for Project, Assigned Engineer, Reporter, and search. EIRs have a Board (kanban) view as well as the list: List and Board buttons appear under the top nav, the board has one column per EIR status, and dragging a card between columns changes that EIR's status with a toast and Undo. The view tabs and filter bar work the same on both and travel between them; the board is hidden on phones. The Description field supports the same custom checklist syntax as a task's Description. New = no project reference and no engineer assigned; Needs Assigned = has a project reference but still no engineer. Click an EIR to open the detail page with Description, Engineering Response, Part Details (MFG, P/N, EAU, etc.), Comments, and a sidebar to edit Status, Resolution, Request Type, Priority, Reporter, Assigned Engineers, Watchers, Project, Task Reference, Requested Completion Date, LTB Date. New EIRs are auto-numbered as EIR_YYYY-#### (the next sequence for the year); the EIR Log No. is calculated from it. Promote an EIR to a task by setting Resolution to Promoted to Task: a confirmation window creates a linked task carrying the title, description, project, watchers, and comment thread (tagged as from the EIR). Completing that task prompts for a final resolution, which is written back to the EIR's Engineering Response and marks the EIR Resolved and Closed.",
+      "The EIRs tab shows Engineering Information Requests with workflow View tabs (All, New, Needs Assigned, At Risk Parts, LTB), status pills (Under Review, Response Accepted, Closed, etc.) and a filter bar for Project, Assigned Engineer, Reporter, and search. EIRs have a Board (kanban) view as well as the list: List and Board buttons appear under the top nav, the board has one column per EIR status, and dragging a card between columns changes that EIR's status with a toast and Undo. The view tabs and filter bar work the same on both and travel between them; the board is hidden on phones. The Description field supports the same custom checklist syntax as a task's Description. New = no project reference and no engineer assigned; Needs Assigned = has a project reference but still no engineer. Description, Engineering Response and Where Used are rich text: editing one shows a toolbar with bold, italic, underline and bulleted/numbered lists, Ctrl+B/I/U work, paragraphs are preserved, and pasting from Word keeps the formatting but drops its colours. Click an EIR to open the detail page with Description, Engineering Response, Part Details (MFG, P/N, EAU, etc.), Comments, and a sidebar to edit Status, Resolution, Request Type, Priority, Reporter, Assigned Engineers, Watchers, Project, Task Reference, Requested Completion Date, LTB Date. New EIRs are auto-numbered as EIR_YYYY-#### (the next sequence for the year); the EIR Log No. is calculated from it. Promote an EIR to a task by setting Resolution to Promoted to Task: a confirmation window creates a linked task carrying the title, description, project, watchers, and comment thread (tagged as from the EIR). Completing that task prompts for a final resolution, which is written back to the EIR's Engineering Response and marks the EIR Resolved and Closed.",
     render: () => (
       <>
         <P>
@@ -1363,6 +1622,32 @@ const SECTIONS: ManualSection[] = [
           <em>Working with tasks → Custom checklists in the Description</em>{" "}
           for the syntax.
         </P>
+        <H3>Formatting an EIR's text</H3>
+        <P>
+          <strong>Description</strong>, <strong>Engineering Response</strong>{" "}
+          and <strong>Where Used</strong> are formatted fields. Editing one
+          gives you a small toolbar — <strong>bold</strong>,{" "}
+          <em>italic</em>, underline, bulleted and numbered lists — and the
+          usual <strong>Ctrl+B / Ctrl+I / Ctrl+U</strong> shortcuts. This
+          applies on the New EIR form too.
+        </P>
+        <UL>
+          <LI>
+            <strong>Your paragraphs are kept.</strong> Blank lines stay blank
+            lines wherever the EIR is read — in ARC, in SharePoint, and in the
+            notification emails.
+          </LI>
+          <LI>
+            <strong>Pasting from Word or Outlook keeps the formatting</strong>{" "}
+            but drops the source's fonts and colours, so nothing arrives as
+            black text on the dark theme.
+          </LI>
+          <LI>
+            A Description that holds a <strong>checklist</strong> switches back
+            to the plain editor — checklist lines are text by design. Clicking{" "}
+            <strong>Turn into checklist</strong> makes that swap for you.
+          </LI>
+        </UL>
         <P>
           The sidebar holds the workflow fields: Status, Resolution, Request
           Type, Requested Priority, Reporter, Assigned (Engineers), Project

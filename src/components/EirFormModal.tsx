@@ -19,6 +19,8 @@ import { ChoiceSelect, SingleSelect } from "./SearchableSelect";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { mergePeople } from "@/lib/people";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
+import { RichTextEditor } from "./RichTextEditor";
+import { isEmptyRichText } from "@/lib/richText";
 import { DateField } from "./DateField";
 import { useOverlayDismiss } from "./useOverlayDismiss";
 
@@ -114,7 +116,7 @@ export function EirFormModal({ onClose }: EirFormModalProps) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!subject.trim()) return setError("Subject is required.");
-    if (!description.trim()) return setError("Description is required.");
+    if (isEmptyRichText(description)) return setError("Description is required.");
     if (!reporter) return setError("Reporter is required.");
     if (!requestedPriority) return setError("Requested Priority is required.");
     if (!requestType) return setError("Request Type is required.");
@@ -251,13 +253,14 @@ export function EirFormModal({ onClose }: EirFormModalProps) {
             </FieldLabel>
 
             <FieldLabel label="Description" required className="sm:col-span-3">
-              <AutoGrowTextarea
-                style={{ minHeight: "8rem" }}
+              {/* Rich text, not a textarea: the SharePoint column is Enhanced
+                  rich text, so paragraphs typed here have to be saved as HTML
+                  to survive — and that's what makes bold possible. */}
+              <RichTextEditor
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={5}
+                onChange={setDescription}
+                aria-label="Description"
                 placeholder="Describe what you're requesting and why…"
-                className="input resize-y"
               />
             </FieldLabel>
           </div>
