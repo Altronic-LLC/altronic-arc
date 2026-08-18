@@ -65,7 +65,9 @@ const SORTABLE_COLUMNS: { key: SortKey; label: string }[] = [
 
 const DEFAULT_FORM = {
   workOrder: "",
-  dateTested: new Date().toISOString(),
+  // Left empty here; openCreateForm fills this with the current moment when the form actually
+  // opens, rather than baking in whatever time this module happened to load.
+  dateTested: "",
   operator: "",
   oldNumber: "",
   sapNumber: "",
@@ -89,6 +91,16 @@ const DEFAULT_FORM = {
   other: "0",
 };
 
+// Formats an ISO timestamp for a <input type="datetime-local"> using the browser's local time.
+// (toISOString() alone would show UTC, which reads as the wrong time to whoever's looking at it.)
+function toDateTimeInputValue(iso: string): string {
+  if (!iso) return "";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 function defectTotal(record: IgnitionQcRecord): number {
   return DEFECT_KEYS.reduce((sum, key) => sum + (Number(record[key]) || 0), 0);
 }
@@ -110,6 +122,9 @@ export function IgnitionQcView() {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   // Collapsed by default: fewer columns, larger rows. Expand to see the full defect breakdown.
   const [defectsExpanded, setDefectsExpanded] = useState(false);
+  // Mobile card view: which record's comment preview is currently shown (press-and-hold), if any.
+  const [commentPreviewId, setCommentPreviewId] = useState<string | null>(null);
+  const commentPressTimerRef = useRef<number | null>(null);
 
   const { data: records = [], isLoading, error } = useListIgnitionQcRecords(selectedFamily);
   const createMutation = useCreateIgnitionQcRecord(selectedFamily);
@@ -168,7 +183,7 @@ export function IgnitionQcView() {
 
   function toDraft(record?: IgnitionQcRecord): typeof DEFAULT_FORM {
     if (!record) {
-      return DEFAULT_FORM;
+      return { ...DEFAULT_FORM, dateTested: new Date().toISOString() };
     }
 
     return {
@@ -256,6 +271,29 @@ export function IgnitionQcView() {
     proceed();
   }
 
+  // Press-and-hold on a card's comment icon (mobile has no hover, so title tooltips never show).
+  function startCommentPreview(recordId: string) {
+    clearCommentPressTimer();
+    commentPressTimerRef.current = window.setTimeout(() => setCommentPreviewId(recordId), 350);
+  }
+
+  function clearCommentPressTimer() {
+    if (commentPressTimerRef.current !== null) {
+      window.clearTimeout(commentPressTimerRef.current);
+      commentPressTimerRef.current = null;
+    }
+  }
+
+  // Ends the hold: hides the preview and, if it was showing, swallows the click that would
+  // otherwise follow the touch and open the record (a hold is a "peek", not a tap-to-open).
+  function endCommentPreview(recordId: string, event: React.TouchEvent) {
+    clearCommentPressTimer();
+    if (commentPreviewId === recordId) {
+      event.preventDefault();
+      setCommentPreviewId(null);
+    }
+  }
+
   function toNumber(value: string): number {
     return value.trim() === "" ? 0 : Number(value);
   }
@@ -277,6 +315,10 @@ export function IgnitionQcView() {
   }
 
   async function submitForm() {
+    if (dateTestedInvalid || quantityRejectedMismatch) {
+      return;
+    }
+
     const recordData = {
       workOrder: draft.workOrder || "N/A",
       dateTested: draft.dateTested || new Date().toISOString(),
@@ -329,6 +371,17 @@ export function IgnitionQcView() {
   function handleConfirmCancel() {
     setPendingProceed(null);
   }
+
+  // Date Tested is required — empty or unparseable both count as "not entered."
+  const dateTestedInvalid = !draft.dateTested || Number.isNaN(new Date(draft.dateTested).getTime());
+
+  // Quantity Rejected must equal the sum of the individual defect-category fields. This catches
+  // both directions: rejects logged with no defect breakdown, and defects that overcount the
+  // rejects. Computed live off `draft` so the field borders update as the operator types.
+  const defectFieldsTotal = DEFECT_KEYS.reduce((sum, key) => sum + toNumber(draft[key]), 0);
+  const quantityRejectedNum = toNumber(draft.quantityRejected);
+  const quantityRejectedMismatch = defectFieldsTotal !== quantityRejectedNum;
+  const canSubmitForm = !dateTestedInvalid && !quantityRejectedMismatch;
 
   // Row/head density flips with the defects toggle: fewer columns → larger, more readable rows.
   const cellClass = defectsExpanded ? "px-1 py-1.5 text-[10px]" : "px-3 py-3 text-sm";
@@ -396,12 +449,14 @@ export function IgnitionQcView() {
 
       {showForm && (
         <form onSubmit={handleSubmit} className="rounded-xl border border-border bg-surface p-4">
-          <div className="mb-3 flex items-center justify-between gap-2 text-sm font-medium text-fg">
-            <div className="flex items-center gap-2">
-              <Plus className="h-4 w-4 text-accent" />
-              {isReadOnly ? "Viewing entry (read-only)" : editingId ? "Edit entry" : "Add new entry using the workbook headers"}
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-sm font-medium text-fg">
+            <div className="flex min-w-0 items-center gap-2">
+              <Plus className="h-4 w-4 shrink-0 text-accent" />
+              <span className="min-w-0">
+                {isReadOnly ? "Viewing entry (read-only)" : editingId ? "Edit entry" : "Add new entry using the workbook headers"}
+              </span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex shrink-0 items-center gap-2">
               {isReadOnly && (
                 <button
                   type="button"
@@ -432,13 +487,26 @@ export function IgnitionQcView() {
               />
             </label>
             <label className="flex flex-col gap-1 text-sm text-fg-muted">
-              Date Tested
+              <span>
+                Date Tested <span className="text-cooper-red">*</span>
+              </span>
               <input
                 type="datetime-local"
-                value={draft.dateTested.slice(0, 16)}
-                onChange={(e) => updateField("dateTested", new Date(e.target.value).toISOString())}
-                className="rounded-md border border-border bg-surface-2 px-3 py-2 text-fg"
+                value={toDateTimeInputValue(draft.dateTested)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (!value) {
+                    updateField("dateTested", "");
+                    return;
+                  }
+                  const parsed = new Date(value);
+                  updateField("dateTested", Number.isNaN(parsed.getTime()) ? "" : parsed.toISOString());
+                }}
+                className={`rounded-md border bg-surface-2 px-3 py-2 text-fg ${
+                  dateTestedInvalid ? "border-cooper-red" : "border-border"
+                }`}
               />
+              {dateTestedInvalid && <span className="text-xs text-cooper-red">Date tested is required.</span>}
             </label>
             <label className="flex flex-col gap-1 text-sm text-fg-muted">
               Operator
@@ -487,8 +555,15 @@ export function IgnitionQcView() {
                 type="number"
                 value={draft.quantityRejected}
                 onChange={(e) => updateField("quantityRejected", e.target.value)}
-                className="rounded-md border border-border bg-surface-2 px-3 py-2 text-fg"
+                className={`rounded-md border bg-surface-2 px-3 py-2 text-fg ${
+                  quantityRejectedMismatch ? "border-cooper-red" : "border-border"
+                }`}
               />
+              {quantityRejectedMismatch && (
+                <span className="text-xs text-cooper-red">
+                  Must equal the sum of the defect fields below (currently {defectFieldsTotal}).
+                </span>
+              )}
             </label>
             <label className="flex flex-col gap-1 text-sm text-fg-muted">
               Process Solder Defect
@@ -605,13 +680,13 @@ export function IgnitionQcView() {
                 role="switch"
                 aria-checked={draft.toRP === "1"}
                 onClick={() => updateField("toRP", draft.toRP === "1" ? "0" : "1")}
-                className={`relative h-6 w-11 rounded-full transition-colors ${
-                  draft.toRP === "1" ? "bg-accent" : "bg-border"
+                className={`relative box-border h-6 w-11 shrink-0 rounded-full border p-0 transition-colors ${
+                  draft.toRP === "1" ? "border-accent bg-accent" : "border-border bg-border"
                 }`}
               >
                 <span
-                  className={`absolute top-1 h-4 w-4 rounded-full bg-white transition-transform ${
-                    draft.toRP === "1" ? "translate-x-6" : "translate-x-1"
+                  className={`absolute left-0 top-1 box-border h-4 w-4 rounded-full transition-transform ${
+                    draft.toRP === "1" ? "translate-x-6 bg-black" : "translate-x-1 bg-white"
                   }`}
                 />
               </button>
@@ -637,20 +712,29 @@ export function IgnitionQcView() {
           </label>
           </fieldset>
           {!isReadOnly && (
-          <div className="mt-4 flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={closeForm}
-              className="rounded-md border border-border px-4 py-2 text-sm font-medium text-fg hover:bg-surface-2"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent/90"
-            >
-              {editingId ? "Save changes" : "Save entry"}
-            </button>
+          <div className="mt-4 flex flex-col items-end gap-2">
+            {!canSubmitForm && (
+              <p className="text-xs text-cooper-red">
+                Fix the highlighted fields above before saving.
+              </p>
+            )}
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeForm}
+                className="rounded-md border border-border px-4 py-2 text-sm font-medium text-fg hover:bg-surface-2"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={!canSubmitForm}
+                title={canSubmitForm ? undefined : "Fix the highlighted fields before saving"}
+                className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-accent"
+              >
+                {editingId ? "Save changes" : "Save entry"}
+              </button>
+            </div>
           </div>
           )}
         </form>
@@ -658,9 +742,9 @@ export function IgnitionQcView() {
 
       {!pickerOpen && !showForm && (
       <div className="overflow-hidden rounded-xl border border-border bg-surface">
-        <div className="flex items-center justify-between border-b border-border bg-surface-2 px-4 py-3">
-          <h2 className="font-medium text-fg">{selectedFamily} entries</h2>
-          <span className="text-xs uppercase tracking-[0.2em] text-fg-muted">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-surface-2 px-4 py-3">
+          <h2 className="min-w-0 truncate font-medium text-fg">{selectedFamily} entries</h2>
+          <span className="shrink-0 text-xs uppercase tracking-[0.2em] text-fg-muted">
             {isLoading ? "loading…" : `${visibleRecords.length}${filterText ? ` of ${records.length}` : ""} records`}
           </span>
         </div>
@@ -712,7 +796,94 @@ export function IgnitionQcView() {
             {filterText ? "No records match the current filter." : `No records for ${selectedFamily}. Click "Add entry" to create one.`}
           </div>
         ) : (
-          <div className="overflow-hidden">
+          <>
+          {/* Card list — small screens. Same data and tap targets as the table, stacked instead of columned. */}
+          <div className="grid gap-3 p-3 md:hidden">
+            {visibleRecords.map((record) => {
+              const totalDefects = defectTotal(record);
+              return (
+                <div
+                  key={record.id}
+                  onClick={() => guardFormNavigation(() => openViewForm(record))}
+                  className="rounded-lg border border-border bg-surface-2 p-3 active:bg-surface-2/70"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="truncate font-medium text-fg">{record.workOrder}</div>
+                      <div className="mt-0.5 truncate text-xs text-fg-muted">
+                        {formatDateOnly(record.dateTested)}
+                        {record.operator ? ` · ${record.operator}` : ""}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      aria-label={`Edit ${record.workOrder}`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        guardFormNavigation(() => openEditForm(record));
+                      }}
+                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border bg-surface text-fg"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+
+                  <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-fg-muted">
+                    <div>Old No <span className="text-fg">{record.oldNumber || "—"}</span></div>
+                    <div>SAP No <span className="text-fg">{record.sapNumber || "—"}</span></div>
+                    <div>Qty Tested <span className="text-fg">{record.quantityTested}</span></div>
+                    <div>Qty Rejected <span className="text-fg">{record.quantityRejected}</span></div>
+                  </div>
+
+                  {defectsExpanded && (
+                    <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 border-t border-border pt-2 text-[11px] text-fg-muted">
+                      {DEFECT_COLUMNS.map(({ key, label }) => (
+                        <div key={key}>
+                          {label} <span className="text-fg">{record[key]}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="mt-2 flex items-center justify-between border-t border-border pt-2">
+                    <span className={`text-xs font-medium ${totalDefects > 0 ? "text-cooper-red" : "text-fg-muted"}`}>
+                      {totalDefects > 0 ? `${totalDefects} defect${totalDefects === 1 ? "" : "s"}` : "0 defects"}
+                    </span>
+                    <div className="flex items-center gap-3">
+                      <span
+                        title={record.toRP === 1 ? "To RP: on" : "To RP: off"}
+                        aria-label={record.toRP === 1 ? "To RP on" : "To RP off"}
+                        className={`inline-block h-3 w-3 rounded-full border border-border ${
+                          record.toRP === 1 ? "bg-emerald-400 shadow-[0_0_7px_rgba(52,211,153,0.9)]" : "bg-surface"
+                        }`}
+                      />
+                      <span
+                        aria-label={record.comments || "No comments"}
+                        className={`relative select-none ${record.comments ? "text-accent" : "text-fg-muted/50"}`}
+                        onTouchStart={(event) => {
+                          event.stopPropagation();
+                          startCommentPreview(record.id);
+                        }}
+                        onTouchEnd={(event) => endCommentPreview(record.id, event)}
+                        onTouchCancel={clearCommentPressTimer}
+                        onContextMenu={(event) => event.preventDefault()}
+                      >
+                        <MessageSquare className="h-4 w-4" />
+                        {commentPreviewId === record.id && (
+                          <div className="absolute bottom-full right-0 z-10 mb-2 w-56 max-w-[70vw] rounded-md border border-border bg-surface p-2 text-left text-xs font-normal text-fg shadow-lg">
+                            {record.comments || "No comments"}
+                          </div>
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Table — tablet and up. */}
+          <div className="hidden overflow-hidden md:block">
             <table className="w-full table-fixed text-left">
               <thead className="bg-surface-2 text-fg-muted">
                 <tr>
@@ -853,6 +1024,7 @@ export function IgnitionQcView() {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
       )}

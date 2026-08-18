@@ -7,6 +7,7 @@ import {
   BookUser,
   Building2,
   Calculator,
+  ChevronDown,
   CircuitBoard,
   ClipboardCheck,
   ClipboardList,
@@ -768,7 +769,11 @@ export function DashboardView() {
   );
 }
 
-/** A department band: a titled divider line across the page + a card grid. */
+/**
+ * A department band: a titled divider line across the page + a card grid.
+ * The whole header row (title + line + chevron) is a toggle — clicking it
+ * collapses the section down to just its heading. Expanded by default.
+ */
 function DeptSection({
   title,
   notice,
@@ -779,16 +784,32 @@ function DeptSection({
   notice?: React.ReactNode;
   children: React.ReactNode;
 }) {
+  const [collapsed, setCollapsed] = useState(false);
   return (
     <section className="flex flex-col gap-3">
-      <div className="flex items-center gap-3">
-        <h2 className="font-display text-base font-semibold uppercase tracking-wider text-fg">
+      <button
+        type="button"
+        onClick={() => setCollapsed((c) => !c)}
+        aria-expanded={!collapsed}
+        className="group flex w-full items-center gap-3 text-left"
+      >
+        <h2 className="font-display text-base font-semibold uppercase tracking-wider text-fg transition-colors group-hover:text-accent">
           {title}
         </h2>
         <div className="h-px flex-1 bg-border" />
-      </div>
-      {notice}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">{children}</div>
+        <ChevronDown
+          className={cn(
+            "h-4 w-4 shrink-0 text-fg-muted transition-transform group-hover:text-fg",
+            collapsed && "rotate-90",
+          )}
+        />
+      </button>
+      {!collapsed && (
+        <>
+          {notice}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">{children}</div>
+        </>
+      )}
     </section>
   );
 }
