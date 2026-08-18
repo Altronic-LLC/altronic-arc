@@ -72,7 +72,7 @@ const SYSTEM_TIERS: Tier[] = [
   {
     label: "React SPA",
     nodes: [
-      { label: "Views", hint: "Dashboard · List · Kanban · Detail · EIRs · Test Sheets · Project Folders · CSA Listings · Drawing File Logs · Digital QC · Ignition QC · Potting Sample Log · Visit Reports · Drawing Work Sheet (print) · Admin", palette: "ui" },
+      { label: "Views", hint: "Dashboard · List · Kanban · Detail · EIRs · Test Sheets · Project Folders · CSA Listings · Drawing File Logs · Digital QC · Ignition QC · Potting Sample Log · Visit Reports (list + calendar) · Drawing Work Sheet (print) · Admin", palette: "ui" },
       { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useBuildRequests · useCsaListings · useDrawingLogs · useDigitalQc · useIgnitionQc · usePottingSampleLog · useVisitReports · useAdmins · useEirRoles · useTaskFiles · useProjectFolders", palette: "ui" },
       { label: "API layer", hint: "src/api/tasks · eirs · testSheets · buildRequests · buildRequestItems · csaListings · drawingLogs · digitalQc · ignitionQc · pottingSampleLog · visitReports · panelOrders · panelTasks · admins · eirRoles · panelRoles · directory · siteUsers · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
       {
@@ -87,7 +87,7 @@ const SYSTEM_TIERS: Tier[] = [
       },
       {
         label: "Customer Service / Sales department",
-        hint: "VisitReportsView · VisitReportDetailView — useVisitReports — api/visitReports. Own site (ALTRONICSALESTEAM). Sales-only: no other department reads it, and it imports nothing from another department.",
+        hint: "VisitReportsView · VisitReportsCalendarView · VisitReportDetailView — useVisitReports · useVisitReportFilters — api/visitReports. Own site (ALTRONICSALESTEAM). List and calendar are two views of one filtered set (lib/visitReportFilters). Sales-only: no other department reads it, and it imports nothing from another department.",
         palette: "ui",
       },
       {

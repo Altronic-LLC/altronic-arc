@@ -20,6 +20,7 @@ import { TestSheetsView } from "@/views/TestSheetsView";
 import { TestSheetDetailView } from "@/views/TestSheetDetailView";
 import { EirsView } from "@/views/EirsView";
 import { VisitReportsView } from "@/views/VisitReportsView";
+import { VisitReportsCalendarView } from "@/views/VisitReportsCalendarView";
 import { VisitReportDetailView } from "@/views/VisitReportDetailView";
 import { EirKanbanView } from "@/views/EirKanbanView";
 import { EirDetailView } from "@/views/EirDetailView";
@@ -191,6 +192,10 @@ export function App() {
           <Route path="/coils/potting-limits" element={<PottingLimitsView />} />
           <Route path="/coils/psr-notifications" element={<PsrNotificationView />} />
           <Route path="/sales/visit-reports" element={<VisitReportsView />} />
+          <Route
+            path="/sales/visit-reports/calendar"
+            element={<VisitReportsCalendarView />}
+          />
           <Route
             path="/sales/visit-report/:id"
             element={<VisitReportDetailView />}

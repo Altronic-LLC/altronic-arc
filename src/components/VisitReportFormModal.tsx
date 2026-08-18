@@ -31,20 +31,27 @@ import { useOverlayDismiss } from "./useOverlayDismiss";
 interface VisitReportFormModalProps {
   /** Omit to create a new report; pass one to edit it. */
   report?: VisitReport;
+  /**
+   * Visit Date to start from on a new report — the calendar passes the day
+   * that was clicked, so filing "the visit I made on the 12th" doesn't mean
+   * re-picking the 12th. Ignored when editing.
+   */
+  defaultDate?: Date | null;
   onClose: () => void;
   /** Called with the new report's id after a successful create. */
   onCreated?: (id: number) => void;
 }
 
-function emptyDraft(): VisitReportInput {
+function emptyDraft(defaultDate?: Date | null): VisitReportInput {
   return {
     customerName: "",
     rmName: "",
     reasonForVisit: "",
     visitSummary: "",
     actionItems: "",
-    // A report is normally filed the day of (or just after) the visit.
-    visitDate: fromDateInputValue(toDateInputValue(new Date())),
+    // A report is normally filed the day of (or just after) the visit, so
+    // today is the default — unless the caller named a day (the calendar).
+    visitDate: defaultDate ?? fromDateInputValue(toDateInputValue(new Date())),
     customerStatus: "",
     product: "",
     city: "",
@@ -56,6 +63,7 @@ function emptyDraft(): VisitReportInput {
 
 export function VisitReportFormModal({
   report,
+  defaultDate,
   onClose,
   onCreated,
 }: VisitReportFormModalProps) {
@@ -66,7 +74,7 @@ export function VisitReportFormModal({
   const busy = create.isPending || update.isPending;
 
   const [draft, setDraft] = useState<VisitReportInput>(() =>
-    report ? visitReportInput(report) : emptyDraft(),
+    report ? visitReportInput(report) : emptyDraft(defaultDate),
   );
   const [error, setError] = useState<string | null>(null);
   const firstFieldRef = useRef<HTMLInputElement>(null);
