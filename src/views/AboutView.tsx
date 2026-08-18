@@ -72,9 +72,9 @@ const SYSTEM_TIERS: Tier[] = [
   {
     label: "React SPA",
     nodes: [
-      { label: "Views", hint: "Dashboard · List · Kanban · Detail · EIRs (list + board) · Test Sheets · Project Folders · CSA Listings · Drawing File Logs · Drawing Work Sheet (print) · Admin", palette: "ui" },
-      { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useBuildRequests · useCsaListings · useDrawingLogs · useAdmins · useEirRoles · useTaskFiles · useProjectFolders", palette: "ui" },
-      { label: "API layer", hint: "src/api/tasks · eirs · testSheets · buildRequests · buildRequestItems · csaListings · drawingLogs · panelOrders · panelTasks · admins · eirRoles · panelRoles · directory · siteUsers · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
+      { label: "Views", hint: "Dashboard · List · Kanban · Detail · EIRs · Test Sheets · Project Folders · CSA Listings · Drawing File Logs · Digital QC · Ignition QC · Potting Sample Log · Drawing Work Sheet (print) · Admin", palette: "ui" },
+      { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useBuildRequests · useCsaListings · useDrawingLogs · useDigitalQc · useIgnitionQc · usePottingSampleLog · useAdmins · useEirRoles · useTaskFiles · useProjectFolders", palette: "ui" },
+      { label: "API layer", hint: "src/api/tasks · eirs · testSheets · buildRequests · buildRequestItems · csaListings · drawingLogs · digitalQc · ignitionQc · pottingSampleLog · panelOrders · panelTasks · admins · eirRoles · panelRoles · directory · siteUsers · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
       {
         label: "Build Requests (lazy-loaded)",
         hint: "BuildRequestsView · BuildRequestDetailView — a master-detail pair: the Tracker header list + any number of parts from the Items list, joined by BuildRequestNo. Own code-split chunk.",
@@ -112,6 +112,8 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "Admins", palette: "list" },
       { label: "EIR Roles", hint: "engineer / supply-chain field permissions", palette: "list" },
       { label: "CSA Listings", hint: "Engineering site — CSA certification files; Title is the File Number, admin-only writes", palette: "list" },
+      { label: "Digital QC product-family lists (18)", hint: "Engineering site — one list per product family; shared defect-log fields, with Pyrometer monthly EndSN tracking", palette: "list" },
+      { label: "Ignition QC product-family lists (36)", hint: "Engineering site — one list per product family; same shared defect-log fields as Digital QC", palette: "list" },
       { label: "CAD / CCC / CEC Drawings", hint: "Engineering site — drawing registers; a 16-slot change log across 48 CH_* columns", palette: "list" },
       { label: "Engineering Sketches", hint: "Engineering site — sketch register; own columns, no change log", palette: "list" },
       { label: "Documents library", hint: "General/Project Folders/* — task & comment files land here", palette: "list" },
@@ -121,6 +123,9 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "Altronic Equipment List", hint: "Altronic_PMO site — read-only reference for the Equipment picker", palette: "list" },
       { label: "Teradyne Log", hint: "Altronic_PMO site — board test failures; Title is app-derived from Product + Defective Parts", palette: "list" },
       { label: "Teradyne Employees / Products / Remarks", hint: "Altronic_PMO site — the log's three lookup lists, editable in-app by any signed-in user", palette: "list" },
+      { label: "Coil-PottingSampleLog", hint: "Altronic_PMO site — operator-entered potting samples (Date, Volume, Weight)", palette: "list" },
+      { label: "Coil-PottingLimit", hint: "Altronic_PMO site — two rows (Lower/Upper Spec Limit), editable by any signed-in user", palette: "list" },
+      { label: "Coil PSR Notification List", hint: "Altronic_PMO site — email list for out-of-limit alerts, editable by any signed-in user", palette: "list" },
       { label: "Build Request Tracker", hint: "BR headers — status workflow, requestor/engineer, own comment thread", palette: "list" },
       { label: "Build Request Items", hint: "parts per BR (lookup to the Tracker) — checklists + per-part comment threads", palette: "list" },
       { label: "Panel Order Headers", hint: "ALTRONICPANELTEAM site — panel sales orders (status, SO/PO, engineer, own comment thread)", palette: "list" },
@@ -554,6 +559,44 @@ const SCHEMA_TABLES: SchemaTable[] = [
     ],
   },
 
+  // ---- Digital QC (Engineering site) --------------------------------------
+  // One list per product family, represented as one shared shape here. The
+  // application resolves each list's actual SharePoint internal column names.
+  {
+    name: "DigitalQc",
+    source: "18 Digital QC product-family lists (Engineering site)",
+    palette: "entity",
+    x: 440, y: 2620, width: 500,
+    columns: [
+      { name: "id", type: "text", kind: "pk" },
+      { name: "workOrder / dateTested / operator", type: "text / date", kind: "field" },
+      { name: "oldNumber / SAPNumber", type: "text", kind: "field" },
+      { name: "startSN / endSN", type: "text", kind: "field" },
+      { name: "quantityTested / quantityRejected", type: "number", kind: "field" },
+      { name: "defect counters", type: "number", kind: "field" },
+      { name: "toRP", type: "0 | 1", kind: "field" },
+      { name: "other", type: "number", kind: "field" },
+      { name: "comments", type: "multiline text", kind: "field" },
+      { name: "Pyrometer monthly EndSN", type: "derived", kind: "field" },
+    ],
+  },
+  {
+    name: "IgnitionQc",
+    source: "36 Ignition QC product-family lists (Engineering site)",
+    palette: "entity",
+    x: 990, y: 2620, width: 480,
+    columns: [
+      { name: "id", type: "text", kind: "pk" },
+      { name: "workOrder / dateTested / operator", type: "text / date", kind: "field" },
+      { name: "oldNumber / SAPNumber", type: "text", kind: "field" },
+      { name: "quantityTested / quantityRejected", type: "number", kind: "field" },
+      { name: "defect counters", type: "number", kind: "field" },
+      { name: "toRP", type: "0 | 1", kind: "field" },
+      { name: "other", type: "number", kind: "field" },
+      { name: "comments", type: "multiline text", kind: "field" },
+    ],
+  },
+
   // ---- Teradyne (Operations, Altronic_PMO site) — own cluster -------------
   // Note how this cluster references NO Person table: the log records who ran
   // a test from its own Employees list (shop-floor people with clock numbers,
@@ -616,6 +659,42 @@ const SCHEMA_TABLES: SchemaTable[] = [
       { name: "id", type: "int", kind: "pk" },
       { name: "title", type: "text", kind: "field" },
       { name: "idRem (remark no.)", type: "number", kind: "field" },
+    ],
+  },
+
+  // ---- Coils — Potting Sample Log (Altronic_PMO site) — no FKs between them
+  {
+    name: "PottingSampleEntry",
+    source: "Coil-PottingSampleLog (Altronic_PMO site)",
+    palette: "entity",
+    x: 20, y: 2960, width: 280,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "date", type: "datetime", kind: "field" },
+      { name: "volume", type: "number", kind: "field" },
+      { name: "weight", type: "number", kind: "field" },
+    ],
+  },
+  {
+    name: "PottingLimits",
+    source: "Coil-PottingLimit (Altronic_PMO site)",
+    palette: "entity",
+    x: 330, y: 2960, width: 280,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title (Lower/Upper Spec Limit)", type: "text", kind: "field" },
+      { name: "limit", type: "number", kind: "field" },
+    ],
+  },
+  {
+    name: "PsrNotificationPerson",
+    source: "Coil PSR Notification List (Altronic_PMO site)",
+    palette: "entity",
+    x: 640, y: 2960, width: 300,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "displayName (Title)", type: "text", kind: "field" },
+      { name: "email", type: "text", kind: "field" },
     ],
   },
 ];

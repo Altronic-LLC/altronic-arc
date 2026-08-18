@@ -20,17 +20,98 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "0.93.0",
-    date: "2026-08-18",
+    version: "0.94.0",
+    date: "2026-08-17",
     changes: [
-      "EIRs now have a Board as well as a List — List and Board buttons appear under the top nav whenever you're on an EIR",
-      "The board has one column per EIR status; drag a card to another column to change its status, with a toast and Undo, and the usual email to watchers, assigned engineers and the reporter",
-      "The View tabs (All, New, Needs Assigned, At Risk Parts, LTB) and the filter bar work the same on the board as on the list, and switching between the two keeps your filters and the tab you were on",
-      "The board isn't offered on phone-sized screens — opening it there shows the list instead, filters intact",
-      "Demo mode now carries 20 EIRs instead of 4 — every status, resolution and workflow view has real-looking entries behind it, so the board and the View tabs can actually be tried out before the SharePoint data is in front of you",
-      "Fixed demo EIR dates showing a day early — an LTB of 30 September read \"LTB SEP 29\" on the card",
+      "Added the Coils department's Potting Sample Log — operators log a sample's date, volume, and weight, with today's date and a volume of 125 filled in by default",
+      "A saved sample outside the spec limits automatically emails the Coil PSR Notification List with the entry's values and the current limits",
+      "Any signed-in user can edit the Lower/Upper Spec Limit and manage the PSR Notification List from a \"Manage lists\" menu on the Potting Sample Log page, same as Teradyne's reference lists",
     ],
   },
+  {
+    version: "0.93.2",
+    date: "2026-08-17",
+    changes: [
+      "Added the Ignition QC Defect Log, with 36 product families each backed by their own live SharePoint list",
+      "Ignition QC has the same add/edit form, all-fields filter, sortable columns, and hoverable Comments icon as Digital QC",
+      "Ignition QC entries resolve each SharePoint list's actual column names before loading or saving",
+      "The About page now documents the Ignition QC view, hook, API, and 36 SharePoint lists",
+      "The Ignition QC Defect Log card on the Dashboard now links to the real page instead of showing \"Coming soon\"",
+      "Digital QC and Ignition QC now show the product-family buttons full width first; picking one opens that family's table and a \"Change product family\" button brings the buttons back",
+    ],
+  },
+  {
+    version: "0.93.1",
+    date: "2026-08-14",
+    changes: [
+      "Digital QC now has a live product-family selector with family-specific records and a form for adding defect entries",
+      "Digital QC forms now include Comments, StartSN, EndSN, To RP, and Other, with numeric fields defaulting to 0",
+      "Digital QC entries resolve each SharePoint list's actual column names before loading or saving",
+      "Digital QC lists can now be filtered across all fields and sorted by any data column",
+      "Comments now appear as a hoverable icon in the list and as a larger multiline field at the bottom of the form",
+      "The Physical Damage label is corrected in the form while preserving the existing SharePoint column name",
+      "The QC department now includes a working Digital QC page backed by live SharePoint product-family lists",
+      "Pyrometer now shows the latest EndSN used this calendar month for each tracked Old Material number",
+      "The About page now documents the Digital QC views, hook, API, 18 SharePoint lists, and shared data shape",
+    ],
+  },
+  {
+    version: "0.91.1",
+    date: "2026-08-14",
+    changes: [
+      "Fixed the Assigned filter finding none of your tasks — your sign-in spells your address with capitals while SharePoint stores it lowercase, and the two weren't being treated as the same person",
+      "This also fixes the list opening empty on \"Assigned to me\", and the same problem on the Created By filter and the Operations task list",
+      "Someone assigned under two spellings of their name is now one entry in the dropdown that finds all of their tasks",
+      "Filter links shared before this fix still work",
+    ],
+  },
+  {
+    version: "0.91.0",
+    date: "2026-08-14",
+    changes: [
+      "Every date in the app is now picked from a calendar instead of typed — click the field, click the day",
+      "This ends the save errors when entering a date: a typed date briefly looked like the year 0002 while you were still typing it, and that was being sent to SharePoint",
+      "Dates now read as \"May 1, 2026\" rather than 2026-05-01, with Today and Clear shortcuts and arrow-key navigation",
+    ],
+  },
+  {
+    version: "0.90.0",
+    date: "2026-08-14",
+    changes: [
+      "Fixed tasks refusing to save with \"Invalid request\" whenever a label was picked — creating or editing a labelled task works again",
+      "A task now takes one label instead of several, which is all the SharePoint list has ever been able to store; picking a label replaces the current one",
+      "Existing tasks keep the label they already have",
+    ],
+  },
+  {
+    version: "0.89.3",
+    date: "2026-08-14",
+    changes: [
+      "Fixed \"Couldn't save changes — reverted. Graph 404 Not Found\" when typing a date: the field saved after the first digit of the year, sending a year like 0002 that SharePoint can't store",
+      "Date fields now wait for a real year before saving, so you can type the whole date without an error",
+      "Every date field in the app now refuses years before 1900 or after 2999 instead of accepting a typo",
+    ],
+  },
+  {
+    version: "0.89.2",
+    date: "2026-08-14",
+    changes: [
+      "An EIR's LTB Date is now a Supply Chain field once the EIR is submitted — anyone can still enter one on the New EIR form, but only Supply Chain can change it afterwards",
+      "The locked field shows a padlock and says who can edit it, instead of just refusing to change",
+      "The EIR Roles admin page now lists LTB Date among what the Supply Chain role unlocks",
+    ],
+  },
+  {
+    version: "0.89.1",
+    date: "2026-08-14",
+    changes: [
+      "A task's Assigned field is now a dropdown with a search box — type a few letters to find someone instead of scanning a wall of names",
+      "Watchers changed the same way on tasks, EIRs, build requests, build request parts, panel orders and panel tasks, so every people field in the app now works alike",
+      "The people already picked stay visible as chips you can remove one at a time",
+      "Anyone already on an item still appears in the list even if they've since dropped out of the staff directory",
+    ],
+  },
+  
   {
     version: "0.89.0",
     date: "2026-08-11",

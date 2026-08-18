@@ -9,6 +9,7 @@ import {
   Calculator,
   CircuitBoard,
   ClipboardCheck,
+  ClipboardList,
   Cog,
   Contact,
   DollarSign,
@@ -27,6 +28,7 @@ import {
   PackageSearch,
   Sparkles,
   Tag,
+  TestTubes,
   Users,
   Wrench,
 } from "lucide-react";
@@ -707,6 +709,35 @@ export function DashboardView() {
           onClick={() => navigate("/operations/teradyne")}
         />
         <PlaceholderCard name="Maintenance Tasks" icon={<Hammer className="h-5 w-5" />} />
+      </DeptSection>
+
+      <DeptSection title="Coils">
+        <PlaceholderCard name="Coil Defect Log" icon={<FileText className="h-5 w-5" />} />
+        <TypeCard
+          name="Potting Sample Log"
+          icon={<ClipboardList className="h-5 w-5" />}
+          tone="cooper-red"
+          description="Log potting sample weight and volume; out-of-limit samples email the PSR notification list."
+          onClick={() => navigate("/coils/potting-sample-log")}
+        />
+      </DeptSection>
+
+      <DeptSection title="Quality Control">
+        <TypeCard
+          name="Digital QC Defect Log"
+          icon={<TestTubes className="h-5 w-5" />}
+          tone="cooper-red"
+          description="Product-family defect tracking with quick filtering and add-entry capture."
+          onClick={() => navigate("/digital-qc")}
+        />
+        <TypeCard
+          name="Ignition QC Defect Log"
+          icon={<TestTubes className="h-5 w-5" />}
+          tone="cooper-red"
+          description="Product-family defect tracking with quick filtering and add-entry capture."
+          onClick={() => navigate("/ignition-qc")}
+        />
+        <PlaceholderCard name="QC Forms" icon={<FileCheck className="h-5 w-5" />} />
       </DeptSection>
 
       <DeptSection title="Supply Chain">
