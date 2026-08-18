@@ -1,4 +1,5 @@
 import type { Person, ProjectReference } from "@/types/task";
+import { personKey } from "@/lib/people";
 import { MultiSelect, SingleSelect } from "./SearchableSelect";
 import { SearchInput } from "./SearchInput";
 
@@ -28,7 +29,9 @@ interface FilterBarProps {
 export function FilterBar({ filters, onChange, projects, people }: FilterBarProps) {
   const peopleSorted = [...people].sort((a, b) => a.displayName.localeCompare(b.displayName));
   const peopleOptions = peopleSorted.map((p) => ({
-    value: p.email ?? p.displayName,
+    // personKey so an option's value matches what applyFilters compares
+    // against — a raw email drifts in case between SharePoint and MSAL.
+    value: personKey(p),
     label: p.displayName,
   }));
 

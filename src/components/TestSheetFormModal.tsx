@@ -7,6 +7,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import type { Person, Task, TestSheet } from "@/types/task";
 import { SingleSelect } from "./SearchableSelect";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
+import { DateField } from "./DateField";
 import { useOverlayDismiss } from "./useOverlayDismiss";
 
 interface TestSheetFormModalProps {
@@ -230,11 +231,10 @@ export function TestSheetFormModal({ mode, sheet, fromTask, onClose }: TestSheet
             </FieldShell>
 
             <FieldShell label="Test Date">
-              <input
-                type="date"
+              <DateField
                 value={testDate}
-                onChange={(e) => setTestDate(e.target.value)}
-                className="input"
+                onChange={setTestDate}
+                aria-label="Test Date"
               />
             </FieldShell>
 

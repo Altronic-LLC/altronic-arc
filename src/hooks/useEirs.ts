@@ -38,6 +38,7 @@ import {
 import { diffChecklistToggles } from "@/lib/descriptionChecklist";
 import { buildPromotedCommunication } from "@/lib/eirPromotion";
 import { appItemUrl } from "@/lib/appUrl";
+import { htmlToPlainText } from "@/lib/htmlText";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { resolveCurrentUserLookupId } from "@/api/currentUser";
 import { USE_MOCK } from "@/api/config";
@@ -108,12 +109,26 @@ function buildUndo(
 
 export function useCreateEir() {
   const qc = useQueryClient();
+  const actor = useCurrentUser();
   return useMutation({
     mutationFn: (input: CreateEirInput) => createEir(input),
-    onSuccess: (created) => {
+    onSuccess: (created, variables) => {
       qc.setQueryData<Eir[]>(EIRS_KEY, (old) => (old ? [created, ...old] : [created]));
       qc.invalidateQueries({ queryKey: EIRS_KEY });
       pushToast({ message: `Created ${created.eirNo || created.title}.` });
+      // Engineers assigned AS the EIR is raised get told. See the note in
+      // useOperationsTasks.ts's useCreateOperationsTask: read them off the
+      // mutation input, since the create response doesn't expand person fields.
+      const engineers = variables.assignedEngineers ?? [];
+      if (engineers.length > 0) {
+        fireAssigneeChangeAlert({
+          target: { kind: "eir", id: created.id, title: eirTargetTitle(created) },
+          prev: [],
+          next: engineers,
+          actor,
+          watchers: [],
+        });
+      }
     },
     onError: () => pushToast({ message: "Couldn't create EIR — please retry.", variant: "error" }),
   });
@@ -640,20 +655,13 @@ function eirTargetTitle(e: Eir): string {
   return [e.eirNo, e.title].filter(Boolean).join(" — ") || e.title;
 }
 
-/** Strip a comment's HTML to a plain-text excerpt for the notification email. */
-function eirCommentExcerpt(html: string): string {
-  return html
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/(p|div|li)>/gi, "\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/[ \t]+/g, " ")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-}
+/**
+ * Strip a comment's HTML to a plain-text excerpt for the notification email.
+ *
+ * Was a local copy that decoded &amp;/&lt;/&gt; but NOT &#39;, so apostrophes
+ * reached subscribers as "I&#39;ll" — see lib/htmlText.ts.
+ */
+const eirCommentExcerpt = htmlToPlainText;
 
 function applyFieldsLocally(
   e: Eir,

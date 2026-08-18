@@ -132,6 +132,91 @@ describe("buildChecklistToggleEmails", () => {
 });
 
 describe("buildAssigneeChangeEmails", () => {
+  // How the create paths call it (Ray, 2026-08-17): assigning someone as the
+  // item is created used to notify nobody. prev: [] and watchers: [] give the
+  // new assignee their personal note and nothing else.
+  describe("assignment at creation (prev: [], watchers: [])", () => {
+    it("tells the new assignee they've been assigned", () => {
+      const out = buildAssigneeChangeEmails({
+        target: TASK,
+        prev: [],
+        next: [BOB],
+        actor: ACTOR,
+        watchers: [],
+      });
+      expect(out).toHaveLength(1);
+      expect(out[0].email).toBe("bob@x.com");
+      expect(out[0].subject).toBe("You've been assigned to T115-Coil");
+    });
+
+    it("sends no broadcast copy — nobody is following a brand-new item yet", () => {
+      const out = buildAssigneeChangeEmails({
+        target: TASK,
+        prev: [],
+        next: [BOB],
+        actor: ACTOR,
+        watchers: [],
+      });
+      expect(out.filter((e) => e.subject.startsWith("Assignees changed"))).toEqual([]);
+    });
+
+    it("notifies each of several assignees", () => {
+      const out = buildAssigneeChangeEmails({
+        target: TASK,
+        prev: [],
+        next: [BOB, JOHN],
+        actor: ACTOR,
+        watchers: [],
+      });
+      expect(out.map((e) => e.email).sort()).toEqual(["bob@x.com", "john@x.com"]);
+    });
+
+    // Creating a task and assigning it to yourself shouldn't email you.
+    it("doesn't email the creator when they assign themselves", () => {
+      const out = buildAssigneeChangeEmails({
+        target: TASK,
+        prev: [],
+        next: [ACTOR],
+        actor: ACTOR,
+        watchers: [],
+      });
+      expect(out).toEqual([]);
+    });
+
+    it("skips an assignee with no email rather than throwing", () => {
+      const out = buildAssigneeChangeEmails({
+        target: TASK,
+        prev: [],
+        next: [NO_EMAIL],
+        actor: ACTOR,
+        watchers: [],
+      });
+      expect(out).toEqual([]);
+    });
+
+    // Every create path that can set an assignee routes through here, so the
+    // wording has to hold for each item kind.
+    it.each([
+      ["operationsTask", 7, "OPS-0007"],
+      ["task", 115, "T115-Coil"],
+      ["eir", 42, "EIR_2026-0042 — Coil"],
+      ["panelTask", 9, "Panel wiring"],
+      ["panelOrder", 3, "PO-0003"],
+      ["buildRequest", 5, "BR-0005"],
+    ] as const)("addresses a new %s assignee correctly", (kind, id, title) => {
+      const out = buildAssigneeChangeEmails({
+        target: { kind, id, title },
+        prev: [],
+        next: [BOB],
+        actor: ACTOR,
+        watchers: [],
+      });
+      expect(out).toHaveLength(1);
+      expect(out[0].email).toBe("bob@x.com");
+      expect(out[0].subject).toBe(`You've been assigned to ${title}`);
+    });
+  });
+
   it("returns [] when the assignee set is unchanged", () => {
     const out = buildAssigneeChangeEmails({
       target: TASK,

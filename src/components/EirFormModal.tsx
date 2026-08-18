@@ -19,6 +19,7 @@ import { ChoiceSelect, SingleSelect } from "./SearchableSelect";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { mergePeople } from "@/lib/people";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
+import { DateField } from "./DateField";
 import { useOverlayDismiss } from "./useOverlayDismiss";
 
 interface EirFormModalProps {
@@ -231,11 +232,10 @@ export function EirFormModal({ onClose }: EirFormModalProps) {
             </FieldLabel>
 
             <FieldLabel label="Requested Completion Date">
-              <input
-                type="date"
+              <DateField
                 value={requestedCompletionDate}
-                onChange={(e) => setRequestedCompletionDate(e.target.value)}
-                className="input"
+                onChange={setRequestedCompletionDate}
+                aria-label="Requested Completion Date"
               />
             </FieldLabel>
 
@@ -314,11 +314,10 @@ export function EirFormModal({ onClose }: EirFormModalProps) {
             </FieldLabel>
 
             <FieldLabel label="LTB Date">
-              <input
-                type="date"
+              <DateField
                 value={ltbDate}
-                onChange={(e) => setLtbDate(e.target.value)}
-                className="input"
+                onChange={setLtbDate}
+                aria-label="LTB Date"
               />
             </FieldLabel>
 

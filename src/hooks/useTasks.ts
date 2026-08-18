@@ -29,14 +29,13 @@ import { listTaskColumns } from "@/api/taskColumns";
 import type {
   Category,
   CommentAttachment,
-  Label,
   Person,
   Priority,
   ProjectReference,
   Status,
   Task,
 } from "@/types/task";
-import { CATEGORIES, LABELS, PRIORITIES, STATUSES } from "@/types/task";
+import { CATEGORIES, PRIORITIES, STATUSES } from "@/types/task";
 import { pushToast } from "@/components/Toast";
 import {
   fireAssigneeChangeAlert,
@@ -57,6 +56,8 @@ import {
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { resolveCurrentUserLookupId } from "@/api/currentUser";
 import { USE_MOCK } from "@/api/config";
+import { fromLabelsField, toLabelsField } from "@/lib/labels";
+import { htmlToPlainText } from "@/lib/htmlText";
 
 const TASK_LIST_KEY = ["tasks", "list"] as const;
 const PROJECTS_KEY = ["projects"] as const;
@@ -931,13 +932,27 @@ export function useEditComment() {
 
 export function useCreateTask() {
   const qc = useQueryClient();
+  const actor = useCurrentUser();
   return useMutation({
     mutationKey: TASK_WRITE_KEY,
     mutationFn: createTask,
     // Create isn't optimistic (we need the server-assigned id before
     // navigating to the new task). Toast confirms after the round-trip.
-    onSuccess: (task) => {
+    onSuccess: (task, variables) => {
       pushToast({ message: `Created task "${task.numberedTitle || task.title}".` });
+      // See the matching note in useOperationsTasks.ts's useCreateOperationsTask:
+      // assigning someone at creation notified nobody. Assignees come off the
+      // mutation input because the create response doesn't expand person fields.
+      const assignees = variables.assigned ?? [];
+      if (assignees.length > 0) {
+        fireAssigneeChangeAlert({
+          target: { kind: "task", id: task.id, title: task.numberedTitle || task.title },
+          prev: [],
+          next: assignees,
+          actor,
+          watchers: [],
+        });
+      }
       // Seed the new task into the cache immediately — TaskFormModal
       // navigates to /task/:id right after this resolves, and useTask()
       // derives from this same cache. Without seeding it here, that
@@ -1070,11 +1085,9 @@ function applyFieldsLocally(t: Task, fields: Record<string, unknown>): Task {
     const v = fields.DueDate;
     next.dueDate = v ? new Date(v as string) : null;
   }
-  if ("Labels" in fields && Array.isArray(fields.Labels)) {
-    next.labels = (fields.Labels as string[]).filter((l): l is Label =>
-      (LABELS as readonly string[]).includes(l),
-    );
-  }
+  // Labels arrives as a bare choice string (single-value column) — the shared
+  // reader also tolerates the old array shape. See lib/labels.ts.
+  if ("Labels" in fields) next.labels = fromLabelsField(fields.Labels);
   if ("SoftwareRevision" in fields)
     next.softwareRevision = (fields.SoftwareRevision as string) ?? "";
   return next;
@@ -1095,31 +1108,14 @@ function extractInverseFields(prev: Task, fields: Record<string, unknown>): Reco
   if ("Category" in fields) inv.Category = prev.category;
   if ("DueDate" in fields)
     inv.DueDate = prev.dueDate ? prev.dueDate.toISOString() : null;
-  if ("Labels" in fields) inv.Labels = prev.labels;
+  // Undo has to send the same wire shape the forward write did.
+  if ("Labels" in fields) inv.Labels = toLabelsField(prev.labels);
   if ("SoftwareRevision" in fields) inv.SoftwareRevision = prev.softwareRevision;
   return inv;
 }
 
-/**
- * Strip HTML to plain text for use in the email-notification body. Just a
- * tag-removal pass — we don't need a real HTML parser since the body comes
- * from our own composer (paragraph blocks + line breaks + mention spans).
- */
-function htmlToPlainText(html: string): string {
-  if (!html) return "";
-  return html
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/p>\s*<p>/gi, "\n\n")
-    .replace(/<\/?p[^>]*>/gi, "")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .trim();
-}
+// htmlToPlainText now comes from @/lib/htmlText — see that file's header for
+// why the per-department copies were consolidated.
 
 /**
  * Friendlier toast text based on which field was edited. For single-field

@@ -20,8 +20,8 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "0.90.0",
-    date: "2026-08-12",
+    version: "0.93.0",
+    date: "2026-08-18",
     changes: [
       "EIRs now have a Board as well as a List — List and Board buttons appear under the top nav whenever you're on an EIR",
       "The board has one column per EIR status; drag a card to another column to change its status, with a toast and Undo, and the usual email to watchers, assigned engineers and the reporter",

@@ -36,6 +36,8 @@ import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { mergePeople } from "@/lib/people";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
 import { cn } from "@/lib/cn";
+import { DateField } from "./DateField";
+import { toLabelsField } from "@/lib/labels";
 import { useOverlayDismiss } from "./useOverlayDismiss";
 
 interface TaskFormModalProps {
@@ -162,8 +164,10 @@ export function TaskFormModal({ mode, task, onClose }: TaskFormModalProps) {
     return mergePeople([...seen.values()], directory);
   }, [allTasks, directory]);
 
+  // Single-select: the SharePoint column holds one choice, so picking a label
+  // replaces whatever was there and clicking the current one clears it.
   function toggleLabel(l: Label) {
-    setLabels((prev) => (prev.includes(l) ? prev.filter((x) => x !== l) : [...prev, l]));
+    setLabels((prev) => (prev.includes(l) ? [] : [l]));
   }
 
   function toggleRelated(id: number) {
@@ -250,7 +254,7 @@ export function TaskFormModal({ mode, task, onClose }: TaskFormModalProps) {
       const labelsSame =
         labels.length === task.labels.length &&
         labels.every((l) => task.labels.includes(l));
-      if (!labelsSame) baseFields.Labels = labels;
+      if (!labelsSame) baseFields.Labels = toLabelsField(labels);
       if (softwareRevision !== task.softwareRevision) {
         baseFields.SoftwareRevision = softwareRevision;
       }
@@ -475,22 +479,23 @@ export function TaskFormModal({ mode, task, onClose }: TaskFormModalProps) {
               </FieldLabel>
 
               <FieldLabel label="Due Date">
-                <input
-                  type="date"
+                <DateField
                   value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
-                  className="w-full rounded-md border border-border bg-surface px-3 py-2 text-base text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
+                  onChange={setDueDate}
+                  aria-label="Due Date"
+                  className="bg-surface px-3 py-2 text-base sm:text-sm"
                 />
               </FieldLabel>
             </div>
 
-            <FieldLabel label="Labels">
+            <FieldLabel label="Label">
               <div className="flex flex-wrap gap-1.5">
                 {LABELS.map((l) => (
                   <button
                     key={l}
                     type="button"
                     onClick={() => toggleLabel(l)}
+                    aria-pressed={labels.includes(l)}
                     className={cn(
                       "rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors",
                       labels.includes(l)

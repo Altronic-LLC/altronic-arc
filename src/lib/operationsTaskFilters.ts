@@ -1,6 +1,7 @@
 import type { Filters } from "@/components/FilterBar";
 import type { OperationsStatus, OperationsTask, Person } from "@/types/task";
 import { matchesSearch, tokenizeQuery } from "./itemSearch";
+import { personKey } from "./people";
 
 export type OperationsStatusFilter = OperationsStatus | "ALL_ACTIVE" | null;
 
@@ -18,7 +19,8 @@ export function collectOperationsPeople(tasks: OperationsTask[]): Person[] {
   for (const t of tasks) {
     const people = t.assigned ? [t.assigned, ...t.watchers] : t.watchers;
     for (const p of people) {
-      const key = p.email ?? p.displayName;
+      // personKey — see the note in taskFilters.ts's collectPeople.
+      const key = personKey(p);
       if (!map.has(key)) map.set(key, p);
     }
   }
@@ -46,15 +48,16 @@ export function applyOperationsFilters(
     }
 
     if (filters.assignedEmails.length > 0) {
-      const key = t.assigned ? t.assigned.email ?? t.assigned.displayName : null;
-      if (!key || !filters.assignedEmails.includes(key)) return false;
+      // Case-insensitive both sides — see the note in taskFilters.ts.
+      const wanted = filters.assignedEmails.map((e) => e.toLowerCase());
+      const key = t.assigned ? personKey(t.assigned) : null;
+      if (!key || !wanted.includes(key)) return false;
     }
 
     if (filters.createdByEmail) {
+      const wanted = filters.createdByEmail.toLowerCase();
       const candidates = t.assigned ? [t.assigned, ...t.watchers] : t.watchers;
-      const has = candidates.some(
-        (p) => (p.email ?? p.displayName) === filters.createdByEmail,
-      );
+      const has = candidates.some((p) => personKey(p) === wanted);
       if (!has) return false;
     }
 

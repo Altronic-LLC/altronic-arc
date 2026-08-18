@@ -1,6 +1,7 @@
 import type { Filters } from "@/components/FilterBar";
 import type { Person, Status, Task } from "@/types/task";
 import { matchesSearch, tokenizeQuery } from "./itemSearch";
+import { personKey } from "./people";
 
 export type StatusFilter = Status | "ALL_ACTIVE" | null;
 
@@ -13,7 +14,9 @@ export function collectPeople(tasks: Task[]): Person[] {
   const map = new Map<string, Person>();
   for (const t of tasks) {
     for (const p of [...t.assigned, ...t.watchers]) {
-      const key = p.email ?? p.displayName;
+      // personKey, not a raw email: SharePoint returns the same person with
+      // different casing between lists, so a raw key lists someone twice.
+      const key = personKey(p);
       if (!map.has(key)) map.set(key, p);
     }
   }
@@ -46,10 +49,12 @@ export function applyFilters(
     }
 
     if (filters.assignedEmails.length > 0) {
-      const has = t.assigned.some((p) => {
-        const key = p.email ?? p.displayName;
-        return filters.assignedEmails.includes(key);
-      });
+      // Both sides through personKey. The filter value can arrive from the URL
+      // or from the signed-in user (whose email MSAL returns proper-cased,
+      // e.g. "Nicholas.Sirianni@…") while the task's copy came from SharePoint
+      // lowercased — a case-sensitive compare silently matched nothing.
+      const wanted = filters.assignedEmails.map((e) => e.toLowerCase());
+      const has = t.assigned.some((p) => wanted.includes(personKey(p)));
       if (!has) return false;
     }
 
@@ -59,10 +64,9 @@ export function applyFilters(
       // watcher people set as a best-effort fallback when no resolved name
       // is available. This keeps the field useful in mock and real modes
       // alike until a full directory lookup is wired up.
+      const wanted = filters.createdByEmail.toLowerCase();
       const candidates = [...t.assigned, ...t.watchers];
-      const has = candidates.some(
-        (p) => (p.email ?? p.displayName) === filters.createdByEmail,
-      );
+      const has = candidates.some((p) => personKey(p) === wanted);
       if (!has) return false;
     }
 

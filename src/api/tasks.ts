@@ -14,6 +14,7 @@ import { toTask } from "@/lib/taskMapper";
 import { appendComment, parseCommunication, replaceComment } from "@/lib/communicationParser";
 import { attachProjectTitles, attachTaskRelationships } from "@/lib/taskGraph";
 import { multiPersonField } from "@/lib/graphFields";
+import { fromLabelsField, toLabelsField } from "@/lib/labels";
 import { MOCK_PROJECTS, MOCK_TASKS } from "@/data/mockData";
 
 // =============================================================================
@@ -240,7 +241,8 @@ export async function updateTaskFields(
     if ("Description" in fields) next.description = fields.Description as string;
     if ("Priority" in fields) next.priority = fields.Priority as Task["priority"];
     if ("Category" in fields) next.category = fields.Category as Task["category"];
-    if ("Labels" in fields) next.labels = (fields.Labels as Task["labels"]) ?? [];
+    // Mock mirrors the real column: the wire value is a bare choice string.
+    if ("Labels" in fields) next.labels = fromLabelsField(fields.Labels);
     if ("DueDate" in fields) {
       const v = fields.DueDate;
       next.dueDate = v ? new Date(v as string) : null;
@@ -580,7 +582,7 @@ export async function createTask(input: {
   if (input.status) fields.Status = input.status;
   if (input.priority) fields.Priority = input.priority;
   if (input.category) fields.Category = input.category;
-  if (input.labels && input.labels.length > 0) fields.Labels = input.labels;
+  if (input.labels && input.labels.length > 0) fields.Labels = toLabelsField(input.labels);
   if (input.dueDate) fields.DueDate = input.dueDate.toISOString();
   if (input.parentProjectLookupId) {
     fields.Parent_x0020_Project_x0020_ReferLookupId = input.parentProjectLookupId;

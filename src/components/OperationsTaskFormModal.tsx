@@ -33,6 +33,7 @@ import { ChoiceSelect, MultiSelect, SingleSelect } from "./SearchableSelect";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { mergePeople } from "@/lib/people";
+import { DateField } from "./DateField";
 import { useOverlayDismiss } from "./useOverlayDismiss";
 
 interface OperationsTaskFormModalProps {
@@ -346,11 +347,11 @@ export function OperationsTaskFormModal({ mode, task, onClose }: OperationsTaskF
             </div>
 
             <FieldLabel label="Due Date">
-              <input
-                type="date"
+              <DateField
                 value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                className="w-full rounded-md border border-border bg-surface px-3 py-2 text-base text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
+                onChange={setDueDate}
+                aria-label="Due Date"
+                className="bg-surface px-3 py-2 text-base sm:text-sm"
               />
             </FieldLabel>
 

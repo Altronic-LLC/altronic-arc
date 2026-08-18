@@ -23,6 +23,7 @@ import type { BuildRequest, BuildRequestItem, Person } from "@/types/task";
 import { ALL_CHECKLIST_FIELDS } from "@/lib/buildRequestChecklist";
 import { pushToast } from "@/components/Toast";
 import { fireAssigneeChangeAlert, fireFieldChangeAlert, notifyMentions } from "@/api/email";
+import { htmlToPlainText } from "@/lib/htmlText";
 import {
   commentNotifyRecipients,
   commentRenotifyRecipients,
@@ -314,14 +315,27 @@ export function useSetBuildRequestWatchers() {
 
 export function useCreateBuildRequest() {
   const qc = useQueryClient();
+  const actor = useCurrentUser();
   return useMutation({
     mutationFn: createBuildRequest,
-    onSuccess: (br) => {
+    onSuccess: (br, variables) => {
       pushToast({ message: `Created ${br.brNo}.` });
       // Seed the cache so navigating straight to the new detail page works
       // without waiting for the background refetch (the createTask lesson).
       qc.setQueryData<BuildRequest[]>(BUILD_REQUESTS_KEY, (old) => (old ? [br, ...old] : [br]));
       invalidateBrs(qc);
+      // Notify the engineer assigned at creation — see the note in
+      // useOperationsTasks.ts's useCreateOperationsTask.
+      const engineer = variables.engineerAssigned ?? null;
+      if (engineer) {
+        fireAssigneeChangeAlert({
+          target: { kind: "buildRequest", id: br.id, title: br.brNo || br.title },
+          prev: [],
+          next: [engineer],
+          actor,
+          watchers: [],
+        });
+      }
     },
     onError: () => errorToast("Couldn't create the build request — please retry."),
   });
@@ -943,21 +957,5 @@ export function useEditBuildRequestItemComment() {
 
 // ---- misc -------------------------------------------------------------------------
 
-/**
- * Strip HTML down to readable plain text for the email excerpt — same local
- * copy convention as useEirs / useOperationsTasks (each department keeps its
- * own rather than sharing a lib for this two-liner).
- */
-function htmlToPlainText(html: string): string {
-  return html
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/p>\s*<p>/gi, "\n\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .trim();
-}
+// htmlToPlainText now comes from @/lib/htmlText — the "each department keeps
+// its own copy" convention let the EIR one drift and ship a bug.
