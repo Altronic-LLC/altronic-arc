@@ -20,6 +20,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.94.2",
+    date: "2026-08-18",
+    changes: [
+      "Related Projects is now a searchable dropdown instead of a list of pills — open it and type to find the project rather than reading through every one",
+      "This applies both on the task form and in the task detail sidebar, where the projects on the task stay above it as chips that open the project",
+      "You can now take a project OFF a task from the detail sidebar — untick it in the dropdown; before this the sidebar could only add",
+      "The New/Edit Task form shows each related project as a chip with its own ✕, and leaves the task's parent project out of the list",
+    ],
+  },
+  {
     version: "0.94.1",
     date: "2026-08-18",
     changes: [

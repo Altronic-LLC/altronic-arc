@@ -379,7 +379,11 @@ const SECTIONS: ManualSection[] = [
           </LI>
           <LI>
             <strong>Parent Task / Related Projects</strong> — for tasks that
-            belong under a larger one or touch multiple projects.
+            belong under a larger one or touch multiple projects. Both are{" "}
+            <strong>searchable dropdowns</strong>: open one and start typing to
+            narrow the list rather than scrolling it. Related Projects takes
+            several — each pick lands as a chip you can remove with its ✕, and
+            the task's own parent project isn't offered.
           </LI>
         </UL>
         <P>
@@ -397,6 +401,14 @@ const SECTIONS: ManualSection[] = [
           revision inline — no need to open a separate form. Every change is
           optimistic: the UI updates the moment you click, SharePoint catches
           up in the background.
+        </P>
+        <P>
+          <strong>Related Projects</strong> in the sidebar is a{" "}
+          <strong>searchable dropdown</strong> — open it, type to find the
+          project, and tick it. Ticking a project that's already on the task
+          takes it off again, so the same control both adds and removes. The
+          projects currently on the task stay above it as chips you can click
+          to open that project.
         </P>
         <P>
           The <strong>Edit</strong> button at the top of the detail page opens
