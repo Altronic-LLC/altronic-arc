@@ -14,7 +14,11 @@ import type { VisitReport } from "@/types/task";
 //     RM Name, Reason, Summary, Visit Date and Status are required.
 // =============================================================================
 
-/** Date-only values are stored at midday UTC — see lib/spDates.ts. */
+/**
+ * A visit date as the app holds it: midday UTC, whatever time-of-day the row
+ * was stored with. `parseSpDateOnly` normalises the real list's 22:00Z rows to
+ * this same shape on read — see lib/spDates.ts.
+ */
 function visitDate(iso: string): Date {
   return new Date(`${iso}T12:00:00Z`);
 }

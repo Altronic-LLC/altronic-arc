@@ -20,6 +20,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.97.1",
+    date: "2026-08-18",
+    changes: [
+      "Visit dates now match the SharePoint list — every visit was showing a day early",
+      "Fixed the white boxes in the New/Edit forms on Visit Reports, EIRs and Test Sheets — those fields had never been styled and ignored the dark theme",
+      "Editing a visit report now saves only what you changed, so correcting a typo on an older report no longer fails because of a regional manager who has since left",
+      "The Visit Reports table shows 500 rows before it truncates, and says clearly when there are more rather than looking like entries are missing",
+    ],
+  },
+  {
     version: "0.97.0",
     date: "2026-08-18",
     changes: [

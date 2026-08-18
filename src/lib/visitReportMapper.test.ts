@@ -6,6 +6,7 @@ import {
   rmNameOptions,
   toVisitReport,
   visitYear,
+  visitReportInput,
   visitYearOptions,
   VISIT_REPORT_SELECT,
 } from "./visitReportMapper";
@@ -61,13 +62,18 @@ describe("toVisitReport", () => {
     expect(report.actionItems).toBe("Dave Bell to provide pricing.");
   });
 
-  it("keeps the visit on the day SharePoint's calculated columns show", () => {
-    // Day/Month/Year are calculated off Visit Date and read 15 / Aug / 2022
-    // for this row, which is the UTC date of the stored value.
+  it("keeps the visit on the day the SharePoint LIST VIEW shows", () => {
+    // This row stores 2022-08-15T22:00:00Z — midnight on the 16th in a site
+    // two hours ahead of UTC, which is what the list view displays.
+    //
+    // Its calculated Day column reads "15", because SharePoint computes
+    // calculated columns in UTC. They disagree with the date users see, so
+    // they are NOT the thing to check against — that mistake is what shipped
+    // every visit a day early (Ray, 2026-08-18).
     const report = toVisitReport(REAL_ROW);
     expect(report.visitDate?.getUTCFullYear()).toBe(2022);
     expect(report.visitDate?.getUTCMonth()).toBe(7); // August
-    expect(report.visitDate?.getUTCDate()).toBe(15);
+    expect(report.visitDate?.getUTCDate()).toBe(16);
   });
 
   it("copes with the optional fields being absent", () => {
@@ -165,5 +171,101 @@ describe("ordering and options", () => {
   it("reads a visit's year in UTC terms", () => {
     expect(visitYear(reports[1])).toBe("2026");
     expect(visitYear(reports[2])).toBe("");
+  });
+});
+
+describe("legacy dates — the day the SharePoint list view shows", () => {
+  // Every row on the live list stores its date-only value at 22:00Z, i.e.
+  // midnight in a site two hours ahead of UTC. Reading the UTC date showed the
+  // day BEFORE the one the list view shows: "the app says June 21, the list
+  // says June 22" (Ray, 2026-08-18).
+  it("reads a 22:00Z row as the NEXT day", () => {
+    const report = toVisitReport(item({ Title: "x", VisitDate: "2026-06-21T22:00:00Z" }));
+    expect(report.visitDate?.getUTCDate()).toBe(22);
+    expect(report.visitDate?.getUTCMonth()).toBe(5); // June
+  });
+
+  it("rolls the month and the year over with it", () => {
+    const newYear = toVisitReport(item({ Title: "x", VisitDate: "2025-12-31T22:00:00Z" }));
+    expect(newYear.visitDate?.getUTCFullYear()).toBe(2026);
+    expect(visitYear(newYear)).toBe("2026");
+  });
+
+  it("leaves a row this app wrote (midday UTC) on its own day", () => {
+    const report = toVisitReport(item({ Title: "x", VisitDate: "2026-06-22T12:00:00Z" }));
+    expect(report.visitDate?.getUTCDate()).toBe(22);
+  });
+
+  it("leaves a morning value alone, for a site behind UTC", () => {
+    const report = toVisitReport(item({ Title: "x", VisitDate: "2026-06-22T05:00:00Z" }));
+    expect(report.visitDate?.getUTCDate()).toBe(22);
+  });
+
+  it("round-trips: read a legacy row, save it back, read the same day", () => {
+    const report = toVisitReport(item({ Title: "x", VisitDate: "2026-06-21T22:00:00Z" }));
+    const written = buildVisitReportFields({
+      ...visitReportInput(report),
+    }).VisitDate as string;
+    expect(written).toBe("2026-06-22T12:00:00Z");
+    const reread = toVisitReport(item({ Title: "x", VisitDate: written }));
+    expect(reread.visitDate?.getUTCDate()).toBe(22);
+  });
+});
+
+describe("editing only sends what changed", () => {
+  const stored = toVisitReport(
+    item({
+      Title: "AGES",
+      // A manager who has left — no longer one of the column's choices.
+      RMName: "Neal Keeton",
+      ReasonForVisit: "Site Visit",
+      VisitSummary: "Original summary.",
+      ActionItems: "",
+      VisitDate: "2022-08-15T22:00:00Z",
+      CustomerStatus: "Satisfied",
+      Product: "DE-4000",
+      City0: "Midland",
+      State0: "Texas",
+    }),
+  );
+
+  it("sends nothing when nothing was touched", () => {
+    expect(buildVisitReportFields(visitReportInput(stored), stored)).toEqual({});
+  });
+
+  // Re-sending "Neal Keeton" to a choice column that no longer offers him is
+  // rejected outright, which would fail an edit for a reason unrelated to what
+  // the user changed.
+  it("does not re-send a choice value that is no longer a valid choice", () => {
+    const fields = buildVisitReportFields(
+      { ...visitReportInput(stored), visitSummary: "Corrected a typo." },
+      stored,
+    );
+    expect(fields).toEqual({ VisitSummary: "Corrected a typo." });
+    expect(fields).not.toHaveProperty("RMName");
+  });
+
+  it("does send a choice the user actually changed", () => {
+    const fields = buildVisitReportFields(
+      { ...visitReportInput(stored), customerStatus: "Issue" },
+      stored,
+    );
+    expect(fields).toEqual({ CustomerStatus: "Issue" });
+  });
+
+  it("sends every field on a create, where there is nothing to diff against", () => {
+    const fields = buildVisitReportFields(visitReportInput(stored));
+    expect(Object.keys(fields).sort()).toEqual([
+      "ActionItems",
+      "City0",
+      "CustomerStatus",
+      "Product",
+      "RMName",
+      "ReasonForVisit",
+      "State0",
+      "Title",
+      "VisitDate",
+      "VisitSummary",
+    ]);
   });
 });

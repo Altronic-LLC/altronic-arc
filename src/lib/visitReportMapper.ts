@@ -1,6 +1,6 @@
 import type { GraphListItem, VisitReport, VisitReportInput } from "@/types/task";
 import { VISIT_RM_NAMES } from "@/types/task";
-import { parseSpDate, toSpDateOnly } from "./spDates";
+import { parseSpDate, parseSpDateOnly, toSpDateOnly } from "./spDates";
 
 // =============================================================================
 // Graph item → VisitReport, and back.
@@ -35,7 +35,10 @@ export function toVisitReport(item: GraphListItem): VisitReport {
     reasonForVisit: text(f.ReasonForVisit),
     visitSummary: typeof f.VisitSummary === "string" ? f.VisitSummary : "",
     actionItems: typeof f.ActionItems === "string" ? f.ActionItems : "",
-    visitDate: parseSpDate(f.VisitDate),
+    // Date-only, and most rows were written by SharePoint at local
+    // midnight (22:00Z) — parseSpDateOnly snaps to the day the list
+    // view shows. See lib/spDates.ts.
+    visitDate: parseSpDateOnly(f.VisitDate),
     customerStatus: text(f.CustomerStatus),
     product: text(f.Product),
     city: text(f.City0),
@@ -46,18 +49,43 @@ export function toVisitReport(item: GraphListItem): VisitReport {
   };
 }
 
+/** A stored report back as form input — for editing, and for diffing writes. */
+export function visitReportInput(report: VisitReport): VisitReportInput {
+  return {
+    customerName: report.customerName,
+    rmName: report.rmName,
+    reasonForVisit: report.reasonForVisit,
+    visitSummary: report.visitSummary,
+    actionItems: report.actionItems,
+    visitDate: report.visitDate,
+    customerStatus: report.customerStatus,
+    product: report.product,
+    city: report.city,
+    state: report.state,
+  };
+}
+
 /**
  * Domain input → SharePoint fields payload.
  *
- * Visit Date goes through `toSpDateOnly` (midday UTC) so the day can't shift
- * west of Greenwich. Rows written before ARC sit at 22:00Z, which reads back
- * as the same UTC day, so both round-trip to what the calculated Month / Day
- * columns already show.
+ * Visit Date is written at midday UTC (`toSpDateOnly`), which lands on the
+ * right day whichever side of UTC the site sits on. Reading is the asymmetric
+ * half — see `parseSpDateOnly`.
+ *
+ * Pass `previous` on an EDIT and only the columns that actually changed are
+ * sent. That isn't just tidiness: **RM Name, Customer Status, Reason and State
+ * are choice columns whose stored data has drifted outside their choice
+ * lists** — managers who have left, one manager spelled two ways. Re-sending
+ * such a value would have SharePoint reject the whole PATCH with "value is not
+ * a valid choice", so correcting a typo on a 2022 report would fail for a
+ * reason that has nothing to do with the typo. Untouched columns are simply
+ * not mentioned, and keep whatever they hold.
  */
 export function buildVisitReportFields(
   input: VisitReportInput,
+  previous?: VisitReport,
 ): Record<string, unknown> {
-  return {
+  const fields: Record<string, unknown> = {
     Title: input.customerName.trim(),
     RMName: input.rmName,
     ReasonForVisit: input.reasonForVisit,
@@ -69,6 +97,13 @@ export function buildVisitReportFields(
     City0: input.city.trim(),
     State0: input.state,
   };
+  if (!previous) return fields;
+
+  const before = buildVisitReportFields(visitReportInput(previous));
+  for (const key of Object.keys(fields)) {
+    if (fields[key] === before[key]) delete fields[key];
+  }
+  return fields;
 }
 
 /** Newest visit first; undated reports sink to the bottom. */

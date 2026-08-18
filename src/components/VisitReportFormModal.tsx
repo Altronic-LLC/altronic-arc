@@ -8,7 +8,7 @@ import {
   type VisitReportInput,
 } from "@/types/task";
 import { useCreateVisitReport, useUpdateVisitReport, useVisitReports } from "@/hooks/useVisitReports";
-import { rmNameOptions } from "@/lib/visitReportMapper";
+import { rmNameOptions, visitReportInput } from "@/lib/visitReportMapper";
 import { toDateInputValue, fromDateInputValue } from "@/lib/spDates";
 import { ChoiceSelect } from "./SearchableSelect";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
@@ -52,20 +52,7 @@ function emptyDraft(): VisitReportInput {
   };
 }
 
-function draftFrom(report: VisitReport): VisitReportInput {
-  return {
-    customerName: report.customerName,
-    rmName: report.rmName,
-    reasonForVisit: report.reasonForVisit,
-    visitSummary: report.visitSummary,
-    actionItems: report.actionItems,
-    visitDate: report.visitDate,
-    customerStatus: report.customerStatus,
-    product: report.product,
-    city: report.city,
-    state: report.state,
-  };
-}
+
 
 export function VisitReportFormModal({
   report,
@@ -79,7 +66,7 @@ export function VisitReportFormModal({
   const busy = create.isPending || update.isPending;
 
   const [draft, setDraft] = useState<VisitReportInput>(() =>
-    report ? draftFrom(report) : emptyDraft(),
+    report ? visitReportInput(report) : emptyDraft(),
   );
   const [error, setError] = useState<string | null>(null);
   const firstFieldRef = useRef<HTMLInputElement>(null);
@@ -115,7 +102,7 @@ export function VisitReportFormModal({
 
     try {
       if (report) {
-        await update.mutateAsync({ id: report.id, input: draft });
+        await update.mutateAsync({ id: report.id, input: draft, previous: report });
         onClose();
       } else {
         const created = await create.mutateAsync(draft);

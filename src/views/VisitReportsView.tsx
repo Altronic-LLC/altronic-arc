@@ -28,9 +28,14 @@ import { cn } from "@/lib/cn";
 // the search box stutter. Filters and the count always run over the WHOLE
 // list — only what reaches the DOM is capped (same arrangement as the Teradyne
 // log).
+//
+// The cap is deliberately high, and says so LOUDLY when it bites: at 150 rows
+// with a quiet grey link, a capped list read as "entries are missing" (Ray,
+// 2026-08-18). A truncated list that doesn't announce itself is worse than a
+// slow one.
 // =============================================================================
 
-const INITIAL_ROWS = 150;
+const INITIAL_ROWS = 500;
 
 export function VisitReportsView() {
   const navigate = useNavigate();
@@ -148,15 +153,23 @@ export function VisitReportsView() {
               <span className="ml-1 text-fg-muted">of {reports.length}</span>
             )}
           </h2>
-          {!showAll && filtered.length > INITIAL_ROWS && (
+        </div>
+
+        {!showAll && filtered.length > INITIAL_ROWS && (
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-ajax-yellow/10 px-4 py-2 text-xs text-fg">
+            <span>
+              Showing the <strong>newest {INITIAL_ROWS}</strong> of{" "}
+              <strong>{filtered.length}</strong> — the rest are loaded, just not
+              drawn yet.
+            </span>
             <button
               onClick={() => setShowAll(true)}
-              className="text-xs font-medium text-accent underline-offset-2 hover:underline"
+              className="rounded-md border border-border bg-surface px-2.5 py-1 font-medium text-fg transition-colors hover:bg-surface-2"
             >
-              Showing the newest {INITIAL_ROWS} — show all {filtered.length}
+              Show all {filtered.length}
             </button>
-          )}
-        </div>
+          </div>
+        )}
 
         {isLoading ? (
           <LoadingTasks noun="visit reports" />

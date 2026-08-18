@@ -184,6 +184,53 @@ h3,
   box-shadow: 0 0 0 3px rgb(var(--accent) / 0.15);
 }
 
+/* Shared style for text inputs and textareas in forms.
+
+   THIS WAS MISSING. 21 `className="input"` usages across the EIR form, the
+   Test Sheet form and the Visit Report form/detail matched no rule at all, so
+   those fields rendered as unstyled native inputs — white boxes on the dark
+   theme (Ray, 2026-08-18). Nothing else was wrong with them; the class simply
+   had never been written.
+
+   Element-qualified so a single-line input lines up with the .select triggers
+   beside it (same 38px), while a textarea keeps its own height. */
+.input {
+  width: 100%;
+  background: rgb(var(--surface));
+  color: rgb(var(--fg));
+  border: 1px solid rgb(var(--border));
+  border-radius: 8px;
+  /* 16px on mobile stops iOS Safari zooming on focus; denser on tablet+. */
+  font-size: 16px;
+  line-height: 1.4;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+input.input,
+select.input {
+  height: 38px;
+  padding: 0 0.75rem;
+}
+textarea.input {
+  padding: 0.5rem 0.75rem;
+}
+@media (min-width: 640px) {
+  .input {
+    font-size: 0.875rem;
+  }
+}
+.input::placeholder {
+  color: rgb(var(--fg-muted));
+}
+.input:focus {
+  outline: none;
+  border-color: rgb(var(--accent));
+  box-shadow: 0 0 0 3px rgb(var(--accent) / 0.15);
+}
+.input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* Print page setup. The Print* views handle their own light styling, so we only
    control the paper here.
 

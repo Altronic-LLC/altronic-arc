@@ -58,3 +58,46 @@ export function formatSpDate(date: Date | null): string {
     day: "numeric",
   });
 }
+
+/**
+ * Parse a date-only column whose stored time-of-day was set by SOMEONE ELSE.
+ *
+ * `parseSpDate` + UTC reading is right for values this app wrote (midday UTC).
+ * It is wrong for a list whose rows were written by SharePoint itself, which
+ * stores a date-only value as **local midnight in the site's regional
+ * timezone**. Visit Reports is such a list: every row sits at 22:00Z, i.e.
+ * midnight in a UTC+2 site — so reading the UTC date showed the day BEFORE the
+ * one SharePoint displays ("the app says June 21, the list says June 22" —
+ * Ray, 2026-08-18).
+ *
+ * The rule is a midday pivot: a stored time after 12:00 UTC belongs to the
+ * NEXT day, anything else to the day it lands on. That covers all three cases
+ * without hard-coding an offset:
+ *
+ *   22:00Z (site ahead of UTC, e.g. +02:00) → next day    ← the legacy rows
+ *   05:00Z (site behind UTC, e.g. US -05:00) → same day
+ *   12:00Z (written by this app)             → same day
+ *
+ * The returned Date is normalised to midday UTC, so everything downstream —
+ * `formatSpDate`, `toDateInputValue`, the year filter — reads the right day in
+ * any browser timezone.
+ *
+ * Do NOT reach for the calculated Month / Year / Day columns to cross-check
+ * this: SharePoint computes those in UTC, so on these rows they disagree with
+ * the date the list view shows. The list view is what users read.
+ */
+export function parseSpDateOnly(raw: unknown): Date | null {
+  const parsed = parseSpDate(raw);
+  if (!parsed) return null;
+  const shift = parsed.getUTCHours() > 12 ? 1 : 0;
+  return new Date(
+    Date.UTC(
+      parsed.getUTCFullYear(),
+      parsed.getUTCMonth(),
+      parsed.getUTCDate() + shift,
+      12,
+      0,
+      0,
+    ),
+  );
+}
