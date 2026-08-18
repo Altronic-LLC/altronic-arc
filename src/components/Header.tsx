@@ -39,6 +39,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useKanbanAvailable } from "@/hooks/useIsPhone";
 import { filterSearch } from "@/hooks/useFilters";
+import { eirFilterSearch } from "@/hooks/useEirFilters";
 import { USE_MOCK } from "@/api/config";
 import { Brandmark } from "@/components/brand/Brandmark";
 import { Wordmark } from "@/components/brand/Wordmark";
@@ -207,6 +208,9 @@ export function Header() {
   const isOpsKanban = pathname.startsWith("/operations/tasks/kanban");
   const showOpsTaskViews =
     isOpsList || isOpsKanban || pathname.startsWith("/operations/task/");
+  const isEirList = pathname === "/eirs";
+  const isEirKanban = pathname.startsWith("/eirs/kanban");
+  const showEirViews = isEirList || isEirKanban || pathname.startsWith("/eir/");
 
   // List and Kanban are two views of ONE filtered task list, so the switcher
   // hands the filter params on. Linking to a bare `/kanban` dropped them and
@@ -214,6 +218,9 @@ export function Header() {
   // signed-in user, anyone who had widened it to "Anyone" got snapped back to
   // just their own tasks on every switch.
   const filterQuery = filterSearch(search);
+  // Same idea for the EIRs pair, but over the EIR filter keys — the task
+  // helper doesn't know about reporter / engineer / view and would drop them.
+  const eirFilterQuery = eirFilterSearch(search);
 
   return (
     <header className="border-b border-border bg-surface">
@@ -270,6 +277,26 @@ export function Header() {
                 icon={<LayoutGrid className="h-4 w-4" />}
               >
                 Kanban
+              </NavLink>
+            )}
+          </nav>
+        )}
+        {showEirViews && (
+          <nav className="mt-2 flex items-center justify-center gap-1 rounded-lg bg-surface-2 p-1 sm:justify-start">
+            <NavLink
+              to={`/eirs${eirFilterQuery}`}
+              active={isEirList}
+              icon={<List className="h-4 w-4" />}
+            >
+              List
+            </NavLink>
+            {kanbanAvailable && (
+              <NavLink
+                to={`/eirs/kanban${eirFilterQuery}`}
+                active={isEirKanban}
+                icon={<LayoutGrid className="h-4 w-4" />}
+              >
+                Board
               </NavLink>
             )}
           </nav>

@@ -18,7 +18,14 @@ import { MOCK_EIRS } from "@/data/mockData";
 // trimmed $select on the column list for perf.
 // =============================================================================
 
-const MOCK_STORAGE_KEY = "aets:mock-eirs-v1";
+// Demo-mode edits persist here so a refresh doesn't undo them. The version
+// suffix is the reset switch: anyone who has used demo mode keeps serving
+// whatever is in localStorage forever, so EXPANDING OR CHANGING MOCK_EIRS
+// MEANS BUMPING THIS KEY — otherwise the new fixtures are invisible to every
+// browser that has already stored the old ones (which is every demo user).
+// Bumping discards previous demo scribbles, which is the point.
+//   v1 → v2 (2026-08-12): demo EIR set grew from 4 to 20.
+const MOCK_STORAGE_KEY = "aets:mock-eirs-v2";
 
 function loadFromStorage(): Eir[] | null {
   if (typeof window === "undefined") return null;

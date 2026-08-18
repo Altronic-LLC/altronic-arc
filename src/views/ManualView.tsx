@@ -1271,9 +1271,13 @@ const SECTIONS: ManualSection[] = [
       "linked task",
       "checklist",
       "turn into checklist",
+      "eir board",
+      "eir kanban",
+      "drag eir",
+      "eir columns",
     ],
     searchText:
-      "The EIRs tab shows Engineering Information Requests with workflow View tabs (All, New, Needs Assigned, At Risk Parts, LTB), status pills (Under Review, Response Accepted, Closed, etc.) and a filter bar for Project, Assigned Engineer, Reporter, and search. The Description field supports the same custom checklist syntax as a task's Description. New = no project reference and no engineer assigned; Needs Assigned = has a project reference but still no engineer. Click an EIR to open the detail page with Description, Engineering Response, Part Details (MFG, P/N, EAU, etc.), Comments, and a sidebar to edit Status, Resolution, Request Type, Priority, Reporter, Assigned Engineers, Watchers, Project, Task Reference, Requested Completion Date, LTB Date. New EIRs are auto-numbered as EIR_YYYY-#### (the next sequence for the year); the EIR Log No. is calculated from it. Promote an EIR to a task by setting Resolution to Promoted to Task: a confirmation window creates a linked task carrying the title, description, project, watchers, and comment thread (tagged as from the EIR). Completing that task prompts for a final resolution, which is written back to the EIR's Engineering Response and marks the EIR Resolved and Closed.",
+      "The EIRs tab shows Engineering Information Requests with workflow View tabs (All, New, Needs Assigned, At Risk Parts, LTB), status pills (Under Review, Response Accepted, Closed, etc.) and a filter bar for Project, Assigned Engineer, Reporter, and search. EIRs have a Board (kanban) view as well as the list: List and Board buttons appear under the top nav, the board has one column per EIR status, and dragging a card between columns changes that EIR's status with a toast and Undo. The view tabs and filter bar work the same on both and travel between them; the board is hidden on phones. The Description field supports the same custom checklist syntax as a task's Description. New = no project reference and no engineer assigned; Needs Assigned = has a project reference but still no engineer. Click an EIR to open the detail page with Description, Engineering Response, Part Details (MFG, P/N, EAU, etc.), Comments, and a sidebar to edit Status, Resolution, Request Type, Priority, Reporter, Assigned Engineers, Watchers, Project, Task Reference, Requested Completion Date, LTB Date. New EIRs are auto-numbered as EIR_YYYY-#### (the next sequence for the year); the EIR Log No. is calculated from it. Promote an EIR to a task by setting Resolution to Promoted to Task: a confirmation window creates a linked task carrying the title, description, project, watchers, and comment thread (tagged as from the EIR). Completing that task prompts for a final resolution, which is written back to the EIR's Engineering Response and marks the EIR Resolved and Closed.",
     render: () => (
       <>
         <P>
@@ -1300,6 +1304,27 @@ const SECTIONS: ManualSection[] = [
           Assigned Engineer (multi-select), free-text Search across title / EIR
           No / MFG / P/N / description, and Reporter (single-select). The view,
           status, and filters all live in the URL so a view is shareable.
+        </P>
+        <H3>Board view</H3>
+        <P>
+          <strong>List</strong> and <strong>Board</strong> buttons appear under
+          the top nav whenever you're on an EIR. The board is the same set of
+          EIRs arranged as columns — one per status (Under Review, EIR Not
+          Accepted, Response Accepted, Response Not Accepted, Closed).{" "}
+          <strong>Drag a card into another column to change its status</strong>;
+          the change saves immediately, with a toast and Undo, and watchers,
+          assigned engineers and the reporter get the usual status-change
+          email. If the save fails, the card returns to the column it came
+          from.
+        </P>
+        <P>
+          The view tabs and filter bar sit above the board and do exactly what
+          they do on the list, so you can narrow to (say) At Risk Parts for one
+          project and still work the columns. Switching between List and Board
+          carries your filters and the active view tab across. The status pills
+          don't travel — on the board the columns <em>are</em> the statuses.
+          The board isn't offered on phone-sized screens (dragging between
+          columns needs the room), so opening it there shows the list instead.
         </P>
         <H3>Creating one</H3>
         <P>
