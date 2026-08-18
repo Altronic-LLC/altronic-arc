@@ -7,6 +7,17 @@ import {
   serializeComments,
 } from "./communicationParser";
 
+// Records are written and read on ONE clock — Eastern — so that authors in
+// different time zones produce comparable timestamps (see COMMENT_TIMEZONE in
+// the module, and communicationParser.timezone.test.ts).
+//
+// Every instant below is therefore spelled out in UTC with the Eastern wall
+// clock it corresponds to in a comment. `new Date(2024, 6, 18, 19, 28, 33)`
+// would build 7:28:33 PM in the RUNNER's zone, which quietly passed on an
+// Eastern developer machine and failed on a UTC CI box.
+//
+// July 2024 is EDT (UTC-4); January is EST (UTC-5).
+
 describe("parseCommunication", () => {
   it("returns empty array for null, undefined, or empty string", () => {
     expect(parseCommunication(null)).toEqual([]);
@@ -58,22 +69,34 @@ describe("parseCommunication", () => {
 
   it("parses 12 AM as hour 0", () => {
     const raw = "07/18/2024 12:30:00 AM|||X|||x@e.com|||<p>x</p>";
-    expect(parseCommunication(raw)[0].timestamp.getHours()).toBe(0);
+    // 00:30 Eastern → 04:30 UTC.
+    expect(parseCommunication(raw)[0].timestamp.toISOString()).toBe(
+      "2024-07-18T04:30:00.000Z",
+    );
   });
 
   it("parses 12 PM as hour 12", () => {
     const raw = "07/18/2024 12:30:00 PM|||X|||x@e.com|||<p>x</p>";
-    expect(parseCommunication(raw)[0].timestamp.getHours()).toBe(12);
+    // 12:30 Eastern → 16:30 UTC.
+    expect(parseCommunication(raw)[0].timestamp.toISOString()).toBe(
+      "2024-07-18T16:30:00.000Z",
+    );
   });
 
   it("parses other PM hours by adding 12", () => {
     const raw = "07/18/2024 1:30:00 PM|||X|||x@e.com|||<p>x</p>";
-    expect(parseCommunication(raw)[0].timestamp.getHours()).toBe(13);
+    // 13:30 Eastern → 17:30 UTC.
+    expect(parseCommunication(raw)[0].timestamp.toISOString()).toBe(
+      "2024-07-18T17:30:00.000Z",
+    );
   });
 
   it("parses non-12 AM hours as-is", () => {
     const raw = "07/18/2024 7:00:00 AM|||X|||x@e.com|||<p>x</p>";
-    expect(parseCommunication(raw)[0].timestamp.getHours()).toBe(7);
+    // 07:00 Eastern → 11:00 UTC.
+    expect(parseCommunication(raw)[0].timestamp.toISOString()).toBe(
+      "2024-07-18T11:00:00.000Z",
+    );
   });
 
   it("trims whitespace from name and email", () => {
@@ -148,31 +171,31 @@ describe("appendComment", () => {
     });
 
     it("formats morning hours as AM", () => {
-      vi.setSystemTime(new Date(2024, 6, 18, 9, 5, 7));
+      vi.setSystemTime(new Date("2024-07-18T13:05:07Z")); // 9:05:07 AM Eastern
       const raw = appendComment(null, newComment);
       expect(raw.startsWith("07/18/2024 9:05:07 AM|||")).toBe(true);
     });
 
     it("formats afternoon hours as PM (1pm → 1)", () => {
-      vi.setSystemTime(new Date(2024, 6, 18, 13, 0, 0));
+      vi.setSystemTime(new Date("2024-07-18T17:00:00Z")); // 1:00 PM Eastern
       const raw = appendComment(null, newComment);
       expect(raw.startsWith("07/18/2024 1:00:00 PM|||")).toBe(true);
     });
 
     it("formats midnight as 12 AM", () => {
-      vi.setSystemTime(new Date(2024, 6, 18, 0, 0, 0));
+      vi.setSystemTime(new Date("2024-07-18T04:00:00Z")); // midnight Eastern
       const raw = appendComment(null, newComment);
       expect(raw.startsWith("07/18/2024 12:00:00 AM|||")).toBe(true);
     });
 
     it("formats noon as 12 PM", () => {
-      vi.setSystemTime(new Date(2024, 6, 18, 12, 0, 0));
+      vi.setSystemTime(new Date("2024-07-18T16:00:00Z")); // noon Eastern
       const raw = appendComment(null, newComment);
       expect(raw.startsWith("07/18/2024 12:00:00 PM|||")).toBe(true);
     });
 
     it("zero-pads single-digit month and day", () => {
-      vi.setSystemTime(new Date(2024, 0, 5, 9, 0, 0));
+      vi.setSystemTime(new Date("2024-01-05T14:00:00Z")); // 9:00 AM Eastern (EST)
       const raw = appendComment(null, newComment);
       expect(raw.startsWith("01/05/2024 9:00:00 AM|||")).toBe(true);
     });
@@ -187,7 +210,7 @@ describe("replaceComment", () => {
   });
 
   it("replaces matching record body, keeping timestamp + author", () => {
-    const ts = new Date(2024, 6, 18, 19, 28, 33); // July 18 2024, 7:28:33 PM
+    const ts = new Date("2024-07-18T23:28:33Z"); // 7:28:33 PM Eastern
     const raw = "07/18/2024 7:28:33 PM|||Sarah|||sarah@e.com|||<p>old</p>";
     const result = replaceComment(
       raw,
@@ -198,7 +221,7 @@ describe("replaceComment", () => {
   });
 
   it("matches author email case-insensitively", () => {
-    const ts = new Date(2024, 6, 18, 19, 28, 33);
+    const ts = new Date("2024-07-18T23:28:33Z"); // 7:28:33 PM Eastern
     const raw = "07/18/2024 7:28:33 PM|||Sarah|||SARAH@E.COM|||<p>old</p>";
     const result = replaceComment(
       raw,
@@ -210,7 +233,7 @@ describe("replaceComment", () => {
   });
 
   it("does not touch records that don't match", () => {
-    const ts = new Date(2024, 6, 18, 19, 28, 33);
+    const ts = new Date("2024-07-18T23:28:33Z"); // 7:28:33 PM Eastern
     const sameDateOtherEmail =
       "07/18/2024 7:28:33 PM|||Sarah|||other@e.com|||<p>keep-1</p>";
     const otherDateSameEmail =
@@ -237,7 +260,7 @@ describe("replaceComment", () => {
   });
 
   it("leaves malformed records (fewer than 4 parts) intact", () => {
-    const ts = new Date(2024, 6, 19, 8, 0, 0);
+    const ts = new Date("2024-07-19T12:00:00Z"); // 8:00:00 AM Eastern
     const malformed = "07/18/2024 7:28:33 PM|||OnlyOne";
     const valid = "07/19/2024 8:00:00 AM|||Bob|||b@e.com|||<p>v</p>";
     const result = replaceComment(
@@ -250,7 +273,7 @@ describe("replaceComment", () => {
   });
 
   it("leaves records with unparseable timestamp intact", () => {
-    const ts = new Date(2024, 6, 18, 19, 28, 33);
+    const ts = new Date("2024-07-18T23:28:33Z"); // 7:28:33 PM Eastern
     // The record has a valid-looking timestamp pattern that parses, so
     // we need to construct one where parseSpDate would fail. Year 99 with
     // 4-digit pattern won't match (regex requires {4}), so we use a value
@@ -271,7 +294,7 @@ describe("replaceComment", () => {
 describe("serializeComment / serializeComments", () => {
   it("serialises one record preserving the original timestamp", () => {
     const rec = serializeComment({
-      timestamp: new Date(2024, 6, 18, 19, 28, 33), // 07/18/2024 7:28:33 PM
+      timestamp: new Date("2024-07-18T23:28:33Z"), // 7:28:33 PM Eastern
       authorName: "Sarah",
       authorEmail: "s@e.com",
       bodyHtml: "<p>x</p>",
@@ -281,13 +304,13 @@ describe("serializeComment / serializeComments", () => {
 
   it("round-trips through parseCommunication, keeping timestamps + order", () => {
     const older = {
-      timestamp: new Date(2024, 6, 18, 19, 28, 33),
+      timestamp: new Date("2024-07-18T23:28:33Z"), // 7:28:33 PM Eastern
       authorName: "Sarah",
       authorEmail: "s@e.com",
       bodyHtml: "<p>older</p>",
     };
     const newer = {
-      timestamp: new Date(2024, 6, 19, 8, 0, 0),
+      timestamp: new Date("2024-07-19T12:00:00Z"), // 8:00:00 AM Eastern
       authorName: "Ray",
       authorEmail: "r@e.com",
       bodyHtml: "<p>newer</p>",
