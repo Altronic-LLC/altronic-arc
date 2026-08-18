@@ -153,10 +153,23 @@ export async function updateVisitReportFields(
   return updated;
 }
 
-/** Replace every editable field — the edit form's save path. */
+/**
+ * Save the edit form.
+ *
+ * `previous` is the report as it was, so only the columns the user actually
+ * changed are sent — see buildVisitReportFields for why that matters on this
+ * list's choice columns. With nothing changed there is nothing to write.
+ */
 export async function updateVisitReport(
   id: number,
   input: VisitReportInput,
+  previous?: VisitReport,
 ): Promise<VisitReport> {
-  return updateVisitReportFields(id, buildVisitReportFields(input));
+  const fields = buildVisitReportFields(input, previous);
+  if (Object.keys(fields).length === 0) {
+    const unchanged = await getVisitReport(id);
+    if (!unchanged) throw new Error(`Visit report ${id} not found`);
+    return unchanged;
+  }
+  return updateVisitReportFields(id, fields);
 }

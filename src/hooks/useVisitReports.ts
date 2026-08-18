@@ -70,8 +70,16 @@ export function useCreateVisitReport() {
 export function useUpdateVisitReport() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, input }: { id: number; input: VisitReportInput }) =>
-      updateVisitReport(id, input),
+    mutationFn: ({
+      id,
+      input,
+      previous,
+    }: {
+      id: number;
+      input: VisitReportInput;
+      /** The report as it was — lets the write skip unchanged columns. */
+      previous?: VisitReport;
+    }) => updateVisitReport(id, input, previous),
     onSuccess: (updated) => {
       qc.setQueryData<VisitReport[]>(VISIT_REPORTS_KEY, (old) =>
         old?.map((r) => (r.id === updated.id ? updated : r)),

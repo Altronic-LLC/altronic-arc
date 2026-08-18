@@ -812,9 +812,18 @@ Five things to keep in mind:
   `rmNameOptions()` offers the column's choices UNION whatever the rows hold.
   Offering only the choices would make an old report un-editable without
   silently reassigning it, and filtering on choices alone hides real reports.
-- **Existing rows store the date at 22:00Z**, not midday. Both read back as the
-  same UTC day, which is what the calculated `Day`/`Month` columns show, so the
-  app reads and writes in UTC terms and doesn't rewrite old values.
+- **Existing rows store the date at 22:00Z — local midnight in a site two hours
+  ahead of UTC.** Reading the UTC date showed the day BEFORE the one the list
+  view displays ("app says June 21, list says June 22"). `parseSpDateOnly` in
+  `src/lib/spDates.ts` applies a midday pivot: a stored time after 12:00 UTC
+  belongs to the next day. **Do NOT check this against the calculated
+  `Month`/`Year`/`Day` columns** — SharePoint computes those in UTC, so on this
+  list they disagree with the date users read. The list view is the truth.
+- **Edits send only the columns that changed** (`buildVisitReportFields(input,
+  previous)`). The choice columns' stored data has drifted outside their choice
+  lists — managers who have left, one spelled two ways — and re-sending such a
+  value makes SharePoint reject the whole PATCH, so fixing a typo on a 2022
+  report would fail for an unrelated reason.
 - **~1,000 rows and growing.** Under SharePoint's 5,000-item threshold, so the
   list is fetched whole (`graphFetchAll`) and filtered in the browser; the
   table renders 150 rows with a "show all". If it ever nears 5,000, copy

@@ -20,7 +20,29 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.97.1",
+    date: "2026-08-18",
+    changes: [
+      "Visit dates now match the SharePoint list — every visit was showing a day early",
+      "Fixed the white boxes in the New/Edit forms on Visit Reports, EIRs and Test Sheets — those fields had never been styled and ignored the dark theme",
+      "Editing a visit report now saves only what you changed, so correcting a typo on an older report no longer fails because of a regional manager who has since left",
+      "The Visit Reports table shows 500 rows before it truncates, and says clearly when there are more rather than looking like entries are missing",
+    ],
+  },
+  {
     version: "0.97.0",
+    date: "2026-08-18",
+    changes: [
+      "Customer Service / Sales joins ARC with Visit Reports — the regional managers' record of customer visits, reading and writing the same SharePoint list the team already uses",
+      "File a visit with New Visit Report: customer, RM, reason, date, customer status and summary, plus action items, product, city and state",
+      "Everything edits in place on the report page, and photos or quotes can be dragged onto its Attachments card",
+      "Filter by RM, year, reason or customer status and search every field at once — a filtered view can be shared as a link",
+      "The RM picker lists the current managers plus anyone already on an existing report, so older reports keep whoever actually filed them",
+      "Visit reports can't be deleted from ARC — a report is a record of something that happened, so correcting one is an edit",
+    ],
+  },
+  {
+    version: "0.96.1",
     date: "2026-08-18",
     changes: [
       "Customer Service / Sales joins ARC with Visit Reports — the regional managers' record of customer visits, reading and writing the same SharePoint list the team already uses",
