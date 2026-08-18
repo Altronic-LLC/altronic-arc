@@ -194,16 +194,26 @@ describe("buildAssigneeChangeEmails", () => {
       expect(out).toEqual([]);
     });
 
-    it("works the same for an Operations task", () => {
+    // Every create path that can set an assignee routes through here, so the
+    // wording has to hold for each item kind.
+    it.each([
+      ["operationsTask", 7, "OPS-0007"],
+      ["task", 115, "T115-Coil"],
+      ["eir", 42, "EIR_2026-0042 — Coil"],
+      ["panelTask", 9, "Panel wiring"],
+      ["panelOrder", 3, "PO-0003"],
+      ["buildRequest", 5, "BR-0005"],
+    ] as const)("addresses a new %s assignee correctly", (kind, id, title) => {
       const out = buildAssigneeChangeEmails({
-        target: { kind: "operationsTask", id: 7, title: "OPS-0007" },
+        target: { kind, id, title },
         prev: [],
         next: [BOB],
         actor: ACTOR,
         watchers: [],
       });
       expect(out).toHaveLength(1);
-      expect(out[0].subject).toBe("You've been assigned to OPS-0007");
+      expect(out[0].email).toBe("bob@x.com");
+      expect(out[0].subject).toBe(`You've been assigned to ${title}`);
     });
   });
 

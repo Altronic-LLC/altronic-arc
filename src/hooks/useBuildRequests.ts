@@ -315,14 +315,27 @@ export function useSetBuildRequestWatchers() {
 
 export function useCreateBuildRequest() {
   const qc = useQueryClient();
+  const actor = useCurrentUser();
   return useMutation({
     mutationFn: createBuildRequest,
-    onSuccess: (br) => {
+    onSuccess: (br, variables) => {
       pushToast({ message: `Created ${br.brNo}.` });
       // Seed the cache so navigating straight to the new detail page works
       // without waiting for the background refetch (the createTask lesson).
       qc.setQueryData<BuildRequest[]>(BUILD_REQUESTS_KEY, (old) => (old ? [br, ...old] : [br]));
       invalidateBrs(qc);
+      // Notify the engineer assigned at creation — see the note in
+      // useOperationsTasks.ts's useCreateOperationsTask.
+      const engineer = variables.engineerAssigned ?? null;
+      if (engineer) {
+        fireAssigneeChangeAlert({
+          target: { kind: "buildRequest", id: br.id, title: br.brNo || br.title },
+          prev: [],
+          next: [engineer],
+          actor,
+          watchers: [],
+        });
+      }
     },
     onError: () => errorToast("Couldn't create the build request — please retry."),
   });

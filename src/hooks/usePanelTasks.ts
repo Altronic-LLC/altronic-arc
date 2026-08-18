@@ -574,14 +574,27 @@ export function useEditPanelTaskComment() {
 
 export function useCreatePanelTask() {
   const qc = useQueryClient();
+  const actor = useCurrentUser();
   return useMutation({
     mutationFn: createPanelTask,
-    onSuccess: (task) => {
+    onSuccess: (task, variables) => {
       pushToast({ message: `Created panel task "${task.title}".` });
       // Seed the cache immediately so navigating to the new task's detail
       // page doesn't briefly show "not found" (same fix as elsewhere).
       qc.setQueryData<PanelTask[]>(PANEL_TASKS_KEY, (old) => (old ? [task, ...old] : [task]));
       invalidatePanelTasks(qc);
+      // Notify whoever was assigned at creation — see the note in
+      // useOperationsTasks.ts's useCreateOperationsTask.
+      const assignee = variables.assigned ?? null;
+      if (assignee) {
+        fireAssigneeChangeAlert({
+          target: { kind: "panelTask", id: task.id, title: task.title },
+          prev: [],
+          next: [assignee],
+          actor,
+          watchers: [],
+        });
+      }
     },
     onError: () => errorToast("Couldn't create panel task — please retry."),
   });

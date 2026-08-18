@@ -109,12 +109,26 @@ function buildUndo(
 
 export function useCreateEir() {
   const qc = useQueryClient();
+  const actor = useCurrentUser();
   return useMutation({
     mutationFn: (input: CreateEirInput) => createEir(input),
-    onSuccess: (created) => {
+    onSuccess: (created, variables) => {
       qc.setQueryData<Eir[]>(EIRS_KEY, (old) => (old ? [created, ...old] : [created]));
       qc.invalidateQueries({ queryKey: EIRS_KEY });
       pushToast({ message: `Created ${created.eirNo || created.title}.` });
+      // Engineers assigned AS the EIR is raised get told. See the note in
+      // useOperationsTasks.ts's useCreateOperationsTask: read them off the
+      // mutation input, since the create response doesn't expand person fields.
+      const engineers = variables.assignedEngineers ?? [];
+      if (engineers.length > 0) {
+        fireAssigneeChangeAlert({
+          target: { kind: "eir", id: created.id, title: eirTargetTitle(created) },
+          prev: [],
+          next: engineers,
+          actor,
+          watchers: [],
+        });
+      }
     },
     onError: () => pushToast({ message: "Couldn't create EIR — please retry.", variant: "error" }),
   });

@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.92.2",
+    date: "2026-08-18",
+    changes: [
+      "\"You've been assigned\" now goes out when someone is assigned as an EIR, panel task, panel order or build request is created — completing the fix that covered tasks in 0.92.0",
+      "Every kind of item in ARC now notifies the person assigned to it, whether that happens at creation or later",
+    ],
+  },
+  {
     version: "0.92.1",
     date: "2026-08-18",
     changes: [
