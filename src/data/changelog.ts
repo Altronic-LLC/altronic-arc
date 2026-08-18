@@ -20,6 +20,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.98.0",
+    date: "2026-08-18",
+    changes: [
+      "Visit Reports has a month Calendar view — every visit on its day, with List / Calendar buttons under the top nav",
+      "Click any day on the calendar to file a visit for that date, with the date already filled in; click a visit to open it",
+      "Move through the months with the arrows, or jump back with Today; each visit carries a coloured dot for its customer status",
+      "The RM, year, reason, status and search filters work the same on both views and travel with you when you switch",
+      "The calendar is a desktop and large-tablet view — a seven-column month can't be read on a phone, so there it's hidden and a calendar link opens the list",
+    ],
+  },
+  {
     version: "0.97.1",
     date: "2026-08-18",
     changes: [

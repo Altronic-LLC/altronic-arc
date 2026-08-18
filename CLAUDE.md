@@ -275,6 +275,7 @@ src/
 │   ├── usePanelTasks.ts          Panel task queries + mutations
 │   ├── usePanelRoles.ts          Panel User Roles CRUD (admin-guarded)
 │   ├── useVisitReports.ts        Visit Report queries + mutations
+│   ├── useVisitReportFilters.ts  URL-backed Visit Report filters (+ filterSearch)
 │   ├── useBuildRequests.ts       Build Requests + Items queries/mutations
 │   ├── useTestSheets.ts          Test sheet queries + mutations
 │   ├── useAdmins.ts              Admins list CRUD
@@ -324,6 +325,7 @@ src/
 │   ├── panelTaskMapper.ts        Graph item → PanelTask
 │   ├── panelRoles.ts             Panel role → editing-rights mapping (pure)
 │   ├── visitReportMapper.ts      Graph item → VisitReport (+ RM/year options)
+│   ├── visitReportFilters.ts     Pure Visit Report filter/group predicates (list + calendar)
 │   ├── teradyneMapper.ts         Graph item → Teradyne entities; derived titles
 │   ├── spDates.ts                Shared SharePoint date-only helpers (midday-UTC rule)
 │   ├── changeAlerts.ts           Change-alert email construction (pure)
@@ -396,6 +398,7 @@ src/
 │   ├── operationsAtoms.tsx       Operations-specific badges/chips
 │   ├── panelAtoms.tsx            Panel-specific badges/chips
 │   ├── visitReportAtoms.tsx      Customer-status chip (Sales)
+│   ├── VisitReportFilterBar.tsx  Shared filter bar for both Visit Report views
 │   ├── buildRequestAtoms.tsx     Build-request-specific badges/chips
 │   └── brand/{Brandmark,Wordmark}.tsx   Official Altronic marks
 │
@@ -427,6 +430,7 @@ src/
 │   ├── PanelTasksView.tsx        Panel Tasks list
 │   ├── PanelTaskDetailView.tsx   Panel task detail
 │   ├── VisitReportsView.tsx      Visit Reports list (Sales)
+│   ├── VisitReportsCalendarView.tsx  Visit Reports month calendar (desktop only)
 │   ├── VisitReportDetailView.tsx Visit report detail + attachments
 │   ├── TestSheetsView.tsx        Test sheets list
 │   ├── TestSheetDetailView.tsx   Test sheet detail
@@ -828,6 +832,25 @@ Five things to keep in mind:
   list is fetched whole (`graphFetchAll`) and filtered in the browser; the
   table renders 150 rows with a "show all". If it ever nears 5,000, copy
   `listTeradyneLog`'s year scope — and index `VisitDate` first.
+
+**Two views, one filtered set.** `VisitReportsView` (`/sales/visit-reports`)
+and `VisitReportsCalendarView` (`/sales/visit-reports/calendar`) share
+`lib/visitReportFilters.ts` (pure predicates + `groupVisitsByDay`),
+`hooks/useVisitReportFilters.ts` (the URL state + `visitReportFilterSearch`
+for the switcher) and `components/VisitReportFilterBar.tsx` — the same
+arrangement as the EIR list/board pair, and for the same reason: two copies of
+a filter is how a fix reaches only one view.
+
+**The calendar is desktop / large-tablet only** (Ray, 2026-08-18). It gates on
+`useKanbanAvailable()` — the orientation-independent check the Kanban boards
+use, so a phone turned sideways can't sneak in — the Header hides the Calendar
+button below that size, and the view itself redirects to the list, because a
+bookmark or a shared link would otherwise land a phone on a seven-column grid.
+
+**Every date in the calendar is handled in UTC terms** (`visitDayKey`,
+`calendarDays`). A date-only value is held at midday UTC once
+`parseSpDateOnly` has normalised it; local getters would put every visit on the
+day before for anyone west of Greenwich.
 
 **There is no delete — not in the UI, and not in `api/visitReports.ts`**
 (Ray, 2026-08-18). A visit report is a record of something that happened:

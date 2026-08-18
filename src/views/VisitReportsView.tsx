@@ -1,27 +1,28 @@
 import { useMemo, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { MapPin, Paperclip, Plus } from "lucide-react";
 import { useVisitReports } from "@/hooks/useVisitReports";
+import { useVisitReportFilters } from "@/hooks/useVisitReportFilters";
 import {
-  rmNameOptions,
-  visitYear,
-  visitYearOptions,
-} from "@/lib/visitReportMapper";
-import { VISIT_CUSTOMER_STATUSES, VISIT_REASONS, type VisitReport } from "@/types/task";
-import { matchesSearch, tokenizeQuery } from "@/lib/itemSearch";
+  applyVisitReportFilters,
+  hasVisitReportFilters,
+} from "@/lib/visitReportFilters";
+import type { VisitReport } from "@/types/task";
 import { formatSpDate } from "@/lib/spDates";
 import { LoadingTasks } from "@/components/LoadingTasks";
-import { SearchInput } from "@/components/SearchInput";
-import { ChoiceSelect } from "@/components/SearchableSelect";
+import { VisitReportFilterBar } from "@/components/VisitReportFilterBar";
 import { VisitReportFormModal } from "@/components/VisitReportFormModal";
 import { VisitStatusChip } from "@/components/visitReportAtoms";
-import { cn } from "@/lib/cn";
 
 // =============================================================================
 // Visit Reports — the Sales department's list of customer visits.
 //
-// Filters (RM, Year, Reason, Status) live in the URL so a filtered view is
-// shareable, the same promise the task and EIR lists make.
+// One of TWO views of one filtered set (the other is the month calendar), so
+// the filtering and the filter bar live outside this file — see
+// lib/visitReportFilters.ts and components/VisitReportFilterBar.tsx.
+//
+// Filters live in the URL so a filtered view is shareable, and so switching to
+// the calendar keeps them.
 //
 // Rendering is capped at INITIAL_ROWS with a "Show all" escape hatch: the list
 // is ~1,000 rows and grows, and putting all of them in the DOM makes typing in
@@ -40,40 +41,24 @@ const INITIAL_ROWS = 500;
 export function VisitReportsView() {
   const navigate = useNavigate();
   const { data: reports = [], isLoading } = useVisitReports();
-  const [params, setParams] = useSearchParams();
+  const { filters, setFilter } = useVisitReportFilters();
   const [showNew, setShowNew] = useState(false);
   const [showAll, setShowAll] = useState(false);
 
-  const q = params.get("q") ?? "";
-  const rm = params.get("rm") ?? "";
-  const year = params.get("year") ?? "";
-  const reason = params.get("reason") ?? "";
-  const status = params.get("status") ?? "";
-
-  function setParam(key: string, value: string) {
-    const next = new URLSearchParams(params);
-    if (value) next.set(key, value);
-    else next.delete(key);
-    setParams(next, { replace: true });
+  function handleFilterChange(key: Parameters<typeof setFilter>[0], value: string) {
+    setFilter(key, value);
+    // A new filter means a new set — go back to the capped view rather than
+    // leaving hundreds of rows drawn from the last one.
     setShowAll(false);
   }
 
-  const managers = useMemo(() => rmNameOptions(reports), [reports]);
-  const years = useMemo(() => visitYearOptions(reports), [reports]);
-
-  const filtered = useMemo(() => {
-    const tokens = tokenizeQuery(q);
-    return reports.filter((r) => {
-      if (rm && r.rmName !== rm) return false;
-      if (year && visitYear(r) !== year) return false;
-      if (reason && r.reasonForVisit !== reason) return false;
-      if (status && r.customerStatus !== status) return false;
-      return matchesSearch(r, tokens);
-    });
-  }, [reports, q, rm, year, reason, status]);
+  const filtered = useMemo(
+    () => applyVisitReportFilters(reports, filters),
+    [reports, filters],
+  );
 
   const visible = showAll ? filtered : filtered.slice(0, INITIAL_ROWS);
-  const anyFilter = Boolean(q || rm || year || reason || status);
+  const anyFilter = hasVisitReportFilters(filters);
 
   return (
     <div className="mx-auto flex max-w-[1400px] flex-col gap-4 px-4 py-4 sm:px-6 sm:py-6">
@@ -98,52 +83,11 @@ export function VisitReportsView() {
         </button>
       </header>
 
-      <div
-        role="search"
-        aria-label="Visit report filters"
-        className="grid grid-cols-1 gap-3 rounded-xl border border-border bg-surface p-3 sm:grid-cols-2 lg:grid-cols-5"
-      >
-        <Filter label="RM Name">
-          <ChoiceSelect
-            value={rm}
-            onChange={(v) => setParam("rm", v)}
-            options={managers}
-            emptyLabel="Anyone"
-            searchPlaceholder="Search managers…"
-          />
-        </Filter>
-        <Filter label="Year">
-          <ChoiceSelect
-            value={year}
-            onChange={(v) => setParam("year", v)}
-            options={years}
-            emptyLabel="Any year"
-          />
-        </Filter>
-        <Filter label="Reason">
-          <ChoiceSelect
-            value={reason}
-            onChange={(v) => setParam("reason", v)}
-            options={VISIT_REASONS}
-            emptyLabel="Any reason"
-          />
-        </Filter>
-        <Filter label="Customer Status">
-          <ChoiceSelect
-            value={status}
-            onChange={(v) => setParam("status", v)}
-            options={VISIT_CUSTOMER_STATUSES}
-            emptyLabel="Any status"
-          />
-        </Filter>
-        <Filter label="Search">
-          <SearchInput
-            value={q}
-            onChange={(v) => setParam("q", v)}
-            placeholder="Customer, summary, product…"
-          />
-        </Filter>
-      </div>
+      <VisitReportFilterBar
+        reports={reports}
+        filters={filters}
+        onChange={handleFilterChange}
+      />
 
       <div className="overflow-hidden rounded-xl border border-border bg-surface">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-surface-2 px-4 py-2.5">
@@ -250,13 +194,3 @@ function Row({ report, onOpen }: { report: VisitReport; onOpen: () => void }) {
   );
 }
 
-function Filter({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className={cn("block")}>
-      <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
-        {label}
-      </span>
-      {children}
-    </label>
-  );
-}

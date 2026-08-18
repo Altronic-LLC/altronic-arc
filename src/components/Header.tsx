@@ -6,6 +6,7 @@ import {
   BookUser,
   Building2,
   Calculator,
+  CalendarDays,
   ChevronDown,
   CircuitBoard,
   ClipboardList,
@@ -41,6 +42,7 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useKanbanAvailable } from "@/hooks/useIsPhone";
 import { filterSearch } from "@/hooks/useFilters";
 import { eirFilterSearch } from "@/hooks/useEirFilters";
+import { visitReportFilterSearch } from "@/hooks/useVisitReportFilters";
 import { USE_MOCK } from "@/api/config";
 import { Brandmark } from "@/components/brand/Brandmark";
 import { Wordmark } from "@/components/brand/Wordmark";
@@ -247,6 +249,10 @@ export function Header() {
   const isEirList = pathname === "/eirs";
   const isEirKanban = pathname.startsWith("/eirs/kanban");
   const showEirViews = isEirList || isEirKanban || pathname.startsWith("/eir/");
+  const isVisitList = pathname === "/sales/visit-reports";
+  const isVisitCalendar = pathname.startsWith("/sales/visit-reports/calendar");
+  const showVisitViews =
+    isVisitList || isVisitCalendar || pathname.startsWith("/sales/visit-report/");
 
   // List and Kanban are two views of ONE filtered task list, so the switcher
   // hands the filter params on. Linking to a bare `/kanban` dropped them and
@@ -257,6 +263,8 @@ export function Header() {
   // Same idea for the EIRs pair, but over the EIR filter keys — the task
   // helper doesn't know about reporter / engineer / view and would drop them.
   const eirFilterQuery = eirFilterSearch(search);
+  // And again for Visit Reports' list / calendar pair.
+  const visitFilterQuery = visitReportFilterSearch(search);
 
   return (
     <header className="border-b border-border bg-surface">
@@ -333,6 +341,28 @@ export function Header() {
                 icon={<LayoutGrid className="h-4 w-4" />}
               >
                 Board
+              </NavLink>
+            )}
+          </nav>
+        )}
+        {showVisitViews && (
+          <nav className="mt-2 flex items-center justify-center gap-1 rounded-lg bg-surface-2 p-1 sm:justify-start">
+            <NavLink
+              to={`/sales/visit-reports${visitFilterQuery}`}
+              active={isVisitList}
+              icon={<List className="h-4 w-4" />}
+            >
+              List
+            </NavLink>
+            {/* Calendar is desktop / large-tablet only — a seven-column month
+                grid is unusable at phone width. Same gate as the boards. */}
+            {kanbanAvailable && (
+              <NavLink
+                to={`/sales/visit-reports/calendar${visitFilterQuery}`}
+                active={isVisitCalendar}
+                icon={<CalendarDays className="h-4 w-4" />}
+              >
+                Calendar
               </NavLink>
             )}
           </nav>

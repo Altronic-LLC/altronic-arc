@@ -35,3 +35,20 @@ export function VisitStatusChip({ status }: { status: string }) {
     </span>
   );
 }
+
+/**
+ * The same status colours as a dot, for the calendar's day cells — a chip
+ * there would eat the customer name, which is what people scan a month for.
+ */
+const STATUS_DOTS: Record<string, string> = {
+  Satisfied: "bg-cooper-green",
+  "Needs Attention": "bg-ajax-yellow",
+  Issue: "bg-cooper-red",
+  "Quote Request": "bg-accent",
+  "Potential New Customer": "bg-accent",
+  "N/A": "bg-fg-muted/40",
+};
+
+export function visitStatusDotClass(status: string): string {
+  return STATUS_DOTS[status] ?? "bg-fg-muted/40";
+}

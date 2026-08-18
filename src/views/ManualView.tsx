@@ -1502,6 +1502,10 @@ const SECTIONS: ManualSection[] = [
     keywords: [
       "visit report",
       "visit reports",
+      "calendar",
+      "month view",
+      "visit calendar",
+      "schedule",
       "customer visit",
       "site visit",
       "sales call",
@@ -1516,7 +1520,7 @@ const SECTIONS: ManualSection[] = [
       "customer service",
     ],
     searchText:
-      "Visit Reports at /sales/visit-reports, under Departments > Customer Service / Sales, backed by the Visit Reports list on the ALTRONICSALESTEAM SharePoint site. A regional manager's record of a customer visit: Customer Name, RM Name, Reason For Visit (Home Office, General Visit, Site Visit, Sales Call, Training), Visit Date, Customer Status (Satisfied, Needs Attention, Issue, Quote Request, Potential New Customer, N/A), Visit Summary, Action Items, Product(s), City and State. Six of those are required: Customer Name, RM Name, Reason, Visit Date, Customer Status and Visit Summary. File one with New Visit Report; everything edits in place on the detail page, or use Edit for a bulk rewrite. Attachments — photos, quotes — can be added once the report is saved, by dragging them onto the Attachments card. The list filters by RM Name, Year, Reason and Customer Status, with an all-fields search, and the filters live in the URL so a filtered view can be shared. Reports cannot be deleted from ARC. Any signed-in user can file and edit.",
+      "Visit Reports at /sales/visit-reports, under Departments > Customer Service / Sales, backed by the Visit Reports list on the ALTRONICSALESTEAM SharePoint site. A regional manager's record of a customer visit: Customer Name, RM Name, Reason For Visit (Home Office, General Visit, Site Visit, Sales Call, Training), Visit Date, Customer Status (Satisfied, Needs Attention, Issue, Quote Request, Potential New Customer, N/A), Visit Summary, Action Items, Product(s), City and State. Six of those are required: Customer Name, RM Name, Reason, Visit Date, Customer Status and Visit Summary. File one with New Visit Report; everything edits in place on the detail page, or use Edit for a bulk rewrite. Attachments — photos, quotes — can be added once the report is saved, by dragging them onto the Attachments card. The list filters by RM Name, Year, Reason and Customer Status, with an all-fields search, and the filters live in the URL so a filtered view can be shared. There is also a month Calendar view (List / Calendar buttons under the top nav) showing each visit on its day: click a day to file a visit for that date, click a visit to open it, arrows and Today move between months, and the filters carry across. The calendar is desktop and large-tablet only — on a phone the button is hidden and the URL opens the list. Reports cannot be deleted from ARC. Any signed-in user can file and edit.",
     render: () => (
       <>
         <P>
@@ -1581,6 +1585,35 @@ const SECTIONS: ManualSection[] = [
           There is no Delete. A visit report is a record of something that
           happened, so correcting one is an edit; removing one has to be done
           in SharePoint deliberately.
+        </Tip>
+        <H3>The calendar</H3>
+        <P>
+          A <strong>Calendar</strong> button sits next to <strong>List</strong>{" "}
+          under the top nav. It lays the month out as a grid with each visit on
+          its day, which is the quick way to see what the team did in a month —
+          and where the gaps are.
+        </P>
+        <UL>
+          <LI>
+            <strong>Click any day to file a visit for it</strong> — the form
+            opens with that date already set.
+          </LI>
+          <LI>
+            <strong>Click a visit</strong> to open the report.
+          </LI>
+          <LI>
+            The arrows move a month at a time and <strong>Today</strong> jumps
+            back; the coloured dot on each visit is its Customer Status.
+          </LI>
+          <LI>
+            The filters work exactly as they do on the list, and they travel
+            with you when you switch between the two views.
+          </LI>
+        </UL>
+        <Tip>
+          The calendar is a <strong>desktop and large-tablet</strong> view. Seven
+          columns of visits can't be read on a phone, so the button is hidden
+          there and a calendar link opens the list instead.
         </Tip>
         <H3>Finding a report</H3>
         <P>
