@@ -20,7 +20,7 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "0.93.0",
+    version: "0.94.0",
     date: "2026-08-17",
     changes: [
       "Added the Coils department's Potting Sample Log — operators log a sample's date, volume, and weight, with today's date and a volume of 125 filled in by default",
@@ -29,7 +29,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    version: "0.92.0",
+    version: "0.93.2",
     date: "2026-08-17",
     changes: [
       "Added the Ignition QC Defect Log, with 36 product families each backed by their own live SharePoint list",
@@ -41,7 +41,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    version: "0.91.2",
+    version: "0.93.1",
     date: "2026-08-14",
     changes: [
       "Digital QC now has a live product-family selector with family-specific records and a form for adding defect entries",

@@ -19,6 +19,7 @@ import { AdminEirRolesView } from "@/views/AdminEirRolesView";
 import { TestSheetsView } from "@/views/TestSheetsView";
 import { TestSheetDetailView } from "@/views/TestSheetDetailView";
 import { EirsView } from "@/views/EirsView";
+import { EirKanbanView } from "@/views/EirKanbanView";
 import { EirDetailView } from "@/views/EirDetailView";
 import { DigitalQcView } from "@/views/DigitalQcView";
 import { IgnitionQcView } from "@/views/IgnitionQcView";
@@ -188,6 +189,7 @@ export function App() {
           <Route path="/coils/potting-limits" element={<PottingLimitsView />} />
           <Route path="/coils/psr-notifications" element={<PsrNotificationView />} />
           <Route path="/eirs" element={<EirsView />} />
+          <Route path="/eirs/kanban" element={<EirKanbanView />} />
           <Route path="/eir/:id" element={<EirDetailView />} />
           <Route
             path="/operations/tasks"

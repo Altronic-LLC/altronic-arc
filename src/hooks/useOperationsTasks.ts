@@ -28,6 +28,7 @@ import {
   notifyMentions,
 } from "@/api/email";
 import { diffChecklistToggles } from "@/lib/descriptionChecklist";
+import { htmlToPlainText } from "@/lib/htmlText";
 import {
   commentNotifyRecipients,
   commentRenotifyRecipients,
@@ -663,10 +664,32 @@ export function useEditOperationsComment() {
 
 export function useCreateOperationsTask() {
   const qc = useQueryClient();
+  const actor = useCurrentUser();
   return useMutation({
     mutationFn: createOperationsTask,
-    onSuccess: (task) => {
+    onSuccess: (task, variables) => {
       pushToast({ message: `Created task "${task.taskNumber || task.title}".` });
+      // Assigning someone AS the task is created used to tell them nothing —
+      // only a LATER reassignment fired the alert (Ray, 2026-08-17).
+      //
+      // The assignee is read off the mutation input, not the created task: the
+      // create response carries AssignedLookupId but not the expanded person
+      // envelope, so `task.assigned` can be null even when one was set.
+      //
+      // watchers: [] is deliberate. That leaves only the personal "You've been
+      // assigned" email. The broadcast copy is meant for someone CHANGING the
+      // assignees on an item people already follow; on a brand-new task it
+      // would mail watchers about a task they're only just being added to.
+      const assignee = variables.assigned ?? null;
+      if (assignee) {
+        fireAssigneeChangeAlert({
+          target: { kind: "operationsTask", id: task.id, title: task.taskNumber || task.title },
+          prev: [],
+          next: [assignee],
+          actor,
+          watchers: [],
+        });
+      }
       // Seed the cache immediately — see the identical fix in useTasks.ts's
       // useCreateTask for why (navigating straight to the new task's detail
       // page otherwise briefly shows "not found" against the stale list).
@@ -793,24 +816,5 @@ function messageForFieldsUpdate(fields: Record<string, unknown>): string {
   return "Task updated.";
 }
 
-/**
- * Strip HTML to plain text for use in the email-notification body. Mirrors
- * the identically-named private helper in useTasks.ts / useEirs.ts's
- * eirCommentExcerpt — each department keeps its own copy rather than a
- * shared abstraction, matching the existing convention.
- */
-function htmlToPlainText(html: string): string {
-  if (!html) return "";
-  return html
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/p>\s*<p>/gi, "\n\n")
-    .replace(/<\/?p[^>]*>/gi, "")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .trim();
-}
+// htmlToPlainText now comes from @/lib/htmlText — the per-department copies
+// drifted and the EIR one shipped a bug. See that file's header.

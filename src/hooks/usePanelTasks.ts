@@ -27,6 +27,7 @@ import {
   extractMentionedRecipients,
   mockLookupIdForEmail,
 } from "@/lib/mentions";
+import { htmlToPlainText } from "@/lib/htmlText";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { USE_MOCK } from "@/api/config";
 import { PANEL_PROJECTS_KEY } from "./usePanelOrders";
@@ -573,14 +574,27 @@ export function useEditPanelTaskComment() {
 
 export function useCreatePanelTask() {
   const qc = useQueryClient();
+  const actor = useCurrentUser();
   return useMutation({
     mutationFn: createPanelTask,
-    onSuccess: (task) => {
+    onSuccess: (task, variables) => {
       pushToast({ message: `Created panel task "${task.title}".` });
       // Seed the cache immediately so navigating to the new task's detail
       // page doesn't briefly show "not found" (same fix as elsewhere).
       qc.setQueryData<PanelTask[]>(PANEL_TASKS_KEY, (old) => (old ? [task, ...old] : [task]));
       invalidatePanelTasks(qc);
+      // Notify whoever was assigned at creation — see the note in
+      // useOperationsTasks.ts's useCreateOperationsTask.
+      const assignee = variables.assigned ?? null;
+      if (assignee) {
+        fireAssigneeChangeAlert({
+          target: { kind: "panelTask", id: task.id, title: task.title },
+          prev: [],
+          next: [assignee],
+          actor,
+          watchers: [],
+        });
+      }
     },
     onError: () => errorToast("Couldn't create panel task — please retry."),
   });
@@ -619,19 +633,4 @@ function messageForFieldsUpdate(fields: Record<string, unknown>): string {
   return "Panel task updated.";
 }
 
-/** Strip HTML to plain text for the email-notification body (per-department copy, existing convention). */
-function htmlToPlainText(html: string): string {
-  if (!html) return "";
-  return html
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/p>\s*<p>/gi, "\n\n")
-    .replace(/<\/?p[^>]*>/gi, "")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .trim();
-}
+// htmlToPlainText now comes from @/lib/htmlText — see that file's header.
