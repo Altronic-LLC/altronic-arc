@@ -20,6 +20,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.94.1",
+    date: "2026-08-18",
+    changes: [
+      "The User Manual now covers Quality Control — how the Digital QC and Ignition QC Defect Logs work, picking a product family, adding and editing entries, filtering and sorting, and the Pyrometer serial tiles",
+      "The User Manual now covers the Coils department's Potting Sample Log, including the out-of-limit alert email and the Spec Limits / PSR Notification List screens",
+      "The manual's Quick start and Dashboard sections now list every department that's live, instead of showing Panels, Operations, Coils, and Quality Control as coming soon",
+      "Fixed the \"new version of ARC is available\" banner showing an older version number than the footer",
+    ],
+  },
+  {
     version: "0.94.0",
     date: "2026-08-17",
     changes: [
