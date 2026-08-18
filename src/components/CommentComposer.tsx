@@ -4,6 +4,7 @@ import type { CommentAttachment, Person } from "@/types/task";
 import { filesFromClipboard } from "@/lib/pasteFiles";
 import {
   buildCommentHtml,
+  detectMentionQuery,
   rankMentionCandidates,
   type MentionCandidates,
 } from "@/lib/mentions";
@@ -148,26 +149,15 @@ export function CommentComposer({
    * passed a space yet). If yes, open the picker and capture the query.
    */
   function detectMention(nextText: string, caret: number) {
-    // Walk backwards from caret to find a `@` not preceded by a word char.
-    let i = caret - 1;
-    while (i >= 0) {
-      const ch = nextText[i];
-      if (ch === "@") {
-        const before = i > 0 ? nextText[i - 1] : "";
-        // Require the @ to be at start, or preceded by whitespace/punctuation
-        if (before === "" || /[\s(\[]/.test(before)) {
-          const query = nextText.slice(i + 1, caret);
-          if (!/\s/.test(query)) {
-            atPosRef.current = i;
-            setPickerQuery(query);
-            setPickerOpen(true);
-            return;
-          }
-        }
-        break;
-      }
-      if (/\s/.test(ch)) break;
-      i--;
+    // Shared with the other mention picker — see detectMentionQuery in
+    // lib/mentions.ts. It allows one space in the query, so a full
+    // "First Last" can be typed.
+    const found = detectMentionQuery(nextText, caret);
+    if (found) {
+      atPosRef.current = found.at;
+      setPickerQuery(found.query);
+      setPickerOpen(true);
+      return;
     }
     setPickerOpen(false);
     atPosRef.current = null;

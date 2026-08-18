@@ -15,6 +15,29 @@ export function personKey(person: Person): string {
 }
 
 /**
+ * True for the tenant's admin/service accounts — the `admin.first.last`
+ * shadow account IT issues alongside a person's real one.
+ *
+ * They are hidden from every people picker (Ray, 2026-08-18): they don't read
+ * mail, so assigning work or a notification to one sends it nowhere, and
+ * having each colleague appear twice makes the right one a coin flip.
+ *
+ * Matched on the email's local part AND the display name, since the two
+ * don't always agree — some carry a real-looking name with an admin address.
+ * Deliberately NOT a general "admin" match: someone surnamed Adminski, or a
+ * shared "Admin Team" mailbox people really do assign to, must survive. Only
+ * the exact `admin.` prefix counts.
+ */
+export function isHiddenDirectoryAccount(person: {
+  displayName?: string;
+  email?: string | null;
+}): boolean {
+  const name = (person.displayName ?? "").trim().toLowerCase();
+  const local = (person.email ?? "").trim().toLowerCase().split("@")[0];
+  return name.startsWith("admin.") || local.startsWith("admin.");
+}
+
+/**
  * Return `people` with `person` merged in if missing (deduped by lowercase
  * email/displayName), kept alphabetical.
  *
@@ -45,6 +68,8 @@ export function mergePeople(...lists: Array<Person[] | undefined>): Person[] {
     if (!list) continue;
     for (const p of list) {
       if (!p || !p.displayName) continue;
+      // admin.first.last shadow accounts never belong in a picker.
+      if (isHiddenDirectoryAccount(p)) continue;
       const key = (p.email ?? p.displayName).toLowerCase();
       const existing = byKey.get(key);
       if (!existing) {

@@ -4,6 +4,7 @@ import { directoryScopes } from "@/auth/msalConfig";
 import { getMsalInstance } from "@/auth/AuthProvider";
 import type { Person } from "@/types/task";
 import { mockLookupIdForEmail } from "@/lib/mentions";
+import { isHiddenDirectoryAccount } from "@/lib/people";
 
 // =============================================================================
 // Staff directory — the whole tenant's users (Graph /users) so the
@@ -97,6 +98,8 @@ export function mapDirectoryUsers(users: GraphDirectoryUser[]): Person[] {
     const email = (u.mail ?? upn).trim();
     if (!displayName || !email) continue; // skip mail-less service accounts
     if (upn.includes("#EXT#")) continue; // skip external guests
+    // admin.first.last shadow accounts — see isHiddenDirectoryAccount.
+    if (isHiddenDirectoryAccount({ displayName, email })) continue;
     const key = email.toLowerCase();
     if (!byEmail.has(key)) byEmail.set(key, { displayName, email });
   }
