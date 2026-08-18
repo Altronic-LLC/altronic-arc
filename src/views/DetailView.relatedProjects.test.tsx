@@ -35,13 +35,25 @@ function relatedProjectsField(): HTMLElement {
   return screen.getByText("Related Projects").parentElement as HTMLElement;
 }
 
+/**
+ * The picker's trigger, once the Projects query has landed. The task heading
+ * renders before that query resolves and the field renders nothing until it
+ * does, so querying straight after the heading appears is a race — it passed
+ * locally and failed in CI.
+ */
+async function pickerTrigger(): Promise<HTMLButtonElement> {
+  return waitFor(() => {
+    const trigger = relatedProjectsField().querySelector<HTMLButtonElement>(
+      '[aria-haspopup="listbox"]',
+    );
+    expect(trigger).not.toBeNull();
+    return trigger!;
+  });
+}
+
 /** Open the picker and return its option panel. */
 async function openPicker(): Promise<HTMLElement> {
-  const field = relatedProjectsField();
-  const trigger = field.querySelector<HTMLButtonElement>(
-    '[aria-haspopup="listbox"]',
-  )!;
-  await userEvent.click(trigger);
+  await userEvent.click(await pickerTrigger());
   return screen.getByRole("listbox");
 }
 
@@ -51,11 +63,10 @@ describe("DetailView — Related Projects picker", () => {
   it("offers the projects behind a search box, not a wall of pills", async () => {
     await renderTask(taskWithProject().id);
 
-    const field = relatedProjectsField();
-    // The old disclosure is gone.
-    expect(field.querySelector("summary")).toBeNull();
-    // …replaced by a dropdown that lists nothing until it's opened.
-    expect(field.querySelector('[aria-haspopup="listbox"]')).not.toBeNull();
+    // A dropdown that lists nothing until it's opened…
+    await pickerTrigger();
+    // …in place of the old "+ Add related project" pill cloud.
+    expect(relatedProjectsField().querySelector("summary")).toBeNull();
 
     const panel = await openPicker();
     expect(
