@@ -20,6 +20,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.97.0",
+    date: "2026-08-18",
+    changes: [
+      "Customer Service / Sales joins ARC with Visit Reports — the regional managers' record of customer visits, reading and writing the same SharePoint list the team already uses",
+      "File a visit with New Visit Report: customer, RM, reason, date, customer status and summary, plus action items, product, city and state",
+      "Everything edits in place on the report page, and photos or quotes can be dragged onto its Attachments card",
+      "Filter by RM, year, reason or customer status and search every field at once — a filtered view can be shared as a link",
+      "The RM picker lists the current managers plus anyone already on an existing report, so older reports keep whoever actually filed them",
+      "Visit reports can't be deleted from ARC — a report is a record of something that happened, so correcting one is an edit",
+    ],
+  },
+  {
     version: "0.96.0",
     date: "2026-08-18",
     changes: [

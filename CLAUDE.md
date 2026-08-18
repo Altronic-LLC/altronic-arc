@@ -244,6 +244,7 @@ src/
 │   ├── panelTasks.ts             Panel Tasks CRUD
 │   ├── panelProjects.ts          Panel Project Reference list
 │   ├── panelRoles.ts             Panel User Roles list CRUD
+│   ├── visitReports.ts           Visit Reports CRUD (Sales, salesTeam site) — no delete
 │   ├── projectFiles.ts           Documents-library project folders + files
 │   ├── attachments.ts            List-item attachments (task | eir | csaListing) via SP REST
 │   ├── email.ts                  Mention + change-alert mail; reports sends that FAIL
@@ -258,6 +259,7 @@ src/
 │   ├── teradyneMockData.ts       Sample Teradyne log + reference rows
 │   ├── operationsMockData.ts     Sample Operations tasks + projects
 │   ├── panelMockData.ts          Sample panel orders + panel tasks
+│   ├── visitReportMockData.ts    Sample visit reports
 │   ├── buildRequestMockData.ts   Sample build requests + items
 │   └── changelog.ts              Version history (drives footer + history modal)
 │
@@ -272,6 +274,7 @@ src/
 │   ├── usePanelOrders.ts         Panel order queries + mutations
 │   ├── usePanelTasks.ts          Panel task queries + mutations
 │   ├── usePanelRoles.ts          Panel User Roles CRUD (admin-guarded)
+│   ├── useVisitReports.ts        Visit Report queries + mutations
 │   ├── useBuildRequests.ts       Build Requests + Items queries/mutations
 │   ├── useTestSheets.ts          Test sheet queries + mutations
 │   ├── useAdmins.ts              Admins list CRUD
@@ -320,6 +323,7 @@ src/
 │   ├── panelOrderMapper.ts       Graph item → PanelOrder
 │   ├── panelTaskMapper.ts        Graph item → PanelTask
 │   ├── panelRoles.ts             Panel role → editing-rights mapping (pure)
+│   ├── visitReportMapper.ts      Graph item → VisitReport (+ RM/year options)
 │   ├── teradyneMapper.ts         Graph item → Teradyne entities; derived titles
 │   ├── spDates.ts                Shared SharePoint date-only helpers (midday-UTC rule)
 │   ├── changeAlerts.ts           Change-alert email construction (pure)
@@ -370,6 +374,7 @@ src/
 │   ├── OperationsTaskFormModal.tsx  Create/edit Operations task
 │   ├── PanelOrderFormModal.tsx   Create/edit panel order
 │   ├── PanelTaskFormModal.tsx    Create/edit panel task
+│   ├── VisitReportFormModal.tsx  Create/edit a visit report
 │   ├── BuildRequestFormModal.tsx Create/edit build request
 │   ├── BuildRequestItemFormModal.tsx  Add/edit a part
 │   ├── EirFormModal.tsx          Create/edit EIR
@@ -390,6 +395,7 @@ src/
 │   ├── atoms.tsx                 Badges, chips, status colours
 │   ├── operationsAtoms.tsx       Operations-specific badges/chips
 │   ├── panelAtoms.tsx            Panel-specific badges/chips
+│   ├── visitReportAtoms.tsx      Customer-status chip (Sales)
 │   ├── buildRequestAtoms.tsx     Build-request-specific badges/chips
 │   └── brand/{Brandmark,Wordmark}.tsx   Official Altronic marks
 │
@@ -420,6 +426,8 @@ src/
 │   ├── PanelOrderDetailView.tsx  Panel order detail
 │   ├── PanelTasksView.tsx        Panel Tasks list
 │   ├── PanelTaskDetailView.tsx   Panel task detail
+│   ├── VisitReportsView.tsx      Visit Reports list (Sales)
+│   ├── VisitReportDetailView.tsx Visit report detail + attachments
 │   ├── TestSheetsView.tsx        Test sheets list
 │   ├── TestSheetDetailView.tsx   Test sheet detail
 │   ├── AdminProjectsView.tsx     Admin → Project References
@@ -598,7 +606,7 @@ single `SP_SITE_ID`.
 |---|---|---|
 | `engineering` | Altronic_Engineering | `…,ddb5fc80-ea51-4d56-b008-ce6a82af49b0,aa6b9467-3f57-4213-bbd4-60b94403421a` |
 | `panelTeam` | ALTRONICPANELTEAM → Panels | `…,fdf31131-2076-4618-923b-a1856e6b0f2a,3eb6cb9c-6535-4c69-a8d7-e90b2f90a9eb` |
-| `salesTeam` | ALTRONICSALESTEAM → Customer Service / Sales | `…,dd86bf69-a010-481a-9920-78b079c5ec1e,aa6b9467-3f57-4213-bbd4-60b94403421a` |
+| `salesTeam` | ALTRONICSALESTEAM → Customer Service / Sales (Visit Reports) | `…,dd86bf69-a010-481a-9920-78b079c5ec1e,aa6b9467-3f57-4213-bbd4-60b94403421a` |
 | `salesOrderEntry` | ALTRONICSALESTEAM/OrderEntry (**subsite** of salesTeam — same collection, shares its grant) | `…,dd86bf69-a010-481a-9920-78b079c5ec1e,583688a6-3238-4f79-aed5-8e2d8ce38c41` |
 | `pmo` | Altronic_PMO | `…,915a6183-2b71-4dfd-a8b9-181126dfbe78,3eb6cb9c-6535-4c69-a8d7-e90b2f90a9eb` |
 
@@ -768,6 +776,60 @@ code. If expiry comes back, it needs the decision first: a new Expiry Date colum
 in SharePoint, or a rule deriving it from `DateCertified`. Recover the old
 implementation from git history rather than rewriting it (`git log --
 src/lib/certificationExpiry.ts`).
+
+### Visit Reports (Customer Service / Sales, salesTeam site)
+
+`7cc4db39-6612-4c2d-b1b2-1af34d0564e7` (env: `VITE_SP_VISIT_REPORTS_LIST_ID`)
+on `SITES.salesTeam`. Schema discovered live 2026-08-18 —
+`scripts/visit-reports-schema.json` is the snapshot; re-run
+`./scripts/discover-list.ps1 -ListName "Visit Reports" -Site salesTeam` if the
+columns change.
+
+| Domain field | Column | Notes |
+|---|---|---|
+| `customerName` | `Title` | **The list repurposes Title as the Customer Name** — there is no "title" in the domain type (same as CSA Listings). |
+| `rmName` | `RMName` | choice — the regional manager |
+| `reasonForVisit` | `ReasonForVisit` | choice |
+| `visitSummary` | `VisitSummary` | multi-line, **required** |
+| `actionItems` | `ActionItems` | multi-line |
+| `visitDate` | `VisitDate` | date-only; midday UTC on write (`src/lib/spDates.ts`) |
+| `customerStatus` | `CustomerStatus` | choice — drives the colour chip |
+| `product` | `Product` | text ("Product(s)") |
+| `city` | `City0` | **the trailing zero is real** |
+| `state` | `State0` | choice, the 50 states spelled out |
+| `hasAttachments` | `Attachments` | attachments enabled; kind `visitReport` in `api/attachments.ts` |
+
+Five things to keep in mind:
+
+- **`City0` / `State0`.** A City/State pair existed before and was replaced;
+  SharePoint suffixed the new columns. Writing `City` saves nothing, silently.
+- **`Month`, `Year`, `Day` and `Cal Title` are CALCULATED** off Visit Date and
+  read-only. `VISIT_REPORT_SELECT` leaves them out and the write payload never
+  includes them (a write is a 400) — the year filter derives from `visitDate`.
+- **The RM Name choices do NOT cover the data.** Reports run back to 2022;
+  managers have left ("Neal Keeton" is in the data, not the column), and one
+  person appears under two spellings ("Paul McHenry" / "Paul Mchenry"). So
+  `rmNameOptions()` offers the column's choices UNION whatever the rows hold.
+  Offering only the choices would make an old report un-editable without
+  silently reassigning it, and filtering on choices alone hides real reports.
+- **Existing rows store the date at 22:00Z**, not midday. Both read back as the
+  same UTC day, which is what the calculated `Day`/`Month` columns show, so the
+  app reads and writes in UTC terms and doesn't rewrite old values.
+- **~1,000 rows and growing.** Under SharePoint's 5,000-item threshold, so the
+  list is fetched whole (`graphFetchAll`) and filtered in the browser; the
+  table renders 150 rows with a "show all". If it ever nears 5,000, copy
+  `listTeradyneLog`'s year scope — and index `VisitDate` first.
+
+**There is no delete — not in the UI, and not in `api/visitReports.ts`**
+(Ray, 2026-08-18). A visit report is a record of something that happened:
+correcting one is an edit, removing one is a deliberate trip to SharePoint.
+The absence from the API is the point, so a future screen or bulk action can't
+quietly acquire one; `visitReports.test.ts` asserts the module exports nothing
+matching /delete|remove/.
+
+Creating and editing is open to **any signed-in user** — no admin gate, no
+role gating. The list is **Sales-only**: nothing else reads it, and it imports
+nothing from another department.
 
 ### Teradyne lists (Operations, PMO site)
 

@@ -1196,3 +1196,116 @@ export interface GraphListResponse<T> {
   value: T[];
   "@odata.nextLink"?: string;
 }
+
+// =============================================================================
+// Visit Reports — Customer Service / Sales, on the ALTRONICSALESTEAM site.
+//
+// A regional manager's record of a customer visit. Schema discovered live
+// 2026-08-18 (scripts/visit-reports-schema.json). Three things about this list
+// are load-bearing:
+//
+//  1. **`Title` is the Customer Name.** Same repurposing as CSA Listings —
+//     there is no "title" in the domain type.
+//  2. **`City0` / `State0` carry the trailing zero.** A City/State column
+//     existed before and was replaced; SharePoint kept the old internal names
+//     out of the way by suffixing the new ones. Writing `City` saves nothing.
+//  3. **Month / Year / Day / Cal Title are CALCULATED** off Visit Date and are
+//     read-only. The app never writes them — it derives what it needs from
+//     `visitDate` instead.
+// =============================================================================
+
+export interface VisitReport {
+  id: number;
+  /** Customer visited. Stored in the list's `Title` column. */
+  customerName: string;
+  /** Regional manager who made the visit (`RMName` choice). */
+  rmName: string;
+  reasonForVisit: string;
+  /** Multi-line: what happened on the visit. Required by the list. */
+  visitSummary: string;
+  /** Multi-line: what needs doing next. Optional. */
+  actionItems: string;
+  /** Date-only column — read and written in UTC terms (see lib/spDates.ts). */
+  visitDate: Date | null;
+  customerStatus: string;
+  /** Free text: the product(s) the visit was about. */
+  product: string;
+  city: string;
+  /** US state name, spelled out ("Ohio") — `State0` choice column. */
+  state: string;
+  hasAttachments: boolean;
+  createdAt: Date;
+  modifiedAt: Date;
+}
+
+/** Everything a create/update of a visit report needs. */
+export interface VisitReportInput {
+  customerName: string;
+  rmName: string;
+  reasonForVisit: string;
+  visitSummary: string;
+  actionItems: string;
+  visitDate: Date | null;
+  customerStatus: string;
+  product: string;
+  city: string;
+  state: string;
+}
+
+/**
+ * The `ReasonForVisit` choices, mirrored from the live column.
+ *
+ * As everywhere else in this file, these are a copy of the SharePoint choice
+ * list — update both if the column changes.
+ */
+export const VISIT_REASONS = [
+  "Home Office",
+  "General Visit",
+  "Site Visit",
+  "Sales Call",
+  "Training",
+] as const;
+
+/** The `CustomerStatus` choices. Drives the status pills and the row chip. */
+export const VISIT_CUSTOMER_STATUSES = [
+  "Satisfied",
+  "Needs Attention",
+  "Issue",
+  "Quote Request",
+  "Potential New Customer",
+  "N/A",
+] as const;
+
+/**
+ * The `RMName` choices as the column currently defines them.
+ *
+ * The stored data does NOT stay inside this list — reports going back to 2022
+ * carry managers who have since left ("Neal Keeton"), and the same person
+ * appears under two spellings ("Paul McHenry" / "Paul Mchenry"). So this is
+ * the list of people to OFFER, not the list of values to expect: the picker
+ * folds in whatever the data actually holds (see rmNameOptions in
+ * lib/visitReportMapper.ts) rather than hiding an old report behind a
+ * placeholder.
+ */
+export const VISIT_RM_NAMES = [
+  "Curtis Ward",
+  "Mike Porter",
+  "Michael Young",
+  "Paul McHenry",
+  "Wes Wagner",
+  "Chad Tucker",
+  "Gregg Grubbs",
+] as const;
+
+/** The `State0` choices — the 50 US states, spelled out. */
+export const US_STATES = [
+  "Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado",
+  "Connecticut", "Delaware", "Florida", "Georgia", "Hawaii", "Idaho",
+  "Illinois", "Indiana", "Iowa", "Kansas", "Kentucky", "Louisiana", "Maine",
+  "Maryland", "Massachusetts", "Michigan", "Minnesota", "Mississippi",
+  "Missouri", "Montana", "Nebraska", "Nevada", "New Hampshire", "New Jersey",
+  "New Mexico", "New York", "North Carolina", "North Dakota", "Ohio",
+  "Oklahoma", "Oregon", "Pennsylvania", "Rhode Island", "South Carolina",
+  "South Dakota", "Tennessee", "Texas", "Utah", "Vermont", "Virginia",
+  "Washington", "West Virginia", "Wisconsin", "Wyoming",
+] as const;

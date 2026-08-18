@@ -49,7 +49,7 @@ const SECTIONS: ManualSection[] = [
       "where do i start",
     ],
     searchText:
-      "Sign in with your altronic-llc.com account. The Dashboard opens after sign-in. Use the top nav to switch between Dashboard, the Departments dropdown, and Admin. The Departments dropdown mirrors the dashboard: Engineering (Engineering Tasks, EIRs, Test Sheets, Project Folders, Build Requests, Drawing File Logs, CSA Listings, with ECNs coming soon), Panels, Operations, Coils (Potting Sample Log), Quality Control (Digital QC and Ignition QC Defect Logs), Supply Chain, and Customer Service / Sales.",
+      "Sign in with your altronic-llc.com account. The Dashboard opens after sign-in. Use the top nav to switch between Dashboard, the Departments dropdown, and Admin. The Departments dropdown mirrors the dashboard: Engineering (Engineering Tasks, EIRs, Test Sheets, Project Folders, Build Requests, Drawing File Logs, CSA Listings, with ECNs coming soon), Panels, Operations, Coils (Potting Sample Log), Quality Control (Digital QC and Ignition QC Defect Logs), Supply Chain, and Customer Service / Sales (Visit Reports).",
     render: () => (
       <>
         <P>
@@ -63,8 +63,8 @@ const SECTIONS: ManualSection[] = [
           <strong>Operations</strong>, <strong>Coils</strong> (Potting Sample
           Log), <strong>Quality Control</strong> (Digital QC and Ignition QC
           Defect Logs), <strong>Supply Chain</strong>, and{" "}
-          <strong>Customer Service / Sales</strong> (the last two still coming
-          soon). Engineering Tasks use the <strong>List</strong> and{" "}
+          <strong>Customer Service / Sales</strong> (Visit Reports, with the
+          rest still coming soon). Engineering Tasks use the <strong>List</strong> and{" "}
           <strong>Kanban</strong> views.
           Your tasks are filtered to you by default — pick "Anyone" in the
           Assigned filter to see the rest of the team's work.
@@ -117,7 +117,7 @@ const SECTIONS: ManualSection[] = [
       "all projects",
     ],
     searchText:
-      "The Dashboard is grouped into department sections — Engineering, Panels, Operations, Coils, Quality Control, Supply Chain, and Customer Service / Sales — each a divider heading with its cards beneath. Engineering has live cards: Engineering Tasks, EIRs, Test Sheets and more. Coils has the Potting Sample Log; Quality Control has the Digital QC and Ignition QC Defect Logs. Supply Chain and Customer Service / Sales show Coming soon placeholders. Each live card shows the count of active items (tasks not Complete, EIRs not Closed), a colour-coded status mini-bar, and clicks through to that type's page. A Mine / Company switch flips every count and bar between your own items and the whole company's; Mine is the default. A project picker sits next to it and works the same way — pick a project and every card's count and mini-bar narrows to just that project, in place, combining with Mine/Company rather than navigating anywhere. Clicking a card afterward opens that type's full list pre-filtered to the picked project.",
+      "The Dashboard is grouped into department sections — Engineering, Panels, Operations, Coils, Quality Control, Supply Chain, and Customer Service / Sales — each a divider heading with its cards beneath. Engineering has live cards: Engineering Tasks, EIRs, Test Sheets and more. Coils has the Potting Sample Log; Quality Control has the Digital QC and Ignition QC Defect Logs; Customer Service / Sales has Visit Reports. Supply Chain and Customer Service / Sales show Coming soon placeholders. Each live card shows the count of active items (tasks not Complete, EIRs not Closed), a colour-coded status mini-bar, and clicks through to that type's page. A Mine / Company switch flips every count and bar between your own items and the whole company's; Mine is the default. A project picker sits next to it and works the same way — pick a project and every card's count and mini-bar narrows to just that project, in place, combining with Mine/Company rather than navigating anywhere. Clicking a card afterward opens that type's full list pre-filtered to the picked project.",
     render: () => (
       <>
         <P>
@@ -168,9 +168,10 @@ const SECTIONS: ManualSection[] = [
         </UL>
         <P>
           Other departments have their own cards further down the page —{" "}
-          <strong>Coils</strong> (Potting Sample Log) and{" "}
+          <strong>Coils</strong> (Potting Sample Log),{" "}
           <strong>Quality Control</strong> (Digital QC Defect Log, Ignition QC
-          Defect Log) both open straight to their logs, and{" "}
+          Defect Log) and <strong>Customer Service / Sales</strong> (Visit
+          Reports) all open straight to their lists, and{" "}
           <strong>Panels</strong> and <strong>Operations</strong> link to their
           orders, tasks and the Teradyne Log.
         </P>
@@ -182,7 +183,7 @@ const SECTIONS: ManualSection[] = [
           <strong>Supply Chain</strong> (Grey Market Part Requests, Supplier
           Issue Tracking, Supplier List, Supplier Contacts, Cost Impact Notices,
           FAIT), and <strong>Customer Service / Sales</strong> (Customer
-          Feedback, Visit Reporting, Customers, Customer Contacts List, Special
+          Feedback, Customers, Customer Contacts List, Special
           Pricing, Capacity Tracking, Pricing Requests) — appear as dimmed{" "}
           <strong>Coming soon</strong> placeholders. They'll light up with live
           counts as each department comes online.
@@ -1488,6 +1489,111 @@ const SECTIONS: ManualSection[] = [
           Teradyne reference lists — no admin needed to add a name or nudge a
           limit.
         </Tip>
+      </>
+    ),
+  },
+  {
+    id: "visit-reports",
+    title: "Visit Reports",
+    group: "Customer Service / Sales",
+    keywords: [
+      "visit report",
+      "visit reports",
+      "customer visit",
+      "site visit",
+      "sales call",
+      "rm",
+      "rm name",
+      "regional manager",
+      "customer status",
+      "action items",
+      "trip report",
+      "call report",
+      "sales",
+      "customer service",
+    ],
+    searchText:
+      "Visit Reports at /sales/visit-reports, under Departments > Customer Service / Sales, backed by the Visit Reports list on the ALTRONICSALESTEAM SharePoint site. A regional manager's record of a customer visit: Customer Name, RM Name, Reason For Visit (Home Office, General Visit, Site Visit, Sales Call, Training), Visit Date, Customer Status (Satisfied, Needs Attention, Issue, Quote Request, Potential New Customer, N/A), Visit Summary, Action Items, Product(s), City and State. Six of those are required: Customer Name, RM Name, Reason, Visit Date, Customer Status and Visit Summary. File one with New Visit Report; everything edits in place on the detail page, or use Edit for a bulk rewrite. Attachments — photos, quotes — can be added once the report is saved, by dragging them onto the Attachments card. The list filters by RM Name, Year, Reason and Customer Status, with an all-fields search, and the filters live in the URL so a filtered view can be shared. Reports cannot be deleted from ARC. Any signed-in user can file and edit.",
+    render: () => (
+      <>
+        <P>
+          <strong>Departments → Customer Service / Sales → Visit Reports</strong>{" "}
+          (<code>/sales/visit-reports</code>) is the regional managers' record
+          of customer visits — who they saw, why, what happened, and what needs
+          doing next. It reads and writes the same SharePoint list the team has
+          been using, so a report filed here shows up in SharePoint and vice
+          versa.
+        </P>
+        <H3>Filing a report</H3>
+        <P>
+          <strong>New Visit Report</strong> opens the form. Six fields are
+          required, because the list requires them:
+        </P>
+        <UL>
+          <LI>
+            <strong>Customer Name</strong> — who you visited.
+          </LI>
+          <LI>
+            <strong>RM Name</strong> — the regional manager. The picker lists
+            the current managers plus anyone already on an existing report, so
+            an older report keeps the person who actually filed it.
+          </LI>
+          <LI>
+            <strong>Reason For Visit</strong> — Home Office, General Visit,
+            Site Visit, Sales Call or Training.
+          </LI>
+          <LI>
+            <strong>Visit Date</strong> — pre-filled with today; pick the day
+            of the visit from the calendar.
+          </LI>
+          <LI>
+            <strong>Customer Status</strong> — Satisfied, Needs Attention,
+            Issue, Quote Request, Potential New Customer or N/A. This is the
+            colour-coded chip on the list, so it's the field that makes a
+            customer needing attention findable.
+          </LI>
+          <LI>
+            <strong>Visit Summary</strong> — what happened.
+          </LI>
+        </UL>
+        <P>
+          <strong>Action Items</strong>, <strong>Product(s)</strong>,{" "}
+          <strong>City</strong> and <strong>State</strong> are optional. Saving
+          opens the new report so you can attach anything to it.
+        </P>
+        <H3>Editing and attachments</H3>
+        <P>
+          On the detail page everything edits in place — the sidebar's RM,
+          date, reason, status, product and location save the moment you change
+          them, and Visit Summary and Action Items have their own Edit / Save.
+          The <strong>Edit</strong> button at the top opens the full form when
+          you'd rather change several things at once.
+        </P>
+        <P>
+          <strong>Attachments</strong> — site photos, a quote, a signed
+          document — go on the card at the bottom: drag files onto it, paste a
+          screenshot, or use Add file.
+        </P>
+        <Tip>
+          There is no Delete. A visit report is a record of something that
+          happened, so correcting one is an edit; removing one has to be done
+          in SharePoint deliberately.
+        </Tip>
+        <H3>Finding a report</H3>
+        <P>
+          The filter bar narrows by <strong>RM Name</strong>,{" "}
+          <strong>Year</strong>, <strong>Reason</strong> and{" "}
+          <strong>Customer Status</strong>, and the search box matches{" "}
+          <em>every</em> field — customer, summary, action items, product, city
+          — so searching a product code finds every visit that mentioned it.
+          The filters live in the URL, so a filtered view can be bookmarked or
+          pasted to someone else.
+        </P>
+        <P>
+          The table shows the newest 150 visits with a{" "}
+          <strong>show all</strong> link underneath; filters and the count
+          always run over every report, not just the ones on screen.
+        </P>
       </>
     ),
   },

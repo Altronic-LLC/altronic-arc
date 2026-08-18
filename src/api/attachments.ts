@@ -9,7 +9,9 @@ import {
   SP_PANEL_TASKS_LIST_ID,
   SP_PANELTEAM_SITE_URL,
   SP_PMO_SITE_URL,
+  SP_SALESTEAM_SITE_URL,
   SP_SITE_URL,
+  SP_VISIT_REPORTS_LIST_ID,
   USE_MOCK,
 } from "./config";
 import { spFetch, SharePointUnavailableError } from "./sharepoint";
@@ -43,7 +45,8 @@ export type AttachmentParent =
   | "buildRequestItem"
   | "panelOrder"
   | "panelTask"
-  | "csaListing";
+  | "csaListing"
+  | "visitReport";
 
 interface ParentConfig {
   listId: string | undefined;
@@ -75,6 +78,11 @@ const PARENT_CONFIG: Record<AttachmentParent, ParentConfig> = {
     listId: SP_PANEL_ORDERS_LIST_ID,
     siteUrl: SP_PANELTEAM_SITE_URL,
     listIdEnvVar: "VITE_SP_PANEL_ORDERS_LIST_ID",
+  },
+  visitReport: {
+    listId: SP_VISIT_REPORTS_LIST_ID,
+    siteUrl: SP_SALESTEAM_SITE_URL,
+    listIdEnvVar: "VITE_SP_VISIT_REPORTS_LIST_ID",
   },
   panelTask: {
     listId: SP_PANEL_TASKS_LIST_ID,

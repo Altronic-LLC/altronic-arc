@@ -161,7 +161,9 @@ export function AttachmentsSection({ parent, itemId }: AttachmentsSectionProps) 
                             ? "build request"
                             : parent === "buildRequestItem"
                               ? "part"
-                              : "task"
+                              : parent === "visitReport"
+                                ? "visit report"
+                                : "task"
                       }?`,
                     )
                   ) {
