@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.92.1",
+    date: "2026-08-18",
+    changes: [
+      "Fixed apostrophes and quotes showing as \"I&#39;ll\" instead of \"I'll\" in EIR comment notification emails",
+      "Quotes, dashes and other special characters now read correctly in every notification email, for EIRs, tasks, build requests and panel items alike",
+    ],
+  },
+  {
     version: "0.92.0",
     date: "2026-08-17",
     changes: [

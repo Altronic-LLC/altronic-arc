@@ -57,6 +57,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { resolveCurrentUserLookupId } from "@/api/currentUser";
 import { USE_MOCK } from "@/api/config";
 import { fromLabelsField, toLabelsField } from "@/lib/labels";
+import { htmlToPlainText } from "@/lib/htmlText";
 
 const TASK_LIST_KEY = ["tasks", "list"] as const;
 const PROJECTS_KEY = ["projects"] as const;
@@ -1113,26 +1114,8 @@ function extractInverseFields(prev: Task, fields: Record<string, unknown>): Reco
   return inv;
 }
 
-/**
- * Strip HTML to plain text for use in the email-notification body. Just a
- * tag-removal pass — we don't need a real HTML parser since the body comes
- * from our own composer (paragraph blocks + line breaks + mention spans).
- */
-function htmlToPlainText(html: string): string {
-  if (!html) return "";
-  return html
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/p>\s*<p>/gi, "\n\n")
-    .replace(/<\/?p[^>]*>/gi, "")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .trim();
-}
+// htmlToPlainText now comes from @/lib/htmlText — see that file's header for
+// why the per-department copies were consolidated.
 
 /**
  * Friendlier toast text based on which field was edited. For single-field

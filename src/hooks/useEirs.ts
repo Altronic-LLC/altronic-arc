@@ -38,6 +38,7 @@ import {
 import { diffChecklistToggles } from "@/lib/descriptionChecklist";
 import { buildPromotedCommunication } from "@/lib/eirPromotion";
 import { appItemUrl } from "@/lib/appUrl";
+import { htmlToPlainText } from "@/lib/htmlText";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { resolveCurrentUserLookupId } from "@/api/currentUser";
 import { USE_MOCK } from "@/api/config";
@@ -640,20 +641,13 @@ function eirTargetTitle(e: Eir): string {
   return [e.eirNo, e.title].filter(Boolean).join(" — ") || e.title;
 }
 
-/** Strip a comment's HTML to a plain-text excerpt for the notification email. */
-function eirCommentExcerpt(html: string): string {
-  return html
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/(p|div|li)>/gi, "\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/[ \t]+/g, " ")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-}
+/**
+ * Strip a comment's HTML to a plain-text excerpt for the notification email.
+ *
+ * Was a local copy that decoded &amp;/&lt;/&gt; but NOT &#39;, so apostrophes
+ * reached subscribers as "I&#39;ll" — see lib/htmlText.ts.
+ */
+const eirCommentExcerpt = htmlToPlainText;
 
 function applyFieldsLocally(
   e: Eir,

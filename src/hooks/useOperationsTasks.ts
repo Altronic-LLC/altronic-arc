@@ -28,6 +28,7 @@ import {
   notifyMentions,
 } from "@/api/email";
 import { diffChecklistToggles } from "@/lib/descriptionChecklist";
+import { htmlToPlainText } from "@/lib/htmlText";
 import {
   commentNotifyRecipients,
   commentRenotifyRecipients,
@@ -815,24 +816,5 @@ function messageForFieldsUpdate(fields: Record<string, unknown>): string {
   return "Task updated.";
 }
 
-/**
- * Strip HTML to plain text for use in the email-notification body. Mirrors
- * the identically-named private helper in useTasks.ts / useEirs.ts's
- * eirCommentExcerpt — each department keeps its own copy rather than a
- * shared abstraction, matching the existing convention.
- */
-function htmlToPlainText(html: string): string {
-  if (!html) return "";
-  return html
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/p>\s*<p>/gi, "\n\n")
-    .replace(/<\/?p[^>]*>/gi, "")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .trim();
-}
+// htmlToPlainText now comes from @/lib/htmlText — the per-department copies
+// drifted and the EIR one shipped a bug. See that file's header.
