@@ -21,6 +21,8 @@ import {
 } from "@/hooks/useTaskFiles";
 import type { Task } from "@/types/task";
 import { filesFromClipboard } from "@/lib/pasteFiles";
+import { useFileDrop } from "./useFileDrop";
+import { cn } from "@/lib/cn";
 import { NameAttachmentDialog, needsAttachmentName } from "./NameAttachmentDialog";
 
 /**
@@ -55,9 +57,24 @@ export function TaskAttachmentsSection({ task }: { task: Task }) {
   // each rather than dropping the ones after the first.
   const [namingQueue, setNamingQueue] = useState<File[]>([]);
 
+  /**
+   * Upload a batch of files, prompting for a name for any that arrived
+   * without one. Shared by the file picker, paste, and drag-and-drop so all
+   * three behave identically.
+   */
+  function addFiles(incoming: File[]) {
+    const unnamed: File[] = [];
+    for (const file of incoming) {
+      if (needsAttachmentName(file)) unnamed.push(file);
+      else upload.mutate(file);
+    }
+    if (unnamed.length > 0) setNamingQueue((prev) => [...prev, ...unnamed]);
+  }
+
+  const { dragging, dropProps } = useFileDrop(addFiles, upload.isPending);
+
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (file) upload.mutate(file);
+    addFiles(Array.from(e.target.files ?? []));
     e.target.value = ""; // allow re-selecting the same file
   }
 
@@ -70,19 +87,18 @@ export function TaskAttachmentsSection({ task }: { task: Task }) {
     const pasted = filesFromClipboard(e.clipboardData);
     if (pasted.length === 0) return;
     e.preventDefault();
-    const unnamed: File[] = [];
-    for (const file of pasted) {
-      if (needsAttachmentName(file)) unnamed.push(file);
-      else upload.mutate(file);
-    }
-    if (unnamed.length > 0) setNamingQueue((prev) => [...prev, ...unnamed]);
+    addFiles(pasted);
   }
 
   return (
     <div
       tabIndex={0}
       onPaste={handlePaste}
-      className="rounded-lg border border-border bg-surface p-4 focus:outline-none focus:ring-2 focus:ring-accent/30 sm:p-5"
+      {...dropProps}
+      className={cn(
+        "rounded-lg border bg-surface p-4 focus:outline-none focus:ring-2 focus:ring-accent/30 sm:p-5",
+        dragging ? "border-accent ring-2 ring-accent/30" : "border-border",
+      )}
     >
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 className="flex items-center gap-2 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
@@ -156,8 +172,9 @@ export function TaskAttachmentsSection({ task }: { task: Task }) {
         </div>
       ) : totalCount === 0 ? (
         <div className="rounded-md border border-dashed border-border py-6 text-center text-xs text-fg-muted">
-          No attachments yet. Click "Add file" to upload one — it'll go on
-          this task and the project folder.
+          {dragging
+            ? "Drop to attach"
+            : `No attachments yet. Drag files here, paste a screenshot, or click "Add file" — they go on this task and in the project folder.`}
         </div>
       ) : (
         <div className="space-y-3">

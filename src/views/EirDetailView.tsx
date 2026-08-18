@@ -59,6 +59,13 @@ import { sanitiseHtml } from "@/lib/sanitiseHtml";
 import { multiLookupField } from "@/lib/graphFields";
 import { cn } from "@/lib/cn";
 import { AutoGrowTextarea } from "@/components/AutoGrowTextarea";
+import { RichTextEditor } from "@/components/RichTextEditor";
+import {
+  isEmptyRichText,
+  keepsPlainText,
+  toEditorHtml,
+  toPlainTextForEditing,
+} from "@/lib/richText";
 import { DescriptionView } from "@/components/DescriptionView";
 import {
   convertToChecklist,
@@ -731,10 +738,34 @@ function EditableTextCard({
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
+  // Rich (HTML) or plain (checklist) editing. These SharePoint columns are
+  // Enhanced rich text, so prose is edited — and stored — as HTML, which is
+  // what makes paragraphs survive and bold possible. Checklist text is the
+  // exception: "- [ ]" is parsed line by line out of the raw string, so it
+  // has to stay plain. See lib/richText.ts.
+  const [plainMode, setPlainMode] = useState(false);
   // Who checked a checklist box — recorded as the ✓[name · time] stamp.
   const checklistUser = useCurrentUser();
   // Never stay in editing mode if the field becomes locked.
   const isEditing = editing && !disabled;
+
+  function startEditing() {
+    const asChecklist = allowChecklist && keepsPlainText(value);
+    setPlainMode(asChecklist);
+    setDraft(asChecklist ? value : toEditorHtml(value));
+    setEditing(true);
+  }
+
+  function saveDraft() {
+    onSave(plainMode ? draft : isEmptyRichText(draft) ? "" : draft);
+    setEditing(false);
+  }
+
+  /** "Turn into checklist" drops to the plain editor — checklists are text. */
+  function convertDraftToChecklist() {
+    setDraft((d) => convertToChecklist(plainMode ? d : toPlainTextForEditing(d)));
+    setPlainMode(true);
+  }
   return (
     <div className="rounded-lg border border-border bg-surface p-4 sm:p-5">
       <div className="mb-3 flex items-center justify-between">
@@ -750,10 +781,7 @@ function EditableTextCard({
           </span>
         ) : !isEditing ? (
           <button
-            onClick={() => {
-              setDraft(value);
-              setEditing(true);
-            }}
+            onClick={startEditing}
             className="text-xs text-accent underline-offset-2 hover:underline"
           >
             Edit
@@ -763,7 +791,7 @@ function EditableTextCard({
             {allowChecklist && (
               <button
                 type="button"
-                onClick={() => setDraft((d) => convertToChecklist(d))}
+                onClick={convertDraftToChecklist}
                 className="inline-flex items-center gap-1 text-xs font-medium text-accent underline-offset-2 hover:underline"
                 title='Adds "- [ ] " checklist items you can check off on the detail page'
               >
@@ -778,10 +806,7 @@ function EditableTextCard({
               Cancel
             </button>
             <button
-              onClick={() => {
-                onSave(draft);
-                setEditing(false);
-              }}
+              onClick={saveDraft}
               className="text-xs font-medium text-accent underline-offset-2 hover:underline"
             >
               Save
@@ -790,13 +815,23 @@ function EditableTextCard({
         )}
       </div>
       {isEditing ? (
-        <AutoGrowTextarea
-          style={{ minHeight: "8rem" }}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          rows={5}
-          className="w-full resize-y rounded-md border border-border bg-bg p-3 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-        />
+        plainMode ? (
+          <AutoGrowTextarea
+            style={{ minHeight: "8rem" }}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            rows={5}
+            aria-label={`${title} (checklist)`}
+            className="w-full resize-y rounded-md border border-border bg-bg p-3 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+          />
+        ) : (
+          <RichTextEditor
+            value={draft}
+            onChange={setDraft}
+            aria-label={title}
+            placeholder="Type here — Ctrl+B for bold, or use the buttons above."
+          />
+        )
       ) : value ? (
         allowChecklist ? (
           <DescriptionView

@@ -10,6 +10,7 @@ import type {
 import { attachEirReferences, toEir } from "@/lib/eirMapper";
 import { multiLookupField, multiPersonField } from "@/lib/graphFields";
 import { appendComment, replaceComment } from "@/lib/communicationParser";
+import { toStoredRichText } from "@/lib/richText";
 import { listProjects } from "./tasks";
 import { MOCK_EIRS } from "@/data/mockData";
 
@@ -245,7 +246,7 @@ export async function createEir(input: CreateEirInput): Promise<Eir> {
       id: nextId,
       eirNo: input.eirNo ?? `EIR_${now.getFullYear()}-${String(1000 + nextId).slice(-4)}`,
       title: input.title,
-      description: input.description ?? "",
+      description: toStoredRichText(input.description ?? ""),
       requestType: input.requestType ?? "EIR",
       status: input.status ?? "Under Review",
       resolution: input.resolution ?? "Pending",
@@ -258,7 +259,7 @@ export async function createEir(input: CreateEirInput): Promise<Eir> {
         : [],
       taskReference: input.taskReference ?? "",
       engineeringResponse: "",
-      whereUsed: input.whereUsed ?? "",
+      whereUsed: toStoredRichText(input.whereUsed ?? ""),
       eau: input.eau ?? "",
       currentStock: input.currentStock ?? "",
       mfg: input.mfg ?? "",
@@ -293,7 +294,7 @@ export async function createEir(input: CreateEirInput): Promise<Eir> {
 
   const fields: Record<string, unknown> = { Title: input.title };
   if (input.eirNo) fields.EIRNo = input.eirNo;
-  if (input.description) fields.Description = input.description;
+  if (input.description) fields.Description = toStoredRichText(input.description);
   if (input.requestType) fields.RequestType = input.requestType;
   if (input.status) fields.Status = input.status;
   if (input.resolution) fields.Resolution = input.resolution;
@@ -319,7 +320,7 @@ export async function createEir(input: CreateEirInput): Promise<Eir> {
     Object.assign(fields, multiPersonField("Watchers", watchers));
   }
   if (input.taskReference) fields.TaskReference = input.taskReference;
-  if (input.whereUsed) fields.WhereUsed = input.whereUsed;
+  if (input.whereUsed) fields.WhereUsed = toStoredRichText(input.whereUsed);
   if (input.eau) fields.EAU = input.eau;
   if (input.currentStock) fields.CurrentStock = input.currentStock;
   if (input.mfg) fields.MFG = input.mfg;
@@ -343,10 +344,39 @@ export async function createEir(input: CreateEirInput): Promise<Eir> {
   return toEir(created);
 }
 
+/**
+ * The EIR list's long-text columns are **Enhanced rich text** — SharePoint
+ * stores and renders them as HTML, where a bare newline is insignificant
+ * whitespace. Text saved straight from a textarea therefore came back as one
+ * run-on block ("all sentences/paragraphs were smooshed together", reported
+ * 2026-08-18).
+ *
+ * So the conversion happens here, on the way to SharePoint, rather than by
+ * re-typing the column: every write to one of these fields is promoted to
+ * real paragraphs. Values that are already HTML (the rich editor, or legacy
+ * Power Apps content) and checklist text pass through untouched — see
+ * lib/richText.ts.
+ */
+const RICH_TEXT_FIELDS = ["Description", "EngineeringResponse", "WhereUsed"] as const;
+
+function withRichText(fields: Record<string, unknown>): Record<string, unknown> {
+  let converted: Record<string, unknown> | null = null;
+  for (const key of RICH_TEXT_FIELDS) {
+    const value = fields[key];
+    if (typeof value !== "string") continue;
+    const next = toStoredRichText(value);
+    if (next === value) continue;
+    converted ??= { ...fields };
+    converted[key] = next;
+  }
+  return converted ?? fields;
+}
+
 export async function updateEirFields(
   id: number,
   fields: Record<string, unknown>,
 ): Promise<Eir> {
+  fields = withRichText(fields);
   if (USE_MOCK) {
     const idx = mockStore.findIndex((e) => e.id === id);
     if (idx < 0) throw new Error(`EIR ${id} not found`);
