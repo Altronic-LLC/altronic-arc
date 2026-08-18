@@ -12,7 +12,6 @@ import {
   GitBranch,
   Link2,
   Pencil,
-  Plus,
   Printer,
   RefreshCw,
   Tag,
@@ -72,6 +71,7 @@ import { isCommittableDate, toIsoDate } from "@/lib/dateInput";
 import { DateField } from "@/components/DateField";
 import { toLabelsField } from "@/lib/labels";
 import { PersonMultiField } from "@/components/PersonMultiField";
+import { MultiSelect } from "@/components/SearchableSelect";
 import { cn } from "@/lib/cn";
 
 export function DetailView() {
@@ -286,12 +286,10 @@ export function DetailView() {
     setParentProject.mutate({ id: task.id, projectLookupId: parsed });
   }
 
-  function handleRelatedProjectToggle(lookupId: number) {
+  // The picker hands back the whole selection (it can add and remove in one
+  // open), so the write is the list as-is rather than a single toggle.
+  function handleRelatedProjectsChange(nextIds: number[]) {
     if (!task) return;
-    const has = task.relatedProjects.some((r) => r.lookupId === lookupId);
-    const nextIds = has
-      ? task.relatedProjects.filter((r) => r.lookupId !== lookupId).map((r) => r.lookupId)
-      : [...task.relatedProjects.map((r) => r.lookupId), lookupId];
     setRelatedProjects.mutate({ id: task.id, lookupIds: nextIds });
   }
 
@@ -827,7 +825,7 @@ export function DetailView() {
                   projects={projects}
                   selected={task.relatedProjects.map((r) => r.lookupId)}
                   excludeParent={task.parentProject?.lookupId}
-                  onToggle={handleRelatedProjectToggle}
+                  onChange={handleRelatedProjectsChange}
                 />
               </div>
 
@@ -980,36 +978,43 @@ function Field({
   );
 }
 
+/**
+ * Related Projects picker — a searchable dropdown, NOT a wall of pills.
+ * Every project used to render as its own chip under "+ Add related project",
+ * which stops being usable somewhere past a couple of dozen projects: the
+ * only way to find one is to read the whole cloud. MultiSelect gives the same
+ * add/remove behaviour behind a search box, and it's what every other picker
+ * in the app uses (see CLAUDE.md — "Every dropdown in a form is searchable").
+ *
+ * The parent project is excluded: it already sits above this field.
+ */
 function RelatedProjectPicker({
   projects,
   selected,
   excludeParent,
-  onToggle,
+  onChange,
 }: {
   projects: import("@/types/task").ProjectReference[];
   selected: number[];
   excludeParent: number | undefined;
-  onToggle: (id: number) => void;
+  onChange: (next: number[]) => void;
 }) {
-  const candidates = projects.filter(
-    (p) => p.lookupId !== excludeParent && !selected.includes(p.lookupId),
-  );
-  if (candidates.length === 0) return null;
+  const options = projects
+    .filter((p) => p.lookupId !== excludeParent)
+    .map((p) => ({ value: String(p.lookupId), label: p.title || `#${p.lookupId}` }))
+    .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
+
+  if (options.length === 0) return null;
+
   return (
-    <details className="mt-1.5 text-xs">
-      <summary className="cursor-pointer text-fg-muted hover:text-fg">+ Add related project</summary>
-      <div className="mt-1 flex flex-wrap gap-1">
-        {candidates.map((p) => (
-          <button
-            key={p.lookupId}
-            onClick={() => onToggle(p.lookupId)}
-            className="inline-flex items-center gap-1 rounded-full border border-border bg-surface px-2 py-0.5 text-[10px] font-medium text-fg-muted hover:border-fg-muted hover:text-fg"
-          >
-            <Plus className="h-2.5 w-2.5" />
-            {p.title}
-          </button>
-        ))}
-      </div>
-    </details>
+    <div className="mt-1.5">
+      <MultiSelect
+        allLabel="Add related project…"
+        searchPlaceholder="Search projects…"
+        options={options}
+        selected={selected.map(String)}
+        onChange={(next) => onChange(next.map((v) => parseInt(v, 10)))}
+      />
+    </div>
   );
 }

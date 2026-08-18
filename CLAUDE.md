@@ -325,6 +325,7 @@ src/
 │   ├── changeAlerts.ts           Change-alert email construction (pure)
 │   ├── graphFields.ts            multiPersonField / multiLookupField / multiChoiceField
 │   ├── sanitiseHtml.ts           DOMPurify wrapper for stored HTML
+│   ├── richText.ts               Plain text ⇄ HTML for the EIR rich-text columns
 │   ├── errorBuffer.ts            Bounded console-error capture (Report issue)
 │   └── pcbChecklist.ts           PCB-category task checklist logic
 │
@@ -349,6 +350,8 @@ src/
 │   ├── SearchableSelect.tsx      MultiSelect / SingleSelect / ChoiceSelect (all searchable)
 │   ├── SuggestInput.tsx          Text field that behaves like a choice field (CAD initials)
 │   ├── AutoGrowTextarea.tsx      <textarea> that grows to fit content
+│   ├── RichTextEditor.tsx        Bold/italic/underline/lists editor (EIR text fields)
+│   ├── useFileDrop.ts            Drag-a-file-onto-a-card drop target (attachments)
 │   ├── PersonMultiField.tsx      Multi-person picker (pills + add)
 │   ├── useOverlayDismiss.ts      Backdrop dismissal that survives a text-selection drag
 │   ├── DescriptionView.tsx       Renders a Description incl. checklists + sub-tasks
@@ -1129,6 +1132,38 @@ mutations after unmount. Validation still runs first.
   indistinguishable from real ones.
 - Indentation and the post-`]` gap round-trip verbatim. This text lives in a
   SharePoint field and is re-parsed, so anything lossy corrupts real data.
+
+### The EIR long-text columns are Enhanced rich text — write HTML
+
+`Description`, `EngineeringResponse` and `WhereUsed` on the EIRs list are
+**Enhanced rich text** columns (confirmed by Ray, 2026-08-18). They hold HTML,
+and everything that renders them — SharePoint's own views, the original Power
+Apps form, an email preview — renders it as HTML, where a bare newline is
+insignificant whitespace. Text saved verbatim out of a `<textarea>` therefore
+came back as one run-on block: *"When I saved my EIR the formatting was not
+saved. All sentences/paragraphs were smooshed together"* (Jerrod Waldron,
+2026-08-18).
+
+The conversion lives in **`withRichText()` in `src/api/eirs.ts`**, deliberately
+on the write path rather than in the SharePoint column — the column keeps its
+type, and every other consumer of the list keeps working. Rules (all in
+`src/lib/richText.ts`, all tested):
+
+- **Plain text in → paragraphs out.** Blank line = new `<p>`, single newline =
+  `<br/>`, everything escaped first.
+- **Already-HTML values pass through** — the rich editor's output and legacy
+  Power Apps content are left exactly as they are.
+- **Checklist text stays plain.** `- [ ]` is parsed line-by-line out of the raw
+  stored string, so wrapping those lines in `<p>` would silently kill every
+  checkbox on the EIR. `keepsPlainText()` is that guard; don't remove it.
+
+`RichTextEditor` (bold / italic / underline / lists, no dependency) is the
+editor for these fields, and everything it emits goes through `sanitiseHtml`.
+A field whose stored value is a checklist falls back to the plain textarea —
+"Turn into checklist" makes that swap explicitly.
+
+If another list turns out to have rich-text columns, reuse `toStoredRichText`
+in that module's write path; don't re-derive it.
 
 ### Mail that doesn't send says so
 

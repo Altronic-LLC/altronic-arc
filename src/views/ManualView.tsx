@@ -379,7 +379,11 @@ const SECTIONS: ManualSection[] = [
           </LI>
           <LI>
             <strong>Parent Task / Related Projects</strong> — for tasks that
-            belong under a larger one or touch multiple projects.
+            belong under a larger one or touch multiple projects. Both are{" "}
+            <strong>searchable dropdowns</strong>: open one and start typing to
+            narrow the list rather than scrolling it. Related Projects takes
+            several — each pick lands as a chip you can remove with its ✕, and
+            the task's own parent project isn't offered.
           </LI>
         </UL>
         <P>
@@ -397,6 +401,14 @@ const SECTIONS: ManualSection[] = [
           revision inline — no need to open a separate form. Every change is
           optimistic: the UI updates the moment you click, SharePoint catches
           up in the background.
+        </P>
+        <P>
+          <strong>Related Projects</strong> in the sidebar is a{" "}
+          <strong>searchable dropdown</strong> — open it, type to find the
+          project, and tick it. Ticking a project that's already on the task
+          takes it off again, so the same control both adds and removes. The
+          projects currently on the task stay above it as chips you can click
+          to open that project.
         </P>
         <P>
           The <strong>Edit</strong> button at the top of the detail page opens
@@ -780,9 +792,12 @@ const SECTIONS: ManualSection[] = [
         </ul>
         <H3>Uploading a file</H3>
         <P>
-          Open the task and use the <strong>Add file</strong> button on the
-          Attachments card. The file uploads to both storages in the same
-          click. If your tenant isn't fully wired up for the list-item path
+          Open the task and <strong>drag the files onto the Attachments
+          card</strong> — the card highlights while you're over it, and
+          several at once is fine. You can also{" "}
+          <strong>paste a screenshot</strong> into the card with Ctrl+V, or
+          click <strong>Add file</strong> and pick them. However they arrive,
+          they upload to both storages in the same step. If your tenant isn't fully wired up for the list-item path
           (the SharePoint admin hasn't granted the SP REST scope), the
           project-folder copy still goes through and the file shows up
           there — uploads never silently fail.
@@ -1521,7 +1536,7 @@ const SECTIONS: ManualSection[] = [
       "eir columns",
     ],
     searchText:
-      "The EIRs tab shows Engineering Information Requests with workflow View tabs (All, New, Needs Assigned, At Risk Parts, LTB), status pills (Under Review, Response Accepted, Closed, etc.) and a filter bar for Project, Assigned Engineer, Reporter, and search. EIRs have a Board (kanban) view as well as the list: List and Board buttons appear under the top nav, the board has one column per EIR status, and dragging a card between columns changes that EIR's status with a toast and Undo. The view tabs and filter bar work the same on both and travel between them; the board is hidden on phones. The Description field supports the same custom checklist syntax as a task's Description. New = no project reference and no engineer assigned; Needs Assigned = has a project reference but still no engineer. Click an EIR to open the detail page with Description, Engineering Response, Part Details (MFG, P/N, EAU, etc.), Comments, and a sidebar to edit Status, Resolution, Request Type, Priority, Reporter, Assigned Engineers, Watchers, Project, Task Reference, Requested Completion Date, LTB Date. New EIRs are auto-numbered as EIR_YYYY-#### (the next sequence for the year); the EIR Log No. is calculated from it. Promote an EIR to a task by setting Resolution to Promoted to Task: a confirmation window creates a linked task carrying the title, description, project, watchers, and comment thread (tagged as from the EIR). Completing that task prompts for a final resolution, which is written back to the EIR's Engineering Response and marks the EIR Resolved and Closed.",
+      "The EIRs tab shows Engineering Information Requests with workflow View tabs (All, New, Needs Assigned, At Risk Parts, LTB), status pills (Under Review, Response Accepted, Closed, etc.) and a filter bar for Project, Assigned Engineer, Reporter, and search. EIRs have a Board (kanban) view as well as the list: List and Board buttons appear under the top nav, the board has one column per EIR status, and dragging a card between columns changes that EIR's status with a toast and Undo. The view tabs and filter bar work the same on both and travel between them; the board is hidden on phones. The Description field supports the same custom checklist syntax as a task's Description. New = no project reference and no engineer assigned; Needs Assigned = has a project reference but still no engineer. Description, Engineering Response and Where Used are rich text: editing one shows a toolbar with bold, italic, underline and bulleted/numbered lists, Ctrl+B/I/U work, paragraphs are preserved, and pasting from Word keeps the formatting but drops its colours. Click an EIR to open the detail page with Description, Engineering Response, Part Details (MFG, P/N, EAU, etc.), Comments, and a sidebar to edit Status, Resolution, Request Type, Priority, Reporter, Assigned Engineers, Watchers, Project, Task Reference, Requested Completion Date, LTB Date. New EIRs are auto-numbered as EIR_YYYY-#### (the next sequence for the year); the EIR Log No. is calculated from it. Promote an EIR to a task by setting Resolution to Promoted to Task: a confirmation window creates a linked task carrying the title, description, project, watchers, and comment thread (tagged as from the EIR). Completing that task prompts for a final resolution, which is written back to the EIR's Engineering Response and marks the EIR Resolved and Closed.",
     render: () => (
       <>
         <P>
@@ -1607,6 +1622,32 @@ const SECTIONS: ManualSection[] = [
           <em>Working with tasks → Custom checklists in the Description</em>{" "}
           for the syntax.
         </P>
+        <H3>Formatting an EIR's text</H3>
+        <P>
+          <strong>Description</strong>, <strong>Engineering Response</strong>{" "}
+          and <strong>Where Used</strong> are formatted fields. Editing one
+          gives you a small toolbar — <strong>bold</strong>,{" "}
+          <em>italic</em>, underline, bulleted and numbered lists — and the
+          usual <strong>Ctrl+B / Ctrl+I / Ctrl+U</strong> shortcuts. This
+          applies on the New EIR form too.
+        </P>
+        <UL>
+          <LI>
+            <strong>Your paragraphs are kept.</strong> Blank lines stay blank
+            lines wherever the EIR is read — in ARC, in SharePoint, and in the
+            notification emails.
+          </LI>
+          <LI>
+            <strong>Pasting from Word or Outlook keeps the formatting</strong>{" "}
+            but drops the source's fonts and colours, so nothing arrives as
+            black text on the dark theme.
+          </LI>
+          <LI>
+            A Description that holds a <strong>checklist</strong> switches back
+            to the plain editor — checklist lines are text by design. Clicking{" "}
+            <strong>Turn into checklist</strong> makes that swap for you.
+          </LI>
+        </UL>
         <P>
           The sidebar holds the workflow fields: Status, Resolution, Request
           Type, Requested Priority, Reporter, Assigned (Engineers), Project

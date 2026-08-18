@@ -20,6 +20,28 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.95.0",
+    date: "2026-08-18",
+    changes: [
+      "EIR text now keeps its formatting when you save — paragraphs and line breaks were being collapsed into one run-on block",
+      "You can bold, italicise, underline and make bulleted or numbered lists in an EIR's Description, Engineering Response and Where Used, with Ctrl+B / Ctrl+I / Ctrl+U",
+      "Pasting from Word or Outlook into those fields keeps the formatting but drops the source's fonts and colours, so nothing lands unreadable on the dark theme",
+      "A Description holding a checklist still uses the plain editor — checklist lines are text by design",
+      "Drag files straight onto the Attachments card on a task or EIR — it highlights while you drag, and takes several files at once",
+      "Picking multiple files with the Add file button now attaches all of them instead of just the first",
+    ],
+  },
+  {
+    version: "0.94.2",
+    date: "2026-08-18",
+    changes: [
+      "Related Projects is now a searchable dropdown instead of a list of pills — open it and type to find the project rather than reading through every one",
+      "This applies both on the task form and in the task detail sidebar, where the projects on the task stay above it as chips that open the project",
+      "You can now take a project OFF a task from the detail sidebar — untick it in the dropdown; before this the sidebar could only add",
+      "The New/Edit Task form shows each related project as a chip with its own ✕, and leaves the task's parent project out of the list",
+    ],
+  },
+  {
     version: "0.94.1",
     date: "2026-08-18",
     changes: [
