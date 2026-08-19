@@ -20,6 +20,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.103.0",
+    date: "2026-08-19",
+    changes: [
+      "Dropdowns close when you move to another field — no more clicking an empty part of the page to get rid of one",
+      "Opening a dropdown closes any other one that was open, so filter bars stop stacking panels on top of each other",
+      "Multi-select dropdowns (project, assigned, people) now have a Done button, since those stay open on purpose so you can tick several",
+      "Tabbing past a dropdown closes it instead of leaving it open behind you",
+    ],
+  },
+  {
     version: "0.102.0",
     date: "2026-08-19",
     changes: [

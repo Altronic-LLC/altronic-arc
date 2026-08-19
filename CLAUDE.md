@@ -1388,6 +1388,41 @@ description) needs `flex max-h-[calc(100vh-2rem)] flex-col` with the body in a
 it. Otherwise the dialog grows past the viewport and the header scrolls away,
 taking its buttons with it.
 
+### Every dropdown closes the same four ways
+
+`src/components/useDropdownClose.ts` owns when a panel closes, and both
+dropdown implementations (`DropdownShell` in `SearchableSelect.tsx`, and
+`SuggestInput`) use it. They used to close on an outside click or Escape and
+nothing else, so after picking in a multi-select the only way out was clicking
+some empty part of the page, and tabbing onward left the panel hanging open
+(Ray, 2026-08-19: *"all drop downs make you click away to close"*).
+
+1. **Focus leaves the control** → close.
+2. **Another dropdown opens** → close. One panel app-wide, tracked in a
+   module-level claim (`claimOpenDropdown`); it's a module variable rather
+   than context because dropdowns live in unrelated trees and there is one
+   document.
+3. Outside mousedown → close.
+4. Escape → close.
+
+Two details that are easy to get wrong:
+
+- **A blur with no `relatedTarget` is ignored.** That's what a click on the
+  panel's own padding or a scrollbar produces, and closing on those shuts the
+  panel mid-use. Genuine outside clicks are already rule 3's job.
+- **The container ref must wrap the trigger AND the panel**, so focus moving
+  between them reads as movement *within* the control.
+
+**A multi-select still doesn't close on a pick** — ticking several is the
+point — which is why it now carries a **Done** row. If you add a dropdown that
+stays open, give it a visible way out.
+
+Testing note: `resetOpenDropdown()` in a `beforeEach`, or a claim left by a
+previous test closes the one under test. And jsdom does NOT populate
+`relatedTarget` on a programmatic `.focus()`, so drive the focusout rule with
+`fireEvent.focusOut(el, { relatedTarget })` or `userEvent.tab()` — a test
+written with `.focus()` passes whether the rule exists or not.
+
 ### Every dropdown in a form is searchable
 
 `SearchableSelect.tsx` exports three: `MultiSelect`, `SingleSelect`, and
