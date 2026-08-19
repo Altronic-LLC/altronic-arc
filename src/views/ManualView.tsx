@@ -117,7 +117,7 @@ const SECTIONS: ManualSection[] = [
       "all projects",
     ],
     searchText:
-      "The Dashboard is grouped into department sections — Engineering, Panels, Operations, Coils, Quality Control, Supply Chain, and Customer Service / Sales — each a divider heading with its cards beneath. Engineering has live cards: Engineering Tasks, EIRs, Test Sheets and more. Coils has the Potting Sample Log; Quality Control has the Digital QC and Ignition QC Defect Logs; Customer Service / Sales has Visit Reports. Supply Chain has Gray Market Requests; Customer Service / Sales has Visit Reports. Each live card shows the count of active items (tasks not Complete, EIRs not Closed), a colour-coded status mini-bar, and clicks through to that type's page. A Mine / Company switch flips every count and bar between your own items and the whole company's; Mine is the default. A project picker sits next to it and works the same way — pick a project and every card's count and mini-bar narrows to just that project, in place, combining with Mine/Company rather than navigating anywhere. Clicking a card afterward opens that type's full list pre-filtered to the picked project.",
+      "The Dashboard is grouped into department sections — Engineering, Panels, Operations, Coils, Quality Control, Supply Chain, and Customer Service / Sales — each a divider heading with its cards beneath. Engineering has live cards: Engineering Tasks, EIRs, Test Sheets and more. Coils has the Potting Sample Log; Quality Control has the Digital QC and Ignition QC Defect Logs; Supply Chain has Gray Market Requests; Customer Service / Sales has Visit Reports. Each live card shows the count of active items (tasks not Complete, EIRs not Closed), a colour-coded status mini-bar, and clicks through to that type's page. A Mine / Company switch flips every count and bar between your own items and the whole company's; Mine is the default. A project picker sits next to it and works the same way — pick a project and every card's count and mini-bar narrows to just that project, in place, combining with Mine/Company rather than navigating anywhere. Clicking a card afterward opens that type's full list pre-filtered to the picked project.",
     render: () => (
       <>
         <P>
@@ -1656,7 +1656,7 @@ const SECTIONS: ManualSection[] = [
       "sign-off",
     ],
     searchText:
-      "Gray Market Requests at /supply-chain/gray-market-requests, under Supply Chain AND Engineering in the Departments menu — both teams work the same list, which lives on the Altronic_PMO SharePoint site. A gray market request tracks a part bought outside normal distribution from the request through purchasing, engineering test, inspection and production sign-off. The list opens on Open requests with pills for Open / Complete / All, filters for Requestor and Testing Required, and an all-fields search. New Request asks only for the Title (the Altronic assembly number), request date, testing required and the purchasing details; the Log No. is generated as GMR_YYYY-###. Everything else is filled in on the request itself, in five cards — Request, Purchasing, Engineering, Inspection, Production — each field editable in place and saved on its own. Requests carry comments with @-mentions, watchers, and attachments. Whoever raises a request watches it. Requests cannot be deleted from ARC.",
+      "Gray Market Requests at /supply-chain/gray-market-requests, under Supply Chain in the Departments menu, backed by the Gray Market Request list on the Altronic_PMO SharePoint site. A gray market request tracks a part bought outside normal distribution from the request through purchasing, engineering test, inspection and production sign-off. The list opens on Open requests with pills for Open / Complete / All, filters for Requestor and Testing Required, and an all-fields search. New Request asks only for the Title (the Altronic assembly number), request date, testing required and the purchasing details; the Log No. is generated as GMR_YYYY-###. Everything else is filled in on the request itself, in five cards — Request, Purchasing, Engineering, Inspection, Production — each field editable in place and saved on its own. Requests carry comments with @-mentions, watchers, and attachments. Whoever raises a request watches it. Requests cannot be deleted from ARC.",
     render: () => (
       <>
         <P>
@@ -1666,10 +1666,9 @@ const SECTIONS: ManualSection[] = [
           purchasing, engineering test, inspection, and production sign-off.
         </P>
         <P>
-          It's listed under <strong>Engineering</strong> as well, because both
-          teams work the same requests: purchasing raises and buys, engineering
-          decides what testing is needed and signs off the results. It's one
-          list in both places, not two.
+          Engineering has its part in the same record — the testing and
+          sign-off fields on each request — but the feature itself lives under
+          Supply Chain.
         </P>
         <H3>Raising a request</H3>
         <P>

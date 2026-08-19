@@ -178,9 +178,9 @@ export const SP_CSA_LISTINGS_LIST_ID =
 /**
  * "Gray Market Request" — a part bought outside normal distribution, tracked
  * from request through purchasing, engineering test, inspection and production
- * sign-off. Worked by Supply Chain AND Engineering, and it lives on the
- * **PMO site** (SITES.pmo) rather than a Supply Chain site — that's where the
- * list has always been, and the PMO grant already covers it.
+ * sign-off. A **Supply Chain** feature (Ray, 2026-08-19), even though the list
+ * lives on the **PMO site** (SITES.pmo) rather than a Supply Chain one — that's
+ * where it has always been, and the PMO grant already covers it.
  *
  * `Title` is the Altronic assembly number, `LogNo_x002e_Raw` carries the
  * GMR_YYYY-### number the app generates, and the list already has the

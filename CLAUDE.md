@@ -439,7 +439,7 @@ src/
 │   ├── PanelTasksView.tsx        Panel Tasks list
 │   ├── PanelTaskDetailView.tsx   Panel task detail
 │   ├── VisitReportsView.tsx      Visit Reports list (Sales)
-│   ├── GrayMarketRequestsView.tsx      Gray Market Requests list (Supply Chain + Engineering)
+│   ├── GrayMarketRequestsView.tsx      Gray Market Requests list (Supply Chain)
 │   ├── GrayMarketRequestDetailView.tsx Gray Market request — workflow cards, comments, attachments
 │   ├── VisitReportsCalendarView.tsx  Visit Reports month calendar (desktop only)
 │   ├── VisitReportDetailView.tsx Visit report detail + attachments
@@ -792,16 +792,17 @@ in SharePoint, or a rule deriving it from `DateCertified`. Recover the old
 implementation from git history rather than rewriting it (`git log --
 src/lib/certificationExpiry.ts`).
 
-### Gray Market Requests (Supply Chain + Engineering, PMO site)
+### Gray Market Requests (Supply Chain, PMO site)
 
 `bf5e3786-d2c1-4e8d-8bd1-c8d5bab9c85b` (env: `VITE_SP_GRAY_MARKET_LIST_ID`) on
 **`SITES.pmo`** — not a Supply Chain site. That's where the list has always
 lived, and the PMO grant already covers it. Schema captured 2026-08-19 in
 `scripts/gray-market-request-schema.json`.
 
-**Shared between two departments.** Supply Chain raises and buys; Engineering
-decides the testing and signs the results off. It's one list surfaced in both
-nav groups and both dashboard sections — not two features.
+**A Supply Chain feature** (Ray, 2026-08-19). Engineering's part of the
+workflow — the testing and sign-off fields — lives on the same record, and it
+briefly appeared in the Engineering nav group and dashboard too; that was
+removed. One department, one place in the nav.
 
 **The columns are DATA** (`src/lib/grayMarketFields.ts`). Thirty-odd editable
 columns spanning four teams' parts of one workflow: declaring them once drives

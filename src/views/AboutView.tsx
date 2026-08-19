@@ -87,7 +87,7 @@ const SYSTEM_TIERS: Tier[] = [
       },
       {
         label: "Supply Chain department",
-        hint: "GrayMarketRequestsView · GrayMarketRequestDetailView — useGrayMarketRequests — api/grayMarketRequests. On the PMO site. SHARED with Engineering: both departments work the same list, so it appears in both nav groups rather than being duplicated.",
+        hint: "GrayMarketRequestsView · GrayMarketRequestDetailView — useGrayMarketRequests — api/grayMarketRequests. The list lives on the PMO site (where it has always been), but the feature is Supply Chain's: it appears under Supply Chain only.",
         palette: "ui",
       },
       {

@@ -1311,7 +1311,7 @@ export const US_STATES = [
 ] as const;
 
 // =============================================================================
-// Gray Market Requests — Supply Chain + Engineering, on the Altronic_PMO site.
+// Gray Market Requests — Supply Chain, on the Altronic_PMO site.
 //
 // A part bought outside normal distribution, tracked from the request through
 // purchasing, engineering test, inspection and production sign-off. Schema
