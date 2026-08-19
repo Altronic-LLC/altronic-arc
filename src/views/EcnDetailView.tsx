@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { FileDiff, User } from "lucide-react";
+import { FileDiff, Pencil, User } from "lucide-react";
 import {
   collectEcnPeople,
   useAddEcnComment,
@@ -15,6 +15,7 @@ import {
   ecnFieldsInSection,
   stockDispositions,
   type EcnField,
+  type EcnSection,
 } from "@/lib/ecnFields";
 import { ecnFieldPatch } from "@/lib/ecnMapper";
 import { looksLikeHtml } from "@/lib/descriptionChecklist";
@@ -24,9 +25,7 @@ import { mergePeople } from "@/lib/people";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { AttachmentsSection } from "@/components/AttachmentsSection";
-import { AutoGrowTextarea } from "@/components/AutoGrowTextarea";
-import { ChoiceSelect } from "@/components/SearchableSelect";
-import { SuggestInput } from "@/components/SuggestInput";
+import { FieldEditModal, type EditableFieldSpec } from "@/components/FieldEditModal";
 import { CommentComposer } from "@/components/CommentComposer";
 import { CommentThread } from "@/components/CommentThread";
 import { DetailTopBar } from "@/components/DetailTopBar";
@@ -67,6 +66,9 @@ export function EcnDetailView() {
     () => stockDispositions(ecns.map((e) => e.values.inHouseStock ?? "")),
     [ecns],
   );
+  // Which card's editor is open — one at a time, keyed by section name plus
+  // the pseudo-section "Details" for the Log# / Title pair in the sidebar.
+  const [editing, setEditing] = useState<EcnSection | "Details" | null>(null);
 
   if (isLoading) {
     return (
@@ -95,10 +97,30 @@ export function EcnDetailView() {
     updateFields.mutate({ id: ecn.id, fields, patch });
   }
 
-  function saveField(field: EcnField, value: string) {
-    save(ecnFieldPatch(field.key, value), (e) => ({
+  /**
+   * One card's worth of edits, as ONE write.
+   *
+   * The modal hands back only the fields that changed, so a card of nine
+   * columns PATCHes the two that were touched — and the optimistic patch
+   * moves the same keys, so the page reads correctly before the round-trip.
+   */
+  function saveFields(changed: Record<string, string>) {
+    const fields: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(changed)) {
+      Object.assign(fields, ecnFieldPatch(key, value));
+    }
+    save(fields, (e) => ({ ...e, values: { ...e.values, ...changed } }));
+  }
+
+  /** The Log# and the Title, which are columns of their own rather than descriptors. */
+  function saveDetails(changed: Record<string, string>) {
+    const fields: Record<string, unknown> = {};
+    if ("logNo" in changed) fields.field_2 = changed.logNo.trim();
+    if ("title" in changed) fields.Title = changed.title.trim();
+    save(fields, (e) => ({
       ...e,
-      values: { ...e.values, [field.key]: value },
+      logNo: "logNo" in changed ? changed.logNo.trim() : e.logNo,
+      title: "title" in changed ? changed.title.trim() : e.title,
     }));
   }
 
@@ -150,17 +172,18 @@ export function EcnDetailView() {
               key={section}
               className="rounded-xl border border-border bg-surface p-4 sm:p-5"
             >
-              <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
-                {section}
-              </h2>
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <h2 className="font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
+                  {section}
+                </h2>
+                <EditButton label={section} onClick={() => setEditing(section)} />
+              </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {ecnFieldsInSection(section).map((field) => (
                   <FieldRow
                     key={field.key}
                     field={field}
                     value={ecn.values[field.key] ?? ""}
-                    stockOptions={stockOptions}
-                    onSave={(value) => saveField(field, value)}
                   />
                 ))}
               </div>
@@ -195,22 +218,23 @@ export function EcnDetailView() {
         </div>
 
         <aside className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-4">
+          <div className="flex items-center justify-between gap-2 border-b border-border pb-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
+              Details
+            </span>
+            <EditButton label="Details" onClick={() => setEditing("Details")} />
+          </div>
+
           <SidebarField label="Log#">
-            <InlineText
-              value={ecn.logNo}
-              placeholder="Not set"
-              ariaLabel="Log#"
-              onSave={(v) => save({ field_2: v.trim() }, (e) => ({ ...e, logNo: v.trim() }))}
-            />
+            <p className="px-1 text-sm text-fg">
+              {ecn.logNo || <span className="text-fg-muted">Not set</span>}
+            </p>
           </SidebarField>
 
           <SidebarField label="Title">
-            <InlineText
-              value={ecn.title}
-              placeholder="Not set"
-              ariaLabel="Title"
-              onSave={(v) => save({ Title: v.trim() }, (e) => ({ ...e, title: v.trim() }))}
-            />
+            <p className="px-1 text-sm text-fg">
+              {ecn.title || <span className="text-fg-muted">Not set</span>}
+            </p>
           </SidebarField>
 
           <SidebarField label="Submitted by" icon={<User className="h-3.5 w-3.5" />}>
@@ -240,123 +264,103 @@ export function EcnDetailView() {
           </div>
         </aside>
       </div>
+
+      {editing === "Details" && (
+        <FieldEditModal
+          title="Edit Details"
+          fields={[
+            {
+              key: "logNo",
+              label: "Log#",
+              kind: "text",
+              hint: "A revision keeps the number of the notice it revises — 260059R1.",
+            },
+            { key: "title", label: "Title", kind: "text" },
+          ]}
+          values={{ logNo: ecn.logNo, title: ecn.title }}
+          onClose={() => setEditing(null)}
+          onSave={saveDetails}
+        />
+      )}
+
+      {editing && editing !== "Details" && (
+        <FieldEditModal
+          title={`Edit ${editing}`}
+          fields={ecnFieldsInSection(editing).map((field) =>
+            editSpec(field, stockOptions),
+          )}
+          values={editValues(ecn, ecnFieldsInSection(editing))}
+          onClose={() => setEditing(null)}
+          onSave={saveFields}
+        />
+      )}
     </div>
   );
 }
 
-/** One descriptor field, editable in place. */
-function FieldRow({
-  field,
-  value,
-  stockOptions,
-  onSave,
-}: {
-  field: EcnField;
-  value: string;
-  stockOptions: string[];
-  onSave: (next: string) => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(value);
-  const long = field.kind === "richText";
+/** A descriptor → what the shared editor needs to render it. */
+function editSpec(field: EcnField, stockOptions: string[]): EditableFieldSpec {
+  return {
+    key: field.key,
+    label: field.label,
+    kind: field.kind,
+    choices: field.choices,
+    suggestions: field.kind === "suggest" ? stockOptions : undefined,
+    hint: field.hint,
+  };
+}
 
-  function start() {
-    // A rich-text column comes back as HTML; edit it as text rather than tags.
-    setDraft(field.kind === "richText" ? toPlainTextForEditing(value) : value);
-    setEditing(true);
+/**
+ * The values to seed the editor with.
+ *
+ * A rich-text column is handed over as PLAIN TEXT — it's stored as HTML, and
+ * editing raw `<div class="ExternalClass…">` markup in a textarea is how you
+ * corrupt it. `ecnFieldPatch` turns it back into paragraphs on the way out.
+ */
+function editValues(ecn: Ecn, fields: EcnField[]): Record<string, string> {
+  const values: Record<string, string> = {};
+  for (const field of fields) {
+    const raw = ecn.values[field.key] ?? "";
+    values[field.key] = field.kind === "richText" ? toPlainTextForEditing(raw) : raw;
   }
+  return values;
+}
 
-  // The controls that ARE the value need no Edit/Save dance.
-  const selfEditing = field.kind === "boolean" || field.kind === "choice" || field.kind === "suggest";
+/** The one way to change anything on a card. */
+function EditButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={`Edit ${label}`}
+      className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1 text-xs font-medium text-fg transition-colors hover:bg-surface-2"
+    >
+      <Pencil className="h-3 w-3" />
+      Edit
+    </button>
+  );
+}
 
+/**
+ * One descriptor field, read-only.
+ *
+ * Nothing on the card commits a change any more — the card's Edit button and
+ * the shared modal do. That's the whole point of the rework: a page you read,
+ * and one obvious way to change it.
+ */
+function FieldRow({ field, value }: { field: EcnField; value: string }) {
+  const long = field.kind === "richText";
   return (
     <div className={long ? "sm:col-span-2" : undefined}>
-      <div className="mb-1 flex items-center justify-between gap-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
-          {field.label}
-        </span>
-        {!selfEditing &&
-          (editing ? (
-            <span className="flex items-center gap-2 text-xs">
-              <button
-                onClick={() => setEditing(false)}
-                className="text-fg-muted underline-offset-2 hover:underline"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  onSave(draft);
-                  setEditing(false);
-                }}
-                className="font-medium text-accent underline-offset-2 hover:underline"
-              >
-                Save
-              </button>
-            </span>
-          ) : (
-            <button
-              onClick={start}
-              className="text-xs text-accent underline-offset-2 hover:underline"
-            >
-              Edit
-            </button>
-          ))}
-      </div>
-
+      <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
+        {field.label}
+      </span>
       {field.kind === "boolean" ? (
-        <label className="inline-flex items-center gap-2 text-sm text-fg">
-          <input
-            type="checkbox"
-            checked={value === "Yes"}
-            onChange={(e) => onSave(e.target.checked ? "Yes" : "")}
-            aria-label={field.label}
-            className="h-4 w-4 rounded border-border accent-cooper-red"
-          />
-          {value === "Yes" ? "Yes" : "No"}
-        </label>
-      ) : field.kind === "choice" ? (
-        <ChoiceSelect
-          value={value}
-          onChange={onSave}
-          options={field.choices ?? []}
-          emptyLabel="Not set"
-        />
-      ) : field.kind === "suggest" ? (
-        <SuggestInput
-          value={value}
-          onChange={onSave}
-          options={stockOptions}
-          ariaLabel={field.label}
-        />
-      ) : editing ? (
-        long ? (
-          <AutoGrowTextarea
-            style={{ minHeight: "5rem" }}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            rows={3}
-            aria-label={field.label}
-            className="input resize-y"
-          />
-        ) : (
-          <input
-            autoFocus
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            aria-label={field.label}
-            className="input"
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                onSave(draft);
-                setEditing(false);
-              }
-              if (e.key === "Escape") setEditing(false);
-            }}
-          />
-        )
+        // Spelled out rather than shown as a tick — "Yes" / "No" is what the
+        // question asks for, and a checkbox here would look editable.
+        <p className="text-sm text-fg">{value === "Yes" ? "Yes" : "No"}</p>
       ) : value ? (
-        field.kind === "richText" && looksLikeHtml(value) ? (
+        long && looksLikeHtml(value) ? (
           <div
             className="comment-html text-sm leading-relaxed text-fg"
             dangerouslySetInnerHTML={{ __html: sanitiseHtml(value) }}
@@ -371,54 +375,6 @@ function FieldRow({
   );
 }
 
-/** A one-line value in the sidebar that edits in place. */
-function InlineText({
-  value,
-  placeholder,
-  ariaLabel,
-  onSave,
-}: {
-  value: string;
-  placeholder: string;
-  ariaLabel: string;
-  onSave: (next: string) => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(value);
-
-  if (!editing) {
-    return (
-      <button
-        onClick={() => {
-          setDraft(value);
-          setEditing(true);
-        }}
-        className="w-full rounded px-1 py-0.5 text-left text-sm text-fg transition-colors hover:bg-surface-2"
-        aria-label={`Edit ${ariaLabel}`}
-      >
-        {value || <span className="text-fg-muted">{placeholder}</span>}
-      </button>
-    );
-  }
-
-  return (
-    <input
-      autoFocus
-      value={draft}
-      aria-label={ariaLabel}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={() => setEditing(false)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") {
-          onSave(draft);
-          setEditing(false);
-        }
-        if (e.key === "Escape") setEditing(false);
-      }}
-      className="input"
-    />
-  );
-}
 
 function SidebarField({
   label,

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Calendar, PackageSearch, User } from "lucide-react";
+import { Calendar, PackageSearch, Pencil, User } from "lucide-react";
 import {
   collectGrayMarketPeople,
   useAddGrayMarketComment,
@@ -17,6 +17,7 @@ import {
   GRAY_MARKET_TESTING_REQUIRED,
   fieldsInSection,
   type GrayMarketField,
+  type GrayMarketSection,
 } from "@/lib/grayMarketFields";
 import { grayMarketFieldPatch, grayMarketLabel } from "@/lib/grayMarketMapper";
 import { formatSpDate, fromDateInputValue, toDateInputValue, toSpDateOnly } from "@/lib/spDates";
@@ -27,7 +28,7 @@ import { mergePeople } from "@/lib/people";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { AttachmentsSection } from "@/components/AttachmentsSection";
-import { AutoGrowTextarea } from "@/components/AutoGrowTextarea";
+import { FieldEditModal, type EditableFieldSpec } from "@/components/FieldEditModal";
 import { ChoiceSelect } from "@/components/SearchableSelect";
 import { CommentComposer } from "@/components/CommentComposer";
 import { CommentThread } from "@/components/CommentThread";
@@ -42,9 +43,13 @@ import { GrayMarketStatusChip, TestResultChip } from "@/components/grayMarketAto
 //
 // The page is the workflow: Request → Purchasing → Engineering → Inspection →
 // Production, one card each, rendered from the descriptor table in
-// grayMarketFields.ts. Every field edits in place and saves its own column, so
-// the four teams can each fill in their part without opening a form or
-// stepping on each other's columns.
+// grayMarketFields.ts. The four teams each fill in their own stage, and a
+// stage writes only its own columns, so they don't step on each other.
+//
+// The page READS; the card's Edit button opens the shared FieldEditModal,
+// which writes. It used to edit field by field — an Edit link per text column,
+// and choice columns that saved the instant you touched them — which put edit
+// affordances in six different places on one card (Ray, 2026-08-19).
 //
 // Comments, watchers and attachments are the standard ARC set.
 // =============================================================================
@@ -67,6 +72,8 @@ export function GrayMarketRequestDetailView() {
     () => mergePeople(collectGrayMarketPeople(requests), directory),
     [requests, directory],
   );
+  // Which stage's editor is open — one at a time.
+  const [editing, setEditing] = useState<GrayMarketSection | null>(null);
 
   if (isLoading) {
     return (
@@ -98,11 +105,20 @@ export function GrayMarketRequestDetailView() {
     updateFields.mutate({ id: request.id, fields, patch });
   }
 
-  function saveField(field: GrayMarketField, value: string) {
-    save(grayMarketFieldPatch(field.key, value), (r) => ({
-      ...r,
-      values: { ...r.values, [field.key]: value },
-    }));
+  /**
+   * One stage's worth of edits, as ONE write.
+   *
+   * The modal hands back only the fields that changed, which matters here
+   * beyond tidiness: several of this list's choice columns hold values that
+   * have drifted outside their own choice lists, and re-sending one makes
+   * SharePoint reject the whole PATCH.
+   */
+  function saveFields(changed: Record<string, string>) {
+    const fields: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(changed)) {
+      Object.assign(fields, grayMarketFieldPatch(key, value));
+    }
+    save(fields, (r) => ({ ...r, values: { ...r.values, ...changed } }));
   }
 
   function handleAddComment(bodyHtml: string) {
@@ -170,16 +186,18 @@ export function GrayMarketRequestDetailView() {
               key={section}
               className="rounded-xl border border-border bg-surface p-4 sm:p-5"
             >
-              <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
-                {section}
-              </h2>
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <h2 className="font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
+                  {section}
+                </h2>
+                <EditButton label={section} onClick={() => setEditing(section)} />
+              </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {fieldsInSection(section).map((field) => (
                   <FieldRow
                     key={field.key}
                     field={field}
                     value={request.values[field.key] ?? ""}
-                    onSave={(value) => saveField(field, value)}
                   />
                 ))}
               </div>
@@ -295,100 +313,78 @@ export function GrayMarketRequestDetailView() {
           </div>
         </aside>
       </div>
+
+      {editing && (
+        <FieldEditModal
+          title={`Edit ${editing}`}
+          fields={fieldsInSection(editing).map(editSpec)}
+          values={editValues(request, fieldsInSection(editing))}
+          onClose={() => setEditing(null)}
+          onSave={saveFields}
+        />
+      )}
     </div>
   );
 }
 
-/** One descriptor field, editable in place. */
-function FieldRow({
-  field,
-  value,
-  onSave,
-}: {
-  field: GrayMarketField;
-  value: string;
-  onSave: (next: string) => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(value);
-  const long = field.kind === "multiline" || field.kind === "richText";
+/** A descriptor → what the shared editor needs to render it. */
+function editSpec(field: GrayMarketField): EditableFieldSpec {
+  return {
+    key: field.key,
+    label: field.label,
+    kind: field.kind,
+    choices: field.choices,
+  };
+}
 
-  function start() {
-    // A rich-text column comes back as HTML; edit it as text rather than tags.
-    setDraft(field.kind === "richText" ? toPlainTextForEditing(value) : value);
-    setEditing(true);
+/**
+ * The values to seed the editor with.
+ *
+ * A rich-text column is handed over as PLAIN TEXT — it's stored as HTML, and
+ * editing raw `<div class="ExternalClass…">` markup in a textarea is how you
+ * corrupt it. `grayMarketFieldPatch` turns it back into paragraphs on save.
+ */
+function editValues(
+  request: GrayMarketRequest,
+  fields: GrayMarketField[],
+): Record<string, string> {
+  const values: Record<string, string> = {};
+  for (const field of fields) {
+    const raw = request.values[field.key] ?? "";
+    values[field.key] = field.kind === "richText" ? toPlainTextForEditing(raw) : raw;
   }
+  return values;
+}
 
+/** The one way to change anything on a card. */
+function EditButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={`Edit ${label}`}
+      className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1 text-xs font-medium text-fg transition-colors hover:bg-surface-2"
+    >
+      <Pencil className="h-3 w-3" />
+      Edit
+    </button>
+  );
+}
+
+/**
+ * One descriptor field, read-only.
+ *
+ * Nothing on the card commits a change any more — the card's Edit button and
+ * the shared modal do.
+ */
+function FieldRow({ field, value }: { field: GrayMarketField; value: string }) {
+  const long = field.kind === "multiline" || field.kind === "richText";
   return (
     <div className={long ? "sm:col-span-2" : undefined}>
-      <div className="mb-1 flex items-center justify-between gap-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
-          {field.label}
-        </span>
-        {editing ? (
-          <span className="flex items-center gap-2 text-xs">
-            <button
-              onClick={() => setEditing(false)}
-              className="text-fg-muted underline-offset-2 hover:underline"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={() => {
-                onSave(draft);
-                setEditing(false);
-              }}
-              className="font-medium text-accent underline-offset-2 hover:underline"
-            >
-              Save
-            </button>
-          </span>
-        ) : (
-          field.kind !== "choice" && (
-            <button
-              onClick={start}
-              className="text-xs text-accent underline-offset-2 hover:underline"
-            >
-              Edit
-            </button>
-          )
-        )}
-      </div>
-
-      {field.kind === "choice" ? (
-        <ChoiceSelect
-          value={value}
-          onChange={onSave}
-          options={field.choices ?? []}
-          emptyLabel="Not set"
-        />
-      ) : editing ? (
-        long ? (
-          <AutoGrowTextarea
-            style={{ minHeight: "5rem" }}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            rows={3}
-            aria-label={field.label}
-            className="input resize-y"
-          />
-        ) : (
-          <input
-            autoFocus
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            aria-label={field.label}
-            className="input"
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                onSave(draft);
-                setEditing(false);
-              }
-              if (e.key === "Escape") setEditing(false);
-            }}
-          />
-        )
-      ) : value ? (
+      <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
+        {field.label}
+      </span>
+      {value ? (
         field.kind === "richText" && looksLikeHtml(value) ? (
           <div
             className="comment-html text-sm leading-relaxed text-fg"

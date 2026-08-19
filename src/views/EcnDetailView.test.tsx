@@ -71,33 +71,61 @@ describe("EcnDetailView", () => {
     expect(screen.getByRole("heading", { name: /attachments/i })).toBeInTheDocument();
   });
 
-  it("edits a text field in place", async () => {
+  // The page reads; one Edit per card writes. It used to carry an Edit link
+  // per text column and checkboxes that saved on touch, which put edit
+  // controls in six places on one card (Ray, 2026-08-19).
+  it("gives each card one Edit button and no inline editors", async () => {
     await renderDetail();
-    const label = screen.getByText("Final Assembly Part Numbers").closest("div") as HTMLElement;
-    await userEvent.click(within(label).getByRole("button", { name: "Edit" }));
+    for (const section of ["Change", "Disposition", "Sign-off"]) {
+      expect(screen.getByRole("button", { name: `Edit ${section}` })).toBeInTheDocument();
+    }
+    // Nothing on the card is a live control.
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    expect(screen.queryAllByRole("button", { name: "Edit" })).toHaveLength(0);
+  });
 
-    const input = screen.getByLabelText("Final Assembly Part Numbers");
+  it("edits a text field through the card's modal", async () => {
+    await renderDetail();
+    await userEvent.click(screen.getByRole("button", { name: "Edit Change" }));
+
+    const dialog = await screen.findByRole("dialog", { name: /edit change/i });
+    const input = within(dialog).getByRole("textbox", { name: "Final Assembly Part Numbers" });
     await userEvent.clear(input);
     await userEvent.type(input, "791970, 791971");
-    await userEvent.click(within(label).getByRole("button", { name: "Save" }));
+    await userEvent.click(within(dialog).getByRole("button", { name: /save changes/i }));
 
     await waitFor(() => expect(screen.getByText("791970, 791971")).toBeInTheDocument());
   });
 
-  it("ticks a boolean straight off the page", async () => {
+  it("sets a Yes / No column from the modal", async () => {
     await renderDetail();
-    const drawings = screen.getByLabelText("Drawings Complete?");
-    expect(drawings).not.toBeChecked();
-    await userEvent.click(drawings);
-    await waitFor(() => expect(screen.getByLabelText("Drawings Complete?")).toBeChecked());
+    await userEvent.click(screen.getByRole("button", { name: "Edit Disposition" }));
+
+    const dialog = await screen.findByRole("dialog", { name: /edit disposition/i });
+    const group = within(dialog).getByRole("radiogroup", { name: "Drawings Complete?" });
+    expect(within(group).getByRole("radio", { name: "No" })).toBeChecked();
+
+    await userEvent.click(within(group).getByRole("radio", { name: "Yes" }));
+    await userEvent.click(within(dialog).getByRole("button", { name: /save changes/i }));
+
+    await waitFor(() => {
+      const card = screen.getByRole("heading", { name: "Disposition", level: 2 })
+        .closest("section") as HTMLElement;
+      const row = within(card).getByText("Drawings Complete?").parentElement as HTMLElement;
+      expect(within(row).getByText("Yes")).toBeInTheDocument();
+    });
   });
 
-  it("edits the Log# from the sidebar", async () => {
+  it("edits the Log# from the sidebar's Details modal", async () => {
     await renderDetail();
-    await userEvent.click(screen.getByRole("button", { name: /edit log#/i }));
-    const input = screen.getByLabelText("Log#");
+    await userEvent.click(screen.getByRole("button", { name: "Edit Details" }));
+
+    const dialog = await screen.findByRole("dialog", { name: /edit details/i });
+    const input = within(dialog).getByRole("textbox", { name: "Log#" });
     await userEvent.clear(input);
-    await userEvent.type(input, "260059R2{Enter}");
+    await userEvent.type(input, "260059R2");
+    await userEvent.click(within(dialog).getByRole("button", { name: /save changes/i }));
+
     await waitFor(() =>
       expect(screen.getByRole("heading", { name: "ECN 260059R2", level: 1 })).toBeInTheDocument(),
     );

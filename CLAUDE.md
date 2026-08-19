@@ -397,6 +397,8 @@ src/
 │   ├── GrayMarketRequestFormModal.tsx  Raise a gray market request
 │   ├── WhereAmIFormModal.tsx     Add/edit an out-of-office entry (+ date range)
 │   ├── EcnFormModal.tsx          Raise an ECN
+│   ├── FieldEditModal.tsx        Shared "edit this card's fields" modal (Gray Market + ECN)
+│   ├── YesNoField.tsx            A boolean column as two labelled Yes / No choices
 │   ├── BuildRequestFormModal.tsx Create/edit build request
 │   ├── BuildRequestItemFormModal.tsx  Add/edit a part
 │   ├── EirFormModal.tsx          Create/edit EIR
@@ -1315,6 +1317,56 @@ are available as Tailwind classes (`text-cooper-green`, `bg-ajax-yellow`, etc.).
 These apply app-wide, not to one department. They were all learned from a real
 report, and each has tests pinning it — if you change one, expect a test to
 argue with you.
+
+### Detail pages read; a card's Edit button writes
+
+Gray Market requests and ECNs both used to edit field by field: an "Edit" link
+per text column that swapped it for an input with its own Save, next to choice
+columns and checkboxes that committed the moment you touched them. One card
+carried half a dozen edit affordances in half a dozen places, under two
+different rules about when a change was saved (Ray, 2026-08-19: *"the edit
+button locations do not make sense"*).
+
+Now **the page is read-only and each card header has ONE Edit button**, behind
+which sits `src/components/FieldEditModal.tsx` — shared, not copied per
+department, because two editors is how a fix reaches only one of them. It's
+descriptor-driven like everything else on those pages: a view maps its own
+field descriptors to `EditableFieldSpec[]`.
+
+Three things to preserve:
+
+- **Only changed fields come back.** `onSave` receives just the keys that
+  moved. On Gray Market that's load-bearing rather than tidy: several stored
+  choice values have drifted outside their column's choice list, and
+  re-sending one makes SharePoint reject the whole PATCH — the same reason
+  Visit Reports diffs its writes.
+- **Rich-text columns are handed over as PLAIN TEXT.** The caller converts
+  (`toPlainTextForEditing`) before opening and converts back through its
+  field-patch helper on save. Editing raw `<div class="ExternalClass…">` in a
+  textarea is how that markup gets corrupted.
+- **Drafts are seeded once.** The list behind the page refetches on its own
+  cadence; re-seeding from it would wipe whatever is half-typed.
+
+A new card of fields on either page needs no new editor — add the descriptors
+and point the Edit button at the section.
+
+### A boolean column is a Yes / No pair, never a checkbox
+
+`src/components/YesNoField.tsx`. Ticking a box left people reading a tick to
+work out what it meant, with no visible "No" to choose (Ray, 2026-08-19: *"the
+Yes and No fields are confusing; they should display their labels clearly so
+you can select Yes or No"*). Two radios show both options and which is picked.
+
+The value travels as `"Yes"` / `""` so it can sit in the same string-keyed
+`values` record as every other column; the mapper turns it into a real boolean
+on write. Read-only displays spell out "Yes" / "No" for the same reason — a
+checkbox on a page you can't edit looks like a control.
+
+One layout consequence: **a Yes/No group can't sit inside a `<label>`** — its
+own option labels would nest, which is invalid and steals the click. Wrappers
+around it are `<div>`s, and the controls beside it name themselves with
+`aria-label` (that's why `ChoiceSelect` / `SingleSelect` now take `ariaLabel`;
+without it the trigger is announced as just its current value).
 
 ### Modal backdrops: use `useOverlayDismiss`, never a bare `onClick`
 

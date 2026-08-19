@@ -11,6 +11,7 @@ import { useCreateEcn, useEcns } from "@/hooks/useEcns";
 import { ChoiceSelect } from "./SearchableSelect";
 import { SuggestInput } from "./SuggestInput";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
+import { YesNoField } from "./YesNoField";
 import { useOverlayDismiss } from "./useOverlayDismiss";
 
 // =============================================================================
@@ -173,6 +174,9 @@ export function EcnFormModal({ onClose, onCreated }: EcnFormModalProps) {
                     key={field.key}
                     label={field.label}
                     hint={field.hint}
+                    // A Yes/No group carries its own option labels, and a
+                    // label inside a label is invalid and steals the click.
+                    plain={field.kind === "boolean"}
                     className={field.kind === "richText" ? "sm:col-span-2" : undefined}
                   >
                     <FieldInput
@@ -236,16 +240,13 @@ function FieldInput({
 }) {
   if (field.kind === "boolean") {
     return (
-      <label className="inline-flex items-center gap-2 py-1.5 text-sm text-fg">
-        <input
-          type="checkbox"
-          checked={value === "Yes"}
-          onChange={(e) => onChange(e.target.checked ? "Yes" : "")}
-          disabled={disabled}
-          className="h-4 w-4 rounded border-border accent-cooper-red"
-        />
-        {value === "Yes" ? "Yes" : "No"}
-      </label>
+      <YesNoField
+        label={field.label}
+        value={value}
+        onChange={onChange}
+        disabled={disabled}
+        name={`new-ecn-${field.key}`}
+      />
     );
   }
   if (field.kind === "choice") {
@@ -297,22 +298,26 @@ function Field({
   required,
   hint,
   className,
+  plain,
   children,
 }: {
   label: string;
   required?: boolean;
   hint?: string;
   className?: string;
+  /** Render a <div> instead of a <label> — for controls that label themselves. */
+  plain?: boolean;
   children: React.ReactNode;
 }) {
+  const Wrapper = plain ? "div" : "label";
   return (
-    <label className={`block ${className ?? ""}`}>
+    <Wrapper className={`block ${className ?? ""}`}>
       <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
         {label}
         {required && <span className="ml-1 text-cooper-red">*</span>}
       </span>
       {children}
       {hint && <span className="mt-1 block text-[11px] text-fg-muted">{hint}</span>}
-    </label>
+    </Wrapper>
   );
 }

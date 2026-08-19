@@ -1656,7 +1656,7 @@ const SECTIONS: ManualSection[] = [
       "sign-off",
     ],
     searchText:
-      "Gray Market Requests at /supply-chain/gray-market-requests, under Supply Chain in the Departments menu, backed by the Gray Market Request list on the Altronic_PMO SharePoint site. A gray market request tracks a part bought outside normal distribution from the request through purchasing, engineering test, inspection and production sign-off. The list opens on Open requests with pills for Open / Complete / All, filters for Requestor and Testing Required, and an all-fields search. New Request asks only for the Title (the Altronic assembly number), request date, testing required and the purchasing details; the Log No. is generated as GMR_YYYY-###. Everything else is filled in on the request itself, in five cards — Request, Purchasing, Engineering, Inspection, Production — each field editable in place and saved on its own. Requests carry comments with @-mentions, watchers, and attachments. Whoever raises a request watches it. Requests cannot be deleted from ARC.",
+      "Gray Market Requests at /supply-chain/gray-market-requests, under Supply Chain in the Departments menu, backed by the Gray Market Request list on the Altronic_PMO SharePoint site. A gray market request tracks a part bought outside normal distribution from the request through purchasing, engineering test, inspection and production sign-off. The list opens on Open requests with pills for Open / Complete / All, filters for Requestor and Testing Required, and an all-fields search. New Request asks only for the Title (the Altronic assembly number), request date, testing required and the purchasing details; the Log No. is generated as GMR_YYYY-###. Everything else is filled in on the request itself, in five cards — Request, Purchasing, Engineering, Inspection, Production — each card with one Edit button in its header that opens a box holding that stage's fields; Save changes writes only the fields you touched. Requests carry comments with @-mentions, watchers, and attachments. Whoever raises a request watches it. Requests cannot be deleted from ARC.",
     render: () => (
       <>
         <P>
@@ -1688,9 +1688,12 @@ const SECTIONS: ManualSection[] = [
           The request page is the workflow, one card per stage —{" "}
           <strong>Request</strong>, <strong>Purchasing</strong>,{" "}
           <strong>Engineering</strong>, <strong>Inspection</strong>,{" "}
-          <strong>Production</strong>. Every field edits in place and saves on
-          its own, so four teams can fill in their parts without waiting for
-          each other or opening a form.
+          <strong>Production</strong>. Each card has one{" "}
+          <strong>Edit</strong> button in its header: press it and a box opens
+          with that stage's fields, change what you need, then{" "}
+          <strong>Save changes</strong>. Only the fields you actually touched
+          are written, so four teams can fill in their parts without waiting
+          for each other or overwriting each other's columns.
         </P>
         <UL>
           <LI>
@@ -2141,7 +2144,7 @@ const SECTIONS: ManualSection[] = [
       "notification",
     ],
     searchText:
-      "ECNs at /engineering/ecns, under Engineering — Engineering Change Notices, the record of a change to a released product, backed by the ECN NEW list on the Altronic Engineering SharePoint site. The table lists every notice newest first by Log#. Search covers everything including the Detailed Description, so you can find which ECN changed a part number. Filter by In House Stock disposition, whether the drawings are complete, and whether the notice is on hold. Click a row to open it. New ECN raises one: you type the Log# yourself because it comes off the ECN paperwork, and a revision keeps the number of the notice it revises with an R suffix (260059R1); the form refuses a number another ECN already has. On the notice, every field edits in place and saves on its own — Change (final assembly part numbers, detailed description, serial numbers), Disposition (in house stock, field returns impacted, drawings complete, on hold) and Sign-off (engineering comments, sign-off status). You can attach files to a notice. Comments work differently from the rest of ARC: an ECN has no watchers, so posting a comment emails the person who submitted the ECN and anyone you @-mention, and nobody else. Notices are never deleted; a superseded one is revised.",
+      "ECNs at /engineering/ecns, under Engineering — Engineering Change Notices, the record of a change to a released product, backed by the ECN NEW list on the Altronic Engineering SharePoint site. The table lists every notice newest first by Log#. Search covers everything including the Detailed Description, so you can find which ECN changed a part number. Filter by In House Stock disposition, whether the drawings are complete, and whether the notice is on hold. Click a row to open it. New ECN raises one: you type the Log# yourself because it comes off the ECN paperwork, and a revision keeps the number of the notice it revises with an R suffix (260059R1); the form refuses a number another ECN already has. On the notice, each card has one Edit button in its header that opens a box with that card's fields — Change (final assembly part numbers, detailed description, serial numbers), Disposition (in house stock, field returns impacted, drawings complete, on hold) and Sign-off (engineering comments, sign-off status). Save changes writes only the fields you touched. The Log# and Title are edited the same way, from Edit Details in the sidebar. Yes/No columns are picked as Yes or No rather than ticked. You can attach files to a notice. Comments work differently from the rest of ARC: an ECN has no watchers, so posting a comment emails the person who submitted the ECN and anyone you @-mention, and nobody else. Notices are never deleted; a superseded one is revised.",
     render: () => (
       <>
         <P>
@@ -2187,9 +2190,11 @@ const SECTIONS: ManualSection[] = [
 
         <H3>Working it through</H3>
         <P>
-          On the notice itself, every field edits in place and saves on its
-          own, so several people can fill in their part without stepping on
-          each other:
+          Each card on the notice has one <strong>Edit</strong> button in its
+          header. Press it and a box opens with that card's fields; change what
+          you need and press <strong>Save changes</strong>. Only the fields you
+          touched are written, so several people can fill in their part without
+          stepping on each other:
         </P>
         <UL>
           <LI>

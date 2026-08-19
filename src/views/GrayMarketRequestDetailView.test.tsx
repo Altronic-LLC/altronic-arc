@@ -34,14 +34,9 @@ function section(name: string): HTMLElement {
   return screen.getByRole("heading", { name, level: 2 }).closest("section") as HTMLElement;
 }
 
-/**
- * One field's block inside a section. The label sits in a header row next to
- * the Edit button, so the block is the header's parent — the input and the
- * rendered value are its siblings.
- */
+/** One field's block inside a section — the label and its value, read-only. */
 function fieldBlock(sectionName: string, label: string): HTMLElement {
-  const header = within(section(sectionName)).getByText(label).closest("div") as HTMLElement;
-  return header.parentElement as HTMLElement;
+  return within(section(sectionName)).getByText(label).parentElement as HTMLElement;
 }
 
 describe("GrayMarketRequestDetailView", () => {
@@ -71,19 +66,44 @@ describe("GrayMarketRequestDetailView", () => {
     ).toBeInTheDocument();
   });
 
-  it("edits a field in place", async () => {
+  // One Edit per stage, opening a modal. The page used to carry an Edit link
+  // per text column, with choice columns saving the moment you touched them —
+  // six edit affordances on one card, two rules about committing (Ray,
+  // 2026-08-19).
+  it("gives each stage one Edit button and no inline editors", async () => {
     await renderRequest();
-    const vendorRow = fieldBlock("Purchasing", "Vendor");
+    for (const name of ["Request", "Purchasing", "Engineering", "Inspection", "Production"]) {
+      expect(screen.getByRole("button", { name: `Edit ${name}` })).toBeInTheDocument();
+    }
+    expect(screen.queryAllByRole("button", { name: "Edit" })).toHaveLength(0);
+  });
 
-    await userEvent.click(within(vendorRow).getByRole("button", { name: "Edit" }));
-    const input = within(vendorRow).getByRole("textbox", { name: "Vendor" });
+  it("edits a field through its stage's modal", async () => {
+    await renderRequest();
+    await userEvent.click(screen.getByRole("button", { name: "Edit Purchasing" }));
+
+    const dialog = await screen.findByRole("dialog", { name: /edit purchasing/i });
+    const input = within(dialog).getByRole("textbox", { name: "Vendor" });
     await userEvent.clear(input);
     await userEvent.type(input, "Digi-Key");
-    await userEvent.click(within(vendorRow).getByRole("button", { name: "Save" }));
+    await userEvent.click(within(dialog).getByRole("button", { name: /save changes/i }));
 
     await waitFor(() =>
       expect(within(section("Purchasing")).getByText("Digi-Key")).toBeInTheDocument(),
     );
+  });
+
+  it("leaves the values alone when the modal is cancelled", async () => {
+    await renderRequest();
+    const before = fieldBlock("Purchasing", "Vendor").textContent;
+
+    await userEvent.click(screen.getByRole("button", { name: "Edit Purchasing" }));
+    const dialog = await screen.findByRole("dialog", { name: /edit purchasing/i });
+    await userEvent.type(within(dialog).getByRole("textbox", { name: "PO No." }), "XYZ");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    expect(fieldBlock("Purchasing", "Vendor").textContent).toBe(before);
+    expect(within(section("Purchasing")).queryByText(/XYZ/)).toBeNull();
   });
 
   it("renders Where Used as the rich text SharePoint stores, not as tags", async () => {

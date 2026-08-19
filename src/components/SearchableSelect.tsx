@@ -33,6 +33,8 @@ export interface MultiSelectProps extends BaseProps {
 export interface SingleSelectProps extends BaseProps {
   selected: string | null;
   onChange: (next: string | null) => void;
+  /** Accessible name, when no <label> wraps this. */
+  ariaLabel?: string;
   /** Greyed out and unopenable — for a form that's mid-save. */
   disabled?: boolean;
   /**
@@ -103,6 +105,7 @@ export function SingleSelect({
   searchPlaceholder,
   clearable = true,
   disabled,
+  ariaLabel,
 }: SingleSelectProps) {
   const selectedOpt = options.find((o) => o.value === selected) ?? null;
   const summary = selectedOpt?.label ?? allLabel;
@@ -112,6 +115,7 @@ export function SingleSelect({
       summary={summary}
       isEmpty={selectedOpt == null}
       disabled={disabled}
+      ariaLabel={ariaLabel}
       onClear={selectedOpt && clearable && !disabled ? () => onChange(null) : undefined}
       renderPanel={({ close }) => (
         <SearchablePanel
@@ -152,11 +156,14 @@ export function ChoiceSelect({
   searchPlaceholder,
   clearable = true,
   disabled,
+  ariaLabel,
 }: {
   value: string;
   onChange: (next: string) => void;
   options: readonly string[] | readonly SelectOption[];
   disabled?: boolean;
+  /** Accessible name, when no <label> wraps this. */
+  ariaLabel?: string;
   /** Trigger text when nothing is chosen — the old empty `<option>`'s label. */
   emptyLabel: string;
   searchPlaceholder?: string;
@@ -174,6 +181,7 @@ export function ChoiceSelect({
       searchPlaceholder={searchPlaceholder}
       clearable={clearable}
       disabled={disabled}
+      ariaLabel={ariaLabel}
     />
   );
 }
@@ -182,6 +190,13 @@ interface DropdownShellProps {
   summary: string;
   isEmpty: boolean;
   disabled?: boolean;
+  /**
+   * Accessible name for the trigger. Most of these sit inside a <label>, which
+   * names the button for free — but a control that labels itself (the Yes/No
+   * radio group beside it can't live in a label) needs this instead, or the
+   * button is announced as just its current value.
+   */
+  ariaLabel?: string;
   onClear?: () => void;
   renderPanel: (api: { close: () => void }) => React.ReactNode;
   /**
@@ -204,6 +219,7 @@ function DropdownShell({
   summary,
   isEmpty,
   disabled,
+  ariaLabel,
   onClear,
   renderPanel,
   chips,
@@ -270,6 +286,7 @@ function DropdownShell({
           onClick={() => setOpen((o) => !o)}
           disabled={disabled}
           className="select flex items-center justify-between gap-2 text-left disabled:cursor-not-allowed disabled:opacity-60"
+          aria-label={ariaLabel}
           aria-haspopup="listbox"
           aria-expanded={open}
         >

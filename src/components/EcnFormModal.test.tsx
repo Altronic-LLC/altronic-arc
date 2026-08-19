@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
 import { EcnFormModal } from "./EcnFormModal";
@@ -77,11 +77,15 @@ describe("EcnFormModal", () => {
     expect(typeof onCreated.mock.calls[0][0]).toBe("number");
   });
 
-  it("ticks a boolean column", async () => {
+  // A bare checkbox left people guessing what the tick meant and gave them no
+  // visible "No" to pick (Ray, 2026-08-19).
+  it("offers a boolean column as a labelled Yes / No", async () => {
     await renderForm();
-    const returns = screen.getByLabelText(/Field Returns Impacted/);
-    await userEvent.click(returns);
-    expect(returns).toBeChecked();
+    const group = screen.getByRole("radiogroup", { name: /Field Returns Impacted/ });
+    expect(within(group).getByRole("radio", { name: "No" })).toBeChecked();
+
+    await userEvent.click(within(group).getByRole("radio", { name: "Yes" }));
+    expect(within(group).getByRole("radio", { name: "Yes" })).toBeChecked();
   });
 
   // Sign-off is filled in later, on the notice itself.

@@ -20,6 +20,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.102.0",
+    date: "2026-08-19",
+    changes: [
+      "Gray Market requests and ECNs now have one Edit button per card instead of an Edit link on every other field — press it, change what you need in the box that opens, and Save changes",
+      "Only the fields you actually touched get written, so two people working different parts of the same record don't overwrite each other",
+      "Yes/No fields are now a labelled Yes or No to pick, rather than a checkbox you had to interpret",
+      "Cancel really does cancel — nothing is saved until you press Save changes",
+    ],
+  },
+  {
     version: "0.101.1",
     date: "2026-08-19",
     changes: [
