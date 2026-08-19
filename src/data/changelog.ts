@@ -20,6 +20,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.101.0",
+    date: "2026-08-19",
+    changes: [
+      "Engineering gets ECNs — every Engineering Change Notice, reading and writing the same SharePoint list you already use",
+      "Search covers the Detailed Description, so \"which ECN changed 711478?\" is a question you can answer by typing the part number",
+      "Filter by stock disposition, whether the drawings are done, and whether a notice is on hold",
+      "Raise a new ECN, then fill in the change, the disposition and the sign-off in place — each field saves on its own",
+      "You type the Log# yourself, since a revision keeps the number of the notice it revises; the form won't let you reuse one",
+      "Attach the marked-up drawing or the ECN form to a notice",
+      "Comments on an ECN reach the person who submitted it and anyone you @-mention — ECNs have no watchers, and the page says so above the comment box",
+    ],
+  },
+  {
     version: "0.100.0",
     date: "2026-08-19",
     changes: [

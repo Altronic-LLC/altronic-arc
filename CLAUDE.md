@@ -229,6 +229,7 @@ src/
 │   ├── taskColumns.ts            Task list column metadata / choice discovery
 │   ├── eirs.ts                   EIR CRUD
 │   ├── eirRoles.ts               EIR role tags (engineer / supply chain) CRUD
+│   ├── ecns.ts                   ECN CRUD + comments (Engineering) — no delete
 │   ├── testSheets.ts             Test Results CRUD
 │   ├── admins.ts                 Admins list CRUD
 │   ├── csaListings.ts            CSA Listings CRUD (Engineering certification register)
@@ -265,6 +266,7 @@ src/
 │   ├── visitReportMockData.ts    Sample visit reports
 │   ├── grayMarketMockData.ts     Sample gray market requests
 │   ├── whereAmIMockData.ts       Sample out-of-office entries (dated from today)
+│   ├── ecnMockData.ts            Sample ECNs (rich-text fields, a revision)
 │   ├── buildRequestMockData.ts   Sample build requests + items
 │   └── changelog.ts              Version history (drives footer + history modal)
 │
@@ -282,6 +284,7 @@ src/
 │   ├── useVisitReports.ts        Visit Report queries + mutations
 │   ├── useGrayMarketRequests.ts  Gray Market queries, mutations + comment thread
 │   ├── useWhereAmI.ts            Where am I? queries + mutations
+│   ├── useEcns.ts                ECN queries + mutations (submitter-only notifications)
 │   ├── useVisitReportFilters.ts  URL-backed Visit Report filters (+ filterSearch)
 │   ├── useBuildRequests.ts       Build Requests + Items queries/mutations
 │   ├── useTestSheets.ts          Test sheet queries + mutations
@@ -317,6 +320,8 @@ src/
 │   ├── eirFilters.ts             Pure EIR filter/sort/count predicates (list + board)
 │   ├── eirMapper.ts              Graph item → Eir (field-name quirks)
 │   ├── eirNumber.ts              nextEirNo() — EIR_YYYY-#### auto-numbering
+│   ├── ecnFields.ts              ECN column descriptors (field_2 … field_12 decoded)
+│   ├── ecnMapper.ts              Graph item → Ecn, Log# parsing/sorting
 │   ├── eirPromotion.ts           EIR → Task promotion helpers
 │   ├── testSheetMapper.ts        Graph item → TestSheet
 │   ├── csaListingMapper.ts       Graph item → CsaListing (+ label, sort, search)
@@ -391,6 +396,7 @@ src/
 │   ├── VisitReportFormModal.tsx  Create/edit a visit report
 │   ├── GrayMarketRequestFormModal.tsx  Raise a gray market request
 │   ├── WhereAmIFormModal.tsx     Add/edit an out-of-office entry (+ date range)
+│   ├── EcnFormModal.tsx          Raise an ECN
 │   ├── BuildRequestFormModal.tsx Create/edit build request
 │   ├── BuildRequestItemFormModal.tsx  Add/edit a part
 │   ├── EirFormModal.tsx          Create/edit EIR
@@ -413,6 +419,7 @@ src/
 │   ├── panelAtoms.tsx            Panel-specific badges/chips
 │   ├── visitReportAtoms.tsx      Customer-status chip (Sales)
 │   ├── grayMarketAtoms.tsx       Request-status + Pass/Fail chips (Supply Chain)
+│   ├── ecnAtoms.tsx              On-hold / flag / stock-disposition chips (ECNs)
 │   ├── VisitReportFilterBar.tsx  Shared filter bar for both Visit Report views
 │   ├── buildRequestAtoms.tsx     Build-request-specific badges/chips
 │   └── brand/{Brandmark,Wordmark}.tsx   Official Altronic marks
@@ -447,6 +454,8 @@ src/
 │   ├── VisitReportsView.tsx      Visit Reports list (Sales)
 │   ├── GrayMarketRequestsView.tsx      Gray Market Requests list (Supply Chain)
 │   ├── WhereAmIView.tsx          Where am I? — month grid on desktop, agenda on a phone
+│   ├── EcnsView.tsx              ECNs list (search covers the descriptions)
+│   ├── EcnDetailView.tsx         One ECN — workflow cards, attachments, comments
 │   ├── GrayMarketRequestDetailView.tsx Gray Market request — workflow cards, comments, attachments
 │   ├── VisitReportsCalendarView.tsx  Visit Reports month calendar (desktop only)
 │   ├── VisitReportDetailView.tsx Visit report detail + attachments
@@ -798,6 +807,72 @@ code. If expiry comes back, it needs the decision first: a new Expiry Date colum
 in SharePoint, or a rule deriving it from `DateCertified`. Recover the old
 implementation from git history rather than rewriting it (`git log --
 src/lib/certificationExpiry.ts`).
+
+### ECNs (Engineering Change Notices)
+
+`f6917bf4-bdd1-4ff9-ba71-0a17b22b1ecc` (env: `VITE_SP_ECNS_LIST_ID`) on
+`SITES.engineering`. **1,813 rows.** Schema captured 2026-08-19 in
+`scripts/ecn-new-schema.json`.
+
+**Every workflow column is called `field_N`.** The list came out of a
+migration and the internal names carry no information whatsoever:
+
+| Internal name | Actually is |
+|---|---|
+| `field_2` | Log# |
+| `field_3` | On Hold |
+| `field_4` | Final Assembly Part Numbers |
+| `field_5` | Detailed Description (rich text) |
+| `field_6` | Serial Numbers (rich text) |
+| `field_7` | In House Stock |
+| `field_8` | Field Returns Impacted (**boolean**) |
+| `field_9` | Drawings Complete? (**boolean**) |
+| `field_10` | Engineering Comments (rich text) |
+| `field_12` | Sign-off status |
+
+`src/lib/ecnFields.ts` is the ONLY place that translation exists, and the
+mapper, write payload, `$select`, detail cards and create form all run off it.
+**`field_1` and `field_11` don't exist** — dropped somewhere in the import.
+Don't infer a column from the gap; selecting one that isn't there 400s the
+whole read.
+
+Five things that shape the feature:
+
+- **No Watchers column, and no requester column.** So ECN comments notify the
+  **submitter plus anyone @-mentioned, and nobody else** (Ray, 2026-08-19) —
+  the one comment thread in ARC that doesn't follow the watcher rules. The
+  rule is `ecnCommentRecipients` in `lib/mentions.ts`, deliberately NOT
+  `commentNotifyRecipients`, and there is no watch button because there is
+  nowhere to store a watch. A mention emails once; it doesn't subscribe.
+- **`submittedBy` is Graph's item-level `createdBy`**, which is why the read
+  passes `$select=id,createdBy,…` alongside `$expand=fields(...)`. For the
+  1,809 rows that arrived with the 2026-08-12 migration that's the migration
+  account (Ray), not the engineer who raised the original notice. Fixing that
+  properly needs a person column on the list.
+- **The Log# is typed, never generated** (Ray, 2026-08-19). It reads `YY####`
+  (`260059`) with an `R#` suffix on a revision (`260059R1`) — and a revision
+  keeps the number of the notice it revises, so a generated "next number"
+  would be wrong exactly when it mattered. The create form shows the latest
+  number and refuses a duplicate; that's the whole enforcement.
+- **Two columns are real booleans.** They're carried in `values` as `"Yes"` /
+  `""` so the record stays one shape, and turned back into `true`/`false` on
+  write. A create always sends both, because leaving the column null makes
+  SharePoint's own views read it as blank rather than No.
+- **The long fields hold SharePoint rich text** (`<div class="ExternalClass…">`
+  with `&#58;` / `&#160;` entities), so they render sanitised and write through
+  `toStoredRichText` — the same arrangement as the EIR long fields and Gray
+  Market's `WhereUsed`.
+
+**No delete**, in the UI or the API module — an ECN is a controlled record of a
+change that was made, and a superseded notice is revised rather than removed.
+`ecns.test.ts` asserts the module exports nothing matching /delete|remove/.
+
+1,813 rows is under the 5,000-item threshold, so the list is fetched whole and
+filtered in the browser — which is what makes searching the Detailed
+Description for a part number possible at all. `EcnsView` renders 150 rows with
+a "show all"; the filters and the count always run over everything.
+
+Attachments are enabled on the list (kind `ecn` in `api/attachments.ts`).
 
 ### "Where am I?" (Engineering out-of-office calendar)
 

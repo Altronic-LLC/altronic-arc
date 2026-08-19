@@ -72,9 +72,9 @@ const SYSTEM_TIERS: Tier[] = [
   {
     label: "React SPA",
     nodes: [
-      { label: "Views", hint: "Dashboard · List · Kanban · Detail · EIRs · Test Sheets · Project Folders · CSA Listings · Drawing File Logs · Digital QC · Ignition QC · Potting Sample Log · Visit Reports (list + calendar) · Gray Market Requests · Where Am I? · Drawing Work Sheet (print) · Admin", palette: "ui" },
-      { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useBuildRequests · useCsaListings · useDrawingLogs · useDigitalQc · useIgnitionQc · usePottingSampleLog · useVisitReports · useGrayMarketRequests · useWhereAmI · useAdmins · useEirRoles · useTaskFiles · useProjectFolders", palette: "ui" },
-      { label: "API layer", hint: "src/api/tasks · eirs · testSheets · buildRequests · buildRequestItems · csaListings · drawingLogs · digitalQc · ignitionQc · pottingSampleLog · visitReports · grayMarketRequests · whereAmI · autoWatch · panelOrders · panelTasks · admins · eirRoles · panelRoles · directory · siteUsers · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
+      { label: "Views", hint: "Dashboard · List · Kanban · Detail · EIRs · Test Sheets · Project Folders · CSA Listings · Drawing File Logs · Digital QC · Ignition QC · Potting Sample Log · Visit Reports (list + calendar) · Gray Market Requests · Where Am I? · ECNs · Drawing Work Sheet (print) · Admin", palette: "ui" },
+      { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useBuildRequests · useCsaListings · useDrawingLogs · useDigitalQc · useIgnitionQc · usePottingSampleLog · useVisitReports · useGrayMarketRequests · useWhereAmI · useEcns · useAdmins · useEirRoles · useTaskFiles · useProjectFolders", palette: "ui" },
+      { label: "API layer", hint: "src/api/tasks · eirs · testSheets · buildRequests · buildRequestItems · csaListings · drawingLogs · digitalQc · ignitionQc · pottingSampleLog · visitReports · grayMarketRequests · whereAmI · ecns · autoWatch · panelOrders · panelTasks · admins · eirRoles · panelRoles · directory · siteUsers · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
       {
         label: "Build Requests (lazy-loaded)",
         hint: "BuildRequestsView · BuildRequestDetailView — a master-detail pair: the Tracker header list + any number of parts from the Items list, joined by BuildRequestNo. Own code-split chunk.",
@@ -143,6 +143,7 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "Panel Project Reference", hint: "ALTRONICPANELTEAM site — admin-managed project reference numbers (orders + tasks share it)", palette: "list" },
       { label: "Panel User Roles", hint: "ALTRONICPANELTEAM site — one row per user per role (gating ships dark in v1)", palette: "list" },
       { label: "Where am I?", hint: "Engineering site — the team's out-of-office calendar. Two columns (Title, Date) and no end date, so a week away is a row per day; dates are stored at 06:00Z (US Central midnight)", palette: "list" },
+      { label: "ECN NEW", hint: "Engineering site — Engineering Change Notices. Every workflow column is named field_2 … field_12, so src/lib/ecnFields.ts is the only place their meaning exists; no Watchers and no requester column, so comments reach the submitter (Graph createdBy) and anyone mentioned", palette: "list" },
       { label: "Gray Market Request", hint: "Altronic_PMO site — parts bought outside normal distribution; Title is the Altronic assembly no, Log No. is calculated from LogNo.Raw, and the list carries its own Communication + Watchers columns", palette: "list" },
       { label: "Visit Reports", hint: "ALTRONICSALESTEAM site — regional managers' customer visits; Title is the Customer Name, City0/State0 carry the trailing zero, Month/Year/Day are calculated", palette: "list" },
     ],
@@ -730,6 +731,28 @@ const SCHEMA_TABLES: SchemaTable[] = [
       { name: "watchers", type: "person[]", kind: "field" },
       { name: "comments (Communication)", type: "text", kind: "field" },
       { name: "values (30 columns)", type: "text", kind: "field" },
+    ],
+  },
+  {
+    // The workflow columns live in `values`, keyed by the descriptors in
+    // lib/ecnFields.ts — on this list they're all named field_2 … field_12,
+    // so their real names would tell a reader nothing anyway.
+    //
+    // No watchers and no requester: `submittedBy` is Graph's item-level
+    // createdBy, which is why it's drawn as a field rather than an FK to
+    // Person — there's no lookup column behind it.
+    name: "ECN",
+    source: "ECN NEW (Engineering site)",
+    palette: "entity",
+    x: 790, y: 3130, width: 330,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "logNo (field_2)", type: "text", kind: "field" },
+      { name: "title (part / assembly)", type: "text", kind: "field" },
+      { name: "submittedBy (createdBy)", type: "person", kind: "field" },
+      { name: "comments (Communication)", type: "text", kind: "field" },
+      { name: "hasAttachments", type: "bool", kind: "field" },
+      { name: "values (9 field_N columns)", type: "text", kind: "field" },
     ],
   },
   {

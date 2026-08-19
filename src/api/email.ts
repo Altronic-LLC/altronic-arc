@@ -31,10 +31,12 @@ export interface MentionRecipient {
   displayName: string;
   /**
    * Why they're being notified — "mentioned", "assigned" (the item is assigned
-   * to them), or a plain "watching" comment alert; "edited" when the author
-   * checked "Notify everyone again" after editing an existing comment.
+   * to them), "submitted" (they raised the item; ECNs have no watchers and no
+   * assignee, so this is the only standing recipient), or a plain "watching"
+   * comment alert; "edited" when the author checked "Notify everyone again"
+   * after editing an existing comment.
    */
-  reason: "mentioned" | "assigned" | "watching" | "edited";
+  reason: "mentioned" | "assigned" | "submitted" | "watching" | "edited";
 }
 
 /** What the mention is on — drives the wording, link, and button text. */
@@ -42,6 +44,7 @@ export interface MentionTarget {
   kind:
     | "task"
     | "eir"
+    | "ecn"
     | "operationsTask"
     | "buildRequest"
     | "buildRequestItem"
@@ -59,6 +62,7 @@ const KIND_COPY: Record<
 > = {
   task: { phrase: "a task", calloutLabel: "Task", buttonText: "Open this task" },
   eir: { phrase: "an EIR", calloutLabel: "EIR", buttonText: "Open this EIR" },
+  ecn: { phrase: "an ECN", calloutLabel: "ECN", buttonText: "Open this ECN" },
   operationsTask: { phrase: "a task", calloutLabel: "Task", buttonText: "Open this task" },
   buildRequest: {
     phrase: "a build request",
@@ -607,7 +611,9 @@ function renderMentionEmail(ctx: MentionEmailContext): string {
         ? `<strong>${sender}</strong> updated a comment on ${copy.phrase} you're following — here's the latest version:`
         : ctx.reason === "assigned"
           ? `<strong>${sender}</strong> commented on ${copy.phrase} assigned to you.`
-          : `<strong>${sender}</strong> commented on ${copy.phrase} you're watching.`;
+          : ctx.reason === "submitted"
+            ? `<strong>${sender}</strong> commented on ${copy.phrase} you submitted.`
+            : `<strong>${sender}</strong> commented on ${copy.phrase} you're watching.`;
 
   return renderEmailShell({
     recipientName: ctx.recipientName,

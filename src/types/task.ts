@@ -1383,3 +1383,57 @@ export interface WhereAmIEntry {
   createdAt: Date;
   modifiedAt: Date;
 }
+
+// =============================================================================
+// ECNs (Engineering Change Notices) — Engineering, on the Altronic_Engineering
+// site. The record of a change to a released product: what changed, which
+// assemblies and serial numbers it touches, what happens to stock on hand, and
+// whether the drawings have caught up.
+//
+// Every workflow column on this list is named `field_2` … `field_12`, so they
+// live in `values`, keyed by the domain keys in `src/lib/ecnFields.ts`. That
+// file is the ONLY place the field_N → meaning mapping exists.
+//
+// Two absences shape the feature:
+//
+//  - **No Watchers column.** ECN comments notify the submitter and anyone
+//    @-mentioned, and nobody else (Ray, 2026-08-19). There is no watch button
+//    because there is nowhere to store a watch.
+//  - **No requester column.** `submittedBy` comes from Graph's `createdBy`,
+//    which for the 1,809 migrated rows is whoever ran the migration rather
+//    than the engineer who raised the original ECN.
+// =============================================================================
+
+export interface Ecn {
+  id: number;
+  /** `Title` — the part or assembly the change is against. */
+  title: string;
+  /**
+   * `field_2`, labelled "Log#". Free text. In practice it reads `YY####`
+   * (e.g. "260059"), with an `R#` suffix on a revision of an earlier notice
+   * ("260059R1") — but the app does NOT generate or enforce it (Ray,
+   * 2026-08-19): the number comes from the ECN paperwork, and a revision has
+   * to keep the number of the notice it revises.
+   */
+  logNo: string;
+  /**
+   * Graph's `createdBy` — there is no requester column on the list. For rows
+   * that came in with the migration this is the migration account, not the
+   * original author.
+   */
+  submittedBy: Person | null;
+  comments: Comment[];
+  hasAttachments: boolean;
+  /** Every workflow column, keyed by the descriptor keys in ecnFields.ts. */
+  values: Record<string, string>;
+  createdAt: Date;
+  modifiedAt: Date;
+}
+
+/** Everything a create needs. Edits go field-by-field from the detail page. */
+export interface EcnInput {
+  title: string;
+  /** Typed by whoever raises the ECN — see the note on `Ecn.logNo`. */
+  logNo: string;
+  values: Record<string, string>;
+}

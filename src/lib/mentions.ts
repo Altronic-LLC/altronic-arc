@@ -248,7 +248,7 @@ export interface CommentRecipient {
   email: string;
   displayName: string;
   /** Why they're being notified — drives the email wording. */
-  reason: "mentioned" | "assigned" | "watching" | "edited";
+  reason: "mentioned" | "assigned" | "submitted" | "watching" | "edited";
 }
 
 /** A person as the recipient math needs them — a name plus a maybe-missing email. */
@@ -363,6 +363,57 @@ export function commentRenotifyRecipients(args: {
     assignees: args.assignees,
     authorEmail: args.authorEmail,
   }).map((r) => ({ ...r, reason: "edited" as const }));
+}
+
+/**
+ * Who to email about a comment on an **ECN** — the submitter plus everyone
+ * @-mentioned, and nobody else (Ray, 2026-08-19).
+ *
+ * This is deliberately NOT `commentNotifyRecipients`. Every other entity in
+ * ARC notifies its watchers, and the rules elsewhere work hard to make sure
+ * the watcher list fills itself. An ECN has no watchers at all: the list has
+ * no Watchers column, so there is nowhere to store one, and the team asked
+ * for the narrower rule anyway — an ECN thread is a conversation with whoever
+ * raised the change, not a broadcast.
+ *
+ * The submitter is Graph's `createdBy`. On the 1,809 rows that arrived with
+ * the migration that's the migration account rather than the original author,
+ * so a comment on an old notice reaches the person who imported it. That's
+ * what the data supports; a real submitter would need a person column on the
+ * list.
+ *
+ * Same author rule as everywhere else: the person posting isn't emailed their
+ * own comment unless they @-mentioned themselves.
+ */
+export function ecnCommentRecipients(args: {
+  bodyHtml: string;
+  submittedBy: NotifiablePerson | null | undefined;
+  authorEmail: string;
+}): CommentRecipient[] {
+  const author = (args.authorEmail ?? "").toLowerCase();
+  const mentions = extractMentionedRecipients(args.bodyHtml);
+  const selfMentioned = mentions.some((m) => m.email.toLowerCase() === author);
+
+  const byEmail = new Map<string, CommentRecipient>();
+  const submitterEmail = args.submittedBy?.email?.trim();
+  if (args.submittedBy && submitterEmail) {
+    byEmail.set(submitterEmail.toLowerCase(), {
+      email: submitterEmail,
+      displayName: args.submittedBy.displayName,
+      reason: "submitted",
+    });
+  }
+  // A mention outranks being the submitter — "you were mentioned" is the
+  // stronger signal, and the submitter usually IS mentioned by name.
+  for (const m of mentions) {
+    byEmail.set(m.email.toLowerCase(), {
+      email: m.email,
+      displayName: m.displayName,
+      reason: "mentioned",
+    });
+  }
+  if (!selfMentioned) byEmail.delete(author);
+  return Array.from(byEmail.values());
 }
 
 /**

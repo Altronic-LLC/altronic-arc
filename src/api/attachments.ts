@@ -2,6 +2,7 @@ import {
   SP_BUILD_REQUEST_ITEMS_LIST_ID,
   SP_BUILD_REQUESTS_LIST_ID,
   SP_CSA_LISTINGS_LIST_ID,
+  SP_ECNS_LIST_ID,
   SP_EIRS_LIST_ID,
   SP_LIST_ID,
   SP_OPERATIONS_TASKS_LIST_ID,
@@ -41,6 +42,7 @@ export interface ListAttachment {
 export type AttachmentParent =
   | "task"
   | "eir"
+  | "ecn"
   | "operationsTask"
   | "buildRequest"
   | "buildRequestItem"
@@ -61,6 +63,10 @@ interface ParentConfig {
 const PARENT_CONFIG: Record<AttachmentParent, ParentConfig> = {
   task: { listId: SP_LIST_ID, siteUrl: SP_SITE_URL, listIdEnvVar: "VITE_SP_LIST_ID" },
   eir: { listId: SP_EIRS_LIST_ID, siteUrl: SP_SITE_URL, listIdEnvVar: "VITE_SP_EIRS_LIST_ID" },
+  // The marked-up drawing, the two-page ECN form, the photo of the board.
+  // Attachments were already enabled on the list, so this needs nothing in
+  // SharePoint beyond the AllSites.Manage consent every attachment path wants.
+  ecn: { listId: SP_ECNS_LIST_ID, siteUrl: SP_SITE_URL, listIdEnvVar: "VITE_SP_ECNS_LIST_ID" },
   operationsTask: {
     listId: SP_OPERATIONS_TASKS_LIST_ID,
     siteUrl: SP_PMO_SITE_URL,
