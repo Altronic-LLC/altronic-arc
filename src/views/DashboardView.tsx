@@ -654,6 +654,15 @@ export function DashboardView() {
           // No `segments` — a certification register has no active/done states.
           onClick={() => navigate("/csa-listings")}
         />
+        {/* Owned by Supply Chain, worked in by Engineering — the same list,
+            surfaced in both sections rather than duplicated. */}
+        <TypeCard
+          name="Gray Market Requests"
+          icon={<PackageSearch className="h-5 w-5" />}
+          tone="cooper-red"
+          description="Parts bought outside normal distribution — engineering test and sign-off sit in the same record."
+          onClick={() => navigate("/supply-chain/gray-market-requests")}
+        />
         <PlaceholderCard name="ECNs" icon={<Wrench className="h-5 w-5" />} />
       </DeptSection>
 

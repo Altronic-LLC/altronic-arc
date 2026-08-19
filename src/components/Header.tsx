@@ -128,6 +128,12 @@ const DEPARTMENTS: DepartmentGroup[] = [
         icon: <BadgeCheck className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/csa-listings"),
       },
+      {
+        to: "/supply-chain/gray-market-requests",
+        label: "Gray Market Requests",
+        icon: <PackageSearch className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/supply-chain/gray-market-request"),
+      },
       soon("ECNs", <Wrench className="h-4 w-4" />),
     ],
   },
