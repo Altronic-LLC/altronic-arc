@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.99.2",
+    date: "2026-08-19",
+    changes: [
+      "Gray Market Requests really is under Supply Chain only now — v0.99.1 said so but the two files that remove it from Engineering didn't make it through the merge",
+    ],
+  },
+  {
     version: "0.99.1",
     date: "2026-08-19",
     changes: [
