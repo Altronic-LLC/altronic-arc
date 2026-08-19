@@ -245,6 +245,8 @@ src/
 │   ├── panelProjects.ts          Panel Project Reference list
 │   ├── panelRoles.ts             Panel User Roles list CRUD
 │   ├── visitReports.ts           Visit Reports CRUD (Sales, salesTeam site) — no delete
+│   ├── grayMarketRequests.ts     Gray Market Requests CRUD + comments (PMO site) — no delete
+│   ├── autoWatch.ts              Shared @-mention → watcher resolution (per-site)
 │   ├── projectFiles.ts           Documents-library project folders + files
 │   ├── attachments.ts            List-item attachments (task | eir | csaListing) via SP REST
 │   ├── email.ts                  Mention + change-alert mail; reports sends that FAIL
@@ -260,6 +262,7 @@ src/
 │   ├── operationsMockData.ts     Sample Operations tasks + projects
 │   ├── panelMockData.ts          Sample panel orders + panel tasks
 │   ├── visitReportMockData.ts    Sample visit reports
+│   ├── grayMarketMockData.ts     Sample gray market requests
 │   ├── buildRequestMockData.ts   Sample build requests + items
 │   └── changelog.ts              Version history (drives footer + history modal)
 │
@@ -275,6 +278,7 @@ src/
 │   ├── usePanelTasks.ts          Panel task queries + mutations
 │   ├── usePanelRoles.ts          Panel User Roles CRUD (admin-guarded)
 │   ├── useVisitReports.ts        Visit Report queries + mutations
+│   ├── useGrayMarketRequests.ts  Gray Market queries, mutations + comment thread
 │   ├── useVisitReportFilters.ts  URL-backed Visit Report filters (+ filterSearch)
 │   ├── useBuildRequests.ts       Build Requests + Items queries/mutations
 │   ├── useTestSheets.ts          Test sheet queries + mutations
@@ -325,6 +329,9 @@ src/
 │   ├── panelTaskMapper.ts        Graph item → PanelTask
 │   ├── panelRoles.ts             Panel role → editing-rights mapping (pure)
 │   ├── visitReportMapper.ts      Graph item → VisitReport (+ RM/year options)
+│   ├── grayMarketFields.ts       Gray Market column descriptors (columns are DATA)
+│   ├── grayMarketMapper.ts       Graph item → GrayMarketRequest, and back
+│   ├── grayMarketNumber.ts       nextGrayMarketLogNo() — GMR_YYYY-### numbering
 │   ├── visitReportFilters.ts     Pure Visit Report filter/group predicates (list + calendar)
 │   ├── teradyneMapper.ts         Graph item → Teradyne entities; derived titles
 │   ├── spDates.ts                Shared SharePoint date-only helpers (midday-UTC rule)
@@ -377,6 +384,7 @@ src/
 │   ├── PanelOrderFormModal.tsx   Create/edit panel order
 │   ├── PanelTaskFormModal.tsx    Create/edit panel task
 │   ├── VisitReportFormModal.tsx  Create/edit a visit report
+│   ├── GrayMarketRequestFormModal.tsx  Raise a gray market request
 │   ├── BuildRequestFormModal.tsx Create/edit build request
 │   ├── BuildRequestItemFormModal.tsx  Add/edit a part
 │   ├── EirFormModal.tsx          Create/edit EIR
@@ -398,6 +406,7 @@ src/
 │   ├── operationsAtoms.tsx       Operations-specific badges/chips
 │   ├── panelAtoms.tsx            Panel-specific badges/chips
 │   ├── visitReportAtoms.tsx      Customer-status chip (Sales)
+│   ├── grayMarketAtoms.tsx       Request-status + Pass/Fail chips (Supply Chain)
 │   ├── VisitReportFilterBar.tsx  Shared filter bar for both Visit Report views
 │   ├── buildRequestAtoms.tsx     Build-request-specific badges/chips
 │   └── brand/{Brandmark,Wordmark}.tsx   Official Altronic marks
@@ -430,6 +439,8 @@ src/
 │   ├── PanelTasksView.tsx        Panel Tasks list
 │   ├── PanelTaskDetailView.tsx   Panel task detail
 │   ├── VisitReportsView.tsx      Visit Reports list (Sales)
+│   ├── GrayMarketRequestsView.tsx      Gray Market Requests list (Supply Chain + Engineering)
+│   ├── GrayMarketRequestDetailView.tsx Gray Market request — workflow cards, comments, attachments
 │   ├── VisitReportsCalendarView.tsx  Visit Reports month calendar (desktop only)
 │   ├── VisitReportDetailView.tsx Visit report detail + attachments
 │   ├── TestSheetsView.tsx        Test sheets list
@@ -780,6 +791,64 @@ code. If expiry comes back, it needs the decision first: a new Expiry Date colum
 in SharePoint, or a rule deriving it from `DateCertified`. Recover the old
 implementation from git history rather than rewriting it (`git log --
 src/lib/certificationExpiry.ts`).
+
+### Gray Market Requests (Supply Chain + Engineering, PMO site)
+
+`bf5e3786-d2c1-4e8d-8bd1-c8d5bab9c85b` (env: `VITE_SP_GRAY_MARKET_LIST_ID`) on
+**`SITES.pmo`** — not a Supply Chain site. That's where the list has always
+lived, and the PMO grant already covers it. Schema captured 2026-08-19 in
+`scripts/gray-market-request-schema.json`.
+
+**Shared between two departments.** Supply Chain raises and buys; Engineering
+decides the testing and signs the results off. It's one list surfaced in both
+nav groups and both dashboard sections — not two features.
+
+**The columns are DATA** (`src/lib/grayMarketFields.ts`). Thirty-odd editable
+columns spanning four teams' parts of one workflow: declaring them once drives
+the mapper, the write payload, the `$select`, the five detail cards and the
+form. A column added in SharePoint is one descriptor line here.
+
+**Four internal names do NOT say what they mean**, which is the main reason
+that table exists:
+
+| Internal name | Actually is |
+|---|---|
+| `QANotes` | labelled **"Inspection Flag"** (Yes / Pending) — not a notes field |
+| `QtyofPartsforW_x002e_O_x002e_` | labelled **"Qty of Parts for BR"** |
+| `InCircuitPCBW_x002e_O_x002e__x00` | **truncated** internal name, "In Circuit PCB W.O. #" |
+| `FinalAssemblyW_x002e_O_x002e__x0` | **truncated** too |
+| `Parts_x0020_Location` | a **person** column, despite the name |
+| `Title` | the Altronic assembly number |
+
+Also:
+
+- **`LogNo_x002e_Raw` carries `GMR_YYYY-###`**, generated by
+  `nextGrayMarketLogNo()`; SharePoint's calculated **Log No.** derives from it,
+  so only the raw column is ever written — the EIR No arrangement exactly.
+- **Dates are stored at 23:00Z** (local midnight in the site's regional
+  timezone — the same tenant quirk as Visit Reports' 22:00Z rows, an hour apart
+  because those samples were summer). `parseSpDateOnly` handles it.
+- **`WhereUsed` holds SharePoint rich text** (`<div class="ExternalClass…">`),
+  so it renders sanitised and writes through `toStoredRichText`.
+- **`Communication` and `Watchers` already existed on the list**, which is why
+  the standard comment thread wired up with no SharePoint changes.
+
+**No delete**, in the UI or the API module — a request records a part that was
+bought. `grayMarketRequests.test.ts` asserts the module exports nothing
+matching /delete|remove/.
+
+### @-mention auto-watch is ONE function now, and it takes a resolver
+
+`autoWatchFromMentions` in **`src/api/autoWatch.ts`** is shared by all six
+comment threads. It used to be a private copy in five department hooks.
+
+The copies looked identical and were not: each resolved a cold-start mention
+against **its own site** — `resolveCurrentUserLookupId` (Engineering),
+`resolvePmoSiteUserLookupId` (PMO), `resolvePanelSiteUserLookupId` (Panels). A
+site user lookupId is per site collection, so sharing them naively would have
+written a wrong (or non-existent) user into the person columns on Operations,
+Panels and Gray Market. `resolveLookupId` is therefore a **required
+parameter** — a new caller has to say which site it means.
 
 ### Visit Reports (Customer Service / Sales, salesTeam site)
 

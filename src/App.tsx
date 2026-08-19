@@ -20,6 +20,8 @@ import { TestSheetsView } from "@/views/TestSheetsView";
 import { TestSheetDetailView } from "@/views/TestSheetDetailView";
 import { EirsView } from "@/views/EirsView";
 import { VisitReportsView } from "@/views/VisitReportsView";
+import { GrayMarketRequestsView } from "@/views/GrayMarketRequestsView";
+import { GrayMarketRequestDetailView } from "@/views/GrayMarketRequestDetailView";
 import { VisitReportsCalendarView } from "@/views/VisitReportsCalendarView";
 import { VisitReportDetailView } from "@/views/VisitReportDetailView";
 import { EirKanbanView } from "@/views/EirKanbanView";
@@ -191,6 +193,14 @@ export function App() {
           <Route path="/coils/potting-sample-log" element={<PottingSampleLogView />} />
           <Route path="/coils/potting-limits" element={<PottingLimitsView />} />
           <Route path="/coils/psr-notifications" element={<PsrNotificationView />} />
+          <Route
+            path="/supply-chain/gray-market-requests"
+            element={<GrayMarketRequestsView />}
+          />
+          <Route
+            path="/supply-chain/gray-market-request/:id"
+            element={<GrayMarketRequestDetailView />}
+          />
           <Route path="/sales/visit-reports" element={<VisitReportsView />} />
           <Route
             path="/sales/visit-reports/calendar"

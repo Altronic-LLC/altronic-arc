@@ -176,6 +176,22 @@ export const SP_CSA_LISTINGS_LIST_ID =
   "758defd2-693c-4324-9e0b-dd2a12c341fa";
 
 /**
+ * "Gray Market Request" — a part bought outside normal distribution, tracked
+ * from request through purchasing, engineering test, inspection and production
+ * sign-off. Worked by Supply Chain AND Engineering, and it lives on the
+ * **PMO site** (SITES.pmo) rather than a Supply Chain site — that's where the
+ * list has always been, and the PMO grant already covers it.
+ *
+ * `Title` is the Altronic assembly number, `LogNo_x002e_Raw` carries the
+ * GMR_YYYY-### number the app generates, and the list already has the
+ * `Communication` and `Watchers` columns the standard comment thread needs.
+ * Schema discovered live 2026-08-19 — scripts/gray-market-request-schema.json.
+ */
+export const SP_GRAY_MARKET_LIST_ID =
+  import.meta.env.VITE_SP_GRAY_MARKET_LIST_ID ||
+  "bf5e3786-d2c1-4e8d-8bd1-c8d5bab9c85b";
+
+/**
  * "Visit Reports" — Customer Service / Sales' record of customer visits, on
  * the ALTRONICSALESTEAM site (SITES.salesTeam). `Title` is repurposed as the
  * Customer Name, City/State are `City0`/`State0`, and Month/Year/Day/Cal Title

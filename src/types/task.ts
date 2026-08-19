@@ -1309,3 +1309,55 @@ export const US_STATES = [
   "South Dakota", "Tennessee", "Texas", "Utah", "Vermont", "Virginia",
   "Washington", "West Virginia", "Wisconsin", "Wyoming",
 ] as const;
+
+// =============================================================================
+// Gray Market Requests — Supply Chain + Engineering, on the Altronic_PMO site.
+//
+// A part bought outside normal distribution, tracked from the request through
+// purchasing, engineering test, inspection and production sign-off. Schema
+// discovered live 2026-08-19 (scripts/gray-market-request-schema.json).
+//
+// The thirty-odd workflow columns live in `values`, keyed by the domain keys in
+// `src/lib/grayMarketFields.ts` — see the note there for why the columns are
+// data rather than thirty properties (and for the internal names that lie).
+// Only the fields needing their own handling are named here.
+// =============================================================================
+
+export interface GrayMarketRequest {
+  id: number;
+  /** `Title` — the Altronic assembly number the part is used on. */
+  title: string;
+  /**
+   * `LogNo_x002e_Raw`, e.g. "GMR_2026-004". SharePoint's calculated
+   * "Log No." column derives from it, so the app only ever writes the raw one
+   * — same arrangement as the EIR's EIRNo / EIR Log No.
+   */
+  logNo: string;
+  /** `RequestStatus` — Open | Complete. */
+  status: string;
+  /** `TodaysDate`, the date the request was raised. Required by the list. */
+  requestDate: Date | null;
+  dateCompleted: Date | null;
+  /** `ProductionTest`, labelled "Testing Required". Required by the list. */
+  testingRequired: string;
+  requestor: Person | null;
+  /** `Parts_x0020_Location` — a PERSON column, whatever its name suggests. */
+  partsLocation: Person | null;
+  watchers: Person[];
+  comments: Comment[];
+  hasAttachments: boolean;
+  /** Every other column, keyed by the descriptor keys in grayMarketFields.ts. */
+  values: Record<string, string>;
+  createdAt: Date;
+  modifiedAt: Date;
+}
+
+/** Everything a create needs. Edits go field-by-field from the detail page. */
+export interface GrayMarketRequestInput {
+  title: string;
+  status: string;
+  requestDate: Date | null;
+  testingRequired: string;
+  requestor: Person | null;
+  values: Record<string, string>;
+}

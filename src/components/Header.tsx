@@ -128,6 +128,12 @@ const DEPARTMENTS: DepartmentGroup[] = [
         icon: <BadgeCheck className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/csa-listings"),
       },
+      {
+        to: "/supply-chain/gray-market-requests",
+        label: "Gray Market Requests",
+        icon: <PackageSearch className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/supply-chain/gray-market-request"),
+      },
       soon("ECNs", <Wrench className="h-4 w-4" />),
     ],
   },
@@ -200,7 +206,12 @@ const DEPARTMENTS: DepartmentGroup[] = [
   {
     name: "Supply Chain",
     items: [
-      soon("Grey Market Part Requests", <PackageSearch className="h-4 w-4" />),
+      {
+        to: "/supply-chain/gray-market-requests",
+        label: "Gray Market Requests",
+        icon: <PackageSearch className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/supply-chain/gray-market-request"),
+      },
       soon("Supplier Issue Tracking", <AlertTriangle className="h-4 w-4" />),
       soon("Supplier List", <Building2 className="h-4 w-4" />),
       soon("Supplier Contacts", <Contact className="h-4 w-4" />),

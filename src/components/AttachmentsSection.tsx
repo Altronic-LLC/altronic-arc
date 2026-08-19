@@ -163,7 +163,9 @@ export function AttachmentsSection({ parent, itemId }: AttachmentsSectionProps) 
                               ? "part"
                               : parent === "visitReport"
                                 ? "visit report"
-                                : "task"
+                                : parent === "grayMarketRequest"
+                                  ? "request"
+                                  : "task"
                       }?`,
                     )
                   ) {

@@ -21,13 +21,17 @@ afterEach(() => {
 
 describe("useVersionCheck", () => {
   it("flags an update when the remote version differs", async () => {
-    fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ version: "0.99.0" }) });
+    // A version the app will never actually be at. This used to read "0.99.0",
+    // which stopped being "different" the day CURRENT_VERSION reached it —
+    // the test then asserted its own premise away (2026-08-19).
+    const NEWER = "999.0.0";
+    fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ version: NEWER }) });
 
     const { result, unmount } = renderHook(() => useVersionCheck());
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     await waitFor(() => expect(result.current.updateAvailable).toBe(true));
 
-    expect(result.current.remoteVersion).toBe("0.99.0");
+    expect(result.current.remoteVersion).toBe(NEWER);
     unmount();
   });
 
