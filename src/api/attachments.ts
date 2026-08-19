@@ -8,6 +8,7 @@ import {
   SP_PANEL_ORDERS_LIST_ID,
   SP_PANEL_TASKS_LIST_ID,
   SP_PANELTEAM_SITE_URL,
+  SP_GRAY_MARKET_LIST_ID,
   SP_PMO_SITE_URL,
   SP_SALESTEAM_SITE_URL,
   SP_SITE_URL,
@@ -46,7 +47,8 @@ export type AttachmentParent =
   | "panelOrder"
   | "panelTask"
   | "csaListing"
-  | "visitReport";
+  | "visitReport"
+  | "grayMarketRequest";
 
 interface ParentConfig {
   listId: string | undefined;
@@ -78,6 +80,11 @@ const PARENT_CONFIG: Record<AttachmentParent, ParentConfig> = {
     listId: SP_PANEL_ORDERS_LIST_ID,
     siteUrl: SP_PANELTEAM_SITE_URL,
     listIdEnvVar: "VITE_SP_PANEL_ORDERS_LIST_ID",
+  },
+  grayMarketRequest: {
+    listId: SP_GRAY_MARKET_LIST_ID,
+    siteUrl: SP_PMO_SITE_URL,
+    listIdEnvVar: "VITE_SP_GRAY_MARKET_LIST_ID",
   },
   visitReport: {
     listId: SP_VISIT_REPORTS_LIST_ID,

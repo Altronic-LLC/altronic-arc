@@ -46,7 +46,8 @@ export interface MentionTarget {
     | "buildRequest"
     | "buildRequestItem"
     | "panelOrder"
-    | "panelTask";
+    | "panelTask"
+    | "grayMarketRequest";
   id: number;
   title: string;
 }
@@ -68,6 +69,11 @@ const KIND_COPY: Record<
     phrase: "a build request part",
     calloutLabel: "Build Request Part",
     buttonText: "Open this part",
+  },
+  grayMarketRequest: {
+    phrase: "a gray market request",
+    calloutLabel: "Gray Market Request",
+    buttonText: "Open this request",
   },
   panelOrder: {
     phrase: "a panel order",

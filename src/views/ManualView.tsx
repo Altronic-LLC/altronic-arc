@@ -49,7 +49,7 @@ const SECTIONS: ManualSection[] = [
       "where do i start",
     ],
     searchText:
-      "Sign in with your altronic-llc.com account. The Dashboard opens after sign-in. Use the top nav to switch between Dashboard, the Departments dropdown, and Admin. The Departments dropdown mirrors the dashboard: Engineering (Engineering Tasks, EIRs, Test Sheets, Project Folders, Build Requests, Drawing File Logs, CSA Listings, with ECNs coming soon), Panels, Operations, Coils (Potting Sample Log), Quality Control (Digital QC and Ignition QC Defect Logs), Supply Chain, and Customer Service / Sales (Visit Reports).",
+      "Sign in with your altronic-llc.com account. The Dashboard opens after sign-in. Use the top nav to switch between Dashboard, the Departments dropdown, and Admin. The Departments dropdown mirrors the dashboard: Engineering (Engineering Tasks, EIRs, Test Sheets, Project Folders, Build Requests, Drawing File Logs, CSA Listings, with ECNs coming soon), Panels, Operations, Coils (Potting Sample Log), Quality Control (Digital QC and Ignition QC Defect Logs), Supply Chain (Gray Market Requests), and Customer Service / Sales (Visit Reports).",
     render: () => (
       <>
         <P>
@@ -62,7 +62,7 @@ const SECTIONS: ManualSection[] = [
           Listings, with ECNs coming soon), <strong>Panels</strong>,{" "}
           <strong>Operations</strong>, <strong>Coils</strong> (Potting Sample
           Log), <strong>Quality Control</strong> (Digital QC and Ignition QC
-          Defect Logs), <strong>Supply Chain</strong>, and{" "}
+          Defect Logs), <strong>Supply Chain</strong> (Gray Market Requests), and{" "}
           <strong>Customer Service / Sales</strong> (Visit Reports, with the
           rest still coming soon). Engineering Tasks use the <strong>List</strong> and{" "}
           <strong>Kanban</strong> views.
@@ -117,7 +117,7 @@ const SECTIONS: ManualSection[] = [
       "all projects",
     ],
     searchText:
-      "The Dashboard is grouped into department sections — Engineering, Panels, Operations, Coils, Quality Control, Supply Chain, and Customer Service / Sales — each a divider heading with its cards beneath. Engineering has live cards: Engineering Tasks, EIRs, Test Sheets and more. Coils has the Potting Sample Log; Quality Control has the Digital QC and Ignition QC Defect Logs; Customer Service / Sales has Visit Reports. Supply Chain and Customer Service / Sales show Coming soon placeholders. Each live card shows the count of active items (tasks not Complete, EIRs not Closed), a colour-coded status mini-bar, and clicks through to that type's page. A Mine / Company switch flips every count and bar between your own items and the whole company's; Mine is the default. A project picker sits next to it and works the same way — pick a project and every card's count and mini-bar narrows to just that project, in place, combining with Mine/Company rather than navigating anywhere. Clicking a card afterward opens that type's full list pre-filtered to the picked project.",
+      "The Dashboard is grouped into department sections — Engineering, Panels, Operations, Coils, Quality Control, Supply Chain, and Customer Service / Sales — each a divider heading with its cards beneath. Engineering has live cards: Engineering Tasks, EIRs, Test Sheets and more. Coils has the Potting Sample Log; Quality Control has the Digital QC and Ignition QC Defect Logs; Customer Service / Sales has Visit Reports. Supply Chain has Gray Market Requests; Customer Service / Sales has Visit Reports. Each live card shows the count of active items (tasks not Complete, EIRs not Closed), a colour-coded status mini-bar, and clicks through to that type's page. A Mine / Company switch flips every count and bar between your own items and the whole company's; Mine is the default. A project picker sits next to it and works the same way — pick a project and every card's count and mini-bar narrows to just that project, in place, combining with Mine/Company rather than navigating anywhere. Clicking a card afterward opens that type's full list pre-filtered to the picked project.",
     render: () => (
       <>
         <P>
@@ -179,9 +179,8 @@ const SECTIONS: ManualSection[] = [
           Types whose SharePoint list isn't built yet — Engineering's{" "}
           <strong>ECNs</strong>, Coils' <strong>Coil Defect Log</strong>,
           Quality Control's <strong>QC Forms</strong>, Operations'{" "}
-          <strong>Maintenance Tasks</strong>, all of{" "}
-          <strong>Supply Chain</strong> (Grey Market Part Requests, Supplier
-          Issue Tracking, Supplier List, Supplier Contacts, Cost Impact Notices,
+          <strong>Maintenance Tasks</strong>, the rest of{" "}
+          <strong>Supply Chain</strong> (Supplier Issue Tracking, Supplier List, Supplier Contacts, Cost Impact Notices,
           FAIT), and <strong>Customer Service / Sales</strong> (Customer
           Feedback, Customers, Customer Contacts List, Special
           Pricing, Capacity Tracking, Pricing Requests) — appear as dimmed{" "}
@@ -1629,6 +1628,98 @@ const SECTIONS: ManualSection[] = [
           The table shows the newest 150 visits with a{" "}
           <strong>show all</strong> link underneath; filters and the count
           always run over every report, not just the ones on screen.
+        </P>
+      </>
+    ),
+  },
+  {
+    id: "gray-market-requests",
+    title: "Gray Market Requests",
+    group: "Supply Chain",
+    keywords: [
+      "gray market",
+      "grey market",
+      "gray market request",
+      "gmr",
+      "broker",
+      "outside distribution",
+      "counterfeit",
+      "inspection flag",
+      "supply chain",
+      "vendor",
+      "po",
+      "purchase order",
+      "qty purchased",
+      "insp lot",
+      "in circuit",
+      "final assembly",
+      "sign-off",
+    ],
+    searchText:
+      "Gray Market Requests at /supply-chain/gray-market-requests, under Supply Chain AND Engineering in the Departments menu — both teams work the same list, which lives on the Altronic_PMO SharePoint site. A gray market request tracks a part bought outside normal distribution from the request through purchasing, engineering test, inspection and production sign-off. The list opens on Open requests with pills for Open / Complete / All, filters for Requestor and Testing Required, and an all-fields search. New Request asks only for the Title (the Altronic assembly number), request date, testing required and the purchasing details; the Log No. is generated as GMR_YYYY-###. Everything else is filled in on the request itself, in five cards — Request, Purchasing, Engineering, Inspection, Production — each field editable in place and saved on its own. Requests carry comments with @-mentions, watchers, and attachments. Whoever raises a request watches it. Requests cannot be deleted from ARC.",
+    render: () => (
+      <>
+        <P>
+          <strong>Departments → Supply Chain → Gray Market Requests</strong>{" "}
+          (<code>/supply-chain/gray-market-requests</code>) tracks a part bought{" "}
+          <em>outside normal distribution</em> — from the request, through
+          purchasing, engineering test, inspection, and production sign-off.
+        </P>
+        <P>
+          It's listed under <strong>Engineering</strong> as well, because both
+          teams work the same requests: purchasing raises and buys, engineering
+          decides what testing is needed and signs off the results. It's one
+          list in both places, not two.
+        </P>
+        <H3>Raising a request</H3>
+        <P>
+          <strong>New Request</strong> asks only for what's known at the start:
+          the <strong>Title</strong> (the Altronic assembly number), the{" "}
+          <strong>request date</strong>, whether <strong>testing is
+          required</strong>, and the purchasing details — vendor, quantity, PO
+          number, part numbers. The <strong>Log No.</strong>{" "}
+          (<code>GMR_2026-004</code>) is assigned on save; you never type it.
+        </P>
+        <P>
+          You're recorded as the requestor and start watching it, so you hear
+          about every comment and change from then on.
+        </P>
+        <H3>Working a request</H3>
+        <P>
+          The request page is the workflow, one card per stage —{" "}
+          <strong>Request</strong>, <strong>Purchasing</strong>,{" "}
+          <strong>Engineering</strong>, <strong>Inspection</strong>,{" "}
+          <strong>Production</strong>. Every field edits in place and saves on
+          its own, so four teams can fill in their parts without waiting for
+          each other or opening a form.
+        </P>
+        <UL>
+          <LI>
+            <strong>Request Status</strong>, <strong>Testing Required</strong>{" "}
+            and the two dates live in the sidebar, along with the watchers.
+          </LI>
+          <LI>
+            <strong>Comments</strong> work exactly as they do on a task or an
+            EIR: @-mention someone and they're emailed and added as a watcher.
+          </LI>
+          <LI>
+            <strong>Attachments</strong> — supplier paperwork, photos of the
+            part, test results — drag onto the card, paste a screenshot, or use
+            Add file.
+          </LI>
+        </UL>
+        <Tip>
+          There is no Delete. A request records a part that was actually
+          bought, so correcting one is an edit; removing one has to be done
+          deliberately in SharePoint.
+        </Tip>
+        <H3>Finding a request</H3>
+        <P>
+          The list opens on <strong>Open</strong> — the pills switch to{" "}
+          <strong>Complete</strong> or <strong>All</strong>, and each carries
+          its count. Filter by <strong>Requestor</strong> or{" "}
+          <strong>Testing Required</strong>, and the search box matches every
+          field, so a part number, a PO or a vendor all find the request.
         </P>
       </>
     ),

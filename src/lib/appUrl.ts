@@ -17,7 +17,8 @@ export type AppItemKind =
   | "buildRequest"
   | "buildRequestItem"
   | "panelOrder"
-  | "panelTask";
+  | "panelTask"
+  | "grayMarketRequest";
 
 const KIND_SEGMENTS: Record<AppItemKind, string> = {
   task: "task",
@@ -29,6 +30,7 @@ const KIND_SEGMENTS: Record<AppItemKind, string> = {
   buildRequestItem: "build-request-item",
   panelOrder: "panels/order",
   panelTask: "panels/task",
+  grayMarketRequest: "supply-chain/gray-market-request",
 };
 
 /** Absolute URL to an item's detail page in this app. */

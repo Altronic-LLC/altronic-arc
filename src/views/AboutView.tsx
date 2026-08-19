@@ -72,9 +72,9 @@ const SYSTEM_TIERS: Tier[] = [
   {
     label: "React SPA",
     nodes: [
-      { label: "Views", hint: "Dashboard · List · Kanban · Detail · EIRs · Test Sheets · Project Folders · CSA Listings · Drawing File Logs · Digital QC · Ignition QC · Potting Sample Log · Visit Reports (list + calendar) · Drawing Work Sheet (print) · Admin", palette: "ui" },
-      { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useBuildRequests · useCsaListings · useDrawingLogs · useDigitalQc · useIgnitionQc · usePottingSampleLog · useVisitReports · useAdmins · useEirRoles · useTaskFiles · useProjectFolders", palette: "ui" },
-      { label: "API layer", hint: "src/api/tasks · eirs · testSheets · buildRequests · buildRequestItems · csaListings · drawingLogs · digitalQc · ignitionQc · pottingSampleLog · visitReports · panelOrders · panelTasks · admins · eirRoles · panelRoles · directory · siteUsers · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
+      { label: "Views", hint: "Dashboard · List · Kanban · Detail · EIRs · Test Sheets · Project Folders · CSA Listings · Drawing File Logs · Digital QC · Ignition QC · Potting Sample Log · Visit Reports (list + calendar) · Gray Market Requests · Drawing Work Sheet (print) · Admin", palette: "ui" },
+      { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useBuildRequests · useCsaListings · useDrawingLogs · useDigitalQc · useIgnitionQc · usePottingSampleLog · useVisitReports · useGrayMarketRequests · useAdmins · useEirRoles · useTaskFiles · useProjectFolders", palette: "ui" },
+      { label: "API layer", hint: "src/api/tasks · eirs · testSheets · buildRequests · buildRequestItems · csaListings · drawingLogs · digitalQc · ignitionQc · pottingSampleLog · visitReports · grayMarketRequests · autoWatch · panelOrders · panelTasks · admins · eirRoles · panelRoles · directory · siteUsers · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
       {
         label: "Build Requests (lazy-loaded)",
         hint: "BuildRequestsView · BuildRequestDetailView — a master-detail pair: the Tracker header list + any number of parts from the Items list, joined by BuildRequestNo. Own code-split chunk.",
@@ -83,6 +83,11 @@ const SYSTEM_TIERS: Tier[] = [
       {
         label: "Operations department (lazy-loaded bundle)",
         hint: "OperationsListView · OperationsKanbanView · OperationsDetailView · AdminOperationsProjectsView · TeradyneLogView · TeradyneRefListView — useOperationsTasks · useTeradyne — api/operationsTasks · operationsProjects · operationsEquipment · teradyneLog · teradyneRefs. Own site (PMO), own code-split chunk; no imports from the Engineering views/hooks above.",
+        palette: "ui",
+      },
+      {
+        label: "Supply Chain department",
+        hint: "GrayMarketRequestsView · GrayMarketRequestDetailView — useGrayMarketRequests — api/grayMarketRequests. On the PMO site. SHARED with Engineering: both departments work the same list, so it appears in both nav groups rather than being duplicated.",
         palette: "ui",
       },
       {
@@ -102,7 +107,7 @@ const SYSTEM_TIERS: Tier[] = [
     nodes: [
       { label: "MSAL Entra ID", hint: "Sites.Selected · Mail.Send.Shared · User.ReadBasic.All (tenant directory, optional) · AllSites.Manage (optional)", palette: "auth" },
       { label: "Microsoft Graph v1.0", hint: "Lists, items, drives, users, mail", palette: "gateway" },
-      { label: "SharePoint REST", hint: "List-item attachments (Task, EIR, Operations Task, Panel Order, Visit Report) + site-user resolution — optional", palette: "gateway" },
+      { label: "SharePoint REST", hint: "List-item attachments (Task, EIR, Operations Task, Panel Order, Visit Report, Gray Market Request) + site-user resolution — optional", palette: "gateway" },
       { label: "Mock store", hint: "in-memory + localStorage (demo mode)", palette: "mock" },
       { label: "Shared mailbox", hint: "@-mention + change notifications, and edit-failure recovery emails", palette: "mock" },
     ],
@@ -137,6 +142,7 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "Panel Tasks", hint: "ALTRONICPANELTEAM site — panel team tasks (drawings, SOOs, quotes, admin), own comment thread", palette: "list" },
       { label: "Panel Project Reference", hint: "ALTRONICPANELTEAM site — admin-managed project reference numbers (orders + tasks share it)", palette: "list" },
       { label: "Panel User Roles", hint: "ALTRONICPANELTEAM site — one row per user per role (gating ships dark in v1)", palette: "list" },
+      { label: "Gray Market Request", hint: "Altronic_PMO site — parts bought outside normal distribution; Title is the Altronic assembly no, Log No. is calculated from LogNo.Raw, and the list carries its own Communication + Watchers columns", palette: "list" },
       { label: "Visit Reports", hint: "ALTRONICSALESTEAM site — regional managers' customer visits; Title is the Customer Name, City0/State0 carry the trailing zero, Month/Year/Day are calculated", palette: "list" },
     ],
   },
@@ -701,6 +707,28 @@ const SCHEMA_TABLES: SchemaTable[] = [
       { name: "id", type: "int", kind: "pk" },
       { name: "displayName (Title)", type: "text", kind: "field" },
       { name: "email", type: "text", kind: "field" },
+    ],
+  },
+  {
+    // Thirty-odd workflow columns live in `values`, keyed by the descriptors in
+    // lib/grayMarketFields.ts — listing them all here would swamp the diagram.
+    name: "GrayMarketRequest",
+    source: "Gray Market Request (Altronic_PMO site)",
+    palette: "entity",
+    x: 400, y: 3130, width: 340,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title (assembly no)", type: "text", kind: "field" },
+      { name: "logNo (LogNo.Raw)", type: "text", kind: "field" },
+      { name: "status", type: "choice", kind: "field" },
+      { name: "requestDate (TodaysDate)", type: "date", kind: "field" },
+      { name: "dateCompleted", type: "date", kind: "field" },
+      { name: "testingRequired", type: "choice", kind: "field" },
+      { name: "requestor", type: "person", kind: "field" },
+      { name: "partsLocation", type: "person", kind: "field" },
+      { name: "watchers", type: "person[]", kind: "field" },
+      { name: "comments (Communication)", type: "text", kind: "field" },
+      { name: "values (30 columns)", type: "text", kind: "field" },
     ],
   },
   {

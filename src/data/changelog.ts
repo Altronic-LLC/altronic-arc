@@ -20,6 +20,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.99.0",
+    date: "2026-08-19",
+    changes: [
+      "Supply Chain joins ARC with Gray Market Requests — parts bought outside normal distribution, tracked from the request through purchasing, engineering test, inspection and production sign-off",
+      "The request page lays the workflow out as five cards and every field saves on its own, so purchasing, engineering, inspection and production can each fill in their part without waiting for anyone",
+      "Requests carry the full comment thread: @-mention someone and they're emailed and start watching, the same as a task or an EIR",
+      "Attachments — supplier paperwork, photos, test results — drag straight onto the request",
+      "The list opens on open requests with Open / Complete / All counts, filters for requestor and testing required, and a search that matches part numbers, POs and vendors",
+      "New requests are numbered GMR_YYYY-### automatically, and whoever raises one watches it",
+      "Gray Market Requests appears under both Supply Chain and Engineering, because both teams work the same list",
+    ],
+  },
+  {
     version: "0.98.0",
     date: "2026-08-18",
     changes: [
