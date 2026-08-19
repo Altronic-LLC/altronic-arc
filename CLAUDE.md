@@ -246,6 +246,7 @@ src/
 │   ├── panelRoles.ts             Panel User Roles list CRUD
 │   ├── visitReports.ts           Visit Reports CRUD (Sales, salesTeam site) — no delete
 │   ├── grayMarketRequests.ts     Gray Market Requests CRUD + comments (PMO site) — no delete
+│   ├── whereAmI.ts               Where am I? CRUD (Engineering out-of-office calendar)
 │   ├── autoWatch.ts              Shared @-mention → watcher resolution (per-site)
 │   ├── projectFiles.ts           Documents-library project folders + files
 │   ├── attachments.ts            List-item attachments (task | eir | csaListing) via SP REST
@@ -263,6 +264,7 @@ src/
 │   ├── panelMockData.ts          Sample panel orders + panel tasks
 │   ├── visitReportMockData.ts    Sample visit reports
 │   ├── grayMarketMockData.ts     Sample gray market requests
+│   ├── whereAmIMockData.ts       Sample out-of-office entries (dated from today)
 │   ├── buildRequestMockData.ts   Sample build requests + items
 │   └── changelog.ts              Version history (drives footer + history modal)
 │
@@ -279,6 +281,7 @@ src/
 │   ├── usePanelRoles.ts          Panel User Roles CRUD (admin-guarded)
 │   ├── useVisitReports.ts        Visit Report queries + mutations
 │   ├── useGrayMarketRequests.ts  Gray Market queries, mutations + comment thread
+│   ├── useWhereAmI.ts            Where am I? queries + mutations
 │   ├── useVisitReportFilters.ts  URL-backed Visit Report filters (+ filterSearch)
 │   ├── useBuildRequests.ts       Build Requests + Items queries/mutations
 │   ├── useTestSheets.ts          Test sheet queries + mutations
@@ -332,6 +335,8 @@ src/
 │   ├── grayMarketFields.ts       Gray Market column descriptors (columns are DATA)
 │   ├── grayMarketMapper.ts       Graph item → GrayMarketRequest, and back
 │   ├── grayMarketNumber.ts       nextGrayMarketLogNo() — GMR_YYYY-### numbering
+│   ├── calendarGrid.ts           Shared month-grid maths for every calendar view
+│   ├── whereAmI.ts               Where am I? mapper, grouping, date-range expansion
 │   ├── visitReportFilters.ts     Pure Visit Report filter/group predicates (list + calendar)
 │   ├── teradyneMapper.ts         Graph item → Teradyne entities; derived titles
 │   ├── spDates.ts                Shared SharePoint date-only helpers (midday-UTC rule)
@@ -385,6 +390,7 @@ src/
 │   ├── PanelTaskFormModal.tsx    Create/edit panel task
 │   ├── VisitReportFormModal.tsx  Create/edit a visit report
 │   ├── GrayMarketRequestFormModal.tsx  Raise a gray market request
+│   ├── WhereAmIFormModal.tsx     Add/edit an out-of-office entry (+ date range)
 │   ├── BuildRequestFormModal.tsx Create/edit build request
 │   ├── BuildRequestItemFormModal.tsx  Add/edit a part
 │   ├── EirFormModal.tsx          Create/edit EIR
@@ -440,6 +446,7 @@ src/
 │   ├── PanelTaskDetailView.tsx   Panel task detail
 │   ├── VisitReportsView.tsx      Visit Reports list (Sales)
 │   ├── GrayMarketRequestsView.tsx      Gray Market Requests list (Supply Chain)
+│   ├── WhereAmIView.tsx          Where am I? — month grid on desktop, agenda on a phone
 │   ├── GrayMarketRequestDetailView.tsx Gray Market request — workflow cards, comments, attachments
 │   ├── VisitReportsCalendarView.tsx  Visit Reports month calendar (desktop only)
 │   ├── VisitReportDetailView.tsx Visit report detail + attachments
@@ -791,6 +798,46 @@ code. If expiry comes back, it needs the decision first: a new Expiry Date colum
 in SharePoint, or a rule deriving it from `DateCertified`. Recover the old
 implementation from git history rather than rewriting it (`git log --
 src/lib/certificationExpiry.ts`).
+
+### "Where am I?" (Engineering out-of-office calendar)
+
+`9483c2c9-8af4-42cb-9e15-a170c8cac225` (env: `VITE_SP_WHERE_AM_I_LIST_ID`) on
+`SITES.engineering`. Schema captured 2026-08-19 in
+`scripts/where-am-i-schema.json`. Two columns that matter:
+
+| Domain field | Column | Notes |
+|---|---|---|
+| `title` | `Title` | free text carrying BOTH the person and the reason ("Sarah - half day vacation") — there is no person column |
+| `date` | `Date` | date-only, **required** |
+
+Four things to keep in mind:
+
+- **No end date.** A week away is one row per day. The add form expands a
+  `Through` date into one entry per day (`datesInRange`, capped at
+  `MAX_RANGE_DAYS` = 60 so a mistyped year can't write thousands of rows), but
+  the data model is one row per day and the UI says so rather than pretending
+  otherwise.
+- **Its dates are stored at 06:00Z** — local midnight in US Central, this
+  site's regional setting. Gray Market stores 23:00Z and Visit Reports 22:00Z;
+  the SAME `parseSpDateOnly` midday pivot reads all three correctly, which is
+  the reason that rule isn't a per-list offset.
+- **It HAS a delete**, unlike Visit Reports and Gray Market Requests. Those
+  record something that happened; this records an intention, and intentions get
+  cancelled. Anyone signed in can add, edit and remove — including other
+  people's entries (Ray, 2026-08-19).
+- **~1,000 rows** since late 2023, two small columns, so it's fetched whole and
+  both views slice it in the browser.
+
+**One route, two renderings** (`views/WhereAmIView.tsx`). Desktop gets the
+month grid; a phone gets an **upcoming agenda** grouped by day — Today /
+Tomorrow / "Thu, Aug 21" — because seven columns are unreadable at that width.
+This is NOT the Visit Reports calendar's arrangement, which redirects a phone
+to its list view: here there is no other view to redirect to, so the phone gets
+a rendering of its own that answers the question people open it to ask.
+
+The month-grid maths (`calendarDays`, month keys, labels) lives in
+**`src/lib/calendarGrid.ts`**, shared with the Visit Reports calendar — pulled
+out when this second calendar arrived, before there was a copy to drift.
 
 ### Gray Market Requests (Supply Chain, PMO site)
 

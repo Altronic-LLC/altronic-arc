@@ -128,6 +128,12 @@ const DEPARTMENTS: DepartmentGroup[] = [
         icon: <BadgeCheck className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/csa-listings"),
       },
+      {
+        to: "/engineering/where-am-i",
+        label: "Where Am I?",
+        icon: <CalendarDays className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/engineering/where-am-i"),
+      },
       soon("ECNs", <Wrench className="h-4 w-4" />),
     ],
   },
