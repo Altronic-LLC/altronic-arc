@@ -23,9 +23,9 @@ import { MOCK_GRAY_MARKET_REQUESTS } from "@/data/grayMarketMockData";
 // tracked from request through purchasing, engineering test, inspection and
 // production sign-off.
 //
-// Lives on the **PMO site** (SITES.pmo), not a Supply Chain site — that's where
-// the list has always been, and the grant already covers it. Supply Chain and
-// Engineering both work in it.
+// A Supply Chain feature, but the list lives on the **PMO site** (SITES.pmo)
+// rather than a Supply Chain one — that's where it has always been, and the
+// grant already covers it.
 //
 // **There is no delete**, in the UI or here (Ray, 2026-08-19) — a request is a
 // record of a part that was bought. Correcting one is an edit.
