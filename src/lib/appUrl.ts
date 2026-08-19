@@ -13,6 +13,7 @@
 export type AppItemKind =
   | "task"
   | "eir"
+  | "ecn"
   | "operationsTask"
   | "buildRequest"
   | "buildRequestItem"
@@ -23,6 +24,7 @@ export type AppItemKind =
 const KIND_SEGMENTS: Record<AppItemKind, string> = {
   task: "task",
   eir: "eir",
+  ecn: "engineering/ecn",
   operationsTask: "operations/task",
   buildRequest: "build-request",
   // A redirect route: App.tsx looks the item up and forwards to its parent

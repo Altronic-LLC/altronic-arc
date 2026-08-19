@@ -14,6 +14,7 @@ import {
   Contact,
   DollarSign,
   FileCheck,
+  FileDiff,
   FileStack,
   FileText,
   FolderOpen,
@@ -34,7 +35,6 @@ import {
   Tag,
   TestTubes,
   Users,
-  Wrench,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useTheme } from "@/hooks/useTheme";
@@ -134,7 +134,12 @@ const DEPARTMENTS: DepartmentGroup[] = [
         icon: <CalendarDays className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/engineering/where-am-i"),
       },
-      soon("ECNs", <Wrench className="h-4 w-4" />),
+      {
+        to: "/engineering/ecns",
+        label: "ECNs",
+        icon: <FileDiff className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/engineering/ecn"),
+      },
     ],
   },
   {

@@ -219,6 +219,28 @@ export const SP_VISIT_REPORTS_LIST_ID =
   import.meta.env.VITE_SP_VISIT_REPORTS_LIST_ID ||
   "7cc4db39-6612-4c2d-b1b2-1af34d0564e7";
 
+/**
+ * "ECN NEW" — Engineering Change Notices, on the Engineering site.
+ *
+ * The list came out of a migration and its columns are named `field_2` …
+ * `field_12`: NOTHING in the internal name says what the column holds. The
+ * translation lives in `src/lib/ecnFields.ts` and is the only place that
+ * mapping exists — guessing a name here is guaranteed to write nowhere.
+ *
+ * `Title` is the part / assembly the change is against, `field_2` is the Log#
+ * (`YY####`, with an `R#` suffix on a revision), and the `Communication`
+ * column the standard comment thread needs already exists. There is **no
+ * Watchers column and no requester column** — the submitter is Graph's
+ * `createdBy`, which is why ECN comments notify differently from every other
+ * ARC entity (see the note in src/hooks/useEcns.ts).
+ *
+ * 1,813 rows at the time of wiring. Schema discovered live 2026-08-19 —
+ * scripts/ecn-new-schema.json.
+ */
+export const SP_ECNS_LIST_ID =
+  import.meta.env.VITE_SP_ECNS_LIST_ID ||
+  "f6917bf4-bdd1-4ff9-ba71-0a17b22b1ecc";
+
 // =============================================================================
 // Digital QC — EIGHTEEN lists on the Engineering site (SITES.engineering),
 // one per product family. QC defect log entries are stored per-family list.

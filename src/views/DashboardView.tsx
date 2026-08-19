@@ -15,6 +15,7 @@ import {
   Contact,
   DollarSign,
   FileCheck,
+  FileDiff,
   FileStack,
   FileText,
   FolderOpen,
@@ -31,7 +32,6 @@ import {
   Tag,
   TestTubes,
   Users,
-  Wrench,
 } from "lucide-react";
 import { useProjects, useTasks } from "@/hooks/useTasks";
 import { useEirs } from "@/hooks/useEirs";
@@ -39,6 +39,8 @@ import { useTestSheets } from "@/hooks/useTestSheets";
 import { useProjectFolderEntries } from "@/hooks/useProjectFolders";
 import { useOperationsTasks } from "@/hooks/useOperationsTasks";
 import { useCsaListings } from "@/hooks/useCsaListings";
+import { useEcns } from "@/hooks/useEcns";
+import { isEcnOnHold } from "@/lib/ecnMapper";
 import { useBuildRequests } from "@/hooks/useBuildRequests";
 import { usePanelOrders } from "@/hooks/usePanelOrders";
 import { usePanelTasks } from "@/hooks/usePanelTasks";
@@ -233,6 +235,9 @@ export function DashboardView() {
     error: csaErrorObj,
     refetch: refetchCsa,
   } = useCsaListings();
+  // ECNs. 1,813 rows of history, so a total says nothing — the number worth
+  // putting on a dashboard is the one that stops work.
+  const { data: ecns = [] } = useEcns();
   const {
     data: testSheets = [],
     isError: testSheetsError,
@@ -662,7 +667,14 @@ export function DashboardView() {
           description="Who's out of the office and where the team is — a calendar on a computer, an agenda on your phone."
           onClick={() => navigate("/engineering/where-am-i")}
         />
-        <PlaceholderCard name="ECNs" icon={<Wrench className="h-5 w-5" />} />
+        <TypeCard
+          name="ECNs"
+          icon={<FileDiff className="h-5 w-5" />}
+          tone="ajax-yellow"
+          count={ecns.filter(isEcnOnHold).length}
+          unit="on hold"
+          onClick={() => navigate("/engineering/ecns")}
+        />
       </DeptSection>
 
       <DeptSection

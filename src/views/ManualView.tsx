@@ -49,7 +49,7 @@ const SECTIONS: ManualSection[] = [
       "where do i start",
     ],
     searchText:
-      "Sign in with your altronic-llc.com account. The Dashboard opens after sign-in. Use the top nav to switch between Dashboard, the Departments dropdown, and Admin. The Departments dropdown mirrors the dashboard: Engineering (Engineering Tasks, EIRs, Test Sheets, Project Folders, Build Requests, Drawing File Logs, CSA Listings, Where Am I?, with ECNs coming soon), Panels, Operations, Coils (Potting Sample Log), Quality Control (Digital QC and Ignition QC Defect Logs), Supply Chain (Gray Market Requests), and Customer Service / Sales (Visit Reports).",
+      "Sign in with your altronic-llc.com account. The Dashboard opens after sign-in. Use the top nav to switch between Dashboard, the Departments dropdown, and Admin. The Departments dropdown mirrors the dashboard: Engineering (Engineering Tasks, EIRs, Test Sheets, Project Folders, Build Requests, Drawing File Logs, CSA Listings, Where Am I?, ECNs), Panels, Operations, Coils (Potting Sample Log), Quality Control (Digital QC and Ignition QC Defect Logs), Supply Chain (Gray Market Requests), and Customer Service / Sales (Visit Reports).",
     render: () => (
       <>
         <P>
@@ -59,7 +59,7 @@ const SECTIONS: ManualSection[] = [
           <strong>Departments</strong> dropdown that mirrors the dashboard's
           sections — <strong>Engineering</strong> (Engineering Tasks, EIRs, Test
           Sheets, Project Folders, Build Requests, Drawing File Logs, CSA
-          Listings, Where Am I?, with ECNs coming soon), <strong>Panels</strong>,{" "}
+          Listings, Where Am I?, ECNs), <strong>Panels</strong>,{" "}
           <strong>Operations</strong>, <strong>Coils</strong> (Potting Sample
           Log), <strong>Quality Control</strong> (Digital QC and Ignition QC
           Defect Logs), <strong>Supply Chain</strong> (Gray Market Requests), and{" "}
@@ -176,8 +176,8 @@ const SECTIONS: ManualSection[] = [
           orders, tasks and the Teradyne Log.
         </P>
         <P>
-          Types whose SharePoint list isn't built yet — Engineering's{" "}
-          <strong>ECNs</strong>, Coils' <strong>Coil Defect Log</strong>,
+          Types whose SharePoint list isn't built yet — Coils'{" "}
+          <strong>Coil Defect Log</strong>,
           Quality Control's <strong>QC Forms</strong>, Operations'{" "}
           <strong>Maintenance Tasks</strong>, the rest of{" "}
           <strong>Supply Chain</strong> (Supplier Issue Tracking, Supplier List, Supplier Contacts, Cost Impact Notices,
@@ -2126,38 +2126,104 @@ const SECTIONS: ManualSection[] = [
       "ecns",
       "engineering change notice",
       "change notice",
-      "dashboard card",
+      "log number",
+      "log#",
+      "revision",
+      "in house stock",
+      "stock disposition",
+      "drawings complete",
+      "field returns",
+      "on hold",
+      "serial numbers",
+      "final assembly",
+      "attachment",
+      "comment",
       "notification",
-      "count",
-      "mock data",
-      "build request",
-      "engineering request",
     ],
     searchText:
-      "The Dashboard shows ECN counts as part of the engineering metrics. ECNs are currently represented as dashboard metrics and will be wired to their SharePoint list when available. Use the dashboard to track ECN volume alongside EIRs and Build Requests.",
+      "ECNs at /engineering/ecns, under Engineering — Engineering Change Notices, the record of a change to a released product, backed by the ECN NEW list on the Altronic Engineering SharePoint site. The table lists every notice newest first by Log#. Search covers everything including the Detailed Description, so you can find which ECN changed a part number. Filter by In House Stock disposition, whether the drawings are complete, and whether the notice is on hold. Click a row to open it. New ECN raises one: you type the Log# yourself because it comes off the ECN paperwork, and a revision keeps the number of the notice it revises with an R suffix (260059R1); the form refuses a number another ECN already has. On the notice, every field edits in place and saves on its own — Change (final assembly part numbers, detailed description, serial numbers), Disposition (in house stock, field returns impacted, drawings complete, on hold) and Sign-off (engineering comments, sign-off status). You can attach files to a notice. Comments work differently from the rest of ARC: an ECN has no watchers, so posting a comment emails the person who submitted the ECN and anyone you @-mention, and nobody else. Notices are never deleted; a superseded one is revised.",
     render: () => (
       <>
         <P>
-          The <strong>ECNs</strong> card on the Dashboard tracks Engineering
-          Change Notices alongside tasks, EIRs, and Build Requests.
+          <strong>Departments → Engineering → ECNs</strong>{" "}
+          (<code>/engineering/ecns</code>) is the register of{" "}
+          <strong>Engineering Change Notices</strong> — what changed on a
+          released product, which assemblies and serial numbers it touches,
+          what happens to stock on hand, and whether the drawings have caught
+          up. It reads and writes the same SharePoint list the team already
+          uses.
         </P>
-        <H3>What it means</H3>
+
+        <H3>Finding a notice</H3>
+        <UL>
+          <LI>
+            The table lists every ECN, <strong>newest Log# first</strong>. Long
+            lists render the first 150 rows with a <strong>show all</strong>
+            {" "}beside the count.
+          </LI>
+          <LI>
+            <strong>Search covers the Detailed Description</strong>, not just
+            the title — so "which ECN changed 711478?" is a question you can
+            answer by typing the part number.
+          </LI>
+          <LI>
+            Filter by <strong>In House Stock</strong>, by whether the{" "}
+            <strong>drawings</strong> are complete or outstanding, and by{" "}
+            <strong>on hold</strong>. The filters live in the address bar, so a
+            filtered view can be shared.
+          </LI>
+        </UL>
+
+        <H3>Raising one</H3>
         <P>
-          ECNs are counted as a company-wide metric on the Dashboard. The card
-          shows how many ECNs are currently open in the system and is meant as
-          a quick way to see change activity at a glance.
+          <strong>New ECN</strong> asks for the part, the Log#, and what
+          changes. <strong>You type the Log# yourself</strong> — it comes off
+          the ECN paperwork rather than being generated, and a{" "}
+          <strong>revision keeps the number of the notice it revises</strong>{" "}
+          with an <code>R</code> suffix (<code>260059R1</code>). The form shows
+          the latest number on the list so the next one is obvious, and it
+          refuses a number another ECN already has.
         </P>
-        <H3>Current status</H3>
+
+        <H3>Working it through</H3>
         <P>
-          Right now, <strong>ECNs are shown as dashboard metrics only</strong>.
-          The app is prepared to wire in the real ECN SharePoint list later,
-          at which point the count will switch from mock/demo data to live
-          data automatically.
+          On the notice itself, every field edits in place and saves on its
+          own, so several people can fill in their part without stepping on
+          each other:
         </P>
+        <UL>
+          <LI>
+            <strong>Change</strong> — final assembly part numbers, the detailed
+            description, serial numbers.
+          </LI>
+          <LI>
+            <strong>Disposition</strong> — what happens to in-house stock,
+            whether field returns are impacted, whether the drawings are done,
+            and whether the notice is on hold.
+          </LI>
+          <LI>
+            <strong>Sign-off</strong> — engineering comments (the running,
+            dated log) and sign-off status.
+          </LI>
+        </UL>
+        <P>
+          <strong>Attachments</strong> go on the notice — the marked-up
+          drawing, the two-page ECN form, a photo of the board.
+        </P>
+
         <Tip>
-          When the ECN list is available, the same dashboard filter controls
-          and project scoping that already work for Tasks and EIRs will apply.
+          <strong>Comments work differently here.</strong> An ECN has no
+          watchers, so posting a comment emails the person who submitted the
+          ECN and anyone you @-mention — nobody else. The page says who will
+          hear you, just above the comment box. If someone should see the next
+          comment too, mention them again: a mention notifies once, it doesn't
+          subscribe anyone.
         </Tip>
+
+        <P>
+          There is no delete. An ECN records a change that was made; a
+          superseded notice is revised, not removed.
+        </P>
       </>
     ),
   },
