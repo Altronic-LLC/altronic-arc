@@ -20,6 +20,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.100.0",
+    date: "2026-08-19",
+    changes: [
+      "Engineering gets Where Am I? — the team's out-of-office calendar, reading and writing the same SharePoint list you already use",
+      "On a computer it's a month grid: click a day to put yourself on it, click an entry to reword it, move it or take it off",
+      "On a phone you get an upcoming agenda instead — Today, Tomorrow, then the days after, with who's out under each",
+      "Away for a week? Set a Through date and it adds one entry per day for you, telling you how many before it saves",
+      "Search matches names and reasons, so you can pull up one person's days out",
+    ],
+  },
+  {
     version: "0.99.2",
     date: "2026-08-19",
     changes: [

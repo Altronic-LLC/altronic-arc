@@ -12,6 +12,16 @@ import {
   groupVisitsByDay,
   visitDayKey,
 } from "@/lib/visitReportFilters";
+import {
+  calendarDays,
+  currentMonthStart,
+  dayLabel,
+  monthKey,
+  monthLabel,
+  parseMonthKey,
+  shiftMonth as shiftMonthBy,
+  WEEKDAYS,
+} from "@/lib/calendarGrid";
 import type { VisitReport } from "@/types/task";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { VisitReportFilterBar } from "@/components/VisitReportFilterBar";
@@ -38,63 +48,6 @@ import { cn } from "@/lib/cn";
 // date-only value is held once parseSpDateOnly has normalised it. Local getters
 // would slide every visit a day earlier for anyone west of Greenwich.
 // =============================================================================
-
-const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-/** `yyyy-mm` for the month a Date falls in, in UTC terms. */
-function monthKey(date: Date): string {
-  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
-}
-
-/** Parse `yyyy-mm` to the first of that month; today's month if unparseable. */
-function parseMonthKey(raw: string | null): Date {
-  const match = /^(\d{4})-(\d{2})$/.exec(raw ?? "");
-  const now = new Date();
-  if (!match) return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-  const year = parseInt(match[1], 10);
-  const month = parseInt(match[2], 10) - 1;
-  if (month < 0 || month > 11) {
-    return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-  }
-  return new Date(Date.UTC(year, month, 1));
-}
-
-/**
- * The 7-column grid for a month: whole weeks, so it starts on the Sunday on or
- * before the 1st and ends on the Saturday on or after the last day.
- */
-export function calendarDays(monthStart: Date): Date[] {
-  const start = new Date(monthStart);
-  start.setUTCDate(1 - start.getUTCDay());
-  const monthEnd = new Date(
-    Date.UTC(monthStart.getUTCFullYear(), monthStart.getUTCMonth() + 1, 0),
-  );
-  const end = new Date(monthEnd);
-  end.setUTCDate(end.getUTCDate() + (6 - end.getUTCDay()));
-
-  const days: Date[] = [];
-  for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
-    days.push(new Date(d));
-  }
-  return days;
-}
-
-function monthLabel(monthStart: Date): string {
-  return monthStart.toLocaleDateString(undefined, {
-    timeZone: "UTC",
-    month: "long",
-    year: "numeric",
-  });
-}
-
-function dayLabel(day: Date): string {
-  return day.toLocaleDateString(undefined, {
-    timeZone: "UTC",
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  });
-}
 
 export function VisitReportsCalendarView() {
   const navigate = useNavigate();
@@ -125,9 +78,7 @@ export function VisitReportsCalendarView() {
   }
 
   function shiftMonth(by: number) {
-    goToMonth(
-      new Date(Date.UTC(monthStart.getUTCFullYear(), monthStart.getUTCMonth() + by, 1)),
-    );
+    goToMonth(shiftMonthBy(monthStart, by));
   }
 
   // A phone can still reach this URL — a bookmark, a shared link. Send it to
@@ -183,10 +134,7 @@ export function VisitReportsCalendarView() {
               {inMonth.length} visit{inMonth.length === 1 ? "" : "s"} this month
             </span>
             <button
-              onClick={() => {
-                const now = new Date();
-                goToMonth(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)));
-              }}
+              onClick={() => goToMonth(currentMonthStart())}
               className="rounded-md border border-border bg-surface px-2.5 py-1 font-medium text-fg transition-colors hover:bg-surface-2"
             >
               Today

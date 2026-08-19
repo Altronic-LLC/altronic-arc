@@ -7,6 +7,7 @@ import {
   BookUser,
   Building2,
   Calculator,
+  CalendarDays,
   CircuitBoard,
   ClipboardCheck,
   ClipboardList,
@@ -653,6 +654,13 @@ export function DashboardView() {
           unit="on file"
           // No `segments` — a certification register has no active/done states.
           onClick={() => navigate("/csa-listings")}
+        />
+        <TypeCard
+          name="Where Am I?"
+          icon={<CalendarDays className="h-5 w-5" />}
+          tone="cooper-red"
+          description="Who's out of the office and where the team is — a calendar on a computer, an agenda on your phone."
+          onClick={() => navigate("/engineering/where-am-i")}
         />
         <PlaceholderCard name="ECNs" icon={<Wrench className="h-5 w-5" />} />
       </DeptSection>

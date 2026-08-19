@@ -176,6 +176,23 @@ export const SP_CSA_LISTINGS_LIST_ID =
   "758defd2-693c-4324-9e0b-dd2a12c341fa";
 
 /**
+ * "Where am I?" — Engineering's out-of-office / where-the-team-is calendar on
+ * the Engineering site. Two columns that matter: `Title` (free text, e.g.
+ * "Sarah - half day vacation") and `Date` (date-only, required). No end date,
+ * so a week away is one row per day.
+ *
+ * Its date-only values are stored at 06:00Z — local midnight in US Central,
+ * where this site's regional setting sits. Two other ARC lists store theirs at
+ * 22:00Z and 23:00Z; `parseSpDateOnly`'s midday pivot reads all three as the
+ * day the SharePoint view shows.
+ *
+ * Schema discovered live 2026-08-19 — scripts/where-am-i-schema.json.
+ */
+export const SP_WHERE_AM_I_LIST_ID =
+  import.meta.env.VITE_SP_WHERE_AM_I_LIST_ID ||
+  "9483c2c9-8af4-42cb-9e15-a170c8cac225";
+
+/**
  * "Gray Market Request" — a part bought outside normal distribution, tracked
  * from request through purchasing, engineering test, inspection and production
  * sign-off. A **Supply Chain** feature (Ray, 2026-08-19), even though the list

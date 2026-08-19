@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
-import { calendarDays, VisitReportsCalendarView } from "./VisitReportsCalendarView";
+import { VisitReportsCalendarView } from "./VisitReportsCalendarView";
+import { calendarDays } from "@/lib/calendarGrid";
 
 const viewport = vi.hoisted(() => ({ calendarAvailable: true }));
 

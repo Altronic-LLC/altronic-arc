@@ -1361,3 +1361,25 @@ export interface GrayMarketRequestInput {
   requestor: Person | null;
   values: Record<string, string>;
 }
+
+// =============================================================================
+// "Where am I?" — Engineering's out-of-office calendar, on the Engineering site.
+//
+// The whole entity is a line of text and a day: `Title` carries both the person
+// and the reason as free text ("Sarah - half day vacation", "GaryK Keystone
+// AM"), and `Date` is a required date-only column.
+//
+// There is NO end date on the list, so an absence spanning several days is
+// several rows. The add form can create them in one go, but the data model is
+// one row per day and nothing here pretends otherwise.
+// =============================================================================
+
+export interface WhereAmIEntry {
+  id: number;
+  /** Free text — usually who, and what they're doing. */
+  title: string;
+  /** Date-only. Null only if the required column is somehow empty. */
+  date: Date | null;
+  createdAt: Date;
+  modifiedAt: Date;
+}

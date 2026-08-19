@@ -49,7 +49,7 @@ const SECTIONS: ManualSection[] = [
       "where do i start",
     ],
     searchText:
-      "Sign in with your altronic-llc.com account. The Dashboard opens after sign-in. Use the top nav to switch between Dashboard, the Departments dropdown, and Admin. The Departments dropdown mirrors the dashboard: Engineering (Engineering Tasks, EIRs, Test Sheets, Project Folders, Build Requests, Drawing File Logs, CSA Listings, with ECNs coming soon), Panels, Operations, Coils (Potting Sample Log), Quality Control (Digital QC and Ignition QC Defect Logs), Supply Chain (Gray Market Requests), and Customer Service / Sales (Visit Reports).",
+      "Sign in with your altronic-llc.com account. The Dashboard opens after sign-in. Use the top nav to switch between Dashboard, the Departments dropdown, and Admin. The Departments dropdown mirrors the dashboard: Engineering (Engineering Tasks, EIRs, Test Sheets, Project Folders, Build Requests, Drawing File Logs, CSA Listings, Where Am I?, with ECNs coming soon), Panels, Operations, Coils (Potting Sample Log), Quality Control (Digital QC and Ignition QC Defect Logs), Supply Chain (Gray Market Requests), and Customer Service / Sales (Visit Reports).",
     render: () => (
       <>
         <P>
@@ -59,7 +59,7 @@ const SECTIONS: ManualSection[] = [
           <strong>Departments</strong> dropdown that mirrors the dashboard's
           sections — <strong>Engineering</strong> (Engineering Tasks, EIRs, Test
           Sheets, Project Folders, Build Requests, Drawing File Logs, CSA
-          Listings, with ECNs coming soon), <strong>Panels</strong>,{" "}
+          Listings, Where Am I?, with ECNs coming soon), <strong>Panels</strong>,{" "}
           <strong>Operations</strong>, <strong>Coils</strong> (Potting Sample
           Log), <strong>Quality Control</strong> (Digital QC and Ignition QC
           Defect Logs), <strong>Supply Chain</strong> (Gray Market Requests), and{" "}
@@ -1720,6 +1720,79 @@ const SECTIONS: ManualSection[] = [
           <strong>Testing Required</strong>, and the search box matches every
           field, so a part number, a PO or a vendor all find the request.
         </P>
+      </>
+    ),
+  },
+  {
+    id: "where-am-i",
+    title: "Where Am I?",
+    group: "Engineering",
+    keywords: [
+      "where am i",
+      "out of office",
+      "ooo",
+      "vacation",
+      "pto",
+      "holiday",
+      "in the field",
+      "away",
+      "calendar",
+      "who is out",
+      "team calendar",
+      "absence",
+    ],
+    searchText:
+      "Where Am I? at /engineering/where-am-i, under Engineering — the team's out-of-office calendar, backed by the Where am I? list on the Altronic Engineering SharePoint site. Each entry is a line of text and a day: who you are and what you're doing (\"Sarah - half day vacation\"). On a computer it's a month grid: click a day to add yourself, click an entry to edit or remove it, arrows and Today move between months. On a phone the grid is replaced by an upcoming agenda grouped by day — Today, Tomorrow, then dates — because seven columns can't be read at phone width. Adding lets you set a Through date, which creates one entry per day (the list stores a single date per row), capped at 60 days. Anyone signed in can add, edit and remove entries, including other people's. The search box matches names and reasons.",
+    render: () => (
+      <>
+        <P>
+          <strong>Departments → Engineering → Where Am I?</strong>{" "}
+          (<code>/engineering/where-am-i</code>) is the team's out-of-office
+          calendar — who's away, who's in the field, and when. It reads and
+          writes the same SharePoint list the team already uses, so an entry
+          added here shows up there and the other way round.
+        </P>
+        <P>
+          An entry is a <strong>line of text and a day</strong>. Put your name
+          in the text, because that's all anyone sees:{" "}
+          <em>"Sarah — half day vacation"</em>, <em>"GaryK — Keystone AM"</em>.
+        </P>
+        <H3>On a computer</H3>
+        <UL>
+          <LI>
+            <strong>Click any day</strong> to add yourself to it — the date is
+            filled in for you.
+          </LI>
+          <LI>
+            <strong>Click an entry</strong> to change the wording or the date,
+            or to remove it. Plans change; this calendar lets you take things
+            off it.
+          </LI>
+          <LI>
+            The arrows move a month at a time, and <strong>Today</strong> jumps
+            back.
+          </LI>
+        </UL>
+        <H3>Away for more than a day</H3>
+        <P>
+          The list stores <strong>one date per entry</strong>, so a week away is
+          five entries. Rather than adding them one at a time, set a{" "}
+          <strong>Through</strong> date when adding and the form creates one
+          entry per day for you — it tells you how many before you save. Sixty
+          days is the limit, which is a guard against a mistyped year rather
+          than a rule about holidays.
+        </P>
+        <H3>On a phone</H3>
+        <P>
+          The month grid is replaced by an <strong>upcoming agenda</strong>:
+          today first, then tomorrow, then the days after, with who's out under
+          each. Seven columns of names can't be read on a phone, and "who's out
+          today" is the question people open this on a phone to ask.
+        </P>
+        <Tip>
+          The agenda looks <em>forward</em> — past entries aren't listed. Open
+          it on a computer to look back over the month.
+        </Tip>
       </>
     ),
   },

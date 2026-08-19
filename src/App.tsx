@@ -19,6 +19,7 @@ import { AdminEirRolesView } from "@/views/AdminEirRolesView";
 import { TestSheetsView } from "@/views/TestSheetsView";
 import { TestSheetDetailView } from "@/views/TestSheetDetailView";
 import { EirsView } from "@/views/EirsView";
+import { WhereAmIView } from "@/views/WhereAmIView";
 import { VisitReportsView } from "@/views/VisitReportsView";
 import { GrayMarketRequestsView } from "@/views/GrayMarketRequestsView";
 import { GrayMarketRequestDetailView } from "@/views/GrayMarketRequestDetailView";
@@ -210,6 +211,7 @@ export function App() {
             path="/sales/visit-report/:id"
             element={<VisitReportDetailView />}
           />
+          <Route path="/engineering/where-am-i" element={<WhereAmIView />} />
           <Route path="/eirs" element={<EirsView />} />
           <Route path="/eirs/kanban" element={<EirKanbanView />} />
           <Route path="/eir/:id" element={<EirDetailView />} />
