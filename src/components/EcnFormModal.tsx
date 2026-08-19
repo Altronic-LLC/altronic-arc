@@ -36,7 +36,7 @@ const CREATE_SECTIONS: EcnSection[] = ["Change", "Disposition"];
 
 export function EcnFormModal({ onClose, onCreated }: EcnFormModalProps) {
   const create = useCreateEcn();
-  const { data: ecns = [] } = useEcns();
+  const { data: ecns = [], isLoading: ecnsLoading } = useEcns();
   const busy = create.isPending;
 
   const [title, setTitle] = useState("");
@@ -75,10 +75,15 @@ export function EcnFormModal({ onClose, onCreated }: EcnFormModalProps) {
     e.preventDefault();
     if (!title.trim()) return setError("Title is required.");
     if (!logNo.trim()) return setError("Log# is required.");
+    // SharePoint doesn't enforce a unique Log#, so this check is the only
+    // thing standing between two notices with the same number on a
+    // controlled record. It can only run against a loaded list — saying so
+    // beats letting a duplicate through in silence because the fetch hadn't
+    // landed yet.
+    if (ecnsLoading) {
+      return setError("Still checking the existing Log#s — try again in a moment.");
+    }
     if (ecns.some((existing) => existing.logNo.toLowerCase() === logNo.trim().toLowerCase())) {
-      // Not enforced by SharePoint, so the app is the only thing that can
-      // catch it — and a duplicate number is a genuine problem on a
-      // controlled record, not a nuisance.
       return setError(`Log# ${logNo.trim()} is already used by another ECN.`);
     }
     setError(null);

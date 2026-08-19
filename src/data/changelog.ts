@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.101.1",
+    date: "2026-08-19",
+    changes: [
+      "The New ECN form no longer waves a duplicate Log# through if you hit Save before the existing numbers have loaded — it says to try again in a moment",
+    ],
+  },
+  {
     version: "0.101.0",
     date: "2026-08-19",
     changes: [
