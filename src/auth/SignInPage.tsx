@@ -24,6 +24,13 @@ interface SignInPageProps {
    * wording only; the button does the same thing.
    */
   reason?: "expired";
+  /**
+   * Why, when the session ended for something the user must act on — an
+   * expired password, an account-risk flag. Shown instead of the generic
+   * "signed out" line, because retrying will fail identically until it's
+   * dealt with. See lib/authErrors.ts.
+   */
+  detail?: string | null;
 }
 
 /**
@@ -52,7 +59,7 @@ export function signInErrorMessage(err: unknown): string {
  *      nothing useful in demo because there's no client ID) or click
  *      "Continue as Demo User" to bypass.
  */
-export function SignInPage({ onDemoBypass, reason }: SignInPageProps) {
+export function SignInPage({ onDemoBypass, reason, detail }: SignInPageProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const queryClient = useQueryClient();
@@ -114,7 +121,17 @@ export function SignInPage({ onDemoBypass, reason }: SignInPageProps) {
               </div>
             </div>
 
-            {reason === "expired" ? (
+            {detail ? (
+              // Something the user has to fix. Say it once, plainly, instead of
+              // letting a raw AADSTS paragraph repeat across every card on the
+              // dashboard (Ray, 2026-08-20).
+              <div className="mt-8 max-w-sm rounded-md border border-cooper-red/30 bg-cooper-red/10 px-4 py-3 text-left">
+                <p className="text-sm font-medium text-fg">
+                  Microsoft wouldn't complete the sign-in
+                </p>
+                <p className="mt-1 text-sm text-fg-muted">{detail}</p>
+              </div>
+            ) : reason === "expired" ? (
               <p className="mt-8 max-w-sm text-sm text-fg-muted">
                 Your Microsoft sign-in expired while the tab was idle. Sign in
                 again to pick up where you left off — nothing has been lost.

@@ -47,7 +47,11 @@ try {
 // nothing actually read that signal, so a stale session just rendered as
 // empty lists everywhere instead of prompting a fresh sign-in.
 function handlePossibleSessionExpiry(error: unknown) {
-  if (isSessionExpiredError(error)) markSessionExpired();
+  if (!isSessionExpiredError(error)) return;
+  // The message carries the explanation when the session ended for something
+  // the user has to act on — an expired password, an account-risk flag. See
+  // lib/authErrors.ts.
+  markSessionExpired(error instanceof Error ? error.message : undefined);
 }
 
 // Global write-failure safety net. Every mutation error flows through here

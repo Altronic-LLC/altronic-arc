@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.106.1",
+    date: "2026-08-20",
+    changes: [
+      "A sign-in problem you have to fix — an expired password, an account flagged at risk — now says so on the sign-in screen, once, instead of showing a wall of Microsoft error codes on every dashboard card",
+      "The message tells you what to do about it, and keeps the code so you can quote it to IT",
+    ],
+  },
+  {
     version: "0.106.0",
     date: "2026-08-20",
     changes: [

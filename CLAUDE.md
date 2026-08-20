@@ -350,6 +350,7 @@ src/
 │   ├── sanitiseHtml.ts           DOMPurify wrapper for stored HTML
 │   ├── richText.ts               Plain text ⇄ HTML for the EIR rich-text columns
 │   ├── errorBuffer.ts            Bounded console-error capture (Report issue)
+│   ├── authErrors.ts             AADSTS codes that mean "fix your account", in plain English
 │   └── pcbChecklist.ts           PCB-category task checklist logic
 │
 ├── types/
@@ -1671,6 +1672,32 @@ separately, because access wouldn't fix a bad address or a throttle. An unset
 `VITE_SHARED_MAILBOX` is deliberately NOT toasted — it breaks every notification
 for everyone, so a per-comment toast would be noise rather than something one
 person can act on.
+
+### A sign-in error the user must ACT on doesn't belong on nine cards
+
+Some AADSTS failures aren't token problems the app can retry — the account
+needs attention before any request will work. Ray hit `AADSTS50135`
+("password change is required due to account risk") on 2026-08-20 and got nine
+dashboard cards each showing the raw paragraph, trace IDs and all, with nine
+Retry buttons that failed identically. Nothing in it said "change your
+password".
+
+`src/lib/authErrors.ts` maps the small set of those codes — expired password,
+account risk, disabled account, blocked by policy, MFA needed — to a sentence
+and a next step. `graph.ts` turns a match into a `SessionExpiredError` carrying
+that text, which puts it through the existing re-auth path: one sign-in screen,
+one explanation, instead of the same paragraph nine times.
+
+Three things to keep:
+
+- **The set is deliberately narrow.** Several AADSTS codes are normal
+  silent-auth outcomes the app already handles by degrading — `50058` is just
+  "nobody is signed in". Routing those to a sign-in screen would be worse than
+  the problem. Unknown codes fall through untouched.
+- **The code number stays in the message.** Whoever contacts IT needs to say
+  which one it was.
+- **`markSessionExpired(reason?)` keeps the FIRST reason.** Nine queries fail
+  together; they must not overwrite each other's message.
 
 ### Session expiry: one prompt, then the sign-in screen
 

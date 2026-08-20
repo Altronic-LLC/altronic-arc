@@ -118,3 +118,24 @@ describe("signInErrorMessage", () => {
     expect(signInErrorMessage(new Error(""))).toBe("Sign-in was cancelled or failed.");
   });
 });
+
+describe("SignInPage — when the account needs attention", () => {
+  // A raw AADSTS paragraph repeated across nine dashboard cards told the user
+  // nothing (Ray, 2026-08-20). The explanation belongs here, once.
+  it("shows the explanation instead of the generic expiry line", () => {
+    renderWithProviders(
+      <SignInPage
+        reason="expired"
+        detail="AADSTS50135: Microsoft is asking you to change your password before signing in. Reset your password, then sign in again."
+      />,
+    );
+    expect(screen.getByText(/wouldn't complete the sign-in/i)).toBeInTheDocument();
+    expect(screen.getByText(/change your password/i)).toBeInTheDocument();
+    expect(screen.queryByText(/expired while the tab was idle/i)).not.toBeInTheDocument();
+  });
+
+  it("falls back to the idle-expiry wording when there's no explanation", () => {
+    renderWithProviders(<SignInPage reason="expired" />);
+    expect(screen.getByText(/expired while the tab was idle/i)).toBeInTheDocument();
+  });
+});

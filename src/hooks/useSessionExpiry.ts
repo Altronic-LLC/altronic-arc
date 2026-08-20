@@ -23,6 +23,12 @@ import { useSyncExternalStore } from "react";
 // =============================================================================
 
 let expired = false;
+/**
+ * Why, when the reason is something the user must act on (an expired password,
+ * an account-risk flag). Null for an ordinary stale token, which needs no
+ * explanation beyond "sign in again".
+ */
+let detail: string | null = null;
 let listeners: Array<() => void> = [];
 
 function notify() {
@@ -33,6 +39,10 @@ function getSnapshot() {
   return expired;
 }
 
+function getDetailSnapshot() {
+  return detail;
+}
+
 function subscribe(fn: () => void) {
   listeners.push(fn);
   return () => {
@@ -40,10 +50,18 @@ function subscribe(fn: () => void) {
   };
 }
 
-/** Call from anywhere a request fails with SessionExpiredError. Idempotent. */
-export function markSessionExpired() {
+/**
+ * Call from anywhere a request fails with SessionExpiredError. Idempotent.
+ *
+ * `reason` is shown on the sign-in screen when the session ended for something
+ * the user has to fix. The FIRST reason wins: nine dashboard queries fail
+ * together, and the one that lands first is as good as any — what matters is
+ * that they don't overwrite each other.
+ */
+export function markSessionExpired(reason?: string) {
   if (expired) return;
   expired = true;
+  detail = reason ?? null;
   notify();
 }
 
@@ -51,12 +69,18 @@ export function markSessionExpired() {
 export function resetSessionExpired() {
   if (!expired) return;
   expired = false;
+  detail = null;
   notify();
 }
 
 /** True once a request has reported the session expired, until `resetSessionExpired()`. */
 export function useSessionExpired(): boolean {
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+}
+
+/** Why the session ended, when it's something the user must act on. */
+export function useSessionExpiryReason(): string | null {
+  return useSyncExternalStore(subscribe, getDetailSnapshot, getDetailSnapshot);
 }
 
 /** True if `error` is (or wraps) the app's SessionExpiredError. */

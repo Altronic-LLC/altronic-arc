@@ -2,7 +2,11 @@ import { useIsAuthenticated, useMsal } from "@azure/msal-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { useLocation } from "react-router-dom";
 import { USE_MOCK } from "@/api/config";
-import { resetSessionExpired, useSessionExpired } from "@/hooks/useSessionExpiry";
+import {
+  resetSessionExpired,
+  useSessionExpired,
+  useSessionExpiryReason,
+} from "@/hooks/useSessionExpiry";
 import { SignInPage } from "./SignInPage";
 
 // Session-scoped flag remembering that the demo user clicked through the
@@ -50,6 +54,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
   const { accounts, instance } = useMsal();
   const location = useLocation();
   const sessionExpired = useSessionExpired();
+  const expiryReason = useSessionExpiryReason();
 
   // Track demo-mode bypass with React state too, so the click on "Continue
   // as Demo User" triggers a re-render even if sessionStorage write fails.
@@ -98,7 +103,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
   // that failed while the token was dead stayed failed, so the page underneath
   // was a wall of red errors and the only way back in was hammering Retry.
   // Signing in from here refetches everything at once.
-  if (sessionExpired) return <SignInPage reason="expired" />;
+  if (sessionExpired) return <SignInPage reason="expired" detail={expiryReason} />;
 
   return <>{children}</>;
 }
