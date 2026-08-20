@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.109.1",
+    date: "2026-08-20",
+    changes: [
+      "The duplicate \"David Phillips\" is now gone from the filter bars too — the Assigned dropdown on a list builds its options from the tasks themselves, so it needed fixing separately from the directory",
+    ],
+  },
+  {
     version: "0.109.0",
     date: "2026-08-20",
     changes: [

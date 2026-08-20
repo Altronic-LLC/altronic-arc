@@ -131,3 +131,35 @@ describe("isHiddenPerson", () => {
     expect(isHiddenPerson({ displayName: "David Phillips", email: "" })).toBe(false);
   });
 });
+
+// The filter bars' options come from the ITEMS — who's assigned to a task —
+// not from the directory, so the directory-side filters never see them. A
+// duplicate account that's been assigned real work kept showing in the
+// Operations Assigned filter after the directory fix (Ray, 2026-08-20).
+describe("withPerson drops hidden people", () => {
+  const DAVID: Person = {
+    displayName: "David Phillips",
+    email: "david.phillips@altronic-llc.com",
+  };
+  const DAVE: Person = {
+    displayName: "Dave Phillips",
+    email: "dave.phillips@altronic-llc.com",
+  };
+
+  it("removes the duplicate that came off the items", () => {
+    const out = withPerson([DAVE, DAVID], RAY);
+    expect(out.map((p) => p.displayName)).not.toContain("David Phillips");
+    expect(out.map((p) => p.displayName)).toContain("Dave Phillips");
+  });
+
+  it("removes it even when there's no signed-in user to add", () => {
+    expect(withPerson([DAVE, DAVID], null).map((p) => p.displayName)).toEqual([
+      "Dave Phillips",
+    ]);
+  });
+
+  // The reason this function exists — see its doc comment.
+  it("still always includes the signed-in user", () => {
+    expect(withPerson([DAVID], RAY).map((p) => p.displayName)).toEqual(["Ray White"]);
+  });
+});

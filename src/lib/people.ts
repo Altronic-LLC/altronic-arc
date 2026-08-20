@@ -90,12 +90,25 @@ export function isHiddenPerson(person: {
  * even before they're on any item. Without this, a Dashboard "Mine"
  * click-through filters the list to the user while the dropdown still reads
  * "Anyone", which looks like an empty list with no filter applied.
+ *
+ * **Hidden people are dropped here too.** Every filter bar in ARC funnels
+ * through this function, and its options come from the ITEMS — who's assigned
+ * to a task — not from the directory. So the directory-side filters never see
+ * them: a duplicate account that's been assigned real work keeps appearing in
+ * the dropdown however thoroughly the directory is cleaned (Ray, 2026-08-20 —
+ * "David Phillips" still in the Operations Assigned filter after the directory
+ * fix). One place, all ten bars.
+ *
+ * The explicitly-passed `person` is never filtered: that's the signed-in user,
+ * and the promise above matters more than the edge case of someone being
+ * signed in as a hidden account.
  */
 export function withPerson(people: Person[], person: Person | null | undefined): Person[] {
-  if (!person || !person.displayName) return people;
+  const visible = people.filter((p) => !isHiddenPerson(p));
+  if (!person || !person.displayName) return visible;
   const key = (person.email ?? person.displayName).toLowerCase();
-  if (people.some((p) => (p.email ?? p.displayName).toLowerCase() === key)) return people;
-  return [...people, person].sort((a, b) => a.displayName.localeCompare(b.displayName));
+  if (visible.some((p) => (p.email ?? p.displayName).toLowerCase() === key)) return visible;
+  return [...visible, person].sort((a, b) => a.displayName.localeCompare(b.displayName));
 }
 
 /**

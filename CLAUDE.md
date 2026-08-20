@@ -1773,9 +1773,20 @@ hides nobody *silently* — the failure that's hardest to notice.
 **It matches on email only, never the display name.** Two people can share a
 name, and hiding the wrong colleague is worse than showing a duplicate.
 
+**Two funnels, not one.** The directory filters above only cover people who
+come FROM the directory. Every list view's filter bar builds its options from
+the ITEMS instead — `withPerson(collectXPeople(items), currentUser)` — so a
+duplicate account that has been assigned real work keeps appearing there
+however clean the directory is. `withPerson` therefore drops hidden people
+too; it's the single funnel all ten filter bars pass through. Detail-page
+pickers go through `mergePeople`, which does the same.
+
 **It's cosmetic, not a permission** — a hidden account can still be assigned
-work directly in SharePoint. A duplicate that shouldn't exist is better
-disabled in Entra, which the second filter then handles on its own.
+work directly in SharePoint, and hiding it does NOT reassign the items already
+pointing at it. Those keep their assignee and simply can't be filtered by that
+name any more, which is the trade for getting it out of the dropdowns. A
+duplicate that shouldn't exist is better disabled in Entra, and the items
+reassigned to the surviving account.
 
 ### People search is token-based, and hides `admin.` accounts
 
