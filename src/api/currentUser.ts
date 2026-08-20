@@ -112,43 +112,74 @@ async function doResolve(email: string): Promise<number> {
 // new consent: User.Read is already in `graphScopes`.
 // =============================================================================
 
-let emailsPromise: Promise<string[]> | null = null;
-
-/**
- * Every address Entra holds for the signed-in user, lowercased and deduped:
- * the mailbox, the UPN, and any secondary addresses.
- *
- * Resolved once per session. A failure returns [] and CLEARS the cached
- * promise so a later call can try again — the caller still has the token's
- * own addresses to fall back on, so this degrades to the previous behaviour
- * rather than locking anyone out.
- */
-export async function resolveMyEmailAddresses(): Promise<string[]> {
-  if (USE_MOCK) return ["demo.user@altronic-llc.com"];
-  if (!emailsPromise) {
-    emailsPromise = doResolveEmails().catch((err) => {
-      console.warn("Could not read the signed-in user's addresses from Graph:", err);
-      emailsPromise = null;
-      return [];
-    });
-  }
-  return emailsPromise;
+/** What Entra holds for the signed-in user. */
+export interface MyIdentity {
+  /**
+   * The address to treat as theirs everywhere in ARC: the mailbox, falling
+   * back to the UPN. This is what SharePoint person columns, the EIR Roles
+   * list and every picker hold — NOT necessarily what they sign in with.
+   */
+  primary: string;
+  /** Every address they answer to, for matching against a stored value. */
+  all: string[];
 }
 
-async function doResolveEmails(): Promise<string[]> {
+let identityPromise: Promise<MyIdentity> | null = null;
+
+const EMPTY_IDENTITY: MyIdentity = { primary: "", all: [] };
+
+/**
+ * Resolve the signed-in user's real addresses, once per session.
+ *
+ * Never rejects: a failure logs, clears the cached promise so a later call can
+ * retry, and returns empty — callers then fall back to the sign-in name, which
+ * is what the app used to use unconditionally. Degrading beats locking anyone
+ * out of a feature they had before.
+ */
+export async function resolveMyIdentity(): Promise<MyIdentity> {
+  if (USE_MOCK) {
+    return {
+      primary: "demo.user@altronic-llc.com",
+      all: ["demo.user@altronic-llc.com"],
+    };
+  }
+  if (!identityPromise) {
+    identityPromise = doResolveIdentity().catch((err) => {
+      console.warn("Could not read the signed-in user's addresses from Graph:", err);
+      identityPromise = null;
+      return EMPTY_IDENTITY;
+    });
+  }
+  return identityPromise;
+}
+
+async function doResolveIdentity(): Promise<MyIdentity> {
   const me = await graphFetch<{
     mail?: string | null;
     userPrincipalName?: string | null;
     otherMails?: string[] | null;
   }>("/me?$select=mail,userPrincipalName,otherMails");
 
-  const out = new Set<string>();
-  const add = (value: string | null | undefined) => {
-    const email = (value ?? "").trim().toLowerCase();
-    if (email) out.add(email);
-  };
-  add(me.mail);
-  add(me.userPrincipalName);
-  for (const other of me.otherMails ?? []) add(other);
-  return [...out];
+  const clean = (value: string | null | undefined) => (value ?? "").trim().toLowerCase();
+  const mail = clean(me.mail);
+  const upn = clean(me.userPrincipalName);
+
+  const all = new Set<string>();
+  if (mail) all.add(mail);
+  if (upn) all.add(upn);
+  for (const other of me.otherMails ?? []) {
+    const email = clean(other);
+    if (email) all.add(email);
+  }
+
+  // `mail` first: the mailbox is the identity the rest of the tenant knows
+  // them by. Steve Pirko signs in as steve.pirko@ and receives mail at
+  // Steven.Pirko@ — everything stored about him says the latter.
+  return { primary: mail || upn, all: [...all] };
 }
+
+/** Just the addresses, for callers that only need to match one. */
+export async function resolveMyEmailAddresses(): Promise<string[]> {
+  return (await resolveMyIdentity()).all;
+}
+

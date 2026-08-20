@@ -1766,12 +1766,25 @@ both cost someone their access silently:
 - **The token alone isn't enough**, because `email` is an OPTIONAL claim that
   has to be configured on the app registration, and ARC doesn't request the
   `email` scope — so in practice the token carries only the UPN. So
-  `useCurrentUserEmails` also resolves `/me?$select=mail,userPrincipalName,otherMails`
-  once per session (`resolveMyEmailAddresses`, on the **User.Read** scope the
-  app already has) and merges the result. Token addresses come first so
-  matching works on the first render; a failed `/me` returns `[]`, clears its
-  cached promise for a later retry, and degrades to the token addresses rather
-  than locking anyone out.
+  `resolveMyIdentity()` reads `/me?$select=mail,userPrincipalName,otherMails`
+  once per session (on the **User.Read** scope the app already has). Its
+  `primary` is the **mailbox**, falling back to the UPN; `all` is every address
+  the person answers to. A failed call returns an empty identity, clears its
+  cached promise for a later retry, and the app degrades to the sign-in name —
+  what it used before — rather than locking anyone out.
+- **`useCurrentUser().email` is the MAILBOX**, not `account.username`. Steve
+  Pirko signs in as `steve.pirko@altronic-llc.com` and receives mail at
+  `Steven.Pirko@altronic-llc.com` — ONE account, two spellings. Everything
+  stored about a person holds the mailbox, so using the UPN meant the app
+  didn't recognise him as himself: his EIR role tags didn't apply, and the
+  Assigned filter's default of "me" matched none of his own tasks. The
+  lookupId resolution now waits for `/me`, since the User Information List is
+  searched by address and searching it for a sign-in name that isn't his
+  address finds nothing.
+- **Two spellings of one person is NOT a duplicate account.** `steve.pirko`
+  was briefly added to `VITE_HIDDEN_PEOPLE`'s default on that assumption and
+  hid the only real Steve from every picker in ARC. Confirm two accounts exist
+  before hiding either.
 - **A match is tried whole first, then on the local part**, so a differing
   domain doesn't hide someone. The false positive that buys — two people
   sharing a local part across two domains — doesn't occur in this tenant, the
@@ -1796,9 +1809,8 @@ Three filters sit between the tenant directory and every picker in ARC, all in
   the property at all, and treating "unknown" as disabled would empty every
   picker in the app.
 - **`admin.first.last`, or a person in `VITE_HIDDEN_PEOPLE`** → out. The
-  built-in default hides `david.phillips` (keeping Dave Phillips) and
-  `steve.pirko` (keeping Steven Pirko, who is the name tagged on the EIR Roles
-  list). Setting the env var REPLACES that default rather than adding to it.
+  built-in default hides `david.phillips` (keeping Dave Phillips). Setting the
+  env var REPLACES that default rather than adding to it.
 
 `VITE_HIDDEN_PEOPLE` is a comma-separated list, for a person who exists twice
 under two enabled accounts where only one should be pickable — Ray hit this

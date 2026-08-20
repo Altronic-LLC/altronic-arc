@@ -155,18 +155,18 @@ describe("isHiddenPerson", () => {
     expect(isHiddenPerson({ displayName: "David" })).toBe(false);
   });
 
-  // The second duplicate: Steven Pirko is the real one — he's the name tagged
-  // engineer on the EIR Roles list — so the "Steve" spelling is the one to go.
-  it("hides the Steve/Steven duplicate and keeps Steven", () => {
-    expect(isHiddenPerson({ displayName: "Steve Pirko" })).toBe(true);
-    expect(isHiddenPerson({ displayName: "Pirko, Steve" })).toBe(true);
+  // NOT a duplicate, and briefly hidden as if he were. Steve Pirko is one
+  // account whose sign-in name (steve.pirko@) differs from his mailbox
+  // (Steven.Pirko@) — hiding either spelling removes the only real Steve from
+  // every picker in ARC (Ray, 2026-08-20).
+  it("leaves Steve Pirko alone under either spelling", () => {
+    expect(isHiddenPerson({ displayName: "Steve Pirko" })).toBe(false);
+    expect(isHiddenPerson({ displayName: "Pirko, Steve" })).toBe(false);
     expect(
       isHiddenPerson({ displayName: "Steve Pirko", email: "steve.pirko@altronic-llc.com" }),
-    ).toBe(true);
-
-    expect(isHiddenPerson({ displayName: "Steven Pirko" })).toBe(false);
+    ).toBe(false);
     expect(
-      isHiddenPerson({ displayName: "Steven Pirko", email: "steven.pirko@altronic-llc.com" }),
+      isHiddenPerson({ displayName: "Steve Pirko", email: "Steven.Pirko@altronic-llc.com" }),
     ).toBe(false);
   });
 

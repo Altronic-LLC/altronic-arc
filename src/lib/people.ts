@@ -69,13 +69,19 @@ export function isHiddenDirectoryAccount(person: {
  * of that person is the one that stays:
  *
  *   david.phillips  → the real one is Dave Phillips  (Ray, 2026-08-20)
- *   steve.pirko     → the real one is Steven Pirko, who is the name tagged
- *                     on the EIR Roles list          (Ray, 2026-08-20)
  *
- * Harmless when an entry matches nobody, so listing one that may not exist
- * costs nothing. Override the whole list with VITE_HIDDEN_PEOPLE.
+ * **`steve.pirko` was briefly listed here and must NOT come back.** Steve
+ * Pirko is not a duplicate: he is ONE account whose sign-in name
+ * (steve.pirko@altronic-llc.com) simply differs from his mailbox
+ * (Steven.Pirko@altronic-llc.com). Hiding it removed the only real Steve from
+ * every picker in ARC. Confirm a name is genuinely two accounts before adding
+ * it — two spellings of one person is the commoner case, and it's handled by
+ * matching addresses properly, not by hiding one of them.
+ *
+ * Harmless when an entry matches nobody. Override the whole list with
+ * VITE_HIDDEN_PEOPLE.
  */
-const DEFAULT_HIDDEN_PEOPLE = "david.phillips,steve.pirko";
+const DEFAULT_HIDDEN_PEOPLE = "david.phillips";
 
 const HIDDEN_PEOPLE: Set<string> = new Set(
   (import.meta.env.VITE_HIDDEN_PEOPLE ?? DEFAULT_HIDDEN_PEOPLE)

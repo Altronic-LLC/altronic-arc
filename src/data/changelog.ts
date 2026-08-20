@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.109.5",
+    date: "2026-08-20",
+    changes: [
+      "Steve Pirko is back in the people pickers — 0.109.4 mistook his two email spellings for a duplicate account and hid him",
+      "ARC now identifies you by your real mailbox rather than the name you sign in with, so EIR role tags apply and the Assigned filter's \"me\" default finds your own work when the two differ",
+    ],
+  },
+  {
     version: "0.109.4",
     date: "2026-08-20",
     changes: [
