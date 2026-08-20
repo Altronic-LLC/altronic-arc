@@ -1748,6 +1748,35 @@ for. Don't reintroduce `d.getHours()` / `new Date(y, m, d, …)` here: those are
 the author's-local-time bug. Tests set `process.env.TZ` explicitly, because
 "it depends where you are" IS the bug.
 
+### Who reaches a people picker
+
+Three filters sit between the tenant directory and every picker in ARC, all in
+`mapDirectoryUsers` (api/directory.ts) and `isHiddenPerson` (lib/people.ts):
+
+- **No mailbox, or an `#EXT#` guest** → out. Service accounts and externals.
+- **`accountEnabled === false`** → out. Leavers, and the stale half of a
+  duplicated person. Note the explicit `=== false`: some tenants don't return
+  the property at all, and treating "unknown" as disabled would empty every
+  picker in the app.
+- **`admin.first.last`, or an address in `VITE_HIDDEN_PEOPLE`** → out.
+
+`VITE_HIDDEN_PEOPLE` is a comma-separated list, for a person who exists twice
+under two enabled accounts where only one should be pickable — Ray hit this
+with a "David Phillips" beside the real "Dave Phillips" (2026-08-20), and
+`david.phillips` is the default. It's config rather than names in code because
+which account is the stale one is DATA.
+
+An entry can be a full address OR just the local part. The bare form means
+nobody has to know which domain a mailbox is on, and getting a domain wrong
+hides nobody *silently* — the failure that's hardest to notice.
+
+**It matches on email only, never the display name.** Two people can share a
+name, and hiding the wrong colleague is worse than showing a duplicate.
+
+**It's cosmetic, not a permission** — a hidden account can still be assigned
+work directly in SharePoint. A duplicate that shouldn't exist is better
+disabled in Entra, which the second filter then handles on its own.
+
 ### People search is token-based, and hides `admin.` accounts
 
 Two rules for anything that lets a user pick a person.

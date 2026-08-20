@@ -38,6 +38,50 @@ export function isHiddenDirectoryAccount(person: {
 }
 
 /**
+ * Addresses to keep out of every people picker in ARC.
+ *
+ * For a person who exists twice in the directory under two accounts — a
+ * rename that left the old one behind, a duplicate created by mistake — where
+ * only one should be pickable. Ray hit this with a "David Phillips" appearing
+ * alongside the real "Dave Phillips" (2026-08-20).
+ *
+ * It's a config list rather than names in code, because which account is the
+ * stale one is DATA and it changes. Comma-separated, and an entry can be
+ * either a full address or just the part before the @:
+ *
+ *   VITE_HIDDEN_PEOPLE="david.phillips, someone.else@altronic-llc.com"
+ *
+ * The bare form exists so nobody has to know which domain a mailbox is on —
+ * a local part is unique within the tenant, and getting the domain wrong
+ * silently hides nobody, which is the failure that's hard to notice.
+ *
+ * Matching is on the email only, never the display name: two people can share
+ * a name, and hiding the wrong colleague is worse than the duplicate.
+ *
+ * **This is cosmetic, not a permission.** A hidden account can still be
+ * assigned work directly in SharePoint; this only keeps it out of the pickers.
+ * A duplicate that shouldn't exist is better disabled in Entra — which the
+ * directory read now skips on its own.
+ */
+const HIDDEN_PEOPLE: Set<string> = new Set(
+  (import.meta.env.VITE_HIDDEN_PEOPLE ?? "david.phillips")
+    .split(",")
+    .map((e: string) => e.trim().toLowerCase())
+    .filter(Boolean),
+);
+
+/** True when this person should be kept out of the pickers. */
+export function isHiddenPerson(person: {
+  displayName?: string;
+  email?: string | null;
+}): boolean {
+  if (isHiddenDirectoryAccount(person)) return true;
+  const email = (person.email ?? "").trim().toLowerCase();
+  if (!email) return false;
+  return HIDDEN_PEOPLE.has(email) || HIDDEN_PEOPLE.has(email.split("@")[0]);
+}
+
+/**
  * Return `people` with `person` merged in if missing (deduped by lowercase
  * email/displayName), kept alphabetical.
  *
@@ -69,7 +113,7 @@ export function mergePeople(...lists: Array<Person[] | undefined>): Person[] {
     for (const p of list) {
       if (!p || !p.displayName) continue;
       // admin.first.last shadow accounts never belong in a picker.
-      if (isHiddenDirectoryAccount(p)) continue;
+      if (isHiddenPerson(p)) continue;
       const key = (p.email ?? p.displayName).toLowerCase();
       const existing = byKey.get(key);
       if (!existing) {

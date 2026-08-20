@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { autoWatchers, mergePeople, withPerson } from "./people";
+import { autoWatchers, isHiddenPerson, mergePeople, withPerson } from "./people";
 import type { Person } from "@/types/task";
 
 const RAY: Person = { displayName: "Ray White", email: "ray@x.com", lookupId: 22 };
@@ -88,5 +88,46 @@ describe("autoWatchers", () => {
     // Unassigning does not un-watch — the person was involved, and Unwatch
     // is one click away.
     expect(autoWatchers([ASSIGNEE], null, undefined)).toEqual([ASSIGNEE]);
+  });
+});
+
+// A person can exist twice in the directory — a rename that left the old
+// account behind, or a duplicate created by mistake. Ray hit this with a
+// "David Phillips" showing up next to the real "Dave Phillips" (2026-08-20).
+describe("isHiddenPerson", () => {
+  it("still hides the admin. shadow accounts", () => {
+    expect(isHiddenPerson({ displayName: "admin.ray.white", email: "a@x.com" })).toBe(true);
+  });
+
+  it("doesn't hide an ordinary person", () => {
+    expect(
+      isHiddenPerson({ displayName: "Dave Phillips", email: "dave.phillips@altronic-llc.com" }),
+    ).toBe(false);
+  });
+
+  // The duplicate that prompted this. Ray gave the local part, not the full
+  // address, so a bare entry has to match whatever domain the mailbox is on —
+  // getting the domain wrong hides nobody, silently.
+  it("hides the configured duplicate, whatever its domain", () => {
+    expect(
+      isHiddenPerson({ displayName: "David Phillips", email: "david.phillips@altronic-llc.com" }),
+    ).toBe(true);
+    expect(
+      isHiddenPerson({ displayName: "David Phillips", email: "David.Phillips@Altronic-LLC.com" }),
+    ).toBe(true);
+  });
+
+  // The whole point: the real Dave keeps his place in the picker.
+  it("leaves the person it's standing in for alone", () => {
+    expect(
+      isHiddenPerson({ displayName: "Dave Phillips", email: "dave.phillips@altronic-llc.com" }),
+    ).toBe(false);
+  });
+
+  // Matching is on the address, never the display name — two people can share
+  // a name, and hiding the wrong colleague is worse than the duplicate.
+  it("ignores a person with no address rather than guessing", () => {
+    expect(isHiddenPerson({ displayName: "David Phillips" })).toBe(false);
+    expect(isHiddenPerson({ displayName: "David Phillips", email: "" })).toBe(false);
   });
 });

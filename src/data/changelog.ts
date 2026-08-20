@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.109.0",
+    date: "2026-08-20",
+    changes: [
+      "Disabled accounts no longer appear in the Assigned, Engineer, Watcher and @-mention pickers — leavers and duplicate accounts drop out on their own",
+      "The duplicate \"David Phillips\" account no longer appears in Assigned, Watcher or @-mention pickers — only the real Dave Phillips does",
+    ],
+  },
+  {
     version: "0.108.2",
     date: "2026-08-20",
     changes: [
