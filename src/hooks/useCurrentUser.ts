@@ -3,6 +3,7 @@ import { useMsal } from "@azure/msal-react";
 import type { Person } from "@/types/task";
 import { USE_MOCK } from "@/api/config";
 import { resolveCurrentUserLookupId } from "@/api/currentUser";
+import { normaliseEmail } from "@/lib/emailIdentity";
 
 // Module-level cache so the lookupId resolution only fires once per session
 // per email, not once per component that uses this hook.
@@ -68,4 +69,41 @@ export function useCurrentUser(): Person {
       lookupId,
     };
   }, [account, lookupId]);
+}
+
+/**
+ * Every address the signed-in account offers, lowercased and deduped.
+ *
+ * `account.username` is the UPN — the name the person SIGNS IN with — and the
+ * app treated it as their email address everywhere. Those are allowed to
+ * differ, and in a tenant assembled from more than one company they do: the
+ * token's own `email` claim carries the mailbox, which is what the directory,
+ * SharePoint person columns and every admin-curated list hold.
+ *
+ * Steven Pirko was tagged `engineer` on the EIR Roles list and still couldn't
+ * edit the gated fields, because the address being looked up wasn't the
+ * address stored (2026-08-20). Anything matching a person against a stored
+ * address should check all of these rather than just the primary one.
+ */
+export function useCurrentUserEmails(): string[] {
+  const msal = useMsal();
+  const account = msal.accounts[0];
+
+  return useMemo<string[]>(() => {
+    if (USE_MOCK) return ["demo.user@altronic-llc.com"];
+    if (!account) return [];
+    const claims = (account.idTokenClaims ?? {}) as Record<string, unknown>;
+    const raw = [
+      account.username,
+      typeof claims.email === "string" ? claims.email : undefined,
+      typeof claims.preferred_username === "string" ? claims.preferred_username : undefined,
+      typeof claims.upn === "string" ? claims.upn : undefined,
+    ];
+    const seen = new Set<string>();
+    for (const value of raw) {
+      const email = normaliseEmail(value);
+      if (email) seen.add(email);
+    }
+    return [...seen];
+  }, [account]);
 }

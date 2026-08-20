@@ -7,7 +7,8 @@ import {
 } from "@/api/eirRoles";
 import { EIR_ROLES_ENFORCED } from "@/api/config";
 import type { EirRoleEntry } from "@/types/task";
-import { useCurrentUser } from "./useCurrentUser";
+import { matchesAnyEmail } from "@/lib/emailIdentity";
+import { useCurrentUserEmails } from "./useCurrentUser";
 import { useIsAdmin } from "./useIsAdmin";
 
 const EIR_ROLES_KEY = ["eir-roles", "list"] as const;
@@ -122,17 +123,19 @@ export interface MyEirRoles {
  * the role flags are irrelevant — callers should not gate anything.
  */
 export function useMyEirRoles(): MyEirRoles {
-  const user = useCurrentUser();
+  const emails = useCurrentUserEmails();
   const { data: entries = [] } = useEirRoles();
 
   if (!EIR_ROLES_ENFORCED) {
     return { isEngineer: false, isSupplyChain: false, enforced: false };
   }
 
-  const email = (user.email ?? "").toLowerCase();
-  const mine = email
-    ? entries.find((e) => e.email.toLowerCase() === email)
-    : undefined;
+  // Matched on ADDRESS, never on display name — and against every address the
+  // account carries, not just the one it signs in with. Steven Pirko was
+  // tagged `engineer` and still had every gated field greyed out, because the
+  // sign-in name (UPN) and the mailbox on the roles list are allowed to differ
+  // and here they did (2026-08-20). See lib/emailIdentity.ts.
+  const mine = entries.find((e) => matchesAnyEmail(emails, e.email));
   const roles = mine?.roles ?? [];
   return {
     isEngineer: roles.includes("engineer"),

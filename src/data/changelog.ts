@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.109.3",
+    date: "2026-08-20",
+    changes: [
+      "EIR role tags now work for people whose sign-in name differs from their email address — being tagged \"engineer\" left every gated field read-only for them",
+      "Admin → EIR Roles marks the row for whoever is signed in using the same rule the gating uses, so the two can't disagree",
+      "Admin → EIR Roles flags a row whose email column holds a name instead of an address — those grant nothing, silently",
+    ],
+  },
+  {
     version: "0.109.2",
     date: "2026-08-20",
     changes: [

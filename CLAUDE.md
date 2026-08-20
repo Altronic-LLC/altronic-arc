@@ -357,6 +357,7 @@ src/
 │   ├── richText.ts               Plain text ⇄ HTML for the EIR rich-text columns
 │   ├── errorBuffer.ts            Bounded console-error capture (Report issue)
 │   ├── authErrors.ts             AADSTS codes that mean "fix your account", in plain English
+│   ├── emailIdentity.ts          Matching a person to a stored address (sign-in name ≠ mailbox)
 │   └── pcbChecklist.ts           PCB-category task checklist logic
 │
 ├── types/
@@ -1747,6 +1748,33 @@ dependency, DST handled by re-checking the offset at the instant being solved
 for. Don't reintroduce `d.getHours()` / `new Date(y, m, d, …)` here: those are
 the author's-local-time bug. Tests set `process.env.TZ` explicitly, because
 "it depends where you are" IS the bug.
+
+### Matching a person to a stored address: `lib/emailIdentity.ts`
+
+Anywhere ARC decides "is the signed-in user this row", it goes through
+`sameEmail` / `matchesAnyEmail`. Two things that are easy to get wrong and
+both cost someone their access silently:
+
+- **`account.username` is the UPN — the name you SIGN IN with — not your
+  mailbox.** They're allowed to differ, and in a tenant assembled from more
+  than one company they do. Steven Pirko was tagged `engineer` on the EIR
+  Roles list and had every gated field greyed out, because the lookup used
+  his sign-in name while the list held his `@altronic-llc.com` mailbox
+  (2026-08-20). `useCurrentUserEmails()` returns every address the account
+  carries — `username` plus the `email` / `preferred_username` / `upn`
+  claims — and matching checks all of them.
+- **A match is tried whole first, then on the local part**, so a differing
+  domain doesn't hide someone. The false positive that buys — two people
+  sharing a local part across two domains — doesn't occur in this tenant, the
+  lists involved are small and admin-curated, and what's being decided is
+  whether a control is greyed out. SharePoint's per-list permissions remain
+  the real boundary.
+
+**Never gate on a display name.** Names aren't unique, they arrive written
+several ways ("Pirko, Steven"), and it's how the wrong person gets access.
+`looksLikeEmail` exists so a screen can TELL an admin a column holds a name
+— `/admin/eir-roles` flags such a row "not an email", since it silently
+grants nothing.
 
 ### Who reaches a people picker
 
