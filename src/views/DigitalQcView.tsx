@@ -353,6 +353,16 @@ export function DigitalQcView() {
     });
   }
 
+  // Only Enter pressed while focus is on a real <button> (Save/Cancel/Edit) should submit the
+  // form. Enter inside any text/number input is swallowed so it can never trigger a save;
+  // textareas are left alone since Enter there just inserts a newline as expected.
+  function handleFormKeyDown(event: React.KeyboardEvent<HTMLFormElement>) {
+    if (event.key !== "Enter") return;
+    const target = event.target as HTMLElement;
+    if (target.tagName === "BUTTON" || target.tagName === "TEXTAREA") return;
+    event.preventDefault();
+  }
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     await submitForm();
@@ -494,7 +504,7 @@ export function DigitalQcView() {
       )}
 
       {showForm && (
-        <form onSubmit={handleSubmit} className="rounded-xl border border-border bg-surface p-4">
+        <form onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className="rounded-xl border border-border bg-surface p-4">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-sm font-medium text-fg">
             <div className="flex min-w-0 items-center gap-2">
               <Plus className="h-4 w-4 shrink-0 text-accent" />

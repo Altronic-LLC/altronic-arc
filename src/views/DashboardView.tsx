@@ -852,7 +852,11 @@ export function DashboardView() {
         <PlaceholderCard name="QC Forms" icon={<FileCheck className="h-5 w-5" />} />
       </DeptSection>
 
-      <DeptSection title="Supply Chain">
+      <DeptSection
+        title="Supply Chain"
+        collapsed={collapsedSections.has("Supply Chain")}
+        onToggle={() => toggleSection("Supply Chain")}
+      >
         <TypeCard
           name="Gray Market Requests"
           icon={<PackageSearch className="h-5 w-5" />}
@@ -860,12 +864,6 @@ export function DashboardView() {
           description="Parts bought outside normal distribution — request, purchasing, test, inspection and sign-off."
           onClick={() => navigate("/supply-chain/gray-market-requests")}
         />
-      <DeptSection
-        title="Supply Chain"
-        collapsed={collapsedSections.has("Supply Chain")}
-        onToggle={() => toggleSection("Supply Chain")}
-      >
-        <PlaceholderCard name="Grey Market Part Requests" icon={<PackageSearch className="h-5 w-5" />} />
         <PlaceholderCard name="Supplier Issue Tracking" icon={<AlertTriangle className="h-5 w-5" />} />
         <PlaceholderCard name="Supplier List" icon={<Building2 className="h-5 w-5" />} />
         <PlaceholderCard name="Supplier Contacts" icon={<Contact className="h-5 w-5" />} />
