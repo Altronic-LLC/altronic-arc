@@ -237,6 +237,40 @@ export const SP_VISIT_REPORTS_LIST_ID =
  * 1,813 rows at the time of wiring. Schema discovered live 2026-08-19 —
  * scripts/ecn-new-schema.json.
  */
+/**
+ * EIR triage recipients — who gets chased when a new EIR isn't owned yet.
+ *
+ * A raised EIR needs a project reference and then an engineer, and both used
+ * to be chased by someone noticing (Ray, 2026-08-20). These two lists drive
+ * the chain:
+ *
+ *   no project reference  →  VITE_EIR_TRIAGE_PROJECT_REVIEWERS
+ *   project set, no engineer  →  VITE_EIR_TRIAGE_ASSIGNERS
+ *
+ * Format is a comma-separated list, either `Name <email>` or a bare address:
+ *
+ *   VITE_EIR_TRIAGE_ASSIGNERS="Glenn Terry <glenn.terry@altronic-llc.com>, brandon.mirto@altronic-llc.com"
+ *
+ * Ray is on both lists to watch the chain working (Ray, 2026-08-20). Note the
+ * consequence: he raises a lot of EIRs while testing, and the actor is left
+ * off their own chase email — so an EIR he raises himself won't email him,
+ * only the others on that list.
+ *
+ * The defaults below follow the tenant's firstname.lastname convention.
+ * **Verify them against the directory before relying on them** — a wrong
+ * address fails visibly (the send is reported), but it fails to the wrong
+ * person's absence rather than an error.
+ */
+export const EIR_TRIAGE_PROJECT_REVIEWERS =
+  import.meta.env.VITE_EIR_TRIAGE_PROJECT_REVIEWERS ||
+  "Sheila Horn <sheila.horn@altronic-llc.com>, Ray White <ray.white@altronic-llc.com>";
+
+export const EIR_TRIAGE_ASSIGNERS =
+  import.meta.env.VITE_EIR_TRIAGE_ASSIGNERS ||
+  "Glenn Terry <glenn.terry@altronic-llc.com>, " +
+  "Brandon Mirto <brandon.mirto@altronic-llc.com>, " +
+  "Ray White <ray.white@altronic-llc.com>";
+
 export const SP_ECNS_LIST_ID =
   import.meta.env.VITE_SP_ECNS_LIST_ID ||
   "f6917bf4-bdd1-4ff9-ba71-0a17b22b1ecc";

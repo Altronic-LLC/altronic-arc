@@ -31,10 +31,12 @@ import {
 import {
   fireAssigneeChangeAlert,
   fireChecklistToggleAlert,
+  fireEirTriageAlert,
   fireFieldChangeAlert,
   firePromotionAlert,
   notifyMentions,
 } from "@/api/email";
+import { eirTriageStage } from "@/lib/eirTriage";
 import { diffChecklistToggles } from "@/lib/descriptionChecklist";
 import { buildPromotedCommunication } from "@/lib/eirPromotion";
 import { appItemUrl } from "@/lib/appUrl";
@@ -108,6 +110,20 @@ function buildUndo(
   };
 }
 
+/**
+ * The project's name for a triage email, read out of the Projects cache.
+ *
+ * The EIR itself only carries lookupIds — titles are joined by whatever
+ * renders them — so without this the "needs an engineer" email would name a
+ * number, or nothing. Undefined when the cache hasn't loaded, which just
+ * leaves the project line off the email.
+ */
+function projectTitleFor(qc: QueryClient, lookupId: number | undefined): string | undefined {
+  if (!lookupId) return undefined;
+  const projects = qc.getQueryData<ProjectReference[]>(["projects"]);
+  return projects?.find((p) => p.lookupId === lookupId)?.title || undefined;
+}
+
 export function useCreateEir() {
   const qc = useQueryClient();
   const actor = useCurrentUser();
@@ -134,6 +150,25 @@ export function useCreateEir() {
           next: engineers,
           actor,
           watchers: [],
+        });
+      }
+
+      // Chase the EIR until it's owned: no project reference sends it to the
+      // reviewer; a project but no engineer skips straight to the assigners.
+      // See lib/eirTriage.ts.
+      const projectIds = created.parentProjects.map((p) => p.lookupId);
+      if (variables.parentProjectLookupId) projectIds.push(variables.parentProjectLookupId);
+      const stage = eirTriageStage({
+        hasProject: projectIds.length > 0,
+        hasEngineer: engineers.length > 0,
+      });
+      if (stage) {
+        fireEirTriageAlert({
+          target: { kind: "eir", id: created.id, title: eirTargetTitle(created) },
+          stage,
+          actor,
+          projectTitle: projectTitleFor(qc, projectIds[0]),
+          projectJustAdded: false,
         });
       }
     },
@@ -219,6 +254,29 @@ export function usePromoteEirToTask() {
   });
 }
 
+/**
+ * The project lookupIds a field update is setting, or null when the update
+ * doesn't touch project references at all.
+ *
+ * Null and [] mean different things here: null is "not part of this write",
+ * [] is "the projects were cleared". Only the caller can tell those apart, and
+ * conflating them would fire a handover email on an unrelated edit.
+ */
+export function projectIdsFromFields(fields: Record<string, unknown>): number[] | null {
+  if (!("ProjectReferenceLookupId" in fields) && !("ProjectReference" in fields)) {
+    return null;
+  }
+  const raw =
+    (fields.ProjectReferenceLookupId as unknown) ?? (fields.ProjectReference as unknown);
+  const ids: number[] = [];
+  if (Array.isArray(raw)) {
+    for (const x of raw) if (typeof x === "number" && x > 0) ids.push(x);
+  } else if (typeof raw === "number" && raw > 0) {
+    ids.push(raw);
+  }
+  return ids;
+}
+
 export function useUpdateEirFields() {
   const qc = useQueryClient();
   const actor = useCurrentUser();
@@ -270,6 +328,28 @@ export function useUpdateEirFields() {
             ...recipients,
           });
         }
+        // The second link in the triage chain: a project reference arriving on
+        // an EIR that hasn't got one yet hands it to the assigners.
+        //
+        // Only the empty → set transition fires. Swapping one project for
+        // another isn't a handover and shouldn't re-chase anyone, and an EIR
+        // that already has an engineer needs no assigning at all.
+        const nextProjects = projectIdsFromFields(fields);
+        if (
+          nextProjects !== null &&
+          ctx.prevEir.parentProjects.length === 0 &&
+          nextProjects.length > 0 &&
+          ctx.prevEir.assignedEngineers.length === 0
+        ) {
+          fireEirTriageAlert({
+            target,
+            stage: "needs-engineer",
+            actor,
+            projectTitle: projectTitleFor(qc, nextProjects[0]),
+            projectJustAdded: true,
+          });
+        }
+
         // Description-checklist toggles alert watchers + assigned engineers
         // only (no reporter — checklist ticks are working detail).
         if ("Description" in fields) {

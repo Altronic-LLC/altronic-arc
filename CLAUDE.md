@@ -320,6 +320,7 @@ src/
 │   ├── eirFilters.ts             Pure EIR filter/sort/count predicates (list + board)
 │   ├── eirMapper.ts              Graph item → Eir (field-name quirks)
 │   ├── eirNumber.ts              nextEirNo() — EIR_YYYY-#### auto-numbering
+│   ├── eirTriage.ts              Chasing a new EIR until it has a project + an engineer
 │   ├── ecnFields.ts              ECN column descriptors (field_2 … field_12 decoded)
 │   ├── ecnMapper.ts              Graph item → Ecn, Log# parsing/sorting
 │   ├── eirPromotion.ts           EIR → Task promotion helpers
@@ -1290,6 +1291,54 @@ Pieces:
   `USE_MOCK || !!SP_EIR_ROLES_LIST_ID`. In real mode, until the list is
   configured, gating is OFF so nobody is locked out. Admins are NOT auto-granted
   roles — they must add themselves to the EIR Roles list to edit gated fields.
+
+## EIR triage — chasing a new EIR until someone owns it
+
+A raised EIR belongs to nobody until it has a project reference AND an
+engineer, and both used to be chased by someone noticing (Ray, 2026-08-20).
+The chain, in `src/lib/eirTriage.ts`:
+
+| When | Who's emailed | What it asks |
+|---|---|---|
+| Raised with **no** project reference | `EIR_TRIAGE_PROJECT_REVIEWERS` | "Please add a project reference" |
+| A project reference **lands** on one that had none | `EIR_TRIAGE_ASSIGNERS` | "Please assign an engineer" |
+| Raised **with** a project reference | `EIR_TRIAGE_ASSIGNERS` | Skips the first step entirely |
+
+Each email says what happens next, so a recipient can see they're one link in a
+chain rather than the end of it.
+
+Recipients are config, not a list: `VITE_EIR_TRIAGE_PROJECT_REVIEWERS` and
+`VITE_EIR_TRIAGE_ASSIGNERS`, comma-separated `Name <email>` or bare addresses,
+parsed by `parseRecipientList`. Three named people didn't justify another
+SharePoint list and the admin screen that comes with it.
+
+Five rules that are load-bearing, each with tests:
+
+- **Only the empty → set transition fires the handover.** Swapping one project
+  for another isn't a handover and must not re-chase anyone. `projectIdsFromFields`
+  returns `null` (not `[]`) when a write doesn't touch project references at
+  all — conflating those fires the email on unrelated edits.
+- **An EIR that already has an engineer is never chased for one**, however its
+  project changes.
+- **An EIR missing both is chased only for the project.** The assigners can't
+  sensibly pick an engineer without knowing the project.
+- **The actor is excluded — unless that would leave nobody.** Not notifying
+  someone of their own action is the rule everywhere in ARC, but these are
+  work-queue requests: a queue going silent because the only reviewer happened
+  to raise the EIR is worse than one redundant email.
+- **The project's NAME comes from the Projects cache** (`projectTitleFor`), not
+  the EIR — an EIR carries lookupIds only, so without that the email would name
+  a number.
+
+Wired in `useCreateEir` (both create paths) and `useUpdateEirFields` (the
+handover), reusing the `ChangeEmail[]` + `notifyChangeEmails` machinery so the
+wording is unit-testable without touching Graph.
+
+**A test that lies:** the "swapping projects stays quiet" case originally used a
+fixture EIR that happened to have a project — and passed with the empty-to-set
+guard deleted, because the fixture also had an engineer, so a different guard
+was doing the work. It now sets a project and then changes it. If you touch
+these guards, check the test fails when you remove the one you're changing.
 
 ## @-mention email notifications
 

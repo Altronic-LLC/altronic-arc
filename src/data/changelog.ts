@@ -20,6 +20,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.107.0",
+    date: "2026-08-20",
+    changes: [
+      "A new EIR raised without a project reference now emails Sheila Horn asking her to add one",
+      "Once a project reference is set, Glenn Terry and Brandon Mirto are asked to assign an engineer — and an EIR raised with a project already on it goes straight to them",
+      "Each email says what happens next, so everyone can see where they sit in the chain",
+      "Changing an EIR's project later doesn't re-send the request, and an EIR that already has an engineer is never chased for one",
+    ],
+  },
+  {
     version: "0.106.1",
     date: "2026-08-20",
     changes: [
