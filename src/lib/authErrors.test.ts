@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { authErrorLine, describeAuthError, extractAadstsCode } from "./authErrors";
+import {
+  authErrorLine,
+  describeAuthError,
+  extractAadstsCode,
+  isReauthenticable,
+} from "./authErrors";
 
 // Real text, copied from what a user actually saw (Ray, 2026-08-20) — nine
 // dashboard cards each showing this, none of them saying "change your
@@ -64,5 +69,37 @@ describe("authErrorLine", () => {
     const line = authErrorLine(describeAuthError(RISK_ERROR)!);
     expect(line).toMatch(/^AADSTS50135:/);
     expect(line).toMatch(/change your password/i);
+  });
+});
+
+// The SharePoint attachments card blamed a missing admin grant for every
+// failure, including this one — which is the reader's own session, and theirs
+// to fix (Ray, 2026-08-20).
+const MFA_EXPIRED =
+  "Silent token acquisition failed: invalid_grant: AADSTS50078: Presented " +
+  "multi-factor authentication has expired due to policies configured by your " +
+  "administrator, you must refresh your multi-factor authentication to access " +
+  "'00000003-0000-0ff1-ce00-000000000000'.";
+
+describe("MFA expiry", () => {
+  it("explains it as the session, not a permission", () => {
+    const described = describeAuthError(MFA_EXPIRED);
+    expect(described?.code).toBe("50078");
+    expect(described?.summary).toMatch(/multi-factor authentication has expired/i);
+    expect(described?.action).toMatch(/sign in again/i);
+  });
+
+  it("is something the person can fix themselves", () => {
+    expect(isReauthenticable(MFA_EXPIRED)).toBe(true);
+    expect(isReauthenticable(new Error("AADSTS50076: MFA required"))).toBe(true);
+    expect(isReauthenticable(new Error("AADSTS50055: password expired"))).toBe(true);
+  });
+
+  // A disabled account or a blocked-by-policy sign-in genuinely needs someone
+  // else, so they must NOT get a "sign in again" button.
+  it("is not, when only an admin can help", () => {
+    expect(isReauthenticable(new Error("AADSTS50057: account disabled"))).toBe(false);
+    expect(isReauthenticable(new Error("AADSTS53003: blocked by policy"))).toBe(false);
+    expect(isReauthenticable(new Error("Failed to fetch"))).toBe(false);
   });
 });

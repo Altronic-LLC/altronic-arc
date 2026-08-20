@@ -59,6 +59,18 @@ const ACCOUNT_ACTIONS: Record<string, Omit<AuthActionRequired, "code">> = {
       "Often the device, network or location you're on. Try the corporate network " +
       "or VPN; if it keeps happening, contact the IT service desk.",
   },
+  "50078": {
+    summary: "Your multi-factor authentication has expired for this resource.",
+    action: "Sign in again and approve the prompt on your phone.",
+  },
+  "50072": {
+    summary: "You need to enrol in multi-factor authentication before continuing.",
+    action: "Sign in again and follow the enrolment steps Microsoft shows you.",
+  },
+  "50074": {
+    summary: "Multi-factor authentication is needed to continue.",
+    action: "Sign in again and approve the prompt on your phone.",
+  },
   "50076": {
     summary: "Multi-factor authentication is needed to continue.",
     action: "Sign in again and approve the prompt on your phone.",
@@ -89,6 +101,19 @@ export function describeAuthError(err: unknown): AuthActionRequired | null {
   const known = ACCOUNT_ACTIONS[code];
   if (!known) return null;
   return { code, ...known };
+}
+
+/**
+ * True when the failure is the user's session rather than the app's
+ * permissions — MFA expired, MFA needed, password expired.
+ *
+ * The distinction matters wherever the app currently blames a missing admin
+ * grant: "ask an admin" is useless advice for something the person can fix by
+ * signing in again.
+ */
+export function isReauthenticable(err: unknown): boolean {
+  const code = describeAuthError(err)?.code;
+  return code ? ["50078", "50072", "50074", "50076", "50079", "50055", "50144"].includes(code) : false;
 }
 
 /** One line for a toast or a log — "AADSTS50135: your password has expired." */

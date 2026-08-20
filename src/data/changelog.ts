@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.108.2",
+    date: "2026-08-20",
+    changes: [
+      "When attachments stop working because your Microsoft sign-in needs refreshing, the message now says so and gives you a Sign in again button — instead of telling you to go and find an admin",
+      "The admin instructions still show when the app genuinely is missing the SharePoint permission",
+    ],
+  },
+  {
     version: "0.108.1",
     date: "2026-08-20",
     changes: [

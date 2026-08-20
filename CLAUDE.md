@@ -1793,6 +1793,35 @@ separately, because access wouldn't fix a bad address or a throttle. An unset
 for everyone, so a per-comment toast would be noise rather than something one
 person can act on.
 
+### "Attachments unavailable" has two causes, not one
+
+The SharePoint REST token is acquired silently and never interactively — a
+deliberate rule, because prompting from every detail page produced "why am I
+signing in every time I open a task". When that silent acquisition fails,
+`sharepoint.ts` used to report ONE cause: an admin hasn't granted the scope.
+
+That's wrong about half the time. The other half is the **signed-in person's
+own session** — MFA expired for the SharePoint resource (`AADSTS50078`), or a
+password change. Telling them to chase an admin sends someone to raise a ticket
+for something they can fix in ten seconds (Ray, 2026-08-20, on the ECN
+attachments card).
+
+`SharePointUnavailableError` now carries a `cause`:
+
+- **`"reauth"`** — classified via `isReauthenticable` in `lib/authErrors.ts`.
+  The notice states the real reason and offers a **Sign in again** button
+  wired to `refreshSharePointAccess()`, then refetches.
+- **`"consent"`** — the historical case. Keeps the admin instructions, and
+  deliberately shows NO button, since pressing one couldn't help.
+
+An unrecognised error falls through to `"consent"`: a plain failure is not
+evidence of either cause, and a sign-in button that can't fix anything is worse
+than none.
+
+**`refreshSharePointAccess` is the one interactive exception, and it is only
+ever called from a button.** The silent-only rule still holds for automatic
+paths — don't wire this into a retry or an effect.
+
 ### A sign-in error the user must ACT on doesn't belong on nine cards
 
 Some AADSTS failures aren't token problems the app can retry — the account

@@ -1,6 +1,7 @@
 import { getMsalInstance } from "@/auth/AuthProvider";
 import { SP_SITE_URL, USE_MOCK } from "./config";
 import { GraphError, fetchWithRetry } from "./graph";
+import { describeAuthError, isReauthenticable } from "@/lib/authErrors";
 
 // =============================================================================
 // SharePoint REST API helper.
@@ -22,8 +23,23 @@ import { GraphError, fetchWithRetry } from "./graph";
 // the UI gracefully shows a "feature unavailable" hint instead of crashing.
 // =============================================================================
 
+/**
+ * Why attachments are unavailable.
+ *
+ *  - `"reauth"`  the person's own session — MFA expired for the SharePoint
+ *                resource, or a password change. THEY can fix it by signing
+ *                in again; no admin involved.
+ *  - `"consent"` the app genuinely lacks the SharePoint REST grant, or
+ *                VITE_SP_SITE_URL isn't set. Needs an admin.
+ */
+export type SharePointUnavailableCause = "reauth" | "consent";
+
 export class SharePointUnavailableError extends Error {
-  constructor(message: string) {
+  constructor(
+    message: string,
+    /** Defaults to "consent" — the historical assumption, now stated rather than implied. */
+    public cause: SharePointUnavailableCause = "consent",
+  ) {
     super(message);
     this.name = "SharePointUnavailableError";
   }
@@ -85,9 +101,25 @@ export async function spFetch<T>(
     const result = await instance.acquireTokenSilent({ scopes, account });
     accessToken = result.accessToken;
   } catch (err) {
+    // Two very different failures used to share one message.
+    //
+    // A silent acquisition can fail because the app lacks the SharePoint REST
+    // grant — an admin's job — or because the SIGNED-IN PERSON's session no
+    // longer satisfies the policy for that resource: MFA expired, password
+    // changed. Blaming an admin for the second sends someone chasing a ticket
+    // for something they could fix in ten seconds by signing in again
+    // (Ray, 2026-08-20, AADSTS50078 on the ECN attachments card).
+    const action = describeAuthError(err);
+    if (action && isReauthenticable(err)) {
+      throw new SharePointUnavailableError(
+        `${action.summary} ${action.action} (AADSTS${action.code})`,
+        "reauth",
+      );
+    }
     throw new SharePointUnavailableError(
       "Attachments need an additional SharePoint REST scope that an admin hasn't granted yet. " +
         `Silent token acquisition failed: ${(err as Error).message}`,
+      "consent",
     );
   }
 
@@ -122,4 +154,28 @@ export async function spFetch<T>(
   const ct = response.headers.get("Content-Type") ?? "";
   if (ct.includes("application/json")) return response.json() as Promise<T>;
   return response as unknown as T;
+}
+
+
+/**
+ * Re-authenticate against the SharePoint REST resource, interactively.
+ *
+ * Deliberately NOT called automatically. The silent-only rule above exists
+ * because popping a prompt from every detail page produced the "why am I
+ * signing in every time I open a task" complaint. This is wired to a button
+ * the person presses, so the prompt is always something they asked for.
+ */
+export async function refreshSharePointAccess(): Promise<void> {
+  const instance = getMsalInstance();
+  if (!instance) throw new SharePointUnavailableError("Not signed in.", "reauth");
+  const account = instance.getActiveAccount() ?? instance.getAllAccounts()[0];
+  if (!account) throw new SharePointUnavailableError("Not signed in.", "reauth");
+  if (!SP_SITE_URL) {
+    throw new SharePointUnavailableError(
+      "VITE_SP_SITE_URL is not set — attachments can't be reached.",
+      "consent",
+    );
+  }
+  const host = new URL(SP_SITE_URL).host;
+  await instance.acquireTokenPopup({ scopes: [`https://${host}/AllSites.Manage`], account });
 }
