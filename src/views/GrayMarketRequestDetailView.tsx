@@ -30,6 +30,7 @@ import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { AttachmentsSection } from "@/components/AttachmentsSection";
 import { FieldEditModal, type EditableFieldSpec } from "@/components/FieldEditModal";
 import { ChoiceSelect } from "@/components/SearchableSelect";
+import { ChoicePills } from "@/components/ChoicePills";
 import { CommentComposer } from "@/components/CommentComposer";
 import { CommentThread } from "@/components/CommentThread";
 import { DateField } from "@/components/DateField";
@@ -238,13 +239,15 @@ export function GrayMarketRequestDetailView() {
           </SidebarField>
 
           <SidebarField label="Testing Required">
-            <ChoiceSelect
+            {/* Three options — pills, not a dropdown. See ChoicePills. */}
+            <ChoicePills
+              label="Testing Required"
+              name="gray-market-testing-required"
+              options={GRAY_MARKET_TESTING_REQUIRED}
               value={request.testingRequired}
               onChange={(v) =>
                 save({ ProductionTest: v }, (r) => ({ ...r, testingRequired: v }))
               }
-              options={GRAY_MARKET_TESTING_REQUIRED}
-              emptyLabel="Not set"
             />
           </SidebarField>
 

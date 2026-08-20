@@ -90,12 +90,52 @@ describe("FieldEditModal", () => {
     expect(onSave).toHaveBeenCalledWith({ returns: "" });
   });
 
-  it("picks a choice", async () => {
+  // A short choice list is pills, not a dropdown — one click to answer
+  // instead of open-read-pick (Ray, 2026-08-19).
+  it("picks a short choice in one click, from pills", async () => {
     const { onSave } = open({ flag: "" });
-    await userEvent.click(screen.getByRole("button", { name: /inspection flag/i }));
-    await userEvent.click(await screen.findByRole("option", { name: "Pending" }));
+    const group = screen.getByRole("radiogroup", { name: "Inspection Flag" });
+    await userEvent.click(within(group).getByRole("radio", { name: "Pending" }));
     await userEvent.click(screen.getByRole("button", { name: /save changes/i }));
     expect(onSave).toHaveBeenCalledWith({ flag: "Pending" });
+  });
+
+  // Blank is a real state on these columns — most rows have never been
+  // answered — so it has to stay reachable.
+  it("can put a short choice back to Not set", async () => {
+    const { onSave } = open({ flag: "Pending" });
+    const group = screen.getByRole("radiogroup", { name: "Inspection Flag" });
+    expect(within(group).getByRole("radio", { name: "Pending" })).toBeChecked();
+
+    await userEvent.click(within(group).getByRole("radio", { name: "Not set" }));
+    await userEvent.click(screen.getByRole("button", { name: /save changes/i }));
+    expect(onSave).toHaveBeenCalledWith({ flag: "" });
+  });
+
+  // Past three options the pills wrap into an unreadable block, so the
+  // searchable dropdown wins.
+  it("keeps a longer choice list as a searchable dropdown", async () => {
+    render(
+      <FieldEditModal
+        title="Edit Purchasing"
+        fields={[
+          {
+            key: "stage",
+            label: "Stage",
+            kind: "choice",
+            choices: ["One", "Two", "Three", "Four"],
+          },
+        ]}
+        values={{ stage: "" }}
+        onClose={vi.fn()}
+        onSave={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole("radiogroup", { name: "Stage" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Stage" })).toHaveAttribute(
+      "aria-haspopup",
+      "listbox",
+    );
   });
 
   it("discards edits on Cancel", async () => {

@@ -12,6 +12,7 @@ import { useProjects } from "@/hooks/useTasks";
 import { ChoiceSelect } from "./SearchableSelect";
 import { SuggestInput } from "./SuggestInput";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
+import { ChoicePills, MAX_PILL_OPTIONS } from "./ChoicePills";
 import { YesNoField } from "./YesNoField";
 import { useOverlayDismiss } from "./useOverlayDismiss";
 
@@ -209,7 +210,7 @@ export function EcnFormModal({ onClose, onCreated }: EcnFormModalProps) {
                     hint={field.hint}
                     // A Yes/No group carries its own option labels, and a
                     // label inside a label is invalid and steals the click.
-                    plain={field.kind === "boolean"}
+                    plain={field.kind === "boolean" || field.kind === "choice"}
                     className={field.kind === "richText" ? "sm:col-span-2" : undefined}
                   >
                     <FieldInput
@@ -283,11 +284,27 @@ function FieldInput({
     );
   }
   if (field.kind === "choice") {
+    const choices = field.choices ?? [];
+    // Same rule as the edit modal: a short choice list is pills, not a
+    // dropdown. See ChoicePills.
+    if (choices.length > 0 && choices.length <= MAX_PILL_OPTIONS) {
+      return (
+        <ChoicePills
+          label={field.label}
+          name={`new-ecn-${field.key}`}
+          options={choices}
+          value={value}
+          onChange={onChange}
+          disabled={disabled}
+          allowUnset
+        />
+      );
+    }
     return (
       <ChoiceSelect
         value={value}
         onChange={onChange}
-        options={field.choices ?? []}
+        options={choices}
         emptyLabel="Not set"
         disabled={disabled}
       />

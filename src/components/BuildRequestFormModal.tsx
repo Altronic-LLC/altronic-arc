@@ -19,6 +19,7 @@ import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { mergePeople } from "@/lib/people";
 import { DateField } from "./DateField";
 import { useOverlayDismiss } from "./useOverlayDismiss";
+import { YesNoField } from "./YesNoField";
 
 interface BuildRequestFormModalProps {
   onClose: () => void;
@@ -263,16 +264,18 @@ export function BuildRequestFormModal({ onClose }: BuildRequestFormModalProps) {
             </FieldLabel>
           </div>
 
-          <label className="flex items-center gap-2 text-sm text-fg">
-            <input
-              type="checkbox"
-              checked={leadFree}
-              onChange={(e) => setLeadFree(e.target.checked)}
+          <div>
+            <span className="mb-1 block text-xs font-medium text-fg-muted">
+              Lead Free (RoHS)
+            </span>
+            <YesNoField
+              label="Lead Free (RoHS)"
+              value={leadFree ? "Yes" : ""}
+              onChange={(next) => setLeadFree(next === "Yes")}
               disabled={busy}
-              className="h-4 w-4 rounded border-border"
+              name="new-build-request-rohs"
             />
-            Lead Free (RoHS)
-          </label>
+          </div>
 
           {error && (
             <div className="rounded-md border border-cooper-red/40 bg-cooper-red/10 px-3 py-2 text-xs text-cooper-red">

@@ -399,6 +399,7 @@ src/
 │   ├── EcnFormModal.tsx          Raise an ECN
 │   ├── FieldEditModal.tsx        Shared "edit this card's fields" modal (Gray Market + ECN)
 │   ├── YesNoField.tsx            A boolean column as two labelled Yes / No choices
+│   ├── ChoicePills.tsx          Any short choice set as pills (Yes/No, Pass/Fail, …)
 │   ├── BuildRequestFormModal.tsx Create/edit build request
 │   ├── BuildRequestItemFormModal.tsx  Add/edit a part
 │   ├── EirFormModal.tsx          Create/edit EIR
@@ -1362,43 +1363,53 @@ Three things to preserve:
 A new card of fields on either page needs no new editor — add the descriptors
 and point the Edit button at the section.
 
-### A boolean column is a Yes / No pair, never a checkbox
+### A short choice list is pills, never a dropdown or a checkbox
 
-`src/components/YesNoField.tsx`. Ticking a box left people reading a tick to
-work out what it meant, with no visible "No" to choose (Ray, 2026-08-19: *"the
-Yes and No fields are confusing; they should display their labels clearly so
-you can select Yes or No"*). Two radios show both options and which is picked.
+`src/components/ChoicePills.tsx` is the control for any choice set of
+`MAX_PILL_OPTIONS` (3) or fewer — Yes/No, Yes/Pending, Pass/Fail, In
+Process/Yes/No. `YesNoField.tsx` is a thin wrapper over it for real boolean
+columns.
 
-The value travels as `"Yes"` / `""` so it can sit in the same string-keyed
-`values` record as every other column; the mapper turns it into a real boolean
-on write. Read-only displays spell out "Yes" / "No" for the same reason — a
-checkbox on a page you can't edit looks like a control.
+Two complaints produced this, a day apart:
 
-One layout consequence: **a Yes/No group can't sit inside a `<label>`** — its
-own option labels would nest, which is invalid and steals the click. Wrappers
-around it are `<div>`s, and the controls beside it name themselves with
-`aria-label` (that's why `ChoiceSelect` / `SingleSelect` now take `ariaLabel`;
-without it the trigger is announced as just its current value).
+- A bare checkbox left people reading a tick to work out what it meant, with
+  no visible "No" to choose (Ray, 2026-08-19).
+- Two or three options behind a dropdown cost a click to open, a read to find
+  the option you already knew you wanted, and a second click to pick it (Ray,
+  2026-08-19: *"make sure all yes no are selections throughout the apps and
+  modals. Easy to toggle."*).
 
-### Modal backdrops: use `useOverlayDismiss`, never a bare `onClick`
+The rule lives in the renderers, not at each call site: `FieldEditModal`,
+`EcnFormModal` and `GrayMarketRequestFormModal` all send a `choice` field to
+pills when it has ≤ 3 options and to `ChoiceSelect` otherwise, so a new
+descriptor gets the right control automatically.
 
-`<div className="fixed inset-0 …" onClick={onClose}>` LOSES USER WORK. The
-browser fires `click` on the nearest common ancestor of `mousedown` and
-`mouseup`, so selecting text in a field and releasing a few pixels outside the
-dialog dispatches a click whose target is the overlay — and the modal closes with
-everything typed in it. `e.target === e.currentTarget` does NOT save you: on that
-drag the target genuinely IS the overlay.
+Four things to preserve:
 
-`src/components/useOverlayDismiss.ts` requires the press, the release AND the
-click to be on the overlay. Spread it on every modal overlay:
-`<div className="fixed inset-0 …" {...useOverlayDismiss(onClose, busy)}>`. It is
-applied to all 21 modals; a new modal must use it too.
+- **Blank is usually a real state.** Most of these are TEXT columns where the
+  majority of rows have never been answered, so the pills carry a **Not set**
+  option (`allowUnset`). Without it, opening a record and saving quietly
+  answers a question nobody had answered. A field the list marks *required*
+  (Gray Market's Testing Required on create) omits it — nothing is selected
+  until it's picked, and validation catches the empty.
+- **`allowUnset` forces the literal "No".** On a real boolean column No IS
+  blank, so No and Not set would share a value and both light up. A column
+  needing a distinct "not answered" is a text/choice column by definition.
+- **Stored casing varies** — older rows carry `yes` / `no` lower case — so
+  matching is loose and the canonical form is written back.
+- **A pill group can't sit inside a `<label>`**: its options carry their own
+  labels, which nest and steal the click. Wrappers are `<div>`s (the `plain`
+  prop on each form's `Field`), and neighbouring controls name themselves with
+  `aria-label`.
 
-**Also cap tall modals.** A modal whose content can grow (a change log, a long
-description) needs `flex max-h-[calc(100vh-2rem)] flex-col` with the body in a
-`min-h-0 flex-1 overflow-y-auto` scroller and the header/footer pinned OUTSIDE
-it. Otherwise the dialog grows past the viewport and the header scrolls away,
-taking its buttons with it.
+**What deliberately stays a checkbox:** the PCB task checklist
+(`PcbChecklistCard`) and the Build Request Items PCB/Harness checklists
+(`BuildRequestItemCard`). Those are 13 and 17 boolean columns rendered as a
+progress list you tick as you go — turning them into 30 radio pairs would make
+them harder to use, not easier, and a checklist is not a Yes/No question. The
+description checklists, the comment "notify everyone again" option, and the
+EIR role tags are UI affordances, not stored Yes/No fields, and stay as they
+are too.
 
 ### Every dropdown closes the same four ways
 

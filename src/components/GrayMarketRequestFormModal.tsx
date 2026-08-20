@@ -9,6 +9,7 @@ import {
 import { useCreateGrayMarketRequest } from "@/hooks/useGrayMarketRequests";
 import { toDateInputValue, fromDateInputValue } from "@/lib/spDates";
 import { ChoiceSelect } from "./SearchableSelect";
+import { ChoicePills } from "./ChoicePills";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
 import { DateField } from "./DateField";
 import { useOverlayDismiss } from "./useOverlayDismiss";
@@ -145,12 +146,16 @@ export function GrayMarketRequestFormModal({
               />
             </Field>
 
-            <Field label="Testing Required" required>
-              <ChoiceSelect
+            <Field label="Testing Required" required plain>
+              {/* No "Not set" pill: the list requires an answer, and the form
+                  refuses to save without one. Nothing is selected until it
+                  is picked. */}
+              <ChoicePills
+                label="Testing Required"
+                name="new-gray-market-testing-required"
+                options={GRAY_MARKET_TESTING_REQUIRED}
                 value={testingRequired}
                 onChange={setTestingRequired}
-                options={GRAY_MARKET_TESTING_REQUIRED}
-                emptyLabel="Pick one"
                 disabled={busy}
               />
             </Field>
@@ -177,6 +182,9 @@ export function GrayMarketRequestFormModal({
                   <Field
                     key={field.key}
                     label={field.label}
+                    // A pill group labels its own options; a <label> wrapping
+                    // it would nest labels and steal the click.
+                    plain={field.kind === "choice"}
                     className={
                       field.kind === "multiline" || field.kind === "richText"
                         ? "sm:col-span-2"
@@ -184,12 +192,14 @@ export function GrayMarketRequestFormModal({
                     }
                   >
                     {field.kind === "choice" ? (
-                      <ChoiceSelect
+                      <ChoicePills
+                        label={field.label}
+                        name={`new-gray-market-${field.key}`}
+                        options={field.choices ?? []}
                         value={values[field.key] ?? ""}
                         onChange={(v) => setValue(field.key, v)}
-                        options={field.choices ?? []}
-                        emptyLabel="Not set"
                         disabled={busy}
+                        allowUnset
                       />
                     ) : field.kind === "multiline" || field.kind === "richText" ? (
                       <AutoGrowTextarea
@@ -249,20 +259,24 @@ function Field({
   label,
   required,
   className,
+  plain,
   children,
 }: {
   label: string;
   required?: boolean;
   className?: string;
+  /** Render a <div> instead of a <label> — for controls that label themselves. */
+  plain?: boolean;
   children: React.ReactNode;
 }) {
+  const Wrapper = plain ? "div" : "label";
   return (
-    <label className={`block ${className ?? ""}`}>
+    <Wrapper className={`block ${className ?? ""}`}>
       <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
         {label}
         {required && <span className="ml-1 text-cooper-red">*</span>}
       </span>
       {children}
-    </label>
+    </Wrapper>
   );
 }

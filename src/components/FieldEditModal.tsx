@@ -3,6 +3,7 @@ import { Loader2, Pencil, X } from "lucide-react";
 import { ChoiceSelect, type SelectOption } from "./SearchableSelect";
 import { SuggestInput } from "./SuggestInput";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
+import { ChoicePills, MAX_PILL_OPTIONS } from "./ChoicePills";
 import { YesNoField } from "./YesNoField";
 import { useOverlayDismiss } from "./useOverlayDismiss";
 
@@ -236,11 +237,30 @@ function FieldControl({
     );
   }
   if (field.kind === "choice") {
+    const choices = field.choices ?? [];
+    // Two or three options are pills, not a dropdown — Yes/Pending, Pass/Fail
+    // and the like are quicker to read and one click to answer. Longer lists
+    // keep the searchable dropdown.
+    if (choices.length > 0 && choices.length <= MAX_PILL_OPTIONS) {
+      return (
+        <ChoicePills
+          label={field.label}
+          name={`edit-${field.key}`}
+          options={choices}
+          value={value}
+          onChange={onChange}
+          disabled={disabled}
+          // Blank is a real state on these columns — most rows have never
+          // been answered — so it has to stay reachable.
+          allowUnset
+        />
+      );
+    }
     return (
       <ChoiceSelect
         value={value}
         onChange={onChange}
-        options={field.choices ?? []}
+        options={choices}
         emptyLabel="Not set"
         disabled={disabled}
         ariaLabel={field.label}

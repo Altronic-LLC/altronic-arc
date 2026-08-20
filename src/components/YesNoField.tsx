@@ -1,92 +1,78 @@
-import { cn } from "@/lib/cn";
+import { ChoicePills } from "./ChoicePills";
 
 // =============================================================================
 // A Yes / No column, as two labelled choices.
 //
 // These are real SharePoint boolean columns ("Field Returns Impacted",
-// "Drawings Complete?"), and they used to render as a bare checkbox with the
-// current state spelled out beside it. That reads as ambiguous — a tick you
-// have to interpret, and no visible "No" to choose (Ray, 2026-08-19: "the Yes
-// and No fields are confusing; they should display their labels clearly so you
-// can select Yes or No").
+// "Drawings Complete?", "Lead Free (RoHS)"), and they used to render as a bare
+// checkbox with the current state spelled out beside it. That reads as
+// ambiguous — a tick you have to interpret, and no visible "No" to choose
+// (Ray, 2026-08-19: "the Yes and No fields are confusing; they should display
+// their labels clearly so you can select Yes or No").
 //
-// Two radios say what both options are and which one is picked, so the answer
-// is readable without touching anything.
-//
-// The value is carried as "Yes" / "" rather than a boolean so it can live in
-// the same string-keyed `values` record as every other column; the mapper
-// turns it back into a real boolean on write.
+// A thin wrapper over ChoicePills, which is the same control every other short
+// choice list uses. What it adds is the storage rule: the value is carried as
+// "Yes" / "" rather than a boolean so it can live in the same string-keyed
+// `values` record as every other column, and the mapper turns it back into a
+// real boolean on write.
 // =============================================================================
 
 export const YES = "Yes";
+export const NO = "No";
 
 export function YesNoField({
   label,
   value,
   onChange,
   disabled,
-  /** Distinguishes the two radios when several of these share a page. */
+  /** Distinguishes these radios from every other group on the page. */
   name,
+  /**
+   * How "No" is stored.
+   *
+   * - `"empty"` (default) — a real SharePoint **boolean** column, where the
+   *   only two states are true and false. The mapper carries false as `""`.
+   * - `"no"` — a **text or choice** column holding the literal words, where
+   *   blank is a third state meaning nobody has answered yet. Pair it with
+   *   `allowUnset` so that state stays reachable.
+   */
+  noValue = "empty",
+  /**
+   * Offer a third **Not set** option — for a column where blank is distinct
+   * from No. See the note on ChoicePills.
+   */
+  allowUnset = false,
 }: {
   label: string;
   value: string;
   onChange: (next: string) => void;
   disabled?: boolean;
   name: string;
+  noValue?: "empty" | "no";
+  allowUnset?: boolean;
 }) {
-  const yes = value === YES;
-  return (
-    <div role="radiogroup" aria-label={label} className="flex items-center gap-1.5 py-0.5">
-      <Option
-        label="Yes"
-        name={name}
-        checked={yes}
-        disabled={disabled}
-        onSelect={() => onChange(YES)}
-      />
-      <Option
-        label="No"
-        name={name}
-        checked={!yes}
-        disabled={disabled}
-        onSelect={() => onChange("")}
-      />
-    </div>
-  );
-}
+  // Stored casing varies on the text columns ("yes" appears in older rows), so
+  // match loosely and write back the canonical form.
+  const normalised = value.trim().toLowerCase();
+  // `allowUnset` forces the literal "No": on a boolean column No IS blank, so
+  // the two pills would share a value and both light up. A column that needs a
+  // distinct "not answered" state is a text/choice column by definition.
+  const noStored = noValue === "no" || allowUnset ? NO : "";
+  const selected = normalised === "yes" ? YES : normalised === "no" ? noStored : value.trim();
 
-function Option({
-  label,
-  name,
-  checked,
-  disabled,
-  onSelect,
-}: {
-  label: string;
-  name: string;
-  checked: boolean;
-  disabled?: boolean;
-  onSelect: () => void;
-}) {
   return (
-    <label
-      className={cn(
-        "inline-flex cursor-pointer items-center gap-1.5 rounded-md border px-2.5 py-1 text-sm transition-colors",
-        checked
-          ? "border-accent bg-accent/10 font-medium text-fg"
-          : "border-border bg-surface text-fg-muted hover:bg-surface-2",
-        disabled && "cursor-not-allowed opacity-60",
-      )}
-    >
-      <input
-        type="radio"
-        name={name}
-        checked={checked}
-        disabled={disabled}
-        onChange={onSelect}
-        className="h-3.5 w-3.5 accent-cooper-red"
-      />
-      {label}
-    </label>
+    <ChoicePills
+      label={label}
+      name={name}
+      disabled={disabled}
+      allowUnset={allowUnset}
+      options={[
+        { value: YES, label: "Yes" },
+        { value: noStored, label: "No" },
+      ]}
+      // A boolean column with no unset state reads blank as No.
+      value={!allowUnset && selected !== YES ? noStored : selected}
+      onChange={onChange}
+    />
   );
 }

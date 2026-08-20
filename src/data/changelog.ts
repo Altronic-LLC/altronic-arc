@@ -20,6 +20,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.105.0",
+    date: "2026-08-19",
+    changes: [
+      "Yes/No and other short choices are now buttons you click, everywhere — no more opening a dropdown to answer a two-option question",
+      "Covers Gray Market's Inspection Flag, Inspection Flag Updated, GM Notes Removed, In Circuit and Final Assy results and Testing Required, and the ECN's On Hold",
+      "Lead Free (RoHS) on build requests is now a Yes/No pick instead of a checkbox",
+      "Fields that were never answered stay that way — there's a Not set option, so opening a record and saving no longer answers a question for you",
+    ],
+  },
+  {
     version: "0.104.0",
     date: "2026-08-19",
     changes: [
