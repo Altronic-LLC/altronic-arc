@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useMsal } from "@azure/msal-react";
 import type { Person } from "@/types/task";
 import { USE_MOCK } from "@/api/config";
-import { resolveCurrentUserLookupId } from "@/api/currentUser";
+import { resolveCurrentUserLookupId, resolveMyEmailAddresses } from "@/api/currentUser";
 import { normaliseEmail } from "@/lib/emailIdentity";
 
 // Module-level cache so the lookupId resolution only fires once per session
@@ -89,7 +89,9 @@ export function useCurrentUserEmails(): string[] {
   const msal = useMsal();
   const account = msal.accounts[0];
 
-  return useMemo<string[]>(() => {
+  // What the token itself carries. Available immediately, and enough on its
+  // own for anyone whose sign-in name IS their address.
+  const fromToken = useMemo<string[]>(() => {
     if (USE_MOCK) return ["demo.user@altronic-llc.com"];
     if (!account) return [];
     const claims = (account.idTokenClaims ?? {}) as Record<string, unknown>;
@@ -106,4 +108,34 @@ export function useCurrentUserEmails(): string[] {
     }
     return [...seen];
   }, [account]);
+
+  // What Entra actually holds. `email` is an OPTIONAL token claim that has to
+  // be configured on the app registration, so the token often carries only the
+  // UPN — and the UPN is not the mailbox. One `/me` call per session settles
+  // it, on the User.Read scope the app already has.
+  const [resolved, setResolved] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (USE_MOCK) return;
+    if (!account) return;
+    let cancelled = false;
+    resolveMyEmailAddresses().then((emails) => {
+      if (!cancelled) setResolved(emails);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [account]);
+
+  // Token addresses first so matching still works on the very first render,
+  // before /me has come back.
+  return useMemo<string[]>(() => {
+    const seen = new Set<string>(fromToken);
+    for (const email of resolved) {
+      const normalised = normaliseEmail(email);
+      if (normalised) seen.add(normalised);
+    }
+    return [...seen];
+  }, [fromToken, resolved]);
 }
+

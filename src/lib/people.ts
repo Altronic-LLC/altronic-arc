@@ -64,8 +64,21 @@ export function isHiddenDirectoryAccount(person: {
  * A duplicate that shouldn't exist is better disabled in Entra — which the
  * directory read now skips on its own.
  */
+/**
+ * The duplicates known today. Each is the account to HIDE — the other spelling
+ * of that person is the one that stays:
+ *
+ *   david.phillips  → the real one is Dave Phillips  (Ray, 2026-08-20)
+ *   steve.pirko     → the real one is Steven Pirko, who is the name tagged
+ *                     on the EIR Roles list          (Ray, 2026-08-20)
+ *
+ * Harmless when an entry matches nobody, so listing one that may not exist
+ * costs nothing. Override the whole list with VITE_HIDDEN_PEOPLE.
+ */
+const DEFAULT_HIDDEN_PEOPLE = "david.phillips,steve.pirko";
+
 const HIDDEN_PEOPLE: Set<string> = new Set(
-  (import.meta.env.VITE_HIDDEN_PEOPLE ?? "david.phillips")
+  (import.meta.env.VITE_HIDDEN_PEOPLE ?? DEFAULT_HIDDEN_PEOPLE)
     .split(",")
     .map((e: string) => e.trim().toLowerCase())
     .filter(Boolean),

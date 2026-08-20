@@ -155,6 +155,21 @@ describe("isHiddenPerson", () => {
     expect(isHiddenPerson({ displayName: "David" })).toBe(false);
   });
 
+  // The second duplicate: Steven Pirko is the real one — he's the name tagged
+  // engineer on the EIR Roles list — so the "Steve" spelling is the one to go.
+  it("hides the Steve/Steven duplicate and keeps Steven", () => {
+    expect(isHiddenPerson({ displayName: "Steve Pirko" })).toBe(true);
+    expect(isHiddenPerson({ displayName: "Pirko, Steve" })).toBe(true);
+    expect(
+      isHiddenPerson({ displayName: "Steve Pirko", email: "steve.pirko@altronic-llc.com" }),
+    ).toBe(true);
+
+    expect(isHiddenPerson({ displayName: "Steven Pirko" })).toBe(false);
+    expect(
+      isHiddenPerson({ displayName: "Steven Pirko", email: "steven.pirko@altronic-llc.com" }),
+    ).toBe(false);
+  });
+
   it("says nothing about an empty person", () => {
     expect(isHiddenPerson({})).toBe(false);
     expect(isHiddenPerson({ displayName: "" })).toBe(false);

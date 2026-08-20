@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.109.4",
+    date: "2026-08-20",
+    changes: [
+      "EIR role tags are now matched against your real mailbox, read from your Microsoft account — not just the name you sign in with, which isn't always the same address",
+      "The duplicate \"Steve Pirko\" is hidden from the people pickers; Steven Pirko is the one that stays",
+    ],
+  },
+  {
     version: "0.109.3",
     date: "2026-08-20",
     changes: [

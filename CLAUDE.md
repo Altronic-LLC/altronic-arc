@@ -1763,6 +1763,15 @@ both cost someone their access silently:
   (2026-08-20). `useCurrentUserEmails()` returns every address the account
   carries — `username` plus the `email` / `preferred_username` / `upn`
   claims — and matching checks all of them.
+- **The token alone isn't enough**, because `email` is an OPTIONAL claim that
+  has to be configured on the app registration, and ARC doesn't request the
+  `email` scope — so in practice the token carries only the UPN. So
+  `useCurrentUserEmails` also resolves `/me?$select=mail,userPrincipalName,otherMails`
+  once per session (`resolveMyEmailAddresses`, on the **User.Read** scope the
+  app already has) and merges the result. Token addresses come first so
+  matching works on the first render; a failed `/me` returns `[]`, clears its
+  cached promise for a later retry, and degrades to the token addresses rather
+  than locking anyone out.
 - **A match is tried whole first, then on the local part**, so a differing
   domain doesn't hide someone. The false positive that buys — two people
   sharing a local part across two domains — doesn't occur in this tenant, the
@@ -1786,7 +1795,10 @@ Three filters sit between the tenant directory and every picker in ARC, all in
   duplicated person. Note the explicit `=== false`: some tenants don't return
   the property at all, and treating "unknown" as disabled would empty every
   picker in the app.
-- **`admin.first.last`, or an address in `VITE_HIDDEN_PEOPLE`** → out.
+- **`admin.first.last`, or a person in `VITE_HIDDEN_PEOPLE`** → out. The
+  built-in default hides `david.phillips` (keeping Dave Phillips) and
+  `steve.pirko` (keeping Steven Pirko, who is the name tagged on the EIR Roles
+  list). Setting the env var REPLACES that default rather than adding to it.
 
 `VITE_HIDDEN_PEOPLE` is a comma-separated list, for a person who exists twice
 under two enabled accounts where only one should be pickable — Ray hit this
@@ -1798,8 +1810,16 @@ An entry can be a full address OR just the local part. The bare form means
 nobody has to know which domain a mailbox is on, and getting a domain wrong
 hides nobody *silently* — the failure that's hardest to notice.
 
-**It matches on email only, never the display name.** Two people can share a
-name, and hiding the wrong colleague is worse than showing a duplicate.
+**It matches on the email AND the display name**, the name compared
+order- and punctuation-insensitively (`nameTokenKey`: "David Phillips",
+"Phillips, David" and "david.phillips" all reduce to one key). Email-only
+matching was the rule until 2026-08-20 and let the duplicate survive TWO
+fixes: the pickers are built from SharePoint person columns, where Graph
+routinely returns LookupId + LookupValue and no `Email` at all, so the person
+being hidden arrived with nothing to match on. The cost is that a genuine
+namesake would be hidden too — accepted, because entries are configured
+deliberately, one named person at a time, and the near-misses that must
+survive ("Dave Phillips", "Steven Pirko") reduce to different keys.
 
 **Two funnels, not one.** The directory filters above only cover people who
 come FROM the directory. Every list view's filter bar builds its options from

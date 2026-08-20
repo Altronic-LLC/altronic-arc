@@ -95,3 +95,60 @@ async function doResolve(email: string): Promise<number> {
     return ensureSiteUserLookupId(SP_SITE_URL, email);
   }
 }
+
+// =============================================================================
+// The signed-in user's actual mailbox addresses.
+//
+// MSAL only tells the app `account.username` — the UPN, i.e. the name you SIGN
+// IN with. That is not required to equal the address you receive mail at, and
+// in a tenant assembled from more than one company it frequently doesn't. The
+// ID token's `email` claim would carry the mailbox, but it's an OPTIONAL claim
+// that has to be configured on the app registration, so it can't be relied on
+// either.
+//
+// Everything in ARC that matches a person against a stored address — the EIR
+// Roles list being the one that bit (Steven Pirko, 2026-08-20) — needs the
+// mailbox, not the sign-in name. `/me` gives it authoritatively, and needs no
+// new consent: User.Read is already in `graphScopes`.
+// =============================================================================
+
+let emailsPromise: Promise<string[]> | null = null;
+
+/**
+ * Every address Entra holds for the signed-in user, lowercased and deduped:
+ * the mailbox, the UPN, and any secondary addresses.
+ *
+ * Resolved once per session. A failure returns [] and CLEARS the cached
+ * promise so a later call can try again — the caller still has the token's
+ * own addresses to fall back on, so this degrades to the previous behaviour
+ * rather than locking anyone out.
+ */
+export async function resolveMyEmailAddresses(): Promise<string[]> {
+  if (USE_MOCK) return ["demo.user@altronic-llc.com"];
+  if (!emailsPromise) {
+    emailsPromise = doResolveEmails().catch((err) => {
+      console.warn("Could not read the signed-in user's addresses from Graph:", err);
+      emailsPromise = null;
+      return [];
+    });
+  }
+  return emailsPromise;
+}
+
+async function doResolveEmails(): Promise<string[]> {
+  const me = await graphFetch<{
+    mail?: string | null;
+    userPrincipalName?: string | null;
+    otherMails?: string[] | null;
+  }>("/me?$select=mail,userPrincipalName,otherMails");
+
+  const out = new Set<string>();
+  const add = (value: string | null | undefined) => {
+    const email = (value ?? "").trim().toLowerCase();
+    if (email) out.add(email);
+  };
+  add(me.mail);
+  add(me.userPrincipalName);
+  for (const other of me.otherMails ?? []) add(other);
+  return [...out];
+}
