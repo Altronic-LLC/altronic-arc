@@ -2144,7 +2144,7 @@ const SECTIONS: ManualSection[] = [
       "notification",
     ],
     searchText:
-      "ECNs at /engineering/ecns, under Engineering — Engineering Change Notices, the record of a change to a released product, backed by the ECN NEW list on the Altronic Engineering SharePoint site. The table lists every notice newest first by Log#. Search covers everything including the Detailed Description, so you can find which ECN changed a part number. Filter by In House Stock disposition, whether the drawings are complete, and whether the notice is on hold. Click a row to open it. New ECN raises one: you type the Log# yourself because it comes off the ECN paperwork, and a revision keeps the number of the notice it revises with an R suffix (260059R1); the form refuses a number another ECN already has. On the notice, each card has one Edit button in its header that opens a box with that card's fields — Change (final assembly part numbers, detailed description, serial numbers), Disposition (in house stock, field returns impacted, drawings complete, on hold) and Sign-off (engineering comments, sign-off status). Save changes writes only the fields you touched. The Log# and Title are edited the same way, from Edit Details in the sidebar. Yes/No columns are picked as Yes or No rather than ticked. You can attach files to a notice. Comments work differently from the rest of ARC: an ECN has no watchers, so posting a comment emails the person who submitted the ECN and anyone you @-mention, and nobody else. Notices are never deleted; a superseded one is revised.",
+      "ECNs at /engineering/ecns, under Engineering — Engineering Change Notices, the record of a change to a released product, backed by the ECN NEW list on the Altronic Engineering SharePoint site. The table lists every notice newest first by Log#. Search covers everything including the Detailed Description, so you can find which ECN changed a part number. Filter by project, In House Stock disposition, whether the drawings are complete, and whether the notice is on hold. Click a row to open it. New ECN raises one: pick the project it belongs to, and type the Log# yourself because it comes off the ECN paperwork, and a revision keeps the number of the notice it revises with an R suffix (260059R1); the form refuses a number another ECN already has. On the notice, each card has one Edit button in its header that opens a box with that card's fields — Change (final assembly part numbers, detailed description, serial numbers), Disposition (in house stock, field returns impacted, drawings complete, on hold) and Sign-off (engineering comments, sign-off status). Save changes writes only the fields you touched. The Log#, Title and Project are edited the same way, from Edit Details in the sidebar. The Dashboard's ECN card counts the notices on file and narrows with the project picker, and clicking it opens the list already filtered to that project. Yes/No columns are picked as Yes or No rather than ticked. You can attach files to a notice. Comments work differently from the rest of ARC: an ECN has no watchers, so posting a comment emails the person who submitted the ECN and anyone you @-mention, and nobody else. Notices are never deleted; a superseded one is revised.",
     render: () => (
       <>
         <P>
@@ -2170,17 +2170,17 @@ const SECTIONS: ManualSection[] = [
             answer by typing the part number.
           </LI>
           <LI>
-            Filter by <strong>In House Stock</strong>, by whether the{" "}
-            <strong>drawings</strong> are complete or outstanding, and by{" "}
-            <strong>on hold</strong>. The filters live in the address bar, so a
-            filtered view can be shared.
+            Filter by <strong>project</strong>, by <strong>In House Stock</strong>,
+            by whether the <strong>drawings</strong> are complete or
+            outstanding, and by <strong>on hold</strong>. The filters live in
+            the address bar, so a filtered view can be shared.
           </LI>
         </UL>
 
         <H3>Raising one</H3>
         <P>
-          <strong>New ECN</strong> asks for the part, the Log#, and what
-          changes. <strong>You type the Log# yourself</strong> — it comes off
+          <strong>New ECN</strong> asks for the part, the Log#, the{" "}
+          <strong>project</strong> it belongs to, and what changes. <strong>You type the Log# yourself</strong> — it comes off
           the ECN paperwork rather than being generated, and a{" "}
           <strong>revision keeps the number of the notice it revises</strong>{" "}
           with an <code>R</code> suffix (<code>260059R1</code>). The form shows
@@ -2214,6 +2214,14 @@ const SECTIONS: ManualSection[] = [
         <P>
           <strong>Attachments</strong> go on the notice — the marked-up
           drawing, the two-page ECN form, a photo of the board.
+        </P>
+
+        <P>
+          The <strong>project</strong> sits in the sidebar and is changed from{" "}
+          <strong>Edit Details</strong> alongside the Log# and Title. It's what
+          the Dashboard's ECN card counts against: pick a project up there and
+          the ECN count narrows with every other card, and clicking the card
+          opens this list already filtered to it.
         </P>
 
         <Tip>

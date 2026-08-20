@@ -1,4 +1,4 @@
-import type { Ecn, EcnInput, GraphListItem, Person } from "@/types/task";
+import type { Ecn, EcnInput, GraphListItem, Person, ProjectReference } from "@/types/task";
 import { ECN_FIELDS, ECN_FIELD_BY_KEY } from "./ecnFields";
 import { parseCommunication } from "./communicationParser";
 import { parseSpDate } from "./spDates";
@@ -21,6 +21,11 @@ import { toStoredRichText } from "./richText";
 //    in `values` as "Yes" / "" so the record stays one shape, and turned back
 //    into `true` / `false` on write. A checkbox is the only thing that edits
 //    them, so there's no third state to lose.
+//  - **The project is a SINGLE lookup**, added to the list on 2026-08-19.
+//    Graph returns it as `ProjectReferenceLookupId` with no title attached, so
+//    the title is joined client-side against the loaded Projects list. Writing
+//    it is a BARE INTEGER — `multiLookupField`'s Collection(Edm.Int32) shape is
+//    for multi-value lookups and 400s here.
 //  - **`submittedBy` is Graph's `createdBy`, not a column.** The list has no
 //    requester column at all. For the rows that arrived with the 2026-08-12
 //    migration that's the migration account — accurate about who put the row
@@ -41,6 +46,14 @@ export function parseCreatedBy(item: GraphListItem): Person | null {
   return { displayName: displayName || email || "", email };
 }
 
+/** `ProjectReferenceLookupId` → a title-less ProjectReference, or null. */
+export function parseProjectLookup(raw: unknown): ProjectReference | null {
+  if (raw === null || raw === undefined || raw === "") return null;
+  const lookupId = typeof raw === "number" ? raw : parseInt(String(raw), 10);
+  if (!Number.isFinite(lookupId) || lookupId <= 0) return null;
+  return { lookupId, title: "" };
+}
+
 export function toEcn(item: GraphListItem): Ecn {
   const f = item.fields ?? {};
   const values: Record<string, string> = {};
@@ -54,6 +67,7 @@ export function toEcn(item: GraphListItem): Ecn {
     id: parseInt(item.id, 10),
     title: text(f.Title).trim(),
     logNo: text(f.field_2).trim(),
+    parentProject: parseProjectLookup(f.ProjectReferenceLookupId),
     submittedBy: parseCreatedBy(item),
     comments: parseCommunication(text(f.Communication)),
     hasAttachments: f.Attachments === true,
@@ -86,6 +100,7 @@ export function buildEcnCreateFields(input: EcnInput): Record<string, unknown> {
   const fields: Record<string, unknown> = {
     Title: input.title.trim(),
     field_2: input.logNo.trim(),
+    ...projectPatch(input.projectLookupId),
   };
   for (const field of ECN_FIELDS) {
     const value = (input.values[field.key] ?? "").trim();
@@ -97,6 +112,15 @@ export function buildEcnCreateFields(input: EcnInput): Record<string, unknown> {
     fields[field.column] = columnValue(field.key, value);
   }
   return fields;
+}
+
+/**
+ * The project lookup's patch. A single-value lookup takes a BARE INTEGER;
+ * null clears it. Sending `Collection(Edm.Int32)` here — the shape multi-value
+ * person and lookup columns need — is a 400.
+ */
+export function projectPatch(lookupId: number | null): Record<string, unknown> {
+  return { ProjectReferenceLookupId: lookupId ?? null };
 }
 
 /**

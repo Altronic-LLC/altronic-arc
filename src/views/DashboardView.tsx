@@ -57,6 +57,7 @@ import {
   STATUSES,
   type BuildRequest,
   type BuildRequestStatus,
+  type Ecn,
   type Eir,
   type EirStatus,
   type OperationsStatus,
@@ -110,6 +111,11 @@ function taskMatchesProject(t: Task, projectId: number | null): boolean {
 function eirMatchesProject(e: Eir, projectId: number | null): boolean {
   if (projectId == null) return true;
   return e.parentProjects.some((p) => p.lookupId === projectId);
+}
+
+function ecnMatchesProject(e: Ecn, projectId: number | null): boolean {
+  if (projectId == null) return true;
+  return e.parentProject?.lookupId === projectId;
 }
 
 function testSheetMatchesProject(s: TestSheet, projectId: number | null): boolean {
@@ -235,8 +241,6 @@ export function DashboardView() {
     error: csaErrorObj,
     refetch: refetchCsa,
   } = useCsaListings();
-  // ECNs. 1,813 rows of history, so a total says nothing — the number worth
-  // putting on a dashboard is the one that stops work.
   const { data: ecns = [] } = useEcns();
   const {
     data: testSheets = [],
@@ -314,6 +318,29 @@ export function DashboardView() {
     }));
     return { count: active.length, segments };
   }, [tasks, mine, myEmail, projectId]);
+
+  /**
+   * ECNs. The count is every notice for the picked project — with no project
+   * picked that's the whole 1,813-row register, which is the honest number
+   * even if it's a big one. The bar carries the figure that actually stops
+   * work: how many of them are on hold.
+   *
+   * "Mine" reads submittedBy, which for the rows that came in with the
+   * migration is whoever ran it rather than the original author — see the
+   * note in types/task.ts.
+   */
+  const ecnCard = useMemo(() => {
+    const shown = ecns.filter(
+      (e: Ecn) =>
+        (!mine || (e.submittedBy?.email ?? "").toLowerCase() === myEmail) &&
+        ecnMatchesProject(e, projectId),
+    );
+    const onHold = shown.filter(isEcnOnHold).length;
+    const segments: Segment[] = onHold
+      ? [{ label: "On hold", count: onHold, color: "bg-cooper-red" }]
+      : [];
+    return { count: shown.length, segments };
+  }, [ecns, mine, myEmail, projectId]);
 
   const eirCard = useMemo(() => {
     const active = eirs.filter(
@@ -442,6 +469,12 @@ export function DashboardView() {
           ...(projectParam ? { project: projectParam } : {}),
         }).toString()}`
       : ""
+  }`;
+  // The ECN list has no "mine" filter — there's no assignee on that list, and
+  // its submitter is Graph's createdBy rather than a column you can search on.
+  // So only the project carries across.
+  const ecnsUrl = `/engineering/ecns${
+    projectParam ? `?${new URLSearchParams({ project: projectParam }).toString()}` : ""
   }`;
   const operationsTasksUrl = `/operations/tasks?${new URLSearchParams({
     assigned: mine ? meParam : "",
@@ -671,9 +704,10 @@ export function DashboardView() {
           name="ECNs"
           icon={<FileDiff className="h-5 w-5" />}
           tone="ajax-yellow"
-          count={ecns.filter(isEcnOnHold).length}
-          unit="on hold"
-          onClick={() => navigate("/engineering/ecns")}
+          count={ecnCard.count}
+          unit="on file"
+          segments={ecnCard.segments}
+          onClick={() => navigate(ecnsUrl)}
         />
       </DeptSection>
 

@@ -1417,6 +1417,13 @@ export interface Ecn {
    */
   logNo: string;
   /**
+   * `ProjectReferenceLookupId` — a SINGLE lookup into the Projects list, added
+   * to the list on 2026-08-19. Held as a lookupId with an empty title, like
+   * a task's `parentProject`; the title is resolved against the loaded
+   * Projects list by whatever renders it.
+   */
+  parentProject: ProjectReference | null;
+  /**
    * Graph's `createdBy` — there is no requester column on the list. For rows
    * that came in with the migration this is the migration account, not the
    * original author.
@@ -1433,6 +1440,8 @@ export interface Ecn {
 /** Everything a create needs. Edits go field-by-field from the detail page. */
 export interface EcnInput {
   title: string;
+  /** Projects-list lookupId, or null for an ECN not tied to one. */
+  projectLookupId: number | null;
   /** Typed by whoever raises the ECN — see the note on `Ecn.logNo`. */
   logNo: string;
   values: Record<string, string>;

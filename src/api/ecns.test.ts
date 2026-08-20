@@ -20,7 +20,12 @@ describe("ECN API", () => {
 
   it("raises an ECN with the number that was typed", async () => {
     const created = await createEcn(
-      { title: "SPARK PLUG, 591011", logNo: "260099", values: { finalAssemblyPartNumbers: "591011" } },
+      {
+        title: "SPARK PLUG, 591011",
+        logNo: "260099",
+        projectLookupId: 3,
+        values: { finalAssemblyPartNumbers: "591011" },
+      },
       { displayName: "Ray White", email: "ray.white@altronic-llc.com" },
     );
     expect(created.logNo).toBe("260099");
@@ -33,14 +38,14 @@ describe("ECN API", () => {
   });
 
   it("patches one column at a time", async () => {
-    const created = await createEcn({ title: "x", logNo: "260098", values: {} });
+    const created = await createEcn({ title: "x", logNo: "260098", projectLookupId: null, values: {} });
     const updated = await updateEcnFields(created.id, { field_7: "Operations - Stock modified" });
     expect(updated.values.inHouseStock).toBe("Operations - Stock modified");
     expect(updated.title).toBe("x");
   });
 
   it("turns a boolean patch back into Yes / empty", async () => {
-    const created = await createEcn({ title: "x", logNo: "260097", values: {} });
+    const created = await createEcn({ title: "x", logNo: "260097", projectLookupId: null, values: {} });
     const on = await updateEcnFields(created.id, { field_9: true });
     expect(on.values.drawingsComplete).toBe("Yes");
     const off = await updateEcnFields(created.id, { field_9: false });
@@ -48,14 +53,14 @@ describe("ECN API", () => {
   });
 
   it("edits the Log# and the Title", async () => {
-    const created = await createEcn({ title: "Typo", logNo: "260096", values: {} });
+    const created = await createEcn({ title: "Typo", logNo: "260096", projectLookupId: null, values: {} });
     const updated = await updateEcnFields(created.id, { Title: "Fixed", field_2: "260096R1" });
     expect(updated.title).toBe("Fixed");
     expect(updated.logNo).toBe("260096R1");
   });
 
   it("posts a comment onto the thread", async () => {
-    const created = await createEcn({ title: "x", logNo: "260095", values: {} });
+    const created = await createEcn({ title: "x", logNo: "260095", projectLookupId: null, values: {} });
     const withComment = await addEcnComment(created.id, {
       authorName: "Ray White",
       authorEmail: "ray.white@altronic-llc.com",
@@ -65,7 +70,7 @@ describe("ECN API", () => {
   });
 
   it("edits a comment in place", async () => {
-    const created = await createEcn({ title: "x", logNo: "260094", values: {} });
+    const created = await createEcn({ title: "x", logNo: "260094", projectLookupId: null, values: {} });
     const posted = await addEcnComment(created.id, {
       authorName: "Ray White",
       authorEmail: "ray.white@altronic-llc.com",

@@ -8,6 +8,7 @@ import {
   isEcnOnHold,
   parseCreatedBy,
   parseEcnLogNo,
+  projectPatch,
   toEcn,
 } from "./ecnMapper";
 import { ECN_SELECT } from "./ecnFields";
@@ -24,6 +25,7 @@ function ecn(logNo: string, id = 1, values: Record<string, string> = {}): Ecn {
     id,
     title: "x",
     logNo,
+    parentProject: null,
     submittedBy: null,
     comments: [],
     hasAttachments: false,
@@ -68,6 +70,19 @@ describe("toEcn", () => {
     expect(toEcn(item({ field_5: html })).values.detailedDescription).toBe(html);
   });
 
+  // ProjectReference is a SINGLE lookup, added to the list 2026-08-19. Graph
+  // hands it back as an id with no title attached.
+  it("reads the project as a title-less lookup", () => {
+    const e = toEcn(item({ ProjectReferenceLookupId: "7" }));
+    expect(e.parentProject).toEqual({ lookupId: 7, title: "" });
+  });
+
+  it("has no project when the column is empty", () => {
+    expect(toEcn(item({})).parentProject).toBeNull();
+    expect(toEcn(item({ ProjectReferenceLookupId: "" })).parentProject).toBeNull();
+    expect(toEcn(item({ ProjectReferenceLookupId: 0 })).parentProject).toBeNull();
+  });
+
   it("reads the submitter off Graph's createdBy, not a column", () => {
     const e = toEcn(
       item(
@@ -101,6 +116,7 @@ describe("buildEcnCreateFields", () => {
     const fields = buildEcnCreateFields({
       title: "  De-4000  ",
       logNo: " 260063 ",
+      projectLookupId: null,
       values: {},
     });
     expect(fields.Title).toBe("De-4000");
@@ -111,6 +127,7 @@ describe("buildEcnCreateFields", () => {
     const fields = buildEcnCreateFields({
       title: "x",
       logNo: "260063",
+      projectLookupId: null,
       values: { finalAssemblyPartNumbers: "", fieldReturnsImpacted: "Yes" },
     });
     // Unticked is a real answer to "Field Returns Impacted" — leaving the
@@ -124,9 +141,33 @@ describe("buildEcnCreateFields", () => {
     const fields = buildEcnCreateFields({
       title: "x",
       logNo: "260063",
+      projectLookupId: null,
       values: { detailedDescription: "First line\n\nSecond line" },
     });
     expect(String(fields.field_5)).toContain("<p>");
+  });
+});
+
+describe("the project lookup on write", () => {
+  // A single-value lookup takes a bare integer. The Collection(Edm.Int32)
+  // shape that multi-value person and lookup columns need is a 400 here.
+  it("writes a bare integer", () => {
+    expect(projectPatch(7)).toEqual({ ProjectReferenceLookupId: 7 });
+  });
+
+  it("clears with null rather than omitting the column", () => {
+    // Omitting it would leave a wrong project in place on an edit.
+    expect(projectPatch(null)).toEqual({ ProjectReferenceLookupId: null });
+  });
+
+  it("goes onto a create when one was picked", () => {
+    const fields = buildEcnCreateFields({
+      title: "x",
+      logNo: "260063",
+      projectLookupId: 4,
+      values: {},
+    });
+    expect(fields.ProjectReferenceLookupId).toBe(4);
   });
 });
 

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { FileDiff, Pencil, User } from "lucide-react";
+import { FileDiff, FolderOpen, Pencil, User } from "lucide-react";
 import {
   collectEcnPeople,
   useAddEcnComment,
@@ -17,12 +17,13 @@ import {
   type EcnField,
   type EcnSection,
 } from "@/lib/ecnFields";
-import { ecnFieldPatch } from "@/lib/ecnMapper";
+import { ecnFieldPatch, projectPatch } from "@/lib/ecnMapper";
 import { looksLikeHtml } from "@/lib/descriptionChecklist";
 import { sanitiseHtml } from "@/lib/sanitiseHtml";
 import { toPlainTextForEditing } from "@/lib/richText";
 import { mergePeople } from "@/lib/people";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useProjects } from "@/hooks/useTasks";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { AttachmentsSection } from "@/components/AttachmentsSection";
 import { FieldEditModal, type EditableFieldSpec } from "@/components/FieldEditModal";
@@ -53,6 +54,7 @@ export function EcnDetailView() {
   const { data: ecns = [] } = useEcns();
   const currentUser = useCurrentUser();
   const directory = useDirectoryPeople();
+  const { data: projects = [] } = useProjects();
 
   const updateFields = useUpdateEcnFields();
   const addComment = useAddEcnComment();
@@ -69,6 +71,14 @@ export function EcnDetailView() {
   // Which card's editor is open — one at a time, keyed by section name plus
   // the pseudo-section "Details" for the Log# / Title pair in the sidebar.
   const [editing, setEditing] = useState<EcnSection | "Details" | null>(null);
+  // The lookup carries an id only; the title comes from the Projects list.
+  const projectOptions = useMemo(
+    () =>
+      [...projects]
+        .sort((a, b) => a.title.localeCompare(b.title))
+        .map((p) => ({ value: String(p.lookupId), label: p.title })),
+    [projects],
+  );
 
   if (isLoading) {
     return (
@@ -112,15 +122,25 @@ export function EcnDetailView() {
     save(fields, (e) => ({ ...e, values: { ...e.values, ...changed } }));
   }
 
-  /** The Log# and the Title, which are columns of their own rather than descriptors. */
+  /** Log#, Title and the project — columns of their own rather than descriptors. */
   function saveDetails(changed: Record<string, string>) {
     const fields: Record<string, unknown> = {};
     if ("logNo" in changed) fields.field_2 = changed.logNo.trim();
     if ("title" in changed) fields.Title = changed.title.trim();
+    const nextProject =
+      "project" in changed
+        ? changed.project
+          ? { lookupId: parseInt(changed.project, 10), title: "" }
+          : null
+        : undefined;
+    if (nextProject !== undefined) {
+      Object.assign(fields, projectPatch(nextProject?.lookupId ?? null));
+    }
     save(fields, (e) => ({
       ...e,
       logNo: "logNo" in changed ? changed.logNo.trim() : e.logNo,
       title: "title" in changed ? changed.title.trim() : e.title,
+      parentProject: nextProject === undefined ? e.parentProject : nextProject,
     }));
   }
 
@@ -147,6 +167,8 @@ export function EcnDetailView() {
   }
 
   const submitter = ecn.submittedBy?.displayName;
+  const projectTitle =
+    projects.find((p) => p.lookupId === ecn.parentProject?.lookupId)?.title ?? null;
 
   return (
     <div className="mx-auto flex max-w-[1200px] flex-col gap-4 px-4 py-4 sm:px-6 sm:py-6">
@@ -237,6 +259,12 @@ export function EcnDetailView() {
             </p>
           </SidebarField>
 
+          <SidebarField label="Project" icon={<FolderOpen className="h-3.5 w-3.5" />}>
+            <p className="px-1 text-sm text-fg">
+              {projectTitle ?? <span className="text-fg-muted">No project</span>}
+            </p>
+          </SidebarField>
+
           <SidebarField label="Submitted by" icon={<User className="h-3.5 w-3.5" />}>
             <p className="px-1 text-sm text-fg">
               {submitter ?? <span className="text-fg-muted">Unknown</span>}
@@ -276,8 +304,18 @@ export function EcnDetailView() {
               hint: "A revision keeps the number of the notice it revises — 260059R1.",
             },
             { key: "title", label: "Title", kind: "text" },
+            {
+              key: "project",
+              label: "Project Reference",
+              kind: "select",
+              options: projectOptions,
+            },
           ]}
-          values={{ logNo: ecn.logNo, title: ecn.title }}
+          values={{
+            logNo: ecn.logNo,
+            title: ecn.title,
+            project: ecn.parentProject ? String(ecn.parentProject.lookupId) : "",
+          }}
           onClose={() => setEditing(null)}
           onSave={saveDetails}
         />

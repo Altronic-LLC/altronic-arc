@@ -131,6 +131,30 @@ describe("EcnDetailView", () => {
     );
   });
 
+  it("names the project it belongs to", async () => {
+    await renderDetail();
+    // Joined from the Projects list, which loads separately from the ECN.
+    await waitFor(() =>
+      expect(screen.getByText("0000-Engineering Apps")).toBeInTheDocument(),
+    );
+  });
+
+  it("changes the project from the Details modal", async () => {
+    await renderDetail();
+    await userEvent.click(screen.getByRole("button", { name: "Edit Details" }));
+
+    const dialog = await screen.findByRole("dialog", { name: /edit details/i });
+    await userEvent.click(within(dialog).getByRole("button", { name: "Project Reference" }));
+    await userEvent.click(
+      await screen.findByRole("option", { name: "0017-AMP-5000 Refresh" }),
+    );
+    await userEvent.click(within(dialog).getByRole("button", { name: /save changes/i }));
+
+    await waitFor(() =>
+      expect(screen.getByText("0017-AMP-5000 Refresh")).toBeInTheDocument(),
+    );
+  });
+
   it("names the submitter", async () => {
     await renderDetail();
     const sidebar = screen.getByText("Submitted by").closest("div")?.parentElement as HTMLElement;

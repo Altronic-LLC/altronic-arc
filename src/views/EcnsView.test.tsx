@@ -67,6 +67,35 @@ describe("EcnsView", () => {
     expect(screen.getByText("260062")).toBeInTheDocument();
   });
 
+  // ProjectReference is a lookup, so the row carries an id and the title is
+  // joined from the Projects list. A missing join shows as a blank column.
+  it("shows each notice's project by name", async () => {
+    await renderList();
+    // The Projects list is its own query — the table renders first, with the
+    // project column filling in once the join data lands.
+    await waitFor(() =>
+      expect(
+        within(screen.getByRole("table")).getAllByText("0000-Engineering Apps").length,
+      ).toBeGreaterThan(0),
+    );
+  });
+
+  it("filters by project", async () => {
+    await renderList();
+    await userEvent.click(filterTrigger("Project"));
+    await userEvent.click(await screen.findByRole("option", { name: "0003-Engineering Task List" }));
+
+    await waitFor(() => expect(screen.queryByText("260062")).not.toBeInTheDocument());
+    expect(screen.getByText("260059")).toBeInTheDocument();
+    expect(screen.getByText("260058")).toBeInTheDocument();
+  });
+
+  it("keeps the project filter in the URL", async () => {
+    await renderList("?project=274");
+    await waitFor(() => expect(screen.queryByText("260058")).not.toBeInTheDocument());
+    expect(screen.getByText("260062")).toBeInTheDocument();
+  });
+
   it("filters on the stock disposition", async () => {
     await renderList();
     await userEvent.click(filterTrigger("In House Stock"));

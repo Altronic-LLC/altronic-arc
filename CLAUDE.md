@@ -832,6 +832,11 @@ migration and the internal names carry no information whatsoever:
 | `field_10` | Engineering Comments (rich text) |
 | `field_12` | Sign-off status |
 
+Plus **`ProjectReference`** — a genuine, readable name, because it was added
+later (Ray, 2026-08-19) rather than arriving with the import. It's a **single**
+lookup into the Projects list (`6280c711-…`), the same target Tasks and EIRs
+use.
+
 `src/lib/ecnFields.ts` is the ONLY place that translation exists, and the
 mapper, write payload, `$select`, detail cards and create form all run off it.
 **`field_1` and `field_11` don't exist** — dropped somewhere in the import.
@@ -846,6 +851,13 @@ Five things that shape the feature:
   rule is `ecnCommentRecipients` in `lib/mentions.ts`, deliberately NOT
   `commentNotifyRecipients`, and there is no watch button because there is
   nowhere to store a watch. A mention emails once; it doesn't subscribe.
+- **The project is a SINGLE lookup.** Graph returns it as
+  `ProjectReferenceLookupId` with no title attached, so the title is joined
+  client-side against the loaded Projects list — exactly how a task's parent
+  project works. Writing it is a **bare integer** (`projectPatch`), and `null`
+  clears it; `multiLookupField`'s `Collection(Edm.Int32)` shape is for
+  multi-value lookups and 400s here. It drives the ECN list's Project filter
+  and the dashboard card's project scoping.
 - **`submittedBy` is Graph's item-level `createdBy`**, which is why the read
   passes `$select=id,createdBy,…` alongside `$expand=fields(...)`. For the
   1,809 rows that arrived with the 2026-08-12 migration that's the migration

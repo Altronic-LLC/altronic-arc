@@ -82,6 +82,7 @@ describe("collectEcnPeople", () => {
         id: 1,
         title: "",
         logNo: "",
+        parentProject: null,
         submittedBy: { displayName: email, email },
         comments: [],
         hasAttachments: false,
@@ -112,6 +113,7 @@ describe("useCreateEcn", () => {
       await result.current.create.mutateAsync({
         title: "New notice",
         logNo: "269001",
+        projectLookupId: null,
         values: {},
       });
     });

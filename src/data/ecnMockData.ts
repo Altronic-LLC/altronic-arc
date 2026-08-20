@@ -7,6 +7,10 @@ import type { Ecn } from "@/types/task";
 // hold SharePoint's rich-text wrapper, the Log# reads YY#### with an R suffix
 // on a revision, and a revision sits alongside the notice it revises rather
 // than replacing it.
+//
+// The project lookupIds are real ones from MOCK_PROJECTS. A made-up id
+// resolves to no title, which makes the project column and the dashboard's
+// project filter look broken in mock mode when they aren't.
 // =============================================================================
 
 const now = new Date();
@@ -17,6 +21,7 @@ export const MOCK_ECNS: Ecn[] = [
     id: 1,
     logNo: "260062",
     title: "PCB ASSEMBLY, WCD-20",
+    parentProject: { lookupId: 274, title: "" },
     submittedBy: { displayName: "Sarah Shaffer", email: "sarah.shaffer@altronic-llc.com" },
     comments: [],
     hasAttachments: false,
@@ -39,6 +44,7 @@ export const MOCK_ECNS: Ecn[] = [
     id: 2,
     logNo: "260059R1",
     title: "PCB ASSEMBLY, WCD-20",
+    parentProject: { lookupId: 274, title: "" },
     submittedBy: { displayName: "Ray White", email: "ray.white@altronic-llc.com" },
     comments: [
       {
@@ -70,6 +76,7 @@ export const MOCK_ECNS: Ecn[] = [
     id: 3,
     logNo: "260059",
     title: "PCB ASSEMBLY, WCD-20",
+    parentProject: { lookupId: 412, title: "" },
     submittedBy: { displayName: "Ray White", email: "ray.white@altronic-llc.com" },
     comments: [],
     hasAttachments: false,
@@ -93,6 +100,7 @@ export const MOCK_ECNS: Ecn[] = [
     id: 4,
     logNo: "260058",
     title: "De-4000",
+    parentProject: { lookupId: 412, title: "" },
     submittedBy: { displayName: "Steven Kelly", email: "steven.kelly@altronic-llc.com" },
     comments: [],
     hasAttachments: false,
@@ -114,6 +122,7 @@ export const MOCK_ECNS: Ecn[] = [
   {
     id: 5,
     logNo: "250107R4",
+    parentProject: null,
     title: "IPMD-2 Schematic for Varispark Slave Ignition Incorporation & Obsolescence",
     submittedBy: { displayName: "Sarah Shaffer", email: "sarah.shaffer@altronic-llc.com" },
     comments: [],

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { FileDiff, MessageSquare, Paperclip, Plus } from "lucide-react";
 import { useEcns } from "@/hooks/useEcns";
+import { useProjects } from "@/hooks/useTasks";
 import type { Ecn } from "@/types/task";
 import { stockDispositions } from "@/lib/ecnFields";
 import { isEcnOnHold } from "@/lib/ecnMapper";
@@ -35,11 +36,13 @@ type HoldFilter = "" | "On hold" | "Not on hold";
 export function EcnsView() {
   const navigate = useNavigate();
   const { data: ecns = [], isLoading } = useEcns();
+  const { data: projects = [] } = useProjects();
   const [params, setParams] = useSearchParams();
   const [showNew, setShowNew] = useState(false);
   const [showAll, setShowAll] = useState(false);
 
   const q = params.get("q") ?? "";
+  const project = params.get("project") ?? "";
   const stock = params.get("stock") ?? "";
   const hold = (params.get("hold") as HoldFilter) || "";
   const drawings = params.get("drawings") ?? "";
@@ -56,10 +59,23 @@ export function EcnsView() {
     () => stockDispositions(ecns.map((e) => e.values.inHouseStock ?? "")),
     [ecns],
   );
+  // The lookup stores an id; titles come from the Projects list.
+  const projectTitles = useMemo(
+    () => new Map(projects.map((p) => [p.lookupId, p.title])),
+    [projects],
+  );
+  const projectOptions = useMemo(
+    () =>
+      [...projects]
+        .sort((a, b) => a.title.localeCompare(b.title))
+        .map((p) => ({ value: String(p.lookupId), label: p.title })),
+    [projects],
+  );
 
   const filtered = useMemo(() => {
     const tokens = tokenizeQuery(q);
     return ecns.filter((ecn) => {
+      if (project && String(ecn.parentProject?.lookupId ?? "") !== project) return false;
       if (stock && (ecn.values.inHouseStock ?? "") !== stock) return false;
       if (hold === "On hold" && !isEcnOnHold(ecn)) return false;
       if (hold === "Not on hold" && isEcnOnHold(ecn)) return false;
@@ -67,7 +83,7 @@ export function EcnsView() {
       if (drawings === "Outstanding" && ecn.values.drawingsComplete === "Yes") return false;
       return matchesSearch(ecn, tokens);
     });
-  }, [ecns, q, stock, hold, drawings]);
+  }, [ecns, q, project, stock, hold, drawings]);
 
   const shown = showAll ? filtered : filtered.slice(0, INITIAL_ROWS);
 
@@ -96,13 +112,22 @@ export function EcnsView() {
       <div
         role="search"
         aria-label="ECN filters"
-        className="grid grid-cols-1 gap-3 rounded-xl border border-border bg-surface p-3 sm:grid-cols-2 lg:grid-cols-4"
+        className="grid grid-cols-1 gap-3 rounded-xl border border-border bg-surface p-3 sm:grid-cols-2 lg:grid-cols-5"
       >
         <Filter label="Search">
           <SearchInput
             value={q}
             onChange={(v) => setParam("q", v)}
             placeholder="Part number, assembly, description…"
+          />
+        </Filter>
+        <Filter label="Project">
+          <ChoiceSelect
+            value={project}
+            onChange={(v) => setParam("project", v)}
+            options={projectOptions}
+            emptyLabel="Any project"
+            searchPlaceholder="Search projects…"
           />
         </Filter>
         <Filter label="In House Stock">
@@ -162,6 +187,7 @@ export function EcnsView() {
                 <tr>
                   <th className="px-4 py-2 font-semibold">Log#</th>
                   <th className="px-4 py-2 font-semibold">Title</th>
+                  <th className="px-4 py-2 font-semibold">Project</th>
                   <th className="px-4 py-2 font-semibold">Final Assemblies</th>
                   <th className="px-4 py-2 font-semibold">Change</th>
                   <th className="px-4 py-2 font-semibold">In House Stock</th>
@@ -173,6 +199,11 @@ export function EcnsView() {
                   <Row
                     key={ecn.id}
                     ecn={ecn}
+                    projectTitle={
+                      ecn.parentProject
+                        ? (projectTitles.get(ecn.parentProject.lookupId) ?? "")
+                        : ""
+                    }
                     onOpen={() => navigate(`/engineering/ecn/${ecn.id}`)}
                   />
                 ))}
@@ -192,7 +223,15 @@ export function EcnsView() {
   );
 }
 
-function Row({ ecn, onOpen }: { ecn: Ecn; onOpen: () => void }) {
+function Row({
+  ecn,
+  projectTitle,
+  onOpen,
+}: {
+  ecn: Ecn;
+  projectTitle: string;
+  onOpen: () => void;
+}) {
   // The description is rich text; the table shows the first line of it as
   // plain text, which is how you tell two revisions of one notice apart.
   const summary = htmlToPlainText(ecn.values.detailedDescription ?? "")
@@ -235,6 +274,9 @@ function Row({ ecn, onOpen }: { ecn: Ecn; onOpen: () => void }) {
           {ecn.title || "—"}
           <EcnOnHoldChip onHold={ecn.values.onHold ?? ""} />
         </span>
+      </td>
+      <td className="max-w-[12rem] truncate px-4 py-2 text-fg-muted" title={projectTitle}>
+        {projectTitle || "—"}
       </td>
       <td className="max-w-[14rem] truncate px-4 py-2 text-fg-muted" title={ecn.values.finalAssemblyPartNumbers}>
         {ecn.values.finalAssemblyPartNumbers || "—"}

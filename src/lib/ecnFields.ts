@@ -184,6 +184,10 @@ export function stockDispositions(values: string[]): string[] {
 export const ECN_SELECT = [
   "Title",
   "field_2",
+  // A single lookup into the Projects list. Graph hands lookups back as
+  // `<Name>LookupId` with no title, so the title is joined client-side
+  // against the loaded Projects list — the same as a task's parent project.
+  "ProjectReferenceLookupId",
   "Communication",
   "Attachments",
   "Created",

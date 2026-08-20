@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Loader2, Pencil, X } from "lucide-react";
-import { ChoiceSelect } from "./SearchableSelect";
+import { ChoiceSelect, type SelectOption } from "./SearchableSelect";
 import { SuggestInput } from "./SuggestInput";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
 import { YesNoField } from "./YesNoField";
@@ -35,7 +35,9 @@ export type EditableFieldKind =
   | "richText"
   | "boolean"
   | "choice"
-  | "suggest";
+  | "suggest"
+  /** A pick from a list whose value isn't its label — a lookup, e.g. a project. */
+  | "select";
 
 export interface EditableFieldSpec {
   /** Domain key — what the changed-values map is keyed by. */
@@ -46,6 +48,8 @@ export interface EditableFieldSpec {
   choices?: readonly string[];
   /** For `suggest` — existing values, offered but not enforced. */
   suggestions?: string[];
+  /** For `select` — options whose value differs from their label. */
+  options?: SelectOption[];
   hint?: string;
 }
 
@@ -240,6 +244,19 @@ function FieldControl({
         emptyLabel="Not set"
         disabled={disabled}
         ariaLabel={field.label}
+      />
+    );
+  }
+  if (field.kind === "select") {
+    return (
+      <ChoiceSelect
+        value={value}
+        onChange={onChange}
+        options={field.options ?? []}
+        emptyLabel="Not set"
+        disabled={disabled}
+        ariaLabel={field.label}
+        searchPlaceholder="Search…"
       />
     );
   }

@@ -8,6 +8,7 @@ import {
   type EcnSection,
 } from "@/lib/ecnFields";
 import { useCreateEcn, useEcns } from "@/hooks/useEcns";
+import { useProjects } from "@/hooks/useTasks";
 import { ChoiceSelect } from "./SearchableSelect";
 import { SuggestInput } from "./SuggestInput";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
@@ -40,8 +41,10 @@ export function EcnFormModal({ onClose, onCreated }: EcnFormModalProps) {
   const { data: ecns = [], isLoading: ecnsLoading } = useEcns();
   const busy = create.isPending;
 
+  const { data: projects = [] } = useProjects();
   const [title, setTitle] = useState("");
   const [logNo, setLogNo] = useState("");
+  const [projectLookupId, setProjectLookupId] = useState("");
   const [values, setValues] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const firstFieldRef = useRef<HTMLInputElement>(null);
@@ -49,6 +52,13 @@ export function EcnFormModal({ onClose, onCreated }: EcnFormModalProps) {
   const stockOptions = useMemo(
     () => stockDispositions(ecns.map((e) => e.values.inHouseStock ?? "")),
     [ecns],
+  );
+  const projectOptions = useMemo(
+    () =>
+      [...projects]
+        .sort((a, b) => a.title.localeCompare(b.title))
+        .map((p) => ({ value: String(p.lookupId), label: p.title })),
+    [projects],
   );
   // Purely informational: the newest number on the list, so whoever is typing
   // one can see where the sequence is up to.
@@ -89,7 +99,12 @@ export function EcnFormModal({ onClose, onCreated }: EcnFormModalProps) {
     }
     setError(null);
 
-    const input: EcnInput = { title, logNo, values };
+    const input: EcnInput = {
+      title,
+      logNo,
+      projectLookupId: projectLookupId ? parseInt(projectLookupId, 10) : null,
+      values,
+    };
     try {
       const created = await create.mutateAsync(input);
       onClose();
@@ -159,6 +174,24 @@ export function EcnFormModal({ onClose, onCreated }: EcnFormModalProps) {
                 placeholder="260063"
                 className="input"
                 disabled={busy}
+              />
+            </Field>
+
+            <Field
+              label="Project Reference"
+              className="sm:col-span-2"
+              // A <div>: the picker is a button, and a label wrapping it would
+              // name the button by its own text rather than the field.
+              plain
+            >
+              <ChoiceSelect
+                value={projectLookupId}
+                onChange={setProjectLookupId}
+                options={projectOptions}
+                emptyLabel="No project"
+                searchPlaceholder="Search projects…"
+                disabled={busy}
+                ariaLabel="Project Reference"
               />
             </Field>
           </div>

@@ -80,6 +80,9 @@ export async function createEcn(input: EcnInput, actor?: { displayName: string; 
       id: Math.max(0, ...mockStore.map((e) => e.id)) + 1,
       title: input.title.trim(),
       logNo: input.logNo.trim(),
+      parentProject: input.projectLookupId
+        ? { lookupId: input.projectLookupId, title: "" }
+        : null,
       // Real mode gets this from Graph's createdBy; mock mode fills in the
       // signed-in user so the "comments reach the submitter" rule is
       // demonstrable against mock data.
@@ -136,6 +139,11 @@ export async function updateEcnFields(
 function applyMockFields(next: Ecn, fields: Record<string, unknown>) {
   if ("Title" in fields) next.title = String(fields.Title ?? "");
   if ("field_2" in fields) next.logNo = String(fields.field_2 ?? "");
+  if ("ProjectReferenceLookupId" in fields) {
+    const lookupId = fields.ProjectReferenceLookupId;
+    next.parentProject =
+      typeof lookupId === "number" ? { lookupId, title: "" } : null;
+  }
   for (const [column, value] of Object.entries(fields)) {
     const field = ECN_COLUMN_FIELDS[column];
     if (!field) continue;

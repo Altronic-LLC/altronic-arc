@@ -20,6 +20,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.104.0",
+    date: "2026-08-19",
+    changes: [
+      "ECNs can be tied to a project — pick one when you raise the notice, or change it later from Edit Details",
+      "The ECN list shows each notice's project and filters by it, and the filter is in the address bar so a filtered view can be shared",
+      "The dashboard's ECN card now counts the notices on file, with the on-hold ones marked on the bar",
+      "Picking a project on the dashboard narrows the ECN count with everything else, and clicking the card opens the list already filtered to it",
+    ],
+  },
+  {
     version: "0.103.0",
     date: "2026-08-19",
     changes: [
