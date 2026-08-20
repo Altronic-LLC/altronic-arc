@@ -13,6 +13,7 @@ import { appendComment, replaceComment } from "@/lib/communicationParser";
 import { toStoredRichText } from "@/lib/richText";
 import { listProjects } from "./tasks";
 import { MOCK_EIRS } from "@/data/mockData";
+import { autoWatchers } from "@/lib/people";
 
 // =============================================================================
 // EIRs API — mirrors src/api/tasks.ts in shape. Mock + real branches,
@@ -468,10 +469,20 @@ export async function updateEirFields(
 }
 
 
-/** Replace the Assigned Engineer list. */
+/**
+ * Watchers for an EIR with the assigned engineers folded in — see the note on
+ * watchersWithAssignees in api/tasks.ts.
+ */
+async function eirWatchersWithEngineers(id: number, engineers: Person[]): Promise<Person[]> {
+  const current = await getEir(id);
+  return autoWatchers(current?.watchers, engineers);
+}
+
+/** Replace the Assigned Engineer list. The engineers also become watchers. */
 export async function setEirAssignedEngineers(id: number, people: Person[]): Promise<Eir> {
+  const watchers = await eirWatchersWithEngineers(id, people);
   if (USE_MOCK) {
-    return updateEirFields(id, { AssignedEngineer: people });
+    return updateEirFields(id, { AssignedEngineer: people, Watchers: watchers });
   }
   const ensured = await ensureLookupIds(SP_SITE_URL, people);
   if (people.length > 0 && !ensured.some((p) => p.lookupId)) {
@@ -479,7 +490,10 @@ export async function setEirAssignedEngineers(id: number, people: Person[]): Pro
       "Cannot update Assigned Engineer: couldn't resolve a SharePoint user for any selected person.",
     );
   }
-  return updateEirFields(id, multiPersonField("AssignedEngineer", ensured));
+  return updateEirFields(id, {
+    ...multiPersonField("AssignedEngineer", ensured),
+    ...multiPersonField("Watchers", await ensureLookupIds(SP_SITE_URL, watchers)),
+  });
 }
 
 /** Replace the Watchers list. */

@@ -18,6 +18,7 @@ import {
   listOperationsProjects,
   updateOperationsProject,
 } from "@/api/operationsProjects";
+import { autoWatchFromMentions } from "@/api/autoWatch";
 import { listOperationsEquipment } from "@/api/operationsEquipment";
 import type { OperationsTask, Person, ProjectReference } from "@/types/task";
 import { pushToast } from "@/components/Toast";
@@ -33,10 +34,9 @@ import {
   commentNotifyRecipients,
   commentRenotifyRecipients,
   extractMentionedRecipients,
-  mockLookupIdForEmail,
 } from "@/lib/mentions";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { USE_MOCK } from "@/api/config";
+import { autoWatchers } from "@/lib/people";
 
 // =============================================================================
 // Operations department hooks — mirrors useTasks.ts's optimistic-update
@@ -447,6 +447,7 @@ export function useAddOperationsComment() {
       const mentioned = extractMentionedRecipients(comment.bodyHtml);
       if (mentioned.length === 0) return;
       void autoWatchFromMentions({
+        resolveLookupId: resolvePmoSiteUserLookupId,
         recipients: mentioned,
         currentWatchers: task.watchers,
         directory: tasks ? collectPeopleFromOperationsTasks(tasks) : [],
@@ -499,43 +500,6 @@ async function applyOperationsWatcherAdditions(
   }
 }
 
-async function autoWatchFromMentions({
-  recipients,
-  currentWatchers,
-  directory,
-}: {
-  recipients: Person[];
-  currentWatchers: Person[];
-  directory: Person[];
-}): Promise<Person[]> {
-  const alreadyWatching = new Set(
-    currentWatchers.map((w) => (w.email ?? w.displayName).toLowerCase()),
-  );
-  const byEmail = new Map<string, Person>();
-  for (const p of directory) {
-    if (p.email && p.lookupId) byEmail.set(p.email.toLowerCase(), p);
-  }
-  const additions: Person[] = [];
-  for (const r of recipients) {
-    const key = (r.email ?? r.displayName).toLowerCase();
-    if (alreadyWatching.has(key)) continue;
-    if (!r.email) continue;
-    let resolved = byEmail.get(r.email.toLowerCase());
-    if (!resolved) {
-      // Cold start: mentioned someone who's never been assigned/watching
-      // any Operations task, so they're not in the task-derived directory.
-      // Resolve their PMO site user lookupId on demand instead.
-      const lookupId = USE_MOCK
-        ? mockLookupIdForEmail(r.email)
-        : await resolvePmoSiteUserLookupId(r.email);
-      if (!lookupId) continue;
-      resolved = { displayName: r.displayName, email: r.email, lookupId };
-    }
-    additions.push(resolved);
-    alreadyWatching.add(key);
-  }
-  return additions;
-}
 
 /** Flatten every Person across the Operations task list, deduped by email/displayName. */
 function collectPeopleFromOperationsTasks(tasks: OperationsTask[]): Person[] {
@@ -645,6 +609,7 @@ export function useEditOperationsComment() {
       if (mentioned.length === 0) return;
       const allTasks = qc.getQueryData<OperationsTask[]>(OPERATIONS_TASK_LIST_KEY);
       void autoWatchFromMentions({
+        resolveLookupId: resolvePmoSiteUserLookupId,
         recipients: mentioned,
         currentWatchers: task.watchers,
         directory: allTasks ? collectPeopleFromOperationsTasks(allTasks) : [],
@@ -666,7 +631,12 @@ export function useCreateOperationsTask() {
   const qc = useQueryClient();
   const actor = useCurrentUser();
   return useMutation({
-    mutationFn: createOperationsTask,
+    // Creator + assignee watch the new task — see lib/people.ts autoWatchers().
+    mutationFn: (input: Parameters<typeof createOperationsTask>[0]) =>
+      createOperationsTask({
+        ...input,
+        watchers: autoWatchers(input.watchers, input.assigned, actor),
+      }),
     onSuccess: (task, variables) => {
       pushToast({ message: `Created task "${task.taskNumber || task.title}".` });
       // Assigning someone AS the task is created used to tell them nothing —

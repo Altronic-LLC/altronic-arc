@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { dropdownBlurHandler, useDropdownClose } from "./useDropdownClose";
 
 // =============================================================================
 // A text field that behaves like a choice field.
@@ -37,14 +38,10 @@ export function SuggestInput({
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    function onDocClick(e: MouseEvent) {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
-    }
-    document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
-  }, [open]);
+  // Same close rules as every other dropdown: focus leaving, another dropdown
+  // opening, an outside click, Escape. See useDropdownClose.
+  const close = useCallback(() => setOpen(false), []);
+  useDropdownClose(open, wrapRef, close);
 
   // Filter as you type, but keep every option available once the field matches
   // one exactly — otherwise picking a value collapses the list to just itself
@@ -64,13 +61,16 @@ export function SuggestInput({
       className="relative"
       ref={wrapRef}
       // Escape on the WRAPPER, not the input: focus may be on the chevron or a
-      // suggestion when someone reaches for it.
+      // suggestion when someone reaches for it. (useDropdownClose also listens
+      // on the document; this one stops the key reaching an enclosing modal,
+      // which would otherwise close the whole dialog.)
       onKeyDown={(e) => {
         if (e.key === "Escape" && open) {
           e.stopPropagation();
           setOpen(false);
         }
       }}
+      onBlur={dropdownBlurHandler(wrapRef, close)}
     >
       <div className="flex">
         <input

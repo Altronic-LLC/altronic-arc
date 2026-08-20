@@ -19,6 +19,14 @@ import { AdminEirRolesView } from "@/views/AdminEirRolesView";
 import { TestSheetsView } from "@/views/TestSheetsView";
 import { TestSheetDetailView } from "@/views/TestSheetDetailView";
 import { EirsView } from "@/views/EirsView";
+import { WhereAmIView } from "@/views/WhereAmIView";
+import { EcnsView } from "@/views/EcnsView";
+import { EcnDetailView } from "@/views/EcnDetailView";
+import { VisitReportsView } from "@/views/VisitReportsView";
+import { GrayMarketRequestsView } from "@/views/GrayMarketRequestsView";
+import { GrayMarketRequestDetailView } from "@/views/GrayMarketRequestDetailView";
+import { VisitReportsCalendarView } from "@/views/VisitReportsCalendarView";
+import { VisitReportDetailView } from "@/views/VisitReportDetailView";
 import { EirKanbanView } from "@/views/EirKanbanView";
 import { EirDetailView } from "@/views/EirDetailView";
 import { DigitalQcView } from "@/views/DigitalQcView";
@@ -188,6 +196,26 @@ export function App() {
           <Route path="/coils/potting-sample-log" element={<PottingSampleLogView />} />
           <Route path="/coils/potting-limits" element={<PottingLimitsView />} />
           <Route path="/coils/psr-notifications" element={<PsrNotificationView />} />
+          <Route
+            path="/supply-chain/gray-market-requests"
+            element={<GrayMarketRequestsView />}
+          />
+          <Route
+            path="/supply-chain/gray-market-request/:id"
+            element={<GrayMarketRequestDetailView />}
+          />
+          <Route path="/sales/visit-reports" element={<VisitReportsView />} />
+          <Route
+            path="/sales/visit-reports/calendar"
+            element={<VisitReportsCalendarView />}
+          />
+          <Route
+            path="/sales/visit-report/:id"
+            element={<VisitReportDetailView />}
+          />
+          <Route path="/engineering/where-am-i" element={<WhereAmIView />} />
+          <Route path="/engineering/ecns" element={<EcnsView />} />
+          <Route path="/engineering/ecn/:id" element={<EcnDetailView />} />
           <Route path="/eirs" element={<EirsView />} />
           <Route path="/eirs/kanban" element={<EirKanbanView />} />
           <Route path="/eir/:id" element={<EirDetailView />} />

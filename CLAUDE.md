@@ -229,6 +229,7 @@ src/
 │   ├── taskColumns.ts            Task list column metadata / choice discovery
 │   ├── eirs.ts                   EIR CRUD
 │   ├── eirRoles.ts               EIR role tags (engineer / supply chain) CRUD
+│   ├── ecns.ts                   ECN CRUD + comments (Engineering) — no delete
 │   ├── testSheets.ts             Test Results CRUD
 │   ├── admins.ts                 Admins list CRUD
 │   ├── csaListings.ts            CSA Listings CRUD (Engineering certification register)
@@ -244,6 +245,10 @@ src/
 │   ├── panelTasks.ts             Panel Tasks CRUD
 │   ├── panelProjects.ts          Panel Project Reference list
 │   ├── panelRoles.ts             Panel User Roles list CRUD
+│   ├── visitReports.ts           Visit Reports CRUD (Sales, salesTeam site) — no delete
+│   ├── grayMarketRequests.ts     Gray Market Requests CRUD + comments (PMO site) — no delete
+│   ├── whereAmI.ts               Where am I? CRUD (Engineering out-of-office calendar)
+│   ├── autoWatch.ts              Shared @-mention → watcher resolution (per-site)
 │   ├── projectFiles.ts           Documents-library project folders + files
 │   ├── attachments.ts            List-item attachments (task | eir | csaListing) via SP REST
 │   ├── email.ts                  Mention + change-alert mail; reports sends that FAIL
@@ -258,6 +263,10 @@ src/
 │   ├── teradyneMockData.ts       Sample Teradyne log + reference rows
 │   ├── operationsMockData.ts     Sample Operations tasks + projects
 │   ├── panelMockData.ts          Sample panel orders + panel tasks
+│   ├── visitReportMockData.ts    Sample visit reports
+│   ├── grayMarketMockData.ts     Sample gray market requests
+│   ├── whereAmIMockData.ts       Sample out-of-office entries (dated from today)
+│   ├── ecnMockData.ts            Sample ECNs (rich-text fields, a revision)
 │   ├── buildRequestMockData.ts   Sample build requests + items
 │   └── changelog.ts              Version history (drives footer + history modal)
 │
@@ -272,6 +281,11 @@ src/
 │   ├── usePanelOrders.ts         Panel order queries + mutations
 │   ├── usePanelTasks.ts          Panel task queries + mutations
 │   ├── usePanelRoles.ts          Panel User Roles CRUD (admin-guarded)
+│   ├── useVisitReports.ts        Visit Report queries + mutations
+│   ├── useGrayMarketRequests.ts  Gray Market queries, mutations + comment thread
+│   ├── useWhereAmI.ts            Where am I? queries + mutations
+│   ├── useEcns.ts                ECN queries + mutations (submitter-only notifications)
+│   ├── useVisitReportFilters.ts  URL-backed Visit Report filters (+ filterSearch)
 │   ├── useBuildRequests.ts       Build Requests + Items queries/mutations
 │   ├── useTestSheets.ts          Test sheet queries + mutations
 │   ├── useAdmins.ts              Admins list CRUD
@@ -306,6 +320,8 @@ src/
 │   ├── eirFilters.ts             Pure EIR filter/sort/count predicates (list + board)
 │   ├── eirMapper.ts              Graph item → Eir (field-name quirks)
 │   ├── eirNumber.ts              nextEirNo() — EIR_YYYY-#### auto-numbering
+│   ├── ecnFields.ts              ECN column descriptors (field_2 … field_12 decoded)
+│   ├── ecnMapper.ts              Graph item → Ecn, Log# parsing/sorting
 │   ├── eirPromotion.ts           EIR → Task promotion helpers
 │   ├── testSheetMapper.ts        Graph item → TestSheet
 │   ├── csaListingMapper.ts       Graph item → CsaListing (+ label, sort, search)
@@ -320,6 +336,13 @@ src/
 │   ├── panelOrderMapper.ts       Graph item → PanelOrder
 │   ├── panelTaskMapper.ts        Graph item → PanelTask
 │   ├── panelRoles.ts             Panel role → editing-rights mapping (pure)
+│   ├── visitReportMapper.ts      Graph item → VisitReport (+ RM/year options)
+│   ├── grayMarketFields.ts       Gray Market column descriptors (columns are DATA)
+│   ├── grayMarketMapper.ts       Graph item → GrayMarketRequest, and back
+│   ├── grayMarketNumber.ts       nextGrayMarketLogNo() — GMR_YYYY-### numbering
+│   ├── calendarGrid.ts           Shared month-grid maths for every calendar view
+│   ├── whereAmI.ts               Where am I? mapper, grouping, date-range expansion
+│   ├── visitReportFilters.ts     Pure Visit Report filter/group predicates (list + calendar)
 │   ├── teradyneMapper.ts         Graph item → Teradyne entities; derived titles
 │   ├── spDates.ts                Shared SharePoint date-only helpers (midday-UTC rule)
 │   ├── changeAlerts.ts           Change-alert email construction (pure)
@@ -370,6 +393,13 @@ src/
 │   ├── OperationsTaskFormModal.tsx  Create/edit Operations task
 │   ├── PanelOrderFormModal.tsx   Create/edit panel order
 │   ├── PanelTaskFormModal.tsx    Create/edit panel task
+│   ├── VisitReportFormModal.tsx  Create/edit a visit report
+│   ├── GrayMarketRequestFormModal.tsx  Raise a gray market request
+│   ├── WhereAmIFormModal.tsx     Add/edit an out-of-office entry (+ date range)
+│   ├── EcnFormModal.tsx          Raise an ECN
+│   ├── FieldEditModal.tsx        Shared "edit this card's fields" modal (Gray Market + ECN)
+│   ├── YesNoField.tsx            A boolean column as two labelled Yes / No choices
+│   ├── ChoicePills.tsx          Any short choice set as pills (Yes/No, Pass/Fail, …)
 │   ├── BuildRequestFormModal.tsx Create/edit build request
 │   ├── BuildRequestItemFormModal.tsx  Add/edit a part
 │   ├── EirFormModal.tsx          Create/edit EIR
@@ -390,6 +420,10 @@ src/
 │   ├── atoms.tsx                 Badges, chips, status colours
 │   ├── operationsAtoms.tsx       Operations-specific badges/chips
 │   ├── panelAtoms.tsx            Panel-specific badges/chips
+│   ├── visitReportAtoms.tsx      Customer-status chip (Sales)
+│   ├── grayMarketAtoms.tsx       Request-status + Pass/Fail chips (Supply Chain)
+│   ├── ecnAtoms.tsx              On-hold / flag / stock-disposition chips (ECNs)
+│   ├── VisitReportFilterBar.tsx  Shared filter bar for both Visit Report views
 │   ├── buildRequestAtoms.tsx     Build-request-specific badges/chips
 │   └── brand/{Brandmark,Wordmark}.tsx   Official Altronic marks
 │
@@ -420,6 +454,14 @@ src/
 │   ├── PanelOrderDetailView.tsx  Panel order detail
 │   ├── PanelTasksView.tsx        Panel Tasks list
 │   ├── PanelTaskDetailView.tsx   Panel task detail
+│   ├── VisitReportsView.tsx      Visit Reports list (Sales)
+│   ├── GrayMarketRequestsView.tsx      Gray Market Requests list (Supply Chain)
+│   ├── WhereAmIView.tsx          Where am I? — month grid on desktop, agenda on a phone
+│   ├── EcnsView.tsx              ECNs list (search covers the descriptions)
+│   ├── EcnDetailView.tsx         One ECN — workflow cards, attachments, comments
+│   ├── GrayMarketRequestDetailView.tsx Gray Market request — workflow cards, comments, attachments
+│   ├── VisitReportsCalendarView.tsx  Visit Reports month calendar (desktop only)
+│   ├── VisitReportDetailView.tsx Visit report detail + attachments
 │   ├── TestSheetsView.tsx        Test sheets list
 │   ├── TestSheetDetailView.tsx   Test sheet detail
 │   ├── AdminProjectsView.tsx     Admin → Project References
@@ -598,7 +640,7 @@ single `SP_SITE_ID`.
 |---|---|---|
 | `engineering` | Altronic_Engineering | `…,ddb5fc80-ea51-4d56-b008-ce6a82af49b0,aa6b9467-3f57-4213-bbd4-60b94403421a` |
 | `panelTeam` | ALTRONICPANELTEAM → Panels | `…,fdf31131-2076-4618-923b-a1856e6b0f2a,3eb6cb9c-6535-4c69-a8d7-e90b2f90a9eb` |
-| `salesTeam` | ALTRONICSALESTEAM → Customer Service / Sales | `…,dd86bf69-a010-481a-9920-78b079c5ec1e,aa6b9467-3f57-4213-bbd4-60b94403421a` |
+| `salesTeam` | ALTRONICSALESTEAM → Customer Service / Sales (Visit Reports) | `…,dd86bf69-a010-481a-9920-78b079c5ec1e,aa6b9467-3f57-4213-bbd4-60b94403421a` |
 | `salesOrderEntry` | ALTRONICSALESTEAM/OrderEntry (**subsite** of salesTeam — same collection, shares its grant) | `…,dd86bf69-a010-481a-9920-78b079c5ec1e,583688a6-3238-4f79-aed5-8e2d8ce38c41` |
 | `pmo` | Altronic_PMO | `…,915a6183-2b71-4dfd-a8b9-181126dfbe78,3eb6cb9c-6535-4c69-a8d7-e90b2f90a9eb` |
 
@@ -768,6 +810,265 @@ code. If expiry comes back, it needs the decision first: a new Expiry Date colum
 in SharePoint, or a rule deriving it from `DateCertified`. Recover the old
 implementation from git history rather than rewriting it (`git log --
 src/lib/certificationExpiry.ts`).
+
+### ECNs (Engineering Change Notices)
+
+`f6917bf4-bdd1-4ff9-ba71-0a17b22b1ecc` (env: `VITE_SP_ECNS_LIST_ID`) on
+`SITES.engineering`. **1,813 rows.** Schema captured 2026-08-19 in
+`scripts/ecn-new-schema.json`.
+
+**Every workflow column is called `field_N`.** The list came out of a
+migration and the internal names carry no information whatsoever:
+
+| Internal name | Actually is |
+|---|---|
+| `field_2` | Log# |
+| `field_3` | On Hold |
+| `field_4` | Final Assembly Part Numbers |
+| `field_5` | Detailed Description (rich text) |
+| `field_6` | Serial Numbers (rich text) |
+| `field_7` | In House Stock |
+| `field_8` | Field Returns Impacted (**boolean**) |
+| `field_9` | Drawings Complete? (**boolean**) |
+| `field_10` | Engineering Comments (rich text) |
+| `field_12` | Sign-off status |
+
+Plus **`ProjectReference`** — a genuine, readable name, because it was added
+later (Ray, 2026-08-19) rather than arriving with the import. It's a **single**
+lookup into the Projects list (`6280c711-…`), the same target Tasks and EIRs
+use.
+
+`src/lib/ecnFields.ts` is the ONLY place that translation exists, and the
+mapper, write payload, `$select`, detail cards and create form all run off it.
+**`field_1` and `field_11` don't exist** — dropped somewhere in the import.
+Don't infer a column from the gap; selecting one that isn't there 400s the
+whole read.
+
+Five things that shape the feature:
+
+- **No Watchers column, and no requester column.** So ECN comments notify the
+  **submitter plus anyone @-mentioned, and nobody else** (Ray, 2026-08-19) —
+  the one comment thread in ARC that doesn't follow the watcher rules. The
+  rule is `ecnCommentRecipients` in `lib/mentions.ts`, deliberately NOT
+  `commentNotifyRecipients`, and there is no watch button because there is
+  nowhere to store a watch. A mention emails once; it doesn't subscribe.
+- **The project is a SINGLE lookup.** Graph returns it as
+  `ProjectReferenceLookupId` with no title attached, so the title is joined
+  client-side against the loaded Projects list — exactly how a task's parent
+  project works. Writing it is a **bare integer** (`projectPatch`), and `null`
+  clears it; `multiLookupField`'s `Collection(Edm.Int32)` shape is for
+  multi-value lookups and 400s here. It drives the ECN list's Project filter
+  and the dashboard card's project scoping.
+- **`submittedBy` is Graph's item-level `createdBy`**, which is why the read
+  passes `$select=id,createdBy,…` alongside `$expand=fields(...)`. For the
+  1,809 rows that arrived with the 2026-08-12 migration that's the migration
+  account (Ray), not the engineer who raised the original notice. Fixing that
+  properly needs a person column on the list.
+- **The Log# is typed, never generated** (Ray, 2026-08-19). It reads `YY####`
+  (`260059`) with an `R#` suffix on a revision (`260059R1`) — and a revision
+  keeps the number of the notice it revises, so a generated "next number"
+  would be wrong exactly when it mattered. The create form shows the latest
+  number and refuses a duplicate; that's the whole enforcement.
+- **Two columns are real booleans.** They're carried in `values` as `"Yes"` /
+  `""` so the record stays one shape, and turned back into `true`/`false` on
+  write. A create always sends both, because leaving the column null makes
+  SharePoint's own views read it as blank rather than No.
+- **The long fields hold SharePoint rich text** (`<div class="ExternalClass…">`
+  with `&#58;` / `&#160;` entities), so they render sanitised and write through
+  `toStoredRichText` — the same arrangement as the EIR long fields and Gray
+  Market's `WhereUsed`.
+
+**No delete**, in the UI or the API module — an ECN is a controlled record of a
+change that was made, and a superseded notice is revised rather than removed.
+`ecns.test.ts` asserts the module exports nothing matching /delete|remove/.
+
+1,813 rows is under the 5,000-item threshold, so the list is fetched whole and
+filtered in the browser — which is what makes searching the Detailed
+Description for a part number possible at all. `EcnsView` renders 150 rows with
+a "show all"; the filters and the count always run over everything.
+
+Attachments are enabled on the list (kind `ecn` in `api/attachments.ts`).
+
+### "Where am I?" (Engineering out-of-office calendar)
+
+`9483c2c9-8af4-42cb-9e15-a170c8cac225` (env: `VITE_SP_WHERE_AM_I_LIST_ID`) on
+`SITES.engineering`. Schema captured 2026-08-19 in
+`scripts/where-am-i-schema.json`. Two columns that matter:
+
+| Domain field | Column | Notes |
+|---|---|---|
+| `title` | `Title` | free text carrying BOTH the person and the reason ("Sarah - half day vacation") — there is no person column |
+| `date` | `Date` | date-only, **required** |
+
+Four things to keep in mind:
+
+- **No end date.** A week away is one row per day. The add form expands a
+  `Through` date into one entry per day (`datesInRange`, capped at
+  `MAX_RANGE_DAYS` = 60 so a mistyped year can't write thousands of rows), but
+  the data model is one row per day and the UI says so rather than pretending
+  otherwise.
+- **Its dates are stored at 06:00Z** — local midnight in US Central, this
+  site's regional setting. Gray Market stores 23:00Z and Visit Reports 22:00Z;
+  the SAME `parseSpDateOnly` midday pivot reads all three correctly, which is
+  the reason that rule isn't a per-list offset.
+- **It HAS a delete**, unlike Visit Reports and Gray Market Requests. Those
+  record something that happened; this records an intention, and intentions get
+  cancelled. Anyone signed in can add, edit and remove — including other
+  people's entries (Ray, 2026-08-19).
+- **~1,000 rows** since late 2023, two small columns, so it's fetched whole and
+  both views slice it in the browser.
+
+**One route, two renderings** (`views/WhereAmIView.tsx`). Desktop gets the
+month grid; a phone gets an **upcoming agenda** grouped by day — Today /
+Tomorrow / "Thu, Aug 21" — because seven columns are unreadable at that width.
+This is NOT the Visit Reports calendar's arrangement, which redirects a phone
+to its list view: here there is no other view to redirect to, so the phone gets
+a rendering of its own that answers the question people open it to ask.
+
+The month-grid maths (`calendarDays`, month keys, labels) lives in
+**`src/lib/calendarGrid.ts`**, shared with the Visit Reports calendar — pulled
+out when this second calendar arrived, before there was a copy to drift.
+
+### Gray Market Requests (Supply Chain, PMO site)
+
+`bf5e3786-d2c1-4e8d-8bd1-c8d5bab9c85b` (env: `VITE_SP_GRAY_MARKET_LIST_ID`) on
+**`SITES.pmo`** — not a Supply Chain site. That's where the list has always
+lived, and the PMO grant already covers it. Schema captured 2026-08-19 in
+`scripts/gray-market-request-schema.json`.
+
+**A Supply Chain feature** (Ray, 2026-08-19). Engineering's part of the
+workflow — the testing and sign-off fields — lives on the same record, and it
+briefly appeared in the Engineering nav group and dashboard too; that was
+removed. One department, one place in the nav.
+
+**The columns are DATA** (`src/lib/grayMarketFields.ts`). Thirty-odd editable
+columns spanning four teams' parts of one workflow: declaring them once drives
+the mapper, the write payload, the `$select`, the five detail cards and the
+form. A column added in SharePoint is one descriptor line here.
+
+**Four internal names do NOT say what they mean**, which is the main reason
+that table exists:
+
+| Internal name | Actually is |
+|---|---|
+| `QANotes` | labelled **"Inspection Flag"** (Yes / Pending) — not a notes field |
+| `QtyofPartsforW_x002e_O_x002e_` | labelled **"Qty of Parts for BR"** |
+| `InCircuitPCBW_x002e_O_x002e__x00` | **truncated** internal name, "In Circuit PCB W.O. #" |
+| `FinalAssemblyW_x002e_O_x002e__x0` | **truncated** too |
+| `Parts_x0020_Location` | a **person** column, despite the name |
+| `Title` | the Altronic assembly number |
+
+Also:
+
+- **`LogNo_x002e_Raw` carries `GMR_YYYY-###`**, generated by
+  `nextGrayMarketLogNo()`; SharePoint's calculated **Log No.** derives from it,
+  so only the raw column is ever written — the EIR No arrangement exactly.
+- **Dates are stored at 23:00Z** (local midnight in the site's regional
+  timezone — the same tenant quirk as Visit Reports' 22:00Z rows, an hour apart
+  because those samples were summer). `parseSpDateOnly` handles it.
+- **`WhereUsed` holds SharePoint rich text** (`<div class="ExternalClass…">`),
+  so it renders sanitised and writes through `toStoredRichText`.
+- **`Communication` and `Watchers` already existed on the list**, which is why
+  the standard comment thread wired up with no SharePoint changes.
+
+**No delete**, in the UI or the API module — a request records a part that was
+bought. `grayMarketRequests.test.ts` asserts the module exports nothing
+matching /delete|remove/.
+
+### @-mention auto-watch is ONE function now, and it takes a resolver
+
+`autoWatchFromMentions` in **`src/api/autoWatch.ts`** is shared by all six
+comment threads. It used to be a private copy in five department hooks.
+
+The copies looked identical and were not: each resolved a cold-start mention
+against **its own site** — `resolveCurrentUserLookupId` (Engineering),
+`resolvePmoSiteUserLookupId` (PMO), `resolvePanelSiteUserLookupId` (Panels). A
+site user lookupId is per site collection, so sharing them naively would have
+written a wrong (or non-existent) user into the person columns on Operations,
+Panels and Gray Market. `resolveLookupId` is therefore a **required
+parameter** — a new caller has to say which site it means.
+
+### Visit Reports (Customer Service / Sales, salesTeam site)
+
+`7cc4db39-6612-4c2d-b1b2-1af34d0564e7` (env: `VITE_SP_VISIT_REPORTS_LIST_ID`)
+on `SITES.salesTeam`. Schema discovered live 2026-08-18 —
+`scripts/visit-reports-schema.json` is the snapshot; re-run
+`./scripts/discover-list.ps1 -ListName "Visit Reports" -Site salesTeam` if the
+columns change.
+
+| Domain field | Column | Notes |
+|---|---|---|
+| `customerName` | `Title` | **The list repurposes Title as the Customer Name** — there is no "title" in the domain type (same as CSA Listings). |
+| `rmName` | `RMName` | choice — the regional manager |
+| `reasonForVisit` | `ReasonForVisit` | choice |
+| `visitSummary` | `VisitSummary` | multi-line, **required** |
+| `actionItems` | `ActionItems` | multi-line |
+| `visitDate` | `VisitDate` | date-only; midday UTC on write (`src/lib/spDates.ts`) |
+| `customerStatus` | `CustomerStatus` | choice — drives the colour chip |
+| `product` | `Product` | text ("Product(s)") |
+| `city` | `City0` | **the trailing zero is real** |
+| `state` | `State0` | choice, the 50 states spelled out |
+| `hasAttachments` | `Attachments` | attachments enabled; kind `visitReport` in `api/attachments.ts` |
+
+Five things to keep in mind:
+
+- **`City0` / `State0`.** A City/State pair existed before and was replaced;
+  SharePoint suffixed the new columns. Writing `City` saves nothing, silently.
+- **`Month`, `Year`, `Day` and `Cal Title` are CALCULATED** off Visit Date and
+  read-only. `VISIT_REPORT_SELECT` leaves them out and the write payload never
+  includes them (a write is a 400) — the year filter derives from `visitDate`.
+- **The RM Name choices do NOT cover the data.** Reports run back to 2022;
+  managers have left ("Neal Keeton" is in the data, not the column), and one
+  person appears under two spellings ("Paul McHenry" / "Paul Mchenry"). So
+  `rmNameOptions()` offers the column's choices UNION whatever the rows hold.
+  Offering only the choices would make an old report un-editable without
+  silently reassigning it, and filtering on choices alone hides real reports.
+- **Existing rows store the date at 22:00Z — local midnight in a site two hours
+  ahead of UTC.** Reading the UTC date showed the day BEFORE the one the list
+  view displays ("app says June 21, list says June 22"). `parseSpDateOnly` in
+  `src/lib/spDates.ts` applies a midday pivot: a stored time after 12:00 UTC
+  belongs to the next day. **Do NOT check this against the calculated
+  `Month`/`Year`/`Day` columns** — SharePoint computes those in UTC, so on this
+  list they disagree with the date users read. The list view is the truth.
+- **Edits send only the columns that changed** (`buildVisitReportFields(input,
+  previous)`). The choice columns' stored data has drifted outside their choice
+  lists — managers who have left, one spelled two ways — and re-sending such a
+  value makes SharePoint reject the whole PATCH, so fixing a typo on a 2022
+  report would fail for an unrelated reason.
+- **~1,000 rows and growing.** Under SharePoint's 5,000-item threshold, so the
+  list is fetched whole (`graphFetchAll`) and filtered in the browser; the
+  table renders 150 rows with a "show all". If it ever nears 5,000, copy
+  `listTeradyneLog`'s year scope — and index `VisitDate` first.
+
+**Two views, one filtered set.** `VisitReportsView` (`/sales/visit-reports`)
+and `VisitReportsCalendarView` (`/sales/visit-reports/calendar`) share
+`lib/visitReportFilters.ts` (pure predicates + `groupVisitsByDay`),
+`hooks/useVisitReportFilters.ts` (the URL state + `visitReportFilterSearch`
+for the switcher) and `components/VisitReportFilterBar.tsx` — the same
+arrangement as the EIR list/board pair, and for the same reason: two copies of
+a filter is how a fix reaches only one view.
+
+**The calendar is desktop / large-tablet only** (Ray, 2026-08-18). It gates on
+`useKanbanAvailable()` — the orientation-independent check the Kanban boards
+use, so a phone turned sideways can't sneak in — the Header hides the Calendar
+button below that size, and the view itself redirects to the list, because a
+bookmark or a shared link would otherwise land a phone on a seven-column grid.
+
+**Every date in the calendar is handled in UTC terms** (`visitDayKey`,
+`calendarDays`). A date-only value is held at midday UTC once
+`parseSpDateOnly` has normalised it; local getters would put every visit on the
+day before for anyone west of Greenwich.
+
+**There is no delete — not in the UI, and not in `api/visitReports.ts`**
+(Ray, 2026-08-18). A visit report is a record of something that happened:
+correcting one is an edit, removing one is a deliberate trip to SharePoint.
+The absence from the API is the point, so a future screen or bulk action can't
+quietly acquire one; `visitReports.test.ts` asserts the module exports nothing
+matching /delete|remove/.
+
+Creating and editing is open to **any signed-in user** — no admin gate, no
+role gating. The list is **Sales-only**: nothing else reads it, and it imports
+nothing from another department.
 
 ### Teradyne lists (Operations, PMO site)
 
@@ -1030,25 +1331,120 @@ These apply app-wide, not to one department. They were all learned from a real
 report, and each has tests pinning it — if you change one, expect a test to
 argue with you.
 
-### Modal backdrops: use `useOverlayDismiss`, never a bare `onClick`
+### Detail pages read; a card's Edit button writes
 
-`<div className="fixed inset-0 …" onClick={onClose}>` LOSES USER WORK. The
-browser fires `click` on the nearest common ancestor of `mousedown` and
-`mouseup`, so selecting text in a field and releasing a few pixels outside the
-dialog dispatches a click whose target is the overlay — and the modal closes with
-everything typed in it. `e.target === e.currentTarget` does NOT save you: on that
-drag the target genuinely IS the overlay.
+Gray Market requests and ECNs both used to edit field by field: an "Edit" link
+per text column that swapped it for an input with its own Save, next to choice
+columns and checkboxes that committed the moment you touched them. One card
+carried half a dozen edit affordances in half a dozen places, under two
+different rules about when a change was saved (Ray, 2026-08-19: *"the edit
+button locations do not make sense"*).
 
-`src/components/useOverlayDismiss.ts` requires the press, the release AND the
-click to be on the overlay. Spread it on every modal overlay:
-`<div className="fixed inset-0 …" {...useOverlayDismiss(onClose, busy)}>`. It is
-applied to all 21 modals; a new modal must use it too.
+Now **the page is read-only and each card header has ONE Edit button**, behind
+which sits `src/components/FieldEditModal.tsx` — shared, not copied per
+department, because two editors is how a fix reaches only one of them. It's
+descriptor-driven like everything else on those pages: a view maps its own
+field descriptors to `EditableFieldSpec[]`.
 
-**Also cap tall modals.** A modal whose content can grow (a change log, a long
-description) needs `flex max-h-[calc(100vh-2rem)] flex-col` with the body in a
-`min-h-0 flex-1 overflow-y-auto` scroller and the header/footer pinned OUTSIDE
-it. Otherwise the dialog grows past the viewport and the header scrolls away,
-taking its buttons with it.
+Three things to preserve:
+
+- **Only changed fields come back.** `onSave` receives just the keys that
+  moved. On Gray Market that's load-bearing rather than tidy: several stored
+  choice values have drifted outside their column's choice list, and
+  re-sending one makes SharePoint reject the whole PATCH — the same reason
+  Visit Reports diffs its writes.
+- **Rich-text columns are handed over as PLAIN TEXT.** The caller converts
+  (`toPlainTextForEditing`) before opening and converts back through its
+  field-patch helper on save. Editing raw `<div class="ExternalClass…">` in a
+  textarea is how that markup gets corrupted.
+- **Drafts are seeded once.** The list behind the page refetches on its own
+  cadence; re-seeding from it would wipe whatever is half-typed.
+
+A new card of fields on either page needs no new editor — add the descriptors
+and point the Edit button at the section.
+
+### A short choice list is pills, never a dropdown or a checkbox
+
+`src/components/ChoicePills.tsx` is the control for any choice set of
+`MAX_PILL_OPTIONS` (3) or fewer — Yes/No, Yes/Pending, Pass/Fail, In
+Process/Yes/No. `YesNoField.tsx` is a thin wrapper over it for real boolean
+columns.
+
+Two complaints produced this, a day apart:
+
+- A bare checkbox left people reading a tick to work out what it meant, with
+  no visible "No" to choose (Ray, 2026-08-19).
+- Two or three options behind a dropdown cost a click to open, a read to find
+  the option you already knew you wanted, and a second click to pick it (Ray,
+  2026-08-19: *"make sure all yes no are selections throughout the apps and
+  modals. Easy to toggle."*).
+
+The rule lives in the renderers, not at each call site: `FieldEditModal`,
+`EcnFormModal` and `GrayMarketRequestFormModal` all send a `choice` field to
+pills when it has ≤ 3 options and to `ChoiceSelect` otherwise, so a new
+descriptor gets the right control automatically.
+
+Four things to preserve:
+
+- **Blank is usually a real state.** Most of these are TEXT columns where the
+  majority of rows have never been answered, so the pills carry a **Not set**
+  option (`allowUnset`). Without it, opening a record and saving quietly
+  answers a question nobody had answered. A field the list marks *required*
+  (Gray Market's Testing Required on create) omits it — nothing is selected
+  until it's picked, and validation catches the empty.
+- **`allowUnset` forces the literal "No".** On a real boolean column No IS
+  blank, so No and Not set would share a value and both light up. A column
+  needing a distinct "not answered" is a text/choice column by definition.
+- **Stored casing varies** — older rows carry `yes` / `no` lower case — so
+  matching is loose and the canonical form is written back.
+- **A pill group can't sit inside a `<label>`**: its options carry their own
+  labels, which nest and steal the click. Wrappers are `<div>`s (the `plain`
+  prop on each form's `Field`), and neighbouring controls name themselves with
+  `aria-label`.
+
+**What deliberately stays a checkbox:** the PCB task checklist
+(`PcbChecklistCard`) and the Build Request Items PCB/Harness checklists
+(`BuildRequestItemCard`). Those are 13 and 17 boolean columns rendered as a
+progress list you tick as you go — turning them into 30 radio pairs would make
+them harder to use, not easier, and a checklist is not a Yes/No question. The
+description checklists, the comment "notify everyone again" option, and the
+EIR role tags are UI affordances, not stored Yes/No fields, and stay as they
+are too.
+
+### Every dropdown closes the same four ways
+
+`src/components/useDropdownClose.ts` owns when a panel closes, and both
+dropdown implementations (`DropdownShell` in `SearchableSelect.tsx`, and
+`SuggestInput`) use it. They used to close on an outside click or Escape and
+nothing else, so after picking in a multi-select the only way out was clicking
+some empty part of the page, and tabbing onward left the panel hanging open
+(Ray, 2026-08-19: *"all drop downs make you click away to close"*).
+
+1. **Focus leaves the control** → close.
+2. **Another dropdown opens** → close. One panel app-wide, tracked in a
+   module-level claim (`claimOpenDropdown`); it's a module variable rather
+   than context because dropdowns live in unrelated trees and there is one
+   document.
+3. Outside mousedown → close.
+4. Escape → close.
+
+Two details that are easy to get wrong:
+
+- **A blur with no `relatedTarget` is ignored.** That's what a click on the
+  panel's own padding or a scrollbar produces, and closing on those shuts the
+  panel mid-use. Genuine outside clicks are already rule 3's job.
+- **The container ref must wrap the trigger AND the panel**, so focus moving
+  between them reads as movement *within* the control.
+
+**A multi-select still doesn't close on a pick** — ticking several is the
+point — which is why it now carries a **Done** row. If you add a dropdown that
+stays open, give it a visible way out.
+
+Testing note: `resetOpenDropdown()` in a `beforeEach`, or a claim left by a
+previous test closes the one under test. And jsdom does NOT populate
+`relatedTarget` on a programmatic `.focus()`, so drive the focusout rule with
+`fireEvent.focusOut(el, { relatedTarget })` or `userEvent.tab()` — a test
+written with `.focus()` passes whether the rule exists or not.
 
 ### Every dropdown in a form is searchable
 
@@ -1079,6 +1475,18 @@ common first name unreachable in a 200-person tenant with nothing saying so.
 filter, so the first fix reached only one of them. Change both, or better, change
 the shared helper. If a cap ever bites, SAY SO in the list ("Showing 50 of 62 —
 keep typing to narrow"); a silently truncated list reads as "that's everyone".
+
+As of 2026-08-18 the *detector* is shared too —
+`detectMentionQuery(text, caret)` in `lib/mentions.ts` — because both files
+also carried identical copies of the backwards-walk that decides whether the
+caret is inside a mention.
+
+**A mention query may contain ONE space.** It used to close the picker at the
+first whitespace, so `@Jerrod W` was unreachable and anyone who had to be
+disambiguated by surname couldn't be mentioned at all. Two spaces ends it (the
+user has moved on to a sentence) and a newline always does. Nothing renders
+when there are no candidates, so an over-long query hides the picker by
+itself.
 
 ### Task filters live in the URL and must survive navigation
 
@@ -1164,6 +1572,89 @@ A field whose stored value is a checklist falls back to the plain textarea —
 
 If another list turns out to have rich-text columns, reuse `toStoredRichText`
 in that module's write path; don't re-derive it.
+
+### Creators and assignees watch what they're involved in
+
+Watchers drive every notification, so the watcher list has to fill itself.
+Three of the four routes onto it are automatic (Ray, 2026-08-18):
+
+| Route | Where it happens |
+|---|---|
+| **You created it** | the `useCreate*` hook wraps `mutationFn` and passes `autoWatchers(input.watchers, <assignee>, actor)` |
+| **It's assigned to you** | the API's `set*Assigned` / `set*Engineer` writes Assigned **and** Watchers in ONE PATCH |
+| **You were @-mentioned** | `autoWatchFromMentions` (tasks/ops/panels/BRs) and `autoWatchEirFromMentions` (EIRs), already there |
+| You were added by hand | the Watchers field / Watch button |
+
+`autoWatchers()` in `src/lib/people.ts` is the union — it takes people and
+lists of people in any mix (Operations, panels and build requests assign ONE
+person; tasks and EIRs take several) and dedupes through `mergePeople`, which
+keeps the copy carrying a `lookupId` because only that one can be written to a
+person column.
+
+Two things to preserve:
+
+- **Nobody is ever removed.** Unassigning leaves the person watching; Unwatch
+  is the deliberate way off. Auto-removing would also silently undo someone
+  adding *themselves*.
+- **The assign path re-reads the item** rather than trusting the caller's
+  cache, so a watcher added elsewhere isn't clobbered, and writes both columns
+  together so they can't disagree.
+
+A new entity with a Watchers column gets the same treatment in its create hook
+and its assign path — that's six departments doing it identically now.
+
+### Comment timestamps are on one clock, not the author's
+
+The `Communication` record starts with a bare `MM/DD/YYYY HH:MM:SS AM/PM` and
+**no time zone**. It used to be written in the author's local time and read
+back in the reader's, so records weren't comparable: 09:00 IST (03:30 UTC)
+sorts after 08:00 CDT (13:00 UTC) even though it was posted 9½ hours earlier.
+Threads with authors in different zones came out shuffled (reported
+2026-08-18).
+
+The format can't change — the Power Apps app and SharePoint's own views read
+the same column — so `src/lib/communicationParser.ts` writes and reads every
+record in ONE zone, `COMMENT_TIMEZONE = "America/New_York"`. Altronic is in
+Girard, Ohio, so existing records (nearly all written by Eastern-time authors)
+keep the time they always showed, and new records from any zone line up with
+them. Parsing yields a true instant; the UI still formats it in each reader's
+local time, so nobody sees Eastern unless they're in it.
+
+`formatSpDate`/`parseSpDate` do the conversion via `Intl.DateTimeFormat` — no
+dependency, DST handled by re-checking the offset at the instant being solved
+for. Don't reintroduce `d.getHours()` / `new Date(y, m, d, …)` here: those are
+the author's-local-time bug. Tests set `process.env.TZ` explicitly, because
+"it depends where you are" IS the bug.
+
+### People search is token-based, and hides `admin.` accounts
+
+Two rules for anything that lets a user pick a person.
+
+**Every word must match, in any order.** `matchesTokens(text, query)` in
+`lib/itemSearch.ts` (built on the same `tokenizeQuery` the list views use) is
+the one matcher — used by `SearchablePanel` in `SearchableSelect.tsx` and by
+`rankMentionCandidates`. A plain `label.includes(query)` was there before and
+broke the moment a space was typed: display names come out of Entra as
+`Waldron, Jerrod`, so `Jerrod W` matched nobody (Ray, 2026-08-18). Typing a
+first name and then a space is how people search for a person, so this is the
+default everywhere, not a people-picker special case.
+
+The panel also matches an option's **`value` when it is an email** — people
+options are keyed by address, so typing `jerrod.waldron` finds them. Options
+keyed by a numeric id (projects, tasks) are matched on label ONLY; matching
+those would make `5` pull in every id containing a five.
+
+**`admin.first.last` accounts are hidden.** `isHiddenDirectoryAccount()` in
+`lib/people.ts` is applied in `mapDirectoryUsers` (api/directory.ts) and again
+in `mergePeople`, so it holds whether the person came from the tenant
+directory or off an existing item. They don't receive mail — assigning work or
+a notification to one sends it nowhere — and listing every colleague twice
+makes picking the right one a coin flip.
+
+It matches the exact `admin.` prefix on the display name or the email's local
+part, and nothing looser: a colleague surnamed Adminski, and a shared
+`admin@` mailbox people really do assign to, both have to survive. Don't
+"improve" this into a general `admin` contains-match.
 
 ### Mail that doesn't send says so
 

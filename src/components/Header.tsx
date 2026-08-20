@@ -6,6 +6,7 @@ import {
   BookUser,
   Building2,
   Calculator,
+  CalendarDays,
   ChevronDown,
   CircuitBoard,
   ClipboardList,
@@ -13,6 +14,7 @@ import {
   Contact,
   DollarSign,
   FileCheck,
+  FileDiff,
   FileStack,
   FileText,
   FolderOpen,
@@ -33,7 +35,6 @@ import {
   Tag,
   TestTubes,
   Users,
-  Wrench,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useTheme } from "@/hooks/useTheme";
@@ -41,6 +42,7 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useKanbanAvailable } from "@/hooks/useIsPhone";
 import { filterSearch } from "@/hooks/useFilters";
 import { eirFilterSearch } from "@/hooks/useEirFilters";
+import { visitReportFilterSearch } from "@/hooks/useVisitReportFilters";
 import { USE_MOCK } from "@/api/config";
 import { Brandmark } from "@/components/brand/Brandmark";
 import { Wordmark } from "@/components/brand/Wordmark";
@@ -126,7 +128,18 @@ const DEPARTMENTS: DepartmentGroup[] = [
         icon: <BadgeCheck className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/csa-listings"),
       },
-      soon("ECNs", <Wrench className="h-4 w-4" />),
+      {
+        to: "/engineering/where-am-i",
+        label: "Where Am I?",
+        icon: <CalendarDays className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/engineering/where-am-i"),
+      },
+      {
+        to: "/engineering/ecns",
+        label: "ECNs",
+        icon: <FileDiff className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/engineering/ecn"),
+      },
     ],
   },
   {
@@ -198,7 +211,12 @@ const DEPARTMENTS: DepartmentGroup[] = [
   {
     name: "Supply Chain",
     items: [
-      soon("Grey Market Part Requests", <PackageSearch className="h-4 w-4" />),
+      {
+        to: "/supply-chain/gray-market-requests",
+        label: "Gray Market Requests",
+        icon: <PackageSearch className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/supply-chain/gray-market-request"),
+      },
       soon("Supplier Issue Tracking", <AlertTriangle className="h-4 w-4" />),
       soon("Supplier List", <Building2 className="h-4 w-4" />),
       soon("Supplier Contacts", <Contact className="h-4 w-4" />),
@@ -210,7 +228,12 @@ const DEPARTMENTS: DepartmentGroup[] = [
     name: "Customer Service / Sales",
     items: [
       soon("Customer Feedback", <MessageSquare className="h-4 w-4" />),
-      soon("Visit Reporting", <MapPin className="h-4 w-4" />),
+      {
+        to: "/sales/visit-reports",
+        label: "Visit Reports",
+        icon: <MapPin className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/sales/visit-report"),
+      },
       soon("Customers", <Users className="h-4 w-4" />),
       soon("Customer Contacts List", <BookUser className="h-4 w-4" />),
       soon("Special Pricing", <Tag className="h-4 w-4" />),
@@ -242,6 +265,10 @@ export function Header() {
   const isEirList = pathname === "/eirs";
   const isEirKanban = pathname.startsWith("/eirs/kanban");
   const showEirViews = isEirList || isEirKanban || pathname.startsWith("/eir/");
+  const isVisitList = pathname === "/sales/visit-reports";
+  const isVisitCalendar = pathname.startsWith("/sales/visit-reports/calendar");
+  const showVisitViews =
+    isVisitList || isVisitCalendar || pathname.startsWith("/sales/visit-report/");
 
   // List and Kanban are two views of ONE filtered task list, so the switcher
   // hands the filter params on. Linking to a bare `/kanban` dropped them and
@@ -252,6 +279,8 @@ export function Header() {
   // Same idea for the EIRs pair, but over the EIR filter keys — the task
   // helper doesn't know about reporter / engineer / view and would drop them.
   const eirFilterQuery = eirFilterSearch(search);
+  // And again for Visit Reports' list / calendar pair.
+  const visitFilterQuery = visitReportFilterSearch(search);
 
   return (
     <header className="border-b border-border bg-surface">
@@ -328,6 +357,28 @@ export function Header() {
                 icon={<LayoutGrid className="h-4 w-4" />}
               >
                 Board
+              </NavLink>
+            )}
+          </nav>
+        )}
+        {showVisitViews && (
+          <nav className="mt-2 flex items-center justify-center gap-1 rounded-lg bg-surface-2 p-1 sm:justify-start">
+            <NavLink
+              to={`/sales/visit-reports${visitFilterQuery}`}
+              active={isVisitList}
+              icon={<List className="h-4 w-4" />}
+            >
+              List
+            </NavLink>
+            {/* Calendar is desktop / large-tablet only — a seven-column month
+                grid is unusable at phone width. Same gate as the boards. */}
+            {kanbanAvailable && (
+              <NavLink
+                to={`/sales/visit-reports/calendar${visitFilterQuery}`}
+                active={isVisitCalendar}
+                icon={<CalendarDays className="h-4 w-4" />}
+              >
+                Calendar
               </NavLink>
             )}
           </nav>

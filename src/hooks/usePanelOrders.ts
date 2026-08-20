@@ -14,6 +14,7 @@ import {
   updatePanelOrderFields,
   watchPanelOrder,
 } from "@/api/panelOrders";
+import { autoWatchFromMentions } from "@/api/autoWatch";
 import { createPanelProject, listPanelProjects, updatePanelProject } from "@/api/panelProjects";
 import type { PanelOrder, PanelProject, Person } from "@/types/task";
 import { pushToast } from "@/components/Toast";
@@ -28,11 +29,10 @@ import {
   commentNotifyRecipients,
   commentRenotifyRecipients,
   extractMentionedRecipients,
-  mockLookupIdForEmail,
 } from "@/lib/mentions";
 import { htmlToPlainText } from "@/lib/htmlText";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { USE_MOCK } from "@/api/config";
+import { autoWatchers } from "@/lib/people";
 
 // =============================================================================
 // Panels department hooks — mirrors useOperationsTasks.ts's optimistic-update
@@ -418,6 +418,7 @@ export function useAddPanelOrderComment() {
       const mentioned = extractMentionedRecipients(comment.bodyHtml);
       if (mentioned.length === 0) return;
       void autoWatchFromMentions({
+        resolveLookupId: resolvePanelSiteUserLookupId,
         recipients: mentioned,
         currentWatchers: order.watchers,
         directory: orders ? collectPeopleFromPanelOrders(orders) : [],
@@ -470,42 +471,6 @@ async function applyPanelWatcherAdditions(
   }
 }
 
-async function autoWatchFromMentions({
-  recipients,
-  currentWatchers,
-  directory,
-}: {
-  recipients: Person[];
-  currentWatchers: Person[];
-  directory: Person[];
-}): Promise<Person[]> {
-  const alreadyWatching = new Set(
-    currentWatchers.map((w) => (w.email ?? w.displayName).toLowerCase()),
-  );
-  const byEmail = new Map<string, Person>();
-  for (const p of directory) {
-    if (p.email && p.lookupId) byEmail.set(p.email.toLowerCase(), p);
-  }
-  const additions: Person[] = [];
-  for (const r of recipients) {
-    const key = (r.email ?? r.displayName).toLowerCase();
-    if (alreadyWatching.has(key)) continue;
-    if (!r.email) continue;
-    let resolved = byEmail.get(r.email.toLowerCase());
-    if (!resolved) {
-      // Cold start: mentioned someone who's never been an engineer/watcher
-      // on any panel order — resolve their panel site lookupId on demand.
-      const lookupId = USE_MOCK
-        ? mockLookupIdForEmail(r.email)
-        : await resolvePanelSiteUserLookupId(r.email);
-      if (!lookupId) continue;
-      resolved = { displayName: r.displayName, email: r.email, lookupId };
-    }
-    additions.push(resolved);
-    alreadyWatching.add(key);
-  }
-  return additions;
-}
 
 /** Flatten every Person across the panel order list, deduped by email/displayName. */
 function collectPeopleFromPanelOrders(orders: PanelOrder[]): Person[] {
@@ -612,6 +577,7 @@ export function useEditPanelOrderComment() {
       if (mentioned.length === 0) return;
       const allOrders = qc.getQueryData<PanelOrder[]>(PANEL_ORDERS_KEY);
       void autoWatchFromMentions({
+        resolveLookupId: resolvePanelSiteUserLookupId,
         recipients: mentioned,
         currentWatchers: order.watchers,
         directory: allOrders ? collectPeopleFromPanelOrders(allOrders) : [],
@@ -633,7 +599,12 @@ export function useCreatePanelOrder() {
   const qc = useQueryClient();
   const actor = useCurrentUser();
   return useMutation({
-    mutationFn: createPanelOrder,
+    // Creator + assigned engineer watch the new order — lib/people.ts.
+    mutationFn: (input: Parameters<typeof createPanelOrder>[0]) =>
+      createPanelOrder({
+        ...input,
+        watchers: autoWatchers(input.watchers, input.engineerAssigned, actor),
+      }),
     onSuccess: (order, variables) => {
       pushToast({ message: `Created panel order "${order.title}".` });
       // Seed the cache immediately — navigating straight to the new order's

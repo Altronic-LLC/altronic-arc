@@ -25,6 +25,7 @@ import {
   updateTaskFields,
   watchTask,
 } from "@/api/tasks";
+import { autoWatchFromMentions } from "@/api/autoWatch";
 import { listTaskColumns } from "@/api/taskColumns";
 import type {
   Category,
@@ -51,13 +52,12 @@ import {
   commentNotifyRecipients,
   commentRenotifyRecipients,
   extractMentionedRecipients,
-  mockLookupIdForEmail,
 } from "@/lib/mentions";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { resolveCurrentUserLookupId } from "@/api/currentUser";
-import { USE_MOCK } from "@/api/config";
 import { fromLabelsField, toLabelsField } from "@/lib/labels";
 import { htmlToPlainText } from "@/lib/htmlText";
+import { autoWatchers } from "@/lib/people";
 
 const TASK_LIST_KEY = ["tasks", "list"] as const;
 const PROJECTS_KEY = ["projects"] as const;
@@ -695,6 +695,7 @@ export function useAddComment() {
       const mentioned = extractMentionedRecipients(comment.bodyHtml);
       if (mentioned.length === 0) return;
       void autoWatchFromMentions({
+        resolveLookupId: resolveCurrentUserLookupId,
         recipients: mentioned,
         currentWatchers: task.watchers,
         directory: tasks ? collectPeopleFromTasks(tasks) : [],
@@ -750,53 +751,6 @@ async function applyWatcherAdditions(
   }
 }
 
-/**
- * Resolve @-mentioned recipients against a directory of known people,
- * filter to those NOT already on the watcher list, return the ones we
- * can actually write to SharePoint (need a resolved LookupId).
- *
- * Async only so the calling .then chain doesn't block the comment-post
- * toast — the body is synchronous.
- */
-async function autoWatchFromMentions({
-  recipients,
-  currentWatchers,
-  directory,
-}: {
-  recipients: Person[];
-  currentWatchers: Person[];
-  directory: Person[];
-}): Promise<Person[]> {
-  const alreadyWatching = new Set(
-    currentWatchers.map((w) => (w.email ?? w.displayName).toLowerCase()),
-  );
-  const byEmail = new Map<string, Person>();
-  for (const p of directory) {
-    if (p.email && p.lookupId) byEmail.set(p.email.toLowerCase(), p);
-  }
-
-  const additions: Person[] = [];
-  for (const r of recipients) {
-    const key = (r.email ?? r.displayName).toLowerCase();
-    if (alreadyWatching.has(key)) continue;
-    if (!r.email) continue;
-    let resolved = byEmail.get(r.email.toLowerCase());
-    if (!resolved) {
-      // Cold start: mentioned someone who's never been an assignee/watcher
-      // on any task, so they're not in the task-derived directory. Resolve
-      // their SharePoint lookupId on demand from the site's User
-      // Information List — same mechanism used for the signed-in user.
-      const lookupId = USE_MOCK
-        ? mockLookupIdForEmail(r.email)
-        : await resolveCurrentUserLookupId(r.email);
-      if (!lookupId) continue;
-      resolved = { displayName: r.displayName, email: r.email, lookupId };
-    }
-    additions.push(resolved);
-    alreadyWatching.add(key);
-  }
-  return additions;
-}
 
 /** Flatten every Person across the task list, deduped by email/displayName. */
 function collectPeopleFromTasks(tasks: Task[]): Person[] {
@@ -913,6 +867,7 @@ export function useEditComment() {
       if (mentioned.length === 0) return;
       const allTasks = qc.getQueryData<Task[]>(TASK_LIST_KEY);
       void autoWatchFromMentions({
+        resolveLookupId: resolveCurrentUserLookupId,
         recipients: mentioned,
         currentWatchers: task.watchers,
         directory: allTasks ? collectPeopleFromTasks(allTasks) : [],
@@ -935,7 +890,13 @@ export function useCreateTask() {
   const actor = useCurrentUser();
   return useMutation({
     mutationKey: TASK_WRITE_KEY,
-    mutationFn: createTask,
+    // Whoever creates a task watches it, and so does whoever it's assigned
+    // to — see autoWatchers() in lib/people.ts for why.
+    mutationFn: (input: Parameters<typeof createTask>[0]) =>
+      createTask({
+        ...input,
+        watchers: autoWatchers(input.watchers, input.assigned, actor),
+      }),
     // Create isn't optimistic (we need the server-assigned id before
     // navigating to the new task). Toast confirms after the round-trip.
     onSuccess: (task, variables) => {

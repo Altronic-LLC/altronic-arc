@@ -13,15 +13,18 @@
 export type AppItemKind =
   | "task"
   | "eir"
+  | "ecn"
   | "operationsTask"
   | "buildRequest"
   | "buildRequestItem"
   | "panelOrder"
-  | "panelTask";
+  | "panelTask"
+  | "grayMarketRequest";
 
 const KIND_SEGMENTS: Record<AppItemKind, string> = {
   task: "task",
   eir: "eir",
+  ecn: "engineering/ecn",
   operationsTask: "operations/task",
   buildRequest: "build-request",
   // A redirect route: App.tsx looks the item up and forwards to its parent
@@ -29,6 +32,7 @@ const KIND_SEGMENTS: Record<AppItemKind, string> = {
   buildRequestItem: "build-request-item",
   panelOrder: "panels/order",
   panelTask: "panels/task",
+  grayMarketRequest: "supply-chain/gray-market-request",
 };
 
 /** Absolute URL to an item's detail page in this app. */

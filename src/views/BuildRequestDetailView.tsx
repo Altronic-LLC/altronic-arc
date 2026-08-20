@@ -50,6 +50,7 @@ import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { mergePeople } from "@/lib/people";
 import { parseIsoDate, toIsoDate } from "@/lib/dateInput";
 import { DateField } from "@/components/DateField";
+import { YesNoField } from "@/components/YesNoField";
 
 export function BuildRequestDetailView() {
   const { id } = useParams<{ id: string }>();
@@ -461,15 +462,14 @@ export function BuildRequestDetailView() {
                 />
               </SideField>
 
-              <label className="flex items-center gap-2 text-sm text-fg">
-                <input
-                  type="checkbox"
-                  checked={br.leadFree}
-                  onChange={(e) => patch({ RoHS: e.target.checked })}
-                  className="h-4 w-4 rounded border-border"
+              <SideField label="Lead Free (RoHS)">
+                <YesNoField
+                  label="Lead Free (RoHS)"
+                  value={br.leadFree ? "Yes" : ""}
+                  onChange={(next) => patch({ RoHS: next === "Yes" })}
+                  name="build-request-rohs"
                 />
-                Lead Free (RoHS)
-              </label>
+              </SideField>
 
               <SideField label="Watchers" icon={<Eye />}>
                 <PersonMultiField

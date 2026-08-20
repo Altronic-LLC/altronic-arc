@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, Plus, Search, X } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { matchesTokens } from "@/lib/itemSearch";
+import { dropdownBlurHandler, useDropdownClose } from "./useDropdownClose";
 
 export interface SelectOption {
   value: string;
@@ -32,6 +34,8 @@ export interface MultiSelectProps extends BaseProps {
 export interface SingleSelectProps extends BaseProps {
   selected: string | null;
   onChange: (next: string | null) => void;
+  /** Accessible name, when no <label> wraps this. */
+  ariaLabel?: string;
   /** Greyed out and unopenable — for a form that's mid-save. */
   disabled?: boolean;
   /**
@@ -45,8 +49,12 @@ export interface SingleSelectProps extends BaseProps {
 /**
  * Multi-select dropdown with an integrated search field. The trigger shows
  * "All projects" when empty, the single label when one is selected, or
- * "<first> +N" when multiple are. The dropdown stays open while picking so
- * the user can toggle several items.
+ * "<first> +N" when multiple are.
+ *
+ * The panel stays open while picking, so several items can be toggled — and
+ * carries a **Done** row so there's a visible way out that isn't "click some
+ * empty part of the page". It also closes when focus leaves it, when another
+ * dropdown opens, on Escape, and on a second click of the trigger.
  */
 export function MultiSelect({
   options,
@@ -72,18 +80,31 @@ export function MultiSelect({
       chips={variant === "chips" ? selectedOpts : undefined}
       onRemoveChip={(value) => onChange(selected.filter((x) => x !== value))}
       renderPanel={({ close }) => (
-        <SearchablePanel
-          options={options}
-          searchPlaceholder={searchPlaceholder}
-          indicator="checkbox"
-          isSelected={(v) => selectedSet.has(v)}
-          onToggle={(v) => {
-            if (selectedSet.has(v)) onChange(selected.filter((x) => x !== v));
-            else onChange([...selected, v]);
-            // Don't close — let the user pick multiple.
-            void close;
-          }}
-        />
+        <>
+          <SearchablePanel
+            options={options}
+            searchPlaceholder={searchPlaceholder}
+            indicator="checkbox"
+            isSelected={(v) => selectedSet.has(v)}
+            onToggle={(v) => {
+              if (selectedSet.has(v)) onChange(selected.filter((x) => x !== v));
+              else onChange([...selected, v]);
+              // Deliberately does NOT close — the point of a multi-select is
+              // ticking several. Which is exactly why it needs the Done row
+              // below: without a visible way out, the only exit was clicking
+              // some empty part of the page.
+            }}
+          />
+          <div className="flex justify-end border-t border-border px-2 py-1.5">
+            <button
+              type="button"
+              onClick={close}
+              className="rounded-md px-2.5 py-1 text-xs font-medium text-accent transition-colors hover:bg-surface-2"
+            >
+              Done
+            </button>
+          </div>
+        </>
       )}
     />
   );
@@ -102,6 +123,7 @@ export function SingleSelect({
   searchPlaceholder,
   clearable = true,
   disabled,
+  ariaLabel,
 }: SingleSelectProps) {
   const selectedOpt = options.find((o) => o.value === selected) ?? null;
   const summary = selectedOpt?.label ?? allLabel;
@@ -111,6 +133,7 @@ export function SingleSelect({
       summary={summary}
       isEmpty={selectedOpt == null}
       disabled={disabled}
+      ariaLabel={ariaLabel}
       onClear={selectedOpt && clearable && !disabled ? () => onChange(null) : undefined}
       renderPanel={({ close }) => (
         <SearchablePanel
@@ -151,11 +174,14 @@ export function ChoiceSelect({
   searchPlaceholder,
   clearable = true,
   disabled,
+  ariaLabel,
 }: {
   value: string;
   onChange: (next: string) => void;
   options: readonly string[] | readonly SelectOption[];
   disabled?: boolean;
+  /** Accessible name, when no <label> wraps this. */
+  ariaLabel?: string;
   /** Trigger text when nothing is chosen — the old empty `<option>`'s label. */
   emptyLabel: string;
   searchPlaceholder?: string;
@@ -173,6 +199,7 @@ export function ChoiceSelect({
       searchPlaceholder={searchPlaceholder}
       clearable={clearable}
       disabled={disabled}
+      ariaLabel={ariaLabel}
     />
   );
 }
@@ -181,6 +208,13 @@ interface DropdownShellProps {
   summary: string;
   isEmpty: boolean;
   disabled?: boolean;
+  /**
+   * Accessible name for the trigger. Most of these sit inside a <label>, which
+   * names the button for free — but a control that labels itself (the Yes/No
+   * radio group beside it can't live in a label) needs this instead, or the
+   * button is announced as just its current value.
+   */
+  ariaLabel?: string;
   onClear?: () => void;
   renderPanel: (api: { close: () => void }) => React.ReactNode;
   /**
@@ -203,6 +237,7 @@ function DropdownShell({
   summary,
   isEmpty,
   disabled,
+  ariaLabel,
   onClear,
   renderPanel,
   chips,
@@ -212,24 +247,14 @@ function DropdownShell({
   const ref = useRef<HTMLDivElement>(null);
   const useChips = chips !== undefined && chips.length > 0;
 
-  useEffect(() => {
-    if (!open) return;
-    function onDocClick(e: MouseEvent) {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("mousedown", onDocClick);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDocClick);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
+  // Stable so the close rules aren't torn down and rebuilt on every render.
+  const close = useCallback(() => setOpen(false), []);
+  useDropdownClose(open, ref, close);
 
   return (
-    <div ref={ref} className="relative">
+    // onBlur is focusout and bubbles, so this catches focus leaving the
+    // trigger, the search box or an option — see useDropdownClose.
+    <div ref={ref} className="relative" onBlur={dropdownBlurHandler(ref, close)}>
       {useChips ? (
         <div className="flex flex-col gap-1 rounded-lg border border-border bg-surface p-1.5">
           {chips!.map((c) => (
@@ -269,6 +294,7 @@ function DropdownShell({
           onClick={() => setOpen((o) => !o)}
           disabled={disabled}
           className="select flex items-center justify-between gap-2 text-left disabled:cursor-not-allowed disabled:opacity-60"
+          aria-label={ariaLabel}
           aria-haspopup="listbox"
           aria-expanded={open}
         >
@@ -352,9 +378,19 @@ function SearchablePanel({
   }, [options]);
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = query.trim();
     if (!q) return ordered;
-    return ordered.filter((o) => o.label.toLowerCase().includes(q));
+    // Every word has to match, in any order — so "Jerrod W" finds
+    // "Waldron, Jerrod" and "Sarah Shaffer" alike. A plain substring test
+    // failed the moment the user typed a space.
+    //
+    // People options carry the person's email as their `value`; matching it
+    // too means typing an address (or the part before the @) finds them.
+    // Options keyed by a numeric id are NOT matched on value — "5" would
+    // otherwise pull in every project whose id contains a 5.
+    return ordered.filter((o) =>
+      matchesTokens(o.value.includes("@") ? `${o.label} ${o.value}` : o.label, q),
+    );
   }, [ordered, query]);
 
   return (

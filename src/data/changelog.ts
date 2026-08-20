@@ -20,6 +20,160 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.105.0",
+    date: "2026-08-19",
+    changes: [
+      "Yes/No and other short choices are now buttons you click, everywhere — no more opening a dropdown to answer a two-option question",
+      "Covers Gray Market's Inspection Flag, Inspection Flag Updated, GM Notes Removed, In Circuit and Final Assy results and Testing Required, and the ECN's On Hold",
+      "Lead Free (RoHS) on build requests is now a Yes/No pick instead of a checkbox",
+      "Fields that were never answered stay that way — there's a Not set option, so opening a record and saving no longer answers a question for you",
+    ],
+  },
+  {
+    version: "0.104.0",
+    date: "2026-08-19",
+    changes: [
+      "ECNs can be tied to a project — pick one when you raise the notice, or change it later from Edit Details",
+      "The ECN list shows each notice's project and filters by it, and the filter is in the address bar so a filtered view can be shared",
+      "The dashboard's ECN card now counts the notices on file, with the on-hold ones marked on the bar",
+      "Picking a project on the dashboard narrows the ECN count with everything else, and clicking the card opens the list already filtered to it",
+    ],
+  },
+  {
+    version: "0.103.0",
+    date: "2026-08-19",
+    changes: [
+      "Dropdowns close when you move to another field — no more clicking an empty part of the page to get rid of one",
+      "Opening a dropdown closes any other one that was open, so filter bars stop stacking panels on top of each other",
+      "Multi-select dropdowns (project, assigned, people) now have a Done button, since those stay open on purpose so you can tick several",
+      "Tabbing past a dropdown closes it instead of leaving it open behind you",
+    ],
+  },
+  {
+    version: "0.102.0",
+    date: "2026-08-19",
+    changes: [
+      "Gray Market requests and ECNs now have one Edit button per card instead of an Edit link on every other field — press it, change what you need in the box that opens, and Save changes",
+      "Only the fields you actually touched get written, so two people working different parts of the same record don't overwrite each other",
+      "Yes/No fields are now a labelled Yes or No to pick, rather than a checkbox you had to interpret",
+      "Cancel really does cancel — nothing is saved until you press Save changes",
+    ],
+  },
+  {
+    version: "0.101.1",
+    date: "2026-08-19",
+    changes: [
+      "The New ECN form no longer waves a duplicate Log# through if you hit Save before the existing numbers have loaded — it says to try again in a moment",
+    ],
+  },
+  {
+    version: "0.101.0",
+    date: "2026-08-19",
+    changes: [
+      "Engineering gets ECNs — every Engineering Change Notice, reading and writing the same SharePoint list you already use",
+      "Search covers the Detailed Description, so \"which ECN changed 711478?\" is a question you can answer by typing the part number",
+      "Filter by stock disposition, whether the drawings are done, and whether a notice is on hold",
+      "Raise a new ECN, then fill in the change, the disposition and the sign-off in place — each field saves on its own",
+      "You type the Log# yourself, since a revision keeps the number of the notice it revises; the form won't let you reuse one",
+      "Attach the marked-up drawing or the ECN form to a notice",
+      "Comments on an ECN reach the person who submitted it and anyone you @-mention — ECNs have no watchers, and the page says so above the comment box",
+    ],
+  },
+  {
+    version: "0.100.0",
+    date: "2026-08-19",
+    changes: [
+      "Engineering gets Where Am I? — the team's out-of-office calendar, reading and writing the same SharePoint list you already use",
+      "On a computer it's a month grid: click a day to put yourself on it, click an entry to reword it, move it or take it off",
+      "On a phone you get an upcoming agenda instead — Today, Tomorrow, then the days after, with who's out under each",
+      "Away for a week? Set a Through date and it adds one entry per day for you, telling you how many before it saves",
+      "Search matches names and reasons, so you can pull up one person's days out",
+    ],
+  },
+  {
+    version: "0.99.2",
+    date: "2026-08-19",
+    changes: [
+      "Gray Market Requests really is under Supply Chain only now — v0.99.1 said so but the two files that remove it from Engineering didn't make it through the merge",
+    ],
+  },
+  {
+    version: "0.99.1",
+    date: "2026-08-19",
+    changes: [
+      "Gray Market Requests now appears under Supply Chain only — it was also listed under Engineering, which made one list look like two features",
+    ],
+  },
+  {
+    version: "0.99.0",
+    date: "2026-08-19",
+    changes: [
+      "Supply Chain joins ARC with Gray Market Requests — parts bought outside normal distribution, tracked from the request through purchasing, engineering test, inspection and production sign-off",
+      "The request page lays the workflow out as five cards and every field saves on its own, so purchasing, engineering, inspection and production can each fill in their part without waiting for anyone",
+      "Requests carry the full comment thread: @-mention someone and they're emailed and start watching, the same as a task or an EIR",
+      "Attachments — supplier paperwork, photos, test results — drag straight onto the request",
+      "The list opens on open requests with Open / Complete / All counts, filters for requestor and testing required, and a search that matches part numbers, POs and vendors",
+      "New requests are numbered GMR_YYYY-### automatically, and whoever raises one watches it",
+      "Gray Market Requests appears under both Supply Chain and Engineering, because both teams work the same list",
+    ],
+  },
+  {
+    version: "0.98.0",
+    date: "2026-08-18",
+    changes: [
+      "Visit Reports has a month Calendar view — every visit on its day, with List / Calendar buttons under the top nav",
+      "Click any day on the calendar to file a visit for that date, with the date already filled in; click a visit to open it",
+      "Move through the months with the arrows, or jump back with Today; each visit carries a coloured dot for its customer status",
+      "The RM, year, reason, status and search filters work the same on both views and travel with you when you switch",
+      "The calendar is a desktop and large-tablet view — a seven-column month can't be read on a phone, so there it's hidden and a calendar link opens the list",
+    ],
+  },
+  {
+    version: "0.97.1",
+    date: "2026-08-18",
+    changes: [
+      "Visit dates now match the SharePoint list — every visit was showing a day early",
+      "Fixed the white boxes in the New/Edit forms on Visit Reports, EIRs and Test Sheets — those fields had never been styled and ignored the dark theme",
+      "Editing a visit report now saves only what you changed, so correcting a typo on an older report no longer fails because of a regional manager who has since left",
+      "The Visit Reports table shows 500 rows before it truncates, and says clearly when there are more rather than looking like entries are missing",
+    ],
+  },
+  {
+    version: "0.97.0",
+    date: "2026-08-18",
+    changes: [
+      "Customer Service / Sales joins ARC with Visit Reports — the regional managers' record of customer visits, reading and writing the same SharePoint list the team already uses",
+      "File a visit with New Visit Report: customer, RM, reason, date, customer status and summary, plus action items, product, city and state",
+      "Everything edits in place on the report page, and photos or quotes can be dragged onto its Attachments card",
+      "Filter by RM, year, reason or customer status and search every field at once — a filtered view can be shared as a link",
+      "The RM picker lists the current managers plus anyone already on an existing report, so older reports keep whoever actually filed them",
+      "Visit reports can't be deleted from ARC — a report is a record of something that happened, so correcting one is an edit",
+    ],
+  },
+  {
+    version: "0.96.1",
+    date: "2026-08-18",
+    changes: [
+      "Customer Service / Sales joins ARC with Visit Reports — the regional managers' record of customer visits, reading and writing the same SharePoint list the team already uses",
+      "File a visit with New Visit Report: customer, RM, reason, date, customer status and summary, plus action items, product, city and state",
+      "Everything edits in place on the report page, and photos or quotes can be dragged onto its Attachments card",
+      "Filter by RM, year, reason or customer status and search every field at once — a filtered view can be shared as a link",
+      "The RM picker lists the current managers plus anyone already on an existing report, so older reports keep whoever actually filed them",
+      "Visit reports can't be deleted from ARC — a report is a record of something that happened, so correcting one is an edit",
+    ],
+  },
+  {
+    version: "0.96.0",
+    date: "2026-08-18",
+    changes: [
+      "You now automatically watch anything you create — tasks, EIRs, Operations tasks, panel orders, panel tasks, build requests and their parts — so you hear about comments and changes on your own work",
+      "Assigning something to someone adds them as a watcher too, on the create form and on every later reassignment",
+      "Being unassigned no longer stops you watching — use Unwatch when you want off a thread",
+      "Comment threads now read in the order they were actually posted; comments from people in other time zones were being shuffled in among the rest",
+      "Comment times are shown in your own local time whoever wrote them",
+    ],
+  },
+  {
     version: "0.95.0",
     date: "2026-08-18",
     changes: [

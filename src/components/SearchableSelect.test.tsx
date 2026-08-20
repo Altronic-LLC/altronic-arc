@@ -4,6 +4,13 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ChoiceSelect, MultiSelect, SingleSelect, type SelectOption } from "./SearchableSelect";
 
+/** People as the pickers build them: label = display name, value = email. */
+const PEOPLE: SelectOption[] = [
+  { value: "jerrod.waldron@altronic-llc.com", label: "Waldron, Jerrod" },
+  { value: "sarah.shaffer@altronic-llc.com", label: "Sarah Shaffer" },
+  { value: "jerrod.sanders@altronic-llc.com", label: "Jerrod Sanders" },
+];
+
 const OPTIONS: SelectOption[] = [
   { value: "alice@x.com", label: "Alice" },
   { value: "bob@x.com", label: "Bob" },
@@ -97,6 +104,61 @@ describe("MultiSelect — search", () => {
     expect(screen.getByRole("option", { name: /Alice/ })).toBeInTheDocument();
     expect(screen.queryByRole("option", { name: /Bob/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("option", { name: /Carol/ })).not.toBeInTheDocument();
+  });
+
+  // Typing "first-name space surname" found nobody, because the filter was a
+  // single substring test against the label (Ray, 2026-08-18). Every people
+  // picker in the app — Assigned, Assigned Engineer, Reporter, Watchers —
+  // runs through this panel.
+  it("finds a person by first name and surname initial", async () => {
+    const user = userEvent.setup();
+    render(
+      <MultiSelect options={PEOPLE} selected={[]} onChange={() => {}} allLabel="Anyone" />,
+    );
+    await user.click(screen.getByRole("button", { name: /Anyone/ }));
+    await user.type(screen.getByPlaceholderText(/search/i), "Jerrod W");
+
+    expect(screen.getByRole("option", { name: /Waldron, Jerrod/ })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: /Sanders/ })).not.toBeInTheDocument();
+  });
+
+  it("matches the words in either order", async () => {
+    const user = userEvent.setup();
+    render(
+      <MultiSelect options={PEOPLE} selected={[]} onChange={() => {}} allLabel="Anyone" />,
+    );
+    await user.click(screen.getByRole("button", { name: /Anyone/ }));
+    await user.type(screen.getByPlaceholderText(/search/i), "shaffer sarah");
+
+    expect(screen.getByRole("option", { name: /Sarah Shaffer/ })).toBeInTheDocument();
+  });
+
+  it("finds a person by their email address", async () => {
+    const user = userEvent.setup();
+    render(
+      <MultiSelect options={PEOPLE} selected={[]} onChange={() => {}} allLabel="Anyone" />,
+    );
+    await user.click(screen.getByRole("button", { name: /Anyone/ }));
+    await user.type(screen.getByPlaceholderText(/search/i), "jerrod.waldron");
+
+    expect(screen.getByRole("option", { name: /Waldron, Jerrod/ })).toBeInTheDocument();
+  });
+
+  // Options keyed by a numeric id (projects, tasks) are matched on their
+  // LABEL only — otherwise searching "1" pulls in every id containing a 1.
+  it("does not match a numeric option value", async () => {
+    const user = userEvent.setup();
+    const projects: SelectOption[] = [
+      { value: "501", label: "0017-AMP-5000 Refresh" },
+      { value: "522", label: "0021-CleanBurn Telemetry" },
+    ];
+    render(
+      <MultiSelect options={projects} selected={[]} onChange={() => {}} allLabel="All projects" />,
+    );
+    await user.click(screen.getByRole("button", { name: /All projects/ }));
+    await user.type(screen.getByPlaceholderText(/search/i), "522");
+
+    expect(screen.getByText(/No matches/i)).toBeInTheDocument();
   });
 
   it("shows 'No matches' when nothing matches", async () => {

@@ -6,6 +6,7 @@ import { MOCK_TASKS, MOCK_EIRS, MOCK_TEST_SHEETS, MOCK_PROJECTS } from "@/data/m
 import { MOCK_OPERATIONS_TASKS } from "@/data/operationsMockData";
 import { MOCK_BUILD_REQUESTS } from "@/data/buildRequestMockData";
 import { MOCK_PANEL_ORDERS, MOCK_PANEL_TASKS } from "@/data/panelMockData";
+import { MOCK_ECNS } from "@/data/ecnMockData";
 import { listProjectFolderEntries } from "@/api/projectFiles";
 
 const mockNavigate = vi.fn();
@@ -26,6 +27,7 @@ const TEST_SHEETS_KEY = ["testSheets", "list"] as const;
 const BUILD_REQUESTS_KEY = ["buildRequests", "list"] as const;
 const PANEL_ORDERS_KEY = ["panelOrders", "list"] as const;
 const PANEL_TASKS_KEY = ["panelTasks", "list"] as const;
+const ECNS_KEY = ["ecns"] as const;
 const FOLDER_ENTRIES_KEY = ["project-folder-entries", "root"] as const;
 
 import { DashboardView } from "./DashboardView";
@@ -42,6 +44,7 @@ async function renderDashboard() {
       { key: BUILD_REQUESTS_KEY, data: MOCK_BUILD_REQUESTS },
       { key: PANEL_ORDERS_KEY, data: MOCK_PANEL_ORDERS },
       { key: PANEL_TASKS_KEY, data: MOCK_PANEL_TASKS },
+      { key: ECNS_KEY, data: MOCK_ECNS },
       { key: FOLDER_ENTRIES_KEY, data: folderEntries },
     ],
   });
@@ -100,6 +103,36 @@ describe("DashboardView", () => {
     await user.click(screen.getByRole("button", { name: /EIRs/i }));
     expect(mockNavigate).toHaveBeenCalledWith(
       expect.stringContaining("engineer=demo.user%40altronic-llc.com"),
+    );
+  });
+
+  it("counts the ECNs on file, and narrows them to the picked project", async () => {
+    const user = userEvent.setup();
+    await renderDashboard();
+
+    // Company scope: "Mine" reads the ECN's submitter, and the mock current
+    // user submitted none of them.
+    await user.click(screen.getByRole("button", { name: "Company" }));
+    const ecnCard = screen.getByRole("button", { name: /ECNs/i });
+    expect(bigCount(ecnCard)).toHaveTextContent(String(MOCK_ECNS.length));
+
+    // Two of the five fixtures sit on 0000-Engineering Apps.
+    await user.click(screen.getByRole("button", { name: /all projects/i }));
+    await user.click(screen.getByRole("option", { name: "0000-Engineering Apps" }));
+    expect(bigCount(ecnCard)).toHaveTextContent("2");
+  });
+
+  it("carries the picked project into the ECN list URL", async () => {
+    const user = userEvent.setup();
+    await renderDashboard();
+
+    await user.click(screen.getByRole("button", { name: /all projects/i }));
+    const project = MOCK_PROJECTS.find((p) => p.title === "0000-Engineering Apps")!;
+    await user.click(screen.getByRole("option", { name: project.title }));
+
+    await user.click(screen.getByRole("button", { name: /ECNs/i }));
+    expect(mockNavigate).toHaveBeenCalledWith(
+      `/engineering/ecns?project=${project.lookupId}`,
     );
   });
 

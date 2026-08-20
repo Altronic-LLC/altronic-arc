@@ -72,9 +72,9 @@ const SYSTEM_TIERS: Tier[] = [
   {
     label: "React SPA",
     nodes: [
-      { label: "Views", hint: "Dashboard · List · Kanban · Detail · EIRs · Test Sheets · Project Folders · CSA Listings · Drawing File Logs · Digital QC · Ignition QC · Potting Sample Log · Drawing Work Sheet (print) · Admin", palette: "ui" },
-      { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useBuildRequests · useCsaListings · useDrawingLogs · useDigitalQc · useIgnitionQc · usePottingSampleLog · useAdmins · useEirRoles · useTaskFiles · useProjectFolders", palette: "ui" },
-      { label: "API layer", hint: "src/api/tasks · eirs · testSheets · buildRequests · buildRequestItems · csaListings · drawingLogs · digitalQc · ignitionQc · pottingSampleLog · panelOrders · panelTasks · admins · eirRoles · panelRoles · directory · siteUsers · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
+      { label: "Views", hint: "Dashboard · List · Kanban · Detail · EIRs · Test Sheets · Project Folders · CSA Listings · Drawing File Logs · Digital QC · Ignition QC · Potting Sample Log · Visit Reports (list + calendar) · Gray Market Requests · Where Am I? · ECNs · Drawing Work Sheet (print) · Admin", palette: "ui" },
+      { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useBuildRequests · useCsaListings · useDrawingLogs · useDigitalQc · useIgnitionQc · usePottingSampleLog · useVisitReports · useGrayMarketRequests · useWhereAmI · useEcns · useAdmins · useEirRoles · useTaskFiles · useProjectFolders", palette: "ui" },
+      { label: "API layer", hint: "src/api/tasks · eirs · testSheets · buildRequests · buildRequestItems · csaListings · drawingLogs · digitalQc · ignitionQc · pottingSampleLog · visitReports · grayMarketRequests · whereAmI · ecns · autoWatch · panelOrders · panelTasks · admins · eirRoles · panelRoles · directory · siteUsers · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
       {
         label: "Build Requests (lazy-loaded)",
         hint: "BuildRequestsView · BuildRequestDetailView — a master-detail pair: the Tracker header list + any number of parts from the Items list, joined by BuildRequestNo. Own code-split chunk.",
@@ -83,6 +83,16 @@ const SYSTEM_TIERS: Tier[] = [
       {
         label: "Operations department (lazy-loaded bundle)",
         hint: "OperationsListView · OperationsKanbanView · OperationsDetailView · AdminOperationsProjectsView · TeradyneLogView · TeradyneRefListView — useOperationsTasks · useTeradyne — api/operationsTasks · operationsProjects · operationsEquipment · teradyneLog · teradyneRefs. Own site (PMO), own code-split chunk; no imports from the Engineering views/hooks above.",
+        palette: "ui",
+      },
+      {
+        label: "Supply Chain department",
+        hint: "GrayMarketRequestsView · GrayMarketRequestDetailView — useGrayMarketRequests — api/grayMarketRequests. The list lives on the PMO site (where it has always been), but the feature is Supply Chain's: it appears under Supply Chain only.",
+        palette: "ui",
+      },
+      {
+        label: "Customer Service / Sales department",
+        hint: "VisitReportsView · VisitReportsCalendarView · VisitReportDetailView — useVisitReports · useVisitReportFilters — api/visitReports. Own site (ALTRONICSALESTEAM). List and calendar are two views of one filtered set (lib/visitReportFilters). Sales-only: no other department reads it, and it imports nothing from another department.",
         palette: "ui",
       },
       {
@@ -97,7 +107,7 @@ const SYSTEM_TIERS: Tier[] = [
     nodes: [
       { label: "MSAL Entra ID", hint: "Sites.Selected · Mail.Send.Shared · User.ReadBasic.All (tenant directory, optional) · AllSites.Manage (optional)", palette: "auth" },
       { label: "Microsoft Graph v1.0", hint: "Lists, items, drives, users, mail", palette: "gateway" },
-      { label: "SharePoint REST", hint: "List-item attachments (Task, EIR, Operations Task, Panel Order) + site-user resolution — optional", palette: "gateway" },
+      { label: "SharePoint REST", hint: "List-item attachments (Task, EIR, Operations Task, Panel Order, Visit Report, Gray Market Request) + site-user resolution — optional", palette: "gateway" },
       { label: "Mock store", hint: "in-memory + localStorage (demo mode)", palette: "mock" },
       { label: "Shared mailbox", hint: "@-mention + change notifications, and edit-failure recovery emails", palette: "mock" },
     ],
@@ -132,6 +142,10 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "Panel Tasks", hint: "ALTRONICPANELTEAM site — panel team tasks (drawings, SOOs, quotes, admin), own comment thread", palette: "list" },
       { label: "Panel Project Reference", hint: "ALTRONICPANELTEAM site — admin-managed project reference numbers (orders + tasks share it)", palette: "list" },
       { label: "Panel User Roles", hint: "ALTRONICPANELTEAM site — one row per user per role (gating ships dark in v1)", palette: "list" },
+      { label: "Where am I?", hint: "Engineering site — the team's out-of-office calendar. Two columns (Title, Date) and no end date, so a week away is a row per day; dates are stored at 06:00Z (US Central midnight)", palette: "list" },
+      { label: "ECN NEW", hint: "Engineering site — Engineering Change Notices. Every workflow column is named field_2 … field_12, so src/lib/ecnFields.ts is the only place their meaning exists; no Watchers and no requester column, so comments reach the submitter (Graph createdBy) and anyone mentioned", palette: "list" },
+      { label: "Gray Market Request", hint: "Altronic_PMO site — parts bought outside normal distribution; Title is the Altronic assembly no, Log No. is calculated from LogNo.Raw, and the list carries its own Communication + Watchers columns", palette: "list" },
+      { label: "Visit Reports", hint: "ALTRONICSALESTEAM site — regional managers' customer visits; Title is the Customer Name, City0/State0 carry the trailing zero, Month/Year/Day are calculated", palette: "list" },
     ],
   },
 ];
@@ -695,6 +709,72 @@ const SCHEMA_TABLES: SchemaTable[] = [
       { name: "id", type: "int", kind: "pk" },
       { name: "displayName (Title)", type: "text", kind: "field" },
       { name: "email", type: "text", kind: "field" },
+    ],
+  },
+  {
+    // Thirty-odd workflow columns live in `values`, keyed by the descriptors in
+    // lib/grayMarketFields.ts — listing them all here would swamp the diagram.
+    name: "GrayMarketRequest",
+    source: "Gray Market Request (Altronic_PMO site)",
+    palette: "entity",
+    x: 400, y: 3130, width: 340,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title (assembly no)", type: "text", kind: "field" },
+      { name: "logNo (LogNo.Raw)", type: "text", kind: "field" },
+      { name: "status", type: "choice", kind: "field" },
+      { name: "requestDate (TodaysDate)", type: "date", kind: "field" },
+      { name: "dateCompleted", type: "date", kind: "field" },
+      { name: "testingRequired", type: "choice", kind: "field" },
+      { name: "requestor", type: "person", kind: "field" },
+      { name: "partsLocation", type: "person", kind: "field" },
+      { name: "watchers", type: "person[]", kind: "field" },
+      { name: "comments (Communication)", type: "text", kind: "field" },
+      { name: "values (30 columns)", type: "text", kind: "field" },
+    ],
+  },
+  {
+    // The workflow columns live in `values`, keyed by the descriptors in
+    // lib/ecnFields.ts — on this list they're all named field_2 … field_12,
+    // so their real names would tell a reader nothing anyway.
+    //
+    // No watchers and no requester: `submittedBy` is Graph's item-level
+    // createdBy, which is why it's drawn as a field rather than an FK to
+    // Person — there's no lookup column behind it.
+    name: "ECN",
+    source: "ECN NEW (Engineering site)",
+    palette: "entity",
+    x: 790, y: 3130, width: 330,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "logNo (field_2)", type: "text", kind: "field" },
+      { name: "title (part / assembly)", type: "text", kind: "field" },
+      { name: "submittedBy (createdBy)", type: "person", kind: "field" },
+      { name: "comments (Communication)", type: "text", kind: "field" },
+      { name: "hasAttachments", type: "bool", kind: "field" },
+      { name: "values (9 field_N columns)", type: "text", kind: "field" },
+    ],
+  },
+  {
+    // Sales' only entity so far, and a standalone one — no lookups in or out.
+    // The customer is a name typed into Title, not a row in a Customers list.
+    name: "VisitReport",
+    source: "Visit Reports (ALTRONICSALESTEAM site)",
+    palette: "entity",
+    x: 20, y: 3130, width: 330,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "customerName (Title)", type: "text", kind: "field" },
+      { name: "rmName", type: "choice", kind: "field" },
+      { name: "reasonForVisit", type: "choice", kind: "field" },
+      { name: "visitSummary", type: "text", kind: "field" },
+      { name: "actionItems", type: "text", kind: "field" },
+      { name: "visitDate", type: "date", kind: "field" },
+      { name: "customerStatus", type: "choice", kind: "field" },
+      { name: "product", type: "text", kind: "field" },
+      { name: "city (City0)", type: "text", kind: "field" },
+      { name: "state (State0)", type: "choice", kind: "field" },
+      { name: "hasAttachments", type: "bool", kind: "field" },
     ],
   },
 ];

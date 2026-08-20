@@ -1196,3 +1196,253 @@ export interface GraphListResponse<T> {
   value: T[];
   "@odata.nextLink"?: string;
 }
+
+// =============================================================================
+// Visit Reports — Customer Service / Sales, on the ALTRONICSALESTEAM site.
+//
+// A regional manager's record of a customer visit. Schema discovered live
+// 2026-08-18 (scripts/visit-reports-schema.json). Three things about this list
+// are load-bearing:
+//
+//  1. **`Title` is the Customer Name.** Same repurposing as CSA Listings —
+//     there is no "title" in the domain type.
+//  2. **`City0` / `State0` carry the trailing zero.** A City/State column
+//     existed before and was replaced; SharePoint kept the old internal names
+//     out of the way by suffixing the new ones. Writing `City` saves nothing.
+//  3. **Month / Year / Day / Cal Title are CALCULATED** off Visit Date and are
+//     read-only. The app never writes them — it derives what it needs from
+//     `visitDate` instead.
+// =============================================================================
+
+export interface VisitReport {
+  id: number;
+  /** Customer visited. Stored in the list's `Title` column. */
+  customerName: string;
+  /** Regional manager who made the visit (`RMName` choice). */
+  rmName: string;
+  reasonForVisit: string;
+  /** Multi-line: what happened on the visit. Required by the list. */
+  visitSummary: string;
+  /** Multi-line: what needs doing next. Optional. */
+  actionItems: string;
+  /** Date-only column — read and written in UTC terms (see lib/spDates.ts). */
+  visitDate: Date | null;
+  customerStatus: string;
+  /** Free text: the product(s) the visit was about. */
+  product: string;
+  city: string;
+  /** US state name, spelled out ("Ohio") — `State0` choice column. */
+  state: string;
+  hasAttachments: boolean;
+  createdAt: Date;
+  modifiedAt: Date;
+}
+
+/** Everything a create/update of a visit report needs. */
+export interface VisitReportInput {
+  customerName: string;
+  rmName: string;
+  reasonForVisit: string;
+  visitSummary: string;
+  actionItems: string;
+  visitDate: Date | null;
+  customerStatus: string;
+  product: string;
+  city: string;
+  state: string;
+}
+
+/**
+ * The `ReasonForVisit` choices, mirrored from the live column.
+ *
+ * As everywhere else in this file, these are a copy of the SharePoint choice
+ * list — update both if the column changes.
+ */
+export const VISIT_REASONS = [
+  "Home Office",
+  "General Visit",
+  "Site Visit",
+  "Sales Call",
+  "Training",
+] as const;
+
+/** The `CustomerStatus` choices. Drives the status pills and the row chip. */
+export const VISIT_CUSTOMER_STATUSES = [
+  "Satisfied",
+  "Needs Attention",
+  "Issue",
+  "Quote Request",
+  "Potential New Customer",
+  "N/A",
+] as const;
+
+/**
+ * The `RMName` choices as the column currently defines them.
+ *
+ * The stored data does NOT stay inside this list — reports going back to 2022
+ * carry managers who have since left ("Neal Keeton"), and the same person
+ * appears under two spellings ("Paul McHenry" / "Paul Mchenry"). So this is
+ * the list of people to OFFER, not the list of values to expect: the picker
+ * folds in whatever the data actually holds (see rmNameOptions in
+ * lib/visitReportMapper.ts) rather than hiding an old report behind a
+ * placeholder.
+ */
+export const VISIT_RM_NAMES = [
+  "Curtis Ward",
+  "Mike Porter",
+  "Michael Young",
+  "Paul McHenry",
+  "Wes Wagner",
+  "Chad Tucker",
+  "Gregg Grubbs",
+] as const;
+
+/** The `State0` choices — the 50 US states, spelled out. */
+export const US_STATES = [
+  "Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado",
+  "Connecticut", "Delaware", "Florida", "Georgia", "Hawaii", "Idaho",
+  "Illinois", "Indiana", "Iowa", "Kansas", "Kentucky", "Louisiana", "Maine",
+  "Maryland", "Massachusetts", "Michigan", "Minnesota", "Mississippi",
+  "Missouri", "Montana", "Nebraska", "Nevada", "New Hampshire", "New Jersey",
+  "New Mexico", "New York", "North Carolina", "North Dakota", "Ohio",
+  "Oklahoma", "Oregon", "Pennsylvania", "Rhode Island", "South Carolina",
+  "South Dakota", "Tennessee", "Texas", "Utah", "Vermont", "Virginia",
+  "Washington", "West Virginia", "Wisconsin", "Wyoming",
+] as const;
+
+// =============================================================================
+// Gray Market Requests — Supply Chain, on the Altronic_PMO site.
+//
+// A part bought outside normal distribution, tracked from the request through
+// purchasing, engineering test, inspection and production sign-off. Schema
+// discovered live 2026-08-19 (scripts/gray-market-request-schema.json).
+//
+// The thirty-odd workflow columns live in `values`, keyed by the domain keys in
+// `src/lib/grayMarketFields.ts` — see the note there for why the columns are
+// data rather than thirty properties (and for the internal names that lie).
+// Only the fields needing their own handling are named here.
+// =============================================================================
+
+export interface GrayMarketRequest {
+  id: number;
+  /** `Title` — the Altronic assembly number the part is used on. */
+  title: string;
+  /**
+   * `LogNo_x002e_Raw`, e.g. "GMR_2026-004". SharePoint's calculated
+   * "Log No." column derives from it, so the app only ever writes the raw one
+   * — same arrangement as the EIR's EIRNo / EIR Log No.
+   */
+  logNo: string;
+  /** `RequestStatus` — Open | Complete. */
+  status: string;
+  /** `TodaysDate`, the date the request was raised. Required by the list. */
+  requestDate: Date | null;
+  dateCompleted: Date | null;
+  /** `ProductionTest`, labelled "Testing Required". Required by the list. */
+  testingRequired: string;
+  requestor: Person | null;
+  /** `Parts_x0020_Location` — a PERSON column, whatever its name suggests. */
+  partsLocation: Person | null;
+  watchers: Person[];
+  comments: Comment[];
+  hasAttachments: boolean;
+  /** Every other column, keyed by the descriptor keys in grayMarketFields.ts. */
+  values: Record<string, string>;
+  createdAt: Date;
+  modifiedAt: Date;
+}
+
+/** Everything a create needs. Edits go field-by-field from the detail page. */
+export interface GrayMarketRequestInput {
+  title: string;
+  status: string;
+  requestDate: Date | null;
+  testingRequired: string;
+  requestor: Person | null;
+  values: Record<string, string>;
+}
+
+// =============================================================================
+// "Where am I?" — Engineering's out-of-office calendar, on the Engineering site.
+//
+// The whole entity is a line of text and a day: `Title` carries both the person
+// and the reason as free text ("Sarah - half day vacation", "GaryK Keystone
+// AM"), and `Date` is a required date-only column.
+//
+// There is NO end date on the list, so an absence spanning several days is
+// several rows. The add form can create them in one go, but the data model is
+// one row per day and nothing here pretends otherwise.
+// =============================================================================
+
+export interface WhereAmIEntry {
+  id: number;
+  /** Free text — usually who, and what they're doing. */
+  title: string;
+  /** Date-only. Null only if the required column is somehow empty. */
+  date: Date | null;
+  createdAt: Date;
+  modifiedAt: Date;
+}
+
+// =============================================================================
+// ECNs (Engineering Change Notices) — Engineering, on the Altronic_Engineering
+// site. The record of a change to a released product: what changed, which
+// assemblies and serial numbers it touches, what happens to stock on hand, and
+// whether the drawings have caught up.
+//
+// Every workflow column on this list is named `field_2` … `field_12`, so they
+// live in `values`, keyed by the domain keys in `src/lib/ecnFields.ts`. That
+// file is the ONLY place the field_N → meaning mapping exists.
+//
+// Two absences shape the feature:
+//
+//  - **No Watchers column.** ECN comments notify the submitter and anyone
+//    @-mentioned, and nobody else (Ray, 2026-08-19). There is no watch button
+//    because there is nowhere to store a watch.
+//  - **No requester column.** `submittedBy` comes from Graph's `createdBy`,
+//    which for the 1,809 migrated rows is whoever ran the migration rather
+//    than the engineer who raised the original ECN.
+// =============================================================================
+
+export interface Ecn {
+  id: number;
+  /** `Title` — the part or assembly the change is against. */
+  title: string;
+  /**
+   * `field_2`, labelled "Log#". Free text. In practice it reads `YY####`
+   * (e.g. "260059"), with an `R#` suffix on a revision of an earlier notice
+   * ("260059R1") — but the app does NOT generate or enforce it (Ray,
+   * 2026-08-19): the number comes from the ECN paperwork, and a revision has
+   * to keep the number of the notice it revises.
+   */
+  logNo: string;
+  /**
+   * `ProjectReferenceLookupId` — a SINGLE lookup into the Projects list, added
+   * to the list on 2026-08-19. Held as a lookupId with an empty title, like
+   * a task's `parentProject`; the title is resolved against the loaded
+   * Projects list by whatever renders it.
+   */
+  parentProject: ProjectReference | null;
+  /**
+   * Graph's `createdBy` — there is no requester column on the list. For rows
+   * that came in with the migration this is the migration account, not the
+   * original author.
+   */
+  submittedBy: Person | null;
+  comments: Comment[];
+  hasAttachments: boolean;
+  /** Every workflow column, keyed by the descriptor keys in ecnFields.ts. */
+  values: Record<string, string>;
+  createdAt: Date;
+  modifiedAt: Date;
+}
+
+/** Everything a create needs. Edits go field-by-field from the detail page. */
+export interface EcnInput {
+  title: string;
+  /** Projects-list lookupId, or null for an ECN not tied to one. */
+  projectLookupId: number | null;
+  /** Typed by whoever raises the ECN — see the note on `Ecn.logNo`. */
+  logNo: string;
+  values: Record<string, string>;
+}

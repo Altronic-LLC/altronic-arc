@@ -7,6 +7,7 @@ import {
   BookUser,
   Building2,
   Calculator,
+  CalendarDays,
   ChevronDown,
   CircuitBoard,
   ClipboardCheck,
@@ -15,6 +16,7 @@ import {
   Contact,
   DollarSign,
   FileCheck,
+  FileDiff,
   FileStack,
   FileText,
   FolderOpen,
@@ -31,7 +33,6 @@ import {
   Tag,
   TestTubes,
   Users,
-  Wrench,
 } from "lucide-react";
 import { useProjects, useTasks } from "@/hooks/useTasks";
 import { useEirs } from "@/hooks/useEirs";
@@ -39,6 +40,8 @@ import { useTestSheets } from "@/hooks/useTestSheets";
 import { useProjectFolderEntries } from "@/hooks/useProjectFolders";
 import { useOperationsTasks } from "@/hooks/useOperationsTasks";
 import { useCsaListings } from "@/hooks/useCsaListings";
+import { useEcns } from "@/hooks/useEcns";
+import { isEcnOnHold } from "@/lib/ecnMapper";
 import { useBuildRequests } from "@/hooks/useBuildRequests";
 import { usePanelOrders } from "@/hooks/usePanelOrders";
 import { usePanelTasks } from "@/hooks/usePanelTasks";
@@ -55,6 +58,7 @@ import {
   STATUSES,
   type BuildRequest,
   type BuildRequestStatus,
+  type Ecn,
   type Eir,
   type EirStatus,
   type OperationsStatus,
@@ -120,6 +124,11 @@ function taskMatchesProject(t: Task, projectId: number | null): boolean {
 function eirMatchesProject(e: Eir, projectId: number | null): boolean {
   if (projectId == null) return true;
   return e.parentProjects.some((p) => p.lookupId === projectId);
+}
+
+function ecnMatchesProject(e: Ecn, projectId: number | null): boolean {
+  if (projectId == null) return true;
+  return e.parentProject?.lookupId === projectId;
 }
 
 function testSheetMatchesProject(s: TestSheet, projectId: number | null): boolean {
@@ -245,6 +254,7 @@ export function DashboardView() {
     error: csaErrorObj,
     refetch: refetchCsa,
   } = useCsaListings();
+  const { data: ecns = [] } = useEcns();
   const {
     data: testSheets = [],
     isError: testSheetsError,
@@ -342,6 +352,29 @@ export function DashboardView() {
     }));
     return { count: active.length, segments };
   }, [tasks, mine, myEmail, projectId]);
+
+  /**
+   * ECNs. The count is every notice for the picked project — with no project
+   * picked that's the whole 1,813-row register, which is the honest number
+   * even if it's a big one. The bar carries the figure that actually stops
+   * work: how many of them are on hold.
+   *
+   * "Mine" reads submittedBy, which for the rows that came in with the
+   * migration is whoever ran it rather than the original author — see the
+   * note in types/task.ts.
+   */
+  const ecnCard = useMemo(() => {
+    const shown = ecns.filter(
+      (e: Ecn) =>
+        (!mine || (e.submittedBy?.email ?? "").toLowerCase() === myEmail) &&
+        ecnMatchesProject(e, projectId),
+    );
+    const onHold = shown.filter(isEcnOnHold).length;
+    const segments: Segment[] = onHold
+      ? [{ label: "On hold", count: onHold, color: "bg-cooper-red" }]
+      : [];
+    return { count: shown.length, segments };
+  }, [ecns, mine, myEmail, projectId]);
 
   const eirCard = useMemo(() => {
     const active = eirs.filter(
@@ -470,6 +503,12 @@ export function DashboardView() {
           ...(projectParam ? { project: projectParam } : {}),
         }).toString()}`
       : ""
+  }`;
+  // The ECN list has no "mine" filter — there's no assignee on that list, and
+  // its submitter is Graph's createdBy rather than a column you can search on.
+  // So only the project carries across.
+  const ecnsUrl = `/engineering/ecns${
+    projectParam ? `?${new URLSearchParams({ project: projectParam }).toString()}` : ""
   }`;
   const operationsTasksUrl = `/operations/tasks?${new URLSearchParams({
     assigned: mine ? meParam : "",
@@ -700,7 +739,22 @@ export function DashboardView() {
           // No `segments` — a certification register has no active/done states.
           onClick={() => navigate("/csa-listings")}
         />
-        <PlaceholderCard name="ECNs" icon={<Wrench className="h-5 w-5" />} />
+        <TypeCard
+          name="Where Am I?"
+          icon={<CalendarDays className="h-5 w-5" />}
+          tone="cooper-red"
+          description="Who's out of the office and where the team is — a calendar on a computer, an agenda on your phone."
+          onClick={() => navigate("/engineering/where-am-i")}
+        />
+        <TypeCard
+          name="ECNs"
+          icon={<FileDiff className="h-5 w-5" />}
+          tone="ajax-yellow"
+          count={ecnCard.count}
+          unit="on file"
+          segments={ecnCard.segments}
+          onClick={() => navigate(ecnsUrl)}
+        />
       </DeptSection>
 
       <DeptSection
@@ -798,6 +852,14 @@ export function DashboardView() {
         <PlaceholderCard name="QC Forms" icon={<FileCheck className="h-5 w-5" />} />
       </DeptSection>
 
+      <DeptSection title="Supply Chain">
+        <TypeCard
+          name="Gray Market Requests"
+          icon={<PackageSearch className="h-5 w-5" />}
+          tone="cooper-red"
+          description="Parts bought outside normal distribution — request, purchasing, test, inspection and sign-off."
+          onClick={() => navigate("/supply-chain/gray-market-requests")}
+        />
       <DeptSection
         title="Supply Chain"
         collapsed={collapsedSections.has("Supply Chain")}
@@ -817,7 +879,13 @@ export function DashboardView() {
         onToggle={() => toggleSection("Customer Service / Sales")}
       >
         <PlaceholderCard name="Customer Feedback" icon={<MessageSquare className="h-5 w-5" />} />
-        <PlaceholderCard name="Visit Reporting" icon={<MapPin className="h-5 w-5" />} />
+        <TypeCard
+          name="Visit Reports"
+          icon={<MapPin className="h-5 w-5" />}
+          tone="cooper-red"
+          description="Customer visits filed by the regional managers — who they saw, why, and what needs doing next."
+          onClick={() => navigate("/sales/visit-reports")}
+        />
         <PlaceholderCard name="Customers" icon={<Users className="h-5 w-5" />} />
         <PlaceholderCard name="Customer Contacts List" icon={<BookUser className="h-5 w-5" />} />
         <PlaceholderCard name="Special Pricing" icon={<Tag className="h-5 w-5" />} />

@@ -49,7 +49,7 @@ const SECTIONS: ManualSection[] = [
       "where do i start",
     ],
     searchText:
-      "Sign in with your altronic-llc.com account. The Dashboard opens after sign-in. Use the top nav to switch between Dashboard, the Departments dropdown, and Admin. The Departments dropdown mirrors the dashboard: Engineering (Engineering Tasks, EIRs, Test Sheets, Project Folders, Build Requests, Drawing File Logs, CSA Listings, with ECNs coming soon), Panels, Operations, Coils (Potting Sample Log), Quality Control (Digital QC and Ignition QC Defect Logs), Supply Chain, and Customer Service / Sales.",
+      "Sign in with your altronic-llc.com account. The Dashboard opens after sign-in. Use the top nav to switch between Dashboard, the Departments dropdown, and Admin. The Departments dropdown mirrors the dashboard: Engineering (Engineering Tasks, EIRs, Test Sheets, Project Folders, Build Requests, Drawing File Logs, CSA Listings, Where Am I?, ECNs), Panels, Operations, Coils (Potting Sample Log), Quality Control (Digital QC and Ignition QC Defect Logs), Supply Chain (Gray Market Requests), and Customer Service / Sales (Visit Reports).",
     render: () => (
       <>
         <P>
@@ -59,12 +59,12 @@ const SECTIONS: ManualSection[] = [
           <strong>Departments</strong> dropdown that mirrors the dashboard's
           sections — <strong>Engineering</strong> (Engineering Tasks, EIRs, Test
           Sheets, Project Folders, Build Requests, Drawing File Logs, CSA
-          Listings, with ECNs coming soon), <strong>Panels</strong>,{" "}
+          Listings, Where Am I?, ECNs), <strong>Panels</strong>,{" "}
           <strong>Operations</strong>, <strong>Coils</strong> (Potting Sample
           Log), <strong>Quality Control</strong> (Digital QC and Ignition QC
-          Defect Logs), <strong>Supply Chain</strong>, and{" "}
-          <strong>Customer Service / Sales</strong> (the last two still coming
-          soon). Engineering Tasks use the <strong>List</strong> and{" "}
+          Defect Logs), <strong>Supply Chain</strong> (Gray Market Requests), and{" "}
+          <strong>Customer Service / Sales</strong> (Visit Reports, with the
+          rest still coming soon). Engineering Tasks use the <strong>List</strong> and{" "}
           <strong>Kanban</strong> views.
           Your tasks are filtered to you by default — pick "Anyone" in the
           Assigned filter to see the rest of the team's work.
@@ -117,7 +117,7 @@ const SECTIONS: ManualSection[] = [
       "all projects",
     ],
     searchText:
-      "The Dashboard is grouped into department sections — Engineering, Panels, Operations, Coils, Quality Control, Supply Chain, and Customer Service / Sales — each a divider heading with its cards beneath. Engineering has live cards: Engineering Tasks, EIRs, Test Sheets and more. Coils has the Potting Sample Log; Quality Control has the Digital QC and Ignition QC Defect Logs. Supply Chain and Customer Service / Sales show Coming soon placeholders. Each live card shows the count of active items (tasks not Complete, EIRs not Closed), a colour-coded status mini-bar, and clicks through to that type's page. A Mine / Company switch flips every count and bar between your own items and the whole company's; Mine is the default. A project picker sits next to it and works the same way — pick a project and every card's count and mini-bar narrows to just that project, in place, combining with Mine/Company rather than navigating anywhere. Clicking a card afterward opens that type's full list pre-filtered to the picked project.",
+      "The Dashboard is grouped into department sections — Engineering, Panels, Operations, Coils, Quality Control, Supply Chain, and Customer Service / Sales — each a divider heading with its cards beneath. Engineering has live cards: Engineering Tasks, EIRs, Test Sheets and more. Coils has the Potting Sample Log; Quality Control has the Digital QC and Ignition QC Defect Logs; Supply Chain has Gray Market Requests; Customer Service / Sales has Visit Reports. Each live card shows the count of active items (tasks not Complete, EIRs not Closed), a colour-coded status mini-bar, and clicks through to that type's page. A Mine / Company switch flips every count and bar between your own items and the whole company's; Mine is the default. A project picker sits next to it and works the same way — pick a project and every card's count and mini-bar narrows to just that project, in place, combining with Mine/Company rather than navigating anywhere. Clicking a card afterward opens that type's full list pre-filtered to the picked project.",
     render: () => (
       <>
         <P>
@@ -168,21 +168,21 @@ const SECTIONS: ManualSection[] = [
         </UL>
         <P>
           Other departments have their own cards further down the page —{" "}
-          <strong>Coils</strong> (Potting Sample Log) and{" "}
+          <strong>Coils</strong> (Potting Sample Log),{" "}
           <strong>Quality Control</strong> (Digital QC Defect Log, Ignition QC
-          Defect Log) both open straight to their logs, and{" "}
+          Defect Log) and <strong>Customer Service / Sales</strong> (Visit
+          Reports) all open straight to their lists, and{" "}
           <strong>Panels</strong> and <strong>Operations</strong> link to their
           orders, tasks and the Teradyne Log.
         </P>
         <P>
-          Types whose SharePoint list isn't built yet — Engineering's{" "}
-          <strong>ECNs</strong>, Coils' <strong>Coil Defect Log</strong>,
+          Types whose SharePoint list isn't built yet — Coils'{" "}
+          <strong>Coil Defect Log</strong>,
           Quality Control's <strong>QC Forms</strong>, Operations'{" "}
-          <strong>Maintenance Tasks</strong>, all of{" "}
-          <strong>Supply Chain</strong> (Grey Market Part Requests, Supplier
-          Issue Tracking, Supplier List, Supplier Contacts, Cost Impact Notices,
+          <strong>Maintenance Tasks</strong>, the rest of{" "}
+          <strong>Supply Chain</strong> (Supplier Issue Tracking, Supplier List, Supplier Contacts, Cost Impact Notices,
           FAIT), and <strong>Customer Service / Sales</strong> (Customer
-          Feedback, Visit Reporting, Customers, Customer Contacts List, Special
+          Feedback, Customers, Customer Contacts List, Special
           Pricing, Capacity Tracking, Pricing Requests) — appear as dimmed{" "}
           <strong>Coming soon</strong> placeholders. They'll light up with live
           counts as each department comes online.
@@ -615,7 +615,7 @@ const SECTIONS: ManualSection[] = [
       "resend notification",
     ],
     searchText:
-      "Type @ in the comment composer to open the mention picker. Arrow keys then Enter or Tab to pick. Comment boxes auto-grow as you type or paste. Mentioned people get an email with the task/EIR name, the comment quote, and a link. Attach files by drag-drop, click Attach, or paste with Ctrl+V. Pasting a screenshot opens a naming prompt before it attaches anywhere — Cancel discards it instead of attaching it — and the named file uploads to the task's SharePoint project folder like any other attachment; a name already taken there is saved as name (2).ext instead of overwriting it. You can edit your own comments inline (a comment is yours if its saved name or email matches you, so older imported comments count too). Check Notify everyone again when editing to re-email every watcher and mention. Ctrl+Enter sends.",
+      "Type @ in the comment composer to open the mention picker. Arrow keys then Enter or Tab to pick. You can type a first name and surname after the @ — the space no longer closes the picker — and matching works in any order or by email address. admin.first.last accounts are not listed. Comment boxes auto-grow as you type or paste. Mentioned people get an email with the task/EIR name, the comment quote, and a link. Attach files by drag-drop, click Attach, or paste with Ctrl+V. Pasting a screenshot opens a naming prompt before it attaches anywhere — Cancel discards it instead of attaching it — and the named file uploads to the task's SharePoint project folder like any other attachment; a name already taken there is saved as name (2).ext instead of overwriting it. You can edit your own comments inline (a comment is yours if its saved name or email matches you, so older imported comments count too). Check Notify everyone again when editing to re-email every watcher and mention. Ctrl+Enter sends.",
     render: () => (
       <>
         <P>
@@ -634,9 +634,18 @@ const SECTIONS: ManualSection[] = [
           picking it from the dropdown leaves it as plain text — it won't
           notify anyone or add them as a watcher. The comment box also grows
           automatically as you type or paste, so long comments stay fully
-          visible. Editing an existing comment has the same @-mention picker,
+          visible. You can type a <strong>full name</strong> after the @ —
+          "@Jerrod W" keeps the picker open and narrows it, which matters when
+          two people share a first name. Editing an existing comment has the
+          same @-mention picker,
           so you can add someone while making an edit, not just when first
           posting.
+        </P>
+        <P>
+          Comments are listed <strong>newest first</strong>, in the order they
+          were actually posted — every timestamp is recorded on one company
+          clock and then shown in your local time, so a thread between people
+          in different time zones still reads in order.
         </P>
         <P>
           Anyone you @-mention also <strong>becomes a watcher</strong> on
@@ -1486,6 +1495,311 @@ const SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: "visit-reports",
+    title: "Visit Reports",
+    group: "Customer Service / Sales",
+    keywords: [
+      "visit report",
+      "visit reports",
+      "calendar",
+      "month view",
+      "visit calendar",
+      "schedule",
+      "customer visit",
+      "site visit",
+      "sales call",
+      "rm",
+      "rm name",
+      "regional manager",
+      "customer status",
+      "action items",
+      "trip report",
+      "call report",
+      "sales",
+      "customer service",
+    ],
+    searchText:
+      "Visit Reports at /sales/visit-reports, under Departments > Customer Service / Sales, backed by the Visit Reports list on the ALTRONICSALESTEAM SharePoint site. A regional manager's record of a customer visit: Customer Name, RM Name, Reason For Visit (Home Office, General Visit, Site Visit, Sales Call, Training), Visit Date, Customer Status (Satisfied, Needs Attention, Issue, Quote Request, Potential New Customer, N/A), Visit Summary, Action Items, Product(s), City and State. Six of those are required: Customer Name, RM Name, Reason, Visit Date, Customer Status and Visit Summary. File one with New Visit Report; everything edits in place on the detail page, or use Edit for a bulk rewrite. Attachments — photos, quotes — can be added once the report is saved, by dragging them onto the Attachments card. The list filters by RM Name, Year, Reason and Customer Status, with an all-fields search, and the filters live in the URL so a filtered view can be shared. There is also a month Calendar view (List / Calendar buttons under the top nav) showing each visit on its day: click a day to file a visit for that date, click a visit to open it, arrows and Today move between months, and the filters carry across. The calendar is desktop and large-tablet only — on a phone the button is hidden and the URL opens the list. Reports cannot be deleted from ARC. Any signed-in user can file and edit.",
+    render: () => (
+      <>
+        <P>
+          <strong>Departments → Customer Service / Sales → Visit Reports</strong>{" "}
+          (<code>/sales/visit-reports</code>) is the regional managers' record
+          of customer visits — who they saw, why, what happened, and what needs
+          doing next. It reads and writes the same SharePoint list the team has
+          been using, so a report filed here shows up in SharePoint and vice
+          versa.
+        </P>
+        <H3>Filing a report</H3>
+        <P>
+          <strong>New Visit Report</strong> opens the form. Six fields are
+          required, because the list requires them:
+        </P>
+        <UL>
+          <LI>
+            <strong>Customer Name</strong> — who you visited.
+          </LI>
+          <LI>
+            <strong>RM Name</strong> — the regional manager. The picker lists
+            the current managers plus anyone already on an existing report, so
+            an older report keeps the person who actually filed it.
+          </LI>
+          <LI>
+            <strong>Reason For Visit</strong> — Home Office, General Visit,
+            Site Visit, Sales Call or Training.
+          </LI>
+          <LI>
+            <strong>Visit Date</strong> — pre-filled with today; pick the day
+            of the visit from the calendar.
+          </LI>
+          <LI>
+            <strong>Customer Status</strong> — Satisfied, Needs Attention,
+            Issue, Quote Request, Potential New Customer or N/A. This is the
+            colour-coded chip on the list, so it's the field that makes a
+            customer needing attention findable.
+          </LI>
+          <LI>
+            <strong>Visit Summary</strong> — what happened.
+          </LI>
+        </UL>
+        <P>
+          <strong>Action Items</strong>, <strong>Product(s)</strong>,{" "}
+          <strong>City</strong> and <strong>State</strong> are optional. Saving
+          opens the new report so you can attach anything to it.
+        </P>
+        <H3>Editing and attachments</H3>
+        <P>
+          On the detail page everything edits in place — the sidebar's RM,
+          date, reason, status, product and location save the moment you change
+          them, and Visit Summary and Action Items have their own Edit / Save.
+          The <strong>Edit</strong> button at the top opens the full form when
+          you'd rather change several things at once.
+        </P>
+        <P>
+          <strong>Attachments</strong> — site photos, a quote, a signed
+          document — go on the card at the bottom: drag files onto it, paste a
+          screenshot, or use Add file.
+        </P>
+        <Tip>
+          There is no Delete. A visit report is a record of something that
+          happened, so correcting one is an edit; removing one has to be done
+          in SharePoint deliberately.
+        </Tip>
+        <H3>The calendar</H3>
+        <P>
+          A <strong>Calendar</strong> button sits next to <strong>List</strong>{" "}
+          under the top nav. It lays the month out as a grid with each visit on
+          its day, which is the quick way to see what the team did in a month —
+          and where the gaps are.
+        </P>
+        <UL>
+          <LI>
+            <strong>Click any day to file a visit for it</strong> — the form
+            opens with that date already set.
+          </LI>
+          <LI>
+            <strong>Click a visit</strong> to open the report.
+          </LI>
+          <LI>
+            The arrows move a month at a time and <strong>Today</strong> jumps
+            back; the coloured dot on each visit is its Customer Status.
+          </LI>
+          <LI>
+            The filters work exactly as they do on the list, and they travel
+            with you when you switch between the two views.
+          </LI>
+        </UL>
+        <Tip>
+          The calendar is a <strong>desktop and large-tablet</strong> view. Seven
+          columns of visits can't be read on a phone, so the button is hidden
+          there and a calendar link opens the list instead.
+        </Tip>
+        <H3>Finding a report</H3>
+        <P>
+          The filter bar narrows by <strong>RM Name</strong>,{" "}
+          <strong>Year</strong>, <strong>Reason</strong> and{" "}
+          <strong>Customer Status</strong>, and the search box matches{" "}
+          <em>every</em> field — customer, summary, action items, product, city
+          — so searching a product code finds every visit that mentioned it.
+          The filters live in the URL, so a filtered view can be bookmarked or
+          pasted to someone else.
+        </P>
+        <P>
+          The table shows the newest 150 visits with a{" "}
+          <strong>show all</strong> link underneath; filters and the count
+          always run over every report, not just the ones on screen.
+        </P>
+      </>
+    ),
+  },
+  {
+    id: "gray-market-requests",
+    title: "Gray Market Requests",
+    group: "Supply Chain",
+    keywords: [
+      "gray market",
+      "grey market",
+      "gray market request",
+      "gmr",
+      "broker",
+      "outside distribution",
+      "counterfeit",
+      "inspection flag",
+      "supply chain",
+      "vendor",
+      "po",
+      "purchase order",
+      "qty purchased",
+      "insp lot",
+      "in circuit",
+      "final assembly",
+      "sign-off",
+    ],
+    searchText:
+      "Gray Market Requests at /supply-chain/gray-market-requests, under Supply Chain in the Departments menu, backed by the Gray Market Request list on the Altronic_PMO SharePoint site. A gray market request tracks a part bought outside normal distribution from the request through purchasing, engineering test, inspection and production sign-off. The list opens on Open requests with pills for Open / Complete / All, filters for Requestor and Testing Required, and an all-fields search. New Request asks only for the Title (the Altronic assembly number), request date, testing required and the purchasing details; the Log No. is generated as GMR_YYYY-###. Everything else is filled in on the request itself, in five cards — Request, Purchasing, Engineering, Inspection, Production — each card with one Edit button in its header that opens a box holding that stage's fields; Save changes writes only the fields you touched. Requests carry comments with @-mentions, watchers, and attachments. Whoever raises a request watches it. Requests cannot be deleted from ARC.",
+    render: () => (
+      <>
+        <P>
+          <strong>Departments → Supply Chain → Gray Market Requests</strong>{" "}
+          (<code>/supply-chain/gray-market-requests</code>) tracks a part bought{" "}
+          <em>outside normal distribution</em> — from the request, through
+          purchasing, engineering test, inspection, and production sign-off.
+        </P>
+        <P>
+          Engineering has its part in the same record — the testing and
+          sign-off fields on each request — but the feature itself lives under
+          Supply Chain.
+        </P>
+        <H3>Raising a request</H3>
+        <P>
+          <strong>New Request</strong> asks only for what's known at the start:
+          the <strong>Title</strong> (the Altronic assembly number), the{" "}
+          <strong>request date</strong>, whether <strong>testing is
+          required</strong>, and the purchasing details — vendor, quantity, PO
+          number, part numbers. The <strong>Log No.</strong>{" "}
+          (<code>GMR_2026-004</code>) is assigned on save; you never type it.
+        </P>
+        <P>
+          You're recorded as the requestor and start watching it, so you hear
+          about every comment and change from then on.
+        </P>
+        <H3>Working a request</H3>
+        <P>
+          The request page is the workflow, one card per stage —{" "}
+          <strong>Request</strong>, <strong>Purchasing</strong>,{" "}
+          <strong>Engineering</strong>, <strong>Inspection</strong>,{" "}
+          <strong>Production</strong>. Each card has one{" "}
+          <strong>Edit</strong> button in its header: press it and a box opens
+          with that stage's fields, change what you need, then{" "}
+          <strong>Save changes</strong>. Only the fields you actually touched
+          are written, so four teams can fill in their parts without waiting
+          for each other or overwriting each other's columns.
+        </P>
+        <UL>
+          <LI>
+            <strong>Request Status</strong>, <strong>Testing Required</strong>{" "}
+            and the two dates live in the sidebar, along with the watchers.
+          </LI>
+          <LI>
+            <strong>Comments</strong> work exactly as they do on a task or an
+            EIR: @-mention someone and they're emailed and added as a watcher.
+          </LI>
+          <LI>
+            <strong>Attachments</strong> — supplier paperwork, photos of the
+            part, test results — drag onto the card, paste a screenshot, or use
+            Add file.
+          </LI>
+        </UL>
+        <Tip>
+          There is no Delete. A request records a part that was actually
+          bought, so correcting one is an edit; removing one has to be done
+          deliberately in SharePoint.
+        </Tip>
+        <H3>Finding a request</H3>
+        <P>
+          The list opens on <strong>Open</strong> — the pills switch to{" "}
+          <strong>Complete</strong> or <strong>All</strong>, and each carries
+          its count. Filter by <strong>Requestor</strong> or{" "}
+          <strong>Testing Required</strong>, and the search box matches every
+          field, so a part number, a PO or a vendor all find the request.
+        </P>
+      </>
+    ),
+  },
+  {
+    id: "where-am-i",
+    title: "Where Am I?",
+    group: "Engineering",
+    keywords: [
+      "where am i",
+      "out of office",
+      "ooo",
+      "vacation",
+      "pto",
+      "holiday",
+      "in the field",
+      "away",
+      "calendar",
+      "who is out",
+      "team calendar",
+      "absence",
+    ],
+    searchText:
+      "Where Am I? at /engineering/where-am-i, under Engineering — the team's out-of-office calendar, backed by the Where am I? list on the Altronic Engineering SharePoint site. Each entry is a line of text and a day: who you are and what you're doing (\"Sarah - half day vacation\"). On a computer it's a month grid: click a day to add yourself, click an entry to edit or remove it, arrows and Today move between months. On a phone the grid is replaced by an upcoming agenda grouped by day — Today, Tomorrow, then dates — because seven columns can't be read at phone width. Adding lets you set a Through date, which creates one entry per day (the list stores a single date per row), capped at 60 days. Anyone signed in can add, edit and remove entries, including other people's. The search box matches names and reasons.",
+    render: () => (
+      <>
+        <P>
+          <strong>Departments → Engineering → Where Am I?</strong>{" "}
+          (<code>/engineering/where-am-i</code>) is the team's out-of-office
+          calendar — who's away, who's in the field, and when. It reads and
+          writes the same SharePoint list the team already uses, so an entry
+          added here shows up there and the other way round.
+        </P>
+        <P>
+          An entry is a <strong>line of text and a day</strong>. Put your name
+          in the text, because that's all anyone sees:{" "}
+          <em>"Sarah — half day vacation"</em>, <em>"GaryK — Keystone AM"</em>.
+        </P>
+        <H3>On a computer</H3>
+        <UL>
+          <LI>
+            <strong>Click any day</strong> to add yourself to it — the date is
+            filled in for you.
+          </LI>
+          <LI>
+            <strong>Click an entry</strong> to change the wording or the date,
+            or to remove it. Plans change; this calendar lets you take things
+            off it.
+          </LI>
+          <LI>
+            The arrows move a month at a time, and <strong>Today</strong> jumps
+            back.
+          </LI>
+        </UL>
+        <H3>Away for more than a day</H3>
+        <P>
+          The list stores <strong>one date per entry</strong>, so a week away is
+          five entries. Rather than adding them one at a time, set a{" "}
+          <strong>Through</strong> date when adding and the form creates one
+          entry per day for you — it tells you how many before you save. Sixty
+          days is the limit, which is a guard against a mistyped year rather
+          than a rule about holidays.
+        </P>
+        <H3>On a phone</H3>
+        <P>
+          The month grid is replaced by an <strong>upcoming agenda</strong>:
+          today first, then tomorrow, then the days after, with who's out under
+          each. Seven columns of names can't be read on a phone, and "who's out
+          today" is the question people open this on a phone to ask.
+        </P>
+        <Tip>
+          The agenda looks <em>forward</em> — past entries aren't listed. Open
+          it on a computer to look back over the month.
+        </Tip>
+      </>
+    ),
+  },
+  {
     id: "eirs",
     title: "EIRs (Engineering Information Requests)",
     group: "Engineering requests",
@@ -1815,38 +2129,114 @@ const SECTIONS: ManualSection[] = [
       "ecns",
       "engineering change notice",
       "change notice",
-      "dashboard card",
+      "log number",
+      "log#",
+      "revision",
+      "in house stock",
+      "stock disposition",
+      "drawings complete",
+      "field returns",
+      "on hold",
+      "serial numbers",
+      "final assembly",
+      "attachment",
+      "comment",
       "notification",
-      "count",
-      "mock data",
-      "build request",
-      "engineering request",
     ],
     searchText:
-      "The Dashboard shows ECN counts as part of the engineering metrics. ECNs are currently represented as dashboard metrics and will be wired to their SharePoint list when available. Use the dashboard to track ECN volume alongside EIRs and Build Requests.",
+      "ECNs at /engineering/ecns, under Engineering — Engineering Change Notices, the record of a change to a released product, backed by the ECN NEW list on the Altronic Engineering SharePoint site. The table lists every notice newest first by Log#. Search covers everything including the Detailed Description, so you can find which ECN changed a part number. Filter by project, In House Stock disposition, whether the drawings are complete, and whether the notice is on hold. Click a row to open it. New ECN raises one: pick the project it belongs to, and type the Log# yourself because it comes off the ECN paperwork, and a revision keeps the number of the notice it revises with an R suffix (260059R1); the form refuses a number another ECN already has. On the notice, each card has one Edit button in its header that opens a box with that card's fields — Change (final assembly part numbers, detailed description, serial numbers), Disposition (in house stock, field returns impacted, drawings complete, on hold) and Sign-off (engineering comments, sign-off status). Save changes writes only the fields you touched. The Log#, Title and Project are edited the same way, from Edit Details in the sidebar. The Dashboard's ECN card counts the notices on file and narrows with the project picker, and clicking it opens the list already filtered to that project. Yes/No columns are picked as Yes or No rather than ticked. You can attach files to a notice. Comments work differently from the rest of ARC: an ECN has no watchers, so posting a comment emails the person who submitted the ECN and anyone you @-mention, and nobody else. Notices are never deleted; a superseded one is revised.",
     render: () => (
       <>
         <P>
-          The <strong>ECNs</strong> card on the Dashboard tracks Engineering
-          Change Notices alongside tasks, EIRs, and Build Requests.
+          <strong>Departments → Engineering → ECNs</strong>{" "}
+          (<code>/engineering/ecns</code>) is the register of{" "}
+          <strong>Engineering Change Notices</strong> — what changed on a
+          released product, which assemblies and serial numbers it touches,
+          what happens to stock on hand, and whether the drawings have caught
+          up. It reads and writes the same SharePoint list the team already
+          uses.
         </P>
-        <H3>What it means</H3>
+
+        <H3>Finding a notice</H3>
+        <UL>
+          <LI>
+            The table lists every ECN, <strong>newest Log# first</strong>. Long
+            lists render the first 150 rows with a <strong>show all</strong>
+            {" "}beside the count.
+          </LI>
+          <LI>
+            <strong>Search covers the Detailed Description</strong>, not just
+            the title — so "which ECN changed 711478?" is a question you can
+            answer by typing the part number.
+          </LI>
+          <LI>
+            Filter by <strong>project</strong>, by <strong>In House Stock</strong>,
+            by whether the <strong>drawings</strong> are complete or
+            outstanding, and by <strong>on hold</strong>. The filters live in
+            the address bar, so a filtered view can be shared.
+          </LI>
+        </UL>
+
+        <H3>Raising one</H3>
         <P>
-          ECNs are counted as a company-wide metric on the Dashboard. The card
-          shows how many ECNs are currently open in the system and is meant as
-          a quick way to see change activity at a glance.
+          <strong>New ECN</strong> asks for the part, the Log#, the{" "}
+          <strong>project</strong> it belongs to, and what changes. <strong>You type the Log# yourself</strong> — it comes off
+          the ECN paperwork rather than being generated, and a{" "}
+          <strong>revision keeps the number of the notice it revises</strong>{" "}
+          with an <code>R</code> suffix (<code>260059R1</code>). The form shows
+          the latest number on the list so the next one is obvious, and it
+          refuses a number another ECN already has.
         </P>
-        <H3>Current status</H3>
+
+        <H3>Working it through</H3>
         <P>
-          Right now, <strong>ECNs are shown as dashboard metrics only</strong>.
-          The app is prepared to wire in the real ECN SharePoint list later,
-          at which point the count will switch from mock/demo data to live
-          data automatically.
+          Each card on the notice has one <strong>Edit</strong> button in its
+          header. Press it and a box opens with that card's fields; change what
+          you need and press <strong>Save changes</strong>. Only the fields you
+          touched are written, so several people can fill in their part without
+          stepping on each other:
         </P>
+        <UL>
+          <LI>
+            <strong>Change</strong> — final assembly part numbers, the detailed
+            description, serial numbers.
+          </LI>
+          <LI>
+            <strong>Disposition</strong> — what happens to in-house stock,
+            whether field returns are impacted, whether the drawings are done,
+            and whether the notice is on hold.
+          </LI>
+          <LI>
+            <strong>Sign-off</strong> — engineering comments (the running,
+            dated log) and sign-off status.
+          </LI>
+        </UL>
+        <P>
+          <strong>Attachments</strong> go on the notice — the marked-up
+          drawing, the two-page ECN form, a photo of the board.
+        </P>
+
+        <P>
+          The <strong>project</strong> sits in the sidebar and is changed from{" "}
+          <strong>Edit Details</strong> alongside the Log# and Title. It's what
+          the Dashboard's ECN card counts against: pick a project up there and
+          the ECN count narrows with every other card, and clicking the card
+          opens this list already filtered to it.
+        </P>
+
         <Tip>
-          When the ECN list is available, the same dashboard filter controls
-          and project scoping that already work for Tasks and EIRs will apply.
+          <strong>Comments work differently here.</strong> An ECN has no
+          watchers, so posting a comment emails the person who submitted the
+          ECN and anyone you @-mention — nobody else. The page says who will
+          hear you, just above the comment box. If someone should see the next
+          comment too, mention them again: a mention notifies once, it doesn't
+          subscribe anyone.
         </Tip>
+
+        <P>
+          There is no delete. An ECN records a change that was made; a
+          superseded notice is revised, not removed.
+        </P>
       </>
     ),
   },
@@ -2367,7 +2757,7 @@ const SECTIONS: ManualSection[] = [
       "url filter",
     ],
     searchText:
-      "The filter bar on List, Kanban, and Test Sheets has Project Reference (multi), Assigned (multi, defaults to you), free-text Search, and Created By (single). Filters live in the URL — bookmark or share a filtered view as a link.",
+      "The filter bar on List, Kanban, and Test Sheets has Project Reference (multi), Assigned (multi, defaults to you), free-text Search, and Created By (single). Filters live in the URL — bookmark or share a filtered view as a link. People dropdowns (Assigned, Assigned Engineer, Reporter, Requestor, Watchers, Created By) match every word you type in any order, so first name plus surname works whichever way round the name is stored, and an email address finds someone too. admin.first.last accounts are hidden from people lists.",
     render: () => (
       <>
         <P>
@@ -2397,6 +2787,31 @@ const SECTIONS: ManualSection[] = [
           specific name or project quickly, and the options you've already
           selected sort to the top of the list when you open it. Pick "Anyone"
           (or click the ✕ on the dropdown) to clear that filter.
+        </P>
+        <H3>Searching for a person</H3>
+        <P>
+          Any dropdown that lists people — <strong>Assigned</strong>,{" "}
+          <strong>Assigned Engineer</strong>, <strong>Reporter</strong>,{" "}
+          <strong>Requestor</strong>, <strong>Watchers</strong>,{" "}
+          <strong>Created By</strong> — searches on <strong>every word you
+          type, in any order</strong>:
+        </P>
+        <UL>
+          <LI>
+            <strong>First name then surname</strong> both work, whichever way
+            round the name is stored: <code>jerrod w</code> and{" "}
+            <code>waldron jerrod</code> find the same person.
+          </LI>
+          <LI>
+            <strong>An email address</strong> finds them too — type{" "}
+            <code>jerrod.waldron</code> if two colleagues share a first name.
+          </LI>
+        </UL>
+        <P>
+          <strong>admin.</strong> accounts (the{" "}
+          <code>admin.first.last</code> logins IT issues alongside a person's
+          real account) are left out of these lists. They don't receive email,
+          so anything assigned to one would go nowhere.
         </P>
         <Tip>
           Filters live in the URL (<code>?assigned=…&amp;project=…</code>) — so
@@ -2444,7 +2859,7 @@ const SECTIONS: ManualSection[] = [
       "checkbox notification",
     ],
     searchText:
-      "Commenting on a task, EIR, build request, or build request part emails everyone watching it, whoever it's assigned to, plus everyone you @-mention, from automation@altronic-llc.com. A comment with no mention at all still emails watchers and assignees. Mentioned people get a 'You were mentioned' email; assignees and other watchers get a 'New comment on' email that says whether it's assigned to them or they're watching. Build request parts have their own watcher lists and no Assigned field; part-comment emails deep-link to the request with that part expanded. You're never emailed for your own comment unless you @-mention yourself. @-mentioning auto-adds the person as a watcher. Editing a comment emails only newly added mentions by default, but checking 'Notify everyone again' resends an 'Updated comment on' email to watchers and assignees plus everyone mentioned in the new AND previous version of the comment. Change alerts: changing a Status (task, EIR, or build request), an EIR Resolution, a build request part's Part Status, or the assignees (including a build request's Engineer Assigned) emails the watchers, current assignees, and the EIR reporter or BR requestor. Checking or unchecking a Description checklist box (task, Operations task, or EIR) emails the watchers and current assignees with a Checklist updated on email naming the item. Being added as an assignee emails you 'You've been assigned'; being removed emails 'You've been unassigned'; everyone else gets a broadcast. Promoting an EIR to a task emails the EIR's watchers and reporter with a link to the new task. Creating/deleting parts and other field edits (lead time, customer, build request part checklists, WO No) send no email. You're never emailed for a change you made yourself.",
+      "Commenting on a task, EIR, build request, or build request part emails everyone watching it, whoever it's assigned to, plus everyone you @-mention, from automation@altronic-llc.com. A comment with no mention at all still emails watchers and assignees. Mentioned people get a 'You were mentioned' email; assignees and other watchers get a 'New comment on' email that says whether it's assigned to them or they're watching. Build request parts have their own watcher lists and no Assigned field; part-comment emails deep-link to the request with that part expanded. You're never emailed for your own comment unless you @-mention yourself. @-mentioning auto-adds the person as a watcher. You also become a watcher automatically when you create an item and when something is assigned to you — on the create form and on later reassignments — alongside anyone added by hand to the Watchers field. Being unassigned does not remove you; use Unwatch. Comment timestamps are recorded on one company clock (Eastern) and displayed in your own local time, so a thread reads in the order it was written even when the authors are in different time zones. Editing a comment emails only newly added mentions by default, but checking 'Notify everyone again' resends an 'Updated comment on' email to watchers and assignees plus everyone mentioned in the new AND previous version of the comment. Change alerts: changing a Status (task, EIR, or build request), an EIR Resolution, a build request part's Part Status, or the assignees (including a build request's Engineer Assigned) emails the watchers, current assignees, and the EIR reporter or BR requestor. Checking or unchecking a Description checklist box (task, Operations task, or EIR) emails the watchers and current assignees with a Checklist updated on email naming the item. Being added as an assignee emails you 'You've been assigned'; being removed emails 'You've been unassigned'; everyone else gets a broadcast. Promoting an EIR to a task emails the EIR's watchers and reporter with a link to the new task. Creating/deleting parts and other field edits (lead time, customer, build request part checklists, WO No) send no email. You're never emailed for a change you made yourself.",
     render: () => (
       <>
         <P>
@@ -2468,6 +2883,43 @@ const SECTIONS: ManualSection[] = [
           </LI>
         </UL>
 
+        <H3>Who is watching, and how you get there</H3>
+        <P>
+          Watchers are how ARC decides who to email. You join an item's watcher
+          list in four ways — three of them automatic:
+        </P>
+        <UL>
+          <LI>
+            <strong>You created it.</strong> Whoever raises a task, EIR,
+            Operations task, panel order, panel task, build request or build
+            request part watches it from the moment it's saved.
+          </LI>
+          <LI>
+            <strong>It's assigned to you.</strong> Assigning someone adds them
+            as a watcher too — on the create form and on every later
+            reassignment.
+          </LI>
+          <LI>
+            <strong>Someone @-mentioned you</strong> in a comment.
+          </LI>
+          <LI>
+            <strong>You were added by hand</strong> — the Watchers field on the
+            item, or the Watch button.
+          </LI>
+        </UL>
+        <P>
+          Being <em>unassigned</em> doesn't remove you: you stay on the watcher
+          list until you take yourself off with <strong>Unwatch</strong>, or
+          someone removes you from the Watchers field. Nothing here emails you
+          about your own actions — the rule above still holds.
+        </P>
+        <H3>Comment times</H3>
+        <P>
+          Comment timestamps are recorded on <strong>one company clock</strong>{" "}
+          (Eastern) and shown to you in <strong>your own local time</strong>.
+          A thread therefore reads in the order it was actually written, even
+          when the people in it are in different time zones.
+        </P>
         <H3>Every alert at a glance</H3>
         <AlertTable
           rows={[

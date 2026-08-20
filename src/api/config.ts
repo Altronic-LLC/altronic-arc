@@ -120,6 +120,15 @@ export const SP_ALTRONIC_EQUIPMENT_LIST_ID =
  * as SP_SITE_URL, so the same acquired token covers both — only the path
  * differs.
  */
+/**
+ * Sales Team site's classic SharePoint REST root — needed for Visit Report
+ * attachments (SP REST, not Graph; see src/api/attachments.ts). Same tenant as
+ * SP_SITE_URL, so the same acquired token covers both — only the path differs.
+ */
+export const SP_SALESTEAM_SITE_URL =
+  (import.meta.env.VITE_SP_SALESTEAM_SITE_URL as string | undefined) ??
+  "https://coopermachineryservices.sharepoint.com/sites/ALTRONICSALESTEAM";
+
 export const SP_PMO_SITE_URL =
   (import.meta.env.VITE_SP_PMO_SITE_URL as string | undefined) ??
   "https://coopermachineryservices.sharepoint.com/sites/Altronic_PMO";
@@ -165,6 +174,72 @@ export const SP_ENGINEERING_SKETCHES_LIST_ID =
 export const SP_CSA_LISTINGS_LIST_ID =
   import.meta.env.VITE_SP_CSA_LISTINGS_LIST_ID ||
   "758defd2-693c-4324-9e0b-dd2a12c341fa";
+
+/**
+ * "Where am I?" — Engineering's out-of-office / where-the-team-is calendar on
+ * the Engineering site. Two columns that matter: `Title` (free text, e.g.
+ * "Sarah - half day vacation") and `Date` (date-only, required). No end date,
+ * so a week away is one row per day.
+ *
+ * Its date-only values are stored at 06:00Z — local midnight in US Central,
+ * where this site's regional setting sits. Two other ARC lists store theirs at
+ * 22:00Z and 23:00Z; `parseSpDateOnly`'s midday pivot reads all three as the
+ * day the SharePoint view shows.
+ *
+ * Schema discovered live 2026-08-19 — scripts/where-am-i-schema.json.
+ */
+export const SP_WHERE_AM_I_LIST_ID =
+  import.meta.env.VITE_SP_WHERE_AM_I_LIST_ID ||
+  "9483c2c9-8af4-42cb-9e15-a170c8cac225";
+
+/**
+ * "Gray Market Request" — a part bought outside normal distribution, tracked
+ * from request through purchasing, engineering test, inspection and production
+ * sign-off. A **Supply Chain** feature (Ray, 2026-08-19), even though the list
+ * lives on the **PMO site** (SITES.pmo) rather than a Supply Chain one — that's
+ * where it has always been, and the PMO grant already covers it.
+ *
+ * `Title` is the Altronic assembly number, `LogNo_x002e_Raw` carries the
+ * GMR_YYYY-### number the app generates, and the list already has the
+ * `Communication` and `Watchers` columns the standard comment thread needs.
+ * Schema discovered live 2026-08-19 — scripts/gray-market-request-schema.json.
+ */
+export const SP_GRAY_MARKET_LIST_ID =
+  import.meta.env.VITE_SP_GRAY_MARKET_LIST_ID ||
+  "bf5e3786-d2c1-4e8d-8bd1-c8d5bab9c85b";
+
+/**
+ * "Visit Reports" — Customer Service / Sales' record of customer visits, on
+ * the ALTRONICSALESTEAM site (SITES.salesTeam). `Title` is repurposed as the
+ * Customer Name, City/State are `City0`/`State0`, and Month/Year/Day/Cal Title
+ * are calculated off Visit Date (never written). Attachments are enabled.
+ * Schema discovered live 2026-08-18 — scripts/visit-reports-schema.json.
+ */
+export const SP_VISIT_REPORTS_LIST_ID =
+  import.meta.env.VITE_SP_VISIT_REPORTS_LIST_ID ||
+  "7cc4db39-6612-4c2d-b1b2-1af34d0564e7";
+
+/**
+ * "ECN NEW" — Engineering Change Notices, on the Engineering site.
+ *
+ * The list came out of a migration and its columns are named `field_2` …
+ * `field_12`: NOTHING in the internal name says what the column holds. The
+ * translation lives in `src/lib/ecnFields.ts` and is the only place that
+ * mapping exists — guessing a name here is guaranteed to write nowhere.
+ *
+ * `Title` is the part / assembly the change is against, `field_2` is the Log#
+ * (`YY####`, with an `R#` suffix on a revision), and the `Communication`
+ * column the standard comment thread needs already exists. There is **no
+ * Watchers column and no requester column** — the submitter is Graph's
+ * `createdBy`, which is why ECN comments notify differently from every other
+ * ARC entity (see the note in src/hooks/useEcns.ts).
+ *
+ * 1,813 rows at the time of wiring. Schema discovered live 2026-08-19 —
+ * scripts/ecn-new-schema.json.
+ */
+export const SP_ECNS_LIST_ID =
+  import.meta.env.VITE_SP_ECNS_LIST_ID ||
+  "f6917bf4-bdd1-4ff9-ba71-0a17b22b1ecc";
 
 // =============================================================================
 // Digital QC — EIGHTEEN lists on the Engineering site (SITES.engineering),

@@ -2,14 +2,18 @@ import {
   SP_BUILD_REQUEST_ITEMS_LIST_ID,
   SP_BUILD_REQUESTS_LIST_ID,
   SP_CSA_LISTINGS_LIST_ID,
+  SP_ECNS_LIST_ID,
   SP_EIRS_LIST_ID,
   SP_LIST_ID,
   SP_OPERATIONS_TASKS_LIST_ID,
   SP_PANEL_ORDERS_LIST_ID,
   SP_PANEL_TASKS_LIST_ID,
   SP_PANELTEAM_SITE_URL,
+  SP_GRAY_MARKET_LIST_ID,
   SP_PMO_SITE_URL,
+  SP_SALESTEAM_SITE_URL,
   SP_SITE_URL,
+  SP_VISIT_REPORTS_LIST_ID,
   USE_MOCK,
 } from "./config";
 import { spFetch, SharePointUnavailableError } from "./sharepoint";
@@ -38,12 +42,15 @@ export interface ListAttachment {
 export type AttachmentParent =
   | "task"
   | "eir"
+  | "ecn"
   | "operationsTask"
   | "buildRequest"
   | "buildRequestItem"
   | "panelOrder"
   | "panelTask"
-  | "csaListing";
+  | "csaListing"
+  | "visitReport"
+  | "grayMarketRequest";
 
 interface ParentConfig {
   listId: string | undefined;
@@ -56,6 +63,10 @@ interface ParentConfig {
 const PARENT_CONFIG: Record<AttachmentParent, ParentConfig> = {
   task: { listId: SP_LIST_ID, siteUrl: SP_SITE_URL, listIdEnvVar: "VITE_SP_LIST_ID" },
   eir: { listId: SP_EIRS_LIST_ID, siteUrl: SP_SITE_URL, listIdEnvVar: "VITE_SP_EIRS_LIST_ID" },
+  // The marked-up drawing, the two-page ECN form, the photo of the board.
+  // Attachments were already enabled on the list, so this needs nothing in
+  // SharePoint beyond the AllSites.Manage consent every attachment path wants.
+  ecn: { listId: SP_ECNS_LIST_ID, siteUrl: SP_SITE_URL, listIdEnvVar: "VITE_SP_ECNS_LIST_ID" },
   operationsTask: {
     listId: SP_OPERATIONS_TASKS_LIST_ID,
     siteUrl: SP_PMO_SITE_URL,
@@ -75,6 +86,16 @@ const PARENT_CONFIG: Record<AttachmentParent, ParentConfig> = {
     listId: SP_PANEL_ORDERS_LIST_ID,
     siteUrl: SP_PANELTEAM_SITE_URL,
     listIdEnvVar: "VITE_SP_PANEL_ORDERS_LIST_ID",
+  },
+  grayMarketRequest: {
+    listId: SP_GRAY_MARKET_LIST_ID,
+    siteUrl: SP_PMO_SITE_URL,
+    listIdEnvVar: "VITE_SP_GRAY_MARKET_LIST_ID",
+  },
+  visitReport: {
+    listId: SP_VISIT_REPORTS_LIST_ID,
+    siteUrl: SP_SALESTEAM_SITE_URL,
+    listIdEnvVar: "VITE_SP_VISIT_REPORTS_LIST_ID",
   },
   panelTask: {
     listId: SP_PANEL_TASKS_LIST_ID,

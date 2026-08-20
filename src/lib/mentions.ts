@@ -1,4 +1,5 @@
 import type { Person } from "@/types/task";
+import { matchesTokens } from "./itemSearch";
 
 // =============================================================================
 // @mentions — utilities for converting between plain-text "@Display Name" in
@@ -54,11 +55,18 @@ export function rankMentionCandidates(
   limit: number = MENTION_CANDIDATE_LIMIT,
 ): MentionCandidates {
   const q = query.trim().toLowerCase();
+  // Every word must match, in any order, against the name AND the email —
+  // "@Jerrod W" and "@waldron jerrod" both find the same person, and so does
+  // typing their address. A plain substring test on displayName alone meant a
+  // space found nobody (Ray, 2026-08-18).
   const matches = people
-    .filter((p) => p.displayName.toLowerCase().includes(q))
+    .filter((p) => matchesTokens(`${p.displayName} ${p.email ?? ""}`, q))
     .sort((a, b) => {
-      const ap = a.displayName.toLowerCase().startsWith(q) ? 0 : 1;
-      const bp = b.displayName.toLowerCase().startsWith(q) ? 0 : 1;
+      // Rank on the FIRST word typed: someone whose name starts with it is
+      // more likely who you meant than someone who merely contains it.
+      const first = q.split(/\s+/)[0] ?? "";
+      const ap = a.displayName.toLowerCase().startsWith(first) ? 0 : 1;
+      const bp = b.displayName.toLowerCase().startsWith(first) ? 0 : 1;
       return ap - bp || a.displayName.localeCompare(b.displayName);
     });
   const capped = limit >= 0 ? matches.slice(0, limit) : matches;
@@ -67,6 +75,51 @@ export function rankMentionCandidates(
     total: matches.length,
     truncated: matches.length > capped.length,
   };
+}
+
+
+/**
+ * The @-mention the caret is currently sitting in, or null when it isn't in
+ * one. Returns where the `@` is and what has been typed after it.
+ *
+ * ONE copy, used by both pickers — the composer and the edit box in
+ * CommentThread had their own identical versions, which is how the last
+ * mention fix reached only one of them (see CLAUDE.md).
+ *
+ * A mention query may contain **one space**, so a full "First Last" can be
+ * typed. It used to close the picker at the first space, which made anyone
+ * you had to disambiguate by surname unreachable (Ray, 2026-08-18). Two
+ * spaces means the user has moved on to writing a sentence, and a newline
+ * always ends it. If nothing matches, the picker hides itself — the caller
+ * only renders it when there are candidates.
+ */
+export function detectMentionQuery(
+  text: string,
+  caret: number,
+): { at: number; query: string } | null {
+  let i = caret - 1;
+  let spaces = 0;
+  while (i >= 0) {
+    const ch = text[i];
+    if (ch === "@") {
+      const before = i > 0 ? text[i - 1] : "";
+      // The @ has to start the text or follow whitespace/an opening bracket —
+      // otherwise an email address in the middle of a word opens the picker.
+      if (before === "" || /[\s(\[]/.test(before)) {
+        const query = text.slice(i + 1, caret);
+        // A query starting with a space is "@ something", not a mention.
+        if (!query.startsWith(" ")) return { at: i, query };
+      }
+      return null;
+    }
+    if (ch === "\n") return null;
+    if (/\s/.test(ch)) {
+      spaces += 1;
+      if (spaces > 1) return null;
+    }
+    i -= 1;
+  }
+  return null;
 }
 
 export function escapeHtml(s: string): string {
@@ -195,7 +248,7 @@ export interface CommentRecipient {
   email: string;
   displayName: string;
   /** Why they're being notified — drives the email wording. */
-  reason: "mentioned" | "assigned" | "watching" | "edited";
+  reason: "mentioned" | "assigned" | "submitted" | "watching" | "edited";
 }
 
 /** A person as the recipient math needs them — a name plus a maybe-missing email. */
@@ -310,6 +363,57 @@ export function commentRenotifyRecipients(args: {
     assignees: args.assignees,
     authorEmail: args.authorEmail,
   }).map((r) => ({ ...r, reason: "edited" as const }));
+}
+
+/**
+ * Who to email about a comment on an **ECN** — the submitter plus everyone
+ * @-mentioned, and nobody else (Ray, 2026-08-19).
+ *
+ * This is deliberately NOT `commentNotifyRecipients`. Every other entity in
+ * ARC notifies its watchers, and the rules elsewhere work hard to make sure
+ * the watcher list fills itself. An ECN has no watchers at all: the list has
+ * no Watchers column, so there is nowhere to store one, and the team asked
+ * for the narrower rule anyway — an ECN thread is a conversation with whoever
+ * raised the change, not a broadcast.
+ *
+ * The submitter is Graph's `createdBy`. On the 1,809 rows that arrived with
+ * the migration that's the migration account rather than the original author,
+ * so a comment on an old notice reaches the person who imported it. That's
+ * what the data supports; a real submitter would need a person column on the
+ * list.
+ *
+ * Same author rule as everywhere else: the person posting isn't emailed their
+ * own comment unless they @-mentioned themselves.
+ */
+export function ecnCommentRecipients(args: {
+  bodyHtml: string;
+  submittedBy: NotifiablePerson | null | undefined;
+  authorEmail: string;
+}): CommentRecipient[] {
+  const author = (args.authorEmail ?? "").toLowerCase();
+  const mentions = extractMentionedRecipients(args.bodyHtml);
+  const selfMentioned = mentions.some((m) => m.email.toLowerCase() === author);
+
+  const byEmail = new Map<string, CommentRecipient>();
+  const submitterEmail = args.submittedBy?.email?.trim();
+  if (args.submittedBy && submitterEmail) {
+    byEmail.set(submitterEmail.toLowerCase(), {
+      email: submitterEmail,
+      displayName: args.submittedBy.displayName,
+      reason: "submitted",
+    });
+  }
+  // A mention outranks being the submitter — "you were mentioned" is the
+  // stronger signal, and the submitter usually IS mentioned by name.
+  for (const m of mentions) {
+    byEmail.set(m.email.toLowerCase(), {
+      email: m.email,
+      displayName: m.displayName,
+      reason: "mentioned",
+    });
+  }
+  if (!selfMentioned) byEmail.delete(author);
+  return Array.from(byEmail.values());
 }
 
 /**

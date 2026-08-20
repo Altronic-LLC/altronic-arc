@@ -22,17 +22,17 @@ import {
 import type { BuildRequest, BuildRequestItem, Person } from "@/types/task";
 import { ALL_CHECKLIST_FIELDS } from "@/lib/buildRequestChecklist";
 import { pushToast } from "@/components/Toast";
+import { autoWatchFromMentions } from "@/api/autoWatch";
 import { fireAssigneeChangeAlert, fireFieldChangeAlert, notifyMentions } from "@/api/email";
 import { htmlToPlainText } from "@/lib/htmlText";
 import {
   commentNotifyRecipients,
   commentRenotifyRecipients,
   extractMentionedRecipients,
-  mockLookupIdForEmail,
 } from "@/lib/mentions";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { resolveCurrentUserLookupId } from "@/api/currentUser";
-import { USE_MOCK } from "@/api/config";
+import { autoWatchers } from "@/lib/people";
 
 // =============================================================================
 // Build Request hooks — two query caches (headers + items) with the same
@@ -317,7 +317,12 @@ export function useCreateBuildRequest() {
   const qc = useQueryClient();
   const actor = useCurrentUser();
   return useMutation({
-    mutationFn: createBuildRequest,
+    // Creator + assigned engineer watch the new request — lib/people.ts.
+    mutationFn: (input: Parameters<typeof createBuildRequest>[0]) =>
+      createBuildRequest({
+        ...input,
+        watchers: autoWatchers(input.watchers, input.engineerAssigned, actor),
+      }),
     onSuccess: (br, variables) => {
       pushToast({ message: `Created ${br.brNo}.` });
       // Seed the cache so navigating straight to the new detail page works
@@ -408,46 +413,6 @@ async function applyItemWatcherAdditions(
   }
 }
 
-/**
- * Resolve which @-mentioned people should become new watchers. Prefers the
- * directory built from all BR headers + items; cold-start mentions (never a
- * participant before) resolve their lookupId on demand from the Engineering
- * site's User Information List.
- */
-async function autoWatchFromMentions({
-  recipients,
-  currentWatchers,
-  directory,
-}: {
-  recipients: Person[];
-  currentWatchers: Person[];
-  directory: Person[];
-}): Promise<Person[]> {
-  const alreadyWatching = new Set(
-    currentWatchers.map((w) => (w.email ?? w.displayName).toLowerCase()),
-  );
-  const byEmail = new Map<string, Person>();
-  for (const p of directory) {
-    if (p.email && p.lookupId) byEmail.set(p.email.toLowerCase(), p);
-  }
-  const additions: Person[] = [];
-  for (const r of recipients) {
-    const key = (r.email ?? r.displayName).toLowerCase();
-    if (alreadyWatching.has(key)) continue;
-    if (!r.email) continue;
-    let resolved = byEmail.get(r.email.toLowerCase());
-    if (!resolved) {
-      const lookupId = USE_MOCK
-        ? mockLookupIdForEmail(r.email)
-        : await resolveCurrentUserLookupId(r.email);
-      if (!lookupId) continue;
-      resolved = { displayName: r.displayName, email: r.email, lookupId };
-    }
-    additions.push(resolved);
-    alreadyWatching.add(key);
-  }
-  return additions;
-}
 
 /** Flatten every Person across headers + items, deduped, lookupId-only. */
 function collectBuildRequestPeople(
@@ -534,6 +499,7 @@ export function useAddBuildRequestComment() {
       if (mentioned.length === 0) return;
       const items = qc.getQueryData<BuildRequestItem[]>(BUILD_REQUEST_ITEMS_KEY);
       void autoWatchFromMentions({
+        resolveLookupId: resolveCurrentUserLookupId,
         recipients: mentioned,
         currentWatchers: br.watchers,
         directory: collectBuildRequestPeople(brs, items),
@@ -643,6 +609,7 @@ export function useEditBuildRequestComment() {
       if (mentioned.length === 0) return;
       const items = qc.getQueryData<BuildRequestItem[]>(BUILD_REQUEST_ITEMS_KEY);
       void autoWatchFromMentions({
+        resolveLookupId: resolveCurrentUserLookupId,
         recipients: mentioned,
         currentWatchers: br.watchers,
         directory: collectBuildRequestPeople(brs, items),
@@ -664,8 +631,15 @@ export function useEditBuildRequestComment() {
 
 export function useCreateBuildRequestItem() {
   const qc = useQueryClient();
+  const actor = useCurrentUser();
   return useMutation({
-    mutationFn: createBuildRequestItem,
+    // Whoever adds a part watches it — parts carry their own comment thread,
+    // so without this the person who added it misses every question about it.
+    mutationFn: (input: Parameters<typeof createBuildRequestItem>[0]) =>
+      createBuildRequestItem({
+        ...input,
+        watchers: autoWatchers(input.watchers, actor),
+      }),
     onSuccess: (item) => {
       pushToast({ message: `Added part "${item.partNumber}".` });
       qc.setQueryData<BuildRequestItem[]>(BUILD_REQUEST_ITEMS_KEY, (old) =>
@@ -838,6 +812,7 @@ export function useAddBuildRequestItemComment() {
       if (mentioned.length === 0) return;
       const brs = qc.getQueryData<BuildRequest[]>(BUILD_REQUESTS_KEY);
       void autoWatchFromMentions({
+        resolveLookupId: resolveCurrentUserLookupId,
         recipients: mentioned,
         currentWatchers: item.watchers,
         directory: collectBuildRequestPeople(brs, items),
@@ -938,6 +913,7 @@ export function useEditBuildRequestItemComment() {
       if (mentioned.length === 0) return;
       const brs = qc.getQueryData<BuildRequest[]>(BUILD_REQUESTS_KEY);
       void autoWatchFromMentions({
+        resolveLookupId: resolveCurrentUserLookupId,
         recipients: mentioned,
         currentWatchers: item.watchers,
         directory: collectBuildRequestPeople(brs, items),
