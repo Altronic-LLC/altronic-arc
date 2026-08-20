@@ -7,12 +7,14 @@ import {
   File as FileIcon,
   Folder,
   FolderOpen,
+  FolderPlus,
   Loader2,
   Upload,
 } from "lucide-react";
 import { useProjectFolderEntries, useUploadToFolder } from "@/hooks/useProjectFolders";
 import { useProjects } from "@/hooks/useTasks";
 import { LoadingTasks } from "@/components/LoadingTasks";
+import { ProjectFolderFormModal } from "@/components/ProjectFolderFormModal";
 import type { DriveEntry } from "@/api/projectFiles";
 
 // =============================================================================
@@ -39,12 +41,26 @@ export function ProjectFoldersView() {
   const { data: projects = [] } = useProjects();
   const upload = useUploadToFolder();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showNewFolder, setShowNewFolder] = useState(false);
 
   const projectTitleById = useMemo(() => {
     const m = new Map<number, string>();
     for (const p of projects) m.set(p.lookupId, p.title);
     return m;
   }, [projects]);
+
+  // Which projects are already covered — only meaningful at the root, where
+  // the tagged top-level folders live.
+  const takenLookupIds = useMemo(() => {
+    const taken = new Set<number>();
+    if (!atRoot) return taken;
+    for (const e of entries) {
+      if (e.isFolder && e.projectLookupId && e.projectLookupId > 0) {
+        taken.add(e.projectLookupId);
+      }
+    }
+    return taken;
+  }, [entries, atRoot]);
 
   function openFolder(entry: DriveEntry) {
     setPath((prev) => [...prev, { id: entry.id, name: entry.name }]);
@@ -88,7 +104,15 @@ export function ProjectFoldersView() {
             SharePoint, or upload into a folder.
           </p>
         </div>
-        {!atRoot && (
+        {atRoot ? (
+          <button
+            onClick={() => setShowNewFolder(true)}
+            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90"
+          >
+            <FolderPlus className="h-4 w-4" />
+            New project folder
+          </button>
+        ) : (
           <div>
             <input
               ref={fileInputRef}
@@ -198,6 +222,14 @@ export function ProjectFoldersView() {
             ),
           )}
         </div>
+      )}
+
+      {showNewFolder && (
+        <ProjectFolderFormModal
+          projects={projects}
+          takenLookupIds={takenLookupIds}
+          onClose={() => setShowNewFolder(false)}
+        />
       )}
     </div>
   );

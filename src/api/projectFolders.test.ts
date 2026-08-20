@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { listProjectFolderEntries, uploadFileToFolder } from "./projectFiles";
+import {
+  createProjectFolder,
+  listProjectFolderEntries,
+  projectRefWriteKey,
+  uploadFileToFolder,
+} from "./projectFiles";
 
 // USE_MOCK is true under Vitest, so these exercise the in-memory mock tree.
 describe("listProjectFolderEntries (mock)", () => {
@@ -90,5 +95,73 @@ describe("uploadFileToFolder collision handling (mock)", () => {
     const unique = new File(["fresh"], "unique-report.pdf", { type: "application/pdf" });
     const uploaded = await uploadFileToFolder("mf-eng", unique);
     expect(uploaded.name).toBe("unique-report.pdf");
+  });
+});
+
+describe("createProjectFolder (mock)", () => {
+  it("creates a top-level folder tagged with its project", async () => {
+    const created = await createProjectFolder("0042-New Programme", 4242);
+    expect(created.isFolder).toBe(true);
+    expect(created.projectLookupId).toBe(4242);
+
+    const root = await listProjectFolderEntries();
+    expect(root.some((e) => e.name === "0042-New Programme")).toBe(true);
+  });
+
+  it("gives the new folder its own empty listing to browse into", async () => {
+    const created = await createProjectFolder("0043-Empty Programme", 4343);
+    expect(await listProjectFolderEntries(created.id)).toEqual([]);
+  });
+
+  // resolveFolderForProject picks the FIRST folder matching a project, so two
+  // folders for one project would make task uploads land arbitrarily.
+  it("refuses a project that already has a folder", async () => {
+    await createProjectFolder("0044-First", 4444);
+    await expect(createProjectFolder("0044-Second", 4444)).rejects.toThrow(
+      /already has a folder/i,
+    );
+  });
+
+  it("refuses a duplicate folder name", async () => {
+    await createProjectFolder("0045-Unique", 4545);
+    await expect(createProjectFolder("0045-unique", 4546)).rejects.toThrow(
+      /already exists/i,
+    );
+  });
+
+  it("requires a name and a project", async () => {
+    await expect(createProjectFolder("   ", 1)).rejects.toThrow(/name is required/i);
+    await expect(createProjectFolder("x", 0)).rejects.toThrow(/Pick the project/i);
+  });
+});
+
+describe("projectRefWriteKey", () => {
+  // Reading auto-detects the column because its internal name varies by site;
+  // writing needs the exact key, so it's learned from a folder that has one.
+  it("prefers the writable LookupId sibling", () => {
+    expect(
+      projectRefWriteKey([
+        { Title: "x", ProjectReference: "0017-AMP", ProjectReferenceLookupId: 501 },
+      ]),
+    ).toBe("ProjectReferenceLookupId");
+  });
+
+  it("copes with the encoded column name", () => {
+    expect(
+      projectRefWriteKey([{ Project_x0020_ReferenceLookupId: 7 }]),
+    ).toBe("Project_x0020_ReferenceLookupId");
+  });
+
+  it("derives the sibling when only the display column came back", () => {
+    expect(projectRefWriteKey([{ ProjectReference: "0017-AMP" }])).toBe(
+      "ProjectReferenceLookupId",
+    );
+  });
+
+  it("falls back to the default on an empty library", () => {
+    expect(projectRefWriteKey([])).toBe("ProjectReferenceLookupId");
+    expect(projectRefWriteKey([{ Title: "no project column here" }])).toBe(
+      "ProjectReferenceLookupId",
+    );
   });
 });

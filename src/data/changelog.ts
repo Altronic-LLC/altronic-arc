@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.106.0",
+    date: "2026-08-20",
+    changes: [
+      "Engineering can create a project folder from ARC — New project folder on the Project Folders page",
+      "The new folder is tagged with its project automatically, so files uploaded from a task on that project land in it straight away instead of going to Miscellaneous",
+      "A project that already has a folder is marked as such and can't be given a second one",
+    ],
+  },
+  {
     version: "0.105.0",
     date: "2026-08-19",
     changes: [

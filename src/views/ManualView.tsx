@@ -2085,9 +2085,13 @@ const SECTIONS: ManualSection[] = [
       "sharepoint files",
       "folders",
       "drawings",
+      "new folder",
+      "create folder",
+      "project reference",
+      "tag folder",
     ],
     searchText:
-      "Project Folders is a browser over the Engineering document library (General/Project Folders). Open the Project Folders card on the dashboard or the Departments menu. Navigate into a project folder and its subfolders with the breadcrumb, click a file or folder to open it in SharePoint, and upload files into the folder you're in (up to 250 MB — files over about 4 MB upload in chunks). Deleting is done in SharePoint itself.",
+      "Project Folders is a browser over the Engineering document library (General/Project Folders). Open the Project Folders card on the dashboard or the Departments menu. Navigate into a project folder and its subfolders with the breadcrumb, click a file or folder to open it in SharePoint, and upload files into the folder you're in (up to 250 MB — files over about 4 MB upload in chunks). At the top level, New project folder creates a folder and tags it with its project, so files uploaded from a task on that project land in it automatically; a project that already has a folder is marked and can't be given a second one. Deleting is done in SharePoint itself.",
     render: () => (
       <>
         <P>
@@ -2112,7 +2116,24 @@ const SECTIONS: ManualSection[] = [
             4&nbsp;MB per file). Uploading isn't offered at the top level — pick
             a folder first.
           </LI>
+          <LI>
+            <strong>New project folder</strong> — at the top level, create a
+            folder for a project. Pick the project and the name fills itself in
+            to match; both stay editable.
+          </LI>
         </UL>
+        <P>
+          Creating it here also <strong>tags it with the project</strong>, which
+          is the part that matters: that tag is how a file uploaded from a task
+          finds its way to the right folder. A folder made directly in
+          SharePoint has to be tagged by hand, and until it is, uploads from
+          that project's tasks go to <strong>Miscellaneous</strong> instead.
+        </P>
+        <Tip>
+          A project can only have one folder. If it already has one, it's marked
+          in the list as such and can't be picked again — two folders for the
+          same project would leave ARC guessing which one to upload into.
+        </Tip>
         <P>
           Deleting isn't done from ARC — remove files in SharePoint directly, so
           the shared library stays under its normal controls.

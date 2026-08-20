@@ -396,6 +396,7 @@ src/
 │   ├── VisitReportFormModal.tsx  Create/edit a visit report
 │   ├── GrayMarketRequestFormModal.tsx  Raise a gray market request
 │   ├── WhereAmIFormModal.tsx     Add/edit an out-of-office entry (+ date range)
+│   ├── ProjectFolderFormModal.tsx  Create a project folder + tag its Project Reference
 │   ├── EcnFormModal.tsx          Raise an ECN
 │   ├── FieldEditModal.tsx        Shared "edit this card's fields" modal (Gray Market + ECN)
 │   ├── YesNoField.tsx            A boolean column as two labelled Yes / No choices
@@ -1795,6 +1796,38 @@ to attach them to).
 
 Code: `src/api/projectFiles.ts`, hooks in `src/hooks/useTaskFiles.ts`.
 Auth: standard Graph `Sites.Selected` — no extra scope needed.
+
+**Engineering can create a project folder from ARC** (Ray, 2026-08-20) —
+`createProjectFolder(name, projectLookupId)` in `api/projectFiles.ts`, behind
+the "New project folder" button at the ROOT of `/project-folders`. It creates
+the folder and then tags it, in two calls, because a folder's metadata can only
+be set once the item exists.
+
+Four things it has to get right, all for the same reason —
+`resolveFolderForProject` picks the FIRST folder matching a project, so a
+duplicate makes task uploads land arbitrarily:
+
+- **A project that already has a folder is refused**, naming the folder it has.
+  The form also labels those projects "— has a folder" rather than hiding them,
+  so it's obvious why one can't be picked.
+- **The create uses `conflictBehavior: fail`**, so a clashing name errors
+  instead of silently becoming "0017-AMP-5000 Refresh 1".
+- **The write key is discovered, not hardcoded** (`projectRefWriteKey`).
+  Reading already auto-detects the Project Reference column because its
+  internal name varies by site; writing needs the exact key, so it's learned
+  from a folder that already carries one — Graph returns a `…LookupId` sibling
+  for a lookup column and that's the writable half. Falls back to
+  `ProjectReferenceLookupId` on an empty library.
+- **A failed tag says the folder exists.** The folder is created either way, so
+  the error tells the user to set Project Reference in SharePoint or delete it
+  and retry — rather than implying nothing happened.
+
+Creating also invalidates `["project-files", "folders"]`, the separate cache
+the task-upload router reads. Without that, a task on the new project keeps
+routing uploads to Miscellaneous until that cache ages out five minutes later.
+
+Only top-level folders carry the tag, so the button appears only at the root —
+inside a folder the action is Upload.
 
 ### 2. SharePoint list-item attachment (SP REST)
 

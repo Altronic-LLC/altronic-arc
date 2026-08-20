@@ -634,6 +634,129 @@ export async function uploadFileToFolder(
   return mapEntry(res, false);
 }
 
+/**
+ * Default write key for the Project Reference lookup, used when the library
+ * has no existing folder to learn the real column name from.
+ */
+const DEFAULT_PROJECT_REF_FIELD = "ProjectReferenceLookupId";
+
+/**
+ * Work out what to CALL the Project Reference column when writing it.
+ *
+ * Reading auto-detects the column (see `readLookupId`) because its internal
+ * name varies between sites — `ProjectReference`, `Project_x0020_Reference`,
+ * and so on. Writing needs the exact key, so rather than hardcode a guess we
+ * learn it from a folder that already carries one: for a lookup column Graph
+ * hands back both the display value and a `…LookupId` sibling, and the sibling
+ * is the writable one.
+ */
+export function projectRefWriteKey(
+  folderFields: Record<string, unknown>[],
+): string {
+  for (const fields of folderFields) {
+    for (const key of Object.keys(fields)) {
+      if (!/project/i.test(key)) continue;
+      if (!/reference/i.test(key)) continue;
+      if (/lookupid$/i.test(key)) return key;
+    }
+  }
+  // A non-suffixed match still tells us the column's name.
+  for (const fields of folderFields) {
+    for (const key of Object.keys(fields)) {
+      if (/project/i.test(key) && /reference/i.test(key)) return `${key}LookupId`;
+    }
+  }
+  return DEFAULT_PROJECT_REF_FIELD;
+}
+
+/**
+ * Create a top-level project folder and tag it with its Project Reference, so
+ * task uploads route into it the same way they do for the folders that were
+ * made by hand in SharePoint.
+ *
+ * Two guards, both because `resolveFolderForProject` picks the FIRST folder
+ * matching a project and would otherwise choose arbitrarily between duplicates:
+ *
+ *  - a project that already has a folder is refused, naming the folder it has;
+ *  - the create itself uses `conflictBehavior: fail`, so a clashing name is an
+ *    error rather than a silently renamed "0017-AMP-5000 Refresh 1".
+ */
+export async function createProjectFolder(
+  name: string,
+  projectLookupId: number,
+): Promise<DriveEntry> {
+  const folderName = name.trim();
+  if (!folderName) throw new Error("A folder name is required.");
+  if (!(projectLookupId > 0)) throw new Error("Pick the project this folder is for.");
+
+  if (USE_MOCK) {
+    const existing = mockTree.get(MOCK_ROOT) ?? [];
+    const clash = existing.find(
+      (e) => e.name.toLowerCase() === folderName.toLowerCase(),
+    );
+    if (clash) throw new Error(`A folder called "${folderName}" already exists.`);
+    const tagged = existing.find((e) => e.projectLookupId === projectLookupId);
+    if (tagged) {
+      throw new Error(`That project already has a folder — "${tagged.name}".`);
+    }
+    const entry: DriveEntry = {
+      id: `mockde-${nextMockFileId++}`,
+      name: folderName,
+      webUrl: "#",
+      isFolder: true,
+      size: 0,
+      lastModified: mockNow(),
+      childCount: 0,
+      projectLookupId,
+    };
+    mockTree.set(MOCK_ROOT, [...existing, entry]);
+    mockTree.set(entry.id, []);
+    return entry;
+  }
+
+  const rootPath =
+    `/sites/${SP_SITE_ID}/drive/root:/${encodeDrivePath(PROJECT_FOLDERS_PATH.split("/"))}`;
+
+  // Read the siblings once: it tells us both whether this project is already
+  // covered and what the Project Reference column is really called.
+  const siblings = await graphFetch<{ value: GraphDriveChild[] }>(
+    `${rootPath}:/children?$expand=listItem($expand=fields)&$top=999`,
+  );
+  const folders = (siblings.value ?? []).filter((c) => c.folder);
+  const taken = folders.find(
+    (c) => !isMiscFolder(c.name) && readLookupId(c.listItem?.fields ?? {}) === projectLookupId,
+  );
+  if (taken) throw new Error(`That project already has a folder — "${taken.name}".`);
+
+  const writeKey = projectRefWriteKey(folders.map((c) => c.listItem?.fields ?? {}));
+
+  const created = await graphFetch<GraphDriveChild>(`${rootPath}:/children`, {
+    method: "POST",
+    body: JSON.stringify({
+      name: folderName,
+      folder: {},
+      "@microsoft.graph.conflictBehavior": "fail",
+    }),
+  });
+
+  // Tagging is a second call — the folder exists either way, so a failure here
+  // leaves an untagged folder rather than nothing. Say which happened.
+  try {
+    await graphFetch(`/sites/${SP_SITE_ID}/drive/items/${created.id}/listItem/fields`, {
+      method: "PATCH",
+      body: JSON.stringify({ [writeKey]: projectLookupId }),
+    });
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    throw new Error(
+      `Created "${folderName}", but couldn't tag it with the project. ` +
+        `Set Project Reference on it in SharePoint, or delete it and try again. ${detail}`,
+    );
+  }
+
+  return { ...mapEntry(created, false), projectLookupId, childCount: 0 };
+}
+
 // ---- Mock project-folder tree (demo mode) ---------------------------------
 const MOCK_ROOT = "__root__";
 
