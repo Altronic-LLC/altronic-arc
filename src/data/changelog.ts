@@ -20,6 +20,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.108.0",
+    date: "2026-08-20",
+    changes: [
+      "Supply Chain gets FAITs — First Article Inspection Tests, reading and writing the same SharePoint list you already use",
+      "Opens on the open ones, with filters for project, supplier and whoever it's sitting with, and a search across every field",
+      "Work a FAIT through five cards — Part, Request, Inspection, Results, Sign-off — each with one Edit button that writes only what you changed",
+      "FAITs now carry comments, watchers and attachments like the rest of ARC",
+    ],
+  },
+  {
     version: "0.107.0",
     date: "2026-08-20",
     changes: [

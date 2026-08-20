@@ -3,6 +3,7 @@ import {
   SP_BUILD_REQUESTS_LIST_ID,
   SP_CSA_LISTINGS_LIST_ID,
   SP_ECNS_LIST_ID,
+  SP_FAIT_LIST_ID,
   SP_EIRS_LIST_ID,
   SP_LIST_ID,
   SP_OPERATIONS_TASKS_LIST_ID,
@@ -43,6 +44,7 @@ export type AttachmentParent =
   | "task"
   | "eir"
   | "ecn"
+  | "fait"
   | "operationsTask"
   | "buildRequest"
   | "buildRequestItem"
@@ -67,6 +69,9 @@ const PARENT_CONFIG: Record<AttachmentParent, ParentConfig> = {
   // Attachments were already enabled on the list, so this needs nothing in
   // SharePoint beyond the AllSites.Manage consent every attachment path wants.
   ecn: { listId: SP_ECNS_LIST_ID, siteUrl: SP_SITE_URL, listIdEnvVar: "VITE_SP_ECNS_LIST_ID" },
+  // Inspection reports and CMM output. Attachments were already enabled on
+  // the FAIT list before ARC touched it.
+  fait: { listId: SP_FAIT_LIST_ID, siteUrl: SP_SITE_URL, listIdEnvVar: "VITE_SP_FAIT_LIST_ID" },
   operationsTask: {
     listId: SP_OPERATIONS_TASKS_LIST_ID,
     siteUrl: SP_PMO_SITE_URL,

@@ -40,7 +40,9 @@ import { useProjectFolderEntries } from "@/hooks/useProjectFolders";
 import { useOperationsTasks } from "@/hooks/useOperationsTasks";
 import { useCsaListings } from "@/hooks/useCsaListings";
 import { useEcns } from "@/hooks/useEcns";
+import { useFaits } from "@/hooks/useFaits";
 import { isEcnOnHold } from "@/lib/ecnMapper";
+import { isFaitOpen } from "@/lib/faitFields";
 import { useBuildRequests } from "@/hooks/useBuildRequests";
 import { usePanelOrders } from "@/hooks/usePanelOrders";
 import { usePanelTasks } from "@/hooks/usePanelTasks";
@@ -58,6 +60,7 @@ import {
   type BuildRequest,
   type BuildRequestStatus,
   type Ecn,
+  type Fait,
   type Eir,
   type EirStatus,
   type OperationsStatus,
@@ -111,6 +114,11 @@ function taskMatchesProject(t: Task, projectId: number | null): boolean {
 function eirMatchesProject(e: Eir, projectId: number | null): boolean {
   if (projectId == null) return true;
   return e.parentProjects.some((p) => p.lookupId === projectId);
+}
+
+function faitMatchesProject(f: Fait, projectId: number | null): boolean {
+  if (projectId == null) return true;
+  return f.parentProject?.lookupId === projectId;
 }
 
 function ecnMatchesProject(e: Ecn, projectId: number | null): boolean {
@@ -242,6 +250,7 @@ export function DashboardView() {
     refetch: refetchCsa,
   } = useCsaListings();
   const { data: ecns = [] } = useEcns();
+  const { data: faits = [] } = useFaits();
   const {
     data: testSheets = [],
     isError: testSheetsError,
@@ -341,6 +350,30 @@ export function DashboardView() {
       : [];
     return { count: shown.length, segments };
   }, [ecns, mine, myEmail, projectId]);
+
+  /**
+   * FAITs. The count is what's still open — a closed inspection is history,
+   * and the register is small enough that "open" is the useful number.
+   *
+   * "Mine" reads the initiator, the assigned engineer and the KAM: a FAIT is
+   * yours if you raised it or you're one of the people it's waiting on.
+   */
+  const faitCard = useMemo(() => {
+    const open = faits.filter(
+      (f: Fait) =>
+        isFaitOpen(f.status) &&
+        (!mine ||
+          [f.initiator, f.assignedEngineer, f.kam].some(
+            (p) => (p?.email ?? "").toLowerCase() === myEmail,
+          )) &&
+        faitMatchesProject(f, projectId),
+    );
+    const failed = open.filter((f) => f.values.failedFirstPass === "Yes").length;
+    const segments: Segment[] = failed
+      ? [{ label: "Failed first pass", count: failed, color: "bg-cooper-red" }]
+      : [];
+    return { count: open.length, segments };
+  }, [faits, mine, myEmail, projectId]);
 
   const eirCard = useMemo(() => {
     const active = eirs.filter(
@@ -473,6 +506,9 @@ export function DashboardView() {
   // The ECN list has no "mine" filter — there's no assignee on that list, and
   // its submitter is Graph's createdBy rather than a column you can search on.
   // So only the project carries across.
+  const faitsUrl = `/supply-chain/faits${
+    projectParam ? `?${new URLSearchParams({ project: projectParam }).toString()}` : ""
+  }`;
   const ecnsUrl = `/engineering/ecns${
     projectParam ? `?${new URLSearchParams({ project: projectParam }).toString()}` : ""
   }`;
@@ -806,7 +842,15 @@ export function DashboardView() {
         <PlaceholderCard name="Supplier List" icon={<Building2 className="h-5 w-5" />} />
         <PlaceholderCard name="Supplier Contacts" icon={<Contact className="h-5 w-5" />} />
         <PlaceholderCard name="Cost Impact Notices" icon={<DollarSign className="h-5 w-5" />} />
-        <PlaceholderCard name="FAIT" icon={<FileCheck className="h-5 w-5" />} />
+        <TypeCard
+          name="FAITs"
+          icon={<ClipboardCheck className="h-5 w-5" />}
+          tone="superior-blue"
+          count={faitCard.count}
+          unit="open"
+          segments={faitCard.segments}
+          onClick={() => navigate(faitsUrl)}
+        />
       </DeptSection>
 
       <DeptSection title="Customer Service / Sales">

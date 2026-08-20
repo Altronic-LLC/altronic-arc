@@ -220,6 +220,21 @@ export const SP_VISIT_REPORTS_LIST_ID =
   "7cc4db39-6612-4c2d-b1b2-1af34d0564e7";
 
 /**
+ * "FAIT" — First Article Inspection Tests. A **Supply Chain** feature (Ray,
+ * 2026-08-20), though the list lives on the **Engineering** site rather than
+ * PMO — worth knowing, because that's where we looked first and it isn't
+ * there.
+ *
+ * Fifty-one workflow columns spanning quality inspection and three sign-offs
+ * (SQE, Engineering, KAM). `Communication` and `Watchers` were added to the
+ * list for ARC on 2026-08-20; `Project Reference` and attachments already
+ * existed. Schema captured 2026-08-20 — scripts/fait-schema.json.
+ */
+export const SP_FAIT_LIST_ID =
+  import.meta.env.VITE_SP_FAIT_LIST_ID ||
+  "d655b5d6-ee28-45c4-85ab-128198569508";
+
+/**
  * "ECN NEW" — Engineering Change Notices, on the Engineering site.
  *
  * The list came out of a migration and its columns are named `field_2` …

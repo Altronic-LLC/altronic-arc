@@ -55,6 +55,7 @@ export interface MentionTarget {
     | "task"
     | "eir"
     | "ecn"
+    | "fait"
     | "operationsTask"
     | "buildRequest"
     | "buildRequestItem"
@@ -73,6 +74,7 @@ const KIND_COPY: Record<
   task: { phrase: "a task", calloutLabel: "Task", buttonText: "Open this task" },
   eir: { phrase: "an EIR", calloutLabel: "EIR", buttonText: "Open this EIR" },
   ecn: { phrase: "an ECN", calloutLabel: "ECN", buttonText: "Open this ECN" },
+  fait: { phrase: "a FAIT", calloutLabel: "FAIT", buttonText: "Open this FAIT" },
   operationsTask: { phrase: "a task", calloutLabel: "Task", buttonText: "Open this task" },
   buildRequest: {
     phrase: "a build request",

@@ -230,6 +230,7 @@ src/
 │   ├── eirs.ts                   EIR CRUD
 │   ├── eirRoles.ts               EIR role tags (engineer / supply chain) CRUD
 │   ├── ecns.ts                   ECN CRUD + comments (Engineering) — no delete
+│   ├── faits.ts                  FAIT CRUD + comments (Supply Chain) — no delete
 │   ├── testSheets.ts             Test Results CRUD
 │   ├── admins.ts                 Admins list CRUD
 │   ├── csaListings.ts            CSA Listings CRUD (Engineering certification register)
@@ -267,6 +268,7 @@ src/
 │   ├── grayMarketMockData.ts     Sample gray market requests
 │   ├── whereAmIMockData.ts       Sample out-of-office entries (dated from today)
 │   ├── ecnMockData.ts            Sample ECNs (rich-text fields, a revision)
+│   ├── faitMockData.ts           Sample FAITs (empty Titles, as the live list has)
 │   ├── buildRequestMockData.ts   Sample build requests + items
 │   └── changelog.ts              Version history (drives footer + history modal)
 │
@@ -285,6 +287,7 @@ src/
 │   ├── useGrayMarketRequests.ts  Gray Market queries, mutations + comment thread
 │   ├── useWhereAmI.ts            Where am I? queries + mutations
 │   ├── useEcns.ts                ECN queries + mutations (submitter-only notifications)
+│   ├── useFaits.ts               FAIT queries + mutations
 │   ├── useVisitReportFilters.ts  URL-backed Visit Report filters (+ filterSearch)
 │   ├── useBuildRequests.ts       Build Requests + Items queries/mutations
 │   ├── useTestSheets.ts          Test sheet queries + mutations
@@ -323,6 +326,8 @@ src/
 │   ├── eirTriage.ts              Chasing a new EIR until it has a project + an engineer
 │   ├── ecnFields.ts              ECN column descriptors (field_2 … field_12 decoded)
 │   ├── ecnMapper.ts              Graph item → Ecn, Log# parsing/sorting
+│   ├── faitFields.ts             FAIT column descriptors (51 columns, 19 booleans)
+│   ├── faitMapper.ts             Graph item → Fait
 │   ├── eirPromotion.ts           EIR → Task promotion helpers
 │   ├── testSheetMapper.ts        Graph item → TestSheet
 │   ├── csaListingMapper.ts       Graph item → CsaListing (+ label, sort, search)
@@ -400,6 +405,7 @@ src/
 │   ├── WhereAmIFormModal.tsx     Add/edit an out-of-office entry (+ date range)
 │   ├── ProjectFolderFormModal.tsx  Create a project folder + tag its Project Reference
 │   ├── EcnFormModal.tsx          Raise an ECN
+│   ├── FaitFormModal.tsx         Raise a FAIT
 │   ├── FieldEditModal.tsx        Shared "edit this card's fields" modal (Gray Market + ECN)
 │   ├── YesNoField.tsx            A boolean column as two labelled Yes / No choices
 │   ├── ChoicePills.tsx          Any short choice set as pills (Yes/No, Pass/Fail, …)
@@ -426,6 +432,7 @@ src/
 │   ├── visitReportAtoms.tsx      Customer-status chip (Sales)
 │   ├── grayMarketAtoms.tsx       Request-status + Pass/Fail chips (Supply Chain)
 │   ├── ecnAtoms.tsx              On-hold / flag / stock-disposition chips (ECNs)
+│   ├── faitAtoms.tsx             Status / sign-off / first-pass chips (FAITs)
 │   ├── VisitReportFilterBar.tsx  Shared filter bar for both Visit Report views
 │   ├── buildRequestAtoms.tsx     Build-request-specific badges/chips
 │   └── brand/{Brandmark,Wordmark}.tsx   Official Altronic marks
@@ -461,6 +468,8 @@ src/
 │   ├── GrayMarketRequestsView.tsx      Gray Market Requests list (Supply Chain)
 │   ├── WhereAmIView.tsx          Where am I? — month grid on desktop, agenda on a phone
 │   ├── EcnsView.tsx              ECNs list (search covers the descriptions)
+│   ├── FaitsView.tsx             FAITs list (Supply Chain)
+│   ├── FaitDetailView.tsx        One FAIT — five workflow cards, sign-offs, comments
 │   ├── EcnDetailView.tsx         One ECN — workflow cards, attachments, comments
 │   ├── GrayMarketRequestDetailView.tsx Gray Market request — workflow cards, comments, attachments
 │   ├── VisitReportsCalendarView.tsx  Visit Reports month calendar (desktop only)
@@ -813,6 +822,48 @@ code. If expiry comes back, it needs the decision first: a new Expiry Date colum
 in SharePoint, or a rule deriving it from `DateCertified`. Recover the old
 implementation from git history rather than rewriting it (`git log --
 src/lib/certificationExpiry.ts`).
+
+### FAITs (First Article Inspection Tests)
+
+`d655b5d6-ee28-45c4-85ab-128198569508` (env: `VITE_SP_FAIT_LIST_ID`) on
+**`SITES.engineering`** — a **Supply Chain** feature whose list lives on the
+Engineering site, not PMO. Worth writing down because PMO is where we looked
+first and spent a while: 23 lists there, none of them it. Schema captured
+2026-08-20 in `scripts/fait-schema.json`.
+
+51 editable columns — **19 booleans**, 18 text, 6 choices, 3 lookups, 3 person,
+2 dates — so the columns are DATA (`src/lib/faitFields.ts`), grouped into the
+five cards the detail page renders: Part → Request → Inspection → Results →
+Sign-off.
+
+Four things about this list:
+
+- **`Title` is empty on every row.** People identify a FAIT by SAP Part Number
+  + Description, which is what the list view leads with and what `faitLabel`
+  falls back through. The column is still read and written in case someone
+  starts using it.
+- **The three lookups are unused so far** — Project Reference, EIR Reference
+  and Test Document Reference all exist and are blank on the 36 rows that
+  predate ARC. The project filter will look empty until people fill them in;
+  that's the data, not a bug.
+- **`Communication` and `Watchers` were added for ARC** on 2026-08-20 via
+  `scripts/add-fait-columns.ps1`. `Project Reference` and attachments already
+  existed.
+- **Two date-only columns** (`FailedFirstPassDate`, `WaivedDate`) go through
+  the usual `parseSpDateOnly` midday pivot.
+
+**Append Changes is the gotcha.** Graph reports
+`appendChangesToExistingText: true` on the Communication column however it's
+created, and a PATCH setting it false is accepted without error and changes
+nothing. If that flag is genuinely on, the comment thread corrupts — ARC
+rewrites the whole value each post, and append mode concatenates instead. It
+could not be settled from the API, so **verify behaviourally**: post two
+comments on a FAIT and confirm the second replaces rather than doubling the
+thread. The list settings UI is the authority.
+
+**No delete** — a FAIT records an inspection that happened; a superseded one is
+closed. `faits.test.ts` asserts the module exports nothing matching
+/delete|remove/.
 
 ### ECNs (Engineering Change Notices)
 
