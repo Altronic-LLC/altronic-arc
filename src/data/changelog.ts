@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.108.1",
+    date: "2026-08-20",
+    changes: [
+      "Related projects on a task now actually save — they were being rejected by SharePoint every time, so the change was always undone",
+      "Escape closes an open dropdown without closing the form behind it, so a half-filled New Task survives",
+    ],
+  },
+  {
     version: "0.108.0",
     date: "2026-08-20",
     changes: [

@@ -603,6 +603,8 @@ For writing: SharePoint person fields go in via `LookupId` only.
 
 **Always go through the helper.** `src/lib/graphFields.ts` exports `multiPersonField(fieldName, people)` and `multiLookupField(fieldName, ids)` — they emit the correct two-key shape every time. Don't hand-build the payload elsewhere; you will forget the annotation and lose hours debugging the same 400.
 
+This is not hypothetical. `setRelatedProjects` hand-built `{ ProjectReference: [ids] }` — bare array, un-suffixed name — so **a task's related projects never saved in real mode**, from whenever it was written until 2026-08-20, when two people hit it within an hour. It survived because the MOCK branch read that same hand-built shape, so every test and every demo passed. `tasks.relatedProjects.test.ts` now asserts the request shape with `USE_MOCK` forced off, which is the only way this class of bug is visible from a test.
+
 ## Parent project resolution
 
 The `Parent_x0020_Project_x0020_ReferLookupId` field is a SharePoint lookup
@@ -1512,6 +1514,24 @@ them harder to use, not easier, and a checklist is not a Yes/No question. The
 description checklists, the comment "notify everyone again" option, and the
 EIR role tags are UI affordances, not stored Yes/No fields, and stay as they
 are too.
+
+### Escape closes ONE thing at a time
+
+A dropdown open inside a modal used to mean two `document` keydown listeners
+waiting on the same key — the dropdown's and the modal's. Escape fired both, so
+dismissing a menu you'd opened by mistake also closed the dialog and threw away
+everything typed into it. Alexander Masgras lost a part-filled New Task that
+way on 2026-08-20.
+
+`dropdownKeyHandler` in `useDropdownClose.ts` handles Escape on the dropdown's
+**container** and calls `stopPropagation`. React's root sits inside `document`,
+so stopping the native event there ends its journey and the modal never sees
+it. With no panel open the handler does nothing and Escape reaches the modal as
+it should.
+
+**Any new overlay that closes on Escape needs the same discipline**: handle the
+key on your own container and stop it, or you'll close whatever is behind you.
+`SuggestInput` already did this; the shared dropdown didn't.
 
 ### Every dropdown closes the same four ways
 

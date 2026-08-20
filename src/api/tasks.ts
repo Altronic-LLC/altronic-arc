@@ -13,7 +13,7 @@ import type {
 import { toTask } from "@/lib/taskMapper";
 import { appendComment, parseCommunication, replaceComment } from "@/lib/communicationParser";
 import { attachProjectTitles, attachTaskRelationships } from "@/lib/taskGraph";
-import { multiPersonField } from "@/lib/graphFields";
+import { multiLookupField, multiPersonField } from "@/lib/graphFields";
 import { fromLabelsField, toLabelsField } from "@/lib/labels";
 import { MOCK_PROJECTS, MOCK_TASKS } from "@/data/mockData";
 import { autoWatchers } from "@/lib/people";
@@ -286,8 +286,13 @@ export async function updateTaskFields(
         next.parentProject = proj ?? { lookupId: Number(v), title: "" };
       }
     }
-    if ("ProjectReference" in fields && Array.isArray(fields.ProjectReference)) {
-      const ids = fields.ProjectReference as number[];
+    // Reads the key the real write sends (`…LookupId`), and the bare name too
+    // so an older caller still behaves the same in demo mode.
+    if (
+      Array.isArray(fields.ProjectReferenceLookupId) ||
+      Array.isArray(fields.ProjectReference)
+    ) {
+      const ids = (fields.ProjectReferenceLookupId ?? fields.ProjectReference) as number[];
       next.relatedProjects = ids
         .map((lid) => mockProjectStore.find((p) => p.lookupId === lid))
         .filter((p): p is ProjectReference => !!p);
@@ -322,9 +327,21 @@ export async function setParentProject(id: number, projectLookupId: number | nul
   return updateTaskFields(id, { Parent_x0020_Project_x0020_ReferLookupId: projectLookupId });
 }
 
-/** Replace the related-projects list with the given lookup IDs. */
+/**
+ * Replace the related-projects list with the given lookup IDs.
+ *
+ * MUST go through `multiLookupField`. This wrote `{ ProjectReference: [ids] }`
+ * — a bare array, under the un-suffixed column name — which Graph rejects with
+ * a bare `400 invalidRequest` carrying no hint at all. Related projects had
+ * therefore never saved in real mode; mock mode worked, which is why it
+ * survived so long (Alexander Masgras and Matthew Traina, 2026-08-20).
+ *
+ * A multi-value lookup needs BOTH the `LookupId` suffix and the
+ * `Collection(Edm.Int32)` annotation. The EIR path has always done this
+ * correctly; this one didn't.
+ */
 export async function setRelatedProjects(id: number, lookupIds: number[]): Promise<Task> {
-  return updateTaskFields(id, { ProjectReference: lookupIds });
+  return updateTaskFields(id, multiLookupField("ProjectReference", lookupIds));
 }
 
 /**
