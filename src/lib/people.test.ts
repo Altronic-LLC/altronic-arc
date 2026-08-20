@@ -124,11 +124,40 @@ describe("isHiddenPerson", () => {
     ).toBe(false);
   });
 
-  // Matching is on the address, never the display name — two people can share
-  // a name, and hiding the wrong colleague is worse than the duplicate.
-  it("ignores a person with no address rather than guessing", () => {
-    expect(isHiddenPerson({ displayName: "David Phillips" })).toBe(false);
-    expect(isHiddenPerson({ displayName: "David Phillips", email: "" })).toBe(false);
+  // THE ONE THAT MATTERED. This asserted `false` until 2026-08-20 — matching
+  // was address-only, on the reasoning that two people can share a name. But
+  // the pickers are built from SharePoint person columns, where Graph often
+  // returns LookupId + LookupValue and NO Email, so the real David arrived
+  // with nothing to match on and the fix appeared to do nothing: "Still there
+  // Why? can nopt click on him but I do not want to see it".
+  it("hides a person who arrived with no address at all", () => {
+    expect(isHiddenPerson({ displayName: "David Phillips" })).toBe(true);
+    expect(isHiddenPerson({ displayName: "David Phillips", email: "" })).toBe(true);
+    expect(isHiddenPerson({ displayName: "David Phillips", email: null })).toBe(true);
+  });
+
+  // Entra hands display names back surname-first ("Waldron, Jerrod"), so the
+  // same person reaches the picker written three different ways.
+  it("matches the name whichever way round it's written", () => {
+    expect(isHiddenPerson({ displayName: "Phillips, David" })).toBe(true);
+    expect(isHiddenPerson({ displayName: "  david   phillips  " })).toBe(true);
+    expect(isHiddenPerson({ displayName: "David Phillips", email: "dphillips@elsewhere.com" })).toBe(
+      true,
+    );
+  });
+
+  // The cost of matching names is that a genuine namesake would go too. Dave
+  // is the one who must survive, and he does — by name as well as by address.
+  it("still leaves the real Dave alone, address or not", () => {
+    expect(isHiddenPerson({ displayName: "Dave Phillips" })).toBe(false);
+    expect(isHiddenPerson({ displayName: "Phillips, Dave" })).toBe(false);
+    expect(isHiddenPerson({ displayName: "David Phillipson" })).toBe(false);
+    expect(isHiddenPerson({ displayName: "David" })).toBe(false);
+  });
+
+  it("says nothing about an empty person", () => {
+    expect(isHiddenPerson({})).toBe(false);
+    expect(isHiddenPerson({ displayName: "" })).toBe(false);
   });
 });
 
@@ -148,6 +177,15 @@ describe("withPerson drops hidden people", () => {
 
   it("removes the duplicate that came off the items", () => {
     const out = withPerson([DAVE, DAVID], RAY);
+    expect(out.map((p) => p.displayName)).not.toContain("David Phillips");
+    expect(out.map((p) => p.displayName)).toContain("Dave Phillips");
+  });
+
+  // How he ACTUALLY reaches the Operations Assigned filter: off the task's
+  // person column, display name only.
+  it("removes him when he came off an item with no address", () => {
+    const fromItem: Person = { displayName: "David Phillips", lookupId: 91 };
+    const out = withPerson([DAVE, fromItem], RAY);
     expect(out.map((p) => p.displayName)).not.toContain("David Phillips");
     expect(out.map((p) => p.displayName)).toContain("Dave Phillips");
   });

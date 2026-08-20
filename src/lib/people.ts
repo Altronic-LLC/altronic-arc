@@ -55,8 +55,9 @@ export function isHiddenDirectoryAccount(person: {
  * a local part is unique within the tenant, and getting the domain wrong
  * silently hides nobody, which is the failure that's hard to notice.
  *
- * Matching is on the email only, never the display name: two people can share
- * a name, and hiding the wrong colleague is worse than the duplicate.
+ * An entry is matched against the email AND the display name, because a person
+ * reaches a picker by more than one route and only some of those routes carry
+ * an address (see `nameTokenKey`).
  *
  * **This is cosmetic, not a permission.** A hidden account can still be
  * assigned work directly in SharePoint; this only keeps it out of the pickers.
@@ -70,15 +71,62 @@ const HIDDEN_PEOPLE: Set<string> = new Set(
     .filter(Boolean),
 );
 
-/** True when this person should be kept out of the pickers. */
+/**
+ * An order- and punctuation-insensitive key for a name:
+ *
+ *   "David Phillips"   → "david.phillips"
+ *   "Phillips, David"  → "david.phillips"
+ *   "david.phillips"   → "david.phillips"
+ *
+ * All three forms are the SAME person arriving by a different route, and the
+ * duplicate survived two fixes because each fix only knew one of them
+ * (Ray, 2026-08-20). Entra returns display names surname-first, SharePoint
+ * person columns return whatever was stored, and the config list is written in
+ * address form — so tokens are sorted and rejoined rather than compared in
+ * order.
+ */
+function nameTokenKey(text: string): string {
+  return text
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean)
+    .sort()
+    .join(".");
+}
+
+/** The configured entries, indexed both ways so either form matches. */
+const HIDDEN_KEYS: Set<string> = new Set([...HIDDEN_PEOPLE].map(nameTokenKey));
+
+/**
+ * True when this person should be kept out of the pickers.
+ *
+ * Checks the address first and the name second, rather than treating the name
+ * as a fallback for a missing address: people gathered off ITEMS come from a
+ * SharePoint person column, where Graph frequently omits `Email` altogether,
+ * and an address that IS present may be on a domain the config list doesn't
+ * spell out. Matching only what happened to be populated is exactly how the
+ * duplicate kept coming back.
+ *
+ * The cost is that a real colleague whose name reduces to the same key would
+ * be hidden too. That's accepted: entries are configured deliberately, one
+ * named person at a time — and "Dave Phillips", the one who must survive here,
+ * reduces to `dave.phillips` and is untouched.
+ */
 export function isHiddenPerson(person: {
   displayName?: string;
   email?: string | null;
 }): boolean {
   if (isHiddenDirectoryAccount(person)) return true;
+
   const email = (person.email ?? "").trim().toLowerCase();
-  if (!email) return false;
-  return HIDDEN_PEOPLE.has(email) || HIDDEN_PEOPLE.has(email.split("@")[0]);
+  if (email) {
+    const local = email.split("@")[0];
+    if (HIDDEN_PEOPLE.has(email) || HIDDEN_PEOPLE.has(local)) return true;
+    if (HIDDEN_KEYS.has(nameTokenKey(local))) return true;
+  }
+
+  const name = (person.displayName ?? "").trim();
+  return name.length > 0 && HIDDEN_KEYS.has(nameTokenKey(name));
 }
 
 /**

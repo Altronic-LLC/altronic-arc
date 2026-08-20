@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.109.2",
+    date: "2026-08-20",
+    changes: [
+      "The duplicate \"David Phillips\" is gone from the Assigned dropdown for real this time — he was reaching it with only a name attached, and the previous two fixes both matched on email address",
+      "A hidden account is now matched however its name is written — \"David Phillips\", \"Phillips, David\" or the address — while the real Dave Phillips keeps his place",
+    ],
+  },
+  {
     version: "0.109.1",
     date: "2026-08-20",
     changes: [
