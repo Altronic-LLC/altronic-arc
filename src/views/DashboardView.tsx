@@ -92,6 +92,18 @@ import { cn } from "@/lib/cn";
 
 type Scope = "mine" | "company";
 
+// Every DeptSection title on the page, in the order they appear. Used to drive
+// the "Collapse all / Expand all" toggle without hardcoding the count twice.
+const SECTION_TITLES = [
+  "Engineering",
+  "Panels",
+  "Operations",
+  "Coils",
+  "Quality Control",
+  "Supply Chain",
+  "Customer Service / Sales",
+];
+
 function personMatches(list: Person[], email: string): boolean {
   if (!email) return false;
   return list.some((p) => (p.email ?? "").toLowerCase() === email);
@@ -270,6 +282,27 @@ export function DashboardView() {
   const currentUser = useCurrentUser();
   const [scope, setScope] = useState<Scope>("mine");
   const [projectFilter, setProjectFilter] = useState<string | null>(null);
+  // Which department sections are collapsed, by title. Lifted up (rather than
+  // local state inside DeptSection) so "Collapse all / Expand all" can drive
+  // every section at once.
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+  const allSectionsCollapsed = collapsedSections.size >= SECTION_TITLES.length;
+
+  function toggleSection(title: string) {
+    setCollapsedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(title)) {
+        next.delete(title);
+      } else {
+        next.add(title);
+      }
+      return next;
+    });
+  }
+
+  function toggleAllSections() {
+    setCollapsedSections(allSectionsCollapsed ? new Set() : new Set(SECTION_TITLES));
+  }
 
   const projectOptions = useMemo(
     () =>
@@ -571,8 +604,8 @@ export function DashboardView() {
             {projectTitle ? ` on ${projectTitle}.` : " by type."}
           </p>
         </div>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="w-full sm:w-64">
+        <div className="flex flex-col gap-3 sm:mr-2 sm:flex-row sm:items-center">
+          <div className="w-full sm:w-56">
             <SingleSelect
               allLabel="All projects"
               searchPlaceholder="Search projects…"
@@ -582,12 +615,24 @@ export function DashboardView() {
             />
           </div>
           <ScopeToggle value={scope} onChange={setScope} className="shrink-0" />
+          <button
+            type="button"
+            onClick={toggleAllSections}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-surface-2 px-3 py-1.5 text-sm font-medium text-fg-muted transition-colors hover:bg-surface hover:text-fg"
+          >
+            <ChevronDown
+              className={cn("h-3.5 w-3.5 transition-transform", allSectionsCollapsed && "-rotate-90")}
+            />
+            {allSectionsCollapsed ? "Expand all" : "Collapse all"}
+          </button>
         </div>
       </header>
 
       {/* Engineering — the only department with live data today. */}
       <DeptSection
         title="Engineering"
+        collapsed={collapsedSections.has("Engineering")}
+        onToggle={() => toggleSection("Engineering")}
         notice={
           engineeringDenied ? (
             <NoAccessNotice team="Engineering" site="Altronic_Engineering" />
@@ -660,6 +705,8 @@ export function DashboardView() {
 
       <DeptSection
         title="Panels"
+        collapsed={collapsedSections.has("Panels")}
+        onToggle={() => toggleSection("Panels")}
         notice={
           panelsDenied ? <NoAccessNotice team="Panels" site="ALTRONICPANELTEAM" /> : undefined
         }
@@ -687,6 +734,8 @@ export function DashboardView() {
 
       <DeptSection
         title="Operations"
+        collapsed={collapsedSections.has("Operations")}
+        onToggle={() => toggleSection("Operations")}
         notice={
           operationsDenied ? <NoAccessNotice team="Operations" site="Altronic_PMO" /> : undefined
         }
@@ -712,7 +761,11 @@ export function DashboardView() {
         <PlaceholderCard name="Maintenance Tasks" icon={<Hammer className="h-5 w-5" />} />
       </DeptSection>
 
-      <DeptSection title="Coils">
+      <DeptSection
+        title="Coils"
+        collapsed={collapsedSections.has("Coils")}
+        onToggle={() => toggleSection("Coils")}
+      >
         <PlaceholderCard name="Coil Defect Log" icon={<FileText className="h-5 w-5" />} />
         <TypeCard
           name="Potting Sample Log"
@@ -723,7 +776,11 @@ export function DashboardView() {
         />
       </DeptSection>
 
-      <DeptSection title="Quality Control">
+      <DeptSection
+        title="Quality Control"
+        collapsed={collapsedSections.has("Quality Control")}
+        onToggle={() => toggleSection("Quality Control")}
+      >
         <TypeCard
           name="Digital QC Defect Log"
           icon={<TestTubes className="h-5 w-5" />}
@@ -741,7 +798,11 @@ export function DashboardView() {
         <PlaceholderCard name="QC Forms" icon={<FileCheck className="h-5 w-5" />} />
       </DeptSection>
 
-      <DeptSection title="Supply Chain">
+      <DeptSection
+        title="Supply Chain"
+        collapsed={collapsedSections.has("Supply Chain")}
+        onToggle={() => toggleSection("Supply Chain")}
+      >
         <PlaceholderCard name="Grey Market Part Requests" icon={<PackageSearch className="h-5 w-5" />} />
         <PlaceholderCard name="Supplier Issue Tracking" icon={<AlertTriangle className="h-5 w-5" />} />
         <PlaceholderCard name="Supplier List" icon={<Building2 className="h-5 w-5" />} />
@@ -750,7 +811,11 @@ export function DashboardView() {
         <PlaceholderCard name="FAIT" icon={<FileCheck className="h-5 w-5" />} />
       </DeptSection>
 
-      <DeptSection title="Customer Service / Sales">
+      <DeptSection
+        title="Customer Service / Sales"
+        collapsed={collapsedSections.has("Customer Service / Sales")}
+        onToggle={() => toggleSection("Customer Service / Sales")}
+      >
         <PlaceholderCard name="Customer Feedback" icon={<MessageSquare className="h-5 w-5" />} />
         <PlaceholderCard name="Visit Reporting" icon={<MapPin className="h-5 w-5" />} />
         <PlaceholderCard name="Customers" icon={<Users className="h-5 w-5" />} />
@@ -772,24 +837,29 @@ export function DashboardView() {
 /**
  * A department band: a titled divider line across the page + a card grid.
  * The whole header row (title + line + chevron) is a toggle — clicking it
- * collapses the section down to just its heading. Expanded by default.
+ * collapses the section down to just its heading. Collapse state is owned by
+ * the parent (rather than local state) so "Collapse all / Expand all" can
+ * drive every section at once.
  */
 function DeptSection({
   title,
+  collapsed = false,
+  onToggle,
   notice,
   children,
 }: {
   title: string;
+  collapsed?: boolean;
+  onToggle?: () => void;
   /** Full-width note rendered between the heading and the cards (e.g. a no-access explainer). */
   notice?: React.ReactNode;
   children: React.ReactNode;
 }) {
-  const [collapsed, setCollapsed] = useState(false);
   return (
     <section className="flex flex-col gap-3">
       <button
         type="button"
-        onClick={() => setCollapsed((c) => !c)}
+        onClick={onToggle}
         aria-expanded={!collapsed}
         className="group flex w-full items-center gap-3 text-left"
       >
@@ -800,7 +870,7 @@ function DeptSection({
         <ChevronDown
           className={cn(
             "h-4 w-4 shrink-0 text-fg-muted transition-transform group-hover:text-fg",
-            collapsed && "rotate-90",
+            collapsed && "-rotate-90",
           )}
         />
       </button>
