@@ -16,7 +16,7 @@ import { useEffect } from "react";
 //   2. **Another dropdown opens** → close. Only one panel is ever open, which
 //      matters most on a filter bar with four of them in a row.
 //   3. Outside mousedown → close (as before).
-//   4. Escape → close (as before).
+//   4. Escape → close — and STOP THERE. See dropdownKeyHandler.
 //
 // Deliberately NOT closing on mouse-leave: it fires while you're reading a
 // long list and your cursor drifts, and it means nothing on a touchscreen —
@@ -64,19 +64,41 @@ export function useDropdownClose(
     function onDocMouseDown(e: MouseEvent) {
       if (!containerRef.current?.contains(e.target as Node)) close();
     }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") close();
-    }
     document.addEventListener("mousedown", onDocMouseDown);
-    document.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("mousedown", onDocMouseDown);
-      document.removeEventListener("keydown", onKey);
       releaseOpenDropdown(close);
     };
     // `close` is a stable setState wrapper at every call site.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+}
+
+/**
+ * The `onKeyDown` handler for the container — rule 4.
+ *
+ * Escape closes the panel and **stops there**. This used to be a listener on
+ * `document`, which meant an open dropdown inside a modal had TWO document
+ * listeners waiting on the same key: the dropdown's and the modal's. Escape
+ * fired both, so closing a dropdown you'd opened by mistake also closed the
+ * dialog and threw away everything typed into it.
+ *
+ * Alexander Masgras lost a part-filled New Task that way on 2026-08-20 —
+ * "hitting escape erases everything from the task you were creating!" — while
+ * trying to dismiss the Parent Task menu.
+ *
+ * Handling it on the container and calling `stopPropagation` keeps the key
+ * from reaching the modal at all: React's root sits inside `document`, so
+ * stopping the native event there ends its journey. When no panel is open the
+ * handler does nothing and Escape reaches the modal as it should — closing a
+ * dropdown and closing a dialog are the same keystroke, one step apart.
+ */
+export function dropdownKeyHandler(open: boolean, close: () => void) {
+  return (e: React.KeyboardEvent) => {
+    if (!open || e.key !== "Escape") return;
+    e.stopPropagation();
+    close();
+  };
 }
 
 /**

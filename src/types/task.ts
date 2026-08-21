@@ -1446,3 +1446,53 @@ export interface EcnInput {
   logNo: string;
   values: Record<string, string>;
 }
+
+// =============================================================================
+// FAITs (First Article Inspection Tests) — Supply Chain, on the Altronic
+// Engineering site.
+//
+// A new or changed part arrives from a supplier, quality inspects it, and SQE,
+// Engineering and the KAM each sign off. Fifty-one workflow columns live in
+// `values`, keyed by the descriptors in `src/lib/faitFields.ts`.
+//
+// Two things about the data as it stands (schema captured 2026-08-20):
+//
+//  - **`Title` is empty on every existing row.** Rows are identified in
+//    practice by SAP Part Number + Description + Drawing Number, so that's
+//    what the list leads with.
+//  - **The three lookups are unused so far.** Project Reference, EIR Reference
+//    and Test Document Reference all exist on the list and are blank on the 36
+//    rows that predate ARC.
+// =============================================================================
+
+export interface Fait {
+  id: number;
+  /** `Title` — present on the list but empty on every row so far. */
+  title: string;
+  /** `Status` — Open → …with SQE/ENG/KAM → Closed. */
+  status: string;
+  /** Single lookup into the Projects list. */
+  parentProject: ProjectReference | null;
+  /** Single lookup into the EIRs list. */
+  eirLookupId: number | null;
+  /** Single lookup into the Test Results list. */
+  testDocumentLookupId: number | null;
+  initiator: Person | null;
+  assignedEngineer: Person | null;
+  kam: Person | null;
+  watchers: Person[];
+  comments: Comment[];
+  hasAttachments: boolean;
+  /** Every workflow column, keyed by the descriptor keys in faitFields.ts. */
+  values: Record<string, string>;
+  createdAt: Date;
+  modifiedAt: Date;
+}
+
+/** Everything a create needs. Edits go card-by-card from the detail page. */
+export interface FaitInput {
+  title: string;
+  status: string;
+  projectLookupId: number | null;
+  values: Record<string, string>;
+}

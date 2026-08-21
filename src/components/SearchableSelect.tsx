@@ -2,7 +2,11 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, Plus, Search, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { matchesTokens } from "@/lib/itemSearch";
-import { dropdownBlurHandler, useDropdownClose } from "./useDropdownClose";
+import {
+  dropdownBlurHandler,
+  dropdownKeyHandler,
+  useDropdownClose,
+} from "./useDropdownClose";
 
 export interface SelectOption {
   value: string;
@@ -254,7 +258,14 @@ function DropdownShell({
   return (
     // onBlur is focusout and bubbles, so this catches focus leaving the
     // trigger, the search box or an option — see useDropdownClose.
-    <div ref={ref} className="relative" onBlur={dropdownBlurHandler(ref, close)}>
+    <div
+      ref={ref}
+      className="relative"
+      onBlur={dropdownBlurHandler(ref, close)}
+      // Escape closes the panel WITHOUT reaching an enclosing modal — see
+      // dropdownKeyHandler.
+      onKeyDown={dropdownKeyHandler(open, close)}
+    >
       {useChips ? (
         <div className="flex flex-col gap-1 rounded-lg border border-border bg-surface p-1.5">
           {chips!.map((c) => (

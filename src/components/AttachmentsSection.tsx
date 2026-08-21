@@ -5,7 +5,11 @@ import {
   useDeleteAttachment,
   useUploadAttachment,
 } from "@/hooks/useAttachments";
-import { SharePointUnavailableError } from "@/api/sharepoint";
+import {
+  refreshSharePointAccess,
+  SharePointUnavailableError,
+  type SharePointUnavailableCause,
+} from "@/api/sharepoint";
 import type { AttachmentParent } from "@/api/attachments";
 import { filesFromClipboard } from "@/lib/pasteFiles";
 import { useFileDrop } from "./useFileDrop";
@@ -26,7 +30,7 @@ interface AttachmentsSectionProps {
  */
 export function AttachmentsSection({ parent, itemId }: AttachmentsSectionProps) {
   const fileInput = useRef<HTMLInputElement>(null);
-  const { data: attachments = [], isLoading, error } = useAttachments(parent, itemId);
+  const { data: attachments = [], isLoading, error, refetch } = useAttachments(parent, itemId);
   const upload = useUploadAttachment(parent, itemId);
   const remove = useDeleteAttachment(parent, itemId);
 
@@ -110,9 +114,13 @@ export function AttachmentsSection({ parent, itemId }: AttachmentsSectionProps) 
       </div>
 
       {error instanceof SharePointUnavailableError ? (
-        <UnavailableNotice message={error.message} />
+        <UnavailableNotice
+          message={error.message}
+          cause={error.cause}
+          onRetry={() => void refetch()}
+        />
       ) : error ? (
-        <UnavailableNotice message={(error as Error).message} />
+        <UnavailableNotice message={(error as Error).message} cause="consent" />
       ) : isLoading ? (
         <div className="py-4 text-center text-xs text-fg-muted">Loading attachments…</div>
       ) : attachments.length === 0 ? (
@@ -204,16 +212,66 @@ export function AttachmentsSection({ parent, itemId }: AttachmentsSectionProps) 
   );
 }
 
-function UnavailableNotice({ message }: { message: string }) {
+/**
+ * Why attachments aren't working — and, when it's the reader's own session,
+ * a way out of it.
+ *
+ * This said "an admin hasn't granted it yet" whatever went wrong, including
+ * when the real cause was the reader's own expired MFA. That sends someone to
+ * raise a ticket for something they can fix in ten seconds (Ray, 2026-08-20).
+ */
+function UnavailableNotice({
+  message,
+  cause,
+  onRetry,
+}: {
+  message: string;
+  cause: SharePointUnavailableCause;
+  onRetry?: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
+
+  async function signInAgain() {
+    setBusy(true);
+    setFailed(null);
+    try {
+      await refreshSharePointAccess();
+      onRetry?.();
+    } catch (err) {
+      setFailed(err instanceof Error ? err.message : "Sign-in didn't complete.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="rounded-md border border-dashed border-cooper-red/40 bg-cooper-red/5 p-3 text-xs text-fg">
       <div className="font-semibold text-cooper-red">Attachments unavailable</div>
       <p className="mt-1 text-fg-muted">{message}</p>
-      <p className="mt-1 text-fg-muted">
-        Once an admin grants the app SharePoint REST access and sets{" "}
-        <code>VITE_SP_SITE_URL</code>, attachments will start working on every
-        task and EIR.
-      </p>
+      {cause === "reauth" ? (
+        <>
+          <button
+            type="button"
+            onClick={signInAgain}
+            disabled={busy}
+            className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-white transition-colors hover:bg-accent/90 disabled:opacity-60"
+          >
+            {busy ? "Opening sign-in…" : "Sign in again"}
+          </button>
+          {failed && <p className="mt-1 text-cooper-red">{failed}</p>}
+          <p className="mt-1 text-fg-muted">
+            Nothing else on this page is affected — only attachments need the
+            fresh sign-in.
+          </p>
+        </>
+      ) : (
+        <p className="mt-1 text-fg-muted">
+          Once an admin grants the app SharePoint REST access and sets{" "}
+          <code>VITE_SP_SITE_URL</code>, attachments will start working
+          everywhere.
+        </p>
+      )}
     </div>
   );
 }

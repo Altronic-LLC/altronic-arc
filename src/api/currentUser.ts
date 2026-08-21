@@ -95,3 +95,91 @@ async function doResolve(email: string): Promise<number> {
     return ensureSiteUserLookupId(SP_SITE_URL, email);
   }
 }
+
+// =============================================================================
+// The signed-in user's actual mailbox addresses.
+//
+// MSAL only tells the app `account.username` — the UPN, i.e. the name you SIGN
+// IN with. That is not required to equal the address you receive mail at, and
+// in a tenant assembled from more than one company it frequently doesn't. The
+// ID token's `email` claim would carry the mailbox, but it's an OPTIONAL claim
+// that has to be configured on the app registration, so it can't be relied on
+// either.
+//
+// Everything in ARC that matches a person against a stored address — the EIR
+// Roles list being the one that bit (Steven Pirko, 2026-08-20) — needs the
+// mailbox, not the sign-in name. `/me` gives it authoritatively, and needs no
+// new consent: User.Read is already in `graphScopes`.
+// =============================================================================
+
+/** What Entra holds for the signed-in user. */
+export interface MyIdentity {
+  /**
+   * The address to treat as theirs everywhere in ARC: the mailbox, falling
+   * back to the UPN. This is what SharePoint person columns, the EIR Roles
+   * list and every picker hold — NOT necessarily what they sign in with.
+   */
+  primary: string;
+  /** Every address they answer to, for matching against a stored value. */
+  all: string[];
+}
+
+let identityPromise: Promise<MyIdentity> | null = null;
+
+const EMPTY_IDENTITY: MyIdentity = { primary: "", all: [] };
+
+/**
+ * Resolve the signed-in user's real addresses, once per session.
+ *
+ * Never rejects: a failure logs, clears the cached promise so a later call can
+ * retry, and returns empty — callers then fall back to the sign-in name, which
+ * is what the app used to use unconditionally. Degrading beats locking anyone
+ * out of a feature they had before.
+ */
+export async function resolveMyIdentity(): Promise<MyIdentity> {
+  if (USE_MOCK) {
+    return {
+      primary: "demo.user@altronic-llc.com",
+      all: ["demo.user@altronic-llc.com"],
+    };
+  }
+  if (!identityPromise) {
+    identityPromise = doResolveIdentity().catch((err) => {
+      console.warn("Could not read the signed-in user's addresses from Graph:", err);
+      identityPromise = null;
+      return EMPTY_IDENTITY;
+    });
+  }
+  return identityPromise;
+}
+
+async function doResolveIdentity(): Promise<MyIdentity> {
+  const me = await graphFetch<{
+    mail?: string | null;
+    userPrincipalName?: string | null;
+    otherMails?: string[] | null;
+  }>("/me?$select=mail,userPrincipalName,otherMails");
+
+  const clean = (value: string | null | undefined) => (value ?? "").trim().toLowerCase();
+  const mail = clean(me.mail);
+  const upn = clean(me.userPrincipalName);
+
+  const all = new Set<string>();
+  if (mail) all.add(mail);
+  if (upn) all.add(upn);
+  for (const other of me.otherMails ?? []) {
+    const email = clean(other);
+    if (email) all.add(email);
+  }
+
+  // `mail` first: the mailbox is the identity the rest of the tenant knows
+  // them by. Steve Pirko signs in as steve.pirko@ and receives mail at
+  // Steven.Pirko@ — everything stored about him says the latter.
+  return { primary: mail || upn, all: [...all] };
+}
+
+/** Just the addresses, for callers that only need to match one. */
+export async function resolveMyEmailAddresses(): Promise<string[]> {
+  return (await resolveMyIdentity()).all;
+}
+

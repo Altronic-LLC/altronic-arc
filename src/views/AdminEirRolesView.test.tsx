@@ -23,6 +23,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/hooks/useIsAdmin", () => ({ useIsAdmin: () => mocks.isAdmin }));
 vi.mock("@/hooks/useCurrentUser", () => ({
   useCurrentUser: () => ({ displayName: "Demo User", email: "demo.user@altronic-llc.com" }),
+  useCurrentUserEmails: () => ["demo.user@altronic-llc.com"],
 }));
 vi.mock("@/hooks/useEirRoles", () => ({
   useEirRoles: () => ({ data: mocks.entries, isLoading: mocks.isLoading }),
@@ -172,6 +173,24 @@ describe("AdminEirRolesView", () => {
       roles: [],
       note: "",
     });
+  });
+
+  // A row added by hand in SharePoint can end up with a NAME in the Title
+  // column. Nothing errors — the person just never matches, and reports that
+  // their role doesn't work. Say so where an admin can fix it.
+  it("flags a row whose email column holds a name", () => {
+    mocks.entries = [
+      { id: 1, email: "Steven Pirko", displayName: "Steven Pirko", roles: ["engineer"], note: "" },
+      {
+        id: 2,
+        email: "ray.white@altronic-llc.com",
+        displayName: "Ray White",
+        roles: ["engineer"],
+        note: "",
+      },
+    ];
+    renderWithProviders(<AdminEirRolesView />, { route: "/admin/eir-roles" });
+    expect(screen.getAllByText(/not an email/i)).toHaveLength(1);
   });
 
   it("spells out what each role gates, not just in a tooltip", () => {

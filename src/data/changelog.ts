@@ -20,6 +20,107 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.109.5",
+    date: "2026-08-20",
+    changes: [
+      "Steve Pirko is back in the people pickers — 0.109.4 mistook his two email spellings for a duplicate account and hid him",
+      "ARC now identifies you by your real mailbox rather than the name you sign in with, so EIR role tags apply and the Assigned filter's \"me\" default finds your own work when the two differ",
+    ],
+  },
+  {
+    version: "0.109.4",
+    date: "2026-08-20",
+    changes: [
+      "EIR role tags are now matched against your real mailbox, read from your Microsoft account — not just the name you sign in with, which isn't always the same address",
+      "The duplicate \"Steve Pirko\" is hidden from the people pickers; Steven Pirko is the one that stays",
+    ],
+  },
+  {
+    version: "0.109.3",
+    date: "2026-08-20",
+    changes: [
+      "EIR role tags now work for people whose sign-in name differs from their email address — being tagged \"engineer\" left every gated field read-only for them",
+      "Admin → EIR Roles marks the row for whoever is signed in using the same rule the gating uses, so the two can't disagree",
+      "Admin → EIR Roles flags a row whose email column holds a name instead of an address — those grant nothing, silently",
+    ],
+  },
+  {
+    version: "0.109.2",
+    date: "2026-08-20",
+    changes: [
+      "The duplicate \"David Phillips\" is gone from the Assigned dropdown for real this time — he was reaching it with only a name attached, and the previous two fixes both matched on email address",
+      "A hidden account is now matched however its name is written — \"David Phillips\", \"Phillips, David\" or the address — while the real Dave Phillips keeps his place",
+    ],
+  },
+  {
+    version: "0.109.1",
+    date: "2026-08-20",
+    changes: [
+      "The duplicate \"David Phillips\" is now gone from the filter bars too — the Assigned dropdown on a list builds its options from the tasks themselves, so it needed fixing separately from the directory",
+    ],
+  },
+  {
+    version: "0.109.0",
+    date: "2026-08-20",
+    changes: [
+      "Disabled accounts no longer appear in the Assigned, Engineer, Watcher and @-mention pickers — leavers and duplicate accounts drop out on their own",
+      "The duplicate \"David Phillips\" account no longer appears in Assigned, Watcher or @-mention pickers — only the real Dave Phillips does",
+    ],
+  },
+  {
+    version: "0.108.2",
+    date: "2026-08-20",
+    changes: [
+      "When attachments stop working because your Microsoft sign-in needs refreshing, the message now says so and gives you a Sign in again button — instead of telling you to go and find an admin",
+      "The admin instructions still show when the app genuinely is missing the SharePoint permission",
+    ],
+  },
+  {
+    version: "0.108.1",
+    date: "2026-08-20",
+    changes: [
+      "Related projects on a task now actually save — they were being rejected by SharePoint every time, so the change was always undone",
+      "Escape closes an open dropdown without closing the form behind it, so a half-filled New Task survives",
+    ],
+  },
+  {
+    version: "0.108.0",
+    date: "2026-08-20",
+    changes: [
+      "Supply Chain gets FAITs — First Article Inspection Tests, reading and writing the same SharePoint list you already use",
+      "Opens on the open ones, with filters for project, supplier and whoever it's sitting with, and a search across every field",
+      "Work a FAIT through five cards — Part, Request, Inspection, Results, Sign-off — each with one Edit button that writes only what you changed",
+      "FAITs now carry comments, watchers and attachments like the rest of ARC",
+    ],
+  },
+  {
+    version: "0.107.0",
+    date: "2026-08-20",
+    changes: [
+      "A new EIR raised without a project reference now emails Sheila Horn asking her to add one",
+      "Once a project reference is set, Glenn Terry and Brandon Mirto are asked to assign an engineer — and an EIR raised with a project already on it goes straight to them",
+      "Each email says what happens next, so everyone can see where they sit in the chain",
+      "Changing an EIR's project later doesn't re-send the request, and an EIR that already has an engineer is never chased for one",
+    ],
+  },
+  {
+    version: "0.106.1",
+    date: "2026-08-20",
+    changes: [
+      "A sign-in problem you have to fix — an expired password, an account flagged at risk — now says so on the sign-in screen, once, instead of showing a wall of Microsoft error codes on every dashboard card",
+      "The message tells you what to do about it, and keeps the code so you can quote it to IT",
+    ],
+  },
+  {
+    version: "0.106.0",
+    date: "2026-08-20",
+    changes: [
+      "Engineering can create a project folder from ARC — New project folder on the Project Folders page",
+      "The new folder is tagged with its project automatically, so files uploaded from a task on that project land in it straight away instead of going to Miscellaneous",
+      "A project that already has a folder is marked as such and can't be given a second one",
+    ],
+  },
+  {
     version: "0.105.0",
     date: "2026-08-19",
     changes: [

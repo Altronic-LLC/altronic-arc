@@ -21,6 +21,8 @@ import { TestSheetDetailView } from "@/views/TestSheetDetailView";
 import { EirsView } from "@/views/EirsView";
 import { WhereAmIView } from "@/views/WhereAmIView";
 import { EcnsView } from "@/views/EcnsView";
+import { FaitsView } from "@/views/FaitsView";
+import { FaitDetailView } from "@/views/FaitDetailView";
 import { EcnDetailView } from "@/views/EcnDetailView";
 import { VisitReportsView } from "@/views/VisitReportsView";
 import { GrayMarketRequestsView } from "@/views/GrayMarketRequestsView";
@@ -196,6 +198,8 @@ export function App() {
           <Route path="/coils/potting-sample-log" element={<PottingSampleLogView />} />
           <Route path="/coils/potting-limits" element={<PottingLimitsView />} />
           <Route path="/coils/psr-notifications" element={<PsrNotificationView />} />
+          <Route path="/supply-chain/faits" element={<FaitsView />} />
+          <Route path="/supply-chain/fait/:id" element={<FaitDetailView />} />
           <Route
             path="/supply-chain/gray-market-requests"
             element={<GrayMarketRequestsView />}

@@ -4,7 +4,7 @@ import { directoryScopes } from "@/auth/msalConfig";
 import { getMsalInstance } from "@/auth/AuthProvider";
 import type { Person } from "@/types/task";
 import { mockLookupIdForEmail } from "@/lib/mentions";
-import { isHiddenDirectoryAccount } from "@/lib/people";
+import { isHiddenDirectoryAccount, isHiddenPerson } from "@/lib/people";
 
 // =============================================================================
 // Staff directory — the whole tenant's users (Graph /users) so the
@@ -31,6 +31,12 @@ interface GraphDirectoryUser {
   id: string;
   displayName?: string;
   mail?: string;
+  /**
+   * Undefined in tenants that restrict the property — which is why the filter
+   * below tests for an explicit `false` rather than falsiness. Treating
+   * "unknown" as disabled would empty every picker in the app.
+   */
+  accountEnabled?: boolean;
   userPrincipalName?: string;
 }
 
@@ -68,7 +74,7 @@ export async function listDirectoryPeople(): Promise<Person[]> {
     // for tenants larger than one page. userType isn't in the ReadBasic
     // property set, so external guests are filtered client-side by UPN.
     const users = await graphFetchAllScoped<GraphDirectoryUser>(
-      "/users?$select=id,displayName,mail,userPrincipalName&$top=999",
+      "/users?$select=id,displayName,mail,userPrincipalName,accountEnabled&$top=999",
       directoryScopes,
     );
     return mapDirectoryUsers(users);
@@ -98,6 +104,12 @@ export function mapDirectoryUsers(users: GraphDirectoryUser[]): Person[] {
     const email = (u.mail ?? upn).trim();
     if (!displayName || !email) continue; // skip mail-less service accounts
     if (upn.includes("#EXT#")) continue; // skip external guests
+    // Disabled accounts — leavers, and the stale half of a duplicated person.
+    // You shouldn't be able to assign work to an account nobody can sign into,
+    // and a departed colleague lingering in every picker is how the wrong name
+    // gets picked. Explicit `=== false`: see the note on the property.
+    if (u.accountEnabled === false) continue;
+    if (isHiddenPerson({ displayName, email })) continue;
     // admin.first.last shadow accounts — see isHiddenDirectoryAccount.
     if (isHiddenDirectoryAccount({ displayName, email })) continue;
     const key = email.toLowerCase();

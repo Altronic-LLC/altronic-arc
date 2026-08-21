@@ -102,3 +102,26 @@ describe("grantDirectoryAccess (mock mode)", () => {
     await expect(grantDirectoryAccess()).resolves.toBeUndefined();
   });
 });
+
+// A disabled account is a leaver, or the stale half of a duplicated person.
+// You shouldn't be able to assign work to one, and it's how the wrong name
+// gets picked (Ray, 2026-08-20 — "David Phillips" beside the real "Dave").
+describe("disabled accounts", () => {
+  it("keeps them out of the pickers", () => {
+    const people = mapDirectoryUsers([
+      { id: "1", displayName: "Dave Phillips", mail: "dave.phillips@x.com", accountEnabled: true },
+      { id: "2", displayName: "David Phillips", mail: "david.phillips@x.com", accountEnabled: false },
+    ]);
+    expect(people.map((p) => p.displayName)).toEqual(["Dave Phillips"]);
+  });
+
+  // Some tenants don't return the property at all. Treating "unknown" as
+  // disabled would empty every picker in the app.
+  it("keeps everyone when the tenant doesn't report it", () => {
+    const people = mapDirectoryUsers([
+      { id: "1", displayName: "Dave Phillips", mail: "dave.phillips@x.com" },
+      { id: "2", displayName: "Amy Adams", mail: "amy@x.com" },
+    ]);
+    expect(people).toHaveLength(2);
+  });
+});

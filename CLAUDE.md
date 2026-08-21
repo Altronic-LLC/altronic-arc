@@ -230,6 +230,7 @@ src/
 │   ├── eirs.ts                   EIR CRUD
 │   ├── eirRoles.ts               EIR role tags (engineer / supply chain) CRUD
 │   ├── ecns.ts                   ECN CRUD + comments (Engineering) — no delete
+│   ├── faits.ts                  FAIT CRUD + comments (Supply Chain) — no delete
 │   ├── testSheets.ts             Test Results CRUD
 │   ├── admins.ts                 Admins list CRUD
 │   ├── csaListings.ts            CSA Listings CRUD (Engineering certification register)
@@ -267,6 +268,7 @@ src/
 │   ├── grayMarketMockData.ts     Sample gray market requests
 │   ├── whereAmIMockData.ts       Sample out-of-office entries (dated from today)
 │   ├── ecnMockData.ts            Sample ECNs (rich-text fields, a revision)
+│   ├── faitMockData.ts           Sample FAITs (empty Titles, as the live list has)
 │   ├── buildRequestMockData.ts   Sample build requests + items
 │   └── changelog.ts              Version history (drives footer + history modal)
 │
@@ -285,6 +287,7 @@ src/
 │   ├── useGrayMarketRequests.ts  Gray Market queries, mutations + comment thread
 │   ├── useWhereAmI.ts            Where am I? queries + mutations
 │   ├── useEcns.ts                ECN queries + mutations (submitter-only notifications)
+│   ├── useFaits.ts               FAIT queries + mutations
 │   ├── useVisitReportFilters.ts  URL-backed Visit Report filters (+ filterSearch)
 │   ├── useBuildRequests.ts       Build Requests + Items queries/mutations
 │   ├── useTestSheets.ts          Test sheet queries + mutations
@@ -320,8 +323,11 @@ src/
 │   ├── eirFilters.ts             Pure EIR filter/sort/count predicates (list + board)
 │   ├── eirMapper.ts              Graph item → Eir (field-name quirks)
 │   ├── eirNumber.ts              nextEirNo() — EIR_YYYY-#### auto-numbering
+│   ├── eirTriage.ts              Chasing a new EIR until it has a project + an engineer
 │   ├── ecnFields.ts              ECN column descriptors (field_2 … field_12 decoded)
 │   ├── ecnMapper.ts              Graph item → Ecn, Log# parsing/sorting
+│   ├── faitFields.ts             FAIT column descriptors (51 columns, 19 booleans)
+│   ├── faitMapper.ts             Graph item → Fait
 │   ├── eirPromotion.ts           EIR → Task promotion helpers
 │   ├── testSheetMapper.ts        Graph item → TestSheet
 │   ├── csaListingMapper.ts       Graph item → CsaListing (+ label, sort, search)
@@ -350,6 +356,8 @@ src/
 │   ├── sanitiseHtml.ts           DOMPurify wrapper for stored HTML
 │   ├── richText.ts               Plain text ⇄ HTML for the EIR rich-text columns
 │   ├── errorBuffer.ts            Bounded console-error capture (Report issue)
+│   ├── authErrors.ts             AADSTS codes that mean "fix your account", in plain English
+│   ├── emailIdentity.ts          Matching a person to a stored address (sign-in name ≠ mailbox)
 │   └── pcbChecklist.ts           PCB-category task checklist logic
 │
 ├── types/
@@ -396,7 +404,9 @@ src/
 │   ├── VisitReportFormModal.tsx  Create/edit a visit report
 │   ├── GrayMarketRequestFormModal.tsx  Raise a gray market request
 │   ├── WhereAmIFormModal.tsx     Add/edit an out-of-office entry (+ date range)
+│   ├── ProjectFolderFormModal.tsx  Create a project folder + tag its Project Reference
 │   ├── EcnFormModal.tsx          Raise an ECN
+│   ├── FaitFormModal.tsx         Raise a FAIT
 │   ├── FieldEditModal.tsx        Shared "edit this card's fields" modal (Gray Market + ECN)
 │   ├── YesNoField.tsx            A boolean column as two labelled Yes / No choices
 │   ├── ChoicePills.tsx          Any short choice set as pills (Yes/No, Pass/Fail, …)
@@ -423,6 +433,7 @@ src/
 │   ├── visitReportAtoms.tsx      Customer-status chip (Sales)
 │   ├── grayMarketAtoms.tsx       Request-status + Pass/Fail chips (Supply Chain)
 │   ├── ecnAtoms.tsx              On-hold / flag / stock-disposition chips (ECNs)
+│   ├── faitAtoms.tsx             Status / sign-off / first-pass chips (FAITs)
 │   ├── VisitReportFilterBar.tsx  Shared filter bar for both Visit Report views
 │   ├── buildRequestAtoms.tsx     Build-request-specific badges/chips
 │   └── brand/{Brandmark,Wordmark}.tsx   Official Altronic marks
@@ -458,6 +469,8 @@ src/
 │   ├── GrayMarketRequestsView.tsx      Gray Market Requests list (Supply Chain)
 │   ├── WhereAmIView.tsx          Where am I? — month grid on desktop, agenda on a phone
 │   ├── EcnsView.tsx              ECNs list (search covers the descriptions)
+│   ├── FaitsView.tsx             FAITs list (Supply Chain)
+│   ├── FaitDetailView.tsx        One FAIT — five workflow cards, sign-offs, comments
 │   ├── EcnDetailView.tsx         One ECN — workflow cards, attachments, comments
 │   ├── GrayMarketRequestDetailView.tsx Gray Market request — workflow cards, comments, attachments
 │   ├── VisitReportsCalendarView.tsx  Visit Reports month calendar (desktop only)
@@ -590,6 +603,8 @@ For writing: SharePoint person fields go in via `LookupId` only.
 - **Multi-person:** `{ "AssignedLookupId@odata.type": "Collection(Edm.Int32)", "AssignedLookupId": [46, 87] }` — the **two-key** shape Graph v1.0 demands. The plain array (without the `@odata.type` annotation) and the older `{ results: [...] }` envelope both return a useless 400 invalidRequest.
 
 **Always go through the helper.** `src/lib/graphFields.ts` exports `multiPersonField(fieldName, people)` and `multiLookupField(fieldName, ids)` — they emit the correct two-key shape every time. Don't hand-build the payload elsewhere; you will forget the annotation and lose hours debugging the same 400.
+
+This is not hypothetical. `setRelatedProjects` hand-built `{ ProjectReference: [ids] }` — bare array, un-suffixed name — so **a task's related projects never saved in real mode**, from whenever it was written until 2026-08-20, when two people hit it within an hour. It survived because the MOCK branch read that same hand-built shape, so every test and every demo passed. `tasks.relatedProjects.test.ts` now asserts the request shape with `USE_MOCK` forced off, which is the only way this class of bug is visible from a test.
 
 ## Parent project resolution
 
@@ -810,6 +825,48 @@ code. If expiry comes back, it needs the decision first: a new Expiry Date colum
 in SharePoint, or a rule deriving it from `DateCertified`. Recover the old
 implementation from git history rather than rewriting it (`git log --
 src/lib/certificationExpiry.ts`).
+
+### FAITs (First Article Inspection Tests)
+
+`d655b5d6-ee28-45c4-85ab-128198569508` (env: `VITE_SP_FAIT_LIST_ID`) on
+**`SITES.engineering`** — a **Supply Chain** feature whose list lives on the
+Engineering site, not PMO. Worth writing down because PMO is where we looked
+first and spent a while: 23 lists there, none of them it. Schema captured
+2026-08-20 in `scripts/fait-schema.json`.
+
+51 editable columns — **19 booleans**, 18 text, 6 choices, 3 lookups, 3 person,
+2 dates — so the columns are DATA (`src/lib/faitFields.ts`), grouped into the
+five cards the detail page renders: Part → Request → Inspection → Results →
+Sign-off.
+
+Four things about this list:
+
+- **`Title` is empty on every row.** People identify a FAIT by SAP Part Number
+  + Description, which is what the list view leads with and what `faitLabel`
+  falls back through. The column is still read and written in case someone
+  starts using it.
+- **The three lookups are unused so far** — Project Reference, EIR Reference
+  and Test Document Reference all exist and are blank on the 36 rows that
+  predate ARC. The project filter will look empty until people fill them in;
+  that's the data, not a bug.
+- **`Communication` and `Watchers` were added for ARC** on 2026-08-20 via
+  `scripts/add-fait-columns.ps1`. `Project Reference` and attachments already
+  existed.
+- **Two date-only columns** (`FailedFirstPassDate`, `WaivedDate`) go through
+  the usual `parseSpDateOnly` midday pivot.
+
+**Append Changes is the gotcha.** Graph reports
+`appendChangesToExistingText: true` on the Communication column however it's
+created, and a PATCH setting it false is accepted without error and changes
+nothing. If that flag is genuinely on, the comment thread corrupts — ARC
+rewrites the whole value each post, and append mode concatenates instead. It
+could not be settled from the API, so **verify behaviourally**: post two
+comments on a FAIT and confirm the second replaces rather than doubling the
+thread. The list settings UI is the authority.
+
+**No delete** — a FAIT records an inspection that happened; a superseded one is
+closed. `faits.test.ts` asserts the module exports nothing matching
+/delete|remove/.
 
 ### ECNs (Engineering Change Notices)
 
@@ -1289,6 +1346,54 @@ Pieces:
   configured, gating is OFF so nobody is locked out. Admins are NOT auto-granted
   roles — they must add themselves to the EIR Roles list to edit gated fields.
 
+## EIR triage — chasing a new EIR until someone owns it
+
+A raised EIR belongs to nobody until it has a project reference AND an
+engineer, and both used to be chased by someone noticing (Ray, 2026-08-20).
+The chain, in `src/lib/eirTriage.ts`:
+
+| When | Who's emailed | What it asks |
+|---|---|---|
+| Raised with **no** project reference | `EIR_TRIAGE_PROJECT_REVIEWERS` | "Please add a project reference" |
+| A project reference **lands** on one that had none | `EIR_TRIAGE_ASSIGNERS` | "Please assign an engineer" |
+| Raised **with** a project reference | `EIR_TRIAGE_ASSIGNERS` | Skips the first step entirely |
+
+Each email says what happens next, so a recipient can see they're one link in a
+chain rather than the end of it.
+
+Recipients are config, not a list: `VITE_EIR_TRIAGE_PROJECT_REVIEWERS` and
+`VITE_EIR_TRIAGE_ASSIGNERS`, comma-separated `Name <email>` or bare addresses,
+parsed by `parseRecipientList`. Three named people didn't justify another
+SharePoint list and the admin screen that comes with it.
+
+Five rules that are load-bearing, each with tests:
+
+- **Only the empty → set transition fires the handover.** Swapping one project
+  for another isn't a handover and must not re-chase anyone. `projectIdsFromFields`
+  returns `null` (not `[]`) when a write doesn't touch project references at
+  all — conflating those fires the email on unrelated edits.
+- **An EIR that already has an engineer is never chased for one**, however its
+  project changes.
+- **An EIR missing both is chased only for the project.** The assigners can't
+  sensibly pick an engineer without knowing the project.
+- **The actor is excluded — unless that would leave nobody.** Not notifying
+  someone of their own action is the rule everywhere in ARC, but these are
+  work-queue requests: a queue going silent because the only reviewer happened
+  to raise the EIR is worse than one redundant email.
+- **The project's NAME comes from the Projects cache** (`projectTitleFor`), not
+  the EIR — an EIR carries lookupIds only, so without that the email would name
+  a number.
+
+Wired in `useCreateEir` (both create paths) and `useUpdateEirFields` (the
+handover), reusing the `ChangeEmail[]` + `notifyChangeEmails` machinery so the
+wording is unit-testable without touching Graph.
+
+**A test that lies:** the "swapping projects stays quiet" case originally used a
+fixture EIR that happened to have a project — and passed with the empty-to-set
+guard deleted, because the fixture also had an engineer, so a different guard
+was doing the work. It now sets a project and then changes it. If you touch
+these guards, check the test fails when you remove the one you're changing.
+
 ## @-mention email notifications
 
 When a user posts a comment with `@SomeoneName` chips (picked from the mention dropdown in CommentComposer), the app POSTs `/users/{shared-mailbox}/sendMail` for each mentioned person. The mail comes from the configured shared mailbox via Send-As, so every recipient sees a consistent "From" address rather than the sender's personal mailbox.
@@ -1410,6 +1515,24 @@ them harder to use, not easier, and a checklist is not a Yes/No question. The
 description checklists, the comment "notify everyone again" option, and the
 EIR role tags are UI affordances, not stored Yes/No fields, and stay as they
 are too.
+
+### Escape closes ONE thing at a time
+
+A dropdown open inside a modal used to mean two `document` keydown listeners
+waiting on the same key — the dropdown's and the modal's. Escape fired both, so
+dismissing a menu you'd opened by mistake also closed the dialog and threw away
+everything typed into it. Alexander Masgras lost a part-filled New Task that
+way on 2026-08-20.
+
+`dropdownKeyHandler` in `useDropdownClose.ts` handles Escape on the dropdown's
+**container** and calls `stopPropagation`. React's root sits inside `document`,
+so stopping the native event there ends its journey and the modal never sees
+it. With no panel open the handler does nothing and Escape reaches the modal as
+it should.
+
+**Any new overlay that closes on Escape needs the same discipline**: handle the
+key on your own container and stop it, or you'll close whatever is behind you.
+`SuggestInput` already did this; the shared dropdown didn't.
 
 ### Every dropdown closes the same four ways
 
@@ -1626,6 +1749,105 @@ for. Don't reintroduce `d.getHours()` / `new Date(y, m, d, …)` here: those are
 the author's-local-time bug. Tests set `process.env.TZ` explicitly, because
 "it depends where you are" IS the bug.
 
+### Matching a person to a stored address: `lib/emailIdentity.ts`
+
+Anywhere ARC decides "is the signed-in user this row", it goes through
+`sameEmail` / `matchesAnyEmail`. Two things that are easy to get wrong and
+both cost someone their access silently:
+
+- **`account.username` is the UPN — the name you SIGN IN with — not your
+  mailbox.** They're allowed to differ, and in a tenant assembled from more
+  than one company they do. Steven Pirko was tagged `engineer` on the EIR
+  Roles list and had every gated field greyed out, because the lookup used
+  his sign-in name while the list held his `@altronic-llc.com` mailbox
+  (2026-08-20). `useCurrentUserEmails()` returns every address the account
+  carries — `username` plus the `email` / `preferred_username` / `upn`
+  claims — and matching checks all of them.
+- **The token alone isn't enough**, because `email` is an OPTIONAL claim that
+  has to be configured on the app registration, and ARC doesn't request the
+  `email` scope — so in practice the token carries only the UPN. So
+  `resolveMyIdentity()` reads `/me?$select=mail,userPrincipalName,otherMails`
+  once per session (on the **User.Read** scope the app already has). Its
+  `primary` is the **mailbox**, falling back to the UPN; `all` is every address
+  the person answers to. A failed call returns an empty identity, clears its
+  cached promise for a later retry, and the app degrades to the sign-in name —
+  what it used before — rather than locking anyone out.
+- **`useCurrentUser().email` is the MAILBOX**, not `account.username`. Steve
+  Pirko signs in as `steve.pirko@altronic-llc.com` and receives mail at
+  `Steven.Pirko@altronic-llc.com` — ONE account, two spellings. Everything
+  stored about a person holds the mailbox, so using the UPN meant the app
+  didn't recognise him as himself: his EIR role tags didn't apply, and the
+  Assigned filter's default of "me" matched none of his own tasks. The
+  lookupId resolution now waits for `/me`, since the User Information List is
+  searched by address and searching it for a sign-in name that isn't his
+  address finds nothing.
+- **Two spellings of one person is NOT a duplicate account.** `steve.pirko`
+  was briefly added to `VITE_HIDDEN_PEOPLE`'s default on that assumption and
+  hid the only real Steve from every picker in ARC. Confirm two accounts exist
+  before hiding either.
+- **A match is tried whole first, then on the local part**, so a differing
+  domain doesn't hide someone. The false positive that buys — two people
+  sharing a local part across two domains — doesn't occur in this tenant, the
+  lists involved are small and admin-curated, and what's being decided is
+  whether a control is greyed out. SharePoint's per-list permissions remain
+  the real boundary.
+
+**Never gate on a display name.** Names aren't unique, they arrive written
+several ways ("Pirko, Steven"), and it's how the wrong person gets access.
+`looksLikeEmail` exists so a screen can TELL an admin a column holds a name
+— `/admin/eir-roles` flags such a row "not an email", since it silently
+grants nothing.
+
+### Who reaches a people picker
+
+Three filters sit between the tenant directory and every picker in ARC, all in
+`mapDirectoryUsers` (api/directory.ts) and `isHiddenPerson` (lib/people.ts):
+
+- **No mailbox, or an `#EXT#` guest** → out. Service accounts and externals.
+- **`accountEnabled === false`** → out. Leavers, and the stale half of a
+  duplicated person. Note the explicit `=== false`: some tenants don't return
+  the property at all, and treating "unknown" as disabled would empty every
+  picker in the app.
+- **`admin.first.last`, or a person in `VITE_HIDDEN_PEOPLE`** → out. The
+  built-in default hides `david.phillips` (keeping Dave Phillips). Setting the
+  env var REPLACES that default rather than adding to it.
+
+`VITE_HIDDEN_PEOPLE` is a comma-separated list, for a person who exists twice
+under two enabled accounts where only one should be pickable — Ray hit this
+with a "David Phillips" beside the real "Dave Phillips" (2026-08-20), and
+`david.phillips` is the default. It's config rather than names in code because
+which account is the stale one is DATA.
+
+An entry can be a full address OR just the local part. The bare form means
+nobody has to know which domain a mailbox is on, and getting a domain wrong
+hides nobody *silently* — the failure that's hardest to notice.
+
+**It matches on the email AND the display name**, the name compared
+order- and punctuation-insensitively (`nameTokenKey`: "David Phillips",
+"Phillips, David" and "david.phillips" all reduce to one key). Email-only
+matching was the rule until 2026-08-20 and let the duplicate survive TWO
+fixes: the pickers are built from SharePoint person columns, where Graph
+routinely returns LookupId + LookupValue and no `Email` at all, so the person
+being hidden arrived with nothing to match on. The cost is that a genuine
+namesake would be hidden too — accepted, because entries are configured
+deliberately, one named person at a time, and the near-misses that must
+survive ("Dave Phillips", "Steven Pirko") reduce to different keys.
+
+**Two funnels, not one.** The directory filters above only cover people who
+come FROM the directory. Every list view's filter bar builds its options from
+the ITEMS instead — `withPerson(collectXPeople(items), currentUser)` — so a
+duplicate account that has been assigned real work keeps appearing there
+however clean the directory is. `withPerson` therefore drops hidden people
+too; it's the single funnel all ten filter bars pass through. Detail-page
+pickers go through `mergePeople`, which does the same.
+
+**It's cosmetic, not a permission** — a hidden account can still be assigned
+work directly in SharePoint, and hiding it does NOT reassign the items already
+pointing at it. Those keep their assignee and simply can't be filtered by that
+name any more, which is the trade for getting it out of the dropdowns. A
+duplicate that shouldn't exist is better disabled in Entra, and the items
+reassigned to the surviving account.
+
 ### People search is token-based, and hides `admin.` accounts
 
 Two rules for anything that lets a user pick a person.
@@ -1670,6 +1892,61 @@ separately, because access wouldn't fix a bad address or a throttle. An unset
 `VITE_SHARED_MAILBOX` is deliberately NOT toasted — it breaks every notification
 for everyone, so a per-comment toast would be noise rather than something one
 person can act on.
+
+### "Attachments unavailable" has two causes, not one
+
+The SharePoint REST token is acquired silently and never interactively — a
+deliberate rule, because prompting from every detail page produced "why am I
+signing in every time I open a task". When that silent acquisition fails,
+`sharepoint.ts` used to report ONE cause: an admin hasn't granted the scope.
+
+That's wrong about half the time. The other half is the **signed-in person's
+own session** — MFA expired for the SharePoint resource (`AADSTS50078`), or a
+password change. Telling them to chase an admin sends someone to raise a ticket
+for something they can fix in ten seconds (Ray, 2026-08-20, on the ECN
+attachments card).
+
+`SharePointUnavailableError` now carries a `cause`:
+
+- **`"reauth"`** — classified via `isReauthenticable` in `lib/authErrors.ts`.
+  The notice states the real reason and offers a **Sign in again** button
+  wired to `refreshSharePointAccess()`, then refetches.
+- **`"consent"`** — the historical case. Keeps the admin instructions, and
+  deliberately shows NO button, since pressing one couldn't help.
+
+An unrecognised error falls through to `"consent"`: a plain failure is not
+evidence of either cause, and a sign-in button that can't fix anything is worse
+than none.
+
+**`refreshSharePointAccess` is the one interactive exception, and it is only
+ever called from a button.** The silent-only rule still holds for automatic
+paths — don't wire this into a retry or an effect.
+
+### A sign-in error the user must ACT on doesn't belong on nine cards
+
+Some AADSTS failures aren't token problems the app can retry — the account
+needs attention before any request will work. Ray hit `AADSTS50135`
+("password change is required due to account risk") on 2026-08-20 and got nine
+dashboard cards each showing the raw paragraph, trace IDs and all, with nine
+Retry buttons that failed identically. Nothing in it said "change your
+password".
+
+`src/lib/authErrors.ts` maps the small set of those codes — expired password,
+account risk, disabled account, blocked by policy, MFA needed — to a sentence
+and a next step. `graph.ts` turns a match into a `SessionExpiredError` carrying
+that text, which puts it through the existing re-auth path: one sign-in screen,
+one explanation, instead of the same paragraph nine times.
+
+Three things to keep:
+
+- **The set is deliberately narrow.** Several AADSTS codes are normal
+  silent-auth outcomes the app already handles by degrading — `50058` is just
+  "nobody is signed in". Routing those to a sign-in screen would be worse than
+  the problem. Unknown codes fall through untouched.
+- **The code number stays in the message.** Whoever contacts IT needs to say
+  which one it was.
+- **`markSessionExpired(reason?)` keeps the FIRST reason.** Nine queries fail
+  together; they must not overwrite each other's message.
 
 ### Session expiry: one prompt, then the sign-in screen
 
@@ -1795,6 +2072,38 @@ to attach them to).
 
 Code: `src/api/projectFiles.ts`, hooks in `src/hooks/useTaskFiles.ts`.
 Auth: standard Graph `Sites.Selected` — no extra scope needed.
+
+**Engineering can create a project folder from ARC** (Ray, 2026-08-20) —
+`createProjectFolder(name, projectLookupId)` in `api/projectFiles.ts`, behind
+the "New project folder" button at the ROOT of `/project-folders`. It creates
+the folder and then tags it, in two calls, because a folder's metadata can only
+be set once the item exists.
+
+Four things it has to get right, all for the same reason —
+`resolveFolderForProject` picks the FIRST folder matching a project, so a
+duplicate makes task uploads land arbitrarily:
+
+- **A project that already has a folder is refused**, naming the folder it has.
+  The form also labels those projects "— has a folder" rather than hiding them,
+  so it's obvious why one can't be picked.
+- **The create uses `conflictBehavior: fail`**, so a clashing name errors
+  instead of silently becoming "0017-AMP-5000 Refresh 1".
+- **The write key is discovered, not hardcoded** (`projectRefWriteKey`).
+  Reading already auto-detects the Project Reference column because its
+  internal name varies by site; writing needs the exact key, so it's learned
+  from a folder that already carries one — Graph returns a `…LookupId` sibling
+  for a lookup column and that's the writable half. Falls back to
+  `ProjectReferenceLookupId` on an empty library.
+- **A failed tag says the folder exists.** The folder is created either way, so
+  the error tells the user to set Project Reference in SharePoint or delete it
+  and retry — rather than implying nothing happened.
+
+Creating also invalidates `["project-files", "folders"]`, the separate cache
+the task-upload router reads. Without that, a task on the new project keeps
+routing uploads to Miscellaneous until that cache ages out five minutes later.
+
+Only top-level folders carry the tag, so the button appears only at the root —
+inside a folder the action is Upload.
 
 ### 2. SharePoint list-item attachment (SP REST)
 

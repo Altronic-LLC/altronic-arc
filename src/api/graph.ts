@@ -2,6 +2,7 @@ import { BrowserAuthError, InteractionRequiredAuthError } from "@azure/msal-brow
 import { getMsalInstance } from "@/auth/AuthProvider";
 import { graphScopes } from "@/auth/msalConfig";
 import { GRAPH_BASE, USE_MOCK } from "./config";
+import { authErrorLine, describeAuthError } from "@/lib/authErrors";
 
 // =============================================================================
 // Throttle-aware transport retry.
@@ -159,6 +160,14 @@ async function acquireGraphToken(scopes: string[], allowInteractive: boolean): P
       err instanceof BrowserAuthError && err.errorCode === "interaction_in_progress";
     const needsInteraction = err instanceof InteractionRequiredAuthError || inProgress;
 
+    // Some sign-in failures aren't token problems at all — the account itself
+    // needs attention (expired password, risk flag, disabled, blocked by
+    // policy). Retrying can never fix those, and every caller failing
+    // separately buries the one sentence that matters under nine copies of a
+    // trace ID. Route them to the sign-in screen with an explanation instead.
+    const action = describeAuthError(err);
+    if (action) throw new SessionExpiredError(authErrorLine(action));
+
     if (!allowInteractive || !needsInteraction) {
       // Silent-only path (or a non-interaction error): bubble up so the caller
       // can degrade. Never pops a prompt for an un-consented optional scope.
@@ -186,8 +195,13 @@ async function acquireGraphToken(scopes: string[], allowInteractive: boolean): P
       });
       return result.accessToken;
     } catch (afterErr) {
+      const afterAction = describeAuthError(afterErr);
       throw new SessionExpiredError(
-        afterErr instanceof Error ? afterErr.message : String(afterErr),
+        afterAction
+          ? authErrorLine(afterAction)
+          : afterErr instanceof Error
+            ? afterErr.message
+            : String(afterErr),
       );
     }
   }

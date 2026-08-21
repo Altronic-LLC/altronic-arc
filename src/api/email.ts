@@ -1,5 +1,10 @@
 import { GraphError, graphFetch } from "./graph";
-import { SHARED_MAILBOX, USE_MOCK } from "./config";
+import {
+  EIR_TRIAGE_ASSIGNERS,
+  EIR_TRIAGE_PROJECT_REVIEWERS,
+  SHARED_MAILBOX,
+  USE_MOCK,
+} from "./config";
 import { pushToast } from "@/components/Toast";
 import type { CommentAttachment, Person } from "@/types/task";
 import { appItemUrl } from "@/lib/appUrl";
@@ -11,6 +16,11 @@ import {
   type ChangeEmail,
   type ChangeTarget,
 } from "@/lib/changeAlerts";
+import {
+  buildEirTriageEmails,
+  parseRecipientList,
+  type EirTriageStage,
+} from "@/lib/eirTriage";
 
 // =============================================================================
 // Email notifications via Microsoft Graph sendMail.
@@ -45,6 +55,7 @@ export interface MentionTarget {
     | "task"
     | "eir"
     | "ecn"
+    | "fait"
     | "operationsTask"
     | "buildRequest"
     | "buildRequestItem"
@@ -63,6 +74,7 @@ const KIND_COPY: Record<
   task: { phrase: "a task", calloutLabel: "Task", buttonText: "Open this task" },
   eir: { phrase: "an EIR", calloutLabel: "EIR", buttonText: "Open this EIR" },
   ecn: { phrase: "an ECN", calloutLabel: "ECN", buttonText: "Open this ECN" },
+  fait: { phrase: "a FAIT", calloutLabel: "FAIT", buttonText: "Open this FAIT" },
   operationsTask: { phrase: "a task", calloutLabel: "Task", buttonText: "Open this task" },
   buildRequest: {
     phrase: "a build request",
@@ -489,6 +501,27 @@ export function fireAssigneeChangeAlert(args: {
  * watchers + reporter (minus the actor); the email links to the NEW TASK, so
  * we send it with a task-kind target.
  */
+/**
+ * Fire-and-forget EIR triage chase — "add a project reference", then "assign
+ * an engineer". No-ops when the EIR isn't waiting on either, or when the
+ * configured recipient lists are empty.
+ */
+export function fireEirTriageAlert(args: {
+  target: ChangeTarget;
+  stage: EirTriageStage;
+  actor: Person;
+  projectTitle?: string;
+  projectJustAdded?: boolean;
+}): void {
+  const emails = buildEirTriageEmails({
+    ...args,
+    projectReviewers: parseRecipientList(EIR_TRIAGE_PROJECT_REVIEWERS),
+    assigners: parseRecipientList(EIR_TRIAGE_ASSIGNERS),
+  });
+  if (emails.length === 0) return;
+  void notifyChangeEmails({ target: args.target, emails });
+}
+
 export function firePromotionAlert(args: {
   eir: { id: number; eirNo: string; title: string; watchers: Person[]; reporter?: Person | null };
   task: { id: number; numberedTitle: string; title: string };

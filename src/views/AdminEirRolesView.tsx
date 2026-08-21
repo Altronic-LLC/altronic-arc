@@ -8,11 +8,12 @@ import {
   useUpdateEirRole,
 } from "@/hooks/useEirRoles";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useCurrentUserEmails } from "@/hooks/useCurrentUser";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { useAdmins } from "@/hooks/useAdmins";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { SingleSelect } from "@/components/SearchableSelect";
+import { looksLikeEmail, matchesAnyEmail } from "@/lib/emailIdentity";
 import { EIR_ROLES, type EirRole, type Person } from "@/types/task";
 import { SP_EIR_ROLES_LIST_ID, USE_MOCK } from "@/api/config";
 import { useOverlayDismiss } from "@/components/useOverlayDismiss";
@@ -37,7 +38,7 @@ const ROLE_GATES: Record<EirRole, string> = {
 export function AdminEirRolesView() {
   const navigate = useNavigate();
   const isAdmin = useIsAdmin();
-  const currentUser = useCurrentUser();
+  const myEmails = useCurrentUserEmails();
   const { data: entries = [], isLoading } = useEirRoles();
   const add = useAddEirRole();
   const update = useUpdateEirRole();
@@ -194,9 +195,15 @@ export function AdminEirRolesView() {
             </thead>
             <tbody>
               {entries.map((e) => {
-                const isSelf =
-                  (currentUser.email ?? "").toLowerCase() === e.email.toLowerCase();
+                // The SAME matcher the gate uses, so this table can't mark a
+                // different row "you" than the one granting your roles.
+                const isSelf = matchesAnyEmail(myEmails, e.email);
                 const name = e.displayName || deriveNameFromEmail(e.email);
+                // A row added by hand in SharePoint can end up with a NAME in
+                // the Title column. Nothing errors — the person simply never
+                // matches and reports that their role doesn't work — so say so
+                // here, where an admin can fix it.
+                const notAnEmail = !looksLikeEmail(e.email);
                 return (
                   <tr
                     key={e.id}
@@ -210,7 +217,17 @@ export function AdminEirRolesView() {
                         </span>
                       )}
                     </td>
-                    <td className="px-3 py-2 font-mono text-xs text-fg-muted">{e.email}</td>
+                    <td className="px-3 py-2 font-mono text-xs text-fg-muted">
+                      {e.email || <span className="italic">not set</span>}
+                      {notAnEmail && (
+                        <span
+                          className="ml-2 rounded-full bg-amber-500/15 px-1.5 py-0.5 font-sans text-[10px] font-semibold text-amber-700 dark:text-amber-400"
+                          title="Roles are matched on email address. Until this is an address, this row grants nothing."
+                        >
+                          not an email
+                        </span>
+                      )}
+                    </td>
                     <td className="px-3 py-2">
                       <div className="flex flex-wrap gap-3">
                         {EIR_ROLES.map((role) => (

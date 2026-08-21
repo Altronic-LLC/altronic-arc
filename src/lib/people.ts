@@ -38,6 +38,117 @@ export function isHiddenDirectoryAccount(person: {
 }
 
 /**
+ * Addresses to keep out of every people picker in ARC.
+ *
+ * For a person who exists twice in the directory under two accounts — a
+ * rename that left the old one behind, a duplicate created by mistake — where
+ * only one should be pickable. Ray hit this with a "David Phillips" appearing
+ * alongside the real "Dave Phillips" (2026-08-20).
+ *
+ * It's a config list rather than names in code, because which account is the
+ * stale one is DATA and it changes. Comma-separated, and an entry can be
+ * either a full address or just the part before the @:
+ *
+ *   VITE_HIDDEN_PEOPLE="david.phillips, someone.else@altronic-llc.com"
+ *
+ * The bare form exists so nobody has to know which domain a mailbox is on —
+ * a local part is unique within the tenant, and getting the domain wrong
+ * silently hides nobody, which is the failure that's hard to notice.
+ *
+ * An entry is matched against the email AND the display name, because a person
+ * reaches a picker by more than one route and only some of those routes carry
+ * an address (see `nameTokenKey`).
+ *
+ * **This is cosmetic, not a permission.** A hidden account can still be
+ * assigned work directly in SharePoint; this only keeps it out of the pickers.
+ * A duplicate that shouldn't exist is better disabled in Entra — which the
+ * directory read now skips on its own.
+ */
+/**
+ * The duplicates known today. Each is the account to HIDE — the other spelling
+ * of that person is the one that stays:
+ *
+ *   david.phillips  → the real one is Dave Phillips  (Ray, 2026-08-20)
+ *
+ * **`steve.pirko` was briefly listed here and must NOT come back.** Steve
+ * Pirko is not a duplicate: he is ONE account whose sign-in name
+ * (steve.pirko@altronic-llc.com) simply differs from his mailbox
+ * (Steven.Pirko@altronic-llc.com). Hiding it removed the only real Steve from
+ * every picker in ARC. Confirm a name is genuinely two accounts before adding
+ * it — two spellings of one person is the commoner case, and it's handled by
+ * matching addresses properly, not by hiding one of them.
+ *
+ * Harmless when an entry matches nobody. Override the whole list with
+ * VITE_HIDDEN_PEOPLE.
+ */
+const DEFAULT_HIDDEN_PEOPLE = "david.phillips";
+
+const HIDDEN_PEOPLE: Set<string> = new Set(
+  (import.meta.env.VITE_HIDDEN_PEOPLE ?? DEFAULT_HIDDEN_PEOPLE)
+    .split(",")
+    .map((e: string) => e.trim().toLowerCase())
+    .filter(Boolean),
+);
+
+/**
+ * An order- and punctuation-insensitive key for a name:
+ *
+ *   "David Phillips"   → "david.phillips"
+ *   "Phillips, David"  → "david.phillips"
+ *   "david.phillips"   → "david.phillips"
+ *
+ * All three forms are the SAME person arriving by a different route, and the
+ * duplicate survived two fixes because each fix only knew one of them
+ * (Ray, 2026-08-20). Entra returns display names surname-first, SharePoint
+ * person columns return whatever was stored, and the config list is written in
+ * address form — so tokens are sorted and rejoined rather than compared in
+ * order.
+ */
+function nameTokenKey(text: string): string {
+  return text
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean)
+    .sort()
+    .join(".");
+}
+
+/** The configured entries, indexed both ways so either form matches. */
+const HIDDEN_KEYS: Set<string> = new Set([...HIDDEN_PEOPLE].map(nameTokenKey));
+
+/**
+ * True when this person should be kept out of the pickers.
+ *
+ * Checks the address first and the name second, rather than treating the name
+ * as a fallback for a missing address: people gathered off ITEMS come from a
+ * SharePoint person column, where Graph frequently omits `Email` altogether,
+ * and an address that IS present may be on a domain the config list doesn't
+ * spell out. Matching only what happened to be populated is exactly how the
+ * duplicate kept coming back.
+ *
+ * The cost is that a real colleague whose name reduces to the same key would
+ * be hidden too. That's accepted: entries are configured deliberately, one
+ * named person at a time — and "Dave Phillips", the one who must survive here,
+ * reduces to `dave.phillips` and is untouched.
+ */
+export function isHiddenPerson(person: {
+  displayName?: string;
+  email?: string | null;
+}): boolean {
+  if (isHiddenDirectoryAccount(person)) return true;
+
+  const email = (person.email ?? "").trim().toLowerCase();
+  if (email) {
+    const local = email.split("@")[0];
+    if (HIDDEN_PEOPLE.has(email) || HIDDEN_PEOPLE.has(local)) return true;
+    if (HIDDEN_KEYS.has(nameTokenKey(local))) return true;
+  }
+
+  const name = (person.displayName ?? "").trim();
+  return name.length > 0 && HIDDEN_KEYS.has(nameTokenKey(name));
+}
+
+/**
  * Return `people` with `person` merged in if missing (deduped by lowercase
  * email/displayName), kept alphabetical.
  *
@@ -46,12 +157,25 @@ export function isHiddenDirectoryAccount(person: {
  * even before they're on any item. Without this, a Dashboard "Mine"
  * click-through filters the list to the user while the dropdown still reads
  * "Anyone", which looks like an empty list with no filter applied.
+ *
+ * **Hidden people are dropped here too.** Every filter bar in ARC funnels
+ * through this function, and its options come from the ITEMS — who's assigned
+ * to a task — not from the directory. So the directory-side filters never see
+ * them: a duplicate account that's been assigned real work keeps appearing in
+ * the dropdown however thoroughly the directory is cleaned (Ray, 2026-08-20 —
+ * "David Phillips" still in the Operations Assigned filter after the directory
+ * fix). One place, all ten bars.
+ *
+ * The explicitly-passed `person` is never filtered: that's the signed-in user,
+ * and the promise above matters more than the edge case of someone being
+ * signed in as a hidden account.
  */
 export function withPerson(people: Person[], person: Person | null | undefined): Person[] {
-  if (!person || !person.displayName) return people;
+  const visible = people.filter((p) => !isHiddenPerson(p));
+  if (!person || !person.displayName) return visible;
   const key = (person.email ?? person.displayName).toLowerCase();
-  if (people.some((p) => (p.email ?? p.displayName).toLowerCase() === key)) return people;
-  return [...people, person].sort((a, b) => a.displayName.localeCompare(b.displayName));
+  if (visible.some((p) => (p.email ?? p.displayName).toLowerCase() === key)) return visible;
+  return [...visible, person].sort((a, b) => a.displayName.localeCompare(b.displayName));
 }
 
 /**
@@ -69,7 +193,7 @@ export function mergePeople(...lists: Array<Person[] | undefined>): Person[] {
     for (const p of list) {
       if (!p || !p.displayName) continue;
       // admin.first.last shadow accounts never belong in a picker.
-      if (isHiddenDirectoryAccount(p)) continue;
+      if (isHiddenPerson(p)) continue;
       const key = (p.email ?? p.displayName).toLowerCase();
       const existing = byKey.get(key);
       if (!existing) {

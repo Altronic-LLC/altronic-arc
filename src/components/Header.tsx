@@ -9,6 +9,7 @@ import {
   CalendarDays,
   ChevronDown,
   CircuitBoard,
+  ClipboardCheck,
   ClipboardList,
   Cog,
   Contact,
@@ -221,7 +222,12 @@ const DEPARTMENTS: DepartmentGroup[] = [
       soon("Supplier List", <Building2 className="h-4 w-4" />),
       soon("Supplier Contacts", <Contact className="h-4 w-4" />),
       soon("Cost Impact Notices", <DollarSign className="h-4 w-4" />),
-      soon("FAIT", <FileCheck className="h-4 w-4" />),
+      {
+        to: "/supply-chain/faits",
+        label: "FAITs",
+        icon: <ClipboardCheck className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/supply-chain/fait"),
+      },
     ],
   },
   {

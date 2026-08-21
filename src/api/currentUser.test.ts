@@ -132,3 +132,79 @@ describe("resolveCurrentUserLookupId", () => {
     expect(graphFetchMock).toHaveBeenCalledTimes(2);
   });
 });
+
+// =============================================================================
+// resolveMyIdentity — the mailbox vs the sign-in name.
+//
+// Steve Pirko signs in as steve.pirko@altronic-llc.com and receives mail at
+// Steven.Pirko@altronic-llc.com. The app treated the sign-in name as his
+// address everywhere, so nothing recognised him as himself: his EIR role tags
+// didn't apply, and the Assigned filter's default of "me" matched none of his
+// own tasks (Ray, 2026-08-20).
+// =============================================================================
+
+async function loadIdentity() {
+  const mod = await import("./currentUser");
+  return mod.resolveMyIdentity;
+}
+
+const STEVE = {
+  mail: "Steven.Pirko@altronic-llc.com",
+  userPrincipalName: "steve.pirko@altronic-llc.com",
+  otherMails: [],
+};
+
+describe("resolveMyIdentity", () => {
+  it("takes the MAILBOX as the primary address, not the sign-in name", async () => {
+    graphFetchMock.mockResolvedValueOnce(STEVE);
+    const resolveMyIdentity = await loadIdentity();
+    const identity = await resolveMyIdentity();
+    expect(identity.primary).toBe("steven.pirko@altronic-llc.com");
+  });
+
+  it("keeps both addresses so either can be matched", async () => {
+    graphFetchMock.mockResolvedValueOnce(STEVE);
+    const resolveMyIdentity = await loadIdentity();
+    const identity = await resolveMyIdentity();
+    expect(identity.all).toEqual([
+      "steven.pirko@altronic-llc.com",
+      "steve.pirko@altronic-llc.com",
+    ]);
+  });
+
+  it("includes secondary addresses", async () => {
+    graphFetchMock.mockResolvedValueOnce({ ...STEVE, otherMails: ["S.Pirko@altronic-llc.com"] });
+    const resolveMyIdentity = await loadIdentity();
+    expect((await resolveMyIdentity()).all).toContain("s.pirko@altronic-llc.com");
+  });
+
+  it("falls back to the sign-in name when there's no mailbox", async () => {
+    graphFetchMock.mockResolvedValueOnce({ mail: null, userPrincipalName: "a.b@altronic-llc.com" });
+    const resolveMyIdentity = await loadIdentity();
+    expect((await resolveMyIdentity()).primary).toBe("a.b@altronic-llc.com");
+  });
+
+  it("asks Graph once per session, however many callers there are", async () => {
+    graphFetchMock.mockResolvedValue(STEVE);
+    const resolveMyIdentity = await loadIdentity();
+    await Promise.all([resolveMyIdentity(), resolveMyIdentity(), resolveMyIdentity()]);
+    expect(graphFetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  // Degrading beats locking someone out of a feature they had before.
+  it("returns empty on failure, and lets a later call retry", async () => {
+    graphFetchMock.mockRejectedValueOnce(new Error("403"));
+    const resolveMyIdentity = await loadIdentity();
+    expect(await resolveMyIdentity()).toEqual({ primary: "", all: [] });
+
+    graphFetchMock.mockResolvedValueOnce(STEVE);
+    expect((await resolveMyIdentity()).primary).toBe("steven.pirko@altronic-llc.com");
+  });
+
+  it("doesn't call Graph at all in mock mode", async () => {
+    configMock.USE_MOCK = true;
+    const resolveMyIdentity = await loadIdentity();
+    expect((await resolveMyIdentity()).primary).toBe("demo.user@altronic-llc.com");
+    expect(graphFetchMock).not.toHaveBeenCalled();
+  });
+});

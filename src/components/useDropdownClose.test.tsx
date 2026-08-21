@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ChoiceSelect, MultiSelect } from "./SearchableSelect";
@@ -110,6 +110,60 @@ describe("closing when focus leaves", () => {
     await userEvent.click(search);
     await userEvent.type(search, "Al");
     expect(panelIsOpen()).toBe(true);
+  });
+});
+
+describe("Escape inside a modal", () => {
+  /** A dialog that closes on Escape, exactly like every modal in ARC. */
+  function ModalWithDropdown({ onClose }: { onClose: () => void }) {
+    const [value, setValue] = useState("");
+    useEffect(() => {
+      function onKey(e: KeyboardEvent) {
+        if (e.key === "Escape") onClose();
+      }
+      document.addEventListener("keydown", onKey);
+      return () => document.removeEventListener("keydown", onKey);
+    }, [onClose]);
+    return (
+      <div role="dialog" aria-label="New task">
+        <ChoiceSelect
+          value={value}
+          onChange={setValue}
+          options={["Alpha", "Beta"]}
+          emptyLabel="Any"
+          ariaLabel="Parent task"
+        />
+      </div>
+    );
+  }
+
+  // Alexander Masgras lost a part-filled New Task to this on 2026-08-20: two
+  // document listeners on the same key, so dismissing the dropdown also
+  // dismissed the dialog and everything typed into it.
+  it("closes the dropdown WITHOUT closing the modal", async () => {
+    const onClose = vi.fn();
+    render(<ModalWithDropdown onClose={onClose} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Parent task" }));
+    expect(panelIsOpen()).toBe(true);
+
+    await userEvent.keyboard("{Escape}");
+    expect(panelIsOpen()).toBe(false);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  // The two are one keystroke apart, not the same one: with nothing open,
+  // Escape still has to dismiss the dialog.
+  it("closes the modal when no dropdown is open", async () => {
+    const onClose = vi.fn();
+    render(<ModalWithDropdown onClose={onClose} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Parent task" }));
+    await userEvent.keyboard("{Escape}");
+    onClose.mockClear();
+
+    await userEvent.keyboard("{Escape}");
+    expect(onClose).toHaveBeenCalled();
   });
 });
 

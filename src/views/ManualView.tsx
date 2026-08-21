@@ -49,7 +49,7 @@ const SECTIONS: ManualSection[] = [
       "where do i start",
     ],
     searchText:
-      "Sign in with your altronic-llc.com account. The Dashboard opens after sign-in. Use the top nav to switch between Dashboard, the Departments dropdown, and Admin. The Departments dropdown mirrors the dashboard: Engineering (Engineering Tasks, EIRs, Test Sheets, Project Folders, Build Requests, Drawing File Logs, CSA Listings, Where Am I?, ECNs), Panels, Operations, Coils (Potting Sample Log), Quality Control (Digital QC and Ignition QC Defect Logs), Supply Chain (Gray Market Requests), and Customer Service / Sales (Visit Reports).",
+      "Sign in with your altronic-llc.com account. The Dashboard opens after sign-in. Use the top nav to switch between Dashboard, the Departments dropdown, and Admin. The Departments dropdown mirrors the dashboard: Engineering (Engineering Tasks, EIRs, Test Sheets, Project Folders, Build Requests, Drawing File Logs, CSA Listings, Where Am I?, ECNs), Panels, Operations, Coils (Potting Sample Log), Quality Control (Digital QC and Ignition QC Defect Logs), Supply Chain (Gray Market Requests, FAITs), and Customer Service / Sales (Visit Reports).",
     render: () => (
       <>
         <P>
@@ -1633,6 +1633,64 @@ const SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: "faits",
+    title: "FAITs",
+    group: "Supply Chain",
+    keywords: [
+      "fait", "faits", "first article", "first article inspection",
+      "inspection", "supplier", "sqe", "sign off", "quality",
+      "cmm", "dimensional check", "first pass",
+    ],
+    searchText:
+      "FAITs at /supply-chain/faits, under Supply Chain in the Departments menu, backed by the FAIT list on the Altronic Engineering SharePoint site. A First Article Inspection Test tracks a new or changed part from a supplier through inspection and three sign-offs: SQE, Engineering and KAM. The list opens on Open FAITs with pills for Open / Closed / All, filters for project, supplier and the stage it is sitting at, and an all-fields search. FAITs are identified by SAP Part Number rather than title. New FAIT asks for the part, supplier, project and what is being requested; inspection results and sign-offs are filled in on the FAIT itself, in five cards - Part, Request, Inspection, Results, Sign-off - each with one Edit button. Yes/No questions are answered by picking Yes or No. FAITs carry comments with @-mentions, watchers and attachments. Whoever raises one watches it. FAITs cannot be deleted from ARC.",
+    render: () => (
+      <>
+        <P>
+          <strong>Departments → Supply Chain → FAITs</strong>{" "}
+          (<code>/supply-chain/faits</code>) tracks a{" "}
+          <strong>First Article Inspection Test</strong> — a new or changed part
+          arriving from a supplier, inspected and then signed off by SQE,
+          Engineering and the KAM.
+        </P>
+        <UL>
+          <LI>
+            The list opens on <strong>Open</strong> FAITs. Filter by project,
+            supplier, or the stage it's sitting at, and search across every
+            field. The filters live in the address bar, so a filtered view can
+            be shared.
+          </LI>
+          <LI>
+            FAITs are identified by <strong>SAP Part Number</strong>, not a
+            title — that's how the list has always been kept.
+          </LI>
+          <LI>
+            <strong>New FAIT</strong> asks only for the part, the supplier, the
+            project and what's being requested.
+          </LI>
+        </UL>
+        <H3>Working one through</H3>
+        <P>
+          The FAIT itself is five cards — <strong>Part</strong>,{" "}
+          <strong>Request</strong>, <strong>Inspection</strong>,{" "}
+          <strong>Results</strong>, <strong>Sign-off</strong> — each with one{" "}
+          <strong>Edit</strong> button. Press it, change what you need, and
+          Save changes; only the fields you touched are written, so quality,
+          engineering and the KAM can each fill in their own part without
+          overwriting each other.
+        </P>
+        <P>
+          Status, project and the three sign-offs sit in the sidebar. Comments,
+          watchers and attachments work as they do everywhere else in ARC, and
+          whoever raises a FAIT watches it.
+        </P>
+        <Tip>
+          FAITs can't be deleted from ARC — a FAIT records an inspection that
+          happened. Close it instead.
+        </Tip>
+      </>
+    ),
+  },
+  {
     id: "gray-market-requests",
     title: "Gray Market Requests",
     group: "Supply Chain",
@@ -1850,7 +1908,7 @@ const SECTIONS: ManualSection[] = [
       "eir columns",
     ],
     searchText:
-      "The EIRs tab shows Engineering Information Requests with workflow View tabs (All, New, Needs Assigned, At Risk Parts, LTB), status pills (Under Review, Response Accepted, Closed, etc.) and a filter bar for Project, Assigned Engineer, Reporter, and search. EIRs have a Board (kanban) view as well as the list: List and Board buttons appear under the top nav, the board has one column per EIR status, and dragging a card between columns changes that EIR's status with a toast and Undo. The view tabs and filter bar work the same on both and travel between them; the board is hidden on phones. The Description field supports the same custom checklist syntax as a task's Description. New = no project reference and no engineer assigned; Needs Assigned = has a project reference but still no engineer. Description, Engineering Response and Where Used are rich text: editing one shows a toolbar with bold, italic, underline and bulleted/numbered lists, Ctrl+B/I/U work, paragraphs are preserved, and pasting from Word keeps the formatting but drops its colours. Click an EIR to open the detail page with Description, Engineering Response, Part Details (MFG, P/N, EAU, etc.), Comments, and a sidebar to edit Status, Resolution, Request Type, Priority, Reporter, Assigned Engineers, Watchers, Project, Task Reference, Requested Completion Date, LTB Date. New EIRs are auto-numbered as EIR_YYYY-#### (the next sequence for the year); the EIR Log No. is calculated from it. Promote an EIR to a task by setting Resolution to Promoted to Task: a confirmation window creates a linked task carrying the title, description, project, watchers, and comment thread (tagged as from the EIR). Completing that task prompts for a final resolution, which is written back to the EIR's Engineering Response and marks the EIR Resolved and Closed.",
+      "The EIRs tab shows Engineering Information Requests with workflow View tabs (All, New, Needs Assigned, At Risk Parts, LTB), status pills (Under Review, Response Accepted, Closed, etc.) and a filter bar for Project, Assigned Engineer, Reporter, and search. EIRs have a Board (kanban) view as well as the list: List and Board buttons appear under the top nav, the board has one column per EIR status, and dragging a card between columns changes that EIR's status with a toast and Undo. The view tabs and filter bar work the same on both and travel between them; the board is hidden on phones. The Description field supports the same custom checklist syntax as a task's Description. New = no project reference and no engineer assigned; Needs Assigned = has a project reference but still no engineer. Description, Engineering Response and Where Used are rich text: editing one shows a toolbar with bold, italic, underline and bulleted/numbered lists, Ctrl+B/I/U work, paragraphs are preserved, and pasting from Word keeps the formatting but drops its colours. Click an EIR to open the detail page with Description, Engineering Response, Part Details (MFG, P/N, EAU, etc.), Comments, and a sidebar to edit Status, Resolution, Request Type, Priority, Reporter, Assigned Engineers, Watchers, Project, Task Reference, Requested Completion Date, LTB Date. New EIRs are auto-numbered as EIR_YYYY-#### (the next sequence for the year); the EIR Log No. is calculated from it. Promote an EIR to a task by setting Resolution to Promoted to Task: a confirmation window creates a linked task carrying the title, description, project, watchers, and comment thread (tagged as from the EIR). Completing that task prompts for a final resolution, which is written back to the EIR's Engineering Response and marks the EIR Resolved and Closed. When an EIR is raised without a project reference, Sheila Horn is emailed asking her to add one; once it has a project reference, Glenn Terry and Brandon Mirto are asked to assign an engineer. An EIR raised with a project reference already on it skips the first step. Changing the project later doesn't re-send the request.",
     render: () => (
       <>
         <P>
@@ -2085,9 +2143,13 @@ const SECTIONS: ManualSection[] = [
       "sharepoint files",
       "folders",
       "drawings",
+      "new folder",
+      "create folder",
+      "project reference",
+      "tag folder",
     ],
     searchText:
-      "Project Folders is a browser over the Engineering document library (General/Project Folders). Open the Project Folders card on the dashboard or the Departments menu. Navigate into a project folder and its subfolders with the breadcrumb, click a file or folder to open it in SharePoint, and upload files into the folder you're in (up to 250 MB — files over about 4 MB upload in chunks). Deleting is done in SharePoint itself.",
+      "Project Folders is a browser over the Engineering document library (General/Project Folders). Open the Project Folders card on the dashboard or the Departments menu. Navigate into a project folder and its subfolders with the breadcrumb, click a file or folder to open it in SharePoint, and upload files into the folder you're in (up to 250 MB — files over about 4 MB upload in chunks). At the top level, New project folder creates a folder and tags it with its project, so files uploaded from a task on that project land in it automatically; a project that already has a folder is marked and can't be given a second one. Deleting is done in SharePoint itself.",
     render: () => (
       <>
         <P>
@@ -2112,7 +2174,24 @@ const SECTIONS: ManualSection[] = [
             4&nbsp;MB per file). Uploading isn't offered at the top level — pick
             a folder first.
           </LI>
+          <LI>
+            <strong>New project folder</strong> — at the top level, create a
+            folder for a project. Pick the project and the name fills itself in
+            to match; both stay editable.
+          </LI>
         </UL>
+        <P>
+          Creating it here also <strong>tags it with the project</strong>, which
+          is the part that matters: that tag is how a file uploaded from a task
+          finds its way to the right folder. A folder made directly in
+          SharePoint has to be tagged by hand, and until it is, uploads from
+          that project's tasks go to <strong>Miscellaneous</strong> instead.
+        </P>
+        <Tip>
+          A project can only have one folder. If it already has one, it's marked
+          in the list as such and can't be picked again — two folders for the
+          same project would leave ARC guessing which one to upload into.
+        </Tip>
         <P>
           Deleting isn't done from ARC — remove files in SharePoint directly, so
           the shared library stays under its normal controls.

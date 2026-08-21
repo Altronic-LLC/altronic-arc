@@ -16,6 +16,7 @@ vi.mock("@/hooks/useCurrentUser", () => ({
     email: "demo.user@altronic-llc.com",
     lookupId: 0,
   }),
+  useCurrentUserEmails: () => ["demo.user@altronic-llc.com"],
 }));
 
 const EIR = MOCK_EIRS.find((e) => e.assignedEngineers.length > 0)!;
