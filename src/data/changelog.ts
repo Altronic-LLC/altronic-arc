@@ -20,6 +20,25 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+  version: "0.109.6",
+  date: "2026-08-21",
+  changes: [
+    "Digital QC and Ignition QC forms: pressing Enter in a form field no longer saves the entry — Enter is only submitted when focus is on the Save button (via Tab or click), so a stray Enter while typing can't trigger an accidental save",
+    "Digital QC and Ignition QC defect logs: defect-breakdown columns now collapse behind a \"Show defect breakdown\" toggle, so the default view has fewer, wider columns instead of a dozen mostly-zero fields",
+    "Digital QC and Ignition QC: tapping a row now opens it read-only first, with an Edit button to unlock it — the pencil button still jumps straight to editable",
+    "Digital QC and Ignition QC: leaving an entry with unsaved changes (Add entry, Change product family, or switching rows) now prompts to save, discard, or keep editing instead of silently dropping the edits",
+    "Digital QC and Ignition QC forms now take over the screen while open — the record list hides and the page scrolls to the form automatically, so it's never left open below your scroll position",
+    "Digital QC and Ignition QC: the To RP toggle's knob was overflowing its track and stayed white regardless of state — fixed the sizing and it now shows black when on, white when off",
+    "Digital QC and Ignition QC list views now show a proper mobile card layout below tablet width instead of a squeezed table",
+    "Digital QC and Ignition QC mobile cards: press-and-hold the comment icon to preview the full comment, since touch screens have no hover tooltip",
+    "Digital QC and Ignition QC: Date Tested now defaults to your browser's current local time when opening a new entry, instead of showing UTC or a stale timestamp from when the page first loaded",
+    "Digital QC and Ignition QC: Date Tested is now required, and Quantity Rejected must equal the sum of the defect fields — both are enforced live with inline errors, and Save is disabled until they match",
+    "Dashboard: department sections (Engineering, Panels, Operations, etc.) can now be collapsed by clicking the section header, with a chevron indicating state",
+    "Dashboard: added a Collapse all / Expand all button next to the Mine/Company toggle, and nudged the project filter and toggle over slightly to make room",
+    "Dashboard: collapsed/expanded state of department sections now persists across sessions (localStorage), the same way your light/dark theme preference does",
+  ],
+},
+  {
     version: "0.109.5",
     date: "2026-08-20",
     changes: [
