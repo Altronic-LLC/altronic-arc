@@ -346,6 +346,8 @@ src/
 │   ├── grayMarketFields.ts       Gray Market column descriptors (columns are DATA)
 │   ├── grayMarketMapper.ts       Graph item → GrayMarketRequest, and back
 │   ├── grayMarketNumber.ts       nextGrayMarketLogNo() — GMR_YYYY-### numbering
+│   ├── grayMarketAlerts.ts      Gray Market intake alert (new request → the config list)
+│   ├── recipientList.ts         Parsing the env-configured recipient lists (shared)
 │   ├── calendarGrid.ts           Shared month-grid maths for every calendar view
 │   ├── whereAmI.ts               Where am I? mapper, grouping, date-range expansion
 │   ├── visitReportFilters.ts     Pure Visit Report filter/group predicates (list + calendar)
@@ -1032,6 +1034,41 @@ Also:
 bought. `grayMarketRequests.test.ts` asserts the module exports nothing
 matching /delete|remove/.
 
+**Every create emails an INTAKE list** (Ray, 2026-08-23) —
+`GRAY_MARKET_NEW_REQUEST_ALERTS` (env `VITE_GRAY_MARKET_NEW_REQUEST_ALERTS`),
+defaulting to Katie Fleming, Alexandra Russell and Glenn Terry. Nothing watches
+the SharePoint list, so a raised request used to sit until somebody opened ARC
+and noticed it.
+
+Three things this is deliberately NOT:
+
+- **It is not the watcher mechanism.** The recipients are config, not the
+  request's Watchers column, so they are told about the create and nothing
+  else; later comments and changes still follow the normal watcher rules. The
+  email says to press Watch for the rest of the thread. Adding them as watchers
+  instead would subscribe three people to every request in the company.
+- **It is not a per-user preference.** There is no opt-out short of changing the
+  setting — it's an intake queue. Three named people didn't justify a
+  SharePoint list and the admin screen that comes with it, the same call as the
+  EIR triage lists.
+- **It is not sent to the person who raised it** — unless that would leave
+  nobody, the `withoutActorUnlessEmpty` rule shared with EIR triage.
+
+`buildNewGrayMarketRequestEmails` (`lib/grayMarketAlerts.ts`) is pure and
+returns `ChangeEmail[]`, so the wording is tested without touching Graph;
+`fireNewGrayMarketRequestAlert` in `api/email.ts` sends it. **Blank details are
+dropped from the email** — a new request is mostly empty by design, since
+purchasing, engineering and inspection fill their own stages in later, and a
+grid of dashes reads as a fault.
+
+**`Testing Required` is NOT required on create** (Ray, 2026-08-23) — whether
+testing is needed is decided later in the workflow. The pills carry a "Not set"
+option, and `buildGrayMarketCreateFields` OMITS `ProductionTest` when it's
+blank rather than sending `""`, like every other blank column on a create. If
+the SharePoint column is still marked Required in list settings, the create
+will be refused there regardless of what ARC sends — that setting is the place
+to look if new requests start failing.
+
 ### @-mention auto-watch is ONE function now, and it takes a resolver
 
 `autoWatchFromMentions` in **`src/api/autoWatch.ts`** is shared by all six
@@ -1365,6 +1402,11 @@ Recipients are config, not a list: `VITE_EIR_TRIAGE_PROJECT_REVIEWERS` and
 `VITE_EIR_TRIAGE_ASSIGNERS`, comma-separated `Name <email>` or bare addresses,
 parsed by `parseRecipientList`. Three named people didn't justify another
 SharePoint list and the admin screen that comes with it.
+
+`parseRecipientList`, `withoutActorUnlessEmpty` and `nameList` live in
+**`src/lib/recipientList.ts`**, shared with the Gray Market intake alert —
+moved there when the second configured list arrived, before there was a copy
+to drift.
 
 Five rules that are load-bearing, each with tests:
 

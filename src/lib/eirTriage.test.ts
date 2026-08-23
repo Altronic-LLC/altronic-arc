@@ -1,10 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { Person } from "@/types/task";
-import {
-  buildEirTriageEmails,
-  eirTriageStage,
-  parseRecipientList,
-} from "./eirTriage";
+import { buildEirTriageEmails, eirTriageStage } from "./eirTriage";
 
 // The chain (Ray, 2026-08-20):
 //   raised with no project  →  the project reviewer is asked to add one
@@ -46,43 +42,6 @@ describe("eirTriageStage", () => {
 
   it("chases nobody once the EIR is owned", () => {
     expect(eirTriageStage({ hasProject: true, hasEngineer: true })).toBeNull();
-  });
-});
-
-describe("parseRecipientList", () => {
-  it("reads Name <email> pairs", () => {
-    expect(parseRecipientList("Sheila Horn <sheila.horn@x.com>")).toEqual([
-      { displayName: "Sheila Horn", email: "sheila.horn@x.com" },
-    ]);
-  });
-
-  it("reads several, separated by commas", () => {
-    const people = parseRecipientList(
-      "Glenn Terry <glenn@x.com>, Brandon Mirto <brandon@x.com>",
-    );
-    expect(people.map((p) => p.email)).toEqual(["glenn@x.com", "brandon@x.com"]);
-  });
-
-  // Whoever sets the env var shouldn't have to get the format exactly right.
-  it("takes a bare address and makes a readable name from it", () => {
-    expect(parseRecipientList("glenn.terry@x.com")).toEqual([
-      { displayName: "Glenn Terry", email: "glenn.terry@x.com" },
-    ]);
-  });
-
-  it("ignores blanks and anything that isn't an address", () => {
-    expect(parseRecipientList(" , not-an-email, ok@x.com ").map((p) => p.email)).toEqual([
-      "ok@x.com",
-    ]);
-  });
-
-  it("dedupes, case-insensitively", () => {
-    expect(parseRecipientList("A <x@y.com>, b <X@Y.com>")).toHaveLength(1);
-  });
-
-  it("is empty for nothing configured", () => {
-    expect(parseRecipientList(undefined)).toEqual([]);
-    expect(parseRecipientList("")).toEqual([]);
   });
 });
 

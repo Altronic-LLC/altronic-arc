@@ -9,8 +9,9 @@ import {
 } from "@/api/grayMarketRequests";
 import type { GrayMarketRequest, GrayMarketRequestInput, Person } from "@/types/task";
 import { grayMarketLabel } from "@/lib/grayMarketMapper";
+import { formatSpDate } from "@/lib/spDates";
 import { commentNotifyRecipients, extractMentionedRecipients } from "@/lib/mentions";
-import { notifyMentions } from "@/api/email";
+import { fireNewGrayMarketRequestAlert, notifyMentions } from "@/api/email";
 import { autoWatchFromMentions } from "@/api/autoWatch";
 // Gray Market lives on the PMO site, so cold-start mentions resolve there.
 import { resolvePmoSiteUserLookupId } from "@/api/operationsTasks";
@@ -92,9 +93,41 @@ export function useCreateGrayMarketRequest() {
       );
       qc.invalidateQueries({ queryKey: GRAY_MARKET_KEY });
       pushToast({ message: `Logged ${grayMarketLabel(created)}.` });
+
+      // Nothing watches the list itself, so a new request used to sit until
+      // someone opened ARC and noticed it. The configured intake list is told
+      // on every create (Ray, 2026-08-23) — see GRAY_MARKET_NEW_REQUEST_ALERTS.
+      fireNewGrayMarketRequestAlert({
+        target: {
+          kind: "grayMarketRequest",
+          id: created.id,
+          title: grayMarketLabel(created),
+        },
+        actor: created.requestor ?? actor,
+        details: newRequestDetails(created),
+      });
     },
     onError: (err: Error) => errorToast(`Couldn't log the request: ${err.message}`),
   });
+}
+
+/**
+ * What the intake email says about a new request. Blank values are dropped by
+ * the builder — a new request is mostly empty by design, since purchasing,
+ * engineering and inspection fill their own stages in later.
+ */
+function newRequestDetails(r: GrayMarketRequest) {
+  return [
+    { label: "Assembly number", value: r.title },
+    { label: "Part description", value: r.values.partDescription ?? "" },
+    { label: "AI part no.", value: r.values.aiPartNo ?? "" },
+    { label: "Vendor", value: r.values.vendor ?? "" },
+    { label: "Qty purchased", value: r.values.qtyPurchased ?? "" },
+    { label: "PO no.", value: r.values.poNo ?? "" },
+    { label: "Requested", value: r.requestDate ? formatSpDate(r.requestDate) : "" },
+    { label: "Testing required", value: r.testingRequired },
+    { label: "Requestor", value: r.requestor?.displayName ?? "" },
+  ];
 }
 
 /** Patch one or more columns, optimistically. */

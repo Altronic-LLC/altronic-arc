@@ -1714,7 +1714,7 @@ const SECTIONS: ManualSection[] = [
       "sign-off",
     ],
     searchText:
-      "Gray Market Requests at /supply-chain/gray-market-requests, under Supply Chain in the Departments menu, backed by the Gray Market Request list on the Altronic_PMO SharePoint site. A gray market request tracks a part bought outside normal distribution from the request through purchasing, engineering test, inspection and production sign-off. The list opens on Open requests with pills for Open / Complete / All, filters for Requestor and Testing Required, and an all-fields search. New Request asks only for the Title (the Altronic assembly number), request date and the purchasing details; the Log No. is generated as GMR_YYYY-###. Testing Required is on the form but optional — that call is made later in the workflow, so it can be left Not set and answered on the request once it is decided. Everything else is filled in on the request itself, in five cards — Request, Purchasing, Engineering, Inspection, Production — each card with one Edit button in its header that opens a box holding that stage's fields; Save changes writes only the fields you touched. Requests carry comments with @-mentions, watchers, and attachments. Whoever raises a request watches it. Requests cannot be deleted from ARC.",
+      "Gray Market Requests at /supply-chain/gray-market-requests, under Supply Chain in the Departments menu, backed by the Gray Market Request list on the Altronic_PMO SharePoint site. A gray market request tracks a part bought outside normal distribution from the request through purchasing, engineering test, inspection and production sign-off. The list opens on Open requests with pills for Open / Complete / All, filters for Requestor and Testing Required, and an all-fields search. New Request asks only for the Title (the Altronic assembly number), request date and the purchasing details; the Log No. is generated as GMR_YYYY-###. Testing Required is on the form but optional — that call is made later in the workflow, so it can be left Not set and answered on the request once it is decided. Everything else is filled in on the request itself, in five cards — Request, Purchasing, Engineering, Inspection, Production — each card with one Edit button in its header that opens a box holding that stage's fields; Save changes writes only the fields you touched. Requests carry comments with @-mentions, watchers, and attachments. Whoever raises a request watches it. Raising a request emails Katie Fleming, Alexandra Russell and Glenn Terry — the intake list who pick a new request up — with the assembly number, vendor and PO details; the person who raised it is left off their own alert, and being on that list is not the same as watching the request. Requests cannot be deleted from ARC.",
     render: () => (
       <>
         <P>
@@ -1745,6 +1745,15 @@ const SECTIONS: ManualSection[] = [
         <P>
           You're recorded as the requestor and start watching it, so you hear
           about every comment and change from then on.
+        </P>
+        <P>
+          Raising a request also emails <strong>Katie Fleming</strong>,{" "}
+          <strong>Alexandra Russell</strong> and <strong>Glenn Terry</strong> —
+          the people who pick a new request up — with the assembly number,
+          vendor and PO details you filled in. You aren't emailed about your own
+          request. Being on that list isn't the same as watching: they press{" "}
+          <strong>Watch</strong> on a request to follow its comments and
+          changes.
         </P>
         <H3>Working a request</H3>
         <P>

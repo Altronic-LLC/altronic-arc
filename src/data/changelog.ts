@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.110.0",
+    date: "2026-08-23",
+    changes: [
+      "Raising a gray market request now emails Katie Fleming, Alexandra Russell and Glenn Terry so a new request is picked up instead of waiting to be noticed",
+      "The alert carries the assembly number, vendor and PO details that were filled in, and leaves out whatever hasn't been answered yet",
+      "You aren't emailed about a request you raised yourself",
+    ],
+  },
+  {
     version: "0.109.6",
     date: "2026-08-23",
     changes: [
