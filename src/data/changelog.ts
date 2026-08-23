@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.109.6",
+    date: "2026-08-23",
+    changes: [
+      "New Gray Market Request no longer insists on Testing Required — that call is made later in the workflow, so it now carries a \"Not set\" option and saves without it",
+    ],
+  },
+  {
     version: "0.109.5",
     date: "2026-08-20",
     changes: [

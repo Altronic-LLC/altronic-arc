@@ -1338,7 +1338,7 @@ export interface GrayMarketRequest {
   /** `TodaysDate`, the date the request was raised. Required by the list. */
   requestDate: Date | null;
   dateCompleted: Date | null;
-  /** `ProductionTest`, labelled "Testing Required". Required by the list. */
+  /** `ProductionTest`, labelled "Testing Required". Blank until it is decided. */
   testingRequired: string;
   requestor: Person | null;
   /** `Parts_x0020_Location` — a PERSON column, whatever its name suggests. */

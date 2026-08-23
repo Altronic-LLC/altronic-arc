@@ -70,10 +70,10 @@ export function GrayMarketRequestFormModal({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    // The three the list marks required. Everything else can arrive later.
+    // Title and request date only. Testing Required is decided later in the
+    // workflow, so a request is raised without it (Ray, 2026-08-23).
     if (!title.trim()) return setError("Title is required.");
     if (!requestDate) return setError("Request date is required.");
-    if (!testingRequired) return setError("Testing Required is required.");
     setError(null);
 
     const input: GrayMarketRequestInput = {
@@ -146,16 +146,17 @@ export function GrayMarketRequestFormModal({
               />
             </Field>
 
-            <Field label="Testing Required" required plain>
-              {/* No "Not set" pill: the list requires an answer, and the form
-                  refuses to save without one. Nothing is selected until it
-                  is picked. */}
+            <Field label="Testing Required" plain>
+              {/* Carries the "Not set" pill: whether testing is needed is
+                  decided later in the workflow, so leaving it blank on the
+                  way in is a real answer, not an omission. */}
               <ChoicePills
                 label="Testing Required"
                 name="new-gray-market-testing-required"
                 options={GRAY_MARKET_TESTING_REQUIRED}
                 value={testingRequired}
                 onChange={setTestingRequired}
+                allowUnset
                 disabled={busy}
               />
             </Field>

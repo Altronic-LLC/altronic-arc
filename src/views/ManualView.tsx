@@ -1714,7 +1714,7 @@ const SECTIONS: ManualSection[] = [
       "sign-off",
     ],
     searchText:
-      "Gray Market Requests at /supply-chain/gray-market-requests, under Supply Chain in the Departments menu, backed by the Gray Market Request list on the Altronic_PMO SharePoint site. A gray market request tracks a part bought outside normal distribution from the request through purchasing, engineering test, inspection and production sign-off. The list opens on Open requests with pills for Open / Complete / All, filters for Requestor and Testing Required, and an all-fields search. New Request asks only for the Title (the Altronic assembly number), request date, testing required and the purchasing details; the Log No. is generated as GMR_YYYY-###. Everything else is filled in on the request itself, in five cards — Request, Purchasing, Engineering, Inspection, Production — each card with one Edit button in its header that opens a box holding that stage's fields; Save changes writes only the fields you touched. Requests carry comments with @-mentions, watchers, and attachments. Whoever raises a request watches it. Requests cannot be deleted from ARC.",
+      "Gray Market Requests at /supply-chain/gray-market-requests, under Supply Chain in the Departments menu, backed by the Gray Market Request list on the Altronic_PMO SharePoint site. A gray market request tracks a part bought outside normal distribution from the request through purchasing, engineering test, inspection and production sign-off. The list opens on Open requests with pills for Open / Complete / All, filters for Requestor and Testing Required, and an all-fields search. New Request asks only for the Title (the Altronic assembly number), request date and the purchasing details; the Log No. is generated as GMR_YYYY-###. Testing Required is on the form but optional — that call is made later in the workflow, so it can be left Not set and answered on the request once it is decided. Everything else is filled in on the request itself, in five cards — Request, Purchasing, Engineering, Inspection, Production — each card with one Edit button in its header that opens a box holding that stage's fields; Save changes writes only the fields you touched. Requests carry comments with @-mentions, watchers, and attachments. Whoever raises a request watches it. Requests cannot be deleted from ARC.",
     render: () => (
       <>
         <P>
@@ -1732,10 +1732,15 @@ const SECTIONS: ManualSection[] = [
         <P>
           <strong>New Request</strong> asks only for what's known at the start:
           the <strong>Title</strong> (the Altronic assembly number), the{" "}
-          <strong>request date</strong>, whether <strong>testing is
-          required</strong>, and the purchasing details — vendor, quantity, PO
-          number, part numbers. The <strong>Log No.</strong>{" "}
+          <strong>request date</strong>, and the purchasing details — vendor,
+          quantity, PO number, part numbers. The <strong>Log No.</strong>{" "}
           (<code>GMR_2026-004</code>) is assigned on save; you never type it.
+        </P>
+        <P>
+          <strong>Testing Required</strong> is on the form but optional — that
+          call is made later in the workflow, so leave it on{" "}
+          <strong>Not set</strong> and answer it on the request itself once it's
+          decided.
         </P>
         <P>
           You're recorded as the requestor and start watching it, so you hear
