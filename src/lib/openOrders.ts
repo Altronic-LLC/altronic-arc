@@ -25,18 +25,33 @@ import { OPEN_ORDER_AGING_BUCKETS } from "@/types/task";
 /**
  * Order types that belong in the Repairs table rather than the standard one.
  *
- * ZS1 is the SAP repair order type. The name match is a safety net for a type
- * that isn't ZS1 but is plainly a repair — SAP order types get added without
- * anyone telling us, and a repair line landing in the standard table is worse
- * than a standard line landing in repairs. The split is exclusive either way,
- * so nothing is double-counted.
+ * **ZS1 is not what the live extract uses.** It carries the literal lower-case
+ * string `repair` in Sales Document Type on 442 of 2,031 rows, and a number in
+ * `Repair order` on exactly those same 442 (verified 2026-08-24). ZS1 is kept
+ * anyway — it's what people call these orders, and a differently-configured
+ * export may well use it.
+ *
+ * Two signals, either of which is enough:
+ *   - the order type is a known repair type (`repair`, or ZS1);
+ *   - a repair order number is present.
+ *
+ * **The DESCRIPTION is deliberately not consulted.** An earlier version also
+ * matched the word "repair" in the material description as a safety net, which
+ * sounded prudent and was wrong: the live extract has six priced ZTA lines
+ * reading "REPAIR KIT, ALTRONIC V" and "ALTRONIC REPAIR KIT, ALTRK3U-F".
+ * Those are parts orders for a repair-KIT product, not repair orders — and the
+ * match pulled $16,037 of one customer's genuine parts backlog out of their
+ * standard table. It caught zero lines the two real signals missed.
+ *
+ * The lesson generalises: SAP says what an order IS in the order type, and a
+ * product name that happens to contain "repair" is a product name.
  */
-export const REPAIR_ORDER_TYPES = ["ZS1"] as const;
+export const REPAIR_ORDER_TYPES = ["ZS1", "REPAIR"] as const;
 
 export function isRepairLine(line: OpenOrderLine): boolean {
   const type = line.orderType.trim().toUpperCase();
   if (REPAIR_ORDER_TYPES.some((t) => type === t)) return true;
-  return /\brepair/i.test(line.orderType) || /\brepair/i.test(line.description);
+  return line.repairOrder.trim() !== "";
 }
 
 /** Whole days from `from` to `to`, on UTC terms so a timezone can't shift it. */
@@ -104,7 +119,39 @@ export function metricsFor(lines: OpenOrderLine[], runDate: Date): OpenOrderMetr
     aging: agingRows(lines, runDate),
     nextPromiseDate: promised[0] ?? null,
     orders: new Set(lines.map((l) => l.salesOrder)).size,
+    byCurrency: valueByCurrency(lines, runDate),
+    currencies: [...new Set(lines.map((l) => l.currency))].sort(),
+    unpricedLines: lines.filter((l) => l.unitPrice === 0 && l.openValue === 0).length,
   };
+}
+
+/**
+ * Open and past-due value per currency, biggest first.
+ *
+ * The live extract mixes 2,029 USD lines with 2 EUR ones. Adding those gives a
+ * number that is not money in any currency, so anything showing a total to a
+ * person reads this whenever there is more than one entry.
+ */
+export function valueByCurrency(
+  lines: OpenOrderLine[],
+  runDate: Date,
+): Array<{ currency: string; openValue: number; pastDueValue: number }> {
+  const groups = new Map<string, OpenOrderLine[]>();
+  for (const line of lines) {
+    const key = line.currency || "USD";
+    const list = groups.get(key);
+    if (list) list.push(line);
+    else groups.set(key, [line]);
+  }
+  return [...groups.entries()]
+    .map(([currency, group]) => ({
+      currency,
+      openValue: sum(group.map((l) => l.openValue)),
+      pastDueValue: sum(
+        group.filter((l) => agingBucketFor(l, runDate) === "Past due").map((l) => l.openValue),
+      ),
+    }))
+    .sort((a, b) => b.openValue - a.openValue);
 }
 
 /** Promise date ascending, undated last — the order every detail table uses. */

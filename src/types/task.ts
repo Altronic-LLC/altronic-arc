@@ -1511,32 +1511,60 @@ export interface FaitInput {
 // raw header string.
 // =============================================================================
 
-/** One open order line, after parsing. Money is in `currency` units. */
+/**
+ * One open order line, after parsing. Money is in `currency` units.
+ *
+ * Field names are ARC's; the SAP header each one comes from is in
+ * `openOrdersFields.ts`. Verified against a live extract (2,031 rows,
+ * 2026-08-21) — see the notes there for the columns that don't say what
+ * they mean.
+ */
 export interface OpenOrderLine {
-  /** Sold-to account number — the key the customer list matches on. */
+  /** `Customer` — sold-to account number, the key the customer list matches. */
   soldTo: string;
+  /** `Customer Name` — SAP TRUNCATES this at 30 characters. */
   customerName: string;
   salesOrder: string;
-  /** Line item number, kept as text: SAP pads it ("000010"). */
+  /** `Item (SD)` — line number, kept as text ("110", "1400"). */
   lineNo: string;
   material: string;
+  /** `AI Part Number` — the Altronic number customers order by. */
+  altronicPartNumber: string;
   description: string;
-  /** SAP order type. ZS1 (and anything named Repair) is the repairs table. */
+  /** `Sales Document Type` — ZTA / repair / ZKL in the live extract. */
   orderType: string;
+  /** `Repair order` — the repair order number, set only on repair lines. */
+  repairOrder: string;
   orderQty: number;
+  /** Derived: order qty − open qty. The extract has no shipped column. */
   shippedQty: number;
   openQty: number;
   unitPrice: number;
-  /** Extended open value. Trusted from the extract when present, else qty×price. */
+  /** `Open Order Value` — openQty × unitPrice, which the extract ties out to. */
   openValue: number;
+  /** Money is per line: an extract can mix USD and EUR, so never sum blindly. */
   currency: string;
+  /** `Customer Reference` — their PO. */
   customerPo: string;
+  /** `Created On` — when the order was raised. */
   orderDate: Date | null;
+  /** `Customer required date` — what they asked for. */
   requestedDate: Date | null;
-  /** The date every aging calculation in this feature keys off. */
+  /** `Ship Date` — OUR promise, and what every aging calculation keys off. */
   promiseDate: Date | null;
-  plant: string;
+  /** `Ship-to Party` — may differ from sold-to. */
+  shipTo: string;
+  salesOffice: string;
+  /** `Delivery Status` — A / B in the live extract. */
   status: string;
+  /** `Delivery Block` — blank throughout the live extract, kept for when it isn't. */
+  deliveryBlock: string;
+  /** `Reason for rejection` — likewise blank so far. */
+  rejectionReason: string;
+  /** `Comments` — INTERNAL. Deliberately not put in customer workbooks. */
+  comments: string;
+  mrpController: string;
+  createdBy: string;
 }
 
 /** Aging buckets, by promise date against the run date. Past due leads. */
@@ -1573,6 +1601,26 @@ export interface OpenOrderMetrics {
   /** Soonest promise date still open, or null when nothing is dated. */
   nextPromiseDate: Date | null;
   orders: number;
+  /**
+   * Value per currency, biggest first.
+   *
+   * An extract CAN mix currencies (the live one carries two EUR lines among
+   * 2,029 USD), and adding them produces a number that is simply wrong. So
+   * `openValue` is the arithmetic total for convenience, and anything that
+   * shows money to a person reads this instead whenever `currencies` has more
+   * than one entry.
+   */
+  byCurrency: Array<{ currency: string; openValue: number; pastDueValue: number }>;
+  /** Every currency present, so a caller can tell whether a total is safe. */
+  currencies: string[];
+  /**
+   * Lines carrying no price at all.
+   *
+   * Every repair line in the live extract is unpriced, so "repairs = $0" is
+   * the data rather than a bug — but it has to be SAID, or the split reads as
+   * broken.
+   */
+  unpricedLines: number;
 }
 
 /** One customer's slice of the report. */

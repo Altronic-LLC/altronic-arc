@@ -12,8 +12,11 @@ import type { OpenOrderCustomerAccount, OpenOrderLine } from "@/types/task";
 //   - lines past due, due this week, and months out, so every aging bucket
 //     has something in it;
 //   - a line with NO promise date (SAP genuinely leaves these blank);
-//   - ZS1 repair lines, plus one repair that ISN'T ZS1 (order type ZRE), to
-//     exercise the name-match safety net in isRepairLine;
+//   - repair lines under BOTH markers the live extract uses — the literal
+//     "repair" order type and a populated Repair order number — plus a ZS1;
+//   - a priced "REPAIR KIT" parts line that must STAY in the standard table,
+//     which is the false positive that cost a real customer $16,037 of their
+//     visible backlog before the description match was removed;
 //   - a sold-to padded with leading zeros ("0001042") against a list entry
 //     without them, which is the join that quietly finds nothing if the
 //     account match is naive;
@@ -52,7 +55,10 @@ interface LineSeed {
   requested?: number | null;
   ordered?: number;
   customerPo?: string;
-  plant?: string;
+  repairOrder?: string;
+  shipTo?: string;
+  comments?: string;
+  altronicPartNumber?: string;
 }
 
 function line(seed: LineSeed): OpenOrderLine {
@@ -64,8 +70,10 @@ function line(seed: LineSeed): OpenOrderLine {
     salesOrder: seed.salesOrder,
     lineNo: seed.lineNo,
     material: seed.material,
+    altronicPartNumber: seed.altronicPartNumber ?? "",
     description: seed.description,
-    orderType: seed.orderType ?? "ZOR",
+    orderType: seed.orderType ?? "ZTA",
+    repairOrder: seed.repairOrder ?? "",
     orderQty: seed.orderQty,
     shippedQty,
     openQty,
@@ -76,8 +84,14 @@ function line(seed: LineSeed): OpenOrderLine {
     orderDate: day(seed.ordered ?? -45),
     requestedDate: seed.requested === null ? null : day(seed.requested ?? seed.promise ?? -1),
     promiseDate: seed.promise === null ? null : day(seed.promise),
-    plant: seed.plant ?? "1000",
-    status: "Open",
+    shipTo: seed.shipTo ?? seed.soldTo,
+    salesOffice: "0001",
+    status: shippedQty > 0 ? "B" : "A",
+    deliveryBlock: "",
+    rejectionReason: "",
+    comments: seed.comments ?? "",
+    mrpController: "DC",
+    createdBy: "U4AL_RB",
   };
 }
 
@@ -164,13 +178,15 @@ export const MOCK_OPEN_ORDER_LINES: OpenOrderLine[] = [
     lineNo: "000010",
     material: "REP-CPU95",
     description: "CPU-95 module teardown and rebuild",
-    orderType: "ZS1",
+    orderType: "repair",
+    repairOrder: "4306713",
     orderQty: 2,
     unitPrice: 1450.0,
     promise: -6,
     customerPo: "PO-88622",
   }),
-  // A repair that is NOT ZS1 — caught by the description match.
+  // A repair under an unfamiliar order type, proved by its repair-order
+  // number alone — the second of the two signals isRepairLine trusts.
   line({
     soldTo: "0001042",
     customerName: "PERMIAN MIDSTREAM PARTNERS LP",
@@ -179,9 +195,25 @@ export const MOCK_OPEN_ORDER_LINES: OpenOrderLine[] = [
     material: "REP-COIL",
     description: "Coil repair, return to service",
     orderType: "ZRE",
+    repairOrder: "4306801",
     orderQty: 10,
     unitPrice: 96.5,
     promise: 15,
+  }),
+  // A repair KIT — a priced parts order that belongs in the STANDARD table.
+  // Matching "repair" in a description put six of these in the repairs table
+  // on the live extract; this line is here so that can't come back.
+  line({
+    soldTo: "0001042",
+    customerName: "PERMIAN MIDSTREAM PARTNERS LP",
+    salesOrder: "4500121455",
+    lineNo: "000010",
+    material: "ALTRK3U-F",
+    altronicPartNumber: "ALTRK3U-F",
+    description: "ALTRONIC REPAIR KIT,     ALTRK3U-F",
+    orderQty: 1,
+    unitPrice: 5653.0,
+    promise: 26,
   }),
 
   // ---- 2277 Bayou Gas — the filename-hostile name ------------------------

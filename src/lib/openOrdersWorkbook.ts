@@ -77,6 +77,7 @@ const LINE_COLUMNS: LineColumn[] = [
   { header: "Line", width: 8, value: (l) => l.lineNo, align: "center" },
   { header: "Your PO", width: 16, value: (l) => l.customerPo },
   { header: "Material", width: 16, value: (l) => l.material },
+  { header: "Altronic Part No.", width: 17, value: (l) => l.altronicPartNumber },
   { header: "Description", width: 38, value: (l) => l.description },
   { header: "Type", width: 8, value: (l) => l.orderType, align: "center" },
   { header: "Order Qty", width: 11, value: (l) => l.orderQty, format: QTY, align: "right" },
@@ -88,6 +89,16 @@ const LINE_COLUMNS: LineColumn[] = [
   { header: "Requested", width: 13, value: (l) => l.requestedDate, format: DATE, align: "center" },
   { header: "Promise Date", width: 14, value: (l) => l.promiseDate, format: DATE, align: "center" },
 ];
+
+/**
+ * The repairs table carries the repair order number; the standard table does
+ * not, because a column that is blank on every row of it is noise.
+ */
+const REPAIR_LINE_COLUMNS: LineColumn[] = LINE_COLUMNS.flatMap((c) =>
+  c.header === "Type"
+    ? [c, { header: "Repair Order", width: 14, value: (l: OpenOrderLine) => l.repairOrder }]
+    : [c],
+);
 
 /** The master detail table adds the customer, which a customer file must not. */
 const MASTER_LINE_COLUMNS: LineColumn[] = [
@@ -146,15 +157,41 @@ export async function buildMasterWorkbook(
   row = agingTable(dash, row, metrics, ctx);
 
   row += 1;
-  row = sectionHeading(dash, row, "Standard orders vs repairs (ZS1)");
+  row = sectionHeading(dash, row, "Standard orders vs repair orders");
   row = twoColumnTable(dash, row, ["", "Lines", "Open value"], [
     [
       "Standard orders",
       metrics.lines - metrics.repairLines,
       round2(metrics.openValue - metrics.repairValue),
     ],
-    ["Repairs (ZS1)", metrics.repairLines, metrics.repairValue],
+    ["Repair orders", metrics.repairLines, metrics.repairValue],
   ]);
+  if (metrics.repairLines > 0 && metrics.repairValue === 0) {
+    const note = dash.getRow(row++);
+    note.getCell(1).value = `Repair orders carry no price in this extract, so all ${metrics.repairLines} add nothing to open value.`;
+    note.getCell(1).font = { italic: true, size: 9, color: { argb: GRAY } };
+  }
+
+  // Mixed currencies are never added together — the sum would not be money in
+  // any currency. The per-currency table IS the total.
+  if (metrics.currencies.length > 1) {
+    row += 1;
+    row = sectionHeading(dash, row, "Open value by currency");
+    const note = dash.getRow(row++);
+    note.getCell(1).value =
+      `This extract mixes ${metrics.currencies.join(" and ")}. No exchange rate is applied, ` +
+      "so the currencies are reported separately rather than as one figure.";
+    note.getCell(1).font = { italic: true, size: 9, color: { argb: GRAY } };
+    row = headerRow(dash, row, ["Currency", "Open value", "Past-due value"]);
+    for (const entry of metrics.byCurrency) {
+      const r = dash.getRow(row++);
+      r.values = [entry.currency, entry.openValue, entry.pastDueValue];
+      styleDataRow(r, 3);
+      r.getCell(2).numFmt = MONEY;
+      r.getCell(3).numFmt = MONEY;
+      if (entry.pastDueValue > 0) r.getCell(3).font = { bold: true, color: { argb: RED }, size: 10 };
+    }
+  }
 
   row += 1;
   row = sectionHeading(dash, row, "Top customers by open value");
@@ -282,7 +319,15 @@ export async function buildMasterWorkbook(
   const standard = lines.filter((l) => !isRepairLine(l)).sort(byPromiseDate);
   const repairs = lines.filter(isRepairLine).sort(byPromiseDate);
   addLineSheet(wb, "Open Orders", "Every standard open line", standard, MASTER_LINE_COLUMNS, ctx, BLUE);
-  addLineSheet(wb, "Repairs (ZS1)", "Repair and ZS1 lines only", repairs, MASTER_LINE_COLUMNS, ctx, GRAY);
+  addLineSheet(
+    wb,
+    "Repairs",
+    "Repair orders only — normally unpriced, so they add nothing to open value",
+    repairs,
+    [MASTER_LINE_COLUMNS[0], MASTER_LINE_COLUMNS[1], ...REPAIR_LINE_COLUMNS],
+    ctx,
+    GRAY,
+  );
 
   // ---- Coverage ----------------------------------------------------------
   // Why a customer on the list got no workbook. Without this sheet the answer
@@ -399,8 +444,15 @@ export async function buildCustomerWorkbook(
   // Two blank rows, so the second table reads as a separate table rather than
   // a continuation of the first.
   dRow += 2;
-  dRow = sectionHeading(detail, dRow, `Repairs / ZS1 (${report.repairLines.length})`);
-  lineTable(detail, dRow, report.repairLines, LINE_COLUMNS, ctx);
+  dRow = sectionHeading(detail, dRow, `Repair orders (${report.repairLines.length})`);
+  if (report.repairLines.length > 0 && report.metrics.repairValue === 0) {
+    // Every repair line in the extract is unpriced. Saying so beats a table of
+    // zeros that reads as a broken export.
+    const note = detail.getRow(dRow++);
+    note.getCell(1).value = "Repair orders are not priced in this report, so they show no value.";
+    note.getCell(1).font = { italic: true, size: 9, color: { argb: GRAY } };
+  }
+  lineTable(detail, dRow, report.repairLines, REPAIR_LINE_COLUMNS, ctx);
 
   detail.views = [{ state: "frozen", ySplit: 5 }];
   return wb;

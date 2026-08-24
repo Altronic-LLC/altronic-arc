@@ -33,8 +33,10 @@ function line(over: Partial<OpenOrderLine> = {}): OpenOrderLine {
     salesOrder: "4500118820",
     lineNo: "000010",
     material: "1025-9975-00",
+    altronicPartNumber: "691768-1",
     description: "CPU-95 Ignition Module",
-    orderType: "ZOR",
+    orderType: "ZTA",
+    repairOrder: "",
     orderQty: 10,
     shippedQty: 0,
     openQty: 10,
@@ -45,8 +47,14 @@ function line(over: Partial<OpenOrderLine> = {}): OpenOrderLine {
     orderDate: new Date("2026-07-01T12:00:00Z"),
     requestedDate: new Date("2026-09-01T12:00:00Z"),
     promiseDate: new Date("2026-09-01T12:00:00Z"),
-    plant: "1000",
-    status: "Open",
+    shipTo: "1042",
+    salesOffice: "0001",
+    status: "A",
+    deliveryBlock: "",
+    rejectionReason: "",
+    comments: "",
+    mrpController: "DC",
+    createdBy: "U4AL_RB",
     ...over,
   };
 }
@@ -58,29 +66,45 @@ function atOffset(days: number): Date {
 }
 
 describe("isRepairLine", () => {
-  it("treats ZS1 as a repair", () => {
+  it("treats the live extract's literal 'repair' order type as a repair", () => {
+    expect(isRepairLine(line({ orderType: "repair" }))).toBe(true);
+  });
+
+  it("treats ZS1 as a repair too — it's what people call these orders", () => {
     expect(isRepairLine(line({ orderType: "ZS1" }))).toBe(true);
   });
 
   it("ignores the case and padding SAP puts on an order type", () => {
-    expect(isRepairLine(line({ orderType: " zs1 " }))).toBe(true);
+    expect(isRepairLine(line({ orderType: " Repair " }))).toBe(true);
   });
 
-  // SAP order types get added without anyone telling us, so a line that plainly
-  // says repair is treated as one even under an unknown type.
-  it("catches a repair under another order type", () => {
-    expect(isRepairLine(line({ orderType: "ZRE", description: "Coil repair, return to service" }))).toBe(
-      true,
-    );
+  // The two signals agree on all 442 repair rows in the live extract, so a
+  // repair-order number alone is enough even under an unfamiliar type.
+  it("takes a repair order number as proof on its own", () => {
+    expect(isRepairLine(line({ orderType: "ZRE", repairOrder: "4306713" }))).toBe(true);
   });
 
   it("leaves a standard order alone", () => {
     expect(isRepairLine(line())).toBe(false);
   });
 
-  // "Repairable" and "prepaired" must not trip the word-boundary match.
-  it("doesn't fire on a word that merely contains 'repair'", () => {
-    expect(isRepairLine(line({ description: "Prepairing kit, no service" }))).toBe(false);
+  // THE REGRESSION THAT MATTERS. An earlier version matched "repair" in the
+  // description as a safety net; the live extract has six priced ZTA lines
+  // reading "REPAIR KIT, ALTRONIC V", and the match pulled $16,037 of one
+  // customer's genuine parts backlog out of their standard table.
+  it.each([
+    "REPAIR KIT,              ALTRONIC V",
+    "REPAIR KIT,              ALT V",
+    "ALTRONIC REPAIR KIT,     ALTRK3U-F",
+    "ALTRONIC REPAIR KIT,     ALTRK3BC",
+  ])("keeps a priced repair-KIT part in the standard table: %s", (description) => {
+    expect(isRepairLine(line({ orderType: "ZTA", description, repairOrder: "" }))).toBe(false);
+  });
+
+  it("doesn't read the description at all, however much it says repair", () => {
+    expect(
+      isRepairLine(line({ orderType: "ZTA", description: "repair repair repair", repairOrder: "" })),
+    ).toBe(false);
   });
 });
 
@@ -190,6 +214,18 @@ describe("metricsFor", () => {
     const m = metricsFor(lines, RUN);
     expect(m.repairLines).toBe(1);
     expect(m.repairValue).toBe(99.5);
+  });
+
+  // Every repair line in the live extract is unpriced, so "repairs = $0" is
+  // the data rather than a fault — but it has to be countable, or the split
+  // reads as broken.
+  it("counts the unpriced lines so a zero repair value can be explained", () => {
+    const m = metricsFor(
+      [line({ unitPrice: 0, openValue: 0, orderType: "repair" }), line({ openValue: 500 })],
+      RUN,
+    );
+    expect(m.unpricedLines).toBe(1);
+    expect(m.repairValue).toBe(0);
   });
 
   it("takes the soonest promise date, ignoring the undated line", () => {

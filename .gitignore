@@ -28,3 +28,4 @@ scripts/reassign-*.csv
 # review output, not source. Regenerate with: node scripts/generate-sample-open-orders.mjs
 sample-open-orders/
 scripts/.open-orders-sample-bundle.mjs
+sample-open-orders-real/
