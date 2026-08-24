@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.112.5",
+    date: "2026-08-24",
+    changes: [
+      "The Open Orders customer list now says up front when it hasn't been created in SharePoint yet, with the steps to do it — instead of looking empty and then refusing after you'd typed a customer in",
+      "Adding and importing are switched off in that state rather than failing on save",
+      "A customer list that exists but won't load now reports that as its own problem, not as \"not set up yet\"",
+    ],
+  },
+  {
     version: "0.112.4",
     date: "2026-08-24",
     changes: [

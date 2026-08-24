@@ -29,6 +29,7 @@ import {
 } from "@/hooks/useOpenOrdersCustomers";
 import { accountsWithNoLines, customerRollup, metricsFor } from "@/lib/openOrders";
 import { OPEN_ORDERS_PATH } from "@/api/openOrdersFiles";
+import { SP_OPEN_ORDERS_CUSTOMERS_LIST_ID, USE_MOCK } from "@/api/config";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { DateField } from "@/components/DateField";
 import { toDateInputValue, fromDateInputValue } from "@/lib/spDates";
@@ -285,6 +286,9 @@ function GenerateCard({
   const fileInput = useRef<HTMLInputElement>(null);
 
   const activeAccounts = useMemo(() => accounts.filter((a) => a.active), [accounts]);
+  // "Empty list" and "no list at all" need different words — the second is a
+  // setup step, not something to fix on this screen.
+  const customersConfigured = USE_MOCK || !!SP_OPEN_ORDERS_CUSTOMERS_LIST_ID;
 
   const preview = useMemo(() => {
     if (!extract || !runDate) return null;
@@ -542,11 +546,31 @@ function GenerateCard({
 
           {activeAccounts.length === 0 && (
             <p className="text-xs text-fg-muted">
-              The customer list is empty, so only a master dashboard could be produced.{" "}
-              <Link to="/sales/open-orders/customers" className="text-accent hover:underline">
-                Add the customers who get a weekly workbook
-              </Link>
-              .
+              {customersConfigured ? (
+                <>
+                  The customer list is empty, so only a master dashboard could be
+                  produced.{" "}
+                  <Link
+                    to="/sales/open-orders/customers"
+                    className="text-accent hover:underline"
+                  >
+                    Add the customers who get a weekly workbook
+                  </Link>
+                  .
+                </>
+              ) : (
+                <>
+                  The customer list hasn't been created in SharePoint yet, so only a
+                  master dashboard could be produced — no per-customer workbooks.{" "}
+                  <Link
+                    to="/sales/open-orders/customers"
+                    className="text-accent hover:underline"
+                  >
+                    See the setup steps
+                  </Link>
+                  .
+                </>
+              )}
             </p>
           )}
         </>

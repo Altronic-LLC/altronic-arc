@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
+  AlertTriangle,
   ArrowLeft,
   Check,
   Lock,
@@ -19,6 +20,7 @@ import {
   useUpdateOpenOrdersCustomer,
 } from "@/hooks/useOpenOrdersCustomers";
 import { useParseExtract } from "@/hooks/useOpenOrdersReports";
+import { SP_OPEN_ORDERS_CUSTOMERS_LIST_ID, USE_MOCK } from "@/api/config";
 import { customerRollup, sameAccount } from "@/lib/openOrders";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { ChoicePills } from "@/components/ChoicePills";
@@ -48,7 +50,13 @@ const EMPTY: OpenOrderCustomerAccountInput = {
 
 export function OpenOrdersCustomersView() {
   const access = useMyOpenOrdersAccess();
-  const { data: accounts = [], isLoading } = useOpenOrdersCustomers();
+  const { data: accounts = [], isLoading, error } = useOpenOrdersCustomers();
+
+  // Whether the SharePoint list exists at all. Checked BEFORE anything invites
+  // somebody to add a customer: the list used to render as "nobody here yet,
+  // add one", and the real answer only arrived as a toast after they had typed
+  // a name in and pressed Save (Ray, 2026-08-24).
+  const configured = USE_MOCK || !!SP_OPEN_ORDERS_CUSTOMERS_LIST_ID;
   const create = useCreateOpenOrdersCustomer();
   const update = useUpdateOpenOrdersCustomer();
   const remove = useDeleteOpenOrdersCustomer();
@@ -58,7 +66,7 @@ export function OpenOrdersCustomersView() {
   const [importing, setImporting] = useState(false);
   const [search, setSearch] = useState("");
 
-  const canEdit = access.isReportManager;
+  const canEdit = access.isReportManager && configured;
 
   const shown = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -119,13 +127,30 @@ export function OpenOrdersCustomersView() {
         </p>
       </header>
 
-      {!canEdit && (
-        <div className="flex items-start gap-3 rounded-lg border border-border bg-surface px-4 py-3 text-sm">
-          <Lock className="mt-0.5 h-4 w-4 shrink-0 text-fg-muted" />
+      {!configured ? (
+        <SetupNotice />
+      ) : (
+        !canEdit && (
+          <div className="flex items-start gap-3 rounded-lg border border-border bg-surface px-4 py-3 text-sm">
+            <Lock className="mt-0.5 h-4 w-4 shrink-0 text-fg-muted" />
+            <span className="text-fg-muted">
+              {access.isResolving
+                ? "Checking your access…"
+                : "This list is read-only for you. Ask an admin to add you as a report manager at Admin → Open Orders Roles."}
+            </span>
+          </div>
+        )
+      )}
+
+      {/* A configured list that still failed to load is a different problem —
+          usually SharePoint permission — and must not be reported as "not set
+          up yet". */}
+      {configured && error && (
+        <div className="flex items-start gap-3 rounded-lg border border-cooper-red/30 bg-cooper-red/5 px-4 py-3 text-sm">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-cooper-red" />
           <span className="text-fg-muted">
-            {access.isResolving
-              ? "Checking your access…"
-              : "This list is read-only for you. Ask an admin to add you as a report manager at Admin → Open Orders Roles."}
+            <span className="font-medium text-fg">Couldn't load the customer list.</span>{" "}
+            {error instanceof Error ? error.message : "Unknown error."}
           </span>
         </div>
       )}
@@ -174,7 +199,9 @@ export function OpenOrdersCustomersView() {
 
       {accounts.length === 0 ? (
         <p className="rounded-lg border border-dashed border-border bg-surface/60 px-4 py-8 text-center text-sm text-fg-muted">
-          Nobody on the list yet. Add a customer, or import the accounts from a raw extract.
+          {configured
+            ? "Nobody on the list yet. Add a customer, or import the accounts from a raw extract."
+            : "There's no list to read yet — see the setup steps above."}
         </p>
       ) : (
         <ul className="flex flex-col divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface">
@@ -260,6 +287,56 @@ export function OpenOrdersCustomersView() {
           onAdd={(input) => create.mutate(input)}
         />
       )}
+    </div>
+  );
+}
+
+/**
+ * What to do when the SharePoint list doesn't exist yet.
+ *
+ * Spells out all three steps, because the third one is the one that gets
+ * missed: `VITE_*` variables are baked into the bundle at BUILD time, so
+ * setting the repo variable does nothing until ARC is redeployed. Without that
+ * sentence the list looks broken after the variable is set.
+ */
+function SetupNotice() {
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border border-ajax-yellow/40 bg-ajax-yellow/5 px-4 py-3 text-sm">
+      <div className="flex items-center gap-2">
+        <AlertTriangle className="h-4 w-4 shrink-0 text-ajax-yellow" />
+        <span className="font-medium text-fg">
+          The customer list hasn't been created in SharePoint yet
+        </span>
+      </div>
+      <p className="text-fg-muted">
+        Until it exists there's nowhere to save a customer, so adding is switched off
+        rather than failing after you've typed one in. Three steps, in order:
+      </p>
+      <ol className="ml-4 flex list-decimal flex-col gap-1 text-fg-muted">
+        <li>
+          Run{" "}
+          <span className="font-mono text-xs text-fg">
+            ./scripts/create-open-orders-lists.ps1
+          </span>{" "}
+          from the repo (needs SharePoint admin — it creates the list).
+        </li>
+        <li>
+          Set the repo variable it prints,{" "}
+          <span className="font-mono text-xs text-fg">
+            VITE_SP_OPEN_ORDERS_CUSTOMERS_LIST_ID
+          </span>
+          , under GitHub → Settings → Secrets and variables → Actions.
+        </li>
+        <li>
+          <span className="font-medium text-fg">Redeploy ARC.</span> That variable is
+          baked into the app when it's built, so it has no effect until the next
+          deploy — this is the step that looks like the list is still broken.
+        </li>
+      </ol>
+      <p className="text-xs text-fg-muted">
+        Everything else on the Open Orders screen keeps working meanwhile: the reports
+        already in SharePoint are listed and can be downloaded.
+      </p>
     </div>
   );
 }

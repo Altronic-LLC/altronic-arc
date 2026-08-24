@@ -214,6 +214,10 @@ if ($WhatIf) {
 Write-Host "`nAdd these to .env.local (and to the GitHub Actions repo variables):" -ForegroundColor Cyan
 foreach ($line in $envLines) { Write-Host "  $line" -ForegroundColor Green }
 Write-Host ""
+Write-Host "THEN REDEPLOY. VITE_* variables are baked into the bundle when it is" -ForegroundColor Yellow
+Write-Host "built, so setting a repo variable does nothing until the next deploy" -ForegroundColor Yellow
+Write-Host "runs. Until then the app still reports the list as not set up." -ForegroundColor Yellow
+Write-Host ""
 Write-Host "Populate the customer list from ARC: Open Orders -> Customer list ->" -ForegroundColor Cyan
 Write-Host "'Import from an extract'. It reads the accounts with the same parser the" -ForegroundColor Cyan
 Write-Host "report uses, so the account numbers match what the weekly run looks for." -ForegroundColor Cyan
