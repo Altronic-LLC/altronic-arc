@@ -1512,6 +1512,29 @@ export interface FaitInput {
 // =============================================================================
 
 /**
+ * Open Orders role tags — the same mechanism as EIR_ROLES ("treat like the eir
+ * permissions", Ray, 2026-08-24), with its own tag namespace.
+ *
+ *   "report manager" → may edit the customer list and run the weekly
+ *                      generation.
+ *
+ * Everyone else signed in can read and download the reports, which is what
+ * most of Sales needs. As with the EIR roles this is UI-level gating only; the
+ * real boundary is the SharePoint permission on the list and the folder.
+ */
+export const OPEN_ORDERS_ROLES = ["report manager"] as const;
+export type OpenOrdersRole = (typeof OPEN_ORDERS_ROLES)[number];
+
+/** Row in the Open Orders Roles list. Same shape as EirRoleEntry. */
+export interface OpenOrdersRoleEntry {
+  id: number;
+  email: string;
+  displayName: string;
+  roles: OpenOrdersRole[];
+  note: string;
+}
+
+/**
  * One open order line, after parsing. Money is in `currency` units.
  *
  * Field names are ARC's; the SAP header each one comes from is in

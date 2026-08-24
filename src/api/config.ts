@@ -226,6 +226,48 @@ export const SP_GRAY_MARKET_LIST_ID =
  * are expanded to that convention here. A wrong address fails visibly (a
  * failed send is reported) but it fails as that person's silence.
  */
+/**
+ * Open Orders Report Customers — the managed list of who gets an individual
+ * workbook each week (Ray, 2026-08-24).
+ *
+ * `Title` is the sold-to account number and `CustomerName` is the
+ * CUSTOMER-FACING name. That second column is not a nicety: SAP truncates
+ * Customer Name at 30 characters ("Wabtec Transportation Systems,",
+ * "INNIO Waukesha Canada Corporat"), and the workbook a customer receives is
+ * named after this list, not after a truncation.
+ *
+ * Lives on SITES.salesTeam. Create it with
+ * scripts/create-open-orders-lists.ps1, then set this env var.
+ */
+export const SP_OPEN_ORDERS_CUSTOMERS_LIST_ID =
+  import.meta.env.VITE_SP_OPEN_ORDERS_CUSTOMERS_LIST_ID;
+
+/**
+ * Open Orders Roles list — the same shape as EIR Roles ("treat like the eir
+ * permissions", Ray, 2026-08-24): one row per user, `Title` = email, plus a
+ * `Roles` text column holding a lowercase CSV of role tags.
+ *
+ * One tag today: `report manager` — may edit the customer list and run the
+ * weekly generation. Everyone else signed in can read the reports and
+ * download them, which is what most of Sales needs.
+ *
+ * Point this at the EIR Roles list instead if you would rather run one roles
+ * list for the whole company; the shape is identical and the tag namespace is
+ * separate.
+ */
+export const SP_OPEN_ORDERS_ROLES_LIST_ID =
+  import.meta.env.VITE_SP_OPEN_ORDERS_ROLES_LIST_ID;
+
+/**
+ * Whether Open Orders role gating is active.
+ *
+ * Same lockout-safety shape as EIR_ROLES_ENFORCED: OFF in real mode until the
+ * roles list is configured, so the first person to open the tool isn't told
+ * they lack a role that nobody can grant yet. Always on in mock mode so the
+ * gating is demoable.
+ */
+export const OPEN_ORDERS_ROLES_ENFORCED = USE_MOCK || !!SP_OPEN_ORDERS_ROLES_LIST_ID;
+
 export const GRAY_MARKET_NEW_REQUEST_ALERTS =
   import.meta.env.VITE_GRAY_MARKET_NEW_REQUEST_ALERTS ||
   "Katie Fleming <katie.fleming@altronic-llc.com>, " +
