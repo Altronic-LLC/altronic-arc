@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.112.4",
+    date: "2026-08-24",
+    changes: [
+      "Fixed the blank page when opening or leaving the Open Orders screens — they now load and navigate without needing a refresh",
+      "A page that fails to draw no longer takes the whole app down with it: you get an explanation and a Reload button, and moving elsewhere in ARC still works",
+      "A tab left open across an update now says a newer version is available instead of going blank",
+    ],
+  },
+  {
     version: "0.112.3",
     date: "2026-08-24",
     changes: [

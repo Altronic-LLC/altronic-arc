@@ -1709,6 +1709,41 @@ description checklists, the comment "notify everyone again" option, and the
 EIR role tags are UI affordances, not stored Yes/No fields, and stay as they
 are too.
 
+### A lazy route needs a Suspense boundary, and the app needs ONE error boundary
+
+Every `lazy()` view in `App.tsx` is wrapped in its own `<Suspense>`. The Open
+Orders routes shipped without one (2026-08-24): React has nowhere to park a
+suspended component, so rendering one throws, and the app had **no error
+boundary at all** — so the whole page went blank until a manual refresh,
+*including navigating away*, because the crash unmounts the router. Ray
+reported it as "every navigation to and from requires me to refresh to load".
+
+The mistake was invisible at the call site: the route was copied from
+`/sales/visit-reports`, whose view is **eagerly imported** and therefore needs
+no boundary. Two guards now exist:
+
+- **`src/App.routes.test.ts`** reads `App.tsx` and fails if any `lazy()`
+  component is rendered in a `<Route>` block with no `Suspense` in it, naming
+  the offender. It was verified by reintroducing the bug and watching it fail —
+  the first version of that test passed with the bug present, because the
+  injection had silently not applied.
+- **`src/components/RouteErrorBoundary.tsx`** wraps the whole route tree. It is
+  the app's only error boundary.
+
+Three things about the boundary worth keeping:
+
+- **It is keyed on `location.pathname`** and clears on change, so one broken
+  page doesn't make the rest of ARC unreachable until a reload. Going back to
+  the broken page throws again, which is honest.
+- **A stale chunk gets its own wording.** ARC deploys hashed filenames to GitHub
+  Pages, so a tab open across a deploy asks for a chunk that no longer exists
+  and the dynamic import rejects. That isn't a fault in the page being opened
+  and reloading definitely fixes it, so `looksLikeStaleChunk` (a set of
+  patterns, because every browser words it differently) switches the message to
+  "a newer version of ARC is available".
+- **The error text is shown, not hidden.** Whoever presses Report issue has to
+  be able to quote it.
+
 ### Escape closes ONE thing at a time
 
 A dropdown open inside a modal used to mean two `document` keydown listeners
