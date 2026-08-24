@@ -1496,3 +1496,120 @@ export interface FaitInput {
   projectLookupId: number | null;
   values: Record<string, string>;
 }
+
+// =============================================================================
+// Open Orders Report Tool (Customer Service / Sales)
+//
+// A weekly job: somebody exports the open-orders report out of SAP, uploads the
+// raw workbook to ARC, and ARC builds ONE branded master dashboard plus ONE
+// workbook per customer on the managed account list — the files the regional
+// managers send out.
+//
+// The raw extract is SAP's, so its column headers are whatever SAP calls them
+// that week; `openOrdersFields.ts` owns the header→field mapping and this type
+// is what everything downstream sees. Nothing outside the parser should touch a
+// raw header string.
+// =============================================================================
+
+/** One open order line, after parsing. Money is in `currency` units. */
+export interface OpenOrderLine {
+  /** Sold-to account number — the key the customer list matches on. */
+  soldTo: string;
+  customerName: string;
+  salesOrder: string;
+  /** Line item number, kept as text: SAP pads it ("000010"). */
+  lineNo: string;
+  material: string;
+  description: string;
+  /** SAP order type. ZS1 (and anything named Repair) is the repairs table. */
+  orderType: string;
+  orderQty: number;
+  shippedQty: number;
+  openQty: number;
+  unitPrice: number;
+  /** Extended open value. Trusted from the extract when present, else qty×price. */
+  openValue: number;
+  currency: string;
+  customerPo: string;
+  orderDate: Date | null;
+  requestedDate: Date | null;
+  /** The date every aging calculation in this feature keys off. */
+  promiseDate: Date | null;
+  plant: string;
+  status: string;
+}
+
+/** Aging buckets, by promise date against the run date. Past due leads. */
+export const OPEN_ORDER_AGING_BUCKETS = [
+  "Past due",
+  "0–30 days",
+  "31–60 days",
+  "61–90 days",
+  "90+ days",
+  "No promise date",
+] as const;
+
+export type OpenOrderAgingBucket = (typeof OPEN_ORDER_AGING_BUCKETS)[number];
+
+/** Count + value for one aging bucket. */
+export interface OpenOrderAgingRow {
+  bucket: OpenOrderAgingBucket;
+  lines: number;
+  openQty: number;
+  openValue: number;
+}
+
+/** The numbers on a dashboard or a customer Summary tab. */
+export interface OpenOrderMetrics {
+  lines: number;
+  openQty: number;
+  openValue: number;
+  pastDueLines: number;
+  pastDueValue: number;
+  /** Repairs (ZS1) split out, since they're reported in their own table. */
+  repairLines: number;
+  repairValue: number;
+  aging: OpenOrderAgingRow[];
+  /** Soonest promise date still open, or null when nothing is dated. */
+  nextPromiseDate: Date | null;
+  orders: number;
+}
+
+/** One customer's slice of the report. */
+export interface OpenOrderCustomerReport {
+  soldTo: string;
+  customerName: string;
+  metrics: OpenOrderMetrics;
+  /** Everything that isn't a repair, promise date ascending. */
+  standardLines: OpenOrderLine[];
+  /** ZS1 / Repairs, promise date ascending — their own table on the tab. */
+  repairLines: OpenOrderLine[];
+}
+
+/**
+ * A customer on the managed list — who gets an individual workbook each week.
+ *
+ * The account number is the join key onto the extract; the name is what the
+ * file is named after, so it's the customer-facing spelling rather than SAP's.
+ */
+export interface OpenOrderCustomerAccount {
+  id: number;
+  /** `Title` — the sold-to account number. */
+  accountNumber: string;
+  /** Customer-facing name, used for the workbook filename. */
+  customerName: string;
+  /** Regional manager who sends it, for the report footer. Optional. */
+  regionalManager: string;
+  /** Off the weekly run without deleting the row. */
+  active: boolean;
+  notes: string;
+}
+
+/** Everything a create/edit on the customer list needs. */
+export interface OpenOrderCustomerAccountInput {
+  accountNumber: string;
+  customerName: string;
+  regionalManager: string;
+  active: boolean;
+  notes: string;
+}

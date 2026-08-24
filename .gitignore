@@ -23,3 +23,8 @@ scripts/*-schema.json
 # Before/after records from scripts/reassign-site-user.ps1 — real item titles,
 # and the only rollback reference for an applied run. Keep locally, don't commit.
 scripts/reassign-*.csv
+
+# Generated sample workbooks from scripts/generate-sample-open-orders.mjs —
+# review output, not source. Regenerate with: node scripts/generate-sample-open-orders.mjs
+sample-open-orders/
+scripts/.open-orders-sample-bundle.mjs
