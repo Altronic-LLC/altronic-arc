@@ -10,6 +10,7 @@ import {
   Lock,
   Upload,
   Users,
+  X,
 } from "lucide-react";
 import {
   useDownloadOpenOrdersFile,
@@ -34,15 +35,22 @@ import { toDateInputValue, fromDateInputValue } from "@/lib/spDates";
 import { cn } from "@/lib/cn";
 
 // =============================================================================
-// Open Orders Report Tool — the weekly job, in one screen.
+// Open Orders Report Tool — the files first, the tool second.
 //
-// Reading top to bottom: what this is and how often it runs → upload and
-// generate → the latest master → the weekly folders to download from.
+// Reading top to bottom: the latest master dashboard → this week's customer
+// workbooks, already expanded → a button that opens the generating tool → the
+// raw extracts behind it.
 //
-// The cadence is stated in words at the top (Ray, 2026-08-24: "the upload
-// section of this app should be clear that this is done once a week"). ARC has
-// no server and no scheduler, so nothing here happens unless somebody does it,
-// and the screen had better not imply otherwise.
+// **The upload form is deliberately NOT the first thing on the screen** (Ray,
+// 2026-08-24). One person runs this once a week; everybody else arrives to take
+// a file off the shelf, and leading with an upload form made the page look like
+// a job to do rather than somewhere to fetch a report.
+//
+// The cadence is still stated in words, on the button that opens the tool
+// (Ray, 2026-08-24: "the upload section of this app should be clear that this
+// is done once a week"). ARC has no server and no scheduler, so nothing here
+// happens unless somebody does it, and the screen had better not imply
+// otherwise.
 // =============================================================================
 
 const CADENCE_NOTE =
@@ -56,8 +64,18 @@ export function OpenOrdersView() {
   const { data: weeks = [], isLoading: weeksLoading } = useOpenOrdersWeeks();
   const { data: rawUploads = [] } = useRawUploads();
 
-  const [openWeek, setOpenWeek] = useState<string | null>(null);
+  // The newest week is open on arrival, so the individual files are THERE
+  // rather than one click away — reading them is what most people came for
+  // (Ray, 2026-08-24). `undefined` means "nobody has chosen yet, use the
+  // default"; `null` means a person deliberately collapsed it.
+  const [weekOverride, setWeekOverride] = useState<string | null | undefined>(undefined);
+  const openWeek = weekOverride === undefined ? (weeks[0]?.name ?? null) : weekOverride;
   const { data: weekFiles = [], isLoading: weekFilesLoading } = useOpenOrdersWeekFiles(openWeek);
+
+  // The tool itself is folded away. One person runs it once a week; everybody
+  // else is here to download, and putting the upload form first made the
+  // screen look like a job to do rather than a shelf to take a file off.
+  const [toolOpen, setToolOpen] = useState(false);
 
   const download = useDownloadOpenOrdersFile();
 
@@ -70,15 +88,16 @@ export function OpenOrdersView() {
           <FileSpreadsheet className="h-6 w-6 text-accent" />
           Open Orders Report Tool
         </h1>
-        <p className="max-w-3xl text-sm text-fg-muted">{CADENCE_NOTE}</p>
+        <p className="max-w-3xl text-sm text-fg-muted">
+          The latest open orders dashboard, and each customer's own workbook to send
+          on. Download what you need below.
+        </p>
         <p className="text-xs text-fg-muted">
           Files live in SharePoint under{" "}
           <span className="font-mono text-[11px]">{OPEN_ORDERS_PATH}</span> — master
           dashboards at the top, one folder per week for the customer workbooks.
         </p>
       </header>
-
-      <GenerateCard accounts={accounts} canGenerate={access.isReportManager} access={access} />
 
       <section className="flex flex-col gap-3">
         <SectionHeading
@@ -87,7 +106,7 @@ export function OpenOrdersView() {
           note="The company-wide view. The newest one is the current week's."
         />
         {masters.length === 0 ? (
-          <Empty>No master dashboard yet — generate one above.</Empty>
+          <Empty>No master dashboard yet — build one with the tool below.</Empty>
         ) : (
           <ul className="flex flex-col divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface">
             {masters.map((file, i) => (
@@ -123,7 +142,7 @@ export function OpenOrdersView() {
           note="Download from here and send them on. One folder per week."
         />
         {weeks.length === 0 ? (
-          <Empty>No weekly folders yet.</Empty>
+          <Empty>No weekly folders yet — the tool below creates one per week.</Empty>
         ) : (
           <ul className="flex flex-col gap-2">
             {weeks.map((week) => {
@@ -135,7 +154,7 @@ export function OpenOrdersView() {
                 >
                   <button
                     type="button"
-                    onClick={() => setOpenWeek(isOpen ? null : week.name)}
+                    onClick={() => setWeekOverride(isOpen ? null : week.name)}
                     aria-expanded={isOpen}
                     className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-2"
                   >
@@ -183,6 +202,36 @@ export function OpenOrdersView() {
         )}
       </section>
 
+      {/* The tool, folded away below the files it produces. */}
+      {toolOpen ? (
+        <GenerateCard
+          accounts={accounts}
+          canGenerate={access.isReportManager}
+          access={access}
+          onClose={() => setToolOpen(false)}
+        />
+      ) : (
+        <section className="flex flex-col items-start gap-2 rounded-lg border border-dashed border-border bg-surface/60 p-4">
+          <button
+            type="button"
+            onClick={() => setToolOpen(true)}
+            className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent/90"
+          >
+            <Upload className="h-4 w-4" />
+            Build this week's reports
+          </button>
+          <p className="text-xs text-fg-muted">
+            {CADENCE_NOTE}
+            {!access.isReportManager && !access.isResolving && (
+              <>
+                {" "}
+                Running it needs the report-manager role — downloading doesn't.
+              </>
+            )}
+          </p>
+        </section>
+      )}
+
       {rawUploads.length > 0 && (
         <section className="flex flex-col gap-3">
           <SectionHeading
@@ -219,10 +268,12 @@ function GenerateCard({
   accounts,
   canGenerate,
   access,
+  onClose,
 }: {
   accounts: ReturnType<typeof useOpenOrdersCustomers>["data"] & object;
   canGenerate: boolean;
   access: ReturnType<typeof useMyOpenOrdersAccess>;
+  onClose: () => void;
 }) {
   const { parse, parsing } = useParseExtract();
   const generate = useGenerateOpenOrders();
@@ -270,7 +321,7 @@ function GenerateCard({
     return (
       <div className="flex items-start gap-3 rounded-lg border border-border bg-surface px-4 py-3">
         <Lock className="mt-0.5 h-4 w-4 shrink-0 text-fg-muted" />
-        <div className="text-sm">
+        <div className="flex-1 text-sm">
           <span className="font-medium text-fg">
             {access.isResolving
               ? "Checking your access…"
@@ -279,11 +330,19 @@ function GenerateCard({
           {!access.isResolving && (
             <span className="text-fg-muted">
               {" "}
-              — you can still download everything below. Ask an admin to add you at Admin
+              — you can still download everything above. Ask an admin to add you at Admin
               → Open Orders Roles.
             </span>
           )}
         </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          className="rounded p-1 text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
+        >
+          <X className="h-4 w-4" />
+        </button>
       </div>
     );
   }
@@ -296,13 +355,23 @@ function GenerateCard({
           title="Run this week's reports"
           note="Once a week. Uploading again for the same week replaces that week's files."
         />
-        <Link
-          to="/sales/open-orders/customers"
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-surface-2 px-3 py-1.5 text-sm font-medium text-fg-muted transition-colors hover:bg-surface hover:text-fg"
-        >
-          <Users className="h-3.5 w-3.5" />
-          Customer list ({activeAccounts.length})
-        </Link>
+        <div className="flex shrink-0 items-center gap-2">
+          <Link
+            to="/sales/open-orders/customers"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-2 px-3 py-1.5 text-sm font-medium text-fg-muted transition-colors hover:bg-surface hover:text-fg"
+          >
+            <Users className="h-3.5 w-3.5" />
+            Customer list ({activeAccounts.length})
+          </Link>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="rounded p-1 text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">

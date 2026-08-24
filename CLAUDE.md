@@ -1186,6 +1186,13 @@ master dashboard plus one workbook per customer on a managed list. **ARC has no
 server and no scheduler** — the screen states the cadence in words, because
 nothing here happens by itself.
 
+**The screen leads with the FILES, not the upload form** (Ray, 2026-08-24).
+The latest master, then this week's customer workbooks already expanded, then a
+button that opens the generating tool. One person runs this weekly; everybody
+else arrives to download, and an upload form at the top made the page read as a
+job to do rather than a shelf to take a file off. The newest week is expanded on
+arrival for the same reason.
+
 **Where the files go** — `General/Order Management/OPEN ORDERS` in the default
 document library of `SITES.salesTeam`; masters at the root, customer workbooks
 in `Week of <Monday>`, raw extracts in `RAW UPLOADS`.

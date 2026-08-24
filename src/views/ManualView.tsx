@@ -1515,7 +1515,7 @@ const SECTIONS: ManualSection[] = [
       "sales",
     ],
     searchText:
-      "Open Orders Report Tool at /sales/open-orders, under Departments > Customer Service / Sales. A once-a-week job: export the open orders report out of SAP, upload the xlsx here, and ARC builds a branded master dashboard plus one workbook per customer on the managed report list. Files are written to SharePoint under General/Order Management/OPEN ORDERS on the ALTRONICSALESTEAM site — master dashboards at the top, customer workbooks in a folder per week called Week of YYYY-MM-DD (the Monday), and the raw extract filed in RAW UPLOADS. Download anything from the screen. The master dashboard has six tabs: Dashboard (open value, past-due value, aging, standard versus repair orders, top customers), By Customer, Aging, Open Orders, Repairs and Coverage — Coverage lists the customers on the report list who had nothing open, which is the answer to why a customer got no workbook. Each customer workbook has a Summary tab and an Open Orders tab carrying their standard orders in one table and their repair orders in a separate table below it. Aging is measured on the Ship Date (our promise) against the run date, in buckets Past due, 0-30, 31-60, 61-90, 90+ and No promise date. Repair orders are identified by the order type or a repair order number, never by the description — a priced REPAIR KIT part is a normal parts order. Money is totalled per currency; no exchange rate is applied. The customer list is managed at /sales/open-orders/customers, where the customer name is the name the file is named after, Active takes somebody off the weekly run without deleting the row, and Import from an extract reads the accounts out of a raw export. Running the weekly job and editing the customer list need the report manager role, granted by an admin at Admin > Open Orders Roles; everyone signed in can download. Re-running a week REPLACES that week's files.",
+      "Open Orders Report Tool at /sales/open-orders, under Departments > Customer Service / Sales. The screen opens on the files: the latest master dashboard, then this week's customer workbooks already expanded, with older weeks collapsed beneath. Download any of them straight from ARC. Building the reports is behind a Build this week's reports button below the lists, because most people come here to download rather than to generate. A once-a-week job: export the open orders report out of SAP, upload the xlsx here, and ARC builds a branded master dashboard plus one workbook per customer on the managed report list. Files are written to SharePoint under General/Order Management/OPEN ORDERS on the ALTRONICSALESTEAM site — master dashboards at the top, customer workbooks in a folder per week called Week of YYYY-MM-DD (the Monday), and the raw extract filed in RAW UPLOADS. Download anything from the screen. The master dashboard has six tabs: Dashboard (open value, past-due value, aging, standard versus repair orders, top customers), By Customer, Aging, Open Orders, Repairs and Coverage — Coverage lists the customers on the report list who had nothing open, which is the answer to why a customer got no workbook. Each customer workbook has a Summary tab and an Open Orders tab carrying their standard orders in one table and their repair orders in a separate table below it. Aging is measured on the Ship Date (our promise) against the run date, in buckets Past due, 0-30, 31-60, 61-90, 90+ and No promise date. Repair orders are identified by the order type or a repair order number, never by the description — a priced REPAIR KIT part is a normal parts order. Money is totalled per currency; no exchange rate is applied. The customer list is managed at /sales/open-orders/customers, where the customer name is the name the file is named after, Active takes somebody off the weekly run without deleting the row, and Import from an extract reads the accounts out of a raw export. Running the weekly job and editing the customer list need the report manager role, granted by an admin at Admin > Open Orders Roles; everyone signed in can download. Re-running a week REPLACES that week's files.",
     render: () => (
       <>
         <P>
@@ -1523,6 +1523,16 @@ const SECTIONS: ManualSection[] = [
           (<code>/sales/open-orders</code>) turns the raw SAP open-orders export
           into the reports the team actually sends out: one branded master
           dashboard, and one workbook per customer on the report list.
+        </P>
+        <P>
+          <strong>The screen opens on the files.</strong> The latest master
+          dashboard is at the top, this week's customer workbooks are listed
+          below it already expanded, and older weeks are collapsed underneath.
+          Everything has a <strong>Download</strong> button that saves the file
+          straight to your computer. Building a new set is behind the{" "}
+          <strong>Build this week's reports</strong> button below the lists —
+          most people come here to take a file off the shelf, not to run the
+          job.
         </P>
         <P>
           <strong>It is a once-a-week job, done by a person.</strong> ARC has no
@@ -1533,6 +1543,7 @@ const SECTIONS: ManualSection[] = [
         </P>
         <H3>Running it</H3>
         <P>
+          Press <strong>Build this week's reports</strong> to open the tool.
           Pick the <strong>run date</strong>, choose the <strong>xlsx</strong> you
           exported, and ARC reads it and shows you what it found — line count,
           how many customers are in the file, how many workbooks it will build,

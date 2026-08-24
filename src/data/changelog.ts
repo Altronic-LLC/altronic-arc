@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.112.1",
+    date: "2026-08-24",
+    changes: [
+      "Open Orders now opens on the reports themselves — the latest dashboard, then this week's customer workbooks already listed, ready to download",
+      "Building a new set moved behind a \"Build this week's reports\" button below the files, so the screen isn't a job to do when you only came to fetch a report",
+    ],
+  },
+  {
     version: "0.112.0",
     date: "2026-08-24",
     changes: [
