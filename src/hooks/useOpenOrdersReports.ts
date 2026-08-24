@@ -193,7 +193,6 @@ export function useGenerateOpenOrders() {
             id: 0,
             accountNumber: report.soldTo,
             customerName: report.customerName,
-            regionalManager: "",
             active: true,
             notes: "",
           };

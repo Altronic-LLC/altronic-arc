@@ -42,7 +42,6 @@ import { cn } from "@/lib/cn";
 const EMPTY: OpenOrderCustomerAccountInput = {
   accountNumber: "",
   customerName: "",
-  regionalManager: "",
   active: true,
   notes: "",
 };
@@ -68,7 +67,7 @@ export function OpenOrdersCustomersView() {
       (a) =>
         a.customerName.toLowerCase().includes(q) ||
         a.accountNumber.toLowerCase().includes(q) ||
-        a.regionalManager.toLowerCase().includes(q),
+        a.notes.toLowerCase().includes(q),
     );
   }, [accounts, search]);
 
@@ -81,7 +80,6 @@ export function OpenOrdersCustomersView() {
     setDraft({
       accountNumber: account.accountNumber,
       customerName: account.customerName,
-      regionalManager: account.regionalManager,
       active: account.active,
       notes: account.notes,
     });
@@ -136,7 +134,7 @@ export function OpenOrdersCustomersView() {
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search name, account or manager…"
+          placeholder="Search name, account or notes…"
           className="input min-w-48 flex-1"
         />
         {canEdit && (
@@ -214,9 +212,9 @@ export function OpenOrdersCustomersView() {
                       {account.accountNumber}
                     </span>
                   </div>
-                  {(account.regionalManager || account.notes) && (
+                  {account.notes && (
                     <span className="block truncate text-xs text-fg-muted">
-                      {[account.regionalManager, account.notes].filter(Boolean).join(" · ")}
+                      {account.notes}
                     </span>
                   )}
                 </div>
@@ -296,13 +294,6 @@ function EditRow({
             value={draft.customerName}
             onChange={(e) => setDraft({ ...draft, customerName: e.target.value })}
             placeholder="Wabtec Transportation Systems"
-            className="input"
-          />
-        </Field>
-        <Field label="Regional manager" hint="Named on the customer's Summary tab">
-          <input
-            value={draft.regionalManager}
-            onChange={(e) => setDraft({ ...draft, regionalManager: e.target.value })}
             className="input"
           />
         </Field>
@@ -501,7 +492,6 @@ function ImportPanel({
                 onAdd({
                   accountNumber: entry.soldTo,
                   customerName: entry.customerName,
-                  regionalManager: "",
                   active: true,
                   notes: "Imported from a raw extract — check the name",
                 });

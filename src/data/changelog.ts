@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.112.2",
+    date: "2026-08-24",
+    changes: [
+      "Dropped Regional Manager from the Open Orders customer list — it wasn't earning its keep on the form or in the reports",
+      "The customer list search now covers notes instead",
+    ],
+  },
+  {
     version: "0.112.1",
     date: "2026-08-24",
     changes: [

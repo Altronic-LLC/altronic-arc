@@ -27,7 +27,7 @@ import { MOCK_OPEN_ORDER_ACCOUNTS } from "@/data/openOrdersMockData";
 
 const LIST = () => SP_OPEN_ORDERS_CUSTOMERS_LIST_ID;
 
-const SELECT = "Title,CustomerName,RegionalManager,Active,Notes";
+const SELECT = "Title,CustomerName,Active,Notes";
 
 interface GraphItem {
   id: string;
@@ -58,7 +58,6 @@ function toAccount(item: GraphItem): OpenOrderCustomerAccount {
     id: Number.parseInt(item.id, 10),
     accountNumber: text(f.Title),
     customerName: text(f.CustomerName),
-    regionalManager: text(f.RegionalManager),
     // A missing Active column reads as ACTIVE. The alternative — treating an
     // unset flag as inactive — would silently drop every customer from the
     // weekly run the moment the column was added, which is the failure nobody
@@ -72,7 +71,6 @@ function toFields(input: OpenOrderCustomerAccountInput): Record<string, unknown>
   return {
     Title: input.accountNumber.trim(),
     CustomerName: input.customerName.trim(),
-    RegionalManager: input.regionalManager.trim(),
     Active: input.active,
     Notes: input.notes.trim(),
   };
@@ -112,7 +110,6 @@ export async function createOpenOrdersCustomer(
       id: Math.max(0, ...store.map((a) => a.id)) + 1,
       accountNumber: input.accountNumber.trim(),
       customerName: input.customerName.trim(),
-      regionalManager: input.regionalManager.trim(),
       active: input.active,
       notes: input.notes.trim(),
     };
@@ -139,7 +136,6 @@ export async function updateOpenOrdersCustomer(
       id,
       accountNumber: input.accountNumber.trim(),
       customerName: input.customerName.trim(),
-      regionalManager: input.regionalManager.trim(),
       active: input.active,
       notes: input.notes.trim(),
     };

@@ -315,7 +315,6 @@ describe("customerReport", () => {
     id: 1,
     accountNumber: "1042",
     customerName: "Permian Midstream Partners",
-    regionalManager: "Paul McHenry",
     active: true,
     notes: "",
   };
@@ -378,9 +377,9 @@ describe("customerRollup", () => {
 
 describe("accountsWithNoLines", () => {
   const accounts: OpenOrderCustomerAccount[] = [
-    { id: 1, accountNumber: "1042", customerName: "Has lines", regionalManager: "", active: true, notes: "" },
-    { id: 2, accountNumber: "6612", customerName: "Nothing open", regionalManager: "", active: true, notes: "" },
-    { id: 3, accountNumber: "7788", customerName: "Retired", regionalManager: "", active: false, notes: "" },
+    { id: 1, accountNumber: "1042", customerName: "Has lines", active: true, notes: "" },
+    { id: 2, accountNumber: "6612", customerName: "Nothing open", active: true, notes: "" },
+    { id: 3, accountNumber: "7788", customerName: "Retired", active: false, notes: "" },
   ];
 
   // A customer expecting a report weekly and getting nothing is

@@ -1684,8 +1684,6 @@ export interface OpenOrderCustomerAccount {
   accountNumber: string;
   /** Customer-facing name, used for the workbook filename. */
   customerName: string;
-  /** Regional manager who sends it, for the report footer. Optional. */
-  regionalManager: string;
   /** Off the weekly run without deleting the row. */
   active: boolean;
   notes: string;
@@ -1695,7 +1693,6 @@ export interface OpenOrderCustomerAccount {
 export interface OpenOrderCustomerAccountInput {
   accountNumber: string;
   customerName: string;
-  regionalManager: string;
   active: boolean;
   notes: string;
 }

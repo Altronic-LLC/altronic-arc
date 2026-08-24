@@ -362,8 +362,8 @@ export async function buildMasterWorkbook(
   const gaps = accountsWithNoLines(accounts, lines);
   const cover = wb.addWorksheet("Coverage", tabColour(GREEN));
   titleBlock(cover, "Report Coverage", "Who is on the weekly list, and who had nothing open", ctx);
-  cover.columns = [{ width: 36 }, { width: 14 }, { width: 22 }, { width: 16 }, { width: 44 }];
-  const covHeader = ["Customer", "Sold-To", "Regional manager", "Lines this week", "Notes"];
+  cover.columns = [{ width: 36 }, { width: 14 }, { width: 16 }, { width: 52 }];
+  const covHeader = ["Customer", "Sold-To", "Lines this week", "Notes"];
   let vRow = headerRow(cover, cover.rowCount + 2, covHeader);
   for (const account of accounts.filter((a) => a.active)) {
     const found = lines.filter((l) => normalise(l.soldTo) === normalise(account.accountNumber));
@@ -371,12 +371,11 @@ export async function buildMasterWorkbook(
     r.values = [
       account.customerName,
       account.accountNumber,
-      account.regionalManager,
       found.length,
       found.length === 0 ? "No open lines in this extract — no workbook produced" : account.notes,
     ];
     styleDataRow(r, covHeader.length);
-    r.getCell(4).numFmt = QTY;
+    r.getCell(3).numFmt = QTY;
     if (found.length === 0) {
       r.eachCell((cell) => {
         cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: PAST_DUE_FILL } };
@@ -404,7 +403,14 @@ export async function buildMasterWorkbook(
 export async function buildCustomerWorkbook(
   excel: typeof ExcelJS,
   report: OpenOrderCustomerReport,
-  account: OpenOrderCustomerAccount,
+  /**
+   * The list row this report belongs to. Nothing on the customer's own sheets
+   * comes off it any more — the report carries the name and the numbers — but
+   * it stays in the signature because a customer workbook is defined by the
+   * account it was built for, and the next thing anyone adds here (a contact,
+   * a note, a covering line) comes from this row.
+   */
+  _account: OpenOrderCustomerAccount,
   ctx: WorkbookContext,
 ): Promise<ExcelJS.Workbook> {
   const wb = newWorkbook(excel, ctx);
@@ -446,16 +452,6 @@ export async function buildCustomerWorkbook(
     ["Repairs (ZS1)", report.repairLines.length, m.repairValue],
   ]);
 
-  // The customer's own contact, named on the sheet they receive — a report
-  // that lands in an inbox with no name on it gets replied to at random.
-  if (account.regionalManager.trim()) {
-    row += 1;
-    const contact = sum.getRow(row++);
-    contact.getCell(1).value = "Your Altronic contact";
-    contact.getCell(1).font = { bold: true, size: 10, color: { argb: GRAY } };
-    contact.getCell(2).value = account.regionalManager.trim();
-    contact.getCell(2).font = { size: 10, color: { argb: BLUE } };
-  }
   footer(sum, row + 1, ctx);
 
   // ---- Open Orders: two tables, standard then repairs -------------------

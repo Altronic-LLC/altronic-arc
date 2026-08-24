@@ -1274,7 +1274,7 @@ creates them, idempotently, with `-WhatIf`):
 
 | List | env | Shape |
 |---|---|---|
-| Open Orders Report Customers | `VITE_SP_OPEN_ORDERS_CUSTOMERS_LIST_ID` | `Title` = sold-to number, `CustomerName`, `RegionalManager`, `Active`, `Notes` |
+| Open Orders Report Customers | `VITE_SP_OPEN_ORDERS_CUSTOMERS_LIST_ID` | `Title` = sold-to number, `CustomerName`, `Active`, `Notes` |
 | Open Orders Roles | `VITE_SP_OPEN_ORDERS_ROLES_LIST_ID` | `Title` = email, `DisplayName`, `Roles` CSV, `Note` — same shape as EIR Roles |
 
 - **Account matching goes through `sameAccount`**, never `===`: SAP pads
