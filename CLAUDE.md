@@ -684,7 +684,9 @@ single `SP_SITE_ID`.
 is generated on create as `EIR_YYYY-####` — the next sequence for the current
 year (highest existing + 1) via `src/lib/eirNumber.ts` — and SharePoint's
 calculated **EIR Log No.** derives from it, so we only write `EIRNo`.
-- **EIR Roles List ID** (env: `VITE_SP_EIR_ROLES_LIST_ID`) — admin-managed list (Title = email, plus `DisplayName`, `Note`, and `Roles` text columns). `Roles` holds a lowercase CSV of role tags (`engineer`, `supply chain`). Gates which EIR fields a user may edit (see "EIR field permissions" below). Not yet created — set the env var once the list exists. Managed at `/admin/eir-roles`.
+- **EIR Roles List ID:** `e85aeb77-9dbf-4962-ade2-08cb977a5b79` (env: `VITE_SP_EIR_ROLES_LIST_ID`) — admin-managed list on the Engineering site (Title = email, plus `DisplayName`, `Note`, and `Roles` text columns). `Roles` holds a lowercase CSV of role tags (`engineer`, `supply chain`). Gates which EIR fields a user may edit (see "EIR field permissions" below). Managed at `/admin/eir-roles`.
+
+  **The list EXISTS** — confirmed live 2026-08-24. This entry said "not yet created" for months and was wrong; the id above is the one the site returned. There is deliberately **no default in `config.ts`**: adding one turns EIR field gating ON at the next deploy, and every engineer not on the list would lose fields they can edit today. Set the env var only once the list is populated — that decision is Ray's, not a tidy-up.
 - **Shared mailbox** (env: `VITE_SHARED_MAILBOX`) — email address that @-mention notifications send FROM. See setup below.
 - **App manager email** (env: `VITE_APP_MANAGER_EMAIL`) — recipient of "Report issue" reports sent from the life-buoy button in the header. Falls back to `ray.white@altronic-llc.com` if unset, so the button works on day one. Sent FROM the same shared mailbox, with the reporter CC'd. See `src/api/errorReport.ts`.
 
@@ -1269,13 +1271,27 @@ one that was refreshed — whoever sends it cannot tell which is current. The UI
 confirms first, naming what it will replace. Raw extracts use `rename` instead:
 two exports pulled on the same day are two different sets of facts.
 
-**Two lists, both on the Sales site** (`scripts/create-open-orders-lists.ps1`
-creates them, idempotently, with `-WhatIf`):
+**One list on the Sales site** (`scripts/create-open-orders-lists.ps1` creates
+it, idempotently, with `-WhatIf`):
 
 | List | env | Shape |
 |---|---|---|
 | Open Orders Report Customers | `VITE_SP_OPEN_ORDERS_CUSTOMERS_LIST_ID` | `Title` = sold-to number, `CustomerName`, `Active`, `Notes` |
-| Open Orders Roles | `VITE_SP_OPEN_ORDERS_ROLES_LIST_ID` | `Title` = email, `DisplayName`, `Roles` CSV, `Note` — same shape as EIR Roles |
+
+**There is deliberately NO Open Orders Roles list** (Ray, 2026-08-24: "i only
+want customer list not roles"). The roles code is built and dormant —
+`api/openOrdersRoles.ts`, `useMyOpenOrdersAccess`, `/admin/open-orders-roles` —
+and with no list id configured `OPEN_ORDERS_ROLES_ENFORCED` is false, so **any
+signed-in user can run the weekly job and edit the customer list**. That matches
+Visit Reports, the other Sales feature, and SharePoint's own list and folder
+permissions remain the real boundary. `create-open-orders-lists.ps1
+-IncludeOpenOrdersRoles` turns it on if that ever needs locking down.
+
+**Do NOT point `VITE_SP_OPEN_ORDERS_ROLES_LIST_ID` at the EIR Roles list** to
+avoid making one. Both screens parse their own tag set and DROP unrecognised
+tags on save, so editing a shared row in `/admin/eir-roles` would silently strip
+`report manager`, and the reverse would strip `engineer`. One list per tag
+namespace.
 
 - **Account matching goes through `sameAccount`**, never `===`: SAP pads
   sold-to numbers ("0001042" against a typed "1042").

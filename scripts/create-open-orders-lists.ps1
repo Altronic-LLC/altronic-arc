@@ -1,10 +1,11 @@
 <#
 .SYNOPSIS
-    Creates the two SharePoint lists the Open Orders Report Tool needs, on the
-    ALTRONICSALESTEAM site.
+    Creates the Open Orders Report Tool's customer list on the ALTRONICSALESTEAM
+    site.
 
 .DESCRIPTION
-    Two lists, both small and admin-maintained:
+    One list by default (Ray, 2026-08-24 — "i only want customer list not
+    roles"):
 
       Open Orders Report Customers — who gets an individual workbook each week
         Title            the SOLD-TO ACCOUNT NUMBER (not a name)
@@ -12,25 +13,32 @@
         Active           yes/no — off the weekly run without deleting the row
         Notes            free text
 
-      Open Orders Roles — who may edit that list and run the weekly job
-        Title            the user's EMAIL
-        DisplayName      their name, for the admin table
-        Roles            lowercase CSV of tags; today only "report manager"
-        Note             free text
+    With no roles list, Open Orders role gating stays OFF: **any signed-in user
+    can run the weekly job and edit the customer list**. That is the designed
+    fail-open behaviour, and it matches Visit Reports, the other Sales feature —
+    open to anyone signed in, with SharePoint's own list permission as the real
+    boundary. Pass -IncludeOpenOrdersRoles later if that turns out to be too
+    open.
 
     `CustomerName` is a separate column for a reason worth keeping in mind: SAP
     truncates its own Customer Name at 30 characters ("Wabtec Transportation
     Systems,", "INNIO Waukesha Canada Corporat"), and the workbook a CUSTOMER
     receives is named from this list rather than from a truncation.
 
-    The Roles list is the same shape as EIR Roles on the Engineering site — Ray
-    asked for these permissions to work "like the eir permissions"
-    (2026-08-24). If you would rather run one roles list company-wide, skip
-    creating this one and point VITE_SP_OPEN_ORDERS_ROLES_LIST_ID at the EIR
-    Roles list instead; the shape is identical and the tag namespace separate.
-
     Idempotent: a list that already exists is left alone, and only missing
     columns are added.
+
+.PARAMETER IncludeOpenOrdersRoles
+    Also create the **Open Orders Roles** list, which switches role gating on:
+    only a tagged "report manager" (or an ARC admin) could then run the weekly
+    job or edit the customer list. Off by default.
+
+    Do NOT point VITE_SP_OPEN_ORDERS_ROLES_LIST_ID at the existing EIR Roles
+    list to save making one. The two screens parse different tag sets and each
+    DROPS tags it does not recognise on save, so editing a shared row in
+    /admin/eir-roles would silently strip "report manager" from it — and the
+    reverse in /admin/open-orders-roles would strip "engineer". One list per
+    tag namespace.
 
 .PARAMETER IncludeEirRoles
     Also create the **EIR Roles** list on the Engineering site.
@@ -60,6 +68,7 @@
     prompt for consent the first time.
 #>
 param(
+    [switch]$IncludeOpenOrdersRoles,
     [switch]$IncludeEirRoles,
     [switch]$WhatIf
 )
@@ -92,8 +101,11 @@ $Lists = @(
             (New-BoolColumn "Active" "Active"),
             (New-TextColumn "Notes" "Notes" $true)
         )
-    },
-    @{
+    }
+)
+
+if ($IncludeOpenOrdersRoles) {
+    $Lists += @{
         Name        = "Open Orders Roles"
         Site        = $SalesSite
         EnvVar      = "VITE_SP_OPEN_ORDERS_ROLES_LIST_ID"
@@ -104,7 +116,7 @@ $Lists = @(
             (New-TextColumn "Note" "Note")
         )
     }
-)
+}
 
 if ($IncludeEirRoles) {
     $Lists += @{
@@ -206,7 +218,9 @@ Write-Host "Populate the customer list from ARC: Open Orders -> Customer list ->
 Write-Host "'Import from an extract'. It reads the accounts with the same parser the" -ForegroundColor Cyan
 Write-Host "report uses, so the account numbers match what the weekly run looks for." -ForegroundColor Cyan
 Write-Host ""
-Write-Host "Until the ROLES list id is set, role gating stays OFF and anyone signed" -ForegroundColor Yellow
-Write-Host "in can edit the customer list — deliberate, so nobody is locked out of a" -ForegroundColor Yellow
-Write-Host "list before an admin has populated it." -ForegroundColor Yellow
+if (-not $IncludeOpenOrdersRoles) {
+    Write-Host "No Open Orders Roles list was created, so role gating stays OFF:" -ForegroundColor Yellow
+    Write-Host "any signed-in user can run the weekly job and edit the customer list." -ForegroundColor Yellow
+    Write-Host "Re-run with -IncludeOpenOrdersRoles if that needs locking down." -ForegroundColor Yellow
+}
 Write-Host ""

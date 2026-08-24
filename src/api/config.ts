@@ -25,6 +25,15 @@ export const SP_ADMINS_LIST_ID = import.meta.env.VITE_SP_ADMINS_LIST_ID;
  * EIR Roles list — one row per user (Title = email) with a `Roles` text
  * column (CSV of "engineer" / "supply chain"). Controls which EIR fields a
  * user may edit. Managed at /admin/eir-roles by admins.
+ *
+ * **The list exists**: `e85aeb77-9dbf-4962-ade2-08cb977a5b79` on the
+ * Engineering site, confirmed live 2026-08-24.
+ *
+ * It is deliberately NOT a default here, unlike most list ids in this file.
+ * Setting it switches EIR field gating ON (see EIR_ROLES_ENFORCED below), and
+ * every engineer not yet on the list would lose fields they can edit today.
+ * Populate the list first, then set the env var — the switch-on is a decision,
+ * not a piece of configuration tidying.
  */
 export const SP_EIR_ROLES_LIST_ID = import.meta.env.VITE_SP_EIR_ROLES_LIST_ID;
 

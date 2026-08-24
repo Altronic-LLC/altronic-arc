@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.112.3",
+    date: "2026-08-24",
+    changes: [
+      "Open Orders is open to anyone signed in — running the weekly job, editing the customer list and downloading all work without a role, the same as Visit Reports",
+    ],
+  },
+  {
     version: "0.112.2",
     date: "2026-08-24",
     changes: [
