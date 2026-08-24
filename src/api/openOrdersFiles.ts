@@ -176,10 +176,13 @@ export function weekOfFromName(name: string): Date | null {
 /**
  * Create the week folder if it isn't there, and return its name.
  *
- * `conflictBehavior: replace` on a FOLDER is a no-op when it already exists,
- * which is what makes this safe to call before every run. Graph answers 409
- * on some tenants regardless, so that's swallowed — the folder existing is
- * the desired end state either way.
+ * **`conflictBehavior: fail`, deliberately.** `replace` is what you reach for
+ * to make a create idempotent, and on a FILE it is right — that is how the
+ * workbooks overwrite. On a FOLDER it means replace *the folder*, which can
+ * take its contents with it: re-running a week would then delete the customer
+ * files already in it, and a run that failed half way would leave the week
+ * empty. `fail` plus swallowing the conflict is the same idempotency with none
+ * of that risk, since an existing folder is the desired end state anyway.
  */
 export async function ensureWeekFolder(runDate: Date): Promise<string> {
   const name = weekFolderName(runDate);
@@ -190,7 +193,7 @@ export async function ensureWeekFolder(runDate: Date): Promise<string> {
       body: JSON.stringify({
         name,
         folder: {},
-        "@microsoft.graph.conflictBehavior": "replace",
+        "@microsoft.graph.conflictBehavior": "fail",
       }),
     });
   } catch (err) {
@@ -208,7 +211,7 @@ export async function ensureRawUploadsFolder(): Promise<string> {
       body: JSON.stringify({
         name: RAW_UPLOADS_FOLDER,
         folder: {},
-        "@microsoft.graph.conflictBehavior": "replace",
+        "@microsoft.graph.conflictBehavior": "fail",
       }),
     });
   } catch (err) {
@@ -317,10 +320,17 @@ export async function uploadRawExtract(filename: string, body: ArrayBuffer): Pro
  */
 export async function downloadOpenOrdersFile(fileId: string): Promise<Blob> {
   if (USE_MOCK) return new Blob(["mock"], { type: "text/plain" });
-  const item = await graphFetch<GraphChild>(
-    `/sites/${SITES.salesTeam}/drive/items/${fileId}?${CHILD_SELECT}`,
-  );
-  const url = item?.["@microsoft.graph.downloadUrl"];
+  const base = `/sites/${SITES.salesTeam}/drive/items/${fileId}`;
+  let item = await graphFetch<GraphChild>(`${base}?${CHILD_SELECT}`);
+  let url = item?.["@microsoft.graph.downloadUrl"];
+  // `@microsoft.graph.downloadUrl` is an instance annotation, not a real
+  // property, and whether a $select'd response carries it is not something to
+  // bet a download on. Re-read without $select — Graph always includes it
+  // then — rather than telling the user their file has no link.
+  if (!url) {
+    item = await graphFetch<GraphChild>(base);
+    url = item?.["@microsoft.graph.downloadUrl"];
+  }
   if (!url) throw new Error("That file has no download link — open it in SharePoint instead.");
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Couldn't download that file (${res.status}).`);

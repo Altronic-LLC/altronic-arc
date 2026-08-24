@@ -1304,6 +1304,26 @@ namespace.
   `report manager`, needed to run the job and to edit the customer list.
   Everyone signed in can download.
 
+**A new `VITE_*` var must be added to `.github/workflows/deploy.yml`.** The
+workflow passes a NAMED list, so a variable that isn't in it can never reach a
+production build however carefully somebody sets the repo variable. The Open
+Orders customer list id shipped missing from that list, and since it has no
+default in `config.ts` the feature would have reported itself "not set up" for
+ever (caught 2026-08-24, during a pre-go-live audit). Most list ids survive the
+omission only because they carry documented defaults.
+
+And `VITE_*` values are baked in at BUILD time, so setting a repo variable does
+nothing until the next deploy — the setup notice on the customer list screen
+says so, because that is the step people miss.
+
+**Never `conflictBehavior: replace` on a FOLDER.** On a file it means overwrite,
+which is what the workbooks want. On a folder it replaces the folder — its
+contents included — so `ensureWeekFolder` would have deleted the week's
+customer files before rewriting them, and a run that failed half way would have
+left the week empty. `fail` plus swallowing the name conflict is the same
+idempotency without the risk. Pinned in `openOrdersFiles.test.ts`, verified by
+reintroducing it and watching the test fail.
+
 **ExcelJS is dynamically imported**, once, on the first parse or generate — it is
 ~950KB and has no business in the main bundle for somebody reading a task list.
 The Sales views are their own lazy route chunk.

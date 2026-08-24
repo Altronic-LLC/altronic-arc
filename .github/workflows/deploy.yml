@@ -74,6 +74,22 @@ jobs:
           VITE_SP_SITE_URL: ${{ vars.VITE_SP_SITE_URL }}
           VITE_SP_ADMINS_LIST_ID: ${{ vars.VITE_SP_ADMINS_LIST_ID }}
           VITE_SP_EIR_ROLES_LIST_ID: ${{ vars.VITE_SP_EIR_ROLES_LIST_ID }}
+          # Open Orders Report Tool (Sales). The customer list id has NO
+          # default in config.ts — the feature reports itself as "not set up"
+          # until this is both set as a repo variable AND a deploy has run,
+          # because VITE_* values are baked in at build time.
+          VITE_SP_OPEN_ORDERS_CUSTOMERS_LIST_ID: ${{ vars.VITE_SP_OPEN_ORDERS_CUSTOMERS_LIST_ID }}
+          # Optional: setting this switches Open Orders role gating ON.
+          VITE_SP_OPEN_ORDERS_ROLES_LIST_ID: ${{ vars.VITE_SP_OPEN_ORDERS_ROLES_LIST_ID }}
+          # Recipient lists and people config. These have documented defaults in
+          # config.ts, so the app works without them — but they were documented
+          # as env-overridable while the build had no way to receive them, which
+          # made that untrue in production.
+          VITE_GRAY_MARKET_NEW_REQUEST_ALERTS: ${{ vars.VITE_GRAY_MARKET_NEW_REQUEST_ALERTS }}
+          VITE_EIR_TRIAGE_PROJECT_REVIEWERS: ${{ vars.VITE_EIR_TRIAGE_PROJECT_REVIEWERS }}
+          VITE_EIR_TRIAGE_ASSIGNERS: ${{ vars.VITE_EIR_TRIAGE_ASSIGNERS }}
+          VITE_HIDDEN_PEOPLE: ${{ vars.VITE_HIDDEN_PEOPLE }}
+          VITE_APP_MANAGER_EMAIL: ${{ vars.VITE_APP_MANAGER_EMAIL }}
 
       - name: Add 404 fallback for client-side routing
         # GitHub Pages serves /404.html for any unmatched path. Copying

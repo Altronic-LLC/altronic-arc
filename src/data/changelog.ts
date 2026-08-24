@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.112.6",
+    date: "2026-08-24",
+    changes: [
+      "Open Orders is now wired for the live site — the customer list setting is passed through at build time, which it wasn't, so setting it could never have taken effect",
+      "Re-running a week can no longer wipe that week's folder before rewriting it",
+      "Downloads no longer fail on a file whose link Graph didn't return the first time",
+    ],
+  },
+  {
     version: "0.112.5",
     date: "2026-08-24",
     changes: [
