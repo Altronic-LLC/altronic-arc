@@ -53,6 +53,7 @@ function line(over: Partial<OpenOrderLine> = {}): OpenOrderLine {
     deliveryBlock: "",
     rejectionReason: "",
     comments: "",
+    commentDate: null,
     mrpController: "DC",
     createdBy: "U4AL_RB",
     ...over,

@@ -1561,8 +1561,23 @@ export interface OpenOrderLine {
   deliveryBlock: string;
   /** `Reason for rejection` — likewise blank so far. */
   rejectionReason: string;
-  /** `Comments` — INTERNAL. Deliberately not put in customer workbooks. */
+  /**
+   * `Comments` — customer-safe, and shown in the customer workbooks.
+   *
+   * Text only. In the live extract 147 of 166 comments are DATES rather than
+   * prose (see `commentDate`), so this holds just the 19 that are words.
+   */
   comments: string;
+  /**
+   * The `Comments` cell when it holds a DATE — a revised expected ship date.
+   *
+   * Whoever maintains this report types a date into Comments when the promised
+   * one has moved: 147 of the 166 comments in the live extract are dates, and
+   * the prose ones say the same thing in words ("Shipping in September. Exact
+   * date is pending when the tooling is received"). Kept as a real date so it
+   * sorts and filters as one in Excel instead of arriving as text.
+   */
+  commentDate: Date | null;
   mrpController: string;
   createdBy: string;
 }

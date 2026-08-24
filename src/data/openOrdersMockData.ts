@@ -58,6 +58,8 @@ interface LineSeed {
   repairOrder?: string;
   shipTo?: string;
   comments?: string;
+  /** A revised expected ship date typed into the Comments column. */
+  commentDays?: number;
   altronicPartNumber?: string;
 }
 
@@ -90,6 +92,7 @@ function line(seed: LineSeed): OpenOrderLine {
     deliveryBlock: "",
     rejectionReason: "",
     comments: seed.comments ?? "",
+    commentDate: seed.commentDays === undefined ? null : day(seed.commentDays),
     mrpController: "DC",
     createdBy: "U4AL_RB",
   };
@@ -109,6 +112,7 @@ export const MOCK_OPEN_ORDER_LINES: OpenOrderLine[] = [
     promise: -34,
     ordered: -120,
     customerPo: "PO-88231",
+    commentDays: 21,
   }),
   line({
     soldTo: "0001042",
@@ -123,6 +127,7 @@ export const MOCK_OPEN_ORDER_LINES: OpenOrderLine[] = [
     promise: -12,
     ordered: -120,
     customerPo: "PO-88231",
+    comments: "Shipping in September. Exact date is pending when the tooling is received",
   }),
   line({
     soldTo: "0001042",

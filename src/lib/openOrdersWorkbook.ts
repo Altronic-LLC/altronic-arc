@@ -37,10 +37,14 @@ import {
 //     forty workbooks and shows as a broken placeholder wherever images are
 //     blocked.
 //
-// These files go to CUSTOMERS. So: no internal cost or margin columns, no
-// other customer's name anywhere in a customer workbook, and every sheet says
-// what it is and when it was run — a spreadsheet with no run date gets
-// forwarded for months as if it were current.
+// These files go to CUSTOMERS, and carry the FULL column set including
+// Comments (Ray, 2026-08-24 — "comments are customer safe, show all columns
+// for customer"). What still never appears is another customer's name: a
+// customer workbook is filtered to one sold-to and the master's Customer
+// column is dropped from it.
+//
+// Every sheet says what it is and when it was run — a spreadsheet with no run
+// date gets forwarded for months as if it were current.
 // =============================================================================
 
 const RED = "FFCB2C30";
@@ -66,28 +70,50 @@ interface LineColumn {
 }
 
 /**
- * The customer-facing line columns.
+ * The line columns, in reading order — every field the extract carries.
  *
- * Unit price is included because customers ask "at what price"; cost, margin
- * and internal status codes are deliberately absent — these workbooks leave
- * the building.
+ * All of it goes to the customer (Ray, 2026-08-24). The order is what someone
+ * chasing an order scans for: the order and their own PO first, then what it
+ * is, then quantities and money, then the dates, then the status columns and
+ * comments, with SAP's internal codes last so they're out of the way without
+ * being hidden.
  */
 const LINE_COLUMNS: LineColumn[] = [
   { header: "Sales Order", width: 14, value: (l) => l.salesOrder },
-  { header: "Line", width: 8, value: (l) => l.lineNo, align: "center" },
-  { header: "Your PO", width: 16, value: (l) => l.customerPo },
+  { header: "Line", width: 7, value: (l) => l.lineNo, align: "center" },
+  { header: "Your PO", width: 18, value: (l) => l.customerPo },
   { header: "Material", width: 16, value: (l) => l.material },
   { header: "Altronic Part No.", width: 17, value: (l) => l.altronicPartNumber },
   { header: "Description", width: 38, value: (l) => l.description },
   { header: "Type", width: 8, value: (l) => l.orderType, align: "center" },
-  { header: "Order Qty", width: 11, value: (l) => l.orderQty, format: QTY, align: "right" },
-  { header: "Shipped", width: 11, value: (l) => l.shippedQty, format: QTY, align: "right" },
-  { header: "Open Qty", width: 11, value: (l) => l.openQty, format: QTY, align: "right" },
+  { header: "Order Qty", width: 10, value: (l) => l.orderQty, format: QTY, align: "right" },
+  { header: "Shipped", width: 10, value: (l) => l.shippedQty, format: QTY, align: "right" },
+  { header: "Open Qty", width: 10, value: (l) => l.openQty, format: QTY, align: "right" },
   { header: "Unit Price", width: 13, value: (l) => l.unitPrice, format: MONEY, align: "right" },
   { header: "Open Value", width: 15, value: (l) => l.openValue, format: MONEY, align: "right" },
-  { header: "Order Date", width: 13, value: (l) => l.orderDate, format: DATE, align: "center" },
-  { header: "Requested", width: 13, value: (l) => l.requestedDate, format: DATE, align: "center" },
-  { header: "Promise Date", width: 14, value: (l) => l.promiseDate, format: DATE, align: "center" },
+  // Currency is a column rather than a note: an extract can mix them, so a
+  // value with no currency beside it is ambiguous on exactly the rows it
+  // matters for.
+  { header: "Currency", width: 9, value: (l) => l.currency, align: "center" },
+  { header: "Order Date", width: 12, value: (l) => l.orderDate, format: DATE, align: "center" },
+  { header: "Requested", width: 12, value: (l) => l.requestedDate, format: DATE, align: "center" },
+  { header: "Promise Date", width: 13, value: (l) => l.promiseDate, format: DATE, align: "center" },
+  { header: "Delivery Status", width: 13, value: (l) => l.status, align: "center" },
+  { header: "Delivery Block", width: 13, value: (l) => l.deliveryBlock, align: "center" },
+  { header: "Reason for Rejection", width: 20, value: (l) => l.rejectionReason },
+  // One column, either kind of comment. A revised date arrives as a real date
+  // so it sorts and filters; the date format is simply ignored by Excel on the
+  // rows that hold prose.
+  {
+    header: "Comments",
+    width: 46,
+    value: (l) => l.commentDate ?? l.comments,
+    format: DATE,
+  },
+  { header: "Ship-To", width: 12, value: (l) => l.shipTo },
+  { header: "Sales Office", width: 12, value: (l) => l.salesOffice, align: "center" },
+  { header: "MRP Controller", width: 13, value: (l) => l.mrpController, align: "center" },
+  { header: "Created By", width: 13, value: (l) => l.createdBy },
 ];
 
 /**

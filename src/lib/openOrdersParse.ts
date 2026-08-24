@@ -161,7 +161,11 @@ export function parseOpenOrdersGrid(grid: unknown[][]): ParseResult {
       status: text(cell(row, "status")),
       deliveryBlock: text(cell(row, "deliveryBlock")),
       rejectionReason: text(cell(row, "rejectionReason")),
-      comments: text(cell(row, "comments")),
+      // A comment is EITHER a date or prose, never coerced between the two:
+      // running date() over "ship 3 by 08-28" would invent a date that nobody
+      // typed, which is worse than leaving the words alone.
+      comments: dateCellOnly(cell(row, "comments")) ? "" : text(cell(row, "comments")),
+      commentDate: dateCellOnly(cell(row, "comments")),
       mrpController: text(cell(row, "mrpController")),
       createdBy: text(cell(row, "createdBy")),
     });
@@ -331,6 +335,26 @@ export function date(value: unknown): Date | null {
   if (us) return new Date(Date.UTC(+us[3], +us[1] - 1, +us[2], 12));
   const parsed = new Date(raw);
   return Number.isNaN(parsed.getTime()) ? null : atMidday(parsed);
+}
+
+/**
+ * A cell as a date ONLY when it genuinely holds one.
+ *
+ * Accepts a real Date and an Excel serial (a sheet that went through CSV loses
+ * its date formatting), and refuses everything else — deliberately not calling
+ * `date()`, which parses loose strings and would turn "Shipping in September"
+ * into a date nobody wrote.
+ */
+export function dateCellOnly(value: unknown): Date | null {
+  if (value instanceof Date) return atMidday(value);
+  if (typeof value === "object" && value !== null) {
+    const v = value as { result?: unknown };
+    if (v.result !== undefined) return dateCellOnly(v.result);
+  }
+  if (typeof value === "number" && value > 20000 && value < 80000) {
+    return atMidday(new Date(Date.UTC(1899, 11, 30) + value * 86400000));
+  }
+  return null;
 }
 
 function atMidday(d: Date): Date {
