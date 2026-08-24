@@ -7,6 +7,7 @@ import { MOCK_OPERATIONS_TASKS } from "@/data/operationsMockData";
 import { MOCK_BUILD_REQUESTS } from "@/data/buildRequestMockData";
 import { MOCK_PANEL_ORDERS, MOCK_PANEL_TASKS } from "@/data/panelMockData";
 import { MOCK_ECNS } from "@/data/ecnMockData";
+import { MOCK_FAITS } from "@/data/faitMockData";
 import { listProjectFolderEntries } from "@/api/projectFiles";
 
 const mockNavigate = vi.fn();
@@ -28,6 +29,7 @@ const BUILD_REQUESTS_KEY = ["buildRequests", "list"] as const;
 const PANEL_ORDERS_KEY = ["panelOrders", "list"] as const;
 const PANEL_TASKS_KEY = ["panelTasks", "list"] as const;
 const ECNS_KEY = ["ecns"] as const;
+const FAITS_KEY = ["faits"] as const;
 const FOLDER_ENTRIES_KEY = ["project-folder-entries", "root"] as const;
 
 import { DashboardView } from "./DashboardView";
@@ -45,6 +47,7 @@ async function renderDashboard() {
       { key: PANEL_ORDERS_KEY, data: MOCK_PANEL_ORDERS },
       { key: PANEL_TASKS_KEY, data: MOCK_PANEL_TASKS },
       { key: ECNS_KEY, data: MOCK_ECNS },
+      { key: FAITS_KEY, data: MOCK_FAITS },
       { key: FOLDER_ENTRIES_KEY, data: folderEntries },
     ],
   });
@@ -195,5 +198,54 @@ describe("DashboardView — the Teradyne Log card", () => {
     await renderDashboard();
     await user.click(teradyneCard());
     expect(mockNavigate).toHaveBeenCalledWith("/operations/teradyne");
+  });
+});
+
+describe("DashboardView — a shipped feature is never a 'Coming soon' card", () => {
+  // v0.111.0 merged a DashboardView.tsx branched off an older main, which
+  // quietly reverted FIVE live cards to dashed "Coming soon" placeholders:
+  // ECNs, Where Am I?, Gray Market Requests, FAITs and Visit Reports. Nothing
+  // failed except the two ECN tests, because a placeholder renders perfectly
+  // well — it just doesn't go anywhere. This pins every shipped card as a real
+  // clickable card so the next such merge argues with a test.
+  const SHIPPED: Array<{ name: RegExp; url: string }> = [
+    { name: /Where Am I\?/i, url: "/engineering/where-am-i" },
+    { name: /Drawing File Logs/i, url: "/drawing-logs" },
+    { name: /CSA Listings/i, url: "/csa-listings" },
+    { name: /Project Folders/i, url: "/project-folders" },
+    { name: /Gray Market Requests/i, url: "/supply-chain/gray-market-requests" },
+    { name: /Visit Reports/i, url: "/sales/visit-reports" },
+    { name: /Teradyne Log/i, url: "/operations/teradyne" },
+  ];
+
+  it.each(SHIPPED)("$name is a button that goes to $url", async ({ name, url }) => {
+    const user = userEvent.setup();
+    await renderDashboard();
+    const card = screen.getByRole("button", { name });
+    // A placeholder is a <div aria-disabled> showing an em dash — never a button.
+    expect(card).not.toHaveAttribute("aria-disabled");
+    expect(within(card).queryByText(/coming soon/i)).toBeNull();
+    await user.click(card);
+    expect(mockNavigate).toHaveBeenCalledWith(url);
+  });
+
+  // These two carry counts as well as a link, so they're checked separately:
+  // a card that renders but always reads zero is the other way this breaks.
+  it("counts the FAITs that are still open", async () => {
+    const user = userEvent.setup();
+    await renderDashboard();
+    await user.click(screen.getByRole("button", { name: "Company" }));
+    const card = screen.getByRole("button", { name: /FAITs/i });
+    expect(within(card).queryByText(/coming soon/i)).toBeNull();
+    expect(Number(bigCount(card).textContent)).toBeGreaterThan(0);
+  });
+
+  it("counts the ECNs on file", async () => {
+    const user = userEvent.setup();
+    await renderDashboard();
+    await user.click(screen.getByRole("button", { name: "Company" }));
+    const card = screen.getByRole("button", { name: /ECNs/i });
+    expect(within(card).queryByText(/coming soon/i)).toBeNull();
+    expect(Number(bigCount(card).textContent)).toBeGreaterThan(0);
   });
 });

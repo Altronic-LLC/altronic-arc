@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.111.1",
+    date: "2026-08-24",
+    changes: [
+      "Restored five dashboard cards that 0.111.0 turned back into greyed-out \"Coming soon\" tiles: ECNs, Where Am I?, Gray Market Requests, FAITs and Visit Reports — all clickable again, with their counts back",
+      "The version in the footer matches the build again, so the \"new version available\" banner stops appearing on the latest build",
+    ],
+  },
+  {
   version: "0.111.0",
   date: "2026-08-21",
   changes: [

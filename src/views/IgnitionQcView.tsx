@@ -55,14 +55,6 @@ const DEFECT_COLUMNS: { key: SortKey; label: string }[] = [
 
 const DEFECT_KEYS = DEFECT_COLUMNS.map((column) => column.key);
 
-// Full column list retained for the filter logic (filters across every field regardless of view).
-const SORTABLE_COLUMNS: { key: SortKey; label: string }[] = [
-  ...CORE_COLUMNS,
-  ...DEFECT_COLUMNS,
-  { key: "toRP", label: "To RP" },
-  { key: "comments", label: "Comments" },
-];
-
 const DEFAULT_FORM = {
   workOrder: "",
   // Left empty here; openCreateForm fills this with the current moment when the form actually
