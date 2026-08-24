@@ -151,6 +151,7 @@ export function parseOpenOrdersGrid(grid: unknown[][]): ParseResult {
       openQty,
       unitPrice,
       openValue,
+      netValue: round2(number(cell(row, "netValue"))),
       currency: text(cell(row, "currency")) || "USD",
       customerPo: text(cell(row, "customerPo")),
       orderDate: date(cell(row, "orderDate")),

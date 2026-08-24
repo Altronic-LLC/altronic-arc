@@ -210,6 +210,13 @@ export function OpenOrdersView() {
           canGenerate={access.isReportManager}
           access={access}
           onClose={() => setToolOpen(false)}
+          onFinished={() => {
+            setToolOpen(false);
+            // Drop back to the default week, which after a run is the week that
+            // was just generated — so the files land in view rather than
+            // leaving whichever older folder was being browsed expanded.
+            setWeekOverride(undefined);
+          }}
         />
       ) : (
         <section className="flex flex-col items-start gap-2 rounded-lg border border-dashed border-border bg-surface/60 p-4">
@@ -270,11 +277,15 @@ function GenerateCard({
   canGenerate,
   access,
   onClose,
+  onFinished,
 }: {
   accounts: ReturnType<typeof useOpenOrdersCustomers>["data"] & object;
   canGenerate: boolean;
   access: ReturnType<typeof useMyOpenOrdersAccess>;
+  /** The X — leaves everything else alone. */
   onClose: () => void;
+  /** A run finished: close up and show what it produced. */
+  onFinished: () => void;
 }) {
   const { parse, parsing } = useParseExtract();
   const generate = useGenerateOpenOrders();
@@ -492,10 +503,24 @@ function GenerateCard({
                 <button
                   type="button"
                   disabled={generate.isPending || !runDate}
-                  onClick={() =>
-                    runDate &&
-                    generate.mutate({ extract, accounts, runDate, keepRaw })
-                  }
+                  onClick={() => {
+                    if (!runDate) return;
+                    generate.mutate(
+                      { extract, accounts, runDate, keepRaw },
+                      {
+                        // Close the tool and clear the picked file once it has
+                        // run (Ray, 2026-08-24). Leaving the form open on a
+                        // finished extract invites a second identical run, and
+                        // the lists below — which the mutation has just
+                        // invalidated — are what you actually want to look at.
+                        onSuccess: () => {
+                          setExtract(null);
+                          setConfirming(false);
+                          onFinished();
+                        },
+                      },
+                    );
+                  }}
                   className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:opacity-60"
                 >
                   <Upload className="h-4 w-4" />

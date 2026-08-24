@@ -42,6 +42,7 @@ function line(over: Partial<OpenOrderLine> = {}): OpenOrderLine {
     openQty: 10,
     unitPrice: 100,
     openValue: 1000,
+    netValue: 1000,
     currency: "USD",
     customerPo: "",
     orderDate: new Date("2026-07-01T12:00:00Z"),

@@ -69,6 +69,7 @@ export const RAW_COLUMNS: RawColumnSpec[] = [
   { field: "openQty", aliases: ["Open quantity", "Open Qty", "Open Quantity"], kind: "number", required: true },
   { field: "unitPrice", aliases: ["Net Price", "Unit Price", "Price"], kind: "number" },
   { field: "openValue", aliases: ["Open Order Value", "Open Value"], kind: "number" },
+  { field: "netValue", aliases: ["Net Value"], kind: "number" },
   { field: "currency", aliases: ["Currency", "Currency Key"], kind: "text" },
   { field: "customerPo", aliases: ["Customer Reference", "Customer PO", "PO Number", "Your Reference"], kind: "text" },
   { field: "orderDate", aliases: ["Created On", "Order Date", "Document Date"], kind: "date" },
@@ -84,8 +85,14 @@ export const RAW_COLUMNS: RawColumnSpec[] = [
   { field: "createdBy", aliases: ["Created By"], kind: "text" },
 ];
 
-/** Columns present on the live extract that we deliberately don't map. */
-export const IGNORED_COLUMNS = ["Net Value"];
+/**
+ * Columns present on the live extract that we deliberately don't map.
+ *
+ * Empty now that Net Value is carried: the reports reproduce the raw layout
+ * column for column (Ray, 2026-08-24 — "Leave the columns in same order as
+ * raw"), and dropping one would break that.
+ */
+export const IGNORED_COLUMNS: string[] = [];
 
 /**
  * Loosen a header for matching: case, spaces, dots, dashes and brackets all go.
@@ -117,3 +124,56 @@ export const REQUIRED_FIELDS: LineField[] = RAW_COLUMNS.filter((c) => c.required
 export function headerNameFor(field: LineField): string {
   return RAW_COLUMNS.find((c) => c.field === field)?.aliases[0] ?? String(field);
 }
+
+/**
+ * The live extract's columns IN ITS OWN ORDER, with display widths.
+ *
+ * The reports reproduce this layout exactly — same columns, same order (Ray,
+ * 2026-08-24: "Leave the colmns in same order as raw but brand it according to
+ * altronic"). So this array is the single source of the sheet layout, and it is
+ * ordered to match "OOR 8-21-2026 with customer tabs_R0.xlsx" rather than to
+ * suit the domain type.
+ *
+ * Reordering this to something that reads better is the one change not to make
+ * here: people reconcile these sheets against the raw export side by side, and
+ * a helpfully-improved order makes that a manual hunt.
+ */
+export interface RawLayoutColumn {
+  /** The header text, exactly as the extract writes it. */
+  header: string;
+  field: LineField;
+  width: number;
+  /** "money" | "qty" | "date" | undefined for text. */
+  format?: "money" | "qty" | "date";
+  align?: "left" | "center" | "right";
+}
+
+export const RAW_LAYOUT: RawLayoutColumn[] = [
+  { header: "Created On", field: "orderDate", width: 12, format: "date", align: "center" },
+  { header: "Ship Date", field: "promiseDate", width: 12, format: "date", align: "center" },
+  { header: "Comments", field: "comments", width: 34 },
+  { header: "Customer", field: "soldTo", width: 11, align: "center" },
+  { header: "Customer Name", field: "customerName", width: 30 },
+  { header: "Sales Order", field: "salesOrder", width: 13 },
+  { header: "Customer Reference", field: "customerPo", width: 20 },
+  { header: "Material", field: "material", width: 16 },
+  { header: "AI Part Number", field: "altronicPartNumber", width: 15 },
+  { header: "Material Description", field: "description", width: 34 },
+  { header: "Open quantity", field: "openQty", width: 12, format: "qty", align: "right" },
+  { header: "Net Price", field: "unitPrice", width: 12, format: "money", align: "right" },
+  { header: "Open Order Value", field: "openValue", width: 15, format: "money", align: "right" },
+  { header: "Sales Office", field: "salesOffice", width: 11, align: "center" },
+  { header: "Customer required date", field: "requestedDate", width: 14, format: "date", align: "center" },
+  { header: "Ship-to Party", field: "shipTo", width: 12, align: "center" },
+  { header: "Order Quantity", field: "orderQty", width: 12, format: "qty", align: "right" },
+  { header: "Net Value", field: "netValue", width: 14, format: "money", align: "right" },
+  { header: "Item (SD)", field: "lineNo", width: 9, align: "center" },
+  { header: "Created By", field: "createdBy", width: 12 },
+  { header: "Delivery Status", field: "status", width: 11, align: "center" },
+  { header: "Currency", field: "currency", width: 9, align: "center" },
+  { header: "Sales Document Type", field: "orderType", width: 15, align: "center" },
+  { header: "Repair order", field: "repairOrder", width: 12, align: "center" },
+  { header: "MRP Controller", field: "mrpController", width: 12, align: "center" },
+  { header: "Delivery Block", field: "deliveryBlock", width: 12, align: "center" },
+  { header: "Reason for rejection", field: "rejectionReason", width: 18 },
+];

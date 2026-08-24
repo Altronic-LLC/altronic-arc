@@ -1565,6 +1565,9 @@ export interface OpenOrderLine {
   unitPrice: number;
   /** `Open Order Value` — openQty × unitPrice, which the extract ties out to. */
   openValue: number;
+  /** `Net Value` — the extract's own line total. Carried so the reports can
+   * reproduce the raw layout column for column. */
+  netValue: number;
   /** Money is per line: an extract can mix USD and EUR, so never sum blindly. */
   currency: string;
   /** `Customer Reference` — their PO. */

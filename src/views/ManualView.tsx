@@ -1515,7 +1515,7 @@ const SECTIONS: ManualSection[] = [
       "sales",
     ],
     searchText:
-      "Open Orders Report Tool at /sales/open-orders, under Departments > Customer Service / Sales. The screen opens on the files: the latest master dashboard, then this week's customer workbooks already expanded, with older weeks collapsed beneath. Download any of them straight from ARC. Building the reports is behind a Build this week's reports button below the lists, because most people come here to download rather than to generate. A once-a-week job: export the open orders report out of SAP, upload the xlsx here, and ARC builds a branded master dashboard plus one workbook per customer on the managed report list. Files are written to SharePoint under General/Order Management/OPEN ORDERS on the ALTRONICSALESTEAM site — master dashboards at the top, customer workbooks in a folder per week called Week of YYYY-MM-DD (the Monday), and the raw extract filed in RAW UPLOADS. Download anything from the screen. The master dashboard has six tabs: Dashboard (open value, past-due value, aging, standard versus repair orders, top customers), By Customer, Aging, Open Orders, Repairs and Coverage — Coverage lists the customers on the report list who had nothing open, which is the answer to why a customer got no workbook. Each customer workbook has a Summary tab and an Open Orders tab carrying their standard orders in one table and their repair orders in a separate table below it. Aging is measured on the Ship Date (our promise) against the run date, in buckets Past due, 0-30, 31-60, 61-90, 90+ and No promise date. Repair orders are identified by the order type or a repair order number, never by the description — a priced REPAIR KIT part is a normal parts order. Money is totalled per currency; no exchange rate is applied. The customer list is managed at /sales/open-orders/customers, where the customer name is the name the file is named after, Active takes somebody off the weekly run without deleting the row, and Import from an extract reads the accounts out of a raw export. Any signed-in user can run the weekly job, edit the customer list and download the reports. Optional role gating exists (Admin > Open Orders Roles) but is switched off unless a roles list is configured. Re-running a week REPLACES that week's files.",
+      "Open Orders Report Tool at /sales/open-orders, under Departments > Customer Service / Sales. The screen opens on the files: the latest master dashboard, then this week's customer workbooks already expanded, with older weeks collapsed beneath. Download any of them straight from ARC. Building the reports is behind a Build this week's reports button below the lists, because most people come here to download rather than to generate. A once-a-week job: export the open orders report out of SAP, upload the xlsx here, and ARC builds a branded master dashboard plus one workbook per customer on the managed report list. Files are written to SharePoint under General/Order Management/OPEN ORDERS on the ALTRONICSALESTEAM site — master dashboards at the top, customer workbooks in a folder per week called Week of YYYY-MM-DD (the Monday), and the raw extract filed in RAW UPLOADS. Download anything from the screen. The master workbook is one consolidated sheet carrying every open line in the same columns and the same order as the raw SAP export, so it can be read against the export side by side. Each customer workbook has a Summary tab and an Open Orders tab carrying their standard orders in one table and their repair orders in a separate table below it, in that same raw column order. Both are styled to the Altronic brand — black and white with grey structure and a gold accent on anything past due. Each customer workbook has a Summary tab and an Open Orders tab carrying their standard orders in one table and their repair orders in a separate table below it. Aging is measured on the Ship Date (our promise) against the run date, in buckets Past due, 0-30, 31-60, 61-90, 90+ and No promise date. Repair orders are identified by the order type or a repair order number, never by the description — a priced REPAIR KIT part is a normal parts order. Money is totalled per currency; no exchange rate is applied. The customer list is managed at /sales/open-orders/customers, where the customer name is the name the file is named after, Active takes somebody off the weekly run without deleting the row, and Import from an extract reads the accounts out of a raw export. Any signed-in user can run the weekly job, edit the customer list and download the reports. Optional role gating exists (Admin > Open Orders Roles) but is switched off unless a roles list is configured. Re-running a week REPLACES that week's files.",
     render: () => (
       <>
         <P>
@@ -1562,19 +1562,29 @@ const SECTIONS: ManualSection[] = [
           second copy, because two workbooks for one customer and one week is
           worse than one that was refreshed.
         </P>
+        <P>
+          When the run finishes the tool closes itself and the lists refresh, so
+          what you're left looking at is the week you just built.
+        </P>
         <H3>What's in the reports</H3>
         <P>
-          The <strong>master dashboard</strong> has six tabs — Dashboard, By
-          Customer, Aging, Open Orders, Repairs, and{" "}
-          <strong>Coverage</strong>. Coverage is the one worth knowing about: it
-          lists the customers on the report list who had nothing open, which is
-          the answer to "why did my customer not get a report this week".
+          The <strong>master workbook</strong> is one consolidated sheet: every
+          open line, in the <strong>same columns and the same order as the raw
+          SAP export</strong>, so you can read the two side by side. It's
+          filterable, the header row is frozen, and the columns that are worth
+          totalling are totalled at the bottom.
         </P>
         <P>
           Each <strong>customer workbook</strong> has a Summary tab and an Open
           Orders tab, with their standard orders in one table and their{" "}
-          <strong>repair orders in a separate table below it</strong>. Every
-          column from the extract is included, comments as well.
+          <strong>repair orders in a separate table below it</strong> — same raw
+          column order. Every column from the extract is included, comments as
+          well.
+        </P>
+        <P>
+          Both are styled to the <strong>Altronic</strong> brand: black and
+          white with grey for structure, and the gold accent reserved for what's
+          past due.
         </P>
         <P>
           <strong>Aging runs on the Ship Date</strong> — our promise — against

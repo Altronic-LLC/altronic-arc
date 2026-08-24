@@ -20,6 +20,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.113.0",
+    date: "2026-08-24",
+    changes: [
+      "Open Orders workbooks are now on the Altronic brand — black and white with grey structure and a gold accent on what's past due, replacing the Cooper red styling",
+      "Both the master and the customer workbooks keep the raw SAP export's columns in the export's own order, so they can be read against it side by side",
+      "The master is one consolidated sheet instead of six tabs — every open line, filterable, with the header frozen and the totals at the bottom",
+      "Net Value is carried through, so nothing from the raw export is dropped",
+      "The build tool closes itself when a run finishes and the file lists refresh on the week you just built",
+    ],
+  },
+  {
     version: "0.112.6",
     date: "2026-08-24",
     changes: [

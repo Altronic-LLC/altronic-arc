@@ -24,7 +24,10 @@ import type { OpenOrderCustomerAccount, OpenOrderLine } from "@/types/task";
 //     (`Bayou Gas & Compression, Inc. / Lafayette`);
 //   - an account on the managed list with no open lines at all, which has to
 //     be reported rather than skipped;
-//   - a partially shipped line, so open qty ≠ order qty somewhere.
+//   - a partially shipped line, so open qty ≠ order qty somewhere;
+//   - UNPRICED repair lines, because that is what the live extract has — all
+//     442 of them at Net Price 0 — so "repairs add nothing to open value" is
+//     the path the reports actually take every week.
 //
 // Dates are relative to MOCK_RUN_DATE so the buckets stay meaningful without
 // anyone editing this file every week.
@@ -81,6 +84,7 @@ function line(seed: LineSeed): OpenOrderLine {
     openQty,
     unitPrice: seed.unitPrice,
     openValue: Math.round(openQty * seed.unitPrice * 100) / 100,
+    netValue: Math.round(seed.orderQty * seed.unitPrice * 100) / 100,
     currency: "USD",
     customerPo: seed.customerPo ?? "",
     orderDate: day(seed.ordered ?? -45),
@@ -186,7 +190,8 @@ export const MOCK_OPEN_ORDER_LINES: OpenOrderLine[] = [
     orderType: "repair",
     repairOrder: "4306713",
     orderQty: 2,
-    unitPrice: 1450.0,
+    // Unpriced, like every one of the 442 repair lines in the live extract.
+    unitPrice: 0,
     promise: -6,
     customerPo: "PO-88622",
   }),
@@ -202,7 +207,7 @@ export const MOCK_OPEN_ORDER_LINES: OpenOrderLine[] = [
     orderType: "ZRE",
     repairOrder: "4306801",
     orderQty: 10,
-    unitPrice: 96.5,
+    unitPrice: 0,
     promise: 15,
   }),
   // A repair KIT — a priced parts order that belongs in the STANDARD table.
@@ -268,7 +273,7 @@ export const MOCK_OPEN_ORDER_LINES: OpenOrderLine[] = [
     description: "DE-2000 repair and recalibration",
     orderType: "ZS1",
     orderQty: 1,
-    unitPrice: 2250.0,
+    unitPrice: 0,
     promise: 5,
   }),
 
@@ -307,7 +312,7 @@ export const MOCK_OPEN_ORDER_LINES: OpenOrderLine[] = [
     description: "Harness repair, field return",
     orderType: "ZS1",
     orderQty: 3,
-    unitPrice: 640.0,
+    unitPrice: 0,
     promise: 68,
   }),
 

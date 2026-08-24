@@ -1249,10 +1249,37 @@ it sorts and filters; prose stays prose. `dateCellOnly()` accepts a Date or an
 Excel serial and refuses loose strings, because running the ordinary date parser
 over "ship 3 by 08-28 / 20 to ship 09-14" invents a date nobody typed.
 
+**ALTRONIC branding, not Cooper.** Both brand systems exist in this org and
+these workbooks are Altronic: monochrome black and white, greys for structure,
+gold (#CBA052 — the ignition spark) as a sparing accent, and the wordmark as
+TEXT rather than an image. An earlier version was Cooper Red throughout, which
+was simply the wrong company. `openOrdersWorkbook.test.ts` fails if any Cooper
+colour reappears, and its colour scan reads BORDERS as well as fills and fonts —
+the gold accent on the master is a hairline under the header band, so a
+fill-and-font-only scan reported no gold at all.
+
+Fonts are the brand's **Office alternatives** — Segoe UI Semibold for headings,
+Arial for body. Excel has no font-fallback list, so naming Manrope on a machine
+without it renders as whatever Excel substitutes, which is worse than the
+sanctioned alternative.
+
+**The sheets mirror the raw extract, column for column, in ITS order** (Ray,
+2026-08-24: "do not rearrange columns"). `RAW_LAYOUT` in
+`openOrdersFields.ts` is that order and the only place it is defined; `Net
+Value` is parsed purely so nothing from the export is dropped. People reconcile
+these sheets against the raw file side by side, so a helpfully improved order
+turns that into a hunt — this is the one thing here not to tidy.
+
+**The master is ONE sheet** (Ray, 2026-08-24: "i do not need all of those tabs
+either just the consolidated raw file"). The Dashboard / By Customer / Aging /
+Repairs / Coverage tabs were built and then removed on request. The customer
+workbook keeps its Summary and its two tables, because that was asked for
+explicitly and separately.
+
 **Customer workbooks carry the FULL column set, comments included** (Ray,
 2026-08-24: "comments are customer safe show all columns for customer"). What
-never appears is another customer's name — a customer file is filtered to one
-sold-to and the master's Customer column is dropped from it.
+never appears is another customer's rows — a customer file is filtered to one
+sold-to.
 
 **Aging** is Past due / 0–30 / 31–60 / 61–90 / 90+ / No promise date, measured
 on the promise date against the **run date** — passed in, never `new Date()`, so
