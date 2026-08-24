@@ -247,6 +247,9 @@ src/
 │   ├── panelProjects.ts          Panel Project Reference list
 │   ├── panelRoles.ts             Panel User Roles list CRUD
 │   ├── visitReports.ts           Visit Reports CRUD (Sales, salesTeam site) — no delete
+│   ├── openOrdersFiles.ts        Open Orders SharePoint folder — list/upload/download
+│   ├── openOrdersCustomers.ts    Open Orders managed customer list CRUD
+│   ├── openOrdersRoles.ts        Open Orders role tags (report manager) CRUD
 │   ├── grayMarketRequests.ts     Gray Market Requests CRUD + comments (PMO site) — no delete
 │   ├── whereAmI.ts               Where am I? CRUD (Engineering out-of-office calendar)
 │   ├── autoWatch.ts              Shared @-mention → watcher resolution (per-site)
@@ -265,6 +268,7 @@ src/
 │   ├── operationsMockData.ts     Sample Operations tasks + projects
 │   ├── panelMockData.ts          Sample panel orders + panel tasks
 │   ├── visitReportMockData.ts    Sample visit reports
+│   ├── openOrdersMockData.ts     Sample open order lines + report customers
 │   ├── grayMarketMockData.ts     Sample gray market requests
 │   ├── whereAmIMockData.ts       Sample out-of-office entries (dated from today)
 │   ├── ecnMockData.ts            Sample ECNs (rich-text fields, a revision)
@@ -284,6 +288,8 @@ src/
 │   ├── usePanelTasks.ts          Panel task queries + mutations
 │   ├── usePanelRoles.ts          Panel User Roles CRUD (admin-guarded)
 │   ├── useVisitReports.ts        Visit Report queries + mutations
+│   ├── useOpenOrdersReports.ts   Parse an extract, generate + upload, download
+│   ├── useOpenOrdersCustomers.ts Customer list + role CRUD (+ useMyOpenOrdersAccess)
 │   ├── useGrayMarketRequests.ts  Gray Market queries, mutations + comment thread
 │   ├── useWhereAmI.ts            Where am I? queries + mutations
 │   ├── useEcns.ts                ECN queries + mutations (submitter-only notifications)
@@ -351,6 +357,11 @@ src/
 │   ├── calendarGrid.ts           Shared month-grid maths for every calendar view
 │   ├── whereAmI.ts               Where am I? mapper, grouping, date-range expansion
 │   ├── visitReportFilters.ts     Pure Visit Report filter/group predicates (list + calendar)
+│   ├── openOrders.ts             Open Orders maths — aging, rollups, repairs split, filenames
+│   ├── openOrdersFields.ts       The 27 SAP extract columns as DATA (+ aliases)
+│   ├── openOrdersParse.ts        Raw grid to OpenOrderLine[] + warnings (pure)
+│   ├── openOrdersExcel.ts        The ONLY file that knows an upload is xlsx
+│   ├── openOrdersWorkbook.ts     The master + per-customer workbook builders
 │   ├── teradyneMapper.ts         Graph item → Teradyne entities; derived titles
 │   ├── spDates.ts                Shared SharePoint date-only helpers (midday-UTC rule)
 │   ├── changeAlerts.ts           Change-alert email construction (pure)
@@ -468,6 +479,9 @@ src/
 │   ├── PanelTasksView.tsx        Panel Tasks list
 │   ├── PanelTaskDetailView.tsx   Panel task detail
 │   ├── VisitReportsView.tsx      Visit Reports list (Sales)
+│   ├── OpenOrdersView.tsx        Open Orders Report Tool — upload, generate, download
+│   ├── OpenOrdersCustomersView.tsx  The managed customer list (+ import from an extract)
+│   ├── AdminOpenOrdersRolesView.tsx Admin -> Open Orders Roles
 │   ├── GrayMarketRequestsView.tsx      Gray Market Requests list (Supply Chain)
 │   ├── WhereAmIView.tsx          Where am I? — month grid on desktop, agenda on a phone
 │   ├── EcnsView.tsx              ECNs list (search covers the descriptions)
@@ -1163,6 +1177,120 @@ matching /delete|remove/.
 Creating and editing is open to **any signed-in user** — no admin gate, no
 role gating. The list is **Sales-only**: nothing else reads it, and it imports
 nothing from another department.
+
+### Open Orders Report Tool (Customer Service / Sales)
+
+A once-a-week job, run by a person: somebody exports the open orders report out
+of SAP, uploads the xlsx at `/sales/open-orders`, and ARC builds one branded
+master dashboard plus one workbook per customer on a managed list. **ARC has no
+server and no scheduler** — the screen states the cadence in words, because
+nothing here happens by itself.
+
+**Where the files go** — `General/Order Management/OPEN ORDERS` in the default
+document library of `SITES.salesTeam`; masters at the root, customer workbooks
+in `Week of <Monday>`, raw extracts in `RAW UPLOADS`.
+
+The path was **not** taken from the sharing link Ray supplied. A share token can
+be regenerated — the two links he sent carried different `e=` values — so it was
+derived from the OneDrive sync mapping for that same folder (`MountPoint` and
+`UrlNamespace` under `HKCU:\Software\SyncEngines\Providers\OneDrive`), which
+resolves to the path above. `scripts/verify-open-orders-folder.ps1` proves it
+against live Graph, read-only, and can also resolve the share link to compare.
+
+**Six things the SAP extract does NOT tell you from its headers**, all verified
+against a live export (2,031 rows, 2026-08-21) and documented in
+`lib/openOrdersFields.ts`:
+
+1. **`Ship Date` is OUR promise; `Customer required date` is theirs.** They
+   differ on 743 of 2,031 rows, so they are two real dates rather than a
+   duplicate pair. Aging keys off Ship Date (Ray, 2026-08-24).
+2. **There is no shipped-quantity column** — only Order Quantity and Open
+   quantity, so shipped is derived. 55 rows are part-shipped.
+3. **Repairs are NOT ZS1 in this extract.** `Sales Document Type` carries the
+   literal lower-case `repair` on 442 rows, and `Repair order` carries a number
+   on exactly those same 442. ZS1 is still accepted, since that is what people
+   call these orders and another export may use it.
+4. **Every repair line is unpriced** — all 442 at Net Price 0. So "repairs = $0"
+   is the data, not a bug, and the workbooks say so rather than showing a table
+   of zeros.
+5. **`Customer Name` is truncated at 30 characters** ("Wabtec Transportation
+   Systems,", "INNIO Waukesha Canada Corporat"). This is exactly why the managed
+   customer list holds its own `CustomerName`: a file a CUSTOMER receives must
+   not be named after a truncation.
+6. **The extract can mix currencies** — 2,029 USD and 2 EUR. Money is carried
+   per line and totalled PER CURRENCY; no exchange rate is applied and there is
+   no single combined figure.
+
+**The repairs rule cost real money before the live data corrected it.** An
+earlier version also matched the word "repair" in the material description, as a
+"safety net". The extract has six priced ZTA lines reading `REPAIR KIT,
+ALTRONIC V` and `ALTRONIC REPAIR KIT, ALTRK3U-F` — parts orders for a repair-KIT
+product — and that match pulled **$16,037 of Global Compression Services'
+genuine parts backlog** out of their standard table. It caught nothing the two
+real signals missed. `isRepairLine` now reads the order type and the repair-order
+number only, and those kit strings are fixtures and tests. The lesson
+generalises: SAP says what an order IS in the order type, and a product name
+containing "repair" is a product name.
+
+**`Comments` is not prose.** 147 of the 166 comments in the live extract are
+DATES — somebody types a revised expected ship date into the column — and the 19
+that are words say the same thing ("Shipping in September. Exact date is pending
+when the tooling is received"). A date comment is kept as a real Excel date so
+it sorts and filters; prose stays prose. `dateCellOnly()` accepts a Date or an
+Excel serial and refuses loose strings, because running the ordinary date parser
+over "ship 3 by 08-28 / 20 to ship 09-14" invents a date nobody typed.
+
+**Customer workbooks carry the FULL column set, comments included** (Ray,
+2026-08-24: "comments are customer safe show all columns for customer"). What
+never appears is another customer's name — a customer file is filtered to one
+sold-to and the master's Customer column is dropped from it.
+
+**Aging** is Past due / 0–30 / 31–60 / 61–90 / 90+ / No promise date, measured
+on the promise date against the **run date** — passed in, never `new Date()`, so
+a report regenerated on Wednesday for Monday's run produces Monday's numbers. A
+line promised for the run date itself is not late yet. A line with no promise
+date gets its OWN bucket rather than inflating the past-due figure the whole
+report leads with.
+
+**An account with no open lines gets no workbook** — an empty spreadsheet
+arriving at a customer reads as a mistake. The master's **Coverage** tab names
+them instead, which is the answer to "why did my customer get no report".
+
+**Writes replace; raw extracts do not.** Re-running a week overwrites that
+week's files, because two workbooks for one customer in one week is worse than
+one that was refreshed — whoever sends it cannot tell which is current. The UI
+confirms first, naming what it will replace. Raw extracts use `rename` instead:
+two exports pulled on the same day are two different sets of facts.
+
+**Two lists, both on the Sales site** (`scripts/create-open-orders-lists.ps1`
+creates them, idempotently, with `-WhatIf`):
+
+| List | env | Shape |
+|---|---|---|
+| Open Orders Report Customers | `VITE_SP_OPEN_ORDERS_CUSTOMERS_LIST_ID` | `Title` = sold-to number, `CustomerName`, `RegionalManager`, `Active`, `Notes` |
+| Open Orders Roles | `VITE_SP_OPEN_ORDERS_ROLES_LIST_ID` | `Title` = email, `DisplayName`, `Roles` CSV, `Note` — same shape as EIR Roles |
+
+- **Account matching goes through `sameAccount`**, never `===`: SAP pads
+  sold-to numbers ("0001042" against a typed "1042").
+- **A missing `Active` column reads as ACTIVE.** The opposite would silently
+  empty the weekly run the moment somebody added the column.
+- **Role gating is OFF until the roles list id is set**
+  (`OPEN_ORDERS_ROLES_ENFORCED`), the same lockout-safety shape as
+  `EIR_ROLES_ENFORCED`, and **admins always count** — otherwise a list nobody
+  holds the role on is a door locked from the inside. One tag today:
+  `report manager`, needed to run the job and to edit the customer list.
+  Everyone signed in can download.
+
+**ExcelJS is dynamically imported**, once, on the first parse or generate — it is
+~950KB and has no business in the main bundle for somebody reading a task list.
+The Sales views are their own lazy route chunk.
+
+Performance on the live extract: 2,031 lines parsed in ~370ms and nine workbooks
+built in ~1s, so all 71 customers run comfortably in a browser.
+
+`scripts/generate-open-orders-from-file.mjs <extract.xlsx>` builds the whole set
+locally through the app's own parser and builders — the way to eyeball a change
+to the workbooks without a round trip through SharePoint.
 
 ### Teradyne lists (Operations, PMO site)
 

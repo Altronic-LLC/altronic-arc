@@ -20,6 +20,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.112.0",
+    date: "2026-08-24",
+    changes: [
+      "New under Customer Service / Sales: the Open Orders Report Tool — upload the weekly SAP open-orders export and ARC builds a branded master dashboard plus one Excel workbook per customer, ready to send",
+      "Reports are written to SharePoint under General/Order Management/OPEN ORDERS: master dashboards at the top, customer workbooks in a folder per week, and the raw extract kept in RAW UPLOADS",
+      "Download any report straight from ARC — no hunting through SharePoint",
+      "The master dashboard has six tabs: Dashboard, By Customer, Aging, Open Orders, Repairs and Coverage — Coverage names the customers who had nothing open, which answers \"why did my customer get no report\"",
+      "Each customer workbook has a Summary tab and an Open Orders tab, with their standard orders in one table and their repair orders in a separate table below",
+      "Aging runs on the Ship Date against the run date you pick, so a report re-run later still shows that day's numbers",
+      "Before anything is written, the screen shows what it read — line count, customers, past-due value — plus anything odd it found: mixed currencies, unpriced lines, columns it doesn't use",
+      "Manage who gets a weekly workbook at Open Orders → Customer list, including importing the accounts straight out of an extract",
+      "Running the weekly job needs the new report-manager role, granted at Admin → Open Orders Roles; everyone else can still download",
+    ],
+  },
+  {
     version: "0.111.1",
     date: "2026-08-24",
     changes: [

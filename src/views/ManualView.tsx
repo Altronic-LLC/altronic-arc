@@ -1495,6 +1495,108 @@ const SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: "open-orders-report",
+    title: "Open Orders Report Tool",
+    group: "Customer Service / Sales",
+    keywords: [
+      "open orders",
+      "open order report",
+      "oor",
+      "backlog",
+      "past due",
+      "aging",
+      "customer workbook",
+      "weekly report",
+      "sap extract",
+      "repairs",
+      "zs1",
+      "excel",
+      "dashboard",
+      "sales",
+    ],
+    searchText:
+      "Open Orders Report Tool at /sales/open-orders, under Departments > Customer Service / Sales. A once-a-week job: export the open orders report out of SAP, upload the xlsx here, and ARC builds a branded master dashboard plus one workbook per customer on the managed report list. Files are written to SharePoint under General/Order Management/OPEN ORDERS on the ALTRONICSALESTEAM site — master dashboards at the top, customer workbooks in a folder per week called Week of YYYY-MM-DD (the Monday), and the raw extract filed in RAW UPLOADS. Download anything from the screen. The master dashboard has six tabs: Dashboard (open value, past-due value, aging, standard versus repair orders, top customers), By Customer, Aging, Open Orders, Repairs and Coverage — Coverage lists the customers on the report list who had nothing open, which is the answer to why a customer got no workbook. Each customer workbook has a Summary tab and an Open Orders tab carrying their standard orders in one table and their repair orders in a separate table below it. Aging is measured on the Ship Date (our promise) against the run date, in buckets Past due, 0-30, 31-60, 61-90, 90+ and No promise date. Repair orders are identified by the order type or a repair order number, never by the description — a priced REPAIR KIT part is a normal parts order. Money is totalled per currency; no exchange rate is applied. The customer list is managed at /sales/open-orders/customers, where the customer name is the name the file is named after, Active takes somebody off the weekly run without deleting the row, and Import from an extract reads the accounts out of a raw export. Running the weekly job and editing the customer list need the report manager role, granted by an admin at Admin > Open Orders Roles; everyone signed in can download. Re-running a week REPLACES that week's files.",
+    render: () => (
+      <>
+        <P>
+          <strong>Departments → Customer Service / Sales → Open Orders Report</strong>{" "}
+          (<code>/sales/open-orders</code>) turns the raw SAP open-orders export
+          into the reports the team actually sends out: one branded master
+          dashboard, and one workbook per customer on the report list.
+        </P>
+        <P>
+          <strong>It is a once-a-week job, done by a person.</strong> ARC has no
+          scheduler — nothing happens until somebody exports the report from SAP
+          and uploads it here. The screen says so, and the run date you choose is
+          what every aging figure is measured against, so re-running Monday's
+          extract on Wednesday still produces Monday's numbers.
+        </P>
+        <H3>Running it</H3>
+        <P>
+          Pick the <strong>run date</strong>, choose the <strong>xlsx</strong> you
+          exported, and ARC reads it and shows you what it found — line count,
+          how many customers are in the file, how many workbooks it will build,
+          and the past-due value — before anything is written. Anything odd is
+          listed too: a column ARC doesn't read, lines with no price, more than
+          one currency, rows with no ship date.
+        </P>
+        <P>
+          Press <strong>Build</strong>, confirm, and the files go to SharePoint
+          under{" "}
+          <code>General/Order Management/OPEN ORDERS</code> — the master at the
+          top, the customer workbooks in{" "}
+          <strong>Week of &lt;Monday&gt;</strong>, and a copy of the extract in{" "}
+          <strong>RAW UPLOADS</strong>. Running the same week again{" "}
+          <strong>replaces</strong> that week's files rather than piling up a
+          second copy, because two workbooks for one customer and one week is
+          worse than one that was refreshed.
+        </P>
+        <H3>What's in the reports</H3>
+        <P>
+          The <strong>master dashboard</strong> has six tabs — Dashboard, By
+          Customer, Aging, Open Orders, Repairs, and{" "}
+          <strong>Coverage</strong>. Coverage is the one worth knowing about: it
+          lists the customers on the report list who had nothing open, which is
+          the answer to "why did my customer not get a report this week".
+        </P>
+        <P>
+          Each <strong>customer workbook</strong> has a Summary tab and an Open
+          Orders tab, with their standard orders in one table and their{" "}
+          <strong>repair orders in a separate table below it</strong>. Every
+          column from the extract is included, comments as well.
+        </P>
+        <P>
+          <strong>Aging runs on the Ship Date</strong> — our promise — against
+          the run date: Past due, 0–30, 31–60, 61–90, 90+, and a bucket of its
+          own for anything with no ship date at all. Past-due rows are tinted
+          and their date shown in red. Repair orders are usually unpriced in the
+          extract, so they add nothing to open value and the sheets say so
+          rather than showing a table of zeros. Where an extract carries more
+          than one currency, values are totalled per currency — no exchange rate
+          is applied.
+        </P>
+        <H3>The customer list</H3>
+        <P>
+          <strong>Customer list</strong> (<code>/sales/open-orders/customers</code>)
+          is who gets their own workbook. The{" "}
+          <strong>customer name here is what the file is named after</strong> —
+          SAP truncates its own at 30 characters, so this is the spelling
+          customers see. Set a customer to{" "}
+          <strong>not active</strong> to take them off the weekly run without
+          losing the row, and use{" "}
+          <strong>Import from an extract</strong> to pull the accounts out of a
+          raw export rather than typing them in.
+        </P>
+        <P>
+          Running the weekly job and changing the customer list need the{" "}
+          <strong>report manager</strong> role, which an admin grants at{" "}
+          <strong>Admin → Open Orders Roles</strong>. Everyone signed in can open
+          the screen and download the files.
+        </P>
+      </>
+    ),
+  },
+  {
     id: "visit-reports",
     title: "Visit Reports",
     group: "Customer Service / Sales",

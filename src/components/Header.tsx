@@ -16,6 +16,7 @@ import {
   DollarSign,
   FileCheck,
   FileDiff,
+  FileSpreadsheet,
   FileStack,
   FileText,
   FolderOpen,
@@ -234,6 +235,12 @@ const DEPARTMENTS: DepartmentGroup[] = [
     name: "Customer Service / Sales",
     items: [
       soon("Customer Feedback", <MessageSquare className="h-4 w-4" />),
+      {
+        to: "/sales/open-orders",
+        label: "Open Orders Report",
+        icon: <FileSpreadsheet className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/sales/open-orders"),
+      },
       {
         to: "/sales/visit-reports",
         label: "Visit Reports",

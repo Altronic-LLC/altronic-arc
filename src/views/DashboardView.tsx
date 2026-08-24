@@ -17,6 +17,7 @@ import {
   DollarSign,
   FileCheck,
   FileDiff,
+  FileSpreadsheet,
   FileStack,
   FileText,
   FolderOpen,
@@ -908,6 +909,13 @@ export function DashboardView() {
         collapsed={collapsedSections.has("Customer Service / Sales")}
         onToggle={() => toggleSection("Customer Service / Sales")}
       >
+        <TypeCard
+          name="Open Orders Report"
+          icon={<FileSpreadsheet className="h-5 w-5" />}
+          tone="superior-blue"
+          description="The weekly open orders dashboard, and each customer's own workbook to send on."
+          onClick={() => navigate("/sales/open-orders")}
+        />
         <PlaceholderCard name="Customer Feedback" icon={<MessageSquare className="h-5 w-5" />} />
         <TypeCard
           name="Visit Reports"

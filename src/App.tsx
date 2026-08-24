@@ -59,6 +59,22 @@ const AdminOperationsProjectsView = lazy(() =>
     default: m.AdminOperationsProjectsView,
   })),
 );
+// Open Orders Report Tool — the Sales bundle. Pulls in ExcelJS (~950KB) only
+// when someone actually generates or parses a workbook, via a dynamic import
+// inside useOpenOrdersReports, so it never reaches the main chunk.
+const OpenOrdersView = lazy(() =>
+  import("@/views/OpenOrdersView").then((m) => ({ default: m.OpenOrdersView })),
+);
+const OpenOrdersCustomersView = lazy(() =>
+  import("@/views/OpenOrdersCustomersView").then((m) => ({
+    default: m.OpenOrdersCustomersView,
+  })),
+);
+const AdminOpenOrdersRolesView = lazy(() =>
+  import("@/views/AdminOpenOrdersRolesView").then((m) => ({
+    default: m.AdminOpenOrdersRolesView,
+  })),
+);
 // Teradyne — the board-test log, part of the Operations bundle. Its reference
 // lists (Employees / Products / Remarks) all share one view, keyed by :kind.
 const TeradyneLogView = lazy(() =>
@@ -207,6 +223,19 @@ export function App() {
           <Route
             path="/supply-chain/gray-market-request/:id"
             element={<GrayMarketRequestDetailView />}
+          />
+          <Route path="/sales/open-orders" element={<OpenOrdersView />} />
+          <Route
+            path="/sales/open-orders/customers"
+            element={<OpenOrdersCustomersView />}
+          />
+          <Route
+            path="/admin/open-orders-roles"
+            element={
+              <RequireAdmin>
+                <AdminOpenOrdersRolesView />
+              </RequireAdmin>
+            }
           />
           <Route path="/sales/visit-reports" element={<VisitReportsView />} />
           <Route
