@@ -15,7 +15,9 @@ import type { OpenOrderCustomerAccount } from "@/types/task";
 //  1. **The columns are the raw extract's, in the raw extract's order** (Ray,
 //     2026-08-24: "do not rearrange columns"). People reconcile these sheets
 //     against the export side by side.
-//  2. **The master is ONE sheet** — "just the consolidated raw file".
+//  2. **Every workbook is ONE sheet** — "all should be single sheet" — with the
+//     one exception he named: a customer's sheet still splits repair orders
+//     into a second table below the standard ones.
 //
 // Plus the branding: ALTRONIC is monochrome black/white with gold as an accent.
 // Cooper Red appearing anywhere in here is the wrong brand.
@@ -98,6 +100,16 @@ describe("the master workbook", () => {
     expect(ws.autoFilter).toMatchObject({ from: { row, column: 1 } });
   });
 
+  // The split is a customer-file feature; the master is one undivided table.
+  it("is not split into standard and repair sections", async () => {
+    const ws = (await master()).getWorksheet("Open Orders")!;
+    let headings = 0;
+    ws.eachRow({ includeEmpty: false }, (row) => {
+      if (/^REPAIR ORDERS \(/.test(String(row.getCell(1).value ?? ""))) headings += 1;
+    });
+    expect(headings).toBe(0);
+  });
+
   it("totals only the columns where a sum means anything", async () => {
     const ws = (await master()).getWorksheet("Open Orders")!;
     const totals = ws.getRow(ws.rowCount);
@@ -153,8 +165,21 @@ describe("a customer workbook", () => {
     return buildCustomerWorkbook(ExcelJS, report, account, ctx);
   }
 
-  it("has a Summary and an Open Orders tab", async () => {
-    expect((await build()).worksheets.map((w) => w.name)).toEqual(["Summary", "Open Orders"]);
+  it("is a single sheet, like the master", async () => {
+    expect((await build()).worksheets.map((w) => w.name)).toEqual(["Open Orders"]);
+  });
+
+  // The figures the Summary tab used to carry, kept as one line rather than a
+  // whole tab.
+  it("carries the customer's headline figures under the title", async () => {
+    const ws = (await build()).getWorksheet("Open Orders")!;
+    let found = "";
+    ws.eachRow({ includeEmpty: false }, (row) => {
+      const v = String(row.getCell(1).value ?? "");
+      if (/open lines across/.test(v)) found = v;
+    });
+    expect(found).toMatch(/open lines across/);
+    expect(found).toMatch(/past due/);
   });
 
   // Same instruction as the master.
@@ -178,7 +203,7 @@ describe("a customer workbook", () => {
   });
 
   it("names the customer and their account, not another customer", async () => {
-    const ws = (await build()).getWorksheet("Summary")!;
+    const ws = (await build()).getWorksheet("Open Orders")!;
     expect(String(ws.getRow(3).getCell(1).value)).toContain(account.customerName);
     expect(String(ws.getRow(3).getCell(1).value)).toContain(account.accountNumber);
   });

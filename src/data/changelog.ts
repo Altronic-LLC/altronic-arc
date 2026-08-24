@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.113.1",
+    date: "2026-08-24",
+    changes: [
+      "Customer workbooks are a single sheet now too — their standard orders and their repair orders still sit in separate tables on it, each with its own totals",
+      "The customer's headline figures — open lines, open value, past due — moved onto one line under the title, replacing the Summary tab",
+    ],
+  },
+  {
     version: "0.113.0",
     date: "2026-08-24",
     changes: [

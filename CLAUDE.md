@@ -1270,11 +1270,18 @@ Value` is parsed purely so nothing from the export is dropped. People reconcile
 these sheets against the raw file side by side, so a helpfully improved order
 turns that into a hunt — this is the one thing here not to tidy.
 
-**The master is ONE sheet** (Ray, 2026-08-24: "i do not need all of those tabs
-either just the consolidated raw file"). The Dashboard / By Customer / Aging /
-Repairs / Coverage tabs were built and then removed on request. The customer
-workbook keeps its Summary and its two tables, because that was asked for
-explicitly and separately.
+**Every workbook is ONE sheet** (Ray, 2026-08-24: "i do not need all of those
+tabs either just the consolidated raw file", then "all should be single
+sheet"). The master's Dashboard / By Customer / Aging / Repairs / Coverage tabs
+and the customer file's Summary tab were all built and then removed on request.
+
+**The one difference between master and customer:** a customer's sheet SPLITS
+the repair orders into a second table below the standard ones, each with its own
+header and totals ("one difference on the customer single sheet split by repair
+still"). The master is one undivided table — pinned both ways in
+`openOrdersWorkbook.test.ts`, since "make them consistent" is exactly the
+tidy-up that would erase the distinction. The figures the Summary tab carried
+survive as a single line under the customer's title.
 
 **Customer workbooks carry the FULL column set, comments included** (Ray,
 2026-08-24: "comments are customer safe show all columns for customer"). What

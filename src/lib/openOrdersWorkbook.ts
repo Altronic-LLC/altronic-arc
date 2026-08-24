@@ -30,11 +30,16 @@ import {
 // reconcile these sheets against the raw export side by side; a helpfully
 // improved column order turns that into a hunt.
 //
-// **The master is ONE sheet** (Ray, 2026-08-24: "i do not need all of those
-// tabs either just the consolidated raw file with formatting that is clean and
-// on brand"). The Dashboard / By Customer / Aging / Repairs / Coverage tabs
-// that used to be here are gone. The customer workbook keeps its Summary and
-// its two tables, because that was asked for explicitly and separately.
+// **Every workbook is ONE sheet** (Ray, 2026-08-24: "i do not need all of those
+// tabs either just the consolidated raw file", then "all should be single
+// sheet"). The master's Dashboard / By Customer / Aging / Repairs / Coverage
+// tabs and the customer file's Summary tab were all built and then removed on
+// request.
+//
+// The one difference between the two: a customer's sheet still SPLITS the
+// repair orders into a second table below the standard ones ("one difference on
+// the customer single sheet split by repair still"). The master is one
+// undivided table.
 //
 // Two styling rules carried from the notification emails, both still true here:
 //   - The wordmark is TEXT, not an image. An embedded logo bloats every one of
@@ -130,8 +135,13 @@ export async function buildMasterWorkbook(
 }
 
 /**
- * One customer's workbook: a Summary, then their lines with repair orders in a
- * second table below the first.
+ * One customer's workbook: a SINGLE sheet, their standard orders in one table
+ * and their repair orders in a second table below it.
+ *
+ * One sheet like the master (Ray, 2026-08-24: "all should be single sheet"),
+ * with the one difference he called out — the repair split stays. So the
+ * Summary tab that used to carry the KPIs and the ageing table is gone, and
+ * the figures worth having survive as a single line under the title.
  */
 export async function buildCustomerWorkbook(
   excel: typeof ExcelJS,
@@ -140,84 +150,29 @@ export async function buildCustomerWorkbook(
   ctx: WorkbookContext,
 ): Promise<ExcelJS.Workbook> {
   const wb = newWorkbook(excel, ctx);
-  const m = report.metrics;
+  const ws = wb.addWorksheet("Open Orders", { properties: { tabColor: { argb: BLACK } } });
 
-  // ---- Summary -----------------------------------------------------------
-  const sum = wb.addWorksheet("Summary", { properties: { tabColor: { argb: BLACK } } });
-  sum.columns = [{ width: 30 }, { width: 18 }, { width: 16 }, { width: 16 }, { width: 18 }];
-  titleBlock(sum, "OPEN ORDERS SUMMARY", report.customerName, ctx, 5, report.soldTo);
+  titleBlock(ws, "OPEN ORDERS", report.customerName, ctx, RAW_LAYOUT.length, report.soldTo);
 
-  let row = sum.rowCount + 2;
-  row = kpiRow(sum, row, [
-    { label: "Open value", value: m.openValue, format: MONEY, accent: false },
-    { label: "Past due", value: m.pastDueValue, format: MONEY, accent: true },
-    { label: "Open lines", value: m.lines, format: QTY, accent: false },
-    { label: "Open orders", value: m.orders, format: QTY, accent: false },
-    { label: "Open qty", value: m.openQty, format: QTY, accent: false },
-  ]);
-
+  let row = ws.rowCount + 2;
+  note(ws, row++, summaryLine(report.metrics));
   row += 1;
-  row = heading(sum, row, "AGEING — BY SHIP DATE");
-  row = agingTable(sum, row, m);
 
-  row += 1;
-  row = heading(sum, row, "NEXT SHIP DATE");
-  const next = sum.getRow(row++);
-  label(next.getCell(1), m.nextPromiseDate ? "Soonest line due" : "No ship date on any open line");
-  if (m.nextPromiseDate) {
-    next.getCell(2).value = m.nextPromiseDate;
-    next.getCell(2).numFmt = DATE;
-    next.getCell(2).font = { name: HEAD_FONT, size: 10, bold: true, color: { argb: BLACK } };
-  }
-
-  row += 1;
-  row = heading(sum, row, "STANDARD ORDERS VS REPAIR ORDERS");
-  row = twoColumnTable(sum, row, [
-    ["Standard orders", report.standardLines.length, round2(m.openValue - m.repairValue)],
-    ["Repair orders", report.repairLines.length, m.repairValue],
-  ]);
-  if (report.repairLines.length > 0 && m.repairValue === 0) {
-    note(sum, row++, "Repair orders are not priced in this report, so they show no value.");
-  }
-
-  if (m.currencies.length > 1) {
-    row += 1;
-    row = heading(sum, row, "BY CURRENCY");
-    note(
-      sum,
-      row++,
-      `These lines are in ${m.currencies.join(" and ")}. No exchange rate is applied, so the currencies are shown separately.`,
-    );
-    row = headerRow(sum, row, ["Currency", "Open value", "Past due"]);
-    for (const [i, entry] of m.byCurrency.entries()) {
-      const r = sum.getRow(row++);
-      r.values = [entry.currency, entry.openValue, entry.pastDueValue];
-      styleDataRow(r, 3, i % 2 === 1);
-      r.getCell(2).numFmt = MONEY;
-      r.getCell(3).numFmt = MONEY;
-    }
-  }
-  footer(sum, row + 1, ctx);
-
-  // ---- Open Orders: standard, then repairs below --------------------------
-  const detail = wb.addWorksheet("Open Orders", { properties: { tabColor: { argb: DARK_GREY } } });
-  titleBlock(detail, "OPEN ORDERS", report.customerName, ctx, RAW_LAYOUT.length, report.soldTo);
-
-  let dRow = detail.rowCount + 2;
-  dRow = heading(detail, dRow, `OPEN ORDERS (${report.standardLines.length})`);
-  const firstHeader = dRow;
-  dRow = dataTable(detail, dRow, report.standardLines, ctx);
+  row = heading(ws, row, `OPEN ORDERS (${report.standardLines.length})`);
+  const firstHeader = row;
+  row = dataTable(ws, row, report.standardLines, ctx);
 
   // Two blank rows, so the second table reads as its own rather than a
   // continuation of the first.
-  dRow += 2;
-  dRow = heading(detail, dRow, `REPAIR ORDERS (${report.repairLines.length})`);
+  row += 2;
+  row = heading(ws, row, `REPAIR ORDERS (${report.repairLines.length})`);
   if (report.repairLines.length > 0 && report.metrics.repairValue === 0) {
-    note(detail, dRow++, "Repair orders are not priced in this report, so they show no value.");
+    note(ws, row++, "Repair orders are not priced in this report, so they show no value.");
   }
-  dataTable(detail, dRow, report.repairLines, ctx);
+  row = dataTable(ws, row, report.repairLines, ctx);
 
-  detail.views = [{ state: "frozen", ySplit: firstHeader }];
+  footer(ws, row + 1, ctx);
+  ws.views = [{ state: "frozen", ySplit: firstHeader }];
   return wb;
 }
 
@@ -419,10 +374,6 @@ function heading(ws: ExcelJS.Worksheet, row: number, text: string): number {
   return row + 1;
 }
 
-function label(cell: ExcelJS.Cell, text: string) {
-  cell.value = text;
-  cell.font = { name: BODY_FONT, size: 10, color: { argb: DARK_GREY } };
-}
 
 function note(ws: ExcelJS.Worksheet, row: number, text: string) {
   const cell = ws.getRow(row).getCell(1);
@@ -430,88 +381,9 @@ function note(ws: ExcelJS.Worksheet, row: number, text: string) {
   cell.font = { name: BODY_FONT, size: 9, italic: true, color: { argb: DARK_GREY } };
 }
 
-interface Kpi {
-  label: string;
-  value: number;
-  format: string;
-  /** Gold, for the single figure worth the accent. */
-  accent: boolean;
-}
 
-function kpiRow(ws: ExcelJS.Worksheet, row: number, kpis: Kpi[]): number {
-  const labels = ws.getRow(row);
-  const values = ws.getRow(row + 1);
-  values.height = 24;
-  kpis.forEach((kpi, i) => {
-    const col = i + 1;
-    const l = labels.getCell(col);
-    l.value = kpi.label.toUpperCase();
-    l.font = { name: HEAD_FONT, size: 8, bold: true, color: { argb: DARK_GREY } };
 
-    const v = values.getCell(col);
-    v.value = kpi.value;
-    v.numFmt = kpi.format;
-    v.font = { name: HEAD_FONT, size: 15, bold: true, color: { argb: kpi.accent ? GOLD : BLACK } };
-    v.alignment = { vertical: "middle" };
-    v.border = { top: { style: "thin", color: { argb: kpi.accent ? GOLD : LIGHT_GREY } } };
-  });
-  return row + 2;
-}
 
-function agingTable(ws: ExcelJS.Worksheet, row: number, metrics: OpenOrderMetrics): number {
-  let r = headerRow(ws, row, ["Bucket", "Lines", "Open qty", "Open value", "% of value"]);
-  metrics.aging.forEach((bucket, i) => {
-    const line = ws.getRow(r++);
-    const share = metrics.openValue ? bucket.openValue / metrics.openValue : 0;
-    line.values = [bucket.bucket, bucket.lines, bucket.openQty, bucket.openValue, share];
-    styleDataRow(line, 5, i % 2 === 1);
-    line.getCell(2).numFmt = QTY;
-    line.getCell(3).numFmt = QTY;
-    line.getCell(4).numFmt = MONEY;
-    line.getCell(5).numFmt = "0.0%";
-    if (bucket.bucket === "Past due" && bucket.lines > 0) {
-      for (let c = 1; c <= 5; c++) {
-        line.getCell(c).fill = { type: "pattern", pattern: "solid", fgColor: { argb: GOLD_WASH } };
-      }
-      line.getCell(1).font = { name: HEAD_FONT, size: 10, bold: true, color: { argb: BLACK } };
-      line.getCell(4).font = { name: HEAD_FONT, size: 10, bold: true, color: { argb: GOLD } };
-    }
-    // "No ship date" is missing data, not lateness — grey, never the accent.
-    if (bucket.bucket === "No promise date" && bucket.lines > 0) {
-      line.getCell(1).font = { name: BODY_FONT, size: 10, italic: true, color: { argb: DARK_GREY } };
-    }
-  });
-  const total = ws.getRow(r);
-  for (let c = 1; c <= 5; c++) {
-    total.getCell(c).fill = { type: "pattern", pattern: "solid", fgColor: { argb: LIGHT_GREY } };
-    total.getCell(c).font = { name: HEAD_FONT, size: 10, bold: true, color: { argb: BLACK } };
-    total.getCell(c).border = { top: { style: "thin", color: { argb: MEDIUM_GREY } } };
-  }
-  total.getCell(1).value = "TOTAL";
-  total.getCell(2).value = metrics.lines;
-  total.getCell(2).numFmt = QTY;
-  total.getCell(3).value = metrics.openQty;
-  total.getCell(3).numFmt = QTY;
-  total.getCell(4).value = metrics.openValue;
-  total.getCell(4).numFmt = MONEY;
-  return r + 1;
-}
-
-function twoColumnTable(
-  ws: ExcelJS.Worksheet,
-  row: number,
-  rows: Array<[string, number, number]>,
-): number {
-  let r = headerRow(ws, row, ["", "Lines", "Open value"]);
-  rows.forEach(([text, lines, value], i) => {
-    const line = ws.getRow(r++);
-    line.values = [text, lines, value];
-    styleDataRow(line, 3, i % 2 === 1);
-    line.getCell(2).numFmt = QTY;
-    line.getCell(3).numFmt = MONEY;
-  });
-  return r;
-}
 
 /** The one-line description under the master's title. */
 function summaryLine(metrics: OpenOrderMetrics): string {
