@@ -2,6 +2,7 @@ import { GraphError, graphFetch } from "./graph";
 import {
   EIR_TRIAGE_ASSIGNERS,
   EIR_TRIAGE_PROJECT_REVIEWERS,
+  GRAY_MARKET_NEW_REQUEST_ALERTS,
   SHARED_MAILBOX,
   USE_MOCK,
 } from "./config";
@@ -16,11 +17,12 @@ import {
   type ChangeEmail,
   type ChangeTarget,
 } from "@/lib/changeAlerts";
+import { buildEirTriageEmails, type EirTriageStage } from "@/lib/eirTriage";
+import { parseRecipientList } from "@/lib/recipientList";
 import {
-  buildEirTriageEmails,
-  parseRecipientList,
-  type EirTriageStage,
-} from "@/lib/eirTriage";
+  buildNewGrayMarketRequestEmails,
+  type AlertDetail,
+} from "@/lib/grayMarketAlerts";
 
 // =============================================================================
 // Email notifications via Microsoft Graph sendMail.
@@ -517,6 +519,24 @@ export function fireEirTriageAlert(args: {
     ...args,
     projectReviewers: parseRecipientList(EIR_TRIAGE_PROJECT_REVIEWERS),
     assigners: parseRecipientList(EIR_TRIAGE_ASSIGNERS),
+  });
+  if (emails.length === 0) return;
+  void notifyChangeEmails({ target: args.target, emails });
+}
+
+/**
+ * Fire-and-forget intake alert for a NEW gray market request — the configured
+ * list (VITE_GRAY_MARKET_NEW_REQUEST_ALERTS) is told a request needs picking
+ * up. No-ops when nothing is configured.
+ */
+export function fireNewGrayMarketRequestAlert(args: {
+  target: ChangeTarget;
+  actor: Person;
+  details?: AlertDetail[];
+}): void {
+  const emails = buildNewGrayMarketRequestEmails({
+    ...args,
+    recipients: parseRecipientList(GRAY_MARKET_NEW_REQUEST_ALERTS),
   });
   if (emails.length === 0) return;
   void notifyChangeEmails({ target: args.target, emails });

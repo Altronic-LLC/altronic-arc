@@ -35,7 +35,8 @@ export interface ChangeTarget {
     | "buildRequest"
     | "buildRequestItem"
     | "panelOrder"
-    | "panelTask";
+    | "panelTask"
+    | "grayMarketRequest";
   id: number;
   title: string;
 }
@@ -48,6 +49,7 @@ const NOUNS: Record<ChangeTarget["kind"], string> = {
   buildRequestItem: "build request part",
   panelOrder: "panel order",
   panelTask: "panel task",
+  grayMarketRequest: "gray market request",
 };
 
 function nounFor(target: ChangeTarget): string {

@@ -100,9 +100,11 @@ export function buildGrayMarketCreateFields(
     Title: input.title.trim(),
     LogNo_x002e_Raw: logNo,
     RequestStatus: input.status,
-    ProductionTest: input.testingRequired,
     TodaysDate: toSpDateOnly(input.requestDate),
   };
+  // Testing Required is decided later in the workflow, so it may be blank on
+  // create — omitted rather than sent as "", like every other blank column.
+  if (input.testingRequired.trim()) fields.ProductionTest = input.testingRequired.trim();
   for (const field of GRAY_MARKET_FIELDS) {
     const value = (input.values[field.key] ?? "").trim();
     if (!value) continue;

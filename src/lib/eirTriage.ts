@@ -1,5 +1,6 @@
 import type { Person } from "@/types/task";
 import { escapeHtml } from "./mentions";
+import { nameList, withoutActorUnlessEmpty } from "./recipientList";
 import type { ChangeEmail, ChangeTarget } from "./changeAlerts";
 
 // =============================================================================
@@ -35,48 +36,6 @@ export function eirTriageStage(args: {
   if (!args.hasProject) return "needs-project";
   if (!args.hasEngineer) return "needs-engineer";
   return null;
-}
-
-/**
- * Parse a configured recipient list — `"Sheila Horn <sheila.horn@x.com>, other@x.com"`.
- *
- * Tolerates a bare address (the name falls back to the local part, title-cased
- * enough to read properly in "Hello …"), because whoever sets the env var
- * shouldn't have to get the format exactly right for mail to work.
- */
-export function parseRecipientList(raw: string | undefined): Person[] {
-  if (!raw) return [];
-  const out: Person[] = [];
-  const seen = new Set<string>();
-  for (const part of raw.split(",")) {
-    const entry = part.trim();
-    if (!entry) continue;
-    const angled = /^(.*?)<([^>]+)>$/.exec(entry);
-    const email = (angled ? angled[2] : entry).trim();
-    if (!email.includes("@")) continue;
-    const key = email.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    const named = angled ? angled[1].trim().replace(/^"|"$/g, "") : "";
-    out.push({ displayName: named || prettyNameFromEmail(email), email });
-  }
-  return out;
-}
-
-function prettyNameFromEmail(email: string): string {
-  return email
-    .split("@")[0]
-    .split(/[._-]+/)
-    .filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
-}
-
-function nameList(people: Person[]): string {
-  const names = people.map((p) => p.displayName).filter(Boolean);
-  if (names.length === 0) return "the next reviewer";
-  if (names.length === 1) return names[0];
-  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
 }
 
 /**
@@ -142,11 +101,4 @@ export function buildEirTriageEmails(args: {
       `${project}<div style="font-size:14px;margin-top:6px;">Assigning one notifies ` +
       `them and takes the EIR out of the Needs Assigned queue.</div>`,
   }));
-}
-
-function withoutActorUnlessEmpty(pool: Person[], actor: Person): Person[] {
-  const mailable = pool.filter((p) => !!p.email);
-  const actorEmail = (actor.email ?? "").toLowerCase();
-  const others = mailable.filter((p) => (p.email ?? "").toLowerCase() !== actorEmail);
-  return others.length > 0 ? others : mailable;
 }

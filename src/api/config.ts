@@ -209,6 +209,30 @@ export const SP_GRAY_MARKET_LIST_ID =
   "bf5e3786-d2c1-4e8d-8bd1-c8d5bab9c85b";
 
 /**
+ * Who is emailed when a NEW gray market request is raised (Ray, 2026-08-23).
+ *
+ * Nobody watches the list itself, so a request used to sit until someone
+ * opened ARC and noticed it. These are the people who pick one up, and they
+ * are notified on every create — this is an intake queue, not a watch list, so
+ * there is no way to opt out short of changing this setting.
+ *
+ * Format matches the EIR triage lists: comma-separated `Name <email>` or a
+ * bare address, parsed by parseRecipientList. The actor is left off their own
+ * request unless that would leave nobody.
+ *
+ * **The addresses below follow the tenant's firstname.lastname convention and
+ * should be verified against the directory.** Ray named "katie.fleming",
+ * "Alexandra.Russell@altronic-llc.com" and "glenn.terry"; the two bare names
+ * are expanded to that convention here. A wrong address fails visibly (a
+ * failed send is reported) but it fails as that person's silence.
+ */
+export const GRAY_MARKET_NEW_REQUEST_ALERTS =
+  import.meta.env.VITE_GRAY_MARKET_NEW_REQUEST_ALERTS ||
+  "Katie Fleming <katie.fleming@altronic-llc.com>, " +
+  "Alexandra Russell <Alexandra.Russell@altronic-llc.com>, " +
+  "Glenn Terry <glenn.terry@altronic-llc.com>";
+
+/**
  * "Visit Reports" — Customer Service / Sales' record of customer visits, on
  * the ALTRONICSALESTEAM site (SITES.salesTeam). `Title` is repurposed as the
  * Customer Name, City/State are `City0`/`State0`, and Month/Year/Day/Cal Title

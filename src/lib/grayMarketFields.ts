@@ -165,5 +165,5 @@ export const GRAY_MARKET_SELECT = [
 /** Request Status choices — drives the status pills. */
 export const GRAY_MARKET_STATUSES = ["Open", "Complete"] as const;
 
-/** "Testing Required" (`ProductionTest`) — required by the list. */
+/** "Testing Required" (`ProductionTest`) — decided later, so blank on create. */
 export const GRAY_MARKET_TESTING_REQUIRED = ["In Process", "Yes", "No"] as const;

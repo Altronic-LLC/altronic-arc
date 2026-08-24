@@ -160,6 +160,13 @@ describe("buildGrayMarketCreateFields", () => {
     expect(buildGrayMarketCreateFields(input, "x")).not.toHaveProperty("PartDescription");
   });
 
+  it("omits Testing Required when it hasn't been decided yet", () => {
+    // Whether testing is needed is settled later in the workflow, so a
+    // request is raised without it — and a blank column is not sent as "".
+    const fields = buildGrayMarketCreateFields({ ...input, testingRequired: "" }, "x");
+    expect(fields).not.toHaveProperty("ProductionTest");
+  });
+
   it("converts a rich-text column to paragraphs", () => {
     // WhereUsed is rendered as HTML by SharePoint, so plain newlines would
     // collapse — the same rule as the EIR long fields.

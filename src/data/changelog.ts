@@ -20,7 +20,7 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-  version: "0.109.6",
+  version: "0.111.0",
   date: "2026-08-21",
   changes: [
     "Digital QC and Ignition QC forms: pressing Enter in a form field no longer saves the entry — Enter is only submitted when focus is on the Save button (via Tab or click), so a stray Enter while typing can't trigger an accidental save",
