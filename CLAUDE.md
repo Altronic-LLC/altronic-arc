@@ -1929,6 +1929,34 @@ user has moved on to a sentence) and a newline always does. Nothing renders
 when there are no candidates, so an over-long query hides the picker by
 itself.
 
+### The EIR list opens UNFILTERED, however you arrive
+
+`/eirs` shows every EIR — every status, every engineer — until somebody sets a
+filter. Nothing applies one on their behalf.
+
+The dashboard's EIRs card used to send `engineer=<me>` whenever the dashboard
+was in **Mine** scope, which is its default. So following that card landed
+people on their own EIRs only, and it was reported as the filter being broken —
+"users see only a limited number of EIRs instead of all of them" (Ray,
+2026-08-25). The list itself was innocent: `useEirFilters` defaults every axis
+to empty, `matchesEirView` returns true for `all`, `applyEirStatusFilter`
+returns everything for a null pill, and `EirsView` renders `filtered.map` with
+no row cap.
+
+**Note the deliberate asymmetry with the Tasks card**, which DOES carry
+`assigned=<me>`: the task list's Assigned filter defaults to the current user
+anyway, so that param matches where the list lands on its own. The EIR list has
+no such default, so injecting one made it behave differently depending on which
+link you followed. Don't "make them consistent" by adding a person default to
+EIRs, or by stripping it from tasks.
+
+A picked project still travels from the dashboard — that's an explicit choice
+made on that screen. Pinned in `DashboardView.test.tsx` (the card navigates to
+exactly `/eirs`) and `EirsView.unfiltered.test.tsx` (the list shows all of them,
+closed included, and still honours an engineer filter that was actually asked
+for). The second was verified by injecting a default-to-me and watching three of
+its four cases fail.
+
 ### Task filters live in the URL and must survive navigation
 
 `filterSearch(search)` in `useFilters.ts` extracts the filter params

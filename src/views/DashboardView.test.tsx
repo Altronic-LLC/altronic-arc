@@ -90,7 +90,7 @@ describe("DashboardView", () => {
     );
   });
 
-  it("carries the current user's email into the Tasks/EIRs URLs un-double-encoded", async () => {
+  it("carries the current user's email into the Tasks URL un-double-encoded", async () => {
     const user = userEvent.setup();
     await renderDashboard();
 
@@ -102,11 +102,34 @@ describe("DashboardView", () => {
       expect.stringContaining("assigned=demo.user%40altronic-llc.com"),
     );
     expect(mockNavigate).not.toHaveBeenCalledWith(expect.stringContaining("%2540"));
+  });
+
+  // This card used to send `engineer=<me>` whenever the dashboard was in Mine
+  // scope, which is the default — so clicking it landed people on a list of
+  // only their own EIRs, and the filter looked broken (Ray, 2026-08-25).
+  //
+  // The asymmetry with Tasks above is deliberate: the task list's Assigned
+  // filter defaults to the current user anyway, so that param matches where it
+  // would land regardless. The EIR list has no such default.
+  it("opens the EIR list unfiltered, showing every EIR", async () => {
+    const user = userEvent.setup();
+    await renderDashboard();
 
     await user.click(screen.getByRole("button", { name: /EIRs/i }));
-    expect(mockNavigate).toHaveBeenCalledWith(
-      expect.stringContaining("engineer=demo.user%40altronic-llc.com"),
-    );
+    expect(mockNavigate).toHaveBeenCalledWith("/eirs");
+    expect(mockNavigate).not.toHaveBeenCalledWith(expect.stringContaining("engineer="));
+  });
+
+  it("still carries a project the user picked here", async () => {
+    const user = userEvent.setup();
+    await renderDashboard();
+
+    await user.click(screen.getByRole("button", { name: /all projects/i }));
+    const project = MOCK_PROJECTS.find((p) => p.title === "0017-AMP-5000 Refresh")!;
+    await user.click(screen.getByRole("option", { name: project.title }));
+
+    await user.click(screen.getByRole("button", { name: /EIRs/i }));
+    expect(mockNavigate).toHaveBeenCalledWith(`/eirs?project=${project.lookupId}`);
   });
 
   it("counts the ECNs on file, and narrows them to the picked project", async () => {

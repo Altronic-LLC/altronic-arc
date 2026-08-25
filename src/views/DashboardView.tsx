@@ -518,13 +518,26 @@ export function DashboardView() {
     assigned: mine ? meParam : "",
     ...(projectParam ? { project: projectParam } : {}),
   }).toString()}`;
+  /**
+   * The EIR list opens showing EVERY EIR, however you arrive at it.
+   *
+   * This used to carry `engineer=<me>` whenever the dashboard was in Mine
+   * scope — which is the default — so clicking the EIRs card landed people on
+   * a list of only their own EIRs and it read as the filter being broken (Ray,
+   * 2026-08-25: "you should see all EIRs, nothing should be filtered, not even
+   * from the dashboard").
+   *
+   * Note the asymmetry with `tasksUrl` above, which does carry `assigned=<me>`:
+   * the TASK list's Assigned filter defaults to the current user anyway, so
+   * that param matches where the list would land on its own. The EIR list has
+   * no such default, so injecting one made it behave differently depending on
+   * which link you followed.
+   *
+   * A picked project still travels — that's an explicit choice made on this
+   * screen, not a default applied on someone's behalf.
+   */
   const eirsUrl = `/eirs${
-    (mine && meParam) || projectParam
-      ? `?${new URLSearchParams({
-          ...(mine && meParam ? { engineer: meParam } : {}),
-          ...(projectParam ? { project: projectParam } : {}),
-        }).toString()}`
-      : ""
+    projectParam ? `?${new URLSearchParams({ project: projectParam }).toString()}` : ""
   }`;
   // The ECN list has no "mine" filter — there's no assignee on that list, and
   // its submitter is Graph's createdBy rather than a column you can search on.

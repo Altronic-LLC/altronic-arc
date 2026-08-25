@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.114.2",
+    date: "2026-08-25",
+    changes: [
+      "The EIRs card on the dashboard now opens the full EIR list — it was quietly filtering to your own EIRs, which made it look like EIRs were missing",
+      "A project you picked on the dashboard still travels through, since that's a choice you made rather than a default applied for you",
+    ],
+  },
+  {
     version: "0.114.1",
     date: "2026-08-25",
     changes: [
