@@ -44,6 +44,14 @@ vi.mock("@/hooks/useCurrentUser", () => ({
 }));
 
 const generateOne = vi.hoisted(() => vi.fn());
+const mockAccess = vi.hoisted(() => ({
+  value: {
+    isReportManager: true,
+    canAddOrRemove: true,
+    enforced: false,
+    isResolving: false,
+  },
+}));
 
 vi.mock("@/hooks/useOpenOrdersReports", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/hooks/useOpenOrdersReports")>();
@@ -63,11 +71,7 @@ vi.mock("@/hooks/useOpenOrdersCustomers", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/hooks/useOpenOrdersCustomers")>();
   return {
     ...actual,
-    useMyOpenOrdersAccess: () => ({
-      isReportManager: true,
-      enforced: false,
-      isResolving: false,
-    }),
+    useMyOpenOrdersAccess: () => mockAccess.value,
     useOpenOrdersCustomers: () => ({
       data: mockAccounts.rows,
       isLoading: false,
@@ -83,6 +87,12 @@ import { OpenOrdersCustomersView } from "./OpenOrdersCustomersView";
 beforeEach(() => {
   mockConfig.listId = undefined;
   mockAccounts.rows = [];
+  mockAccess.value = {
+    isReportManager: true,
+    canAddOrRemove: true,
+    enforced: false,
+    isResolving: false,
+  };
 });
 
 describe("OpenOrdersCustomersView — the list doesn't exist yet", () => {
@@ -202,5 +212,68 @@ describe("building one customer's report after the week has run", () => {
     await waitFor(() =>
       expect(screen.getByText(/after this week was already built/i)).toBeInTheDocument(),
     );
+  });
+});
+
+describe("adding and removing is admin-only", () => {
+  const ACCOUNTS = [
+    { id: 1, accountNumber: "1042", customerName: "Permian Midstream", active: true, notes: "" },
+  ];
+
+  beforeEach(() => {
+    mockConfig.listId = "a-real-list-id";
+    mockAccounts.rows = ACCOUNTS;
+  });
+
+  it("offers Add, Import and Remove to an admin", async () => {
+    renderWithProviders(<OpenOrdersCustomersView />);
+    expect(await screen.findByRole("button", { name: /Add customer/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Import from an extract/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Remove /i })).toBeInTheDocument();
+  });
+
+  // Ray, 2026-08-25. Narrower than editing on purpose: who receives an external
+  // report is a different decision from correcting a name.
+  it("hides Add, Import and Remove from a non-admin", async () => {
+    mockAccess.value = {
+      isReportManager: true,
+      canAddOrRemove: false,
+      enforced: false,
+      isResolving: false,
+    };
+    renderWithProviders(<OpenOrdersCustomersView />);
+    await screen.findByText("Permian Midstream");
+    expect(screen.queryByRole("button", { name: /Add customer/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Import from an extract/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Remove /i })).not.toBeInTheDocument();
+  });
+
+  // Editing is still theirs — and it's the way to take somebody off the run
+  // without needing delete, which is the whole reason the split is safe.
+  it("still lets a non-admin edit somebody already on the list", async () => {
+    mockAccess.value = {
+      isReportManager: true,
+      canAddOrRemove: false,
+      enforced: false,
+      isResolving: false,
+    };
+    renderWithProviders(<OpenOrdersCustomersView />);
+    expect(await screen.findByRole("button", { name: /^Edit /i })).toBeInTheDocument();
+  });
+
+  it("says why the buttons aren't there, rather than just showing fewer", async () => {
+    mockAccess.value = {
+      isReportManager: true,
+      canAddOrRemove: false,
+      enforced: false,
+      isResolving: false,
+    };
+    renderWithProviders(<OpenOrdersCustomersView />);
+    await waitFor(() =>
+      expect(screen.getByText(/limited to admins/i)).toBeInTheDocument(),
+    );
+    expect(screen.getByText(/not active/i)).toBeInTheDocument();
   });
 });

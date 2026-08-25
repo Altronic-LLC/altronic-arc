@@ -1634,6 +1634,14 @@ export interface OpenOrderMetrics {
   openQty: number;
   openValue: number;
   pastDueLines: number;
+  /**
+   * Past due with REPAIR orders excluded — what the reports lead with.
+   *
+   * A repair is unpriced and on its own workflow, so counting them made the
+   * headline read worse than the parts backlog is (Ray, 2026-08-25).
+   * `pastDueLines` above is still every late line, for anything that wants it.
+   */
+  pastDueStandardLines: number;
   pastDueValue: number;
   /** Repairs (ZS1) split out, since they're reported in their own table. */
   repairLines: number;

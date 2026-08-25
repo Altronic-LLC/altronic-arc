@@ -427,7 +427,14 @@ function summaryLine(metrics: OpenOrderMetrics): string {
     `${metrics.lines.toLocaleString("en-US")} open ${plural(metrics.lines, "line", "lines")} ` +
     `across ${metrics.orders.toLocaleString("en-US")} ${plural(metrics.orders, "order", "orders")}` +
     `   ·   ${money} open   ·   ` +
-    `${metrics.pastDueLines.toLocaleString("en-US")} ${plural(metrics.pastDueLines, "line", "lines")} past due`
+    `${metrics.pastDueStandardLines.toLocaleString("en-US")} ` +
+    `${plural(metrics.pastDueStandardLines, "line", "lines")} past due` +
+    // Said out loud, because the detail table below still SHOWS the late
+    // repair lines — a reader counting them by hand would otherwise get a
+    // different number and not know which to trust.
+    (metrics.pastDueLines > metrics.pastDueStandardLines
+      ? ` (excluding ${(metrics.pastDueLines - metrics.pastDueStandardLines).toLocaleString("en-US")} repair)`
+      : "")
   );
 }
 

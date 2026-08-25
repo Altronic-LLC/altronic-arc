@@ -1370,6 +1370,33 @@ It refuses, saying which it is, when there's no master to date against, no raw
 extract to rebuild from, or no open lines for that customer — rather than
 writing an empty workbook.
 
+**The past-due count EXCLUDES repair orders** (Ray, 2026-08-25) —
+`metrics.pastDueStandardLines`, with `pastDueLines` still carrying every late
+line for anything that wants it. On the live extract that is 146 rather than
+505: repairs are unpriced and on their own workflow, so counting them made the
+headline read three and a half times worse than the parts backlog is.
+
+The summary line **says how many it left out** ("146 lines past due (excluding
+359 repair)"), because the detail table below still shows those repair lines —
+a reader counting by hand would otherwise get a different number and not know
+which to trust. Past-due VALUE is deliberately unchanged: repairs are unpriced,
+so they contribute nothing to it and excluding them would be a no-op dressed up
+as a rule.
+
+Both the master and the customer workbooks read the same `summaryLine`, so the
+count means the same thing on both. Two definitions of "past due" across two
+files that land in the same inbox is worse than one applied slightly wider than
+asked.
+
+**Adding or removing a customer is ADMIN-only** (Ray, 2026-08-25) —
+`canAddOrRemove` on `useMyOpenOrdersAccess`, deliberately narrower than
+`isReportManager`, which still governs editing. Who receives an external report
+each week is a different kind of decision from correcting a name or taking
+somebody off this week's run. It also matches what SharePoint will allow:
+deleting a list item needs more permission than editing one, and Hailey Sturtz
+hit that as a raw 403 on a button ARC had offered her. Enforced in the view AND
+in each mutation's `mutationFn`.
+
 **An account with no open lines gets no workbook** — an empty spreadsheet
 arriving at a customer reads as a mistake. The master's **Coverage** tab names
 them instead, which is the answer to "why did my customer get no report".

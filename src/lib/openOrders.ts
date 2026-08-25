@@ -113,6 +113,12 @@ export function metricsFor(lines: OpenOrderLine[], runDate: Date): OpenOrderMetr
     openQty: sum(lines.map((l) => l.openQty)),
     openValue: sum(lines.map((l) => l.openValue)),
     pastDueLines: pastDue.length,
+    // Past due EXCLUDING repair orders (Ray, 2026-08-25). A repair is unpriced
+    // and follows its own workflow — counting them made the headline figure
+    // look worse than the parts backlog actually is, and they're the lines
+    // nobody is chasing a ship date on. `pastDueLines` keeps the raw count for
+    // anything that wants every late line.
+    pastDueStandardLines: pastDue.filter((l) => !isRepairLine(l)).length,
     pastDueValue: sum(pastDue.map((l) => l.openValue)),
     repairLines: repairs.length,
     repairValue: sum(repairs.map((l) => l.openValue)),

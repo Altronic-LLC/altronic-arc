@@ -20,12 +20,18 @@ import {
   useOpenOrdersCustomers,
   useUpdateOpenOrdersCustomer,
 } from "@/hooks/useOpenOrdersCustomers";
-import { useGenerateCustomerReport, useParseExtract } from "@/hooks/useOpenOrdersReports";
+import {
+  useGenerateCustomerReport,
+  useParseExtract,
+} from "@/hooks/useOpenOrdersReports";
 import { SP_OPEN_ORDERS_CUSTOMERS_LIST_ID, USE_MOCK } from "@/api/config";
 import { customerRollup, sameAccount } from "@/lib/openOrders";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { ChoicePills } from "@/components/ChoicePills";
-import type { OpenOrderCustomerAccount, OpenOrderCustomerAccountInput } from "@/types/task";
+import type {
+  OpenOrderCustomerAccount,
+  OpenOrderCustomerAccountInput,
+} from "@/types/task";
 import { cn } from "@/lib/cn";
 
 // =============================================================================
@@ -69,6 +75,10 @@ export function OpenOrdersCustomersView() {
   const [search, setSearch] = useState("");
 
   const canEdit = access.isReportManager && configured;
+  // Adding and removing are admin-only (Ray, 2026-08-25) — narrower than
+  // editing, because who receives an external report is a different decision
+  // from correcting a name or taking somebody off this week's run.
+  const canAddOrRemove = access.canAddOrRemove && configured;
 
   const shown = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -98,7 +108,8 @@ export function OpenOrdersCustomersView() {
   function save() {
     if (!draft.accountNumber.trim()) return;
     if (editing === "new") create.mutate(draft);
-    else if (typeof editing === "number") update.mutate({ id: editing, input: draft });
+    else if (typeof editing === "number")
+      update.mutate({ id: editing, input: draft });
     setEditing(null);
     setDraft(EMPTY);
   }
@@ -119,20 +130,30 @@ export function OpenOrdersCustomersView() {
         </h1>
         <p className="max-w-3xl text-sm text-fg-muted">
           Everyone on this list gets their own workbook each week. The{" "}
-          <span className="font-medium text-fg">customer name</span> here is what the file is
-          named after — SAP truncates its own at 30 characters, so this is the one customers
-          see. Turn a customer <span className="font-medium text-fg">off</span> to take them
-          out of the weekly run without losing the row.
+          <span className="font-medium text-fg">customer name</span> here is
+          what the file is named after — SAP truncates its own at 30 characters,
+          so this is the one customers see. Turn a customer{" "}
+          <span className="font-medium text-fg">off</span> to take them out of
+          the weekly run without losing the row.
         </p>
         <p className="max-w-3xl text-sm text-fg-muted">
           Added somebody after this week was already built?{" "}
-          <strong className="text-fg">Build report</strong> on their row produces
-          just their workbook from the extract already filed in SharePoint, into
-          the same week folder as the rest — no need to re-run everything.
+          <strong className="text-fg">Build report</strong> on their row
+          produces just their workbook from the extract already filed in
+          SharePoint, into the same week folder as the rest — no need to re-run
+          everything.
         </p>
         <p className="text-xs text-fg-muted">
           {activeCount} active of {accounts.length}
         </p>
+        {configured && !canAddOrRemove && !access.isResolving && (
+          <p className="text-xs text-fg-muted">
+            Adding and removing customers is limited to admins. You can still
+            edit anyone already on the list — including setting them to{" "}
+            <strong className="text-fg">not active</strong>, which takes them
+            off the weekly run.
+          </p>
+        )}
       </header>
 
       {!configured ? (
@@ -157,7 +178,9 @@ export function OpenOrdersCustomersView() {
         <div className="flex items-start gap-3 rounded-lg border border-cooper-red/30 bg-cooper-red/5 px-4 py-3 text-sm">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-cooper-red" />
           <span className="text-fg-muted">
-            <span className="font-medium text-fg">Couldn't load the customer list.</span>{" "}
+            <span className="font-medium text-fg">
+              Couldn't load the customer list.
+            </span>{" "}
             {error instanceof Error ? error.message : "Unknown error."}
           </span>
         </div>
@@ -170,7 +193,7 @@ export function OpenOrdersCustomersView() {
           placeholder="Search name, account or notes…"
           className="input min-w-48 flex-1"
         />
-        {canEdit && (
+        {canAddOrRemove && (
           <>
             <button
               type="button"
@@ -207,9 +230,11 @@ export function OpenOrdersCustomersView() {
 
       {accounts.length === 0 ? (
         <p className="rounded-lg border border-dashed border-border bg-surface/60 px-4 py-8 text-center text-sm text-fg-muted">
-          {configured
-            ? "Nobody on the list yet. Add a customer, or import the accounts from a raw extract."
-            : "There's no list to read yet — see the setup steps above."}
+          {!configured
+            ? "There's no list to read yet — see the setup steps above."
+            : canAddOrRemove
+              ? "Nobody on the list yet. Add a customer, or import the accounts from a raw extract."
+              : "Nobody on the list yet. An admin needs to add the customers who get a weekly workbook."}
         </p>
       ) : (
         <ul className="flex flex-col divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface">
@@ -225,20 +250,27 @@ export function OpenOrdersCustomersView() {
                 />
               </li>
             ) : (
-              <li key={account.id} className="flex items-center gap-3 px-4 py-3">
+              <li
+                key={account.id}
+                className="flex items-center gap-3 px-4 py-3"
+              >
                 <span
                   className={cn(
                     "h-2 w-2 shrink-0 rounded-full",
                     account.active ? "bg-cooper-green" : "bg-fg-muted/40",
                   )}
-                  title={account.active ? "On the weekly run" : "Off the weekly run"}
+                  title={
+                    account.active ? "On the weekly run" : "Off the weekly run"
+                  }
                 />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-baseline gap-2">
                     <span
                       className={cn(
                         "truncate text-sm font-medium",
-                        account.active ? "text-fg" : "text-fg-muted line-through",
+                        account.active
+                          ? "text-fg"
+                          : "text-fg-muted line-through",
                       )}
                     >
                       {account.customerName || "(no name)"}
@@ -264,7 +296,8 @@ export function OpenOrdersCustomersView() {
                         className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-2 px-2.5 py-1.5 text-xs font-medium text-fg-muted transition-colors hover:bg-surface hover:text-fg disabled:opacity-60"
                       >
                         <FileSpreadsheet className="h-3.5 w-3.5" />
-                        {generateOne.isPending && generateOne.variables?.id === account.id
+                        {generateOne.isPending &&
+                        generateOne.variables?.id === account.id
                           ? (generateOne.step ?? "Working…")
                           : "Build report"}
                       </button>
@@ -277,23 +310,25 @@ export function OpenOrdersCustomersView() {
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (
-                          window.confirm(
-                            `Remove ${account.customerName || account.accountNumber} from the report list?\n\n` +
-                              "To take them off the weekly run but keep the row, edit them and set Active to No instead.",
-                          )
-                        ) {
-                          remove.mutate(account.id);
-                        }
-                      }}
-                      aria-label={`Remove ${account.customerName || account.accountNumber}`}
-                      className="rounded p-1.5 text-fg-muted transition-colors hover:bg-cooper-red/10 hover:text-cooper-red"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    {canAddOrRemove && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              `Remove ${account.customerName || account.accountNumber} from the report list?\n\n` +
+                                "To take them off the weekly run but keep the row, edit them and set Active to No instead.",
+                            )
+                          ) {
+                            remove.mutate(account.id);
+                          }
+                        }}
+                        aria-label={`Remove ${account.customerName || account.accountNumber}`}
+                        className="rounded p-1.5 text-fg-muted transition-colors hover:bg-cooper-red/10 hover:text-cooper-red"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                   </div>
                 )}
               </li>
@@ -331,8 +366,9 @@ function SetupNotice() {
         </span>
       </div>
       <p className="text-fg-muted">
-        Until it exists there's nowhere to save a customer, so adding is switched off
-        rather than failing after you've typed one in. Three steps, in order:
+        Until it exists there's nowhere to save a customer, so adding is
+        switched off rather than failing after you've typed one in. Three steps,
+        in order:
       </p>
       <ol className="ml-4 flex list-decimal flex-col gap-1 text-fg-muted">
         <li>
@@ -350,14 +386,15 @@ function SetupNotice() {
           , under GitHub → Settings → Secrets and variables → Actions.
         </li>
         <li>
-          <span className="font-medium text-fg">Redeploy ARC.</span> That variable is
-          baked into the app when it's built, so it has no effect until the next
-          deploy — this is the step that looks like the list is still broken.
+          <span className="font-medium text-fg">Redeploy ARC.</span> That
+          variable is baked into the app when it's built, so it has no effect
+          until the next deploy — this is the step that looks like the list is
+          still broken.
         </li>
       </ol>
       <p className="text-xs text-fg-muted">
-        Everything else on the Open Orders screen keeps working meanwhile: the reports
-        already in SharePoint are listed and can be downloaded.
+        Everything else on the Open Orders screen keeps working meanwhile: the
+        reports already in SharePoint are listed and can be downloaded.
       </p>
     </div>
   );
@@ -383,7 +420,9 @@ function EditRow({
           <input
             autoFocus
             value={draft.accountNumber}
-            onChange={(e) => setDraft({ ...draft, accountNumber: e.target.value })}
+            onChange={(e) =>
+              setDraft({ ...draft, accountNumber: e.target.value })
+            }
             placeholder="105126"
             className="input font-mono"
           />
@@ -391,7 +430,9 @@ function EditRow({
         <Field label="Customer name" hint="What the workbook is named after">
           <input
             value={draft.customerName}
-            onChange={(e) => setDraft({ ...draft, customerName: e.target.value })}
+            onChange={(e) =>
+              setDraft({ ...draft, customerName: e.target.value })
+            }
             placeholder="Wabtec Transportation Systems"
             className="input"
           />
@@ -457,7 +498,12 @@ function ImportPanel({
 }) {
   const { parse, parsing } = useParseExtract();
   const [found, setFound] = useState<
-    Array<{ soldTo: string; customerName: string; lines: number; openValue: number }>
+    Array<{
+      soldTo: string;
+      customerName: string;
+      lines: number;
+      openValue: number;
+    }>
   >([]);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
@@ -497,8 +543,9 @@ function ImportPanel({
             Import from an extract
           </h2>
           <p className="text-xs text-fg-muted">
-            Reads the accounts out of a raw SAP export. Names come across truncated — fix them
-            afterwards, which is what the name column is for.
+            Reads the accounts out of a raw SAP export. Names come across
+            truncated — fix them afterwards, which is what the name column is
+            for.
           </p>
         </div>
         <button
@@ -525,7 +572,8 @@ function ImportPanel({
         <>
           <div className="flex flex-wrap items-center gap-2 text-xs text-fg-muted">
             <span>
-              {found.length} accounts in the file · {addable.length} not on the list yet
+              {found.length} accounts in the file · {addable.length} not on the
+              list yet
             </span>
             <button
               type="button"
@@ -565,8 +613,12 @@ function ImportPanel({
                     aria-label={`Add ${f.customerName}`}
                   />
                   <div className="min-w-0 flex-1">
-                    <span className="block truncate text-sm text-fg">{f.customerName}</span>
-                    <span className="font-mono text-xs text-fg-muted">{f.soldTo}</span>
+                    <span className="block truncate text-sm text-fg">
+                      {f.customerName}
+                    </span>
+                    <span className="font-mono text-xs text-fg-muted">
+                      {f.soldTo}
+                    </span>
                   </div>
                   <span className="shrink-0 text-xs text-fg-muted">
                     {f.lines} line{f.lines === 1 ? "" : "s"}
@@ -622,7 +674,9 @@ function Field({
   const Wrapper = plain ? "div" : "label";
   return (
     <Wrapper className="flex flex-col gap-1">
-      <span className="text-xs font-medium uppercase tracking-wider text-fg-muted">{label}</span>
+      <span className="text-xs font-medium uppercase tracking-wider text-fg-muted">
+        {label}
+      </span>
       {children}
       {hint && <span className="text-[11px] text-fg-muted">{hint}</span>}
     </Wrapper>

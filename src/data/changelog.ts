@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.117.0",
+    date: "2026-08-25",
+    changes: [
+      "The past-due count on the open orders reports now excludes repair orders, and says how many it left out — on the 8-21 extract that's 146 lines rather than 505",
+      "Only admins can add or remove a customer from the open orders report list; everyone else can still edit anyone on it, including setting them to not active to take them off the weekly run",
+    ],
+  },
+  {
     version: "0.116.0",
     date: "2026-08-25",
     changes: [

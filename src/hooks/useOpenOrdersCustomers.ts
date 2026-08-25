@@ -56,6 +56,19 @@ export function useOpenOrdersRoles() {
 export interface MyOpenOrdersAccess {
   /** May edit the customer list and run the weekly generation. */
   isReportManager: boolean;
+  /**
+   * May ADD or REMOVE a customer — admins only (Ray, 2026-08-25).
+   *
+   * Deliberately narrower than `isReportManager`. Who receives an external
+   * report each week is a different kind of decision from correcting a name or
+   * taking somebody off this week's run, so adding and removing rows is
+   * admin-only while editing an existing row is not.
+   *
+   * It also matches what SharePoint will actually allow: deleting a list item
+   * needs more permission than editing one, and Hailey Sturtz hit that as a
+   * raw 403 on a button ARC had offered her (2026-08-25).
+   */
+  canAddOrRemove: boolean;
   /** False while the roles list isn't configured — gating is off, not denied. */
   enforced: boolean;
   /** True until the roles and admin lookups have settled. */
@@ -81,7 +94,15 @@ export function useMyOpenOrdersAccess(): MyOpenOrdersAccess {
   const { isAdmin, isResolving: adminResolving } = useAdminAccess();
 
   if (!OPEN_ORDERS_ROLES_ENFORCED) {
-    return { isReportManager: true, enforced: false, isResolving: false };
+    // Role gating off: editing is open to anyone signed in, but adding and
+    // removing stay with admins regardless — that rule is not the roles list's
+    // to relax.
+    return {
+      isReportManager: true,
+      canAddOrRemove: isAdmin,
+      enforced: false,
+      isResolving: adminResolving,
+    };
   }
 
   // Matched on ADDRESS across every address the account carries — never on a
@@ -90,6 +111,7 @@ export function useMyOpenOrdersAccess(): MyOpenOrdersAccess {
   const mine = entries.find((e) => matchesAnyEmail(emails, e.email));
   return {
     isReportManager: isAdmin || (mine?.roles.includes("report manager") ?? false),
+    canAddOrRemove: isAdmin,
     enforced: true,
     isResolving: rolesLoading || adminResolving,
   };
@@ -107,9 +129,30 @@ function useGuard() {
   };
 }
 
+/**
+ * Adding or removing a customer is ADMIN-only, whatever the roles list says.
+ *
+ * Re-checked here as well as hidden in the view — the same defence-in-depth as
+ * useCsaListings / useAdmins, so a future bulk action can't write without the
+ * check.
+ */
+function useAddRemoveGuard() {
+  const { canAddOrRemove } = useMyOpenOrdersAccess();
+  return () => {
+    if (!canAddOrRemove) {
+      throw new Error(
+        "Only an admin can add or remove a customer from the report list. " +
+          "You can still edit a customer already on it — including setting them " +
+          "to not active, which takes them off the weekly run.",
+      );
+    }
+  };
+}
+
 export function useCreateOpenOrdersCustomer() {
   const qc = useQueryClient();
-  const guard = useGuard();
+  // Adding a customer decides who receives an external report — admin-only.
+  const guard = useAddRemoveGuard();
   return useMutation({
     mutationFn: (input: OpenOrderCustomerAccountInput) => {
       guard();
@@ -155,7 +198,7 @@ export function useUpdateOpenOrdersCustomer() {
 
 export function useDeleteOpenOrdersCustomer() {
   const qc = useQueryClient();
-  const guard = useGuard();
+  const guard = useAddRemoveGuard();
   return useMutation({
     mutationFn: (id: number) => {
       guard();

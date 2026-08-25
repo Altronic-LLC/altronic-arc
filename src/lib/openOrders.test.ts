@@ -538,3 +538,54 @@ describe("formatByCurrency", () => {
     expect(formatByCurrency(small, "openValue")).toBe("ZAR 999 + AUD 10");
   });
 });
+
+describe("past due, excluding repairs", () => {
+  // Ray, 2026-08-25: repairs are unpriced and follow their own workflow, so
+  // counting them made the headline read worse than the parts backlog is.
+  const lines = [
+    line({ salesOrder: "A", promiseDate: atOffset(-5) }),
+    line({ salesOrder: "B", promiseDate: atOffset(-3) }),
+    line({ salesOrder: "C", promiseDate: atOffset(-2), orderType: "repair", repairOrder: "43067" }),
+    line({ salesOrder: "D", promiseDate: atOffset(-1), orderType: "ZS1" }),
+    line({ salesOrder: "E", promiseDate: atOffset(10) }),
+  ];
+
+  it("counts only the standard lines", () => {
+    expect(metricsFor(lines, RUN).pastDueStandardLines).toBe(2);
+  });
+
+  // The raw count stays available — the detail table still SHOWS the late
+  // repairs, so anything that wants every late line can still have it.
+  it("keeps the full past-due count alongside it", () => {
+    expect(metricsFor(lines, RUN).pastDueLines).toBe(4);
+  });
+
+  it("is the same number when nothing past due is a repair", () => {
+    const m = metricsFor([line({ promiseDate: atOffset(-5) })], RUN);
+    expect(m.pastDueStandardLines).toBe(1);
+    expect(m.pastDueLines).toBe(1);
+  });
+
+  it("is zero when every past-due line is a repair", () => {
+    const m = metricsFor(
+      [line({ promiseDate: atOffset(-5), orderType: "repair", repairOrder: "1" })],
+      RUN,
+    );
+    expect(m.pastDueStandardLines).toBe(0);
+    expect(m.pastDueLines).toBe(1);
+  });
+
+  // Repairs are unpriced in the live extract, so the VALUE was never affected —
+  // this change is about the count. Pinned so nobody "fixes" the value too.
+  it("leaves past-due VALUE alone", () => {
+    const m = metricsFor(
+      [
+        line({ promiseDate: atOffset(-5), openValue: 500 }),
+        line({ promiseDate: atOffset(-5), openValue: 250, orderType: "repair", repairOrder: "1" }),
+      ],
+      RUN,
+    );
+    expect(m.pastDueValue).toBe(750);
+    expect(m.pastDueStandardLines).toBe(1);
+  });
+});
