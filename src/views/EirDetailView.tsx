@@ -25,7 +25,7 @@ import {
   useUpdateEirFields,
 } from "@/hooks/useEirs";
 import { useTasks, useProjects } from "@/hooks/useTasks";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useCurrentUser, useCurrentUserEmails } from "@/hooks/useCurrentUser";
 import { useAdmins } from "@/hooks/useAdmins";
 import { useMyEirRoles } from "@/hooks/useEirRoles";
 import {
@@ -57,6 +57,10 @@ import { DateField } from "@/components/DateField";
 import { PromoteEirModal } from "@/components/PromoteEirModal";
 import { sanitiseHtml } from "@/lib/sanitiseHtml";
 import { multiLookupField } from "@/lib/graphFields";
+import {
+  EIR_PROJECT_REFERENCE_HINT,
+  canEditEirProjectReference,
+} from "@/lib/eirProjectReference";
 import { cn } from "@/lib/cn";
 import { AutoGrowTextarea } from "@/components/AutoGrowTextarea";
 import { RichTextEditor } from "@/components/RichTextEditor";
@@ -84,6 +88,11 @@ export function EirDetailView() {
   // Buyer Code = supply chain. `enforced` is false (gating off) when the
   // EIR Roles list isn't configured in real mode — see useMyEirRoles.
   const { isEngineer, isSupplyChain, enforced } = useMyEirRoles();
+  // Project Reference is gated by a hard-coded pair rather than a role tag —
+  // see lib/eirProjectReference.ts. Not subject to `enforced`: that flag exists
+  // so the ROLES LIST can be missing without locking anyone out, and there is
+  // no list here to be missing.
+  const canEditProjectRef = canEditEirProjectReference(useCurrentUserEmails());
   // LTB Date is set freely on the New EIR form; once the EIR is submitted it
   // belongs to Supply Chain, so the detail view locks it for everyone else.
   const supplyChainLocked = enforced && !isSupplyChain;
@@ -534,9 +543,15 @@ export function EirDetailView() {
                 />
               </SidebarField>
 
-              <SidebarField icon={<FolderOpen />} label="Project Reference">
+              <SidebarField
+                icon={<FolderOpen />}
+                label="Project Reference"
+                locked={!canEditProjectRef}
+              >
                 <ProjectLookupPicker
                   selected={eir.parentProjects}
+                  disabled={!canEditProjectRef}
+                  disabledHint={EIR_PROJECT_REFERENCE_HINT}
                   onChange={(ids) =>
                     updateFields.mutate({
                       id: eir.id,
@@ -991,9 +1006,14 @@ function LinkedTaskCard({
 function ProjectLookupPicker({
   selected,
   onChange,
+  disabled = false,
+  disabledHint,
 }: {
   selected: { lookupId: number; title: string }[];
   onChange: (lookupIds: number[]) => void;
+  /** Greyed out for anyone who isn't allowed to change the project reference. */
+  disabled?: boolean;
+  disabledHint?: string;
 }) {
   // Project Reference is a multi-value Lookup column on the EIR list,
   // pointing at the Projects list. Options are every project; the picker
@@ -1019,6 +1039,30 @@ function ProjectLookupPicker({
         label: p.title || `Project #${p.lookupId}`,
       });
     }
+  }
+
+  // Locked: show what's assigned, read-only. MultiSelect has no `disabled`
+  // prop, and rather than teach the shared component one for a single caller,
+  // a static chip list says the same thing — the projects stay legible and
+  // there is simply no control to press. The padlock on the label and this
+  // tooltip carry the explanation.
+  if (disabled) {
+    return (
+      <div className="flex flex-wrap gap-1.5" title={disabledHint}>
+        {selected.length === 0 ? (
+          <span className="text-sm text-fg-muted">No project assigned</span>
+        ) : (
+          selected.map((p) => (
+            <span
+              key={p.lookupId}
+              className="inline-flex items-center rounded-md border border-border bg-surface-2 px-2 py-1 text-xs text-fg"
+            >
+              {p.title || `Project #${p.lookupId}`}
+            </span>
+          ))
+        )}
+      </div>
+    );
   }
 
   return (

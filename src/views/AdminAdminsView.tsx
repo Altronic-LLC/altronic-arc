@@ -65,6 +65,12 @@ export function AdminAdminsView() {
             Engineering Project Log →
           </Link>
           <Link
+            to="/admin/notification-recipients"
+            className="text-xs text-accent underline-offset-2 hover:underline"
+          >
+            Notification recipients →
+          </Link>
+          <Link
             to="/admin/eir-roles"
             className="text-xs text-accent underline-offset-2 hover:underline"
           >

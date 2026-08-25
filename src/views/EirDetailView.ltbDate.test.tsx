@@ -14,6 +14,10 @@ vi.mock("@/hooks/useCurrentUser", () => ({
     email: "demo.user@altronic-llc.com",
     lookupId: 0,
   }),
+  // The view also reads every address the account carries, to decide whether
+  // this person may change the Project Reference. Demo User may not, which is
+  // the right state for these LTB tests — they're about the Supply Chain role.
+  useCurrentUserEmails: () => ["demo.user@altronic-llc.com"],
 }));
 
 let roles = { isEngineer: false, isSupplyChain: false, enforced: true };

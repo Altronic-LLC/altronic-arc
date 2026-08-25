@@ -68,6 +68,24 @@ describe("App routes", () => {
     ).toEqual([]);
   });
 
+  // A lazy view declared and never routed is dead weight that typecheck only
+  // catches while nothing else references it. Caught while adding
+  // AdminNotificationRecipientsView, where the route insertion silently missed
+  // and this file stayed green.
+  it("routes every lazy component it declares", () => {
+    const blocks = routeBlocks(APP);
+    const unrouted = lazies.filter(
+      (name) =>
+        !blocks.some(
+          (b) => b.includes(`<${name} `) || b.includes(`<${name}/>`) || b.includes(`<${name} />`),
+        ),
+    );
+    expect(
+      unrouted,
+      `These lazy views are declared but never rendered in a <Route>: ${unrouted.join(", ")}`,
+    ).toEqual([]);
+  });
+
   // The recovery net behind the above. Losing this is how a single render error
   // becomes a blank app again.
   it("wraps the whole route tree in the error boundary", () => {

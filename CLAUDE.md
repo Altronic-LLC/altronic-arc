@@ -331,6 +331,9 @@ src/
 │   ├── eirNumber.ts              nextEirNo() — EIR_YYYY-#### auto-numbering
 │   ├── eirTriage.ts              Chasing a new EIR until it has a project + an engineer
 │   ├── eirStatusAlerts.ts        Response Accepted / Not Accepted work requests
+│   ├── eirProjectReference.ts    Who may change an EIR's Project Reference (hard-coded)
+│   ├── recipientAudit.ts         Checks configured alert addresses against the directory
+│   ├── listWriteErrors.ts        A refused SharePoint write, in words
 │   ├── ecnFields.ts              ECN column descriptors (field_2 … field_12 decoded)
 │   ├── ecnMapper.ts              Graph item → Ecn, Log# parsing/sorting
 │   ├── faitFields.ts             FAIT column descriptors (51 columns, 19 booleans)
@@ -500,6 +503,7 @@ src/
 │   ├── AdminPanelRolesView.tsx   Admin → Panel User Roles
 │   ├── AdminAdminsView.tsx       Admin → Admins
 │   ├── AdminEirRolesView.tsx     Admin → EIR Roles
+│   ├── AdminNotificationRecipientsView.tsx  Admin → Notification recipients
 │   ├── AboutView.tsx             In-app architecture + ER diagrams
 │   └── ManualView.tsx            In-app user manual
 │
@@ -1711,6 +1715,62 @@ fixture EIR that happened to have a project — and passed with the empty-to-set
 guard deleted, because the fixture also had an engineer, so a different guard
 was doing the work. It now sets a project and then changes it. If you touch
 these guards, check the test fails when you remove the one you're changing.
+
+## Only two people may change an EIR's Project Reference
+
+Hard-coded, in `lib/eirProjectReference.ts` — `EIR_PROJECT_REFERENCE_EDITORS`,
+Sheila Horn and Ray White (Ray, 2026-08-25). Deliberately NOT a tag on the EIR
+Roles list: setting a project reference is what hands an EIR from "needs a
+project" to "needs an engineer" and fires that alert, so it is two named people
+rather than anybody holding a role. Changing who needs a code change and a
+deploy; that is the point.
+
+- **Detail view only.** The New EIR form is untouched, so whoever raises an EIR
+  can still pick a project — the same arrangement as the role-gated EIR fields,
+  which lock once the EIR is submitted.
+- **Matched through `matchesAnyEmail`**, against every address the account
+  carries. A UPN is not a mailbox and in this tenant they differ; comparing
+  `account.username` alone is what cost Steven Pirko his EIR role access, and
+  here it would grey Sheila out of her own field with no explanation.
+- **NOT subject to `enforced`.** That flag exists so a missing EIR Roles list
+  can't lock anyone out, and there is no list here to be missing.
+- **`MultiSelect` has no `disabled` prop**, so the locked state renders the
+  assigned projects as static chips with the hint as a tooltip, rather than
+  teaching the shared component a prop for one caller.
+- **This rule is documented in `ManualView` but deliberately NOT in the
+  changelog** (Ray, 2026-08-25: "Do not show this in the rev notes only in the
+  manual"). The usual protocol is every user-visible change gets an entry; this
+  is an explicit exception, recorded here so a later tidy-up doesn't "fix" it by
+  adding one.
+
+## Admin → Notification recipients
+
+`/admin/notification-recipients` lists every configured recipient list and
+checks each address against the staff directory ARC already loads for the people
+pickers.
+
+It exists because Glenn Terry didn't receive an "assign an engineer" alert that
+Ray received from the same send (2026-08-25). The list and the trigger were both
+right; nothing anywhere could tell you whether the ADDRESS was. Mail goes out as
+one `sendMail` per recipient, **Graph accepts a message for a mailbox that
+doesn't exist**, the bounce lands in the shared mailbox nobody reads, and
+`saveToSentItems: false` means there isn't even a sent copy — so a wrong address
+in one of these lists is silent for ever.
+
+Two things about `lib/recipientAudit.ts`:
+
+- **It matches the FULL address, strictly — not `sameEmail`.** That helper falls
+  back to comparing the local part, which is right for deciding whether to grey
+  out a field and exactly wrong here: it would call
+  `glenn.terry@altronic-llc.com` a match for `glenn.terry@hoerbiger.com` and
+  hide the single most likely fault in a tenant assembled from two companies.
+- **An empty directory reports nothing**, rather than every address as missing.
+  `useDirectoryPeople` tolerates an empty result, and a slow request must not
+  render a screen full of false alarms.
+
+The failure toast for a bad send goes to the ACTOR, incidentally — so when
+Sheila's action fails to reach Glenn, Ray never sees it. That's why the check
+had to be a screen an admin can open rather than a better toast.
 
 ## EIR status alerts — the two transitions that need somebody to act
 

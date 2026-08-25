@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.116.0",
+    date: "2026-08-25",
+    changes: [
+      "New for admins: Notification recipients, under Admin — every address ARC emails for each alert, checked against the staff directory, so an address with no mailbox behind it is visible instead of silently bouncing",
+      "It suggests the likely correct address when one is wrong, which catches a name on the wrong domain",
+    ],
+  },
+  {
     version: "0.115.2",
     date: "2026-08-25",
     changes: [
