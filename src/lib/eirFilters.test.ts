@@ -5,6 +5,8 @@ import {
   applyEirStatusFilter,
   collectEirPeople,
   countEirsByStatus,
+  effectiveEirStatusFilter,
+  eirViewIgnoresStatus,
   isOpenEir,
   matchesEirView,
   sortEirsForView,
@@ -207,5 +209,54 @@ describe("collectEirPeople", () => {
       } as Partial<Eir>),
     ]);
     expect(people.map((p) => p.displayName)).toEqual(["Adele Riffle", "Ray White"]);
+  });
+});
+
+describe("views that ignore the status pill", () => {
+  // At Risk Parts mirrors SharePoint's At Risk View: a register of every part
+  // flagged Active, whatever its EIR's status. Narrowing it by status hid rows
+  // the screen exists to show (Ray, 2026-08-25).
+  it("exempts At Risk Parts", () => {
+    expect(eirViewIgnoresStatus("at-risk")).toBe(true);
+  });
+
+  // Pinned one tab at a time, so the exemption can't quietly spread to the
+  // work queues, where the pill is exactly right.
+  it.each(["all", "new", "needs-assigned", "ltb"] as const)("does not exempt %s", (view) => {
+    expect(eirViewIgnoresStatus(view)).toBe(false);
+  });
+});
+
+describe("effectiveEirStatusFilter", () => {
+  it("drops a status pill on the at-risk view", () => {
+    expect(effectiveEirStatusFilter("at-risk", "Closed")).toBeNull();
+    expect(effectiveEirStatusFilter("at-risk", "ALL_OPEN")).toBeNull();
+    expect(effectiveEirStatusFilter("at-risk", "Under Review")).toBeNull();
+  });
+
+  it.each(["all", "new", "needs-assigned", "ltb"] as const)(
+    "keeps it on %s",
+    (view) => {
+      expect(effectiveEirStatusFilter(view, "Closed")).toBe("Closed");
+      expect(effectiveEirStatusFilter(view, "ALL_OPEN")).toBe("ALL_OPEN");
+    },
+  );
+
+  // The regression that matters: a bookmark, or a pill left set on another tab,
+  // carrying ?view=at-risk&status=ALL_OPEN would otherwise hide every CLOSED
+  // at-risk part.
+  it("shows a closed at-risk EIR that a status pill would have hidden", () => {
+    const closedAtRisk = makeEir({ status: "Closed", riskPart: "Active" });
+    const openAtRisk = makeEir({ status: "Under Review", riskPart: "Active" });
+    const both = [closedAtRisk, openAtRisk].filter((e) => matchesEirView(e, "at-risk"));
+    expect(both).toHaveLength(2);
+
+    const shown = applyEirStatusFilter(both, effectiveEirStatusFilter("at-risk", "ALL_OPEN"));
+    expect(shown).toHaveLength(2);
+
+    // Same pill on any other view still narrows, so this isn't a blanket
+    // disabling of the feature.
+    const onAll = applyEirStatusFilter(both, effectiveEirStatusFilter("all", "ALL_OPEN"));
+    expect(onAll).toHaveLength(1);
   });
 });

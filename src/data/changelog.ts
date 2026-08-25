@@ -20,6 +20,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.115.0",
+    date: "2026-08-25",
+    changes: [
+      "At Risk Parts now lists every active at-risk part, open or closed — the status pills no longer narrow it, and they show as a breakdown of what's on screen instead of a filter",
+      "Setting an EIR to Response Accepted emails Sheila Horn and Ray White asking for it to be closed",
+      "Setting an EIR to Response Not Accepted emails the assigned engineers asking them to revisit and give a more detailed response",
+      "If no engineer is assigned, that request goes to the assigners instead so it doesn't land nowhere",
+      "Neither alert fires when a status is re-saved without actually changing, and an engineer who rejects their own response isn't asked to revisit it — that request goes to the assigners instead",
+      "Switching to At Risk Parts clears a status you had selected, so it can't quietly narrow the list again when you switch back",
+    ],
+  },
+  {
     version: "0.114.2",
     date: "2026-08-25",
     changes: [

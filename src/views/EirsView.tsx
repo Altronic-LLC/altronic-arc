@@ -14,6 +14,8 @@ import { cn } from "@/lib/cn";
 import {
   applyEirFilters,
   applyEirStatusFilter,
+  effectiveEirStatusFilter,
+  eirViewIgnoresStatus,
   collectEirPeople,
   countEirsByStatus,
   isOpenEir,
@@ -31,6 +33,10 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 // useEirFilters, because the EIRs board (EirKanbanView) applies exactly the
 // same ones — two copies of a filter is how a fix reaches only one view.
 // =============================================================================
+
+/** Why the pills don't respond on a register view. */
+const STATUS_IGNORED_HINT =
+  "At Risk Parts lists every active at-risk part, open or closed — the status pills are a breakdown here, not a filter.";
 
 export function EirsView() {
   const navigate = useNavigate();
@@ -73,8 +79,14 @@ export function EirsView() {
     [filteredByBar, view],
   );
 
+  // At Risk Parts ignores the pill entirely — see effectiveEirStatusFilter.
+  const pillsApply = !eirViewIgnoresStatus(view);
   const filtered = useMemo(
-    () => sortEirsForView(applyEirStatusFilter(filteredByView, statusFilter), view),
+    () =>
+      sortEirsForView(
+        applyEirStatusFilter(filteredByView, effectiveEirStatusFilter(view, statusFilter)),
+        view,
+      ),
     [filteredByView, statusFilter, view],
   );
 
@@ -116,20 +128,32 @@ export function EirsView() {
 
       <div className="flex items-start justify-between gap-3">
         <div className="flex flex-wrap gap-2">
+          {/* On a view that ignores status the pills stay VISIBLE but inert:
+              they're still a useful breakdown of what's on screen, and hiding
+              them would leave a `?status=` parked invisibly in the URL to
+              re-narrow the moment another tab is picked. What they must not do
+              is look active — a highlighted "Closed" pill above Under Review
+              rows is worse than no pill at all. */}
           <Pill
             label="Open"
             count={openCount}
-            active={statusFilter === "ALL_OPEN"}
-            onClick={() => setStatusFilter(statusFilter === "ALL_OPEN" ? null : "ALL_OPEN")}
-            emphasized
+            active={pillsApply && statusFilter === "ALL_OPEN"}
+            onClick={
+              pillsApply
+                ? () => setStatusFilter(statusFilter === "ALL_OPEN" ? null : "ALL_OPEN")
+                : undefined
+            }
+            emphasized={pillsApply}
+            title={pillsApply ? undefined : STATUS_IGNORED_HINT}
           />
           {EIR_STATUSES.map((s) => (
             <Pill
               key={s}
               label={s}
               count={countByStatus[s]}
-              active={statusFilter === s}
-              onClick={() => setStatusFilter(statusFilter === s ? null : s)}
+              active={pillsApply && statusFilter === s}
+              onClick={pillsApply ? () => setStatusFilter(statusFilter === s ? null : s) : undefined}
+              title={pillsApply ? undefined : STATUS_IGNORED_HINT}
             />
           ))}
         </div>
@@ -221,21 +245,38 @@ function Pill({
   active,
   onClick,
   emphasized,
+  title,
 }: {
   label: string;
   count: number;
   active: boolean;
-  onClick: () => void;
+  /** Omitted on a view that ignores the status pill — the pill goes inert. */
+  onClick?: () => void;
   emphasized?: boolean;
+  title?: string;
 }) {
+  // An inert pill is still a readable count, so it isn't greyed into
+  // illegibility — it just stops offering a hover affordance and a cursor.
+  //
+  // NOT `disabled`: Chrome and Edge suppress the native tooltip on a disabled
+  // form control, so the one explanation of why the pills don't respond would
+  // never appear — and `disabled` drops them from the tab order too, hiding
+  // the counts from a keyboard or screen reader. `aria-disabled` says the same
+  // thing to assistive tech while leaving the element focusable and hoverable.
+  const inert = !onClick;
   return (
     <button
+      type="button"
       onClick={onClick}
+      aria-disabled={inert || undefined}
+      title={title}
       className={cn(
         "group flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-semibold uppercase tracking-wide transition-all",
         active
           ? "border-accent bg-accent text-white shadow-sm"
-          : "border-border bg-surface text-fg-muted hover:border-fg-muted hover:text-fg",
+          : "border-border bg-surface text-fg-muted",
+        !active && !inert && "hover:border-fg-muted hover:text-fg",
+        inert && "cursor-default",
         emphasized && !active && "border-accent/40 text-fg",
       )}
     >

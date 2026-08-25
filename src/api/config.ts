@@ -361,6 +361,27 @@ export const EIR_TRIAGE_ASSIGNERS =
   "Brandon Mirto <brandon.mirto@altronic-llc.com>, " +
   "Ray White <ray.white@altronic-llc.com>";
 
+/**
+ * Who is told when an EIR's Status becomes **"Response Accepted"**
+ * (Ray, 2026-08-25).
+ *
+ * The email asks the first-named person to CLOSE the EIR — an accepted
+ * response is the point at which somebody has to finish the job, and it was
+ * being spotted by someone happening to look.
+ *
+ * Deliberately its OWN variable rather than reusing
+ * EIR_TRIAGE_PROJECT_REVIEWERS, even though the default pair is identical
+ * today: that list is the "no project reference" queue, and re-pointing it must
+ * not silently re-point this.
+ *
+ * Format is the usual comma-separated `Name <email>` or bare address, parsed by
+ * parseRecipientList. **Verify the addresses against the directory** — a wrong
+ * one fails as that person's silence.
+ */
+export const EIR_RESPONSE_ACCEPTED_ALERTS =
+  import.meta.env.VITE_EIR_RESPONSE_ACCEPTED_ALERTS ||
+  "Sheila Horn <sheila.horn@altronic-llc.com>, Ray White <ray.white@altronic-llc.com>";
+
 export const SP_ECNS_LIST_ID =
   import.meta.env.VITE_SP_ECNS_LIST_ID ||
   "f6917bf4-bdd1-4ff9-ba71-0a17b22b1ecc";

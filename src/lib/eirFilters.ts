@@ -13,7 +13,13 @@ import { matchesSearch, tokenizeQuery } from "@/lib/itemSearch";
 /** Workflow views (the tabs above the status pills / board columns). */
 export type EirView = "all" | "new" | "needs-assigned" | "at-risk" | "ltb";
 
-/** The status pill selection on the list. `ALL_OPEN` = anything not Closed. */
+/**
+ * The status pill selection on the list. `ALL_OPEN` = anything not Closed.
+ *
+ * **Not every view honours it** — see `eirViewIgnoresStatus`. At Risk Parts is
+ * a register of every active at-risk part, open or closed, and narrowing it by
+ * status hid rows people were looking for.
+ */
 export type EirStatusFilter = EirStatus | "ALL_OPEN" | null;
 
 /** The filter-bar axes, independent of the view tab and the status pill. */
@@ -90,6 +96,37 @@ export function applyEirFilters(eirs: Eir[], filters: EirFilters): Eir[] {
 }
 
 /** Apply the status pill on top of an already-filtered set. */
+/**
+ * Views that show a full REGISTER rather than a work queue, and therefore
+ * ignore the status pill.
+ *
+ * At Risk Parts mirrors SharePoint's At Risk View: every part flagged
+ * `riskPart === "Active"`, whatever its EIR's status. Narrowing it by status
+ * meant a closed EIR on an at-risk part vanished from the one screen whose
+ * whole job is to list at-risk parts (Ray, 2026-08-25). The other tabs are
+ * queues — "what needs doing" — and the pill is exactly right there.
+ *
+ * Deliberately a named predicate rather than a `view === "at-risk"` ternary in
+ * the view: `EirsView` has no test file, so the rule would ship uncovered, and
+ * the pill rendering has to agree with the row filtering or the pills lie.
+ */
+export function eirViewIgnoresStatus(view: EirView): boolean {
+  return view === "at-risk";
+}
+
+/**
+ * The status filter that actually applies, given the view.
+ *
+ * `null` on a view that ignores status, so a `?status=` left in the URL from
+ * another tab — or arriving in a bookmark — can't quietly narrow a register.
+ */
+export function effectiveEirStatusFilter(
+  view: EirView,
+  statusFilter: EirStatusFilter,
+): EirStatusFilter {
+  return eirViewIgnoresStatus(view) ? null : statusFilter;
+}
+
 export function applyEirStatusFilter(eirs: Eir[], statusFilter: EirStatusFilter): Eir[] {
   if (statusFilter === "ALL_OPEN") return eirs.filter((e) => isOpenEir(e.status));
   if (statusFilter) return eirs.filter((e) => e.status === statusFilter);

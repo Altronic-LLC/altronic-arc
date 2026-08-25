@@ -2056,7 +2056,7 @@ const SECTIONS: ManualSection[] = [
       "eir columns",
     ],
     searchText:
-      "The EIRs tab shows Engineering Information Requests with workflow View tabs (All, New, Needs Assigned, At Risk Parts, LTB), status pills (Under Review, Response Accepted, Closed, etc.) and a filter bar for Project, Assigned Engineer, Reporter, and search. EIRs have a Board (kanban) view as well as the list: List and Board buttons appear under the top nav, the board has one column per EIR status, and dragging a card between columns changes that EIR's status with a toast and Undo. The view tabs and filter bar work the same on both and travel between them; the board is hidden on phones. The Description field supports the same custom checklist syntax as a task's Description. New = no project reference and no engineer assigned; Needs Assigned = has a project reference but still no engineer. Description, Engineering Response and Where Used are rich text: editing one shows a toolbar with bold, italic, underline and bulleted/numbered lists, Ctrl+B/I/U work, paragraphs are preserved, and pasting from Word keeps the formatting but drops its colours. Click an EIR to open the detail page with Description, Engineering Response, Part Details (MFG, P/N, EAU, etc.), Comments, and a sidebar to edit Status, Resolution, Request Type, Priority, Reporter, Assigned Engineers, Watchers, Project, Task Reference, Requested Completion Date, LTB Date. New EIRs are auto-numbered as EIR_YYYY-#### (the next sequence for the year); the EIR Log No. is calculated from it. Promote an EIR to a task by setting Resolution to Promoted to Task: a confirmation window creates a linked task carrying the title, description, project, watchers, and comment thread (tagged as from the EIR). Completing that task prompts for a final resolution, which is written back to the EIR's Engineering Response and marks the EIR Resolved and Closed. When an EIR is raised without a project reference, Sheila Horn is emailed asking her to add one; once it has a project reference, Glenn Terry and Brandon Mirto are asked to assign an engineer. An EIR raised with a project reference already on it skips the first step. Changing the project later doesn't re-send the request.",
+      "The EIRs tab shows Engineering Information Requests with workflow View tabs (All, New, Needs Assigned, At Risk Parts, LTB), status pills (Under Review, Response Accepted, Closed, etc.) and a filter bar for Project, Assigned Engineer, Reporter, and search. EIRs have a Board (kanban) view as well as the list: List and Board buttons appear under the top nav, the board has one column per EIR status, and dragging a card between columns changes that EIR's status with a toast and Undo. The view tabs and filter bar work the same on both and travel between them; the board is hidden on phones. The Description field supports the same custom checklist syntax as a task's Description. New = no project reference and no engineer assigned; Needs Assigned = has a project reference but still no engineer. Description, Engineering Response and Where Used are rich text: editing one shows a toolbar with bold, italic, underline and bulleted/numbered lists, Ctrl+B/I/U work, paragraphs are preserved, and pasting from Word keeps the formatting but drops its colours. Click an EIR to open the detail page with Description, Engineering Response, Part Details (MFG, P/N, EAU, etc.), Comments, and a sidebar to edit Status, Resolution, Request Type, Priority, Reporter, Assigned Engineers, Watchers, Project, Task Reference, Requested Completion Date, LTB Date. New EIRs are auto-numbered as EIR_YYYY-#### (the next sequence for the year); the EIR Log No. is calculated from it. Promote an EIR to a task by setting Resolution to Promoted to Task: a confirmation window creates a linked task carrying the title, description, project, watchers, and comment thread (tagged as from the EIR). Completing that task prompts for a final resolution, which is written back to the EIR's Engineering Response and marks the EIR Resolved and Closed. When an EIR is raised without a project reference, Sheila Horn is emailed asking her to add one; once it has a project reference, Glenn Terry and Brandon Mirto are asked to assign an engineer. When an EIR's status becomes Response Accepted, Sheila Horn and Ray White are emailed asking for it to be closed. When it becomes Response Not Accepted, the assigned engineers are asked to revisit and give a more detailed response; if no engineer is assigned the request goes to the assigners instead. The At Risk Parts view ignores the status pills entirely and lists every active at-risk part, open or closed. An EIR raised with a project reference already on it skips the first step. Changing the project later doesn't re-send the request.",
     render: () => (
       <>
         <P>
@@ -2078,11 +2078,42 @@ const SECTIONS: ManualSection[] = [
           shows a live count.
         </P>
         <P>
+          <strong>At Risk Parts ignores the status pills.</strong> It's a
+          register of every part flagged at risk — open, closed or anything else
+          — so narrowing it by status would hide the very rows it exists to
+          show. The pills still appear there as a breakdown of what's on screen,
+          but they don't filter, and none of them looks selected. Every other tab
+          is a work queue, where the pills filter as usual.
+        </P>
+        <P>
           Below the tabs, status pills (Open, Under Review, Response Accepted,
           Closed, etc.) and a filter bar with Project Reference (multi-select),
           Assigned Engineer (multi-select), free-text Search across title / EIR
           No / MFG / P/N / description, and Reporter (single-select). The view,
-          status, and filters all live in the URL so a view is shareable.
+          status, and filters all live in the URL so a view is shareable — with
+          the one exception above: a status in the URL is ignored while At Risk
+          Parts is the active tab.
+        </P>
+        <H3>Alerts on a status change</H3>
+        <P>
+          Two status changes raise a request rather than just a notification.
+          Setting an EIR to <strong>Response Accepted</strong> emails{" "}
+          <strong>Sheila Horn</strong> and <strong>Ray White</strong> asking for
+          it to be closed — an accepted response is the point where somebody has
+          to finish the job. Setting it to{" "}
+          <strong>Response Not Accepted</strong> emails the{" "}
+          <strong>assigned engineers</strong>, asking them to revisit and give a
+          more detailed response; if no engineer is assigned, the request goes to
+          the assigners instead so it doesn't land nowhere.
+        </P>
+        <P>
+          Whoever made the change is left off their own alert — an engineer who
+          rejects their own response isn't asked to revisit it; the request goes
+          to the assigners instead. The only exception is a list of one: if the
+          only person who could be told is the person who acted, they're told,
+          rather than the alert reaching nobody. The ordinary "status changed"
+          note still goes to the watchers and the reporter as before, and
+          neither alert fires if a status is re-saved without actually changing.
         </P>
         <H3>Board view</H3>
         <P>

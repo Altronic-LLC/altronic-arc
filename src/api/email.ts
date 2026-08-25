@@ -1,5 +1,6 @@
 import { GraphError, graphFetch } from "./graph";
 import {
+  EIR_RESPONSE_ACCEPTED_ALERTS,
   EIR_TRIAGE_ASSIGNERS,
   EIR_TRIAGE_PROJECT_REVIEWERS,
   GRAY_MARKET_NEW_REQUEST_ALERTS,
@@ -18,6 +19,10 @@ import {
   type ChangeTarget,
 } from "@/lib/changeAlerts";
 import { buildEirTriageEmails, type EirTriageStage } from "@/lib/eirTriage";
+import {
+  buildEirResponseAcceptedEmails,
+  buildEirResponseNotAcceptedEmails,
+} from "@/lib/eirStatusAlerts";
 import { parseRecipientList } from "@/lib/recipientList";
 import {
   buildNewGrayMarketRequestEmails,
@@ -537,6 +542,40 @@ export function fireNewGrayMarketRequestAlert(args: {
   const emails = buildNewGrayMarketRequestEmails({
     ...args,
     recipients: parseRecipientList(GRAY_MARKET_NEW_REQUEST_ALERTS),
+  });
+  if (emails.length === 0) return;
+  void notifyChangeEmails({ target: args.target, emails });
+}
+
+/**
+ * Fire-and-forget: an EIR reached "Response Accepted" — ask the configured pair
+ * to close it. No-ops when nothing is configured.
+ */
+export function fireEirResponseAcceptedAlert(args: {
+  target: ChangeTarget;
+  actor: Person;
+}): void {
+  const emails = buildEirResponseAcceptedEmails({
+    ...args,
+    recipients: parseRecipientList(EIR_RESPONSE_ACCEPTED_ALERTS),
+  });
+  if (emails.length === 0) return;
+  void notifyChangeEmails({ target: args.target, emails });
+}
+
+/**
+ * Fire-and-forget: an EIR reached "Response Not Accepted" — ask the assigned
+ * engineer(s) for more detail, or the triage assigners when there is no
+ * engineer to ask.
+ */
+export function fireEirResponseNotAcceptedAlert(args: {
+  target: ChangeTarget;
+  actor: Person;
+  engineers: Person[];
+}): void {
+  const emails = buildEirResponseNotAcceptedEmails({
+    ...args,
+    fallback: parseRecipientList(EIR_TRIAGE_ASSIGNERS),
   });
   if (emails.length === 0) return;
   void notifyChangeEmails({ target: args.target, emails });

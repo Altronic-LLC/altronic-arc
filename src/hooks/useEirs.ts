@@ -30,6 +30,8 @@ import {
 } from "@/lib/mentions";
 import {
   fireAssigneeChangeAlert,
+  fireEirResponseAcceptedAlert,
+  fireEirResponseNotAcceptedAlert,
   fireChecklistToggleAlert,
   fireEirTriageAlert,
   fireFieldChangeAlert,
@@ -37,6 +39,7 @@ import {
   notifyMentions,
 } from "@/api/email";
 import { eirTriageStage } from "@/lib/eirTriage";
+import { EIR_RESPONSE_ACCEPTED, EIR_RESPONSE_NOT_ACCEPTED } from "@/lib/eirStatusAlerts";
 import { diffChecklistToggles } from "@/lib/descriptionChecklist";
 import { buildPromotedCommunication } from "@/lib/eirPromotion";
 import { appItemUrl } from "@/lib/appUrl";
@@ -311,13 +314,37 @@ export function useUpdateEirFields() {
           reporter: ctx.prevEir.reporter,
         };
         if ("Status" in fields) {
+          const from = ctx.prevEir.status;
+          const to = String(fields.Status ?? "");
+          // The generic "status changed from X to Y" note, to watchers +
+          // engineers + reporter. Kept even when a transition-specific alert
+          // fires below: that one goes only to the people who must ACT, so
+          // suppressing this would stop the reporter hearing that their own
+          // EIR was accepted (Ray, 2026-08-25).
           fireFieldChangeAlert({
             target,
             fieldLabel: "status",
-            from: ctx.prevEir.status,
-            to: String(fields.Status ?? ""),
+            from,
+            to,
             ...recipients,
           });
+          // Two transitions need somebody to do something, and were previously
+          // only noticed by someone looking. `to !== from` is OUR guard —
+          // `"Status" in fields` is presence, not change, and the only existing
+          // transition test lives inside buildFieldChangeEmails, which these
+          // alerts don't go through.
+          if (to !== from) {
+            if (to === EIR_RESPONSE_ACCEPTED) {
+              fireEirResponseAcceptedAlert({ target, actor });
+            }
+            if (to === EIR_RESPONSE_NOT_ACCEPTED) {
+              fireEirResponseNotAcceptedAlert({
+                target,
+                actor,
+                engineers: ctx.prevEir.assignedEngineers,
+              });
+            }
+          }
         }
         if ("Resolution" in fields) {
           fireFieldChangeAlert({

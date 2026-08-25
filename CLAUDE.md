@@ -330,6 +330,7 @@ src/
 │   ├── eirMapper.ts              Graph item → Eir (field-name quirks)
 │   ├── eirNumber.ts              nextEirNo() — EIR_YYYY-#### auto-numbering
 │   ├── eirTriage.ts              Chasing a new EIR until it has a project + an engineer
+│   ├── eirStatusAlerts.ts        Response Accepted / Not Accepted work requests
 │   ├── ecnFields.ts              ECN column descriptors (field_2 … field_12 decoded)
 │   ├── ecnMapper.ts              Graph item → Ecn, Log# parsing/sorting
 │   ├── faitFields.ts             FAIT column descriptors (51 columns, 19 booleans)
@@ -523,6 +524,40 @@ the URL so a view is shareable. To add another view: extend the `EirView` union
 + `matchesEirView` predicate in `lib/eirFilters.ts`, add an entry to the `tabs`
 array in `EirViewTabs.tsx`, and document it here and in the EIRs section of
 `ManualView.tsx`.
+
+**At Risk Parts IGNORES the status pill** (Ray, 2026-08-25). It is a REGISTER of
+every part flagged `riskPart === "Active"`, whatever its EIR's status, mirroring
+SharePoint's At Risk View — so narrowing it by status hid closed EIRs on at-risk
+parts, which is exactly what that screen exists to list. Every other tab is a
+work queue, where the pill is right.
+
+The rule is `eirViewIgnoresStatus(view)` + `effectiveEirStatusFilter(view,
+statusFilter)` in `lib/eirFilters.ts`, deliberately NOT a `view === "at-risk"`
+ternary in the view: `EirsView` has no test file, so a ternary would ship
+uncovered, and the PILL RENDERING has to agree with the row filtering or the
+pills lie about what is on screen.
+
+Three details that go with it:
+
+- **The pills stay visible but inert** on that view, with a `title` explaining
+  why. They're still a useful breakdown of what's on screen, and a highlighted
+  "Closed" pill above Under Review rows would be worse than no pill at all.
+- **`aria-disabled`, NOT `disabled`.** Chrome and Edge suppress the native
+  tooltip on a disabled form control, so the one explanation of why the pills
+  don't respond would never appear — and `disabled` drops them out of the tab
+  order, hiding the counts from a keyboard or screen reader.
+- **`?status=` IS cleared** when entering the view (`setView` deletes the key).
+  Leaving it parked was the first attempt, on the theory that the selection
+  stayed visible in the pills. It doesn't: those pills deliberately render as
+  inactive there, so the filter was invisible and then silently re-narrowed the
+  list the moment another tab was picked. Clearing it is the only version with
+  no hidden state — caught in review, 2026-08-25.
+- **The counts are computed pre-pill** (`countByStatus` / `openCount` read
+  `filteredByView`), so on this view they already read as "every active at-risk
+  part, broken down by status". Don't "tidy" them onto the filtered set.
+
+The board never applied the status pill at all — its columns ARE the statuses —
+so it needed no change.
 
 ### EIRs: one filtered set, two views (list + board)
 
@@ -1676,6 +1711,65 @@ fixture EIR that happened to have a project — and passed with the empty-to-set
 guard deleted, because the fixture also had an engineer, so a different guard
 was doing the work. It now sets a project and then changes it. If you touch
 these guards, check the test fails when you remove the one you're changing.
+
+## EIR status alerts — the two transitions that need somebody to act
+
+Two status changes raise a work request rather than a notification (Ray,
+2026-08-25). Both were previously spotted by someone happening to look.
+
+| Transition | Who's emailed | What it asks |
+|---|---|---|
+| → **Response Accepted** | `EIR_RESPONSE_ACCEPTED_ALERTS` (Sheila Horn, Ray White) | "Please close it" |
+| → **Response Not Accepted** | the EIR's **assigned engineers** | "Please revisit and give a more detailed response" |
+| → **Response Not Accepted**, no engineer reachable | `EIR_TRIAGE_ASSIGNERS` | "No engineer is assigned" — different wording, see below |
+
+Wording lives in `lib/eirStatusAlerts.ts` (pure, returns `ChangeEmail[]`);
+`fireEirResponseAcceptedAlert` / `fireEirResponseNotAcceptedAlert` in
+`api/email.ts` parse the configured list and send. Both hook into the ONE
+`if ("Status" in fields)` block in `useUpdateEirFields` — the only hook that can
+write Status, so the sidebar picker, the board drag and the linked-task
+completion path are all covered by one call site.
+
+Six rules that are load-bearing:
+
+- **`to !== from` is OUR guard.** `"Status" in fields` is PRESENCE, not change.
+  The only existing transition test lives inside `buildFieldChangeEmails`, which
+  these alerts don't go through, so re-saving the same status would otherwise
+  email people about a transition that never happened. The "stays quiet" tests
+  use a fixture **already at** the target status — with one starting elsewhere
+  they pass whether the guard exists or not, which is the trap this repo has
+  already been caught by twice.
+- **`"EIR Not Accepted"` does NOT fire the engineer alert.** That status means
+  the request was rejected, not the engineer's answer, so "give a more detailed
+  response" would be the wrong instruction. Only `"Response Not Accepted"`.
+- **THREE cases, three sentences.** Engineers reachable → "revisit and give
+  more detail". Nobody assigned → "no engineer is assigned". Assigned but not
+  reachable → *"the assigned engineer couldn't be asked"*. That third sentence
+  exists because the first version sent the second one: a `Person` with no
+  mailbox is indistinguishable from an empty list once the unmailable are
+  filtered out, so an EIR that DID have an engineer told the assigners it
+  didn't — pointing them at replacing an engineer who was already on it
+  (caught in review, 2026-08-25).
+- **The actor is excluded STRICTLY from the engineer alert**, unlike the
+  accepted-response queue. An engineer marking their own response Not Accepted
+  doesn't need an email telling them to revisit it and naming them as the
+  person who rejected it; `withoutActorUnlessEmpty` would have sent exactly
+  that when they were the only engineer. Instead it falls through to the
+  assigners, so somebody other than the actor hears about it.
+- **The generic status note is deliberately NOT suppressed.** The specific
+  alerts go only to the people who must act, so dropping the generic one would
+  stop the REPORTER hearing that their own EIR was accepted. Some people get
+  two emails: one says what happened, one says what to do.
+- **Its own env var**, `VITE_EIR_RESPONSE_ACCEPTED_ALERTS`, not a reuse of
+  `EIR_TRIAGE_PROJECT_REVIEWERS` — the default pair is identical today, but that
+  list is the "missing project reference" queue and re-pointing it must not
+  silently re-point this. It is wired in `deploy.yml`; a `VITE_*` var absent
+  from that named allowlist can never be set in production (see v0.112.6).
+- **Undo sends no retraction.** `buildUndo` calls the bare `updateEirFields`
+  API rather than the mutation, so undoing a mis-drag to Response Accepted
+  leaves Sheila with a "please close this" email and nothing to correct it.
+  Pre-existing for the generic status alert; more consequential now, and stated
+  rather than silently accepted (Ray, 2026-08-25 — accepted as-is).
 
 ## @-mention email notifications
 

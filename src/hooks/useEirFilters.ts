@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { EirStatus } from "@/types/task";
+import { eirViewIgnoresStatus } from "@/lib/eirFilters";
 import type { EirFilters, EirStatusFilter, EirView } from "@/lib/eirFilters";
 
 // =============================================================================
@@ -112,8 +113,26 @@ export function useEirFilters(): EirFilterState {
     ),
     view,
     setView: useCallback(
-      (next: EirView) => write("view", next === "all" ? null : next),
-      [write],
+      (next: EirView) => {
+        // Entering a view that ignores status CLEARS the pill.
+        //
+        // Leaving it parked was the first attempt, on the theory that the
+        // selection stayed visible in the pills — it doesn't: those pills
+        // deliberately don't render as active on such a view, so the filter
+        // was invisible and then silently re-narrowed the moment another tab
+        // was picked. Clearing it is the only version with no hidden state.
+        setSearchParams(
+          (prev) => {
+            const out = new URLSearchParams(prev);
+            if (next === "all") out.delete("view");
+            else out.set("view", next);
+            if (eirViewIgnoresStatus(next)) out.delete("status");
+            return out;
+          },
+          { replace: true },
+        );
+      },
+      [setSearchParams],
     ),
     statusFilter,
     setStatusFilter: useCallback(
