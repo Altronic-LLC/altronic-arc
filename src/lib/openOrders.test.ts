@@ -9,6 +9,7 @@ import {
   customerRollup,
   customerWorkbookName,
   daysBetween,
+  formatByCurrency,
   isRepairLine,
   masterWorkbookName,
   metricsFor,
@@ -489,5 +490,51 @@ describe("runDateFromMasterName", () => {
   it("round-trips with masterWorkbookName", () => {
     const run = new Date("2026-08-21T12:00:00Z");
     expect(runDateFromMasterName(masterWorkbookName(run))).toEqual(run);
+  });
+});
+
+describe("formatByCurrency", () => {
+  const entries = [
+    { currency: "USD", openValue: 19710855.06, pastDueValue: 1271781.1 },
+    { currency: "EUR", openValue: 85036, pastDueValue: 0 },
+  ];
+
+  // THE BUG. The screen showed the arithmetic total labelled with
+  // `currencies[0]`, and `currencies` is sorted alphabetically — so an entirely
+  // USD past-due figure of 1,271,781 was displayed as "EUR 1,271,781".
+  it("names the currency the money is actually in", () => {
+    expect(formatByCurrency(entries, "pastDueValue")).toBe("USD 1,271,781");
+  });
+
+  it("lists both when both have a figure, biggest first", () => {
+    expect(formatByCurrency(entries, "openValue")).toBe("USD 19,710,855 + EUR 85,036");
+  });
+
+  // A currency with nothing outstanding is noise on a past-due line.
+  it("drops a currency whose figure is zero", () => {
+    expect(formatByCurrency(entries, "pastDueValue")).not.toContain("EUR");
+  });
+
+  it("defaults to the open value", () => {
+    expect(formatByCurrency(entries)).toBe("USD 19,710,855 + EUR 85,036");
+  });
+
+  // "0" alone leaves the reader wondering zero of what.
+  it("still names the currency when everything is zero", () => {
+    expect(
+      formatByCurrency([{ currency: "USD", openValue: 0, pastDueValue: 0 }], "pastDueValue"),
+    ).toBe("USD 0");
+  });
+
+  it("copes with nothing at all", () => {
+    expect(formatByCurrency([], "openValue")).toBe("0");
+  });
+
+  it("orders by size, not by name", () => {
+    const small = [
+      { currency: "AUD", openValue: 10, pastDueValue: 0 },
+      { currency: "ZAR", openValue: 999, pastDueValue: 0 },
+    ];
+    expect(formatByCurrency(small, "openValue")).toBe("ZAR 999 + AUD 10");
   });
 });

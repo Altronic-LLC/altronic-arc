@@ -15,6 +15,13 @@ import { renderWithProviders } from "@/test/render";
 //      pressed the button.
 //   3. Generating is behind a confirmation that names what will be replaced,
 //      because a run overwrites that week's files for everybody.
+//
+// The preview tiles are NOT covered here: they only appear once an extract has
+// been read, and jsdom cannot parse an xlsx. The figure that was wrong — a USD
+// past-due total labelled "EUR" — is pinned where the logic lives, in
+// `formatByCurrency` in lib/openOrders.test.ts. A test here that opened the
+// tool and then called the formatter directly would prove nothing about this
+// screen.
 // =============================================================================
 
 vi.mock("@/hooks/useCurrentUser", () => ({

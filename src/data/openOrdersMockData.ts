@@ -61,6 +61,7 @@ interface LineSeed {
   repairOrder?: string;
   shipTo?: string;
   comments?: string;
+  currency?: string;
   /** A revised expected ship date typed into the Comments column. */
   commentDays?: number;
   altronicPartNumber?: string;
@@ -85,7 +86,7 @@ function line(seed: LineSeed): OpenOrderLine {
     unitPrice: seed.unitPrice,
     openValue: Math.round(openQty * seed.unitPrice * 100) / 100,
     netValue: Math.round(seed.orderQty * seed.unitPrice * 100) / 100,
-    currency: "USD",
+    currency: seed.currency ?? "USD",
     customerPo: seed.customerPo ?? "",
     orderDate: day(seed.ordered ?? -45),
     requestedDate: seed.requested === null ? null : day(seed.requested ?? seed.promise ?? -1),
@@ -275,6 +276,23 @@ export const MOCK_OPEN_ORDER_LINES: OpenOrderLine[] = [
     orderQty: 1,
     unitPrice: 0,
     promise: 5,
+  }),
+
+  // A EUR line among the USD ones, as the live extract has. Money must never
+  // be added across currencies, and the label must name the one the figure is
+  // actually in — a past-due total of USD 1,271,781 once displayed as "EUR
+  // 1,271,781" because the currency was picked alphabetically.
+  line({
+    soldTo: "2277",
+    customerName: "Bayou Gas & Compression, Inc. / Lafayette",
+    salesOrder: "4500121900",
+    lineNo: "000010",
+    material: "693111-2",
+    description: "DE-2000 Display, CE variant",
+    orderQty: 2,
+    unitPrice: 4400.0,
+    currency: "EUR",
+    promise: 33,
   }),
 
   // ---- 3391 Cimarron Compression ----------------------------------------

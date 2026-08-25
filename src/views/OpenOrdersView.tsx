@@ -27,7 +27,12 @@ import {
   useMyOpenOrdersAccess,
   useOpenOrdersCustomers,
 } from "@/hooks/useOpenOrdersCustomers";
-import { accountsWithNoLines, customerRollup, metricsFor } from "@/lib/openOrders";
+import {
+  accountsWithNoLines,
+  customerRollup,
+  formatByCurrency,
+  metricsFor,
+} from "@/lib/openOrders";
 import { OPEN_ORDERS_PATH } from "@/api/openOrdersFiles";
 import { SP_OPEN_ORDERS_CUSTOMERS_LIST_ID, USE_MOCK } from "@/api/config";
 import { LoadingTasks } from "@/components/LoadingTasks";
@@ -443,7 +448,7 @@ function GenerateCard({
             />
             <Stat
               label="Past due"
-              value={money(preview.metrics.pastDueValue, preview.metrics.currencies[0])}
+              value={formatByCurrency(preview.metrics.byCurrency, "pastDueValue")}
               tone="danger"
             />
           </div>
@@ -690,6 +695,3 @@ function formatWhen(date: Date | null): string {
   return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
-function money(value: number, currency = "USD"): string {
-  return `${currency} ${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
-}

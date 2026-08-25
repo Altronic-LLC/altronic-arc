@@ -154,6 +154,42 @@ export function valueByCurrency(
     .sort((a, b) => b.openValue - a.openValue);
 }
 
+/**
+ * Money per currency, as a string a person can read.
+ *
+ * `"USD 1,271,781"`, or `"USD 1,271,781 + EUR 500"` when more than one currency
+ * has a figure. Never a single number with one currency's label on a total that
+ * spans two — which is exactly the bug this replaced: the UI showed the
+ * arithmetic total labelled with `currencies[0]`, and since `currencies` is
+ * sorted alphabetically that read **"EUR 1,271,781"** for a figure that was
+ * entirely USD (Ray, 2026-08-25).
+ *
+ * Biggest first, zeroes dropped — a currency with nothing outstanding is noise.
+ * When everything is zero the dominant currency is still named, because a bare
+ * "0" leaves the reader wondering zero of what.
+ */
+export function formatByCurrency(
+  entries: Array<{ currency: string; openValue: number; pastDueValue: number }>,
+  field: "openValue" | "pastDueValue" = "openValue",
+): string {
+  const amount = (e: { openValue: number; pastDueValue: number }) => e[field];
+  const shown = entries
+    .filter((e) => amount(e) !== 0)
+    .sort((a, b) => Math.abs(amount(b)) - Math.abs(amount(a)));
+
+  if (shown.length === 0) {
+    const fallback = entries[0]?.currency;
+    return fallback ? `${fallback} 0` : "0";
+  }
+  return shown
+    .map((e) => `${e.currency} ${round0(amount(e)).toLocaleString("en-US")}`)
+    .join(" + ");
+}
+
+function round0(n: number): number {
+  return Math.round(n);
+}
+
 /** Promise date ascending, undated last — the order every detail table uses. */
 export function byPromiseDate(a: OpenOrderLine, b: OpenOrderLine): number {
   if (!a.promiseDate && !b.promiseDate) return a.salesOrder.localeCompare(b.salesOrder);

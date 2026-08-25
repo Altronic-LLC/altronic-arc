@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.114.1",
+    date: "2026-08-25",
+    changes: [
+      "Fixed the past-due figure being labelled EUR when it's USD — money is now labelled with the currency it's actually in, and two currencies are shown separately rather than one being picked alphabetically",
+    ],
+  },
+  {
     version: "0.114.0",
     date: "2026-08-24",
     changes: [

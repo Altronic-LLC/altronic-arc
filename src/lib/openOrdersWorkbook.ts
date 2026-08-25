@@ -14,6 +14,7 @@ import {
   agingBucketFor,
   byPromiseDate,
   customerReport,
+  formatByCurrency,
   metricsFor,
   runDateStamp,
 } from "./openOrders";
@@ -416,15 +417,17 @@ function note(ws: ExcelJS.Worksheet, row: number, text: string) {
 
 
 
-/** The one-line description under the master's title. */
+/** The one-line description under the title. */
 function summaryLine(metrics: OpenOrderMetrics): string {
-  const money = metrics.byCurrency
-    .map((c) => `${c.currency} ${c.openValue.toLocaleString("en-US", { maximumFractionDigits: 0 })}`)
-    .join(" + ");
+  // Through the shared formatter, so the sheet and the screen can't disagree
+  // about how a two-currency total is written.
+  const money = formatByCurrency(metrics.byCurrency, "openValue");
+  const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
   return (
-    `${metrics.lines.toLocaleString("en-US")} open lines across ` +
-    `${metrics.orders.toLocaleString("en-US")} orders   ·   ${money} open   ·   ` +
-    `${metrics.pastDueLines.toLocaleString("en-US")} lines past due`
+    `${metrics.lines.toLocaleString("en-US")} open ${plural(metrics.lines, "line", "lines")} ` +
+    `across ${metrics.orders.toLocaleString("en-US")} ${plural(metrics.orders, "order", "orders")}` +
+    `   ·   ${money} open   ·   ` +
+    `${metrics.pastDueLines.toLocaleString("en-US")} ${plural(metrics.pastDueLines, "line", "lines")} past due`
   );
 }
 
