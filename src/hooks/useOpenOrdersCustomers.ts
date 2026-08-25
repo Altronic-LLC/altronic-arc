@@ -20,6 +20,7 @@ import { matchesAnyEmail } from "@/lib/emailIdentity";
 import { useCurrentUserEmails } from "./useCurrentUser";
 import { useAdminAccess } from "./useIsAdmin";
 import { pushToast } from "@/components/Toast";
+import { describeListWriteFailure } from "@/lib/listWriteErrors";
 
 // =============================================================================
 // The managed customer list, and who may change it.
@@ -118,7 +119,14 @@ export function useCreateOpenOrdersCustomer() {
       qc.invalidateQueries({ queryKey: OPEN_ORDERS_CUSTOMERS_KEY });
       pushToast({ message: `Added ${created.customerName || created.accountNumber}.` });
     },
-    onError: (err: Error) => pushToast({ message: err.message, variant: "error" }),
+    onError: (err: Error) =>
+      pushToast({
+        message: describeListWriteFailure(err, {
+          action: "add that customer",
+          site: "ALTRONICSALESTEAM",
+        }),
+        variant: "error",
+      }),
   });
 }
 
@@ -134,7 +142,14 @@ export function useUpdateOpenOrdersCustomer() {
       qc.invalidateQueries({ queryKey: OPEN_ORDERS_CUSTOMERS_KEY });
       pushToast({ message: `Saved ${updated.customerName || updated.accountNumber}.` });
     },
-    onError: (err: Error) => pushToast({ message: err.message, variant: "error" }),
+    onError: (err: Error) =>
+      pushToast({
+        message: describeListWriteFailure(err, {
+          action: "save that customer",
+          site: "ALTRONICSALESTEAM",
+        }),
+        variant: "error",
+      }),
   });
 }
 
@@ -150,7 +165,23 @@ export function useDeleteOpenOrdersCustomer() {
       qc.invalidateQueries({ queryKey: OPEN_ORDERS_CUSTOMERS_KEY });
       pushToast({ message: "Removed from the report list." });
     },
-    onError: (err: Error) => pushToast({ message: err.message, variant: "error" }),
+    onError: (err: Error, _id, _ctx) => {
+      // Deleting needs more SharePoint permission than editing, so the
+      // alternative is worth naming: turning a customer off keeps them off the
+      // weekly run without removing the row, and it's an UPDATE not a DELETE.
+      pushToast({
+        message: describeListWriteFailure(err, {
+          action: "remove that customer",
+          site: "ALTRONICSALESTEAM",
+          alternative:
+            "You can still edit them and set them to not active, which takes them off the weekly run.",
+        }),
+        variant: "error",
+      });
+      // The row is still on screen because nothing was removed — refetch so the
+      // list can't drift from SharePoint after a failed delete.
+      qc.invalidateQueries({ queryKey: OPEN_ORDERS_CUSTOMERS_KEY });
+    },
   });
 }
 

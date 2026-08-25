@@ -2318,6 +2318,36 @@ part, and nothing looser: a colleague surnamed Adminski, and a shared
 `admin@` mailbox people really do assign to, both have to survive. Don't
 "improve" this into a general `admin` contains-match.
 
+### A SharePoint write that is refused says what to ask for
+
+ARC's role gating is UI-level; **the SharePoint permission is the real
+boundary**, so a write can fail after the app has happily offered the button.
+Hailey Sturtz hit that removing a customer from the Open Orders list and got the
+raw Graph error in a toast — `Graph 403 Forbidden at
+https://graph.microsoft.com/v1.0/sites/…/items/5: {"error":{"code":
+"accessDenied"…}}` (2026-08-25) — which told her nothing she could act on and
+told whoever she asked nothing about what to change.
+
+`lib/listWriteErrors.ts` turns a failed list write into a sentence.
+`describeListWriteFailure(err, { action, site, alternative })`:
+
+- **It does NOT guess which permission layer said no.** Two can: the app's
+  `Sites.Selected` grant on the site, and the signed-in user's own SharePoint
+  role. From the browser they are indistinguishable, and naming the wrong one
+  sends somebody to change the wrong setting — so it names both.
+- **It offers the cheaper alternative where one exists.** Deleting a list item
+  needs more permission than editing one, so a refused delete says you can set
+  the customer to not active instead — an UPDATE, which takes them off the
+  weekly run just as well.
+- **404 is its own message**, not a permission one: the row was already removed,
+  usually by somebody else, and the list is refetched.
+- **Anything unrecognised keeps its real message.** A wrong explanation is worse
+  than a raw one.
+
+A refused delete also invalidates the query, because nothing was removed and the
+row is still on screen — without the refetch the list can drift from SharePoint
+after a failure.
+
 ### Mail that doesn't send says so
 
 `notifyMentions` / `notifyChangeEmails` return a `MailSendResult` and raise a

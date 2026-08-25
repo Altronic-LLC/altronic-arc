@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.115.2",
+    date: "2026-08-25",
+    changes: [
+      "A customer-list change SharePoint refuses now explains itself instead of showing a raw error — it names what to ask an admin about, and points out you can set a customer to not active instead of removing them",
+      "Trying to remove a customer somebody else already removed now says so, rather than blaming permissions",
+    ],
+  },
+  {
     version: "0.115.1",
     date: "2026-08-25",
     changes: [
