@@ -1,4 +1,11 @@
-import { CalendarClock, ChevronRight, FileText, FolderOpen, User } from "lucide-react";
+import {
+  CalendarClock,
+  CalendarPlus,
+  ChevronRight,
+  FileText,
+  FolderOpen,
+  User,
+} from "lucide-react";
 import { useEffect, useRef } from "react";
 import type { Eir } from "@/types/task";
 import {
@@ -9,6 +16,21 @@ import {
   PriorityFlag,
 } from "./atoms";
 import { markAsSeen, useIsMentioned } from "@/hooks/useUnseenMentions";
+
+/**
+ * The raised date, short and unambiguous.
+ *
+ * The year is included ALWAYS, not just for older EIRs: this list runs back
+ * years, so "12 Mar" beside a 2024 EIR reads as this year at a glance. The full
+ * timestamp is on the hover title for anyone who needs the hour.
+ */
+function formatRaised(date: Date): string {
+  return date.toLocaleDateString(undefined, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
 
 interface EirRowProps {
   eir: Eir;
@@ -78,6 +100,18 @@ export function EirRow({ eir, onOpen }: EirRowProps) {
               {eir.requestType}
             </span>
           )}
+          {/* Raised date. Sits with the EIR number rather than among the badges
+              below, because it's part of identifying the EIR — "which one is
+              this" — not part of its workflow state. It's the SharePoint item's
+              created date, which for rows that arrived in a migration is the
+              day of the import rather than the day the EIR was raised. */}
+          <span
+            title={`Raised ${eir.createdAt.toLocaleString()}`}
+            className="inline-flex items-center gap-1"
+          >
+            <CalendarPlus className="h-3 w-3" />
+            {formatRaised(eir.createdAt)}
+          </span>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {/* `requestedPriority` values match the task Priority union, so

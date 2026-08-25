@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.115.1",
+    date: "2026-08-25",
+    changes: [
+      "EIR rows now show the date the EIR was raised, next to the EIR number — hover it for the exact time",
+    ],
+  },
+  {
     version: "0.115.0",
     date: "2026-08-25",
     changes: [
