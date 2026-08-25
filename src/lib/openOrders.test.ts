@@ -12,6 +12,7 @@ import {
   isRepairLine,
   masterWorkbookName,
   metricsFor,
+  runDateFromMasterName,
   runDateStamp,
   sameAccount,
   weekFolderName,
@@ -462,5 +463,31 @@ describe("weekFolderName", () => {
 
   it("rolls to the previous Monday across a month boundary", () => {
     expect(weekFolderName(new Date("2026-09-01T12:00:00Z"))).toBe("Week of 2026-08-31");
+  });
+});
+
+describe("runDateFromMasterName", () => {
+  // A customer added after the week was built has to land in THAT week's
+  // folder, aged against THAT run date — so the run is read back off the master
+  // already in SharePoint rather than taken from today's clock.
+  it("reads the run date out of a master filename", () => {
+    expect(runDateFromMasterName("Altronic_Open_Orders_Dashboard_2026-08-21.xlsx")).toEqual(
+      new Date(Date.UTC(2026, 7, 21, 12)),
+    );
+  });
+
+  it("is null for a file that isn't one of ours", () => {
+    expect(runDateFromMasterName("Some other workbook.xlsx")).toBeNull();
+    expect(runDateFromMasterName("")).toBeNull();
+  });
+
+  it("ignores a date that isn't at the end of the name", () => {
+    expect(runDateFromMasterName("2026-08-21 notes.txt")).toBeNull();
+  });
+
+  // The stamp round-trips: what masterWorkbookName writes, this reads.
+  it("round-trips with masterWorkbookName", () => {
+    const run = new Date("2026-08-21T12:00:00Z");
+    expect(runDateFromMasterName(masterWorkbookName(run))).toEqual(run);
   });
 });

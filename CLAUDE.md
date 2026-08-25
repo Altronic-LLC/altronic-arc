@@ -1310,6 +1310,27 @@ line promised for the run date itself is not late yet. A line with no promise
 date gets its OWN bucket rather than inflating the past-due figure the whole
 report leads with.
 
+**One customer can be rebuilt on its own**, from the extract already in RAW
+UPLOADS — `useGenerateCustomerReport`, behind the "Build report" button on a
+customer's row. The case: somebody is added to the list on a Thursday, after the
+week has run (Ray, 2026-08-24), and the alternative is finding the extract again
+and rebuilding all seventy files.
+
+Two things it deliberately does NOT do:
+
+- **It does not date the file today.** The run date is read back out of the
+  newest master's FILENAME (`runDateFromMasterName`), so a late addition lands
+  in the same week folder and is aged against the same date as the files built
+  alongside it. Today's date would be the right week only by luck, and would age
+  the report a few days out from its neighbours.
+- **It does not rebuild the master.** Adding somebody to the report list changes
+  who receives a file; it doesn't change the consolidated extract, which already
+  contains their lines.
+
+It refuses, saying which it is, when there's no master to date against, no raw
+extract to rebuild from, or no open lines for that customer — rather than
+writing an empty workbook.
+
 **An account with no open lines gets no workbook** — an empty spreadsheet
 arriving at a customer reads as a mistake. The master's **Coverage** tab names
 them instead, which is the answer to "why did my customer get no report".

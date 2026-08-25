@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
 
 // =============================================================================
@@ -12,6 +13,15 @@ import { renderWithProviders } from "@/test/render";
 // =============================================================================
 
 const mockConfig = vi.hoisted(() => ({ listId: undefined as string | undefined }));
+const mockAccounts = vi.hoisted(() => ({
+  rows: [] as Array<{
+    id: number;
+    accountNumber: string;
+    customerName: string;
+    active: boolean;
+    notes: string;
+  }>,
+}));
 
 vi.mock("@/api/config", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/api/config")>();
@@ -33,6 +43,22 @@ vi.mock("@/hooks/useCurrentUser", () => ({
   useCurrentUserEmails: () => ["demo.user@altronic-llc.com"],
 }));
 
+const generateOne = vi.hoisted(() => vi.fn());
+
+vi.mock("@/hooks/useOpenOrdersReports", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/hooks/useOpenOrdersReports")>();
+  return {
+    ...actual,
+    useParseExtract: () => ({ parse: vi.fn(), parsing: false }),
+    useGenerateCustomerReport: () => ({
+      mutate: generateOne,
+      isPending: false,
+      step: null,
+      variables: undefined,
+    }),
+  };
+});
+
 vi.mock("@/hooks/useOpenOrdersCustomers", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/hooks/useOpenOrdersCustomers")>();
   return {
@@ -43,7 +69,7 @@ vi.mock("@/hooks/useOpenOrdersCustomers", async (importOriginal) => {
       isResolving: false,
     }),
     useOpenOrdersCustomers: () => ({
-      data: [],
+      data: mockAccounts.rows,
       isLoading: false,
       error: mockConfig.listId
         ? undefined
@@ -56,6 +82,7 @@ import { OpenOrdersCustomersView } from "./OpenOrdersCustomersView";
 
 beforeEach(() => {
   mockConfig.listId = undefined;
+  mockAccounts.rows = [];
 });
 
 describe("OpenOrdersCustomersView — the list doesn't exist yet", () => {
@@ -131,6 +158,49 @@ describe("OpenOrdersCustomersView — the list exists", () => {
     renderWithProviders(<OpenOrdersCustomersView />);
     await waitFor(() =>
       expect(screen.getByText(/Nobody on the list yet/i)).toBeInTheDocument(),
+    );
+  });
+});
+
+describe("building one customer's report after the week has run", () => {
+  const ACCOUNTS = [
+    { id: 1, accountNumber: "1042", customerName: "Permian Midstream", active: true, notes: "" },
+    { id: 2, accountNumber: "7788", customerName: "Retired Account", active: false, notes: "" },
+  ];
+
+  beforeEach(() => {
+    mockConfig.listId = "a-real-list-id";
+    generateOne.mockClear();
+    mockAccounts.rows = ACCOUNTS;
+  });
+
+  // The question this feature answers: somebody is added on a Thursday, after
+  // the week was built. Without it, the only way to get their file is to find
+  // the extract and rebuild all seventy.
+  it("offers Build report on an active customer", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<OpenOrdersCustomersView />);
+    const buttons = await screen.findAllByRole("button", { name: /Build report/i });
+    expect(buttons).toHaveLength(1);
+    await user.click(buttons[0]);
+    expect(generateOne).toHaveBeenCalledWith(
+      expect.objectContaining({ accountNumber: "1042" }),
+    );
+  });
+
+  // An inactive account is off the weekly run; offering to build them a file
+  // would contradict that.
+  it("doesn't offer it on an inactive customer", async () => {
+    renderWithProviders(<OpenOrdersCustomersView />);
+    await screen.findByText("Retired Account");
+    // Two customers on screen, one button — the active one's.
+    expect(screen.getAllByRole("button", { name: /Build report/i })).toHaveLength(1);
+  });
+
+  it("explains what the button is for", async () => {
+    renderWithProviders(<OpenOrdersCustomersView />);
+    await waitFor(() =>
+      expect(screen.getByText(/after this week was already built/i)).toBeInTheDocument(),
     );
   });
 });

@@ -273,6 +273,22 @@ export function customerWorkbookName(customerName: string, runDate: Date, maxLen
 }
 
 /**
+ * The run date out of a master workbook's filename.
+ *
+ * How a one-off report for a newly added customer works out which week it
+ * belongs to: the master already in SharePoint names the run, so a late
+ * addition lands in the same week folder with the same ageing basis as the
+ * files built alongside it. Deriving it from today instead would put a
+ * Thursday addition in the wrong week and age it against the wrong date.
+ */
+export function runDateFromMasterName(name: string): Date | null {
+  const m = /(\d{4})-(\d{2})-(\d{2})\.xlsx$/i.exec(name.trim());
+  if (!m) return null;
+  const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], 12));
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/**
  * The weekly subfolder the customer files go in — `Week of YYYY-MM-DD`, the
  * MONDAY of the run week.
  *

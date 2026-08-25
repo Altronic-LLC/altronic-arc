@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.114.0",
+    date: "2026-08-24",
+    changes: [
+      "Add a customer after the week has already been built and press Build report on their row — ARC makes just their workbook from the extract already in SharePoint, with no need to re-run everything",
+      "The one-off report lands in the same week folder and uses the same run date as the rest of that week, so it lines up with the files sent alongside it",
+      "It says why it can't rather than writing an empty file — no run to add to, no stored extract, or nothing open for that customer",
+    ],
+  },
+  {
     version: "0.113.2",
     date: "2026-08-24",
     changes: [

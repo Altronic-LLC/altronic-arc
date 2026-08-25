@@ -18,8 +18,10 @@ import {
   customerReportsFor,
 } from "@/lib/openOrdersWorkbook";
 import {
+  customerReport,
   customerWorkbookName,
   masterWorkbookName,
+  runDateFromMasterName,
   sameAccount,
   weekFolderName,
 } from "@/lib/openOrders";
@@ -273,4 +275,96 @@ export function useDownloadOpenOrdersFile() {
 /** The folder this week's files will land in, for the confirmation copy. */
 export function weekFolderFor(runDate: Date): string {
   return weekFolderName(runDate);
+}
+
+/**
+ * Build ONE customer's workbook from the extract already filed in SharePoint.
+ *
+ * The case this exists for: somebody is added to the report list on a Thursday,
+ * after the week has been run (Ray, 2026-08-24 — "say I want to add another
+ * customer … can I just add another customer and say generate now"). Without
+ * it the only way to produce their file is to find the extract again and
+ * rebuild all seventy.
+ *
+ * Two things it deliberately does NOT do:
+ *
+ *  - **It doesn't use today's date.** The run date is read from the newest
+ *    master workbook's filename, so a late addition lands in the same week
+ *    folder as the rest of that week's files and is aged against the same date.
+ *    Dating it today would put a Thursday addition in the right week only by
+ *    luck, and age it a few days out from its neighbours.
+ *  - **It doesn't rebuild the master.** Adding a customer to the report list
+ *    changes who receives a file; it doesn't change the consolidated extract,
+ *    which already contains their lines.
+ */
+export function useGenerateCustomerReport() {
+  const qc = useQueryClient();
+  const user = useCurrentUser();
+  const [step, setStep] = useState<string | null>(null);
+
+  const mutation = useMutation({
+    mutationFn: async (account: OpenOrderCustomerAccount): Promise<{
+      filename: string;
+      weekFolder: string;
+      lines: number;
+    }> => {
+      setStep("Finding the latest run");
+      const [masters, raws] = await Promise.all([listMasterReports(), listRawUploads()]);
+
+      const runDate = masters.map((m) => runDateFromMasterName(m.name)).find((d): d is Date => !!d);
+      if (!runDate) {
+        throw new Error(
+          "There's no master workbook in SharePoint yet, so there's no run to add this customer to. " +
+            "Build the week's reports first.",
+        );
+      }
+      const raw = raws[0];
+      if (!raw) {
+        throw new Error(
+          "The raw extract for the last run isn't in RAW UPLOADS, so there's nothing to rebuild from. " +
+            "Re-run the week with the extract to produce this customer's file.",
+        );
+      }
+
+      setStep("Reading the stored extract");
+      const blob = await downloadOpenOrdersFile(raw.id);
+      const excelJs = await excel();
+      const parsed = await readOpenOrdersWorkbook(excelJs, await blob.arrayBuffer());
+
+      const report = customerReport(account, parsed.lines, runDate);
+      if (report.metrics.lines === 0) {
+        throw new Error(
+          `${account.customerName || account.accountNumber} has no open lines in that extract, ` +
+            "so there's nothing to send them. Nothing was written.",
+        );
+      }
+
+      setStep("Building the workbook");
+      const wb = await buildCustomerWorkbook(excelJs, report, account, {
+        runDate,
+        generatedBy: user.displayName || undefined,
+      });
+      const weekFolder = await ensureWeekFolder(runDate);
+      const filename = customerWorkbookName(report.customerName, runDate);
+      await uploadOpenOrdersFile({
+        folder: weekFolder,
+        filename,
+        body: await wb.xlsx.writeBuffer(),
+      });
+      return { filename, weekFolder, lines: report.metrics.lines };
+    },
+    onSuccess: (result) => {
+      setStep(null);
+      qc.invalidateQueries({ queryKey: OPEN_ORDERS_FILES_KEY });
+      pushToast({
+        message: `Built ${result.filename} into ${result.weekFolder} — ${result.lines} lines.`,
+      });
+    },
+    onError: (err: Error) => {
+      setStep(null);
+      pushToast({ message: err.message, variant: "error" });
+    },
+  });
+
+  return { ...mutation, step };
 }

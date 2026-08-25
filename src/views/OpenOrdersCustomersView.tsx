@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   Check,
+  FileSpreadsheet,
   Lock,
   Pencil,
   Plus,
@@ -19,7 +20,7 @@ import {
   useOpenOrdersCustomers,
   useUpdateOpenOrdersCustomer,
 } from "@/hooks/useOpenOrdersCustomers";
-import { useParseExtract } from "@/hooks/useOpenOrdersReports";
+import { useGenerateCustomerReport, useParseExtract } from "@/hooks/useOpenOrdersReports";
 import { SP_OPEN_ORDERS_CUSTOMERS_LIST_ID, USE_MOCK } from "@/api/config";
 import { customerRollup, sameAccount } from "@/lib/openOrders";
 import { LoadingTasks } from "@/components/LoadingTasks";
@@ -60,6 +61,7 @@ export function OpenOrdersCustomersView() {
   const create = useCreateOpenOrdersCustomer();
   const update = useUpdateOpenOrdersCustomer();
   const remove = useDeleteOpenOrdersCustomer();
+  const generateOne = useGenerateCustomerReport();
 
   const [editing, setEditing] = useState<number | "new" | null>(null);
   const [draft, setDraft] = useState<OpenOrderCustomerAccountInput>(EMPTY);
@@ -121,6 +123,12 @@ export function OpenOrdersCustomersView() {
           named after — SAP truncates its own at 30 characters, so this is the one customers
           see. Turn a customer <span className="font-medium text-fg">off</span> to take them
           out of the weekly run without losing the row.
+        </p>
+        <p className="max-w-3xl text-sm text-fg-muted">
+          Added somebody after this week was already built?{" "}
+          <strong className="text-fg">Build report</strong> on their row produces
+          just their workbook from the extract already filed in SharePoint, into
+          the same week folder as the rest — no need to re-run everything.
         </p>
         <p className="text-xs text-fg-muted">
           {activeCount} active of {accounts.length}
@@ -247,6 +255,20 @@ export function OpenOrdersCustomersView() {
                 </div>
                 {canEdit && (
                   <div className="flex shrink-0 items-center gap-1">
+                    {account.active && (
+                      <button
+                        type="button"
+                        disabled={generateOne.isPending}
+                        onClick={() => generateOne.mutate(account)}
+                        title={`Build ${account.customerName || account.accountNumber}'s workbook from the extract already in SharePoint`}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-2 px-2.5 py-1.5 text-xs font-medium text-fg-muted transition-colors hover:bg-surface hover:text-fg disabled:opacity-60"
+                      >
+                        <FileSpreadsheet className="h-3.5 w-3.5" />
+                        {generateOne.isPending && generateOne.variables?.id === account.id
+                          ? (generateOne.step ?? "Working…")
+                          : "Build report"}
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => startEdit(account)}
