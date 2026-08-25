@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.113.2",
+    date: "2026-08-24",
+    changes: [
+      "Open Orders workbooks now carry the real Altronic wordmark instead of styled text",
+      "Rows are banded light grey and white like an ordinary table — the gold shading that used to mark past-due lines is gone",
+      "A past-due ship date is shown in bold instead, so it's still easy to pick out",
+    ],
+  },
+  {
     version: "0.113.1",
     date: "2026-08-24",
     changes: [

@@ -1251,8 +1251,23 @@ over "ship 3 by 08-28 / 20 to ship 09-14" invents a date nobody typed.
 
 **ALTRONIC branding, not Cooper.** Both brand systems exist in this org and
 these workbooks are Altronic: monochrome black and white, greys for structure,
-gold (#CBA052 — the ignition spark) as a sparing accent, and the wordmark as
-TEXT rather than an image. An earlier version was Cooper Red throughout, which
+gold (#CBA052 — the ignition spark) as a sparing accent, and the **official
+wordmark embedded as an image** (`src/assets/brand/`).
+
+That mark is the **12KB transparent PNG, not the 630KB JPG** sitting beside it
+in the same folder. Fifty times smaller, and a JPEG can't be transparent so it
+would sit in a white box on the sheet — across a weekly run of seventy-odd
+workbooks the difference is about 45MB of logo. It is held as base64 in a TS
+module so the identical code path works in the browser bundle and in the Node
+sample generator; an asset URL would need fetching in one and resolving from
+disk in the other. Its display width is derived from its own aspect ratio, so it
+can't come out stretched.
+
+**Row shading is STRUCTURE, never meaning.** Rows were once washed gold when a
+line was past due, which gave the banding two jobs at once and made the table
+look patchy rather than banded (Ray, 2026-08-24). Banding is now strictly
+alternate Light Grey / white, and past due is marked by WEIGHT — the ship date
+in bold — so the one signal the report exists for survives without colour. An earlier version was Cooper Red throughout, which
 was simply the wrong company. `openOrdersWorkbook.test.ts` fails if any Cooper
 colour reappears, and its colour scan reads BORDERS as well as fills and fonts —
 the gold accent on the master is a hairline under the header band, so a

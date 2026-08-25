@@ -7,6 +7,10 @@ import type {
 } from "@/types/task";
 import { RAW_LAYOUT, type RawLayoutColumn } from "./openOrdersFields";
 import {
+  ALTRONIC_WORDMARK_ASPECT,
+  ALTRONIC_WORDMARK_BLACK_PNG,
+} from "@/assets/brand/altronicWordmark";
+import {
   agingBucketFor,
   byPromiseDate,
   customerReport,
@@ -61,10 +65,17 @@ const LIGHT_GREY = "FFE2E2E2";
 const MEDIUM_GREY = "FFA5A5A5";
 const DARK_GREY = "FF595959";
 const GOLD = "FFCBA052";
-/** A wash of the accent, for the one row state worth marking. */
-const GOLD_WASH = "FFF7EFE0";
-/** Zebra banding — lighter than Light Grey, so it reads as texture not blocks. */
-const BAND = "FFF7F7F7";
+/**
+ * Row banding — the brand's Light Grey against white, alternating.
+ *
+ * Rows used to be washed gold when the line was PAST DUE, which meant the
+ * shading carried meaning and the table looked patchy rather than banded (Ray,
+ * 2026-08-24: "why are some lines highlighted yellow or gold and some not? I
+ * would rather them be alternate color light grey and white like a table").
+ * Shading is now purely structural — every other row, nothing else — which is
+ * also what the brand guide asks Light Grey to do.
+ */
+const BAND = LIGHT_GREY;
 
 const HEAD_FONT = "Segoe UI Semibold";
 const BODY_FONT = "Arial";
@@ -239,14 +250,11 @@ function dataTable(
 
     styleDataRow(dataRow, RAW_LAYOUT.length, i % 2 === 1);
 
+    // Past due is marked by WEIGHT, not by colour: the ship date goes bold and
+    // nothing else changes. Colouring the row made the banding mean two things
+    // at once and left the table looking patchy. This keeps the one signal the
+    // report exists for without breaking a plain banded table.
     if (pastDue) {
-      for (let c = 1; c <= RAW_LAYOUT.length; c++) {
-        dataRow.getCell(c).fill = {
-          type: "pattern",
-          pattern: "solid",
-          fgColor: { argb: GOLD_WASH },
-        };
-      }
       const shipCol = RAW_LAYOUT.findIndex((c) => c.header === "Ship Date") + 1;
       if (shipCol > 0) {
         dataRow.getCell(shipCol).font = {
@@ -343,12 +351,7 @@ function titleBlock(
   span: number,
   soldTo?: string,
 ) {
-  const mark = ws.getRow(1);
-  mark.height = 30;
-  mark.getCell(1).value = "ALTRONIC";
-  // xlsx has no letter-spacing, so the wordmark leans on weight and size.
-  mark.getCell(1).font = { name: HEAD_FONT, size: 20, bold: true, color: { argb: BLACK } };
-  mark.getCell(1).alignment = { vertical: "middle" };
+  placeWordmark(ws);
 
   const t = ws.getRow(2);
   t.height = 20;
@@ -365,6 +368,34 @@ function titleBlock(
   for (let c = 1; c <= Math.min(span, RAW_LAYOUT.length); c++) {
     d.getCell(c).border = { bottom: { style: "thin", color: { argb: GOLD } } };
   }
+}
+
+/**
+ * The official wordmark, dropped into the top-left of a sheet.
+ *
+ * The real mark rather than styled text (Ray, 2026-08-24). It's the 12KB
+ * transparent PNG, embedded once per workbook — ExcelJS de-duplicates an image
+ * added once and placed repeatedly, but each workbook is its own file, so this
+ * costs ~12KB per report.
+ *
+ * Height is fixed and the width derived from the mark's own aspect ratio, so it
+ * can never come out stretched. The row is made tall enough to hold it, with a
+ * little air, since an image floats over cells rather than sizing them.
+ */
+function placeWordmark(ws: ExcelJS.Worksheet) {
+  const HEIGHT_PX = 26;
+  const row = ws.getRow(1);
+  row.height = 34;
+  const workbook = ws.workbook;
+  const imageId = workbook.addImage({
+    base64: ALTRONIC_WORDMARK_BLACK_PNG,
+    extension: "png",
+  });
+  ws.addImage(imageId, {
+    tl: { col: 0.15, row: 0.2 },
+    ext: { width: Math.round(HEIGHT_PX * ALTRONIC_WORDMARK_ASPECT), height: HEIGHT_PX },
+    editAs: "oneCell",
+  });
 }
 
 function heading(ws: ExcelJS.Worksheet, row: number, text: string): number {

@@ -87,10 +87,22 @@ describe("the master workbook", () => {
     expect(ws.rowCount).toBe(row + MOCK_OPEN_ORDER_LINES.length + 1);
   });
 
-  it("leads with the Altronic wordmark and the run date", async () => {
-    const ws = (await master()).getWorksheet("Open Orders")!;
-    expect(ws.getRow(1).getCell(1).value).toBe("ALTRONIC");
+  it("leads with the real wordmark image and the run date", async () => {
+    const wb = await master();
+    const ws = wb.getWorksheet("Open Orders")!;
+    // The official PNG, embedded — not styled text pretending to be the mark.
+    expect(wb.model.media?.some((m) => m.extension === "png")).toBe(true);
+    expect(ws.getImages()).toHaveLength(1);
     expect(String(ws.getRow(4).getCell(1).value)).toContain("2026-08-24");
+  });
+
+  // The mark is 2001 x 245; a hand-picked width and height would eventually
+  // drift from that and stretch it.
+  it("places the wordmark at its own aspect ratio", async () => {
+    const ws = (await master()).getWorksheet("Open Orders")!;
+    const img = ws.getImages()[0] as unknown as { range: { ext: { width: number; height: number } } };
+    const ratio = img.range.ext.width / img.range.ext.height;
+    expect(ratio).toBeCloseTo(2001 / 245, 1);
   });
 
   it("freezes the header and offers a filter", async () => {
@@ -142,18 +154,35 @@ describe("Altronic branding", () => {
 
   it("uses the gold accent, and only from the Altronic palette", async () => {
     const used = coloursOf((await master()).getWorksheet("Open Orders")!);
+    // Gold survives as the hairline under the header band — the accent, used
+    // once, rather than as a row state.
     expect(used.has("FFCBA052")).toBe(true);
     const allowed = new Set([
       "FF000000", // black
       "FFFFFFFF", // white
-      "FFE2E2E2", // light grey
+      "FFE2E2E2", // light grey — row banding and totals
       "FFA5A5A5", // medium grey
       "FF595959", // dark grey
       "FFCBA052", // gold
-      "FFF7EFE0", // gold wash
-      "FFF7F7F7", // row banding
     ]);
     expect([...used].filter((c) => !allowed.has(c))).toEqual([]);
+  });
+
+  // Shading is structure, not meaning. It used to wash a row gold when the line
+  // was past due, which made the table look patchy and gave the banding two
+  // jobs at once.
+  it("bands every other row and nothing else", async () => {
+    const ws = (await master()).getWorksheet("Open Orders")!;
+    const header = headerRowOf(ws);
+    const fills: string[] = [];
+    for (let r = header + 1; r < ws.rowCount; r++) {
+      const fill = ws.getRow(r).getCell(1).fill as { fgColor?: { argb?: string } } | undefined;
+      fills.push(fill?.fgColor?.argb?.toUpperCase() ?? "none");
+    }
+    // Strictly alternating: unbanded, banded, unbanded, …
+    fills.forEach((f, i) => {
+      expect(f).toBe(i % 2 === 1 ? "FFE2E2E2" : "none");
+    });
   });
 });
 
