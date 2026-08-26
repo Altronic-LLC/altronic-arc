@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   buildSupplierCreateFields,
   compareSuppliers,
+  parseSupplierLogo,
   supplierDetailsPatch,
   supplierLabel,
   toSupplier,
@@ -54,6 +55,39 @@ describe("toSupplier", () => {
       }),
     );
     expect(supplier.comments).toHaveLength(1);
+  });
+});
+
+describe("parseSupplierLogo", () => {
+  it("parses the JSON-encoded fileName/originalImageName", () => {
+    const raw = JSON.stringify({ fileName: "Reserved_ImageAttachment_x.jpg", originalImageName: "arrow.jpg" });
+    expect(parseSupplierLogo(raw)).toEqual({
+      fileName: "Reserved_ImageAttachment_x.jpg",
+      originalImageName: "arrow.jpg",
+    });
+  });
+
+  it("accepts an already-parsed object (mock fixtures)", () => {
+    expect(parseSupplierLogo({ fileName: "x.png", originalImageName: "y.png" })).toEqual({
+      fileName: "x.png",
+      originalImageName: "y.png",
+    });
+  });
+
+  it("returns null for blank, malformed, or shapeless values — never throws", () => {
+    expect(parseSupplierLogo(undefined)).toBeNull();
+    expect(parseSupplierLogo("")).toBeNull();
+    expect(parseSupplierLogo("not json")).toBeNull();
+    expect(parseSupplierLogo("{}")).toBeNull();
+    expect(parseSupplierLogo({})).toBeNull();
+  });
+
+  it("wires into toSupplier via the Logo field", () => {
+    const supplier = toSupplier(
+      item({ Logo: JSON.stringify({ fileName: "Reserved_ImageAttachment_x.jpg", originalImageName: "a" }) }),
+    );
+    expect(supplier.logo?.fileName).toBe("Reserved_ImageAttachment_x.jpg");
+    expect(toSupplier(item({})).logo).toBeNull();
   });
 });
 
@@ -112,6 +146,7 @@ describe("supplierDetailsPatch", () => {
     supplierPerformanceRate: null,
     logisticalPerformance: null,
     qualityPerformance: null,
+    logo: null,
     comments: [],
     hasAttachments: false,
     createdAt: new Date(0),
@@ -170,6 +205,7 @@ function currentFixture(): Supplier {
     supplierPerformanceRate: null,
     logisticalPerformance: null,
     qualityPerformance: null,
+    logo: null,
     comments: [],
     hasAttachments: false,
     createdAt: new Date(0),

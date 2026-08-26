@@ -30,6 +30,9 @@ export const MOCK_SUPPLIERS: Supplier[] = [
     supplierPerformanceRate: 97,
     logisticalPerformance: 93,
     qualityPerformance: 100,
+    // Demonstrates the Logo round-trip in mock mode — MOCK_LOGO_ATTACHMENT
+    // below seeds a matching reserved-attachment entry for this supplier.
+    logo: { fileName: "Reserved_ImageAttachment_demo_arrow.png", originalImageName: "arrow-logo.png" },
     comments: [],
     hasAttachments: false,
     createdAt: daysAgo(370),
@@ -54,6 +57,7 @@ export const MOCK_SUPPLIERS: Supplier[] = [
     supplierPerformanceRate: 96,
     logisticalPerformance: 98,
     qualityPerformance: 95,
+    logo: null,
     comments: [],
     hasAttachments: false,
     createdAt: daysAgo(360),
@@ -78,6 +82,7 @@ export const MOCK_SUPPLIERS: Supplier[] = [
     supplierPerformanceRate: 93,
     logisticalPerformance: 97,
     qualityPerformance: 90,
+    logo: null,
     comments: [],
     hasAttachments: false,
     createdAt: daysAgo(350),

@@ -1939,6 +1939,17 @@ export type SupplierCoreCompetency = (typeof SUPPLIER_CORE_COMPETENCIES)[number]
  * "Quality Performance" is `QualityPerformance` (correctly spelled). Getting
  * this backwards silently writes the wrong number to the wrong card.
  */
+/**
+ * `Logo` — a modern SharePoint "Image" column. It stores no binary itself;
+ * the value is JSON metadata pointing at a reserved (hidden) attachment on
+ * the same item, named `fileName` here. `SupplierLogo` resolves that
+ * attachment's actual download URL — see `lib/supplierMapper.ts`.
+ */
+export interface SupplierLogoRef {
+  fileName: string;
+  originalImageName: string;
+}
+
 export interface Supplier {
   id: number;
   /** `Title` — "{BusinessPartnerNumber}-{CompanyName}", SharePoint's own display convention. */
@@ -1961,6 +1972,8 @@ export interface Supplier {
   supplierPerformanceRate: number | null;
   logisticalPerformance: number | null;
   qualityPerformance: number | null;
+  /** `Logo` — null when the supplier has none. See `SupplierLogoRef`. */
+  logo: SupplierLogoRef | null;
   comments: Comment[];
   hasAttachments: boolean;
   createdAt: Date;

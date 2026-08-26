@@ -4,6 +4,7 @@ import type {
   Supplier,
   SupplierCoreCompetency,
   SupplierInput,
+  SupplierLogoRef,
   SupplierStatus,
 } from "@/types/task";
 import { SUPPLIER_CORE_COMPETENCIES, SUPPLIER_STATUSES } from "@/types/task";
@@ -21,11 +22,16 @@ import { multiPersonField } from "./graphFields";
 // `QualityPerformance` (correctly spelled). Both are read/written here by
 // their REAL internal names — verified against live sample rows, 2026-08-26.
 //
-// `Logo` (a modern SharePoint "Image" column, storing a JSON blob describing
-// a reserved attachment) is deliberately NOT read or written here — its
-// Graph column type is unrecoverable from the columns API and rendering it
-// needs the reserved-attachment file, which is a separate feature. See
-// CLAUDE.md.
+// `Logo` is a modern SharePoint "Image" column — its Graph column type is
+// unrecoverable from the /columns endpoint (no type key at all comes back),
+// but the ITEM data tells the real story: the value is a JSON string
+// describing a reserved (hidden) attachment on the same item —
+//   {"fileName":"Reserved_ImageAttachment_...jpg","originalImageName":"..."}
+// `parseSupplierLogo` reads that JSON; resolving it to an actual <img> src
+// means matching `fileName` against the item's attachment list (see
+// `SupplierLogo.tsx` and CLAUDE.md — unverified against a live real-mode
+// tenant, since this parsing is inferred from the item payload's shape
+// rather than any documented Graph/REST contract for Image columns).
 // =============================================================================
 
 function text(value: unknown): string {
@@ -55,6 +61,29 @@ function toCoreCompetencies(raw: unknown): SupplierCoreCompetency[] {
   );
 }
 
+/**
+ * `Logo` arrives as a JSON-encoded string (or already-parsed object, in mock
+ * mode's fixtures). Malformed or missing values are a supplier with no logo,
+ * not an error — a column no one has filled in yet is the common case.
+ */
+export function parseSupplierLogo(raw: unknown): SupplierLogoRef | null {
+  if (raw && typeof raw === "object") {
+    const obj = raw as Record<string, unknown>;
+    if (typeof obj.fileName === "string" && obj.fileName) {
+      return { fileName: obj.fileName, originalImageName: text(obj.originalImageName) };
+    }
+    return null;
+  }
+  if (typeof raw !== "string" || !raw.trim()) return null;
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    if (typeof parsed.fileName !== "string" || !parsed.fileName) return null;
+    return { fileName: parsed.fileName, originalImageName: text(parsed.originalImageName) };
+  } catch {
+    return null;
+  }
+}
+
 export function toSupplier(item: GraphListItem): Supplier {
   const f = item.fields ?? {};
   return {
@@ -76,6 +105,7 @@ export function toSupplier(item: GraphListItem): Supplier {
     supplierPerformanceRate: toNumberOrNull(f.SupplierPerformanceRate),
     logisticalPerformance: toNumberOrNull(f.QualityPeformance),
     qualityPerformance: toNumberOrNull(f.QualityPerformance),
+    logo: parseSupplierLogo(f.Logo),
     comments: parseCommunication(text(f.Communication)),
     hasAttachments: f.Attachments === true,
     createdAt: parseSpDate(f.Created) ?? new Date(0),

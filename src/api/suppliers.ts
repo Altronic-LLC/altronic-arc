@@ -42,7 +42,7 @@ function itemPath(id: number): string {
 }
 
 const SELECT =
-  "Title,CompanyName,BusinessPartnerNumber,Address,Website,SupplierScore,CoreCompetency,Status,Notes,AssignedBuyer,SupplierIdentifier,Watchers,PointofContact,AllDeliveries,SupplierPerformanceRate,QualityPeformance,QualityPerformance,Communication,Attachments,Created,Modified";
+  "Title,CompanyName,BusinessPartnerNumber,Address,Website,SupplierScore,CoreCompetency,Status,Notes,AssignedBuyer,SupplierIdentifier,Watchers,PointofContact,AllDeliveries,SupplierPerformanceRate,QualityPeformance,QualityPerformance,Logo,Communication,Attachments,Created,Modified";
 
 export async function listSuppliers(): Promise<Supplier[]> {
   if (USE_MOCK) {
@@ -98,6 +98,7 @@ export async function createSupplier(input: SupplierInput): Promise<Supplier> {
       supplierPerformanceRate: null,
       logisticalPerformance: null,
       qualityPerformance: null,
+      logo: null,
       comments: [],
       hasAttachments: false,
       createdAt: now,

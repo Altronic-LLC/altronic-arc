@@ -10,7 +10,7 @@ import {
   SharePointUnavailableError,
   type SharePointUnavailableCause,
 } from "@/api/sharepoint";
-import type { AttachmentParent } from "@/api/attachments";
+import { isReservedImageAttachment, type AttachmentParent } from "@/api/attachments";
 import { filesFromClipboard } from "@/lib/pasteFiles";
 import { useFileDrop } from "./useFileDrop";
 import { cn } from "@/lib/cn";
@@ -30,7 +30,12 @@ interface AttachmentsSectionProps {
  */
 export function AttachmentsSection({ parent, itemId }: AttachmentsSectionProps) {
   const fileInput = useRef<HTMLInputElement>(null);
-  const { data: attachments = [], isLoading, error, refetch } = useAttachments(parent, itemId);
+  const { data: rawAttachments = [], isLoading, error, refetch } = useAttachments(parent, itemId);
+  // A SharePoint "Image" column's hidden backing file (e.g. Suppliers List's
+  // Logo) rides along in the same attachment list — hide it here so it can't
+  // be deleted through this generic UI. SupplierLogo is the one place that
+  // reads it back out.
+  const attachments = rawAttachments.filter((a) => !isReservedImageAttachment(a.fileName));
   const upload = useUploadAttachment(parent, itemId);
   const remove = useDeleteAttachment(parent, itemId);
 

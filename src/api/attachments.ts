@@ -138,6 +138,18 @@ const PARENT_CONFIG: Record<AttachmentParent, ParentConfig> = {
   },
 };
 
+/**
+ * True for a SharePoint "Image" column's hidden backing attachment
+ * (`Reserved_ImageAttachment_...`). These aren't user attachments — they're
+ * the file behind a column like Suppliers List's Logo — so every generic
+ * attachments list filters them out rather than showing one as a plain,
+ * deletable file (deleting it would break the Image column's reference).
+ * See `SupplierLogo.tsx`, which is the one place that DOES look for one.
+ */
+export function isReservedImageAttachment(fileName: string): boolean {
+  return fileName.startsWith("Reserved_ImageAttachment_");
+}
+
 /** Build the absolute `/_api/web/lists(guid'...')/items(...)` path for a parent kind, or throw if unconfigured. */
 function resolveListPath(parent: AttachmentParent, itemId: number): string {
   const cfg = PARENT_CONFIG[parent];
@@ -152,6 +164,22 @@ function resolveListPath(parent: AttachmentParent, itemId: number): string {
 const mockStore = new Map<string, ListAttachment[]>();
 function mockKey(parent: AttachmentParent, itemId: number) {
   return `${parent}:${itemId}`;
+}
+
+// Demo seed for the Logo feature: mirrors the reserved-attachment shape a
+// real SharePoint "Image" column produces, so mock mode has something for
+// SupplierLogo to actually resolve. MOCK_SUPPLIERS' id-25 fixture carries the
+// matching `logo.fileName`. A single grey placeholder square, inlined so the
+// demo needs no separate asset file.
+if (USE_MOCK) {
+  mockStore.set(mockKey("supplier", 25), [
+    {
+      fileName: "Reserved_ImageAttachment_demo_arrow.png",
+      downloadUrl:
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAQAAAC8dTs+AAAAIGNIUk0AAHomAACAhAAA+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAAACYktHRAD/h4/MvwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAAd0SU1FB+kIGwUALrH1Y6UAAAAcdEVYdENvbW1lbnQAQ3JlYXRlZCB3aXRoIEdJTVBXgQ4XAAAAHElEQVR42u3BAQ0AAADCoPdPbQ43oAAAAAAAAOA1FpUAAaPQ+F0AAAAASUVORK5CYII=",
+      serverRelativeUrl: "mock:supplier:25:logo.png",
+    },
+  ]);
 }
 
 export async function listAttachments(

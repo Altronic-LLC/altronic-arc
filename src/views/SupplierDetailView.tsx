@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { AlertTriangle, Eye, Pencil, Plus, Truck, User, Users } from "lucide-react";
+import { AlertTriangle, Eye, Pencil, Plus, User, Users } from "lucide-react";
 import {
   collectSupplierPeople,
   useAddSupplierComment,
@@ -35,6 +35,7 @@ import { SupplierContactCard } from "@/components/SupplierContactCard";
 import { SupplierContactFormModal } from "@/components/SupplierContactFormModal";
 import { SupplierIssueCard } from "@/components/SupplierIssueCard";
 import { SupplierIssueFormModal } from "@/components/SupplierIssueFormModal";
+import { SupplierLogo } from "@/components/SupplierLogo";
 
 // =============================================================================
 // One supplier — the SRM tool's "supplier 360" page. Details/Notes are a card
@@ -145,9 +146,7 @@ export function SupplierDetailView() {
       <DetailTopBar category="Suppliers" listTo="/supply-chain/suppliers" />
 
       <div className="flex flex-wrap items-start gap-3">
-        <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-cooper-red/10 text-cooper-red">
-          <Truck className="h-5 w-5" />
-        </span>
+        <SupplierLogo supplierId={supplier.id} logo={supplier.logo} className="h-10 w-10 rounded-lg" />
         <div className="min-w-0 flex-1">
           <h1 className="font-display text-xl font-semibold text-fg sm:text-2xl">
             {supplier.title || `Supplier #${supplier.id}`}

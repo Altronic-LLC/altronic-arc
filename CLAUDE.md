@@ -452,6 +452,7 @@ src/
 │   ├── SupplierContactCard.tsx       SRM Tool — one contact, inline expandable card (comments/watchers/attachments)
 │   ├── SupplierIssueFormModal.tsx    SRM Tool — log an issue, scoped to a supplier (create-only)
 │   ├── SupplierIssueCard.tsx         SRM Tool — one issue, inline expandable card (comments/watchers/attachments)
+│   ├── SupplierLogo.tsx              SRM Tool — resolves and renders a supplier's Logo image column
 │   ├── GrayMarketRequestFormModal.tsx  Raise a gray market request
 │   ├── WhereAmIFormModal.tsx     Add/edit an out-of-office entry (+ date range)
 │   ├── ProjectFolderFormModal.tsx  Create a project folder + tag its Project Reference
@@ -1294,13 +1295,33 @@ Six things about this list's columns:
   every sampled row blank. It is deliberately NOT read or written here,
   the same call as CSA Listings' deleted expiry feature: don't build a field
   around data nobody has decided the shape of yet.
-- **`Logo` is a modern SharePoint "Image" column**, storing a JSON blob
+- **`Logo` is a modern SharePoint "Image" column** — it stores no binary of
+  its own. The value is a JSON blob
   (`{"fileName":"Reserved_ImageAttachment_...","originalImageName":"..."}`)
-  that points at a reserved attachment file. Its Graph column type is
-  unrecoverable from the `/columns` endpoint (no `hyperlinkOrPicture` block,
-  no type key at all), so rendering it would mean guessing at an
-  undocumented shape. Deliberately NOT read or written — a known limitation,
-  not an oversight.
+  naming a reserved (hidden) attachment on the SAME item. Its Graph column
+  type is unrecoverable from the `/columns` endpoint (no `hyperlinkOrPicture`
+  block, no type key at all comes back), so `parseSupplierLogo`
+  (`lib/supplierMapper.ts`) reads the item payload's own shape rather than
+  any documented column contract. Rendering it (`SupplierLogo.tsx`) means
+  matching that `fileName` against the item's real attachment list —
+  `useAttachments("supplier", id)`, the SAME query `AttachmentsSection`
+  already uses, so a supplier with a logo costs no extra request beyond the
+  one its Attachments card already makes. Falls back to a plain icon tile
+  whenever there's nothing to show: no `Logo` value, the attachments haven't
+  loaded, or (real mode, **unverified**) the reserved attachment doesn't
+  actually surface via SP REST the way this assumes — the mechanism is
+  inferred from a live item's payload, not from any documented Graph/REST
+  contract for Image columns. Verify against a live tenant before trusting
+  it broadly.
+  **`isReservedImageAttachment()`** (`api/attachments.ts`) filters this file
+  out of every generic `AttachmentsSection` list — it isn't a user
+  attachment, and deleting it through that generic UI would break the Logo
+  column's reference. `SupplierLogo.tsx` is the one place that deliberately
+  looks for it.
+  **Shown in both places**: a small icon in the Suppliers list row, and a
+  larger one in the Supplier detail header — only suppliers whose `Logo`
+  field is actually set trigger the attachment fetch, so the 531-row list
+  doesn't fire 531 requests on load.
 - **`Title`, `FirstName` and `LastName` are blank on every Supplier Contact
   row seen live** (566 rows) — every contact so far is identified by email
   alone. `supplierContactLabel` falls back through name → email → a numbered

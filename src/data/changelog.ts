@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.122.1",
+    date: "2026-08-26",
+    changes: [
+      "Show a supplier's logo, when SharePoint has one on file, in the Suppliers list and on the supplier's own page",
+    ],
+  },
+  {
     version: "0.122.0",
     date: "2026-08-26",
     changes: [

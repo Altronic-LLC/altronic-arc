@@ -9,6 +9,7 @@ import { LoadingTasks } from "@/components/LoadingTasks";
 import { SearchInput } from "@/components/SearchInput";
 import { ChoiceSelect } from "@/components/SearchableSelect";
 import { SupplierFormModal } from "@/components/SupplierFormModal";
+import { SupplierLogo } from "@/components/SupplierLogo";
 import { cn } from "@/lib/cn";
 
 // =============================================================================
@@ -159,7 +160,8 @@ function Row({ supplier, onOpen }: { supplier: Supplier; onOpen: () => void }) {
   return (
     <tr onClick={onOpen} className={cn("cursor-pointer border-t border-border transition-colors hover:bg-surface-2")}>
       <td className="max-w-[18rem] truncate px-4 py-2 font-medium text-fg" title={supplier.title}>
-        <span className="inline-flex items-center gap-1.5">
+        <span className="inline-flex items-center gap-2">
+          <SupplierLogo supplierId={supplier.id} logo={supplier.logo} className="h-6 w-6 shrink-0 p-0.5" />
           {supplier.title || `#${supplier.id}`}
           {supplier.comments.length > 0 && (
             <span
