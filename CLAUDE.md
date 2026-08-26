@@ -2103,6 +2103,46 @@ Adding a new colour means adding a CSS var first and then a Tailwind alias.
 The accent colour is Cooper Red (`#CB2C30`). Cooper brand secondary colours
 are available as Tailwind classes (`text-cooper-green`, `bg-ajax-yellow`, etc.).
 
+## PWA / home-screen icon
+
+Until 2026-08-26 there was no web app manifest and only a bare
+`<link rel="icon">` pointing at `public/favicon.svg`. Without a manifest
+declaring real icons, "Install app" / "Add to Home Screen" doesn't use that
+SVG at all — the browser falls back to a generated placeholder: a flat
+colour square with the site's first letter ("A"). That's the icon Ray
+reported as "not nice."
+
+Fixed with:
+
+- **`public/manifest.webmanifest`** — name, short_name, theme_color
+  (`#CB2C30`), and an `icons` array covering both `"any"` (192/512) and
+  `"maskable"` (192/512) purposes. `start_url` and `scope` are `"."`, and
+  every icon `src` is a bare relative path (`icons/icon-512.png`, no leading
+  `/`) — both resolve against the MANIFEST's own URL, which already carries
+  the GitHub Pages sub-path, so this works in dev (`/`) and production
+  (`/altronic-arc/`) with no env-specific branching.
+- **`public/icons/*.png`** — generated, not hand-drawn, by
+  `scripts/generate-pwa-icons.mjs` (needs the `sharp` devDependency) from the
+  same spark-mark path `Brandmark.tsx` and `favicon.svg` already use: white
+  mark on a Cooper Red square. Two variants:
+  - **plain** (mark ~70% of the canvas) — favicon PNGs, `apple-touch-icon`,
+    and the manifest's `"any"` icons. iOS fills a transparent apple-touch
+    icon with black, which would look wrong, so this one needs the opaque
+    red background regardless.
+  - **maskable** (mark ~50% of the canvas) — Android's adaptive-icon mask
+    can crop a maskable icon to any shape (circle, squircle, …), so its
+    content has to sit inside the centered ~80% "safe zone" or a crop clips
+    it. The plain variant's tighter mark would lose its points to a circular
+    mask.
+- **`index.html`** — `<link rel="manifest">`, `<link rel="apple-touch-icon">`,
+  two PNG `<link rel="icon">` fallbacks alongside the existing SVG one (some
+  browsers still prefer a raster favicon over SVG), and the
+  `apple-mobile-web-app-*` meta tags iOS reads for its own icon/title.
+
+**Re-run the generator if the brand mark changes**: `node
+scripts/generate-pwa-icons.mjs`. It's deterministic — same mark path in, same
+seven PNGs out — so there's nothing to hand-tune afterward.
+
 ## Cross-cutting rules (each one is here because a bug taught it)
 
 These apply app-wide, not to one department. They were all learned from a real

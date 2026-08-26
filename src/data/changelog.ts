@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.121.2",
+    date: "2026-08-26",
+    changes: [
+      "Fix the app icon shown when installing ARC or adding it to a phone's home screen",
+      "It's now the Altronic spark mark on Cooper Red, not a plain letter placeholder",
+    ],
+  },
+  {
     version: "0.121.1",
     date: "2026-08-26",
     changes: [
