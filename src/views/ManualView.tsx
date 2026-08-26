@@ -2949,6 +2949,12 @@ const SECTIONS: ManualSection[] = [
           choices on tasks, EIRs, and test sheets.
         </P>
         <P>
+          A <strong>Search</strong> box above the list narrows the projects
+          shown, the same way search works everywhere else in ARC: multiple
+          words all have to match, in any field, in any order, so{" "}
+          <code>5000 AMP</code> still finds <code>0017-AMP-5000 Refresh</code>.
+        </P>
+        <P>
           To <strong>edit an existing project's number or name</strong>, hover
           the project and click the <strong>pencil</strong>. Both the number and
           the name live in the project title (e.g. <code>0017-AMP-5000 Refresh</code>),

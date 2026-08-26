@@ -4,6 +4,8 @@ import { ArrowLeft, Pencil, Plus, Shield, X } from "lucide-react";
 import { useCreateProject, useProjects, useUpdateProject } from "@/hooks/useTasks";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { LoadingTasks } from "@/components/LoadingTasks";
+import { SearchInput } from "@/components/SearchInput";
+import { matchesSearch, tokenizeQuery } from "@/lib/itemSearch";
 import { cn } from "@/lib/cn";
 import type { ProjectReference } from "@/types/task";
 
@@ -59,6 +61,7 @@ export function AdminProjectsView() {
   const createProject = useCreateProject();
   const updateProject = useUpdateProject();
   const [newTitle, setNewTitle] = useState("");
+  const [search, setSearch] = useState("");
 
   if (!isAdmin) {
     return (
@@ -88,6 +91,16 @@ export function AdminProjectsView() {
     setNewTitle("");
   }
 
+  // Multi-keyword, all-fields search — same behaviour as every other list in
+  // ARC (see "How search works (all lists)" in the manual). A project has
+  // little beyond its title, but this still matches "AMP 5000" against
+  // "0017-AMP-5000 Refresh" regardless of word order.
+  const searchTokens = useMemo(() => tokenizeQuery(search), [search]);
+  const filtered = useMemo(
+    () => (searchTokens.length === 0 ? projects : projects.filter((p) => matchesSearch(p, searchTokens))),
+    [projects, searchTokens],
+  );
+
   const grouped = useMemo(() => {
     const g: Record<BucketKey, ProjectReference[]> = {
       new: [],
@@ -96,13 +109,13 @@ export function AdminProjectsView() {
       insourcing: [],
       other: [],
     };
-    for (const p of projects) g[classifyProject(p.title)].push(p);
+    for (const p of filtered) g[classifyProject(p.title)].push(p);
     // Highest number first within each table (descending, numeric-aware).
     for (const key of Object.keys(g) as BucketKey[]) {
       g[key].sort((a, b) => b.title.localeCompare(a.title, undefined, { numeric: true }));
     }
     return g;
-  }, [projects]);
+  }, [filtered]);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-4 sm:px-6 sm:py-6">
@@ -186,10 +199,18 @@ export function AdminProjectsView() {
         </form>
       </section>
 
-      <div className="mb-3 flex items-baseline justify-between gap-3">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
-          Existing projects ({projects.length})
+          Existing projects (
+          {searchTokens.length > 0 ? `${filtered.length} of ${projects.length}` : projects.length}
+          )
         </h2>
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Search projects…"
+          className="h-9 w-full max-w-xs rounded-md border border-border bg-surface pl-9 pr-3 text-sm text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+        />
       </div>
 
       {isLoading ? (
@@ -197,6 +218,10 @@ export function AdminProjectsView() {
       ) : projects.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border py-8 text-center text-sm text-fg-muted">
           No projects yet. Add one above.
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-border py-8 text-center text-sm text-fg-muted">
+          No projects match "{search}".
         </div>
       ) : (
         // 2×2 quadrants on large screens (New / Legacy on top, Engineering

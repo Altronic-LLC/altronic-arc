@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.119.1",
+    date: "2026-08-26",
+    changes: [
+      "Admin → Engineering Project Log now has a search box — matches any word in any order across every project, same as every other list in ARC",
+    ],
+  },
+  {
     version: "0.119.0",
     date: "2026-08-26",
     changes: [
