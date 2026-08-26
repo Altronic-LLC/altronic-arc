@@ -68,6 +68,17 @@ export function PromoteEirModal({ eir, onClose }: { eir: Eir; onClose: () => voi
       setError("Task title is required.");
       return;
     }
+    // A promoted task's number is T{n}-{project code}-{title} — without a
+    // project there is no code, and it silently fell back to "0000"
+    // (indistinguishable from a real project happening to be numbered 0000).
+    // New Task already requires a project for exactly this reason; promotion
+    // hadn't, so a promoted-without-a-project task's number lied about its
+    // project (Ray, 2026-08-26 — reported as EIR_2026-0069 coming out
+    // "T3-0000-...").
+    if (chosenProject === null) {
+      setError("Parent project is required — it sets the task's number.");
+      return;
+    }
     setError(null);
     try {
       const { task } = await promote.mutateAsync({
@@ -167,7 +178,7 @@ export function PromoteEirModal({ eir, onClose }: { eir: Eir; onClose: () => voi
 
           <label className="flex flex-col gap-1.5">
             <span className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
-              Parent project
+              Parent project<span className="ml-1 text-cooper-red">*</span>
             </span>
             <ChoiceSelect
               value={projectId === "" ? "" : String(projectId)}
@@ -176,12 +187,14 @@ export function PromoteEirModal({ eir, onClose }: { eir: Eir; onClose: () => voi
                 value: String(p.lookupId),
                 label: p.title,
               }))}
-              emptyLabel="No project (numbers under 0000)"
+              emptyLabel="Select a project…"
+              clearable={false}
               searchPlaceholder="Search projects…"
               disabled={busy}
             />
             <span className="text-xs text-fg-muted">
-              Sets the task's Parent Project and its number prefix.
+              Sets the task's Parent Project and its number prefix — required,
+              so the number always carries a real project code.
             </span>
           </label>
         </div>
@@ -198,7 +211,7 @@ export function PromoteEirModal({ eir, onClose }: { eir: Eir; onClose: () => voi
           <button
             type="button"
             onClick={handleConfirm}
-            disabled={busy || !trimmedTitle}
+            disabled={busy || !trimmedTitle || chosenProject === null}
             className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90 disabled:opacity-50"
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}

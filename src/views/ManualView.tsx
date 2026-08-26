@@ -2272,9 +2272,11 @@ const SECTIONS: ManualSection[] = [
           the sidebar <strong>Resolution</strong> to{" "}
           <strong>Promoted to Task</strong>) and a confirmation window opens.
           Adjust the <strong>task title</strong> if you want (it defaults to
-          the EIR's title). Pick the parent project (defaulted from
-          the EIR's Project Reference — it sets the task's number prefix) and
-          click <strong>Create task</strong>. The new task carries over the
+          the EIR's title). Pick the parent project — defaulted from the EIR's
+          Project Reference when it has one, and <strong>required</strong>:
+          it sets the task's number prefix, so <strong>Create task</strong>{" "}
+          stays disabled until a project is chosen. Then click{" "}
+          <strong>Create task</strong>. The new task carries over the
           EIR's title, description, project, watchers, and attachments, and
           its whole comment thread is copied across with each comment tagged{" "}
           <em>"carried over from EIR …"</em>. The task opens with a{" "}

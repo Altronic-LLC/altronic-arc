@@ -710,6 +710,17 @@ DetailView flashed "Task not found" until the refetch eventually caught up.
 onSuccess comment); `usePromoteEirToTask` went through `createTask` directly
 rather than that hook and needed the identical `setQueryData` seeding.
 
+**Promoting also requires a parent project, same as New Task, for the same
+reason `computeNumberedTitle` needs one** (`T{n}-{project code}-{title}`, see
+`src/lib/taskNumbering.ts`): with no project, the code falls back to `"0000"`,
+which is indistinguishable from a real project that happens to be numbered
+0000. `TaskFormModal` already required a project on create; `PromoteEirModal`
+didn't, and a promotion without one produced exactly that — reported
+2026-08-26 as `EIR_2026-0069` promoting to `T3-0000-…`. Fixed by disabling
+**Create task** (and validating in `handleConfirm`, belt-and-suspenders) until
+a project is chosen, mirroring `TaskFormModal`'s `required={mode === "create"}`
+treatment of the same field exactly.
+
 ## Parent project resolution
 
 The `Parent_x0020_Project_x0020_ReferLookupId` field is a SharePoint lookup

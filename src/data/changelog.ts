@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.118.2",
+    date: "2026-08-26",
+    changes: [
+      "Fixed: promoting an EIR to a task with no project chosen numbered the task \"0000\" — Promote to Task now requires a parent project, same as New Task, so the number always carries a real project code",
+    ],
+  },
+  {
     version: "0.118.1",
     date: "2026-08-26",
     changes: [
