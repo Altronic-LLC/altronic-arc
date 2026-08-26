@@ -80,8 +80,12 @@ const weekDir = join(outDir, m.weekFolderName(runDate));
 mkdirSync(weekDir, { recursive: true });
 
 const ctx = { runDate, generatedBy: "Sample run from a live extract" };
+// Built from THIS extract's own header row, same as the app does — so the
+// sample shows exactly what a run against this file would produce, whatever
+// columns it happens to carry.
+const layout = m.layoutFromColumns(parsed.columns);
 const t1 = Date.now();
-const master = await m.buildMasterWorkbook(ExcelJS, parsed.lines, accounts, ctx);
+const master = await m.buildMasterWorkbook(ExcelJS, parsed.lines, accounts, ctx, layout);
 const masterName = m.masterWorkbookName(runDate);
 writeFileSync(join(outDir, masterName), Buffer.from(await master.xlsx.writeBuffer()));
 console.log(`\nmaster   ${masterName}`);
@@ -93,7 +97,7 @@ for (const report of reports) {
       a.accountNumber.replace(/^0+/, "").toUpperCase() ===
       report.soldTo.replace(/^0+/, "").toUpperCase(),
   );
-  const wb = await m.buildCustomerWorkbook(ExcelJS, report, account, ctx);
+  const wb = await m.buildCustomerWorkbook(ExcelJS, report, account, ctx, layout);
   const name = m.customerWorkbookName(report.customerName, runDate);
   writeFileSync(join(weekDir, name), Buffer.from(await wb.xlsx.writeBuffer()));
   console.log(`customer ${name}  (${report.metrics.lines} lines, ${report.repairLines.length} repair)`);

@@ -5,6 +5,7 @@ import {
   fieldForHeader,
   headerNameFor,
   normaliseHeader,
+  type RawColumnOrder,
 } from "./openOrdersFields";
 
 // =============================================================================
@@ -39,6 +40,14 @@ export interface ParseResult {
   headerRow: number;
   /** Headers present in the file that ARC doesn't read. */
   unmappedHeaders: string[];
+  /**
+   * This file's own header row, in its own order — the source of a report's
+   * layout (see `layoutFromColumns` in `openOrdersFields.ts`). Includes both
+   * known and unrecognised columns; blank header cells and a repeated known
+   * header's second occurrence are dropped, matching how the fields below
+   * are read.
+   */
+  columns: RawColumnOrder[];
 }
 
 export class OpenOrdersParseError extends Error {
@@ -80,15 +89,26 @@ export function parseOpenOrdersGrid(grid: unknown[][]): ParseResult {
 
   const columnFor = new Map<ReturnType<typeof fieldForHeader>, number>();
   const unmappedHeaders: string[] = [];
+  // The file's own header row, left to right — this is what a report's
+  // layout is built from (layoutFromColumns), so it has to survive even for
+  // columns ARC has no field for.
+  const columns: RawColumnOrder[] = [];
   headers.forEach((header, index) => {
     const field = fieldForHeader(header);
-    const text = String(header ?? "").trim();
+    const headerText = String(header ?? "").trim();
+    if (!headerText) return; // a blank header cell isn't a real column
     if (field) {
       // First column wins if a header repeats — a duplicated column is
-      // usually a copy someone left behind, and the left-most is the original.
-      if (!columnFor.has(field)) columnFor.set(field, index);
-    } else if (text && !IGNORED_COLUMNS.some((i) => normaliseHeader(i) === normaliseHeader(text))) {
-      unmappedHeaders.push(text);
+      // usually a copy someone left behind, and the left-most is the
+      // original. The repeat is dropped from the layout too, not just the
+      // typed mapping, so it doesn't show up twice.
+      if (!columnFor.has(field)) {
+        columnFor.set(field, index);
+        columns.push({ header: headerText, field, index });
+      }
+    } else if (!IGNORED_COLUMNS.some((i) => normaliseHeader(i) === normaliseHeader(headerText))) {
+      unmappedHeaders.push(headerText);
+      columns.push({ header: headerText, field: null, index });
     }
   });
 
@@ -104,6 +124,10 @@ export function parseOpenOrdersGrid(grid: unknown[][]): ParseResult {
     const index = columnFor.get(field);
     return index === undefined ? undefined : row[index];
   };
+
+  // Columns with no field of their own — carried onto each line as `raw` so
+  // the report can still show them (see the `OpenOrderLine.raw` doc comment).
+  const unknownColumns = columns.filter((c) => c.field === null);
 
   const lines: OpenOrderLine[] = [];
   let skipped = 0;
@@ -169,6 +193,10 @@ export function parseOpenOrdersGrid(grid: unknown[][]): ParseResult {
       commentDate: dateCellOnly(cell(row, "comments")),
       mrpController: text(cell(row, "mrpController")),
       createdBy: text(cell(row, "createdBy")),
+      raw:
+        unknownColumns.length > 0
+          ? Object.fromEntries(unknownColumns.map((c) => [c.index, row[c.index]]))
+          : undefined,
     });
   }
 
@@ -182,6 +210,7 @@ export function parseOpenOrdersGrid(grid: unknown[][]): ParseResult {
     lines,
     headerRow: headerRow + 1,
     unmappedHeaders,
+    columns,
     warnings: warningsFor(lines, unmappedHeaders, skipped, zeroQty),
   };
 }
@@ -194,15 +223,18 @@ function warningsFor(
 ): ParseWarning[] {
   const warnings: ParseWarning[] = [];
 
-  // A new SAP column is worth saying out loud once — it may be the one
-  // somebody is about to ask why the report doesn't show.
+  // A new SAP column is worth saying out loud once — it still lands in the
+  // report (the layout always mirrors the raw file), but plainly, not with
+  // the tuned formatting a recognised column gets, and it plays no part in
+  // aging, repairs, or any other calculation.
   if (unmappedHeaders.length > 0) {
     warnings.push({
       kind: "unmapped-column",
       count: unmappedHeaders.length,
       message: `${unmappedHeaders.length} column${unmappedHeaders.length === 1 ? "" : "s"} in the file ${
         unmappedHeaders.length === 1 ? "isn't" : "aren't"
-      } used by the report: ${unmappedHeaders.join(", ")}.`,
+      } recognised, so ${unmappedHeaders.length === 1 ? "it's" : "they're"} shown as-is rather than ` +
+        `used in any calculation: ${unmappedHeaders.join(", ")}.`,
     });
   }
 

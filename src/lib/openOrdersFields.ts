@@ -37,7 +37,7 @@ import type { OpenOrderLine } from "@/types/task";
 // =============================================================================
 
 /** Which OpenOrderLine field a raw column feeds. */
-type LineField = keyof OpenOrderLine;
+export type LineField = keyof OpenOrderLine;
 
 export interface RawColumnSpec {
   field: LineField;
@@ -126,28 +126,118 @@ export function headerNameFor(field: LineField): string {
 }
 
 /**
- * The live extract's columns IN ITS OWN ORDER, with display widths.
+ * A column in a report's layout, in the raw file's own order.
  *
- * The reports reproduce this layout exactly — same columns, same order (Ray,
- * 2026-08-24: "Leave the colmns in same order as raw but brand it according to
- * altronic"). So this array is the single source of the sheet layout, and it is
- * ordered to match "OOR 8-21-2026 with customer tabs_R0.xlsx" rather than to
- * suit the domain type.
- *
- * Reordering this to something that reads better is the one change not to make
- * here: people reconcile these sheets against the raw export side by side, and
- * a helpfully-improved order makes that a manual hunt.
+ * `field` is `null` for a column ARC doesn't recognise — SAP's column set
+ * changes week to week (Ray, 2026-08-26: "use the raw uploaded files columns
+ * and names as they can change week on week... the layout always should
+ * match the raw file"), so a genuinely new column still has to appear in the
+ * report, just without the tuned formatting a known field gets. `index` is
+ * then that column's position in the ORIGINAL file's header row, which is
+ * how its values are found again on `OpenOrderLine.raw` — see
+ * `layoutFromColumns`.
  */
 export interface RawLayoutColumn {
-  /** The header text, exactly as the extract writes it. */
+  /** The header text, exactly as THIS WEEK'S extract writes it. */
   header: string;
-  field: LineField;
+  field: LineField | null;
+  /** Set only when `field` is null — the column's index in the file's header row. */
+  index?: number;
   width: number;
   /** "money" | "qty" | "date" | undefined for text. */
   format?: "money" | "qty" | "date";
   align?: "left" | "center" | "right";
 }
 
+/**
+ * How a KNOWN field is presented — width, number format, alignment — keyed by
+ * field rather than by column position. This used to double as the sheet's
+ * column ORDER too (a fixed array matching one historical extract's layout),
+ * which broke the moment a week's file added, dropped, or reordered a column:
+ * the report kept the old file's shape regardless of what was actually
+ * uploaded. Order and column SET now come from `layoutFromColumns`, built
+ * fresh from each week's own header row; this table only says how to draw a
+ * column once we know it's there.
+ */
+const FIELD_PRESENTATION: Partial<
+  Record<LineField, { width: number; format?: "money" | "qty" | "date"; align?: "left" | "center" | "right" }>
+> = {
+  orderDate: { width: 12, format: "date", align: "center" },
+  promiseDate: { width: 12, format: "date", align: "center" },
+  comments: { width: 34 },
+  soldTo: { width: 11, align: "center" },
+  customerName: { width: 30 },
+  salesOrder: { width: 13 },
+  customerPo: { width: 20 },
+  material: { width: 16 },
+  altronicPartNumber: { width: 15 },
+  description: { width: 34 },
+  openQty: { width: 12, format: "qty", align: "right" },
+  unitPrice: { width: 12, format: "money", align: "right" },
+  openValue: { width: 15, format: "money", align: "right" },
+  salesOffice: { width: 11, align: "center" },
+  requestedDate: { width: 14, format: "date", align: "center" },
+  shipTo: { width: 12, align: "center" },
+  orderQty: { width: 12, format: "qty", align: "right" },
+  netValue: { width: 14, format: "money", align: "right" },
+  lineNo: { width: 9, align: "center" },
+  createdBy: { width: 12 },
+  status: { width: 11, align: "center" },
+  currency: { width: 9, align: "center" },
+  orderType: { width: 15, align: "center" },
+  repairOrder: { width: 12, align: "center" },
+  mrpController: { width: 12, align: "center" },
+  deliveryBlock: { width: 12, align: "center" },
+  rejectionReason: { width: 18 },
+};
+
+/** A column ARC doesn't recognise gets a width guessed from its own header. */
+function widthForUnknownHeader(header: string): number {
+  return Math.max(10, Math.min(30, header.length + 2));
+}
+
+/**
+ * One column in a parsed file's header row, in its original left-to-right
+ * order — blank header cells dropped, a repeated KNOWN header collapsed onto
+ * its first occurrence (matching `parseOpenOrdersGrid`'s "first wins" rule),
+ * everything else kept even when ARC has no field for it. Produced by
+ * `parseOpenOrdersGrid`; this is the one place a report's column SET and
+ * ORDER come from.
+ */
+export interface RawColumnOrder {
+  header: string;
+  field: LineField | null;
+  /** The column's index in that file's header row (0-based). */
+  index: number;
+}
+
+/**
+ * Build a report's layout from what THIS WEEK'S file actually contains —
+ * same columns, same order, same header text as the upload, every week,
+ * whatever SAP changed. A known field gets its tuned presentation from
+ * `FIELD_PRESENTATION`; an unrecognised column still gets a place in the
+ * sheet, read back from `OpenOrderLine.raw[index]` at render time (see
+ * `valueFor` in `openOrdersWorkbook.ts`).
+ */
+export function layoutFromColumns(columns: RawColumnOrder[]): RawLayoutColumn[] {
+  return columns.map((col) => {
+    if (col.field) {
+      const presentation = FIELD_PRESENTATION[col.field] ?? { width: 14 };
+      return { header: col.header, field: col.field, ...presentation };
+    }
+    return { header: col.header, field: null, index: col.index, width: widthForUnknownHeader(col.header) };
+  });
+}
+
+/**
+ * The canonical layout of "OOR 8-21-2026 with customer tabs_R0.xlsx" (Ray,
+ * 2026-08-24) — kept as the DEFAULT for callers that haven't parsed a live
+ * file (tests, the local sample generator with no upload yet), not as the
+ * layout every report uses. A real run always builds its layout from that
+ * run's own `RawColumnOrder[]` via `layoutFromColumns`, so a week that adds,
+ * drops, renames, or reorders a column produces a report shaped like THAT
+ * file, not this one.
+ */
 export const RAW_LAYOUT: RawLayoutColumn[] = [
   { header: "Created On", field: "orderDate", width: 12, format: "date", align: "center" },
   { header: "Ship Date", field: "promiseDate", width: 12, format: "date", align: "center" },

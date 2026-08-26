@@ -12,6 +12,7 @@ import {
 } from "@/api/openOrdersFiles";
 import { readOpenOrdersWorkbook } from "@/lib/openOrdersExcel";
 import type { ParseWarning } from "@/lib/openOrdersParse";
+import { layoutFromColumns, type RawColumnOrder } from "@/lib/openOrdersFields";
 import {
   buildCustomerWorkbook,
   buildMasterWorkbook,
@@ -92,6 +93,11 @@ export interface ParsedExtract {
   sheetName: string;
   availableSheets: string[];
   headerRow: number;
+  /** This file's own header row, in its own order — the report's layout is
+   * built from this (see `layoutFromColumns`), not from a fixed column list,
+   * so a week that adds, drops, renames, or reorders a column still produces
+   * a report shaped like what was actually uploaded. */
+  columns: RawColumnOrder[];
 }
 
 /**
@@ -120,6 +126,7 @@ export function useParseExtract() {
         sheetName: result.sheetName,
         availableSheets: result.availableSheets,
         headerRow: result.headerRow,
+        columns: result.columns,
       };
     } finally {
       setParsing(false);
@@ -169,6 +176,10 @@ export function useGenerateOpenOrders() {
       const { extract, accounts, runDate } = input;
       const excelJs = await excel();
       const ctx = { runDate, generatedBy: user.displayName || undefined };
+      // Built fresh from THIS extract's own header row — not a fixed column
+      // list — so the reports match whatever this week's file actually
+      // contains, added/dropped/renamed columns and all.
+      const layout = layoutFromColumns(extract.columns);
 
       const active = accounts.filter((a) => a.active);
       const reports = customerReportsFor(accounts, extract.lines, runDate);
@@ -180,7 +191,7 @@ export function useGenerateOpenOrders() {
       const weekFolder = await ensureWeekFolder(runDate);
 
       tick("Building the master dashboard");
-      const master = await buildMasterWorkbook(excelJs, extract.lines, accounts, ctx);
+      const master = await buildMasterWorkbook(excelJs, extract.lines, accounts, ctx, layout);
       const masterName = masterWorkbookName(runDate);
       await uploadOpenOrdersFile({
         filename: masterName,
@@ -199,7 +210,7 @@ export function useGenerateOpenOrders() {
             notes: "",
           };
         tick(`${report.customerName} (${done} of ${total})`);
-        const wb = await buildCustomerWorkbook(excelJs, report, account, ctx);
+        const wb = await buildCustomerWorkbook(excelJs, report, account, ctx, layout);
         const filename = customerWorkbookName(report.customerName, runDate);
         await uploadOpenOrdersFile({
           folder: weekFolder,
@@ -340,10 +351,13 @@ export function useGenerateCustomerReport() {
       }
 
       setStep("Building the workbook");
-      const wb = await buildCustomerWorkbook(excelJs, report, account, {
-        runDate,
-        generatedBy: user.displayName || undefined,
-      });
+      const wb = await buildCustomerWorkbook(
+        excelJs,
+        report,
+        account,
+        { runDate, generatedBy: user.displayName || undefined },
+        layoutFromColumns(parsed.columns),
+      );
       const weekFolder = await ensureWeekFolder(runDate);
       const filename = customerWorkbookName(report.customerName, runDate);
       await uploadOpenOrdersFile({

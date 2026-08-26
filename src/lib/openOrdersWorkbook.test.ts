@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import ExcelJS from "exceljs";
 import { buildCustomerWorkbook, buildMasterWorkbook } from "./openOrdersWorkbook";
-import { RAW_LAYOUT } from "./openOrdersFields";
+import { RAW_LAYOUT, layoutFromColumns, type RawColumnOrder } from "./openOrdersFields";
 import { MOCK_OPEN_ORDER_ACCOUNTS, MOCK_OPEN_ORDER_LINES, MOCK_RUN_DATE } from "@/data/openOrdersMockData";
 import { customerReport } from "./openOrders";
 import type { OpenOrderCustomerAccount } from "@/types/task";
@@ -130,6 +130,87 @@ describe("the master workbook", () => {
     const salesOrderCol = RAW_LAYOUT.findIndex((c) => c.header === "Sales Order") + 1;
     expect(totals.getCell(salesOrderCol).value).toBeFalsy();
     const openValueCol = RAW_LAYOUT.findIndex((c) => c.header === "Open Order Value") + 1;
+    expect(typeof totals.getCell(openValueCol).value).toBe("number");
+  });
+});
+
+// =============================================================================
+// A week's file isn't always shaped like the canonical extract — SAP renames,
+// adds, and drops columns (Ray, 2026-08-26: "the layout always should match
+// the raw file"). These build against a LAYOUT derived from a different
+// file's own columns, the way a real generate does, rather than the default.
+// =============================================================================
+describe("a run whose file has a different shape this week", () => {
+  // Renamed "Ship Date" → "Promise Date", a brand-new "Profit Centre" column
+  // appended, and "MRP Controller" missing entirely.
+  const columns: RawColumnOrder[] = RAW_LAYOUT.filter((c) => c.field !== "mrpController").map(
+    (c, index) => ({
+      header: c.field === "promiseDate" ? "Promise Date" : c.header,
+      field: c.field,
+      index,
+    }),
+  );
+  columns.push({ header: "Profit Centre", field: null, index: columns.length });
+  const layout = layoutFromColumns(columns);
+
+  const linesWithProfitCentre = MOCK_OPEN_ORDER_LINES.map((l, i) => ({
+    ...l,
+    raw: { [columns.length - 1]: `PC-${String(i).padStart(2, "0")}` },
+  }));
+
+  async function build(): Promise<ExcelJS.Workbook> {
+    return buildMasterWorkbook(ExcelJS, linesWithProfitCentre, MOCK_OPEN_ORDER_ACCOUNTS, ctx, layout);
+  }
+
+  function headerRow(ws: ExcelJS.Worksheet): number {
+    for (let r = 1; r <= 20; r++) {
+      if (String(ws.getRow(r).getCell(1).value ?? "") === layout[0].header) return r;
+    }
+    throw new Error("no header row found");
+  }
+
+  it("uses THIS file's headers, not the canonical extract's", async () => {
+    const ws = (await build()).getWorksheet("Open Orders")!;
+    const row = headerRow(ws);
+    const headers = layout.map((_, i) => String(ws.getRow(row).getCell(i + 1).value ?? ""));
+    expect(headers).toEqual(layout.map((c) => c.header));
+    expect(headers).toContain("Promise Date"); // renamed
+    expect(headers).toContain("Profit Centre"); // new
+    expect(headers).not.toContain("MRP Controller"); // dropped
+  });
+
+  it("still bolds the promise date on a past-due line under its new name", async () => {
+    const ws = (await build()).getWorksheet("Open Orders")!;
+    const row = headerRow(ws);
+    const shipCol = layout.findIndex((c) => c.field === "promiseDate") + 1;
+    expect(shipCol).toBeGreaterThan(0);
+    // At least one data row should carry the bold weight the "Past due" rule
+    // applies — proves the lookup found the renamed column by FIELD.
+    let sawBold = false;
+    for (let r = row + 1; r < row + 1 + linesWithProfitCentre.length; r++) {
+      if (ws.getRow(r).getCell(shipCol).font?.bold) sawBold = true;
+    }
+    expect(sawBold).toBe(true);
+  });
+
+  it("shows the new column's raw values, read back verbatim", async () => {
+    const ws = (await build()).getWorksheet("Open Orders")!;
+    const row = headerRow(ws);
+    const pcCol = layout.findIndex((c) => c.header === "Profit Centre") + 1;
+    // Rows are sorted by promise date for display, so check the SET of values
+    // made it across rather than assuming a particular row landed first.
+    const seen = new Set<string>();
+    for (let r = row + 1; r < row + 1 + linesWithProfitCentre.length; r++) {
+      seen.add(String(ws.getRow(r).getCell(pcCol).value));
+    }
+    expect(seen.has("PC-00")).toBe(true);
+    expect(seen.size).toBe(linesWithProfitCentre.length);
+  });
+
+  it("totals Open Order Value under its renamed-neighbour layout same as before", async () => {
+    const ws = (await build()).getWorksheet("Open Orders")!;
+    const openValueCol = layout.findIndex((c) => c.field === "openValue") + 1;
+    const totals = ws.getRow(ws.rowCount);
     expect(typeof totals.getCell(openValueCol).value).toBe("number");
   });
 });

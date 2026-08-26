@@ -1377,12 +1377,32 @@ Arial for body. Excel has no font-fallback list, so naming Manrope on a machine
 without it renders as whatever Excel substitutes, which is worse than the
 sanctioned alternative.
 
-**The sheets mirror the raw extract, column for column, in ITS order** (Ray,
-2026-08-24: "do not rearrange columns"). `RAW_LAYOUT` in
-`openOrdersFields.ts` is that order and the only place it is defined; `Net
-Value` is parsed purely so nothing from the export is dropped. People reconcile
-these sheets against the raw file side by side, so a helpfully improved order
-turns that into a hunt — this is the one thing here not to tidy.
+**The sheets mirror THIS WEEK'S raw extract, column for column, in its order —
+whatever that turns out to be** (Ray, 2026-08-24: "do not rearrange columns";
+2026-08-26: "use the raw uploaded files columns and names as they can change
+week on week... sometimes it may contain more or less columns and their
+headers can change. The layout always should match the raw file"). SAP's
+column set is not fixed, so the layout is built fresh from each run's own
+parsed header row (`layoutFromColumns` in `openOrdersFields.ts`, fed a
+`RawColumnOrder[]` produced by `parseOpenOrdersGrid`) rather than from a
+hardcoded list. A recognised column still gets its tuned width/format/
+alignment (`FIELD_PRESENTATION`, keyed by field); a column ARC has no field
+for still appears, verbatim, sourced from `OpenOrderLine.raw[index]` rather
+than a typed field. `RAW_LAYOUT` survives only as the DEFAULT for a caller
+with no live parse to build a layout from — tests, and the local sample
+generator run with no upload yet — never as what a real generate uses.
+
+This replaced an earlier version where `RAW_LAYOUT` WAS the layout: a fixed
+array copied from one historical extract ("OOR 8-21-2026..."), so a week that
+renamed a column showed the OLD label over the NEW data, and a week that added
+one lost it entirely (only surfaced as an "unmapped column" warning, never in
+the report). Business logic — aging, repair detection, the per-customer split
+— was never affected either way, since that always went through the typed
+fields resolved by alias regardless of a column's exact wording or position;
+only the WRITTEN LAYOUT was frozen to one file's shape. People reconcile these
+sheets against the raw file side by side, so a column silently missing (or a
+helpfully reordered one) turns that into a hunt — this is still the one thing
+here not to tidy, just against a moving target now instead of a fixed one.
 
 **Every workbook is ONE sheet** (Ray, 2026-08-24: "i do not need all of those
 tabs either just the consolidated raw file", then "all should be single

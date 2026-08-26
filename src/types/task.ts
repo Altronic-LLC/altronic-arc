@@ -1606,6 +1606,18 @@ export interface OpenOrderLine {
   commentDate: Date | null;
   mrpController: string;
   createdBy: string;
+  /**
+   * Cell values for columns THIS week's extract carries that ARC doesn't map
+   * to a typed field above — keyed by the column's index in that file's
+   * header row. SAP's column set changes week to week (a field added,
+   * dropped, or renamed), and the reports mirror the raw file's layout
+   * exactly, so an unrecognised column still has to make it into the sheet
+   * verbatim rather than being silently dropped. Never read for aging,
+   * repairs, or any other calculation — those all go through the typed
+   * fields above, resolved by alias regardless of the file's exact wording.
+   * See `layoutFromColumns` in `lib/openOrdersFields.ts`.
+   */
+  raw?: Record<number, unknown>;
 }
 
 /** Aging buckets, by promise date against the run date. Past due leads. */

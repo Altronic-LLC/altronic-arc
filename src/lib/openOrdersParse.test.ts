@@ -167,6 +167,70 @@ describe("header matching", () => {
   });
 });
 
+// =============================================================================
+// `columns` — the file's own header row, in its own order. This is the one
+// thing a report's layout is built from (layoutFromColumns), so SAP adding,
+// dropping, renaming, or reordering a column has to show up here exactly.
+// =============================================================================
+describe("columns", () => {
+  it("lists every column in the file's own order, known and unknown alike", () => {
+    const { columns } = parseOpenOrdersGrid([[...HEADERS, "Profit Centre"], [...row(), "X"]]);
+    expect(columns.map((c) => c.header)).toEqual([...HEADERS, "Profit Centre"]);
+    expect(columns.at(-1)).toEqual({ header: "Profit Centre", field: null, index: HEADERS.length });
+  });
+
+  it("reflects a reordered file, not the canonical order", () => {
+    const reordered = ["Sales Order", "Customer", ...HEADERS.filter((h) => !["Sales Order", "Customer"].includes(h))];
+    const { columns } = parseOpenOrdersGrid([reordered, row()]);
+    expect(columns[0]).toMatchObject({ header: "Sales Order", field: "salesOrder" });
+    expect(columns[1]).toMatchObject({ header: "Customer", field: "soldTo" });
+  });
+
+  it("carries the file's own header text for a renamed known column", () => {
+    const headers = HEADERS.map((h) => (h === "Ship Date" ? "Confirmed Delivery Date" : h));
+    const { columns } = parseOpenOrdersGrid([headers, row()]);
+    const shipCol = columns.find((c) => c.field === "promiseDate");
+    expect(shipCol?.header).toBe("Confirmed Delivery Date");
+  });
+
+  it("drops a column entirely when the file doesn't have it", () => {
+    const headers = HEADERS.filter((h) => h !== "MRP Controller");
+    const { columns, lines } = parseOpenOrdersGrid([headers, row()]);
+    expect(columns.some((c) => c.field === "mrpController")).toBe(false);
+    expect(lines[0].mrpController).toBe("");
+  });
+
+  it("drops a duplicated known column's repeat from the layout too", () => {
+    const headers = [...HEADERS, "Open quantity"];
+    const { columns } = parseOpenOrdersGrid([headers, [...row(), 999]]);
+    expect(columns.filter((c) => c.field === "openQty")).toHaveLength(1);
+  });
+});
+
+describe("raw — values for columns ARC doesn't map", () => {
+  it("carries an unmapped column's value on the line, keyed by its file index", () => {
+    const { lines } = parseOpenOrdersGrid([
+      [...HEADERS, "Profit Centre"],
+      [...row(), "PC-04"],
+    ]);
+    expect(lines[0].raw?.[HEADERS.length]).toBe("PC-04");
+  });
+
+  it("carries nothing when every column in the file is recognised", () => {
+    const { lines } = parseOpenOrdersGrid(grid());
+    expect(lines[0].raw).toBeUndefined();
+  });
+
+  it("carries more than one unmapped column, each at its own index", () => {
+    const headers = [...HEADERS, "Profit Centre", "Plant"];
+    const { lines } = parseOpenOrdersGrid([headers, [...row(), "PC-04", "1000"]]);
+    expect(lines[0].raw).toEqual({
+      [HEADERS.length]: "PC-04",
+      [HEADERS.length + 1]: "1000",
+    });
+  });
+});
+
 describe("rows", () => {
   it("maps the live extract's columns onto the domain fields", () => {
     const [line] = parseOpenOrdersGrid(grid()).lines;

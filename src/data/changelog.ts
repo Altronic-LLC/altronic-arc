@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.119.0",
+    date: "2026-08-26",
+    changes: [
+      "Open Orders reports now always match this week's raw file exactly — same columns, same order, same headers, whatever SAP added, dropped, or renamed since last time, instead of assuming the file always looks the same",
+    ],
+  },
+  {
     version: "0.118.2",
     date: "2026-08-26",
     changes: [

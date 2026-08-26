@@ -6,6 +6,7 @@ import type {
   OpenOrderMetrics,
 } from "@/types/task";
 import { RAW_LAYOUT, type RawLayoutColumn } from "./openOrdersFields";
+import { text as cellText } from "./openOrdersParse";
 import {
   ALTRONIC_WORDMARK_ASPECT,
   ALTRONIC_WORDMARK_BLACK_PNG,
@@ -28,12 +29,18 @@ import {
 // used sparingly. An earlier version of this file was Cooper Red throughout;
 // that was the wrong brand and is gone.
 //
-// **The layout mirrors the raw extract, column for column, in its order**
-// (Ray, 2026-08-24: "do not rearrange columns … Leave the colmns in same order
-// as raw but brand it according to altronic"). `RAW_LAYOUT` in
-// openOrdersFields.ts is that order and the only place it is defined. People
-// reconcile these sheets against the raw export side by side; a helpfully
-// improved column order turns that into a hunt.
+// **The layout mirrors THIS RUN'S raw extract, column for column, in its
+// order** (Ray, 2026-08-24: "do not rearrange columns … Leave the colmns in
+// same order as raw"; 2026-08-26: "use the raw uploaded files columns and
+// names as they can change week on week … the layout always should match the
+// raw file"). SAP's column set isn't fixed — a week can add, drop, or rename
+// a column — so the layout is built fresh from each run's own parsed headers
+// (`layoutFromColumns` in openOrdersFields.ts) rather than a hardcoded list.
+// A recognised column still gets its tuned width/format/alignment; one ARC
+// doesn't recognise still appears, verbatim, read back from
+// `OpenOrderLine.raw`. People reconcile these sheets against the raw export
+// side by side; a column silently missing (or a helpfully reordered one)
+// turns that into a hunt.
 //
 // **Every workbook is ONE sheet** (Ray, 2026-08-24: "i do not need all of those
 // tabs either just the consolidated raw file", then "all should be single
@@ -85,8 +92,9 @@ const MONEY = "#,##0.00";
 const QTY = "#,##0";
 const DATE = "yyyy-mm-dd";
 
-/** Columns where a column total means something. */
-const SUMMABLE = ["Open quantity", "Open Order Value", "Order Quantity", "Net Value"];
+/** Fields where a column total means something — checked by field, not by
+ * header text, so a renamed "Open Order Value" still totals correctly. */
+const SUMMABLE_FIELDS: (keyof OpenOrderLine)[] = ["openQty", "openValue", "orderQty", "netValue"];
 
 function numFmtFor(col: RawLayoutColumn): string | undefined {
   if (col.format === "money") return MONEY;
@@ -95,7 +103,22 @@ function numFmtFor(col: RawLayoutColumn): string | undefined {
   return undefined;
 }
 
+/**
+ * A cell's value for one column.
+ *
+ * `col.field === null` means this week's file has a column ARC doesn't
+ * recognise — the value lives on `line.raw[col.index]` instead of a typed
+ * field, unconverted, so it's coerced here the same way the parser coerces
+ * every other cell (a Date or number passes through; anything else renders
+ * as text rather than "[object Object]").
+ */
 function valueFor(line: OpenOrderLine, col: RawLayoutColumn): string | number | Date | null {
+  if (col.field === null) {
+    const raw = line.raw?.[col.index!];
+    if (raw instanceof Date) return raw;
+    if (typeof raw === "number") return raw;
+    return cellText(raw) || null;
+  }
   const raw = line[col.field];
   if (raw instanceof Date) return raw;
   if (typeof raw === "number") return raw;
@@ -120,12 +143,21 @@ export interface WorkbookContext {
   generatedBy?: string;
 }
 
-/** The master: the whole extract on one sheet, in the raw layout, branded. */
+/**
+ * The master: the whole extract on one sheet, in the raw layout, branded.
+ *
+ * `layout` defaults to `RAW_LAYOUT` — the canonical historical extract's
+ * shape — for a caller with no live parse to build one from (tests, a local
+ * sample run). A real generate always passes the CURRENT run's own layout,
+ * built via `layoutFromColumns` from that run's parsed headers, so the sheet
+ * matches whatever this week's file actually contains.
+ */
 export async function buildMasterWorkbook(
   excel: typeof ExcelJS,
   lines: OpenOrderLine[],
   accounts: OpenOrderCustomerAccount[],
   ctx: WorkbookContext,
+  layout: RawLayoutColumn[] = RAW_LAYOUT,
 ): Promise<ExcelJS.Workbook> {
   void accounts; // The master is the consolidated extract; the list doesn't shape it.
   const wb = newWorkbook(excel, ctx);
@@ -134,13 +166,13 @@ export async function buildMasterWorkbook(
   const ordered = [...lines].sort(byPromiseDate);
   const metrics = metricsFor(ordered, ctx.runDate);
 
-  titleBlock(ws, "OPEN ORDERS", summaryLine(metrics), ctx, RAW_LAYOUT.length);
+  titleBlock(ws, "OPEN ORDERS", summaryLine(metrics), ctx, layout.length);
   const headerRowAt = ws.rowCount + 2;
-  dataTable(ws, headerRowAt, ordered, ctx);
+  dataTable(ws, headerRowAt, ordered, ctx, layout);
 
   ws.autoFilter = {
     from: { row: headerRowAt, column: 1 },
-    to: { row: headerRowAt, column: RAW_LAYOUT.length },
+    to: { row: headerRowAt, column: layout.length },
   };
   ws.views = [{ state: "frozen", ySplit: headerRowAt }];
   return wb;
@@ -160,11 +192,12 @@ export async function buildCustomerWorkbook(
   report: OpenOrderCustomerReport,
   _account: OpenOrderCustomerAccount,
   ctx: WorkbookContext,
+  layout: RawLayoutColumn[] = RAW_LAYOUT,
 ): Promise<ExcelJS.Workbook> {
   const wb = newWorkbook(excel, ctx);
   const ws = wb.addWorksheet("Open Orders", { properties: { tabColor: { argb: BLACK } } });
 
-  titleBlock(ws, "OPEN ORDERS", report.customerName, ctx, RAW_LAYOUT.length, report.soldTo);
+  titleBlock(ws, "OPEN ORDERS", report.customerName, ctx, layout.length, report.soldTo);
 
   let row = ws.rowCount + 2;
   note(ws, row++, summaryLine(report.metrics));
@@ -172,7 +205,7 @@ export async function buildCustomerWorkbook(
 
   row = heading(ws, row, `OPEN ORDERS (${report.standardLines.length})`);
   const firstHeader = row;
-  row = dataTable(ws, row, report.standardLines, ctx);
+  row = dataTable(ws, row, report.standardLines, ctx, layout);
 
   // Two blank rows, so the second table reads as its own rather than a
   // continuation of the first.
@@ -181,7 +214,7 @@ export async function buildCustomerWorkbook(
   if (report.repairLines.length > 0 && report.metrics.repairValue === 0) {
     note(ws, row++, "Repair orders are not priced in this report, so they show no value.");
   }
-  row = dataTable(ws, row, report.repairLines, ctx);
+  row = dataTable(ws, row, report.repairLines, ctx, layout);
 
   footer(ws, row + 1, ctx);
   ws.views = [{ state: "frozen", ySplit: firstHeader }];
@@ -219,13 +252,14 @@ function dataTable(
   startRow: number,
   lines: OpenOrderLine[],
   ctx: WorkbookContext,
+  layout: RawLayoutColumn[],
 ): number {
-  ws.columns = RAW_LAYOUT.map((c) => ({ width: c.width }));
+  ws.columns = layout.map((c) => ({ width: c.width }));
 
   let r = headerRow(
     ws,
     startRow,
-    RAW_LAYOUT.map((c) => c.header),
+    layout.map((c) => c.header),
   );
 
   if (lines.length === 0) {
@@ -239,24 +273,27 @@ function dataTable(
     const dataRow = ws.getRow(r++);
     const pastDue = agingBucketFor(line, ctx.runDate) === "Past due";
 
-    RAW_LAYOUT.forEach((col, index) => {
+    layout.forEach((col, index) => {
       const cell = dataRow.getCell(index + 1);
-      cell.value = col.header === "Comments" ? commentValue(line) : valueFor(line, col);
+      // Checked by FIELD, not header text — a renamed "Comments" column
+      // (still resolved to the `comments` field via its alias) must keep
+      // getting the date-or-prose treatment.
+      cell.value = col.field === "comments" ? commentValue(line) : valueFor(line, col);
       // The date format is harmless on a prose comment — Excel ignores a number
       // format on text — and correct on the many comments that are dates.
-      const fmt = col.header === "Comments" ? DATE : numFmtFor(col);
+      const fmt = col.field === "comments" ? DATE : numFmtFor(col);
       if (fmt) cell.numFmt = fmt;
       if (col.align) cell.alignment = { horizontal: col.align };
     });
 
-    styleDataRow(dataRow, RAW_LAYOUT.length, i % 2 === 1);
+    styleDataRow(dataRow, layout.length, i % 2 === 1);
 
     // Past due is marked by WEIGHT, not by colour: the ship date goes bold and
     // nothing else changes. Colouring the row made the banding mean two things
     // at once and left the table looking patchy. This keeps the one signal the
     // report exists for without breaking a plain banded table.
     if (pastDue) {
-      const shipCol = RAW_LAYOUT.findIndex((c) => c.header === "Ship Date") + 1;
+      const shipCol = layout.findIndex((c) => c.field === "promiseDate") + 1;
       if (shipCol > 0) {
         dataRow.getCell(shipCol).font = {
           name: HEAD_FONT,
@@ -268,7 +305,7 @@ function dataTable(
     }
   });
 
-  totalsRow(ws, r, lines);
+  totalsRow(ws, r, lines, layout);
   return r + 1;
 }
 
@@ -298,11 +335,11 @@ function styleDataRow(r: ExcelJS.Row, columns: number, banded: boolean) {
   }
 }
 
-/** Totals under the numeric columns of the raw layout. */
-function totalsRow(ws: ExcelJS.Worksheet, row: number, lines: OpenOrderLine[]) {
+/** Totals under the numeric columns of the layout. */
+function totalsRow(ws: ExcelJS.Worksheet, row: number, lines: OpenOrderLine[], layout: RawLayoutColumn[]) {
   const r = ws.getRow(row);
   r.height = 18;
-  for (let c = 1; c <= RAW_LAYOUT.length; c++) {
+  for (let c = 1; c <= layout.length; c++) {
     const cell = r.getCell(c);
     cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: LIGHT_GREY } };
     cell.font = { name: HEAD_FONT, size: 10, bold: true, color: { argb: BLACK } };
@@ -310,12 +347,13 @@ function totalsRow(ws: ExcelJS.Worksheet, row: number, lines: OpenOrderLine[]) {
   }
   r.getCell(1).value = `TOTAL — ${lines.length} line${lines.length === 1 ? "" : "s"}`;
 
-  RAW_LAYOUT.forEach((col, i) => {
-    if (!SUMMABLE.includes(col.header)) return;
+  layout.forEach((col, i) => {
+    if (!col.field || !SUMMABLE_FIELDS.includes(col.field)) return;
+    const field = col.field;
     const cell = r.getCell(i + 1);
     cell.value = round2(
       lines.reduce((t, l) => {
-        const v = l[col.field];
+        const v = l[field];
         return t + (typeof v === "number" ? v : 0);
       }, 0),
     );
@@ -366,7 +404,7 @@ function titleBlock(
   const d = ws.getRow(4);
   d.getCell(1).value = `Run date ${runDateStamp(ctx.runDate)} — figures as at this date`;
   d.getCell(1).font = { name: BODY_FONT, size: 9, italic: true, color: { argb: DARK_GREY } };
-  for (let c = 1; c <= Math.min(span, RAW_LAYOUT.length); c++) {
+  for (let c = 1; c <= span; c++) {
     d.getCell(c).border = { bottom: { style: "thin", color: { argb: GOLD } } };
   }
 }
