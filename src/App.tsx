@@ -90,6 +90,20 @@ const CustomerNoteDetailView = lazy(() =>
     default: m.CustomerNoteDetailView,
   })),
 );
+const SuppliersView = lazy(() =>
+  import("@/views/SuppliersView").then((m) => ({ default: m.SuppliersView })),
+);
+const SupplierDetailView = lazy(() =>
+  import("@/views/SupplierDetailView").then((m) => ({ default: m.SupplierDetailView })),
+);
+const SupplierContactRedirect = lazy(() =>
+  import("@/views/SupplierContactRedirect").then((m) => ({
+    default: m.SupplierContactRedirect,
+  })),
+);
+const SupplierIssueRedirect = lazy(() =>
+  import("@/views/SupplierIssueRedirect").then((m) => ({ default: m.SupplierIssueRedirect })),
+);
 const AdminOpenOrdersRolesView = lazy(() =>
   import("@/views/AdminOpenOrdersRolesView").then((m) => ({
     default: m.AdminOpenOrdersRolesView,
@@ -278,6 +292,38 @@ export function App() {
             <Route
               path="/supply-chain/gray-market-requests"
               element={<GrayMarketRequestsView />}
+            />
+            <Route
+              path="/supply-chain/suppliers"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the suppliers" />}>
+                  <SuppliersView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/supply-chain/supplier/:id"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the supplier" />}>
+                  <SupplierDetailView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/supply-chain/supplier-contact/:contactId"
+              element={
+                <Suspense fallback={<LoadingTasks noun="this contact" />}>
+                  <SupplierContactRedirect />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/supply-chain/supplier-issue/:issueId"
+              element={
+                <Suspense fallback={<LoadingTasks noun="this issue" />}>
+                  <SupplierIssueRedirect />
+                </Suspense>
+              }
             />
             <Route
               path="/supply-chain/gray-market-request/:id"

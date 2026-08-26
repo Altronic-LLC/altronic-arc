@@ -1851,3 +1851,205 @@ export interface CapacityInput {
   notes: string;
   customerPartNumber: string;
 }
+
+// =============================================================================
+// SRM Tool (Supply Chain, Altronic_PMO site)
+//
+// Three lists, all sharing one supplier record: "Suppliers List" is the
+// anchor — Supplier Contacts and Supplier Issue Tracker each carry a lookup
+// back to it (the `BPReference` column, named for the Business Partner
+// Number, on both). Discovered live 2026-08-26 — see CLAUDE.md for the
+// per-list column notes (the QualityPeformance/QualityPerformance typo trap,
+// the two unconfigured placeholder choice columns).
+// =============================================================================
+
+export const SUPPLIER_STATUSES = ["Active", "Phase Out", "Archive", "Indirect"] as const;
+export type SupplierStatus = (typeof SUPPLIER_STATUSES)[number];
+
+/** `CoreCompetency` — a MULTI choice (Graph returns an array). ~59 real options. */
+export const SUPPLIER_CORE_COMPETENCIES = [
+  "Assembly",
+  "Cable & Wire",
+  "Capacitors",
+  "Casting / Aluminum",
+  "Casting / Steel Chemical Connectors",
+  "Chemical",
+  "Choke",
+  "Circuit Protection - Fuse",
+  "Conduit",
+  "Connectors",
+  "Control system",
+  "Diodes",
+  "Displays",
+  "Engineering Services",
+  "Ferrite",
+  "Forging Part",
+  "Forming Part",
+  "Hardware",
+  "Hose / Fitting",
+  "Hydraulic Unit",
+  "IC",
+  "Inductor",
+  "Injection Molding",
+  "Isolator",
+  "Labels",
+  "Logistics / Handling",
+  "Lubricants / Chemicals",
+  "Machined Parts",
+  "Magnetics - Transformers",
+  "Mecatronic",
+  "Miscellaneous auxiliary materials",
+  "Miscellaneous Components",
+  "Miscellaneous Hardware",
+  "Monitoring / Sensors",
+  "Moulding Die",
+  "Nut",
+  "Office Material",
+  "Output Switches",
+  "PCB/PCBA",
+  "Perishable Tool",
+  "PM Material (Mat group to be to revised)",
+  "Profile",
+  "Regulators",
+  "Repair- and Spare parts",
+  "Resistor",
+  "Seals and Gaskets",
+  "Sockets",
+  "Software",
+  "Spark Plugs",
+  "Spring",
+  "Stamping Part",
+  "Standardized part",
+  "Supplier Tools",
+  "Switches",
+  "System Unit",
+  "Terminal",
+  "Tools and tool parts according drawing",
+  "Transducers",
+  "Transistors",
+] as const;
+export type SupplierCoreCompetency = (typeof SUPPLIER_CORE_COMPETENCIES)[number];
+
+/**
+ * "Suppliers List" — the SRM tool's anchor record.
+ *
+ * `logisticalPerformance` and `qualityPerformance` are a naming trap: the
+ * SharePoint column labelled "Logistical Performance" is internally
+ * `QualityPeformance` (missing the second R), and the one labelled
+ * "Quality Performance" is `QualityPerformance` (correctly spelled). Getting
+ * this backwards silently writes the wrong number to the wrong card.
+ */
+export interface Supplier {
+  id: number;
+  /** `Title` — "{BusinessPartnerNumber}-{CompanyName}", SharePoint's own display convention. */
+  title: string;
+  companyName: string;
+  businessPartnerNumber: string;
+  address: string;
+  website: string;
+  /** `SupplierScore` — a TEXT column despite the name; values seen are small integers as strings. */
+  supplierScore: string;
+  coreCompetencies: SupplierCoreCompetency[];
+  status: SupplierStatus | null;
+  notes: string;
+  assignedBuyer: Person | null;
+  supplierIdentifier: string;
+  watchers: Person[];
+  /** Single lookup into Supplier Contacts — the one person to go to first. */
+  pointOfContactId: number | null;
+  allDeliveries: number | null;
+  supplierPerformanceRate: number | null;
+  logisticalPerformance: number | null;
+  qualityPerformance: number | null;
+  comments: Comment[];
+  hasAttachments: boolean;
+  createdAt: Date;
+  modifiedAt: Date;
+}
+
+export interface SupplierInput {
+  companyName: string;
+  businessPartnerNumber: string;
+  address: string;
+  website: string;
+  status: SupplierStatus | null;
+  assignedBuyer: Person | null;
+  watchers: Person[];
+}
+
+export const SUPPLIER_CONTACT_STATUSES = ["Active", "Not Active"] as const;
+export type SupplierContactStatus = (typeof SUPPLIER_CONTACT_STATUSES)[number];
+
+/**
+ * "Supplier Contact List" — one row per person at a supplier. `Title`,
+ * `FirstName` and `LastName` are empty on every row seen live (566 rows) —
+ * every contact so far is identified by email alone. `supplierContactLabel`
+ * falls back through name → email → a numbered placeholder, the same shape
+ * as `faitLabel`.
+ */
+export interface SupplierContact {
+  id: number;
+  name: string;
+  firstName: string;
+  lastName: string;
+  /** `BPReference` lookup, into Suppliers List. */
+  supplierId: number | null;
+  email: string;
+  phone: string;
+  status: SupplierContactStatus | null;
+  contactNotes: string;
+  comments: Comment[];
+  watchers: Person[];
+  hasAttachments: boolean;
+  createdAt: Date;
+  modifiedAt: Date;
+}
+
+export interface SupplierContactInput {
+  name: string;
+  firstName: string;
+  lastName: string;
+  supplierId: number;
+  email: string;
+  phone: string;
+  status: SupplierContactStatus | null;
+  contactNotes: string;
+  watchers: Person[];
+}
+
+/**
+ * "Supplier Issue Tracker" — `Status` and `Severity` are UNCONFIGURED
+ * placeholder choice columns in the live list ("Choice 1" / "Choice 2" /
+ * "Choice 3") as of 2026-08-26 — nobody has set real values in SharePoint
+ * yet. These consts mirror whatever the list currently holds; update BOTH
+ * places the day Supply Chain configures real options (see CLAUDE.md).
+ */
+export const SUPPLIER_ISSUE_STATUSES = ["Choice 1", "Choice 2", "Choice 3"] as const;
+export type SupplierIssueStatus = (typeof SUPPLIER_ISSUE_STATUSES)[number];
+export const SUPPLIER_ISSUE_SEVERITIES = ["Choice 1", "Choice 2", "Choice 3"] as const;
+export type SupplierIssueSeverity = (typeof SUPPLIER_ISSUE_SEVERITIES)[number];
+
+export interface SupplierIssue {
+  id: number;
+  title: string;
+  /** `BPReference` lookup, into Suppliers List. */
+  supplierId: number | null;
+  description: string;
+  status: SupplierIssueStatus | null;
+  resolution: string;
+  severity: SupplierIssueSeverity | null;
+  comments: Comment[];
+  watchers: Person[];
+  hasAttachments: boolean;
+  createdAt: Date;
+  modifiedAt: Date;
+}
+
+export interface SupplierIssueInput {
+  title: string;
+  supplierId: number;
+  description: string;
+  status: SupplierIssueStatus | null;
+  severity: SupplierIssueSeverity | null;
+  watchers: Person[];
+}

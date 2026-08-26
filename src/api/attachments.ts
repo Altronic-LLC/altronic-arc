@@ -14,6 +14,9 @@ import {
   SP_PMO_SITE_URL,
   SP_SALESTEAM_SITE_URL,
   SP_SITE_URL,
+  SP_SUPPLIERS_LIST_ID,
+  SP_SUPPLIER_CONTACTS_LIST_ID,
+  SP_SUPPLIER_ISSUES_LIST_ID,
   SP_VISIT_REPORTS_LIST_ID,
   USE_MOCK,
 } from "./config";
@@ -52,7 +55,10 @@ export type AttachmentParent =
   | "panelTask"
   | "csaListing"
   | "visitReport"
-  | "grayMarketRequest";
+  | "grayMarketRequest"
+  | "supplier"
+  | "supplierContact"
+  | "supplierIssue";
 
 interface ParentConfig {
   listId: string | undefined;
@@ -114,6 +120,21 @@ const PARENT_CONFIG: Record<AttachmentParent, ParentConfig> = {
     listId: SP_CSA_LISTINGS_LIST_ID,
     siteUrl: SP_SITE_URL,
     listIdEnvVar: "VITE_SP_CSA_LISTINGS_LIST_ID",
+  },
+  supplier: {
+    listId: SP_SUPPLIERS_LIST_ID,
+    siteUrl: SP_PMO_SITE_URL,
+    listIdEnvVar: "VITE_SP_SUPPLIERS_LIST_ID",
+  },
+  supplierContact: {
+    listId: SP_SUPPLIER_CONTACTS_LIST_ID,
+    siteUrl: SP_PMO_SITE_URL,
+    listIdEnvVar: "VITE_SP_SUPPLIER_CONTACTS_LIST_ID",
+  },
+  supplierIssue: {
+    listId: SP_SUPPLIER_ISSUES_LIST_ID,
+    siteUrl: SP_PMO_SITE_URL,
+    listIdEnvVar: "VITE_SP_SUPPLIER_ISSUES_LIST_ID",
   },
 };
 

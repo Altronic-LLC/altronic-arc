@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
-  AlertTriangle,
   BadgeCheck,
   Building2,
   Calculator,
@@ -11,7 +10,6 @@ import {
   ClipboardCheck,
   ClipboardList,
   Cog,
-  Contact,
   DollarSign,
   FileCheck,
   FileDiff,
@@ -216,9 +214,14 @@ const DEPARTMENTS: DepartmentGroup[] = [
         icon: <PackageSearch className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/supply-chain/gray-market-request"),
       },
-      soon("Supplier Issue Tracking", <AlertTriangle className="h-4 w-4" />),
-      soon("Supplier List", <Building2 className="h-4 w-4" />),
-      soon("Supplier Contacts", <Contact className="h-4 w-4" />),
+      {
+        to: "/supply-chain/suppliers",
+        label: "Suppliers",
+        icon: <Building2 className="h-4 w-4" />,
+        // Contacts and Issue Tracking live on a supplier's own detail page,
+        // not as separate screens — see CLAUDE.md.
+        matchesPath: (p) => p.startsWith("/supply-chain/supplier"),
+      },
       soon("Cost Impact Notices", <DollarSign className="h-4 w-4" />),
       {
         to: "/supply-chain/faits",

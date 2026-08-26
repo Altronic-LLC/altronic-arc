@@ -20,6 +20,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.122.0",
+    date: "2026-08-26",
+    changes: [
+      "Add the SRM Tool for Supply Chain — Suppliers at /supply-chain/suppliers",
+      "Add a Suppliers card to the Dashboard, replacing the Supplier List/Contacts/Issue Tracking placeholders",
+      "Open a supplier to see their contacts and open issues, each with its own comments, watchers and attachments",
+      "Search suppliers by company name or BP number, and filter by Status or Core Competency",
+    ],
+  },
+  {
     version: "0.121.2",
     date: "2026-08-26",
     changes: [

@@ -69,7 +69,10 @@ export interface MentionTarget {
     | "panelOrder"
     | "panelTask"
     | "grayMarketRequest"
-    | "customerNote";
+    | "customerNote"
+    | "supplier"
+    | "supplierContact"
+    | "supplierIssue";
   id: number;
   title: string;
 }
@@ -113,6 +116,21 @@ const KIND_COPY: Record<
     phrase: "a customer",
     calloutLabel: "Customer",
     buttonText: "Open this customer",
+  },
+  supplier: {
+    phrase: "a supplier",
+    calloutLabel: "Supplier",
+    buttonText: "Open this supplier",
+  },
+  supplierContact: {
+    phrase: "a supplier contact",
+    calloutLabel: "Supplier Contact",
+    buttonText: "Open this contact",
+  },
+  supplierIssue: {
+    phrase: "a supplier issue",
+    calloutLabel: "Supplier Issue",
+    buttonText: "Open this issue",
   },
 };
 

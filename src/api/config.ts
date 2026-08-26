@@ -599,6 +599,30 @@ export const SP_SALES_ORDERENTRY_SITE_URL =
   (import.meta.env.VITE_SP_SALES_ORDERENTRY_SITE_URL as string | undefined) ??
   "https://coopermachineryservices.sharepoint.com/sites/ALTRONICSALESTEAM/OrderEntry";
 
+// =============================================================================
+// SRM Tool — Suppliers List, Supplier Contact List and Supplier Issue
+// Tracker, all on the PMO site (SITES.pmo). Suppliers List is the anchor:
+// the other two each carry a `BPReference` lookup back into it. IDs
+// discovered live 2026-08-26.
+// =============================================================================
+
+/** "Suppliers List" — the anchor list. `CoreCompetency` is a multi choice. */
+export const SP_SUPPLIERS_LIST_ID =
+  import.meta.env.VITE_SP_SUPPLIERS_LIST_ID || "7e4dc4a4-40bf-4abd-a939-1c5d313526d0";
+
+/**
+ * "Supplier Contact List" — one row per person at a supplier, `BPReference`
+ * lookup single. Communication and Watchers were added for ARC on
+ * 2026-08-26 (`scripts/add-supplier-contact-columns.ps1`) — Suppliers List
+ * and Supplier Issue Tracker already had both.
+ */
+export const SP_SUPPLIER_CONTACTS_LIST_ID =
+  import.meta.env.VITE_SP_SUPPLIER_CONTACTS_LIST_ID || "efdb064b-be61-442e-9bae-f052569c3701";
+
+/** "Supplier Issue Tracker" — near-empty (1 row at discovery); `Status`/`Severity` are unconfigured placeholder choices. */
+export const SP_SUPPLIER_ISSUES_LIST_ID =
+  import.meta.env.VITE_SP_SUPPLIER_ISSUES_LIST_ID || "8b22d37a-a520-46a1-8935-8537c46e4b54";
+
 export const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 
 /** Throw a clear error if the app tries to call Graph without being configured. */

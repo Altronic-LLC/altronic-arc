@@ -12,7 +12,6 @@ import {
   ClipboardCheck,
   ClipboardList,
   Cog,
-  Contact,
   DollarSign,
   FileCheck,
   FileDiff,
@@ -41,6 +40,7 @@ import { useCsaListings } from "@/hooks/useCsaListings";
 import { useEcns } from "@/hooks/useEcns";
 import { useFaits } from "@/hooks/useFaits";
 import { useCustomerNotes } from "@/hooks/useCustomerNotes";
+import { useSuppliers } from "@/hooks/useSuppliers";
 import { isEcnOnHold } from "@/lib/ecnMapper";
 import { isFaitOpen } from "@/lib/faitFields";
 import { useBuildRequests } from "@/hooks/useBuildRequests";
@@ -265,6 +265,7 @@ export function DashboardView() {
   const { data: ecns = [] } = useEcns();
   const { data: faits = [] } = useFaits();
   const { data: customerNotes = [] } = useCustomerNotes();
+  const { data: suppliers = [] } = useSuppliers();
   const {
     data: testSheets = [],
     isError: testSheetsError,
@@ -404,6 +405,16 @@ export function DashboardView() {
    * whole customer list, same reading either way the switch is set.
    */
   const customerCard = useMemo(() => ({ count: customerNotes.length }), [customerNotes]);
+
+  /**
+   * Suppliers (SRM Tool). Same call as the CRM Tool's Customers card and for
+   * the same reason (Ray, 2026-08-26: "no count needed for mine or
+   * company") — not scoped by Mine/Company. AssignedBuyer IS a real
+   * assignee-style field here, unlike Customer Notes, but the decision was
+   * made once for the register-style cards and applied consistently rather
+   * than re-litigated per list. See CLAUDE.md before wiring one in.
+   */
+  const supplierCard = useMemo(() => ({ count: suppliers.length }), [suppliers]);
 
   const eirCard = useMemo(() => {
     const active = eirs.filter(
@@ -909,9 +920,14 @@ export function DashboardView() {
           description="Parts bought outside normal distribution — request, purchasing, test, inspection and sign-off."
           onClick={() => navigate("/supply-chain/gray-market-requests")}
         />
-        <PlaceholderCard name="Supplier Issue Tracking" icon={<AlertTriangle className="h-5 w-5" />} />
-        <PlaceholderCard name="Supplier List" icon={<Building2 className="h-5 w-5" />} />
-        <PlaceholderCard name="Supplier Contacts" icon={<Contact className="h-5 w-5" />} />
+        <TypeCard
+          name="Suppliers"
+          icon={<Building2 className="h-5 w-5" />}
+          tone="cooper-red"
+          count={supplierCard.count}
+          unit="suppliers"
+          onClick={() => navigate("/supply-chain/suppliers")}
+        />
         <PlaceholderCard name="Cost Impact Notices" icon={<DollarSign className="h-5 w-5" />} />
         <TypeCard
           name="FAITs"

@@ -21,7 +21,10 @@ export type AppItemKind =
   | "panelOrder"
   | "panelTask"
   | "grayMarketRequest"
-  | "customerNote";
+  | "customerNote"
+  | "supplier"
+  | "supplierContact"
+  | "supplierIssue";
 
 const KIND_SEGMENTS: Record<AppItemKind, string> = {
   task: "task",
@@ -37,6 +40,12 @@ const KIND_SEGMENTS: Record<AppItemKind, string> = {
   panelTask: "panels/task",
   grayMarketRequest: "supply-chain/gray-market-request",
   customerNote: "sales/customers",
+  supplier: "supply-chain/supplier",
+  // Redirect routes: App.tsx looks the row up and forwards to its parent
+  // supplier's page with ?contact=<id> / ?issue=<id> so the right card
+  // expands — the same arrangement as buildRequestItem above.
+  supplierContact: "supply-chain/supplier-contact",
+  supplierIssue: "supply-chain/supplier-issue",
 };
 
 /** Absolute URL to an item's detail page in this app. */

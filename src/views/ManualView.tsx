@@ -49,7 +49,7 @@ const SECTIONS: ManualSection[] = [
       "where do i start",
     ],
     searchText:
-      "Sign in with your altronic-llc.com account. The Dashboard opens after sign-in. Use the top nav to switch between Dashboard, the Departments dropdown, and Admin. The Departments dropdown mirrors the dashboard: Engineering (Engineering Tasks, EIRs, Test Sheets, Project Folders, Build Requests, Drawing File Logs, CSA Listings, Where Am I?, ECNs), Panels, Operations, Coils (Potting Sample Log), Quality Control (Digital QC and Ignition QC Defect Logs), Supply Chain (Gray Market Requests, FAITs), and Customer Service / Sales (Open Orders Report, Visit Reports, Customers/CRM Tool).",
+      "Sign in with your altronic-llc.com account. The Dashboard opens after sign-in. Use the top nav to switch between Dashboard, the Departments dropdown, and Admin. The Departments dropdown mirrors the dashboard: Engineering (Engineering Tasks, EIRs, Test Sheets, Project Folders, Build Requests, Drawing File Logs, CSA Listings, Where Am I?, ECNs), Panels, Operations, Coils (Potting Sample Log), Quality Control (Digital QC and Ignition QC Defect Logs), Supply Chain (Gray Market Requests, FAITs, Suppliers/SRM Tool), and Customer Service / Sales (Open Orders Report, Visit Reports, Customers/CRM Tool).",
     render: () => (
       <>
         <P>
@@ -63,7 +63,7 @@ const SECTIONS: ManualSection[] = [
           <strong>Operations</strong>, <strong>Coils</strong> (Potting Sample
           Log), <strong>Quality Control</strong> (Digital QC and Ignition QC
           Defect Logs), <strong>Supply Chain</strong> (Gray Market Requests,
-          FAITs), and{" "}
+          FAITs, and the Suppliers SRM tool), and{" "}
           <strong>Customer Service / Sales</strong> (Open Orders Report, Visit
           Reports, and the Customers CRM tool). Engineering Tasks use the{" "}
           <strong>List</strong> and{" "}
@@ -119,7 +119,7 @@ const SECTIONS: ManualSection[] = [
       "all projects",
     ],
     searchText:
-      "The Dashboard is grouped into department sections — Engineering, Panels, Operations, Coils, Quality Control, Supply Chain, and Customer Service / Sales — each a divider heading with its cards beneath. Engineering has live cards: Engineering Tasks, EIRs, Test Sheets and more. Coils has the Potting Sample Log; Quality Control has the Digital QC and Ignition QC Defect Logs; Supply Chain has Gray Market Requests and FAITs; Customer Service / Sales has Open Orders Report, Visit Reports and Customers (the CRM tool). Each live card shows the count of active items (tasks not Complete, EIRs not Closed), a colour-coded status mini-bar, and clicks through to that type's page. A Mine / Company switch flips every count and bar between your own items and the whole company's; Mine is the default. A project picker sits next to it and works the same way — pick a project and every card's count and mini-bar narrows to just that project, in place, combining with Mine/Company rather than navigating anywhere. Clicking a card afterward opens that type's full list pre-filtered to the picked project.",
+      "The Dashboard is grouped into department sections — Engineering, Panels, Operations, Coils, Quality Control, Supply Chain, and Customer Service / Sales — each a divider heading with its cards beneath. Engineering has live cards: Engineering Tasks, EIRs, Test Sheets and more. Coils has the Potting Sample Log; Quality Control has the Digital QC and Ignition QC Defect Logs; Supply Chain has Gray Market Requests, FAITs and Suppliers (the SRM tool); Customer Service / Sales has Open Orders Report, Visit Reports and Customers (the CRM tool). Each live card shows the count of active items (tasks not Complete, EIRs not Closed), a colour-coded status mini-bar, and clicks through to that type's page. A Mine / Company switch flips every count and bar between your own items and the whole company's; Mine is the default. A project picker sits next to it and works the same way — pick a project and every card's count and mini-bar narrows to just that project, in place, combining with Mine/Company rather than navigating anywhere. Clicking a card afterward opens that type's full list pre-filtered to the picked project.",
     render: () => (
       <>
         <P>
@@ -173,21 +173,22 @@ const SECTIONS: ManualSection[] = [
           <strong>Coils</strong> (Potting Sample Log),{" "}
           <strong>Quality Control</strong> (Digital QC Defect Log, Ignition QC
           Defect Log), <strong>Supply Chain</strong> (Gray Market Requests,
-          FAITs) and <strong>Customer Service / Sales</strong> (Open Orders
-          Report, Visit Reports, Customers) all open straight to their lists,
-          and <strong>Panels</strong> and <strong>Operations</strong> link to
-          their orders, tasks and the Teradyne Log. The{" "}
-          <strong>Customers</strong> card counts everyone on the CRM Tool's
-          customer list — the same total whichever way Mine/Company is set,
-          since a customer isn't "assigned" the way a task or an EIR is.
+          FAITs, Suppliers) and <strong>Customer Service / Sales</strong>{" "}
+          (Open Orders Report, Visit Reports, Customers) all open straight to
+          their lists, and <strong>Panels</strong> and{" "}
+          <strong>Operations</strong> link to their orders, tasks and the
+          Teradyne Log. The <strong>Customers</strong> and{" "}
+          <strong>Suppliers</strong> cards count everyone on the CRM/SRM
+          tool's list — the same total whichever way Mine/Company is set,
+          since neither a customer nor a supplier is "assigned" the way a
+          task or an EIR is.
         </P>
         <P>
           Types whose SharePoint list isn't built yet — Coils'{" "}
           <strong>Coil Defect Log</strong>,
           Quality Control's <strong>QC Forms</strong>, Operations'{" "}
           <strong>Maintenance Tasks</strong>, the rest of{" "}
-          <strong>Supply Chain</strong> (Supplier Issue Tracking, Supplier List,
-          Supplier Contacts, Cost Impact Notices), and{" "}
+          <strong>Supply Chain</strong> (Cost Impact Notices), and{" "}
           <strong>Customer Service / Sales</strong> (Customer Feedback,
           Pricing Requests) — appear as dimmed{" "}
           <strong>Coming soon</strong> placeholders. They'll light up with live
@@ -2059,6 +2060,100 @@ const SECTIONS: ManualSection[] = [
           its count. Filter by <strong>Requestor</strong> or{" "}
           <strong>Testing Required</strong>, and the search box matches every
           field, so a part number, a PO or a vendor all find the request.
+        </P>
+      </>
+    ),
+  },
+  {
+    id: "srm",
+    title: "SRM Tool",
+    group: "Supply Chain",
+    keywords: [
+      "srm",
+      "suppliers",
+      "supplier",
+      "supplier list",
+      "supplier contacts",
+      "supplier contact list",
+      "supplier issue",
+      "supplier issue tracker",
+      "supplier issue tracking",
+      "core competency",
+      "assigned buyer",
+      "point of contact",
+      "business partner number",
+      "bp number",
+      "supplier score",
+      "supplier performance",
+    ],
+    searchText:
+      "The SRM Tool at /supply-chain/suppliers, under Departments > Supply Chain, backed by three lists on the Altronic_PMO SharePoint site: Suppliers List, Supplier Contact List and Supplier Issue Tracker. Suppliers List is the anchor — open a supplier to see their contacts and open issues; the other two lists have no screens of their own. A supplier carries a Company Name, Business Partner Number, Address, Website, Status (Active, Phase Out, Archive, Indirect), Core Competency (a multi-choice of ~59 material/part categories), an Assigned Buyer, a Point of Contact, Watchers, Notes, Supplier Score and three performance percentages. The supplier list searches by company name and BP number and filters by Status and Core Competency. Contacts and Issues each expand into a card on the supplier's page with their own fields, comments, watchers and attachments — the same expandable-card pattern Build Request parts use. Supplier Contacts have no delete on Suppliers or Issues — a supplier is the anchor other records point at, and an issue is closed by resolving it, not removing it; contacts can be removed. Any signed-in user can add, edit, comment on and watch a supplier, a contact or an issue.",
+    render: () => (
+      <>
+        <P>
+          <strong>Departments → Supply Chain → Suppliers</strong>{" "}
+          (<code>/supply-chain/suppliers</code>) is the SRM tool — one place
+          to look up a supplier and see everyone and everything tied to them:
+          contacts and open issues, all in one page.
+        </P>
+        <H3>Suppliers List — the anchor</H3>
+        <P>
+          The supplier list searches by <strong>company name or BP
+          number</strong> and filters by <strong>Status</strong> and{" "}
+          <strong>Core Competency</strong>. Opening a supplier shows:
+        </P>
+        <UL>
+          <LI>
+            <strong>Notes</strong> — its own Edit button.
+          </LI>
+          <LI>
+            <strong>Status</strong> and <strong>Core Competency</strong> in
+            the sidebar — save the moment you change them.
+          </LI>
+          <LI>
+            <strong>Assigned Buyer</strong>, <strong>Point of Contact</strong>{" "}
+            and <strong>Watchers</strong> — also save immediately.
+          </LI>
+          <LI>
+            Three <strong>performance</strong> figures, when the supplier has
+            them: overall, quality and logistical.
+          </LI>
+        </UL>
+        <H3>Contacts and Issues</H3>
+        <P>
+          Two sections further down the page, each scoped to the supplier
+          you're looking at:
+        </P>
+        <UL>
+          <LI>
+            <strong>Contacts</strong> — a person at the supplier: name,
+            email, phone, status and notes.
+          </LI>
+          <LI>
+            <strong>Issues</strong> — a quality or delivery problem, with a
+            description, status, severity and a resolution.
+          </LI>
+        </UL>
+        <P>
+          Press <strong>Add</strong> to create either, then click any row to
+          expand it into its own card — every field edits in place, and each
+          card has its own <strong>Watchers</strong>, its own{" "}
+          <strong>Attachments</strong>, and its own comment thread, exactly
+          like a part on a Build Request. A contact card has a{" "}
+          <strong>Remove</strong> button; an issue card doesn't — an issue is
+          closed by resolving it, not deleting it.
+        </P>
+        <Tip>
+          <strong>Status</strong> and <strong>Severity</strong> on an issue
+          currently only offer placeholder options ("Choice 1", "Choice 2",
+          "Choice 3") — Supply Chain hasn't set real values in SharePoint
+          yet. The picker will show whatever the list offers once that's
+          done.
+        </Tip>
+        <P>
+          Comments on a supplier, a contact or an issue work exactly like a
+          task or an EIR: @-mention someone and they're emailed and added as
+          a watcher, and every watcher hears about every new comment.
         </P>
       </>
     ),

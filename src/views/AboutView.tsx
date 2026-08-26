@@ -73,8 +73,8 @@ const SYSTEM_TIERS: Tier[] = [
     label: "React SPA",
     nodes: [
       { label: "Views", hint: "Dashboard · List · Kanban · Detail · EIRs · Test Sheets · Project Folders · CSA Listings · Drawing File Logs · Digital QC · Ignition QC · Potting Sample Log · Visit Reports (list + calendar) · Open Orders Report · Gray Market Requests · Where Am I? · ECNs · FAITs · Drawing Work Sheet (print) · Admin", palette: "ui" },
-      { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useBuildRequests · useCsaListings · useDrawingLogs · useDigitalQc · useIgnitionQc · usePottingSampleLog · useVisitReports · useOpenOrdersReports · useOpenOrdersCustomers · useGrayMarketRequests · useWhereAmI · useEcns · useFaits · useCustomerNotes · useCustomerContacts · useSpecialPricing · useCapacity · useAdmins · useEirRoles · useTaskFiles · useProjectFolders", palette: "ui" },
-      { label: "API layer", hint: "src/api/tasks · eirs · testSheets · buildRequests · buildRequestItems · csaListings · drawingLogs · digitalQc · ignitionQc · pottingSampleLog · visitReports · openOrdersFiles · openOrdersCustomers · openOrdersRoles · grayMarketRequests · whereAmI · ecns · faits · customerNotes · customerContacts · specialPricing · capacity · autoWatch · panelOrders · panelTasks · admins · eirRoles · panelRoles · directory · siteUsers · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
+      { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useBuildRequests · useCsaListings · useDrawingLogs · useDigitalQc · useIgnitionQc · usePottingSampleLog · useVisitReports · useOpenOrdersReports · useOpenOrdersCustomers · useGrayMarketRequests · useWhereAmI · useEcns · useFaits · useCustomerNotes · useCustomerContacts · useSpecialPricing · useCapacity · useSuppliers · useSupplierContacts · useSupplierIssues · useAdmins · useEirRoles · useTaskFiles · useProjectFolders", palette: "ui" },
+      { label: "API layer", hint: "src/api/tasks · eirs · testSheets · buildRequests · buildRequestItems · csaListings · drawingLogs · digitalQc · ignitionQc · pottingSampleLog · visitReports · openOrdersFiles · openOrdersCustomers · openOrdersRoles · grayMarketRequests · whereAmI · ecns · faits · customerNotes · customerContacts · specialPricing · capacity · suppliers · supplierContacts · supplierIssues · autoWatch · panelOrders · panelTasks · admins · eirRoles · panelRoles · directory · siteUsers · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
       {
         label: "Open Orders Report (lazy-loaded)",
         hint: "OpenOrdersView · OpenOrdersCustomersView — reads a raw SAP extract in the browser and writes a branded master dashboard plus one workbook per managed customer into SharePoint. ExcelJS (~950KB) is dynamically imported on first use so it never lands in the main chunk.",
@@ -93,6 +93,11 @@ const SYSTEM_TIERS: Tier[] = [
       {
         label: "Supply Chain department",
         hint: "GrayMarketRequestsView · GrayMarketRequestDetailView — useGrayMarketRequests — api/grayMarketRequests. The list lives on the PMO site (where it has always been), but the feature is Supply Chain's: it appears under Supply Chain only.",
+        palette: "ui",
+      },
+      {
+        label: "SRM Tool (lazy-loaded)",
+        hint: "SuppliersView · SupplierDetailView · SupplierContactRedirect · SupplierIssueRedirect — useSuppliers · useSupplierContacts · useSupplierIssues — api/suppliers · supplierContacts · supplierIssues. Own site (PMO). Suppliers List is the anchor; Contacts and Issue Tracker render as expandable inline cards on a supplier's own page, the same pattern Build Request Items use, because both need their own comment thread, watchers and attachments.",
         palette: "ui",
       },
       {
@@ -163,6 +168,9 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "Customer Contacts", hint: "salesOrderEntry site — one row per person at a customer; Customer is a single lookup into Customer Notes", palette: "list" },
       { label: "Special Pricing", hint: "salesOrderEntry site — pricing notes tied to a customer via the same Customer lookup", palette: "list" },
       { label: "Capacity", hint: "salesOrderEntry site — per-part weekly production capacity commitments tied to a customer", palette: "list" },
+      { label: "Suppliers List", hint: "Altronic_PMO site — the SRM tool's anchor list, 531 rows; CoreCompetency is a multi choice, Status is single; QualityPeformance (typo, no r) is labelled \"Logistical Performance\" and QualityPerformance (correct spelling) is \"Quality Performance\"", palette: "list" },
+      { label: "Supplier Contact List", hint: "Altronic_PMO site — one row per person at a supplier, 566 rows; Title/FirstName/LastName are blank on every row seen so far — a contact is identified by email; Communication and Watchers were added for ARC on 2026-08-26", palette: "list" },
+      { label: "Supplier Issue Tracker", hint: "Altronic_PMO site — near-empty (1 row at discovery); Status and Severity are UNCONFIGURED placeholder choices (\"Choice 1/2/3\") — update the consts once Supply Chain sets real values", palette: "list" },
     ],
   },
 ];
@@ -861,6 +869,68 @@ const SCHEMA_TABLES: SchemaTable[] = [
       { name: "customerPartNumber (CustomerP/N)", type: "text", kind: "field" },
     ],
   },
+  {
+    // The SRM tool's anchor — SupplierContact and SupplierIssue each carry a
+    // lookup back to a row here (BPReference, on the PMO site).
+    name: "Supplier",
+    source: "Suppliers List (Altronic_PMO site)",
+    palette: "entity",
+    x: 20, y: 3830, width: 310,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title (Title)", type: "text", kind: "field" },
+      { name: "companyName", type: "text", kind: "field" },
+      { name: "businessPartnerNumber", type: "text", kind: "field" },
+      { name: "address", type: "text", kind: "field" },
+      { name: "website", type: "text", kind: "field" },
+      { name: "supplierScore", type: "text", kind: "field" },
+      { name: "coreCompetencies", type: "choice[]", kind: "field" },
+      { name: "status", type: "choice", kind: "field" },
+      { name: "notes", type: "text", kind: "field" },
+      { name: "assignedBuyer", type: "int", kind: "fk", references: "Person.id" },
+      { name: "supplierIdentifier", type: "text", kind: "field" },
+      { name: "watchers", type: "int[]", kind: "fk", references: "Person.id" },
+      { name: "pointOfContactId", type: "int", kind: "fk", references: "SupplierContact.id" },
+      { name: "allDeliveries", type: "number", kind: "field" },
+      { name: "supplierPerformanceRate", type: "number", kind: "field" },
+      { name: "logisticalPerformance (QualityPeformance)", type: "number", kind: "field" },
+      { name: "qualityPerformance (QualityPerformance)", type: "number", kind: "field" },
+    ],
+  },
+  {
+    name: "SupplierContact",
+    source: "Supplier Contact List (Altronic_PMO site)",
+    palette: "entity",
+    x: 360, y: 3830, width: 280,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "name (Title)", type: "text", kind: "field" },
+      { name: "firstName", type: "text", kind: "field" },
+      { name: "lastName", type: "text", kind: "field" },
+      { name: "supplierId (BPReference)", type: "int", kind: "fk", references: "Supplier.id" },
+      { name: "email", type: "text", kind: "field" },
+      { name: "phone", type: "text", kind: "field" },
+      { name: "status", type: "choice", kind: "field" },
+      { name: "contactNotes", type: "text", kind: "field" },
+      { name: "watchers", type: "int[]", kind: "fk", references: "Person.id" },
+    ],
+  },
+  {
+    name: "SupplierIssue",
+    source: "Supplier Issue Tracker (Altronic_PMO site)",
+    palette: "entity",
+    x: 670, y: 3830, width: 280,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title (Title)", type: "text", kind: "field" },
+      { name: "supplierId (BPReference)", type: "int", kind: "fk", references: "Supplier.id" },
+      { name: "description", type: "text", kind: "field" },
+      { name: "status", type: "choice", kind: "field" },
+      { name: "resolution", type: "text", kind: "field" },
+      { name: "severity", type: "choice", kind: "field" },
+      { name: "watchers", type: "int[]", kind: "fk", references: "Person.id" },
+    ],
+  },
 ];
 
 // ----- Connections (FK → target). Cardinality at each end: "one" | "many" --
@@ -953,6 +1023,15 @@ const CONNECTIONS: Connection[] = [
   { fromTable: "CustomerContact", fromColumn: "customerId", toTable: "CustomerNote", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "SpecialPricingEntry", fromColumn: "customerId", toTable: "CustomerNote", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "CapacityEntry", fromColumn: "customerId", toTable: "CustomerNote", toColumn: "id", fromCard: "many", toCard: "one" },
+  // SRM tool — Supplier is the hub; SupplierContact and SupplierIssue point INTO it,
+  // and Supplier points back at SupplierContact for its one Point of Contact.
+  { fromTable: "Supplier", fromColumn: "assignedBuyer", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "Supplier", fromColumn: "watchers", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
+  { fromTable: "Supplier", fromColumn: "pointOfContactId", toTable: "SupplierContact", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "SupplierContact", fromColumn: "supplierId (BPReference)", toTable: "Supplier", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "SupplierContact", fromColumn: "watchers", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
+  { fromTable: "SupplierIssue", fromColumn: "supplierId (BPReference)", toTable: "Supplier", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "SupplierIssue", fromColumn: "watchers", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
 ];
 
 export function AboutView() {

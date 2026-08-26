@@ -251,6 +251,9 @@ src/
 │   ├── customerContacts.ts       CRM Tool — Customer Contacts CRUD, scoped to a Customer Note
 │   ├── specialPricing.ts         CRM Tool — Special Pricing CRUD, scoped to a Customer Note
 │   ├── capacity.ts               CRM Tool — Capacity CRUD, scoped to a Customer Note
+│   ├── suppliers.ts              SRM Tool — Suppliers List CRUD + comments + watchers (Supply Chain, PMO site)
+│   ├── supplierContacts.ts       SRM Tool — Supplier Contacts CRUD + comments + watchers, scoped to a Supplier
+│   ├── supplierIssues.ts         SRM Tool — Supplier Issue Tracker CRUD + comments + watchers, scoped to a Supplier
 │   ├── openOrdersFiles.ts        Open Orders SharePoint folder — list/upload/download
 │   ├── openOrdersCustomers.ts    Open Orders managed customer list CRUD
 │   ├── openOrdersRoles.ts        Open Orders role tags (report manager) CRUD
@@ -273,6 +276,7 @@ src/
 │   ├── panelMockData.ts          Sample panel orders + panel tasks
 │   ├── visitReportMockData.ts    Sample visit reports
 │   ├── crmMockData.ts            Sample CRM Tool data — customers, contacts, pricing, capacity
+│   ├── srmMockData.ts            Sample SRM Tool data — suppliers, contacts, issues
 │   ├── openOrdersMockData.ts     Sample open order lines + report customers
 │   ├── grayMarketMockData.ts     Sample gray market requests
 │   ├── whereAmIMockData.ts       Sample out-of-office entries (dated from today)
@@ -297,6 +301,9 @@ src/
 │   ├── useCustomerContacts.ts    CRM Tool — Customer Contacts queries + mutations
 │   ├── useSpecialPricing.ts      CRM Tool — Special Pricing queries + mutations
 │   ├── useCapacity.ts            CRM Tool — Capacity queries + mutations
+│   ├── useSuppliers.ts           SRM Tool — Suppliers List queries, mutations + comments + watchers
+│   ├── useSupplierContacts.ts    SRM Tool — Supplier Contacts queries, mutations + comments + watchers
+│   ├── useSupplierIssues.ts      SRM Tool — Supplier Issue Tracker queries, mutations + comments + watchers
 │   ├── useOpenOrdersReports.ts   Parse an extract, generate + upload, download
 │   ├── useOpenOrdersCustomers.ts Customer list + role CRUD (+ useMyOpenOrdersAccess)
 │   ├── useGrayMarketRequests.ts  Gray Market queries, mutations + comment thread
@@ -367,6 +374,9 @@ src/
 │   ├── customerContactMapper.ts  Graph item → CustomerContact
 │   ├── specialPricingMapper.ts   Graph item → SpecialPricingEntry
 │   ├── capacityMapper.ts         Graph item → CapacityEntry
+│   ├── supplierMapper.ts         Graph item → Supplier (SRM Tool anchor list)
+│   ├── supplierContactMapper.ts  Graph item → SupplierContact
+│   ├── supplierIssueMapper.ts    Graph item → SupplierIssue
 │   ├── grayMarketFields.ts       Gray Market column descriptors (columns are DATA)
 │   ├── grayMarketMapper.ts       Graph item → GrayMarketRequest, and back
 │   ├── grayMarketNumber.ts       nextGrayMarketLogNo() — GMR_YYYY-### numbering
@@ -437,6 +447,11 @@ src/
 │   ├── CustomerContactFormModal.tsx  CRM Tool — add/edit a contact, scoped to a customer
 │   ├── SpecialPricingFormModal.tsx   CRM Tool — add/edit a pricing entry, scoped to a customer
 │   ├── CapacityFormModal.tsx         CRM Tool — add/edit a capacity entry, scoped to a customer
+│   ├── SupplierFormModal.tsx         SRM Tool — new supplier (create-only; details edit on the page)
+│   ├── SupplierContactFormModal.tsx  SRM Tool — add a contact, scoped to a supplier (create-only)
+│   ├── SupplierContactCard.tsx       SRM Tool — one contact, inline expandable card (comments/watchers/attachments)
+│   ├── SupplierIssueFormModal.tsx    SRM Tool — log an issue, scoped to a supplier (create-only)
+│   ├── SupplierIssueCard.tsx         SRM Tool — one issue, inline expandable card (comments/watchers/attachments)
 │   ├── GrayMarketRequestFormModal.tsx  Raise a gray market request
 │   ├── WhereAmIFormModal.tsx     Add/edit an out-of-office entry (+ date range)
 │   ├── ProjectFolderFormModal.tsx  Create a project folder + tag its Project Reference
@@ -503,6 +518,10 @@ src/
 │   ├── VisitReportsView.tsx      Visit Reports list (Sales)
 │   ├── CustomerNotesView.tsx     CRM Tool — Customer Notes list, search + Group filter (Sales)
 │   ├── CustomerNoteDetailView.tsx  CRM Tool — one customer + Contacts/Special Pricing/Capacity
+│   ├── SuppliersView.tsx         SRM Tool — Suppliers List, search + Status/Core Competency filters (Supply Chain)
+│   ├── SupplierDetailView.tsx    SRM Tool — one supplier + inline Contacts/Issues cards
+│   ├── SupplierContactRedirect.tsx  Deep-link target for contact-comment emails
+│   ├── SupplierIssueRedirect.tsx    Deep-link target for issue-comment emails
 │   ├── OpenOrdersView.tsx        Open Orders Report Tool — upload, generate, download
 │   ├── OpenOrdersCustomersView.tsx  The managed customer list (+ import from an extract)
 │   ├── AdminOpenOrdersRolesView.tsx Admin -> Open Orders Roles
@@ -1225,6 +1244,110 @@ blank rather than sending `""`, like every other blank column on a create. If
 the SharePoint column is still marked Required in list settings, the create
 will be refused there regardless of what ARC sends — that setting is the place
 to look if new requests start failing.
+
+### SRM Tool (Supply Chain, Altronic_PMO site)
+
+Three lists on **`SITES.pmo`** — Suppliers List, Supplier Contact List and
+Supplier Issue Tracker. Discovered live 2026-08-26; IDs in `src/api/config.ts`.
+It replaces three "coming soon" dashboard/nav placeholders (Supplier List,
+Supplier Contacts, Supplier Issue Tracking) with one tool, the same pattern
+the CRM Tool used for Customers/Contacts/Special Pricing/Capacity.
+
+| List | env / id | Shape |
+|---|---|---|
+| Suppliers List | `VITE_SP_SUPPLIERS_LIST_ID` — `7e4dc4a4-40bf-4abd-a939-1c5d313526d0` (531 rows) | the anchor |
+| Supplier Contact List | `VITE_SP_SUPPLIER_CONTACTS_LIST_ID` — `efdb064b-be61-442e-9bae-f052569c3701` (566 rows) | `BPReference` lookup, single |
+| Supplier Issue Tracker | `VITE_SP_SUPPLIER_ISSUES_LIST_ID` — `8b22d37a-a520-46a1-8935-8537c46e4b54` (1 row) | `BPReference` lookup, single |
+
+**Suppliers List is the anchor; the other two have no top-level screen of
+their own** (Ray, 2026-08-26: "Supplier list is the main source and
+everything is tied to it"). Unlike the CRM Tool's Contacts/Pricing/Capacity —
+which are simple quick-edit-modal CRUD — Supplier Contacts and Supplier Issue
+Tracker each got **full Communication + Watchers threads** on this feature
+(Ray: "add communication and watchers and attachments for all"), so a quick
+modal has nowhere to put a comment thread. They render as **expandable inline
+cards** on `SupplierDetailView` instead — `SupplierContactCard` /
+`SupplierIssueCard` — the exact pattern Build Request Items use
+(`BuildRequestItemCard`): collapsed is a summary row, expanded is every field
+inline-editable plus its own watchers, attachments and comment thread.
+`SupplierContactRedirect` / `SupplierIssueRedirect` mirror
+`BuildRequestItemRedirect` — a contact/issue comment-notification email links
+to `/supply-chain/supplier-contact/:id` or `/supply-chain/supplier-issue/:id`,
+which looks the row up and forwards to
+`/supply-chain/supplier/:supplierId?contact=:id` (or `?issue=:id`) so the
+right card auto-expands and scrolls into view.
+
+Six things about this list's columns:
+
+- **A naming trap on Suppliers List**: the column labelled "Logistical
+  Performance" is internally `QualityPeformance` — missing the second R, a
+  typo baked in at creation — and the one labelled "Quality Performance" is
+  `QualityPerformance`, correctly spelled. `toSupplier` reads both by their
+  REAL internal names; getting this backwards silently writes the wrong
+  number to the wrong sidebar line. Verified against live sample rows,
+  2026-08-26.
+- **`CoreCompetency` is a MULTI choice** (~59 real options, checkboxes
+  display); `Status` is a single choice (Active / Phase Out / Archive /
+  Indirect) — same single-vs-multi trap as the CRM Tool's Group/CustomerType.
+- **`PrimarySupplyFocus` is UNCONFIGURED** — Graph reports its choice list as
+  a single placeholder value, `["Choice"]`, with free-text entry allowed and
+  every sampled row blank. It is deliberately NOT read or written here,
+  the same call as CSA Listings' deleted expiry feature: don't build a field
+  around data nobody has decided the shape of yet.
+- **`Logo` is a modern SharePoint "Image" column**, storing a JSON blob
+  (`{"fileName":"Reserved_ImageAttachment_...","originalImageName":"..."}`)
+  that points at a reserved attachment file. Its Graph column type is
+  unrecoverable from the `/columns` endpoint (no `hyperlinkOrPicture` block,
+  no type key at all), so rendering it would mean guessing at an
+  undocumented shape. Deliberately NOT read or written — a known limitation,
+  not an oversight.
+- **`Title`, `FirstName` and `LastName` are blank on every Supplier Contact
+  row seen live** (566 rows) — every contact so far is identified by email
+  alone. `supplierContactLabel` falls back through name → email → a numbered
+  placeholder, the same shape as `faitLabel`.
+- **`Status` and `Severity` on Supplier Issue Tracker are UNCONFIGURED
+  placeholder choices** — Graph reports their choice lists as `["Choice 1",
+  "Choice 2", "Choice 3"]`, literally, and the one live row uses "Choice 1".
+  `SUPPLIER_ISSUE_STATUSES` / `SUPPLIER_ISSUE_SEVERITIES` in `types/task.ts`
+  mirror whatever the list currently holds. **Update both the SharePoint
+  column and these consts together** the day Supply Chain sets real values —
+  until then the picker in `SupplierIssueCard` / `SupplierIssueFormModal`
+  can only offer what SharePoint offers.
+
+**Supplier Contact List didn't have Communication or Watchers** — added for
+ARC on 2026-08-26 via `scripts/add-supplier-contact-columns.ps1` (mirrors
+`add-fait-columns.ps1`). Suppliers List and Supplier Issue Tracker already
+had both. **Same append-changes gotcha as FAIT**: Graph reports
+`appendChangesToExistingText: true` on the newly-created Communication
+column even though the request explicitly asked for `false`, and a PATCH
+correcting it afterward is accepted without error and changes nothing. Not
+yet verified behaviourally (post two comments, confirm the second replaces
+rather than doubles) — do that before trusting a real-mode comment thread on
+this list.
+
+**Comments follow the full house rules** — `commentNotifyRecipients` (not
+ECN's narrower mention-only rule), `autoWatchFromMentions` against
+`resolvePmoSiteUserLookupId` (PMO site, same resolver Gray Market Requests
+uses), and `autoWatchers()` on create so the creator (and a supplier's
+Assigned Buyer) starts out watching. All three entities use this — Suppliers,
+Supplier Contacts and Supplier Issues alike — unlike the CRM Tool, where
+Customer Notes deliberately uses the narrower ECN-style rule because that
+list has no Watchers column and no per-entity assignee.
+
+**Delete is per-entity, not uniform**: Supplier Contacts have one (a contact
+who left is removed, an address-book entry) via `useDeleteSupplierContact`;
+Suppliers and Supplier Issues do NOT — a supplier is the anchor other rows
+point at (deleting one would orphan them; Archive/Phase Out its Status
+instead), and an issue is a record that something happened, closed by
+resolving it rather than removing it, the same call as Gray Market Requests
+and FAITs. `suppliers.test.ts` and `supplierIssues.test.ts` assert their
+modules export nothing matching /delete|remove/.
+
+**The Dashboard's `Suppliers` card is NOT scoped by Mine/Company**, matching
+the CRM Tool's `Customers` card and for the same reason (see that note
+above) — even though `AssignedBuyer` genuinely IS an assignee-style field
+here, unlike `CustomerNote`. The decision was made once, for register-style
+cards as a class, rather than re-litigated per list.
 
 ### @-mention auto-watch is ONE function now, and it takes a resolver
 
