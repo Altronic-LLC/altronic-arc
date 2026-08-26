@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.120.0",
+    date: "2026-08-26",
+    changes: [
+      "Raising a FAIT now emails Jerrod Waldron, Alexandra Russell and Katie Fleming so a new one doesn't sit unnoticed",
+      "Changing a FAIT's Status now emails its watchers and the people it's assigned to, the same as EIRs and other requests",
+    ],
+  },
+  {
     version: "0.119.1",
     date: "2026-08-26",
     changes: [

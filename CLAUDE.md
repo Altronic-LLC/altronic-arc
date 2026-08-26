@@ -338,6 +338,7 @@ src/
 │   ├── ecnMapper.ts              Graph item → Ecn, Log# parsing/sorting
 │   ├── faitFields.ts             FAIT column descriptors (51 columns, 19 booleans)
 │   ├── faitMapper.ts             Graph item → Fait
+│   ├── faitAlerts.ts             FAIT intake alert (new FAIT → the config list)
 │   ├── eirPromotion.ts           EIR → Task promotion helpers
 │   ├── testSheetMapper.ts        Graph item → TestSheet
 │   ├── csaListingMapper.ts       Graph item → CsaListing (+ label, sort, search)
@@ -984,6 +985,28 @@ thread. The list settings UI is the authority.
 **No delete** — a FAIT records an inspection that happened; a superseded one is
 closed. `faits.test.ts` asserts the module exports nothing matching
 /delete|remove/.
+
+**Every create emails an INTAKE list** (Ray, 2026-08-26) —
+`FAIT_NEW_ALERTS` (env `VITE_FAIT_NEW_ALERTS`), defaulting to Jerrod Waldron,
+Alexandra Russell and Katie Fleming. Nothing watches the SharePoint list, so a
+raised FAIT used to sit until somebody opened ARC and noticed it — the exact
+gap the Gray Market intake alert (below) closed first; this is the same
+pattern (`src/lib/faitAlerts.ts` mirrors `grayMarketAlerts.ts`, sharing the
+`AlertDetail` type now homed in `changeAlerts.ts`). Only the Part-section
+fields worth naming (SAP Part Number, Description, Supplier, Drawing Number)
+go in the email, since Inspection/Results/Sign-off aren't filled in yet. Same
+three rules as Gray Market's: it's an intake queue, not the Watchers column;
+it's not a per-user preference; and the actor is left off their own alert
+unless that would leave nobody (`withoutActorUnlessEmpty`).
+
+**Status changes fire the generic field-change alert, same as EIR's.** The
+one `if ("Status" in fields)` block in `useUpdateFaitFields`'s `onSuccess`
+covers every status write regardless of which card triggered it, and emails
+watchers plus the FAIT's own people (initiator, assigned engineer, KAM) —
+`fireFieldChangeAlert` already no-ops when `from === to`, so no extra guard is
+needed for a same-value resave. FAITs have no reporter-vs-assignee split the
+way EIRs do, so there's no transition-specific sub-alert (no "please close
+it" / "please revisit" equivalent) — just the one generic note.
 
 ### ECNs (Engineering Change Notices)
 

@@ -3,6 +3,7 @@ import {
   EIR_RESPONSE_ACCEPTED_ALERTS,
   EIR_TRIAGE_ASSIGNERS,
   EIR_TRIAGE_PROJECT_REVIEWERS,
+  FAIT_NEW_ALERTS,
   GRAY_MARKET_NEW_REQUEST_ALERTS,
   SHARED_MAILBOX,
   USE_MOCK,
@@ -15,6 +16,7 @@ import {
   buildChecklistToggleEmails,
   buildFieldChangeEmails,
   buildPromotionEmails,
+  type AlertDetail,
   type ChangeEmail,
   type ChangeTarget,
 } from "@/lib/changeAlerts";
@@ -24,10 +26,8 @@ import {
   buildEirResponseNotAcceptedEmails,
 } from "@/lib/eirStatusAlerts";
 import { parseRecipientList } from "@/lib/recipientList";
-import {
-  buildNewGrayMarketRequestEmails,
-  type AlertDetail,
-} from "@/lib/grayMarketAlerts";
+import { buildNewGrayMarketRequestEmails } from "@/lib/grayMarketAlerts";
+import { buildNewFaitEmails } from "@/lib/faitAlerts";
 
 // =============================================================================
 // Email notifications via Microsoft Graph sendMail.
@@ -542,6 +542,24 @@ export function fireNewGrayMarketRequestAlert(args: {
   const emails = buildNewGrayMarketRequestEmails({
     ...args,
     recipients: parseRecipientList(GRAY_MARKET_NEW_REQUEST_ALERTS),
+  });
+  if (emails.length === 0) return;
+  void notifyChangeEmails({ target: args.target, emails });
+}
+
+/**
+ * Fire-and-forget intake alert for a NEW FAIT — the configured list
+ * (VITE_FAIT_NEW_ALERTS) is told a First Article Inspection Test needs
+ * picking up. No-ops when nothing is configured.
+ */
+export function fireNewFaitAlert(args: {
+  target: ChangeTarget;
+  actor: Person;
+  details?: AlertDetail[];
+}): void {
+  const emails = buildNewFaitEmails({
+    ...args,
+    recipients: parseRecipientList(FAIT_NEW_ALERTS),
   });
   if (emails.length === 0) return;
   void notifyChangeEmails({ target: args.target, emails });

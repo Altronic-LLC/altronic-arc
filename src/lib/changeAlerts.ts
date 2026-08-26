@@ -14,6 +14,16 @@ import { escapeHtml } from "./mentions";
 // and wording here means it can be unit-tested without touching Graph.
 // =============================================================================
 
+/**
+ * One "field: value" line on an intake-style alert, when the value is known.
+ * Shared by grayMarketAlerts.ts and faitAlerts.ts so a new intake queue
+ * doesn't redeclare the same shape.
+ */
+export interface AlertDetail {
+  label: string;
+  value: string;
+}
+
 /** One rendered-ready alert: who gets it, the subject, and the body pieces. */
 export interface ChangeEmail {
   email: string;
@@ -36,7 +46,8 @@ export interface ChangeTarget {
     | "buildRequestItem"
     | "panelOrder"
     | "panelTask"
-    | "grayMarketRequest";
+    | "grayMarketRequest"
+    | "fait";
   id: number;
   title: string;
 }
@@ -50,6 +61,7 @@ const NOUNS: Record<ChangeTarget["kind"], string> = {
   panelOrder: "panel order",
   panelTask: "panel task",
   grayMarketRequest: "gray market request",
+  fait: "FAIT",
 };
 
 function nounFor(target: ChangeTarget): string {

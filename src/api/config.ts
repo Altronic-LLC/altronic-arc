@@ -284,6 +284,22 @@ export const GRAY_MARKET_NEW_REQUEST_ALERTS =
   "Glenn Terry <glenn.terry@altronic-llc.com>";
 
 /**
+ * FAIT intake alert — who picks up a newly-raised First Article Inspection
+ * Test (Ray, 2026-08-26). Same shape as GRAY_MARKET_NEW_REQUEST_ALERTS: an
+ * intake queue, not the FAIT's Watchers column, so being on this list doesn't
+ * subscribe anyone to later comments or status changes.
+ *
+ * Format is the usual comma-separated `Name <email>` or bare address, parsed
+ * by parseRecipientList. **Verify these against the directory** — a wrong
+ * address fails as that person's silence, not an error.
+ */
+export const FAIT_NEW_ALERTS =
+  import.meta.env.VITE_FAIT_NEW_ALERTS ||
+  "Jerrod Waldron <Jerrod.Waldron@altronic-llc.com>, " +
+  "Alexandra Russell <Alexandra.Russell@altronic-llc.com>, " +
+  "Katie Fleming <katie.fleming@altronic-llc.com>";
+
+/**
  * "Visit Reports" — Customer Service / Sales' record of customer visits, on
  * the ALTRONICSALESTEAM site (SITES.salesTeam). `Title` is repurposed as the
  * Customer Name, City/State are `City0`/`State0`, and Month/Year/Day/Cal Title

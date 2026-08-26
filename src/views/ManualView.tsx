@@ -1799,10 +1799,11 @@ const SECTIONS: ManualSection[] = [
     keywords: [
       "fait", "faits", "first article", "first article inspection",
       "inspection", "supplier", "sqe", "sign off", "quality",
-      "cmm", "dimensional check", "first pass",
+      "cmm", "dimensional check", "first pass", "fait alerts",
+      "fait notifications", "intake alert",
     ],
     searchText:
-      "FAITs at /supply-chain/faits, under Supply Chain in the Departments menu, backed by the FAIT list on the Altronic Engineering SharePoint site. A First Article Inspection Test tracks a new or changed part from a supplier through inspection and three sign-offs: SQE, Engineering and KAM. The list opens on Open FAITs with pills for Open / Closed / All, filters for project, supplier and the stage it is sitting at, and an all-fields search. FAITs are identified by SAP Part Number rather than title. New FAIT asks for the part, supplier, project and what is being requested; inspection results and sign-offs are filled in on the FAIT itself, in five cards - Part, Request, Inspection, Results, Sign-off - each with one Edit button. Yes/No questions are answered by picking Yes or No. FAITs carry comments with @-mentions, watchers and attachments. Whoever raises one watches it. FAITs cannot be deleted from ARC.",
+      "FAITs at /supply-chain/faits, under Supply Chain in the Departments menu, backed by the FAIT list on the Altronic Engineering SharePoint site. A First Article Inspection Test tracks a new or changed part from a supplier through inspection and three sign-offs: SQE, Engineering and KAM. The list opens on Open FAITs with pills for Open / Closed / All, filters for project, supplier and the stage it is sitting at, and an all-fields search. FAITs are identified by SAP Part Number rather than title. New FAIT asks for the part, supplier, project and what is being requested; inspection results and sign-offs are filled in on the FAIT itself, in five cards - Part, Request, Inspection, Results, Sign-off - each with one Edit button. Yes/No questions are answered by picking Yes or No. FAITs carry comments with @-mentions, watchers and attachments. Whoever raises one watches it. Raising a FAIT emails Jerrod Waldron, Alexandra Russell and Katie Fleming with the part details; the raiser is left off their own alert. Changing a FAIT's Status emails its watchers and its initiator, engineer and KAM. FAITs cannot be deleted from ARC.",
     render: () => (
       <>
         <P>
@@ -1842,6 +1843,15 @@ const SECTIONS: ManualSection[] = [
           Status, project and the three sign-offs sit in the sidebar. Comments,
           watchers and attachments work as they do everywhere else in ARC, and
           whoever raises a FAIT watches it.
+        </P>
+        <P>
+          <strong>Raising a FAIT emails Jerrod Waldron, Alexandra Russell and
+          Katie Fleming</strong> — the intake list who pick a new one up —
+          with the SAP Part Number, description, supplier and drawing number;
+          the person who raised it is left off their own alert, and being on
+          that list is not the same as watching the FAIT. Changing a FAIT's{" "}
+          <strong>Status</strong> emails its watchers and the people it's
+          assigned to (initiator, engineer, KAM) that it changed.
         </P>
         <Tip>
           FAITs can't be deleted from ARC — a FAIT records an inspection that

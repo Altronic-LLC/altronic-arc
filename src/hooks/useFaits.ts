@@ -10,7 +10,8 @@ import {
 import type { Fait, FaitInput, Person } from "@/types/task";
 import { collectFaitPeople, faitLabel } from "@/lib/faitMapper";
 import { commentNotifyRecipients, extractMentionedRecipients } from "@/lib/mentions";
-import { notifyMentions } from "@/api/email";
+import { fireFieldChangeAlert, fireNewFaitAlert, notifyMentions } from "@/api/email";
+import type { AlertDetail } from "@/lib/changeAlerts";
 import { autoWatchFromMentions } from "@/api/autoWatch";
 // The FAIT list is on the Engineering site, so cold-start mentions resolve there.
 import { resolveCurrentUserLookupId } from "@/api/currentUser";
@@ -53,6 +54,16 @@ function patchFait(qc: QueryClient, id: number, update: (f: Fait) => Fait) {
   qc.setQueryData<Fait[]>(FAITS_KEY, (old) => old?.map((f) => (f.id === id ? update(f) : f)));
 }
 
+/** The Part-section columns worth naming in the new-FAIT intake email. */
+function newFaitDetails(fait: Fait): AlertDetail[] {
+  return [
+    { label: "SAP Part Number", value: fait.values.sapPartNumber ?? "" },
+    { label: "Description", value: fait.values.description ?? "" },
+    { label: "Supplier", value: fait.values.supplierName ?? "" },
+    { label: "Drawing Number", value: fait.values.drawingNumber ?? "" },
+  ];
+}
+
 export function useCreateFait() {
   const qc = useQueryClient();
   const actor = useCurrentUser();
@@ -63,6 +74,14 @@ export function useCreateFait() {
       qc.setQueryData<Fait[]>(FAITS_KEY, (old) => (old ? [created, ...old] : [created]));
       qc.invalidateQueries({ queryKey: FAITS_KEY });
       pushToast({ message: `Raised ${faitLabel(created)}.` });
+      // Nothing watches the FAIT list itself, so the configured intake queue
+      // (SQE/Engineering/Supply Chain) is told a new one needs picking up —
+      // same gap Gray Market's intake alert closed (Ray, 2026-08-26).
+      fireNewFaitAlert({
+        target: { kind: "fait", id: created.id, title: faitLabel(created) },
+        actor,
+        details: newFaitDetails(created),
+      });
     },
     onError: (err: Error) => errorToast(`Couldn't raise the FAIT: ${err.message}`),
   });
@@ -71,16 +90,37 @@ export function useCreateFait() {
 /** Patch one or more columns, optimistically. */
 export function useUpdateFaitFields() {
   const qc = useQueryClient();
+  const actor = useCurrentUser();
   return useMutation({
     mutationFn: ({ id, fields }: { id: number; fields: Record<string, unknown>; patch: (f: Fait) => Fait }) =>
       updateFaitFields(id, fields),
     onMutate: async ({ id, patch }) => {
       await qc.cancelQueries({ queryKey: FAITS_KEY });
       const previous = qc.getQueryData<Fait[]>(FAITS_KEY);
+      const prevFait = previous?.find((f) => f.id === id);
       patchFait(qc, id, patch);
-      return { previous };
+      return { previous, prevFait };
     },
-    onSuccess: (updated) => patchFait(qc, updated.id, () => updated),
+    onSuccess: (updated, { fields }, ctx) => {
+      patchFait(qc, updated.id, () => updated);
+      // The generic "status changed from X to Y" note, to watchers + the
+      // people who own the FAIT (initiator, engineer, KAM) — the normal
+      // status-change alert every other list with a Watchers column gets
+      // (Ray, 2026-08-26), same shape as EIR's.
+      if (ctx?.prevFait && "Status" in fields) {
+        fireFieldChangeAlert({
+          target: { kind: "fait", id: updated.id, title: faitLabel(ctx.prevFait) },
+          fieldLabel: "status",
+          from: ctx.prevFait.status,
+          to: String(fields.Status ?? ""),
+          actor,
+          watchers: ctx.prevFait.watchers,
+          assignees: [ctx.prevFait.initiator, ctx.prevFait.assignedEngineer, ctx.prevFait.kam].filter(
+            (p): p is Person => p !== null,
+          ),
+        });
+      }
+    },
     onError: (err: Error, _vars, ctx) => {
       if (ctx?.previous) qc.setQueryData(FAITS_KEY, ctx.previous);
       errorToast(`Couldn't save that change — reverted. ${err.message}`);

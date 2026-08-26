@@ -1,7 +1,7 @@
 import type { Person } from "@/types/task";
 import { escapeHtml } from "./mentions";
 import { withoutActorUnlessEmpty } from "./recipientList";
-import type { ChangeEmail, ChangeTarget } from "./changeAlerts";
+import type { AlertDetail, ChangeEmail, ChangeTarget } from "./changeAlerts";
 
 // =============================================================================
 // Gray Market intake alert — telling the people who work the queue that a new
@@ -20,12 +20,6 @@ import type { ChangeEmail, ChangeTarget } from "./changeAlerts";
 // Pure and email-shaped like changeAlerts.ts / eirTriage.ts: it returns
 // ChangeEmail[] so the wording is unit-testable without touching Graph.
 // =============================================================================
-
-/** One "field: value" line on the email, when the value is known. */
-export interface AlertDetail {
-  label: string;
-  value: string;
-}
 
 /**
  * Build the new-request email for everyone on the intake list.
