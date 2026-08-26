@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { useProjects, useTasks } from "@/hooks/useTasks";
@@ -12,6 +12,14 @@ import { applyFilters, collectPeople, type StatusFilter } from "@/lib/taskFilter
 import { withPerson } from "@/lib/people";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { STATUSES, type Status } from "@/types/task";
+
+// What's RENDERED is capped (`INITIAL_ROWS`, with a "Show all") — same
+// reasoning as EcnsView/TeradyneLogView: hundreds of TaskRows re-mounting on
+// every filter/search change (each computing its own checklist/child-task
+// derivations) is what made typing in the search box stutter and, on a big
+// enough task list, bog down the whole browser tab. Filtering, sorting, and
+// the counts always run over the full set — only what hits the DOM is capped.
+const INITIAL_ROWS = 150;
 
 /**
  * Read the initial status filter from a `?status=` URL param so the
@@ -35,6 +43,7 @@ export function ListView() {
   );
   const [filters, setFilters] = useFilters();
   const [showNewTask, setShowNewTask] = useState(false);
+  const [showAll, setShowAll] = useState(false);
   const currentUser = useCurrentUser();
 
   const people = useMemo(() => withPerson(collectPeople(tasks), currentUser), [tasks, currentUser]);
@@ -56,6 +65,15 @@ export function ListView() {
       ),
     [filteredByBar, statusFilter],
   );
+
+  // A narrowed filter/status is exactly when "show all" should reset — the
+  // cap is there for the unfiltered, everything-loaded case, not to keep
+  // hiding rows once the user has already narrowed down to a few of them.
+  useEffect(() => {
+    setShowAll(false);
+  }, [filters, statusFilter]);
+
+  const shown = showAll ? filtered : filtered.slice(0, INITIAL_ROWS);
 
   return (
     <div className="mx-auto flex max-w-[1600px] flex-col gap-4 px-4 py-4 sm:gap-5 sm:px-6 sm:py-6">
@@ -80,10 +98,20 @@ export function ListView() {
         </div>
       ) : (
         <div className="flex flex-col gap-2">
-          <div className="text-xs text-fg-muted">
-            Showing {filtered.length} of {tasks.length} tasks
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-fg-muted">
+            <span>
+              Showing {filtered.length} of {tasks.length} tasks
+            </span>
+            {shown.length < filtered.length && (
+              <button
+                onClick={() => setShowAll(true)}
+                className="font-medium text-accent underline-offset-2 hover:underline"
+              >
+                Showing {shown.length.toLocaleString()} — show all
+              </button>
+            )}
           </div>
-          {filtered.map((t) => (
+          {shown.map((t) => (
             <TaskRow key={t.id} task={t} onOpen={(id) => navigate(`/task/${id}`)} />
           ))}
         </div>

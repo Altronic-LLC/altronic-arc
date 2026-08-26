@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.118.1",
+    date: "2026-08-26",
+    changes: [
+      "Fixed: searching or filtering Tasks or EIRs could slow the whole app (and the computer) to a crawl on a big list — the list now shows the first 150 matches with a \"show all\" link, the same fix already in place for ECNs and the Teradyne Log",
+    ],
+  },
+  {
     version: "0.118.0",
     date: "2026-08-26",
     changes: [

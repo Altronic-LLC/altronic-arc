@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronDown, FileText, Plus } from "lucide-react";
 import { useProjects } from "@/hooks/useTasks";
@@ -34,6 +34,14 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 // same ones — two copies of a filter is how a fix reaches only one view.
 // =============================================================================
 
+// What's RENDERED is capped (`INITIAL_ROWS`, with a "Show all") — same
+// reasoning as ListView/EcnsView/TeradyneLogView: hundreds of EirRows
+// re-mounting on every filter/search change is what made typing in the
+// search box stutter and, on a big enough EIR list, bog down the whole
+// browser tab. Filtering, sorting, and the counts always run over the full
+// set — only what hits the DOM is capped.
+const INITIAL_ROWS = 150;
+
 /** Why the pills don't respond on a register view. */
 const STATUS_IGNORED_HINT =
   "At Risk Parts lists every active at-risk part, open or closed — the status pills are a breakdown here, not a filter.";
@@ -43,6 +51,7 @@ export function EirsView() {
   const { data: eirs = [], isLoading, error: eirsError } = useEirs();
   const { data: projects = [], error: projectsError } = useProjects();
   const [showNew, setShowNew] = useState(false);
+  const [showAll, setShowAll] = useState(false);
   // Collapsed RiskPart-Level groups in the At Risk Parts view (keyed by group
   // key). Default expanded; toggling adds/removes the key.
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
@@ -90,10 +99,21 @@ export function EirsView() {
     [filteredByView, statusFilter, view],
   );
 
-  // For the At Risk Parts view, group the filtered rows by RiskPart Level —
+  // A narrowed filter/view/status is exactly when "show all" should reset —
+  // the cap is there for the unfiltered, everything-loaded case, not to keep
+  // hiding rows once the user has already narrowed down to a few of them.
+  useEffect(() => {
+    setShowAll(false);
+  }, [filters, view, statusFilter]);
+
+  const shown = showAll ? filtered : filtered.slice(0, INITIAL_ROWS);
+
+  // For the At Risk Parts view, group the RENDERED rows by RiskPart Level —
   // Unassigned first, then Level 1/2/3 — mirroring the SharePoint At Risk View.
-  // Empty groups are dropped. `filtered` keeps its newest-first order within
-  // each group.
+  // Empty groups are dropped. `shown` keeps its newest-first order within
+  // each group. Grouping the capped set (not `filtered`) keeps the cap
+  // meaningful here too — otherwise every group would render in full and the
+  // cap would only ever apply to the other views.
   const atRiskGroups = useMemo(() => {
     if (view !== "at-risk") return [];
     const order: (EirRiskLevel | null)[] = [null, ...EIR_RISK_LEVELS];
@@ -101,10 +121,10 @@ export function EirsView() {
       .map((level) => ({
         key: level ?? "unassigned",
         label: level ?? "Unassigned",
-        items: filtered.filter((e) => (e.riskPartLevel ?? null) === level),
+        items: shown.filter((e) => (e.riskPartLevel ?? null) === level),
       }))
       .filter((g) => g.items.length > 0);
-  }, [view, filtered]);
+  }, [view, shown]);
 
   // Status-pill counts reflect the active view.
   const countByStatus = useMemo(() => countEirsByStatus(filteredByView), [filteredByView]);
@@ -197,8 +217,18 @@ export function EirsView() {
         </div>
       ) : (
         <div className="flex flex-col gap-2">
-          <div className="text-xs text-fg-muted">
-            Showing {filtered.length} of {eirs.length} EIRs
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-fg-muted">
+            <span>
+              Showing {filtered.length} of {eirs.length} EIRs
+            </span>
+            {shown.length < filtered.length && (
+              <button
+                onClick={() => setShowAll(true)}
+                className="font-medium text-accent underline-offset-2 hover:underline"
+              >
+                Showing {shown.length.toLocaleString()} — show all
+              </button>
+            )}
           </div>
           {view === "at-risk"
             ? atRiskGroups.map((g) => {
@@ -228,7 +258,7 @@ export function EirsView() {
                   </div>
                 );
               })
-            : filtered.map((e) => (
+            : shown.map((e) => (
                 <EirRow key={e.id} eir={e} onOpen={() => navigate(`/eir/${e.id}`)} />
               ))}
         </div>

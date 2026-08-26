@@ -2201,6 +2201,33 @@ carried, since the status pills are component state the URL isn't kept in step
 with. Keep the URL as the source of truth — a filtered view being shareable is
 promised in the manual.
 
+### Big lists cap what's RENDERED, not what's filtered or counted
+
+`ListView` (tasks) and `EirsView` had no cap on how many rows hit the DOM —
+every other big list in ARC (`EcnsView`, `TeradyneLogView`) already learned
+this lesson. Reported 2026-08-26: "searching EIRs and tasks really slows down
+the app and computer" — hundreds of `TaskRow`/`EirRow` components (each
+computing its own checklist/child-task/badge derivations) re-mounting on every
+debounced keystroke is real, visible main-thread work, not a false alarm; on a
+list that's grown into the hundreds it's a genuine freeze, not a stutter.
+
+Both views now follow the established `INITIAL_ROWS = 150` + "Show all"
+pattern: `shown = showAll ? filtered : filtered.slice(0, INITIAL_ROWS)`,
+rendered instead of `filtered`, with a button that flips `showAll` and a
+`useEffect` that resets it to `false` whenever the filters (or, for EIRs, the
+view/status pill) change — the cap is for the unfiltered case, not to keep
+hiding rows once someone has already narrowed down to a few.
+
+Two things that must NOT be capped: **filtering, sorting, and every count**
+("Showing N of M", status-pill counts) always run over the full set — only
+what's mapped into JSX is capped. For EIRs' At Risk Parts view specifically,
+the RiskPart-Level grouping is built from the CAPPED set (`shown`), not
+`filtered` — grouping from the uncapped set would render every group in full
+and the cap would only ever bite on the other views.
+
+A new big list gets the same treatment from the start, not after someone
+reports a freeze: cap what's rendered, never what's filtered.
+
 ### Task writes are optimistic; the form closes immediately
 
 `useTasks.ts` patches the cache, then `reconcile()` lands the `Task` the write

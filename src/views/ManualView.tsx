@@ -207,9 +207,11 @@ const SECTIONS: ManualSection[] = [
       "search syntax",
       "exact phrase",
       "quotes",
+      "show all",
+      "slow",
     ],
     searchText:
-      "The List view shows every task with status pills at the top, a filter bar (Project, Assigned, Created By, Search), and a New Task button. Search matches all fields on every list; multiple words are ANDed together, and double quotes match an exact phrase. Click a row to open the task detail. Filters live in the URL so views are shareable.",
+      "The List view shows every task with status pills at the top, a filter bar (Project, Assigned, Created By, Search), and a New Task button. Search matches all fields on every list; multiple words are ANDed together, and double quotes match an exact phrase. Click a row to open the task detail. Filters live in the URL so views are shareable. Only the first 150 matches are rendered at once, with a show all link if there are more — filtering, sorting and the count always cover everything.",
     render: () => (
       <>
         <P>
@@ -261,6 +263,15 @@ const SECTIONS: ManualSection[] = [
           <LI>
             Matching is case-insensitive, and results update a beat after you
             stop typing.
+          </LI>
+          <LI>
+            On a big list, only the first 150 matches are shown at once — a{" "}
+            <strong>Showing 150 — show all</strong> link appears above the
+            rows if there are more. Filtering, sorting, and the "Showing N of
+            M" count always cover every match; the cap only limits what's
+            drawn on screen, which is what keeps typing in the search box
+            responsive on a list with hundreds or thousands of rows. Narrow
+            your search below 150 matches and it stops applying automatically.
           </LI>
         </UL>
         <P>
