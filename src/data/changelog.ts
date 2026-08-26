@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.117.1",
+    date: "2026-08-26",
+    changes: [
+      "Fixed: Promote to Task on an EIR was failing with a Graph error — the new task's link back to the EIR and its carried-over discussion are now saved right after the task is created instead of in the same request",
+    ],
+  },
+  {
     version: "0.117.0",
     date: "2026-08-25",
     changes: [

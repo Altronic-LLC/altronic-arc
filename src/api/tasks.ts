@@ -642,24 +642,44 @@ export async function createTask(input: {
   if (watchers.some((p) => !!p.lookupId)) {
     Object.assign(fields, multiPersonField("Watchers", watchers));
   }
-  // EIRReference is a Hyperlink column — Graph wants the nested
-  // { Url, Description } shape (Description = the link text). Skipped
-  // entirely when not promoting, so ordinary tasks leave the column empty.
-  if (input.eirReference && (input.eirReference.url || input.eirReference.label)) {
-    fields.EIRReference = {
-      Url: input.eirReference.url,
-      Description: input.eirReference.label,
-    };
-  }
-  // Seed the comment thread in the same POST when carrying an EIR's
-  // discussion across (already a serialised Communication string).
-  if (input.communication) fields.Communication = input.communication;
-
   const created = await graphFetch<GraphListItem>(path, {
     method: "POST",
     body: JSON.stringify({ fields }),
   });
-  return toTask(created);
+  const task = toTask(created);
+
+  // EIRReference (Hyperlink column) and a seeded Communication thread are
+  // written in a FOLLOW-UP PATCH, never in the create POST. Confirmed live
+  // 2026-08-26 promoting EIR_2026-0245: including EIRReference's nested
+  // { Url, Description } shape in the item-creation POST 400s
+  // ("invalidRequest", no field named) — Graph does not support setting a
+  // Hyperlink/Picture column's value at create time, only via a PATCH once
+  // the item exists (Communication was innocent but travelled in the same
+  // failing request, so it's moved out here too rather than re-guessed at).
+  // Best-effort: the task is already created at this point, so a failure
+  // here must not surface as "promotion failed" — it means the task exists
+  // but is missing its "From EIR" link and/or carried-over discussion,
+  // which the caller can still see and redo by hand.
+  const followUp: Record<string, unknown> = {};
+  if (input.eirReference && (input.eirReference.url || input.eirReference.label)) {
+    followUp.EIRReference = {
+      Url: input.eirReference.url,
+      Description: input.eirReference.label,
+    };
+  }
+  if (input.communication) followUp.Communication = input.communication;
+  if (Object.keys(followUp).length > 0) {
+    try {
+      return await updateTaskFields(task.id, followUp);
+    } catch (err) {
+      console.error(
+        `createTask: task ${task.id} was created, but the follow-up write of ` +
+          `${Object.keys(followUp).join(", ")} failed`,
+        err,
+      );
+    }
+  }
+  return task;
 }
 
 /** Delete a task. */
