@@ -1898,6 +1898,13 @@ Two things about `lib/recipientAudit.ts`:
   `useDirectoryPeople` tolerates an empty result, and a slow request must not
   render a screen full of false alarms.
 
+**A new recipient-list const needs a `LISTS` entry here too, in the SAME
+commit** — the screen only audits what's in that array, so a new intake/alert
+list (like FAIT's, added 2026-08-26) is invisible to it otherwise, silently
+missing exactly the kind of address problem this screen exists to catch. Not
+caught by any test — Ray caught it by eye ("you did not list them on the
+admin notifications section") right after the FAIT alerts shipped.
+
 The failure toast for a bad send goes to the ACTOR, incidentally — so when
 Sheila's action fails to reach Glenn, Ray never sees it. That's why the check
 had to be a screen an admin can open rather than a better toast.

@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.120.1",
+    date: "2026-08-26",
+    changes: [
+      "Admin → Notification recipients now also checks the new FAIT intake addresses against the staff directory",
+    ],
+  },
+  {
     version: "0.120.0",
     date: "2026-08-26",
     changes: [

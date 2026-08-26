@@ -9,6 +9,7 @@ import {
   EIR_RESPONSE_ACCEPTED_ALERTS,
   EIR_TRIAGE_ASSIGNERS,
   EIR_TRIAGE_PROJECT_REVIEWERS,
+  FAIT_NEW_ALERTS,
   GRAY_MARKET_NEW_REQUEST_ALERTS,
   SHARED_MAILBOX,
 } from "@/api/config";
@@ -53,6 +54,12 @@ const LISTS: Array<{ label: string; envVar: string; value: string | undefined; w
     envVar: "VITE_GRAY_MARKET_NEW_REQUEST_ALERTS",
     value: GRAY_MARKET_NEW_REQUEST_ALERTS,
     what: "Emailed when a gray market request is raised.",
+  },
+  {
+    label: "FAIT — new FAIT",
+    envVar: "VITE_FAIT_NEW_ALERTS",
+    value: FAIT_NEW_ALERTS,
+    what: "Emailed when a FAIT is raised.",
   },
 ];
 
