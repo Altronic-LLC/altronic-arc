@@ -3185,9 +3185,25 @@ const SECTIONS: ManualSection[] = [
       "part comment email",
       "checklist email",
       "checkbox notification",
+      "eir triage",
+      "project reviewer",
+      "assign an engineer email",
+      "response accepted email",
+      "response not accepted email",
+      "gray market alert",
+      "gray market intake",
+      "fait alert",
+      "fait intake",
+      "fait notification",
+      "intake alert",
+      "intake list",
+      "notification recipients",
+      "who gets emailed",
+      "wrong email address",
+      "bounced email",
     ],
     searchText:
-      "Commenting on a task, EIR, build request, or build request part emails everyone watching it, whoever it's assigned to, plus everyone you @-mention, from automation@altronic-llc.com. A comment with no mention at all still emails watchers and assignees. Mentioned people get a 'You were mentioned' email; assignees and other watchers get a 'New comment on' email that says whether it's assigned to them or they're watching. Build request parts have their own watcher lists and no Assigned field; part-comment emails deep-link to the request with that part expanded. You're never emailed for your own comment unless you @-mention yourself. @-mentioning auto-adds the person as a watcher. You also become a watcher automatically when you create an item and when something is assigned to you — on the create form and on later reassignments — alongside anyone added by hand to the Watchers field. Being unassigned does not remove you; use Unwatch. Comment timestamps are recorded on one company clock (Eastern) and displayed in your own local time, so a thread reads in the order it was written even when the authors are in different time zones. Editing a comment emails only newly added mentions by default, but checking 'Notify everyone again' resends an 'Updated comment on' email to watchers and assignees plus everyone mentioned in the new AND previous version of the comment. Change alerts: changing a Status (task, EIR, or build request), an EIR Resolution, a build request part's Part Status, or the assignees (including a build request's Engineer Assigned) emails the watchers, current assignees, and the EIR reporter or BR requestor. Checking or unchecking a Description checklist box (task, Operations task, or EIR) emails the watchers and current assignees with a Checklist updated on email naming the item. Being added as an assignee emails you 'You've been assigned'; being removed emails 'You've been unassigned'; everyone else gets a broadcast. Promoting an EIR to a task emails the EIR's watchers and reporter with a link to the new task. Creating/deleting parts and other field edits (lead time, customer, build request part checklists, WO No) send no email. You're never emailed for a change you made yourself.",
+      "Commenting on a task, EIR, build request, or build request part emails everyone watching it, whoever it's assigned to, plus everyone you @-mention, from automation@altronic-llc.com. A comment with no mention at all still emails watchers and assignees. Mentioned people get a 'You were mentioned' email; assignees and other watchers get a 'New comment on' email that says whether it's assigned to them or they're watching. Build request parts have their own watcher lists and no Assigned field; part-comment emails deep-link to the request with that part expanded. You're never emailed for your own comment unless you @-mention yourself. @-mentioning auto-adds the person as a watcher. You also become a watcher automatically when you create an item and when something is assigned to you — on the create form and on later reassignments — alongside anyone added by hand to the Watchers field. Being unassigned does not remove you; use Unwatch. Comment timestamps are recorded on one company clock (Eastern) and displayed in your own local time, so a thread reads in the order it was written even when the authors are in different time zones. Editing a comment emails only newly added mentions by default, but checking 'Notify everyone again' resends an 'Updated comment on' email to watchers and assignees plus everyone mentioned in the new AND previous version of the comment. Change alerts: changing a Status (task, EIR, or build request), an EIR Resolution, a build request part's Part Status, or the assignees (including a build request's Engineer Assigned) emails the watchers, current assignees, and the EIR reporter or BR requestor. Checking or unchecking a Description checklist box (task, Operations task, or EIR) emails the watchers and current assignees with a Checklist updated on email naming the item. Being added as an assignee emails you 'You've been assigned'; being removed emails 'You've been unassigned'; everyone else gets a broadcast. Promoting an EIR to a task emails the EIR's watchers and reporter with a link to the new task. Creating/deleting parts and other field edits (lead time, customer, build request part checklists, WO No) send no email. You're never emailed for a change you made yourself. Intake alerts go to a fixed configured list rather than an item's watchers: an EIR raised with no project reference asks the project-reviewer list (default Sheila Horn, Ray White) to add one; a project reference landing on an EIR with none asks the assigner list (default Glenn Terry, Brandon Mirto) to assign an engineer. An EIR reaching Response Accepted asks the response-accepted list (default Sheila Horn, Ray White) to close it; Response Not Accepted asks the assigned engineers to revisit, or the assigner list if none are assigned. A new gray market request emails the intake list (default Katie Fleming, Alexandra Russell, Glenn Terry); a new FAIT emails its own intake list (default Jerrod Waldron, Alexandra Russell, Katie Fleming). Being on an intake list is not the same as watching the item, and the person who triggered it is left off their own alert unless that would leave nobody. FAIT status changes email its watchers plus its initiator, assigned engineer and KAM. Admins can check every configured list's addresses against the staff directory at Admin -> Notification recipients, which flags an address with no real mailbox before it fails silently.",
     render: () => (
       <>
         <P>
@@ -3317,6 +3333,41 @@ const SECTIONS: ManualSection[] = [
               "… was promoted to a task (the button opens the new task)",
             ],
             [
+              "An EIR is raised with no Project Reference",
+              "The configured project-reviewer list (default Sheila Horn, Ray White)",
+              "Please add a project reference",
+            ],
+            [
+              "A Project Reference lands on an EIR that had none",
+              "The configured assigner list (default Glenn Terry, Brandon Mirto)",
+              "Please assign an engineer",
+            ],
+            [
+              "An EIR's status becomes Response Accepted",
+              "The configured response-accepted list (default Sheila Horn, Ray White)",
+              "Please close it",
+            ],
+            [
+              "An EIR's status becomes Response Not Accepted",
+              "Its assigned engineers (minus you) — or the assigner list above if none are assigned",
+              "Please revisit and give a more detailed response",
+            ],
+            [
+              "A gray market request is raised",
+              "The configured intake list (default Katie Fleming, Alexandra Russell, Glenn Terry)",
+              "New gray market request: … — Please pick it up",
+            ],
+            [
+              "A FAIT is raised",
+              "The configured intake list (default Jerrod Waldron, Alexandra Russell, Katie Fleming)",
+              "New FAIT: … — Please pick it up",
+            ],
+            [
+              "A FAIT's Status changes",
+              "Watchers + its initiator, assigned engineer and KAM (minus you)",
+              "Status changed on …",
+            ],
+            [
               "A save of yours fails to reach SharePoint (after automatic retries)",
               "Just you — a recovery copy so your work isn't lost",
               "ARC couldn't save your change — here's what you entered",
@@ -3328,6 +3379,48 @@ const SECTIONS: ManualSection[] = [
             ],
           ]}
         />
+
+        <H3>Intake alerts — a fixed list, not the item's watchers</H3>
+        <P>
+          A few alerts don't go to an item's watchers at all: <strong>EIR
+          triage</strong> (no project reference, or a project with no
+          engineer), a new <strong>gray market request</strong>, and a new{" "}
+          <strong>FAIT</strong> each email a small, <strong>configured list</strong>{" "}
+          of the people who work that queue — an admin can change who's on
+          each list without ARC being redeployed. Three rules hold for all of
+          them:
+        </P>
+        <UL>
+          <LI>
+            <strong>Being on the list isn't the same as watching the item.</strong>{" "}
+            It's a one-time "something needs picking up" nudge; later comments
+            and status changes follow the normal watcher rules. Press{" "}
+            <strong>Watch</strong> on the item if you also want the rest of the
+            thread.
+          </LI>
+          <LI>
+            <strong>The person who raised it is left off their own alert</strong> —
+            unless they're the only person on the list, in which case they're
+            told anyway rather than the alert reaching nobody.
+          </LI>
+          <LI>
+            EIR triage chains: an EIR raised with{" "}
+            <strong>no project reference</strong> asks the project-reviewer
+            list to add one; once a project reference lands on an EIR that had
+            none, it asks the assigner list to assign an engineer. An EIR
+            raised <em>with</em> a project reference skips straight to that
+            second step.
+          </LI>
+        </UL>
+        <Tip>
+          An admin can check every one of these lists — EIR triage, EIR
+          response alerts, gray market intake, FAIT intake — against the
+          staff directory at <strong>Admin → Notification recipients</strong>.
+          It flags any configured address with no real mailbox behind it,
+          which otherwise fails silently: the send is accepted, the bounce
+          lands in a mailbox nobody reads, and the person who was supposed to
+          be told never is.
+        </Tip>
 
         <H3>Comments &amp; @-mentions</H3>
         <P>

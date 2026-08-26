@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.120.2",
+    date: "2026-08-26",
+    changes: [
+      "The User Manual's Notifications page now covers every alert added recently: EIR triage (project reference / assign an engineer), EIR Response Accepted / Not Accepted, gray market intake, and FAIT intake + status changes — including how the intake-list alerts differ from watching an item",
+    ],
+  },
+  {
     version: "0.120.1",
     date: "2026-08-26",
     changes: [
