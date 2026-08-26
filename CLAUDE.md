@@ -1305,19 +1305,30 @@ Six things about this list's columns:
   any documented column contract. Rendering it (`SupplierLogo.tsx`) means
   matching that `fileName` against the item's real attachment list —
   `useAttachments("supplier", id)`, the SAME query `AttachmentsSection`
-  already uses, so a supplier with a logo costs no extra request beyond the
-  one its Attachments card already makes. Falls back to a plain icon tile
-  whenever there's nothing to show: no `Logo` value, the attachments haven't
-  loaded, or (real mode, **unverified**) the reserved attachment doesn't
-  actually surface via SP REST the way this assumes — the mechanism is
-  inferred from a live item's payload, not from any documented Graph/REST
-  contract for Image columns. Verify against a live tenant before trusting
-  it broadly.
+  already uses, so a supplier with a logo costs no extra LIST request beyond
+  the one its Attachments card already makes. The reserved attachment DOES
+  surface via SP REST the same way a normal attachment does — that part of
+  the mechanism is confirmed live. Falls back to a plain icon tile whenever
+  there's nothing to show: no `Logo` value, the attachments haven't loaded,
+  or no attachment matches the filename.
   **`isReservedImageAttachment()`** (`api/attachments.ts`) filters this file
   out of every generic `AttachmentsSection` list — it isn't a user
   attachment, and deleting it through that generic UI would break the Logo
   column's reference. `SupplierLogo.tsx` is the one place that deliberately
   looks for it.
+  **A bare `<img src={file.downloadUrl}>` does NOT work in real mode** —
+  confirmed live, 2026-08-26 (Ray: "supplier logos aren't showing", every row
+  showing a broken-image icon). An `<img>` fetch carries no Authorization
+  header, and SharePoint's session isn't a browser cookie MSAL maintains
+  either, so the request 401s. The "Download" links elsewhere in
+  `AttachmentsSection` get away with a plain `<a href>` because a top-level
+  navigation can follow an interactive login redirect; a passive image embed
+  can't. `useAttachmentBlobUrl` (`hooks/useAttachments.ts`) fixes this by
+  fetching the bytes through `fetchAttachmentBlob` — the same bearer-token
+  `spFetch` path every other SP REST call here uses — and handing
+  `SupplierLogo` an object URL instead. Any future feature that embeds a
+  SharePoint file inline (not just a click-through download) needs the same
+  treatment.
   **Shown in both places**: a small icon in the Suppliers list row, and a
   larger one in the Supplier detail header — only suppliers whose `Logo`
   field is actually set trigger the attachment fetch, so the 531-row list

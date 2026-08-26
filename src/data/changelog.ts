@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.122.2",
+    date: "2026-08-26",
+    changes: [
+      "Fix supplier logos not showing — they were failing to load with a broken-image icon",
+    ],
+  },
+  {
     version: "0.122.1",
     date: "2026-08-26",
     changes: [

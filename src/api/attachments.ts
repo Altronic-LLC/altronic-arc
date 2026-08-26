@@ -182,6 +182,34 @@ if (USE_MOCK) {
   ]);
 }
 
+/**
+ * Fetch an attachment's bytes as a Blob, the same authenticated way every
+ * other SP REST call in this file does (`spFetch`'s bearer token) rather
+ * than a plain browser request.
+ *
+ * This exists because a bare `<img src="https://tenant.sharepoint.com/...">`
+ * doesn't work: the browser sends no Authorization header for an <img>
+ * fetch, and SharePoint's own session cookie isn't present either (MSAL is
+ * token-based, not cookie-based) — so the request 401s and the browser
+ * renders a broken-image icon. Confirmed live, 2026-08-26 (Ray: "supplier
+ * logos aren't showing"). The "Download" links elsewhere in
+ * AttachmentsSection get away with a plain `<a href>` because a top-level
+ * navigation CAN follow an interactive login redirect; a passive image
+ * embed can't. `SupplierLogo` uses this to build an object URL instead.
+ *
+ * Mock mode's downloadUrls are already directly usable (data: URIs or
+ * `URL.createObjectURL` results), so this is a plain unauthenticated fetch
+ * there — no bearer token to add, nothing to route through spFetch for.
+ */
+export async function fetchAttachmentBlob(downloadUrl: string): Promise<Blob> {
+  if (USE_MOCK) {
+    const res = await fetch(downloadUrl);
+    return res.blob();
+  }
+  const res = await spFetch<Response>(downloadUrl);
+  return res.blob();
+}
+
 export async function listAttachments(
   parent: AttachmentParent,
   itemId: number,
