@@ -661,6 +661,55 @@ For writing: SharePoint person fields go in via `LookupId` only.
 
 This is not hypothetical. `setRelatedProjects` hand-built `{ ProjectReference: [ids] }` — bare array, un-suffixed name — so **a task's related projects never saved in real mode**, from whenever it was written until 2026-08-20, when two people hit it within an hour. It survived because the MOCK branch read that same hand-built shape, so every test and every demo passed. `tasks.relatedProjects.test.ts` now asserts the request shape with `USE_MOCK` forced off, which is the only way this class of bug is visible from a test.
 
+## Hyperlink columns: never in the create POST, only a follow-up PATCH
+
+`EIRReference` on the Task list (a Hyperlink column, written as
+`{ Url, Description }`) is written correctly but at the WRONG TIME if it
+travels in the same POST that creates the item — Graph does not support
+setting a Hyperlink/Picture column's value at item-creation, and answers with
+a bare `400 invalidRequest` naming no field. Confirmed live 2026-08-26,
+promoting EIR_2026-0245 to a task: the whole create failed, so the task was
+never created at all — not a partial write, the entire request rejected.
+
+`createTask()` in `src/api/tasks.ts` now POSTs the item without `EIRReference`
+(and without `Communication`, which happened to travel in the same failing
+request and is moved out for the same reason rather than re-guessed at
+separately), then issues a follow-up `PATCH` for both. This is the same
+"another list's write is unsupported at create time" family as the Person
+fields' `LookupId` shape above — this repo had never actually promoted an EIR
+in real mode before, only against the mock store, which is why it went
+undiscovered since the feature shipped in v0.36.0 (Jul 2026).
+
+**The follow-up is best-effort, and it says so.** `createTask` throws a
+`TaskFollowUpWriteError` (carrying the already-created `task`) rather than
+silently swallowing the PATCH failure — the task is real at that point, so a
+caller like `usePromoteEirToTask` catches it, still completes the promotion
+(EIR stamp, notification, cache seed, navigation), and surfaces a toast naming
+what didn't save (the EIR link and/or the carried-over discussion) instead of
+the old console.error-only behaviour nobody watching the app would ever see.
+Pinned by `tasks.eirReferenceWrite.test.ts` (the two-call shape, real mode)
+and `useEirs.promote.test.tsx` (the warning path).
+
+**Promoting an EIR also copies its attachments onto the new task** —
+`copyAttachments()` in `src/api/attachments.ts`, added alongside this fix.
+EIR files and task files live in two separate SP REST attachment stores (see
+"Attachments" below), so nothing links them automatically; this downloads
+each of the EIR's files and re-uploads them to the task. Best-effort per file
+— one failed copy doesn't lose the rest, and a total or partial failure warns
+rather than silently going missing, the same as the EIRReference/Communication
+follow-up.
+
+**And the promoted task must be seeded into the tasks-list cache
+immediately, not just invalidated.** `useTask()` derives its data from the
+same `["tasks", "list"]` React Query cache `useTasks()` populates, and
+`PromoteEirModal` navigates to `/task/:id` the instant the mutation resolves.
+An `invalidateQueries` call alone only schedules a background refetch, so that
+navigation landed on a still-stale list without the brand-new task —
+DetailView flashed "Task not found" until the refetch eventually caught up.
+`useCreateTask` already carried the fix for ordinary task creation (see its
+onSuccess comment); `usePromoteEirToTask` went through `createTask` directly
+rather than that hook and needed the identical `setQueryData` seeding.
+
 ## Parent project resolution
 
 The `Parent_x0020_Project_x0020_ReferLookupId` field is a SharePoint lookup
@@ -2690,6 +2739,21 @@ Deletes are scoped per-storage — removing a file from "On this task" only
 deletes the list-item attachment; removing from the project folder only
 deletes the file in SharePoint. The other copy is untouched. This is by
 design: users may want one but not the other to disappear.
+
+### Copying attachments between two list-items (EIR → Task promotion)
+
+The EIR's and the task's list-item attachments are two separate SP REST
+stores, keyed by parent kind (`"eir"` vs `"task"`), and Graph gives no way to
+move or link them across list items. `copyAttachments(from, fromId, to, toId)`
+in `src/api/attachments.ts` (added alongside the EIR promotion fix,
+2026-08-26) downloads each of the source's files and re-uploads them to the
+target — used by `usePromoteEirToTask` when the EIR carries any attachments.
+
+Best-effort **per file**: one failed copy doesn't lose the ones that
+succeeded, and the function never throws — it returns `{ copied, failed }` so
+the caller can decide what to do with a partial result rather than the copy
+going quiet about it. See "Hyperlink columns" above for how the caller
+surfaces a failure here as a warning rather than swallowing it.
 
 ### Adding a new attachment-related field
 

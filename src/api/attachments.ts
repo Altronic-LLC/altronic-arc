@@ -205,6 +205,55 @@ export async function deleteAttachment(
   });
 }
 
+/**
+ * Copy every attachment from one list item onto another — used when
+ * promoting an EIR to a task, since the EIR's and the task's attachments are
+ * two separate SP REST attachment stores (see the "Attachments" section in
+ * CLAUDE.md) and nothing links them automatically.
+ *
+ * Best-effort per file: one failed copy doesn't stop the rest, and doesn't
+ * throw — the caller (EIR promotion) treats a partial or total copy failure
+ * as a warning, not a reason to fail a promotion whose task already exists.
+ * Returns which files made it across and which didn't, so the caller can say
+ * so rather than going quiet about it.
+ */
+export async function copyAttachments(
+  from: AttachmentParent,
+  fromId: number,
+  to: AttachmentParent,
+  toId: number,
+): Promise<{ copied: string[]; failed: string[] }> {
+  if (USE_MOCK) {
+    const source = mockStore.get(mockKey(from, fromId)) ?? [];
+    const copied: string[] = [];
+    for (const a of source) {
+      const key = mockKey(to, toId);
+      mockStore.set(key, [...(mockStore.get(key) ?? []), { ...a }]);
+      copied.push(a.fileName);
+    }
+    return { copied, failed: [] };
+  }
+
+  const files = await listAttachments(from, fromId);
+  const copied: string[] = [];
+  const failed: string[] = [];
+  for (const f of files) {
+    try {
+      // downloadUrl is absolute, so spFetch treats it as a full URL — it
+      // returns the raw Response here since the content-type won't be JSON.
+      const res = await spFetch<Response>(f.downloadUrl);
+      const bytes = await res.arrayBuffer();
+      const file = new File([bytes], f.fileName);
+      await uploadAttachment(to, toId, file);
+      copied.push(f.fileName);
+    } catch (err) {
+      console.error(`copyAttachments: failed to copy "${f.fileName}"`, err);
+      failed.push(f.fileName);
+    }
+  }
+  return { copied, failed };
+}
+
 function spAbsoluteUrl(serverRelative: string): string {
   // SP_SITE_URL is a site root like https://tenant.sharepoint.com/sites/Y.
   // ServerRelativeUrl already carries the full site-specific path (e.g.

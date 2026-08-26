@@ -70,7 +70,7 @@ export function PromoteEirModal({ eir, onClose }: { eir: Eir; onClose: () => voi
     }
     setError(null);
     try {
-      const task = await promote.mutateAsync({
+      const { task } = await promote.mutateAsync({
         eir,
         title: trimmedTitle,
         project: chosenProject,

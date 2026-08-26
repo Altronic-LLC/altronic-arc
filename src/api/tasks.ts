@@ -672,14 +672,36 @@ export async function createTask(input: {
     try {
       return await updateTaskFields(task.id, followUp);
     } catch (err) {
-      console.error(
-        `createTask: task ${task.id} was created, but the follow-up write of ` +
-          `${Object.keys(followUp).join(", ")} failed`,
-        err,
-      );
+      // Don't swallow this — a promotion whose link-back and comment thread
+      // silently failed to land is exactly the "for some reason it didn't
+      // transfer" report this shipped to fix. The task itself is real and
+      // already saved, so this is a distinct error the caller can catch to
+      // still treat the promotion as successful while telling the user what
+      // to redo by hand (see TaskFollowUpWriteError below).
+      throw new TaskFollowUpWriteError(task, Object.keys(followUp), err);
     }
   }
   return task;
+}
+
+/**
+ * Thrown by `createTask` when the item itself was created but a follow-up
+ * field write (EIRReference / Communication — see the comment above) failed.
+ * Carries the already-created `task` so a caller like the EIR promotion flow
+ * can still treat the operation as a success (the task exists; only its
+ * "From EIR" link and/or carried-over discussion is missing) while surfacing
+ * a warning instead of pretending nothing went wrong.
+ */
+export class TaskFollowUpWriteError extends Error {
+  readonly task: Task;
+  readonly failedFields: string[];
+  constructor(task: Task, failedFields: string[], cause: unknown) {
+    super(`Task ${task.id} was created, but writing ${failedFields.join(", ")} failed`);
+    this.name = "TaskFollowUpWriteError";
+    this.task = task;
+    this.failedFields = failedFields;
+    this.cause = cause;
+  }
 }
 
 /** Delete a task. */

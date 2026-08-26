@@ -2264,13 +2264,17 @@ const SECTIONS: ManualSection[] = [
           the EIR's title). Pick the parent project (defaulted from
           the EIR's Project Reference — it sets the task's number prefix) and
           click <strong>Create task</strong>. The new task carries over the
-          EIR's title, description, project, and watchers, and its whole
-          comment thread is copied across with each comment tagged{" "}
+          EIR's title, description, project, watchers, and attachments, and
+          its whole comment thread is copied across with each comment tagged{" "}
           <em>"carried over from EIR …"</em>. The task opens with a{" "}
           <strong>From EIR</strong> link at the top that returns to the source
           EIR, and this EIR's Resolution, Linked Task card, and "Promoted to
           task" badge all update to point at the new task. Promoting is
           one-time — an EIR already marked promoted won't re-open the window.
+          If the link back, the carried-over discussion, or the copied
+          attachments couldn't be saved, a warning names what didn't make it
+          across so you know to add it by hand — the task itself still gets
+          created either way.
         </P>
         <P>
           <strong>Closing the loop.</strong> When someone marks the promoted

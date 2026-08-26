@@ -10,7 +10,8 @@ import {
   updateEirFields,
   type CreateEirInput,
 } from "@/api/eirs";
-import { createTask } from "@/api/tasks";
+import { createTask, TaskFollowUpWriteError } from "@/api/tasks";
+import { copyAttachments } from "@/api/attachments";
 import type {
   Eir,
   EirRequestType,
@@ -204,24 +205,78 @@ export interface PromoteEirInput {
  *
  * Returns the created task so the caller can navigate to it.
  */
+/** Result of a promotion: the new task, plus a warning when its "From EIR"
+ * link, carried-over discussion (see TaskFollowUpWriteError), and/or copied
+ * attachments couldn't all be saved, even though the task itself was created
+ * fine. */
+export interface PromoteEirResult {
+  task: Task;
+  followUpWarning: string | null;
+}
+
 export function usePromoteEirToTask() {
   const qc = useQueryClient();
-  return useMutation<Task, unknown, PromoteEirInput>({
+  return useMutation<PromoteEirResult, unknown, PromoteEirInput>({
     mutationFn: async ({ eir, title, project, watchers, numberedTitle, promotedBy }) => {
       const now = new Date();
       const communication = buildPromotedCommunication({ eir, promotedBy, now });
-      const task = await createTask({
-        title,
-        numberedTitle,
-        description: eir.description || undefined,
-        parentProjectLookupId: project?.lookupId ?? null,
-        watchers,
-        eirReference: {
-          url: appItemUrl("eir", eir.id),
-          label: eir.eirNo || `EIR #${eir.id}`,
-        },
-        communication: communication || undefined,
-      });
+      let task: Task;
+      const warnings: string[] = [];
+      try {
+        task = await createTask({
+          title,
+          numberedTitle,
+          description: eir.description || undefined,
+          parentProjectLookupId: project?.lookupId ?? null,
+          watchers,
+          eirReference: {
+            url: appItemUrl("eir", eir.id),
+            label: eir.eirNo || `EIR #${eir.id}`,
+          },
+          communication: communication || undefined,
+        });
+      } catch (err) {
+        // The task itself was created — only the "From EIR" link and/or the
+        // carried-over discussion failed to save. Keep going with the EIR
+        // stamp and the notification (both are about a task that genuinely
+        // exists) rather than reporting the whole promotion as failed, but
+        // don't let this go quiet the way it did before — see the comment
+        // on TaskFollowUpWriteError.
+        if (err instanceof TaskFollowUpWriteError) {
+          task = err.task;
+          const missing = err.failedFields.includes("EIRReference")
+            ? err.failedFields.includes("Communication")
+              ? "its link back to the EIR and the carried-over discussion"
+              : "its link back to the EIR"
+            : "the carried-over discussion";
+          warnings.push(`${missing} couldn't be saved — add ${
+            err.failedFields.includes("EIRReference") ? "the link" : "it"
+          } by hand`);
+        } else {
+          throw err;
+        }
+      }
+      // Files live in TWO separate SP REST attachment stores (the EIR's and
+      // the task's — see the "Attachments" section in CLAUDE.md), so nothing
+      // copies them automatically. Best-effort and never blocks the
+      // promotion: the task already exists, and a copy failure here is no
+      // different from the EIRReference/Communication follow-up above — say
+      // what didn't make it across rather than going quiet about it.
+      if (eir.hasAttachments) {
+        try {
+          const { copied, failed } = await copyAttachments("eir", eir.id, "task", task.id);
+          if (failed.length > 0) {
+            warnings.push(
+              copied.length > 0
+                ? `${failed.length} of ${copied.length + failed.length} attachments couldn't be copied over (${failed.join(", ")}) — attach ${failed.length === 1 ? "it" : "them"} by hand`
+                : `none of the EIR's attachments could be copied over — attach them by hand`,
+            );
+          }
+        } catch (err) {
+          console.error(`usePromoteEirToTask: attachment copy failed for EIR ${eir.id}`, err);
+          warnings.push("the EIR's attachments couldn't be copied over — attach them by hand");
+        }
+      }
       await updateEirFields(eir.id, {
         Resolution: "Promoted to Task",
         TaskPromotedFlag: true,
@@ -240,12 +295,27 @@ export function usePromoteEirToTask() {
         task: { id: task.id, numberedTitle: task.numberedTitle, title: task.title },
         actor: { displayName: promotedBy.displayName, email: promotedBy.email },
       });
-      return task;
+      const followUpWarning =
+        warnings.length > 0
+          ? `Created the task, but ${warnings.join("; and ")}.`
+          : null;
+      return { task, followUpWarning };
     },
-    onSuccess: (task) => {
+    onSuccess: ({ task, followUpWarning }) => {
+      // Seed the new task into the cache immediately — PromoteEirModal
+      // navigates to /task/:id right after this resolves, and useTask()
+      // derives from this same list query. Without seeding it here, that
+      // navigation lands on a stale list that doesn't have the new task yet,
+      // flashing "Task not found" until invalidateQueries' background
+      // refetch catches up. Same fix, same reason, as useCreateTask's.
+      qc.setQueryData<Task[]>(TASK_LIST_KEY, (old) => (old ? [task, ...old] : [task]));
       qc.invalidateQueries({ queryKey: TASK_LIST_KEY });
       qc.invalidateQueries({ queryKey: EIRS_KEY });
-      pushToast({ message: `Created task ${task.numberedTitle || task.title} from EIR.` });
+      if (followUpWarning) {
+        pushToast({ message: followUpWarning, variant: "error" });
+      } else {
+        pushToast({ message: `Created task ${task.numberedTitle || task.title} from EIR.` });
+      }
     },
     onError: (err) => {
       const detail = err instanceof Error ? err.message : String(err);

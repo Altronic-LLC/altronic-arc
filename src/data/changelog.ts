@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.118.0",
+    date: "2026-08-26",
+    changes: [
+      "Promoting an EIR to a task now copies over the EIR's attachments too, alongside its title, description, discussion, and a link back to it",
+      "Promoting an EIR to a task now opens the new task right away instead of briefly showing \"Task not found\"",
+      "If a promoted task's link back to the EIR, its carried-over discussion, or its copied attachments fail to save, you'll now see a warning naming what to add by hand — this used to fail silently",
+    ],
+  },
+  {
     version: "0.117.1",
     date: "2026-08-26",
     changes: [
