@@ -247,6 +247,10 @@ src/
 │   ├── panelProjects.ts          Panel Project Reference list
 │   ├── panelRoles.ts             Panel User Roles list CRUD
 │   ├── visitReports.ts           Visit Reports CRUD (Sales, salesTeam site) — no delete
+│   ├── customerNotes.ts          CRM Tool — Customer Notes CRUD + comments (Sales, salesOrderEntry site)
+│   ├── customerContacts.ts       CRM Tool — Customer Contacts CRUD, scoped to a Customer Note
+│   ├── specialPricing.ts         CRM Tool — Special Pricing CRUD, scoped to a Customer Note
+│   ├── capacity.ts               CRM Tool — Capacity CRUD, scoped to a Customer Note
 │   ├── openOrdersFiles.ts        Open Orders SharePoint folder — list/upload/download
 │   ├── openOrdersCustomers.ts    Open Orders managed customer list CRUD
 │   ├── openOrdersRoles.ts        Open Orders role tags (report manager) CRUD
@@ -268,6 +272,7 @@ src/
 │   ├── operationsMockData.ts     Sample Operations tasks + projects
 │   ├── panelMockData.ts          Sample panel orders + panel tasks
 │   ├── visitReportMockData.ts    Sample visit reports
+│   ├── crmMockData.ts            Sample CRM Tool data — customers, contacts, pricing, capacity
 │   ├── openOrdersMockData.ts     Sample open order lines + report customers
 │   ├── grayMarketMockData.ts     Sample gray market requests
 │   ├── whereAmIMockData.ts       Sample out-of-office entries (dated from today)
@@ -288,6 +293,10 @@ src/
 │   ├── usePanelTasks.ts          Panel task queries + mutations
 │   ├── usePanelRoles.ts          Panel User Roles CRUD (admin-guarded)
 │   ├── useVisitReports.ts        Visit Report queries + mutations
+│   ├── useCustomerNotes.ts       CRM Tool — Customer Notes queries, mutations + comments
+│   ├── useCustomerContacts.ts    CRM Tool — Customer Contacts queries + mutations
+│   ├── useSpecialPricing.ts      CRM Tool — Special Pricing queries + mutations
+│   ├── useCapacity.ts            CRM Tool — Capacity queries + mutations
 │   ├── useOpenOrdersReports.ts   Parse an extract, generate + upload, download
 │   ├── useOpenOrdersCustomers.ts Customer list + role CRUD (+ useMyOpenOrdersAccess)
 │   ├── useGrayMarketRequests.ts  Gray Market queries, mutations + comment thread
@@ -354,6 +363,10 @@ src/
 │   ├── panelTaskMapper.ts        Graph item → PanelTask
 │   ├── panelRoles.ts             Panel role → editing-rights mapping (pure)
 │   ├── visitReportMapper.ts      Graph item → VisitReport (+ RM/year options)
+│   ├── customerNoteMapper.ts     Graph item → CustomerNote (CRM Tool anchor list)
+│   ├── customerContactMapper.ts  Graph item → CustomerContact
+│   ├── specialPricingMapper.ts   Graph item → SpecialPricingEntry
+│   ├── capacityMapper.ts         Graph item → CapacityEntry
 │   ├── grayMarketFields.ts       Gray Market column descriptors (columns are DATA)
 │   ├── grayMarketMapper.ts       Graph item → GrayMarketRequest, and back
 │   ├── grayMarketNumber.ts       nextGrayMarketLogNo() — GMR_YYYY-### numbering
@@ -420,6 +433,10 @@ src/
 │   ├── PanelOrderFormModal.tsx   Create/edit panel order
 │   ├── PanelTaskFormModal.tsx    Create/edit panel task
 │   ├── VisitReportFormModal.tsx  Create/edit a visit report
+│   ├── CustomerNoteFormModal.tsx  CRM Tool — new customer (create-only; details edit on the page)
+│   ├── CustomerContactFormModal.tsx  CRM Tool — add/edit a contact, scoped to a customer
+│   ├── SpecialPricingFormModal.tsx   CRM Tool — add/edit a pricing entry, scoped to a customer
+│   ├── CapacityFormModal.tsx         CRM Tool — add/edit a capacity entry, scoped to a customer
 │   ├── GrayMarketRequestFormModal.tsx  Raise a gray market request
 │   ├── WhereAmIFormModal.tsx     Add/edit an out-of-office entry (+ date range)
 │   ├── ProjectFolderFormModal.tsx  Create a project folder + tag its Project Reference
@@ -484,6 +501,8 @@ src/
 │   ├── PanelTasksView.tsx        Panel Tasks list
 │   ├── PanelTaskDetailView.tsx   Panel task detail
 │   ├── VisitReportsView.tsx      Visit Reports list (Sales)
+│   ├── CustomerNotesView.tsx     CRM Tool — Customer Notes list, search + Group filter (Sales)
+│   ├── CustomerNoteDetailView.tsx  CRM Tool — one customer + Contacts/Special Pricing/Capacity
 │   ├── OpenOrdersView.tsx        Open Orders Report Tool — upload, generate, download
 │   ├── OpenOrdersCustomersView.tsx  The managed customer list (+ import from an extract)
 │   ├── AdminOpenOrdersRolesView.tsx Admin -> Open Orders Roles
@@ -1301,6 +1320,74 @@ matching /delete|remove/.
 Creating and editing is open to **any signed-in user** — no admin gate, no
 role gating. The list is **Sales-only**: nothing else reads it, and it imports
 nothing from another department.
+
+### CRM Tool (Customer Service / Sales, salesOrderEntry site)
+
+Four lists on **`SITES.salesOrderEntry`** — the `OrderEntry` subsite of
+ALTRONICSALESTEAM (a subsite of `SITES.salesTeam`, sharing its
+`Sites.Selected` grant). Discovered live 2026-08-26; IDs in `src/api/config.ts`.
+
+| List | env / id | Shape |
+|---|---|---|
+| Customer Notes | `VITE_SP_CUSTOMER_NOTES_LIST_ID` — `7e199193-5608-4e8d-b138-f146dc45d602` (102 rows) | the anchor |
+| Customer Contacts | `VITE_SP_CUSTOMER_CONTACTS_LIST_ID` — `8bcf0b63-93b5-43a7-b596-da119a7cd8f9` (109 rows) | `Customer` lookup, single |
+| Special Pricing | `VITE_SP_SPECIAL_PRICING_LIST_ID` — `254ce15b-7489-42ae-88bb-828b9307727a` (2 rows) | `Customer` lookup, single |
+| Capacity | `VITE_SP_CAPACITY_LIST_ID` — `28797b1c-d755-4c3a-b2c1-50517ff5e18a` (5 rows) | `Customer` lookup, single |
+
+**Customer Notes is the anchor; the other three have no top-level screen of
+their own** (Ray, 2026-08-26: "You have to start with Customer Notes, then be
+able to see that customer's contacts"). `CustomerNoteDetailView` renders
+Contacts, Special Pricing and Capacity as sections scoped to the customer
+being viewed, each with its own Add button and its own form modal — that's
+why `CustomerContactsView` / `SpecialPricingView` / `CapacityView` don't
+exist. The three child lists are small (2–110 rows), so each is fetched
+whole (`listCustomerContacts()` etc.) and scoped to one customer
+client-side, the same pattern as the Teradyne reference lists.
+
+Five things about Customer Notes' columns:
+
+- **`Group` is a SINGLE choice; `CustomerType` is MULTI.** Both look like
+  ordinary short choice columns, but Graph returns `Group` as a bare string
+  and `CustomerType` as a bare string array — verified against live sample
+  rows. Writing `Group` is a plain string (or `null`); writing `CustomerType`
+  is `multiChoiceField`'s plain array, no `@odata.type` annotation (the
+  annotation is for lookups/persons, not choice columns).
+- **`GeneralNotes` and `ComplianceNotes` hold rich HTML in practice**, even
+  though the column metadata Graph reports says `text.textType: "plain"` —
+  confirmed by reading live sample rows, which contain `<p>` and
+  `<span style="...">` markup. This is the same class of gap as FAIT's
+  Communication append-behaviour: unverifiable from the schema API, settled
+  by looking at the data instead. They're edited through `FieldEditModal`'s
+  `richText` kind (`toPlainTextForEditing` / `toStoredRichText`), the same as
+  the EIR/ECN long text fields, and rendered through the `looksLikeHtml` +
+  `sanitiseHtml` check ECN's `FieldRow` uses.
+- **`CSR` is multi-person; `KAM` is single-person.** Both write through
+  `ensureLookupIds` / `ensurePersonLookupId` against
+  `SP_SALES_ORDERENTRY_SITE_URL` (a dedicated site URL for the OrderEntry
+  subsite — a lookupId is per site collection, and a person newly picked from
+  the tenant directory needs `ensureuser` called against the right one before
+  a write will succeed). Both save **immediately** on pick, the same as a
+  task's Assigned field — not through the card-Edit-modal pattern, since a
+  person field isn't a batch of text to compose before committing.
+- **`Communication` exists on the list, but there's no Watchers column and
+  no "submitter" concept** — a customer record isn't raised by one person the
+  way an EIR or ECN is. So a comment reaches **only whoever is @-mentioned,
+  and nobody else** (Ray, 2026-08-26) — narrower even than ECN's rule, which
+  still has a submitter. `customerNoteCommentRecipients` in `lib/mentions.ts`
+  is the whole rule; there is no auto-watch, and no Watch button, because
+  there is nowhere to store a watch.
+- **There IS a delete**, on all four lists — unlike Visit Reports or Gray
+  Market Requests, a customer record (or a contact, a pricing note, a
+  capacity line) is a maintained address book entry, not a record of
+  something that happened. Anyone signed in can add, edit or remove one on
+  any of the four lists — no admin gate, no role gating, the same as
+  "Where am I?".
+
+`CustomerP/N` on Capacity is written under its escaped internal name,
+`CustomerP_x002f_N` — SharePoint escapes the `/` the same way it escapes
+spaces and colons elsewhere in this app (`Customer_x003a__x0020_SAP_x0020_`,
+the read-only PROJECTED lookup columns showing a related customer's SAP/Old
+number, present on all three child lists but never written).
 
 ### Open Orders Report Tool (Customer Service / Sales)
 

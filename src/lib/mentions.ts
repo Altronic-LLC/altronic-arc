@@ -417,6 +417,38 @@ export function ecnCommentRecipients(args: {
 }
 
 /**
+ * Comment recipients for a Customer Note — @-mentioned people only, and
+ * nobody else (Ray, 2026-08-26). `Communication` on this list has no
+ * Watchers column behind it, the same shape as ECN's — but unlike an ECN
+ * there's also no "submitter" worth notifying: a customer record isn't
+ * raised by one person the way an ECN or a gray market request is, so
+ * there's no standing recipient at all. A comment here is a message to
+ * whoever you tag, full stop.
+ *
+ * Same author rule as everywhere else: the person posting isn't emailed
+ * their own comment unless they @-mentioned themselves.
+ */
+export function customerNoteCommentRecipients(args: {
+  bodyHtml: string;
+  authorEmail: string;
+}): CommentRecipient[] {
+  const author = (args.authorEmail ?? "").toLowerCase();
+  const mentions = extractMentionedRecipients(args.bodyHtml);
+  const selfMentioned = mentions.some((m) => m.email.toLowerCase() === author);
+
+  const byEmail = new Map<string, CommentRecipient>();
+  for (const m of mentions) {
+    byEmail.set(m.email.toLowerCase(), {
+      email: m.email,
+      displayName: m.displayName,
+      reason: "mentioned",
+    });
+  }
+  if (!selfMentioned) byEmail.delete(author);
+  return Array.from(byEmail.values());
+}
+
+/**
  * Deterministic stand-in for a SharePoint lookupId in mock mode, used when
  * auto-watching someone mentioned for the very first time (never an
  * assignee/watcher before, so they're not in the task-derived directory).

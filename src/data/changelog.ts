@@ -20,6 +20,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.121.0",
+    date: "2026-08-26",
+    changes: [
+      "Add the CRM Tool for Customer Service / Sales — Customers at /sales/customers",
+      "Open a customer to see their notes, CSR/KAM, contacts, special pricing and capacity commitments in one place",
+      "Comments on a customer reach only whoever you @-mention — there are no watchers on this list",
+      "Search customers by name or SAP number, and filter by Group",
+    ],
+  },
+  {
     version: "0.120.2",
     date: "2026-08-26",
     changes: [

@@ -1719,3 +1719,135 @@ export interface OpenOrderCustomerAccountInput {
   active: boolean;
   notes: string;
 }
+
+// =============================================================================
+// CRM Tool (Customer Service / Sales, salesOrderEntry site)
+//
+// Four lists, all sharing one customer record: "Customer Notes" is the
+// anchor — Contacts, Special Pricing and Capacity each carry a lookup back to
+// it, so the app is customer-first: open a customer, see everything that
+// points at them. Discovered live 2026-08-26 — see CLAUDE.md for the
+// per-list column notes (truncated internal names, single vs multi choice).
+// =============================================================================
+
+/** `Group` on Customer Notes — a SINGLE choice, unlike CustomerType below. */
+export const CUSTOMER_GROUPS = [
+  "Arrow",
+  "CAT",
+  "CES",
+  "Cummins",
+  "Jenbacher",
+  "Other",
+  "Palmero",
+  "Perkins",
+  "Rolls-Royce",
+  "Wartsila",
+  "Waukesha",
+] as const;
+export type CustomerGroup = (typeof CUSTOMER_GROUPS)[number];
+
+/** `CustomerType` on Customer Notes — a MULTI choice (Graph returns an array). */
+export const CUSTOMER_TYPES = ["OEM", "AM", "IC", "Packager", "GTI", "Panels"] as const;
+export type CustomerType = (typeof CUSTOMER_TYPES)[number];
+
+/**
+ * "Customer Notes" — the anchor record for the CRM tool.
+ *
+ * `Communication` has no Watchers column behind it: a comment here reaches
+ * only whoever is @-mentioned, the same rule ECNs use (see
+ * `customerNoteCommentRecipients` in lib/mentions.ts). `GeneralNotes` and
+ * `ComplianceNotes` hold rich HTML in practice even though Graph reports
+ * their column type as plain text — see CLAUDE.md.
+ */
+export interface CustomerNote {
+  id: number;
+  /** `Title` — the customer's name. */
+  customerName: string;
+  oldCustomerNumber: string;
+  sapCustomerNumber: string;
+  generalNotes: string;
+  complianceNotes: string;
+  group: CustomerGroup | null;
+  customerTypes: CustomerType[];
+  /** Multi-person. */
+  csr: Person[];
+  /** Single-person. */
+  kam: Person | null;
+  comments: Comment[];
+  hasAttachments: boolean;
+  createdAt: Date;
+  modifiedAt: Date;
+}
+
+export interface CustomerNoteInput {
+  customerName: string;
+  oldCustomerNumber: string;
+  sapCustomerNumber: string;
+  group: CustomerGroup | null;
+  customerTypes: CustomerType[];
+  csr: Person[];
+  kam: Person | null;
+}
+
+/** "Customer Contacts" — one row per person at a customer. */
+export interface CustomerContact {
+  id: number;
+  /** `Title` — the contact's name. */
+  name: string;
+  /** `Customer` lookup, into Customer Notes. */
+  customerId: number | null;
+  email: string;
+  phoneNumber: string;
+  jobTitle: string;
+  contactNotes: string;
+}
+
+export interface CustomerContactInput {
+  name: string;
+  customerId: number;
+  email: string;
+  phoneNumber: string;
+  jobTitle: string;
+  contactNotes: string;
+}
+
+/** "Special Pricing" — a pricing note or agreement tied to a customer. */
+export interface SpecialPricingEntry {
+  id: number;
+  /** `Title` — a part number or a short description, whatever the row was named. */
+  title: string;
+  /** `Customer` lookup, into Customer Notes. */
+  customerId: number | null;
+  pricingNotes: string;
+  aiPartNumber: string;
+}
+
+export interface SpecialPricingInput {
+  title: string;
+  customerId: number;
+  pricingNotes: string;
+  aiPartNumber: string;
+}
+
+/** "Capacity" — a per-part weekly production capacity commitment to a customer. */
+export interface CapacityEntry {
+  id: number;
+  /** `Title` — the Altronic part number. */
+  partNumber: string;
+  /** `Customer` lookup, into Customer Notes. */
+  customerId: number | null;
+  description: string;
+  weeklyMax: number | null;
+  notes: string;
+  /** `CustomerP/N` — the customer's own part number. */
+  customerPartNumber: string;
+}
+
+export interface CapacityInput {
+  partNumber: string;
+  customerId: number;
+  description: string;
+  weeklyMax: number | null;
+  notes: string;
+  customerPartNumber: string;
+}

@@ -562,6 +562,43 @@ export const SP_PANELTEAM_SITE_URL =
  */
 export const PANEL_ROLES_ENFORCED = USE_MOCK || !!SP_PANEL_ROLES_LIST_ID;
 
+// =============================================================================
+// CRM Tool — Customer Notes, Customer Contacts, Special Pricing and Capacity,
+// all on the salesOrderEntry site (SITES.salesOrderEntry — the OrderEntry
+// subsite of ALTRONICSALESTEAM). Customer Notes is the anchor: the other
+// three each carry a `Customer` lookup back into it. IDs discovered live
+// 2026-08-26.
+// =============================================================================
+
+/** "Customer Notes" — the anchor list. `Group` is a single choice; `CustomerType` is multi. */
+export const SP_CUSTOMER_NOTES_LIST_ID =
+  import.meta.env.VITE_SP_CUSTOMER_NOTES_LIST_ID ||
+  "7e199193-5608-4e8d-b138-f146dc45d602";
+
+/** "Customer Contacts" — one row per person at a customer, `Customer` lookup single. */
+export const SP_CUSTOMER_CONTACTS_LIST_ID =
+  import.meta.env.VITE_SP_CUSTOMER_CONTACTS_LIST_ID ||
+  "8bcf0b63-93b5-43a7-b596-da119a7cd8f9";
+
+/** "Special Pricing" — pricing notes tied to a customer. */
+export const SP_SPECIAL_PRICING_LIST_ID =
+  import.meta.env.VITE_SP_SPECIAL_PRICING_LIST_ID ||
+  "254ce15b-7489-42ae-88bb-828b9307727a";
+
+/** "Capacity" — per-part weekly capacity commitments tied to a customer. */
+export const SP_CAPACITY_LIST_ID =
+  import.meta.env.VITE_SP_CAPACITY_LIST_ID ||
+  "28797b1c-d755-4c3a-b2c1-50517ff5e18a";
+
+/**
+ * OrderEntry subsite's classic SharePoint REST root — needed to resolve a
+ * picked person's site lookupId for the CSR/KAM fields (`ensureSiteUserLookupId`
+ * in api/siteUsers.ts). Same tenant/token as SP_SITE_URL; only the path differs.
+ */
+export const SP_SALES_ORDERENTRY_SITE_URL =
+  (import.meta.env.VITE_SP_SALES_ORDERENTRY_SITE_URL as string | undefined) ??
+  "https://coopermachineryservices.sharepoint.com/sites/ALTRONICSALESTEAM/OrderEntry";
+
 export const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 
 /** Throw a clear error if the app tries to call Graph without being configured. */

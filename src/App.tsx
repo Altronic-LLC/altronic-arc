@@ -82,6 +82,14 @@ const AdminNotificationRecipientsView = lazy(() =>
     default: m.AdminNotificationRecipientsView,
   })),
 );
+const CustomerNotesView = lazy(() =>
+  import("@/views/CustomerNotesView").then((m) => ({ default: m.CustomerNotesView })),
+);
+const CustomerNoteDetailView = lazy(() =>
+  import("@/views/CustomerNoteDetailView").then((m) => ({
+    default: m.CustomerNoteDetailView,
+  })),
+);
 const AdminOpenOrdersRolesView = lazy(() =>
   import("@/views/AdminOpenOrdersRolesView").then((m) => ({
     default: m.AdminOpenOrdersRolesView,
@@ -311,6 +319,22 @@ export function App() {
                     <AdminOpenOrdersRolesView />
                   </Suspense>
                 </RequireAdmin>
+              }
+            />
+            <Route
+              path="/sales/customers"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the customers" />}>
+                  <CustomerNotesView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/sales/customers/:id"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the customer" />}>
+                  <CustomerNoteDetailView />
+                </Suspense>
               }
             />
             <Route path="/sales/visit-reports" element={<VisitReportsView />} />

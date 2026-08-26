@@ -73,8 +73,8 @@ const SYSTEM_TIERS: Tier[] = [
     label: "React SPA",
     nodes: [
       { label: "Views", hint: "Dashboard · List · Kanban · Detail · EIRs · Test Sheets · Project Folders · CSA Listings · Drawing File Logs · Digital QC · Ignition QC · Potting Sample Log · Visit Reports (list + calendar) · Open Orders Report · Gray Market Requests · Where Am I? · ECNs · FAITs · Drawing Work Sheet (print) · Admin", palette: "ui" },
-      { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useBuildRequests · useCsaListings · useDrawingLogs · useDigitalQc · useIgnitionQc · usePottingSampleLog · useVisitReports · useOpenOrdersReports · useOpenOrdersCustomers · useGrayMarketRequests · useWhereAmI · useEcns · useFaits · useAdmins · useEirRoles · useTaskFiles · useProjectFolders", palette: "ui" },
-      { label: "API layer", hint: "src/api/tasks · eirs · testSheets · buildRequests · buildRequestItems · csaListings · drawingLogs · digitalQc · ignitionQc · pottingSampleLog · visitReports · openOrdersFiles · openOrdersCustomers · openOrdersRoles · grayMarketRequests · whereAmI · ecns · faits · autoWatch · panelOrders · panelTasks · admins · eirRoles · panelRoles · directory · siteUsers · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
+      { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useBuildRequests · useCsaListings · useDrawingLogs · useDigitalQc · useIgnitionQc · usePottingSampleLog · useVisitReports · useOpenOrdersReports · useOpenOrdersCustomers · useGrayMarketRequests · useWhereAmI · useEcns · useFaits · useCustomerNotes · useCustomerContacts · useSpecialPricing · useCapacity · useAdmins · useEirRoles · useTaskFiles · useProjectFolders", palette: "ui" },
+      { label: "API layer", hint: "src/api/tasks · eirs · testSheets · buildRequests · buildRequestItems · csaListings · drawingLogs · digitalQc · ignitionQc · pottingSampleLog · visitReports · openOrdersFiles · openOrdersCustomers · openOrdersRoles · grayMarketRequests · whereAmI · ecns · faits · customerNotes · customerContacts · specialPricing · capacity · autoWatch · panelOrders · panelTasks · admins · eirRoles · panelRoles · directory · siteUsers · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
       {
         label: "Open Orders Report (lazy-loaded)",
         hint: "OpenOrdersView · OpenOrdersCustomersView — reads a raw SAP extract in the browser and writes a branded master dashboard plus one workbook per managed customer into SharePoint. ExcelJS (~950KB) is dynamically imported on first use so it never lands in the main chunk.",
@@ -98,6 +98,11 @@ const SYSTEM_TIERS: Tier[] = [
       {
         label: "Customer Service / Sales department",
         hint: "VisitReportsView · VisitReportsCalendarView · VisitReportDetailView — useVisitReports · useVisitReportFilters — api/visitReports. Own site (ALTRONICSALESTEAM). List and calendar are two views of one filtered set (lib/visitReportFilters). Sales-only: no other department reads it, and it imports nothing from another department.",
+        palette: "ui",
+      },
+      {
+        label: "CRM Tool (lazy-loaded)",
+        hint: "CustomerNotesView · CustomerNoteDetailView — useCustomerNotes · useCustomerContacts · useSpecialPricing · useCapacity — api/customerNotes · customerContacts · specialPricing · capacity. Own site (salesOrderEntry, the ALTRONICSALESTEAM/OrderEntry subsite). Customer Notes is the anchor; Contacts, Special Pricing and Capacity are shown on a customer's own detail page rather than as top-level screens.",
         palette: "ui",
       },
       {
@@ -154,6 +159,10 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "Open Orders Report Customers", hint: "ALTRONICSALESTEAM site — who gets an individual open-orders workbook each week. Title is the sold-to account number; CustomerName is the customer-facing name the FILE is named from, because SAP truncates its own at 30 characters", palette: "list" },
       { label: "Open Orders Roles", hint: "ALTRONICSALESTEAM site — same shape as EIR Roles; Title is an email and Roles is a CSV, today just \"report manager\". Gating is off until the list id is configured, so nobody is locked out before an admin populates it", palette: "list" },
       { label: "Visit Reports", hint: "ALTRONICSALESTEAM site — regional managers' customer visits; Title is the Customer Name, City0/State0 carry the trailing zero, Month/Year/Day are calculated", palette: "list" },
+      { label: "Customer Notes", hint: "salesOrderEntry site (OrderEntry subsite) — the CRM tool's anchor list; Group is a single choice, CustomerType is multi; Communication has no Watchers column, so comments reach @-mentioned people only", palette: "list" },
+      { label: "Customer Contacts", hint: "salesOrderEntry site — one row per person at a customer; Customer is a single lookup into Customer Notes", palette: "list" },
+      { label: "Special Pricing", hint: "salesOrderEntry site — pricing notes tied to a customer via the same Customer lookup", palette: "list" },
+      { label: "Capacity", hint: "salesOrderEntry site — per-part weekly production capacity commitments tied to a customer", palette: "list" },
     ],
   },
 ];
@@ -764,8 +773,9 @@ const SCHEMA_TABLES: SchemaTable[] = [
     ],
   },
   {
-    // Sales' only entity so far, and a standalone one — no lookups in or out.
-    // The customer is a name typed into Title, not a row in a Customers list.
+    // A standalone entity — no lookups in or out. The customer is a name
+    // typed into Title, not a row in a Customers list. The CRM tool's
+    // CustomerNote below is a SEPARATE list Sales also owns.
     name: "VisitReport",
     source: "Visit Reports (ALTRONICSALESTEAM site)",
     palette: "entity",
@@ -783,6 +793,72 @@ const SCHEMA_TABLES: SchemaTable[] = [
       { name: "city (City0)", type: "text", kind: "field" },
       { name: "state (State0)", type: "choice", kind: "field" },
       { name: "hasAttachments", type: "bool", kind: "field" },
+    ],
+  },
+  {
+    // The CRM tool's anchor — Contacts, SpecialPricingEntry and
+    // CapacityEntry each carry a lookup back to a row here (salesOrderEntry
+    // site, the ALTRONICSALESTEAM/OrderEntry subsite).
+    name: "CustomerNote",
+    source: "Customer Notes (salesOrderEntry site)",
+    palette: "entity",
+    x: 20, y: 3480, width: 300,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "customerName (Title)", type: "text", kind: "field" },
+      { name: "oldCustomerNumber", type: "text", kind: "field" },
+      { name: "sapCustomerNumber", type: "text", kind: "field" },
+      { name: "generalNotes", type: "text", kind: "field" },
+      { name: "complianceNotes", type: "text", kind: "field" },
+      { name: "group", type: "choice", kind: "field" },
+      { name: "customerTypes", type: "choice[]", kind: "field" },
+      { name: "csr", type: "int[]", kind: "fk", references: "Person.id" },
+      { name: "kam", type: "int", kind: "fk", references: "Person.id" },
+      { name: "comments (Communication)", type: "text", kind: "field" },
+      { name: "hasAttachments", type: "bool", kind: "field" },
+    ],
+  },
+  {
+    name: "CustomerContact",
+    source: "Customer Contacts (salesOrderEntry site)",
+    palette: "entity",
+    x: 350, y: 3480, width: 270,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "name (Title)", type: "text", kind: "field" },
+      { name: "customerId", type: "int", kind: "fk", references: "CustomerNote.id" },
+      { name: "email", type: "text", kind: "field" },
+      { name: "phoneNumber", type: "text", kind: "field" },
+      { name: "jobTitle", type: "text", kind: "field" },
+      { name: "contactNotes", type: "text", kind: "field" },
+    ],
+  },
+  {
+    name: "SpecialPricingEntry",
+    source: "Special Pricing (salesOrderEntry site)",
+    palette: "entity",
+    x: 650, y: 3480, width: 260,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title (Title)", type: "text", kind: "field" },
+      { name: "customerId", type: "int", kind: "fk", references: "CustomerNote.id" },
+      { name: "pricingNotes", type: "text", kind: "field" },
+      { name: "aiPartNumber", type: "text", kind: "field" },
+    ],
+  },
+  {
+    name: "CapacityEntry",
+    source: "Capacity (salesOrderEntry site)",
+    palette: "entity",
+    x: 940, y: 3480, width: 280,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "partNumber (Title)", type: "text", kind: "field" },
+      { name: "customerId", type: "int", kind: "fk", references: "CustomerNote.id" },
+      { name: "description", type: "text", kind: "field" },
+      { name: "weeklyMax", type: "number", kind: "field" },
+      { name: "notes", type: "text", kind: "field" },
+      { name: "customerPartNumber (CustomerP/N)", type: "text", kind: "field" },
     ],
   },
 ];
@@ -871,6 +947,12 @@ const CONNECTIONS: Connection[] = [
   { fromTable: "TeradyneLogEntry", fromColumn: "remark", toTable: "TeradyneRemark", toColumn: "id", fromCard: "many", toCard: "one" },
   // CSA Listings — certificates attach to the list item; no other relationships.
   { fromTable: "Attachment", fromColumn: "parentId", toTable: "CsaListing", toColumn: "id", fromCard: "many", toCard: "one" },
+  // CRM tool — CustomerNote is the hub; the other three all point INTO it.
+  { fromTable: "CustomerNote", fromColumn: "csr", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
+  { fromTable: "CustomerNote", fromColumn: "kam", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "CustomerContact", fromColumn: "customerId", toTable: "CustomerNote", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "SpecialPricingEntry", fromColumn: "customerId", toTable: "CustomerNote", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "CapacityEntry", fromColumn: "customerId", toTable: "CustomerNote", toColumn: "id", fromCard: "many", toCard: "one" },
 ];
 
 export function AboutView() {

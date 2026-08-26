@@ -49,7 +49,7 @@ const SECTIONS: ManualSection[] = [
       "where do i start",
     ],
     searchText:
-      "Sign in with your altronic-llc.com account. The Dashboard opens after sign-in. Use the top nav to switch between Dashboard, the Departments dropdown, and Admin. The Departments dropdown mirrors the dashboard: Engineering (Engineering Tasks, EIRs, Test Sheets, Project Folders, Build Requests, Drawing File Logs, CSA Listings, Where Am I?, ECNs), Panels, Operations, Coils (Potting Sample Log), Quality Control (Digital QC and Ignition QC Defect Logs), Supply Chain (Gray Market Requests, FAITs), and Customer Service / Sales (Visit Reports).",
+      "Sign in with your altronic-llc.com account. The Dashboard opens after sign-in. Use the top nav to switch between Dashboard, the Departments dropdown, and Admin. The Departments dropdown mirrors the dashboard: Engineering (Engineering Tasks, EIRs, Test Sheets, Project Folders, Build Requests, Drawing File Logs, CSA Listings, Where Am I?, ECNs), Panels, Operations, Coils (Potting Sample Log), Quality Control (Digital QC and Ignition QC Defect Logs), Supply Chain (Gray Market Requests, FAITs), and Customer Service / Sales (Open Orders Report, Visit Reports, Customers/CRM Tool).",
     render: () => (
       <>
         <P>
@@ -62,9 +62,11 @@ const SECTIONS: ManualSection[] = [
           Listings, Where Am I?, ECNs), <strong>Panels</strong>,{" "}
           <strong>Operations</strong>, <strong>Coils</strong> (Potting Sample
           Log), <strong>Quality Control</strong> (Digital QC and Ignition QC
-          Defect Logs), <strong>Supply Chain</strong> (Gray Market Requests), and{" "}
-          <strong>Customer Service / Sales</strong> (Visit Reports, with the
-          rest still coming soon). Engineering Tasks use the <strong>List</strong> and{" "}
+          Defect Logs), <strong>Supply Chain</strong> (Gray Market Requests,
+          FAITs), and{" "}
+          <strong>Customer Service / Sales</strong> (Open Orders Report, Visit
+          Reports, and the Customers CRM tool). Engineering Tasks use the{" "}
+          <strong>List</strong> and{" "}
           <strong>Kanban</strong> views.
           Your tasks are filtered to you by default — pick "Anyone" in the
           Assigned filter to see the rest of the team's work.
@@ -1789,6 +1791,92 @@ const SECTIONS: ManualSection[] = [
           <strong>show all</strong> link underneath; filters and the count
           always run over every report, not just the ones on screen.
         </P>
+      </>
+    ),
+  },
+  {
+    id: "crm",
+    title: "CRM Tool",
+    group: "Customer Service / Sales",
+    keywords: [
+      "crm",
+      "customer notes",
+      "customers",
+      "customer contacts",
+      "contacts",
+      "special pricing",
+      "pricing",
+      "capacity",
+      "csr",
+      "kam",
+      "customer group",
+      "customer type",
+      "general notes",
+      "compliance notes",
+      "sap customer number",
+    ],
+    searchText:
+      "The CRM Tool at /sales/customers, under Departments > Customer Service / Sales, backed by four lists on the salesOrderEntry SharePoint site: Customer Notes, Customer Contacts, Special Pricing and Capacity. Customer Notes is the anchor — open a customer to see their contacts, special pricing and capacity commitments; the other three lists have no screens of their own. A customer carries a name, SAP Customer Number, Old Customer Number, Group (a single choice — Arrow, CAT, CES, Cummins, Jenbacher, Other, Palmero, Perkins, Rolls-Royce, Wartsila, Waukesha), Customer Type (a multi-choice — OEM, AM, IC, Packager, GTI, Panels), a CSR (can be several people) and a KAM (one person), plus General Notes and Compliance Notes. The customer list searches by name and SAP number and filters by Group. Comments on a customer reach only whoever you @-mention — there are no watchers on this list, and no submitter either, so a comment with no mention notifies nobody. Any signed-in user can add, edit or remove a customer, a contact, a pricing entry or a capacity entry.",
+    render: () => (
+      <>
+        <P>
+          <strong>Departments → Customer Service / Sales → Customers</strong>{" "}
+          (<code>/sales/customers</code>) is the CRM tool — one place to look
+          up a customer and see everything Sales tracks about them: contacts,
+          special pricing and capacity commitments, all in one page.
+        </P>
+        <H3>Customer Notes — the anchor</H3>
+        <P>
+          The customer list searches by <strong>name or SAP number</strong>{" "}
+          and filters by <strong>Group</strong>. Opening a customer shows:
+        </P>
+        <UL>
+          <LI>
+            <strong>General Notes</strong> and <strong>Compliance Notes</strong>{" "}
+            — each has its own Edit button.
+          </LI>
+          <LI>
+            <strong>Group</strong> (a single choice) and{" "}
+            <strong>Customer Type</strong> (pick several) in the sidebar —
+            both save the moment you change them.
+          </LI>
+          <LI>
+            <strong>CSR</strong> (can be more than one person) and{" "}
+            <strong>KAM</strong> (one person) — also save immediately, the
+            same as a task's Assigned field.
+          </LI>
+        </UL>
+        <H3>Contacts, Special Pricing and Capacity</H3>
+        <P>
+          Three sections further down the page, each scoped to the customer
+          you're looking at, each with its own <strong>Add</strong> button:
+        </P>
+        <UL>
+          <LI>
+            <strong>Contacts</strong> — a person at the customer: name, email,
+            phone, job title and notes.
+          </LI>
+          <LI>
+            <strong>Special Pricing</strong> — a pricing note or agreement,
+            with an AI Part Number.
+          </LI>
+          <LI>
+            <strong>Capacity</strong> — a per-part weekly production capacity
+            commitment, with the customer's own part number alongside it.
+          </LI>
+        </UL>
+        <P>
+          Clicking any row in these three sections reopens the same form for
+          editing, with a <strong>Remove</strong> button on it.
+        </P>
+        <Tip>
+          Unlike most comment threads in ARC, a comment on a customer reaches{" "}
+          <strong>only the people you @-mention</strong> — there's no Watchers
+          column on this list, and no "submitter" the way an EIR or an ECN
+          has one. There is no Watch button here either: a comment that
+          mentions nobody notifies nobody, so mention the people who need to
+          see it, every time.
+        </Tip>
       </>
     ),
   },

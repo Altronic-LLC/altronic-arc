@@ -3,7 +3,6 @@ import { Link, useLocation } from "react-router-dom";
 import {
   AlertTriangle,
   BadgeCheck,
-  BookUser,
   Building2,
   Calculator,
   CalendarDays,
@@ -20,7 +19,6 @@ import {
   FileStack,
   FileText,
   FolderOpen,
-  Gauge,
   Hammer,
   HardHat,
   LayoutDashboard,
@@ -34,7 +32,6 @@ import {
   PackageSearch,
   Shield,
   Sun,
-  Tag,
   TestTubes,
   Users,
 } from "lucide-react";
@@ -247,10 +244,14 @@ const DEPARTMENTS: DepartmentGroup[] = [
         icon: <MapPin className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/sales/visit-report"),
       },
-      soon("Customers", <Users className="h-4 w-4" />),
-      soon("Customer Contacts List", <BookUser className="h-4 w-4" />),
-      soon("Special Pricing", <Tag className="h-4 w-4" />),
-      soon("Capacity Tracking", <Gauge className="h-4 w-4" />),
+      {
+        to: "/sales/customers",
+        label: "Customers",
+        icon: <Users className="h-4 w-4" />,
+        // Contacts, Special Pricing and Capacity live on a customer's own
+        // detail page, not as separate screens — see CLAUDE.md.
+        matchesPath: (p) => p.startsWith("/sales/customer"),
+      },
       soon("Pricing Requests", <Calculator className="h-4 w-4" />),
     ],
   },
