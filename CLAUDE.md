@@ -1389,6 +1389,18 @@ spaces and colons elsewhere in this app (`Customer_x003a__x0020_SAP_x0020_`,
 the read-only PROJECTED lookup columns showing a related customer's SAP/Old
 number, present on all three child lists but never written).
 
+**The Dashboard's `Customers` card is NOT scoped by Mine/Company** (Ray,
+2026-08-26: "no count needed for mine or company"). Every other live card on
+the Customer Service / Sales section either has no count at all (Open Orders
+Report, Visit Reports are description-only cards) or filters by an
+assignee-style field the Mine/Company switch can read. A `CustomerNote` has
+no such field — CSR and KAM are real person columns, but "yours" was never
+asked for — so `customerCard` in `DashboardView.tsx` is a bare `{ count:
+customerNotes.length }`, deliberately not wired to `mine`/`myEmail`/`projectId`
+the way `taskCard`/`ecnCard`/`faitCard` are. Don't "fix" this into a
+CSR/KAM-scoped count without being asked; it was tried and reverted the same
+session it shipped.
+
 ### Open Orders Report Tool (Customer Service / Sales)
 
 A once-a-week job, run by a person: somebody exports the open orders report out

@@ -119,7 +119,7 @@ const SECTIONS: ManualSection[] = [
       "all projects",
     ],
     searchText:
-      "The Dashboard is grouped into department sections — Engineering, Panels, Operations, Coils, Quality Control, Supply Chain, and Customer Service / Sales — each a divider heading with its cards beneath. Engineering has live cards: Engineering Tasks, EIRs, Test Sheets and more. Coils has the Potting Sample Log; Quality Control has the Digital QC and Ignition QC Defect Logs; Supply Chain has Gray Market Requests; Customer Service / Sales has Visit Reports. Each live card shows the count of active items (tasks not Complete, EIRs not Closed), a colour-coded status mini-bar, and clicks through to that type's page. A Mine / Company switch flips every count and bar between your own items and the whole company's; Mine is the default. A project picker sits next to it and works the same way — pick a project and every card's count and mini-bar narrows to just that project, in place, combining with Mine/Company rather than navigating anywhere. Clicking a card afterward opens that type's full list pre-filtered to the picked project.",
+      "The Dashboard is grouped into department sections — Engineering, Panels, Operations, Coils, Quality Control, Supply Chain, and Customer Service / Sales — each a divider heading with its cards beneath. Engineering has live cards: Engineering Tasks, EIRs, Test Sheets and more. Coils has the Potting Sample Log; Quality Control has the Digital QC and Ignition QC Defect Logs; Supply Chain has Gray Market Requests and FAITs; Customer Service / Sales has Open Orders Report, Visit Reports and Customers (the CRM tool). Each live card shows the count of active items (tasks not Complete, EIRs not Closed), a colour-coded status mini-bar, and clicks through to that type's page. A Mine / Company switch flips every count and bar between your own items and the whole company's; Mine is the default. A project picker sits next to it and works the same way — pick a project and every card's count and mini-bar narrows to just that project, in place, combining with Mine/Company rather than navigating anywhere. Clicking a card afterward opens that type's full list pre-filtered to the picked project.",
     render: () => (
       <>
         <P>
@@ -172,20 +172,24 @@ const SECTIONS: ManualSection[] = [
           Other departments have their own cards further down the page —{" "}
           <strong>Coils</strong> (Potting Sample Log),{" "}
           <strong>Quality Control</strong> (Digital QC Defect Log, Ignition QC
-          Defect Log) and <strong>Customer Service / Sales</strong> (Visit
-          Reports) all open straight to their lists, and{" "}
-          <strong>Panels</strong> and <strong>Operations</strong> link to their
-          orders, tasks and the Teradyne Log.
+          Defect Log), <strong>Supply Chain</strong> (Gray Market Requests,
+          FAITs) and <strong>Customer Service / Sales</strong> (Open Orders
+          Report, Visit Reports, Customers) all open straight to their lists,
+          and <strong>Panels</strong> and <strong>Operations</strong> link to
+          their orders, tasks and the Teradyne Log. The{" "}
+          <strong>Customers</strong> card counts everyone on the CRM Tool's
+          customer list — the same total whichever way Mine/Company is set,
+          since a customer isn't "assigned" the way a task or an EIR is.
         </P>
         <P>
           Types whose SharePoint list isn't built yet — Coils'{" "}
           <strong>Coil Defect Log</strong>,
           Quality Control's <strong>QC Forms</strong>, Operations'{" "}
           <strong>Maintenance Tasks</strong>, the rest of{" "}
-          <strong>Supply Chain</strong> (Supplier Issue Tracking, Supplier List, Supplier Contacts, Cost Impact Notices,
-          FAIT), and <strong>Customer Service / Sales</strong> (Customer
-          Feedback, Customers, Customer Contacts List, Special
-          Pricing, Capacity Tracking, Pricing Requests) — appear as dimmed{" "}
+          <strong>Supply Chain</strong> (Supplier Issue Tracking, Supplier List,
+          Supplier Contacts, Cost Impact Notices), and{" "}
+          <strong>Customer Service / Sales</strong> (Customer Feedback,
+          Pricing Requests) — appear as dimmed{" "}
           <strong>Coming soon</strong> placeholders. They'll light up with live
           counts as each department comes online.
         </P>
@@ -1823,7 +1827,10 @@ const SECTIONS: ManualSection[] = [
           <strong>Departments → Customer Service / Sales → Customers</strong>{" "}
           (<code>/sales/customers</code>) is the CRM tool — one place to look
           up a customer and see everything Sales tracks about them: contacts,
-          special pricing and capacity commitments, all in one page.
+          special pricing and capacity commitments, all in one page. The{" "}
+          <strong>Customers</strong> card on the Dashboard counts the same
+          list — a customer isn't "assigned" the way a task is, so the count
+          is the same whether Mine or Company is selected.
         </P>
         <H3>Customer Notes — the anchor</H3>
         <P>

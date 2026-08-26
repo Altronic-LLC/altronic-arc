@@ -8,6 +8,7 @@ import { MOCK_BUILD_REQUESTS } from "@/data/buildRequestMockData";
 import { MOCK_PANEL_ORDERS, MOCK_PANEL_TASKS } from "@/data/panelMockData";
 import { MOCK_ECNS } from "@/data/ecnMockData";
 import { MOCK_FAITS } from "@/data/faitMockData";
+import { MOCK_CUSTOMER_NOTES } from "@/data/crmMockData";
 import { listProjectFolderEntries } from "@/api/projectFiles";
 
 const mockNavigate = vi.fn();
@@ -30,6 +31,7 @@ const PANEL_ORDERS_KEY = ["panelOrders", "list"] as const;
 const PANEL_TASKS_KEY = ["panelTasks", "list"] as const;
 const ECNS_KEY = ["ecns"] as const;
 const FAITS_KEY = ["faits"] as const;
+const CUSTOMER_NOTES_KEY = ["customerNotes"] as const;
 const FOLDER_ENTRIES_KEY = ["project-folder-entries", "root"] as const;
 
 import { DashboardView } from "./DashboardView";
@@ -48,6 +50,7 @@ async function renderDashboard() {
       { key: PANEL_TASKS_KEY, data: MOCK_PANEL_TASKS },
       { key: ECNS_KEY, data: MOCK_ECNS },
       { key: FAITS_KEY, data: MOCK_FAITS },
+      { key: CUSTOMER_NOTES_KEY, data: MOCK_CUSTOMER_NOTES },
       { key: FOLDER_ENTRIES_KEY, data: folderEntries },
     ],
   });
@@ -238,6 +241,7 @@ describe("DashboardView — a shipped feature is never a 'Coming soon' card", ()
     { name: /Project Folders/i, url: "/project-folders" },
     { name: /Gray Market Requests/i, url: "/supply-chain/gray-market-requests" },
     { name: /Visit Reports/i, url: "/sales/visit-reports" },
+    { name: /^Customers/i, url: "/sales/customers" },
     { name: /Teradyne Log/i, url: "/operations/teradyne" },
   ];
 
@@ -268,6 +272,15 @@ describe("DashboardView — a shipped feature is never a 'Coming soon' card", ()
     await renderDashboard();
     await user.click(screen.getByRole("button", { name: "Company" }));
     const card = screen.getByRole("button", { name: /ECNs/i });
+    expect(within(card).queryByText(/coming soon/i)).toBeNull();
+    expect(Number(bigCount(card).textContent)).toBeGreaterThan(0);
+  });
+
+  it("counts the customers on file", async () => {
+    const user = userEvent.setup();
+    await renderDashboard();
+    await user.click(screen.getByRole("button", { name: "Company" }));
+    const card = screen.getByRole("button", { name: /^Customers/i });
     expect(within(card).queryByText(/coming soon/i)).toBeNull();
     expect(Number(bigCount(card).textContent)).toBeGreaterThan(0);
   });

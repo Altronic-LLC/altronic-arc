@@ -4,7 +4,6 @@ import {
   AlertTriangle,
   ArrowRight,
   BadgeCheck,
-  BookUser,
   Building2,
   Calculator,
   CalendarDays,
@@ -21,7 +20,6 @@ import {
   FileStack,
   FileText,
   FolderOpen,
-  Gauge,
   Hammer,
   HardHat,
   LayoutDashboard,
@@ -31,7 +29,6 @@ import {
   MessageSquare,
   PackageSearch,
   Sparkles,
-  Tag,
   TestTubes,
   Users,
 } from "lucide-react";
@@ -43,6 +40,7 @@ import { useOperationsTasks } from "@/hooks/useOperationsTasks";
 import { useCsaListings } from "@/hooks/useCsaListings";
 import { useEcns } from "@/hooks/useEcns";
 import { useFaits } from "@/hooks/useFaits";
+import { useCustomerNotes } from "@/hooks/useCustomerNotes";
 import { isEcnOnHold } from "@/lib/ecnMapper";
 import { isFaitOpen } from "@/lib/faitFields";
 import { useBuildRequests } from "@/hooks/useBuildRequests";
@@ -266,6 +264,7 @@ export function DashboardView() {
   } = useCsaListings();
   const { data: ecns = [] } = useEcns();
   const { data: faits = [] } = useFaits();
+  const { data: customerNotes = [] } = useCustomerNotes();
   const {
     data: testSheets = [],
     isError: testSheetsError,
@@ -397,6 +396,14 @@ export function DashboardView() {
       : [];
     return { count: open.length, segments };
   }, [faits, mine, myEmail, projectId]);
+
+  /**
+   * Customers (CRM Tool). Not scoped by Mine/Company or by project — a
+   * customer record has no assignee-style "mine" concept the way a task or
+   * an EIR does, and no project reference either. The count is just the
+   * whole customer list, same reading either way the switch is set.
+   */
+  const customerCard = useMemo(() => ({ count: customerNotes.length }), [customerNotes]);
 
   const eirCard = useMemo(() => {
     const active = eirs.filter(
@@ -937,10 +944,14 @@ export function DashboardView() {
           description="Customer visits filed by the regional managers — who they saw, why, and what needs doing next."
           onClick={() => navigate("/sales/visit-reports")}
         />
-        <PlaceholderCard name="Customers" icon={<Users className="h-5 w-5" />} />
-        <PlaceholderCard name="Customer Contacts List" icon={<BookUser className="h-5 w-5" />} />
-        <PlaceholderCard name="Special Pricing" icon={<Tag className="h-5 w-5" />} />
-        <PlaceholderCard name="Capacity Tracking" icon={<Gauge className="h-5 w-5" />} />
+        <TypeCard
+          name="Customers"
+          icon={<Users className="h-5 w-5" />}
+          tone="superior-blue"
+          count={customerCard.count}
+          unit="customers"
+          onClick={() => navigate("/sales/customers")}
+        />
         <PlaceholderCard name="Pricing Requests" icon={<Calculator className="h-5 w-5" />} />
       </DeptSection>
 

@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.121.1",
+    date: "2026-08-26",
+    changes: [
+      "Add a Customers card to the Dashboard's Customer Service / Sales section",
+      "Retire the old placeholder cards for Customers, Customer Contacts List, Special Pricing and Capacity Tracking — all covered by the new Customers card",
+    ],
+  },
+  {
     version: "0.121.0",
     date: "2026-08-26",
     changes: [
