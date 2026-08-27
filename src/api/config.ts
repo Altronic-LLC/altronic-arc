@@ -623,6 +623,42 @@ export const SP_SUPPLIER_CONTACTS_LIST_ID =
 export const SP_SUPPLIER_ISSUES_LIST_ID =
   import.meta.env.VITE_SP_SUPPLIER_ISSUES_LIST_ID || "8b22d37a-a520-46a1-8935-8537c46e4b54";
 
+/**
+ * "Cost Impact Portal" — Supply Chain's notice that a purchased part's cost
+ * has changed, on the **ALTRONICSALESTEAM site** (SITES.salesTeam) — a
+ * Supply Chain feature living on a Sales-site list, the same arrangement as
+ * Gray Market Requests on PMO: that's where the list has always been.
+ * `Original Cost` / `New Cost` are TEXT columns (not Currency); `Delta Cost`
+ * is a SharePoint calculated column (`=[New Cost]-[Original Cost]`), and
+ * `Where Used` is Enhanced rich text, the same as EIR's and Gray Market's
+ * field of the same name. 31 rows at discovery. Schema discovered live
+ * 2026-08-27 — scripts/cost-impact-portal-schema.json.
+ */
+export const SP_COST_IMPACT_NOTICES_LIST_ID =
+  import.meta.env.VITE_SP_COST_IMPACT_NOTICES_LIST_ID || "6b75ab59-8da8-49b6-a8b1-6abbb8f988f8";
+
+/**
+ * Who is emailed when a NEW cost impact notice is raised (Ray, 2026-08-27).
+ *
+ * The list has no Watchers column, so — same call as Gray Market Requests
+ * and FAITs — nobody hears about a new notice unless they're on this list or
+ * happen to open ARC and notice it. This is an intake queue, not a watch
+ * list: being on it doesn't subscribe anyone to later comments, and there's
+ * no way to opt out short of changing this setting.
+ *
+ * Format is the usual comma-separated `Name <email>` or bare address, parsed
+ * by parseRecipientList. **Verify these against the directory** — a wrong
+ * address fails as that person's silence, not an error.
+ */
+export const COST_IMPACT_NOTICE_ALERTS =
+  import.meta.env.VITE_COST_IMPACT_NOTICE_ALERTS ||
+  "Keith Brooks <Keith.Brooks@altronic-llc.com>, " +
+  "Ray White <ray.white@altronic-llc.com>, " +
+  "David Bell <David.Bell@altronic-llc.com>, " +
+  "Matthew Traina <Matthew.Traina@altronic-llc.com>, " +
+  "Mark Balent <Mark.Balent@altronic-llc.com>, " +
+  "Katie Fleming <katie.fleming@altronic-llc.com>";
+
 export const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 
 /** Throw a clear error if the app tries to call Graph without being configured. */

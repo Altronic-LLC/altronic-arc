@@ -254,6 +254,7 @@ src/
 │   ├── suppliers.ts              SRM Tool — Suppliers List CRUD + comments + watchers (Supply Chain, PMO site)
 │   ├── supplierContacts.ts       SRM Tool — Supplier Contacts CRUD + comments + watchers, scoped to a Supplier
 │   ├── supplierIssues.ts         SRM Tool — Supplier Issue Tracker CRUD + comments + watchers, scoped to a Supplier
+│   ├── costImpactNotices.ts      Cost Impact Notices CRUD + comments (Supply Chain, salesTeam site) — no delete
 │   ├── openOrdersFiles.ts        Open Orders SharePoint folder — list/upload/download
 │   ├── openOrdersCustomers.ts    Open Orders managed customer list CRUD
 │   ├── openOrdersRoles.ts        Open Orders role tags (report manager) CRUD
@@ -277,6 +278,7 @@ src/
 │   ├── visitReportMockData.ts    Sample visit reports
 │   ├── crmMockData.ts            Sample CRM Tool data — customers, contacts, pricing, capacity
 │   ├── srmMockData.ts            Sample SRM Tool data — suppliers, contacts, issues
+│   ├── costImpactMockData.ts     Sample Cost Impact Notices
 │   ├── openOrdersMockData.ts     Sample open order lines + report customers
 │   ├── grayMarketMockData.ts     Sample gray market requests
 │   ├── whereAmIMockData.ts       Sample out-of-office entries (dated from today)
@@ -304,6 +306,7 @@ src/
 │   ├── useSuppliers.ts           SRM Tool — Suppliers List queries, mutations + comments + watchers
 │   ├── useSupplierContacts.ts    SRM Tool — Supplier Contacts queries, mutations + comments + watchers
 │   ├── useSupplierIssues.ts      SRM Tool — Supplier Issue Tracker queries, mutations + comments + watchers
+│   ├── useCostImpactNotices.ts   Cost Impact Notices queries, mutations + comment thread + intake alert
 │   ├── useOpenOrdersReports.ts   Parse an extract, generate + upload, download
 │   ├── useOpenOrdersCustomers.ts Customer list + role CRUD (+ useMyOpenOrdersAccess)
 │   ├── useGrayMarketRequests.ts  Gray Market queries, mutations + comment thread
@@ -377,6 +380,8 @@ src/
 │   ├── supplierMapper.ts         Graph item → Supplier (SRM Tool anchor list)
 │   ├── supplierContactMapper.ts  Graph item → SupplierContact
 │   ├── supplierIssueMapper.ts    Graph item → SupplierIssue
+│   ├── costImpactNoticeMapper.ts Graph item → CostImpactNotice, and back
+│   ├── costImpactAlerts.ts       Cost Impact Notice intake alert (new notice → the config list)
 │   ├── grayMarketFields.ts       Gray Market column descriptors (columns are DATA)
 │   ├── grayMarketMapper.ts       Graph item → GrayMarketRequest, and back
 │   ├── grayMarketNumber.ts       nextGrayMarketLogNo() — GMR_YYYY-### numbering
@@ -453,6 +458,9 @@ src/
 │   ├── SupplierIssueFormModal.tsx    SRM Tool — log an issue, scoped to a supplier (create-only)
 │   ├── SupplierIssueCard.tsx         SRM Tool — one issue, inline expandable card (comments/watchers/attachments)
 │   ├── SupplierLogo.tsx              SRM Tool — resolves and renders a supplier's Logo image column
+│   ├── SupplierLogoEditor.tsx        SRM Tool — Change/Remove links over SupplierLogo (detail page only)
+│   ├── CostImpactNoticeFormModal.tsx Raise a cost impact notice
+│   ├── costImpactAtoms.tsx           Delta-cost chip (increase/decrease/no change)
 │   ├── GrayMarketRequestFormModal.tsx  Raise a gray market request
 │   ├── WhereAmIFormModal.tsx     Add/edit an out-of-office entry (+ date range)
 │   ├── ProjectFolderFormModal.tsx  Create a project folder + tag its Project Reference
@@ -523,6 +531,8 @@ src/
 │   ├── SupplierDetailView.tsx    SRM Tool — one supplier + inline Contacts/Issues cards
 │   ├── SupplierContactRedirect.tsx  Deep-link target for contact-comment emails
 │   ├── SupplierIssueRedirect.tsx    Deep-link target for issue-comment emails
+│   ├── CostImpactNoticesView.tsx    Cost Impact Notices list, search + Time of Impact filter (Supply Chain)
+│   ├── CostImpactNoticeDetailView.tsx  One notice — Part/Cost & Impact/Where Used/Notes cards, comments, attachments
 │   ├── OpenOrdersView.tsx        Open Orders Report Tool — upload, generate, download
 │   ├── OpenOrdersCustomersView.tsx  The managed customer list (+ import from an extract)
 │   ├── AdminOpenOrdersRolesView.tsx Admin -> Open Orders Roles
@@ -1430,11 +1440,14 @@ resolving it rather than removing it, the same call as Gray Market Requests
 and FAITs. `suppliers.test.ts` and `supplierIssues.test.ts` assert their
 modules export nothing matching /delete|remove/.
 
-**The Dashboard's `Suppliers` card is NOT scoped by Mine/Company**, matching
-the CRM Tool's `Customers` card and for the same reason (see that note
-above) — even though `AssignedBuyer` genuinely IS an assignee-style field
-here, unlike `CustomerNote`. The decision was made once, for register-style
-cards as a class, rather than re-litigated per list.
+**The Dashboard's `Suppliers` card carries no count at all** (Ray,
+2026-08-27) — it went from "not scoped by Mine/Company" to a plain
+description card, matching the CRM Tool's `Customers` card (see that note
+below) and Open Orders Report / Visit Reports: a register you open to look
+something up doesn't need a headline number, and `AssignedBuyer` being a
+genuine assignee-style field here didn't change that call. `DashboardView`
+no longer even queries `useSuppliers` for this card — don't re-add the
+query just to feed a count nobody asked to see back.
 
 **"Supplier Onboarding" is a plain external link to Medius** (Ray,
 2026-08-27) — `MEDIUS_SUPPLIER_DIRECTORY_URL` in `SuppliersView.tsx`, next to
@@ -1469,6 +1482,82 @@ their own inner `<div>` (full-width on mobile, `flex flex-col` container)
 and the two buttons into a second inner `<div>` means each row only ever
 sizes against its own content — a new button next to New Supplier should go
 in that second `<div>`, not back onto one shared row with the title block.
+
+### Cost Impact Notices (Supply Chain, ALTRONICSALESTEAM site)
+
+`6b75ab59-8da8-49b6-a8b1-6abbb8f988f8` (env `VITE_SP_COST_IMPACT_NOTICES_LIST_ID`)
+on **`SITES.salesTeam`** — a **Supply Chain** feature living on a Sales-site
+list, the same arrangement as Gray Market Requests on PMO: that's where the
+list has always been ("Cost Impact Portal"), and the Sales Team grant already
+covers it. 31 rows at discovery. Schema discovered live 2026-08-27 —
+`scripts/cost-impact-portal-schema.json`.
+
+Supply Chain raises one of these to tell Sales/Engineering/Purchasing that a
+purchased part's cost has changed — the old price, the new price, the delta,
+and how soon the change bites (Ray, 2026-08-27: "This portal is used by the
+supply chain team to notify everyone involved in sales and costing that a
+specific purchase part is experiencing a cost increase").
+
+Five things about this list's columns:
+
+- **`OriginalCost` / `NewCost` are TEXT columns, not Currency** — decimal
+  strings like `"604.50"`, kept as strings on the way in and out rather than
+  parsed to a number and reformatted, which would risk disagreeing with
+  whatever SharePoint actually stored. `formatCost()` in
+  `CostImpactNoticeDetailView.tsx` renders them as currency for display only.
+- **`Delta Cost` IS a genuine SharePoint calculated column**
+  (`=[New Cost]-[Original Cost]`), read-only, despite its two inputs being
+  text columns — SharePoint still does the subtraction. `toDelta()` in
+  `costImpactNoticeMapper.ts` parses whatever Graph returns; `null` means it
+  hasn't computed yet (a brand-new item) rather than zero. The detail view
+  mirrors the same subtraction client-side after an edit so the sidebar
+  doesn't show a stale figure until the next refetch lands.
+- **`WhereUsed` holds SharePoint rich text** — the same `<div
+  class="ExternalClass…">` wrapper as EIR's and Gray Market's field of the
+  same name — so it renders sanitised and writes through `toStoredRichText`.
+- **`Comments` is a free-text notes column, not the comment thread.** ARC
+  calls it `notes` in the domain (`CostImpactNotice.notes`) specifically to
+  keep it apart from `comments` (the `Communication` thread) — the same
+  column name collision every list with both a notes field and a
+  Communication field would otherwise create.
+- **`Year_x0020_Issued` is calculated** (`=CONCATENATE(YEAR(Created))`),
+  read-only, shown but never written — the same treatment as ECN's and Gray
+  Market's own calculated columns.
+
+**No Watchers column, so the comment thread follows the ECN rule, not the
+house rule** — `costImpactNoticeCommentRecipients` in `lib/mentions.ts`
+notifies the submitter (Graph's item-level `createdBy`, since the list has
+no requester column of its own) plus anyone @-mentioned, and nobody else. No
+auto-watch on a mention either. The detail page states this rule out loud
+above the composer, the same as `EcnDetailView`.
+
+**Every create ALSO emails a fixed intake list** — `COST_IMPACT_NOTICE_ALERTS`
+(env `VITE_COST_IMPACT_NOTICE_ALERTS`), defaulting to Keith Brooks, Ray White,
+David Bell, Matthew Traina, Mark Balent and Katie Fleming (Ray, 2026-08-27).
+This is a SEPARATE mechanism from the comment thread above: nothing watches
+the list itself, so a raised notice used to have no way to reach the people
+who need to act on a cost change the moment it's raised — the same intake
+pattern as Gray Market Requests and FAITs. `lib/costImpactAlerts.ts` builds
+the emails (pure, testable); `fireNewCostImpactNoticeAlert` in `api/email.ts`
+sends them, wired in `useCreateCostImpactNotice`'s `onSuccess`. The email
+carries the cost figures the alert exists for (Supplier, SAP Number, Original
+Cost, New Cost, Delta, Time of Impact) — blanks dropped, same rule as Gray
+Market's intake alert.
+
+**No delete** — a notice is a record that a cost changed and who was told
+about it; a superseded one is a new notice, not a correction to the old one,
+the same call as ECNs. `costImpactNotices.test.ts` asserts the module exports
+nothing matching /delete|remove/.
+
+**`TimeofImpact` is required and has 3 choices, so it's pills, never a
+dropdown** — Immediate / Near Future (<6 mo) / Future (6+ mo) — per the
+cross-cutting "a short choice list is pills" rule. Being required, the New
+Notice form's pills omit `allowUnset` (nothing is selected until picked,
+validation catches the empty) — but `FieldEditModal`'s shared choice-pills
+renderer always offers "Not set" for a `choice` field, so editing this one
+after creation CAN blank it and the write is refused by SharePoint. That gap
+is accepted for now rather than teaching the shared modal a per-field
+required flag for one column.
 
 `autoWatchFromMentions` in **`src/api/autoWatch.ts`** is shared by all six
 comment threads. It used to be a private copy in five department hooks.
@@ -1631,17 +1720,17 @@ spaces and colons elsewhere in this app (`Customer_x003a__x0020_SAP_x0020_`,
 the read-only PROJECTED lookup columns showing a related customer's SAP/Old
 number, present on all three child lists but never written).
 
-**The Dashboard's `Customers` card is NOT scoped by Mine/Company** (Ray,
-2026-08-26: "no count needed for mine or company"). Every other live card on
-the Customer Service / Sales section either has no count at all (Open Orders
-Report, Visit Reports are description-only cards) or filters by an
-assignee-style field the Mine/Company switch can read. A `CustomerNote` has
-no such field — CSR and KAM are real person columns, but "yours" was never
-asked for — so `customerCard` in `DashboardView.tsx` is a bare `{ count:
-customerNotes.length }`, deliberately not wired to `mine`/`myEmail`/`projectId`
-the way `taskCard`/`ecnCard`/`faitCard` are. Don't "fix" this into a
-CSR/KAM-scoped count without being asked; it was tried and reverted the same
-session it shipped.
+**The Dashboard's `Customers` card carries no count at all** — it started as
+a bare `{ count: customerNotes.length }` (Ray, 2026-08-26: "no count needed
+for mine or company" — deliberately not wired to `mine`/`myEmail`/`projectId`
+the way `taskCard`/`ecnCard`/`faitCard` are, since a `CustomerNote` has no
+assignee-style field the Mine/Company switch can read), then dropped the
+count entirely for a plain description (Ray, 2026-08-27), matching Open
+Orders Report and Visit Reports: a register you open to look something up,
+not a queue with a size worth headlining. `DashboardView` no longer queries
+`useCustomerNotes` for this card. Don't "fix" this into a CSR/KAM-scoped
+count without being asked; a Mine/Company-scoped version was tried and
+reverted the same session it shipped.
 
 ### Open Orders Report Tool (Customer Service / Sales)
 

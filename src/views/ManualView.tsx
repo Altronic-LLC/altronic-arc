@@ -119,7 +119,7 @@ const SECTIONS: ManualSection[] = [
       "all projects",
     ],
     searchText:
-      "The Dashboard is grouped into department sections — Engineering, Panels, Operations, Coils, Quality Control, Supply Chain, and Customer Service / Sales — each a divider heading with its cards beneath. Engineering has live cards: Engineering Tasks, EIRs, Test Sheets and more. Coils has the Potting Sample Log; Quality Control has the Digital QC and Ignition QC Defect Logs; Supply Chain has Gray Market Requests, FAITs and Suppliers (the SRM tool); Customer Service / Sales has Open Orders Report, Visit Reports and Customers (the CRM tool). Each live card shows the count of active items (tasks not Complete, EIRs not Closed), a colour-coded status mini-bar, and clicks through to that type's page. A Mine / Company switch flips every count and bar between your own items and the whole company's; Mine is the default. A project picker sits next to it and works the same way — pick a project and every card's count and mini-bar narrows to just that project, in place, combining with Mine/Company rather than navigating anywhere. Clicking a card afterward opens that type's full list pre-filtered to the picked project.",
+      "The Dashboard is grouped into department sections — Engineering, Panels, Operations, Coils, Quality Control, Supply Chain, and Customer Service / Sales — each a divider heading with its cards beneath. Engineering has live cards: Engineering Tasks, EIRs, Test Sheets and more. Coils has the Potting Sample Log; Quality Control has the Digital QC and Ignition QC Defect Logs; Supply Chain has Gray Market Requests, Suppliers (the SRM tool), Cost Impact Notices and FAITs; Customer Service / Sales has Open Orders Report, Visit Reports and Customers (the CRM tool). Most live cards show the count of active items (tasks not Complete, EIRs not Closed), a colour-coded status mini-bar, and click through to that type's page; a few — Open Orders Report, Visit Reports, Suppliers, Cost Impact Notices and Customers — are description-only, since there's no count that reads as more useful than the tool itself. A Mine / Company switch flips every count and bar between your own items and the whole company's; Mine is the default. A project picker sits next to it and works the same way — pick a project and every card's count and mini-bar narrows to just that project, in place, combining with Mine/Company rather than navigating anywhere. Clicking a card afterward opens that type's full list pre-filtered to the picked project.",
     render: () => (
       <>
         <P>
@@ -173,22 +173,22 @@ const SECTIONS: ManualSection[] = [
           <strong>Coils</strong> (Potting Sample Log),{" "}
           <strong>Quality Control</strong> (Digital QC Defect Log, Ignition QC
           Defect Log), <strong>Supply Chain</strong> (Gray Market Requests,
-          FAITs, Suppliers) and <strong>Customer Service / Sales</strong>{" "}
-          (Open Orders Report, Visit Reports, Customers) all open straight to
-          their lists, and <strong>Panels</strong> and{" "}
-          <strong>Operations</strong> link to their orders, tasks and the
-          Teradyne Log. The <strong>Customers</strong> and{" "}
-          <strong>Suppliers</strong> cards count everyone on the CRM/SRM
-          tool's list — the same total whichever way Mine/Company is set,
-          since neither a customer nor a supplier is "assigned" the way a
-          task or an EIR is.
+          Suppliers, Cost Impact Notices, FAITs) and{" "}
+          <strong>Customer Service / Sales</strong> (Open Orders Report,
+          Visit Reports, Customers) all open straight to their lists, and{" "}
+          <strong>Panels</strong> and <strong>Operations</strong> link to
+          their orders, tasks and the Teradyne Log. The{" "}
+          <strong>Customers</strong> and <strong>Suppliers</strong> cards
+          describe the CRM/SRM tool rather than showing a count — neither a
+          customer nor a supplier is "assigned" the way a task or an EIR is,
+          so there's no number that reads as more useful than the tool
+          itself.
         </P>
         <P>
           Types whose SharePoint list isn't built yet — Coils'{" "}
           <strong>Coil Defect Log</strong>,
           Quality Control's <strong>QC Forms</strong>, Operations'{" "}
-          <strong>Maintenance Tasks</strong>, the rest of{" "}
-          <strong>Supply Chain</strong> (Cost Impact Notices), and{" "}
+          <strong>Maintenance Tasks</strong>, and{" "}
           <strong>Customer Service / Sales</strong> (Customer Feedback,
           Pricing Requests) — appear as dimmed{" "}
           <strong>Coming soon</strong> placeholders. They'll light up with live
@@ -1829,9 +1829,9 @@ const SECTIONS: ManualSection[] = [
           (<code>/sales/customers</code>) is the CRM tool — one place to look
           up a customer and see everything Sales tracks about them: contacts,
           special pricing and capacity commitments, all in one page. The{" "}
-          <strong>Customers</strong> card on the Dashboard counts the same
-          list — a customer isn't "assigned" the way a task is, so the count
-          is the same whether Mine or Company is selected.
+          <strong>Customers</strong> card on the Dashboard opens here too —
+          it describes the tool rather than showing a count, since a
+          customer isn't "assigned" the way a task is.
         </P>
         <H3>Customer Notes — the anchor</H3>
         <P>
@@ -2173,6 +2173,79 @@ const SECTIONS: ManualSection[] = [
           task or an EIR: @-mention someone and they're emailed and added as
           a watcher, and every watcher hears about every new comment.
         </P>
+      </>
+    ),
+  },
+  {
+    id: "cost-impact-notices",
+    title: "Cost Impact Notices",
+    group: "Supply Chain",
+    keywords: [
+      "cost impact",
+      "cost impact notice",
+      "cost impact portal",
+      "cost increase",
+      "cost decrease",
+      "delta cost",
+      "original cost",
+      "new cost",
+      "time of impact",
+      "where used",
+      "price increase",
+    ],
+    searchText:
+      "Cost Impact Notices at /supply-chain/cost-impact-notices, under Supply Chain in the Departments menu, backed by the Cost Impact Portal list on the ALTRONICSALESTEAM SharePoint site. Supply Chain raises a notice to tell Sales, Engineering and Purchasing that a purchased part's cost has changed - the original cost, the new cost, the delta SharePoint calculates automatically, and how soon the change bites (Immediate, Near Future under 6 months, or Future 6+ months). New notice asks for the part, the original and new cost, time of impact and where the part is used; supplier, SAP number, old part number, MPN, EAU and BP reference are optional. The notice itself is four cards - Part, Cost and Impact, Where Used, Notes - each with one Edit button. Raising a notice emails a fixed list - Keith Brooks, Ray White, David Bell, Matthew Traina, Mark Balent and Katie Fleming by default - so somebody always hears about a cost change the moment it is raised. Comments reach only the person who raised the notice and anyone you @-mention - this list has no watchers. Cost impact notices cannot be deleted from ARC.",
+    render: () => (
+      <>
+        <P>
+          <strong>Departments → Supply Chain → Cost Impact Notices</strong>{" "}
+          (<code>/supply-chain/cost-impact-notices</code>) is how Supply Chain
+          tells Sales, Engineering and Purchasing that a purchased part's cost
+          has changed — the original price, the new price, the delta, and how
+          soon it bites.
+        </P>
+        <UL>
+          <LI>
+            The list searches by part, supplier or SAP number, and filters by{" "}
+            <strong>Time of Impact</strong>.
+          </LI>
+          <LI>
+            <strong>Delta Cost</strong> is calculated automatically — you never
+            type it. It shows as a chip: red for an increase, green for a
+            decrease.
+          </LI>
+          <LI>
+            <strong>New notice</strong> asks for the part, the original and
+            new cost, time of impact, and where the part is used — the four
+            SharePoint requires. Supplier, SAP number, old part number, MPN,
+            EAU and BP reference can be filled in later.
+          </LI>
+        </UL>
+        <H3>Working one through</H3>
+        <P>
+          A notice is four cards — <strong>Part</strong>,{" "}
+          <strong>Cost &amp; Impact</strong>, <strong>Where Used</strong> and{" "}
+          <strong>Notes</strong> — each with one <strong>Edit</strong> button.
+          Only the fields you touch are saved.
+        </P>
+        <P>
+          <strong>Raising a notice emails a fixed list</strong> — Keith
+          Brooks, Ray White, David Bell, Matthew Traina, Mark Balent and Katie
+          Fleming by default — so somebody always hears about a cost change
+          the moment it's raised. Being on that list isn't the same as
+          watching the notice.
+        </P>
+        <Tip>
+          Unlike most comment threads in ARC, a comment here reaches{" "}
+          <strong>only the person who raised the notice and anyone you
+          @-mention</strong> — there's no Watchers column on this list, the
+          same rule ECNs use.
+        </Tip>
+        <Tip>
+          Cost impact notices can't be deleted from ARC — a notice records a
+          cost change and who was told about it. A superseded one is a new
+          notice, not a correction to the old one.
+        </Tip>
       </>
     ),
   },

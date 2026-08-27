@@ -222,7 +222,12 @@ const DEPARTMENTS: DepartmentGroup[] = [
         // not as separate screens — see CLAUDE.md.
         matchesPath: (p) => p.startsWith("/supply-chain/supplier"),
       },
-      soon("Cost Impact Notices", <DollarSign className="h-4 w-4" />),
+      {
+        to: "/supply-chain/cost-impact-notices",
+        label: "Cost Impact Notices",
+        icon: <DollarSign className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/supply-chain/cost-impact-notice"),
+      },
       {
         to: "/supply-chain/faits",
         label: "FAITs",

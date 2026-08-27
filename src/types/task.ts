@@ -2066,3 +2066,90 @@ export interface SupplierIssueInput {
   severity: SupplierIssueSeverity | null;
   watchers: Person[];
 }
+
+// =============================================================================
+// Cost Impact Notices — Supply Chain, on the "Cost Impact Portal" list on the
+// ALTRONICSALESTEAM site (SITES.salesTeam) — the same "Supply Chain feature,
+// Sales-site list" arrangement as Gray Market Requests living on PMO: that's
+// where the list has always been, and the Sales Team grant already covers it.
+// Schema discovered live 2026-08-27 (scripts/cost-impact-portal-schema.json).
+//
+// Supply Chain raises one of these to tell Sales/Engineering/Purchasing that a
+// purchased part's cost has gone up (or down): the old price, the new price,
+// the delta, and how soon the change bites. There's no Watchers column, so —
+// same call as ECNs and Customer Notes — the comment thread notifies only
+// whoever is @-mentioned, and a fixed intake list is emailed on every create
+// (see `lib/costImpactAlerts.ts`) so nobody has to be watching the list to
+// hear about a new one.
+// =============================================================================
+
+/** The `TimeofImpact` choices — required on every notice. */
+export const COST_IMPACT_TIMES = [
+  "Immediate",
+  "Near Future (<6 mo)",
+  "Future (6+ mo)",
+] as const;
+export type CostImpactTime = (typeof COST_IMPACT_TIMES)[number];
+
+export interface CostImpactNotice {
+  id: number;
+  /** `Title` — the part's description, e.g. "DATA LOGGING MODULE". */
+  title: string;
+  supplier: string;
+  sapNumber: string;
+  oldPartNumber: string;
+  mpn: string;
+  /**
+   * `OriginalCost` / `NewCost` — SharePoint TEXT columns holding a decimal
+   * string ("604.50"), not a Currency column. Kept as strings so a value
+   * round-trips exactly as typed; render with the app's own currency
+   * formatting rather than assuming a parsed number is safe to re-display.
+   */
+  originalCost: string;
+  newCost: string;
+  /**
+   * `Delta_x0020_Cost` — a SharePoint CALCULATED column
+   * (`=[New Cost]-[Original Cost]`), read-only. Parsed to a number here
+   * since SharePoint already did the subtraction; null if it hasn't
+   * computed yet (a brand-new item) or came back unparseable.
+   */
+  deltaCost: number | null;
+  timeOfImpact: CostImpactTime | null;
+  /** `Panels` — Yes / No / not set. Whether the part is used on a panel build. */
+  usedOnPanels: "Yes" | "No" | null;
+  /** `WhereUsed` — Enhanced rich text (HTML), the same as EIR/Gray Market's field of the same name. Required. */
+  whereUsed: string;
+  eau: string;
+  bpReference: string;
+  /**
+   * `Comments` — a free-text notes column, distinct from the `Communication`
+   * comment thread below. SharePoint's own label for it really is "Comments";
+   * ARC calls it `notes` in the domain to keep it apart from `comments`
+   * (the thread) everywhere else in this codebase.
+   */
+  notes: string;
+  /** `Year_x0020_Issued` — calculated (`=CONCATENATE(YEAR(Created))`), read-only. */
+  yearIssued: string;
+  /** Item-level `createdBy` — the list has no requester column of its own, same as ECNs. */
+  submittedBy: Person | null;
+  comments: Comment[];
+  hasAttachments: boolean;
+  createdAt: Date;
+  modifiedAt: Date;
+}
+
+export interface CostImpactNoticeInput {
+  title: string;
+  supplier: string;
+  sapNumber: string;
+  oldPartNumber: string;
+  mpn: string;
+  originalCost: string;
+  newCost: string;
+  timeOfImpact: CostImpactTime | null;
+  usedOnPanels: "Yes" | "No" | null;
+  whereUsed: string;
+  eau: string;
+  bpReference: string;
+  notes: string;
+}

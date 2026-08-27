@@ -39,8 +39,6 @@ import { useOperationsTasks } from "@/hooks/useOperationsTasks";
 import { useCsaListings } from "@/hooks/useCsaListings";
 import { useEcns } from "@/hooks/useEcns";
 import { useFaits } from "@/hooks/useFaits";
-import { useCustomerNotes } from "@/hooks/useCustomerNotes";
-import { useSuppliers } from "@/hooks/useSuppliers";
 import { isEcnOnHold } from "@/lib/ecnMapper";
 import { isFaitOpen } from "@/lib/faitFields";
 import { useBuildRequests } from "@/hooks/useBuildRequests";
@@ -264,8 +262,6 @@ export function DashboardView() {
   } = useCsaListings();
   const { data: ecns = [] } = useEcns();
   const { data: faits = [] } = useFaits();
-  const { data: customerNotes = [] } = useCustomerNotes();
-  const { data: suppliers = [] } = useSuppliers();
   const {
     data: testSheets = [],
     isError: testSheetsError,
@@ -397,24 +393,6 @@ export function DashboardView() {
       : [];
     return { count: open.length, segments };
   }, [faits, mine, myEmail, projectId]);
-
-  /**
-   * Customers (CRM Tool). Not scoped by Mine/Company or by project — a
-   * customer record has no assignee-style "mine" concept the way a task or
-   * an EIR does, and no project reference either. The count is just the
-   * whole customer list, same reading either way the switch is set.
-   */
-  const customerCard = useMemo(() => ({ count: customerNotes.length }), [customerNotes]);
-
-  /**
-   * Suppliers (SRM Tool). Same call as the CRM Tool's Customers card and for
-   * the same reason (Ray, 2026-08-26: "no count needed for mine or
-   * company") — not scoped by Mine/Company. AssignedBuyer IS a real
-   * assignee-style field here, unlike Customer Notes, but the decision was
-   * made once for the register-style cards and applied consistently rather
-   * than re-litigated per list. See CLAUDE.md before wiring one in.
-   */
-  const supplierCard = useMemo(() => ({ count: suppliers.length }), [suppliers]);
 
   const eirCard = useMemo(() => {
     const active = eirs.filter(
@@ -924,11 +902,16 @@ export function DashboardView() {
           name="Suppliers"
           icon={<Building2 className="h-5 w-5" />}
           tone="cooper-red"
-          count={supplierCard.count}
-          unit="suppliers"
+          description="The SRM tool — every supplier, their contacts and their open issues in one place."
           onClick={() => navigate("/supply-chain/suppliers")}
         />
-        <PlaceholderCard name="Cost Impact Notices" icon={<DollarSign className="h-5 w-5" />} />
+        <TypeCard
+          name="Cost Impact Notices"
+          icon={<DollarSign className="h-5 w-5" />}
+          tone="cooper-red"
+          description="A purchased part's cost changed — original, new, the delta, and how soon it bites."
+          onClick={() => navigate("/supply-chain/cost-impact-notices")}
+        />
         <TypeCard
           name="FAITs"
           icon={<ClipboardCheck className="h-5 w-5" />}
@@ -964,8 +947,7 @@ export function DashboardView() {
           name="Customers"
           icon={<Users className="h-5 w-5" />}
           tone="superior-blue"
-          count={customerCard.count}
-          unit="customers"
+          description="The CRM tool — a customer, their contacts, special pricing and capacity notes."
           onClick={() => navigate("/sales/customers")}
         />
         <PlaceholderCard name="Pricing Requests" icon={<Calculator className="h-5 w-5" />} />

@@ -73,8 +73,8 @@ const SYSTEM_TIERS: Tier[] = [
     label: "React SPA",
     nodes: [
       { label: "Views", hint: "Dashboard · List · Kanban · Detail · EIRs · Test Sheets · Project Folders · CSA Listings · Drawing File Logs · Digital QC · Ignition QC · Potting Sample Log · Visit Reports (list + calendar) · Open Orders Report · Gray Market Requests · Where Am I? · ECNs · FAITs · Drawing Work Sheet (print) · Admin", palette: "ui" },
-      { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useBuildRequests · useCsaListings · useDrawingLogs · useDigitalQc · useIgnitionQc · usePottingSampleLog · useVisitReports · useOpenOrdersReports · useOpenOrdersCustomers · useGrayMarketRequests · useWhereAmI · useEcns · useFaits · useCustomerNotes · useCustomerContacts · useSpecialPricing · useCapacity · useSuppliers · useSupplierContacts · useSupplierIssues · useAdmins · useEirRoles · useTaskFiles · useProjectFolders", palette: "ui" },
-      { label: "API layer", hint: "src/api/tasks · eirs · testSheets · buildRequests · buildRequestItems · csaListings · drawingLogs · digitalQc · ignitionQc · pottingSampleLog · visitReports · openOrdersFiles · openOrdersCustomers · openOrdersRoles · grayMarketRequests · whereAmI · ecns · faits · customerNotes · customerContacts · specialPricing · capacity · suppliers · supplierContacts · supplierIssues · autoWatch · panelOrders · panelTasks · admins · eirRoles · panelRoles · directory · siteUsers · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
+      { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useBuildRequests · useCsaListings · useDrawingLogs · useDigitalQc · useIgnitionQc · usePottingSampleLog · useVisitReports · useOpenOrdersReports · useOpenOrdersCustomers · useGrayMarketRequests · useWhereAmI · useEcns · useFaits · useCustomerNotes · useCustomerContacts · useSpecialPricing · useCapacity · useSuppliers · useSupplierContacts · useSupplierIssues · useCostImpactNotices · useAdmins · useEirRoles · useTaskFiles · useProjectFolders", palette: "ui" },
+      { label: "API layer", hint: "src/api/tasks · eirs · testSheets · buildRequests · buildRequestItems · csaListings · drawingLogs · digitalQc · ignitionQc · pottingSampleLog · visitReports · openOrdersFiles · openOrdersCustomers · openOrdersRoles · grayMarketRequests · whereAmI · ecns · faits · customerNotes · customerContacts · specialPricing · capacity · suppliers · supplierContacts · supplierIssues · costImpactNotices · autoWatch · panelOrders · panelTasks · admins · eirRoles · panelRoles · directory · siteUsers · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
       {
         label: "Open Orders Report (lazy-loaded)",
         hint: "OpenOrdersView · OpenOrdersCustomersView — reads a raw SAP extract in the browser and writes a branded master dashboard plus one workbook per managed customer into SharePoint. ExcelJS (~950KB) is dynamically imported on first use so it never lands in the main chunk.",
@@ -93,6 +93,11 @@ const SYSTEM_TIERS: Tier[] = [
       {
         label: "Supply Chain department",
         hint: "GrayMarketRequestsView · GrayMarketRequestDetailView — useGrayMarketRequests — api/grayMarketRequests. The list lives on the PMO site (where it has always been), but the feature is Supply Chain's: it appears under Supply Chain only.",
+        palette: "ui",
+      },
+      {
+        label: "Cost Impact Notices (lazy-loaded)",
+        hint: "CostImpactNoticesView · CostImpactNoticeDetailView — useCostImpactNotices — api/costImpactNotices. List lives on the ALTRONICSALESTEAM site (Sales), same pattern as Gray Market Requests on PMO: the feature is Supply Chain's, the list just isn't on a Supply Chain site.",
         palette: "ui",
       },
       {
@@ -122,7 +127,7 @@ const SYSTEM_TIERS: Tier[] = [
     nodes: [
       { label: "MSAL Entra ID", hint: "Sites.Selected · Mail.Send.Shared · User.ReadBasic.All (tenant directory, optional) · AllSites.Manage (optional)", palette: "auth" },
       { label: "Microsoft Graph v1.0", hint: "Lists, items, drives, users, mail", palette: "gateway" },
-      { label: "SharePoint REST", hint: "List-item attachments (Task, EIR, Operations Task, Panel Order, Visit Report, Gray Market Request) + site-user resolution — optional", palette: "gateway" },
+      { label: "SharePoint REST", hint: "List-item attachments (Task, EIR, Operations Task, Panel Order, Visit Report, Gray Market Request, Cost Impact Notice) + site-user resolution — optional", palette: "gateway" },
       { label: "Mock store", hint: "in-memory + localStorage (demo mode)", palette: "mock" },
       { label: "Shared mailbox", hint: "@-mention + change notifications, and edit-failure recovery emails", palette: "mock" },
     ],
@@ -171,6 +176,7 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "Suppliers List", hint: "Altronic_PMO site — the SRM tool's anchor list, 531 rows; CoreCompetency is a multi choice, Status is single; QualityPeformance (typo, no r) is labelled \"Logistical Performance\" and QualityPerformance (correct spelling) is \"Quality Performance\"", palette: "list" },
       { label: "Supplier Contact List", hint: "Altronic_PMO site — one row per person at a supplier, 566 rows; Title/FirstName/LastName are blank on every row seen so far — a contact is identified by email; Communication and Watchers were added for ARC on 2026-08-26", palette: "list" },
       { label: "Supplier Issue Tracker", hint: "Altronic_PMO site — near-empty (1 row at discovery); Status and Severity are UNCONFIGURED placeholder choices (\"Choice 1/2/3\") — update the consts once Supply Chain sets real values", palette: "list" },
+      { label: "Cost Impact Portal", hint: "ALTRONICSALESTEAM site (a Supply Chain feature) — a purchased part's cost changed. Original Cost/New Cost are TEXT columns; Delta Cost is a genuine SharePoint calculated column despite that; no Watchers, so comments reach the submitter (createdBy) and anyone mentioned, same as ECNs", palette: "list" },
     ],
   },
 ];
@@ -929,6 +935,36 @@ const SCHEMA_TABLES: SchemaTable[] = [
       { name: "resolution", type: "text", kind: "field" },
       { name: "severity", type: "choice", kind: "field" },
       { name: "watchers", type: "int[]", kind: "fk", references: "Person.id" },
+    ],
+  },
+  {
+    // A standalone entity — no lookups in or out. No Watchers column, so
+    // (same as ECN) `submittedBy` is Graph's item-level createdBy rather
+    // than an FK to Person. `deltaCost` is a genuine SharePoint calculated
+    // column even though originalCost/newCost are TEXT, not Currency.
+    name: "CostImpactNotice",
+    source: "Cost Impact Portal (ALTRONICSALESTEAM site)",
+    palette: "entity",
+    x: 20, y: 4320, width: 340,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title (part)", type: "text", kind: "field" },
+      { name: "supplier", type: "text", kind: "field" },
+      { name: "sapNumber", type: "text", kind: "field" },
+      { name: "oldPartNumber", type: "text", kind: "field" },
+      { name: "mpn", type: "text", kind: "field" },
+      { name: "originalCost", type: "text", kind: "field" },
+      { name: "newCost", type: "text", kind: "field" },
+      { name: "deltaCost (calculated)", type: "number", kind: "field" },
+      { name: "timeOfImpact", type: "choice", kind: "field" },
+      { name: "usedOnPanels", type: "choice", kind: "field" },
+      { name: "whereUsed", type: "text", kind: "field" },
+      { name: "eau", type: "text", kind: "field" },
+      { name: "bpReference", type: "text", kind: "field" },
+      { name: "notes (Comments)", type: "text", kind: "field" },
+      { name: "submittedBy (createdBy)", type: "person", kind: "field" },
+      { name: "comments (Communication)", type: "text", kind: "field" },
+      { name: "hasAttachments", type: "bool", kind: "field" },
     ],
   },
 ];

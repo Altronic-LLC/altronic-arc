@@ -104,6 +104,14 @@ const SupplierContactRedirect = lazy(() =>
 const SupplierIssueRedirect = lazy(() =>
   import("@/views/SupplierIssueRedirect").then((m) => ({ default: m.SupplierIssueRedirect })),
 );
+const CostImpactNoticesView = lazy(() =>
+  import("@/views/CostImpactNoticesView").then((m) => ({ default: m.CostImpactNoticesView })),
+);
+const CostImpactNoticeDetailView = lazy(() =>
+  import("@/views/CostImpactNoticeDetailView").then((m) => ({
+    default: m.CostImpactNoticeDetailView,
+  })),
+);
 const AdminOpenOrdersRolesView = lazy(() =>
   import("@/views/AdminOpenOrdersRolesView").then((m) => ({
     default: m.AdminOpenOrdersRolesView,
@@ -322,6 +330,22 @@ export function App() {
               element={
                 <Suspense fallback={<LoadingTasks noun="this issue" />}>
                   <SupplierIssueRedirect />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/supply-chain/cost-impact-notices"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the cost impact notices" />}>
+                  <CostImpactNoticesView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/supply-chain/cost-impact-notice/:id"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the cost impact notice" />}>
+                  <CostImpactNoticeDetailView />
                 </Suspense>
               }
             />

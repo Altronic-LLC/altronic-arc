@@ -246,6 +246,7 @@ describe("DashboardView — a shipped feature is never a 'Coming soon' card", ()
     { name: /Visit Reports/i, url: "/sales/visit-reports" },
     { name: /^Customers/i, url: "/sales/customers" },
     { name: /^Suppliers/i, url: "/supply-chain/suppliers" },
+    { name: /Cost Impact Notices/i, url: "/supply-chain/cost-impact-notices" },
     { name: /Teradyne Log/i, url: "/operations/teradyne" },
   ];
 
@@ -280,21 +281,16 @@ describe("DashboardView — a shipped feature is never a 'Coming soon' card", ()
     expect(Number(bigCount(card).textContent)).toBeGreaterThan(0);
   });
 
-  it("counts the customers on file", async () => {
+  // Customers and Suppliers are description-only cards (Ray, 2026-08-27) —
+  // like Open Orders Report and Visit Reports, they explain the tool rather
+  // than counting anything, in both dashboard scopes.
+  it("describes the CRM and SRM tools instead of counting them", async () => {
     const user = userEvent.setup();
     await renderDashboard();
     await user.click(screen.getByRole("button", { name: "Company" }));
-    const card = screen.getByRole("button", { name: /^Customers/i });
-    expect(within(card).queryByText(/coming soon/i)).toBeNull();
-    expect(Number(bigCount(card).textContent)).toBeGreaterThan(0);
-  });
-
-  it("counts the suppliers on file", async () => {
-    const user = userEvent.setup();
-    await renderDashboard();
-    await user.click(screen.getByRole("button", { name: "Company" }));
-    const card = screen.getByRole("button", { name: /^Suppliers/i });
-    expect(within(card).queryByText(/coming soon/i)).toBeNull();
-    expect(Number(bigCount(card).textContent)).toBeGreaterThan(0);
+    const customers = screen.getByRole("button", { name: /^Customers/i });
+    expect(within(customers).getByText(/CRM tool/i)).toBeInTheDocument();
+    const suppliers = screen.getByRole("button", { name: /^Suppliers/i });
+    expect(within(suppliers).getByText(/SRM tool/i)).toBeInTheDocument();
   });
 });

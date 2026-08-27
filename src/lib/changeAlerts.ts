@@ -47,7 +47,8 @@ export interface ChangeTarget {
     | "panelOrder"
     | "panelTask"
     | "grayMarketRequest"
-    | "fait";
+    | "fait"
+    | "costImpactNotice";
   id: number;
   title: string;
 }
@@ -62,6 +63,7 @@ const NOUNS: Record<ChangeTarget["kind"], string> = {
   panelTask: "panel task",
   grayMarketRequest: "gray market request",
   fait: "FAIT",
+  costImpactNotice: "cost impact notice",
 };
 
 function nounFor(target: ChangeTarget): string {

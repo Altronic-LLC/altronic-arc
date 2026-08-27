@@ -1,5 +1,6 @@
 import { GraphError, graphFetch } from "./graph";
 import {
+  COST_IMPACT_NOTICE_ALERTS,
   EIR_RESPONSE_ACCEPTED_ALERTS,
   EIR_TRIAGE_ASSIGNERS,
   EIR_TRIAGE_PROJECT_REVIEWERS,
@@ -28,6 +29,7 @@ import {
 import { parseRecipientList } from "@/lib/recipientList";
 import { buildNewGrayMarketRequestEmails } from "@/lib/grayMarketAlerts";
 import { buildNewFaitEmails } from "@/lib/faitAlerts";
+import { buildNewCostImpactNoticeEmails } from "@/lib/costImpactAlerts";
 
 // =============================================================================
 // Email notifications via Microsoft Graph sendMail.
@@ -72,7 +74,8 @@ export interface MentionTarget {
     | "customerNote"
     | "supplier"
     | "supplierContact"
-    | "supplierIssue";
+    | "supplierIssue"
+    | "costImpactNotice";
   id: number;
   title: string;
 }
@@ -131,6 +134,11 @@ const KIND_COPY: Record<
     phrase: "a supplier issue",
     calloutLabel: "Supplier Issue",
     buttonText: "Open this issue",
+  },
+  costImpactNotice: {
+    phrase: "a cost impact notice",
+    calloutLabel: "Cost Impact Notice",
+    buttonText: "Open this notice",
   },
 };
 
@@ -584,6 +592,24 @@ export function fireNewFaitAlert(args: {
   const emails = buildNewFaitEmails({
     ...args,
     recipients: parseRecipientList(FAIT_NEW_ALERTS),
+  });
+  if (emails.length === 0) return;
+  void notifyChangeEmails({ target: args.target, emails });
+}
+
+/**
+ * Fire-and-forget intake alert for a NEW cost impact notice — the configured
+ * list (VITE_COST_IMPACT_NOTICE_ALERTS) is told a purchased part's cost has
+ * changed. No-ops when nothing is configured.
+ */
+export function fireNewCostImpactNoticeAlert(args: {
+  target: ChangeTarget;
+  actor: Person;
+  details?: AlertDetail[];
+}): void {
+  const emails = buildNewCostImpactNoticeEmails({
+    ...args,
+    recipients: parseRecipientList(COST_IMPACT_NOTICE_ALERTS),
   });
   if (emails.length === 0) return;
   void notifyChangeEmails({ target: args.target, emails });

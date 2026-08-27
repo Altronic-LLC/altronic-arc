@@ -449,6 +449,51 @@ export function customerNoteCommentRecipients(args: {
 }
 
 /**
+ * Comment recipients for a Cost Impact Notice — the submitter plus whoever
+ * is @-mentioned, and nobody else. Same shape as `ecnCommentRecipients`: this
+ * list has no Watchers column either, so there is nowhere to store one, and
+ * a raised notice DOES have a submitter (Graph's `createdBy` — the list has
+ * no requester column of its own).
+ *
+ * The intake alert (`lib/costImpactAlerts.ts`) is a separate mechanism: it
+ * tells a FIXED list of people that a new notice exists, once, on create.
+ * This function is only about who hears about a COMMENT on one afterward.
+ *
+ * Same author rule as everywhere else: the person posting isn't emailed
+ * their own comment unless they @-mentioned themselves.
+ */
+export function costImpactNoticeCommentRecipients(args: {
+  bodyHtml: string;
+  submittedBy: NotifiablePerson | null | undefined;
+  authorEmail: string;
+}): CommentRecipient[] {
+  const author = (args.authorEmail ?? "").toLowerCase();
+  const mentions = extractMentionedRecipients(args.bodyHtml);
+  const selfMentioned = mentions.some((m) => m.email.toLowerCase() === author);
+
+  const byEmail = new Map<string, CommentRecipient>();
+  const submitterEmail = args.submittedBy?.email?.trim();
+  if (args.submittedBy && submitterEmail) {
+    byEmail.set(submitterEmail.toLowerCase(), {
+      email: submitterEmail,
+      displayName: args.submittedBy.displayName,
+      reason: "submitted",
+    });
+  }
+  // A mention outranks being the submitter — "you were mentioned" is the
+  // stronger signal, and the submitter usually IS mentioned by name.
+  for (const m of mentions) {
+    byEmail.set(m.email.toLowerCase(), {
+      email: m.email,
+      displayName: m.displayName,
+      reason: "mentioned",
+    });
+  }
+  if (!selfMentioned) byEmail.delete(author);
+  return Array.from(byEmail.values());
+}
+
+/**
  * Deterministic stand-in for a SharePoint lookupId in mock mode, used when
  * auto-watching someone mentioned for the very first time (never an
  * assignee/watcher before, so they're not in the task-derived directory).

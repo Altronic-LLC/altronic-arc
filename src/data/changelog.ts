@@ -20,6 +20,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.124.0",
+    date: "2026-08-27",
+    changes: [
+      "Add Cost Impact Notices for Supply Chain — raise a notice when a purchased part's cost changes, with comments and attachments",
+      "Raising a cost impact notice emails Keith Brooks, Ray White, David Bell, Matthew Traina, Mark Balent and Katie Fleming",
+    ],
+  },
+  {
+    version: "0.123.1",
+    date: "2026-08-27",
+    changes: [
+      "Customers and Suppliers dashboard cards now describe the tool instead of showing a count",
+    ],
+  },
+  {
     version: "0.123.0",
     date: "2026-08-27",
     changes: [

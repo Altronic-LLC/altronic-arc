@@ -24,7 +24,8 @@ export type AppItemKind =
   | "customerNote"
   | "supplier"
   | "supplierContact"
-  | "supplierIssue";
+  | "supplierIssue"
+  | "costImpactNotice";
 
 const KIND_SEGMENTS: Record<AppItemKind, string> = {
   task: "task",
@@ -46,6 +47,7 @@ const KIND_SEGMENTS: Record<AppItemKind, string> = {
   // expands — the same arrangement as buildRequestItem above.
   supplierContact: "supply-chain/supplier-contact",
   supplierIssue: "supply-chain/supplier-issue",
+  costImpactNotice: "supply-chain/cost-impact-notice",
 };
 
 /** Absolute URL to an item's detail page in this app. */

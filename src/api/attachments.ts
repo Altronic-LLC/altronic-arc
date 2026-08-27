@@ -1,6 +1,7 @@
 import {
   SP_BUILD_REQUEST_ITEMS_LIST_ID,
   SP_BUILD_REQUESTS_LIST_ID,
+  SP_COST_IMPACT_NOTICES_LIST_ID,
   SP_CSA_LISTINGS_LIST_ID,
   SP_ECNS_LIST_ID,
   SP_FAIT_LIST_ID,
@@ -58,7 +59,8 @@ export type AttachmentParent =
   | "grayMarketRequest"
   | "supplier"
   | "supplierContact"
-  | "supplierIssue";
+  | "supplierIssue"
+  | "costImpactNotice";
 
 interface ParentConfig {
   listId: string | undefined;
@@ -135,6 +137,11 @@ const PARENT_CONFIG: Record<AttachmentParent, ParentConfig> = {
     listId: SP_SUPPLIER_ISSUES_LIST_ID,
     siteUrl: SP_PMO_SITE_URL,
     listIdEnvVar: "VITE_SP_SUPPLIER_ISSUES_LIST_ID",
+  },
+  costImpactNotice: {
+    listId: SP_COST_IMPACT_NOTICES_LIST_ID,
+    siteUrl: SP_SALESTEAM_SITE_URL,
+    listIdEnvVar: "VITE_SP_COST_IMPACT_NOTICES_LIST_ID",
   },
 };
 
