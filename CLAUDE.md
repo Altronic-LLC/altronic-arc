@@ -1352,6 +1352,42 @@ Six things about this list's columns:
   larger one in the Supplier detail header — only suppliers whose `Logo`
   field is actually set trigger the attachment fetch, so the 531-row list
   doesn't fire 531 requests on load.
+  **Editable from the detail page** (Ray, 2026-08-27: "i also need to be
+  able to update their logo files from arc") — `SupplierLogoEditor.tsx`
+  wraps the plain `SupplierLogo` display with Change/Remove text links
+  underneath it, kept as its own component so the LIST view (up to 150
+  `SupplierLogo`s rendered at once) never pulls in the mutation hooks or a
+  file input. `updateSupplierLogo(current, file)` / `clearSupplierLogo(current)`
+  (`api/suppliers.ts`) write the OTHER direction of the same shape
+  `parseSupplierLogo` reads: upload the file as an ordinary list-item
+  attachment — the same `uploadAttachment` every other attachment in ARC
+  already uses — under a `Reserved_ImageAttachment_` name (so it's excluded
+  from the generic Attachments card, same as `isReservedImageAttachment`
+  already assumes), then PATCH `Logo` to
+  `{"fileName": <uploaded name>, "originalImageName": <file.name>}`. The old
+  backing attachment (if any) is deleted best-effort AFTER the new one is
+  live and the field repointed — never before, so a failed upload never
+  leaves `Logo` pointing at a file that's gone.
+  **Unverified against SharePoint's own native rendering of the column** —
+  there's no documented write contract for a modern Image column, and this
+  shape is inferred from what the column already held rather than a
+  documented API (same caveat as the read side, above). It doesn't need
+  that verification to be useful, though: ARC only ever reads this value
+  back through `parseSupplierLogo` / `SupplierLogo.tsx`, which is exactly
+  this shape, so ARC's own display works whether or not SharePoint's list
+  UI also renders the update as a thumbnail. Worth confirming live before
+  calling the write side fully done.
+  A 5MB client-side size cap and an image-mimetype check
+  (`SupplierLogoEditor.tsx`) reject an obviously-wrong pick before it burns
+  an upload round trip — a mis-picked PDF or a multi-megapixel phone photo,
+  not a hard SharePoint limit.
+  `useUpdateSupplierLogo` / `useClearSupplierLogo` (`hooks/useSuppliers.ts`)
+  invalidate BOTH the suppliers list query and the item's `useAttachments`
+  cache (exported as `attachmentsKey` from `hooks/useAttachments.ts`
+  specifically so a caller outside that file can do this) — the Logo tile
+  and the Attachments card read from two different queries backed by the
+  same underlying attachment store, and would otherwise disagree about
+  what's on the item until something else happened to refetch one of them.
 - **`Title`, `FirstName` and `LastName` are blank on every Supplier Contact
   row seen live** (566 rows) — every contact so far is identified by email
   alone. `supplierContactLabel` falls back through name → email → a numbered
@@ -1421,7 +1457,18 @@ push vs. poll, rate limits, sandbox, IP allowlisting) — none of that is
 ARC's concern, but it's worth keeping the answer in one place rather than
 re-deriving it.
 
-### @-mention auto-watch is ONE function now, and it takes a resolver
+**The Suppliers list header is icon+title in one row, buttons in another —
+not five siblings of one `flex-wrap` row** (Ray, 2026-08-27, screenshot on
+iOS: the description paragraph rendered one word per line in a near-zero-
+width column). Adding the Medius link gave the header row a `flex-1` text
+block competing with TWO button-width flex items under `flex-wrap`; the
+wrap-point calculation ran across every child at once, so the buttons'
+combined width left the text block's share of its line too narrow before it
+dropped alone to the next line. Grouping the icon+title+description into
+their own inner `<div>` (full-width on mobile, `flex flex-col` container)
+and the two buttons into a second inner `<div>` means each row only ever
+sizes against its own content — a new button next to New Supplier should go
+in that second `<div>`, not back onto one shared row with the title block.
 
 `autoWatchFromMentions` in **`src/api/autoWatch.ts`** is shared by all six
 comment threads. It used to be a private copy in five department hooks.

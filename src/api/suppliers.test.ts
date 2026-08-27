@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import * as suppliersModule from "./suppliers";
 import {
   addSupplierComment,
+  clearSupplierLogo,
   createSupplier,
   editSupplierComment,
   getSupplier,
@@ -9,8 +10,10 @@ import {
   setSupplierWatchers,
   updateSupplierAssignedBuyer,
   updateSupplierDetails,
+  updateSupplierLogo,
   updateSupplierPointOfContact,
 } from "./suppliers";
+import { listAttachments } from "./attachments";
 
 describe("Suppliers API", () => {
   it("lists alphabetically by label", async () => {
@@ -109,6 +112,69 @@ describe("Suppliers API", () => {
       "<p>First</p>",
     );
     expect(edited.comments[0].bodyHtml).toBe("<p>First</p>");
+  });
+
+  it("uploads a logo as a reserved attachment and points the Logo field at it", async () => {
+    const created = await createSupplier({
+      companyName: "X",
+      businessPartnerNumber: "",
+      address: "",
+      website: "",
+      status: null,
+      assignedBuyer: null,
+      watchers: [],
+    });
+    expect(created.logo).toBeNull();
+
+    const file = new File(["fake-bytes"], "arrow-logo.png", { type: "image/png" });
+    const updated = await updateSupplierLogo(created, file);
+    expect(updated.logo?.fileName).toMatch(/^Reserved_ImageAttachment_/);
+    expect(updated.logo?.originalImageName).toBe("arrow-logo.png");
+
+    const attachments = await listAttachments("supplier", created.id);
+    expect(attachments.map((a) => a.fileName)).toContain(updated.logo?.fileName);
+  });
+
+  it("replaces an existing logo and removes the old attachment", async () => {
+    const created = await createSupplier({
+      companyName: "X",
+      businessPartnerNumber: "",
+      address: "",
+      website: "",
+      status: null,
+      assignedBuyer: null,
+      watchers: [],
+    });
+    const first = await updateSupplierLogo(created, new File(["a"], "first.png", { type: "image/png" }));
+    const oldFileName = first.logo!.fileName;
+
+    const second = await updateSupplierLogo(first, new File(["b"], "second.png", { type: "image/png" }));
+    expect(second.logo?.originalImageName).toBe("second.png");
+    expect(second.logo?.fileName).not.toBe(oldFileName);
+
+    const attachments = await listAttachments("supplier", created.id);
+    expect(attachments.map((a) => a.fileName)).not.toContain(oldFileName);
+    expect(attachments.map((a) => a.fileName)).toContain(second.logo?.fileName);
+  });
+
+  it("clears a logo and removes its backing attachment", async () => {
+    const created = await createSupplier({
+      companyName: "X",
+      businessPartnerNumber: "",
+      address: "",
+      website: "",
+      status: null,
+      assignedBuyer: null,
+      watchers: [],
+    });
+    const withLogo = await updateSupplierLogo(created, new File(["a"], "logo.png", { type: "image/png" }));
+    const fileName = withLogo.logo!.fileName;
+
+    const cleared = await clearSupplierLogo(withLogo);
+    expect(cleared.logo).toBeNull();
+
+    const attachments = await listAttachments("supplier", created.id);
+    expect(attachments.map((a) => a.fileName)).not.toContain(fileName);
   });
 
   it("returns null for a supplier that doesn't exist", async () => {

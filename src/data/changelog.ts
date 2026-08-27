@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.123.0",
+    date: "2026-08-27",
+    changes: [
+      "Add and remove a supplier's logo right from their detail page — no more going to SharePoint",
+      "Fix the Suppliers page header wrapping into a squeezed, one-word-per-line column on some phones",
+    ],
+  },
+  {
     version: "0.122.4",
     date: "2026-08-27",
     changes: [

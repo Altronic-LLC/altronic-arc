@@ -68,33 +68,49 @@ export function SuppliersView() {
 
   return (
     <div className="mx-auto flex max-w-[1200px] flex-col gap-4 px-4 py-4 sm:px-6 sm:py-6">
-      <header className="flex flex-wrap items-center gap-3">
-        <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-cooper-red/10 text-cooper-red">
-          <Truck className="h-5 w-5" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <h1 className="font-display text-xl font-semibold text-fg sm:text-2xl">Suppliers</h1>
-          <p className="text-sm text-fg-muted">
-            The SRM tool — open a supplier to see their contacts and open issues.
-          </p>
+      {/*
+        The icon+title+description live in their OWN row, separate from the
+        two action buttons, rather than all five as siblings of one
+        `flex-wrap` row. Mixing a `flex-1` text block with `flex-wrap`
+        button siblings squeezed the paragraph into a near-zero-width,
+        one-word-per-line column on a phone — the row's wrap-point
+        calculation was made across every child at once, and the buttons'
+        combined width left the text block's calculated line share tiny
+        before it dropped to its own line (Ray, 2026-08-27, screenshot on
+        iOS). Two independent rows means each only ever has to fit its own
+        content.
+      */}
+      <header className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-cooper-red/10 text-cooper-red">
+            <Truck className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <h1 className="font-display text-xl font-semibold text-fg sm:text-2xl">Suppliers</h1>
+            <p className="text-sm text-fg-muted">
+              The SRM tool — open a supplier to see their contacts and open issues.
+            </p>
+          </div>
         </div>
-        <a
-          href={MEDIUS_SUPPLIER_DIRECTORY_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg transition-colors hover:bg-surface-2"
-          title="Opens Medius in a new tab — sign-in there is separate from ARC"
-        >
-          <ExternalLink className="h-4 w-4" />
-          Supplier Onboarding
-        </a>
-        <button
-          onClick={() => setShowNew(true)}
-          className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90"
-        >
-          <Plus className="h-4 w-4" />
-          New supplier
-        </button>
+        <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+          <a
+            href={MEDIUS_SUPPLIER_DIRECTORY_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg transition-colors hover:bg-surface-2"
+            title="Opens Medius in a new tab — sign-in there is separate from ARC"
+          >
+            <ExternalLink className="h-4 w-4" />
+            Supplier Onboarding
+          </a>
+          <button
+            onClick={() => setShowNew(true)}
+            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90"
+          >
+            <Plus className="h-4 w-4" />
+            New supplier
+          </button>
+        </div>
       </header>
 
       <div

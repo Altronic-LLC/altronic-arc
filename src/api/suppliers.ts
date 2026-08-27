@@ -1,10 +1,12 @@
 import { graphFetch, graphFetchAll } from "./graph";
 import { SITES, SP_PMO_SITE_URL, SP_SUPPLIERS_LIST_ID, USE_MOCK } from "./config";
 import { ensureLookupIds, ensurePersonLookupId } from "./siteUsers";
+import { deleteAttachment, uploadAttachment } from "./attachments";
 import type { GraphListItem, Person, Supplier, SupplierInput } from "@/types/task";
 import {
   buildSupplierCreateFields,
   compareSuppliers,
+  parseSupplierLogo,
   supplierDetailsPatch,
   toSupplier,
 } from "@/lib/supplierMapper";
@@ -144,6 +146,70 @@ export async function updateSupplierPointOfContact(
   return updateSupplierFields(id, { PointofContactLookupId: contactId });
 }
 
+/**
+ * Replace a supplier's Logo. The `Logo` column is a modern SharePoint
+ * "Image" column with no write API of its own — Graph exposes no column
+ * type for it at all (see supplierMapper.ts) — but its real stored value,
+ * confirmed against live sample rows, is JSON naming a reserved (hidden)
+ * attachment on the SAME item:
+ *   {"fileName":"Reserved_ImageAttachment_...","originalImageName":"..."}
+ * So writing one is: upload the file as an ordinary list-item attachment —
+ * the same `_api/AttachmentFiles` endpoint every other attachment in ARC
+ * already uses — under a `Reserved_ImageAttachment_` name (so it's excluded
+ * from the generic attachments list, same as `isReservedImageAttachment`
+ * already assumes), then PATCH `Logo` to point at it.
+ *
+ * Order matters: the NEW attachment is uploaded and the field repointed
+ * FIRST; the old backing attachment (if any) is deleted best-effort AFTER,
+ * so a failed upload never leaves `Logo` pointing at a file that's gone.
+ *
+ * This is unverified against SharePoint's own native rendering of an Image
+ * column — there's no documented write contract for one, and this shape is
+ * inferred from what the column already held rather than a documented API.
+ * It doesn't need to be verified against that, though: ARC only ever reads
+ * this value back through `parseSupplierLogo` / `SupplierLogo.tsx`, which is
+ * exactly this shape, so ARC's own display works regardless of whether
+ * SharePoint's list UI also shows the update as a thumbnail.
+ */
+export async function updateSupplierLogo(current: Supplier, file: File): Promise<Supplier> {
+  const reservedName = `Reserved_ImageAttachment_${Date.now()}_${file.name}`;
+  const renamed = new File([file], reservedName, { type: file.type });
+  const uploaded = await uploadAttachment("supplier", current.id, renamed);
+
+  const updated = await updateSupplierFields(current.id, {
+    Logo: JSON.stringify({ fileName: uploaded.fileName, originalImageName: file.name }),
+  });
+
+  if (current.logo && current.logo.fileName !== uploaded.fileName) {
+    try {
+      await deleteAttachment("supplier", current.id, current.logo.fileName);
+    } catch (err) {
+      console.error(
+        `updateSupplierLogo: uploaded the new logo but couldn't remove the old attachment "${current.logo.fileName}"`,
+        err,
+      );
+    }
+  }
+
+  return updated;
+}
+
+/** Clear a supplier's Logo — empties the column and best-effort removes its backing attachment. */
+export async function clearSupplierLogo(current: Supplier): Promise<Supplier> {
+  const updated = await updateSupplierFields(current.id, { Logo: null });
+  if (current.logo) {
+    try {
+      await deleteAttachment("supplier", current.id, current.logo.fileName);
+    } catch (err) {
+      console.error(
+        `clearSupplierLogo: cleared the Logo field but couldn't remove the old attachment "${current.logo.fileName}"`,
+        err,
+      );
+    }
+  }
+  return updated;
+}
+
 export async function setSupplierWatchers(id: number, people: Person[]): Promise<Supplier> {
   if (USE_MOCK) {
     return updateSupplierFields(id, { Watchers: people });
@@ -197,6 +263,7 @@ function applyMockFields(next: Supplier, fields: Record<string, unknown>) {
     const lookupId = fields.PointofContactLookupId;
     next.pointOfContactId = typeof lookupId === "number" ? lookupId : null;
   }
+  if ("Logo" in fields) next.logo = parseSupplierLogo(fields.Logo);
   if (Array.isArray(fields.Watchers)) {
     next.watchers = fields.Watchers as Person[];
   } else {

@@ -5,10 +5,12 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   collectSupplierPeople,
   useAddSupplierComment,
+  useClearSupplierLogo,
   useCreateSupplier,
   useSupplier,
   useSuppliers,
   useUpdateSupplierDetails,
+  useUpdateSupplierLogo,
 } from "./useSuppliers";
 import type { Supplier } from "@/types/task";
 
@@ -91,6 +93,40 @@ describe("useCreateSupplier", () => {
       const created = result.current.list.data?.find((s) => s.companyName === "New Supplier Co");
       expect(created).toBeDefined();
       expect(created?.watchers.some((w) => w.email === "ray.white@altronic-llc.com")).toBe(true);
+    });
+  });
+});
+
+describe("useUpdateSupplierLogo / useClearSupplierLogo", () => {
+  it("uploads a logo, then removes it, patching the cache both times", async () => {
+    const wrapper = hookWrapper();
+    const { result } = renderHook(
+      () => ({
+        update: useUpdateSupplierLogo(),
+        clear: useClearSupplierLogo(),
+        list: useSuppliers(),
+      }),
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current.list.data?.length).toBeGreaterThan(0));
+    const current = result.current.list.data![0];
+    const file = new File(["bytes"], "logo.png", { type: "image/png" });
+
+    await act(async () => {
+      await result.current.update.mutateAsync({ current, file });
+    });
+    await waitFor(() => {
+      const updated = result.current.list.data?.find((s) => s.id === current.id);
+      expect(updated?.logo?.originalImageName).toBe("logo.png");
+    });
+
+    const withLogo = result.current.list.data!.find((s) => s.id === current.id)!;
+    await act(async () => {
+      await result.current.clear.mutateAsync(withLogo);
+    });
+    await waitFor(() => {
+      const cleared = result.current.list.data?.find((s) => s.id === current.id);
+      expect(cleared?.logo).toBeNull();
     });
   });
 });

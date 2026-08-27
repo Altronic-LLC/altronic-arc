@@ -38,6 +38,14 @@ describe("SupplierDetailView", () => {
     ).toBeInTheDocument();
   });
 
+  // Arrow Electronics (id 25) carries the mock-mode demo logo fixture — see
+  // api/attachments.ts. Its presence should offer Change/Remove, not Add.
+  it("offers to change or remove a supplier's existing logo", async () => {
+    await renderDetail(25);
+    expect(screen.getByRole("button", { name: "Change" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove" })).toBeInTheDocument();
+  });
+
   it("shows the supplier's contacts and issues sections", async () => {
     await renderDetail();
     expect(screen.getByText(/Contacts \(1\)/i)).toBeInTheDocument();

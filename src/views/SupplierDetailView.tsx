@@ -35,7 +35,7 @@ import { SupplierContactCard } from "@/components/SupplierContactCard";
 import { SupplierContactFormModal } from "@/components/SupplierContactFormModal";
 import { SupplierIssueCard } from "@/components/SupplierIssueCard";
 import { SupplierIssueFormModal } from "@/components/SupplierIssueFormModal";
-import { SupplierLogo } from "@/components/SupplierLogo";
+import { SupplierLogoEditor } from "@/components/SupplierLogoEditor";
 
 // =============================================================================
 // One supplier — the SRM tool's "supplier 360" page. Details/Notes are a card
@@ -146,7 +146,7 @@ export function SupplierDetailView() {
       <DetailTopBar category="Suppliers" listTo="/supply-chain/suppliers" />
 
       <div className="flex flex-wrap items-start gap-3">
-        <SupplierLogo supplierId={supplier.id} logo={supplier.logo} className="h-10 w-10 rounded-lg" />
+        <SupplierLogoEditor supplier={supplier} />
         <div className="min-w-0 flex-1">
           <h1 className="font-display text-xl font-semibold text-fg sm:text-2xl">
             {supplier.title || `Supplier #${supplier.id}`}

@@ -1,12 +1,14 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import {
   addSupplierComment,
+  clearSupplierLogo,
   createSupplier,
   editSupplierComment,
   listSuppliers,
   setSupplierWatchers,
   updateSupplierAssignedBuyer,
   updateSupplierDetails,
+  updateSupplierLogo,
   updateSupplierPointOfContact,
 } from "@/api/suppliers";
 import type { Person, Supplier, SupplierInput } from "@/types/task";
@@ -19,6 +21,7 @@ import { resolvePmoSiteUserLookupId } from "@/api/operationsTasks";
 import { autoWatchers, mergePeople } from "@/lib/people";
 import { htmlToPlainText } from "@/lib/htmlText";
 import { useCurrentUser } from "./useCurrentUser";
+import { attachmentsKey } from "./useAttachments";
 import { pushToast } from "@/components/Toast";
 
 // =============================================================================
@@ -115,6 +118,45 @@ export function useUpdateSupplierPointOfContact() {
     onSuccess: (updated) => patchSupplier(qc, updated.id, () => updated),
     onError: (err: Error) => errorToast(`Couldn't save that change. ${err.message}`),
     onSettled: () => qc.invalidateQueries({ queryKey: SUPPLIERS_KEY }),
+  });
+}
+
+/** Upload/replace a supplier's logo. See `updateSupplierLogo` for why this touches an attachment as well as the Logo field. */
+export function useUpdateSupplierLogo() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ current, file }: { current: Supplier; file: File }) => updateSupplierLogo(current, file),
+    onSuccess: (updated) => {
+      patchSupplier(qc, updated.id, () => updated);
+      pushToast({ message: "Logo updated." });
+    },
+    onError: (err: Error) => errorToast(`Couldn't update the logo. ${err.message}`),
+    onSettled: (updated, _err, { current }) =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: SUPPLIERS_KEY }),
+        // The new/old logo file lives in the SAME attachment store the
+        // Attachments card reads — invalidate it too, or the two cards
+        // disagree about what's on the item until something else refetches.
+        qc.invalidateQueries({ queryKey: attachmentsKey("supplier", (updated ?? current).id) }),
+      ]),
+  });
+}
+
+/** Remove a supplier's logo. */
+export function useClearSupplierLogo() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (current: Supplier) => clearSupplierLogo(current),
+    onSuccess: (updated) => {
+      patchSupplier(qc, updated.id, () => updated);
+      pushToast({ message: "Logo removed." });
+    },
+    onError: (err: Error) => errorToast(`Couldn't remove the logo. ${err.message}`),
+    onSettled: (updated, _err, current) =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: SUPPLIERS_KEY }),
+        qc.invalidateQueries({ queryKey: attachmentsKey("supplier", (updated ?? current).id) }),
+      ]),
   });
 }
 

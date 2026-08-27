@@ -8,7 +8,12 @@ import {
   type ListAttachment,
 } from "@/api/attachments";
 
-const attachmentsKey = (parent: AttachmentParent, itemId: number) =>
+// Exported so a mutation that writes an attachment OUTSIDE this hook file
+// (e.g. `useUpdateSupplierLogo`, which uploads via `updateSupplierLogo`
+// rather than `useUploadAttachment`) can invalidate the right query — the
+// Logo card and the Attachments card would otherwise disagree about whether
+// a new logo attachment exists until something else happened to refetch.
+export const attachmentsKey = (parent: AttachmentParent, itemId: number) =>
   ["attachments", parent, itemId] as const;
 
 export function useAttachments(parent: AttachmentParent, itemId: number | null) {
