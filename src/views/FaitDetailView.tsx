@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ClipboardCheck, FolderOpen, Pencil, User } from "lucide-react";
+import { CalendarClock, ClipboardCheck, FolderOpen, Pencil, User } from "lucide-react";
 import {
   collectFaitPeople,
   useAddFaitComment,
@@ -32,7 +32,7 @@ import { CommentThread } from "@/components/CommentThread";
 import { DetailTopBar } from "@/components/DetailTopBar";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { PersonMultiField } from "@/components/PersonMultiField";
-import { SingleSelect } from "@/components/SearchableSelect";
+import { ChoiceSelect, SingleSelect } from "@/components/SearchableSelect";
 import { FaitStatusChip, FirstPassChip, SignOffChip } from "@/components/faitAtoms";
 
 /**
@@ -98,7 +98,9 @@ export function FaitDetailView() {
   const addComment = useAddFaitComment();
   const editComment = useEditFaitComment();
 
-  const [editing, setEditing] = useState<FaitSection | "Details" | null>(null);
+  // Which stage's editor is open — one at a time. Status and Project are NOT
+  // in here: they're live sidebar controls, see the note on the aside below.
+  const [editing, setEditing] = useState<FaitSection | null>(null);
 
   const mentionCandidates = useMemo(
     () => mergePeople(collectFaitPeople(faits), directory),
@@ -151,23 +153,25 @@ export function FaitDetailView() {
     save(fields, (f) => ({ ...f, values: { ...f.values, ...changed } }));
   }
 
-  /** Status and project — columns of their own rather than descriptors. */
-  function saveDetails(changed: Record<string, string>) {
-    const fields: Record<string, unknown> = {};
-    if ("status" in changed) fields.Status = changed.status;
-    const nextProject =
-      "project" in changed
-        ? changed.project
-          ? { lookupId: parseInt(changed.project, 10), title: "" }
-          : null
-        : undefined;
-    if (nextProject !== undefined) {
-      Object.assign(fields, faitProjectPatch(nextProject?.lookupId ?? null));
-    }
-    save(fields, (f) => ({
+  /**
+   * Status, from the sidebar picker — saved the moment it's picked.
+   *
+   * It used to live inside a "Details" edit modal behind an unlabelled pencil,
+   * with the sidebar showing only a read-only chip, so the page offered no
+   * visible way to move a FAIT along its own workflow and it was reported as
+   * "cannot change status" (2026-08-27). Every other workflow record in ARC —
+   * gray market requests, EIRs — puts its status picker right here.
+   */
+  function saveStatus(status: string) {
+    save({ Status: status }, (f) => ({ ...f, status }));
+  }
+
+  /** The project lookup, same arrangement. A bare integer, null to clear. */
+  function saveProject(value: string) {
+    const lookupId = value ? parseInt(value, 10) : null;
+    save(faitProjectPatch(lookupId), (f) => ({
       ...f,
-      status: "status" in changed ? changed.status : f.status,
-      parentProject: nextProject === undefined ? f.parentProject : nextProject,
+      parentProject: lookupId ? { lookupId, title: "" } : null,
     }));
   }
 
@@ -209,18 +213,24 @@ export function FaitDetailView() {
     <div className="mx-auto flex max-w-[1200px] flex-col gap-4 px-4 py-4 sm:px-6 sm:py-6">
       <DetailTopBar category="FAITs" listTo="/supply-chain/faits" />
 
-      <div className="flex flex-wrap items-start gap-3">
-        <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-cooper-red/10 text-cooper-red">
-          <ClipboardCheck className="h-5 w-5" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <h1 className="font-display text-xl font-semibold text-fg sm:text-2xl">
-            {fait.values.sapPartNumber || `FAIT #${fait.id}`}
-          </h1>
-          <p className="text-sm text-fg-muted">
-            {fait.values.description || "No description"}
-            {fait.values.supplierName && ` · ${fait.values.supplierName}`}
-          </p>
+      {/* Icon + identity in ONE block, chips in another — not five siblings of
+          a single flex-wrap row. A wrap point calculated across the title text
+          AND the chips at once is what squeezed the Suppliers header into a
+          one-word-per-line column on a phone. */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-1 items-start gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-cooper-red/10 text-cooper-red">
+            <ClipboardCheck className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <h1 className="font-display text-xl font-semibold text-fg sm:text-2xl">
+              {fait.values.sapPartNumber || `FAIT #${fait.id}`}
+            </h1>
+            <p className="text-sm text-fg-muted">
+              {fait.values.description || "No description"}
+              {fait.values.supplierName && ` · ${fait.values.supplierName}`}
+            </p>
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <FirstPassChip
@@ -271,105 +281,106 @@ export function FaitDetailView() {
           </section>
         </div>
 
-        <aside className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-4">
-          <div className="flex items-center justify-between gap-2 border-b border-border pb-2">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
-              Details
-            </span>
-            <EditButton label="Details" onClick={() => setEditing("Details")} />
-          </div>
+        {/* The sidebar is where a FAIT is STEERED: status, project and the
+            three people, each saving the moment it changes — the same
+            arrangement as every other workflow record in ARC. The five
+            workflow cards beside it are the read-then-Edit half of the page.
+            Status and Project used to be in a modal behind an unlabelled
+            pencil in this header, so the page offered no visible way to move
+            a FAIT along (2026-08-27). */}
+        <aside className="flex h-fit flex-col gap-4 rounded-xl border border-border bg-surface p-4 lg:sticky lg:top-4">
+          <SidebarGroup label="Workflow">
+            <SidebarField label="Status">
+              <ChoiceSelect
+                value={fait.status}
+                onChange={saveStatus}
+                options={FAIT_STATUSES}
+                emptyLabel="Open"
+                clearable={false}
+                ariaLabel="Status"
+              />
+            </SidebarField>
 
-          <SidebarField label="Status">
-            <p className="px-1">
-              <FaitStatusChip status={fait.status} />
-            </p>
-          </SidebarField>
+            <SidebarField label="Sign-offs">
+              <div className="flex flex-wrap gap-1.5 px-1">
+                <SignOffChip label="SQE" value={fait.values.sqeSignOff ?? ""} />
+                <SignOffChip label="Eng" value={fait.values.engSignOff ?? ""} />
+                {/* Hidden entirely when no KAM sign-off is needed — see kamNeeded. */}
+                {kamNeeded(fait) && <SignOffChip label="KAM" value={fait.values.kamSignOff ?? ""} />}
+              </div>
+            </SidebarField>
 
-          <SidebarField label="Project" icon={<FolderOpen className="h-3.5 w-3.5" />}>
-            <p className="px-1 text-sm text-fg">
-              {projectTitle ?? <span className="text-fg-muted">No project</span>}
-            </p>
-          </SidebarField>
+            <SidebarField label="Project" icon={<FolderOpen className="h-3.5 w-3.5" />}>
+              <ChoiceSelect
+                value={fait.parentProject ? String(fait.parentProject.lookupId) : ""}
+                onChange={saveProject}
+                options={projectOptions}
+                emptyLabel="No project"
+                searchPlaceholder="Search projects…"
+                ariaLabel="Project"
+              />
+              {fait.parentProject && !projectTitle && (
+                <p className="mt-1 px-1 text-[11px] text-fg-muted">
+                  Project #{fait.parentProject.lookupId} — not in the loaded project list.
+                </p>
+              )}
+            </SidebarField>
+          </SidebarGroup>
 
-          <SidebarField label="Sign-offs">
-            <div className="flex flex-wrap gap-1.5 px-1">
-              <SignOffChip label="SQE" value={fait.values.sqeSignOff ?? ""} />
-              <SignOffChip label="Eng" value={fait.values.engSignOff ?? ""} />
-              {/* Hidden entirely when no KAM sign-off is needed — see kamNeeded. */}
-              {kamNeeded(fait) && <SignOffChip label="KAM" value={fait.values.kamSignOff ?? ""} />}
-            </div>
-          </SidebarField>
-
-          <SidebarField label="Initiator" icon={<User className="h-3.5 w-3.5" />}>
-            <p className="px-1 text-sm text-fg">
-              {fait.initiator?.displayName ?? <span className="text-fg-muted">Not set</span>}
-            </p>
-          </SidebarField>
-
-          <SidebarField label="Assigned Engineer" icon={<User className="h-3.5 w-3.5" />}>
-            <SingleSelect
-              allLabel="Not set"
-              searchPlaceholder="Search people…"
-              options={mentionCandidates.map((p) => ({ value: personKey(p), label: p.displayName }))}
-              selected={fait.assignedEngineer ? personKey(fait.assignedEngineer) : null}
-              onChange={(key) => {
-                const person = key ? mentionCandidates.find((p) => personKey(p) === key) ?? null : null;
-                updateAssignedEngineer.mutate({ id: fait.id, person });
-              }}
-            />
-          </SidebarField>
-
-          <SidebarField label="KAM" icon={<User className="h-3.5 w-3.5" />}>
-            <SingleSelect
-              allLabel="Not set"
-              searchPlaceholder="Search people…"
-              options={mentionCandidates.map((p) => ({ value: personKey(p), label: p.displayName }))}
-              selected={fait.kam ? personKey(fait.kam) : null}
-              onChange={(key) => {
-                const person = key ? mentionCandidates.find((p) => personKey(p) === key) ?? null : null;
-                updateKam.mutate({ id: fait.id, person });
-              }}
-            />
-            {!kamNeeded(fait) && (
-              <p className="mt-1 px-1 text-[11px] text-fg-muted">
-                No KAM needed — assign one only if this FAIT requires a KAM sign-off.
+          <SidebarGroup label="People">
+            <SidebarField label="Initiator" icon={<User className="h-3.5 w-3.5" />}>
+              <p className="px-1 text-sm text-fg">
+                {fait.initiator?.displayName || <span className="text-fg-muted">Not set</span>}
               </p>
-            )}
-          </SidebarField>
+              <p className="mt-1 px-1 text-[11px] text-fg-muted">
+                Set to whoever raises the FAIT.
+              </p>
+            </SidebarField>
 
-          <SidebarField label="Watchers">
-            <PersonMultiField
-              value={fait.watchers}
-              allPeople={mentionCandidates}
-              onToggle={handleWatcherToggle}
-              emptyLabel="No watchers"
-            />
-          </SidebarField>
+            <SidebarField label="Assigned Engineer" icon={<User className="h-3.5 w-3.5" />}>
+              <PersonPicker
+                label="Assigned Engineer"
+                selected={fait.assignedEngineer}
+                candidates={mentionCandidates}
+                onPick={(person) => updateAssignedEngineer.mutate({ id: fait.id, person })}
+              />
+            </SidebarField>
 
-          <div className="border-t border-border pt-3 text-[11px] text-fg-muted">
-            Raised {fait.createdAt.toLocaleDateString()} · last edited{" "}
-            {fait.modifiedAt.toLocaleDateString()}
+            <SidebarField label="KAM" icon={<User className="h-3.5 w-3.5" />}>
+              <PersonPicker
+                label="KAM"
+                selected={fait.kam}
+                candidates={mentionCandidates}
+                onPick={(person) => updateKam.mutate({ id: fait.id, person })}
+              />
+              {!kamNeeded(fait) && (
+                <p className="mt-1 px-1 text-[11px] text-fg-muted">
+                  No KAM needed — assign one only if this FAIT requires a KAM sign-off.
+                </p>
+              )}
+            </SidebarField>
+
+            <SidebarField label="Watchers">
+              <PersonMultiField
+                value={fait.watchers}
+                allPeople={mentionCandidates}
+                onToggle={handleWatcherToggle}
+                emptyLabel="No watchers"
+              />
+            </SidebarField>
+          </SidebarGroup>
+
+          <div className="flex items-start gap-1.5 border-t border-border pt-3 text-[11px] text-fg-muted">
+            <CalendarClock className="mt-px h-3.5 w-3.5 shrink-0" />
+            <span>
+              Raised {fait.createdAt.toLocaleDateString()} · last edited{" "}
+              {fait.modifiedAt.toLocaleDateString()}
+            </span>
           </div>
         </aside>
       </div>
 
-      {editing === "Details" && (
-        <FieldEditModal
-          title="Edit Details"
-          fields={[
-            { key: "status", label: "Status", kind: "choice", choices: FAIT_STATUSES },
-            { key: "project", label: "Project", kind: "select", options: projectOptions },
-          ]}
-          values={{
-            status: fait.status,
-            project: fait.parentProject ? String(fait.parentProject.lookupId) : "",
-          }}
-          onClose={() => setEditing(null)}
-          onSave={saveDetails}
-        />
-      )}
-
-      {editing && editing !== "Details" && (
+      {editing && (
         <FieldEditModal
           title={`Edit ${editing}`}
           fields={visibleFaitFields(editing, fait).map(editSpec)}
@@ -382,16 +393,23 @@ export function FaitDetailView() {
   );
 }
 
-/** A descriptor → what the shared editor needs to render it. */
+/**
+ * A descriptor → what the shared editor needs to render it.
+ *
+ * Every kind maps straight across, dates included. They used to edit as free
+ * TEXT with a "YYYY-MM-DD" hint, because the shared editor had no date
+ * control — and `columnValue` writes `null` for anything it can't parse, so a
+ * date typed in any other order (or with a typo) silently cleared the column
+ * instead of saving it. The editor has a `date` kind now, backed by the same
+ * DateField every other date in ARC uses.
+ */
 function editSpec(field: FaitField): EditableFieldSpec {
   return {
     key: field.key,
     label: field.label,
-    // The editor has no date control, so a date edits as text (ISO) — see
-    // the note on FieldRow. Everything else maps straight across.
-    kind: field.kind === "date" ? "text" : field.kind,
+    kind: field.kind,
     choices: field.choices,
-    hint: field.kind === "date" ? "YYYY-MM-DD" : field.hint,
+    hint: field.hint,
   };
 }
 
@@ -468,5 +486,69 @@ function SidebarField({
       </div>
       {children}
     </div>
+  );
+}
+
+/**
+ * A titled run of sidebar fields.
+ *
+ * The sidebar was eleven controls and chips in one undivided column, which is
+ * why the status picker had nowhere obvious to live. Two groups — what the
+ * FAIT IS doing, and who is doing it — give each half a heading you can aim
+ * at.
+ */
+function SidebarGroup({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-3">
+      <span className="border-b border-border pb-2 text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
+        {label}
+      </span>
+      {children}
+    </div>
+  );
+}
+
+/**
+ * One of the two single-person pickers.
+ *
+ * **The person already on the FAIT is always an option**, even when they
+ * aren't among the candidates — the candidate list is built from the tenant
+ * directory plus the people on the loaded FAITs, and a SharePoint person
+ * column can hold somebody neither covers: a leaver, or an account whose
+ * mailbox differs from the address the directory lists (Steve Pirko signs in
+ * as one and receives mail at another). Without the stand-in the picker falls
+ * back to its "Not set" placeholder, so an assignment that IS set reads as
+ * empty and the next person to touch it overwrites somebody silently. Same
+ * reasoning as the Teradyne clock-number stand-in.
+ */
+function PersonPicker({
+  label,
+  selected,
+  candidates,
+  onPick,
+}: {
+  label: string;
+  selected: Person | null;
+  candidates: Person[];
+  onPick: (person: Person | null) => void;
+}) {
+  const pool = useMemo(() => {
+    if (!selected) return candidates;
+    const key = personKey(selected);
+    return candidates.some((p) => personKey(p) === key) ? candidates : [selected, ...candidates];
+  }, [candidates, selected]);
+
+  return (
+    <SingleSelect
+      allLabel="Not set"
+      searchPlaceholder="Search people…"
+      ariaLabel={label}
+      options={pool.map((p) => ({
+        value: personKey(p),
+        label: p.displayName || p.email || "Unknown",
+      }))}
+      selected={selected ? personKey(selected) : null}
+      onChange={(key) => onPick(key ? pool.find((p) => personKey(p) === key) ?? null : null)}
+    />
   );
 }

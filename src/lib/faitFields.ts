@@ -192,9 +192,17 @@ export const FAIT_SELECT = [
   "ProjectReferenceLookupId",
   "EIR_x0020_ReferenceLookupId",
   "TestDocumentReferenceLookupId",
+  // Both halves of every single-person column. Graph hands a single-value
+  // person column back as a BARE `<Name>LookupId` — no display name, no
+  // email — so selecting only the friendly name reads every one of these as
+  // nobody. The ids are resolved to people against the site's User
+  // Information List in `listFaits` (see resolveFaitPeople).
   "AssignedEngineer",
+  "AssignedEngineerLookupId",
   "Initiator",
+  "InitiatorLookupId",
   "KAM",
+  "KAMLookupId",
   "Communication",
   "Watchers",
   "Attachments",

@@ -5,6 +5,7 @@ import { SuggestInput } from "./SuggestInput";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
 import { ChoicePills, MAX_PILL_OPTIONS } from "./ChoicePills";
 import { YesNoField } from "./YesNoField";
+import { DateField } from "./DateField";
 import { useOverlayDismiss } from "./useOverlayDismiss";
 
 // =============================================================================
@@ -37,6 +38,14 @@ export type EditableFieldKind =
   | "boolean"
   | "choice"
   | "suggest"
+  /**
+   * A date-only column. Always a calendar, never a typed date — see the
+   * "Dates: always DateField" rule. FAIT's two date columns edited as free
+   * text here, and a value the parser couldn't read was written as `null`,
+   * so a mistyped date silently cleared the column instead of saving
+   * (2026-08-27).
+   */
+  | "date"
   /** A pick from a list whose value isn't its label — a lookup, e.g. a project. */
   | "select";
 
@@ -61,7 +70,8 @@ interface FieldEditModalProps {
   /**
    * Current values, keyed by field key. A `richText` field's value must
    * already be plain text for editing — the caller owns that conversion,
-   * because it also owns turning it back into HTML on the way out.
+   * because it also owns turning it back into HTML on the way out. A `date`
+   * field's value is `yyyy-mm-dd` (`""` = unset), in and out.
    */
   values: Record<string, string>;
   busy?: boolean;
@@ -277,6 +287,16 @@ function FieldControl({
         disabled={disabled}
         ariaLabel={field.label}
         searchPlaceholder="Search…"
+      />
+    );
+  }
+  if (field.kind === "date") {
+    return (
+      <DateField
+        value={value}
+        onChange={onChange}
+        disabled={disabled}
+        aria-label={field.label}
       />
     );
   }

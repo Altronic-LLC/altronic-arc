@@ -94,18 +94,30 @@ describe("FaitDetailView", () => {
     await waitFor(() => expect(screen.getAllByText(/NEW CASTING CO/).length).toBeGreaterThan(0));
   });
 
-  it("moves the status from the sidebar's Details modal", async () => {
+  // Ray, 2026-08-27: "cannot change status". The page had no status control —
+  // only a read-only chip, plus a copy buried in a "Details" edit modal behind
+  // an unlabelled pencil. It's a live sidebar picker now, like every other
+  // workflow record in ARC, and there is no Details modal to find.
+  it("moves the status from the sidebar picker, with no modal to open", async () => {
     await renderFait();
-    await userEvent.click(screen.getByRole("button", { name: "Edit Details" }));
+    expect(screen.queryByRole("button", { name: "Edit Details" })).not.toBeInTheDocument();
 
-    const dialog = await screen.findByRole("dialog", { name: /edit details/i });
-    await userEvent.click(within(dialog).getByRole("button", { name: "Status" }));
+    await userEvent.click(screen.getByRole("button", { name: /^Status/ }));
     await userEvent.click(await screen.findByRole("option", { name: "This is with ENG" }));
-    await userEvent.click(within(dialog).getByRole("button", { name: /save changes/i }));
 
     await waitFor(() =>
       expect(screen.getAllByText("This is with ENG").length).toBeGreaterThan(0),
     );
+  });
+
+  it("re-points the project from the sidebar picker", async () => {
+    await renderFait();
+    await userEvent.click(screen.getByRole("button", { name: /^Project/ }));
+    const option = (await screen.findAllByRole("option"))[1];
+    const name = option.textContent ?? "";
+    await userEvent.click(option);
+
+    await waitFor(() => expect(screen.getAllByText(name).length).toBeGreaterThan(0));
   });
 
   it("shows the three sign-offs", async () => {
@@ -129,22 +141,42 @@ describe("FaitDetailView", () => {
 
   // Ray, 2026-08-27: "we cannot figure out how to assign an engineer" — there
   // was no picker at all before this; it was a bare read-only "Not set".
+  // Scoped by the picker's own accessible name rather than by walking up the
+  // DOM from its label: the two are the same control, and a test that finds it
+  // by shape breaks on any layout change without saying anything about
+  // behaviour.
   it("assigns an engineer from the sidebar picker", async () => {
     await renderFait(1); // assignedEngineer: null in the fixture
-    const field = screen.getByText("Assigned Engineer").closest("div")?.parentElement as HTMLElement;
-    await userEvent.click(within(field).getByRole("button", { name: /not set/i }));
+    const picker = screen.getByRole("button", { name: /^Assigned Engineer/ });
+    await userEvent.click(picker);
     await userEvent.click(await screen.findByRole("option", { name: "Sarah Shaffer" }));
 
-    await waitFor(() => expect(within(field).getByText("Sarah Shaffer")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: /^Assigned Engineer/ }),
+      ).toHaveTextContent("Sarah Shaffer"),
+    );
   });
 
   it("assigns a KAM from the sidebar picker", async () => {
     await renderFait(1); // kam: null in the fixture
-    const field = screen.getByText("KAM").closest("div")?.parentElement as HTMLElement;
-    await userEvent.click(within(field).getByRole("button", { name: /not set/i }));
+    await userEvent.click(screen.getByRole("button", { name: /^KAM/ }));
     await userEvent.click(await screen.findByRole("option", { name: "Ray White" }));
 
-    await waitFor(() => expect(within(field).getByText("Ray White")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /^KAM/ })).toHaveTextContent("Ray White"),
+    );
+  });
+
+  // The candidate pool is the directory plus whoever is on a loaded FAIT, and
+  // a person column can hold somebody in neither — a leaver, or an account
+  // whose mailbox differs from the address the directory lists. The picker has
+  // to still show them, or an assignment that IS set reads as "Not set" and
+  // the next person to touch it overwrites it silently.
+  it("keeps showing an assigned person who isn't among the candidates", async () => {
+    await renderFait(2); // fixture 2 carries an assigned engineer
+    const picker = screen.getByRole("button", { name: /^Assigned Engineer/ });
+    expect(picker).not.toHaveTextContent(/not set/i);
   });
 
   // Ray, 2026-08-27: "how to hide/remove the KAM signoff when it is not

@@ -138,6 +138,42 @@ describe("FieldEditModal", () => {
     );
   });
 
+  // A date is a CALENDAR, never a typed date — the app-wide rule. FAIT's two
+  // date columns edited as free text through this modal, and its field patch
+  // writes `null` for anything it can't parse, so a date typed in any other
+  // order silently cleared the column instead of saving it (2026-08-27).
+  describe("a date field", () => {
+    function openDate(value = "") {
+      const onSave = vi.fn();
+      render(
+        <FieldEditModal
+          title="Edit Results"
+          fields={[{ key: "waivedDate", label: "Waived Date", kind: "date" }]}
+          values={{ waivedDate: value }}
+          onClose={vi.fn()}
+          onSave={onSave}
+        />,
+      );
+      return onSave;
+    }
+
+    it("offers a calendar, not a text box", () => {
+      openDate();
+      const dialog = screen.getByRole("dialog", { name: "Edit Results" });
+      expect(within(dialog).getByRole("button", { name: "Waived Date" })).toBeInTheDocument();
+      expect(within(dialog).queryByRole("textbox", { name: "Waived Date" })).toBeNull();
+    });
+
+    it("hands back the picked day as yyyy-mm-dd", async () => {
+      const onSave = openDate("2026-08-10");
+      await userEvent.click(screen.getByRole("button", { name: "Waived Date" }));
+      await userEvent.click(await screen.findByRole("button", { name: /August 15, 2026/ }));
+      await userEvent.click(screen.getByRole("button", { name: /save changes/i }));
+
+      expect(onSave).toHaveBeenCalledWith({ waivedDate: "2026-08-15" });
+    });
+  });
+
   it("discards edits on Cancel", async () => {
     const { onSave, onClose } = open({ vendor: "Mouser" });
     await userEvent.type(screen.getByRole("textbox", { name: "Vendor" }), "!!");

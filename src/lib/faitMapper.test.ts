@@ -1,11 +1,13 @@
 import { describe, it, expect } from "vitest";
 import type { Fait, GraphListItem } from "@/types/task";
 import {
+  attachFaitPeople,
   buildFaitCreateFields,
   compareFaits,
   faitFieldPatch,
   faitLabel,
   faitProjectPatch,
+  personOrLookup,
   readLookupId,
   toFait,
 } from "./faitMapper";
@@ -215,5 +217,79 @@ describe("compareFaits", () => {
     const older = fait({ id: 1, createdAt: new Date("2026-01-01T00:00:00Z") });
     const newer = fait({ id: 2, createdAt: new Date("2026-06-01T00:00:00Z") });
     expect([older, newer].sort(compareFaits).map((f) => f.id)).toEqual([2, 1]);
+  });
+});
+
+// =============================================================================
+// The single-person columns — Initiator, Assigned Engineer, KAM.
+//
+// Graph hands these back as a bare `<Name>LookupId`, not the expanded
+// `{ LookupId, LookupValue, Email }` object the friendly-name $select is meant
+// to produce. Reading only the expanded shape is what made all three read as
+// nobody on every FAIT, whatever SharePoint actually held (2026-08-27).
+// =============================================================================
+
+describe("personOrLookup", () => {
+  it("prefers the expanded object when Graph sends one", () => {
+    expect(
+      personOrLookup({ LookupId: 46, LookupValue: "Sarah Shaffer", Email: "s@x.com" }, 46),
+    ).toEqual({ displayName: "Sarah Shaffer", email: "s@x.com", lookupId: 46 });
+  });
+
+  it("falls back to the bare lookupId, nameless for now", () => {
+    expect(personOrLookup(undefined, 46)).toEqual({ displayName: "", lookupId: 46 });
+  });
+
+  it("is nobody when neither shape carries anything", () => {
+    expect(personOrLookup(undefined, undefined)).toBeNull();
+    expect(personOrLookup(null, 0)).toBeNull();
+    expect(personOrLookup(null, "")).toBeNull();
+  });
+});
+
+describe("attachFaitPeople", () => {
+  const directory = new Map([
+    [22, { displayName: "Ray White", email: "ray.white@altronic-llc.com", lookupId: 22 }],
+    [46, { displayName: "Sarah Shaffer", email: "sarah.shaffer@altronic-llc.com", lookupId: 46 }],
+  ]);
+
+  function bare() {
+    return toFait(
+      item({
+        InitiatorLookupId: 22,
+        AssignedEngineerLookupId: 46,
+        KAMLookupId: 99,
+        Watchers: [{ LookupId: 22, LookupValue: "Ray White" }],
+      }),
+    );
+  }
+
+  it("names the people it can", () => {
+    const f = bare();
+    attachFaitPeople([f], directory);
+    expect(f.initiator?.displayName).toBe("Ray White");
+    expect(f.assignedEngineer?.displayName).toBe("Sarah Shaffer");
+  });
+
+  it("marks an id nobody answers for, rather than blanking it", () => {
+    // A person column that IS set must never render as "Not set": the next
+    // person to touch the FAIT would overwrite an assignment without knowing
+    // it was there.
+    const f = bare();
+    attachFaitPeople([f], directory);
+    expect(f.kam).toEqual({ displayName: "User #99", lookupId: 99 });
+  });
+
+  it("leaves a name Graph already sent alone", () => {
+    const f = bare();
+    attachFaitPeople([f], new Map());
+    expect(f.watchers[0].displayName).toBe("Ray White");
+  });
+
+  it("does nothing to a FAIT with nobody on it", () => {
+    const f = toFait(item({ Status: "Open" }));
+    attachFaitPeople([f], directory);
+    expect([f.initiator, f.assignedEngineer, f.kam]).toEqual([null, null, null]);
+    expect(f.watchers).toEqual([]);
   });
 });

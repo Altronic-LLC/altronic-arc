@@ -223,7 +223,7 @@ src/
 │   ├── graph.ts                  graphFetch / graphFetchAll, throttle retry, ONE shared interactive sign-in
 │   ├── sharepoint.ts             SharePoint REST helper (list-item attachments)
 │   ├── directory.ts              Tenant staff directory (Graph /users) for the pickers
-│   ├── siteUsers.ts              On-demand SharePoint user resolution ("ensure user")
+│   ├── siteUsers.ts              Site user resolution — Graph UIL first, then "ensure user"
 │   ├── currentUser.ts            Resolve the signed-in user's SP lookupId
 │   ├── tasks.ts                  Engineering task CRUD
 │   ├── taskColumns.ts            Task list column metadata / choice discovery
@@ -357,7 +357,7 @@ src/
 │   ├── ecnFields.ts              ECN column descriptors (field_2 … field_12 decoded)
 │   ├── ecnMapper.ts              Graph item → Ecn, Log# parsing/sorting
 │   ├── faitFields.ts             FAIT column descriptors (51 columns, 19 booleans)
-│   ├── faitMapper.ts             Graph item → Fait
+│   ├── faitMapper.ts             Graph item → Fait (+ bare-LookupId people)
 │   ├── faitAlerts.ts             FAIT intake alert (new FAIT → the config list)
 │   ├── eirPromotion.ts           EIR → Task promotion helpers
 │   ├── testSheetMapper.ts        Graph item → TestSheet
@@ -467,7 +467,7 @@ src/
 │   ├── ProjectFolderFormModal.tsx  Create a project folder + tag its Project Reference
 │   ├── EcnFormModal.tsx          Raise an ECN
 │   ├── FaitFormModal.tsx         Raise a FAIT
-│   ├── FieldEditModal.tsx        Shared "edit this card's fields" modal (Gray Market + ECN)
+│   ├── FieldEditModal.tsx        Shared "edit this card's fields" modal (Gray Market, ECN, FAIT)
 │   ├── YesNoField.tsx            A boolean column as two labelled Yes / No choices
 │   ├── ChoicePills.tsx          Any short choice set as pills (Yes/No, Pass/Fail, …)
 │   ├── BuildRequestFormModal.tsx Create/edit build request
@@ -1072,6 +1072,91 @@ guard tests live in `hooks/useFaits.test.tsx`, using the one MOCK_FAITS
 fixture that starts already Closed so the guard actually has something to
 catch (a fixture starting elsewhere passes whether the guard exists or not —
 the same trap EIR's status-alert tests were built to avoid).
+
+**None of the three person columns worked at all until 2026-08-27, and the
+reason is the READ, not the write** (Ray: "we cannot figure out how to assign
+an engineer... Initiator blank... cannot change status" — reported as four
+separate bugs, and they were two).
+
+**Graph hands a SINGLE-VALUE person column back as a bare `<Name>LookupId`,
+even when the friendly name is in the `$select`.** The docs imply the
+friendly name expands to `{ LookupId, LookupValue, Email }`; on this list it
+does not. `FAIT_SELECT` asked for `AssignedEngineer` / `Initiator` / `KAM`
+only, and `parseSinglePerson` only understands the expanded object — so all
+three read as `null` on every row regardless of what SharePoint held. An
+assignment therefore *saved and then vanished*, which is indistinguishable
+from one that never saved.
+
+The fix is the two-step the panel team's Engineer Assigned column already
+needed (see `listPanelSiteUsers`, and the note on `SP_PANELTEAM_SITE_URL` in
+config.ts, which says this outright): select **both** halves of the column,
+map a bare id to a nameless `Person` (`personOrLookup` in `faitMapper.ts`),
+then fill the names in from the site's User Information List
+(`attachFaitPeople` + `listSiteUserDirectory`). One directory read per list
+load, in parallel with the items, best-effort.
+
+**An unresolvable id renders as `User #46`, never as "Not set".** A person
+column that IS set must not look empty, or the next person to open the FAIT
+overwrites somebody's assignment without knowing it was there.
+
+**The second bug: a lookupId that couldn't be resolved was written as
+`null`.** `ensurePersonLookupId` (SP REST `ensureuser`) returns nobody when
+the classic SharePoint scope isn't granted — which is best-effort in this
+tenant — and `ensuredPerson?.lookupId ?? null` turned that into a PATCH that
+CLEARED the column it was asked to set. SharePoint accepts it, so there was
+no error anywhere.
+
+Two changes, both in `api/faits.ts`:
+
+- **Resolution is Graph-FIRST** — `resolveSiteUserLookupId` in
+  `api/siteUsers.ts` checks the User Information List (no extra scope) and
+  only falls back to `ensureuser` for somebody genuinely new to the site.
+  Prefer these (`resolveSiteUserLookupId` / `resolvePeopleLookupIds` /
+  `resolvePersonLookupId`) over the `ensure*` pair in any NEW person write.
+- **A write that was asked for and can't be made is REFUSED** —
+  `requireResolved`, the same call `setPanelOrderEngineer` already makes.
+  Clearing (`person === null`) is still allowed: it's deliberate, and it's how
+  a FAIT says it needs no KAM sign-off.
+
+**`getFait` used to swallow EVERY read failure into `null`**, which
+`updateFaitFields` then reported as "FAIT n disappeared after update" — so a
+throttled or refused read *after a successful PATCH* rolled the change off
+the screen with a message naming the wrong cause. Now only a 404 is `null`;
+anything else propagates, and a failure re-reading after the PATCH is its own
+`FaitReadBackError`, which the hook reports **without rolling back** (the
+write landed). `FaitInitiatorNotSetError` is the same idea on create: the FAIT
+is real, so the create completes and warns about the one column that didn't.
+
+**Status wasn't broken — it had no control.** The sidebar showed a read-only
+chip and the only picker was inside a "Details" `FieldEditModal` behind an
+unlabelled pencil, so there was no visible way to move a FAIT along its own
+workflow. It's a live `ChoiceSelect` in the sidebar now, with Project beside
+it, matching Gray Market and EIR; the Details modal is gone. The sidebar is
+grouped **Workflow** (status, sign-off chips, project) / **People**
+(initiator, engineer, KAM, watchers) — `SidebarGroup` — because eleven
+undivided controls is why the status picker had nowhere obvious to live.
+
+**The two date columns edited as free TEXT** through `FieldEditModal`, hinted
+"YYYY-MM-DD", and `columnValue` writes `null` for anything `new Date()`
+can't read — so a date typed in another order silently cleared the column.
+`FieldEditModal` has a real `date` kind now, backed by the same `DateField`
+every other date in ARC uses (see "Dates: always DateField"). Any descriptor
+table with a `date` kind should map straight to it rather than degrading to
+text.
+
+**`PersonPicker` keeps the assigned person in its own option list** even when
+they aren't among the candidates. The candidates are the tenant directory
+plus whoever is on a loaded FAIT, and a person column can hold somebody in
+neither — a leaver, or an account whose mailbox differs from the address the
+directory lists (Steve Pirko). Without the stand-in the picker falls back to
+"Not set" and an assignment that IS set reads as empty. Same reasoning as the
+Teradyne clock-number stand-in.
+
+**Every one of these was invisible from mock mode**, which is why
+`faits.test.ts` passed throughout. `faits.people.test.ts` forces
+`USE_MOCK: false` and asserts the request shapes; each of its cases was
+verified by reintroducing the bug and watching it fail. A new person column
+anywhere gets a real-mode test or it isn't covered.
 
 **Assigned Engineer and KAM were WRITE-ONLY-NEVER — Status quo through
 2026-08-26** (Ray, 2026-08-27: "we cannot figure out how to assign an
@@ -2608,6 +2693,39 @@ them harder to use, not easier, and a checklist is not a Yes/No question. The
 description checklists, the comment "notify everyone again" option, and the
 EIR role tags are UI affordances, not stored Yes/No fields, and stay as they
 are too.
+
+### A single-person column needs BOTH halves selected, and its own read step
+
+`$expand=fields($select=Assigned)` on a MULTI-person column returns the
+expanded people. On a **single**-value person column Graph routinely returns
+only `AssignedLookupId` — a bare integer, no name, no email — whatever the
+`$select` says. Three lists have now been caught by this: panel orders'
+Engineer Assigned, build requests' Requestor/EngineerAssigned, and all three
+FAIT person columns (2026-08-27, where it read as "we cannot assign an
+engineer" because the value saved and then came back as nobody).
+
+So a list with a single-person column needs three things, not one:
+
+1. **`$select` both** the friendly name and the `<Name>LookupId`.
+2. **A mapper that accepts either shape** — `personOrLookup` in
+   `faitMapper.ts` is the pattern; a bare id becomes a nameless `Person`.
+3. **A resolution step against the site's User Information List** —
+   `listSiteUserDirectory(siteId)` in `api/siteUsers.ts`, once per list load,
+   in parallel with the items and best-effort. An id nobody answers for
+   renders as `User #n`: a column that IS set must never look empty.
+
+Writing one is a **bare integer** (`{ AssignedEngineerLookupId: 46 }`), never
+`multiPersonField`'s `Collection(Edm.Int32)` shape — and it must go through
+**`resolveSiteUserLookupId`** (Graph first, `ensureuser` second), not
+`ensureSiteUserLookupId` alone. `ensureuser` is classic SP REST and answers 0
+whenever that scope isn't granted, and `?? null` then silently clears the
+column. **Refuse the write instead** (`requireResolved` in `api/faits.ts`,
+`setPanelOrderEngineer` in `api/panelOrders.ts`) — clearing to `null` stays
+allowed, because that's deliberate.
+
+None of this is visible from mock mode or from a rendered page. It needs a
+`USE_MOCK: false` test asserting the request shape, and that test needs
+verifying by reintroducing the bug.
 
 ### A lazy route needs a Suspense boundary, and the app needs ONE error boundary
 

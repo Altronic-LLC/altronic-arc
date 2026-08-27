@@ -34,6 +34,25 @@ export function readLookupId(raw: unknown): number | null {
   return Number.isFinite(id) && id > 0 ? id : null;
 }
 
+/**
+ * A single-person column, from either shape Graph might hand back.
+ *
+ * `$select`ing the friendly name is supposed to expand a person column to
+ * `{ LookupId, LookupValue, Email }`, and on this list it does not — every
+ * one of the three came back as a bare `<Name>LookupId` integer, so
+ * `parseSinglePerson` alone read Initiator, Assigned Engineer and KAM as
+ * nobody on every FAIT (2026-08-27). Both shapes are read, and a bare id
+ * becomes a nameless Person that `attachFaitPeople` fills in from the site
+ * directory — the same two-step the panel team's Engineer Assigned column
+ * already needed.
+ */
+export function personOrLookup(expanded: unknown, rawLookupId: unknown): Person | null {
+  const person = parseSinglePerson(expanded);
+  if (person) return person;
+  const lookupId = readLookupId(rawLookupId);
+  return lookupId ? { displayName: "", lookupId } : null;
+}
+
 export function toFait(item: GraphListItem): Fait {
   const f = item.fields ?? {};
   const values: Record<string, string> = {};
@@ -58,9 +77,9 @@ export function toFait(item: GraphListItem): Fait {
     parentProject: projectId ? { lookupId: projectId, title: "" } : null,
     eirLookupId: readLookupId(f.EIR_x0020_ReferenceLookupId),
     testDocumentLookupId: readLookupId(f.TestDocumentReferenceLookupId),
-    initiator: parseSinglePerson(f.Initiator),
-    assignedEngineer: parseSinglePerson(f.AssignedEngineer),
-    kam: parseSinglePerson(f.KAM),
+    initiator: personOrLookup(f.Initiator, f.InitiatorLookupId),
+    assignedEngineer: personOrLookup(f.AssignedEngineer, f.AssignedEngineerLookupId),
+    kam: personOrLookup(f.KAM, f.KAMLookupId),
     watchers: parsePeople(f.Watchers),
     comments: parseCommunication(text(f.Communication)),
     hasAttachments: f.Attachments === true,
@@ -156,4 +175,29 @@ export function faitProjectTitle(
 ): string {
   if (!fait.parentProject) return "";
   return projects.find((p) => p.lookupId === fait.parentProject!.lookupId)?.title ?? "";
+}
+
+/**
+ * Fill in the people a FAIT only carried as lookupIds, from the site's user
+ * directory. Mutates in place, like `attachEirReferences`.
+ *
+ * A lookupId with nobody behind it in the directory keeps its id and gains a
+ * visible placeholder rather than silently reading as "Not set" — a person
+ * column that IS set must never look empty, or the next person to touch the
+ * FAIT overwrites somebody's assignment without knowing it was there.
+ */
+export function attachFaitPeople(faits: Fait[], siteUsers: Map<number, Person>): void {
+  const fill = (person: Person | null): Person | null => {
+    if (!person) return null;
+    if (person.displayName) return person;
+    const known = person.lookupId ? siteUsers.get(person.lookupId) : undefined;
+    if (known) return { ...known };
+    return { ...person, displayName: `User #${person.lookupId ?? "?"}` };
+  };
+  for (const fait of faits) {
+    fait.initiator = fill(fait.initiator);
+    fait.assignedEngineer = fill(fait.assignedEngineer);
+    fait.kam = fill(fait.kam);
+    fait.watchers = fait.watchers.map((w) => fill(w)!).filter((w): w is Person => w !== null);
+  }
 }

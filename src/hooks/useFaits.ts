@@ -3,6 +3,8 @@ import {
   addFaitComment,
   createFait,
   editFaitComment,
+  FaitInitiatorNotSetError,
+  FaitReadBackError,
   listFaits,
   setFaitWatchers,
   updateFaitAssignedEngineer,
@@ -71,7 +73,22 @@ export function useCreateFait() {
   const actor = useCurrentUser();
   return useMutation({
     // Whoever raises it watches it — see autoWatchers in lib/people.ts.
-    mutationFn: (input: FaitInput) => createFait(input, actor),
+    //
+    // A FAIT whose Initiator column couldn't be written is still a real FAIT,
+    // so the create COMPLETES and warns about the one thing that didn't land
+    // rather than reporting a failure that didn't happen. Returning the FAIT
+    // keeps this hook's contract a plain `Fait` for every caller.
+    mutationFn: async (input: FaitInput) => {
+      try {
+        return await createFait(input, actor);
+      } catch (err) {
+        if (err instanceof FaitInitiatorNotSetError) {
+          errorToast(err.message);
+          return err.fait;
+        }
+        throw err;
+      }
+    },
     onSuccess: (created) => {
       qc.setQueryData<Fait[]>(FAITS_KEY, (old) => (old ? [created, ...old] : [created]));
       qc.invalidateQueries({ queryKey: FAITS_KEY });
@@ -137,6 +154,14 @@ export function useUpdateFaitFields() {
       }
     },
     onError: (err: Error, _vars, ctx) => {
+      // A read-back failure means the PATCH LANDED — rolling the change off
+      // the screen would be a lie, and it's the lie that made several FAIT
+      // columns look like they wouldn't save. Keep the optimistic value and
+      // let onSettled's refetch reconcile it.
+      if (err instanceof FaitReadBackError) {
+        errorToast(err.message);
+        return;
+      }
       if (ctx?.previous) qc.setQueryData(FAITS_KEY, ctx.previous);
       errorToast(`Couldn't save that change — reverted. ${err.message}`);
     },
@@ -144,25 +169,63 @@ export function useUpdateFaitFields() {
   });
 }
 
-/** Assign (or clear) the engineer. They also become a watcher — see `updateFaitAssignedEngineer`. */
+/**
+ * Assign (or clear) the engineer. They also become a watcher — see
+ * `updateFaitAssignedEngineer`.
+ *
+ * Optimistic, like every other write on this page. It wasn't, and that hid
+ * the underlying bug: the picker's selection is derived from the FAIT, so
+ * until the round trip landed it kept reading "Not set" — which looked
+ * identical to a pick that hadn't registered at all.
+ */
 export function useUpdateFaitAssignedEngineer() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, person }: { id: number; person: Person | null }) =>
-      updateFaitAssignedEngineer(id, person),
-    onSuccess: (updated) => patchFait(qc, updated.id, () => updated),
-    onError: (err: Error) => errorToast(`Couldn't save that change. ${err.message}`),
-    onSettled: () => qc.invalidateQueries({ queryKey: FAITS_KEY }),
-  });
+  return usePersonAssignment(
+    ({ id, person }) => updateFaitAssignedEngineer(id, person),
+    (person) => (f) => ({ ...f, assignedEngineer: person, watchers: autoWatchers(f.watchers, person) }),
+    "Assigned Engineer",
+  );
 }
 
 /** Assign (or clear) the KAM. Clearing it is how a FAIT that doesn't need a KAM sign-off says so. */
 export function useUpdateFaitKam() {
+  return usePersonAssignment(
+    ({ id, person }) => updateFaitKam(id, person),
+    (person) => (f) => ({ ...f, kam: person, watchers: autoWatchers(f.watchers, person) }),
+    "KAM",
+  );
+}
+
+/**
+ * The shared shape of the two single-person assignment writes: patch the
+ * cache at once, land the server's row on success, put the old row back and
+ * SAY WHY on failure.
+ *
+ * One helper rather than two near-identical hooks — the engineer's version
+ * was the one that got the fix first last time, and the KAM's didn't.
+ */
+function usePersonAssignment(
+  write: (vars: { id: number; person: Person | null }) => Promise<Fait>,
+  patch: (person: Person | null) => (f: Fait) => Fait,
+  label: string,
+) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, person }: { id: number; person: Person | null }) => updateFaitKam(id, person),
+    mutationFn: write,
+    onMutate: async ({ id, person }) => {
+      await qc.cancelQueries({ queryKey: FAITS_KEY });
+      const previous = qc.getQueryData<Fait[]>(FAITS_KEY);
+      patchFait(qc, id, patch(person));
+      return { previous };
+    },
     onSuccess: (updated) => patchFait(qc, updated.id, () => updated),
-    onError: (err: Error) => errorToast(`Couldn't save that change. ${err.message}`),
+    onError: (err: Error, _vars, ctx) => {
+      if (err instanceof FaitReadBackError) {
+        errorToast(err.message);
+        return;
+      }
+      if (ctx?.previous) qc.setQueryData(FAITS_KEY, ctx.previous);
+      errorToast(`Couldn't set the ${label} — reverted. ${err.message}`);
+    },
     onSettled: () => qc.invalidateQueries({ queryKey: FAITS_KEY }),
   });
 }

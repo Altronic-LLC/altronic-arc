@@ -20,6 +20,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.127.0",
+    date: "2026-08-27",
+    changes: [
+      "FAITs: Assigned Engineer, KAM and Initiator now show and save — every FAIT read them as nobody before, whatever SharePoint held",
+      "FAITs: change the Status straight from the sidebar; it was only reachable inside an unlabelled Edit modal",
+      "FAITs: the sidebar is now grouped into Workflow (status, sign-offs, project) and People (initiator, engineer, KAM, watchers), each control saving as you change it",
+      "FAITs: an assignment ARC can't save is refused and explained, instead of quietly clearing the field",
+      "FAITs: raising one warns you if the Initiator couldn't be set, rather than leaving it silently blank",
+      "FAITs: a change that saved but couldn't be re-read no longer looks like it failed and reverts on screen",
+      "FAITs: Failed First Pass Date and Waived Date are picked from a calendar — a mistyped date used to clear the field",
+      "FAITs: an assigned person ARC can't look up shows as a placeholder rather than as 'Not set'",
+    ],
+  },
+  {
     version: "0.126.0",
     date: "2026-08-27",
     changes: [

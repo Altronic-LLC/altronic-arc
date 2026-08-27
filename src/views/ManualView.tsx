@@ -1898,10 +1898,11 @@ const SECTIONS: ManualSection[] = [
       "cmm", "dimensional check", "first pass", "fait alerts",
       "fait notifications", "intake alert", "assign engineer",
       "assigned engineer", "kam", "kam sign off", "hide kam",
-      "fait closed alert",
+      "fait closed alert", "fait status", "change fait status",
+      "fait initiator", "fait sidebar", "fait dates",
     ],
     searchText:
-      "FAITs at /supply-chain/faits, under Supply Chain in the Departments menu, backed by the FAIT list on the Altronic Engineering SharePoint site. A First Article Inspection Test tracks a new or changed part from a supplier through inspection and three sign-offs: SQE, Engineering and KAM. The list opens on Open FAITs with pills for Open / Closed / All, filters for project, supplier and the stage it is sitting at, and an all-fields search. FAITs are identified by SAP Part Number rather than title. New FAIT asks for the part, supplier, project and what is being requested; inspection results and sign-offs are filled in on the FAIT itself, in five cards - Part, Request, Inspection, Results, Sign-off - each with one Edit button. Yes/No questions are answered by picking Yes or No. The Assigned Engineer and KAM sit in the sidebar as pickers - pick a person and they are saved immediately and added as a watcher; clearing one back to Not set does not remove them as a watcher. A FAIT that does not need a KAM sign-off can simply have no KAM assigned - the KAM sign-off chip and fields hide themselves until a KAM is picked. FAITs carry comments with @-mentions, watchers and attachments. Whoever raises one watches it. Raising a FAIT emails Jerrod Waldron, Alexandra Russell and Katie Fleming with the part details; the raiser is left off their own alert. Changing a FAIT's Status emails its watchers and its initiator, engineer and KAM. Closing a FAIT also emails that same intake list, so they hear it is finished, not just that it changed. FAITs cannot be deleted from ARC.",
+      "FAITs at /supply-chain/faits, under Supply Chain in the Departments menu, backed by the FAIT list on the Altronic Engineering SharePoint site. A First Article Inspection Test tracks a new or changed part from a supplier through inspection and three sign-offs: SQE, Engineering and KAM. The list opens on Open FAITs with pills for Open / Closed / All, filters for project, supplier and the stage it is sitting at, and an all-fields search. FAITs are identified by SAP Part Number rather than title. New FAIT asks for the part, supplier, project and what is being requested; inspection results and sign-offs are filled in on the FAIT itself, in five cards - Part, Request, Inspection, Results, Sign-off - each with one Edit button. Yes/No questions are answered by picking Yes or No. The sidebar steers the FAIT in two groups: Workflow (Status picker, sign-off chips, Project picker) and People (initiator, Assigned Engineer, KAM, watchers). Every sidebar control saves the moment it changes - no Save button, no modal. Status moves a FAIT along its workflow: Open, FAIT Part Received, with SQE, with Engineering, with the KAM, Closed. The Assigned Engineer and KAM are pickers - pick a person and they are saved immediately and added as a watcher; clearing one back to Not set does not remove them as a watcher. Initiator is filled in for you with whoever raised the FAIT and is not a picker. Failed First Pass Date and Waived Date are picked from a calendar. A change that cannot be saved says so and the old value comes back; a change that saved but could not be re-read says so and is left where you put it. A FAIT that does not need a KAM sign-off can simply have no KAM assigned - the KAM sign-off chip and fields hide themselves until a KAM is picked. FAITs carry comments with @-mentions, watchers and attachments. Whoever raises one watches it. Raising a FAIT emails Jerrod Waldron, Alexandra Russell and Katie Fleming with the part details; the raiser is left off their own alert. Changing a FAIT's Status emails its watchers and its initiator, engineer and KAM. Closing a FAIT also emails that same intake list, so they hear it is finished, not just that it changed. FAITs cannot be deleted from ARC.",
     render: () => (
       <>
         <P>
@@ -1938,17 +1939,46 @@ const SECTIONS: ManualSection[] = [
           overwriting each other.
         </P>
         <P>
-          Status, project and the three sign-offs sit in the sidebar. Comments,
-          watchers and attachments work as they do everywhere else in ARC, and
-          whoever raises a FAIT watches it.
+          The sidebar is where a FAIT is <em>steered</em>, in two groups.{" "}
+          <strong>Workflow</strong> holds the <strong>Status</strong> picker,
+          the three sign-off chips and the <strong>Project</strong> picker;{" "}
+          <strong>People</strong> holds the initiator, the{" "}
+          <strong>Assigned Engineer</strong>, the <strong>KAM</strong> and the
+          watchers. Every control there saves the moment you change it — there
+          is no Save button and no modal.
+        </P>
+        <P>
+          <strong>Status</strong> moves a FAIT along its own workflow: Open,
+          FAIT Part Received, with SQE, with Engineering, with the KAM, Closed.
+          Pick the new one and it's written straight away, and everyone
+          watching plus the initiator, engineer and KAM are emailed that it
+          changed.
         </P>
         <P>
           <strong>Assigned Engineer</strong> and <strong>KAM</strong> are
-          pickers in the sidebar — pick a person and it saves immediately and
-          adds them as a watcher, so they hear about comments and status
+          pickers in the same sidebar — pick a person and it saves immediately
+          and adds them as a watcher, so they hear about comments and status
           changes without anyone having to remember to add them. Clearing one
           back to <strong>Not set</strong> doesn't remove them as a watcher.
         </P>
+        <P>
+          <strong>Initiator</strong> is filled in for you: it's whoever raised
+          the FAIT, and it isn't a picker. Comments, watchers and attachments
+          work as they do everywhere else in ARC, and whoever raises a FAIT
+          watches it.
+        </P>
+        <P>
+          <strong>Failed First Pass Date</strong> and{" "}
+          <strong>Waived Date</strong> are picked from a calendar on the{" "}
+          <strong>Results</strong> card, like every other date in ARC.
+        </P>
+        <Tip>
+          If a change can't be saved, ARC says so and puts the old value back.
+          The one case that reads differently is a change that <em>did</em>{" "}
+          save but couldn't be re-read afterwards — that message says the
+          change was saved and asks you to refresh, and the value is left where
+          you put it.
+        </Tip>
         <Tip>
           A FAIT that doesn't need a KAM sign-off doesn't need anything special
           done to it — just leave <strong>KAM</strong> set to Not set. The KAM
