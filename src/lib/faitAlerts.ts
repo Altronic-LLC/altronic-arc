@@ -67,3 +67,39 @@ export function buildNewFaitEmails(args: {
       `follow its comments and status changes.</div>`,
   }));
 }
+
+/**
+ * Build the closed-FAIT email for the SAME intake list that was told about
+ * the FAIT when it was raised (Ray, 2026-08-27: "set alerts for the original
+ * group when one is closed as well as any one assigned").
+ *
+ * This is IN ADDITION to the generic status-change alert every status write
+ * already fires to watchers + initiator/engineer/KAM
+ * (`useUpdateFaitFields`'s `onSuccess`) — that one covers "anyone assigned";
+ * this one covers the intake group specifically, since being on
+ * FAIT_NEW_ALERTS doesn't make someone a watcher and they'd otherwise never
+ * hear that the FAIT they were told to pick up ever got finished.
+ *
+ * Same `withoutActorUnlessEmpty` rule as every other intake alert: the person
+ * who closed it is left off unless that would leave nobody.
+ */
+export function buildFaitClosedEmails(args: {
+  target: ChangeTarget;
+  /** The SAME configured intake list as the new-FAIT alert. */
+  recipients: Person[];
+  actor: Person;
+}): ChangeEmail[] {
+  const recipients = withoutActorUnlessEmpty(args.recipients, args.actor);
+  if (recipients.length === 0) return [];
+
+  const actorName = escapeHtml(args.actor.displayName || "Someone");
+  return recipients.map((p) => ({
+    email: p.email!,
+    displayName: p.displayName,
+    subject: `FAIT closed: ${args.target.title}`,
+    headlineHtml: `<strong>${actorName}</strong> closed this FAIT.`,
+    detailHtml:
+      `<div style="font-size:14px;">This is the same list that was told when the FAIT ` +
+      `was first raised — no further action is needed unless something looks wrong.</div>`,
+  }));
+}

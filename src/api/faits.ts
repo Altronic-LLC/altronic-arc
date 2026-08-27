@@ -6,6 +6,7 @@ import { buildFaitCreateFields, compareFaits, toFait } from "@/lib/faitMapper";
 import { FAIT_FIELDS, FAIT_SELECT } from "@/lib/faitFields";
 import { appendComment, replaceComment } from "@/lib/communicationParser";
 import { multiPersonField } from "@/lib/graphFields";
+import { autoWatchers } from "@/lib/people";
 import { MOCK_FAITS } from "@/data/faitMockData";
 
 // =============================================================================
@@ -148,6 +149,12 @@ function applyMockFields(next: Fait, fields: Record<string, unknown>) {
   if ("Watchers" in fields && Array.isArray(fields.Watchers)) {
     next.watchers = fields.Watchers as Person[];
   }
+  if ("AssignedEngineer" in fields) {
+    next.assignedEngineer = (fields.AssignedEngineer as Person | null) ?? null;
+  }
+  if ("KAM" in fields) {
+    next.kam = (fields.KAM as Person | null) ?? null;
+  }
   for (const [column, value] of Object.entries(fields)) {
     const field = FAIT_COLUMN_FIELDS[column];
     if (!field) continue;
@@ -164,6 +171,58 @@ function applyMockFields(next: Fait, fields: Record<string, unknown>) {
 const FAIT_COLUMN_FIELDS: Record<string, (typeof FAIT_FIELDS)[number]> = Object.fromEntries(
   FAIT_FIELDS.map((f) => [f.column, f]),
 );
+
+/**
+ * Watchers merged with one more person, for an assignment write that should
+ * also subscribe them — re-reads the item first so a watcher added elsewhere
+ * isn't clobbered. Returns the unchanged list when `person` is null (clearing
+ * an assignment doesn't unwatch anyone — the house rule everywhere in ARC).
+ */
+async function faitWatchersWithPerson(id: number, person: Person | null): Promise<Person[]> {
+  const current = await getFait(id);
+  return autoWatchers(current?.watchers, person);
+}
+
+/**
+ * Set the Assigned Engineer. There was no way to do this at all before
+ * 2026-08-27 (Ray: "we cannot figure out how to assign an engineer") —
+ * `AssignedEngineer` was written only as `null` on create and never touched
+ * again. The engineer also becomes a watcher, same as EIR's
+ * `setEirAssignedEngineers` — they're the one actively doing the work, not
+ * just someone told about it once.
+ */
+export async function updateFaitAssignedEngineer(id: number, person: Person | null): Promise<Fait> {
+  const watchers = await faitWatchersWithPerson(id, person);
+  if (USE_MOCK) {
+    return updateFaitFields(id, { AssignedEngineer: person, Watchers: watchers });
+  }
+  const ensuredPerson = await ensurePersonLookupId(SP_SITE_URL, person);
+  const ensuredWatchers = await ensureLookupIds(SP_SITE_URL, watchers);
+  return updateFaitFields(id, {
+    AssignedEngineerLookupId: ensuredPerson?.lookupId ?? null,
+    ...multiPersonField("Watchers", ensuredWatchers),
+  });
+}
+
+/**
+ * Set the KAM. Same gap as Assigned Engineer — never settable from ARC.
+ * Clearing it back to nobody is also how a FAIT that doesn't need a KAM
+ * sign-off says so: the detail page hides the KAM sign-off fields once
+ * there's neither a KAM assigned nor any KAM sign-off data already on the
+ * record (see `kamNeeded` in FaitDetailView.tsx).
+ */
+export async function updateFaitKam(id: number, person: Person | null): Promise<Fait> {
+  const watchers = await faitWatchersWithPerson(id, person);
+  if (USE_MOCK) {
+    return updateFaitFields(id, { KAM: person, Watchers: watchers });
+  }
+  const ensuredPerson = await ensurePersonLookupId(SP_SITE_URL, person);
+  const ensuredWatchers = await ensureLookupIds(SP_SITE_URL, watchers);
+  return updateFaitFields(id, {
+    KAMLookupId: ensuredPerson?.lookupId ?? null,
+    ...multiPersonField("Watchers", ensuredWatchers),
+  });
+}
 
 /** Replace the Watchers list. */
 export async function setFaitWatchers(id: number, people: Person[]): Promise<Fait> {

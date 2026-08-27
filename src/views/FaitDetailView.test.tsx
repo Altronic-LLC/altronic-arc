@@ -127,6 +127,69 @@ describe("FaitDetailView", () => {
     expect(screen.getByRole("heading", { name: /attachments/i })).toBeInTheDocument();
   });
 
+  // Ray, 2026-08-27: "we cannot figure out how to assign an engineer" — there
+  // was no picker at all before this; it was a bare read-only "Not set".
+  it("assigns an engineer from the sidebar picker", async () => {
+    await renderFait(1); // assignedEngineer: null in the fixture
+    const field = screen.getByText("Assigned Engineer").closest("div")?.parentElement as HTMLElement;
+    await userEvent.click(within(field).getByRole("button", { name: /not set/i }));
+    await userEvent.click(await screen.findByRole("option", { name: "Sarah Shaffer" }));
+
+    await waitFor(() => expect(within(field).getByText("Sarah Shaffer")).toBeInTheDocument());
+  });
+
+  it("assigns a KAM from the sidebar picker", async () => {
+    await renderFait(1); // kam: null in the fixture
+    const field = screen.getByText("KAM").closest("div")?.parentElement as HTMLElement;
+    await userEvent.click(within(field).getByRole("button", { name: /not set/i }));
+    await userEvent.click(await screen.findByRole("option", { name: "Ray White" }));
+
+    await waitFor(() => expect(within(field).getByText("Ray White")).toBeInTheDocument());
+  });
+
+  // Ray, 2026-08-27: "how to hide/remove the KAM signoff when it is not
+  // required" — fixture 4 has no KAM assigned and no KAM sign-off data, so
+  // the KAM sign-off chip and the Sign-off card's KAM fields both hide.
+  describe("when no KAM is needed (fixture 4: no KAM, no KAM sign-off data)", () => {
+    it("hides the KAM chip from Sign-offs", async () => {
+      await renderFait(4);
+      const sidebar = screen.getByText("Sign-offs").closest("div")?.parentElement as HTMLElement;
+      expect(within(sidebar).getByText("SQE")).toBeInTheDocument();
+      expect(within(sidebar).getByText("Eng")).toBeInTheDocument();
+      expect(within(sidebar).queryByText("KAM")).not.toBeInTheDocument();
+    });
+
+    it("says no KAM is needed under the picker", async () => {
+      await renderFait(4);
+      expect(screen.getByText(/no kam needed/i)).toBeInTheDocument();
+    });
+
+    it("leaves the KAM fields out of the Sign-off card and its Edit modal", async () => {
+      await renderFait(4);
+      const card = screen
+        .getByRole("heading", { name: "Sign-off", level: 2 })
+        .closest("section") as HTMLElement;
+      expect(within(card).queryByText("KAM Sign Off")).not.toBeInTheDocument();
+
+      await userEvent.click(within(card).getByRole("button", { name: "Edit Sign-off" }));
+      const dialog = await screen.findByRole("dialog", { name: /edit sign-off/i });
+      expect(within(dialog).queryByText("KAM Sign Off")).not.toBeInTheDocument();
+      expect(within(dialog).getByText("Eng Sign Off")).toBeInTheDocument();
+    });
+  });
+
+  // Fixture 2 already carries a KAM and sign-off data — the hide rule must
+  // never swallow real, pre-existing sign-off data.
+  describe("when a KAM sign-off already exists (fixture 2)", () => {
+    it("keeps showing the KAM fields on the Sign-off card", async () => {
+      await renderFait(2);
+      const card = screen
+        .getByRole("heading", { name: "Sign-off", level: 2 })
+        .closest("section") as HTMLElement;
+      expect(within(card).getByText("KAM Sign Off")).toBeInTheDocument();
+    });
+  });
+
   it("says so when the FAIT doesn't exist", async () => {
     renderWithProviders(<FaitDetailView />, {
       route: "/supply-chain/fait/999999",

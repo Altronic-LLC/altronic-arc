@@ -15,6 +15,7 @@ const fireFieldChangeAlert = vi.hoisted(() => vi.fn());
 vi.mock("@/api/email", () => ({
   fireNewFaitAlert,
   fireFieldChangeAlert,
+  fireFaitClosedAlert: vi.fn(),
   notifyMentions: vi.fn(),
   notifyChangeEmails: vi.fn(),
 }));

@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.126.0",
+    date: "2026-08-27",
+    changes: [
+      "FAITs: assign (or clear) an Assigned Engineer and a KAM from the sidebar — there was no way to do this before",
+      "FAITs: a KAM sign-off you don't need hides itself once no KAM is assigned, instead of sitting there blank",
+      "FAITs: closing one now also emails the same people who were told when it was first raised",
+    ],
+  },
+  {
     version: "0.125.1",
     date: "2026-08-27",
     changes: [

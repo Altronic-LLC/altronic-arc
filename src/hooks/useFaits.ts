@@ -5,12 +5,14 @@ import {
   editFaitComment,
   listFaits,
   setFaitWatchers,
+  updateFaitAssignedEngineer,
   updateFaitFields,
+  updateFaitKam,
 } from "@/api/faits";
 import type { Fait, FaitInput, Person } from "@/types/task";
 import { collectFaitPeople, faitLabel } from "@/lib/faitMapper";
 import { commentNotifyRecipients, extractMentionedRecipients } from "@/lib/mentions";
-import { fireFieldChangeAlert, fireNewFaitAlert, notifyMentions } from "@/api/email";
+import { fireFaitClosedAlert, fireFieldChangeAlert, fireNewFaitAlert, notifyMentions } from "@/api/email";
 import type { AlertDetail } from "@/lib/changeAlerts";
 import { autoWatchFromMentions } from "@/api/autoWatch";
 // The FAIT list is on the Engineering site, so cold-start mentions resolve there.
@@ -108,23 +110,59 @@ export function useUpdateFaitFields() {
       // status-change alert every other list with a Watchers column gets
       // (Ray, 2026-08-26), same shape as EIR's.
       if (ctx?.prevFait && "Status" in fields) {
+        const from = ctx.prevFait.status;
+        const to = String(fields.Status ?? "");
         fireFieldChangeAlert({
           target: { kind: "fait", id: updated.id, title: faitLabel(ctx.prevFait) },
           fieldLabel: "status",
-          from: ctx.prevFait.status,
-          to: String(fields.Status ?? ""),
+          from,
+          to,
           actor,
           watchers: ctx.prevFait.watchers,
           assignees: [ctx.prevFait.initiator, ctx.prevFait.assignedEngineer, ctx.prevFait.kam].filter(
             (p): p is Person => p !== null,
           ),
         });
+        // The SAME intake list that was told when this FAIT was raised is
+        // told it's closed, too (Ray, 2026-08-27) — being on that list
+        // doesn't make someone a watcher, so the generic alert above never
+        // reaches them. `to !== from` is OUR guard: re-saving an
+        // already-Closed FAIT must not re-announce it as just closed.
+        if (to.trim().toLowerCase() === "closed" && to !== from) {
+          fireFaitClosedAlert({
+            target: { kind: "fait", id: updated.id, title: faitLabel(ctx.prevFait) },
+            actor,
+          });
+        }
       }
     },
     onError: (err: Error, _vars, ctx) => {
       if (ctx?.previous) qc.setQueryData(FAITS_KEY, ctx.previous);
       errorToast(`Couldn't save that change — reverted. ${err.message}`);
     },
+    onSettled: () => qc.invalidateQueries({ queryKey: FAITS_KEY }),
+  });
+}
+
+/** Assign (or clear) the engineer. They also become a watcher — see `updateFaitAssignedEngineer`. */
+export function useUpdateFaitAssignedEngineer() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, person }: { id: number; person: Person | null }) =>
+      updateFaitAssignedEngineer(id, person),
+    onSuccess: (updated) => patchFait(qc, updated.id, () => updated),
+    onError: (err: Error) => errorToast(`Couldn't save that change. ${err.message}`),
+    onSettled: () => qc.invalidateQueries({ queryKey: FAITS_KEY }),
+  });
+}
+
+/** Assign (or clear) the KAM. Clearing it is how a FAIT that doesn't need a KAM sign-off says so. */
+export function useUpdateFaitKam() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, person }: { id: number; person: Person | null }) => updateFaitKam(id, person),
+    onSuccess: (updated) => patchFait(qc, updated.id, () => updated),
+    onError: (err: Error) => errorToast(`Couldn't save that change. ${err.message}`),
     onSettled: () => qc.invalidateQueries({ queryKey: FAITS_KEY }),
   });
 }

@@ -1896,10 +1896,12 @@ const SECTIONS: ManualSection[] = [
       "fait", "faits", "first article", "first article inspection",
       "inspection", "supplier", "sqe", "sign off", "quality",
       "cmm", "dimensional check", "first pass", "fait alerts",
-      "fait notifications", "intake alert",
+      "fait notifications", "intake alert", "assign engineer",
+      "assigned engineer", "kam", "kam sign off", "hide kam",
+      "fait closed alert",
     ],
     searchText:
-      "FAITs at /supply-chain/faits, under Supply Chain in the Departments menu, backed by the FAIT list on the Altronic Engineering SharePoint site. A First Article Inspection Test tracks a new or changed part from a supplier through inspection and three sign-offs: SQE, Engineering and KAM. The list opens on Open FAITs with pills for Open / Closed / All, filters for project, supplier and the stage it is sitting at, and an all-fields search. FAITs are identified by SAP Part Number rather than title. New FAIT asks for the part, supplier, project and what is being requested; inspection results and sign-offs are filled in on the FAIT itself, in five cards - Part, Request, Inspection, Results, Sign-off - each with one Edit button. Yes/No questions are answered by picking Yes or No. FAITs carry comments with @-mentions, watchers and attachments. Whoever raises one watches it. Raising a FAIT emails Jerrod Waldron, Alexandra Russell and Katie Fleming with the part details; the raiser is left off their own alert. Changing a FAIT's Status emails its watchers and its initiator, engineer and KAM. FAITs cannot be deleted from ARC.",
+      "FAITs at /supply-chain/faits, under Supply Chain in the Departments menu, backed by the FAIT list on the Altronic Engineering SharePoint site. A First Article Inspection Test tracks a new or changed part from a supplier through inspection and three sign-offs: SQE, Engineering and KAM. The list opens on Open FAITs with pills for Open / Closed / All, filters for project, supplier and the stage it is sitting at, and an all-fields search. FAITs are identified by SAP Part Number rather than title. New FAIT asks for the part, supplier, project and what is being requested; inspection results and sign-offs are filled in on the FAIT itself, in five cards - Part, Request, Inspection, Results, Sign-off - each with one Edit button. Yes/No questions are answered by picking Yes or No. The Assigned Engineer and KAM sit in the sidebar as pickers - pick a person and they are saved immediately and added as a watcher; clearing one back to Not set does not remove them as a watcher. A FAIT that does not need a KAM sign-off can simply have no KAM assigned - the KAM sign-off chip and fields hide themselves until a KAM is picked. FAITs carry comments with @-mentions, watchers and attachments. Whoever raises one watches it. Raising a FAIT emails Jerrod Waldron, Alexandra Russell and Katie Fleming with the part details; the raiser is left off their own alert. Changing a FAIT's Status emails its watchers and its initiator, engineer and KAM. Closing a FAIT also emails that same intake list, so they hear it is finished, not just that it changed. FAITs cannot be deleted from ARC.",
     render: () => (
       <>
         <P>
@@ -1941,13 +1943,31 @@ const SECTIONS: ManualSection[] = [
           whoever raises a FAIT watches it.
         </P>
         <P>
+          <strong>Assigned Engineer</strong> and <strong>KAM</strong> are
+          pickers in the sidebar — pick a person and it saves immediately and
+          adds them as a watcher, so they hear about comments and status
+          changes without anyone having to remember to add them. Clearing one
+          back to <strong>Not set</strong> doesn't remove them as a watcher.
+        </P>
+        <Tip>
+          A FAIT that doesn't need a KAM sign-off doesn't need anything special
+          done to it — just leave <strong>KAM</strong> set to Not set. The KAM
+          sign-off chip in the sidebar and the KAM fields on the{" "}
+          <strong>Sign-off</strong> card hide themselves whenever there's no
+          KAM assigned and no KAM sign-off already recorded. Assigning a KAM
+          later brings those fields straight back.
+        </Tip>
+        <P>
           <strong>Raising a FAIT emails Jerrod Waldron, Alexandra Russell and
           Katie Fleming</strong> — the intake list who pick a new one up —
           with the SAP Part Number, description, supplier and drawing number;
           the person who raised it is left off their own alert, and being on
           that list is not the same as watching the FAIT. Changing a FAIT's{" "}
           <strong>Status</strong> emails its watchers and the people it's
-          assigned to (initiator, engineer, KAM) that it changed.
+          assigned to (initiator, engineer, KAM) that it changed, and{" "}
+          <strong>closing a FAIT also emails that same intake list</strong> —
+          the people who were told a new one needed picking up also hear when
+          it's finished.
         </P>
         <Tip>
           FAITs can't be deleted from ARC — a FAIT records an inspection that

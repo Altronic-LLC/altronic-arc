@@ -7,7 +7,9 @@ import {
   getFait,
   listFaits,
   setFaitWatchers,
+  updateFaitAssignedEngineer,
   updateFaitFields,
+  updateFaitKam,
 } from "./faits";
 
 // USE_MOCK is true under Vitest — these run against the in-memory store.
@@ -105,6 +107,47 @@ describe("FAIT API", () => {
       "<p>First</p>",
     );
     expect(edited.comments[0].bodyHtml).toBe("<p>First</p>");
+  });
+
+  it("assigns an engineer, who also becomes a watcher", async () => {
+    const created = await createFait(
+      { title: "", status: "Open", projectLookupId: null, values: { sapPartNumber: "9999-0007" } },
+      RAY,
+    );
+    const sarah = { displayName: "Sarah Shaffer", email: "sarah@altronic-llc.com" };
+    const updated = await updateFaitAssignedEngineer(created.id, sarah);
+    expect(updated.assignedEngineer?.email).toBe(sarah.email);
+    expect(updated.watchers.map((w) => w.email)).toEqual(
+      expect.arrayContaining([RAY.email, sarah.email]),
+    );
+  });
+
+  it("clears the assigned engineer without unwatching anyone", async () => {
+    const created = await createFait(
+      { title: "", status: "Open", projectLookupId: null, values: { sapPartNumber: "9999-0008" } },
+      RAY,
+    );
+    const sarah = { displayName: "Sarah Shaffer", email: "sarah@altronic-llc.com" };
+    await updateFaitAssignedEngineer(created.id, sarah);
+    const cleared = await updateFaitAssignedEngineer(created.id, null);
+    expect(cleared.assignedEngineer).toBeNull();
+    expect(cleared.watchers.map((w) => w.email)).toEqual(
+      expect.arrayContaining([RAY.email, sarah.email]),
+    );
+  });
+
+  it("assigns and clears a KAM the same way", async () => {
+    const created = await createFait(
+      { title: "", status: "Open", projectLookupId: null, values: { sapPartNumber: "9999-0009" } },
+      RAY,
+    );
+    const glenn = { displayName: "Glenn Terry", email: "glenn.terry@altronic-llc.com" };
+    const withKam = await updateFaitKam(created.id, glenn);
+    expect(withKam.kam?.email).toBe(glenn.email);
+    expect(withKam.watchers.map((w) => w.email)).toEqual(expect.arrayContaining([glenn.email]));
+
+    const cleared = await updateFaitKam(created.id, null);
+    expect(cleared.kam).toBeNull();
   });
 
   it("rejects an update to something that isn't there", async () => {

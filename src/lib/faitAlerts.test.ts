@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { Person } from "@/types/task";
-import { buildNewFaitEmails } from "./faitAlerts";
+import { buildFaitClosedEmails, buildNewFaitEmails } from "./faitAlerts";
 
 // =============================================================================
 // The intake alert. Nothing watches the FAIT list, so every create tells the
@@ -111,5 +111,47 @@ describe("what the email carries", () => {
     });
     expect(emails[0].headlineHtml).not.toContain("<script>");
     expect(emails[0].detailHtml).toContain("A &amp; &lt;b&gt;B&lt;/b&gt;");
+  });
+});
+
+// =============================================================================
+// The closed-FAIT alert — the SAME intake list is told when a FAIT closes,
+// not just when it's raised (Ray, 2026-08-27: "set alerts for the original
+// group when one is closed"). Separate from the generic status-change alert
+// to watchers/assignees, since being on the intake list doesn't watch anyone.
+// =============================================================================
+
+function buildClosed(overrides: Partial<Parameters<typeof buildFaitClosedEmails>[0]> = {}) {
+  return buildFaitClosedEmails({
+    target: TARGET,
+    recipients: [JERROD, ALEX, KATIE],
+    actor: RAY,
+    ...overrides,
+  });
+}
+
+describe("the closed-FAIT email", () => {
+  it("goes to everyone on the SAME intake list the new-FAIT alert uses", () => {
+    expect(buildClosed().map((e) => e.email)).toEqual([JERROD.email, ALEX.email, KATIE.email]);
+  });
+
+  it("names the FAIT in the subject", () => {
+    expect(buildClosed()[0].subject).toBe("FAIT closed: 691768-1");
+  });
+
+  it("says who closed it", () => {
+    expect(buildClosed()[0].headlineHtml).toContain("Ray White");
+    expect(buildClosed()[0].headlineHtml).toContain("closed");
+  });
+
+  it("is empty when nobody is configured", () => {
+    expect(buildClosed({ recipients: [] })).toEqual([]);
+  });
+
+  it("doesn't email the person who closed it, unless that would leave nobody", () => {
+    expect(buildClosed({ actor: JERROD }).map((e) => e.email)).toEqual([ALEX.email, KATIE.email]);
+    expect(buildClosed({ recipients: [JERROD], actor: JERROD }).map((e) => e.email)).toEqual([
+      JERROD.email,
+    ]);
   });
 });

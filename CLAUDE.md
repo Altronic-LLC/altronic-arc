@@ -1054,9 +1054,57 @@ one `if ("Status" in fields)` block in `useUpdateFaitFields`'s `onSuccess`
 covers every status write regardless of which card triggered it, and emails
 watchers plus the FAIT's own people (initiator, assigned engineer, KAM) —
 `fireFieldChangeAlert` already no-ops when `from === to`, so no extra guard is
-needed for a same-value resave. FAITs have no reporter-vs-assignee split the
-way EIRs do, so there's no transition-specific sub-alert (no "please close
-it" / "please revisit" equivalent) — just the one generic note.
+needed for a same-value resave.
+
+**Closing a FAIT ALSO alerts the intake list, not just watchers/assignees**
+(Ray, 2026-08-27: "set alerts for the original group when one is closed as
+well as any one assigned"). `fireFaitClosedAlert` emails the SAME
+`FAIT_NEW_ALERTS` list the new-FAIT alert uses, the moment Status transitions
+TO `"Closed"` — a SEPARATE mechanism from the generic status alert above,
+because being on the intake list doesn't make someone a watcher (see the
+intake-alert note above): without this, whoever was told to pick a FAIT up
+had no way to hear that it was ever finished. Guarded the same way as EIR's
+status alerts — `to !== from` is OUR guard (`"Status" in fields` is
+PRESENCE, not change), so re-saving an already-Closed FAIT doesn't
+re-announce it. `lib/faitAlerts.ts`'s `buildFaitClosedEmails` is pure and
+tested the same way as the new-FAIT builder; `useFaits.statusAlerts`-style
+guard tests live in `hooks/useFaits.test.tsx`, using the one MOCK_FAITS
+fixture that starts already Closed so the guard actually has something to
+catch (a fixture starting elsewhere passes whether the guard exists or not —
+the same trap EIR's status-alert tests were built to avoid).
+
+**Assigned Engineer and KAM were WRITE-ONLY-NEVER — Status quo through
+2026-08-26** (Ray, 2026-08-27: "we cannot figure out how to assign an
+engineer... how to hide/remove the KAM signoff when it is not required").
+Both columns were set to `null` on every create and never touched again —
+there was no picker anywhere in the app, sidebar included; the detail page
+only ever *displayed* whoever Graph happened to return, which was always
+nobody. `updateFaitAssignedEngineer` / `updateFaitKam` (`api/faits.ts`) and
+their hooks (`useUpdateFaitAssignedEngineer` / `useUpdateFaitKam`) fix that —
+`FaitDetailView`'s sidebar now has a `SingleSelect` for each, saving
+immediately on pick, the same shape as Supplier's Assigned Buyer. Picking
+someone ALSO adds them as a watcher in the same PATCH (mirroring EIR's
+`setEirAssignedEngineers`) — they're actively responsible for a real sign-off,
+not just someone told about the FAIT once. Clearing either back to "Not set"
+does NOT remove them from Watchers — the house rule everywhere in ARC.
+
+**"Hide the KAM sign-off when not required" is answered by `kamNeeded()`,
+not a new SharePoint column.** A KAM sign-off isn't always needed, and until
+there was a way to assign a KAM at all, every FAIT's KAM row sat there
+permanently blank looking like an unmet requirement. Rather than inventing a
+"KAM Required" flag SharePoint doesn't have, `kamNeeded(fait)` in
+`FaitDetailView.tsx` treats "no KAM assigned AND no KAM sign-off data already
+on the record" as "not needed": the KAM chip in the Sign-offs sidebar row and
+the three KAM fields in the Sign-off card (and its Edit modal) all hide in
+that case, and picking a KAM person immediately un-hides them. The "AND no
+existing data" half is load-bearing, not decorative — checking only whether a
+KAM is assigned would have hidden a real, pre-existing `kamSignOff:
+"Approved"` on any of the FAITs closed before this feature existed (nobody
+could have assigned a KAM person to them even after the fact, since the
+picker didn't exist yet), which would read as data loss rather than a hidden
+"not required" state. `visibleFaitFields()` is the one function both the
+read-only card and its `FieldEditModal` call, so the two can't disagree about
+which KAM fields are showing.
 
 ### ECNs (Engineering Change Notices)
 

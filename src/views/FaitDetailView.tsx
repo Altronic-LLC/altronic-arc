@@ -8,7 +8,9 @@ import {
   useFait,
   useFaits,
   useSetFaitWatchers,
+  useUpdateFaitAssignedEngineer,
   useUpdateFaitFields,
+  useUpdateFaitKam,
 } from "@/hooks/useFaits";
 import type { Comment, Fait, Person } from "@/types/task";
 import {
@@ -19,7 +21,7 @@ import {
   type FaitSection,
 } from "@/lib/faitFields";
 import { faitFieldPatch, faitProjectPatch } from "@/lib/faitMapper";
-import { mergePeople } from "@/lib/people";
+import { mergePeople, personKey } from "@/lib/people";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { useProjects } from "@/hooks/useTasks";
@@ -30,7 +32,40 @@ import { CommentThread } from "@/components/CommentThread";
 import { DetailTopBar } from "@/components/DetailTopBar";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { PersonMultiField } from "@/components/PersonMultiField";
+import { SingleSelect } from "@/components/SearchableSelect";
 import { FaitStatusChip, FirstPassChip, SignOffChip } from "@/components/faitAtoms";
+
+/**
+ * Whether this FAIT needs a KAM sign-off at all. False only when there's
+ * neither a KAM assigned nor any KAM sign-off data already on the record —
+ * the detail page hides the KAM sign-off fields in that case, which is how
+ * "this FAIT doesn't need a KAM" is expressed (Ray, 2026-08-27: "how to
+ * hide/remove the KAM signoff when it is not required"). Checking the
+ * existing data too, not just whether a KAM is assigned, means a FAIT
+ * someone already signed off on before there was any way to assign a KAM
+ * person never has its real sign-off hidden out from under it.
+ */
+function kamNeeded(fait: Fait): boolean {
+  return (
+    fait.kam !== null ||
+    !!fait.values.kamSignOff ||
+    !!fait.values.kamInitials ||
+    !!fait.values.kamApprovalNotes
+  );
+}
+
+const KAM_FIELD_KEYS = new Set(["kamSignOff", "kamInitials", "kamApprovalNotes"]);
+
+/**
+ * A section's fields, minus the KAM sign-off ones when this FAIT doesn't
+ * need a KAM — used for both the read-only card and its Edit modal, so the
+ * two never disagree about whether KAM fields are showing.
+ */
+function visibleFaitFields(section: FaitSection, fait: Fait): FaitField[] {
+  const fields = faitFieldsInSection(section);
+  if (section !== "Sign-off" || kamNeeded(fait)) return fields;
+  return fields.filter((f) => !KAM_FIELD_KEYS.has(f.key));
+}
 
 // =============================================================================
 // One FAIT.
@@ -58,6 +93,8 @@ export function FaitDetailView() {
 
   const updateFields = useUpdateFaitFields();
   const setWatchers = useSetFaitWatchers();
+  const updateAssignedEngineer = useUpdateFaitAssignedEngineer();
+  const updateKam = useUpdateFaitKam();
   const addComment = useAddFaitComment();
   const editComment = useEditFaitComment();
 
@@ -208,7 +245,7 @@ export function FaitDetailView() {
                 <EditButton label={section} onClick={() => setEditing(section)} />
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {faitFieldsInSection(section).map((field) => (
+                {visibleFaitFields(section, fait).map((field) => (
                   <FieldRow key={field.key} field={field} value={fait.values[field.key] ?? ""} />
                 ))}
               </div>
@@ -258,7 +295,8 @@ export function FaitDetailView() {
             <div className="flex flex-wrap gap-1.5 px-1">
               <SignOffChip label="SQE" value={fait.values.sqeSignOff ?? ""} />
               <SignOffChip label="Eng" value={fait.values.engSignOff ?? ""} />
-              <SignOffChip label="KAM" value={fait.values.kamSignOff ?? ""} />
+              {/* Hidden entirely when no KAM sign-off is needed — see kamNeeded. */}
+              {kamNeeded(fait) && <SignOffChip label="KAM" value={fait.values.kamSignOff ?? ""} />}
             </div>
           </SidebarField>
 
@@ -269,17 +307,34 @@ export function FaitDetailView() {
           </SidebarField>
 
           <SidebarField label="Assigned Engineer" icon={<User className="h-3.5 w-3.5" />}>
-            <p className="px-1 text-sm text-fg">
-              {fait.assignedEngineer?.displayName ?? (
-                <span className="text-fg-muted">Not set</span>
-              )}
-            </p>
+            <SingleSelect
+              allLabel="Not set"
+              searchPlaceholder="Search people…"
+              options={mentionCandidates.map((p) => ({ value: personKey(p), label: p.displayName }))}
+              selected={fait.assignedEngineer ? personKey(fait.assignedEngineer) : null}
+              onChange={(key) => {
+                const person = key ? mentionCandidates.find((p) => personKey(p) === key) ?? null : null;
+                updateAssignedEngineer.mutate({ id: fait.id, person });
+              }}
+            />
           </SidebarField>
 
           <SidebarField label="KAM" icon={<User className="h-3.5 w-3.5" />}>
-            <p className="px-1 text-sm text-fg">
-              {fait.kam?.displayName ?? <span className="text-fg-muted">Not set</span>}
-            </p>
+            <SingleSelect
+              allLabel="Not set"
+              searchPlaceholder="Search people…"
+              options={mentionCandidates.map((p) => ({ value: personKey(p), label: p.displayName }))}
+              selected={fait.kam ? personKey(fait.kam) : null}
+              onChange={(key) => {
+                const person = key ? mentionCandidates.find((p) => personKey(p) === key) ?? null : null;
+                updateKam.mutate({ id: fait.id, person });
+              }}
+            />
+            {!kamNeeded(fait) && (
+              <p className="mt-1 px-1 text-[11px] text-fg-muted">
+                No KAM needed — assign one only if this FAIT requires a KAM sign-off.
+              </p>
+            )}
           </SidebarField>
 
           <SidebarField label="Watchers">
@@ -317,8 +372,8 @@ export function FaitDetailView() {
       {editing && editing !== "Details" && (
         <FieldEditModal
           title={`Edit ${editing}`}
-          fields={faitFieldsInSection(editing).map(editSpec)}
-          values={editValues(fait, faitFieldsInSection(editing))}
+          fields={visibleFaitFields(editing, fait).map(editSpec)}
+          values={editValues(fait, visibleFaitFields(editing, fait))}
           onClose={() => setEditing(null)}
           onSave={saveFields}
         />

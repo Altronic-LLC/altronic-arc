@@ -28,7 +28,7 @@ import {
 } from "@/lib/eirStatusAlerts";
 import { parseRecipientList } from "@/lib/recipientList";
 import { buildNewGrayMarketRequestEmails } from "@/lib/grayMarketAlerts";
-import { buildNewFaitEmails } from "@/lib/faitAlerts";
+import { buildFaitClosedEmails, buildNewFaitEmails } from "@/lib/faitAlerts";
 import { buildNewCostImpactNoticeEmails } from "@/lib/costImpactAlerts";
 
 // =============================================================================
@@ -590,6 +590,23 @@ export function fireNewFaitAlert(args: {
   details?: AlertDetail[];
 }): void {
   const emails = buildNewFaitEmails({
+    ...args,
+    recipients: parseRecipientList(FAIT_NEW_ALERTS),
+  });
+  if (emails.length === 0) return;
+  void notifyChangeEmails({ target: args.target, emails });
+}
+
+/**
+ * Fire-and-forget: a FAIT was closed — the SAME intake list told about it on
+ * create (VITE_FAIT_NEW_ALERTS) is told it's done, too. This is in ADDITION
+ * to the generic status-change alert to watchers + initiator/engineer/KAM;
+ * being on the intake list doesn't make someone a watcher, so without this
+ * they'd never hear the FAIT they were asked to pick up ever got finished.
+ * No-ops when nothing is configured.
+ */
+export function fireFaitClosedAlert(args: { target: ChangeTarget; actor: Person }): void {
+  const emails = buildFaitClosedEmails({
     ...args,
     recipients: parseRecipientList(FAIT_NEW_ALERTS),
   });
