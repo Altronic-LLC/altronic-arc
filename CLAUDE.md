@@ -285,7 +285,8 @@ src/
 │   ├── ecnMockData.ts            Sample ECNs (rich-text fields, a revision)
 │   ├── faitMockData.ts           Sample FAITs (empty Titles, as the live list has)
 │   ├── buildRequestMockData.ts   Sample build requests + items
-│   └── changelog.ts              Version history (drives footer + history modal)
+│   ├── changelog.ts              Version history (drives footer + history modal)
+│   └── loadingFacts.ts           Rotating "did you know" facts shown on every loading screen
 │
 ├── hooks/
 │   ├── useTasks.ts               Task queries + OPTIMISTIC mutations (see below)
@@ -415,7 +416,7 @@ src/
 │   ├── UserMenu.tsx              Account avatar menu
 │   ├── Toast.tsx                 Toast + undo container (pushToast)
 │   ├── UpdateAvailableBanner.tsx "A new version of ARC is available"
-│   ├── LoadingTasks.tsx          Skeleton loading state
+│   ├── LoadingTasks.tsx          THE app-wide loading screen — verb/noun headline + a rotating "did you know" fact about ARC (data/loadingFacts.ts)
 │   ├── RequireAdmin.tsx          Route guard for /admin/*
 │   ├── DetailTopBar.tsx          Shared "you are here" bar on detail pages
 │   ├── StatusPills.tsx           Task list status counters
@@ -3125,6 +3126,64 @@ whole page. `interaction_in_progress` is treated as "wait for the prompt already
 open", not a failure. When the session IS dead, `AuthGate` renders
 `SignInPage reason="expired"` rather than the app behind a banner, and signing in
 clears the query cache so nothing comes back still showing the old errors.
+
+### The app has ONE loading screen — `LoadingTasks`
+
+Every list, board, detail page and lazy-loaded route's `Suspense` fallback
+renders `components/LoadingTasks.tsx` (60+ call sites via `noun="…"`), so a
+change there reaches every load in the app at once — never build a bespoke
+spinner for a new view.
+
+**It now rotates a "did you know" fact about ARC itself**, under the
+verb/noun headline (Ray, 2026-08-27: "update all loading screens with a
+brief blurb about what Arc is and how it's built using Claude/vibe coding
+[and] fun facts... to keep users reading and entertained while things
+load"). The facts live in `data/loadingFacts.ts`, separate from the
+component, so they're easy to find and update without touching the timer
+logic. Two kinds of fact, deliberately mixed in one list rather than kept in
+separate rotations: what ARC *is* (built by describing it to Claude — "vibe
+coding" — with no backend of its own), and real numbers about the app and
+its data (lines of code, test count, commit count, SharePoint row counts
+already discovered elsewhere in this file).
+
+Three things about the facts, not the verbs:
+
+- **They're snapshots, not live counts** — ARC has no backend to compute
+  "current line count" from, and a loading screen is the wrong place to add
+  one more network request. A slightly stale "97,000 lines" is fine; a
+  fabricated one isn't. Update `loadingFacts.ts` occasionally rather than
+  treating the numbers as load-bearing.
+- **They rotate SEQUENTIALLY, not by re-randomizing**, on their own 4.5s
+  timer (slower than the verb's 2s — a full sentence takes longer to read
+  than a word does). Re-randomizing risks the same fact twice in a row,
+  which a fixed sentence makes obvious in a way a rotating verb doesn't.
+- **The starting fact IS randomized**, though — across dozens of short loads
+  in one session, always leading with fact #0 would make it the only one
+  most people ever actually see.
+
+### Dashboard cards: distinct tones per section, placeholders last
+
+Two small rules that are easy to violate one card at a time and only look
+wrong once a whole section is assembled:
+
+- **Every `TypeCard` tone within one `DeptSection` should be visually
+  distinct** — Supply Chain had three cards sharing `cooper-red` and just
+  one in `superior-blue` before this was noticed (Ray, 2026-08-27: "most are
+  red except FAIT... I want the colors to be relevant and stand out").
+  There are only four brand tones in `TONE` (`cooper-red`, `ajax-yellow`,
+  `cooper-green`, `superior-blue`) — pick whichever of the four a new card's
+  section hasn't already used, and lean on the colour's own connotation
+  where one fits (ajax-yellow for Gray Market's "bought outside normal
+  channels" caution, cooper-red for Cost Impact's financial-alert framing)
+  rather than assigning arbitrarily.
+- **A `PlaceholderCard` ("Coming soon") always sits LAST in its section**,
+  after every live `TypeCard`. One mixed in the middle (Coils' "Coil Defect
+  Log" sat before "Potting Sample Log"; Sales' "Customer Feedback" sat
+  before "Visit Reports" and "Customers") reads as a gap in a working
+  section rather than "the rest is on its way". Pinned in
+  `DashboardView.test.tsx` ("'Coming soon' cards sit at the end of their
+  section"), one case per department — reintroducing either bug was
+  confirmed to fail it before this landed.
 
 ## Common changes — recipes
 

@@ -854,7 +854,6 @@ export function DashboardView() {
         collapsed={collapsedSections.has("Coils")}
         onToggle={() => toggleSection("Coils")}
       >
-        <PlaceholderCard name="Coil Defect Log" icon={<FileText className="h-5 w-5" />} />
         <TypeCard
           name="Potting Sample Log"
           icon={<ClipboardList className="h-5 w-5" />}
@@ -862,6 +861,7 @@ export function DashboardView() {
           description="Log potting sample weight and volume; out-of-limit samples email the PSR notification list."
           onClick={() => navigate("/coils/potting-sample-log")}
         />
+        <PlaceholderCard name="Coil Defect Log" icon={<FileText className="h-5 w-5" />} />
       </DeptSection>
 
       <DeptSection
@@ -894,14 +894,14 @@ export function DashboardView() {
         <TypeCard
           name="Gray Market Requests"
           icon={<PackageSearch className="h-5 w-5" />}
-          tone="cooper-red"
+          tone="ajax-yellow"
           description="Parts bought outside normal distribution — request, purchasing, test, inspection and sign-off."
           onClick={() => navigate("/supply-chain/gray-market-requests")}
         />
         <TypeCard
           name="Suppliers"
           icon={<Building2 className="h-5 w-5" />}
-          tone="cooper-red"
+          tone="cooper-green"
           description="The SRM tool — every supplier, their contacts and their open issues in one place."
           onClick={() => navigate("/supply-chain/suppliers")}
         />
@@ -935,7 +935,6 @@ export function DashboardView() {
           description="The weekly open orders dashboard, and each customer's own workbook to send on."
           onClick={() => navigate("/sales/open-orders")}
         />
-        <PlaceholderCard name="Customer Feedback" icon={<MessageSquare className="h-5 w-5" />} />
         <TypeCard
           name="Visit Reports"
           icon={<MapPin className="h-5 w-5" />}
@@ -950,6 +949,7 @@ export function DashboardView() {
           description="The CRM tool — a customer, their contacts, special pricing and capacity notes."
           onClick={() => navigate("/sales/customers")}
         />
+        <PlaceholderCard name="Customer Feedback" icon={<MessageSquare className="h-5 w-5" />} />
         <PlaceholderCard name="Pricing Requests" icon={<Calculator className="h-5 w-5" />} />
       </DeptSection>
 

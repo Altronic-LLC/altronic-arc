@@ -1,14 +1,22 @@
 import { useEffect, useState } from "react";
+import { LOADING_FACTS } from "@/data/loadingFacts";
 
 /**
- * Whimsical loader for the tasks list / kanban board. Rotates through a
- * small set of action verbs so the user has something to read while
- * SharePoint pages through the list, plus a small note that the first load
- * is the slow one — subsequent loads are cached.
+ * ARC's ONE loading screen — every list, board, detail page and lazy-loaded
+ * route Suspense fallback renders this (see App.tsx and the many `noun="…"`
+ * call sites), so a change here reaches every load in the app at once.
  *
- * Verbs are themed around what Altronic actually builds: natural gas engine
- * ignition. Sparking, arcing (ARC!), cranking, priming — every one should
- * read like something you'd do to an engine or an ignition system.
+ * Three layers, each rotating at its own pace:
+ *  - A verb + noun headline, themed around what Altronic actually builds
+ *    (natural gas engine ignition — sparking, arcing (ARC!), cranking,
+ *    priming), rotating every 2s so a slow first load doesn't sit on one word.
+ *  - A "did you know" fact about ARC itself — what it is, how it's built
+ *    (Claude, from a plain-English description — "vibe coding"), and real
+ *    numbers about the app and its data (see `data/loadingFacts.ts`) —
+ *    rotating every 4.5s, since a full sentence takes longer to read than a
+ *    verb does. The goal is to give people something true and specific to
+ *    read instead of watching dots blink.
+ *  - A small fixed note that the first load is the slow one.
  */
 const VERBS = [
   "Sparking",
@@ -37,11 +45,27 @@ const VERBS = [
 
 export function LoadingTasks({ noun = "tasks" }: { noun?: string }) {
   const [verb, setVerb] = useState(() => randomVerb());
+  // Starts on a random fact rather than always the same one first — with
+  // dozens of short loads across a session, always leading with fact #0
+  // would make it the only one most people ever read.
+  const [factIndex, setFactIndex] = useState(() => randomFactIndex());
 
   // Rotate every 2 seconds so users don't stare at the same word during the
   // first multi-second load. Cheap setInterval; cleared on unmount.
   useEffect(() => {
     const id = window.setInterval(() => setVerb(randomVerb()), 2000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  // Facts are full sentences, so they get longer to read than a verb does —
+  // advancing SEQUENTIALLY (not re-randomizing) means a load that outlasts
+  // one fact moves on to a new one instead of a coin-flip chance of repeating
+  // the same line twice in a row.
+  useEffect(() => {
+    const id = window.setInterval(
+      () => setFactIndex((i) => (i + 1) % LOADING_FACTS.length),
+      4500,
+    );
     return () => window.clearInterval(id);
   }, []);
 
@@ -51,7 +75,10 @@ export function LoadingTasks({ noun = "tasks" }: { noun?: string }) {
         {verb} {noun}
         <DotDot />
       </div>
-      <div className="mt-2 text-xs text-fg-muted">
+      <p className="mx-auto mt-3 max-w-md px-4 text-xs text-fg-muted">
+        {LOADING_FACTS[factIndex]}
+      </p>
+      <div className="mt-2 text-[11px] text-fg-muted/70">
         Cold starts take a moment — once the engine's warm, loads come straight from cache.
       </div>
     </div>
@@ -60,6 +87,10 @@ export function LoadingTasks({ noun = "tasks" }: { noun?: string }) {
 
 function randomVerb(): string {
   return VERBS[Math.floor(Math.random() * VERBS.length)];
+}
+
+function randomFactIndex(): number {
+  return Math.floor(Math.random() * LOADING_FACTS.length);
 }
 
 /** Animated three-dot ellipsis. CSS-only, no extra packages. */

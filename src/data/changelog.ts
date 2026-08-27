@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.125.0",
+    date: "2026-08-27",
+    changes: [
+      "Loading screens now rotate fun facts about ARC — how it's built, and real numbers about the app and its data — while you wait",
+      "Supply Chain's dashboard cards now use four distinct colors instead of mostly red",
+      "'Coming soon' dashboard cards now always sit at the end of their department section",
+    ],
+  },
+  {
     version: "0.124.0",
     date: "2026-08-27",
     changes: [

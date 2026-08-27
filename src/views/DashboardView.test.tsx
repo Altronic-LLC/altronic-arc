@@ -294,3 +294,39 @@ describe("DashboardView — a shipped feature is never a 'Coming soon' card", ()
     expect(within(suppliers).getByText(/SRM tool/i)).toBeInTheDocument();
   });
 });
+
+describe("DashboardView — 'Coming soon' cards sit at the end of their section", () => {
+  // Ray, 2026-08-27: a placeholder mixed in among real cards reads as a gap
+  // in the middle of a working section rather than "the rest is on its way" —
+  // every department groups its live cards first and its placeholders last.
+  const SECTIONS = [
+    "Engineering",
+    "Panels",
+    "Operations",
+    "Coils",
+    "Quality Control",
+    "Supply Chain",
+    "Customer Service / Sales",
+  ];
+
+  it.each(SECTIONS)("in %s, no live card follows a 'Coming soon' one", async (title) => {
+    await renderDashboard();
+    const heading = screen.getByRole("heading", { name: title, level: 2 });
+    const section = heading.closest("section") as HTMLElement;
+    // Every card, in DOM order — a live card is a <button>, a placeholder is
+    // the aria-disabled <div> PlaceholderCard renders.
+    const toggleButton = within(section).getByRole("button", { name: title });
+    const cards = Array.from(
+      section.querySelectorAll<HTMLElement>("button, [aria-disabled='true']"),
+    ).filter((el) => el !== toggleButton);
+
+    let seenPlaceholder = false;
+    for (const card of cards) {
+      const isPlaceholder = card.getAttribute("aria-disabled") === "true";
+      if (!isPlaceholder && seenPlaceholder) {
+        throw new Error(`A live card follows a "Coming soon" placeholder in ${title}`);
+      }
+      if (isPlaceholder) seenPlaceholder = true;
+    }
+  });
+});
