@@ -18,6 +18,15 @@ async function renderDetail(id = 25) {
     routePattern: "/supply-chain/supplier/:id",
   });
   await waitFor(() => expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument());
+  // The supplier itself, its Contacts and its Issues are three SEPARATE
+  // queries that resolve independently — under a fast/idle machine they
+  // usually land within the same tick as the heading above, but under a
+  // loaded or slower one (CI) they can trail it, and a bare `getByText`
+  // right after this helper returns would race them. Wait for both
+  // scoped sections to have rendered their (possibly zero) count before
+  // handing back to the test. Confirmed flaking in CI, 2026-08-27.
+  await waitFor(() => expect(screen.getByText(/Contacts \(\d+\)/i)).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByText(/Issues \(\d+\)/i)).toBeInTheDocument());
   return result;
 }
 
