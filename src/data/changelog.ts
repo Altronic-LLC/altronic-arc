@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.125.1",
+    date: "2026-08-27",
+    changes: [
+      "Fix downloading an attachment (CSA Listings and everywhere else) doing nothing on phones — it now fetches the file directly instead of relying on a browser sign-in that isn't there on mobile",
+    ],
+  },
+  {
     version: "0.125.0",
     date: "2026-08-27",
     changes: [

@@ -3357,6 +3357,40 @@ deletes the list-item attachment; removing from the project folder only
 deletes the file in SharePoint. The other copy is untouched. This is by
 design: users may want one but not the other to disappear.
 
+### Downloading a list-item attachment goes through the authenticated endpoint
+
+`AttachmentsSection.tsx` — shared by CSA Listings, EIRs, ECNs, FAITs, Gray
+Market Requests, Suppliers, Supplier Contacts/Issues and more — downloads a
+file through `fetchAttachmentBlob` (fetch the bytes via the authenticated
+`_api/…/$value` endpoint, then trigger a save from a `blob:` URL), never a
+bare `<a href={downloadUrl} download>`.
+
+That plain link is the SAME broken shape the Supplier Logo feature already
+hit: `downloadUrl` is the unauthenticated `ServerRelativeUrl` file link, and
+the `download` attribute makes the browser fetch it invisibly in the
+background using only whatever SharePoint session cookie the browser
+already happens to have — it is NOT a real page navigation, so it can't
+follow an interactive sign-in redirect the way clicking a plain link
+without `download` can. On desktop this is usually masked by already being
+signed into Office 365 in the same browser; on a phone — especially inside
+the installed PWA, which keeps no such cookie — there normally isn't one,
+so the download silently does nothing. Reported 2026-08-27 ("I need the
+ability to download attachments from CSA listing especially on mobile"),
+but CSA Listings was just the one someone happened to try it on — every
+consumer of this shared component had the identical bug, and the fix in one
+place reaches all of them.
+
+A `blob:` URL is same-origin regardless of where the underlying fetch's
+bytes came from, and Safari (mobile included) DOES honour the `download`
+attribute for a same-origin URL — unlike the cross-origin SharePoint link,
+which it doesn't. The filename text and the download icon are both buttons
+now, not links, since there's no href to navigate to until the fetch
+resolves; a spinner replaces the icon while it's in flight, and a failed
+fetch toasts rather than failing silently. The object URL is deliberately
+NOT revoked immediately — some browsers start the save asynchronously, and
+revoking it on the same tick as `.click()` can cancel a download that had
+barely started.
+
 ### Copying attachments between two list-items (EIR → Task promotion)
 
 The EIR's and the task's list-item attachments are two separate SP REST

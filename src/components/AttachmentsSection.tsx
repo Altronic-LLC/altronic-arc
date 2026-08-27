@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Download, FileText, Paperclip, Trash2, Upload } from "lucide-react";
+import { Download, FileText, Loader2, Paperclip, Trash2, Upload } from "lucide-react";
 import {
   useAttachments,
   useDeleteAttachment,
@@ -10,11 +10,16 @@ import {
   SharePointUnavailableError,
   type SharePointUnavailableCause,
 } from "@/api/sharepoint";
-import { isReservedImageAttachment, type AttachmentParent } from "@/api/attachments";
+import {
+  fetchAttachmentBlob,
+  isReservedImageAttachment,
+  type AttachmentParent,
+} from "@/api/attachments";
 import { filesFromClipboard } from "@/lib/pasteFiles";
 import { useFileDrop } from "./useFileDrop";
 import { cn } from "@/lib/cn";
 import { NameAttachmentDialog, needsAttachmentName } from "./NameAttachmentDialog";
+import { pushToast } from "./Toast";
 
 interface AttachmentsSectionProps {
   parent: AttachmentParent;
@@ -63,6 +68,61 @@ export function AttachmentsSection({ parent, itemId }: AttachmentsSectionProps) 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     addFiles(Array.from(e.target.files ?? []));
     e.target.value = ""; // allow re-selecting the same file
+  }
+
+  // Which attachment is currently being fetched for download — at most one
+  // at a time, so a second click on another row while the first is still
+  // in flight is a distinct, independently-tracked download.
+  const [downloadingFile, setDownloadingFile] = useState<string | null>(null);
+
+  /**
+   * Download a file via the authenticated `_api/…/$value` endpoint rather
+   * than a bare `<a href={downloadUrl} download>`.
+   *
+   * `downloadUrl` is the plain, unauthenticated `ServerRelativeUrl` file
+   * link — the SAME shape that silently 401s an `<img>` fetch (see
+   * `SupplierLogo.tsx`'s doc comment). A plain `<a download>` click on it
+   * doesn't do a real page navigation (which CAN follow an interactive
+   * sign-in redirect); the `download` attribute makes the browser fetch it
+   * invisibly in the background using only whatever SharePoint session
+   * cookie the browser already happens to have. On desktop that's often
+   * masked by already being signed into Office in the same browser; on a
+   * phone — especially inside the installed PWA, which keeps no such
+   * cookie at all — there usually isn't one, so the download silently does
+   * nothing (Ray, 2026-08-27: "I need the ability to download attachments
+   * from CSA listing especially on mobile").
+   *
+   * `fetchAttachmentBlob` is the same authenticated, CORS-friendly `_api/`
+   * fetch the Supplier Logo feature already uses for exactly this reason —
+   * routing every download through it here fixes it for every consumer of
+   * this shared component (CSA Listings, EIRs, ECNs, FAITs, Gray Market
+   * Requests, Suppliers and more) in one place, not just CSA. The blob it
+   * returns is turned into a same-origin `blob:` URL, which Safari (mobile
+   * included) DOES honour the `download` attribute for, unlike a
+   * cross-origin one.
+   */
+  async function handleDownload(fileName: string) {
+    setDownloadingFile(fileName);
+    try {
+      const blob = await fetchAttachmentBlob(parent, itemId, fileName);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      // Not revoked immediately — some browsers start the save
+      // asynchronously and a same-tick revoke can cancel it.
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (err) {
+      pushToast({
+        message: `Couldn't download "${fileName}". ${(err as Error).message}`,
+        variant: "error",
+      });
+    } finally {
+      setDownloadingFile(null);
+    }
   }
 
   /**
@@ -142,27 +202,29 @@ export function AttachmentsSection({ parent, itemId }: AttachmentsSectionProps) 
               className="flex items-center gap-2 rounded-md border border-border bg-surface-2 px-2.5 py-1.5 text-sm"
             >
               <FileText className="h-4 w-4 shrink-0 text-fg-muted" />
-              <a
-                href={a.downloadUrl}
-                download={a.fileName}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="min-w-0 flex-1 truncate text-fg hover:text-accent hover:underline"
+              <button
+                type="button"
+                onClick={() => handleDownload(a.fileName)}
+                disabled={downloadingFile === a.fileName}
+                className="min-w-0 flex-1 truncate text-left text-fg hover:text-accent hover:underline disabled:opacity-70"
                 title={a.fileName}
               >
                 {a.fileName}
-              </a>
-              <a
-                href={a.downloadUrl}
-                download={a.fileName}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-fg-muted hover:text-fg"
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDownload(a.fileName)}
+                disabled={downloadingFile === a.fileName}
+                className="text-fg-muted hover:text-fg disabled:opacity-50"
                 aria-label={`Download ${a.fileName}`}
                 title="Download"
               >
-                <Download className="h-3.5 w-3.5" />
-              </a>
+                {downloadingFile === a.fileName ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Download className="h-3.5 w-3.5" />
+                )}
+              </button>
               <button
                 onClick={() => {
                   if (
