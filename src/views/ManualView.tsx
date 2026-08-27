@@ -117,9 +117,13 @@ const SECTIONS: ManualSection[] = [
       "project picker",
       "choose a project",
       "all projects",
+      "quick links",
+      "dashboard buttons",
+      "dashboard shortcuts",
+      "quick link buttons",
     ],
     searchText:
-      "The Dashboard is grouped into department sections — Engineering, Panels, Operations, Coils, Quality Control, Supply Chain, and Customer Service / Sales — each a divider heading with its cards beneath. Engineering has live cards: Engineering Tasks, EIRs, Test Sheets and more. Coils has the Potting Sample Log; Quality Control has the Digital QC and Ignition QC Defect Logs; Supply Chain has Gray Market Requests, Suppliers (the SRM tool), Cost Impact Notices and FAITs; Customer Service / Sales has Open Orders Report, Visit Reports and Customers (the CRM tool). Most live cards show the count of active items (tasks not Complete, EIRs not Closed), a colour-coded status mini-bar, and click through to that type's page; a few — Open Orders Report, Visit Reports, Suppliers, Cost Impact Notices and Customers — are description-only, since there's no count that reads as more useful than the tool itself. A Mine / Company switch flips every count and bar between your own items and the whole company's; Mine is the default. A project picker sits next to it and works the same way — pick a project and every card's count and mini-bar narrows to just that project, in place, combining with Mine/Company rather than navigating anywhere. Clicking a card afterward opens that type's full list pre-filtered to the picked project.",
+      "The Dashboard is grouped into department sections — Engineering, Panels, Operations, Coils, Quality Control, Supply Chain, and Customer Service / Sales — each a divider heading with its cards beneath. A department can show a row of admin-managed Quick Links buttons above its cards, linking out to a SharePoint site or another tool outside ARC; the row only appears once an admin has added at least one for that department, at /admin/quick-links. Engineering has live cards: Engineering Tasks, EIRs, Test Sheets and more. Coils has the Potting Sample Log; Quality Control has the Digital QC and Ignition QC Defect Logs; Supply Chain has Gray Market Requests, Suppliers (the SRM tool), Cost Impact Notices and FAITs; Customer Service / Sales has Open Orders Report, Visit Reports and Customers (the CRM tool). Most live cards show the count of active items (tasks not Complete, EIRs not Closed), a colour-coded status mini-bar, and click through to that type's page; a few — Open Orders Report, Visit Reports, Suppliers, Cost Impact Notices and Customers — are description-only, since there's no count that reads as more useful than the tool itself. A Mine / Company switch flips every count and bar between your own items and the whole company's; Mine is the default. A project picker sits next to it and works the same way — pick a project and every card's count and mini-bar narrows to just that project, in place, combining with Mine/Company rather than navigating anywhere. Clicking a card afterward opens that type's full list pre-filtered to the picked project.",
     render: () => (
       <>
         <P>
@@ -130,6 +134,14 @@ const SECTIONS: ManualSection[] = [
           cards beneath it. A card is either live or a dimmed{" "}
           <strong>Coming soon</strong> placeholder, so the sections fill in as
           each team's tools come online.
+        </P>
+        <P>
+          A department can also show a row of <strong>Quick Links</strong>{" "}
+          buttons above its cards — shortcuts to a SharePoint site, a vendor
+          portal, or anywhere else outside ARC that team opens often. Admins
+          manage these at <strong>Admin → Quick Links</strong>; the row only
+          appears once a department has at least one configured, and clicking
+          a button opens it in a new tab.
         </P>
         <P>
           Within a section you get one <strong>card per work type</strong>. Each
@@ -3255,9 +3267,15 @@ const SECTIONS: ManualSection[] = [
       "operations project log",
       "panel projects admin",
       "panel user roles admin",
+      "quick links",
+      "quick links admin",
+      "dashboard buttons",
+      "dashboard shortcuts",
+      "quick link order",
+      "reorder quick links",
     ],
     searchText:
-      "Admins manage four things from the Admin section in the header: the list of admin users (/admin/admins), the Engineering Project Log — the master project list (/admin/projects), EIR roles (/admin/eir-roles) which control who can edit the Engineering Response (engineer role) and Buyer Code (supply chain role) fields on an EIR, and the Operations Projects list (/admin/operations-projects) — the master project list for Operations tasks. The Admin link only appears in the header for users on the admin list, and non-admins who open an /admin URL directly are sent back to the dashboard — the admin pages never show for them. Add an admin from the Admins page; their name appears in the header on their next sign-in. Removing yourself is disabled to prevent lockouts. A small hardcoded bootstrap set of admins stays in the code as a safety net.",
+      "Admins manage several things from the Admin section in the header: the list of admin users (/admin/admins), the Engineering Project Log — the master project list (/admin/projects), EIR roles (/admin/eir-roles) which control who can edit the Engineering Response (engineer role) and Buyer Code (supply chain role) fields on an EIR, the Operations Projects list (/admin/operations-projects) — the master project list for Operations tasks, Panel Projects and Panel User Roles, and Quick Links (/admin/quick-links) — button links shown above each department's cards on the Dashboard, grouped by department, reordered with up/down arrows within their own department, and shown to everyone signed in even though only admins can manage them. The Admin link only appears in the header for users on the admin list, and non-admins who open an /admin URL directly are sent back to the dashboard — the admin pages never show for them. Add an admin from the Admins page; their name appears in the header on their next sign-in. Removing yourself is disabled to prevent lockouts. A small hardcoded bootstrap set of admins stays in the code as a safety net.",
     render: () => (
       <>
         <P>
@@ -3389,6 +3407,39 @@ const SECTIONS: ManualSection[] = [
           lock any panel order fields yet — see the <em>Panel Orders</em>{" "}
           section.
         </P>
+        <H3>Quick Links admin</H3>
+        <P>
+          The <strong>Quick Links →</strong> link (or{" "}
+          <code>/admin/quick-links</code>) manages the button links shown
+          above each department's cards on the Dashboard — a shortcut to a
+          SharePoint site, a vendor portal, anywhere outside ARC people on
+          that team open often. The page groups links into the same seven
+          department bands the Dashboard uses; a link only shows to everyone
+          under the department it's tagged with.
+        </P>
+        <P>
+          Click <strong>Add link</strong> under a department, give it a
+          button name and a full web address (starting with{" "}
+          <code>https://</code> or <code>http://</code>), and save — it
+          appears on the Dashboard immediately. Use the{" "}
+          <strong>pencil</strong> to rename a link or move it to a different
+          department, and <strong>Remove</strong> to take it off the
+          Dashboard entirely.
+        </P>
+        <P>
+          The <strong>▲ / ▼</strong> arrows next to a link move it up or down
+          within its own department — that's the order the buttons appear in
+          on the Dashboard. A link already first or last in its department has
+          the arrow that would move it further disabled. A department with no
+          links configured shows no Quick Links row at all on the Dashboard —
+          not an empty heading.
+        </P>
+        <Tip>
+          Everyone signed in sees the Quick Links buttons; only admins can add,
+          rename, reorder or remove one. If the SharePoint Quick Links list
+          isn't configured yet, a yellow notice at the top of the page says so
+          and the Dashboard simply shows no Quick Links anywhere until it is.
+        </Tip>
         <Tip>
           If you're trying to add yourself and the modal closes silently with
           no row appearing, the SharePoint Admins list isn't configured yet —

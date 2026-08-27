@@ -233,6 +233,7 @@ src/
 │   ├── faits.ts                  FAIT CRUD + comments (Supply Chain) — no delete
 │   ├── testSheets.ts             Test Results CRUD
 │   ├── admins.ts                 Admins list CRUD
+│   ├── quickLinks.ts             Quick Links CRUD (Dashboard button links, admin-managed)
 │   ├── csaListings.ts            CSA Listings CRUD (Engineering certification register)
 │   ├── drawingLogs.ts            Drawing File Logs — 4 registers, one parametrised module
 │   ├── buildRequests.ts          Build Requests (master) CRUD
@@ -270,6 +271,7 @@ src/
 ├── data/
 │   ├── mockData.ts               Sample tasks, EIRs, projects, people
 │   ├── dashboardMockData.ts      Sample dashboard metrics
+│   ├── quickLinksMockData.ts     Sample Quick Links, a few per department
 │   ├── csaMockData.ts            Sample CSA certification files
 │   ├── drawingLogMockData.ts     Sample drawings + sketches (incl. sparse & full change logs)
 │   ├── teradyneMockData.ts       Sample Teradyne log + reference rows
@@ -318,6 +320,7 @@ src/
 │   ├── useBuildRequests.ts       Build Requests + Items queries/mutations
 │   ├── useTestSheets.ts          Test sheet queries + mutations
 │   ├── useAdmins.ts              Admins list CRUD
+│   ├── useQuickLinks.ts          Quick Links queries, mutations + reorder (admin-guarded)
 │   ├── useIsAdmin.ts             Is the signed-in user an admin? (+ useAdminAccess)
 │   ├── useCurrentUser.ts         Signed-in user as a Person
 │   ├── useDirectory.ts           Tenant directory for pickers (+ diagnostics probe)
@@ -421,6 +424,7 @@ src/
 │   ├── DetailTopBar.tsx          Shared "you are here" bar on detail pages
 │   ├── StatusPills.tsx           Task list status counters
 │   ├── OperationsStatusPills.tsx Operations equivalent
+│   ├── QuickLinksRow.tsx         Admin-managed link buttons above a Dashboard department's cards
 │   ├── FilterBar.tsx             Task Project / Assigned / Search / Created By filters
 │   ├── EirFilterBar.tsx          EIR Project / Engineer / Search / Reporter filters
 │   ├── EirViewTabs.tsx           EIR workflow view tabs + counts (list + board)
@@ -554,6 +558,7 @@ src/
 │   ├── AdminPanelRolesView.tsx   Admin → Panel User Roles
 │   ├── AdminAdminsView.tsx       Admin → Admins
 │   ├── AdminEirRolesView.tsx     Admin → EIR Roles
+│   ├── AdminQuickLinksView.tsx   Admin → Quick Links (Dashboard button links, per-department reorder)
 │   ├── AdminNotificationRecipientsView.tsx  Admin → Notification recipients
 │   ├── AboutView.tsx             In-app architecture + ER diagrams
 │   └── ManualView.tsx            In-app user manual
@@ -2436,6 +2441,71 @@ deploy; that is the point.
   manual"). The usual protocol is every user-visible change gets an entry; this
   is an explicit exception, recorded here so a later tidy-up doesn't "fix" it by
   adding one.
+
+## Admin → Quick Links
+
+One shared list (`api/quickLinks.ts`), tagged per row with one of the seven
+`DASHBOARD_DEPARTMENTS` (`types/task.ts` — the same array `DashboardView`'s
+`SECTION_TITLES` now derives from, so the two can't name a department
+differently). Admins manage it at `/admin/quick-links`; every signed-in user
+sees the resulting buttons above that department's cards on the Dashboard.
+
+**Deliberately not per-department lists.** The request was for one admin
+table with a department field, not seven separate lists to keep in sync —
+matching how a single Admins/EIR-Roles-shaped list is the existing pattern
+for something small and admin-curated, rather than a list per team.
+
+**On `SITES.engineering`, no default id** — same shape as Admins and EIR
+Roles: the list doesn't exist in SharePoint yet, and (unlike EIR Roles'
+lockout-safety flag) there's nothing to enforce here, so an unset
+`VITE_SP_QUICK_LINKS_LIST_ID` just means the Dashboard shows no Quick Links
+anywhere and the admin screen shows a yellow "not configured" notice — never
+an error.
+
+**Reordering is up/down arrows within a department, not drag-and-drop**,
+even though `@dnd-kit` is already a dependency (used for Kanban status
+columns). A short per-department list doesn't need a drag handle to get the
+same result, and arrows are reachable by keyboard and a screen reader with no
+extra wiring. `SortOrder` is an admin-set integer, unique only within a
+department; moving a link swaps its order with whichever NEIGHBOUR is on
+that side (`useMoveQuickLink` in `hooks/useQuickLinks.ts`), so a move never
+touches a link in a different department or leaves two rows sharing one
+order value. A link already first or last in its department just has that
+arrow disabled — there's no "can't move further" error.
+
+**The confirmed write is applied to the cache in `onSuccess`, not left to
+the background `onSettled` refetch.** `useMoveQuickLink`'s optimistic
+`onMutate` patch and its `mutationFn`'s real neighbor calculation are two
+separate code paths — one runs against the cache before the write, the
+other against a fresh read after it — and without an `onSuccess` reconciling
+them, the UI would show only the optimistic guess until an unrelated
+refetch happened to land. Caught in review before shipping: an early version
+of the reorder test only exercised the optimistic patch (mutateAsync doesn't
+await the invalidate it triggers), so it would have passed even if the real
+write's neighbor math disagreed with the guess — the test now reads the
+mutation's own confirmed pair via `listQuickLinks()` after the mutation
+settles, and was verified by reintroducing a direction bug in the neighbor
+calculation and watching it fail.
+
+**A department with no configured links shows NO Quick Links row at all** —
+not an empty "Quick Links" heading. `QuickLinksRow` (`components/`) returns
+`null` on an empty list; the same call as `PlaceholderCard` always sorting
+last, applied one level earlier.
+
+**Only a real `http:`/`https:` URL renders as a clickable button.** An
+admin-entered value that doesn't parse as one — a bare hostname with no
+scheme, a paste gone wrong, or (in principle) a `javascript:` URL — shows as
+a visually inert, dashed button with a tooltip explaining why, rather than
+either a broken link or a live one to something unintended. The admin form
+(`AdminQuickLinksView.tsx`) also refuses to SAVE such a value in the first
+place; the render-side check is defence in depth for a row that reached the
+list some other way (edited directly in SharePoint).
+
+**Managing is admin-only, enforced in the view AND in every mutation** —
+the same defence-in-depth as Admins and CSA Listings. Reading is open to
+any signed-in user, since the whole point is that everyone sees the
+buttons; the real security boundary remains SharePoint's own list
+permissions.
 
 ## Admin → Notification recipients
 

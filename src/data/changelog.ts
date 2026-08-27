@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.128.0",
+    date: "2026-08-27",
+    changes: [
+      "Dashboard: each department can show a row of Quick Links buttons above its cards — shortcuts to a SharePoint site or another tool",
+      "Admin → Quick Links: add, rename, reorder and remove the buttons shown on the Dashboard, grouped by department",
+    ],
+  },
+  {
     version: "0.127.0",
     date: "2026-08-27",
     changes: [

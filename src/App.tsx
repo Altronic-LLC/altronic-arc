@@ -66,6 +66,11 @@ const AdminOperationsProjectsView = lazy(() =>
     default: m.AdminOperationsProjectsView,
   })),
 );
+const AdminQuickLinksView = lazy(() =>
+  import("@/views/AdminQuickLinksView").then((m) => ({
+    default: m.AdminQuickLinksView,
+  })),
+);
 // Open Orders Report Tool — the Sales bundle. Pulls in ExcelJS (~950KB) only
 // when someone actually generates or parses a workbook, via a dynamic import
 // inside useOpenOrdersReports, so it never reaches the main chunk.
@@ -271,6 +276,16 @@ export function App() {
                 <RequireAdmin>
                   <Suspense fallback={<LoadingTasks noun="the admin page" />}>
                     <AdminOperationsProjectsView />
+                  </Suspense>
+                </RequireAdmin>
+              }
+            />
+            <Route
+              path="/admin/quick-links"
+              element={
+                <RequireAdmin>
+                  <Suspense fallback={<LoadingTasks noun="the admin page" />}>
+                    <AdminQuickLinksView />
                   </Suspense>
                 </RequireAdmin>
               }

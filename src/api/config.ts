@@ -46,6 +46,16 @@ export const SP_EIR_ROLES_LIST_ID = import.meta.env.VITE_SP_EIR_ROLES_LIST_ID;
 export const EIR_ROLES_ENFORCED = USE_MOCK || !!SP_EIR_ROLES_LIST_ID;
 
 /**
+ * Quick Links list — admin-managed external-link buttons shown above each
+ * Dashboard department's cards. One shared list (Title = label, `Url` text,
+ * `Department` choice matching `DASHBOARD_DEPARTMENTS`, `SortOrder` number),
+ * on the Engineering site like Admins and EIR Roles. No default id: the list
+ * doesn't exist yet, and (like Admins) the feature simply shows nothing —
+ * not an error — until this is set. Managed at /admin/quick-links.
+ */
+export const SP_QUICK_LINKS_LIST_ID = import.meta.env.VITE_SP_QUICK_LINKS_LIST_ID;
+
+/**
  * SharePoint site web URL — used to call the SP REST API (specifically for
  * list-item attachments, which Graph v1.0 doesn't surface cleanly).
  * Example: https://coopermachineryservices.sharepoint.com/sites/Altronic_Engineering

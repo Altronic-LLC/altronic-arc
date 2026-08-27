@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
 import { MOCK_TASKS, MOCK_EIRS, MOCK_TEST_SHEETS, MOCK_PROJECTS } from "@/data/mockData";
@@ -313,12 +313,16 @@ describe("DashboardView — 'Coming soon' cards sit at the end of their section"
     await renderDashboard();
     const heading = screen.getByRole("heading", { name: title, level: 2 });
     const section = heading.closest("section") as HTMLElement;
+    // Scoped to the card grid specifically (data-testid="dept-cards"), not
+    // the whole <section> — that also contains the Quick Links row, whose
+    // own aria-disabled state (an admin-entered URL that doesn't parse)
+    // means something unrelated to "this is a Coming Soon placeholder".
+    const grid = within(section).getByTestId("dept-cards");
     // Every card, in DOM order — a live card is a <button>, a placeholder is
     // the aria-disabled <div> PlaceholderCard renders.
-    const toggleButton = within(section).getByRole("button", { name: title });
     const cards = Array.from(
-      section.querySelectorAll<HTMLElement>("button, [aria-disabled='true']"),
-    ).filter((el) => el !== toggleButton);
+      grid.querySelectorAll<HTMLElement>("button, [aria-disabled='true']"),
+    );
 
     let seenPlaceholder = false;
     for (const card of cards) {
@@ -328,5 +332,39 @@ describe("DashboardView — 'Coming soon' cards sit at the end of their section"
       }
       if (isPlaceholder) seenPlaceholder = true;
     }
+  });
+});
+
+describe("DashboardView — Quick Links", () => {
+  // Mock fixtures (data/quickLinksMockData.ts) put links under Engineering,
+  // Panels and Supply Chain, and none under the other four departments.
+  it("shows a link button above the cards for a department that has one", async () => {
+    await renderDashboard();
+    const heading = screen.getByRole("heading", { name: "Engineering", level: 2 });
+    const section = heading.closest("section") as HTMLElement;
+    // Quick Links load via their own query (not seeded above), so wait for
+    // the row rather than asserting the instant the dashboard first paints.
+    const link = await waitFor(() =>
+      within(section).getByRole("link", { name: /Engineering SharePoint/i }),
+    );
+    expect(link).toHaveAttribute("href", expect.stringContaining("sharepoint.com"));
+
+    // Above the cards, not mixed in among them — DOM order within the section.
+    const grid = within(section).getByTestId("dept-cards");
+    expect(
+      link.compareDocumentPosition(grid) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("shows nothing at all for a department with no configured links", async () => {
+    await renderDashboard();
+    // Wait for Engineering's row to appear first, so the quick-links query has
+    // definitely resolved everywhere before asserting Coils has none.
+    await waitFor(() =>
+      expect(screen.getByRole("link", { name: /Engineering SharePoint/i })).toBeInTheDocument(),
+    );
+    const heading = screen.getByRole("heading", { name: "Coils", level: 2 });
+    const section = heading.closest("section") as HTMLElement;
+    expect(within(section).queryAllByRole("link")).toHaveLength(0);
   });
 });

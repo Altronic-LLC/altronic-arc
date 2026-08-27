@@ -39,6 +39,8 @@ import { useOperationsTasks } from "@/hooks/useOperationsTasks";
 import { useCsaListings } from "@/hooks/useCsaListings";
 import { useEcns } from "@/hooks/useEcns";
 import { useFaits } from "@/hooks/useFaits";
+import { useQuickLinksFor } from "@/hooks/useQuickLinks";
+import { QuickLinksRow } from "@/components/QuickLinksRow";
 import { isEcnOnHold } from "@/lib/ecnMapper";
 import { isFaitOpen } from "@/lib/faitFields";
 import { useBuildRequests } from "@/hooks/useBuildRequests";
@@ -51,6 +53,8 @@ import { LoadingTasks } from "@/components/LoadingTasks";
 import { SingleSelect } from "@/components/SearchableSelect";
 import {
   BUILD_REQUEST_STATUSES,
+  DASHBOARD_DEPARTMENTS,
+  type DashboardDepartment,
   EIR_STATUSES,
   OPERATIONS_STATUSES,
   PANEL_ORDER_STATUSES,
@@ -99,15 +103,9 @@ type Scope = "mine" | "company";
 
 // Every DeptSection title on the page, in the order they appear. Used to drive
 // the "Collapse all / Expand all" toggle without hardcoding the count twice.
-const SECTION_TITLES = [
-  "Engineering",
-  "Panels",
-  "Operations",
-  "Coils",
-  "Quality Control",
-  "Supply Chain",
-  "Customer Service / Sales",
-];
+// Shared with the Quick Links feature as `DASHBOARD_DEPARTMENTS` (types/task.ts)
+// so the two never name a department differently.
+const SECTION_TITLES: string[] = [...DASHBOARD_DEPARTMENTS];
 
 function personMatches(list: Person[], email: string): boolean {
   if (!email) return false;
@@ -976,13 +974,20 @@ function DeptSection({
   notice,
   children,
 }: {
-  title: string;
+  /** One of `DASHBOARD_DEPARTMENTS` — also what admin-managed Quick Links are tagged with. */
+  title: DashboardDepartment;
   collapsed?: boolean;
   onToggle?: () => void;
   /** Full-width note rendered between the heading and the cards (e.g. a no-access explainer). */
   notice?: React.ReactNode;
   children: React.ReactNode;
 }) {
+  // Quick Links render ABOVE the notice and the cards — an admin-picked
+  // shortcut row, not something scoped to whatever's wrong with this
+  // department's data load. Renders nothing when this department has none
+  // configured (QuickLinksRow's own call).
+  const { data: quickLinks = [] } = useQuickLinksFor(title);
+
   return (
     <section className="flex flex-col gap-3">
       <button
@@ -1004,8 +1009,17 @@ function DeptSection({
       </button>
       {!collapsed && (
         <>
+          <QuickLinksRow links={quickLinks} />
           {notice}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">{children}</div>
+          {/* data-testid scopes the "no live card follows a placeholder" test to
+              just the card grid — without it, a QuickLinksRow button sharing
+              this <section> could be mistaken for a dashboard card. */}
+          <div
+            data-testid="dept-cards"
+            className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
+          >
+            {children}
+          </div>
         </>
       )}
     </section>

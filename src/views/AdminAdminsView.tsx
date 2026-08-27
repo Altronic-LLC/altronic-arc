@@ -94,6 +94,12 @@ export function AdminAdminsView() {
           >
             Panel User Roles →
           </Link>
+          <Link
+            to="/admin/quick-links"
+            className="text-xs text-accent underline-offset-2 hover:underline"
+          >
+            Quick Links →
+          </Link>
         </nav>
       </header>
 

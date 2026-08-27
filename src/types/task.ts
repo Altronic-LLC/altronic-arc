@@ -100,6 +100,40 @@ export interface ProjectReference {
 }
 
 /**
+ * The Dashboard's department sections, in the order they're rendered.
+ * Shared between `DashboardView`'s `SECTION_TITLES` and the Quick Links
+ * feature — a link is tagged with one of these, and the admin table groups
+ * by it. Kept as ONE array so the two never drift into naming a department
+ * differently.
+ */
+export const DASHBOARD_DEPARTMENTS = [
+  "Engineering",
+  "Panels",
+  "Operations",
+  "Coils",
+  "Quality Control",
+  "Supply Chain",
+  "Customer Service / Sales",
+] as const;
+
+export type DashboardDepartment = (typeof DASHBOARD_DEPARTMENTS)[number];
+
+/**
+ * Row in the Quick Links SharePoint list — an admin-managed external link
+ * shown as a button above a department's cards on the Dashboard. `order` is
+ * an admin-set integer, unique only within a department, ascending; a tie
+ * (e.g. two rows created before ordering existed) breaks on `id` so the
+ * sort is always total. `id` is the SP list item id.
+ */
+export interface QuickLink {
+  id: number;
+  label: string;
+  url: string;
+  department: DashboardDepartment;
+  order: number;
+}
+
+/**
  * Row in the Admins SharePoint list. Drives header-visibility and admin-
  * page access. `id` is the SP list item id (used for delete).
  */
