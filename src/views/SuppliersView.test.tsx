@@ -64,4 +64,15 @@ describe("SuppliersView", () => {
     await userEvent.click(screen.getByRole("button", { name: /new supplier/i }));
     expect(await screen.findByRole("dialog", { name: /new supplier/i })).toBeInTheDocument();
   });
+
+  // A plain external link to Medius (Cooper's supplier-onboarding tool) —
+  // no data connection yet, just a way to find it from the screen where
+  // someone would otherwise go looking for "add a new supplier."
+  it("links out to Medius supplier onboarding, in a new tab", async () => {
+    await renderList();
+    const link = screen.getByRole("link", { name: /supplier onboarding/i });
+    expect(link).toHaveAttribute("href", "https://app.medius.com/cooperservices/suppliers/directory");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", expect.stringContaining("noopener"));
+  });
 });

@@ -2088,9 +2088,12 @@ const SECTIONS: ManualSection[] = [
       "supplier logo",
       "logo",
       "company logo",
+      "supplier onboarding",
+      "medius",
+      "sap onboarding",
     ],
     searchText:
-      "The SRM Tool at /supply-chain/suppliers, under Departments > Supply Chain, backed by three lists on the Altronic_PMO SharePoint site: Suppliers List, Supplier Contact List and Supplier Issue Tracker. Suppliers List is the anchor — open a supplier to see their contacts and open issues; the other two lists have no screens of their own. A supplier carries a Company Name, Business Partner Number, Address, Website, Status (Active, Phase Out, Archive, Indirect), Core Competency (a multi-choice of ~59 material/part categories), an Assigned Buyer, a Point of Contact, Watchers, Notes, Supplier Score, three performance percentages, and a Logo image when SharePoint has one on file. The supplier list searches by company name and BP number and filters by Status and Core Competency; each row shows the supplier's logo when it has one. Contacts and Issues each expand into a card on the supplier's page with their own fields, comments, watchers and attachments — the same expandable-card pattern Build Request parts use. Supplier Contacts have no delete on Suppliers or Issues — a supplier is the anchor other records point at, and an issue is closed by resolving it, not removing it; contacts can be removed. Any signed-in user can add, edit, comment on and watch a supplier, a contact or an issue.",
+      "The SRM Tool at /supply-chain/suppliers, under Departments > Supply Chain, backed by three lists on the Altronic_PMO SharePoint site: Suppliers List, Supplier Contact List and Supplier Issue Tracker. Suppliers List is the anchor — open a supplier to see their contacts and open issues; the other two lists have no screens of their own. A Supplier Onboarding link next to New Supplier opens Medius, Cooper's supplier-onboarding tool for SAP, in a new tab — a plain link today, with no automatic sync back into this list yet. A supplier carries a Company Name, Business Partner Number, Address, Website, Status (Active, Phase Out, Archive, Indirect), Core Competency (a multi-choice of ~59 material/part categories), an Assigned Buyer, a Point of Contact, Watchers, Notes, Supplier Score, three performance percentages, and a Logo image when SharePoint has one on file. The supplier list searches by company name and BP number and filters by Status and Core Competency; each row shows the supplier's logo when it has one. Contacts and Issues each expand into a card on the supplier's page with their own fields, comments, watchers and attachments — the same expandable-card pattern Build Request parts use. Supplier Contacts have no delete on Suppliers or Issues — a supplier is the anchor other records point at, and an issue is closed by resolving it, not removing it; contacts can be removed. Any signed-in user can add, edit, comment on and watch a supplier, a contact or an issue.",
     render: () => (
       <>
         <P>
@@ -2098,6 +2101,12 @@ const SECTIONS: ManualSection[] = [
           (<code>/supply-chain/suppliers</code>) is the SRM tool — one place
           to look up a supplier and see everyone and everything tied to them:
           contacts and open issues, all in one page.
+        </P>
+        <P>
+          <strong>Supplier Onboarding</strong>, next to New Supplier, opens{" "}
+          <strong>Medius</strong> — Cooper's supplier-onboarding tool for
+          SAP — in a new tab. It's a plain link; signing a new supplier up in
+          Medius doesn't (yet) create anything here automatically.
         </P>
         <H3>Suppliers List — the anchor</H3>
         <P>

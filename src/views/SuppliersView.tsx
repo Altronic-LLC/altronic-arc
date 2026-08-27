@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { MessageSquare, Plus, Truck } from "lucide-react";
+import { ExternalLink, MessageSquare, Plus, Truck } from "lucide-react";
 import { useSuppliers } from "@/hooks/useSuppliers";
 import type { Supplier } from "@/types/task";
 import { SUPPLIER_CORE_COMPETENCIES, SUPPLIER_STATUSES } from "@/types/task";
@@ -22,6 +22,18 @@ import { cn } from "@/lib/cn";
 // =============================================================================
 
 const INITIAL_ROWS = 150;
+
+/**
+ * Cooper's supplier-onboarding tool — a separate SaaS product (Medius), not
+ * part of ARC. A plain external link, opened in a new tab; there is no data
+ * connection between the two yet. Ray, 2026-08-27: onboarding a supplier
+ * onto SAP happens in Medius, so this is where someone starts that, from
+ * the screen where they'd otherwise go looking for "add a new supplier."
+ * A Power Automate flow (built and owned outside ARC) is the planned path
+ * to eventually sync new Medius suppliers into this list automatically —
+ * see the SRM Tool section in CLAUDE.md.
+ */
+const MEDIUS_SUPPLIER_DIRECTORY_URL = "https://app.medius.com/cooperservices/suppliers/directory";
 
 export function SuppliersView() {
   const navigate = useNavigate();
@@ -66,6 +78,16 @@ export function SuppliersView() {
             The SRM tool — open a supplier to see their contacts and open issues.
           </p>
         </div>
+        <a
+          href={MEDIUS_SUPPLIER_DIRECTORY_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg transition-colors hover:bg-surface-2"
+          title="Opens Medius in a new tab — sign-in there is separate from ARC"
+        >
+          <ExternalLink className="h-4 w-4" />
+          Supplier Onboarding
+        </a>
         <button
           onClick={() => setShowNew(true)}
           className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90"

@@ -1400,6 +1400,27 @@ above) — even though `AssignedBuyer` genuinely IS an assignee-style field
 here, unlike `CustomerNote`. The decision was made once, for register-style
 cards as a class, rather than re-litigated per list.
 
+**"Supplier Onboarding" is a plain external link to Medius** (Ray,
+2026-08-27) — `MEDIUS_SUPPLIER_DIRECTORY_URL` in `SuppliersView.tsx`, next to
+New Supplier. Medius (`app.medius.com/cooperservices/...`) is Cooper's
+separate SaaS tool for onboarding a new supplier onto SAP; this is nothing
+more than a link that opens it in a new tab — **there is no data connection
+between the two today**. A Power Automate flow — built and owned OUTSIDE
+ARC, since ARC has no backend to host one — is the planned path to sync a
+newly-onboarded Medius supplier into Suppliers List automatically, landing
+it in front of ARC's SRM Tool the moment it's created rather than needing
+someone to key it in twice. That flow doesn't exist yet; when it does,
+nothing on ARC's side needs to change, since ARC only ever reads whatever is
+in the list. Medius exposes a public REST API with an OpenAPI/Swagger spec
+(`api.medius.com/api/swagger/stable`) suited to Power Automate's Custom
+Connector feature, but there's no certified or independent-publisher Medius
+connector in Microsoft's Power Platform connector list — whoever builds this
+imports the spec directly. See the chat history around 2026-08-27 for the
+fuller checklist (API access on Cooper's Medius contract, credential type,
+push vs. poll, rate limits, sandbox, IP allowlisting) — none of that is
+ARC's concern, but it's worth keeping the answer in one place rather than
+re-deriving it.
+
 ### @-mention auto-watch is ONE function now, and it takes a resolver
 
 `autoWatchFromMentions` in **`src/api/autoWatch.ts`** is shared by all six
