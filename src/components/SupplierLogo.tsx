@@ -33,7 +33,7 @@ export function SupplierLogo({ supplierId, logo, className }: SupplierLogoProps)
   // fetch per row would be its own performance problem).
   const { data: attachments } = useAttachments("supplier", logo ? supplierId : null);
   const file = logo ? attachments?.find((a) => a.fileName === logo.fileName) : undefined;
-  const { data: blobUrl } = useAttachmentBlobUrl(file?.downloadUrl);
+  const { data: blobUrl } = useAttachmentBlobUrl("supplier", file ? supplierId : undefined, file?.fileName);
 
   if (blobUrl) {
     return (

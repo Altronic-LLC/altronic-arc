@@ -14,10 +14,14 @@ describe("isReservedImageAttachment", () => {
 });
 
 describe("fetchAttachmentBlob", () => {
-  it("fetches the mock-mode data: URI directly, no auth needed", async () => {
+  it("looks the attachment up by (parent, itemId, fileName) and fetches its data: URI", async () => {
     const [logo] = await listAttachments("supplier", 25);
     expect(logo.fileName).toBe("Reserved_ImageAttachment_demo_arrow.png");
-    const blob = await fetchAttachmentBlob(logo.downloadUrl);
+    const blob = await fetchAttachmentBlob("supplier", 25, logo.fileName);
     expect(blob.size).toBeGreaterThan(0);
+  });
+
+  it("throws for a fileName that isn't actually attached", async () => {
+    await expect(fetchAttachmentBlob("supplier", 25, "nope.png")).rejects.toThrow();
   });
 });

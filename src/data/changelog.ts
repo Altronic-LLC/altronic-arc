@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.122.3",
+    date: "2026-08-26",
+    changes: [
+      "Fix supplier logos still not showing after the previous fix — a second, deeper cause (CORS on the raw file link) was silently falling back to the same placeholder icon",
+    ],
+  },
+  {
     version: "0.122.2",
     date: "2026-08-26",
     changes: [

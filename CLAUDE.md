@@ -1316,19 +1316,38 @@ Six things about this list's columns:
   attachment, and deleting it through that generic UI would break the Logo
   column's reference. `SupplierLogo.tsx` is the one place that deliberately
   looks for it.
-  **A bare `<img src={file.downloadUrl}>` does NOT work in real mode** —
-  confirmed live, 2026-08-26 (Ray: "supplier logos aren't showing", every row
-  showing a broken-image icon). An `<img>` fetch carries no Authorization
-  header, and SharePoint's session isn't a browser cookie MSAL maintains
-  either, so the request 401s. The "Download" links elsewhere in
-  `AttachmentsSection` get away with a plain `<a href>` because a top-level
-  navigation can follow an interactive login redirect; a passive image embed
-  can't. `useAttachmentBlobUrl` (`hooks/useAttachments.ts`) fixes this by
-  fetching the bytes through `fetchAttachmentBlob` — the same bearer-token
-  `spFetch` path every other SP REST call here uses — and handing
-  `SupplierLogo` an object URL instead. Any future feature that embeds a
-  SharePoint file inline (not just a click-through download) needs the same
-  treatment.
+  **Two layered bugs before this actually worked**, both confirmed live
+  2026-08-26 and both worth remembering for ANY future feature that embeds a
+  SharePoint file inline rather than linking to it:
+  1. **A bare `<img src={file.downloadUrl}>` does NOT work** — that
+     `downloadUrl` is the plain absolute `ServerRelativeUrl` file link.
+     An `<img>` fetch carries no Authorization header, and SharePoint's
+     session isn't a browser cookie MSAL maintains either, so the request
+     401s and renders a broken-image icon (Ray: "supplier logos aren't
+     showing", every row showing one). The "Download" links elsewhere in
+     `AttachmentsSection` get away with the same plain `<a href>` because a
+     top-level navigation CAN follow an interactive login redirect; a
+     passive image embed can't.
+  2. **Routing that SAME file link through `spFetch` (bearer token
+     attached) fixes the auth 401 and hits a SECOND wall**: the raw file
+     link is served by SharePoint's file handler, not the `_api/` REST
+     surface, and doesn't return CORS headers for a cross-origin `fetch()`
+     from the GitHub Pages origin — so the browser still refuses to hand
+     the response body back. This failed SILENTLY into the same fallback
+     icon as bug #1, which is why it looked identical to "still not fixed"
+     from the outside (Ray: "I know a bunch have actual images loaded but
+     none are visible") even though the auth layer now genuinely worked.
+  The actual fix: `fetchAttachmentBlob` (`api/attachments.ts`) takes
+  `(parent, itemId, fileName)`, NOT a URL, and builds
+  `AttachmentFiles/getByFileName(...)/$value` — an `_api/` OData endpoint,
+  the SAME REST surface `listAttachments` / `uploadAttachment` /
+  `deleteAttachment` already use successfully, so it carries whatever CORS
+  configuration already makes THOSE work. `useAttachmentBlobUrl`
+  (`hooks/useAttachments.ts`) wraps it in a query and hands `SupplierLogo`
+  an object URL. **The lesson: prefer an `_api/` endpoint over a raw
+  SharePoint file link for anything read programmatically (fetch, not
+  browser navigation) — the file link works for links people click, and
+  silently doesn't for code that reads the response.**
   **Shown in both places**: a small icon in the Suppliers list row, and a
   larger one in the Supplier detail header — only suppliers whose `Logo`
   field is actually set trigger the attachment fetch, so the 531-row list

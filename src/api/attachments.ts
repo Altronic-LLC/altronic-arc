@@ -183,30 +183,59 @@ if (USE_MOCK) {
 }
 
 /**
- * Fetch an attachment's bytes as a Blob, the same authenticated way every
- * other SP REST call in this file does (`spFetch`'s bearer token) rather
- * than a plain browser request.
+ * Fetch an attachment's bytes as a Blob, via the `_api/` OData endpoint —
+ * `AttachmentFiles/getByFileName(...)/$value` — NOT the plain absolute
+ * `ServerRelativeUrl` file link `listAttachments` also returns.
  *
- * This exists because a bare `<img src="https://tenant.sharepoint.com/...">`
- * doesn't work: the browser sends no Authorization header for an <img>
- * fetch, and SharePoint's own session cookie isn't present either (MSAL is
- * token-based, not cookie-based) — so the request 401s and the browser
- * renders a broken-image icon. Confirmed live, 2026-08-26 (Ray: "supplier
- * logos aren't showing"). The "Download" links elsewhere in
- * AttachmentsSection get away with a plain `<a href>` because a top-level
- * navigation CAN follow an interactive login redirect; a passive image
- * embed can't. `SupplierLogo` uses this to build an object URL instead.
+ * Two different bugs taught this, in order:
+ *
+ *  1. A bare `<img src="https://tenant.sharepoint.com/.../file.jpg">`
+ *     doesn't work at all: the browser sends no Authorization header for an
+ *     `<img>` fetch, and there's no SharePoint session cookie either (MSAL
+ *     is token-based, not cookie-based) — the request 401s and the browser
+ *     renders a broken-image icon. Confirmed live, 2026-08-26 (Ray:
+ *     "supplier logos aren't showing", every row showing a broken image).
+ *     The "Download" links elsewhere in `AttachmentsSection` get away with
+ *     a plain `<a href>` because a top-level navigation CAN follow an
+ *     interactive login redirect; a passive image embed can't.
+ *  2. Routing that SAME absolute file URL through `spFetch` (bearer token
+ *     attached) fixed the auth problem but hit a SECOND one: the raw file
+ *     link is served by SharePoint's file handler, not the `_api/` REST
+ *     surface, and doesn't send CORS headers for a cross-origin `fetch()`
+ *     from the GitHub Pages origin — so the browser still refused to hand
+ *     the response body back, silently, and every logo kept falling back to
+ *     the icon. Confirmed live, 2026-08-26 (Ray: "a bunch have actual
+ *     images loaded but none are visible" — worse than #1, because the
+ *     fetch/auth machinery now genuinely worked and the failure had moved
+ *     one layer deeper, into CORS, with the fallback masking it exactly the
+ *     same way).
+ *
+ * `AttachmentFiles/.../$value` IS an `_api/` endpoint, the same REST surface
+ * `listAttachments` / `uploadAttachment` / `deleteAttachment` already use
+ * successfully in real mode — so it carries whatever CORS configuration
+ * already makes THOSE work, unlike the bare file link.
  *
  * Mock mode's downloadUrls are already directly usable (data: URIs or
- * `URL.createObjectURL` results), so this is a plain unauthenticated fetch
- * there — no bearer token to add, nothing to route through spFetch for.
+ * `URL.createObjectURL` results), so this looks the seeded entry up and
+ * does a plain unauthenticated fetch on ITS downloadUrl — no bearer token,
+ * no `_api/` path, nothing SharePoint-specific to route through.
  */
-export async function fetchAttachmentBlob(downloadUrl: string): Promise<Blob> {
+export async function fetchAttachmentBlob(
+  parent: AttachmentParent,
+  itemId: number,
+  fileName: string,
+): Promise<Blob> {
   if (USE_MOCK) {
-    const res = await fetch(downloadUrl);
+    const found = (mockStore.get(mockKey(parent, itemId)) ?? []).find(
+      (a) => a.fileName === fileName,
+    );
+    if (!found) throw new Error(`Attachment "${fileName}" not found`);
+    const res = await fetch(found.downloadUrl);
     return res.blob();
   }
-  const res = await spFetch<Response>(downloadUrl);
+  const path =
+    `${resolveListPath(parent, itemId)}/AttachmentFiles/getByFileName('${encodeURIComponent(fileName)}')/$value`;
+  const res = await spFetch<Response>(path);
   return res.blob();
 }
 

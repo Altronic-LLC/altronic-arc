@@ -25,21 +25,28 @@ export function useAttachments(parent: AttachmentParent, itemId: number | null) 
 /**
  * Load an attachment's bytes as a browser object URL — for embedding as
  * `<img src>`, which (unlike a click-through "Download" link) can't rely on
- * a plain SharePoint URL: an `<img>` fetch carries no Authorization header
- * and no SharePoint session cookie either, so it 401s and the browser shows
- * a broken-image icon. `fetchAttachmentBlob` does the same bearer-token
- * fetch every other SP REST call here uses; this just wraps it in a query.
+ * the plain `ServerRelativeUrl` file link `useAttachments` returns: that
+ * link 401s from an `<img>` fetch (no auth header, no session cookie) and,
+ * even routed through an authenticated fetch, fails CORS (it's a raw file
+ * link, not an `_api/` REST call). `fetchAttachmentBlob` takes
+ * (parent, itemId, fileName) rather than a URL for exactly that reason — it
+ * builds the `_api/.../$value` OData download path instead. See its doc
+ * comment in api/attachments.ts for the two-bugs history.
  *
  * Object URLs are intentionally never revoked — these are small images
  * (a company logo), fetched at most once per session per file thanks to
  * `staleTime: Infinity`, so the leak is bounded by how many distinct logos
  * a session actually opens.
  */
-export function useAttachmentBlobUrl(downloadUrl: string | undefined) {
+export function useAttachmentBlobUrl(
+  parent: AttachmentParent,
+  itemId: number | undefined,
+  fileName: string | undefined,
+) {
   return useQuery({
-    queryKey: ["attachment-blob-url", downloadUrl],
-    queryFn: async () => URL.createObjectURL(await fetchAttachmentBlob(downloadUrl!)),
-    enabled: !!downloadUrl,
+    queryKey: ["attachment-blob-url", parent, itemId, fileName],
+    queryFn: async () => URL.createObjectURL(await fetchAttachmentBlob(parent, itemId!, fileName!)),
+    enabled: itemId != null && !!fileName,
     staleTime: Infinity,
     gcTime: Infinity,
     retry: false,
