@@ -80,6 +80,72 @@ needs detail, add a sub-bullet underneath it.
   less window is the goal, offline-first is a separate, much bigger
   effort.
 
+- **FAIT sign-off workflow — sequenced alerts through SQE, Engineering and KAM.**
+  (Ray, 2026-08-28.) Today a FAIT's sign-offs can be filled in any order and
+  nobody is told when it is their turn. Make the chain drive the alerts.
+
+  The flow asked for:
+  1. **An engineer or a KAM is assigned** -> alert them. **Explicitly "no action
+     required yet"** — it is a heads-up that they are on the hook later, not a
+     request. Wording matters here; an action-required email that needs no
+     action is how people learn to ignore them.
+  2. **Nothing is asked of the engineer until SQE signs off** (`SQESignOff` ->
+     `Approved`). That transition alerts the **assigned engineer**: review and
+     sign off.
+  3. **Engineer signs off** (`EngSignOff` -> `Approved`) -> alert the **KAM**.
+  4. **All required sign-offs done** -> the FAIT can be closed, and closing
+     alerts **everyone watching**.
+
+  The good news: the list already has the columns and the statuses for this.
+  `FAIT_STATUSES` is literally `Open / FAIT Part Received / This is with SQE /
+  This is with ENG / This is with KAM / Closed`, and `SQESignOff` /
+  `EngSignOff` / `KAMSignOff` all exist (`src/lib/faitFields.ts`). So this is
+  mostly firing the right alert on the right transition — plus deciding whether
+  Status auto-advances to match (see the questions below).
+
+  Pieces it touches:
+  - `hooks/useFaits.ts` — `useUpdateFaitAssignedEngineer` / `useUpdateFaitKam`
+    already exist and already add the person as a watcher; they just need the
+    heads-up alert. The sign-off transitions hang off `useUpdateFaitFields`,
+    which is the one hook that can write them.
+  - `lib/faitAlerts.ts` — one pure builder per alert, returning
+    `ChangeEmail[]`, tested without touching Graph. Same shape as
+    `buildFaitClosedEmails`.
+
+  Things to get right, each of which has bitten this repo before:
+  - **`to !== from` is the guard.** `"SQESignOff" in fields` is PRESENCE, not
+    change — re-saving an already-approved FAIT must not re-ask the engineer.
+    And the "stays quiet" tests need a fixture that STARTS at the target value,
+    or they pass whether the guard exists or not.
+  - **`kamNeeded()` already decides whether a KAM sign-off is required at all**
+    (`FaitDetailView.tsx`). If it isn't needed, the chain completes at the
+    engineer and step 3 must not fire — otherwise every FAIT waits forever on a
+    signature nobody owes.
+  - **A close alert already exists.** `fireFaitClosedAlert` emails the
+    `FAIT_NEW_ALERTS` intake list on Status -> Closed. Step 4 adds watchers;
+    decide whether that is a second recipient set on the same email or a
+    separate one, and de-dupe so nobody gets both.
+  - **Don't drop the generic status note.** It is what tells the *initiator*
+    their FAIT moved. The specific alerts go only to whoever must act.
+
+  Open questions to settle before building:
+  - **Who is "SQE"?** There is `SQEINITIALS` (text) but **no SQE person
+    column** — so there is nobody to email for step 1's SQE equivalent, and
+    nobody to notify when a FAIT lands at "This is with SQE". Options: add a
+    person column, or use a configured recipient list like
+    `FAIT_NEW_ALERTS`. This is the one genuine blocker.
+  - **What happens when SQE sign-off is `Failed`?** It is a real choice value
+    (`Approved / Pending / Failed`) and the flow above only describes the happy
+    path. Presumably it goes back to the initiator rather than forward to
+    engineering — needs saying.
+  - **Does Status auto-advance** with each sign-off, or does a person set it?
+    Auto is tidier and keeps the list view honest; manual means the status and
+    the sign-offs can disagree.
+  - **Does reassigning** an engineer or KAM re-send the heads-up? (Probably
+    yes, to the new person only.)
+  - **`EngSignOff` and `KAMSignOff` offer only `Approved`** — there is no
+    rejection value on either. If an engineer can reject, the column needs one.
+
 ## Later
 
 ## Done / shipped
