@@ -96,6 +96,19 @@ needs detail, add a sub-bullet underneath it.
   4. **All required sign-offs done** -> the FAIT can be closed, and closing
      alerts **everyone watching**.
 
+  **Status auto-advances with the sign-offs** (Ray, 2026-08-28), it is not set
+  by hand:
+
+  | On | Status becomes |
+  |---|---|
+  | `SQESignOff` -> Approved | `This is with ENG` |
+  | `EngSignOff` -> Approved, KAM applicable | `This is with KAM` |
+  | `EngSignOff` -> Approved, KAM not applicable | ready to close (stays put) |
+
+  "If applicable" is `kamNeeded()`, which already exists. When no KAM is owed,
+  the chain finishes at the engineer — it must NOT park the FAIT at "This is
+  with KAM" waiting on a signature nobody owes.
+
   The good news: the list already has the columns and the statuses for this.
   `FAIT_STATUSES` is literally `Open / FAIT Part Received / This is with SQE /
   This is with ENG / This is with KAM / Closed`, and `SQESignOff` /
@@ -128,19 +141,32 @@ needs detail, add a sub-bullet underneath it.
   - **Don't drop the generic status note.** It is what tells the *initiator*
     their FAIT moved. The specific alerts go only to whoever must act.
 
-  Open questions to settle before building:
-  - **Who is "SQE"?** There is `SQEINITIALS` (text) but **no SQE person
-    column** — so there is nobody to email for step 1's SQE equivalent, and
-    nobody to notify when a FAIT lands at "This is with SQE". Options: add a
-    person column, or use a configured recipient list like
-    `FAIT_NEW_ALERTS`. This is the one genuine blocker.
+  Still open — two of the four, both about the unhappy path:
+  **ANSWERED — who is "SQE"** (Ray, 2026-08-28): there is deliberately nobody
+  listed. SQE is **whoever is managing these requests after they are created**
+  — typically Jerrod Waldron, but it is a role, not a named field, and
+  `SQEINITIALS` is only a text record of who signed.
+
+  So it is a **configured recipient list**, not a person column — the same
+  shape as the EIR triage queues and the FAIT intake alert. Give it its own
+  env var (`VITE_FAIT_SQE_REVIEWERS`, defaulting to Jerrod) rather than reusing
+  `FAIT_NEW_ALERTS`: the two lists happen to overlap today, and re-pointing the
+  intake queue must not silently re-point who gets asked to sign. That is
+  exactly why `EIR_RESPONSE_ACCEPTED_ALERTS` is separate from
+  `EIR_TRIAGE_PROJECT_REVIEWERS`.
+
+  Consequences worth noting:
+  - A new recipient-list const also needs a `LISTS` entry in
+    `AdminNotificationRecipientsView` **in the same commit**, or the address is
+    invisible to the one screen that checks it (the FAIT alerts already shipped
+    missing that once).
+  - It also needs adding to `.github/workflows/deploy.yml`'s named var list, or
+    it can never be set in production however carefully the repo variable is
+    configured.
   - **What happens when SQE sign-off is `Failed`?** It is a real choice value
     (`Approved / Pending / Failed`) and the flow above only describes the happy
     path. Presumably it goes back to the initiator rather than forward to
     engineering — needs saying.
-  - **Does Status auto-advance** with each sign-off, or does a person set it?
-    Auto is tidier and keeps the list view honest; manual means the status and
-    the sign-offs can disagree.
   - **Does reassigning** an engineer or KAM re-send the heads-up? (Probably
     yes, to the new person only.)
   - **`EngSignOff` and `KAMSignOff` offer only `Approved`** — there is no
