@@ -2187,3 +2187,384 @@ export interface CostImpactNoticeInput {
   bpReference: string;
   notes: string;
 }
+
+// =============================================================================
+// CMMS — Altronic Maintenance Tasks, Scheduled Maintenance, Altronic Equipment
+// List. All three on the PMO site (SITES.pmo), alongside the Operations Task
+// List. Schemas captured live 2026-08-27:
+//   scripts/altronic-maintenance-tasks-schema.json
+//   scripts/scheduled-maintenance-schema.json
+//   scripts/altronic-equipment-list-schema.json
+//
+// The two maintenance lists were empty at discovery, so ARC is the only thing
+// that has ever written to them — which is why their choice values are clamped
+// to unions below. The Equipment list is NOT: it holds 378 rows of imported
+// legacy data whose choice columns allow fill-in values, so its choices stay
+// raw strings (a value ARC doesn't recognise must still render, not vanish).
+// =============================================================================
+
+/** `Category` — the same choice set on BOTH maintenance lists. */
+export const MAINTENANCE_CATEGORIES = [
+  "Corrective / Repair",
+  "Preventive",
+  "Inspection",
+  "Calibration",
+  "Cleaning",
+  "Oil Change",
+  "Safety",
+  "Improvement",
+] as const;
+export type MaintenanceCategory = (typeof MAINTENANCE_CATEGORIES)[number];
+
+/**
+ * `TaskType` — NEVER a user-picked field. ARC sets it from whether the work
+ * order came off a schedule: "Regular Maintenance" when ScheduledMaintenanceRef
+ * is set, "Request" when it isn't (see `maintenanceTaskTypeFor`).
+ */
+export const MAINTENANCE_TASK_TYPES = ["Request", "Regular Maintenance"] as const;
+export type MaintenanceTaskType = (typeof MAINTENANCE_TASK_TYPES)[number];
+
+/** `Status` — the work-order workflow. Wider than the Operations task one. */
+export const MAINTENANCE_STATUSES = [
+  "Backlog",
+  "Up Next",
+  "Started",
+  "Awaiting Parts",
+  "On Hold",
+  "Complete",
+  "Canceled",
+] as const;
+export type MaintenanceStatus = (typeof MAINTENANCE_STATUSES)[number];
+
+/** `Priority` — "Med" (not "Medium") is the real SharePoint choice, plus Emergency. */
+export const MAINTENANCE_PRIORITIES = ["Low", "Med", "High", "Emergency"] as const;
+export type MaintenancePriority = (typeof MAINTENANCE_PRIORITIES)[number];
+
+/**
+ * `DueStatus` — **maintained by a Power Automate flow, never written by ARC.**
+ * Read it, show it, don't touch it (see api/maintenanceTasks.ts).
+ */
+export const MAINTENANCE_DUE_STATUSES = ["On-Track", "Late"] as const;
+export type MaintenanceDueStatus = (typeof MAINTENANCE_DUE_STATUSES)[number];
+
+/** `FrequencyUnit` on Scheduled Maintenance. */
+export const FREQUENCY_UNITS = ["Days", "Weeks", "Months", "Years"] as const;
+export type FrequencyUnit = (typeof FREQUENCY_UNITS)[number];
+
+/**
+ * `ScheduleBasis` — how the next occurrence is computed once one is completed.
+ * Fixed advances from the previous DUE date (a monthly PM stays on the 1st
+ * however late it was done); Floating advances from the completion date (an
+ * oil change is due 90 days after the last one, not 90 days after it was
+ * supposed to happen). See lib/maintenanceSchedule.ts.
+ */
+export const SCHEDULE_BASES = ["Fixed", "Floating"] as const;
+export type ScheduleBasis = (typeof SCHEDULE_BASES)[number];
+
+/** `Criticality` on the Equipment list. */
+export const EQUIPMENT_CRITICALITIES = ["Critical", "Important", "Standard"] as const;
+export type EquipmentCriticality = (typeof EQUIPMENT_CRITICALITIES)[number];
+
+/** `AssetStatus` on the Equipment list. */
+export const EQUIPMENT_ASSET_STATUSES = ["In Service", "Down", "Standby", "Retired"] as const;
+export type EquipmentAssetStatus = (typeof EQUIPMENT_ASSET_STATUSES)[number];
+
+/** `Department` on the Equipment list — the owning shop-floor department. */
+export const EQUIPMENT_DEPARTMENTS = [
+  "COILS",
+  "ENG.",
+  "MACH SHOP",
+  "Panels",
+  "PCB",
+  "PROD",
+  "QC",
+  "REPAIR",
+  "SMT",
+] as const;
+export type EquipmentDepartment = (typeof EQUIPMENT_DEPARTMENTS)[number];
+
+/**
+ * `EquipmentType` — 53 legacy asset-class codes carried over from the old
+ * maintenance system. Offered as picker options; NOT clamped on read.
+ */
+export const EQUIPMENT_TYPES = [
+  "4-AXIS",
+  "AIRCOMP",
+  "AIRDRYER",
+  "APPLI",
+  "APRESS",
+  "AUTOTEST",
+  "BPUMP",
+  "CC TRAY",
+  "CHUCK",
+  "CMM",
+  "CMM-ROOM",
+  "COILWIND",
+  "CONFCOAT",
+  "CONVEYOR",
+  "COOLER",
+  "CUT/STRP",
+  "CUTCLNCH",
+  "CYL.",
+  "DGRNDR",
+  "DISPENSE",
+  "DRLPRS",
+  "ELATHE",
+  "EXTMAINT",
+  "FILTER",
+  "HMC",
+  "HOIST",
+  "HVAC DIF",
+  "LABEL",
+  "MILLMACH",
+  "MISC",
+  "OVEN",
+  "PC-N-PLC",
+  "PEDGRND",
+  "POTTING",
+  "PREFEED",
+  "PRESS",
+  "PRESTEST",
+  "PRINTER",
+  "SAW",
+  "SGRNDR",
+  "TAPPER",
+  "TOWMOTOR",
+  "TRNGCNTR",
+  "TST STND",
+  "TST-EQUP",
+  "VAPDEGRE",
+  "VISE",
+  "VMC",
+  "VPUMP",
+  "WAT DISP",
+  "WJET",
+  "XRAY",
+  "Other",
+] as const;
+export type EquipmentType = (typeof EQUIPMENT_TYPES)[number];
+
+/**
+ * `Location` on the Equipment list — 62 physical locations, several of them
+ * near-duplicates of each other ("HARNESS DEPARMENT" / "HARNESS DEPARTMENT").
+ * That is the data, typos included; it is NOT tidied here, because a value
+ * rewritten in ARC would stop matching the SharePoint views people also read.
+ */
+export const EQUIPMENT_LOCATIONS = [
+  "@ MORI LATHE",
+  "ALL PARKING LOTS",
+  "ASSEMBLY",
+  "CIM/CD FINAL ASSEMBLY",
+  "CMM ROOM @ BACK OF MACHINE",
+  "COIL",
+  "COIL DEPARTMENT",
+  "COMPRESSOR ROOM",
+  "DEMAK PLATFORM",
+  "DIGITAL",
+  "DIGITAL LAB",
+  "DIGITAL PRODUCTION",
+  "DIGITAL PRODUCTION FLOOR",
+  "DIGITAL Q.C.",
+  "DIP ROOM",
+  "DRIVE COM LINE",
+  "ENGINEERING",
+  "ENTRANCE GATE",
+  "FADAL 6030",
+  "FINAL ASSEMBLY",
+  "HARNESS",
+  "HARNESS DEPARMENT",
+  "HARNESS DEPARTMENT",
+  "IGNITION LAB",
+  "INSP & TESTING",
+  "INSPECTION AND TESTING ROOM",
+  "JR",
+  "LOGISTICS",
+  "MACHINE SHOP",
+  "MACHINE SHOP  MORI SEIKI LATHE",
+  "MACHINE SHOP @ FADAL",
+  "MACHINE SHOP @ KITAMURA",
+  "MAINT SHOP SPARE",
+  "MAINTENANCE ROOM",
+  "MS",
+  "NEAR CUT AND CLINCH MACHINES",
+  "OUTSIDE DIP ROOM",
+  "PANELS",
+  "PCB",
+  "PLANT WIDE",
+  "POTTING ROOM",
+  "PRODUCTION",
+  "PRODUCTION @ 3 LINE",
+  "PRODUCTION DEPARTMENT",
+  "Q.C. DIGITAL",
+  "QC",
+  "QC DIGITAL",
+  "QC IGNITION",
+  "QUALITY TEST LAB",
+  "REAR OF KITAMURA",
+  "REAR OF MACHINE SHOP",
+  "REAR PARKING AREA",
+  "REAR STORAGE AREA",
+  "RECEIVING",
+  "REPAIR DEPARTMENT",
+  "STATOR DEPARTMENT",
+  "SURFACE MOUNT AREA",
+  "TEST RM #1",
+  "TEST RM #4",
+  "TEST RM# 3",
+  "V LINE",
+  "WASH ROOM",
+] as const;
+export type EquipmentLocation = (typeof EQUIPMENT_LOCATIONS)[number];
+
+/**
+ * One asset from the Altronic Equipment List.
+ *
+ * The Operations task form has always seen this list as a bare
+ * `ProjectReference` (`{ lookupId, title }`) through `listOperationsEquipment()`
+ * — that contract is unchanged and still in use. `Equipment` is the full
+ * record, read by `listEquipment()`, for the CMMS screens that need more than
+ * a name.
+ */
+export interface Equipment {
+  /** SharePoint item id — the value every `EquipmentRef` lookup holds. */
+  lookupId: number;
+  /** `Title` — the asset name, e.g. "20 HP COMPRESSOR". */
+  name: string;
+  description: string;
+  serialNo: string;
+  manufacturer: string;
+  modelNumber: string;
+  /** Raw choice values — NOT clamped; see the note at the top of this section. */
+  equipmentType: string | null;
+  department: string | null;
+  location: string | null;
+  criticality: string | null;
+  assetStatus: string | null;
+  /** `ParentAsset` — a single lookup into this same list (a sub-assembly's parent). */
+  parentAsset: ProjectReference | null;
+  installDate: Date | null;
+  warrantyExpiry: Date | null;
+  /** `ResponsibleTech` — a SINGLE person column (bare lookupId on the wire). */
+  responsibleTech: Person | null;
+  hasAttachments: boolean;
+}
+
+/** One work order from the Altronic Maintenance Tasks list. */
+export interface MaintenanceTask {
+  id: number;
+  /** `WONumber` — `WO-YYYY-####`, generated by ARC (see nextWorkOrderNumber). */
+  woNumber: string;
+  title: string;
+  description: string;
+  status: MaintenanceStatus;
+  priority: MaintenancePriority | null;
+  category: MaintenanceCategory | null;
+  /** Derived by ARC from whether `scheduleRef` is set — never picked by a user. */
+  taskType: MaintenanceTaskType | null;
+  /** `DueStatus` — read-only here; a Power Automate flow owns this column. */
+  dueStatus: MaintenanceDueStatus | null;
+  startDate: Date | null;
+  dueDate: Date | null;
+  completedDate: Date | null;
+  /** `EquipmentRef` — single lookup into the Altronic Equipment List. */
+  equipment: ProjectReference | null;
+  /** `ScheduledMaintenanceRef` — single lookup; set means this came off a PM schedule. */
+  scheduleRef: ProjectReference | null;
+  /** `OperationsTaskReference` — single lookup into the Operations Task List. */
+  operationsTaskRef: ProjectReference | null;
+  /** SINGLE person columns — all three come back as bare lookupIds. */
+  assigned: Person | null;
+  reportedBy: Person | null;
+  completedBy: Person | null;
+  watchers: Person[];
+  techNotes: string;
+  failureCause: string;
+  resolution: string;
+  partsUsed: string;
+  laborHours: number | null;
+  downtimeHours: number | null;
+  /** Parsed from `Communication` — the same pipe-delimited format as everywhere else. */
+  comments: Comment[];
+  hasAttachments: boolean;
+  createdAt: Date;
+  modifiedAt: Date;
+}
+
+/** What a New Work Order form supplies. */
+export interface MaintenanceTaskInput {
+  title: string;
+  description?: string;
+  status?: MaintenanceStatus;
+  priority?: MaintenancePriority | null;
+  category?: MaintenanceCategory | null;
+  startDate?: Date | null;
+  dueDate?: Date | null;
+  equipmentLookupId?: number | null;
+  scheduleLookupId?: number | null;
+  operationsTaskLookupId?: number | null;
+  assigned?: Person | null;
+  watchers?: Person[];
+  techNotes?: string;
+  /** Optional override; `createMaintenanceTask` generates one when absent. */
+  woNumber?: string;
+}
+
+/** One PM schedule from the Scheduled Maintenance list. */
+export interface ScheduledMaintenance {
+  id: number;
+  title: string;
+  instructions: string;
+  category: MaintenanceCategory | null;
+  priority: MaintenancePriority | null;
+  /** `EquipmentRef` — single lookup into the Altronic Equipment List. */
+  equipment: ProjectReference | null;
+  frequencyInterval: number | null;
+  frequencyUnit: FrequencyUnit | null;
+  scheduleBasis: ScheduleBasis | null;
+  firstDueDate: Date | null;
+  nextDueDate: Date | null;
+  lastCompleted: Date | null;
+  /** SINGLE person columns — bare lookupIds on the wire, same as the work orders'. */
+  assignedTo: Person | null;
+  lastCompletedBy: Person | null;
+  watchers: Person[];
+  /** `TimeNeeded` — estimated hours for one occurrence. */
+  timeNeeded: number | null;
+  /** Days past due before the schedule counts as overdue. */
+  graceDays: number | null;
+  /** Days BEFORE the due date that the occurrence should start showing up. */
+  leadTimeDays: number | null;
+  active: boolean;
+  requiresShutdown: boolean;
+  lotoRequired: boolean;
+  hasAttachments: boolean;
+  createdAt: Date;
+  modifiedAt: Date;
+  /*
+   * There is deliberately NO `comments` here. Scheduled Maintenance has no
+   * `Communication` column and is not getting one — a schedule is a rule, and
+   * the conversation belongs on the work order the rule produced.
+   */
+}
+
+/** What a New Schedule form supplies. */
+export interface ScheduledMaintenanceInput {
+  title: string;
+  instructions?: string;
+  category?: MaintenanceCategory | null;
+  priority?: MaintenancePriority | null;
+  equipmentLookupId?: number | null;
+  frequencyInterval?: number | null;
+  frequencyUnit?: FrequencyUnit | null;
+  scheduleBasis?: ScheduleBasis | null;
+  firstDueDate?: Date | null;
+  nextDueDate?: Date | null;
+  assignedTo?: Person | null;
+  watchers?: Person[];
+  timeNeeded?: number | null;
+  graceDays?: number | null;
+  leadTimeDays?: number | null;
+  active?: boolean;
+  requiresShutdown?: boolean;
+  lotoRequired?: boolean;
+}

@@ -66,6 +66,7 @@ export interface MentionTarget {
     | "ecn"
     | "fait"
     | "operationsTask"
+    | "maintenanceTask"
     | "buildRequest"
     | "buildRequestItem"
     | "panelOrder"
@@ -90,6 +91,11 @@ const KIND_COPY: Record<
   ecn: { phrase: "an ECN", calloutLabel: "ECN", buttonText: "Open this ECN" },
   fait: { phrase: "a FAIT", calloutLabel: "FAIT", buttonText: "Open this FAIT" },
   operationsTask: { phrase: "a task", calloutLabel: "Task", buttonText: "Open this task" },
+  maintenanceTask: {
+    phrase: "a work order",
+    calloutLabel: "Work Order",
+    buttonText: "Open this work order",
+  },
   buildRequest: {
     phrase: "a build request",
     calloutLabel: "Build Request",

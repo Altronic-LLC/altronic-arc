@@ -61,6 +61,15 @@ const OperationsDetailView = lazy(() =>
     default: m.OperationsDetailView,
   })),
 );
+// CMMS — the maintenance module, part of the same Operations bundle. Every
+// view here is a default export, so no named-export unwrapping is needed.
+const MaintenanceListView = lazy(() => import("@/views/MaintenanceListView"));
+const MaintenanceBoardView = lazy(() => import("@/views/MaintenanceBoardView"));
+const MaintenanceDetailView = lazy(() => import("@/views/MaintenanceDetailView"));
+const MaintenanceCalendarView = lazy(() => import("@/views/MaintenanceCalendarView"));
+const MaintenanceDashboardView = lazy(() => import("@/views/MaintenanceDashboardView"));
+const PmLibraryView = lazy(() => import("@/views/PmLibraryView"));
+const AssetDetailView = lazy(() => import("@/views/AssetDetailView"));
 const AdminOperationsProjectsView = lazy(() =>
   import("@/views/AdminOperationsProjectsView").then((m) => ({
     default: m.AdminOperationsProjectsView,
@@ -458,6 +467,72 @@ export function App() {
               element={
                 <Suspense fallback={<LoadingTasks noun="this task" />}>
                   <OperationsDetailView />
+                </Suspense>
+              }
+            />
+            {/* CMMS — the maintenance module. React Router v6 ranks routes by
+                specificity rather than declaration order, so the /board,
+                /calendar, /dashboard, /schedules and /asset/:id children win
+                over the bare /operations/maintenance regardless of where they
+                sit; they are kept adjacent for readability, not correctness.
+
+                /operations/maintenance-task/:id is a SEPARATE top-level path,
+                NOT a child of /operations/maintenance — it is the contract
+                KIND_SEGMENTS.maintenanceTask in lib/appUrl.ts hands to every
+                notification email, so changing its shape breaks live links. */}
+            <Route
+              path="/operations/maintenance"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the work orders" />}>
+                  <MaintenanceListView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/operations/maintenance/board"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the board" />}>
+                  <MaintenanceBoardView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/operations/maintenance/calendar"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the maintenance calendar" />}>
+                  <MaintenanceCalendarView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/operations/maintenance/dashboard"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the maintenance dashboard" />}>
+                  <MaintenanceDashboardView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/operations/maintenance/schedules"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the maintenance schedules" />}>
+                  <PmLibraryView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/operations/maintenance/asset/:id"
+              element={
+                <Suspense fallback={<LoadingTasks noun="this asset" />}>
+                  <AssetDetailView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/operations/maintenance-task/:id"
+              element={
+                <Suspense fallback={<LoadingTasks noun="this work order" />}>
+                  <MaintenanceDetailView />
                 </Suspense>
               }
             />

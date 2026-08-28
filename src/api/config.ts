@@ -133,6 +133,27 @@ export const SP_ALTRONIC_EQUIPMENT_LIST_ID =
   import.meta.env.VITE_SP_ALTRONIC_EQUIPMENT_LIST_ID ||
   "6f2fb6e1-3b41-40de-b78b-2c43c3c3d068";
 
+// -----------------------------------------------------------------------------
+// CMMS (maintenance) — two more lists on the PMO site, alongside the Operations
+// Task List and the Altronic Equipment List those two already point at. IDs
+// discovered live 2026-08-27 (see scripts/altronic-maintenance-tasks-schema.json
+// and scripts/scheduled-maintenance-schema.json).
+//
+// Both are env-overridable with the documented default, the same shape as
+// SP_OPERATIONS_TASKS_LIST_ID above — these lists exist and are empty, so a
+// default can't lock anyone out of anything the way EIR Roles' would.
+// -----------------------------------------------------------------------------
+
+/** "Altronic Maintenance Tasks" — the work orders. */
+export const SP_MAINTENANCE_TASKS_LIST_ID =
+  import.meta.env.VITE_SP_MAINTENANCE_TASKS_LIST_ID ||
+  "ff9d837f-227f-4a9b-b534-5fc722ff8c3b";
+
+/** "Scheduled Maintenance" — the PM schedules work orders are raised from. */
+export const SP_SCHEDULED_MAINTENANCE_LIST_ID =
+  import.meta.env.VITE_SP_SCHEDULED_MAINTENANCE_LIST_ID ||
+  "9179e16d-5cc8-41bd-b085-eccd39293f98";
+
 /**
  * PMO site's classic SharePoint REST root — needed for Operations task
  * attachments (SP REST, not Graph; see src/api/attachments.ts). Same tenant

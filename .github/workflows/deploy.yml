@@ -77,6 +77,8 @@ jobs:
           # Quick Links (Admin → Quick Links). No default in config.ts — the
           # Dashboard just shows no Quick Links anywhere until this is set.
           VITE_SP_QUICK_LINKS_LIST_ID: ${{ vars.VITE_SP_QUICK_LINKS_LIST_ID }}
+          VITE_SP_MAINTENANCE_TASKS_LIST_ID: ${{ vars.VITE_SP_MAINTENANCE_TASKS_LIST_ID }}
+          VITE_SP_SCHEDULED_MAINTENANCE_LIST_ID: ${{ vars.VITE_SP_SCHEDULED_MAINTENANCE_LIST_ID }}
           # Open Orders Report Tool (Sales). The customer list id has NO
           # default in config.ts — the feature reports itself as "not set up"
           # until this is both set as a repo variable AND a deploy has run,

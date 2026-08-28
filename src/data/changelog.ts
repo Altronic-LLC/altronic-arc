@@ -20,6 +20,23 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.129.0",
+    date: "2026-08-27",
+    changes: [
+      "New Maintenance section under Operations — work orders, scheduled maintenance and the plant's asset register, all in one place",
+      "Maintenance calendar shows everything due in a month; scheduled jobs appear automatically as dashed outlines until someone starts, completes or skips them",
+      "A scheduled job that goes overdue stays on the calendar and in the overdue count until it's closed out — it never quietly rolls forward",
+      "Skipping a scheduled job asks for a reason, and the reason is kept on the record",
+      "Each maintenance schedule is set Fixed (the due date never moves) or Floating (the clock restarts when the job is actually done)",
+      "Work order board with an Awaiting Parts column, so work blocked on supply is visible rather than lumped in with On Hold",
+      "Only the assigned person or an admin can mark a work order Complete; completing an unassigned one assigns it to you",
+      "Maintenance dashboard — workload per person, overdue, PM compliance, planned vs unplanned, downtime by machine and machines currently down",
+      "Every maintenance chart groups by Department, and says out loud how many assets have no Department set rather than hiding them",
+      "Asset pages show a machine's details, open jobs, full maintenance history, its schedules and its manuals",
+      "Equipment list is now a full asset register — criticality, in-service status, parent machine, warranty and responsible tech",
+    ],
+  },
+  {
     version: "0.128.1",
     date: "2026-08-28",
     changes: [

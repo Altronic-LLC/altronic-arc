@@ -240,7 +240,9 @@ src/
 │   ├── buildRequestItems.ts      Build Request Items (detail) CRUD
 │   ├── operationsTasks.ts        Operations Task List CRUD (PMO site)
 │   ├── operationsProjects.ts     Operations Projects reference list
-│   ├── operationsEquipment.ts    Altronic Equipment List — read-only reference
+│   ├── operationsEquipment.ts    Altronic Equipment List — reference reads (2 shapes) + 3 edits
+│   ├── maintenanceTasks.ts       CMMS work orders CRUD + comments (Operations, PMO site) — no delete
+│   ├── scheduledMaintenance.ts   CMMS PM schedules CRUD (Operations, PMO site) — no delete, no comments
 │   ├── teradyneLog.ts            Teradyne Log CRUD, year-scoped (Operations, PMO site)
 │   ├── teradyneRefs.ts           Teradyne Employees/Products/Remarks (one parametrised module)
 │   ├── panelOrders.ts            Panel Orders CRUD (panelTeam site)
@@ -276,6 +278,7 @@ src/
 │   ├── drawingLogMockData.ts     Sample drawings + sketches (incl. sparse & full change logs)
 │   ├── teradyneMockData.ts       Sample Teradyne log + reference rows
 │   ├── operationsMockData.ts     Sample Operations tasks + projects
+│   ├── maintenanceMockData.ts    Sample CMMS work orders, PM schedules + equipment (dated from today)
 │   ├── panelMockData.ts          Sample panel orders + panel tasks
 │   ├── visitReportMockData.ts    Sample visit reports
 │   ├── crmMockData.ts            Sample CRM Tool data — customers, contacts, pricing, capacity
@@ -298,6 +301,10 @@ src/
 │   ├── useDrawingLogs.ts         Drawing log queries + admin-guarded mutations
 │   ├── useTeradyne.ts            Teradyne log + ref-list queries/mutations (+ usage counts)
 │   ├── useOperationsTasks.ts     Operations task queries + mutations
+│   ├── useMaintenanceTasks.ts    CMMS work-order queries, mutations, comments + completion guard
+│   ├── useScheduledMaintenance.ts CMMS PM schedule queries + mutations (retire, not delete)
+│   ├── useMaintenanceFilters.ts  URL-backed work-order filters (+ maintenanceFilterSearch)
+│   ├── useEquipment.ts           Equipment register queries + the few edits ARC allows
 │   ├── usePanelOrders.ts         Panel order queries + mutations
 │   ├── usePanelTasks.ts          Panel task queries + mutations
 │   ├── usePanelRoles.ts          Panel User Roles CRUD (admin-guarded)
@@ -373,6 +380,16 @@ src/
 │   ├── operationsTaskMapper.ts   Graph item → OperationsTask
 │   ├── operationsTaskFilters.ts  Pure Operations task filter predicates
 │   ├── operationsTaskNumbering.ts Operations task numbering (mirrors taskNumbering)
+│   ├── maintenanceSchedule.ts    PM scheduling maths — Fixed/Floating, month-end clamp, overdue
+│   ├── maintenanceShared.ts      Read helpers shared by the three CMMS mappers
+│   ├── maintenanceTaskMapper.ts  Graph item → MaintenanceTask (+ create payload)
+│   ├── maintenanceMetrics.ts     Every CMMS dashboard number (pure) — workload, PM compliance, downtime
+│   ├── maintenanceCalendar.ts    Merges real work orders + projected PM occurrences into one day map
+│   ├── maintenanceFilters.ts     Pure work-order filter/sort/count predicates
+│   ├── maintenanceCompletion.ts  Who may mark a work order Complete (assignee or admin)
+│   ├── scheduledMaintenanceMapper.ts  Graph item → ScheduledMaintenance (+ create payload)
+│   ├── equipmentMapper.ts        Graph item → Equipment (Altronic Equipment List)
+│   ├── workOrderNumber.ts        nextWorkOrderNumber() — WO-YYYY-#### numbering
 │   ├── panelOrderMapper.ts       Graph item → PanelOrder
 │   ├── panelTaskMapper.ts        Graph item → PanelTask
 │   ├── panelRoles.ts             Panel role → editing-rights mapping (pure)
@@ -493,6 +510,13 @@ src/
 │   ├── MermaidDiagram.tsx        (legacy) Mermaid renderer
 │   ├── atoms.tsx                 Badges, chips, status colours
 │   ├── operationsAtoms.tsx       Operations-specific badges/chips
+│   ├── maintenanceAtoms.tsx      CMMS badges/chips + the dashed 'projected, not a record' treatment
+│   ├── MaintenanceTaskRow.tsx    One work order row
+│   ├── MaintenanceKanbanCard.tsx One work order card (board)
+│   ├── MaintenanceFilterBar.tsx  Work order Equipment / Assigned / Category / Department filters
+│   ├── MaintenanceTaskFormModal.tsx      Create/edit a work order
+│   ├── ScheduledMaintenanceFormModal.tsx Create/edit a PM schedule
+│   ├── LogPmCompletionModal.tsx  Start / Complete / Skip a due PM (Skip requires a reason)
 │   ├── panelAtoms.tsx            Panel-specific badges/chips
 │   ├── visitReportAtoms.tsx      Customer-status chip (Sales)
 │   ├── grayMarketAtoms.tsx       Request-status + Pass/Fail chips (Supply Chain)
@@ -523,6 +547,13 @@ src/
 │   ├── OperationsListView.tsx    Operations task list
 │   ├── OperationsKanbanView.tsx  Operations task board
 │   ├── OperationsDetailView.tsx  Operations task detail
+│   ├── MaintenanceListView.tsx   CMMS work order list
+│   ├── MaintenanceBoardView.tsx  CMMS board (incl. an Awaiting Parts column)
+│   ├── MaintenanceDetailView.tsx One work order — write-up, comments, attachments
+│   ├── MaintenanceCalendarView.tsx  THE calendar — solid = real, dashed = projected PM
+│   ├── MaintenanceDashboardView.tsx CMMS dashboard (groups by Department)
+│   ├── PmLibraryView.tsx         Every PM schedule + next due + Active toggle
+│   ├── AssetDetailView.tsx       One machine — history, open work, its PMs, manuals
 │   ├── TeradyneLogView.tsx       Teradyne Log table + "Manage lists" menu
 │   ├── TeradyneRefListView.tsx   Edit one Teradyne reference list (:kind)
 │   ├── PanelOrdersView.tsx       Panel Orders list
@@ -2142,6 +2173,108 @@ built in ~1s, so all 71 customers run comfortably in a browser.
 `scripts/generate-open-orders-from-file.mjs <extract.xlsx>` builds the whole set
 locally through the app's own parser and builders — the way to eyeball a change
 to the workbooks without a round trip through SharePoint.
+
+### CMMS — maintenance (Operations, PMO site)
+
+Three lists on **`SITES.pmo`**, alongside the Operations Task List: **Altronic
+Maintenance Tasks** (the work orders), **Scheduled Maintenance** (the PM
+schedules work orders are raised from), and the **Altronic Equipment List**
+that both point at — which the Operations task form has read as a bare picker
+since day one. Schemas captured live 2026-08-27 in
+`scripts/altronic-maintenance-tasks-schema.json`,
+`scripts/scheduled-maintenance-schema.json` and
+`scripts/altronic-equipment-list-schema.json`.
+
+| List | env / id | Rows at discovery |
+|---|---|---|
+| Altronic Maintenance Tasks | `VITE_SP_MAINTENANCE_TASKS_LIST_ID` — `ff9d837f-227f-4a9b-b534-5fc722ff8c3b` | 0 |
+| Scheduled Maintenance | `VITE_SP_SCHEDULED_MAINTENANCE_LIST_ID` — `9179e16d-5cc8-41bd-b085-eccd39293f98` | 0 |
+| Altronic Equipment List | `VITE_SP_ALTRONIC_EQUIPMENT_LIST_ID` — `6f2fb6e1-3b41-40de-b78b-2c43c3c3d068` | 378 |
+
+Both new lists were EMPTY at discovery, so ARC is the only thing that has ever
+written to them — which is why their choice values are clamped to unions in
+`types/task.ts`. The Equipment list is **not** clamped: 378 rows of imported
+legacy data on fill-in-enabled choice columns, so a value ARC has never heard
+of has to render as itself rather than vanish.
+
+Seven things that shape this module:
+
+- **ARC NEVER writes `DueStatus`.** A Power Automate flow owns that column and
+  recomputes it. It is read, shown, and dropped from every write —
+  `stripFlowOwnedColumns` in `api/maintenanceTasks.ts` enforces that on the
+  create POST and every PATCH rather than trusting each caller to remember,
+  because there is no error when this goes wrong: SharePoint accepts the value,
+  the flow overwrites it minutes later, and in between the list shows a due
+  status ARC invented.
+- **ARC sets `TaskType` itself, and it is never a picker.** "Regular
+  Maintenance" when the work order carries a `ScheduledMaintenanceRef`,
+  "Request" when it doesn't (`maintenanceTaskTypeFor`). It is written in the
+  SAME PATCH as any change to that reference — letting the two be set
+  separately is how a "Regular Maintenance" work order ends up with no
+  schedule behind it, and the reporting people run off this list groups by
+  TaskType.
+- **Six SINGLE-value columns, all of them the trap CLAUDE.md already
+  documents.** Assigned / ReportedBy / CompletedBy (person) and EquipmentRef /
+  ScheduledMaintenanceRef / OperationsTaskReference (lookup) on the work
+  orders; AssignedTo / LastCompletedBy and EquipmentRef on the schedules;
+  ResponsibleTech and ParentAsset on the equipment. Every one of them comes
+  back from Graph as a bare `<Name>LookupId`, so both halves are `$select`ed,
+  `personOrLookup` / `lookupRef` read either shape, and the names are joined
+  from the PMO site's User Information List once per list load. Writing one is
+  a **bare integer**, and a person write that was asked for and can't be
+  resolved is **REFUSED** (`requireResolved`), never sent as `null`.
+  `maintenanceTasks.people.test.ts` and `scheduledMaintenance.people.test.ts`
+  force `USE_MOCK: false` and assert the request shapes — none of this is
+  visible from mock mode.
+- **`lib/maintenanceSchedule.ts` is the file to be careful with.** Pure, no
+  `Date.now()`, and the one place where a bug means a PM silently never
+  appears. Three rules it holds: calendar-correct month arithmetic (31 Jan +
+  1 month is 28 Feb, and a projection measures every occurrence from the
+  ANCHOR so the clamp can't compound into 28 Mar); Fixed advances from the
+  previous DUE date while Floating advances from `LastCompleted`; and **an
+  overdue occurrence keeps being returned until it is closed out** — it does
+  not roll forward. An inactive schedule projects nothing at all.
+- **Scheduled Maintenance has no `Communication` column and is not getting
+  one.** A schedule is a rule; the conversation belongs on the work order the
+  rule produced. There is no `addComment` in that module for a view to reach
+  for, and no `comments` field on the domain type for one to be quietly added
+  to. Work-order comments follow the full house rules —
+  `commentNotifyRecipients`, `autoWatchFromMentions` against
+  `resolvePmoSiteUserLookupId` (the **PMO** resolver: a site user lookupId is
+  per site collection), and `autoWatchers()` on create.
+- **No delete on either list.** A work order is the record of work that was
+  done — or deliberately not done, which is what the Canceled status is for —
+  and deleting one takes its labour hours, downtime and failure cause with it.
+  A schedule that has stopped applying is set `Active: false`, which
+  `maintenanceSchedule` honours by projecting nothing, so it leaves every
+  calendar without orphaning the work orders that point at it. Both test files
+  assert their module exports nothing matching /delete|remove/.
+- **Completing a work order is guarded, in the `mutationFn`.** The assignee or
+  an admin; anybody else is refused. An UNASSIGNED work order is assigned to
+  whoever completes it **in the same write** (`buildMaintenanceAssignmentFields`
+  merged into the completing PATCH) — two writes would leave a window where the
+  job is Complete with nobody against it. The guard reads the work order
+  FRESH rather than out of the React Query cache: the cache is up to two
+  minutes stale, and letting somebody complete a work order the cache still
+  thinks is unassigned is the worse half of that. It lives in the hook rather
+  than a view because there are three ways to reach Complete — the status
+  picker, a Kanban drag and the Complete form — and a rule enforced in one of
+  them is a rule that isn't enforced.
+
+**The Equipment list is read two ways, and the old contract is unchanged.**
+`listOperationsEquipment()` still returns `ProjectReference[]` — the shape the
+Operations task form's Equipment picker has always spoken — and
+`listEquipment()` returns the full `Equipment` record for the CMMS screens.
+Both read the same rows, so an Operations task and a work order naming the same
+asset agree about which one it is. ARC offers **no create and no delete** on
+that register (it is maintained in SharePoint), only the handful of edits a
+technician makes with a work order open: marking a machine Down or back In
+Service, moving the responsible tech, correcting a warranty date.
+
+`WONumber` is `WO-YYYY-####`, generated client-side by
+`nextWorkOrderNumber()` (`lib/workOrderNumber.ts`) — the `nextEirNo`
+arrangement exactly, including its caveat that two people creating a work order
+in the same second could land on the same number.
 
 ### Teradyne lists (Operations, PMO site)
 

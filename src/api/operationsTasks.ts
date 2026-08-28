@@ -208,6 +208,31 @@ export async function getOperationsTask(id: number): Promise<OperationsTask | nu
   return all.find((t) => t.id === id) ?? null;
 }
 
+/**
+ * Every Operations task as a bare `{ lookupId, title }`.
+ *
+ * A Title-only read, for resolving the `OperationsTaskReference` lookup on a
+ * CMMS work order. It exists so `listMaintenanceTasks` doesn't have to pull
+ * the whole Operations task list — comments, watchers and all — just to put a
+ * name next to a link.
+ */
+export async function listOperationsTaskReferences(): Promise<ProjectReference[]> {
+  if (USE_MOCK) {
+    return mockStore.map((t) => ({ lookupId: t.id, title: t.taskNumber || t.title }));
+  }
+  const path =
+    `/sites/${SITES.pmo}/lists/${SP_OPERATIONS_TASKS_LIST_ID}/items` +
+    `?$expand=fields($select=Title,TaskNumber)&$top=500`;
+  const items = await graphFetchAll<GraphListItem>(path);
+  return items.map((item) => ({
+    lookupId: parseInt(item.id, 10),
+    title:
+      (item.fields.TaskNumber as string) ||
+      (item.fields.Title as string) ||
+      `(task #${item.id})`,
+  }));
+}
+
 /** Update arbitrary fields on an Operations task. Returns the updated task. */
 export async function updateOperationsTaskFields(
   id: number,

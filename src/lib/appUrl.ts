@@ -16,6 +16,7 @@ export type AppItemKind =
   | "ecn"
   | "fait"
   | "operationsTask"
+  | "maintenanceTask"
   | "buildRequest"
   | "buildRequestItem"
   | "panelOrder"
@@ -33,6 +34,9 @@ const KIND_SEGMENTS: Record<AppItemKind, string> = {
   ecn: "engineering/ecn",
   fait: "supply-chain/fait",
   operationsTask: "operations/task",
+  // The CMMS work-order detail page. The route is wired up with the views;
+  // this segment is the contract between them and every notification email.
+  maintenanceTask: "operations/maintenance-task",
   buildRequest: "build-request",
   // A redirect route: App.tsx looks the item up and forwards to its parent
   // header page with ?item=<id> so the right part card expands.

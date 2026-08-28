@@ -42,6 +42,7 @@ export interface ChangeTarget {
     | "task"
     | "eir"
     | "operationsTask"
+    | "maintenanceTask"
     | "buildRequest"
     | "buildRequestItem"
     | "panelOrder"
@@ -57,6 +58,7 @@ const NOUNS: Record<ChangeTarget["kind"], string> = {
   task: "task",
   eir: "EIR",
   operationsTask: "task",
+  maintenanceTask: "work order",
   buildRequest: "build request",
   buildRequestItem: "build request part",
   panelOrder: "panel order",

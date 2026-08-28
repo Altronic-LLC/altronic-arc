@@ -172,7 +172,41 @@ const DEPARTMENTS: DepartmentGroup[] = [
         icon: <CircuitBoard className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/operations/teradyne"),
       },
-      soon("Maintenance Tasks", <Hammer className="h-4 w-4" />),
+      // CMMS. Four entries rather than one, because these are four different
+      // jobs: raise/track a work order, see what's due, manage the recurring
+      // rules, and look at the numbers. `matchesPath` is exact-ish per entry —
+      // a bare startsWith("/operations/maintenance") on the first would light
+      // up all four at once.
+      {
+        to: "/operations/maintenance/calendar",
+        label: "Maintenance Calendar",
+        icon: <CalendarDays className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/operations/maintenance/calendar"),
+      },
+      {
+        to: "/operations/maintenance",
+        label: "Work Orders",
+        icon: <Hammer className="h-4 w-4" />,
+        // Also owns the board, the asset page and the work-order detail route
+        // (which is /operations/maintenance-task/:id, not a child path).
+        matchesPath: (p) =>
+          p === "/operations/maintenance" ||
+          p.startsWith("/operations/maintenance/board") ||
+          p.startsWith("/operations/maintenance/asset") ||
+          p.startsWith("/operations/maintenance-task"),
+      },
+      {
+        to: "/operations/maintenance/schedules",
+        label: "Maintenance Schedules",
+        icon: <ListChecks className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/operations/maintenance/schedules"),
+      },
+      {
+        to: "/operations/maintenance/dashboard",
+        label: "Maintenance Dashboard",
+        icon: <LayoutDashboard className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/operations/maintenance/dashboard"),
+      },
     ],
   },
   {

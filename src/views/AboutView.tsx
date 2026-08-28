@@ -87,7 +87,12 @@ const SYSTEM_TIERS: Tier[] = [
       },
       {
         label: "Operations department (lazy-loaded bundle)",
-        hint: "OperationsListView · OperationsKanbanView · OperationsDetailView · AdminOperationsProjectsView · TeradyneLogView · TeradyneRefListView — useOperationsTasks · useTeradyne — api/operationsTasks · operationsProjects · operationsEquipment · teradyneLog · teradyneRefs. Own site (PMO), own code-split chunk; no imports from the Engineering views/hooks above.",
+        hint: "OperationsListView · OperationsKanbanView · OperationsDetailView · AdminOperationsProjectsView · TeradyneLogView · TeradyneRefListView — useOperationsTasks · useTeradyne — api/operationsTasks · operationsProjects · operationsEquipment · teradyneLog · teradyneRefs. Own site (PMO), own code-split chunk; no imports from the Engineering views/hooks above. The CMMS below is part of this same bundle.",
+        palette: "ui",
+      },
+      {
+        label: "Maintenance / CMMS (Operations, lazy-loaded)",
+        hint: "MaintenanceListView · MaintenanceBoardView · MaintenanceCalendarView · MaintenanceDashboardView · PmLibraryView · AssetDetailView · MaintenanceDetailView — useMaintenanceTasks · useScheduledMaintenance · useEquipment · useMaintenanceFilters — api/maintenanceTasks · scheduledMaintenance · operationsEquipment — lib/maintenanceSchedule (the recurrence projection engine) · maintenanceCalendar · maintenanceMetrics · maintenanceFilters · maintenanceCompletion · workOrderNumber. Same PMO site and same bundle as the Operations tasks it sits beside. The work-order detail route is /operations/maintenance-task/:id — a top-level path, NOT a child of /operations/maintenance, because it is the segment lib/appUrl.ts hands to every notification email.",
         palette: "ui",
       },
       {
@@ -127,7 +132,7 @@ const SYSTEM_TIERS: Tier[] = [
     nodes: [
       { label: "MSAL Entra ID", hint: "Sites.Selected · Mail.Send.Shared · User.ReadBasic.All (tenant directory, optional) · AllSites.Manage (optional)", palette: "auth" },
       { label: "Microsoft Graph v1.0", hint: "Lists, items, drives, users, mail", palette: "gateway" },
-      { label: "SharePoint REST", hint: "List-item attachments (Task, EIR, Operations Task, Panel Order, Visit Report, Gray Market Request, Cost Impact Notice) + site-user resolution — optional", palette: "gateway" },
+      { label: "SharePoint REST", hint: "List-item attachments (Task, EIR, Operations Task, Maintenance work order, Equipment asset, Panel Order, Visit Report, Gray Market Request, Cost Impact Notice) + site-user resolution — optional", palette: "gateway" },
       { label: "Mock store", hint: "in-memory + localStorage (demo mode)", palette: "mock" },
       { label: "Shared mailbox", hint: "@-mention + change notifications, and edit-failure recovery emails", palette: "mock" },
     ],
@@ -149,9 +154,11 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "Engineering Sketches", hint: "Engineering site — sketch register; own columns, no change log", palette: "list" },
       { label: "Documents library", hint: "General/Project Folders/* — task & comment files land here", palette: "list" },
       { label: "List-item attachments", hint: "SharePoint REST · per-item files on Tasks, EIRs, CSA Listings and more", palette: "list" },
-      { label: "Operations Task List", hint: "Altronic_PMO site — separate from Engineering's Task List", palette: "list" },
+      { label: "Operations Task List", hint: "Altronic_PMO site — separate from Engineering's Task List. Carries a Maintenance Task Reference column: set when a task has been promoted to a CMMS work order, and non-empty means it can't be promoted again", palette: "list" },
       { label: "Operations Projects", hint: "Altronic_PMO site — Operations' own parent-project reference list", palette: "list" },
-      { label: "Altronic Equipment List", hint: "Altronic_PMO site — read-only reference for the Equipment picker", palette: "list" },
+      { label: "Altronic Equipment List", hint: "Altronic_PMO site — the plant's asset register, 378 rows. Started life as a read-only name picker for Operations tasks; the CMMS reads the whole record (criticality, asset status, ParentAsset self-lookup, warranty, responsible tech) and hangs each machine's manuals off it as attachments. ARC has no create and no delete for it — only Asset Status and Responsible Tech are editable", palette: "list" },
+      { label: "Altronic Maintenance Tasks", hint: "Altronic_PMO site — CMMS work orders. Three single lookups (Equipment, Scheduled Maintenance, Operations Task) and three single person columns, all of which Graph returns as bare lookupIds. Due Status is read and shown but NEVER written: a Power Automate flow owns it", palette: "list" },
+      { label: "Scheduled Maintenance", hint: "Altronic_PMO site — the recurring PM rules the calendar projects from. Fixed or Floating basis, an interval + unit, grace and lead days. No Communication column by design (a schedule is a rule; the conversation belongs on the work order it made) and no delete — a schedule is retired by clearing Active", palette: "list" },
       { label: "Teradyne Log", hint: "Altronic_PMO site — board test failures; Title is app-derived from Product + Defective Parts", palette: "list" },
       { label: "Teradyne Employees / Products / Remarks", hint: "Altronic_PMO site — the log's three lookup lists, editable in-app by any signed-in user", palette: "list" },
       { label: "Coil-PottingSampleLog", hint: "Altronic_PMO site — operator-entered potting samples (Date, Volume, Weight)", palette: "list" },
@@ -324,7 +331,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     palette: "shared",
     x: 960, y: 380, width: 290,
     columns: [
-      { name: "parentId", type: "int", kind: "fk", references: "Task / EIR / OperationsTask" },
+      { name: "parentId", type: "int", kind: "fk", references: "Task / EIR / OperationsTask / MaintenanceTask" },
       { name: "timestamp", type: "datetime", kind: "field" },
       { name: "authorName", type: "text", kind: "field" },
       { name: "bodyHtml", type: "text", kind: "field" },
@@ -405,6 +412,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
       { name: "equipmentId", type: "int", kind: "fk", references: "AltronicEquipment.id" },
       { name: "assigned", type: "int", kind: "fk", references: "Person.id" },
       { name: "watchers", type: "int[]", kind: "fk", references: "Person.id" },
+      { name: "maintenanceTaskRef", type: "int", kind: "fk", references: "MaintenanceTask.id" },
     ],
   },
   {
@@ -421,17 +429,107 @@ const SCHEMA_TABLES: SchemaTable[] = [
     ],
   },
   {
+    // The asset register the CMMS module is built on. It used to be a
+    // name-only picker for an Operations task; `listEquipment()` now reads the
+    // whole record. Still no create and no delete in ARC — the register is
+    // maintained in SharePoint, and only Asset Status and Responsible Tech are
+    // editable here (see views/AssetDetailView.tsx).
     name: "AltronicEquipment",
-    source: "Altronic Equipment List (Altronic_PMO site, read-only)",
+    source: "Altronic Equipment List (Altronic_PMO site) — 378 assets",
     palette: "shared",
-    x: 720, y: 1000, width: 260,
+    x: 720, y: 1000, width: 300,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title", type: "text", kind: "field" },
+      { name: "description", type: "text", kind: "field" },
       { name: "serialNo", type: "text", kind: "field" },
+      { name: "manufacturer", type: "text", kind: "field" },
+      { name: "modelNumber", type: "text", kind: "field" },
       { name: "equipmentType", type: "choice", kind: "field" },
       { name: "department", type: "choice", kind: "field" },
       { name: "location", type: "choice", kind: "field" },
+      { name: "criticality", type: "choice", kind: "field" },
+      { name: "assetStatus", type: "choice", kind: "field" },
+      { name: "parentAsset", type: "int", kind: "fk", references: "AltronicEquipment.id" },
+      { name: "installDate", type: "datetime", kind: "field" },
+      { name: "warrantyExpiry", type: "datetime", kind: "field" },
+      { name: "responsibleTech", type: "int", kind: "fk", references: "Person.id" },
+      { name: "hasAttachments", type: "bool", kind: "field" },
+    ],
+  },
+  {
+    // CMMS work orders. Three single lookups (equipment, schedule, Operations
+    // task) and three SINGLE person columns, all of which come back off Graph
+    // as bare lookupIds — see lib/maintenanceTaskMapper.ts.
+    //
+    // `dueStatus` is listed because the column is real and shown in ARC, but a
+    // Power Automate flow owns it: every write path strips it.
+    name: "MaintenanceTask",
+    source: "Altronic Maintenance Tasks (Altronic_PMO site)",
+    palette: "entity",
+    x: 20, y: 1460, width: 380,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "woNumber", type: "text", kind: "field" },
+      { name: "title", type: "text", kind: "field" },
+      { name: "description", type: "text", kind: "field" },
+      { name: "status", type: "choice", kind: "field" },
+      { name: "priority", type: "choice", kind: "field" },
+      { name: "category", type: "choice", kind: "field" },
+      { name: "taskType (derived)", type: "choice", kind: "field" },
+      { name: "dueStatus (flow-owned)", type: "choice", kind: "field" },
+      { name: "startDate", type: "datetime", kind: "field" },
+      { name: "dueDate", type: "datetime", kind: "field" },
+      { name: "completedDate", type: "datetime", kind: "field" },
+      { name: "equipmentId", type: "int", kind: "fk", references: "AltronicEquipment.id" },
+      { name: "scheduleRef", type: "int", kind: "fk", references: "ScheduledMaintenance.id" },
+      { name: "operationsTaskRef", type: "int", kind: "fk", references: "OperationsTask.id" },
+      { name: "assigned", type: "int", kind: "fk", references: "Person.id" },
+      { name: "reportedBy", type: "int", kind: "fk", references: "Person.id" },
+      { name: "completedBy", type: "int", kind: "fk", references: "Person.id" },
+      { name: "watchers", type: "int[]", kind: "fk", references: "Person.id" },
+      { name: "techNotes", type: "text", kind: "field" },
+      { name: "failureCause", type: "text", kind: "field" },
+      { name: "resolution", type: "text", kind: "field" },
+      { name: "partsUsed", type: "text", kind: "field" },
+      { name: "laborHours", type: "number", kind: "field" },
+      { name: "downtimeHours", type: "number", kind: "field" },
+      { name: "comments (Communication)", type: "text", kind: "field" },
+      { name: "hasAttachments", type: "bool", kind: "field" },
+    ],
+  },
+  {
+    // The recurring PM rules. A schedule is a RULE, not a record of work: it
+    // has no Communication column and never gets one — the conversation
+    // belongs on the work order the rule produced. It is retired (Active =
+    // false), never deleted, so every work order it ever made still points at
+    // something real.
+    name: "ScheduledMaintenance",
+    source: "Scheduled Maintenance (Altronic_PMO site)",
+    palette: "entity",
+    x: 440, y: 1460, width: 340,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title", type: "text", kind: "field" },
+      { name: "instructions", type: "text", kind: "field" },
+      { name: "category", type: "choice", kind: "field" },
+      { name: "priority", type: "choice", kind: "field" },
+      { name: "equipmentId", type: "int", kind: "fk", references: "AltronicEquipment.id" },
+      { name: "frequencyInterval", type: "number", kind: "field" },
+      { name: "frequencyUnit", type: "choice", kind: "field" },
+      { name: "scheduleBasis", type: "choice", kind: "field" },
+      { name: "firstDueDate", type: "datetime", kind: "field" },
+      { name: "nextDueDate", type: "datetime", kind: "field" },
+      { name: "lastCompleted", type: "datetime", kind: "field" },
+      { name: "assignedTo", type: "int", kind: "fk", references: "Person.id" },
+      { name: "lastCompletedBy", type: "int", kind: "fk", references: "Person.id" },
+      { name: "watchers", type: "int[]", kind: "fk", references: "Person.id" },
+      { name: "timeNeeded", type: "number", kind: "field" },
+      { name: "graceDays", type: "number", kind: "field" },
+      { name: "leadTimeDays", type: "number", kind: "field" },
+      { name: "active", type: "bool", kind: "field" },
+      { name: "requiresShutdown", type: "bool", kind: "field" },
+      { name: "lotoRequired", type: "bool", kind: "field" },
     ],
   },
 
@@ -440,7 +538,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "BuildRequest",
     source: "Build Request Tracker (Engineering site)",
     palette: "entity",
-    x: 20, y: 1370, width: 370,
+    x: 20, y: 2170, width: 370,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "brNo", type: "text", kind: "field" },
@@ -463,7 +561,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "BuildRequestItem",
     source: "Build Request Items (Engineering site)",
     palette: "entity",
-    x: 440, y: 1370, width: 380,
+    x: 440, y: 2170, width: 380,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "partNumber", type: "text", kind: "field" },
@@ -489,7 +587,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "PanelOrder",
     source: "Panel Order Headers (ALTRONICPANELTEAM site)",
     palette: "entity",
-    x: 20, y: 1830, width: 380,
+    x: 20, y: 2630, width: 380,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title", type: "text", kind: "field" },
@@ -510,7 +608,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "PanelProject",
     source: "Panel Project Reference (ALTRONICPANELTEAM site)",
     palette: "entity",
-    x: 440, y: 1830, width: 280,
+    x: 440, y: 2630, width: 280,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title (ref no)", type: "text", kind: "field" },
@@ -525,7 +623,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "PanelUserRole",
     source: "Panel User Roles (ALTRONICPANELTEAM site)",
     palette: "entity",
-    x: 760, y: 1830, width: 280,
+    x: 760, y: 2630, width: 280,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "user", type: "int", kind: "fk", references: "Person.id" },
@@ -537,7 +635,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "PanelTask",
     source: "Panel Tasks (ALTRONICPANELTEAM site)",
     palette: "entity",
-    x: 760, y: 2030, width: 300,
+    x: 760, y: 2830, width: 300,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title", type: "text", kind: "field" },
@@ -557,7 +655,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "CsaListing",
     source: "CSA Listings (Engineering site)",
     palette: "entity",
-    x: 1080, y: 2330, width: 300,
+    x: 1080, y: 3130, width: 300,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "fileNumber (Title)", type: "text", kind: "field" },
@@ -579,7 +677,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "DrawingLogEntry",
     source: "CAD / CCC / CEC Drawings (Engineering site)",
     palette: "entity",
-    x: 1080, y: 2620, width: 320,
+    x: 1080, y: 3420, width: 320,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title (drawing no.)", type: "text", kind: "field" },
@@ -594,7 +692,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "SketchLogEntry",
     source: "Engineering Sketches (Engineering site)",
     palette: "entity",
-    x: 1080, y: 2860, width: 320,
+    x: 1080, y: 3660, width: 320,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title", type: "text", kind: "field" },
@@ -612,7 +710,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "DigitalQc",
     source: "18 Digital QC product-family lists (Engineering site)",
     palette: "entity",
-    x: 440, y: 2620, width: 500,
+    x: 440, y: 3420, width: 500,
     columns: [
       { name: "id", type: "text", kind: "pk" },
       { name: "workOrder / dateTested / operator", type: "text / date", kind: "field" },
@@ -630,7 +728,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "IgnitionQc",
     source: "36 Ignition QC product-family lists (Engineering site)",
     palette: "entity",
-    x: 990, y: 2620, width: 480,
+    x: 990, y: 3420, width: 480,
     columns: [
       { name: "id", type: "text", kind: "pk" },
       { name: "workOrder / dateTested / operator", type: "text / date", kind: "field" },
@@ -651,7 +749,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "TeradyneLogEntry",
     source: "Teradyne Log (Altronic_PMO site)",
     palette: "entity",
-    x: 20, y: 2330, width: 380,
+    x: 20, y: 3130, width: 380,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title (derived)", type: "text", kind: "field" },
@@ -674,7 +772,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "TeradyneProduct",
     source: "Teradyne Products (Altronic_PMO site)",
     palette: "entity",
-    x: 440, y: 2330, width: 270,
+    x: 440, y: 3130, width: 270,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title (Product)", type: "text", kind: "field" },
@@ -686,7 +784,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "TeradyneEmployee",
     source: "Teradyne Employees (Altronic_PMO site)",
     palette: "entity",
-    x: 750, y: 2330, width: 290,
+    x: 750, y: 3130, width: 290,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title (derived name)", type: "text", kind: "field" },
@@ -700,7 +798,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "TeradyneRemark",
     source: "Teradyne Remarks (Altronic_PMO site)",
     palette: "entity",
-    x: 440, y: 2470, width: 270,
+    x: 440, y: 3270, width: 270,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title", type: "text", kind: "field" },
@@ -713,7 +811,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "PottingSampleEntry",
     source: "Coil-PottingSampleLog (Altronic_PMO site)",
     palette: "entity",
-    x: 20, y: 2960, width: 280,
+    x: 20, y: 3760, width: 280,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "date", type: "datetime", kind: "field" },
@@ -725,7 +823,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "PottingLimits",
     source: "Coil-PottingLimit (Altronic_PMO site)",
     palette: "entity",
-    x: 330, y: 2960, width: 280,
+    x: 330, y: 3760, width: 280,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title (Lower/Upper Spec Limit)", type: "text", kind: "field" },
@@ -736,7 +834,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "PsrNotificationPerson",
     source: "Coil PSR Notification List (Altronic_PMO site)",
     palette: "entity",
-    x: 640, y: 2960, width: 300,
+    x: 640, y: 3760, width: 300,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "displayName (Title)", type: "text", kind: "field" },
@@ -749,7 +847,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "GrayMarketRequest",
     source: "Gray Market Request (Altronic_PMO site)",
     palette: "entity",
-    x: 400, y: 3130, width: 340,
+    x: 400, y: 3930, width: 340,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title (assembly no)", type: "text", kind: "field" },
@@ -776,7 +874,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "ECN",
     source: "ECN NEW (Engineering site)",
     palette: "entity",
-    x: 790, y: 3130, width: 330,
+    x: 790, y: 3930, width: 330,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "logNo (field_2)", type: "text", kind: "field" },
@@ -794,7 +892,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "VisitReport",
     source: "Visit Reports (ALTRONICSALESTEAM site)",
     palette: "entity",
-    x: 20, y: 3130, width: 330,
+    x: 20, y: 3930, width: 330,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "customerName (Title)", type: "text", kind: "field" },
@@ -817,7 +915,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "CustomerNote",
     source: "Customer Notes (salesOrderEntry site)",
     palette: "entity",
-    x: 20, y: 3480, width: 300,
+    x: 20, y: 4280, width: 300,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "customerName (Title)", type: "text", kind: "field" },
@@ -837,7 +935,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "CustomerContact",
     source: "Customer Contacts (salesOrderEntry site)",
     palette: "entity",
-    x: 350, y: 3480, width: 270,
+    x: 350, y: 4280, width: 270,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "name (Title)", type: "text", kind: "field" },
@@ -852,7 +950,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "SpecialPricingEntry",
     source: "Special Pricing (salesOrderEntry site)",
     palette: "entity",
-    x: 650, y: 3480, width: 260,
+    x: 650, y: 4280, width: 260,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title (Title)", type: "text", kind: "field" },
@@ -865,7 +963,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "CapacityEntry",
     source: "Capacity (salesOrderEntry site)",
     palette: "entity",
-    x: 940, y: 3480, width: 280,
+    x: 940, y: 4280, width: 280,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "partNumber (Title)", type: "text", kind: "field" },
@@ -882,7 +980,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "Supplier",
     source: "Suppliers List (Altronic_PMO site)",
     palette: "entity",
-    x: 20, y: 3830, width: 310,
+    x: 20, y: 4630, width: 310,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title (Title)", type: "text", kind: "field" },
@@ -908,7 +1006,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "SupplierContact",
     source: "Supplier Contact List (Altronic_PMO site)",
     palette: "entity",
-    x: 360, y: 3830, width: 280,
+    x: 360, y: 4630, width: 280,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "name (Title)", type: "text", kind: "field" },
@@ -926,7 +1024,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "SupplierIssue",
     source: "Supplier Issue Tracker (Altronic_PMO site)",
     palette: "entity",
-    x: 670, y: 3830, width: 280,
+    x: 670, y: 4630, width: 280,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title (Title)", type: "text", kind: "field" },
@@ -946,7 +1044,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "CostImpactNotice",
     source: "Cost Impact Portal (ALTRONICSALESTEAM site)",
     palette: "entity",
-    x: 20, y: 4320, width: 340,
+    x: 20, y: 5120, width: 340,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title (part)", type: "text", kind: "field" },
@@ -975,7 +1073,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "QuickLink",
     source: "Quick Links list",
     palette: "entity",
-    x: 20, y: 4790, width: 300,
+    x: 20, y: 5590, width: 300,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "label", type: "text", kind: "field" },
@@ -1036,6 +1134,34 @@ const CONNECTIONS: Connection[] = [
   { fromTable: "OperationsTask", fromColumn: "watchers", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
   { fromTable: "Comment", fromColumn: "parentId", toTable: "OperationsTask", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "Attachment", fromColumn: "parentId", toTable: "OperationsTask", toColumn: "id", fromCard: "many", toCard: "one" },
+  // CMMS — the maintenance module, on the same PMO site. Equipment stops being
+  // a name-only picker here and becomes the hub: both CMMS lists point at it,
+  // and it points at itself (ParentAsset, a sub-assembly's parent — drawn as an
+  // fk column but not as a connector, same as Task.parentTaskId).
+  //
+  // The Operations Task List and the work orders reference EACH OTHER: a
+  // promoted task keeps MaintenanceTaskReference, and the work order it made
+  // keeps OperationsTaskReference. One-to-one in both directions — a task is
+  // promoted at most once.
+  { fromTable: "AltronicEquipment", fromColumn: "responsibleTech", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "MaintenanceTask", fromColumn: "equipmentId", toTable: "AltronicEquipment", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "MaintenanceTask", fromColumn: "scheduleRef", toTable: "ScheduledMaintenance", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "MaintenanceTask", fromColumn: "operationsTaskRef", toTable: "OperationsTask", toColumn: "id", fromCard: "one", toCard: "one" },
+  { fromTable: "OperationsTask", fromColumn: "maintenanceTaskRef", toTable: "MaintenanceTask", toColumn: "id", fromCard: "one", toCard: "one" },
+  { fromTable: "MaintenanceTask", fromColumn: "assigned", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "MaintenanceTask", fromColumn: "reportedBy", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "MaintenanceTask", fromColumn: "completedBy", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "MaintenanceTask", fromColumn: "watchers", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
+  { fromTable: "Comment", fromColumn: "parentId", toTable: "MaintenanceTask", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "Attachment", fromColumn: "parentId", toTable: "MaintenanceTask", toColumn: "id", fromCard: "many", toCard: "one" },
+  // The asset's own manuals, wiring diagrams and nameplate photos — hung off
+  // the machine rather than off whichever work order last needed them.
+  { fromTable: "Attachment", fromColumn: "parentId", toTable: "AltronicEquipment", toColumn: "id", fromCard: "many", toCard: "one" },
+  // Scheduled Maintenance has no Communication column, so no Comment row here.
+  { fromTable: "ScheduledMaintenance", fromColumn: "equipmentId", toTable: "AltronicEquipment", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "ScheduledMaintenance", fromColumn: "assignedTo", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "ScheduledMaintenance", fromColumn: "lastCompletedBy", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "ScheduledMaintenance", fromColumn: "watchers", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
   // Build Requests — master-detail pair on the Engineering site. Items join
   // to their header via BuildRequestNoLookupId; both levels have their own
   // Communication thread + Watchers.

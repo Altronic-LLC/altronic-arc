@@ -7,10 +7,12 @@ import {
   SP_FAIT_LIST_ID,
   SP_EIRS_LIST_ID,
   SP_LIST_ID,
+  SP_MAINTENANCE_TASKS_LIST_ID,
   SP_OPERATIONS_TASKS_LIST_ID,
   SP_PANEL_ORDERS_LIST_ID,
   SP_PANEL_TASKS_LIST_ID,
   SP_PANELTEAM_SITE_URL,
+  SP_ALTRONIC_EQUIPMENT_LIST_ID,
   SP_GRAY_MARKET_LIST_ID,
   SP_PMO_SITE_URL,
   SP_SALESTEAM_SITE_URL,
@@ -50,6 +52,7 @@ export type AttachmentParent =
   | "ecn"
   | "fait"
   | "operationsTask"
+  | "maintenanceTask"
   | "buildRequest"
   | "buildRequestItem"
   | "panelOrder"
@@ -60,7 +63,8 @@ export type AttachmentParent =
   | "supplier"
   | "supplierContact"
   | "supplierIssue"
-  | "costImpactNotice";
+  | "costImpactNotice"
+  | "equipment";
 
 interface ParentConfig {
   listId: string | undefined;
@@ -84,6 +88,14 @@ const PARENT_CONFIG: Record<AttachmentParent, ParentConfig> = {
     listId: SP_OPERATIONS_TASKS_LIST_ID,
     siteUrl: SP_PMO_SITE_URL,
     listIdEnvVar: "VITE_SP_OPERATIONS_TASKS_LIST_ID",
+  },
+  // CMMS work orders — the photo of the failed part, the calibration
+  // certificate, the vendor's quote for the bearing kit. Same PMO site as the
+  // Operations task list next door.
+  maintenanceTask: {
+    listId: SP_MAINTENANCE_TASKS_LIST_ID,
+    siteUrl: SP_PMO_SITE_URL,
+    listIdEnvVar: "VITE_SP_MAINTENANCE_TASKS_LIST_ID",
   },
   buildRequest: {
     listId: SP_BUILD_REQUESTS_LIST_ID,
@@ -142,6 +154,14 @@ const PARENT_CONFIG: Record<AttachmentParent, ParentConfig> = {
     listId: SP_COST_IMPACT_NOTICES_LIST_ID,
     siteUrl: SP_SALESTEAM_SITE_URL,
     listIdEnvVar: "VITE_SP_COST_IMPACT_NOTICES_LIST_ID",
+  },
+  // The machine's manuals, wiring diagrams and nameplate photos, hung off the
+  // asset itself rather than off whichever work order happened to need them
+  // last. Same PMO site as the Operations tasks and the CMMS lists.
+  equipment: {
+    listId: SP_ALTRONIC_EQUIPMENT_LIST_ID,
+    siteUrl: SP_PMO_SITE_URL,
+    listIdEnvVar: "VITE_SP_ALTRONIC_EQUIPMENT_LIST_ID",
   },
 };
 

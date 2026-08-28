@@ -36,6 +36,9 @@ import { useEirs } from "@/hooks/useEirs";
 import { useTestSheets } from "@/hooks/useTestSheets";
 import { useProjectFolderEntries } from "@/hooks/useProjectFolders";
 import { useOperationsTasks } from "@/hooks/useOperationsTasks";
+import { useMaintenanceTasks } from "@/hooks/useMaintenanceTasks";
+import { isClosedMaintenanceStatus } from "@/lib/maintenanceShared";
+import type { MaintenanceTask } from "@/types/task";
 import { useCsaListings } from "@/hooks/useCsaListings";
 import { useEcns } from "@/hooks/useEcns";
 import { useFaits } from "@/hooks/useFaits";
@@ -250,6 +253,7 @@ export function DashboardView() {
     error: operationsTasksErrorObj,
     refetch: refetchOperationsTasks,
   } = useOperationsTasks();
+  const { data: maintenanceTasks = [] } = useMaintenanceTasks();
   // Certification register — small, changes rarely, and like Teradyne it has no
   // status workflow, so the card is a plain count with no segments.
   const {
@@ -424,6 +428,24 @@ export function DashboardView() {
     }));
     return { count: active.length, segments };
   }, [operationsTasks, mine, myEmail, projectId]);
+
+  // Maintenance work orders. Counted like the Operations task card (active
+  // work) rather than as a register — a work-order backlog IS a queue, and its
+  // size is what people open the dashboard for.
+  //
+  // `mine` scopes on `assigned`, a genuine single-person assignee here, so the
+  // Mine/Company switch means something. There is no project axis on a work
+  // order, so `projectId` deliberately does not narrow it.
+  const maintenanceCard = useMemo(() => {
+    const active = maintenanceTasks.filter(
+      (t: MaintenanceTask) =>
+        !isClosedMaintenanceStatus(t.status) &&
+        (!mine || personMatchesSingle(t.assigned, myEmail)),
+    );
+    const now = Date.now();
+    const overdue = active.filter((t) => t.dueDate !== null && t.dueDate.getTime() < now).length;
+    return { count: active.length, overdue };
+  }, [maintenanceTasks, mine, myEmail]);
 
   const testCount = useMemo(
     () =>
@@ -844,7 +866,22 @@ export function DashboardView() {
           // state, and the year's running total isn't what anyone comes here for.
           onClick={() => navigate("/operations/teradyne")}
         />
-        <PlaceholderCard name="Maintenance Tasks" icon={<Hammer className="h-5 w-5" />} />
+        <TypeCard
+          name="Maintenance"
+          icon={<Hammer className="h-5 w-5" />}
+          // ajax-yellow: the other two Operations cards are superior-blue and
+          // cooper-red, and CLAUDE.md asks for a distinct tone per card within
+          // a section. Yellow also reads as the right kind of caution here.
+          tone="ajax-yellow"
+          count={maintenanceCard.count}
+          unit="open"
+          description={
+            maintenanceCard.overdue > 0
+              ? `${maintenanceCard.overdue} overdue`
+              : "Work orders, scheduled maintenance and the plant's asset register."
+          }
+          onClick={() => navigate("/operations/maintenance/calendar")}
+        />
       </DeptSection>
 
       <DeptSection
