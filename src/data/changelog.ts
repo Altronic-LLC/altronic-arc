@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.128.1",
+    date: "2026-08-28",
+    changes: [
+      "Dashboard: Quick Links now shows as its own labelled subsection above a department's cards, instead of a bare row of buttons",
+    ],
+  },
+  {
     version: "0.128.0",
     date: "2026-08-27",
     changes: [

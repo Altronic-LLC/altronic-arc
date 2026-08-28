@@ -28,6 +28,11 @@ describe("QuickLinksRow", () => {
     expect(button).toHaveAttribute("rel", "noopener noreferrer");
   });
 
+  it("labels the row as its own subsection, not a bare row of buttons", () => {
+    render(<QuickLinksRow links={[link()]} />);
+    expect(screen.getByText("Quick Links")).toBeInTheDocument();
+  });
+
   it("renders every link passed, in the order given", () => {
     render(
       <QuickLinksRow
