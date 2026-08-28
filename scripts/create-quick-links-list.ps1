@@ -20,10 +20,14 @@
             SortOrder   number — admin-set, ascending, unique only WITHIN
                         one department
 
-    Idempotent: a list that already exists is left alone, missing columns
-    are added, and an existing Url column still stuck on single-line is
-    converted to multi-line in place — safe to re-run after the 255-char
-    limit bites, with no need to delete and recreate the list.
+    Idempotent: a list that already exists is left alone and missing columns
+    are added. An existing Url column still stuck on single-line (255-char
+    cap) is fixed by DELETING and RECREATING just that column — SharePoint
+    refuses an in-place PATCH from single-line to multi-line text (confirmed
+    live 2026-08-28: "Provided data is not compatible with target field
+    type"), so there is no non-destructive way to convert it. The script
+    checks the list is empty first and refuses to touch a Url column that
+    already has rows against it — see the item-count guard below.
 
 .PARAMETER WhatIf
     Print what would be created without creating anything.
@@ -154,14 +158,27 @@ if (-not $WhatIf) {
         if ($col.name -eq "Url") {
             $existingUrl = $existingCols | Where-Object { $_.name -eq "Url" }
             if ($existingUrl.text -and -not $existingUrl.text.allowMultipleLines) {
-                # Was created (or hand-made) as single-line, capped at 255
-                # characters — convert in place rather than delete/recreate,
-                # which would orphan every link already saved against it.
-                Invoke-MgGraphRequest -Method PATCH `
-                    -Uri "https://graph.microsoft.com/v1.0/sites/$EngineeringSite/lists/$listId/columns/$($existingUrl.id)" `
-                    -Body (@{ text = @{ allowMultipleLines = $true; textType = "plain" } } | ConvertTo-Json -Depth 10) `
-                    -ContentType "application/json" | Out-Null
-                Write-Host "    $($col.name) — was single-line (255-char cap), converted to multi-line" -ForegroundColor Green
+                # Single-line, capped at 255 characters. SharePoint refuses a
+                # PATCH that changes allowMultipleLines — it is a genuine
+                # underlying field-type change (Text -> Note), not a property
+                # tweak — so the only fix is delete-and-recreate. That drops
+                # any values already stored against this column, so check the
+                # list is actually empty first.
+                $itemCount = (Invoke-MgGraphRequest -Method GET `
+                    -Uri "https://graph.microsoft.com/v1.0/sites/$EngineeringSite/lists/$listId/items?`$top=1&`$select=id").value.Count
+                if ($itemCount -gt 0) {
+                    Write-Host "    $($col.name) — still single-line (255-char cap), but the list has rows" -ForegroundColor Red
+                    Write-Host "      Refusing to delete/recreate Url automatically — that would lose" -ForegroundColor Red
+                    Write-Host "      whatever is stored in it on existing rows. Move the data (or accept" -ForegroundColor Red
+                    Write-Host "      the loss) and re-run, or fix it by hand in SharePoint list settings." -ForegroundColor Red
+                    continue
+                }
+                Invoke-MgGraphRequest -Method DELETE `
+                    -Uri "https://graph.microsoft.com/v1.0/sites/$EngineeringSite/lists/$listId/columns/$($existingUrl.id)" | Out-Null
+                Invoke-MgGraphRequest -Method POST `
+                    -Uri "https://graph.microsoft.com/v1.0/sites/$EngineeringSite/lists/$listId/columns" `
+                    -Body ($col | ConvertTo-Json -Depth 10) -ContentType "application/json" | Out-Null
+                Write-Host "    $($col.name) — was single-line (255-char cap); list was empty, so recreated as multi-line" -ForegroundColor Green
                 continue
             }
         }
