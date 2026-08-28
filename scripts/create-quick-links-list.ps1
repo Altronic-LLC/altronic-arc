@@ -8,15 +8,22 @@
 
         Quick Links
             Title       button label (built-in column)
-            Url         the link target, single line of text
+            Url         the link target, MULTI-LINE plain text — SharePoint
+                        caps single-line text at 255 characters, and a real
+                        SharePoint page URL (view IDs, encoded folder paths)
+                        routinely runs past that. Confirmed live 2026-08-28:
+                        an EX-4000 Documents-library link at 378 characters
+                        400'd on a single-line column.
             Department  choice — must match DASHBOARD_DEPARTMENTS in
                         src/types/task.ts exactly, including the slash in
                         "Customer Service / Sales"
             SortOrder   number — admin-set, ascending, unique only WITHIN
                         one department
 
-    Idempotent: a list that already exists is left alone, and only missing
-    columns are added — safe to re-run after adding a column by hand.
+    Idempotent: a list that already exists is left alone, missing columns
+    are added, and an existing Url column still stuck on single-line is
+    converted to multi-line in place — safe to re-run after the 255-char
+    limit bites, with no need to delete and recreate the list.
 
 .PARAMETER WhatIf
     Print what would be created without creating anything.
@@ -58,7 +65,12 @@ $EnvVar     = "VITE_SP_QUICK_LINKS_LIST_ID"
 $Description = "Admin-managed button links shown above a Dashboard department's cards. Title = button label."
 
 $Columns = @(
-    @{ name = "Url"; displayName = "Url"; text = @{ allowMultipleLines = $false } },
+    # Multi-line plain text, not single-line: SharePoint caps single-line
+    # text at 255 characters, and a real page URL (view ids, encoded folder
+    # names) routinely exceeds that. This still reads and writes as a plain
+    # string in Graph — "plain" textType, unlike EIR's Enhanced rich text
+    # columns, so there's no HTML to worry about.
+    @{ name = "Url"; displayName = "Url"; text = @{ allowMultipleLines = $true; textType = "plain" } },
     @{
         name        = "Department"
         displayName = "Department"
@@ -123,19 +135,38 @@ if ($existing.ContainsKey($ListName)) {
 }
 
 # Add any column the list is missing (covers a list created by hand, or a
-# choice value someone forgot to add).
+# choice value someone forgot to add). Also self-heals an existing Url column
+# still stuck on single-line (255-char cap) from before that was fixed here.
 if (-not $WhatIf) {
-    $have = @((Invoke-MgGraphRequest -Method GET `
-        -Uri "https://graph.microsoft.com/v1.0/sites/$EngineeringSite/lists/$listId/columns").value | ForEach-Object { $_.name })
+    $existingCols = (Invoke-MgGraphRequest -Method GET `
+        -Uri "https://graph.microsoft.com/v1.0/sites/$EngineeringSite/lists/$listId/columns").value
+    $have = @($existingCols | ForEach-Object { $_.name })
+
     foreach ($col in $Columns) {
-        if ($have -contains $col.name) {
-            Write-Host "    $($col.name) — already there"
+        if (-not ($have -contains $col.name)) {
+            Invoke-MgGraphRequest -Method POST `
+                -Uri "https://graph.microsoft.com/v1.0/sites/$EngineeringSite/lists/$listId/columns" `
+                -Body ($col | ConvertTo-Json -Depth 10) -ContentType "application/json" | Out-Null
+            Write-Host "    $($col.name) — added" -ForegroundColor Green
             continue
         }
-        Invoke-MgGraphRequest -Method POST `
-            -Uri "https://graph.microsoft.com/v1.0/sites/$EngineeringSite/lists/$listId/columns" `
-            -Body ($col | ConvertTo-Json -Depth 10) -ContentType "application/json" | Out-Null
-        Write-Host "    $($col.name) — added" -ForegroundColor Green
+
+        if ($col.name -eq "Url") {
+            $existingUrl = $existingCols | Where-Object { $_.name -eq "Url" }
+            if ($existingUrl.text -and -not $existingUrl.text.allowMultipleLines) {
+                # Was created (or hand-made) as single-line, capped at 255
+                # characters — convert in place rather than delete/recreate,
+                # which would orphan every link already saved against it.
+                Invoke-MgGraphRequest -Method PATCH `
+                    -Uri "https://graph.microsoft.com/v1.0/sites/$EngineeringSite/lists/$listId/columns/$($existingUrl.id)" `
+                    -Body (@{ text = @{ allowMultipleLines = $true; textType = "plain" } } | ConvertTo-Json -Depth 10) `
+                    -ContentType "application/json" | Out-Null
+                Write-Host "    $($col.name) — was single-line (255-char cap), converted to multi-line" -ForegroundColor Green
+                continue
+            }
+        }
+
+        Write-Host "    $($col.name) — already there"
     }
 }
 
