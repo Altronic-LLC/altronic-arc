@@ -31,8 +31,9 @@
 
 .PARAMETER DepartmentsListId
 .PARAMETER LocationsListId
-    The two reference lists from create-maintenance-reference-lists.ps1. Also
-    optional - they only exist once the choice-to-lookup migration has run.
+    Override the two reference lists' ids. Both default to the live lists (the
+    same documented defaults src/api/config.ts carries), so they are checked
+    without passing anything.
 
 .EXAMPLE
     .\Verify-CmmsSchema.ps1
@@ -64,6 +65,10 @@ $LIST_MAINTTASKS = "ff9d837f-227f-4a9b-b534-5fc722ff8c3b"
 $LIST_SCHEDULED  = "9179e16d-5cc8-41bd-b085-eccd39293f98"
 $LIST_OPSTASKS   = "298ac5c5-6c53-4262-95e7-e1cfca06978b"
 $LIST_OPSPROJ    = "6734ddec-95e0-4cc7-93af-7fd20bf7ac22"
+# The two reference lists. These carry documented defaults in src/api/config.ts,
+# so they are checked by default rather than only when an id is passed in.
+$LIST_DEPARTMENTS = "3c203f31-4c07-44fd-8108-7208bb2644bc"
+$LIST_LOCATIONS   = "77f7c05f-acdc-46ff-bc5f-f73c48fc81e3"
 
 # kind: text | choice | number | dateTime | boolean | person | lookup | any
 # target: for a lookup, the list it must point at.
@@ -75,8 +80,13 @@ $expected = @(
             @{ n = "Description";     k = "text" }
             @{ n = "SerialNo";        k = "text" }
             @{ n = "EquipmentType";   k = "choice" }
+            # The Equipment List reads BOTH: the lookup first, the legacy choice
+            # column as a fallback for the 13 rows that were never migrated.
+            # Both are in EQUIPMENT_SELECT, so both are required here.
             @{ n = "Department";      k = "choice" }
             @{ n = "Location";        k = "choice" }
+            @{ n = "DepartmentRef";   k = "lookup"; target = $LIST_DEPARTMENTS }
+            @{ n = "LocationRef";     k = "lookup"; target = $LIST_LOCATIONS }
             @{ n = "Criticality";     k = "choice" }
             @{ n = "AssetStatus";     k = "choice" }
             @{ n = "ParentAsset";     k = "lookup"; target = $LIST_EQUIPMENT }
@@ -113,8 +123,10 @@ $expected = @(
             @{ n = "ScheduledMaintenanceRef"; k = "lookup"; target = $LIST_SCHEDULED }
             @{ n = "OperationsTaskReference"; k = "lookup"; target = $LIST_OPSTASKS }
             @{ n = "OperationsProjectRef";    k = "lookup"; target = $LIST_OPSPROJ }
-            @{ n = "Department";   k = "choice" }
-            @{ n = "Location";     k = "choice" }
+            # Lookups only. The choice columns were never created here, and
+            # selecting a column a list lacks 400s the WHOLE read.
+            @{ n = "DepartmentRef"; k = "lookup"; target = $LIST_DEPARTMENTS }
+            @{ n = "LocationRef";   k = "lookup"; target = $LIST_LOCATIONS }
             @{ n = "Assigned";     k = "person" }
             @{ n = "ReportedBy";   k = "person" }
             @{ n = "CompletedBy";  k = "person" }
@@ -143,8 +155,9 @@ $expected = @(
             @{ n = "LOTORequired";     k = "boolean" }
             @{ n = "EquipmentRef";        k = "lookup"; target = $LIST_EQUIPMENT }
             @{ n = "OperationsProjectRef"; k = "lookup"; target = $LIST_OPSPROJ }
-            @{ n = "Department";      k = "choice" }
-            @{ n = "Location";        k = "choice" }
+            # Lookups only, same as Maintenance Tasks.
+            @{ n = "DepartmentRef"; k = "lookup"; target = $LIST_DEPARTMENTS }
+            @{ n = "LocationRef";   k = "lookup"; target = $LIST_LOCATIONS }
             @{ n = "AssignedTo";      k = "person" }
             @{ n = "LastCompletedBy"; k = "person" }
             @{ n = "Watchers";        k = "person" }
@@ -169,8 +182,8 @@ if ($RolesListId) {
     }
 }
 foreach ($ref in @(
-    @{ Id = $DepartmentsListId; Label = "Maintenance Departments" },
-    @{ Id = $LocationsListId;   Label = "Maintenance Locations" }
+    @{ Id = $(if ($DepartmentsListId) { $DepartmentsListId } else { $LIST_DEPARTMENTS }); Label = "Maintenance Departments" },
+    @{ Id = $(if ($LocationsListId)   { $LocationsListId }   else { $LIST_LOCATIONS });   Label = "Maintenance Locations" }
 )) {
     if (-not $ref.Id) { continue }
     $expected += @{
@@ -265,10 +278,7 @@ if (-not $RolesListId) {
     Write-Host "  Maintenance Roles: not checked (-RolesListId not given)." -ForegroundColor DarkGray
     Write-Host "  That is a legitimate state - gating stays OFF until the id is configured." -ForegroundColor DarkGray
 }
-if (-not $DepartmentsListId -or -not $LocationsListId) {
-    Write-Host "  Department / Location reference lists: not checked." -ForegroundColor DarkGray
-    Write-Host "  They only exist after create-maintenance-reference-lists.ps1 has run." -ForegroundColor DarkGray
-}
+
 
 Write-Host ""
 Write-Host "=======================================================================" -ForegroundColor Cyan
