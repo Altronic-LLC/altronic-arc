@@ -385,7 +385,16 @@ export function buildFaitSqeFailedEmails(args: {
     ...(initiatorEmail ? [args.initiator!] : []),
     ...(args.watchers ?? []),
   ]);
-  const recipients = withoutActorUnlessEmpty(pool, args.actor);
+  // Strict actor exclusion, unlike the non-strict withoutActorUnlessEmpty used
+  // elsewhere in this file: the SQE reviewers who just recorded the failure
+  // are the fallback everywhere else, but there's no fallback queue here (see
+  // the doc comment above), so if the actor recording the failure IS the
+  // initiator, dropping them must not fall back to re-including them — that
+  // would tell someone their own action "came back" to them. Confirmed
+  // against the pre-watchers implementation, which did a bare email check
+  // with no keep-if-empty fallback.
+  const actorEmail = (args.actor.email ?? "").toLowerCase();
+  const recipients = pool.filter((p) => (p.email ?? "").toLowerCase() !== actorEmail);
   // No fallback queue, unlike every other stage: the SQE reviewers are the
   // people who record a Failed sign-off, so bouncing it back to them says
   // nothing they don't already know. If there's neither a reachable
