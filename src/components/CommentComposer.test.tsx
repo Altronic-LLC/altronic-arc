@@ -207,6 +207,86 @@ describe("CommentComposer — keyboard navigation covers the whole list", () => 
   });
 });
 
+describe("CommentComposer — drag and drop to attach", () => {
+  const txt = (name: string) => new File(["hello"], name, { type: "text/plain" });
+
+  function dropContainer() {
+    // The drop target is the outer bordered wrapper — the textarea's direct
+    // parent — the same element the dragging highlight styles.
+    return screen.getByRole("textbox").parentElement as HTMLElement;
+  }
+
+  function filesDataTransfer(files: File[]) {
+    return {
+      types: ["Files"],
+      files: files as unknown as FileList,
+      dropEffect: "",
+    } as unknown as DataTransfer;
+  }
+
+  it("highlights the drop zone on dragenter and clears it on drop", () => {
+    setup([]);
+    const zone = dropContainer();
+    fireEvent.dragEnter(zone, { dataTransfer: filesDataTransfer([txt("a.txt")]) });
+    expect(zone.className).toContain("border-accent");
+    fireEvent.drop(zone, { dataTransfer: filesDataTransfer([txt("a.txt")]) });
+    expect(zone.className).not.toContain("border-accent");
+  });
+
+  it("attaches a dropped file (goes through useFileDrop, not a hand-rolled handler)", () => {
+    setup([]);
+    const zone = dropContainer();
+    fireEvent.drop(zone, { dataTransfer: filesDataTransfer([txt("dropped.txt")]) });
+    expect(screen.getByText("dropped.txt")).toBeInTheDocument();
+  });
+
+  it("ignores a drag that carries no files (a text selection, not a file)", () => {
+    setup([]);
+    const zone = dropContainer();
+    const textOnly = {
+      types: ["text/plain"],
+      files: [] as unknown as FileList,
+      dropEffect: "",
+    } as unknown as DataTransfer;
+    fireEvent.dragEnter(zone, { dataTransfer: textOnly });
+    expect(zone.className).not.toContain("border-accent");
+  });
+
+  it("uploads a dropped file through uploadFile and inlines a link, leaving the legacy attachments array empty", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    const uploadFile = vi.fn().mockResolvedValue({
+      name: "dropped.txt",
+      webUrl: "https://example.sharepoint.com/dropped.txt",
+    });
+    render(<CommentComposer onSubmit={onSubmit} uploadFile={uploadFile} />);
+    const zone = screen.getByRole("textbox").parentElement as HTMLElement;
+    fireEvent.drop(zone, { dataTransfer: filesDataTransfer([txt("dropped.txt")]) });
+    expect(screen.getByText("dropped.txt")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^send$/i }));
+
+    expect(uploadFile).toHaveBeenCalledTimes(1);
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.stringContaining("https://example.sharepoint.com/dropped.txt"),
+      [],
+    );
+  });
+
+  it("falls back to the legacy blob attachment array when no uploadFile is supplied", async () => {
+    const { user, onSubmit } = setup([]);
+    const zone = dropContainer();
+    fireEvent.drop(zone, { dataTransfer: filesDataTransfer([txt("dropped.txt")]) });
+
+    await user.click(screen.getByRole("button", { name: /^send$/i }));
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      "",
+      expect.arrayContaining([expect.objectContaining({ filename: "dropped.txt" })]),
+    );
+  });
+});
+
 describe("CommentComposer — paste to attach", () => {
   const png = (name: string) =>
     new File([new Uint8Array([1, 2, 3])], name, { type: "image/png" });

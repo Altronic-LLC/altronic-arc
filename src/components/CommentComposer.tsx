@@ -11,6 +11,7 @@ import {
 import { cn } from "@/lib/cn";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
 import { NameAttachmentDialog, needsAttachmentName } from "./NameAttachmentDialog";
+import { useFileDrop } from "./useFileDrop";
 
 interface CommentComposerProps {
   onSubmit: (
@@ -65,7 +66,6 @@ export function CommentComposer({
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const [busy, setBusy] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -111,6 +111,8 @@ export function CommentComposer({
       return prev.filter((a) => a.id !== id);
     });
   }
+
+  const { dragging: isDragging, dropProps } = useFileDrop(addFiles, disabled || busy);
 
   // People filtered by the user's query after the @ — first-letter and
   // substring matches both count, scored slightly higher for prefix. The
@@ -250,25 +252,6 @@ export function CommentComposer({
     }
   }
 
-  function handleDragOver(e: React.DragEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(true);
-  }
-  function handleDragLeave(e: React.DragEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-  }
-  function handleDrop(e: React.DragEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      addFiles(e.dataTransfer.files);
-    }
-  }
-
   /**
    * Ctrl+V attaches screenshots and copied files. `filesFromClipboard` returns
    * [] for an ordinary text paste, so the default paste behaviour is left
@@ -332,9 +315,7 @@ export function CommentComposer({
         "relative rounded-lg border bg-surface p-3 transition-colors",
         isDragging ? "border-accent bg-accent/5" : "border-border",
       )}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
+      {...dropProps}
       onPaste={handlePaste}
     >
       <AutoGrowTextarea

@@ -20,6 +20,30 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.138.0",
+    date: "2026-09-01",
+    changes: [
+      "Editing your own comment now supports attaching files — drag a file onto the editor, paste a screenshot, or use the new Attach button, the same as writing a new comment",
+    ],
+  },
+  {
+    version: "0.137.0",
+    date: "2026-09-01",
+    changes: [
+      "FAIT sign-off emails (SQE review, engineer/KAM sign-off requests, a failed SQE sign-off) now also reach everyone watching the FAIT, not just the person or queue being asked to act",
+      "The FAIT Sign-off card's 'Notify Initiator' checkbox now actually does something: checking it emails the initiator and every watcher that an update is available",
+    ],
+  },
+  {
+    version: "0.136.0",
+    date: "2026-09-01",
+    changes: [
+      "Departments & Locations management moved into the Maintenance module (Maintenance → Departments & Locations), no longer requires app-wide admin access",
+      "Anyone can now view Departments & Locations from inside Maintenance; adding, renaming or retiring a value is still limited to maintenance admins",
+      "The old Admin → Maintenance reference lists link now redirects to its new home",
+    ],
+  },
+  {
     version: "0.135.0",
     date: "2026-09-01",
     changes: [

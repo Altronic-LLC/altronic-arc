@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AtSign, Paperclip, Pencil } from "lucide-react";
+import { AtSign, Paperclip, Pencil, X } from "lucide-react";
 import type { Comment, CommentAttachment, Person } from "@/types/task";
 import { sanitiseHtml } from "@/lib/sanitiseHtml";
 import {
@@ -9,8 +9,11 @@ import {
   rankMentionCandidates,
   type MentionCandidates,
 } from "@/lib/mentions";
+import { filesFromClipboard } from "@/lib/pasteFiles";
 import { cn } from "@/lib/cn";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
+import { NameAttachmentDialog, needsAttachmentName } from "./NameAttachmentDialog";
+import { useFileDrop } from "./useFileDrop";
 
 interface CommentThreadProps {
   comments: Comment[];
@@ -38,6 +41,15 @@ interface CommentThreadProps {
    * instead of the usual edit behavior of staying silent.
    */
   onEdit?: (comment: Comment, newBodyHtml: string, renotify: boolean) => Promise<void> | void;
+  /**
+   * Optional per-file upload hook, same contract as `CommentComposer`'s prop
+   * of the same name — when supplied, a file attached while editing uploads
+   * through this function and is inlined into the saved body HTML as a link
+   * instead of becoming a legacy in-memory blob attachment. Only the Task
+   * detail view wires this today (routes to the SharePoint project folder);
+   * every other page omits it and keeps today's blob-attachment behavior.
+   */
+  uploadFile?: (file: File) => Promise<{ name: string; webUrl: string }>;
 }
 
 const NO_CANDIDATES: MentionCandidates = { people: [], total: 0, truncated: false };
@@ -48,6 +60,7 @@ export function CommentThread({
   currentUserName,
   mentionablePeople = [],
   onEdit,
+  uploadFile,
 }: CommentThreadProps) {
   if (comments.length === 0) {
     return (
@@ -78,6 +91,7 @@ export function CommentThread({
             canEdit={isOwn && !!onEdit}
             mentionablePeople={mentionablePeople}
             onEdit={onEdit}
+            uploadFile={uploadFile}
           />
         );
       })}
@@ -90,11 +104,13 @@ function CommentItem({
   canEdit,
   mentionablePeople,
   onEdit,
+  uploadFile,
 }: {
   comment: Comment;
   canEdit: boolean;
   mentionablePeople: Person[];
   onEdit?: (comment: Comment, newBodyHtml: string, renotify: boolean) => Promise<void> | void;
+  uploadFile?: (file: File) => Promise<{ name: string; webUrl: string }>;
 }) {
   const [editing, setEditing] = useState(false);
 
@@ -104,6 +120,7 @@ function CommentItem({
         <CommentEditor
           initialBodyHtml={comment.bodyHtml}
           mentionablePeople={mentionablePeople}
+          uploadFile={uploadFile}
           onCancel={() => setEditing(false)}
           onSave={async (newBodyHtml, renotify) => {
             await onEdit(comment, newBodyHtml, renotify);
@@ -169,21 +186,40 @@ function CommentItem({
   );
 }
 
+/**
+ * Local extension of CommentAttachment — keeps the raw File reference so it
+ * can be uploaded on save when the parent provides `uploadFile`. Mirrors
+ * CommentComposer's PendingAttachment; not exported.
+ */
+interface PendingAttachment extends CommentAttachment {
+  file: File;
+}
+
 function CommentEditor({
   initialBodyHtml,
   mentionablePeople,
+  uploadFile,
   onSave,
   onCancel,
 }: {
   initialBodyHtml: string;
   mentionablePeople: Person[];
+  uploadFile?: (file: File) => Promise<{ name: string; webUrl: string }>;
   onSave: (newBodyHtml: string, renotify: boolean) => Promise<void> | void;
   onCancel: () => void;
 }) {
   const [text, setText] = useState(() => htmlToPlainText(initialBodyHtml));
   const [busy, setBusy] = useState(false);
   const [renotify, setRenotify] = useState(false);
+  const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Unnamed screenshots wait here for the user to name them before they
+  // become attachments — same one-at-a-time queue as the new-comment
+  // composer.
+  const [namingQueue, setNamingQueue] = useState<File[]>([]);
 
   // Seed with whatever mentions the comment already had, so leaving the
   // visible "@Name" text untouched during an edit doesn't downgrade it back
@@ -270,13 +306,91 @@ function CommentEditor({
     });
   }
 
+  function addFiles(files: FileList | File[]) {
+    const newOnes: PendingAttachment[] = [];
+    for (const file of Array.from(files)) {
+      newOnes.push({
+        id: `att-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        filename: file.name,
+        contentType: file.type,
+        sizeBytes: file.size,
+        objectUrl: URL.createObjectURL(file),
+        file,
+      });
+    }
+    setAttachments((prev) => [...prev, ...newOnes]);
+  }
+
+  function removeAttachment(id: string) {
+    setAttachments((prev) => {
+      const removed = prev.find((a) => a.id === id);
+      if (removed?.objectUrl) URL.revokeObjectURL(removed.objectUrl);
+      return prev.filter((a) => a.id !== id);
+    });
+  }
+
+  const { dragging: isDragging, dropProps } = useFileDrop(addFiles, busy);
+
+  /**
+   * Ctrl+V attaches screenshots and copied files, same as the new-comment
+   * composer. A named paste (copied from File Explorer) attaches
+   * immediately; an unnamed screenshot is queued for the naming prompt.
+   */
+  function handlePaste(e: React.ClipboardEvent) {
+    const pasted = filesFromClipboard(e.clipboardData);
+    if (pasted.length === 0) return;
+    e.preventDefault();
+    const named: File[] = [];
+    const unnamed: File[] = [];
+    for (const file of pasted) {
+      (needsAttachmentName(file) ? unnamed : named).push(file);
+    }
+    if (named.length > 0) addFiles(named);
+    if (unnamed.length > 0) setNamingQueue((prev) => [...prev, ...unnamed]);
+  }
+
   async function handleSave() {
     const trimmed = text.trim();
-    if (!trimmed) return;
+    if (!trimmed && attachments.length === 0) return;
     setBusy(true);
+    setUploadError(null);
     try {
-      const html = buildCommentHtml(trimmed, mentions);
-      await onSave(html, renotify);
+      let html = trimmed ? buildCommentHtml(trimmed, mentions) : "";
+
+      // Same branching as CommentComposer: when the parent wired up an
+      // upload hook (Task case), push each attached File to the project
+      // folder first and inline a clean hyperlink for each one. Otherwise
+      // fall back to the legacy in-memory blob attachment shape so editing
+      // behaves exactly like composing on pages that haven't wired uploads.
+      if (uploadFile && attachments.length > 0) {
+        const uploaded: { name: string; webUrl: string }[] = [];
+        for (const a of attachments) {
+          // eslint-disable-next-line no-await-in-loop
+          const result = await uploadFile(a.file);
+          uploaded.push(result);
+        }
+        const linksHtml = uploaded
+          .map(
+            (u) =>
+              `<p>📎 <a href="${escapeAttr(u.webUrl)}" target="_blank" rel="noopener noreferrer">${escapeText(u.name)}</a></p>`,
+          )
+          .join("");
+        html = html + linksHtml;
+        await onSave(html, renotify);
+      } else {
+        await onSave(html, renotify);
+      }
+
+      for (const a of attachments) {
+        if (a.objectUrl) URL.revokeObjectURL(a.objectUrl);
+      }
+      setAttachments([]);
+    } catch (err) {
+      setUploadError(
+        err instanceof Error
+          ? `Couldn't attach file: ${err.message}`
+          : "Couldn't attach file.",
+      );
     } finally {
       setBusy(false);
     }
@@ -316,7 +430,14 @@ function CommentEditor({
   }
 
   return (
-    <div className="relative rounded-md border border-accent/40 bg-surface-2 p-3">
+    <div
+      className={cn(
+        "relative rounded-md border border-accent/40 bg-surface-2 p-3 transition-colors",
+        isDragging && "border-accent bg-accent/5",
+      )}
+      {...dropProps}
+      onPaste={handlePaste}
+    >
       <AutoGrowTextarea
         ref={textareaRef}
         style={{ minHeight: "6.5rem" }}
@@ -328,6 +449,7 @@ function CommentEditor({
           detectMention(text, ta.selectionStart);
         }}
         onKeyDown={handleKeyDown}
+        placeholder={isDragging ? "Drop files here…" : undefined}
         disabled={busy}
         rows={4}
         autoFocus
@@ -374,20 +496,52 @@ function CommentEditor({
         </div>
       )}
 
+      {attachments.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-2">
+          {attachments.map((a) => (
+            <EditorAttachmentChip
+              key={a.id}
+              attachment={a}
+              onRemove={() => removeAttachment(a.id)}
+            />
+          ))}
+        </div>
+      )}
+
       <div className="mt-2 flex items-center justify-between gap-2">
-        <label
-          className="flex items-center gap-1.5 text-xs text-fg-muted"
-          title="Sends a fresh notification email to watchers and mentioned people about this update."
-        >
+        <div className="flex items-center gap-2">
           <input
-            type="checkbox"
-            checked={renotify}
-            onChange={(e) => setRenotify(e.target.checked)}
-            disabled={busy}
-            className="h-3.5 w-3.5 rounded border-border"
+            ref={fileInputRef}
+            type="file"
+            multiple
+            className="sr-only"
+            onChange={(e) => {
+              if (e.target.files) addFiles(e.target.files);
+              e.target.value = "";
+            }}
           />
-          Notify everyone again
-        </label>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={busy}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs font-medium text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg disabled:opacity-50"
+          >
+            <Paperclip className="h-3.5 w-3.5" />
+            Attach
+          </button>
+          <label
+            className="flex items-center gap-1.5 text-xs text-fg-muted"
+            title="Sends a fresh notification email to watchers and mentioned people about this update."
+          >
+            <input
+              type="checkbox"
+              checked={renotify}
+              onChange={(e) => setRenotify(e.target.checked)}
+              disabled={busy}
+              className="h-3.5 w-3.5 rounded border-border"
+            />
+            Notify everyone again
+          </label>
+        </div>
         <div className="flex items-center gap-2">
           <button
             onClick={onCancel}
@@ -398,13 +552,33 @@ function CommentEditor({
           </button>
           <button
             onClick={handleSave}
-            disabled={busy || text.trim().length === 0}
+            disabled={busy || (text.trim().length === 0 && attachments.length === 0)}
             className="rounded-md bg-accent px-3 py-1 text-xs font-medium text-white shadow-sm transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {busy ? "Saving…" : "Save"}
+            {busy
+              ? attachments.length > 0 && uploadFile
+                ? "Uploading…"
+                : "Saving…"
+              : "Save"}
           </button>
         </div>
       </div>
+      {uploadError && (
+        <div className="mt-2 rounded-md border border-cooper-red/30 bg-cooper-red/10 px-2 py-1 text-xs text-cooper-red">
+          {uploadError}
+        </div>
+      )}
+
+      {namingQueue.length > 0 && (
+        <NameAttachmentDialog
+          file={namingQueue[0]}
+          onConfirm={(renamed) => {
+            addFiles([renamed]);
+            setNamingQueue((prev) => prev.slice(1));
+          }}
+          onCancel={() => setNamingQueue((prev) => prev.slice(1))}
+        />
+      )}
     </div>
   );
 }
@@ -450,6 +624,59 @@ function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** A pending (not-yet-saved) attachment on the comment editor — mirrors CommentComposer's AttachmentChip. */
+function EditorAttachmentChip({
+  attachment,
+  onRemove,
+}: {
+  attachment: CommentAttachment;
+  onRemove: () => void;
+}) {
+  const isImage = attachment.contentType.startsWith("image/");
+
+  return (
+    <div className="relative flex items-center gap-2 rounded-md border border-border bg-surface p-1.5 pr-7">
+      {isImage && attachment.objectUrl ? (
+        <img
+          src={attachment.objectUrl}
+          alt={attachment.filename}
+          className="h-10 w-10 shrink-0 rounded object-cover"
+        />
+      ) : (
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-surface-2 text-fg-muted">
+          <Paperclip className="h-4 w-4" />
+        </div>
+      )}
+      <div className="min-w-0 max-w-[160px] text-xs">
+        <div className="truncate font-medium text-fg" title={attachment.filename}>
+          {attachment.filename}
+        </div>
+        <div className="text-fg-muted">{formatBytes(attachment.sizeBytes)}</div>
+      </div>
+      <button
+        onClick={onRemove}
+        className="absolute right-1 top-1 rounded p-0.5 text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
+        aria-label="Remove attachment"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+}
+
+/** Escape text content for inclusion in HTML between tags. */
+function escapeText(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+/** Escape a string for inclusion in a double-quoted HTML attribute value. */
+function escapeAttr(s: string): string {
+  return escapeText(s).replace(/"/g, "&quot;");
 }
 
 function formatTimestamp(d: Date): string {

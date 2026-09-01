@@ -1,8 +1,17 @@
-import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, vi, beforeAll } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CommentThread } from "./CommentThread";
 import type { Comment } from "@/types/task";
+
+// jsdom has no object-URL implementation; the editor makes one per
+// attachment for the preview thumbnail, same as CommentComposer.
+beforeAll(() => {
+  if (!URL.createObjectURL) {
+    URL.createObjectURL = vi.fn(() => "blob:mock");
+    URL.revokeObjectURL = vi.fn();
+  }
+});
 
 const OWN_COMMENT: Comment = {
   timestamp: new Date("2026-01-01T12:00:00"),
@@ -222,6 +231,126 @@ describe("CommentThread — editing preserves and adds real @-mentions", () => {
     expect(onEdit).toHaveBeenCalledWith(
       OWN_COMMENT,
       expect.stringContaining('data-email="matthew.traina@altronic-llc.com"'),
+      false,
+    );
+  });
+});
+
+describe("CommentThread — CommentEditor supports drag-and-drop attachments", () => {
+  async function openEditor(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByRole("button", { name: /^edit$/i }));
+  }
+
+  const txt = (name: string) => new File(["hello"], name, { type: "text/plain" });
+
+  function filesDataTransfer(files: File[]) {
+    return {
+      types: ["Files"],
+      files: files as unknown as FileList,
+      dropEffect: "",
+    } as unknown as DataTransfer;
+  }
+
+  function editorContainer() {
+    // The editor's own bordered wrapper — the textarea's direct parent —
+    // same relationship as CommentComposer's drop target.
+    return screen.getByRole("textbox").parentElement as HTMLElement;
+  }
+
+  it("shows an Attach button on the editor", async () => {
+    const user = userEvent.setup();
+    render(
+      <CommentThread
+        comments={[OWN_COMMENT]}
+        currentUserEmail="ray.white@altronic-llc.com"
+        onEdit={() => {}}
+      />,
+    );
+    await openEditor(user);
+    expect(screen.getByRole("button", { name: /^attach$/i })).toBeInTheDocument();
+  });
+
+  it("highlights the editor on dragenter and clears it on drop", async () => {
+    const user = userEvent.setup();
+    render(
+      <CommentThread
+        comments={[OWN_COMMENT]}
+        currentUserEmail="ray.white@altronic-llc.com"
+        onEdit={() => {}}
+      />,
+    );
+    await openEditor(user);
+    const zone = editorContainer();
+    fireEvent.dragEnter(zone, { dataTransfer: filesDataTransfer([txt("a.txt")]) });
+    expect(zone.className).toContain("bg-accent/5");
+    fireEvent.drop(zone, { dataTransfer: filesDataTransfer([txt("a.txt")]) });
+    expect(zone.className).not.toContain("bg-accent/5");
+  });
+
+  it("attaches a dropped file onto the editor", async () => {
+    const user = userEvent.setup();
+    render(
+      <CommentThread
+        comments={[OWN_COMMENT]}
+        currentUserEmail="ray.white@altronic-llc.com"
+        onEdit={() => {}}
+      />,
+    );
+    await openEditor(user);
+    const zone = editorContainer();
+    fireEvent.drop(zone, { dataTransfer: filesDataTransfer([txt("dropped.txt")]) });
+    expect(screen.getByText("dropped.txt")).toBeInTheDocument();
+  });
+
+  it("uploads a dropped file through uploadFile and inlines a link when saving", async () => {
+    const user = userEvent.setup();
+    const onEdit = vi.fn().mockResolvedValue(undefined);
+    const uploadFile = vi.fn().mockResolvedValue({
+      name: "dropped.txt",
+      webUrl: "https://example.sharepoint.com/dropped.txt",
+    });
+    render(
+      <CommentThread
+        comments={[OWN_COMMENT]}
+        currentUserEmail="ray.white@altronic-llc.com"
+        onEdit={onEdit}
+        uploadFile={uploadFile}
+      />,
+    );
+    await openEditor(user);
+    const zone = editorContainer();
+    fireEvent.drop(zone, { dataTransfer: filesDataTransfer([txt("dropped.txt")]) });
+    expect(screen.getByText("dropped.txt")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    expect(uploadFile).toHaveBeenCalledTimes(1);
+    expect(onEdit).toHaveBeenCalledWith(
+      OWN_COMMENT,
+      expect.stringContaining("https://example.sharepoint.com/dropped.txt"),
+      false,
+    );
+  });
+
+  it("falls back to the legacy blob attachment shape when no uploadFile is supplied (matches CommentComposer's default)", async () => {
+    const user = userEvent.setup();
+    const onEdit = vi.fn().mockResolvedValue(undefined);
+    render(
+      <CommentThread
+        comments={[OWN_COMMENT]}
+        currentUserEmail="ray.white@altronic-llc.com"
+        onEdit={onEdit}
+      />,
+    );
+    await openEditor(user);
+    const zone = editorContainer();
+    fireEvent.drop(zone, { dataTransfer: filesDataTransfer([txt("dropped.txt")]) });
+
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    expect(onEdit).toHaveBeenCalledWith(
+      OWN_COMMENT,
+      expect.not.stringContaining("dropped.txt"),
       false,
     );
   });
