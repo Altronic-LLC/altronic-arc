@@ -7,6 +7,7 @@ import {
   byPromiseDate,
   customerReport,
   customerRollup,
+  combinedWorkbookName,
   customerWorkbookName,
   daysBetween,
   formatByCurrency,
@@ -447,6 +448,47 @@ describe("filenames", () => {
 
   it("still produces a usable name when the customer name is all illegal characters", () => {
     expect(customerWorkbookName("///", RUN)).toBe("Customer_Open_Orders_2026-08-24.xlsx");
+  });
+});
+
+describe("combinedWorkbookName", () => {
+  it("names both accounts, joined, with the run date", () => {
+    expect(combinedWorkbookName(["Cimarron Compression", "Bayou Gas Co"], RUN)).toBe(
+      "Cimarron_Compression_and_Bayou_Gas_Co_Open_Orders_2026-08-24.xlsx",
+    );
+  });
+
+  it("works for two bare sold-to numbers", () => {
+    expect(combinedWorkbookName(["1042", "2277"], RUN)).toBe(
+      "1042_and_2277_Open_Orders_2026-08-24.xlsx",
+    );
+  });
+
+  // Two names, so each gets roughly HALF the room a solo workbook would —
+  // the date still never gets truncated to make space.
+  it("holds the whole name under 100 characters, keeping the date, even with two very long names", () => {
+    const name = combinedWorkbookName(["A".repeat(200), "B".repeat(200)], RUN);
+    expect(name.length).toBeLessThanOrEqual(100);
+    expect(name.endsWith("_Open_Orders_2026-08-24.xlsx")).toBe(true);
+    // Both names get a share, not just the first one.
+    expect(name).toMatch(/^A+_and_B+_Open_Orders_2026-08-24\.xlsx$/);
+  });
+
+  it("still produces a usable name when a customer name is all illegal characters", () => {
+    expect(combinedWorkbookName(["///", "Acme Inc."], RUN)).toBe(
+      "Customer_and_Acme_Inc_Open_Orders_2026-08-24.xlsx",
+    );
+  });
+
+  // Two IDENTICAL customer names — e.g. one contact holding two sold-to
+  // numbers under the same legal name — must not collapse into something
+  // that reads as a single company. Repeating the name on both sides of
+  // "_and_" is the honest answer: it says plainly that two accounts share one
+  // name, rather than silently dropping the duplication down to one.
+  it("keeps both halves for two identical customer names, rather than collapsing to one", () => {
+    expect(combinedWorkbookName(["Acme Inc.", "Acme Inc."], RUN)).toBe(
+      "Acme_Inc_and_Acme_Inc_Open_Orders_2026-08-24.xlsx",
+    );
   });
 });
 

@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.134.0",
+    date: "2026-09-01",
+    changes: [
+      "Open Orders: combine two sold-to accounts into one workbook, each on its own tab — use Combine… next to Build report on the customer list",
+      "Open Orders: download every customer workbook for a week in one zip, alongside the existing per-file downloads",
+      "Open Orders: dates in both the raw/master table and every customer workbook now read mm/dd/yyyy",
+    ],
+  },
+  {
     version: "0.133.0",
     date: "2026-09-01",
     changes: [

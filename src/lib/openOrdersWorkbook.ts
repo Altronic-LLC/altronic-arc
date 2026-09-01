@@ -90,7 +90,13 @@ const BODY_FONT = "Arial";
 
 const MONEY = "#,##0.00";
 const QTY = "#,##0";
-const DATE = "yyyy-mm-dd";
+// mm/dd/yyyy, at Ray's request (2026-09-01) — every date-typed column in both
+// the master/raw table and a customer's own table, so the two stay readable
+// side by side. NOT the run-date stamp in the title block or in filenames
+// (runDateStamp in lib/openOrders.ts, "yyyy-mm-dd") — that format is what
+// makes files sort chronologically in a folder listing and is a separate,
+// deliberate choice untouched by this.
+const DATE = "mm/dd/yyyy";
 
 /** Fields where a column total means something — checked by field, not by
  * header text, so a renamed "Open Order Value" still totals correctly. */
@@ -195,7 +201,26 @@ export async function buildCustomerWorkbook(
   layout: RawLayoutColumn[] = RAW_LAYOUT,
 ): Promise<ExcelJS.Workbook> {
   const wb = newWorkbook(excel, ctx);
-  const ws = wb.addWorksheet("Open Orders", { properties: { tabColor: { argb: BLACK } } });
+  addCustomerSheet(wb, "Open Orders", report, ctx, layout);
+  return wb;
+}
+
+/**
+ * One customer's sheet, added to an already-open workbook.
+ *
+ * Pulled out of `buildCustomerWorkbook` so a COMBINED report (two sold-to
+ * accounts, one file, one tab each — `buildCombinedCustomerWorkbook` below)
+ * renders identically to a standalone customer workbook rather than
+ * maintaining a second copy of the layout.
+ */
+function addCustomerSheet(
+  wb: ExcelJS.Workbook,
+  sheetName: string,
+  report: OpenOrderCustomerReport,
+  ctx: WorkbookContext,
+  layout: RawLayoutColumn[],
+): void {
+  const ws = wb.addWorksheet(sheetName, { properties: { tabColor: { argb: BLACK } } });
 
   titleBlock(ws, "OPEN ORDERS", report.customerName, ctx, layout.length, report.soldTo);
 
@@ -218,7 +243,66 @@ export async function buildCustomerWorkbook(
 
   footer(ws, row + 1, ctx);
   ws.views = [{ state: "frozen", ySplit: firstHeader }];
+}
+
+/**
+ * A COMBINED workbook covering two sold-to accounts, one tab each.
+ *
+ * Ad hoc, for one recipient who needs both accounts in a single file rather
+ * than two separate downloads — e.g. one contact holding two sold-to numbers
+ * for what is really one customer. Deliberately NOT part of the weekly filed
+ * set: it is generated straight to a download (see `useGenerateCustomerReport`
+ * in `hooks/useOpenOrdersReports.ts`), never uploaded to the OPEN ORDERS
+ * folder, and has no effect on either account's `Active` history.
+ *
+ * Each report keeps its own standard/repair split and its own summary line —
+ * this does NOT merge the two accounts' figures into one table. Combining the
+ * numbers would silently answer a question ("what does this customer owe
+ * across both accounts") that nobody using this button necessarily wants
+ * answered, and it would be a different, harder-to-audit feature.
+ */
+export async function buildCombinedCustomerWorkbook(
+  excel: typeof ExcelJS,
+  reports: [OpenOrderCustomerReport, OpenOrderCustomerReport],
+  ctx: WorkbookContext,
+  layout: RawLayoutColumn[] = RAW_LAYOUT,
+): Promise<ExcelJS.Workbook> {
+  const wb = newWorkbook(excel, ctx);
+  const names = uniqueSheetNames(reports.map((r) => r.soldTo || r.customerName));
+  reports.forEach((report, i) => addCustomerSheet(wb, names[i], report, ctx, layout));
   return wb;
+}
+
+/**
+ * Excel sheet names must be unique, ≤31 chars, can't contain
+ * `: \ / ? * [ ]`, can't start or end with a single quote, and can't be the
+ * exact literal "History" — ExcelJS throws synchronously on any of these
+ * (see `node_modules/exceljs/lib/doc/worksheet.js`'s name setter). Sold-to
+ * numbers are short and usually already unique, but two accounts sharing one
+ * (a data-entry duplicate) must not collide silently — a second sheet named
+ * "Open Orders (2)" is loud and findable; ExcelJS throwing mid-build on the
+ * second `addWorksheet` call is not.
+ *
+ * The quote-strip and "History" rename both run BEFORE the 31-char slice, so
+ * fixing them can never push a name over the limit; the numbering suffix is
+ * appended after truncation and always ends in `)`, so it can't reintroduce
+ * a trailing quote either.
+ */
+function uniqueSheetNames(labels: string[]): string[] {
+  const seen = new Map<string, number>();
+  return labels.map((label) => {
+    let base = (label || "Account")
+      .replace(/[:\\/?*[\]]/g, "-")
+      .replace(/^'+|'+$/g, "")
+      .slice(0, 31);
+    if (!base) base = "Account";
+    if (base === "History") base = "History_";
+    const count = seen.get(base) ?? 0;
+    seen.set(base, count + 1);
+    if (count === 0) return base;
+    const suffix = ` (${count + 1})`;
+    return base.slice(0, 31 - suffix.length) + suffix;
+  });
 }
 
 /** Every customer report worth producing for this run. */
@@ -450,7 +534,6 @@ function note(ws: ExcelJS.Worksheet, row: number, text: string) {
   cell.value = text;
   cell.font = { name: BODY_FONT, size: 9, italic: true, color: { argb: DARK_GREY } };
 }
-
 
 
 

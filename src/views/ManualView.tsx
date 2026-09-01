@@ -2325,9 +2325,16 @@ const SECTIONS: ManualSection[] = [
       "excel",
       "dashboard",
       "sales",
+      "combine",
+      "combined report",
+      "two accounts",
+      "download all",
+      "zip",
+      "mm/dd/yyyy",
+      "date format",
     ],
     searchText:
-      "Open Orders Report Tool at /sales/open-orders, under Departments > Customer Service / Sales. The screen opens on the files: the latest master dashboard, then this week's customer workbooks already expanded, with older weeks collapsed beneath. Download any of them straight from ARC. Building the reports is behind a Build this week's reports button below the lists, because most people come here to download rather than to generate. A once-a-week job: export the open orders report out of SAP, upload the xlsx here, and ARC builds a branded master dashboard plus one workbook per customer on the managed report list. Files are written to SharePoint under General/Order Management/OPEN ORDERS on the ALTRONICSALESTEAM site — master dashboards at the top, customer workbooks in a folder per week called Week of YYYY-MM-DD (the Monday), and the raw extract filed in RAW UPLOADS. Download anything from the screen. Every workbook is a single sheet. The master carries every open line in whatever columns and order that week's raw SAP export used — a column SAP adds, drops, or renames week to week shows up (or drops out) the same way — so it can be read against the export side by side. Each customer workbook is the same single sheet of their own lines, with one difference: their standard orders are in one table and their repair orders in a separate table below it. Both are styled to the Altronic brand, with the official wordmark on the sheet: black and white, rows banded light grey and white like a table, and a past-due ship date shown in bold. Each customer workbook has a Summary tab and an Open Orders tab carrying their standard orders in one table and their repair orders in a separate table below it. Aging is measured on the Ship Date (our promise) against the run date, in buckets Past due, 0-30, 31-60, 61-90, 90+ and No promise date. Repair orders are identified by the order type or a repair order number, never by the description — a priced REPAIR KIT part is a normal parts order. Money is totalled per currency; no exchange rate is applied. The customer list is managed at /sales/open-orders/customers, where the customer name is the name the file is named after, Active takes somebody off the weekly run without deleting the row, and Import from an extract reads the accounts out of a raw export. If somebody is added after the week has already been built, Build report on their row produces just their workbook from the extract already filed in RAW UPLOADS, into the same week folder and against the same run date as the rest of that week's files, so there is no need to re-run everything. Any signed-in user can run the weekly job, edit the customer list and download the reports, but only an admin can add or remove a customer from the report list. The past-due figure on the reports counts standard orders only and says how many repair lines it excluded. Optional role gating exists (Admin > Open Orders Roles) but is switched off unless a roles list is configured. Re-running a week REPLACES that week's files.",
+      "Open Orders Report Tool at /sales/open-orders, under Departments > Customer Service / Sales. The screen opens on the files: the latest master dashboard, then this week's customer workbooks already expanded, with older weeks collapsed beneath. Download any of them straight from ARC, or press Download all above a week's file list to get every customer workbook for that week as one zip. Building the reports is behind a Build this week's reports button below the lists, because most people come here to download rather than to generate. A once-a-week job: export the open orders report out of SAP, upload the xlsx here, and ARC builds a branded master dashboard plus one workbook per customer on the managed report list. Files are written to SharePoint under General/Order Management/OPEN ORDERS on the ALTRONICSALESTEAM site — master dashboards at the top, customer workbooks in a folder per week called Week of YYYY-MM-DD (the Monday), and the raw extract filed in RAW UPLOADS. Download anything from the screen. Every workbook is a single sheet. The master carries every open line in whatever columns and order that week's raw SAP export used — a column SAP adds, drops, or renames week to week shows up (or drops out) the same way — so it can be read against the export side by side. Every date column in both the master/raw table and a customer workbook reads mm/dd/yyyy. Each customer workbook is the same single sheet of their own lines, with one difference: their standard orders are in one table and their repair orders in a separate table below it. Both are styled to the Altronic brand, with the official wordmark on the sheet: black and white, rows banded light grey and white like a table, and a past-due ship date shown in bold. Each customer workbook has a Summary tab and an Open Orders tab carrying their standard orders in one table and their repair orders in a separate table below it. Aging is measured on the Ship Date (our promise) against the run date, in buckets Past due, 0-30, 31-60, 61-90, 90+ and No promise date. Repair orders are identified by the order type or a repair order number, never by the description — a priced REPAIR KIT part is a normal parts order. Money is totalled per currency; no exchange rate is applied. The customer list is managed at /sales/open-orders/customers, where the customer name is the name the file is named after, Active takes somebody off the weekly run without deleting the row, and Import from an extract reads the accounts out of a raw export. If somebody is added after the week has already been built, Build report on their row produces just their workbook from the extract already filed in RAW UPLOADS, into the same week folder and against the same run date as the rest of that week's files, so there is no need to re-run everything. Combine… next to Build report on an active account lets you pick a second account and download one workbook covering both, each on its own tab — a direct download that is never filed in SharePoint and never merges the two accounts' figures. Any signed-in user can run the weekly job, edit the customer list and download the reports, but only an admin can add or remove a customer from the report list. The past-due figure on the reports counts standard orders only and says how many repair lines it excluded. Optional role gating exists (Admin > Open Orders Roles) but is switched off unless a roles list is configured. Re-running a week REPLACES that week's files.",
     render: () => (
       <>
         <P>
@@ -2345,6 +2352,14 @@ const SECTIONS: ManualSection[] = [
           <strong>Build this week's reports</strong> button below the lists —
           most people come here to take a file off the shelf, not to run the
           job.
+        </P>
+        <P>
+          Need all of a week's customer workbooks at once — to file them, or
+          send the whole batch on? Expand that week and press{" "}
+          <strong>Download all</strong> above the file list to get every
+          workbook in that folder as a single zip. Individual{" "}
+          <strong>Download</strong> buttons stay on each file too, for the
+          common case of sending one customer their own workbook.
         </P>
         <P>
           <strong>It is a once-a-week job, done by a person.</strong> ARC has no
@@ -2430,6 +2445,17 @@ const SECTIONS: ManualSection[] = [
           from the extract already filed in RAW UPLOADS, into the same week
           folder and against the same run date as everyone else's — so it sits
           alongside the rest of that week rather than being dated today.
+        </P>
+        <P>
+          One recipient holding <strong>two sold-to numbers</strong> for what's
+          really one customer? Press <strong>Combine…</strong> next to an
+          active account's Build report button, pick the second account, and
+          Download combined report builds one workbook with each account on
+          its own tab — from the same extract already in SharePoint. This is a{" "}
+          <strong>direct download only</strong>: nothing is filed in
+          SharePoint, it doesn't touch either account's Active history, and
+          the two accounts' figures stay on separate tabs rather than being
+          added together.
         </P>
         <P>
           <strong>Only an admin can add or remove a customer</strong> from the
