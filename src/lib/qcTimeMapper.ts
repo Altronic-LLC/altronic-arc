@@ -99,13 +99,22 @@ export function buildQcTimeFields(
   };
 }
 
-/** Newest week first, then newest Date Started; undated rows sink to the bottom. */
+/**
+ * Newest entry first — Date Started, falling back to Date into QC, then to
+ * when the row was logged (`createdAt`), then to id. Undated, un-logged rows
+ * sink to the bottom.
+ *
+ * Deliberately NOT keyed on Week first (an earlier version was): Week is a
+ * bare number with no year attached, and it's blank on plenty of real rows —
+ * two entries both reading "35" could be a year apart, and there's nothing
+ * here to break that tie correctly. A real timestamp is the only honest
+ * "latest".
+ */
 export function compareQcTimeEntries(a: QcTimeEntry, b: QcTimeEntry): number {
-  const aw = a.week ?? -Infinity;
-  const bw = b.week ?? -Infinity;
-  if (aw !== bw) return bw - aw;
-  const at = a.dateStarted?.getTime() ?? -Infinity;
-  const bt = b.dateStarted?.getTime() ?? -Infinity;
+  const key = (e: QcTimeEntry) =>
+    e.dateStarted?.getTime() ?? e.dateIntoQc?.getTime() ?? e.createdAt?.getTime() ?? -Infinity;
+  const at = key(a);
+  const bt = key(b);
   if (at !== bt) return bt - at;
   return b.id - a.id;
 }

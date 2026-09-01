@@ -173,7 +173,59 @@ describe("compareQcTimeEntries", () => {
     { id: 4, week: 35, dateStarted: new Date("2026-08-26T12:00:00Z") },
   ] as QcTimeEntry[];
 
-  it("sorts newest week first, then newest Date Started within a week, undated last", () => {
+  it("sorts newest Date Started first, undated last", () => {
     expect([...entries].sort(compareQcTimeEntries).map((e) => e.id)).toEqual([4, 2, 1, 3]);
+  });
+
+  // The reason Week is NOT the primary key: it's a bare number with no year
+  // attached, so two rows reading the same week could be a year apart — the
+  // real dates are the only honest way to tell which is actually newer.
+  it("does not key on Week — a shared week number a year apart still sorts by the real date", () => {
+    const differentYears = [
+      { id: 10, week: 35, dateStarted: new Date("2025-08-25T12:00:00Z") },
+      { id: 11, week: 35, dateStarted: new Date("2026-08-25T12:00:00Z") },
+    ] as QcTimeEntry[];
+    expect([...differentYears].sort(compareQcTimeEntries).map((e) => e.id)).toEqual([11, 10]);
+  });
+
+  it("prefers Date Started over Date into QC even when Date into QC is later", () => {
+    const entries = [
+      { id: 30, dateStarted: new Date("2026-08-10T12:00:00Z"), dateIntoQc: new Date("2026-08-30T12:00:00Z") },
+      { id: 31, dateStarted: new Date("2026-08-20T12:00:00Z"), dateIntoQc: new Date("2026-08-05T12:00:00Z") },
+    ] as QcTimeEntry[];
+    // If Date into QC were checked first, 30 (Aug 30) would win — Date
+    // Started (31's Aug 20 beats 30's Aug 10) is the field that actually
+    // decides it.
+    expect([...entries].sort(compareQcTimeEntries).map((e) => e.id)).toEqual([31, 30]);
+  });
+
+  it("prefers Date into QC over createdAt, when both are present", () => {
+    // Entry 20's Date into QC is EARLIER than its own createdAt (an entry
+    // logged well after the fact). If createdAt were checked before Date
+    // into QC, 20 would resolve to 2026 and beat 21 — checking Date into QC
+    // first correctly resolves 20 to 2020, so 21 (2025) wins instead.
+    const entries = [
+      {
+        id: 20,
+        dateStarted: null,
+        dateIntoQc: new Date("2020-01-01T12:00:00Z"),
+        createdAt: new Date("2026-01-01T12:00:00Z"),
+      },
+      {
+        id: 21,
+        dateStarted: null,
+        dateIntoQc: new Date("2025-01-01T12:00:00Z"),
+        createdAt: new Date("2025-01-01T12:00:00Z"),
+      },
+    ] as QcTimeEntry[];
+    expect([...entries].sort(compareQcTimeEntries).map((e) => e.id)).toEqual([21, 20]);
+  });
+
+  it("falls back to when the row was logged only when there's no date at all", () => {
+    const entries = [
+      { id: 30, dateStarted: null, dateIntoQc: null, createdAt: new Date("2020-01-01T12:00:00Z") },
+      { id: 31, dateStarted: null, dateIntoQc: null, createdAt: new Date("2026-01-01T12:00:00Z") },
+    ] as QcTimeEntry[];
+    expect([...entries].sort(compareQcTimeEntries).map((e) => e.id)).toEqual([31, 30]);
   });
 });

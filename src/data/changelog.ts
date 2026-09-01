@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.140.1",
+    date: "2026-09-01",
+    changes: [
+      "QC Time Tracking now has its own card on the Dashboard, under Panels",
+      "QC Time Tracking entries now list newest first by the actual date logged, rather than by the bare Week number",
+    ],
+  },
+  {
     version: "0.140.0",
     date: "2026-09-01",
     changes: [

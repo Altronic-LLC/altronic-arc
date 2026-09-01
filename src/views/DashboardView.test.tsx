@@ -248,6 +248,7 @@ describe("DashboardView — a shipped feature is never a 'Coming soon' card", ()
     { name: /^Suppliers/i, url: "/supply-chain/suppliers" },
     { name: /Cost Impact Notices/i, url: "/supply-chain/cost-impact-notices" },
     { name: /Teradyne Log/i, url: "/operations/teradyne" },
+    { name: /QC Time Tracking/i, url: "/panels/qc-time-tracking" },
   ];
 
   it.each(SHIPPED)("$name is a button that goes to $url", async ({ name, url }) => {

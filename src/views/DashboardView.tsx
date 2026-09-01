@@ -29,6 +29,7 @@ import {
   PackageSearch,
   Sparkles,
   TestTubes,
+  Timer,
   Users,
 } from "lucide-react";
 import { useProjects, useTasks } from "@/hooks/useTasks";
@@ -836,6 +837,13 @@ export function DashboardView() {
           unit="open"
           segments={panelTaskCard.segments}
           onClick={() => navigate(panelTasksUrl)}
+        />
+        <TypeCard
+          name="QC Time Tracking"
+          icon={<Timer className="h-5 w-5" />}
+          tone="ajax-yellow"
+          description="Hours QC spent on each panel — who did the work, when, and how long."
+          onClick={() => navigate("/panels/qc-time-tracking")}
         />
         <PlaceholderCard name="Project Folders" icon={<FolderOpen className="h-5 w-5" />} />
       </DeptSection>
