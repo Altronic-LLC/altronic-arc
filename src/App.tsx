@@ -17,6 +17,10 @@ import { ProjectFoldersView } from "@/views/ProjectFoldersView";
 import { AdminProjectsView } from "@/views/AdminProjectsView";
 import { AdminAdminsView } from "@/views/AdminAdminsView";
 import { AdminEirRolesView } from "@/views/AdminEirRolesView";
+import { AdminMaintenanceRolesView } from "@/views/AdminMaintenanceRolesView";
+const AdminMaintenanceReferenceListsView = lazy(
+  () => import("@/views/AdminMaintenanceReferenceListsView"),
+);
 import { TestSheetsView } from "@/views/TestSheetsView";
 import { TestSheetDetailView } from "@/views/TestSheetDetailView";
 import { EirsView } from "@/views/EirsView";
@@ -276,6 +280,24 @@ export function App() {
               element={
                 <RequireAdmin>
                   <AdminEirRolesView />
+                </RequireAdmin>
+              }
+            />
+            <Route
+              path="/admin/maintenance-roles"
+              element={
+                <RequireAdmin>
+                  <AdminMaintenanceRolesView />
+                </RequireAdmin>
+              }
+            />
+            <Route
+              path="/admin/maintenance-reference-lists"
+              element={
+                <RequireAdmin>
+                  <Suspense fallback={<LoadingTasks noun="the reference lists" />}>
+                    <AdminMaintenanceReferenceListsView />
+                  </Suspense>
                 </RequireAdmin>
               }
             />

@@ -4,6 +4,7 @@ import type {
   GraphListItem,
   MaintenanceCategory,
   MaintenancePriority,
+  MaintenanceReferenceValue,
   Person,
   ProjectReference,
   ScheduleBasis,
@@ -28,6 +29,7 @@ import {
   text,
 } from "./maintenanceShared";
 import { parsePeople } from "./grayMarketMapper";
+import { attachReference, referenceIndex } from "./maintenanceReferences";
 
 // =============================================================================
 // Graph item → ScheduledMaintenance (Scheduled Maintenance, PMO site), and the
@@ -39,8 +41,14 @@ import { parsePeople } from "./grayMarketMapper";
 // type has no `comments` field for one to be quietly added to.
 //
 // `AssignedTo` and `LastCompletedBy` are SINGLE person columns — bare
-// `<Name>LookupId` on the wire, bare integer on the write — and `EquipmentRef`
-// is a single lookup with the same shape. See maintenanceShared.ts.
+// `<Name>LookupId` on the wire, bare integer on the write — and `EquipmentRef`,
+// `OperationsProjectRef`, `DepartmentRef` and `LocationRef` are single lookups
+// with the same shape. See maintenanceShared.ts.
+//
+// **Department and Location became lookups on 2026-08-28** and have NO legacy
+// fallback here: the old choice columns were only ever created on the Equipment
+// List, so selecting `Department` / `Location` on THIS list 400s the whole
+// read. Never add them to SCHEDULED_MAINTENANCE_SELECT.
 //
 // `Active` is written on EVERY create, never omitted: a null Active reads as
 // blank in SharePoint's own views, and a schedule that is neither on nor off
@@ -68,6 +76,15 @@ export const SCHEDULED_MAINTENANCE_SELECT = [
   "LOTORequired",
   "EquipmentRef",
   "EquipmentRefLookupId",
+  "OperationsProjectRef",
+  "OperationsProjectRefLookupId",
+  // The schedule's OWN department and location — not the asset's. Single
+  // LOOKUPS since 2026-08-28; both halves, and never the old choice columns,
+  // which this list hasn't got.
+  "DepartmentRef",
+  "DepartmentRefLookupId",
+  "LocationRef",
+  "LocationRefLookupId",
   "AssignedTo",
   "AssignedToLookupId",
   "LastCompletedBy",
@@ -92,6 +109,11 @@ export function toScheduledMaintenance(item: GraphListItem): ScheduledMaintenanc
     category: clampOptional<MaintenanceCategory>(f.Category, MAINTENANCE_CATEGORIES),
     priority: clampOptional<MaintenancePriority>(f.Priority, MAINTENANCE_PRIORITIES),
     equipment: lookupRef(f.EquipmentRef, f.EquipmentRefLookupId),
+    operationsProject: lookupRef(f.OperationsProjectRef, f.OperationsProjectRefLookupId),
+    // Single lookups into the two Maintenance reference lists; titles are
+    // joined afterwards by `attachScheduleReferences`.
+    department: lookupRef(f.DepartmentRef, f.DepartmentRefLookupId),
+    location: lookupRef(f.LocationRef, f.LocationRefLookupId),
     frequencyInterval: readNumber(f.FrequencyInterval),
     frequencyUnit: clampOptional<FrequencyUnit>(f.FrequencyUnit, FREQUENCY_UNITS),
     scheduleBasis: clampOptional<ScheduleBasis>(f.ScheduleBasis, SCHEDULE_BASES),
@@ -119,6 +141,46 @@ function safeDate(raw: string | undefined): Date {
   if (!raw) return new Date(0);
   const d = new Date(raw);
   return Number.isNaN(d.getTime()) ? new Date(0) : d;
+}
+
+/**
+ * Resolve each schedule's Operations project title against the loaded list.
+ * Mutates in place, the same "join after the fact" step the work orders do.
+ *
+ * Separate from `attachScheduleEquipmentTitles` rather than folded into it:
+ * they resolve against two different lists, and the equipment read is already
+ * on the schedule query's critical path while the projects read is a cheap
+ * 200-row reference list the Operations module has loaded anyway.
+ */
+export function attachScheduleOperationsProjects(
+  schedules: ScheduledMaintenance[],
+  projects: ProjectReference[],
+): void {
+  const byId = new Map(projects.map((p) => [p.lookupId, { title: p.title }]));
+  for (const s of schedules) {
+    s.operationsProject = attachLookupTitle(s.operationsProject, byId);
+  }
+}
+
+/**
+ * Resolve each schedule's Department / Location against the two reference
+ * lists. Mutates in place.
+ *
+ * `attachReference` rather than `attachLookupTitle`, for the same reason the
+ * work orders use it: a schedule pointing at a value the list no longer has
+ * still has to render as `#41` rather than as nothing.
+ */
+export function attachScheduleReferences(
+  schedules: ScheduledMaintenance[],
+  departments: MaintenanceReferenceValue[],
+  locations: MaintenanceReferenceValue[],
+): void {
+  const departmentIndex = referenceIndex(departments);
+  const locationIndex = referenceIndex(locations);
+  for (const s of schedules) {
+    s.department = attachReference(s.department, departmentIndex);
+    s.location = attachReference(s.location, locationIndex);
+  }
 }
 
 /** Fill in the two person columns from the site's user directory. Mutates in place. */
@@ -175,8 +237,14 @@ export function buildScheduledMaintenanceCreateFields(
   if (input.timeNeeded != null) fields.TimeNeeded = input.timeNeeded;
   if (input.graceDays != null) fields.GraceDays = input.graceDays;
   if (input.leadTimeDays != null) fields.LeadTimeDays = input.leadTimeDays;
-  // Single lookup: a BARE integer, never multiLookupField's annotated shape.
+  // Single lookups: a BARE integer, never multiLookupField's annotated shape.
   if (input.equipmentLookupId) fields.EquipmentRefLookupId = input.equipmentLookupId;
+  if (input.operationsProjectLookupId) {
+    fields.OperationsProjectRefLookupId = input.operationsProjectLookupId;
+  }
+  // Single lookups: a BARE integer, omitted when unset.
+  if (input.departmentLookupId) fields.DepartmentRefLookupId = input.departmentLookupId;
+  if (input.locationLookupId) fields.LocationRefLookupId = input.locationLookupId;
   return fields;
 }
 

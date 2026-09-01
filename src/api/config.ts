@@ -155,6 +155,66 @@ export const SP_SCHEDULED_MAINTENANCE_LIST_ID =
   "9179e16d-5cc8-41bd-b085-eccd39293f98";
 
 /**
+ * "Maintenance Departments" and "Maintenance Locations" — the two admin-managed
+ * reference lists behind the `DepartmentRef` / `LocationRef` single lookups on
+ * the Equipment List, Maintenance Tasks and Scheduled Maintenance.
+ *
+ * **They replaced CHOICE columns, and that is the whole point.** A choice
+ * column's allowed values live in the column DEFINITION, so adding a
+ * department means PATCHing the column — which needs site-manage rights. ARC
+ * holds `Sites.Selected`: item read/write only. With a lookup, adding a
+ * department is adding a LIST ITEM, which ARC can already do — so the shop can
+ * maintain its own departments and locations from /admin rather than raising a
+ * ticket. Same pattern as Operations Projects, Panel Projects and the three
+ * Teradyne reference lists.
+ *
+ * Documented defaults, like the two list ids above and unlike
+ * SP_MAINTENANCE_ROLES_LIST_ID below: these are plain reference lists that
+ * gate nothing. A default here can't lock anyone out of anything — the worst
+ * it can do is point a picker at the wrong list, which is visible immediately.
+ *
+ * Each list has `Title` (the value), `Active` (boolean) and `Note`
+ * (multi-line). Discovered live 2026-08-28: 9 departments, 64 locations.
+ */
+export const SP_MAINTENANCE_DEPARTMENTS_LIST_ID =
+  import.meta.env.VITE_SP_MAINTENANCE_DEPARTMENTS_LIST_ID ||
+  "3c203f31-4c07-44fd-8108-7208bb2644bc";
+
+export const SP_MAINTENANCE_LOCATIONS_LIST_ID =
+  import.meta.env.VITE_SP_MAINTENANCE_LOCATIONS_LIST_ID ||
+  "77f7c05f-acdc-46ff-bc5f-f73c48fc81e3";
+
+/**
+ * Maintenance Roles list — one row per user (Title = email) with a `Roles`
+ * column carrying the level tags ("tech" / "admin"). Created by
+ * scripts/create-maintenance-roles-list.ps1 on the PMO site, managed at
+ * /admin/maintenance-roles by ARC admins.
+ *
+ * `Roles` is a CHOICE column, and whether it is single- or multi-value is not
+ * confirmed — api/maintenanceRoles.ts reads and writes every shape it could
+ * be rather than depending on one. See the note at the top of that file.
+ *
+ * **Deliberately NO default**, unlike the two list ids above — the same
+ * reasoning as SP_EIR_ROLES_LIST_ID. Setting it switches CMMS role gating ON
+ * (see MAINTENANCE_ROLES_ENFORCED below), and every tech not yet on the list
+ * would lose the ability to close out a work order they can close today.
+ * Populate the list first, then set the env var: the switch-on is a decision,
+ * not a piece of configuration tidying.
+ */
+export const SP_MAINTENANCE_ROLES_LIST_ID = import.meta.env.VITE_SP_MAINTENANCE_ROLES_LIST_ID;
+
+/**
+ * Whether CMMS role gating is active.
+ *
+ * Same lockout-safety shape as EIR_ROLES_ENFORCED and
+ * OPEN_ORDERS_ROLES_ENFORCED: OFF in real mode until the Maintenance Roles
+ * list is configured, so an unconfigured list means "everyone keeps what they
+ * can do today" and never "nobody can do anything". Always on in mock mode so
+ * the gating is demoable.
+ */
+export const MAINTENANCE_ROLES_ENFORCED = USE_MOCK || !!SP_MAINTENANCE_ROLES_LIST_ID;
+
+/**
  * PMO site's classic SharePoint REST root — needed for Operations task
  * attachments (SP REST, not Graph; see src/api/attachments.ts). Same tenant
  * as SP_SITE_URL, so the same acquired token covers both — only the path

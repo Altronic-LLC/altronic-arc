@@ -1,4 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
+
+// The CMMS role gates aren't what this file is about — they have their own
+// tests (lib/maintenanceRoles.test.ts, and the .roles.test files beside the two
+// maintenance hooks). Full rights here, controllable where a case needs to see
+// a refusal, so nothing in this file depends on the roles list loading.
+const maintenanceAccess = vi.hoisted(() => ({
+  value: { isTech: true, isAdmin: true, enforced: true, isResolving: false },
+}));
+
+vi.mock("@/hooks/useMaintenanceRoles", () => ({
+  useMyMaintenanceRoles: () => maintenanceAccess.value,
+  useResolveMaintenanceAccess: () => async () => maintenanceAccess.value,
+}));
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
@@ -50,6 +63,9 @@ function task(over: Partial<MaintenanceTask> = {}): MaintenanceTask {
     status: "Backlog",
     priority: null,
     category: null,
+    department: null,
+    location: null,
+    operationsProject: null,
     taskType: null,
     dueStatus: null,
     startDate: null,
@@ -156,7 +172,7 @@ describe("MaintenanceDashboardView", () => {
   it("says a department bucket exists for the assets that have none, with the count", () => {
     seed({
       equipment: [
-        asset({ lookupId: 1, department: "PROD" }),
+        asset({ lookupId: 1, department: { lookupId: 6, title: "PROD" } }),
         asset({ lookupId: 2, department: null }),
         asset({ lookupId: 3, department: null }),
         asset({ lookupId: 4, department: null }),
@@ -175,7 +191,7 @@ describe("MaintenanceDashboardView", () => {
 
   it("groups by Department and offers no Location grouping at all", () => {
     seed({
-      equipment: [asset({ lookupId: 1, department: "PROD", location: "MACHINE SHOP" })],
+      equipment: [asset({ lookupId: 1, department: { lookupId: 6, title: "PROD" }, location: { lookupId: 33, title: "MACHINE SHOP" } })],
     });
     render();
     expect(screen.getByRole("region", { name: "Assets by department" })).toBeInTheDocument();
@@ -189,7 +205,7 @@ describe("MaintenanceDashboardView", () => {
         task({ equipment: { lookupId: 1, title: "press" } }),
         task({ equipment: null }),
       ],
-      equipment: [asset({ lookupId: 1, department: "PROD" })],
+      equipment: [asset({ lookupId: 1, department: { lookupId: 6, title: "PROD" } })],
     });
     render();
     const byDept = card("Open work by department");
@@ -228,7 +244,7 @@ describe("MaintenanceDashboardView", () => {
         }),
         task({ equipment: null, downtimeHours: 4, createdAt: day("2026-08-10") }),
       ],
-      equipment: [asset({ lookupId: 1, name: "60 TON PRESS", department: "PROD" })],
+      equipment: [asset({ lookupId: 1, name: "60 TON PRESS", department: { lookupId: 6, title: "PROD" } })],
     });
     render();
     const downtime = card("Downtime by asset");

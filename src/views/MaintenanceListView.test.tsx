@@ -1,4 +1,17 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
+
+// The CMMS role gates aren't what this file is about — they have their own
+// tests (lib/maintenanceRoles.test.ts, and the .roles.test files beside the two
+// maintenance hooks). Full rights here, controllable where a case needs to see
+// a refusal, so nothing in this file depends on the roles list loading.
+const maintenanceAccess = vi.hoisted(() => ({
+  value: { isTech: true, isAdmin: true, enforced: true, isResolving: false },
+}));
+
+vi.mock("@/hooks/useMaintenanceRoles", () => ({
+  useMyMaintenanceRoles: () => maintenanceAccess.value,
+  useResolveMaintenanceAccess: () => async () => maintenanceAccess.value,
+}));
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
@@ -43,8 +56,8 @@ const TASKS: MaintenanceTask[] = [
 ];
 
 const EQUIPMENT = [
-  makeAsset({ lookupId: 3, name: "40 HP COMPRESSOR", department: "MACH SHOP" }),
-  makeAsset({ lookupId: 8, name: "REFLOW OVEN", department: "SMT" }),
+  makeAsset({ lookupId: 3, name: "40 HP COMPRESSOR", department: { lookupId: 4, title: "MACH SHOP" } }),
+  makeAsset({ lookupId: 8, name: "REFLOW OVEN", department: { lookupId: 8, title: "SMT" } }),
 ];
 
 const state = vi.hoisted(() => ({ tasks: [] as unknown[], isLoading: false }));
@@ -157,7 +170,10 @@ describe("MaintenanceListView", () => {
   });
 
   it("reads a filter back out of the URL on arrival", () => {
-    renderList("?dept=SMT");
+    // `dept` carries reference-list lookupIds, not names — SMT is #8 in the
+    // fixture register above. That is what makes a shared link survive a
+    // department being renamed in Admin.
+    renderList("?dept=8");
     expect(screen.getByText("Oven profile verification")).toBeInTheDocument();
     expect(screen.queryByText("Compressor tripping")).toBeNull();
   });
@@ -171,7 +187,12 @@ describe("MaintenanceListView", () => {
     state.isLoading = true;
     state.tasks = [];
     renderList();
-    expect(screen.getByText(/work orders/i)).toBeInTheDocument();
+    // Scoped to the headline's `div`. The MaintenanceViewSwitcher above the
+    // list renders a "Work orders" LINK, so a bare getByText matches twice —
+    // and the thing being asserted here is the loading screen's noun, not the
+    // nav's. Same reason the switcher itself is fine: a person can tell a tab
+    // from a headline; a text query can't.
+    expect(screen.getByText(/work orders/i, { selector: "div" })).toBeInTheDocument();
     expect(screen.queryByText("Compressor tripping")).toBeNull();
   });
 

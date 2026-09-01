@@ -1,10 +1,13 @@
 import type {
   Equipment,
+  MaintenanceReferenceValue,
   MaintenanceTask,
   Person,
   ProjectReference,
   ScheduledMaintenance,
 } from "@/types/task";
+import { EQUIPMENT_DEPARTMENTS, EQUIPMENT_LOCATIONS } from "@/types/task";
+import { MOCK_OPERATIONS_PROJECTS } from "./operationsMockData";
 
 // =============================================================================
 // Mock data for the CMMS module — work orders, PM schedules and the equipment
@@ -34,6 +37,27 @@ function day(offset: number): Date {
 /** A timestamp `offset` days ago, for created/modified stamps. */
 function stamp(offset: number): Date {
   return new Date(day(offset).getTime() + 3 * 3600_000);
+}
+
+/**
+ * A checklist attribution stamp, `offset` days ago — the exact shape
+ * `toggleChecklistItem` writes when somebody ticks a box
+ * (`✓[Ray White · 7/17/2026, 10:15 AM]`), including the same deterministic
+ * en-US format `formatStampDate` uses.
+ *
+ * Built from a relative date like every other date in this file, so a demo
+ * ticked "yesterday" still reads as yesterday next month. Hardcoding one
+ * would go stale exactly the way a fixed PM calendar does.
+ */
+function tickedBy(name: string, offset: number): string {
+  const when = new Date(day(offset).getTime() + 9 * 3600_000);
+  return ` ✓[${name} · ${when.toLocaleString("en-US", {
+    month: "numeric",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  })}]`;
 }
 
 const RAY: Person = {
@@ -68,6 +92,73 @@ const DEMO: Person = {
 };
 
 export const MOCK_MAINTENANCE_PEOPLE: Person[] = [RAY, DAVID, ALYSSA, ERIC, AMANDA, DEMO];
+
+// -----------------------------------------------------------------------------
+// Reference lists — Maintenance Departments and Maintenance Locations
+//
+// Seeded from the REAL values the two lookup lists were created with on
+// 2026-08-28, which are exactly the values the old CHOICE columns held
+// (EQUIPMENT_DEPARTMENTS / EQUIPMENT_LOCATIONS in types/task.ts). The junk
+// travels with them on purpose: a literal `-`, "Q.C." beside "QC", "Q.C.
+// DIGITAL" beside "QC DIGITAL", "HARNESS DEPARMENT" beside "HARNESS
+// DEPARTMENT". The admin screen's duplicate hint has nothing to point at in a
+// demo whose data has been tidied — and tidying it here would make the mock
+// disagree with the list people actually open.
+// -----------------------------------------------------------------------------
+
+/**
+ * One location is seeded RETIRED — the "HARNESS DEPARMENT" typo, whose
+ * correctly-spelled twin is the one assets point at. It is what makes the
+ * "active values only in the picker, but a retired value still displays"
+ * rule demoable without breaking a single asset.
+ */
+const RETIRED_MOCK_LOCATIONS = new Set(["HARNESS DEPARMENT"]);
+
+function seedReferenceList(
+  titles: readonly string[],
+  retired: ReadonlySet<string> = new Set(),
+): MaintenanceReferenceValue[] {
+  return titles.map((title, i) => ({
+    lookupId: i + 1,
+    title,
+    active: !retired.has(title),
+    note: "",
+  }));
+}
+
+export const MOCK_MAINTENANCE_DEPARTMENTS: MaintenanceReferenceValue[] =
+  seedReferenceList(EQUIPMENT_DEPARTMENTS);
+
+export const MOCK_MAINTENANCE_LOCATIONS: MaintenanceReferenceValue[] = seedReferenceList(
+  EQUIPMENT_LOCATIONS,
+  RETIRED_MOCK_LOCATIONS,
+);
+
+/**
+ * A seed's department / location NAME, as the `{ lookupId, title }` reference
+ * the domain now holds.
+ *
+ * The seeds still name their department in words, because that is how a person
+ * reading this file knows which machine is where. An unknown name is a bug in
+ * the seed rather than a case to handle quietly, so it throws — the mock and
+ * the mock reference lists have to agree, or the demo shows dangling lookups
+ * that the real data would never produce.
+ */
+function referenceByTitle(
+  values: MaintenanceReferenceValue[],
+  title: string | null | undefined,
+  kind: string,
+): ProjectReference | null {
+  if (!title) return null;
+  const found = values.find((v) => v.title === title);
+  if (!found) throw new Error(`Mock seed names a ${kind} that isn't on the mock list: "${title}"`);
+  return { lookupId: found.lookupId, title: found.title };
+}
+
+const departmentRef = (title: string | null | undefined) =>
+  referenceByTitle(MOCK_MAINTENANCE_DEPARTMENTS, title, "department");
+const locationRef = (title: string | null | undefined) =>
+  referenceByTitle(MOCK_MAINTENANCE_LOCATIONS, title, "location");
 
 // -----------------------------------------------------------------------------
 // Equipment register
@@ -334,8 +425,8 @@ export const MOCK_EQUIPMENT: Equipment[] = ASSET_SEEDS.map((a) => ({
   manufacturer: a.manufacturer,
   modelNumber: a.modelNumber,
   equipmentType: a.equipmentType,
-  department: a.department,
-  location: a.location,
+  department: departmentRef(a.department),
+  location: locationRef(a.location),
   criticality: a.criticality,
   assetStatus: a.assetStatus,
   parentAsset: a.parentLookupId
@@ -357,12 +448,33 @@ const assetRef = (lookupId: number): ProjectReference => ({
 // -----------------------------------------------------------------------------
 
 interface ScheduleSeed
-  extends Partial<Omit<ScheduledMaintenance, "id" | "equipment" | "createdAt" | "modifiedAt">> {
+  extends Partial<
+    Omit<
+      ScheduledMaintenance,
+      "id" | "equipment" | "operationsProject" | "department" | "location" | "createdAt" | "modifiedAt"
+    >
+  > {
   id: number;
   title: string;
   equipmentLookupId: number;
+  /** Named in words; resolved to a reference-list lookup below. */
+  department?: string;
+  location?: string;
+  /** Operations Projects lookupId — resolved to a titled reference below. */
+  operationsProjectLookupId?: number;
   createdDaysAgo: number;
 }
+
+/**
+ * An Operations Projects reference, titled from the Operations module's own
+ * demo data — so a work order and an Operations task naming project 3 agree
+ * about which one it is, exactly as they already do for equipment.
+ */
+const operationsProjectRef = (id: number): ProjectReference =>
+  MOCK_OPERATIONS_PROJECTS.find((p) => p.lookupId === id) ?? {
+    lookupId: id,
+    title: `(project #${id})`,
+  };
 
 const SCHEDULE_SEEDS: ScheduleSeed[] = [
   {
@@ -385,12 +497,26 @@ const SCHEDULE_SEEDS: ScheduleSeed[] = [
     graceDays: 2,
     leadTimeDays: 3,
     createdDaysAgo: 200,
+    department: "MACH SHOP",
+    location: "PANELS",
   },
   {
     id: 2,
     title: "40 HP compressor oil change",
     equipmentLookupId: 3,
-    instructions: "Drain and replace compressor oil. Replace the oil filter and separator element.",
+    instructions: [
+      "Shutdown and lock-out required — do not start this until the unit is isolated.",
+      "- [ ] Isolate at the disconnect and apply your lock and tag",
+      "- [ ] Bleed the receiver to zero and confirm at the gauge",
+      "- [ ] Let the unit cool — the sump runs hot straight after a stop",
+      "- [ ] Drain the sump into the waste oil drum",
+      "- [ ] Replace the oil filter",
+      "- [ ] Replace the separator element and its gasket",
+      "- [ ] Refill to the sight-glass mark and log the quantity",
+      "- [ ] Remove locks, restore power and run up",
+      "- [ ] Check for leaks and confirm discharge pressure holds",
+      "Log the oil quantity on the work order — it is what the next interval is set from.",
+    ].join("\n"),
     category: "Oil Change",
     priority: "High",
     frequencyInterval: 90,
@@ -407,12 +533,24 @@ const SCHEDULE_SEEDS: ScheduleSeed[] = [
     requiresShutdown: true,
     lotoRequired: true,
     createdDaysAgo: 300,
+    department: "MACH SHOP",
+    location: "COMPRESSOR ROOM",
+    operationsProjectLookupId: 4,
   },
   {
     id: 3,
     title: "Reflow oven profile verification",
     equipmentLookupId: 8,
-    instructions: "Run a profiling board through all ten zones and file the trace with QC.",
+    instructions: [
+      "- [ ] Fit the profiling board and confirm the thermocouples read ambient",
+      "- [ ] Run the board through all ten zones at production belt speed",
+      "\t- [ ] Check each zone against its set point on the trace",
+      "\t- [ ] Flag any zone more than 5C out and note the zone number",
+      "\t- [ ] Re-run the board after any adjustment",
+      "- [ ] Print the trace and file it with QC",
+      "- [ ] Record the peak temperature and time above liquidus on the work order",
+      "QC keeps the trace for the audit — the run is not finished until it is filed.",
+    ].join("\n"),
     category: "Calibration",
     priority: "High",
     frequencyInterval: 1,
@@ -474,7 +612,13 @@ const SCHEDULE_SEEDS: ScheduleSeed[] = [
     id: 6,
     title: "Kitamura way lube and coolant check",
     equipmentLookupId: 10,
-    instructions: "Top up way lube, check coolant concentration with the refractometer, log it.",
+    instructions: [
+      "- [ ] Top up the way lube reservoir",
+      "- [ ] Check the coolant concentration with the refractometer",
+      "- [ ] Skim the tramp oil off the tank",
+      "- [ ] Log the reading on the work order",
+      "Concentration should read 7-9%. Below 6% and the coolant goes off inside a week.",
+    ].join("\n"),
     category: "Preventive",
     priority: "Med",
     frequencyInterval: 2,
@@ -494,7 +638,16 @@ const SCHEDULE_SEEDS: ScheduleSeed[] = [
     id: 7,
     title: "Towmotor safety inspection",
     equipmentLookupId: 1,
-    instructions: "Forks, mast chains, horn, lights, brakes. Tag out immediately if anything fails.",
+    instructions: [
+      "- [ ] Forks — check for cracks, wear and a bent tip",
+      "- [ ] Mast chains — tension even, no stretched or seized links",
+      "- [ ] Horn sounds",
+      "- [ ] Lights and beacon work",
+      "- [ ] Service brake and parking brake hold on the ramp",
+      "- [ ] Tyres and wheel nuts",
+      "- [ ] Seat belt latches and retracts",
+      "Tag out immediately if anything fails — do not leave it for the next shift.",
+    ].join("\n"),
     category: "Safety",
     priority: "High",
     frequencyInterval: 1,
@@ -581,6 +734,11 @@ export const MOCK_SCHEDULED_MAINTENANCE: ScheduledMaintenance[] = SCHEDULE_SEEDS
   category: s.category ?? null,
   priority: s.priority ?? null,
   equipment: assetRef(s.equipmentLookupId),
+  operationsProject: s.operationsProjectLookupId
+    ? operationsProjectRef(s.operationsProjectLookupId)
+    : null,
+  department: departmentRef(s.department),
+  location: locationRef(s.location),
   frequencyInterval: s.frequencyInterval ?? null,
   frequencyUnit: s.frequencyUnit ?? null,
   scheduleBasis: s.scheduleBasis ?? "Fixed",
@@ -617,13 +775,26 @@ interface WorkOrderSeed
   extends Partial<
     Omit<
       MaintenanceTask,
-      "id" | "equipment" | "scheduleRef" | "createdAt" | "modifiedAt" | "taskType"
+      | "id"
+      | "equipment"
+      | "scheduleRef"
+      | "operationsProject"
+      | "department"
+      | "location"
+      | "createdAt"
+      | "modifiedAt"
+      | "taskType"
     >
   > {
   id: number;
   title: string;
   equipmentLookupId: number | null;
+  /** Named in words; resolved to a reference-list lookup below. */
+  department?: string;
+  location?: string;
   scheduleLookupId?: number;
+  /** Operations Projects lookupId — resolved to a titled reference below. */
+  operationsProjectLookupId?: number;
   createdDaysAgo: number;
 }
 
@@ -646,6 +817,8 @@ const WORK_ORDER_SEEDS: WorkOrderSeed[] = [
     techNotes: "Cooler face is packed with dust. Blowing it out and re-testing under load.",
     downtimeHours: 4.5,
     createdDaysAgo: 2,
+    department: "MACH SHOP",
+    location: "COMPRESSOR ROOM",
   },
   {
     id: 2,
@@ -677,6 +850,8 @@ const WORK_ORDER_SEEDS: WorkOrderSeed[] = [
     partsUsed: "Spindle bearing kit MC-204-BRG (on order)",
     downtimeHours: 96,
     createdDaysAgo: 6,
+    department: "COILS",
+    location: "COIL DEPARTMENT",
   },
   {
     id: 4,
@@ -697,6 +872,16 @@ const WORK_ORDER_SEEDS: WorkOrderSeed[] = [
     title: "Kitamura way lube top-up and coolant check",
     equipmentLookupId: 10,
     scheduleLookupId: 6,
+    // The checklist this PM's schedule produced, half worked. The two ticks
+    // carry real attribution — the point of the feature is that a tick says
+    // WHO and WHEN, which an empty demo checklist can never show.
+    description: [
+      `- [x] Top up the way lube reservoir${tickedBy("David Bulkley", -1)}`,
+      `- [x] Check the coolant concentration with the refractometer${tickedBy("David Bulkley", -1)}`,
+      "- [ ] Skim the tramp oil off the tank",
+      "- [ ] Log the reading on the work order",
+      "Concentration should read 7-9%. Below 6% and the coolant goes off inside a week.",
+    ].join("\n"),
     status: "Up Next",
     priority: "Med",
     category: "Preventive",
@@ -717,6 +902,9 @@ const WORK_ORDER_SEEDS: WorkOrderSeed[] = [
     dueDate: day(4),
     dueStatus: "On-Track",
     createdDaysAgo: 2,
+    department: "PCB",
+    location: "DIP ROOM",
+    operationsProjectLookupId: 3,
   },
   {
     id: 7,
@@ -784,6 +972,8 @@ const WORK_ORDER_SEEDS: WorkOrderSeed[] = [
     reportedBy: ALYSSA,
     dueDate: day(30),
     createdDaysAgo: 18,
+    department: "Panels",
+    location: "HARNESS DEPARTMENT",
   },
   {
     id: 12,
@@ -804,6 +994,19 @@ const WORK_ORDER_SEEDS: WorkOrderSeed[] = [
     title: "Towmotor monthly safety inspection",
     equipmentLookupId: 1,
     scheduleLookupId: 7,
+    // A closed-out checklist: every step ticked, each one attributed. Pairs
+    // with work order 5 (the same feature, half done) so the demo shows both
+    // ends of a job.
+    description: [
+      `- [x] Forks — check for cracks, wear and a bent tip${tickedBy("David Bulkley", -11)}`,
+      `- [x] Mast chains — tension even, no stretched or seized links${tickedBy("David Bulkley", -11)}`,
+      `- [x] Horn sounds${tickedBy("David Bulkley", -11)}`,
+      `- [x] Lights and beacon work${tickedBy("David Bulkley", -11)}`,
+      `- [x] Service brake and parking brake hold on the ramp${tickedBy("David Bulkley", -11)}`,
+      `- [x] Tyres and wheel nuts${tickedBy("David Bulkley", -11)}`,
+      `- [x] Seat belt latches and retracts${tickedBy("David Bulkley", -11)}`,
+      "Tag out immediately if anything fails — do not leave it for the next shift.",
+    ].join("\n"),
     status: "Complete",
     priority: "High",
     category: "Safety",
@@ -875,6 +1078,8 @@ const WORK_ORDER_SEEDS: WorkOrderSeed[] = [
     laborHours: 1.5,
     downtimeHours: 1.5,
     createdDaysAgo: 66,
+    department: "PROD",
+    location: "HARNESS DEPARTMENT",
   },
   {
     id: 17,
@@ -965,6 +1170,8 @@ const WORK_ORDER_SEEDS: WorkOrderSeed[] = [
     resolution: "Four couplers replaced with the standard 1/4in industrial pattern.",
     laborHours: 1,
     createdDaysAgo: 21,
+    department: "PROD",
+    location: "PRODUCTION",
   },
   {
     id: 22,
@@ -1005,6 +1212,8 @@ const WORK_ORDER_SEEDS: WorkOrderSeed[] = [
     dueDate: day(-4),
     dueStatus: "Late",
     createdDaysAgo: 9,
+    department: "MACH SHOP",
+    location: "COMPRESSOR ROOM",
   },
   {
     id: 25,
@@ -1019,6 +1228,9 @@ const WORK_ORDER_SEEDS: WorkOrderSeed[] = [
     dueDate: day(45),
     techNotes: "Waiting on the printed tag stock.",
     createdDaysAgo: 26,
+    department: "MACH SHOP",
+    location: "COMPRESSOR ROOM",
+    operationsProjectLookupId: 4,
   },
 ];
 
@@ -1043,6 +1255,14 @@ export const MOCK_MAINTENANCE_TASKS: MaintenanceTask[] = WORK_ORDER_SEEDS.map((s
     equipment: s.equipmentLookupId ? assetRef(s.equipmentLookupId) : null,
     scheduleRef: s.scheduleLookupId ? scheduleRef(s.scheduleLookupId) : null,
     operationsTaskRef: s.operationsTaskRef ?? null,
+    operationsProject: s.operationsProjectLookupId
+      ? operationsProjectRef(s.operationsProjectLookupId)
+      : null,
+    // The work order's OWN department and location. Deliberately blank on
+    // most seeds — a column added this week is blank on nearly every existing
+    // row, and a demo where every record is filled in hides that.
+    department: departmentRef(s.department),
+    location: locationRef(s.location),
     assigned,
     reportedBy,
     completedBy: s.completedBy ?? null,

@@ -30,6 +30,7 @@ import {
   pmCompliance,
   workloadByAssignee,
 } from "@/lib/maintenanceMetrics";
+import { referenceLabel } from "@/lib/maintenanceReferences";
 import { equipmentLabel } from "@/lib/equipmentMapper";
 import {
   AssetStatusChip,
@@ -38,6 +39,7 @@ import {
   MaintenanceStatusBadge,
 } from "@/components/maintenanceAtoms";
 import { LoadingTasks } from "@/components/LoadingTasks";
+import { MaintenanceViewSwitcher } from "@/components/MaintenanceViewSwitcher";
 
 // =============================================================================
 // The maintenance dashboard — the overview surface for the CMMS module.
@@ -163,6 +165,8 @@ export function MaintenanceDashboardView({ now }: MaintenanceDashboardViewProps 
           </p>
         )}
       </header>
+
+      <MaintenanceViewSwitcher />
 
       <section aria-label="Headline figures" className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatTile
@@ -340,7 +344,7 @@ export function MaintenanceDashboardView({ now }: MaintenanceDashboardViewProps 
         <Card
           title="Open work by department"
           icon={<Wrench className="h-4 w-4" />}
-          caption="A work order lands in the last bucket when its asset has no department set — or when it has no asset at all."
+          caption="Grouped by the work order's own department, falling back to its asset's. The last bucket is what has neither — a job with no department set, against an asset with none either (or no asset at all)."
         >
           {workByDept.length === 0 ? (
             <Empty>No open work orders.</Empty>
@@ -373,7 +377,7 @@ export function MaintenanceDashboardView({ now }: MaintenanceDashboardViewProps 
                   count: r.hours,
                   suffix: "h",
                   note: `${r.workOrders} work order${r.workOrders === 1 ? "" : "s"}${
-                    r.department ? ` · ${r.department}` : ""
+                    r.department ? ` · ${referenceLabel(r.department)}` : ""
                   }`,
                 }))}
               />
@@ -417,7 +421,7 @@ export function MaintenanceDashboardView({ now }: MaintenanceDashboardViewProps 
                   <CriticalityChip criticality={a.criticality} />
                   <AssetStatusChip assetStatus={a.assetStatus} />
                   <span className="text-xs text-fg-muted">
-                    {a.department || NO_DEPARTMENT_LABEL}
+                    {a.department ? referenceLabel(a.department) : NO_DEPARTMENT_LABEL}
                   </span>
                 </li>
               ))}

@@ -84,6 +84,12 @@ param(
     [switch]$RemovePlaceholderFrequency,
     [switch]$SkipManufacturerModel,
     [switch]$IncludeLastAlerted,
+    # Skip Department / Location on the two maintenance lists, adding only
+    # OperationsProjectRef. Use this if those two are being converted to
+    # admin-managed LOOKUP LISTS: creating them as choice columns first, then
+    # replacing them with lookups, is the same work twice and leaves a window
+    # where ARC has mapped the wrong shape.
+    [switch]$SkipContextChoices,
     [ValidateSet("Equipment", "Maintenance", "Scheduled", "Operations")]
     [string]$OnlyList
 )
@@ -112,6 +118,42 @@ $WORK_STATUSES = @(
     "Backlog", "Up Next", "Started", "Awaiting Parts", "On Hold", "Complete", "Canceled"
 )
 $PRIORITIES = @("Low", "Med", "High", "Emergency")
+
+# Department / Location are the SAME vocabularies the Equipment List already
+# uses, deliberately. A work order carries its OWN copy (pre-filled from the
+# asset, but editable) because plenty of maintenance is raised against things
+# that are not listed assets - a light, a door, a leaking pipe - and those
+# still need to land in a department on the dashboard.
+#
+# Kept in step with EQUIPMENT_DEPARTMENTS / EQUIPMENT_LOCATIONS in
+# src/types/task.ts. If SharePoint's Equipment choices change, change both.
+$DEPARTMENTS = @(
+    "COILS", "ENG.", "MACH SHOP", "Panels", "PCB", "PROD", "QC", "REPAIR", "SMT"
+)
+
+$LOCATIONS = @(
+    "@ MORI LATHE", "ALL PARKING LOTS", "ASSEMBLY", "CIM/CD FINAL ASSEMBLY",
+    "CMM ROOM @ BACK OF MACHINE", "COIL", "COIL DEPARTMENT", "COMPRESSOR ROOM",
+    "DEMAK PLATFORM", "DIGITAL", "DIGITAL LAB", "DIGITAL PRODUCTION",
+    "DIGITAL PRODUCTION FLOOR", "DIGITAL Q.C.", "DIP ROOM", "DRIVE COM LINE",
+    "ENGINEERING", "ENTRANCE GATE", "FADAL 6030", "FINAL ASSEMBLY", "HARNESS",
+    "HARNESS DEPARTMENT", "IGNITION LAB", "INSP & TESTING",
+    "INSPECTION AND TESTING ROOM", "JR", "LOGISTICS", "MACHINE SHOP",
+    "MACHINE SHOP  MORI SEIKI LATHE", "MACHINE SHOP @ FADAL",
+    "MACHINE SHOP @ KITAMURA", "MAINT SHOP SPARE", "MAINTENANCE ROOM", "MS",
+    "NEAR CUT AND CLINCH MACHINES", "OUTSIDE DIP ROOM", "PANELS", "PCB",
+    "PLANT WIDE", "POTTING ROOM", "PRODUCTION", "PRODUCTION @ 3 LINE",
+    "PRODUCTION DEPARTMENT", "Q.C. DIGITAL", "QC", "QC DIGITAL", "QC IGNITION",
+    "QUALITY TEST LAB", "REAR OF KITAMURA", "REAR OF MACHINE SHOP",
+    "REAR PARKING AREA", "REAR STORAGE AREA", "RECEIVING", "REPAIR DEPARTMENT",
+    "STATOR DEPARTMENT", "SURFACE MOUNT AREA", "TEST RM #1", "TEST RM #4",
+    "TEST RM# 3", "V LINE", "WASH ROOM"
+)
+
+# Operations Projects - the same list the Operations Task List's ProjectRef
+# points at, so a work order and the task it came from name the same project.
+$LIST_OPSPROJECTS = "6734ddec-95e0-4cc7-93af-7fd20bf7ac22"
+
 
 # --- Column factories --------------------------------------------------------
 function New-TextCol($name, $display, $desc, [switch]$Multi) {
@@ -146,6 +188,30 @@ function New-PersonCol($name, $display, $desc, [switch]$Multi) {
 function New-LookupCol($name, $display, $desc, $targetListId) {
     @{ name = $name; displayName = $display; description = $desc
        lookup = @{ listId = $targetListId; columnName = "Title" } }
+}
+
+# The same three columns go on both maintenance lists. Declared once.
+function New-ContextCols($listLabel) {
+    if ($SkipContextChoices) {
+        # OperationsProjectRef only - it is a lookup either way, so the
+        # choice-vs-lookup decision does not touch it.
+        return @(
+            (New-LookupCol "OperationsProjectRef" "Operations Project Ref" `
+                "The Operations project this belongs to, if any. Same list the Operations Task List's ProjectRef uses." `
+                $LIST_OPSPROJECTS)
+        )
+    }
+    @(
+        (New-ChoiceCol "Department" "Department" `
+            "Owning department. Pre-filled from the equipment when one is picked, but editable - $listLabel raised against something that isn't a listed asset still needs a department, and the dashboard groups by this." `
+            $DEPARTMENTS),
+        (New-ChoiceCol "Location" "Location" `
+            "Where the work happens. Pre-filled from the equipment when one is picked, but editable." `
+            $LOCATIONS),
+        (New-LookupCol "OperationsProjectRef" "Operations Project Ref" `
+            "The Operations project this belongs to, if any. Same list the Operations Task List's ProjectRef uses." `
+            $LIST_OPSPROJECTS)
+    )
 }
 
 # --- The plan ----------------------------------------------------------------
@@ -264,6 +330,15 @@ $plan += @{
             $LIST_MAINTTASKS)
     )
     patch = @()
+}
+
+# Department / Location / Operations Project go on BOTH maintenance lists.
+foreach ($entry in $plan) {
+    if ($entry.key -eq "Maintenance") {
+        $entry.create += New-ContextCols "a work order"
+    } elseif ($entry.key -eq "Scheduled") {
+        $entry.create += New-ContextCols "a PM"
+    }
 }
 
 if ($OnlyList) { $plan = $plan | Where-Object { $_.key -eq $OnlyList } }

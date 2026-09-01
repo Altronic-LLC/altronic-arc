@@ -243,6 +243,8 @@ src/
 │   ├── operationsEquipment.ts    Altronic Equipment List — reference reads (2 shapes) + 3 edits
 │   ├── maintenanceTasks.ts       CMMS work orders CRUD + comments (Operations, PMO site) — no delete
 │   ├── scheduledMaintenance.ts   CMMS PM schedules CRUD (Operations, PMO site) — no delete, no comments
+│   ├── maintenanceRoles.ts       Maintenance role tags (tech / admin) CRUD (PMO site) — shape-tolerant Roles column
+│   ├── maintenanceReferenceLists.ts  Maintenance Departments / Locations — 2 lists, one parametrised module, no delete
 │   ├── teradyneLog.ts            Teradyne Log CRUD, year-scoped (Operations, PMO site)
 │   ├── teradyneRefs.ts           Teradyne Employees/Products/Remarks (one parametrised module)
 │   ├── panelOrders.ts            Panel Orders CRUD (panelTeam site)
@@ -278,7 +280,7 @@ src/
 │   ├── drawingLogMockData.ts     Sample drawings + sketches (incl. sparse & full change logs)
 │   ├── teradyneMockData.ts       Sample Teradyne log + reference rows
 │   ├── operationsMockData.ts     Sample Operations tasks + projects
-│   ├── maintenanceMockData.ts    Sample CMMS work orders, PM schedules + equipment (dated from today)
+│   ├── maintenanceMockData.ts    Sample CMMS work orders, PM schedules, equipment + the two reference lists
 │   ├── panelMockData.ts          Sample panel orders + panel tasks
 │   ├── visitReportMockData.ts    Sample visit reports
 │   ├── crmMockData.ts            Sample CRM Tool data — customers, contacts, pricing, capacity
@@ -302,6 +304,8 @@ src/
 │   ├── useTeradyne.ts            Teradyne log + ref-list queries/mutations (+ usage counts)
 │   ├── useOperationsTasks.ts     Operations task queries + mutations
 │   ├── useMaintenanceTasks.ts    CMMS work-order queries, mutations, comments + completion guard
+│   ├── useMaintenanceRoles.ts    Maintenance roles CRUD + useMyMaintenanceRoles() (CMMS gating)
+│   ├── useMaintenanceReferenceLists.ts  Maintenance Departments / Locations queries + admin-guarded mutations
 │   ├── useScheduledMaintenance.ts CMMS PM schedule queries + mutations (retire, not delete)
 │   ├── useMaintenanceFilters.ts  URL-backed work-order filters (+ maintenanceFilterSearch)
 │   ├── useEquipment.ts           Equipment register queries + the few edits ARC allows
@@ -386,7 +390,8 @@ src/
 │   ├── maintenanceMetrics.ts     Every CMMS dashboard number (pure) — workload, PM compliance, downtime
 │   ├── maintenanceCalendar.ts    Merges real work orders + projected PM occurrences into one day map
 │   ├── maintenanceFilters.ts     Pure work-order filter/sort/count predicates
-│   ├── maintenanceCompletion.ts  Who may mark a work order Complete (assignee or admin)
+│   ├── maintenanceRoles.ts       CMMS role → rights mapping + the four gates (pure)
+│   ├── maintenanceReferences.ts  Department / Location lookup keys, labels, picker options, duplicate hints
 │   ├── scheduledMaintenanceMapper.ts  Graph item → ScheduledMaintenance (+ create payload)
 │   ├── equipmentMapper.ts        Graph item → Equipment (Altronic Equipment List)
 │   ├── workOrderNumber.ts        nextWorkOrderNumber() — WO-YYYY-#### numbering
@@ -589,6 +594,8 @@ src/
 │   ├── AdminPanelRolesView.tsx   Admin → Panel User Roles
 │   ├── AdminAdminsView.tsx       Admin → Admins
 │   ├── AdminEirRolesView.tsx     Admin → EIR Roles
+│   ├── AdminMaintenanceRolesView.tsx  Admin → Maintenance Roles (tech / admin, CMMS)
+│   ├── AdminMaintenanceReferenceListsView.tsx  Admin → Maintenance reference lists (Departments + Locations)
 │   ├── AdminQuickLinksView.tsx   Admin → Quick Links (Dashboard button links, per-department reorder)
 │   ├── AdminNotificationRecipientsView.tsx  Admin → Notification recipients
 │   ├── AboutView.tsx             In-app architecture + ER diagrams
@@ -2494,6 +2501,165 @@ Pieces:
   `USE_MOCK || !!SP_EIR_ROLES_LIST_ID`. In real mode, until the list is
   configured, gating is OFF so nobody is locked out. Admins are NOT auto-granted
   roles — they must add themselves to the EIR Roles list to edit gated fields.
+
+## Maintenance roles (CMMS) — two levels, and the lockout-safety flag
+
+The CMMS's own role list, on `SITES.pmo`: **Maintenance Roles**
+(`VITE_SP_MAINTENANCE_ROLES_LIST_ID`, **no default in `config.ts`** — same
+reasoning as EIR Roles: a default switches gating on at the next deploy and
+every tech not yet on the list loses what they can do today). `Title` = the
+person's email, plus `DisplayName`, `Roles` and `Note`.
+
+| Action | Who |
+|---|---|
+| **Raise** a work order, edit an open one, comment, attach | **any signed-in user** — not gated at all |
+| **Complete** a work order | `tech` or `admin` |
+| **Log a PM** (Start / Complete / Skip) | `tech` or `admin` |
+| **Create / edit / retire a PM schedule**, toggle Active | `admin` |
+| **Manage assets, departments, locations** | `admin` (screen not built yet) |
+
+### CMMS Departments and Locations are LOOKUP LISTS, not choice columns
+
+Two admin-managed reference lists on `SITES.pmo`, migrated from CHOICE columns
+on 2026-08-28:
+
+| List | env / id | Rows |
+|---|---|---|
+| Maintenance Departments | `VITE_SP_MAINTENANCE_DEPARTMENTS_LIST_ID` — `3c203f31-4c07-44fd-8108-7208bb2644bc` | 9 |
+| Maintenance Locations | `VITE_SP_MAINTENANCE_LOCATIONS_LIST_ID` — `77f7c05f-acdc-46ff-bc5f-f73c48fc81e3` | 64 |
+
+Each has `Title` (the value), `Active` (boolean) and `Note` (multi-line). New
+**single lookup** columns `DepartmentRef` / `LocationRef` (display column
+`Title`) exist on all three CMMS lists — Equipment, Maintenance Tasks and
+Scheduled Maintenance.
+
+**Why lookups, so nobody "simplifies" it back:** a choice column's allowed
+values live in the column DEFINITION, so adding a department is a column PATCH
+needing site-manage rights. ARC holds `Sites.Selected` — item read/write only.
+With a lookup, adding a department is adding a LIST ITEM, which ARC can already
+do, so the shop maintains its own values from `/admin/maintenance-reference-lists`
+instead of raising a ticket. Same pattern as Operations Projects, Panel Projects
+and the three Teradyne reference lists.
+
+Six things that go with it:
+
+- **Both lists have documented defaults in `config.ts`**, unlike
+  `SP_MAINTENANCE_ROLES_LIST_ID`. These gate nothing, so a default can't lock
+  anyone out — the worst it can do is point a picker at the wrong list, which
+  is visible immediately. Both `VITE_*` vars are in `deploy.yml`'s named list.
+- **The Equipment List ONLY keeps a legacy fallback.** Its old `Department` /
+  `Location` choice columns still exist (deliberately, as a rollback path) and
+  are read when the lookup is empty — 365 of 378 rows were migrated, 13 had
+  neither value. A legacy value whose TEXT matches a reference row is
+  *upgraded* to that row's lookupId by `attachEquipmentReferences`, so it
+  buckets and filters with every migrated row; one matching nothing keeps
+  `UNMIGRATED_LOOKUP_ID` (0 — SharePoint ids start at 1) and still displays.
+  **The two work-order lists never had those columns**, and selecting a column
+  a list hasn't got 400s the WHOLE read — so `MAINTENANCE_TASK_SELECT` and
+  `SCHEDULED_MAINTENANCE_SELECT` must never gain `Department` / `Location`.
+- **A write is a BARE integer** (`{ DepartmentRefLookupId: 3 }`), never
+  `multiLookupField`'s `Collection(Edm.Int32)` shape; `null` clears. Invisible
+  from mock mode, so it is pinned by real-mode tests in
+  `maintenanceTasks.people.test.ts` and `scheduledMaintenance.people.test.ts`.
+- **There is NO delete**, in `api/maintenanceReferenceLists.ts` or in the UI.
+  Hundreds of rows point at these values; deleting one leaves every pointer
+  dangling and each affected record reading as though it had no department at
+  all. `Active = false` retires a value instead — it leaves every picker while
+  every record already using it keeps showing it. `referenceOptions()` is the
+  rule: active values, PLUS whatever this row already points at, marked
+  "(retired)". A picker that dropped the current value would clear it on the
+  next save. `maintenanceReferenceLists.test.ts` asserts the module exports
+  nothing matching /delete|remove/.
+- **Grouping and filtering key off `referenceKey`, never the name** — the
+  lookupId as a string, so a rename in Admin carries every filtered link,
+  bookmark and dashboard bucket with it. The `dept=` URL param holds ids now.
+  An unmigrated legacy value has no id, so it keys by lower-cased title
+  instead: keying every one of them as "0" would put PROD and QC in one bucket.
+- **A value that IS set never renders as empty.** `referenceLabel()` falls back
+  to `#41` for a lookup nothing answers for — same rule as `User #46` for
+  people. "No department" and "a department nobody can name" are different
+  answers, and showing the second as the first is how somebody overwrites a
+  value they never saw.
+
+**`manageAssetsGate` finally has a caller.** It was written with the CMMS roles
+and sat unused waiting for this screen; every mutation in
+`hooks/useMaintenanceReferenceLists.ts` asks it inside its `mutationFn`, and
+`AdminMaintenanceReferenceListsView` asks it for the UI. Reading is open to
+anyone signed in — everybody has to see the value on the record in front of
+them.
+
+**The seeded Locations list contains junk, and it is NOT tidied.** A literal
+`-`, "Q.C." beside "QC", "Q.C. DIGITAL" beside "QC DIGITAL", "HARNESS
+DEPARMENT" beside "HARNESS DEPARTMENT". `duplicateHints()` (upper-cased,
+non-alphanumerics stripped) flags near-duplicates on the admin screen and
+**never merges anything** — which of a pair survives, and what happens to the
+rows pointing at the other, is a judgement about real data that a person makes.
+A value reducing to nothing (`-`) is deliberately matched against nothing, or
+every punctuation-only row would flag every other.
+
+`EQUIPMENT_DEPARTMENTS` / `EQUIPMENT_LOCATIONS` in `types/task.ts` survive as
+the SEED the two lists were created from and as the record of what the choice
+columns held — they seed the mock reference lists and nothing else. **Don't
+wire a picker back to them**, or the demo and the live app offer different
+departments.
+
+Pieces: `api/maintenanceRoles.ts` (+ `parseRoles` / `serializeRoles`),
+`hooks/useMaintenanceRoles.ts` (`useMyMaintenanceRoles()` and
+`useResolveMaintenanceAccess()`), `lib/maintenanceRoles.ts` (the pure gates),
+`views/AdminMaintenanceRolesView.tsx` (`/admin/maintenance-roles`).
+
+**`lib/maintenanceRoles.ts` is the ONE place the rules live** — four gates
+(`completeWorkOrderGate`, `logPmGate`, `manageSchedulesGate`,
+`manageAssetsGate`), each returning `{ allowed, resolving, hint }`. Every
+greyed control and every gated `mutationFn` asks the SAME function, so the
+disabled button and the write behind it cannot disagree about the rule.
+
+Seven things that are load-bearing:
+
+- **The `tech` role REPLACED an assignee check.** Completing a work order used
+  to require being its assignee (or an ARC admin), which refused any tech who
+  picked somebody else's job up — ordinary shop-floor behaviour — and bought
+  accountability by blocking the wrong people. `CompletedBy` is stamped on
+  every completion instead. `lib/maintenanceCompletion.ts` held that rule and
+  was **deleted**; its `maintenanceCompletionAccess` (and the
+  `claimsOnComplete` explanation) moved into `lib/maintenanceRoles.ts`.
+- **Completing an UNASSIGNED work order still assigns it to the completer**, in
+  the same PATCH. That is the half of the old rule worth keeping: it's what
+  gives the row an owner in every report that reads it, and the hint says so
+  even though the answer is yes.
+- **Gating is OFF when `MAINTENANCE_ROLES_ENFORCED` is false.** An
+  unconfigured list means "everyone keeps what they can do today", never
+  "nobody can do anything". Every gate short-circuits to allowed, with a hint
+  saying WHY it's open. Tested at both the pure and hook level, and verified
+  by deleting the short-circuit and watching nine cases fail.
+- **ARC admins always count as maintenance admins**, folded in by
+  `maintenanceAccessFrom` rather than checked at each gate — otherwise a list
+  nobody holds `admin` on is a door locked from the inside.
+- **`admin` implies `tech`.** `Roles` is a CHOICE column and may be
+  single-value, so a person might hold exactly one tag; an admin who could
+  create PM schedules but not close a work order out would be absurd.
+- **`isResolving` is neither yes nor no.** The roles list loads
+  asynchronously, so a real tech reads as untagged for a beat. A gate reports
+  `resolving` separately and every caller shows a neutral "checking…" instead
+  of a denial it is about to withdraw. A gated `mutationFn` never reads the
+  render-time flags either — `useResolveMaintenanceAccess()` awaits the list
+  through `ensureQueryData`, so a write fired on the first paint can't refuse
+  somebody who does hold the role.
+- **A failed roles READ refuses the write**, saying it couldn't check and to
+  retry. The unconfigured case is handled by `enforced` before that point, so
+  a failure here is a genuine fault; granting on error would make the gate
+  advisory.
+
+**The `Roles` column's SHAPE is unconfirmed** — Ray created it as a CHOICE
+column, and whether it is single- or multi-value (and what casing its values
+use) is not known. So nothing depends on it: `parseRoles` takes a CSV string,
+a string array (multi choice), a bare string (single choice) or nothing, and
+lowercases everything — the same answer `parsePersonField` gives to the
+identical single-vs-multi person-column problem. Writes go through
+`writeRolesFields`, which tries each shape until one is accepted (a wrong
+shape is a hard 400 that leaves nothing behind, item creation included) and
+remembers the one that worked. **When the shape is confirmed, that is the one
+function to simplify.**
 
 ## EIR triage — chasing a new EIR until someone owns it
 

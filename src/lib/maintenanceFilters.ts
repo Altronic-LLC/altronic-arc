@@ -6,6 +6,7 @@ import type {
   ProjectReference,
 } from "@/types/task";
 import { MAINTENANCE_STATUSES } from "@/types/task";
+import { referenceKey } from "./maintenanceReferences";
 import { matchesSearch, tokenizeQuery } from "./itemSearch";
 import { personKey } from "./people";
 import { daysUntilDue } from "./maintenanceSchedule";
@@ -19,11 +20,18 @@ import { compareMaintenanceTasks, isMaintenanceTaskClosed } from "./maintenanceT
 // ONE filtered set, and two copies of a filter is how a fix reaches only one
 // of them. `hooks/useMaintenanceFilters.ts` owns the URL half.
 //
-// One thing that is NOT like the other departments: a work order has no
-// department column of its own. Department is a property of the ASSET, so
-// filtering by it needs the equipment register alongside the work orders —
-// which is why `applyMaintenanceFilters` takes an equipment→department map
-// rather than reading something off the task.
+// Department is read through `maintenanceTaskDepartment`, never off either
+// source alone: a work order carries its OWN `DepartmentRef` lookup (raised
+// against a light or a leaking pipe, it may have no asset at all), and falls
+// back to the department of the asset it names. That is why
+// `applyMaintenanceFilters` still takes an equipment→department map — the
+// fallback needs it, and half the register has no department set.
+//
+// **Department is a LOOKUP since 2026-08-28, not a choice column**, so the
+// filter selects `referenceKey` values (the lookupId, as a string) rather than
+// department NAMES. That is what makes a rename in Admin → Maintenance
+// reference lists carry every filtered link and bookmark with it; a name-keyed
+// filter would silently match nothing the moment somebody fixed a typo.
 // =============================================================================
 
 /**
@@ -44,7 +52,10 @@ export interface MaintenanceFilters {
   assignedEmails: string[];
   /** `Category` choice values. Empty = every category. */
   categories: string[];
-  /** Equipment `Department` values. Empty = every department. */
+  /**
+   * Department `referenceKey` values — the lookupId as a string. Empty = every
+   * department. NOT names; see the note at the top of this file.
+   */
   departments: string[];
 }
 
@@ -68,22 +79,63 @@ export type MaintenanceStatusFilter = MaintenanceStatus | "ALL_OPEN" | null;
 /** Statuses that mean the job is finished with. */
 const CLOSED_STATUSES: MaintenanceStatus[] = ["Complete", "Canceled"];
 
-/** Every asset's owning department, keyed by lookupId. */
-export function departmentByEquipment(equipment: Equipment[]): Map<number, string> {
-  const out = new Map<number, string>();
+/** Every asset's owning department, keyed by the ASSET's lookupId. */
+export function departmentByEquipment(equipment: Equipment[]): Map<number, ProjectReference> {
+  const out = new Map<number, ProjectReference>();
   for (const asset of equipment) {
     if (asset.department) out.set(asset.lookupId, asset.department);
   }
   return out;
 }
 
-/** The distinct departments present in the register, sorted — the filter's options. */
-export function maintenanceDepartmentOptions(equipment: Equipment[]): string[] {
-  const seen = new Set<string>();
-  for (const asset of equipment) {
-    if (asset.department) seen.add(asset.department);
-  }
-  return [...seen].sort((a, b) => a.localeCompare(b));
+/**
+ * A work order's department: **its own column first, its asset's second.**
+ *
+ * The work order's value wins even when the asset carries a different one —
+ * that is the whole point of the column being independently editable. A job
+ * on the harness machine (PROD) raised and done by the panel shop says
+ * "Panels", and the filter has to agree with what the form shows.
+ *
+ * `null` means neither had one; the dashboard's "No department set" bucket
+ * and the Department filter both key off that.
+ */
+export function maintenanceTaskDepartment(
+  task: MaintenanceTask,
+  byEquipment?: Map<number, ProjectReference>,
+): ProjectReference | null {
+  if (task.department) return task.department;
+  const id = task.equipment?.lookupId;
+  return (id != null ? byEquipment?.get(id) : undefined) ?? null;
+}
+
+/**
+ * The distinct departments to offer in the filter, sorted.
+ *
+ * Both funnels, not one: the register's departments AND the ones work orders
+ * carry themselves. A department that only appears on work orders raised
+ * against no asset would otherwise be unselectable — invisible in the
+ * dropdown while its rows sat in the list (the "Two funnels, not one" rule in
+ * CLAUDE.md, applied to a choice column rather than to people).
+ */
+export function maintenanceDepartmentOptions(
+  equipment: Equipment[],
+  tasks: MaintenanceTask[] = [],
+): ProjectReference[] {
+  // Keyed by `referenceKey`, not by title: two departments can share a name
+  // for a moment mid-rename, and a legacy value the reference list has never
+  // heard of has no lookupId to key on at all.
+  const seen = new Map<string, ProjectReference>();
+  const add = (ref: ProjectReference | null) => {
+    if (!ref) return;
+    const key = referenceKey(ref);
+    const existing = seen.get(key);
+    // Prefer whichever copy carries a resolved title — a lookup can come back
+    // title-less and be filled in later (see lib/maintenanceReferences.ts).
+    if (!existing || (!existing.title && ref.title)) seen.set(key, ref);
+  };
+  for (const asset of equipment) add(asset.department);
+  for (const task of tasks) add(task.department);
+  return [...seen.values()].sort((a, b) => a.title.localeCompare(b.title));
 }
 
 /**
@@ -126,16 +178,18 @@ export function collectMaintenanceEquipment(tasks: MaintenanceTask[]): ProjectRe
 /**
  * Apply the filter bar (and optionally the status pill) to a work-order list.
  *
- * `departments` is the equipment→department map from `departmentByEquipment`.
- * When the Department filter is set and no map is supplied, nothing matches —
- * refusing to guess is right here: silently ignoring the filter would show a
- * user every department while their picked one sat highlighted above.
+ * `departments` is the equipment→department map from `departmentByEquipment`,
+ * used only as the FALLBACK for a work order with no department of its own.
+ * Without it, such a work order can't be attributed to a department and so
+ * matches no department filter — refusing to guess is right here: silently
+ * ignoring the filter would show a user every department while their picked
+ * one sat highlighted above.
  */
 export function applyMaintenanceFilters(
   tasks: MaintenanceTask[],
   statusFilter: MaintenanceStatusFilter,
   filters: MaintenanceFilters,
-  departments?: Map<number, string>,
+  departments?: Map<number, ProjectReference>,
 ): MaintenanceTask[] {
   // Tokenize once per call, not once per task — see lib/itemSearch.ts.
   const searchTokens = tokenizeQuery(filters.search);
@@ -162,9 +216,11 @@ export function applyMaintenanceFilters(
     }
 
     if (filters.departments.length > 0) {
-      const id = t.equipment?.lookupId;
-      const dept = id != null ? departments?.get(id) : undefined;
-      if (!dept || !filters.departments.includes(dept)) return false;
+      // The work order's own Department first, its asset's second — the same
+      // rule the dashboard groups by, so the two can't disagree about which
+      // bucket a job is in.
+      const dept = maintenanceTaskDepartment(t, departments);
+      if (!dept || !filters.departments.includes(referenceKey(dept))) return false;
     }
 
     if (!matchesSearch(t, searchTokens)) return false;

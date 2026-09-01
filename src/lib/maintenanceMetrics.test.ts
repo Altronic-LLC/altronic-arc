@@ -54,6 +54,9 @@ function task(over: Partial<MaintenanceTask> = {}): MaintenanceTask {
     status: "Backlog" as MaintenanceStatus,
     priority: null,
     category: null,
+    department: null,
+    location: null,
+    operationsProject: null,
     taskType: null,
     dueStatus: null,
     startDate: null,
@@ -79,6 +82,14 @@ function task(over: Partial<MaintenanceTask> = {}): MaintenanceTask {
     ...over,
   };
 }
+
+// Department is a LOOKUP since 2026-08-28 — buckets key off the lookupId, so
+// these are shared constants rather than bare strings.
+const PROD = { lookupId: 6, title: "PROD" };
+const SMT = { lookupId: 8, title: "SMT" };
+const QC = { lookupId: 9, title: "QC" };
+const REPAIR = { lookupId: 7, title: "REPAIR" };
+const PANELS = { lookupId: 3, title: "Panels" };
 
 function asset(over: Partial<Equipment> = {}): Equipment {
   return {
@@ -112,6 +123,9 @@ function schedule(over: Partial<ScheduledMaintenance> = {}): ScheduledMaintenanc
     equipment: null,
     frequencyInterval: 1,
     frequencyUnit: "Months",
+    department: null,
+    location: null,
+    operationsProject: null,
     scheduleBasis: "Fixed",
     firstDueDate: null,
     nextDueDate: null,
@@ -416,8 +430,8 @@ describe("plannedVsUnplanned", () => {
 });
 
 describe("downtimeByAsset", () => {
-  const press = asset({ lookupId: 1, name: "60 TON PRESS", department: "PROD" });
-  const oven = asset({ lookupId: 2, name: "REFLOW OVEN", department: "SMT" });
+  const press = asset({ lookupId: 1, name: "60 TON PRESS", department: PROD });
+  const oven = asset({ lookupId: 2, name: "REFLOW OVEN", department: SMT });
 
   it("ranks assets by total downtime, worst first", () => {
     const ranking = downtimeByAsset(
@@ -429,7 +443,7 @@ describe("downtimeByAsset", () => {
       [press, oven],
     );
     expect(ranking.rows.map((r) => r.name)).toEqual(["60 TON PRESS", "REFLOW OVEN"]);
-    expect(ranking.rows[0]).toMatchObject({ hours: 6.5, workOrders: 2, department: "PROD" });
+    expect(ranking.rows[0]).toMatchObject({ hours: 6.5, workOrders: 2, department: PROD });
     expect(ranking.totalHours).toBe(11.5);
   });
 
@@ -503,27 +517,44 @@ describe("assetsDown", () => {
 describe("equipmentByDepartment", () => {
   it("groups biggest first and puts the missing-department bucket LAST", () => {
     const rows = equipmentByDepartment([
-      asset({ lookupId: 1, department: "PROD" }),
-      asset({ lookupId: 2, department: "PROD" }),
-      asset({ lookupId: 3, department: "SMT" }),
+      asset({ lookupId: 1, department: PROD }),
+      asset({ lookupId: 2, department: PROD }),
+      asset({ lookupId: 3, department: SMT }),
       asset({ lookupId: 4, department: null }),
       asset({ lookupId: 5, department: null }),
       asset({ lookupId: 6, department: null }),
-      asset({ lookupId: 7, department: "" }),
+      asset({ lookupId: 7, department: null }),
     ]);
     expect(rows.map((r) => r.label)).toEqual(["PROD", "SMT", NO_DEPARTMENT_LABEL]);
-    // Four assets have no department — three null and one blank string.
     expect(rows[rows.length - 1]).toMatchObject({ department: null, count: 4 });
   });
 
   it("never invents a missing-department row when every asset has one", () => {
-    const rows = equipmentByDepartment([asset({ department: "QC" })]);
+    const rows = equipmentByDepartment([asset({ department: QC })]);
     expect(rows.map((r) => r.label)).toEqual(["QC"]);
+  });
+
+  it("groups by the LOOKUP, so a department renamed mid-read stays one bucket", () => {
+    // Two copies of one department: one carrying the title, one Graph handed
+    // back as a bare id. Keying on the name would split the chart in two and
+    // label half of it with nothing.
+    const rows = equipmentByDepartment([
+      asset({ lookupId: 1, department: PROD }),
+      asset({ lookupId: 2, department: { lookupId: PROD.lookupId, title: "" } }),
+    ]);
+    expect(rows).toEqual([{ department: PROD, label: "PROD", count: 2 }]);
+  });
+
+  it("labels a department it can only name by id, rather than leaving a blank bar", () => {
+    // A row pointing at a reference the list no longer has. It IS set, so it
+    // must not read as "No department set" — rule 1 in maintenanceReferences.
+    const rows = equipmentByDepartment([asset({ lookupId: 1, department: { lookupId: 41, title: "" } })]);
+    expect(rows.map((r) => r.label)).toEqual(["#41"]);
   });
 });
 
 describe("openWorkByDepartment", () => {
-  const press = asset({ lookupId: 1, department: "PROD" });
+  const press = asset({ lookupId: 1, department: PROD });
   const untagged = asset({ lookupId: 2, department: null });
 
   it("attributes open work to its asset's department", () => {
@@ -531,7 +562,7 @@ describe("openWorkByDepartment", () => {
       [task({ equipment: { lookupId: 1, title: "press" } })],
       [press, untagged],
     );
-    expect(rows).toEqual([{ department: "PROD", label: "PROD", count: 1 }]);
+    expect(rows).toEqual([{ department: PROD, label: "PROD", count: 1 }]);
   });
 
   it("folds no-asset and no-department work into one honest bucket", () => {
@@ -553,13 +584,51 @@ describe("openWorkByDepartment", () => {
     );
     expect(rows).toEqual([]);
   });
+
+  // The gap this feature closes: Department is set on 194 of 378 assets, so
+  // going through the asset alone dropped half the plant's open work into the
+  // "not set" bucket.
+  it("attributes work by the work order's OWN department when it has one", () => {
+    const rows = openWorkByDepartment(
+      [
+        task({ equipment: null, department: REPAIR }),
+        task({ equipment: { lookupId: 2, title: "untagged" }, department: REPAIR }),
+      ],
+      [press, untagged],
+    );
+    expect(rows).toEqual([{ department: REPAIR, label: "REPAIR", count: 2 }]);
+  });
+
+  it("prefers the work order's own department over its asset's", () => {
+    const rows = openWorkByDepartment(
+      [task({ equipment: { lookupId: 1, title: "press" }, department: PANELS })],
+      [press],
+    );
+    expect(rows).toEqual([{ department: PANELS, label: "Panels", count: 1 }]);
+  });
+
+  // Smaller, but it must never be quietly dropped, and it stays LAST.
+  it("keeps the not-set bucket for work that names no department either way", () => {
+    const rows = openWorkByDepartment(
+      [
+        task({ equipment: null, department: REPAIR }),
+        task({ equipment: null }),
+        task({ equipment: { lookupId: 2, title: "untagged" } }),
+      ],
+      [press, untagged],
+    );
+    expect(rows).toEqual([
+      { department: REPAIR, label: "REPAIR", count: 1 },
+      { department: null, label: NO_DEPARTMENT_LABEL, count: 2 },
+    ]);
+  });
 });
 
 describe("departmentCoverage", () => {
   it("reports how much of the register actually carries a department", () => {
     expect(
       departmentCoverage([
-        asset({ lookupId: 1, department: "PROD" }),
+        asset({ lookupId: 1, department: PROD }),
         asset({ lookupId: 2, department: null }),
         asset({ lookupId: 3, department: null }),
         asset({ lookupId: 4, department: null }),

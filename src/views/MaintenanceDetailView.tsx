@@ -28,7 +28,7 @@ import {
 } from "@/hooks/useMaintenanceTasks";
 import { useEquipment } from "@/hooks/useEquipment";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useMyMaintenanceRoles } from "@/hooks/useMaintenanceRoles";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { useAdmins } from "@/hooks/useAdmins";
 import {
@@ -61,7 +61,7 @@ import {
   MaintenanceStatusBadge,
   isClosedMaintenanceStatus,
 } from "@/components/maintenanceAtoms";
-import { maintenanceCompletionAccess } from "@/lib/maintenanceCompletion";
+import { maintenanceCompletionAccess } from "@/lib/maintenanceRoles";
 import {
   collectMaintenancePeople,
   daysUntilWorkOrderDue,
@@ -77,12 +77,15 @@ import { cn } from "@/lib/cn";
  * Three things about this page that are rules rather than layout choices:
  *
  *   - **The completion guard is VISIBLE.** `useUpdateMaintenanceTaskFields`
- *     refuses a Complete write from anyone who is neither the assignee nor an
- *     admin, so this page must not offer it: the button is disabled with the
- *     reason in its `title`, and "Complete" is dropped from the status picker.
- *     An UNASSIGNED work order can be completed by anybody — doing so assigns
- *     it to them — and the hint says so, because putting your name on a job
- *     without being told is worse than being refused.
+ *     refuses a Complete write from anyone without the maintenance `tech` or
+ *     `admin` role, so this page must not offer it: the button is disabled
+ *     with the reason in its `title`, and "Complete" is dropped from the
+ *     status picker. Any tech may close out any work order, whoever it is
+ *     assigned to — accountability comes from `CompletedBy`, not from
+ *     blocking. Completing an UNASSIGNED work order also assigns it to the
+ *     completer, and the hint says so, because putting your name on a job
+ *     without being told is worse than being refused. While the roles list is
+ *     still loading the hint is suppressed rather than shown as a refusal.
  *   - **`DueStatus` is displayed, never edited.** A Power Automate flow owns
  *     that column. There is no picker for it here or anywhere else.
  *   - **`WONumber` and `TaskType` are read-only.** ARC generates the first and
@@ -101,7 +104,7 @@ export function MaintenanceDetailView() {
   const { data: allTasks = [] } = useMaintenanceTasks();
   const { data: equipment = [] } = useEquipment();
   const currentUser = useCurrentUser();
-  const isAdmin = useIsAdmin();
+  const maintenanceAccess = useMyMaintenanceRoles();
 
   const updateFields = useUpdateMaintenanceTaskFields();
   const completeTask = useCompleteMaintenanceTask();
@@ -158,7 +161,7 @@ export function MaintenanceDetailView() {
     );
   }
 
-  const completion = maintenanceCompletionAccess(task, currentUser, isAdmin);
+  const completion = maintenanceCompletionAccess(task, maintenanceAccess);
   const closed = isClosedMaintenanceStatus(task.status);
   const days = daysUntilWorkOrderDue(task);
 
@@ -310,7 +313,7 @@ export function MaintenanceDetailView() {
 
             {/* The completion rule, stated on the page — not only in a tooltip
                 on a disabled button, which a touch user can never read. */}
-            {!closed && (
+            {!closed && !completion.resolving && (
               <p
                 className={cn(
                   "mb-3 text-xs leading-snug",

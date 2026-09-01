@@ -5,6 +5,7 @@ import {
   UNASSIGNED_FILTER_KEY,
   type MaintenanceFilters,
 } from "@/lib/maintenanceFilters";
+import { referenceKey, referenceLabel } from "@/lib/maintenanceReferences";
 import { MultiSelect } from "./SearchableSelect";
 import { SearchInput } from "./SearchInput";
 
@@ -27,8 +28,13 @@ interface MaintenanceFilterBarProps {
   equipment: ProjectReference[];
   /** People who appear on any work order, plus the signed-in user. */
   people: Person[];
-  /** Departments present in the equipment register. */
-  departments: string[];
+  /**
+   * Departments present in the register or on a work order — see
+   * `maintenanceDepartmentOptions`. A LOOKUP since 2026-08-28, so the option's
+   * value is its `referenceKey` (the lookupId) and only the label is the name:
+   * a renamed department keeps every filtered link that points at it.
+   */
+  departments: ProjectReference[];
 }
 
 export function MaintenanceFilterBar({
@@ -96,7 +102,12 @@ export function MaintenanceFilterBar({
         <MultiSelect
           allLabel="All departments"
           searchPlaceholder="Search departments…"
-          options={departments.map((d) => ({ value: d, label: d }))}
+          options={departments.map((d) => ({
+            value: referenceKey(d),
+            // Never "": a department that IS on a work order must be
+            // selectable by something a person can read.
+            label: referenceLabel(d),
+          }))}
           selected={filters.departments}
           onChange={(next) => onChange({ ...filters, departments: next })}
         />

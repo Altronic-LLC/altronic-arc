@@ -1,4 +1,17 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
+
+// The CMMS role gates aren't what this file is about — they have their own
+// tests (lib/maintenanceRoles.test.ts, and the .roles.test files beside the two
+// maintenance hooks). Full rights here, controllable where a case needs to see
+// a refusal, so nothing in this file depends on the roles list loading.
+const maintenanceAccess = vi.hoisted(() => ({
+  value: { isTech: true, isAdmin: true, enforced: true, isResolving: false },
+}));
+
+vi.mock("@/hooks/useMaintenanceRoles", () => ({
+  useMyMaintenanceRoles: () => maintenanceAccess.value,
+  useResolveMaintenanceAccess: () => async () => maintenanceAccess.value,
+}));
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
@@ -64,6 +77,9 @@ function task(over: Partial<MaintenanceTask> = {}): MaintenanceTask {
     status: "Backlog",
     priority: null,
     category: null,
+    department: null,
+    location: null,
+    operationsProject: null,
     taskType: null,
     dueStatus: null,
     startDate: null,
@@ -99,8 +115,8 @@ function asset(over: Partial<Equipment> = {}): Equipment {
     manufacturer: "Bliss",
     modelNumber: "C-60",
     equipmentType: "PRESS",
-    department: "PROD",
-    location: "MACHINE SHOP",
+    department: { lookupId: 6, title: "PROD" },
+    location: { lookupId: 33, title: "MACHINE SHOP" },
     criticality: "Critical",
     assetStatus: "In Service",
     parentAsset: null,
@@ -122,6 +138,9 @@ function schedule(over: Partial<ScheduledMaintenance> = {}): ScheduledMaintenanc
     equipment: { lookupId: 1, title: "60 TON PRESS" },
     frequencyInterval: 1,
     frequencyUnit: "Months",
+    department: null,
+    location: null,
+    operationsProject: null,
     scheduleBasis: "Fixed",
     firstDueDate: null,
     nextDueDate: day("2026-08-30"),

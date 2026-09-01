@@ -19,7 +19,10 @@ function renderBar(overrides: Partial<typeof EMPTY_MAINTENANCE_FILTERS> = {}) {
       onChange={onChange}
       equipment={EQUIPMENT}
       people={[TECH, OTHER_TECH]}
-      departments={["MACH SHOP", "SMT"]}
+      departments={[
+        { lookupId: 4, title: "MACH SHOP" },
+        { lookupId: 8, title: "SMT" },
+      ]}
     />,
   );
   return { onChange, ...rendered };
@@ -92,11 +95,29 @@ describe("MaintenanceFilterBar", () => {
     );
   });
 
-  it("picks a department", async () => {
+  it("picks a department by its LOOKUP id, showing its name", async () => {
+    // Department became a lookup on 2026-08-28: the option's VALUE is the
+    // lookupId, so a rename in Admin carries every filtered link with it, and
+    // only the label is the name.
     const { onChange } = renderBar();
     await userEvent.click(trigger("Department"));
     await userEvent.click(screen.getByText("SMT"));
-    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ departments: ["SMT"] }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ departments: ["8"] }));
+  });
+
+  it("shows a department it can only name by id rather than an empty option", () => {
+    render(
+      <MaintenanceFilterBar
+        filters={EMPTY_MAINTENANCE_FILTERS}
+        onChange={() => {}}
+        equipment={[]}
+        people={[]}
+        departments={[{ lookupId: 41, title: "" }]}
+      />,
+    );
+    return userEvent.click(trigger("Department")).then(() => {
+      expect(screen.getByText("#41")).toBeInTheDocument();
+    });
   });
 
   it("shows an asset with no title by its id rather than blank", async () => {

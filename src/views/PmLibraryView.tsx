@@ -6,6 +6,12 @@ import {
   useScheduledMaintenance,
   useSetScheduleActive,
 } from "@/hooks/useScheduledMaintenance";
+import { useMyMaintenanceRoles } from "@/hooks/useMaintenanceRoles";
+import {
+  type MaintenanceGate,
+  logPmGate,
+  manageSchedulesGate,
+} from "@/lib/maintenanceRoles";
 import {
   anchorDueDate,
   daysUntilDue,
@@ -24,6 +30,7 @@ import { ChoicePills } from "@/components/ChoicePills";
 import { ChoiceSelect } from "@/components/SearchableSelect";
 import { LogPmCompletionModal } from "@/components/LogPmCompletionModal";
 import { ScheduledMaintenanceFormModal } from "@/components/ScheduledMaintenanceFormModal";
+import { MaintenanceViewSwitcher } from "@/components/MaintenanceViewSwitcher";
 import {
   DueInLabel,
   MaintenancePriorityFlag,
@@ -38,7 +45,7 @@ import { cn } from "@/lib/cn";
 // It is where a schedule is created, corrected, retired and — when somebody
 // does a job off the back of a paper round rather than the calendar — logged.
 //
-// Three things worth knowing:
+// Four things worth knowing:
 //
 //  - **A schedule is never deleted, only retired.** `Active` is a toggle, and
 //    an inactive schedule projects nothing at all while every work order it
@@ -50,6 +57,12 @@ import { cn } from "@/lib/cn";
 //    schedules people most often check.
 //  - **An overdue schedule stays at the top and says how late it is.** It does
 //    not roll forward on its own, and nothing here hides it.
+//  - **Creating, editing and retiring a schedule is maintenance-ADMIN only;
+//    logging one is tech-or-admin.** Reading the library is open to everyone —
+//    knowing what is due is not a privilege. Every gated control is disabled
+//    with the reason in its `title`, and the mutation behind it re-checks the
+//    same gate (lib/maintenanceRoles.ts), so nothing here can offer an action
+//    the write will reject.
 // =============================================================================
 
 /** Render cap, same as every other big list in ARC. Filtering is never capped. */
@@ -65,6 +78,9 @@ export default function PmLibraryView() {
   const [params, setParams] = useSearchParams();
   const { data: schedules = [], isLoading } = useScheduledMaintenance();
   const setActive = useSetScheduleActive();
+  const access = useMyMaintenanceRoles();
+  const manageGate = manageSchedulesGate(access);
+  const logGate = logPmGate(access);
 
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<ScheduledMaintenance | null>(null);
@@ -145,13 +161,26 @@ export default function PmLibraryView() {
           </Link>
           <button
             onClick={() => setCreating(true)}
-            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90"
+            disabled={!manageGate.allowed}
+            title={manageGate.allowed ? undefined : manageGate.hint}
+            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Plus className="h-4 w-4" />
             New schedule
           </button>
         </div>
       </header>
+
+      <MaintenanceViewSwitcher />
+
+      {/* Said in words. A row of greyed buttons with no explanation reads as a
+          bug, and a touch user can't reach a `title`. Suppressed while the
+          roles list is still loading — see MaintenanceGate.resolving. */}
+      {!manageGate.allowed && !manageGate.resolving && (
+        <p className="rounded-md border border-ajax-yellow/40 bg-ajax-yellow/5 px-3 py-2 text-xs text-fg">
+          {manageGate.hint}
+        </p>
+      )}
 
       <div
         role="search"
@@ -238,6 +267,8 @@ export default function PmLibraryView() {
                     onToggleActive={() =>
                       setActive.mutate({ id: schedule.id, active: !schedule.active })
                     }
+                    manageGate={manageGate}
+                    logGate={logGate}
                   />
                 ))}
               </tbody>
@@ -297,12 +328,18 @@ function ScheduleRow({
   onEdit,
   onLog,
   onToggleActive,
+  manageGate,
+  logGate,
 }: {
   schedule: ScheduledMaintenance;
   now: Date;
   onEdit: () => void;
   onLog: () => void;
   onToggleActive: () => void;
+  /** May they create / edit / retire a schedule? (Maintenance admin.) */
+  manageGate: MaintenanceGate;
+  /** May they log an occurrence? (Tech or admin.) */
+  logGate: MaintenanceGate;
 }) {
   // The OUTSTANDING occurrence, not the stored column: a Floating schedule
   // derives it from its last completion.
@@ -361,13 +398,16 @@ function ScheduleRow({
           role="switch"
           aria-checked={schedule.active}
           onClick={onToggleActive}
+          disabled={!manageGate.allowed}
           title={
-            schedule.active
-              ? "Retire this schedule — it stops projecting occurrences and keeps its work orders."
-              : "Reinstate this schedule so it starts projecting again."
+            !manageGate.allowed
+              ? manageGate.hint
+              : schedule.active
+                ? "Retire this schedule — it stops projecting occurrences and keeps its work orders."
+                : "Reinstate this schedule so it starts projecting again."
           }
           className={cn(
-            "inline-flex h-5 w-9 items-center rounded-full border transition-colors",
+            "inline-flex h-5 w-9 items-center rounded-full border transition-colors disabled:cursor-not-allowed disabled:opacity-50",
             schedule.active ? "border-cooper-green bg-cooper-green/30" : "border-border bg-surface-2",
           )}
         >
@@ -388,13 +428,15 @@ function ScheduleRow({
           <button
             type="button"
             onClick={onLog}
-            disabled={!schedule.active}
+            disabled={!schedule.active || !logGate.allowed}
             title={
-              schedule.active
-                ? "Log this occurrence — start, complete or skip it. Creates the work order."
-                : "A retired schedule has nothing outstanding to log."
+              !schedule.active
+                ? "A retired schedule has nothing outstanding to log."
+                : !logGate.allowed
+                  ? logGate.hint
+                  : "Log this occurrence — start, complete or skip it. Creates the work order."
             }
-            className="inline-flex items-center gap-1 rounded-md border border-border bg-surface px-2 py-1 text-xs font-medium text-fg transition-colors hover:bg-surface-2 disabled:opacity-50"
+            className="inline-flex items-center gap-1 rounded-md border border-border bg-surface px-2 py-1 text-xs font-medium text-fg transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <ClipboardCheck className="h-3.5 w-3.5" />
             Log completion
@@ -402,9 +444,10 @@ function ScheduleRow({
           <button
             type="button"
             onClick={onEdit}
+            disabled={!manageGate.allowed}
             aria-label={`Edit ${schedule.title}`}
-            title="Edit this schedule"
-            className="rounded-md border border-border bg-surface p-1.5 text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
+            title={manageGate.allowed ? "Edit this schedule" : manageGate.hint}
+            className="rounded-md border border-border bg-surface p-1.5 text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Pencil className="h-3.5 w-3.5" />
           </button>

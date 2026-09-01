@@ -34,7 +34,12 @@ describe("MAINTENANCE_TASK_SELECT", () => {
   });
 
   it("asks for BOTH halves of every single lookup column", () => {
-    for (const column of ["EquipmentRef", "ScheduledMaintenanceRef", "OperationsTaskReference"]) {
+    for (const column of [
+      "EquipmentRef",
+      "ScheduledMaintenanceRef",
+      "OperationsTaskReference",
+      "OperationsProjectRef",
+    ]) {
       const parts = MAINTENANCE_TASK_SELECT.split(",");
       expect(parts).toContain(column);
       expect(parts).toContain(`${column}LookupId`);
@@ -43,6 +48,81 @@ describe("MAINTENANCE_TASK_SELECT", () => {
 
   it("still reads DueStatus — it is read-only, not invisible", () => {
     expect(MAINTENANCE_TASK_SELECT.split(",")).toContain("DueStatus");
+  });
+
+  it("reads BOTH halves of the Department / Location lookups, and neither old choice column", () => {
+    const parts = MAINTENANCE_TASK_SELECT.split(",");
+    expect(parts).toContain("DepartmentRef");
+    expect(parts).toContain("DepartmentRefLookupId");
+    expect(parts).toContain("LocationRef");
+    expect(parts).toContain("LocationRefLookupId");
+    // The old CHOICE columns were only ever created on the Equipment List.
+    // Selecting a column a list hasn't got 400s the WHOLE read, so a
+    // well-meaning "keep reading the old one too" here breaks every work order.
+    expect(parts).not.toContain("Department");
+    expect(parts).not.toContain("Location");
+  });
+});
+
+describe("the work order's own Department, Location and Operations project", () => {
+  it("reads all three as title-less lookups, joined later", () => {
+    // Graph hands a SINGLE-value lookup back as a bare `<Name>LookupId` with
+    // no title attached — `attachMaintenanceTaskReferences` fills those in.
+    const task = toMaintenanceTask(
+      item({
+        DepartmentRefLookupId: 3,
+        LocationRefLookupId: 22,
+        OperationsProjectRefLookupId: 4,
+      }),
+    );
+    expect(task.department).toEqual({ lookupId: 3, title: "" });
+    expect(task.location).toEqual({ lookupId: 22, title: "" });
+    expect(task.operationsProject).toEqual({ lookupId: 4, title: "" });
+  });
+
+  it("joins the titles against the two reference lists", () => {
+    const tasks = [toMaintenanceTask(item({ DepartmentRefLookupId: 3, LocationRefLookupId: 22 }))];
+    attachMaintenanceTaskReferences(
+      tasks,
+      [],
+      [],
+      [],
+      [],
+      [{ lookupId: 3, title: "Panels", active: true, note: "" }],
+      [{ lookupId: 22, title: "HARNESS DEPARMENT", active: false, note: "" }],
+    );
+    expect(tasks[0].department).toEqual({ lookupId: 3, title: "Panels" });
+    // A RETIRED value still resolves: retiring takes it out of the pickers,
+    // never off the records already pointing at it.
+    expect(tasks[0].location).toEqual({ lookupId: 22, title: "HARNESS DEPARMENT" });
+  });
+
+  it("leaves a department the reference list hasn't got VISIBLE, never blank", () => {
+    // A value that IS set must not read as unset, or the next person to open
+    // the work order overwrites it without knowing it was there.
+    const tasks = [toMaintenanceTask(item({ DepartmentRefLookupId: 41 }))];
+    attachMaintenanceTaskReferences(tasks, [], [], [], [], [], []);
+    expect(tasks[0].department).toEqual({ lookupId: 41, title: "" });
+  });
+
+  // The columns may not exist in SharePoint yet, and half the rows will never
+  // carry them. Neither case may throw or invent a value.
+  it("reads a column the list hasn't got as null, not as a blank string", () => {
+    const task = toMaintenanceTask(item({}));
+    expect(task.department).toBeNull();
+    expect(task.location).toBeNull();
+    expect(task.operationsProject).toBeNull();
+  });
+
+  // The old choice columns were never created on this list. Even if a payload
+  // somehow carried them, they are not what the domain reads — reading them
+  // here would be reading a column the live list hasn't got.
+  it("IGNORES the legacy choice columns entirely on this list", () => {
+    const task = toMaintenanceTask(
+      item({ Department: "SOMEWHERE NEW", Location: "HARNESS DEPARMENT" }),
+    );
+    expect(task.department).toBeNull();
+    expect(task.location).toBeNull();
   });
 });
 
@@ -208,6 +288,22 @@ describe("attachMaintenanceTaskReferences", () => {
     attachMaintenanceTaskReferences(tasks, [], [], []);
     expect(tasks[0].equipment).toEqual({ lookupId: 3, title: "" });
   });
+
+  it("joins the Operations project title against the loaded reference list", () => {
+    // Graph returns this lookup as a bare id with no title, exactly like the
+    // other three — without the join the picker shows a blank option.
+    const tasks = [toMaintenanceTask(item({ OperationsProjectRefLookupId: 4 }))];
+    attachMaintenanceTaskReferences(tasks, [], [], [], [
+      { lookupId: 4, title: "0003-Shop Floor Relayout" },
+    ]);
+    expect(tasks[0].operationsProject?.title).toBe("0003-Shop Floor Relayout");
+  });
+
+  it("leaves the Operations project title empty when the list is unavailable", () => {
+    const tasks = [toMaintenanceTask(item({ OperationsProjectRefLookupId: 4 }))];
+    attachMaintenanceTaskReferences(tasks, [], [], []);
+    expect(tasks[0].operationsProject).toEqual({ lookupId: 4, title: "" });
+  });
 });
 
 describe("buildMaintenanceTaskCreateFields", () => {
@@ -234,6 +330,48 @@ describe("buildMaintenanceTaskCreateFields", () => {
     expect(fields.ScheduledMaintenanceRefLookupId).toBe(9);
     expect(fields.OperationsTaskReferenceLookupId).toBe(5);
     expect(Object.keys(fields).some((k) => k.includes("@odata.type"))).toBe(false);
+  });
+
+  it("writes the Operations project lookup as a BARE integer too", () => {
+    const fields = buildMaintenanceTaskCreateFields(
+      { title: "x", operationsProjectLookupId: 4 },
+      "WO-1",
+    );
+    expect(fields.OperationsProjectRefLookupId).toBe(4);
+    expect(fields).not.toHaveProperty("OperationsProjectRefLookupId@odata.type");
+  });
+
+  it("writes the work order's own Department and Location as BARE integers", () => {
+    // Both are single LOOKUPS since 2026-08-28 (`DepartmentRef` /
+    // `LocationRef`). `multiLookupField`'s Collection(Edm.Int32) annotation is
+    // for MULTI-value columns and 400s on these.
+    const fields = buildMaintenanceTaskCreateFields(
+      { title: "x", departmentLookupId: 6, locationLookupId: 41 },
+      "WO-1",
+    );
+    expect(fields.DepartmentRefLookupId).toBe(6);
+    expect(fields.LocationRefLookupId).toBe(41);
+    expect(fields).not.toHaveProperty("DepartmentRefLookupId@odata.type");
+    expect(fields).not.toHaveProperty("LocationRefLookupId@odata.type");
+    // The old choice columns were never created on this list; writing one
+    // would be refused.
+    expect(fields).not.toHaveProperty("Department");
+    expect(fields).not.toHaveProperty("Location");
+  });
+
+  // A work order raised against a light or a leaking pipe has no asset at
+  // all, and all three of these are optional — none of them may be required
+  // to create one, and a blank is omitted like every other blank column.
+  it("omits all three when they are blank, with no equipment reference either", () => {
+    const fields = buildMaintenanceTaskCreateFields(
+      { title: "Replace the bench 7 quick couplers" },
+      "WO-1",
+    );
+    expect(fields).not.toHaveProperty("DepartmentRefLookupId");
+    expect(fields).not.toHaveProperty("LocationRefLookupId");
+    expect(fields).not.toHaveProperty("OperationsProjectRefLookupId");
+    expect(fields).not.toHaveProperty("EquipmentRefLookupId");
+    expect(fields.Title).toBe("Replace the bench 7 quick couplers");
   });
 
   it("omits blank text columns and writes dates at midday UTC", () => {

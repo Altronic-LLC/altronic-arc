@@ -19,11 +19,12 @@ import { useEquipment } from "@/hooks/useEquipment";
 import { useMaintenanceFilters, maintenanceFilterSearch } from "@/hooks/useMaintenanceFilters";
 import { useKanbanAvailable } from "@/hooks/useIsPhone";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useMyMaintenanceRoles } from "@/hooks/useMaintenanceRoles";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { MaintenanceFilterBar } from "@/components/MaintenanceFilterBar";
 import { MaintenanceKanbanCard } from "@/components/MaintenanceKanbanCard";
 import { MaintenanceTaskFormModal } from "@/components/MaintenanceTaskFormModal";
+import { MaintenanceViewSwitcher } from "@/components/MaintenanceViewSwitcher";
 import { maintenanceStatusColor } from "@/components/maintenanceAtoms";
 import { pushToast } from "@/components/Toast";
 import {
@@ -34,14 +35,16 @@ import {
   maintenanceDepartmentOptions,
   sortMaintenanceTasks,
 } from "@/lib/maintenanceFilters";
-import { maintenanceCompletionAccess } from "@/lib/maintenanceCompletion";
+import {
+  type MaintenanceAccess,
+  maintenanceCompletionAccess,
+} from "@/lib/maintenanceRoles";
 import { withPerson } from "@/lib/people";
 import { cn } from "@/lib/cn";
 import {
   MAINTENANCE_STATUSES,
   type MaintenanceStatus,
   type MaintenanceTask,
-  type Person,
 } from "@/types/task";
 
 export type StatusDropPlan =
@@ -63,14 +66,13 @@ export function planStatusDrop({
   activeId,
   overId,
   tasks,
-  actor,
-  isAdmin,
+  access,
 }: {
   activeId: string | number;
   overId: string | number | null;
   tasks: MaintenanceTask[];
-  actor: Person | null | undefined;
-  isAdmin: boolean;
+  /** The dragger's CMMS rights — `useMyMaintenanceRoles()`. */
+  access: MaintenanceAccess;
 }): StatusDropPlan | null {
   if (overId === null) return null;
 
@@ -92,10 +94,11 @@ export function planStatusDrop({
   // The completion guard, on the drag path. `useUpdateMaintenanceTaskFields`
   // refuses this write anyway — but a card that visibly moves and then snaps
   // back with a raw error is a worse way to learn the rule than being told
-  // before it moves.
+  // before it moves. While the roles list is still resolving the gate reports
+  // `resolving` and its hint is the neutral "checking…", never a denial.
   if (target === "Complete") {
-    const access = maintenanceCompletionAccess(task, actor, isAdmin);
-    if (!access.allowed) return { refusal: access.hint };
+    const completion = maintenanceCompletionAccess(task, access);
+    if (!completion.allowed) return { refusal: completion.hint };
   }
 
   return { taskId: task.id, target };
@@ -118,7 +121,7 @@ export function MaintenanceBoardView() {
   const [filters, setFilters] = useMaintenanceFilters();
   const updateFields = useUpdateMaintenanceTaskFields();
   const currentUser = useCurrentUser();
-  const isAdmin = useIsAdmin();
+  const maintenanceAccess = useMyMaintenanceRoles();
   const [activeTask, setActiveTask] = useState<MaintenanceTask | null>(null);
   const [showNew, setShowNew] = useState(false);
   const kanbanAvailable = useKanbanAvailable();
@@ -133,7 +136,12 @@ export function MaintenanceBoardView() {
     [tasks, currentUser],
   );
   const equipmentOptions = useMemo(() => collectMaintenanceEquipment(tasks), [tasks]);
-  const departments = useMemo(() => maintenanceDepartmentOptions(equipment), [equipment]);
+  // Both funnels: departments on the register AND departments work orders
+  // carry themselves — a job raised against no asset must still be filterable.
+  const departments = useMemo(
+    () => maintenanceDepartmentOptions(equipment, tasks),
+    [equipment, tasks],
+  );
   const departmentIndex = useMemo(() => departmentByEquipment(equipment), [equipment]);
 
   const filteredTasks = useMemo(
@@ -160,8 +168,7 @@ export function MaintenanceBoardView() {
       activeId: event.active.id,
       overId: event.over?.id ?? null,
       tasks,
-      actor: currentUser,
-      isAdmin,
+      access: maintenanceAccess,
     });
     if (!plan) return;
     if ("refusal" in plan) {
@@ -183,7 +190,8 @@ export function MaintenanceBoardView() {
 
   return (
     <div className="mx-auto flex h-[calc(100dvh-12rem)] max-w-full flex-col gap-3 px-4 py-3 sm:h-[calc(100dvh-7rem)] sm:gap-4 sm:px-6 sm:py-4">
-      <div className="flex items-start justify-end gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <MaintenanceViewSwitcher />
         <button
           onClick={() => setShowNew(true)}
           className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-accent/90"

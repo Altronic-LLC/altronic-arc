@@ -34,6 +34,8 @@ import { autoWatchers } from "@/lib/people";
 import { listEquipment } from "./operationsEquipment";
 import { listScheduledMaintenance } from "./scheduledMaintenance";
 import { listOperationsTaskReferences } from "./operationsTasks";
+import { listOperationsProjects } from "./operationsProjects";
+import { listMaintenanceReferenceLists } from "./maintenanceReferenceLists";
 import { MOCK_MAINTENANCE_TASKS } from "@/data/maintenanceMockData";
 
 // =============================================================================
@@ -185,27 +187,56 @@ function requireResolved(person: Person | null, resolved: Person | null, label: 
 // Reads
 // -----------------------------------------------------------------------------
 
+/**
+ * Resolve Department / Location against the two Maintenance reference lists.
+ *
+ * Run in BOTH modes: a mock write stores the bare lookupId it was handed, so
+ * without this a work order whose department IS set renders blank in the demo.
+ */
+async function resolveTaskReferences(tasks: MaintenanceTask[]): Promise<void> {
+  const { departments, locations } = await listMaintenanceReferenceLists();
+  attachMaintenanceTaskReferences(tasks, [], [], [], [], departments, locations);
+}
+
 /** Every work order, newest first, with people and lookup titles resolved. */
 export async function listMaintenanceTasks(): Promise<MaintenanceTask[]> {
   if (USE_MOCK) {
-    return delay([...mockStore].sort(compareMaintenanceTasks).map((t) => ({ ...t })));
+    const tasks = [...mockStore].sort(compareMaintenanceTasks).map((t) => ({ ...t }));
+    await resolveTaskReferences(tasks);
+    return delay(tasks);
   }
 
   // The site-user directory in parallel with the items: Assigned, Reported By
   // and Completed By are all SINGLE person columns and come back as bare
   // lookupIds, so without it every one of them reads as nobody.
-  const [items, siteUsers, equipment, schedules, operationsTasks] = await Promise.all([
-    graphFetchAll<GraphListItem>(
-      `${listPath()}?$expand=fields($select=${MAINTENANCE_TASK_SELECT})&$top=500`,
-    ),
-    listSiteUserDirectory(SITES.pmo),
-    listEquipment(),
-    listScheduledMaintenance(),
-    listOperationsTaskReferences(),
-  ]);
+  const [items, siteUsers, equipment, schedules, operationsTasks, operationsProjects, references] =
+    await Promise.all([
+      graphFetchAll<GraphListItem>(
+        `${listPath()}?$expand=fields($select=${MAINTENANCE_TASK_SELECT})&$top=500`,
+      ),
+      listSiteUserDirectory(SITES.pmo),
+      listEquipment(),
+      listScheduledMaintenance(),
+      listOperationsTaskReferences(),
+      // The SAME reference-list read the Operations task list makes — never a
+      // second fetch of that list. It resolves `OperationsProjectRef`, which
+      // Graph hands back as a bare lookupId with no title attached.
+      listOperationsProjects(),
+      // Departments and Locations, for the same reason: both are single
+      // lookups and arrive as bare ids.
+      listMaintenanceReferenceLists(),
+    ]);
   const tasks = items.map(toMaintenanceTask);
   attachMaintenanceTaskPeople(tasks, siteUsers);
-  attachMaintenanceTaskReferences(tasks, equipment, schedules, operationsTasks);
+  attachMaintenanceTaskReferences(
+    tasks,
+    equipment,
+    schedules,
+    operationsTasks,
+    operationsProjects,
+    references.departments,
+    references.locations,
+  );
   return tasks.sort(compareMaintenanceTasks);
 }
 
@@ -243,6 +274,7 @@ export async function updateMaintenanceTaskFields(
     if (idx < 0) throw new Error(`Work order ${id} not found`);
     const next: MaintenanceTask = { ...mockStore[idx], modifiedAt: new Date() };
     applyMockFields(next, safe);
+    await resolveTaskReferences([next]);
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
     saveMockStoreToStorage();
     return delay({ ...next });
@@ -297,6 +329,23 @@ function applyMockFields(next: MaintenanceTask, fields: Record<string, unknown>)
       ? { lookupId: Number(v), title: next.operationsTaskRef?.title ?? "" }
       : null;
   }
+  if ("OperationsProjectRefLookupId" in fields) {
+    const v = fields.OperationsProjectRefLookupId;
+    next.operationsProject = v
+      ? { lookupId: Number(v), title: next.operationsProject?.title ?? "" }
+      : null;
+  }
+  // Department / Location are single LOOKUPS since 2026-08-28 — the mock
+  // mirrors the real column names, so a bare lookupId here too, and `null`
+  // clears. Titles are filled in by resolveTaskReferences.
+  if ("DepartmentRefLookupId" in fields) {
+    const v = fields.DepartmentRefLookupId;
+    next.department = v ? { lookupId: Number(v), title: "" } : null;
+  }
+  if ("LocationRefLookupId" in fields) {
+    const v = fields.LocationRefLookupId;
+    next.location = v ? { lookupId: Number(v), title: "" } : null;
+  }
 }
 
 function numberOrNull(raw: unknown): number | null {
@@ -336,6 +385,44 @@ export async function setMaintenanceTaskSchedule(
     ScheduledMaintenanceRefLookupId: scheduleLookupId,
     TaskType: maintenanceTaskTypeFor(scheduleLookupId),
   });
+}
+
+/**
+ * Change the Operations project reference (or clear with `null`).
+ *
+ * A SINGLE lookup: a BARE integer on the wire, never `multiLookupField`'s
+ * `Collection(Edm.Int32)` shape, which is for multi-value columns and 400s
+ * here.
+ */
+export async function setMaintenanceTaskOperationsProject(
+  id: number,
+  operationsProjectLookupId: number | null,
+): Promise<MaintenanceTask> {
+  return updateMaintenanceTaskFields(id, {
+    OperationsProjectRefLookupId: operationsProjectLookupId,
+  });
+}
+
+/**
+ * Change the work order's own department (or clear with `null`).
+ *
+ * A SINGLE lookup: a BARE integer. Its own function rather than a raw field
+ * patch at the call site, so the column name and the write shape live in one
+ * place — the same treatment the equipment and project references get.
+ */
+export async function setMaintenanceTaskDepartment(
+  id: number,
+  departmentLookupId: number | null,
+): Promise<MaintenanceTask> {
+  return updateMaintenanceTaskFields(id, { DepartmentRefLookupId: departmentLookupId });
+}
+
+/** Change the work order's own location (or clear with `null`). A BARE integer. */
+export async function setMaintenanceTaskLocation(
+  id: number,
+  locationLookupId: number | null,
+): Promise<MaintenanceTask> {
+  return updateMaintenanceTaskFields(id, { LocationRefLookupId: locationLookupId });
 }
 
 /** Change the Operations task reference (or clear with `null`). */
@@ -601,6 +688,13 @@ export async function createMaintenanceTask(
       operationsTaskRef: input.operationsTaskLookupId
         ? { lookupId: input.operationsTaskLookupId, title: "" }
         : null,
+      operationsProject: input.operationsProjectLookupId
+        ? { lookupId: input.operationsProjectLookupId, title: "" }
+        : null,
+      department: input.departmentLookupId
+        ? { lookupId: input.departmentLookupId, title: "" }
+        : null,
+      location: input.locationLookupId ? { lookupId: input.locationLookupId, title: "" } : null,
       assigned: input.assigned ?? null,
       reportedBy: reportedBy ?? null,
       completedBy: null,
@@ -616,6 +710,7 @@ export async function createMaintenanceTask(
       createdAt: now,
       modifiedAt: now,
     };
+    await resolveTaskReferences([task]);
     mockStore = [task, ...mockStore];
     saveMockStoreToStorage();
     return delay(task);

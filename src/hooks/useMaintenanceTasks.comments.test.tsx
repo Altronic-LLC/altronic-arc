@@ -1,4 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+
+// The CMMS role gates aren't what this file is about — they have their own
+// tests (lib/maintenanceRoles.test.ts, and the .roles.test files beside the two
+// maintenance hooks). Full rights here, controllable where a case needs to see
+// a refusal, so nothing in this file depends on the roles list loading.
+const maintenanceAccess = vi.hoisted(() => ({
+  value: { isTech: true, isAdmin: true, enforced: true, isResolving: false },
+}));
+
+vi.mock("@/hooks/useMaintenanceRoles", () => ({
+  useMyMaintenanceRoles: () => maintenanceAccess.value,
+  useResolveMaintenanceAccess: () => async () => maintenanceAccess.value,
+}));
 import type { ReactNode } from "react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";

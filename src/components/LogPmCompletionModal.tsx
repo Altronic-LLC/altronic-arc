@@ -11,11 +11,14 @@ import {
   useUpdateScheduleFields,
 } from "@/hooks/useScheduledMaintenance";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useMyMaintenanceRoles } from "@/hooks/useMaintenanceRoles";
+import { logPmGate } from "@/lib/maintenanceRoles";
 import { advanceSchedule, frequencyLabel } from "@/lib/maintenanceSchedule";
 import { autoWatchers } from "@/lib/people";
 import { fromDateInputValue, toDateInputValue, toSpDateOnly } from "@/lib/spDates";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
 import { ChoicePills } from "./ChoicePills";
+import { DescriptionView } from "./DescriptionView";
 import { DateField } from "./DateField";
 import { ScheduleBasisChip } from "./maintenanceAtoms";
 import { useOverlayDismiss } from "./useOverlayDismiss";
@@ -28,7 +31,7 @@ import { useOverlayDismiss } from "./useOverlayDismiss";
 // are the three ways it becomes a work order on the Altronic Maintenance Tasks
 // list — and the two that close it out also roll the schedule forward.
 //
-// Four decisions worth knowing about:
+// Five decisions worth knowing about:
 //
 //  - **Skip REQUIRES a reason**, and the reason is written into the work
 //    order's `Resolution`. A skipped PM that says nothing is indistinguishable
@@ -39,9 +42,11 @@ import { useOverlayDismiss } from "./useOverlayDismiss";
 //    was explicitly not done would corrupt a Floating schedule's own history
 //    and lie in every report that reads it.
 //  - **The work order is assigned to whoever logs the action**, with the
-//    schedule's owner kept as a watcher. That is who is accounting for it, and
-//    it matches the completion guard in `useMaintenanceTasks` — which refuses
-//    a completion by anyone but the assignee or an admin.
+//    schedule's owner kept as a watcher. That is who is accounting for it.
+//  - **Logging is limited to maintenance techs and admins** (`logPmGate`) —
+//    it creates a work order against a schedule and, on Complete, writes the
+//    schedule's own completion history. Raising an ordinary work order stays
+//    open to everyone; this doesn't.
 //  - **The work order's due date is the OCCURRENCE date, not today.** That is
 //    what makes the calendar suppress the projection it came from (see
 //    `loggedOccurrences` in lib/maintenanceCalendar.ts) instead of showing the
@@ -86,6 +91,9 @@ export function LogPmCompletionModal({
   onCreated,
 }: LogPmCompletionModalProps) {
   const actor = useCurrentUser();
+  // Tech or admin. Every mutation below re-checks it; this is the visible
+  // half, so nobody types a write-up in and is then refused.
+  const logGate = logPmGate(useMyMaintenanceRoles());
   const createTask = useCreateMaintenanceTask();
   const completeTask = useCompleteMaintenanceTask();
   const updateTask = useUpdateMaintenanceTaskFields();
@@ -124,6 +132,8 @@ export function LogPmCompletionModal({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    // Belt and braces with the disabled button — Enter in a field submits too.
+    if (!logGate.allowed) return setError(logGate.hint);
     if (!when) return setError("Pick the date this happened.");
     // The one hard validation in this modal, and it's deliberate.
     if (action === "skip" && !notes.trim()) {
@@ -239,6 +249,44 @@ export function LogPmCompletionModal({
             </p>
           </div>
 
+          {/* Stated on the page, not only in the disabled button's tooltip.
+              Held back while the roles list is loading rather than shown as a
+              refusal that is about to be withdrawn. */}
+          {!logGate.allowed && !logGate.resolving && (
+            <p className="mt-3 rounded-md border border-ajax-yellow/40 bg-ajax-yellow/5 px-3 py-2 text-xs text-fg">
+              {logGate.hint}
+            </p>
+          )}
+
+          {/* The procedure, shown READ-ONLY.
+              It was already being carried onto the work order this creates
+              (see `description: schedule.instructions` above) — but it wasn't
+              rendered here, so at the moment somebody is deciding Start /
+              Complete / Skip, the steps they are deciding about were
+              invisible. Reported on the first walkthrough.
+
+              Deliberately NOT tickable here. A tick records who did it and
+              when, and it belongs on the work order — the permanent record —
+              not on a modal that might be cancelled. Starting the job takes
+              you to the work order, where the same list IS tickable. */}
+          {schedule.instructions.trim() && (
+            <section
+              aria-label="What this maintenance involves"
+              className="mt-3 rounded-md border border-border px-3 py-2"
+            >
+              <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
+                What this involves
+              </p>
+              <div className="text-sm">
+                {/* No `onToggle` — that is what makes the boxes read-only here. */}
+                <DescriptionView text={schedule.instructions} />
+              </div>
+              <p className="mt-2 text-[11px] text-fg-muted">
+                Carried onto the work order this creates, where the steps can be ticked off.
+              </p>
+            </section>
+          )}
+
           <div className="mt-4 flex flex-col gap-4">
             <div>
               <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
@@ -338,8 +386,9 @@ export function LogPmCompletionModal({
           <button
             type="submit"
             form="log-pm-form"
-            disabled={busy}
-            className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90 disabled:opacity-60"
+            disabled={busy || !logGate.allowed}
+            title={logGate.allowed ? undefined : logGate.hint}
+            className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
             {action === "start"

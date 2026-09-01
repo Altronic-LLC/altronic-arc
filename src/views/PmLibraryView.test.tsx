@@ -1,4 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+// The CMMS role gates aren't what this file is about — they have their own
+// tests (lib/maintenanceRoles.test.ts, and the .roles.test files beside the two
+// maintenance hooks). Full rights here, controllable where a case needs to see
+// a refusal, so nothing in this file depends on the roles list loading.
+const maintenanceAccess = vi.hoisted(() => ({
+  value: { isTech: true, isAdmin: true, enforced: true, isResolving: false },
+}));
+
+vi.mock("@/hooks/useMaintenanceRoles", () => ({
+  useMyMaintenanceRoles: () => maintenanceAccess.value,
+  useResolveMaintenanceAccess: () => async () => maintenanceAccess.value,
+}));
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
@@ -28,6 +41,7 @@ describe("PmLibraryView", () => {
   beforeEach(() => {
     resetScheduledMaintenanceMockStore();
     resetMaintenanceMockStore();
+    maintenanceAccess.value = { isTech: true, isAdmin: true, enforced: true, isResolving: false };
   });
 
   it("lists each schedule with its frequency and basis", async () => {
@@ -121,5 +135,95 @@ describe("PmLibraryView", () => {
     await renderLibrary("?state=retired");
     const row = screen.getByText(/vapour degreaser solvent change/i).closest("tr") as HTMLElement;
     expect(within(row).getByRole("button", { name: /log completion/i })).toBeDisabled();
+  });
+
+  // =========================================================================
+  // The role gates, made visible. Never offer an action the mutation will
+  // reject — every gated control is disabled with the reason in its `title`.
+  // =========================================================================
+  describe("the role gates", () => {
+    it("lets a TECH log an occurrence but not touch the schedule itself", async () => {
+      maintenanceAccess.value = {
+      isTech: true,
+      isAdmin: false,
+      enforced: true,
+      isResolving: false,
+    };
+      await renderLibrary();
+
+      const newSchedule = screen.getByRole("button", { name: /new schedule/i });
+      expect(newSchedule).toBeDisabled();
+      expect(newSchedule).toHaveAttribute(
+        "title",
+        expect.stringContaining("limited to maintenance admins"),
+      );
+
+      const row = screen.getByText("Weekly compressor walkaround").closest("tr") as HTMLElement;
+      // Logging is theirs.
+      expect(within(row).getByRole("button", { name: /log completion/i })).toBeEnabled();
+      // Editing and retiring are not.
+      expect(
+        within(row).getByRole("button", { name: /edit weekly compressor walkaround/i }),
+      ).toBeDisabled();
+      expect(within(row).getByRole("switch")).toBeDisabled();
+    });
+
+    // A row of greyed buttons with no explanation reads as a bug, and a touch
+    // user can never reach a `title`.
+    it("says why in words, not only in a tooltip", async () => {
+      maintenanceAccess.value = {
+      isTech: true,
+      isAdmin: false,
+      enforced: true,
+      isResolving: false,
+    };
+      await renderLibrary();
+      expect(screen.getAllByText(/limited to maintenance admins/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/Maintenance Roles/).length).toBeGreaterThan(0);
+    });
+
+    it("also disables Log completion for somebody with no role at all", async () => {
+      maintenanceAccess.value = {
+      isTech: false,
+      isAdmin: false,
+      enforced: true,
+      isResolving: false,
+    };
+      await renderLibrary();
+      const row = screen.getByText("Weekly compressor walkaround").closest("tr") as HTMLElement;
+      const log = within(row).getByRole("button", { name: /log completion/i });
+      expect(log).toBeDisabled();
+      expect(log).toHaveAttribute("title", expect.stringContaining("limited to maintenance techs"));
+    });
+
+    // A denial rendered and then withdrawn is worse than a beat of silence.
+    it("says nothing about permissions while the roles list is still loading", async () => {
+      maintenanceAccess.value = { ...{
+      isTech: false,
+      isAdmin: false,
+      enforced: true,
+      isResolving: false,
+    }, isResolving: true };
+      await renderLibrary();
+      expect(screen.getByRole("button", { name: /new schedule/i })).toBeDisabled();
+      expect(screen.queryByText(/limited to maintenance admins/i)).toBeNull();
+    });
+
+    // Lockout safety: with no roles list configured, the library behaves
+    // exactly as it did before roles existed.
+    it("leaves every control open while gating is unenforced", async () => {
+      maintenanceAccess.value = {
+        isTech: false,
+        isAdmin: false,
+        enforced: false,
+        isResolving: false,
+      };
+      await renderLibrary();
+      expect(screen.getByRole("button", { name: /new schedule/i })).toBeEnabled();
+      const row = screen.getByText("Weekly compressor walkaround").closest("tr") as HTMLElement;
+      expect(within(row).getByRole("button", { name: /log completion/i })).toBeEnabled();
+      expect(within(row).getByRole("switch")).toBeEnabled();
+      expect(screen.queryByText(/limited to maintenance/i)).toBeNull();
+    });
   });
 });

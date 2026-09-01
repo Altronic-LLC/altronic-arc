@@ -52,13 +52,27 @@ vi.mock("./config", async (importOriginal) => {
 vi.mock("./operationsEquipment", () => ({ listEquipment: vi.fn(async () => []) }));
 vi.mock("./scheduledMaintenance", () => ({ listScheduledMaintenance: vi.fn(async () => []) }));
 vi.mock("./operationsTasks", () => ({ listOperationsTaskReferences: vi.fn(async () => []) }));
+vi.mock("./operationsProjects", () => ({
+  listOperationsProjects: vi.fn(async () => [{ lookupId: 4, title: "0003-Shop Floor Relayout" }]),
+}));
+// The two Maintenance reference lists, which resolve DepartmentRef /
+// LocationRef the same way the Operations Projects read resolves the project.
+vi.mock("./maintenanceReferenceLists", () => ({
+  listMaintenanceReferenceLists: vi.fn(async () => ({
+    departments: [{ lookupId: 3, title: "Panels", active: true, note: "" }],
+    locations: [{ lookupId: 22, title: "HARNESS DEPARTMENT", active: true, note: "" }],
+  })),
+}));
 
 import { resetSiteUserDirectoryCache } from "./siteUsers";
 import {
   createMaintenanceTask,
   listMaintenanceTasks,
   setMaintenanceTaskAssigned,
+  setMaintenanceTaskDepartment,
   setMaintenanceTaskEquipment,
+  setMaintenanceTaskLocation,
+  setMaintenanceTaskOperationsProject,
   setMaintenanceTaskReportedBy,
   setMaintenanceTaskSchedule,
   updateMaintenanceTaskFields,
@@ -332,5 +346,122 @@ describe("creating a work order", () => {
         assigned: { displayName: "Brand New", email: "brand.new@altronic-llc.com" },
       }),
     ).rejects.toThrow(/Couldn't set Assigned/);
+  });
+});
+
+// =============================================================================
+// The work order's OWN Department / Location, and the Operations project
+// lookup. Everything here is invisible from mock mode — the shape of the
+// request is the whole risk, exactly as it was for the person columns above.
+// =============================================================================
+
+describe("the work order's own Department, Location and Operations project", () => {
+  it("reads all three off the row", async () => {
+    routeList([
+      row({
+        DepartmentRefLookupId: 3,
+        LocationRefLookupId: 22,
+        OperationsProjectRefLookupId: 4,
+      }),
+    ]);
+    const [task] = await listMaintenanceTasks();
+    // Bare lookupIds on the wire, joined against the two reference lists.
+    expect(task.department).toEqual({ lookupId: 3, title: "Panels" });
+    expect(task.location).toEqual({ lookupId: 22, title: "HARNESS DEPARTMENT" });
+    // Resolved against the SAME Operations Projects read the Operations task
+    // list makes — Graph returns the lookup as a bare id with no title.
+    expect(task.operationsProject).toEqual({ lookupId: 4, title: "0003-Shop Floor Relayout" });
+  });
+
+  // The columns may not exist in SharePoint yet. A read against a list
+  // without them must not crash or invent a value.
+  it("survives a row where SharePoint returned none of them", async () => {
+    routeList([row()]);
+    const [task] = await listMaintenanceTasks();
+    expect(task.department).toBeNull();
+    expect(task.location).toBeNull();
+    expect(task.operationsProject).toBeNull();
+  });
+
+  it("asks Graph for all four columns", async () => {
+    routeList([row()]);
+    await listMaintenanceTasks();
+    const listCall = graphFetchAll.mock.calls
+      .map(([path]) => String(path))
+      .find((path) => path.includes("$expand=fields"));
+    // Both halves of each lookup. The old CHOICE columns must NOT be here:
+    // they were never created on this list, and selecting a column a list
+    // hasn't got 400s the whole read.
+    expect(listCall).toContain("DepartmentRef");
+    expect(listCall).toContain("DepartmentRefLookupId");
+    expect(listCall).toContain("LocationRef");
+    expect(listCall).toContain("LocationRefLookupId");
+    expect(listCall).not.toMatch(/[,(]Department[,)]/);
+    expect(listCall).not.toMatch(/[,(]Location[,)]/);
+    expect(listCall).toContain("OperationsProjectRef");
+    expect(listCall).toContain("OperationsProjectRefLookupId");
+  });
+
+  it("writes the Operations project as a BARE integer", async () => {
+    routeList([row({ OperationsProjectRefLookupId: 4 })]);
+    await setMaintenanceTaskOperationsProject(12, 4);
+    expect(patchedFields()).toEqual({ OperationsProjectRefLookupId: 4 });
+    // multiLookupField's Collection(Edm.Int32) annotation is for MULTI-value
+    // columns and 400s on a single lookup.
+    expect(Object.keys(patchedFields()).some((k) => k.includes("@odata.type"))).toBe(false);
+  });
+
+  it("clears the Operations project with a null", async () => {
+    routeList([row()]);
+    await setMaintenanceTaskOperationsProject(12, null);
+    expect(patchedFields()).toEqual({ OperationsProjectRefLookupId: null });
+  });
+
+  it("sends the three on a create, and omits them when blank", async () => {
+    routeList([]);
+    graphFetch.mockResolvedValue(row());
+    await createMaintenanceTask({
+      title: "x",
+      departmentLookupId: 6,
+      locationLookupId: 41,
+      operationsProjectLookupId: 4,
+    });
+    // All three are SINGLE lookups: bare integers, and never the old choice
+    // columns (which this list has never had).
+    expect(postedFields()).toMatchObject({
+      DepartmentRefLookupId: 6,
+      LocationRefLookupId: 41,
+      OperationsProjectRefLookupId: 4,
+    });
+    expect(postedFields()).not.toHaveProperty("DepartmentRefLookupId@odata.type");
+    expect(postedFields()).not.toHaveProperty("LocationRefLookupId@odata.type");
+    expect(postedFields()).not.toHaveProperty("Department");
+    expect(postedFields()).not.toHaveProperty("Location");
+
+    graphFetch.mockClear();
+    await createMaintenanceTask({ title: "y" });
+    expect(postedFields()).not.toHaveProperty("DepartmentRefLookupId");
+    expect(postedFields()).not.toHaveProperty("LocationRefLookupId");
+    expect(postedFields()).not.toHaveProperty("OperationsProjectRefLookupId");
+  });
+
+  it("PATCHes Department / Location as BARE integers, and null clears", async () => {
+    // The write shape a rendered page can't show and mock mode can't catch:
+    // `multiLookupField`'s Collection(Edm.Int32) annotation is for MULTI-value
+    // columns and 400s on these two.
+    routeList([row()]);
+    await setMaintenanceTaskDepartment(12, 3);
+    expect(patchedFields()).toEqual({ DepartmentRefLookupId: 3 });
+    expect(Object.keys(patchedFields()).some((k) => k.includes("@odata.type"))).toBe(false);
+
+    graphFetch.mockClear();
+    await setMaintenanceTaskLocation(12, 22);
+    expect(patchedFields()).toEqual({ LocationRefLookupId: 22 });
+
+    graphFetch.mockClear();
+    // Clearing is deliberate and stays allowed — unlike a person write that
+    // was asked for and couldn't be resolved.
+    await setMaintenanceTaskDepartment(12, null);
+    expect(patchedFields()).toEqual({ DepartmentRefLookupId: null });
   });
 });

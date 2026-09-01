@@ -36,6 +36,16 @@ vi.mock("./config", async (importOriginal) => {
 });
 
 vi.mock("./operationsEquipment", () => ({ listEquipment: vi.fn(async () => []) }));
+vi.mock("./operationsProjects", () => ({
+  listOperationsProjects: vi.fn(async () => [{ lookupId: 3, title: "0002-PVA Coating Machine" }]),
+}));
+// The two Maintenance reference lists behind DepartmentRef / LocationRef.
+vi.mock("./maintenanceReferenceLists", () => ({
+  listMaintenanceReferenceLists: vi.fn(async () => ({
+    departments: [{ lookupId: 4, title: "MACH SHOP", active: true, note: "" }],
+    locations: [{ lookupId: 11, title: "COMPRESSOR ROOM", active: true, note: "" }],
+  })),
+}));
 
 import { resetSiteUserDirectoryCache } from "./siteUsers";
 import {
@@ -44,6 +54,8 @@ import {
   recordScheduleCompletion,
   setScheduleAssignedTo,
   setScheduleEquipment,
+  setScheduleOperationsProject,
+  updateScheduledMaintenanceFields,
 } from "./scheduledMaintenance";
 
 function row(extra: Record<string, unknown> = {}) {
@@ -233,5 +245,100 @@ describe("creating a schedule", () => {
         assignedTo: { displayName: "Brand New", email: "brand.new@altronic-llc.com" },
       }),
     ).rejects.toThrow(/Couldn't set Assigned To/);
+  });
+});
+
+describe("the schedule's own Department, Location and Operations project", () => {
+  it("reads all three, resolving the project title", async () => {
+    routeList([
+      row({
+        DepartmentRefLookupId: 4,
+        LocationRefLookupId: 11,
+        OperationsProjectRefLookupId: 3,
+      }),
+    ]);
+    const [schedule] = await listScheduledMaintenance();
+    // Bare lookupIds on the wire, joined against the two reference lists.
+    expect(schedule.department).toEqual({ lookupId: 4, title: "MACH SHOP" });
+    expect(schedule.location).toEqual({ lookupId: 11, title: "COMPRESSOR ROOM" });
+    expect(schedule.operationsProject).toEqual({
+      lookupId: 3,
+      title: "0002-PVA Coating Machine",
+    });
+  });
+
+  // The columns may not exist in SharePoint yet.
+  it("survives a row where SharePoint returned none of them", async () => {
+    routeList([row()]);
+    const [schedule] = await listScheduledMaintenance();
+    expect(schedule.department).toBeNull();
+    expect(schedule.location).toBeNull();
+    expect(schedule.operationsProject).toBeNull();
+  });
+
+  it("asks Graph for all four columns", async () => {
+    routeList([row()]);
+    await listScheduledMaintenance();
+    const listCall = graphFetchAll.mock.calls
+      .map(([path]) => String(path))
+      .find((path) => path.includes("$expand=fields"));
+    // Both halves of each lookup — and NEITHER old choice column, which this
+    // list has never had (selecting one 400s the whole read).
+    expect(listCall).toContain("DepartmentRefLookupId");
+    expect(listCall).toContain("LocationRefLookupId");
+    expect(listCall).toContain("OperationsProjectRefLookupId");
+    expect(listCall).not.toMatch(/[,(]Department[,)]/);
+    expect(listCall).not.toMatch(/[,(]Location[,)]/);
+  });
+
+  it("writes Department / Location as BARE integers on a create, and null clears", async () => {
+    // Invisible from mock mode: multiLookupField's Collection(Edm.Int32)
+    // annotation is for MULTI-value columns and 400s on a single lookup.
+    routeList([row({ DepartmentRefLookupId: 4 })]);
+    await updateScheduledMaintenanceFields(4, { DepartmentRefLookupId: 4 });
+    expect(patchedFields()).toEqual({ DepartmentRefLookupId: 4 });
+    expect(Object.keys(patchedFields()).some((k) => k.includes("@odata.type"))).toBe(false);
+
+    graphFetch.mockClear();
+    await updateScheduledMaintenanceFields(4, { LocationRefLookupId: null });
+    expect(patchedFields()).toEqual({ LocationRefLookupId: null });
+  });
+
+  it("writes the Operations project as a BARE integer, and clears it with null", async () => {
+    routeList([row({ OperationsProjectRefLookupId: 3 })]);
+    await setScheduleOperationsProject(4, 3);
+    expect(patchedFields()).toEqual({ OperationsProjectRefLookupId: 3 });
+    expect(Object.keys(patchedFields()).some((k) => k.includes("@odata.type"))).toBe(false);
+
+    graphFetch.mockClear();
+    await setScheduleOperationsProject(4, null);
+    expect(patchedFields()).toEqual({ OperationsProjectRefLookupId: null });
+  });
+
+  it("sends the three on a create, and omits them when blank", async () => {
+    routeList([]);
+    graphFetch.mockResolvedValue(row());
+    await createScheduledMaintenance({
+      title: "PM",
+      departmentLookupId: 4,
+      locationLookupId: 38,
+      operationsProjectLookupId: 3,
+    });
+    // Three SINGLE lookups — bare integers, no @odata.type, and never the old
+    // choice columns (this list has never had them).
+    expect(postedFields()).toMatchObject({
+      DepartmentRefLookupId: 4,
+      LocationRefLookupId: 38,
+      OperationsProjectRefLookupId: 3,
+    });
+    expect(postedFields()).not.toHaveProperty("DepartmentRefLookupId@odata.type");
+    expect(postedFields()).not.toHaveProperty("LocationRefLookupId@odata.type");
+
+    graphFetch.mockClear();
+    graphFetch.mockResolvedValue(row());
+    await createScheduledMaintenance({ title: "PM" });
+    expect(postedFields()).not.toHaveProperty("DepartmentRefLookupId");
+    expect(postedFields()).not.toHaveProperty("LocationRefLookupId");
+    expect(postedFields()).not.toHaveProperty("OperationsProjectRefLookupId");
   });
 });

@@ -102,10 +102,12 @@ describe("the edits a technician makes from a work order", () => {
     await act(async () => {
       updated = await result.current.mutateAsync({
         lookupId: assets[0].lookupId,
-        fields: { Location: "MAINTENANCE ROOM" },
+        // Location is a single LOOKUP since 2026-08-28 — a bare lookupId, and
+        // the title comes back resolved against the reference list.
+        fields: { LocationRefLookupId: 35 },
       });
     });
-    expect(updated?.location).toBe("MAINTENANCE ROOM");
+    expect(updated?.location).toEqual({ lookupId: 35, title: "MAINTENANCE ROOM" });
   });
 
   it("reports a failure rather than failing silently", async () => {

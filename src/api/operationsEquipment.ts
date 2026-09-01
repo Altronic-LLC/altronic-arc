@@ -10,11 +10,13 @@ import type { Equipment, GraphListItem, Person, ProjectReference } from "@/types
 import {
   EQUIPMENT_SELECT,
   attachEquipmentPeople,
+  attachEquipmentReferences,
   attachParentAssetTitles,
   compareEquipment,
   equipmentReference,
   toEquipment,
 } from "@/lib/equipmentMapper";
+import { listMaintenanceReferenceLists } from "./maintenanceReferenceLists";
 import { toSpDateOnly } from "@/lib/spDates";
 import { MOCK_EQUIPMENT } from "@/data/maintenanceMockData";
 
@@ -71,21 +73,41 @@ export async function listOperationsEquipment(): Promise<ProjectReference[]> {
   return equipment;
 }
 
+/**
+ * Resolve Department / Location against the two Maintenance reference lists.
+ *
+ * Run in BOTH modes, not just the real one: a mock write stores the lookupId
+ * it was given and nothing else, so without this the demo shows an asset whose
+ * department is set and blank — the one thing lib/maintenanceReferences.ts
+ * exists to prevent.
+ */
+async function resolveEquipmentReferences(equipment: Equipment[]): Promise<void> {
+  const { departments, locations } = await listMaintenanceReferenceLists();
+  attachEquipmentReferences(equipment, departments, locations);
+}
+
 /** Every asset in full, alphabetically, with people and parent titles resolved. */
 export async function listEquipment(): Promise<Equipment[]> {
   if (USE_MOCK) {
-    return [...mockStore].sort(compareEquipment).map((e) => ({ ...e }));
+    const equipment = [...mockStore].sort(compareEquipment).map((e) => ({ ...e }));
+    await resolveEquipmentReferences(equipment);
+    return equipment;
   }
 
   // `ResponsibleTech` is a SINGLE person column, so it arrives as a bare
   // lookupId — the site-user directory read in parallel is what turns it into
   // a name. Best-effort: a failure leaves "User #n", never a blank.
-  const [items, siteUsers] = await Promise.all([
+  const [items, siteUsers, references] = await Promise.all([
     graphFetchAll<GraphListItem>(`${listPath()}?$expand=fields($select=${EQUIPMENT_SELECT})&$top=500`),
     listSiteUserDirectory(SITES.pmo),
+    // The two reference lists in parallel with the items: DepartmentRef and
+    // LocationRef come back as bare lookupIds, so without this every asset's
+    // department reads as a number nobody can act on.
+    listMaintenanceReferenceLists(),
   ]);
   const equipment = items.map(toEquipment);
   attachEquipmentPeople(equipment, siteUsers);
+  attachEquipmentReferences(equipment, references.departments, references.locations);
   // Parent assets point back into this same list, so their titles can only be
   // joined once every row has been read.
   attachParentAssetTitles(equipment);
@@ -107,6 +129,9 @@ export async function updateEquipmentFields(
     if (idx < 0) throw new Error(`Equipment ${lookupId} not found`);
     const next: Equipment = { ...mockStore[idx] };
     applyMockFields(next, fields);
+    // A mock write stores a bare lookupId; resolve its title straight away so
+    // the caller's optimistic patch shows the value's name, not a blank.
+    await resolveEquipmentReferences([next]);
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
     return { ...next };
   }
@@ -128,8 +153,16 @@ function applyMockFields(next: Equipment, fields: Record<string, unknown>) {
   if ("Manufacturer" in fields) next.manufacturer = String(fields.Manufacturer ?? "");
   if ("ModelNumber" in fields) next.modelNumber = String(fields.ModelNumber ?? "");
   if ("EquipmentType" in fields) next.equipmentType = str(fields.EquipmentType);
-  if ("Department" in fields) next.department = str(fields.Department);
-  if ("Location" in fields) next.location = str(fields.Location);
+  // Single lookups — the mock mirrors the real column names, so a write is a
+  // bare integer here too. Titles are filled in by resolveEquipmentReferences.
+  if ("DepartmentRefLookupId" in fields) {
+    const v = fields.DepartmentRefLookupId;
+    next.department = v ? { lookupId: Number(v), title: "" } : null;
+  }
+  if ("LocationRefLookupId" in fields) {
+    const v = fields.LocationRefLookupId;
+    next.location = v ? { lookupId: Number(v), title: "" } : null;
+  }
   if ("Criticality" in fields) next.criticality = str(fields.Criticality);
   if ("AssetStatus" in fields) next.assetStatus = str(fields.AssetStatus);
   if ("InstallDate" in fields) {
@@ -179,6 +212,30 @@ export async function setEquipmentResponsibleTech(
   }
   // A SINGLE person column: a bare integer.
   return updateEquipmentFields(lookupId, { ResponsibleTechLookupId: resolved?.lookupId ?? null });
+}
+
+/**
+ * Move an asset to a different department (or clear with `null`).
+ *
+ * A SINGLE lookup, so a BARE integer — never `multiLookupField`'s
+ * `Collection(Edm.Int32)` shape, which is for multi-value columns and 400s
+ * here. The legacy `Department` choice column is deliberately NOT written:
+ * it is kept only as a rollback path, and writing both would leave two
+ * sources of truth disagreeing the moment one of them was edited elsewhere.
+ */
+export async function setEquipmentDepartment(
+  lookupId: number,
+  departmentLookupId: number | null,
+): Promise<Equipment> {
+  return updateEquipmentFields(lookupId, { DepartmentRefLookupId: departmentLookupId });
+}
+
+/** Move an asset to a different location (or clear with `null`). A BARE integer. */
+export async function setEquipmentLocation(
+  lookupId: number,
+  locationLookupId: number | null,
+): Promise<Equipment> {
+  return updateEquipmentFields(lookupId, { LocationRefLookupId: locationLookupId });
 }
 
 /** Set an asset's warranty expiry (a date-only column — midday UTC on the wire). */

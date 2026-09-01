@@ -4,6 +4,7 @@ import type {
   MaintenanceCategory,
   MaintenanceDueStatus,
   MaintenancePriority,
+  MaintenanceReferenceValue,
   MaintenanceStatus,
   MaintenanceTask,
   MaintenanceTaskInput,
@@ -30,6 +31,7 @@ import {
   text,
 } from "./maintenanceShared";
 import { parsePeople } from "./grayMarketMapper";
+import { attachReference, referenceIndex } from "./maintenanceReferences";
 
 // =============================================================================
 // Graph item → MaintenanceTask (Altronic Maintenance Tasks, PMO site), and the
@@ -41,11 +43,16 @@ import { parsePeople } from "./grayMarketMapper";
 //    returns each as a bare `<Name>LookupId`, so both halves are selected and
 //    `attachMaintenanceTaskPeople` fills the names in from the PMO site's User
 //    Information List. Writing one is a BARE INTEGER.
-//  - **Three SINGLE lookups** — EquipmentRef, ScheduledMaintenanceRef,
-//    OperationsTaskReference. Same story: bare `<Name>LookupId` on the wire,
-//    bare integer on the write. Never `multiLookupField`, whose
-//    `Collection(Edm.Int32)` annotation is for MULTI-value columns and 400s
-//    here.
+//  - **Five SINGLE lookups** — EquipmentRef, ScheduledMaintenanceRef,
+//    OperationsTaskReference, and (since 2026-08-28) DepartmentRef and
+//    LocationRef. Same story: bare `<Name>LookupId` on the wire, bare integer
+//    on the write. Never `multiLookupField`, whose `Collection(Edm.Int32)`
+//    annotation is for MULTI-value columns and 400s here.
+//  - **Department and Location have NO legacy fallback on this list.** They
+//    were choice columns on the Equipment List, which kept its old columns as
+//    a rollback path; they were never created here at all. Selecting a column
+//    a list hasn't got 400s the WHOLE read, so `Department` / `Location` must
+//    never appear in MAINTENANCE_TASK_SELECT.
 //  - **`DueStatus` is read-only to ARC.** A Power Automate flow maintains it.
 //    It is in the `$select` and in the domain type, and appears in NO write
 //    payload anywhere in this module — see `buildMaintenanceTaskCreateFields`.
@@ -78,6 +85,15 @@ export const MAINTENANCE_TASK_SELECT = [
   "ScheduledMaintenanceRefLookupId",
   "OperationsTaskReference",
   "OperationsTaskReferenceLookupId",
+  "OperationsProjectRef",
+  "OperationsProjectRefLookupId",
+  // The work order's OWN department and location — not the asset's, and
+  // single LOOKUPS rather than the choice columns they were until 2026-08-28.
+  // Both halves of each; the old choice columns do NOT exist on this list.
+  "DepartmentRef",
+  "DepartmentRefLookupId",
+  "LocationRef",
+  "LocationRefLookupId",
   "Assigned",
   "AssignedLookupId",
   "ReportedBy",
@@ -127,6 +143,12 @@ export function toMaintenanceTask(item: GraphListItem): MaintenanceTask {
     equipment: lookupRef(f.EquipmentRef, f.EquipmentRefLookupId),
     scheduleRef,
     operationsTaskRef: lookupRef(f.OperationsTaskReference, f.OperationsTaskReferenceLookupId),
+    operationsProject: lookupRef(f.OperationsProjectRef, f.OperationsProjectRefLookupId),
+    // Single lookups into the two Maintenance reference lists. Titles are
+    // joined afterwards (`attachMaintenanceTaskReferences`) — Graph hands a
+    // single-value lookup back as a bare id with no title attached.
+    department: lookupRef(f.DepartmentRef, f.DepartmentRefLookupId),
+    location: lookupRef(f.LocationRef, f.LocationRefLookupId),
     assigned: personOrLookup(f.Assigned, f.AssignedLookupId),
     reportedBy: personOrLookup(f.ReportedBy, f.ReportedByLookupId),
     completedBy: personOrLookup(f.CompletedBy, f.CompletedByLookupId),
@@ -184,26 +206,42 @@ export function attachMaintenanceTaskPeople(
 }
 
 /**
- * Resolve the three lookup titles against the lists they point at. Mutates in
+ * Resolve the four lookup titles against the lists they point at. Mutates in
  * place — the same "join after the fact" step `listOperationsTasks` does,
  * because Graph returns these as ids with no titles attached.
+ *
+ * `operationsProjects` comes from `listOperationsProjects()` — the SAME read
+ * the Operations task list already makes, never a second fetch of that list.
  */
 export function attachMaintenanceTaskReferences(
   tasks: MaintenanceTask[],
   equipment: Array<Equipment | ProjectReference>,
   schedules: ScheduledMaintenance[],
   operationsTasks: ProjectReference[],
+  operationsProjects: ProjectReference[] = [],
+  departments: MaintenanceReferenceValue[] = [],
+  locations: MaintenanceReferenceValue[] = [],
 ): void {
   const equipmentById = new Map(
     equipment.map((e) => [e.lookupId, { title: "name" in e ? e.name : e.title }]),
   );
   const schedulesById = new Map(schedules.map((s) => [s.id, { title: s.title }]));
   const opsById = new Map(operationsTasks.map((t) => [t.lookupId, { title: t.title }]));
+  const projectsById = new Map(operationsProjects.map((p) => [p.lookupId, { title: p.title }]));
+  const departmentIndex = referenceIndex(departments);
+  const locationIndex = referenceIndex(locations);
 
   for (const t of tasks) {
     t.equipment = attachLookupTitle(t.equipment, equipmentById);
     t.scheduleRef = attachLookupTitle(t.scheduleRef, schedulesById);
     t.operationsTaskRef = attachLookupTitle(t.operationsTaskRef, opsById);
+    t.operationsProject = attachLookupTitle(t.operationsProject, projectsById);
+    // The two reference lists go through `attachReference`, not
+    // `attachLookupTitle`: it also handles a value with no title on a list
+    // that no longer has that row, which must still render as `#41` rather
+    // than as nothing (lib/maintenanceReferences.ts, rule 1).
+    t.department = attachReference(t.department, departmentIndex);
+    t.location = attachReference(t.location, locationIndex);
   }
 }
 
@@ -240,6 +278,13 @@ export function buildMaintenanceTaskCreateFields(
   if (input.operationsTaskLookupId) {
     fields.OperationsTaskReferenceLookupId = input.operationsTaskLookupId;
   }
+  if (input.operationsProjectLookupId) {
+    fields.OperationsProjectRefLookupId = input.operationsProjectLookupId;
+  }
+  // The work order's own department / location. Single lookups: a BARE
+  // integer, omitted when unset like every other optional column on a create.
+  if (input.departmentLookupId) fields.DepartmentRefLookupId = input.departmentLookupId;
+  if (input.locationLookupId) fields.LocationRefLookupId = input.locationLookupId;
   return fields;
 }
 

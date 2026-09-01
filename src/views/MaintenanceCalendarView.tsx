@@ -1,8 +1,10 @@
 import { useMemo, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { CalendarDays, ChevronLeft, ChevronRight, ListChecks, Plus } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { CalendarDays, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { useMaintenanceTasks } from "@/hooks/useMaintenanceTasks";
 import { useScheduledMaintenance } from "@/hooks/useScheduledMaintenance";
+import { useMyMaintenanceRoles } from "@/hooks/useMaintenanceRoles";
+import { manageSchedulesGate } from "@/lib/maintenanceRoles";
 import { useIsPhone } from "@/hooks/useIsPhone";
 import {
   buildMaintenanceAgenda,
@@ -29,6 +31,8 @@ import { ChoicePills } from "@/components/ChoicePills";
 import { ChoiceSelect } from "@/components/SearchableSelect";
 import { LogPmCompletionModal } from "@/components/LogPmCompletionModal";
 import { ScheduledMaintenanceFormModal } from "@/components/ScheduledMaintenanceFormModal";
+import { MaintenanceTaskFormModal } from "@/components/MaintenanceTaskFormModal";
+import { MaintenanceViewSwitcher } from "@/components/MaintenanceViewSwitcher";
 import {
   MaintenancePriorityFlag,
   MaintenanceStatusBadge,
@@ -88,11 +92,22 @@ export default function MaintenanceCalendarView() {
   const [params, setParams] = useSearchParams();
   const { data: tasks = [], isLoading: tasksLoading } = useMaintenanceTasks();
   const { data: schedules = [], isLoading: schedulesLoading } = useScheduledMaintenance();
+  /**
+   * Adding a schedule from a day cell is maintenance-admin only.
+   *
+   * When they can't, the cell stops being clickable and the "+" is gone —
+   * rather than opening a form whose Create button is dead. Clicking a
+   * dashed PM chip still opens the log modal for everyone: that modal
+   * explains the tech gate itself, and a chip that silently does nothing
+   * is worse than one that tells you why.
+   */
+  const canAddSchedule = manageSchedulesGate(useMyMaintenanceRoles()).allowed;
 
   /** The projected occurrence being logged — schedule plus the day it fell on. */
   const [logging, setLogging] = useState<MaintenanceCalendarEntry | null>(null);
   /** The day whose "add" affordance was used — seeds a new schedule's first due. */
   const [addingOn, setAddingOn] = useState<Date | null>(null);
+  const [addingWorkOrder, setAddingWorkOrder] = useState(false);
 
   const filters: MaintenanceCalendarFilters = useMemo(
     () => ({
@@ -162,17 +177,26 @@ export default function MaintenanceCalendarView() {
           <p className="text-sm text-fg-muted">
             {isPhone
               ? "Everything outstanding and coming up."
-              : "Work orders and every PM the schedules say is due. Click a day to add a schedule."}
+              : canAddSchedule
+                ? "Work orders and every PM the schedules say is due. Click a day to add a schedule for it."
+                : "Work orders and every PM the schedules say is due."}
           </p>
         </div>
-        <Link
-          to="/operations/maintenance/schedules"
-          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg transition-colors hover:bg-surface-2"
+        {/* Raising a one-off job is the single most common thing anyone does
+            here, and the calendar is where people land from the dashboard —
+            so it needs its own button. The day "+" seeds a SCHEDULE from that
+            date, which is a different (and much rarer) action. */}
+        <button
+          type="button"
+          onClick={() => setAddingWorkOrder(true)}
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-accent/90"
         >
-          <ListChecks className="h-4 w-4" />
-          PM library
-        </Link>
+          <Plus className="h-4 w-4" />
+          New work order
+        </button>
       </header>
+
+      <MaintenanceViewSwitcher />
 
       <div
         role="search"
@@ -235,7 +259,7 @@ export default function MaintenanceCalendarView() {
                 byDay={month.byDay}
                 count={month.entries.length}
                 onMonth={(next) => setParam("month", monthKey(next))}
-                onAdd={setAddingOn}
+                onAdd={canAddSchedule ? setAddingOn : null}
                 onOpen={openEntry}
               />
             </>
@@ -257,6 +281,10 @@ export default function MaintenanceCalendarView() {
           defaultDate={addingOn}
           onClose={() => setAddingOn(null)}
         />
+      )}
+
+      {addingWorkOrder && (
+        <MaintenanceTaskFormModal mode="create" onClose={() => setAddingWorkOrder(false)} />
       )}
     </div>
   );
@@ -354,7 +382,12 @@ function MonthGrid({
   byDay: Map<string, MaintenanceCalendarEntry[]>;
   count: number;
   onMonth: (next: Date) => void;
-  onAdd: (day: Date) => void;
+  /**
+   * Seed a new schedule from a day. **`null` when the viewer isn't a
+   * maintenance admin** — the day cell then isn't clickable and the "+" isn't
+   * rendered at all, rather than offering a form they can't submit.
+   */
+  onAdd: ((day: Date) => void) | null;
   onOpen: (entry: MaintenanceCalendarEntry) => void;
 }) {
   const todayKey = dayKey(new Date());
@@ -414,9 +447,10 @@ function MonthGrid({
               // A div, not a button: it CONTAINS buttons (the chips), and
               // nesting those inside a button is invalid. The labelled "Add"
               // button below is what a screen reader gets.
-              onClick={() => onAdd(day)}
+              onClick={onAdd ? () => onAdd(day) : undefined}
               className={cn(
-                "group flex min-h-[7rem] cursor-pointer flex-col gap-1 border-b border-r border-border p-1.5 transition-colors last:border-r-0 hover:bg-surface-2",
+                "group flex min-h-[7rem] flex-col gap-1 border-b border-r border-border p-1.5 transition-colors last:border-r-0 hover:bg-surface-2",
+                onAdd && "cursor-pointer",
                 otherMonth && "bg-surface-2/40",
               )}
             >
@@ -431,18 +465,20 @@ function MonthGrid({
                 >
                   {day.getUTCDate()}
                 </span>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onAdd(day);
-                  }}
-                  aria-label={`Add a maintenance schedule starting ${dayLabel(day)}`}
-                  title={`Add a maintenance schedule starting ${dayLabel(day)}`}
-                  className="rounded p-0.5 text-fg-muted opacity-0 transition-opacity hover:bg-surface hover:text-fg focus:opacity-100 group-hover:opacity-100"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                </button>
+                {onAdd && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAdd(day);
+                    }}
+                    aria-label={`Add a maintenance schedule starting ${dayLabel(day)}`}
+                    title={`Add a maintenance schedule starting ${dayLabel(day)}`}
+                    className="rounded p-0.5 text-fg-muted opacity-0 transition-opacity hover:bg-surface hover:text-fg focus:opacity-100 group-hover:opacity-100"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </div>
 
               {/* Scrolls rather than truncating to "+3 more": a busy day is

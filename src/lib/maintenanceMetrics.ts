@@ -4,10 +4,13 @@ import type {
   MaintenanceStatus,
   MaintenanceTask,
   Person,
+  ProjectReference,
   ScheduledMaintenance,
 } from "@/types/task";
 import { MAINTENANCE_PRIORITIES, MAINTENANCE_STATUSES } from "@/types/task";
 import { isClosedMaintenanceStatus } from "./maintenanceShared";
+import { referenceKey, referenceLabel } from "./maintenanceReferences";
+import { maintenanceTaskDepartment } from "./maintenanceFilters";
 import { personKey } from "@/lib/people";
 
 // =============================================================================
@@ -28,10 +31,12 @@ import { personKey } from "@/lib/people";
 //     explicit "not set" row with its count, and the labels are exported so
 //     the UI says the number out loud. Same for an unassigned work order, an
 //     asset with no criticality, and downtime logged against no asset.
-//  2. **Grouping is by `Department`, never `Location`.** Location has 62
-//     values with near-duplicates ("HARNESS DEPARMENT" / "HARNESS
-//     DEPARTMENT"); Department has 9 clean ones. Explicit decision — there is
-//     deliberately no `byLocation` function here to reach for.
+//  2. **Grouping is by `Department`, never `Location`.** Location has 64
+//     values with near-duplicates ("HARNESS DEPARMENT" / "HARNESS DEPARTMENT",
+//     "Q.C." / "QC"); Department has 9 clean ones. Explicit decision — there is
+//     deliberately no `byLocation` function here to reach for. Both are lookups
+//     since 2026-08-28, so buckets key off `referenceKey` (the lookupId) and a
+//     rename in Admin moves every row with it rather than splitting the chart.
 //  3. **Whole-day arithmetic is done in UTC.** Date-only SharePoint columns
 //     are held at midday UTC precisely so no browser's local timezone shifts
 //     them onto the day before (see lib/spDates.ts and
@@ -406,7 +411,8 @@ export function plannedVsUnplanned(tasks: MaintenanceTask[]): PlannedRatio {
 export interface AssetDowntime {
   lookupId: number;
   name: string;
-  department: string | null;
+  /** The asset's department — a caption on the row, not something grouped by. */
+  department: ProjectReference | null;
   hours: number;
   workOrders: number;
 }
@@ -576,18 +582,57 @@ export function assetsDown(equipment: Equipment[]): AssetsDownSummary {
 // -----------------------------------------------------------------------------
 
 export interface DepartmentCount {
-  /** The raw `Department` value, or null for the explicit "not set" bucket. */
-  department: string | null;
+  /** The department, or null for the explicit "not set" bucket. */
+  department: ProjectReference | null;
   label: string;
   count: number;
 }
 
-function departmentRows(counts: Map<string | null, number>): DepartmentCount[] {
+/** One bucket, mid-count: what it is and how many are in it. */
+interface DepartmentBucket {
+  department: ProjectReference | null;
+  count: number;
+}
+
+/**
+ * Count one department into a bucket map keyed by `referenceKey`.
+ *
+ * Keyed by the LOOKUP, not the name: a renamed department has to keep its
+ * bucket, and two departments briefly sharing a name must not merge into one.
+ * `null` (nothing set) gets its own reserved key.
+ */
+const NOT_SET_KEY = "__not_set__";
+
+function countDepartment(
+  buckets: Map<string, DepartmentBucket>,
+  department: ProjectReference | null,
+): void {
+  const key = department ? referenceKey(department) : NOT_SET_KEY;
+  const existing = buckets.get(key);
+  if (existing) {
+    existing.count += 1;
+    // Prefer whichever copy carries a resolved title, the same rule the
+    // filter options follow.
+    if (!existing.department?.title && department?.title) existing.department = department;
+    return;
+  }
+  buckets.set(key, { department, count: 1 });
+}
+
+function departmentRows(buckets: Map<string, DepartmentBucket>): DepartmentCount[] {
   const rows: DepartmentCount[] = [];
   let missing = 0;
-  for (const [department, count] of counts) {
-    if (department === null) missing = count;
-    else rows.push({ department, label: department, count });
+  for (const [key, bucket] of buckets) {
+    if (key === NOT_SET_KEY) missing = bucket.count;
+    else {
+      rows.push({
+        department: bucket.department,
+        // `referenceLabel` never returns "": a department that IS set renders
+        // as `#41` at worst, never as an unnamed bar (rule 1 at the top).
+        label: referenceLabel(bucket.department),
+        count: bucket.count,
+      });
+    }
   }
   rows.sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
   // The "not set" bucket is ALWAYS last and ALWAYS present when non-zero,
@@ -606,36 +651,43 @@ function departmentRows(counts: Map<string | null, number>): DepartmentCount[] {
  * of this file.
  */
 export function equipmentByDepartment(equipment: Equipment[]): DepartmentCount[] {
-  const counts = new Map<string | null, number>();
-  for (const e of equipment) {
-    const key = e.department || null;
-    counts.set(key, (counts.get(key) ?? 0) + 1);
-  }
-  return departmentRows(counts);
+  const buckets = new Map<string, DepartmentBucket>();
+  for (const e of equipment) countDepartment(buckets, e.department);
+  return departmentRows(buckets);
 }
 
 /**
- * Open work orders per the Department of the asset they're against.
+ * Open work orders per department: **the work order's OWN `Department` first,
+ * its asset's second, the "not set" bucket only then.**
  *
- * The "not set" row here covers BOTH a work order with no asset and one whose
- * asset carries no Department — from the reader's point of view they are the
- * same statement ("this work can't be attributed to a department"), and
- * splitting them into two near-identical rows suggests a distinction the
- * shop floor doesn't make.
+ * The order matters. Department is set on just 194 of 378 assets, so grouping
+ * through the asset alone dropped half the plant's open work into "No
+ * department set" — which is exactly why the work order carries the column
+ * itself. A job raised against a light or a leaking pipe has no asset at all
+ * and can still say which department owns it.
+ *
+ * The "not set" row stays, and stays last: it now covers only a work order
+ * that names no department AND whose asset (if any) carries none either.
+ * Smaller, and true — it must never be quietly dropped, however small it
+ * gets (rule 1 at the top of this file).
+ *
+ * Routed through `maintenanceTaskDepartment` so the dashboard and the list
+ * view's Department filter can't disagree about which bucket a job is in.
  */
 export function openWorkByDepartment(
   tasks: MaintenanceTask[],
   equipment: Equipment[],
 ): DepartmentCount[] {
-  const departmentById = new Map<number, string | null>();
-  for (const e of equipment) departmentById.set(e.lookupId, e.department || null);
-
-  const counts = new Map<string | null, number>();
-  for (const t of openMaintenanceTasks(tasks)) {
-    const key = t.equipment ? departmentById.get(t.equipment.lookupId) ?? null : null;
-    counts.set(key, (counts.get(key) ?? 0) + 1);
+  const departmentById = new Map<number, ProjectReference>();
+  for (const e of equipment) {
+    if (e.department) departmentById.set(e.lookupId, e.department);
   }
-  return departmentRows(counts);
+
+  const buckets = new Map<string, DepartmentBucket>();
+  for (const t of openMaintenanceTasks(tasks)) {
+    countDepartment(buckets, maintenanceTaskDepartment(t, departmentById));
+  }
+  return departmentRows(buckets);
 }
 
 /** How complete the Department column is — the number the UI has to say out loud. */

@@ -169,6 +169,46 @@ export interface EirRoleEntry {
 }
 
 /**
+ * Maintenance (CMMS) role tags — a TWO-LEVEL list, the same mechanism as
+ * EIR_ROLES with its own tag namespace.
+ *
+ * Held lowercase in the domain whatever casing the SharePoint choice column
+ * uses; api/maintenanceRoles.ts normalises on the way in.
+ *
+ * **`admin` implies `tech`** (see maintenanceAccessFrom in
+ * lib/maintenanceRoles.ts) — the column may only hold one value per person:
+ *
+ *   "tech"  → may complete a work order, and may log a PM (Start / Complete /
+ *             Skip) off a schedule.
+ *   "admin" → everything a tech can do, PLUS creating / editing / retiring PM
+ *             schedules and managing the asset register, departments and
+ *             locations.
+ *
+ * Raising a work order, editing an open one, commenting and attaching are
+ * deliberately NOT gated — anyone signed in does those.
+ *
+ * `admin` here is the MAINTENANCE admin, not ARC's global Admins list. An ARC
+ * admin always counts as one (see useMyMaintenanceRoles) so a roles list
+ * nobody holds `admin` on isn't a door locked from the inside.
+ *
+ * As with the EIR roles this is UI-level gating; the real boundary is the
+ * SharePoint permission on the list.
+ */
+export const MAINTENANCE_ROLES = ["tech", "admin"] as const;
+export type MaintenanceRole = (typeof MAINTENANCE_ROLES)[number];
+
+/** Row in the Maintenance Roles list. Same shape as EirRoleEntry. */
+export interface MaintenanceRoleEntry {
+  id: number;
+  /** The person's EMAIL. Never a display name — a name grants nothing. */
+  email: string;
+  displayName: string;
+  roles: MaintenanceRole[];
+  /** Optional note — purely cosmetic. */
+  note: string;
+}
+
+/**
  * A bare reference to another task — just the bits we need to render a
  * pill/link without re-fetching the full task. Used for parent and child
  * task references.
@@ -2269,7 +2309,18 @@ export type EquipmentCriticality = (typeof EQUIPMENT_CRITICALITIES)[number];
 export const EQUIPMENT_ASSET_STATUSES = ["In Service", "Down", "Standby", "Retired"] as const;
 export type EquipmentAssetStatus = (typeof EQUIPMENT_ASSET_STATUSES)[number];
 
-/** `Department` on the Equipment list — the owning shop-floor department. */
+/**
+ * The nine departments the **Maintenance Departments** lookup list was seeded
+ * from, when `Department` stopped being a choice column (2026-08-28).
+ *
+ * **No longer read on any live path.** Department is a single lookup now
+ * (`DepartmentRef`), so the allowed values live in a SharePoint LIST that
+ * admins maintain from /admin/maintenance-reference-lists — see
+ * SP_MAINTENANCE_DEPARTMENTS_LIST_ID in api/config.ts for why. This array
+ * survives as the seed for the mock reference list (data/maintenanceMockData.ts)
+ * and as the record of what the choice column held; do NOT wire a picker back
+ * to it, or the demo and the live app will offer different departments.
+ */
 export const EQUIPMENT_DEPARTMENTS = [
   "COILS",
   "ENG.",
@@ -2345,12 +2396,20 @@ export const EQUIPMENT_TYPES = [
 export type EquipmentType = (typeof EQUIPMENT_TYPES)[number];
 
 /**
- * `Location` on the Equipment list — 62 physical locations, several of them
- * near-duplicates of each other ("HARNESS DEPARMENT" / "HARNESS DEPARTMENT").
- * That is the data, typos included; it is NOT tidied here, because a value
- * rewritten in ARC would stop matching the SharePoint views people also read.
+ * The 64 locations the **Maintenance Locations** lookup list was seeded from.
+ * Same story as EQUIPMENT_DEPARTMENTS above: a seed and a record, not a live
+ * picker source.
+ *
+ * The junk is deliberate and is NOT tidied here. A literal `-`, "HARNESS
+ * DEPARMENT" beside "HARNESS DEPARTMENT", "Q.C." beside "QC", "Q.C. DIGITAL"
+ * beside "QC DIGITAL" — that is what the choice column held and what the
+ * lookup list was seeded with. Merging near-duplicates is a judgement a person
+ * makes about real rows (the admin screen flags them; it never merges them),
+ * and a value silently rewritten in ARC stops matching the SharePoint views
+ * people also read.
  */
 export const EQUIPMENT_LOCATIONS = [
+  "-",
   "@ MORI LATHE",
   "ALL PARKING LOTS",
   "ASSEMBLY",
@@ -2395,6 +2454,7 @@ export const EQUIPMENT_LOCATIONS = [
   "PRODUCTION",
   "PRODUCTION @ 3 LINE",
   "PRODUCTION DEPARTMENT",
+  "Q.C.",
   "Q.C. DIGITAL",
   "QC",
   "QC DIGITAL",
@@ -2417,6 +2477,45 @@ export const EQUIPMENT_LOCATIONS = [
 export type EquipmentLocation = (typeof EQUIPMENT_LOCATIONS)[number];
 
 /**
+ * The two admin-managed CMMS reference lists — Maintenance Departments and
+ * Maintenance Locations.
+ *
+ * They exist because `Department` and `Location` used to be CHOICE columns,
+ * and adding a value to a choice column is a change to the column DEFINITION
+ * (site-manage rights). ARC holds `Sites.Selected` — item read/write — so the
+ * shop could never add its own. As lookup lists, adding a department is adding
+ * a list item, which ARC can do. See api/config.ts.
+ */
+export const MAINTENANCE_REFERENCE_KINDS = ["departments", "locations"] as const;
+export type MaintenanceReferenceKind = (typeof MAINTENANCE_REFERENCE_KINDS)[number];
+
+/** One row of a CMMS reference list. */
+export interface MaintenanceReferenceValue {
+  /** SharePoint item id — the value every `DepartmentRef` / `LocationRef` holds. */
+  lookupId: number;
+  /** `Title` — the value itself ("MACH SHOP", "COMPRESSOR ROOM"). */
+  title: string;
+  /**
+   * `Active`. **Retiring is what "delete" means on these lists.**
+   *
+   * A value hundreds of rows already point at must not be deletable — the
+   * lookups would dangle and every affected asset would read as having no
+   * department. `Active = false` takes it out of the pickers while every row
+   * already pointing at it keeps showing it.
+   */
+  active: boolean;
+  /** `Note` — free text, for whoever maintains the list. */
+  note: string;
+}
+
+/** What the admin screen supplies when adding or renaming a value. */
+export interface MaintenanceReferenceInput {
+  title: string;
+  active?: boolean;
+  note?: string;
+}
+
+/**
  * One asset from the Altronic Equipment List.
  *
  * The Operations task form has always seen this list as a bare
@@ -2436,8 +2535,18 @@ export interface Equipment {
   modelNumber: string;
   /** Raw choice values — NOT clamped; see the note at the top of this section. */
   equipmentType: string | null;
-  department: string | null;
-  location: string | null;
+  /**
+   * `DepartmentRef` / `LocationRef` — SINGLE lookups into the Maintenance
+   * Departments and Maintenance Locations lists (they were choice columns
+   * until 2026-08-28).
+   *
+   * **The Equipment List still carries the old `Department` / `Location`
+   * choice columns**, kept as a rollback path, and they are read here as a
+   * FALLBACK when the lookup is empty — see `toEquipment`. The two work-order
+   * lists never had them and must never select them.
+   */
+  department: ProjectReference | null;
+  location: ProjectReference | null;
   criticality: string | null;
   assetStatus: string | null;
   /** `ParentAsset` — a single lookup into this same list (a sub-assembly's parent). */
@@ -2472,6 +2581,30 @@ export interface MaintenanceTask {
   scheduleRef: ProjectReference | null;
   /** `OperationsTaskReference` — single lookup into the Operations Task List. */
   operationsTaskRef: ProjectReference | null;
+  /**
+   * `Department` and `Location` — the WORK ORDER's own values, not an echo of
+   * the asset's.
+   *
+   * Plenty of maintenance is raised against something the equipment register
+   * has never heard of — a light, a door, a leaking pipe — and it still has to
+   * be attributable to a department and findable in a place. Picking an asset
+   * PRE-FILLS both (see `prefilledFromAsset` in lib/maintenancePrefill.ts);
+   * they stay editable afterwards, and a work order with no asset at all can
+   * carry them on its own.
+   *
+   * SINGLE lookups (`DepartmentRef` / `LocationRef`) into the Maintenance
+   * Departments and Maintenance Locations lists since 2026-08-28. Bare
+   * `<Name>LookupId` on the wire, bare integer on the write.
+   *
+   * **The old choice columns were never created on this list**, so — unlike
+   * the Equipment List — there is no legacy fallback here and nothing may
+   * select `Department` / `Location`: selecting a column a list hasn't got
+   * 400s the whole read.
+   */
+  department: ProjectReference | null;
+  location: ProjectReference | null;
+  /** `OperationsProjectRef` — single lookup into the Operations Projects list. */
+  operationsProject: ProjectReference | null;
   /** SINGLE person columns — all three come back as bare lookupIds. */
   assigned: Person | null;
   reportedBy: Person | null;
@@ -2502,6 +2635,10 @@ export interface MaintenanceTaskInput {
   equipmentLookupId?: number | null;
   scheduleLookupId?: number | null;
   operationsTaskLookupId?: number | null;
+  /** The work order's own Department / Location — see the note on MaintenanceTask. */
+  departmentLookupId?: number | null;
+  locationLookupId?: number | null;
+  operationsProjectLookupId?: number | null;
   assigned?: Person | null;
   watchers?: Person[];
   techNotes?: string;
@@ -2518,6 +2655,18 @@ export interface ScheduledMaintenance {
   priority: MaintenancePriority | null;
   /** `EquipmentRef` — single lookup into the Altronic Equipment List. */
   equipment: ProjectReference | null;
+  /**
+   * The SCHEDULE's own Department / Location, and its Operations project.
+   *
+   * Same rule as the work order's (see `MaintenanceTask`): pre-filled from the
+   * asset when one is picked, independently editable, and — since 2026-08-28 —
+   * SINGLE lookups into the two Maintenance reference lists rather than choice
+   * columns. This list never had the old choice columns either.
+   */
+  department: ProjectReference | null;
+  location: ProjectReference | null;
+  /** `OperationsProjectRef` — single lookup into the Operations Projects list. */
+  operationsProject: ProjectReference | null;
   frequencyInterval: number | null;
   frequencyUnit: FrequencyUnit | null;
   scheduleBasis: ScheduleBasis | null;
@@ -2554,6 +2703,9 @@ export interface ScheduledMaintenanceInput {
   category?: MaintenanceCategory | null;
   priority?: MaintenancePriority | null;
   equipmentLookupId?: number | null;
+  departmentLookupId?: number | null;
+  locationLookupId?: number | null;
+  operationsProjectLookupId?: number | null;
   frequencyInterval?: number | null;
   frequencyUnit?: FrequencyUnit | null;
   scheduleBasis?: ScheduleBasis | null;

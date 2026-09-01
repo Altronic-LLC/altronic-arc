@@ -6,13 +6,19 @@ import {
   useMaintenanceTasks,
   useSetMaintenanceTaskAssigned,
   useSetMaintenanceTaskEquipment,
+  useSetMaintenanceTaskOperationsProject,
   useSetMaintenanceTaskWatchers,
   useUpdateMaintenanceTaskFields,
 } from "@/hooks/useMaintenanceTasks";
 import { useEquipment } from "@/hooks/useEquipment";
+import { useOperationsProjects } from "@/hooks/useOperationsTasks";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useMyMaintenanceRoles } from "@/hooks/useMaintenanceRoles";
+import {
+  useMaintenanceDepartments,
+  useMaintenanceLocations,
+} from "@/hooks/useMaintenanceReferenceLists";
+import { referenceOptions } from "@/lib/maintenanceReferences";
 import {
   MAINTENANCE_CATEGORIES,
   MAINTENANCE_PRIORITIES,
@@ -23,8 +29,9 @@ import {
   type MaintenanceTask,
   type Person,
 } from "@/types/task";
-import { maintenanceCompletionAccess } from "@/lib/maintenanceCompletion";
+import { maintenanceCompletionAccess } from "@/lib/maintenanceRoles";
 import { collectMaintenancePeople } from "@/lib/maintenanceFilters";
+import { assetPrefill, prefilledFromAsset } from "@/lib/maintenancePrefill";
 import { mergePeople } from "@/lib/people";
 import { fromDateInputValue, toDateInputValue, toSpDateOnly } from "@/lib/spDates";
 import { ChoiceSelect, MultiSelect, SingleSelect } from "./SearchableSelect";
@@ -50,7 +57,22 @@ import { useOverlayDismiss } from "./useOverlayDismiss";
 // Everything else follows OperationsTaskFormModal exactly, including the
 // parallel-writes-on-edit shape and the searchable dropdowns (never a native
 // <select>). No field here has three or fewer choices, so nothing is
-// ChoicePills — Status has seven, Category eight, Priority four.
+// ChoicePills — Status has seven, Category eight, Priority four, Department
+// nine and Location sixty-four.
+//
+// **Department and Location are the work order's OWN columns.** Picking an
+// asset pre-fills them; they stay editable, and a work order raised against
+// something the register has never heard of (a light, a door, a leaking pipe)
+// can carry them on its own. The pre-fill NEVER overwrites a value the user
+// set — see `prefilledFromAsset` in lib/maintenancePrefill.ts and the
+// `deptTouched` / `locTouched` flags below.
+//
+// **Both became single LOOKUPS on 2026-08-28**, into the two Maintenance
+// reference lists admins maintain at /admin/maintenance-reference-lists. So the
+// state here is a lookupId, the write is a bare integer, and the options come
+// from `referenceOptions` — every ACTIVE value, plus whatever this work order
+// already points at even when that has since been retired. A picker that
+// dropped the current value would clear it on the next save.
 // =============================================================================
 
 interface MaintenanceTaskFormModalProps {
@@ -68,9 +90,12 @@ export function MaintenanceTaskFormModal({ mode, task, onClose }: MaintenanceTas
   const setEquipment = useSetMaintenanceTaskEquipment();
   const setAssigned = useSetMaintenanceTaskAssigned();
   const setWatchers = useSetMaintenanceTaskWatchers();
+  const setOperationsProject = useSetMaintenanceTaskOperationsProject();
+  const { data: operationsProjects = [] } = useOperationsProjects();
   const directory = useDirectoryPeople();
-  const currentUser = useCurrentUser();
-  const isAdmin = useIsAdmin();
+  const maintenanceAccess = useMyMaintenanceRoles();
+  const { data: departments = [] } = useMaintenanceDepartments();
+  const { data: locations = [] } = useMaintenanceLocations();
 
   const [title, setTitle] = useState(task?.title ?? "");
   const [description, setDescription] = useState(task?.description ?? "");
@@ -80,6 +105,21 @@ export function MaintenanceTaskFormModal({ mode, task, onClose }: MaintenanceTas
   const [startDate, setStartDate] = useState(toDateInputValue(task?.startDate ?? null));
   const [dueDate, setDueDate] = useState(toDateInputValue(task?.dueDate ?? null));
   const [equipmentId, setEquipmentId] = useState<number | "">(task?.equipment?.lookupId ?? "");
+  const [department, setDepartment] = useState<number | null>(task?.department?.lookupId ?? null);
+  const [location, setLocation] = useState<number | null>(task?.location?.lookupId ?? null);
+  const [operationsProjectId, setOperationsProjectId] = useState<number | "">(
+    task?.operationsProject?.lookupId ?? "",
+  );
+  /**
+   * Has the user set this field THEMSELVES?
+   *
+   * A stored value on an existing work order counts as theirs: somebody
+   * committed to it, whether by typing it or by accepting a pre-fill and
+   * saving. Changing the equipment on that work order must not rewrite it.
+   * On a create both start false, so the first asset pick fills them in.
+   */
+  const [deptTouched, setDeptTouched] = useState(!!task?.department);
+  const [locTouched, setLocTouched] = useState(!!task?.location);
   const [assigned, setAssignedState] = useState<Person | null>(task?.assigned ?? null);
   const [watchers, setWatchersState] = useState<Person[]>(task?.watchers ?? []);
   const [techNotes, setTechNotes] = useState(task?.techNotes ?? "");
@@ -115,17 +155,32 @@ export function MaintenanceTaskFormModal({ mode, task, onClose }: MaintenanceTas
   /**
    * The completion guard, made visible.
    *
-   * `useUpdateMaintenanceTaskFields` refuses a Complete write from anyone who
-   * is neither the assignee nor an admin, so offering the option here would be
-   * offering an action the mutation rejects. It is dropped from the picker
-   * instead, with the reason stated underneath — a silently shorter list is
-   * its own kind of confusing.
+   * `useUpdateMaintenanceTaskFields` refuses a Complete write from anyone
+   * without the maintenance `tech` or `admin` role, so offering the option
+   * here would be offering an action the mutation rejects. It is dropped from
+   * the picker instead, with the reason stated underneath — a silently shorter
+   * list is its own kind of confusing.
    */
-  const completion = task ? maintenanceCompletionAccess(task, currentUser, isAdmin) : null;
+  const completion = task ? maintenanceCompletionAccess(task, maintenanceAccess) : null;
   const blockedFromCompleting = mode === "edit" && completion !== null && !completion.allowed;
   const statusOptions = blockedFromCompleting
     ? MAINTENANCE_STATUSES.filter((s) => s !== "Complete")
     : MAINTENANCE_STATUSES;
+
+  /**
+   * Pick an asset, and pre-fill Department and Location from it.
+   *
+   * Only into fields the user hasn't set themselves, and only from an asset
+   * that actually carries a value — the rule lives in `prefilledFromAsset`
+   * (lib/maintenancePrefill.ts) so this modal and the schedule one can't
+   * drift apart on it.
+   */
+  function pickEquipment(nextId: number | "") {
+    setEquipmentId(nextId);
+    const asset = assetPrefill(equipment, nextId === "" ? null : nextId);
+    setDepartment((current) => prefilledFromAsset(current, deptTouched, asset.department));
+    setLocation((current) => prefilledFromAsset(current, locTouched, asset.location));
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -148,6 +203,9 @@ export function MaintenanceTaskFormModal({ mode, task, onClose }: MaintenanceTas
           startDate: fromDateInputValue(startDate),
           dueDate: fromDateInputValue(dueDate),
           equipmentLookupId: equipmentId === "" ? null : equipmentId,
+          departmentLookupId: department,
+          locationLookupId: location,
+          operationsProjectLookupId: operationsProjectId === "" ? null : operationsProjectId,
           assigned,
           watchers,
           techNotes: techNotes.trim() || undefined,
@@ -166,6 +224,15 @@ export function MaintenanceTaskFormModal({ mode, task, onClose }: MaintenanceTas
       if ((priority || null) !== task.priority) baseFields.Priority = priority || null;
       if ((category || null) !== task.category) baseFields.Category = category || null;
       if (techNotes !== task.techNotes) baseFields.TechNotes = techNotes;
+      // The work order's own department / location. Single lookups: a BARE
+      // integer, and `null` clears. Both are optional and neither blocks
+      // saving.
+      if (department !== (task.department?.lookupId ?? null)) {
+        baseFields.DepartmentRefLookupId = department;
+      }
+      if (location !== (task.location?.lookupId ?? null)) {
+        baseFields.LocationRefLookupId = location;
+      }
       if (startDate !== toDateInputValue(task.startDate)) {
         baseFields.StartDate = toSpDateOnly(fromDateInputValue(startDate));
       }
@@ -180,6 +247,16 @@ export function MaintenanceTaskFormModal({ mode, task, onClose }: MaintenanceTas
       const nextEquipmentId = equipmentId === "" ? null : equipmentId;
       if (nextEquipmentId !== (task.equipment?.lookupId ?? null)) {
         await setEquipment.mutateAsync({ id: task.id, equipmentLookupId: nextEquipmentId });
+      }
+
+      // A single lookup, through its own hook — the same treatment the
+      // equipment reference gets, since both write a bare integer.
+      const nextProjectId = operationsProjectId === "" ? null : operationsProjectId;
+      if (nextProjectId !== (task.operationsProject?.lookupId ?? null)) {
+        await setOperationsProject.mutateAsync({
+          id: task.id,
+          operationsProjectLookupId: nextProjectId,
+        });
       }
 
       const assignedKey = (p: Person | null) => (p ? p.email ?? p.displayName : null);
@@ -348,7 +425,54 @@ export function MaintenanceTaskFormModal({ mode, task, onClose }: MaintenanceTas
                   label: e.name || `Asset #${e.lookupId}`,
                 }))}
                 selected={equipmentId === "" ? null : String(equipmentId)}
-                onChange={(v) => setEquipmentId(v === null ? "" : parseInt(v, 10))}
+                onChange={(v) => pickEquipment(v === null ? "" : parseInt(v, 10))}
+              />
+              <p className="mt-1 text-[11px] leading-snug text-fg-muted">
+                Optional. Plenty of jobs — a light, a door, a leaking pipe — aren't against a
+                listed asset; fill in Department and Location below instead.
+              </p>
+            </Field>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Department">
+                <SingleSelect
+                  allLabel="Not set"
+                  searchPlaceholder="Search departments…"
+                  // Active values, plus whatever this work order already
+                  // points at — see the note at the top of this file.
+                  options={referenceOptions(departments, task?.department ?? null)}
+                  selected={department === null ? null : String(department)}
+                  onChange={(v) => {
+                    setDeptTouched(true);
+                    setDepartment(v === null ? null : parseInt(v, 10));
+                  }}
+                />
+              </Field>
+
+              <Field label="Location">
+                <SingleSelect
+                  allLabel="Not set"
+                  searchPlaceholder="Search locations…"
+                  options={referenceOptions(locations, task?.location ?? null)}
+                  selected={location === null ? null : String(location)}
+                  onChange={(v) => {
+                    setLocTouched(true);
+                    setLocation(v === null ? null : parseInt(v, 10));
+                  }}
+                />
+              </Field>
+            </div>
+
+            <Field label="Operations Project">
+              <SingleSelect
+                allLabel="No project"
+                searchPlaceholder="Search Operations projects…"
+                options={operationsProjects.map((p) => ({
+                  value: String(p.lookupId),
+                  label: p.title,
+                }))}
+                selected={operationsProjectId === "" ? null : String(operationsProjectId)}
+                onChange={(v) => setOperationsProjectId(v === null ? "" : parseInt(v, 10))}
               />
             </Field>
 

@@ -11,9 +11,11 @@ import {
   departmentByEquipment,
   isWorkOrderOverdue,
   maintenanceDepartmentOptions,
+  maintenanceTaskDepartment,
   sortMaintenanceTasks,
 } from "./maintenanceFilters";
-import { OTHER_TECH, SUPERVISOR, TECH, day, makeAsset, makeTask } from "@/test/maintenanceFixtures";
+import { OTHER_TECH, SUPERVISOR, TECH, day, makeAsset, makeTask, ref } from "@/test/maintenanceFixtures";
+import { referenceKey } from "./maintenanceReferences";
 
 const NOW = new Date("2026-08-27T15:00:00Z");
 
@@ -61,10 +63,19 @@ const TASKS = [
   makeTask({ id: 5, title: "Scrapped idea", status: "Canceled", assigned: SUPERVISOR }),
 ];
 
+// Department is a LOOKUP since 2026-08-28, so a filter selection is a
+// `referenceKey` (the lookupId as a string), never a name.
+const MACH_SHOP = ref(4, "MACH SHOP");
+const SMT = ref(8, "SMT");
+const PCB = ref(5, "PCB");
+const PANELS = ref(3, "Panels");
+const PROD = ref(6, "PROD");
+const REPAIR = ref(7, "REPAIR");
+
 const EQUIPMENT = [
-  makeAsset({ lookupId: 3, name: "40 HP COMPRESSOR", department: "MACH SHOP" }),
-  makeAsset({ lookupId: 8, name: "REFLOW OVEN", department: "SMT" }),
-  makeAsset({ lookupId: 99, name: "UNUSED PRESS", department: "PCB" }),
+  makeAsset({ lookupId: 3, name: "40 HP COMPRESSOR", department: MACH_SHOP }),
+  makeAsset({ lookupId: 8, name: "REFLOW OVEN", department: SMT }),
+  makeAsset({ lookupId: 99, name: "UNUSED PRESS", department: PCB }),
   makeAsset({ lookupId: 100, name: "NO DEPARTMENT", department: null }),
 ];
 
@@ -153,7 +164,12 @@ describe("applyMaintenanceFilters — department", () => {
   const departments = departmentByEquipment(EQUIPMENT);
 
   it("resolves a work order's department through its asset", () => {
-    const out = applyMaintenanceFilters(TASKS, null, filter({ departments: ["SMT"] }), departments);
+    const out = applyMaintenanceFilters(
+      TASKS,
+      null,
+      filter({ departments: [referenceKey(SMT)] }),
+      departments,
+    );
     expect(out.map((t) => t.id)).toEqual([2, 3]);
   });
 
@@ -163,7 +179,7 @@ describe("applyMaintenanceFilters — department", () => {
     const out = applyMaintenanceFilters(
       TASKS,
       null,
-      filter({ departments: ["MACH SHOP", "SMT"] }),
+      filter({ departments: [referenceKey(MACH_SHOP), referenceKey(SMT)] }),
       departments,
     );
     expect(out.map((t) => t.id)).not.toContain(5);
@@ -172,12 +188,103 @@ describe("applyMaintenanceFilters — department", () => {
   // Silently ignoring the filter would show every department while the picked
   // one sat highlighted above — the user would trust the wrong list.
   it("matches nothing when the equipment register hasn't loaded", () => {
-    expect(applyMaintenanceFilters(TASKS, null, filter({ departments: ["SMT"] }))).toEqual([]);
+    expect(
+      applyMaintenanceFilters(TASKS, null, filter({ departments: [referenceKey(SMT)] })),
+    ).toEqual([]);
   });
 
   it("skips assets with no department when building the map and the options", () => {
     expect(departments.has(100)).toBe(false);
-    expect(maintenanceDepartmentOptions(EQUIPMENT)).toEqual(["MACH SHOP", "PCB", "SMT"]);
+    expect(maintenanceDepartmentOptions(EQUIPMENT)).toEqual([MACH_SHOP, PCB, SMT]);
+  });
+
+  // The point of the work order carrying its OWN Department column: a job
+  // raised against a light or a leaking pipe still belongs to a department.
+  it("matches a work order with no asset on its OWN department", () => {
+    const tasks = [makeTask({ id: 9, equipment: null, department: PROD })];
+    const out = applyMaintenanceFilters(
+      tasks,
+      null,
+      filter({ departments: [referenceKey(PROD)] }),
+      departments,
+    );
+    expect(out.map((t) => t.id)).toEqual([9]);
+  });
+
+  it("prefers the work order's own department over its asset's", () => {
+    // The harness machine belongs to PROD; this job was raised and is being
+    // done by the panel shop, and the filter has to agree with the form.
+    const tasks = [
+      makeTask({ id: 9, equipment: { lookupId: 8, title: "REFLOW OVEN" }, department: PANELS }),
+    ];
+    expect(
+      applyMaintenanceFilters(tasks, null, filter({ departments: [referenceKey(PANELS)] }), departments),
+    ).toHaveLength(1);
+    expect(
+      applyMaintenanceFilters(tasks, null, filter({ departments: [referenceKey(SMT)] }), departments),
+    ).toEqual([]);
+  });
+
+  it("offers departments from BOTH funnels — the register and the work orders", () => {
+    // A department only ever typed onto a work order raised against no asset
+    // would otherwise be unselectable while its rows sat in the list.
+    const tasks = [makeTask({ id: 9, equipment: null, department: REPAIR })];
+    expect(maintenanceDepartmentOptions(EQUIPMENT, tasks)).toEqual([MACH_SHOP, PCB, REPAIR, SMT]);
+  });
+
+  it("dedupes an option by its LOOKUP, not its name — a rename must not split it", () => {
+    // Same department, two copies: one carrying the resolved title, one that
+    // came back title-less from Graph. One option, and it is the readable one.
+    const tasks = [
+      makeTask({ id: 9, equipment: null, department: { lookupId: SMT.lookupId, title: "" } }),
+    ];
+    expect(maintenanceDepartmentOptions(EQUIPMENT, tasks)).toEqual([MACH_SHOP, PCB, SMT]);
+  });
+
+  it("keeps an unmigrated legacy value as its own option rather than merging it", () => {
+    // lookupId 0 is the Equipment List's legacy choice-column fallback. Two of
+    // them under one key would put PROD and QC in one bucket, which is worse
+    // than not grouping at all.
+    const register = [
+      makeAsset({ lookupId: 1, name: "A", department: ref(0, "PROD") }),
+      makeAsset({ lookupId: 2, name: "B", department: ref(0, "QC") }),
+    ];
+    expect(maintenanceDepartmentOptions(register).map((d) => d.title)).toEqual(["PROD", "QC"]);
+  });
+});
+
+describe("maintenanceTaskDepartment", () => {
+  const departments = departmentByEquipment(EQUIPMENT);
+
+  it("reads the work order's own column first", () => {
+    const task = makeTask({ id: 1, equipment: { lookupId: 8, title: "" }, department: PANELS });
+    expect(maintenanceTaskDepartment(task, departments)).toEqual(PANELS);
+  });
+
+  it("falls back to the asset's when the work order has none", () => {
+    const task = makeTask({ id: 1, equipment: { lookupId: 8, title: "" } });
+    expect(maintenanceTaskDepartment(task, departments)).toEqual(SMT);
+  });
+
+  it("is null when neither has one", () => {
+    expect(maintenanceTaskDepartment(makeTask({ id: 1 }), departments)).toBeNull();
+    // An asset that carries no department of its own, and no map at all.
+    expect(
+      maintenanceTaskDepartment(makeTask({ id: 1, equipment: { lookupId: 100, title: "" } }), departments),
+    ).toBeNull();
+    expect(maintenanceTaskDepartment(makeTask({ id: 1, equipment: { lookupId: 8, title: "" } }))).toBeNull();
+  });
+
+  it("keeps a title-less lookup rather than falling through to the asset's", () => {
+    // A department that IS set on the work order wins even when Graph handed
+    // it back as a bare id — falling back would attribute the job to the
+    // asset's department and quietly disagree with the form.
+    const task = makeTask({
+      id: 1,
+      equipment: { lookupId: 8, title: "" },
+      department: { lookupId: 3, title: "" },
+    });
+    expect(maintenanceTaskDepartment(task, departments)).toEqual({ lookupId: 3, title: "" });
   });
 });
 

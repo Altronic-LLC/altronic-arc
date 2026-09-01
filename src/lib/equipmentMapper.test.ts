@@ -3,6 +3,7 @@ import type { Equipment, GraphListItem, Person } from "@/types/task";
 import {
   EQUIPMENT_SELECT,
   attachEquipmentPeople,
+  attachEquipmentReferences,
   attachParentAssetTitles,
   compareEquipment,
   equipmentLabel,
@@ -57,9 +58,62 @@ describe("toEquipment", () => {
   it("keeps a choice value it doesn't recognise rather than dropping it", () => {
     // 378 rows of imported legacy data on fill-in-enabled choice columns. A
     // value ARC has never heard of must still render, or the asset looks blank.
-    const e = toEquipment(item({ EquipmentType: "STEAM HAMMER", Location: "OFF SITE" }));
+    const e = toEquipment(item({ EquipmentType: "STEAM HAMMER" }));
     expect(e.equipmentType).toBe("STEAM HAMMER");
-    expect(e.location).toBe("OFF SITE");
+  });
+
+  // -------------------------------------------------------------------------
+  // Department / Location — single LOOKUPS since 2026-08-28, with the legacy
+  // choice columns kept on THIS list only, as a fallback and a rollback path.
+  // -------------------------------------------------------------------------
+
+  it("selects both halves of each lookup AND the legacy choice columns", () => {
+    const parts = EQUIPMENT_SELECT.split(",");
+    for (const column of ["DepartmentRef", "LocationRef"]) {
+      expect(parts).toContain(column);
+      expect(parts).toContain(`${column}LookupId`);
+    }
+    // The Equipment List still HAS these; the two work-order lists never did.
+    expect(parts).toContain("Department");
+    expect(parts).toContain("Location");
+  });
+
+  it("prefers the lookup over the legacy choice column", () => {
+    const e = toEquipment(
+      item({ DepartmentRefLookupId: 6, Department: "SOMETHING STALE" }),
+    );
+    expect(e.department).toEqual({ lookupId: 6, title: "" });
+  });
+
+  it("falls back to the legacy choice column when the lookup is empty", () => {
+    // 13 of 378 rows had neither value at migration, and a row edited through
+    // the old column in SharePoint would otherwise read as unset.
+    const e = toEquipment(item({ Location: "OFF SITE" }));
+    expect(e.location).toEqual({ lookupId: 0, title: "OFF SITE" });
+  });
+
+  it("UPGRADES a legacy value whose text matches a reference row", () => {
+    // So it buckets and filters with every migrated row rather than beside
+    // them — see `attachReference` in lib/maintenanceReferences.ts.
+    const equipment = [toEquipment(item({ Department: "PROD" }))];
+    attachEquipmentReferences(
+      equipment,
+      [{ lookupId: 6, title: "PROD", active: true, note: "" }],
+      [],
+    );
+    expect(equipment[0].department).toEqual({ lookupId: 6, title: "PROD" });
+  });
+
+  it("leaves a legacy value matching nothing exactly as it is, still visible", () => {
+    const equipment = [toEquipment(item({ Department: "OFF THE BOOKS" }))];
+    attachEquipmentReferences(equipment, [], []);
+    expect(equipment[0].department).toEqual({ lookupId: 0, title: "OFF THE BOOKS" });
+  });
+
+  it("reads neither column set as null", () => {
+    const e = toEquipment(item({}));
+    expect(e.department).toBeNull();
+    expect(e.location).toBeNull();
   });
 
   it("reads an empty choice as unset", () => {

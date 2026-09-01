@@ -1,4 +1,17 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
+
+// The CMMS role gates aren't what this file is about — they have their own
+// tests (lib/maintenanceRoles.test.ts, and the .roles.test files beside the two
+// maintenance hooks). Full rights here, controllable where a case needs to see
+// a refusal, so nothing in this file depends on the roles list loading.
+const maintenanceAccess = vi.hoisted(() => ({
+  value: { isTech: true, isAdmin: true, enforced: true, isResolving: false },
+}));
+
+vi.mock("@/hooks/useMaintenanceRoles", () => ({
+  useMyMaintenanceRoles: () => maintenanceAccess.value,
+  useResolveMaintenanceAccess: () => async () => maintenanceAccess.value,
+}));
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
@@ -116,6 +129,7 @@ describe("MaintenanceDetailView", () => {
     resetOpenDropdown();
     state.isLoading = false;
     state.isAdmin = false;
+    maintenanceAccess.value = { isTech: true, isAdmin: true, enforced: true, isResolving: false };
     state.update.mockClear();
     state.complete.mockClear();
     state.setAssigned.mockClear();
@@ -161,17 +175,33 @@ describe("MaintenanceDetailView", () => {
 
   describe("the completion guard, made visible", () => {
     // Never offer an action the mutation will reject.
-    it("disables Complete for a non-assignee and explains why", () => {
+    it("disables Complete for somebody with no maintenance role, and explains why", () => {
+      maintenanceAccess.value = {
+      isTech: false,
+      isAdmin: false,
+      enforced: true,
+      isResolving: false,
+    };
       renderDetail();
       const button = screen.getByRole("button", { name: /mark complete/i });
       expect(button).toBeDisabled();
-      expect(button).toHaveAttribute("title", expect.stringContaining("Alyssa Garrett"));
+      expect(button).toHaveAttribute(
+        "title",
+        expect.stringContaining("limited to maintenance techs"),
+      );
       // Stated on the PAGE too: a touch user can never read a tooltip on a
-      // disabled button.
-      expect(screen.getByText(/only the assignee \(or an admin\)/i)).toBeInTheDocument();
+      // disabled button. And it says what to ask for.
+      expect(screen.getByText(/limited to maintenance techs/i)).toBeInTheDocument();
+      expect(screen.getByText(/Maintenance Roles/)).toBeInTheDocument();
     });
 
     it("drops Complete from the status picker for that user", async () => {
+      maintenanceAccess.value = {
+      isTech: false,
+      isAdmin: false,
+      enforced: true,
+      isResolving: false,
+    };
       renderDetail();
       await userEvent.click(sidebarTrigger("Status"));
       const options = screen.getAllByRole("option").map((o) => o.textContent);
@@ -179,8 +209,24 @@ describe("MaintenanceDetailView", () => {
       expect(options).toHaveLength(MAINTENANCE_STATUSES.length - 1);
     });
 
-    it("lets the assignee complete it", () => {
-      renderDetail(makeTask({ ...BASE, assigned: { displayName: "Ray White", email: "ray.white@altronic-llc.com" } }));
+    // A real tech reads as untagged for a beat on first paint. A refusal shown
+    // and then withdrawn is worse than a moment of nothing — so the button is
+    // disabled but the page says NOTHING about permissions yet.
+    it("says nothing about permissions while the roles list is still loading", () => {
+      maintenanceAccess.value = {
+        isTech: false,
+        isAdmin: false,
+        enforced: true,
+        isResolving: true,
+      };
+      renderDetail();
+      expect(screen.getByRole("button", { name: /mark complete/i })).toBeDisabled();
+      expect(screen.queryByText(/limited to maintenance techs/i)).toBeNull();
+    });
+
+    // The assignee rule is gone: a tech closes out anybody's job.
+    it("lets a tech complete a work order assigned to somebody else", () => {
+      renderDetail();
       const button = screen.getByRole("button", { name: /mark complete/i });
       expect(button).toBeEnabled();
       button.click();
@@ -189,11 +235,10 @@ describe("MaintenanceDetailView", () => {
       );
     });
 
-    it("lets an admin complete somebody else's", () => {
-      state.isAdmin = true;
+    it("names the assignee as context, not as a refusal", () => {
       renderDetail();
-      expect(screen.getByRole("button", { name: /mark complete/i })).toBeEnabled();
-      expect(screen.getByText(/you are an admin/i)).toBeInTheDocument();
+      expect(screen.getByText(/Assigned to Alyssa Garrett/i)).toBeInTheDocument();
+      expect(screen.getByText(/recorded as who completed it/i)).toBeInTheDocument();
     });
 
     // Completing an unassigned work order also assigns it — somebody who

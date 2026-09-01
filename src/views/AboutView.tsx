@@ -92,7 +92,7 @@ const SYSTEM_TIERS: Tier[] = [
       },
       {
         label: "Maintenance / CMMS (Operations, lazy-loaded)",
-        hint: "MaintenanceListView · MaintenanceBoardView · MaintenanceCalendarView · MaintenanceDashboardView · PmLibraryView · AssetDetailView · MaintenanceDetailView — useMaintenanceTasks · useScheduledMaintenance · useEquipment · useMaintenanceFilters — api/maintenanceTasks · scheduledMaintenance · operationsEquipment — lib/maintenanceSchedule (the recurrence projection engine) · maintenanceCalendar · maintenanceMetrics · maintenanceFilters · maintenanceCompletion · workOrderNumber. Same PMO site and same bundle as the Operations tasks it sits beside. The work-order detail route is /operations/maintenance-task/:id — a top-level path, NOT a child of /operations/maintenance, because it is the segment lib/appUrl.ts hands to every notification email.",
+        hint: "MaintenanceListView · MaintenanceBoardView · MaintenanceCalendarView · MaintenanceDashboardView · PmLibraryView · AssetDetailView · MaintenanceDetailView · AdminMaintenanceRolesView · AdminMaintenanceReferenceListsView — useMaintenanceTasks · useScheduledMaintenance · useEquipment · useMaintenanceFilters · useMaintenanceRoles · useMaintenanceReferenceLists — api/maintenanceTasks · scheduledMaintenance · operationsEquipment · maintenanceRoles · maintenanceReferenceLists (one parametrised module over Maintenance Departments and Maintenance Locations) — lib/maintenanceSchedule (the recurrence projection engine) · maintenanceCalendar · maintenanceMetrics · maintenanceFilters · maintenanceRoles (the two-level tech / admin gates, which replaced the old assignee-only completion rule; manageAssetsGate's first caller is the reference-list admin screen) · maintenanceReferences (picker options, grouping keys and the duplicate hint) · workOrderNumber. Same PMO site and same bundle as the Operations tasks it sits beside. The work-order detail route is /operations/maintenance-task/:id — a top-level path, NOT a child of /operations/maintenance, because it is the segment lib/appUrl.ts hands to every notification email.",
         palette: "ui",
       },
       {
@@ -158,6 +158,8 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "Operations Projects", hint: "Altronic_PMO site — Operations' own parent-project reference list", palette: "list" },
       { label: "Altronic Equipment List", hint: "Altronic_PMO site — the plant's asset register, 378 rows. Started life as a read-only name picker for Operations tasks; the CMMS reads the whole record (criticality, asset status, ParentAsset self-lookup, warranty, responsible tech) and hangs each machine's manuals off it as attachments. ARC has no create and no delete for it — only Asset Status and Responsible Tech are editable", palette: "list" },
       { label: "Altronic Maintenance Tasks", hint: "Altronic_PMO site — CMMS work orders. Three single lookups (Equipment, Scheduled Maintenance, Operations Task) and three single person columns, all of which Graph returns as bare lookupIds. Due Status is read and shown but NEVER written: a Power Automate flow owns it", palette: "list" },
+      { label: "Maintenance Roles", hint: "Altronic_PMO site — who may close out a work order, log a PM, and own the PM schedules and asset register. Title is an email and Roles carries two level tags (tech / admin), the EIR Roles shape with its own namespace. Roles is a CHOICE column whose single-vs-multi shape is unconfirmed, so api/maintenanceRoles.ts parses every shape Graph could return (CSV string, string array, bare string) and negotiates the write shape rather than depending on one. It has NO default list id: setting VITE_SP_MAINTENANCE_ROLES_LIST_ID is what switches gating on, so until it is set everyone signed in keeps what they can do today", palette: "list" },
+      { label: "Maintenance Departments / Maintenance Locations", hint: "Altronic_PMO site — the two admin-managed reference lists behind every Department and Location field in the CMMS. They REPLACED choice columns on 2026-08-28: a choice column's allowed values live in the column definition, so adding one needed site-manage rights ARC has never had, while adding a lookup value is a list-item write Sites.Selected already allows. Title / Active / Note, managed at /admin/maintenance-reference-lists by a maintenance admin. No delete — a value hundreds of rows point at is retired, not removed. The Equipment List still carries its old Department / Location choice columns as a rollback path and reads them as a fallback; the two work-order lists never had them, and selecting one there 400s the whole read", palette: "list" },
       { label: "Scheduled Maintenance", hint: "Altronic_PMO site — the recurring PM rules the calendar projects from. Fixed or Floating basis, an interval + unit, grace and lead days. No Communication column by design (a schedule is a rule; the conversation belongs on the work order it made) and no delete — a schedule is retired by clearing Active", palette: "list" },
       { label: "Teradyne Log", hint: "Altronic_PMO site — board test failures; Title is app-derived from Product + Defective Parts", palette: "list" },
       { label: "Teradyne Employees / Products / Remarks", hint: "Altronic_PMO site — the log's three lookup lists, editable in-app by any signed-in user", palette: "list" },
@@ -326,6 +328,22 @@ const SCHEMA_TABLES: SchemaTable[] = [
     ],
   },
   {
+    // The CMMS permission list. Deliberately the same shape as EirRole — one
+    // row per person, keyed by email, carrying a CSV of tags — with its own
+    // tag namespace (tech / admin) and its own site (PMO, with the work orders
+    // it gates rather than Engineering).
+    name: "MaintenanceRole",
+    source: "Maintenance Roles list (Altronic_PMO site)",
+    palette: "entity",
+    x: 960, y: 820, width: 290,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "email", type: "text", kind: "fk", references: "Person.email" },
+      { name: "displayName", type: "text", kind: "field" },
+      { name: "roles", type: "csv", kind: "field" },
+    ],
+  },
+  {
     name: "Comment",
     source: "Concept (Communication field)",
     palette: "shared",
@@ -446,8 +464,11 @@ const SCHEMA_TABLES: SchemaTable[] = [
       { name: "manufacturer", type: "text", kind: "field" },
       { name: "modelNumber", type: "text", kind: "field" },
       { name: "equipmentType", type: "choice", kind: "field" },
-      { name: "department", type: "choice", kind: "field" },
-      { name: "location", type: "choice", kind: "field" },
+      // Choice columns until 2026-08-28, single LOOKUPS since. The old choice
+      // columns still exist on THIS list only, as a rollback path and as the
+      // fallback for a row the migration couldn't place.
+      { name: "departmentRef", type: "int", kind: "fk", references: "MaintenanceDepartment.id" },
+      { name: "locationRef", type: "int", kind: "fk", references: "MaintenanceLocation.id" },
       { name: "criticality", type: "choice", kind: "field" },
       { name: "assetStatus", type: "choice", kind: "field" },
       { name: "parentAsset", type: "int", kind: "fk", references: "AltronicEquipment.id" },
@@ -467,7 +488,9 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "MaintenanceTask",
     source: "Altronic Maintenance Tasks (Altronic_PMO site)",
     palette: "entity",
-    x: 20, y: 1460, width: 380,
+    // Moved up 60px when DepartmentRef / LocationRef were added, so the two
+    // extra rows don't crowd BuildRequest below it.
+    x: 20, y: 1400, width: 380,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "woNumber", type: "text", kind: "field" },
@@ -484,6 +507,11 @@ const SCHEMA_TABLES: SchemaTable[] = [
       { name: "equipmentId", type: "int", kind: "fk", references: "AltronicEquipment.id" },
       { name: "scheduleRef", type: "int", kind: "fk", references: "ScheduledMaintenance.id" },
       { name: "operationsTaskRef", type: "int", kind: "fk", references: "OperationsTask.id" },
+      // The work order's OWN department and location, not an echo of the
+      // asset's. Single lookups since 2026-08-28; this list never had the old
+      // choice columns, so there is no fallback to read here.
+      { name: "departmentRef", type: "int", kind: "fk", references: "MaintenanceDepartment.id" },
+      { name: "locationRef", type: "int", kind: "fk", references: "MaintenanceLocation.id" },
       { name: "assigned", type: "int", kind: "fk", references: "Person.id" },
       { name: "reportedBy", type: "int", kind: "fk", references: "Person.id" },
       { name: "completedBy", type: "int", kind: "fk", references: "Person.id" },
@@ -507,7 +535,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "ScheduledMaintenance",
     source: "Scheduled Maintenance (Altronic_PMO site)",
     palette: "entity",
-    x: 440, y: 1460, width: 340,
+    x: 440, y: 1400, width: 340,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title", type: "text", kind: "field" },
@@ -515,6 +543,8 @@ const SCHEMA_TABLES: SchemaTable[] = [
       { name: "category", type: "choice", kind: "field" },
       { name: "priority", type: "choice", kind: "field" },
       { name: "equipmentId", type: "int", kind: "fk", references: "AltronicEquipment.id" },
+      { name: "departmentRef", type: "int", kind: "fk", references: "MaintenanceDepartment.id" },
+      { name: "locationRef", type: "int", kind: "fk", references: "MaintenanceLocation.id" },
       { name: "frequencyInterval", type: "number", kind: "field" },
       { name: "frequencyUnit", type: "choice", kind: "field" },
       { name: "scheduleBasis", type: "choice", kind: "field" },
@@ -534,6 +564,45 @@ const SCHEMA_TABLES: SchemaTable[] = [
   },
 
   // ---- Build Requests (Engineering site) — master-detail list pair ---------
+  {
+    // The two admin-managed CMMS reference lists. Structurally identical —
+    // Title, Active, Note — which is why ONE parametrised api module covers
+    // both, and why the admin screen is one screen with two tabs.
+    //
+    // They REPLACED choice columns on 2026-08-28. A choice column's allowed
+    // values live in the column DEFINITION, so adding a department was a
+    // column PATCH needing site-manage rights ARC has never had; adding a
+    // lookup value is adding a LIST ITEM, which Sites.Selected already
+    // allows. There is no delete: a value hundreds of rows point at is
+    // RETIRED (Active = false), which takes it out of every picker while
+    // every record already using it keeps showing it.
+    name: "MaintenanceDepartment",
+    source: "Maintenance Departments (Altronic_PMO site) — 9 values",
+    palette: "shared",
+    x: 820, y: 1600, width: 320,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title", type: "text", kind: "field" },
+      { name: "active", type: "bool", kind: "field" },
+      { name: "note", type: "text", kind: "field" },
+    ],
+  },
+  {
+    // Same shape, and the messier of the two: 64 values including a literal
+    // "-", "Q.C." beside "QC", and "HARNESS DEPARMENT" beside "HARNESS
+    // DEPARTMENT". The admin screen FLAGS near-duplicates and never merges
+    // them — which of a pair survives is a judgement about real rows.
+    name: "MaintenanceLocation",
+    source: "Maintenance Locations (Altronic_PMO site) — 64 values",
+    palette: "shared",
+    x: 820, y: 1780, width: 320,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title", type: "text", kind: "field" },
+      { name: "active", type: "bool", kind: "field" },
+      { name: "note", type: "text", kind: "field" },
+    ],
+  },
   {
     name: "BuildRequest",
     source: "Build Request Tracker (Engineering site)",
@@ -1115,6 +1184,7 @@ const CONNECTIONS: Connection[] = [
   { fromTable: "Admin", fromColumn: "email", toTable: "Person", toColumn: "email", fromCard: "one", toCard: "one" },
   // EirRole → Person
   { fromTable: "EirRole", fromColumn: "email", toTable: "Person", toColumn: "email", fromCard: "one", toCard: "one" },
+  { fromTable: "MaintenanceRole", fromColumn: "email", toTable: "Person", toColumn: "email", fromCard: "one", toCard: "one" },
   // Comment → Task & EIR
   { fromTable: "Comment", fromColumn: "parentId", toTable: "Task", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "Comment", fromColumn: "parentId", toTable: "EIR", toColumn: "id", fromCard: "many", toCard: "one" },
@@ -1145,6 +1215,16 @@ const CONNECTIONS: Connection[] = [
   // promoted at most once.
   { fromTable: "AltronicEquipment", fromColumn: "responsibleTech", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "MaintenanceTask", fromColumn: "equipmentId", toTable: "AltronicEquipment", toColumn: "id", fromCard: "many", toCard: "one" },
+  // Department and Location were CHOICE columns until 2026-08-28. As lookups,
+  // the shop can add a value itself (a list-item write, which Sites.Selected
+  // allows) instead of needing a column change nobody has rights for — and a
+  // rename carries every record pointing at it.
+  { fromTable: "AltronicEquipment", fromColumn: "departmentRef", toTable: "MaintenanceDepartment", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "AltronicEquipment", fromColumn: "locationRef", toTable: "MaintenanceLocation", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "MaintenanceTask", fromColumn: "departmentRef", toTable: "MaintenanceDepartment", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "MaintenanceTask", fromColumn: "locationRef", toTable: "MaintenanceLocation", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "ScheduledMaintenance", fromColumn: "departmentRef", toTable: "MaintenanceDepartment", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "ScheduledMaintenance", fromColumn: "locationRef", toTable: "MaintenanceLocation", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "MaintenanceTask", fromColumn: "scheduleRef", toTable: "ScheduledMaintenance", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "MaintenanceTask", fromColumn: "operationsTaskRef", toTable: "OperationsTask", toColumn: "id", fromCard: "one", toCard: "one" },
   { fromTable: "OperationsTask", fromColumn: "maintenanceTaskRef", toTable: "MaintenanceTask", toColumn: "id", fromCard: "one", toCard: "one" },

@@ -1,4 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+// The CMMS role gates aren't what this file is about — they have their own
+// tests (lib/maintenanceRoles.test.ts, and the .roles.test files beside the two
+// maintenance hooks). Full rights here, controllable where a case needs to see
+// a refusal, so nothing in this file depends on the roles list loading.
+const maintenanceAccess = vi.hoisted(() => ({
+  value: { isTech: true, isAdmin: true, enforced: true, isResolving: false },
+}));
+
+vi.mock("@/hooks/useMaintenanceRoles", () => ({
+  useMyMaintenanceRoles: () => maintenanceAccess.value,
+  useResolveMaintenanceAccess: () => async () => maintenanceAccess.value,
+}));
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
@@ -49,6 +62,7 @@ describe("MaintenanceCalendarView", () => {
     phone = false;
     resetScheduledMaintenanceMockStore();
     resetMaintenanceMockStore();
+    maintenanceAccess.value = { isTech: true, isAdmin: true, enforced: true, isResolving: false };
   });
 
   it("explains the solid / dashed distinction in words, not just in styling", async () => {
@@ -141,5 +155,72 @@ describe("MaintenanceCalendarView", () => {
     // Grouped by day, in the words people actually use.
     expect(screen.getAllByRole("heading", { level: 2 }).length).toBeGreaterThan(0);
     expect(screen.getByText(/everything outstanding and coming up/i)).toBeInTheDocument();
+  });
+
+  // ==========================================================================
+  // Adding a SCHEDULE from a day cell is maintenance-admin only.
+  //
+  // The day cell is the control here, so when they can't, the "+" is gone and
+  // the cell isn't clickable — rather than opening a form whose Create button
+  // is dead. A dashed PM chip still opens the log modal for everyone: that
+  // modal explains the tech gate itself, and a chip that silently does nothing
+  // is worse than one that tells you why.
+  // ==========================================================================
+  describe("the admin gate on adding a schedule", () => {
+    it("offers a day '+' to a maintenance admin", async () => {
+      await renderCalendar();
+      expect(screen.getAllByRole("button", { name: /add a maintenance schedule/i }).length)
+        .toBeGreaterThan(0);
+    });
+
+    it("removes every day '+' for a TECH", async () => {
+      maintenanceAccess.value = {
+        isTech: true,
+        isAdmin: false,
+        enforced: true,
+        isResolving: false,
+      };
+      await renderCalendar();
+      expect(screen.queryByRole("button", { name: /add a maintenance schedule/i })).toBeNull();
+    });
+
+    // The subtitle told everyone to click a day. A screen that says that and
+    // then does nothing when you do is worse than one that doesn't mention it.
+    it("stops promising 'click a day to add a schedule' when they can't", async () => {
+      maintenanceAccess.value = {
+        isTech: true,
+        isAdmin: false,
+        enforced: true,
+        isResolving: false,
+      };
+      await renderCalendar();
+      expect(screen.queryByText(/click a day to add a schedule/i)).toBeNull();
+      expect(screen.getByText(/every PM the schedules say is due/i)).toBeInTheDocument();
+    });
+
+    // Raising a one-off work order is NOT gated — anyone signed in does that.
+    it("still offers New work order to a tech", async () => {
+      maintenanceAccess.value = {
+        isTech: true,
+        isAdmin: false,
+        enforced: true,
+        isResolving: false,
+      };
+      await renderCalendar();
+      expect(screen.getByRole("button", { name: /new work order/i })).toBeEnabled();
+    });
+
+    // Lockout safety.
+    it("keeps the '+' for everyone while gating is unenforced", async () => {
+      maintenanceAccess.value = {
+        isTech: false,
+        isAdmin: false,
+        enforced: false,
+        isResolving: false,
+      };
+      await renderCalendar();
+      expect(screen.getAllByRole("button", { name: /add a maintenance schedule/i }).length)
+        .toBeGreaterThan(0);
+    });
   });
 });

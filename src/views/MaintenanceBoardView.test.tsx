@@ -1,10 +1,24 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
+
+// The CMMS role gates aren't what this file is about — they have their own
+// tests (lib/maintenanceRoles.test.ts, and the .roles.test files beside the two
+// maintenance hooks). Full rights here, controllable where a case needs to see
+// a refusal, so nothing in this file depends on the roles list loading.
+const maintenanceAccess = vi.hoisted(() => ({
+  value: { isTech: true, isAdmin: true, enforced: true, isResolving: false },
+}));
+
+vi.mock("@/hooks/useMaintenanceRoles", () => ({
+  useMyMaintenanceRoles: () => maintenanceAccess.value,
+  useResolveMaintenanceAccess: () => async () => maintenanceAccess.value,
+}));
 import { screen, waitFor } from "@testing-library/react";
 import { renderWithProviders } from "@/test/render";
 import { MaintenanceBoardView, planStatusDrop } from "./MaintenanceBoardView";
 import { resetOpenDropdown } from "@/components/useDropdownClose";
 import { OTHER_TECH, TECH, makeAsset, makeTask } from "@/test/maintenanceFixtures";
 import { MAINTENANCE_STATUSES } from "@/types/task";
+import type { MaintenanceAccess } from "@/lib/maintenanceRoles";
 
 const TASKS = [
   makeTask({ id: 1, title: "Compressor tripping", status: "Started", assigned: TECH }),
@@ -32,7 +46,13 @@ vi.mock("@/hooks/useMaintenanceTasks", async (importOriginal) => {
 
 vi.mock("@/hooks/useEquipment", () => ({
   useEquipment: () => ({
-    data: [makeAsset({ lookupId: 3, name: "40 HP COMPRESSOR", department: "MACH SHOP" })],
+    data: [
+      makeAsset({
+        lookupId: 3,
+        name: "40 HP COMPRESSOR",
+        department: { lookupId: 4, title: "MACH SHOP" },
+      }),
+    ],
     isLoading: false,
   }),
 }));
@@ -144,10 +164,15 @@ describe("MaintenanceBoardView", () => {
 // The drop DECISION, tested directly. dnd-kit's pointer sensor needs a layout
 // engine jsdom hasn't got, so a synthetic drag would prove nothing about it.
 describe("planStatusDrop", () => {
-  const actor = { displayName: "Alyssa Garrett", email: "alyssa.garrett@altronic-llc.com" };
+  const TECH_ACCESS = { isTech: true, isAdmin: false, enforced: true, isResolving: false };
+  const NO_ROLES = { isTech: false, isAdmin: false, enforced: true, isResolving: false };
 
-  function plan(overId: string | number | null, activeId = 1, isAdmin = false) {
-    return planStatusDrop({ activeId, overId, tasks: TASKS, actor, isAdmin });
+  function plan(
+    overId: string | number | null,
+    activeId = 1,
+    access: MaintenanceAccess = TECH_ACCESS,
+  ) {
+    return planStatusDrop({ activeId, overId, tasks: TASKS, access });
   }
 
   it("moves a card dropped on a column to that status", () => {
@@ -176,17 +201,35 @@ describe("planStatusDrop", () => {
 
   // The mutation refuses this write anyway; a card that visibly moves and
   // then snaps back with a raw error is a worse way to learn the rule.
-  it("refuses a drop into Complete by a non-assignee, with the reason", () => {
-    const result = plan("Complete");
-    expect(result).toEqual({ refusal: expect.stringContaining("David Bulkley") });
+  it("refuses a drop into Complete without a maintenance role, with the reason", () => {
+    const result = plan("Complete", 1, NO_ROLES);
+    expect(result).toEqual({
+      refusal: expect.stringContaining("limited to maintenance techs"),
+    });
   });
 
-  it("lets the assignee drop their own work order into Complete", () => {
+  // The assignee rule is gone: a tech drops anybody's card into Complete.
+  it("lets a tech drop somebody else's work order into Complete", () => {
+    expect(plan("Complete")).toEqual({ taskId: 1, target: "Complete" });
     expect(plan("Complete", 2)).toEqual({ taskId: 2, target: "Complete" });
   });
 
-  it("lets an admin drop anybody's into Complete", () => {
-    expect(plan("Complete", 1, true)).toEqual({ taskId: 1, target: "Complete" });
+  it("lets a maintenance admin who was never tagged tech drop one in", () => {
+    const adminAccess = { isTech: false, isAdmin: true, enforced: true, isResolving: false };
+    expect(plan("Complete", 1, adminAccess)).toEqual({ taskId: 1, target: "Complete" });
+  });
+
+  // Lockout safety on the drag path too.
+  it("allows the drop for anyone while role gating is unenforced", () => {
+    const unenforced = { isTech: false, isAdmin: false, enforced: false, isResolving: false };
+    expect(plan("Complete", 1, unenforced)).toEqual({ taskId: 1, target: "Complete" });
+  });
+
+  // A refusal shown while the roles list is still loading would be withdrawn a
+  // moment later, so the refusal text has to be the neutral one.
+  it("refuses neutrally, not with a denial, while the roles list is loading", () => {
+    const result = plan("Complete", 1, { ...NO_ROLES, isResolving: true });
+    expect(result).toEqual({ refusal: expect.stringMatching(/checking/i) });
   });
 
   // Every other column is open to anyone — the guard is about closing a job

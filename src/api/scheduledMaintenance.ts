@@ -19,6 +19,8 @@ import type {
 import {
   SCHEDULED_MAINTENANCE_SELECT,
   attachScheduleEquipmentTitles,
+  attachScheduleOperationsProjects,
+  attachScheduleReferences,
   attachScheduledMaintenancePeople,
   buildScheduledMaintenanceCreateFields,
   compareScheduledMaintenance,
@@ -29,6 +31,8 @@ import { multiPersonField } from "@/lib/graphFields";
 import { toSpDateOnly } from "@/lib/spDates";
 import { autoWatchers } from "@/lib/people";
 import { listEquipment } from "./operationsEquipment";
+import { listOperationsProjects } from "./operationsProjects";
+import { listMaintenanceReferenceLists } from "./maintenanceReferenceLists";
 import { MOCK_SCHEDULED_MAINTENANCE } from "@/data/maintenanceMockData";
 
 // =============================================================================
@@ -141,20 +145,38 @@ function requireResolved(person: Person | null, resolved: Person | null, label: 
 /** Every PM schedule — active first, then soonest due. */
 export async function listScheduledMaintenance(): Promise<ScheduledMaintenance[]> {
   if (USE_MOCK) {
-    return delay([...mockStore].sort(compareScheduledMaintenance).map((s) => ({ ...s })));
+    const schedules = [...mockStore].sort(compareScheduledMaintenance).map((s) => ({ ...s }));
+    await resolveScheduleReferences(schedules);
+    return delay(schedules);
   }
 
-  const [items, siteUsers, equipment] = await Promise.all([
+  const [items, siteUsers, equipment, operationsProjects, references] = await Promise.all([
     graphFetchAll<GraphListItem>(
       `${listPath()}?$expand=fields($select=${SCHEDULED_MAINTENANCE_SELECT})&$top=500`,
     ),
     listSiteUserDirectory(SITES.pmo),
     listEquipment(),
+    // The same reference-list read the Operations task list makes — it
+    // resolves `OperationsProjectRef`, which arrives as a bare lookupId.
+    listOperationsProjects(),
+    // Departments and Locations, single lookups with the same shape.
+    listMaintenanceReferenceLists(),
   ]);
   const schedules = items.map(toScheduledMaintenance);
   attachScheduledMaintenancePeople(schedules, siteUsers);
   attachScheduleEquipmentTitles(schedules, equipment);
+  attachScheduleOperationsProjects(schedules, operationsProjects);
+  attachScheduleReferences(schedules, references.departments, references.locations);
   return schedules.sort(compareScheduledMaintenance);
+}
+
+/**
+ * Resolve Department / Location against the two Maintenance reference lists.
+ * Run in BOTH modes — see the equivalent note in api/maintenanceTasks.ts.
+ */
+async function resolveScheduleReferences(schedules: ScheduledMaintenance[]): Promise<void> {
+  const { departments, locations } = await listMaintenanceReferenceLists();
+  attachScheduleReferences(schedules, departments, locations);
 }
 
 export async function getScheduledMaintenance(id: number): Promise<ScheduledMaintenance | null> {
@@ -176,6 +198,7 @@ export async function updateScheduledMaintenanceFields(
     if (idx < 0) throw new Error(`Schedule ${id} not found`);
     const next: ScheduledMaintenance = { ...mockStore[idx], modifiedAt: new Date() };
     applyMockFields(next, fields);
+    await resolveScheduleReferences([next]);
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
     saveMockStoreToStorage();
     return delay({ ...next });
@@ -225,6 +248,22 @@ function applyMockFields(next: ScheduledMaintenance, fields: Record<string, unkn
     const v = fields.EquipmentRefLookupId;
     next.equipment = v ? { lookupId: Number(v), title: next.equipment?.title ?? "" } : null;
   }
+  if ("OperationsProjectRefLookupId" in fields) {
+    const v = fields.OperationsProjectRefLookupId;
+    next.operationsProject = v
+      ? { lookupId: Number(v), title: next.operationsProject?.title ?? "" }
+      : null;
+  }
+  // Single LOOKUPS since 2026-08-28 — a bare lookupId here too, `null`
+  // clears, and the title is filled in by resolveScheduleReferences.
+  if ("DepartmentRefLookupId" in fields) {
+    const v = fields.DepartmentRefLookupId;
+    next.department = v ? { lookupId: Number(v), title: "" } : null;
+  }
+  if ("LocationRefLookupId" in fields) {
+    const v = fields.LocationRefLookupId;
+    next.location = v ? { lookupId: Number(v), title: "" } : null;
+  }
 }
 
 /** Change the equipment reference (or clear with `null`). A BARE integer. */
@@ -233,6 +272,21 @@ export async function setScheduleEquipment(
   equipmentLookupId: number | null,
 ): Promise<ScheduledMaintenance> {
   return updateScheduledMaintenanceFields(id, { EquipmentRefLookupId: equipmentLookupId });
+}
+
+/**
+ * Change the Operations project reference (or clear with `null`).
+ *
+ * A SINGLE lookup — a BARE integer, never `multiLookupField`'s annotated
+ * `Collection(Edm.Int32)` shape.
+ */
+export async function setScheduleOperationsProject(
+  id: number,
+  operationsProjectLookupId: number | null,
+): Promise<ScheduledMaintenance> {
+  return updateScheduledMaintenanceFields(id, {
+    OperationsProjectRefLookupId: operationsProjectLookupId,
+  });
 }
 
 /**
@@ -366,6 +420,13 @@ export async function createScheduledMaintenance(
       equipment: input.equipmentLookupId
         ? { lookupId: input.equipmentLookupId, title: "" }
         : null,
+      operationsProject: input.operationsProjectLookupId
+        ? { lookupId: input.operationsProjectLookupId, title: "" }
+        : null,
+      department: input.departmentLookupId
+        ? { lookupId: input.departmentLookupId, title: "" }
+        : null,
+      location: input.locationLookupId ? { lookupId: input.locationLookupId, title: "" } : null,
       frequencyInterval: input.frequencyInterval ?? null,
       frequencyUnit: input.frequencyUnit ?? null,
       scheduleBasis: input.scheduleBasis ?? "Fixed",
@@ -385,6 +446,7 @@ export async function createScheduledMaintenance(
       createdAt: now,
       modifiedAt: now,
     };
+    await resolveScheduleReferences([schedule]);
     mockStore = [schedule, ...mockStore];
     saveMockStoreToStorage();
     return delay(schedule);

@@ -79,6 +79,17 @@ jobs:
           VITE_SP_QUICK_LINKS_LIST_ID: ${{ vars.VITE_SP_QUICK_LINKS_LIST_ID }}
           VITE_SP_MAINTENANCE_TASKS_LIST_ID: ${{ vars.VITE_SP_MAINTENANCE_TASKS_LIST_ID }}
           VITE_SP_SCHEDULED_MAINTENANCE_LIST_ID: ${{ vars.VITE_SP_SCHEDULED_MAINTENANCE_LIST_ID }}
+          # Maintenance Departments / Locations — the two admin-managed
+          # reference lists that replaced the Department / Location CHOICE
+          # columns. Documented defaults in config.ts, so a build without
+          # these still points at the live lists; set them only to override.
+          VITE_SP_MAINTENANCE_DEPARTMENTS_LIST_ID: ${{ vars.VITE_SP_MAINTENANCE_DEPARTMENTS_LIST_ID }}
+          VITE_SP_MAINTENANCE_LOCATIONS_LIST_ID: ${{ vars.VITE_SP_MAINTENANCE_LOCATIONS_LIST_ID }}
+          # Maintenance Roles (Admin -> Maintenance Roles). No default in
+          # config.ts — setting this switches CMMS role gating ON, so populate
+          # the list first. Until it is set, everyone signed in keeps the
+          # permissions they have today.
+          VITE_SP_MAINTENANCE_ROLES_LIST_ID: ${{ vars.VITE_SP_MAINTENANCE_ROLES_LIST_ID }}
           # Open Orders Report Tool (Sales). The customer list id has NO
           # default in config.ts — the feature reports itself as "not set up"
           # until this is both set as a repo variable AND a deploy has run,

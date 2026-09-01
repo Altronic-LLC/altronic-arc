@@ -1,20 +1,33 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+
+// The CMMS role gates aren't what this file is about — they have their own
+// tests (lib/maintenanceRoles.test.ts, and the .roles.test files beside the two
+// maintenance hooks). Full rights here, controllable where a case needs to see
+// a refusal, so nothing in this file depends on the roles list loading.
+const maintenanceAccess = vi.hoisted(() => ({
+  value: { isTech: true, isAdmin: true, enforced: true, isResolving: false },
+}));
+
+vi.mock("@/hooks/useMaintenanceRoles", () => ({
+  useMyMaintenanceRoles: () => maintenanceAccess.value,
+  useResolveMaintenanceAccess: () => async () => maintenanceAccess.value,
+}));
 import type { ReactNode } from "react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 // =============================================================================
-// The completion guard.
+// The work-order hooks.
 //
-// There are three separate ways to move a work order to Complete — the status
-// picker, a Kanban drag, and the Complete form — so the rule lives in the
-// `mutationFn`, not in a view. A rule enforced in one of three places is a
-// rule that isn't enforced.
+// The completion guard's RULE — the maintenance `tech` / `admin` roles — is
+// tested in useMaintenanceTasks.roles.test.tsx, which drives the real
+// resolution chain. This file mocks full rights and covers what the completing
+// write DOES: assign-on-complete, the write-up, the alerts, and the fact that
+// no other status change is gated.
 //
-// Three cases:
-//   assigned to me      → allowed
-//   assigned to someone → refused, unless I'm an admin
-//   unassigned          → allowed, AND it assigns me in the SAME write
+// It used to encode an ASSIGNEE rule (only the assignee or an ARC admin could
+// close a work order out). That rule is gone: any tech closes out any job, and
+// accountability comes from `CompletedBy` being stamped.
 // =============================================================================
 
 const pushToast = vi.hoisted(() => vi.fn());
@@ -78,6 +91,7 @@ async function loaded(wrap: ReturnType<typeof wrapper>): Promise<MaintenanceTask
 beforeEach(() => {
   resetMaintenanceMockStore();
   isAdmin.value = false;
+  maintenanceAccess.value = { isTech: true, isAdmin: true, enforced: true, isResolving: false };
   pushToast.mockClear();
   fireFieldChangeAlert.mockClear();
   fireAssigneeChangeAlert.mockClear();
@@ -99,8 +113,8 @@ describe("useMaintenanceTasks", () => {
   });
 });
 
-describe("the completion guard", () => {
-  it("lets the ASSIGNEE complete their own work order", async () => {
+describe("completing a work order", () => {
+  it("lets the assignee complete their own work order", async () => {
     const wrap = wrapper();
     const tasks = await loaded(wrap);
     const target = tasks.find((t) => t.status !== "Complete")!;
@@ -113,29 +127,9 @@ describe("the completion guard", () => {
     expect(result.current.data?.status).toBe("Complete");
   });
 
-  it("REFUSES somebody who is neither the assignee nor an admin", async () => {
-    const wrap = wrapper();
-    const tasks = await loaded(wrap);
-    const target = tasks.find((t) => t.status !== "Complete")!;
-    await setMaintenanceTaskAssigned(target.id, {
-      displayName: "David Bulkley",
-      email: "david.bulkley@altronic-llc.com",
-      lookupId: 24,
-    });
-
-    const { result } = renderHook(() => useUpdateMaintenanceTaskFields(), { wrapper: wrap });
-    await expect(
-      act(async () => {
-        await result.current.mutateAsync({ id: target.id, fields: { Status: "Complete" } });
-      }),
-    ).rejects.toThrow(/Only the assignee/);
-
-    const after = await updateMaintenanceTaskFields(target.id, {});
-    expect(after.status).not.toBe("Complete");
-  });
-
-  it("lets an ADMIN complete somebody else's work order", async () => {
-    isAdmin.value = true;
+  // The assignee rule is GONE. A tech closes out anybody's job — which is
+  // ordinary shop-floor behaviour, and what the old rule refused.
+  it("lets a tech complete a work order ASSIGNED TO SOMEBODY ELSE", async () => {
     const wrap = wrapper();
     const tasks = await loaded(wrap);
     const target = tasks.find((t) => t.status !== "Complete")!;
@@ -150,6 +144,35 @@ describe("the completion guard", () => {
       await result.current.mutateAsync({ id: target.id, fields: { Status: "Complete" } });
     });
     expect(result.current.data?.status).toBe("Complete");
+    // Completing somebody else's job does NOT reassign it — the assignee is
+    // untouched, and CompletedBy records who actually closed it.
+    const after = await updateMaintenanceTaskFields(target.id, {});
+    expect(after.assigned?.email).toBe("david.bulkley@altronic-llc.com");
+  });
+
+  // Still refused, but on the ROLE now. The full role matrix lives in
+  // useMaintenanceTasks.roles.test.tsx; this case only proves the guard is
+  // wired into this hook at all.
+  it("refuses somebody holding neither maintenance role", async () => {
+    maintenanceAccess.value = {
+      isTech: false,
+      isAdmin: false,
+      enforced: true,
+      isResolving: false,
+    };
+    const wrap = wrapper();
+    const tasks = await loaded(wrap);
+    const target = tasks.find((t) => t.status !== "Complete")!;
+
+    const { result } = renderHook(() => useUpdateMaintenanceTaskFields(), { wrapper: wrap });
+    await expect(
+      act(async () => {
+        await result.current.mutateAsync({ id: target.id, fields: { Status: "Complete" } });
+      }),
+    ).rejects.toThrow(/limited to maintenance techs/i);
+
+    const after = await updateMaintenanceTaskFields(target.id, {});
+    expect(after.status).not.toBe("Complete");
   });
 
   it("ASSIGNS an unassigned work order to whoever completes it, in the same write", async () => {
@@ -181,21 +204,22 @@ describe("the completion guard", () => {
   });
 
   it("guards useCompleteMaintenanceTask the same way", async () => {
+    maintenanceAccess.value = {
+      isTech: false,
+      isAdmin: false,
+      enforced: true,
+      isResolving: false,
+    };
     const wrap = wrapper();
     const tasks = await loaded(wrap);
     const target = tasks.find((t) => t.status !== "Complete")!;
-    await setMaintenanceTaskAssigned(target.id, {
-      displayName: "David Bulkley",
-      email: "david.bulkley@altronic-llc.com",
-      lookupId: 24,
-    });
 
     const { result } = renderHook(() => useCompleteMaintenanceTask(), { wrapper: wrap });
     await expect(
       act(async () => {
         await result.current.mutateAsync({ id: target.id, completedOn: new Date() });
       }),
-    ).rejects.toThrow(/Only the assignee/);
+    ).rejects.toThrow(/limited to maintenance techs/i);
   });
 
   it("useCompleteMaintenanceTask records the write-up and who did it", async () => {

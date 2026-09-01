@@ -7,6 +7,7 @@ import { useMaintenanceTasks } from "@/hooks/useMaintenanceTasks";
 import { useScheduledMaintenance } from "@/hooks/useScheduledMaintenance";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { equipmentLabel } from "@/lib/equipmentMapper";
+import { referenceLabel } from "@/lib/maintenanceReferences";
 import { collectMaintenanceTaskPeople } from "@/lib/maintenanceTaskMapper";
 import { anchorDueDate, daysUntilDue, frequencyLabel } from "@/lib/maintenanceSchedule";
 import {
@@ -130,7 +131,7 @@ export function AssetDetailView({ now }: AssetDetailViewProps = {}) {
             <AssetStatusChip assetStatus={asset.assetStatus} />
             <CriticalityChip criticality={asset.criticality} />
             <span className="text-sm text-fg-muted">
-              {asset.department || NO_DEPARTMENT_LABEL}
+              {asset.department ? referenceLabel(asset.department) : NO_DEPARTMENT_LABEL}
               {asset.equipmentType ? ` · ${asset.equipmentType}` : ""}
             </span>
           </div>
@@ -256,10 +257,13 @@ export function AssetDetailView({ now }: AssetDetailViewProps = {}) {
             <ReadOnlyField label="Criticality" value={asset.criticality} />
             <ReadOnlyField
               label="Department"
-              value={asset.department}
+              value={asset.department ? referenceLabel(asset.department) : null}
               emptyLabel={NO_DEPARTMENT_LABEL}
             />
-            <ReadOnlyField label="Location" value={asset.location} />
+            <ReadOnlyField
+              label="Location"
+              value={asset.location ? referenceLabel(asset.location) : null}
+            />
             <ReadOnlyField
               label="Parent Asset"
               value={

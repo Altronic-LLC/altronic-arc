@@ -1,4 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+// The CMMS role gates aren't what this file is about — they have their own
+// tests (lib/maintenanceRoles.test.ts, and the .roles.test files beside the two
+// maintenance hooks). Full rights here, controllable where a case needs to see
+// a refusal, so nothing in this file depends on the roles list loading.
+const maintenanceAccess = vi.hoisted(() => ({
+  value: { isTech: true, isAdmin: true, enforced: true, isResolving: false },
+}));
+
+vi.mock("@/hooks/useMaintenanceRoles", () => ({
+  useMyMaintenanceRoles: () => maintenanceAccess.value,
+  useResolveMaintenanceAccess: () => async () => maintenanceAccess.value,
+}));
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
@@ -37,6 +50,7 @@ describe("LogPmCompletionModal", () => {
   beforeEach(() => {
     resetScheduledMaintenanceMockStore();
     resetMaintenanceMockStore();
+    maintenanceAccess.value = { isTech: true, isAdmin: true, enforced: true, isResolving: false };
   });
 
   it("says nothing has been logged yet, and offers the three ways to log it", async () => {
@@ -199,5 +213,98 @@ describe("LogPmCompletionModal", () => {
       );
       expect(created?.description).toBe(schedule.instructions);
     }, SLOW);
+  });
+
+  // ==========================================================================
+  // The tech gate. Logging a PM creates a work order against a schedule and,
+  // on Complete, writes the schedule's own completion history — so it is
+  // narrower than raising an ordinary work order, which stays open to all.
+  // ==========================================================================
+  describe("the tech gate", () => {
+    it("disables the submit and says why, for somebody with no maintenance role", async () => {
+      maintenanceAccess.value = {
+      isTech: false,
+      isAdmin: false,
+      enforced: true,
+      isResolving: false,
+    };
+      const schedule = await loadSchedule();
+      renderWithProviders(
+        <LogPmCompletionModal schedule={schedule} occurrence={utc(2026, 9, 2)} onClose={vi.fn()} />,
+      );
+
+      const submit = screen.getByRole("button", { name: /log completion/i });
+      expect(submit).toBeDisabled();
+      expect(submit).toHaveAttribute("title", expect.stringContaining("maintenance techs"));
+      // Said on the page, not only in a tooltip a touch user can't reach.
+      expect(screen.getByText(/limited to\s+maintenance techs/i)).toBeInTheDocument();
+    });
+
+    // Belt and braces with the disabled button: Enter in a field submits too,
+    // so the handler refuses as well — and nothing reaches the store.
+    it("writes nothing if the form is submitted anyway", async () => {
+      maintenanceAccess.value = {
+      isTech: false,
+      isAdmin: false,
+      enforced: true,
+      isResolving: false,
+    };
+      const schedule = await loadSchedule();
+      const before = (await listMaintenanceTasks()).length;
+      const { container } = renderWithProviders(
+        <LogPmCompletionModal schedule={schedule} occurrence={utc(2026, 9, 2)} onClose={vi.fn()} />,
+      );
+
+      const form = container.querySelector("#log-pm-form") as HTMLFormElement;
+      form.requestSubmit();
+
+      expect(await screen.findByText(/limited to\s+maintenance techs/i)).toBeInTheDocument();
+      expect((await listMaintenanceTasks()).length).toBe(before);
+    });
+
+    it("lets a tech log one", async () => {
+      maintenanceAccess.value = {
+        isTech: true,
+        isAdmin: false,
+        enforced: true,
+        isResolving: false,
+      };
+      const schedule = await loadSchedule();
+      renderWithProviders(
+        <LogPmCompletionModal schedule={schedule} occurrence={utc(2026, 9, 2)} onClose={vi.fn()} />,
+      );
+      expect(screen.getByRole("button", { name: /log completion/i })).toBeEnabled();
+      expect(screen.queryByText(/limited to\s+maintenance techs/i)).toBeNull();
+    });
+
+    // Lockout safety.
+    it("stays open to everyone while gating is unenforced", async () => {
+      maintenanceAccess.value = {
+        isTech: false,
+        isAdmin: false,
+        enforced: false,
+        isResolving: false,
+      };
+      const schedule = await loadSchedule();
+      renderWithProviders(
+        <LogPmCompletionModal schedule={schedule} occurrence={utc(2026, 9, 2)} onClose={vi.fn()} />,
+      );
+      expect(screen.getByRole("button", { name: /log completion/i })).toBeEnabled();
+    });
+
+    it("says nothing about permissions while the roles list is loading", async () => {
+      maintenanceAccess.value = { ...{
+      isTech: false,
+      isAdmin: false,
+      enforced: true,
+      isResolving: false,
+    }, isResolving: true };
+      const schedule = await loadSchedule();
+      renderWithProviders(
+        <LogPmCompletionModal schedule={schedule} occurrence={utc(2026, 9, 2)} onClose={vi.fn()} />,
+      );
+      expect(screen.getByRole("button", { name: /log completion/i })).toBeDisabled();
+      expect(screen.queryByText(/limited to\s+maintenance techs/i)).toBeNull();
+    });
   });
 });

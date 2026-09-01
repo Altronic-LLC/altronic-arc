@@ -9,6 +9,7 @@ import { LoadingTasks } from "@/components/LoadingTasks";
 import { MaintenanceFilterBar } from "@/components/MaintenanceFilterBar";
 import { MaintenanceTaskRow } from "@/components/MaintenanceTaskRow";
 import { MaintenanceTaskFormModal } from "@/components/MaintenanceTaskFormModal";
+import { MaintenanceViewSwitcher } from "@/components/MaintenanceViewSwitcher";
 import { maintenanceStatusColor } from "@/components/maintenanceAtoms";
 import {
   EMPTY_MAINTENANCE_FILTERS,
@@ -71,7 +72,12 @@ export function MaintenanceListView() {
     [tasks, currentUser],
   );
   const equipmentOptions = useMemo(() => collectMaintenanceEquipment(tasks), [tasks]);
-  const departments = useMemo(() => maintenanceDepartmentOptions(equipment), [equipment]);
+  // Both funnels: departments on the register AND departments work orders
+  // carry themselves — a job raised against no asset must still be filterable.
+  const departments = useMemo(
+    () => maintenanceDepartmentOptions(equipment, tasks),
+    [equipment, tasks],
+  );
   const departmentIndex = useMemo(() => departmentByEquipment(equipment), [equipment]);
 
   // The bar narrows first; the pills then count what the bar left, so the
@@ -104,6 +110,7 @@ export function MaintenanceListView() {
 
   return (
     <div className="mx-auto flex max-w-[1600px] flex-col gap-4 px-4 py-4 sm:gap-5 sm:px-6 sm:py-6">
+      <MaintenanceViewSwitcher />
       <div className="flex items-start justify-between gap-3">
         <StatusPills
           tasks={filteredByBar}

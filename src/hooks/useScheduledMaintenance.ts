@@ -6,6 +6,7 @@ import {
   setScheduleActive,
   setScheduleAssignedTo,
   setScheduleEquipment,
+  setScheduleOperationsProject,
   setScheduleWatchers,
   unwatchSchedule,
   updateScheduledMaintenanceFields,
@@ -18,6 +19,9 @@ import { scheduledMaintenanceLabel } from "@/lib/scheduledMaintenanceMapper";
 import { advanceSchedule } from "@/lib/maintenanceSchedule";
 import { autoWatchers } from "@/lib/people";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useResolveMaintenanceAccess } from "@/hooks/useMaintenanceRoles";
+import { logPmGate, manageSchedulesGate } from "@/lib/maintenanceRoles";
+import { useCallback } from "react";
 
 // =============================================================================
 // PM schedule hooks — the same optimistic shape as useMaintenanceTasks, minus
@@ -27,6 +31,16 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 // There is no delete hook either. `useSetScheduleActive(false)` retires a
 // schedule; `lib/maintenanceSchedule.ts` then projects nothing for it, so it
 // leaves every calendar without taking its history with it.
+//
+// **Every write that CHANGES a schedule is maintenance-admin only** — create,
+// field edits, owner, equipment, project, and the Active toggle. A schedule
+// drives what the whole shop is told is due, so it is a narrower right than
+// doing the work. Recording a completion is the exception: that is logging a
+// PM, which any tech may do.
+//
+// Watching and unwatching are deliberately NOT gated. A watch is a personal
+// subscription, not a change to the schedule — the same call as commenting on
+// a work order.
 // =============================================================================
 
 const SCHEDULE_LIST_KEY = ["scheduledMaintenance", "list"] as const;
@@ -96,11 +110,44 @@ function errorToast(message: string) {
   pushToast({ message, variant: "error" });
 }
 
+// =============================================================================
+// The role guards
+//
+// Resolved inside the `mutationFn`, never read off a render: the roles list
+// loads asynchronously, so answering from a render would refuse a real admin
+// whose list hadn't arrived yet — the false denial this whole feature exists
+// to avoid, moved from the button to the write.
+//
+// Each view ALSO disables its control with the same gate's hint, so nothing
+// here is the first time somebody hears no. These are the defence in depth.
+// =============================================================================
+
+/** Throws with the gate's own wording unless the user is a maintenance admin. */
+function useRequireScheduleAdmin(): () => Promise<void> {
+  const resolveAccess = useResolveMaintenanceAccess();
+  return useCallback(async () => {
+    const gate = manageSchedulesGate(await resolveAccess());
+    if (!gate.allowed) throw new Error(gate.hint);
+  }, [resolveAccess]);
+}
+
+/** Throws unless the user may log a PM (tech or admin). */
+function useRequirePmLogger(): () => Promise<void> {
+  const resolveAccess = useResolveMaintenanceAccess();
+  return useCallback(async () => {
+    const gate = logPmGate(await resolveAccess());
+    if (!gate.allowed) throw new Error(gate.hint);
+  }, [resolveAccess]);
+}
+
 export function useUpdateScheduleFields() {
   const qc = useQueryClient();
+  const requireAdmin = useRequireScheduleAdmin();
   return useMutation({
-    mutationFn: ({ id, fields }: { id: number; fields: Record<string, unknown> }) =>
-      updateScheduledMaintenanceFields(id, fields),
+    mutationFn: async ({ id, fields }: { id: number; fields: Record<string, unknown> }) => {
+      await requireAdmin();
+      return updateScheduledMaintenanceFields(id, fields);
+    },
     onMutate: ({ id, fields }) =>
       snapshotAndPatch(qc, id, patchSchedule(id, (s) => applyFieldsLocally(s, fields))),
     onSuccess: () => pushToast({ message: "Schedule updated." }),
@@ -117,8 +164,12 @@ export function useUpdateScheduleFields() {
 /** Retire (or reinstate) a schedule. This is what "delete" means here. */
 export function useSetScheduleActive() {
   const qc = useQueryClient();
+  const requireAdmin = useRequireScheduleAdmin();
   return useMutation({
-    mutationFn: ({ id, active }: { id: number; active: boolean }) => setScheduleActive(id, active),
+    mutationFn: async ({ id, active }: { id: number; active: boolean }) => {
+      await requireAdmin();
+      return setScheduleActive(id, active);
+    },
     onMutate: ({ id, active }) =>
       snapshotAndPatch(
         qc,
@@ -131,9 +182,14 @@ export function useSetScheduleActive() {
         undo: buildUndo(qc, ctx?.previous, () => setScheduleActive(id, !active)),
       });
     },
-    onError: (_err, _vars, ctx) => {
+    onError: (err, _vars, ctx) => {
       rollback(qc, ctx);
-      errorToast("Couldn't change the schedule's status — reverted.");
+      // The role guard's own wording when it refused; the generic line
+      // otherwise. Swallowing it would throw away the only sentence that
+      // says what to ask for.
+      errorToast(
+        err instanceof Error ? err.message : "Couldn't change the schedule's status — reverted.",
+      );
     },
     onSettled: () => invalidate(qc),
   });
@@ -142,9 +198,12 @@ export function useSetScheduleActive() {
 export function useSetScheduleAssignedTo() {
   const qc = useQueryClient();
   const actor = useCurrentUser();
+  const requireAdmin = useRequireScheduleAdmin();
   return useMutation({
-    mutationFn: ({ id, person }: { id: number; person: Person | null }) =>
-      setScheduleAssignedTo(id, person),
+    mutationFn: async ({ id, person }: { id: number; person: Person | null }) => {
+      await requireAdmin();
+      return setScheduleAssignedTo(id, person);
+    },
     onMutate: ({ id, person }) =>
       snapshotAndPatch(
         qc,
@@ -186,9 +245,18 @@ export function useSetScheduleAssignedTo() {
 
 export function useSetScheduleEquipment() {
   const qc = useQueryClient();
+  const requireAdmin = useRequireScheduleAdmin();
   return useMutation({
-    mutationFn: ({ id, equipmentLookupId }: { id: number; equipmentLookupId: number | null }) =>
-      setScheduleEquipment(id, equipmentLookupId),
+    mutationFn: async ({
+      id,
+      equipmentLookupId,
+    }: {
+      id: number;
+      equipmentLookupId: number | null;
+    }) => {
+      await requireAdmin();
+      return setScheduleEquipment(id, equipmentLookupId);
+    },
     onMutate: ({ id, equipmentLookupId }) =>
       snapshotAndPatch(
         qc,
@@ -206,9 +274,59 @@ export function useSetScheduleEquipment() {
         undo: buildUndo(qc, ctx?.previous, () => setScheduleEquipment(id, prev)),
       });
     },
-    onError: (_err, _vars, ctx) => {
+    onError: (err, _vars, ctx) => {
       rollback(qc, ctx);
-      errorToast("Couldn't update the equipment — reverted.");
+      errorToast(err instanceof Error ? err.message : "Couldn't update the equipment — reverted.");
+    },
+    onSettled: () => invalidate(qc),
+  });
+}
+
+/**
+ * Point the schedule at an Operations project (or clear it).
+ *
+ * Its own hook, not a field patch: a single LOOKUP writes a bare integer and
+ * needs the same title-less optimistic reference the equipment hook seeds.
+ */
+export function useSetScheduleOperationsProject() {
+  const qc = useQueryClient();
+  const requireAdmin = useRequireScheduleAdmin();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      operationsProjectLookupId,
+    }: {
+      id: number;
+      operationsProjectLookupId: number | null;
+    }) => {
+      await requireAdmin();
+      return setScheduleOperationsProject(id, operationsProjectLookupId);
+    },
+    onMutate: ({ id, operationsProjectLookupId }) =>
+      snapshotAndPatch(
+        qc,
+        id,
+        patchSchedule(id, (s) => ({
+          ...s,
+          operationsProject:
+            operationsProjectLookupId != null
+              ? { lookupId: operationsProjectLookupId, title: "" }
+              : null,
+          modifiedAt: new Date(),
+        })),
+      ),
+    onSuccess: (_data, { id }, ctx) => {
+      const prev = ctx?.prev?.operationsProject?.lookupId ?? null;
+      pushToast({
+        message: "Operations project updated.",
+        undo: buildUndo(qc, ctx?.previous, () => setScheduleOperationsProject(id, prev)),
+      });
+    },
+    onError: (err, _vars, ctx) => {
+      rollback(qc, ctx);
+      errorToast(
+        err instanceof Error ? err.message : "Couldn't update the Operations project — reverted.",
+      );
     },
     onSettled: () => invalidate(qc),
   });
@@ -271,9 +389,13 @@ export function useUnwatchSchedule() {
 export function useRecordScheduleCompletion() {
   const qc = useQueryClient();
   const actor = useCurrentUser();
+  // Logging a PM, not editing the schedule — tech or admin, not admin only.
+  const requireLogger = useRequirePmLogger();
   return useMutation({
-    mutationFn: ({ id, completedOn }: { id: number; completedOn: Date }) =>
-      recordScheduleCompletion(id, { completedOn, completedBy: actor }),
+    mutationFn: async ({ id, completedOn }: { id: number; completedOn: Date }) => {
+      await requireLogger();
+      return recordScheduleCompletion(id, { completedOn, completedBy: actor });
+    },
     onMutate: ({ id, completedOn }) =>
       snapshotAndPatch(
         qc,
@@ -309,13 +431,16 @@ export function useRecordScheduleCompletion() {
 export function useCreateScheduledMaintenance() {
   const qc = useQueryClient();
   const actor = useCurrentUser();
+  const requireAdmin = useRequireScheduleAdmin();
   return useMutation({
     // Creator + owner watch the new schedule — lib/people.ts autoWatchers().
-    mutationFn: (input: Parameters<typeof createScheduledMaintenance>[0]) =>
-      createScheduledMaintenance(
+    mutationFn: async (input: Parameters<typeof createScheduledMaintenance>[0]) => {
+      await requireAdmin();
+      return createScheduledMaintenance(
         { ...input, watchers: autoWatchers(input.watchers, input.assignedTo, actor) },
         actor,
-      ),
+      );
+    },
     onSuccess: (schedule) => {
       pushToast({ message: `Created schedule "${scheduledMaintenanceLabel(schedule)}".` });
       qc.setQueryData<ScheduledMaintenance[]>(SCHEDULE_LIST_KEY, (old) =>

@@ -18,6 +18,9 @@ interface ImportMetaEnv {
   readonly VITE_SP_EIRS_LIST_ID: string;
   readonly VITE_SP_ADMINS_LIST_ID: string;
   readonly VITE_SP_EIR_ROLES_LIST_ID: string;
+  readonly VITE_SP_MAINTENANCE_DEPARTMENTS_LIST_ID: string;
+  readonly VITE_SP_MAINTENANCE_LOCATIONS_LIST_ID: string;
+  readonly VITE_SP_MAINTENANCE_ROLES_LIST_ID: string;
   readonly VITE_SP_SITE_URL: string;
   readonly VITE_SHARED_MAILBOX: string;
   readonly VITE_APP_MANAGER_EMAIL: string;

@@ -20,6 +20,35 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.131.0",
+    date: "2026-08-31",
+    changes: [
+      "Departments and locations are now managed inside ARC — admins add, rename and retire them at Admin → Departments & Locations, instead of editing a SharePoint column",
+      "Retiring a value takes it out of the pickers but leaves every record already using it working and readable",
+      "Renaming a department or location carries every saved filter, bookmark and dashboard grouping with it",
+      "A department or location that was set is never shown as blank, even if the value was since retired or removed",
+      "The admin screen flags values that look like duplicates of each other, and leaves the decision to you",
+      "Equipment still shows its old department and location where the new one hasn't been filled in yet",
+    ],
+  },
+  {
+    version: "0.130.0",
+    date: "2026-08-28",
+    changes: [
+      "Maintenance roles — a Tech level for completing work orders and logging scheduled maintenance, and an Admin level that also manages PM schedules and the asset register",
+      "Any tech can close any work order; completing an unassigned one puts your name on it",
+      "Raising a work order stays open to everyone — you don't need a role to report that something is broken",
+      "Only maintenance admins can create or edit a PM schedule, or switch one off",
+      "Admins manage who holds which level at Admin → Maintenance Roles",
+      "Work orders and PM schedules now carry their own Department, Location and Operations Project, filled in from the equipment you pick and editable after",
+      "A work order no longer needs a machine — a light bulb or a leaking pipe is logged against a department and location instead",
+      "The calendar has a New work order button, and every maintenance screen links to the others",
+      "Logging a scheduled job now shows what it involves before you commit to it",
+      "Fixed the frequency unit being squashed out of view on the schedule form",
+      "Fixed comment edits sometimes not notifying anyone, or offering no undo",
+    ],
+  },
+  {
     version: "0.129.0",
     date: "2026-08-27",
     changes: [

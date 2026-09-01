@@ -1,4 +1,10 @@
-import type { Equipment, MaintenanceTask, Person } from "@/types/task";
+import type {
+  Equipment,
+  MaintenanceReferenceValue,
+  MaintenanceTask,
+  Person,
+  ProjectReference,
+} from "@/types/task";
 
 // =============================================================================
 // Small, explicit work-order fixtures for the CMMS work-order surface tests.
@@ -27,6 +33,25 @@ export const SUPERVISOR: Person = {
   lookupId: 22,
 };
 
+/**
+ * A Department / Location reference, as the domain holds one since 2026-08-28.
+ *
+ * `ref(4, "MACH SHOP")` reads about as well as the bare string it replaced,
+ * which matters: every filter, metric and prefill test names a department
+ * dozens of times, and an inline object literal at each one buries the thing
+ * the test is actually about.
+ */
+export function ref(lookupId: number, title: string): ProjectReference {
+  return { lookupId, title };
+}
+
+/** One row of a reference list — the shape the two admin-managed lists hold. */
+export function makeReferenceValue(
+  overrides: Partial<MaintenanceReferenceValue> & { lookupId: number; title: string },
+): MaintenanceReferenceValue {
+  return { active: true, note: "", ...overrides };
+}
+
 /** Midday UTC, `offset` days from `from` — the date-only storage convention. */
 export function day(offset: number, from: Date = new Date()): Date {
   return new Date(
@@ -50,6 +75,9 @@ export function makeTask(overrides: Partial<MaintenanceTask> & { id: number }): 
     equipment: null,
     scheduleRef: null,
     operationsTaskRef: null,
+    operationsProject: null,
+    department: null,
+    location: null,
     assigned: null,
     reportedBy: null,
     completedBy: null,

@@ -9,6 +9,7 @@ import {
   listMaintenanceTasks,
   setMaintenanceTaskAssigned,
   setMaintenanceTaskEquipment,
+  setMaintenanceTaskOperationsProject,
   setMaintenanceTaskReportedBy,
   setMaintenanceTaskSchedule,
   setMaintenanceTaskWatchers,
@@ -31,14 +32,14 @@ import {
   commentRenotifyRecipients,
   extractMentionedRecipients,
 } from "@/lib/mentions";
-import { sameEmail } from "@/lib/emailIdentity";
 import {
   collectMaintenanceTaskPeople,
   maintenanceTaskLabel,
 } from "@/lib/maintenanceTaskMapper";
 import { autoWatchers } from "@/lib/people";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useResolveMaintenanceAccess } from "@/hooks/useMaintenanceRoles";
+import { type MaintenanceAccess, completeWorkOrderGate } from "@/lib/maintenanceRoles";
 
 // =============================================================================
 // CMMS work-order hooks — the same optimistic snapshot/patch/rollback/undo
@@ -49,6 +50,12 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 // because there are three separate ways to move a work order to Complete — the
 // status dropdown, a Kanban drag, and the Complete form — and a rule enforced
 // in one of them is a rule that isn't enforced.
+//
+// The RULE it enforces is a maintenance ROLE (`tech` or `admin`), resolved
+// through `useResolveMaintenanceAccess`. It used to be an ASSIGNEE check —
+// only the person it was assigned to, or an ARC admin, could close a work
+// order out — which refused any tech who picked somebody else's job up.
+// Accountability comes from `CompletedBy` being stamped instead.
 // =============================================================================
 
 const MAINTENANCE_TASK_LIST_KEY = ["maintenanceTasks", "list"] as const;
@@ -122,28 +129,39 @@ function errorToast(message: string) {
 /**
  * Who may close a work order out.
  *
- * The person it is assigned to, or an admin. Anybody else is refused — the
- * completion record carries labour hours, downtime and a failure cause that
- * only whoever did the job can answer for, and a work order marked done by a
- * passer-by reads as done to everyone downstream.
+ * **Any maintenance tech or admin**, whoever it is assigned to. The check is
+ * `completeWorkOrderGate` in lib/maintenanceRoles.ts — the same function the
+ * greyed Complete button asks, so the button and the write cannot disagree.
+ *
+ * It used to be an ASSIGNEE check: the person it was assigned to, or an ARC
+ * admin. That refused a tech who picked somebody else's job up, which is
+ * ordinary shop-floor behaviour, and bought accountability by blocking the
+ * wrong people. `CompletedBy` is stamped on every completion, so the record
+ * still says who did it.
  *
  * **An UNASSIGNED work order is assigned to whoever completes it, in the same
- * write.** That is the common case on the shop floor: somebody picks up a job
- * off the backlog, does it, and closes it. Refusing them would be pedantic;
- * leaving it complete with nobody against it would lose who did it.
+ * write** — kept from the old rule, because that is what gives the row an
+ * owner in every report that reads it.
+ *
+ * With gating unenforced (no Maintenance Roles list configured) the gate
+ * allows everyone, so this degrades to exactly the assign-on-complete
+ * behaviour and refuses nobody.
  *
  * Returns the extra columns (if any) to merge into the completing write.
  */
 async function completionFields(
   id: number,
   actor: Person,
-  isAdmin: boolean,
+  access: MaintenanceAccess,
 ): Promise<Record<string, unknown>> {
+  // The role check first: it needs no request, so a refusal stays cheap.
+  const gate = completeWorkOrderGate(access);
+  if (!gate.allowed) throw new Error(gate.hint);
+
   // Deliberately NOT read out of the React Query cache. The cache is up to two
-  // minutes stale, and both ways of being wrong here are bad: refusing the
-  // assignee because the cache still shows the previous one, or — worse —
-  // letting somebody complete a work order the cache still thinks is
-  // unassigned. The write that follows re-reads the list anyway.
+  // minutes stale, and reading a stale assignee here would either claim a job
+  // that already has an owner or leave a completed one with none. The write
+  // that follows re-reads the list anyway.
   const task = await getMaintenanceTask(id);
   if (!task) throw new Error(`Work order ${id} not found.`);
 
@@ -152,14 +170,7 @@ async function completionFields(
     // where the job is Complete with nobody against it.
     return buildMaintenanceAssignmentFields(actor, task.watchers);
   }
-  if (isAdmin) return {};
-  if (sameEmail(task.assigned.email, actor.email)) return {};
-
-  throw new Error(
-    `${maintenanceTaskLabel(task)} is assigned to ${task.assigned.displayName || "somebody else"}. ` +
-      `Only the assignee (or an admin) can mark it complete — ask them to close it out, or have ` +
-      `it reassigned to you first.`,
-  );
+  return {};
 }
 
 // =============================================================================
@@ -174,11 +185,15 @@ async function completionFields(
 export function useUpdateMaintenanceTaskFields() {
   const qc = useQueryClient();
   const actor = useCurrentUser();
-  const isAdmin = useIsAdmin();
+  const resolveAccess = useResolveMaintenanceAccess();
   return useMutation({
     mutationFn: async ({ id, fields }: { id: number; fields: Record<string, unknown> }) => {
+      // Resolved here rather than read off a render, so a mutation fired
+      // before the roles list has loaded can't refuse a real tech.
       const extra =
-        fields.Status === "Complete" ? await completionFields(id, actor, isAdmin) : {};
+        fields.Status === "Complete"
+          ? await completionFields(id, actor, await resolveAccess())
+          : {};
       return updateMaintenanceTaskFields(id, { ...fields, ...extra });
     },
     onMutate: ({ id, fields }) =>
@@ -211,7 +226,7 @@ export function useUpdateMaintenanceTaskFields() {
 export function useCompleteMaintenanceTask() {
   const qc = useQueryClient();
   const actor = useCurrentUser();
-  const isAdmin = useIsAdmin();
+  const resolveAccess = useResolveMaintenanceAccess();
   return useMutation({
     mutationFn: async ({
       id,
@@ -226,7 +241,7 @@ export function useCompleteMaintenanceTask() {
       laborHours?: number | null;
       downtimeHours?: number | null;
     }) => {
-      const extraFields = await completionFields(id, actor, isAdmin);
+      const extraFields = await completionFields(id, actor, await resolveAccess());
       return completeMaintenanceTask(id, {
         ...rest,
         completedOn,
@@ -349,6 +364,54 @@ export function useSetMaintenanceTaskEquipment() {
     onError: (_err, _vars, ctx) => {
       rollback(qc, ctx);
       errorToast("Couldn't update the equipment — reverted.");
+    },
+    onSettled: () => invalidate(qc),
+  });
+}
+
+/**
+ * Point the work order at an Operations project (or clear it).
+ *
+ * Its own hook rather than a `Department`-style field patch because it is a
+ * single LOOKUP: the write is a bare integer under `OperationsProjectRefLookupId`,
+ * and the optimistic patch has to seed a title-less reference the list read
+ * fills in afterwards — exactly what the equipment hook above does.
+ */
+export function useSetMaintenanceTaskOperationsProject() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      operationsProjectLookupId,
+    }: {
+      id: number;
+      operationsProjectLookupId: number | null;
+    }) => setMaintenanceTaskOperationsProject(id, operationsProjectLookupId),
+    onMutate: ({ id, operationsProjectLookupId }) =>
+      snapshotAndPatch(
+        qc,
+        id,
+        patchTask(id, (t) => ({
+          ...t,
+          operationsProject:
+            operationsProjectLookupId != null
+              ? { lookupId: operationsProjectLookupId, title: "" }
+              : null,
+          modifiedAt: new Date(),
+        })),
+      ),
+    onSuccess: (_data, { id }, ctx) => {
+      const prev = ctx?.prevTask?.operationsProject?.lookupId ?? null;
+      pushToast({
+        message: "Operations project updated.",
+        undo: buildUndo(qc, ctx?.previous, () =>
+          setMaintenanceTaskOperationsProject(id, prev),
+        ),
+      });
+    },
+    onError: (_err, _vars, ctx) => {
+      rollback(qc, ctx);
+      errorToast("Couldn't update the Operations project — reverted.");
     },
     onSettled: () => invalidate(qc),
   });

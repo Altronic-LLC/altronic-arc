@@ -3,6 +3,8 @@ import type { GraphListItem, Person, ScheduledMaintenance } from "@/types/task";
 import {
   SCHEDULED_MAINTENANCE_SELECT,
   attachScheduleEquipmentTitles,
+  attachScheduleOperationsProjects,
+  attachScheduleReferences,
   attachScheduledMaintenancePeople,
   buildScheduledMaintenanceCreateFields,
   collectScheduledMaintenancePeople,
@@ -23,10 +25,27 @@ function item(fields: Record<string, unknown>, id = "4"): GraphListItem {
 describe("SCHEDULED_MAINTENANCE_SELECT", () => {
   it("asks for BOTH halves of every single-person and single-lookup column", () => {
     const parts = SCHEDULED_MAINTENANCE_SELECT.split(",");
-    for (const column of ["AssignedTo", "LastCompletedBy", "EquipmentRef"]) {
+    for (const column of [
+      "AssignedTo",
+      "LastCompletedBy",
+      "EquipmentRef",
+      "OperationsProjectRef",
+    ]) {
       expect(parts).toContain(column);
       expect(parts).toContain(`${column}LookupId`);
     }
+  });
+
+  it("reads BOTH halves of the Department / Location lookups, and neither old choice column", () => {
+    const parts = SCHEDULED_MAINTENANCE_SELECT.split(",");
+    expect(parts).toContain("DepartmentRef");
+    expect(parts).toContain("DepartmentRefLookupId");
+    expect(parts).toContain("LocationRef");
+    expect(parts).toContain("LocationRefLookupId");
+    // The old CHOICE columns exist only on the Equipment List. Selecting a
+    // column this list hasn't got 400s the whole read.
+    expect(parts).not.toContain("Department");
+    expect(parts).not.toContain("Location");
   });
 
   it("does NOT ask for Communication — this list has no comment thread", () => {
@@ -203,5 +222,92 @@ describe("labels, ordering and people", () => {
       "B",
       "C",
     ]);
+  });
+});
+
+describe("the schedule's own Department, Location and Operations project", () => {
+  it("reads all three as title-less lookups, joined later", () => {
+    const schedule = toScheduledMaintenance(
+      item({
+        DepartmentRefLookupId: 4,
+        LocationRefLookupId: 11,
+        OperationsProjectRefLookupId: 4,
+      }),
+    );
+    expect(schedule.department).toEqual({ lookupId: 4, title: "" });
+    expect(schedule.location).toEqual({ lookupId: 11, title: "" });
+    expect(schedule.operationsProject).toEqual({ lookupId: 4, title: "" });
+  });
+
+  it("joins the two reference-list titles, retired values included", () => {
+    const schedules = [
+      toScheduledMaintenance(item({ DepartmentRefLookupId: 4, LocationRefLookupId: 22 })),
+    ];
+    attachScheduleReferences(
+      schedules,
+      [{ lookupId: 4, title: "MACH SHOP", active: true, note: "" }],
+      [{ lookupId: 22, title: "HARNESS DEPARMENT", active: false, note: "" }],
+    );
+    expect(schedules[0].department).toEqual({ lookupId: 4, title: "MACH SHOP" });
+    expect(schedules[0].location).toEqual({ lookupId: 22, title: "HARNESS DEPARMENT" });
+  });
+
+  it("leaves a value the reference list hasn't got VISIBLE rather than blank", () => {
+    const schedules = [toScheduledMaintenance(item({ DepartmentRefLookupId: 41 }))];
+    attachScheduleReferences(schedules, [], []);
+    expect(schedules[0].department).toEqual({ lookupId: 41, title: "" });
+  });
+
+  // The columns may not exist in SharePoint yet — a read must degrade to null
+  // rather than throwing or inventing a blank string.
+  it("reads a column the list hasn't got as null", () => {
+    const schedule = toScheduledMaintenance(item({}));
+    expect(schedule.department).toBeNull();
+    expect(schedule.location).toBeNull();
+    expect(schedule.operationsProject).toBeNull();
+  });
+
+  it("IGNORES the legacy choice columns entirely on this list", () => {
+    // They were never created here — only on the Equipment List, which keeps
+    // them as a rollback path.
+    const schedule = toScheduledMaintenance(item({ Location: "HARNESS DEPARMENT" }));
+    expect(schedule.location).toBeNull();
+  });
+
+  it("joins the project title against the loaded reference list", () => {
+    const schedules = [toScheduledMaintenance(item({ OperationsProjectRefLookupId: 3 }))];
+    attachScheduleOperationsProjects(schedules, [
+      { lookupId: 3, title: "0002-PVA Conformal Coating Machine" },
+    ]);
+    expect(schedules[0].operationsProject?.title).toBe("0002-PVA Conformal Coating Machine");
+  });
+
+  it("leaves a dangling project reference visible rather than dropping it", () => {
+    const schedules = [toScheduledMaintenance(item({ OperationsProjectRefLookupId: 3 }))];
+    attachScheduleOperationsProjects(schedules, []);
+    expect(schedules[0].operationsProject).toEqual({ lookupId: 3, title: "" });
+  });
+
+  it("writes the three on create — the lookup as a BARE integer", () => {
+    const fields = buildScheduledMaintenanceCreateFields({
+      title: "Weekly walkaround",
+      departmentLookupId: 4,
+      locationLookupId: 38,
+      operationsProjectLookupId: 4,
+    });
+    // All three are single lookups — bare integers, no @odata.type anywhere.
+    expect(fields.DepartmentRefLookupId).toBe(4);
+    expect(fields.LocationRefLookupId).toBe(38);
+    expect(fields.OperationsProjectRefLookupId).toBe(4);
+    expect(fields).not.toHaveProperty("DepartmentRefLookupId@odata.type");
+    expect(fields).not.toHaveProperty("LocationRefLookupId@odata.type");
+    expect(fields).not.toHaveProperty("OperationsProjectRefLookupId@odata.type");
+  });
+
+  it("omits all three when blank — none of them blocks creating a schedule", () => {
+    const fields = buildScheduledMaintenanceCreateFields({ title: "Weekly walkaround" });
+    expect(fields).not.toHaveProperty("DepartmentRefLookupId");
+    expect(fields).not.toHaveProperty("LocationRefLookupId");
+    expect(fields).not.toHaveProperty("OperationsProjectRefLookupId");
   });
 });
