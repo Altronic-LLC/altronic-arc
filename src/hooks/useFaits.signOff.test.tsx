@@ -25,6 +25,7 @@ const fireFaitWithSqeAlert = vi.hoisted(() => vi.fn());
 const fireFaitClosedAlert = vi.hoisted(() => vi.fn());
 const fireFaitAssignmentHeadsUp = vi.hoisted(() => vi.fn());
 const fireFieldChangeAlert = vi.hoisted(() => vi.fn());
+const fireFaitNotifyInitiatorAlert = vi.hoisted(() => vi.fn());
 
 vi.mock("@/api/email", () => ({
   fireFaitSignOffRequest,
@@ -33,6 +34,7 @@ vi.mock("@/api/email", () => ({
   fireFaitClosedAlert,
   fireFaitAssignmentHeadsUp,
   fireFieldChangeAlert,
+  fireFaitNotifyInitiatorAlert,
   fireNewFaitAlert: vi.fn(),
   notifyMentions: vi.fn(),
   notifyChangeEmails: vi.fn(),
@@ -114,6 +116,7 @@ beforeEach(() => {
   fireFaitClosedAlert.mockClear();
   fireFaitAssignmentHeadsUp.mockClear();
   fireFieldChangeAlert.mockClear();
+  fireFaitNotifyInitiatorAlert.mockClear();
   vi.mocked(updateFaitFields).mockClear();
 });
 
@@ -125,6 +128,14 @@ describe("SQE signs off", () => {
       role: "engineer",
       signer: JERROD,
     });
+  });
+
+  // Ray, 2026-09-01: "all sign offs notify watchers".
+  it("also passes the FAIT's watchers through to the alert", async () => {
+    await write(aFait({ assignedEngineer: JERROD, watchers: [SARAH, RAY] }), {
+      SQESignOff: "Approved",
+    });
+    expect(fireFaitSignOffRequest.mock.calls[0][0]).toMatchObject({ watchers: [SARAH, RAY] });
   });
 
   // The auto-advance travels in the SAME PATCH as the sign-off that caused
@@ -167,6 +178,13 @@ describe("SQE sign-off comes back Failed", () => {
     expect(fireFaitSqeFailedAlert).toHaveBeenCalledTimes(1);
     expect(fireFaitSqeFailedAlert.mock.calls[0][0]).toMatchObject({ initiator: SARAH });
     expect(fireFaitSignOffRequest).not.toHaveBeenCalled();
+  });
+
+  it("also passes the FAIT's watchers through", async () => {
+    await write(aFait({ assignedEngineer: JERROD, watchers: [SARAH, RAY] }), {
+      SQESignOff: "Failed",
+    });
+    expect(fireFaitSqeFailedAlert.mock.calls[0][0]).toMatchObject({ watchers: [SARAH, RAY] });
   });
 
   it("does not advance the status", async () => {
@@ -217,6 +235,13 @@ describe("the status the chain doesn't set itself", () => {
   it("a FAIT moved to This is with SQE tells the SQE reviewers", async () => {
     await write(aFait({ status: "FAIT Part Received" }), { Status: "This is with SQE" });
     expect(fireFaitWithSqeAlert).toHaveBeenCalledTimes(1);
+  });
+
+  it("also passes the FAIT's watchers through", async () => {
+    await write(aFait({ status: "FAIT Part Received", watchers: [SARAH, RAY] }), {
+      Status: "This is with SQE",
+    });
+    expect(fireFaitWithSqeAlert.mock.calls[0][0]).toMatchObject({ watchers: [SARAH, RAY] });
   });
 
   // THE GUARD — this fixture is already there.
@@ -291,5 +316,50 @@ describe("the assignment heads-up", () => {
   it("stays quiet when the field is cleared", async () => {
     await assign(useUpdateFaitAssignedEngineer, aFait({ assignedEngineer: JERROD }), null);
     expect(fireFaitAssignmentHeadsUp).not.toHaveBeenCalled();
+  });
+});
+
+// =============================================================================
+// "Notify Initiator" — a Sign-off card checkbox with no wiring at all until
+// now (Ray, 2026-09-01). Fire-once: only the transition INTO checked sends
+// anything. THE GUARD below starts from a fixture where it is ALREADY true —
+// the only kind of test that actually exercises a `to !== from` guard, per
+// CLAUDE.md's own warning about this exact trap.
+// =============================================================================
+
+describe("the Notify Initiator checkbox", () => {
+  it("tells the initiator and every watcher when it's freshly checked", async () => {
+    await write(aFait({ watchers: [SARAH, RAY] }), { NotifyInitiator: true });
+    expect(fireFaitNotifyInitiatorAlert).toHaveBeenCalledTimes(1);
+    expect(fireFaitNotifyInitiatorAlert.mock.calls[0][0]).toMatchObject({
+      initiator: SARAH,
+      watchers: [SARAH, RAY],
+    });
+  });
+
+  // THE GUARD — this fixture already has it checked.
+  it("stays quiet when an already-checked box is re-saved", async () => {
+    await write(aFait({}, { notifyInitiator: "Yes" }), { NotifyInitiator: true });
+    expect(fireFaitNotifyInitiatorAlert).not.toHaveBeenCalled();
+  });
+
+  // Re-saving the Sign-off card with the box already checked and OTHER
+  // fields changing must not re-fire it either.
+  it("stays quiet when other Sign-off fields change but the box stays checked", async () => {
+    await write(aFait({}, { notifyInitiator: "Yes" }), {
+      NotifyInitiator: true,
+      EngInitials: "jw",
+    });
+    expect(fireFaitNotifyInitiatorAlert).not.toHaveBeenCalled();
+  });
+
+  it("does nothing on uncheck — no auto-reset mechanic", async () => {
+    await write(aFait({}, { notifyInitiator: "Yes" }), { NotifyInitiator: false });
+    expect(fireFaitNotifyInitiatorAlert).not.toHaveBeenCalled();
+  });
+
+  it("does nothing when the field isn't part of the write at all", async () => {
+    await write(aFait(), { EngInitials: "jw" });
+    expect(fireFaitNotifyInitiatorAlert).not.toHaveBeenCalled();
   });
 });

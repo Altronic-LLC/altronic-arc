@@ -3,6 +3,25 @@ import { escapeHtml } from "./mentions";
 import { withoutActorUnlessEmpty } from "./recipientList";
 import type { AlertDetail, ChangeEmail, ChangeTarget } from "./changeAlerts";
 
+/**
+ * Merge several recipient pools into one, one email per person.
+ *
+ * Every sign-off alert now also reaches the FAIT's watchers (Ray, 2026-09-01:
+ * "all sign offs notify watchers"), so a watcher who is ALSO the targeted
+ * signer, the SQE queue, or the intake list must get exactly one email, not
+ * two. Keyed on the lowercased address; the first occurrence wins, which
+ * keeps whichever copy carries a real `Person` over a bare stand-in.
+ */
+function dedupePeople(pools: Person[]): Person[] {
+  const seen = new Map<string, Person>();
+  for (const p of pools) {
+    const key = (p.email ?? "").trim().toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.set(key, p);
+  }
+  return [...seen.values()];
+}
+
 // =============================================================================
 // FAIT intake alert — telling the people who work the queue that a new First
 // Article Inspection Test exists.
@@ -213,9 +232,12 @@ export function buildFaitWithSqeEmails(args: {
   target: ChangeTarget;
   /** The configured SQE reviewers, already parsed. */
   recipients: Person[];
+  /** Everyone watching the FAIT — merged in, deduped, one email each. */
+  watchers?: Person[];
   actor: Person;
 }): ChangeEmail[] {
-  const recipients = withoutActorUnlessEmpty(args.recipients, args.actor);
+  const pool = dedupePeople([...args.recipients, ...(args.watchers ?? [])]);
+  const recipients = withoutActorUnlessEmpty(pool, args.actor);
   if (recipients.length === 0) return [];
 
   const actorName = escapeHtml(args.actor.displayName || "Someone");
@@ -280,32 +302,37 @@ export function buildFaitSignOffRequestEmails(args: {
   signer: Person | null;
   /** Used only when the signer can't be emailed — the SQE reviewers. */
   fallback: Person[];
+  /** Everyone watching the FAIT — merged in, deduped, one email each. */
+  watchers?: Person[];
   actor: Person;
 }): ChangeEmail[] {
   const copy = STAGE_COPY[args.role];
   const role = ROLE_NOUN[args.role];
   const actorName = escapeHtml(args.actor.displayName || "Someone");
   const opener = `<strong>${actorName}</strong> approved ${copy.signedBy}.`;
+  const watchers = args.watchers ?? [];
 
   const signerEmail = args.signer?.email?.trim();
   const signerIsActor =
     !!signerEmail && signerEmail.toLowerCase() === (args.actor.email ?? "").toLowerCase();
 
   if (signerEmail && !signerIsActor) {
-    return [
-      {
-        email: signerEmail,
-        displayName: args.signer!.displayName,
-        subject: `${args.target.title} — ${copy.signedBy} approved, your sign-off needed`,
-        headlineHtml: `${opener} <strong>${copy.asks}</strong>`,
-        detailHtml:
-          `<div style="font-size:14px;">The FAIT is now at <strong>${copy.lands}</strong>. ` +
-          `Setting <strong>${copy.column}</strong> to Approved moves it on.</div>`,
-      },
-    ];
+    const recipients = withoutActorUnlessEmpty(
+      dedupePeople([args.signer!, ...watchers]),
+      args.actor,
+    );
+    return recipients.map((p) => ({
+      email: p.email!,
+      displayName: p.displayName,
+      subject: `${args.target.title} — ${copy.signedBy} approved, your sign-off needed`,
+      headlineHtml: `${opener} <strong>${copy.asks}</strong>`,
+      detailHtml:
+        `<div style="font-size:14px;">The FAIT is now at <strong>${copy.lands}</strong>. ` +
+        `Setting <strong>${copy.column}</strong> to Approved moves it on.</div>`,
+    }));
   }
 
-  const recipients = withoutActorUnlessEmpty(args.fallback, args.actor);
+  const recipients = withoutActorUnlessEmpty(dedupePeople([...args.fallback, ...watchers]), args.actor);
   if (recipients.length === 0) return [];
 
   const assignedButUnreachable = args.signer !== null;
@@ -349,25 +376,77 @@ export function buildFaitSqeFailedEmails(args: {
   target: ChangeTarget;
   /** Whoever raised the FAIT. */
   initiator: Person | null;
+  /** Everyone watching the FAIT — merged in, deduped, one email each. */
+  watchers?: Person[];
   actor: Person;
 }): ChangeEmail[] {
-  const email = args.initiator?.email?.trim();
-  if (!email) return [];
-  if (email.toLowerCase() === (args.actor.email ?? "").toLowerCase()) return [];
+  const initiatorEmail = args.initiator?.email?.trim();
+  const pool = dedupePeople([
+    ...(initiatorEmail ? [args.initiator!] : []),
+    ...(args.watchers ?? []),
+  ]);
+  const recipients = withoutActorUnlessEmpty(pool, args.actor);
+  // No fallback queue, unlike every other stage: the SQE reviewers are the
+  // people who record a Failed sign-off, so bouncing it back to them says
+  // nothing they don't already know. If there's neither a reachable
+  // initiator nor a watcher, this alert sends nothing — the generic status
+  // note still covers whoever else is on the FAIT.
+  if (recipients.length === 0) return [];
 
   const actorName = escapeHtml(args.actor.displayName || "Someone");
-  return [
-    {
-      email,
-      displayName: args.initiator!.displayName,
-      subject: `${args.target.title} — SQE sign-off failed`,
-      headlineHtml:
-        `<strong>${actorName}</strong> recorded the SQE sign-off as <strong>Failed</strong>. ` +
-        `<strong>It's back with you.</strong>`,
-      detailHtml:
-        `<div style="font-size:14px;">The FAIT has not gone on to Engineering. The ` +
-        `<strong>SQE Approval Notes</strong> on the FAIT say why; the sign-off can be set to ` +
-        `Approved once the failure is resolved.</div>`,
-    },
-  ];
+  return recipients.map((p) => ({
+    email: p.email!,
+    displayName: p.displayName,
+    subject: `${args.target.title} — SQE sign-off failed`,
+    headlineHtml:
+      `<strong>${actorName}</strong> recorded the SQE sign-off as <strong>Failed</strong>. ` +
+      `<strong>It's back with you.</strong>`,
+    detailHtml:
+      `<div style="font-size:14px;">The FAIT has not gone on to Engineering. The ` +
+      `<strong>SQE Approval Notes</strong> on the FAIT say why; the sign-off can be set to ` +
+      `Approved once the failure is resolved.</div>`,
+  }));
+}
+
+// =============================================================================
+// "Notify Initiator" — a Sign-off card checkbox with no wiring until now
+// (Ray, 2026-09-01). Ticking it tells the initiator (and every watcher) that
+// an update is available on the FAIT they raised — a general nudge, not tied
+// to any one sign-off step.
+//
+// Fire-once, not a toggle: only the transition INTO checked sends anything
+// (see the `to !== from` guard in useFaits.ts, mirroring faitSignOffOutcome's
+// presence-vs-change pattern). Re-saving the Sign-off card with the box left
+// checked must not re-send this every time.
+// =============================================================================
+
+/**
+ * Build the "Notify Initiator" email — the initiator plus every watcher,
+ * deduped, actor excluded unless that would leave nobody.
+ */
+export function buildFaitNotifyInitiatorEmails(args: {
+  target: ChangeTarget;
+  initiator: Person | null;
+  watchers?: Person[];
+  actor: Person;
+}): ChangeEmail[] {
+  const initiatorEmail = args.initiator?.email?.trim();
+  const pool = dedupePeople([
+    ...(initiatorEmail ? [args.initiator!] : []),
+    ...(args.watchers ?? []),
+  ]);
+  const recipients = withoutActorUnlessEmpty(pool, args.actor);
+  if (recipients.length === 0) return [];
+
+  const actorName = escapeHtml(args.actor.displayName || "Someone");
+  return recipients.map((p) => ({
+    email: p.email!,
+    displayName: p.displayName,
+    subject: `${args.target.title} — update available`,
+    headlineHtml:
+      `<strong>${actorName}</strong> flagged that an update is available on this FAIT you ` +
+      `initiated.`,
+    detailHtml:
+      `<div style="font-size:14px;">Open the FAIT to see what changed.</div>`,
+  }));
 }

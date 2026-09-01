@@ -153,8 +153,12 @@ export function faitSignOffOutcome(
  * The new value of `column`, but only when the write actually MOVES it.
  * `null` when the column isn't in the write at all, or is being re-sent
  * unchanged.
+ *
+ * Exported so a caller outside the sign-off chain itself (the "Notify
+ * Initiator" checkbox in useFaits.ts) can apply the identical
+ * presence-vs-change guard rather than re-deriving it.
  */
-function changedTo(
+export function changedTo(
   fields: Record<string, unknown>,
   column: string,
   previous: string | undefined,

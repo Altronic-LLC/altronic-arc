@@ -1,6 +1,13 @@
 import { describe, it, expect } from "vitest";
 import type { Person } from "@/types/task";
-import { buildFaitClosedEmails, buildNewFaitEmails } from "./faitAlerts";
+import {
+  buildFaitClosedEmails,
+  buildFaitNotifyInitiatorEmails,
+  buildFaitSignOffRequestEmails,
+  buildFaitSqeFailedEmails,
+  buildFaitWithSqeEmails,
+  buildNewFaitEmails,
+} from "./faitAlerts";
 
 // =============================================================================
 // The intake alert. Nothing watches the FAIT list, so every create tells the
@@ -191,5 +198,209 @@ describe("the closed-FAIT email's de-dupe", () => {
   it("ignores a watcher with no address", () => {
     const emails = buildClosed({ alreadyNotified: [{ displayName: "No Mailbox" }] });
     expect(emails.map((e) => e.email)).toEqual([JERROD.email, ALEX.email, KATIE.email]);
+  });
+});
+
+// =============================================================================
+// The sign-off chain now also reaches the FAIT's watchers (Ray, 2026-09-01:
+// "all sign offs notify watchers"), merged into whichever pool a builder
+// already emailed. A watcher who's ALSO the targeted recipient must get one
+// email, not two — every describe block below checks the dedupe as well as
+// the addition.
+// =============================================================================
+
+const SARAH: Person = { displayName: "Sarah Shaffer", email: "sarah.shaffer@altronic-llc.com" };
+
+describe("the with-SQE alert now also notifies watchers", () => {
+  function buildWithSqe(overrides: Partial<Parameters<typeof buildFaitWithSqeEmails>[0]> = {}) {
+    return buildFaitWithSqeEmails({
+      target: TARGET,
+      recipients: [JERROD],
+      actor: RAY,
+      ...overrides,
+    });
+  }
+
+  it("still emails the configured SQE reviewers with the existing wording", () => {
+    const emails = buildWithSqe();
+    expect(emails.map((e) => e.email)).toEqual([JERROD.email]);
+    expect(emails[0].headlineHtml).toContain("This is with SQE");
+    expect(emails[0].headlineHtml).toContain("Please review it");
+  });
+
+  it("adds the watchers alongside the reviewers", () => {
+    const emails = buildWithSqe({ watchers: [SARAH, KATIE] });
+    expect(emails.map((e) => e.email)).toEqual([JERROD.email, SARAH.email, KATIE.email]);
+  });
+
+  it("dedupes a watcher who is also a configured reviewer", () => {
+    const emails = buildWithSqe({ watchers: [JERROD, SARAH] });
+    expect(emails.map((e) => e.email)).toEqual([JERROD.email, SARAH.email]);
+  });
+
+  it("still leaves the actor off unless that would leave nobody", () => {
+    expect(buildWithSqe({ watchers: [SARAH], actor: JERROD }).map((e) => e.email)).toEqual([
+      SARAH.email,
+    ]);
+    expect(buildWithSqe({ recipients: [], watchers: [], actor: RAY })).toEqual([]);
+  });
+
+  it("with no watchers behaves exactly as before", () => {
+    expect(buildWithSqe({ watchers: [] }).map((e) => e.email)).toEqual([JERROD.email]);
+  });
+});
+
+describe("the sign-off request alert now also notifies watchers", () => {
+  function buildRequest(
+    overrides: Partial<Parameters<typeof buildFaitSignOffRequestEmails>[0]> = {},
+  ) {
+    return buildFaitSignOffRequestEmails({
+      target: TARGET,
+      role: "engineer",
+      signer: JERROD,
+      fallback: [ALEX],
+      actor: RAY,
+      ...overrides,
+    });
+  }
+
+  describe("when the signer is reachable", () => {
+    it("still emails the signer with the existing wording", () => {
+      const emails = buildRequest();
+      expect(emails.map((e) => e.email)).toEqual([JERROD.email]);
+      expect(emails[0].headlineHtml).toContain("your engineering sign-off");
+    });
+
+    it("adds the watchers alongside the signer", () => {
+      const emails = buildRequest({ watchers: [SARAH, KATIE] });
+      expect(emails.map((e) => e.email)).toEqual([JERROD.email, SARAH.email, KATIE.email]);
+    });
+
+    it("dedupes a watcher who is also the signer", () => {
+      const emails = buildRequest({ watchers: [JERROD] });
+      expect(emails.map((e) => e.email)).toEqual([JERROD.email]);
+    });
+  });
+
+  describe("when it falls back to the SQE queue", () => {
+    function buildFallback(
+      overrides: Partial<Parameters<typeof buildFaitSignOffRequestEmails>[0]> = {},
+    ) {
+      return buildRequest({ signer: null, ...overrides });
+    }
+
+    it("still emails the fallback queue with the existing wording", () => {
+      const emails = buildFallback();
+      expect(emails.map((e) => e.email)).toEqual([ALEX.email]);
+      expect(emails[0].headlineHtml).toContain("No engineer is assigned");
+    });
+
+    it("adds the watchers alongside the fallback queue", () => {
+      const emails = buildFallback({ watchers: [SARAH, KATIE] });
+      expect(emails.map((e) => e.email)).toEqual([ALEX.email, SARAH.email, KATIE.email]);
+    });
+
+    it("dedupes a watcher who is also on the fallback queue", () => {
+      const emails = buildFallback({ watchers: [ALEX] });
+      expect(emails.map((e) => e.email)).toEqual([ALEX.email]);
+    });
+  });
+});
+
+describe("the SQE-failed alert now also notifies watchers", () => {
+  function buildFailed(overrides: Partial<Parameters<typeof buildFaitSqeFailedEmails>[0]> = {}) {
+    return buildFaitSqeFailedEmails({
+      target: TARGET,
+      initiator: JERROD,
+      actor: RAY,
+      ...overrides,
+    });
+  }
+
+  it("still emails the initiator with the existing wording", () => {
+    const emails = buildFailed();
+    expect(emails.map((e) => e.email)).toEqual([JERROD.email]);
+    expect(emails[0].headlineHtml).toContain("Failed");
+  });
+
+  it("adds the watchers alongside the initiator", () => {
+    const emails = buildFailed({ watchers: [SARAH, KATIE] });
+    expect(emails.map((e) => e.email)).toEqual([JERROD.email, SARAH.email, KATIE.email]);
+  });
+
+  it("dedupes a watcher who is also the initiator", () => {
+    const emails = buildFailed({ watchers: [JERROD] });
+    expect(emails.map((e) => e.email)).toEqual([JERROD.email]);
+  });
+
+  it("still sends nothing when there's no reachable initiator and no watchers", () => {
+    expect(buildFailed({ initiator: null, watchers: [] })).toEqual([]);
+  });
+
+  // No fallback queue on this one — a watcher-only send is new behaviour, not
+  // a queue substituting for a missing initiator.
+  it("sends to watchers alone when there's no reachable initiator", () => {
+    const emails = buildFailed({ initiator: null, watchers: [SARAH] });
+    expect(emails.map((e) => e.email)).toEqual([SARAH.email]);
+  });
+});
+
+// =============================================================================
+// "Notify Initiator" — a Sign-off card checkbox with no wiring at all until
+// now (Ray, 2026-09-01). A distinct alert, not a repurposing of any existing
+// builder: initiator + watchers, actor excluded unless that would leave
+// nobody.
+// =============================================================================
+
+describe("the Notify Initiator email", () => {
+  function buildNotify(
+    overrides: Partial<Parameters<typeof buildFaitNotifyInitiatorEmails>[0]> = {},
+  ) {
+    return buildFaitNotifyInitiatorEmails({
+      target: TARGET,
+      initiator: JERROD,
+      actor: RAY,
+      ...overrides,
+    });
+  }
+
+  it("emails the initiator", () => {
+    const emails = buildNotify();
+    expect(emails.map((e) => e.email)).toEqual([JERROD.email]);
+  });
+
+  it("names the FAIT and says an update is available", () => {
+    const emails = buildNotify();
+    expect(emails[0].subject).toContain("691768-1");
+    expect(emails[0].headlineHtml).toContain("update is available");
+  });
+
+  it("adds the watchers alongside the initiator", () => {
+    const emails = buildNotify({ watchers: [SARAH, KATIE] });
+    expect(emails.map((e) => e.email)).toEqual([JERROD.email, SARAH.email, KATIE.email]);
+  });
+
+  it("dedupes a watcher who is also the initiator", () => {
+    const emails = buildNotify({ watchers: [JERROD] });
+    expect(emails.map((e) => e.email)).toEqual([JERROD.email]);
+  });
+
+  it("doesn't email the person who checked the box, unless that would leave nobody", () => {
+    expect(buildNotify({ watchers: [SARAH], actor: JERROD }).map((e) => e.email)).toEqual([
+      SARAH.email,
+    ]);
+    // JERROD is both the initiator and the actor here — the only person to
+    // tell, so the fallback keeps them rather than sending nothing.
+    expect(
+      buildNotify({ initiator: JERROD, watchers: [], actor: JERROD }).map((e) => e.email),
+    ).toEqual([JERROD.email]);
+  });
+
+  it("sends nothing when there's no initiator and no watchers", () => {
+    expect(buildNotify({ initiator: null, watchers: [] })).toEqual([]);
+  });
+
+  it("skips an initiator with no mailbox", () => {
+    expect(buildNotify({ initiator: { displayName: "No Mailbox" } })).toEqual([]);
   });
 });

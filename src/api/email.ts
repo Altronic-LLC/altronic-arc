@@ -32,6 +32,7 @@ import { buildNewGrayMarketRequestEmails } from "@/lib/grayMarketAlerts";
 import {
   buildFaitAssignmentHeadsUpEmails,
   buildFaitClosedEmails,
+  buildFaitNotifyInitiatorEmails,
   buildFaitSignOffRequestEmails,
   buildFaitSqeFailedEmails,
   buildFaitWithSqeEmails,
@@ -660,7 +661,11 @@ export function fireFaitAssignmentHeadsUp(args: {
  * reviewers (VITE_FAIT_SQE_REVIEWERS) are asked to sign it off. No-ops when
  * nothing is configured.
  */
-export function fireFaitWithSqeAlert(args: { target: ChangeTarget; actor: Person }): void {
+export function fireFaitWithSqeAlert(args: {
+  target: ChangeTarget;
+  actor: Person;
+  watchers?: Person[];
+}): void {
   const emails = buildFaitWithSqeEmails({
     ...args,
     recipients: parseRecipientList(FAIT_SQE_REVIEWERS),
@@ -679,6 +684,7 @@ export function fireFaitSignOffRequest(args: {
   role: FaitSignerRole;
   signer: Person | null;
   actor: Person;
+  watchers?: Person[];
 }): void {
   const emails = buildFaitSignOffRequestEmails({
     ...args,
@@ -698,8 +704,26 @@ export function fireFaitSqeFailedAlert(args: {
   target: ChangeTarget;
   initiator: Person | null;
   actor: Person;
+  watchers?: Person[];
 }): void {
   const emails = buildFaitSqeFailedEmails(args);
+  if (emails.length === 0) return;
+  void notifyChangeEmails({ target: args.target, emails });
+}
+
+/**
+ * Fire-and-forget: the "Notify Initiator" checkbox on the Sign-off card was
+ * just checked — tells the initiator plus every watcher that an update is
+ * available. Fires only on the transition into checked; see
+ * `notifyInitiatorJustChecked` in useFaits.ts.
+ */
+export function fireFaitNotifyInitiatorAlert(args: {
+  target: ChangeTarget;
+  initiator: Person | null;
+  watchers?: Person[];
+  actor: Person;
+}): void {
+  const emails = buildFaitNotifyInitiatorEmails(args);
   if (emails.length === 0) return;
   void notifyChangeEmails({ target: args.target, emails });
 }

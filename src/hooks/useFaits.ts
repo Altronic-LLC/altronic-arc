@@ -17,6 +17,7 @@ import { commentNotifyRecipients, extractMentionedRecipients } from "@/lib/menti
 import {
   fireFaitAssignmentHeadsUp,
   fireFaitClosedAlert,
+  fireFaitNotifyInitiatorAlert,
   fireFaitSignOffRequest,
   fireFaitSqeFailedAlert,
   fireFaitWithSqeAlert,
@@ -145,6 +146,29 @@ function sameStatus(a: string, b: string): boolean {
   return a.trim().toLowerCase() === b.trim().toLowerCase();
 }
 
+/** SharePoint column for the Sign-off card's "Notify Initiator" checkbox. */
+const NOTIFY_INITIATOR_COLUMN = "NotifyInitiator";
+
+/**
+ * Whether this write is the transition INTO checked for "Notify Initiator" —
+ * `to !== from`, same presence-vs-change shape as `faitSignOffOutcome`'s
+ * `changedTo`. The column comes back as a real boolean on the write
+ * (`columnValue` in faitMapper.ts), while the stored value on the FAIT is
+ * "Yes"/"" (faits.ts's boolean read), so this compares against that shape
+ * rather than reusing `changedTo` verbatim.
+ *
+ * Fire-once: only unchecked/blank → checked counts. Re-saving the card with
+ * the box already checked, or unchecking it, sends nothing — there is no
+ * "notify again" or auto-reset mechanic here, matching every other
+ * `to !== from` guard in this codebase.
+ */
+function notifyInitiatorJustChecked(prev: Fait, fields: Record<string, unknown>): boolean {
+  if (!(NOTIFY_INITIATOR_COLUMN in fields)) return false;
+  const wasChecked = !!prev.values.notifyInitiator;
+  const isChecked = fields[NOTIFY_INITIATOR_COLUMN] === true;
+  return isChecked && !wasChecked;
+}
+
 /**
  * Patch one or more columns, optimistically.
  *
@@ -235,15 +259,19 @@ export function useUpdateFaitFields() {
             });
           }
           // A FAIT arriving at SQE — there's no SQE person column, so the
-          // configured reviewer list is the queue that gets told.
+          // configured reviewer list is the queue that gets told. Watchers
+          // are merged in too (Ray, 2026-09-01: "all sign offs notify
+          // watchers"), deduped against the queue.
           if (sameStatus(to, FAIT_STATUS_WITH_SQE)) {
-            fireFaitWithSqeAlert({ target, actor });
+            fireFaitWithSqeAlert({ target, actor, watchers: prevFait.watchers });
           }
         }
       }
 
       // The chain itself. Every step here is already guarded by `to !== from`
       // inside faitSignOffOutcome, so a re-saved sign-off asks nobody twice.
+      // Every step also reaches the FAIT's watchers now, merged and deduped
+      // against whoever else the step already targets.
       for (const step of ctx?.outcome?.steps ?? []) {
         if (step.kind === "sqe-approved") {
           fireFaitSignOffRequest({
@@ -251,14 +279,39 @@ export function useUpdateFaitFields() {
             role: "engineer",
             signer: prevFait.assignedEngineer,
             actor,
+            watchers: prevFait.watchers,
           });
         } else if (step.kind === "sqe-failed") {
-          fireFaitSqeFailedAlert({ target, initiator: prevFait.initiator, actor });
+          fireFaitSqeFailedAlert({
+            target,
+            initiator: prevFait.initiator,
+            actor,
+            watchers: prevFait.watchers,
+          });
         } else if (step.kind === "eng-approved" && step.kamOwed) {
           // kamNeeded gates this: with no KAM owed the chain finishes at the
           // engineer, and nobody is asked for a signature they don't owe.
-          fireFaitSignOffRequest({ target, role: "kam", signer: prevFait.kam, actor });
+          fireFaitSignOffRequest({
+            target,
+            role: "kam",
+            signer: prevFait.kam,
+            actor,
+            watchers: prevFait.watchers,
+          });
         }
+      }
+
+      // "Notify Initiator" checkbox on the Sign-off card — fire-once, only on
+      // the transition INTO checked. Tells the initiator plus every watcher
+      // that an update is available; there was no wiring behind this box at
+      // all until now (Ray, 2026-09-01).
+      if (notifyInitiatorJustChecked(prevFait, vars.fields)) {
+        fireFaitNotifyInitiatorAlert({
+          target,
+          initiator: prevFait.initiator,
+          watchers: prevFait.watchers,
+          actor,
+        });
       }
     },
     onError: (err: Error, _vars, ctx) => {
