@@ -20,13 +20,6 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "0.138.1",
-    date: "2026-09-01",
-    changes: [
-      "Coil Defect Log's table no longer boxes itself into a short scroll area with dead space below it — it now grows with the page like the Teradyne Log",
-    ],
-  },
-  {
     version: "0.138.0",
     date: "2026-09-01",
     changes: [

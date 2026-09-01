@@ -88,9 +88,9 @@ export function CoilsQcView() {
           })}
           {filtered.length === 0 && <p className="rounded-lg border border-border px-4 py-10 text-center text-sm text-fg-muted">No coil defect records match this search.</p>}
         </div>
-        <div className="scroll-elegant hidden overflow-x-auto rounded-lg border border-border bg-surface sm:block">
+        <div className="hidden max-h-[55vh] overflow-auto rounded-lg border border-border bg-surface sm:block">
           <table className="w-full min-w-[860px] text-left text-sm">
-            <thead className="bg-surface-2 text-xs uppercase tracking-wide text-fg-muted">
+            <thead className="sticky top-0 z-10 bg-surface-2 text-xs uppercase tracking-wide text-fg-muted">
               <tr>
                 <th className="px-4 py-3">Date</th><th className="px-4 py-3">Coil part no.</th>
                 <th className="px-4 py-3 text-right">Failed</th>
