@@ -85,6 +85,11 @@ export function OpenOrdersView() {
   // screen look like a job to do rather than a shelf to take a file off.
   const [toolOpen, setToolOpen] = useState(false);
 
+  // Raw extracts are the evidence behind a run, not something most visits need
+  // to see — collapsed by default so the screen doesn't lead with a folder
+  // full of source spreadsheets (Ray, 2026-09-01).
+  const [rawUploadsOpen, setRawUploadsOpen] = useState(false);
+
   const download = useDownloadOpenOrdersFile();
   const downloadZip = useDownloadWeekAsZip();
 
@@ -279,26 +284,40 @@ export function OpenOrdersView() {
 
       {rawUploads.length > 0 && (
         <section className="flex flex-col gap-3">
-          <SectionHeading
-            icon={<Upload className="h-4 w-4" />}
-            title="Raw extracts"
-            note="The SAP exports the reports were built from, kept as the evidence behind each run."
-          />
-          <ul className="flex flex-col divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface">
-            {rawUploads.slice(0, 6).map((file) => (
-              <li key={file.id} className="flex items-center gap-3 px-4 py-2.5">
-                <Upload className="h-4 w-4 shrink-0 text-fg-muted" />
-                <div className="min-w-0 flex-1">
-                  <span className="block truncate text-sm text-fg">{file.name}</span>
-                  <span className="text-xs text-fg-muted">{formatWhen(file.lastModified)}</span>
-                </div>
-                <DownloadButton
-                  onClick={() => download.mutate({ id: file.id, name: file.name })}
-                  busy={download.isPending}
-                />
-              </li>
-            ))}
-          </ul>
+          <button
+            type="button"
+            onClick={() => setRawUploadsOpen((open) => !open)}
+            aria-expanded={rawUploadsOpen}
+            className="flex w-full items-center gap-3 overflow-hidden rounded-lg border border-border bg-surface px-4 py-3 text-left transition-colors hover:bg-surface-2"
+          >
+            <Upload className={cn("h-4 w-4 shrink-0", rawUploadsOpen ? "text-accent" : "text-fg-muted")} />
+            <div className="min-w-0 flex-1">
+              <span className="block text-sm font-medium text-fg">Raw extracts</span>
+              <span className="block text-xs text-fg-muted">
+                The SAP exports the reports were built from, kept as the evidence behind each run.
+              </span>
+            </div>
+            <span className="text-xs text-fg-muted">
+              {rawUploads.length} file{rawUploads.length === 1 ? "" : "s"}
+            </span>
+          </button>
+          {rawUploadsOpen && (
+            <ul className="flex flex-col divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface">
+              {rawUploads.slice(0, 6).map((file) => (
+                <li key={file.id} className="flex items-center gap-3 px-4 py-2.5">
+                  <Upload className="h-4 w-4 shrink-0 text-fg-muted" />
+                  <div className="min-w-0 flex-1">
+                    <span className="block truncate text-sm text-fg">{file.name}</span>
+                    <span className="text-xs text-fg-muted">{formatWhen(file.lastModified)}</span>
+                  </div>
+                  <DownloadButton
+                    onClick={() => download.mutate({ id: file.id, name: file.name })}
+                    busy={download.isPending}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
       )}
     </div>

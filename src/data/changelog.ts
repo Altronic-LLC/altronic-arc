@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.138.1",
+    date: "2026-09-01",
+    changes: [
+      "Open Orders: the Raw extracts folder now starts collapsed and opens on click, instead of always showing its files",
+    ],
+  },
+  {
     version: "0.138.0",
     date: "2026-09-01",
     changes: [
