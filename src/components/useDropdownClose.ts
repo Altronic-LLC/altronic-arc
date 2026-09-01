@@ -57,12 +57,14 @@ export function useDropdownClose(
   open: boolean,
   containerRef: React.RefObject<HTMLElement | null>,
   close: () => void,
+  panelRef?: React.RefObject<HTMLElement | null>,
 ): void {
   useEffect(() => {
     if (!open) return;
     claimOpenDropdown(close);
     function onDocMouseDown(e: MouseEvent) {
-      if (!containerRef.current?.contains(e.target as Node)) close();
+      const target = e.target as Node;
+      if (!containerRef.current?.contains(target) && !panelRef?.current?.contains(target)) close();
     }
     document.addEventListener("mousedown", onDocMouseDown);
     return () => {
@@ -117,11 +119,12 @@ export function dropdownKeyHandler(open: boolean, close: () => void) {
 export function dropdownBlurHandler(
   containerRef: React.RefObject<HTMLElement | null>,
   close: () => void,
+  panelRef?: React.RefObject<HTMLElement | null>,
 ) {
   return (e: React.FocusEvent) => {
     const next = e.relatedTarget as Node | null;
     if (!next) return;
-    if (containerRef.current?.contains(next)) return;
+    if (containerRef.current?.contains(next) || panelRef?.current?.contains(next)) return;
     close();
   };
 }
