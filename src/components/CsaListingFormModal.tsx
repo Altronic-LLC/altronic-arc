@@ -237,7 +237,7 @@ export function CsaListingFormModal({ listing, onClose }: CsaListingFormModalPro
 }
 
 const TEXTAREA_CLASS =
-  "rounded-md border border-border bg-bg px-3 py-2 text-sm text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20";
+  "rounded-md border border-border bg-bg px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm";
 
 function FieldLabel({ label, children }: { label: string; children: React.ReactNode }) {
   return (

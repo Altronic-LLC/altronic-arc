@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.141.0",
+    date: "2026-09-01",
+    changes: [
+      "Fixed several forms across the app zooming in unexpectedly when you tap a text field on an iPhone",
+      "QC Time Tracking now shows a card per entry on a phone instead of a cramped table, with every field labelled",
+    ],
+  },
+  {
     version: "0.140.1",
     date: "2026-09-01",
     changes: [

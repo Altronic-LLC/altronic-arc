@@ -396,7 +396,7 @@ export function TeradyneLogFormModal({ entry, onClose }: TeradyneLogFormModalPro
               onChange={(e) => setOperatorNotes(e.target.value)}
               rows={3}
               placeholder="What the operator saw…"
-              className="rounded-md border border-border bg-bg px-3 py-2 text-sm text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+              className="rounded-md border border-border bg-bg px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
               disabled={busy}
             />
           </FieldLabel>

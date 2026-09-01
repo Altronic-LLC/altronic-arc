@@ -16,7 +16,7 @@ vi.mock("@/components/QcTimeEntryFormModal", () => ({
   ),
 }));
 
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
 import type { QcTimeEntry } from "@/types/task";
@@ -57,12 +57,16 @@ describe("QcTimeTrackingView", () => {
     expect(screen.getByText(/no entries yet/i)).toBeInTheDocument();
   });
 
+  // The view renders BOTH a phone card list and a desktop table for the same
+  // rows (CSS hides one or the other; jsdom has no viewport, so both are in
+  // the DOM at once) — every text assertion below expects at least one match
+  // rather than exactly one.
   it("lists an entry, falling back to the raw text when nobody resolved", () => {
     state.entries = [makeEntry(), makeEntry({ id: 2, performedBy: [], performedByRaw: "Somebody" })];
     state.isLoading = false;
     renderWithProviders(<QcTimeTrackingView />);
-    expect(screen.getByText("Kim Tech")).toBeInTheDocument();
-    expect(screen.getByText("Somebody")).toBeInTheDocument();
+    expect(screen.getAllByText("Kim Tech").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Somebody").length).toBeGreaterThan(0);
   });
 
   it("filters by search across project, SAP#, serial#, performed by and notes", async () => {
@@ -75,8 +79,8 @@ describe("QcTimeTrackingView", () => {
     await userEvent.type(screen.getByPlaceholderText(/search project/i), "CPU-XL");
     // SearchInput debounces onChange 250ms after the last keystroke, so the
     // filtered-out row disappearing is the actual signal to wait on.
-    await waitFor(() => expect(screen.queryByText("DE-4000 Refresh")).not.toBeInTheDocument());
-    expect(screen.getByText("CPU-XL Standard")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryAllByText("DE-4000 Refresh")).toHaveLength(0));
+    expect(screen.getAllByText("CPU-XL Standard").length).toBeGreaterThan(0);
   });
 
   it("opens the New Entry modal in create mode", async () => {
@@ -91,7 +95,10 @@ describe("QcTimeTrackingView", () => {
     state.entries = [makeEntry()];
     state.isLoading = false;
     renderWithProviders(<QcTimeTrackingView />);
-    await userEvent.click(screen.getByText("DE-4000 Refresh"));
+    // Both the mobile card and the desktop row's Edit button share this
+    // accessible name — either should open the same modal.
+    const [editButton] = screen.getAllByRole("button", { name: "Edit entry for DE-4000 Refresh" });
+    await userEvent.click(editButton);
     expect(screen.getByRole("dialog", { name: "Edit QC time entry" })).toBeInTheDocument();
   });
 
@@ -100,6 +107,39 @@ describe("QcTimeTrackingView", () => {
     state.isLoading = false;
     renderWithProviders(<QcTimeTrackingView />);
     expect(screen.getByText(/Show all 305/)).toBeInTheDocument();
+  });
+});
+
+describe("the phone card layout", () => {
+  // The table's eight columns don't fit a narrow screen — even truncated,
+  // it read as a wall of dashes (reported on an iPhone). Every populated
+  // field gets its own labelled row on a card instead.
+  it("renders a card per entry with a labelled field for everything populated", () => {
+    state.entries = [makeEntry()];
+    state.isLoading = false;
+    renderWithProviders(<QcTimeTrackingView />);
+    // The mobile card itself is the labelled button (unlike the desktop row,
+    // whose Edit button is a small pencil icon inside the row) — it's the
+    // first match.
+    const [card] = screen.getAllByRole("button", { name: "Edit entry for DE-4000 Refresh" });
+    expect(card).toHaveTextContent("Week");
+    expect(card).toHaveTextContent("35");
+    expect(card).toHaveTextContent("SAP#");
+    expect(card).toHaveTextContent("SAP-1");
+    expect(card).toHaveTextContent("Performed By");
+    expect(card).toHaveTextContent("Kim Tech");
+  });
+
+  it("shows a dash for a field the real data frequently leaves blank", () => {
+    state.entries = [
+      makeEntry({ week: null, sapNo: "", performedBy: [], performedByRaw: "", hoursRaw: "" }),
+    ];
+    state.isLoading = false;
+    renderWithProviders(<QcTimeTrackingView />);
+    const [card] = screen.getAllByRole("button", { name: "Edit entry for DE-4000 Refresh" });
+    // dl/dt/dd renders each blank field's value as an em dash — assert at
+    // least one shows up rather than pinning an exact count.
+    expect(within(card).getAllByText("—").length).toBeGreaterThan(0);
   });
 });
 

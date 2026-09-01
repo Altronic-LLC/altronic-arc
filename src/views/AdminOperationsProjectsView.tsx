@@ -158,7 +158,7 @@ export function AdminOperationsProjectsView() {
             onChange={(e) => setNewDescription(e.target.value)}
             placeholder="What this project is for…"
             rows={2}
-            className="rounded-md border border-border bg-bg px-3 py-2 text-sm text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+            className="rounded-md border border-border bg-bg px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
             disabled={createProject.isPending}
           />
         </label>
@@ -273,7 +273,7 @@ function ProjectRow({
           }}
           placeholder="Description (optional)"
           rows={2}
-          className="rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+          className="rounded-md border border-border bg-bg px-2 py-1.5 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
         />
       </div>
     );

@@ -118,28 +118,39 @@ export function QcTimeTrackingView() {
               : "No entries yet. Click \"New Entry\" to log the first."}
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-surface-2 text-[11px] uppercase tracking-wider text-fg-muted">
-                <tr>
-                  <th className="px-4 py-2 font-semibold">Project</th>
-                  <th className="px-4 py-2 font-semibold">Week</th>
-                  <th className="px-4 py-2 font-semibold">Date Started</th>
-                  <th className="px-4 py-2 font-semibold">SAP#</th>
-                  <th className="px-4 py-2 font-semibold">Serial#</th>
-                  <th className="px-4 py-2 font-semibold">Performed By</th>
-                  <th className="px-4 py-2 font-semibold">Hours</th>
-                  <th className="px-4 py-2 font-semibold">Effort Type</th>
-                  <th className="px-4 py-2"><span className="sr-only">Edit</span></th>
-                </tr>
-              </thead>
-              <tbody>
-                {visible.map((entry) => (
-                  <Row key={entry.id} entry={entry} onEdit={() => setEditing(entry)} />
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <>
+            {/* Phone: a card per entry — the table's eight columns don't fit a
+                narrow screen even truncated, so most of them would render as
+                a wall of dashes. Every field that has a value gets its own
+                labelled row instead. */}
+            <div className="divide-y divide-border sm:hidden">
+              {visible.map((entry) => (
+                <EntryCard key={entry.id} entry={entry} onEdit={() => setEditing(entry)} />
+              ))}
+            </div>
+            <div className="hidden overflow-x-auto sm:block">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-surface-2 text-[11px] uppercase tracking-wider text-fg-muted">
+                  <tr>
+                    <th className="px-4 py-2 font-semibold">Project</th>
+                    <th className="px-4 py-2 font-semibold">Week</th>
+                    <th className="px-4 py-2 font-semibold">Date Started</th>
+                    <th className="px-4 py-2 font-semibold">SAP#</th>
+                    <th className="px-4 py-2 font-semibold">Serial#</th>
+                    <th className="px-4 py-2 font-semibold">Performed By</th>
+                    <th className="px-4 py-2 font-semibold">Hours</th>
+                    <th className="px-4 py-2 font-semibold">Effort Type</th>
+                    <th className="px-4 py-2"><span className="sr-only">Edit</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visible.map((entry) => (
+                    <Row key={entry.id} entry={entry} onEdit={() => setEditing(entry)} />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 
@@ -149,11 +160,13 @@ export function QcTimeTrackingView() {
   );
 }
 
+function performedByLabel(entry: QcTimeEntry): string {
+  return entry.performedBy.length > 0
+    ? entry.performedBy.map((p) => p.displayName).join(", ")
+    : entry.performedByRaw || "—";
+}
+
 function Row({ entry, onEdit }: { entry: QcTimeEntry; onEdit: () => void }) {
-  const performedBy =
-    entry.performedBy.length > 0
-      ? entry.performedBy.map((p) => p.displayName).join(", ")
-      : entry.performedByRaw || "—";
   return (
     <tr
       onClick={onEdit}
@@ -168,7 +181,7 @@ function Row({ entry, onEdit }: { entry: QcTimeEntry; onEdit: () => void }) {
       </td>
       <td className="whitespace-nowrap px-4 py-2 text-fg-muted">{entry.sapNo || "—"}</td>
       <td className="whitespace-nowrap px-4 py-2 text-fg-muted">{entry.serialNo || "—"}</td>
-      <td className="whitespace-nowrap px-4 py-2 text-fg-muted">{performedBy}</td>
+      <td className="whitespace-nowrap px-4 py-2 text-fg-muted">{performedByLabel(entry)}</td>
       <td className="whitespace-nowrap px-4 py-2 text-fg-muted">{entry.hoursRaw || "—"}</td>
       <td className="whitespace-nowrap px-4 py-2 text-fg-muted">{entry.effortType ?? "—"}</td>
       <td className="px-4 py-2">
@@ -185,5 +198,39 @@ function Row({ entry, onEdit }: { entry: QcTimeEntry; onEdit: () => void }) {
         </button>
       </td>
     </tr>
+  );
+}
+
+/** One entry, phone layout — every populated field gets its own labelled row. */
+function EntryCard({ entry, onEdit }: { entry: QcTimeEntry; onEdit: () => void }) {
+  const rows: Array<[string, string]> = [
+    ["Week", entry.week !== null ? String(entry.week) : "—"],
+    ["Date Started", formatSpDate(entry.dateStarted)],
+    ["SAP#", entry.sapNo || "—"],
+    ["Serial#", entry.serialNo || "—"],
+    ["Performed By", performedByLabel(entry)],
+    ["Hours", entry.hoursRaw || "—"],
+    ["Effort Type", entry.effortType ?? "—"],
+  ];
+  return (
+    <button
+      type="button"
+      onClick={onEdit}
+      aria-label={`Edit entry for ${entry.project || "this project"}`}
+      className="flex w-full flex-col gap-2 px-4 py-3 text-left transition-colors hover:bg-surface-2"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <span className="font-medium text-fg">{entry.project || "(no project)"}</span>
+        <Pencil className="h-4 w-4 shrink-0 text-fg-muted" />
+      </div>
+      <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
+        {rows.map(([label, value]) => (
+          <div key={label} className="contents">
+            <dt className="text-fg-muted">{label}</dt>
+            <dd className="truncate text-right text-fg">{value}</dd>
+          </div>
+        ))}
+      </dl>
+    </button>
   );
 }

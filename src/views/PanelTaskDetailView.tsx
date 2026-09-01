@@ -459,7 +459,7 @@ function DescriptionCard({
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           rows={5}
-          className="w-full resize-y rounded-md border border-border bg-bg p-3 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+          className="w-full resize-y rounded-md border border-border bg-bg p-3 text-base text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
         />
       ) : value ? (
         <DescriptionView

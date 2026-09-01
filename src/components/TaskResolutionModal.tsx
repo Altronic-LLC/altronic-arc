@@ -74,7 +74,7 @@ export function TaskResolutionModal({
             onChange={(e) => setText(e.target.value)}
             rows={5}
             placeholder="Describe how this was resolved — the fix, the outcome, any part numbers or references…"
-            className="w-full resize-y rounded-md border border-border bg-surface px-3 py-2 text-sm text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+            className="w-full resize-y rounded-md border border-border bg-surface px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
           />
         </div>
 

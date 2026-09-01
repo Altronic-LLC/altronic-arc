@@ -709,7 +709,7 @@ export function IgnitionQcView() {
               value={draft.comments}
               onChange={(e) => updateField("comments", e.target.value)}
               rows={5}
-              className="min-h-32 w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-fg"
+              className="min-h-32 w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-base text-fg sm:text-sm"
             />
           </label>
           </fieldset>
