@@ -1,10 +1,14 @@
 import { describe, it, expect } from "vitest";
 import ExcelJS from "exceljs";
-import { buildCustomerWorkbook, buildMasterWorkbook } from "./openOrdersWorkbook";
+import {
+  buildCombinedCustomerWorkbook,
+  buildCustomerWorkbook,
+  buildMasterWorkbook,
+} from "./openOrdersWorkbook";
 import { RAW_LAYOUT, layoutFromColumns, type RawColumnOrder } from "./openOrdersFields";
 import { MOCK_OPEN_ORDER_ACCOUNTS, MOCK_OPEN_ORDER_LINES, MOCK_RUN_DATE } from "@/data/openOrdersMockData";
 import { customerReport } from "./openOrders";
-import type { OpenOrderCustomerAccount } from "@/types/task";
+import type { OpenOrderCustomerAccount, OpenOrderCustomerReport } from "@/types/task";
 
 // =============================================================================
 // The workbooks, built and then read back.
@@ -21,6 +25,16 @@ import type { OpenOrderCustomerAccount } from "@/types/task";
 //
 // Plus the branding: ALTRONIC is monochrome black/white with gold as an accent.
 // Cooper Red appearing anywhere in here is the wrong brand.
+//
+// **Checked: the mm/dd/yyyy `numFmt` change (2026-09-01) can't break a
+// round-trip read.** `numFmt` only controls how Excel DISPLAYS a cell — the
+// underlying stored value is still a real date, and ExcelJS hands it back as
+// a JS `Date` on read regardless of the format string (verified directly:
+// writing a Date cell with `numFmt: "mm/dd/yyyy"` and reading the workbook
+// back returns `value instanceof Date === true`). `lib/openOrdersParse.ts`'s
+// `date()`/`dateCellOnly()` check `value instanceof Date` first, before ever
+// looking at a format string, so re-uploading one of these generated
+// workbooks parses its dates exactly as before the format changed.
 // =============================================================================
 
 const ctx = { runDate: MOCK_RUN_DATE, generatedBy: "Test" };
@@ -131,6 +145,19 @@ describe("the master workbook", () => {
     expect(totals.getCell(salesOrderCol).value).toBeFalsy();
     const openValueCol = RAW_LAYOUT.findIndex((c) => c.header === "Open Order Value") + 1;
     expect(typeof totals.getCell(openValueCol).value).toBe("number");
+  });
+
+  // mm/dd/yyyy, at Ray's request (2026-09-01) — every date column, not the
+  // run-date stamp in the title block (that one stays yyyy-mm-dd, see the
+  // DATE constant in openOrdersWorkbook.ts).
+  it("formats every date column as mm/dd/yyyy", async () => {
+    const ws = (await master()).getWorksheet("Open Orders")!;
+    const row = headerRowOf(ws);
+    for (const header of ["Created On", "Ship Date", "Customer required date"]) {
+      const col = RAW_LAYOUT.findIndex((c) => c.header === header) + 1;
+      expect(col).toBeGreaterThan(0);
+      expect(ws.getRow(row + 1).getCell(col).numFmt).toBe("mm/dd/yyyy");
+    }
   });
 });
 
@@ -298,6 +325,18 @@ describe("a customer workbook", () => {
     expect(headersOf(ws, headerRowOf(ws))).toEqual(RAW_LAYOUT.map((c) => c.header));
   });
 
+  // Same format as the master's table — the customer's sheet must not drift
+  // from what the raw/master table shows for the same columns.
+  it("formats every date column as mm/dd/yyyy, same as the master", async () => {
+    const ws = (await build()).getWorksheet("Open Orders")!;
+    const row = headerRowOf(ws);
+    for (const header of ["Created On", "Ship Date", "Customer required date"]) {
+      const col = RAW_LAYOUT.findIndex((c) => c.header === header) + 1;
+      expect(col).toBeGreaterThan(0);
+      expect(ws.getRow(row + 1).getCell(col).numFmt).toBe("mm/dd/yyyy");
+    }
+  });
+
   // Standard orders first, repairs in their own table below — asked for
   // explicitly and separately from everything else.
   it("puts the repair orders in a second table below the first", async () => {
@@ -336,5 +375,123 @@ describe("a customer workbook", () => {
       if (/not priced in this report/i.test(String(row.getCell(1).value ?? ""))) said = true;
     });
     expect(said).toBe(true);
+  });
+});
+
+describe("a combined workbook (two accounts, one tab each)", () => {
+  const accountA: OpenOrderCustomerAccount = MOCK_OPEN_ORDER_ACCOUNTS[0];
+  const accountB: OpenOrderCustomerAccount = MOCK_OPEN_ORDER_ACCOUNTS[1];
+  const reportA = customerReport(accountA, MOCK_OPEN_ORDER_LINES, MOCK_RUN_DATE);
+  const reportB = customerReport(accountB, MOCK_OPEN_ORDER_LINES, MOCK_RUN_DATE);
+
+  async function build(): Promise<ExcelJS.Workbook> {
+    return buildCombinedCustomerWorkbook(ExcelJS, [reportA, reportB], ctx);
+  }
+
+  it("puts each account on its own sheet, named after the sold-to number", async () => {
+    const wb = await build();
+    expect(wb.worksheets.map((w) => w.name)).toEqual([reportA.soldTo, reportB.soldTo]);
+  });
+
+  it("renders each sheet exactly like a standalone customer workbook", async () => {
+    const wb = await build();
+    const standalone = await buildCustomerWorkbook(ExcelJS, reportA, accountA, ctx);
+    const combinedSheet = wb.getWorksheet(reportA.soldTo)!;
+    const standaloneSheet = standalone.getWorksheet("Open Orders")!;
+    expect(headersOf(combinedSheet, headerRowOf(combinedSheet))).toEqual(
+      headersOf(standaloneSheet, headerRowOf(standaloneSheet)),
+    );
+  });
+
+  it("shows only that account's lines on each tab — never the other account's", async () => {
+    const wb = await build();
+    const nameCol = RAW_LAYOUT.findIndex((c) => c.header === "Customer Name") + 1;
+    const namesOn = (sheetName: string): Set<string> => {
+      const ws = wb.getWorksheet(sheetName)!;
+      const names = new Set<string>();
+      ws.eachRow({ includeEmpty: false }, (row) => {
+        const v = row.getCell(nameCol).value;
+        if (typeof v === "string" && v && v !== "Customer Name") names.add(v);
+      });
+      return names;
+    };
+    const namesA = namesOn(reportA.soldTo);
+    const namesB = namesOn(reportB.soldTo);
+    // Each tab is one customer's own lines — a single distinct name — and the
+    // two tabs don't share it, i.e. neither account's rows leaked onto the
+    // other's sheet.
+    expect(namesA.size).toBe(1);
+    expect(namesB.size).toBe(1);
+    expect([...namesA]).not.toEqual([...namesB]);
+  });
+
+  it("keeps each account's own repair split — does not merge the two accounts' figures", async () => {
+    const wb = await build();
+    for (const sheetName of [reportA.soldTo, reportB.soldTo]) {
+      const ws = wb.getWorksheet(sheetName)!;
+      const headings: string[] = [];
+      ws.eachRow({ includeEmpty: false }, (row) => {
+        const first = String(row.getCell(1).value ?? "");
+        if (/^OPEN ORDERS \(|^REPAIR ORDERS \(/.test(first)) headings.push(first);
+      });
+      expect(headings).toHaveLength(2);
+    }
+  });
+
+  it("gives two accounts sharing a sold-to number two distinct sheet names", async () => {
+    // A data-entry duplicate must not collide silently — ExcelJS throws on a
+    // second addWorksheet() with the same name, which would surface as a
+    // build failure with no clue why.
+    const clash: OpenOrderCustomerReport = { ...reportB, soldTo: reportA.soldTo };
+    const wb = await buildCombinedCustomerWorkbook(ExcelJS, [reportA, clash], ctx);
+    const names = wb.worksheets.map((w) => w.name);
+    expect(new Set(names).size).toBe(2);
+    expect(names[0]).toBe(reportA.soldTo);
+    expect(names[1]).not.toBe(reportA.soldTo);
+  });
+
+  // The suffix (" (2)") is computed and measured BEFORE the base is sliced to
+  // fit — so even a sold-to already at Excel's 31-char sheet-name ceiling
+  // still leaves room for the suffix rather than producing a name over the
+  // limit (which ExcelJS would refuse). Checked directly against the pure
+  // uniqueSheetNames logic; this is the realistic worst case, since
+  // buildCombinedCustomerWorkbook only ever takes exactly two reports.
+  it("keeps a clashing sheet name at or under 31 characters even when the base is already at the limit", async () => {
+    const longSoldTo = "A".repeat(31);
+    const clash: OpenOrderCustomerReport = { ...reportB, soldTo: longSoldTo };
+    const wb = await buildCombinedCustomerWorkbook(
+      ExcelJS,
+      [{ ...reportA, soldTo: longSoldTo }, clash],
+      ctx,
+    );
+    const names = wb.worksheets.map((w) => w.name);
+    expect(new Set(names).size).toBe(2);
+    for (const name of names) expect(name.length).toBeLessThanOrEqual(31);
+    expect(names[1]).toMatch(/\(2\)$/);
+  });
+
+  // ExcelJS reserves the EXACT literal "History" as a sheet name and throws
+  // synchronously on it (`node_modules/exceljs/lib/doc/worksheet.js`). A
+  // sold-to of "History" is not realistic, but a CUSTOMER NAME of "History"
+  // reaches this path too when soldTo is blank — worth covering both.
+  it("renames the reserved sheet name \"History\" rather than letting ExcelJS throw", async () => {
+    const clash: OpenOrderCustomerReport = { ...reportB, soldTo: "History" };
+    const wb = await buildCombinedCustomerWorkbook(ExcelJS, [reportA, clash], ctx);
+    const names = wb.worksheets.map((w) => w.name);
+    expect(names).not.toContain("History");
+    expect(new Set(names).size).toBe(2);
+  });
+
+  // ExcelJS also throws if a sheet name starts or ends with a single quote.
+  // A customer name like "O'Malley's" ending in an apostrophe hits this once
+  // trimmed to fit — strip it, don't just truncate.
+  it("strips a leading or trailing single quote rather than letting ExcelJS throw", async () => {
+    const clash: OpenOrderCustomerReport = { ...reportB, soldTo: "O'Malley's" };
+    const wb = await buildCombinedCustomerWorkbook(ExcelJS, [reportA, clash], ctx);
+    const names = wb.worksheets.map((w) => w.name);
+    for (const name of names) {
+      expect(name.startsWith("'")).toBe(false);
+      expect(name.endsWith("'")).toBe(false);
+    }
   });
 });

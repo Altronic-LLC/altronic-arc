@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   AlertTriangle,
+  Archive,
   CalendarClock,
   Download,
   FileSpreadsheet,
@@ -14,6 +15,7 @@ import {
 } from "lucide-react";
 import {
   useDownloadOpenOrdersFile,
+  useDownloadWeekAsZip,
   useGenerateOpenOrders,
   useMasterReports,
   useOpenOrdersWeekFiles,
@@ -84,6 +86,7 @@ export function OpenOrdersView() {
   const [toolOpen, setToolOpen] = useState(false);
 
   const download = useDownloadOpenOrdersFile();
+  const downloadZip = useDownloadWeekAsZip();
 
   if (accountsLoading || mastersLoading || weeksLoading) return <LoadingTasks />;
 
@@ -181,23 +184,52 @@ export function OpenOrdersView() {
                           This folder is empty.
                         </p>
                       ) : (
-                        <ul className="divide-y divide-border">
-                          {weekFiles.map((file) => (
-                            <li key={file.id} className="flex items-center gap-3 px-4 py-2.5">
-                              <FileSpreadsheet className="h-4 w-4 shrink-0 text-superior-blue" />
-                              <div className="min-w-0 flex-1">
-                                <span className="block truncate text-sm text-fg">{file.name}</span>
-                                <span className="text-xs text-fg-muted">
-                                  {formatSize(file.sizeBytes)}
-                                </span>
-                              </div>
-                              <DownloadButton
-                                onClick={() => download.mutate({ id: file.id, name: file.name })}
-                                busy={download.isPending}
-                              />
-                            </li>
-                          ))}
-                        </ul>
+                        <>
+                          {/* Bulk download sits ABOVE the list, not beside a
+                              row — it covers every file below it, and putting
+                              it next to one row would read as downloading
+                              just that customer's file. Individual downloads
+                              stay on each row for the common case: sending
+                              one customer their own workbook. */}
+                          <div className="flex items-center justify-between gap-3 border-b border-border bg-surface-2/50 px-4 py-2">
+                            <span className="text-xs text-fg-muted">
+                              {weekFiles.length} file{weekFiles.length === 1 ? "" : "s"} in this
+                              folder
+                            </span>
+                            <button
+                              type="button"
+                              disabled={downloadZip.isPending}
+                              onClick={() =>
+                                downloadZip.mutate({ weekName: week.name, files: weekFiles })
+                              }
+                              className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-2.5 py-1.5 text-xs font-medium text-white shadow-sm transition-all hover:bg-accent/90 disabled:opacity-60"
+                            >
+                              <Archive className="h-3.5 w-3.5" />
+                              {downloadZip.isPending && downloadZip.progress
+                                ? `Zipping ${downloadZip.progress.done}/${downloadZip.progress.total}…`
+                                : "Download all"}
+                            </button>
+                          </div>
+                          <ul className="divide-y divide-border">
+                            {weekFiles.map((file) => (
+                              <li key={file.id} className="flex items-center gap-3 px-4 py-2.5">
+                                <FileSpreadsheet className="h-4 w-4 shrink-0 text-superior-blue" />
+                                <div className="min-w-0 flex-1">
+                                  <span className="block truncate text-sm text-fg">
+                                    {file.name}
+                                  </span>
+                                  <span className="text-xs text-fg-muted">
+                                    {formatSize(file.sizeBytes)}
+                                  </span>
+                                </div>
+                                <DownloadButton
+                                  onClick={() => download.mutate({ id: file.id, name: file.name })}
+                                  busy={download.isPending}
+                                />
+                              </li>
+                            ))}
+                          </ul>
+                        </>
                       )}
                     </div>
                   )}

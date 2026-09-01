@@ -20,7 +20,7 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "0.134.0",
+    version: "0.135.0",
     date: "2026-09-01",
     changes: [
       "Coil Defect Log is now available under Coils, showing failures and every named defect count",
@@ -28,6 +28,9 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Other fault names load from the saved QCCoils defect table, and Coil part numbers and Other defect types can be added through their plus controls",
       "The entry form keeps the focus on defects: Produced is hidden, Other fault details appear only when needed, and their picker opens clear of the dialog controls",
       "The Coil Defect Log keeps its long table in its own scroll area, while phones use compact record cards and a full-screen entry form",
+      "Open Orders: combine two sold-to accounts into one workbook, each on its own tab — use Combine… next to Build report on the customer list",
+      "Open Orders: download every customer workbook for a week in one zip, alongside the existing per-file downloads",
+      "Open Orders: dates in both the raw/master table and every customer workbook now read mm/dd/yyyy",
     ],
   },
   {

@@ -315,6 +315,35 @@ export function customerWorkbookName(customerName: string, runDate: Date, maxLen
 }
 
 /**
+ * `<Name1>_and_<Name2>_Open_Orders_YYYY-MM-DD.xlsx` for a combined two-account
+ * report. Each name gets a smaller share of `maxLength` than a solo workbook
+ * would, since there are two of them — the date is still never truncated.
+ */
+export function combinedWorkbookName(
+  customerNames: [string, string],
+  runDate: Date,
+  maxLength = 100,
+): string {
+  const suffix = `_Open_Orders_${runDateStamp(runDate)}.xlsx`;
+  const clean = (name: string, room: number) => {
+    const cleaned = name
+      .replace(ILLEGAL_FILENAME, "")
+      .replace(/[.\s]+$/g, "")
+      .trim()
+      .replace(/\s+/g, "_")
+      .replace(/_+/g, "_")
+      .replace(/^_|_$/g, "");
+    const base = cleaned || "Customer";
+    return base.slice(0, room).replace(/_+$/, "");
+  };
+  const room = Math.max(2, maxLength - suffix.length - "_and_".length);
+  const perName = Math.max(1, Math.floor(room / 2));
+  const a = clean(customerNames[0], perName);
+  const b = clean(customerNames[1], perName);
+  return `${a}_and_${b}${suffix}`;
+}
+
+/**
  * The run date out of a master workbook's filename.
  *
  * How a one-off report for a newly added customer works out which week it

@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   AlertTriangle,
   ArrowLeft,
   Check,
+  Combine,
   FileSpreadsheet,
   Lock,
   Pencil,
@@ -21,6 +22,7 @@ import {
   useUpdateOpenOrdersCustomer,
 } from "@/hooks/useOpenOrdersCustomers";
 import {
+  useGenerateCombinedCustomerReport,
   useGenerateCustomerReport,
   useParseExtract,
 } from "@/hooks/useOpenOrdersReports";
@@ -28,6 +30,7 @@ import { SP_OPEN_ORDERS_CUSTOMERS_LIST_ID, USE_MOCK } from "@/api/config";
 import { customerRollup, sameAccount } from "@/lib/openOrders";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { ChoicePills } from "@/components/ChoicePills";
+import { SingleSelect } from "@/components/SearchableSelect";
 import type {
   OpenOrderCustomerAccount,
   OpenOrderCustomerAccountInput,
@@ -68,11 +71,17 @@ export function OpenOrdersCustomersView() {
   const update = useUpdateOpenOrdersCustomer();
   const remove = useDeleteOpenOrdersCustomer();
   const generateOne = useGenerateCustomerReport();
+  const generateCombined = useGenerateCombinedCustomerReport();
 
   const [editing, setEditing] = useState<number | "new" | null>(null);
   const [draft, setDraft] = useState<OpenOrderCustomerAccountInput>(EMPTY);
   const [importing, setImporting] = useState(false);
   const [search, setSearch] = useState("");
+  // Which row has its "combine with…" picker open. Exclusive — like `editing`
+  // above, only one row can be mid-action at a time, so opening one closes
+  // any other row's edit/combine state rather than stacking panels.
+  const [combining, setCombining] = useState<number | null>(null);
+  const [combineWith, setCombineWith] = useState<string | null>(null);
 
   const canEdit = access.isReportManager && configured;
   // Adding and removing are admin-only (Ray, 2026-08-25) — narrower than
@@ -96,6 +105,7 @@ export function OpenOrdersCustomersView() {
   if (isLoading) return <LoadingTasks />;
 
   function startEdit(account: OpenOrderCustomerAccount) {
+    setCombining(null);
     setEditing(account.id);
     setDraft({
       accountNumber: account.accountNumber,
@@ -103,6 +113,12 @@ export function OpenOrdersCustomersView() {
       active: account.active,
       notes: account.notes,
     });
+  }
+
+  function startCombine(accountId: number) {
+    setEditing(null);
+    setCombining(accountId);
+    setCombineWith(null);
   }
 
   function save() {
@@ -250,8 +266,8 @@ export function OpenOrdersCustomersView() {
                 />
               </li>
             ) : (
+              <Fragment key={account.id}>
               <li
-                key={account.id}
                 className="flex items-center gap-3 px-4 py-3"
               >
                 <span
@@ -302,6 +318,25 @@ export function OpenOrdersCustomersView() {
                           : "Build report"}
                       </button>
                     )}
+                    {account.active && activeCount > 1 && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          combining === account.id ? setCombining(null) : startCombine(account.id)
+                        }
+                        aria-expanded={combining === account.id}
+                        title={`Combine ${account.customerName || account.accountNumber} with a second account, each on its own tab`}
+                        className={cn(
+                          "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors",
+                          combining === account.id
+                            ? "border-accent bg-accent/10 text-accent"
+                            : "border-border bg-surface-2 text-fg-muted hover:bg-surface hover:text-fg",
+                        )}
+                      >
+                        <Combine className="h-3.5 w-3.5" />
+                        Combine…
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => startEdit(account)}
@@ -332,6 +367,23 @@ export function OpenOrdersCustomersView() {
                   </div>
                 )}
               </li>
+              {combining === account.id && (
+                <li className="border-t border-dashed border-border bg-surface-2/40 px-4 py-3">
+                  <CombinePanel
+                    account={account}
+                    others={accounts.filter(
+                      (a) => a.active && !sameAccount(a.accountNumber, account.accountNumber),
+                    )}
+                    combineWith={combineWith}
+                    setCombineWith={setCombineWith}
+                    onBuild={(other) => generateCombined.mutate([account, other])}
+                    onCancel={() => setCombining(null)}
+                    busy={generateCombined.isPending}
+                    step={generateCombined.step}
+                  />
+                </li>
+              )}
+              </Fragment>
             ),
           )}
         </ul>
@@ -396,6 +448,93 @@ function SetupNotice() {
         Everything else on the Open Orders screen keeps working meanwhile: the
         reports already in SharePoint are listed and can be downloaded.
       </p>
+    </div>
+  );
+}
+
+/**
+ * The "combine with…" panel that opens under a customer row.
+ *
+ * Builds a single workbook covering this account and a second one, each on
+ * its own tab — for one recipient who holds two sold-to numbers for what is
+ * really one customer, rather than two accounts that each need their own
+ * file. See `useGenerateCombinedCustomerReport` for why this is a direct
+ * download and never touches the OPEN ORDERS folder or the weekly run.
+ */
+function CombinePanel({
+  account,
+  others,
+  combineWith,
+  setCombineWith,
+  onBuild,
+  onCancel,
+  busy,
+  step,
+}: {
+  account: OpenOrderCustomerAccount;
+  /** Every OTHER active account — this one is excluded, and inactive accounts
+   * aren't offered: the weekly run already leaves them out, so a combined
+   * report shouldn't quietly include figures nobody else is being sent. */
+  others: OpenOrderCustomerAccount[];
+  combineWith: string | null;
+  setCombineWith: (id: string | null) => void;
+  onBuild: (other: OpenOrderCustomerAccount) => void;
+  onCancel: () => void;
+  busy: boolean;
+  step: string | null;
+}) {
+  const chosen = others.find((a) => String(a.id) === combineWith) ?? null;
+
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-xs text-fg-muted">
+        Build one workbook with{" "}
+        <strong className="text-fg">
+          {account.customerName || account.accountNumber}
+        </strong>{" "}
+        and a second account, each on its own tab. Downloaded straight to your
+        computer — nothing is filed in SharePoint or added to the weekly run.
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="w-64">
+          <SingleSelect
+            options={others.map((a) => ({
+              value: String(a.id),
+              label: a.customerName
+                ? `${a.customerName} (${a.accountNumber})`
+                : a.accountNumber,
+            }))}
+            selected={combineWith}
+            onChange={setCombineWith}
+            allLabel="Choose the second account…"
+            searchPlaceholder="Search customers…"
+            ariaLabel="Second account to combine with"
+            disabled={busy}
+          />
+        </div>
+        <button
+          type="button"
+          disabled={!chosen || busy}
+          onClick={() => chosen && onBuild(chosen)}
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-all hover:bg-accent/90 disabled:opacity-60"
+        >
+          <Combine className="h-3.5 w-3.5" />
+          {busy ? (step ?? "Working…") : "Download combined report"}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={busy}
+          className="rounded-md px-2 py-1.5 text-xs font-medium text-fg-muted transition-colors hover:text-fg disabled:opacity-60"
+        >
+          Cancel
+        </button>
+      </div>
+      {others.length === 0 && (
+        <p className="text-xs text-cooper-red">
+          There's no other active account to combine with.
+        </p>
+      )}
     </div>
   );
 }
