@@ -1349,6 +1349,15 @@ const SECTIONS: ManualSection[] = [
       "fixed",
       "floating",
       "schedule basis",
+      "hourmeter",
+      "hour meter",
+      "run hours",
+      "running hours",
+      "machine hours",
+      "every 500 hours",
+      "meter based pm",
+      "reading",
+      "stale reading",
       "next due date",
       "grace days",
       "lead time",
@@ -1359,7 +1368,7 @@ const SECTIONS: ManualSection[] = [
       "requires shutdown",
     ],
     searchText:
-      "Maintenance Schedules is the PM library - the recurring rules that produce what the Maintenance Calendar projects. A schedule carries instructions, the machine, a category and priority, a frequency (an interval plus Days, Weeks, Months or Years), a first due date, an assignee and watchers, an estimated time, grace days, lead time days, and the Requires Shutdown and LOTO Required flags. Schedule Basis is the setting that decides where the next due date comes from: Fixed takes it from the DUE date, so an annual certification stays on its date even when it is done three weeks late; Floating takes it from the COMPLETION date, so a 90-day filter change restarts from when it was actually done. Grace days say how late a job can be before it counts as overdue; lead time days say how far ahead of the due date it starts appearing. Month arithmetic is calendar-correct - 31 January plus a month is 28 February, not 2 March. An overdue schedule sorts to the top, says how late it is, and never rolls forward by itself. There is no delete: a schedule is retired by turning Active off, which stops it projecting anything while every work order it ever produced still points at something real. You can also log a completion from here for a job done off a paper round rather than from the calendar. Creating, editing and retiring a schedule needs the Admin maintenance role; logging an occurrence needs Tech or Admin; reading the library is open to everyone. Where you cannot, the control is disabled with the reason on it, and on the calendar the day-cell plus button that seeds a new schedule is not offered at all.",
+      "Maintenance Schedules is the PM library - the recurring rules that produce what the Maintenance Calendar projects. A schedule carries instructions, the machine, a category and priority, a frequency (an interval plus Days, Weeks, Months, Years or Hours), a first due date or a first due reading, an assignee and watchers, an estimated time, grace days, lead time days, and the Requires Shutdown and LOTO Required flags. Schedule Basis is the setting that decides where the next occurrence comes from: Fixed takes the next due date from the DUE date, so an annual certification stays on its date even when it is done three weeks late; Floating takes it from the COMPLETION date, so a 90-day filter change restarts from when it was actually done; Hourmeter has no date at all - it is due at a run-hours READING off the asset's hourmeter. An Hourmeter schedule is due when the asset's Current Machine Hours reaches Next Due Hours, which is the reading of the last completion plus the interval. The PM library shows it as Due at 5,200 hrs, now 5,043 hrs, 157 to go, and it only appears on the calendar on the day the reading actually passes the target - there is no estimated date, because guessing one from average usage would invent a figure nobody measured. If the asset has no hourmeter reading, or no asset is linked at all, the library says CAN'T TELL rather than showing it as not due: a schedule in that state can never come due. If the asset's row has not been edited in long enough for a whole interval to have gone by, the library warns that the reading may be stale. Grace days and lead time days are in DAYS and do not apply to an Hourmeter schedule - it is due the moment the reading reaches the target - so both boxes are disabled with the reason on them. Logging a completion on an Hourmeter schedule asks for the hourmeter reading off the machine, and the next target is worked out from the reading it was actually done at. Skipping one cannot move its target. Grace days say how late a job can be before it counts as overdue; lead time days say how far ahead of the due date it starts appearing. Month arithmetic is calendar-correct - 31 January plus a month is 28 February, not 2 March. An overdue schedule sorts to the top, says how late it is, and never rolls forward by itself. There is no delete: a schedule is retired by turning Active off, which stops it projecting anything while every work order it ever produced still points at something real. You can also log a completion from here for a job done off a paper round rather than from the calendar. Creating, editing and retiring a schedule needs the Admin maintenance role; logging an occurrence needs Tech or Admin; reading the library is open to everyone. Where you cannot, the control is disabled with the reason on it, and on the calendar the day-cell plus button that seeds a new schedule is not offered at all.",
     render: () => (
       <>
         <P>
@@ -1374,13 +1383,15 @@ const SECTIONS: ManualSection[] = [
           A schedule carries its <strong>instructions</strong>, the{" "}
           <strong>machine</strong>, a category and priority, a{" "}
           <strong>frequency</strong> (an interval plus Days / Weeks / Months /
-          Years), a <strong>first due date</strong>, an assignee and watchers, an
-          estimated time, and the <strong>Requires Shutdown</strong> and{" "}
-          <strong>LOTO Required</strong> flags for planning.
+          Years / <strong>Hours</strong>), a <strong>first due date</strong> — or,
+          on a run-hours schedule, a first due <strong>reading</strong> — an
+          assignee and watchers, an estimated time, and the{" "}
+          <strong>Requires Shutdown</strong> and <strong>LOTO Required</strong>{" "}
+          flags for planning.
         </P>
-        <H3>Fixed or Floating — where the next due date comes from</H3>
+        <H3>Fixed, Floating or Hourmeter — where the next occurrence comes from</H3>
         <P>
-          Every schedule is one or the other, and it's the setting that most
+          Every schedule is one of the three, and it's the setting that most
           changes what you see on the calendar:
         </P>
         <UL>
@@ -1396,7 +1407,77 @@ const SECTIONS: ManualSection[] = [
             days after it was <em>actually</em> done, not 90 days after it was
             supposed to happen.
           </LI>
+          <LI>
+            <strong>Hourmeter</strong> — there is <strong>no date at all</strong>.
+            The job is due at a <strong>reading</strong>: an oil change every 500
+            run hours, last done at 4,700 hours, is next due at 5,200. It becomes
+            due when the machine's <strong>Current Machine Hours</strong> reaches
+            that figure. Picking this basis sets the unit to Hours and swaps the
+            First due date for a first due <em>reading</em>.
+          </LI>
         </UL>
+        <H3>Run-hours (Hourmeter) schedules</H3>
+        <P>
+          A run-hours schedule is <strong>not on the calendar until it is
+          actually due</strong>. There is no honest date to put it on — how long
+          500 hours takes depends on how hard the machine runs — and ARC
+          deliberately does <em>not</em> estimate one from average usage, because
+          that would put a figure on the calendar nobody measured. On the day the
+          reading passes the target it appears as a chip on today, and it stays
+          there, like any overdue job, until it is logged.
+        </P>
+        <P>
+          The <strong>PM library is where you watch one coming</strong>. Instead
+          of a date, its Next due column reads{" "}
+          <strong>"Due at 5,200 hrs · now 5,043 hrs · 157 to go"</strong>, with
+          the date the asset's row was last edited underneath it.
+        </P>
+        <P>
+          <strong>A reading that is missing or out of date is the thing that
+          breaks a run-hours PM</strong>, so ARC says so out loud rather than
+          showing it as fine:
+        </P>
+        <UL>
+          <LI>
+            <strong>"Can't tell"</strong> — the asset has no hourmeter reading at
+            all, or the schedule has no asset linked. Either way it{" "}
+            <em>can never come due</em>. This is shown in red on the row, and
+            counted on the maintenance dashboard beside the number that are due.
+            Note a reading of <strong>0</strong> is a real reading off a new
+            machine, and is treated as one — it is a blank reading that is the
+            problem, not a zero.
+          </LI>
+          <LI>
+            <strong>"Reading may be stale"</strong> — the asset's row hasn't been
+            edited in long enough that a whole interval could have gone by
+            without anybody noticing, so "not due" isn't worth much. It's a rough
+            check rather than a fact: SharePoint doesn't record when an
+            individual column was last changed, so the closest signal is when the
+            asset row was last edited at all.
+          </LI>
+        </UL>
+        <P>
+          Keep <strong>Current Machine Hours</strong> up to date on the asset —
+          it's editable straight from the asset register and the asset page.
+          That one number is what makes every run-hours PM on that machine work.
+        </P>
+        <P>
+          <strong>Grace days and lead time days are in days, so they don't apply
+          here</strong> — a run-hours job is due the moment the reading reaches
+          the target. Both boxes are disabled on the form with the reason on
+          them, rather than being quietly reused as hours: three grace days is
+          not three grace hours.
+        </P>
+        <P>
+          <strong>Logging a completion asks for the reading off the machine.</strong>{" "}
+          It's filled in from the asset for you and you can correct it. The next
+          target is worked out from the reading it was <em>actually</em> done at —
+          a job due at 5,000 and done at 5,340 is next due at 5,840, so being late
+          once doesn't make it late for ever. <strong>Skipping</strong> a
+          run-hours job can't move its target (that would mean inventing a
+          reading), so it stays due until the work is done or the schedule is
+          retired.
+        </P>
         <P>
           Month arithmetic is calendar-correct, so a monthly job anchored on the
           31st lands on 28 (or 29) February rather than drifting into March.

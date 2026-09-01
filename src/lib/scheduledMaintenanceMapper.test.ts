@@ -311,3 +311,90 @@ describe("the schedule's own Department, Location and Operations project", () =>
     expect(fields).not.toHaveProperty("OperationsProjectRefLookupId");
   });
 });
+
+describe("the hourmeter columns", () => {
+  it("reads BOTH of them", () => {
+    const parts = SCHEDULED_MAINTENANCE_SELECT.split(",");
+    expect(parts).toContain("LastCompletedHours");
+    expect(parts).toContain("NextDueHours");
+  });
+
+  it("maps them, keeping ZERO as zero", () => {
+    // 0 is a real hourmeter reading off a new machine; `null` means never
+    // recorded. The whole meter path depends on the two staying different.
+    const zero = toScheduledMaintenance({
+      id: "9",
+      fields: { Title: "Run-in check", LastCompletedHours: 0, NextDueHours: 0 },
+    } as unknown as GraphListItem);
+    expect(zero.lastCompletedHours).toBe(0);
+    expect(zero.nextDueHours).toBe(0);
+  });
+
+  it("maps an absent column to null, not to zero", () => {
+    const blank = toScheduledMaintenance({
+      id: "9",
+      fields: { Title: "Calendar PM" },
+    } as unknown as GraphListItem);
+    expect(blank.lastCompletedHours).toBeNull();
+    expect(blank.nextDueHours).toBeNull();
+  });
+
+  it("writes them on a create, including a genuine zero", () => {
+    const fields = buildScheduledMaintenanceCreateFields({
+      title: "Run-in check",
+      frequencyInterval: 100,
+      frequencyUnit: "Hours",
+      scheduleBasis: "Hourmeter",
+      lastCompletedHours: 0,
+      nextDueHours: 100,
+    });
+    expect(fields.FrequencyUnit).toBe("Hours");
+    expect(fields.ScheduleBasis).toBe("Hourmeter");
+    expect(fields.LastCompletedHours).toBe(0);
+    expect(fields.NextDueHours).toBe(100);
+  });
+
+  it("omits them entirely when unset, like every other blank column", () => {
+    const fields = buildScheduledMaintenanceCreateFields({ title: "Calendar PM" });
+    expect("LastCompletedHours" in fields).toBe(false);
+    expect("NextDueHours" in fields).toBe(false);
+  });
+});
+
+describe("ordering a run-hours schedule", () => {
+  function s(over: Partial<ScheduledMaintenance>): ScheduledMaintenance {
+    return {
+      ...toScheduledMaintenance({ id: "1", fields: { Title: "x" } } as unknown as GraphListItem),
+      active: true,
+      ...over,
+    };
+  }
+
+  it("sorts a meter schedule with the undated ones, never interleaved by reading", () => {
+    // Hours and dates are different units. Ordering a meter schedule by
+    // `NextDueHours` on a date scale would put "due at 5,200 hrs" somewhere
+    // between two real dates, which means nothing.
+    const dated = s({ id: 1, nextDueDate: new Date("2026-06-01T12:00:00Z") });
+    const meter = s({
+      id: 2,
+      frequencyUnit: "Hours",
+      scheduleBasis: "Hourmeter",
+      nextDueHours: 5200,
+      // Even carrying a date, it sorts as undated.
+      nextDueDate: new Date("2026-01-01T12:00:00Z"),
+    });
+    expect([meter, dated].sort(compareScheduledMaintenance).map((x) => x.id)).toEqual([1, 2]);
+  });
+
+  it("still puts retired schedules last, meter or not", () => {
+    const activeMeter = s({ id: 1, frequencyUnit: "Hours", scheduleBasis: "Hourmeter" });
+    const retiredDated = s({
+      id: 2,
+      active: false,
+      nextDueDate: new Date("2020-01-01T12:00:00Z"),
+    });
+    expect(
+      [retiredDated, activeMeter].sort(compareScheduledMaintenance).map((x) => x.id),
+    ).toEqual([1, 2]);
+  });
+});

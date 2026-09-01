@@ -29,6 +29,7 @@ import {
   startOfUtcWeek,
   wholeDaysBetween,
   workloadByAssignee,
+  meterPmSummary,
 } from "./maintenanceMetrics";
 
 // A Wednesday, so week bucketing has a non-zero Monday offset to get wrong.
@@ -133,6 +134,8 @@ function schedule(over: Partial<ScheduledMaintenance> = {}): ScheduledMaintenanc
     firstDueDate: null,
     nextDueDate: null,
     lastCompleted: null,
+    lastCompletedHours: null,
+    nextDueHours: null,
     assignedTo: null,
     lastCompletedBy: null,
     watchers: [],
@@ -740,5 +743,126 @@ describe("schedulesForAsset", () => {
       7,
     );
     expect(rows.map((s) => s.title)).toEqual(["Alpha check", "Zebra check", "Annual service"]);
+  });
+});
+
+// =============================================================================
+// meterPmSummary — where every run-hours PM stands, plant-wide.
+//
+// The bucket that matters is `unknown`. A meter PM nobody can evaluate would
+// otherwise sit inside "not due" looking exactly like one that genuinely is not
+// needed yet, and it can never come due at all.
+// =============================================================================
+
+const METER_NOW = day("2026-09-15");
+
+/** A run-hours schedule against asset 100, due at `lastCompletedHours` + 500. */
+function meterSchedule(over: Partial<ScheduledMaintenance> = {}): ScheduledMaintenance {
+  return schedule({
+    id: over.id ?? 500,
+    title: "Engine oil change",
+    equipment: { lookupId: 100, title: "20 HP COMPRESSOR" },
+    frequencyInterval: 500,
+    frequencyUnit: "Hours",
+    scheduleBasis: "Hourmeter",
+    lastCompletedHours: 4300,
+    ...over,
+  });
+}
+
+describe("meterPmSummary", () => {
+  it("splits due, not due and can't-tell", () => {
+    const due = meterSchedule({ id: 1, title: "Due", lastCompletedHours: 4300 });
+    const notDue = meterSchedule({ id: 2, title: "Not due", lastCompletedHours: 4500 });
+    const cantTell = meterSchedule({
+      id: 3,
+      title: "No asset",
+      equipment: null,
+    });
+
+    const got = meterPmSummary(
+      [due, notDue, cantTell],
+      [asset({ lookupId: 100, currentMachineHours: 4820, modifiedAt: day("2026-09-14") })],
+      METER_NOW,
+    );
+
+    expect(got.total).toBe(3);
+    expect(got.due.map((r) => r.schedule.title)).toEqual(["Due"]);
+    expect(got.notDue.map((r) => r.schedule.title)).toEqual(["Not due"]);
+    expect(got.unknown.map((r) => r.schedule.title)).toEqual(["No asset"]);
+  });
+
+  it("puts a schedule whose asset has NO reading in can't-tell, never in not-due", () => {
+    // The silent failure this whole feature exists to surface.
+    const got = meterPmSummary(
+      [meterSchedule()],
+      [asset({ lookupId: 100, currentMachineHours: null, modifiedAt: day("2026-09-14") })],
+      METER_NOW,
+    );
+    expect(got.unknown).toHaveLength(1);
+    expect(got.unknown[0].status.reason).toBe("no-reading");
+    expect(got.notDue).toEqual([]);
+    expect(got.due).toEqual([]);
+  });
+
+  it("treats a ZERO reading as a real reading, not a missing one", () => {
+    const got = meterPmSummary(
+      [meterSchedule({ frequencyInterval: 100, lastCompletedHours: 0 })],
+      [asset({ lookupId: 100, currentMachineHours: 0, modifiedAt: day("2026-09-14") })],
+      METER_NOW,
+    );
+    expect(got.unknown).toEqual([]);
+    expect(got.notDue).toHaveLength(1);
+    expect(got.notDue[0].status.hoursRemaining).toBe(100);
+  });
+
+  it("flags a stale reading as a caveat on 'not due', not as a fourth answer", () => {
+    // `stale` is a SUBSET of `notDue` — it qualifies that answer rather than
+    // replacing it, so the two counts deliberately overlap.
+    const got = meterPmSummary(
+      [meterSchedule({ frequencyInterval: 250, lastCompletedHours: 800 })],
+      [asset({ lookupId: 100, currentMachineHours: 940, modifiedAt: day("2026-06-01") })],
+      METER_NOW,
+    );
+    expect(got.notDue).toHaveLength(1);
+    expect(got.stale).toHaveLength(1);
+    expect(got.stale[0].status.stale).toBe(true);
+  });
+
+  it("excludes retired schedules entirely", () => {
+    const got = meterPmSummary(
+      [meterSchedule({ active: false })],
+      [asset({ lookupId: 100, currentMachineHours: 99_999, modifiedAt: METER_NOW })],
+      METER_NOW,
+    );
+    expect(got.total).toBe(0);
+    expect(got.due).toEqual([]);
+    expect(got.unknown).toEqual([]);
+  });
+
+  it("ignores calendar schedules", () => {
+    const got = meterPmSummary(
+      [schedule({ id: 9, nextDueDate: day("2026-01-01") })],
+      [asset({ lookupId: 100, currentMachineHours: 4820, modifiedAt: METER_NOW })],
+      METER_NOW,
+    );
+    expect(got.total).toBe(0);
+  });
+
+  it("orders each bucket by how close it is, furthest past due first", () => {
+    const past = meterSchedule({ id: 1, title: "Well past", lastCompletedHours: 4000 });
+    const justDue = meterSchedule({ id: 2, title: "Just due", lastCompletedHours: 4320 });
+    const got = meterPmSummary(
+      [justDue, past],
+      [asset({ lookupId: 100, currentMachineHours: 4820, modifiedAt: METER_NOW })],
+      METER_NOW,
+    );
+    // -320 sorts ahead of -0.
+    expect(got.due.map((r) => r.schedule.title)).toEqual(["Well past", "Just due"]);
+  });
+
+  it("is all zeroes when there are no run-hours schedules at all", () => {
+    const got = meterPmSummary([], [], NOW);
+    expect(got).toEqual({ total: 0, due: [], notDue: [], unknown: [], stale: [] });
   });
 });

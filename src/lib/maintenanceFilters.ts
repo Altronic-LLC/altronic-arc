@@ -11,6 +11,10 @@ import { matchesSearch, tokenizeQuery } from "./itemSearch";
 import { personKey } from "./people";
 import { daysUntilDue } from "./maintenanceSchedule";
 import { compareMaintenanceTasks, isMaintenanceTaskClosed } from "./maintenanceTaskMapper";
+// The Type axis' vocabulary comes FROM the calendar, which has had this exact
+// filter since it shipped — imported rather than re-listed so the two screens
+// cannot drift into spelling (or labelling) the same axis differently.
+import { MAINTENANCE_TYPE_OPTIONS } from "./maintenanceCalendar";
 
 // =============================================================================
 // Pure filter / sort / count predicates for the work-order surface.
@@ -26,6 +30,11 @@ import { compareMaintenanceTasks, isMaintenanceTaskClosed } from "./maintenanceT
 // back to the department of the asset it names. That is why
 // `applyMaintenanceFilters` still takes an equipment→department map — the
 // fallback needs it, and half the register has no department set.
+//
+// The **Type** axis (Scheduled / One-off / Both) reads the SCHEDULE REFERENCE
+// and never the `TaskType` column — `matchesMaintenanceTypeFilter` below says
+// why at length. The calendar has read it that way since it shipped; this is
+// the same rule, expressed once for the list and the board.
 //
 // **Department is a LOOKUP since 2026-08-28, not a choice column**, so the
 // filter selects `referenceKey` values (the lookupId, as a string) rather than
@@ -57,6 +66,13 @@ export interface MaintenanceFilters {
    * department. NOT names; see the note at the top of this file.
    */
   departments: string[];
+  /**
+   * PM work, ad-hoc work, or both. `""` = both, and is the default.
+   *
+   * Applied through `matchesMaintenanceTypeFilter`, which reads the schedule
+   * reference rather than the `TaskType` column — see that function.
+   */
+  type: MaintenanceTypeFilter;
 }
 
 export const EMPTY_MAINTENANCE_FILTERS: MaintenanceFilters = {
@@ -65,7 +81,71 @@ export const EMPTY_MAINTENANCE_FILTERS: MaintenanceFilters = {
   assignedEmails: [],
   categories: [],
   departments: [],
+  type: "",
 };
+
+/**
+ * The Type axis' values: `""` (both), `"scheduled"`, `"one-off"`.
+ *
+ * Derived from the calendar's own option list rather than re-declared, so
+ * there is exactly one spelling of these values in the codebase.
+ */
+export type MaintenanceTypeFilter = (typeof MAINTENANCE_TYPE_OPTIONS)[number]["value"];
+
+const MAINTENANCE_TYPE_VALUES: readonly string[] = MAINTENANCE_TYPE_OPTIONS.map((o) => o.value);
+
+/**
+ * A `type` URL param, made safe.
+ *
+ * Anything unrecognised reads as Both — a typo, a hand-edited link, or the
+ * literal `type=both` somebody might reasonably guess at, which the predicate
+ * would treat as Both anyway. Normalising rather than passing the raw string
+ * through is what keeps the pills honest: an unknown value left in place would
+ * filter nothing while no pill looked selected.
+ *
+ * **Both is the DEFAULT and never appears in the URL.** An absent param means
+ * Both, so a bookmark taken before this filter existed behaves exactly like
+ * one taken after it — and no link carries `type=both` as noise.
+ */
+export function normalizeMaintenanceTypeFilter(
+  raw: string | null | undefined,
+): MaintenanceTypeFilter {
+  if (!raw) return "";
+  return MAINTENANCE_TYPE_VALUES.includes(raw) ? (raw as MaintenanceTypeFilter) : "";
+}
+
+/**
+ * Is this work order PM work?
+ *
+ * **The schedule reference, NOT the `TaskType` column.**
+ *
+ * `TaskType` (Request / Regular Maintenance) is a proto version of the same
+ * distinction, and ARC now sets it automatically from whether
+ * `ScheduledMaintenanceRef` is populated — so reading it would agree with the
+ * reference today and rot the moment the two disagree: a row keyed in by hand
+ * in SharePoint, a legacy import, or the Power Automate flow that owns
+ * `DueStatus` touching it. The reference is the fact; the choice column is a
+ * description of the fact.
+ *
+ * The calendar has read it this way since it shipped
+ * (`matchesMaintenanceCalendarFilters`, which compares its entries'
+ * `scheduleId` — itself `task.scheduleRef?.lookupId`), which is the whole
+ * reason the list, the board and the calendar cannot answer "is this
+ * scheduled?" differently.
+ */
+export function isScheduledWorkOrder(task: MaintenanceTask): boolean {
+  return task.scheduleRef?.lookupId != null;
+}
+
+/** Does one work order survive the Type axis? Both (`""`) lets everything through. */
+export function matchesMaintenanceTypeFilter(
+  task: MaintenanceTask,
+  type: MaintenanceTypeFilter | string,
+): boolean {
+  if (type === "scheduled") return isScheduledWorkOrder(task);
+  if (type === "one-off") return !isScheduledWorkOrder(task);
+  return true;
+}
 
 /**
  * The status pill's selection.
@@ -200,6 +280,9 @@ export function applyMaintenanceFilters(
     if (statusFilter === "ALL_OPEN" && CLOSED_STATUSES.includes(t.status)) return false;
     if (statusFilter && statusFilter !== "ALL_OPEN" && t.status !== statusFilter) return false;
 
+    // Scheduled vs one-off — the schedule reference, never `TaskType`.
+    if (!matchesMaintenanceTypeFilter(t, filters.type)) return false;
+
     if (filters.equipmentIds.length > 0) {
       const id = t.equipment?.lookupId;
       if (id == null || !filters.equipmentIds.includes(id)) return false;
@@ -266,6 +349,10 @@ export function daysUntilWorkOrderDue(
       firstDueDate: null,
       nextDueDate: task.dueDate,
       lastCompleted: null,
+      // A work order's own due date is a DATE, never a meter reading — the
+      // hourmeter half of a plan is meaningless here.
+      lastCompletedHours: null,
+      nextDueHours: null,
       graceDays: null,
       leadTimeDays: null,
       active: true,

@@ -1,5 +1,6 @@
-import { AlertTriangle, CalendarClock, Flag, Wrench } from "lucide-react";
+import { AlertTriangle, CalendarClock, Flag, Gauge, Wrench } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { type MeterStatus, meterStatusLine } from "@/lib/maintenanceSchedule";
 import type {
   EquipmentAssetStatus,
   EquipmentCriticality,
@@ -130,25 +131,134 @@ export function AssetStatusChip({ assetStatus }: { assetStatus: string | null })
   );
 }
 
+const BASIS_HINTS: Record<ScheduleBasis, string> = {
+  Fixed:
+    "Fixed — the next due date comes from the DUE date, so it doesn't move when a job is done late.",
+  Floating:
+    "Floating — the next due date comes from the COMPLETION date, so the clock restarts when the job is actually done.",
+  Hourmeter:
+    "Hourmeter — due at a run-hours READING rather than on a date. It becomes due when the asset's hourmeter reaches the target, and it isn't on the calendar until then.",
+};
+
 /**
- * The Fixed / Floating chip.
+ * The Fixed / Floating / Hourmeter chip.
  *
  * Carries a `title` because the distinction is the thing people most often get
- * wrong, and a two-word chip on its own doesn't teach anyone which is which.
+ * wrong, and a one-word chip on its own doesn't teach anyone which is which.
+ *
+ * **Hourmeter gets a gauge, not a clock.** It is the one basis that has nothing
+ * to do with the calendar, and giving it the same clock icon as the other two
+ * is exactly the confusion the tooltip is there to prevent.
  */
 export function ScheduleBasisChip({ basis }: { basis: ScheduleBasis | null }) {
   if (!basis) return null;
+  const meter = basis === "Hourmeter";
+  const Icon = meter ? Gauge : CalendarClock;
   return (
     <span
-      title={
-        basis === "Fixed"
-          ? "Fixed — the next due date comes from the DUE date, so it doesn't move when a job is done late."
-          : "Floating — the next due date comes from the COMPLETION date, so the clock restarts when the job is actually done."
-      }
-      className="inline-flex items-center gap-1 rounded border border-border px-1.5 py-0.5 text-[11px] font-medium text-fg-muted"
+      title={BASIS_HINTS[basis]}
+      className={cn(
+        "inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[11px] font-medium",
+        meter
+          ? "border-superior-blue/40 bg-superior-blue/5 text-superior-blue"
+          : "border-border text-fg-muted",
+      )}
     >
-      <CalendarClock className="h-3 w-3" />
+      <Icon className="h-3 w-3" />
       {basis}
+    </span>
+  );
+}
+
+/**
+ * Where a run-hours schedule stands: the reading, the gap, and whether it is
+ * due — or, when it can't be told, that it can't be told.
+ *
+ * **"Can't tell" is rendered as its own state, never as a quiet "fine."** A
+ * meter PM whose asset has no reading, or no asset at all, can never come due;
+ * that is a fault on the schedule and it is shown in the same red weight an
+ * overdue job gets, because it is worse than one.
+ *
+ * The wording comes from `meterStatusLine` in lib/maintenanceSchedule.ts so the
+ * PM library, the asset page and the dashboard cannot describe one state three
+ * ways.
+ */
+export function MeterStatusLine({ status }: { status: MeterStatus }) {
+  if (!status.applies) return null;
+  const line = meterStatusLine(status);
+
+  if (status.state === "unknown") {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs font-semibold text-cooper-red">
+        <AlertTriangle className="h-3 w-3 shrink-0" />
+        {line}
+      </span>
+    );
+  }
+  return (
+    <span
+      className={cn(
+        "text-xs tabular-nums",
+        status.state === "due" ? "font-semibold text-cooper-red" : "text-fg-muted",
+      )}
+    >
+      {line}
+    </span>
+  );
+}
+
+/**
+ * "Reading as of 14 Mar (24 days ago)" — and, when the row has gone untouched
+ * long enough for a whole interval to have passed unnoticed, that it may be
+ * stale.
+ *
+ * Labelled as the asset ROW's edit date, and the staleness explicitly as a
+ * guess, because that is what both actually are: SharePoint keeps no
+ * per-column timestamp, so a row edited yesterday for an unrelated reason
+ * looks freshly read. A visible "the reading may be stale" beats silent
+ * wrongness; claiming to know when the meter was read would be worse than
+ * either.
+ */
+export function MeterReadingAsOf({ status }: { status: MeterStatus }) {
+  if (!status.applies || status.state === "unknown") return null;
+  if (!status.readingAsOf) {
+    return (
+      <span className="text-[11px] text-fg-muted">
+        Asset row has no edit date — no way to tell how old this reading is.
+      </span>
+    );
+  }
+  const when = status.readingAsOf.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+  const age =
+    status.readingAgeDays === null
+      ? ""
+      : status.readingAgeDays === 0
+        ? " (today)"
+        : ` (${status.readingAgeDays} day${status.readingAgeDays === 1 ? "" : "s"} ago)`;
+
+  if (status.stale) {
+    return (
+      <span
+        title="A guess, not a fact: SharePoint doesn't stamp individual columns, so this is the asset ROW's last edit. It has gone untouched long enough that a whole interval could have passed without the reading moving — so “not due” isn't evidence of much here."
+        className="inline-flex items-center gap-1 text-[11px] font-medium text-ajax-yellow"
+      >
+        <AlertTriangle className="h-3 w-3 shrink-0" />
+        Reading may be stale — asset last edited {when}
+        {age}
+      </span>
+    );
+  }
+  return (
+    <span
+      title="The asset ROW's last edit date. SharePoint keeps no per-column timestamp, so this is the closest thing to “when the hours were read” that exists."
+      className="text-[11px] text-fg-muted"
+    >
+      Asset last edited {when}
+      {age}
     </span>
   );
 }

@@ -21,6 +21,50 @@ import { cn } from "@/lib/cn";
 import { NameAttachmentDialog, needsAttachmentName } from "./NameAttachmentDialog";
 import { pushToast } from "./Toast";
 
+/**
+ * What to call the thing a file is being removed FROM, in the delete
+ * confirmation. A map rather than the nested ternary this used to be — that
+ * chain had to be re-read end to end to add one entry, and a new parent kind
+ * silently inherited "task" (the fallback) rather than its own noun.
+ *
+ * Only the kinds with a noun of their own are listed; everything else still
+ * falls back to "task", exactly as before.
+ */
+// The noun in "Delete this <noun>'s attachment?".
+//
+// Every parent gets an entry. The `?? "task"` fallback below used to catch
+// eight of these, so deleting a file off a supplier, an ECN, a FAIT or a
+// machine asked "Delete this task's attachment?" on screens that have no
+// tasks anywhere near them. Harmless-looking and wrong on live pages, which
+// is exactly the kind of thing nobody reports.
+const PARENT_NOUN: Record<AttachmentParent, string> = {
+  task: "task",
+  eir: "EIR",
+  ecn: "ECN",
+  fait: "FAIT",
+  operationsTask: "task",
+  maintenanceTask: "work order",
+  equipment: "asset",
+  scheduledMaintenance: "schedule",
+  buildRequest: "build request",
+  buildRequestItem: "part",
+  panelOrder: "panel order",
+  panelTask: "panel task",
+  csaListing: "CSA listing",
+  visitReport: "visit report",
+  grayMarketRequest: "request",
+  supplier: "supplier",
+  supplierContact: "contact",
+  supplierIssue: "issue",
+  costImpactNotice: "notice",
+};
+
+export function parentNoun(parent: AttachmentParent): string {
+  // A TOTAL Record, so adding an AttachmentParent without a noun is a
+  // compile error rather than a silent "task" on a new screen.
+  return PARENT_NOUN[parent];
+}
+
 interface AttachmentsSectionProps {
   parent: AttachmentParent;
   itemId: number;
@@ -229,19 +273,7 @@ export function AttachmentsSection({ parent, itemId }: AttachmentsSectionProps) 
                 onClick={() => {
                   if (
                     window.confirm(
-                      `Remove "${a.fileName}" from this ${
-                        parent === "eir"
-                          ? "EIR"
-                          : parent === "buildRequest"
-                            ? "build request"
-                            : parent === "buildRequestItem"
-                              ? "part"
-                              : parent === "visitReport"
-                                ? "visit report"
-                                : parent === "grayMarketRequest"
-                                  ? "request"
-                                  : "task"
-                      }?`,
+                      `Remove "${a.fileName}" from this ${parentNoun(parent)}?`,
                     )
                   ) {
                     remove.mutate(a.fileName);

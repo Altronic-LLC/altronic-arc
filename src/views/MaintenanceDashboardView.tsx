@@ -25,6 +25,7 @@ import {
   openByStatus,
   openMaintenanceTasks,
   openWorkByDepartment,
+  meterPmSummary,
   overdueSummary,
   plannedVsUnplanned,
   pmCompliance,
@@ -37,6 +38,7 @@ import {
   CriticalityChip,
   MaintenancePriorityFlag,
   MaintenanceStatusBadge,
+  MeterStatusLine,
 } from "@/components/maintenanceAtoms";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { MaintenanceViewSwitcher } from "@/components/MaintenanceViewSwitcher";
@@ -107,6 +109,20 @@ export function MaintenanceDashboardView({ now }: MaintenanceDashboardViewProps 
 
   const open = useMemo(() => openMaintenanceTasks(tasks), [tasks]);
   const overdue = useMemo(() => overdueSummary(tasks, asOf), [tasks, asOf]);
+  /**
+   * Run-hours (Hourmeter) PMs.
+   *
+   * Counted here, and NOT folded into "Overdue work orders": those are rows on
+   * a list that are past a date, and a meter PM has neither. Its own card, so
+   * a meter PM that is due can't hide simply for lacking a date — and so the
+   * ones that can't be evaluated at all (no reading, no asset) are visible as
+   * their own number rather than sitting inside "not due" looking fine.
+   */
+  const meterPms = useMemo(() => meterPmSummary(schedules, equipment, asOf), [
+    schedules,
+    equipment,
+    asOf,
+  ]);
   const compliance = useMemo(
     () => pmCompliance(tasks, schedules, period, asOf),
     [tasks, schedules, period, asOf],
@@ -270,6 +286,83 @@ export function MaintenanceDashboardView({ now }: MaintenanceDashboardViewProps 
                 count: p.count,
               }))}
             />
+          )}
+        </Card>
+
+        <Card
+          title="Run-hours PMs"
+          icon={<Gauge className="h-4 w-4" />}
+          caption="Schedules measured off an asset's hourmeter rather than the calendar. They have no due date, so they only reach the calendar on the day the reading actually passes the target — this is where they are visible before that."
+        >
+          {meterPms.total === 0 ? (
+            <Empty>No run-hours schedules yet.</Empty>
+          ) : (
+            <div className="flex flex-col gap-3">
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <MeterStat
+                  label="Due now"
+                  count={meterPms.due.length}
+                  tone={meterPms.due.length > 0 ? "text-cooper-red" : "text-fg"}
+                />
+                {/* Deliberately beside "Due now" and in the same weight, not a
+                    footnote. A meter PM nobody can evaluate is a worse problem
+                    than one that is merely due, and it is the failure this
+                    whole feature exists to make visible. */}
+                <MeterStat
+                  label="Can't tell"
+                  count={meterPms.unknown.length}
+                  tone={meterPms.unknown.length > 0 ? "text-cooper-red" : "text-fg"}
+                />
+                <MeterStat
+                  label="Not due"
+                  count={meterPms.notDue.length}
+                  tone="text-fg"
+                />
+              </div>
+
+              {meterPms.unknown.length > 0 && (
+                <p className="rounded-md border border-cooper-red/40 bg-cooper-red/5 px-3 py-2 text-xs text-fg">
+                  {meterPms.unknown.length} schedule
+                  {meterPms.unknown.length === 1 ? "" : "s"} can't be evaluated — no hourmeter
+                  reading on the asset, or no asset linked at all. Until that is fixed{" "}
+                  {meterPms.unknown.length === 1 ? "it" : "they"} can never come due.{" "}
+                  <Link
+                    to="/operations/maintenance/pm-library"
+                    className="text-accent underline-offset-2 hover:underline"
+                  >
+                    Open the PM library
+                  </Link>
+                  .
+                </p>
+              )}
+
+              {meterPms.stale.length > 0 && (
+                <p className="rounded-md border border-ajax-yellow/40 bg-ajax-yellow/5 px-3 py-2 text-xs text-fg">
+                  {meterPms.stale.length} more may be due — the asset row hasn't been edited in
+                  long enough for a whole interval to have gone by unnoticed. A rough check, not a
+                  fact: SharePoint doesn't stamp individual columns.
+                </p>
+              )}
+
+              <ul className="flex flex-col divide-y divide-border">
+                {[...meterPms.due, ...meterPms.unknown, ...meterPms.notDue]
+                  .slice(0, METER_ROWS)
+                  .map(({ schedule, status }) => (
+                    <li key={schedule.id} className="flex flex-col gap-0.5 py-2">
+                      <span className="truncate text-sm text-fg">{schedule.title}</span>
+                      <MeterStatusLine status={status} />
+                    </li>
+                  ))}
+              </ul>
+              {meterPms.total > METER_ROWS && (
+                <Link
+                  to="/operations/maintenance/pm-library"
+                  className="text-xs text-accent underline-offset-2 hover:underline"
+                >
+                  All {meterPms.total} in the PM library
+                </Link>
+              )}
+            </div>
           )}
         </Card>
 
@@ -555,6 +648,27 @@ function Card({
       {caption && <p className="mt-1 text-xs leading-snug text-fg-muted">{caption}</p>}
       <div className="mt-3">{children}</div>
     </section>
+  );
+}
+
+/** How many run-hours schedules the card lists before pointing at the library. */
+const METER_ROWS = 6;
+
+/** One figure in the Run-hours PMs card's three-up. */
+function MeterStat({
+  label,
+  count,
+  tone,
+}: {
+  label: string;
+  count: number;
+  tone: string;
+}) {
+  return (
+    <div className="rounded-lg border border-border bg-surface-2 px-2 py-2">
+      <div className={cn("font-display text-xl font-semibold tabular-nums", tone)}>{count}</div>
+      <div className="text-[11px] uppercase tracking-wider text-fg-muted">{label}</div>
+    </div>
   );
 }
 

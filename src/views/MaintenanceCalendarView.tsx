@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { CalendarDays, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { useMaintenanceTasks } from "@/hooks/useMaintenanceTasks";
 import { useScheduledMaintenance } from "@/hooks/useScheduledMaintenance";
+import { useEquipment } from "@/hooks/useEquipment";
 import { useMyMaintenanceRoles } from "@/hooks/useMaintenanceRoles";
 import { manageSchedulesGate } from "@/lib/maintenanceRoles";
 import { useIsPhone } from "@/hooks/useIsPhone";
@@ -93,6 +94,16 @@ export default function MaintenanceCalendarView() {
   const { data: tasks = [], isLoading: tasksLoading } = useMaintenanceTasks();
   const { data: schedules = [], isLoading: schedulesLoading } = useScheduledMaintenance();
   /**
+   * The equipment register — needed for the RUN-HOURS schedules' readings.
+   *
+   * A meter PM has no date, so it appears here only on the day its asset's
+   * hourmeter has actually reached the target (see lib/maintenanceCalendar.ts).
+   * Without this the calendar could never evaluate one, and a due meter PM
+   * would be silently absent. Cached five minutes and already loaded by the
+   * other CMMS screens.
+   */
+  const { data: assets = [], isLoading: assetsLoading } = useEquipment();
+  /**
    * Adding a schedule from a day cell is maintenance-admin only.
    *
    * When they can't, the cell stops being clickable and the "+" is gone —
@@ -131,16 +142,16 @@ export default function MaintenanceCalendarView() {
   const now = new Date();
 
   const month = useMemo(
-    () => buildMaintenanceCalendarMonth({ monthStart, tasks, schedules, now, filters }),
+    () => buildMaintenanceCalendarMonth({ monthStart, tasks, schedules, assets, now, filters }),
     // `now` is deliberately not a dependency: it changes every render and the
     // day it lands on is what matters, which the other inputs already imply.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [monthStart, tasks, schedules, filters],
+    [monthStart, tasks, schedules, assets, filters],
   );
   const agenda = useMemo(
-    () => buildMaintenanceAgenda({ tasks, schedules, now, filters }),
+    () => buildMaintenanceAgenda({ tasks, schedules, assets, now, filters }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [tasks, schedules, filters],
+    [tasks, schedules, assets, filters],
   );
 
   const assigneeOptions = useMemo(
@@ -152,7 +163,9 @@ export default function MaintenanceCalendarView() {
     [tasks, schedules],
   );
 
-  const isLoading = tasksLoading || schedulesLoading;
+  // The register is part of the answer now, not decoration: rendering before
+  // it lands would show a month with every meter PM missing.
+  const isLoading = tasksLoading || schedulesLoading || assetsLoading;
 
   function openEntry(entry: MaintenanceCalendarEntry) {
     // A real work order has a page. A projection has nothing to open — it is

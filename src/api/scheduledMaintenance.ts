@@ -26,7 +26,11 @@ import {
   compareScheduledMaintenance,
   toScheduledMaintenance,
 } from "@/lib/scheduledMaintenanceMapper";
-import { advanceSchedule } from "@/lib/maintenanceSchedule";
+import {
+  advanceMeterSchedule,
+  advanceSchedule,
+  isMeterSchedule,
+} from "@/lib/maintenanceSchedule";
 import { multiPersonField } from "@/lib/graphFields";
 import { toSpDateOnly } from "@/lib/spDates";
 import { autoWatchers } from "@/lib/people";
@@ -234,6 +238,10 @@ function applyMockFields(next: ScheduledMaintenance, fields: Record<string, unkn
   if ("TimeNeeded" in fields) next.timeNeeded = numOf(fields.TimeNeeded);
   if ("GraceDays" in fields) next.graceDays = numOf(fields.GraceDays);
   if ("LeadTimeDays" in fields) next.leadTimeDays = numOf(fields.LeadTimeDays);
+  // `numOf` keeps 0 — a real hourmeter reading — and only "" / null read as
+  // null. Both columns are numbers, so no date reviving is needed.
+  if ("LastCompletedHours" in fields) next.lastCompletedHours = numOf(fields.LastCompletedHours);
+  if ("NextDueHours" in fields) next.nextDueHours = numOf(fields.NextDueHours);
   if ("Active" in fields) next.active = fields.Active === true;
   if ("RequiresShutdown" in fields) next.requiresShutdown = fields.RequiresShutdown === true;
   if ("LOTORequired" in fields) next.lotoRequired = fields.LOTORequired === true;
@@ -379,16 +387,33 @@ export async function unwatchSchedule(id: number, person: Person): Promise<Sched
  */
 export async function recordScheduleCompletion(
   id: number,
-  input: { completedOn: Date; completedBy: Person | null },
+  input: { completedOn: Date; completedBy: Person | null; completedAtHours?: number | null },
 ): Promise<ScheduledMaintenance> {
   const schedule = await getScheduledMaintenance(id);
   if (!schedule) throw new Error(`Schedule ${id} not found`);
 
-  const nextDue = advanceSchedule(schedule, input.completedOn);
   const fields: Record<string, unknown> = {
+    // Written on EVERY completion, meter schedules included. A meter PM still
+    // happened on a day, and the compliance report and the asset history both
+    // read that date — the reading is extra information, not a replacement.
     LastCompleted: toSpDateOnly(input.completedOn),
   };
-  if (nextDue) fields.NextDueDate = toSpDateOnly(nextDue);
+
+  if (isMeterSchedule(schedule)) {
+    // The meter half: stamp the reading the job was done at and recompute the
+    // target from it. `advanceMeterSchedule` returns null when there is no
+    // reading or no usable hours interval, and then NEITHER column is written
+    // — the same rule as the date path, which leaves `NextDueDate` alone
+    // rather than blanking a schedule somebody only meant to tick off.
+    const advanced = advanceMeterSchedule(schedule, input.completedAtHours ?? null);
+    if (advanced) {
+      fields.LastCompletedHours = advanced.lastCompletedHours;
+      fields.NextDueHours = advanced.nextDueHours;
+    }
+  } else {
+    const nextDue = advanceSchedule(schedule, input.completedOn);
+    if (nextDue) fields.NextDueDate = toSpDateOnly(nextDue);
+  }
 
   if (USE_MOCK) {
     return updateScheduledMaintenanceFields(id, {
@@ -433,6 +458,8 @@ export async function createScheduledMaintenance(
       firstDueDate: input.firstDueDate ?? null,
       nextDueDate: input.nextDueDate ?? input.firstDueDate ?? null,
       lastCompleted: null,
+      lastCompletedHours: input.lastCompletedHours ?? null,
+      nextDueHours: input.nextDueHours ?? null,
       assignedTo: input.assignedTo ?? null,
       lastCompletedBy: null,
       watchers: autoWatchers(input.watchers, input.assignedTo ?? null, creator ?? null),

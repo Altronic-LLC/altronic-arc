@@ -94,72 +94,32 @@ needs detail, add a sub-bullet underneath it.
   ./scripts/discover-list.ps1 -ListName "Altronic Equipment List","Altronic Maintenance Tasks","Scheduled Maintenance" -Site pmo
   ```
 
-  1. **Attachments on PM schedules (PM Library).** *Not built.* Attachments are
-     already enabled on the Scheduled Maintenance list in SharePoint, and
-     `AttachmentsSection` already exists — this only needs a
-     `scheduledMaintenance` entry in `AttachmentParent` / `PARENT_CONFIG`
-     (`src/api/attachments.ts`, on `SP_PMO_SITE_URL`) and the card wiring into
-     the schedule UI. **Small.** Manuals and instruction sheets attached to the
-     PM, rather than to each work order it raises.
+  **Item 3 shipped** — run-hours (Hourmeter) scheduling, in
+  `lib/maintenanceSchedule.ts` beside the date path, with the stale/missing
+  reading surfaced as its own "can't tell" state rather than a quiet "not due".
 
-  2. **Distinguish PM-raised work orders from unscheduled ones.** *Half built.*
-     The **calendar** already has it — a Type filter of Scheduled / One-off /
-     Both, reading `scheduleRef != null`. The **work-order list and board do
-     not**: their filter bar is Equipment / Assigned / Category / Department /
-     Search. Add the same axis there. **Small**, and the data is already
-     present — no schema change.
-     - Reuse the calendar's semantics exactly: "Scheduled" means
-       `scheduleRef != null`, NOT the `TaskType` column, so starting a PM
-       doesn't drop it out of the Scheduled view the moment it becomes real.
+  **Items 4 and 5 shipped** — the admin UI for assets, departments and locations
+  (v0.131.0 for the reference lists, v0.132.0 for the asset register, which also
+  closed the `manageAssetsGate` hole), and the asset tag, now mapped onto
+  `Equipment` and surfaced in the register and the equipment picker.
 
-  3. **Run-hours scheduling, alongside Fixed and Floating.** *Not built, and it
-     reverses an earlier decision* — the module deliberately shipped
-     calendar-only, on the grounds that keeping a live meter reading on every
-     asset is the hard part rather than the maths. Ray has now added the meter
-     choice and a current-reading field, so the premise has changed. **Largest
-     of the three build items.**
-     - `lib/maintenanceSchedule.ts` gains a meter path beside the date one.
-       Keep it in that same pure, tested module — it is the one place a bug
-       means a PM silently never comes due.
-     - **The real risk is a stale reading, not the arithmetic.** A meter PM
-       whose reading is never updated never becomes due, and nothing on screen
-       would say so. It needs a visible "reading as of <date>" and probably a
-       warning when a meter-based schedule's reading is older than its own
-       interval. Decide that before building.
-     - Still open: **who updates the readings, and how often?** Manual entry
-       from the floor, or a feed off the equipment? That question was the
-       reason this was deferred the first time and it has not been answered.
+- **Collapse the two Scheduled/One-off predicates into one.** The rule now
+  exists twice: `matchesMaintenanceTypeFilter` in `lib/maintenanceFilters.ts`
+  (list + board) and two inline lines in `matchesMaintenanceCalendarFilters`
+  in `lib/maintenanceCalendar.ts`. An agreement test in
+  `maintenanceFilters.test.ts` runs the same work order through both and
+  asserts identical verdicts, so drift fails loudly — but two implementations
+  agreeing by test is weaker than one implementation.
 
-  4. **ARC admin UI for assets, departments and locations** — move the register
-     off the SharePoint back end. *Not built.* **Biggest item by far.**
-     - Asset CRUD over 378 rows, plus managing the `Department` (9) and
-       `Location` (62) choice lists from inside ARC.
-     - Editing a CHOICE COLUMN's allowed values is a Graph column PATCH, not a
-       list-item write — `scripts/Add-CMMSColumns.ps1` already does exactly
-       this, so the mechanism is proven, but it needs a much bigger permission
-       scope than item writes and should be admin-gated hard.
-     - This is also the natural home for the **Location cleanup** already on
-       the team's plate (duplicates like `HARNESS` / `HARNESS DEPARMENT` /
-       `HARNESS DEPARTMENT`, and the 13 blank rows). A merge tool in the UI
-       beats a PowerShell script somebody has to be talked through.
-     - Careful: removing a choice value while rows still hold it leaves those
-       rows carrying a value the column no longer offers. The scrub script
-       already gets this order right (remap rows first, then prune) — the UI
-       must too.
+  It is NOT a one-liner: `maintenanceFilters.ts` already imports
+  `MAINTENANCE_TYPE_OPTIONS` from `maintenanceCalendar.ts`, so having the
+  calendar import the predicate back would be circular. And the two work on
+  different shapes — `MaintenanceTask` vs `MaintenanceCalendarEntry`.
 
-  5. **Asset tag number, to coordinate with finance.** *Done in SharePoint by
-     Ray; the ARC side is outstanding.* Needs the type, mapper, `$select` and
-     display once discovery confirms the internal names.
-     - **Check what shape the "lookup in scheduled and tasks" actually is.** If
-       it is a PROJECTED column off the existing `EquipmentRef` lookup
-       (SharePoint's "add additional columns from the target list"), it is
-       read-only and free — the right answer, and the same shape as the CRM
-       lists' `Customer_x003a__x0020_SAP_x0020_` columns. If instead it is a
-       SECOND independent lookup into the Equipment List, then a work order can
-       name one asset by tag and a different one by name, and they can
-       disagree. Confirm before mapping it.
-     - Worth surfacing on the asset page and in the equipment picker's label —
-       finance will search by tag, not by "40 HP COMPRESSOR".
+  The fix: a small third module (`lib/maintenanceWorkType.ts`) holding the
+  options, the `MaintenanceTypeFilter` type and a predicate over
+  `{ scheduleRef }` / `{ scheduleId }`, imported by both. Then delete the
+  calendar's inline lines and keep the agreement test as a regression guard.
 
 ## Later
 

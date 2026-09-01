@@ -384,7 +384,7 @@ src/
 │   ├── operationsTaskMapper.ts   Graph item → OperationsTask
 │   ├── operationsTaskFilters.ts  Pure Operations task filter predicates
 │   ├── operationsTaskNumbering.ts Operations task numbering (mirrors taskNumbering)
-│   ├── maintenanceSchedule.ts    PM scheduling maths — Fixed/Floating, month-end clamp, overdue
+│   ├── maintenanceSchedule.ts    PM scheduling maths — Fixed/Floating dates, Hourmeter run-hours, overdue
 │   ├── maintenanceShared.ts      Read helpers shared by the three CMMS mappers
 │   ├── maintenanceTaskMapper.ts  Graph item → MaintenanceTask (+ create payload)
 │   ├── maintenanceMetrics.ts     Every CMMS dashboard number (pure) — workload, PM compliance, downtime
@@ -2328,6 +2328,104 @@ Seven things that shape this module:
   previous DUE date while Floating advances from `LastCompleted`; and **an
   overdue occurrence keeps being returned until it is closed out** — it does
   not roll forward. An inactive schedule projects nothing at all.
+
+#### Run-hours (Hourmeter) scheduling — a third basis with no date
+
+`ScheduleBasis` carries **Hourmeter** beside Fixed and Floating, and
+`FrequencyUnit` carries **Hours** beside the four date units. A meter schedule
+is **not due on a date — it is due at a READING**:
+
+```
+NextDueHours = LastCompletedHours + FrequencyInterval   (unit = Hours)
+due  ⇔  asset.CurrentMachineHours >= NextDueHours
+```
+
+`NextDueHours` is app-owned and written on completion the way `NextDueDate`
+already is. Fixed vs Floating has no meaning here — there is one behaviour,
+because "advance from the due reading" and "advance from the reading it was
+actually done at" are the same thing when the clock is the machine's own
+running. It advances from the reading it was **done** at: a PM due at 5,000
+and done at 5,340 is next due at 5,840, not 5,500, or a late job stays
+permanently late.
+
+**Every date function refuses a meter schedule** — `anchorDueDate`,
+`nextDueDates`, `daysUntilDue` and `advanceSchedule` all return null / empty
+rather than treating "every 500 hours" as 500 days. That is not tidiness:
+`addInterval` THROWS on a unit of Hours, so a missing guard is a crash. The
+meter half of the file (`meterStatus`, `anchorDueHours`,
+`advanceMeterSchedule`, `meterReadingFor`, `meterStatusLine`) is its
+counterpart.
+
+**`isMeterSchedule` treats EITHER signal as enough** — basis `Hourmeter`, or
+unit `Hours`. Both combinations are contradictory data somebody can produce in
+SharePoint, and reading either as a meter schedule is the safe direction: the
+alternative is a date projection 16 months out, or a 3-hour "quarterly".
+
+**Three states, not two: due, not due, and CAN'T TELL.** This is the whole
+point of the design. The real failure mode is not the arithmetic — it is a
+**stale or missing reading**, which makes a PM that can never come due and
+that nothing on screen would flag. So:
+
+- `CurrentMachineHours === null` is **"can't tell"**, never "not due", and
+  every screen renders it in the same red weight an overdue job gets. **`null`
+  and `0` are different**: 0 is a real reading off a new machine.
+- **A schedule with no equipment link — or one pointing at an asset not in the
+  register — is a FAULT on the row**, not a blank. It can never be evaluated.
+- **A stale reading is flagged as a heuristic and labelled as one.**
+  `meterReadingStaleAfterDays` = `interval / MAX_METER_HOURS_PER_DAY (24)`,
+  floored at `MIN_STALE_READING_DAYS (7)`. It reads the asset row's
+  `modifiedAt`, which is **not** the reading's own timestamp — SharePoint keeps
+  no per-column one — so the UI says "asset last edited", never "last read",
+  and the stale warning's tooltip says "A guess, not a fact". 24 h/day is the
+  LEAST alarmist honest window: anything tighter needs a duty-cycle figure
+  nobody has recorded, and inventing one is exactly what this feature refuses
+  to do.
+- `isOverdue` / `isVisible` take an optional `reading` and return **`false`
+  without one**, because a boolean has no third answer. Nothing user-facing
+  relies on them for a meter schedule — `meterStatus` is what the screens use.
+
+**`GraceDays` and `LeadTimeDays` are in DAYS and are IGNORED on a meter
+schedule**, deliberately not reused as hours: three grace days is not three
+grace hours, and there is no hours column on the list to hold the analogue.
+The schedule form **disables both with the reason on them** rather than hiding
+them (an existing schedule may hold values, and a field that vanishes reads as
+data loss). So a meter PM is due the moment the reading reaches the target — no
+grace window, and no early "coming up" visibility.
+
+**Where a meter schedule shows up, and where it deliberately doesn't:**
+
+- **The PM library is its primary home** (`PmLibraryView`). Its Next due cell
+  reads `Due at 5,200 hrs · now 5,043 hrs · 157 to go`, plus the asset's
+  last-edit line and the faults above. This is the screen somebody checks to
+  see one coming.
+- **The calendar shows it only once it is actually DUE**, as a chip on today
+  (`meterProjectionFor` in `lib/maintenanceCalendar.ts`), and nowhere at all
+  before that — there is no honest date to put it on. **Do not add an estimated
+  due date from average usage**; it fabricates a number nobody measured and it
+  would then be sorted, filtered and reported on as though somebody had. Note
+  it is dated today each day it is evaluated rather than keeping a fixed
+  position, because there is no measured date for it to keep. The calendar and
+  agenda both need the equipment register passed in (`assets`), or no meter PM
+  can be evaluated at all.
+- **The overdue strip and the dashboard count them** (`meterPmSummary` in
+  `lib/maintenanceMetrics.ts`, and the Run-hours PMs card), so a due meter PM
+  can't hide for lacking a date. It is deliberately its OWN card rather than
+  being folded into "Overdue work orders": those are rows past a date, and
+  changing what that headline means would be worse than leaving it alone. The
+  card leads with "Due now" and **"Can't tell" side by side, in the same
+  weight**.
+- **`compareScheduledMaintenance` sorts a meter schedule with the UNDATED
+  ones**, never interleaved by reading — hours and dates are different units.
+
+**Logging one asks for the hourmeter reading off the machine**
+(`LogPmCompletionModal`), required on Complete because without it
+`advanceMeterSchedule` writes nothing and the schedule records a completion
+then stays due at the same reading for ever. It is seeded from the asset in a
+`useEffect` with a `touched` latch, NOT a `useState` initialiser: the register
+is an async query, so a one-shot initialiser leaves the box empty on open for
+an asset that has a reading (found by test, 2026-09-01). **Skipping a meter PM
+cannot move its target** — that would mean inventing a reading — so it stays
+due, and the modal says so.
 - **Scheduled Maintenance has no `Communication` column and is not getting
   one.** A schedule is a rule; the conversation belongs on the work order the
   rule produced. There is no `addComment` in that module for a view to reach

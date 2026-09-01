@@ -13,7 +13,18 @@ import {
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useMyMaintenanceRoles } from "@/hooks/useMaintenanceRoles";
 import { logPmGate } from "@/lib/maintenanceRoles";
-import { advanceSchedule, frequencyLabel } from "@/lib/maintenanceSchedule";
+import {
+  type MeterAsset,
+  advanceMeterSchedule,
+  advanceSchedule,
+  formatMeterHours,
+  frequencyLabel,
+  isMeterSchedule,
+  meterAssetIndex,
+  meterReadingFor,
+  meterStatus,
+} from "@/lib/maintenanceSchedule";
+import { useEquipment } from "@/hooks/useEquipment";
 import { autoWatchers } from "@/lib/people";
 import { fromDateInputValue, toDateInputValue, toSpDateOnly } from "@/lib/spDates";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
@@ -51,6 +62,13 @@ import { useOverlayDismiss } from "./useOverlayDismiss";
 //    what makes the calendar suppress the projection it came from (see
 //    `loggedOccurrences` in lib/maintenanceCalendar.ts) instead of showing the
 //    prediction beside the record of it.
+//  - **A RUN-HOURS schedule also captures the hourmeter reading**, defaulted
+//    from the asset and editable, because the person at the machine is reading
+//    it off the machine. Completing writes `LastCompletedHours` from that and
+//    rolls `NextDueHours` on from it — from the reading the job was ACTUALLY
+//    done at, not the target it was due at, so a late job does not stay
+//    permanently late (see `advanceMeterSchedule`). Its occurrence date is
+//    today, since a meter schedule has no date of its own.
 // =============================================================================
 
 type LogAction = "start" | "complete" | "skip";
@@ -91,6 +109,7 @@ export function LogPmCompletionModal({
   onCreated,
 }: LogPmCompletionModalProps) {
   const actor = useCurrentUser();
+  const { data: assetRows = [] } = useEquipment();
   // Tech or admin. Every mutation below re-checks it; this is the visible
   // half, so nobody types a write-up in and is then refused.
   const logGate = logPmGate(useMyMaintenanceRoles());
@@ -107,10 +126,44 @@ export function LogPmCompletionModal({
     recordCompletion.isPending ||
     updateSchedule.isPending;
 
+  const meter = isMeterSchedule(schedule);
+  const reading = useMemo(
+    () => meterReadingFor(schedule.equipment, meterAssetIndex(assetRows as MeterAsset[])),
+    [schedule.equipment, assetRows],
+  );
+  const meterState = useMemo(
+    () => (meter ? meterStatus(schedule, reading) : null),
+    [meter, schedule, reading],
+  );
+
   const [action, setAction] = useState<LogAction>(defaultAction);
   const [on, setOn] = useState(() => toDateInputValue(new Date()));
   const [notes, setNotes] = useState("");
   const [laborHours, setLaborHours] = useState("");
+  /**
+   * The hourmeter reading the job was done at — meter schedules only.
+   *
+   * Seeded from the asset's stored reading and then left alone. Two things
+   * about the seeding, both of which were bugs first:
+   *
+   *  - It CANNOT be a one-shot `useState` initialiser. The equipment register
+   *    is an async query, so on the first render `reading.hours` is null even
+   *    for an asset that has a reading — the box would open empty and stay
+   *    empty, and whoever was logging the job would have to go and look the
+   *    number up that ARC already had.
+   *  - It must never overwrite what somebody typed. The register refetches on
+   *    its own cadence, and re-seeding on every arrival would wipe a number
+   *    just read off the machine. `touched` is the latch: the first real
+   *    reading to arrive fills an untouched box, and nothing does after that.
+   */
+  const [meterHours, setMeterHours] = useState("");
+  const [meterHoursTouched, setMeterHoursTouched] = useState(false);
+
+  useEffect(() => {
+    if (meterHoursTouched) return;
+    if (reading.hours === null) return;
+    setMeterHours(String(reading.hours));
+  }, [reading.hours, meterHoursTouched]);
   const [error, setError] = useState<string | null>(null);
   const notesRef = useRef<HTMLTextAreaElement>(null);
 
@@ -130,6 +183,20 @@ export function LogPmCompletionModal({
     [schedule, when],
   );
 
+  /** The typed reading as a number, or null when the box is empty or nonsense. */
+  const completedAtHours = useMemo(() => {
+    const trimmed = meterHours.trim();
+    if (!trimmed) return null;
+    const n = Number(trimmed);
+    return Number.isFinite(n) ? n : null;
+  }, [meterHours]);
+
+  /** What the two hour columns would become. Null when there is nothing to roll. */
+  const nextMeter = useMemo(
+    () => (meter ? advanceMeterSchedule(schedule, completedAtHours) : null),
+    [meter, schedule, completedAtHours],
+  );
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     // Belt and braces with the disabled button — Enter in a field submits too.
@@ -142,6 +209,23 @@ export function LogPmCompletionModal({
     const hours = laborHours.trim() ? Number(laborHours) : null;
     if (laborHours.trim() && (!Number.isFinite(hours) || (hours as number) < 0)) {
       return setError("Labour hours has to be a number.");
+    }
+    // The hourmeter reading, on a run-hours schedule being COMPLETED.
+    //
+    // Required there rather than optional: without it `advanceMeterSchedule`
+    // writes nothing, and the schedule would record a completion and then stay
+    // due for ever at the same reading — a PM that silently never rolls on,
+    // which is the exact failure this whole feature is built to avoid. Start
+    // and Skip don't ask: neither records a completion.
+    if (meter && action === "complete") {
+      if (!meterHours.trim()) {
+        return setError(
+          "Enter the hourmeter reading off the machine — this schedule counts run hours, and without it the next due reading can't be worked out.",
+        );
+      }
+      if (completedAtHours === null || completedAtHours < 0) {
+        return setError("The hourmeter reading has to be a number of hours.");
+      }
     }
     setError(null);
 
@@ -171,8 +255,15 @@ export function LogPmCompletionModal({
           resolution: notes.trim(),
           laborHours: hours,
         });
-        // Records LastCompleted / LastCompletedBy and rolls NextDueDate on.
-        await recordCompletion.mutateAsync({ id: schedule.id, completedOn: when });
+        // Records LastCompleted / LastCompletedBy and rolls the schedule on —
+        // `NextDueDate` for a calendar schedule, `LastCompletedHours` +
+        // `NextDueHours` for a run-hours one. Passing the reading on a calendar
+        // schedule is harmless: the API ignores it.
+        await recordCompletion.mutateAsync({
+          id: schedule.id,
+          completedOn: when,
+          completedAtHours: meter ? completedAtHours : null,
+        });
       } else if (action === "skip") {
         await updateTask.mutateAsync({
           id: task.id,
@@ -180,6 +271,12 @@ export function LogPmCompletionModal({
         });
         // Advance the DUE DATE only. No completion is recorded: the job was
         // deliberately not done, and `LastCompleted` means what it says.
+        //
+        // `nextDue` is null on a run-hours schedule, so nothing is written and
+        // it stays due at the same reading. That is deliberate and it is said
+        // out loud below: skipping a meter PM cannot push the target out
+        // without inventing a reading nobody measured, so the schedule keeps
+        // asking until somebody does the job or retires it.
         if (nextDue) {
           await updateSchedule.mutateAsync({
             id: schedule.id,
@@ -239,7 +336,15 @@ export function LogPmCompletionModal({
           <div className="rounded-md border border-border bg-surface-2 px-3 py-2">
             <p className="font-medium text-fg">{schedule.title}</p>
             <p className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-fg-muted">
-              <span>Due {formatDay(occurrence)}</span>
+              {/* A run-hours schedule is due at a READING, so naming a date
+                  here would be the one thing this feature must not do. */}
+              <span>
+                {meterState
+                  ? meterState.dueAtHours !== null
+                    ? `Due at ${formatMeterHours(meterState.dueAtHours)}`
+                    : "No due reading set"
+                  : `Due ${formatDay(occurrence)}`}
+              </span>
               {schedule.equipment?.title && <span>· {schedule.equipment.title}</span>}
               <span>· {frequencyLabel(schedule.frequencyInterval, schedule.frequencyUnit)}</span>
               <ScheduleBasisChip basis={schedule.scheduleBasis} />
@@ -314,6 +419,42 @@ export function LogPmCompletionModal({
               />
             </label>
 
+            {/* The hourmeter reading — a run-hours schedule's primary field, so
+                it sits ABOVE labour hours rather than beside it. Two numbers
+                both called "hours" is a real trap, which is why one says
+                "Hourmeter reading" and the other "Labour hours", and why this
+                one carries the asset's stored figure underneath it. */}
+            {meter && action === "complete" && (
+              <label className="block">
+                <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
+                  Hourmeter reading now
+                  <span className="ml-1 text-cooper-red">*</span>
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  step="1"
+                  inputMode="decimal"
+                  value={meterHours}
+                  onChange={(e) => {
+                    setMeterHoursTouched(true);
+                    setMeterHours(e.target.value);
+                  }}
+                  placeholder="e.g. 5340"
+                  className="input"
+                  aria-label="Hourmeter reading now"
+                />
+                <p className="mt-1 text-[11px] font-normal normal-case tracking-normal text-fg-muted">
+                  {reading.hours === null
+                    ? "The asset has no stored reading — read it off the machine."
+                    : `The asset's stored reading is ${formatMeterHours(reading.hours)}. Correct it here if the machine says otherwise.`}
+                  {nextMeter
+                    ? ` Next due at ${formatMeterHours(nextMeter.nextDueHours)}.`
+                    : ""}
+                </p>
+              </label>
+            )}
+
             {action === "complete" && (
               <label className="block">
                 <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
@@ -353,13 +494,21 @@ export function LogPmCompletionModal({
               {action === "skip" && (
                 <p className="mt-1 text-[11px] text-fg-muted">
                   Kept on the work order as its Resolution, and the work order is closed as
-                  Canceled. The schedule moves on to {formatDay(nextDue)}; no completion is
-                  recorded against it.
+                  Canceled.{" "}
+                  {meter
+                    ? "This schedule counts run hours, so skipping cannot move its target — pushing the reading out would invent a number nobody measured. It stays due until the job is done or the schedule is retired."
+                    : `The schedule moves on to ${formatDay(nextDue)};`}{" "}
+                  {meter ? "" : "no completion is recorded against it."}
                 </p>
               )}
               {action === "complete" && (
                 <p className="mt-1 text-[11px] text-fg-muted">
-                  Recorded against the schedule too — next due {formatDay(nextDue)}.
+                  Recorded against the schedule too —{" "}
+                  {meter
+                    ? nextMeter
+                      ? `next due at ${formatMeterHours(nextMeter.nextDueHours)}.`
+                      : "the next due reading needs the hourmeter figure above."
+                    : `next due ${formatDay(nextDue)}.`}
                 </p>
               )}
               {action === "start" && (

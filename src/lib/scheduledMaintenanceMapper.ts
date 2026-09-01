@@ -18,6 +18,7 @@ import {
   SCHEDULE_BASES,
 } from "@/types/task";
 import { parseSpDate, parseSpDateOnly, toSpDateOnly } from "./spDates";
+import { isMeterSchedule } from "./maintenanceSchedule";
 import {
   attachLookupTitle,
   fillPeople,
@@ -68,6 +69,10 @@ export const SCHEDULED_MAINTENANCE_SELECT = [
   "FirstDueDate",
   "NextDueDate",
   "LastCompleted",
+  // The hourmeter pair — a meter schedule is due at a READING, not a date.
+  // `NextDueHours` is app-owned exactly the way `NextDueDate` is.
+  "LastCompletedHours",
+  "NextDueHours",
   "TimeNeeded",
   "GraceDays",
   "LeadTimeDays",
@@ -120,6 +125,11 @@ export function toScheduledMaintenance(item: GraphListItem): ScheduledMaintenanc
     firstDueDate: parseSpDateOnly(f.FirstDueDate),
     nextDueDate: parseSpDateOnly(f.NextDueDate),
     lastCompleted: parseSpDateOnly(f.LastCompleted),
+    // `readNumber` keeps 0 as 0 — a real hourmeter reading off a new machine —
+    // and only a genuinely absent column reads as null. The two are different
+    // and the whole meter path depends on them staying different.
+    lastCompletedHours: readNumber(f.LastCompletedHours),
+    nextDueHours: readNumber(f.NextDueHours),
     assignedTo: personOrLookup(f.AssignedTo, f.AssignedToLookupId),
     lastCompletedBy: personOrLookup(f.LastCompletedBy, f.LastCompletedByLookupId),
     watchers: parsePeople(f.Watchers),
@@ -234,6 +244,10 @@ export function buildScheduledMaintenanceCreateFields(
   if (input.firstDueDate) fields.FirstDueDate = toSpDateOnly(input.firstDueDate);
   const nextDue = input.nextDueDate ?? input.firstDueDate ?? null;
   if (nextDue) fields.NextDueDate = toSpDateOnly(nextDue);
+  // `!= null` rather than a truthiness check: 0 is a real reading, and a
+  // brand-new machine at 0 hours with a "first due at 0" target is legitimate.
+  if (input.lastCompletedHours != null) fields.LastCompletedHours = input.lastCompletedHours;
+  if (input.nextDueHours != null) fields.NextDueHours = input.nextDueHours;
   if (input.timeNeeded != null) fields.TimeNeeded = input.timeNeeded;
   if (input.graceDays != null) fields.GraceDays = input.graceDays;
   if (input.leadTimeDays != null) fields.LeadTimeDays = input.leadTimeDays;
@@ -265,8 +279,14 @@ export function compareScheduledMaintenance(
   b: ScheduledMaintenance,
 ): number {
   if (a.active !== b.active) return a.active ? -1 : 1;
-  const aDue = (a.nextDueDate ?? a.firstDueDate)?.getTime();
-  const bDue = (b.nextDueDate ?? b.firstDueDate)?.getTime();
+  // A METER schedule has no date at all, so it sorts with the undated ones
+  // rather than being given a position it hasn't earned. Deliberately NOT
+  // ordered by `NextDueHours`: hours and dates are different units, and
+  // interleaving "due at 5,200 hrs" with "due 14 Sep" by number would put a
+  // meter schedule wherever its reading happened to fall on a date scale.
+  // Within the undated group they order by id, so the sort is stable.
+  const aDue = isMeterSchedule(a) ? undefined : (a.nextDueDate ?? a.firstDueDate)?.getTime();
+  const bDue = isMeterSchedule(b) ? undefined : (b.nextDueDate ?? b.firstDueDate)?.getTime();
   if (aDue === undefined && bDue === undefined) return a.id - b.id;
   if (aDue === undefined) return 1;
   if (bDue === undefined) return -1;

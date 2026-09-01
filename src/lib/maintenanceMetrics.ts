@@ -11,6 +11,14 @@ import { MAINTENANCE_PRIORITIES, MAINTENANCE_STATUSES } from "@/types/task";
 import { isClosedMaintenanceStatus } from "./maintenanceShared";
 import { referenceKey, referenceLabel } from "./maintenanceReferences";
 import { maintenanceTaskDepartment } from "./maintenanceFilters";
+import {
+  type MeterAsset,
+  type MeterStatus,
+  isMeterSchedule,
+  meterAssetIndex,
+  meterReadingFor,
+  meterStatus,
+} from "./maintenanceSchedule";
 import { personKey } from "@/lib/people";
 
 // =============================================================================
@@ -844,4 +852,85 @@ export function schedulesForAsset(
       (a, b) =>
         Number(b.active) - Number(a.active) || a.title.localeCompare(b.title) || a.id - b.id,
     );
+}
+
+// -----------------------------------------------------------------------------
+// Run-hours (Hourmeter) PM schedules
+// -----------------------------------------------------------------------------
+
+/** One meter schedule, with where it stands. */
+export interface MeterScheduleStanding {
+  schedule: ScheduledMaintenance;
+  status: MeterStatus;
+}
+
+export interface MeterPmSummary {
+  /** Every ACTIVE meter schedule, in the order they were given. */
+  total: number;
+  /** The asset's reading has reached the target — this is work outstanding now. */
+  due: MeterScheduleStanding[];
+  /** Running, target not reached, reading believable. */
+  notDue: MeterScheduleStanding[];
+  /**
+   * **Cannot be evaluated at all.** No linked asset, no hourmeter reading, or
+   * no due reading anywhere. These are the dangerous ones: the PM can never
+   * come due, and without this bucket they would sit inside `notDue` looking
+   * exactly like a job that genuinely is not needed yet.
+   */
+  unknown: MeterScheduleStanding[];
+  /**
+   * Not due, but the asset row has not been touched in long enough for a whole
+   * interval to have gone by unnoticed — so "not due" is not evidence of much.
+   * A subset of `notDue`, deliberately: it is a caveat on an answer, not a
+   * separate answer. A HEURISTIC — see `meterReadingStaleAfterDays`.
+   */
+  stale: MeterScheduleStanding[];
+}
+
+/**
+ * Where every run-hours PM stands — for the dashboard tile and anything else
+ * that needs the plant-wide picture.
+ *
+ * **Meter PMs are counted here rather than folded into the work-order overdue
+ * figure.** They are not work orders: nothing has been logged, so there is no
+ * row to be late. Adding them to that count would change what a number people
+ * already read every morning means. This is its own tile, and it leads with
+ * "due" and "can't tell" side by side, because a meter schedule that cannot be
+ * evaluated is a worse problem than one that is merely due.
+ *
+ * Retired schedules are excluded entirely — an inactive schedule projects
+ * nothing, which is basis-independent.
+ */
+export function meterPmSummary(
+  schedules: ScheduledMaintenance[],
+  equipment: MeterAsset[],
+  now: Date,
+): MeterPmSummary {
+  const assets = meterAssetIndex(equipment);
+  const summary: MeterPmSummary = { total: 0, due: [], notDue: [], unknown: [], stale: [] };
+
+  for (const schedule of schedules) {
+    if (!isMeterSchedule(schedule) || !schedule.active) continue;
+    const status = meterStatus(schedule, meterReadingFor(schedule.equipment, assets), now);
+    const standing = { schedule, status };
+    summary.total += 1;
+    if (status.state === "due") summary.due.push(standing);
+    else if (status.state === "unknown") summary.unknown.push(standing);
+    else {
+      summary.notDue.push(standing);
+      if (status.stale) summary.stale.push(standing);
+    }
+  }
+
+  // Soonest first inside each bucket, so the tile's "closest" line and the PM
+  // library agree about which one matters most. `hoursRemaining` is null only
+  // in the unknown bucket, where there is nothing to sort by but the title.
+  const byRemaining = (a: MeterScheduleStanding, b: MeterScheduleStanding) =>
+    (a.status.hoursRemaining ?? 0) - (b.status.hoursRemaining ?? 0) ||
+    a.schedule.title.localeCompare(b.schedule.title);
+  summary.due.sort(byRemaining);
+  summary.notDue.sort(byRemaining);
+  summary.stale.sort(byRemaining);
+  summary.unknown.sort((a, b) => a.schedule.title.localeCompare(b.schedule.title));
+  return summary;
 }

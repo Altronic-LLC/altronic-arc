@@ -20,6 +20,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.133.0",
+    date: "2026-09-01",
+    changes: [
+      "Scheduled maintenance can now run on machine hours as well as dates — every 500 hours, counted off the asset's hour meter",
+      "A run-hours PM shows what it's waiting for: due at 5,200 hrs, now 5,043, 157 to go",
+      "A run-hours PM appears on the calendar only once it's actually due — no invented due dates",
+      "A PM whose machine has no hour reading says 'can't tell' rather than quietly looking fine",
+      "A machine whose reading looks out of date is flagged as such, and says it's a guess",
+      "Being late on a run-hours PM once no longer makes it late for ever — the next one counts from the hours it was actually done at",
+      "New Run-hours PMs card on the maintenance dashboard, leading with what's due now and what can't be judged",
+      "Work order list and board can now filter to Scheduled, One-off or Both, the same as the calendar",
+      "Manuals and instruction sheets can be attached to a PM schedule itself, instead of to every work order it raises",
+      "Deleting an attachment now names what it belongs to — a supplier, an asset, an ECN — instead of calling everything a task",
+    ],
+  },
+  {
     version: "0.132.0",
     date: "2026-08-31",
     changes: [

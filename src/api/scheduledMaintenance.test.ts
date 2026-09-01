@@ -210,3 +210,94 @@ describe("recording a completion", () => {
     ).rejects.toThrow(/not found/);
   });
 });
+
+describe("recording a completion on a run-hours schedule", () => {
+  /** Turn the first schedule into a run-hours one, due every 500 hours. */
+  async function meterSchedule(over: Record<string, unknown> = {}) {
+    const [s] = await listScheduledMaintenance();
+    return updateScheduledMaintenanceFields(s.id, {
+      ScheduleBasis: "Hourmeter",
+      FrequencyInterval: 500,
+      FrequencyUnit: "Hours",
+      LastCompletedHours: 4300,
+      NextDueHours: 4800,
+      Active: true,
+      ...over,
+    });
+  }
+
+  it("stamps the reading it was done at and rolls the target on from THAT", async () => {
+    // Due at 4,800, actually done at 5,340 → next due 5,840, not 5,300. The
+    // wear clock restarts when the work happens.
+    const meter = await meterSchedule();
+    const done = await recordScheduleCompletion(meter.id, {
+      completedOn: day("2026-06-09"),
+      completedBy: TECH,
+      completedAtHours: 5340,
+    });
+    expect(done.lastCompletedHours).toBe(5340);
+    expect(done.nextDueHours).toBe(5840);
+    // The DATE of the completion is still recorded — a meter PM happened on a
+    // day, and the compliance report reads that.
+    expect(done.lastCompleted?.toISOString().slice(0, 10)).toBe("2026-06-09");
+    expect(done.lastCompletedBy).toEqual(TECH);
+  });
+
+  it("never touches NextDueDate on a meter schedule", async () => {
+    const meter = await meterSchedule({ NextDueDate: day("2026-06-01").toISOString() });
+    const done = await recordScheduleCompletion(meter.id, {
+      completedOn: day("2026-06-09"),
+      completedBy: TECH,
+      completedAtHours: 5340,
+    });
+    // A meter schedule has no date to advance; writing one would give it a
+    // second, contradictory notion of when it is next due.
+    expect(done.nextDueDate?.toISOString().slice(0, 10)).toBe("2026-06-01");
+  });
+
+  it("leaves BOTH hour columns alone when no reading is given", async () => {
+    // Nothing is written rather than blanking a column — the same rule the
+    // date path follows for `NextDueDate`.
+    const meter = await meterSchedule();
+    const done = await recordScheduleCompletion(meter.id, {
+      completedOn: day("2026-06-09"),
+      completedBy: TECH,
+    });
+    expect(done.lastCompletedHours).toBe(4300);
+    expect(done.nextDueHours).toBe(4800);
+    // The completion itself IS still recorded.
+    expect(done.lastCompleted?.toISOString().slice(0, 10)).toBe("2026-06-09");
+  });
+
+  it("accepts a completion reading of ZERO", async () => {
+    const meter = await meterSchedule({ FrequencyInterval: 100, LastCompletedHours: null });
+    const done = await recordScheduleCompletion(meter.id, {
+      completedOn: day("2026-06-09"),
+      completedBy: TECH,
+      completedAtHours: 0,
+    });
+    expect(done.lastCompletedHours).toBe(0);
+    expect(done.nextDueHours).toBe(100);
+  });
+
+  it("ignores a reading passed to a CALENDAR schedule", async () => {
+    const [s] = await listScheduledMaintenance();
+    const fixed = await updateScheduledMaintenanceFields(s.id, {
+      ScheduleBasis: "Fixed",
+      FrequencyInterval: 1,
+      FrequencyUnit: "Months",
+      NextDueDate: day("2026-06-01").toISOString(),
+      LastCompletedHours: null,
+      NextDueHours: null,
+      Active: true,
+    });
+    const done = await recordScheduleCompletion(fixed.id, {
+      completedOn: day("2026-06-09"),
+      completedBy: TECH,
+      completedAtHours: 5340,
+    });
+    expect(done.nextDueDate?.toISOString().slice(0, 10)).toBe("2026-07-01");
+    expect(done.lastCompletedHours).toBeNull();
+    expect(done.nextDueHours).toBeNull();
+  });
+});

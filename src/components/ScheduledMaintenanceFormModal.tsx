@@ -31,7 +31,12 @@ import {
 import { referenceLabel, referenceOptions } from "@/lib/maintenanceReferences";
 import { manageSchedulesGate } from "@/lib/maintenanceRoles";
 import { collectScheduledMaintenancePeople } from "@/lib/scheduledMaintenanceMapper";
-import { frequencyLabel, nextDueDates } from "@/lib/maintenanceSchedule";
+import {
+  formatMeterHours,
+  frequencyLabel,
+  isMeterSchedule,
+  nextDueDates,
+} from "@/lib/maintenanceSchedule";
 import { assetPrefill, prefilledFromAsset } from "@/lib/maintenancePrefill";
 import { mergePeople, personKey } from "@/lib/people";
 import { fromDateInputValue, toDateInputValue, toSpDateOnly } from "@/lib/spDates";
@@ -65,6 +70,16 @@ import { useOverlayDismiss } from "./useOverlayDismiss";
 //    from the asset when one is picked and editable afterwards. The pre-fill
 //    never overwrites a value the user set — `prefilledFromAsset` in
 //    lib/maintenancePrefill.ts, shared with the work-order modal.
+//  - **Picking Hourmeter swaps which half of the form is primary.** A
+//    run-hours schedule is due at a READING, not a date, so "First due" gives
+//    its place to "First due at (run hours)" and stops being required, the unit
+//    follows to Hours, and Grace days / Lead time days are DISABLED with the
+//    reason on them — both are in DAYS and are deliberately not reused as
+//    hours. Leaving every field looking equally required is how somebody
+//    carefully fills in the ones that do nothing. A stored `FirstDueDate` on a
+//    schedule switched over to Hourmeter is left exactly as it is: the engine
+//    ignores it, and rewriting somebody's data on a basis change would be a
+//    surprise.
 // =============================================================================
 
 interface ScheduledMaintenanceFormModalProps {
@@ -100,6 +115,15 @@ interface ScheduleDraft {
   scheduleBasis: string;
   /** `yyyy-mm-dd`, DateField's format. */
   firstDue: string;
+  /**
+   * `NextDueHours` — the reading an Hourmeter schedule is first due at.
+   *
+   * The meter equivalent of `firstDue`, and optional: left blank, the schedule
+   * anchors on the asset's current reading plus the interval (see
+   * `anchorDueHours`), which is what somebody setting one up on a running
+   * machine usually means.
+   */
+  firstDueHours: string;
   timeNeeded: string;
   graceDays: string;
   leadTimeDays: string;
@@ -136,6 +160,7 @@ function emptyDraft(defaultDate?: Date | null): ScheduleDraft {
     // month"), and Floating is the deliberate choice for a wear-clock job.
     scheduleBasis: "Fixed",
     firstDue: defaultDate ? toDateInputValue(defaultDate) : "",
+    firstDueHours: "",
     timeNeeded: "",
     graceDays: "",
     leadTimeDays: "",
@@ -162,6 +187,8 @@ function draftFrom(schedule: ScheduledMaintenance): ScheduleDraft {
     frequencyUnit: schedule.frequencyUnit ?? "",
     scheduleBasis: schedule.scheduleBasis ?? "Fixed",
     firstDue: toDateInputValue(schedule.firstDueDate),
+    // `!= null`, not truthiness: 0 is a real reading.
+    firstDueHours: schedule.nextDueHours != null ? String(schedule.nextDueHours) : "",
     timeNeeded: schedule.timeNeeded != null ? String(schedule.timeNeeded) : "",
     graceDays: schedule.graceDays != null ? String(schedule.graceDays) : "",
     leadTimeDays: schedule.leadTimeDays != null ? String(schedule.leadTimeDays) : "",
@@ -243,6 +270,29 @@ export function ScheduledMaintenanceFormModal({
 
   const overlayDismiss = useOverlayDismiss(onClose, busy);
 
+  /**
+   * Is the draft a run-hours schedule?
+   *
+   * Read through the SAME `isMeterSchedule` the engine uses rather than
+   * `draft.scheduleBasis === "Hourmeter"`, so the form and the maths cannot
+   * disagree about what counts — the engine treats a unit of Hours as a meter
+   * schedule whatever the basis says, and this form has to as well or it would
+   * show date fields for something the engine will never date.
+   */
+  const meterMode = isMeterSchedule({
+    frequencyInterval: wholeNumber(draft.frequencyInterval),
+    frequencyUnit: (draft.frequencyUnit || null) as FrequencyUnit | null,
+    scheduleBasis: (draft.scheduleBasis || null) as ScheduleBasis | null,
+    firstDueDate: null,
+    nextDueDate: null,
+    lastCompleted: null,
+    lastCompletedHours: null,
+    nextDueHours: null,
+    graceDays: null,
+    leadTimeDays: null,
+    active: true,
+  });
+
   const { data: departments = [] } = useMaintenanceDepartments();
   const { data: locations = [] } = useMaintenanceLocations();
 
@@ -315,6 +365,8 @@ export function ScheduledMaintenanceFormModal({
         firstDueDate: firstDue,
         nextDueDate: schedule?.nextDueDate ?? firstDue,
         lastCompleted: schedule?.lastCompleted ?? null,
+        lastCompletedHours: schedule?.lastCompletedHours ?? null,
+        nextDueHours: wholeNumber(draft.firstDueHours),
         graceDays: wholeNumber(draft.graceDays),
         leadTimeDays: wholeNumber(draft.leadTimeDays),
         active: true,
@@ -331,15 +383,41 @@ export function ScheduledMaintenanceFormModal({
     // refused mutation would raise.
     if (!manageGate.allowed) return setError(manageGate.hint);
     if (!draft.title.trim()) return setError("Give the schedule a name.");
-    if (!draft.scheduleBasis) return setError("Pick Fixed or Floating.");
+    if (!draft.scheduleBasis) return setError("Pick Fixed, Floating or Hourmeter.");
     const firstDue = fromDateInputValue(draft.firstDue);
-    if (!firstDue) {
+    // A run-hours schedule is due at a reading, so a first due DATE is not
+    // required — requiring one would force somebody to invent a date the
+    // engine then ignores. It still needs an interval in hours, which is the
+    // only thing that makes it ever come due.
+    if (!meterMode && !firstDue) {
       return setError("Set the first due date — a schedule with no date is never due.");
     }
     const interval = wholeNumber(draft.frequencyInterval);
     if (draft.frequencyInterval.trim() && (interval === null || interval <= 0)) {
       return setError("The frequency interval has to be a whole number above zero.");
     }
+    if (meterMode) {
+      if (draft.scheduleBasis !== "Hourmeter") {
+        return setError(
+          "A frequency in Hours means a run-hours schedule — set the basis to Hourmeter.",
+        );
+      }
+      if (draft.frequencyUnit !== "Hours") {
+        return setError("An Hourmeter schedule has to be measured in Hours — set the unit.");
+      }
+      if (interval === null) {
+        return setError(
+          "Set how many run hours between occurrences — without it this schedule can never come due.",
+        );
+      }
+      const firstDueHours = wholeNumber(draft.firstDueHours);
+      if (draft.firstDueHours.trim() && (firstDueHours === null || firstDueHours < 0)) {
+        return setError("The first due reading has to be a number of hours.");
+      }
+    }
+    // AFTER the meter block: on a run-hours schedule the unit is set for you by
+    // the basis, so this generic pairing message would pre-empt the one that
+    // actually says what is missing (the run-hours interval).
     if (!!interval !== !!draft.frequencyUnit) {
       return setError("Set both the interval and its unit, or neither for a one-off.");
     }
@@ -355,13 +433,15 @@ export function ScheduledMaintenanceFormModal({
     try {
       if (schedule) await saveEdit(schedule, firstDue);
       else await saveNew(firstDue);
+      // (firstDue is null only on a run-hours schedule — see the validation
+      // above; both save paths take it as nullable for that reason.)
     } catch {
       // The hooks toast the reason; keep the modal open so nothing is lost.
       setError("Couldn't save — see the message above the page, and try again.");
     }
   }
 
-  async function saveNew(firstDue: Date) {
+  async function saveNew(firstDue: Date | null) {
     const created = await create.mutateAsync({
       title: draft.title.trim(),
       instructions: draft.instructions,
@@ -379,6 +459,10 @@ export function ScheduledMaintenanceFormModal({
       firstDueDate: firstDue,
       // A brand-new schedule is first due when it says it is.
       nextDueDate: firstDue,
+      // …and a run-hours one is first due at the reading it says, if given.
+      // Left blank, `anchorDueHours` anchors on the asset's reading now plus
+      // the interval rather than leaving the schedule never due.
+      nextDueHours: meterMode ? wholeNumber(draft.firstDueHours) : null,
       assignedTo: draft.assignedTo,
       timeNeeded: wholeNumber(draft.timeNeeded),
       graceDays: wholeNumber(draft.graceDays),
@@ -391,7 +475,7 @@ export function ScheduledMaintenanceFormModal({
     onCreated?.(created.id);
   }
 
-  async function saveEdit(current: ScheduledMaintenance, firstDue: Date) {
+  async function saveEdit(current: ScheduledMaintenance, firstDue: Date | null) {
     const fields: Record<string, unknown> = {};
     const put = (key: string, next: unknown, prev: unknown) => {
       if (next !== prev) fields[key] = next;
@@ -415,8 +499,16 @@ export function ScheduledMaintenanceFormModal({
     put("RequiresShutdown", draft.requiresShutdown, current.requiresShutdown);
     put("LOTORequired", draft.lotoRequired, current.lotoRequired);
 
+    // The first due READING, on a run-hours schedule. Only sent when it
+    // changed, like every other column here, and `null` clears it — which is
+    // legitimate: clearing it hands the anchor back to "current reading plus
+    // the interval".
+    if (meterMode) {
+      put("NextDueHours", wholeNumber(draft.firstDueHours), current.nextDueHours);
+    }
+
     const firstDueChanged = toDateInputValue(current.firstDueDate) !== draft.firstDue;
-    if (firstDueChanged) {
+    if (firstDueChanged && firstDue) {
       fields.FirstDueDate = toSpDateOnly(firstDue);
       // Moving the first due date on a schedule nothing has been logged
       // against yet moves the outstanding occurrence with it — that is what
@@ -624,7 +716,17 @@ export function ScheduledMaintenanceFormModal({
                 <div className="min-w-0 flex-1">
                   <ChoiceSelect
                     value={draft.frequencyUnit}
-                    onChange={(v) => set("frequencyUnit", v)}
+                    onChange={(v) => {
+                      // Picking Hours IS picking a run-hours schedule, so the
+                      // basis follows rather than leaving the two contradicting
+                      // each other for the user to reconcile. The reverse is
+                      // handled where the basis pills are.
+                      set("frequencyUnit", v);
+                      if (v === "Hours") set("scheduleBasis", "Hourmeter");
+                      else if (v && draft.scheduleBasis === "Hourmeter") {
+                        set("scheduleBasis", "Fixed");
+                      }
+                    }}
                     options={FREQUENCY_UNITS}
                     emptyLabel="One-off"
                     ariaLabel="Frequency unit"
@@ -632,35 +734,86 @@ export function ScheduledMaintenanceFormModal({
                   />
                 </div>
               </div>
+              {meterMode && (
+                <p className="mt-1 text-[11px] font-normal normal-case tracking-normal text-fg-muted">
+                  Run hours off the asset's hourmeter — not hours on the calendar.
+                </p>
+              )}
             </Field>
 
-            <Field label="First due" required>
-              <DateField
-                value={draft.firstDue}
-                onChange={(v) => set("firstDue", v)}
-                disabled={busy}
-                aria-label="First due"
-              />
-            </Field>
+            {/* On a run-hours schedule the PRIMARY field here is a reading, not
+                a date — so the two swap places rather than both being shown as
+                though both mattered. */}
+            {meterMode ? (
+              <Field label="First due at (run hours)">
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  inputMode="numeric"
+                  aria-label="First due at run hours"
+                  value={draft.firstDueHours}
+                  onChange={(e) => set("firstDueHours", e.target.value)}
+                  placeholder="e.g. 5500"
+                  className="input"
+                />
+                <p className="mt-1 text-[11px] font-normal normal-case tracking-normal text-fg-muted">
+                  Optional. Left blank, it starts counting from the asset's reading now plus the
+                  interval above
+                  {draft.equipment
+                    ? ""
+                    : " — but this schedule has no asset yet, and without one it can never come due"}
+                  .
+                </p>
+              </Field>
+            ) : (
+              <Field label="First due" required>
+                <DateField
+                  value={draft.firstDue}
+                  onChange={(v) => set("firstDue", v)}
+                  disabled={busy}
+                  aria-label="First due"
+                />
+              </Field>
+            )}
 
-            {/* Two options — pills, never a dropdown. The hint is the whole
-                point: Fixed vs Floating is the thing people get wrong. */}
+            {/* Three options — still pills, still not a dropdown (the rule is
+                three or fewer). The hint is the whole point: Fixed vs Floating
+                is the thing people get wrong, and Hourmeter is a different kind
+                of thing from either. */}
             <Field label="Basis" plain className="sm:col-span-2">
               <ChoicePills
                 label="Schedule basis"
                 name="schedule-basis"
                 options={SCHEDULE_BASES}
                 value={draft.scheduleBasis}
-                onChange={(v) => set("scheduleBasis", v)}
+                onChange={(v) => {
+                  set("scheduleBasis", v);
+                  // Picking Hourmeter sets the unit to Hours, and moving off it
+                  // clears Hours back out — the two describe one decision, and
+                  // leaving them able to contradict each other is what makes a
+                  // schedule that never comes due.
+                  if (v === "Hourmeter") set("frequencyUnit", "Hours");
+                  else if (draft.frequencyUnit === "Hours") set("frequencyUnit", "");
+                }}
                 disabled={busy}
               />
               <p className="mt-1 text-[11px] text-fg-muted">
-                {draft.scheduleBasis === "Floating"
-                  ? "Floating — the clock restarts when the job is actually done, so it's next due this long after the last completion."
-                  : "Fixed — the next date comes off the DUE date, so a monthly job stays on the same day of the month however late it was done."}
+                {draft.scheduleBasis === "Hourmeter"
+                  ? "Hourmeter — due at a run-hours READING, not on a date. It becomes due when the asset's hourmeter reaches the target, so it isn't on the calendar until then; the PM library shows it counting down. Needs an asset with its hours kept up to date."
+                  : draft.scheduleBasis === "Floating"
+                    ? "Floating — the clock restarts when the job is actually done, so it's next due this long after the last completion."
+                    : "Fixed — the next date comes off the DUE date, so a monthly job stays on the same day of the month however late it was done."}
               </p>
             </Field>
 
+            {/* Both of these are in DAYS, and on a run-hours schedule neither
+                applies. They are DISABLED with the reason rather than hidden:
+                an existing schedule may already hold values, and a field that
+                vanishes when you change the basis looks like data loss. They
+                are deliberately not reused as hours — three grace days is not
+                three grace hours, and there is no hours column to hold the
+                analogue. See `isMeterSchedule`. */}
             <Field label="Grace days">
               <input
                 type="number"
@@ -671,9 +824,17 @@ export function ScheduledMaintenanceFormModal({
                 onChange={(e) => set("graceDays", e.target.value)}
                 placeholder="0"
                 className="input"
+                disabled={busy || meterMode}
+                title={
+                  meterMode
+                    ? "Grace days are in days and don't apply to a run-hours schedule — it's due the moment the reading reaches the target."
+                    : undefined
+                }
               />
               <p className="mt-1 text-[11px] font-normal normal-case tracking-normal text-fg-muted">
-                Days past due before it counts as late.
+                {meterMode
+                  ? "In days — not used by a run-hours schedule, which is due as soon as the reading reaches the target."
+                  : "Days past due before it counts as late."}
               </p>
             </Field>
 
@@ -687,9 +848,17 @@ export function ScheduledMaintenanceFormModal({
                 onChange={(e) => set("leadTimeDays", e.target.value)}
                 placeholder="0"
                 className="input"
+                disabled={busy || meterMode}
+                title={
+                  meterMode
+                    ? "Lead time is in days and doesn't apply to a run-hours schedule — there's no date to be ahead of."
+                    : undefined
+                }
               />
               <p className="mt-1 text-[11px] font-normal normal-case tracking-normal text-fg-muted">
-                Days ahead of the due date it starts showing up — time to order a part.
+                {meterMode
+                  ? "In days — not used by a run-hours schedule; there's no date to be ahead of."
+                  : "Days ahead of the due date it starts showing up — time to order a part."}
               </p>
             </Field>
 
@@ -757,7 +926,33 @@ export function ScheduledMaintenanceFormModal({
             </Field>
           </div>
 
-          {preview.length > 0 && (
+          {/* A run-hours schedule has no dates to preview, so it gets its own
+              summary — the target reading, or the fact that it will be assumed
+              from the asset's current reading. Showing the date preview here
+              (it would be empty, since `nextDueDates` refuses a meter
+              schedule) would read as "nothing is scheduled". */}
+          {meterMode && (
+            <div className="mt-4 rounded-md border border-superior-blue/40 bg-superior-blue/5 px-3 py-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
+                Run-hours schedule
+              </p>
+              <p className="mt-1 text-sm text-fg">
+                {wholeNumber(draft.frequencyInterval) === null
+                  ? "Set an interval in run hours — without one this schedule can never come due."
+                  : draft.firstDueHours.trim()
+                    ? `First due at ${formatMeterHours(wholeNumber(draft.firstDueHours))}, then every ${wholeNumber(draft.frequencyInterval)} run hours after each completion.`
+                    : `Due every ${wholeNumber(draft.frequencyInterval)} run hours, counting from the asset's reading now.`}
+              </p>
+              <p className="mt-1 text-[11px] text-fg-muted">
+                No dates: it appears on the calendar on the day the asset's hourmeter actually
+                reaches the target, and shows its countdown in the PM library until then. Keep the
+                asset's Current Machine Hours up to date — a reading that never moves is a PM that
+                never comes due.
+              </p>
+            </div>
+          )}
+
+          {!meterMode && preview.length > 0 && (
             <div className="mt-4 rounded-md border border-border bg-surface-2 px-3 py-2">
               <p className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
                 Next occurrences

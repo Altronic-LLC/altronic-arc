@@ -16,6 +16,7 @@ import {
   SP_GRAY_MARKET_LIST_ID,
   SP_PMO_SITE_URL,
   SP_SALESTEAM_SITE_URL,
+  SP_SCHEDULED_MAINTENANCE_LIST_ID,
   SP_SITE_URL,
   SP_SUPPLIERS_LIST_ID,
   SP_SUPPLIER_CONTACTS_LIST_ID,
@@ -53,6 +54,7 @@ export type AttachmentParent =
   | "fait"
   | "operationsTask"
   | "maintenanceTask"
+  | "scheduledMaintenance"
   | "buildRequest"
   | "buildRequestItem"
   | "panelOrder"
@@ -96,6 +98,17 @@ const PARENT_CONFIG: Record<AttachmentParent, ParentConfig> = {
     listId: SP_MAINTENANCE_TASKS_LIST_ID,
     siteUrl: SP_PMO_SITE_URL,
     listIdEnvVar: "VITE_SP_MAINTENANCE_TASKS_LIST_ID",
+  },
+  // PM schedules — the manual, the instruction sheet, the procedure PDF.
+  // Hung off the SCHEDULE rather than off each work order it raises, so one
+  // upload serves every occurrence instead of being re-attached (or lost) on
+  // each one. Attachments were already enabled on the Scheduled Maintenance
+  // list in SharePoint, so this needs nothing there. Same PMO site as the
+  // work orders and the equipment list next door.
+  scheduledMaintenance: {
+    listId: SP_SCHEDULED_MAINTENANCE_LIST_ID,
+    siteUrl: SP_PMO_SITE_URL,
+    listIdEnvVar: "VITE_SP_SCHEDULED_MAINTENANCE_LIST_ID",
   },
   buildRequest: {
     listId: SP_BUILD_REQUESTS_LIST_ID,

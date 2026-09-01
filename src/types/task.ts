@@ -2287,18 +2287,35 @@ export type MaintenancePriority = (typeof MAINTENANCE_PRIORITIES)[number];
 export const MAINTENANCE_DUE_STATUSES = ["On-Track", "Late"] as const;
 export type MaintenanceDueStatus = (typeof MAINTENANCE_DUE_STATUSES)[number];
 
-/** `FrequencyUnit` on Scheduled Maintenance. */
-export const FREQUENCY_UNITS = ["Days", "Weeks", "Months", "Years"] as const;
+/**
+ * `FrequencyUnit` on Scheduled Maintenance.
+ *
+ * **`Hours` is not a unit of time here — it is a unit of RUN TIME.** A
+ * schedule measured in Hours counts the asset's hourmeter, not the calendar,
+ * and every date function in lib/maintenanceSchedule.ts refuses it rather
+ * than quietly treating 500 hours as 500 days. See `SCHEDULE_BASES` below.
+ */
+export const FREQUENCY_UNITS = ["Days", "Weeks", "Months", "Years", "Hours"] as const;
 export type FrequencyUnit = (typeof FREQUENCY_UNITS)[number];
+
+/** The date-based units — everything `addInterval` can actually add to a Date. */
+export const DATE_FREQUENCY_UNITS = ["Days", "Weeks", "Months", "Years"] as const;
 
 /**
  * `ScheduleBasis` — how the next occurrence is computed once one is completed.
+ *
  * Fixed advances from the previous DUE date (a monthly PM stays on the 1st
  * however late it was done); Floating advances from the completion date (an
  * oil change is due 90 days after the last one, not 90 days after it was
- * supposed to happen). See lib/maintenanceSchedule.ts.
+ * supposed to happen).
+ *
+ * **Hourmeter is a different kind of thing from either.** It has no date at
+ * all: it is due at a READING (`NextDueHours`) and becomes due when the
+ * asset's `CurrentMachineHours` reaches it. Fixed vs Floating has no meaning
+ * there — there is one behaviour — so nothing should branch on those two for
+ * a meter schedule. See lib/maintenanceSchedule.ts.
  */
-export const SCHEDULE_BASES = ["Fixed", "Floating"] as const;
+export const SCHEDULE_BASES = ["Fixed", "Floating", "Hourmeter"] as const;
 export type ScheduleBasis = (typeof SCHEDULE_BASES)[number];
 
 /** `Criticality` on the Equipment list. */
@@ -2702,6 +2719,22 @@ export interface ScheduledMaintenance {
   firstDueDate: Date | null;
   nextDueDate: Date | null;
   lastCompleted: Date | null;
+  /**
+   * `LastCompletedHours` — the asset's hourmeter reading when this PM was last
+   * done. **Only meaningful on an Hourmeter schedule**, and `null` there means
+   * it has never been done at a recorded reading (which is NOT the same as
+   * zero — 0 is a real reading off a new machine).
+   */
+  lastCompletedHours: number | null;
+  /**
+   * `NextDueHours` — the reading this PM is next due AT. App-owned, written on
+   * completion exactly the way `NextDueDate` is.
+   *
+   * A meter schedule is due when the asset's `CurrentMachineHours` reaches
+   * this. There is deliberately no date derived from it: estimating one off
+   * average usage would fabricate a number nobody measured.
+   */
+  nextDueHours: number | null;
   /** SINGLE person columns — bare lookupIds on the wire, same as the work orders'. */
   assignedTo: Person | null;
   lastCompletedBy: Person | null;
@@ -2740,6 +2773,9 @@ export interface ScheduledMaintenanceInput {
   scheduleBasis?: ScheduleBasis | null;
   firstDueDate?: Date | null;
   nextDueDate?: Date | null;
+  /** Hourmeter schedules only — see `ScheduledMaintenance`. */
+  lastCompletedHours?: number | null;
+  nextDueHours?: number | null;
   assignedTo?: Person | null;
   watchers?: Person[];
   timeNeeded?: number | null;

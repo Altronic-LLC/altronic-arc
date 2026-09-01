@@ -12,7 +12,8 @@ vi.mock("@/hooks/useMaintenanceRoles", () => ({
   useMyMaintenanceRoles: () => maintenanceAccess.value,
   useResolveMaintenanceAccess: () => async () => maintenanceAccess.value,
 }));
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
 import { MaintenanceBoardView, planStatusDrop } from "./MaintenanceBoardView";
 import { resetOpenDropdown } from "@/components/useDropdownClose";
@@ -132,6 +133,69 @@ describe("MaintenanceBoardView", () => {
     renderBoard("?q=bearing");
     expect(screen.getByText("Bearing on order")).toBeInTheDocument();
     expect(screen.queryByText("Compressor tripping")).toBeNull();
+  });
+
+  // The Type axis, end to end. Both fixtures carry a `TaskType` saying the
+  // OPPOSITE of their schedule reference, so a board reading the choice column
+  // instead of the reference fails every case here.
+  describe("the Type / Scheduled filter", () => {
+    const PM = { lookupId: 41, title: "Compressor — 500 hr service" };
+    const TYPED = [
+      makeTask({
+        id: 11,
+        title: "PM belt inspection",
+        status: "Started",
+        scheduleRef: PM,
+        taskType: "Request",
+      }),
+      makeTask({
+        id: 12,
+        title: "Leaking pipe reported",
+        status: "Started",
+        scheduleRef: null,
+        taskType: "Regular Maintenance",
+      }),
+    ];
+
+    beforeEach(() => {
+      state.tasks = TYPED;
+    });
+
+    /** A column's count — the badge's sibling in the column header. */
+    function columnCount(status: string): string {
+      const badge = screen
+        .getAllByText(status)
+        .find((el) => el.nextElementSibling?.textContent?.match(/^\d+$/));
+      return badge?.nextElementSibling?.textContent ?? "";
+    }
+
+    it("shows both kinds on Both", () => {
+      renderBoard();
+      expect(screen.getByText("PM belt inspection")).toBeInTheDocument();
+      expect(screen.getByText("Leaking pipe reported")).toBeInTheDocument();
+      expect(columnCount("Started")).toBe("2");
+    });
+
+    it("narrows to PM work, and the column count follows", () => {
+      renderBoard("?type=scheduled");
+      expect(screen.getByText("PM belt inspection")).toBeInTheDocument();
+      expect(screen.queryByText("Leaking pipe reported")).toBeNull();
+      expect(columnCount("Started")).toBe("1");
+    });
+
+    it("narrows to one-off work, and the column count follows", () => {
+      renderBoard("?type=one-off");
+      expect(screen.getByText("Leaking pipe reported")).toBeInTheDocument();
+      expect(screen.queryByText("PM belt inspection")).toBeNull();
+      expect(columnCount("Started")).toBe("1");
+    });
+
+    it("shares the pills with the list", async () => {
+      renderBoard();
+      const group = screen.getByRole("radiogroup", { name: /type/i });
+      await userEvent.click(within(group).getByRole("radio", { name: /^Scheduled$/ }));
+      await waitFor(() => expect(screen.queryByText("Leaking pipe reported")).toBeNull());
+    });
   });
 
   // A bookmark or a shared link would otherwise land a phone on a

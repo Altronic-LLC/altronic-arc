@@ -403,3 +403,131 @@ describe("ScheduledMaintenanceFormModal — department, location and Operations 
     });
   });
 });
+
+// =============================================================================
+// The Hourmeter basis.
+//
+// Picking it swaps which half of the form is primary. Leaving the date fields
+// looking as required as the hour fields is how somebody carefully fills in
+// boxes that do nothing.
+// =============================================================================
+describe("ScheduledMaintenanceFormModal — Hourmeter", () => {
+  beforeEach(() => {
+    resetScheduledMaintenanceMockStore();
+    maintenanceAccess.value = { isTech: true, isAdmin: true, enforced: true, isResolving: false };
+  });
+
+  it("offers Hourmeter as a third pill, and explains it is a reading not a date", async () => {
+    renderWithProviders(<ScheduledMaintenanceFormModal onClose={vi.fn()} />);
+    const pill = screen.getByRole("radio", { name: "Hourmeter" });
+    expect(pill).toBeInTheDocument();
+    // Three options is still pills, not a dropdown — the rule is three or fewer.
+    expect(screen.queryByRole("combobox", { name: /basis/i })).not.toBeInTheDocument();
+
+    await userEvent.click(pill);
+    expect(screen.getByText(/due at a run-hours READING, not on a date/i)).toBeInTheDocument();
+  });
+
+  it("makes the hour fields primary and the date field secondary", async () => {
+    renderWithProviders(<ScheduledMaintenanceFormModal onClose={vi.fn()} />);
+    expect(screen.getByLabelText("First due")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("radio", { name: "Hourmeter" }));
+
+    // The date field is gone; a reading takes its place.
+    expect(screen.queryByLabelText("First due")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("First due at run hours")).toBeInTheDocument();
+  });
+
+  it("sets the unit to Hours when Hourmeter is picked, and clears it again on the way out", async () => {
+    // The two describe ONE decision. Letting them contradict each other is how
+    // a schedule that never comes due gets created.
+    renderWithProviders(<ScheduledMaintenanceFormModal onClose={vi.fn()} />);
+    await userEvent.click(screen.getByRole("radio", { name: "Hourmeter" }));
+    expect(screen.getByText(/Run hours off the asset's hourmeter/i)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("radio", { name: "Fixed" }));
+    expect(screen.queryByText(/Run hours off the asset's hourmeter/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText("First due")).toBeInTheDocument();
+  });
+
+  it("disables Grace days and Lead time days, with the reason — never reusing them as hours", async () => {
+    // Three grace days is not three grace hours, and there is no hours column
+    // to hold the analogue. Disabled rather than hidden: an existing schedule
+    // may already carry values, and a field that vanishes looks like data loss.
+    renderWithProviders(<ScheduledMaintenanceFormModal onClose={vi.fn()} />);
+    await userEvent.click(screen.getByRole("radio", { name: "Hourmeter" }));
+
+    const grace = screen.getByRole("spinbutton", { name: /grace days/i });
+    expect(grace).toBeDisabled();
+    expect(grace).toHaveAttribute("title", expect.stringContaining("don't apply"));
+    expect(screen.getByText(/not used by a run-hours schedule, which is due as soon as/i))
+      .toBeInTheDocument();
+    expect(screen.getByText(/there's no date to be ahead of/i)).toBeInTheDocument();
+  });
+
+  it("previews the run-hours rule instead of a list of dates", async () => {
+    renderWithProviders(<ScheduledMaintenanceFormModal onClose={vi.fn()} />);
+    await userEvent.click(screen.getByRole("radio", { name: "Hourmeter" }));
+    await userEvent.type(screen.getByRole("spinbutton", { name: /frequency interval/i }), "500");
+
+    expect(screen.getByText("Run-hours schedule")).toBeInTheDocument();
+    expect(screen.getByText(/Due every 500 run hours/i)).toBeInTheDocument();
+    // Said out loud, because it is the one thing that makes a meter PM work.
+    expect(screen.getByText(/a reading that never moves is a PM that never comes due/i))
+      .toBeInTheDocument();
+  });
+
+  it("refuses to save without an hours interval — the one thing that makes it come due", async () => {
+    renderWithProviders(<ScheduledMaintenanceFormModal onClose={vi.fn()} />);
+    await userEvent.type(screen.getByPlaceholderText(/What has to happen/i), "Oil change");
+    await userEvent.click(screen.getByRole("radio", { name: "Hourmeter" }));
+    await userEvent.click(screen.getByRole("button", { name: "Create schedule" }));
+
+    await waitFor(
+      () =>
+        expect(
+          screen.getByText(/Set how many run hours between occurrences/i),
+        ).toBeInTheDocument(),
+      SLOW,
+    );
+  });
+
+  it("does NOT require a first due date, unlike a calendar schedule", async () => {
+    // Requiring one would force somebody to invent a date the engine ignores.
+    const onClose = vi.fn();
+    renderWithProviders(<ScheduledMaintenanceFormModal onClose={onClose} />);
+    await userEvent.type(screen.getByPlaceholderText(/What has to happen/i), "Oil change");
+    await userEvent.click(screen.getByRole("radio", { name: "Hourmeter" }));
+    await userEvent.type(screen.getByRole("spinbutton", { name: /frequency interval/i }), "500");
+    await userEvent.click(screen.getByRole("button", { name: "Create schedule" }));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled(), SLOW);
+    const created = (await listScheduledMaintenance()).find((s) => s.title === "Oil change");
+    expect(created?.scheduleBasis).toBe("Hourmeter");
+    expect(created?.frequencyUnit).toBe("Hours");
+    expect(created?.frequencyInterval).toBe(500);
+    expect(created?.firstDueDate).toBeNull();
+  });
+
+  it("saves a first due READING when one is given", async () => {
+    const onClose = vi.fn();
+    renderWithProviders(<ScheduledMaintenanceFormModal onClose={onClose} />);
+    await userEvent.type(screen.getByPlaceholderText(/What has to happen/i), "Valve check");
+    await userEvent.click(screen.getByRole("radio", { name: "Hourmeter" }));
+    await userEvent.type(screen.getByRole("spinbutton", { name: /frequency interval/i }), "500");
+    await userEvent.type(screen.getByLabelText("First due at run hours"), "5500");
+    await userEvent.click(screen.getByRole("button", { name: "Create schedule" }));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled(), SLOW);
+    const created = (await listScheduledMaintenance()).find((s) => s.title === "Valve check");
+    expect(created?.nextDueHours).toBe(5500);
+  });
+
+  it("opens an existing run-hours schedule in hours mode, showing its stored target", async () => {
+    const meter = await loadSchedule(13);
+    renderWithProviders(<ScheduledMaintenanceFormModal schedule={meter} onClose={vi.fn()} />);
+    expect(screen.getByLabelText("First due at run hours")).toHaveValue(3000);
+    expect(screen.queryByLabelText("First due")).not.toBeInTheDocument();
+  });
+});

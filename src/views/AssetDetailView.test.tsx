@@ -148,6 +148,8 @@ function schedule(over: Partial<ScheduledMaintenance> = {}): ScheduledMaintenanc
     firstDueDate: null,
     nextDueDate: day("2026-08-30"),
     lastCompleted: null,
+    lastCompletedHours: null,
+    nextDueHours: null,
     assignedTo: null,
     lastCompletedBy: null,
     watchers: [],

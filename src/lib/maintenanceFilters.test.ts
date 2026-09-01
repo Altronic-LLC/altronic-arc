@@ -9,13 +9,21 @@ import {
   countOpenMaintenance,
   daysUntilWorkOrderDue,
   departmentByEquipment,
+  isScheduledWorkOrder,
   isWorkOrderOverdue,
   maintenanceDepartmentOptions,
+  matchesMaintenanceTypeFilter,
+  normalizeMaintenanceTypeFilter,
   maintenanceTaskDepartment,
   sortMaintenanceTasks,
 } from "./maintenanceFilters";
 import { OTHER_TECH, SUPERVISOR, TECH, day, makeAsset, makeTask, ref } from "@/test/maintenanceFixtures";
 import { referenceKey } from "./maintenanceReferences";
+import {
+  MAINTENANCE_TYPE_OPTIONS,
+  matchesMaintenanceCalendarFilters,
+  workOrderEntry,
+} from "./maintenanceCalendar";
 
 const NOW = new Date("2026-08-27T15:00:00Z");
 
@@ -385,4 +393,151 @@ describe("sortMaintenanceTasks", () => {
     sortMaintenanceTasks(input);
     expect(input.map((t) => t.id)).toEqual([1, 2, 3, 4, 5]);
   });
+});
+
+// =============================================================================
+// The Type axis — Scheduled / One-off / Both.
+//
+// The calendar has had this filter since it shipped; the list and the board
+// answer it with the same rule, expressed once here. Every case below is about
+// the ONE thing that can rot: reading the schedule REFERENCE rather than the
+// `TaskType` choice column that describes it.
+// =============================================================================
+
+const PM_SCHEDULE = ref(41, "Compressor — 500 hr service");
+
+describe("the Type axis", () => {
+  // The whole point of the axis. `TaskType` is set automatically from whether
+  // `ScheduledMaintenanceRef` is populated — so the two agree today, and the
+  // filter has to keep working the day they don't: a row keyed in by hand in
+  // SharePoint, a legacy import, or a flow touching the choice column.
+  //
+  // Both fixtures below have `TaskType` saying the OPPOSITE of their schedule
+  // reference. A filter reading the choice column returns exactly the wrong
+  // work order for each.
+  describe("reads the schedule reference, NOT TaskType", () => {
+    const pmLabelledRequest = makeTask({
+      id: 90,
+      title: "PM whose TaskType says Request",
+      scheduleRef: PM_SCHEDULE,
+      taskType: "Request",
+    });
+    const adHocLabelledMaintenance = makeTask({
+      id: 91,
+      title: "One-off whose TaskType says Regular Maintenance",
+      scheduleRef: null,
+      taskType: "Regular Maintenance",
+    });
+    const both = [pmLabelledRequest, adHocLabelledMaintenance];
+
+    it("counts a schedule-referencing work order as Scheduled however TaskType reads", () => {
+      const out = applyMaintenanceFilters(both, null, {
+        ...EMPTY_MAINTENANCE_FILTERS,
+        type: "scheduled",
+      });
+      expect(out.map((t) => t.id)).toEqual([90]);
+    });
+
+    it("counts one with no schedule reference as One-off however TaskType reads", () => {
+      const out = applyMaintenanceFilters(both, null, {
+        ...EMPTY_MAINTENANCE_FILTERS,
+        type: "one-off",
+      });
+      expect(out.map((t) => t.id)).toEqual([91]);
+    });
+
+    it("agrees at the predicate level too", () => {
+      expect(isScheduledWorkOrder(pmLabelledRequest)).toBe(true);
+      expect(isScheduledWorkOrder(adHocLabelledMaintenance)).toBe(false);
+    });
+  });
+
+  it("lets everything through for Both", () => {
+    const out = applyMaintenanceFilters(TASKS, null, {
+      ...EMPTY_MAINTENANCE_FILTERS,
+      type: "",
+    });
+    expect(out).toHaveLength(TASKS.length);
+  });
+
+  it("treats an unrecognised value as Both rather than filtering everything out", () => {
+    const out = applyMaintenanceFilters(TASKS, null, {
+      ...EMPTY_MAINTENANCE_FILTERS,
+      type: "nonsense" as never,
+    });
+    expect(out).toHaveLength(TASKS.length);
+  });
+
+  it("composes with the other axes", () => {
+    const tasks = [
+      makeTask({ id: 1, scheduleRef: PM_SCHEDULE, equipment: COMPRESSOR }),
+      makeTask({ id: 2, scheduleRef: PM_SCHEDULE, equipment: OVEN }),
+      makeTask({ id: 3, scheduleRef: null, equipment: COMPRESSOR }),
+    ];
+    const out = applyMaintenanceFilters(tasks, null, {
+      ...EMPTY_MAINTENANCE_FILTERS,
+      type: "scheduled",
+      equipmentIds: [COMPRESSOR.lookupId],
+    });
+    expect(out.map((t) => t.id)).toEqual([1]);
+  });
+
+  // A reference with no lookupId isn't a reference to anything — treating it
+  // as scheduled would put a work order in a view whose schedule can't be
+  // opened.
+  it("needs a real lookupId, not just a truthy reference", () => {
+    const task = makeTask({
+      id: 5,
+      scheduleRef: { lookupId: null as unknown as number, title: "" },
+    });
+    expect(isScheduledWorkOrder(task)).toBe(false);
+  });
+});
+
+describe("normalizeMaintenanceTypeFilter", () => {
+  it("keeps the values the axis actually has", () => {
+    expect(normalizeMaintenanceTypeFilter("scheduled")).toBe("scheduled");
+    expect(normalizeMaintenanceTypeFilter("one-off")).toBe("one-off");
+    expect(normalizeMaintenanceTypeFilter("")).toBe("");
+  });
+
+  it("reads a missing param as Both", () => {
+    expect(normalizeMaintenanceTypeFilter(null)).toBe("");
+    expect(normalizeMaintenanceTypeFilter(undefined)).toBe("");
+  });
+
+  // Including the literal "both" — the value somebody would guess at — since
+  // Both is spelled `""` and never appears in a URL.
+  it("reads anything else as Both", () => {
+    for (const raw of ["both", "Scheduled", "one off", "1", " scheduled"]) {
+      expect(normalizeMaintenanceTypeFilter(raw)).toBe("");
+    }
+  });
+});
+
+// The calendar keeps its own copy of the predicate, over its own entry shape.
+// This is what stops the two drifting: for every option the axis offers, both
+// sides have to reach the same verdict about the same work order.
+describe("the calendar and the work-order surface agree", () => {
+  const NOW_UTC = new Date("2026-08-27T12:00:00Z");
+  const cases = [
+    makeTask({ id: 1, scheduleRef: PM_SCHEDULE, taskType: "Request", dueDate: NOW_UTC }),
+    makeTask({ id: 2, scheduleRef: null, taskType: "Regular Maintenance", dueDate: NOW_UTC }),
+  ];
+
+  for (const option of MAINTENANCE_TYPE_OPTIONS) {
+    it(`matches the calendar for "${option.label}"`, () => {
+      for (const task of cases) {
+        const entry = workOrderEntry(task, NOW_UTC);
+        expect(entry).not.toBeNull();
+        expect(matchesMaintenanceTypeFilter(task, option.value)).toBe(
+          matchesMaintenanceCalendarFilters(entry!, {
+            type: option.value,
+            assigned: "",
+            equipment: "",
+          }),
+        );
+      }
+    });
+  }
 });

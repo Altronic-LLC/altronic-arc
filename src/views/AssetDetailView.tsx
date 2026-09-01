@@ -11,7 +11,16 @@ import { manageAssetsGate } from "@/lib/maintenanceRoles";
 import { equipmentLabel } from "@/lib/equipmentMapper";
 import { referenceLabel } from "@/lib/maintenanceReferences";
 import { collectMaintenanceTaskPeople } from "@/lib/maintenanceTaskMapper";
-import { anchorDueDate, daysUntilDue, frequencyLabel } from "@/lib/maintenanceSchedule";
+import {
+  type MeterAsset,
+  anchorDueDate,
+  daysUntilDue,
+  frequencyLabel,
+  isMeterSchedule,
+  meterAssetIndex,
+  meterReadingFor,
+  meterStatus,
+} from "@/lib/maintenanceSchedule";
 import {
   NO_DEPARTMENT_LABEL,
   assetWorkSummary,
@@ -25,6 +34,7 @@ import {
   DueInLabel,
   MaintenancePriorityFlag,
   MaintenanceStatusBadge,
+  MeterStatusLine,
   ScheduleBasisChip,
 } from "@/components/maintenanceAtoms";
 import { ChoiceSelect, SingleSelect } from "@/components/SearchableSelect";
@@ -81,6 +91,9 @@ export function AssetDetailView({ now }: AssetDetailViewProps = {}) {
 
   const { data: asset, isLoading } = useEquipmentItem(assetId);
   const { data: register = [] } = useEquipment();
+  // For this page's run-hours schedules. The register is already loaded above,
+  // so this is an index over data in hand rather than another read.
+  const meterAssets = useMemo(() => meterAssetIndex(register as MeterAsset[]), [register]);
   const { data: tasks = [] } = useMaintenanceTasks();
   const { data: schedules = [] } = useScheduledMaintenance();
   const directory = useDirectoryPeople();
@@ -191,6 +204,13 @@ export function AssetDetailView({ now }: AssetDetailViewProps = {}) {
               <ul className="divide-y divide-border">
                 {assetSchedules.map((s) => {
                   const due = anchorDueDate(s);
+                  // A run-hours schedule has no date, so it reports the reading
+                  // and the gap instead — and reports "can't tell" out loud when
+                  // this asset's hourmeter is blank, which is the one place on
+                  // this page where that fault is visible next to its cause.
+                  const meterState = isMeterSchedule(s)
+                    ? meterStatus(s, meterReadingFor(s.equipment, meterAssets), asOf)
+                    : null;
                   return (
                     <li key={s.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5">
                       <span
@@ -205,14 +225,14 @@ export function AssetDetailView({ now }: AssetDetailViewProps = {}) {
                         {frequencyLabel(s.frequencyInterval, s.frequencyUnit)}
                       </span>
                       <ScheduleBasisChip basis={s.scheduleBasis} />
-                      {s.active ? (
-                        due ? (
-                          <DueInLabel days={daysUntilDue(s, asOf)} />
-                        ) : (
-                          <span className="text-xs text-fg-muted">No due date set</span>
-                        )
-                      ) : (
+                      {!s.active ? (
                         <span className="text-xs text-fg-muted">Inactive</span>
+                      ) : meterState ? (
+                        <MeterStatusLine status={meterState} />
+                      ) : due ? (
+                        <DueInLabel days={daysUntilDue(s, asOf)} />
+                      ) : (
+                        <span className="text-xs text-fg-muted">No due date set</span>
                       )}
                     </li>
                   );

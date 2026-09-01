@@ -7,7 +7,17 @@ import type {
   ScheduledMaintenance,
 } from "@/types/task";
 import { calendarDays, dayKey } from "@/lib/calendarGrid";
-import { anchorDueDate, isOverdue, nextDueDates, toMiddayUtc } from "@/lib/maintenanceSchedule";
+import {
+  type MeterAsset,
+  anchorDueDate,
+  isMeterSchedule,
+  isOverdue,
+  meterAssetIndex,
+  meterReadingFor,
+  meterStatus,
+  nextDueDates,
+  toMiddayUtc,
+} from "@/lib/maintenanceSchedule";
 import { isMaintenanceTaskClosed } from "@/lib/maintenanceTaskMapper";
 import { personKey } from "@/lib/people";
 
@@ -34,6 +44,15 @@ import { personKey } from "@/lib/people";
 //    keep it VISIBLE even when the user has paged to a different month, which
 //    is what `overdue` is for. Its grid position stays on the day it was
 //    actually due; it is never re-dated to today.
+//  - **A METER (Hourmeter) schedule appears here only once it is actually
+//    due**, as a chip on TODAY. Before that it is on the calendar nowhere at
+//    all, because there is no honest date to put it on — it is due at a
+//    reading, and estimating a date from average usage would fabricate a
+//    number nobody measured. Its home is the PM library, which shows the
+//    reading, the gap and whether it is due. Once due it behaves like any
+//    other overdue occurrence: it stays until somebody closes it out. Note it
+//    is dated TODAY each day it is evaluated rather than keeping a fixed
+//    position — there is no measured date for it to keep.
 //  - **An inactive schedule projects nothing**, whatever its dates say. That
 //    is `nextDueDates`' rule too; nothing here second-guesses it.
 //
@@ -217,9 +236,49 @@ function projectionsFor(
   return out;
 }
 
+/**
+ * A METER schedule's one possible entry: a chip on TODAY, and only once the
+ * asset's hourmeter has actually reached the target.
+ *
+ * Returns null when it is not due, when the state can't be told (no reading,
+ * no linked asset — the PM library is where those faults are surfaced, because
+ * a calendar has nowhere honest to put "can't tell"), or when the day is
+ * outside the window being filled.
+ *
+ * It is marked `overdue` because that is what a meter PM being due MEANS: the
+ * reading has passed the point the work was supposed to happen at, and unlike
+ * a date occurrence there was no advance warning to have missed.
+ */
+function meterProjectionFor(
+  schedule: ScheduledMaintenance,
+  assets: Map<number, MeterAsset>,
+  from: Date,
+  to: Date,
+  now: Date,
+  taken: Set<string>,
+): MaintenanceCalendarEntry | null {
+  if (!schedule.active) return null;
+  const status = meterStatus(schedule, meterReadingFor(schedule.equipment, assets), now);
+  if (status.state !== "due") return null;
+  const at = toMiddayUtc(now);
+  if (!withinDays(at, from, to)) return null;
+  if (taken.has(`${schedule.id}|${dayKey(at)}`)) return null;
+  return projectionEntry(schedule, at, true);
+}
+
 export interface CollectEntriesInput {
   tasks: MaintenanceTask[];
   schedules: ScheduledMaintenance[];
+  /**
+   * The equipment register, for the meter schedules' readings.
+   *
+   * Optional so every existing caller (and every test that predates run-hours
+   * scheduling) keeps compiling — but an omitted register means no meter PM
+   * can be evaluated, so a view that shows schedules MUST pass it. The PM
+   * library is the screen that reports the fault when a reading is missing;
+   * the calendar simply shows nothing, which is why this must not be forgotten.
+   */
+  assets?: MeterAsset[];
   /** Inclusive window, day-granular. */
   from: Date;
   to: Date;
@@ -231,12 +290,14 @@ export interface CollectEntriesInput {
 export function collectMaintenanceEntries({
   tasks,
   schedules,
+  assets = [],
   from,
   to,
   now,
 }: CollectEntriesInput): MaintenanceCalendarEntry[] {
   const taken = loggedOccurrences(tasks);
   const byId = scheduleById(schedules);
+  const assetIndex = meterAssetIndex(assets);
 
   const entries: MaintenanceCalendarEntry[] = [];
   for (const task of tasks) {
@@ -244,6 +305,15 @@ export function collectMaintenanceEntries({
     if (entry && withinDays(entry.date, from, to)) entries.push(entry);
   }
   for (const schedule of schedules) {
+    // The two paths are mutually exclusive by construction: `nextDueDates`
+    // returns nothing for a meter schedule, and `meterProjectionFor` returns
+    // nothing for a calendar one. Branching here rather than relying on that
+    // would put the same rule in two places.
+    if (isMeterSchedule(schedule)) {
+      const entry = meterProjectionFor(schedule, assetIndex, from, to, now, taken);
+      if (entry) entries.push(entry);
+      continue;
+    }
     entries.push(...projectionsFor(schedule, from, to, now, taken));
   }
   return entries;
@@ -260,14 +330,18 @@ export function collectMaintenanceEntries({
 export function overdueMaintenanceEntries({
   tasks,
   schedules,
+  assets = [],
   now,
 }: {
   tasks: MaintenanceTask[];
   schedules: ScheduledMaintenance[];
+  /** The equipment register, for the meter schedules' readings — see `CollectEntriesInput`. */
+  assets?: MeterAsset[];
   now: Date;
 }): MaintenanceCalendarEntry[] {
   const taken = loggedOccurrences(tasks);
   const byId = scheduleById(schedules);
+  const assetIndex = meterAssetIndex(assets);
 
   const entries: MaintenanceCalendarEntry[] = [];
   for (const task of tasks) {
@@ -275,6 +349,14 @@ export function overdueMaintenanceEntries({
     if (entry?.overdue) entries.push(entry);
   }
   for (const schedule of schedules) {
+    // A due meter PM belongs on the overdue strip too — it must not be able to
+    // hide just for lacking a date. The window is `[now, now]` because today
+    // is the only day it can sit on.
+    if (isMeterSchedule(schedule)) {
+      const entry = meterProjectionFor(schedule, assetIndex, now, now, now, taken);
+      if (entry) entries.push(entry);
+      continue;
+    }
     if (!isOverdue(schedule, now)) continue;
     const anchor = anchorDueDate(schedule);
     if (!anchor) continue;
@@ -372,12 +454,15 @@ export function buildMaintenanceCalendarMonth({
   monthStart,
   tasks,
   schedules,
+  assets = [],
   now,
   filters,
 }: {
   monthStart: Date;
   tasks: MaintenanceTask[];
   schedules: ScheduledMaintenance[];
+  /** The equipment register, for the meter schedules' readings. */
+  assets?: MeterAsset[];
   now: Date;
   filters: MaintenanceCalendarFilters;
 }): MaintenanceCalendarMonth {
@@ -385,10 +470,10 @@ export function buildMaintenanceCalendarMonth({
   const from = days[0];
   const to = days[days.length - 1];
 
-  const entries = collectMaintenanceEntries({ tasks, schedules, from, to, now }).filter((e) =>
-    matchesMaintenanceCalendarFilters(e, filters),
+  const entries = collectMaintenanceEntries({ tasks, schedules, assets, from, to, now }).filter(
+    (e) => matchesMaintenanceCalendarFilters(e, filters),
   );
-  const overdue = overdueMaintenanceEntries({ tasks, schedules, now }).filter((e) =>
+  const overdue = overdueMaintenanceEntries({ tasks, schedules, assets, now }).filter((e) =>
     matchesMaintenanceCalendarFilters(e, filters),
   );
 
@@ -411,12 +496,15 @@ export interface MaintenanceAgendaGroup {
 export function buildMaintenanceAgenda({
   tasks,
   schedules,
+  assets = [],
   now,
   filters,
   horizonDays = AGENDA_HORIZON_DAYS,
 }: {
   tasks: MaintenanceTask[];
   schedules: ScheduledMaintenance[];
+  /** The equipment register, for the meter schedules' readings. */
+  assets?: MeterAsset[];
   now: Date;
   filters: MaintenanceCalendarFilters;
   horizonDays?: number;
@@ -425,10 +513,12 @@ export function buildMaintenanceAgenda({
   const to = new Date(startOfUtcDay(now) + horizonDays * MS_PER_DAY);
 
   const merged = new Map<string, MaintenanceCalendarEntry>();
-  for (const entry of overdueMaintenanceEntries({ tasks, schedules, now })) {
+  for (const entry of overdueMaintenanceEntries({ tasks, schedules, assets, now })) {
     merged.set(entry.key, entry);
   }
-  for (const entry of collectMaintenanceEntries({ tasks, schedules, from, to, now })) {
+  // A due meter PM is produced by both calls with the SAME key (`pm-<id>-<today>`),
+  // so the map dedupes it rather than showing today's chip twice.
+  for (const entry of collectMaintenanceEntries({ tasks, schedules, assets, from, to, now })) {
     merged.set(entry.key, entry);
   }
 

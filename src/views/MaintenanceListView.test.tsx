@@ -178,6 +178,90 @@ describe("MaintenanceListView", () => {
     expect(screen.queryByText("Compressor tripping")).toBeNull();
   });
 
+  // The Type axis, end to end. Every fixture here has `TaskType` saying the
+  // OPPOSITE of its schedule reference, so a view reading the choice column
+  // instead of the reference fails every case.
+  describe("the Type / Scheduled filter", () => {
+    const PM = { lookupId: 41, title: "Compressor — 500 hr service" };
+    const TYPED: MaintenanceTask[] = [
+      makeTask({
+        id: 11,
+        title: "PM belt inspection",
+        status: "Started",
+        scheduleRef: PM,
+        taskType: "Request",
+      }),
+      makeTask({
+        id: 12,
+        title: "Leaking pipe reported",
+        status: "Started",
+        scheduleRef: null,
+        taskType: "Regular Maintenance",
+      }),
+      makeTask({
+        id: 13,
+        title: "PM oil change",
+        status: "Backlog",
+        scheduleRef: PM,
+        taskType: "Request",
+      }),
+    ];
+
+    beforeEach(() => {
+      state.tasks = TYPED;
+    });
+
+    function typePill(name: RegExp): HTMLElement {
+      const group = screen.getByRole("radiogroup", { name: /type/i });
+      return within(group).getByRole("radio", { name });
+    }
+
+    it("shows everything on Both", () => {
+      renderList();
+      expect(screen.getByText("PM belt inspection")).toBeInTheDocument();
+      expect(screen.getByText("Leaking pipe reported")).toBeInTheDocument();
+      expect(screen.getByText("PM oil change")).toBeInTheDocument();
+    });
+
+    it("narrows to PM work", async () => {
+      renderList();
+      await userEvent.click(typePill(/^Scheduled$/));
+      await waitFor(() => expect(screen.queryByText("Leaking pipe reported")).toBeNull());
+      expect(screen.getByText("PM belt inspection")).toBeInTheDocument();
+      expect(screen.getByText("PM oil change")).toBeInTheDocument();
+    });
+
+    it("narrows to one-off work", async () => {
+      renderList();
+      await userEvent.click(typePill(/^One-off$/));
+      await waitFor(() => expect(screen.queryByText("PM belt inspection")).toBeNull());
+      expect(screen.getByText("Leaking pipe reported")).toBeInTheDocument();
+    });
+
+    it("reads the filter back out of the URL on arrival", () => {
+      renderList("?type=one-off");
+      expect(screen.getByText("Leaking pipe reported")).toBeInTheDocument();
+      expect(screen.queryByText("PM belt inspection")).toBeNull();
+    });
+
+    // The pills count what the BAR left, so the numbers describe what is on
+    // screen. A status pill still counting the filtered-out one-off jobs would
+    // send people looking for rows that aren't there.
+    it("the status pills count only the filtered type", () => {
+      renderList("?type=scheduled");
+      expect(pill(/^Open/)).toHaveTextContent("2");
+      expect(pill(/^Started/)).toHaveTextContent("1");
+      expect(pill(/^Backlog/)).toHaveTextContent("1");
+    });
+
+    it('"Showing N of M" respects it', () => {
+      renderList("?type=scheduled");
+      expect(screen.getByText(/Showing 2 of 2 work orders/)).toBeInTheDocument();
+      // …and says how many exist in total, so the narrowing is visible.
+      expect(screen.getByText(/\(3 in total\)/)).toBeInTheDocument();
+    });
+  });
+
   it("says so when nothing matches", () => {
     renderList("?q=nothingmatchesthis");
     expect(screen.getByText(/no work orders match/i)).toBeInTheDocument();
@@ -223,11 +307,14 @@ describe("MaintenanceListView", () => {
       expect(screen.queryByText("Job 1")).toBeNull();
     });
 
+    // The same 20s allowance its two siblings carry: rendering 160 rows twice
+    // over is genuinely slow, and under a full-suite run the default 5s is not
+    // enough — it timed out there while passing on its own.
     it("shows all of them on request", async () => {
       renderList();
       await userEvent.click(screen.getByRole("button", { name: /show all 160/i }));
       await waitFor(() => expect(screen.getByText("Job 1")).toBeInTheDocument());
-    });
+    }, 20_000);
 
     // Once somebody has narrowed to a handful, re-hiding rows they just
     // searched for would be perverse — so the cap resets when filters change.
@@ -237,6 +324,21 @@ describe("MaintenanceListView", () => {
       await waitFor(() => expect(screen.getByText("Job 1")).toBeInTheDocument());
 
       await userEvent.click(pill(/^Backlog/));
+      await waitFor(() =>
+        expect(screen.getByRole("button", { name: /show all 160/i })).toBeInTheDocument(),
+      );
+      expect(screen.queryByText("Job 1")).toBeNull();
+    }, 20_000);
+
+    it("puts the cap back when the Type axis changes", async () => {
+      renderList();
+      await userEvent.click(screen.getByRole("button", { name: /show all 160/i }));
+      await waitFor(() => expect(screen.getByText("Job 1")).toBeInTheDocument());
+
+      const group = screen.getByRole("radiogroup", { name: /type/i });
+      await userEvent.click(within(group).getByRole("radio", { name: /^One-off$/ }));
+      // Every fixture row is one-off, so the count is unchanged — what is
+      // being asserted is that the cap came back, not that rows went away.
       await waitFor(() =>
         expect(screen.getByRole("button", { name: /show all 160/i })).toBeInTheDocument(),
       );

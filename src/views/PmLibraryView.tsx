@@ -13,9 +13,14 @@ import {
   manageSchedulesGate,
 } from "@/lib/maintenanceRoles";
 import {
+  type MeterAsset,
   anchorDueDate,
   daysUntilDue,
   frequencyLabel,
+  isMeterSchedule,
+  meterAssetIndex,
+  meterReadingFor,
+  meterStatus,
 } from "@/lib/maintenanceSchedule";
 import {
   compareScheduledMaintenance,
@@ -34,8 +39,11 @@ import { MaintenanceViewSwitcher } from "@/components/MaintenanceViewSwitcher";
 import {
   DueInLabel,
   MaintenancePriorityFlag,
+  MeterReadingAsOf,
+  MeterStatusLine,
   ScheduleBasisChip,
 } from "@/components/maintenanceAtoms";
+import { useEquipment } from "@/hooks/useEquipment";
 import { cn } from "@/lib/cn";
 
 // =============================================================================
@@ -57,6 +65,15 @@ import { cn } from "@/lib/cn";
 //    schedules people most often check.
 //  - **An overdue schedule stays at the top and says how late it is.** It does
 //    not roll forward on its own, and nothing here hides it.
+//  - **This is a run-hours schedule's PRIMARY home.** An Hourmeter PM has no
+//    date, so it appears on the calendar only on the day it actually comes due
+//    (see lib/maintenanceCalendar.ts) — this is the screen somebody checks to
+//    see one coming. Its Next due cell reads "Due at 5,200 hrs · now 5,043 hrs
+//    · 157 to go" instead of a date, plus the asset's last-edit date, and it
+//    says out loud when the state CAN'T BE TOLD: no hourmeter reading, or no
+//    asset linked at all. Those are faults, not blanks — a meter PM with no
+//    reading behind it can never come due, and this row is the only place that
+//    would ever say so.
 //  - **Creating, editing and retiring a schedule is maintenance-ADMIN only;
 //    logging one is tech-or-admin.** Reading the library is open to everyone —
 //    knowing what is due is not a privilege. Every gated control is disabled
@@ -77,6 +94,13 @@ const ACTIVE_OPTIONS = [
 export default function PmLibraryView() {
   const [params, setParams] = useSearchParams();
   const { data: schedules = [], isLoading } = useScheduledMaintenance();
+  // The equipment register, for the run-hours schedules' readings. Cached for
+  // five minutes and already loaded by every other CMMS screen, so this costs
+  // nothing — and without it a meter schedule can only ever report "no asset
+  // linked", which would be a lie about the data rather than about the load.
+  // Named `assetRows`, not `equipment`: the filter param a few lines below is
+  // already called `equipment` and holds a lookupId string.
+  const { data: assetRows = [], isLoading: equipmentLoading } = useEquipment();
   const setActive = useSetScheduleActive();
   const access = useMyMaintenanceRoles();
   const manageGate = manageSchedulesGate(access);
@@ -106,6 +130,7 @@ export default function PmLibraryView() {
   }, [q, state, assigned, equipment]);
 
   const now = new Date();
+  const assets = useMemo(() => meterAssetIndex(assetRows as MeterAsset[]), [assetRows]);
 
   const filtered = useMemo(() => {
     return schedules
@@ -235,7 +260,11 @@ export default function PmLibraryView() {
         </label>
       </div>
 
-      {isLoading ? (
+      {isLoading || equipmentLoading ? (
+        /* Held until the equipment register has landed as well. A meter row
+           rendered against an empty register reports "No asset linked — this
+           schedule can never come due", which is a real fault when it's true
+           and an alarming lie for the second it isn't. */
         <LoadingTasks noun="the PM library" />
       ) : filtered.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border px-4 py-10 text-center text-sm text-fg-muted">
@@ -262,6 +291,7 @@ export default function PmLibraryView() {
                     key={schedule.id}
                     schedule={schedule}
                     now={now}
+                    assets={assets}
                     onEdit={() => setEditing(schedule)}
                     onLog={() => setLogging(schedule)}
                     onToggleActive={() =>
@@ -325,6 +355,7 @@ function Th({ children, align }: { children: React.ReactNode; align?: "right" })
 function ScheduleRow({
   schedule,
   now,
+  assets,
   onEdit,
   onLog,
   onToggleActive,
@@ -333,6 +364,8 @@ function ScheduleRow({
 }: {
   schedule: ScheduledMaintenance;
   now: Date;
+  /** The equipment register by lookupId — for a run-hours schedule's reading. */
+  assets: Map<number, MeterAsset>;
   onEdit: () => void;
   onLog: () => void;
   onToggleActive: () => void;
@@ -342,9 +375,17 @@ function ScheduleRow({
   logGate: MaintenanceGate;
 }) {
   // The OUTSTANDING occurrence, not the stored column: a Floating schedule
-  // derives it from its last completion.
+  // derives it from its last completion. Null for a run-hours schedule — it
+  // has no date, and the meter status below is what that row shows instead.
   const due = anchorDueDate(schedule);
   const days = schedule.active ? daysUntilDue(schedule, now) : null;
+  const meter = isMeterSchedule(schedule);
+  // `meterStatus` reports `applies: false` for a RETIRED meter schedule rather
+  // than returning null, so the cell below checks `.applies` — otherwise a
+  // retired row renders the (empty) status atoms and looks blank.
+  const meterState = meter
+    ? meterStatus(schedule, meterReadingFor(schedule.equipment, assets), now)
+    : null;
 
   return (
     <tr className={cn("align-top", !schedule.active && "opacity-60")}>
@@ -367,7 +408,17 @@ function ScheduleRow({
           )}
         </div>
       </td>
-      <td className="px-3 py-2 text-fg-muted">{schedule.equipment?.title || "—"}</td>
+      <td className="px-3 py-2 text-fg-muted">
+        {schedule.equipment?.title || (
+          /* A missing asset is a plain dash on a calendar schedule and a FAULT
+             on a meter one — that schedule has no hourmeter to count against,
+             so it can never come due. Said here as well as in the Next due
+             cell, because this is the cell somebody scans for the cause. */
+          <span className={meter ? "font-medium text-cooper-red" : undefined}>
+            {meter ? "No asset — can't be evaluated" : "—"}
+          </span>
+        )}
+      </td>
       <td className="px-3 py-2">
         <div className="text-fg">
           {frequencyLabel(schedule.frequencyInterval, schedule.frequencyUnit)}
@@ -377,19 +428,43 @@ function ScheduleRow({
         </div>
       </td>
       <td className="px-3 py-2">
-        <div className="tabular-nums text-fg">
-          {due
-            ? due.toLocaleDateString(undefined, {
-                timeZone: "UTC",
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-              })
-            : "Not scheduled"}
-        </div>
-        <div className="mt-0.5">
-          <DueInLabel days={days} />
-        </div>
+        {meterState?.applies ? (
+          /* A reading, a gap and a verdict — never a date, and never a blank.
+             `MeterStatusLine` renders "can't tell" as its own red state. */
+          <div className="flex flex-col gap-0.5">
+            <MeterStatusLine status={meterState} />
+            <MeterReadingAsOf status={meterState} />
+            {meterState.anchoredOnCurrentReading && (
+              <span
+                title="Nothing has been completed against this schedule and no due reading is stored, so the target is assumed from the asset's reading now plus the interval. Log a completion — or set a due reading — to fix it in place."
+                className="text-[11px] italic text-fg-muted"
+              >
+                Target assumed from today's reading
+              </span>
+            )}
+          </div>
+        ) : meter ? (
+          /* A meter schedule on a RETIRED row: `meterStatus` reports
+             `applies: false` and the atoms render nothing, so say why the cell
+             is empty rather than leaving it blank. */
+          <span className="text-xs text-fg-muted">Retired — not counting hours.</span>
+        ) : (
+          <>
+            <div className="tabular-nums text-fg">
+              {due
+                ? due.toLocaleDateString(undefined, {
+                    timeZone: "UTC",
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })
+                : "Not scheduled"}
+            </div>
+            <div className="mt-0.5">
+              <DueInLabel days={days} />
+            </div>
+          </>
+        )}
       </td>
       <td className="px-3 py-2 text-fg-muted">{schedule.assignedTo?.displayName || "Not set"}</td>
       <td className="px-3 py-2">

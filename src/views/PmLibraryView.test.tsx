@@ -227,3 +227,86 @@ describe("PmLibraryView", () => {
     });
   });
 });
+
+// =============================================================================
+// RUN-HOURS (Hourmeter) schedules — the PM library is their primary home.
+//
+// A meter PM has no date, so it reaches the calendar only on the day its
+// reading actually passes the target. This screen is where somebody sees one
+// coming, and — more importantly — where the ones that can NEVER come due are
+// named as faults rather than showing an empty cell.
+//
+// The seeds these lean on are in data/maintenanceMockData.ts, one per state.
+// =============================================================================
+describe("PmLibraryView — run-hours schedules", () => {
+  beforeEach(() => {
+    resetScheduledMaintenanceMockStore();
+    resetMaintenanceMockStore();
+    maintenanceAccess.value = { isTech: true, isAdmin: true, enforced: true, isResolving: false };
+  });
+
+  it("shows the reading, the gap and whether it is due — never a date", async () => {
+    await renderLibrary("?q=Engine oil");
+    const row = screen.getByText(/Engine oil \+ filter change/i).closest("tr");
+    expect(row).toBeTruthy();
+    // Asset 1 reads 4,820 against a 4,800 target: 20 run hours past due.
+    expect(within(row as HTMLElement).getByText(/Due at 4,800 hrs/)).toBeInTheDocument();
+    expect(within(row as HTMLElement).getByText(/now 4,820 hrs/)).toBeInTheDocument();
+    expect(within(row as HTMLElement).getByText(/20 hrs past due/)).toBeInTheDocument();
+  });
+
+  it("counts down a schedule that is not due yet", async () => {
+    await renderLibrary("?q=valve inspection");
+    const row = screen.getByText(/Compressor valve inspection/i).closest("tr");
+    expect(within(row as HTMLElement).getByText(/560 to go/)).toBeInTheDocument();
+  });
+
+  it("says CAN'T TELL when the asset has no hourmeter reading", async () => {
+    // The silent failure: without this the row would read as a PM that simply
+    // is not due yet, and it can never come due at all.
+    await renderLibrary("?q=Gearbox oil sample");
+    const row = screen.getByText(/Gearbox oil sample/i).closest("tr");
+    expect(within(row as HTMLElement).getByText(/can't tell/i)).toBeInTheDocument();
+  });
+
+  it("reports a schedule with NO asset as a fault, in both cells", async () => {
+    await renderLibrary("?q=Chiller compressor rebuild");
+    const row = screen.getByText(/Chiller compressor rebuild/i).closest("tr");
+    expect(
+      within(row as HTMLElement).getByText(/can never come due/i),
+    ).toBeInTheDocument();
+    // And in the Equipment column, which is the cell somebody scans for a cause.
+    expect(
+      within(row as HTMLElement).getByText(/No asset — can't be evaluated/i),
+    ).toBeInTheDocument();
+  });
+
+  it("warns that a reading may be stale rather than trusting 'not due'", async () => {
+    await renderLibrary("?q=Hydraulic filter change");
+    const row = screen.getByText(/Hydraulic filter change/i).closest("tr");
+    expect(within(row as HTMLElement).getByText(/110 to go/)).toBeInTheDocument();
+    expect(
+      within(row as HTMLElement).getByText(/Reading may be stale/i),
+    ).toBeInTheDocument();
+  });
+
+  it("treats a genuine ZERO reading as a reading, not as a missing one", async () => {
+    await renderLibrary("?q=Run-in check");
+    const row = screen.getByText(/Run-in check/i).closest("tr");
+    expect(within(row as HTMLElement).getByText(/now 0 hrs/)).toBeInTheDocument();
+    expect(within(row as HTMLElement).queryByText(/can't tell/i)).not.toBeInTheDocument();
+  });
+
+  it("says a retired meter schedule is not counting hours, rather than leaving the cell blank", async () => {
+    await renderLibrary("?q=Blower bearing regrease&state=all");
+    const row = screen.getByText(/Blower bearing regrease/i).closest("tr");
+    expect(
+      within(row as HTMLElement).getByText(/Retired — not counting hours/i),
+    ).toBeInTheDocument();
+  });
+
+  it("labels the frequency in run hours, so it cannot read as a calendar interval", async () => {
+    await renderLibrary("?q=Engine oil");
+    expect(screen.getByText("Every 500 run hours")).toBeInTheDocument();
+  });
+});

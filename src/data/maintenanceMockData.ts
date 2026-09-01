@@ -346,6 +346,11 @@ const ASSET_SEEDS: AssetSeed[] = [
     description: "AUTOMATIC STATOR COIL WINDER",
     serialNo: "CW-4408",
     assetTag: "CL-004",
+    // A genuine ZERO, and the only one in the register. Zero is a real reading
+    // off a machine that hasn't run yet, and the whole meter path depends on it
+    // behaving differently from `null` ("never recorded") — so the demo carries
+    // one of each rather than leaving the distinction untested by eye.
+    machineHours: 0,
     editedDaysAgo: 1,
     equipmentType: "COILWIND",
     department: "COILS",
@@ -503,7 +508,12 @@ interface ScheduleSeed
   > {
   id: number;
   title: string;
-  equipmentLookupId: number;
+  /**
+   * Optional so a seed can genuinely have NO asset — a meter schedule with no
+   * equipment link can never be evaluated, and that fault has to be
+   * representable here or the screen that reports it has nothing to show.
+   */
+  equipmentLookupId?: number;
   /** Named in words; resolved to a reference-list lookup below. */
   department?: string;
   location?: string;
@@ -772,6 +782,151 @@ const SCHEDULE_SEEDS: ScheduleSeed[] = [
     active: false,
     createdDaysAgo: 1250,
   },
+
+  // ---------------------------------------------------------------------------
+  // RUN-HOURS (Hourmeter) schedules.
+  //
+  // Deliberately one per state the meter path can be in, because the states
+  // that matter are the ones where nothing is due and nothing looks wrong:
+  //
+  //   11  due          — asset 1 reads 4,820, due at 4,800
+  //   12  not due      — asset 2 reads 18,240, due at 18,800
+  //   13  can't tell   — asset 3 has NO hourmeter reading (the silent failure)
+  //   14  can't tell   — no asset linked at all
+  //   15  stale        — asset 4 is not due, but its row is 45 days old
+  //   16  zero reading — asset 9 reads a genuine 0, NOT the same as null
+  //   17  retired      — projects nothing, whatever its reading says
+  //
+  // The readings come from the asset seeds above (`machineHours` /
+  // `editedDaysAgo`), so the demo's numbers agree with the register's.
+  // ---------------------------------------------------------------------------
+  {
+    id: 11,
+    title: "Engine oil + filter change (every 500 run hours)",
+    equipmentLookupId: 1,
+    instructions: [
+      "- [ ] Read and note the hourmeter before you start",
+      "- [ ] Drain the sump while warm",
+      "- [ ] Replace the oil filter",
+      "- [ ] Refill to the mark and run up",
+    ].join("\n"),
+    category: "Oil Change",
+    priority: "High",
+    frequencyInterval: 500,
+    frequencyUnit: "Hours",
+    scheduleBasis: "Hourmeter",
+    // Last done at 4,300, so due at 4,800 — asset 1 reads 4,820, i.e. 20 run
+    // hours past due.
+    lastCompletedHours: 4300,
+    lastCompleted: day(-40),
+    lastCompletedBy: DAVID,
+    assignedTo: DAVID,
+    timeNeeded: 2,
+    createdDaysAgo: 300,
+  },
+  {
+    id: 12,
+    title: "Compressor valve inspection (every 1,000 run hours)",
+    equipmentLookupId: 2,
+    instructions: "Pull the valve covers, check seat wear, log the readings.",
+    category: "Inspection",
+    priority: "Med",
+    frequencyInterval: 1000,
+    frequencyUnit: "Hours",
+    scheduleBasis: "Hourmeter",
+    // Due at 18,800; the asset reads 18,240, so 560 run hours to go.
+    lastCompletedHours: 17800,
+    lastCompleted: day(-90),
+    lastCompletedBy: DAVID,
+    assignedTo: DAVID,
+    timeNeeded: 4,
+    createdDaysAgo: 400,
+  },
+  {
+    id: 13,
+    // Asset 3 has no `machineHours`, so this one reports "can't tell" rather
+    // than sitting quietly in the not-due pile. This is the case the whole
+    // feature is built around.
+    title: "Gearbox oil sample (every 750 run hours)",
+    equipmentLookupId: 3,
+    instructions: "Draw a sample from the drain port and send it off.",
+    category: "Preventive",
+    priority: "Med",
+    frequencyInterval: 750,
+    frequencyUnit: "Hours",
+    scheduleBasis: "Hourmeter",
+    nextDueHours: 3000,
+    assignedTo: DAVID,
+    timeNeeded: 1,
+    createdDaysAgo: 120,
+  },
+  {
+    id: 14,
+    // No equipment reference at all — it can never be evaluated, and the PM
+    // library says so on the row rather than showing a blank.
+    title: "Chiller compressor rebuild (every 8,000 run hours)",
+    instructions: "Full rebuild — planned against run hours, not the calendar.",
+    category: "Preventive",
+    priority: "Low",
+    frequencyInterval: 8000,
+    frequencyUnit: "Hours",
+    scheduleBasis: "Hourmeter",
+    timeNeeded: 16,
+    createdDaysAgo: 60,
+  },
+  {
+    id: 15,
+    // Asset 5's row hasn't been edited in a long time, so "not due" is not
+    // evidence of much — the library flags the reading as possibly stale.
+    title: "Hydraulic filter change (every 250 run hours)",
+    equipmentLookupId: 4,
+    instructions: "Swap the return-line filter and reset the indicator.",
+    category: "Preventive",
+    priority: "Med",
+    frequencyInterval: 250,
+    frequencyUnit: "Hours",
+    scheduleBasis: "Hourmeter",
+    // Due at 1,050; the asset reads 940 — so "not due", except the asset row
+    // has not been edited in 45 days and a whole 250-hour interval takes 11 at
+    // the very fastest. "Not due" is not evidence of much here.
+    lastCompletedHours: 800,
+    lastCompleted: day(-200),
+    lastCompletedBy: DAVID,
+    timeNeeded: 1,
+    createdDaysAgo: 500,
+  },
+  {
+    id: 16,
+    // A brand-new machine at a genuine ZERO hours. Zero is a real reading and
+    // must not behave like a blank one: this is due at 100 and not due yet.
+    title: "Run-in check (first 100 run hours)",
+    equipmentLookupId: 9,
+    instructions: "First-hours check on a new unit — retorque, check oil, log it.",
+    category: "Inspection",
+    priority: "High",
+    frequencyInterval: 100,
+    frequencyUnit: "Hours",
+    scheduleBasis: "Hourmeter",
+    lastCompletedHours: 0,
+    timeNeeded: 1,
+    createdDaysAgo: 10,
+  },
+  {
+    id: 17,
+    title: "Blower bearing regrease (every 2,000 run hours, retired)",
+    equipmentLookupId: 1,
+    instructions: "Superseded by the sealed-bearing conversion. Kept for history.",
+    category: "Preventive",
+    priority: "Low",
+    frequencyInterval: 2000,
+    frequencyUnit: "Hours",
+    scheduleBasis: "Hourmeter",
+    lastCompletedHours: 1000,
+    // Retired: `meterStatus` reports `applies: false`, so no fault is shown
+    // for it however blank its asset's reading is.
+    active: false,
+    createdDaysAgo: 900,
+  },
 ];
 
 export const MOCK_SCHEDULED_MAINTENANCE: ScheduledMaintenance[] = SCHEDULE_SEEDS.map((s) => ({
@@ -780,7 +935,7 @@ export const MOCK_SCHEDULED_MAINTENANCE: ScheduledMaintenance[] = SCHEDULE_SEEDS
   instructions: s.instructions ?? "",
   category: s.category ?? null,
   priority: s.priority ?? null,
-  equipment: assetRef(s.equipmentLookupId),
+  equipment: s.equipmentLookupId ? assetRef(s.equipmentLookupId) : null,
   operationsProject: s.operationsProjectLookupId
     ? operationsProjectRef(s.operationsProjectLookupId)
     : null,
@@ -792,6 +947,10 @@ export const MOCK_SCHEDULED_MAINTENANCE: ScheduledMaintenance[] = SCHEDULE_SEEDS
   firstDueDate: s.firstDueDate ?? null,
   nextDueDate: s.nextDueDate ?? null,
   lastCompleted: s.lastCompleted ?? null,
+  // Run-hours schedules only. `?? null` and not a truthiness check: 0 is a
+  // real hourmeter reading off a new machine.
+  lastCompletedHours: s.lastCompletedHours ?? null,
+  nextDueHours: s.nextDueHours ?? null,
   assignedTo: s.assignedTo ?? null,
   lastCompletedBy: s.lastCompletedBy ?? null,
   watchers: s.watchers ?? [s.assignedTo, RAY].filter((p): p is Person => !!p),

@@ -40,7 +40,7 @@ describe("MaintenanceFilterBar", () => {
 
   it("offers every axis", () => {
     renderBar();
-    for (const label of ["Equipment", "Assigned", "Category", "Department", "Search"]) {
+    for (const label of ["Type", "Equipment", "Assigned", "Category", "Department", "Search"]) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
   });
@@ -50,6 +50,53 @@ describe("MaintenanceFilterBar", () => {
     const { container } = renderBar();
     expect(container.querySelector("select")).toBeNull();
     expect(container.querySelectorAll('[aria-haspopup="listbox"]')).toHaveLength(4);
+  });
+
+  // Three options, so pills — never a dropdown (CLAUDE.md, "A short choice
+  // list is pills"), and the same three the calendar offers.
+  describe("the Type axis", () => {
+    function typePills(): HTMLElement {
+      return screen.getByRole("radiogroup", { name: /type/i });
+    }
+
+    it("renders as pills, with the calendar's labels", () => {
+      renderBar();
+      const labels = within(typePills())
+        .getAllByRole("radio")
+        .map((r) => (r.closest("label") as HTMLElement).textContent);
+      expect(labels).toEqual(["Both", "Scheduled", "One-off"]);
+    });
+
+    // It is not a sixth dropdown: the count below is what pins that.
+    it("adds no dropdown to the bar", () => {
+      const { container } = renderBar();
+      expect(container.querySelectorAll('[aria-haspopup="listbox"]')).toHaveLength(4);
+    });
+
+    it("starts on Both", () => {
+      renderBar();
+      expect(within(typePills()).getByRole("radio", { name: "Both" })).toBeChecked();
+    });
+
+    it("reports the picked value", async () => {
+      const { onChange } = renderBar();
+      await userEvent.click(within(typePills()).getByRole("radio", { name: "Scheduled" }));
+      expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ type: "scheduled" }));
+    });
+
+    it("goes back to Both, which is the empty value", async () => {
+      const { onChange } = renderBar({ type: "one-off" });
+      expect(within(typePills()).getByRole("radio", { name: "One-off" })).toBeChecked();
+      await userEvent.click(within(typePills()).getByRole("radio", { name: "Both" }));
+      expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ type: "" }));
+    });
+
+    // A pill group carries its own labels; nesting it in a <label> would make
+    // the outer one steal the click (CLAUDE.md).
+    it("does not sit inside a <label>", () => {
+      renderBar();
+      expect(typePills().closest("label")).toBeNull();
+    });
   });
 
   it("picks an asset by lookupId", async () => {

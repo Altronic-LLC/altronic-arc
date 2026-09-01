@@ -2,6 +2,7 @@ import { useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   EMPTY_MAINTENANCE_FILTERS,
+  normalizeMaintenanceTypeFilter,
   type MaintenanceFilters,
 } from "@/lib/maintenanceFilters";
 
@@ -18,6 +19,20 @@ import {
 //   assigned   → assignedEmails   (comma-separated keys; "__unassigned__" is one)
 //   category   → categories       (comma-separated choice values)
 //   dept       → departments      (comma-separated equipment departments)
+//   type       → type             ("scheduled" | "one-off"; ABSENT = both)
+//
+// **`type` is spelled exactly as the calendar spells it** — same param name,
+// same values, one value not a list — so a link travels between the list, the
+// board and the calendar without the axis quietly changing meaning. It is
+// deliberately NOT the comma-separated shape `assigned` and `equipment` use;
+// that asymmetry already costs `matchesMaintenanceCalendarFilters` a
+// `splitFilterValues` call it should not have needed, and a three-option
+// radio has nothing to multi-select.
+//
+// **Both is the default and never lands in the URL.** An absent `type` means
+// Both, so a bookmark from before this filter existed behaves identically to
+// one taken after it (`normalizeMaintenanceTypeFilter` handles the reverse —
+// an unrecognised value, `type=both` included, reads as Both).
 //
 // **There is deliberately no "assigned to me" default here.** The Engineering
 // task list defaults its Assigned filter to the signed-in user; this one opens
@@ -36,6 +51,7 @@ export const MAINTENANCE_FILTER_PARAM_KEYS = [
   "assigned",
   "category",
   "dept",
+  "type",
 ] as const;
 
 /**
@@ -72,6 +88,7 @@ export function useMaintenanceFilters(): [MaintenanceFilters, (next: Maintenance
       assignedEmails: parseStringList(searchParams.get("assigned")).map((e) => e.toLowerCase()),
       categories: parseStringList(searchParams.get("category")),
       departments: parseStringList(searchParams.get("dept")),
+      type: normalizeMaintenanceTypeFilter(searchParams.get("type")),
     }),
     [searchParams],
   );
@@ -86,6 +103,9 @@ export function useMaintenanceFilters(): [MaintenanceFilters, (next: Maintenance
           setOrDelete(out, "assigned", next.assignedEmails.join(","));
           setOrDelete(out, "category", next.categories.join(","));
           setOrDelete(out, "dept", next.departments.join(","));
+          // `""` is Both, and `setOrDelete` therefore deletes the key rather
+          // than parking `type=both` in every link.
+          setOrDelete(out, "type", next.type);
           return out;
         },
         { replace: true },

@@ -308,3 +308,168 @@ describe("LogPmCompletionModal", () => {
     });
   });
 });
+
+// =============================================================================
+// Logging a RUN-HOURS occurrence.
+//
+// The reading is the point. Without it `advanceMeterSchedule` writes nothing,
+// and the schedule records a completion and then stays due at the same reading
+// for ever — a PM that silently never rolls on, which is the failure this whole
+// feature exists to avoid. So it is required on Complete, defaulted from the
+// asset, and editable, because the person at the machine reads it off the
+// machine.
+// =============================================================================
+describe("LogPmCompletionModal — run-hours schedules", () => {
+  beforeEach(() => {
+    resetScheduledMaintenanceMockStore();
+    resetMaintenanceMockStore();
+    maintenanceAccess.value = { isTech: true, isAdmin: true, enforced: true, isResolving: false };
+  });
+
+  /** Schedule 11: every 500 run hours, last done at 4,300 → due at 4,800. */
+  const METER_ID = 11;
+
+  async function renderMeterModal(onClose = vi.fn()) {
+    const schedule = await loadSchedule(METER_ID);
+    const result = renderWithProviders(
+      <LogPmCompletionModal
+        schedule={schedule}
+        occurrence={utc(2026, 9, 15)}
+        onClose={onClose}
+      />,
+    );
+    // The reading box appears at once, but its VALUE (and the target derived
+    // from it) come from the asset register, which loads async — so wait for
+    // the register rather than for the box, or every assertion below races it.
+    await waitFor(
+      () => expect(screen.getByLabelText("Hourmeter reading now")).toHaveValue(4820),
+      SLOW,
+    );
+    return { ...result, schedule, onClose };
+  }
+
+  it("names the target as a READING, never as a date", async () => {
+    await renderMeterModal();
+    expect(screen.getByText(/Due at 4,800 hrs/)).toBeInTheDocument();
+    expect(screen.getByText(/Every 500 run hours/)).toBeInTheDocument();
+  });
+
+  it("asks for the hourmeter reading, and defaults it from the asset", async () => {
+    await renderMeterModal();
+    await waitFor(
+      () => expect(screen.getByLabelText("Hourmeter reading now")).toHaveValue(4820),
+      SLOW,
+    );
+    // Two numbers both called "hours" is a real trap, so they are named apart.
+    expect(screen.getByText(/The asset's stored reading is 4,820 hrs/)).toBeInTheDocument();
+    expect(screen.getByRole("spinbutton", { name: /labour hours/i })).toBeInTheDocument();
+  });
+
+  it("previews the reading it will next be due at", async () => {
+    await renderMeterModal();
+    // Said in two places — under the reading box and under the notes — so
+    // getAllByText, not getByText.
+    await waitFor(
+      () => expect(screen.getAllByText(/next due at 5,320 hrs/i).length).toBeGreaterThan(0),
+      SLOW,
+    );
+  });
+
+  it("refuses to complete with the reading cleared", async () => {
+    await renderMeterModal();
+    await userEvent.clear(screen.getByLabelText("Hourmeter reading now"));
+    await userEvent.click(screen.getByRole("button", { name: "Log completion" }));
+
+    await waitFor(
+      () =>
+        expect(
+          screen.getByText(/Enter the hourmeter reading off the machine/i),
+        ).toBeInTheDocument(),
+      SLOW,
+    );
+    // Nothing was written.
+    const after = await loadSchedule(METER_ID);
+    expect(after.lastCompletedHours).toBe(4300);
+  });
+
+  it("stamps the reading and rolls the target on from it", async () => {
+    const { onClose } = await renderMeterModal();
+    const box = screen.getByLabelText("Hourmeter reading now");
+    await userEvent.clear(box);
+    await userEvent.type(box, "5340");
+    await userEvent.click(screen.getByRole("button", { name: "Log completion" }));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled(), SLOW);
+    const after = await loadSchedule(METER_ID);
+    // Advanced from the reading it was DONE at, not the 4,800 it was due at.
+    expect(after.lastCompletedHours).toBe(5340);
+    expect(after.nextDueHours).toBe(5840);
+    // And it still has no next DATE — a meter schedule never gets one.
+    const tasks = await listMaintenanceTasks();
+    expect(tasks.some((t) => t.scheduleRef?.lookupId === METER_ID)).toBe(true);
+  });
+
+  it("does not ask for a reading when starting or skipping", async () => {
+    // Neither records a completion, so neither needs a reading.
+    await renderMeterModal();
+    await userEvent.click(screen.getByRole("radio", { name: "Start" }));
+    expect(screen.queryByLabelText("Hourmeter reading now")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("radio", { name: "Skip" }));
+    expect(screen.queryByLabelText("Hourmeter reading now")).not.toBeInTheDocument();
+  });
+
+  it("says plainly that skipping cannot move a run-hours target", async () => {
+    // Pushing the reading out would invent a number nobody measured, so the
+    // schedule keeps asking until the job is done or it is retired.
+    await renderMeterModal();
+    await userEvent.click(screen.getByRole("radio", { name: "Skip" }));
+    expect(screen.getByText(/skipping cannot move its target/i)).toBeInTheDocument();
+
+    await userEvent.type(
+      screen.getByRole("textbox"),
+      "Machine down for a rebuild.",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Log skip" }));
+
+    // Neither hour column moved: a skip records nothing and cannot push the
+    // target out. The schedule keeps asking.
+    await waitFor(async () => {
+      const after = await loadSchedule(METER_ID);
+      expect(after.lastCompletedHours).toBe(4300);
+      expect(after.nextDueHours).toBeNull();
+    }, SLOW);
+  });
+
+  it("leaves the reading box empty when the asset has never had one", async () => {
+    // Schedule 13's asset carries no hourmeter figure — exactly the case where
+    // somebody has to read it off the machine.
+    const schedule = await loadSchedule(13);
+    renderWithProviders(
+      <LogPmCompletionModal
+        schedule={schedule}
+        occurrence={utc(2026, 9, 15)}
+        onClose={vi.fn()}
+      />,
+    );
+    await waitFor(
+      () => expect(screen.getByLabelText("Hourmeter reading now")).toHaveValue(null),
+      SLOW,
+    );
+    expect(
+      screen.getByText(/The asset has no stored reading — read it off the machine/i),
+    ).toBeInTheDocument();
+  });
+
+  it("shows no reading box at all for a calendar schedule", async () => {
+    const schedule = await loadSchedule(1);
+    renderWithProviders(
+      <LogPmCompletionModal
+        schedule={schedule}
+        occurrence={utc(2026, 9, 2)}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.queryByLabelText("Hourmeter reading now")).not.toBeInTheDocument();
+  });
+});

@@ -79,6 +79,8 @@ function schedule(over: Partial<ScheduledMaintenance> = {}): ScheduledMaintenanc
     firstDueDate: utc(2026, 9, 2),
     nextDueDate: utc(2026, 9, 2),
     lastCompleted: null,
+    lastCompletedHours: null,
+    nextDueHours: null,
     assignedTo: null,
     lastCompletedBy: null,
     watchers: [],
@@ -497,5 +499,254 @@ describe("filter options", () => {
       [schedule({ equipment: { lookupId: 5, title: "Kitamura" } })],
     );
     expect(options).toEqual([{ value: "5", label: "Kitamura" }]);
+  });
+});
+
+// =============================================================================
+// RUN-HOURS (Hourmeter) schedules on the calendar.
+//
+// The rule being pinned: a meter PM is on the calendar ONLY once it is actually
+// due, as a chip on today, and nowhere at all before that — because there is no
+// honest date to put it on. Estimating one from average usage would fabricate a
+// number nobody measured, and it would then be sorted and reported on as though
+// somebody had.
+// =============================================================================
+
+/** A run-hours schedule, due at `lastCompletedHours` + 500. */
+function meterSchedule(over: Partial<ScheduledMaintenance> = {}): ScheduledMaintenance {
+  return schedule({
+    id: 400,
+    title: "Engine oil change (500 run hours)",
+    equipment: { lookupId: 7, title: "GENERATOR #1" },
+    frequencyInterval: 500,
+    frequencyUnit: "Hours",
+    scheduleBasis: "Hourmeter",
+    firstDueDate: null,
+    nextDueDate: null,
+    lastCompletedHours: 4300,
+    ...over,
+  });
+}
+
+/** One asset in the register, as `MeterAsset` sees it. */
+function meterAsset(hours: number | null, editedOn = utc(2026, 9, 14)) {
+  return { lookupId: 7, currentMachineHours: hours, modifiedAt: editedOn };
+}
+
+describe("meter schedules on the calendar", () => {
+  it("puts a DUE meter PM on today, and marks it overdue", () => {
+    const entries = collectMaintenanceEntries({
+      tasks: [],
+      schedules: [meterSchedule()],
+      assets: [meterAsset(4820)],
+      from: utc(2026, 9, 1),
+      to: utc(2026, 9, 30),
+      now: MID_SEPTEMBER,
+    });
+    expect(entries).toHaveLength(1);
+    expect(entries[0].day).toBe("2026-09-15");
+    expect(entries[0].kind).toBe("projected");
+    // Due IS overdue for a meter PM: the reading has passed the point the work
+    // should have happened at, and there was no advance warning to have missed.
+    expect(entries[0].overdue).toBe(true);
+  });
+
+  it("puts a meter PM that is NOT due on the calendar nowhere at all", () => {
+    const entries = collectMaintenanceEntries({
+      tasks: [],
+      schedules: [meterSchedule()],
+      assets: [meterAsset(4000)],
+      from: utc(2026, 9, 1),
+      to: utc(2026, 9, 30),
+      now: MID_SEPTEMBER,
+    });
+    expect(entries).toEqual([]);
+  });
+
+  it("shows nothing when the state cannot be told — no reading", () => {
+    // The calendar has nowhere honest to put "can't tell", so it shows nothing
+    // and the PM library reports the fault. This is deliberate, and it is why
+    // the library is a meter schedule's primary home.
+    const entries = collectMaintenanceEntries({
+      tasks: [],
+      schedules: [meterSchedule()],
+      assets: [meterAsset(null)],
+      from: utc(2026, 9, 1),
+      to: utc(2026, 9, 30),
+      now: MID_SEPTEMBER,
+    });
+    expect(entries).toEqual([]);
+  });
+
+  it("shows nothing when the schedule has no linked asset", () => {
+    const entries = collectMaintenanceEntries({
+      tasks: [],
+      schedules: [meterSchedule({ equipment: null })],
+      assets: [meterAsset(99_999)],
+      from: utc(2026, 9, 1),
+      to: utc(2026, 9, 30),
+      now: MID_SEPTEMBER,
+    });
+    expect(entries).toEqual([]);
+  });
+
+  it("shows nothing for an INACTIVE meter schedule however far past the reading is", () => {
+    const entries = collectMaintenanceEntries({
+      tasks: [],
+      schedules: [meterSchedule({ active: false })],
+      assets: [meterAsset(99_999)],
+      from: utc(2026, 9, 1),
+      to: utc(2026, 9, 30),
+      now: MID_SEPTEMBER,
+    });
+    expect(entries).toEqual([]);
+  });
+
+  it("never projects a meter PM off its stored dates", () => {
+    // A meter schedule can still carry dates from before it was switched over,
+    // or from a SharePoint edit. Projecting off them would scatter occurrences
+    // across the month for a schedule that is due at a reading.
+    const entries = collectMaintenanceEntries({
+      tasks: [],
+      schedules: [
+        meterSchedule({ firstDueDate: utc(2026, 9, 2), nextDueDate: utc(2026, 9, 2) }),
+      ],
+      assets: [meterAsset(4000)],
+      from: utc(2026, 9, 1),
+      to: utc(2026, 9, 30),
+      now: MID_SEPTEMBER,
+    });
+    expect(entries).toEqual([]);
+  });
+
+  it("keeps the meter chip out of a month that does not contain today", () => {
+    const entries = collectMaintenanceEntries({
+      tasks: [],
+      schedules: [meterSchedule()],
+      assets: [meterAsset(4820)],
+      from: utc(2026, 10, 1),
+      to: utc(2026, 10, 31),
+      now: MID_SEPTEMBER,
+    });
+    expect(entries).toEqual([]);
+  });
+
+  it("suppresses the chip once a work order exists for it today", () => {
+    // Same rule as a date projection: the record replaces the prediction, so
+    // the day doesn't read as two jobs.
+    const entries = collectMaintenanceEntries({
+      tasks: [
+        task({
+          id: 88,
+          dueDate: MID_SEPTEMBER,
+          scheduleRef: { lookupId: 400, title: "Engine oil change (500 run hours)" },
+        }),
+      ],
+      schedules: [meterSchedule()],
+      assets: [meterAsset(4820)],
+      from: utc(2026, 9, 1),
+      to: utc(2026, 9, 30),
+      now: MID_SEPTEMBER,
+    });
+    expect(entries.filter((e) => e.kind === "projected")).toEqual([]);
+    expect(entries.filter((e) => e.kind === "work-order")).toHaveLength(1);
+  });
+
+  it("can never evaluate a meter schedule when no register is passed", () => {
+    // The `assets` parameter is optional so every pre-existing caller keeps
+    // compiling — and this is the cost of that, stated rather than assumed. A
+    // view showing schedules must pass the register.
+    const entries = collectMaintenanceEntries({
+      tasks: [],
+      schedules: [meterSchedule()],
+      from: utc(2026, 9, 1),
+      to: utc(2026, 9, 30),
+      now: MID_SEPTEMBER,
+    });
+    expect(entries).toEqual([]);
+  });
+});
+
+describe("overdueMaintenanceEntries with meter schedules", () => {
+  it("counts a due meter PM, so it cannot hide for lacking a date", () => {
+    const entries = overdueMaintenanceEntries({
+      tasks: [],
+      schedules: [meterSchedule()],
+      assets: [meterAsset(4820)],
+      now: MID_SEPTEMBER,
+    });
+    expect(entries).toHaveLength(1);
+    expect(entries[0].scheduleId).toBe(400);
+    expect(entries[0].overdue).toBe(true);
+    expect(entries[0].day).toBe("2026-09-15");
+  });
+
+  it("leaves out one that is not due, one that can't be told, and a retired one", () => {
+    const notDue = overdueMaintenanceEntries({
+      tasks: [],
+      schedules: [meterSchedule()],
+      assets: [meterAsset(4000)],
+      now: MID_SEPTEMBER,
+    });
+    expect(notDue).toEqual([]);
+
+    const cantTell = overdueMaintenanceEntries({
+      tasks: [],
+      schedules: [meterSchedule()],
+      assets: [meterAsset(null)],
+      now: MID_SEPTEMBER,
+    });
+    expect(cantTell).toEqual([]);
+
+    const retired = overdueMaintenanceEntries({
+      tasks: [],
+      schedules: [meterSchedule({ active: false })],
+      assets: [meterAsset(99_999)],
+      now: MID_SEPTEMBER,
+    });
+    expect(retired).toEqual([]);
+  });
+});
+
+describe("the month and the agenda carry meter schedules through", () => {
+  it("lists a due meter PM in the grid and in the overdue strip", () => {
+    const month = buildMaintenanceCalendarMonth({
+      monthStart: SEPTEMBER,
+      tasks: [],
+      schedules: [meterSchedule()],
+      assets: [meterAsset(4820)],
+      now: MID_SEPTEMBER,
+      filters: EMPTY_MAINTENANCE_CALENDAR_FILTERS,
+    });
+    expect(month.entries).toHaveLength(1);
+    expect(month.byDay.get("2026-09-15")).toHaveLength(1);
+    expect(month.overdue).toHaveLength(1);
+  });
+
+  it("lists it exactly once on the agenda, not twice", () => {
+    // Both the overdue pass and the window pass produce it with the SAME key,
+    // so the merge dedupes rather than showing today's chip twice.
+    const agenda = buildMaintenanceAgenda({
+      tasks: [],
+      schedules: [meterSchedule()],
+      assets: [meterAsset(4820)],
+      now: MID_SEPTEMBER,
+      filters: EMPTY_MAINTENANCE_CALENDAR_FILTERS,
+    });
+    const all = agenda.flatMap((g) => g.entries);
+    expect(all).toHaveLength(1);
+    expect(all[0].day).toBe("2026-09-15");
+  });
+
+  it("still honours the Type filter", () => {
+    const oneOffOnly = buildMaintenanceCalendarMonth({
+      monthStart: SEPTEMBER,
+      tasks: [],
+      schedules: [meterSchedule()],
+      assets: [meterAsset(4820)],
+      now: MID_SEPTEMBER,
+      filters: { ...EMPTY_MAINTENANCE_CALENDAR_FILTERS, type: "one-off" },
+    });
+    expect(oneOffOnly.entries).toEqual([]);
   });
 });

@@ -318,3 +318,127 @@ describe("departmentCaption", () => {
     expect(departmentCaption(0, 0, 0)).toBe("The equipment register is empty.");
   });
 });
+
+// =============================================================================
+// The Run-hours PMs card.
+//
+// It exists so a meter PM that is DUE cannot hide simply for lacking a date —
+// and so the ones that can never come due at all are a number on the screen
+// rather than sitting inside "not due" looking fine.
+// =============================================================================
+
+/** A run-hours schedule against asset 100, due at 4,800 by default. */
+function meterSchedule(over: Partial<ScheduledMaintenance> = {}): ScheduledMaintenance {
+  return {
+    id: 900,
+    title: "Engine oil change",
+    instructions: "",
+    category: null,
+    priority: null,
+    equipment: { lookupId: 100, title: "GENERATOR #1" },
+    department: null,
+    location: null,
+    operationsProject: null,
+    frequencyInterval: 500,
+    frequencyUnit: "Hours",
+    scheduleBasis: "Hourmeter",
+    firstDueDate: null,
+    nextDueDate: null,
+    lastCompleted: null,
+    lastCompletedHours: 4300,
+    nextDueHours: null,
+    assignedTo: null,
+    lastCompletedBy: null,
+    watchers: [],
+    timeNeeded: null,
+    graceDays: null,
+    leadTimeDays: null,
+    active: true,
+    requiresShutdown: false,
+    lotoRequired: false,
+    hasAttachments: false,
+    createdAt: day("2026-01-01"),
+    modifiedAt: day("2026-01-01"),
+    ...over,
+  };
+}
+
+function meterCard() {
+  return screen.getByRole("region", { name: "Run-hours PMs" });
+}
+
+describe("MaintenanceDashboardView — run-hours PMs", () => {
+  it("says there are none rather than showing an empty card", () => {
+    seed({ schedules: [], equipment: [] });
+    render();
+    expect(within(meterCard()).getByText(/No run-hours schedules yet/i)).toBeInTheDocument();
+  });
+
+  it("counts a due meter PM, even though it has no date", () => {
+    seed({
+      schedules: [meterSchedule()],
+      equipment: [asset({ lookupId: 100, currentMachineHours: 4820, modifiedAt: day("2026-08-25") })],
+    });
+    render();
+    const card = within(meterCard());
+    expect(card.getByText("Due now").previousSibling).toHaveTextContent("1");
+    expect(card.getByText(/Due at 4,800 hrs/)).toBeInTheDocument();
+  });
+
+  it("counts the ones that CAN'T be evaluated as their own figure, not as 'not due'", () => {
+    // A meter PM with no reading behind it can never come due. Folding it into
+    // "not due" is the silent failure this card exists to prevent.
+    seed({
+      schedules: [meterSchedule()],
+      equipment: [asset({ lookupId: 100, currentMachineHours: null, modifiedAt: day("2026-08-25") })],
+    });
+    render();
+    const card = within(meterCard());
+    expect(card.getByText("Can't tell").previousSibling).toHaveTextContent("1");
+    expect(card.getByText("Not due").previousSibling).toHaveTextContent("0");
+    expect(card.getByText(/can't be evaluated/i)).toBeInTheDocument();
+    expect(card.getByRole("link", { name: /Open the PM library/i })).toBeInTheDocument();
+  });
+
+  it("counts a schedule with no linked asset as can't-tell too", () => {
+    seed({
+      schedules: [meterSchedule({ equipment: null })],
+      equipment: [asset({ lookupId: 100, currentMachineHours: 4820 })],
+    });
+    render();
+    expect(within(meterCard()).getByText("Can't tell").previousSibling).toHaveTextContent("1");
+  });
+
+  it("warns separately that a stale reading may be hiding a due PM", () => {
+    seed({
+      schedules: [meterSchedule({ frequencyInterval: 250, lastCompletedHours: 800 })],
+      equipment: [asset({ lookupId: 100, currentMachineHours: 940, modifiedAt: day("2026-05-01") })],
+    });
+    render();
+    const card = within(meterCard());
+    // Still "not due" — the warning qualifies that answer rather than replacing it.
+    expect(card.getByText("Not due").previousSibling).toHaveTextContent("1");
+    expect(card.getByText(/may be due/i)).toBeInTheDocument();
+    expect(card.getByText(/A rough check, not a fact/i)).toBeInTheDocument();
+  });
+
+  it("leaves retired and calendar schedules out entirely", () => {
+    seed({
+      schedules: [meterSchedule({ active: false })],
+      equipment: [asset({ lookupId: 100, currentMachineHours: 99_999 })],
+    });
+    render();
+    expect(within(meterCard()).getByText(/No run-hours schedules yet/i)).toBeInTheDocument();
+  });
+
+  it("does NOT add meter PMs to the work-order overdue count", () => {
+    // Those are rows on a list that are past a DATE. A meter PM is neither, and
+    // changing what that headline means would be worse than leaving it alone.
+    seed({
+      schedules: [meterSchedule()],
+      equipment: [asset({ lookupId: 100, currentMachineHours: 4820 })],
+    });
+    render();
+    expect(screen.getByText("Nothing is past its due date.")).toBeInTheDocument();
+  });
+});

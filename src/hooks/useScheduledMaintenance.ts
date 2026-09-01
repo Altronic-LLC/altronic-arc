@@ -16,7 +16,12 @@ import { fireAssigneeChangeAlert } from "@/api/email";
 import type { Person, ScheduledMaintenance } from "@/types/task";
 import { pushToast } from "@/components/Toast";
 import { scheduledMaintenanceLabel } from "@/lib/scheduledMaintenanceMapper";
-import { advanceSchedule } from "@/lib/maintenanceSchedule";
+import {
+  advanceMeterSchedule,
+  advanceSchedule,
+  formatMeterHours,
+  isMeterSchedule,
+} from "@/lib/maintenanceSchedule";
 import { autoWatchers } from "@/lib/people";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useResolveMaintenanceAccess } from "@/hooks/useMaintenanceRoles";
@@ -392,23 +397,59 @@ export function useRecordScheduleCompletion() {
   // Logging a PM, not editing the schedule — tech or admin, not admin only.
   const requireLogger = useRequirePmLogger();
   return useMutation({
-    mutationFn: async ({ id, completedOn }: { id: number; completedOn: Date }) => {
+    mutationFn: async ({
+      id,
+      completedOn,
+      completedAtHours,
+    }: {
+      id: number;
+      completedOn: Date;
+      /**
+       * The asset's hourmeter reading at the moment the job was done — meter
+       * schedules only, and read off the machine rather than assumed. Ignored
+       * by a calendar schedule.
+       */
+      completedAtHours?: number | null;
+    }) => {
       await requireLogger();
-      return recordScheduleCompletion(id, { completedOn, completedBy: actor });
+      return recordScheduleCompletion(id, {
+        completedOn,
+        completedBy: actor,
+        completedAtHours,
+      });
     },
-    onMutate: ({ id, completedOn }) =>
+    onMutate: ({ id, completedOn, completedAtHours }) =>
       snapshotAndPatch(
         qc,
         id,
-        patchSchedule(id, (s) => ({
-          ...s,
-          lastCompleted: completedOn,
-          lastCompletedBy: actor,
-          nextDueDate: advanceSchedule(s, completedOn) ?? s.nextDueDate,
-          modifiedAt: new Date(),
-        })),
+        patchSchedule(id, (s) => {
+          // The SAME two functions the API uses, for the same reason the date
+          // path already did it this way: if the optimistic patch and the real
+          // write ever disagreed, this is where it would show.
+          const advanced = advanceMeterSchedule(s, completedAtHours ?? null);
+          return {
+            ...s,
+            lastCompleted: completedOn,
+            lastCompletedBy: actor,
+            nextDueDate: advanceSchedule(s, completedOn) ?? s.nextDueDate,
+            lastCompletedHours: advanced?.lastCompletedHours ?? s.lastCompletedHours,
+            nextDueHours: advanced?.nextDueHours ?? s.nextDueHours,
+            modifiedAt: new Date(),
+          };
+        }),
       ),
     onSuccess: (schedule) => {
+      // A meter schedule has no next DATE to report, so reporting one would be
+      // wrong rather than merely unhelpful — it names the reading instead.
+      if (isMeterSchedule(schedule)) {
+        pushToast({
+          message:
+            schedule.nextDueHours !== null
+              ? `Recorded. Next due at ${formatMeterHours(schedule.nextDueHours)}.`
+              : "Completion recorded. No next reading set — add the hourmeter reading to roll it on.",
+        });
+        return;
+      }
       pushToast({
         message: schedule.nextDueDate
           ? `Recorded. Next due ${schedule.nextDueDate.toLocaleDateString(undefined, {
