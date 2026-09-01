@@ -34,6 +34,20 @@ export default defineConfig(({ mode }) => ({
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
     css: false,
+    // Vitest's default is 5s, which is comfortable on a dev machine and NOT on
+    // a GitHub runner — fewer cores, shared CPU, and the whole suite competing
+    // for them. The maintenance views render 150-170 rows and re-render the lot
+    // on a click; those tests pass locally and time out in CI.
+    //
+    // Three of them had already been hand-raised to 20s one at a time, which is
+    // the symptom of a class problem rather than three flaky tests. Setting it
+    // globally is the honest fix: CI is uniformly slower, so per-test raises are
+    // whack-a-mole and the next heavy view starts the loop again.
+    //
+    // This does NOT mask a hang — a genuinely stuck test still fails, just 15s
+    // later. Nothing here is waiting on a network or a timer.
+    testTimeout: 20_000,
+    hookTimeout: 20_000,
     coverage: {
       provider: "v8",
       reporter: ["text", "html", "json-summary"],
