@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.140.0",
+    date: "2026-09-01",
+    changes: [
+      "Panels: new QC Time Tracking log — record who did QC work on a panel, when, and how long, from the Departments dropdown's Panels group",
+      "Any signed-in user can add or edit a QC time entry; there's no delete, comments, or watchers on this one — it's a straightforward log",
+    ],
+  },
+  {
     version: "0.139.0",
     date: "2026-09-01",
     changes: [

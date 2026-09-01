@@ -251,6 +251,7 @@ src/
 │   ├── panelTasks.ts             Panel Tasks CRUD
 │   ├── panelProjects.ts          Panel Project Reference list
 │   ├── panelRoles.ts             Panel User Roles list CRUD
+│   ├── qcTimeTracking.ts         QC Time Tracking CRUD (panelTeam site) — no delete
 │   ├── visitReports.ts           Visit Reports CRUD (Sales, salesTeam site) — no delete
 │   ├── customerNotes.ts          CRM Tool — Customer Notes CRUD + comments (Sales, salesOrderEntry site)
 │   ├── customerContacts.ts       CRM Tool — Customer Contacts CRUD, scoped to a Customer Note
@@ -312,6 +313,7 @@ src/
 │   ├── usePanelOrders.ts         Panel order queries + mutations
 │   ├── usePanelTasks.ts          Panel task queries + mutations
 │   ├── usePanelRoles.ts          Panel User Roles CRUD (admin-guarded)
+│   ├── useQcTimeTracking.ts      QC Time Tracking queries + mutations
 │   ├── useVisitReports.ts        Visit Report queries + mutations
 │   ├── useCustomerNotes.ts       CRM Tool — Customer Notes queries, mutations + comments
 │   ├── useCustomerContacts.ts    CRM Tool — Customer Contacts queries + mutations
@@ -399,6 +401,7 @@ src/
 │   ├── panelOrderMapper.ts       Graph item → PanelOrder
 │   ├── panelTaskMapper.ts        Graph item → PanelTask
 │   ├── panelRoles.ts             Panel role → editing-rights mapping (pure)
+│   ├── qcTimeMapper.ts           Graph item → QcTimeEntry, and back
 │   ├── visitReportMapper.ts      Graph item → VisitReport (+ RM/year options)
 │   ├── customerNoteMapper.ts     Graph item → CustomerNote (CRM Tool anchor list)
 │   ├── customerContactMapper.ts  Graph item → CustomerContact
@@ -475,6 +478,7 @@ src/
 │   ├── OperationsTaskFormModal.tsx  Create/edit Operations task
 │   ├── PanelOrderFormModal.tsx   Create/edit panel order
 │   ├── PanelTaskFormModal.tsx    Create/edit panel task
+│   ├── QcTimeEntryFormModal.tsx  Create/edit a QC Time Tracking entry
 │   ├── VisitReportFormModal.tsx  Create/edit a visit report
 │   ├── CustomerNoteFormModal.tsx  CRM Tool — new customer (create-only; details edit on the page)
 │   ├── CustomerContactFormModal.tsx  CRM Tool — add/edit a contact, scoped to a customer
@@ -569,6 +573,7 @@ src/
 │   ├── PanelOrderDetailView.tsx  Panel order detail
 │   ├── PanelTasksView.tsx        Panel Tasks list
 │   ├── PanelTaskDetailView.tsx   Panel task detail
+│   ├── QcTimeTrackingView.tsx    QC Time Tracking list (Panels)
 │   ├── VisitReportsView.tsx      Visit Reports list (Sales)
 │   ├── CustomerNotesView.tsx     CRM Tool — Customer Notes list, search + Group filter (Sales)
 │   ├── CustomerNoteDetailView.tsx  CRM Tool — one customer + Contacts/Special Pricing/Capacity
@@ -1833,6 +1838,59 @@ site user lookupId is per site collection, so sharing them naively would have
 written a wrong (or non-existent) user into the person columns on Operations,
 Panels and Gray Market. `resolveLookupId` is therefore a **required
 parameter** — a new caller has to say which site it means.
+
+### QC Time Tracking (Panels, panelTeam site)
+
+`d3d97708-1d55-4307-8e3f-9411cd98a2fa` (env: `VITE_SP_QC_TIME_TRACKING_LIST_ID`)
+on `SITES.panelTeam` — a fourth list on the same site as Panel Orders/Tasks
+and the Panel Project Reference/Roles lists. Added 2026-09-01. A simple log
+of hours QC spent on a project: who did the work, when, and how long.
+
+| Domain field | Column | Notes |
+|---|---|---|
+| `project` | `Title` | the list repurposes Title as the project name — no "title" in the domain type, same as CSA Listings/Visit Reports |
+| `week` | `Week` | plain number; blank on plenty of rows |
+| `dateIntoQc` | `DateintoQC` | date-only; mostly blank in the migrated data |
+| `dateStarted` | `DateStarted` | date-only |
+| `sapNo` | `SAPNo` | text |
+| `serialNo` | `SerialNo` | text |
+| `performedBy` | `PerformedByPeople` | **multi-person** — a "combo" row (two names typed into one CSV cell on import) carries both people |
+| `performedByRaw` | `PerformedByRaw` | the original CSV text, kept as a backup; ARC reads it but never writes it |
+| `hoursRaw` | `HoursRaw` | **TEXT, not a number** — the source data has non-numeric entries, so it's held and shown as-is |
+| `effortType` | `EffortType` | choice: Repeat Panel / Support / New Panel / Project Work — not clamped on read, since the column allows fill-in values |
+| `notes` | `Notes` | multi-line |
+
+**A simple log — no role gating, no comments, no watchers, no detail page.**
+Any signed-in user can add or edit an entry; clicking a row opens the same
+`QcTimeEntryFormModal` in edit mode rather than navigating anywhere, since
+every field fits on one screen. `useQcTimeTracking.ts` therefore has no
+per-field patch hook the way Visit Reports' detail-page pattern does — the
+form always saves the whole draft at once.
+
+**`PerformedByPeople` is resolved through the Graph-first resolvers**
+(`resolvePeopleLookupIds` against `SITES.panelTeam` /
+`SP_PANELTEAM_SITE_URL`), not the older `ensureLookupIds` pair the other
+three Panels modules still use — this is a NEW person write, and CLAUDE.md's
+own guidance is to prefer the newer resolvers there. Unlike a single-person
+column, an unresolved person here is simply left off the write rather than
+refusing the whole save (`multiPersonField` drops anyone with no
+`lookupId`): a partial match on a multi-value field is still useful, where a
+silent partial write on a single-person column would read as "cleared".
+
+**No delete**, same call as Visit Reports and every other record-of-what-
+happened list in this app: a mistake is corrected with an edit, not a
+removal. `qcTimeTracking.test.ts` asserts the module exports nothing
+matching /delete|remove/.
+
+**The date columns' write-time-of-day convention is UNCONFIRMED** — this
+list was populated by a CSV migration, not by SharePoint's own UI or by ARC,
+so neither the "midday UTC" nor the "local-midnight-in-the-site's-timezone"
+assumption behind `parseSpDateOnly`'s midday pivot has been verified against
+a live sample row. The pivot rule handles both cases correctly regardless
+(see `lib/spDates.ts`), so nothing is broken today — but if a date ever
+renders a day off from what SharePoint's own list view shows, check the
+actual stored time-of-day on a live row before assuming the bug is
+elsewhere, the same lesson Visit Reports and Gray Market already paid for.
 
 ### Visit Reports (Customer Service / Sales, salesTeam site)
 

@@ -958,6 +958,69 @@ export interface PanelTask {
 }
 
 // =============================================================================
+// QC Time Tracking — the Panels team's log of hours QC spends on a project,
+// on the same ALTRONICPANELTEAM site as the three lists above. Added
+// 2026-09-01. A simple log: any signed-in user can add or edit an entry, no
+// role gating, no delete (see api/qcTimeTracking.ts).
+// =============================================================================
+
+/** `EffortType` choices, mirrored from the live column. */
+export const QC_EFFORT_TYPES = [
+  "Repeat Panel",
+  "Support",
+  "New Panel",
+  "Project Work",
+] as const;
+export type QcEffortType = (typeof QC_EFFORT_TYPES)[number];
+
+/** One row from the QC Time Tracking list. */
+export interface QcTimeEntry {
+  id: number;
+  /** `Title` — the project name (a repurposed column, same as CSA Listings/Visit Reports). */
+  project: string;
+  /** `Week` — a plain number column; `null` where the source CSV was blank. */
+  week: number | null;
+  /** `DateintoQC` — date-only; mostly blank in the imported data. */
+  dateIntoQc: Date | null;
+  /** `DateStarted` — date-only. */
+  dateStarted: Date | null;
+  sapNo: string;
+  serialNo: string;
+  /** `PerformedByPeople` — multi-person; a combo row (two names in one CSV cell) carries both. */
+  performedBy: Person[];
+  /**
+   * `PerformedByRaw` — the original CSV text, kept as a backup of what
+   * `performedBy` was parsed from. Read-only from ARC's side: correcting who
+   * did the work means editing `performedBy`, not this column.
+   */
+  performedByRaw: string;
+  /**
+   * `HoursRaw` — TEXT, not a number, because the source data has non-numeric
+   * entries. Held and shown as-is; don't parse it into a number anywhere that
+   * would silently drop an entry that isn't one.
+   */
+  hoursRaw: string;
+  effortType: QcEffortType | null;
+  notes: string;
+  createdAt: Date;
+  modifiedAt: Date;
+}
+
+/** Everything `QcTimeEntry` holds except the id/timestamps — what a form edits. */
+export interface QcTimeEntryInput {
+  project: string;
+  week: number | null;
+  dateIntoQc: Date | null;
+  dateStarted: Date | null;
+  sapNo: string;
+  serialNo: string;
+  performedBy: Person[];
+  hoursRaw: string;
+  effortType: QcEffortType | null;
+  notes: string;
+}
+
+// =============================================================================
 // Drawing File Logs — Engineering's drawing registers, on the Engineering site.
 // Four lists behind one screen: CAD, CCC and CEC Drawings plus Engineering
 // Sketches.

@@ -31,6 +31,7 @@ import {
   Shield,
   Sun,
   TestTubes,
+  Timer,
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -153,6 +154,12 @@ const DEPARTMENTS: DepartmentGroup[] = [
         label: "Panel Tasks",
         icon: <ListChecks className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/panels/task"),
+      },
+      {
+        to: "/panels/qc-time-tracking",
+        label: "QC Time Tracking",
+        icon: <Timer className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/panels/qc-time-tracking"),
       },
       soon("Project Folders", <FolderOpen className="h-4 w-4" />),
     ],

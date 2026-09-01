@@ -2080,6 +2080,48 @@ const SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: "qc-time-tracking",
+    title: "QC Time Tracking",
+    group: "Panels",
+    keywords: [
+      "qc time",
+      "qc time tracking",
+      "hours",
+      "performed by",
+      "effort type",
+      "panel qc",
+      "sap number",
+      "serial number",
+    ],
+    searchText:
+      "QC Time Tracking is a simple log on the ALTRONICPANELTEAM SharePoint site of hours QC spent on each panel project — who did the work, when, and how long. Fields: Project, Week, Date into QC, Date Started, SAP#, Serial#, Performed By (one or more people), Hours (free text — some entries aren't a plain number), Effort Type (Repeat Panel, Support, New Panel, Project Work), and Notes. Reach it from the Departments dropdown's Panels group. Any signed-in user can add an entry with New Entry, or click a row to edit it in the same form. There is no delete, no comments, no watchers, and no admin gate on this list — correcting a mistake is an edit.",
+    render: () => (
+      <>
+        <P>
+          <strong>QC Time Tracking</strong> is a plain log of hours QC spent
+          on a panel project — who did the work, when, and how long. Reach it
+          from the <strong>Departments</strong> dropdown's Panels group.
+        </P>
+        <H3>Logging and editing an entry</H3>
+        <P>
+          Click <strong>New Entry</strong> to log one, or click any row to
+          edit it in the same form. Only <strong>Project</strong> is
+          required — the rest (Week, Date into QC, Date Started, SAP#,
+          Serial#, Performed By, Hours, Effort Type, Notes) can be filled in
+          as much or as little as you know at the time. <strong>Hours</strong>{" "}
+          is a plain text field rather than a number, since not every entry
+          is a clean figure. <strong>Performed By</strong> takes one or more
+          people — pick everyone who worked on it.
+        </P>
+        <P>
+          Any signed-in user can add or edit an entry. There's no delete, no
+          comments, and no watchers on this list — it's a straightforward
+          record, and a mistake is corrected with an edit.
+        </P>
+      </>
+    ),
+  },
+  {
     id: "digital-qc",
     title: "Digital QC Defect Log",
     group: "Quality Control",

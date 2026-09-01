@@ -695,6 +695,14 @@ export const SP_PANELTEAM_SITE_URL =
  */
 export const PANEL_ROLES_ENFORCED = USE_MOCK || !!SP_PANEL_ROLES_LIST_ID;
 
+/**
+ * "QC Time Tracking" — the panel team's log of hours QC spends on a project.
+ * Same site as the other three Panels lists, its own list. Added 2026-09-01.
+ */
+export const SP_QC_TIME_TRACKING_LIST_ID =
+  import.meta.env.VITE_SP_QC_TIME_TRACKING_LIST_ID ||
+  "d3d97708-1d55-4307-8e3f-9411cd98a2fa";
+
 // =============================================================================
 // CRM Tool — Customer Notes, Customer Contacts, Special Pricing and Capacity,
 // all on the salesOrderEntry site (SITES.salesOrderEntry — the OrderEntry

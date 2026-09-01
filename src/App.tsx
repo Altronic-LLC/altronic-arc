@@ -221,6 +221,9 @@ const PanelTaskDetailView = lazy(() =>
     default: m.PanelTaskDetailView,
   })),
 );
+const QcTimeTrackingView = lazy(() =>
+  import("@/views/QcTimeTrackingView").then((m) => ({ default: m.QcTimeTrackingView })),
+);
 
 export function App() {
   // The print route is intentionally chrome-less so the saved PDF doesn't
@@ -678,6 +681,14 @@ export function App() {
               element={
                 <Suspense fallback={<LoadingTasks noun="this panel task" />}>
                   <PanelTaskDetailView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/panels/qc-time-tracking"
+              element={
+                <Suspense fallback={<LoadingTasks noun="QC time entries" />}>
+                  <QcTimeTrackingView />
                 </Suspense>
               }
             />
