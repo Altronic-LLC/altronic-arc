@@ -1565,7 +1565,7 @@ const SECTIONS: ManualSection[] = [
       "retire an asset",
     ],
     searchText:
-      "The Altronic Equipment List is the plant's asset register - 378 machines - and it is what every work order and maintenance schedule is hung off. Open a machine's page by clicking its name anywhere it appears. The page shows the nameplate (type, department, location, criticality, asset tag, machine hours, serial number, manufacturer, model, parent machine, install date, warranty expiry), the work currently open on it, everything ever done to it, the maintenance schedules that drive it, and its manuals, wiring diagrams and nameplate photos as attachments. Asset Status (In Service, Down, Standby, Retired) and Responsible Tech are edited on the asset page itself and save immediately when picked. Everything else is edited on the asset register at Maintenance - Assets, which lists all 378 machines with search and filters, a Needs attention view showing what each row is missing, and an inline editor for Current Machine Hours. Managing assets is limited to maintenance admins; anyone signed in can search and read the register. ARC cannot add or delete an asset - a machine that has left the plant is set to Retired, because work orders and schedules point at the row. Department and Location are two different columns - Department is the one every maintenance report groups by - and both are picked from the lists a maintenance admin maintains at Maintenance - Departments & Locations. Current Machine Hours is the hourmeter reading a meter-based PM counts against, so an asset with no reading recorded is one whose meter PM can never come due; blank and zero are different answers.",
+      "The Altronic Equipment List is the plant's asset register - 378+ machines - and it is what every work order and maintenance schedule is hung off. Open a machine's page by clicking its name anywhere it appears. The page shows the nameplate (type, department, location, criticality, asset tag, machine hours, serial number, manufacturer, model, parent machine, install date, warranty expiry), the work currently open on it, everything ever done to it, the maintenance schedules that drive it, and its manuals, wiring diagrams and nameplate photos as attachments. Asset Status (In Service, Down, Standby, Retired) and Responsible Tech are edited on the asset page itself and save immediately when picked. Everything else is edited on the asset register at Maintenance - Assets, which lists all machines with search and filters, a Needs attention view showing what each row is missing, an Add asset button, and an inline editor for Current Machine Hours. Managing assets - adding a new one included - is limited to maintenance admins; anyone signed in can search and read the register. ARC still cannot delete an asset - a machine that has left the plant is set to Retired, because work orders and schedules point at the row. Department and Location are two different columns - Department is the one every maintenance report groups by - and both are picked from the lists a maintenance admin maintains at Maintenance - Departments & Locations. Current Machine Hours is the hourmeter reading a meter-based PM counts against, so an asset with no reading recorded is one whose meter PM can never come due; blank and zero are different answers.",
     render: () => (
       <>
         <P>
@@ -1627,11 +1627,12 @@ const SECTIONS: ManualSection[] = [
           changed are saved.
         </P>
         <P>
-          <strong>ARC can't add or delete an asset.</strong> An asset row exists
-          because the plant bought a machine, and deleting one would orphan every
-          work order and schedule pointing at it — so a machine that has left the
-          plant gets <strong>Asset Status = Retired</strong> instead. New assets
-          are added in SharePoint.
+          <strong>Add asset</strong> at the top of the register adds a new row —
+          limited to maintenance admins, same as every other write here. There's
+          still no delete: an asset row exists because the plant bought a
+          machine, and deleting one would orphan every work order and schedule
+          pointing at it — so a machine that has left the plant gets{" "}
+          <strong>Asset Status = Retired</strong> instead.
         </P>
 
         <H3>Needs attention — finding what's missing</H3>

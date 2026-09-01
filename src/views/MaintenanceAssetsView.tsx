@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { AlertTriangle, Check, Gauge, Pencil, Settings2, X } from "lucide-react";
+import { AlertTriangle, Check, Gauge, Pencil, Plus, Settings2, X } from "lucide-react";
 import {
   EQUIPMENT_ASSET_STATUSES,
   EQUIPMENT_CRITICALITIES,
@@ -99,7 +99,9 @@ export function MaintenanceAssetsView() {
   const [filters, setFilters] = useState<AssetFilters>(EMPTY_ASSET_FILTERS);
   const [sort, setSort] = useState<AssetSort>("name");
   const [showAll, setShowAll] = useState(false);
-  const [editing, setEditing] = useState<number | null>(null);
+  // A lookupId opens that row's edit form; "new" opens the modal in create
+  // mode (AssetEditModal reads `asset === null` as create).
+  const [editing, setEditing] = useState<number | "new" | null>(null);
 
   // Counts describe the WHOLE register, never the filtered view — "62 with no
   // machine hours" has to mean the same thing before and after somebody
@@ -140,7 +142,12 @@ export function MaintenanceAssetsView() {
   }, [filters, sort]);
 
   const shown = showAll ? filtered : filtered.slice(0, INITIAL_ROWS);
-  const editingAsset = editing === null ? null : assets.find((a) => a.lookupId === editing) ?? null;
+  const editingAsset =
+    editing === null || editing === "new" ? null : assets.find((a) => a.lookupId === editing) ?? null;
+  // Distinct from `editingAsset`: "new" with no matching row is still a modal
+  // to show, in create mode — `editingAsset` alone can't tell "closed" apart
+  // from "creating".
+  const modalOpen = editing === "new" || editingAsset !== null;
 
   function patch(next: Partial<AssetFilters>) {
     setFilters((f) => ({ ...f, ...next }));
@@ -149,22 +156,34 @@ export function MaintenanceAssetsView() {
   return (
     <div className="mx-auto flex max-w-[1600px] flex-col gap-4 px-4 py-4 sm:px-6 sm:py-6">
       <header className="flex flex-col gap-3">
-        <div className="flex flex-col gap-1">
-          <h1 className="flex items-center gap-2 font-display text-xl font-semibold text-fg sm:text-2xl">
-            <Settings2 className="h-5 w-5 text-accent" />
-            Asset register
-          </h1>
-          <p className="text-sm text-fg-muted">
-            Every machine the CMMS knows about. Work orders and PM schedules point at these rows, so
-            an asset is never deleted — set its status to Retired instead.{" "}
-            <Link
-              to="/operations/maintenance/reference-lists"
-              className="text-accent underline-offset-2 hover:underline"
-            >
-              Departments and locations
-            </Link>{" "}
-            are managed separately.
-          </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex flex-col gap-1">
+            <h1 className="flex items-center gap-2 font-display text-xl font-semibold text-fg sm:text-2xl">
+              <Settings2 className="h-5 w-5 text-accent" />
+              Asset register
+            </h1>
+            <p className="text-sm text-fg-muted">
+              Every machine the CMMS knows about. Work orders and PM schedules point at these rows, so
+              an asset is never deleted — set its status to Retired instead.{" "}
+              <Link
+                to="/operations/maintenance/reference-lists"
+                className="text-accent underline-offset-2 hover:underline"
+              >
+                Departments and locations
+              </Link>{" "}
+              are managed separately.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setEditing("new")}
+            disabled={!gate.allowed && !gate.resolving}
+            title={gate.allowed || gate.resolving ? undefined : gate.hint}
+            className="inline-flex shrink-0 items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <Plus className="h-4 w-4" />
+            Add asset
+          </button>
         </div>
 
         {/* Said out loud, not only as a tooltip on a disabled button — a touch
@@ -309,7 +328,7 @@ export function MaintenanceAssetsView() {
         </>
       )}
 
-      {editingAsset && (
+      {modalOpen && (
         <AssetEditModal asset={editingAsset} onClose={() => setEditing(null)} />
       )}
     </div>

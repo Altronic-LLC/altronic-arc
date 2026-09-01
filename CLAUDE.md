@@ -240,7 +240,7 @@ src/
 │   ├── buildRequestItems.ts      Build Request Items (detail) CRUD
 │   ├── operationsTasks.ts        Operations Task List CRUD (PMO site)
 │   ├── operationsProjects.ts     Operations Projects reference list
-│   ├── operationsEquipment.ts    Altronic Equipment List — reference reads (2 shapes) + edits (NO create, NO delete)
+│   ├── operationsEquipment.ts    Altronic Equipment List — reference reads (2 shapes) + create + edits (NO delete)
 │   ├── maintenanceTasks.ts       CMMS work orders CRUD + comments (Operations, PMO site) — no delete
 │   ├── scheduledMaintenance.ts   CMMS PM schedules CRUD (Operations, PMO site) — no delete, no comments
 │   ├── maintenanceRoles.ts       Maintenance role tags (tech / admin) CRUD (PMO site) — shape-tolerant Roles column
@@ -308,7 +308,7 @@ src/
 │   ├── useMaintenanceReferenceLists.ts  Maintenance Departments / Locations queries + admin-guarded mutations
 │   ├── useScheduledMaintenance.ts CMMS PM schedule queries + mutations (retire, not delete)
 │   ├── useMaintenanceFilters.ts  URL-backed work-order filters (+ maintenanceFilterSearch)
-│   ├── useEquipment.ts           Equipment register queries + edits, every write gated by manageAssetsGate
+│   ├── useEquipment.ts           Equipment register queries + create + edits, every write gated by manageAssetsGate
 │   ├── usePanelOrders.ts         Panel order queries + mutations
 │   ├── usePanelTasks.ts          Panel task queries + mutations
 │   ├── usePanelRoles.ts          Panel User Roles CRUD (admin-guarded)
@@ -521,7 +521,7 @@ src/
 │   ├── MaintenanceKanbanCard.tsx One work order card (board)
 │   ├── MaintenanceFilterBar.tsx  Work order Equipment / Assigned / Category / Department filters
 │   ├── MaintenanceTaskFormModal.tsx      Create/edit a work order
-│   ├── AssetEditModal.tsx                Edit one asset's nameplate (edit only — no create, no delete)
+│   ├── AssetEditModal.tsx                Add or edit an asset's nameplate (asset === null means create; no delete)
 │   ├── ScheduledMaintenanceFormModal.tsx Create/edit a PM schedule
 │   ├── LogPmCompletionModal.tsx  Start / Complete / Skip a due PM (Skip requires a reason)
 │   ├── panelAtoms.tsx            Panel-specific badges/chips
@@ -561,7 +561,7 @@ src/
 │   ├── MaintenanceDashboardView.tsx CMMS dashboard (groups by Department)
 │   ├── PmLibraryView.tsx         Every PM schedule + next due + Active toggle
 │   ├── AssetDetailView.tsx       One machine — history, open work, its PMs, manuals
-│   ├── MaintenanceAssetsView.tsx The asset register — search/filter all 378, gaps, inline machine hours
+│   ├── MaintenanceAssetsView.tsx The asset register — search/filter, gaps, inline machine hours, Add asset
 │   ├── MaintenanceReferenceListsView.tsx  Departments & Locations for the CMMS — inside the module, gated by manageAssetsGate (not /admin)
 │   ├── TeradyneLogView.tsx       Teradyne Log table + "Manage lists" menu
 │   ├── TeradyneRefListView.tsx   Edit one Teradyne reference list (:kind)
@@ -2458,10 +2458,12 @@ due, and the modal says so.
 Operations task form's Equipment picker has always spoken — and
 `listEquipment()` returns the full `Equipment` record for the CMMS screens.
 Both read the same rows, so an Operations task and a work order naming the same
-asset agree about which one it is. ARC offers **no create and no delete** on
-that register (it is maintained in SharePoint), only the handful of edits a
-technician makes with a work order open: marking a machine Down or back In
-Service, moving the responsible tech, correcting a warranty date.
+asset agree about which one it is. ARC can **create** a new row (added
+2026-09-01, maintenance-admin-gated) but still offers **no delete** on that
+register — a retired machine is `AssetStatus = "Retired"`, since work orders
+and PM schedules point at it — plus the handful of edits a technician makes
+with a work order open: marking a machine Down or back In Service, moving the
+responsible tech, correcting a warranty date.
 
 `WONumber` is `WO-YYYY-####`, generated client-side by
 `nextWorkOrderNumber()` (`lib/workOrderNumber.ts`) — the `nextEirNo`
@@ -2886,11 +2888,16 @@ item-level `lastModifiedDateTime`.
 
 Six things that are load-bearing:
 
-- **Still NO create and NO delete.** An asset row exists because the plant
-  bought a machine, and deleting one orphans every work order and PM schedule
-  pointing at it. Retiring is `AssetStatus = "Retired"`. Both the view test
-  and the modal test assert the buttons are absent; the API has never had
-  either function.
+- **Create exists (added 2026-09-01, Ray); delete still doesn't.** An asset
+  row used to exist only because the plant bought a machine and someone typed
+  it into SharePoint directly — an "Add asset" button on the register now lets
+  a maintenance admin do the same from ARC (`useCreateEquipment`, gated by
+  `manageAssetsGate` exactly like every other write here; `AssetEditModal`
+  reads `asset === null` as create mode). Deleting one still orphans every
+  work order and PM schedule pointing at it, so that stays absent — retiring
+  is `AssetStatus = "Retired"`. The view test and the modal test both assert
+  the delete button is absent (create has its own coverage instead of that
+  assertion now); the API has never had a delete function.
 - **`currentMachineHours === null` is NOT zero.** Null means the meter has
   never been read; 0 is a reading off a machine just installed. Only the first
   is somebody's job. It matters because that number is what a meter-based PM

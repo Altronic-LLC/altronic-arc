@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import * as equipmentApi from "./operationsEquipment";
 import {
+  createEquipment,
   getEquipment,
   listEquipment,
   listOperationsEquipment,
@@ -93,11 +94,71 @@ describe("the two edits a technician makes from a work order", () => {
   });
 });
 
+describe("createEquipment", () => {
+  it("adds a new row that then shows up in listEquipment", async () => {
+    const before = await listEquipment();
+    const created = await createEquipment({
+      Title: "New Test Press",
+      AssetTag: "TP-001",
+      Description: "",
+      Manufacturer: "",
+      ModelNumber: "",
+      SerialNo: "",
+      EquipmentType: null,
+      Criticality: null,
+      AssetStatus: "In Service",
+      CurrentMachineHours: null,
+      InstallDate: null,
+      WarrantyExpiry: null,
+    });
+    expect(created.name).toBe("New Test Press");
+    expect(created.assetTag).toBe("TP-001");
+    expect(created.assetStatus).toBe("In Service");
+
+    const after = await listEquipment();
+    expect(after.length).toBe(before.length + 1);
+    expect(after.find((e) => e.lookupId === created.lookupId)?.name).toBe("New Test Press");
+  });
+
+  it("assigns a lookupId one higher than the current max, never reusing one", async () => {
+    const before = await listEquipment();
+    const maxId = Math.max(...before.map((e) => e.lookupId));
+    const created = await createEquipment({ Title: "Another Asset" });
+    expect(created.lookupId).toBe(maxId + 1);
+  });
+
+  it("resolves a DepartmentRefLookupId to a real department, same as an edit does", async () => {
+    const departments = (await listEquipment())
+      .map((e) => e.department)
+      .filter((d): d is NonNullable<typeof d> => d !== null);
+    // Pick a department some existing row already carries, so we know it's a
+    // real, active reference-list value rather than guessing an id.
+    const dept = departments[0];
+    const created = await createEquipment({
+      Title: "Departmental Asset",
+      DepartmentRefLookupId: dept.lookupId,
+    });
+    expect(created.department?.lookupId).toBe(dept.lookupId);
+    expect(created.department?.title).toBe(dept.title);
+  });
+
+  it("stamps modifiedAt, same as every other write", async () => {
+    const created = await createEquipment({ Title: "Freshly Added" });
+    expect(created.modifiedAt).not.toBeNull();
+  });
+});
+
 describe("what this module deliberately does NOT offer", () => {
-  it("has no create and no delete — the register is maintained in SharePoint", () => {
-    const offenders = Object.keys(equipmentApi).filter((name) =>
-      /^(create|delete|remove)/i.test(name),
-    );
+  it("still has no delete — a row is retired (AssetStatus), never removed", () => {
+    const offenders = Object.keys(equipmentApi).filter((name) => /^(delete|remove)/i.test(name));
     expect(offenders).toEqual([]);
+  });
+
+  // Create DOES exist (added 2026-09-01) — this is the deliberate-absence
+  // test's counterpart, pinning that the one function this module offers is
+  // named the way every other create function in this codebase is.
+  it("offers exactly one create function, named createEquipment", () => {
+    const offenders = Object.keys(equipmentApi).filter((name) => /^create/i.test(name));
+    expect(offenders).toEqual(["createEquipment"]);
   });
 });

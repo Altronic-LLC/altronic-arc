@@ -35,15 +35,18 @@ import { MOCK_EQUIPMENT } from "@/data/maintenanceMockData";
 // Both read the same rows, so a work order and an Operations task naming the
 // same asset agree about which one it is.
 //
-// **There is deliberately NO create and NO delete, and that still stands.** An
-// asset row comes into existence when the plant buys a machine, and deleting
-// one orphans every work order and PM schedule pointing at it — retiring is
-// `AssetStatus = "Retired"`, which is why that choice exists. Everything else
-// about a row IS editable from ARC now: the asset register screen
-// (/operations/maintenance/assets) edits the nameplate, the two reference
-// lookups, criticality, status and the hourmeter reading, and the asset detail
-// page keeps the two quick edits a technician makes with a work order open.
-// Every one of those writes is gated by `manageAssetsGate` in the hook layer.
+// **Still NO delete.** Deleting a row orphans every work order and PM
+// schedule pointing at it — retiring is `AssetStatus = "Retired"`, which is
+// why that choice exists. Everything else about a row IS editable from ARC:
+// the asset register screen (/operations/maintenance/assets) creates a new
+// row, edits the nameplate, the two reference lookups, criticality, status
+// and the hourmeter reading, and the asset detail page keeps the two quick
+// edits a technician makes with a work order open. Every one of those writes
+// is gated by `manageAssetsGate` in the hook layer.
+//
+// **Create exists** (added 2026-09-01, Ray) — a plant buying a machine used
+// to mean going to SharePoint directly; `createEquipment` lets a maintenance
+// admin add the row from ARC instead, same gate as every other write here.
 // =============================================================================
 
 let mockStore: Equipment[] = MOCK_EQUIPMENT.map((e) => ({ ...e }));
@@ -122,6 +125,54 @@ export async function listEquipment(): Promise<Equipment[]> {
 export async function getEquipment(lookupId: number): Promise<Equipment | null> {
   const all = await listEquipment();
   return all.find((e) => e.lookupId === lookupId) ?? null;
+}
+
+/**
+ * Add a new asset row.
+ *
+ * The full field payload (see `buildAssetCreateFields`) — there's no previous
+ * row to diff against. `Title` is required by the caller before this is ever
+ * called; SharePoint itself has no such constraint, so this function doesn't
+ * re-check it.
+ */
+export async function createEquipment(fields: Record<string, unknown>): Promise<Equipment> {
+  if (USE_MOCK) {
+    const lookupId = Math.max(0, ...mockStore.map((e) => e.lookupId)) + 1;
+    const next: Equipment = {
+      lookupId,
+      name: "",
+      description: "",
+      serialNo: "",
+      manufacturer: "",
+      modelNumber: "",
+      equipmentType: null,
+      department: null,
+      location: null,
+      criticality: null,
+      assetStatus: null,
+      parentAsset: null,
+      installDate: null,
+      warrantyExpiry: null,
+      responsibleTech: null,
+      assetTag: "",
+      currentMachineHours: null,
+      modifiedAt: new Date(),
+      hasAttachments: false,
+    };
+    applyMockFields(next, fields);
+    await resolveEquipmentReferences([next]);
+    mockStore = [...mockStore, next];
+    return { ...next };
+  }
+
+  const created = await graphFetch<GraphListItem>(listPath(), {
+    method: "POST",
+    body: JSON.stringify({ fields }),
+  });
+  const lookupId = parseInt(created.id, 10);
+  const reloaded = await getEquipment(lookupId);
+  if (!reloaded) throw new Error(`Equipment ${lookupId} not found right after being created`);
+  return reloaded;
 }
 
 /** Patch columns on an asset by their SharePoint names. */

@@ -7,6 +7,7 @@ import {
   type Person,
 } from "@/types/task";
 import {
+  useCreateEquipment,
   useSetEquipmentResponsibleTech,
   useUpdateEquipmentFields,
 } from "@/hooks/useEquipment";
@@ -21,6 +22,8 @@ import { referenceOptions } from "@/lib/maintenanceReferences";
 import {
   type AssetEditInput,
   assetEditInput,
+  blankAssetEditInput,
+  buildAssetCreateFields,
   buildAssetUpdateFields,
   machineHoursText,
   parseMachineHours,
@@ -34,13 +37,14 @@ import { ChoiceSelect, SingleSelect } from "./SearchableSelect";
 import { useOverlayDismiss } from "./useOverlayDismiss";
 
 // =============================================================================
-// Edit one asset.
+// Add or edit one asset. `asset === null` means create.
 //
-// **Edit only — there is no create here, and no delete.** An asset row exists
-// because the plant bought a machine; deleting one orphans every work order
-// and PM schedule pointing at it. Taking a machine out of service is
-// `Asset Status = Retired`, which is why that choice exists and why the status
-// picker sits at the top of the form rather than buried.
+// **Still no delete.** An asset row exists because the plant bought a
+// machine; deleting one orphans every work order and PM schedule pointing at
+// it. Taking a machine out of service is `Asset Status = Retired`, which is
+// why that choice exists and why the status picker sits at the top of the
+// form rather than buried — true on create too, which is why a brand-new
+// asset defaults to In Service rather than blank (`blankAssetEditInput`).
 //
 // Every write is gated by `manageAssetsGate` — the same gate the reference
 // lists ask, and the same gate each mutation re-asks inside its own
@@ -49,57 +53,75 @@ import { useOverlayDismiss } from "./useOverlayDismiss";
 // suppressed while the roles list is still loading: a denial taken back a
 // moment later is worse than a beat of silence.
 //
-// Two things about the write path:
+// Three things about the write path:
 //
-//  - **Only the columns that changed are sent** (`buildAssetUpdateFields`),
+//  - **Editing sends only the columns that changed** (`buildAssetUpdateFields`),
 //    for the reasons that helper documents — chiefly that the two reference
 //    lookups can hold an unmigrated sentinel that must never be written back.
+//    **Creating sends every field** (`buildAssetCreateFields`) — there's no
+//    previous row to diff against.
 //  - **Responsible Tech goes through its OWN mutation**, never the generic
 //    field patch: it is a single-person column whose lookupId has to be
 //    resolved against the PMO site before a write, and a write that can't be
-//    resolved is refused rather than silently clearing the column.
+//    resolved is refused rather than silently clearing the column. On create,
+//    it's a SECOND write right after the row exists — SharePoint has no
+//    lookupId to resolve against until the item is created — best-effort in
+//    the same way promoting an EIR's follow-up PATCH is: the asset is real
+//    either way, and a failed second write says so rather than losing the row.
+//  - **Name is the one required field on create.** SharePoint itself doesn't
+//    require it, but an unnamed row is unfindable in every search and filter
+//    on the register.
 // =============================================================================
 
 interface AssetEditModalProps {
-  asset: Equipment;
+  /** `null` means create a new asset instead of editing an existing one. */
+  asset: Equipment | null;
   onClose: () => void;
 }
 
 export function AssetEditModal({ asset, onClose }: AssetEditModalProps) {
+  const isCreate = asset === null;
   const access = useMyMaintenanceRoles();
   const gate = manageAssetsGate(access);
 
   const updateFields = useUpdateEquipmentFields();
+  const createAsset = useCreateEquipment();
   const setResponsibleTech = useSetEquipmentResponsibleTech();
   const { data: departments = [] } = useMaintenanceDepartments();
   const { data: locations = [] } = useMaintenanceLocations();
   const directory = useDirectoryPeople();
 
   // Seeded ONCE. The register behind this modal refetches on its own cadence,
-  // and re-seeding from it would wipe whatever is half-typed.
-  const [draft, setDraft] = useState<AssetEditInput>(() => assetEditInput(asset));
-  const [tech, setTech] = useState<Person | null>(asset.responsibleTech);
-  const [hoursText, setHoursText] = useState(() => machineHoursText(asset));
+  // and re-seeding from it would wipe whatever is half-typed. On create
+  // there's no row to seed from — `blankAssetEditInput` instead.
+  const [draft, setDraft] = useState<AssetEditInput>(() =>
+    isCreate ? blankAssetEditInput() : assetEditInput(asset),
+  );
+  const [tech, setTech] = useState<Person | null>(asset?.responsibleTech ?? null);
+  const [hoursText, setHoursText] = useState(() => (isCreate ? "" : machineHoursText(asset)));
   const [error, setError] = useState<string | null>(null);
   const firstFieldRef = useRef<HTMLInputElement>(null);
   // `busy` disables backdrop dismissal: closing mid-save would leave the user
   // with no idea whether the write landed.
-  const overlayDismiss = useOverlayDismiss(onClose, updateFields.isPending || setResponsibleTech.isPending);
+  const overlayDismiss = useOverlayDismiss(
+    onClose,
+    updateFields.isPending || createAsset.isPending || setResponsibleTech.isPending,
+  );
 
   // Land the caret in the first field, so an edit can start by typing.
   useEffect(() => {
     firstFieldRef.current?.focus();
   }, []);
 
-  const busy = updateFields.isPending || setResponsibleTech.isPending;
+  const busy = updateFields.isPending || createAsset.isPending || setResponsibleTech.isPending;
   const locked = busy || !gate.allowed;
 
   const people = useMemo(
     // The tech on the record may be a leaver, or an account whose mailbox
     // differs from the address the directory lists. Keeping them in the option
     // list is what stops a person who IS set rendering as "Nobody".
-    () => mergePeople(directory, asset.responsibleTech ? [asset.responsibleTech] : []),
-    [directory, asset.responsibleTech],
+    () => mergePeople(directory, asset?.responsibleTech ? [asset.responsibleTech] : []),
+    [directory, asset],
   );
 
   function set<K extends keyof AssetEditInput>(key: K, value: AssetEditInput[K]) {
@@ -121,6 +143,33 @@ export function AssetEditModal({ asset, onClose }: AssetEditModalProps) {
     }
 
     const input: AssetEditInput = { ...draft, currentMachineHours: hours.value };
+
+    if (asset === null) {
+      try {
+        const fields = buildAssetCreateFields(input);
+        const created = await createAsset.mutateAsync(fields);
+        // Responsible Tech has to wait for the row to exist — there's no
+        // lookupId to attach it to beforehand. Best-effort, same reasoning as
+        // the EIR-promotion follow-up PATCH: the asset is real either way.
+        if (tech) {
+          try {
+            await setResponsibleTech.mutateAsync({ lookupId: created.lookupId, person: tech });
+          } catch (err) {
+            setError(
+              `The asset was added, but its Responsible Tech couldn't be saved: ${
+                err instanceof Error ? err.message : "unknown error"
+              }. Open it and set that field again.`,
+            );
+            return;
+          }
+        }
+        onClose();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Couldn't add that asset.");
+      }
+      return;
+    }
+
     const fields = buildAssetUpdateFields(input, asset);
 
     const prevTech = asset.responsibleTech ? personKey(asset.responsibleTech) : "";
@@ -158,14 +207,14 @@ export function AssetEditModal({ asset, onClose }: AssetEditModalProps) {
       <div
         role="dialog"
         aria-modal="true"
-        aria-label={`Edit ${equipmentLabel(asset)}`}
+        aria-label={isCreate ? "Add asset" : `Edit ${equipmentLabel(asset)}`}
         onClick={(e) => e.stopPropagation()}
         className="flex max-h-[calc(100vh-2rem)] w-full max-w-3xl flex-col rounded-lg border border-border bg-surface shadow-xl"
       >
         <div className="flex items-center justify-between border-b border-border px-5 py-3">
           <h2 className="flex min-w-0 items-center gap-2 font-display text-base font-semibold text-fg">
             <Wrench className="h-4 w-4 shrink-0 text-accent" />
-            <span className="truncate">{equipmentLabel(asset)}</span>
+            <span className="truncate">{isCreate ? "Add asset" : equipmentLabel(asset)}</span>
           </h2>
           <button
             type="button"
@@ -255,7 +304,7 @@ export function AssetEditModal({ asset, onClose }: AssetEditModalProps) {
                 // Active values, plus whatever this asset already points at
                 // even when that has since been retired — a picker that
                 // dropped it would clear the field on the next save.
-                options={referenceOptions(departments, asset.department)}
+                options={referenceOptions(departments, asset?.department ?? null)}
                 selected={
                   draft.departmentLookupId === null ? null : String(draft.departmentLookupId)
                 }
@@ -269,7 +318,7 @@ export function AssetEditModal({ asset, onClose }: AssetEditModalProps) {
                 allLabel="Not set"
                 ariaLabel="Location"
                 searchPlaceholder="Search locations…"
-                options={referenceOptions(locations, asset.location)}
+                options={referenceOptions(locations, asset?.location ?? null)}
                 selected={draft.locationLookupId === null ? null : String(draft.locationLookupId)}
                 onChange={(v) => set("locationLookupId", v === null ? null : Number(v))}
                 disabled={locked}
@@ -380,7 +429,7 @@ export function AssetEditModal({ asset, onClose }: AssetEditModalProps) {
             className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-            Save changes
+            {isCreate ? "Add asset" : "Save changes"}
           </button>
         </div>
       </div>

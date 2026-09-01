@@ -32,6 +32,7 @@ vi.mock("@/hooks/useEquipment", () => ({
   useSetEquipmentMachineHours: () => ({ mutate: setMachineHours, isPending: false }),
   useUpdateEquipmentFields: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useSetEquipmentResponsibleTech: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useCreateEquipment: () => ({ mutateAsync: vi.fn(async () => ({ lookupId: 999 })), isPending: false }),
 }));
 vi.mock("@/hooks/useMaintenanceReferenceLists", () => ({
   useMaintenanceDepartments: () => ({ data: [] }),
@@ -287,12 +288,32 @@ describe("gating", () => {
 });
 
 describe("what is deliberately absent", () => {
-  // An asset row exists because the plant bought a machine, and deleting one
-  // orphans every work order pointing at it. Retiring is the status.
-  it("offers no create and no delete anywhere on the screen", () => {
+  // Delete stays absent — an asset row exists because the plant bought a
+  // machine, and deleting one orphans every work order pointing at it.
+  // Retiring is the status. Create is NOT absent (added 2026-09-01); its own
+  // coverage lives in the "adding an asset" block below.
+  it("offers no delete anywhere on the screen", () => {
     render();
-    expect(screen.queryByRole("button", { name: /new asset|add asset/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /delete|remove/i })).not.toBeInTheDocument();
     expect(screen.getByText(/an asset is never deleted/i)).toBeInTheDocument();
+  });
+});
+
+describe("adding an asset", () => {
+  it("shows an Add asset button", () => {
+    render();
+    expect(screen.getByRole("button", { name: "Add asset" })).toBeInTheDocument();
+  });
+
+  it("opens the modal in create mode", async () => {
+    render();
+    await userEvent.click(screen.getByRole("button", { name: "Add asset" }));
+    expect(screen.getByRole("dialog", { name: "Add asset" })).toBeInTheDocument();
+  });
+
+  it("disables Add asset without the maintenance admin level, same as every other write", () => {
+    access.value = { isTech: true, isAdmin: false, enforced: true, isResolving: false };
+    render();
+    expect(screen.getByRole("button", { name: "Add asset" })).toBeDisabled();
   });
 });

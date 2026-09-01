@@ -4,14 +4,16 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 // The asset edit modal.
 //
 // What is worth pinning here is the WRITE, not the layout: only the columns
-// that changed are sent, Responsible Tech goes through its own person-column
-// mutation rather than the generic field patch, a save that changed nothing
-// writes nothing at all, and the whole form is inert without the maintenance
-// admin level.
+// that changed are sent on an EDIT, every field is sent on a CREATE (there's
+// nothing to diff against), Responsible Tech goes through its own
+// person-column mutation rather than the generic field patch either way, a
+// save that changed nothing writes nothing at all, and the whole form is
+// inert without the maintenance admin level.
 //
-// There is no create and no delete, here or in the API — an asset exists
-// because the plant bought a machine, and deleting one orphans every work
-// order pointing at it.
+// `asset === null` means create (see MaintenanceAssetsView, which opens this
+// modal that way from its "Add asset" button). There is still no delete, here
+// or in the API — an asset exists because the plant bought a machine, and
+// deleting one orphans every work order pointing at it.
 // =============================================================================
 
 const access = vi.hoisted(() => ({
@@ -24,9 +26,11 @@ vi.mock("@/hooks/useMaintenanceRoles", () => ({
 
 const updateFields = vi.hoisted(() => vi.fn(async () => ({})));
 const setTech = vi.hoisted(() => vi.fn(async () => ({})));
+const createAsset = vi.hoisted(() => vi.fn(async () => ({ lookupId: 42 })));
 vi.mock("@/hooks/useEquipment", () => ({
   useUpdateEquipmentFields: () => ({ mutateAsync: updateFields, isPending: false }),
   useSetEquipmentResponsibleTech: () => ({ mutateAsync: setTech, isPending: false }),
+  useCreateEquipment: () => ({ mutateAsync: createAsset, isPending: false }),
 }));
 
 vi.mock("@/hooks/useMaintenanceReferenceLists", () => ({
@@ -69,12 +73,14 @@ const ASSET = makeAsset({
 
 const onClose = vi.fn();
 
-function render(asset: Equipment = ASSET) {
+function render(asset: Equipment | null = ASSET) {
   return renderWithProviders(<AssetEditModal asset={asset} onClose={onClose} />);
 }
 
 async function save() {
-  await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+  const button = screen.queryByRole("button", { name: "Save changes" }) ??
+    screen.getByRole("button", { name: "Add asset" });
+  await userEvent.click(button);
 }
 
 beforeEach(() => {
@@ -215,6 +221,61 @@ describe("gating", () => {
     render();
     expect(screen.getByLabelText(/^Asset Tag/)).toBeEnabled();
     expect(screen.getByRole("button", { name: "Save changes" })).toBeEnabled();
+  });
+});
+
+describe("creating a new asset", () => {
+  it("titles the modal 'Add asset', not the name of an asset that doesn't exist yet", () => {
+    render(null);
+    expect(screen.getByRole("dialog", { name: "Add asset" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add asset" })).toBeInTheDocument();
+  });
+
+  it("starts every field blank, with Asset Status defaulted to In Service", () => {
+    render(null);
+    expect(screen.getByLabelText(/^Name/)).toHaveValue("");
+    expect(screen.getByLabelText(/^Asset Tag/)).toHaveValue("");
+    expect(screen.getByRole("button", { name: "Asset Status" })).toHaveTextContent("In Service");
+  });
+
+  it("sends every field on create, not a diff", async () => {
+    render(null);
+    await userEvent.type(screen.getByLabelText(/^Name/), "New Compressor");
+    await save();
+    expect(createAsset).toHaveBeenCalledWith(
+      expect.objectContaining({ Title: "New Compressor", AssetStatus: "In Service" }),
+    );
+    expect(updateFields).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("refuses an empty name on create too", async () => {
+    render(null);
+    await save();
+    expect(createAsset).not.toHaveBeenCalled();
+    expect(screen.getByText("An asset needs a name.")).toBeInTheDocument();
+  });
+
+  // Responsible Tech has no lookupId to attach to until the row exists, so it
+  // has to be a SECOND write after the create succeeds.
+  it("creates the row first, then sets Responsible Tech against the new lookupId", async () => {
+    render(null);
+    await userEvent.type(screen.getByLabelText(/^Name/), "New Compressor");
+    await userEvent.click(screen.getByRole("button", { name: "Responsible Tech" }));
+    await userEvent.click(await screen.findByRole("option", { name: /Kim Tech/ }));
+    await save();
+    expect(createAsset).toHaveBeenCalled();
+    expect(setTech).toHaveBeenCalledWith({
+      lookupId: 42,
+      person: expect.objectContaining({ displayName: "Kim Tech" }),
+    });
+  });
+
+  it("is inert without the maintenance admin level, same as editing", () => {
+    access.value = { isTech: true, isAdmin: false, enforced: true, isResolving: false };
+    render(null);
+    expect(screen.getByLabelText(/^Name/)).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Add asset" })).toBeDisabled();
   });
 });
 

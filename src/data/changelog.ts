@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.139.0",
+    date: "2026-09-01",
+    changes: [
+      "Maintenance → Assets: you can now add a new asset to the register with the Add asset button, limited to maintenance admins — deleting one is still not offered, since a retired machine is set to Retired instead",
+    ],
+  },
+  {
     version: "0.138.1",
     date: "2026-09-01",
     changes: [

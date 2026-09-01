@@ -13,6 +13,8 @@ import {
   assetGaps,
   assetHaystack,
   assetReferenceOptions,
+  blankAssetEditInput,
+  buildAssetCreateFields,
   buildAssetUpdateFields,
   hasActiveAssetFilters,
   isRetiredAsset,
@@ -403,6 +405,83 @@ describe("the write payload", () => {
     expect(buildAssetUpdateFields({ ...assetEditInput(asset), criticality: "" }, asset)).toEqual({
       Criticality: null,
     });
+  });
+});
+
+describe("the blank form for a new asset", () => {
+  it("defaults Asset Status to In Service, not blank", () => {
+    expect(blankAssetEditInput().assetStatus).toBe("In Service");
+  });
+
+  it("leaves every other field empty or unset", () => {
+    const input = blankAssetEditInput();
+    expect(input.name).toBe("");
+    expect(input.assetTag).toBe("");
+    expect(input.departmentLookupId).toBeNull();
+    expect(input.locationLookupId).toBeNull();
+    expect(input.currentMachineHours).toBeNull();
+    expect(input.installDate).toBeNull();
+    expect(input.warrantyExpiry).toBeNull();
+  });
+});
+
+describe("the create payload", () => {
+  it("sends every field, not just the ones that changed — there's nothing to diff against", () => {
+    const input = { ...blankAssetEditInput(), name: "New Compressor", assetTag: "AC-999" };
+    const fields = buildAssetCreateFields(input);
+    expect(fields.Title).toBe("New Compressor");
+    expect(fields.AssetTag).toBe("AC-999");
+    expect(fields.AssetStatus).toBe("In Service");
+  });
+
+  it("trims text fields", () => {
+    const fields = buildAssetCreateFields({ ...blankAssetEditInput(), name: "  Padded Name  " });
+    expect(fields.Title).toBe("Padded Name");
+  });
+
+  it("sends null, not an empty string, for a blank choice column", () => {
+    const fields = buildAssetCreateFields(blankAssetEditInput());
+    expect(fields.EquipmentType).toBeNull();
+    expect(fields.Criticality).toBeNull();
+  });
+
+  it("includes a department/location lookup when one was picked", () => {
+    const fields = buildAssetCreateFields({
+      ...blankAssetEditInput(),
+      departmentLookupId: 4,
+      locationLookupId: 12,
+    });
+    expect(fields.DepartmentRefLookupId).toBe(4);
+    expect(fields.LocationRefLookupId).toBe(12);
+  });
+
+  it("never writes lookupId 0 — the unmigrated sentinel, not a real row id", () => {
+    const fields = buildAssetCreateFields({
+      ...blankAssetEditInput(),
+      departmentLookupId: 0,
+      locationLookupId: 0,
+    });
+    expect(fields.DepartmentRefLookupId).toBeUndefined();
+    expect(fields.LocationRefLookupId).toBeUndefined();
+  });
+
+  it("omits the lookup keys entirely when nothing was picked, rather than sending null", () => {
+    // Unlike an edit, a create has no existing value to clear — so a blank
+    // pick on a brand-new row just means "don't set this column at all".
+    const fields = buildAssetCreateFields(blankAssetEditInput());
+    expect("DepartmentRefLookupId" in fields).toBe(false);
+    expect("LocationRefLookupId" in fields).toBe(false);
+  });
+
+  it("carries machine hours and dates through untouched", () => {
+    const install = new Date("2026-01-15T12:00:00Z");
+    const fields = buildAssetCreateFields({
+      ...blankAssetEditInput(),
+      currentMachineHours: 500,
+      installDate: install,
+    });
+    expect(fields.CurrentMachineHours).toBe(500);
+    expect(fields.InstallDate).toBe("2026-01-15T12:00:00Z");
   });
 });
 

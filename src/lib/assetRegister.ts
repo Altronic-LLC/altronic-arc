@@ -359,6 +359,30 @@ export function assetEditInput(asset: Equipment): AssetEditInput {
   };
 }
 
+/**
+ * Seed the form for a brand-new asset — every field blank, Asset Status
+ * defaulted to **In Service** since a machine being entered for the first
+ * time is presumably running, not one of the three states that say otherwise.
+ */
+export function blankAssetEditInput(): AssetEditInput {
+  return {
+    name: "",
+    assetTag: "",
+    description: "",
+    manufacturer: "",
+    modelNumber: "",
+    serialNo: "",
+    equipmentType: null,
+    departmentLookupId: null,
+    locationLookupId: null,
+    criticality: null,
+    assetStatus: "In Service",
+    currentMachineHours: null,
+    installDate: null,
+    warrantyExpiry: null,
+  };
+}
+
 /** Same UTC-day comparison the date-only columns are stored under. */
 function sameDay(a: Date | null, b: Date | null): boolean {
   if (a === null || b === null) return a === b;
@@ -434,6 +458,40 @@ export function buildAssetUpdateFields(
     fields.WarrantyExpiry = input.warrantyExpiry ? toSpDateOnly(input.warrantyExpiry) : null;
   }
 
+  return fields;
+}
+
+/**
+ * The SharePoint field payload for a brand-new asset row.
+ *
+ * Unlike `buildAssetUpdateFields`, there is no diffing against a previous
+ * row — every field the form holds goes in, since there's nothing to compare
+ * against. The one thing carried over from the edit path: a lookupId of `0`
+ * (the unmigrated-legacy sentinel) is never written, even though a create
+ * form has no way to produce one today — cheap insurance against a future
+ * caller that seeds `AssetEditInput` from something other than a blank form.
+ */
+export function buildAssetCreateFields(input: AssetEditInput): Record<string, unknown> {
+  const fields: Record<string, unknown> = {
+    Title: input.name.trim(),
+    AssetTag: input.assetTag.trim(),
+    Description: input.description.trim(),
+    Manufacturer: input.manufacturer.trim(),
+    ModelNumber: input.modelNumber.trim(),
+    SerialNo: input.serialNo.trim(),
+    EquipmentType: (input.equipmentType ?? "").trim() || null,
+    Criticality: (input.criticality ?? "").trim() || null,
+    AssetStatus: (input.assetStatus ?? "").trim() || null,
+    CurrentMachineHours: input.currentMachineHours,
+    InstallDate: input.installDate ? toSpDateOnly(input.installDate) : null,
+    WarrantyExpiry: input.warrantyExpiry ? toSpDateOnly(input.warrantyExpiry) : null,
+  };
+  if (input.departmentLookupId !== null && input.departmentLookupId !== 0) {
+    fields.DepartmentRefLookupId = input.departmentLookupId;
+  }
+  if (input.locationLookupId !== null && input.locationLookupId !== 0) {
+    fields.LocationRefLookupId = input.locationLookupId;
+  }
   return fields;
 }
 

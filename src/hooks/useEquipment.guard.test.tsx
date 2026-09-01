@@ -22,6 +22,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 // "everyone keeps what they can do today", never "nobody can edit an asset".
 // A gate that quietly ignored that flag would lock the shop out of its own
 // register at the next deploy.
+//
+// `everyWrite()` also covers `useCreateEquipment` (added 2026-09-01) — adding
+// it to that one array is what makes every case in this file exercise create
+// automatically, rather than needing its own copy of each case.
 // =============================================================================
 
 const pushToast = vi.hoisted(() => vi.fn());
@@ -70,6 +74,7 @@ const api = vi.hoisted(() => ({
   tech: vi.fn(async () => ({}) as never),
   warranty: vi.fn(async () => ({}) as never),
   hours: vi.fn(async () => ({}) as never),
+  create: vi.fn(async () => ({}) as never),
 }));
 
 vi.mock("@/api/operationsEquipment", () => ({
@@ -79,9 +84,11 @@ vi.mock("@/api/operationsEquipment", () => ({
   setEquipmentResponsibleTech: api.tech,
   setEquipmentWarrantyExpiry: api.warranty,
   setEquipmentMachineHours: api.hours,
+  createEquipment: api.create,
 }));
 
 import {
+  useCreateEquipment,
   useSetEquipmentAssetStatus,
   useSetEquipmentMachineHours,
   useSetEquipmentResponsibleTech,
@@ -103,6 +110,7 @@ function everyWrite() {
   const tech = renderHook(() => useSetEquipmentResponsibleTech(), { wrapper });
   const warranty = renderHook(() => useSetEquipmentWarrantyExpiry(), { wrapper });
   const hours = renderHook(() => useSetEquipmentMachineHours(), { wrapper });
+  const create = renderHook(() => useCreateEquipment(), { wrapper });
   return [
     [
       "updateEquipmentFields",
@@ -133,6 +141,7 @@ function everyWrite() {
       api.hours,
       () => hours.result.current.mutateAsync({ lookupId: 1, hours: 100 }),
     ],
+    ["createEquipment", api.create, () => create.result.current.mutateAsync({ Title: "New" })],
   ] as const;
 }
 

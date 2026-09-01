@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  createEquipment,
   listEquipment,
   setEquipmentAssetStatus,
   setEquipmentMachineHours,
@@ -35,7 +36,8 @@ import { pushToast } from "@/components/Toast";
 // "everyone keeps what they can do today" and never "nobody can edit an
 // asset". `useEquipment.guard.test.tsx` pins both halves.
 //
-// There is still no create and no delete (see api/operationsEquipment.ts).
+// Create exists (`useCreateEquipment`, gated the same way as every other
+// write here); there is still no delete (see api/operationsEquipment.ts).
 //
 // `useEquipment` is cached for five minutes rather than two: 378 rows that
 // change a few times a month, read by every work-order screen for its asset
@@ -139,6 +141,30 @@ export function useUpdateEquipmentFields() {
     onSuccess: () => pushToast({ message: "Equipment updated." }),
     onError: (err) => {
       errorToast(writeFailureMessage(err, "Couldn't update the asset."));
+    },
+    onSettled: () => invalidate(qc),
+  });
+}
+
+/**
+ * Add a new asset row.
+ *
+ * No optimistic patch: there's no lookupId to key one on until SharePoint
+ * assigns it, and a create is rare enough (a plant buying a machine) that
+ * waiting the one round trip is no hardship — unlike the frequent per-field
+ * edits above, which is why those DO patch optimistically.
+ */
+export function useCreateEquipment() {
+  const qc = useQueryClient();
+  const requireAdmin = useRequireAssetAdmin();
+  return useMutation({
+    mutationFn: async (fields: Record<string, unknown>) => {
+      await requireAdmin();
+      return createEquipment(fields);
+    },
+    onSuccess: () => pushToast({ message: "Asset added." }),
+    onError: (err) => {
+      errorToast(writeFailureMessage(err, "Couldn't add the asset."));
     },
     onSettled: () => invalidate(qc),
   });
