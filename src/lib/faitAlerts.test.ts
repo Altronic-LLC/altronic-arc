@@ -155,3 +155,41 @@ describe("the closed-FAIT email", () => {
     ]);
   });
 });
+
+// =============================================================================
+// The closed alert's DE-DUPE. Everyone watching is already told a FAIT closed
+// by the generic status-change note; this alert covers the intake queue, who
+// aren't watchers. Somebody on both lists gets ONE email, not two.
+// =============================================================================
+
+describe("the closed-FAIT email's de-dupe", () => {
+  it("drops anyone the generic status note already reaches", () => {
+    const emails = buildClosed({ alreadyNotified: [ALEX] });
+    expect(emails.map((e) => e.email)).toEqual([JERROD.email, KATIE.email]);
+  });
+
+  it("matches on the address regardless of case", () => {
+    const emails = buildClosed({
+      alreadyNotified: [{ displayName: "Alex", email: "ALEXANDRA.RUSSELL@ALTRONIC-LLC.COM" }],
+    });
+    expect(emails.map((e) => e.email)).toEqual([JERROD.email, KATIE.email]);
+  });
+
+  it("sends nothing when the whole intake list is already watching", () => {
+    expect(buildClosed({ alreadyNotified: [JERROD, ALEX, KATIE] })).toEqual([]);
+  });
+
+  // The de-dupe runs BEFORE the actor fallback, so "unless that would leave
+  // nobody" applies to whoever is actually left rather than resurrecting
+  // somebody the generic note already covered.
+  it("doesn't resurrect a de-duped person via the actor fallback", () => {
+    expect(buildClosed({ recipients: [JERROD], actor: JERROD, alreadyNotified: [JERROD] })).toEqual(
+      [],
+    );
+  });
+
+  it("ignores a watcher with no address", () => {
+    const emails = buildClosed({ alreadyNotified: [{ displayName: "No Mailbox" }] });
+    expect(emails.map((e) => e.email)).toEqual([JERROD.email, ALEX.email, KATIE.email]);
+  });
+});

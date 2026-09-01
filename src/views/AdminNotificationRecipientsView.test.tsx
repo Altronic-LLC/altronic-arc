@@ -35,7 +35,18 @@ describe("AdminNotificationRecipientsView", () => {
 
   it("checks the FAIT intake addresses against the directory", () => {
     renderWithProviders(<AdminNotificationRecipientsView />);
-    expect(screen.getByText("Jerrod.Waldron@altronic-llc.com")).toBeInTheDocument();
+    // Jerrod is on the intake list AND the SQE reviewer list — two rows, both
+    // audited, which is why this is getAllByText rather than getByText.
+    expect(screen.getAllByText("Jerrod.Waldron@altronic-llc.com").length).toBeGreaterThan(0);
+  });
+
+  // A new recipient-list const that isn't added to LISTS is invisible to the
+  // one screen that checks its addresses — the FAIT alerts already shipped
+  // missing that once.
+  it("lists the FAIT SQE reviewers, separately from the intake list", () => {
+    renderWithProviders(<AdminNotificationRecipientsView />);
+    expect(screen.getByText("FAIT — SQE sign-off")).toBeInTheDocument();
+    expect(screen.getByText("VITE_FAIT_SQE_REVIEWERS")).toBeInTheDocument();
   });
 
   it("still lists the pre-existing lists", () => {

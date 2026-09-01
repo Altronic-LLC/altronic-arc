@@ -2555,6 +2555,35 @@ export interface Equipment {
   warrantyExpiry: Date | null;
   /** `ResponsibleTech` — a SINGLE person column (bare lookupId on the wire). */
   responsibleTech: Person | null;
+  /**
+   * `AssetTag` — the tag physically stuck on the machine, which is how the
+   * shop floor names an asset when the SharePoint Title doesn't match what is
+   * painted on it.
+   *
+   * A plain text column, and **blank on most of the register** — the field was
+   * added with the CMMS and nobody has walked the plant filling it in. Empty
+   * string, never null, so it reads like every other text column here.
+   */
+  assetTag: string;
+  /**
+   * `CurrentMachineHours` — the hourmeter reading, and the number a
+   * meter-based PM would count against.
+   *
+   * **`null` means never recorded**, which is NOT the same as zero: a reading
+   * that never moves means a meter PM never comes due, and nothing else on
+   * screen would say so. The asset register surfaces the blanks for exactly
+   * that reason (see lib/assetRegister.ts).
+   */
+  currentMachineHours: number | null;
+  /**
+   * Graph's item-level `lastModifiedDateTime` — when the ROW last changed, in
+   * any column. Free on every read (it comes back without being asked for).
+   *
+   * It is deliberately NOT "when the hours were last read": SharePoint keeps
+   * no per-column timestamp, so this is the closest honest signal, and the UI
+   * labels it as the row's edit date rather than implying more.
+   */
+  modifiedAt: Date | null;
   hasAttachments: boolean;
 }
 

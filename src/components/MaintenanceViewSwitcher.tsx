@@ -1,5 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import {
+  Boxes,
   CalendarDays,
   Gauge,
   LayoutGrid,
@@ -58,6 +59,15 @@ const SCREENS: MaintenanceScreen[] = [
     label: "PM library",
     icon: <ListChecks className="h-4 w-4" />,
     matches: (p) => p.startsWith("/operations/maintenance/schedules"),
+  },
+  {
+    to: "/operations/maintenance/assets",
+    label: "Assets",
+    icon: <Boxes className="h-4 w-4" />,
+    // Owns the single-asset page too — that is where a row on this table goes.
+    matches: (p) =>
+      p.startsWith("/operations/maintenance/assets") ||
+      p.startsWith("/operations/maintenance/asset/"),
   },
   {
     to: "/operations/maintenance/dashboard",

@@ -240,7 +240,7 @@ src/
 │   ├── buildRequestItems.ts      Build Request Items (detail) CRUD
 │   ├── operationsTasks.ts        Operations Task List CRUD (PMO site)
 │   ├── operationsProjects.ts     Operations Projects reference list
-│   ├── operationsEquipment.ts    Altronic Equipment List — reference reads (2 shapes) + 3 edits
+│   ├── operationsEquipment.ts    Altronic Equipment List — reference reads (2 shapes) + edits (NO create, NO delete)
 │   ├── maintenanceTasks.ts       CMMS work orders CRUD + comments (Operations, PMO site) — no delete
 │   ├── scheduledMaintenance.ts   CMMS PM schedules CRUD (Operations, PMO site) — no delete, no comments
 │   ├── maintenanceRoles.ts       Maintenance role tags (tech / admin) CRUD (PMO site) — shape-tolerant Roles column
@@ -308,7 +308,7 @@ src/
 │   ├── useMaintenanceReferenceLists.ts  Maintenance Departments / Locations queries + admin-guarded mutations
 │   ├── useScheduledMaintenance.ts CMMS PM schedule queries + mutations (retire, not delete)
 │   ├── useMaintenanceFilters.ts  URL-backed work-order filters (+ maintenanceFilterSearch)
-│   ├── useEquipment.ts           Equipment register queries + the few edits ARC allows
+│   ├── useEquipment.ts           Equipment register queries + edits, every write gated by manageAssetsGate
 │   ├── usePanelOrders.ts         Panel order queries + mutations
 │   ├── usePanelTasks.ts          Panel task queries + mutations
 │   ├── usePanelRoles.ts          Panel User Roles CRUD (admin-guarded)
@@ -392,6 +392,7 @@ src/
 │   ├── maintenanceFilters.ts     Pure work-order filter/sort/count predicates
 │   ├── maintenanceRoles.ts       CMMS role → rights mapping + the four gates (pure)
 │   ├── maintenanceReferences.ts  Department / Location lookup keys, labels, picker options, duplicate hints
+│   ├── assetRegister.ts          Asset register — the gap rule, filters, sorts, diffed write payload (pure)
 │   ├── scheduledMaintenanceMapper.ts  Graph item → ScheduledMaintenance (+ create payload)
 │   ├── equipmentMapper.ts        Graph item → Equipment (Altronic Equipment List)
 │   ├── workOrderNumber.ts        nextWorkOrderNumber() — WO-YYYY-#### numbering
@@ -520,6 +521,7 @@ src/
 │   ├── MaintenanceKanbanCard.tsx One work order card (board)
 │   ├── MaintenanceFilterBar.tsx  Work order Equipment / Assigned / Category / Department filters
 │   ├── MaintenanceTaskFormModal.tsx      Create/edit a work order
+│   ├── AssetEditModal.tsx                Edit one asset's nameplate (edit only — no create, no delete)
 │   ├── ScheduledMaintenanceFormModal.tsx Create/edit a PM schedule
 │   ├── LogPmCompletionModal.tsx  Start / Complete / Skip a due PM (Skip requires a reason)
 │   ├── panelAtoms.tsx            Panel-specific badges/chips
@@ -559,6 +561,7 @@ src/
 │   ├── MaintenanceDashboardView.tsx CMMS dashboard (groups by Department)
 │   ├── PmLibraryView.tsx         Every PM schedule + next due + Active toggle
 │   ├── AssetDetailView.tsx       One machine — history, open work, its PMs, manuals
+│   ├── MaintenanceAssetsView.tsx The asset register — search/filter all 378, gaps, inline machine hours
 │   ├── TeradyneLogView.tsx       Teradyne Log table + "Manage lists" menu
 │   ├── TeradyneRefListView.tsx   Edit one Teradyne reference list (:kind)
 │   ├── PanelOrdersView.tsx       Panel Orders list
@@ -1233,6 +1236,90 @@ picker didn't exist yet), which would read as data loss rather than a hidden
 "not required" state. `visibleFaitFields()` is the one function both the
 read-only card and its `FieldEditModal` call, so the two can't disagree about
 which KAM fields are showing.
+
+**`kamNeeded()` now lives in `src/lib/faitSignOff.ts`, not the view** (2026-08-31)
+— the sign-off alert chain has to ask the same question, and a rule enforced
+only in a view is a rule that isn't enforced. Its logic is unchanged;
+`FaitDetailView` imports it.
+
+#### The sign-off chain — SQE → Engineering → KAM
+
+The three sign-offs could be filled in any order and nobody was told when it
+was their turn (Ray, 2026-08-28). The rules are pure in
+`src/lib/faitSignOff.ts` (`faitSignOffOutcome`), the wording is pure in
+`src/lib/faitAlerts.ts`, the sending is in `api/email.ts`, and the wiring hangs
+off **`useUpdateFaitFields`** — the one hook that can write the sign-off
+columns, so the card Edit modal is covered by one call site.
+
+| Trigger | Emailed | Status becomes |
+|---|---|---|
+| Engineer or KAM **assigned** | that person — *"no action is required yet"* | — |
+| Status → **This is with SQE** | `FAIT_SQE_REVIEWERS` | (hand-set) |
+| `SQESignOff` → **Approved** | the assigned engineer | `This is with ENG` |
+| `SQESignOff` → **Failed** | the **initiator** | unchanged |
+| `EngSignOff` → **Approved**, `kamNeeded` | the KAM | `This is with KAM` |
+| `EngSignOff` → **Approved**, no KAM owed | nobody | unchanged (ready to close) |
+| Status → **Closed** | watchers (generic note) + the intake list, de-duped | — |
+
+Nine things that are load-bearing:
+
+- **`FAIT_SQE_REVIEWERS` is its OWN env var** (`VITE_FAIT_SQE_REVIEWERS`,
+  default Jerrod Waldron). There is deliberately no SQE person column — SQE is
+  whoever manages these after they're raised, and `SQEINITIALS` is a text
+  record of who signed, not an assignment. It is NOT a reuse of
+  `FAIT_NEW_ALERTS`: the two overlap today, and re-pointing the intake queue
+  must not silently re-point who is asked to sign — exactly why
+  `EIR_RESPONSE_ACCEPTED_ALERTS` is separate from
+  `EIR_TRIAGE_PROJECT_REVIEWERS`. It has its `LISTS` entry in
+  `AdminNotificationRecipientsView` and its line in `deploy.yml`, both of which
+  a new recipient list needs in the same commit.
+- **`to !== from` is the guard**, in `changedTo`. `"SQESignOff" in fields` is
+  PRESENCE, not change: the Sign-off card re-sends whatever it holds, so
+  re-saving an already-approved FAIT must not re-ask the engineer. Every
+  "stays quiet" test starts from a fixture ALREADY at the target value — one
+  starting elsewhere passes whether the guard exists or not.
+- **The outcome is computed in `onMutate`, not `mutationFn`**, because
+  `onMutate` has already applied the optimistic patch by the time `mutationFn`
+  runs — reading the cache there makes every transition look unchanged. It is
+  handed forward through a **`WeakMap` keyed on the variables object** React
+  Query passes to both, rather than a shared ref two writes could clobber or a
+  mutation of the caller's object.
+- **The auto-advanced Status travels in the SAME PATCH** as the sign-off that
+  caused it. Two writes could half-fail and leave the status disagreeing with
+  the sign-off.
+- **An explicit `Status` in the same write WINS**, and **a Closed FAIT is never
+  reopened** by editing its sign-offs (correcting an initials typo on a FAIT
+  that finished last month must not drag it back into somebody's queue).
+- **`kamNeeded` gates step 3.** Without it every FAIT with no KAM parks at
+  "This is with KAM" waiting on a signature nobody owes.
+- **The heads-up is explicitly NOT a request** — the wording says "no action is
+  required yet". An action-required email that needs no action is how people
+  learn to ignore the ones that do. It fires on a genuine change of person, so
+  re-picking the same person is silent and clearing sends nothing; the actor is
+  excluded STRICTLY (assigning yourself is not news).
+- **The generic status note is never suppressed** — it is what tells the
+  INITIATOR their FAIT moved, and it now fires on the auto-advance too, not
+  only on a hand-set status. The specific alerts go only to whoever must act,
+  so some people get two emails: one saying what happened, one saying what to
+  do.
+- **Closing de-dupes rather than sending twice.** Everyone WATCHING is already
+  told by the generic note, so `fireFaitClosedAlert` takes `alreadyNotified`
+  (watchers + initiator/engineer/KAM) and drops them from the intake list —
+  the de-dupe runs BEFORE `withoutActorUnlessEmpty`, so that fallback can't
+  resurrect somebody the generic note already covered.
+
+**`SQESignOff` → `Failed` is an ASSUMPTION awaiting confirmation** (2026-08-31).
+The flow as specified only covers Approved. Taken to mean the FAIT goes back,
+not forward: no status advance, no engineer alert, and the initiator is told.
+It is deliberately in two obvious places — one branch of `faitSignOffOutcome`
+and `buildFaitSqeFailedEmails` — so changing it is cheap. There is **no
+fallback queue** on it: the SQE reviewers are the people who record a Failed
+sign-off, so bouncing it back to them says nothing they don't know.
+
+**`EngSignOff` and `KAMSignOff` offer only `Approved`** — there is no rejection
+value on either column, so there is no reject path at those two stages and none
+was invented. If Engineering needs to send a FAIT back, the SharePoint column
+needs a value for it first.
 
 ### ECNs (Engineering Change Notices)
 
@@ -2660,6 +2747,70 @@ identical single-vs-multi person-column problem. Writes go through
 shape is a hard 400 that leaves nothing behind, item creation included) and
 remembers the one that worked. **When the shape is confirmed, that is the one
 function to simplify.**
+
+### The asset register (`/operations/maintenance/assets`)
+
+`views/MaintenanceAssetsView.tsx` + `components/AssetEditModal.tsx` +
+`lib/assetRegister.ts` (pure). Added 2026-08-31, closing two gaps at once.
+
+**`manageAssetsGate` had a HOLE.** It has always been documented as covering
+"the asset register, departments and locations". The two reference lists asked
+it from the day they landed; **the asset register did not** — `AssetDetailView`
+wrote Asset Status and Responsible Tech through `useSetEquipmentAssetStatus` /
+`useSetEquipmentResponsibleTech` with no role check anywhere, so anyone signed
+in could mark a machine Down or reassign its owner. Every equipment mutation
+in `hooks/useEquipment.ts` now asks the gate INSIDE its `mutationFn`, exactly
+as `useMaintenanceReferenceLists.ts` does, and both inline controls disable
+with the gate's hint. `useEquipment.guard.test.tsx` pins it — mocking the roles
+LIST, not the access resolution, so the real chain runs.
+
+**It lives inside the maintenance module, not under `/admin/*`** (Ray:
+"equipment management needs to be available inside maint task, just locked to
+admin"). Reading is open to anyone signed in; every write is admin-only.
+
+**Two columns were in SharePoint and had never been mapped**: `AssetTag`
+(text) and `CurrentMachineHours` (number). Both are now on `Equipment`, in
+`EQUIPMENT_SELECT` and in the mock. `modifiedAt` comes free from Graph's
+item-level `lastModifiedDateTime`.
+
+Six things that are load-bearing:
+
+- **Still NO create and NO delete.** An asset row exists because the plant
+  bought a machine, and deleting one orphans every work order and PM schedule
+  pointing at it. Retiring is `AssetStatus = "Retired"`. Both the view test
+  and the modal test assert the buttons are absent; the API has never had
+  either function.
+- **`currentMachineHours === null` is NOT zero.** Null means the meter has
+  never been read; 0 is a reading off a machine just installed. Only the first
+  is somebody's job. It matters because that number is what a meter-based PM
+  counts against — a reading that never moves is a PM that never comes due,
+  silently — so blank renders as "Never recorded" in amber, and the reading is
+  editable INLINE from the table rather than only inside the edit form. Making
+  somebody open a form to type one figure is exactly how a meter goes stale.
+- **A RETIRED asset never "needs attention".** It doesn't need its meter read,
+  its tag chased or its department decided; counting it parks permanent,
+  un-fixable rows in a queue that exists to be worked to nothing, which is how
+  a queue stops being looked at. `assetGaps()` returns `[]` for one.
+- **The gap counts are over the WHOLE register, never the filtered view**, and
+  each count is a one-click filter to the rows behind it. "190 with no
+  department" has to mean the same thing before and after somebody narrows, or
+  the number is worthless as a target.
+- **`buildAssetUpdateFields` diffs, and never writes lookupId 0.** Zero is the
+  UNMIGRATED sentinel (`lib/maintenanceReferences.ts`) — a Department read out
+  of the legacy choice column that matches no reference row — and SharePoint
+  item ids start at 1, so writing it back is a write of a row that cannot
+  exist. Clearing to `null` is still allowed: that is a deliberate edit. The
+  guard is unreachable through the picker and is tested directly, because a
+  test driven through `assetEditInput` passes with the guard deleted.
+- **The "Updated" column is the ROW's Modified date, not the reading's.**
+  SharePoint keeps no per-column timestamp, so this is the closest honest
+  signal for "is this reading stale" and the tooltip says exactly that. Don't
+  relabel it as when the hours were taken.
+
+Department and Location are the two reference lookups: only **Active** values
+are offered for a new selection (`referenceOptions`), but a row already
+pointing at a retired one keeps it in its own picker — a picker that dropped
+the current value would quietly clear the field on the next save.
 
 ## EIR triage — chasing a new EIR until someone owns it
 

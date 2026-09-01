@@ -20,6 +20,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.132.0",
+    date: "2026-08-31",
+    changes: [
+      "FAIT sign-off now walks itself along — SQE, then the assigned engineer, then the KAM, each told when it reaches them",
+      "Being assigned to a FAIT as engineer or KAM tells you straight away, marked as a heads-up with nothing to do yet",
+      "A FAIT's status moves to This is with ENG / This is with KAM on its own as each sign-off lands",
+      "A FAIT that needs no KAM finishes at the engineer instead of waiting on a signature nobody owes",
+      "Closing a FAIT tells everyone watching, and nobody gets the same news twice",
+      "New asset register under Operations → Maintenance → Assets: every machine, searchable, with its tag, hours, criticality and status editable",
+      "A 'needs attention' view shows what's missing across the register, and each count is one click away from the rows behind it",
+      "Machine hours can be updated straight from the table — the reading scheduled maintenance counts against",
+      "Editing the asset register, departments and locations now needs the maintenance Admin level",
+      "Cost impact notice recipients now appear on the Admin → Notification recipients check",
+    ],
+  },
+  {
     version: "0.131.0",
     date: "2026-08-31",
     changes: [

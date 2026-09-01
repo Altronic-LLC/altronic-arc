@@ -391,6 +391,29 @@ export const FAIT_NEW_ALERTS =
   "Katie Fleming <katie.fleming@altronic-llc.com>";
 
 /**
+ * FAIT **SQE reviewers** — who is asked to sign a FAIT off at the SQE stage,
+ * and the fallback when a later stage has nobody to ask (Ray, 2026-08-28).
+ *
+ * There is deliberately no SQE person column on the list: SQE is whoever is
+ * managing these requests after they're created — typically Jerrod Waldron —
+ * and `SQEINITIALS` is only a text record of who signed, not an assignment.
+ * So it's a configured list, the same shape as the EIR triage queues.
+ *
+ * Deliberately its OWN variable rather than reusing FAIT_NEW_ALERTS, even
+ * though the two overlap today: that list is the intake queue for a newly
+ * raised FAIT, and re-pointing it must not silently re-point who gets asked
+ * to sign. Same reasoning as EIR_RESPONSE_ACCEPTED_ALERTS being separate from
+ * EIR_TRIAGE_PROJECT_REVIEWERS.
+ *
+ * Format is the usual comma-separated `Name <email>` or bare address, parsed
+ * by parseRecipientList. **Verify against the directory** (Admin →
+ * Notification recipients) — a wrong address fails as that person's silence.
+ */
+export const FAIT_SQE_REVIEWERS =
+  import.meta.env.VITE_FAIT_SQE_REVIEWERS ||
+  "Jerrod Waldron <Jerrod.Waldron@altronic-llc.com>";
+
+/**
  * "Visit Reports" — Customer Service / Sales' record of customer visits, on
  * the ALTRONICSALESTEAM site (SITES.salesTeam). `Title` is repurposed as the
  * Customer Name, City/State are `City0`/`State0`, and Month/Year/Day/Cal Title

@@ -1472,9 +1472,16 @@ const SECTIONS: ManualSection[] = [
       "wiring diagram",
       "department",
       "location",
+      "asset register",
+      "asset tag",
+      "machine hours",
+      "hourmeter",
+      "meter reading",
+      "needs attention",
+      "retire an asset",
     ],
     searchText:
-      "The Altronic Equipment List is the plant's asset register - 378 machines - and it is what every work order and maintenance schedule is hung off. Open a machine's page by clicking its name anywhere it appears. The page shows the nameplate (type, department, location, criticality, serial number, manufacturer, model, parent machine, install date, warranty expiry), the work currently open on it, everything ever done to it, the maintenance schedules that drive it, and its manuals, wiring diagrams and nameplate photos as attachments. Only two fields are editable in ARC: Asset Status (In Service, Down, Standby, Retired) and Responsible Tech, both of which save immediately when picked. Everything else is maintained in SharePoint, and ARC cannot add or delete an asset. Department and Location are two different columns - Department is the one every maintenance report groups by - and both are picked from the lists an admin maintains at Admin - Maintenance reference lists.",
+      "The Altronic Equipment List is the plant's asset register - 378 machines - and it is what every work order and maintenance schedule is hung off. Open a machine's page by clicking its name anywhere it appears. The page shows the nameplate (type, department, location, criticality, asset tag, machine hours, serial number, manufacturer, model, parent machine, install date, warranty expiry), the work currently open on it, everything ever done to it, the maintenance schedules that drive it, and its manuals, wiring diagrams and nameplate photos as attachments. Asset Status (In Service, Down, Standby, Retired) and Responsible Tech are edited on the asset page itself and save immediately when picked. Everything else is edited on the asset register at Maintenance - Assets, which lists all 378 machines with search and filters, a Needs attention view showing what each row is missing, and an inline editor for Current Machine Hours. Managing assets is limited to maintenance admins; anyone signed in can search and read the register. ARC cannot add or delete an asset - a machine that has left the plant is set to Retired, because work orders and schedules point at the row. Department and Location are two different columns - Department is the one every maintenance report groups by - and both are picked from the lists an admin maintains at Admin - Maintenance reference lists. Current Machine Hours is the hourmeter reading a meter-based PM counts against, so an asset with no reading recorded is one whose meter PM can never come due; blank and zero are different answers.",
     render: () => (
       <>
         <P>
@@ -1506,17 +1513,73 @@ const SECTIONS: ManualSection[] = [
             order last needed them.
           </LI>
         </UL>
-        <H3>What you can change here</H3>
+        <H3>What you can change on the asset page</H3>
         <P>
-          <strong>Two fields only: Asset Status</strong> (In Service / Down /
-          Standby / Retired) <strong>and Responsible Tech.</strong> Both save the
-          moment you pick them. They're the edits a technician makes with the
-          machine in front of them — marking it down, and moving who owns it.
+          <strong>Asset Status</strong> (In Service / Down / Standby / Retired){" "}
+          <strong>and Responsible Tech.</strong> Both save the moment you pick
+          them. They're the edits a technician makes with the machine in front of
+          them — marking it down, and moving who owns it.
         </P>
         <P>
-          Everything else is read-only, and the page says so rather than leaving
-          you hunting for a pencil. The register itself is maintained in
-          SharePoint: <strong>ARC can't add or delete an asset.</strong>
+          Everything else on the nameplate is edited on the{" "}
+          <strong>asset register</strong> (below), which the page links to.
+        </P>
+
+        <H3>The asset register</H3>
+        <P>
+          <strong>Maintenance → Assets</strong> lists all 378 machines in one
+          table you can search and filter — by name, asset tag, serial number,
+          model, department, location, criticality, status or type. Anyone signed
+          in can search and read it. <strong>Editing is limited to maintenance
+          admins</strong>, because every work order and PM schedule points at
+          these rows; if you don't have the level the controls are greyed out and
+          the screen says what to ask for.
+        </P>
+        <P>
+          The <strong>Edit</strong> button on a row opens the whole nameplate:
+          name, asset tag, machine hours, status, criticality, department,
+          location, responsible tech, manufacturer, model, serial number, install
+          date, warranty expiry and description. Only the fields you actually
+          changed are saved.
+        </P>
+        <P>
+          <strong>ARC can't add or delete an asset.</strong> An asset row exists
+          because the plant bought a machine, and deleting one would orphan every
+          work order and schedule pointing at it — so a machine that has left the
+          plant gets <strong>Asset Status = Retired</strong> instead. New assets
+          are added in SharePoint.
+        </P>
+
+        <H3>Needs attention — finding what's missing</H3>
+        <P>
+          Much of the register was imported and is only half filled in. The strip
+          above the table counts what's missing across the whole register, and
+          every count is a filter: press <strong>No department (190)</strong> and
+          the table shows exactly those rows. <strong>Needs attention</strong>{" "}
+          shows every incomplete row at once, and{" "}
+          <strong>Most gaps first</strong> in the sort box floats them to the top.
+          Each incomplete row also carries amber badges naming what it's missing.
+        </P>
+        <P>
+          Retired assets are never counted — a machine that has left the plant
+          doesn't need its meter read or its tag chased.
+        </P>
+
+        <H3>Machine hours</H3>
+        <P>
+          <strong>Current Machine Hours</strong> is the hourmeter reading. Click
+          the figure in the table to type a new one — you don't need to open the
+          edit form, because keeping it current matters more than anything else
+          on the row: <strong>a meter-based PM counts against this number, so an
+          asset whose reading never moves is one whose PM never comes due.</strong>
+        </P>
+        <P>
+          Blank and zero are different answers. Blank means nobody has ever read
+          the meter, and shows as <strong>Never recorded</strong>; zero is a real
+          reading off a machine that has just been installed. The{" "}
+          <strong>Updated</strong> column beside it is the date the asset row was
+          last edited in any field — SharePoint doesn't record when an individual
+          column changed, so it's the closest thing to "is this reading stale".
         </P>
         <Tip>
           <strong>Department</strong> and <strong>Location</strong> are two
@@ -2550,9 +2613,12 @@ const SECTIONS: ManualSection[] = [
       "assigned engineer", "kam", "kam sign off", "hide kam",
       "fait closed alert", "fait status", "change fait status",
       "fait initiator", "fait sidebar", "fait dates",
+      "fait sign off", "sign-off chain", "sqe sign off", "eng sign off",
+      "kam sign off", "sqe reviewers", "sqe failed", "this is with sqe",
+      "this is with eng", "this is with kam", "auto advance status",
     ],
     searchText:
-      "FAITs at /supply-chain/faits, under Supply Chain in the Departments menu, backed by the FAIT list on the Altronic Engineering SharePoint site. A First Article Inspection Test tracks a new or changed part from a supplier through inspection and three sign-offs: SQE, Engineering and KAM. The list opens on Open FAITs with pills for Open / Closed / All, filters for project, supplier and the stage it is sitting at, and an all-fields search. FAITs are identified by SAP Part Number rather than title. New FAIT asks for the part, supplier, project and what is being requested; inspection results and sign-offs are filled in on the FAIT itself, in five cards - Part, Request, Inspection, Results, Sign-off - each with one Edit button. Yes/No questions are answered by picking Yes or No. The sidebar steers the FAIT in two groups: Workflow (Status picker, sign-off chips, Project picker) and People (initiator, Assigned Engineer, KAM, watchers). Every sidebar control saves the moment it changes - no Save button, no modal. Status moves a FAIT along its workflow: Open, FAIT Part Received, with SQE, with Engineering, with the KAM, Closed. The Assigned Engineer and KAM are pickers - pick a person and they are saved immediately and added as a watcher; clearing one back to Not set does not remove them as a watcher. Initiator is filled in for you with whoever raised the FAIT and is not a picker. Failed First Pass Date and Waived Date are picked from a calendar. A change that cannot be saved says so and the old value comes back; a change that saved but could not be re-read says so and is left where you put it. A FAIT that does not need a KAM sign-off can simply have no KAM assigned - the KAM sign-off chip and fields hide themselves until a KAM is picked. FAITs carry comments with @-mentions, watchers and attachments. Whoever raises one watches it. Raising a FAIT emails Jerrod Waldron, Alexandra Russell and Katie Fleming with the part details; the raiser is left off their own alert. Changing a FAIT's Status emails its watchers and its initiator, engineer and KAM. Closing a FAIT also emails that same intake list, so they hear it is finished, not just that it changed. FAITs cannot be deleted from ARC.",
+      "FAITs at /supply-chain/faits, under Supply Chain in the Departments menu, backed by the FAIT list on the Altronic Engineering SharePoint site. A First Article Inspection Test tracks a new or changed part from a supplier through inspection and three sign-offs: SQE, Engineering and KAM. The list opens on Open FAITs with pills for Open / Closed / All, filters for project, supplier and the stage it is sitting at, and an all-fields search. FAITs are identified by SAP Part Number rather than title. New FAIT asks for the part, supplier, project and what is being requested; inspection results and sign-offs are filled in on the FAIT itself, in five cards - Part, Request, Inspection, Results, Sign-off - each with one Edit button. Yes/No questions are answered by picking Yes or No. The sidebar steers the FAIT in two groups: Workflow (Status picker, sign-off chips, Project picker) and People (initiator, Assigned Engineer, KAM, watchers). Every sidebar control saves the moment it changes - no Save button, no modal. Status moves a FAIT along its workflow: Open, FAIT Part Received, with SQE, with Engineering, with the KAM, Closed. The Assigned Engineer and KAM are pickers - pick a person and they are saved immediately and added as a watcher; clearing one back to Not set does not remove them as a watcher. Initiator is filled in for you with whoever raised the FAIT and is not a picker. Failed First Pass Date and Waived Date are picked from a calendar. A change that cannot be saved says so and the old value comes back; a change that saved but could not be re-read says so and is left where you put it. A FAIT that does not need a KAM sign-off can simply have no KAM assigned - the KAM sign-off chip and fields hide themselves until a KAM is picked. FAITs carry comments with @-mentions, watchers and attachments. Whoever raises one watches it. Raising a FAIT emails Jerrod Waldron, Alexandra Russell and Katie Fleming with the part details; the raiser is left off their own alert. Changing a FAIT's Status emails its watchers and its initiator, engineer and KAM. Closing a FAIT emails everyone watching it plus that same intake list, de-duplicated so nobody gets two. The three sign-offs run as a chain: assigning an engineer or a KAM emails them a heads-up that says no action is required yet; moving a FAIT to This is with SQE emails the configured SQE reviewers (default Jerrod Waldron) asking for the SQE sign-off; approving the SQE sign-off emails the assigned engineer and moves the Status to This is with ENG; approving the Eng sign-off emails the KAM and moves the Status to This is with KAM, but only when a KAM sign-off is needed - with no KAM the chain finishes at the engineer and the FAIT is ready to close. An SQE sign-off set to Failed sends the FAIT back to whoever raised it and does not advance the status. The status moves itself as the sign-offs land; a Status you pick yourself in the same edit wins, re-saving a recorded sign-off asks nobody twice, and editing the sign-offs on a closed FAIT never reopens it. FAITs cannot be deleted from ARC.",
     render: () => (
       <>
         <P>
@@ -2649,6 +2715,55 @@ const SECTIONS: ManualSection[] = [
           the people who were told a new one needed picking up also hear when
           it's finished.
         </P>
+        <H3>The sign-off chain</H3>
+        <P>
+          The three sign-offs run in order — <strong>SQE</strong>, then{" "}
+          <strong>Engineering</strong>, then the <strong>KAM</strong> — and
+          each one tells the next person it's their turn, so nobody has to
+          watch for it.
+        </P>
+        <UL>
+          <LI>
+            <strong>Assigning an engineer or a KAM emails them a
+            heads-up</strong> that they're on the FAIT, saying plainly that{" "}
+            <em>no action is required yet</em>. They're asked for something
+            only when the sign-offs reach their stage.
+          </LI>
+          <LI>
+            Moving a FAIT to <strong>This is with SQE</strong> emails the SQE
+            reviewers (default Jerrod Waldron) asking for the SQE sign-off.
+          </LI>
+          <LI>
+            Setting <strong>SQE Sign Off</strong> to Approved emails the{" "}
+            <strong>assigned engineer</strong> to review it, and moves the
+            Status to <strong>This is with ENG</strong> for you.
+          </LI>
+          <LI>
+            Setting <strong>Eng Sign Off</strong> to Approved emails the{" "}
+            <strong>KAM</strong> and moves the Status to{" "}
+            <strong>This is with KAM</strong> — but only when a KAM sign-off
+            is actually needed. With no KAM on the FAIT the chain finishes at
+            the engineer and it's ready to close.
+          </LI>
+          <LI>
+            Setting <strong>SQE Sign Off</strong> to <strong>Failed</strong>{" "}
+            sends the FAIT back: the Status doesn't advance, the engineer
+            isn't asked for anything, and whoever raised it is emailed. Put
+            the reason in <strong>SQE Approval Notes</strong>.
+          </LI>
+          <LI>
+            <strong>Closing</strong> a FAIT emails everyone watching it, plus
+            the intake list who were told it needed picking up. Nobody on both
+            lists gets two emails.
+          </LI>
+        </UL>
+        <Tip>
+          The status moves itself as the sign-offs land, so you don't have to
+          set it by hand — and re-saving a sign-off that's already recorded
+          asks nobody twice. If you do pick a Status yourself in the same
+          edit, yours wins. Editing the sign-offs on a closed FAIT never
+          reopens it.
+        </Tip>
         <Tip>
           FAITs can't be deleted from ARC — a FAIT records an inspection that
           happened. Close it instead.
@@ -4222,6 +4337,9 @@ const SECTIONS: ManualSection[] = [
       "fait alert",
       "fait intake",
       "fait notification",
+      "fait sign off alert",
+      "sqe reviewers",
+      "sign-off chain",
       "intake alert",
       "intake list",
       "notification recipients",
@@ -4230,7 +4348,7 @@ const SECTIONS: ManualSection[] = [
       "bounced email",
     ],
     searchText:
-      "Commenting on a task, EIR, build request, or build request part emails everyone watching it, whoever it's assigned to, plus everyone you @-mention, from automation@altronic-llc.com. A comment with no mention at all still emails watchers and assignees. Mentioned people get a 'You were mentioned' email; assignees and other watchers get a 'New comment on' email that says whether it's assigned to them or they're watching. Build request parts have their own watcher lists and no Assigned field; part-comment emails deep-link to the request with that part expanded. You're never emailed for your own comment unless you @-mention yourself. @-mentioning auto-adds the person as a watcher. You also become a watcher automatically when you create an item and when something is assigned to you — on the create form and on later reassignments — alongside anyone added by hand to the Watchers field. Being unassigned does not remove you; use Unwatch. Comment timestamps are recorded on one company clock (Eastern) and displayed in your own local time, so a thread reads in the order it was written even when the authors are in different time zones. Editing a comment emails only newly added mentions by default, but checking 'Notify everyone again' resends an 'Updated comment on' email to watchers and assignees plus everyone mentioned in the new AND previous version of the comment. Change alerts: changing a Status (task, EIR, or build request), an EIR Resolution, a build request part's Part Status, or the assignees (including a build request's Engineer Assigned) emails the watchers, current assignees, and the EIR reporter or BR requestor. Checking or unchecking a Description checklist box (task, Operations task, or EIR) emails the watchers and current assignees with a Checklist updated on email naming the item. Being added as an assignee emails you 'You've been assigned'; being removed emails 'You've been unassigned'; everyone else gets a broadcast. Promoting an EIR to a task emails the EIR's watchers and reporter with a link to the new task. Creating/deleting parts and other field edits (lead time, customer, build request part checklists, WO No) send no email. You're never emailed for a change you made yourself. Intake alerts go to a fixed configured list rather than an item's watchers: an EIR raised with no project reference asks the project-reviewer list (default Sheila Horn, Ray White) to add one; a project reference landing on an EIR with none asks the assigner list (default Glenn Terry, Brandon Mirto) to assign an engineer. An EIR reaching Response Accepted asks the response-accepted list (default Sheila Horn, Ray White) to close it; Response Not Accepted asks the assigned engineers to revisit, or the assigner list if none are assigned. A new gray market request emails the intake list (default Katie Fleming, Alexandra Russell, Glenn Terry); a new FAIT emails its own intake list (default Jerrod Waldron, Alexandra Russell, Katie Fleming). Being on an intake list is not the same as watching the item, and the person who triggered it is left off their own alert unless that would leave nobody. FAIT status changes email its watchers plus its initiator, assigned engineer and KAM. Maintenance work orders follow the same rules as tasks: commenting, @-mentioning, assigning and changing a status emails the watchers and the assignee, and you start watching a work order you create, are assigned or are @-mentioned on. Time-based maintenance reminders — what is due soon, what has gone overdue — do NOT come from ARC: a Power Automate flow outside ARC sends those and maintains the Due Status column. ARC only sends the immediate emails, the ones caused by somebody doing something. Admins can check every configured list's addresses against the staff directory at Admin -> Notification recipients, which flags an address with no real mailbox before it fails silently.",
+      "Commenting on a task, EIR, build request, or build request part emails everyone watching it, whoever it's assigned to, plus everyone you @-mention, from automation@altronic-llc.com. A comment with no mention at all still emails watchers and assignees. Mentioned people get a 'You were mentioned' email; assignees and other watchers get a 'New comment on' email that says whether it's assigned to them or they're watching. Build request parts have their own watcher lists and no Assigned field; part-comment emails deep-link to the request with that part expanded. You're never emailed for your own comment unless you @-mention yourself. @-mentioning auto-adds the person as a watcher. You also become a watcher automatically when you create an item and when something is assigned to you — on the create form and on later reassignments — alongside anyone added by hand to the Watchers field. Being unassigned does not remove you; use Unwatch. Comment timestamps are recorded on one company clock (Eastern) and displayed in your own local time, so a thread reads in the order it was written even when the authors are in different time zones. Editing a comment emails only newly added mentions by default, but checking 'Notify everyone again' resends an 'Updated comment on' email to watchers and assignees plus everyone mentioned in the new AND previous version of the comment. Change alerts: changing a Status (task, EIR, or build request), an EIR Resolution, a build request part's Part Status, or the assignees (including a build request's Engineer Assigned) emails the watchers, current assignees, and the EIR reporter or BR requestor. Checking or unchecking a Description checklist box (task, Operations task, or EIR) emails the watchers and current assignees with a Checklist updated on email naming the item. Being added as an assignee emails you 'You've been assigned'; being removed emails 'You've been unassigned'; everyone else gets a broadcast. Promoting an EIR to a task emails the EIR's watchers and reporter with a link to the new task. Creating/deleting parts and other field edits (lead time, customer, build request part checklists, WO No) send no email. You're never emailed for a change you made yourself. Intake alerts go to a fixed configured list rather than an item's watchers: an EIR raised with no project reference asks the project-reviewer list (default Sheila Horn, Ray White) to add one; a project reference landing on an EIR with none asks the assigner list (default Glenn Terry, Brandon Mirto) to assign an engineer. An EIR reaching Response Accepted asks the response-accepted list (default Sheila Horn, Ray White) to close it; Response Not Accepted asks the assigned engineers to revisit, or the assigner list if none are assigned. A new gray market request emails the intake list (default Katie Fleming, Alexandra Russell, Glenn Terry); a new FAIT emails its own intake list (default Jerrod Waldron, Alexandra Russell, Katie Fleming). Being on an intake list is not the same as watching the item, and the person who triggered it is left off their own alert unless that would leave nobody. FAIT status changes email its watchers plus its initiator, assigned engineer and KAM. The FAIT sign-off chain adds its own: being assigned as a FAIT's engineer or KAM emails you a heads-up that explicitly says no action is required yet; a FAIT reaching This is with SQE emails the configured SQE reviewer list (default Jerrod Waldron, VITE_FAIT_SQE_REVIEWERS - a separate list from the FAIT intake one); an approved SQE sign-off emails the assigned engineer, an approved Eng sign-off emails the KAM where one is needed, and either falls back to the SQE reviewers when that person is not assigned; a Failed SQE sign-off emails whoever raised the FAIT. Closing a FAIT emails everyone watching plus the intake list, de-duplicated so nobody gets two. Maintenance work orders follow the same rules as tasks: commenting, @-mentioning, assigning and changing a status emails the watchers and the assignee, and you start watching a work order you create, are assigned or are @-mentioned on. Time-based maintenance reminders — what is due soon, what has gone overdue — do NOT come from ARC: a Power Automate flow outside ARC sends those and maintains the Due Status column. ARC only sends the immediate emails, the ones caused by somebody doing something. Admins can check every configured list's addresses against the staff directory at Admin -> Notification recipients, which flags an address with no real mailbox before it fails silently.",
     render: () => (
       <>
         <P>
@@ -4411,6 +4529,36 @@ const SECTIONS: ManualSection[] = [
               "A FAIT's Status changes",
               "Watchers + its initiator, assigned engineer and KAM (minus you)",
               "Status changed on …",
+            ],
+            [
+              "You're assigned as a FAIT's engineer or KAM",
+              "Just you",
+              "You're the … on this FAIT — no action is required yet",
+            ],
+            [
+              "A FAIT reaches This is with SQE",
+              "The configured SQE reviewer list (default Jerrod Waldron)",
+              "Please review it and record the SQE sign-off",
+            ],
+            [
+              "A FAIT's SQE Sign Off becomes Approved",
+              "Its assigned engineer — or the SQE reviewer list if none is assigned",
+              "Please review it and record your engineering sign-off",
+            ],
+            [
+              "A FAIT's SQE Sign Off becomes Failed",
+              "Whoever raised the FAIT (minus you)",
+              "SQE sign-off failed — it's back with you",
+            ],
+            [
+              "A FAIT's Eng Sign Off becomes Approved, and a KAM is needed",
+              "Its KAM — or the SQE reviewer list if none is assigned",
+              "Please review it and record your KAM sign-off",
+            ],
+            [
+              "A FAIT is closed",
+              "Everyone watching it, plus the intake list — never both",
+              "FAIT closed: …",
             ],
             [
               "A save of yours fails to reach SharePoint (after automatic retries)",

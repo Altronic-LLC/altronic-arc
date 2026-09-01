@@ -35,10 +35,15 @@ import { MOCK_EQUIPMENT } from "@/data/maintenanceMockData";
 // Both read the same rows, so a work order and an Operations task naming the
 // same asset agree about which one it is.
 //
-// The list is a REFERENCE register maintained in SharePoint. ARC deliberately
-// offers no create and no delete here — only the two edits the shop floor
-// actually needs to make from a work order: marking an asset down or back in
-// service, and moving the responsible tech.
+// **There is deliberately NO create and NO delete, and that still stands.** An
+// asset row comes into existence when the plant buys a machine, and deleting
+// one orphans every work order and PM schedule pointing at it — retiring is
+// `AssetStatus = "Retired"`, which is why that choice exists. Everything else
+// about a row IS editable from ARC now: the asset register screen
+// (/operations/maintenance/assets) edits the nameplate, the two reference
+// lookups, criticality, status and the hourmeter reading, and the asset detail
+// page keeps the two quick edits a technician makes with a work order open.
+// Every one of those writes is gated by `manageAssetsGate` in the hook layer.
 // =============================================================================
 
 let mockStore: Equipment[] = MOCK_EQUIPMENT.map((e) => ({ ...e }));
@@ -178,6 +183,18 @@ function applyMockFields(next: Equipment, fields: Record<string, unknown>) {
     const v = fields.ParentAssetLookupId;
     next.parentAsset = v ? { lookupId: Number(v), title: next.parentAsset?.title ?? "" } : null;
   }
+  if ("AssetTag" in fields) next.assetTag = String(fields.AssetTag ?? "").trim();
+  if ("CurrentMachineHours" in fields) {
+    const v = fields.CurrentMachineHours;
+    // Null stays null — see the note on `machineHours` in lib/equipmentMapper.
+    // Clearing a reading is a real edit ("that number was wrong"), and turning
+    // it into 0 here would fake a meter read that never happened.
+    next.currentMachineHours = v === null || v === undefined || v === "" ? null : Number(v);
+  }
+  // SharePoint stamps Modified on every write, so the mock has to as well —
+  // otherwise the register's "last edited" column never moves in demo mode and
+  // the one signal that says "this reading is stale" reads as broken.
+  next.modifiedAt = new Date();
 }
 
 /**
@@ -236,6 +253,22 @@ export async function setEquipmentLocation(
   locationLookupId: number | null,
 ): Promise<Equipment> {
   return updateEquipmentFields(lookupId, { LocationRefLookupId: locationLookupId });
+}
+
+/**
+ * Record the hourmeter reading (or clear it with `null`).
+ *
+ * Its own function rather than a `updateEquipmentFields` call at each site
+ * because it is the one asset edit that has to be a ONE-FIELD action: a
+ * reading nobody updates is a meter-based PM that never comes due, and making
+ * somebody open a full edit form to type one number is how that happens. The
+ * register offers it inline for the same reason.
+ */
+export async function setEquipmentMachineHours(
+  lookupId: number,
+  hours: number | null,
+): Promise<Equipment> {
+  return updateEquipmentFields(lookupId, { CurrentMachineHours: hours });
 }
 
 /** Set an asset's warranty expiry (a date-only column — midday UTC on the wire). */

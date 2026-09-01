@@ -43,6 +43,15 @@ export interface SingleSelectProps extends BaseProps {
   /** Greyed out and unopenable — for a form that's mid-save. */
   disabled?: boolean;
   /**
+   * Tooltip on the control, for the "why is this locked" hint on a gated field.
+   *
+   * It sits on the WRAPPER, not the trigger button: a disabled `<button>`
+   * suppresses its own native tooltip in Chrome and Edge (the same reason the
+   * EIR status pills use `aria-disabled`). Treat it as a convenience — a
+   * refusal a user has to act on is said out loud on the page as well.
+   */
+  title?: string;
+  /**
    * false for a field that must always hold a value (a task's Status, say):
    * hides the clear button and makes re-picking the current option a no-op
    * rather than emptying the field.
@@ -128,6 +137,7 @@ export function SingleSelect({
   clearable = true,
   disabled,
   ariaLabel,
+  title,
 }: SingleSelectProps) {
   const selectedOpt = options.find((o) => o.value === selected) ?? null;
   const summary = selectedOpt?.label ?? allLabel;
@@ -138,6 +148,7 @@ export function SingleSelect({
       isEmpty={selectedOpt == null}
       disabled={disabled}
       ariaLabel={ariaLabel}
+      title={title}
       onClear={selectedOpt && clearable && !disabled ? () => onChange(null) : undefined}
       renderPanel={({ close }) => (
         <SearchablePanel
@@ -179,6 +190,7 @@ export function ChoiceSelect({
   clearable = true,
   disabled,
   ariaLabel,
+  title,
 }: {
   value: string;
   onChange: (next: string) => void;
@@ -186,6 +198,8 @@ export function ChoiceSelect({
   disabled?: boolean;
   /** Accessible name, when no <label> wraps this. */
   ariaLabel?: string;
+  /** Tooltip on the control — see the note on SingleSelectProps.title. */
+  title?: string;
   /** Trigger text when nothing is chosen — the old empty `<option>`'s label. */
   emptyLabel: string;
   searchPlaceholder?: string;
@@ -204,6 +218,7 @@ export function ChoiceSelect({
       clearable={clearable}
       disabled={disabled}
       ariaLabel={ariaLabel}
+      title={title}
     />
   );
 }
@@ -212,6 +227,8 @@ interface DropdownShellProps {
   summary: string;
   isEmpty: boolean;
   disabled?: boolean;
+  /** Tooltip, placed on the wrapper — see the note on SingleSelectProps.title. */
+  title?: string;
   /**
    * Accessible name for the trigger. Most of these sit inside a <label>, which
    * names the button for free — but a control that labels itself (the Yes/No
@@ -241,6 +258,7 @@ function DropdownShell({
   summary,
   isEmpty,
   disabled,
+  title,
   ariaLabel,
   onClear,
   renderPanel,
@@ -261,6 +279,7 @@ function DropdownShell({
     <div
       ref={ref}
       className="relative"
+      title={title}
       onBlur={dropdownBlurHandler(ref, close)}
       // Escape closes the panel WITHOUT reaching an enclosing modal — see
       // dropdownKeyHandler.

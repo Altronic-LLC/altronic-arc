@@ -92,7 +92,7 @@ const SYSTEM_TIERS: Tier[] = [
       },
       {
         label: "Maintenance / CMMS (Operations, lazy-loaded)",
-        hint: "MaintenanceListView · MaintenanceBoardView · MaintenanceCalendarView · MaintenanceDashboardView · PmLibraryView · AssetDetailView · MaintenanceDetailView · AdminMaintenanceRolesView · AdminMaintenanceReferenceListsView — useMaintenanceTasks · useScheduledMaintenance · useEquipment · useMaintenanceFilters · useMaintenanceRoles · useMaintenanceReferenceLists — api/maintenanceTasks · scheduledMaintenance · operationsEquipment · maintenanceRoles · maintenanceReferenceLists (one parametrised module over Maintenance Departments and Maintenance Locations) — lib/maintenanceSchedule (the recurrence projection engine) · maintenanceCalendar · maintenanceMetrics · maintenanceFilters · maintenanceRoles (the two-level tech / admin gates, which replaced the old assignee-only completion rule; manageAssetsGate's first caller is the reference-list admin screen) · maintenanceReferences (picker options, grouping keys and the duplicate hint) · workOrderNumber. Same PMO site and same bundle as the Operations tasks it sits beside. The work-order detail route is /operations/maintenance-task/:id — a top-level path, NOT a child of /operations/maintenance, because it is the segment lib/appUrl.ts hands to every notification email.",
+        hint: "MaintenanceListView · MaintenanceBoardView · MaintenanceCalendarView · MaintenanceDashboardView · PmLibraryView · AssetDetailView · MaintenanceAssetsView (the asset register — inside the module at /operations/maintenance/assets, NOT under /admin, but locked to maintenance admins) · MaintenanceDetailView · AdminMaintenanceRolesView · AdminMaintenanceReferenceListsView — useMaintenanceTasks · useScheduledMaintenance · useEquipment · useMaintenanceFilters · useMaintenanceRoles · useMaintenanceReferenceLists — api/maintenanceTasks · scheduledMaintenance · operationsEquipment · maintenanceRoles · maintenanceReferenceLists (one parametrised module over Maintenance Departments and Maintenance Locations) — lib/maintenanceSchedule (the recurrence projection engine) · maintenanceCalendar · maintenanceMetrics · maintenanceFilters · maintenanceRoles (the two-level tech / admin gates, which replaced the old assignee-only completion rule; manageAssetsGate now covers all three of the asset register, departments and locations, asked in each view AND inside every mutationFn) · assetRegister (the register's gap rule, filters and diffed write payload) · maintenanceReferences (picker options, grouping keys and the duplicate hint) · workOrderNumber. Same PMO site and same bundle as the Operations tasks it sits beside. The work-order detail route is /operations/maintenance-task/:id — a top-level path, NOT a child of /operations/maintenance, because it is the segment lib/appUrl.ts hands to every notification email.",
         palette: "ui",
       },
       {
@@ -449,9 +449,13 @@ const SCHEMA_TABLES: SchemaTable[] = [
   {
     // The asset register the CMMS module is built on. It used to be a
     // name-only picker for an Operations task; `listEquipment()` now reads the
-    // whole record. Still no create and no delete in ARC — the register is
-    // maintained in SharePoint, and only Asset Status and Responsible Tech are
-    // editable here (see views/AssetDetailView.tsx).
+    // whole record, and MaintenanceAssetsView edits it.
+    //
+    // Still NO create and NO delete in ARC: an asset row exists because the
+    // plant bought a machine, and deleting one orphans every work order and PM
+    // schedule pointing at it — retiring is `assetStatus = "Retired"`. Every
+    // write is gated by `manageAssetsGate`, in the view AND inside each
+    // `mutationFn`.
     name: "AltronicEquipment",
     source: "Altronic Equipment List (Altronic_PMO site) — 378 assets",
     palette: "shared",
@@ -475,6 +479,12 @@ const SCHEMA_TABLES: SchemaTable[] = [
       { name: "installDate", type: "datetime", kind: "field" },
       { name: "warrantyExpiry", type: "datetime", kind: "field" },
       { name: "responsibleTech", type: "int", kind: "fk", references: "Person.id" },
+      // Added with the CMMS, mapped only when the asset register screen
+      // landed. currentMachineHours is what a meter-based PM counts against,
+      // so a null one is a PM that can never come due — which is why the
+      // register surfaces the blanks rather than styling round them.
+      { name: "assetTag", type: "text", kind: "field" },
+      { name: "currentMachineHours", type: "number", kind: "field" },
       { name: "hasAttachments", type: "bool", kind: "field" },
     ],
   },

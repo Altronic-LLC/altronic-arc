@@ -109,6 +109,9 @@ function asset(over: Partial<Equipment> = {}): Equipment {
     installDate: null,
     warrantyExpiry: null,
     responsibleTech: null,
+    assetTag: "",
+    currentMachineHours: null,
+    modifiedAt: null,
     hasAttachments: false,
     ...over,
   };

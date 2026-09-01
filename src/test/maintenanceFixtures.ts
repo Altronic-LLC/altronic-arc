@@ -112,6 +112,12 @@ export function makeAsset(overrides: Partial<Equipment> & { lookupId: number }):
     installDate: null,
     warrantyExpiry: null,
     responsibleTech: null,
+    assetTag: "",
+    // Defaults are the EMPTY state on purpose: that is what most of the live
+    // register looks like, and a fixture that starts complete would let a
+    // "needs attention" rule pass whether or not it works.
+    currentMachineHours: null,
+    modifiedAt: null,
     hasAttachments: false,
     ...overrides,
   };

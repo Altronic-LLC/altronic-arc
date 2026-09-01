@@ -23,6 +23,10 @@ vi.mock("@/api/email", () => ({
   fireFaitClosedAlert,
   fireFieldChangeAlert,
   fireNewFaitAlert: vi.fn(),
+  fireFaitAssignmentHeadsUp: vi.fn(),
+  fireFaitSignOffRequest: vi.fn(),
+  fireFaitSqeFailedAlert: vi.fn(),
+  fireFaitWithSqeAlert: vi.fn(),
   notifyMentions: vi.fn(),
   notifyChangeEmails: vi.fn(),
 }));

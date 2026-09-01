@@ -123,6 +123,9 @@ function asset(over: Partial<Equipment> = {}): Equipment {
     installDate: day("2001-03-04"),
     warrantyExpiry: null,
     responsibleTech: null,
+    assetTag: "",
+    currentMachineHours: null,
+    modifiedAt: null,
     hasAttachments: false,
     ...over,
   };
@@ -179,6 +182,7 @@ beforeEach(() => {
   state.isLoading = false;
   setAssetStatus.mockClear();
   setResponsibleTech.mockClear();
+  maintenanceAccess.value = { isTech: true, isAdmin: true, enforced: true, isResolving: false };
 });
 
 describe("AssetDetailView", () => {
@@ -272,10 +276,10 @@ describe("AssetDetailView", () => {
 
   it("saves Responsible Tech as soon as it is picked", async () => {
     render();
-    const field = screen.getByText("Responsible Tech").parentElement as HTMLElement;
-    await userEvent.click(
-      within(field).getByRole("button", { name: /nobody assigned/i }),
-    );
+    // Named by its aria-label, not by its current value: before that label
+    // existed the trigger announced itself as "Nobody assigned", which tells a
+    // screen-reader user the value and never the field.
+    await userEvent.click(screen.getByLabelText("Responsible Tech"));
     await userEvent.click(await screen.findByRole("option", { name: "Lee Tech" }));
     expect(setResponsibleTech).toHaveBeenCalledWith({
       lookupId: 1,
@@ -293,15 +297,76 @@ describe("AssetDetailView", () => {
     expect(screen.getByText("Retired Rob")).toBeInTheDocument();
   });
 
-  it("offers no editor for the rest of the register, and says why", () => {
+  it("points at the asset register for everything else on the nameplate", () => {
     render();
-    expect(
-      screen.getByText(/The rest of the register is maintained in SharePoint/),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "asset register" })).toHaveAttribute(
+      "href",
+      "/operations/maintenance/assets",
+    );
+  });
+
+  // "Never recorded" is a FACT, not an absence: a meter-based PM counts
+  // against this number, so a blank one is a PM that can never come due.
+  it("shows a missing hourmeter reading as never recorded, not as an empty cell", () => {
+    state.equipment = [asset({ currentMachineHours: null })];
+    render();
+    expect(screen.getByText("Never recorded")).toBeInTheDocument();
   });
 
   it("says so plainly when the asset isn't in the register", () => {
     render("4242");
     expect(screen.getByText(/isn't in the equipment register/)).toBeInTheDocument();
+  });
+});
+
+// =============================================================================
+// `manageAssetsGate` on the two inline editors.
+//
+// Both were UNGATED until 2026-08-31 — anyone signed in could mark a machine
+// Down or reassign its responsible tech, even though the gate had always been
+// documented as covering the asset register. Never offer an action the
+// mutation behind it will reject.
+// =============================================================================
+
+describe("gating", () => {
+  it("disables both editors for somebody without the level, and says why", () => {
+    maintenanceAccess.value = {
+      isTech: true,
+      isAdmin: false,
+      enforced: true,
+      isResolving: false,
+    };
+    render();
+    expect(screen.getByLabelText("Asset Status")).toBeDisabled();
+    expect(screen.getByLabelText("Responsible Tech")).toBeDisabled();
+    expect(screen.getByText(/limited to maintenance admins/i)).toBeInTheDocument();
+  });
+
+  // A denial taken back a moment later is worse than a beat of silence.
+  it("shows NO denial while the roles list is still loading", () => {
+    maintenanceAccess.value = {
+      isTech: false,
+      isAdmin: false,
+      enforced: true,
+      isResolving: true,
+    };
+    render();
+    expect(screen.getByLabelText("Asset Status")).toBeDisabled();
+    expect(screen.queryByText(/limited to maintenance admins/i)).not.toBeInTheDocument();
+  });
+
+  // Lockout safety: an unconfigured Maintenance Roles list means everyone
+  // keeps what they can do today, never that nobody can edit an asset.
+  it("leaves both editors live when role gating is not enforced", () => {
+    maintenanceAccess.value = {
+      isTech: false,
+      isAdmin: false,
+      enforced: false,
+      isResolving: false,
+    };
+    render();
+    expect(screen.getByLabelText("Asset Status")).toBeEnabled();
+    expect(screen.getByLabelText("Responsible Tech")).toBeEnabled();
+    expect(screen.queryByText(/limited to maintenance admins/i)).not.toBeInTheDocument();
   });
 });

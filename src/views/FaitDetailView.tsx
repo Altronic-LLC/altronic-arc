@@ -21,6 +21,9 @@ import {
   type FaitSection,
 } from "@/lib/faitFields";
 import { faitFieldPatch, faitProjectPatch } from "@/lib/faitMapper";
+// kamNeeded lives in lib/ because the alert chain asks the same question —
+// a rule enforced only in a view is a rule that isn't enforced.
+import { kamNeeded } from "@/lib/faitSignOff";
 import { mergePeople, personKey } from "@/lib/people";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
@@ -34,25 +37,6 @@ import { LoadingTasks } from "@/components/LoadingTasks";
 import { PersonMultiField } from "@/components/PersonMultiField";
 import { ChoiceSelect, SingleSelect } from "@/components/SearchableSelect";
 import { FaitStatusChip, FirstPassChip, SignOffChip } from "@/components/faitAtoms";
-
-/**
- * Whether this FAIT needs a KAM sign-off at all. False only when there's
- * neither a KAM assigned nor any KAM sign-off data already on the record —
- * the detail page hides the KAM sign-off fields in that case, which is how
- * "this FAIT doesn't need a KAM" is expressed (Ray, 2026-08-27: "how to
- * hide/remove the KAM signoff when it is not required"). Checking the
- * existing data too, not just whether a KAM is assigned, means a FAIT
- * someone already signed off on before there was any way to assign a KAM
- * person never has its real sign-off hidden out from under it.
- */
-function kamNeeded(fait: Fait): boolean {
-  return (
-    fait.kam !== null ||
-    !!fait.values.kamSignOff ||
-    !!fait.values.kamInitials ||
-    !!fait.values.kamApprovalNotes
-  );
-}
 
 const KAM_FIELD_KEYS = new Set(["kamSignOff", "kamInitials", "kamApprovalNotes"]);
 

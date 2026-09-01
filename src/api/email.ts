@@ -5,6 +5,7 @@ import {
   EIR_TRIAGE_ASSIGNERS,
   EIR_TRIAGE_PROJECT_REVIEWERS,
   FAIT_NEW_ALERTS,
+  FAIT_SQE_REVIEWERS,
   GRAY_MARKET_NEW_REQUEST_ALERTS,
   SHARED_MAILBOX,
   USE_MOCK,
@@ -28,7 +29,15 @@ import {
 } from "@/lib/eirStatusAlerts";
 import { parseRecipientList } from "@/lib/recipientList";
 import { buildNewGrayMarketRequestEmails } from "@/lib/grayMarketAlerts";
-import { buildFaitClosedEmails, buildNewFaitEmails } from "@/lib/faitAlerts";
+import {
+  buildFaitAssignmentHeadsUpEmails,
+  buildFaitClosedEmails,
+  buildFaitSignOffRequestEmails,
+  buildFaitSqeFailedEmails,
+  buildFaitWithSqeEmails,
+  buildNewFaitEmails,
+  type FaitSignerRole,
+} from "@/lib/faitAlerts";
 import { buildNewCostImpactNoticeEmails } from "@/lib/costImpactAlerts";
 
 // =============================================================================
@@ -611,11 +620,86 @@ export function fireNewFaitAlert(args: {
  * they'd never hear the FAIT they were asked to pick up ever got finished.
  * No-ops when nothing is configured.
  */
-export function fireFaitClosedAlert(args: { target: ChangeTarget; actor: Person }): void {
+export function fireFaitClosedAlert(args: {
+  target: ChangeTarget;
+  actor: Person;
+  /**
+   * Whoever the generic status-change note already reaches — the watchers
+   * plus the FAIT's initiator / engineer / KAM. They're dropped from this
+   * alert rather than sent a second email about the same close.
+   */
+  alreadyNotified?: Person[];
+}): void {
   const emails = buildFaitClosedEmails({
     ...args,
     recipients: parseRecipientList(FAIT_NEW_ALERTS),
   });
+  if (emails.length === 0) return;
+  void notifyChangeEmails({ target: args.target, emails });
+}
+
+/**
+ * Fire-and-forget: an engineer or a KAM was put on a FAIT — a HEADS-UP,
+ * explicitly not a request. Nothing is asked of them until the sign-offs
+ * reach their stage. No-ops when they have no mailbox, or assigned
+ * themselves.
+ */
+export function fireFaitAssignmentHeadsUp(args: {
+  target: ChangeTarget;
+  person: Person;
+  role: FaitSignerRole;
+  actor: Person;
+}): void {
+  const emails = buildFaitAssignmentHeadsUpEmails(args);
+  if (emails.length === 0) return;
+  void notifyChangeEmails({ target: args.target, emails });
+}
+
+/**
+ * Fire-and-forget: a FAIT reached "This is with SQE" — the configured SQE
+ * reviewers (VITE_FAIT_SQE_REVIEWERS) are asked to sign it off. No-ops when
+ * nothing is configured.
+ */
+export function fireFaitWithSqeAlert(args: { target: ChangeTarget; actor: Person }): void {
+  const emails = buildFaitWithSqeEmails({
+    ...args,
+    recipients: parseRecipientList(FAIT_SQE_REVIEWERS),
+  });
+  if (emails.length === 0) return;
+  void notifyChangeEmails({ target: args.target, emails });
+}
+
+/**
+ * Fire-and-forget: a sign-off was approved, so it's the next signer's turn —
+ * the engineer after SQE, the KAM after Engineering. Falls back to the SQE
+ * reviewers when there's nobody in that slot to ask.
+ */
+export function fireFaitSignOffRequest(args: {
+  target: ChangeTarget;
+  role: FaitSignerRole;
+  signer: Person | null;
+  actor: Person;
+}): void {
+  const emails = buildFaitSignOffRequestEmails({
+    ...args,
+    fallback: parseRecipientList(FAIT_SQE_REVIEWERS),
+  });
+  if (emails.length === 0) return;
+  void notifyChangeEmails({ target: args.target, emails });
+}
+
+/**
+ * Fire-and-forget: the SQE sign-off came back Failed — the FAIT goes back to
+ * whoever raised it rather than forward to Engineering. See
+ * buildFaitSqeFailedEmails; that behaviour is an assumption awaiting
+ * confirmation.
+ */
+export function fireFaitSqeFailedAlert(args: {
+  target: ChangeTarget;
+  initiator: Person | null;
+  actor: Person;
+}): void {
+  const emails = buildFaitSqeFailedEmails(args);
   if (emails.length === 0) return;
   void notifyChangeEmails({ target: args.target, emails });
 }

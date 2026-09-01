@@ -9,7 +9,9 @@ import {
   EIR_RESPONSE_ACCEPTED_ALERTS,
   EIR_TRIAGE_ASSIGNERS,
   EIR_TRIAGE_PROJECT_REVIEWERS,
+  COST_IMPACT_NOTICE_ALERTS,
   FAIT_NEW_ALERTS,
+  FAIT_SQE_REVIEWERS,
   GRAY_MARKET_NEW_REQUEST_ALERTS,
   SHARED_MAILBOX,
 } from "@/api/config";
@@ -56,10 +58,28 @@ const LISTS: Array<{ label: string; envVar: string; value: string | undefined; w
     what: "Emailed when a gray market request is raised.",
   },
   {
+    // Shipped 2026-08-27 without a LISTS entry — the exact gap this screen
+    // exists to catch, and the second time it has happened (the FAIT alerts
+    // did the same). A recipient list nobody audits is where a wrong address
+    // goes unnoticed for ever: Graph accepts mail for a mailbox that does not
+    // exist, the bounce lands in a shared mailbox nobody reads, and
+    // saveToSentItems is off, so there is not even a sent copy.
+    label: "Cost Impact Notice — new notice",
+    envVar: "VITE_COST_IMPACT_NOTICE_ALERTS",
+    value: COST_IMPACT_NOTICE_ALERTS,
+    what: "Emailed when a cost impact notice is raised.",
+  },
+  {
     label: "FAIT — new FAIT",
     envVar: "VITE_FAIT_NEW_ALERTS",
     value: FAIT_NEW_ALERTS,
     what: "Emailed when a FAIT is raised.",
+  },
+  {
+    label: "FAIT — SQE sign-off",
+    envVar: "VITE_FAIT_SQE_REVIEWERS",
+    value: FAIT_SQE_REVIEWERS,
+    what: "Emailed when a FAIT reaches This is with SQE, asking for the SQE sign-off. Also the fallback when a sign-off is approved and there is no engineer or KAM to ask next.",
   },
 ];
 

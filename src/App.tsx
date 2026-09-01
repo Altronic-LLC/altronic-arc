@@ -74,6 +74,7 @@ const MaintenanceCalendarView = lazy(() => import("@/views/MaintenanceCalendarVi
 const MaintenanceDashboardView = lazy(() => import("@/views/MaintenanceDashboardView"));
 const PmLibraryView = lazy(() => import("@/views/PmLibraryView"));
 const AssetDetailView = lazy(() => import("@/views/AssetDetailView"));
+const MaintenanceAssetsView = lazy(() => import("@/views/MaintenanceAssetsView"));
 const AdminOperationsProjectsView = lazy(() =>
   import("@/views/AdminOperationsProjectsView").then((m) => ({
     default: m.AdminOperationsProjectsView,
@@ -539,6 +540,14 @@ export function App() {
               element={
                 <Suspense fallback={<LoadingTasks noun="the maintenance schedules" />}>
                   <PmLibraryView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/operations/maintenance/assets"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the asset register" />}>
+                  <MaintenanceAssetsView />
                 </Suspense>
               }
             />

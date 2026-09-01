@@ -14,7 +14,23 @@ import {
 import type { Fait, FaitInput, Person } from "@/types/task";
 import { collectFaitPeople, faitLabel } from "@/lib/faitMapper";
 import { commentNotifyRecipients, extractMentionedRecipients } from "@/lib/mentions";
-import { fireFaitClosedAlert, fireFieldChangeAlert, fireNewFaitAlert, notifyMentions } from "@/api/email";
+import {
+  fireFaitAssignmentHeadsUp,
+  fireFaitClosedAlert,
+  fireFaitSignOffRequest,
+  fireFaitSqeFailedAlert,
+  fireFaitWithSqeAlert,
+  fireFieldChangeAlert,
+  fireNewFaitAlert,
+  notifyMentions,
+} from "@/api/email";
+import type { FaitSignerRole } from "@/lib/faitAlerts";
+import {
+  FAIT_STATUS_CLOSED,
+  FAIT_STATUS_WITH_SQE,
+  faitSignOffOutcome,
+  type FaitSignOffOutcome,
+} from "@/lib/faitSignOff";
 import type { AlertDetail } from "@/lib/changeAlerts";
 import { autoWatchFromMentions } from "@/api/autoWatch";
 // The FAIT list is on the Engineering site, so cold-start mentions resolve there.
@@ -106,50 +122,142 @@ export function useCreateFait() {
   });
 }
 
-/** Patch one or more columns, optimistically. */
+/**
+ * What a pending field write does to the sign-off chain, keyed on the exact
+ * variables object React Query hands to BOTH `onMutate` and `mutationFn`.
+ *
+ * `onMutate` is the only place that can see the FAIT as it was BEFORE the
+ * optimistic patch — read the cache from `mutationFn` and every transition
+ * reads as "unchanged", because `onMutate` has already applied it. Keying on
+ * the variables object hands the answer forward without a shared ref two
+ * concurrent writes could clobber, and without mutating the caller's object.
+ * It's a WeakMap so nothing is retained after the mutation is done with.
+ */
+const pendingSignOff = new WeakMap<object, FaitSignOffOutcome>();
+
+interface FaitFieldWrite {
+  id: number;
+  fields: Record<string, unknown>;
+  patch: (f: Fait) => Fait;
+}
+
+function sameStatus(a: string, b: string): boolean {
+  return a.trim().toLowerCase() === b.trim().toLowerCase();
+}
+
+/**
+ * Patch one or more columns, optimistically.
+ *
+ * **This is the one hook that can write the sign-off columns**, so the whole
+ * sign-off chain hangs off it: SQE approving advances the FAIT to Engineering
+ * and asks the engineer, Engineering approving advances it to the KAM where
+ * one is owed and asks them, and a Failed SQE sign-off sends it back to the
+ * initiator. The rules are in lib/faitSignOff.ts; this hook only wires them
+ * to the write and the emails.
+ *
+ * The auto-advanced Status travels in the SAME PATCH as the sign-off that
+ * caused it — one write, so the two can never disagree if the second half
+ * fails.
+ */
 export function useUpdateFaitFields() {
   const qc = useQueryClient();
   const actor = useCurrentUser();
   return useMutation({
-    mutationFn: ({ id, fields }: { id: number; fields: Record<string, unknown>; patch: (f: Fait) => Fait }) =>
-      updateFaitFields(id, fields),
-    onMutate: async ({ id, patch }) => {
+    mutationFn: (vars: FaitFieldWrite) => {
+      const advance = pendingSignOff.get(vars)?.nextStatus;
+      const fields = advance ? { ...vars.fields, Status: advance } : vars.fields;
+      return updateFaitFields(vars.id, fields);
+    },
+    onMutate: async (vars: FaitFieldWrite) => {
+      const { id, patch } = vars;
       await qc.cancelQueries({ queryKey: FAITS_KEY });
       const previous = qc.getQueryData<Fait[]>(FAITS_KEY);
       const prevFait = previous?.find((f) => f.id === id);
+      // Computed HERE, against the pre-patch row — see pendingSignOff.
+      const outcome = prevFait ? faitSignOffOutcome(prevFait, vars.fields) : null;
+      if (outcome) pendingSignOff.set(vars, outcome);
       patchFait(qc, id, patch);
-      return { previous, prevFait };
+      const advanced = outcome?.nextStatus;
+      // Show the advance at once, like every other optimistic write here —
+      // otherwise the sidebar chip sits on the old stage for a round trip.
+      if (advanced) patchFait(qc, id, (f) => ({ ...f, status: advanced }));
+      return { previous, prevFait, outcome };
     },
-    onSuccess: (updated, { fields }, ctx) => {
+    onSuccess: (updated, vars, ctx) => {
       patchFait(qc, updated.id, () => updated);
-      // The generic "status changed from X to Y" note, to watchers + the
-      // people who own the FAIT (initiator, engineer, KAM) — the normal
-      // status-change alert every other list with a Watchers column gets
-      // (Ray, 2026-08-26), same shape as EIR's.
-      if (ctx?.prevFait && "Status" in fields) {
-        const from = ctx.prevFait.status;
-        const to = String(fields.Status ?? "");
+      const prevFait = ctx?.prevFait;
+      if (!prevFait) return;
+
+      const target = { kind: "fait" as const, id: updated.id, title: faitLabel(prevFait) };
+      const people = [prevFait.initiator, prevFait.assignedEngineer, prevFait.kam].filter(
+        (p): p is Person => p !== null,
+      );
+
+      // The status this write actually landed: one somebody picked, or the
+      // sign-off chain's auto-advance. Both count — an auto-advance is still
+      // a status change, and the generic note is what tells the INITIATOR
+      // their FAIT moved. It is deliberately never suppressed; the specific
+      // alerts below go only to whoever has to act.
+      const to =
+        "Status" in vars.fields
+          ? String(vars.fields.Status ?? "")
+          : (ctx?.outcome?.nextStatus ?? null);
+      const from = prevFait.status;
+
+      if (to !== null) {
+        // The generic "status changed from X to Y" note, to watchers + the
+        // people who own the FAIT (initiator, engineer, KAM) — the normal
+        // status-change alert every other list with a Watchers column gets
+        // (Ray, 2026-08-26), same shape as EIR's. It no-ops when from === to.
         fireFieldChangeAlert({
-          target: { kind: "fait", id: updated.id, title: faitLabel(ctx.prevFait) },
+          target,
           fieldLabel: "status",
           from,
           to,
           actor,
-          watchers: ctx.prevFait.watchers,
-          assignees: [ctx.prevFait.initiator, ctx.prevFait.assignedEngineer, ctx.prevFait.kam].filter(
-            (p): p is Person => p !== null,
-          ),
+          watchers: prevFait.watchers,
+          assignees: people,
         });
-        // The SAME intake list that was told when this FAIT was raised is
-        // told it's closed, too (Ray, 2026-08-27) — being on that list
-        // doesn't make someone a watcher, so the generic alert above never
-        // reaches them. `to !== from` is OUR guard: re-saving an
-        // already-Closed FAIT must not re-announce it as just closed.
-        if (to.trim().toLowerCase() === "closed" && to !== from) {
-          fireFaitClosedAlert({
-            target: { kind: "fait", id: updated.id, title: faitLabel(ctx.prevFait) },
+
+        // `to !== from` is OUR guard throughout: `"Status" in fields` is
+        // PRESENCE, not change, so re-saving a status must not re-announce it.
+        if (to !== from) {
+          // The SAME intake list that was told when this FAIT was raised is
+          // told it's closed, too (Ray, 2026-08-27) — being on that list
+          // doesn't make someone a watcher. Everyone WATCHING is covered by
+          // the generic note above, so they're passed as `alreadyNotified`
+          // and dropped here: one person, one email.
+          if (sameStatus(to, FAIT_STATUS_CLOSED)) {
+            fireFaitClosedAlert({
+              target,
+              actor,
+              alreadyNotified: [...prevFait.watchers, ...people],
+            });
+          }
+          // A FAIT arriving at SQE — there's no SQE person column, so the
+          // configured reviewer list is the queue that gets told.
+          if (sameStatus(to, FAIT_STATUS_WITH_SQE)) {
+            fireFaitWithSqeAlert({ target, actor });
+          }
+        }
+      }
+
+      // The chain itself. Every step here is already guarded by `to !== from`
+      // inside faitSignOffOutcome, so a re-saved sign-off asks nobody twice.
+      for (const step of ctx?.outcome?.steps ?? []) {
+        if (step.kind === "sqe-approved") {
+          fireFaitSignOffRequest({
+            target,
+            role: "engineer",
+            signer: prevFait.assignedEngineer,
             actor,
           });
+        } else if (step.kind === "sqe-failed") {
+          fireFaitSqeFailedAlert({ target, initiator: prevFait.initiator, actor });
+        } else if (step.kind === "eng-approved" && step.kamOwed) {
+          // kamNeeded gates this: with no KAM owed the chain finishes at the
+          // engineer, and nobody is asked for a signature they don't owe.
+          fireFaitSignOffRequest({ target, role: "kam", signer: prevFait.kam, actor });
         }
       }
     },
@@ -171,7 +279,8 @@ export function useUpdateFaitFields() {
 
 /**
  * Assign (or clear) the engineer. They also become a watcher — see
- * `updateFaitAssignedEngineer`.
+ * `updateFaitAssignedEngineer` — and they get a HEADS-UP email saying they're
+ * on the FAIT and that nothing is asked of them yet.
  *
  * Optimistic, like every other write on this page. It wasn't, and that hid
  * the underlying bug: the picker's selection is derived from the FAIT, so
@@ -183,6 +292,8 @@ export function useUpdateFaitAssignedEngineer() {
     ({ id, person }) => updateFaitAssignedEngineer(id, person),
     (person) => (f) => ({ ...f, assignedEngineer: person, watchers: autoWatchers(f.watchers, person) }),
     "Assigned Engineer",
+    "engineer",
+    (f) => f.assignedEngineer,
   );
 }
 
@@ -192,32 +303,54 @@ export function useUpdateFaitKam() {
     ({ id, person }) => updateFaitKam(id, person),
     (person) => (f) => ({ ...f, kam: person, watchers: autoWatchers(f.watchers, person) }),
     "KAM",
+    "kam",
+    (f) => f.kam,
   );
 }
 
 /**
  * The shared shape of the two single-person assignment writes: patch the
  * cache at once, land the server's row on success, put the old row back and
- * SAY WHY on failure.
+ * SAY WHY on failure — and tell whoever was just put on the FAIT.
  *
  * One helper rather than two near-identical hooks — the engineer's version
  * was the one that got the fix first last time, and the KAM's didn't.
+ *
+ * The heads-up fires on a genuine CHANGE of person only, so re-picking the
+ * same person doesn't re-send it, and clearing the field sends nothing.
+ * Reassigning tells the NEW person; the person taken off isn't chased about
+ * a job that's no longer theirs (and stays a watcher, the house rule).
  */
 function usePersonAssignment(
   write: (vars: { id: number; person: Person | null }) => Promise<Fait>,
   patch: (person: Person | null) => (f: Fait) => Fait,
   label: string,
+  role: FaitSignerRole,
+  readPerson: (f: Fait) => Person | null,
 ) {
   const qc = useQueryClient();
+  const actor = useCurrentUser();
   return useMutation({
     mutationFn: write,
     onMutate: async ({ id, person }) => {
       await qc.cancelQueries({ queryKey: FAITS_KEY });
       const previous = qc.getQueryData<Fait[]>(FAITS_KEY);
+      const prevFait = previous?.find((f) => f.id === id);
       patchFait(qc, id, patch(person));
-      return { previous };
+      return { previous, prevFait };
     },
-    onSuccess: (updated) => patchFait(qc, updated.id, () => updated),
+    onSuccess: (updated, { person }, ctx) => {
+      patchFait(qc, updated.id, () => updated);
+      if (!person?.email) return;
+      const before = ctx?.prevFait ? readPerson(ctx.prevFait) : null;
+      if ((before?.email ?? "").toLowerCase() === person.email.toLowerCase()) return;
+      fireFaitAssignmentHeadsUp({
+        target: { kind: "fait", id: updated.id, title: faitLabel(updated) },
+        person,
+        role,
+        actor,
+      });
+    },
     onError: (err: Error, _vars, ctx) => {
       if (err instanceof FaitReadBackError) {
         errorToast(err.message);

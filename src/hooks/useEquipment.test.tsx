@@ -6,11 +6,32 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 const pushToast = vi.hoisted(() => vi.fn());
 vi.mock("@/components/Toast", () => ({ pushToast }));
 
+// Every equipment write asks `manageAssetsGate` inside its `mutationFn`. That
+// rule is NOT what this file is about — it has its own file
+// (useEquipment.guard.test.tsx), which mocks the roles LIST and runs the real
+// gate. Here access is simply granted, so nothing below depends on the roles
+// list loading.
+vi.mock("./useMaintenanceRoles", () => ({
+  useMyMaintenanceRoles: () => ({
+    isTech: true,
+    isAdmin: true,
+    enforced: true,
+    isResolving: false,
+  }),
+  useResolveMaintenanceAccess: () => async () => ({
+    isTech: true,
+    isAdmin: true,
+    enforced: true,
+    isResolving: false,
+  }),
+}));
+
 import { resetEquipmentMockStore } from "@/api/operationsEquipment";
 import {
   useEquipment,
   useEquipmentItem,
   useSetEquipmentAssetStatus,
+  useSetEquipmentMachineHours,
   useSetEquipmentResponsibleTech,
   useSetEquipmentWarrantyExpiry,
   useUpdateEquipmentFields,
@@ -108,6 +129,42 @@ describe("the edits a technician makes from a work order", () => {
       });
     });
     expect(updated?.location).toEqual({ lookupId: 35, title: "MAINTENANCE ROOM" });
+  });
+
+  it("records the hourmeter reading, and tells blank apart from zero", async () => {
+    const wrap = wrapper();
+    const assets = await loaded(wrap);
+    const { result } = renderHook(() => useSetEquipmentMachineHours(), { wrapper: wrap });
+
+    let updated: Equipment | undefined;
+    await act(async () => {
+      updated = await result.current.mutateAsync({ lookupId: assets[0].lookupId, hours: 5120 });
+    });
+    expect(updated?.currentMachineHours).toBe(5120);
+
+    // Zero is a READING. It must survive as 0 rather than collapsing into the
+    // "never recorded" null, or a freshly-installed machine looks unread.
+    await act(async () => {
+      updated = await result.current.mutateAsync({ lookupId: assets[0].lookupId, hours: 0 });
+    });
+    expect(updated?.currentMachineHours).toBe(0);
+
+    await act(async () => {
+      updated = await result.current.mutateAsync({ lookupId: assets[0].lookupId, hours: null });
+    });
+    expect(updated?.currentMachineHours).toBeNull();
+  });
+
+  it("stamps the row as modified, so the register's staleness column moves", async () => {
+    const wrap = wrapper();
+    const assets = await loaded(wrap);
+    const before = assets[0].modifiedAt;
+    const { result } = renderHook(() => useSetEquipmentMachineHours(), { wrapper: wrap });
+    let updated: Equipment | undefined;
+    await act(async () => {
+      updated = await result.current.mutateAsync({ lookupId: assets[0].lookupId, hours: 77 });
+    });
+    expect(updated?.modifiedAt?.getTime()).toBeGreaterThan(before?.getTime() ?? 0);
   });
 
   it("reports a failure rather than failing silently", async () => {

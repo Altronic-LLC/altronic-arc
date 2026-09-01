@@ -170,9 +170,10 @@ interface AssetSeed {
   description: string;
   serialNo: string;
   equipmentType: string;
-  department: string;
-  location: string;
-  criticality: string;
+  /** Optional so a seed can be genuinely MISSING one — see `assetTag` below. */
+  department?: string;
+  location?: string;
+  criticality?: string;
   assetStatus: string;
   manufacturer: string;
   modelNumber: string;
@@ -180,6 +181,19 @@ interface AssetSeed {
   installedDaysAgo: number;
   warrantyDays?: number;
   responsibleTech: Person | null;
+  /**
+   * `AssetTag` / `CurrentMachineHours` — **left off most seeds on purpose.**
+   *
+   * The live register is sparse in exactly this way (roughly half the rows
+   * have no department, and tags, criticality and meter readings are largely
+   * blank), and the asset register screen exists to surface that. A demo where
+   * every field is filled in would hide the one thing the screen was built to
+   * show, so the mock is deliberately patchy too.
+   */
+  assetTag?: string;
+  machineHours?: number;
+  /** Days ago the row was last edited. Drives the register's "Updated" column. */
+  editedDaysAgo?: number;
 }
 
 const ASSET_SEEDS: AssetSeed[] = [
@@ -188,6 +202,9 @@ const ASSET_SEEDS: AssetSeed[] = [
     name: "TM1",
     description: "CASCADE SHIDSHIFTER",
     serialNo: "5A535020",
+    assetTag: "TM-001",
+    machineHours: 4820,
+    editedDaysAgo: 3,
     equipmentType: "TOWMOTOR",
     department: "PROD",
     location: "PLANT WIDE",
@@ -203,6 +220,9 @@ const ASSET_SEEDS: AssetSeed[] = [
     name: "20 HP COMPRESSOR",
     description: "INGERSOLL RAND 20HP ROTARY SCREW",
     serialNo: "J3855U91F",
+    assetTag: "AC-020",
+    machineHours: 18240,
+    editedDaysAgo: 6,
     equipmentType: "AIRCOMP",
     department: "MACH SHOP",
     location: "PANELS",
@@ -219,6 +239,8 @@ const ASSET_SEEDS: AssetSeed[] = [
     name: "40 HP COMPRESSOR",
     description: "INGERSOLL RAND 40HP ROTARY SCREW",
     serialNo: "K7712U04A",
+    assetTag: "AC-040",
+    editedDaysAgo: 210,
     equipmentType: "AIRCOMP",
     department: "MACH SHOP",
     location: "COMPRESSOR ROOM",
@@ -235,6 +257,8 @@ const ASSET_SEEDS: AssetSeed[] = [
     name: "50 HP COMPRESSOR",
     description: "STANDBY ROTARY SCREW COMPRESSOR",
     serialNo: "K9920U18C",
+    machineHours: 940,
+    editedDaysAgo: 45,
     equipmentType: "AIRCOMP",
     department: "MACH SHOP",
     location: "COMPRESSOR ROOM",
@@ -250,6 +274,8 @@ const ASSET_SEEDS: AssetSeed[] = [
     name: "5000 DIGITAL",
     description: "DIGITAL IGNITION TEST STAND",
     serialNo: "TS-5000-11",
+    assetTag: "TS-500",
+    editedDaysAgo: 12,
     equipmentType: "TST STND",
     department: "QC",
     location: "QUALITY TEST LAB",
@@ -265,6 +291,8 @@ const ASSET_SEEDS: AssetSeed[] = [
     name: "AIR DRYER - MAIN",
     description: "REFRIGERATED AIR DRYER, MAIN HEADER",
     serialNo: "AD-88213",
+    machineHours: 26110,
+    editedDaysAgo: 9,
     equipmentType: "AIRDRYER",
     department: "MACH SHOP",
     location: "COMPRESSOR ROOM",
@@ -281,6 +309,9 @@ const ASSET_SEEDS: AssetSeed[] = [
     name: "PVA CONFORMAL COATER",
     description: "PVA SELECTIVE CONFORMAL COATING SYSTEM",
     serialNo: "PVA-2024-77",
+    assetTag: "PCB-007",
+    machineHours: 1180,
+    editedDaysAgo: 2,
     equipmentType: "CONFCOAT",
     department: "PCB",
     location: "DIP ROOM",
@@ -297,6 +328,8 @@ const ASSET_SEEDS: AssetSeed[] = [
     name: "REFLOW OVEN #2",
     description: "10-ZONE SMT REFLOW OVEN",
     serialNo: "HL-1091-02",
+    machineHours: 33900,
+    editedDaysAgo: 18,
     equipmentType: "OVEN",
     department: "SMT",
     location: "SURFACE MOUNT AREA",
@@ -312,6 +345,8 @@ const ASSET_SEEDS: AssetSeed[] = [
     name: "COIL WINDER #4",
     description: "AUTOMATIC STATOR COIL WINDER",
     serialNo: "CW-4408",
+    assetTag: "CL-004",
+    editedDaysAgo: 1,
     equipmentType: "COILWIND",
     department: "COILS",
     location: "COIL DEPARTMENT",
@@ -327,6 +362,9 @@ const ASSET_SEEDS: AssetSeed[] = [
     name: "KITAMURA VMC",
     description: "VERTICAL MACHINING CENTRE",
     serialNo: "KIT-3XD-0912",
+    assetTag: "MS-010",
+    machineHours: 41200,
+    editedDaysAgo: 27,
     equipmentType: "VMC",
     department: "MACH SHOP",
     location: "MACHINE SHOP @ KITAMURA",
@@ -342,8 +380,8 @@ const ASSET_SEEDS: AssetSeed[] = [
     name: "FADAL 6030",
     description: "FADAL VERTICAL MILL",
     serialNo: "FAD-6030-441",
+    editedDaysAgo: 400,
     equipmentType: "MILLMACH",
-    department: "MACH SHOP",
     location: "FADAL 6030",
     criticality: "Important",
     assetStatus: "In Service",
@@ -357,6 +395,8 @@ const ASSET_SEEDS: AssetSeed[] = [
     name: "POTTING OVEN",
     description: "CURING OVEN, POTTING ROOM",
     serialNo: "PO-2277",
+    machineHours: 15600,
+    editedDaysAgo: 33,
     equipmentType: "POTTING",
     department: "COILS",
     location: "POTTING ROOM",
@@ -372,6 +412,8 @@ const ASSET_SEEDS: AssetSeed[] = [
     name: "CMM - ZEISS",
     description: "COORDINATE MEASURING MACHINE",
     serialNo: "ZS-CTX-0084",
+    assetTag: "QC-013",
+    editedDaysAgo: 60,
     equipmentType: "CMM",
     department: "QC",
     location: "CMM ROOM @ BACK OF MACHINE",
@@ -388,10 +430,9 @@ const ASSET_SEEDS: AssetSeed[] = [
     name: "HARNESS CUT/STRIP",
     description: "AUTOMATIC WIRE CUT AND STRIP MACHINE",
     serialNo: "KOM-355-19",
+    editedDaysAgo: 150,
     equipmentType: "CUT/STRP",
-    department: "PROD",
     location: "HARNESS DEPARTMENT",
-    criticality: "Standard",
     assetStatus: "In Service",
     manufacturer: "Komax",
     modelNumber: "Kappa 330",
@@ -403,6 +444,7 @@ const ASSET_SEEDS: AssetSeed[] = [
     name: "OLD VAPOUR DEGREASER",
     description: "RETIRED VAPOUR DEGREASING UNIT",
     serialNo: "VD-0001",
+    editedDaysAgo: 900,
     equipmentType: "VAPDEGRE",
     department: "PROD",
     location: "REAR STORAGE AREA",
@@ -427,7 +469,7 @@ export const MOCK_EQUIPMENT: Equipment[] = ASSET_SEEDS.map((a) => ({
   equipmentType: a.equipmentType,
   department: departmentRef(a.department),
   location: locationRef(a.location),
-  criticality: a.criticality,
+  criticality: a.criticality ?? null,
   assetStatus: a.assetStatus,
   parentAsset: a.parentLookupId
     ? { lookupId: a.parentLookupId, title: ASSET_NAMES.get(a.parentLookupId) ?? "" }
@@ -435,6 +477,11 @@ export const MOCK_EQUIPMENT: Equipment[] = ASSET_SEEDS.map((a) => ({
   installDate: day(-a.installedDaysAgo),
   warrantyExpiry: a.warrantyDays === undefined ? null : day(a.warrantyDays),
   responsibleTech: a.responsibleTech,
+  assetTag: a.assetTag ?? "",
+  // `null`, never 0 — a machine sitting at zero hours has been read; one that
+  // has never been read has not, and only the second needs somebody to act.
+  currentMachineHours: a.machineHours ?? null,
+  modifiedAt: day(-(a.editedDaysAgo ?? 30)),
   hasAttachments: false,
 }));
 

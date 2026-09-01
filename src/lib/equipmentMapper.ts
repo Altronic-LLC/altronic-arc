@@ -81,6 +81,12 @@ export const EQUIPMENT_SELECT = [
   "ResponsibleTechLookupId",
   "Manufacturer",
   "ModelNumber",
+  // Added with the CMMS and never mapped until the asset register screen
+  // landed. Both are sparse on the live list, which is the point of surfacing
+  // them: `CurrentMachineHours` is what a meter-based PM counts against, so a
+  // blank one is a PM that can never come due.
+  "AssetTag",
+  "CurrentMachineHours",
   "Attachments",
 ].join(",");
 
@@ -111,8 +117,27 @@ export function toEquipment(item: GraphListItem): Equipment {
     installDate: parseSpDateOnly(f.InstallDate),
     warrantyExpiry: parseSpDateOnly(f.WarrantyExpiry),
     responsibleTech: personOrLookup(f.ResponsibleTech, f.ResponsibleTechLookupId),
+    assetTag: text(f.AssetTag).trim(),
+    currentMachineHours: machineHours(f.CurrentMachineHours),
+    // Item-level, not a field — Graph returns it on every list item without
+    // being asked, so it is free. Absent on a hand-built test fixture.
+    modifiedAt: item.lastModifiedDateTime ? new Date(item.lastModifiedDateTime) : null,
     hasAttachments: f.Attachments === true,
   };
+}
+
+/**
+ * The hourmeter reading — a SharePoint number column.
+ *
+ * **Missing stays `null`; it never becomes 0.** A machine that has never had
+ * its meter read and one sitting at zero hours are different facts, and only
+ * the first is something for somebody to go and fix. `""` (what an untouched
+ * column can come back as) is missing, and so is anything unparseable.
+ */
+function machineHours(raw: unknown): number | null {
+  if (raw === null || raw === undefined || raw === "") return null;
+  const value = typeof raw === "number" ? raw : Number(String(raw).trim());
+  return Number.isFinite(value) ? value : null;
 }
 
 /** Fill in `responsibleTech` from the site's user directory. Mutates in place. */
