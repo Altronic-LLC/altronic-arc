@@ -20,6 +20,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.134.0",
+    date: "2026-09-01",
+    changes: [
+      "Coil Defect Log is now available under Coils, showing failures and every named defect count",
+      "You can add and edit coil records, expand the table for every defect column, and see an Other-fault table with each defect, count and comment",
+      "Other fault names load from the saved QCCoils defect table, and Coil part numbers and Other defect types can be added through their plus controls",
+      "The entry form keeps the focus on defects: Produced is hidden, Other fault details appear only when needed, and their picker opens clear of the dialog controls",
+      "The Coil Defect Log keeps its long table in its own scroll area, while phones use compact record cards and a full-screen entry form",
+    ],
+  },
+  {
     version: "0.133.0",
     date: "2026-09-01",
     changes: [

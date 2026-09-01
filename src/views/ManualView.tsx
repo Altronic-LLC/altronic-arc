@@ -2222,6 +2222,26 @@ const SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: "coil-defect-log",
+    title: "Coil Defect Log (Coils)",
+    group: "Coils",
+    keywords: ["coils", "coil", "defect", "other fault", "qccoils"],
+    searchText: "Coil Defect Log at /coils/defect-log, under Departments > Coils. Add or edit a coil part number, date, failed count, named defect counts and Other faults. Failed must equal every named defect count total. When Other is greater than zero, the Other faults table must total the Other count. CoilPN supplies part numbers and CoilOtherFaultList supplies Other defect types.",
+    render: () => (
+      <>
+        <P>
+          <strong>Departments → Coils → Coil Defect Log</strong> (<code>/coils/defect-log</code>) records coil failures and their defect breakdown.
+        </P>
+        <UL>
+          <LI><strong>Add entry</strong> and the row pencil open the entry form. Pick a Coil Part Number, select the Date, and enter each named defect count.</LI>
+          <LI><strong>Failed</strong> must equal the total of every named defect count before the entry can save.</LI>
+          <LI>Enter <strong>Other</strong> to reveal the Other faults table. Pick each defect, enter its Count and Comments, and make those counts add up to Other.</LI>
+          <LI><strong>Show all defects</strong> expands the desktop list, while phones show one compact card per record.</LI>
+        </UL>
+      </>
+    ),
+  },
+  {
     id: "potting-sample-log",
     title: "Potting Sample Log (Coils)",
     group: "Coils",

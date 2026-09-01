@@ -896,7 +896,13 @@ export function DashboardView() {
           description="Log potting sample weight and volume; out-of-limit samples email the PSR notification list."
           onClick={() => navigate("/coils/potting-sample-log")}
         />
-        <PlaceholderCard name="Coil Defect Log" icon={<FileText className="h-5 w-5" />} />
+        <TypeCard
+          name="Coil Defect Log"
+          icon={<FileText className="h-5 w-5" />}
+          tone="superior-blue"
+          description="Production failures, named defect counts, and Other-fault detail from the coil quality log."
+          onClick={() => navigate("/coils/defect-log")}
+        />
       </DeptSection>
 
       <DeptSection

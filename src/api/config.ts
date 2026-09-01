@@ -565,6 +565,25 @@ export const SP_QC_DIG_TAC_LIST_ID =
   import.meta.env.VITE_SP_QC_DIG_TAC_LIST_ID || "404f99fb-1848-476c-a033-04204510a132";
 
 // =============================================================================
+// Coils QC — QCCoils and its two editable reference lists live on the
+// Engineering site (SITES.engineering). Named defects, including `Other`, are
+// numeric columns. Only `OtherFaultTable` holds JSON-selected extra faults and
+// their comments.
+// =============================================================================
+
+/** "QCCoils" — coil production and defect-count quality records. */
+export const SP_QC_COILS_LIST_ID =
+  import.meta.env.VITE_SP_QC_COILS_LIST_ID || "efce900f-770e-4bc2-8796-6d0bc528523a";
+
+/** "CoilPN" — the editable Coil Part Number picker source. */
+export const SP_COIL_PART_NUMBERS_LIST_ID =
+  import.meta.env.VITE_SP_COIL_PART_NUMBERS_LIST_ID || "6bbec3ae-e6d8-427a-9058-2000152d6d57";
+
+/** "CoilOtherFaultList" — the editable Other-defect picker source. */
+export const SP_COIL_OTHER_FAULTS_LIST_ID =
+  import.meta.env.VITE_SP_COIL_OTHER_FAULTS_LIST_ID || "b5c8dae4-403c-4508-919f-5c4c7883b5f0";
+
+// =============================================================================
 // Teradyne — FOUR lists on the PMO site (SITES.pmo), part of the Operations
 // department. "Teradyne Log" is the primary entity; the other three are its
 // lookup/reference lists, each editable in-app from the Teradyne Log screen's

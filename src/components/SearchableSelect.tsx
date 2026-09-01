@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Check, ChevronDown, Plus, Search, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { matchesTokens } from "@/lib/itemSearch";
@@ -57,6 +58,8 @@ export interface SingleSelectProps extends BaseProps {
    * rather than emptying the field.
    */
   clearable?: boolean;
+  /** Open the option panel above the trigger when the control sits near a viewport edge. */
+  panelPlacement?: "below" | "above";
 }
 
 /**
@@ -138,6 +141,7 @@ export function SingleSelect({
   disabled,
   ariaLabel,
   title,
+  panelPlacement = "below",
 }: SingleSelectProps) {
   const selectedOpt = options.find((o) => o.value === selected) ?? null;
   const summary = selectedOpt?.label ?? allLabel;
@@ -149,6 +153,7 @@ export function SingleSelect({
       disabled={disabled}
       ariaLabel={ariaLabel}
       title={title}
+      panelPlacement={panelPlacement}
       onClear={selectedOpt && clearable && !disabled ? () => onChange(null) : undefined}
       renderPanel={({ close }) => (
         <SearchablePanel
@@ -246,6 +251,7 @@ interface DropdownShellProps {
    */
   chips?: SelectOption[];
   onRemoveChip?: (value: string) => void;
+  panelPlacement?: "below" | "above";
 }
 
 /**
@@ -264,14 +270,39 @@ function DropdownShell({
   renderPanel,
   chips,
   onRemoveChip,
+  panelPlacement = "below",
 }: DropdownShellProps) {
   const [open, setOpen] = useState(false);
+  const [portalPosition, setPortalPosition] = useState<{ left: number; width: number; bottom: number } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const useChips = chips !== undefined && chips.length > 0;
 
   // Stable so the close rules aren't torn down and rebuilt on every render.
   const close = useCallback(() => setOpen(false), []);
-  useDropdownClose(open, ref, close);
+  useDropdownClose(open, ref, close, panelRef);
+
+  useLayoutEffect(() => {
+    if (!open || panelPlacement !== "above" || !ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    setPortalPosition({ left: rect.left, width: rect.width, bottom: window.innerHeight - rect.top + 4 });
+  }, [open, panelPlacement]);
+
+  const panel = open && (
+    <div
+      ref={panelRef}
+      role="listbox"
+      style={panelPlacement === "above" && portalPosition ? portalPosition : undefined}
+      className={cn(
+        "z-20 flex max-h-80 flex-col rounded-lg border border-border bg-surface shadow-lg",
+        panelPlacement === "above"
+          ? "fixed z-[100]"
+          : "absolute left-0 right-0 top-full mt-1",
+      )}
+    >
+      {renderPanel({ close: () => setOpen(false) })}
+    </div>
+  );
 
   return (
     // onBlur is focusout and bubbles, so this catches focus leaving the
@@ -280,7 +311,7 @@ function DropdownShell({
       ref={ref}
       className="relative"
       title={title}
-      onBlur={dropdownBlurHandler(ref, close)}
+      onBlur={dropdownBlurHandler(ref, close, panelRef)}
       // Escape closes the panel WITHOUT reaching an enclosing modal — see
       // dropdownKeyHandler.
       onKeyDown={dropdownKeyHandler(open, close)}
@@ -350,14 +381,9 @@ function DropdownShell({
         </button>
       )}
 
-      {open && (
-        <div
-          role="listbox"
-          className="absolute left-0 right-0 top-full z-20 mt-1 flex max-h-80 flex-col rounded-lg border border-border bg-surface shadow-lg"
-        >
-          {renderPanel({ close: () => setOpen(false) })}
-        </div>
-      )}
+      {panelPlacement === "above" && panel && portalPosition
+        ? createPortal(panel, document.body)
+        : panel}
     </div>
   );
 }

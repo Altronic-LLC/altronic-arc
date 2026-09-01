@@ -72,9 +72,9 @@ const SYSTEM_TIERS: Tier[] = [
   {
     label: "React SPA",
     nodes: [
-      { label: "Views", hint: "Dashboard · List · Kanban · Detail · EIRs · Test Sheets · Project Folders · CSA Listings · Drawing File Logs · Digital QC · Ignition QC · Potting Sample Log · Visit Reports (list + calendar) · Open Orders Report · Gray Market Requests · Where Am I? · ECNs · FAITs · Drawing Work Sheet (print) · Admin (incl. Quick Links)", palette: "ui" },
-      { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useBuildRequests · useCsaListings · useDrawingLogs · useDigitalQc · useIgnitionQc · usePottingSampleLog · useVisitReports · useOpenOrdersReports · useOpenOrdersCustomers · useGrayMarketRequests · useWhereAmI · useEcns · useFaits · useCustomerNotes · useCustomerContacts · useSpecialPricing · useCapacity · useSuppliers · useSupplierContacts · useSupplierIssues · useCostImpactNotices · useAdmins · useEirRoles · useQuickLinks · useTaskFiles · useProjectFolders", palette: "ui" },
-      { label: "API layer", hint: "src/api/tasks · eirs · testSheets · buildRequests · buildRequestItems · csaListings · drawingLogs · digitalQc · ignitionQc · pottingSampleLog · visitReports · openOrdersFiles · openOrdersCustomers · openOrdersRoles · grayMarketRequests · whereAmI · ecns · faits · customerNotes · customerContacts · specialPricing · capacity · suppliers · supplierContacts · supplierIssues · costImpactNotices · autoWatch · panelOrders · panelTasks · admins · eirRoles · panelRoles · quickLinks · directory · siteUsers · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
+      { label: "Views", hint: "Dashboard · List · Kanban · Detail · EIRs · Test Sheets · Project Folders · CSA Listings · Drawing File Logs · Digital QC · Ignition QC · Coil Defect Log · Potting Sample Log · Visit Reports (list + calendar) · Open Orders Report · Gray Market Requests · Where Am I? · ECNs · FAITs · Drawing Work Sheet (print) · Admin (incl. Quick Links)", palette: "ui" },
+      { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useBuildRequests · useCsaListings · useDrawingLogs · useDigitalQc · useIgnitionQc · useCoilsQc · usePottingSampleLog · useVisitReports · useOpenOrdersReports · useOpenOrdersCustomers · useGrayMarketRequests · useWhereAmI · useEcns · useFaits · useCustomerNotes · useCustomerContacts · useSpecialPricing · useCapacity · useSuppliers · useSupplierContacts · useSupplierIssues · useCostImpactNotices · useAdmins · useEirRoles · useQuickLinks · useTaskFiles · useProjectFolders", palette: "ui" },
+      { label: "API layer", hint: "src/api/tasks · eirs · testSheets · buildRequests · buildRequestItems · csaListings · drawingLogs · digitalQc · ignitionQc · coilsQc · pottingSampleLog · visitReports · openOrdersFiles · openOrdersCustomers · openOrdersRoles · grayMarketRequests · whereAmI · ecns · faits · customerNotes · customerContacts · specialPricing · capacity · suppliers · supplierContacts · supplierIssues · costImpactNotices · autoWatch · panelOrders · panelTasks · admins · eirRoles · panelRoles · quickLinks · directory · siteUsers · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
       {
         label: "Open Orders Report (lazy-loaded)",
         hint: "OpenOrdersView · OpenOrdersCustomersView — reads a raw SAP extract in the browser and writes a branded master dashboard plus one workbook per managed customer into SharePoint. ExcelJS (~950KB) is dynamically imported on first use so it never lands in the main chunk.",
@@ -150,6 +150,8 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "CSA Listings", hint: "Engineering site — CSA certification files; Title is the File Number, admin-only writes", palette: "list" },
       { label: "Digital QC product-family lists (18)", hint: "Engineering site — one list per product family; shared defect-log fields, with Pyrometer monthly EndSN tracking", palette: "list" },
       { label: "Ignition QC product-family lists (36)", hint: "Engineering site — one list per product family; same shared defect-log fields as Digital QC", palette: "list" },
+      { label: "QCCoils", hint: "Engineering site — coil production defect log; named defects are number columns and OtherFaultTable stores selected Other defects with their counts and comments as JSON", palette: "list" },
+      { label: "CoilPN / CoilOtherFaultList", hint: "Engineering site — editable reference lists for the Coil Defect Log part-number and Other-defect pickers", palette: "list" },
       { label: "CAD / CCC / CEC Drawings", hint: "Engineering site — drawing registers; a 16-slot change log across 48 CH_* columns", palette: "list" },
       { label: "Engineering Sketches", hint: "Engineering site — sketch register; own columns, no change log", palette: "list" },
       { label: "Documents library", hint: "General/Project Folders/* — task & comment files land here", palette: "list" },
@@ -1164,6 +1166,43 @@ const SCHEMA_TABLES: SchemaTable[] = [
       { name: "url", type: "text", kind: "field" },
       { name: "department", type: "choice", kind: "field" },
       { name: "order", type: "int", kind: "field" },
+    ],
+  },
+  {
+    // CoilPN and CoilOtherFaultList are app-managed picker sources, not
+    // SharePoint lookup columns, so their usage is intentionally not an FK.
+    name: "CoilDefectLogEntry",
+    source: "QCCoils (Engineering site)",
+    palette: "entity",
+    x: 20, y: 5800, width: 390,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "coilPartNumber (Title)", type: "text", kind: "field" },
+      { name: "date", type: "date", kind: "field" },
+      { name: "failed", type: "number", kind: "field" },
+      { name: "named defect counters", type: "number", kind: "field" },
+      { name: "otherFaultTable", type: "JSON[]", kind: "field" },
+      { name: "otherFault.defect / count / comment", type: "text / number / text", kind: "field" },
+    ],
+  },
+  {
+    name: "CoilPartNumber",
+    source: "CoilPN (Engineering site)",
+    palette: "entity",
+    x: 440, y: 5800, width: 270,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title (part number)", type: "text", kind: "field" },
+    ],
+  },
+  {
+    name: "CoilOtherFault",
+    source: "CoilOtherFaultList (Engineering site)",
+    palette: "entity",
+    x: 740, y: 5800, width: 290,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title (defect)", type: "text", kind: "field" },
     ],
   },
 ];
