@@ -669,6 +669,13 @@ export function DetailView() {
                 currentUserName={currentUser.displayName}
                 mentionablePeople={mentionCandidates}
                 onEdit={handleEditComment}
+                uploadFile={async (file) => {
+                  // Same route as the composer above — SharePoint project
+                  // folder (or Miscellaneous with prefix) — so editing a
+                  // comment attaches files the same way composing one does.
+                  const uploaded = await uploadCommentFile.mutateAsync(file);
+                  return { name: uploaded.name, webUrl: uploaded.webUrl };
+                }}
               />
             </div>
           </div>
