@@ -83,12 +83,6 @@ export function AdminAdminsView() {
             Maintenance Roles admin →
           </Link>
           <Link
-            to="/admin/maintenance-reference-lists"
-            className="text-xs text-accent underline-offset-2 hover:underline"
-          >
-            Departments &amp; Locations →
-          </Link>
-          <Link
             to="/admin/operations-projects"
             className="text-xs text-accent underline-offset-2 hover:underline"
           >

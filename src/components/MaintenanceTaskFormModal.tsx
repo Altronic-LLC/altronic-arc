@@ -68,8 +68,9 @@ import { useOverlayDismiss } from "./useOverlayDismiss";
 // `deptTouched` / `locTouched` flags below.
 //
 // **Both became single LOOKUPS on 2026-08-28**, into the two Maintenance
-// reference lists admins maintain at /admin/maintenance-reference-lists. So the
-// state here is a lookupId, the write is a bare integer, and the options come
+// reference lists maintenance admins maintain at
+// /operations/maintenance/reference-lists. So the state here is a lookupId,
+// the write is a bare integer, and the options come
 // from `referenceOptions` — every ACTIVE value, plus whatever this work order
 // already points at even when that has since been retired. A picker that
 // dropped the current value would clear it on the next save.

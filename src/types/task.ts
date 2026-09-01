@@ -2332,8 +2332,8 @@ export type EquipmentAssetStatus = (typeof EQUIPMENT_ASSET_STATUSES)[number];
  *
  * **No longer read on any live path.** Department is a single lookup now
  * (`DepartmentRef`), so the allowed values live in a SharePoint LIST that
- * admins maintain from /admin/maintenance-reference-lists — see
- * SP_MAINTENANCE_DEPARTMENTS_LIST_ID in api/config.ts for why. This array
+ * maintenance admins maintain from /operations/maintenance/reference-lists —
+ * see SP_MAINTENANCE_DEPARTMENTS_LIST_ID in api/config.ts for why. This array
  * survives as the seed for the mock reference list (data/maintenanceMockData.ts)
  * and as the record of what the choice column held; do NOT wire a picker back
  * to it, or the demo and the live app will offer different departments.

@@ -6,13 +6,14 @@ import {
   LayoutGrid,
   List,
   ListChecks,
+  MapPin,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 // =============================================================================
 // One switcher across every maintenance screen.
 //
-// The CMMS is six screens, and the Dashboard card lands people on the
+// The CMMS is seven screens, and the Dashboard card lands people on the
 // calendar. Before this existed, the calendar linked only to the PM library —
 // so from the front door there was no way to reach the work order list, the
 // board or the dashboard without going back out to the departments menu.
@@ -68,6 +69,12 @@ const SCREENS: MaintenanceScreen[] = [
     matches: (p) =>
       p.startsWith("/operations/maintenance/assets") ||
       p.startsWith("/operations/maintenance/asset/"),
+  },
+  {
+    to: "/operations/maintenance/reference-lists",
+    label: "Departments & Locations",
+    icon: <MapPin className="h-4 w-4" />,
+    matches: (p) => p.startsWith("/operations/maintenance/reference-lists"),
   },
   {
     to: "/operations/maintenance/dashboard",

@@ -18,9 +18,6 @@ import { AdminProjectsView } from "@/views/AdminProjectsView";
 import { AdminAdminsView } from "@/views/AdminAdminsView";
 import { AdminEirRolesView } from "@/views/AdminEirRolesView";
 import { AdminMaintenanceRolesView } from "@/views/AdminMaintenanceRolesView";
-const AdminMaintenanceReferenceListsView = lazy(
-  () => import("@/views/AdminMaintenanceReferenceListsView"),
-);
 import { TestSheetsView } from "@/views/TestSheetsView";
 import { TestSheetDetailView } from "@/views/TestSheetDetailView";
 import { EirsView } from "@/views/EirsView";
@@ -76,6 +73,9 @@ const MaintenanceDashboardView = lazy(() => import("@/views/MaintenanceDashboard
 const PmLibraryView = lazy(() => import("@/views/PmLibraryView"));
 const AssetDetailView = lazy(() => import("@/views/AssetDetailView"));
 const MaintenanceAssetsView = lazy(() => import("@/views/MaintenanceAssetsView"));
+const MaintenanceReferenceListsView = lazy(
+  () => import("@/views/MaintenanceReferenceListsView"),
+);
 const AdminOperationsProjectsView = lazy(() =>
   import("@/views/AdminOperationsProjectsView").then((m) => ({
     default: m.AdminOperationsProjectsView,
@@ -293,15 +293,12 @@ export function App() {
                 </RequireAdmin>
               }
             />
+            {/* Moved into the maintenance module (2026-09-01), gated only by
+                manageAssetsGate — see the route under /operations/maintenance/*
+                below. Kept as a redirect in case anything is bookmarked. */}
             <Route
               path="/admin/maintenance-reference-lists"
-              element={
-                <RequireAdmin>
-                  <Suspense fallback={<LoadingTasks noun="the reference lists" />}>
-                    <AdminMaintenanceReferenceListsView />
-                  </Suspense>
-                </RequireAdmin>
-              }
+              element={<Navigate to="/operations/maintenance/reference-lists" replace />}
             />
             <Route
               path="/admin/operations-projects"
@@ -550,6 +547,14 @@ export function App() {
               element={
                 <Suspense fallback={<LoadingTasks noun="the asset register" />}>
                   <MaintenanceAssetsView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/operations/maintenance/reference-lists"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the reference lists" />}>
+                  <MaintenanceReferenceListsView />
                 </Suspense>
               }
             />

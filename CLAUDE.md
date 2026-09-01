@@ -562,6 +562,7 @@ src/
 │   ├── PmLibraryView.tsx         Every PM schedule + next due + Active toggle
 │   ├── AssetDetailView.tsx       One machine — history, open work, its PMs, manuals
 │   ├── MaintenanceAssetsView.tsx The asset register — search/filter all 378, gaps, inline machine hours
+│   ├── MaintenanceReferenceListsView.tsx  Departments & Locations for the CMMS — inside the module, gated by manageAssetsGate (not /admin)
 │   ├── TeradyneLogView.tsx       Teradyne Log table + "Manage lists" menu
 │   ├── TeradyneRefListView.tsx   Edit one Teradyne reference list (:kind)
 │   ├── PanelOrdersView.tsx       Panel Orders list
@@ -598,7 +599,6 @@ src/
 │   ├── AdminAdminsView.tsx       Admin → Admins
 │   ├── AdminEirRolesView.tsx     Admin → EIR Roles
 │   ├── AdminMaintenanceRolesView.tsx  Admin → Maintenance Roles (tech / admin, CMMS)
-│   ├── AdminMaintenanceReferenceListsView.tsx  Admin → Maintenance reference lists (Departments + Locations)
 │   ├── AdminQuickLinksView.tsx   Admin → Quick Links (Dashboard button links, per-department reorder)
 │   ├── AdminNotificationRecipientsView.tsx  Admin → Notification recipients
 │   ├── AboutView.tsx             In-app architecture + ER diagrams
@@ -2701,7 +2701,7 @@ person's email, plus `DisplayName`, `Roles` and `Note`.
 | **Complete** a work order | `tech` or `admin` |
 | **Log a PM** (Start / Complete / Skip) | `tech` or `admin` |
 | **Create / edit / retire a PM schedule**, toggle Active | `admin` |
-| **Manage assets, departments, locations** | `admin` (screen not built yet) |
+| **Manage assets, departments, locations** | `admin` — `MaintenanceAssetsView` and `MaintenanceReferenceListsView`, both inside the module |
 
 ### CMMS Departments and Locations are LOOKUP LISTS, not choice columns
 
@@ -2722,9 +2722,22 @@ Scheduled Maintenance.
 values live in the column DEFINITION, so adding a department is a column PATCH
 needing site-manage rights. ARC holds `Sites.Selected` — item read/write only.
 With a lookup, adding a department is adding a LIST ITEM, which ARC can already
-do, so the shop maintains its own values from `/admin/maintenance-reference-lists`
-instead of raising a ticket. Same pattern as Operations Projects, Panel Projects
-and the three Teradyne reference lists.
+do, so the shop maintains its own values from
+`/operations/maintenance/reference-lists` instead of raising a ticket. Same
+pattern as Operations Projects, Panel Projects and the three Teradyne
+reference lists.
+
+**This screen lives INSIDE the maintenance module, not under `/admin/*`**
+(Ray, 2026-09-01: "locations and departments need moved from admin lists to
+the app and gated by the Maintenance roles list to admin in there") —
+`MaintenanceReferenceListsView.tsx`, mirroring `MaintenanceAssetsView.tsx`
+exactly: reading is open to anyone signed in, and only the Add/Rename/Retire
+controls disable (with `gate.hint` as the reason) for anyone who isn't a
+maintenance admin under `manageAssetsGate`. It used to sit at
+`/admin/maintenance-reference-lists` behind the app-wide Admins gate
+(`RequireAdmin`), which meant a maintenance admin who wasn't also an ARC admin
+couldn't reach it at all — the wrong gate for a CMMS-only screen. The old path
+now redirects to the new one.
 
 Six things that go with it:
 
@@ -2769,7 +2782,7 @@ Six things that go with it:
 **`manageAssetsGate` finally has a caller.** It was written with the CMMS roles
 and sat unused waiting for this screen; every mutation in
 `hooks/useMaintenanceReferenceLists.ts` asks it inside its `mutationFn`, and
-`AdminMaintenanceReferenceListsView` asks it for the UI. Reading is open to
+`MaintenanceReferenceListsView` asks it for the UI. Reading is open to
 anyone signed in — everybody has to see the value on the record in front of
 them.
 

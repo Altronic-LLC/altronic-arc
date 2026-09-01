@@ -158,7 +158,7 @@ export function MaintenanceAssetsView() {
             Every machine the CMMS knows about. Work orders and PM schedules point at these rows, so
             an asset is never deleted — set its status to Retired instead.{" "}
             <Link
-              to="/admin/maintenance-reference-lists"
+              to="/operations/maintenance/reference-lists"
               className="text-accent underline-offset-2 hover:underline"
             >
               Departments and locations
