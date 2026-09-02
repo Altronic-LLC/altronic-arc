@@ -2122,6 +2122,30 @@ const SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: "panel-qc-issue-tracker",
+    title: "Panel QC Issue Tracker",
+    group: "Panels",
+    keywords: ["panel qc", "issue tracker", "defect", "production", "corrective action"],
+    searchText: "Panel QC Issue Tracker records panel and board defects from production through resolution. Defect categories come from the Tim-Test-Panel-Defect list and can be added while recording an issue.",
+    render: () => (
+      <>
+        <P>
+          <strong>Panel QC Issue Tracker</strong> is the Panels department's
+          production defect log. It currently uses the Engineering site's
+          <em>Tim-Test-Panel</em> list while the lists are being prepared to
+          move to the Panel Team site.
+        </P>
+        <P>
+          Choose a defect category from the searchable picker. Anyone signed
+          in can add a new category to <em>Tim-Test-Panel-Defect</em> directly
+          from the issue form, then use it immediately. Panel / Board Serial
+          Number is required; all other exported fields can be completed as
+          information becomes available. Click a row to edit it.
+        </P>
+      </>
+    ),
+  },
+  {
     id: "digital-qc",
     title: "Digital QC Defect Log",
     group: "Quality Control",

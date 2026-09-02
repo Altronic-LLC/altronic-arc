@@ -17,7 +17,6 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { DIRECTORY_KEY, useDirectoryDiagnostics } from "@/hooks/useDirectory";
 import { grantDirectoryAccess } from "@/api/directory";
 import { cn } from "@/lib/cn";
-
 // =============================================================================
 // About page — high-level system map.
 //
@@ -72,9 +71,9 @@ const SYSTEM_TIERS: Tier[] = [
   {
     label: "React SPA",
     nodes: [
-      { label: "Views", hint: "Dashboard · List · Kanban · Detail · EIRs · Test Sheets · Project Folders · CSA Listings · Drawing File Logs · Digital QC · Ignition QC · Coil Defect Log · Potting Sample Log · Visit Reports (list + calendar) · QC Time Tracking · Open Orders Report · Gray Market Requests · Where Am I? · ECNs · FAITs · ARC Feature Requests · Drawing Work Sheet (print) · Admin (incl. Quick Links)", palette: "ui" },
-      { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useBuildRequests · useCsaListings · useDrawingLogs · useDigitalQc · useIgnitionQc · useCoilsQc · usePottingSampleLog · useVisitReports · useQcTimeTracking · useOpenOrdersReports · useOpenOrdersCustomers · useGrayMarketRequests · useWhereAmI · useEcns · useFaits · useCustomerNotes · useCustomerContacts · useSpecialPricing · useCapacity · useSuppliers · useSupplierContacts · useSupplierIssues · useCostImpactNotices · useFeatureRequests · useAdmins · useEirRoles · useQuickLinks · useTaskFiles · useProjectFolders", palette: "ui" },
-      { label: "API layer", hint: "src/api/tasks · eirs · testSheets · buildRequests · buildRequestItems · csaListings · drawingLogs · digitalQc · ignitionQc · coilsQc · pottingSampleLog · visitReports · openOrdersFiles · openOrdersCustomers · openOrdersRoles · grayMarketRequests · whereAmI · ecns · faits · customerNotes · customerContacts · specialPricing · capacity · suppliers · supplierContacts · supplierIssues · costImpactNotices · featureRequests · autoWatch · panelOrders · panelTasks · admins · eirRoles · panelRoles · quickLinks · directory · siteUsers · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
+      { label: "Views", hint: "Dashboard · List · Kanban · Detail · EIRs · Test Sheets · Project Folders · CSA Listings · Drawing File Logs · Digital QC · Ignition QC · Coil Defect Log · Potting Sample Log · Visit Reports (list + calendar) · QC Time Tracking · Panel QC Issue Tracker · Open Orders Report · Gray Market Requests · Where Am I? · ECNs · FAITs · ARC Feature Requests · Drawing Work Sheet (print) · Admin (incl. Quick Links)", palette: "ui" },
+      { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useBuildRequests · useCsaListings · useDrawingLogs · useDigitalQc · useIgnitionQc · useCoilsQc · usePottingSampleLog · useVisitReports · useQcTimeTracking · usePanelQcIssues · useOpenOrdersReports · useOpenOrdersCustomers · useGrayMarketRequests · useWhereAmI · useEcns · useFaits · useCustomerNotes · useCustomerContacts · useSpecialPricing · useCapacity · useSuppliers · useSupplierContacts · useSupplierIssues · useCostImpactNotices · useFeatureRequests · useAdmins · useEirRoles · useQuickLinks · useTaskFiles · useProjectFolders", palette: "ui" },
+      { label: "API layer", hint: "src/api/tasks · eirs · testSheets · buildRequests · buildRequestItems · csaListings · drawingLogs · digitalQc · ignitionQc · coilsQc · pottingSampleLog · visitReports · panelQcIssues · openOrdersFiles · openOrdersCustomers · openOrdersRoles · grayMarketRequests · whereAmI · ecns · faits · customerNotes · customerContacts · specialPricing · capacity · suppliers · supplierContacts · supplierIssues · costImpactNotices · featureRequests · autoWatch · panelOrders · panelTasks · admins · eirRoles · panelRoles · quickLinks · directory · siteUsers · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
       {
         label: "Open Orders Report (lazy-loaded)",
         hint: "OpenOrdersView · OpenOrdersCustomersView — reads a raw SAP extract in the browser and writes a branded master dashboard plus one workbook per managed customer into SharePoint. ExcelJS (~950KB) is dynamically imported on first use so it never lands in the main chunk.",
@@ -122,7 +121,7 @@ const SYSTEM_TIERS: Tier[] = [
       },
       {
         label: "Panels department (lazy-loaded bundle)",
-        hint: "PanelOrdersView · PanelOrderDetailView · PanelTasksView · PanelTaskDetailView · QcTimeTrackingView · AdminPanelProjectsView · AdminPanelRolesView — usePanelOrders · usePanelTasks · useQcTimeTracking · usePanelRoles — api/panelOrders · panelTasks · panelProjects · panelRoles · qcTimeTracking. Own site (ALTRONICPANELTEAM), own code-split chunk; no cross-department imports.",
+        hint: "PanelOrdersView · PanelOrderDetailView · PanelTasksView · PanelTaskDetailView · QcTimeTrackingView · PanelQcIssuesView · AdminPanelProjectsView · AdminPanelRolesView — usePanelOrders · usePanelTasks · useQcTimeTracking · usePanelQcIssues · usePanelRoles — api/panelOrders · panelTasks · panelProjects · panelRoles · qcTimeTracking · panelQcIssues. Panel QC currently uses the Engineering site; the rest uses ALTRONICPANELTEAM. Own code-split chunk; no cross-department imports.",
         palette: "ui",
       },
     ],
@@ -175,6 +174,7 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "Panel Project Reference", hint: "ALTRONICPANELTEAM site — admin-managed project reference numbers (orders + tasks share it)", palette: "list" },
       { label: "Panel User Roles", hint: "ALTRONICPANELTEAM site — one row per user per role (gating ships dark in v1)", palette: "list" },
       { label: "QC Time Tracking", hint: "ALTRONICPANELTEAM site — hours QC spent per project; a simple log, no role gating, no delete, PerformedByPeople is multi-person", palette: "list" },
+      { label: "Tim-Test-Panel / Tim-Test-Panel-Defect", hint: "Engineering site for now — Panel QC Issue Tracker issue log plus its editable defect-category reference list; both are available to signed-in users", palette: "list" },
       { label: "Where am I?", hint: "Engineering site — the team's out-of-office calendar. Two columns (Title, Date) and no end date, so a week away is a row per day; dates are stored at 06:00Z (US Central midnight)", palette: "list" },
       { label: "FAIT", hint: "Engineering site (a Supply Chain feature) — First Article Inspection Tests. 51 workflow columns spanning inspection and three sign-offs; Communication and Watchers were added for ARC in Aug 2026, Project Reference and attachments already existed", palette: "list" },
       { label: "ECN NEW", hint: "Engineering site — Engineering Change Notices. Every workflow column is named field_2 … field_12, so src/lib/ecnFields.ts is the only place their meaning exists; no Watchers and no requester column, so comments reach the submitter (Graph createdBy) and anyone mentioned", palette: "list" },
@@ -1246,6 +1246,32 @@ const SCHEMA_TABLES: SchemaTable[] = [
       { name: "watchers", type: "int[]", kind: "fk", references: "Person.id" },
     ],
   },
+  {
+    name: "PanelQcIssue",
+    source: "Tim-Test-Panel (Engineering site for now)",
+    palette: "entity",
+    x: 380, y: 6100, width: 360,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "panelSerialNumber", type: "text", kind: "field" },
+      { name: "date", type: "date", kind: "field" },
+      { name: "partNumber / description", type: "text", kind: "field" },
+      { name: "serialReferenceNote", type: "text", kind: "field" },
+      { name: "defectCategory", type: "text", kind: "fk", references: "PanelQcDefect.name" },
+      { name: "comments / correctiveAction", type: "text", kind: "field" },
+      { name: "production fields", type: "text", kind: "field" },
+    ],
+  },
+  {
+    name: "PanelQcDefect",
+    source: "Tim-Test-Panel-Defect (Engineering site for now)",
+    palette: "entity",
+    x: 760, y: 6100, width: 300,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "name (Title)", type: "text", kind: "field" },
+    ],
+  },
 ];
 
 // ----- Connections (FK → target). Cardinality at each end: "one" | "many" --
@@ -1395,6 +1421,7 @@ const CONNECTIONS: Connection[] = [
   // create and never re-picked; Watchers starts as just the requester.
   { fromTable: "FeatureRequest", fromColumn: "requestedBy", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "FeatureRequest", fromColumn: "watchers", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
+  { fromTable: "PanelQcIssue", fromColumn: "defectCategory", toTable: "PanelQcDefect", toColumn: "name", fromCard: "many", toCard: "one" },
 ];
 
 export function AboutView() {

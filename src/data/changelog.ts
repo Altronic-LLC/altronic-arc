@@ -20,6 +20,42 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.143.4",
+    date: "2026-09-02",
+    changes: [
+      "The app header now stays visible while you scroll through lists and pages",
+    ],
+  },
+  {
+    version: "0.143.3",
+    date: "2026-09-02",
+    changes: [
+      "The app footer now stays visible while you scroll, with reserved space so page content remains accessible",
+    ],
+  },
+  {
+    version: "0.143.2",
+    date: "2026-09-02",
+    changes: [
+      "Panel QC issue rows now use the available screen width more efficiently, and the footer stays at the bottom of short pages",
+    ],
+  },
+  {
+    version: "0.143.1",
+    date: "2026-09-02",
+    changes: [
+      "Panel QC issues now open newest dated records first, keep undated records at the bottom, and let you sort by any issue field",
+    ],
+  },
+  {
+    version: "0.143.0",
+    date: "2026-09-02",
+    changes: [
+      "Added Panel QC Issue Tracker for recording panel and board defects through resolution",
+      "Defect categories come from a shared list and can be added directly while recording an issue",
+    ],
+  },
+  {
     version: "0.142.1",
     date: "2026-09-02",
     changes: [

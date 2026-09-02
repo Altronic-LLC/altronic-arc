@@ -845,6 +845,13 @@ export function DashboardView() {
           description="Hours QC spent on each panel — who did the work, when, and how long."
           onClick={() => navigate("/panels/qc-time-tracking")}
         />
+        <TypeCard
+          name="Panel QC Issue Tracker"
+          icon={<ClipboardCheck className="h-5 w-5" />}
+          tone="cooper-green"
+          description="Track panel and board defects from production through resolution."
+          onClick={() => navigate("/panels/qc-issues")}
+        />
         <PlaceholderCard name="Project Folders" icon={<FolderOpen className="h-5 w-5" />} />
       </DeptSection>
 

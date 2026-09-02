@@ -11,6 +11,12 @@ export const SP_PROJECTS_LIST_ID = import.meta.env.VITE_SP_PROJECTS_LIST_ID;
 /** "Test Results" list on the same Altronic Engineering site. */
 export const SP_TEST_RESULTS_LIST_ID = import.meta.env.VITE_SP_TEST_RESULTS_LIST_ID;
 
+/** Panel QC issue and defect reference lists, currently on Engineering. */
+export const SP_PANEL_QC_ISSUES_LIST_ID =
+  import.meta.env.VITE_SP_PANEL_QC_ISSUES_LIST_ID || "2676ec94-8054-44e8-a970-fdedea11c8d2";
+export const SP_PANEL_QC_DEFECTS_LIST_ID =
+  import.meta.env.VITE_SP_PANEL_QC_DEFECTS_LIST_ID || "d2da82e0-8cdb-4dad-b225-ecabfa9559e4";
+
 /** "Engineering Information Request" (EIR) list on the same site. */
 export const SP_EIRS_LIST_ID = import.meta.env.VITE_SP_EIRS_LIST_ID;
 

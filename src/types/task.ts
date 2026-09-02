@@ -924,6 +924,41 @@ export interface PanelRoleEntry {
   note: string;
 }
 
+/** A production panel QC issue from the Engineering-site test list. */
+export interface PanelQcIssue {
+  id: number;
+  panelSerialNumber: string;
+  date: Date | null;
+  partNumber: string;
+  partDescription: string;
+  serialReferenceNote: string;
+  defectCategory: string | null;
+  comments: string;
+  correctiveAction: string;
+  productionTechnician: string;
+  productionRepairNotes: string;
+  productionResolution: string;
+}
+
+export interface PanelQcIssueInput {
+  panelSerialNumber: string;
+  date: Date | null;
+  partNumber: string;
+  partDescription: string;
+  serialReferenceNote: string;
+  defectCategory: string | null;
+  comments: string;
+  correctiveAction: string;
+  productionTechnician: string;
+  productionRepairNotes: string;
+  productionResolution: string;
+}
+
+export interface PanelQcDefect {
+  id: number;
+  name: string;
+}
+
 export const PANEL_TASK_STATUSES = ["Pending", "In Process", "On Hold", "Complete"] as const;
 export type PanelTaskStatus = (typeof PANEL_TASK_STATUSES)[number];
 

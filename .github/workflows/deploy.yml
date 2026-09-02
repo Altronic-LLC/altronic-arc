@@ -63,6 +63,8 @@ jobs:
           # defaults, so these only need setting to override).
           VITE_SP_ENGINEERING_SITE_ID: ${{ vars.VITE_SP_ENGINEERING_SITE_ID }}
           VITE_SP_PANELTEAM_SITE_ID: ${{ vars.VITE_SP_PANELTEAM_SITE_ID }}
+          VITE_SP_PANEL_QC_ISSUES_LIST_ID: ${{ vars.VITE_SP_PANEL_QC_ISSUES_LIST_ID }}
+          VITE_SP_PANEL_QC_DEFECTS_LIST_ID: ${{ vars.VITE_SP_PANEL_QC_DEFECTS_LIST_ID }}
           VITE_SP_SALESTEAM_SITE_ID: ${{ vars.VITE_SP_SALESTEAM_SITE_ID }}
           VITE_SP_SALES_ORDERENTRY_SITE_ID: ${{ vars.VITE_SP_SALES_ORDERENTRY_SITE_ID }}
           VITE_SP_PMO_SITE_ID: ${{ vars.VITE_SP_PMO_SITE_ID }}

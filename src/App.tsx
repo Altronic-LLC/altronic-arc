@@ -224,6 +224,9 @@ const PanelTaskDetailView = lazy(() =>
 const QcTimeTrackingView = lazy(() =>
   import("@/views/QcTimeTrackingView").then((m) => ({ default: m.QcTimeTrackingView })),
 );
+const PanelQcIssuesView = lazy(() =>
+  import("@/views/PanelQcIssuesView").then((m) => ({ default: m.PanelQcIssuesView })),
+);
 const FeatureRequestsView = lazy(() =>
   import("@/views/FeatureRequestsView").then((m) => ({ default: m.FeatureRequestsView })),
 );
@@ -255,10 +258,10 @@ export function App() {
   useMentionScanner();
 
   return (
-    <div className="flex min-h-full flex-col bg-bg">
+    <div className="flex min-h-screen flex-col bg-bg">
       {!isPrintRoute && <Header />}
       {!isPrintRoute && <UpdateAvailableBanner />}
-      <main className="flex-1">
+      <main className="min-h-0 flex-1 pb-16">
         {/* The app's only error boundary. A render error used to blank the whole
             page until a manual refresh — including navigating away, since the
             crash takes the router with it. Keyed on the path so moving
@@ -697,6 +700,14 @@ export function App() {
               element={
                 <Suspense fallback={<LoadingTasks noun="QC time entries" />}>
                   <QcTimeTrackingView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/panels/qc-issues"
+              element={
+                <Suspense fallback={<LoadingTasks noun="Panel QC issues" />}>
+                  <PanelQcIssuesView />
                 </Suspense>
               }
             />
