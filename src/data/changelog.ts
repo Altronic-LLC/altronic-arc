@@ -30,6 +30,21 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
+    version: "0.142.3",
+    date: "2026-09-02",
+    changes: [
+      "Fixed ARC Feature Requests: manually adding someone as a watcher who wasn't already known to the app silently did nothing",
+    ],
+  },
+  {
+    version: "0.142.2",
+    date: "2026-09-02",
+    changes: [
+      "Fixed ARC Feature Requests: watchers added by @-mentioning someone in a comment could silently disappear moments later",
+    ],
+  },
+  
+  {
     version: "0.142.1",
     date: "2026-09-02",
     changes: [
