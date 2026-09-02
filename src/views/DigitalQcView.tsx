@@ -14,12 +14,14 @@ import {
   X,
 } from "lucide-react";
 import { DIGITAL_QC_FAMILY_LIST_IDS } from "@/api/digitalQc";
+import { ListAccessNotice } from "@/components/ListAccessNotice";
 import {
   useCreateDigitalQcRecord,
   useListDigitalQcRecords,
   useUpdateDigitalQcRecord,
 } from "@/hooks/useDigitalQc";
 import type { DigitalQcRecord } from "@/lib/digitalQc";
+import { isPermissionDenied } from "@/lib/listWriteErrors";
 
 type ProductFamily = keyof typeof DIGITAL_QC_FAMILY_LIST_IDS;
 type SortKey = keyof Omit<DigitalQcRecord, "id" | "productFamily">;
@@ -130,9 +132,10 @@ export function DigitalQcView() {
   const [commentPreviewId, setCommentPreviewId] = useState<string | null>(null);
   const commentPressTimerRef = useRef<number | null>(null);
 
-  const { data: records = [], isLoading, error } = useListDigitalQcRecords(selectedFamily);
+  const { data: records = [], isLoading, error, refetch } = useListDigitalQcRecords(selectedFamily);
   const createMutation = useCreateDigitalQcRecord(selectedFamily);
   const updateMutation = useUpdateDigitalQcRecord(selectedFamily);
+  const listUnavailable = !!error && isPermissionDenied(error);
 
   const families = Object.keys(DIGITAL_QC_FAMILY_LIST_IDS) as ProductFamily[];
 
@@ -453,6 +456,8 @@ export function DigitalQcView() {
           <button
             type="button"
             onClick={() => guardFormNavigation(openCreateForm)}
+            disabled={listUnavailable}
+            title={listUnavailable ? "You do not have access to this SharePoint list" : undefined}
             className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent/90"
           >
             <Plus className="h-4 w-4" />
@@ -860,17 +865,21 @@ export function DigitalQcView() {
           </div>
         )}
 
-        {error && (
+        {listUnavailable ? (
+          <div className="border-t border-border p-4">
+            <ListAccessNotice list={`${selectedFamily} Digital QC`} site="Altronic_Engineering" onRetry={() => void refetch()} />
+          </div>
+        ) : error ? (
           <div className="border-t border-border bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
             Failed to load records: {error instanceof Error ? error.message : "unknown error"}
           </div>
-        )}
+        ) : null}
 
         {isLoading ? (
           <div className="flex items-center justify-center px-4 py-8 text-sm text-fg-muted">
             Loading records…
           </div>
-        ) : visibleRecords.length === 0 ? (
+        ) : listUnavailable ? null : visibleRecords.length === 0 ? (
           <div className="flex items-center justify-center px-4 py-8 text-sm text-fg-muted">
             {filterText ? "No records match the current filter." : `No records for ${selectedFamily}. Click "Add entry" to create one.`}
           </div>

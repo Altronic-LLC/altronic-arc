@@ -522,6 +522,7 @@ src/
 │   ├── TaskAttachmentsSection.tsx  Task attachments (dual storage)
 │   ├── PcbChecklistCard.tsx      PCB checklist on a task
 │   ├── NotifyAppManagerButton.tsx  "Report issue" button + modal
+│   ├── ListAccessNotice.tsx        SharePoint list permission notice + retry
 │   ├── MermaidDiagram.tsx        (legacy) Mermaid renderer
 │   ├── atoms.tsx                 Badges, chips, status colours
 │   ├── operationsAtoms.tsx       Operations-specific badges/chips

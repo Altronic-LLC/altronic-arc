@@ -8,7 +8,9 @@ import {
 } from "@/hooks/usePottingSampleLog";
 import { checkLimitBreach, DEFAULT_POTTING_VOLUME } from "@/lib/pottingSampleLog";
 import { LoadingTasks } from "@/components/LoadingTasks";
+import { ListAccessNotice } from "@/components/ListAccessNotice";
 import { cn } from "@/lib/cn";
+import { isPermissionDenied } from "@/lib/listWriteErrors";
 
 function nowForDatetimeLocal(): string {
   const now = new Date();
@@ -18,9 +20,12 @@ function nowForDatetimeLocal(): string {
 }
 
 export function PottingSampleLogView() {
-  const { data: entries = [], isLoading } = useListPottingSampleEntries();
-  const { data: limits } = usePottingLimits();
+  const { data: entries = [], isLoading, error: entriesError, refetch } = useListPottingSampleEntries();
+  const { data: limits, error: limitsError, refetch: refetchLimits } = usePottingLimits();
   const createMutation = useCreatePottingSampleEntry();
+  const listUnavailable = [entriesError, limitsError].some(
+    (queryError) => queryError && isPermissionDenied(queryError),
+  );
 
   const [dateInput, setDateInput] = useState(nowForDatetimeLocal());
   const [volume, setVolume] = useState(String(DEFAULT_POTTING_VOLUME));
@@ -103,7 +108,8 @@ export function PottingSampleLogView() {
         <div className="sm:col-span-3">
           <button
             type="submit"
-            disabled={createMutation.isPending}
+            disabled={createMutation.isPending || listUnavailable}
+            title={listUnavailable ? "You do not have access to a required SharePoint list" : undefined}
             className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent/90 disabled:opacity-60"
           >
             <Plus className="h-4 w-4" />
@@ -122,6 +128,14 @@ export function PottingSampleLogView() {
 
         {isLoading ? (
           <LoadingTasks noun="potting samples" />
+        ) : listUnavailable ? (
+          <div className="p-4">
+            <ListAccessNotice
+              list="Potting Sample Log or its reference list"
+              site="Altronic_PMO"
+              onRetry={() => void Promise.all([refetch(), refetchLimits()])}
+            />
+          </div>
         ) : entries.length === 0 ? (
           <div className="flex items-center justify-center px-4 py-8 text-sm text-fg-muted">
             No entries yet. Save one above to get started.

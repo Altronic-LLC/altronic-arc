@@ -20,6 +20,30 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.142.4",
+    date: "2026-09-02",
+    changes: [
+      "Teradyne Log now explains when its Operations SharePoint list or reference lists are unavailable instead of appearing empty",
+      "New Teradyne entries are unavailable until the log and its required reference lists can be reached",
+    ],
+  },
+  {
+    version: "0.142.3",
+    date: "2026-09-02",
+    changes: [
+      "Coil Defect Log and Potting Sample Log now explain when a required SharePoint list is unavailable instead of appearing empty",
+      "Coil entries cannot be added until the selected app's required SharePoint lists can be reached",
+    ],
+  },
+  {
+    version: "0.142.2",
+    date: "2026-09-02",
+    changes: [
+      "Digital QC and Ignition QC now explain when your SharePoint list access is missing instead of showing a misleading blank list",
+      "Add entry is unavailable until the selected QC list can be reached, with a Check again action after access is granted",
+    ],
+  },
+  {
     version: "0.142.1",
     date: "2026-09-02",
     changes: [
