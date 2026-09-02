@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.142.1",
+    date: "2026-09-02",
+    changes: [
+      "ARC Feature Requests now connects to the real SharePoint list — requests you submit are saved for real, not just in a demo",
+    ],
+  },
+  {
     version: "0.142.0",
     date: "2026-09-02",
     changes: [

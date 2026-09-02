@@ -2707,13 +2707,17 @@ tracking a request needs more room. List created by
 `scripts/create-feature-requests-list.ps1` — read that script for the exact
 columns and reasoning.
 
-**No default list id** (env `VITE_SP_FEATURE_REQUESTS_LIST_ID`) — same
-lockout-safety-style reasoning as Admins / EIR Roles / Quick Links: the list
-doesn't exist in SharePoint yet until the setup script has run. Unlike EIR
-Roles (where an unset list means gating is OFF), there's nothing to enforce
-here — an unset list just means `listFeatureRequests()` returns `[]` and
-`getFeatureRequest()` returns `null`, exactly like Quick Links, so the screen
-shows a yellow "not configured" notice rather than erroring.
+**The list EXISTS** — `c7b00c39-4370-4063-a852-05d2c1b9fbfb`, confirmed live
+2026-09-02, and `SP_FEATURE_REQUESTS_LIST_ID` (env
+`VITE_SP_FEATURE_REQUESTS_LIST_ID`) carries it as a default. Unlike EIR
+Roles, there was no lockout risk in giving this one a default the moment the
+list existed: an unset id here only ever meant "the screen isn't configured
+yet," never "someone loses an ability they have today" — nobody could create
+or edit a feature request before this shipped at all. If the id is ever
+unset (a fresh clone before the script has run, say), `listFeatureRequests()`
+returns `[]` and `getFeatureRequest()` returns `null`, exactly like Quick
+Links, so the screen shows a yellow "not configured" notice rather than
+erroring.
 
 | Domain field | Column | Notes |
 |---|---|---|

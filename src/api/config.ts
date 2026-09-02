@@ -709,12 +709,15 @@ export const SP_QC_TIME_TRACKING_LIST_ID =
  * (which is for something BROKEN). See
  * scripts/create-feature-requests-list.ps1.
  *
- * **No default here**, same lockout-safety-style reasoning as Admins / EIR
- * Roles / Quick Links: the list doesn't exist in SharePoint yet until Ray
- * runs the script and gives us the real GUID. Unset means the screen reports
- * itself as "not configured yet" — never an error — the same as Quick Links.
+ * **The list EXISTS** — Ray ran the script and confirmed the id below,
+ * 2026-09-02. Unlike EIR Roles, there's no lockout risk in giving this one a
+ * default: an unset list here means "the screen isn't configured," not
+ * "someone loses an ability they have today" — nobody could create or edit a
+ * feature request before this shipped at all. Still env-overridable.
  */
-export const SP_FEATURE_REQUESTS_LIST_ID = import.meta.env.VITE_SP_FEATURE_REQUESTS_LIST_ID;
+export const SP_FEATURE_REQUESTS_LIST_ID =
+  import.meta.env.VITE_SP_FEATURE_REQUESTS_LIST_ID ||
+  "c7b00c39-4370-4063-a852-05d2c1b9fbfb";
 
 // =============================================================================
 // CRM Tool — Customer Notes, Customer Contacts, Special Pricing and Capacity,
