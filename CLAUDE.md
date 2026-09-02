@@ -4066,6 +4066,58 @@ open", not a failure. When the session IS dead, `AuthGate` renders
 `SignInPage reason="expired"` rather than the app behind a banner, and signing in
 clears the query cache so nothing comes back still showing the old errors.
 
+### Never silently activate a cached account when more than one exists
+
+MSAL's `cacheLocation: "localStorage"` (msalConfig.ts) is deliberate — it
+keeps users signed in across browser restarts, the normal UX for an internal
+tool. But `localStorage` is shared by every account that has EVER signed
+into ARC on that browser profile, not just whoever's using it right now.
+
+`AuthGate` and `AuthProvider` both used to auto-activate a cached account
+with the same one-liner: `if (accounts.length > 0 && !getActiveAccount())
+setActiveAccount(accounts[0])`. On a browser only one person has ever used,
+that's harmless — `accounts` has exactly one entry, and it's genuinely
+theirs. On a **shared workstation**, or any browser profile a second person
+has ever signed into, `accounts[0]` is whichever account MSAL happens to
+list first — with **no check at all** that it belongs to whoever is actually
+at the keyboard.
+
+Reported by Ray, 2026-09-02: a Gray Market Request's Requestor field showed
+Anisha Hobbs when Patricia was the one who filled it out. Anisha had signed
+into ARC on that browser before; her account was still cached and still
+valid; Patricia opened ARC, saw no sign-in prompt at all, and every write
+she made — `useCurrentUser()` reads whichever account is active, and that
+feeds every "who did this" field in the app — went out under Anisha's
+identity instead of her own. Nothing on screen looked wrong; there was no
+error to notice.
+
+The fix, in both `AuthGate.tsx` and `AuthProvider.tsx`: auto-activate ONLY
+when there is **exactly one** cached account. With two or more, activate
+nothing — `useIsAuthenticated()` then reads `false`, `AuthGate` falls
+through to `SignInPage`, and `SignInPage`'s sign-in button asks MSAL for
+`prompt: "select_account"`, forcing Microsoft's own account picker rather
+than ever guessing. A genuine multi-account ambiguity now costs one visible
+click; silently misattributing someone's identity cost nothing visible at
+all, which is the wrong trade to make by default.
+
+Three things about this fix:
+
+- **It's duplicated in two files on purpose**, same as it was duplicated
+  before the fix — `AuthGate` runs on every render while MSAL is settling,
+  `AuthProvider` runs once at boot before `AuthGate` ever mounts. Fixing
+  only one would leave the other race still open.
+- **This is not specific to Gray Market Requests.** `useCurrentUser()` feeds
+  every "who did this" field across the whole app — Requestor, Assigned,
+  Watchers auto-add, comment authorship, every intake alert's actor
+  exclusion. The bug reached Gray Market Requests because that's where it
+  happened to be noticed first.
+- **Pinned in `AuthGate.test.tsx`**, not `AuthProvider.test.tsx` — the
+  latter constructs a real `PublicClientApplication` and has no existing
+  test harness to extend proportionately for one duplicated condition;
+  `AuthGate`'s coverage of the same one-line guard stands in for both.
+  Verified by reintroducing the bug (`accounts.length > 0`) and confirming
+  the "does NOT auto-pick... when MORE THAN ONE is cached" test fails.
+
 ### The app has ONE loading screen — `LoadingTasks`
 
 Every list, board, detail page and lazy-loaded route's `Suspense` fallback

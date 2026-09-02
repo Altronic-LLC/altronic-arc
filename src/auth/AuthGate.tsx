@@ -65,10 +65,27 @@ export function AuthGate({ children }: { children: ReactNode }) {
     setDemoBypassed(true);
   }
 
-  // Real-mode: keep an active account selected when accounts exist.
+  // Real-mode: auto-activate a cached account ONLY when there's exactly one.
+  //
+  // With more than one cached account (a shared workstation, a browser
+  // profile more than one person has signed into) picking `accounts[0]`
+  // silently attaches whoever happens to be first in that list — with NO
+  // check that they're the person actually at the keyboard. Reported by Ray,
+  // 2026-09-02: a Gray Market Request's Requestor showed Anisha Hobbs when
+  // Patricia was the one who submitted it — Anisha had signed in on that
+  // browser before, MSAL's localStorage-backed cache (msalConfig.ts) still
+  // held her account, and this effect silently activated it for Patricia's
+  // whole session with no sign-in prompt at all. Every write ARC makes reads
+  // the "current user" from whichever account is active here, so this one
+  // effect was silently misattributing anything a second person did.
+  //
+  // Leaving no account active when there's more than one falls through to
+  // `!isAuthenticated` below, which shows SignInPage — and SignInPage's
+  // button asks MSAL for `prompt: "select_account"`, forcing Microsoft's own
+  // account picker rather than ever guessing.
   useEffect(() => {
     if (USE_MOCK) return;
-    if (accounts.length > 0 && !instance.getActiveAccount()) {
+    if (accounts.length === 1 && !instance.getActiveAccount()) {
       instance.setActiveAccount(accounts[0]);
     }
   }, [accounts, instance]);

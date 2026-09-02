@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.143.0",
+    date: "2026-09-02",
+    changes: [
+      "Fixed a sign-in bug on shared computers: if more than one person had ever signed into ARC on the same browser, the app could silently continue as whichever one signed in first, instead of asking who's actually there — on a shared workstation, this could put someone else's name on things you submitted, like a Gray Market Request's Requestor",
+      "You'll now see Microsoft's own account picker if more than one Microsoft account is remembered on that browser, instead of ARC guessing",
+    ],
+  },
+  {
     version: "0.142.3",
     date: "2026-09-02",
     changes: [
