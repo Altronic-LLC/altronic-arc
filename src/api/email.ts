@@ -86,7 +86,8 @@ export interface MentionTarget {
     | "supplier"
     | "supplierContact"
     | "supplierIssue"
-    | "costImpactNotice";
+    | "costImpactNotice"
+    | "featureRequest";
   id: number;
   title: string;
 }
@@ -155,6 +156,11 @@ const KIND_COPY: Record<
     phrase: "a cost impact notice",
     calloutLabel: "Cost Impact Notice",
     buttonText: "Open this notice",
+  },
+  featureRequest: {
+    phrase: "a feature request",
+    calloutLabel: "Feature Request",
+    buttonText: "Open this request",
   },
 };
 

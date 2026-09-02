@@ -265,6 +265,7 @@ src/
 │   ├── openOrdersCustomers.ts    Open Orders managed customer list CRUD
 │   ├── openOrdersRoles.ts        Open Orders role tags (report manager) CRUD
 │   ├── grayMarketRequests.ts     Gray Market Requests CRUD + comments (PMO site) — no delete
+│   ├── featureRequests.ts        ARC Feature Requests CRUD + comments (Engineering site) — no admin gate, no delete
 │   ├── whereAmI.ts               Where am I? CRUD (Engineering out-of-office calendar)
 │   ├── autoWatch.ts              Shared @-mention → watcher resolution (per-site)
 │   ├── projectFiles.ts           Documents-library project folders + files
@@ -289,6 +290,7 @@ src/
 │   ├── costImpactMockData.ts     Sample Cost Impact Notices
 │   ├── openOrdersMockData.ts     Sample open order lines + report customers
 │   ├── grayMarketMockData.ts     Sample gray market requests
+│   ├── featureRequestMockData.ts Sample ARC Feature Requests, spanning all four statuses
 │   ├── whereAmIMockData.ts       Sample out-of-office entries (dated from today)
 │   ├── ecnMockData.ts            Sample ECNs (rich-text fields, a revision)
 │   ├── faitMockData.ts           Sample FAITs (empty Titles, as the live list has)
@@ -326,6 +328,7 @@ src/
 │   ├── useOpenOrdersReports.ts   Parse an extract, generate + upload, download
 │   ├── useOpenOrdersCustomers.ts Customer list + role CRUD (+ useMyOpenOrdersAccess)
 │   ├── useGrayMarketRequests.ts  Gray Market queries, mutations + comment thread
+│   ├── useFeatureRequests.ts     ARC Feature Requests queries, mutations + comment thread — no admin gate
 │   ├── useWhereAmI.ts            Where am I? queries + mutations
 │   ├── useEcns.ts                ECN queries + mutations (submitter-only notifications)
 │   ├── useFaits.ts               FAIT queries + mutations
@@ -416,6 +419,7 @@ src/
 │   ├── grayMarketMapper.ts       Graph item → GrayMarketRequest, and back
 │   ├── grayMarketNumber.ts       nextGrayMarketLogNo() — GMR_YYYY-### numbering
 │   ├── grayMarketAlerts.ts      Gray Market intake alert (new request → the config list)
+│   ├── featureRequestMapper.ts  Graph item → FeatureRequest, and back (RequestedBy single-person trap)
 │   ├── recipientList.ts         Parsing the env-configured recipient lists (shared)
 │   ├── calendarGrid.ts           Shared month-grid maths for every calendar view
 │   ├── whereAmI.ts               Where am I? mapper, grouping, date-range expansion
@@ -494,6 +498,7 @@ src/
 │   ├── CostImpactNoticeFormModal.tsx Raise a cost impact notice
 │   ├── costImpactAtoms.tsx           Delta-cost chip (increase/decrease/no change)
 │   ├── GrayMarketRequestFormModal.tsx  Raise a gray market request
+│   ├── FeatureRequestFormModal.tsx  Suggest a new ARC feature — Title/Description/Department/Priority only
 │   ├── WhereAmIFormModal.tsx     Add/edit an out-of-office entry (+ date range)
 │   ├── ProjectFolderFormModal.tsx  Create a project folder + tag its Project Reference
 │   ├── EcnFormModal.tsx          Raise an ECN
@@ -593,6 +598,8 @@ src/
 │   ├── FaitDetailView.tsx        One FAIT — five workflow cards, sign-offs, comments
 │   ├── EcnDetailView.tsx         One ECN — workflow cards, attachments, comments
 │   ├── GrayMarketRequestDetailView.tsx Gray Market request — workflow cards, comments, attachments
+│   ├── FeatureRequestsView.tsx   ARC Feature Requests list — status pills, Department filter, search, open-first
+│   ├── FeatureRequestDetailView.tsx  One feature request — sidebar (Status/Priority/Department/Target Version), comments, watchers
 │   ├── VisitReportsCalendarView.tsx  Visit Reports month calendar (desktop only)
 │   ├── VisitReportDetailView.tsx Visit report detail + attachments
 │   ├── TestSheetsView.tsx        Test sheets list
@@ -2688,6 +2695,72 @@ these lists don't have SharePoint referential integrity enabled. That guard also
 holds while the log query is still loading, when every row would otherwise look
 unused. `IDEmp` / `IDProd` / `IDRem` are legacy ids from the original import —
 read and preserved, never written.
+
+### ARC Feature Requests (Engineering site)
+
+A place for any signed-in user to request a new ARC feature or change,
+separate from **"Report issue"** (`NotifyAppManagerButton`, the life-buoy
+icon), which is for something BROKEN. Reached from a **"Suggest a feature"**
+button (lightbulb icon) next to Report Issue in both Header render locations,
+linking to `/feature-requests` — a full page, not a modal, since raising and
+tracking a request needs more room. List created by
+`scripts/create-feature-requests-list.ps1` — read that script for the exact
+columns and reasoning.
+
+**No default list id** (env `VITE_SP_FEATURE_REQUESTS_LIST_ID`) — same
+lockout-safety-style reasoning as Admins / EIR Roles / Quick Links: the list
+doesn't exist in SharePoint yet until the setup script has run. Unlike EIR
+Roles (where an unset list means gating is OFF), there's nothing to enforce
+here — an unset list just means `listFeatureRequests()` returns `[]` and
+`getFeatureRequest()` returns `null`, exactly like Quick Links, so the screen
+shows a yellow "not configured" notice rather than erroring.
+
+| Domain field | Column | Notes |
+|---|---|---|
+| `title` | `Title` | short summary |
+| `description` | `Description` | plain multi-line text |
+| `department` | `Department` | single choice — mirrors `DASHBOARD_DEPARTMENTS` plus `"Cross-department"` for a request that isn't one team's alone |
+| `requestedBy` | `RequestedBy` | **single person** — auto-filled to the submitter on create, never hand-picked |
+| `priority` | `Priority` | single choice — Low / Medium / High |
+| `status` | `Status` | single choice — Pending Review / In Work / Completed / Not Implementing; defaults to Pending Review on create |
+| `targetVersion` | `TargetVersion` | plain text, blank until scheduled/shipped, e.g. `"v0.142.0"` |
+| `comments` | `Communication` | the usual pipe-delimited thread — a **plain** text column here, NOT SharePoint Enhanced rich text like the EIR long-text fields |
+| `watchers` | `Watchers` | multi-person, auto-watch on create (requester) and on comment via mention |
+
+Four things that shape this feature:
+
+- **`RequestedBy` hits the single-person-column trap CLAUDE.md documents
+  repeatedly** (FAIT, Panel Orders, CMMS): Graph hands back only a bare
+  `RequestedByLookupId` integer even with the friendly name selected. Both
+  halves are `$select`ed, `personOrLookup` (in `featureRequestMapper.ts`)
+  reads either shape, and `attachFeatureRequestPeople` fills the name in from
+  the Engineering site's user directory (`listSiteUserDirectory`) once per
+  list load — the exact two-step those other lists needed. It's resolved via
+  `resolveCurrentUserLookupId` (the plain Engineering-site resolver
+  `useCurrentUser` already uses), not the full `resolvePersonLookupId` chain,
+  because it's only ever written once, to the current user, at create time —
+  never re-picked afterward.
+- **No admin gate anywhere** — reading, creating, commenting, and changing
+  status/priority/department/target-version are all open to any signed-in
+  user. This is a deliberate design choice (unlike Admins, EIR Roles, CSA
+  Listings, Quick Links or Maintenance Roles, which all re-check
+  `useIsAdmin`/`useAdminAccess` inside every `mutationFn`): a feature request
+  is a suggestion, not a controlled record, and gatekeeping who can move one
+  from Pending Review to In Work would just slow down whoever is already
+  doing the work. `useFeatureRequests.guard.test.tsx` pins this by
+  deliberately mocking neither admin hook — if a future edit added an admin
+  check to any mutation here, that mutation would throw rather than pass
+  silently.
+- **No delete** — a superseded or rejected request is marked Not
+  Implementing, not removed, the same call as Gray Market Requests and FAITs.
+  `featureRequests.test.ts` — actually enforced by inspection, since the
+  module simply has no delete function to begin with.
+- **Comments follow the full house rules** —
+  `commentNotifyRecipients`/`commentRenotifyRecipients` (not ECN's narrower
+  submitter-only rule, since this list DOES have a Watchers column and a
+  genuine assignee-style field in `requestedBy`), `autoWatchFromMentions`
+  against `resolveCurrentUserLookupId` (Engineering site), and
+  `autoWatchers()` on create so the requester starts out watching.
 
 ## Dates: always `DateField`, never `<input type="date">`
 

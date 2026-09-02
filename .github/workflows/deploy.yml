@@ -77,6 +77,10 @@ jobs:
           # Quick Links (Admin → Quick Links). No default in config.ts — the
           # Dashboard just shows no Quick Links anywhere until this is set.
           VITE_SP_QUICK_LINKS_LIST_ID: ${{ vars.VITE_SP_QUICK_LINKS_LIST_ID }}
+          # ARC Feature Requests (Header's "Suggest a feature" button). No
+          # default in config.ts — the screen reports itself as "not
+          # configured yet" until this is set, same as Quick Links.
+          VITE_SP_FEATURE_REQUESTS_LIST_ID: ${{ vars.VITE_SP_FEATURE_REQUESTS_LIST_ID }}
           VITE_SP_MAINTENANCE_TASKS_LIST_ID: ${{ vars.VITE_SP_MAINTENANCE_TASKS_LIST_ID }}
           VITE_SP_SCHEDULED_MAINTENANCE_LIST_ID: ${{ vars.VITE_SP_SCHEDULED_MAINTENANCE_LIST_ID }}
           # Maintenance Departments / Locations — the two admin-managed

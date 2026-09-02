@@ -703,6 +703,19 @@ export const SP_QC_TIME_TRACKING_LIST_ID =
   import.meta.env.VITE_SP_QC_TIME_TRACKING_LIST_ID ||
   "d3d97708-1d55-4307-8e3f-9411cd98a2fa";
 
+/**
+ * "ARC Feature Requests" — Engineering site. A place for any signed-in user
+ * to request a new ARC feature or change, separate from "Report issue"
+ * (which is for something BROKEN). See
+ * scripts/create-feature-requests-list.ps1.
+ *
+ * **No default here**, same lockout-safety-style reasoning as Admins / EIR
+ * Roles / Quick Links: the list doesn't exist in SharePoint yet until Ray
+ * runs the script and gives us the real GUID. Unset means the screen reports
+ * itself as "not configured yet" — never an error — the same as Quick Links.
+ */
+export const SP_FEATURE_REQUESTS_LIST_ID = import.meta.env.VITE_SP_FEATURE_REQUESTS_LIST_ID;
+
 // =============================================================================
 // CRM Tool — Customer Notes, Customer Contacts, Special Pricing and Capacity,
 // all on the salesOrderEntry site (SITES.salesOrderEntry — the OrderEntry

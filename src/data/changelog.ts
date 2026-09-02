@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.142.0",
+    date: "2026-09-02",
+    changes: [
+      "Added ARC Feature Requests — a new \"Suggest a feature\" button in the header (next to Report issue) opens a place to ask for a new ARC feature or change",
+      "Any signed-in user can submit a request, comment on one, and change its status, priority or target version — no admin approval needed",
+      "Requests show a summary, description, department and priority, sorted with open requests first",
+    ],
+  },
+  {
     version: "0.141.0",
     date: "2026-09-01",
     changes: [

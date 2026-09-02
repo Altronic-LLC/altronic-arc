@@ -224,6 +224,14 @@ const PanelTaskDetailView = lazy(() =>
 const QcTimeTrackingView = lazy(() =>
   import("@/views/QcTimeTrackingView").then((m) => ({ default: m.QcTimeTrackingView })),
 );
+const FeatureRequestsView = lazy(() =>
+  import("@/views/FeatureRequestsView").then((m) => ({ default: m.FeatureRequestsView })),
+);
+const FeatureRequestDetailView = lazy(() =>
+  import("@/views/FeatureRequestDetailView").then((m) => ({
+    default: m.FeatureRequestDetailView,
+  })),
+);
 
 export function App() {
   // The print route is intentionally chrome-less so the saved PDF doesn't
@@ -689,6 +697,22 @@ export function App() {
               element={
                 <Suspense fallback={<LoadingTasks noun="QC time entries" />}>
                   <QcTimeTrackingView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/feature-requests"
+              element={
+                <Suspense fallback={<LoadingTasks noun="feature requests" />}>
+                  <FeatureRequestsView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/feature-request/:id"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the request" />}>
+                  <FeatureRequestDetailView />
                 </Suspense>
               }
             />

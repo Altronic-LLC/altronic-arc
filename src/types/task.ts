@@ -2848,3 +2848,73 @@ export interface ScheduledMaintenanceInput {
   requiresShutdown?: boolean;
   lotoRequired?: boolean;
 }
+
+// =============================================================================
+// ARC Feature Requests — Engineering site. A place for any signed-in user to
+// request a new ARC feature or change, separate from "Report issue" (Header's
+// NotifyAppManagerButton), which is for something BROKEN. See
+// scripts/create-feature-requests-list.ps1 for the SharePoint list this
+// mirrors, and api/featureRequests.ts for the full write-up.
+// =============================================================================
+
+/** Mirrors DASHBOARD_DEPARTMENTS plus "Cross-department" for a request that isn't one team's alone. */
+export const FEATURE_REQUEST_DEPARTMENTS = [
+  "Cross-department",
+  "Engineering",
+  "Panels",
+  "Operations",
+  "Coils",
+  "Quality Control",
+  "Supply Chain",
+  "Customer Service / Sales",
+] as const;
+
+export type FeatureRequestDepartment = (typeof FEATURE_REQUEST_DEPARTMENTS)[number];
+
+export const FEATURE_REQUEST_PRIORITIES = ["Low", "Medium", "High"] as const;
+
+export type FeatureRequestPriority = (typeof FEATURE_REQUEST_PRIORITIES)[number];
+
+export const FEATURE_REQUEST_STATUSES = [
+  "Pending Review",
+  "In Work",
+  "Completed",
+  "Not Implementing",
+] as const;
+
+export type FeatureRequestStatus = (typeof FEATURE_REQUEST_STATUSES)[number];
+
+export interface FeatureRequest {
+  id: number;
+  title: string;
+  description: string;
+  department: FeatureRequestDepartment | null;
+  /**
+   * Single person — auto-filled to the submitter on create, never
+   * hand-picked. Graph returns only the bare `RequestedByLookupId` on a
+   * single-value person column, so this is resolved after the fact against
+   * the Engineering site's user directory — the same trap CLAUDE.md
+   * documents for FAIT / Panel Orders. A resolved-but-nameless value never
+   * happens here (create always resolves before writing), but an unresolved
+   * id would render as `User #n` rather than "Not set" if it ever did.
+   */
+  requestedBy: Person | null;
+  priority: FeatureRequestPriority | null;
+  status: FeatureRequestStatus;
+  /** Blank until the request is scheduled or shipped, e.g. "v0.142.0". */
+  targetVersion: string;
+  comments: Comment[];
+  watchers: Person[];
+  hasAttachments: boolean;
+  createdAt: Date;
+  modifiedAt: Date;
+  author: Person | null;
+}
+
+/** What the "Suggest a feature" form supplies. RequestedBy/Status/Watchers are set by the API, not the form. */
+export interface FeatureRequestInput {
+  title: string;
+  description: string;
+  department: FeatureRequestDepartment | null;
+  priority: FeatureRequestPriority | null;
+}

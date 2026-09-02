@@ -5043,6 +5043,77 @@ const SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: "feature-requests",
+    title: "ARC Feature Requests",
+    group: "General",
+    keywords: [
+      "feature request",
+      "suggest a feature",
+      "suggestion",
+      "idea",
+      "request a feature",
+      "new feature",
+      "enhancement",
+      "wishlist",
+      "feedback",
+    ],
+    searchText:
+      "ARC Feature Requests at /feature-requests, reached from the Suggest a feature button (lightbulb icon) in the header next to Report issue. A place to ask for a new ARC feature or change — Report issue is for something BROKEN, this is for something you WANT. Any signed-in user can submit one: a short summary, a description of what's needed and why, an optional Department and Priority. Requested By is filled in automatically to whoever submits it. Every request starts as Pending Review and moves through In Work, Completed or Not Implementing — the status, priority, department and target version can all be changed by any signed-in user from the request's detail page, not just an admin. Requests have a comment thread and watchers, same as everywhere else in ARC, so a discussion about the idea stays attached to it. The list is open-first: Pending Review and In Work requests sort above Completed and Not Implementing ones, newest first within each group.",
+    render: () => (
+      <>
+        <P>
+          <strong>Suggest a feature</strong> (lightbulb icon, next to{" "}
+          <strong>Report issue</strong> in the header) opens{" "}
+          <strong>ARC Feature Requests</strong> (<code>/feature-requests</code>
+          ) — a place to ask for a new ARC feature or a change to an existing
+          one. Use <strong>Report issue</strong> instead when something is
+          actually broken; this is for something you'd like to see built.
+        </P>
+        <H3>Submitting a request</H3>
+        <P>
+          Click <strong>Suggest a Feature</strong> and fill in:
+        </P>
+        <UL>
+          <LI>
+            <strong>Summary</strong> — a short title, required.
+          </LI>
+          <LI>
+            <strong>Description</strong> — what's needed, and why.
+          </LI>
+          <LI>
+            <strong>Department</strong> — which team this is for, or
+            Cross-department if it isn't any one team's.
+          </LI>
+          <LI>
+            <strong>Priority</strong> — Low, Medium or High.
+          </LI>
+        </UL>
+        <P>
+          You don't pick who requested it or what status it starts at — ARC
+          fills in <strong>Requested By</strong> as you, sets{" "}
+          <strong>Status</strong> to Pending Review, and adds you as a
+          watcher automatically.
+        </P>
+        <H3>Tracking a request</H3>
+        <P>
+          Every request has its own page with a comment thread and watchers,
+          the same as a task or an EIR. Anyone signed in — not just an admin
+          — can change a request's <strong>Status</strong> (Pending Review →
+          In Work → Completed or Not Implementing),{" "}
+          <strong>Priority</strong>, <strong>Department</strong> or{" "}
+          <strong>Target Version</strong> from its sidebar, so the person
+          picking up the work can keep the record current as it moves along.
+        </P>
+        <P>
+          The list sorts open requests (Pending Review, In Work) above closed
+          ones (Completed, Not Implementing), newest first within each group,
+          so the ones still awaiting a look stay at the top. Filter by
+          Department or search across the summary, description and requester.
+        </P>
+      </>
+    ),
+  },
+  {
     id: "troubleshooting",
     title: "Troubleshooting",
     group: "General",

@@ -22,6 +22,7 @@ import {
   LayoutDashboard,
   LayoutGrid,
   Library,
+  Lightbulb,
   List,
   ListChecks,
   MapPin,
@@ -365,6 +366,7 @@ export function Header() {
           </Link>
 
           <div className="flex items-center gap-2 sm:hidden">
+            <SuggestFeatureButton />
             <NotifyAppManagerButton />
             <button
               onClick={toggle}
@@ -476,6 +478,7 @@ export function Header() {
           <span className="hidden text-[11px] text-fg-muted md:inline">
             {USE_MOCK ? "Demo mode · mock data" : "Connected to SharePoint"}
           </span>
+          <SuggestFeatureButton />
           <NotifyAppManagerButton />
           <button
             onClick={toggle}
@@ -488,6 +491,26 @@ export function Header() {
         </div>
       </div>
     </header>
+  );
+}
+
+/**
+ * "Suggest a feature" — a plain link to the ARC Feature Requests tool, next
+ * to Report Issue. Unlike Report Issue (a modal, for something BROKEN), this
+ * is a full page, since raising and tracking a feature request needs more
+ * room than a modal offers.
+ */
+function SuggestFeatureButton() {
+  return (
+    <Link
+      to="/feature-requests"
+      title="Suggest a feature"
+      aria-label="Suggest a feature"
+      className="flex h-9 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-medium text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
+    >
+      <Lightbulb className="h-4 w-4" />
+      <span className="hidden md:inline">Suggest a feature</span>
+    </Link>
   );
 }
 
