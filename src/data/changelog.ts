@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.143.1",
+    date: "2026-09-02",
+    changes: [
+      "New Gray Market Request now shows a Requestor field, defaulted to you — change it if you're filing on someone else's behalf",
+    ],
+  },
+  {
     version: "0.143.0",
     date: "2026-09-02",
     changes: [
