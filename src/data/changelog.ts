@@ -20,19 +20,6 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "0.147.0",
-    date: "2026-09-03",
-    changes: [
-      "Panel QC issue fields renamed to match the SharePoint list: Panel Serial Number, Sub Component Part Number, Sub Component Serial Number, Failure Reported, Panels Resolution, Repair Technician, Repair Issue Found, Repair Resolution",
-      "Added Panel Part Number, Repair Defect Category and Status to Panel QC issues",
-      "The Repair Department section is now hidden on the New Issue form and only appears once an issue exists",
-      "New Panel QC issues can have files attached before saving — they upload automatically once the issue is created",
-      "The Panel QC edit view now shows the issue's current Status next to its TAG Number, with a Status picker beside Save changes",
-      "Repair Technician and Repair Defect Category now sit side by side in the Repair Department section",
-      "On the New Issue form, the Cancel/Add issue buttons now sit below the Attachments section instead of above it",
-    ],
-  },
-  {
     version: "0.146.0",
     date: "2026-09-03",
     changes: [
@@ -46,8 +33,10 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Existing Panel QC entries can open a printer-ready 2 × 2 inch label, with zero margins, showing their TAG Number, serial note, part details, and date",
       "Panel QC issues have a real Communication comment thread with @-mentions and email notifications, Watchers with an immediate Watch/Unwatch button and auto-watch when someone is mentioned, and file attachments",
       "Panel QC issue search also matches the comment thread and watcher names, and the list shows a comment count and a paperclip icon for issues with attachments",
-      "New Panel QC entries and edits now group fields into Panel Department (defect details) and Repair Department (technician, repair notes, resolution) sections, in both the new-issue and edit views",
-      "Panel Department fields now lay out two per row (Serial Number/Date, Part Number/Serial Reference Note, Defect Category/Part Description), with only Comments and Corrective Action spanning the full width",
+      "Panel QC fields are grouped into Panel Department and Repair Department sections in both the new-issue and edit views — the Repair Department section stays hidden until the issue exists",
+      "Panel QC issue fields renamed to match the SharePoint list — Panel Serial Number, Panel Part Number, Sub Component Part Number, Sub Component Serial Number, Failure Reported, Panels Resolution, Repair Technician, Repair Defect Category, Repair Issue Found, Repair Resolution — plus a new Status field",
+      "The Panel QC edit view shows the issue's current Status next to its TAG Number, with a Status picker beside Save changes; new issues always start at Created",
+      "New Panel QC issues can have files attached before saving — they upload automatically once the issue is created, with the Cancel/Add issue buttons sitting below Attachments on that form",
       "The app header and footer stay visible while you scroll, with reserved space so page content remains accessible",
     ],
   },
