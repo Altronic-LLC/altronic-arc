@@ -34,6 +34,8 @@ export const MOCK_PANEL_QC_STATUS_CHOICES = [
  * same caveat as MOCK_PANEL_QC_STATUS_CHOICES above. A few of these entries
  * were truncated in the column editor screenshot they were transcribed
  * from; real mode is unaffected since it reads SharePoint's own text.
+ * "No Problem Found" and "Electrical Damage" added 2026-09-03 to match
+ * Ray's addition on the live column.
  */
 export const MOCK_PANEL_QC_REPAIR_DEFECT_CHOICES = [
   "Process Solder Defect",
@@ -46,8 +48,10 @@ export const MOCK_PANEL_QC_REPAIR_DEFECT_CHOICES = [
   "Coating/Potting Deficiency",
   "Machine Part Placement Deficiency",
   "Physical Damage",
+  "Electrical Damage",
   "NCM Vendor",
   "NCM Internal",
+  "No Problem Found",
   "Other",
 ];
 
