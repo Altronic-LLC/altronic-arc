@@ -127,29 +127,39 @@ export function PanelQcIssueFormModal({ issue, onClose }: Props) {
 
   return (
     <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-4 px-4 py-5 sm:px-6 sm:py-8">
-      <div className="flex flex-col rounded-lg border border-border bg-surface shadow-sm">
-        <div className="flex items-center justify-between border-b border-border px-5 py-3">
-          <h2 className="flex items-center gap-2 font-display text-base font-semibold text-fg"><ClipboardCheck className="h-4 w-4 text-accent" />{issue ? <><span>Edit Panel QC Issue</span><span className="ml-2 font-mono text-xs font-normal text-fg-muted">{issue.tagNumber || "No TAG"}</span></> : "New Panel QC Issue"}</h2>
-          <div className="flex items-center gap-1">
-            {live && (
-              <button
-                type="button"
-                onClick={() => (isWatching ? unwatchIssue.mutate({ id: live.id, person: currentUser }) : watchIssue.mutate({ id: live.id, person: currentUser }))}
-                className={cn(
-                  "mr-1 inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors",
-                  isWatching ? "border-accent bg-accent/10 text-accent hover:bg-accent/20" : "border-border bg-surface text-fg hover:bg-surface-2",
-                )}
-                title={isWatching ? "You'll receive email updates about this issue" : "Add yourself to the watchers list"}
-              >
-                {isWatching ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-                {isWatching ? "Watching" : "Watch"}
-              </button>
-            )}
-            <button type="button" onClick={() => issue && window.open(`${import.meta.env.BASE_URL}panels/qc-issues/${issue.id}/print`, "_blank", "noopener,noreferrer")} disabled={busy || !issue} title="Print 2 × 2 label" aria-label="Print 2 × 2 label" className="rounded-md p-1 text-fg-muted hover:bg-surface-2 disabled:opacity-50"><Printer className="h-4 w-4" /></button>
-            <button type="button" onClick={onClose} disabled={busy} aria-label="Close" className="rounded-md p-1 text-fg-muted hover:bg-surface-2 disabled:opacity-50"><X className="h-4 w-4" /></button>
-          </div>
+      <div className="flex items-center justify-between rounded-lg border border-border bg-surface px-5 py-3 shadow-sm">
+        <h2 className="flex items-center gap-2 font-display text-base font-semibold text-fg"><ClipboardCheck className="h-4 w-4 text-accent" />{issue ? <><span>Edit Panel QC Issue</span><span className="ml-2 font-mono text-xs font-normal text-fg-muted">{issue.tagNumber || "No TAG"}</span></> : "New Panel QC Issue"}</h2>
+        <div className="flex items-center gap-1">
+          {live && (
+            <button
+              type="button"
+              onClick={() => (isWatching ? unwatchIssue.mutate({ id: live.id, person: currentUser }) : watchIssue.mutate({ id: live.id, person: currentUser }))}
+              className={cn(
+                "mr-1 inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors",
+                isWatching ? "border-accent bg-accent/10 text-accent hover:bg-accent/20" : "border-border bg-surface text-fg hover:bg-surface-2",
+              )}
+              title={isWatching ? "You'll receive email updates about this issue" : "Add yourself to the watchers list"}
+            >
+              {isWatching ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+              {isWatching ? "Watching" : "Watch"}
+            </button>
+          )}
+          <button type="button" onClick={() => issue && window.open(`${import.meta.env.BASE_URL}panels/qc-issues/${issue.id}/print`, "_blank", "noopener,noreferrer")} disabled={busy || !issue} title="Print 2 × 2 label" aria-label="Print 2 × 2 label" className="rounded-md p-1 text-fg-muted hover:bg-surface-2 disabled:opacity-50"><Printer className="h-4 w-4" /></button>
+          <button type="button" onClick={onClose} disabled={busy} aria-label="Close" className="rounded-md p-1 text-fg-muted hover:bg-surface-2 disabled:opacity-50"><X className="h-4 w-4" /></button>
         </div>
-        <form id="panel-qc-issue-form" onSubmit={submit} className="px-5 py-5">
+      </div>
+
+      {/* `contents` keeps the two cards below as direct siblings in this
+          column's layout, while still being ONE <form> — so Enter-to-submit
+          and the single Save/Add button (linked by `form=` further down)
+          cover both departments' fields together. Splitting the fields into
+          two SharePoint-column-owning groups (Ray, 2026-09-03: renaming some
+          of these columns is still to come; this is the visual split ahead
+          of that) mirrors the Watchers/Attachments/Communication cards
+          below rather than one long undifferentiated field list. */}
+      <form id="panel-qc-issue-form" onSubmit={submit} className="contents">
+        <div className="rounded-lg border border-border bg-surface p-4 sm:p-5">
+          <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">Panel Department</h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Panel / Board Serial Number" className="sm:col-span-2"><input ref={firstFieldRef} value={draft.panelSerialNumber} onChange={(e) => set("panelSerialNumber", e.target.value)} className="input" /></Field>
             <Field label="Date"><DateField value={toDateInputValue(draft.date)} onChange={(value) => set("date", fromDateInputValue(value))} disabled={busy} /></Field>
@@ -168,13 +178,21 @@ export function PanelQcIssueFormModal({ issue, onClose }: Props) {
             {!issue && <Field label="Watchers" className="sm:col-span-2"><PersonMultiField value={draft.watchers} allPeople={draftAllPeople} onToggle={(person) => set("watchers", draft.watchers.some((watcher) => (watcher.email ?? watcher.displayName) === (person.email ?? person.displayName)) ? draft.watchers.filter((watcher) => (watcher.email ?? watcher.displayName) !== (person.email ?? person.displayName)) : [...draft.watchers, person])} emptyLabel="No watchers" searchPlaceholder="Search people…" /></Field>}
             <Field label="Comments" className="sm:col-span-2"><AutoGrowTextarea value={draft.notes} onChange={(e) => set("notes", e.target.value)} rows={3} className="input resize-y" /></Field>
             <Field label="Subsequent Steps / Corrective Action" className="sm:col-span-2"><AutoGrowTextarea value={draft.correctiveAction} onChange={(e) => set("correctiveAction", e.target.value)} rows={3} className="input resize-y" /></Field>
-            <Field label="Production Repair Notes" className="sm:col-span-2"><AutoGrowTextarea value={draft.productionRepairNotes} onChange={(e) => set("productionRepairNotes", e.target.value)} rows={2} className="input resize-y" /></Field>
-            <Field label="Production Resolution" className="sm:col-span-2"><AutoGrowTextarea value={draft.productionResolution} onChange={(e) => set("productionResolution", e.target.value)} rows={2} className="input resize-y" /></Field>
           </div>
-          {error && <p className="mt-4 text-sm text-cooper-red">{error}</p>}
-        </form>
-        <div className="flex justify-end gap-2 border-t border-border px-5 py-3"><button type="button" onClick={onClose} disabled={busy} className="rounded-md border border-border px-4 py-1.5 text-sm font-medium text-fg hover:bg-surface-2 disabled:opacity-50">Cancel</button><button type="submit" form="panel-qc-issue-form" disabled={busy} className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white hover:bg-accent/90 disabled:opacity-60">{busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}{issue ? "Save changes" : "Add issue"}</button></div>
-      </div>
+        </div>
+
+        <div className="rounded-lg border border-border bg-surface p-4 sm:p-5">
+          <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">Repair Department</h2>
+          <div className="grid grid-cols-1 gap-4">
+            <Field label="Production Repair Notes"><AutoGrowTextarea value={draft.productionRepairNotes} onChange={(e) => set("productionRepairNotes", e.target.value)} rows={2} className="input resize-y" /></Field>
+            <Field label="Production Resolution"><AutoGrowTextarea value={draft.productionResolution} onChange={(e) => set("productionResolution", e.target.value)} rows={2} className="input resize-y" /></Field>
+          </div>
+        </div>
+      </form>
+
+      {error && <p className="text-sm text-cooper-red">{error}</p>}
+
+      <div className="flex justify-end gap-2 rounded-lg border border-border bg-surface px-5 py-3 shadow-sm"><button type="button" onClick={onClose} disabled={busy} className="rounded-md border border-border px-4 py-1.5 text-sm font-medium text-fg hover:bg-surface-2 disabled:opacity-50">Cancel</button><button type="submit" form="panel-qc-issue-form" disabled={busy} className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white hover:bg-accent/90 disabled:opacity-60">{busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}{issue ? "Save changes" : "Add issue"}</button></div>
 
       {live && (
         <>
