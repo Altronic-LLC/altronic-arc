@@ -228,13 +228,13 @@ export function PanelQcIssueFormModal({ issue, onClose }: Props) {
         {issue && (
           <div className="rounded-lg border border-border bg-surface p-4 sm:p-5">
             <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">Repair Department</h2>
-            <div className="grid grid-cols-1 gap-4">
-              <Field label="Repair Technician" className="sm:max-w-xs"><input value={draft.repairTechnician} onChange={(e) => set("repairTechnician", e.target.value)} className="input" /></Field>
-              <Field label="Repair Defect Category" className="sm:max-w-xs">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field label="Repair Technician"><input value={draft.repairTechnician} onChange={(e) => set("repairTechnician", e.target.value)} className="input" /></Field>
+              <Field label="Repair Defect Category">
                 <ChoiceSelect value={draft.repairDefectCategory ?? ""} onChange={(value) => set("repairDefectCategory", value || null)} options={repairDefectChoices} emptyLabel="Not set" disabled={busy} />
               </Field>
-              <Field label="Repair Issue Found"><AutoGrowTextarea value={draft.repairIssueFound} onChange={(e) => set("repairIssueFound", e.target.value)} rows={2} className="input resize-y" /></Field>
-              <Field label="Repair Resolution"><AutoGrowTextarea value={draft.repairResolution} onChange={(e) => set("repairResolution", e.target.value)} rows={2} className="input resize-y" /></Field>
+              <Field label="Repair Issue Found" className="sm:col-span-2"><AutoGrowTextarea value={draft.repairIssueFound} onChange={(e) => set("repairIssueFound", e.target.value)} rows={2} className="input resize-y" /></Field>
+              <Field label="Repair Resolution" className="sm:col-span-2"><AutoGrowTextarea value={draft.repairResolution} onChange={(e) => set("repairResolution", e.target.value)} rows={2} className="input resize-y" /></Field>
             </div>
           </div>
         )}
