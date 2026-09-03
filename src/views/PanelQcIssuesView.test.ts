@@ -6,8 +6,8 @@ import { truncateLabelDescription } from "./PrintPanelQcIssueView";
 
 const issue = (id: number, date: Date | null): PanelQcIssue => ({
   id, date, panelSerialNumber: "", partNumber: "", partDescription: "", serialReferenceNote: "",
-  defectCategory: null, comments: "", correctiveAction: "", productionTechnician: "",
-  productionRepairNotes: "", productionResolution: "", communication: "", watchers: [], tagNumber: "",
+  defectCategory: null, notes: "", correctiveAction: "", productionTechnician: "",
+  productionRepairNotes: "", productionResolution: "", watchers: [], comments: [], hasAttachments: false, tagNumber: "",
 });
 
 describe("Panel QC issue sorting", () => {

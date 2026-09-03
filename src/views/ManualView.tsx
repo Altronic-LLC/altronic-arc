@@ -2125,8 +2125,8 @@ const SECTIONS: ManualSection[] = [
     id: "panel-qc-issue-tracker",
     title: "Panel QC Issue Tracker",
     group: "Panels",
-    keywords: ["panel qc", "issue tracker", "defect", "production", "corrective action"],
-    searchText: "Panel QC Issue Tracker records panel and board defects from production through resolution. Defect categories come from the Tim-Test-Panel-Defect list and can be added while recording an issue.",
+    keywords: ["panel qc", "issue tracker", "defect", "production", "corrective action", "watchers", "attachments", "comments"],
+    searchText: "Panel QC Issue Tracker records panel and board defects from production through resolution. Defect categories come from the Tim-Test-Panel-Defect list and can be added while recording an issue. Issues have watchers, a comment thread with @-mentions, and file attachments.",
     render: () => (
       <>
         <P>
@@ -2142,6 +2142,16 @@ const SECTIONS: ManualSection[] = [
           Number and TAG Number are handled by the list; TAG Number is assigned
           automatically for new entries. Click New Issue to open the entry view,
           or click a row to open its edit view.
+        </P>
+        <P>
+          Once an issue exists, its edit view also shows{" "}
+          <strong>Watchers</strong>, a <strong>Communication</strong> comment
+          thread, and an <strong>Attachments</strong> card — the same pattern
+          used across ARC. Click <strong>Watch</strong> to follow an issue, or
+          @-mention someone in a comment to notify them by email and add them
+          as a watcher automatically. The issue list's search box also matches
+          the comment thread and watcher names, and shows a comment count and a
+          paperclip icon for issues with attachments.
         </P>
       </>
     ),

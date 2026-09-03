@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowDown, ArrowUp, ArrowUpDown, ClipboardCheck, Pencil, Plus } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, ClipboardCheck, MessageSquare, Paperclip, Pencil, Plus } from "lucide-react";
 import { SearchInput } from "@/components/SearchInput";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { usePanelQcIssues } from "@/hooks/usePanelQcIssues";
 import type { PanelQcIssue } from "@/types/task";
 import { formatSpDate } from "@/lib/spDates";
+import { htmlToPlainText } from "@/lib/htmlText";
 
 const INITIAL_ROWS = 150;
 const display = (value: string | null | undefined) => value || "—";
@@ -19,18 +20,26 @@ const SORT_COLUMNS: Array<{ key: SortKey; label: string }> = [
   { key: "partDescription", label: "Description" },
   { key: "serialReferenceNote", label: "Serial Note" },
   { key: "defectCategory", label: "Defect" },
-  { key: "comments", label: "Comments" },
+  { key: "notes", label: "Notes" },
   { key: "correctiveAction", label: "Corrective Action" },
   { key: "productionTechnician", label: "Technician" },
   { key: "productionRepairNotes", label: "Repair Notes" },
   { key: "productionResolution", label: "Resolution" },
-  { key: "communication", label: "Communication" },
   { key: "watchers", label: "Watchers" },
+  { key: "comments", label: "Comments" },
 ];
 
 export function comparePanelQcIssues(left: PanelQcIssue, right: PanelQcIssue, key: SortKey, direction: "asc" | "desc") {
   const leftValue = left[key];
   const rightValue = right[key];
+  if (key === "comments") {
+    const comparison = (leftValue as PanelQcIssue["comments"]).length - (rightValue as PanelQcIssue["comments"]).length;
+    return direction === "asc" ? comparison : -comparison;
+  }
+  if (key === "watchers") {
+    const comparison = (leftValue as PanelQcIssue["watchers"]).length - (rightValue as PanelQcIssue["watchers"]).length;
+    return direction === "asc" ? comparison : -comparison;
+  }
   const leftEmpty = leftValue === null || leftValue === undefined || leftValue === "";
   const rightEmpty = rightValue === null || rightValue === undefined || rightValue === "";
   if (leftEmpty !== rightEmpty) return leftEmpty ? 1 : -1;
@@ -39,6 +48,23 @@ export function comparePanelQcIssues(left: PanelQcIssue, right: PanelQcIssue, ke
     ? (leftValue as Date).getTime() - (rightValue as Date).getTime()
     : String(leftValue).localeCompare(String(rightValue), undefined, { numeric: true, sensitivity: "base" });
   return direction === "asc" ? comparison : -comparison;
+}
+
+/** Everything a search token can match against — plain fields, watcher
+ * names, and the plain text of every comment in the thread (the search box
+ * says "comments" is in scope, so the thread itself has to be searchable,
+ * not just the free-text Notes column). */
+function searchableText(issue: PanelQcIssue): string {
+  const plainFields = [
+    issue.tagNumber, issue.panelSerialNumber, issue.partNumber, issue.partDescription,
+    issue.serialReferenceNote, issue.defectCategory, issue.notes, issue.correctiveAction,
+    issue.productionTechnician, issue.productionRepairNotes, issue.productionResolution,
+  ];
+  return [
+    ...plainFields.map((value) => value ?? ""),
+    displayWatchers(issue.watchers),
+    ...issue.comments.map((comment) => htmlToPlainText(comment.bodyHtml)),
+  ].join(" ").toLowerCase();
 }
 
 export function PanelQcIssuesView() {
@@ -51,7 +77,7 @@ export function PanelQcIssuesView() {
   const filtered = useMemo(() => {
     const tokens = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
     return issues
-      .filter((issue) => tokens.every((token) => Object.values(issue).some((value) => String(value ?? "").toLowerCase().includes(token))))
+      .filter((issue) => tokens.every((token) => searchableText(issue).includes(token)))
       .sort((left, right) => comparePanelQcIssues(left, right, sortKey, sortDirection));
   }, [issues, query, sortDirection, sortKey]);
   const visible = showAll ? filtered : filtered.slice(0, INITIAL_ROWS);
@@ -76,6 +102,6 @@ export function PanelQcIssuesView() {
   </div>;
 }
 
-function IssueRow({ issue, onEdit }: { issue: PanelQcIssue; onEdit: () => void }) { return <tr onClick={onEdit} className="cursor-pointer border-t border-border align-top hover:bg-surface-2"><td className="break-words px-2 py-2 font-medium text-fg">{display(issue.tagNumber)}</td><td className="break-words px-2 py-2 font-medium text-fg">{display(issue.panelSerialNumber)}</td><td className="break-words px-2 py-2 text-fg-muted">{formatSpDate(issue.date)}</td><td className="break-words px-2 py-2 text-fg-muted">{display(issue.partNumber)}</td><td className="break-words px-2 py-2 text-fg-muted">{display(issue.partDescription)}</td><td className="break-words px-2 py-2 text-fg-muted">{display(issue.serialReferenceNote)}</td><td className="break-words px-2 py-2 text-fg-muted">{display(issue.defectCategory)}</td><td className="break-words px-2 py-2 text-fg-muted">{display(issue.comments)}</td><td className="break-words px-2 py-2 text-fg-muted">{display(issue.correctiveAction)}</td><td className="break-words px-2 py-2 text-fg-muted">{display(issue.productionTechnician)}</td><td className="break-words px-2 py-2 text-fg-muted">{display(issue.productionRepairNotes)}</td><td className="break-words px-2 py-2 text-fg-muted">{display(issue.productionResolution)}</td><td className="break-words px-2 py-2 text-fg-muted">{display(issue.communication)}</td><td className="break-words px-2 py-2 text-fg-muted">{displayWatchers(issue.watchers)}</td><td className="w-9 px-1 py-2"><button type="button" onClick={(event) => { event.stopPropagation(); onEdit(); }} aria-label={`Edit issue ${issue.panelSerialNumber}`} className="rounded-md p-1 text-fg-muted hover:bg-surface-2 hover:text-fg"><Pencil className="h-4 w-4" /></button></td></tr>; }
+function IssueRow({ issue, onEdit }: { issue: PanelQcIssue; onEdit: () => void }) { return <tr onClick={onEdit} className="cursor-pointer border-t border-border align-top hover:bg-surface-2"><td className="break-words px-2 py-2 font-medium text-fg">{display(issue.tagNumber)}{issue.hasAttachments && <Paperclip className="ml-1 inline h-3 w-3 text-fg-muted" aria-label="Has attachments" />}</td><td className="break-words px-2 py-2 font-medium text-fg">{display(issue.panelSerialNumber)}</td><td className="break-words px-2 py-2 text-fg-muted">{formatSpDate(issue.date)}</td><td className="break-words px-2 py-2 text-fg-muted">{display(issue.partNumber)}</td><td className="break-words px-2 py-2 text-fg-muted">{display(issue.partDescription)}</td><td className="break-words px-2 py-2 text-fg-muted">{display(issue.serialReferenceNote)}</td><td className="break-words px-2 py-2 text-fg-muted">{display(issue.defectCategory)}</td><td className="break-words px-2 py-2 text-fg-muted">{display(issue.notes)}</td><td className="break-words px-2 py-2 text-fg-muted">{display(issue.correctiveAction)}</td><td className="break-words px-2 py-2 text-fg-muted">{display(issue.productionTechnician)}</td><td className="break-words px-2 py-2 text-fg-muted">{display(issue.productionRepairNotes)}</td><td className="break-words px-2 py-2 text-fg-muted">{display(issue.productionResolution)}</td><td className="break-words px-2 py-2 text-fg-muted">{displayWatchers(issue.watchers)}</td><td className="px-2 py-2 text-fg-muted">{issue.comments.length > 0 ? <span className="inline-flex items-center gap-1"><MessageSquare className="h-3.5 w-3.5" />{issue.comments.length}</span> : "—"}</td><td className="w-9 px-1 py-2"><button type="button" onClick={(event) => { event.stopPropagation(); onEdit(); }} aria-label={`Edit issue ${issue.panelSerialNumber}`} className="rounded-md p-1 text-fg-muted hover:bg-surface-2 hover:text-fg"><Pencil className="h-4 w-4" /></button></td></tr>; }
 
-function IssueCard({ issue, onEdit }: { issue: PanelQcIssue; onEdit: () => void }) { return <button type="button" onClick={onEdit} className="flex w-full flex-col gap-2 px-4 py-3 text-left hover:bg-surface-2"><div className="flex items-start justify-between gap-2"><span className="font-medium text-fg">{display(issue.tagNumber)} · {display(issue.panelSerialNumber)}</span><Pencil className="h-4 w-4 shrink-0 text-fg-muted" /></div><dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-sm"><dt className="text-fg-muted">Date</dt><dd className="truncate text-right text-fg">{formatSpDate(issue.date)}</dd><dt className="text-fg-muted">Part</dt><dd className="truncate text-right text-fg">{display(issue.partNumber)}</dd><dt className="text-fg-muted">Defect</dt><dd className="truncate text-right text-fg">{display(issue.defectCategory)}</dd><dt className="text-fg-muted">Description</dt><dd className="truncate text-right text-fg">{display(issue.partDescription)}</dd><dt className="text-fg-muted">Watchers</dt><dd className="truncate text-right text-fg">{displayWatchers(issue.watchers)}</dd><dt className="text-fg-muted">Communication</dt><dd className="truncate text-right text-fg">{display(issue.communication)}</dd></dl></button>; }
+function IssueCard({ issue, onEdit }: { issue: PanelQcIssue; onEdit: () => void }) { return <button type="button" onClick={onEdit} className="flex w-full flex-col gap-2 px-4 py-3 text-left hover:bg-surface-2"><div className="flex items-start justify-between gap-2"><span className="font-medium text-fg">{display(issue.tagNumber)} · {display(issue.panelSerialNumber)}{issue.hasAttachments && <Paperclip className="ml-1 inline h-3 w-3 text-fg-muted" aria-label="Has attachments" />}</span><Pencil className="h-4 w-4 shrink-0 text-fg-muted" /></div><dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-sm"><dt className="text-fg-muted">Date</dt><dd className="truncate text-right text-fg">{formatSpDate(issue.date)}</dd><dt className="text-fg-muted">Part</dt><dd className="truncate text-right text-fg">{display(issue.partNumber)}</dd><dt className="text-fg-muted">Defect</dt><dd className="truncate text-right text-fg">{display(issue.defectCategory)}</dd><dt className="text-fg-muted">Description</dt><dd className="truncate text-right text-fg">{display(issue.partDescription)}</dd><dt className="text-fg-muted">Watchers</dt><dd className="truncate text-right text-fg">{displayWatchers(issue.watchers)}</dd><dt className="text-fg-muted">Comments</dt><dd className="truncate text-right text-fg">{issue.comments.length}</dd></dl></button>; }

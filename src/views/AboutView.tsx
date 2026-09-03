@@ -1258,8 +1258,9 @@ const SCHEMA_TABLES: SchemaTable[] = [
       { name: "partNumber / description", type: "text", kind: "field" },
       { name: "serialReferenceNote", type: "text", kind: "field" },
       { name: "defectCategory", type: "text", kind: "fk", references: "PanelQcDefect.name" },
-      { name: "comments / correctiveAction", type: "text", kind: "field" },
+      { name: "notes / correctiveAction", type: "text", kind: "field" },
       { name: "production fields", type: "text", kind: "field" },
+      { name: "watchers", type: "int[]", kind: "fk", references: "Person.id" },
     ],
   },
   {
@@ -1422,6 +1423,7 @@ const CONNECTIONS: Connection[] = [
   { fromTable: "FeatureRequest", fromColumn: "requestedBy", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "FeatureRequest", fromColumn: "watchers", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
   { fromTable: "PanelQcIssue", fromColumn: "defectCategory", toTable: "PanelQcDefect", toColumn: "name", fromCard: "many", toCard: "one" },
+  { fromTable: "PanelQcIssue", fromColumn: "watchers", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
 ];
 
 export function AboutView() {

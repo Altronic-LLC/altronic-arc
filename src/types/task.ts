@@ -924,7 +924,13 @@ export interface PanelRoleEntry {
   note: string;
 }
 
-/** A production panel QC issue from the Engineering-site test list. */
+/**
+ * A production panel QC issue from the panel team's Panel QC Issues list
+ * (ALTRONICPANELTEAM site). `notes` is the list's free-text "Comments"
+ * column describing the defect — kept apart from `comments`, the real
+ * Communication comment thread, the same collision CostImpactNotice's
+ * `notes` field was named around (see CLAUDE.md).
+ */
 export interface PanelQcIssue {
   id: number;
   panelSerialNumber: string;
@@ -933,13 +939,15 @@ export interface PanelQcIssue {
   partDescription: string;
   serialReferenceNote: string;
   defectCategory: string | null;
-  comments: string;
+  notes: string;
   correctiveAction: string;
   productionTechnician: string;
   productionRepairNotes: string;
   productionResolution: string;
-  communication: string;
   watchers: Person[];
+  /** The Communication comment thread, parsed from the SharePoint column. */
+  comments: Comment[];
+  hasAttachments: boolean;
   tagNumber: string;
 }
 
@@ -950,12 +958,11 @@ export interface PanelQcIssueInput {
   partDescription: string;
   serialReferenceNote: string;
   defectCategory: string | null;
-  comments: string;
+  notes: string;
   correctiveAction: string;
   productionTechnician: string;
   productionRepairNotes: string;
   productionResolution: string;
-  communication: string;
   watchers: Person[];
   tagNumber: string;
 }

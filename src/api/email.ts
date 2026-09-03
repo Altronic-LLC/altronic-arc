@@ -81,6 +81,7 @@ export interface MentionTarget {
     | "buildRequestItem"
     | "panelOrder"
     | "panelTask"
+    | "panelQcIssue"
     | "grayMarketRequest"
     | "customerNote"
     | "supplier"
@@ -131,6 +132,11 @@ const KIND_COPY: Record<
     phrase: "a panel task",
     calloutLabel: "Panel Task",
     buttonText: "Open this panel task",
+  },
+  panelQcIssue: {
+    phrase: "a panel QC issue",
+    calloutLabel: "Panel QC Issue",
+    buttonText: "Open this issue",
   },
   customerNote: {
     phrase: "a customer",
