@@ -1276,6 +1276,22 @@ with no OEM impact can close on SQE + Engineering alone and never parks at
 "Move the CAM [KAM] Person field forward") — People group order is now
 Initiator → KAM → Assigned Engineer → Watchers.
 
+**The KAM sidebar PICKER hides too, not just the sign-off requirement note**
+— a follow-up fix the same day, caught by Ray from a screenshot: the first
+pass only hid the KAM fields on the Sign-off card and swapped in the "no OEM
+Impact" hint text, but the person picker itself kept rendering, so a FAIT
+with no OEM impact still showed an empty, pickable KAM field doing nothing.
+The gate is `hasOemImpact(fait) || fait.kam !== null`, deliberately NOT bare
+`kamNeeded(fait)`: with no OEM impact, `kamNeeded` is unconditionally false
+even when a KAM is already assigned (the sign-off genuinely doesn't apply),
+but the SIDEBAR PICKER still has to show that assignment — an assigned
+person must never become invisible in the UI just because OEM Impact was
+unchecked afterward, same "don't hide real data" rule the Sign-off card's
+own KAM fields already follow for pre-existing sign-off data. Fixture 7 (no
+OEM impact, no KAM) and fixture 6 (no OEM impact, KAM ALREADY assigned) are
+the two shapes `FaitDetailView.test.tsx` pins this with — deliberately two
+different fixtures, since one fixture can't prove both halves of an OR.
+
 **"Notify Initiator" CLOSES the FAIT — once every sign-off it owes is
 Approved.** Ray first asked (2026-09-03, same day) whether checking this
 Sign-off card box closes the FAIT and changes its status; the answer at that

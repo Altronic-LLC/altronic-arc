@@ -38,9 +38,9 @@ describe("FaitsView", () => {
 
   it("counts each bucket on the pills", async () => {
     await renderList();
-    expect(screen.getByRole("button", { name: /^Open/ })).toHaveTextContent("5");
+    expect(screen.getByRole("button", { name: /^Open/ })).toHaveTextContent("6");
     expect(screen.getByRole("button", { name: /^Closed/ })).toHaveTextContent("1");
-    expect(screen.getByRole("button", { name: /^All/ })).toHaveTextContent("6");
+    expect(screen.getByRole("button", { name: /^All/ })).toHaveTextContent("7");
   });
 
   it("switches to the closed ones", async () => {

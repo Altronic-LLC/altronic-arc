@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.145.2",
+    date: "2026-09-03",
+    changes: [
+      "Fixed: the KAM person field on a FAIT's sidebar now actually hides when there's no OEM Impact (it was only hiding the sign-off requirement note, not the picker itself) — unless a KAM is already assigned, in which case it stays visible so that assignment isn't hidden",
+    ],
+  },
+  {
     version: "0.145.1",
     date: "2026-09-03",
     changes: [

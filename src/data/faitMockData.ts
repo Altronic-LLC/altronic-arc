@@ -194,6 +194,13 @@ export const MOCK_FAITS: Fait[] = [
       failedFirstPassDate: daysAgo(5).toISOString(),
       failedReason: "Two conductors transposed at the connector.",
       failureResolved: "",
+      // OEM Impact: Yes, so this fixture tests "no KAM needed" for its
+      // ORIGINAL reason (no KAM assigned, no sign-off data) — not the
+      // separate "no OEM impact" reason, which fixture 6 covers. Without
+      // this the KAM picker itself would hide entirely (kam === null AND no
+      // OEM impact), rather than showing with a hint, which is what this
+      // fixture's tests are actually about.
+      oemImpact: "Yes",
     },
     createdAt: daysAgo(21),
     modifiedAt: daysAgo(5),
@@ -270,6 +277,36 @@ export const MOCK_FAITS: Fait[] = [
       sqeSignOff: "Pending",
     },
     createdAt: daysAgo(6),
+    modifiedAt: daysAgo(1),
+  },
+  {
+    id: 7,
+    title: "",
+    // No OEM Impact AND no KAM assigned — the shape needed to test that the
+    // KAM sidebar picker hides ENTIRELY (not just the sign-off fields) when
+    // there's no OEM impact and nobody's already sitting in the field (Ray,
+    // 2026-09-03). Deliberately separate from fixture 6, which has a KAM
+    // ALREADY assigned — an assignment that exists must stay visible even
+    // with no OEM impact, so it can still be seen/cleared.
+    status: "Open",
+    parentProject: { lookupId: 501, title: "" },
+    eirLookupId: null,
+    testDocumentLookupId: null,
+    initiator: SARAH,
+    assignedEngineer: null,
+    kam: null,
+    watchers: [SARAH],
+    comments: [],
+    hasAttachments: false,
+    values: {
+      ...BLANK,
+      sapPartNumber: "704188",
+      description: "SPACER, RETAINER RING",
+      drawingNumber: "704188",
+      supplierName: "GREAT LAKES MACHINING",
+      oemImpact: "",
+    },
+    createdAt: daysAgo(2),
     modifiedAt: daysAgo(1),
   },
 ];

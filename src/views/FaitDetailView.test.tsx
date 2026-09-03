@@ -287,6 +287,30 @@ describe("FaitDetailView", () => {
     });
   });
 
+  // Ray, 2026-09-03: "If there is no OEM impact, hide the CAM [KAM]
+  // sign-off field." No OEM Impact hides the sidebar KAM PICKER entirely —
+  // not just the sign-off fields — when nobody is already assigned.
+  describe("when there's no OEM Impact and no KAM assigned (fixture 7)", () => {
+    it("hides the KAM picker from the sidebar entirely", async () => {
+      await renderFait(7);
+      expect(screen.queryByRole("button", { name: /^KAM/ })).not.toBeInTheDocument();
+      expect(screen.queryByText(/no kam needed/i)).not.toBeInTheDocument();
+    });
+
+    it("still shows Assigned Engineer right after Initiator", async () => {
+      await renderFait(7);
+      expect(screen.getByRole("button", { name: /^Assigned Engineer/ })).toBeInTheDocument();
+    });
+  });
+
+  // Fixture 6 has a KAM ALREADY assigned but no OEM Impact — the picker must
+  // stay visible so a real assignment is never hidden out of the UI, the
+  // same "don't hide real data" rule that protects the Sign-off card fields.
+  it("keeps showing the KAM picker when a KAM is assigned even with no OEM Impact (fixture 6)", async () => {
+    await renderFait(6);
+    expect(screen.getByRole("button", { name: /^KAM/ })).toHaveTextContent("Ray White");
+  });
+
   it("says so when the FAIT doesn't exist", async () => {
     renderWithProviders(<FaitDetailView />, {
       route: "/supply-chain/fait/999999",

@@ -349,22 +349,31 @@ export function FaitDetailView() {
             </SidebarField>
 
             {/* KAM moved ahead of Assigned Engineer (Ray, 2026-09-03: "Move
-                the CAM [KAM] Person field forward") */}
-            <SidebarField label="KAM" icon={<User className="h-3.5 w-3.5" />}>
-              <PersonPicker
-                label="KAM"
-                selected={fait.kam}
-                candidates={mentionCandidates}
-                onPick={(person) => updateKam.mutate({ id: fait.id, person })}
-              />
-              {!kamNeeded(fait) && (
-                <p className="mt-1 px-1 text-[11px] text-fg-muted">
-                  {!hasOemImpact(fait)
-                    ? "No KAM needed — this FAIT has no OEM Impact."
-                    : "No KAM needed — assign one only if this FAIT requires a KAM sign-off."}
-                </p>
-              )}
-            </SidebarField>
+                the CAM [KAM] Person field forward").
+                Hidden entirely when there's no OEM Impact — UNLESS a KAM is
+                already assigned, in which case the picker stays so that
+                assignment is still visible and can be cleared/changed. A
+                real assignment must never become invisible in the UI just
+                because OEM Impact was unchecked afterward, the same "don't
+                hide real data" rule kamNeeded() already applies to the
+                Sign-off card's fields. */}
+            {(hasOemImpact(fait) || fait.kam !== null) && (
+              <SidebarField label="KAM" icon={<User className="h-3.5 w-3.5" />}>
+                <PersonPicker
+                  label="KAM"
+                  selected={fait.kam}
+                  candidates={mentionCandidates}
+                  onPick={(person) => updateKam.mutate({ id: fait.id, person })}
+                />
+                {!kamNeeded(fait) && (
+                  <p className="mt-1 px-1 text-[11px] text-fg-muted">
+                    {!hasOemImpact(fait)
+                      ? "No KAM needed — this FAIT has no OEM Impact."
+                      : "No KAM needed — assign one only if this FAIT requires a KAM sign-off."}
+                  </p>
+                )}
+              </SidebarField>
+            )}
 
             <SidebarField label="Assigned Engineer" icon={<User className="h-3.5 w-3.5" />}>
               <PersonPicker
