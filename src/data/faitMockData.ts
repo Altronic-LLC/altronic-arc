@@ -194,8 +194,119 @@ export const MOCK_FAITS: Fait[] = [
       failedFirstPassDate: daysAgo(5).toISOString(),
       failedReason: "Two conductors transposed at the connector.",
       failureResolved: "",
+      // OEM Impact: Yes, so this fixture tests "no KAM needed" for its
+      // ORIGINAL reason (no KAM assigned, no sign-off data) — not the
+      // separate "no OEM impact" reason, which fixture 6 covers. Without
+      // this the KAM picker itself would hide entirely (kam === null AND no
+      // OEM impact), rather than showing with a hint, which is what this
+      // fixture's tests are actually about.
+      oemImpact: "Yes",
     },
     createdAt: daysAgo(21),
     modifiedAt: daysAgo(5),
+  },
+  {
+    id: 5,
+    title: "",
+    // Fully signed off (SQE + Engineering + KAM, since one is assigned) but
+    // NOT yet Closed — the one shape the other fixtures don't cover, needed
+    // to test that checking Notify Initiator actually closes a FAIT once
+    // it's genuinely done (Ray, 2026-09-03).
+    status: "This is with KAM",
+    parentProject: { lookupId: 501, title: "" },
+    eirLookupId: null,
+    testDocumentLookupId: null,
+    initiator: SARAH,
+    assignedEngineer: JERROD,
+    kam: RAY,
+    watchers: [SARAH, JERROD, RAY],
+    comments: [],
+    hasAttachments: false,
+    values: {
+      ...BLANK,
+      sapPartNumber: "812204",
+      description: "GASKET, HEAD COVER",
+      drawingNumber: "812204",
+      supplierName: "PRECISION SEALS LLC",
+      fullDimensionalCheck: "Yes",
+      meetsFirstPass: "Yes",
+      // A KAM is genuinely owed here — OEM Impact must be Yes, or
+      // kamNeeded() (lib/faitSignOff.ts) hides KAM regardless of the KAM
+      // being assigned/approved below (Ray, 2026-09-03: no OEM impact hides
+      // the KAM sign-off entirely).
+      oemImpact: "Yes",
+      sqeSignOff: "Approved",
+      sqeInitials: "jw",
+      engSignOff: "Approved",
+      engInitials: "js",
+      kamSignOff: "Approved",
+      kamInitials: "rw",
+    },
+    createdAt: daysAgo(10),
+    modifiedAt: daysAgo(1),
+  },
+  {
+    id: 6,
+    title: "",
+    // NOT fully signed off — SQE Pending, and a KAM is assigned so one is
+    // owed but hasn't signed. Exists so a test can rely on a FAIT that stays
+    // un-closeable regardless of what other tests in the same file do to
+    // FAITs 1-4 (the mock store is a shared module-level array with no
+    // per-test reset, so an id used elsewhere for a "close this" test isn't
+    // safe to reuse for "this must NOT be closeable").
+    status: "This is with SQE",
+    parentProject: { lookupId: 501, title: "" },
+    eirLookupId: null,
+    testDocumentLookupId: null,
+    initiator: SARAH,
+    assignedEngineer: JERROD,
+    kam: RAY,
+    watchers: [SARAH, JERROD, RAY],
+    comments: [],
+    hasAttachments: false,
+    values: {
+      ...BLANK,
+      sapPartNumber: "915330",
+      description: "BRACKET, MOUNTING",
+      drawingNumber: "915330",
+      supplierName: "MIDWEST STAMPING",
+      fullDimensionalCheck: "Yes",
+      // Consistent with "a KAM is assigned so one is owed" above — see the
+      // note on fixture 5.
+      oemImpact: "Yes",
+      sqeSignOff: "Pending",
+    },
+    createdAt: daysAgo(6),
+    modifiedAt: daysAgo(1),
+  },
+  {
+    id: 7,
+    title: "",
+    // No OEM Impact AND no KAM assigned — the shape needed to test that the
+    // KAM sidebar picker hides ENTIRELY (not just the sign-off fields) when
+    // there's no OEM impact and nobody's already sitting in the field (Ray,
+    // 2026-09-03). Deliberately separate from fixture 6, which has a KAM
+    // ALREADY assigned — an assignment that exists must stay visible even
+    // with no OEM impact, so it can still be seen/cleared.
+    status: "Open",
+    parentProject: { lookupId: 501, title: "" },
+    eirLookupId: null,
+    testDocumentLookupId: null,
+    initiator: SARAH,
+    assignedEngineer: null,
+    kam: null,
+    watchers: [SARAH],
+    comments: [],
+    hasAttachments: false,
+    values: {
+      ...BLANK,
+      sapPartNumber: "704188",
+      description: "SPACER, RETAINER RING",
+      drawingNumber: "704188",
+      supplierName: "GREAT LAKES MACHINING",
+      oemImpact: "",
+    },
+    createdAt: daysAgo(2),
+    modifiedAt: daysAgo(1),
   },
 ];

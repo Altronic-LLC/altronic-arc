@@ -43,20 +43,31 @@ export const SIGN_OFF_APPROVED = "Approved";
 export const SIGN_OFF_FAILED = "Failed";
 
 /**
- * Whether this FAIT needs a KAM sign-off at all. False only when there's
- * neither a KAM assigned nor any KAM sign-off data already on the record —
- * the detail page hides the KAM sign-off fields in that case, which is how
- * "this FAIT doesn't need a KAM" is expressed (Ray, 2026-08-27: "how to
- * hide/remove the KAM signoff when it is not required"). Checking the
- * existing data too, not just whether a KAM is assigned, means a FAIT
- * someone already signed off on before there was any way to assign a KAM
- * person never has its real sign-off hidden out from under it.
+ * Whether this FAIT needs a KAM sign-off at all.
+ *
+ * **No OEM Impact means no KAM sign-off, full stop** (Ray, 2026-09-03: "If
+ * there is no OEM impact, hide the CAM [KAM] sign-off field") — a KAM only
+ * ever needs to sign off on a part that reaches an OEM customer. `OEMImpact`
+ * is a real SharePoint boolean column (unlike the sign-off columns, which are
+ * text/choice), so it has only two states — stored `"Yes"` or `""` for No,
+ * `norm()` below handles the casing — and unchecked hides the KAM fields
+ * regardless of anything else already on the record.
+ *
+ * With OEM Impact checked, it's false only when there's neither a KAM
+ * assigned nor any KAM sign-off data already on the record — the detail page
+ * hides the KAM sign-off fields in that case, which is how "this FAIT
+ * doesn't need a KAM" is expressed (Ray, 2026-08-27: "how to hide/remove the
+ * KAM signoff when it is not required"). Checking the existing data too, not
+ * just whether a KAM is assigned, means a FAIT someone already signed off on
+ * before there was any way to assign a KAM person never has its real
+ * sign-off hidden out from under it.
  *
  * It also gates the third link of the alert chain: with no KAM owed the
  * chain finishes at the engineer, and the FAIT must NOT be parked at "This
  * is with KAM" waiting on a signature nobody owes.
  */
 export function kamNeeded(fait: Fait): boolean {
+  if (!hasOemImpact(fait)) return false;
   return (
     fait.kam !== null ||
     !!fait.values.kamSignOff ||
@@ -65,9 +76,38 @@ export function kamNeeded(fait: Fait): boolean {
   );
 }
 
+/**
+ * Whether OEM Impact is checked. `OEMImpact` is a real SharePoint boolean
+ * column, so blank genuinely means No (see `kamNeeded`'s doc comment) —
+ * exported so a view can explain WHY the KAM fields are hidden (no KAM data
+ * vs. no OEM impact) without re-deriving the same check.
+ */
+export function hasOemImpact(fait: Fait): boolean {
+  return norm(fait.values.oemImpact) === "yes";
+}
+
 /** Stored choice values vary in case ("yes"/"Yes"), so compare loosely. */
 function norm(value: unknown): string {
   return String(value ?? "").trim().toLowerCase();
+}
+
+/**
+ * Whether every sign-off this FAIT actually owes is Approved — SQE,
+ * Engineering, and KAM only if `kamNeeded()` says one is owed.
+ *
+ * This is the same rule `faitSignOffOutcome` already applies one step at a
+ * time (SQE approved advances to ENG; ENG approved advances to KAM only if
+ * `kamOwed`, otherwise the chain is finished) — restated here as a single
+ * point-in-time check so a caller that isn't mid-write (the Notify Initiator
+ * checkbox) can ask "is this FAIT actually done" without re-deriving the
+ * chain's own logic.
+ */
+export function faitFullySignedOff(fait: Fait): boolean {
+  const approved = (value: unknown) => norm(value) === norm(SIGN_OFF_APPROVED);
+  if (!approved(fait.values.sqeSignOff)) return false;
+  if (!approved(fait.values.engSignOff)) return false;
+  if (kamNeeded(fait) && !approved(fait.values.kamSignOff)) return false;
+  return true;
 }
 
 /** One link of the chain that a write just moved. */

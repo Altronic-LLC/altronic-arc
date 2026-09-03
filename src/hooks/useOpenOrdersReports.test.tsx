@@ -313,6 +313,22 @@ describe("useDownloadWeekAsZip", () => {
     { ...RAW_FILE, id: "f2", name: "Bravo_Open_Orders_2026-08-24.xlsx" },
   ];
 
+  // A plain string, not the shared `beforeEach`'s `new Blob([...])` —
+  // zip.file() hands whatever downloadOpenOrdersFile returns straight to
+  // JSZip, and JSZip's own Blob-read path (via jsdom's FileReader) is flaky
+  // enough here to throw an UNHANDLED rejection well after zip.file()
+  // returns (JSZip defers the actual read until generateAsync() walks the
+  // entries), independent of what any test itself asserts. This describe
+  // block is the only one whose code under test (useDownloadWeekAsZip)
+  // actually zips the mocked content — every other describe block's blob
+  // goes through `blob.arrayBuffer()` instead, so overriding the SHARED
+  // default would break those. A string is one of JSZip's directly
+  // supported input types, same as Blob, ArrayBuffer, etc, and is read
+  // synchronously rather than through jsdom's Blob/FileReader plumbing.
+  beforeEach(() => {
+    mocks.downloadOpenOrdersFile.mockResolvedValue("raw");
+  });
+
   it("refuses an empty folder rather than producing an empty zip", async () => {
     const { result } = renderHook(() => useDownloadWeekAsZip(), { wrapper });
     await expect(
@@ -338,7 +354,7 @@ describe("useDownloadWeekAsZip", () => {
       if (inFlight > 1) sawOverlap = true;
       await new Promise((r) => setTimeout(r, 5));
       inFlight -= 1;
-      return new Blob(["x"]);
+      return "x"; // see the note on the beforeEach default, above
     });
     const { result } = renderHook(() => useDownloadWeekAsZip(), { wrapper });
     await result.current.mutateAsync({ weekName: "Week of 2026-08-24", files: FILES });
@@ -355,7 +371,7 @@ describe("useDownloadWeekAsZip", () => {
   });
 
   it("toasts the error on a failed fetch partway through", async () => {
-    mocks.downloadOpenOrdersFile.mockResolvedValueOnce(new Blob(["ok"]));
+    mocks.downloadOpenOrdersFile.mockResolvedValueOnce("ok"); // see the beforeEach note, above
     mocks.downloadOpenOrdersFile.mockRejectedValueOnce(new Error("network blip"));
     const { result } = renderHook(() => useDownloadWeekAsZip(), { wrapper });
     await expect(

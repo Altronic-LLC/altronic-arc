@@ -23,12 +23,14 @@ import {
 import { faitFieldPatch, faitProjectPatch } from "@/lib/faitMapper";
 // kamNeeded lives in lib/ because the alert chain asks the same question —
 // a rule enforced only in a view is a rule that isn't enforced.
-import { kamNeeded } from "@/lib/faitSignOff";
+import { hasOemImpact, kamNeeded } from "@/lib/faitSignOff";
 import { mergePeople, personKey } from "@/lib/people";
+import { pushToast } from "@/components/Toast";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { useProjects } from "@/hooks/useTasks";
 import { AttachmentsSection } from "@/components/AttachmentsSection";
+import { useUploadAttachment } from "@/hooks/useAttachments";
 import { FieldEditModal, type EditableFieldSpec } from "@/components/FieldEditModal";
 import { CommentComposer } from "@/components/CommentComposer";
 import { CommentThread } from "@/components/CommentThread";
@@ -81,6 +83,15 @@ export function FaitDetailView() {
   const updateKam = useUpdateFaitKam();
   const addComment = useAddFaitComment();
   const editComment = useEditFaitComment();
+  // Real upload, not the legacy in-memory blob attachments — same list-item
+  // attachment store the "Attachments" card above the comments already uses
+  // (parent="fait"), so a screenshot pasted/dropped into a comment survives
+  // a refresh instead of vanishing (Ray, 2026-09-03).
+  const uploadCommentFile = useUploadAttachment("fait", faitId);
+  async function uploadFaitCommentFile(file: File): Promise<{ name: string; webUrl: string }> {
+    const uploaded = await uploadCommentFile.mutateAsync(file);
+    return { name: uploaded.fileName, webUrl: uploaded.downloadUrl };
+  }
 
   // Which stage's editor is open — one at a time. Status and Project are NOT
   // in here: they're live sidebar controls, see the note on the aside below.
@@ -177,10 +188,21 @@ export function FaitDetailView() {
     const watching = fait.watchers.some(
       (w) => (w.email ?? w.displayName).toLowerCase() === key,
     );
+    // The initiator always watches their own FAIT — they raised it, so they
+    // hear what happens to it. Refuse to uncheck them here rather than
+    // silently letting the picker remove them; the write layer
+    // (setFaitWatchers) re-adds them regardless, as defence in depth, but
+    // the toast is what tells the person clicking WHY nothing happened.
+    if (watching && fait.initiator && personKey(fait.initiator) === key) {
+      pushToast({
+        message: "The initiator always watches their own FAIT and can't be removed.",
+      });
+      return;
+    }
     const people = watching
       ? fait.watchers.filter((w) => (w.email ?? w.displayName).toLowerCase() !== key)
       : [...fait.watchers, person];
-    setWatchers.mutate({ id: fait.id, people });
+    setWatchers.mutate({ id: fait.id, people, initiator: fait.initiator });
   }
 
   async function handleEditComment(comment: Comment, newBodyHtml: string) {
@@ -252,7 +274,11 @@ export function FaitDetailView() {
             <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
               Comments
             </h2>
-            <CommentComposer onSubmit={handleAddComment} mentionablePeople={mentionCandidates} />
+            <CommentComposer
+              onSubmit={handleAddComment}
+              mentionablePeople={mentionCandidates}
+              uploadFile={uploadFaitCommentFile}
+            />
             <div className="mt-5">
               <CommentThread
                 comments={fait.comments}
@@ -260,6 +286,7 @@ export function FaitDetailView() {
                 currentUserName={currentUser.displayName}
                 mentionablePeople={mentionCandidates}
                 onEdit={handleEditComment}
+                uploadFile={uploadFaitCommentFile}
               />
             </div>
           </section>
@@ -321,6 +348,33 @@ export function FaitDetailView() {
               </p>
             </SidebarField>
 
+            {/* KAM moved ahead of Assigned Engineer (Ray, 2026-09-03: "Move
+                the CAM [KAM] Person field forward").
+                Hidden entirely when there's no OEM Impact — UNLESS a KAM is
+                already assigned, in which case the picker stays so that
+                assignment is still visible and can be cleared/changed. A
+                real assignment must never become invisible in the UI just
+                because OEM Impact was unchecked afterward, the same "don't
+                hide real data" rule kamNeeded() already applies to the
+                Sign-off card's fields. */}
+            {(hasOemImpact(fait) || fait.kam !== null) && (
+              <SidebarField label="KAM" icon={<User className="h-3.5 w-3.5" />}>
+                <PersonPicker
+                  label="KAM"
+                  selected={fait.kam}
+                  candidates={mentionCandidates}
+                  onPick={(person) => updateKam.mutate({ id: fait.id, person })}
+                />
+                {!kamNeeded(fait) && (
+                  <p className="mt-1 px-1 text-[11px] text-fg-muted">
+                    {!hasOemImpact(fait)
+                      ? "No KAM needed — this FAIT has no OEM Impact."
+                      : "No KAM needed — assign one only if this FAIT requires a KAM sign-off."}
+                  </p>
+                )}
+              </SidebarField>
+            )}
+
             <SidebarField label="Assigned Engineer" icon={<User className="h-3.5 w-3.5" />}>
               <PersonPicker
                 label="Assigned Engineer"
@@ -328,20 +382,6 @@ export function FaitDetailView() {
                 candidates={mentionCandidates}
                 onPick={(person) => updateAssignedEngineer.mutate({ id: fait.id, person })}
               />
-            </SidebarField>
-
-            <SidebarField label="KAM" icon={<User className="h-3.5 w-3.5" />}>
-              <PersonPicker
-                label="KAM"
-                selected={fait.kam}
-                candidates={mentionCandidates}
-                onPick={(person) => updateKam.mutate({ id: fait.id, person })}
-              />
-              {!kamNeeded(fait) && (
-                <p className="mt-1 px-1 text-[11px] text-fg-muted">
-                  No KAM needed — assign one only if this FAIT requires a KAM sign-off.
-                </p>
-              )}
             </SidebarField>
 
             <SidebarField label="Watchers">
@@ -448,6 +488,17 @@ function FieldRow({ field, value }: { field: FaitField; value: string }) {
         <p className="whitespace-pre-wrap text-sm text-fg">{value}</p>
       ) : (
         <p className="text-sm text-fg-muted">Not set</p>
+      )}
+      {field.key === "notifyInitiator" && (
+        // Ray, 2026-09-03: checking this closes the FAIT, once every
+        // sign-off it owes is Approved (faitFullySignedOff in
+        // lib/faitSignOff.ts) — an incomplete FAIT refuses the write
+        // (FaitNotFullySignedOffError in useFaits.ts) rather than closing.
+        <p className="mt-1 text-xs text-fg-muted">
+          Checking this closes the FAIT and emails the initiator and watchers that all sign-offs
+          are complete. It only works once SQE, Engineering and (if one is assigned) KAM have all
+          signed off — otherwise the change is refused.
+        </p>
       )}
     </div>
   );

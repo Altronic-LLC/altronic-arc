@@ -1254,6 +1254,117 @@ which KAM fields are showing.
 only in a view is a rule that isn't enforced. Its logic is unchanged;
 `FaitDetailView` imports it.
 
+**No OEM Impact means no KAM sign-off, full stop** (Ray, 2026-09-03: "If
+there is no OEM impact, hide the CAM [KAM] sign-off field") — checked FIRST
+in `kamNeeded()`, ahead of the "KAM assigned or has existing data" check
+above. A KAM only ever signs off on a part that reaches an OEM customer.
+`OEMImpact` is a real SharePoint **boolean** column (unlike the sign-off
+columns, which are text/choice) — stored `"Yes"` or `""` for No, no third
+"unanswered" state — so blank genuinely means No, and `hasOemImpact(fait)`
+(exported alongside `kamNeeded`, for the sidebar hint to explain WHY the KAM
+fields are hidden) is the one place that reads it. Unlike the "AND no
+existing data" carve-out above, this is an UNCONDITIONAL override: a FAIT
+with real, pre-existing `kamSignOff` data still hides it if OEM Impact is
+No — the sign-off literally doesn't apply to a part with no OEM impact, so
+there's no "don't erase real data" case to protect the way there is for "no
+KAM assigned yet". This also feeds `faitFullySignedOff()` (the Notify
+Initiator close gate, below) and `faitSignOffOutcome`'s `kamOwed`, so a FAIT
+with no OEM impact can close on SQE + Engineering alone and never parks at
+"This is with KAM" waiting on a signature nobody owes.
+
+**KAM moved ahead of Assigned Engineer in the sidebar** (Ray, 2026-09-03:
+"Move the CAM [KAM] Person field forward") — People group order is now
+Initiator → KAM → Assigned Engineer → Watchers.
+
+**The KAM sidebar PICKER hides too, not just the sign-off requirement note**
+— a follow-up fix the same day, caught by Ray from a screenshot: the first
+pass only hid the KAM fields on the Sign-off card and swapped in the "no OEM
+Impact" hint text, but the person picker itself kept rendering, so a FAIT
+with no OEM impact still showed an empty, pickable KAM field doing nothing.
+The gate is `hasOemImpact(fait) || fait.kam !== null`, deliberately NOT bare
+`kamNeeded(fait)`: with no OEM impact, `kamNeeded` is unconditionally false
+even when a KAM is already assigned (the sign-off genuinely doesn't apply),
+but the SIDEBAR PICKER still has to show that assignment — an assigned
+person must never become invisible in the UI just because OEM Impact was
+unchecked afterward, same "don't hide real data" rule the Sign-off card's
+own KAM fields already follow for pre-existing sign-off data. Fixture 7 (no
+OEM impact, no KAM) and fixture 6 (no OEM impact, KAM ALREADY assigned) are
+the two shapes `FaitDetailView.test.tsx` pins this with — deliberately two
+different fixtures, since one fixture can't prove both halves of an OR.
+
+**"Notify Initiator" CLOSES the FAIT — once every sign-off it owes is
+Approved.** Ray first asked (2026-09-03, same day) whether checking this
+Sign-off card box closes the FAIT and changes its status; the answer at that
+point was no — it only fired `fireFaitNotifyInitiatorAlert` as a bare "an
+update is available" nudge. Ray then asked for the box to actually do that:
+*"The Notify Initiator button should change the status to Closed and inform
+users of its function... assuming all sign offs are done."*
+
+- **`faitFullySignedOff(fait)`** (`lib/faitSignOff.ts`) is the gate — SQE
+  Approved, Engineering Approved, and KAM Approved only if `kamNeeded(fait)`
+  says one is owed. It restates the same rule `faitSignOffOutcome` already
+  applies one step at a time, as a single point-in-time check for a caller
+  that isn't mid-write.
+- **An incomplete FAIT REFUSES the write**, in `useUpdateFaitFields`'s
+  `mutationFn` — `FaitNotFullySignedOffError`, thrown before any request goes
+  out, so the box visibly doesn't save rather than silently closing something
+  that isn't actually finished. The generic `onError` handler already rolls
+  the optimistic patch back and toasts `err.message`, so no extra plumbing was
+  needed for the refusal to surface.
+- **Whether this write closes the FAIT is decided in `onMutate`**, against
+  the pre-write row (same timing rule as `pendingSignOff` for the ordinary
+  sign-off chain — `onMutate` has already run by the time `mutationFn`
+  fires), and carried forward through a second WeakMap, `pendingNotifyClose`,
+  keyed on the mutation's `vars` object.
+- **The close travels in the SAME PATCH** as the Notify Initiator checkbox
+  itself — `{ NotifyInitiator: true, Status: "Closed" }` in one write, the
+  same "the auto-advance can't disagree with what caused it" rule the
+  ordinary sign-off chain already follows.
+- **The email content changed to match**: `buildFaitNotifyInitiatorEmails`
+  now says "confirmed all sign-offs are complete... it's now closed", not
+  "an update is available" — since a refused write means this can now only
+  ever fire on a genuine close.
+- **Still fire-once, and still never reopens an already-Closed FAIT** — the
+  same `to !== from` / presence-vs-change discipline as everywhere else in
+  this file. Re-saving the Sign-off card with the box already checked sends
+  nothing, so a FAIT that's already Closed can't be "re-closed" (and
+  re-emailed) by an unrelated resave.
+- Both the read-only card (`FieldRow` in `FaitDetailView.tsx`) and the Edit
+  modal say this in words next to the control, via `EditableFieldSpec.hint`
+  on the `notifyInitiator` descriptor in `faitFields.ts`.
+
+**The initiator can never be removed from Watchers — enforced twice.** The
+Watchers picker in `FaitDetailView` refuses the toggle with a toast
+explaining why (UI layer); `useSetFaitWatchers` also re-folds the initiator
+back in via `autoWatchers(people, initiator)` regardless of what the caller
+sends (write layer), so a bug or a future caller bypassing the picker can't
+drop them either. Confirmed by a regression test on each layer, each
+verified by deliberately breaking the guard and watching it fail.
+
+**Comment attachments are real uploads, not ephemeral blobs.** FAIT's
+`CommentComposer` / `CommentThread` now receive `uploadFile`, wired to
+`useUploadAttachment("fait", faitId)` with a small adapter converting its
+`{ fileName, downloadUrl }` return to the composer's `{ name, webUrl }`
+contract — the same list-item attachment store every other attachment in ARC
+uses, so a screenshot dropped into a FAIT comment survives a refresh.
+
+**FAIT 89's Communication field was wiped by "Append Changes to Existing
+Text" being ON** (see the FAIT list-level note above), then recovered from
+SharePoint version history — merged across ALL 21 stored versions, not the
+single richest one. The field had been wiped and restarted several separate
+times during testing, each episode holding genuinely different people's
+comments (Michael Colaneri, Beth Rober ×2, then Ray/Alexandra's thread) that
+never coexisted in one version — picking any single version, however rich,
+loses whichever episode isn't in it. `scripts/restore-fait-89-communication.ps1`
+is the one-time, hard-coded recovery: it re-fetches every version, splits
+each into comment records with the same pattern `communicationParser.ts`
+uses, dedupes by (timestamp, email, body) across all of them, sorts
+oldest-first, and reads the field back after writing to confirm it landed
+exactly (catching a still-on append setting immediately rather than trusting
+the write). **If this happens again on any list**: always check for multiple
+separate wipe/restart episodes across version history before recovering —
+never assume the newest or richest single version contains everything.
+
 #### The sign-off chain — SQE → Engineering → KAM
 
 The three sign-offs could be filled in any order and nobody was told when it
@@ -4065,6 +4176,58 @@ whole page. `interaction_in_progress` is treated as "wait for the prompt already
 open", not a failure. When the session IS dead, `AuthGate` renders
 `SignInPage reason="expired"` rather than the app behind a banner, and signing in
 clears the query cache so nothing comes back still showing the old errors.
+
+### Never silently activate a cached account when more than one exists
+
+MSAL's `cacheLocation: "localStorage"` (msalConfig.ts) is deliberate — it
+keeps users signed in across browser restarts, the normal UX for an internal
+tool. But `localStorage` is shared by every account that has EVER signed
+into ARC on that browser profile, not just whoever's using it right now.
+
+`AuthGate` and `AuthProvider` both used to auto-activate a cached account
+with the same one-liner: `if (accounts.length > 0 && !getActiveAccount())
+setActiveAccount(accounts[0])`. On a browser only one person has ever used,
+that's harmless — `accounts` has exactly one entry, and it's genuinely
+theirs. On a **shared workstation**, or any browser profile a second person
+has ever signed into, `accounts[0]` is whichever account MSAL happens to
+list first — with **no check at all** that it belongs to whoever is actually
+at the keyboard.
+
+Reported by Ray, 2026-09-02: a Gray Market Request's Requestor field showed
+Anisha Hobbs when Patricia was the one who filled it out. Anisha had signed
+into ARC on that browser before; her account was still cached and still
+valid; Patricia opened ARC, saw no sign-in prompt at all, and every write
+she made — `useCurrentUser()` reads whichever account is active, and that
+feeds every "who did this" field in the app — went out under Anisha's
+identity instead of her own. Nothing on screen looked wrong; there was no
+error to notice.
+
+The fix, in both `AuthGate.tsx` and `AuthProvider.tsx`: auto-activate ONLY
+when there is **exactly one** cached account. With two or more, activate
+nothing — `useIsAuthenticated()` then reads `false`, `AuthGate` falls
+through to `SignInPage`, and `SignInPage`'s sign-in button asks MSAL for
+`prompt: "select_account"`, forcing Microsoft's own account picker rather
+than ever guessing. A genuine multi-account ambiguity now costs one visible
+click; silently misattributing someone's identity cost nothing visible at
+all, which is the wrong trade to make by default.
+
+Three things about this fix:
+
+- **It's duplicated in two files on purpose**, same as it was duplicated
+  before the fix — `AuthGate` runs on every render while MSAL is settling,
+  `AuthProvider` runs once at boot before `AuthGate` ever mounts. Fixing
+  only one would leave the other race still open.
+- **This is not specific to Gray Market Requests.** `useCurrentUser()` feeds
+  every "who did this" field across the whole app — Requestor, Assigned,
+  Watchers auto-add, comment authorship, every intake alert's actor
+  exclusion. The bug reached Gray Market Requests because that's where it
+  happened to be noticed first.
+- **Pinned in `AuthGate.test.tsx`**, not `AuthProvider.test.tsx` — the
+  latter constructs a real `PublicClientApplication` and has no existing
+  test harness to extend proportionately for one duplicated condition;
+  `AuthGate`'s coverage of the same one-line guard stands in for both.
+  Verified by reintroducing the bug (`accounts.length > 0`) and confirming
+  the "does NOT auto-pick... when MORE THAN ONE is cached" test fails.
 
 ### The app has ONE loading screen — `LoadingTasks`
 

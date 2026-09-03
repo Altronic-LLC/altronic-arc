@@ -1,14 +1,17 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, PackageSearch, X } from "lucide-react";
-import type { GrayMarketRequestInput } from "@/types/task";
+import type { GrayMarketRequestInput, Person } from "@/types/task";
 import {
   GRAY_MARKET_STATUSES,
   GRAY_MARKET_TESTING_REQUIRED,
   fieldsInSection,
 } from "@/lib/grayMarketFields";
 import { useCreateGrayMarketRequest } from "@/hooks/useGrayMarketRequests";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useDirectoryPeople } from "@/hooks/useDirectory";
+import { mergePeople, personKey } from "@/lib/people";
 import { toDateInputValue, fromDateInputValue } from "@/lib/spDates";
-import { ChoiceSelect } from "./SearchableSelect";
+import { ChoiceSelect, SingleSelect } from "./SearchableSelect";
 import { ChoicePills } from "./ChoicePills";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
 import { DateField } from "./DateField";
@@ -23,6 +26,13 @@ import { useOverlayDismiss } from "./useOverlayDismiss";
 // carrying all thirty columns would be a wall nobody could complete.
 //
 // The Log No. isn't asked for: it's generated as GMR_YYYY-### on save.
+//
+// **Requestor defaults to the signed-in user, and is changeable** (Ray,
+// 2026-09-02) — added after the person who filled out a request wasn't
+// necessarily the one it should say raised it (e.g. filing on someone
+// else's behalf). The hook's own `input.requestor ?? actor` fallback still
+// stands as the backstop for a request submitted with no picker at all
+// (there was none until now), so this form always sends an explicit value.
 // =============================================================================
 
 interface GrayMarketRequestFormModalProps {
@@ -39,6 +49,8 @@ export function GrayMarketRequestFormModal({
 }: GrayMarketRequestFormModalProps) {
   const create = useCreateGrayMarketRequest();
   const busy = create.isPending;
+  const currentUser = useCurrentUser();
+  const directory = useDirectoryPeople();
 
   const [title, setTitle] = useState("");
   const [status, setStatus] = useState<string>("Open");
@@ -46,9 +58,24 @@ export function GrayMarketRequestFormModal({
   const [requestDate, setRequestDate] = useState<Date | null>(() =>
     fromDateInputValue(toDateInputValue(new Date())),
   );
+  // Defaults to whoever's signed in; changeable, for filing on someone
+  // else's behalf. Seeded once — re-deriving from `currentUser` on every
+  // render would stomp a deliberate change back to the default the moment
+  // the identity hook re-resolves (e.g. once its async lookupId arrives).
+  const [requestor, setRequestor] = useState<Person | null>(() => currentUser);
   const [values, setValues] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const firstFieldRef = useRef<HTMLInputElement>(null);
+
+  // The signed-in user may not be in `directory` yet (a person picked from
+  // the tenant directory doesn't include themselves by default), and the
+  // request being filed on someone else's behalf might not be either — the
+  // same "keep who's already selected in the option list" rule every
+  // person picker in this app follows.
+  const people = useMemo(
+    () => mergePeople(directory, [currentUser], requestor ? [requestor] : []),
+    [directory, currentUser, requestor],
+  );
 
   useEffect(() => {
     firstFieldRef.current?.focus();
@@ -81,7 +108,7 @@ export function GrayMarketRequestFormModal({
       status,
       requestDate,
       testingRequired,
-      requestor: null, // filled in by the hook with the signed-in user
+      requestor,
       values,
     };
     try {
@@ -168,6 +195,23 @@ export function GrayMarketRequestFormModal({
                 options={GRAY_MARKET_STATUSES}
                 emptyLabel="Open"
                 clearable={false}
+                disabled={busy}
+              />
+            </Field>
+
+            <Field label="Requestor">
+              <SingleSelect
+                allLabel="Not set"
+                ariaLabel="Requestor"
+                searchPlaceholder="Search people…"
+                options={people.map((p) => ({
+                  value: personKey(p),
+                  label: p.displayName || p.email || "Unknown",
+                }))}
+                selected={requestor ? personKey(requestor) : null}
+                onChange={(key) =>
+                  setRequestor(key ? people.find((p) => personKey(p) === key) ?? null : null)
+                }
                 disabled={busy}
               />
             </Field>

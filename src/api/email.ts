@@ -725,9 +725,11 @@ export function fireFaitSqeFailedAlert(args: {
 
 /**
  * Fire-and-forget: the "Notify Initiator" checkbox on the Sign-off card was
- * just checked — tells the initiator plus every watcher that an update is
- * available. Fires only on the transition into checked; see
- * `notifyInitiatorJustChecked` in useFaits.ts.
+ * just checked, which CLOSES the FAIT — tells the initiator plus every
+ * watcher it's closed. Fires only on the transition into checked, and only
+ * once the write actually closed the FAIT (every sign-off it owes was
+ * already Approved); see `notifyInitiatorJustChecked` and `notifyClosing`
+ * in useFaits.ts.
  */
 export function fireFaitNotifyInitiatorAlert(args: {
   target: ChangeTarget;

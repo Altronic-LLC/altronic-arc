@@ -37,6 +37,52 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
+    version: "0.145.2",
+    date: "2026-09-03",
+    changes: [
+      "Fixed: the KAM person field on a FAIT's sidebar now actually hides when there's no OEM Impact (it was only hiding the sign-off requirement note, not the picker itself) — unless a KAM is already assigned, in which case it stays visible so that assignment isn't hidden",
+    ],
+  },
+  {
+    version: "0.145.1",
+    date: "2026-09-03",
+    changes: [
+      "Moved the KAM field ahead of Assigned Engineer on a FAIT's sidebar",
+      "A FAIT with no OEM Impact no longer shows a KAM sign-off requirement — the KAM fields hide, and closing the FAIT no longer waits on a signature that isn't owed",
+    ],
+  },
+  {
+    version: "0.145.0",
+    date: "2026-09-03",
+    changes: [
+      "Checking Notify Initiator on a FAIT now closes it and emails the initiator + watchers that all sign-offs are complete — it only works once SQE, Engineering and (if one is assigned) KAM have all signed off, otherwise the change is refused with an explanation",
+    ],
+  },
+  {
+    version: "0.144.0",
+    date: "2026-09-03",
+    changes: [
+      "FAIT comments now support real file attachments (screenshots included) — the same upload used elsewhere in ARC, not a temporary preview that disappeared on refresh",
+      "The FAIT initiator can no longer be removed from Watchers, in the picker or by any write — they always keep seeing updates on the FAIT they raised",
+      "Added a note explaining what the Notify Initiator checkbox on a FAIT actually does: it emails the initiator and watchers that an update is available — it does not close the FAIT or change its status",
+    ],
+  },
+  {
+    version: "0.143.1",
+    date: "2026-09-02",
+    changes: [
+      "New Gray Market Request now shows a Requestor field, defaulted to you — change it if you're filing on someone else's behalf",
+    ],
+  },
+  {
+    version: "0.143.0",
+    date: "2026-09-02",
+    changes: [
+      "Fixed a sign-in bug on shared computers: if more than one person had ever signed into ARC on the same browser, the app could silently continue as whichever one signed in first, instead of asking who's actually there — on a shared workstation, this could put someone else's name on things you submitted, like a Gray Market Request's Requestor",
+      "You'll now see Microsoft's own account picker if more than one Microsoft account is remembered on that browser, instead of ARC guessing",
+    ],
+  },
+  {
     version: "0.142.3",
     date: "2026-09-02",
     changes: [

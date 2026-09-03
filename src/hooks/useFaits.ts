@@ -29,6 +29,7 @@ import type { FaitSignerRole } from "@/lib/faitAlerts";
 import {
   FAIT_STATUS_CLOSED,
   FAIT_STATUS_WITH_SQE,
+  faitFullySignedOff,
   faitSignOffOutcome,
   type FaitSignOffOutcome,
 } from "@/lib/faitSignOff";
@@ -170,6 +171,26 @@ function notifyInitiatorJustChecked(prev: Fait, fields: Record<string, unknown>)
 }
 
 /**
+ * Checking "Notify Initiator" CLOSES the FAIT (Ray, 2026-09-03) — it isn't a
+ * bare nudge, it's the "we're done" signal, so it only fires once every
+ * sign-off this FAIT actually owes is Approved (`faitFullySignedOff` —
+ * SQE + Engineering, and KAM only where `kamNeeded` says one is owed).
+ *
+ * Thrown from `mutationFn`, before any request goes out, so an incomplete
+ * FAIT is refused the same way `requireResolved` refuses an unresolvable
+ * person write elsewhere in this file — the box visibly doesn't save rather
+ * than silently closing something that isn't actually finished.
+ */
+export class FaitNotFullySignedOffError extends Error {
+  constructor() {
+    super(
+      "This FAIT still needs a sign-off before it can be closed — check SQE, Engineering and (if one is assigned) KAM.",
+    );
+    this.name = "FaitNotFullySignedOffError";
+  }
+}
+
+/**
  * Patch one or more columns, optimistically.
  *
  * **This is the one hook that can write the sign-off columns**, so the whole
@@ -183,13 +204,33 @@ function notifyInitiatorJustChecked(prev: Fait, fields: Record<string, unknown>)
  * caused it — one write, so the two can never disagree if the second half
  * fails.
  */
+/**
+ * Whether the pending write is a Notify-Initiator check that should ALSO
+ * close the FAIT — set in `onMutate` (against the pre-patch row, same
+ * timing rule as `pendingSignOff`) and read back in `mutationFn`, since
+ * `onMutate` has already run by the time `mutationFn` fires.
+ */
+const pendingNotifyClose = new WeakMap<object, boolean>();
+
 export function useUpdateFaitFields() {
   const qc = useQueryClient();
   const actor = useCurrentUser();
   return useMutation({
     mutationFn: (vars: FaitFieldWrite) => {
+      if (pendingNotifyClose.get(vars) === false) {
+        // Computed in onMutate against the pre-write row: Notify Initiator
+        // was just checked but the sign-off chain isn't actually finished.
+        // Thrown here, before any request goes out — the box must not
+        // appear to save when the close it implies didn't happen.
+        throw new FaitNotFullySignedOffError();
+      }
       const advance = pendingSignOff.get(vars)?.nextStatus;
-      const fields = advance ? { ...vars.fields, Status: advance } : vars.fields;
+      const closing = pendingNotifyClose.get(vars) === true;
+      const fields = closing
+        ? { ...vars.fields, Status: FAIT_STATUS_CLOSED }
+        : advance
+          ? { ...vars.fields, Status: advance }
+          : vars.fields;
       return updateFaitFields(vars.id, fields);
     },
     onMutate: async (vars: FaitFieldWrite) => {
@@ -200,12 +241,21 @@ export function useUpdateFaitFields() {
       // Computed HERE, against the pre-patch row — see pendingSignOff.
       const outcome = prevFait ? faitSignOffOutcome(prevFait, vars.fields) : null;
       if (outcome) pendingSignOff.set(vars, outcome);
+      // Notify Initiator closes the FAIT — but only once every sign-off it
+      // owes is Approved. `undefined` means the box wasn't touched by this
+      // write at all, so mutationFn's refusal check only fires for a write
+      // that's actually trying to check it.
+      if (prevFait && notifyInitiatorJustChecked(prevFait, vars.fields)) {
+        pendingNotifyClose.set(vars, faitFullySignedOff(prevFait));
+      }
       patchFait(qc, id, patch);
+      const closingNow = pendingNotifyClose.get(vars) === true;
       const advanced = outcome?.nextStatus;
       // Show the advance at once, like every other optimistic write here —
       // otherwise the sidebar chip sits on the old stage for a round trip.
-      if (advanced) patchFait(qc, id, (f) => ({ ...f, status: advanced }));
-      return { previous, prevFait, outcome };
+      if (closingNow) patchFait(qc, id, (f) => ({ ...f, status: FAIT_STATUS_CLOSED }));
+      else if (advanced) patchFait(qc, id, (f) => ({ ...f, status: advanced }));
+      return { previous, prevFait, outcome, notifyClosing: closingNow };
     },
     onSuccess: (updated, vars, ctx) => {
       patchFait(qc, updated.id, () => updated);
@@ -225,7 +275,9 @@ export function useUpdateFaitFields() {
       const to =
         "Status" in vars.fields
           ? String(vars.fields.Status ?? "")
-          : (ctx?.outcome?.nextStatus ?? null);
+          : ctx?.notifyClosing
+            ? FAIT_STATUS_CLOSED
+            : (ctx?.outcome?.nextStatus ?? null);
       const from = prevFait.status;
 
       if (to !== null) {
@@ -302,10 +354,16 @@ export function useUpdateFaitFields() {
       }
 
       // "Notify Initiator" checkbox on the Sign-off card — fire-once, only on
-      // the transition INTO checked. Tells the initiator plus every watcher
-      // that an update is available; there was no wiring behind this box at
-      // all until now (Ray, 2026-09-01).
-      if (notifyInitiatorJustChecked(prevFait, vars.fields)) {
+      // the transition INTO checked. Checking it CLOSES the FAIT (Ray,
+      // 2026-09-03), so by the time onSuccess runs the write has already
+      // landed with Status: Closed (mutationFn refuses the write entirely,
+      // before ctx even exists, when the sign-offs aren't actually done —
+      // see FaitNotFullySignedOffError) — this only ever fires the genuine
+      // "you're all set, this is closed" email. The generic status alert and
+      // the intake-list close alert above already covered the status change
+      // itself; this is the ADDITIONAL, initiator-specific note that closing
+      // is what just happened.
+      if (ctx.notifyClosing && notifyInitiatorJustChecked(prevFait, vars.fields)) {
         fireFaitNotifyInitiatorAlert({
           target,
           initiator: prevFait.initiator,
@@ -416,14 +474,24 @@ function usePersonAssignment(
   });
 }
 
+/**
+ * Replace a FAIT's Watchers list — but the initiator is always folded back
+ * in, defence in depth alongside FaitDetailView's own refusal to uncheck
+ * them in the picker (Ray, 2026-09-03: "confirm the initiator is always on
+ * the watchers list"). They raised the FAIT, so they hear what happens to
+ * it; `setFaitWatchers` itself has no notion of "this FAIT's initiator" (it
+ * would need its own extra read to find out), so this is done here, where
+ * the current FAIT — initiator included — is already sitting in the cache.
+ */
 export function useSetFaitWatchers() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, people }: { id: number; people: Person[] }) => setFaitWatchers(id, people),
-    onMutate: async ({ id, people }) => {
+    mutationFn: ({ id, people, initiator }: { id: number; people: Person[]; initiator: Person | null }) =>
+      setFaitWatchers(id, autoWatchers(people, initiator)),
+    onMutate: async ({ id, people, initiator }) => {
       await qc.cancelQueries({ queryKey: FAITS_KEY });
       const previous = qc.getQueryData<Fait[]>(FAITS_KEY);
-      patchFait(qc, id, (f) => ({ ...f, watchers: people }));
+      patchFait(qc, id, (f) => ({ ...f, watchers: autoWatchers(people, initiator) }));
       return { previous };
     },
     onError: (_err, _vars, ctx) => {
