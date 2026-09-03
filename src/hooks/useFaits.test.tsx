@@ -47,6 +47,7 @@ vi.mock("./useCurrentUser", () => ({
 
 import {
   useFaits,
+  useSetFaitWatchers,
   useUpdateFaitAssignedEngineer,
   useUpdateFaitFields,
   useUpdateFaitKam,
@@ -162,5 +163,62 @@ describe("useUpdateFaitAssignedEngineer / useUpdateFaitKam", () => {
     await waitFor(() =>
       expect(result.current.list.data?.find((f) => f.id === fait.id)?.kam?.email).toBe(glenn.email),
     );
+  });
+});
+
+describe("useSetFaitWatchers — the initiator is always folded back in", () => {
+  // Defence in depth alongside FaitDetailView's own refusal to uncheck the
+  // initiator (Ray, 2026-09-03: "confirm the initiator is always on the
+  // watchers list"). Even a caller that sends a watcher list with NO
+  // initiator in it — bypassing the picker's own guard entirely — must not
+  // be able to drop them from what actually gets written.
+  it("re-adds the initiator even when the caller's list omits them", async () => {
+    const wrap = wrapper();
+    const fait = await aFait(wrap, (f) => !!f.initiator);
+    const { result } = renderHook(
+      () => ({ setWatchers: useSetFaitWatchers(), list: useFaits() }),
+      { wrapper: wrap },
+    );
+    await waitFor(() => expect(result.current.list.data?.length).toBeGreaterThan(0));
+
+    const someoneElse = { displayName: "Someone Else", email: "someone.else@altronic-llc.com" };
+
+    await act(async () => {
+      await result.current.setWatchers.mutateAsync({
+        id: fait.id,
+        people: [someoneElse], // deliberately NOT including fait.initiator
+        initiator: fait.initiator,
+      });
+    });
+
+    await waitFor(() => {
+      const updated = result.current.list.data!.find((f) => f.id === fait.id)!;
+      expect(updated.watchers.some((w) => w.email === fait.initiator!.email)).toBe(true);
+      expect(updated.watchers.some((w) => w.email === someoneElse.email)).toBe(true);
+    });
+  });
+
+  it("still allows clearing watchers down to just the initiator", async () => {
+    const wrap = wrapper();
+    const fait = await aFait(wrap, (f) => !!f.initiator && f.watchers.length > 1);
+    const { result } = renderHook(
+      () => ({ setWatchers: useSetFaitWatchers(), list: useFaits() }),
+      { wrapper: wrap },
+    );
+    await waitFor(() => expect(result.current.list.data?.length).toBeGreaterThan(0));
+
+    await act(async () => {
+      await result.current.setWatchers.mutateAsync({
+        id: fait.id,
+        people: [],
+        initiator: fait.initiator,
+      });
+    });
+
+    await waitFor(() => {
+      const updated = result.current.list.data!.find((f) => f.id === fait.id)!;
+      expect(updated.watchers).toHaveLength(1);
+      expect(updated.watchers[0].email).toBe(fait.initiator!.email);
+    });
   });
 });

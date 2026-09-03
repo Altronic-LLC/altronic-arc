@@ -416,14 +416,24 @@ function usePersonAssignment(
   });
 }
 
+/**
+ * Replace a FAIT's Watchers list — but the initiator is always folded back
+ * in, defence in depth alongside FaitDetailView's own refusal to uncheck
+ * them in the picker (Ray, 2026-09-03: "confirm the initiator is always on
+ * the watchers list"). They raised the FAIT, so they hear what happens to
+ * it; `setFaitWatchers` itself has no notion of "this FAIT's initiator" (it
+ * would need its own extra read to find out), so this is done here, where
+ * the current FAIT — initiator included — is already sitting in the cache.
+ */
 export function useSetFaitWatchers() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, people }: { id: number; people: Person[] }) => setFaitWatchers(id, people),
-    onMutate: async ({ id, people }) => {
+    mutationFn: ({ id, people, initiator }: { id: number; people: Person[]; initiator: Person | null }) =>
+      setFaitWatchers(id, autoWatchers(people, initiator)),
+    onMutate: async ({ id, people, initiator }) => {
       await qc.cancelQueries({ queryKey: FAITS_KEY });
       const previous = qc.getQueryData<Fait[]>(FAITS_KEY);
-      patchFait(qc, id, (f) => ({ ...f, watchers: people }));
+      patchFait(qc, id, (f) => ({ ...f, watchers: autoWatchers(people, initiator) }));
       return { previous };
     },
     onError: (_err, _vars, ctx) => {

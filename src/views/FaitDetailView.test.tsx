@@ -12,9 +12,37 @@ vi.mock("@/hooks/useCurrentUser", () => ({
   }),
 }));
 
+// The test harness doesn't mount ToastContainer, so a real pushToast call
+// goes nowhere visible — mocked so the "initiator can't be removed" refusal
+// message can actually be asserted on.
+const toastMessages = vi.hoisted(() => [] as string[]);
+vi.mock("@/components/Toast", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/components/Toast")>();
+  return {
+    ...actual,
+    pushToast: (input: { message: string }) => {
+      toastMessages.push(input.message);
+      return "toast-id";
+    },
+  };
+});
+
+const uploadFaitAttachment = vi.hoisted(() =>
+  vi.fn(async (file: File) => ({
+    fileName: file.name,
+    downloadUrl: `https://example.sharepoint.com/attachments/${file.name}`,
+    serverRelativeUrl: `/attachments/${file.name}`,
+  })),
+);
+
 vi.mock("@/hooks/useAttachments", () => ({
   useAttachments: () => ({ data: [], isLoading: false, error: null }),
-  useUploadAttachment: () => ({ mutate: vi.fn(), isPending: false, error: null }),
+  useUploadAttachment: () => ({
+    mutate: vi.fn(),
+    mutateAsync: uploadFaitAttachment,
+    isPending: false,
+    error: null,
+  }),
   useDeleteAttachment: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
@@ -132,6 +160,43 @@ describe("FaitDetailView", () => {
     await renderFait();
     expect(screen.getByText(/Dimensional check is done/)).toBeInTheDocument();
     expect(screen.getByText("Watchers")).toBeInTheDocument();
+  });
+
+  describe("the initiator always watches their own FAIT", () => {
+    // Fixture 1: initiator Sarah Shaffer, watchers = [Sarah] (the sole
+    // watcher, so removing her would leave the FAIT with nobody watching).
+    // Reported by Ray, 2026-09-03: "confirm the initiator is always on the
+    // watchers list" — the picker used to let anyone uncheck them with no
+    // guard at all.
+    it("refuses to uncheck the initiator from the Watchers picker", async () => {
+      toastMessages.length = 0;
+      await renderFait(1);
+      await userEvent.click(screen.getByRole("button", { name: "Remove Sarah Shaffer" }));
+
+      expect(
+        toastMessages.some((m) => /initiator always watches their own FAIT/i.test(m)),
+      ).toBe(true);
+      // Still there — the toggle was refused, not silently ignored.
+      expect(screen.getByRole("button", { name: "Remove Sarah Shaffer" })).toBeInTheDocument();
+    });
+
+    it("still allows removing someone who ISN'T the initiator", async () => {
+      // Fixture 2 has an assigned engineer already a watcher alongside the
+      // initiator — removing them (not the initiator) should go through
+      // normally, proving the guard is scoped to the initiator only.
+      toastMessages.length = 0;
+      await renderFait(2);
+      const removeButtons = screen.getAllByRole("button", { name: /^Remove /i });
+      const nonInitiatorRemove = removeButtons.find(
+        (b) => !b.getAttribute("aria-label")?.includes("Sarah Shaffer"),
+      );
+      expect(nonInitiatorRemove).toBeDefined();
+      await userEvent.click(nonInitiatorRemove!);
+
+      expect(toastMessages.some((m) => /initiator always watches their own FAIT/i.test(m))).toBe(
+        false,
+      );
+    });
   });
 
   it("takes attachments", async () => {

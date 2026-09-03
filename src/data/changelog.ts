@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.144.0",
+    date: "2026-09-03",
+    changes: [
+      "FAIT comments now support real file attachments (screenshots included) — the same upload used elsewhere in ARC, not a temporary preview that disappeared on refresh",
+      "The FAIT initiator can no longer be removed from Watchers, in the picker or by any write — they always keep seeing updates on the FAIT they raised",
+      "Added a note explaining what the Notify Initiator checkbox on a FAIT actually does: it emails the initiator and watchers that an update is available — it does not close the FAIT or change its status",
+    ],
+  },
+  {
     version: "0.143.1",
     date: "2026-09-02",
     changes: [

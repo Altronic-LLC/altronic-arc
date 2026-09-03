@@ -1254,6 +1254,49 @@ which KAM fields are showing.
 only in a view is a rule that isn't enforced. Its logic is unchanged;
 `FaitDetailView` imports it.
 
+**"Notify Initiator" is a nudge, not a close.** Ray asked (2026-09-03) whether
+checking this Sign-off card box closes the FAIT and changes its status —
+it doesn't. It only fires `fireFaitNotifyInitiatorAlert` (fire-once, on the
+transition into checked): an email to the initiator plus every watcher saying
+an update is available, with no effect on Status at all. Closing a FAIT is
+still done through the Status picker in the sidebar. Both the read-only card
+(`FieldRow` in `FaitDetailView.tsx`) and the Edit modal now say this in words
+next to the control, via `EditableFieldSpec.hint` on the `notifyInitiator`
+descriptor in `faitFields.ts` — `hint` existed on the shared type already and
+was unused until this.
+
+**The initiator can never be removed from Watchers — enforced twice.** The
+Watchers picker in `FaitDetailView` refuses the toggle with a toast
+explaining why (UI layer); `useSetFaitWatchers` also re-folds the initiator
+back in via `autoWatchers(people, initiator)` regardless of what the caller
+sends (write layer), so a bug or a future caller bypassing the picker can't
+drop them either. Confirmed by a regression test on each layer, each
+verified by deliberately breaking the guard and watching it fail.
+
+**Comment attachments are real uploads, not ephemeral blobs.** FAIT's
+`CommentComposer` / `CommentThread` now receive `uploadFile`, wired to
+`useUploadAttachment("fait", faitId)` with a small adapter converting its
+`{ fileName, downloadUrl }` return to the composer's `{ name, webUrl }`
+contract — the same list-item attachment store every other attachment in ARC
+uses, so a screenshot dropped into a FAIT comment survives a refresh.
+
+**FAIT 89's Communication field was wiped by "Append Changes to Existing
+Text" being ON** (see the FAIT list-level note above), then recovered from
+SharePoint version history — merged across ALL 21 stored versions, not the
+single richest one. The field had been wiped and restarted several separate
+times during testing, each episode holding genuinely different people's
+comments (Michael Colaneri, Beth Rober ×2, then Ray/Alexandra's thread) that
+never coexisted in one version — picking any single version, however rich,
+loses whichever episode isn't in it. `scripts/restore-fait-89-communication.ps1`
+is the one-time, hard-coded recovery: it re-fetches every version, splits
+each into comment records with the same pattern `communicationParser.ts`
+uses, dedupes by (timestamp, email, body) across all of them, sorts
+oldest-first, and reads the field back after writing to confirm it landed
+exactly (catching a still-on append setting immediately rather than trusting
+the write). **If this happens again on any list**: always check for multiple
+separate wipe/restart episodes across version history before recovering —
+never assume the newest or richest single version contains everything.
+
 #### The sign-off chain — SQE → Engineering → KAM
 
 The three sign-offs could be filled in any order and nobody was told when it

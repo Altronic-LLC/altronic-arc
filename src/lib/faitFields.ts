@@ -152,7 +152,17 @@ export const FAIT_FIELDS: FaitField[] = [
   },
   { key: "kamInitials", column: "KAMINITIALS", label: "KAM Initials", kind: "text", section: "Sign-off" },
   { key: "kamApprovalNotes", column: "KAMApprovalNotes", label: "KAM Approval Notes", kind: "multiline", section: "Sign-off" },
-  { key: "notifyInitiator", column: "NotifyInitiator", label: "Notify Initiator", kind: "boolean", section: "Sign-off" },
+  {
+    key: "notifyInitiator",
+    column: "NotifyInitiator",
+    label: "Notify Initiator",
+    kind: "boolean",
+    section: "Sign-off",
+    // Ray, 2026-09-03: asked to confirm what this does. It only emails the
+    // initiator + watchers that an update is available (fireFaitNotifyInitiatorAlert
+    // in lib/faitAlerts.ts) — it does NOT close the FAIT or change its status.
+    hint: "Emails the initiator and watchers — does not close the FAIT or change its status.",
+  },
   { key: "notes", column: "Notes", label: "Notes", kind: "multiline", section: "Sign-off" },
 ];
 

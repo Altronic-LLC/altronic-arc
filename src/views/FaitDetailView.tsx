@@ -25,10 +25,12 @@ import { faitFieldPatch, faitProjectPatch } from "@/lib/faitMapper";
 // a rule enforced only in a view is a rule that isn't enforced.
 import { kamNeeded } from "@/lib/faitSignOff";
 import { mergePeople, personKey } from "@/lib/people";
+import { pushToast } from "@/components/Toast";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { useProjects } from "@/hooks/useTasks";
 import { AttachmentsSection } from "@/components/AttachmentsSection";
+import { useUploadAttachment } from "@/hooks/useAttachments";
 import { FieldEditModal, type EditableFieldSpec } from "@/components/FieldEditModal";
 import { CommentComposer } from "@/components/CommentComposer";
 import { CommentThread } from "@/components/CommentThread";
@@ -81,6 +83,15 @@ export function FaitDetailView() {
   const updateKam = useUpdateFaitKam();
   const addComment = useAddFaitComment();
   const editComment = useEditFaitComment();
+  // Real upload, not the legacy in-memory blob attachments — same list-item
+  // attachment store the "Attachments" card above the comments already uses
+  // (parent="fait"), so a screenshot pasted/dropped into a comment survives
+  // a refresh instead of vanishing (Ray, 2026-09-03).
+  const uploadCommentFile = useUploadAttachment("fait", faitId);
+  async function uploadFaitCommentFile(file: File): Promise<{ name: string; webUrl: string }> {
+    const uploaded = await uploadCommentFile.mutateAsync(file);
+    return { name: uploaded.fileName, webUrl: uploaded.downloadUrl };
+  }
 
   // Which stage's editor is open — one at a time. Status and Project are NOT
   // in here: they're live sidebar controls, see the note on the aside below.
@@ -177,10 +188,21 @@ export function FaitDetailView() {
     const watching = fait.watchers.some(
       (w) => (w.email ?? w.displayName).toLowerCase() === key,
     );
+    // The initiator always watches their own FAIT — they raised it, so they
+    // hear what happens to it. Refuse to uncheck them here rather than
+    // silently letting the picker remove them; the write layer
+    // (setFaitWatchers) re-adds them regardless, as defence in depth, but
+    // the toast is what tells the person clicking WHY nothing happened.
+    if (watching && fait.initiator && personKey(fait.initiator) === key) {
+      pushToast({
+        message: "The initiator always watches their own FAIT and can't be removed.",
+      });
+      return;
+    }
     const people = watching
       ? fait.watchers.filter((w) => (w.email ?? w.displayName).toLowerCase() !== key)
       : [...fait.watchers, person];
-    setWatchers.mutate({ id: fait.id, people });
+    setWatchers.mutate({ id: fait.id, people, initiator: fait.initiator });
   }
 
   async function handleEditComment(comment: Comment, newBodyHtml: string) {
@@ -252,7 +274,11 @@ export function FaitDetailView() {
             <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
               Comments
             </h2>
-            <CommentComposer onSubmit={handleAddComment} mentionablePeople={mentionCandidates} />
+            <CommentComposer
+              onSubmit={handleAddComment}
+              mentionablePeople={mentionCandidates}
+              uploadFile={uploadFaitCommentFile}
+            />
             <div className="mt-5">
               <CommentThread
                 comments={fait.comments}
@@ -260,6 +286,7 @@ export function FaitDetailView() {
                 currentUserName={currentUser.displayName}
                 mentionablePeople={mentionCandidates}
                 onEdit={handleEditComment}
+                uploadFile={uploadFaitCommentFile}
               />
             </div>
           </section>
@@ -448,6 +475,17 @@ function FieldRow({ field, value }: { field: FaitField; value: string }) {
         <p className="whitespace-pre-wrap text-sm text-fg">{value}</p>
       ) : (
         <p className="text-sm text-fg-muted">Not set</p>
+      )}
+      {field.key === "notifyInitiator" && (
+        // Ray, 2026-09-03: asked to confirm what this checkbox actually
+        // does. It does NOT close the FAIT or change its status — it only
+        // emails the initiator + watchers that an update is available
+        // (buildFaitNotifyInitiatorEmails in lib/faitAlerts.ts). Closing a
+        // FAIT is still done through the Status picker in the sidebar.
+        <p className="mt-1 text-xs text-fg-muted">
+          Emails the initiator and watchers that an update is available. It does not close the
+          FAIT or change its status — use the Status picker in the sidebar for that.
+        </p>
       )}
     </div>
   );
