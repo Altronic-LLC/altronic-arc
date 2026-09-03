@@ -239,7 +239,7 @@ export function PanelQcIssueFormModal({ issue, onClose }: Props) {
                 Watch button + card below own that field so a mention-driven
                 auto-watch can't be clobbered by this draft going stale. */}
             {!issue && <Field label="Watchers"><PersonMultiField value={draft.watchers} allPeople={draftAllPeople} onToggle={(person) => set("watchers", draft.watchers.some((watcher) => (watcher.email ?? watcher.displayName) === (person.email ?? person.displayName)) ? draft.watchers.filter((watcher) => (watcher.email ?? watcher.displayName) !== (person.email ?? person.displayName)) : [...draft.watchers, person])} emptyLabel="No watchers" searchPlaceholder="Search people…" /></Field>}
-            <Field label="Failure Reported" className="sm:col-span-2" action={<span className="text-[11px] font-normal normal-case tracking-normal text-cooper-red">*Ensure to attach any and all relevant photos, configuration files, and documents related to failure</span>}><AutoGrowTextarea value={draft.failureReported} onChange={(e) => set("failureReported", e.target.value)} rows={3} className="input resize-y" /></Field>
+            <Field label={<>Failure Reported <span className="text-[11px] font-normal normal-case tracking-normal text-cooper-red">*Ensure to attach any and all relevant photos, configuration files, and documents related to failure</span></>} className="sm:col-span-2"><AutoGrowTextarea value={draft.failureReported} onChange={(e) => set("failureReported", e.target.value)} rows={3} className="input resize-y" /></Field>
             <Field label="Panels Resolution" className="sm:col-span-2"><AutoGrowTextarea value={draft.panelsResolution} onChange={(e) => set("panelsResolution", e.target.value)} rows={3} className="input resize-y" /></Field>
           </div>
         </div>
@@ -311,7 +311,7 @@ export function PanelQcIssueFormModal({ issue, onClose }: Props) {
   );
 }
 
-function Field({ label, required, className = "", action, children }: { label: string; required?: boolean; className?: string; action?: React.ReactNode; children: React.ReactNode }) {
+function Field({ label, required, className = "", action, children }: { label: React.ReactNode; required?: boolean; className?: string; action?: React.ReactNode; children: React.ReactNode }) {
   return <label className={`flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-fg-muted ${className}`}><span className="flex items-center justify-between">{label}{required && <span className="text-cooper-red"> *</span>}{action}</span>{children}</label>;
 }
 
