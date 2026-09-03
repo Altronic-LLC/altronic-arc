@@ -163,6 +163,28 @@ export function PanelQcIssueFormModal({ issue, onClose }: Props) {
     (w) => (w.email ?? "").toLowerCase() === (currentUser.email ?? "").toLowerCase() && !!currentUser.email,
   );
 
+  const footerBar = (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface px-5 py-3 shadow-sm">
+      <div>
+        {/* Status has no place on the New Issue form (it always starts
+            "Created") — only shown once the issue exists, and bundled into
+            the same whole-form Save as everything else rather than an
+            immediate-write field like Watchers, since it's a normal part
+            of the record rather than a subscription. */}
+        {issue && (
+          <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-fg-muted">
+            Status
+            <ChoiceSelect value={draft.status} onChange={(value) => set("status", value)} options={statusChoices} emptyLabel="Created" clearable={false} disabled={busy} />
+          </label>
+        )}
+      </div>
+      <div className="flex items-center gap-2">
+        <button type="button" onClick={onClose} disabled={busy} className="rounded-md border border-border px-4 py-1.5 text-sm font-medium text-fg hover:bg-surface-2 disabled:opacity-50">Cancel</button>
+        <button type="submit" form="panel-qc-issue-form" disabled={busy} className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white hover:bg-accent/90 disabled:opacity-60">{busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}{issue ? "Save changes" : "Add issue"}</button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-4 px-4 py-5 sm:px-6 sm:py-8">
       <div className="flex items-center justify-between rounded-lg border border-border bg-surface px-5 py-3 shadow-sm">
@@ -242,25 +264,10 @@ export function PanelQcIssueFormModal({ issue, onClose }: Props) {
 
       {error && <p className="text-sm text-cooper-red">{error}</p>}
 
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface px-5 py-3 shadow-sm">
-        <div>
-          {/* Status has no place on the New Issue form (it always starts
-              "Created") — only shown once the issue exists, and bundled into
-              the same whole-form Save as everything else rather than an
-              immediate-write field like Watchers, since it's a normal part
-              of the record rather than a subscription. */}
-          {issue && (
-            <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-fg-muted">
-              Status
-              <ChoiceSelect value={draft.status} onChange={(value) => set("status", value)} options={statusChoices} emptyLabel="Created" clearable={false} disabled={busy} />
-            </label>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <button type="button" onClick={onClose} disabled={busy} className="rounded-md border border-border px-4 py-1.5 text-sm font-medium text-fg hover:bg-surface-2 disabled:opacity-50">Cancel</button>
-          <button type="submit" form="panel-qc-issue-form" disabled={busy} className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white hover:bg-accent/90 disabled:opacity-60">{busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}{issue ? "Save changes" : "Add issue"}</button>
-        </div>
-      </div>
+      {/* Edit mode keeps the Save bar right after the form, same as before.
+          New Issue mode moves it below Attachments (Ray, 2026-09-03) — see
+          `footerBar` below, rendered in two different spots. */}
+      {issue && footerBar}
 
       {/* New Issue: no item id exists yet, so files are staged locally and
           uploaded right after the create succeeds (see submit() above). */}
@@ -273,6 +280,8 @@ export function PanelQcIssueFormModal({ issue, onClose }: Props) {
           fileInputRef={pendingFileInput}
         />
       )}
+
+      {!issue && footerBar}
 
       {live && (
         <>

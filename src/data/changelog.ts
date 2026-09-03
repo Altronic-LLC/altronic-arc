@@ -29,6 +29,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "New Panel QC issues can have files attached before saving — they upload automatically once the issue is created",
       "The Panel QC edit view now shows the issue's current Status next to its TAG Number, with a Status picker beside Save changes",
       "Repair Technician and Repair Defect Category now sit side by side in the Repair Department section",
+      "On the New Issue form, the Cancel/Add issue buttons now sit below the Attachments section instead of above it",
     ],
   },
   {
