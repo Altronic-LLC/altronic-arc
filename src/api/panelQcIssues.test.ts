@@ -38,9 +38,13 @@ describe("Panel QC Issue Tracker", () => {
       productionTechnician: "",
       productionRepairNotes: "",
       productionResolution: "",
+      communication: "",
+      watchers: [],
+      tagNumber: "",
     });
 
     expect(issue).toMatchObject({ panelSerialNumber: "TEST-001", defectCategory: "Fixture Failure" });
+    expect(issue.tagNumber).toMatch(/^P-\d{4}-\d{4}$/);
     expect((await listPanelQcDefects()).some((defect) => defect.name === "Fixture Failure")).toBe(true);
     expect((await listPanelQcIssues()).some((entry) => entry.id === issue.id)).toBe(true);
   });

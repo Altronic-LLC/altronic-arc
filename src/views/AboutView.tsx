@@ -121,7 +121,7 @@ const SYSTEM_TIERS: Tier[] = [
       },
       {
         label: "Panels department (lazy-loaded bundle)",
-        hint: "PanelOrdersView · PanelOrderDetailView · PanelTasksView · PanelTaskDetailView · QcTimeTrackingView · PanelQcIssuesView · AdminPanelProjectsView · AdminPanelRolesView — usePanelOrders · usePanelTasks · useQcTimeTracking · usePanelQcIssues · usePanelRoles — api/panelOrders · panelTasks · panelProjects · panelRoles · qcTimeTracking · panelQcIssues. Panel QC currently uses the Engineering site; the rest uses ALTRONICPANELTEAM. Own code-split chunk; no cross-department imports.",
+        hint: "PanelOrdersView · PanelOrderDetailView · PanelTasksView · PanelTaskDetailView · QcTimeTrackingView · PanelQcIssuesView · AdminPanelProjectsView · AdminPanelRolesView — usePanelOrders · usePanelTasks · useQcTimeTracking · usePanelQcIssues · usePanelRoles — api/panelOrders · panelTasks · panelProjects · panelRoles · qcTimeTracking · panelQcIssues. All Panel features use ALTRONICPANELTEAM. Own code-split chunk; no cross-department imports.",
         palette: "ui",
       },
     ],
@@ -174,7 +174,7 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "Panel Project Reference", hint: "ALTRONICPANELTEAM site — admin-managed project reference numbers (orders + tasks share it)", palette: "list" },
       { label: "Panel User Roles", hint: "ALTRONICPANELTEAM site — one row per user per role (gating ships dark in v1)", palette: "list" },
       { label: "QC Time Tracking", hint: "ALTRONICPANELTEAM site — hours QC spent per project; a simple log, no role gating, no delete, PerformedByPeople is multi-person", palette: "list" },
-      { label: "Tim-Test-Panel / Tim-Test-Panel-Defect", hint: "Engineering site for now — Panel QC Issue Tracker issue log plus its editable defect-category reference list; both are available to signed-in users", palette: "list" },
+      { label: "PANEL COMPONENT FAILURES / PANEL COMPONENT DEFECTS", hint: "ALTRONICPANELTEAM site — Panel QC Issue Tracker issue log plus its editable defect-category reference list; both are available to signed-in users", palette: "list" },
       { label: "Where am I?", hint: "Engineering site — the team's out-of-office calendar. Two columns (Title, Date) and no end date, so a week away is a row per day; dates are stored at 06:00Z (US Central midnight)", palette: "list" },
       { label: "FAIT", hint: "Engineering site (a Supply Chain feature) — First Article Inspection Tests. 51 workflow columns spanning inspection and three sign-offs; Communication and Watchers were added for ARC in Aug 2026, Project Reference and attachments already existed", palette: "list" },
       { label: "ECN NEW", hint: "Engineering site — Engineering Change Notices. Every workflow column is named field_2 … field_12, so src/lib/ecnFields.ts is the only place their meaning exists; no Watchers and no requester column, so comments reach the submitter (Graph createdBy) and anyone mentioned", palette: "list" },
@@ -1248,7 +1248,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
   },
   {
     name: "PanelQcIssue",
-    source: "Tim-Test-Panel (Engineering site for now)",
+    source: "PANEL COMPONENT FAILURES (ALTRONICPANELTEAM site)",
     palette: "entity",
     x: 380, y: 6100, width: 360,
     columns: [
@@ -1264,7 +1264,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
   },
   {
     name: "PanelQcDefect",
-    source: "Tim-Test-Panel-Defect (Engineering site for now)",
+    source: "PANEL COMPONENT DEFECTS (ALTRONICPANELTEAM site)",
     palette: "entity",
     x: 760, y: 6100, width: 300,
     columns: [

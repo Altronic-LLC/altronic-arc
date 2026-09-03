@@ -21,12 +21,21 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     version: "0.143.0",
-    date: "2026-09-02",
+    date: "2026-09-03",
     changes: [
       "Added Panel QC Issue Tracker for recording panel and board defects through resolution",
       "Defect categories come from a shared list and can be added directly while recording an issue",
       "Panel QC issues open newest dated records first, keep undated records at the bottom, and can be sorted by any issue field",
       "The app header and footer stay visible while you scroll, with reserved space so page content remains accessible",
+      "Panel QC Issue Tracker now uses the PANEL COMPONENT FAILURES and PANEL COMPONENT DEFECTS lists on the ALTRONICPANELTEAM SharePoint site",
+      "Panel QC now shows and edits the Communication, Watchers, and TAG Number columns from the exported failures list",
+      "Panel QC assigns the next P-YYYY-#### TAG Number automatically when a new issue is created, and shows existing tags in the edit header",
+      "Panel QC lists TAG Number first and keeps desktop column headers spaced with horizontal scrolling when needed",
+      "Panel QC issue lists now open sorted by the newest TAG Number",
+      "Panel QC New Issue and edit actions now open dedicated views instead of modal dialogs",
+      "Existing Panel QC entries can open a printer-ready 2 × 2 label with their TAG Number, serial note, part details, and date",
+      "Panel QC labels now explicitly request a 2 × 2 inch print page with zero margins",
+      "New Panel QC entries default to the browser's local date, and entry views now use the full list width",
     ],
   },
   {

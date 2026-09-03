@@ -2131,16 +2131,17 @@ const SECTIONS: ManualSection[] = [
       <>
         <P>
           <strong>Panel QC Issue Tracker</strong> is the Panels department's
-          production defect log. It currently uses the Engineering site's
-          <em>Tim-Test-Panel</em> list while the lists are being prepared to
-          move to the Panel Team site.
+          production defect log. It uses the
+          <em>PANEL COMPONENT FAILURES</em> list on the ALTRONICPANELTEAM
+          SharePoint site.
         </P>
         <P>
           Choose a defect category from the searchable picker. Anyone signed
-          in can add a new category to <em>Tim-Test-Panel-Defect</em> directly
+          in can add a new category to <em>PANEL COMPONENT DEFECTS</em> directly
           from the issue form, then use it immediately. Panel / Board Serial
-          Number is required; all other exported fields can be completed as
-          information becomes available. Click a row to edit it.
+          Number and TAG Number are handled by the list; TAG Number is assigned
+          automatically for new entries. Click New Issue to open the entry view,
+          or click a row to open its edit view.
         </P>
       </>
     ),

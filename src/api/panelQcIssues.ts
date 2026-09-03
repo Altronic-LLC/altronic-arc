@@ -1,7 +1,11 @@
 import { graphFetch, graphFetchAll } from "./graph";
-import { SITES, SP_PANEL_QC_DEFECTS_LIST_ID, SP_PANEL_QC_ISSUES_LIST_ID, USE_MOCK } from "./config";
+import { SITES, SP_PANEL_QC_DEFECTS_LIST_ID, SP_PANEL_QC_ISSUES_LIST_ID, SP_PANELTEAM_SITE_URL, USE_MOCK } from "./config";
+import { ensureLookupIds } from "./siteUsers";
 import type { GraphListItem, PanelQcDefect, PanelQcIssue, PanelQcIssueInput } from "@/types/task";
 import { MOCK_PANEL_QC_DEFECTS, MOCK_PANEL_QC_ISSUES } from "@/data/panelQcMockData";
+import { parsePersonField } from "@/lib/taskMapper";
+import { multiPersonField } from "@/lib/graphFields";
+import { nextPanelQcTag } from "@/lib/panelQcNumber";
 
 type IssueField = keyof PanelQcIssueInput;
 type FieldNames = Record<IssueField, string>;
@@ -19,6 +23,9 @@ const FIELD_CANDIDATES: Record<IssueField, string[]> = {
   productionTechnician: ["ProductionTechnician", "Production Technician"],
   productionRepairNotes: ["ProductionRepairNotes", "Production Repair Notes"],
   productionResolution: ["ProductionResolution", "Production Resolution"],
+  communication: ["Communication"],
+  watchers: ["Watchers"],
+  tagNumber: ["TAGNumber", "TAG Number"],
 };
 
 const normalise = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -29,7 +36,7 @@ async function getDefectFieldName(): Promise<string> {
   if (defectFieldName) return defectFieldName;
   try {
     const columns = await graphFetch<{ value: Column[] }>(
-      `/sites/${SITES.engineering}/lists/${SP_PANEL_QC_DEFECTS_LIST_ID}/columns?$select=name,displayName`,
+      `/sites/${SITES.panelTeam}/lists/${SP_PANEL_QC_DEFECTS_LIST_ID}/columns?$select=name,displayName`,
     );
     const match = (columns.value ?? []).find((column) =>
       [column.name, column.displayName].filter(Boolean).some((value) =>
@@ -50,7 +57,7 @@ async function getDefectFieldName(): Promise<string> {
 async function getFieldNames(): Promise<FieldNames> {
   if (fieldNames) return fieldNames;
   const columns = await graphFetch<{ value: Column[] }>(
-    `/sites/${SITES.engineering}/lists/${SP_PANEL_QC_ISSUES_LIST_ID}/columns?$select=name,displayName`,
+    `/sites/${SITES.panelTeam}/lists/${SP_PANEL_QC_ISSUES_LIST_ID}/columns?$select=name,displayName`,
   );
   const byName = new Map((columns.value ?? []).flatMap((c) => (c.name ? [[normalise(c.name), c.name] as const] : [])));
   const byDisplay = new Map((columns.value ?? []).flatMap((c) => (c.name && c.displayName ? [[normalise(c.displayName), c.name] as const] : [])));
@@ -86,11 +93,14 @@ function mapIssue(item: GraphListItem, names: FieldNames): PanelQcIssue {
     productionTechnician: String(value("productionTechnician") ?? ""),
     productionRepairNotes: String(value("productionRepairNotes") ?? ""),
     productionResolution: String(value("productionResolution") ?? ""),
+    communication: String(value("communication") ?? ""),
+    watchers: parsePersonField(value("watchers")),
+    tagNumber: String(value("tagNumber") ?? ""),
   };
 }
 
-function buildFields(input: PanelQcIssueInput, names: FieldNames): Record<string, unknown> {
-  return {
+async function buildFields(input: PanelQcIssueInput, names: FieldNames): Promise<Record<string, unknown>> {
+  const fields: Record<string, unknown> = {
     [names.panelSerialNumber]: input.panelSerialNumber.trim(),
     [names.date]: input.date?.toISOString() ?? null,
     [names.partNumber]: input.partNumber.trim(),
@@ -102,14 +112,18 @@ function buildFields(input: PanelQcIssueInput, names: FieldNames): Record<string
     [names.productionTechnician]: input.productionTechnician.trim(),
     [names.productionRepairNotes]: input.productionRepairNotes.trim(),
     [names.productionResolution]: input.productionResolution.trim(),
+    [names.communication]: input.communication.trim(),
+    [names.tagNumber]: input.tagNumber.trim(),
   };
+  Object.assign(fields, multiPersonField(names.watchers, await ensureLookupIds(SP_PANELTEAM_SITE_URL, input.watchers)));
+  return fields;
 }
 
 export async function listPanelQcIssues(): Promise<PanelQcIssue[]> {
   if (USE_MOCK) return MOCK_PANEL_QC_ISSUES.map((issue) => ({ ...issue }));
   const names = await getFieldNames();
   const items = await graphFetchAll<GraphListItem>(
-    `/sites/${SITES.engineering}/lists/${SP_PANEL_QC_ISSUES_LIST_ID}/items?$expand=fields($select=${Object.values(names).join(",")})`,
+    `/sites/${SITES.panelTeam}/lists/${SP_PANEL_QC_ISSUES_LIST_ID}/items?$expand=fields($select=${Object.values(names).join(",")})`,
   );
   return items.map((item) => mapIssue(item, names));
 }
@@ -118,7 +132,7 @@ export async function listPanelQcDefects(): Promise<PanelQcDefect[]> {
   if (USE_MOCK) return MOCK_PANEL_QC_DEFECTS.map((defect) => ({ ...defect }));
   const nameField = await getDefectFieldName();
   const items = await graphFetchAll<GraphListItem>(
-    `/sites/${SITES.engineering}/lists/${SP_PANEL_QC_DEFECTS_LIST_ID}/items?$expand=fields`,
+    `/sites/${SITES.panelTeam}/lists/${SP_PANEL_QC_DEFECTS_LIST_ID}/items?$expand=fields`,
   );
   return items
     .map((item) => ({ id: Number(item.id), name: String((item.fields as Record<string, unknown>)[nameField] ?? "") }))
@@ -135,7 +149,7 @@ export async function createPanelQcDefect(name: string): Promise<PanelQcDefect> 
     return defect;
   }
   const nameField = await getDefectFieldName();
-  const item = await graphFetch<GraphListItem>(`/sites/${SITES.engineering}/lists/${SP_PANEL_QC_DEFECTS_LIST_ID}/items`, {
+  const item = await graphFetch<GraphListItem>(`/sites/${SITES.panelTeam}/lists/${SP_PANEL_QC_DEFECTS_LIST_ID}/items`, {
     method: "POST",
     body: JSON.stringify({ fields: { [nameField]: trimmed } }),
   });
@@ -144,12 +158,13 @@ export async function createPanelQcDefect(name: string): Promise<PanelQcDefect> 
 
 export async function createPanelQcIssue(input: PanelQcIssueInput): Promise<PanelQcIssue> {
   if (USE_MOCK) {
-    const issue: PanelQcIssue = { id: Math.max(0, ...MOCK_PANEL_QC_ISSUES.map((item) => item.id)) + 1, ...input, date: input.date ? new Date(input.date) : null };
+    const issue: PanelQcIssue = { id: Math.max(0, ...MOCK_PANEL_QC_ISSUES.map((item) => item.id)) + 1, ...input, tagNumber: nextPanelQcTag(MOCK_PANEL_QC_ISSUES), date: input.date ? new Date(input.date) : null };
     MOCK_PANEL_QC_ISSUES.unshift(issue);
     return issue;
   }
   const names = await getFieldNames();
-  const item = await graphFetch<GraphListItem>(`/sites/${SITES.engineering}/lists/${SP_PANEL_QC_ISSUES_LIST_ID}/items`, { method: "POST", body: JSON.stringify({ fields: buildFields(input, names) }) });
+  const tagNumber = nextPanelQcTag(await listPanelQcIssues());
+  const item = await graphFetch<GraphListItem>(`/sites/${SITES.panelTeam}/lists/${SP_PANEL_QC_ISSUES_LIST_ID}/items`, { method: "POST", body: JSON.stringify({ fields: await buildFields({ ...input, tagNumber }, names) }) });
   return mapIssue(item, names);
 }
 
@@ -161,7 +176,7 @@ export async function updatePanelQcIssue(id: number, input: PanelQcIssueInput): 
     return MOCK_PANEL_QC_ISSUES[index];
   }
   const names = await getFieldNames();
-  await graphFetch(`/sites/${SITES.engineering}/lists/${SP_PANEL_QC_ISSUES_LIST_ID}/items/${id}/fields`, { method: "PATCH", body: JSON.stringify(buildFields(input, names)) });
+  await graphFetch(`/sites/${SITES.panelTeam}/lists/${SP_PANEL_QC_ISSUES_LIST_ID}/items/${id}/fields`, { method: "PATCH", body: JSON.stringify(await buildFields(input, names)) });
   const issue = (await listPanelQcIssues()).find((item) => item.id === id);
   if (!issue) throw new Error(`Panel QC issue ${id} disappeared after update.`);
   return issue;

@@ -938,6 +938,9 @@ export interface PanelQcIssue {
   productionTechnician: string;
   productionRepairNotes: string;
   productionResolution: string;
+  communication: string;
+  watchers: Person[];
+  tagNumber: string;
 }
 
 export interface PanelQcIssueInput {
@@ -952,6 +955,9 @@ export interface PanelQcIssueInput {
   productionTechnician: string;
   productionRepairNotes: string;
   productionResolution: string;
+  communication: string;
+  watchers: Person[];
+  tagNumber: string;
 }
 
 export interface PanelQcDefect {

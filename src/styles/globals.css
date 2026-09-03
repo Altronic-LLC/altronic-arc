@@ -40,6 +40,26 @@ body {
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }
 
+@page panel-qc-label {
+  size: 2in 2in;
+  margin: 0;
+}
+
+@media print {
+  html,
+  body {
+    width: 2in;
+    height: 2in;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .panel-qc-label {
+    break-inside: avoid;
+  }
+}
+
 /* Headings use the condensed display font */
 h1,
 h2,

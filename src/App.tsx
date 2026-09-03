@@ -227,6 +227,12 @@ const QcTimeTrackingView = lazy(() =>
 const PanelQcIssuesView = lazy(() =>
   import("@/views/PanelQcIssuesView").then((m) => ({ default: m.PanelQcIssuesView })),
 );
+const PanelQcIssueEditorView = lazy(() =>
+  import("@/views/PanelQcIssueEditorView").then((m) => ({ default: m.PanelQcIssueEditorView })),
+);
+const PrintPanelQcIssueView = lazy(() =>
+  import("@/views/PrintPanelQcIssueView").then((m) => ({ default: m.PrintPanelQcIssueView })),
+);
 const FeatureRequestsView = lazy(() =>
   import("@/views/FeatureRequestsView").then((m) => ({ default: m.FeatureRequestsView })),
 );
@@ -708,6 +714,22 @@ export function App() {
               element={
                 <Suspense fallback={<LoadingTasks noun="Panel QC issues" />}>
                   <PanelQcIssuesView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/panels/qc-issues/:id"
+              element={
+                <Suspense fallback={<LoadingTasks noun="Panel QC issue" />}>
+                  <PanelQcIssueEditorView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/panels/qc-issues/:id/print"
+              element={
+                <Suspense fallback={<LoadingTasks noun="this Panel QC label" />}>
+                  <PrintPanelQcIssueView />
                 </Suspense>
               }
             />

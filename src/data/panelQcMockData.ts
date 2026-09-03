@@ -27,6 +27,9 @@ export const MOCK_PANEL_QC_ISSUES: PanelQcIssue[] = [
     productionTechnician: "",
     productionRepairNotes: "",
     productionResolution: "",
+    communication: "",
+    watchers: [],
+    tagNumber: "",
   },
   {
     id: 2,
@@ -41,6 +44,9 @@ export const MOCK_PANEL_QC_ISSUES: PanelQcIssue[] = [
     productionTechnician: "Calderone",
     productionRepairNotes: "",
     productionResolution: "",
+    communication: "",
+    watchers: [],
+    tagNumber: "",
   },
   {
     id: 3,
@@ -55,5 +61,8 @@ export const MOCK_PANEL_QC_ISSUES: PanelQcIssue[] = [
     productionTechnician: "",
     productionRepairNotes: "",
     productionResolution: "",
+    communication: "",
+    watchers: [],
+    tagNumber: "",
   },
 ];
