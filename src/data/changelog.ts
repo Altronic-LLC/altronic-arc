@@ -37,6 +37,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Panel QC issue fields renamed to match the SharePoint list — Panel Serial Number, Panel Part Number, Sub Component Part Number, Sub Component Serial Number, Failure Reported, Panels Resolution, Repair Technician, Repair Defect Category, Repair Issue Found, Repair Resolution — plus a new Status field",
       "The Panel QC edit view shows the issue's current Status next to its TAG Number, with a Status picker beside Save changes; new issues always start at Created",
       "New Panel QC issues can have files attached before saving — they upload automatically once the issue is created, with the Cancel/Add issue buttons sitting below Attachments on that form",
+      "Failure Reported now carries a reminder to attach any relevant photos, configuration files, and documents related to the failure",
       "The app header and footer stay visible while you scroll, with reserved space so page content remains accessible",
     ],
   },
