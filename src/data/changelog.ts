@@ -34,6 +34,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Panel QC issues have a real Communication comment thread with @-mentions and email notifications, Watchers with an immediate Watch/Unwatch button and auto-watch when someone is mentioned, and file attachments",
       "Panel QC issue search also matches the comment thread and watcher names, and the list shows a comment count and a paperclip icon for issues with attachments",
       "New Panel QC entries and edits now group fields into Panel Department (defect details) and Repair Department (technician, repair notes, resolution) sections, in both the new-issue and edit views",
+      "Panel Department fields now lay out two per row (Serial Number/Date, Part Number/Serial Reference Note, Defect Category/Part Description), with only Comments and Corrective Action spanning the full width",
       "The app header and footer stay visible while you scroll, with reserved space so page content remains accessible",
     ],
   },
