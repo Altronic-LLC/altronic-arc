@@ -926,24 +926,38 @@ export interface PanelRoleEntry {
 
 /**
  * A production panel QC issue from the panel team's Panel QC Issues list
- * (ALTRONICPANELTEAM site). `notes` is the list's free-text "Comments"
- * column describing the defect — kept apart from `comments`, the real
- * Communication comment thread, the same collision CostImpactNotice's
- * `notes` field was named around (see CLAUDE.md).
+ * (ALTRONICPANELTEAM site). Fields split into what the PANEL DEPARTMENT
+ * records when the defect is first found (panelSerialNumber through
+ * panelsResolution) and what the REPAIR DEPARTMENT records afterward
+ * (repairTechnician through status) — renamed 2026-09-03 to match a
+ * SharePoint column rename Ray made directly on the list (see CLAUDE.md's
+ * Panel QC Issue Tracker section for the old→new mapping). `failureReported`
+ * is the list's free-text column describing the defect — kept apart from
+ * `comments`, the real Communication comment thread, the same collision
+ * CostImpactNotice's `notes` field was named around.
  */
 export interface PanelQcIssue {
   id: number;
   panelSerialNumber: string;
+  /** The PANEL's own part number — distinct from `subComponentPartNumber`,
+   * the defective part found inside it. */
+  panelPartNumber: string;
   date: Date | null;
-  partNumber: string;
+  subComponentPartNumber: string;
   partDescription: string;
-  serialReferenceNote: string;
+  subComponentSerialNumber: string;
   defectCategory: string | null;
-  notes: string;
-  correctiveAction: string;
-  productionTechnician: string;
-  productionRepairNotes: string;
-  productionResolution: string;
+  failureReported: string;
+  panelsResolution: string;
+  repairTechnician: string;
+  /** Choice column — see PANEL_QC_REPAIR_DEFECT_CHOICES_HINT in panelQcMockData.ts;
+   * real mode reads the live SharePoint choice list, never a hardcoded set. */
+  repairDefectCategory: string | null;
+  repairIssueFound: string;
+  repairResolution: string;
+  /** Choice column, defaults to "Created" on create; not shown on the New
+   * Issue form (Ray, 2026-09-03) — only editable once the issue exists. */
+  status: string;
   watchers: Person[];
   /** The Communication comment thread, parsed from the SharePoint column. */
   comments: Comment[];
@@ -953,16 +967,19 @@ export interface PanelQcIssue {
 
 export interface PanelQcIssueInput {
   panelSerialNumber: string;
+  panelPartNumber: string;
   date: Date | null;
-  partNumber: string;
+  subComponentPartNumber: string;
   partDescription: string;
-  serialReferenceNote: string;
+  subComponentSerialNumber: string;
   defectCategory: string | null;
-  notes: string;
-  correctiveAction: string;
-  productionTechnician: string;
-  productionRepairNotes: string;
-  productionResolution: string;
+  failureReported: string;
+  panelsResolution: string;
+  repairTechnician: string;
+  repairDefectCategory: string | null;
+  repairIssueFound: string;
+  repairResolution: string;
+  status: string;
   watchers: Person[];
   tagNumber: string;
 }

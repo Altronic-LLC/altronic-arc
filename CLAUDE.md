@@ -2010,6 +2010,120 @@ renders a day off from what SharePoint's own list view shows, check the
 actual stored time-of-day on a live row before assuming the bug is
 elsewhere, the same lesson Visit Reports and Gray Market already paid for.
 
+### Panel QC Issue Tracker (Panels, panelTeam site)
+
+The panel team's production defect log — **PANEL COMPONENT FAILURES** on
+`SITES.panelTeam`, with defect categories drawn from the small companion
+list **PANEL COMPONENT DEFECTS** (`PanelQcDefect`, anyone can add a
+category inline while recording an issue). `api/panelQcIssues.ts`,
+`hooks/usePanelQcIssues.ts`, `components/PanelQcIssueFormModal.tsx`
+(shared by both `/panels/qc-issues/new` and `/panels/qc-issues/:id` — one
+component, not a modal despite the name), `views/PanelQcIssuesView.tsx`,
+`views/PrintPanelQcIssueView.tsx`.
+
+**Every text/choice column was renamed on the list directly by Ray,
+2026-09-03** — the internal `name` didn't necessarily change with the
+`displayName`, so `FIELD_CANDIDATES` in `panelQcIssues.ts` carries BOTH the
+pre-rename and post-rename spellings for every renamed field, same as any
+other "discovered, not hardcoded" field-name table in this app:
+
+| Domain field | Old label | New label |
+|---|---|---|
+| `panelSerialNumber` | Panel / Board Serial Number (Title) | Panel Serial Number |
+| `panelPartNumber` | *(new)* | Panel Part Number |
+| `subComponentPartNumber` | Part Number | Sub Component Part Number |
+| `subComponentSerialNumber` | Serial Reference Note | Sub Component Serial Number |
+| `failureReported` | Comments | Failure Reported |
+| `panelsResolution` | Subsequent Steps / Corrective Action | Panels Resolution |
+| `repairTechnician` | Production Technician | Repair Technician |
+| `repairDefectCategory` | *(new)* | Repair Defect Category |
+| `repairIssueFound` | Production Repair Notes | Repair Issue Found |
+| `repairResolution` | Production Resolution | Repair Resolution |
+| `status` | *(new)* | Status |
+
+**The rename is also a split into two departments' fields** — Panel
+Department (everything the panel team records when a defect is first
+found: both serial/part number pairs, date, defect category, part
+description, Failure Reported, Panels Resolution, Watchers-on-create) vs.
+Repair Department (Repair Technician, Repair Defect Category, Repair Issue
+Found, Repair Resolution). `PanelQcIssueFormModal` renders these as two
+separate bordered cards, matching the Watchers/Attachments/Communication
+cards below them rather than one long field list.
+
+**The Repair Department card is hidden ENTIRELY on the New Issue form**
+(Ray, 2026-09-03) — it only renders once `issue` is defined, i.e. only in
+edit mode. The repair team's half of the record doesn't exist to be filled
+in until the panel department has actually raised the issue.
+
+**`Status` and `Repair Defect Category` are both strict Choice columns
+("Can add values manually" is OFF)**, so a value ARC writes that isn't in
+the column's own configured list is refused outright — the same failure
+mode CLAUDE.md documents repeatedly for other choice columns. Rather than
+hardcoding a guessed choice list (the export this list was renamed from
+only ever shows `Status = "Created"`, since nothing has been closed out
+yet, and several `Repair Defect Category` choices were truncated in the
+screenshot they were transcribed from), **both are discovered live from
+the column definition itself** — `getFieldNames()`'s `/columns` fetch now
+also selects `choice`, and stashes each column's `choice.choices` array
+alongside the resolved field name. `listPanelQcStatusChoices()` /
+`listPanelQcRepairDefectChoices()` expose them; `usePanelQcStatusChoices()`
+/ `usePanelQcRepairDefectChoices()` are the hooks. **Mock mode has no live
+schema to read**, so `MOCK_PANEL_QC_STATUS_CHOICES` /
+`MOCK_PANEL_QC_REPAIR_DEFECT_CHOICES` in `panelQcMockData.ts` seed the demo
+picker — explicitly commented as a best-effort transcription that only
+matters for the demo, since real mode never touches them. If either
+column's real choices change in SharePoint, ARC picks it up automatically
+with no code change.
+
+**`Status` defaults to "Created" and has no control on the New Issue
+form** (Ray, 2026-09-03) — `createPanelQcIssue` forces `status: "Created"`
+server-side regardless of what the draft holds, the same belt-and-suspenders
+treatment TAG Number already gets. Once the issue exists, the edit view's
+header shows **"Current Status: `<value>`"** read-only next to the TAG
+Number, and a `Status` picker sits on the LEFT side of the footer bar
+(across from Cancel/Save) — bundled into the same whole-form save as every
+other field, not an immediate-write mutation like Watchers, since a status
+change is a normal part of the record rather than a subscription.
+
+**Attachments are staged locally on the New Issue form, then uploaded
+right after creation** (Ray, 2026-09-03: "attachments should be visible in
+the new entry view") — a real SharePoint list-item attachment needs an
+item id to attach to, which doesn't exist until the create POST succeeds,
+so there's no way to genuinely upload before that. `PendingAttachmentsCard`
+(a small stand-in for `AttachmentsSection`, local to
+`PanelQcIssueFormModal.tsx`) lets the user pick/drag files into memory
+while filling out the rest of the form; `submit()` uploads every staged
+file via `uploadAttachment("panelQcIssue", created.id, file)` immediately
+after `create.mutateAsync` resolves, best-effort per file (one failed
+upload doesn't fail the issue, which already exists by that point — the
+same "a write that already landed must not look like it failed" reasoning
+as the EIR→Task promotion's `EIRReference`/attachment follow-ups). Edit
+mode keeps using the real `AttachmentsSection` once there's a genuine item
+id.
+
+**Watchers were being silently corrupted by a cross-site lookupId reuse
+bug**, caught 2026-09-03 the same day this list's Communication/Watchers/
+Attachments feature shipped: `useCurrentUser()`'s `lookupId` is always
+resolved against the ENGINEERING site, and the creator auto-watches their
+own new issue (`autoWatchers`) — so creating an issue wrote the creator's
+*Engineering* numeric id into the Watchers column, and reading it back
+resolved that number against the ALTRONICPANELTEAM site's OWN User
+Information List, landing on whoever that id happens to belong to there (a
+different, unrelated person). `forSiteResolution()` in `panelQcIssues.ts`
+strips any incoming `lookupId` before it reaches `ensureLookupIds`, forcing
+every watcher write in this module to re-resolve by email against the
+panel team site specifically — the general lesson (a `lookupId` is valid on
+exactly the one site it was resolved for, and `ensureLookupIds` otherwise
+trusts an existing one unconditionally) likely reaches beyond this one
+list; see `panelQcIssues.watchers.test.ts` for the pinned regression.
+
+Communication (real comment thread, @-mentions, email notification, auto-
+watch-on-mention), Watchers (immediate Watch/Unwatch + picker) and
+Attachments all follow the exact same shape as `panelTasks.ts` — same
+ALTRONICPANELTEAM site, same `resolvePanelSiteUserLookupId` resolver for
+cold-start mentions. `TAGNumber` is `P-YYYY-####`, auto-assigned the same
+way `nextEirNo`/`nextWorkOrderNumber` work elsewhere.
+
 ### Visit Reports (Customer Service / Sales, salesTeam site)
 
 `7cc4db39-6612-4c2d-b1b2-1af34d0564e7` (env: `VITE_SP_VISIT_REPORTS_LIST_ID`)

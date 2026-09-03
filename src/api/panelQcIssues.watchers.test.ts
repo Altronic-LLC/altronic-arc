@@ -28,17 +28,20 @@ import { createPanelQcIssue, setPanelQcIssueWatchers } from "./panelQcIssues";
 
 const COLUMNS = {
   value: [
-    { name: "PanelBoardSerialNumber", displayName: "Panel / Board Serial" },
+    { name: "PanelSerialNumber", displayName: "Panel Serial Number" },
+    { name: "PanelPartNumber", displayName: "Panel Part Number" },
     { name: "Date", displayName: "Date" },
-    { name: "PartNumber", displayName: "Part Number" },
+    { name: "SubComponentPartNumber", displayName: "Sub Component Part Number" },
     { name: "PartDescription", displayName: "Part Description" },
-    { name: "SerialReferenceNote", displayName: "Serial Reference Note" },
+    { name: "SubComponentSerialNumber", displayName: "Sub Component Serial Number" },
     { name: "DefectCategory", displayName: "Defect Category" },
-    { name: "Comments", displayName: "Comments" },
-    { name: "SubsequentStepsCorrectiveAction", displayName: "Subsequent Steps / Corrective Action" },
-    { name: "ProductionTechnician", displayName: "Production Technician" },
-    { name: "ProductionRepairNotes", displayName: "Production Repair Notes" },
-    { name: "ProductionResolution", displayName: "Production Resolution" },
+    { name: "FailureReported", displayName: "Failure Reported" },
+    { name: "PanelsResolution", displayName: "Panels Resolution" },
+    { name: "RepairTechnician", displayName: "Repair Technician" },
+    { name: "RepairDefectCategory", displayName: "Repair Defect Category", choice: { choices: ["Physical Damage", "Other"] } },
+    { name: "RepairIssueFound", displayName: "Repair Issue Found" },
+    { name: "RepairResolution", displayName: "Repair Resolution" },
+    { name: "Status", displayName: "Status", choice: { choices: ["Created", "Repair In-Process"] } },
     { name: "Communication", displayName: "Communication" },
     { name: "Watchers", displayName: "Watchers" },
     { name: "TAGNumber", displayName: "TAG Number" },
@@ -70,10 +73,10 @@ beforeEach(() => {
 describe("Panel QC watcher writes never trust a cross-site lookupId", () => {
   it("createPanelQcIssue strips the incoming lookupId before resolving watchers for the panel team site", async () => {
     await createPanelQcIssue({
-      panelSerialNumber: "X", date: null, partNumber: "", partDescription: "",
-      serialReferenceNote: "", defectCategory: null, notes: "", correctiveAction: "",
-      productionTechnician: "", productionRepairNotes: "", productionResolution: "",
-      watchers: [TIM_WITH_ENGINEERING_LOOKUP_ID], tagNumber: "",
+      panelSerialNumber: "X", panelPartNumber: "", date: null, subComponentPartNumber: "", partDescription: "",
+      subComponentSerialNumber: "", defectCategory: null, failureReported: "", panelsResolution: "",
+      repairTechnician: "", repairDefectCategory: null, repairIssueFound: "", repairResolution: "",
+      status: "Created", watchers: [TIM_WITH_ENGINEERING_LOOKUP_ID], tagNumber: "",
     });
 
     expect(ensureLookupIds).toHaveBeenCalledTimes(1);

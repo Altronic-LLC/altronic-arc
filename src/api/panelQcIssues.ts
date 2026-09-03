@@ -2,7 +2,12 @@ import { graphFetch, graphFetchAll } from "./graph";
 import { SITES, SP_PANEL_QC_DEFECTS_LIST_ID, SP_PANEL_QC_ISSUES_LIST_ID, SP_PANELTEAM_SITE_URL, USE_MOCK } from "./config";
 import { ensureLookupIds } from "./siteUsers";
 import type { GraphListItem, PanelQcDefect, PanelQcIssue, PanelQcIssueInput, Person } from "@/types/task";
-import { MOCK_PANEL_QC_DEFECTS, MOCK_PANEL_QC_ISSUES } from "@/data/panelQcMockData";
+import {
+  MOCK_PANEL_QC_DEFECTS,
+  MOCK_PANEL_QC_ISSUES,
+  MOCK_PANEL_QC_REPAIR_DEFECT_CHOICES,
+  MOCK_PANEL_QC_STATUS_CHOICES,
+} from "@/data/panelQcMockData";
 import { parsePersonField } from "@/lib/taskMapper";
 import { multiPersonField } from "@/lib/graphFields";
 import { appendComment, parseCommunication, replaceComment } from "@/lib/communicationParser";
@@ -31,20 +36,27 @@ type IssueField = keyof PanelQcIssueInput;
 type ExtraField = "communication";
 type AllField = IssueField | ExtraField;
 type FieldNames = Record<AllField, string>;
-type Column = { name?: string; displayName?: string };
+type Column = { name?: string; displayName?: string; choice?: { choices?: string[] } };
 
+// Candidates carry BOTH the pre-2026-09-03 internal/display names and the
+// ones Ray renamed them to on the list directly (see CLAUDE.md) — a rename
+// in SharePoint changes the displayName but not necessarily the internal
+// `name`, and it wasn't confirmed which happened here, so both are offered.
 const FIELD_CANDIDATES: Record<AllField, string[]> = {
-  panelSerialNumber: ["PanelBoardSerialNumber", "Panel Board Serial Number", "Title"],
+  panelSerialNumber: ["PanelBoardSerialNumber", "Panel Board Serial Number", "PanelSerialNumber", "Panel Serial Number", "Title"],
+  panelPartNumber: ["PanelPartNumber", "Panel Part Number"],
   date: ["Date"],
-  partNumber: ["PartNumber", "Part Number"],
+  subComponentPartNumber: ["PartNumber", "Part Number", "SubComponentPartNumber", "Sub Component Part Number"],
   partDescription: ["PartDescription", "Part Description"],
-  serialReferenceNote: ["SerialReferenceNote", "Serial Reference Note"],
+  subComponentSerialNumber: ["SerialReferenceNote", "Serial Reference Note", "SubComponentSerialNumber", "Sub Component Serial Number"],
   defectCategory: ["DefectCategory", "Defect Category"],
-  notes: ["Comments", "Comment"],
-  correctiveAction: ["SubsequentStepsCorrectiveAction", "Subsequent Steps / Corrective Action"],
-  productionTechnician: ["ProductionTechnician", "Production Technician"],
-  productionRepairNotes: ["ProductionRepairNotes", "Production Repair Notes"],
-  productionResolution: ["ProductionResolution", "Production Resolution"],
+  failureReported: ["Comments", "Comment", "FailureReported", "Failure Reported"],
+  panelsResolution: ["SubsequentStepsCorrectiveAction", "Subsequent Steps / Corrective Action", "PanelsResolution", "Panels Resolution"],
+  repairTechnician: ["ProductionTechnician", "Production Technician", "RepairTechnician", "Repair Technician"],
+  repairDefectCategory: ["RepairDefectCategory", "Repair Defect Category"],
+  repairIssueFound: ["ProductionRepairNotes", "Production Repair Notes", "RepairIssueFound", "Repair Issue Found"],
+  repairResolution: ["ProductionResolution", "Production Resolution", "RepairResolution", "Repair Resolution"],
+  status: ["Status"],
   watchers: ["Watchers"],
   communication: ["Communication"],
   tagNumber: ["TAGNumber", "TAG Number"],
@@ -53,6 +65,14 @@ const FIELD_CANDIDATES: Record<AllField, string[]> = {
 const normalise = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
 let fieldNames: FieldNames | null = null;
 let defectFieldName: string | null = null;
+// The live choices behind the "Status" and "Repair Defect Category" choice
+// columns — captured alongside field-name resolution below, NEVER
+// hardcoded, because both are strict choice columns ("Can add values
+// manually" is off) and a value ARC writes that isn't in the column's real
+// list gets rejected outright. See listPanelQcStatusChoices /
+// listPanelQcRepairDefectChoices.
+let statusChoices: string[] | null = null;
+let repairDefectChoices: string[] | null = null;
 
 async function getDefectFieldName(): Promise<string> {
   if (defectFieldName) return defectFieldName;
@@ -79,10 +99,13 @@ async function getDefectFieldName(): Promise<string> {
 async function getFieldNames(): Promise<FieldNames> {
   if (fieldNames) return fieldNames;
   const columns = await graphFetch<{ value: Column[] }>(
-    `/sites/${SITES.panelTeam}/lists/${SP_PANEL_QC_ISSUES_LIST_ID}/columns?$select=name,displayName`,
+    `/sites/${SITES.panelTeam}/lists/${SP_PANEL_QC_ISSUES_LIST_ID}/columns?$select=name,displayName,choice`,
   );
   const byName = new Map((columns.value ?? []).flatMap((c) => (c.name ? [[normalise(c.name), c.name] as const] : [])));
   const byDisplay = new Map((columns.value ?? []).flatMap((c) => (c.name && c.displayName ? [[normalise(c.displayName), c.name] as const] : [])));
+  const choicesByInternalName = new Map(
+    (columns.value ?? []).flatMap((c) => (c.name && c.choice?.choices ? [[c.name, c.choice.choices] as const] : [])),
+  );
   const resolved = {} as FieldNames;
   for (const [key, candidates] of Object.entries(FIELD_CANDIDATES) as [AllField, string[]][]) {
     const match = candidates.map(normalise).map((candidate) => byName.get(candidate) ?? byDisplay.get(candidate)).find(Boolean);
@@ -90,7 +113,23 @@ async function getFieldNames(): Promise<FieldNames> {
     resolved[key] = match;
   }
   fieldNames = resolved;
+  statusChoices = choicesByInternalName.get(resolved.status) ?? null;
+  repairDefectChoices = choicesByInternalName.get(resolved.repairDefectCategory) ?? null;
   return resolved;
+}
+
+/** The live "Status" column's choices, in the order SharePoint has them configured. */
+export async function listPanelQcStatusChoices(): Promise<string[]> {
+  if (USE_MOCK) return [...MOCK_PANEL_QC_STATUS_CHOICES];
+  await getFieldNames();
+  return statusChoices ?? [];
+}
+
+/** The live "Repair Defect Category" column's choices. */
+export async function listPanelQcRepairDefectChoices(): Promise<string[]> {
+  if (USE_MOCK) return [...MOCK_PANEL_QC_REPAIR_DEFECT_CHOICES];
+  await getFieldNames();
+  return repairDefectChoices ?? [];
 }
 
 /**
@@ -138,16 +177,19 @@ function mapIssue(item: GraphListItem, names: FieldNames): PanelQcIssue {
   return {
     id: Number(item.id),
     panelSerialNumber: String(value("panelSerialNumber") ?? ""),
+    panelPartNumber: String(value("panelPartNumber") ?? ""),
     date: toDate(value("date")),
-    partNumber: String(value("partNumber") ?? ""),
+    subComponentPartNumber: String(value("subComponentPartNumber") ?? ""),
     partDescription: String(value("partDescription") ?? ""),
-    serialReferenceNote: String(value("serialReferenceNote") ?? ""),
+    subComponentSerialNumber: String(value("subComponentSerialNumber") ?? ""),
     defectCategory: value("defectCategory") ? String(value("defectCategory")) : null,
-    notes: String(value("notes") ?? ""),
-    correctiveAction: String(value("correctiveAction") ?? ""),
-    productionTechnician: String(value("productionTechnician") ?? ""),
-    productionRepairNotes: String(value("productionRepairNotes") ?? ""),
-    productionResolution: String(value("productionResolution") ?? ""),
+    failureReported: String(value("failureReported") ?? ""),
+    panelsResolution: String(value("panelsResolution") ?? ""),
+    repairTechnician: String(value("repairTechnician") ?? ""),
+    repairDefectCategory: value("repairDefectCategory") ? String(value("repairDefectCategory")) : null,
+    repairIssueFound: String(value("repairIssueFound") ?? ""),
+    repairResolution: String(value("repairResolution") ?? ""),
+    status: String(value("status") ?? "Created"),
     watchers: parsePersonField(value("watchers")),
     comments: parseCommunication(value("communication") as string | null | undefined),
     hasAttachments: Boolean(fields.Attachments),
@@ -164,16 +206,19 @@ async function buildFields(
 ): Promise<Record<string, unknown>> {
   const fields: Record<string, unknown> = {
     [names.panelSerialNumber]: input.panelSerialNumber.trim(),
+    [names.panelPartNumber]: input.panelPartNumber.trim(),
     [names.date]: input.date?.toISOString() ?? null,
-    [names.partNumber]: input.partNumber.trim(),
+    [names.subComponentPartNumber]: input.subComponentPartNumber.trim(),
     [names.partDescription]: input.partDescription.trim(),
-    [names.serialReferenceNote]: input.serialReferenceNote.trim(),
+    [names.subComponentSerialNumber]: input.subComponentSerialNumber.trim(),
     [names.defectCategory]: input.defectCategory || null,
-    [names.notes]: input.notes.trim(),
-    [names.correctiveAction]: input.correctiveAction.trim(),
-    [names.productionTechnician]: input.productionTechnician.trim(),
-    [names.productionRepairNotes]: input.productionRepairNotes.trim(),
-    [names.productionResolution]: input.productionResolution.trim(),
+    [names.failureReported]: input.failureReported.trim(),
+    [names.panelsResolution]: input.panelsResolution.trim(),
+    [names.repairTechnician]: input.repairTechnician.trim(),
+    [names.repairDefectCategory]: input.repairDefectCategory || null,
+    [names.repairIssueFound]: input.repairIssueFound.trim(),
+    [names.repairResolution]: input.repairResolution.trim(),
+    [names.status]: input.status,
     [names.tagNumber]: input.tagNumber.trim(),
   };
   if (opts.includeWatchers) {
@@ -225,21 +270,28 @@ export async function createPanelQcDefect(name: string): Promise<PanelQcDefect> 
 }
 
 export async function createPanelQcIssue(input: PanelQcIssueInput): Promise<PanelQcIssue> {
+  // Status is never on the New Issue form (Ray, 2026-09-03) — every create
+  // is forced to "Created" here regardless of what the draft happens to
+  // hold, the same belt-and-suspenders treatment TAG Number gets below.
+  const withStatus: PanelQcIssueInput = { ...input, status: "Created" };
   if (USE_MOCK) {
     const issue: PanelQcIssue = {
       id: Math.max(0, ...MOCK_PANEL_QC_ISSUES.map((item) => item.id)) + 1,
-      panelSerialNumber: input.panelSerialNumber,
-      date: input.date ? new Date(input.date) : null,
-      partNumber: input.partNumber,
-      partDescription: input.partDescription,
-      serialReferenceNote: input.serialReferenceNote,
-      defectCategory: input.defectCategory,
-      notes: input.notes,
-      correctiveAction: input.correctiveAction,
-      productionTechnician: input.productionTechnician,
-      productionRepairNotes: input.productionRepairNotes,
-      productionResolution: input.productionResolution,
-      watchers: input.watchers,
+      panelSerialNumber: withStatus.panelSerialNumber,
+      panelPartNumber: withStatus.panelPartNumber,
+      date: withStatus.date ? new Date(withStatus.date) : null,
+      subComponentPartNumber: withStatus.subComponentPartNumber,
+      partDescription: withStatus.partDescription,
+      subComponentSerialNumber: withStatus.subComponentSerialNumber,
+      defectCategory: withStatus.defectCategory,
+      failureReported: withStatus.failureReported,
+      panelsResolution: withStatus.panelsResolution,
+      repairTechnician: withStatus.repairTechnician,
+      repairDefectCategory: withStatus.repairDefectCategory,
+      repairIssueFound: withStatus.repairIssueFound,
+      repairResolution: withStatus.repairResolution,
+      status: withStatus.status,
+      watchers: withStatus.watchers,
       comments: [],
       hasAttachments: false,
       tagNumber: nextPanelQcTag(MOCK_PANEL_QC_ISSUES),
@@ -251,7 +303,7 @@ export async function createPanelQcIssue(input: PanelQcIssueInput): Promise<Pane
   const tagNumber = nextPanelQcTag(await listPanelQcIssues());
   const item = await graphFetch<GraphListItem>(`/sites/${SITES.panelTeam}/lists/${SP_PANEL_QC_ISSUES_LIST_ID}/items`, {
     method: "POST",
-    body: JSON.stringify({ fields: await buildFields({ ...input, tagNumber }, names, { includeWatchers: true }) }),
+    body: JSON.stringify({ fields: await buildFields({ ...withStatus, tagNumber }, names, { includeWatchers: true }) }),
   });
   return mapIssue(item, names);
 }
@@ -265,16 +317,19 @@ export async function updatePanelQcIssue(id: number, input: PanelQcIssueInput): 
     MOCK_PANEL_QC_ISSUES[index] = {
       ...current,
       panelSerialNumber: input.panelSerialNumber,
+      panelPartNumber: input.panelPartNumber,
       date: input.date ? new Date(input.date) : null,
-      partNumber: input.partNumber,
+      subComponentPartNumber: input.subComponentPartNumber,
       partDescription: input.partDescription,
-      serialReferenceNote: input.serialReferenceNote,
+      subComponentSerialNumber: input.subComponentSerialNumber,
       defectCategory: input.defectCategory,
-      notes: input.notes,
-      correctiveAction: input.correctiveAction,
-      productionTechnician: input.productionTechnician,
-      productionRepairNotes: input.productionRepairNotes,
-      productionResolution: input.productionResolution,
+      failureReported: input.failureReported,
+      panelsResolution: input.panelsResolution,
+      repairTechnician: input.repairTechnician,
+      repairDefectCategory: input.repairDefectCategory,
+      repairIssueFound: input.repairIssueFound,
+      repairResolution: input.repairResolution,
+      status: input.status,
       tagNumber: input.tagNumber,
       // watchers / comments / hasAttachments intentionally preserved —
       // managed by their own dedicated mutations, not the whole-form save.

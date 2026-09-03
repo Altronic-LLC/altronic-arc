@@ -25,7 +25,7 @@ vi.mock("./config", async (importOriginal) => {
   };
 });
 
-import { listPanelQcIssues } from "./panelQcIssues";
+import { listPanelQcIssues, listPanelQcRepairDefectChoices, listPanelQcStatusChoices } from "./panelQcIssues";
 
 beforeEach(() => {
   graphFetch.mockReset();
@@ -34,17 +34,20 @@ beforeEach(() => {
     {
       id: "42",
       fields: {
-        PanelBoardSerialNumber: "PP-100",
+        PanelSerialNumber: "PP-100",
+        PanelPartNumber: "PANEL-1",
         Date: "2026-09-03T00:00:00Z",
-        PartNumber: "123",
+        SubComponentPartNumber: "123",
         PartDescription: "case",
-        SerialReferenceNote: "ref",
+        SubComponentSerialNumber: "ref",
         DefectCategory: "LED / Fuse Indicator Failure",
-        Comments: "comment",
-        SubsequentStepsCorrectiveAction: "fix it",
-        ProductionTechnician: "tech",
-        ProductionRepairNotes: "repair",
-        ProductionResolution: "resolved",
+        FailureReported: "comment",
+        PanelsResolution: "fix it",
+        RepairTechnician: "tech",
+        RepairDefectCategory: "Physical Damage",
+        RepairIssueFound: "repair",
+        RepairResolution: "resolved",
+        Status: "Created",
         Communication: "history",
         Watchers: [],
         TAGNumber: "TAG-001",
@@ -54,17 +57,20 @@ beforeEach(() => {
 
   graphFetch.mockResolvedValue({
     value: [
-      { name: "PanelBoardSerialNumber", displayName: "Panel / Board Serial" },
+      { name: "PanelSerialNumber", displayName: "Panel Serial Number" },
+      { name: "PanelPartNumber", displayName: "Panel Part Number" },
       { name: "Date", displayName: "Date" },
-      { name: "PartNumber", displayName: "Part Number" },
+      { name: "SubComponentPartNumber", displayName: "Sub Component Part Number" },
       { name: "PartDescription", displayName: "Part Description" },
-      { name: "SerialReferenceNote", displayName: "Serial Reference Note" },
+      { name: "SubComponentSerialNumber", displayName: "Sub Component Serial Number" },
       { name: "DefectCategory", displayName: "Defect Category" },
-      { name: "Comments", displayName: "Comments" },
-      { name: "SubsequentStepsCorrectiveAction", displayName: "Subsequent Steps / Corrective Action" },
-      { name: "ProductionTechnician", displayName: "Production Technician" },
-      { name: "ProductionRepairNotes", displayName: "Production Repair Notes" },
-      { name: "ProductionResolution", displayName: "Production Resolution" },
+      { name: "FailureReported", displayName: "Failure Reported" },
+      { name: "PanelsResolution", displayName: "Panels Resolution" },
+      { name: "RepairTechnician", displayName: "Repair Technician" },
+      { name: "RepairDefectCategory", displayName: "Repair Defect Category", choice: { choices: ["Physical Damage", "Other"] } },
+      { name: "RepairIssueFound", displayName: "Repair Issue Found" },
+      { name: "RepairResolution", displayName: "Repair Resolution" },
+      { name: "Status", displayName: "Status", choice: { choices: ["Created", "Repair In-Process", "Repair Completed", "Repair Hold", "Panels Completed", "Repair Received"] } },
       { name: "Communication", displayName: "Communication" },
       { name: "Watchers", displayName: "Watchers" },
       { name: "TAGNumber", displayName: "TAG Number" },
@@ -78,5 +84,29 @@ describe("Panel QC real-mode reads", () => {
     const path = String(graphFetchAll.mock.calls[0][0]);
     expect(path).toContain("/sites/panel-team-site/lists/issues-list/items");
     expect(path).not.toContain("/sites/engineering-site/");
+  });
+
+  it("maps the renamed and new columns onto the domain shape", async () => {
+    const [issue] = await listPanelQcIssues();
+    expect(issue).toMatchObject({
+      panelSerialNumber: "PP-100",
+      panelPartNumber: "PANEL-1",
+      subComponentPartNumber: "123",
+      subComponentSerialNumber: "ref",
+      failureReported: "comment",
+      panelsResolution: "fix it",
+      repairTechnician: "tech",
+      repairDefectCategory: "Physical Damage",
+      repairIssueFound: "repair",
+      repairResolution: "resolved",
+      status: "Created",
+    });
+  });
+
+  it("reads Status and Repair Defect Category choices straight off the live column definitions, never a hardcoded list", async () => {
+    expect(await listPanelQcStatusChoices()).toEqual([
+      "Created", "Repair In-Process", "Repair Completed", "Repair Hold", "Panels Completed", "Repair Received",
+    ]);
+    expect(await listPanelQcRepairDefectChoices()).toEqual(["Physical Damage", "Other"]);
   });
 });

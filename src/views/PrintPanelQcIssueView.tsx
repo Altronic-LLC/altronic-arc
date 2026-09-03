@@ -33,7 +33,7 @@ export function PrintPanelQcIssueView() {
 
   return <div className="panel-qc-label mx-auto flex h-[2in] w-[2in] flex-col justify-between overflow-hidden bg-white p-[0.12in] font-sans text-[7pt] leading-tight text-black print:m-0 print:p-[0.12in]" style={{ page: "panel-qc-label" }}>
     <div className="flex items-start justify-between gap-1 border-b border-black pb-1"><span className="font-bold">PANEL QC</span><span className="font-mono text-[8pt] font-bold">{issue.tagNumber || "—"}</span></div>
-    <div className="space-y-1 pt-1"><div><span className="font-bold">Serial Note: </span>{issue.serialReferenceNote || "—"}</div><div><span className="font-bold">Part Number: </span>{issue.partNumber || "—"}</div><div><span className="font-bold">Description: </span>{truncateLabelDescription(issue.partDescription) || "—"}</div><div><span className="font-bold">Date: </span>{formatSpDate(issue.date)}</div></div>
+    <div className="space-y-1 pt-1"><div><span className="font-bold">Serial Note: </span>{issue.subComponentSerialNumber || "—"}</div><div><span className="font-bold">Part Number: </span>{issue.subComponentPartNumber || "—"}</div><div><span className="font-bold">Description: </span>{truncateLabelDescription(issue.partDescription) || "—"}</div><div><span className="font-bold">Date: </span>{formatSpDate(issue.date)}</div></div>
     <div className="border-t border-black pt-1 text-[6pt]">Panel Component Failure</div>
   </div>;
 }

@@ -36,23 +36,9 @@ describe("Panel QC Issue Tracker", () => {
 
   it("adds a defect category and an issue in mock mode", async () => {
     const category = await createPanelQcDefect("Fixture Failure");
-    const issue = await createPanelQcIssue({
-      panelSerialNumber: "TEST-001",
-      date: null,
-      partNumber: "",
-      partDescription: "",
-      serialReferenceNote: "",
-      defectCategory: category.name,
-      notes: "",
-      correctiveAction: "",
-      productionTechnician: "",
-      productionRepairNotes: "",
-      productionResolution: "",
-      watchers: [],
-      tagNumber: "",
-    });
+    const issue = await createPanelQcIssue({ ...blankInput, panelSerialNumber: "TEST-001", defectCategory: category.name });
 
-    expect(issue).toMatchObject({ panelSerialNumber: "TEST-001", defectCategory: "Fixture Failure" });
+    expect(issue).toMatchObject({ panelSerialNumber: "TEST-001", defectCategory: "Fixture Failure", status: "Created" });
     expect(issue.tagNumber).toMatch(/^P-\d{4}-\d{4}$/);
     expect((await listPanelQcDefects()).some((defect) => defect.name === "Fixture Failure")).toBe(true);
     expect((await listPanelQcIssues()).some((entry) => entry.id === issue.id)).toBe(true);
@@ -100,16 +86,19 @@ describe("Panel QC Issue Tracker", () => {
 
 const blankInput: PanelQcIssueInput = {
   panelSerialNumber: "",
+  panelPartNumber: "",
   date: null,
-  partNumber: "",
+  subComponentPartNumber: "",
   partDescription: "",
-  serialReferenceNote: "",
+  subComponentSerialNumber: "",
   defectCategory: null,
-  notes: "",
-  correctiveAction: "",
-  productionTechnician: "",
-  productionRepairNotes: "",
-  productionResolution: "",
+  failureReported: "",
+  panelsResolution: "",
+  repairTechnician: "",
+  repairDefectCategory: null,
+  repairIssueFound: "",
+  repairResolution: "",
+  status: "Created",
   watchers: [],
   tagNumber: "",
 };

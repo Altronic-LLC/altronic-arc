@@ -5,9 +5,10 @@ import { nextPanelQcTag } from "@/lib/panelQcNumber";
 import { truncateLabelDescription } from "./PrintPanelQcIssueView";
 
 const issue = (id: number, date: Date | null): PanelQcIssue => ({
-  id, date, panelSerialNumber: "", partNumber: "", partDescription: "", serialReferenceNote: "",
-  defectCategory: null, notes: "", correctiveAction: "", productionTechnician: "",
-  productionRepairNotes: "", productionResolution: "", watchers: [], comments: [], hasAttachments: false, tagNumber: "",
+  id, date, panelSerialNumber: "", panelPartNumber: "", subComponentPartNumber: "", partDescription: "", subComponentSerialNumber: "",
+  defectCategory: null, failureReported: "", panelsResolution: "", repairTechnician: "",
+  repairDefectCategory: null, repairIssueFound: "", repairResolution: "", status: "Created",
+  watchers: [], comments: [], hasAttachments: false, tagNumber: "",
 });
 
 describe("Panel QC issue sorting", () => {
@@ -28,10 +29,10 @@ describe("Panel QC issue sorting", () => {
   });
 
   it("sorts text fields according to the selected direction", () => {
-    const alpha = { ...issue(1, null), partNumber: "100" };
-    const beta = { ...issue(2, null), partNumber: "200" };
-    expect(comparePanelQcIssues(alpha, beta, "partNumber", "asc")).toBeLessThan(0);
-    expect(comparePanelQcIssues(alpha, beta, "partNumber", "desc")).toBeGreaterThan(0);
+    const alpha = { ...issue(1, null), subComponentPartNumber: "100" };
+    const beta = { ...issue(2, null), subComponentPartNumber: "200" };
+    expect(comparePanelQcIssues(alpha, beta, "subComponentPartNumber", "asc")).toBeLessThan(0);
+    expect(comparePanelQcIssues(alpha, beta, "subComponentPartNumber", "desc")).toBeGreaterThan(0);
   });
 });
 

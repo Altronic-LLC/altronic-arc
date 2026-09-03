@@ -6,6 +6,8 @@ import {
   editPanelQcIssueComment,
   listPanelQcDefects,
   listPanelQcIssues,
+  listPanelQcRepairDefectChoices,
+  listPanelQcStatusChoices,
   setPanelQcIssueWatchers,
   unwatchPanelQcIssue,
   updatePanelQcIssue,
@@ -30,9 +32,16 @@ import { pushToast } from "@/components/Toast";
 
 export const PANEL_QC_ISSUES_KEY = ["panelQcIssues"] as const;
 export const PANEL_QC_DEFECTS_KEY = ["panelQcDefects"] as const;
+export const PANEL_QC_STATUS_CHOICES_KEY = ["panelQcStatusChoices"] as const;
+export const PANEL_QC_REPAIR_DEFECT_CHOICES_KEY = ["panelQcRepairDefectChoices"] as const;
 
 export function usePanelQcIssues() { return useQuery({ queryKey: PANEL_QC_ISSUES_KEY, queryFn: listPanelQcIssues, staleTime: 2 * 60_000 }); }
 export function usePanelQcDefects() { return useQuery({ queryKey: PANEL_QC_DEFECTS_KEY, queryFn: listPanelQcDefects, staleTime: 5 * 60_000 }); }
+// Both choice lists come straight off SharePoint's own column config — see
+// listPanelQcStatusChoices / listPanelQcRepairDefectChoices — so they rarely
+// change; a long staleTime avoids re-fetching column metadata on every open.
+export function usePanelQcStatusChoices() { return useQuery({ queryKey: PANEL_QC_STATUS_CHOICES_KEY, queryFn: listPanelQcStatusChoices, staleTime: 30 * 60_000 }); }
+export function usePanelQcRepairDefectChoices() { return useQuery({ queryKey: PANEL_QC_REPAIR_DEFECT_CHOICES_KEY, queryFn: listPanelQcRepairDefectChoices, staleTime: 30 * 60_000 }); }
 
 function errorToast(message: string) {
   pushToast({ message, variant: "error" });

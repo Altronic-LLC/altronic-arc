@@ -20,6 +20,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.147.0",
+    date: "2026-09-03",
+    changes: [
+      "Panel QC issue fields renamed to match the SharePoint list: Panel Serial Number, Sub Component Part Number, Sub Component Serial Number, Failure Reported, Panels Resolution, Repair Technician, Repair Issue Found, Repair Resolution",
+      "Added Panel Part Number, Repair Defect Category and Status to Panel QC issues",
+      "The Repair Department section is now hidden on the New Issue form and only appears once an issue exists",
+      "New Panel QC issues can have files attached before saving — they upload automatically once the issue is created",
+      "The Panel QC edit view now shows the issue's current Status next to its TAG Number, with a Status picker beside Save changes",
+    ],
+  },
+  {
     version: "0.146.0",
     date: "2026-09-03",
     changes: [
