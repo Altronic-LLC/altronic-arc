@@ -327,26 +327,55 @@ describe("the assignment heads-up", () => {
 // CLAUDE.md's own warning about this exact trap.
 // =============================================================================
 
+// A FAIT with every sign-off it owes already Approved — kam: null means no
+// KAM is owed, so SQE + Engineering alone is "fully signed off" here.
+const FULLY_SIGNED_OFF = { sqeSignOff: "Approved", engSignOff: "Approved" };
+
 describe("the Notify Initiator checkbox", () => {
-  it("tells the initiator and every watcher when it's freshly checked", async () => {
-    await write(aFait({ watchers: [SARAH, RAY] }), { NotifyInitiator: true });
+  // Ray, 2026-09-03: "The Notify Initiator button should change the status
+  // to Closed... by pressing it closes the ticket assuming all sign offs
+  // are done." Checking it only succeeds — and only then emails anyone —
+  // once faitFullySignedOff() says so; see the "refuses" tests below for
+  // the incomplete case.
+  it("tells the initiator and every watcher, and closes the FAIT, once every sign-off is Approved", async () => {
+    await write(aFait({ watchers: [SARAH, RAY] }, FULLY_SIGNED_OFF), { NotifyInitiator: true });
     expect(fireFaitNotifyInitiatorAlert).toHaveBeenCalledTimes(1);
     expect(fireFaitNotifyInitiatorAlert.mock.calls[0][0]).toMatchObject({
       initiator: SARAH,
       watchers: [SARAH, RAY],
     });
+    expect(lastPatch()).toMatchObject({ NotifyInitiator: true, Status: "Closed" });
+  });
+
+  // THE GUARD. Not fully signed off (SQESignOff blank) — the box must not
+  // save, close the FAIT, or email anyone.
+  it("refuses to close (or email anyone) when the sign-offs aren't complete", async () => {
+    await expect(write(aFait(), { NotifyInitiator: true })).rejects.toThrow(/sign-off/i);
+    expect(fireFaitNotifyInitiatorAlert).not.toHaveBeenCalled();
+    expect(updateFaitFields).not.toHaveBeenCalled();
+  });
+
+  // A KAM is assigned, so one is owed, and it hasn't signed — still refused
+  // even though SQE and Engineering are both Approved.
+  it("refuses when a KAM is assigned but hasn't signed off yet", async () => {
+    await expect(
+      write(aFait({ kam: RAY }, FULLY_SIGNED_OFF), { NotifyInitiator: true }),
+    ).rejects.toThrow(/sign-off/i);
+    expect(fireFaitNotifyInitiatorAlert).not.toHaveBeenCalled();
   });
 
   // THE GUARD — this fixture already has it checked.
   it("stays quiet when an already-checked box is re-saved", async () => {
-    await write(aFait({}, { notifyInitiator: "Yes" }), { NotifyInitiator: true });
+    await write(aFait({}, { ...FULLY_SIGNED_OFF, notifyInitiator: "Yes" }), {
+      NotifyInitiator: true,
+    });
     expect(fireFaitNotifyInitiatorAlert).not.toHaveBeenCalled();
   });
 
   // Re-saving the Sign-off card with the box already checked and OTHER
   // fields changing must not re-fire it either.
   it("stays quiet when other Sign-off fields change but the box stays checked", async () => {
-    await write(aFait({}, { notifyInitiator: "Yes" }), {
+    await write(aFait({}, { ...FULLY_SIGNED_OFF, notifyInitiator: "Yes" }), {
       NotifyInitiator: true,
       EngInitials: "jw",
     });
@@ -354,7 +383,9 @@ describe("the Notify Initiator checkbox", () => {
   });
 
   it("does nothing on uncheck — no auto-reset mechanic", async () => {
-    await write(aFait({}, { notifyInitiator: "Yes" }), { NotifyInitiator: false });
+    await write(aFait({}, { ...FULLY_SIGNED_OFF, notifyInitiator: "Yes" }), {
+      NotifyInitiator: false,
+    });
     expect(fireFaitNotifyInitiatorAlert).not.toHaveBeenCalled();
   });
 

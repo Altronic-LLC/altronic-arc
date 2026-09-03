@@ -1254,16 +1254,46 @@ which KAM fields are showing.
 only in a view is a rule that isn't enforced. Its logic is unchanged;
 `FaitDetailView` imports it.
 
-**"Notify Initiator" is a nudge, not a close.** Ray asked (2026-09-03) whether
-checking this Sign-off card box closes the FAIT and changes its status —
-it doesn't. It only fires `fireFaitNotifyInitiatorAlert` (fire-once, on the
-transition into checked): an email to the initiator plus every watcher saying
-an update is available, with no effect on Status at all. Closing a FAIT is
-still done through the Status picker in the sidebar. Both the read-only card
-(`FieldRow` in `FaitDetailView.tsx`) and the Edit modal now say this in words
-next to the control, via `EditableFieldSpec.hint` on the `notifyInitiator`
-descriptor in `faitFields.ts` — `hint` existed on the shared type already and
-was unused until this.
+**"Notify Initiator" CLOSES the FAIT — once every sign-off it owes is
+Approved.** Ray first asked (2026-09-03, same day) whether checking this
+Sign-off card box closes the FAIT and changes its status; the answer at that
+point was no — it only fired `fireFaitNotifyInitiatorAlert` as a bare "an
+update is available" nudge. Ray then asked for the box to actually do that:
+*"The Notify Initiator button should change the status to Closed and inform
+users of its function... assuming all sign offs are done."*
+
+- **`faitFullySignedOff(fait)`** (`lib/faitSignOff.ts`) is the gate — SQE
+  Approved, Engineering Approved, and KAM Approved only if `kamNeeded(fait)`
+  says one is owed. It restates the same rule `faitSignOffOutcome` already
+  applies one step at a time, as a single point-in-time check for a caller
+  that isn't mid-write.
+- **An incomplete FAIT REFUSES the write**, in `useUpdateFaitFields`'s
+  `mutationFn` — `FaitNotFullySignedOffError`, thrown before any request goes
+  out, so the box visibly doesn't save rather than silently closing something
+  that isn't actually finished. The generic `onError` handler already rolls
+  the optimistic patch back and toasts `err.message`, so no extra plumbing was
+  needed for the refusal to surface.
+- **Whether this write closes the FAIT is decided in `onMutate`**, against
+  the pre-write row (same timing rule as `pendingSignOff` for the ordinary
+  sign-off chain — `onMutate` has already run by the time `mutationFn`
+  fires), and carried forward through a second WeakMap, `pendingNotifyClose`,
+  keyed on the mutation's `vars` object.
+- **The close travels in the SAME PATCH** as the Notify Initiator checkbox
+  itself — `{ NotifyInitiator: true, Status: "Closed" }` in one write, the
+  same "the auto-advance can't disagree with what caused it" rule the
+  ordinary sign-off chain already follows.
+- **The email content changed to match**: `buildFaitNotifyInitiatorEmails`
+  now says "confirmed all sign-offs are complete... it's now closed", not
+  "an update is available" — since a refused write means this can now only
+  ever fire on a genuine close.
+- **Still fire-once, and still never reopens an already-Closed FAIT** — the
+  same `to !== from` / presence-vs-change discipline as everywhere else in
+  this file. Re-saving the Sign-off card with the box already checked sends
+  nothing, so a FAIT that's already Closed can't be "re-closed" (and
+  re-emailed) by an unrelated resave.
+- Both the read-only card (`FieldRow` in `FaitDetailView.tsx`) and the Edit
+  modal say this in words next to the control, via `EditableFieldSpec.hint`
+  on the `notifyInitiator` descriptor in `faitFields.ts`.
 
 **The initiator can never be removed from Watchers — enforced twice.** The
 Watchers picker in `FaitDetailView` refuses the toggle with a toast

@@ -477,14 +477,14 @@ function FieldRow({ field, value }: { field: FaitField; value: string }) {
         <p className="text-sm text-fg-muted">Not set</p>
       )}
       {field.key === "notifyInitiator" && (
-        // Ray, 2026-09-03: asked to confirm what this checkbox actually
-        // does. It does NOT close the FAIT or change its status — it only
-        // emails the initiator + watchers that an update is available
-        // (buildFaitNotifyInitiatorEmails in lib/faitAlerts.ts). Closing a
-        // FAIT is still done through the Status picker in the sidebar.
+        // Ray, 2026-09-03: checking this closes the FAIT, once every
+        // sign-off it owes is Approved (faitFullySignedOff in
+        // lib/faitSignOff.ts) — an incomplete FAIT refuses the write
+        // (FaitNotFullySignedOffError in useFaits.ts) rather than closing.
         <p className="mt-1 text-xs text-fg-muted">
-          Emails the initiator and watchers that an update is available. It does not close the
-          FAIT or change its status — use the Status picker in the sidebar for that.
+          Checking this closes the FAIT and emails the initiator and watchers that all sign-offs
+          are complete. It only works once SQE, Engineering and (if one is assigned) KAM have all
+          signed off — otherwise the change is refused.
         </p>
       )}
     </div>

@@ -198,4 +198,70 @@ export const MOCK_FAITS: Fait[] = [
     createdAt: daysAgo(21),
     modifiedAt: daysAgo(5),
   },
+  {
+    id: 5,
+    title: "",
+    // Fully signed off (SQE + Engineering + KAM, since one is assigned) but
+    // NOT yet Closed — the one shape the other fixtures don't cover, needed
+    // to test that checking Notify Initiator actually closes a FAIT once
+    // it's genuinely done (Ray, 2026-09-03).
+    status: "This is with KAM",
+    parentProject: { lookupId: 501, title: "" },
+    eirLookupId: null,
+    testDocumentLookupId: null,
+    initiator: SARAH,
+    assignedEngineer: JERROD,
+    kam: RAY,
+    watchers: [SARAH, JERROD, RAY],
+    comments: [],
+    hasAttachments: false,
+    values: {
+      ...BLANK,
+      sapPartNumber: "812204",
+      description: "GASKET, HEAD COVER",
+      drawingNumber: "812204",
+      supplierName: "PRECISION SEALS LLC",
+      fullDimensionalCheck: "Yes",
+      meetsFirstPass: "Yes",
+      sqeSignOff: "Approved",
+      sqeInitials: "jw",
+      engSignOff: "Approved",
+      engInitials: "js",
+      kamSignOff: "Approved",
+      kamInitials: "rw",
+    },
+    createdAt: daysAgo(10),
+    modifiedAt: daysAgo(1),
+  },
+  {
+    id: 6,
+    title: "",
+    // NOT fully signed off — SQE Pending, and a KAM is assigned so one is
+    // owed but hasn't signed. Exists so a test can rely on a FAIT that stays
+    // un-closeable regardless of what other tests in the same file do to
+    // FAITs 1-4 (the mock store is a shared module-level array with no
+    // per-test reset, so an id used elsewhere for a "close this" test isn't
+    // safe to reuse for "this must NOT be closeable").
+    status: "This is with SQE",
+    parentProject: { lookupId: 501, title: "" },
+    eirLookupId: null,
+    testDocumentLookupId: null,
+    initiator: SARAH,
+    assignedEngineer: JERROD,
+    kam: RAY,
+    watchers: [SARAH, JERROD, RAY],
+    comments: [],
+    hasAttachments: false,
+    values: {
+      ...BLANK,
+      sapPartNumber: "915330",
+      description: "BRACKET, MOUNTING",
+      drawingNumber: "915330",
+      supplierName: "MIDWEST STAMPING",
+      fullDimensionalCheck: "Yes",
+      sqeSignOff: "Pending",
+    },
+    createdAt: daysAgo(6),
+    modifiedAt: daysAgo(1),
+  },
 ];

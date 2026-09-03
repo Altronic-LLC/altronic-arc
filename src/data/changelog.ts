@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.145.0",
+    date: "2026-09-03",
+    changes: [
+      "Checking Notify Initiator on a FAIT now closes it and emails the initiator + watchers that all sign-offs are complete — it only works once SQE, Engineering and (if one is assigned) KAM have all signed off, otherwise the change is refused with an explanation",
+    ],
+  },
+  {
     version: "0.144.0",
     date: "2026-09-03",
     changes: [

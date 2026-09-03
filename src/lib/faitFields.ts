@@ -158,10 +158,11 @@ export const FAIT_FIELDS: FaitField[] = [
     label: "Notify Initiator",
     kind: "boolean",
     section: "Sign-off",
-    // Ray, 2026-09-03: asked to confirm what this does. It only emails the
-    // initiator + watchers that an update is available (fireFaitNotifyInitiatorAlert
-    // in lib/faitAlerts.ts) — it does NOT close the FAIT or change its status.
-    hint: "Emails the initiator and watchers — does not close the FAIT or change its status.",
+    // Ray, 2026-09-03: checking this CLOSES the FAIT, once every sign-off it
+    // owes is Approved (faitFullySignedOff in lib/faitSignOff.ts) — the write
+    // is refused otherwise (FaitNotFullySignedOffError in useFaits.ts), so
+    // the box visibly won't save on an incomplete FAIT.
+    hint: "Checking this closes the FAIT and emails the initiator and watchers — only works once SQE, Engineering and (if assigned) KAM have all signed off.",
   },
   { key: "notes", column: "Notes", label: "Notes", kind: "multiline", section: "Sign-off" },
 ];

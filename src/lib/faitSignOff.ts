@@ -70,6 +70,25 @@ function norm(value: unknown): string {
   return String(value ?? "").trim().toLowerCase();
 }
 
+/**
+ * Whether every sign-off this FAIT actually owes is Approved — SQE,
+ * Engineering, and KAM only if `kamNeeded()` says one is owed.
+ *
+ * This is the same rule `faitSignOffOutcome` already applies one step at a
+ * time (SQE approved advances to ENG; ENG approved advances to KAM only if
+ * `kamOwed`, otherwise the chain is finished) — restated here as a single
+ * point-in-time check so a caller that isn't mid-write (the Notify Initiator
+ * checkbox) can ask "is this FAIT actually done" without re-deriving the
+ * chain's own logic.
+ */
+export function faitFullySignedOff(fait: Fait): boolean {
+  const approved = (value: unknown) => norm(value) === norm(SIGN_OFF_APPROVED);
+  if (!approved(fait.values.sqeSignOff)) return false;
+  if (!approved(fait.values.engSignOff)) return false;
+  if (kamNeeded(fait) && !approved(fait.values.kamSignOff)) return false;
+  return true;
+}
+
 /** One link of the chain that a write just moved. */
 export type FaitSignOffStep =
   | { kind: "sqe-approved" }

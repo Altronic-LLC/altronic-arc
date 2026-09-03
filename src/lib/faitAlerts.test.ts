@@ -369,10 +369,10 @@ describe("the Notify Initiator email", () => {
     expect(emails.map((e) => e.email)).toEqual([JERROD.email]);
   });
 
-  it("names the FAIT and says an update is available", () => {
+  it("names the FAIT and says it's closed", () => {
     const emails = buildNotify();
     expect(emails[0].subject).toContain("691768-1");
-    expect(emails[0].headlineHtml).toContain("update is available");
+    expect(emails[0].headlineHtml).toContain("closed");
   });
 
   it("adds the watchers alongside the initiator", () => {
