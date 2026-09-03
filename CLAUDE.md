@@ -1254,6 +1254,28 @@ which KAM fields are showing.
 only in a view is a rule that isn't enforced. Its logic is unchanged;
 `FaitDetailView` imports it.
 
+**No OEM Impact means no KAM sign-off, full stop** (Ray, 2026-09-03: "If
+there is no OEM impact, hide the CAM [KAM] sign-off field") — checked FIRST
+in `kamNeeded()`, ahead of the "KAM assigned or has existing data" check
+above. A KAM only ever signs off on a part that reaches an OEM customer.
+`OEMImpact` is a real SharePoint **boolean** column (unlike the sign-off
+columns, which are text/choice) — stored `"Yes"` or `""` for No, no third
+"unanswered" state — so blank genuinely means No, and `hasOemImpact(fait)`
+(exported alongside `kamNeeded`, for the sidebar hint to explain WHY the KAM
+fields are hidden) is the one place that reads it. Unlike the "AND no
+existing data" carve-out above, this is an UNCONDITIONAL override: a FAIT
+with real, pre-existing `kamSignOff` data still hides it if OEM Impact is
+No — the sign-off literally doesn't apply to a part with no OEM impact, so
+there's no "don't erase real data" case to protect the way there is for "no
+KAM assigned yet". This also feeds `faitFullySignedOff()` (the Notify
+Initiator close gate, below) and `faitSignOffOutcome`'s `kamOwed`, so a FAIT
+with no OEM impact can close on SQE + Engineering alone and never parks at
+"This is with KAM" waiting on a signature nobody owes.
+
+**KAM moved ahead of Assigned Engineer in the sidebar** (Ray, 2026-09-03:
+"Move the CAM [KAM] Person field forward") — People group order is now
+Initiator → KAM → Assigned Engineer → Watchers.
+
 **"Notify Initiator" CLOSES the FAIT — once every sign-off it owes is
 Approved.** Ray first asked (2026-09-03, same day) whether checking this
 Sign-off card box closes the FAIT and changes its status; the answer at that

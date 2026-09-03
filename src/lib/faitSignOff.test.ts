@@ -35,7 +35,12 @@ function aFait(over: Partial<Fait> = {}, values: Record<string, string> = {}): F
     watchers: [],
     comments: [],
     hasAttachments: false,
-    values: { sqeSignOff: "", engSignOff: "", kamSignOff: "", ...values },
+    // oemImpact defaults to "Yes" — most fixtures here exist to test the KAM
+    // half of the chain, and OEMImpact is a real boolean column where blank
+    // means No (see kamNeeded's doc comment), so leaving it unset would hide
+    // KAM regardless of what a test actually sets kam/kamSignOff to. Tests
+    // for the OEM-impact gate itself override it explicitly.
+    values: { sqeSignOff: "", engSignOff: "", kamSignOff: "", oemImpact: "Yes", ...values },
     createdAt: new Date(),
     modifiedAt: new Date(),
     ...over,
@@ -57,6 +62,21 @@ describe("kamNeeded", () => {
     expect(kamNeeded(aFait({}, { kamSignOff: "Approved" }))).toBe(true);
     expect(kamNeeded(aFait({}, { kamInitials: "rw" }))).toBe(true);
     expect(kamNeeded(aFait({}, { kamApprovalNotes: "fine by me" }))).toBe(true);
+  });
+
+  // Ray, 2026-09-03: "If there is no OEM impact, hide the CAM [KAM]
+  // sign-off field." No OEM Impact hides KAM regardless of anything else —
+  // a KAM assigned, or real sign-off data already on the record.
+  it("is false with no OEM Impact, even with a KAM assigned", () => {
+    expect(kamNeeded(aFait({ kam: RAY }, { oemImpact: "" }))).toBe(false);
+  });
+
+  it("is false with no OEM Impact, even with real KAM sign-off data", () => {
+    expect(kamNeeded(aFait({ kam: RAY }, { oemImpact: "", kamSignOff: "Approved" }))).toBe(false);
+  });
+
+  it("is true with OEM Impact checked and a KAM assigned", () => {
+    expect(kamNeeded(aFait({ kam: RAY }, { oemImpact: "Yes" }))).toBe(true);
   });
 });
 

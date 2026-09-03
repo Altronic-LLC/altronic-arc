@@ -23,7 +23,7 @@ import {
 import { faitFieldPatch, faitProjectPatch } from "@/lib/faitMapper";
 // kamNeeded lives in lib/ because the alert chain asks the same question —
 // a rule enforced only in a view is a rule that isn't enforced.
-import { kamNeeded } from "@/lib/faitSignOff";
+import { hasOemImpact, kamNeeded } from "@/lib/faitSignOff";
 import { mergePeople, personKey } from "@/lib/people";
 import { pushToast } from "@/components/Toast";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -348,15 +348,8 @@ export function FaitDetailView() {
               </p>
             </SidebarField>
 
-            <SidebarField label="Assigned Engineer" icon={<User className="h-3.5 w-3.5" />}>
-              <PersonPicker
-                label="Assigned Engineer"
-                selected={fait.assignedEngineer}
-                candidates={mentionCandidates}
-                onPick={(person) => updateAssignedEngineer.mutate({ id: fait.id, person })}
-              />
-            </SidebarField>
-
+            {/* KAM moved ahead of Assigned Engineer (Ray, 2026-09-03: "Move
+                the CAM [KAM] Person field forward") */}
             <SidebarField label="KAM" icon={<User className="h-3.5 w-3.5" />}>
               <PersonPicker
                 label="KAM"
@@ -366,9 +359,20 @@ export function FaitDetailView() {
               />
               {!kamNeeded(fait) && (
                 <p className="mt-1 px-1 text-[11px] text-fg-muted">
-                  No KAM needed — assign one only if this FAIT requires a KAM sign-off.
+                  {!hasOemImpact(fait)
+                    ? "No KAM needed — this FAIT has no OEM Impact."
+                    : "No KAM needed — assign one only if this FAIT requires a KAM sign-off."}
                 </p>
               )}
+            </SidebarField>
+
+            <SidebarField label="Assigned Engineer" icon={<User className="h-3.5 w-3.5" />}>
+              <PersonPicker
+                label="Assigned Engineer"
+                selected={fait.assignedEngineer}
+                candidates={mentionCandidates}
+                onPick={(person) => updateAssignedEngineer.mutate({ id: fait.id, person })}
+              />
             </SidebarField>
 
             <SidebarField label="Watchers">

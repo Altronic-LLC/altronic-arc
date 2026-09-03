@@ -77,7 +77,11 @@ function aFait(over: Partial<Fait> = {}, values: Record<string, string> = {}): F
     createdAt: new Date(),
     modifiedAt: new Date(),
     ...over,
-    values: { sqeSignOff: "", engSignOff: "", kamSignOff: "", ...values },
+    // oemImpact defaults to "Yes" — most fixtures here exist to test the
+    // KAM half of the chain, and OEMImpact is a real boolean column where
+    // blank means No (kamNeeded in lib/faitSignOff.ts), so leaving it unset
+    // would hide KAM regardless of what a test sets kam/kamSignOff to.
+    values: { sqeSignOff: "", engSignOff: "", kamSignOff: "", oemImpact: "Yes", ...values },
   } as Fait;
 }
 

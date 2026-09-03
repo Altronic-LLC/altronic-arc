@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.145.1",
+    date: "2026-09-03",
+    changes: [
+      "Moved the KAM field ahead of Assigned Engineer on a FAIT's sidebar",
+      "A FAIT with no OEM Impact no longer shows a KAM sign-off requirement — the KAM fields hide, and closing the FAIT no longer waits on a signature that isn't owed",
+    ],
+  },
+  {
     version: "0.145.0",
     date: "2026-09-03",
     changes: [

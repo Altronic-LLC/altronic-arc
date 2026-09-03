@@ -223,6 +223,11 @@ export const MOCK_FAITS: Fait[] = [
       supplierName: "PRECISION SEALS LLC",
       fullDimensionalCheck: "Yes",
       meetsFirstPass: "Yes",
+      // A KAM is genuinely owed here — OEM Impact must be Yes, or
+      // kamNeeded() (lib/faitSignOff.ts) hides KAM regardless of the KAM
+      // being assigned/approved below (Ray, 2026-09-03: no OEM impact hides
+      // the KAM sign-off entirely).
+      oemImpact: "Yes",
       sqeSignOff: "Approved",
       sqeInitials: "jw",
       engSignOff: "Approved",
@@ -259,6 +264,9 @@ export const MOCK_FAITS: Fait[] = [
       drawingNumber: "915330",
       supplierName: "MIDWEST STAMPING",
       fullDimensionalCheck: "Yes",
+      // Consistent with "a KAM is assigned so one is owed" above — see the
+      // note on fixture 5.
+      oemImpact: "Yes",
       sqeSignOff: "Pending",
     },
     createdAt: daysAgo(6),
