@@ -33,7 +33,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Existing Panel QC entries can open a printer-ready 2 × 2 inch label, with zero margins, showing their TAG Number, serial note, part details, and date",
       "Panel QC issues have a real Communication comment thread with @-mentions and email notifications, Watchers with an immediate Watch/Unwatch button and auto-watch when someone is mentioned, and file attachments",
       "Panel QC issue search also matches the comment thread and watcher names, and the list shows a comment count and a paperclip icon for issues with attachments",
-      "New Panel QC entries and edits now group fields into Panel Department and Repair Department sections, in both the new-issue and edit views",
+      "New Panel QC entries and edits now group fields into Panel Department (defect details) and Repair Department (technician, repair notes, resolution) sections, in both the new-issue and edit views",
       "The app header and footer stay visible while you scroll, with reserved space so page content remains accessible",
     ],
   },

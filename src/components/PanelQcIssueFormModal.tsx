@@ -171,7 +171,6 @@ export function PanelQcIssueFormModal({ issue, onClose }: Props) {
             <Field label="Part Number"><input value={draft.partNumber} onChange={(e) => set("partNumber", e.target.value)} className="input" /></Field>
             <Field label="Part Description"><input value={draft.partDescription} onChange={(e) => set("partDescription", e.target.value)} className="input" /></Field>
             <Field label="Serial Reference Note"><input value={draft.serialReferenceNote} onChange={(e) => set("serialReferenceNote", e.target.value)} className="input" /></Field>
-            <Field label="Production Technician"><input value={draft.productionTechnician} onChange={(e) => set("productionTechnician", e.target.value)} className="input" /></Field>
             {/* Watchers are create-only here — once the issue exists, the live
                 Watch button + card below own that field so a mention-driven
                 auto-watch can't be clobbered by this draft going stale. */}
@@ -184,6 +183,7 @@ export function PanelQcIssueFormModal({ issue, onClose }: Props) {
         <div className="rounded-lg border border-border bg-surface p-4 sm:p-5">
           <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">Repair Department</h2>
           <div className="grid grid-cols-1 gap-4">
+            <Field label="Production Technician" className="sm:max-w-xs"><input value={draft.productionTechnician} onChange={(e) => set("productionTechnician", e.target.value)} className="input" /></Field>
             <Field label="Production Repair Notes"><AutoGrowTextarea value={draft.productionRepairNotes} onChange={(e) => set("productionRepairNotes", e.target.value)} rows={2} className="input resize-y" /></Field>
             <Field label="Production Resolution"><AutoGrowTextarea value={draft.productionResolution} onChange={(e) => set("productionResolution", e.target.value)} rows={2} className="input resize-y" /></Field>
           </div>
