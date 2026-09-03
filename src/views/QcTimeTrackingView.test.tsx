@@ -47,7 +47,11 @@ describe("QcTimeTrackingView", () => {
     state.entries = [];
     state.isLoading = true;
     renderWithProviders(<QcTimeTrackingView />);
-    expect(screen.getByText(/loading/i)).toBeInTheDocument();
+    // The header's own count also reads "Loading…" while isLoading is true,
+    // so a bare /loading/i matches both it and LoadingTasks' headline —
+    // match LoadingTasks' verb + noun specifically (verb rotates, so loose
+    // on that half), the same convention other views use.
+    expect(screen.getByText(/\w+ qc time entries$/i)).toBeInTheDocument();
   });
 
   it("shows an empty state with no entries", () => {
