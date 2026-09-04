@@ -444,6 +444,13 @@ const SECTIONS: ManualSection[] = [
           to open that project.
         </P>
         <P>
+          <strong>Watchers</strong> in the sidebar works the same way as
+          Assigned — a searchable picker with the current watchers shown as
+          removable chips, so you can add or remove anyone directly instead
+          of only being able to watch or unwatch yourself with the button at
+          the top of the page.
+        </P>
+        <P>
           The <strong>Edit</strong> button at the top of the detail page opens
           the full task form for bulk edits of title + description in one go.
         </P>

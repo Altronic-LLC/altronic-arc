@@ -3864,6 +3864,45 @@ columns) and calls `onClose()` without awaiting them. That's safe because a
 failed write rolls its own field back and toasts, and React Query finishes
 mutations after unmount. Validation still runs first.
 
+### Task detail: Watchers is a picker, not read-only text
+
+Ray, 2026-09-04: "allows users to add and remove watchers from the right-view
+pane in the edit screen, similar to EIRs and the other apps." Before this the
+sidebar's Watchers field was a comma-joined name list with no control at
+all — the only way to change it was the "Watch"/"Unwatch" button up top,
+which only ever toggles the SIGNED-IN user, never anyone else.
+
+`useSetWatchers()` in `useTasks.ts` — a whole-array mutation (optimistic
+patch, undo, the same shape as `useSetAssigned`) — already existed and was
+already wired into `TaskFormModal`'s edit form, but had never been connected
+to `DetailView.tsx`'s read/detail page. `handleWatcherToggle` there now
+mirrors `handleAssignedToggle` exactly: `PersonMultiField`'s `onToggle` hands
+back one `Person`, the handler diffs it against `task.watchers` and calls
+`setWatchers.mutate` with the whole next array. Same component, same pattern
+EIR's sidebar already used (`EirDetailView.tsx`'s own `handleWatcherToggle`,
+via `useSetEirWatchers`) — Tasks was the one department detail page that
+hadn't caught up yet.
+
+The one-click **Watch/Unwatch button stays** — it's the "watch it myself"
+shortcut via `useWatchTask`/`useUnwatchTask`, a different pair of hooks that
+each toggle exactly one person (the current user) with their own optimistic
+patch and Undo. The sidebar picker is the FULL list; the button is a
+convenience for the one entry that's almost always wanted. Both write through
+the same underlying `setWatchers` API function in `api/tasks.ts`, so they
+can't disagree about what "the watcher list" means.
+
+Pinned in `DetailView.watchers.test.tsx` — no broader test harness covers
+`DetailView.tsx` in this repo (see the `DetailView.projectRef` /
+`DetailView.relatedProjects` test files for the same convention), so this is
+scoped to the one addition: chips render for existing watchers, the empty
+state reads "Nobody is watching this task" the same as the old text did,
+removing a chip drops that watcher, and picking someone from the dropdown
+adds them. The dropdown panel portals to `document.body` (see
+`SearchableSelect.tsx`), so a test can't scope an option query to the
+field's own DOM subtree once it's open — scope to the single open
+`role="listbox"` instead, not `screen` as a whole, or a query can pick up
+an option from an unrelated field's panel that happens to still be mounted.
+
 ### Description checklists: sub-tasks and attribution
 
 - **Indent = sub-task.** A checklist line indented with tab, spaces or NBSP is a

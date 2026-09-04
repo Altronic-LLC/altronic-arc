@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.147.0",
+    date: "2026-09-04",
+    changes: [
+      "Task detail: Watchers is now a picker in the sidebar, like Assigned — add or remove anyone directly, instead of only being able to watch/unwatch yourself",
+    ],
+  },
+  {
     version: "0.146.2",
     date: "2026-09-04",
     changes: [

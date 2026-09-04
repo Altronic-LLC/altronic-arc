@@ -26,6 +26,7 @@ import {
   useSetParentProject,
   useSetParentTask,
   useSetRelatedProjects,
+  useSetWatchers,
   useTask,
   useTasks,
   useUnwatchTask,
@@ -93,6 +94,7 @@ export function DetailView() {
   const setParentProject = useSetParentProject();
   const setRelatedProjects = useSetRelatedProjects();
   const setAssigned = useSetAssigned();
+  const setWatchers = useSetWatchers();
   const watchTask = useWatchTask();
   const unwatchTask = useUnwatchTask();
   const uploadCommentFile = useUploadTaskFile(task ?? null);
@@ -303,6 +305,23 @@ export function DetailView() {
       ? task.assigned.filter((p) => (p.email ?? p.displayName).toLowerCase() !== key)
       : [...task.assigned, person];
     setAssigned.mutate({ id: task.id, people: next });
+  }
+
+  // Same shape as handleAssignedToggle — a PersonMultiField in the sidebar
+  // for adding/removing watchers directly, the way EIRs (and every other
+  // department's detail page) already work. The Watch/Unwatch button up top
+  // stays as the one-click "watch it yourself" shortcut; this is the full
+  // list.
+  function handleWatcherToggle(person: Person) {
+    if (!task) return;
+    const key = (person.email ?? person.displayName).toLowerCase();
+    const has = task.watchers.some(
+      (p) => (p.email ?? p.displayName).toLowerCase() === key,
+    );
+    const next = has
+      ? task.watchers.filter((p) => (p.email ?? p.displayName).toLowerCase() !== key)
+      : [...task.watchers, person];
+    setWatchers.mutate({ id: task.id, people: next });
   }
 
   function handleMarkComplete() {
@@ -886,11 +905,15 @@ export function DetailView() {
                 </select>
               </div>
 
-              <Field icon={<Eye />} label="Watchers">
-                {task.watchers.length === 0
-                  ? "Nobody is watching this task"
-                  : task.watchers.map((w) => w.displayName).join(", ")}
-              </Field>
+              <div>
+                <FieldLabel icon={<Eye />}>Watchers</FieldLabel>
+                <PersonMultiField
+                  value={task.watchers}
+                  allPeople={allPeople}
+                  emptyLabel="Nobody is watching this task"
+                  onToggle={handleWatcherToggle}
+                />
+              </div>
 
               {task.softwareRevision && (
                 <Field icon={<Tag />} label="Software Revision">
