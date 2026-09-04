@@ -43,7 +43,7 @@ const LISTS: Array<{ label: string; envVar: string; value: string | undefined; w
     label: "EIR — assign an engineer",
     envVar: "VITE_EIR_TRIAGE_ASSIGNERS",
     value: EIR_TRIAGE_ASSIGNERS,
-    what: "Emailed when a project reference lands on an EIR that still has no engineer. Also the fallback when a rejected response has no engineer to send back to.",
+    what: "Emailed when a project reference lands on an EIR that still has no engineer. Also the fallback when a rejected response has no engineer to send back to, and — since 2026-09-04 — when an EIR's Resolution becomes Resolved, asking them to review it and decide whether the response is accepted.",
   },
   {
     label: "EIR — response accepted",

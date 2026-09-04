@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.146.1",
+    date: "2026-09-04",
+    changes: [
+      "Admin → Notification recipients now notes that the EIR assign-an-engineer list is also who's asked to review an EIR once it's Resolved",
+    ],
+  },
+  {
     version: "0.146.0",
     date: "2026-09-04",
     changes: [

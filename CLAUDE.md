@@ -3354,6 +3354,18 @@ missing exactly the kind of address problem this screen exists to catch. Not
 caught by any test — Ray caught it by eye ("you did not list them on the
 admin notifications section") right after the FAIT alerts shipped.
 
+**Reusing an EXISTING list for a new trigger still needs the `what`
+description updated, in the same commit** — the EIR Resolved alert
+(2026-09-04) deliberately reused `EIR_TRIAGE_ASSIGNERS` rather than adding a
+new list (see the EIR status alerts section), so there was no missing `LISTS`
+entry to catch — but the entry's `what` text still only described its
+original job ("assign an engineer") until Ray asked again ("update the admin
+notification section with these hardcoded emails, even the FAIT ones") and a
+check confirmed the FAIT ones were already there but this description
+wasn't updated. An admin reading a stale description can't tell what a list
+is actually being used for, which defeats the point of an audit screen just
+as thoroughly as a missing entry does.
+
 The failure toast for a bad send goes to the ACTOR, incidentally — so when
 Sheila's action fails to reach Glenn, Ray never sees it. That's why the check
 had to be a screen an admin can open rather than a better toast.
