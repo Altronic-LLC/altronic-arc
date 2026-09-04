@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.146.2",
+    date: "2026-09-04",
+    changes: [
+      "The EIR-resolved review alert now has its own row on Admin → Notification recipients, instead of being buried in the assign-an-engineer row's description",
+    ],
+  },
+  {
     version: "0.146.1",
     date: "2026-09-04",
     changes: [

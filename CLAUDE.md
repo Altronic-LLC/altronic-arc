@@ -3354,17 +3354,22 @@ missing exactly the kind of address problem this screen exists to catch. Not
 caught by any test — Ray caught it by eye ("you did not list them on the
 admin notifications section") right after the FAIT alerts shipped.
 
-**Reusing an EXISTING list for a new trigger still needs the `what`
-description updated, in the same commit** — the EIR Resolved alert
-(2026-09-04) deliberately reused `EIR_TRIAGE_ASSIGNERS` rather than adding a
-new list (see the EIR status alerts section), so there was no missing `LISTS`
-entry to catch — but the entry's `what` text still only described its
-original job ("assign an engineer") until Ray asked again ("update the admin
-notification section with these hardcoded emails, even the FAIT ones") and a
-check confirmed the FAIT ones were already there but this description
-wasn't updated. An admin reading a stale description can't tell what a list
-is actually being used for, which defeats the point of an audit screen just
-as thoroughly as a missing entry does.
+**Reusing an EXISTING list for a new trigger still needs its OWN `LISTS`
+row, not just a folded-in mention.** The EIR Resolved alert (2026-09-04)
+deliberately reused `EIR_TRIAGE_ASSIGNERS` rather than adding a new list (see
+the EIR status alerts section) — first landed as a sentence tacked onto the
+"EIR — assign an engineer" row's `what` text, which Ray immediately caught
+as invisible ("the recent email for resolved is not in the list"): a row
+LABEL is what someone scans for, and "Resolved" wasn't findable without
+reading another row's fine print. Two `LISTS` entries now share the same
+`envVar`/`value` (`EIR_TRIAGE_ASSIGNERS`) on purpose — genuinely different
+triggers on the same underlying recipients, each worth its own label. That's
+why the row `<section>`'s React key is `list.label`, not `list.envVar`:
+`envVar` is no longer unique across rows. A reused list gets its own row
+whenever the TRIGGER is a different thing someone would look for — a
+one-line addition to an existing row's `what` is only fine when it's the
+same trigger with slightly more nuance, not a genuinely new reason to email
+the same people.
 
 The failure toast for a bad send goes to the ACTOR, incidentally — so when
 Sheila's action fails to reach Glenn, Ray never sees it. That's why the check
