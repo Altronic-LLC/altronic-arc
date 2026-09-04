@@ -20,13 +20,6 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "0.145.3",
-    date: "2026-09-04",
-    changes: [
-      "Moved the KAM field back under Assigned Engineer on a FAIT's sidebar",
-    ],
-  },
-  {
     version: "0.146.0",
     date: "2026-09-04",
     changes: [
@@ -50,6 +43,13 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Fixed the column filter panel getting squeezed into a tiny scrollable box instead of overlaying the page, when the table area behind it was short",
       "Fixed the column filter panel closing itself the instant it opened",
       "The app header and footer stay visible while you scroll, with reserved space so page content remains accessible",
+    ],
+  },
+  {
+    version: "0.145.3",
+    date: "2026-09-04",
+    changes: [
+      "Moved the KAM field back under Assigned Engineer on a FAIT's sidebar",
     ],
   },
   {
