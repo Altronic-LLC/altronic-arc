@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { comparePanelQcIssues } from "./PanelQcIssuesView";
+import { comparePanelQcIssues, rawColumnValue } from "./PanelQcIssuesView";
 import type { PanelQcIssue } from "@/types/task";
 import { nextPanelQcTag } from "@/lib/panelQcNumber";
 import { truncateLabelDescription } from "./PrintPanelQcIssueView";
@@ -33,6 +33,30 @@ describe("Panel QC issue sorting", () => {
     const beta = { ...issue(2, null), subComponentPartNumber: "200" };
     expect(comparePanelQcIssues(alpha, beta, "subComponentPartNumber", "asc")).toBeLessThan(0);
     expect(comparePanelQcIssues(alpha, beta, "subComponentPartNumber", "desc")).toBeGreaterThan(0);
+  });
+});
+
+describe("Panel QC column filter values", () => {
+  it("is a blank string for an unset text field, not the em dash the table displays", () => {
+    expect(rawColumnValue(issue(1, null), "defectCategory")).toBe("");
+  });
+
+  it("counts comments and formats watchers/date the same way the table cells do", () => {
+    const withExtras: PanelQcIssue = {
+      ...issue(2, new Date("2026-09-02T12:00:00Z")),
+      watchers: [{ displayName: "Ray White" }, { displayName: "Tim Webster" }],
+      comments: [
+        { timestamp: new Date(), authorName: "Ray", authorEmail: "ray@x.com", bodyHtml: "<p>a</p>" },
+        { timestamp: new Date(), authorName: "Ray", authorEmail: "ray@x.com", bodyHtml: "<p>b</p>" },
+      ],
+    };
+    expect(rawColumnValue(withExtras, "watchers")).toBe("Ray White, Tim Webster");
+    expect(rawColumnValue(withExtras, "comments")).toBe("2");
+    expect(rawColumnValue(withExtras, "date")).not.toBe("");
+  });
+
+  it("reads a plain text column straight off the issue", () => {
+    expect(rawColumnValue({ ...issue(3, null), repairTechnician: "Calderone" }, "repairTechnician")).toBe("Calderone");
   });
 });
 

@@ -21,7 +21,7 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     version: "0.146.0",
-    date: "2026-09-03",
+    date: "2026-09-04",
     changes: [
       "Added Panel QC Issue Tracker for recording panel and board defects through resolution, backed by the PANEL COMPONENT FAILURES and PANEL COMPONENT DEFECTS lists on the ALTRONICPANELTEAM SharePoint site",
       "Defect categories come from a shared list and can be added directly while recording an issue",
@@ -38,6 +38,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "The Panel QC edit view shows the issue's current Status next to its TAG Number, with a Status picker beside Save changes; new issues always start at Created",
       "New Panel QC issues can have files attached before saving — they upload automatically once the issue is created, with the Cancel/Add issue buttons sitting below Attachments on that form",
       "Failure Reported now carries a reminder to attach any relevant photos, configuration files, and documents related to the failure",
+      "Panel QC issue list columns can now be filtered — click a column name to check/uncheck which values to show, with a search box for long lists and a Clear filters button once any are active",
       "The app header and footer stay visible while you scroll, with reserved space so page content remains accessible",
     ],
   },
