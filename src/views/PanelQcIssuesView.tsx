@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { ArrowDown, ArrowUp, ArrowUpDown, Check, ClipboardCheck, MessageSquare, Paperclip, Pencil, Plus, X } from "lucide-react";
@@ -212,7 +212,6 @@ function ColumnFilterButton({
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [portalPosition, setPortalPosition] = useState<{ left: number; top: number; width: number } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const close = useCallback(() => setOpen(false), []);
@@ -223,14 +222,33 @@ function ColumnFilterButton({
   // an explicit `overflow-y` gets `overflow-y: auto` from the UA, not
   // `visible`) — so a plain `absolute` panel got squeezed into whatever
   // room was left in the row area instead of overlaying the page. Portaling
-  // to <body> with a `fixed` position computed from the trigger's own rect
-  // is the same escape hatch SearchableSelect's DropdownShell already uses
-  // for its "above" placement.
-  useLayoutEffect(() => {
-    if (!open || !ref.current) return;
-    const rect = ref.current.getBoundingClientRect();
-    setPortalPosition({ left: rect.left, top: rect.bottom + 4, width: Math.max(rect.width, 224) });
-  }, [open]);
+  // to <body> with a `fixed` position, computed straight from the trigger's
+  // rect, escapes that.
+  //
+  // Computed HERE during render, not via a `useLayoutEffect` + `setState`:
+  // `ref.current` is the trigger's OWN wrapper, already mounted from a prior
+  // commit and unmoved by opening, so reading its rect mid-render is safe,
+  // and it mounts the portal in the SAME commit `open` turns true rather
+  // than a follow-up one.
+  //
+  // That still wasn't enough on its own (reported 2026-09-04: "the filter
+  // popup doesn't work at all" — it opened and closed itself instantly).
+  // The search input below used to carry `autoFocus`, which steals focus
+  // from the trigger the moment the portal mounts — even in this same
+  // commit — and React attaches a ref to an ANCESTOR (`panelRef`, here)
+  // only AFTER a `autoFocus` descendant's own commit-time `.focus()` call,
+  // not before. So the trigger's resulting blur reached
+  // `dropdownBlurHandler` while `panelRef.current` was still `null`, which
+  // made its "is the new focus still inside our own panel?" check fail and
+  // close the panel it had just opened. Dropping `autoFocus` removes the
+  // only thing that moved focus in the first place, so opening the panel no
+  // longer blurs the trigger at all.
+  const portalPosition = open && ref.current
+    ? (() => {
+        const rect = ref.current!.getBoundingClientRect();
+        return { left: rect.left, top: rect.bottom + 4, width: Math.max(rect.width, 224) };
+      })()
+    : null;
 
   const active = selected !== undefined;
   const allSelected = selected === undefined;
@@ -277,7 +295,6 @@ function ColumnFilterButton({
           <div className="border-b border-border p-2">
             <input
               type="search"
-              autoFocus
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search…"
