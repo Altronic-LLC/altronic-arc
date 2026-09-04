@@ -145,12 +145,44 @@ export function PanelQcIssuesView() {
     setColumnFilters({});
   }
 
+  const emptyMessage = query || hasColumnFilters ? "No issues match that search." : "No issues yet. Click New Issue to record the first.";
+
   return <div className="mx-auto flex max-w-[1500px] flex-col gap-4 px-4 py-4 sm:px-6 sm:py-6">
     <header className="flex flex-wrap items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-lg bg-cooper-red/10 text-cooper-red"><ClipboardCheck className="h-5 w-5" /></span><div className="min-w-0 flex-1"><h1 className="font-display text-xl font-semibold text-fg sm:text-2xl">Panel QC Issue Tracker</h1><p className="text-sm text-fg-muted">Track panel and board defects from production through resolution.</p></div><button onClick={() => navigate("/panels/qc-issues/new")} className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent/90"><Plus className="h-4 w-4" />New Issue</button></header>
     <SearchInput value={query} onChange={(value) => { setQuery(value); setShowAll(false); }} placeholder="Search serial, part, defect, comments, resolution…" />
     <div className="overflow-hidden rounded-xl border border-border bg-surface"><div className="flex items-center justify-between gap-2 border-b border-border bg-surface-2 px-4 py-2.5 text-sm font-medium text-fg"><span>{isLoading ? "Loading…" : `${filtered.length} issue${filtered.length === 1 ? "" : "s"}`}{(query || hasColumnFilters) && !isLoading && <span className="ml-1 text-fg-muted">of {issues.length}</span>}</span>{hasColumnFilters && <button type="button" onClick={clearColumnFilters} className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border bg-surface px-2.5 py-1 text-xs font-medium text-fg hover:bg-surface-2"><X className="h-3 w-3" />Clear filters</button>}</div>
       {!showAll && filtered.length > INITIAL_ROWS && <div className="flex justify-between gap-2 border-b border-border bg-ajax-yellow/10 px-4 py-2 text-xs text-fg"><span>Showing {INITIAL_ROWS} of {filtered.length}</span><button onClick={() => setShowAll(true)} className="rounded-md border border-border bg-surface px-2.5 py-1 font-medium hover:bg-surface-2">Show all</button></div>}
-      {isLoading ? <LoadingTasks noun="Panel QC issues" /> : filtered.length === 0 ? <div className="px-4 py-10 text-center text-sm text-fg-muted">{query || hasColumnFilters ? "No issues match that search." : "No issues yet. Click New Issue to record the first."}</div> : <><div className="divide-y divide-border sm:hidden">{visible.map((issue) => <IssueCard key={issue.id} issue={issue} onEdit={() => navigate(`/panels/qc-issues/${issue.id}`)} />)}</div><div className="hidden overflow-x-auto sm:block"><table className="min-w-[1800px] table-fixed text-left text-sm"><thead className="bg-surface-2 text-[11px] uppercase tracking-wider text-fg-muted"><tr>{SORT_COLUMNS.map(({ key, label }) => <th key={key} aria-sort={sortKey === key ? sortDirection === "asc" ? "ascending" : "descending" : "none"} className="whitespace-nowrap px-2 py-2 font-semibold"><div className="flex items-center gap-1"><ColumnFilterButton label={label} options={columnOptions[key]} selected={columnFilters[key]} onChange={(next) => setColumnFilter(key, next)} /><button type="button" onClick={() => toggleSort(key)} aria-label={`Sort by ${label}`} className="rounded p-0.5 text-fg-muted hover:text-fg">{sortIcon(key)}</button></div></th>)}<th className="w-9 px-1 py-2"><span className="sr-only">Edit</span></th></tr></thead><tbody>{visible.map((issue) => <IssueRow key={issue.id} issue={issue} onEdit={() => navigate(`/panels/qc-issues/${issue.id}`)} />)}</tbody></table></div></>}
+      {isLoading ? <LoadingTasks noun="Panel QC issues" /> : <>
+        {/* The table (and any OPEN filter dropdown, which lives in its
+            <thead>) must stay mounted even when 0 rows currently match —
+            unchecking every value in a column filter (or "Select all") is a
+            normal, momentary state while the user is about to pick specific
+            ones, not a reason to tear down the header row the dropdown is
+            anchored to. Only the row area shows the empty message; the
+            header/column controls are unconditional (Ray, 2026-09-04: the
+            filter panel used to vanish out from under the click the instant
+            it matched nothing). */}
+        <div className="divide-y divide-border sm:hidden">
+          {filtered.length === 0
+            ? <div className="px-4 py-10 text-center text-sm text-fg-muted">{emptyMessage}</div>
+            : visible.map((issue) => <IssueCard key={issue.id} issue={issue} onEdit={() => navigate(`/panels/qc-issues/${issue.id}`)} />)}
+        </div>
+        <div className="hidden overflow-x-auto sm:block">
+          <table className="min-w-[1800px] table-fixed text-left text-sm">
+            <thead className="bg-surface-2 text-[11px] uppercase tracking-wider text-fg-muted">
+              <tr>
+                {SORT_COLUMNS.map(({ key, label }) => <th key={key} aria-sort={sortKey === key ? sortDirection === "asc" ? "ascending" : "descending" : "none"} className="whitespace-nowrap px-2 py-2 font-semibold"><div className="flex items-center gap-1"><ColumnFilterButton label={label} options={columnOptions[key]} selected={columnFilters[key]} onChange={(next) => setColumnFilter(key, next)} /><button type="button" onClick={() => toggleSort(key)} aria-label={`Sort by ${label}`} className="rounded p-0.5 text-fg-muted hover:text-fg">{sortIcon(key)}</button></div></th>)}
+                <th className="w-9 px-1 py-2"><span className="sr-only">Edit</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0
+                ? <tr><td colSpan={SORT_COLUMNS.length + 1} className="px-4 py-10 text-center text-sm text-fg-muted">{emptyMessage}</td></tr>
+                : visible.map((issue) => <IssueRow key={issue.id} issue={issue} onEdit={() => navigate(`/panels/qc-issues/${issue.id}`)} />)}
+            </tbody>
+          </table>
+        </div>
+      </>}
     </div>
   </div>;
 }
