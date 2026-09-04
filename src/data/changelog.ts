@@ -40,6 +40,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Failure Reported now carries a reminder to attach any relevant photos, configuration files, and documents related to the failure",
       "Panel QC issue list columns can now be filtered — click a column name to check/uncheck which values to show, with a search box for long lists and a Clear filters button once any are active",
       "Fixed the column filter panel disappearing when unchecking Select all (or otherwise matching zero rows) before you could pick specific values",
+      "Fixed the column filter panel getting squeezed into a tiny scrollable box instead of overlaying the page, when the table area behind it was short",
       "The app header and footer stay visible while you scroll, with reserved space so page content remains accessible",
     ],
   },

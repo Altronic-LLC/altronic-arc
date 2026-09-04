@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { ArrowDown, ArrowUp, ArrowUpDown, Check, ClipboardCheck, MessageSquare, Paperclip, Pencil, Plus, X } from "lucide-react";
 import { SearchInput } from "@/components/SearchInput";
@@ -211,10 +212,25 @@ function ColumnFilterButton({
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [portalPosition, setPortalPosition] = useState<{ left: number; top: number; width: number } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const close = useCallback(() => setOpen(false), []);
   useDropdownClose(open, ref, close, panelRef);
+
+  // The trigger sits inside the table's horizontally-scrolling wrapper,
+  // which clips vertical overflow too (an `overflow-x-auto` element without
+  // an explicit `overflow-y` gets `overflow-y: auto` from the UA, not
+  // `visible`) — so a plain `absolute` panel got squeezed into whatever
+  // room was left in the row area instead of overlaying the page. Portaling
+  // to <body> with a `fixed` position computed from the trigger's own rect
+  // is the same escape hatch SearchableSelect's DropdownShell already uses
+  // for its "above" placement.
+  useLayoutEffect(() => {
+    if (!open || !ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    setPortalPosition({ left: rect.left, top: rect.bottom + 4, width: Math.max(rect.width, 224) });
+  }, [open]);
 
   const active = selected !== undefined;
   const allSelected = selected === undefined;
@@ -251,11 +267,12 @@ function ColumnFilterButton({
       >
         {label}
       </button>
-      {open && (
+      {open && portalPosition && createPortal(
         <div
           ref={panelRef}
           role="listbox"
-          className="absolute left-0 top-full z-20 mt-1 flex max-h-72 w-56 flex-col rounded-lg border border-border bg-surface normal-case tracking-normal text-fg shadow-lg"
+          style={{ left: portalPosition.left, top: portalPosition.top, width: portalPosition.width }}
+          className="fixed z-[100] flex max-h-72 flex-col rounded-lg border border-border bg-surface normal-case tracking-normal text-fg shadow-lg"
         >
           <div className="border-b border-border p-2">
             <input
@@ -289,7 +306,8 @@ function ColumnFilterButton({
           <div className="flex justify-end border-t border-border px-2 py-1.5">
             <button type="button" onClick={close} className="rounded-md px-2.5 py-1 text-xs font-medium text-accent hover:bg-surface-2">Done</button>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
