@@ -10,6 +10,7 @@ import {
   Flag,
   FolderOpen,
   GitBranch,
+  GitBranchPlus,
   Link2,
   Pencil,
   Printer,
@@ -52,7 +53,7 @@ import {
 import { appendEngineeringResponse } from "@/lib/eirPromotion";
 import { TaskResolutionModal } from "@/components/TaskResolutionModal";
 import { pushToast } from "@/components/Toast";
-import { wouldCreateCycle } from "@/lib/taskGraph";
+import { canCompleteTask, wouldCreateCycle } from "@/lib/taskGraph";
 import { toggleChecklistItem } from "@/lib/descriptionChecklist";
 import { DescriptionView } from "@/components/DescriptionView";
 import { CommentThread } from "@/components/CommentThread";
@@ -100,6 +101,7 @@ export function DetailView() {
   const uploadCommentFile = useUploadTaskFile(task ?? null);
   const [showEdit, setShowEdit] = useState(false);
   const [showNewTestSheet, setShowNewTestSheet] = useState(false);
+  const [showNewChildTask, setShowNewChildTask] = useState(false);
   // Final-resolution prompt shown when completing a task tied to an EIR.
   const [showResolution, setShowResolution] = useState(false);
   const { data: allTestSheets = [] } = useTestSheets();
@@ -240,8 +242,24 @@ export function DetailView() {
     (w) => w.email && currentUser.email && w.email.toLowerCase() === currentUser.email.toLowerCase(),
   );
 
+  // A parent with open child tasks can't be marked Complete — see
+  // canCompleteTask in taskGraph.ts. Computed once here so the button, the
+  // sidebar dropdown's refusal message and the child-tasks card all agree.
+  const completeGate = canCompleteTask(task);
+
   function handleStatusChange(next: Status) {
     if (!task) return;
+    // A parent with any open (non-Complete) child task can't be marked
+    // Complete itself — see canCompleteTask in taskGraph.ts. Checked here so
+    // the sidebar dropdown can't be used to route around the same rule the
+    // "Mark Complete" button enforces below.
+    if (next === "Complete" && task.status !== "Complete") {
+      const gate = canCompleteTask(task);
+      if (!gate.allowed) {
+        pushToast({ message: gate.hint, variant: "error" });
+        return;
+      }
+    }
     // Completing a task tied to an EIR routes through the resolution prompt
     // instead of writing the status directly.
     if (next === "Complete" && task.eirReference && task.status !== "Complete") {
@@ -326,6 +344,13 @@ export function DetailView() {
 
   function handleMarkComplete() {
     if (!task) return;
+    if (task.status !== "Complete") {
+      const gate = canCompleteTask(task);
+      if (!gate.allowed) {
+        pushToast({ message: gate.hint, variant: "error" });
+        return;
+      }
+    }
     if (task.eirReference && task.status !== "Complete") {
       setShowResolution(true);
       return;
@@ -482,10 +507,23 @@ export function DetailView() {
             )}
 
             <div className="mb-3 flex flex-wrap items-center gap-2">
+              {/* `disabled` for the true terminal case (already Complete — nothing to
+                  click for). `aria-disabled`, NOT `disabled`, for the open-children
+                  case: Chrome/Edge suppress a disabled control's native tooltip
+                  (CLAUDE.md's EIR "At Risk Parts" lesson) and drop it from the tab
+                  order, which would hide the ONLY explanation of why the button
+                  won't complete the task from keyboard and screen-reader users. The
+                  click handler still runs and refuses with the same toast — this is
+                  belt-and-suspenders, not the sole guard. */}
               <button
                 onClick={handleMarkComplete}
                 disabled={task.status === "Complete"}
-                className="inline-flex items-center gap-1.5 rounded-md bg-cooper-green px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-cooper-green/90 disabled:opacity-50"
+                aria-disabled={!completeGate.allowed || undefined}
+                title={!completeGate.allowed ? completeGate.hint : undefined}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-md bg-cooper-green px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-cooper-green/90 disabled:opacity-50",
+                  !completeGate.allowed && "opacity-50",
+                )}
               >
                 <CheckCircle2 className="h-4 w-4" />
                 {task.status === "Complete" ? "Completed" : "Mark Complete"}
@@ -511,6 +549,15 @@ export function DetailView() {
                 <ClipboardList className="h-4 w-4" />
                 <span className="hidden sm:inline">New Test Sheet</span>
                 <span className="sm:hidden">Test Sheet</span>
+              </button>
+              <button
+                onClick={() => setShowNewChildTask(true)}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg transition-colors hover:bg-surface-2"
+                title="Create a new task under this one, in the same project"
+              >
+                <GitBranchPlus className="h-4 w-4" />
+                <span className="hidden sm:inline">New Child Task</span>
+                <span className="sm:hidden">Child Task</span>
               </button>
               <Link
                 to={`/task/${task.id}/print`}
@@ -623,6 +670,13 @@ export function DetailView() {
               <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
                 Child tasks ({task.childTasks.length})
               </h2>
+              {/* Names what's blocking "Mark Complete" so the disabled/greyed
+                  button isn't a mystery — the count and wording come from the
+                  same canCompleteTask() the button and status dropdown check,
+                  so this can't disagree with why the write was refused. */}
+              {!completeGate.allowed && (
+                <p className="mb-3 text-xs text-fg-muted">{completeGate.hint}</p>
+              )}
               <div className="flex flex-col gap-1.5">
                 {task.childTasks.map((c) => (
                   <button
@@ -933,6 +987,13 @@ export function DetailView() {
           mode="create"
           fromTask={task}
           onClose={() => setShowNewTestSheet(false)}
+        />
+      )}
+      {showNewChildTask && (
+        <TaskFormModal
+          mode="create"
+          fromParentTask={task}
+          onClose={() => setShowNewChildTask(false)}
         />
       )}
       {showResolution && task.eirReference && (

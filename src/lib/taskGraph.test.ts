@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   attachProjectTitles,
   attachTaskRelationships,
+  canCompleteTask,
+  incompleteChildTasks,
   wouldCreateCycle,
 } from "./taskGraph";
 import type { ProjectReference, Task } from "@/types/task";
@@ -201,6 +203,82 @@ describe("attachProjectTitles", () => {
   it("returns the same array reference (mutates in place)", () => {
     const arr = [makeTask({ id: 1 })];
     expect(attachProjectTitles(arr, [])).toBe(arr);
+  });
+});
+
+describe("incompleteChildTasks", () => {
+  it("returns an empty array for a task with no children", () => {
+    const task = makeTask({ id: 1, childTasks: [] });
+    expect(incompleteChildTasks(task)).toEqual([]);
+  });
+
+  it("returns only the children whose status is not exactly Complete", () => {
+    const task = makeTask({
+      id: 1,
+      childTasks: [
+        { id: 2, numberedTitle: "T2", status: "Complete" },
+        { id: 3, numberedTitle: "T3", status: "In Progress" },
+        { id: 4, numberedTitle: "T4", status: "On Hold" },
+      ],
+    });
+    expect(incompleteChildTasks(task).map((c) => c.id)).toEqual([3, 4]);
+  });
+
+  it("returns an empty array when every child is Complete", () => {
+    const task = makeTask({
+      id: 1,
+      childTasks: [
+        { id: 2, numberedTitle: "T2", status: "Complete" },
+        { id: 3, numberedTitle: "T3", status: "Complete" },
+      ],
+    });
+    expect(incompleteChildTasks(task)).toEqual([]);
+  });
+});
+
+describe("canCompleteTask", () => {
+  it("allows a task with no children", () => {
+    const task = makeTask({ id: 1, childTasks: [] });
+    expect(canCompleteTask(task)).toEqual({ allowed: true, hint: "" });
+  });
+
+  it("allows a task whose children are all Complete", () => {
+    const task = makeTask({
+      id: 1,
+      childTasks: [{ id: 2, numberedTitle: "T2", status: "Complete" }],
+    });
+    expect(canCompleteTask(task)).toEqual({ allowed: true, hint: "" });
+  });
+
+  it("refuses a task with one open child, singular wording", () => {
+    const task = makeTask({
+      id: 1,
+      childTasks: [{ id: 2, numberedTitle: "T2", status: "In Progress" }],
+    });
+    const gate = canCompleteTask(task);
+    expect(gate.allowed).toBe(false);
+    expect(gate.hint).toBe("1 child task is still open — finish it first.");
+  });
+
+  it("refuses a task with multiple open children, plural wording and the count", () => {
+    const task = makeTask({
+      id: 1,
+      childTasks: [
+        { id: 2, numberedTitle: "T2", status: "In Progress" },
+        { id: 3, numberedTitle: "T3", status: "BACKLOG" },
+      ],
+    });
+    const gate = canCompleteTask(task);
+    expect(gate.allowed).toBe(false);
+    expect(gate.hint).toBe("2 child tasks are still open — finish them first.");
+  });
+
+  it("treats every non-Complete status as open, including Blocked", () => {
+    const task = makeTask({
+      id: 1,
+      childTasks: [{ id: 2, numberedTitle: "T2", status: "Blocked" }],
+    });
+    expect(canCompleteTask(task).allowed).toBe(false);
   });
 });
 

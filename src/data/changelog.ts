@@ -20,6 +20,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.149.0",
+    date: "2026-09-04",
+    changes: [
+      "A parent task can no longer be marked Complete while any of its child tasks are still open — the Mark Complete button, the sidebar Status dropdown, and dragging a card to the Complete column on the Kanban board all refuse it and explain how many child tasks need finishing first",
+    ],
+  },
+  {
+    version: "0.148.0",
+    date: "2026-09-04",
+    changes: [
+      "Task detail: added a New Child Task button — opens the New Task form pre-filled and locked to this task's parent and project, so you only fill in the rest",
+    ],
+  },
+  {
     version: "0.147.0",
     date: "2026-09-04",
     changes: [

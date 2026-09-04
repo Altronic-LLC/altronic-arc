@@ -47,6 +47,16 @@ interface TaskFormModalProps {
   mode: "create" | "edit";
   /** Required when mode === "edit". Ignored in create mode. */
   task?: Task | null;
+  /**
+   * When creating a CHILD of an existing task (the detail page's "New child
+   * task" button), pass the parent here. Parent Task and Parent Project are
+   * pre-filled from it and locked read-only — the same `fromTask` shape
+   * `TestSheetFormModal` uses for "create a test sheet from this task",
+   * kept as its own prop name because here it locks a DIFFERENT pair of
+   * fields (Parent Task + Parent Project, not Task/Project Reference).
+   * Ignored outside create mode.
+   */
+  fromParentTask?: Task | null;
   /** Called when the modal should close (user cancels or after a successful save). */
   onClose: () => void;
 }
@@ -64,7 +74,7 @@ interface TaskFormModalProps {
  * new task's detail page so the user can do any further setup (parent task,
  * watchers, related projects).
  */
-export function TaskFormModal({ mode, task, onClose }: TaskFormModalProps) {
+export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormModalProps) {
   const navigate = useNavigate();
   const { data: allTasks = [] } = useTasks();
   const { data: projects = [] } = useProjects();
@@ -89,10 +99,17 @@ export function TaskFormModal({ mode, task, onClose }: TaskFormModalProps) {
     task?.dueDate ? task.dueDate.toISOString().slice(0, 10) : "",
   );
   const [labels, setLabels] = useState<Label[]>(task?.labels ?? []);
+  // Locking to a parent task locks its project too — "child task" and "same
+  // project" mean the same thing here. Only meaningful in create mode; an
+  // edit never receives fromParentTask (see the DetailView call site).
+  const lockToParent = mode === "create" && !!fromParentTask;
+
   const [parentProjectId, setParentProjectId] = useState<number | "">(
-    task?.parentProject?.lookupId ?? "",
+    task?.parentProject?.lookupId ?? fromParentTask?.parentProject?.lookupId ?? "",
   );
-  const [parentTaskId, setParentTaskId] = useState<number | "">(task?.parentTask?.id ?? "");
+  const [parentTaskId, setParentTaskId] = useState<number | "">(
+    task?.parentTask?.id ?? fromParentTask?.id ?? "",
+  );
   const [relatedProjectIds, setRelatedProjectIds] = useState<number[]>(
     task?.relatedProjects.map((r) => r.lookupId) ?? [],
   );
@@ -370,7 +387,11 @@ export function TaskFormModal({ mode, task, onClose }: TaskFormModalProps) {
       >
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-5">
           <h2 id="task-form-heading" className="font-display text-base font-semibold text-fg sm:text-lg">
-            {mode === "create" ? "New task" : `Edit ${task?.numberedTitle ?? "task"}`}
+            {mode === "create"
+              ? lockToParent
+                ? `New child task of ${fromParentTask!.numberedTitle}`
+                : "New task"
+              : `Edit ${task?.numberedTitle ?? "task"}`}
           </h2>
           <button
             type="button"
@@ -516,26 +537,34 @@ export function TaskFormModal({ mode, task, onClose }: TaskFormModalProps) {
             </FieldLabel>
 
             <FieldLabel label="Parent Project" required={mode === "create"}>
-              <ChoiceSelect
-                value={parentProjectId === "" ? "" : String(parentProjectId)}
-                onChange={(v) => setParentProjectId(v === "" ? "" : parseInt(v, 10))}
-                options={projects.map((p) => ({ value: String(p.lookupId), label: p.title }))}
-                emptyLabel={mode === "create" ? "Select a project…" : "None"}
-                searchPlaceholder="Search projects…"
-              />
+              {lockToParent ? (
+                <LockedPill text={fromParentTask?.parentProject?.title ?? "—"} />
+              ) : (
+                <ChoiceSelect
+                  value={parentProjectId === "" ? "" : String(parentProjectId)}
+                  onChange={(v) => setParentProjectId(v === "" ? "" : parseInt(v, 10))}
+                  options={projects.map((p) => ({ value: String(p.lookupId), label: p.title }))}
+                  emptyLabel={mode === "create" ? "Select a project…" : "None"}
+                  searchPlaceholder="Search projects…"
+                />
+              )}
             </FieldLabel>
 
             <FieldLabel label="Parent Task">
-              <ChoiceSelect
-                value={parentTaskId === "" ? "" : String(parentTaskId)}
-                onChange={(v) => setParentTaskId(v === "" ? "" : parseInt(v, 10))}
-                options={parentTaskCandidates.map((t) => ({
-                  value: String(t.id),
-                  label: t.numberedTitle,
-                }))}
-                emptyLabel="None"
-                searchPlaceholder="Search tasks…"
-              />
+              {lockToParent ? (
+                <LockedPill text={fromParentTask?.numberedTitle ?? "—"} />
+              ) : (
+                <ChoiceSelect
+                  value={parentTaskId === "" ? "" : String(parentTaskId)}
+                  onChange={(v) => setParentTaskId(v === "" ? "" : parseInt(v, 10))}
+                  options={parentTaskCandidates.map((t) => ({
+                    value: String(t.id),
+                    label: t.numberedTitle,
+                  }))}
+                  emptyLabel="None"
+                  searchPlaceholder="Search tasks…"
+                />
+              )}
             </FieldLabel>
 
             <FieldLabel label="Related Projects">
@@ -614,6 +643,20 @@ export function TaskFormModal({ mode, task, onClose }: TaskFormModalProps) {
           </button>
         </div>
       </form>
+    </div>
+  );
+}
+
+/**
+ * Read-only stand-in for a locked reference field — same visual treatment as
+ * TestSheetFormModal's LockedPill. Not shared between the two files because
+ * each is a small, self-contained div with no other state; a shared import
+ * would be more indirection than the four lines it saves.
+ */
+function LockedPill({ text }: { text: string }) {
+  return (
+    <div className="flex h-[38px] items-center rounded-md border border-dashed border-border bg-surface-2 px-3 text-sm text-fg sm:h-auto sm:py-2">
+      <span className="truncate">{text || "—"}</span>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import type { ProjectReference, Task } from "@/types/task";
+import type { ProjectReference, Task, TaskRef } from "@/types/task";
 
 // =============================================================================
 // Task graph helpers.
@@ -111,6 +111,54 @@ export function attachProjectTitles(tasks: Task[], projects: ProjectReference[])
   }
 
   return tasks;
+}
+
+/**
+ * Child tasks of `task` that are NOT Complete — the ones blocking it from
+ * being marked Complete itself. "Done" means `status === "Complete"`
+ * exactly; every other status (including Blocked or On Hold) still counts
+ * as open. Returns `[]` for a task with no children, which is never
+ * blocked — the gate only applies when there's something to wait on.
+ *
+ * `task.childTasks` is already populated by `attachTaskRelationships` on
+ * every loaded `Task`, so this needs no extra lookup — it's a plain filter.
+ */
+export function incompleteChildTasks(task: Task): TaskRef[] {
+  return task.childTasks.filter((c) => c.status !== "Complete");
+}
+
+/**
+ * Can `task` be marked Complete right now? A parent with any open child
+ * cannot — added 2026-09-04 (Ray: child tasks were being left open after
+ * their parent was marked done, because nothing stopped it). Mirrors the
+ * CMMS's `completeWorkOrderGate` shape (`{ allowed, hint }`) so every
+ * caller — the "Mark Complete" button, the sidebar Status dropdown, and a
+ * Kanban drag to the Complete column — asks the SAME function and can't
+ * disagree about the rule or the wording.
+ *
+ * This is UI-level gating only, same as every other gate in this app
+ * (CLAUDE.md — "role-based field-level permissions" / CMMS roles): the real
+ * boundary is SharePoint's own list permissions. There's no `resolving`
+ * state here unlike the CMMS gates — `task.childTasks` is already loaded
+ * synchronously with the task, nothing to await.
+ *
+ * A task already Complete is never re-blocked by this — completing an
+ * already-complete task is a no-op the callers already guard separately,
+ * and un-completing a parent when a child reopens is a deliberately
+ * separate, unbuilt concern.
+ */
+export function canCompleteTask(task: Task): { allowed: boolean; hint: string } {
+  const open = incompleteChildTasks(task);
+  if (open.length === 0) {
+    return { allowed: true, hint: "" };
+  }
+  return {
+    allowed: false,
+    hint:
+      open.length === 1
+        ? "1 child task is still open — finish it first."
+        : `${open.length} child tasks are still open — finish them first.`,
+  };
 }
 
 /**

@@ -364,9 +364,14 @@ const SECTIONS: ManualSection[] = [
       "parent project",
       "parent task",
       "related projects",
+      "new child task",
+      "child task",
+      "sub-task of a task",
       "numbered title",
       "complete a task",
       "mark complete",
+      "can't complete task",
+      "child tasks still open",
       "checklist",
       "check list",
       "checkbox in description",
@@ -379,7 +384,7 @@ const SECTIONS: ManualSection[] = [
       "to-do list",
     ],
     searchText:
-      "Create tasks with the New Task button. Required: Title and Parent Project. NumberedTitle is auto-generated as T{n}-{projectRef}-{title}. Edit fields inline from the right sidebar of the detail page. Use Mark Complete or change Status to close out. The Description field can hold a custom checklist — click Turn into checklist while editing, or type - [ ] lines yourself, and check items off directly from the detail page. Checking a box instantly records your name and the time next to the item; unchecking asks Are you sure first and records who unchecked it. Indent a checklist line with Tab (or spaces) to make it a sub-task of the item above it; Shift+Tab outdents. One level of nesting; the parent shows a 1/2 count of its sub-tasks done and is never ticked automatically. Tab only indents on a checklist line — elsewhere it moves to the next field.",
+      "Create tasks with the New Task button. Required: Title and Parent Project. NumberedTitle is auto-generated as T{n}-{projectRef}-{title}. Edit fields inline from the right sidebar of the detail page. Use Mark Complete or change Status to close out. A task with any child tasks not yet Complete can't be marked Complete itself — the Mark Complete button, the Status dropdown, and dragging a card to the Complete column on the Kanban all refuse it and say how many child tasks are still open, so finish or close those out first. The New Child Task button on a task's detail page opens the New Task form pre-filled and locked to that task's Parent Task and Parent Project, so a sub-task can't accidentally end up under the wrong parent or project; everything else on the form stays editable and submitting opens the new child task. The Description field can hold a custom checklist — click Turn into checklist while editing, or type - [ ] lines yourself, and check items off directly from the detail page. Checking a box instantly records your name and the time next to the item; unchecking asks Are you sure first and records who unchecked it. Indent a checklist line with Tab (or spaces) to make it a sub-task of the item above it; Shift+Tab outdents. One level of nesting; the parent shows a 1/2 count of its sub-tasks done and is never ticked automatically. Tab only indents on a checklist line — elsewhere it moves to the next field.",
     render: () => (
       <>
         <H3>Creating a task</H3>
@@ -453,6 +458,15 @@ const SECTIONS: ManualSection[] = [
         <P>
           The <strong>Edit</strong> button at the top of the detail page opens
           the full task form for bulk edits of title + description in one go.
+        </P>
+        <P>
+          <strong>New Child Task</strong>, next to Edit, opens the same New
+          Task form already set to be a child of the task you're on — Parent
+          Task and Parent Project are filled in and locked (shown as
+          read-only, not a picker) so you can't accidentally pick a different
+          parent or project by mistake. Everything else on the form — title,
+          description, status, assignees, and the rest — is filled in as
+          normal. Submitting takes you straight to the new child task.
         </P>
         <H3>Custom checklists in the Description</H3>
         <P>
@@ -540,6 +554,15 @@ const SECTIONS: ManualSection[] = [
           Use the <strong>Mark Complete</strong> button on the task detail
           page, or change the Status to "Complete" via the dropdown, or drag
           the card to the Complete column on the Kanban.
+        </P>
+        <P>
+          A task with any child tasks that aren't themselves marked Complete
+          can't be completed yet — all three ways of completing it are
+          refused with a message naming how many child tasks are still open.
+          The Mark Complete button is greyed out in that case (hover it to
+          see why), and the task's Child tasks card in the sidebar lists
+          which ones are blocking it. Finish or close out the child tasks
+          first, then come back and mark the parent complete.
         </P>
         <P>
           If the task was promoted from an EIR (it shows a{" "}
