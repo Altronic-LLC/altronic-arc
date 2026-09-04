@@ -3358,16 +3358,18 @@ The failure toast for a bad send goes to the ACTOR, incidentally — so when
 Sheila's action fails to reach Glenn, Ray never sees it. That's why the check
 had to be a screen an admin can open rather than a better toast.
 
-## EIR status alerts — the two transitions that need somebody to act
+## EIR status alerts — the transitions that need somebody to act
 
-Two status changes raise a work request rather than a notification (Ray,
-2026-08-25). Both were previously spotted by someone happening to look.
+Status changes that raise a work request rather than a notification (Ray,
+2026-08-25 for the first two; Ray, 2026-09-04 for Resolved). All were
+previously spotted by someone happening to look.
 
 | Transition | Who's emailed | What it asks |
 |---|---|---|
 | → **Response Accepted** | `EIR_RESPONSE_ACCEPTED_ALERTS` (Sheila Horn, Ray White) | "Please close it" |
 | → **Response Not Accepted** | the EIR's **assigned engineers** | "Please revisit and give a more detailed response" |
 | → **Response Not Accepted**, no engineer reachable | `EIR_TRIAGE_ASSIGNERS` | "No engineer is assigned" — different wording, see below |
+| Resolution → **Resolved** | `EIR_TRIAGE_ASSIGNERS` (Glenn Terry, Brandon Mirto) | "Please review it and decide whether the response is accepted" |
 
 Wording lives in `lib/eirStatusAlerts.ts` (pure, returns `ChangeEmail[]`);
 `fireEirResponseAcceptedAlert` / `fireEirResponseNotAcceptedAlert` in
@@ -3375,6 +3377,19 @@ Wording lives in `lib/eirStatusAlerts.ts` (pure, returns `ChangeEmail[]`);
 `if ("Status" in fields)` block in `useUpdateEirFields` — the only hook that can
 write Status, so the sidebar picker, the board drag and the linked-task
 completion path are all covered by one call site.
+
+**Resolution → Resolved is a SEPARATE `if ("Resolution" in fields)` block in
+the same hook** — Resolution and Status are two different SharePoint columns
+that can each be written independently, so this needed its own `to !== from`
+guard rather than piggybacking on the Status block's. `fireEirResolvedAlert`
+in `api/email.ts` reuses `EIR_TRIAGE_ASSIGNERS` (Glenn Terry / Brandon Mirto)
+DIRECTLY, deliberately NOT a new dedicated env var — Ray asked for those two
+people by name, and they already review EIRs at this exact point in the
+lifecycle (assigning an engineer). This is the one exception to "give every
+alert queue its own env var" elsewhere in this file: that rule exists so
+re-pointing one queue can't silently re-point another with a different job,
+and here there is no other job — it's the same reviewers, asked to do the
+next thing in the same review.
 
 Six rules that are load-bearing:
 

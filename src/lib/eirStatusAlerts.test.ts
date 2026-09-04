@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { Person } from "@/types/task";
 import {
+  buildEirResolvedEmails,
   buildEirResponseAcceptedEmails,
   buildEirResponseNotAcceptedEmails,
 } from "./eirStatusAlerts";
@@ -87,6 +88,78 @@ describe("Response Accepted", () => {
     const emails = buildEirResponseAcceptedEmails({
       target: { ...TARGET, title: "EIR_2026-0042 — Wear & tear" },
       recipients: [SHEILA],
+      actor: SARAH,
+    });
+    expect(emails[0].subject).toContain("Wear & tear");
+    expect(emails[0].subject).not.toContain("&amp;");
+  });
+});
+
+// Ray, 2026-09-04: "send glenn and brandon an alert when someone makes EIR
+// to Resolved for them to review and determine if the response is accepted
+// or not." Mirrors "Response Accepted" exactly — same shape, same rules,
+// just a different pair of recipients (Glenn/Brandon, not Sheila/Ray) and a
+// different field (Resolution, not Status).
+describe("Resolved", () => {
+  function build(over: Partial<Parameters<typeof buildEirResolvedEmails>[0]> = {}) {
+    return buildEirResolvedEmails({
+      target: TARGET,
+      recipients: [GLENN, BRANDON],
+      actor: SARAH,
+      ...over,
+    });
+  }
+
+  it("goes to the configured pair", () => {
+    expect(build().map((e) => e.email)).toEqual([GLENN.email, BRANDON.email]);
+  });
+
+  it("asks them to review and decide on the response", () => {
+    const email = build()[0];
+    expect(email.headlineHtml).toContain("Resolved");
+    expect(email.headlineHtml).toContain("review it and determine whether the response is accepted");
+    expect(email.subject).toContain("resolved, please review");
+  });
+
+  it("names the EIR in the subject so it reads in a full inbox", () => {
+    expect(build()[0].subject).toContain("EIR_2026-0042");
+  });
+
+  it("names whoever set the resolution", () => {
+    expect(build()[0].headlineHtml).toContain("Sarah Shaffer");
+  });
+
+  // Glenn resolving it himself doesn't need telling — but Brandon still does.
+  it("leaves the actor off their own action", () => {
+    expect(build({ actor: GLENN }).map((e) => e.email)).toEqual([BRANDON.email]);
+  });
+
+  // A queue going silent because its only member happened to act is worse
+  // than one redundant email.
+  it("emails the actor rather than nobody", () => {
+    expect(build({ recipients: [GLENN], actor: GLENN }).map((e) => e.email)).toEqual([
+      GLENN.email,
+    ]);
+  });
+
+  it("is empty when nothing is configured", () => {
+    expect(build({ recipients: [] })).toEqual([]);
+  });
+
+  it("drops anyone without a mailbox", () => {
+    expect(build({ recipients: [NO_MAILBOX, GLENN] }).map((e) => e.email)).toEqual([GLENN.email]);
+  });
+
+  it("escapes a name rather than trusting it as HTML", () => {
+    const emails = build({ actor: { displayName: "<script>x</script>", email: "x@y.com" } });
+    expect(emails[0].headlineHtml).not.toContain("<script>");
+  });
+
+  // Escaping the subject would put &amp; in an inbox.
+  it("leaves the subject as plain text", () => {
+    const emails = buildEirResolvedEmails({
+      target: { ...TARGET, title: "EIR_2026-0042 — Wear & tear" },
+      recipients: [GLENN],
       actor: SARAH,
     });
     expect(emails[0].subject).toContain("Wear & tear");

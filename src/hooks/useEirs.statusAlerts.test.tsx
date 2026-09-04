@@ -20,11 +20,13 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const fireEirResponseAcceptedAlert = vi.hoisted(() => vi.fn());
 const fireEirResponseNotAcceptedAlert = vi.hoisted(() => vi.fn());
+const fireEirResolvedAlert = vi.hoisted(() => vi.fn());
 const fireFieldChangeAlert = vi.hoisted(() => vi.fn());
 
 vi.mock("@/api/email", () => ({
   fireEirResponseAcceptedAlert,
   fireEirResponseNotAcceptedAlert,
+  fireEirResolvedAlert,
   fireFieldChangeAlert,
   fireAssigneeChangeAlert: vi.fn(),
   fireChecklistToggleAlert: vi.fn(),
@@ -49,7 +51,7 @@ vi.mock("./useCurrentUser", () => ({
 }));
 
 import { useEirs, useUpdateEirFields } from "./useEirs";
-import type { Eir, EirStatus } from "@/types/task";
+import type { Eir, EirResolution, EirStatus } from "@/types/task";
 
 function wrapper() {
   const qc = new QueryClient({
@@ -63,6 +65,7 @@ function wrapper() {
 beforeEach(() => {
   fireEirResponseAcceptedAlert.mockClear();
   fireEirResponseNotAcceptedAlert.mockClear();
+  fireEirResolvedAlert.mockClear();
   fireFieldChangeAlert.mockClear();
 });
 
@@ -86,6 +89,17 @@ async function setStatus(
   const { result } = renderHook(() => useUpdateEirFields(), { wrapper: wrap });
   await act(async () => {
     await result.current.mutateAsync({ id: eir.id, fields: { Status: status } });
+  });
+}
+
+async function setResolution(
+  wrap: ReturnType<typeof wrapper>,
+  eir: Eir,
+  resolution: EirResolution,
+): Promise<void> {
+  const { result } = renderHook(() => useUpdateEirFields(), { wrapper: wrap });
+  await act(async () => {
+    await result.current.mutateAsync({ id: eir.id, fields: { Resolution: resolution } });
   });
 }
 
@@ -189,6 +203,70 @@ describe("moving an EIR to Response Not Accepted", () => {
     await waitFor(() => expect(fireFieldChangeAlert).toHaveBeenCalled());
     expect(fireEirResponseNotAcceptedAlert).not.toHaveBeenCalled();
     expect(fireEirResponseAcceptedAlert).not.toHaveBeenCalled();
+  });
+});
+
+// Ray, 2026-09-04: "send glenn and brandon an alert when someone makes EIR
+// to Resolved for them to review and determine if the response is accepted
+// or not." This is the Resolution column, not Status — a separate write
+// path (Resolution is a different `if ("Resolution" in fields)` block in
+// useUpdateEirFields), so it needs its own guard coverage rather than
+// reusing the Status describes above.
+describe("moving an EIR's Resolution to Resolved", () => {
+  it("asks the triage assigners to review it", async () => {
+    const wrap = wrapper();
+    const eir = await anEir(wrap, (e) => e.resolution !== "Resolved");
+    await setResolution(wrap, eir, "Resolved");
+
+    await waitFor(() => expect(fireEirResolvedAlert).toHaveBeenCalledTimes(1));
+    const args = fireEirResolvedAlert.mock.calls[0][0];
+    expect(args.target).toMatchObject({ kind: "eir", id: eir.id });
+    expect(args.actor.email).toBe("sheila.horn@altronic-llc.com");
+  });
+
+  // THE GUARD. A fixture already AT Resolved is the only way this test can
+  // fail when `to !== from` is deleted — starting from another resolution
+  // passes either way, the same trap the Status guards above exist to avoid.
+  it("stays quiet when the write re-sends the resolution it already had", async () => {
+    const wrap = wrapper();
+    const already = await anEir(wrap, (e) => e.resolution === "Resolved");
+    await setResolution(wrap, already, "Resolved");
+
+    await waitFor(() => expect(fireFieldChangeAlert).toHaveBeenCalled());
+    expect(fireEirResolvedAlert).not.toHaveBeenCalled();
+  });
+
+  it("does not fire on a transition to any other resolution", async () => {
+    const wrap = wrapper();
+    const eir = await anEir(wrap, (e) => e.resolution !== "Pending");
+    await setResolution(wrap, eir, "Pending");
+
+    await waitFor(() => expect(fireFieldChangeAlert).toHaveBeenCalled());
+    expect(fireEirResolvedAlert).not.toHaveBeenCalled();
+  });
+
+  it("stays quiet on a write that doesn't touch Resolution", async () => {
+    const wrap = wrapper();
+    const eir = await anEir(wrap, () => true);
+    const { result } = renderHook(() => useUpdateEirFields(), { wrapper: wrap });
+    await act(async () => {
+      await result.current.mutateAsync({ id: eir.id, fields: { BuyerCode: "AB" } });
+    });
+    expect(fireEirResolvedAlert).not.toHaveBeenCalled();
+  });
+
+  // Deliberately NOT suppressed — same rule as the generic status note
+  // below: the specific alert goes only to Glenn/Brandon, so dropping the
+  // generic one would stop watchers/reporter hearing the resolution moved.
+  it("the generic resolution note still fires alongside it", async () => {
+    const wrap = wrapper();
+    const eir = await anEir(wrap, (e) => e.resolution !== "Resolved");
+    await setResolution(wrap, eir, "Resolved");
+
+    await waitFor(() => expect(fireEirResolvedAlert).toHaveBeenCalled());
+    expect(fireFieldChangeAlert).toHaveBeenCalledWith(
+      expect.objectContaining({ fieldLabel: "resolution", to: "Resolved" }),
+    );
   });
 });
 

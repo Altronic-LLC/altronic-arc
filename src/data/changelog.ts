@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.146.0",
+    date: "2026-09-04",
+    changes: [
+      "When an EIR's Resolution is set to Resolved, Glenn Terry and Brandon Mirto are now emailed to review it and decide whether the response is accepted",
+    ],
+  },
+  {
     version: "0.145.3",
     date: "2026-09-04",
     changes: [

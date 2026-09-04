@@ -24,6 +24,7 @@ import {
 } from "@/lib/changeAlerts";
 import { buildEirTriageEmails, type EirTriageStage } from "@/lib/eirTriage";
 import {
+  buildEirResolvedEmails,
   buildEirResponseAcceptedEmails,
   buildEirResponseNotAcceptedEmails,
 } from "@/lib/eirStatusAlerts";
@@ -783,6 +784,23 @@ export function fireEirResponseNotAcceptedAlert(args: {
   const emails = buildEirResponseNotAcceptedEmails({
     ...args,
     fallback: parseRecipientList(EIR_TRIAGE_ASSIGNERS),
+  });
+  if (emails.length === 0) return;
+  void notifyChangeEmails({ target: args.target, emails });
+}
+
+/**
+ * Fire-and-forget: an EIR's Resolution reached "Resolved" — ask the triage
+ * assigners (Glenn Terry / Brandon Mirto, via EIR_TRIAGE_ASSIGNERS) to review
+ * it and decide whether the response is accepted.
+ */
+export function fireEirResolvedAlert(args: {
+  target: ChangeTarget;
+  actor: Person;
+}): void {
+  const emails = buildEirResolvedEmails({
+    ...args,
+    recipients: parseRecipientList(EIR_TRIAGE_ASSIGNERS),
   });
   if (emails.length === 0) return;
   void notifyChangeEmails({ target: args.target, emails });
