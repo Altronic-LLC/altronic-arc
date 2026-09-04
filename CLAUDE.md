@@ -1272,9 +1272,10 @@ Initiator close gate, below) and `faitSignOffOutcome`'s `kamOwed`, so a FAIT
 with no OEM impact can close on SQE + Engineering alone and never parks at
 "This is with KAM" waiting on a signature nobody owes.
 
-**KAM moved ahead of Assigned Engineer in the sidebar** (Ray, 2026-09-03:
-"Move the CAM [KAM] Person field forward") — People group order is now
-Initiator → KAM → Assigned Engineer → Watchers.
+**KAM's sidebar position has moved twice.** Ray, 2026-09-03: "Move the CAM
+[KAM] Person field forward" — put it ahead of Assigned Engineer. Ray,
+2026-09-04: moved it back underneath. People group order is now Initiator →
+Assigned Engineer → KAM → Watchers.
 
 **The KAM sidebar PICKER hides too, not just the sign-off requirement note**
 — a follow-up fix the same day, caught by Ray from a screenshot: the first

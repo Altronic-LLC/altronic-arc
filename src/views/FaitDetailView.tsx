@@ -348,8 +348,17 @@ export function FaitDetailView() {
               </p>
             </SidebarField>
 
-            {/* KAM moved ahead of Assigned Engineer (Ray, 2026-09-03: "Move
-                the CAM [KAM] Person field forward").
+            <SidebarField label="Assigned Engineer" icon={<User className="h-3.5 w-3.5" />}>
+              <PersonPicker
+                label="Assigned Engineer"
+                selected={fait.assignedEngineer}
+                candidates={mentionCandidates}
+                onPick={(person) => updateAssignedEngineer.mutate({ id: fait.id, person })}
+              />
+            </SidebarField>
+
+            {/* KAM moved back under Assigned Engineer (Ray, 2026-09-04) —
+                reverses the 2026-09-03 "move it forward" request.
                 Hidden entirely when there's no OEM Impact — UNLESS a KAM is
                 already assigned, in which case the picker stays so that
                 assignment is still visible and can be cleared/changed. A
@@ -374,15 +383,6 @@ export function FaitDetailView() {
                 )}
               </SidebarField>
             )}
-
-            <SidebarField label="Assigned Engineer" icon={<User className="h-3.5 w-3.5" />}>
-              <PersonPicker
-                label="Assigned Engineer"
-                selected={fait.assignedEngineer}
-                candidates={mentionCandidates}
-                onPick={(person) => updateAssignedEngineer.mutate({ id: fait.id, person })}
-              />
-            </SidebarField>
 
             <SidebarField label="Watchers">
               <PersonMultiField

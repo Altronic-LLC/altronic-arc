@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.145.3",
+    date: "2026-09-04",
+    changes: [
+      "Moved the KAM field back under Assigned Engineer on a FAIT's sidebar",
+    ],
+  },
+  {
     version: "0.145.2",
     date: "2026-09-03",
     changes: [
