@@ -21,7 +21,7 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
    {
     version: "0.150.0",
-    date: "2026-09-04",
+    date: "2026-09-08",
     changes: [
       "Added Panel QC Issue Tracker for recording panel and board defects through resolution, backed by the PANEL COMPONENT FAILURES and PANEL COMPONENT DEFECTS lists on the ALTRONICPANELTEAM SharePoint site",
       "Defect categories come from a shared list and can be added directly while recording an issue",
@@ -42,6 +42,8 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Fixed the column filter panel disappearing when unchecking Select all (or otherwise matching zero rows) before you could pick specific values",
       "Fixed the column filter panel getting squeezed into a tiny scrollable box instead of overlaying the page, when the table area behind it was short",
       "Fixed the column filter panel closing itself the instant it opened",
+      "The Status picker on a Panel QC issue is now wide enough to read its longer choices (\"Repair In-Process\", \"Panels Completed\") without truncating them",
+      "Every searchable dropdown in ARC now shows a truncated option's full text on hover",
       "The app header and footer stay visible while you scroll, with reserved space so page content remains accessible",
     ],
   },

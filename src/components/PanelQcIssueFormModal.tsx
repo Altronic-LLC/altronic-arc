@@ -174,7 +174,13 @@ export function PanelQcIssueFormModal({ issue, onClose }: Props) {
         {issue && (
           <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-fg-muted">
             Status
-            <ChoiceSelect value={draft.status} onChange={(value) => set("status", value)} options={statusChoices} emptyLabel="Created" clearable={false} disabled={busy} />
+            {/* min-w so the trigger (and the panel under it, which matches
+                its width) is wide enough for the longer choices — "Repair
+                In-Process", "Panels Completed" — instead of truncating them
+                to "Repai…" (Ray, 2026-09-08). */}
+            <div className="min-w-[220px]">
+              <ChoiceSelect value={draft.status} onChange={(value) => set("status", value)} options={statusChoices} emptyLabel="Created" clearable={false} disabled={busy} />
+            </div>
           </label>
         )}
       </div>

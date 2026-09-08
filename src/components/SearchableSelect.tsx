@@ -477,6 +477,11 @@ function SearchablePanel({
                 role="option"
                 aria-selected={selected}
                 onClick={() => onToggle(o.value)}
+                // Native tooltip — the option label routinely gets `truncate`d
+                // below (the panel is only ever as wide as its trigger), and
+                // this is the zero-JS way to still read the full text on
+                // hover rather than guessing from "Repai…" (Ray, 2026-09-08).
+                title={o.label}
                 className={cn(
                   "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors",
                   selected ? "bg-accent/10 text-fg" : "text-fg hover:bg-surface-2",
