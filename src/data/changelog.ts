@@ -19,8 +19,8 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
-  {
-    version: "0.146.0",
+   {
+    version: "0.150.0",
     date: "2026-09-04",
     changes: [
       "Added Panel QC Issue Tracker for recording panel and board defects through resolution, backed by the PANEL COMPONENT FAILURES and PANEL COMPONENT DEFECTS lists on the ALTRONICPANELTEAM SharePoint site",
@@ -43,6 +43,48 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Fixed the column filter panel getting squeezed into a tiny scrollable box instead of overlaying the page, when the table area behind it was short",
       "Fixed the column filter panel closing itself the instant it opened",
       "The app header and footer stay visible while you scroll, with reserved space so page content remains accessible",
+    ],
+  },
+  {
+    version: "0.149.0",
+    date: "2026-09-04",
+    changes: [
+      "A parent task can no longer be marked Complete while any of its child tasks are still open — the Mark Complete button, the sidebar Status dropdown, and dragging a card to the Complete column on the Kanban board all refuse it and explain how many child tasks need finishing first",
+    ],
+  },
+  {
+    version: "0.148.0",
+    date: "2026-09-04",
+    changes: [
+      "Task detail: added a New Child Task button — opens the New Task form pre-filled and locked to this task's parent and project, so you only fill in the rest",
+    ],
+  },
+  {
+    version: "0.147.0",
+    date: "2026-09-04",
+    changes: [
+      "Task detail: Watchers is now a picker in the sidebar, like Assigned — add or remove anyone directly, instead of only being able to watch/unwatch yourself",
+    ],
+  },
+  {
+    version: "0.146.2",
+    date: "2026-09-04",
+    changes: [
+      "The EIR-resolved review alert now has its own row on Admin → Notification recipients, instead of being buried in the assign-an-engineer row's description",
+    ],
+  },
+  {
+    version: "0.146.1",
+    date: "2026-09-04",
+    changes: [
+      "Admin → Notification recipients now notes that the EIR assign-an-engineer list is also who's asked to review an EIR once it's Resolved",
+    ],
+  },
+  {
+    version: "0.146.0",
+    date: "2026-09-04",
+    changes: [
+      "When an EIR's Resolution is set to Resolved, Glenn Terry and Brandon Mirto are now emailed to review it and decide whether the response is accepted",
     ],
   },
   {

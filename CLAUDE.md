@@ -3468,20 +3468,39 @@ missing exactly the kind of address problem this screen exists to catch. Not
 caught by any test — Ray caught it by eye ("you did not list them on the
 admin notifications section") right after the FAIT alerts shipped.
 
+**Reusing an EXISTING list for a new trigger still needs its OWN `LISTS`
+row, not just a folded-in mention.** The EIR Resolved alert (2026-09-04)
+deliberately reused `EIR_TRIAGE_ASSIGNERS` rather than adding a new list (see
+the EIR status alerts section) — first landed as a sentence tacked onto the
+"EIR — assign an engineer" row's `what` text, which Ray immediately caught
+as invisible ("the recent email for resolved is not in the list"): a row
+LABEL is what someone scans for, and "Resolved" wasn't findable without
+reading another row's fine print. Two `LISTS` entries now share the same
+`envVar`/`value` (`EIR_TRIAGE_ASSIGNERS`) on purpose — genuinely different
+triggers on the same underlying recipients, each worth its own label. That's
+why the row `<section>`'s React key is `list.label`, not `list.envVar`:
+`envVar` is no longer unique across rows. A reused list gets its own row
+whenever the TRIGGER is a different thing someone would look for — a
+one-line addition to an existing row's `what` is only fine when it's the
+same trigger with slightly more nuance, not a genuinely new reason to email
+the same people.
+
 The failure toast for a bad send goes to the ACTOR, incidentally — so when
 Sheila's action fails to reach Glenn, Ray never sees it. That's why the check
 had to be a screen an admin can open rather than a better toast.
 
-## EIR status alerts — the two transitions that need somebody to act
+## EIR status alerts — the transitions that need somebody to act
 
-Two status changes raise a work request rather than a notification (Ray,
-2026-08-25). Both were previously spotted by someone happening to look.
+Status changes that raise a work request rather than a notification (Ray,
+2026-08-25 for the first two; Ray, 2026-09-04 for Resolved). All were
+previously spotted by someone happening to look.
 
 | Transition | Who's emailed | What it asks |
 |---|---|---|
 | → **Response Accepted** | `EIR_RESPONSE_ACCEPTED_ALERTS` (Sheila Horn, Ray White) | "Please close it" |
 | → **Response Not Accepted** | the EIR's **assigned engineers** | "Please revisit and give a more detailed response" |
 | → **Response Not Accepted**, no engineer reachable | `EIR_TRIAGE_ASSIGNERS` | "No engineer is assigned" — different wording, see below |
+| Resolution → **Resolved** | `EIR_TRIAGE_ASSIGNERS` (Glenn Terry, Brandon Mirto) | "Please review it and decide whether the response is accepted" |
 
 Wording lives in `lib/eirStatusAlerts.ts` (pure, returns `ChangeEmail[]`);
 `fireEirResponseAcceptedAlert` / `fireEirResponseNotAcceptedAlert` in
@@ -3489,6 +3508,19 @@ Wording lives in `lib/eirStatusAlerts.ts` (pure, returns `ChangeEmail[]`);
 `if ("Status" in fields)` block in `useUpdateEirFields` — the only hook that can
 write Status, so the sidebar picker, the board drag and the linked-task
 completion path are all covered by one call site.
+
+**Resolution → Resolved is a SEPARATE `if ("Resolution" in fields)` block in
+the same hook** — Resolution and Status are two different SharePoint columns
+that can each be written independently, so this needed its own `to !== from`
+guard rather than piggybacking on the Status block's. `fireEirResolvedAlert`
+in `api/email.ts` reuses `EIR_TRIAGE_ASSIGNERS` (Glenn Terry / Brandon Mirto)
+DIRECTLY, deliberately NOT a new dedicated env var — Ray asked for those two
+people by name, and they already review EIRs at this exact point in the
+lifecycle (assigning an engineer). This is the one exception to "give every
+alert queue its own env var" elsewhere in this file: that rule exists so
+re-pointing one queue can't silently re-point another with a different job,
+and here there is no other job — it's the same reviewers, asked to do the
+next thing in the same review.
 
 Six rules that are load-bearing:
 
@@ -3945,6 +3977,169 @@ returns, and only then invalidates. Four things worth not breaking:
 columns) and calls `onClose()` without awaiting them. That's safe because a
 failed write rolls its own field back and toasts, and React Query finishes
 mutations after unmount. Validation still runs first.
+
+### A parent task can't be marked Complete with open child tasks
+
+Ray, 2026-09-04: child tasks were being left open after their parent was
+marked done, because nothing stopped it — a parent's "Mark Complete" and its
+children's own statuses were two unrelated things as far as the app was
+concerned.
+
+`canCompleteTask(task)` in `src/lib/taskGraph.ts` is the one gate every path
+to Complete checks — mirrors the CMMS's `completeWorkOrderGate` shape
+exactly (`{ allowed, hint }`), so it's asked once and every caller renders
+the SAME reason rather than each inventing its own wording:
+
+- **`src/views/DetailView.tsx`** — `handleMarkComplete()` and
+  `handleStatusChange()` both refuse (via `pushToast`) before writing when
+  `next === "Complete"` and the gate says no. The "Mark Complete" button
+  itself is `aria-disabled`, NOT `disabled`, in that case — CLAUDE.md's own
+  EIR "At Risk Parts" lesson applies here too: Chrome/Edge suppress a
+  disabled control's native tooltip and drop it from the tab order, which
+  would hide the only explanation from keyboard and screen-reader users. The
+  button keeps its `onClick` wired (belt-and-suspenders with the toast) and
+  carries a `title` naming the count. `disabled` (the real HTML attribute)
+  is reserved for the ALREADY-terminal case — the task is already Complete,
+  nothing to click for — where there's nothing to explain. The child tasks
+  card in the sidebar also prints the same hint when blocked, so a user
+  isn't left guessing which children are the problem.
+- **`src/views/KanbanView.tsx`** — the drop decision is pulled into a pure,
+  exported `planTaskStatusDrop()`, mirroring `MaintenanceBoardView.tsx`'s
+  `planStatusDrop` for the identical reason: dnd-kit's pointer sensor needs
+  a layout engine jsdom hasn't got, so a synthetic drag proves nothing, and
+  the RULE is what's worth testing. A refusal returns `{ refusal: string }`
+  instead of calling `setStatus.mutate(...)`; not calling the mutation is
+  enough to keep the card in its original column — `onMutate`'s optimistic
+  cache patch is the only thing that ever moves a card, and it never runs
+  unless `mutate()` is called.
+
+Four things about the rule itself, all in `taskGraph.ts`:
+
+- **"Done" means `status === "Complete"` exactly.** Every other status —
+  including Blocked or On Hold — still counts as an open child.
+  `incompleteChildTasks(task)` is the underlying filter, exported
+  separately so a caller that wants the LIST of blockers (not just a
+  yes/no) doesn't have to re-filter `task.childTasks` itself.
+- **A task with no children is never blocked.** The gate only applies when
+  there's something to wait on — `childTasks.length === 0` short-circuits
+  to allowed with an empty hint.
+- **`task.childTasks` is already loaded — no `resolving` state.** Unlike
+  the CMMS gates, which await an async roles list, `childTasks` is
+  populated synchronously by `attachTaskRelationships()` on every `Task`
+  from the normal `useTasks()` load, so there's nothing to wait on and
+  nothing that can read as "checking…" for a beat.
+- **Un-completing a parent is a separate, unbuilt concern.** A task already
+  Complete is never re-blocked by this — if a child re-opens after its
+  parent was marked done, nothing here reacts to that, on purpose; that's a
+  different feature nobody has asked for yet.
+
+This is UI-level gating only, the same as every other gate in this app —
+the real boundary is SharePoint's own list permissions, and a user with
+direct SharePoint write access could still flip a parent to Complete from
+there. Tests: `taskGraph.test.ts` (the pure functions, break-then-restore
+verified), `DetailView.childGate.test.tsx` (button/dropdown/sidebar
+wiring, using `MOCK_TASKS`' real task 47 → children 48/44 and task 102 →
+child 110 relationships) and `KanbanView.childGate.test.tsx`
+(`planTaskStatusDrop` directly, same convention as
+`MaintenanceBoardView.test.tsx`'s `planStatusDrop` suite).
+
+### Task detail: Watchers is a picker, not read-only text
+
+Ray, 2026-09-04: "allows users to add and remove watchers from the right-view
+pane in the edit screen, similar to EIRs and the other apps." Before this the
+sidebar's Watchers field was a comma-joined name list with no control at
+all — the only way to change it was the "Watch"/"Unwatch" button up top,
+which only ever toggles the SIGNED-IN user, never anyone else.
+
+`useSetWatchers()` in `useTasks.ts` — a whole-array mutation (optimistic
+patch, undo, the same shape as `useSetAssigned`) — already existed and was
+already wired into `TaskFormModal`'s edit form, but had never been connected
+to `DetailView.tsx`'s read/detail page. `handleWatcherToggle` there now
+mirrors `handleAssignedToggle` exactly: `PersonMultiField`'s `onToggle` hands
+back one `Person`, the handler diffs it against `task.watchers` and calls
+`setWatchers.mutate` with the whole next array. Same component, same pattern
+EIR's sidebar already used (`EirDetailView.tsx`'s own `handleWatcherToggle`,
+via `useSetEirWatchers`) — Tasks was the one department detail page that
+hadn't caught up yet.
+
+The one-click **Watch/Unwatch button stays** — it's the "watch it myself"
+shortcut via `useWatchTask`/`useUnwatchTask`, a different pair of hooks that
+each toggle exactly one person (the current user) with their own optimistic
+patch and Undo. The sidebar picker is the FULL list; the button is a
+convenience for the one entry that's almost always wanted. Both write through
+the same underlying `setWatchers` API function in `api/tasks.ts`, so they
+can't disagree about what "the watcher list" means.
+
+Pinned in `DetailView.watchers.test.tsx` — no broader test harness covers
+`DetailView.tsx` in this repo (see the `DetailView.projectRef` /
+`DetailView.relatedProjects` test files for the same convention), so this is
+scoped to the one addition: chips render for existing watchers, the empty
+state reads "Nobody is watching this task" the same as the old text did,
+removing a chip drops that watcher, and picking someone from the dropdown
+adds them. The dropdown panel portals to `document.body` (see
+`SearchableSelect.tsx`), so a test can't scope an option query to the
+field's own DOM subtree once it's open — scope to the single open
+`role="listbox"` instead, not `screen` as a whole, or a query can pick up
+an option from an unrelated field's panel that happens to still be mounted.
+
+### Task detail: "New Child Task" — TaskFormModal's `fromParentTask` prop
+
+Added 2026-09-04. Creating a task under an existing one meant opening the
+plain "New task" form and manually finding the parent in the Parent Task
+dropdown (then hoping to also pick the matching Parent Project — nothing
+enforced the two agreeing). A "New Child Task" button on the task detail
+page's top toolbar, next to New Test Sheet, now opens `TaskFormModal` in
+create mode with the current task passed as `fromParentTask` — its Parent
+Task and Parent Project are pre-filled from the parent AND shown as a
+non-editable `LockedPill`, the same read-only-reference treatment
+`TestSheetFormModal`'s `fromTask` prop already uses for "create a test sheet
+from this task" (see that file for the original pattern this mirrors).
+
+**Why a differently-named prop, not `fromTask` again**: `TestSheetFormModal`'s
+`fromTask` locks a Test Sheet's Task Reference + Project Reference to the
+source task. `TaskFormModal`'s `fromParentTask` locks a NEW TASK's Parent
+Task + Parent Project instead — a different pair of fields, on a different
+entity's create form. Reusing the exact prop name across two different
+components locking two different field pairs would read as one shared
+contract when it isn't; the two are independent props that happen to follow
+the same shape.
+
+Three things about the implementation:
+
+- **`lockToParent = mode === "create" && !!fromParentTask`** gates both the
+  UI lock and the heading. It's `false` outside create mode on purpose —
+  `DetailView` never passes `fromParentTask` to an edit-mode instance, and an
+  edit editing an EXISTING child shouldn't suddenly relock its parent fields
+  just because a stray prop leaked through.
+- **Prefill is `task?.… ?? fromParentTask?.… ?? ""`** on both
+  `parentProjectId` and `parentTaskId` — `task` wins when both are somehow
+  present (shouldn't happen given the mode guard, but the precedence is the
+  same defensive order `TestSheetFormModal` already uses for its own
+  prefills), `fromParentTask` is the new source, empty string is the existing
+  "nothing chosen" sentinel this form already used everywhere else.
+- **Zero new submit-path code.** Create mode already did
+  `createTask.mutateAsync({ …, parentProjectLookupId: parentProjectId, … })`
+  then, if `parentTaskId !== ""`, `setParentTask.mutateAsync({ id: created.id,
+  parentId: parentTaskId })`, then `navigate(`/task/${created.id}`)`. Locking
+  the fields only stops the USER from changing the state that feeds that
+  flow — the flow itself doesn't know or care whether the value came from a
+  picker or a locked prop. This is the same reason `TestSheetFormModal`
+  needed no new submit code for its own `fromTask` either.
+
+The heading changes to `New child task of {fromParentTask.numberedTitle}` in
+this mode (mirroring `TestSheetFormModal`'s own heading behavior for
+`fromTask`) so there's no ambiguity about which task is about to become the
+parent — a plain "New task" heading over two silently-locked fields would
+read as a bug, not a feature.
+
+Pinned in `TaskFormModal.childTask.test.tsx` (the lock, the heading, the
+create → setParentTask → navigate sequence, and a same-file regression check
+that a plain "New task" with no `fromParentTask` is unaffected) and
+`DetailView.childTask.test.tsx` (the button exists, opens the modal wired to
+the current task, and Cancel returns to the detail page) — the same narrow,
+per-feature file convention as `DetailView.projectRef` /
+`DetailView.watchers`, since `DetailView.tsx` has no broader test harness in
+this repo.
 
 ### Description checklists: sub-tasks and attribution
 

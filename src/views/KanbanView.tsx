@@ -22,11 +22,66 @@ import { FilterBar } from "@/components/FilterBar";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { KanbanCard } from "@/components/KanbanCard";
 import { TaskFormModal } from "@/components/TaskFormModal";
+import { pushToast } from "@/components/Toast";
 import { statusColor } from "@/components/atoms";
 import { applyFilters, collectPeople } from "@/lib/taskFilters";
+import { canCompleteTask } from "@/lib/taskGraph";
 import { withPerson } from "@/lib/people";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { cn } from "@/lib/cn";
+
+export type TaskStatusDropPlan =
+  | { taskId: number; target: Status }
+  | { refusal: string };
+
+/**
+ * What a drop onto a column means — pure, so the rule is testable without a
+ * synthetic drag. dnd-kit's pointer sensor needs a layout engine jsdom
+ * hasn't got, so simulating one proves nothing; the DECISION is what
+ * matters, and it lives here for that reason — mirrors
+ * `planStatusDrop` in `MaintenanceBoardView.tsx`, the CMMS board's
+ * equivalent of this same shape.
+ *
+ * Returns `null` for a drop that changes nothing (outside a column, onto the
+ * column it's already in, or a card that has since vanished), the write to
+ * make, or a refusal to show the user — a parent dragged onto Complete with
+ * any open (non-Complete) child task, per `canCompleteTask` in
+ * `taskGraph.ts`. Refusing here means the caller never calls the mutation,
+ * so the card stays in its original column for free: @dnd-kit itself moves
+ * nothing, only the mutation's optimistic `onMutate` patch would, and that
+ * patch never runs.
+ */
+export function planTaskStatusDrop({
+  activeId,
+  overId,
+  tasks,
+}: {
+  activeId: string | number;
+  overId: string | number | null;
+  tasks: Task[];
+}): TaskStatusDropPlan | null {
+  if (overId === null) return null;
+
+  const task = tasks.find((x) => x.id === Number(activeId));
+  if (!task) return null;
+
+  let target: Status | null = null;
+  if (STATUSES.includes(overId as Status)) {
+    target = overId as Status;
+  } else {
+    const overTask = tasks.find((x) => x.id === Number(overId));
+    if (overTask) target = overTask.status;
+  }
+
+  if (!target || target === task.status) return null;
+
+  if (target === "Complete") {
+    const gate = canCompleteTask(task);
+    if (!gate.allowed) return { refusal: gate.hint };
+  }
+
+  return { taskId: task.id, target };
+}
 
 export function KanbanView() {
   const navigate = useNavigate();
@@ -85,24 +140,17 @@ export function KanbanView() {
 
   function handleDragEnd(event: DragEndEvent) {
     setActiveTask(null);
-    const { active, over } = event;
-    if (!over) return;
-
-    const taskId = Number(active.id);
-    const task = tasks.find((x) => x.id === taskId);
-    if (!task) return;
-
-    let target: Status | null = null;
-    if (STATUSES.includes(over.id as Status)) {
-      target = over.id as Status;
-    } else {
-      const overTask = tasks.find((x) => x.id === Number(over.id));
-      if (overTask) target = overTask.status;
+    const plan = planTaskStatusDrop({
+      activeId: event.active.id,
+      overId: event.over?.id ?? null,
+      tasks,
+    });
+    if (!plan) return;
+    if ("refusal" in plan) {
+      pushToast({ message: plan.refusal, variant: "error" });
+      return;
     }
-
-    if (target && target !== task.status) {
-      setStatus.mutate({ id: task.id, status: target });
-    }
+    setStatus.mutate({ id: plan.taskId, status: plan.target });
   }
 
   // Phones / small tablets: Kanban isn't offered — send them to the List,

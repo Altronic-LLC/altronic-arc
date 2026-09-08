@@ -29,6 +29,9 @@ import type { ChangeEmail, ChangeTarget } from "./changeAlerts";
 export const EIR_RESPONSE_ACCEPTED = "Response Accepted";
 export const EIR_RESPONSE_NOT_ACCEPTED = "Response Not Accepted";
 
+/** The Resolution value the resolved-review alert fires on. */
+export const EIR_RESOLUTION_RESOLVED = "Resolved";
+
 /**
  * "Response Accepted" — ask the intake pair to close the EIR.
  *
@@ -138,5 +141,45 @@ export function buildEirResponseNotAcceptedEmails(args: {
     detailHtml:
       `<div style="font-size:14px;">Assigning an engineer notifies them and puts the EIR back ` +
       `into somebody's hands; they can then add the detail the reviewer asked for.</div>`,
+  }));
+}
+
+/**
+ * Resolution → "Resolved" — ask the triage assigners to review it and decide
+ * whether the response is accepted (Ray, 2026-09-04: "send glenn and brandon
+ * an alert when someone makes EIR to Resolved for them to review and
+ * determine if the response is accepted or not").
+ *
+ * Reuses `EIR_TRIAGE_ASSIGNERS` directly (Glenn Terry / Brandon Mirto) rather
+ * than a dedicated list — that pair already reviews EIRs at this point in
+ * their lifecycle (assigning an engineer), and Ray explicitly asked for THEM,
+ * by name, not a new configurable queue.
+ *
+ * Same actor-exclusion rule as the accepted-response queue
+ * (`withoutActorUnlessEmpty`): this is a work-queue request, not a change
+ * notification, so the actor is left off their own action unless that would
+ * leave nobody to tell.
+ */
+export function buildEirResolvedEmails(args: {
+  target: ChangeTarget;
+  /** The configured triage-assigners list, already parsed. */
+  recipients: Person[];
+  actor: Person;
+}): ChangeEmail[] {
+  const recipients = withoutActorUnlessEmpty(args.recipients, args.actor);
+  if (recipients.length === 0) return [];
+
+  const actorName = escapeHtml(args.actor.displayName || "Someone");
+  return recipients.map((p) => ({
+    email: p.email!,
+    displayName: p.displayName,
+    // Subject is PLAIN TEXT — escaping it would put &amp; in an inbox.
+    subject: `${args.target.title} — resolved, please review`,
+    headlineHtml:
+      `<strong>${actorName}</strong> set this EIR's Resolution to <strong>Resolved</strong>. ` +
+      `<strong>Please review it and determine whether the response is accepted.</strong>`,
+    detailHtml:
+      `<div style="font-size:14px;">Setting Status to Response Accepted or Response Not ` +
+      `Accepted moves it to the next step of the workflow.</div>`,
   }));
 }
