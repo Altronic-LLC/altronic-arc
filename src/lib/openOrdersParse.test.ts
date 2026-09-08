@@ -475,3 +475,107 @@ describe("dateCellOnly()", () => {
     expect(dateCellOnly(null)).toBeNull();
   });
 });
+
+// =============================================================================
+// The two same-named Customer Material Number columns
+// =============================================================================
+//
+// The extract can carry BOTH `Customer Material Number` and
+// `Customer material number` as SEPARATE columns — the same words, differing
+// only in case (Ray, 2026-09-08). `normaliseHeader` cannot tell them apart, so
+// these are matched case-sensitively and consolidated into ONE column.
+//
+// Rows are built POSITIONALLY here rather than through `row()`: that helper is
+// keyed by header text, and the whole point of these cases is two columns
+// whose header text differs only in case.
+// =============================================================================
+
+const PREFERRED = "Customer Material Number";
+const FALLBACK = "Customer material number";
+
+/**
+ * The live header row with extra columns appended, and a matching data row.
+ *
+ * `extras` are appended after the standard columns; `values` line up with them
+ * positionally.
+ */
+function gridWithExtras(extras: string[], values: unknown[][]): unknown[][] {
+  const headers = [...HEADERS, ...extras];
+  const rows = values.map((extra) => [...row(), ...extra]);
+  return [headers, ...rows];
+}
+
+describe("Customer Material Number — two columns, one consolidated value", () => {
+  it("prefers the CAPITALISED column when it has a value", () => {
+    const result = parseOpenOrdersGrid(
+      gridWithExtras([PREFERRED, FALLBACK], [["CAP-1", "low-1"]]),
+    );
+    expect(result.lines[0].customerMaterialNumber).toBe("CAP-1");
+  });
+
+  it("falls back to the lower-case column when the capitalised one is blank", () => {
+    const result = parseOpenOrdersGrid(
+      gridWithExtras([PREFERRED, FALLBACK], [["", "low-1"], [null, "low-2"]]),
+    );
+    expect(result.lines[0].customerMaterialNumber).toBe("low-1");
+    expect(result.lines[1].customerMaterialNumber).toBe("low-2");
+  });
+
+  it("is BLANK when both columns are blank — no placeholder, no borrowing", () => {
+    const result = parseOpenOrdersGrid(
+      gridWithExtras([PREFERRED, FALLBACK], [["", ""], [null, null]]),
+    );
+    expect(result.lines[0].customerMaterialNumber).toBe("");
+    expect(result.lines[1].customerMaterialNumber).toBe("");
+    // Specifically NOT the SAP material number, which is a different thing.
+    expect(result.lines[0].material).toBe("1006-9794-00");
+  });
+
+  it("works when only the capitalised column is present", () => {
+    const result = parseOpenOrdersGrid(gridWithExtras([PREFERRED], [["CAP-1"]]));
+    expect(result.lines[0].customerMaterialNumber).toBe("CAP-1");
+  });
+
+  it("works when only the lower-case column is present", () => {
+    const result = parseOpenOrdersGrid(gridWithExtras([FALLBACK], [["low-1"]]));
+    expect(result.lines[0].customerMaterialNumber).toBe("low-1");
+  });
+
+  it("collapses the two into ONE layout column, at the first one's position", () => {
+    // Lower-case FIRST here, so "first position" and "preferred spelling"
+    // disagree — a test with them in the other order would pass either way.
+    const result = parseOpenOrdersGrid(
+      gridWithExtras([FALLBACK, PREFERRED], [["low-1", "CAP-1"]]),
+    );
+    const material = result.columns.filter((c) => c.field === "customerMaterialNumber");
+    expect(material).toHaveLength(1);
+    expect(material[0].index).toBe(HEADERS.length); // where the LOWER-CASE one sat
+    // Written under the capitalised spelling whichever column won the position.
+    expect(material[0].header).toBe(PREFERRED);
+    // And the value still prefers the capitalised column, not the first one.
+    expect(result.lines[0].customerMaterialNumber).toBe("CAP-1");
+  });
+
+  it("does not report either spelling as an unrecognised column", () => {
+    const result = parseOpenOrdersGrid(
+      gridWithExtras([PREFERRED, FALLBACK], [["CAP-1", "low-1"]]),
+    );
+    expect(result.unmappedHeaders).not.toContain(PREFERRED);
+    expect(result.unmappedHeaders).not.toContain(FALLBACK);
+    // And it isn't carried as an unknown `raw` column either.
+    expect(result.lines[0].raw).toBeUndefined();
+  });
+
+  it("warns when the extract has NEITHER column", () => {
+    const result = parseOpenOrdersGrid(grid());
+    expect(result.lines[0].customerMaterialNumber).toBe("");
+    const warning = result.warnings.find((w) => w.kind === "no-customer-material");
+    expect(warning).toBeDefined();
+    expect(warning?.message).toContain(PREFERRED);
+  });
+
+  it("stays quiet about a missing column when one IS present", () => {
+    const result = parseOpenOrdersGrid(gridWithExtras([FALLBACK], [["low-1"]]));
+    expect(result.warnings.find((w) => w.kind === "no-customer-material")).toBeUndefined();
+  });
+});

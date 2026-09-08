@@ -495,3 +495,104 @@ describe("a combined workbook (two accounts, one tab each)", () => {
     }
   });
 });
+
+// =============================================================================
+// The Customer Material Number column — opt-in, per account
+// =============================================================================
+//
+// The consolidated column (see openOrdersParse.ts) reaches a CUSTOMER's
+// workbook only when that account is flagged for it. The master always carries
+// it: the flag governs what leaves the building, not what we look at.
+// =============================================================================
+
+describe("the Customer Material Number column is per-account", () => {
+  const MATERIAL_HEADER = "Customer Material Number";
+
+  /** A layout that HAS the column, as a real parsed extract would produce. */
+  const layoutWithMaterial = layoutFromColumns([
+    ...RAW_LAYOUT.map((c, i) => ({ header: c.header, field: c.field, index: i })),
+    {
+      header: MATERIAL_HEADER,
+      field: "customerMaterialNumber" as const,
+      index: RAW_LAYOUT.length,
+    },
+  ] as RawColumnOrder[]);
+
+  const on: OpenOrderCustomerAccount = {
+    ...MOCK_OPEN_ORDER_ACCOUNTS[0],
+    includeCustomerMaterialNumber: true,
+  };
+  const off: OpenOrderCustomerAccount = {
+    ...MOCK_OPEN_ORDER_ACCOUNTS[0],
+    includeCustomerMaterialNumber: false,
+  };
+  const report = customerReport(on, MOCK_OPEN_ORDER_LINES, MOCK_RUN_DATE);
+
+  /** Every header on a sheet's first table, however wide it is. */
+  function allHeaders(ws: ExcelJS.Worksheet): string[] {
+    const row = headerRowOf(ws);
+    const out: string[] = [];
+    for (let c = 1; c <= layoutWithMaterial.length; c++) {
+      out.push(String(ws.getRow(row).getCell(c).value ?? ""));
+    }
+    return out;
+  }
+
+  it("appears on the workbook of a customer who is opted IN", async () => {
+    const wb = await buildCustomerWorkbook(ExcelJS, report, on, ctx, layoutWithMaterial);
+    expect(allHeaders(wb.getWorksheet("Open Orders")!)).toContain(MATERIAL_HEADER);
+  });
+
+  it("is ABSENT from the workbook of a customer who is not", async () => {
+    const wb = await buildCustomerWorkbook(ExcelJS, report, off, ctx, layoutWithMaterial);
+    expect(allHeaders(wb.getWorksheet("Open Orders")!)).not.toContain(MATERIAL_HEADER);
+  });
+
+  it("removes ONLY that column — every other one keeps its place", async () => {
+    const wb = await buildCustomerWorkbook(ExcelJS, report, off, ctx, layoutWithMaterial);
+    const ws = wb.getWorksheet("Open Orders")!;
+    const row = headerRowOf(ws);
+    expect(RAW_LAYOUT.map((_, i) => String(ws.getRow(row).getCell(i + 1).value ?? ""))).toEqual(
+      RAW_LAYOUT.map((c) => c.header),
+    );
+  });
+
+  it("is on the MASTER regardless — the flag is about what customers receive", async () => {
+    const wb = await buildMasterWorkbook(
+      ExcelJS,
+      MOCK_OPEN_ORDER_LINES,
+      // Every account opted OUT, so a master reading the flag would drop it.
+      MOCK_OPEN_ORDER_ACCOUNTS.map((a) => ({ ...a, includeCustomerMaterialNumber: false })),
+      ctx,
+      layoutWithMaterial,
+    );
+    expect(allHeaders(wb.worksheets[0])).toContain(MATERIAL_HEADER);
+  });
+
+  it("follows EACH account's own flag on a combined workbook", async () => {
+    const accountB: OpenOrderCustomerAccount = {
+      ...MOCK_OPEN_ORDER_ACCOUNTS[2],
+      includeCustomerMaterialNumber: false,
+    };
+    const reportB = customerReport(accountB, MOCK_OPEN_ORDER_LINES, MOCK_RUN_DATE);
+    const wb = await buildCombinedCustomerWorkbook(
+      ExcelJS,
+      [report, reportB],
+      ctx,
+      layoutWithMaterial,
+      [on, accountB],
+    );
+    expect(allHeaders(wb.getWorksheet(report.soldTo)!)).toContain(MATERIAL_HEADER);
+    expect(allHeaders(wb.getWorksheet(reportB.soldTo)!)).not.toContain(MATERIAL_HEADER);
+  });
+
+  it("omits the column when a combined build is given no accounts at all", async () => {
+    const wb = await buildCombinedCustomerWorkbook(
+      ExcelJS,
+      [report, report],
+      ctx,
+      layoutWithMaterial,
+    );
+    expect(allHeaders(wb.worksheets[0])).not.toContain(MATERIAL_HEADER);
+  });
+});

@@ -11,6 +11,11 @@
         Title            the SOLD-TO ACCOUNT NUMBER (not a name)
         CustomerName     the customer-facing name, used for the FILENAME
         Active           yes/no — off the weekly run without deleting the row
+        IncludeCustomerMaterialNumber
+                         yes/no — does THIS customer's workbook carry the
+                         Customer Material Number column (their own part
+                         number)? Unset reads as NO in ARC, so adding this
+                         column to an existing list opts nobody in.
         Notes            free text
 
     With no roles list, Open Orders role gating stays OFF: **any signed-in user
@@ -99,6 +104,7 @@ $Lists = @(
         Columns     = @(
             (New-TextColumn "CustomerName" "Customer Name"),
             (New-BoolColumn "Active" "Active"),
+            (New-BoolColumn "IncludeCustomerMaterialNumber" "Include Customer Material Number"),
             (New-TextColumn "Notes" "Notes" $true)
         )
     }

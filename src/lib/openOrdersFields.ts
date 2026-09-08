@@ -61,6 +61,15 @@ export const RAW_COLUMNS: RawColumnSpec[] = [
   { field: "salesOrder", aliases: ["Sales Order", "Sales Document", "Order"], kind: "text", required: true },
   { field: "lineNo", aliases: ["Item (SD)", "Item", "Line", "Line Item"], kind: "text" },
   { field: "material", aliases: ["Material", "Material Number"], kind: "text" },
+  // Matched by alias like everything else, but see CUSTOMER_MATERIAL_HEADERS
+  // below: the extract can carry TWO columns whose headers differ only in
+  // case, which `normaliseHeader` cannot tell apart. `parseOpenOrdersGrid`
+  // consolidates them before the alias loop ever sees them.
+  {
+    field: "customerMaterialNumber",
+    aliases: ["Customer Material Number", "Customer Material No", "Customer Part Number"],
+    kind: "text",
+  },
   { field: "altronicPartNumber", aliases: ["AI Part Number", "AI Part No", "Altronic Part Number"], kind: "text" },
   { field: "description", aliases: ["Material Description", "Description"], kind: "text" },
   { field: "orderType", aliases: ["Sales Document Type", "Order Type", "Document Type"], kind: "text" },
@@ -170,6 +179,7 @@ const FIELD_PRESENTATION: Partial<
   salesOrder: { width: 13 },
   customerPo: { width: 20 },
   material: { width: 16 },
+  customerMaterialNumber: { width: 22 },
   altronicPartNumber: { width: 15 },
   description: { width: 34 },
   openQty: { width: 12, format: "qty", align: "right" },
@@ -267,3 +277,68 @@ export const RAW_LAYOUT: RawLayoutColumn[] = [
   { header: "Delivery Block", field: "deliveryBlock", width: 12, align: "center" },
   { header: "Reason for rejection", field: "rejectionReason", width: 18 },
 ];
+
+// -----------------------------------------------------------------------------
+// The two same-named Customer Material Number columns
+// -----------------------------------------------------------------------------
+
+/**
+ * The extract can carry BOTH of these as SEPARATE columns (Ray, 2026-09-08).
+ *
+ * They are the same words. They differ only in the case of two letters, and
+ * `normaliseHeader` — which deliberately ignores case, so that "OPEN QTY" and
+ * "Open quantity" land on one field — cannot tell them apart. So these two are
+ * matched with `===` on the trimmed header text, and that is the ONE place in
+ * this file where capitalisation is load-bearing.
+ *
+ * **Do not fold these into the alias mechanism.** Both would normalise to the
+ * same key, `ALIAS_LOOKUP` would keep whichever was declared last, and the
+ * parser's "first column wins" rule would then silently drop the other — which
+ * is exactly the value we are trying to prefer.
+ */
+export const CUSTOMER_MATERIAL_HEADERS = {
+  /** Wins wherever it has a value. */
+  preferred: "Customer Material Number",
+  /** Used only where the preferred column is blank on that row. */
+  fallback: "Customer material number",
+} as const;
+
+/** The header the ONE consolidated column is written under. */
+export const CUSTOMER_MATERIAL_HEADER = CUSTOMER_MATERIAL_HEADERS.preferred;
+
+/**
+ * Is this header one of the two same-named Customer Material Number columns?
+ *
+ * Case-SENSITIVE by design (see above), but tolerant of surrounding
+ * whitespace, since a header cell routinely arrives padded.
+ */
+export function customerMaterialHeaderKind(
+  header: unknown,
+): "preferred" | "fallback" | null {
+  const text = String(header ?? "").trim();
+  if (text === CUSTOMER_MATERIAL_HEADERS.preferred) return "preferred";
+  if (text === CUSTOMER_MATERIAL_HEADERS.fallback) return "fallback";
+  return null;
+}
+
+/**
+ * The layout a given customer's workbook uses.
+ *
+ * The consolidated Customer Material Number column is opt-in per account, so
+ * a customer who hasn't asked for it never sees it — everything else about
+ * their sheet is unchanged, including column ORDER, since this only removes.
+ *
+ * A customer who IS opted in keeps the column even on a week where every one
+ * of their lines is blank in it: the flag says "this customer's file has this
+ * column", and a file that changes shape because SAP happened to send no
+ * values that week is harder to reconcile than an empty column.
+ *
+ * The MASTER never passes through here — it always carries the column.
+ */
+export function layoutForAccount(
+  layout: RawLayoutColumn[],
+  includeCustomerMaterialNumber: boolean,
+): RawLayoutColumn[] {
+  if (includeCustomerMaterialNumber) return layout;
+  return layout.filter((c) => c.field !== "customerMaterialNumber");
+}

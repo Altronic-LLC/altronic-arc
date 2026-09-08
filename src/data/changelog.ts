@@ -20,6 +20,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.150.0",
+    date: "2026-09-08",
+    changes: [
+      "Open Orders: a new Include customer material number option on each customer adds a Customer Material Number column — their own part number — to that customer's workbook only",
+      "Where the SAP extract carries two same-named part-number columns, they're combined into one: Customer Material Number is used where it has a value, Customer material number where it doesn't, and blank where neither does",
+      "The master report always carries the combined column, whatever the individual customers are set to",
+      "An upload whose extract has neither column now says so, rather than the column silently going missing from those customers' files",
+      "The customer list shows a Cust. material no. tag on the customers set to receive it",
+    ],
+  },
+  {
     version: "0.149.0",
     date: "2026-09-04",
     changes: [

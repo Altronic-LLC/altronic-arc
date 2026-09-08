@@ -2381,12 +2381,57 @@ one that was refreshed — whoever sends it cannot tell which is current. The UI
 confirms first, naming what it will replace. Raw extracts use `rename` instead:
 two exports pulled on the same day are two different sets of facts.
 
+**Two columns with the SAME NAME, differing only in case.** The extract can
+carry BOTH `Customer Material Number` and `Customer material number` as
+separate columns (Ray, 2026-09-08) — the customer's own part number for our
+material. `normaliseHeader` deliberately ignores case (so "OPEN QTY" and
+"Open quantity" land on one field), which means it **cannot tell these two
+apart**: declared as ordinary aliases, both normalise to one key,
+`ALIAS_LOOKUP` keeps whichever was declared last, and the parser's
+"first column wins" rule then silently drops the other.
+
+So they are matched **case-sensitively**, by `===` on the trimmed header,
+in `customerMaterialHeaderKind` (`lib/openOrdersFields.ts`) — the one place
+in that file where capitalisation is load-bearing. **Don't fold them back
+into the alias mechanism.** Five rules:
+
+- **They consolidate into ONE column**, `customerMaterialNumber`. The
+  capitalised spelling wins wherever it has a value; the lower-case one is
+  used where it's blank. **Blank in both is blank** — no placeholder, and
+  never a fallback to `material`, which is OUR part number and a different
+  thing.
+- **The consolidated column takes the position of the FIRST of the two** in
+  the raw file, keeping the standing "a report mirrors its upload" rule
+  whichever order the two spellings appear in. It's written under the
+  capitalised header. The second column is dropped, not rendered twice.
+- **It reaches a CUSTOMER's workbook only when that account is flagged**
+  (`includeCustomerMaterialNumber` on the customer list — `layoutForAccount`
+  is the filter). Useful to some customers, meaningless clutter to others.
+  **The master always carries it**: the flag governs what leaves the
+  building, not what we look at.
+- **A missing SharePoint column reads as FALSE** — deliberately the opposite
+  default from `Active`, which reads a missing column as true. An absent flag
+  means nobody has opted in, and the day the column is created every row is
+  unset; reading that as "yes" would add a column to ~70 customer-facing
+  workbooks at once that nobody asked for. (`Active` defaults the other way
+  because reading IT as false would empty the whole weekly run.)
+- **An opted-in customer keeps the column on a week where all their lines are
+  blank in it.** The flag says "this customer's file has this column"; a file
+  that changes shape because SAP sent no values that week is harder to
+  reconcile than an empty column. A week with NEITHER source column raises a
+  `no-customer-material` parse warning — otherwise an opted-in customer just
+  gets a file without it and nothing says why.
+
+Each tab of a **combined** workbook follows its own account's flag, so the two
+tabs can legitimately differ; a combined build given no accounts omits the
+column, the same conservative default.
+
 **One list on the Sales site** (`scripts/create-open-orders-lists.ps1` creates
 it, idempotently, with `-WhatIf`):
 
 | List | env | Shape |
 |---|---|---|
-| Open Orders Report Customers | `VITE_SP_OPEN_ORDERS_CUSTOMERS_LIST_ID` | `Title` = sold-to number, `CustomerName`, `Active`, `Notes` |
+| Open Orders Report Customers | `VITE_SP_OPEN_ORDERS_CUSTOMERS_LIST_ID` | `Title` = sold-to number, `CustomerName`, `Active`, `IncludeCustomerMaterialNumber`, `Notes` |
 
 **There is deliberately NO Open Orders Roles list** (Ray, 2026-08-24: "i only
 want customer list not roles"). The roles code is built and dormant —

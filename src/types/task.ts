@@ -1744,6 +1744,22 @@ export interface OpenOrderLine {
   mrpController: string;
   createdBy: string;
   /**
+   * The customer's OWN part number, consolidated from the extract's two
+   * same-named columns.
+   *
+   * The extract can carry BOTH `Customer Material Number` and
+   * `Customer material number` — the same words, differing only in case, as
+   * two separate columns. When both are present the capitalised one wins
+   * wherever it has a value, falling back to the lower-case one; blank in
+   * both is blank here. See `consolidateCustomerMaterial` in
+   * `lib/openOrdersParse.ts`.
+   *
+   * Whether it reaches a CUSTOMER's workbook is per-account —
+   * `OpenOrderCustomerAccount.includeCustomerMaterialNumber`. The master
+   * always carries it.
+   */
+  customerMaterialNumber: string;
+  /**
    * Cell values for columns THIS week's extract carries that ARC doesn't map
    * to a typed field above — keyed by the column's index in that file's
    * header row. SAP's column set changes week to week (a field added,
@@ -1846,6 +1862,21 @@ export interface OpenOrderCustomerAccount {
   customerName: string;
   /** Off the weekly run without deleting the row. */
   active: boolean;
+  /**
+   * Does THIS customer's workbook carry the Customer Material Number column?
+   *
+   * Their own part number for our material — useful to some customers,
+   * meaningless clutter to others, so it is opt-in per account. Defaults to
+   * FALSE when the SharePoint column is missing or unset: an absent flag
+   * means nobody has opted this customer in, and adding a column to a file a
+   * customer receives is not something that should happen silently at the
+   * next deploy. (Deliberately the opposite default from `active`, where an
+   * absent column reading as false would empty the whole weekly run.)
+   *
+   * The MASTER always carries the column regardless — this governs only what
+   * leaves the building.
+   */
+  includeCustomerMaterialNumber: boolean;
   notes: string;
 }
 
@@ -1854,6 +1885,7 @@ export interface OpenOrderCustomerAccountInput {
   accountNumber: string;
   customerName: string;
   active: boolean;
+  includeCustomerMaterialNumber: boolean;
   notes: string;
 }
 
