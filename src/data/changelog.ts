@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.151.2",
+    date: "2026-09-09",
+    changes: [
+      "Fixed the Panel QC label's print sizing leaking into every other printed page in ARC (Drawing Work Sheets, tasks, build request parts, …), shrinking them into a tiny corner of the print preview instead of a full page",
+    ],
+  },
+  {
     version: "0.151.1",
     date: "2026-09-09",
     changes: [

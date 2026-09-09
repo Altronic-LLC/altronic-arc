@@ -2292,6 +2292,22 @@ responsible for using it correctly) is the client library.
   on-screen JSX, `printPanelQcLabelSilently`'s size, the print button's
   title/aria-label, and the dev test harness's own description text).
 
+**The `@media print { html, body { width, height } }` sizing rule MUST be
+scoped with `:has(.panel-qc-label)`, never bare `html, body`** — every
+`Print*` view in this app shares the SAME `<html>`/`<body>`, so an unscoped
+rule there applies to EVERY print job, not just Panel QC's. Reported live
+2026-09-09: printing a Drawing Work Sheet or a task showed a tiny
+corner-sized page instead of a full Letter page, because this rule (present
+since the label shipped, at whatever size it was) had no scoping at all.
+The named `@page panel-qc-label` rule right above it was ALWAYS correctly
+isolated — only a page that opts in via `style={{ page: "panel-qc-label" }}`
+uses it, which only `PrintPanelQcIssueView.tsx` does — it was specifically
+the plain `html, body` selector that leaked. Every OTHER print view relies
+on the plain, unnamed `@page { size: letter portrait; margin: 0.4in; }`
+rule further down in `globals.css`; don't add a second view-specific
+`html`/`body` print rule without the same `:has()` scoping, or it will
+collide with that default the same way.
+
 **Still needs, on the real machine(s) that will use this**: QZ Tray actually
 installed, `VITE_PANEL_QC_LABEL_PRINTER_NAME` set to that printer's exact
 Windows name via a repo variable + redeploy, and the printed label eyeballed
