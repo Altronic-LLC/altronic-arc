@@ -194,7 +194,7 @@ describe("printPanelQcLabelSilently — the Panel QC wrapper", () => {
     expect(connect).not.toHaveBeenCalled();
   });
 
-  it("prints at the label's real 2\"×2\" size using the configured printer name", async () => {
+  it("prints at the label's real 3\"×2\" size using the configured printer name", async () => {
     configMock.PANEL_QC_LABEL_PRINTER_NAME = "Zebra ZD410";
     const { printPanelQcLabelSilently } = await freshQzPrint();
     findPrinter.mockResolvedValue("Zebra ZD410 (real name)");
@@ -205,7 +205,7 @@ describe("printPanelQcLabelSilently — the Panel QC wrapper", () => {
     expect(findPrinter).toHaveBeenCalledWith("Zebra ZD410");
     expect(configsCreate).toHaveBeenCalledWith(
       "Zebra ZD410 (real name)",
-      expect.objectContaining({ size: { width: 2, height: 2 } }),
+      expect.objectContaining({ size: { width: 3, height: 2 } }),
     );
   });
 });

@@ -214,7 +214,7 @@ export function PanelQcIssueFormModal({ issue, onClose }: Props) {
               {isWatching ? "Watching" : "Watch"}
             </button>
           )}
-          <button type="button" onClick={() => issue && window.open(`${import.meta.env.BASE_URL}panels/qc-issues/${issue.id}/print`, "_blank", "noopener,noreferrer")} disabled={busy || !issue} title="Print 2 × 2 label" aria-label="Print 2 × 2 label" className="rounded-md p-1 text-fg-muted hover:bg-surface-2 disabled:opacity-50"><Printer className="h-4 w-4" /></button>
+          <button type="button" onClick={() => issue && window.open(`${import.meta.env.BASE_URL}panels/qc-issues/${issue.id}/print`, "_blank", "noopener,noreferrer")} disabled={busy || !issue} title="Print 3 × 2 label" aria-label="Print 3 × 2 label" className="rounded-md p-1 text-fg-muted hover:bg-surface-2 disabled:opacity-50"><Printer className="h-4 w-4" /></button>
           <button type="button" onClick={onClose} disabled={busy} aria-label="Close" className="rounded-md p-1 text-fg-muted hover:bg-surface-2 disabled:opacity-50"><X className="h-4 w-4" /></button>
         </div>
       </div>

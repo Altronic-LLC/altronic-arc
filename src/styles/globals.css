@@ -40,15 +40,24 @@ body {
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }
 
+/* Panel QC label size — 3in x 2in (was 2in x 2in until 2026-09-09, corrected
+   to match the real label printer). */
 @page panel-qc-label {
-  size: 2in 2in;
+  size: 3in 2in;
   margin: 0;
 }
 
 @media print {
-  html,
-  body {
-    width: 2in;
+  /* Scoped with :has() so this NEVER bleeds into every other Print* view
+     (Drawing Work Sheet, tasks, build request items, …) — they share this
+     SAME <html>/<body> and rely on the plain @page rule further down
+     (Letter portrait) instead. Reported live 2026-09-09: printing a
+     Drawing Work Sheet or a task showed a tiny corner-sized page instead
+     of a full Letter page, because this used to apply to html/body on
+     EVERY print, not just Panel QC's. */
+  html:has(.panel-qc-label),
+  body:has(.panel-qc-label) {
+    width: 3in;
     height: 2in;
     margin: 0;
     padding: 0;
