@@ -20,7 +20,7 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
    {
-    version: "0.150.0",
+    version: "0.151.0",
     date: "2026-09-09",
     changes: [
       "Added Panel QC Issue Tracker for recording panel and board defects through resolution, backed by the PANEL COMPONENT FAILURES and PANEL COMPONENT DEFECTS lists on the ALTRONICPANELTEAM SharePoint site",
