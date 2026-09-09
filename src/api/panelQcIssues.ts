@@ -36,7 +36,7 @@ type IssueField = keyof PanelQcIssueInput;
 type ExtraField = "communication";
 type AllField = IssueField | ExtraField;
 type FieldNames = Record<AllField, string>;
-type Column = { name?: string; displayName?: string; choice?: { choices?: string[] } };
+type Column = { name?: string; displayName?: string; choice?: { choices?: string[] }; readOnly?: boolean };
 
 // Candidates carry BOTH the pre-2026-09-03 internal/display names and the
 // ones Ray renamed them to on the list directly (see CLAUDE.md) — a rename
@@ -78,9 +78,13 @@ async function getDefectFieldName(): Promise<string> {
   if (defectFieldName) return defectFieldName;
   try {
     const columns = await graphFetch<{ value: Column[] }>(
-      `/sites/${SITES.panelTeam}/lists/${SP_PANEL_QC_DEFECTS_LIST_ID}/columns?$select=name,displayName`,
+      `/sites/${SITES.panelTeam}/lists/${SP_PANEL_QC_DEFECTS_LIST_ID}/columns?$select=name,displayName,readOnly`,
     );
-    const match = (columns.value ?? []).find((column) =>
+    // Same exclusion as getFieldNames() above, for the same reason: a
+    // read-only computed column (SharePoint's `LinkTitle`) can carry
+    // displayName "Title" too, and matching it here would write a new
+    // defect category's name to a field SharePoint refuses to accept.
+    const match = (columns.value ?? []).filter((column) => !column.readOnly).find((column) =>
       [column.name, column.displayName].filter(Boolean).some((value) =>
         ["defect", "title"].includes(normalise(value!)),
       ),
@@ -99,16 +103,34 @@ async function getDefectFieldName(): Promise<string> {
 async function getFieldNames(): Promise<FieldNames> {
   if (fieldNames) return fieldNames;
   const columns = await graphFetch<{ value: Column[] }>(
-    `/sites/${SITES.panelTeam}/lists/${SP_PANEL_QC_ISSUES_LIST_ID}/columns?$select=name,displayName,choice`,
+    `/sites/${SITES.panelTeam}/lists/${SP_PANEL_QC_ISSUES_LIST_ID}/columns?$select=name,displayName,choice,readOnly`,
   );
-  const byName = new Map((columns.value ?? []).flatMap((c) => (c.name ? [[normalise(c.name), c.name] as const] : [])));
-  const byDisplay = new Map((columns.value ?? []).flatMap((c) => (c.name && c.displayName ? [[normalise(c.displayName), c.name] as const] : [])));
+  // Read-only columns are excluded from BOTH maps — a computed column like
+  // SharePoint's `LinkTitle` (the link-wrapper every list gets around its
+  // Title column, for view rendering) carries `displayName: "Title"`, the
+  // exact same display name as the REAL, writable `Title` column. Without
+  // this filter, `byDisplay`'s Map construction lets whichever of the two
+  // happens to come later in Graph's response silently win that key — which
+  // is `LinkTitle` here, so `panelSerialNumber`'s "Title" fallback candidate
+  // resolved to a read-only field and every create 403'd ("Field 'LinkTitle'
+  // is read-only"), confirmed live 2026-09-09.
+  const writable = (columns.value ?? []).filter((c) => !c.readOnly);
+  const byName = new Map(writable.flatMap((c) => (c.name ? [[normalise(c.name), c.name] as const] : [])));
+  const byDisplay = new Map(writable.flatMap((c) => (c.name && c.displayName ? [[normalise(c.displayName), c.name] as const] : [])));
   const choicesByInternalName = new Map(
     (columns.value ?? []).flatMap((c) => (c.name && c.choice?.choices ? [[c.name, c.choice.choices] as const] : [])),
   );
   const resolved = {} as FieldNames;
   for (const [key, candidates] of Object.entries(FIELD_CANDIDATES) as [AllField, string[]][]) {
-    const match = candidates.map(normalise).map((candidate) => byName.get(candidate) ?? byDisplay.get(candidate)).find(Boolean);
+    // "Title" is a guaranteed-real, guaranteed-writable column on EVERY
+    // SharePoint list — but Graph's `/columns` endpoint routinely omits the
+    // base Title column from its results entirely (it's inherited from the
+    // base content type, not a "site column" the way custom ones are), so
+    // relying on discovery for it finds nothing and this candidate has to
+    // be trusted outright rather than looked up.
+    const match = candidates
+      .map((candidate) => (candidate === "Title" ? "Title" : byName.get(normalise(candidate)) ?? byDisplay.get(normalise(candidate))))
+      .find(Boolean);
     if (!match) throw new Error(`SharePoint column not found for Panel QC field: ${key}`);
     resolved[key] = match;
   }

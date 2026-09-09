@@ -349,6 +349,45 @@ function DropdownShell({
             <ChevronDown className={cn("h-4 w-4 transition-transform", open && "rotate-180")} />
           </button>
         </div>
+      ) : onClear ? (
+        // A clear button can't sit INSIDE the trigger button — a <button>
+        // nested in another <button> is invalid HTML (React's own
+        // validateDOMNesting warns on it, and it's genuinely two overlapping
+        // click targets), which is exactly what the single-button version
+        // below does whenever onClear is set. So this variant keeps the
+        // same visual box, but as a plain <div> carrying the `.select`
+        // chrome, with the open-toggle and the clear (✕) as SIBLING buttons
+        // inside it instead — the same shape the chips variant above
+        // already uses for the same reason.
+        <div className="select flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={() => setOpen((o) => !o)}
+            disabled={disabled}
+            className="flex min-w-0 flex-1 items-center text-left disabled:cursor-not-allowed disabled:opacity-60"
+            aria-label={ariaLabel}
+            aria-haspopup="listbox"
+            aria-expanded={open}
+          >
+            <span className={cn("min-w-0 flex-1 truncate", isEmpty && "text-fg-muted")}>{summary}</span>
+          </button>
+          <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onClear();
+              }}
+              className="rounded-full p-0.5 text-fg-muted hover:bg-surface-2 hover:text-fg"
+              aria-label="Clear selection"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+            <ChevronDown
+              className={cn("h-4 w-4 text-fg-muted transition-transform", open && "rotate-180")}
+            />
+          </div>
+        </div>
       ) : (
         <button
           type="button"
@@ -360,24 +399,9 @@ function DropdownShell({
           aria-expanded={open}
         >
           <span className={cn("min-w-0 flex-1 truncate", isEmpty && "text-fg-muted")}>{summary}</span>
-          <div className="flex shrink-0 items-center gap-1">
-            {onClear && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onClear();
-                }}
-                className="rounded-full p-0.5 text-fg-muted hover:bg-surface-2 hover:text-fg"
-                aria-label="Clear selection"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-            <ChevronDown
-              className={cn("h-4 w-4 text-fg-muted transition-transform", open && "rotate-180")}
-            />
-          </div>
+          <ChevronDown
+            className={cn("h-4 w-4 shrink-0 text-fg-muted transition-transform", open && "rotate-180")}
+          />
         </button>
       )}
 

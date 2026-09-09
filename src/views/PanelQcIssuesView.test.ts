@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { comparePanelQcIssues, rawColumnValue } from "./PanelQcIssuesView";
 import type { PanelQcIssue } from "@/types/task";
 import { nextPanelQcTag } from "@/lib/panelQcNumber";
-import { truncateLabelDescription } from "./PrintPanelQcIssueView";
+import { buildPanelQcLabelHtml, truncateLabelDescription } from "./PrintPanelQcIssueView";
 
 const issue = (id: number, date: Date | null): PanelQcIssue => ({
   id, date, panelSerialNumber: "", panelPartNumber: "", subComponentPartNumber: "", partDescription: "", subComponentSerialNumber: "",
@@ -76,5 +76,44 @@ describe("Panel QC label printing", () => {
     const truncated = truncateLabelDescription(description);
     expect(truncated).toHaveLength(105);
     expect(truncated.endsWith("…")).toBe(true);
+  });
+
+  describe("buildPanelQcLabelHtml (QZ Tray's silent-print path)", () => {
+    it("includes every field QZ needs to render, with each element self-styled inline", () => {
+      const labeled: PanelQcIssue = {
+        ...issue(1, new Date("2026-09-08T12:00:00Z")),
+        tagNumber: "P-2026-0099",
+        subComponentSerialNumber: "SN-1",
+        subComponentPartNumber: "PN-1",
+        partDescription: "A short description",
+      };
+      const html = buildPanelQcLabelHtml(labeled);
+      expect(html).toContain("P-2026-0099");
+      expect(html).toContain("SN-1");
+      expect(html).toContain("PN-1");
+      expect(html).toContain("A short description");
+      // No dependency on the app's Tailwind stylesheet or on flexbox — QZ
+      // Tray's own HTML renderer has neither, so every element carries its
+      // OWN inline `style=`, and no `className`/`class=` shows up at all.
+      expect(html).not.toContain("class=");
+      expect(html).not.toMatch(/display:\s*flex/);
+      expect(html.match(/style="/g)?.length).toBeGreaterThan(1);
+    });
+
+    it("escapes HTML-significant characters in free-text fields", () => {
+      const withMarkup: PanelQcIssue = {
+        ...issue(2, null),
+        partDescription: "<script>alert(1)</script> & more",
+      };
+      const html = buildPanelQcLabelHtml(withMarkup);
+      expect(html).not.toContain("<script>");
+      expect(html).toContain("&lt;script&gt;");
+      expect(html).toContain("&amp; more");
+    });
+
+    it("falls back to an em dash for blank fields, same as the on-screen label", () => {
+      const html = buildPanelQcLabelHtml(issue(3, null));
+      expect(html).toContain(">—<");
+    });
   });
 });

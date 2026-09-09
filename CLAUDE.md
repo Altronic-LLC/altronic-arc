@@ -270,6 +270,7 @@ src/
 │   ├── autoWatch.ts              Shared @-mention → watcher resolution (per-site)
 │   ├── projectFiles.ts           Documents-library project folders + files
 │   ├── attachments.ts            List-item attachments (task | eir | csaListing) via SP REST
+│   ├── qzPrint.ts                QZ Tray browser-side client — silent print to a named printer, never throws
 │   ├── email.ts                  Mention + change-alert mail; reports sends that FAIL
 │   ├── errorReport.ts            "Report issue" mail to the app manager
 │   └── editFailureReport.ts      Emails the user their input when a write can't be saved
@@ -614,7 +615,8 @@ src/
 │   ├── AdminQuickLinksView.tsx   Admin → Quick Links (Dashboard button links, per-department reorder)
 │   ├── AdminNotificationRecipientsView.tsx  Admin → Notification recipients
 │   ├── AboutView.tsx             In-app architecture + ER diagrams
-│   └── ManualView.tsx            In-app user manual
+│   ├── ManualView.tsx            In-app user manual
+│   └── DevQzPrintTestView.tsx    Dev-only QZ Tray connection/print test harness — never renders in production
 │
 └── styles/
     └── globals.css               Tailwind + CSS variable theme tokens + @page (letter)
@@ -2042,6 +2044,28 @@ other "discovered, not hardcoded" field-name table in this app:
 | `repairResolution` | Production Resolution | Repair Resolution |
 | `status` | *(new)* | Status |
 
+**`panelSerialNumber`'s "Title" fallback candidate can silently resolve to
+SharePoint's read-only `LinkTitle` column instead of the real `Title`** —
+hit live 2026-09-09, every create 403ing with `"Field 'LinkTitle' is
+read-only"`. Graph's `/columns` endpoint routinely OMITS the base `Title`
+column from its results (inherited from the base content type, not a
+discoverable site column the way custom ones are), while it DOES list
+`LinkTitle` — the link-wrapper every list gets around Title for view
+rendering — carrying the exact same `displayName: "Title"`. `getFieldNames()`
+now filters out `readOnly` columns before building either lookup map, and
+treats a literal `"Title"` candidate as always matching regardless of
+discovery (it's a guaranteed-real, guaranteed-writable column on every
+SharePoint list, so trusting it outright is safe precisely because
+discovery can't be relied on to confirm it). `getDefectFieldName()` on the
+companion PANEL COMPONENT DEFECTS list had the identical vulnerability
+(matching `["defect","title"]` against name/displayName with no read-only
+exclusion) and got the same filter, though its fallback stays a hardcoded
+`"Defect"` rather than trusting `"Title"` — unlike the issues list, nothing
+here confirms that list's real field is actually named `Title` if discovery
+finds no match. Pinned in `panelQcIssues.linkTitle.test.ts`, both cases
+verified by reverting the filter and watching the write land under
+`LinkTitle` instead.
+
 **The rename is also a split into two departments' fields** — Panel
 Department (everything the panel team records when a defect is first
 found: both serial/part number pairs, date, defect category, part
@@ -2124,6 +2148,176 @@ Attachments all follow the exact same shape as `panelTasks.ts` — same
 ALTRONICPANELTEAM site, same `resolvePanelSiteUserLookupId` resolver for
 cold-start mentions. `TAGNumber` is `P-YYYY-####`, auto-assigned the same
 way `nextEirNo`/`nextWorkOrderNumber` work elsewhere.
+
+#### Printing the label — QZ Tray, silent to a named network printer
+
+`views/PrintPanelQcIssueView.tsx` (`/panels/qc-issues/:id/print`) is a
+chrome-less popup window, same "one component, print CSS + `window.print()`"
+shape as `PrintDrawingSheetView`/`PrintBuildRequestItemView` — except this
+one now tries a SILENT print first (Ray, 2026-09-08: "if I know the name of
+the network printer, look for that printer and if it's available just print
+without the preview, and if it's not available then open the preview with
+the printer select dialog").
+
+**A browser page cannot do this on its own.** There is no web API to
+enumerate real printers, check whether one is online, or print to it without
+the OS dialog — that's a deliberate browser security boundary, not a gap any
+amount of JS closes. [QZ Tray](https://qz.io) is a small helper app a user
+installs once on their own machine; it runs a local WebSocket server that a
+web page can talk to for genuine OS-level print access. `src/api/qzPrint.ts`
+is the browser side of that connection; `qz-tray` (npm, CJS, no official
+types — `src/types/qz-tray.d.ts` declares it as an untyped module
+deliberately, since this app only ever touches it through the one file
+responsible for using it correctly) is the client library.
+
+- **`printPanelQcLabelSilently(html)`** — resolves `true` once QZ Tray has
+  accepted the job, and `false`, NEVER throws, for every reason it couldn't:
+  no printer configured, QZ Tray not running, the named printer not
+  currently found, or the print call itself failing. `PrintPanelQcIssueView`
+  treats `false` as "fall back to the existing `window.print()` flow" —
+  exactly the dialog-with-printer-picker behaviour it already had, so a
+  machine with no QZ Tray installed sees no change at all. On a genuine
+  silent print, the popup window closes itself afterward rather than
+  leaving a spare tab to notice and close by hand.
+- **The printer name is `VITE_PANEL_QC_LABEL_PRINTER_NAME`**
+  (`PANEL_QC_LABEL_PRINTER_NAME` in `config.ts`), a build-time env var like
+  every other `VITE_*` in this app — a repo variable + redeploy, not a
+  runtime setting. **Unset = always the browser dialog**, the same
+  lockout-safety shape as `EIR_ROLES_ENFORCED`/`MAINTENANCE_ROLES_ENFORCED`:
+  nothing about this feature can make printing WORSE than it already was,
+  only better once configured. `qz.printers.find(name)` is what actually
+  checks "is it available" — it resolves the matching printer's real name
+  when one is currently online, and rejects otherwise, which is exactly the
+  check-then-fallback behaviour asked for.
+- **Bounded by a hard `SILENT_PRINT_TIMEOUT_MS` (4s), or the "always
+  degrades to `false`" promise above is a lie.** Reported by Ray,
+  2026-09-09, testing on a machine with QZ Tray NOT running: the label
+  opened in its popup tab and just sat there — no silent print, but no
+  print DIALOG either, which the un-timed-out code had never done before
+  this feature existed. Root cause: `ensureConnected()`'s
+  `qz.websocket.connect()` had NOTHING bounding how long it could take, and
+  ARC is served over HTTPS (GitHub Pages) while qz-tray's connect attempt
+  can include an insecure `ws://` candidate alongside the secure `wss://`
+  one — a browser blocking that as mixed content doesn't reliably surface
+  as a rejection, so the connect promise can simply never settle. With
+  nothing to catch, the `await` in `runSilentPrint` just hung forever, and
+  the `window.print()` fallback line in `PrintPanelQcIssueView`'s effect
+  was never reached at all. `withTimeout()` wraps both the print attempt
+  AND `checkQzPrinterAvailable` (so the dev harness's "Check printer"
+  button can't hang either) — pinned by two `qzPrint.test.ts` cases using
+  `vi.useFakeTimers()` / `vi.advanceTimersByTimeAsync`, each verified by
+  removing its `withTimeout` call and confirming the test actually HANGS
+  (not just fails) rather than passing some other way.
+- **Signed when `VITE_QZ_CERTIFICATE` / `VITE_QZ_PRIVATE_KEY` are both set,
+  unsigned otherwise** (Ray, 2026-09-08: "let's hold off on signed cert" —
+  deferred that day, decided 2026-09-09). Both blank is still a complete
+  no-op — `configureQzSecurity()` in `qzPrint.ts` returns immediately, and
+  requests go out exactly as before: QZ Tray shows its own native "Allow
+  this site to print?" prompt the first time on each machine, with a
+  "remember this" option.
+
+  **The decision made:** a SELF-SIGNED certificate with the private key
+  EMBEDDED in the public bundle, over standing up a signing endpoint (QZ's
+  own recommended approach, and the only way to keep the key server-side —
+  but ARC has no backend today, and this would have been its first). Signing
+  needs a private key regardless of cert type; the trade-off was never
+  "signed vs. not", it was always "where does that key live". Embedding it
+  means the key is genuinely extractable by ANYONE who fetches the bundle —
+  GitHub Pages serves the JS to anyone on the internet, and Entra sign-in
+  only gates USING the app after it loads, not fetching the file. What
+  bounds that exposure: a self-signed cert is only ever trusted by a machine
+  Cooper has specifically configured to trust THIS cert (a clicked "Always
+  allow", or an IT-deployed override file) — unlike a CA-issued cert (QZ's
+  paid tier), which QZ Tray trusts on ANY machine with no prior setup at
+  all, and would turn the same leaked key into a much wider problem. That
+  asymmetry is why self-signed + embedded was the pairing chosen, not
+  CA-issued + embedded.
+
+  **Generated once, by hand, following QZ Tray's own documented recipe**
+  (`docs.qz.io`, "Manual Certificate/Key Pair Setup"):
+  ```
+  openssl genrsa -out qz-private-key.pem 2048
+  openssl pkcs8 -topk8 -nocrypt -in qz-private-key.pem -out qz-private-key-pkcs8.pem
+  openssl req -x509 -new -key qz-private-key.pem -out qz-certificate.pem -days 3650 \
+    -subj "/CN=ARC Panel QC Label Printing/O=Cooper Machinery Services"
+  ```
+  The PKCS8 conversion is required — `crypto.subtle.importKey("pkcs8", …)`
+  rejects OpenSSL's default PKCS1 (`-----BEGIN RSA PRIVATE KEY-----`) output
+  outright, and only the PKCS8 form (`-----BEGIN PRIVATE KEY-----`) is
+  accepted. `VITE_QZ_CERTIFICATE` holds the (public) cert PEM as an ordinary
+  repo variable; `VITE_QZ_PRIVATE_KEY` holds the PKCS8 key PEM, sourced from
+  a repo SECRET in `deploy.yml` — not because that hides it from the final
+  bundle (it doesn't), but so it isn't sitting in plaintext on the repo's
+  Variables page or echoed into a workflow log. **Rotating either means
+  regenerating both and redeploying** — there is no partial rotation.
+
+  **Signing itself uses the browser's native Web Crypto API
+  (`crypto.subtle`), not a signing library** (jsrsasign/node-forge, the
+  usual QZ Tray sample-code choice) — a PKCS8 key is exactly what
+  `crypto.subtle.importKey` wants natively, so no ~100–300KB dependency
+  earns its place for something the platform already does. `qzPrint.ts`'s
+  `configureQzSecurity()` wires `qz.security.setCertificatePromise` (resolves
+  the cert verbatim), `qz.security.setSignatureAlgorithm("SHA512")`, and
+  `qz.security.setSignaturePromise` (imports the key once and reuses it,
+  RSASSA-PKCS1-v1_5 / SHA-512, base64-encoding the raw signature bytes QZ
+  Tray hands back). Called once, lazily, right before the first connect —
+  that's when QZ Tray actually asks for the certificate. Pinned in
+  `qzPrint.test.ts` by generating a REAL keypair with the SAME Web Crypto API
+  (this project's tsconfig has no Node types, so `node:crypto` isn't an
+  option in a test either) and verifying the produced signature against the
+  public half — proof the signature is genuinely valid, not just
+  base64-shaped — plus a case confirming `qz.security` is never touched at
+  all while either half is unset. Verified by mismatching the hash algorithm
+  and watching the verification fail.
+- **The printed HTML is NOT the on-screen JSX's markup.** QZ Tray's HTML
+  print path renders through its OWN considerably more limited HTML/CSS
+  engine — no access to this app's Tailwind stylesheet (a class name means
+  nothing without the rules behind it) and historically weak support for
+  anything past basic HTML/CSS2. `buildPanelQcLabelHtml(issue)` in
+  `PrintPanelQcIssueView.tsx` is a SEPARATE, fully self-contained,
+  inline-`style=`d HTML string built specifically for QZ — no `class`, no
+  flexbox (a `float` header row stands in for the one two-ends layout this
+  label needs) — exported and pinned by tests precisely because it's the one
+  piece of this feature that can't be exercised by installing QZ Tray in
+  CI. The on-screen/browser-print JSX is untouched and still what renders
+  when the fallback path runs.
+- **The QZ print config's page size matches the existing `@page
+  panel-qc-label` rule** in `globals.css` (`size: 2in 2in; margin: 0`) —
+  `{ size: { width: 2, height: 2 }, units: "in", margins: 0 }` — so the
+  silent path and the browser-dialog path produce the same physical label
+  either way.
+
+**Still needs, on the real machine(s) that will use this**: QZ Tray actually
+installed, `VITE_PANEL_QC_LABEL_PRINTER_NAME` set to that printer's exact
+Windows name via a repo variable + redeploy, and the printed label eyeballed
+against the on-screen version — QZ's HTML renderer's fidelity to what
+`buildPanelQcLabelHtml` produces is not something this repo's test suite (or
+any CI) can verify.
+
+**Local testing dev harness** (`/dev/qz-print-test`, `views/DevQzPrintTestView.tsx`)
+— added because Ray's own test printer only has a 1"×0.5" label, and the real
+Panel QC label is fixed at 2"×2", so there was no way to end-to-end-test QZ
+Tray's connection/printer-lookup/print mechanics against real hardware
+without either buying a 2"×2" test roll or letting a mismatched size onto
+the real printer. It exercises the SAME `api/qzPrint.ts` functions the real
+feature uses, but generically: type in whatever printer name and label size
+you actually have, hit **Check printer** (resolves to the real matched name,
+`null` for "QZ Tray is running but nothing matched", or an error for "QZ
+Tray isn't reachable at all" — three different things to fix, kept
+distinguishable by `checkQzPrinterAvailable`), then **Print test label** to
+send a small self-contained test label (timestamp + the size you entered) to
+it. `printPanelQcLabelSilently` itself is now a thin wrapper over the same
+generic `printHtmlSilently(printerQuery, html, size)` this page calls
+directly — one code path for both, so the dev harness actually proves
+something about the production path rather than being a parallel
+reimplementation that could quietly drift from it.
+
+**Never reaches production.** The route in `App.tsx` is guarded by
+`import.meta.env.DEV`, which Vite inlines to `false` in a production build —
+so the `<Route>` element is never even constructed there, and the URL falls
+through to the catch-all redirect. The lazy chunk still lands in `dist/`
+(harmless, a few KB, never fetched unless the route actually renders), the
+same as any other code-split chunk nobody happens to navigate to.
 
 ### Visit Reports (Customer Service / Sales, salesTeam site)
 
@@ -3862,6 +4056,30 @@ converted at once; there are none left in a modal.
 - Dropping a native `required` in favour of a picker is a FIX, not a regression:
   the browser's validation bubble was pre-empting the form's own message, so the
   better wording never appeared. Both the task form and the CSA form hit this.
+
+**The clear (✕) button can never sit INSIDE the trigger `<button>`.** It did,
+from launch until 2026-09-09 — `DropdownShell`'s single-trigger branch
+rendered `<button>{summary}<div><button onClick={clear}>✕</button>…</div></button>`
+whenever `onClear` was set (any clearable `SingleSelect`/`ChoiceSelect` with
+a value picked — Panel QC's Defect Category and Repair Defect Category are
+where Ray actually noticed it, via React's own `validateDOMNesting` console
+warning, but every clearable single-select in the app had the identical
+bug). A `<button>` can't contain another `<button>` — invalid HTML, and two
+overlapping click targets, whatever browsers happen to render for it. Fixed
+by giving `onClear` its OWN branch: a plain `<div>` carrying the `.select`
+chrome, with the open-toggle and the clear button as SIBLINGS inside it —
+the same shape the `chips` variant just above it already used for the
+identical reason. The no-clear case (most triggers app-wide: `clearable`
+options that are empty, or `clearable={false}`) is untouched, still one
+plain `<button>`. Because a `<div>` never receives `:focus` itself, `.select`
+in `globals.css` also gained a `:focus-within` twin of its `:focus` rule, so
+the focus ring still shows when the inner open-button is focused rather than
+the (now non-focusable) wrapping div. Pinned in `SearchableSelect.test.tsx`
+by asserting the DOM structurally (`trigger.querySelector("button")` must be
+`null`) rather than by spying on `console.error`, so the test keeps catching
+this even if React ever stops warning about the nesting — verified by
+reverting the fix and confirming the assertion fails against the exact
+nested markup shown above.
 
 ### @-mentions: two pickers, one ranking
 

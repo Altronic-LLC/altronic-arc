@@ -233,6 +233,11 @@ const PanelQcIssueEditorView = lazy(() =>
 const PrintPanelQcIssueView = lazy(() =>
   import("@/views/PrintPanelQcIssueView").then((m) => ({ default: m.PrintPanelQcIssueView })),
 );
+// Dev-only QZ Tray print test harness — never rendered in production, see
+// the `import.meta.env.DEV` guard on its <Route> below.
+const DevQzPrintTestView = lazy(() =>
+  import("@/views/DevQzPrintTestView").then((m) => ({ default: m.DevQzPrintTestView })),
+);
 const FeatureRequestsView = lazy(() =>
   import("@/views/FeatureRequestsView").then((m) => ({ default: m.FeatureRequestsView })),
 );
@@ -771,6 +776,19 @@ export function App() {
             />
             <Route path="/about" element={<AboutView />} />
             <Route path="/manual" element={<ManualView />} />
+            {/* Dev-only: import.meta.env.DEV is `false` in a production build, so
+                this route never renders (and the URL 404s to "/") once deployed —
+                see CLAUDE.md's Panel QC printing section for what this is for. */}
+            {import.meta.env.DEV && (
+              <Route
+                path="/dev/qz-print-test"
+                element={
+                  <Suspense fallback={<LoadingTasks noun="the QZ print test page" />}>
+                    <DevQzPrintTestView />
+                  </Suspense>
+                }
+              />
+            )}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </RouteErrorBoundary>

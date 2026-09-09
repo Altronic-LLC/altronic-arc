@@ -116,6 +116,18 @@ jobs:
           VITE_EIR_RESPONSE_ACCEPTED_ALERTS: ${{ vars.VITE_EIR_RESPONSE_ACCEPTED_ALERTS }}
           VITE_HIDDEN_PEOPLE: ${{ vars.VITE_HIDDEN_PEOPLE }}
           VITE_APP_MANAGER_EMAIL: ${{ vars.VITE_APP_MANAGER_EMAIL }}
+          # QZ Tray silent printing (Panel QC label). Unset = always the
+          # browser's print dialog — nothing here can make printing worse.
+          VITE_PANEL_QC_LABEL_PRINTER_NAME: ${{ vars.VITE_PANEL_QC_LABEL_PRINTER_NAME }}
+          # The cert is public by definition (it's what QZ Tray verifies a
+          # signed request against), so it's an ordinary repo VARIABLE. The
+          # private key ends up in the built bundle too — see qzPrint.ts's
+          # comment on why that's an accepted trade-off for this feature —
+          # but it's still sourced from a repo SECRET rather than a variable
+          # so it isn't sitting in plaintext on the repo's Variables page or
+          # echoed in a workflow log.
+          VITE_QZ_CERTIFICATE: ${{ vars.VITE_QZ_CERTIFICATE }}
+          VITE_QZ_PRIVATE_KEY: ${{ secrets.VITE_QZ_PRIVATE_KEY }}
 
       - name: Add 404 fallback for client-side routing
         # GitHub Pages serves /404.html for any unmatched path. Copying

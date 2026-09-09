@@ -21,7 +21,7 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
    {
     version: "0.150.0",
-    date: "2026-09-08",
+    date: "2026-09-09",
     changes: [
       "Added Panel QC Issue Tracker for recording panel and board defects through resolution, backed by the PANEL COMPONENT FAILURES and PANEL COMPONENT DEFECTS lists on the ALTRONICPANELTEAM SharePoint site",
       "Defect categories come from a shared list and can be added directly while recording an issue",
@@ -45,6 +45,12 @@ export const CHANGELOG: ChangelogEntry[] = [
       "The Status picker on a Panel QC issue is now wide enough to read its longer choices (\"Repair In-Process\", \"Panels Completed\") without truncating them",
       "Every searchable dropdown in ARC now shows a truncated option's full text on hover",
       "The app header and footer stay visible while you scroll, with reserved space so page content remains accessible",
+      "Printing a Panel QC label can now go straight to a configured network printer with no print dialog, when QZ Tray is installed and that printer is available — otherwise the usual print preview opens as before",
+      "Fixed a printer check that could hang indefinitely instead of falling back to the print dialog when no network printer was available",
+      "Fixed a clearable dropdown's ✕ button rendering nested inside its own trigger, which browsers accepted visually but wasn't valid — now two separate buttons side by side",
+      "Panel QC's silent network printing can now optionally be cryptographically signed, so a machine set up to trust it skips QZ Tray's one-time \"Allow this site to print?\" prompt entirely",
+      "Increased the font size on the Panel QC 2 × 2 label for easier reading",
+      "Fixed saving a new Panel QC issue failing outright with a permissions error",
     ],
   },
   {
