@@ -19,7 +19,7 @@ export const SP_PANEL_QC_DEFECTS_LIST_ID =
 
 /**
  * The exact Windows printer name (as installed/shared on the machine
- * running QZ Tray — see api/qzPrint.ts) that Panel QC's 2×2 label should
+ * running QZ Tray — see api/qzPrint.ts) that Panel QC's 3×2 label should
  * print directly to, bypassing the browser's print dialog. Left UNSET by
  * default: the feature ships dark until someone actually installs QZ Tray
  * and a real printer name is configured, the same lockout-safety shape as

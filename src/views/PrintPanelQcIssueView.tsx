@@ -40,7 +40,7 @@ export function buildPanelQcLabelHtml(issue: PanelQcIssue): string {
   const description = escapeHtml(truncateLabelDescription(issue.partDescription) || "—");
   const date = escapeHtml(formatSpDate(issue.date));
   return `
-<div style="box-sizing:border-box;width:2in;height:2in;padding:0.12in;font-family:Arial,Helvetica,sans-serif;font-size:9pt;line-height:1.3;color:#000;background:#fff;">
+<div style="box-sizing:border-box;width:3in;height:2in;padding:0.12in;font-family:Arial,Helvetica,sans-serif;font-size:9pt;line-height:1.3;color:#000;background:#fff;">
   <div style="border-bottom:1px solid #000;padding-bottom:4px;overflow:hidden;">
     <span style="font-weight:bold;float:left;">PANEL QC</span>
     <span style="font-weight:bold;font-family:'Courier New',monospace;font-size:10pt;float:right;">${tagNumber}</span>
@@ -90,7 +90,7 @@ export function PrintPanelQcIssueView() {
   if (isLoading) return <LoadingTasks noun="this Panel QC label" />;
   if (!issue) return <div className="p-8 text-sm">That Panel QC issue could not be found.</div>;
 
-  return <div className="panel-qc-label mx-auto flex h-[2in] w-[2in] flex-col justify-between overflow-hidden bg-white p-[0.12in] font-sans text-[9pt] leading-tight text-black print:m-0 print:p-[0.12in]" style={{ page: "panel-qc-label" }}>
+  return <div className="panel-qc-label mx-auto flex h-[2in] w-[3in] flex-col justify-between overflow-hidden bg-white p-[0.12in] font-sans text-[9pt] leading-tight text-black print:m-0 print:p-[0.12in]" style={{ page: "panel-qc-label" }}>
     <div className="flex items-start justify-between gap-1 border-b border-black pb-1"><span className="font-bold">PANEL QC</span><span className="font-mono text-[10pt] font-bold">{issue.tagNumber || "—"}</span></div>
     <div className="space-y-1 pt-1"><div><span className="font-bold">Serial Note: </span>{issue.subComponentSerialNumber || "—"}</div><div><span className="font-bold">Part Number: </span>{issue.subComponentPartNumber || "—"}</div><div><span className="font-bold">Description: </span>{truncateLabelDescription(issue.partDescription) || "—"}</div><div><span className="font-bold">Date: </span>{formatSpDate(issue.date)}</div></div>
     <div className="border-t border-black pt-1 text-[8pt]">Panel Component Failure</div>

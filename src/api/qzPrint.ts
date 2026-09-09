@@ -204,7 +204,7 @@ async function runSilentPrint(printerQuery: string, html: string, size: QzLabelS
  * back to `window.print()`.
  *
  * Generic over printer name and label size so the same path serves both the
- * real Panel QC label (`printPanelQcLabelSilently`, fixed at 2"×2") and the
+ * real Panel QC label (`printPanelQcLabelSilently`, fixed at 3"×2") and the
  * local dev test page (`DevQzPrintTestView`, whatever size the tester's own
  * printer actually takes) — the two must not drift into two copies of the
  * same QZ plumbing.
@@ -230,13 +230,18 @@ export async function printHtmlSilently(
 
 /**
  * Try to print the given self-contained label HTML directly to
- * `PANEL_QC_LABEL_PRINTER_NAME`, silently, at the label's real 2"×2" size.
+ * `PANEL_QC_LABEL_PRINTER_NAME`, silently, at the label's real 3"×2" size.
  * See `printHtmlSilently` for the full contract — this is a thin wrapper
  * that only supplies the Panel QC printer name and size.
+ *
+ * Was 2"×2" until 2026-09-09 — changed to 3"×2" after Ray confirmed that
+ * size actually prints correctly on the real label printer (2"×2" was the
+ * originally-assumed size; 3"×2" is what the hardware is actually loaded
+ * with).
  */
 export async function printPanelQcLabelSilently(html: string): Promise<boolean> {
   if (!PANEL_QC_LABEL_PRINTER_NAME) return false;
-  return printHtmlSilently(PANEL_QC_LABEL_PRINTER_NAME, html, { widthIn: 2, heightIn: 2 });
+  return printHtmlSilently(PANEL_QC_LABEL_PRINTER_NAME, html, { widthIn: 3, heightIn: 2 });
 }
 
 /**

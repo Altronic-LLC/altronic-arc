@@ -40,15 +40,17 @@ body {
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }
 
+/* Panel QC label size — 3in x 2in (was 2in x 2in until 2026-09-09, corrected
+   to match the real label printer). */
 @page panel-qc-label {
-  size: 2in 2in;
+  size: 3in 2in;
   margin: 0;
 }
 
 @media print {
   html,
   body {
-    width: 2in;
+    width: 3in;
     height: 2in;
     margin: 0;
     padding: 0;

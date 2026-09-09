@@ -34,7 +34,7 @@ const TONE_CLASS: Record<Status["tone"], string> = {
  * Dev-only page (never rendered in production — see the `import.meta.env.DEV`
  * guard around its route in App.tsx) for testing the QZ Tray silent-print
  * path against WHATEVER printer and label size a tester actually has on
- * their desk, independent of the real Panel QC label's fixed 2"×2" size.
+ * their desk, independent of the real Panel QC label's fixed 3"×2" size.
  * Reached at /dev/qz-print-test while running `npm run dev`.
  */
 export function DevQzPrintTestView() {
@@ -94,7 +94,7 @@ export function DevQzPrintTestView() {
         <p className="mt-1 text-sm text-fg-muted">
           Dev-only — this page doesn't exist in the deployed app. Use it to confirm QZ Tray finds your printer
           and can print to it silently, at whatever small label size you actually have loaded, without needing
-          a real Panel QC issue or the real 2"×2" label size.
+          a real Panel QC issue or the real 3"×2" label size.
         </p>
       </div>
 

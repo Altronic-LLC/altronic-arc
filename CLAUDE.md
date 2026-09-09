@@ -2282,10 +2282,15 @@ responsible for using it correctly) is the client library.
   CI. The on-screen/browser-print JSX is untouched and still what renders
   when the fallback path runs.
 - **The QZ print config's page size matches the existing `@page
-  panel-qc-label` rule** in `globals.css` (`size: 2in 2in; margin: 0`) —
-  `{ size: { width: 2, height: 2 }, units: "in", margins: 0 }` — so the
+  panel-qc-label` rule** in `globals.css` (`size: 3in 2in; margin: 0`) —
+  `{ size: { width: 3, height: 2 }, units: "in", margins: 0 }` — so the
   silent path and the browser-dialog path produce the same physical label
-  either way.
+  either way. **Was 2"×2" until 2026-09-09** — that was the originally
+  assumed size; Ray confirmed 3"×2" is what actually prints correctly on
+  the real label printer, and it's the size in every place that has to
+  agree (this CSS rule, `buildPanelQcLabelHtml`'s inline styles, the
+  on-screen JSX, `printPanelQcLabelSilently`'s size, the print button's
+  title/aria-label, and the dev test harness's own description text).
 
 **Still needs, on the real machine(s) that will use this**: QZ Tray actually
 installed, `VITE_PANEL_QC_LABEL_PRINTER_NAME` set to that printer's exact
@@ -2296,9 +2301,9 @@ any CI) can verify.
 
 **Local testing dev harness** (`/dev/qz-print-test`, `views/DevQzPrintTestView.tsx`)
 — added because Ray's own test printer only has a 1"×0.5" label, and the real
-Panel QC label is fixed at 2"×2", so there was no way to end-to-end-test QZ
+Panel QC label is fixed at 3"×2", so there was no way to end-to-end-test QZ
 Tray's connection/printer-lookup/print mechanics against real hardware
-without either buying a 2"×2" test roll or letting a mismatched size onto
+without either buying a matching test roll or letting a mismatched size onto
 the real printer. It exercises the SAME `api/qzPrint.ts` functions the real
 feature uses, but generically: type in whatever printer name and label size
 you actually have, hit **Check printer** (resolves to the real matched name,

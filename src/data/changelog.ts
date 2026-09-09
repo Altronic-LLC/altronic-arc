@@ -19,6 +19,13 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: "0.151.1",
+    date: "2026-09-09",
+    changes: [
+      "Corrected the Panel QC label's printed size from 2 × 2 inches to 3 × 2 inches to match the real label printer",
+    ],
+  },
    {
     version: "0.151.0",
     date: "2026-09-09",
