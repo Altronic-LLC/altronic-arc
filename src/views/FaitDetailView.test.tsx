@@ -3,6 +3,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
 import { FaitDetailView } from "./FaitDetailView";
+import { MOCK_PROJECTS } from "@/data/mockData";
 
 vi.mock("@/hooks/useCurrentUser", () => ({
   useCurrentUser: () => ({
@@ -50,6 +51,16 @@ async function renderFait(id = 2) {
   const result = renderWithProviders(<FaitDetailView />, {
     route: `/supply-chain/fait/${id}`,
     routePattern: "/supply-chain/fait/:id",
+    // Seeded, not awaited: the sidebar's Project picker builds its options
+    // from useProjects(), which is a SEPARATE query from the FAIT itself
+    // (250ms vs 200ms in the mock). Waiting only for the <h1> — which the
+    // FAIT query satisfies — left a 50ms window where clicking the picker
+    // opened a panel with ZERO options, and findAllByRole("option") then
+    // failed however long it polled, because the panel renders the options
+    // it had when it opened. Narrow enough to win on a dev machine, wide
+    // enough to lose on a loaded CI runner (2026-09-09). Seeding removes
+    // the race outright rather than waiting it out.
+    seedQueryData: [{ key: ["projects"], data: MOCK_PROJECTS }],
   });
   await waitFor(() =>
     expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument(),
