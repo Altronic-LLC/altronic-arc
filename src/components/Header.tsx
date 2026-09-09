@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { useIsFetching, useQueryClient } from "@tanstack/react-query";
 import {
   BadgeCheck,
   Building2,
@@ -29,6 +30,7 @@ import {
   MessageSquare,
   Moon,
   PackageSearch,
+  RefreshCw,
   Shield,
   Sun,
   TestTubes,
@@ -372,6 +374,7 @@ export function Header() {
           </Link>
 
           <div className="flex items-center gap-2 sm:hidden">
+            <RefreshButton />
             <SuggestFeatureButton />
             <NotifyAppManagerButton />
             <button
@@ -484,6 +487,7 @@ export function Header() {
           <span className="hidden text-[11px] text-fg-muted md:inline">
             {USE_MOCK ? "Demo mode · mock data" : "Connected to SharePoint"}
           </span>
+          <RefreshButton />
           <SuggestFeatureButton />
           <NotifyAppManagerButton />
           <button
@@ -517,6 +521,54 @@ function SuggestFeatureButton() {
       <Lightbulb className="h-4 w-4" />
       <span className="hidden md:inline">Suggest a feature</span>
     </Link>
+  );
+}
+
+/**
+ * Refresh — refetch every query, WITHOUT reloading the page.
+ *
+ * ARC's data is cached by React Query with a staleTime, so a list can sit a
+ * minute or two behind SharePoint after somebody else edits a row, and the
+ * only way to force the issue was a browser reload (Ray, 2026-09-09).
+ *
+ * `invalidateQueries()` with no key invalidates EVERYTHING, so this is
+ * deliberately NOT `window.location.reload()` — a reload throws away the
+ * bundle, the MSAL token cache and, more to the point, whatever the user is
+ * in the middle of: an open modal, a half-typed comment, a set of filters.
+ * Refetching keeps all of it and still gets fresh rows. (The reloads that DO
+ * exist in ARC — the update banner, the error boundary, a session change —
+ * each need a new bundle or a new session, which is a different job.)
+ *
+ * Only ACTIVE queries refetch; an inactive cached one is marked stale and
+ * refetches when something mounts it again, which is React Query's default
+ * and the cheaper behaviour on a 200-person tenant.
+ *
+ * It is deliberately NEVER `disabled`, only spinning. `useIsFetching()`
+ * counts EVERY query in flight anywhere in the app — including the ones the
+ * page loads on mount, and any background refetch — so disabling on it made
+ * the button unclickable exactly when somebody would reach for it, on a slow
+ * connection or a busy page. Invalidating twice is harmless (React Query
+ * dedupes in-flight fetches per key); a dead button is not. Caught by test,
+ * 2026-09-09.
+ */
+function RefreshButton() {
+  const qc = useQueryClient();
+  // Any query in flight anywhere spins the icon — the honest signal, since
+  // this button's whole job is "everything is reloading". A local isPending
+  // would stop spinning while refetches were still landing.
+  const fetching = useIsFetching() > 0;
+
+  return (
+    <button
+      type="button"
+      onClick={() => void qc.invalidateQueries()}
+      title={fetching ? "Refreshing…" : "Refresh data from SharePoint"}
+      aria-label="Refresh data"
+      className="flex h-9 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-medium text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
+    >
+      <RefreshCw className={cn("h-4 w-4", fetching && "animate-spin")} />
+      <span className="hidden md:inline">Refresh</span>
+    </button>
   );
 }
 

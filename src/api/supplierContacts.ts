@@ -44,7 +44,15 @@ function itemPath(id: number): string {
 }
 
 const SELECT =
-  "Title,BPReference,FirstName,LastName,Email,Phone,Status,ContactNotes,Communication,Watchers,Attachments,Created,Modified";
+  // BOTH halves of BPReference. It is a SINGLE lookup, and Graph returns only
+// the bare `BPReferenceLookupId` for one of those — asking for the friendly
+// name alone (which is what this did until 2026-09-09) means the id never
+// comes back, every contact maps to `supplierId: null`, and the supplier
+// detail page's `contacts.filter(c => c.supplierId === supplier.id)` matches
+// NOTHING. That is the "contacts aren't showing up" report: the rows and
+// their lookups were fine all along (live samples carry 353, 496, 476...),
+// the read just never asked for the column it maps.
+"Title,BPReference,BPReferenceLookupId,FirstName,LastName,Email,Phone,Status,ContactNotes,Communication,Watchers,Attachments,Created,Modified";
 
 export async function listSupplierContacts(): Promise<SupplierContact[]> {
   if (USE_MOCK) {

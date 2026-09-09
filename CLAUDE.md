@@ -1690,11 +1690,37 @@ Six things about this list's columns:
 - **`CoreCompetency` is a MULTI choice** (~59 real options, checkboxes
   display); `Status` is a single choice (Active / Phase Out / Archive /
   Indirect) — same single-vs-multi trap as the CRM Tool's Group/CustomerType.
-- **`PrimarySupplyFocus` is UNCONFIGURED** — Graph reports its choice list as
-  a single placeholder value, `["Choice"]`, with free-text entry allowed and
-  every sampled row blank. It is deliberately NOT read or written here,
-  the same call as CSA Listings' deleted expiry feature: don't build a field
-  around data nobody has decided the shape of yet.
+- **`PrimarySupplyFocus` is STILL UNCONFIGURED, but it IS now mapped** (Ray,
+  2026-09-09). Graph reports its choice list as the single placeholder value
+  `["Choice"]`, with free-text entry allowed, and all 531 rows are blank —
+  re-confirmed live on 2026-09-09, so this is not stale information. It was
+  deliberately unmapped until Ray asked for it; it is now read and written as
+  a plain **`string`**, NOT clamped to `SUPPLIER_PRIMARY_SUPPLY_FOCUSES`, so
+  whatever real values Supply Chain configures later appear with no code
+  change. The edit control is `suggest`, not `choice`, for the same reason: a
+  picker would offer one meaningless option. **Swap it to `choice` +
+  `SUPPLIER_PRIMARY_SUPPLY_FOCUSES` the day the column is configured**, and
+  update that const and the SharePoint column together.
+- **`PanelsOnly` ("Panels Only") is a real BOOLEAN**, added to the list by Ray
+  before 2026-09-09 (it is absent from the 2026-08-26 snapshot). Blank
+  genuinely means No — there is no third "unanswered" state — so it renders
+  through `YesNoField` with the `noValue: "empty"` convention, and a create
+  ALWAYS sends it, false included, or SharePoint's own views read the column
+  as blank rather than No. Settable on the New Supplier form (it is known
+  when a supplier is set up) and editable from the Details card after.
+- **The four performance NUMBER columns are editable** (Ray, 2026-09-09) —
+  `SupplierPerformanceRate`, `QualityPerformance`, `QualityPeformance` and
+  `AllDeliveries`, through an "Edit scores" button on the sidebar's
+  Performance field. Two things about that panel: it renders **even when every
+  score is null**, because gating it on `supplierPerformanceRate !== null`
+  (as it did) left a supplier with no scores yet no way to enter the first
+  one; and a null reads **"Not recorded"** rather than being hidden or shown
+  as `0` — a score nobody has measured is not a score of zero, which is also
+  why `inputToNumber` maps a cleared box to `null` and deliberately does NOT
+  use `Number(v) || null` (that turns a genuine 0 into null).
+  `FieldEditModal` gained a **`number`** field kind for these; it still
+  carries values as strings like every other kind there, so the CALLER
+  converts on save.
 - **`Logo` is a modern SharePoint "Image" column** — it stores no binary of
   its own. The value is a JSON blob
   (`{"fileName":"Reserved_ImageAttachment_...","originalImageName":"..."}`)
@@ -1800,6 +1826,40 @@ Six things about this list's columns:
   column and these consts together** the day Supply Chain sets real values —
   until then the picker in `SupplierIssueCard` / `SupplierIssueFormModal`
   can only offer what SharePoint offers.
+
+**`BPReference` needs BOTH halves in the `$select` — this is why contacts
+"weren't showing up"** (Ray, 2026-09-09). Supplier Contacts and Supplier
+Issues each hang off Suppliers List through `BPReference`, a **single**
+lookup, and Graph returns a single-value lookup as a bare
+`BPReferenceLookupId` rather than the expanded friendly-name object. Both
+reads asked for `BPReference` ALONE, so the id never arrived, every row
+mapped to `supplierId: null`, and `SupplierDetailView`'s
+`contacts.filter(c => c.supplierId === supplier.id)` matched **nothing** — on
+566 real contacts. The rows and their lookups were fine the whole time (live
+samples carry 353, 496, 476); the read simply never requested the column the
+mapper reads.
+
+This is the SAME trap already documented under "A single-person column needs
+BOTH halves selected" — it is not person-specific, it applies to every
+single-value lookup — and `Suppliers List` itself had the latent version of
+it on `AssignedBuyer` and `PointofContact`, both fixed in the same pass.
+Graph also hands the id back as a **string** (`"353"`), which is why the
+mappers go through `toInt`.
+
+**None of it is visible from mock mode**, which is why `supplierContacts.test.ts`
+passed throughout. `api/srm.bpReference.test.ts` forces `USE_MOCK: false` and
+asserts the request shape; each case was verified by reintroducing the bug and
+watching it fail. A new lookup column on any list gets a real-mode `$select`
+test or it isn't covered.
+
+**The supplier on a new contact is PICKABLE** (Ray, 2026-09-09) —
+`SupplierContactFormModal` still receives the supplier it was opened from and
+prefills it (the detail page is the only entry point today, so the common case
+costs no extra clicks), but it is a `SingleSelect` over every supplier rather
+than a fixed prop. Re-pointing a contact previously meant editing the row in
+SharePoint. It is **required**: a contact with no `BPReference` belongs to no
+supplier and appears on no screen, since every one of them scopes by that
+lookup — so the form refuses the save and says so.
 
 **Supplier Contact List didn't have Communication or Watchers** — added for
 ARC on 2026-08-26 via `scripts/add-supplier-contact-columns.ps1` (mirrors
@@ -4822,6 +4882,33 @@ Three things about this fix:
   `AuthGate`'s coverage of the same one-line guard stands in for both.
   Verified by reintroducing the bug (`accounts.length > 0`) and confirming
   the "does NOT auto-pick... when MORE THAN ONE is cached" test fails.
+
+### The header's Refresh button refetches; it does NOT reload
+
+`RefreshButton` in `components/Header.tsx` calls `queryClient.invalidateQueries()`
+with **no key**, so every cached query in the app is invalidated at once
+(Ray, 2026-09-09). Three rules, each with a test that was verified by
+reintroducing the bug:
+
+- **No key.** A key-scoped call would freshen the page you happen to be on and
+  leave the rest of ARC quietly stale — worse than no button, because it looks
+  like it worked.
+- **Never `window.location.reload()`.** A reload throws away the bundle, the
+  MSAL token cache and whatever the user is mid-way through: an open modal, a
+  half-typed comment, a set of filters. Refetching keeps all of it. The reloads
+  that DO exist in ARC — `UpdateAvailableBanner`, `RouteErrorBoundary`,
+  `UserMenu`'s account switch, `AuthProvider` — each need a new bundle or a new
+  session, which is a different job.
+- **Never `disabled`, only spinning.** `useIsFetching()` counts EVERY query in
+  flight anywhere, including a page's own mount-time loads and any background
+  refetch, so `disabled={fetching}` made the button unclickable exactly when
+  somebody would reach for it — on a slow connection or a busy page. Found by
+  test before it shipped. Invalidating twice is harmless (React Query dedupes
+  in-flight fetches per key); a dead button is not.
+
+It renders in **both** header clusters — the `sm:hidden` mobile one and the
+desktop one — like `SuggestFeatureButton` and `NotifyAppManagerButton`. A
+button added to only one is invisible on the other form factor.
 
 ### The app has ONE loading screen — `LoadingTasks`
 

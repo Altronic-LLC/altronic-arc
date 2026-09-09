@@ -44,7 +44,10 @@ function itemPath(id: number): string {
 }
 
 const SELECT =
-  "Title,BPReference,Description,Status,Resolution,Severity,Communication,Watchers,Attachments,Created,Modified";
+  // Both halves of BPReference — see the note in api/supplierContacts.ts. Same
+// single-lookup trap, same consequence: issues scoped to a supplier by
+// `supplierId` would never match.
+"Title,BPReference,BPReferenceLookupId,Description,Status,Resolution,Severity,Communication,Watchers,Attachments,Created,Modified";
 
 export async function listSupplierIssues(): Promise<SupplierIssue[]> {
   if (USE_MOCK) {

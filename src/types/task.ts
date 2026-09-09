@@ -2100,6 +2100,21 @@ export interface CapacityInput {
 export const SUPPLIER_STATUSES = ["Active", "Phase Out", "Archive", "Indirect"] as const;
 export type SupplierStatus = (typeof SUPPLIER_STATUSES)[number];
 
+/**
+ * `PrimarySupplyFocus` — whatever the column currently offers.
+ *
+ * SharePoint still has this column UNCONFIGURED: Graph reports its choice
+ * list as the single literal placeholder "Choice", and all 531 rows are
+ * blank (confirmed live 2026-09-09). This mirrors that, exactly like
+ * SUPPLIER_ISSUE_STATUSES mirrors its own placeholder trio. **Update this
+ * const and the SharePoint column together** the day Supply Chain sets real
+ * values; until then the picker can only offer what the column offers.
+ *
+ * `Supplier.primarySupplyFocus` is deliberately a plain `string`, not this
+ * union, so a real value configured in SharePoint renders immediately.
+ */
+export const SUPPLIER_PRIMARY_SUPPLY_FOCUSES = ["Choice"] as const;
+
 /** `CoreCompetency` — a MULTI choice (Graph returns an array). ~59 real options. */
 export const SUPPLIER_CORE_COMPETENCIES = [
   "Assembly",
@@ -2196,6 +2211,21 @@ export interface Supplier {
   supplierScore: string;
   coreCompetencies: SupplierCoreCompetency[];
   status: SupplierStatus | null;
+  /**
+   * `PrimarySupplyFocus` — a choice column that is NOT CONFIGURED in
+   * SharePoint: its only choice is the literal placeholder "Choice", and
+   * every sampled row is blank (confirmed live 2026-09-09). Read and written
+   * as a free string rather than clamped to `SUPPLIER_PRIMARY_SUPPLY_FOCUSES`,
+   * so whatever real values Supply Chain configures later show up without a
+   * code change — the same shape-tolerant treatment the Equipment list's
+   * fill-in choice columns get.
+   */
+  primarySupplyFocus: string;
+  /**
+   * `PanelsOnly` — a real SharePoint BOOLEAN, so there is no third
+   * "unanswered" state: blank genuinely means No.
+   */
+  panelsOnly: boolean;
   notes: string;
   assignedBuyer: Person | null;
   supplierIdentifier: string;
@@ -2220,6 +2250,8 @@ export interface SupplierInput {
   address: string;
   website: string;
   status: SupplierStatus | null;
+  primarySupplyFocus: string;
+  panelsOnly: boolean;
   assignedBuyer: Person | null;
   watchers: Person[];
 }

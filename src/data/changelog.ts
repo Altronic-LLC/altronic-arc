@@ -20,6 +20,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.152.0",
+    date: "2026-09-09",
+    changes: [
+      "New Refresh button in the header — pulls fresh data from SharePoint without reloading the page, so open forms, filters and half-typed comments survive",
+      "Supplier contacts show up again — every contact was being read without its supplier link, so supplier pages listed none of them",
+      "Supplier issues are linked to their supplier the same way, so they list correctly too",
+      "Pick the supplier when adding a contact, instead of being stuck with the page you opened it from",
+      "A contact can't be saved with no supplier — it would never appear anywhere",
+      "Primary Supply Focus now shows and edits on a supplier",
+      "New Yes/No 'Panels Only' field on a supplier, settable when adding one and editable after",
+      "Edit a supplier's four performance scores from the sidebar; a supplier with none can now have its first recorded",
+      "A score that has never been recorded reads 'Not recorded' rather than being hidden",
+    ],
+  },
+  {
     version: "0.151.2",
     date: "2026-09-09",
     changes: [

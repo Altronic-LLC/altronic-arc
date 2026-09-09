@@ -20,7 +20,11 @@ import { collectSupplierIssuePeople, useSupplierIssuesFor } from "@/hooks/useSup
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import type { Comment } from "@/types/task";
-import { SUPPLIER_CORE_COMPETENCIES, SUPPLIER_STATUSES } from "@/types/task";
+import {
+  SUPPLIER_CORE_COMPETENCIES,
+  SUPPLIER_PRIMARY_SUPPLY_FOCUSES,
+  SUPPLIER_STATUSES,
+} from "@/types/task";
 import { mergePeople, personKey } from "@/lib/people";
 import { supplierContactLabel } from "@/lib/supplierContactMapper";
 import { FieldEditModal, type EditableFieldSpec } from "@/components/FieldEditModal";
@@ -67,7 +71,9 @@ export function SupplierDetailView() {
   const { data: contacts = [] } = useSupplierContactsFor(supplierId);
   const { data: issues = [] } = useSupplierIssuesFor(supplierId);
 
-  const [editingCard, setEditingCard] = useState<"Details" | "Notes" | null>(null);
+  const [editingCard, setEditingCard] = useState<
+    "Details" | "Notes" | "Performance" | null
+  >(null);
   const [showAddContact, setShowAddContact] = useState(false);
   const [showAddIssue, setShowAddIssue] = useState(false);
 
@@ -310,17 +316,27 @@ export function SupplierDetailView() {
             />
           </SidebarField>
 
-          {supplier.supplierPerformanceRate !== null && (
-            <SidebarField label="Performance">
-              <div className="grid grid-cols-1 gap-1 text-sm text-fg">
-                <span>Supplier: {supplier.supplierPerformanceRate}%</span>
-                {supplier.qualityPerformance !== null && <span>Quality: {supplier.qualityPerformance}%</span>}
-                {supplier.logisticalPerformance !== null && (
-                  <span>Logistical: {supplier.logisticalPerformance}%</span>
-                )}
-              </div>
-            </SidebarField>
-          )}
+          {/* Always rendered, even with every score null — it used to be
+              hidden behind `supplierPerformanceRate !== null`, which meant a
+              supplier with no scores yet had nowhere to enter the first one
+              (Ray, 2026-09-09). "Not recorded" is a real answer worth
+              showing, and it's where the Edit button lives. */}
+          <SidebarField label="Performance">
+            <div className="grid grid-cols-1 gap-1 text-sm text-fg">
+              <ScoreLine label="Supplier" value={supplier.supplierPerformanceRate} suffix="%" />
+              <ScoreLine label="Quality" value={supplier.qualityPerformance} suffix="%" />
+              <ScoreLine label="Logistical" value={supplier.logisticalPerformance} suffix="%" />
+              <ScoreLine label="All deliveries" value={supplier.allDeliveries} />
+            </div>
+            <button
+              type="button"
+              onClick={() => setEditingCard("Performance")}
+              className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1 text-xs font-medium text-fg transition-colors hover:bg-surface-2"
+            >
+              <Pencil className="h-3 w-3" />
+              Edit scores
+            </button>
+          </SidebarField>
 
           <div className="border-t border-border pt-3 text-[11px] text-fg-muted">
             Added {supplier.createdAt.toLocaleDateString()} · last edited{" "}
@@ -340,9 +356,51 @@ export function SupplierDetailView() {
             website: supplier.website,
             supplierScore: supplier.supplierScore,
             supplierIdentifier: supplier.supplierIdentifier,
+            primarySupplyFocus: supplier.primarySupplyFocus,
+            // A real boolean column: "Yes" / "" is the YesNoField convention
+            // for one, since blank IS false rather than "unanswered".
+            panelsOnly: supplier.panelsOnly ? "Yes" : "",
           }}
           onClose={() => setEditingCard(null)}
-          onSave={(changed) => updateDetails.mutate({ current: supplier, changed })}
+          onSave={(changed) => {
+            const { panelsOnly, ...rest } = changed;
+            updateDetails.mutate({
+              current: supplier,
+              changed: {
+                ...rest,
+                // Only when the pill actually moved — the modal hands back
+                // just the changed keys, and folding a boolean in
+                // unconditionally would write it on every unrelated save.
+                ...(panelsOnly !== undefined
+                  ? { panelsOnly: panelsOnly.trim().toLowerCase() === "yes" }
+                  : {}),
+              },
+            });
+          }}
+        />
+      )}
+
+      {editingCard === "Performance" && (
+        <FieldEditModal
+          title="Edit Performance"
+          fields={performanceFields()}
+          values={{
+            supplierPerformanceRate: numberToInput(supplier.supplierPerformanceRate),
+            qualityPerformance: numberToInput(supplier.qualityPerformance),
+            logisticalPerformance: numberToInput(supplier.logisticalPerformance),
+            allDeliveries: numberToInput(supplier.allDeliveries),
+          }}
+          onClose={() => setEditingCard(null)}
+          onSave={(changed) =>
+            updateDetails.mutate({
+              current: supplier,
+              // Every one of these is a NUMBER column, so each changed key is
+              // converted back — and a cleared box becomes `null`, never 0.
+              changed: Object.fromEntries(
+                Object.entries(changed).map(([k, v]) => [k, inputToNumber(v)]),
+              ),
+            })
+          }
         />
       )}
 
@@ -374,7 +432,79 @@ function detailsFields(): EditableFieldSpec[] {
     { key: "website", label: "Website", kind: "text" },
     { key: "supplierScore", label: "Supplier Score", kind: "text" },
     { key: "supplierIdentifier", label: "Supplier Identifier", kind: "text" },
+    {
+      key: "primarySupplyFocus",
+      label: "Primary Supply Focus",
+      // `suggest`, NOT `choice`: the SharePoint column is still unconfigured
+      // (its only choice is the literal placeholder "Choice"), so a picker
+      // would offer one meaningless option and nothing else. This accepts a
+      // typed value and offers whatever the column currently holds, the same
+      // treatment the CAD drawing log's text-columns-that-behave-like-choices
+      // get. Swap it to `choice` + SUPPLIER_PRIMARY_SUPPLY_FOCUSES the day
+      // Supply Chain configures real values.
+      kind: "suggest",
+      suggestions: [...SUPPLIER_PRIMARY_SUPPLY_FOCUSES],
+    },
+    { key: "panelsOnly", label: "Panels Only", kind: "boolean" },
   ];
+}
+
+/** The four NUMBER columns on the Suppliers list. */
+function performanceFields(): EditableFieldSpec[] {
+  return [
+    { key: "supplierPerformanceRate", label: "Supplier Performance Rate (%)", kind: "number" },
+    { key: "qualityPerformance", label: "Quality Performance (%)", kind: "number" },
+    // Reads "Logistical Performance"; the COLUMN behind it is the misspelled
+    // `QualityPeformance`. The mapper owns that translation — see
+    // supplierDetailsPatch.
+    { key: "logisticalPerformance", label: "Logistical Performance (%)", kind: "number" },
+    { key: "allDeliveries", label: "All Deliveries", kind: "number" },
+  ];
+}
+
+/**
+ * One performance figure. A `null` reads "Not recorded" rather than being
+ * hidden or shown as 0 — the same "a value that IS set must never look
+ * empty, and an unset one must never look like a zero" rule the CMMS asset
+ * register applies to machine hours.
+ */
+function ScoreLine({
+  label,
+  value,
+  suffix = "",
+}: {
+  label: string;
+  value: number | null;
+  suffix?: string;
+}) {
+  return (
+    <span>
+      {label}:{" "}
+      {value === null ? (
+        <span className="text-fg-muted">Not recorded</span>
+      ) : (
+        `${value}${suffix}`
+      )}
+    </span>
+  );
+}
+
+/** `null` (never recorded) shows as an empty box, not "0". */
+function numberToInput(value: number | null): string {
+  return value === null ? "" : String(value);
+}
+
+/**
+ * Back to a number — or `null` for a cleared box.
+ *
+ * Deliberately NOT `Number(v) || null`: that maps a genuine 0 to null. A
+ * recorded zero and a never-recorded blank are different facts.
+ */
+function inputToNumber(value: string): number | null {
+  const trimmed = value.trim();
+  if (trimmed === "") return null;
+  const n = Number(trimmed);
+  return Number.isFinite(n) ? n : null;
 }
 
 function EditButton({ label, onClick }: { label: string; onClick: () => void }) {

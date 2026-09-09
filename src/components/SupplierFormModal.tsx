@@ -6,13 +6,18 @@ import { useCreateSupplier, useSuppliers, collectSupplierPeople } from "@/hooks/
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { mergePeople, personKey } from "@/lib/people";
 import { ChoiceSelect, SingleSelect } from "./SearchableSelect";
+import { YesNoField } from "./YesNoField";
 import { useOverlayDismiss } from "./useOverlayDismiss";
 
 // =============================================================================
 // New supplier — created bare (company/BP number/address/website/status +
-// Assigned Buyer); Notes, Core Competency, Score and comments are added from
-// the detail page's own cards, the same "create, then fill in" pattern as
-// EIRs, ECNs and Customer Notes.
+// Panels Only + Assigned Buyer); Notes, Core Competency, Score, Primary
+// Supply Focus and comments are added from the detail page's own cards, the
+// same "create, then fill in" pattern as EIRs, ECNs and Customer Notes.
+//
+// `PanelsOnly` is here rather than detail-only (Ray, 2026-09-09) because
+// whether a supplier is panels-only is known when it's set up, and it drives
+// who sees it downstream.
 // =============================================================================
 
 export function SupplierFormModal({ onClose }: { onClose: () => void }) {
@@ -27,6 +32,9 @@ export function SupplierFormModal({ onClose }: { onClose: () => void }) {
   const [address, setAddress] = useState("");
   const [website, setWebsite] = useState("");
   const [status, setStatus] = useState("");
+  // A real boolean column, so "" IS false — the `noValue: "empty"` convention
+  // YesNoField documents. There is no third "unanswered" state to preserve.
+  const [panelsOnly, setPanelsOnly] = useState("");
   const [assignedBuyerKey, setAssignedBuyerKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const nameRef = useRef<HTMLInputElement>(null);
@@ -62,6 +70,8 @@ export function SupplierFormModal({ onClose }: { onClose: () => void }) {
         address,
         website,
         status: (status || null) as (typeof SUPPLIER_STATUSES)[number] | null,
+        primarySupplyFocus: "",
+        panelsOnly: panelsOnly.trim().toLowerCase() === "yes",
         assignedBuyer,
         watchers: [],
       });
@@ -130,6 +140,17 @@ export function SupplierFormModal({ onClose }: { onClose: () => void }) {
               />
             </FieldLabel>
           </div>
+
+          {/* Pills, not a checkbox — the house rule for a choice set of three
+              or fewer, so "No" is visibly selectable rather than inferred
+              from an unticked box. */}
+          <YesNoField
+            label="Panels Only"
+            value={panelsOnly}
+            onChange={setPanelsOnly}
+            disabled={create.isPending}
+            name="supplier-panels-only"
+          />
 
           <FieldLabel label="Address">
             <input

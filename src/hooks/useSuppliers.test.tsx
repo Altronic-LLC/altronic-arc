@@ -84,7 +84,9 @@ describe("useCreateSupplier", () => {
         address: "",
         website: "",
         status: null,
-        assignedBuyer: null,
+        primarySupplyFocus: "",
+      panelsOnly: false,
+      assignedBuyer: null,
         watchers: [],
       });
     });

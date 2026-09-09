@@ -49,7 +49,7 @@ const SECTIONS: ManualSection[] = [
       "where do i start",
     ],
     searchText:
-      "Sign in with your altronic-llc.com account. The Dashboard opens after sign-in. Use the top nav to switch between Dashboard, the Departments dropdown, and Admin. The Departments dropdown mirrors the dashboard: Engineering (Engineering Tasks, EIRs, Test Sheets, Project Folders, Build Requests, Drawing File Logs, CSA Listings, Where Am I?, ECNs), Panels, Operations, Coils (Potting Sample Log), Quality Control (Digital QC and Ignition QC Defect Logs), Supply Chain (Gray Market Requests, FAITs, Suppliers/SRM Tool), and Customer Service / Sales (Open Orders Report, Visit Reports, Customers/CRM Tool).",
+      "Sign in with your altronic-llc.com account. The Dashboard opens after sign-in. A Refresh button in the header pulls the latest data from SharePoint at any time without reloading the page, so anything you have open — a form, a set of filters, a half-typed comment — is kept; its icon spins while data is coming in. Use the top nav to switch between Dashboard, the Departments dropdown, and Admin. The Departments dropdown mirrors the dashboard: Engineering (Engineering Tasks, EIRs, Test Sheets, Project Folders, Build Requests, Drawing File Logs, CSA Listings, Where Am I?, ECNs), Panels, Operations, Coils (Potting Sample Log), Quality Control (Digital QC and Ignition QC Defect Logs), Supply Chain (Gray Market Requests, FAITs, Suppliers/SRM Tool), and Customer Service / Sales (Open Orders Report, Visit Reports, Customers/CRM Tool).",
     render: () => (
       <>
         <P>
@@ -3177,7 +3177,7 @@ const SECTIONS: ManualSection[] = [
       "sap onboarding",
     ],
     searchText:
-      "The SRM Tool at /supply-chain/suppliers, under Departments > Supply Chain, backed by three lists on the Altronic_PMO SharePoint site: Suppliers List, Supplier Contact List and Supplier Issue Tracker. Suppliers List is the anchor — open a supplier to see their contacts and open issues; the other two lists have no screens of their own. A Supplier Onboarding link next to New Supplier opens Medius, Cooper's supplier-onboarding tool for SAP, in a new tab — a plain link today, with no automatic sync back into this list yet. A supplier carries a Company Name, Business Partner Number, Address, Website, Status (Active, Phase Out, Archive, Indirect), Core Competency (a multi-choice of ~59 material/part categories), an Assigned Buyer, a Point of Contact, Watchers, Notes, Supplier Score, three performance percentages, and a Logo image when one is on file — Change and Remove links on the detail page let anyone add, swap or remove a supplier's logo (an image under 5MB) without going to SharePoint. The supplier list searches by company name and BP number and filters by Status and Core Competency; each row shows the supplier's logo when it has one. Contacts and Issues each expand into a card on the supplier's page with their own fields, comments, watchers and attachments — the same expandable-card pattern Build Request parts use. Supplier Contacts have no delete on Suppliers or Issues — a supplier is the anchor other records point at, and an issue is closed by resolving it, not removing it; contacts can be removed. Any signed-in user can add, edit, comment on and watch a supplier, a contact or an issue.",
+      "The SRM Tool at /supply-chain/suppliers, under Departments > Supply Chain, backed by three lists on the Altronic_PMO SharePoint site: Suppliers List, Supplier Contact List and Supplier Issue Tracker. Suppliers List is the anchor — open a supplier to see their contacts and open issues; the other two lists have no screens of their own. A Supplier Onboarding link next to New Supplier opens Medius, Cooper's supplier-onboarding tool for SAP, in a new tab — a plain link today, with no automatic sync back into this list yet. A supplier carries a Company Name, Business Partner Number, Address, Website, Status (Active, Phase Out, Archive, Indirect), Core Competency (a multi-choice of ~59 material/part categories), an Assigned Buyer, a Point of Contact, Watchers, Notes, Supplier Score, a Primary Supply Focus, a Panels Only Yes/No flag, four performance figures (Supplier Performance Rate, Quality Performance, Logistical Performance and All Deliveries) you can edit from the Edit scores button on the sidebar, and a Logo image when one is on file — Change and Remove links on the detail page let anyone add, swap or remove a supplier's logo (an image under 5MB) without going to SharePoint. The supplier list searches by company name and BP number and filters by Status and Core Competency; each row shows the supplier's logo when it has one. Contacts and Issues each expand into a card on the supplier's page with their own fields, comments, watchers and attachments — the same expandable-card pattern Build Request parts use. Supplier Contacts have no delete on Suppliers or Issues — a supplier is the anchor other records point at, and an issue is closed by resolving it, not removing it; contacts can be removed. Adding a contact asks which supplier it belongs to — prefilled to the supplier whose page you opened it from, changeable before you save, and required, since a contact with no supplier appears on no screen. Any signed-in user can add, edit, comment on and watch a supplier, a contact or an issue.",
     render: () => (
       <>
         <P>
@@ -3217,8 +3217,19 @@ const SECTIONS: ManualSection[] = [
             and <strong>Watchers</strong> — also save immediately.
           </LI>
           <LI>
-            Three <strong>performance</strong> figures, when the supplier has
-            them: overall, quality and logistical.
+            <strong>Primary Supply Focus</strong> and a{" "}
+            <strong>Panels Only</strong> Yes/No flag — both on the Details
+            card's Edit button. Panels Only can also be set when you first
+            add the supplier.
+          </LI>
+          <LI>
+            Four <strong>performance</strong> figures — Supplier Performance
+            Rate, Quality Performance, Logistical Performance and All
+            Deliveries — with an <strong>Edit scores</strong> button beneath
+            them. A figure nobody has recorded yet reads{" "}
+            <strong>Not recorded</strong> rather than 0, and the panel shows
+            even when all four are empty, so a supplier's first scores can be
+            entered.
           </LI>
         </UL>
         <H3>Contacts and Issues</H3>
@@ -3229,7 +3240,11 @@ const SECTIONS: ManualSection[] = [
         <UL>
           <LI>
             <strong>Contacts</strong> — a person at the supplier: name,
-            email, phone, status and notes.
+            email, phone, status and notes. Adding one asks which{" "}
+            <strong>supplier</strong> it belongs to; it comes prefilled to
+            the supplier you're looking at, and you can change it before
+            saving. It's required — a contact with no supplier shows up
+            nowhere.
           </LI>
           <LI>
             <strong>Issues</strong> — a quality or delivery problem, with a
@@ -5247,7 +5262,7 @@ const SECTIONS: ManualSection[] = [
       "stale session",
     ],
     searchText:
-      "Loading hangs? Often sign-in / permission. F12 console: 401 means token expired (re-sign-in), 403 means missing SharePoint access. Change reverted? Someone may have edited at the same time. New task missing? Default Assigned filter is you — pick Anyone. Mention email not sent? Manual @Name typing doesn't make a chip — pick from dropdown. Report issue button in the header captures console errors and emails them to the app manager. Left the tab open a long time? Your Microsoft sign-in expires while idle and ARC shows the sign-in screen — click 'Sign in again', enter your password once, and the app comes back with fresh data. No sign-out, no refresh, no clicking Retry.",
+      "Loading hangs? Often sign-in / permission. F12 console: 401 means token expired (re-sign-in), 403 means missing SharePoint access. Change reverted? Someone may have edited at the same time. Data looks out of date, or someone else just changed a row you can't see yet? Press Refresh in the header — it re-reads everything from SharePoint without reloading the page, so nothing you have open is lost. New task missing? Default Assigned filter is you — pick Anyone. Mention email not sent? Manual @Name typing doesn't make a chip — pick from dropdown. Report issue button in the header captures console errors and emails them to the app manager. Left the tab open a long time? Your Microsoft sign-in expires while idle and ARC shows the sign-in screen — click 'Sign in again', enter your password once, and the app comes back with fresh data. No sign-out, no refresh, no clicking Retry.",
     render: () => (
       <>
         <H3>"Loading tasks…" hangs forever</H3>

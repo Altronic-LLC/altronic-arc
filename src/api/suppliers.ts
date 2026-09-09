@@ -44,7 +44,19 @@ function itemPath(id: number): string {
 }
 
 const SELECT =
-  "Title,CompanyName,BusinessPartnerNumber,Address,Website,SupplierScore,CoreCompetency,Status,Notes,AssignedBuyer,SupplierIdentifier,Watchers,PointofContact,AllDeliveries,SupplierPerformanceRate,QualityPeformance,QualityPerformance,Logo,Communication,Attachments,Created,Modified";
+  // Both halves of every SINGLE-value person/lookup column (AssignedBuyer,
+  // PointofContact): Graph hands those back as a bare `<Name>LookupId` and
+  // asking for the friendly name alone means the id never arrives — the same
+  // trap that hid every supplier contact until 2026-09-09.
+  //
+  // `QualityPeformance` is "Logistical Performance" (the missing R is real)
+  // and `QualityPerformance` is "Quality Performance". Both are needed.
+  "Title,CompanyName,BusinessPartnerNumber,Address,Website,SupplierScore," +
+  "CoreCompetency,Status,PrimarySupplyFocus,PanelsOnly,Notes," +
+  "AssignedBuyer,AssignedBuyerLookupId,SupplierIdentifier,Watchers," +
+  "PointofContact,PointofContactLookupId," +
+  "AllDeliveries,SupplierPerformanceRate,QualityPeformance,QualityPerformance," +
+  "Logo,Communication,Attachments,Created,Modified";
 
 export async function listSuppliers(): Promise<Supplier[]> {
   if (USE_MOCK) {
@@ -91,6 +103,8 @@ export async function createSupplier(input: SupplierInput): Promise<Supplier> {
       supplierScore: "",
       coreCompetencies: [],
       status: input.status,
+      primarySupplyFocus: input.primarySupplyFocus.trim(),
+      panelsOnly: input.panelsOnly,
       notes: "",
       assignedBuyer,
       supplierIdentifier: "",
@@ -242,6 +256,13 @@ async function updateSupplierFields(
   return updated;
 }
 
+/** A number column's mock write: a real number, or null for a cleared box. */
+function toMockNumber(raw: unknown): number | null {
+  if (raw === null || raw === undefined || raw === "") return null;
+  const n = typeof raw === "number" ? raw : Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
 function applyMockFields(next: Supplier, fields: Record<string, unknown>) {
   if ("Title" in fields) next.title = String(fields.Title ?? "");
   if ("CompanyName" in fields) next.companyName = String(fields.CompanyName ?? "");
@@ -255,6 +276,19 @@ function applyMockFields(next: Supplier, fields: Record<string, unknown>) {
   if ("SupplierIdentifier" in fields) next.supplierIdentifier = String(fields.SupplierIdentifier ?? "");
   if ("CoreCompetency" in fields)
     next.coreCompetencies = (fields.CoreCompetency as Supplier["coreCompetencies"]) ?? [];
+  if ("PrimarySupplyFocus" in fields)
+    next.primarySupplyFocus = String(fields.PrimarySupplyFocus ?? "");
+  if ("PanelsOnly" in fields) next.panelsOnly = fields.PanelsOnly === true;
+  // The four NUMBER columns. `null` is preserved as null — a cleared score
+  // is "never recorded", not zero — so these deliberately don't `?? 0`.
+  if ("SupplierPerformanceRate" in fields)
+    next.supplierPerformanceRate = toMockNumber(fields.SupplierPerformanceRate);
+  if ("QualityPerformance" in fields)
+    next.qualityPerformance = toMockNumber(fields.QualityPerformance);
+  // "Logistical Performance" — the misspelled column is the right one.
+  if ("QualityPeformance" in fields)
+    next.logisticalPerformance = toMockNumber(fields.QualityPeformance);
+  if ("AllDeliveries" in fields) next.allDeliveries = toMockNumber(fields.AllDeliveries);
   if ("AssignedBuyerLookupId" in fields) {
     const lookupId = fields.AssignedBuyerLookupId;
     next.assignedBuyer = typeof lookupId === "number" ? { displayName: "", lookupId } : null;

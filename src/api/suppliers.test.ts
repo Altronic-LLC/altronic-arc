@@ -28,6 +28,8 @@ describe("Suppliers API", () => {
       address: "",
       website: "",
       status: "Active",
+      primarySupplyFocus: "",
+      panelsOnly: false,
       assignedBuyer: null,
       watchers: [{ displayName: "Ray White", email: "ray.white@altronic-llc.com" }],
     });
@@ -45,6 +47,8 @@ describe("Suppliers API", () => {
       address: "",
       website: "",
       status: null,
+      primarySupplyFocus: "",
+      panelsOnly: false,
       assignedBuyer: null,
       watchers: [],
     });
@@ -60,6 +64,8 @@ describe("Suppliers API", () => {
       address: "",
       website: "",
       status: null,
+      primarySupplyFocus: "",
+      panelsOnly: false,
       assignedBuyer: null,
       watchers: [],
     });
@@ -80,6 +86,8 @@ describe("Suppliers API", () => {
       address: "",
       website: "",
       status: null,
+      primarySupplyFocus: "",
+      panelsOnly: false,
       assignedBuyer: null,
       watchers: [],
     });
@@ -96,6 +104,8 @@ describe("Suppliers API", () => {
       address: "",
       website: "",
       status: null,
+      primarySupplyFocus: "",
+      panelsOnly: false,
       assignedBuyer: null,
       watchers: [],
     });
@@ -121,6 +131,8 @@ describe("Suppliers API", () => {
       address: "",
       website: "",
       status: null,
+      primarySupplyFocus: "",
+      panelsOnly: false,
       assignedBuyer: null,
       watchers: [],
     });
@@ -142,6 +154,8 @@ describe("Suppliers API", () => {
       address: "",
       website: "",
       status: null,
+      primarySupplyFocus: "",
+      panelsOnly: false,
       assignedBuyer: null,
       watchers: [],
     });
@@ -164,6 +178,8 @@ describe("Suppliers API", () => {
       address: "",
       website: "",
       status: null,
+      primarySupplyFocus: "",
+      panelsOnly: false,
       assignedBuyer: null,
       watchers: [],
     });
