@@ -5,7 +5,7 @@ import type {
   OpenOrderLine,
   OpenOrderMetrics,
 } from "@/types/task";
-import { RAW_LAYOUT, type RawLayoutColumn } from "./openOrdersFields";
+import { RAW_LAYOUT, layoutForAccount, type RawLayoutColumn } from "./openOrdersFields";
 import { text as cellText } from "./openOrdersParse";
 import {
   ALTRONIC_WORDMARK_ASPECT,
@@ -196,12 +196,12 @@ export async function buildMasterWorkbook(
 export async function buildCustomerWorkbook(
   excel: typeof ExcelJS,
   report: OpenOrderCustomerReport,
-  _account: OpenOrderCustomerAccount,
+  account: OpenOrderCustomerAccount,
   ctx: WorkbookContext,
   layout: RawLayoutColumn[] = RAW_LAYOUT,
 ): Promise<ExcelJS.Workbook> {
   const wb = newWorkbook(excel, ctx);
-  addCustomerSheet(wb, "Open Orders", report, ctx, layout);
+  addCustomerSheet(wb, "Open Orders", report, ctx, layout, account);
   return wb;
 }
 
@@ -219,10 +219,14 @@ function addCustomerSheet(
   report: OpenOrderCustomerReport,
   ctx: WorkbookContext,
   layout: RawLayoutColumn[],
+  account: OpenOrderCustomerAccount,
 ): void {
+  // Per ACCOUNT, not per workbook — a combined file's two tabs can legitimately
+  // differ, since the flag belongs to the account rather than the recipient.
+  const sheetLayout = layoutForAccount(layout, account.includeCustomerMaterialNumber);
   const ws = wb.addWorksheet(sheetName, { properties: { tabColor: { argb: BLACK } } });
 
-  titleBlock(ws, "OPEN ORDERS", report.customerName, ctx, layout.length, report.soldTo);
+  titleBlock(ws, "OPEN ORDERS", report.customerName, ctx, sheetLayout.length, report.soldTo);
 
   let row = ws.rowCount + 2;
   note(ws, row++, summaryLine(report.metrics));
@@ -230,7 +234,7 @@ function addCustomerSheet(
 
   row = heading(ws, row, `OPEN ORDERS (${report.standardLines.length})`);
   const firstHeader = row;
-  row = dataTable(ws, row, report.standardLines, ctx, layout);
+  row = dataTable(ws, row, report.standardLines, ctx, sheetLayout);
 
   // Two blank rows, so the second table reads as its own rather than a
   // continuation of the first.
@@ -239,7 +243,7 @@ function addCustomerSheet(
   if (report.repairLines.length > 0 && report.metrics.repairValue === 0) {
     note(ws, row++, "Repair orders are not priced in this report, so they show no value.");
   }
-  row = dataTable(ws, row, report.repairLines, ctx, layout);
+  row = dataTable(ws, row, report.repairLines, ctx, sheetLayout);
 
   footer(ws, row + 1, ctx);
   ws.views = [{ state: "frozen", ySplit: firstHeader }];
@@ -266,11 +270,43 @@ export async function buildCombinedCustomerWorkbook(
   reports: [OpenOrderCustomerReport, OpenOrderCustomerReport],
   ctx: WorkbookContext,
   layout: RawLayoutColumn[] = RAW_LAYOUT,
+  accounts?: [OpenOrderCustomerAccount, OpenOrderCustomerAccount],
 ): Promise<ExcelJS.Workbook> {
   const wb = newWorkbook(excel, ctx);
   const names = uniqueSheetNames(reports.map((r) => r.soldTo || r.customerName));
-  reports.forEach((report, i) => addCustomerSheet(wb, names[i], report, ctx, layout));
+  reports.forEach((report, i) =>
+    // Each tab follows ITS OWN account's flag, so a combined file can carry
+    // the Customer Material Number column on one tab and not the other. With
+    // no accounts passed the column is omitted — the same conservative
+    // default as a missing SharePoint column, since a caller that hasn't said
+    // must not opt a customer in by accident.
+    addCustomerSheet(
+      wb,
+      names[i],
+      report,
+      ctx,
+      layout,
+      accounts?.[i] ?? withoutCustomerMaterial(report),
+    ),
+  );
   return wb;
+}
+
+/**
+ * A stand-in account for a caller that passed none — the flag OFF.
+ *
+ * Only `includeCustomerMaterialNumber` is read by `addCustomerSheet`; the
+ * rest is filler to satisfy the type.
+ */
+function withoutCustomerMaterial(report: OpenOrderCustomerReport): OpenOrderCustomerAccount {
+  return {
+    id: 0,
+    accountNumber: report.soldTo,
+    customerName: report.customerName,
+    active: true,
+    includeCustomerMaterialNumber: false,
+    notes: "",
+  };
 }
 
 /**

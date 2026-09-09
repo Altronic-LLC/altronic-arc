@@ -55,6 +55,9 @@ const EMPTY: OpenOrderCustomerAccountInput = {
   accountNumber: "",
   customerName: "",
   active: true,
+  // Opt-in: a new customer gets the standard columns until somebody says
+  // otherwise. See the field's note in types/task.ts.
+  includeCustomerMaterialNumber: false,
   notes: "",
 };
 
@@ -111,6 +114,7 @@ export function OpenOrdersCustomersView() {
       accountNumber: account.accountNumber,
       customerName: account.customerName,
       active: account.active,
+      includeCustomerMaterialNumber: account.includeCustomerMaterialNumber,
       notes: account.notes,
     });
   }
@@ -294,6 +298,14 @@ export function OpenOrdersCustomersView() {
                     <span className="font-mono text-xs text-fg-muted">
                       {account.accountNumber}
                     </span>
+                    {account.includeCustomerMaterialNumber && (
+                      <span
+                        className="rounded border border-border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-fg-muted"
+                        title="Their workbook carries the Customer Material Number column"
+                      >
+                        Cust. material no.
+                      </span>
+                    )}
                   </div>
                   {account.notes && (
                     <span className="block truncate text-xs text-fg-muted">
@@ -585,6 +597,21 @@ function EditRow({
             onChange={(v) => setDraft({ ...draft, active: v === "Yes" })}
           />
         </Field>
+        <Field
+          label="Include customer material number"
+          hint="Adds their own part number as a column on their workbook. The master always has it."
+          plain
+        >
+          <ChoicePills
+            label="Include customer material number"
+            name="open-orders-customer-material"
+            options={["Yes", "No"]}
+            value={draft.includeCustomerMaterialNumber ? "Yes" : "No"}
+            onChange={(v) =>
+              setDraft({ ...draft, includeCustomerMaterialNumber: v === "Yes" })
+            }
+          />
+        </Field>
       </div>
       <Field label="Notes">
         <input
@@ -783,6 +810,7 @@ function ImportPanel({
                   accountNumber: entry.soldTo,
                   customerName: entry.customerName,
                   active: true,
+                  includeCustomerMaterialNumber: false,
                   notes: "Imported from a raw extract — check the name",
                 });
               }

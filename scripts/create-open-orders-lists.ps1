@@ -11,6 +11,11 @@
         Title            the SOLD-TO ACCOUNT NUMBER (not a name)
         CustomerName     the customer-facing name, used for the FILENAME
         Active           yes/no — off the weekly run without deleting the row
+        IncludeCustomerMaterialNumber
+                         yes/no — does THIS customer's workbook carry the
+                         Customer Material Number column (their own part
+                         number)? Unset reads as NO in ARC, so adding this
+                         column to an existing list opts nobody in.
         Notes            free text
 
     With no roles list, Open Orders role gating stays OFF: **any signed-in user
@@ -99,6 +104,7 @@ $Lists = @(
         Columns     = @(
             (New-TextColumn "CustomerName" "Customer Name"),
             (New-BoolColumn "Active" "Active"),
+            (New-BoolColumn "IncludeCustomerMaterialNumber" "Include Customer Material Number"),
             (New-TextColumn "Notes" "Notes" $true)
         )
     }
@@ -187,20 +193,29 @@ foreach ($spec in $Lists) {
         Write-Host "  CREATED — id $listId" -ForegroundColor Green
     }
 
-    # Add any column the list is missing (covers a list created by hand).
-    if (-not $WhatIf) {
-        $have = @((Invoke-MgGraphRequest -Method GET `
-            -Uri "https://graph.microsoft.com/v1.0/sites/$SiteId/lists/$listId/columns").value | ForEach-Object { $_.name })
-        foreach ($col in $spec.Columns) {
-            if ($have -contains $col.name) {
-                Write-Host "    $($col.name) — already there"
-                continue
-            }
-            Invoke-MgGraphRequest -Method POST `
-                -Uri "https://graph.microsoft.com/v1.0/sites/$SiteId/lists/$listId/columns" `
-                -Body ($col | ConvertTo-Json -Depth 10) -ContentType "application/json" | Out-Null
-            Write-Host "    $($col.name) — added" -ForegroundColor Green
+    # Add any column the list is missing — a list created by hand, or an
+    # EXISTING list that a later ARC feature added a column to (that is the
+    # usual case now: the list has been live since Aug 2026).
+    #
+    # Reading the columns is a GET, so -WhatIf does it too and reports what it
+    # would add. It used to skip this block wholesale, which made a dry run on
+    # an existing list print "exists" and nothing else — no preview of the one
+    # change you were running it for.
+    $have = @((Invoke-MgGraphRequest -Method GET `
+        -Uri "https://graph.microsoft.com/v1.0/sites/$SiteId/lists/$listId/columns").value | ForEach-Object { $_.name })
+    foreach ($col in $spec.Columns) {
+        if ($have -contains $col.name) {
+            Write-Host "    $($col.name) — already there"
+            continue
         }
+        if ($WhatIf) {
+            Write-Host "    $($col.name) — WOULD ADD" -ForegroundColor Yellow
+            continue
+        }
+        Invoke-MgGraphRequest -Method POST `
+            -Uri "https://graph.microsoft.com/v1.0/sites/$SiteId/lists/$listId/columns" `
+            -Body ($col | ConvertTo-Json -Depth 10) -ContentType "application/json" | Out-Null
+        Write-Host "    $($col.name) — added" -ForegroundColor Green
     }
 
     $envLines += "$($spec.EnvVar)=$listId"

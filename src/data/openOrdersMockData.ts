@@ -65,6 +65,8 @@ interface LineSeed {
   /** A revised expected ship date typed into the Comments column. */
   commentDays?: number;
   altronicPartNumber?: string;
+  /** The customer's own part number — blank on most lines, as in real data. */
+  customerMaterialNumber?: string;
 }
 
 function line(seed: LineSeed): OpenOrderLine {
@@ -100,6 +102,7 @@ function line(seed: LineSeed): OpenOrderLine {
     commentDate: seed.commentDays === undefined ? null : day(seed.commentDays),
     mrpController: "DC",
     createdBy: "U4AL_RB",
+    customerMaterialNumber: seed.customerMaterialNumber ?? "",
   };
 }
 
@@ -117,6 +120,7 @@ export const MOCK_OPEN_ORDER_LINES: OpenOrderLine[] = [
     promise: -34,
     ordered: -120,
     customerPo: "PO-88231",
+    customerMaterialNumber: "PMP-IGN-0095",
     commentDays: 21,
   }),
   line({
@@ -398,6 +402,7 @@ export const MOCK_OPEN_ORDER_ACCOUNTS: OpenOrderCustomerAccount[] = [
     accountNumber: "1042",
     customerName: "Permian Midstream Partners",
     active: true,
+    includeCustomerMaterialNumber: true,
     notes: "Weekly, Monday morning. Copy their expediter.",
   },
   {
@@ -405,6 +410,7 @@ export const MOCK_OPEN_ORDER_ACCOUNTS: OpenOrderCustomerAccount[] = [
     accountNumber: "2277",
     customerName: "Bayou Gas & Compression, Inc. / Lafayette",
     active: true,
+    includeCustomerMaterialNumber: false,
     notes: "",
   },
   {
@@ -412,6 +418,7 @@ export const MOCK_OPEN_ORDER_ACCOUNTS: OpenOrderCustomerAccount[] = [
     accountNumber: "3391",
     customerName: "Cimarron Compression",
     active: true,
+    includeCustomerMaterialNumber: true,
     notes: "Escalate anything past due over 90 days.",
   },
   {
@@ -419,6 +426,7 @@ export const MOCK_OPEN_ORDER_ACCOUNTS: OpenOrderCustomerAccount[] = [
     accountNumber: "4408",
     customerName: "Great Lakes Field Services",
     active: true,
+    includeCustomerMaterialNumber: false,
     notes: "",
   },
   {
@@ -426,6 +434,7 @@ export const MOCK_OPEN_ORDER_ACCOUNTS: OpenOrderCustomerAccount[] = [
     accountNumber: "6612",
     customerName: "Northern Basin Energy",
     active: true,
+    includeCustomerMaterialNumber: false,
     notes: "No open lines this week — reported as such.",
   },
   {
@@ -433,6 +442,7 @@ export const MOCK_OPEN_ORDER_ACCOUNTS: OpenOrderCustomerAccount[] = [
     accountNumber: "7788",
     customerName: "Retired Account, Do Not Send",
     active: false,
+    includeCustomerMaterialNumber: false,
     notes: "Inactive — kept for history, skipped by the weekly run.",
   },
 ];

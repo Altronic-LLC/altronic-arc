@@ -1,7 +1,10 @@
 import type { OpenOrderLine } from "@/types/task";
 import {
+  CUSTOMER_MATERIAL_HEADER,
+  CUSTOMER_MATERIAL_HEADERS,
   IGNORED_COLUMNS,
   REQUIRED_FIELDS,
+  customerMaterialHeaderKind,
   fieldForHeader,
   headerNameFor,
   normaliseHeader,
@@ -22,6 +25,7 @@ import {
 export interface ParseWarning {
   kind:
     | "unmapped-column"
+    | "no-customer-material"
     | "skipped-row"
     | "mixed-currency"
     | "unpriced-lines"
@@ -82,6 +86,38 @@ export function findHeaderRow(grid: unknown[][]): number {
   );
 }
 
+/**
+ * The left-most of the two Customer Material Number columns.
+ *
+ * The consolidated column takes this position, so the sheet keeps the raw
+ * file's own column order however the two spellings were arranged — the
+ * standing rule that a report mirrors its upload.
+ */
+function firstIndexOf(found: { preferred?: number; fallback?: number }): number | undefined {
+  const indexes = [found.preferred, found.fallback].filter(
+    (i): i is number => i !== undefined,
+  );
+  return indexes.length === 0 ? undefined : Math.min(...indexes);
+}
+
+/**
+ * One line's customer material number, from whichever of the two columns has
+ * a value.
+ *
+ * The capitalised column wins where it is non-blank; otherwise the lower-case
+ * one is used. Blank in both is blank here — no placeholder, no dash, no
+ * borrowing from `material`, since the customer's own part number is either
+ * something they gave us or it isn't.
+ */
+function consolidateCustomerMaterial(
+  row: unknown[],
+  found: { preferred?: number; fallback?: number },
+): string {
+  const preferred = found.preferred === undefined ? "" : text(row[found.preferred]);
+  if (preferred) return preferred;
+  return found.fallback === undefined ? "" : text(row[found.fallback]);
+}
+
 /** Parse a sheet's worth of cells into lines. */
 export function parseOpenOrdersGrid(grid: unknown[][]): ParseResult {
   const headerRow = findHeaderRow(grid);
@@ -93,10 +129,35 @@ export function parseOpenOrdersGrid(grid: unknown[][]): ParseResult {
   // layout is built from (layoutFromColumns), so it has to survive even for
   // columns ARC has no field for.
   const columns: RawColumnOrder[] = [];
+  // The two same-named Customer Material Number columns, by index. Resolved
+  // BEFORE the alias loop because they are indistinguishable to
+  // `normaliseHeader` — see CUSTOMER_MATERIAL_HEADERS in openOrdersFields.ts.
+  const customerMaterial: { preferred?: number; fallback?: number } = {};
+  headers.forEach((header, index) => {
+    const kind = customerMaterialHeaderKind(header);
+    // First occurrence of each spelling wins, matching the rule below for a
+    // repeated known header.
+    if (kind && customerMaterial[kind] === undefined) customerMaterial[kind] = index;
+  });
+  const customerMaterialIndex = customerMaterial.preferred ?? customerMaterial.fallback;
+
   headers.forEach((header, index) => {
     const field = fieldForHeader(header);
     const headerText = String(header ?? "").trim();
     if (!headerText) return; // a blank header cell isn't a real column
+    // Both spellings collapse into ONE column, placed where the first of the
+    // two sat in the raw file so the sheet still mirrors the upload's order.
+    // The second is dropped entirely rather than appearing twice.
+    if (customerMaterialHeaderKind(header)) {
+      if (index !== firstIndexOf(customerMaterial)) return;
+      columnFor.set("customerMaterialNumber", index);
+      columns.push({
+        header: CUSTOMER_MATERIAL_HEADER,
+        field: "customerMaterialNumber",
+        index,
+      });
+      return;
+    }
     if (field) {
       // First column wins if a header repeats — a duplicated column is
       // usually a copy someone left behind, and the left-most is the
@@ -193,6 +254,7 @@ export function parseOpenOrdersGrid(grid: unknown[][]): ParseResult {
       commentDate: dateCellOnly(cell(row, "comments")),
       mrpController: text(cell(row, "mrpController")),
       createdBy: text(cell(row, "createdBy")),
+      customerMaterialNumber: consolidateCustomerMaterial(row, customerMaterial),
       raw:
         unknownColumns.length > 0
           ? Object.fromEntries(unknownColumns.map((c) => [c.index, row[c.index]]))
@@ -211,7 +273,13 @@ export function parseOpenOrdersGrid(grid: unknown[][]): ParseResult {
     headerRow: headerRow + 1,
     unmappedHeaders,
     columns,
-    warnings: warningsFor(lines, unmappedHeaders, skipped, zeroQty),
+    warnings: warningsFor(
+      lines,
+      unmappedHeaders,
+      skipped,
+      zeroQty,
+      customerMaterialIndex !== undefined,
+    ),
   };
 }
 
@@ -220,8 +288,23 @@ function warningsFor(
   unmappedHeaders: string[],
   skipped: number,
   zeroQty: number,
+  hasCustomerMaterial: boolean,
 ): ParseWarning[] {
   const warnings: ParseWarning[] = [];
+
+  // Said out loud because it is otherwise INVISIBLE: a customer opted in to
+  // the Customer Material Number column would simply get a file without it,
+  // and nothing on screen would explain why. SAP renaming the column is the
+  // likeliest cause, and that is a one-line fix in openOrdersFields.ts.
+  if (!hasCustomerMaterial) {
+    warnings.push({
+      kind: "no-customer-material",
+      message:
+        `The extract has no "${CUSTOMER_MATERIAL_HEADERS.preferred}" or ` +
+        `"${CUSTOMER_MATERIAL_HEADERS.fallback}" column, so customers who are set to ` +
+        "receive it won't have that column this week. Check the SAP layout if that's unexpected.",
+    });
+  }
 
   // A new SAP column is worth saying out loud once — it still lands in the
   // report (the layout always mirrors the raw file), but plainly, not with

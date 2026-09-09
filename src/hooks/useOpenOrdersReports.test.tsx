@@ -32,6 +32,7 @@ const ACCOUNT_A: OpenOrderCustomerAccount = {
   accountNumber: "1042",
   customerName: "Permian Midstream Partners",
   active: true,
+  includeCustomerMaterialNumber: false,
   notes: "",
 };
 const ACCOUNT_B: OpenOrderCustomerAccount = {
@@ -39,6 +40,7 @@ const ACCOUNT_B: OpenOrderCustomerAccount = {
   accountNumber: "2277",
   customerName: "Cimarron Compression",
   active: true,
+  includeCustomerMaterialNumber: false,
   notes: "",
 };
 
@@ -64,6 +66,7 @@ function makeLine(soldTo: string, customerName: string): OpenOrderLine {
     lineNo: "000010",
     material: "TEST-PART",
     altronicPartNumber: "",
+    customerMaterialNumber: "",
     description: "Test line",
     orderType: "ZTA",
     repairOrder: "",
