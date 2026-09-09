@@ -11,6 +11,43 @@ export const SP_PROJECTS_LIST_ID = import.meta.env.VITE_SP_PROJECTS_LIST_ID;
 /** "Test Results" list on the same Altronic Engineering site. */
 export const SP_TEST_RESULTS_LIST_ID = import.meta.env.VITE_SP_TEST_RESULTS_LIST_ID;
 
+/** Panel QC issue and defect reference lists on ALTRONICPANELTEAM. */
+export const SP_PANEL_QC_ISSUES_LIST_ID =
+  import.meta.env.VITE_SP_PANEL_QC_ISSUES_LIST_ID || "46baeac6-4d56-413c-b7f2-d63ba67e4ed1";
+export const SP_PANEL_QC_DEFECTS_LIST_ID =
+  import.meta.env.VITE_SP_PANEL_QC_DEFECTS_LIST_ID || "862f2dc7-518e-432f-aeee-58386de4bf05";
+
+/**
+ * The exact Windows printer name (as installed/shared on the machine
+ * running QZ Tray — see api/qzPrint.ts) that Panel QC's 2×2 label should
+ * print directly to, bypassing the browser's print dialog. Left UNSET by
+ * default: the feature ships dark until someone actually installs QZ Tray
+ * and a real printer name is configured, the same lockout-safety shape as
+ * every other "off until configured" flag in this app (EIR_ROLES_ENFORCED,
+ * etc.) — an unset value just means "always fall back to window.print()",
+ * never "the print button silently does nothing."
+ */
+export const PANEL_QC_LABEL_PRINTER_NAME: string | undefined =
+  import.meta.env.VITE_PANEL_QC_LABEL_PRINTER_NAME || undefined;
+
+/**
+ * QZ Tray signing — the public certificate and its matching PKCS8 private
+ * key (see api/qzPrint.ts's `configureQzSecurity`). Both unset (the default)
+ * means every request goes out unsigned, exactly as the feature shipped
+ * before signing existed: QZ Tray shows its own native "Allow this site to
+ * print?" prompt once per machine instead of trusting this cert silently.
+ * Signing is what lets IT pre-trust this cert across every machine at once
+ * (a deployed override file) rather than someone clicking Allow locally.
+ *
+ * The private key WILL end up in the public bundle — ARC has no backend to
+ * keep it off the client, and that trade-off (an embedded key, scoped to a
+ * self-signed cert only machines Cooper has explicitly configured to trust
+ * would ever act on) was the explicit choice made over standing up a signing
+ * endpoint. See CLAUDE.md's QZ Tray section before changing this.
+ */
+export const QZ_CERTIFICATE: string | undefined = import.meta.env.VITE_QZ_CERTIFICATE || undefined;
+export const QZ_PRIVATE_KEY: string | undefined = import.meta.env.VITE_QZ_PRIVATE_KEY || undefined;
+
 /** "Engineering Information Request" (EIR) list on the same site. */
 export const SP_EIRS_LIST_ID = import.meta.env.VITE_SP_EIRS_LIST_ID;
 

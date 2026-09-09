@@ -604,6 +604,25 @@ describe("ChoiceSelect", () => {
     }
   });
 
+  // A clearable trigger with a value selected used to render its ✕ button
+  // INSIDE the open-toggle <button> — invalid HTML (validateDOMNesting warns
+  // on a <button> nested in a <button>), and two overlapping click targets.
+  // Caught 2026-09-09 opening a Panel QC issue's Repair Defect Category
+  // picker. Asserted structurally, not by spying on console.error, so this
+  // keeps catching it even if React ever stops warning about the nesting.
+  it("never nests a <button> inside another <button> once a clear button appears", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <ChoiceSelect value="Blocked" onChange={onChange} options={CHOICES} emptyLabel="Not set" />,
+    );
+    const trigger = screen.getByRole("button", { name: /Blocked/ });
+    expect(trigger.querySelector("button")).toBeNull();
+    // The clear button still has to actually work once it's a sibling, not a child.
+    await user.click(screen.getByLabelText(/clear selection/i));
+    expect(onChange).toHaveBeenCalledWith("");
+  });
+
   it("can't be opened while the form is saving", async () => {
     const user = userEvent.setup();
     render(

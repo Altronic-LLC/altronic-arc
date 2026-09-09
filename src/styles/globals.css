@@ -40,6 +40,26 @@ body {
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }
 
+@page panel-qc-label {
+  size: 2in 2in;
+  margin: 0;
+}
+
+@media print {
+  html,
+  body {
+    width: 2in;
+    height: 2in;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .panel-qc-label {
+    break-inside: avoid;
+  }
+}
+
 /* Headings use the condensed display font */
 h1,
 h2,
@@ -179,6 +199,16 @@ h3,
   }
 }
 .select:focus {
+  outline: none;
+  border-color: rgb(var(--accent));
+  box-shadow: 0 0 0 3px rgb(var(--accent) / 0.15);
+}
+/* The clearable SingleSelect/ChoiceSelect trigger is a plain <div> carrying
+   this class (not a <button>) when it has a clear button — see DropdownShell
+   in SearchableSelect.tsx for why. A <div> never receives :focus itself, only
+   :focus-within when one of its actual buttons does, so this ring needs its
+   own rule rather than reusing :focus above. */
+.select:focus-within {
   outline: none;
   border-color: rgb(var(--accent));
   box-shadow: 0 0 0 3px rgb(var(--accent) / 0.15);

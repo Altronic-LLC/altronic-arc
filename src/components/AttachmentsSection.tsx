@@ -50,6 +50,7 @@ const PARENT_NOUN: Record<AttachmentParent, string> = {
   buildRequestItem: "part",
   panelOrder: "panel order",
   panelTask: "panel task",
+  panelQcIssue: "issue",
   csaListing: "CSA listing",
   visitReport: "visit report",
   grayMarketRequest: "request",

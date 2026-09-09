@@ -162,6 +162,12 @@ const DEPARTMENTS: DepartmentGroup[] = [
         icon: <Timer className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/panels/qc-time-tracking"),
       },
+      {
+        to: "/panels/qc-issues",
+        label: "Panel QC Issue Tracker",
+        icon: <ClipboardCheck className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/panels/qc-issues"),
+      },
       soon("Project Folders", <FolderOpen className="h-4 w-4" />),
     ],
   },
@@ -352,7 +358,7 @@ export function Header() {
   const visitFilterQuery = visitReportFilterSearch(search);
 
   return (
-    <header className="border-b border-border bg-surface">
+    <header className="sticky top-0 z-40 border-b border-border bg-surface shadow-sm">
       <div className="mx-auto flex max-w-[1600px] flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-6 sm:px-6">
         <div className="flex items-center justify-between gap-3 sm:flex-1">
           <Link to="/" className="flex min-w-0 items-center gap-2 text-fg sm:gap-3">

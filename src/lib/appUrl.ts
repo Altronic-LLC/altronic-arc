@@ -21,6 +21,7 @@ export type AppItemKind =
   | "buildRequestItem"
   | "panelOrder"
   | "panelTask"
+  | "panelQcIssue"
   | "grayMarketRequest"
   | "customerNote"
   | "supplier"
@@ -44,6 +45,7 @@ const KIND_SEGMENTS: Record<AppItemKind, string> = {
   buildRequestItem: "build-request-item",
   panelOrder: "panels/order",
   panelTask: "panels/task",
+  panelQcIssue: "panels/qc-issues",
   grayMarketRequest: "supply-chain/gray-market-request",
   customerNote: "sales/customers",
   supplier: "supply-chain/supplier",

@@ -2152,6 +2152,58 @@ const SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: "panel-qc-issue-tracker",
+    title: "Panel QC Issue Tracker",
+    group: "Panels",
+    keywords: ["panel qc", "issue tracker", "defect", "production", "repair", "status", "watchers", "attachments", "comments"],
+    searchText: "Panel QC Issue Tracker records panel and board defects from production through resolution. Fields are split into a Panel Department section and a Repair Department section. Defect categories come from a shared list and can be added while recording an issue. Issues have a Status, watchers, a comment thread with @-mentions, and file attachments.",
+    render: () => (
+      <>
+        <P>
+          <strong>Panel QC Issue Tracker</strong> is the Panels department's
+          production defect log. It uses the
+          <em>PANEL COMPONENT FAILURES</em> list on the ALTRONICPANELTEAM
+          SharePoint site.
+        </P>
+        <P>
+          The New Issue form only shows the <strong>Panel Department</strong>{" "}
+          fields — Panel Serial Number, Panel Part Number, Date, Defect
+          Category, Sub Component Part Number, Sub Component Serial Number,
+          Part Description, Watchers, Failure Reported and Panels Resolution.
+          Choose a defect category from the searchable picker; anyone signed
+          in can add a new category to <em>PANEL COMPONENT DEFECTS</em>{" "}
+          directly from the form and use it immediately. TAG Number is
+          assigned automatically, and every new issue starts at{" "}
+          <strong>Created</strong> status. Click New Issue to open the entry
+          view, or click a row to open its edit view.
+        </P>
+        <P>
+          The <strong>Repair Department</strong> section — Repair Technician,
+          Repair Defect Category, Repair Issue Found, Repair Resolution —
+          only appears once an issue exists, since it's filled in by the
+          repair team after the panel department has raised the issue. The
+          edit view's header shows the issue's current Status next to its TAG
+          Number, and a Status picker sits beside Save Changes so it can be
+          moved along its workflow (Created → Repair Received → Repair
+          In-Process → Repair Hold/Repair Completed → Panels Completed) as
+          part of the same save.
+        </P>
+        <P>
+          Once an issue exists, its edit view also shows{" "}
+          <strong>Watchers</strong>, a <strong>Communication</strong> comment
+          thread, and an <strong>Attachments</strong> card — the same pattern
+          used across ARC. On the New Issue form, files can be picked ahead of
+          saving; they upload automatically once the issue is created. Click{" "}
+          <strong>Watch</strong> to follow an issue, or @-mention someone in a
+          comment to notify them by email and add them as a watcher
+          automatically. The issue list's search box also matches the comment
+          thread and watcher names, and shows a comment count and a paperclip
+          icon for issues with attachments.
+        </P>
+      </>
+    ),
+  },
+  {
     id: "digital-qc",
     title: "Digital QC Defect Log",
     group: "Quality Control",

@@ -30,7 +30,7 @@ export function Footer() {
 
   return (
     <>
-      <footer className="border-t border-border bg-surface">
+      <footer className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface shadow-[0_-4px_12px_rgba(0,0,0,0.08)]">
         <div className="mx-auto flex max-w-[1600px] flex-col gap-2 px-6 py-4 text-xs text-fg-muted sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-1.5">
             <Mail className="h-3.5 w-3.5" />
