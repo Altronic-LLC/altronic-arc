@@ -509,10 +509,11 @@ const SECTIONS: ManualSection[] = [
           mentioned were <em>not</em> emailed, and the message names who missed out.
         </P>
         <P>
-          Send the wording to IT and ask to be added to <strong>Send As</strong> on
-          the notifications mailbox. Until that's done, mentions still appear in
-          the app but no email goes out, so tell anyone you needed to reach
-          directly. This applies to change alerts too, not just comments.
+          Send the wording to whoever administers the notifications mailbox: you
+          need <strong>both Send As and Full Access</strong> on it (Send As alone
+          isn't enough). Until that's done, mentions still appear in the app but
+          no email goes out, so tell anyone you needed to reach directly. This
+          applies to change alerts too, not just comments.
         </P>
         <H3>Sub-tasks: indent a checklist line</H3>
         <P>
@@ -5262,7 +5263,7 @@ const SECTIONS: ManualSection[] = [
       "stale session",
     ],
     searchText:
-      "Loading hangs? Often sign-in / permission. F12 console: 401 means token expired (re-sign-in), 403 means missing SharePoint access. Change reverted? Someone may have edited at the same time. Data looks out of date, or someone else just changed a row you can't see yet? Press Refresh in the header — it re-reads everything from SharePoint without reloading the page, so nothing you have open is lost. New task missing? Default Assigned filter is you — pick Anyone. Mention email not sent? Manual @Name typing doesn't make a chip — pick from dropdown. Report issue button in the header captures console errors and emails them to the app manager. Left the tab open a long time? Your Microsoft sign-in expires while idle and ARC shows the sign-in screen — click 'Sign in again', enter your password once, and the app comes back with fresh data. No sign-out, no refresh, no clicking Retry.",
+      "Loading hangs? Often sign-in / permission. F12 console: 401 means token expired (re-sign-in), 403 means missing SharePoint access. Change reverted? Someone may have edited at the same time. Data looks out of date, or someone else just changed a row you can't see yet? Press Refresh in the header — it re-reads everything from SharePoint without reloading the page, so nothing you have open is lost. New task missing? Default Assigned filter is you — pick Anyone. Mention email not sent? Manual @Name typing doesn't make a chip — pick from dropdown. Report issue button in the header captures console errors and emails them to the app manager. Notification email not sending? You need both Send As and Full Access on the notifications mailbox — Send As alone is not enough. Left the tab open a long time? Your Microsoft sign-in expires while idle and ARC shows the sign-in screen — click 'Sign in again', enter your password once, and the app comes back with fresh data. No sign-out, no refresh, no clicking Retry.",
     render: () => (
       <>
         <H3>"Loading tasks…" hangs forever</H3>

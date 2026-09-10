@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.152.1",
+    date: "2026-09-09",
+    changes: [
+      "Corrected what the app tells you when notification email can't send: you need BOTH Send As and Full Access on the notifications mailbox, not Send As alone — the old message sent people to ask for the wrong permission",
+      "User Manual says the same, in the troubleshooting and comment-notification sections",
+    ],
+  },
+  {
     version: "0.152.0",
     date: "2026-09-09",
     changes: [

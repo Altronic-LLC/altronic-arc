@@ -102,9 +102,11 @@ export const SP_SITE_URL = import.meta.env.VITE_SP_SITE_URL as string | undefine
 
 /**
  * Email address of the shared mailbox @-mention notifications send FROM.
- * Each user who can post comments must have Send-As permission on this
- * mailbox in Exchange. Leave blank to disable email notifications — they
- * fall back to console.log entries instead.
+ * Each user who can post comments needs BOTH Send-As and FullAccess on this
+ * mailbox in Exchange — Send-As alone did NOT work, despite being what the
+ * Graph docs imply is sufficient. See BACKLOG.md's onboarding item for the
+ * exact PowerShell. Leave blank to disable email notifications — they fall
+ * back to console.log entries instead.
  */
 export const SHARED_MAILBOX = import.meta.env.VITE_SHARED_MAILBOX as string | undefined;
 
