@@ -2338,13 +2338,19 @@ own new issue (`autoWatchers`) — so creating an issue wrote the creator's
 *Engineering* numeric id into the Watchers column, and reading it back
 resolved that number against the ALTRONICPANELTEAM site's OWN User
 Information List, landing on whoever that id happens to belong to there (a
-different, unrelated person). `forSiteResolution()` in `panelQcIssues.ts`
-strips any incoming `lookupId` before it reaches `ensureLookupIds`, forcing
-every watcher write in this module to re-resolve by email against the
-panel team site specifically — the general lesson (a `lookupId` is valid on
-exactly the one site it was resolved for, and `ensureLookupIds` otherwise
-trusts an existing one unconditionally) likely reaches beyond this one
-list; see `panelQcIssues.watchers.test.ts` for the pinned regression.
+different, unrelated person). It was first fixed here, locally, with a
+private `forSiteResolution()` helper that stripped incoming ids before
+`ensureLookupIds` saw them.
+
+**That local fix is GONE, and the note it closed on — "likely reaches
+beyond this one list" — was right.** The identical bug was reported on Gray
+Market Requests on 2026-09-16 (Adele raised a request, James Henson was
+added as a watcher), and eight modules across four non-Engineering sites
+had it. `ensureLookupIds` itself now re-resolves by email against its
+target site, so this module needs no local handling and neither does the
+next cross-site list. **Don't reintroduce a per-module version** — see "A
+lookupId is valid on ONE site" under the cross-cutting rules, and
+`api/siteUsers.crossSite.test.ts` for the pinned regression.
 
 Communication (real comment thread, @-mentions, email notification, auto-
 watch-on-mention), Watchers (immediate Watch/Unwatch + picker) and
@@ -4188,6 +4194,83 @@ them harder to use, not easier, and a checklist is not a Yes/No question. The
 description checklists, the comment "notify everyone again" option, and the
 EIR role tags are UI affordances, not stored Yes/No fields, and stay as they
 are too.
+
+### A lookupId is valid on ONE site — `ensureLookupIds` re-resolves, always
+
+**This bug was reported twice and shipped past the test suite both times.** It
+is the single most expensive trap in this repo's person handling, so it is
+written down at length.
+
+Every SharePoint site collection has its own hidden User Information List, so
+**a lookupId is only meaningful on the site it was resolved for.** Id 88 is one
+person on Engineering and a different person — or nobody — on PMO, the panel
+team site, or Sales.
+
+**`useCurrentUser()` always resolves against the ENGINEERING site**
+(`SP_SITE_URL`, via `resolveCurrentUserLookupId`). It is the app-wide identity
+and cannot know which list a caller is about to write. Every cross-site create
+then passes that `Person` straight in as the requestor / assignee /
+creator-watcher.
+
+`ensureLookupIds` used to open with `if (p.lookupId) return p;` — treating an
+incoming id as already-verified. So the Engineering id was written to another
+site's person column, and on the next read resolved, against *that* site's
+directory, to whoever holds that number there. **Nothing anywhere reported a
+fault**: SharePoint accepts the write, and the value reads back as a real
+person.
+
+| Reported | Symptom |
+|---|---|
+| 2026-09-03 | Panel QC — created an issue, added one watcher, an unrelated third person appeared |
+| 2026-09-16 | Gray Market Requests — Adele raised a request and **James Henson was added as a watcher**, having had nothing to do with it |
+
+The first was fixed **locally**, with a private `forSiteResolution()` helper in
+`panelQcIssues.ts` that stripped incoming ids. That helper is now **deleted**:
+the second report was the identical bug in a module that never got the patch,
+and **eight modules across four non-Engineering sites had it** — Gray Market
+Requests, Operations tasks, Panel orders, Panel tasks, Suppliers, Supplier
+Contacts, Supplier Issues and the CRM's Customer Notes.
+
+**The fix is in the shared resolvers** (`api/siteUsers.ts`), so it reaches all
+of them and the NEXT cross-site list is correct without anybody remembering:
+
+- **`ensureLookupIds`** and **`resolvePeopleLookupIds`** (which had the
+  identical early return) now **re-resolve by email against their target site
+  and ignore whatever lookupId arrived.** Re-resolving an already-correct id
+  returns the same number back — slightly more work, always right.
+- **An unresolvable person has a foreign id DROPPED**, not passed through.
+  Writing it would name the wrong person silently, which is strictly worse than
+  the caller's existing "drop unresolved" / "refuse the write" path.
+- **A person with NO email keeps the id they arrived with.** That is the
+  legitimate case — a `Person` read straight off the list being written, where
+  Graph returned a bare `LookupId` with no email attached (see "A single-person
+  column needs BOTH halves selected"). There is nothing to re-resolve them by.
+
+**Why the tests didn't catch it, twice** — worth understanding before writing a
+test for anything in this area:
+
+1. **Mock mode resolves every email to a deterministic id regardless of site**
+   (`mockLookupIdForEmail`), so cross-site confusion is *structurally
+   invisible* from a mock-mode test. It needs `USE_MOCK: false` and a mock that
+   answers differently per site.
+2. **`siteUsers.test.ts` actively asserted the bug** — a case literally named
+   *"leaves people who already have a lookupId untouched"*. It is now
+   *"RE-RESOLVES a person who already carries a lookupId from another site"*.
+3. **`panelQcIssues.watchers.test.ts` mocked `./siteUsers` wholesale**, so the
+   module containing the bug never ran. It also asserted the *mechanism* (the
+   id was stripped before the call) rather than the *guarantee* (the right
+   site is asked, and the resolved id is what lands) — so it failed against the
+   correct implementation. It asserts the guarantee now.
+
+`src/api/siteUsers.crossSite.test.ts` is the regression file: real mode, one
+person holding a different id on each of two sites, the Engineering id
+deliberately belonging to somebody else on PMO. Verified by reintroducing the
+early return and confirming six cases fail.
+
+**Prefer `resolveSiteUserLookupId` / `resolvePeopleLookupIds` /
+`resolvePersonLookupId`** (Graph-first, then `ensureuser`) for any NEW person
+write — `ensureuser` alone answers 0 when the classic SharePoint scope isn't
+granted. Both families are now site-safe.
 
 ### A single-person column needs BOTH halves selected, and its own read step
 

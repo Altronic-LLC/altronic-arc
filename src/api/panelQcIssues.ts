@@ -155,37 +155,23 @@ export async function listPanelQcRepairDefectChoices(): Promise<string[]> {
 }
 
 /**
- * Drop any `lookupId` a Person object carries before it reaches
- * `ensureLookupIds` for THIS site.
+ * NOTE — the per-site lookupId problem this module used to patch locally.
  *
- * A `lookupId` is only valid on the ONE SharePoint site it was resolved
- * for — the same numeric id means a different person on every site's own
- * hidden User Information List (CLAUDE.md's "per-site lookupId" rule).
- * `ensureLookupIds` treats an existing `lookupId` as already-verified and
- * skips re-resolving it, so a Person carrying one from elsewhere gets
- * written straight through — silently misassigning the watcher to whoever
- * that number happens to belong to on THIS site.
+ * A `lookupId` is only valid on the ONE SharePoint site it was resolved for:
+ * the same numeric id is a different person on every site's own hidden User
+ * Information List. `useCurrentUser()` always resolves against the ENGINEERING
+ * site, and the creator auto-watches their own new issue — so creating an
+ * issue wrote the creator's ENGINEERING id into this (panel team) list, and on
+ * the next read it resolved to whoever holds that id here (reported
+ * 2026-09-03: one watcher added, an unrelated third person appeared).
  *
- * The concrete way this bit: `useCurrentUser()`'s `lookupId` is always
- * resolved against the ENGINEERING site (see `resolveCurrentUserLookupId`
- * in `api/currentUser.ts`), and the creator auto-watches their own new
- * issue (`autoWatchers` in `usePanelQcIssues.ts`) — so creating an issue
- * wrote the CREATOR's Engineering lookupId into this list's Watchers
- * column. On refresh that numeric id resolved, on the ALTRONICPANELTEAM
- * site's own directory, to a completely different person (reported
- * 2026-09-03: creating an issue and adding one watcher showed the intended
- * pick PLUS an unrelated third person the reporter never added or
- * mentioned).
- *
- * Stripping it here forces every watcher write in this module to
- * re-resolve by EMAIL against the panel team site specifically, which is
- * correct (if slightly more work) even for a Person who already holds a
- * genuinely-valid panel-team lookupId — re-resolving one returns the same
- * id right back.
+ * A private `forSiteResolution()` helper stripped incoming ids here to force a
+ * re-resolve. That has been DELETED: `ensureLookupIds` in `api/siteUsers.ts`
+ * now re-resolves by email against its target site itself, so the behaviour is
+ * the same for this module and every other cross-site list — the identical bug
+ * was reported again on Gray Market Requests (2026-09-16), which never had the
+ * local patch. Don't reintroduce a local version; fix the shared function.
  */
-function forSiteResolution(people: Person[]): Person[] {
-  return people.map((p) => (p.lookupId ? { ...p, lookupId: undefined } : p));
-}
 
 const toDate = (value: unknown): Date | null => {
   if (!value) return null;
@@ -244,7 +230,7 @@ async function buildFields(
     [names.tagNumber]: input.tagNumber.trim(),
   };
   if (opts.includeWatchers) {
-    Object.assign(fields, multiPersonField(names.watchers, await ensureLookupIds(SP_PANELTEAM_SITE_URL, forSiteResolution(input.watchers))));
+    Object.assign(fields, multiPersonField(names.watchers, await ensureLookupIds(SP_PANELTEAM_SITE_URL, input.watchers)));
   }
   return fields;
 }
@@ -377,7 +363,7 @@ export async function setPanelQcIssueWatchers(id: number, people: Person[]): Pro
     return MOCK_PANEL_QC_ISSUES[index];
   }
   const names = await getFieldNames();
-  const ensured = await ensureLookupIds(SP_PANELTEAM_SITE_URL, forSiteResolution(people));
+  const ensured = await ensureLookupIds(SP_PANELTEAM_SITE_URL, people);
   if (people.length > 0 && !ensured.some((p) => p.lookupId)) {
     throw new Error(
       "Cannot update Watchers: couldn't resolve a SharePoint user for any of the selected people.",

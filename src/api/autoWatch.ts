@@ -47,6 +47,10 @@ export async function autoWatchFromMentions({
    * Resolve an email to a site user lookupId ON THE SITE THIS ITEM LIVES ON.
    * `resolveCurrentUserLookupId` (Engineering), `resolvePmoSiteUserLookupId`
    * (PMO) and `resolvePanelSiteUserLookupId` (Panels) are the three today.
+   *
+   * This being per-site is not fussiness: a lookupId resolved on the wrong
+   * site names a DIFFERENT person, silently. See "A lookupId is valid on ONE
+   * site" in CLAUDE.md — that mistake reached users twice.
    */
   resolveLookupId: (email: string) => Promise<number>;
 }): Promise<Person[]> {

@@ -20,6 +20,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.153.1",
+    date: "2026-09-16",
+    changes: [
+      "Fixed the wrong person being added as a watcher or requestor on Gray Market Requests — raising a request could attach somebody who had nothing to do with it",
+      "Same fix reaches Operations tasks, Panel orders and tasks, Panel QC issues, Suppliers, Supplier Contacts, Supplier Issues and CRM customer records, which all had it",
+      "A person is now always looked up on the site being written to, so an assignee, requestor or watcher can no longer come out as a different person",
+      "If someone genuinely can't be found on that site, the field is left empty instead of naming the wrong person",
+    ],
+  },
+  {
     version: "0.153.0",
     date: "2026-09-15",
     changes: [
