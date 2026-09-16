@@ -58,6 +58,8 @@ company-wide; some is department-specific. Therefore:
   back into a department.** One-way dependency only.
 - **Keep the existing per-list pattern:** `api/<list>.ts` module + React Query
   hooks (`use<List>`) + views, one set per SharePoint list. New lists follow it.
+  A new list view that renders a TABLE also ships with column sorting and
+  filters — see "Every new table gets sorting and column filters".
 - **Preserve the `USE_MOCK` boundary** so new department features can be built
   and demoed against mock data before the real SharePoint list exists.
 
@@ -4629,6 +4631,10 @@ re-derived by a copy — which is the reason it is shared rather than pasted:
 only ones people work from"). Seven landed on 2026-09-16: **Visit Reports,
 ECNs, FAITs, Suppliers, CSA Listings, Teradyne Log, Gray Market Requests.**
 
+**A NEW table gets these from the start** — see "Every new table gets sorting
+and column filters" under Common changes. Retrofitting seven lists at once is
+what this section exists to prevent happening again.
+
 **Adding it to another list is a COLUMNS ARRAY, not a comparator.**
 `lib/tableSort.ts` is the generic engine and `hooks/useSortableTable.ts` holds
 the state; a view declares accessors as data and spreads `headerProps(key)`
@@ -5568,6 +5574,59 @@ wrong once a whole section is assembled:
 3. Add a nav link in `src/components/Header.tsx`.
 4. **Update the system-flow diagram in `src/views/AboutView.tsx`** so the
    new view appears in the architectural overview. See the rule below.
+5. **If it renders a TABLE of records, give it column sorting and filters** —
+   see "Every new table gets sorting and column filters" below. This is not
+   optional and not a follow-up.
+
+### Every new table gets sorting and column filters — REQUIRED
+
+**Any new list view in ARC that renders a `<table>` of records ships with
+column sorting and per-column value filters.** Not as a follow-up, not "if
+someone asks" — in the same commit as the table (Ray, 2026-09-16: "always add
+those sorts for table type additions to arc").
+
+It went the other way round once: Panel QC had them, nine other lists didn't,
+and people worked around the gap by remembering or scrolling until seven lists
+were retrofitted in one go. That retrofit is why the pieces below are generic —
+use them rather than writing a comparator.
+
+The whole wiring is four steps:
+
+1. **Declare the columns as DATA** — a `SortColumn<T>[]` (`lib/tableSort.ts`).
+   Module-level unless an accessor needs joined data (a project title map, say),
+   in which case a `useMemo` inside the component.
+2. **`useSortableTable({ rows, columns, stableKey, initialKey })`**
+   (`hooks/useSortableTable.ts`). Pass `initialDirection` to keep whatever
+   default order the list already had — a new feature shouldn't change how the
+   screen opens.
+3. **Render `SortableHeader`** (`components/SortableTableHeader.tsx`) per
+   column, spreading `table.headerProps(column.key)`.
+4. **Map `table.rows`, NOT the pre-sort list.** This is the step that gets
+   missed: the headers work, the clicks register, and nothing moves.
+   `views/listSorting.test.tsx` exists for exactly this and a new list belongs
+   in it.
+
+Five things to get right, all learned the hard way — the reasoning is in the
+"Sortable, filterable table headers" section:
+
+- **The `value` accessor must match what the CELL shows.** The filter menu
+  groups by it, and a menu offering values nobody can see on screen is worse
+  than no menu. Where a cell falls back between fields, the accessor falls
+  back identically.
+- **`kind: "date"` / `"number"` for real dates and numbers**, with a
+  `sortValue`. Otherwise "10" sorts before "9".
+- **`kind: "numeric-text"` for a TEXT column that usually holds a number.**
+  Free-text quantity columns in this app really do contain "see notes".
+- **`noFilter: true` for long free text.** Grouping a description column over
+  thousands of rows lists thousands of one-row options; it still sorts, and
+  search already covers it.
+- **Leave action / icon columns as plain `<th>`.** They hold no value worth
+  ordering or grouping by.
+
+**Card-based lists are the exception, for now** — Tasks, EIRs and Build
+Requests render cards, not rows, so there are no headers to click. They need a
+"Sort by" dropdown over the same engine; unbuilt, and worth asking before
+assuming.
 
 ### Hook up the Header view switcher to add more views
 
