@@ -413,6 +413,7 @@ src/
 │   ├── panelTaskMapper.ts        Graph item → PanelTask
 │   ├── panelRoles.ts             Panel role → editing-rights mapping (pure)
 │   ├── qcTimeMapper.ts           Graph item → QcTimeEntry, and back
+│   ├── qcTimeSort.ts             QC Time sorting + column filters (pure) — hoursRaw is TEXT
 │   ├── visitReportMapper.ts      Graph item → VisitReport (+ RM/year options)
 │   ├── customerNoteMapper.ts     Graph item → CustomerNote (CRM Tool anchor list)
 │   ├── customerContactMapper.ts  Graph item → CustomerContact
@@ -469,6 +470,7 @@ src/
 │   ├── EirViewTabs.tsx           EIR workflow view tabs + counts (list + board)
 │   ├── SearchInput.tsx           Shared debounced search box
 │   ├── SearchableSelect.tsx      MultiSelect / SingleSelect / ChoiceSelect (all searchable)
+│   ├── SortableTableHeader.tsx   Shared sort + per-column filter chrome (from Panel QC)
 │   ├── SuggestInput.tsx          Text field that behaves like a choice field (CAD initials)
 │   ├── AutoGrowTextarea.tsx      <textarea> that grows to fit content
 │   ├── RichTextEditor.tsx        Bold/italic/underline/lists editor (EIR text fields)
@@ -4591,6 +4593,132 @@ exactly `/eirs`) and `EirsView.unfiltered.test.tsx` (the list shows all of them,
 closed included, and still honours an engineer filter that was actually asked
 for). The second was verified by injecting a default-to-me and watching three of
 its four cases fail.
+
+### Sortable, filterable table headers — `components/SortableTableHeader.tsx`
+
+Sorting plus an Excel-style per-column value filter, shared. Lifted out of
+`PanelQcIssuesView`, where it was private (Ray, 2026-09-16: "add the sort
+buttons to all apps tools lists in arc like it is in Panel Qc issue tracker").
+
+`useTableSort(initialKey, initialDirection)` holds the state,
+`SortableHeader` renders one `<th>`, `ColumnFilterButton` is the value menu.
+**Two separate affordances per column, deliberately**: clicking the LABEL
+opens the filter, clicking the ICON sorts. One click doesn't have to mean both
+things.
+
+Three things inside `ColumnFilterButton` were paid for once and must not be
+re-derived by a copy — which is the reason it is shared rather than pasted:
+
+- **The panel PORTALS to `<body>` with a `fixed` position** computed from the
+  trigger's rect during render. A table's `overflow-x-auto` wrapper gets
+  `overflow-y: auto` from the UA rather than `visible`, so a plain `absolute`
+  panel is clipped into the row area instead of overlaying the page.
+- **No `autoFocus` on its search box.** It stole focus the moment the portal
+  mounted, and React attaches an ancestor ref only AFTER a descendant's
+  commit-time `.focus()` — so the trigger's blur reached the close handler
+  while `panelRef.current` was still null, and the panel closed itself the
+  instant it opened (reported 2026-09-04: "the filter popup doesn't work at
+  all").
+- **`selected === undefined` means "everything".** Unchecking back up to the
+  full set snaps to `undefined` rather than an equivalent explicit Set, so a
+  "has filters" check stays accurate.
+
+**Rolled out to the lists people actually work from**, not all 37 (Ray: "the
+only ones people work from"). Adding it to another list is a `SortKey` union,
+a comparator, and the header map — see `QcTimeTrackingView` for the smallest
+complete example.
+
+### QC Time Tracking — sorting, the hold flag, and the one delete
+
+Three changes on 2026-09-16, all from the floor.
+
+**`hoursRaw` IS NOT A NUMBER, and that shapes the whole sort.** It is a TEXT
+column and the imported data genuinely contains `"see notes"` beside `"6.5"`
+and `""`. Sorting it numerically turns those into `NaN`, every `NaN`
+comparison is false, and the rows land wherever the sort algorithm leaves
+them — scattered through the list, looking like data that sorted correctly.
+
+So `lib/qcTimeSort.ts` is explicit: numeric values sort numerically, and
+anything that isn't a number **groups at the END in BOTH directions**, in its
+own stable alphabetical order. A panel logged as "see notes" is not zero hours
+and must not sit among the quick jobs; nor may it vanish. `hoursValue()` is
+tolerant of what people type (`"6.5 hrs"`, `" 4 "`) but requires the number at
+the START — `"abc 5"` is a note containing a digit, not five hours.
+
+Two rules hold for every column, not just hours:
+
+- **An empty value always sorts LAST**, whichever direction is chosen. A blank
+  isn't the smallest value, it's the absence of one, and floating a screenful
+  of blanks to the top of an ascending sort buries the rows somebody asked to
+  see.
+- **Ties break on `id` descending**, so the order is stable and doesn't
+  reshuffle when an unrelated row is edited.
+
+**The hold flag replaces an Excel highlight.** `OnHold` (boolean) and
+`HoldReason` (SINGLE choice) were added by
+`scripts/add-qc-time-hold-columns.ps1`. A single choice rather than free text
+(Ray's call) so the reasons stay countable — spotting correlations when panel
+times climb needs them to group, which free text never does; `allowTextEntry`
+is off for the same reason.
+
+- **Amber row AND a labelled chip.** Colour is never the only carrier: the
+  tint is the at-a-glance signal the spreadsheet had, and the chip names the
+  reason so it survives a mono print and reaches a colour-blind reader.
+- **`QC_TIME_HOLD_REASONS` in `types/task.ts` must stay in step with the
+  SharePoint column** — the script carries the same list, and a value ARC
+  offers that SharePoint doesn't know is refused on save. The READ is
+  deliberately NOT clamped, so a reason configured in SharePoint first renders
+  as itself rather than vanishing.
+- **Taking a panel off hold clears the reason** (`buildQcTimeFields`), so a
+  stale one can't be counted in a correlation later. The form hides the reason
+  picker entirely when the panel isn't on hold — an always-visible one reads
+  as an unmet requirement, the same call as FAIT's KAM sign-off fields.
+- **The "N on hold" button hides when nothing is on hold.** An always-present
+  "0 on hold" is noise, and its absence is itself the answer.
+- **Grouping keys off the REASON, not Yes/No** (`qcTimeColumnValue`) — "why
+  are panels stalling" is the question worth answering.
+
+**Delete exists now, and is ADMIN-ONLY.** This list had none, on the "a record
+of what happened is corrected, not removed" rule the other record lists follow.
+What changed it: two techs working one panel produce a genuine DUPLICATE, and
+there is nothing to correct in a row that shouldn't exist (Ray: "There's no way
+to remove the duplicate").
+
+Admin-only rather than open, matching the Teradyne Log: an edit leaves a
+corrected record and a delete leaves nothing, so an operator fixing their own
+typo shouldn't need an admin but removing a row should. It also matches what
+SharePoint permits — deleting an item needs more permission than editing one,
+so offering it to everyone hands somebody a button that 403s (see
+`describeListWriteFailure`). **The gate is in `useDeleteQcTimeEntry`'s
+`mutationFn`, not only on the button**, so a future screen can't reach the
+ungated API function without it; both directions are tested, and both were
+verified by removing the gate and watching them fail.
+
+`api/qcTimeTracking.test.ts` used to assert the module exported NO delete. It
+now asserts EXACTLY ONE — that inversion is deliberate, and the comment there
+says why.
+
+### The task filter bar has a Watching axis
+
+`watching=<email>` alongside `q` / `project` / `assigned` / `createdBy`, in
+`FILTER_PARAM_KEYS` so it survives the List ⇄ Kanban switch (Ray, 2026-09-16:
+the old task app had this, and without it the only ways to find something you
+track but aren't assigned to are remembering it or waiting for an email).
+
+- **A SINGLE person, not a multi-select.** "What am I watching" is the
+  question; a set of watchers ORed together answers nobody's.
+- **The signed-in user is pinned FIRST**, labelled "Me (name)". Hunting for
+  your own name in a 200-person dropdown is the thing this filter exists to
+  avoid.
+- **NO first-visit default**, unlike `assigned`. Landing on a list already
+  narrowed to what you watch would hide most of it with no indication why, so
+  it is opt-in and absent from the URL when unset.
+- **It does NOT match on assignment.** That is the whole point, and it has its
+  own test — matching both would make the filter a slightly different
+  "Assigned".
+- **Operations shares `FilterBar`**, so `applyOperationsFilters` got the same
+  predicate. A control that renders and filters nothing is worse than one
+  that isn't offered.
 
 ### Task filters live in the URL and must survive navigation
 

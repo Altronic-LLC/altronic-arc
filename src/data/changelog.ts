@@ -20,6 +20,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.156.0",
+    date: "2026-09-16",
+    changes: [
+      "Task and Operations lists can filter by Watching, so you can find what you're tracking without being assigned to it — your own name is first in the list",
+      "QC Time Tracking sorts and filters by any column, the same way the Panel QC Issue Tracker does — including Hours, so long jobs are one click away",
+      "A QC Time panel can be marked On Hold with a reason; those rows are flagged amber and there's a one-click \"on hold\" button to see just them",
+      "Admins can delete a QC Time entry, for when two techs log the same panel twice",
+    ],
+  },
+  {
     version: "0.155.0",
     date: "2026-09-16",
     changes: [

@@ -109,6 +109,8 @@ describe("buildQcTimeFields", () => {
     hoursRaw: "  6.5  ",
     effortType: "New Panel" as const,
     notes: "  Some notes.  ",
+    onHold: false,
+    holdReason: "",
   };
   const KIM = { displayName: "Kim Tech", email: "kim.tech@altronic-llc.com", lookupId: 61 };
 

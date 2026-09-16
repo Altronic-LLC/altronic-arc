@@ -17,10 +17,20 @@ import { MOCK_QC_TIME_ENTRIES } from "@/data/qcTimeMockData";
 // long. No comments, no watchers, no role gating — any signed-in user can add
 // or edit an entry, the same openness as Visit Reports and "Where am I?".
 //
-// **There is no delete**, same call as Visit Reports and the other
-// record-of-what-happened lists in this app: an entry is a record that QC
-// spent time on something, and a mistake is corrected with an edit, not a
-// removal.
+// **Delete is ADMIN-ONLY**, added 2026-09-16. This list used to have none, on
+// the "a record of what happened is corrected, not removed" rule the other
+// record lists follow — but two techs working one panel produce a genuine
+// DUPLICATE entry, and there is nothing to correct in a row that shouldn't
+// exist (Ray: "the second tech accidentally created a duplicate ARC entry.
+// There's no way to remove the duplicate").
+//
+// Admin-only rather than open, matching the Teradyne Log: an edit leaves a
+// corrected record and a delete leaves nothing, so an operator fixing their
+// own typo shouldn't need an admin but removing a row should. It also matches
+// what SharePoint permits — deleting an item needs more permission than
+// editing one, so offering it to everyone would hand somebody a button that
+// 403s (see `describeListWriteFailure`). The gate is re-checked inside the
+// hook's `mutationFn`, not just in the view.
 //
 // `PerformedByPeople` is a multi-person column. A write resolves each person
 // against the panel team site's user list (Graph-first, `ensureuser` as a
@@ -96,6 +106,8 @@ export async function createQcTimeEntry(input: QcTimeEntryInput): Promise<QcTime
       hoursRaw: input.hoursRaw.trim(),
       effortType: input.effortType,
       notes: input.notes.trim(),
+      onHold: input.onHold,
+      holdReason: input.onHold ? input.holdReason.trim() : "",
       createdAt: now,
       modifiedAt: now,
     };
@@ -153,4 +165,29 @@ export async function updateQcTimeEntry(
   const updated = await getQcTimeEntry(id);
   if (!updated) throw new Error(`QC time entry ${id} disappeared after update`);
   return updated;
+}
+
+/**
+ * Delete an entry. **ADMIN-ONLY** — the gate lives in
+ * `useDeleteQcTimeEntry`'s `mutationFn`, so a future screen or bulk action
+ * can't reach this without it.
+ *
+ * For a duplicate: two techs on one panel, one of them logging it twice.
+ * Everything else is corrected with an edit.
+ */
+export async function deleteQcTimeEntry(id: number): Promise<void> {
+  if (USE_MOCK) {
+    mockStore = mockStore.filter((e) => e.id !== id);
+    await delay(undefined);
+    return;
+  }
+  const listId = requireListId("delete the QC time entry");
+  await graphFetch(`/sites/${SITES.panelTeam}/lists/${listId}/items/${id}`, {
+    method: "DELETE",
+  });
+}
+
+/** Test seam — restores the mock store to the shipped fixtures. */
+export function __resetQcTimeMockStore(): void {
+  mockStore = MOCK_QC_TIME_ENTRIES.map((e) => ({ ...e }));
 }

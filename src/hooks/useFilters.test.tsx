@@ -106,7 +106,23 @@ describe("filterSearch — handing filters between List and Kanban", () => {
   });
 
   it("exposes the param keys it carries", () => {
-    expect([...FILTER_PARAM_KEYS]).toEqual(["q", "project", "assigned", "createdBy"]);
+    // This list is the contract the List/Kanban switcher relies on: a filter
+    // missing from it silently resets when you change view. `watching` was
+    // added 2026-09-16.
+    expect([...FILTER_PARAM_KEYS]).toEqual([
+      "q",
+      "project",
+      "assigned",
+      "createdBy",
+      "watching",
+    ]);
+  });
+
+  it("carries the watching filter across a view switch", () => {
+    // The reason FILTER_PARAM_KEYS exists — see filterSearch()'s own note.
+    expect(filterSearch("?watching=ray%40altronic-llc.com&status=Blocked")).toBe(
+      "?watching=ray%40altronic-llc.com",
+    );
   });
 });
 
@@ -166,7 +182,7 @@ describe("useFilters — setFilters writes back", () => {
         search: "foo",
         projectIds: [10, 20],
         assignedEmails: ["alice@x.com", "bob@x.com"],
-        createdByEmail: "carol@x.com",
+        createdByEmail: "carol@x.com", watchedByEmail: null,
       });
     });
     rerender();
@@ -185,7 +201,7 @@ describe("useFilters — setFilters writes back", () => {
         search: "",
         projectIds: [],
         assignedEmails: ["alice@x.com"],
-        createdByEmail: null,
+        createdByEmail: null, watchedByEmail: null,
       });
     });
     rerender();
@@ -204,7 +220,7 @@ describe("useFilters — setFilters writes back", () => {
         search: "",
         projectIds: [],
         assignedEmails: [],
-        createdByEmail: null,
+        createdByEmail: null, watchedByEmail: null,
       });
     });
     rerender();

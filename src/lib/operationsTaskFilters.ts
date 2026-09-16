@@ -61,6 +61,14 @@ export function applyOperationsFilters(
       if (!has) return false;
     }
 
+    if (filters.watchedByEmail) {
+      // Operations shares FilterBar with Engineering tasks, so the Watching
+      // control renders here too — without this it would render and filter
+      // nothing, which is worse than not offering it.
+      const wanted = filters.watchedByEmail.toLowerCase();
+      if (!t.watchers.some((p) => personKey(p) === wanted)) return false;
+    }
+
     if (!matchesSearch(t, searchTokens)) return false;
 
     return true;

@@ -1,16 +1,15 @@
-import { useCallback, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowDown, ArrowUp, ArrowUpDown, Check, ClipboardCheck, MessageSquare, Paperclip, Pencil, Plus, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, ClipboardCheck, MessageSquare, Paperclip, Pencil, Plus, X } from "lucide-react";
 import { SearchInput } from "@/components/SearchInput";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { usePanelQcIssues } from "@/hooks/usePanelQcIssues";
 import type { PanelQcIssue } from "@/types/task";
 import { formatSpDate } from "@/lib/spDates";
 import { htmlToPlainText } from "@/lib/htmlText";
-import { matchesTokens } from "@/lib/itemSearch";
-import { dropdownBlurHandler, dropdownKeyHandler, useDropdownClose } from "@/components/useDropdownClose";
-import { cn } from "@/lib/cn";
+// Sort + per-column filter chrome, shared with every other list that has
+// them — see components/SortableTableHeader.tsx.
+import { ColumnFilterButton } from "@/components/SortableTableHeader";
 
 const INITIAL_ROWS = 150;
 const display = (value: string | null | undefined) => value || "—";
@@ -188,155 +187,6 @@ export function PanelQcIssuesView() {
   </div>;
 }
 
-/**
- * Excel-style column filter — click the column LABEL to open a checkbox list
- * of that column's distinct values (search box included for the free-text
- * columns), separate from the sort icon beside it so one click doesn't have
- * to mean both things.
- *
- * `selected === undefined` means "everything" (no filter, the common case).
- * Unchecking the last excluded value — i.e. the set grows back to cover
- * every option — snaps back to `undefined` rather than an equivalent
- * "all of them, explicitly" Set, so `hasColumnFilters` above stays accurate.
- */
-function ColumnFilterButton({
-  label,
-  options,
-  selected,
-  onChange,
-}: {
-  label: string;
-  options: string[];
-  selected: Set<string> | undefined;
-  onChange: (next: Set<string> | undefined) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const ref = useRef<HTMLDivElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
-  const close = useCallback(() => setOpen(false), []);
-  useDropdownClose(open, ref, close, panelRef);
-
-  // The trigger sits inside the table's horizontally-scrolling wrapper,
-  // which clips vertical overflow too (an `overflow-x-auto` element without
-  // an explicit `overflow-y` gets `overflow-y: auto` from the UA, not
-  // `visible`) — so a plain `absolute` panel got squeezed into whatever
-  // room was left in the row area instead of overlaying the page. Portaling
-  // to <body> with a `fixed` position, computed straight from the trigger's
-  // rect, escapes that.
-  //
-  // Computed HERE during render, not via a `useLayoutEffect` + `setState`:
-  // `ref.current` is the trigger's OWN wrapper, already mounted from a prior
-  // commit and unmoved by opening, so reading its rect mid-render is safe,
-  // and it mounts the portal in the SAME commit `open` turns true rather
-  // than a follow-up one.
-  //
-  // That still wasn't enough on its own (reported 2026-09-04: "the filter
-  // popup doesn't work at all" — it opened and closed itself instantly).
-  // The search input below used to carry `autoFocus`, which steals focus
-  // from the trigger the moment the portal mounts — even in this same
-  // commit — and React attaches a ref to an ANCESTOR (`panelRef`, here)
-  // only AFTER a `autoFocus` descendant's own commit-time `.focus()` call,
-  // not before. So the trigger's resulting blur reached
-  // `dropdownBlurHandler` while `panelRef.current` was still `null`, which
-  // made its "is the new focus still inside our own panel?" check fail and
-  // close the panel it had just opened. Dropping `autoFocus` removes the
-  // only thing that moved focus in the first place, so opening the panel no
-  // longer blurs the trigger at all.
-  const portalPosition = open && ref.current
-    ? (() => {
-        const rect = ref.current!.getBoundingClientRect();
-        return { left: rect.left, top: rect.bottom + 4, width: Math.max(rect.width, 224) };
-      })()
-    : null;
-
-  const active = selected !== undefined;
-  const allSelected = selected === undefined;
-  const filteredOptions = query.trim()
-    ? options.filter((value) => matchesTokens(value || "(Blank)", query))
-    : options;
-
-  function toggleValue(value: string) {
-    const base = selected ?? new Set(options);
-    const next = new Set(base);
-    if (next.has(value)) next.delete(value);
-    else next.add(value);
-    onChange(next.size === options.length ? undefined : next);
-  }
-
-  function toggleAll() {
-    onChange(allSelected ? new Set() : undefined);
-  }
-
-  return (
-    <div
-      ref={ref}
-      className="relative"
-      onBlur={dropdownBlurHandler(ref, close, panelRef)}
-      onKeyDown={dropdownKeyHandler(open, close)}
-    >
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className={cn("inline-flex items-center gap-1 whitespace-nowrap hover:text-fg", active && "text-accent")}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        title={`Filter ${label}`}
-      >
-        {label}
-      </button>
-      {open && portalPosition && createPortal(
-        <div
-          ref={panelRef}
-          role="listbox"
-          style={{ left: portalPosition.left, top: portalPosition.top, width: portalPosition.width }}
-          className="fixed z-[100] flex max-h-72 flex-col rounded-lg border border-border bg-surface normal-case tracking-normal text-fg shadow-lg"
-        >
-          <div className="border-b border-border p-2">
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search…"
-              className="w-full rounded-md border border-border bg-bg px-2 py-1 text-xs font-normal text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-            />
-          </div>
-          <div className="flex-1 overflow-y-auto p-1">
-            <button type="button" onClick={toggleAll} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs font-semibold text-fg hover:bg-surface-2">
-              <CheckboxMark checked={allSelected} />
-              Select all
-            </button>
-            {filteredOptions.length === 0 ? (
-              <div className="px-3 py-4 text-center text-xs text-fg-muted">No matches</div>
-            ) : (
-              filteredOptions.map((value) => {
-                const checked = allSelected || selected!.has(value);
-                return (
-                  <button key={value} type="button" onClick={() => toggleValue(value)} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs font-normal text-fg hover:bg-surface-2">
-                    <CheckboxMark checked={checked} />
-                    <span className="truncate">{value || "(Blank)"}</span>
-                  </button>
-                );
-              })
-            )}
-          </div>
-          <div className="flex justify-end border-t border-border px-2 py-1.5">
-            <button type="button" onClick={close} className="rounded-md px-2.5 py-1 text-xs font-medium text-accent hover:bg-surface-2">Done</button>
-          </div>
-        </div>,
-        document.body,
-      )}
-    </div>
-  );
-}
-
-function CheckboxMark({ checked }: { checked: boolean }) {
-  return (
-    <span className={cn("flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border", checked ? "border-accent bg-accent text-white" : "border-border bg-surface")}>
-      {checked && <Check className="h-2.5 w-2.5" />}
-    </span>
-  );
-}
 
 function IssueRow({ issue, onEdit }: { issue: PanelQcIssue; onEdit: () => void }) { return <tr onClick={onEdit} className="cursor-pointer border-t border-border align-top hover:bg-surface-2"><td className="break-words px-2 py-2 font-medium text-fg">{display(issue.tagNumber)}{issue.hasAttachments && <Paperclip className="ml-1 inline h-3 w-3 text-fg-muted" aria-label="Has attachments" />}</td><td className="break-words px-2 py-2 text-fg-muted">{display(issue.status)}</td><td className="break-words px-2 py-2 font-medium text-fg">{display(issue.panelSerialNumber)}</td><td className="break-words px-2 py-2 text-fg-muted">{formatSpDate(issue.date)}</td><td className="break-words px-2 py-2 text-fg-muted">{display(issue.subComponentPartNumber)}</td><td className="break-words px-2 py-2 text-fg-muted">{display(issue.partDescription)}</td><td className="break-words px-2 py-2 text-fg-muted">{display(issue.subComponentSerialNumber)}</td><td className="break-words px-2 py-2 text-fg-muted">{display(issue.defectCategory)}</td><td className="break-words px-2 py-2 text-fg-muted">{display(issue.failureReported)}</td><td className="break-words px-2 py-2 text-fg-muted">{display(issue.panelsResolution)}</td><td className="break-words px-2 py-2 text-fg-muted">{display(issue.repairTechnician)}</td><td className="break-words px-2 py-2 text-fg-muted">{display(issue.repairIssueFound)}</td><td className="break-words px-2 py-2 text-fg-muted">{display(issue.repairResolution)}</td><td className="break-words px-2 py-2 text-fg-muted">{displayWatchers(issue.watchers)}</td><td className="px-2 py-2 text-fg-muted">{issue.comments.length > 0 ? <span className="inline-flex items-center gap-1"><MessageSquare className="h-3.5 w-3.5" />{issue.comments.length}</span> : "—"}</td><td className="w-9 px-1 py-2"><button type="button" onClick={(event) => { event.stopPropagation(); onEdit(); }} aria-label={`Edit issue ${issue.panelSerialNumber}`} className="rounded-md p-1 text-fg-muted hover:bg-surface-2 hover:text-fg"><Pencil className="h-4 w-4" /></button></td></tr>; }
 

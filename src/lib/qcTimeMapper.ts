@@ -21,7 +21,7 @@ import { parseSpDate, parseSpDateOnly, toSpDateOnly } from "./spDates";
 /** Columns worth fetching. */
 export const QC_TIME_SELECT =
   "Title,Week,DateintoQC,DateStarted,SAPNo,SerialNo,PerformedByPeople,PerformedByRaw," +
-  "HoursRaw,EffortType,Notes,Created,Modified";
+  "HoursRaw,EffortType,Notes,OnHold,HoldReason,Created,Modified";
 
 function text(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -51,6 +51,12 @@ export function toQcTimeEntry(item: GraphListItem): QcTimeEntry {
     // Equipment's EquipmentType/Criticality columns.
     effortType: (text(f.EffortType) || null) as QcEffortType | null,
     notes: typeof f.Notes === "string" ? f.Notes : "",
+    // A real boolean column: blank means not on hold, there is no third state.
+    onHold: f.OnHold === true,
+    // Deliberately NOT clamped to QC_TIME_HOLD_REASONS — a reason configured
+    // in SharePoint before the const catches up must render as itself rather
+    // than vanish, same call as effortType above.
+    holdReason: text(f.HoldReason),
     createdAt: parseSpDate(f.Created) ?? new Date(0),
     modifiedAt: parseSpDate(f.Modified) ?? new Date(0),
   };
@@ -69,6 +75,8 @@ export function qcTimeEntryInput(entry: QcTimeEntry): QcTimeEntryInput {
     hoursRaw: entry.hoursRaw,
     effortType: entry.effortType,
     notes: entry.notes,
+    onHold: entry.onHold,
+    holdReason: entry.holdReason,
   };
 }
 
@@ -96,6 +104,13 @@ export function buildQcTimeFields(
     HoursRaw: input.hoursRaw.trim(),
     EffortType: input.effortType,
     Notes: input.notes.trim(),
+    // ALWAYS sent, false included: leaving a boolean column null makes
+    // SharePoint's own views read it as blank rather than No.
+    OnHold: input.onHold,
+    // The reason is only meaningful while on hold. Clearing the flag clears
+    // it, so a panel taken off hold doesn't keep a stale reason that would
+    // then be counted in a correlation.
+    HoldReason: input.onHold ? input.holdReason.trim() || null : null,
   };
 }
 

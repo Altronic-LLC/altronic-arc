@@ -42,6 +42,7 @@ const NO_FILTERS: Filters = {
   projectIds: [],
   assignedEmails: [],
   createdByEmail: null,
+  watchedByEmail: null,
 };
 
 describe("collectPeople", () => {
@@ -155,7 +156,7 @@ describe("applyFilters", () => {
         task({ watchers: [ALICE] }),
         task({ id: 2, assigned: [BOB] }),
       ];
-      const out = applyFilters(tasks, null, { ...NO_FILTERS, createdByEmail: "alice@x.com" });
+      const out = applyFilters(tasks, null, { ...NO_FILTERS, createdByEmail: "alice@x.com", watchedByEmail: null });
       expect(out.map((t) => t.id)).toEqual([1]);
     });
 
@@ -163,7 +164,7 @@ describe("applyFilters", () => {
       const out = applyFilters(
         [task({ assigned: [ALICE] })],
         null,
-        { ...NO_FILTERS, createdByEmail: "bob@x.com" },
+        { ...NO_FILTERS, createdByEmail: "bob@x.com", watchedByEmail: null },
       );
       expect(out).toEqual([]);
     });
@@ -248,7 +249,7 @@ describe("applyFilters", () => {
     it("matches Created By the same way", () => {
       const out = applyFilters([task({ assigned: [NICK_SP] })], null, {
         ...NO_FILTERS,
-        createdByEmail: NICK_MSAL_EMAIL,
+        createdByEmail: NICK_MSAL_EMAIL, watchedByEmail: null,
       });
       expect(out).toHaveLength(1);
     });
@@ -290,5 +291,54 @@ describe("applyFilters", () => {
       search: "match",
     });
     expect(out.map((t) => t.id)).toEqual([1]);
+  });
+});
+
+// =============================================================================
+// The Watching filter.
+//
+// The old task app had one and it was missed (Ray, 2026-09-16): without it the
+// only ways to find something you're tracking but not assigned to are
+// remembering it or waiting for an email.
+// =============================================================================
+describe("applyFilters — watching", () => {
+  const watched = task({ id: 1, title: "Watched by Alice", watchers: [ALICE] });
+  const assignedOnly = task({ id: 2, title: "Assigned to Alice", assigned: [ALICE] });
+  const unrelated = task({ id: 3, title: "Bob's", watchers: [BOB] });
+  const all = [watched, assignedOnly, unrelated];
+
+  it("keeps only the tasks that person watches", () => {
+    const out = applyFilters(all, null, { ...NO_FILTERS, watchedByEmail: ALICE.email! });
+    expect(out.map((t) => t.id)).toEqual([1]);
+  });
+
+  it("does NOT match on assignment — that is a different filter", () => {
+    // The whole point is finding what you track but are NOT assigned to.
+    const out = applyFilters(all, null, { ...NO_FILTERS, watchedByEmail: ALICE.email! });
+    expect(out.map((t) => t.id)).not.toContain(2);
+  });
+
+  it("matches case-insensitively", () => {
+    // MSAL hands back a proper-cased UPN; SharePoint stores it lowercased.
+    const out = applyFilters(all, null, { ...NO_FILTERS, watchedByEmail: ALICE.email!.toUpperCase() });
+    expect(out.map((t) => t.id)).toEqual([1]);
+  });
+
+  it("filters nothing when unset", () => {
+    expect(applyFilters(all, null, NO_FILTERS)).toHaveLength(3);
+  });
+
+  it("returns nothing when that person watches nothing", () => {
+    const out = applyFilters(all, null, { ...NO_FILTERS, watchedByEmail: "nobody@x.com" });
+    expect(out).toEqual([]);
+  });
+
+  it("combines with the other filters rather than replacing them", () => {
+    const out = applyFilters(
+      [watched, task({ id: 4, title: "Also watched", watchers: [ALICE] })],
+      null,
+      { ...NO_FILTERS, watchedByEmail: ALICE.email!, search: "Also" },
+    );
+    expect(out.map((t) => t.id)).toEqual([4]);
   });
 });

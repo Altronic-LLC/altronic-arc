@@ -1067,9 +1067,47 @@ export interface QcTimeEntry {
   hoursRaw: string;
   effortType: QcEffortType | null;
   notes: string;
+  /**
+   * `OnHold` — a real boolean column, added 2026-09-16.
+   *
+   * A panel stalls for reasons outside QC's control (a bad Altronic
+   * component, missing parts, a customer delay). The Excel sheet this list
+   * replaced highlighted those rows; ARC had no way to record it at all, so
+   * a tech had nowhere to flag a panel that needs revisiting and management
+   * had nothing to correlate against when times climb.
+   *
+   * Blank genuinely means "not on hold" — there is no third unanswered
+   * state — so it is written on every create, false included, or SharePoint's
+   * own views read the column as blank rather than No.
+   */
+  onHold: boolean;
+  /**
+   * `HoldReason` — a SINGLE choice, not free text, so the reasons stay
+   * countable. NOT clamped to `QC_TIME_HOLD_REASONS` on read: a value
+   * configured in SharePoint before the const catches up must render as
+   * itself rather than vanish.
+   *
+   * Empty when the panel isn't on hold, and when somebody flagged one
+   * without saying why.
+   */
+  holdReason: string;
   createdAt: Date;
   modifiedAt: Date;
 }
+
+/**
+ * Why a panel is on hold. MUST stay in step with the `HoldReason` choice
+ * column — `scripts/add-qc-time-hold-columns.ps1` carries the same list, and
+ * a value here that SharePoint doesn't know is refused on save.
+ */
+export const QC_TIME_HOLD_REASONS = [
+  "Bad Altronic component",
+  "Missing parts",
+  "Customer-caused delay",
+  "Waiting on engineering",
+  "Recurring issue",
+  "Other",
+] as const;
 
 /** Everything `QcTimeEntry` holds except the id/timestamps — what a form edits. */
 export interface QcTimeEntryInput {
@@ -1083,6 +1121,8 @@ export interface QcTimeEntryInput {
   hoursRaw: string;
   effortType: QcEffortType | null;
   notes: string;
+  onHold: boolean;
+  holdReason: string;
 }
 
 // =============================================================================

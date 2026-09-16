@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { Loader2, Timer, X } from "lucide-react";
-import { QC_EFFORT_TYPES, type Person, type QcTimeEntry, type QcTimeEntryInput } from "@/types/task";
+import {
+  QC_EFFORT_TYPES,
+  QC_TIME_HOLD_REASONS,
+  type Person,
+  type QcTimeEntry,
+  type QcTimeEntryInput,
+} from "@/types/task";
 import { useCreateQcTimeEntry, useUpdateQcTimeEntry } from "@/hooks/useQcTimeTracking";
 import { qcTimeEntryInput } from "@/lib/qcTimeMapper";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
@@ -10,6 +16,7 @@ import { ChoiceSelect } from "./SearchableSelect";
 import { PersonMultiField } from "./PersonMultiField";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
 import { DateField } from "./DateField";
+import { YesNoField } from "./YesNoField";
 import { useOverlayDismiss } from "./useOverlayDismiss";
 
 // =============================================================================
@@ -42,6 +49,8 @@ function emptyDraft(): QcTimeEntryInput {
     hoursRaw: "",
     effortType: null,
     notes: "",
+    onHold: false,
+    holdReason: "",
   };
 }
 
@@ -162,6 +171,53 @@ export function QcTimeEntryFormModal({ entry, onClose }: QcTimeEntryFormModalPro
                 disabled={busy}
               />
             </Field>
+
+            {/*
+              On hold, and why. YesNoField rather than a bare checkbox — the
+              house rule: a tick leaves people reading it to work out what it
+              means, with no visible "No" to choose.
+            */}
+            {/*
+              NOT wrapped in `Field` — that renders a <label>, and a pill
+              group can't sit inside one: its options carry their own labels,
+              which nest and steal the click (see ChoicePills' own note).
+            */}
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs font-semibold uppercase tracking-wider text-fg-muted">
+                On Hold
+              </span>
+              <YesNoField
+                label="On Hold"
+                name="qc-time-on-hold"
+                value={draft.onHold ? "Yes" : ""}
+                onChange={(v) => {
+                  const next = v === "Yes";
+                  set("onHold", next);
+                  // Taking a panel off hold clears the reason, so a stale one
+                  // can't be counted in a correlation later.
+                  if (!next) set("holdReason", "");
+                }}
+                disabled={busy}
+                noValue="empty"
+              />
+            </div>
+
+            {/*
+              Only asked for while the panel IS on hold — an always-visible
+              reason picker on a panel that isn't reads as an unmet
+              requirement (the same call as FAIT's KAM sign-off fields).
+            */}
+            {draft.onHold && (
+              <Field label="Hold Reason">
+                <ChoiceSelect
+                  value={draft.holdReason}
+                  onChange={(v) => set("holdReason", v)}
+                  options={QC_TIME_HOLD_REASONS}
+                  emptyLabel="Not set"
+                  disabled={busy}
+                />
+              </Field>
+            )}
 
             <Field label="Date into QC">
               <DateField

@@ -233,7 +233,7 @@ const SECTIONS: ManualSection[] = [
       "slow",
     ],
     searchText:
-      "The List view shows every task with status pills at the top, a filter bar (Project, Assigned, Created By, Search), and a New Task button. Search matches all fields on every list; multiple words are ANDed together, and double quotes match an exact phrase. Click a row to open the task detail. Filters live in the URL so views are shareable. Only the first 150 matches are rendered at once, with a show all link if there are more — filtering, sorting and the count always cover everything.",
+      "The List view shows every task with status pills at the top, a filter bar (Project, Assigned, Search, Created By, Watching), and a New Task button. The Watching filter shows only tasks that person watches — your own name is first in the list, so finding what you are tracking but are not assigned to is one pick. Search matches all fields on every list; multiple words are ANDed together, and double quotes match an exact phrase. Click a row to open the task detail. Filters live in the URL so views are shareable. Only the first 150 matches are rendered at once, with a show all link if there are more — filtering, sorting and the count always cover everything.",
     render: () => (
       <>
         <P>
@@ -2125,7 +2125,7 @@ const SECTIONS: ManualSection[] = [
       "serial number",
     ],
     searchText:
-      "QC Time Tracking is a simple log on the ALTRONICPANELTEAM SharePoint site of hours QC spent on each panel project — who did the work, when, and how long. Fields: Project, Week, Date into QC, Date Started, SAP#, Serial#, Performed By (one or more people), Hours (free text — some entries aren't a plain number), Effort Type (Repeat Panel, Support, New Panel, Project Work), and Notes. Reach it from the Departments dropdown's Panels group. Any signed-in user can add an entry with New Entry, or click a row to edit it in the same form. There is no delete, no comments, no watchers, and no admin gate on this list — correcting a mistake is an edit.",
+      "QC Time Tracking is a simple log on the ALTRONICPANELTEAM SharePoint site of hours QC spent on each panel project — who did the work, when, and how long. Fields: Project, Week, Date into QC, Date Started, SAP#, Serial#, Performed By (one or more people), Hours (free text — some entries aren't a plain number), Effort Type (Repeat Panel, Support, New Panel, Project Work), and Notes. Reach it from the Departments dropdown's Panels group. Any signed-in user can add an entry with New Entry, or click a row to edit it in the same form. There is no delete, no comments, no watchers, and no admin gate on this list — correcting a mistake is an edit. Every column sorts — click the arrows beside its name — and clicking a column name opens a checkbox list to filter by its values, the same as the Panel QC Issue Tracker. Sorting by Hours is how you spot panels that took longer than expected; entries whose Hours are not a number (a note like \"see notes\") group at the end rather than counting as zero. A panel can be marked On Hold with a reason (bad Altronic component, missing parts, customer-caused delay, waiting on engineering, recurring issue, other): those rows are tinted amber and carry a chip naming the reason, and an \"on hold\" button beside the count shows just them. Admins can delete an entry, which is there for a duplicate — two techs logging the same panel — and everything else should be corrected with an edit.",
     render: () => (
       <>
         <P>
@@ -2144,10 +2144,48 @@ const SECTIONS: ManualSection[] = [
           is a clean figure. <strong>Performed By</strong> takes one or more
           people — pick everyone who worked on it.
         </P>
+        <H3>Sorting and filtering</H3>
         <P>
-          Any signed-in user can add or edit an entry. There's no delete, no
-          comments, and no watchers on this list — it's a straightforward
-          record, and a mistake is corrected with an edit.
+          Every column sorts — click the arrows beside its name; the first
+          click sorts A→Z or smallest-first, clicking again reverses it.
+          Clicking the column <em>name</em> instead opens a checkbox list of
+          that column's values, so you can narrow to one project, one tech or
+          one effort type. The same chrome as the{" "}
+          <strong>Panel QC Issue Tracker</strong>.
+        </P>
+        <Tip>
+          <strong>Sort by Hours to spot the long jobs.</strong> Because Hours
+          is a text field, some entries hold a note rather than a figure
+          ("see notes"). Those <strong>group at the end</strong> instead of
+          counting as zero — they aren't quick jobs, and they shouldn't hide
+          among them either.
+        </Tip>
+
+        <H3>Panels on hold</H3>
+        <P>
+          A panel that's stalled — a bad Altronic component, missing parts, a
+          customer-caused delay, waiting on engineering, a recurring issue —
+          can be marked <strong>On Hold</strong> on its entry, with the reason
+          picked from that list. Those rows are{" "}
+          <strong>tinted amber and carry a chip naming the reason</strong>, so
+          the flag survives a black-and-white print and doesn't rely on
+          colour alone.
+        </P>
+        <P>
+          An <strong>on hold</strong> button beside the entry count shows just
+          those panels — the queue of what needs revisiting. It only appears
+          when something actually is on hold. Taking a panel off hold clears
+          the reason, so a stale one can't be counted later.
+        </P>
+
+        <H3>Who can change what</H3>
+        <P>
+          Any signed-in user can add or edit an entry. <strong>Only admins
+          can delete one</strong>, and that's there for a{" "}
+          <strong>duplicate</strong> — two techs logging the same panel.
+          Anything else should be corrected with an edit: an edit leaves a
+          corrected record, a delete leaves nothing. There are no comments and
+          no watchers on this list.
         </P>
       </>
     ),
@@ -4585,7 +4623,7 @@ const SECTIONS: ManualSection[] = [
       "url filter",
     ],
     searchText:
-      "The filter bar on List, Kanban, and Test Sheets has Project Reference (multi), Assigned (multi, defaults to you), free-text Search, and Created By (single). Filters live in the URL — bookmark or share a filtered view as a link. People dropdowns (Assigned, Assigned Engineer, Reporter, Requestor, Watchers, Created By) match every word you type in any order, so first name plus surname works whichever way round the name is stored, and an email address finds someone too. admin.first.last accounts are hidden from people lists.",
+      "The filter bar on List, Kanban, and Test Sheets has Project Reference (multi), Assigned (multi, defaults to you), free-text Search, Created By (single), and Watching (single, with your own name first — shows only tasks that person watches, for finding what you track but are not assigned to). Filters live in the URL — bookmark or share a filtered view as a link. People dropdowns (Assigned, Assigned Engineer, Reporter, Requestor, Watchers, Created By) match every word you type in any order, so first name plus surname works whichever way round the name is stored, and an email address finds someone too. admin.first.last accounts are hidden from people lists.",
     render: () => (
       <>
         <P>
@@ -4608,6 +4646,14 @@ const SECTIONS: ManualSection[] = [
           <LI>
             <strong>Created By</strong> — single-select. Filter to tasks
             created by a particular person.
+          </LI>
+          <LI>
+            <strong>Watching</strong> — single-select, and{" "}
+            <strong>your own name is first in the list</strong>. Shows only
+            tasks that person watches, which is how you find something you're
+            tracking but aren't assigned to — the alternative being to
+            remember it or wait for an email. It does <em>not</em> match on
+            assignment: that's what the Assigned filter is for.
           </LI>
         </UL>
         <P>

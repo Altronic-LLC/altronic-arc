@@ -70,6 +70,14 @@ export function applyFilters(
       if (!has) return false;
     }
 
+    if (filters.watchedByEmail) {
+      // Both sides through personKey, same reason as the assigned check: the
+      // filter value can come from MSAL proper-cased while the task's copy
+      // came from SharePoint lowercased.
+      const wanted = filters.watchedByEmail.toLowerCase();
+      if (!t.watchers.some((p) => personKey(p) === wanted)) return false;
+    }
+
     if (!matchesSearch(t, searchTokens)) return false;
 
     return true;
