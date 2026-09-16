@@ -33,20 +33,29 @@ describe("the summary", () => {
 });
 
 describe("an ECN with no checklist", () => {
+  // The button only appears once the checklist query has RESOLVED and found
+  // nothing (before that the card says "Checking for a checklist…"), and the
+  // mock API delays 200ms. That is comfortable alone and not when the whole
+  // suite is competing for cores — this case timed out in the full run on
+  // 2026-09-16 and gated a deploy. An explicit timeout beats the 5s default.
   it("offers to create one — the path for ECNs predating this feature", async () => {
     renderWithProviders(<EcnChecklistCard ecn={ecnWithout} />);
-    expect(await screen.findByRole("button", { name: /create checklist/i })).toBeInTheDocument();
-  });
+    expect(
+      await screen.findByRole("button", { name: /create checklist/i }, { timeout: 15_000 }),
+    ).toBeInTheDocument();
+  }, 20_000);
 
   it("creates it and opens it", async () => {
     const user = userEvent.setup();
     renderWithProviders(<EcnChecklistCard ecn={ecnWithout} />);
 
-    await user.click(await screen.findByRole("button", { name: /create checklist/i }));
+    await user.click(
+      await screen.findByRole("button", { name: /create checklist/i }, { timeout: 15_000 }),
+    );
 
-    expect(await screen.findByText(/0 of 84 answered/)).toBeInTheDocument();
+    expect(await screen.findByText(/0 of 84 answered/, undefined, { timeout: 15_000 })).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: /hide checklist/i })).toBeInTheDocument();
-  });
+  }, 20_000);
 });
 
 describe("filling it out", () => {

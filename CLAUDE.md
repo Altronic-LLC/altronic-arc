@@ -4501,6 +4501,72 @@ carried, since the status pills are component state the URL isn't kept in step
 with. Keep the URL as the source of truth — a filtered view being shareable is
 promised in the manual.
 
+### A row-cap test must not render 150 real rows — it gates the deploy
+
+`npm test` runs in the deploy workflow and **must pass to deploy**. On
+2026-09-16 it failed repeatedly on nothing but slow tests, and the app was
+fine — so this is worth knowing before writing the next capped-list test.
+
+The row-cap tests (`ListView`, `EirsView.rowCap`, `MaintenanceListView`,
+`TeradyneLogView`) seeded 160–200 fixtures to prove a 150-row cap, then
+asserted through the real row components. Three costs compounded, and each one
+was measured rather than guessed:
+
+| What | Cost, 151 rows mounted |
+|---|---|
+| `render` | 726ms |
+| **`findByRole(/show all/)`** | **4,079ms** |
+| `click` | 275ms |
+| `waitFor(getByText(...))` | 116ms |
+| **`queryByRole(/show all/)`** | **3,411ms** |
+
+1. **`*ByRole` builds an accessibility tree across the WHOLE document**, so it
+   scales with every row on screen — those two calls were **87% of the
+   runtime**. `getByText` is a flat text scan, ~30× cheaper here, and the
+   show-all control carries distinctive text so it tests the same thing.
+2. **Rendering the real row 150 times is the rest of it.** `EirRow` /
+   `TaskRow` each render a button plus badges, chips and derived
+   checklist/child-task state, and the lot re-renders on every filter change.
+3. **`userEvent`'s default delay** waits between the events one click
+   dispatches, and every tick drags a re-render of all those rows behind it.
+
+Isolated, the worst file ran in 1.6s. **Inside the full 338-file suite it took
+15–34s** — a 6-10× slowdown from contention alone, blowing a 20s timeout. That
+gap is the whole trap: *the test passes when you run it, and fails the deploy.*
+
+The fixes, cheapest first — apply them in this order:
+
+- **Never `*ByRole` for a control on a capped list.** Match its text.
+- **Stub the row component** (`vi.mock("@/components/EirRow", …)` rendering
+  just the title). A cap test is about HOW MANY rows reach the DOM, not what a
+  row looks like — that belongs in the row's own test file. This took
+  `EirsView.rowCap` from 1,644ms to **159ms**, a 10× cut on top of the query
+  fix.
+- **`userEvent.setup({ delay: null })`** for the block that clicks with many
+  rows mounted. Leave the realistic default elsewhere.
+- **Seed `INITIAL_ROWS + 1`, not a round 200.** Every assertion only needs
+  "more rows than the cap", and 151 makes the boundary assertion *tighter* —
+  row 150 is exactly the first one excluded.
+
+Two things that did NOT work, so nobody repeats them:
+
+- **Raising `testTimeout` globally** (already done, to 20s, before this). Its
+  own code comment calls per-test raises "whack-a-mole"; a global raise is the
+  same move one level up — it treats a scheduling problem as a patience
+  problem, and the suite failed anyway.
+- **Capping the worker pool** (`maxWorkers: 4`). Reduced failures from 4 to 2
+  and made the suite **50% slower** (10.4 min vs 6.7 min). Reverted.
+
+**Verify a cap test still catches a broken cap** by flipping `INITIAL_ROWS` to
+151 and watching it fail. A fast test that asserts nothing is worse than a slow
+one.
+
+And **a random value in a component is not something to assert on**:
+`FeatureRequestsView`'s loading test matched `/loading/i` against
+`LoadingTasks`, which picks its verb at random from a dozen ("Sparking",
+"Igniting", "Loading", …). It passed ~10% of the time by luck. Assert the
+`noun` the caller passes, which is deterministic.
+
 ### Big lists cap what's RENDERED, not what's filtered or counted
 
 `ListView` (tasks) and `EirsView` had no cap on how many rows hit the DOM —

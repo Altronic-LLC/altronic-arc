@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.153.2",
+    date: "2026-09-16",
+    changes: [
+      "Fixed the deploy, which was blocked by slow tests timing out rather than by anything wrong with the app",
+    ],
+  },
+  {
     version: "0.153.1",
     date: "2026-09-16",
     changes: [
