@@ -47,6 +47,7 @@ import { DescriptionView } from "@/components/DescriptionView";
 import { CommentThread } from "@/components/CommentThread";
 import { CommentComposer } from "@/components/CommentComposer";
 import { AttachmentsSection } from "@/components/AttachmentsSection";
+import { useCommentFileUpload } from "@/hooks/useAttachments";
 import { OperationsTaskFormModal } from "@/components/OperationsTaskFormModal";
 import { OperationsStatusBadge } from "@/components/operationsAtoms";
 import { SingleSelect } from "@/components/SearchableSelect";
@@ -69,6 +70,10 @@ export function OperationsDetailView() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const taskId = id ? parseInt(id, 10) : null;
+  // A screenshot pasted or dropped into a comment goes to the SAME
+  // list-item attachment store as the Attachments card, so it survives a
+  // refresh. Without this prop the composer discards it silently.
+  const uploadCommentFile = useCommentFileUpload("operationsTask", taskId);
   const { data: task, isLoading } = useOperationsTask(taskId);
   const { data: allTasks = [] } = useOperationsTasks();
   const { data: projects = [] } = useOperationsProjects();
@@ -369,12 +374,13 @@ export function OperationsDetailView() {
                 Your comment was removed from the thread — try again.
               </div>
             )}
-            <CommentComposer onSubmit={handleAddComment} mentionablePeople={mentionCandidates} />
+            <CommentComposer onSubmit={handleAddComment} mentionablePeople={mentionCandidates} uploadFile={uploadCommentFile} />
             {newExternalComments.length > 0 && (
               <NewCommentsBanner comments={newExternalComments} onShow={handleShowNewComments} />
             )}
             <div className="mt-5">
               <CommentThread
+                uploadFile={uploadCommentFile}
                 comments={displayedComments}
                 currentUserEmail={currentUser.email}
                 currentUserName={currentUser.displayName}

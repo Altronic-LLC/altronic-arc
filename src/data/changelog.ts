@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.154.0",
+    date: "2026-09-16",
+    changes: [
+      "Gray Market Requests show the Requestor and Parts Location again — both read as \"Not set\" even when the SharePoint list had somebody in them",
+      "Screenshots pasted or dropped into a comment now actually save, on EIRs, ECNs, tasks, Operations tasks, Panel orders and tasks, Build Requests, work orders, Suppliers and Cost Impact Notices — before, only FAITs kept them and everywhere else dropped them silently",
+      "A person who can't be matched on the list's own site shows as \"User #n\" rather than as blank, so a field that IS filled in never looks empty",
+    ],
+  },
+  {
     version: "0.153.2",
     date: "2026-09-16",
     changes: [

@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   deleteAttachment,
@@ -69,6 +70,36 @@ export function useUploadAttachment(parent: AttachmentParent, itemId: number | n
       qc.invalidateQueries({ queryKey: attachmentsKey(parent, itemId ?? 0) });
     },
   });
+}
+
+/**
+ * The `uploadFile` a `CommentComposer` / `CommentThread` wants.
+ *
+ * Adapts `useUploadAttachment` to the composer's `{ name, webUrl }` contract,
+ * so a screenshot pasted or dropped into a comment is uploaded to the SAME
+ * list-item attachment store the page's Attachments card already uses — and
+ * therefore survives a refresh.
+ *
+ * **WITHOUT THIS PROP THE COMPOSER SILENTLY DISCARDS THE FILE.** It holds a
+ * pasted image in memory to show a thumbnail and only uploads on submit if a
+ * parent supplied `uploadFile`; with no prop the comment posts as text and the
+ * screenshot is gone, with nothing on screen saying so. FAIT was the only view
+ * that passed it — EIRs and nine others didn't, which is what "screenshots are
+ * not saving as attachments to EIR and are not saving to the comments"
+ * reported (Ray, 2026-09-16).
+ *
+ * One hook rather than the same four-line adapter in eleven views: that is how
+ * one copy drifts (see the `htmlToPlainText` note in CLAUDE.md).
+ */
+export function useCommentFileUpload(parent: AttachmentParent, itemId: number | null) {
+  const upload = useUploadAttachment(parent, itemId);
+  return useCallback(
+    async (file: File): Promise<{ name: string; webUrl: string }> => {
+      const uploaded = await upload.mutateAsync(file);
+      return { name: uploaded.fileName, webUrl: uploaded.downloadUrl };
+    },
+    [upload],
+  );
 }
 
 export function useDeleteAttachment(parent: AttachmentParent, itemId: number | null) {

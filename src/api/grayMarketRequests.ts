@@ -1,6 +1,6 @@
 import { graphFetch, graphFetchAll } from "./graph";
 import { SITES, SP_GRAY_MARKET_LIST_ID, SP_PMO_SITE_URL, USE_MOCK } from "./config";
-import { ensureLookupIds, ensurePersonLookupId } from "./siteUsers";
+import { ensureLookupIds, ensurePersonLookupId, listSiteUserDirectory } from "./siteUsers";
 import type {
   GrayMarketRequest,
   GrayMarketRequestInput,
@@ -8,6 +8,7 @@ import type {
   Person,
 } from "@/types/task";
 import {
+  attachGrayMarketPeople,
   buildGrayMarketCreateFields,
   compareGrayMarketRequests,
   toGrayMarketRequest,
@@ -57,11 +58,23 @@ export async function listGrayMarketRequests(): Promise<GrayMarketRequest[]> {
     return delay([...mockStore].sort(compareGrayMarketRequests).map((r) => ({ ...r })));
   }
   const listId = requireListId("load gray market requests");
-  const items = await graphFetchAll<GraphListItem>(
-    `/sites/${SITES.pmo}/lists/${listId}/items` +
-      `?$expand=fields($select=${GRAY_MARKET_SELECT})&$top=999`,
-  );
-  return items.map(toGrayMarketRequest).sort(compareGrayMarketRequests);
+  // The site directory is read in PARALLEL with the items, once per load, and
+  // best-effort: a single-value person column arrives as a bare lookupId, so
+  // without it Requestor and Parts Location have no name to show.
+  const [items, siteUsers] = await Promise.all([
+    graphFetchAll<GraphListItem>(
+      `/sites/${SITES.pmo}/lists/${listId}/items` +
+        `?$expand=fields($select=${GRAY_MARKET_SELECT})&$top=999`,
+    ),
+    // BEST-EFFORT: a throttled or refused directory read must not take the
+    // whole list with it. Without it the people fall back to "User #n", which
+    // is degraded but honest — losing every request because a name couldn't
+    // be looked up would be far worse.
+    listSiteUserDirectory(SITES.pmo).catch(() => new Map()),
+  ]);
+  const requests = items.map(toGrayMarketRequest).sort(compareGrayMarketRequests);
+  attachGrayMarketPeople(requests, siteUsers);
+  return requests;
 }
 
 export async function getGrayMarketRequest(
@@ -72,10 +85,15 @@ export async function getGrayMarketRequest(
     return delay(found ? { ...found } : null);
   }
   try {
-    const item = await graphFetch<GraphListItem>(
-      `${itemPath(id)}?$expand=fields($select=${GRAY_MARKET_SELECT})`,
-    );
-    return toGrayMarketRequest(item);
+    const [item, siteUsers] = await Promise.all([
+      graphFetch<GraphListItem>(
+        `${itemPath(id)}?$expand=fields($select=${GRAY_MARKET_SELECT})`,
+      ),
+      listSiteUserDirectory(SITES.pmo).catch(() => new Map()),
+    ]);
+    const request = toGrayMarketRequest(item);
+    attachGrayMarketPeople([request], siteUsers);
+    return request;
   } catch {
     return null;
   }

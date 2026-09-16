@@ -152,8 +152,16 @@ export const GRAY_MARKET_SELECT = [
   "TodaysDate",
   "DateCompleted",
   "ProductionTest",
+  // BOTH halves of each SINGLE-value person column. Graph hands a
+  // single-value person column back as a bare `<Name>LookupId` even with the
+  // friendly name selected, so asking for the friendly name ALONE reads as
+  // nobody — which is exactly what "Requestor: Not set" on a request that has
+  // one looked like (reported 2026-09-16). See "A single-person column needs
+  // BOTH halves selected" in CLAUDE.md.
   "Requestor",
+  "RequestorLookupId",
   "Parts_x0020_Location",
+  "Parts_x0020_LocationLookupId",
   "Watchers",
   "Communication",
   "Attachments",

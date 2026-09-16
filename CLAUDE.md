@@ -1751,6 +1751,29 @@ Also:
 - **`Communication` and `Watchers` already existed on the list**, which is why
   the standard comment thread wired up with no SharePoint changes.
 
+**`Requestor` and `Parts_x0020_Location` are SINGLE-value person columns, and
+both read as nobody until 2026-09-16.** The `$select` asked for the friendly
+names ALONE, and Graph hands a single-value person column back as a bare
+`<Name>LookupId` regardless — so `parseSinglePerson` (which only understands
+the expanded object) returned `null` on every row, and the detail page showed
+"Requestor: Not set" on a request that genuinely had one (reported on
+GMR_2026-207). The fix is the same three-step this file documents for FAIT,
+Supplier `BPReference`, the CMMS lists and Feature Requests' `RequestedBy`:
+select BOTH halves, read either shape (`personOrLookup` in
+`grayMarketMapper.ts`), then fill the names in from the PMO site's User
+Information List (`attachGrayMarketPeople`, one read per load, in parallel
+with the items and **best-effort** — a throttled directory read must degrade
+to `User #n`, not lose the whole list). An unresolvable id renders as
+`User #46`, never as "Not set". Pinned in
+`grayMarketRequests.requestor.test.ts` with `USE_MOCK: false`, verified by
+reintroducing the bug and watching seven cases fail.
+
+**Note this is a DIFFERENT bug from the wrong-person-as-watcher one fixed the
+same day** (see "A lookupId is valid on ONE site"). That was a WRITE resolving
+against the wrong site; this is a READ not asking for the id at all. Both
+surfaced on Gray Market Requests within hours of each other, which is a
+coincidence of where people were looking, not one root cause.
+
 **No delete**, in the UI or the API module — a request records a part that was
 bought. `grayMarketRequests.test.ts` asserts the module exports nothing
 matching /delete|remove/.
@@ -5432,6 +5455,55 @@ Deletes are scoped per-storage — removing a file from "On this task" only
 deletes the list-item attachment; removing from the project folder only
 deletes the file in SharePoint. The other copy is untouched. This is by
 design: users may want one but not the other to disappear.
+
+### A comment composer with no `uploadFile` DISCARDS the pasted file, silently
+
+`CommentComposer` holds a pasted or dropped image in memory to show a
+thumbnail, and only uploads it on submit **if the parent passed `uploadFile`**.
+With no prop the comment posts as plain text and the screenshot is gone —
+nothing on screen says so, and a type check can't catch it, because the prop
+has to stay optional (two views genuinely have nowhere to put a file).
+
+**FAIT was the only one of eleven views that passed it.** Ten others didn't:
+EIRs, ECNs, Operations tasks, Panel orders, Panel tasks, Build Requests,
+maintenance work orders, Suppliers and Cost Impact Notices. Reported
+2026-09-16 as "screenshots are not saving as attachments to EIR and are not
+saving to the comments" — EIRs were just where somebody happened to try it.
+
+`useCommentFileUpload(parent, itemId)` in `hooks/useAttachments.ts` is the one
+adapter now — it wraps `useUploadAttachment` into the composer's
+`{ name, webUrl }` contract, so a pasted screenshot lands in the SAME
+list-item attachment store the page's Attachments card already uses and
+survives a refresh. One hook rather than the same four lines in eleven views,
+for the reason the `htmlToPlainText` note gives: that is how one copy drifts.
+
+Three things about the wiring:
+
+- **Pass it to the THREAD as well as the composer.** Both take the prop, and
+  wiring only the composer is the easy half-fix — an edited comment can attach
+  a file too.
+- **Call the hook ABOVE the view's early return**, next to the nullable
+  `<thing>Id`. These views `return` before the item loads, and a hook cannot
+  be called conditionally; the hook takes `number | null` for exactly this.
+- **Two views are deliberately exempt**: `CustomerNoteDetailView` and
+  `FeatureRequestDetailView` have a Communication column but no
+  `AttachmentParent` entry and no `AttachmentsSection`, so there is nowhere
+  for a file to go. Giving either one comment attachments means adding its
+  parent config in `api/attachments.ts` first.
+
+`views/commentFileUpload.wiring.test.ts` pins it structurally — reading each
+view's source via Vite's `?raw` (the app's tsconfig has no Node types), in the
+spirit of `App.routes.test.ts`. A view that renders a composer AND has an
+attachment store must pass the prop to both components; the two exemptions are
+listed with their reason, and the test also fails if an exempt view later
+gains an attachment store, so it can't stay quietly exempt. Verified by
+removing the prop from `EirDetailView` and watching it name the offender.
+
+**A `vi.mock("@/hooks/useAttachments", …)` must include this export.** Six
+test files mock that module wholesale, and a mock missing a member throws
+*"No `useCommentFileUpload` export is defined"* the moment a view that wires
+it renders — so adding a member to that hook module means updating those
+mocks in the same commit.
 
 ### Downloading a list-item attachment goes through the authenticated endpoint
 

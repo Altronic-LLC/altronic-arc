@@ -42,6 +42,7 @@ import { BuildRequestItemFormModal } from "@/components/BuildRequestItemFormModa
 import { CommentComposer } from "@/components/CommentComposer";
 import { CommentThread } from "@/components/CommentThread";
 import { AttachmentsSection } from "@/components/AttachmentsSection";
+import { useCommentFileUpload } from "@/hooks/useAttachments";
 import { PersonMultiField } from "@/components/PersonMultiField";
 import { MultiSelect, SingleSelect } from "@/components/SearchableSelect";
 import { LoadingTasks } from "@/components/LoadingTasks";
@@ -55,6 +56,10 @@ import { YesNoField } from "@/components/YesNoField";
 export function BuildRequestDetailView() {
   const { id } = useParams<{ id: string }>();
   const brId = id ? parseInt(id, 10) : null;
+  // A screenshot pasted or dropped into a comment goes to the SAME
+  // list-item attachment store as the Attachments card, so it survives a
+  // refresh. Without this prop the composer discards it silently.
+  const uploadCommentFile = useCommentFileUpload("buildRequest", brId);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const focusItemId = searchParams.get("item") ? parseInt(searchParams.get("item")!, 10) : null;
@@ -269,9 +274,10 @@ export function BuildRequestDetailView() {
             <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
               Comments on this request
             </h2>
-            <CommentComposer onSubmit={handleAddComment} mentionablePeople={mentionCandidates} />
+            <CommentComposer onSubmit={handleAddComment} mentionablePeople={mentionCandidates} uploadFile={uploadCommentFile} />
             <div className="mt-5">
               <CommentThread
+                uploadFile={uploadCommentFile}
                 comments={br.comments}
                 currentUserEmail={currentUser.email}
                 currentUserName={currentUser.displayName}

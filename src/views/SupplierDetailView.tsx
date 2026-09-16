@@ -33,6 +33,7 @@ import { ChoiceSelect, MultiSelect, SingleSelect } from "@/components/Searchable
 import { CommentComposer } from "@/components/CommentComposer";
 import { CommentThread } from "@/components/CommentThread";
 import { AttachmentsSection } from "@/components/AttachmentsSection";
+import { useCommentFileUpload } from "@/hooks/useAttachments";
 import { DetailTopBar } from "@/components/DetailTopBar";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { SupplierContactCard } from "@/components/SupplierContactCard";
@@ -56,6 +57,10 @@ export function SupplierDetailView() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const supplierId = id ? parseInt(id, 10) : null;
+  // A screenshot pasted or dropped into a comment goes to the SAME
+  // list-item attachment store as the Attachments card, so it survives a
+  // refresh. Without this prop the composer discards it silently.
+  const uploadCommentFile = useCommentFileUpload("supplier", supplierId);
   const { data: supplier, isLoading } = useSupplier(supplierId);
   const { data: suppliers = [] } = useSuppliers();
   const currentUser = useCurrentUser();
@@ -229,9 +234,10 @@ export function SupplierDetailView() {
             <h2 className="mb-1 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
               Comments
             </h2>
-            <CommentComposer onSubmit={handleAddComment} mentionablePeople={allPeople} />
+            <CommentComposer onSubmit={handleAddComment} mentionablePeople={allPeople} uploadFile={uploadCommentFile} />
             <div className="mt-5">
               <CommentThread
+                uploadFile={uploadCommentFile}
                 comments={supplier.comments}
                 currentUserEmail={currentUser.email}
                 currentUserName={currentUser.displayName}

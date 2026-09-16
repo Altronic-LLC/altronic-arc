@@ -28,6 +28,7 @@ import { mergePeople } from "@/lib/people";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { AttachmentsSection } from "@/components/AttachmentsSection";
+import { useCommentFileUpload } from "@/hooks/useAttachments";
 import { FieldEditModal, type EditableFieldSpec } from "@/components/FieldEditModal";
 import { ChoiceSelect } from "@/components/SearchableSelect";
 import { ChoicePills } from "@/components/ChoicePills";
@@ -59,6 +60,10 @@ export function GrayMarketRequestDetailView() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const requestId = id ? parseInt(id, 10) : null;
+  // A screenshot pasted or dropped into a comment goes to the SAME
+  // list-item attachment store as the Attachments card, so it survives a
+  // refresh. Without this prop the composer discards it silently.
+  const uploadCommentFile = useCommentFileUpload("grayMarketRequest", requestId);
   const { data: request, isLoading } = useGrayMarketRequest(requestId);
   const { data: requests = [] } = useGrayMarketRequests();
   const currentUser = useCurrentUser();
@@ -212,11 +217,13 @@ export function GrayMarketRequestDetailView() {
               Comments
             </h2>
             <CommentComposer
+              uploadFile={uploadCommentFile}
               onSubmit={handleAddComment}
               mentionablePeople={mentionCandidates}
             />
             <div className="mt-5">
               <CommentThread
+                uploadFile={uploadCommentFile}
                 comments={request.comments}
                 currentUserEmail={currentUser.email}
                 currentUserName={currentUser.displayName}

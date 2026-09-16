@@ -46,6 +46,7 @@ import { DescriptionView } from "@/components/DescriptionView";
 import { CommentThread } from "@/components/CommentThread";
 import { CommentComposer } from "@/components/CommentComposer";
 import { AttachmentsSection } from "@/components/AttachmentsSection";
+import { useCommentFileUpload } from "@/hooks/useAttachments";
 import { DetailTopBar } from "@/components/DetailTopBar";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { DateField } from "@/components/DateField";
@@ -100,6 +101,10 @@ export function MaintenanceDetailView() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const taskId = id ? parseInt(id, 10) : null;
+  // A screenshot pasted or dropped into a comment goes to the SAME
+  // list-item attachment store as the Attachments card, so it survives a
+  // refresh. Without this prop the composer discards it silently.
+  const uploadCommentFile = useCommentFileUpload("maintenanceTask", taskId);
   const { data: task, isLoading } = useMaintenanceTask(taskId);
   const { data: allTasks = [] } = useMaintenanceTasks();
   const { data: equipment = [] } = useEquipment();
@@ -404,9 +409,10 @@ export function MaintenanceDetailView() {
                 Your comment was removed from the thread — try again.
               </div>
             )}
-            <CommentComposer onSubmit={handleAddComment} mentionablePeople={mentionCandidates} />
+            <CommentComposer onSubmit={handleAddComment} mentionablePeople={mentionCandidates} uploadFile={uploadCommentFile} />
             <div className="mt-5">
               <CommentThread
+                uploadFile={uploadCommentFile}
                 comments={task.comments}
                 currentUserEmail={currentUser.email}
                 currentUserName={currentUser.displayName}
