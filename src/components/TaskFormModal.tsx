@@ -34,6 +34,7 @@ import { ChoiceSelect, MultiSelect } from "./SearchableSelect";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { mergePeople } from "@/lib/people";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
+import { RichTextToggleField } from "./RichTextToggleField";
 import { cn } from "@/lib/cn";
 import { DateField } from "./DateField";
 import { toLabelsField } from "@/lib/labels";
@@ -425,7 +426,15 @@ export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormM
               />
             </FieldLabel>
 
-            <label className="block">
+            {/*
+              A DIV, not a <label>. This block holds buttons — "Turn into
+              checklist", and now the rich-text toggle — and interactive
+              controls inside a <label> steal its click and, for a nested
+              button, are invalid HTML (the same nesting rule that bit
+              SearchableSelect's clear button). The field names itself with
+              aria-label instead.
+            */}
+            <div className="block">
               <div className="mb-1 flex items-center justify-between">
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
                   Description
@@ -440,7 +449,15 @@ export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormM
                   Turn into checklist
                 </button>
               </div>
+              <RichTextToggleField
+                value={description}
+                onChange={setDescription}
+                minHeight="6.5rem"
+                ariaLabel="Description"
+                placeholder="What needs to be done? Acceptance criteria, links, context…"
+                renderPlain={() => (
               <AutoGrowTextarea
+                aria-label="Description"
                 style={{ minHeight: "6.5rem" }}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -469,7 +486,9 @@ export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormM
                 placeholder="What needs to be done? Acceptance criteria, links, context…"
                 className="w-full resize-y rounded-md border border-border bg-surface px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
               />
-            </label>
+                )}
+              />
+            </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <FieldLabel label="Status">

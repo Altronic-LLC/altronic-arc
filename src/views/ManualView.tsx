@@ -384,7 +384,7 @@ const SECTIONS: ManualSection[] = [
       "to-do list",
     ],
     searchText:
-      "Create tasks with the New Task button. Required: Title and Parent Project. NumberedTitle is auto-generated as T{n}-{projectRef}-{title}. Edit fields inline from the right sidebar of the detail page. Use Mark Complete or change Status to close out. A task with any child tasks not yet Complete can't be marked Complete itself — the Mark Complete button, the Status dropdown, and dragging a card to the Complete column on the Kanban all refuse it and say how many child tasks are still open, so finish or close those out first. The New Child Task button on a task's detail page opens the New Task form pre-filled and locked to that task's Parent Task and Parent Project, so a sub-task can't accidentally end up under the wrong parent or project; everything else on the form stays editable and submitting opens the new child task. The Description field can hold a custom checklist — click Turn into checklist while editing, or type - [ ] lines yourself, and check items off directly from the detail page. Checking a box instantly records your name and the time next to the item; unchecking asks Are you sure first and records who unchecked it. Indent a checklist line with Tab (or spaces) to make it a sub-task of the item above it; Shift+Tab outdents. One level of nesting; the parent shows a 1/2 count of its sub-tasks done and is never ticked automatically. Tab only indents on a checklist line — elsewhere it moves to the next field.",
+      "Create tasks with the New Task button. Required: Title and Parent Project. NumberedTitle is auto-generated as T{n}-{projectRef}-{title}. Edit fields inline from the right sidebar of the detail page. Use Mark Complete or change Status to close out. A task with any child tasks not yet Complete can't be marked Complete itself — the Mark Complete button, the Status dropdown, and dragging a card to the Complete column on the Kanban all refuse it and say how many child tasks are still open, so finish or close those out first. The New Child Task button on a task's detail page opens the New Task form pre-filled and locked to that task's Parent Task and Parent Project, so a sub-task can't accidentally end up under the wrong parent or project; everything else on the form stays editable and submitting opens the new child task. The Description field can hold a custom checklist — click Turn into checklist while editing, or type - [ ] lines yourself, and check items off directly from the detail page. Checking a box instantly records your name and the time next to the item; unchecking asks Are you sure first and records who unchecked it. Indent a checklist line with Tab (or spaces) to make it a sub-task of the item above it; Shift+Tab outdents. One level of nesting; the parent shows a 1/2 count of its sub-tasks done and is never ticked automatically. Tab only indents on a checklist line — elsewhere it moves to the next field. The Description field also has a Rich text button for bold, italic, underline and lists. It warns before switching, because rich text turns off the checklist function — a rich description cannot use the - [ ] syntax. If the description ALREADY has checkboxes the button is disabled and says why, so you cannot lose a checklist you have been ticking; delete the checklist lines first if you really want rich text. Switching back to plain text restores checklists.",
     render: () => (
       <>
         <H3>Creating a task</H3>
@@ -468,6 +468,27 @@ const SECTIONS: ManualSection[] = [
           description, status, assignees, and the rest — is filled in as
           normal. Submitting takes you straight to the new child task.
         </P>
+        <H3>Formatting a Description — the Rich text button</H3>
+        <P>
+          The Description field has a <strong>Rich text</strong> button for
+          bold, italic, underline and lists. It asks before switching, because
+          a rich description <strong>can&apos;t use checklists</strong> — the{" "}
+          <code>- [ ]</code> syntax below only works in plain text.
+        </P>
+        <Tip>
+          If the Description <strong>already has checkboxes</strong>, the Rich
+          text button is <strong>disabled</strong> and says so. That&apos;s
+          deliberate: each tick records who checked it and when, and formatting
+          the description would remove all of it with no way back. Delete the
+          checklist lines first if you genuinely want rich text on that
+          description.
+        </Tip>
+        <P>
+          On a description with no checkboxes you just get the warning, and
+          switching back to plain text restores checklists. Whatever
+          you&apos;ve typed carries across either way.
+        </P>
+
         <H3>Custom checklists in the Description</H3>
         <P>
           Any Description can double as a checklist. While editing, click{" "}
@@ -654,6 +675,12 @@ const SECTIONS: ManualSection[] = [
       "mentioning",
       "at mention",
       "at-mention",
+      "rich text",
+      "bold",
+      "italic",
+      "underline",
+      "formatting",
+      "format comment",
       "tag someone",
       "ping someone",
       "ping",
@@ -679,7 +706,7 @@ const SECTIONS: ManualSection[] = [
       "resend notification",
     ],
     searchText:
-      "Type @ in the comment composer to open the mention picker. Arrow keys then Enter or Tab to pick. You can type a first name and surname after the @ — the space no longer closes the picker — and matching works in any order or by email address. admin.first.last accounts are not listed. Comment boxes auto-grow as you type or paste. Mentioned people get an email with the task/EIR name, the comment quote, and a link. Attach files by drag-drop, click Attach, or paste with Ctrl+V. Pasting a screenshot opens a naming prompt before it attaches anywhere — Cancel discards it instead of attaching it — and the named file uploads to the task's SharePoint project folder like any other attachment; a name already taken there is saved as name (2).ext instead of overwriting it. You can edit your own comments inline (a comment is yours if its saved name or email matches you, so older imported comments count too). Check Notify everyone again when editing to re-email every watcher and mention. Ctrl+Enter sends.",
+      "Type @ in the comment composer to open the mention picker. Arrow keys then Enter or Tab to pick. You can type a first name and surname after the @ — the space no longer closes the picker — and matching works in any order or by email address. admin.first.last accounts are not listed. Comment boxes auto-grow as you type or paste. Mentioned people get an email with the task/EIR name, the comment quote, and a link. Attach files by drag-drop, click Attach, or paste with Ctrl+V. Pasting a screenshot opens a naming prompt before it attaches anywhere — Cancel discards it instead of attaching it — and the named file uploads to the task's SharePoint project folder like any other attachment; a name already taken there is saved as name (2).ext instead of overwriting it. You can edit your own comments inline (a comment is yours if its saved name or email matches you, so older imported comments count too). Check Notify everyone again when editing to re-email every watcher and mention. Ctrl+Enter sends. Comments have a Rich text button for bold, italic, underline and bulleted or numbered lists. It asks first, because rich text turns off the @-mention picker for that comment — typing @ no longer opens the name list, so you cannot add a new mention. Current watchers are still notified either way, and anyone you already picked before switching is still mentioned and still emailed. Whatever you have typed carries across, and you can switch back to plain text at any time. On ECNs, Customer Notes and Cost Impact Notices, which have no watchers, the warning says the submitter is still notified instead.",
     render: () => (
       <>
         <P>
@@ -767,6 +794,34 @@ const SECTIONS: ManualSection[] = [
           previews only (legacy behaviour; the EIR attachment migration is
           on the backlog).
         </P>
+        <H3>Formatting a comment — the Rich text button</H3>
+        <P>
+          <strong>Rich text</strong> beside Attach gives you bold, italic,
+          underline and bulleted or numbered lists. It asks before switching,
+          because there is a trade-off.
+        </P>
+        <Tip>
+          <strong>Rich text turns off the @-mention picker</strong> for that
+          comment — typing <code>@</code> no longer opens the name list, so you
+          can&apos;t add a <em>new</em> mention.{" "}
+          <strong>Current watchers are still notified</strong>, as normal, and
+          anyone you already picked before switching is still mentioned and
+          still emailed.
+        </Tip>
+        <P>
+          Whatever you&apos;ve already typed carries across, and you can switch
+          back to plain text at any time — going back needs no confirmation.
+          While rich text is on, the toolbar shows an{" "}
+          <strong>@-mentions off</strong> reminder so it&apos;s clear why{" "}
+          <code>@</code> isn&apos;t doing anything.
+        </P>
+        <P>
+          On <strong>ECNs</strong>, <strong>Customer Notes</strong> and{" "}
+          <strong>Cost Impact Notices</strong> — which have no watchers — the
+          warning says the <strong>submitter</strong> is still notified
+          instead, because that is who hears about a comment on those.
+        </P>
+
         <H3>Editing your own comments</H3>
         <P>
           A pencil icon appears next to comments you authored — in every area

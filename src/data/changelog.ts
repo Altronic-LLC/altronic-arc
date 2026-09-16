@@ -20,6 +20,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.158.0",
+    date: "2026-09-16",
+    changes: [
+      "Comments have a Rich text button — bold, italic, underline and lists. It warns first, because rich text turns off the @-mention picker for that comment; current watchers are still notified either way",
+      "Task descriptions have the same button, and it warns that rich text turns off the checklist function",
+      "A description that already HAS checkboxes can't be switched — the button says why, so nobody loses a checklist they've been ticking",
+      "Whatever you've already typed carries across when you switch, and you can switch back at any time",
+    ],
+  },
+  {
     version: "0.157.0",
     date: "2026-09-16",
     changes: [

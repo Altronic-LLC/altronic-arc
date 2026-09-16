@@ -148,14 +148,17 @@ function escapeRegex(s: string): string {
  * `mentions` is deduplicated by email/displayName key on entry; multiple
  * occurrences of the same name in the text all become chips.
  */
-export function buildCommentHtml(plain: string, mentions: Person[]): string {
-  const trimmed = plain.trim();
-  if (!trimmed) return "";
-
-  // Dedupe by stable key; sort longest-first so "Sarah Shaffer-Smith" is
-  // matched before "Sarah Shaffer".
+/**
+ * Dedupe by stable key, then sort LONGEST NAME FIRST so "Sarah Shaffer-Smith"
+ * is matched before "Sarah Shaffer" — otherwise the shorter name chips first
+ * and leaves "-Smith" dangling outside it.
+ *
+ * Shared by both chip builders (plain-text and HTML) so the two can't disagree
+ * about which name wins.
+ */
+function dedupeMentions(mentions: Person[]): Person[] {
   const seen = new Set<string>();
-  const unique = mentions
+  return mentions
     .filter((m) => {
       const key = (m.email ?? m.displayName).toLowerCase();
       if (seen.has(key)) return false;
@@ -163,6 +166,13 @@ export function buildCommentHtml(plain: string, mentions: Person[]): string {
       return true;
     })
     .sort((a, b) => b.displayName.length - a.displayName.length);
+}
+
+export function buildCommentHtml(plain: string, mentions: Person[]): string {
+  const trimmed = plain.trim();
+  if (!trimmed) return "";
+
+  const unique = dedupeMentions(mentions);
 
   // Build a single alternation regex from all picked names. Walking
   // left-to-right with one regex avoids the "Sarah" trap of matching
@@ -198,6 +208,84 @@ export function buildCommentHtml(plain: string, mentions: Person[]): string {
       return `<p>${html}</p>`;
     })
     .join("");
+}
+
+/**
+ * Inject mention chips into HTML that is ALREADY HTML.
+ *
+ * The rich-text composer emits real markup, so `buildCommentHtml` can't be
+ * used on it — that one ESCAPES its input and builds the paragraphs itself,
+ * which would turn `<strong>` into visible `&lt;strong&gt;`.
+ *
+ * **Walks TEXT NODES only.** A regex over the HTML string would happily match
+ * inside a tag or an attribute (an `@name` in a mailto: href, say) and corrupt
+ * the markup. Walking the parsed DOM means a chip can only ever replace text a
+ * reader can actually see.
+ *
+ * Two things it deliberately skips:
+ *
+ *  - **Text already inside a `span.mention`** — re-running this over a body
+ *    that has chips (an edit, a re-save) must not nest a chip in a chip.
+ *  - **`<a>` contents.** A link's text is frequently an address or a filename
+ *    containing `@`, and turning part of a link into a chip breaks the link.
+ *
+ * The output is the same chip shape `buildCommentHtml` produces, so
+ * `extractMentionedRecipients` and the notification path read it identically —
+ * that shared shape is why rich-text comments still send email.
+ */
+export function injectMentionsIntoHtml(html: string, mentions: Person[]): string {
+  if (!html.trim()) return "";
+
+  const unique = dedupeMentions(mentions);
+  if (unique.length === 0) return html;
+
+  const alternation = unique.map((m) => escapeRegex(m.displayName)).join("|");
+  const byName = new Map(unique.map((m) => [m.displayName, m]));
+
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
+  const targets: Text[] = [];
+  let node = walker.nextNode();
+  while (node) {
+    const text = node as Text;
+    // `closest` needs an Element; a text node's parent is the place to ask.
+    const parent = text.parentElement;
+    if (parent && !parent.closest("span.mention") && !parent.closest("a")) {
+      targets.push(text);
+    }
+    node = walker.nextNode();
+  }
+
+  for (const text of targets) {
+    const value = text.nodeValue ?? "";
+    // Same boundary rule as buildCommentHtml, so a name followed by
+    // punctuation still chips and "@Sarahs" does not.
+    const re = new RegExp(`@(${alternation})(?=$|[\\s.,;:!?])`, "g");
+    if (!re.test(value)) continue;
+    re.lastIndex = 0;
+
+    const fragment = doc.createDocumentFragment();
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = re.exec(value)) !== null) {
+      if (match.index > lastIndex) {
+        fragment.appendChild(doc.createTextNode(value.slice(lastIndex, match.index)));
+      }
+      const person = byName.get(match[1])!;
+      const chip = doc.createElement("span");
+      chip.className = "mention";
+      chip.setAttribute("data-email", person.email ?? "");
+      chip.textContent = `@${person.displayName}`;
+      fragment.appendChild(chip);
+      lastIndex = re.lastIndex;
+    }
+    if (lastIndex < value.length) {
+      fragment.appendChild(doc.createTextNode(value.slice(lastIndex)));
+    }
+    text.parentNode?.replaceChild(fragment, text);
+  }
+
+  return doc.body.innerHTML;
 }
 
 /**

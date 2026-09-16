@@ -478,6 +478,8 @@ src/
 │   ├── SuggestInput.tsx          Text field that behaves like a choice field (CAD initials)
 │   ├── AutoGrowTextarea.tsx      <textarea> that grows to fit content
 │   ├── RichTextEditor.tsx        Bold/italic/underline/lists editor (EIR text fields)
+│   ├── RichTextToggleField.tsx  Plain ⇄ rich toggle for a DESCRIPTION (checklist guard)
+│   ├── RichTextWarningDialog.tsx "Rich text turns off X" — configurable copy per caller
 │   ├── useFileDrop.ts            Drag-a-file-onto-a-card drop target (attachments)
 │   ├── PersonMultiField.tsx      Multi-person picker (pills + add)
 │   ├── useOverlayDismiss.ts      Backdrop dismissal that survives a text-selection drag
@@ -5085,6 +5087,86 @@ this repo.
   indistinguishable from real ones.
 - Indentation and the post-`]` gap round-trip verbatim. This text lives in a
   SharePoint field and is re-parsed, so anything lossy corrupts real data.
+
+### Rich text is OPT-IN per field, and it always costs something
+
+A **Rich text** button on every comment composer and on task descriptions
+(Ray, 2026-09-16). Bold / italic / underline / lists, via the existing
+`RichTextEditor` — no new dependency.
+
+**Plain text is what LOADS, everywhere.** Rich mode is opt-in per field and is
+never remembered across fields, because switching genuinely disables a feature
+in both places. Defaulting to rich would take that feature away from everybody
+silently.
+
+**Markdown was asked for and deliberately NOT built** (Ray: "let's bypass
+markdown for now"). It would need either a format column per list or storage
+that renders as literal `**asterisks**` in SharePoint's own views, the Power
+Apps form and every notification email — all of which read these same columns.
+If it comes back, that decision is the thing to settle first.
+
+#### Comments: rich text turns off the @-mention PICKER
+
+The picker reads the CARET POSITION in a plain `<textarea>`
+(`detectMentionQuery(text, caret)`). A contentEditable has no equivalent, so
+in rich mode typing `@` opens nothing.
+
+- **A dialog says so before the switch** — `RichTextWarningDialog`, with
+  "Keep plain text" / "Use rich text". Switching BACK warns about nothing;
+  it costs nothing.
+- **Mentions already PICKED still work.** `injectMentionsIntoHtml` in
+  `lib/mentions.ts` puts chips into HTML that is already HTML — it **walks
+  TEXT NODES**, never the string, because a regex over markup matches inside
+  tags and attributes (an `@name` in a `mailto:` href) and corrupts them. It
+  skips existing `span.mention` (no nesting on a re-save) and `<a>` contents
+  (a link's text is often an address).
+- **Both builders emit the SAME chip markup**, which is the whole reason
+  rich-text comments still notify: `extractMentionedRecipients` and the entire
+  email path read either one unchanged. Don't let the two shapes drift.
+- **The warning's "who still hears" line is a PROP**, not a constant.
+  `WATCHERS_STILL_NOTIFIED` is right for most threads; **ECNs, Customer Notes
+  and Cost Impact Notices have NO Watchers column** and pass
+  `SUBMITTER_STILL_NOTIFIED` instead. Telling somebody "watchers are still
+  notified" on those three would be a confident lie about the one thing they
+  are weighing up.
+- **An "@-mentions off" reminder sits in the toolbar** while rich mode is on.
+  The dialog is long gone by the time somebody tries to mention someone.
+
+#### Descriptions: rich text turns off the CHECKLIST — and may be blocked
+
+A description's `- [ ]` lines are parsed LINE BY LINE off the raw string
+(`parseChecklistItems`, on `text.split("
+")`). Rich text wraps everything in
+`<p>` and drops the newlines, so a rich description has no checkboxes at all.
+
+`RichTextToggleField` therefore splits on **whether work already exists**
+(Ray: "No block is if already created but if someone goes to enable mention
+that feature disappears"):
+
+| The description | Behaviour |
+|---|---|
+| Has NO checkboxes | **Warns** — the syntax won't be available. Reversible. |
+| ALREADY has checkboxes | **BLOCKED** — button disabled, reason on screen |
+
+The block is the important half: those ticks carry a name and a timestamp
+each, and there is no undo once a rich body is saved over them. **The button
+is disabled rather than hidden** — a control that vanishes reads as a bug, and
+the explanation is the useful part — and the reason is printed **on screen**,
+not only in a `title`, because a `title` needs a hover a phone hasn't got.
+It un-blocks by itself once the checklist lines are gone.
+
+Three things that apply to both:
+
+- **The draft carries across** (`plainTextToHtml`). Throwing away half a
+  comment on a format switch would be its own bug.
+- **"Is there anything here" can't be a `trim()`** in rich mode: an empty
+  contentEditable leaves `<p><br></p>`, so `nonEmptyHtml` strips tags and
+  entities first. Without it the Send button enables on an empty comment.
+- **A toolbar can't live inside a `<label>`.** `TaskFormModal`'s description
+  block became a `<div>` with an `aria-label` on the field — nested
+  interactive controls steal the label's click, and a button inside a label
+  that wraps another button is invalid HTML (the same nesting rule that bit
+  `SearchableSelect`'s clear button).
 
 ### The EIR long-text columns are Enhanced rich text — write HTML
 
