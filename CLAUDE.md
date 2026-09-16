@@ -350,6 +350,7 @@ src/
 │   ├── useFilters.ts             URL-backed task filter state + filterSearch()
 │   ├── useEirFilters.ts          URL-backed EIR filter state + eirFilterSearch()
 │   ├── useSessionExpiry.ts       Shared "the token died" flag AuthGate watches
+│   ├── useSortableTable.ts       Sort + column-filter state for a table (wraps tableSort)
 │   ├── useVersionCheck.ts        Polls version.json → update banner
 │   ├── useUnseenMentions.ts      Unseen-@-mention badge state
 │   ├── useTheme.ts               Dark/light toggle (localStorage)
@@ -414,6 +415,7 @@ src/
 │   ├── panelRoles.ts             Panel role → editing-rights mapping (pure)
 │   ├── qcTimeMapper.ts           Graph item → QcTimeEntry, and back
 │   ├── qcTimeSort.ts             QC Time sorting + column filters (pure) — hoursRaw is TEXT
+│   ├── tableSort.ts             GENERIC table sorting + column filters (pure) — 7 lists
 │   ├── visitReportMapper.ts      Graph item → VisitReport (+ RM/year options)
 │   ├── customerNoteMapper.ts     Graph item → CustomerNote (CRM Tool anchor list)
 │   ├── customerContactMapper.ts  Graph item → CustomerContact
@@ -4624,9 +4626,58 @@ re-derived by a copy — which is the reason it is shared rather than pasted:
   "has filters" check stays accurate.
 
 **Rolled out to the lists people actually work from**, not all 37 (Ray: "the
-only ones people work from"). Adding it to another list is a `SortKey` union,
-a comparator, and the header map — see `QcTimeTrackingView` for the smallest
-complete example.
+only ones people work from"). Seven landed on 2026-09-16: **Visit Reports,
+ECNs, FAITs, Suppliers, CSA Listings, Teradyne Log, Gray Market Requests.**
+
+**Adding it to another list is a COLUMNS ARRAY, not a comparator.**
+`lib/tableSort.ts` is the generic engine and `hooks/useSortableTable.ts` holds
+the state; a view declares accessors as data and spreads `headerProps(key)`
+onto each `SortableHeader`. Seven hand-written comparators would have been
+seven places for the shared rules to drift.
+
+Four rules every column inherits, each with tests verified by breaking them:
+
+- **An empty value sorts LAST**, whichever direction is chosen. A blank is the
+  absence of a value, not the smallest one; floating a screenful of blanks to
+  the top of an ascending sort buries the rows somebody asked to see.
+- **Ties break on the row id, DESCENDING, never flipped by direction** — so
+  equal rows don't reshuffle when the direction changes, which reads as the
+  table shuffling for no reason.
+- **`kind: "date"` / `"number"` sort as values, not text.** Otherwise "10"
+  sorts before "9", and an Invalid Date orders by NaN. A real `0` is a value,
+  not an empty — `Number.isFinite` decides, never truthiness.
+- **`kind: "numeric-text"` groups its non-numeric values at the END in both
+  directions.** This is QC Time's `hoursRaw` lesson generalised: a TEXT column
+  that usually holds a number really does contain "see notes", a naive numeric
+  sort makes those NaN, every NaN comparison is false, and the rows land
+  wherever the algorithm leaves them — scattered, looking correctly sorted.
+  `leadingNumber` requires the digits at the START, so "abc 5" is a note
+  containing a digit rather than five of something.
+
+Three things about declaring columns:
+
+- **The `value` accessor must match what the CELL shows**, because the filter
+  menu groups by it — a menu offering values nobody can see on screen is
+  worse than no menu. Where a cell falls back (Gray Market's Part shows the
+  description, then the MFG part number) the accessor falls back identically.
+- **`noFilter: true` for long free text.** Grouping a description column on
+  16,000 Teradyne rows lists thousands of one-row options. Those columns still
+  SORT, and the search box already covers them.
+- **Build the array inside the component when an accessor needs joined data** —
+  ECNs and FAITs carry a project lookupId only, so their Project column reads
+  the title map and the array is a `useMemo` on it. Otherwise declare it at
+  module level.
+
+**`views/listSorting.test.tsx` is the wiring test, and it is not redundant with
+the engine's own.** A view whose columns array is perfect but whose `<tbody>`
+still maps the UNSORTED list passes every engine test and does nothing on
+screen — wiring the rows is a separate edit from wiring the headers, in all
+seven. Verified by unwiring three views' rows and watching exactly those three
+cases fail.
+
+**`lib/qcTimeSort.ts` stays as it is.** Its Hours handling predates the generic
+engine, is well covered, and QC Time's hold-reason grouping is genuinely
+special-cased. Don't migrate it for tidiness; new lists use `tableSort.ts`.
 
 ### QC Time Tracking — sorting, the hold flag, and the one delete
 

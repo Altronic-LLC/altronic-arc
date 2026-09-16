@@ -4621,9 +4621,17 @@ const SECTIONS: ManualSection[] = [
       "share filter",
       "bookmark filter",
       "url filter",
+      "sort",
+      "sorting",
+      "sort by column",
+      "column filter",
+      "order by",
+      "alphabetical",
+      "newest first",
+      "oldest first",
     ],
     searchText:
-      "The filter bar on List, Kanban, and Test Sheets has Project Reference (multi), Assigned (multi, defaults to you), free-text Search, Created By (single), and Watching (single, with your own name first — shows only tasks that person watches, for finding what you track but are not assigned to). Filters live in the URL — bookmark or share a filtered view as a link. People dropdowns (Assigned, Assigned Engineer, Reporter, Requestor, Watchers, Created By) match every word you type in any order, so first name plus surname works whichever way round the name is stored, and an email address finds someone too. admin.first.last accounts are hidden from people lists.",
+      "The filter bar on List, Kanban, and Test Sheets has Project Reference (multi), Assigned (multi, defaults to you), free-text Search, Created By (single), and Watching (single, with your own name first — shows only tasks that person watches, for finding what you track but are not assigned to). Filters live in the URL — bookmark or share a filtered view as a link. People dropdowns (Assigned, Assigned Engineer, Reporter, Requestor, Watchers, Created By) match every word you type in any order, so first name plus surname works whichever way round the name is stored, and an email address finds someone too. admin.first.last accounts are hidden from people lists. Most tables also SORT by any column: click the small arrows beside a column name, and click again to reverse. Clicking the column NAME instead opens a checkbox list of that column's values, so you can narrow to one project, supplier, status or person — several columns can be narrowed at once, and they combine. Dates and numbers sort as values rather than as text, and a blank always sinks to the bottom rather than floating to the top, whichever direction you pick. Sorting and column filters are available on Visit Reports, ECNs, FAITs, Suppliers, CSA Listings, the Teradyne Log, Gray Market Requests, QC Time Tracking and the Panel QC Issue Tracker.",
     render: () => (
       <>
         <P>
@@ -4691,6 +4699,48 @@ const SECTIONS: ManualSection[] = [
           Filters live in the URL (<code>?assigned=…&amp;project=…</code>) — so
           you can bookmark a particular view or share it as a link.
         </Tip>
+
+        <H3>Sorting a table, and filtering one column</H3>
+        <P>
+          Most tables sort by any column. Each column name has a small pair of{" "}
+          <strong>arrows</strong> beside it — click them to sort, click again
+          to reverse. Only one column sorts at a time, and the arrows show
+          which.
+        </P>
+        <P>
+          Clicking the column <strong>name</strong> instead opens a{" "}
+          <strong>checkbox list of that column's values</strong>, with its own
+          search box. Tick the ones you want to see. Several columns can be
+          narrowed at once and they combine, so "this supplier, and only the
+          open ones" is two picks.
+        </P>
+        <UL>
+          <LI>
+            <strong>Dates and numbers sort as values</strong>, not as text — so
+            9 comes before 10, and last week comes before this week.
+          </LI>
+          <LI>
+            <strong>A blank always sinks to the bottom</strong>, whichever
+            direction you pick. A missing value isn't the smallest one, and a
+            screenful of blanks at the top would bury what you were looking
+            for.
+          </LI>
+          <LI>
+            Where a column holds text that's <em>usually</em> a number — QC
+            Time's Hours, say, which sometimes reads "see notes" — the real
+            numbers sort first and the rest group at the end, rather than
+            being treated as zero.
+          </LI>
+        </UL>
+        <P>
+          Available on <strong>Visit Reports</strong>, <strong>ECNs</strong>,{" "}
+          <strong>FAITs</strong>, <strong>Suppliers</strong>,{" "}
+          <strong>CSA Listings</strong>, the <strong>Teradyne Log</strong>,{" "}
+          <strong>Gray Market Requests</strong>,{" "}
+          <strong>QC Time Tracking</strong> and the{" "}
+          <strong>Panel QC Issue Tracker</strong>. Ask if another list would
+          be useful.
+        </P>
       </>
     ),
   },

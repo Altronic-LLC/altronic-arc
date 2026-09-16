@@ -7,6 +7,9 @@ import type { Fait } from "@/types/task";
 import { FAIT_STATUSES, isFaitOpen } from "@/lib/faitFields";
 import { matchesSearch, tokenizeQuery } from "@/lib/itemSearch";
 import { LoadingTasks } from "@/components/LoadingTasks";
+import { SortableHeader } from "@/components/SortableTableHeader";
+import { useSortableTable } from "@/hooks/useSortableTable";
+import type { SortColumn } from "@/lib/tableSort";
 import { SearchInput } from "@/components/SearchInput";
 import { ChoiceSelect } from "@/components/SearchableSelect";
 import { FaitFormModal } from "@/components/FaitFormModal";
@@ -83,6 +86,45 @@ export function FaitsView() {
       return matchesSearch(f, tokens);
     });
   }, [faits, q, project, supplier, stage, status]);
+
+  /**
+   * Sortable columns, as DATA. Built inside the component because Project
+   * reads the joined title map — a FAIT carries a lookupId only.
+   *
+   * First pass and Status group on the same text the chips render, so the
+   * filter menu offers what people read rather than a raw column value.
+   */
+  const columns = useMemo<SortColumn<Fait>[]>(
+    () => [
+      { key: "part", label: "Part", value: (f) => f.values.sapPartNumber ?? "" },
+      { key: "description", label: "Description", value: (f) => f.values.description ?? "", noFilter: true },
+      { key: "supplier", label: "Supplier", value: (f) => (f.values.supplierName ?? "").trim() },
+      {
+        key: "project",
+        label: "Project",
+        value: (f) =>
+          f.parentProject ? (projectTitles.get(f.parentProject.lookupId) ?? "") : "",
+      },
+      {
+        key: "firstPass",
+        label: "First pass",
+        value: (f) => {
+          if ((f.values.failedFirstPass ?? "").trim()) return "Failed";
+          if ((f.values.meetsFirstPass ?? "").trim()) return "Passed";
+          return "";
+        },
+      },
+      { key: "status", label: "Status", value: (f) => f.status },
+    ],
+    [projectTitles],
+  );
+
+  const table = useSortableTable<Fait>({
+    rows: filtered,
+    columns,
+    stableKey: (f) => f.id,
+    initialKey: "part",
+  });
 
   return (
     <div className="mx-auto flex max-w-[1500px] flex-col gap-4 px-4 py-4 sm:px-6 sm:py-6">
@@ -183,16 +225,13 @@ export function FaitsView() {
             <table className="w-full text-left text-sm">
               <thead className="bg-surface-2 text-[11px] uppercase tracking-wider text-fg-muted">
                 <tr>
-                  <th className="px-4 py-2 font-semibold">Part</th>
-                  <th className="px-4 py-2 font-semibold">Description</th>
-                  <th className="px-4 py-2 font-semibold">Supplier</th>
-                  <th className="px-4 py-2 font-semibold">Project</th>
-                  <th className="px-4 py-2 font-semibold">First pass</th>
-                  <th className="px-4 py-2 font-semibold">Status</th>
+                  {columns.map((column) => (
+                    <SortableHeader key={column.key} label={column.label} {...table.headerProps(column.key)} />
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((fait) => (
+                {table.rows.map((fait) => (
                   <Row
                     key={fait.id}
                     fait={fait}

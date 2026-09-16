@@ -13,6 +13,9 @@ import { LoadingTasks } from "@/components/LoadingTasks";
 import { VisitReportFilterBar } from "@/components/VisitReportFilterBar";
 import { VisitReportFormModal } from "@/components/VisitReportFormModal";
 import { VisitStatusChip } from "@/components/visitReportAtoms";
+import { SortableHeader } from "@/components/SortableTableHeader";
+import { useSortableTable } from "@/hooks/useSortableTable";
+import { dayLabel, type SortColumn } from "@/lib/tableSort";
 
 // =============================================================================
 // Visit Reports — the Sales department's list of customer visits.
@@ -38,6 +41,32 @@ import { VisitStatusChip } from "@/components/visitReportAtoms";
 
 const INITIAL_ROWS = 500;
 
+/**
+ * The sortable columns, as DATA — accessors, not a comparator per column.
+ * See lib/tableSort.ts for the rules every column inherits (empty last,
+ * stable ties, numeric-aware text).
+ */
+const VISIT_REPORT_COLUMNS: SortColumn<VisitReport>[] = [
+  {
+    key: "visitDate",
+    label: "Visit Date",
+    kind: "date",
+    value: (r) => dayLabel(r.visitDate),
+    sortValue: (r) => r.visitDate,
+  },
+  { key: "customerName", label: "Customer", value: (r) => r.customerName },
+  { key: "rmName", label: "RM Name", value: (r) => r.rmName },
+  { key: "reasonForVisit", label: "Reason", value: (r) => r.reasonForVisit },
+  { key: "customerStatus", label: "Status", value: (r) => r.customerStatus },
+  {
+    key: "location",
+    label: "Location",
+    // Matches what the cell shows, so the filter menu offers what people read.
+    value: (r) => [r.city, r.state].filter(Boolean).join(", "),
+  },
+  { key: "product", label: "Product(s)", value: (r) => r.product },
+];
+
 export function VisitReportsView() {
   const navigate = useNavigate();
   const { data: reports = [], isLoading } = useVisitReports();
@@ -52,13 +81,25 @@ export function VisitReportsView() {
     setShowAll(false);
   }
 
-  const filtered = useMemo(
+  const barFiltered = useMemo(
     () => applyVisitReportFilters(reports, filters),
     [reports, filters],
   );
 
+  // Column sorting and per-column value filters, on top of the shared filter
+  // bar above. Newest visit first by default, as before — the sort is opt-in.
+  const table = useSortableTable<VisitReport>({
+    rows: barFiltered,
+    columns: VISIT_REPORT_COLUMNS,
+    stableKey: (r) => r.id,
+    initialKey: "visitDate",
+    initialDirection: "desc",
+    onChange: () => setShowAll(false),
+  });
+  const filtered = table.rows;
+
   const visible = showAll ? filtered : filtered.slice(0, INITIAL_ROWS);
-  const anyFilter = hasVisitReportFilters(filters);
+  const anyFilter = hasVisitReportFilters(filters) || table.hasFilters;
 
   return (
     <div className="mx-auto flex max-w-[1400px] flex-col gap-4 px-4 py-4 sm:px-6 sm:py-6">
@@ -128,13 +169,9 @@ export function VisitReportsView() {
             <table className="w-full text-left text-sm">
               <thead className="bg-surface-2 text-[11px] uppercase tracking-wider text-fg-muted">
                 <tr>
-                  <th className="px-4 py-2 font-semibold">Visit Date</th>
-                  <th className="px-4 py-2 font-semibold">Customer</th>
-                  <th className="px-4 py-2 font-semibold">RM Name</th>
-                  <th className="px-4 py-2 font-semibold">Reason</th>
-                  <th className="px-4 py-2 font-semibold">Status</th>
-                  <th className="px-4 py-2 font-semibold">Location</th>
-                  <th className="px-4 py-2 font-semibold">Product(s)</th>
+                  {VISIT_REPORT_COLUMNS.map((column) => (
+                    <SortableHeader key={column.key} label={column.label} {...table.headerProps(column.key)} />
+                  ))}
                 </tr>
               </thead>
               <tbody>

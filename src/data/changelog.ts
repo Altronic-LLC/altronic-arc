@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.157.0",
+    date: "2026-09-16",
+    changes: [
+      "Visit Reports, ECNs, FAITs, Suppliers, CSA Listings, the Teradyne Log and Gray Market Requests all sort by any column now — click the arrows beside a column name",
+      "Clicking a column name instead opens a checkbox list of its values, so you can narrow to one project, supplier or status",
+      "Dates and numbers sort properly rather than as text, and a blank always sinks to the bottom instead of floating to the top",
+    ],
+  },
+  {
     version: "0.156.1",
     date: "2026-09-16",
     changes: [

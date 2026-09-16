@@ -8,6 +8,9 @@ import { stockDispositions } from "@/lib/ecnFields";
 import { isEcnOnHold } from "@/lib/ecnMapper";
 import { matchesSearch, tokenizeQuery } from "@/lib/itemSearch";
 import { htmlToPlainText } from "@/lib/htmlText";
+import { SortableHeader } from "@/components/SortableTableHeader";
+import { useSortableTable } from "@/hooks/useSortableTable";
+import type { SortColumn } from "@/lib/tableSort";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { SearchInput } from "@/components/SearchInput";
 import { ChoiceSelect } from "@/components/SearchableSelect";
@@ -85,7 +88,56 @@ export function EcnsView() {
     });
   }, [ecns, q, project, stock, hold, drawings]);
 
-  const shown = showAll ? filtered : filtered.slice(0, INITIAL_ROWS);
+  /**
+   * Sortable columns, as DATA. Built INSIDE the component because the Project
+   * column reads the joined title map — ECNs carry a lookupId only, and the
+   * filter menu must offer the names people actually see.
+   */
+  const columns = useMemo<SortColumn<Ecn>[]>(
+    () => [
+      { key: "logNo", label: "Log#", value: (e) => e.logNo },
+      { key: "title", label: "Title", value: (e) => e.title },
+      {
+        key: "project",
+        label: "Project",
+        value: (e) =>
+          e.parentProject ? (projectTitles.get(e.parentProject.lookupId) ?? "") : "",
+      },
+      {
+        key: "finalAssemblies",
+        label: "Final Assemblies",
+        value: (e) => e.values.finalAssemblyPartNumbers ?? "",
+        // Free text, often a long list — grouping it offers hundreds of
+        // one-row options, so sorting only.
+        noFilter: true,
+      },
+      {
+        key: "change",
+        label: "Change",
+        value: (e) => htmlToPlainText(e.values.detailedDescription ?? ""),
+        noFilter: true,
+      },
+      { key: "inHouseStock", label: "In House Stock", value: (e) => e.values.inHouseStock ?? "" },
+      {
+        key: "drawings",
+        label: "Drawings",
+        value: (e) => (e.values.drawingsComplete === "Yes" ? "Complete" : "Outstanding"),
+      },
+    ],
+    [projectTitles],
+  );
+
+  const table = useSortableTable<Ecn>({
+    rows: filtered,
+    columns,
+    stableKey: (e) => e.id,
+    // Newest Log# first, as before.
+    initialKey: "logNo",
+    initialDirection: "desc",
+    onChange: () => setShowAll(false),
+  });
+
+  const shown = showAll ? table.rows : table.rows.slice(0, INITIAL_ROWS);
 
   return (
     <div className="mx-auto flex max-w-[1500px] flex-col gap-4 px-4 py-4 sm:px-6 sm:py-6">
@@ -185,13 +237,9 @@ export function EcnsView() {
             <table className="w-full text-left text-sm">
               <thead className="bg-surface-2 text-[11px] uppercase tracking-wider text-fg-muted">
                 <tr>
-                  <th className="px-4 py-2 font-semibold">Log#</th>
-                  <th className="px-4 py-2 font-semibold">Title</th>
-                  <th className="px-4 py-2 font-semibold">Project</th>
-                  <th className="px-4 py-2 font-semibold">Final Assemblies</th>
-                  <th className="px-4 py-2 font-semibold">Change</th>
-                  <th className="px-4 py-2 font-semibold">In House Stock</th>
-                  <th className="px-4 py-2 font-semibold">Drawings</th>
+                  {columns.map((column) => (
+                    <SortableHeader key={column.key} label={column.label} {...table.headerProps(column.key)} />
+                  ))}
                 </tr>
               </thead>
               <tbody>
