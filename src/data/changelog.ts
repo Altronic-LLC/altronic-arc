@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.154.1",
+    date: "2026-09-16",
+    changes: [
+      "Fixed the deploy, which was blocked by a test that had been written to expect the Gray Market requestor bug rather than the fix",
+    ],
+  },
+  {
     version: "0.154.0",
     date: "2026-09-16",
     changes: [

@@ -1768,6 +1768,26 @@ to `User #n`, not lose the whole list). An unresolvable id renders as
 `grayMarketRequests.requestor.test.ts` with `USE_MOCK: false`, verified by
 reintroducing the bug and watching seven cases fail.
 
+**A test had already PREDICTED this bug, and asserting it broke the deploy.**
+`grayMarketRequests.people.test.ts` (written 2026-09-02, chasing the
+wrong-requestor report) contained a case literally named *"reads Requestor as
+unset when Graph returns only the bare RequestorLookupId, not a wrong
+person"*, asserting `toBeNull()`, with a comment calling it *"a real gap (the
+request shows NO requestor even though one was set)"*. Fixing the gap two
+weeks later made that assertion fail and `npm test` gates the deploy, so the
+fix shipped and the deploy went red.
+
+Two things worth taking from that:
+
+- **A test that pins CURRENT-BUT-WRONG behaviour is a landmine.** It is
+  sometimes the right call — it stops a regression sliding further — but it
+  must be written so the next person knows it is describing a bug, not a
+  contract. Name it for the gap, not the behaviour, and say in the assertion
+  what the fixed version should look like.
+- **Grep for the symptom before fixing it.** The header of that file had
+  already done the diagnosis this fix repeated from scratch; reading it first
+  would have found both the cause and the test that would break.
+
 **Note this is a DIFFERENT bug from the wrong-person-as-watcher one fixed the
 same day** (see "A lookupId is valid on ONE site"). That was a WRITE resolving
 against the wrong site; this is a READ not asking for the id at all. Both

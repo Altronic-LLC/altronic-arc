@@ -21,10 +21,14 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // actual fix.
 //
 // These tests are kept anyway: they pin that THIS module's requestor
-// handling is correct on its own terms, and confirm the specific hypothesis
-// (a bare RequestorLookupId read-back showing as unset, not wrong) is a
-// real but SEPARATE gap from what was reported — worth fixing on its own
-// merits, but not the cause of the reported symptom.
+// handling is correct on its own terms, and they caught the specific
+// hypothesis (a bare RequestorLookupId read-back showing as unset, not
+// wrong) — a real but SEPARATE gap from what was reported then.
+//
+// **That gap was itself reported on 2026-09-16** (GMR_2026-207: "Requestor:
+// Not set" with a requestor set in SharePoint) and is now FIXED — the read
+// selects both halves of the column and the mapper accepts the bare id. The
+// last case below asserts the fixed behaviour; it used to assert the bug.
 // =============================================================================
 
 const graphFetch = vi.hoisted(() => vi.fn());
@@ -147,7 +151,7 @@ describe("createGrayMarketRequest — the hook already resolves requestor to the
   // even though Requestor is in the $select. toGrayMarketRequest's
   // parseSinglePerson only understands the EXPANDED shape — it has no
   // fallback to the bare id the way FAIT/Feature Requests/CMMS needed.
-  it("reads Requestor as unset when Graph returns only the bare RequestorLookupId, not a wrong person", async () => {
+  it("RESOLVES a bare RequestorLookupId rather than reading it as unset", async () => {
     spFetch.mockResolvedValue({ Id: 46 });
     graphFetch.mockImplementation(async (_path: unknown, init?: RequestInit) => {
       if ((init as RequestInit | undefined)?.method === "POST") return { id: "12" };
@@ -168,10 +172,20 @@ describe("createGrayMarketRequest — the hook already resolves requestor to the
       [],
     );
 
-    // Today this reads as null ("Not set") rather than resolving to the
-    // actor who was actually written — a real gap (the request shows NO
-    // requestor even though one was set), but importantly NOT the reported
-    // symptom of a WRONG person appearing.
-    expect(created.requestor).toBeNull();
+    // This case used to assert `toBeNull()` — the gap this file's header
+    // called "real but SEPARATE... worth fixing on its own merits". It was
+    // reported on 2026-09-16 (GMR_2026-207 showing "Requestor: Not set" with
+    // a requestor set in SharePoint) and fixed: the read now selects both
+    // halves of the column and `personOrLookup` accepts the bare id.
+    //
+    // No site directory is mocked in this file, so the name can't be filled
+    // in — it falls back to `User #46`. That fallback IS the contract: a
+    // person column that is set must never render as empty, or the next
+    // person to open the request overwrites somebody's entry without knowing
+    // it was there. `grayMarketRequests.requestor.test.ts` covers the
+    // directory-backed path where the real name appears.
+    expect(created.requestor).not.toBeNull();
+    expect(created.requestor?.lookupId).toBe(46);
+    expect(created.requestor?.displayName).toBe("User #46");
   });
 });
