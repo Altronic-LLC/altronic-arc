@@ -303,3 +303,17 @@ export function collectFeatureRequestPeople(requests: FeatureRequest[]): Person[
   }
   return [...map.values()];
 }
+
+/**
+ * Test seam — restores the mock store to the shipped fixtures.
+ *
+ * Mock mode mutates a module-level array, so one test moving a request's
+ * status leaks into the next one in the same file. That is how the
+ * "stays quiet on an unchanged status" guard test first passed for the wrong
+ * reason: it re-saved "Pending Review" onto a fixture an earlier test had
+ * already moved to "In Work", so the transition was real and the alert
+ * correctly fired.
+ */
+export function __resetFeatureRequestMockStore(): void {
+  mockStore = MOCK_FEATURE_REQUESTS.map((r) => ({ ...r }));
+}

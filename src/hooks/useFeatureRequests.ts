@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   addFeatureRequestComment,
@@ -12,7 +13,12 @@ import {
 import { autoWatchFromMentions } from "@/api/autoWatch";
 import type { FeatureRequest, FeatureRequestInput, Person } from "@/types/task";
 import { pushToast } from "@/components/Toast";
-import { notifyMentions } from "@/api/email";
+import {
+  fireFeatureRequestStatusAlert,
+  fireFieldChangeAlert,
+  fireNewFeatureRequestAlert,
+  notifyMentions,
+} from "@/api/email";
 import {
   commentNotifyRecipients,
   commentRenotifyRecipients,
@@ -159,13 +165,60 @@ function applyFieldsLocally(
 
 export function useUpdateFeatureRequestFields() {
   const qc = useQueryClient();
+  const actor = useCurrentUser();
+  // Read through a ref inside onSuccess: the identity hook re-resolves (its
+  // lookupId arrives async), and the callback should use whoever is signed in
+  // now rather than closing over a stale first render.
+  const actorRef = useRef(actor);
+  actorRef.current = actor;
   return useMutation({
     mutationFn: ({ id, fields }: { id: number; fields: Record<string, unknown> }) =>
       updateFeatureRequestFields(id, fields),
     onMutate: ({ id, fields }) =>
       snapshotAndPatch(qc, id, patchFeatureRequest(id, (r) => applyFieldsLocally(r, fields))),
-    onSuccess: (_data, { fields }) => {
+    onSuccess: (_data, { id, fields }, ctx) => {
       pushToast({ message: messageForFieldsUpdate(fields) });
+
+      // A genuine status MOVE tells the intake list. `"Status" in fields` is
+      // PRESENCE, not change — the sidebar re-sends whatever it holds, so
+      // re-saving an unchanged status must not re-announce it. `ctx` carries
+      // the pre-write row (captured in onMutate, before the optimistic
+      // patch), which is the only place the previous value still exists.
+      if (!("Status" in fields)) return;
+      const from = ctx?.prevRequest?.status ?? "";
+      const to = String(fields.Status ?? "");
+      if (!to || to === from) return;
+
+      const request = qc
+        .getQueryData<FeatureRequest[]>(FEATURE_REQUESTS_KEY)
+        ?.find((r) => r.id === id);
+      if (!request) return;
+
+      const target = { kind: "featureRequest" as const, id, title: request.title };
+
+      // The generic note — WATCHERS plus the requester. This is what tells the
+      // person who suggested the feature that their own request moved: they
+      // auto-watch it on create (`autoWatchers` in api/featureRequests.ts).
+      // Kept alongside the intake alert below, which goes only to the people
+      // working the queue — suppressing this would stop the requester hearing
+      // about their own request, the same reasoning as EIR's status alerts.
+      fireFieldChangeAlert({
+        target,
+        fieldLabel: "status",
+        from,
+        to,
+        actor: actorRef.current,
+        watchers: request.watchers,
+        assignees: request.requestedBy ? [request.requestedBy] : [],
+      });
+
+      // And the intake queue, who track the list itself.
+      fireFeatureRequestStatusAlert({
+        target,
+        actor: actorRef.current,
+        from,
+        to,
+      });
     },
     onError: (_err, _vars, ctx) => {
       rollback(qc, ctx);
@@ -442,6 +495,19 @@ export function useCreateFeatureRequest() {
         old ? [request, ...old] : [request],
       );
       invalidateFeatureRequests(qc);
+
+      // Nothing watches this list, so a suggestion used to sit until somebody
+      // opened the screen — the same gap the Gray Market / FAIT / Cost Impact
+      // intake alerts each closed (Ray, 2026-09-16).
+      fireNewFeatureRequestAlert({
+        target: { kind: "featureRequest", id: request.id, title: request.title },
+        actor,
+        details: [
+          { label: "Department", value: request.department ?? "" },
+          { label: "Priority", value: request.priority ?? "" },
+          { label: "Description", value: request.description },
+        ],
+      });
     },
     onError: () => errorToast("Couldn't submit the feature request — please retry."),
   });

@@ -1,6 +1,7 @@
 import { GraphError, graphFetch } from "./graph";
 import {
   COST_IMPACT_NOTICE_ALERTS,
+  FEATURE_REQUEST_ALERTS,
   EIR_RESPONSE_ACCEPTED_ALERTS,
   EIR_TRIAGE_ASSIGNERS,
   EIR_TRIAGE_PROJECT_REVIEWERS,
@@ -41,6 +42,10 @@ import {
   type FaitSignerRole,
 } from "@/lib/faitAlerts";
 import { buildNewCostImpactNoticeEmails } from "@/lib/costImpactAlerts";
+import {
+  buildFeatureRequestStatusEmails,
+  buildNewFeatureRequestEmails,
+} from "@/lib/featureRequestAlerts";
 
 // =============================================================================
 // Email notifications via Microsoft Graph sendMail.
@@ -761,6 +766,42 @@ export function fireNewCostImpactNoticeAlert(args: {
   const emails = buildNewCostImpactNoticeEmails({
     ...args,
     recipients: parseRecipientList(COST_IMPACT_NOTICE_ALERTS),
+  });
+  if (emails.length === 0) return;
+  void notifyChangeEmails({ target: args.target, emails });
+}
+
+/**
+ * Fire-and-forget: a new ARC feature request was raised — tell whoever acts on
+ * them. Nothing watches the list, so without this a suggestion sits unseen.
+ */
+export function fireNewFeatureRequestAlert(args: {
+  target: ChangeTarget;
+  actor: Person;
+  details?: AlertDetail[];
+}): void {
+  const emails = buildNewFeatureRequestEmails({
+    ...args,
+    recipients: parseRecipientList(FEATURE_REQUEST_ALERTS),
+  });
+  if (emails.length === 0) return;
+  void notifyChangeEmails({ target: args.target, emails });
+}
+
+/**
+ * Fire-and-forget: a feature request's status moved. The CALLER guards that
+ * this is a genuine change (`to !== from`) — see the note on
+ * `buildFeatureRequestStatusEmails`.
+ */
+export function fireFeatureRequestStatusAlert(args: {
+  target: ChangeTarget;
+  actor: Person;
+  from: string;
+  to: string;
+}): void {
+  const emails = buildFeatureRequestStatusEmails({
+    ...args,
+    recipients: parseRecipientList(FEATURE_REQUEST_ALERTS),
   });
   if (emails.length === 0) return;
   void notifyChangeEmails({ target: args.target, emails });

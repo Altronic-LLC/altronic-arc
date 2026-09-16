@@ -10,6 +10,7 @@ import {
   EIR_TRIAGE_ASSIGNERS,
   EIR_TRIAGE_PROJECT_REVIEWERS,
   COST_IMPACT_NOTICE_ALERTS,
+  FEATURE_REQUEST_ALERTS,
   FAIT_NEW_ALERTS,
   FAIT_SQE_REVIEWERS,
   GRAY_MARKET_NEW_REQUEST_ALERTS,
@@ -83,6 +84,25 @@ const LISTS: Array<{ label: string; envVar: string; value: string | undefined; w
     envVar: "VITE_COST_IMPACT_NOTICE_ALERTS",
     value: COST_IMPACT_NOTICE_ALERTS,
     what: "Emailed when a cost impact notice is raised.",
+  },
+  {
+    // TWO rows share this env var, on purpose — genuinely different triggers
+    // on the same recipients, each worth its own label. A reused list gets
+    // its own row whenever the TRIGGER is a different thing someone would
+    // look for; see the EIR Resolved note in CLAUDE.md for why folding it
+    // into another row's `what` text hides it.
+    label: "ARC Feature Request — new request",
+    envVar: "VITE_FEATURE_REQUEST_ALERTS",
+    value: FEATURE_REQUEST_ALERTS,
+    what: "Emailed when somebody suggests a new ARC feature or change.",
+  },
+  {
+    label: "ARC Feature Request — status change",
+    envVar: "VITE_FEATURE_REQUEST_ALERTS",
+    value: FEATURE_REQUEST_ALERTS,
+    what:
+      "Emailed when a feature request moves — Pending Review to In Work, " +
+      "Completed, or Not Implementing.",
   },
   {
     label: "FAIT — new FAIT",

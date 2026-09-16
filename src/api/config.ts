@@ -772,6 +772,29 @@ export const SP_FEATURE_REQUESTS_LIST_ID =
   import.meta.env.VITE_SP_FEATURE_REQUESTS_LIST_ID ||
   "c7b00c39-4370-4063-a852-05d2c1b9fbfb";
 
+/**
+ * Who hears about a NEW ARC feature request, and about one being closed out.
+ *
+ * ARC's own intake queue. Nothing watches the Feature Requests list, so a
+ * suggestion used to sit until somebody happened to open the screen — the
+ * same gap the Gray Market, FAIT and Cost Impact intake alerts each closed.
+ *
+ * **Deliberately just Ray** (Ray, 2026-09-16: "hard coded alerts to new ARC
+ * Feature Requests to email myself"), because he is the person who acts on
+ * them. It is still an env-overridable list rather than a literal address, so
+ * adding a second person later is a repo variable rather than a code change —
+ * and it gets its own var, NOT a reuse of another queue, for the reason
+ * stated throughout this file: re-pointing one queue must never silently
+ * re-point another with a different job.
+ *
+ * Needs its row in `AdminNotificationRecipientsView`'s `LISTS` and its line
+ * in `deploy.yml` — a new recipient list without both is invisible to the
+ * audit screen and unsettable in production.
+ */
+export const FEATURE_REQUEST_ALERTS =
+  import.meta.env.VITE_FEATURE_REQUEST_ALERTS ||
+  "Ray White <ray.white@altronic-llc.com>";
+
 // =============================================================================
 // CRM Tool — Customer Notes, Customer Contacts, Special Pricing and Capacity,
 // all on the salesOrderEntry site (SITES.salesOrderEntry — the OrderEntry

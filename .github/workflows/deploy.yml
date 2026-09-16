@@ -115,6 +115,10 @@ jobs:
           VITE_FAIT_NEW_ALERTS: ${{ vars.VITE_FAIT_NEW_ALERTS }}
           VITE_FAIT_SQE_REVIEWERS: ${{ vars.VITE_FAIT_SQE_REVIEWERS }}
           VITE_COST_IMPACT_NOTICE_ALERTS: ${{ vars.VITE_COST_IMPACT_NOTICE_ALERTS }}
+          # ARC Feature Requests — the intake queue for new requests AND for
+          # status changes. Defaults to Ray alone in config.ts, so this only
+          # needs setting to add or change recipients.
+          VITE_FEATURE_REQUEST_ALERTS: ${{ vars.VITE_FEATURE_REQUEST_ALERTS }}
           VITE_EIR_TRIAGE_PROJECT_REVIEWERS: ${{ vars.VITE_EIR_TRIAGE_PROJECT_REVIEWERS }}
           VITE_EIR_TRIAGE_ASSIGNERS: ${{ vars.VITE_EIR_TRIAGE_ASSIGNERS }}
           VITE_EIR_RESPONSE_ACCEPTED_ALERTS: ${{ vars.VITE_EIR_RESPONSE_ACCEPTED_ALERTS }}

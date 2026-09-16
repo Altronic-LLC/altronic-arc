@@ -9,6 +9,7 @@ import { useAdminAccess } from "@/hooks/useIsAdmin";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { SearchInput } from "@/components/SearchInput";
 import { CsaListingFormModal } from "@/components/CsaListingFormModal";
+import { CsaAttachmentsModal } from "@/components/CsaAttachmentsModal";
 import { csaListingLabel, csaListingMatches } from "@/lib/csaListingMapper";
 import { formatSpDate } from "@/lib/spDates";
 import type { CsaListing } from "@/types/task";
@@ -37,6 +38,9 @@ export function CsaListingsView() {
 
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<CsaListing | null>(null);
+  // Which listing's certificates are open. Available to EVERYONE — reading a
+  // certificate is the point of the register; only changing them is gated.
+  const [viewingFiles, setViewingFiles] = useState<CsaListing | null>(null);
 
   const query = searchParams.get("q") ?? "";
   const setQuery = (q: string) => {
@@ -167,10 +171,15 @@ export function CsaListingsView() {
                     </Td>
                     <Td className="text-center">
                       {l.hasAttachments ? (
-                        <Paperclip
-                          className="mx-auto h-3.5 w-3.5 text-fg-muted"
-                          aria-label="Has attachments"
-                        />
+                        <button
+                          type="button"
+                          onClick={() => setViewingFiles(l)}
+                          className="mx-auto flex items-center justify-center rounded p-1 text-fg-muted transition-colors hover:bg-surface hover:text-accent"
+                          aria-label={`Open attachments for ${csaListingLabel(l)}`}
+                          title="Open attachments"
+                        >
+                          <Paperclip className="h-3.5 w-3.5" />
+                        </button>
                       ) : (
                         <span className="text-fg-muted">—</span>
                       )}
@@ -217,6 +226,14 @@ export function CsaListingsView() {
       {showNew && <CsaListingFormModal onClose={() => setShowNew(false)} />}
       {editing && (
         <CsaListingFormModal listing={editing} onClose={() => setEditing(null)} />
+      )}
+
+      {viewingFiles && (
+        <CsaAttachmentsModal
+          listing={viewingFiles}
+          canEdit={isAdmin}
+          onClose={() => setViewingFiles(null)}
+        />
       )}
     </div>
   );

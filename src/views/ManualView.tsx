@@ -4179,7 +4179,7 @@ const SECTIONS: ManualSection[] = [
       "standards",
     ],
     searchText:
-      "CSA Listings is Altronic's register of CSA certification files, under Engineering. Each row is one file: its File Number (the CSA file identifier), the product, other products or variants the file also covers, the part numbers included, the certification date, and a running History. Certificates and supporting documents attach to a listing. Search covers everything including the long fields, so you can find a listing by a part number buried in Part No Included. Adding, editing and deleting listings is limited to admins because these are compliance records; reading and searching are open to everyone. Reach it from the CSA Listings card on the Dashboard or the Departments dropdown's Engineering group.",
+      "CSA Listings is Altronic's register of CSA certification files, under Engineering. Each row is one file: its File Number (the CSA file identifier), the product, other products or variants the file also covers, the part numbers included, the certification date, and a running History. Certificates and supporting documents attach to a listing. Search covers everything including the long fields, so you can find a listing by a part number buried in Part No Included. Click the paperclip in the Attachments column to open a listing's certificates — that is open to ANYONE signed in, since looking a certificate up is what the register is for. Admins can also add and remove files from that same box. Adding, editing and deleting listings is limited to admins because these are compliance records; reading, searching and downloading certificates are open to everyone. Reach it from the CSA Listings card on the Dashboard or the Departments dropdown's Engineering group.",
     render: () => (
       <>
         <P>
@@ -4211,17 +4211,25 @@ const SECTIONS: ManualSection[] = [
         </P>
         <H3>Certificates and documents</H3>
         <P>
-          Files attach to a listing: open it and use the Attachments panel at the
-          bottom. On a <em>new</em> listing you'll be asked to save first — a file
-          needs a saved record to attach to.
+          <strong>Click the paperclip</strong> in the Attachments column to open
+          a listing's certificates. That is open to{" "}
+          <strong>anyone signed in</strong> — looking a certificate up is what
+          the register is for — and each file downloads from there. A listing
+          with no files shows a dash instead.
+        </P>
+        <P>
+          Admins can add and remove files from that same box, or from the
+          Attachments panel at the bottom of the Edit form. On a <em>new</em>{" "}
+          listing you'll be asked to save first — a file needs a saved record to
+          attach to.
         </P>
         <H3>Who can change what — admins only</H3>
         <P>
           Certification files are compliance records, so{" "}
           <strong>adding, editing and deleting are limited to admins</strong>.
-          Everyone else gets the full table and search but no New button and no
-          row actions, with a note saying so. Ask an admin if a listing needs
-          updating.
+          Everyone else gets the full table and search, and can open and
+          download the certificates, but no New button and no row actions, with
+          a note saying so. Ask an admin if a listing needs updating.
         </P>
         <Tip>
           The small grey number beside a file number is the id the listing carried
@@ -5247,7 +5255,7 @@ const SECTIONS: ManualSection[] = [
       "feedback",
     ],
     searchText:
-      "ARC Feature Requests at /feature-requests, reached from the Suggest a feature button (lightbulb icon) in the header next to Report issue. A place to ask for a new ARC feature or change — Report issue is for something BROKEN, this is for something you WANT. Any signed-in user can submit one: a short summary, a description of what's needed and why, an optional Department and Priority. Requested By is filled in automatically to whoever submits it. Every request starts as Pending Review and moves through In Work, Completed or Not Implementing — the status, priority, department and target version can all be changed by any signed-in user from the request's detail page, not just an admin. Requests have a comment thread and watchers, same as everywhere else in ARC, so a discussion about the idea stays attached to it. The list is open-first: Pending Review and In Work requests sort above Completed and Not Implementing ones, newest first within each group.",
+      "ARC Feature Requests at /feature-requests, reached from the Suggest a feature button (lightbulb icon) in the header next to Report issue. A place to ask for a new ARC feature or change — Report issue is for something BROKEN, this is for something you WANT. Any signed-in user can submit one: a short summary, a description of what's needed and why, an optional Department and Priority. Requested By is filled in automatically to whoever submits it. Every request starts as Pending Review and moves through In Work, Completed or Not Implementing — the status, priority, department and target version can all be changed by any signed-in user from the request's detail page, not just an admin. Requests have a comment thread and watchers, same as everywhere else in ARC, so a discussion about the idea stays attached to it. The list is open-first: Pending Review and In Work requests sort above Completed and Not Implementing ones, newest first within each group. Raising a request emails whoever looks after them, so a suggestion does not sit unseen. Changing a request's status emails its watchers and the person who raised it — you watch your own request automatically — so you hear when yours moves to In Work or Completed. @-mentioning somebody in a comment emails them and adds them as a watcher, the same as everywhere else in ARC.",
     render: () => (
       <>
         <P>
@@ -5299,6 +5307,25 @@ const SECTIONS: ManualSection[] = [
           so the ones still awaiting a look stay at the top. Filter by
           Department or search across the summary, description and requester.
         </P>
+
+        <H3>Who hears about it</H3>
+        <UL>
+          <LI>
+            <strong>Raising one</strong> emails whoever looks after ARC feature
+            requests, so a suggestion doesn't sit unseen.
+          </LI>
+          <LI>
+            <strong>A status change</strong> emails the request's watchers and
+            the person who raised it — you watch your own request
+            automatically, so you hear when yours moves to In Work or
+            Completed.
+          </LI>
+          <LI>
+            <strong>@-mentioning someone</strong> in a comment emails them and
+            adds them as a watcher, so they get the rest of the thread too —
+            the same as everywhere else in ARC.
+          </LI>
+        </UL>
       </>
     ),
   },

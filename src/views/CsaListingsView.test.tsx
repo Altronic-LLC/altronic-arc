@@ -57,7 +57,12 @@ describe("CsaListingsView", () => {
 
   it("marks which listings have files attached", async () => {
     await renderView();
-    expect(screen.getAllByLabelText(/has attachments/i).length).toBeGreaterThan(0);
+    // The marker is a BUTTON now, not a static icon — it used to carry
+    // aria-label "Has attachments" and do nothing when clicked. See the
+    // "reaching the certificates" suite below.
+    expect(
+      screen.getAllByRole("button", { name: /open attachments for/i }).length,
+    ).toBeGreaterThan(0);
   });
 
   it("searches the long fields, where part numbers actually live", async () => {
@@ -160,5 +165,84 @@ describe("CsaListingsView — the form", () => {
     // The attachments panel replaces the "save first" note once the item exists.
     expect(screen.queryByText(/save the listing first/i)).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /attachments/i })).toBeInTheDocument();
+  });
+});
+
+// =============================================================================
+// Reaching the certificates.
+//
+// The paperclip column was a static ICON — it said a certificate existed and
+// gave you no way to open it. The files were only reachable inside the Edit
+// modal, which is admin-only, so for everyone else the attachment was visible
+// and unreachable (Ray, 2026-09-16: "clicking attachment in CSA listings does
+// not work, users need to be able to access them").
+//
+// Reading a certificate is what the register is FOR, so the modal is open to
+// anyone signed in; only adding and removing stay admin-only, via
+// `AttachmentsSection`'s `readOnly` prop.
+// =============================================================================
+describe("CsaListingsView — reaching the certificates", () => {
+  it("makes the paperclip a BUTTON, not a static icon", async () => {
+    await renderView();
+    expect(
+      screen.getAllByRole("button", { name: /open attachments for/i }).length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("offers no button on a listing with no attachments", async () => {
+    await renderView();
+    // Two of the four fixtures have none; the others must not gain a button.
+    const buttons = screen.getAllByRole("button", { name: /open attachments for/i });
+    const withAttachments = 2;
+    expect(buttons).toHaveLength(withAttachments);
+  });
+
+  it("opens the attachments for a NON-ADMIN — the whole point", async () => {
+    adminAccess.isAdmin = false;
+    const user = userEvent.setup();
+    await renderView();
+
+    await user.click(screen.getAllByRole("button", { name: /open attachments for/i })[0]);
+
+    const dialog = await screen.findByRole("dialog", { name: /attachments for/i });
+    expect(dialog).toBeInTheDocument();
+  });
+
+  it("gives a non-admin NO way to add or remove a file", async () => {
+    adminAccess.isAdmin = false;
+    const user = userEvent.setup();
+    await renderView();
+
+    await user.click(screen.getAllByRole("button", { name: /open attachments for/i })[0]);
+    const dialog = await screen.findByRole("dialog", { name: /attachments for/i });
+
+    expect(within(dialog).queryByRole("button", { name: /add file/i })).toBeNull();
+    await waitFor(() =>
+      expect(within(dialog).queryByRole("button", { name: /^remove /i })).toBeNull(),
+    );
+  });
+
+  it("lets an ADMIN add a file from the register", async () => {
+    adminAccess.isAdmin = true;
+    const user = userEvent.setup();
+    await renderView();
+
+    await user.click(screen.getAllByRole("button", { name: /open attachments for/i })[0]);
+    const dialog = await screen.findByRole("dialog", { name: /attachments for/i });
+
+    expect(within(dialog).getByRole("button", { name: /add file/i })).toBeInTheDocument();
+  });
+
+  it("closes again", async () => {
+    const user = userEvent.setup();
+    await renderView();
+
+    await user.click(screen.getAllByRole("button", { name: /open attachments for/i })[0]);
+    const dialog = await screen.findByRole("dialog", { name: /attachments for/i });
+    await user.click(within(dialog).getByRole("button", { name: "Close" }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: /attachments for/i })).toBeNull(),
+    );
   });
 });

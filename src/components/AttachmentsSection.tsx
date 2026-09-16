@@ -69,6 +69,17 @@ export function parentNoun(parent: AttachmentParent): string {
 interface AttachmentsSectionProps {
   parent: AttachmentParent;
   itemId: number;
+  /**
+   * Show the files but offer no way to change them — no Add file button, no
+   * delete, no paste or drag target. Downloading still works.
+   *
+   * For a list where READING an attachment is open to everyone but WRITING is
+   * admin-only: CSA Listings is the case (its paperclip column was a static
+   * icon, so a non-admin could see that a certificate existed and had no way
+   * to open it — Ray, 2026-09-16). Gating the whole card would hide the file;
+   * gating only the controls is what lets everyone get at it.
+   */
+  readOnly?: boolean;
 }
 
 /**
@@ -78,7 +89,7 @@ interface AttachmentsSectionProps {
  * (admin hasn't granted the API permission yet) the section degrades
  * to a friendly notice instead of crashing the detail view.
  */
-export function AttachmentsSection({ parent, itemId }: AttachmentsSectionProps) {
+export function AttachmentsSection({ parent, itemId, readOnly = false }: AttachmentsSectionProps) {
   const fileInput = useRef<HTMLInputElement>(null);
   const { data: rawAttachments = [], isLoading, error, refetch } = useAttachments(parent, itemId);
   // A SharePoint "Image" column's hidden backing file (e.g. Suppliers List's
@@ -188,9 +199,9 @@ export function AttachmentsSection({ parent, itemId }: AttachmentsSectionProps) 
 
   return (
     <div
-      tabIndex={0}
-      onPaste={handlePaste}
-      {...dropProps}
+      tabIndex={readOnly ? undefined : 0}
+      onPaste={readOnly ? undefined : handlePaste}
+      {...(readOnly ? {} : dropProps)}
       className={cn(
         "rounded-lg border bg-surface p-4 focus:outline-none focus:ring-2 focus:ring-accent/30 sm:p-5",
         dragging ? "border-accent ring-2 ring-accent/30" : "border-border",
@@ -206,21 +217,25 @@ export function AttachmentsSection({ parent, itemId }: AttachmentsSectionProps) 
             </span>
           )}
         </h2>
-        <button
-          onClick={() => fileInput.current?.click()}
-          disabled={upload.isPending}
-          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-2 px-2.5 py-1 text-xs font-medium text-fg transition-colors hover:border-fg-muted disabled:opacity-50"
-        >
-          <Upload className="h-3.5 w-3.5" />
-          {upload.isPending ? "Uploading…" : "Add file"}
-        </button>
-        <input
-          ref={fileInput}
-          type="file"
-          multiple
-          onChange={handleFileChange}
-          className="hidden"
-        />
+        {!readOnly && (
+          <>
+            <button
+              onClick={() => fileInput.current?.click()}
+              disabled={upload.isPending}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-2 px-2.5 py-1 text-xs font-medium text-fg transition-colors hover:border-fg-muted disabled:opacity-50"
+            >
+              <Upload className="h-3.5 w-3.5" />
+              {upload.isPending ? "Uploading…" : "Add file"}
+            </button>
+            <input
+              ref={fileInput}
+              type="file"
+              multiple
+              onChange={handleFileChange}
+              className="hidden"
+            />
+          </>
+        )}
       </div>
 
       {error instanceof SharePointUnavailableError ? (
@@ -235,9 +250,11 @@ export function AttachmentsSection({ parent, itemId }: AttachmentsSectionProps) 
         <div className="py-4 text-center text-xs text-fg-muted">Loading attachments…</div>
       ) : attachments.length === 0 ? (
         <div className="rounded-md border border-dashed border-border py-6 text-center text-xs text-fg-muted">
-          {dragging
-            ? "Drop to attach"
-            : 'No attachments yet. Drag files here, paste a screenshot, or click "Add file".'}
+          {readOnly
+            ? "No attachments."
+            : dragging
+              ? "Drop to attach"
+              : 'No attachments yet. Drag files here, paste a screenshot, or click "Add file".'}
         </div>
       ) : (
         <ul className="flex flex-col gap-1.5">
@@ -270,23 +287,25 @@ export function AttachmentsSection({ parent, itemId }: AttachmentsSectionProps) 
                   <Download className="h-3.5 w-3.5" />
                 )}
               </button>
-              <button
-                onClick={() => {
-                  if (
-                    window.confirm(
-                      `Remove "${a.fileName}" from this ${parentNoun(parent)}?`,
-                    )
-                  ) {
-                    remove.mutate(a.fileName);
-                  }
-                }}
-                disabled={remove.isPending}
-                className="text-fg-muted hover:text-cooper-red disabled:opacity-50"
-                aria-label={`Remove ${a.fileName}`}
-                title="Remove"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
+              {!readOnly && (
+                <button
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        `Remove "${a.fileName}" from this ${parentNoun(parent)}?`,
+                      )
+                    ) {
+                      remove.mutate(a.fileName);
+                    }
+                  }}
+                  disabled={remove.isPending}
+                  className="text-fg-muted hover:text-cooper-red disabled:opacity-50"
+                  aria-label={`Remove ${a.fileName}`}
+                  title="Remove"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
             </li>
           ))}
         </ul>

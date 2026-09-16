@@ -423,6 +423,7 @@ src/
 │   ├── supplierIssueMapper.ts    Graph item → SupplierIssue
 │   ├── costImpactNoticeMapper.ts Graph item → CostImpactNotice, and back
 │   ├── costImpactAlerts.ts       Cost Impact Notice intake alert (new notice → the config list)
+│   ├── featureRequestAlerts.ts   ARC Feature Request intake + status alerts (pure)
 │   ├── grayMarketFields.ts       Gray Market column descriptors (columns are DATA)
 │   ├── grayMarketMapper.ts       Graph item → GrayMarketRequest, and back
 │   ├── grayMarketNumber.ts       nextGrayMarketLogNo() — GMR_YYYY-### numbering
@@ -512,6 +513,7 @@ src/
 │   ├── EcnFormModal.tsx          Raise an ECN
 │   ├── FaitFormModal.tsx         Raise a FAIT
 │   ├── FieldEditModal.tsx        Shared "edit this card's fields" modal (Gray Market, ECN, FAIT)
+│   ├── CsaAttachmentsModal.tsx   A CSA listing's certificates — readable by anyone, admin-editable
 │   ├── EcnChecklistCard.tsx      The MFGFRM-038 checklist on an ECN — sections, 4-state pills, findings
 │   ├── EcnRaciModal.tsx          The RACI matrix, as a reference modal
 │   ├── YesNoField.tsx            A boolean column as two labelled Yes / No choices
@@ -1053,6 +1055,26 @@ bulk action can't write without the check. Pinned by
 user, and the real boundary remains SharePoint's per-list permissions. Search deliberately covers the
 multi-line fields — a part number people are chasing lives in `PartNoIncluded`,
 not in the file number, and the table can only show its first line.
+
+**READING a certificate is open to everyone; only WRITING is admin-gated.**
+The register's paperclip column was a static ICON — it told you a certificate
+existed and gave you no way to open it — and the files were only reachable
+inside the admin-only Edit modal. So for a non-admin the attachment was
+visible and unreachable (Ray, 2026-09-16: "clicking attachment in CSA listings
+does not work, users need to be able to access them"). The paperclip is a
+BUTTON now, opening `CsaAttachmentsModal` for anyone signed in.
+
+`AttachmentsSection` gained a **`readOnly`** prop for this: it shows the files
+and keeps downloads working while hiding the Add file button, the delete
+button, and the paste/drag targets. **Gating the whole card would have hidden
+the file**, which is the opposite of what was asked — looking a certificate up
+is what this register is for. Admins get the same modal without `readOnly`, so
+the register is now also a place to manage the files rather than only the Edit
+form.
+
+`readOnly` is the pattern for any list where reading an attachment is open and
+changing it isn't. Don't reach for it where the whole card should be hidden —
+an empty read-only card still says "No attachments", which is information.
 
 **There is NO expiry column** on this list, and no expiry feature. A
 `certificationExpiry.ts` (buckets, urgency sort, counts, tested) sat unwired here
@@ -3498,6 +3520,46 @@ Four things that shape this feature:
   Implementing, not removed, the same call as Gray Market Requests and FAITs.
   `featureRequests.test.ts` — actually enforced by inspection, since the
   module simply has no delete function to begin with.
+- **Three notification paths, added 2026-09-16** (Ray: "hard coded alerts to
+  new ARC Feature Requests to email myself... ensure watching and comment
+  mention alerts are wired in for these for status changes etc"). Comments and
+  auto-watch-on-mention were already wired; the intake and status alerts were
+  not, so a suggestion sat unseen and a status change told nobody.
+
+  | When | Who |
+  |---|---|
+  | A request is raised | `FEATURE_REQUEST_ALERTS` (the intake queue) |
+  | Status moves | the request's **watchers + requester** (`fireFieldChangeAlert`) AND the intake queue |
+  | Somebody is @-mentioned | that person, who also becomes a watcher |
+
+  Five things that are load-bearing:
+
+  - **`FEATURE_REQUEST_ALERTS` is just Ray**, and deliberately its OWN env var
+    (`VITE_FEATURE_REQUEST_ALERTS`) rather than a literal address or a reuse of
+    another queue — adding a second person is then a repo variable, and
+    re-pointing one queue can never silently re-point another with a different
+    job. It has TWO rows in `AdminNotificationRecipientsView`'s `LISTS` (new
+    request, status change), because a row LABEL is what somebody scans for;
+    that screen's React key is `list.label` precisely so two rows can share an
+    `envVar`.
+  - **The generic watcher note is NOT suppressed** when the intake alert
+    fires. The intake list tracks the queue; the generic note is what tells the
+    REQUESTER their own suggestion moved (they auto-watch it on create). Same
+    reasoning as EIR's status alerts — some people get two emails, one saying
+    what happened and one saying what to do.
+  - **`to !== from` is OUR guard.** `"Status" in fields` is PRESENCE, not
+    change. The previous value only still exists in the mutation's `ctx`
+    (captured in `onMutate`, before the optimistic patch), which is why the
+    check reads `ctx?.prevRequest?.status` rather than the cache.
+  - **The actor reads through a `useRef`**, not a closure over the first
+    render: `useCurrentUser()` re-resolves when its lookupId arrives, and the
+    callback should use whoever is signed in now.
+  - **The "stays quiet" test starts from a fixture ALREADY at the target
+    status.** A fixture starting elsewhere passes whether the guard exists or
+    not. `__resetFeatureRequestMockStore()` was added for this: mock mode
+    mutates a module-level array, so an earlier test moving a request leaked
+    into the guard test and made it pass for the wrong reason — caught because
+    the first version of the test failed with `from: "In Work"`.
 - **Comments follow the full house rules** —
   `commentNotifyRecipients`/`commentRenotifyRecipients` (not ECN's narrower
   submitter-only rule, since this list DOES have a Watchers column and a

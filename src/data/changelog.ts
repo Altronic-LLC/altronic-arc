@@ -20,6 +20,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.155.0",
+    date: "2026-09-16",
+    changes: [
+      "New ARC feature requests now email the person who acts on them — nothing watched that list, so a suggestion could sit unseen",
+      "Moving a feature request's status emails its watchers and the requester, so whoever suggested it hears when it goes In Work or Completed",
+      "Certificates on a CSA listing can be opened by anyone — click the paperclip. Before, the files were only reachable inside the admin-only Edit form, so everyone else could see that a certificate existed and had no way to get at it",
+      "Admins can add and remove those certificates straight from the register too",
+    ],
+  },
+  {
     version: "0.154.1",
     date: "2026-09-16",
     changes: [
