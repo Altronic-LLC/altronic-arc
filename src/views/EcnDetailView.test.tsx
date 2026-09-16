@@ -20,6 +20,14 @@ async function renderDetail(id = 2) {
   await waitFor(() =>
     expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument(),
   );
+  // The heading renders from the ECN alone. The PROJECTS query lands
+  // separately, and anything touching the project picker needs it — so wait
+  // for the sidebar's joined project title here rather than leaving each test
+  // to discover the race under load (CI, 2026-09-16).
+  await waitFor(
+    () => expect(screen.getByText(/Engineering Apps|AMP-5000/)).toBeInTheDocument(),
+    { timeout: 10_000 },
+  );
   return result;
 }
 
@@ -145,6 +153,13 @@ describe("EcnDetailView", () => {
 
     const dialog = await screen.findByRole("dialog", { name: /edit details/i });
     await userEvent.click(within(dialog).getByRole("button", { name: "Project Reference" }));
+    // The options come from the PROJECTS query, which loads separately from the
+    // ECN — `renderDetail` only waits for the heading, so under full-suite load
+    // the picker can open before they arrive. `findByRole` alone polls the
+    // accessibility tree, which is expensive with the dialog mounted and was
+    // timing out in CI (2026-09-16); waiting on the option's TEXT first is a
+    // flat scan and cheap, and it is the thing actually being waited for.
+    await screen.findByText("0017-AMP-5000 Refresh", undefined, { timeout: 10_000 });
     await userEvent.click(
       await screen.findByRole("option", { name: "0017-AMP-5000 Refresh" }),
     );

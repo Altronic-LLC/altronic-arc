@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.156.1",
+    date: "2026-09-16",
+    changes: [
+      "Fixed the deploy, blocked by a test that opened the ECN project picker before the project list had loaded",
+    ],
+  },
+  {
     version: "0.156.0",
     date: "2026-09-16",
     changes: [
