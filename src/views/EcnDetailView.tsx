@@ -26,6 +26,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useProjects } from "@/hooks/useTasks";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { AttachmentsSection } from "@/components/AttachmentsSection";
+import { EcnChecklistCard } from "@/components/EcnChecklistCard";
 import { FieldEditModal, type EditableFieldSpec } from "@/components/FieldEditModal";
 import { CommentComposer } from "@/components/CommentComposer";
 import { CommentThread } from "@/components/CommentThread";
@@ -213,6 +214,8 @@ export function EcnDetailView() {
           ))}
 
           <AttachmentsSection parent="ecn" itemId={ecn.id} />
+
+          <EcnChecklistCard ecn={ecn} />
 
           <section className="rounded-xl border border-border bg-surface p-4 sm:p-5">
             <h2 className="mb-1 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">

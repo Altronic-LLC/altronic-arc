@@ -555,6 +555,20 @@ export const SP_ECNS_LIST_ID =
   import.meta.env.VITE_SP_ECNS_LIST_ID ||
   "f6917bf4-bdd1-4ff9-ba71-0a17b22b1ecc";
 
+/**
+ * ECN Checklists — the Cross-Functional ECN Checklist (Form# MFGFRM-038), one
+ * row per ECN, on the Engineering site beside the ECNs list it points at.
+ *
+ * **No default**, deliberately: the list is created by
+ * `scripts/create-ecn-checklist-list.ps1` and until its id is set the
+ * checklist card reports itself "not configured yet" rather than erroring —
+ * the same shape as Quick Links and ARC Feature Requests. An unset id here
+ * can't take away anything anyone can do today, since nothing could edit a
+ * checklist before this shipped at all.
+ */
+export const SP_ECN_CHECKLISTS_LIST_ID =
+  import.meta.env.VITE_SP_ECN_CHECKLISTS_LIST_ID || "";
+
 // =============================================================================
 // Digital QC — EIGHTEEN lists on the Engineering site (SITES.engineering),
 // one per product family. QC defect log entries are stored per-family list.

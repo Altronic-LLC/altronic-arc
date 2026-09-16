@@ -3845,9 +3845,22 @@ const SECTIONS: ManualSection[] = [
       "attachment",
       "comment",
       "notification",
+      "checklist",
+      "ecn checklist",
+      "cross-functional checklist",
+      "mfgfrm-038",
+      "mfgfrm038",
+      "form 038",
+      "raci",
+      "who is involved",
+      "review steps",
+      "findings",
+      "n/a",
+      "flagged",
+      "sign off checklist",
     ],
     searchText:
-      "ECNs at /engineering/ecns, under Engineering — Engineering Change Notices, the record of a change to a released product, backed by the ECN NEW list on the Altronic Engineering SharePoint site. The table lists every notice newest first by Log#. Search covers everything including the Detailed Description, so you can find which ECN changed a part number. Filter by project, In House Stock disposition, whether the drawings are complete, and whether the notice is on hold. Click a row to open it. New ECN raises one: pick the project it belongs to, and type the Log# yourself because it comes off the ECN paperwork, and a revision keeps the number of the notice it revises with an R suffix (260059R1); the form refuses a number another ECN already has. On the notice, each card has one Edit button in its header that opens a box with that card's fields — Change (final assembly part numbers, detailed description, serial numbers), Disposition (in house stock, field returns impacted, drawings complete, on hold) and Sign-off (engineering comments, sign-off status). Save changes writes only the fields you touched. The Log#, Title and Project are edited the same way, from Edit Details in the sidebar. The Dashboard's ECN card counts the notices on file and narrows with the project picker, and clicking it opens the list already filtered to that project. Yes/No columns are picked as Yes or No rather than ticked. You can attach files to a notice. Comments work differently from the rest of ARC: an ECN has no watchers, so posting a comment emails the person who submitted the ECN and anyone you @-mention, and nobody else. Notices are never deleted; a superseded one is revised.",
+      "ECNs at /engineering/ecns, under Engineering — Engineering Change Notices, the record of a change to a released product, backed by the ECN NEW list on the Altronic Engineering SharePoint site. The table lists every notice newest first by Log#. Search covers everything including the Detailed Description, so you can find which ECN changed a part number. Filter by project, In House Stock disposition, whether the drawings are complete, and whether the notice is on hold. Click a row to open it. New ECN raises one: pick the project it belongs to, and type the Log# yourself because it comes off the ECN paperwork, and a revision keeps the number of the notice it revises with an R suffix (260059R1); the form refuses a number another ECN already has. On the notice, each card has one Edit button in its header that opens a box with that card's fields — Change (final assembly part numbers, detailed description, serial numbers), Disposition (in house stock, field returns impacted, drawings complete, on hold) and Sign-off (engineering comments, sign-off status). Save changes writes only the fields you touched. The Log#, Title and Project are edited the same way, from Edit Details in the sidebar. The Dashboard's ECN card counts the notices on file and narrows with the project picker, and clicking it opens the list already filtered to that project. Yes/No columns are picked as Yes or No rather than ticked. You can attach files to a notice. Comments work differently from the rest of ARC: an ECN has no watchers, so posting a comment emails the person who submitted the ECN and anyone you @-mention, and nobody else. Notices are never deleted; a superseded one is revised. Every ECN also carries the Cross-Functional ECN Checklist (Form# MFGFRM-038) at the bottom of its page: all 84 review steps across the form's ten sections, filled out in ARC rather than on paper. A new ECN gets its checklist automatically; an ECN raised before this existed gets one from the Create checklist button. The card shows how many steps are answered with a progress bar; open it and each section expands to its own steps. Each step is marked Complete, N/A or Flagged, with a Findings / comments box beside it. Mark a step N/A when it does not apply to this ECN — that is what lets a finished checklist reach 100% on an ECN that never touches chemicals or CSA files — and Flagged when it needs a department review before release. Steps carry the form's own two markers: Must be on ECN means details have to appear on the notice, and Needs department review mirrors the form's review column. Changes save on their own a moment after you stop typing or click away, so there is no Save button. Who is involved? (RACI) opens the form's role matrix as reference — 32 roles across nine departments, with the R/A/C/I legend; steps that have a RACI assigned show a RACI link that opens the matrix at that step. The RACI is reference only and is never stored against an ECN.",
     render: () => (
       <>
         <P>
@@ -3935,6 +3948,65 @@ const SECTIONS: ManualSection[] = [
           comment too, mention them again: a mention notifies once, it doesn't
           subscribe anyone.
         </Tip>
+
+        <H3>The Cross-Functional ECN Checklist</H3>
+        <P>
+          At the bottom of every ECN is the{" "}
+          <strong>Cross-Functional ECN Checklist</strong> —{" "}
+          <strong>Form# MFGFRM-038</strong>, all 84 review steps across the
+          form's ten sections, filled out here instead of on paper. A{" "}
+          <strong>new ECN gets its checklist automatically</strong>; an ECN
+          raised before this existed gets one from{" "}
+          <strong>Create checklist</strong>.
+        </P>
+        <P>
+          The card leads with how far along it is — how many steps are
+          answered, split into complete, N/A and flagged, with a progress bar.
+          Press <strong>Open checklist</strong> and each section expands to
+          its own steps, with its own count beside it.
+        </P>
+        <UL>
+          <LI>
+            Each step is marked <strong>Complete</strong>,{" "}
+            <strong>N/A</strong> or <strong>Flagged</strong>, with a{" "}
+            <strong>Findings / comments</strong> box beside it — the form's
+            own two columns.
+          </LI>
+          <LI>
+            <strong>Mark a step N/A when it doesn't apply to this ECN.</strong>{" "}
+            Most ECNs never touch chemicals, CSA files or panel inventory, and
+            N/A is what lets a genuinely finished checklist reach 100% instead
+            of sitting at two-thirds for ever.
+          </LI>
+          <LI>
+            <strong>Flagged</strong> means the step needs a department review
+            before the ECN is released — it counts as answered, and stays
+            visible in the count at the top.
+          </LI>
+          <LI>
+            Steps carry the form's own markers:{" "}
+            <strong>Must be on ECN</strong> (details have to appear on the
+            notice itself) and <strong>Needs department review</strong>.
+          </LI>
+        </UL>
+        <Tip>
+          <strong>There is no Save button, by design.</strong> A tick saves
+          immediately and your findings text saves a moment after you stop
+          typing, or as soon as you click away — so a long checklist can be
+          picked up and put down without losing anything, and two people can
+          work the same checklist without overwriting each other's steps.
+        </Tip>
+        <P>
+          <strong>Who is involved? (RACI)</strong> at the top of the card opens
+          the form's role matrix — 32 roles across nine departments, with the
+          R / A / C / I legend and an explanation of the A/R and C/I pairs the
+          form uses. A step that has a RACI assigned carries its own{" "}
+          <strong>RACI</strong> link that opens the matrix at that step. The
+          matrix is <strong>reference only</strong>: it's the same on every ECN
+          and nothing in it is stored against yours. On Rev 0 of the form, 18
+          of the 84 steps carry an assignment; the rest have none, which isn't
+          the same as nobody being involved.
+        </P>
 
         <P>
           There is no delete. An ECN records a change that was made; a

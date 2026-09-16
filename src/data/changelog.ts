@@ -20,6 +20,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.153.0",
+    date: "2026-09-15",
+    changes: [
+      "ECNs now carry the Cross-Functional ECN Checklist (Form# MFGFRM-038) — all 84 review steps across 10 sections, filled out on the ECN's own page",
+      "Every new ECN gets its checklist automatically; an older ECN gets one from the Create checklist button",
+      "Mark each step Complete, N/A or Flagged and record your findings — N/A so a checklist on an ECN that doesn't touch chemicals or CSA files can still reach 100%",
+      "Each step shows whether details must be on the ECN and whether it needs a department review before release, straight off the form",
+      "A \"Who is involved? (RACI)\" link opens the form's role matrix as reference — including per-step, from the steps that have one",
+      "Changes save on their own, with a progress bar and per-section counts; there is no Save button to forget",
+    ],
+  },
+  {
     version: "0.152.1",
     date: "2026-09-09",
     changes: [

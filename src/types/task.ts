@@ -1650,6 +1650,49 @@ export interface EcnInput {
 }
 
 // =============================================================================
+// ECN Checklist — the Cross-Functional ECN Checklist (Form# MFGFRM-038) as it
+// applies to ONE ECN.
+//
+// One row per ECN on the ECN Checklists list. The 84 per-item answers live in
+// a single multi-line `Answers` column as JSON — see `src/lib/ecnChecklist.ts`
+// for the shape, the merge and why it isn't 84 rows per ECN. The four count
+// columns are REAL columns so SharePoint's own views can answer "which
+// checklists are outstanding" without parsing that blob.
+//
+// The template (the item text, and the form's "On ECN" / "requires review"
+// flags) is NOT stored here — it is identical on every ECN and lives in
+// `src/lib/ecnChecklistTemplate.ts`. Nor is the RACI matrix, which is static
+// reference material shown in a modal (`src/lib/ecnChecklistRaci.ts`).
+// =============================================================================
+
+export interface EcnChecklist {
+  id: number;
+  /** The ECN this checklist belongs to — a SINGLE lookup into the ECNs list. */
+  ecnId: number;
+  /** App-derived from the ECN's Log#, so the row is identifiable in SharePoint. */
+  title: string;
+  /** Derived from the answers — never written independently of them. */
+  status: "Not Started" | "In Progress" | "Complete";
+  /** Which revision of MFGFRM-038 the answers were given against. */
+  templateRevision: string;
+  /** The raw `Answers` column. Parse with `parseAnswers()`; never read by hand. */
+  answersJson: string;
+  /** Rollups, so a SharePoint view needn't parse `answersJson`. */
+  itemsTotal: number;
+  itemsComplete: number;
+  itemsNa: number;
+  itemsFlagged: number;
+  /** Who marked the checklist finished, and when. Null until it is. */
+  completedBy: Person | null;
+  completedDate: Date | null;
+  comments: Comment[];
+  watchers: Person[];
+  hasAttachments: boolean;
+  createdAt: Date;
+  modifiedAt: Date;
+}
+
+// =============================================================================
 // FAITs (First Article Inspection Tests) — Supply Chain, on the Altronic
 // Engineering site.
 //

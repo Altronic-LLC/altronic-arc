@@ -230,6 +230,7 @@ src/
 │   ├── eirs.ts                   EIR CRUD
 │   ├── eirRoles.ts               EIR role tags (engineer / supply chain) CRUD
 │   ├── ecns.ts                   ECN CRUD + comments (Engineering) — no delete
+│   ├── ecnChecklists.ts          ECN Checklist CRUD (MFGFRM-038), one row per ECN — no delete
 │   ├── faits.ts                  FAIT CRUD + comments (Supply Chain) — no delete
 │   ├── testSheets.ts             Test Results CRUD
 │   ├── admins.ts                 Admins list CRUD
@@ -294,6 +295,7 @@ src/
 │   ├── featureRequestMockData.ts Sample ARC Feature Requests, spanning all four statuses
 │   ├── whereAmIMockData.ts       Sample out-of-office entries (dated from today)
 │   ├── ecnMockData.ts            Sample ECNs (rich-text fields, a revision)
+│   ├── ecnChecklistMockData.ts   Sample ECN checklists — part-way, finished, untouched
 │   ├── faitMockData.ts           Sample FAITs (empty Titles, as the live list has)
 │   ├── buildRequestMockData.ts   Sample build requests + items
 │   ├── changelog.ts              Version history (drives footer + history modal)
@@ -332,6 +334,7 @@ src/
 │   ├── useFeatureRequests.ts     ARC Feature Requests queries, mutations + comment thread — no admin gate
 │   ├── useWhereAmI.ts            Where am I? queries + mutations
 │   ├── useEcns.ts                ECN queries + mutations (submitter-only notifications)
+│   ├── useEcnChecklists.ts       ECN Checklist queries + mutations (no admin gate)
 │   ├── useFaits.ts               FAIT queries + mutations
 │   ├── useVisitReportFilters.ts  URL-backed Visit Report filters (+ filterSearch)
 │   ├── useBuildRequests.ts       Build Requests + Items queries/mutations
@@ -376,6 +379,10 @@ src/
 │   ├── listWriteErrors.ts        A refused SharePoint write, in words
 │   ├── ecnFields.ts              ECN column descriptors (field_2 … field_12 decoded)
 │   ├── ecnMapper.ts              Graph item → Ecn, Log# parsing/sorting
+│   ├── ecnChecklistTemplate.ts   The 84 MFGFRM-038 items as DATA (generated, verbatim)
+│   ├── ecnChecklistRaci.ts       The MFGFRM-038 RACI matrix as STATIC REFERENCE (never stored)
+│   ├── ecnChecklist.ts           Checklist answers — parse/merge/progress (pure)
+│   ├── ecnChecklistMapper.ts     Graph item → EcnChecklist (single-lookup trap)
 │   ├── faitFields.ts             FAIT column descriptors (51 columns, 19 booleans)
 │   ├── faitMapper.ts             Graph item → Fait (+ bare-LookupId people)
 │   ├── faitAlerts.ts             FAIT intake alert (new FAIT → the config list)
@@ -505,6 +512,8 @@ src/
 │   ├── EcnFormModal.tsx          Raise an ECN
 │   ├── FaitFormModal.tsx         Raise a FAIT
 │   ├── FieldEditModal.tsx        Shared "edit this card's fields" modal (Gray Market, ECN, FAIT)
+│   ├── EcnChecklistCard.tsx      The MFGFRM-038 checklist on an ECN — sections, 4-state pills, findings
+│   ├── EcnRaciModal.tsx          The RACI matrix, as a reference modal
 │   ├── YesNoField.tsx            A boolean column as two labelled Yes / No choices
 │   ├── ChoicePills.tsx          Any short choice set as pills (Yes/No, Pass/Fail, …)
 │   ├── BuildRequestFormModal.tsx Create/edit build request
@@ -1524,6 +1533,141 @@ Description for a part number possible at all. `EcnsView` renders 150 rows with
 a "show all"; the filters and the count always run over everything.
 
 Attachments are enabled on the list (kind `ecn` in `api/attachments.ts`).
+
+### ECN Checklist — the Cross-Functional ECN Checklist (Form# MFGFRM-038)
+
+`VITE_SP_ECN_CHECKLISTS_LIST_ID` on `SITES.engineering`, created by
+`scripts/create-ecn-checklist-list.ps1`. **ONE ROW PER ECN**, tied to the ECNs
+list by a single `EcnRef` lookup. Renders at the BOTTOM of `EcnDetailView`
+(Ray, 2026-09-15). **No default id** — an unset id shows a "not configured"
+notice, the Quick Links shape; nobody could edit a checklist before this
+shipped, so there is nothing to lock anyone out of.
+
+**The source is a real controlled form** — `MFGFRM-038_Rev 0.xlsx`. Its four
+per-item columns split cleanly, and that split is the whole design:
+
+| Column | Varies per ECN? | Where it lives |
+|---|---|---|
+| A "On ECN" (43 of 84) | no | `ecnChecklistTemplate.ts` |
+| B "Review Steps" (the text) | no | `ecnChecklistTemplate.ts` |
+| D "Requires a review w/depts" (26 of 84) | no | `ecnChecklistTemplate.ts` |
+| C **"Findings/Comments"** | YES | the checklist row |
+| E **"Complete"** | YES | the checklist row |
+
+So **the template is CODE, not data** — 84 items across 10 sections,
+transcribed verbatim from the workbook rather than retyped. Storing A/B/D in
+SharePoint would be 84 copies of the same constants on every one of 1,800+
+ECNs.
+
+**`key` is the contract.** A stored answer references `s3-new-chemicals`, NOT
+row 25, which is what lets a Rev 1 of the form add, reword or reorder items
+without orphaning answers already given. A stored key the template no longer
+declares renders under "No longer on the form" rather than vanishing
+(`retiredAnswers`). **Never reuse or reassign a key.**
+
+**Why the answers are ONE JSON column** (`Answers`), decided with Ray on
+2026-09-15 after walking the alternatives:
+
+- 84 rows per ECN × 1,800+ ECNs is **150,000+ list items** — far past
+  SharePoint's 5,000-item threshold, which this repo has already paid for once
+  on the Teradyne log at 16,000 — plus 84 writes to create one checklist.
+- 84 pairs of real columns is 168 columns on one list, and each form revision
+  becomes a SharePoint migration rather than a code change.
+
+The cost is stated rather than hidden: **individual answers are NOT queryable
+from SharePoint's own views.** That is what `ItemsTotal` / `ItemsComplete` /
+`ItemsNa` / `ItemsFlagged` / `Status` are for — real columns, recomputed on
+every write from the blob they summarise, so a native view can answer "which
+checklists are outstanding". **If per-item cross-ECN reporting is ever needed
+IN SharePoint, this is the decision to revisit.**
+
+**The blob is a KEYED MAP, not a log.** Writing an item REPLACES its one slot;
+nothing appends, and the blob does not grow with edits. (Contrast
+`Communication`, which genuinely appends — the two are easy to conflate.)
+
+**MERGING IS LOAD-BEARING.** Every write rewrites the whole cell, so two people
+in one checklist would otherwise last-writer-wins over all 84 answers.
+`saveChecklistAnswers` **re-reads the row and merges** — `mergeAnswers` applies
+only the changed keys — rather than writing the caller's whole picture. The
+remaining lossy case, two people editing the SAME item's findings in the same
+second, is what SharePoint gives you for any single field anywhere. Pinned in
+`ecnChecklists.lookup.test.ts`, verified by reintroducing the bug and watching
+it fail.
+
+**A blob it could not PARSE is never overwritten.** `parseAnswersResult`
+reports `corrupt` and the write refuses, saying so. Replacing data we failed to
+read is the one outcome worse than an error message.
+
+**FOUR states, not a bare tick** (Ray, 2026-09-15) — Complete / N/A / Flagged /
+Not started. The paper form has one `Complete` column where blank silently
+covers both "doesn't apply" and "haven't got to it"; a reader resolves that
+from the Findings text beside it, and a progress number cannot. Most ECNs never
+touch chemicals, CSA files or panel inventory, so **without N/A a finished
+checklist reads as 51 of 84 for ever** and the number stops meaning anything.
+N/A and Flagged both count as SETTLED. Four options is past `ChoicePills`'
+`MAX_PILL_OPTIONS` of 3, so the control is its own rather than a bent version
+of that one — but still pills, since this is the primary interaction 84 times
+over and a dropdown per row would be brutal.
+
+**Auto-save, no Save button** — a tick writes immediately; findings text writes
+on blur or after a ~1.5s pause, held in local state meanwhile so the network
+never stutters the cursor.
+
+**Created AUTOMATICALLY on ECN create** (Ray, 2026-09-15), best-effort in
+`useCreateEcn`'s `onSuccess` — the ECN is already real and in the cache by
+then, so a failed checklist write TOASTS rather than making a successful create
+look failed (the same rule as the EIR→Task promotion's follow-up writes). The
+**"Create checklist"** button on the ECN's own page is both the recovery and
+the only way the **1,800+ ECNs predating this feature** ever get one.
+`createEcnChecklist` refuses to write a second checklist for an ECN that
+already has one — two would mean whichever loads first wins, silently.
+
+**`EcnRef` is a SINGLE lookup**, the trap documented four times over in this
+file (FAIT's person columns, Supplier `BPReference`, the CMMS lists, Feature
+Requests' `RequestedBy`): Graph returns a bare `EcnRefLookupId`, as a STRING,
+even with the friendly name in the `$select` — so both halves are selected and
+a write is a **bare integer**. Getting this wrong maps every checklist to
+`ecnId: 0`, and it then appears on no ECN's page at all — exactly what happened
+to 566 Supplier Contacts. `CompletedBy` is a single PERSON with the same shape,
+and a sign-off that cannot be resolved is **refused**, never written as `null`.
+
+**No admin gate anywhere** — any signed-in user can create a checklist, answer
+items and sign one off, matching how ECN comments and edits already work. Real
+enforcement stays SharePoint's list permissions.
+
+**No delete**, in the UI or the module — a checklist records a review that was
+done, the same call as the ECNs list it hangs off. `ecnChecklists.test.ts`
+asserts the module exports nothing matching /delete|remove/.
+
+#### The RACI matrix is STATIC REFERENCE, not stored data
+
+`lib/ecnChecklistRaci.ts` + `components/EcnRaciModal.tsx`. Ray, 2026-09-15:
+*"The raci matrix needs to be a created diagram that can be called by pressing
+a link at the top... that way it is separate than the data being stored in a
+sharepoint list."* 32 roles across 9 departments, identical on every ECN, so it
+lives in code and never touches the checklist row.
+
+Four things it gets right, each for a reason:
+
+- **Only the 18 items that carry marks are rendered.** Sections 4–10 have none
+  on Rev 0; 66 empty rows reads as a rendering fault rather than as missing
+  source data, so the count is stated in words instead.
+- **32 columns scroll inside their OWN container**, item text frozen in the
+  first column — the house rule that the page body never scrolls sideways.
+- **A per-item RACI link** opens the matrix AT that step. "Who do I consult for
+  this line" is the question someone actually has while filling it out, and
+  hunting for it in a 32-column grid is worse than not having it.
+- **`A/R` and `C/I` are explained** (`RACI_COMBINED_NOTE`). The form uses both,
+  and its own legend covers only the four single letters.
+
+**`Stragic Buyer` is MISSPELLED in the controlled form** (for "Strategic") and
+is transcribed verbatim — the same call as the `QualityPeformance` column typo
+on the Suppliers List. A controlled document is quoted, not edited; fix the
+workbook first if it should change here.
+
+**`scrollIntoView` is feature-detected** — it is absent in jsdom and on some
+older browsers, and scrolling to a row must never be the reason the whole modal
+fails to render. Found by test, 2026-09-15.
 
 ### "Where am I?" (Engineering out-of-office calendar)
 
