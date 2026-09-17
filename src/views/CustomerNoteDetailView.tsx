@@ -253,7 +253,8 @@ export function CustomerNoteDetailView() {
             <p className="mb-3 text-[11px] text-fg-muted">
               Posting here emails anyone you @-mention. There are no watchers on this list.
             </p>
-            <CommentComposer onSubmit={handleAddComment} mentionablePeople={allPeople} />
+            <CommentComposer
+              draftKey={`customer:${customerId}`} onSubmit={handleAddComment} mentionablePeople={allPeople} />
             <div className="mt-5">
               <CommentThread
                 comments={note.comments}

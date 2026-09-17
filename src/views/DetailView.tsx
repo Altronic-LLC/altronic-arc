@@ -718,6 +718,7 @@ export function DetailView() {
               </div>
             )}
             <CommentComposer
+              draftKey={`task:${taskId}`}
               onSubmit={handleAddComment}
               mentionablePeople={mentionCandidates}
               uploadFile={async (file) => {

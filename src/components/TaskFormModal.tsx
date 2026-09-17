@@ -35,6 +35,8 @@ import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { mergePeople } from "@/lib/people";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
 import { RichTextToggleField } from "./RichTextToggleField";
+import { DraftRestoredNotice } from "./DraftRestoredNotice";
+import { useFormDraft } from "@/hooks/useFormDraft";
 import { cn } from "@/lib/cn";
 import { DateField } from "./DateField";
 import { toLabelsField } from "@/lib/labels";
@@ -87,8 +89,16 @@ export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormM
   const setAssigned = useSetAssigned();
   const setWatchers = useSetWatchers();
 
-  const [title, setTitle] = useState(task?.title ?? "");
-  const [description, setDescription] = useState(task?.description ?? "");
+  // CREATE only. An edit form is seeded from the record, and a stale draft
+  // silently overwriting a real title is worse than losing the draft — you
+  // would be editing text that looks like the record and isn't.
+  const draft = useFormDraft<{ title: string; description: string }>(
+    mode === "create" ? "newTask" : null,
+  );
+  const [title, setTitle] = useState(task?.title ?? draft.initial.title ?? "");
+  const [description, setDescription] = useState(
+    task?.description ?? draft.initial.description ?? "",
+  );
   const [status, setStatus] = useState<Status>(task?.status ?? "BACKLOG");
   // Default Priority to Medium for new tasks (matches the Power App default).
   // In edit mode use whatever the task already has.
@@ -104,6 +114,15 @@ export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormM
   // project" mean the same thing here. Only meaningful in create mode; an
   // edit never receives fromParentTask (see the DetailView call site).
   const lockToParent = mode === "create" && !!fromParentTask;
+
+  // Save on every change to either field. One key for the pair: restoring a
+  // title with no description reads as though the description was cleared
+  // deliberately.
+  useEffect(() => {
+    if (mode !== "create") return;
+    draft.save({ title, description });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [title, description, mode]);
 
   const [parentProjectId, setParentProjectId] = useState<number | "">(
     task?.parentProject?.lookupId ?? fromParentTask?.parentProject?.lookupId ?? "",
@@ -250,6 +269,9 @@ export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormM
             lookupIds: relatedProjectIds,
           });
         }
+        // The task exists now, so the draft must go — otherwise it restores
+        // over the next new-task form as if nothing had been created.
+        draft.clear();
         onClose();
         navigate(`/task/${created.id}`);
         return;
@@ -413,6 +435,18 @@ export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormM
           )}
 
           <div className="grid gap-4">
+            {draft.restored && (
+              <DraftRestoredNotice
+                note="Only the title and description were kept."
+                onDiscard={() => {
+                  draft.clear();
+                  setTitle("");
+                  setDescription("");
+                }}
+                onKeep={draft.dismissNotice}
+              />
+            )}
+
             <FieldLabel label="Title" required>
               <input
                 ref={titleInputRef}

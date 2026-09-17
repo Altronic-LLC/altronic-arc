@@ -30,6 +30,8 @@ import {
   indentChecklistLine,
 } from "@/lib/descriptionChecklist";
 import { ChoiceSelect, MultiSelect, SingleSelect } from "./SearchableSelect";
+import { useFormDraft } from "@/hooks/useFormDraft";
+import { DraftRestoredNotice } from "./DraftRestoredNotice";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { mergePeople } from "@/lib/people";
@@ -63,8 +65,22 @@ export function OperationsTaskFormModal({ mode, task, onClose }: OperationsTaskF
   const setWatchers = useSetOperationsWatchers();
   const directory = useDirectoryPeople();
 
-  const [title, setTitle] = useState(task?.title ?? "");
-  const [description, setDescription] = useState(task?.description ?? "");
+  // CREATE only — a stale draft must never overwrite a real record's text.
+  const draft = useFormDraft<{ title: string; description: string }>(
+    mode === "create" ? "newOperationsTask" : null,
+  );
+  const [title, setTitle] = useState(task?.title ?? draft.initial.title ?? "");
+
+  const [description, setDescription] = useState(
+    task?.description ?? draft.initial.description ?? "",
+  );
+
+  // Save on every change, so navigating away mid-write keeps the wording.
+  useEffect(() => {
+    if (mode !== "create") return;
+    draft.save({ title, description });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [title, description, mode]);
   const [status, setStatus] = useState<OperationsStatus>(task?.status ?? "Backlog");
   const [priority, setPriority] = useState<OperationsPriority | "">(task?.priority ?? "");
   const [taskType, setTaskType] = useState<OperationsTaskType | "">(task?.taskType ?? "");
@@ -192,6 +208,7 @@ export function OperationsTaskFormModal({ mode, task, onClose }: OperationsTaskF
         await setWatchers.mutateAsync({ id: task.id, people: watchers });
       }
 
+      draft.clear();
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save task.");
@@ -242,6 +259,18 @@ export function OperationsTaskFormModal({ mode, task, onClose }: OperationsTaskF
           )}
 
           <div className="grid gap-4">
+            {draft.restored && (
+              <DraftRestoredNotice
+                note="Only the title and description were kept."
+                onDiscard={() => {
+                  draft.clear();
+                  setTitle("");
+                  setDescription("");
+                }}
+                onKeep={draft.dismissNotice}
+              />
+            )}
+
             <FieldLabel label="Title" required>
               <input
                 ref={titleInputRef}

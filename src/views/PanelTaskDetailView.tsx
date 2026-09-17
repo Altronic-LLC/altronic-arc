@@ -227,7 +227,8 @@ export function PanelTaskDetailView() {
             <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
               Comments
             </h2>
-            <CommentComposer onSubmit={handleAddComment} mentionablePeople={mentionCandidates} uploadFile={uploadCommentFile} />
+            <CommentComposer
+              draftKey={`panelTask:${taskId}`} onSubmit={handleAddComment} mentionablePeople={mentionCandidates} uploadFile={uploadCommentFile} />
             <div className="mt-5">
               <CommentThread
                 uploadFile={uploadCommentFile}

@@ -374,7 +374,8 @@ export function OperationsDetailView() {
                 Your comment was removed from the thread — try again.
               </div>
             )}
-            <CommentComposer onSubmit={handleAddComment} mentionablePeople={mentionCandidates} uploadFile={uploadCommentFile} />
+            <CommentComposer
+              draftKey={`opsTask:${taskId}`} onSubmit={handleAddComment} mentionablePeople={mentionCandidates} uploadFile={uploadCommentFile} />
             {newExternalComments.length > 0 && (
               <NewCommentsBanner comments={newExternalComments} onShow={handleShowNewComments} />
             )}
