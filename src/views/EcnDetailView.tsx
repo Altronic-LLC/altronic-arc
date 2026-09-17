@@ -232,6 +232,7 @@ export function EcnDetailView() {
                 : "Posting here emails anyone you @-mention. ECNs have no watchers."}
             </p>
             <CommentComposer
+              draftKey={`ecn:${ecnId}`}
               uploadFile={uploadCommentFile}
               onSubmit={handleAddComment}
               mentionablePeople={mentionCandidates}

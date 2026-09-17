@@ -217,6 +217,7 @@ export function GrayMarketRequestDetailView() {
               Comments
             </h2>
             <CommentComposer
+              draftKey={`grayMarket:${requestId}`}
               uploadFile={uploadCommentFile}
               onSubmit={handleAddComment}
               mentionablePeople={mentionCandidates}

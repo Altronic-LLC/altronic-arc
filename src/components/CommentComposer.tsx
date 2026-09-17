@@ -13,6 +13,7 @@ import { cn } from "@/lib/cn";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
 import { NameAttachmentDialog, needsAttachmentName } from "./NameAttachmentDialog";
 import { useFileDrop } from "./useFileDrop";
+import { useDraft } from "@/hooks/useDraft";
 import { plainTextToHtml } from "@/lib/richText";
 import { linkifyHtml } from "@/lib/linkify";
 import { RichTextEditor } from "./RichTextEditor";
@@ -52,6 +53,14 @@ interface CommentComposerProps {
    * watcher rule, which is what the other threads follow.
    */
   richTextNotifyNote?: string;
+  /**
+   * Identity for draft persistence — `"task:47"`, `"eir:1204"`.
+   *
+   * **Must name the RECORD, not just the field.** Without the record every
+   * composer in ARC shares one draft, and opening task B shows the
+   * half-written comment for task A. Omit it to disable persistence.
+   */
+  draftKey?: string;
 }
 
 /**
@@ -95,8 +104,12 @@ export function CommentComposer({
   mentionablePeople = [],
   uploadFile,
   richTextNotifyNote = WATCHERS_STILL_NOTIFIED,
+  draftKey,
 }: CommentComposerProps) {
-  const [text, setText] = useState("");
+  // A half-written comment survives navigating away to look something up —
+  // the thing Alexander Masgras lost "multiple paragraphs, full lists" to.
+  const draft = useDraft(draftKey ? `${draftKey}:comment` : null);
+  const [text, setText] = useState(draft.initialRich ? "" : draft.initialValue);
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const [busy, setBusy] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -115,8 +128,8 @@ export function CommentComposer({
   // Rich text is OPT-IN per comment, and plain text is what loads: the
   // @-mention picker only works in a textarea, so defaulting to rich would
   // silently take the feature away from everybody (Ray, 2026-09-16).
-  const [rich, setRich] = useState(false);
-  const [richHtml, setRichHtml] = useState("");
+  const [rich, setRich] = useState(draft.initialRich);
+  const [richHtml, setRichHtml] = useState(draft.initialRich ? draft.initialValue : "");
   const [warnRich, setWarnRich] = useState(false);
 
   // Mention popup state: the open boolean plus what the user has typed
@@ -207,6 +220,7 @@ export function CommentComposer({
 
   function handleTextChange(next: string) {
     setText(next);
+    draft.save(next, false);
     const caret = textareaRef.current?.selectionStart ?? next.length;
     detectMention(next, caret);
   }
@@ -290,6 +304,10 @@ export function CommentComposer({
         await onSubmit(html, attachments);
       }
 
+      // Clear FIRST: `clear()` cancels the pending debounced write, which
+      // would otherwise land after the post and restore a comment that has
+      // already been sent.
+      draft.clear();
       setText("");
       setRichHtml("");
       // Release any blob URLs we created for previews.
@@ -376,10 +394,46 @@ export function CommentComposer({
       {...dropProps}
       onPaste={handlePaste}
     >
+      {draft.restored && (
+        // ANNOUNCED, always. Text appearing in a box by itself is
+        // indistinguishable from a bug, and the user needs a way to say
+        // "not that" without selecting it all and deleting.
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-md border border-ajax-yellow/40 bg-ajax-yellow/10 px-2.5 py-1.5 text-xs">
+          <span className="text-fg">
+            Draft restored from earlier.
+            {attachments.length === 0 && " Any files you'd attached need adding again."}
+          </span>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                draft.clear();
+                setText("");
+                setRichHtml("");
+                setRich(false);
+              }}
+              className="font-medium text-cooper-red underline-offset-2 hover:underline"
+            >
+              Discard
+            </button>
+            <button
+              type="button"
+              onClick={draft.dismissNotice}
+              className="font-medium text-fg-muted underline-offset-2 hover:underline"
+            >
+              Keep
+            </button>
+          </div>
+        </div>
+      )}
+
       {rich ? (
         <RichTextEditor
           value={richHtml}
-          onChange={setRichHtml}
+          onChange={(html) => {
+            setRichHtml(html);
+            draft.save(html, true);
+          }}
           disabled={disabled || busy}
           minHeight="6.5rem"
           placeholder="Write a comment…"

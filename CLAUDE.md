@@ -359,6 +359,8 @@ src/
 │   ├── useVersionCheck.ts        Polls version.json → update banner
 │   ├── useUnseenMentions.ts      Unseen-@-mention badge state
 │   ├── useTheme.ts               Dark/light toggle (localStorage)
+│   ├── useDraft.ts               One field's draft in localStorage (comments)
+│   ├── useFormDraft.ts           A whole form's draft — title + description together
 │   └── useIsPhone.ts             Narrow-viewport media query
 │
 ├── lib/
@@ -473,6 +475,7 @@ src/
 │   ├── LoadingTasks.tsx          THE app-wide loading screen — verb/noun headline + a rotating "did you know" fact about ARC (data/loadingFacts.ts)
 │   ├── RequireAdmin.tsx          Route guard for /admin/*
 │   ├── DetailTopBar.tsx          Shared "you are here" bar on detail pages
+│   ├── DraftRestoredNotice.tsx   "Draft restored" + Discard/Keep (shared wording)
 │   ├── StatusPills.tsx           Task list status counters
 │   ├── OperationsStatusPills.tsx Operations equivalent
 │   ├── QuickLinksRow.tsx         Admin-managed link buttons above a Dashboard department's cards
@@ -5347,6 +5350,66 @@ this repo.
 - Indentation and the post-`]` gap round-trip verbatim. This text lives in a
   SharePoint field and is re-parsed, so anything lossy corrupts real data.
 
+### A half-written draft survives navigating away
+
+Alexander Masgras, 2026-09-17: he references other tasks while writing a
+comment, navigates off to look one up, and loses the comment — "sometimes
+multiple paragraphs, full lists". He had opened it as a request for ctrl+click
+on the Back button; the real problem was that drafts lived in component state.
+
+**localStorage, not a store.** Redux (or lifting the state a layer) survives
+NAVIGATION and nothing else — a refresh, a crashed tab or a closed browser
+still loses the draft, which is most of what people want protection from.
+localStorage covers all four, is per-browser-profile (a draft is yours, not
+the record's), and ARC already used it for the theme.
+
+`hooks/useDraft.ts` persists ONE field; `hooks/useFormDraft.ts` wraps it for a
+form's title+description pair. Wired into all **14 comment composers** and the
+create forms.
+
+Seven things that make a restored draft helpful rather than unsettling:
+
+- **`draftKey` must name the RECORD, not just the field** — `"task:47"`, and
+  each view passes a DISTINCT prefix (`task:` / `opsTask:` / `panelTask:`).
+  Without that, two records sharing a numeric id share a draft, and opening
+  task B shows the half-written comment for task A.
+- **It is ANNOUNCED.** `DraftRestoredNotice` with Discard and Keep. Text
+  appearing in a box by itself is indistinguishable from a bug, and on a
+  create form it reads as though the record already exists.
+- **CREATE forms only.** An edit form is seeded from the record, so a stale
+  draft silently overwriting a real title means editing text that looks like
+  the record and isn't — worse than losing a draft. Edit mode passes `null`.
+- **Cleared on a successful save, BEFORE the state resets.** `clear()` cancels
+  the pending debounced write, which would otherwise land after the post and
+  restore a comment that had already been sent. That race has its own test.
+- **The pending write is FLUSHED on unmount.** Navigating away is the exact
+  moment this exists for, and the debounce would swallow the last half-second
+  of typing.
+- **An emptied box means NO draft**, not a draft of nothing — otherwise
+  clearing a field leaves a draft that restores itself.
+- **Seven-day expiry**, and an expired draft is deleted rather than
+  re-checked for ever.
+
+Three things deliberately NOT persisted, each because restoring it would be
+worse than not:
+
+- **Attachments.** A `File` can't be serialised, and restoring a comment whose
+  files silently vanished is a trap. The notice says they need re-adding.
+- **Pickers, dates and people.** Cheap to re-choose, and the part most likely
+  to go stale — restoring a project reference that has since been renamed is
+  worse than an empty field.
+- **The rich-text MODE is persisted**, though, because a draft typed in rich
+  mode must come back in rich mode or its markup renders as visible tags.
+
+**Every `localStorage` access is wrapped in try/catch.** The accessor itself
+throws in a private window, with site data blocked, and during thumbnail
+capture — a detail page must not fail to render because a draft couldn't be
+read. A failed WRITE is silent on purpose: a lost draft is the status quo, and
+a toast on every keystroke would be worse than the problem.
+
+**It is per browser.** A comment started on a laptop isn't on a phone.
+Cross-device would need a server, and ARC hasn't got one.
+
 ### A pasted URL is a link — and it happens in `sanitiseHtml`
 
 A URL pasted into a comment or a description used to be dead text (Ray,
@@ -5441,6 +5504,37 @@ in rich mode typing `@` opens nothing.
   are weighing up.
 - **An "@-mentions off" reminder sits in the toolbar** while rich mode is on.
   The dialog is long gone by the time somebody tries to mention someone.
+
+#### EDITING a comment must not erase its formatting
+
+Reported by Alexander Masgras, 2026-09-17: a comment with bold, italic and
+underline lost all three the moment it was edited. The edit form only ever
+opened a plain `<textarea>` — `htmlToPlainText` stripped every tag on the way
+in (`.replace(/<[^>]+>/g, "")`) and the save rebuilt plain paragraphs through
+`buildCommentHtml`. So opening an edit and pressing Save destroyed the
+formatting, with nothing on screen warning that it would.
+
+That lossy conversion was a reasonable trade BEFORE rich text existed — its
+own comment said as much ("richer HTML from the Power Apps version loses
+formatting on edit — acceptable"). Shipping the rich editor made it a bug.
+
+**`hasRichFormatting(html)` in `lib/richText.ts` decides which editor opens.**
+A comment carrying formatting opens in RICH mode with its markup intact; a
+plain one still opens the textarea, so **@-mentions keep working for the
+common case** rather than every edit losing the picker.
+
+- **`<p>` and `<br>` do NOT count as formatting.** They round-trip faithfully
+  through the textarea as blank lines and newlines, so forcing rich mode on
+  them would cost the mention picker for nothing.
+- **It is a WHITELIST of tags that matter** (`strong`/`em`/`u`/`ul`/`a`/…),
+  not "any tag except p and br" — a future wrapper element shouldn't drag
+  every comment into rich mode.
+- **The Save button reads the RICH body in rich mode.** `text` is the stale
+  plain draft there, so checking it left Save disabled on a perfectly good
+  formatted edit.
+- **`nonEmptyRichHtml` guards the save**, because an empty contentEditable is
+  `<p><br></p>` rather than `""` — a `trim()` would let an empty edit save
+  over a real comment.
 
 #### Descriptions: rich text turns off the CHECKLIST — and may be blocked
 

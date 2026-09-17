@@ -409,7 +409,8 @@ export function MaintenanceDetailView() {
                 Your comment was removed from the thread — try again.
               </div>
             )}
-            <CommentComposer onSubmit={handleAddComment} mentionablePeople={mentionCandidates} uploadFile={uploadCommentFile} />
+            <CommentComposer
+              draftKey={`workOrder:${taskId}`} onSubmit={handleAddComment} mentionablePeople={mentionCandidates} uploadFile={uploadCommentFile} />
             <div className="mt-5">
               <CommentThread
                 uploadFile={uploadCommentFile}

@@ -35,6 +35,24 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
+    version: "0.160.0",
+    date: "2026-09-17",
+    changes: [
+      "A half-written comment is kept if you navigate away — go and look up another task, come back, and it's still there",
+      "The same for a new task's title and description, and for the other create forms",
+      "A restored draft says so, with Discard and Keep, so text in a box is never a surprise",
+      "Drafts survive a refresh or a closed tab too, and are forgotten once you post or after a week",
+    ],
+  },
+  {
+    version: "0.159.1",
+    date: "2026-09-17",
+    changes: [
+      "Fixed editing a comment erasing its formatting — bold, italic, underline, lists and links now survive an edit",
+      "A formatted comment opens the editor in rich text automatically; a plain one still opens as plain text so @-mentions keep working",
+    ],
+  },
+  {
     version: "0.159.0",
     date: "2026-09-16",
     changes: [

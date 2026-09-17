@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { useFormDraft } from "@/hooks/useFormDraft";
+import { DraftRestoredNotice } from "./DraftRestoredNotice";
 import { AlertTriangle, Loader2, X } from "lucide-react";
 import { SUPPLIER_ISSUE_SEVERITIES, SUPPLIER_ISSUE_STATUSES } from "@/types/task";
 import { useCreateSupplierIssue } from "@/hooks/useSupplierIssues";
@@ -20,8 +22,16 @@ export function SupplierIssueFormModal({
   onClose: () => void;
 }) {
   const create = useCreateSupplierIssue();
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
+  // This form is create-only, so a draft can never overwrite a real record.
+  const draft = useFormDraft<{ title: string; description: string }>("newSupplierIssue");
+  const [title, setTitle] = useState(draft.initial.title ?? "");
+
+  const [description, setDescription] = useState(draft.initial.description ?? "");
+  // Save on every change, so navigating away mid-write keeps the wording.
+  useEffect(() => {
+    draft.save({ title, description });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [title, description]);
   const [status, setStatus] = useState("");
   const [severity, setSeverity] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -54,6 +64,8 @@ export function SupplierIssueFormModal({
         severity: (severity || null) as (typeof SUPPLIER_ISSUE_SEVERITIES)[number] | null,
         watchers: [],
       });
+      // The record exists now, so the draft must go.
+      draft.clear();
       onClose();
     } catch {
       setError("Couldn't log the issue — please retry.");
@@ -89,6 +101,17 @@ export function SupplierIssueFormModal({
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          {draft.restored && (
+            <DraftRestoredNotice
+              note="Only the text fields were kept."
+              onDiscard={() => {
+                draft.clear();
+                setTitle("");
+                setDescription("");
+              }}
+              onKeep={draft.dismissNotice}
+            />
+          )}
           <FieldLabel label="Title *">
             <input ref={titleRef} value={title} onChange={(e) => setTitle(e.target.value)} className="input" disabled={create.isPending} />
           </FieldLabel>

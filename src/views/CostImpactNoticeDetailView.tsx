@@ -281,7 +281,8 @@ export function CostImpactNoticeDetailView() {
                 ? `Posting here emails ${submitter}, who raised this notice, and anyone you @-mention. Cost impact notices have no watchers.`
                 : "Posting here emails anyone you @-mention. Cost impact notices have no watchers."}
             </p>
-            <CommentComposer onSubmit={handleAddComment} mentionablePeople={mentionCandidates} uploadFile={uploadCommentFile} />
+            <CommentComposer
+              draftKey={`costImpact:${noticeId}`} onSubmit={handleAddComment} mentionablePeople={mentionCandidates} uploadFile={uploadCommentFile} />
             <div className="mt-5">
               <CommentThread
                 uploadFile={uploadCommentFile}

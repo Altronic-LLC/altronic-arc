@@ -275,6 +275,7 @@ export function FaitDetailView() {
               Comments
             </h2>
             <CommentComposer
+              draftKey={`fait:${faitId}`}
               onSubmit={handleAddComment}
               mentionablePeople={mentionCandidates}
               uploadFile={uploadFaitCommentFile}

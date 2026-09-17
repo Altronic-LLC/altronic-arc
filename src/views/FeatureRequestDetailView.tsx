@@ -147,7 +147,8 @@ export function FeatureRequestDetailView() {
             <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
               Comments
             </h2>
-            <CommentComposer onSubmit={handleAddComment} mentionablePeople={mentionCandidates} />
+            <CommentComposer
+              draftKey={`featureRequest:${requestId}`} onSubmit={handleAddComment} mentionablePeople={mentionCandidates} />
             <div className="mt-5">
               <CommentThread
                 comments={request.comments}

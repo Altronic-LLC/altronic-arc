@@ -234,7 +234,8 @@ export function SupplierDetailView() {
             <h2 className="mb-1 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
               Comments
             </h2>
-            <CommentComposer onSubmit={handleAddComment} mentionablePeople={allPeople} uploadFile={uploadCommentFile} />
+            <CommentComposer
+              draftKey={`supplier:${supplierId}`} onSubmit={handleAddComment} mentionablePeople={allPeople} uploadFile={uploadCommentFile} />
             <div className="mt-5">
               <CommentThread
                 uploadFile={uploadCommentFile}

@@ -86,3 +86,27 @@ export function toEditorHtml(value: string): string {
 export function isEmptyRichText(html: string): boolean {
   return htmlToPlainText(html).trim() === "";
 }
+
+/**
+ * Does this HTML carry formatting a plain textarea would DESTROY?
+ *
+ * `<p>` and `<br>` don't count: those are just paragraph and line structure,
+ * and `htmlToPlainText` round-trips them faithfully as blank lines and
+ * newlines. What counts is anything that cannot survive as text — bold,
+ * italic, underline, lists, links, mention chips, headings, tables.
+ *
+ * Used to decide whether EDITING a comment has to open in rich mode. Editing
+ * used to always open a textarea, which stripped every tag on the way in and
+ * rebuilt plain paragraphs on save — so touching a comment silently threw its
+ * formatting away (reported by Alexander Masgras, 2026-09-17: "editing a
+ * comment erases any rich text formatting").
+ */
+export function hasRichFormatting(html: string): boolean {
+  if (!html) return false;
+  // Deliberately a tag whitelist of the things that DO matter, rather than
+  // "any tag other than p/br" — a future wrapper element shouldn't force
+  // every comment into rich mode.
+  return /<(strong|b|em|i|u|s|strike|ul|ol|li|a|h[1-6]|blockquote|table|code|pre|span)\b/i.test(
+    html,
+  );
+}
