@@ -415,3 +415,116 @@ describe("CommentThread — URLs", () => {
     expect(container.querySelectorAll("a")).toHaveLength(1);
   });
 });
+
+// =============================================================================
+// Editing a comment must NOT erase its formatting.
+//
+// Reported by Alexander Masgras, 2026-09-17: a comment with bold, italic and
+// underline applied lost all three the moment it was edited. The edit form
+// opened a plain textarea, `htmlToPlainText` stripped every tag on the way
+// in, and the save rebuilt plain paragraphs — so simply opening and saving an
+// edit destroyed the formatting.
+//
+// A comment WITH formatting now opens in rich mode; a plain one still opens
+// the textarea, so @-mentions keep working for the common case.
+// =============================================================================
+describe("CommentThread — editing keeps rich formatting", () => {
+  const RICH = "<p><strong>Bold</strong> <em>Italic</em> <u>Underline</u></p>";
+
+  function renderThread(bodyHtml: string, onEdit = vi.fn()) {
+    return render(
+      <CommentThread
+        comments={[
+          {
+            timestamp: new Date("2026-09-17T10:00:00Z"),
+            authorName: "Ray White",
+            authorEmail: "ray@x.com",
+            bodyHtml,
+            attachments: [],
+          },
+        ]}
+        currentUserEmail="ray@x.com"
+        currentUserName="Ray White"
+        onEdit={onEdit}
+      />,
+    );
+  }
+
+  it("opens a FORMATTED comment in rich mode, with the markup intact", async () => {
+    const user = userEvent.setup();
+    const { container } = renderThread(RICH);
+
+    await user.click(screen.getByRole("button", { name: /edit/i }));
+
+    // The editor holds real tags, not stripped text.
+    expect(container.querySelector("[contenteditable] strong")).not.toBeNull();
+    expect(container.querySelector("[contenteditable] em")).not.toBeNull();
+    expect(container.querySelector("[contenteditable] u")).not.toBeNull();
+  });
+
+  it("SAVES the formatting back — the reported bug", async () => {
+    const user = userEvent.setup();
+    const onEdit = vi.fn();
+    renderThread(RICH, onEdit);
+
+    await user.click(screen.getByRole("button", { name: /edit/i }));
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    expect(onEdit).toHaveBeenCalled();
+    const saved = onEdit.mock.calls[0][1] as string;
+    expect(saved).toContain("<strong>");
+    expect(saved).toContain("<em>");
+    expect(saved).toContain("<u>");
+  });
+
+  it("starts a formatted comment with the rich toggle already ON", async () => {
+    const user = userEvent.setup();
+    renderThread(RICH);
+
+    await user.click(screen.getByRole("button", { name: /edit/i }));
+
+    expect(screen.getByRole("button", { name: /rich text/i })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  it("opens a PLAIN comment in the textarea, keeping @-mentions", async () => {
+    const user = userEvent.setup();
+    renderThread("<p>Just plain words</p>");
+
+    await user.click(screen.getByRole("button", { name: /edit/i }));
+
+    // A plain comment shouldn't be forced into rich mode — that would cost
+    // the mention picker for no reason.
+    expect(screen.getByDisplayValue("Just plain words")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /rich text/i })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+  });
+
+  it("treats a comment with only <p>/<br> as PLAIN", async () => {
+    // Paragraph and line structure round-trips faithfully through the
+    // textarea, so it isn't formatting worth protecting.
+    const user = userEvent.setup();
+    renderThread("<p>One</p><p>Two<br/>Three</p>");
+
+    await user.click(screen.getByRole("button", { name: /edit/i }));
+
+    expect(screen.getByRole("button", { name: /rich text/i })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+  });
+
+  it("opens a comment containing a LINK in rich mode", async () => {
+    // A link is formatting a textarea would flatten to bare text.
+    const user = userEvent.setup();
+    const { container } = renderThread('<p>See <a href="https://x.com/a">the spec</a></p>');
+
+    await user.click(screen.getByRole("button", { name: /edit/i }));
+
+    expect(container.querySelector("[contenteditable] a")).not.toBeNull();
+  });
+});

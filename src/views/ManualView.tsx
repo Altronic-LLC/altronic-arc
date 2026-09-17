@@ -822,6 +822,13 @@ const SECTIONS: ManualSection[] = [
           instead, because that is who hears about a comment on those.
         </P>
 
+        <P>
+          <strong>Editing keeps your formatting.</strong> A comment with bold,
+          italic, underline, lists or links reopens in rich text with
+          everything intact; a plain comment reopens as plain text, so
+          @-mentions still work when you edit one.
+        </P>
+
         <H3>Links</H3>
         <P>
           <strong>Paste a web address and it becomes a clickable link</strong>

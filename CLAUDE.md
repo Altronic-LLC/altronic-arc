@@ -5184,6 +5184,37 @@ in rich mode typing `@` opens nothing.
 - **An "@-mentions off" reminder sits in the toolbar** while rich mode is on.
   The dialog is long gone by the time somebody tries to mention someone.
 
+#### EDITING a comment must not erase its formatting
+
+Reported by Alexander Masgras, 2026-09-17: a comment with bold, italic and
+underline lost all three the moment it was edited. The edit form only ever
+opened a plain `<textarea>` — `htmlToPlainText` stripped every tag on the way
+in (`.replace(/<[^>]+>/g, "")`) and the save rebuilt plain paragraphs through
+`buildCommentHtml`. So opening an edit and pressing Save destroyed the
+formatting, with nothing on screen warning that it would.
+
+That lossy conversion was a reasonable trade BEFORE rich text existed — its
+own comment said as much ("richer HTML from the Power Apps version loses
+formatting on edit — acceptable"). Shipping the rich editor made it a bug.
+
+**`hasRichFormatting(html)` in `lib/richText.ts` decides which editor opens.**
+A comment carrying formatting opens in RICH mode with its markup intact; a
+plain one still opens the textarea, so **@-mentions keep working for the
+common case** rather than every edit losing the picker.
+
+- **`<p>` and `<br>` do NOT count as formatting.** They round-trip faithfully
+  through the textarea as blank lines and newlines, so forcing rich mode on
+  them would cost the mention picker for nothing.
+- **It is a WHITELIST of tags that matter** (`strong`/`em`/`u`/`ul`/`a`/…),
+  not "any tag except p and br" — a future wrapper element shouldn't drag
+  every comment into rich mode.
+- **The Save button reads the RICH body in rich mode.** `text` is the stale
+  plain draft there, so checking it left Save disabled on a perfectly good
+  formatted edit.
+- **`nonEmptyRichHtml` guards the save**, because an empty contentEditable is
+  `<p><br></p>` rather than `""` — a `trim()` would let an empty edit save
+  over a real comment.
+
 #### Descriptions: rich text turns off the CHECKLIST — and may be blocked
 
 A description's `- [ ]` lines are parsed LINE BY LINE off the raw string

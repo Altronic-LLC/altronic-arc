@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.159.1",
+    date: "2026-09-17",
+    changes: [
+      "Fixed editing a comment erasing its formatting — bold, italic, underline, lists and links now survive an edit",
+      "A formatted comment opens the editor in rich text automatically; a plain one still opens as plain text so @-mentions keep working",
+    ],
+  },
+  {
     version: "0.159.0",
     date: "2026-09-16",
     changes: [
