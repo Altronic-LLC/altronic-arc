@@ -255,6 +255,7 @@ src/
 │   ├── panelProjects.ts          Panel Project Reference list
 │   ├── panelRoles.ts             Panel User Roles list CRUD
 │   ├── qcTimeTracking.ts         QC Time Tracking CRUD (panelTeam site) — no delete
+│   ├── qcCpu95.ts                QCFRM-012 (CPU-95) test sheet CRUD (Quality Control, Engineering site) — no delete
 │   ├── visitReports.ts           Visit Reports CRUD (Sales, salesTeam site) — no delete
 │   ├── customerNotes.ts          CRM Tool — Customer Notes CRUD + comments (Sales, salesOrderEntry site)
 │   ├── customerContacts.ts       CRM Tool — Customer Contacts CRUD, scoped to a Customer Note
@@ -288,6 +289,7 @@ src/
 │   ├── operationsMockData.ts     Sample Operations tasks + projects
 │   ├── maintenanceMockData.ts    Sample CMMS work orders, PM schedules, equipment + the two reference lists
 │   ├── panelMockData.ts          Sample panel orders + panel tasks
+│   ├── qcCpu95MockData.ts        Sample CPU-95 (QCFRM-012) test sheets, one per Altmode shape
 │   ├── visitReportMockData.ts    Sample visit reports
 │   ├── crmMockData.ts            Sample CRM Tool data — customers, contacts, pricing, capacity
 │   ├── srmMockData.ts            Sample SRM Tool data — suppliers, contacts, issues
@@ -321,6 +323,7 @@ src/
 │   ├── usePanelTasks.ts          Panel task queries + mutations
 │   ├── usePanelRoles.ts          Panel User Roles CRUD (admin-guarded)
 │   ├── useQcTimeTracking.ts      QC Time Tracking queries + mutations
+│   ├── useQcCpu95.ts             QCFRM-012 (CPU-95) test sheet queries + mutations — no delete hook
 │   ├── useVisitReports.ts        Visit Report queries + mutations
 │   ├── useCustomerNotes.ts       CRM Tool — Customer Notes queries, mutations + comments
 │   ├── useCustomerContacts.ts    CRM Tool — Customer Contacts queries + mutations
@@ -417,6 +420,9 @@ src/
 │   ├── panelRoles.ts             Panel role → editing-rights mapping (pure)
 │   ├── qcTimeMapper.ts           Graph item → QcTimeEntry, and back
 │   ├── qcTimeSort.ts             QC Time sorting + column filters (pure) — hoursRaw is TEXT
+│   ├── qcForms.ts                QC Forms registry — one entry per controlled form, drives the search/button dashboard
+│   ├── qcCpu95Fields.ts          QCFRM-012 (CPU-95) column descriptors (~200 fields) + per-field Altmode visibility
+│   ├── qcCpu95Mapper.ts          Graph item → QcCpu95Record, and back; qcCpu95Altmode() (part number → 0-6)
 │   ├── tableSort.ts             GENERIC table sorting + column filters (pure) — 7 lists
 │   ├── visitReportMapper.ts      Graph item → VisitReport (+ RM/year options)
 │   ├── customerNoteMapper.ts     Graph item → CustomerNote (CRM Tool anchor list)
@@ -501,6 +507,7 @@ src/
 │   ├── PanelOrderFormModal.tsx   Create/edit panel order
 │   ├── PanelTaskFormModal.tsx    Create/edit panel task
 │   ├── QcTimeEntryFormModal.tsx  Create/edit a QC Time Tracking entry
+│   ├── QcCpu95FormModal.tsx      Create/edit a QCFRM-012 (CPU-95) test sheet — descriptor + Altmode driven
 │   ├── VisitReportFormModal.tsx  Create/edit a visit report
 │   ├── CustomerNoteFormModal.tsx  CRM Tool — new customer (create-only; details edit on the page)
 │   ├── CustomerContactFormModal.tsx  CRM Tool — add/edit a contact, scoped to a customer
@@ -600,6 +607,8 @@ src/
 │   ├── PanelTasksView.tsx        Panel Tasks list
 │   ├── PanelTaskDetailView.tsx   Panel task detail
 │   ├── QcTimeTrackingView.tsx    QC Time Tracking list (Panels)
+│   ├── QcFormsView.tsx           QC Forms landing dashboard — search + a button per controlled form
+│   ├── QcCpu95View.tsx           QCFRM-012 (CPU-95) test sheet list (Quality Control)
 │   ├── VisitReportsView.tsx      Visit Reports list (Sales)
 │   ├── CustomerNotesView.tsx     CRM Tool — Customer Notes list, search + Group filter (Sales)
 │   ├── CustomerNoteDetailView.tsx  CRM Tool — one customer + Contacts/Special Pricing/Capacity
@@ -2290,6 +2299,255 @@ a live sample row. The pivot rule handles both cases correctly regardless
 renders a day off from what SharePoint's own list view shows, check the
 actual stored time-of-day on a live row before assuming the bug is
 elsewhere, the same lesson Visit Reports and Gray Market already paid for.
+
+### QC Forms — QCFRM-012, the CPU-95 Ignition Module test sheet (Quality Control, Engineering site)
+
+`4843afdc-5697-4f44-8113-003cc220b57a` (env: `VITE_SP_QC_CPU95_LIST_ID`), list
+name **"CPU-95"**, on `SITES.engineering`. The first of what will be several digitized paper
+QC/test forms, reached from a **"QC Forms"** card on the Quality Control
+dashboard. `lib/qcForms.ts` is the registry a search-plus-button landing page
+(`QcFormsView`, `/qc-forms`) is built from — a second controlled form is a
+second `QcFormDef` entry plus its own list/mapper/fields/view; nothing else
+is shared beyond the registry and the landing page.
+
+QCFRM-012 (CPU-95 Ignition Module Electrical Test and Inspection) has
+SEVERAL PAPER VARIANTS depending on the unit's Altronic Part Number —
+CPU-95, CPU-95C, CPU-95C-3516, CPU-95 Varispark, CPU-95 EVS, and a combined
+16/18/20-cylinder sheet — and which fields print depends on an "Altmode"
+(0–6) the old Power Apps form computed with a `Switch()` on the part
+number. `qcCpu95Altmode()` in `lib/qcCpu95Mapper.ts` is the exact same
+lookup:
+
+| Altronic Part Number | Altmode |
+|---|---|
+| 791950-08 | 1 |
+| 791950-16 | 2 |
+| 791950-20, 791962-20 | 3 |
+| 791950-18 | 4 |
+| 791952-18 | 5 |
+| 791962-18 | 6 |
+| anything else (incl. blank) | 0 |
+
+**The columns are DATA** (`lib/qcCpu95Fields.ts`), the same reasoning as
+Drawing File Logs and FAIT — ~200 fields across 13 sections (Header,
+Startup/Final 20V/24V input, checklists, three firing-angle Spec/Actual
+grids for 16/18/20 cylinders, Current Loop, Defects/NCM, Comments &
+Sign-off), each carrying an optional `altModes?: readonly number[]` —
+`undefined` means always visible, otherwise the field only shows for those
+Altmodes. `qcCpu95VisibleFields(altMode)` filters the whole descriptor
+list; `QcCpu95FormModal` recomputes `altMode` LIVE off the Altronic Part
+Number field as it's typed, so picking a part number immediately shows or
+hides the matching voltage set and cylinder grid — there is no separate
+"visibility rule" to maintain per variant.
+
+The record is a flat `values: Record<string, string>` bag (mirrors FAIT's
+`Fait.values`), not a ~200-property interface — booleans are carried as
+`"Yes"`/`""`, the same convention as everywhere else in ARC. Confirmed live
+against `scripts/cpu-95-schema.json` (`discover-list.ps1`, 2026-09-17), not
+guessed from the original CSV export alone — that pass caught the 18-cylinder
+firing grid actually having 18 columns (it adds G and H; the 16-cylinder grid
+doesn't), which an earlier version of this file had silently missed by
+sharing one 16-letter alphabet between both grids.
+
+**There is deliberately NO `$select` on the CPU-95 read at all** — both
+`listQcCpu95Records` and `getQcCpu95Record` in `api/qcCpu95.ts` use a bare
+`$expand=fields`. With ~200 columns, a fully-named `$select` pushed the
+request URL to nearly 5,000 characters, and Graph/SharePoint's edge came back
+with a bare `404 "UnknownError"` and no rows rather than a clean error —
+found live, 2026-09-17, the first time this shipped against the real list.
+Every other wide list in ARC stays well clear of this (FAIT: 51 columns; the
+ECN checklist collapsed 84 items into one JSON column specifically to avoid
+this exact problem) — CPU-95 is the one list actually wide enough to hit it.
+Fetching every field costs a bigger response, never a wrong one, since
+`toQcCpu95Record` only reads the columns it knows about. **If a future list
+needs a `$select` this large, split it across two reads or drop the `$select`
+the same way — don't assume a $select is always cheaper than fetching
+everything.**
+
+**"Project Tag" (`ProjectTag`) IS a real column** — confirmed via the same
+schema pull as a multi-value lookup into the Projects list (the same list
+Tasks/EIRs/ECNs point at). It's deliberately NOT mapped yet: wiring it in is
+the same join-and-render treatment those other lists give a Project
+Reference, a small feature of its own rather than a field-name fix.
+
+**Which fields are visible per Altmode came from a SECOND export**, not the
+original schema — a 146-line CSV mapping each field to one of five Altmode
+conditions (`ALTMODE_LT_5` / `ALTMODE_GT_4` / `ALTMODE_LT_3` / `ALTMODE_GT_3`
+/ `ALTMODE_EQ_3` in `qcCpu95Fields.ts`, named after the CSV's own condition
+language rather than a guessed meaning). The 32 Startup/Final
+voltage-and-current fields split 16 standard / 16 "Alt" (the
+791962/791952-18 variant); four "On 791956-16 …" checklist booleans share
+the Alt condition; the three firing-angle grids are each pinned to exactly
+one cylinder count's condition.
+
+**791950-08 (Altmode 1) is an 8-cylinder unit hiding inside the 16-cylinder
+firing-angle grid** (Tim, 2026-09-17) — it's the only part number mapping to
+Altmode 1, and SharePoint gives it no columns of its own: it reuses the SAME
+`FiringAngleSpec16*`/`FiringAngleActual16*` columns Altmode 0 and 2 (genuinely
+16-cylinder) use, and only the first 8 of the 16 letters (A-L) ever hold real
+values on it — M through V are unused. `EIGHT_CYL_HIDDEN_KEYS` in
+`qcCpu95Fields.ts` is a DISPLAY-ONLY filter layered on top of the ordinary
+Altmode rule inside `qcCpu95VisibleFields()`, hiding those 16 keys (8 letters
+× Spec/Actual) specifically when `altMode === 1` — Altmode 0 and 2 still show
+all 16 letters. `qcCpu95SectionTitle(section, altMode)` relabels the two
+"16 Cyl" section headers to "8 Cyl", and `qcCpu95FieldLabel(field, altMode)`
+relabels each visible grid cell from "16A".."16L" to "8A".."8L", both for the
+same Altmode only — purely cosmetic, the section's fields, columns and write
+payload are untouched, so this is pinned entirely by tests on those three
+functions rather than needing new descriptor fields.
+
+**Altronic Part Number is a `SuggestInput`, not a closed dropdown** (Tim,
+2026-09-17) — it drives the Altmode switch, so a typo used to silently fall
+through to Altmode 0's field set with nothing saying so. First tried as a
+`SingleSelect` (a closed dropdown you must open before picking), but
+production enters this field with a **barcode scanner** that sends
+characters then a trailing CR (Enter) — a control requiring an explicit
+"open the list" gesture first eats that first scan, since there's nowhere
+for the characters to land until it's opened. `SuggestInput` is the CAD
+`By`/`EnteredBy`/`Software` pattern instead: the input IS the value (a real
+`<input>`, focused and ready the instant you tab or scan into it), and the
+known variants are offered as suggestions rather than the only choices — the
+SharePoint column is, and stays, plain single-line text.
+
+- **`QC_CPU95_PART_NUMBERS`** (`qcCpu95Mapper.ts`) is exactly the 7 keys of
+  `ALTMODE_BY_PART_NUMBER`, same order as the table above.
+- **Anything else is still accepted**, same as before this existed — a real
+  variant this list hasn't caught up to. `SuggestInput` already flags a
+  genuinely unrecognized value with its own quiet "New value…" note.
+- **A bare single-digit suffix normalizes before the ALTMODE lookup** —
+  `normalizePartNumberForAltmode()` pads `"791950-8"` to `"791950-08"`,
+  confirmed against real data: some older rows spell the -08 variant without
+  the leading zero. It's a general `-N → -0N` rule, not a second hardcoded
+  map entry, in case another single-digit suffix turns up the same way.
+- **`QC_CPU95_PART_NUMBER_SUGGESTIONS`, not the bare `QC_CPU95_PART_NUMBERS`,
+  is what `SuggestInput` is actually given** — reported live: scanning
+  `"791950-8"` correctly resolved Altmode 1 (the normalization above), but
+  `SuggestInput` still called it a "New value" because ITS OWN exact-match
+  check has no idea the two spellings are equivalent — confusing for a value
+  that's fully recognized, just spelled the old way. `unpaddedAlias()` is the
+  reverse of `normalizePartNumberForAltmode()`: it adds `"791950-8"` as its
+  own suggestion alongside `"791950-08"` (the only one of the 7 with a
+  zero-padded single-digit suffix, so the only one that gets an alias) —
+  fixed at the CALL SITE, in the options list handed to the shared
+  `SuggestInput` component, not by teaching that generic component about
+  this field's normalization rule.
+- **Enter here isn't handled by `SuggestInput` itself** (it only intercepts
+  Escape, to close its own suggestion panel) — it fall through to
+  `handleEnterAsTab` below exactly like any other field, which is what lets
+  a scanner's CR land on Serial Number, then Altronic Part Number, then
+  Logic Board Date Code, back to back with no manual clicking in between.
+
+**Enter behaves like Tab, never like Save** (Tim, 2026-09-17) — reported
+live: with ~200 fields on one screen, most of them plain text/number/
+checkbox inputs entered one after another across the firing-angle grid,
+Enter is exactly the key someone moving between cells reaches for. Left
+alone, a browser implicitly submits a `<form>` the instant Enter is pressed
+in a single-line text or number input — native behavior, not something this
+app opted into — which saved a half-finished sheet or threw the Serial
+Number required-field error mid-entry.
+
+`handleEnterAsTab` in `QcCpu95FormModal.tsx` is on the DIALOG container, not
+the `<form>` — Cancel and Save sit in a footer `<div>` that's a DOM sibling
+of the `<form>`, not a descendant, so the handler has to cover the whole
+modal for Tab-order continuity into those buttons. For an Enter on anything
+that ISN'T a `<textarea>` or a `<button>`, it calls `preventDefault()` (which
+is what stops the implicit submission) and focuses the next element in DOM
+order — the exact same element Tab would reach. A `<textarea>` (Comments)
+keeps its literal Enter, a new line; a `<button>` (Cancel, Close, a
+DateField trigger, and Save itself) keeps its own native
+Enter-activates-a-focused-button behavior untouched — **Save is the one
+button this can ever reach, so Enter only ever submits once it's already
+been tabbed (or Entered) all the way to it.** No change was needed for a
+button already reaching Save on Enter — that's native browser behavior for a
+focused `<button type="submit">`, not something this file has to implement.
+
+**It skips past a field's OWN auxiliary controls, not just to the next DOM
+element** — found live moving to `SuggestInput` (below): Altronic Part
+Number's input is followed in DOM order by that same field's "show
+suggestions" chevron `<button>`, both inside ONE wrapping `<label>` from
+`Field`. Landing plain Enter-redirect on "the next focusable element" landed
+on that chevron, not on the next actual field — useless for a barcode
+scanner's back-to-back CRs. The fix reads `target.closest("label")` and
+keeps advancing past anything still contained in THAT SAME label before
+focusing, so it skips the whole field's control cluster as one unit and
+lands on the next field's own. This is driven by DOM containment, not a
+hardcoded "skip one button" rule, so it holds for any future field that
+pairs its input with its own auxiliary button the same way.
+
+**No delete** — a test sheet is a signed, dated record (Final Test By /
+Final Inspection By), the same "correct with an edit" treatment as FAIT and
+Visit Reports. `api/qcCpu95.ts` has no delete function at all.
+
+**Any signed-in user can create or edit** — no admin gate, matching Visit
+Reports and QC Time Tracking. Reading and searching are open to everyone;
+SharePoint's own list permissions remain the real boundary.
+
+**No detail page** — clicking a row in `QcCpu95View` opens the same giant
+`QcCpu95FormModal` in edit mode, the QC Time Tracking shape, since every
+field (whichever the current Altmode shows) fits on one scrollable form.
+
+**The list is a card/table split on mobile, the `QcTimeTrackingView` shape**
+(Tim, 2026-09-17) — the table's eight columns don't fit a phone even
+truncated, so `QcCpu95View.tsx` renders two sibling elements over the same
+`table.rows`: a `<div className="... sm:hidden">` of `RecordCard`s and a
+`<div className="hidden ... sm:block">` `<table>` of `Row`s, split at the `sm`
+(640px) breakpoint. `RecordCard` is a real `<button>`, not a `<div>` —
+unlike `QcTimeTrackingView`'s card, there's no competing delete/edit icon
+here, so the whole card is the one tap target, leading with the status dot
+and serial number and listing every other column as a `<dl>` label/value
+pair underneath. **jsdom renders both at once** (no real CSS breakpoints),
+so `QcCpu95View.test.tsx` says so up top and uses `getAllByText`/
+`getAllByTitle` with a length assertion instead of the singular form —
+the same convention `QcTimeTrackingView.test.tsx` already established.
+
+**The firing-angle grid is 2 columns on a phone** (Tim, 2026-09-17) —
+`QcCpu95FormModal`'s grid className is `grid-cols-2 gap-2 sm:grid-cols-6
+md:grid-cols-8`; 4 across made each box too small to tap or read
+comfortably. No re-ordering logic was needed: the letters are already
+declared in the paper form's own left-to-right, top-to-bottom order (A, B,
+C, D, …) in `QC_CPU95_FIELDS`, and CSS grid's default row-major auto-flow
+lays them out that way at any column count.
+
+**Altmode is never shown in the list** (Ray, 2026-09-17) — it's an internal
+routing value that decides which fields the FORM shows, not something a user
+reading the list needs to see. The list's own status signal is a coloured LED
+in the leading column instead: yellow **In Process**, blue **In Queue**
+(Tim, 2026-09-17: ONLY Serial Number and Altronic Part Number are filled
+in — the barcode-scanned identifying pair, nothing from the actual test
+yet), red **In Repair** (`values.inRepair === "Yes"`), green **Complete**
+(`finalInspectionBy` AND `finalInspectionDate` both set). `qcCpu95Status()` /
+`qcCpu95StatusSortKey()` in `lib/qcCpu95Mapper.ts` are the pure functions.
+
+Priority order, each checked before falling through to the next:
+
+1. **Complete wins over everything** — a unit that failed, got fixed, and
+   was signed off is done, not still flagged red or blue because of what it
+   went through earlier.
+2. **In Repair wins over In Queue and the plain In Process default** — a
+   unit flagged for repair is never "just queued", whatever else is or
+   isn't filled in.
+3. **In Queue requires BOTH identifying fields non-blank, and EVERY other
+   field blank** (`hasOnlyIdentifyingFieldsFilled`) — a sheet with only one
+   of the two (or with a single other field started, even just Date Tested)
+   doesn't match; it falls through to the plain In Process default instead.
+   This means a genuinely queued record can never carry a Date Tested —
+   filling one in is exactly what moves it out of "queued" — worth
+   remembering when writing a fixture: giving a "queued" test record a
+   `dateTested` silently makes its real status "new" instead, and a test
+   that doesn't assert the status directly can pass for the wrong reason
+   anyway (this happened once here — see the comment in
+   `qcCpu95Mapper.test.ts`'s `qcCpu95StatusSortKey` suite).
+
+The list's default sort groups by that status — **In Process, then In
+Queue, then In Repair, then Complete** (Tim, 2026-09-17: In Queue sorts
+below In Process but above In Repair) — with the newest Date Tested first
+inside each group, one combined sortable-table column (`kind: "number"`,
+`sortValue` = rank scaled well past any real date's epoch, minus the date)
+rather than a bespoke multi-key sort, so it still plugs into the shared
+`tableSort.ts` engine (clicking the header still works, if oddly, since
+flipping direction reverses both the group order and the within-group date
+order together — accepted, since compressing two sort keys into one numeric
+value is the standard trade-off here).
 
 ### Panel QC Issue Tracker (Panels, panelTeam site)
 

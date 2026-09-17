@@ -939,7 +939,13 @@ export function DashboardView() {
           description="Product-family defect tracking with quick filtering and add-entry capture."
           onClick={() => navigate("/ignition-qc")}
         />
-        <PlaceholderCard name="QC Forms" icon={<FileCheck className="h-5 w-5" />} />
+        <TypeCard
+          name="QC Forms"
+          icon={<FileCheck className="h-5 w-5" />}
+          tone="superior-blue"
+          description="Digitized paper QC/test forms — start with QCFRM-012, the CPU-95 ignition module test sheet."
+          onClick={() => navigate("/qc-forms")}
+        />
       </DeptSection>
 
       <DeptSection
