@@ -14,6 +14,7 @@ import { AutoGrowTextarea } from "./AutoGrowTextarea";
 import { NameAttachmentDialog, needsAttachmentName } from "./NameAttachmentDialog";
 import { useFileDrop } from "./useFileDrop";
 import { plainTextToHtml } from "@/lib/richText";
+import { linkifyHtml } from "@/lib/linkify";
 import { RichTextEditor } from "./RichTextEditor";
 import {
   RichTextWarningDialog,
@@ -256,7 +257,9 @@ export function CommentComposer({
       // extractMentionedRecipients and the whole email path read either.
       let html = rich
         ? richBody
-          ? injectMentionsIntoHtml(richBody, mentions)
+          ? // Linkify FIRST, then chips: both walk text nodes, and doing
+            // links first means a chip can never land inside an anchor.
+            injectMentionsIntoHtml(linkifyHtml(richBody), mentions)
           : ""
         : trimmed
           ? buildCommentHtml(trimmed, mentions)

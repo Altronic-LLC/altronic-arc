@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { cn } from "@/lib/cn";
+import { escapeHtml } from "@/lib/mentions";
 import { sanitiseHtml } from "@/lib/sanitiseHtml";
+import { linkifyEscaped } from "@/lib/linkify";
 import {
   childrenOf,
   looksLikeHtml,
@@ -61,9 +63,16 @@ export function DescriptionView({ text, onToggle, className, tone = "theme" }: D
         dangerouslySetInnerHTML={{ __html: sanitiseHtml(text) }}
       />
     ) : (
-      <div className={cn("whitespace-pre-wrap text-sm leading-relaxed", textColor, className)}>
-        {text}
-      </div>
+      // PLAIN text, but a pasted URL should still be clickable — so escape it
+      // (this branch previously rendered as raw text, which was its own
+      // protection), linkify, and render. `whitespace-pre-wrap` keeps the
+      // line breaks that made this a plain branch in the first place.
+      <div
+        className={cn("whitespace-pre-wrap text-sm leading-relaxed", textColor, className)}
+        dangerouslySetInnerHTML={{
+          __html: sanitiseHtml(linkifyEscaped(escapeHtml(text))),
+        }}
+      />
     );
   }
 

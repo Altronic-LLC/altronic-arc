@@ -20,6 +20,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.159.0",
+    date: "2026-09-16",
+    changes: [
+      "A pasted web address is now a clickable link wherever ARC shows it — comments, descriptions, ECN and Gray Market cards, supplier and cost impact notes, and the print views",
+      "This applies to everything already saved too, so old comments and descriptions become clickable without anything being re-entered",
+      "Part numbers and references like QMP-4.3 or ALT.III are left alone — only a full http:// or https:// address becomes a link",
+      "A full stop or bracket at the end of a sentence stays out of the link, so the address still works",
+    ],
+  },
+  {
     version: "0.158.0",
     date: "2026-09-16",
     changes: [

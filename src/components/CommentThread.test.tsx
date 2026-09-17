@@ -355,3 +355,63 @@ describe("CommentThread — CommentEditor supports drag-and-drop attachments", (
     );
   });
 });
+
+// =============================================================================
+// A pasted URL is clickable in a comment.
+//
+// Linkified on READ as well as on write, so comments posted before this
+// existed are clickable too — no migration over thousands of stored rows.
+// =============================================================================
+describe("CommentThread — URLs", () => {
+  function commentWith(bodyHtml: string): Comment {
+    return {
+      timestamp: new Date("2026-09-16T10:00:00Z"),
+      authorName: "Ray White",
+      authorEmail: "ray@x.com",
+      bodyHtml,
+      attachments: [],
+    };
+  }
+
+  it("links a URL stored as plain paragraph text", () => {
+    const { container } = render(
+      <CommentThread
+        comments={[commentWith("<p>Spec is at https://altronic-llc.com/spec</p>")]}
+        currentUserEmail="someone@x.com"
+        currentUserName="Someone"
+      />,
+    );
+    const link = container.querySelector("a");
+    expect(link).toHaveAttribute("href", "https://altronic-llc.com/spec");
+    expect(link).toHaveAttribute("target", "_blank");
+  });
+
+  it("does NOT double-link a comment that already has an anchor", () => {
+    const { container } = render(
+      <CommentThread
+        comments={[
+          commentWith('<p><a href="https://x.com/a">https://x.com/a</a></p>'),
+        ]}
+        currentUserEmail="someone@x.com"
+        currentUserName="Someone"
+      />,
+    );
+    expect(container.querySelectorAll("a")).toHaveLength(1);
+  });
+
+  it("leaves a mention chip intact alongside a link", () => {
+    const { container } = render(
+      <CommentThread
+        comments={[
+          commentWith(
+            '<p><span class="mention" data-email="r@x.com">@Ray White</span> https://x.com/a</p>',
+          ),
+        ]}
+        currentUserEmail="someone@x.com"
+        currentUserName="Someone"
+      />,
+    );
+    expect(container.querySelector("span.mention")).not.toBeNull();
+    expect(container.querySelectorAll("a")).toHaveLength(1);
+  });
+});

@@ -706,7 +706,7 @@ const SECTIONS: ManualSection[] = [
       "resend notification",
     ],
     searchText:
-      "Type @ in the comment composer to open the mention picker. Arrow keys then Enter or Tab to pick. You can type a first name and surname after the @ — the space no longer closes the picker — and matching works in any order or by email address. admin.first.last accounts are not listed. Comment boxes auto-grow as you type or paste. Mentioned people get an email with the task/EIR name, the comment quote, and a link. Attach files by drag-drop, click Attach, or paste with Ctrl+V. Pasting a screenshot opens a naming prompt before it attaches anywhere — Cancel discards it instead of attaching it — and the named file uploads to the task's SharePoint project folder like any other attachment; a name already taken there is saved as name (2).ext instead of overwriting it. You can edit your own comments inline (a comment is yours if its saved name or email matches you, so older imported comments count too). Check Notify everyone again when editing to re-email every watcher and mention. Ctrl+Enter sends. Comments have a Rich text button for bold, italic, underline and bulleted or numbered lists. It asks first, because rich text turns off the @-mention picker for that comment — typing @ no longer opens the name list, so you cannot add a new mention. Current watchers are still notified either way, and anyone you already picked before switching is still mentioned and still emailed. Whatever you have typed carries across, and you can switch back to plain text at any time. On ECNs, Customer Notes and Cost Impact Notices, which have no watchers, the warning says the submitter is still notified instead.",
+      "Type @ in the comment composer to open the mention picker. Arrow keys then Enter or Tab to pick. You can type a first name and surname after the @ — the space no longer closes the picker — and matching works in any order or by email address. admin.first.last accounts are not listed. Comment boxes auto-grow as you type or paste. Mentioned people get an email with the task/EIR name, the comment quote, and a link. Attach files by drag-drop, click Attach, or paste with Ctrl+V. Pasting a screenshot opens a naming prompt before it attaches anywhere — Cancel discards it instead of attaching it — and the named file uploads to the task's SharePoint project folder like any other attachment; a name already taken there is saved as name (2).ext instead of overwriting it. You can edit your own comments inline (a comment is yours if its saved name or email matches you, so older imported comments count too). Check Notify everyone again when editing to re-email every watcher and mention. Ctrl+Enter sends. Comments have a Rich text button for bold, italic, underline and bulleted or numbered lists. It asks first, because rich text turns off the @-mention picker for that comment — typing @ no longer opens the name list, so you cannot add a new mention. Current watchers are still notified either way, and anyone you already picked before switching is still mentioned and still emailed. Whatever you have typed carries across, and you can switch back to plain text at any time. On ECNs, Customer Notes and Cost Impact Notices, which have no watchers, the warning says the submitter is still notified instead. Pasting a web address into a comment or a description makes it a clickable link automatically — no formatting needed, and it works in plain text as well as rich text. This applies to comments and descriptions already saved, so older ones are clickable too. Only a full http:// or https:// address becomes a link, so part numbers and references like QMP-4.3 are left alone, and a full stop or bracket ending the sentence stays outside the link.",
     render: () => (
       <>
         <P>
@@ -820,6 +820,21 @@ const SECTIONS: ManualSection[] = [
           <strong>Cost Impact Notices</strong> — which have no watchers — the
           warning says the <strong>submitter</strong> is still notified
           instead, because that is who hears about a comment on those.
+        </P>
+
+        <H3>Links</H3>
+        <P>
+          <strong>Paste a web address and it becomes a clickable link</strong>
+          — no formatting needed, in plain text as well as rich text, and it
+          opens in a new tab. This applies everywhere ARC shows a comment or a
+          description, including ones saved long before the feature existed.
+        </P>
+        <P>
+          Only a full <code>http://</code> or <code>https://</code> address
+          becomes a link. Part numbers and references like{" "}
+          <code>QMP-4.3</code> or <code>ALT.III</code> are left alone, and a
+          full stop or bracket that ends your sentence stays outside the link
+          so the address still works.
         </P>
 
         <H3>Editing your own comments</H3>

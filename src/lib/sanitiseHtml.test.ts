@@ -84,3 +84,63 @@ describe("sanitiseHtml", () => {
     expect(b.toLowerCase()).not.toContain("bgcolor");
   });
 });
+
+// =============================================================================
+// Linkifying is UNIVERSAL because it lives here.
+//
+// Every place ARC renders stored rich text goes through `sanitiseHtml` —
+// comment threads, descriptions, the ECN / Gray Market / Cost Impact /
+// Customer Note detail cards, and both print views. Doing it here rather than
+// at each call site is what makes "a pasted URL is clickable everywhere" true
+// without a dozen edits, and keeps the next render site correct by default
+// (Ray, 2026-09-16: "make that universal across arc").
+// =============================================================================
+describe("sanitiseHtml — bare URLs become links", () => {
+  it("links a bare URL", () => {
+    const out = sanitiseHtml("<p>See https://altronic-llc.com/docs</p>");
+    expect(out).toContain('href="https://altronic-llc.com/docs"');
+    expect(out).toContain('target="_blank"');
+  });
+
+  it("keeps the anchors it adds — they pass its own filter", () => {
+    // Linkify runs BEFORE sanitising on purpose, so the links we create are
+    // checked by the same rules as any other markup.
+    const out = sanitiseHtml("https://x.com/a");
+    expect(out).toContain("<a");
+    expect(out).toContain('rel="noopener noreferrer"');
+  });
+
+  it("does NOT double-link an existing anchor", () => {
+    const out = sanitiseHtml('<p><a href="https://x.com/a">https://x.com/a</a></p>');
+    expect(out.match(/<a /g)).toHaveLength(1);
+  });
+
+  it("still strips dangerous markup", () => {
+    // Adding linkification must not weaken what this function is FOR.
+    const out = sanitiseHtml('<img src=x onerror="alert(1)"><script>alert(1)</script>');
+    expect(out).not.toContain("onerror");
+    expect(out).not.toContain("<script");
+  });
+
+  it("does not linkify a javascript: URL", () => {
+    const out = sanitiseHtml("javascript:alert(1)");
+    expect(out).not.toContain("<a");
+  });
+
+  it("leaves a mention chip intact", () => {
+    const out = sanitiseHtml(
+      '<p><span class="mention" data-email="r@x.com">@Ray</span> https://x.com/a</p>',
+    );
+    expect(out).toContain('data-email="r@x.com"');
+    expect(out.match(/<a /g)).toHaveLength(1);
+  });
+
+  it("is unchanged for text with no URL", () => {
+    expect(sanitiseHtml("<p>Nothing here</p>")).toContain("Nothing here");
+  });
+
+  it("handles empty input", () => {
+    expect(sanitiseHtml("")).toBe("");
+    expect(sanitiseHtml(null)).toBe("");
+  });
+});

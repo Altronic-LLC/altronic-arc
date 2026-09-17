@@ -203,3 +203,68 @@ describe("DescriptionView — sub-tasks (indented checklist lines)", () => {
     expect(screen.getByText("1/1")).toBeInTheDocument();
   });
 });
+
+// =============================================================================
+// A pasted URL is clickable wherever a description is shown.
+//
+// Linkified on READ as well as on write, so descriptions saved before this
+// existed are clickable too — no migration over thousands of rows.
+// =============================================================================
+describe("DescriptionView — URLs", () => {
+  it("links a URL in a PLAIN description", () => {
+    // This branch used to render as raw text, so a URL was dead.
+    const { container } = render(
+      <DescriptionView text={"Docs are at https://altronic-llc.com/docs"} />,
+    );
+    const link = container.querySelector("a");
+    expect(link).toHaveAttribute("href", "https://altronic-llc.com/docs");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", expect.stringContaining("noopener"));
+  });
+
+  it("links a URL in an HTML description", () => {
+    const { container } = render(
+      <DescriptionView text={"<p>See https://altronic-llc.com/x</p>"} />,
+    );
+    expect(container.querySelector("a")).toHaveAttribute(
+      "href",
+      "https://altronic-llc.com/x",
+    );
+  });
+
+  it("does NOT linkify a part number that looks domain-ish", () => {
+    const { container } = render(<DescriptionView text={"Per QMP-4.3, section 4.5"} />);
+    expect(container.querySelector("a")).toBeNull();
+  });
+
+  it("ESCAPES a plain description rather than trusting it as HTML", () => {
+    // The plain branch sets innerHTML now, so the escaping is what keeps it
+    // safe. Note the text here has NO tags: anything tag-shaped is routed to
+    // the HTML branch by `looksLikeHtml` and sanitised there instead — that
+    // routing is unchanged and predates this, so the case worth pinning is
+    // the one that actually reaches the plain branch.
+    const { container } = render(
+      <DescriptionView text={"5 < 10 & 20 > 15, see https://x.com/a"} />,
+    );
+    // Rendered as characters, not swallowed as markup.
+    expect(container.textContent).toContain("5 < 10 & 20 > 15");
+    expect(container.querySelector("a")).toHaveAttribute("href", "https://x.com/a");
+  });
+
+  it("keeps line breaks in a plain description", () => {
+    // whitespace-pre-wrap is what made this a plain branch; linkifying must
+    // not cost the line structure.
+    const { container } = render(<DescriptionView text={"line one\nline two"} />);
+    expect(container.textContent).toContain("line one");
+    expect(container.textContent).toContain("line two");
+  });
+
+  it("leaves a checklist description alone", () => {
+    // Checklists take a different branch entirely — the checkboxes matter
+    // more than a link, and this proves linkifying didn't reach them.
+    const { container } = render(
+      <DescriptionView text={"- [ ] see https://x.com/a"} onToggle={vi.fn()} />,
+    );
+    expect(container.querySelector('input[type="checkbox"]')).not.toBeNull();
+  });
+});

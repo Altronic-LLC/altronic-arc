@@ -1,4 +1,5 @@
 import { escapeHtml } from "./mentions";
+import { linkifyEscaped } from "./linkify";
 import { htmlToPlainText } from "./htmlText";
 import { looksLikeHtml, parseChecklistItems } from "./descriptionChecklist";
 
@@ -35,7 +36,7 @@ export function plainTextToHtml(text: string): string {
   if (!normalised) return "";
   return normalised
     .split(/\n{2,}/)
-    .map((para) => `<p>${escapeHtml(para).replace(/\n/g, "<br/>")}</p>`)
+    .map((para) => `<p>${linkifyEscaped(escapeHtml(para)).replace(/\n/g, "<br/>")}</p>`)
     .join("");
 }
 

@@ -1,4 +1,5 @@
 import type { Person } from "@/types/task";
+import { linkifyEscaped } from "./linkify";
 import { matchesTokens } from "./itemSearch";
 
 // =============================================================================
@@ -189,7 +190,7 @@ export function buildCommentHtml(plain: string, mentions: Person[]): string {
     .split(/\n{2,}/)
     .map((para) => {
       if (!mentionRe) {
-        return `<p>${escapeHtml(para).replace(/\n/g, "<br/>")}</p>`;
+        return `<p>${linkifyEscaped(escapeHtml(para)).replace(/\n/g, "<br/>")}</p>`;
       }
       let html = "";
       let lastIndex = 0;
@@ -197,14 +198,14 @@ export function buildCommentHtml(plain: string, mentions: Person[]): string {
       let match: RegExpExecArray | null;
       while ((match = re.exec(para)) !== null) {
         const before = para.slice(lastIndex, match.index);
-        html += escapeHtml(before).replace(/\n/g, "<br/>");
+        html += linkifyEscaped(escapeHtml(before)).replace(/\n/g, "<br/>");
         const person = byName.get(match[1])!;
         const eName = escapeHtml(person.displayName);
         const eEmail = escapeHtml(person.email ?? "");
         html += `<span class="mention" data-email="${eEmail}">@${eName}</span>`;
         lastIndex = re.lastIndex;
       }
-      html += escapeHtml(para.slice(lastIndex)).replace(/\n/g, "<br/>");
+      html += linkifyEscaped(escapeHtml(para.slice(lastIndex))).replace(/\n/g, "<br/>");
       return `<p>${html}</p>`;
     })
     .join("");

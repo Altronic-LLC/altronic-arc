@@ -448,6 +448,7 @@ src/
 │   ├── changeAlerts.ts           Change-alert email construction (pure)
 │   ├── graphFields.ts            multiPersonField / multiLookupField / multiChoiceField
 │   ├── sanitiseHtml.ts           DOMPurify wrapper for stored HTML
+│   ├── linkify.ts               Bare URL → <a>; two entry points (escaped vs markup)
 │   ├── richText.ts               Plain text ⇄ HTML for the EIR rich-text columns
 │   ├── errorBuffer.ts            Bounded console-error capture (Report issue)
 │   ├── authErrors.ts             AADSTS codes that mean "fix your account", in plain English
@@ -5087,6 +5088,57 @@ this repo.
   indistinguishable from real ones.
 - Indentation and the post-`]` gap round-trip verbatim. This text lives in a
   SharePoint field and is re-parsed, so anything lossy corrupts real data.
+
+### A pasted URL is a link — and it happens in `sanitiseHtml`
+
+A URL pasted into a comment or a description used to be dead text (Ray,
+2026-09-16). `lib/linkify.ts` turns one into a real anchor.
+
+**It lives inside `sanitiseHtml`, which is what makes it universal** (Ray:
+"make that universal across arc"). Every place ARC renders stored rich text
+goes through that one function — comment threads, task and EIR descriptions,
+the ECN / Gray Market / Cost Impact / Customer Note detail cards, and both
+print views. Wiring each call site instead would have been a dozen edits and
+a standing invitation to miss the next one; **a new render site is correct by
+default.**
+
+- **On READ, not on write.** That is what reaches the thousands of comments
+  and descriptions saved before this existed. Nothing is migrated and nothing
+  stored changes.
+- **Linkify FIRST, then sanitise.** The anchors it adds are filtered by the
+  same rules as any other markup rather than trusted because we made them.
+
+Two entry points, because two paths hand text over differently:
+
+- **`linkifyHtml(html)`** — real markup. **Walks TEXT NODES**, so it cannot
+  linkify inside an `href`, an `alt`, or any other attribute; a string replace
+  over HTML would match there and wreck the markup. Skips `<a>` contents (no
+  nested anchors) and `span.mention` (chips stay chips).
+- **`linkifyEscaped(escaped)`** — a fragment the caller ALREADY escaped, which
+  is how the comment and description builders work. It must not escape again,
+  or `&amp;` in a query string becomes `&amp;amp;` and the link breaks.
+
+Three rules worth keeping:
+
+- **Only `http://` and `https://`.** Deliberately NOT a bare-domain matcher.
+  These fields are full of part numbers and references — `ALT.III`, `REV.2`,
+  `QMP-4.3, section 4.5` — and guessing at what looks domain-shaped turns them
+  into broken links. A pasted URL carries its scheme; that is the signal worth
+  trusting. `javascript:` and `data:` are never matched.
+- **Trailing punctuation belongs to the sentence.** "See https://x.com/page."
+  — the full stop is the writer's, so it is kept out of the href and
+  re-emitted after the anchor. A closing paren is only trimmed when
+  UNBALANCED, so a Wikipedia-style `..._(disambiguation)` URL survives.
+- **Entities are stripped before punctuation** in `splitTrailing`. Doing it
+  the other way round eats the `;` off `&quot;`, which then no longer matches
+  as an entity and leaves `&quot` welded to the href — found by test.
+
+**The plain-text description branch now sets `innerHTML`.** It used to render
+as raw text, which was its own protection; it escapes, linkifies and renders
+instead, so a URL in a plain description is clickable in place rather than
+needing a separate list of links. `whitespace-pre-wrap` still carries the line
+breaks. Note that `looksLikeHtml` routes anything tag-shaped to the HTML
+branch regardless — that routing predates this and is unchanged.
 
 ### Rich text is OPT-IN per field, and it always costs something
 

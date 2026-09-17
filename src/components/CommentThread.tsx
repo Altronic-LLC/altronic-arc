@@ -150,6 +150,8 @@ function CommentItem({
           // bodyHtml is authored content from SharePoint users; sanitised
           // through DOMPurify to strip scripts and event handlers before
           // rendering. See src/lib/sanitiseHtml.ts.
+          // `sanitiseHtml` linkifies bare URLs itself, for every render
+          // site at once — see its own note.
           dangerouslySetInnerHTML={{ __html: sanitiseHtml(comment.bodyHtml) }}
         />
       ) : comment.attachments && comment.attachments.length > 0 ? (
