@@ -238,6 +238,12 @@ const PrintPanelQcIssueView = lazy(() =>
 const DevQzPrintTestView = lazy(() =>
   import("@/views/DevQzPrintTestView").then((m) => ({ default: m.DevQzPrintTestView })),
 );
+const QcFormsView = lazy(() =>
+  import("@/views/QcFormsView").then((m) => ({ default: m.QcFormsView })),
+);
+const QcCpu95View = lazy(() =>
+  import("@/views/QcCpu95View").then((m) => ({ default: m.QcCpu95View })),
+);
 const FeatureRequestsView = lazy(() =>
   import("@/views/FeatureRequestsView").then((m) => ({ default: m.FeatureRequestsView })),
 );
@@ -353,6 +359,22 @@ export function App() {
             <Route path="/test-sheet/:id" element={<TestSheetDetailView />} />
             <Route path="/digital-qc" element={<DigitalQcView />} />
             <Route path="/ignition-qc" element={<IgnitionQcView />} />
+            <Route
+              path="/qc-forms"
+              element={
+                <Suspense fallback={<LoadingTasks noun="QC forms" />}>
+                  <QcFormsView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/qc-forms/cpu-95"
+              element={
+                <Suspense fallback={<LoadingTasks noun="CPU-95 test sheets" />}>
+                  <QcCpu95View />
+                </Suspense>
+              }
+            />
             <Route path="/coils/defect-log" element={<CoilsQcView />} />
             <Route
               path="/coils/potting-sample-log"

@@ -20,6 +20,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.161.0",
+    date: "2026-09-17",
+    changes: [
+      "QC Forms is live — a searchable dashboard of controlled QC/test forms, reached from the Quality Control department",
+      "The first form is QCFRM-012, the CPU-95 ignition module electrical test and inspection sheet, covering the CPU-95, CPU-95C, Varispark, EVS and multi-application 16/18/20-cylinder paper variants",
+      "The form shows only the fields that apply to the unit's Altronic Part Number, automatically",
+      "The 18-cylinder firing angle grid now includes its two extra columns (G and H) that the 16-cylinder grid doesn't have",
+      "The CPU-95 test sheet list shows a status LED on each row — yellow while in process, blue while queued (only Serial Number and Altronic Part Number filled in), red once In Repair is checked, green once Final Inspection is signed off — sorted that way by default (in process, then queued, then in repair, then complete, newest tested first within each)",
+      "The 791950-08 form now labels its firing angle grid '8 Cyl', only shows the 8 columns that unit actually uses, and labels them 8A-8L instead of 16A-16L",
+      "Altronic Part Number now suggests the known CPU-95 variants as you type or scan them, to help catch a typo before it silently picks the wrong test sheet — any other value is still accepted",
+      "Pressing Enter while filling out a CPU-95 test sheet now moves to the next field, like Tab, instead of saving the form early — Save only fires once Enter (or Tab) has actually reached the Save button, and a barcode scanner's CR now moves cleanly from field to field",
+      "The CPU-95 test sheet list is now mobile-friendly — a phone shows a card per sheet instead of a wide table, and the firing angle grid on the form shows two fields per row on a phone for easier reading and tapping",
+    ],
+  },
+  {
     version: "0.160.0",
     date: "2026-09-17",
     changes: [

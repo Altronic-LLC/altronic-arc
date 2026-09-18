@@ -479,6 +479,16 @@ export const SP_FAIT_LIST_ID =
   "d655b5d6-ee28-45c4-85ab-128198569508";
 
 /**
+ * QCFRM-012 — CPU-95 Ignition Module Electrical Test and Inspection, the
+ * first "QC Forms" module. The SharePoint list is named "CPU-95", on the
+ * Engineering site. Any signed-in user can create/edit; no delete (each row
+ * is a signed, dated test record).
+ */
+export const SP_QC_CPU95_LIST_ID =
+  import.meta.env.VITE_SP_QC_CPU95_LIST_ID ||
+  "4843afdc-5697-4f44-8113-003cc220b57a";
+
+/**
  * "ECN NEW" — Engineering Change Notices, on the Engineering site.
  *
  * The list came out of a migration and its columns are named `field_2` …

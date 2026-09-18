@@ -49,7 +49,7 @@ const SECTIONS: ManualSection[] = [
       "where do i start",
     ],
     searchText:
-      "Sign in with your altronic-llc.com account. The Dashboard opens after sign-in. A Refresh button in the header pulls the latest data from SharePoint at any time without reloading the page, so anything you have open — a form, a set of filters, a half-typed comment — is kept; its icon spins while data is coming in. Use the top nav to switch between Dashboard, the Departments dropdown, and Admin. The Departments dropdown mirrors the dashboard: Engineering (Engineering Tasks, EIRs, Test Sheets, Project Folders, Build Requests, Drawing File Logs, CSA Listings, Where Am I?, ECNs), Panels, Operations, Coils (Potting Sample Log), Quality Control (Digital QC and Ignition QC Defect Logs), Supply Chain (Gray Market Requests, FAITs, Suppliers/SRM Tool), and Customer Service / Sales (Open Orders Report, Visit Reports, Customers/CRM Tool).",
+      "Sign in with your altronic-llc.com account. The Dashboard opens after sign-in. A Refresh button in the header pulls the latest data from SharePoint at any time without reloading the page, so anything you have open — a form, a set of filters, a half-typed comment — is kept; its icon spins while data is coming in. Use the top nav to switch between Dashboard, the Departments dropdown, and Admin. The Departments dropdown mirrors the dashboard: Engineering (Engineering Tasks, EIRs, Test Sheets, Project Folders, Build Requests, Drawing File Logs, CSA Listings, Where Am I?, ECNs), Panels, Operations, Coils (Potting Sample Log), Quality Control (Digital QC Defect Log, Ignition QC Defect Log, QC Forms), Supply Chain (Gray Market Requests, FAITs, Suppliers/SRM Tool), and Customer Service / Sales (Open Orders Report, Visit Reports, Customers/CRM Tool).",
     render: () => (
       <>
         <P>
@@ -61,8 +61,8 @@ const SECTIONS: ManualSection[] = [
           Sheets, Project Folders, Build Requests, Drawing File Logs, CSA
           Listings, Where Am I?, ECNs), <strong>Panels</strong>,{" "}
           <strong>Operations</strong>, <strong>Coils</strong> (Potting Sample
-          Log), <strong>Quality Control</strong> (Digital QC and Ignition QC
-          Defect Logs), <strong>Supply Chain</strong> (Gray Market Requests,
+          Log), <strong>Quality Control</strong> (Digital QC Defect Log,
+          Ignition QC Defect Log, QC Forms), <strong>Supply Chain</strong> (Gray Market Requests,
           FAITs, and the Suppliers SRM tool), and{" "}
           <strong>Customer Service / Sales</strong> (Open Orders Report, Visit
           Reports, and the Customers CRM tool). Engineering Tasks use the{" "}
@@ -125,7 +125,7 @@ const SECTIONS: ManualSection[] = [
       "quick link buttons",
     ],
     searchText:
-      "The Dashboard is grouped into department sections — Engineering, Panels, Operations, Coils, Quality Control, Supply Chain, and Customer Service / Sales — each a divider heading with its cards beneath. A department can show a row of admin-managed Quick Links buttons above its cards, linking out to a SharePoint site or another tool outside ARC; the row only appears once an admin has added at least one for that department, at /admin/quick-links. Engineering has live cards: Engineering Tasks, EIRs, Test Sheets and more. Coils has the Potting Sample Log; Quality Control has the Digital QC and Ignition QC Defect Logs; Supply Chain has Gray Market Requests, Suppliers (the SRM tool), Cost Impact Notices and FAITs; Customer Service / Sales has Open Orders Report, Visit Reports and Customers (the CRM tool). Most live cards show the count of active items (tasks not Complete, EIRs not Closed), a colour-coded status mini-bar, and click through to that type's page; a few — Open Orders Report, Visit Reports, Suppliers, Cost Impact Notices and Customers — are description-only, since there's no count that reads as more useful than the tool itself. A Mine / Company switch flips every count and bar between your own items and the whole company's; Mine is the default. A project picker sits next to it and works the same way — pick a project and every card's count and mini-bar narrows to just that project, in place, combining with Mine/Company rather than navigating anywhere. Clicking a card afterward opens that type's full list pre-filtered to the picked project.",
+      "The Dashboard is grouped into department sections — Engineering, Panels, Operations, Coils, Quality Control, Supply Chain, and Customer Service / Sales — each a divider heading with its cards beneath. A department can show a row of admin-managed Quick Links buttons above its cards, linking out to a SharePoint site or another tool outside ARC; the row only appears once an admin has added at least one for that department, at /admin/quick-links. Engineering has live cards: Engineering Tasks, EIRs, Test Sheets and more. Coils has the Potting Sample Log; Quality Control has the Digital QC Defect Log, Ignition QC Defect Log and QC Forms; Supply Chain has Gray Market Requests, Suppliers (the SRM tool), Cost Impact Notices and FAITs; Customer Service / Sales has Open Orders Report, Visit Reports and Customers (the CRM tool). Most live cards show the count of active items (tasks not Complete, EIRs not Closed), a colour-coded status mini-bar, and click through to that type's page; a few — Open Orders Report, Visit Reports, Suppliers, Cost Impact Notices and Customers — are description-only, since there's no count that reads as more useful than the tool itself. A Mine / Company switch flips every count and bar between your own items and the whole company's; Mine is the default. A project picker sits next to it and works the same way — pick a project and every card's count and mini-bar narrows to just that project, in place, combining with Mine/Company rather than navigating anywhere. Clicking a card afterward opens that type's full list pre-filtered to the picked project.",
     render: () => (
       <>
         <P>
@@ -186,7 +186,7 @@ const SECTIONS: ManualSection[] = [
           Other departments have their own cards further down the page —{" "}
           <strong>Coils</strong> (Potting Sample Log),{" "}
           <strong>Quality Control</strong> (Digital QC Defect Log, Ignition QC
-          Defect Log), <strong>Supply Chain</strong> (Gray Market Requests,
+          Defect Log, QC Forms), <strong>Supply Chain</strong> (Gray Market Requests,
           Suppliers, Cost Impact Notices, FAITs) and{" "}
           <strong>Customer Service / Sales</strong> (Open Orders Report,
           Visit Reports, Customers) all open straight to their lists, and{" "}
@@ -202,8 +202,7 @@ const SECTIONS: ManualSection[] = [
         </P>
         <P>
           Types whose SharePoint list isn't built yet — Coils'{" "}
-          <strong>Coil Defect Log</strong>,
-          Quality Control's <strong>QC Forms</strong>, and{" "}
+          <strong>Coil Defect Log</strong>, and{" "}
           <strong>Customer Service / Sales</strong> (Customer Feedback,
           Pricing Requests) — appear as dimmed{" "}
           <strong>Coming soon</strong> placeholders. They'll light up with live
@@ -2496,6 +2495,58 @@ const SECTIONS: ManualSection[] = [
           no Pyrometer tiles — serial tracking is a Digital QC feature. Every
           other column, including the defect-type counts, matches.
         </Tip>
+      </>
+    ),
+  },
+  {
+    id: "qc-forms",
+    title: "QC Forms",
+    group: "Quality Control",
+    keywords: [
+      "qc forms",
+      "qcfrm",
+      "qcfrm-012",
+      "cpu-95",
+      "cpu95",
+      "ignition module",
+      "test sheet",
+      "controlled form",
+      "altmode",
+      "firing angle",
+      "varispark",
+      "evs",
+    ],
+    searchText:
+      "QC Forms at /qc-forms, under Departments > Quality Control. A search-and-button landing page, one button per digitized controlled QC/test form — the first is QCFRM-012, the CPU-95 Ignition Module Electrical Test and Inspection sheet, at /qc-forms/cpu-95. New Test Sheet or a row opens the form. The form shows only the sections and fields that apply to the unit's Altronic Part Number, entered at the top — the paper form has several variants (CPU-95, CPU-95C, Varispark, EVS, and a combined 16/18/20-cylinder sheet) and typing the part number picks the matching one automatically, including which firing-angle cylinder grid and which voltage/current set to show. Only Serial / Unit Number is required; everything else fills in over the course of the test. Any signed-in user can create or edit a test sheet; there is no delete — a mistake is corrected with an edit, the same as FAIT and Visit Reports.",
+    render: () => (
+      <>
+        <P>
+          <strong>Departments → Quality Control → QC Forms</strong> (
+          <code>/qc-forms</code>) is a search box over a grid of buttons, one
+          per digitized controlled QC/test form. Pick one to open its own
+          list and form.
+        </P>
+        <P>
+          The first form is <strong>QCFRM-012</strong>, the CPU-95 Ignition
+          Module Electrical Test and Inspection sheet, at{" "}
+          <code>/qc-forms/cpu-95</code>. <strong>New Test Sheet</strong> or
+          clicking a row opens the form.
+        </P>
+        <Tip>
+          The paper form has several variants — CPU-95, CPU-95C, Varispark,
+          EVS, and a combined 16/18/20-cylinder sheet. Enter the unit's{" "}
+          <strong>Altronic Part Number</strong> at the top of the form and it
+          automatically shows only the sections that apply to that variant —
+          the matching startup/final voltage set and the correct
+          16, 18, or 20-cylinder firing-angle grid. Only{" "}
+          <strong>Serial / Unit Number</strong> is required to save; the rest
+          fills in as the test proceeds.
+        </Tip>
+        <P>
+          Any signed-in user can create or edit a test sheet. There is no
+          delete — each row is a signed, dated test record, the same
+          "correct with an edit" rule as FAIT and Visit Reports.
+        </P>
       </>
     ),
   },

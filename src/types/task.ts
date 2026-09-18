@@ -1126,6 +1126,47 @@ export interface QcTimeEntryInput {
 }
 
 // =============================================================================
+// QC Forms — digitized paper QC/test forms, reached from the Quality Control
+// dashboard's "QC Forms" card. Each form is its own SharePoint list; the
+// registry in `lib/qcForms.ts` is what the landing page (search + a button
+// per form) is built from.
+//
+// The first form, QCFRM-012 (CPU-95 Ignition Module Electrical Test and
+// Inspection), has SEVERAL PAPER VARIANTS depending on the unit's Altronic
+// Part Number — CPU-95, CPU-95C, CPU-95 Varispark, CPU-95 EVS, and a
+// multi-application 16/18/20-cylinder sheet. The old Power Apps form used a
+// `Switch()` on the part number to compute an "Altmode" (0-6) that decided
+// which fields printed; see `qcCpu95Altmode()` in `lib/qcCpu95Mapper.ts`.
+// Every column beyond the identifying handful lives in `values`, keyed by the
+// descriptor keys in `lib/qcCpu95Fields.ts` — the same "columns are DATA"
+// pattern as FAIT and the Drawing File Logs. Booleans are carried as
+// "Yes"/"" (checked/unchecked).
+//
+// Which fields apply to which Altmode is `QcCpu95Field.altModes` on each
+// descriptor — `undefined` means always visible, otherwise only for the
+// Altmodes listed (see the file header comment in `lib/qcCpu95Fields.ts`).
+// No delete: each row is a signed, dated test record (Final Test By / Final
+// Inspection By), the same "correct with an edit" treatment as FAIT and
+// Visit Reports.
+// =============================================================================
+
+export interface QcCpu95Record {
+  id: number;
+  /**
+   * Every QCFRM-012 column, keyed by `lib/qcCpu95Fields.ts` descriptor keys —
+   * including the unit's Serial/Unit Number (`Title`, key `serialNumber`) and
+   * its Altronic Part Number (key `altronicPartNumber`), which drives the
+   * Altmode. Booleans are "Yes"/"".
+   */
+  values: Record<string, string>;
+  createdAt: Date;
+  modifiedAt: Date;
+}
+
+/** Everything a create/update writes — the whole values bag, same shape as the record. */
+export type QcCpu95Input = Record<string, string>;
+
+// =============================================================================
 // Drawing File Logs — Engineering's drawing registers, on the Engineering site.
 // Four lists behind one screen: CAD, CCC and CEC Drawings plus Engineering
 // Sketches.
