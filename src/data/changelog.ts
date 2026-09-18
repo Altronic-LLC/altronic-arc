@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.161.1",
+    date: "2026-09-18",
+    changes: [
+      "Potting Sample Log: the entry form is now hidden behind an 'Add entry' button instead of always sitting open on the page — it opens as a modal on desktop and a full screen on a phone, with Cancel to back out without saving",
+      "The date/time field defaults to right now each time you open the entry form, not just once when the page loaded",
+    ],
+  },
+  {
     version: "0.161.0",
     date: "2026-09-17",
     changes: [

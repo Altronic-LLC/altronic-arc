@@ -1,45 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { AlertTriangle, Beaker, ChevronDown, Gauge, Mail, Plus, Settings2 } from "lucide-react";
-import {
-  useCreatePottingSampleEntry,
-  useListPottingSampleEntries,
-  usePottingLimits,
-} from "@/hooks/usePottingSampleLog";
-import { checkLimitBreach, DEFAULT_POTTING_VOLUME } from "@/lib/pottingSampleLog";
+import { useListPottingSampleEntries, usePottingLimits } from "@/hooks/usePottingSampleLog";
+import { checkLimitBreach } from "@/lib/pottingSampleLog";
 import { LoadingTasks } from "@/components/LoadingTasks";
+import { PottingSampleEntryFormModal } from "@/components/PottingSampleEntryFormModal";
 import { cn } from "@/lib/cn";
-
-function nowForDatetimeLocal(): string {
-  const now = new Date();
-  now.setSeconds(0, 0);
-  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-  return now.toISOString().slice(0, 16);
-}
 
 export function PottingSampleLogView() {
   const { data: entries = [], isLoading } = useListPottingSampleEntries();
   const { data: limits } = usePottingLimits();
-  const createMutation = useCreatePottingSampleEntry();
-
-  const [dateInput, setDateInput] = useState(nowForDatetimeLocal());
-  const [volume, setVolume] = useState(String(DEFAULT_POTTING_VOLUME));
-  const [weight, setWeight] = useState("");
-
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (weight.trim() === "") return;
-
-    await createMutation.mutateAsync({
-      date: new Date(dateInput).toISOString(),
-      volume: Number(volume) || 0,
-      weight: Number(weight),
-    });
-
-    setDateInput(nowForDatetimeLocal());
-    setVolume(String(DEFAULT_POTTING_VOLUME));
-    setWeight("");
-  }
+  const [showAddEntry, setShowAddEntry] = useState(false);
 
   return (
     <div className="mx-auto flex max-w-[900px] flex-col gap-5 px-4 py-4 sm:px-6 sm:py-6">
@@ -55,6 +26,14 @@ export function PottingSampleLogView() {
             Record a potting sample's weight. Out-of-limit samples email the PSR notification list.
           </p>
         </div>
+        <button
+          type="button"
+          onClick={() => setShowAddEntry(true)}
+          className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent/90"
+        >
+          <Plus className="h-4 w-4" />
+          Add entry
+        </button>
         <ManageListsMenu />
       </header>
 
@@ -65,52 +44,7 @@ export function PottingSampleLogView() {
         </div>
       )}
 
-      <form
-        onSubmit={handleSubmit}
-        className="grid grid-cols-1 gap-3 rounded-xl border border-border bg-surface p-4 sm:grid-cols-3"
-      >
-        <label className="flex flex-col gap-1 text-sm text-fg-muted">
-          Date
-          <input
-            type="datetime-local"
-            value={dateInput}
-            onChange={(e) => setDateInput(e.target.value)}
-            required
-            className="rounded-md border border-border bg-surface-2 px-3 py-2 text-fg"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-sm text-fg-muted">
-          Volume
-          <input
-            type="number"
-            value={volume}
-            onChange={(e) => setVolume(e.target.value)}
-            required
-            className="rounded-md border border-border bg-surface-2 px-3 py-2 text-fg"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-sm text-fg-muted">
-          Weight
-          <input
-            type="number"
-            value={weight}
-            onChange={(e) => setWeight(e.target.value)}
-            placeholder="Enter weight"
-            required
-            className="rounded-md border border-border bg-surface-2 px-3 py-2 text-fg"
-          />
-        </label>
-        <div className="sm:col-span-3">
-          <button
-            type="submit"
-            disabled={createMutation.isPending}
-            className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent/90 disabled:opacity-60"
-          >
-            <Plus className="h-4 w-4" />
-            {createMutation.isPending ? "Saving…" : "Save entry"}
-          </button>
-        </div>
-      </form>
+      {showAddEntry && <PottingSampleEntryFormModal onClose={() => setShowAddEntry(false)} />}
 
       <div className="overflow-hidden rounded-xl border border-border bg-surface">
         <div className="flex items-center justify-between border-b border-border bg-surface-2 px-4 py-3">
@@ -124,7 +58,7 @@ export function PottingSampleLogView() {
           <LoadingTasks noun="potting samples" />
         ) : entries.length === 0 ? (
           <div className="flex items-center justify-center px-4 py-8 text-sm text-fg-muted">
-            No entries yet. Save one above to get started.
+            No entries yet. Add one to get started.
           </div>
         ) : (
           <table className="w-full text-left text-sm">
