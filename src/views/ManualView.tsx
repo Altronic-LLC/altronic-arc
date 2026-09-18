@@ -2591,7 +2591,7 @@ const SECTIONS: ManualSection[] = [
       "psr notification",
     ],
     searchText:
-      "Potting Sample Log at /coils/potting-sample-log, under Departments > Coils. Record a potting sample's date, volume and weight. The date defaults to now and the volume to 125, so a normal sample is just the weight plus Save entry. The current Lower and Upper Spec Limits show above the form, and any saved sample outside them is flagged in red in the table as Below lower limit or Above upper limit. Saving an out-of-limit sample automatically emails everyone on the Coil PSR Notification List with the entry's date, volume and weight and both spec limits. Manage lists opens the two reference lists: Spec Limits at /coils/potting-limits and the PSR Notification List at /coils/psr-notifications, where you add or remove people by name and email. Both are editable by any signed-in user, the same as the Teradyne reference lists.",
+      "Potting Sample Log at /coils/potting-sample-log, under Departments > Coils. Click Add entry to open the entry form (a modal on desktop, a full screen on a phone) and record a potting sample's date, volume and weight. The date/time defaults to the current moment each time you open the form and the volume to 125, so a normal sample is just the weight plus Save entry; Cancel backs out without saving anything. The current Lower and Upper Spec Limits show above the table, and any saved sample outside them is flagged in red in the table as Below lower limit or Above upper limit. Saving an out-of-limit sample automatically emails everyone on the Coil PSR Notification List with the entry's date, volume and weight and both spec limits. Manage lists opens the two reference lists: Spec Limits at /coils/potting-limits and the PSR Notification List at /coils/psr-notifications, where you add or remove people by name and email. Both are editable by any signed-in user, the same as the Teradyne reference lists.",
     render: () => (
       <>
         <P>
@@ -2602,14 +2602,18 @@ const SECTIONS: ManualSection[] = [
         <H3>Logging a sample</H3>
         <UL>
           <LI>
-            <strong>Date</strong> is pre-filled with the current date and time
-            and <strong>Volume</strong> with <strong>125</strong>, so a routine
-            sample is just the <strong>Weight</strong> and{" "}
-            <strong>Save entry</strong>.
+            <strong>Add entry</strong> opens the entry form — a modal on
+            desktop, a full screen on a phone. <strong>Date</strong> is
+            pre-filled with the current date and time (refreshed each time you
+            open the form) and <strong>Volume</strong> with{" "}
+            <strong>125</strong>, so a routine sample is just the{" "}
+            <strong>Weight</strong> and <strong>Save entry</strong>.{" "}
+            <strong>Cancel</strong> backs out without saving anything.
           </LI>
           <LI>
             The current <strong>spec limits</strong> show in a strip above the
-            form, so you can see what you're measuring against before you save.
+            table, so you can see what you're measuring against before you add
+            one.
           </LI>
           <LI>
             The entry appears in the table below immediately. A weight outside
