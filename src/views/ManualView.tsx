@@ -2088,6 +2088,138 @@ const SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: "reports",
+    title: "Reports",
+    group: "Reports",
+    keywords: [
+      "reports",
+      "dashboard chart",
+      "kpi",
+      "teradyne fpy",
+      "digital qc fpy",
+      "ignition qc fpy",
+      "fpy",
+      "first pass yield",
+      "yield",
+      "boards tested",
+      "boards failed",
+      "units tested",
+      "units failed",
+      "board test chart",
+      "power bi",
+      "trend",
+      "stacked bar",
+      "kiosk",
+      "kiosk view",
+      "cycle dashboards",
+      "monitor",
+      "fullscreen",
+      "updated time",
+      "last refreshed",
+      "auto refresh",
+      "theme flag",
+      "dark mode kiosk",
+      "light mode kiosk",
+      "passed count",
+      "defect breakdown",
+      "donut chart",
+      "defect categories",
+      "dept flag",
+      "department filter kiosk",
+      "ict",
+      "dig",
+      "ign",
+    ],
+    searchText:
+      "Reports is a small area of fixed dashboards — a handful of numbers people want live inside ARC, reached from the Reports tab next to Dashboard and Departments. Unlike Power BI, which still covers deeper or more flexible reporting, each one here is a fixed chart, not something you build yourself. Six reports today — a trend chart and a Defect Breakdown donut for each of Teradyne, Digital QC and Ignition QC. Each trend chart is a stacked bar per month (units passed at the bottom, with its own count labelled inside the blue segment, units failed capped on top, the total height is Units Tested) with a First Pass Yield percentage line over it, for the trailing three calendar months, always ending at the current month. Each Defect Breakdown is a donut chart for the latest month only: the center shows that month's total units tested, and the ring is segmented by defect category, with a legend naming each category's count and share. Teradyne Board Test & FPY and Teradyne Defect Breakdown read the Teradyne Log, grouping defects by their canned remark. Digital QC and Ignition QC's reports read the Digital QC and Ignition QC Defect Logs, grouping defects by their 14 fixed named categories. A month with nothing tested yet shows no FPY line rather than a misleading 0%; a month with nothing failed shows a plain empty donut state instead of an empty ring. Each report refreshes itself automatically every couple of minutes and shows an Updated time in the lower-right corner. Navigating to /reports/kiosk directly (there's no link to it) opens a chrome-less, larger, fullscreen-friendly page that cycles through all six reports on its own — a trend chart, then that source's Defect Breakdown, for each of Teradyne, Digital QC and Ignition QC — one minute each, fading between them, with the kiosk's donut shown much larger and its legend smaller than on the ordinary report page. Meant for a spare monitor set up to open that address on its own, not for everyday browsing. Add ?theme=dark or ?theme=light to the kiosk address to pin its theme, since that page has no toggle button. Add ?dept=ICT, ?dept=DIG, or ?dept=IGN to show only one source's two reports (Teradyne, Digital QC, or Ignition QC) instead of cycling through all six.",
+    render: () => (
+      <>
+        <P>
+          <strong>Reports</strong> holds a small set of fixed KPI dashboards —
+          reach it from the <strong>Reports</strong> tab in the top nav, next
+          to Dashboard and Departments. Power BI still covers deeper,
+          build-it-yourself reporting off these same SharePoint lists; Reports
+          is for the handful of numbers worth having live inside ARC itself.
+        </P>
+        <P>
+          Six reports today — a <strong>trend chart</strong> and a{" "}
+          <strong>Defect Breakdown</strong> donut for each of Teradyne,
+          Digital QC and Ignition QC. Every report shows an{" "}
+          <strong>"Updated"</strong> time in the lower-right corner, since
+          each refreshes itself automatically every couple of minutes without
+          needing a click.
+        </P>
+        <P>
+          Each trend chart is a stacked bar per month —{" "}
+          <strong>units passed</strong> at the bottom,{" "}
+          <strong>units failed</strong> capped on top, so the bar's full
+          height is Units Tested — with a{" "}
+          <strong>First Pass Yield (FPY%)</strong> line over it, always
+          showing the trailing three calendar months, ending at the current
+          month. A month with nothing tested yet shows no point on the FPY
+          line for that month, rather than a misleading 0%.
+        </P>
+        <P>
+          Each Defect Breakdown is a <strong>donut chart</strong> for the
+          latest month only — the center shows that month's total units
+          tested, and the ring is segmented by defect category, with a
+          legend beside it naming each category's count and share of what
+          failed. A month with nothing failed shows a plain "No defects
+          logged" message instead of an empty ring.
+        </P>
+        <H3>Teradyne Board Test & FPY / Teradyne Defect Breakdown</H3>
+        <P>
+          Off the same Teradyne Log data the Teradyne Log screen already
+          uses — there's nothing new to fill in. The Defect Breakdown groups
+          that month's failures by their canned remark.
+        </P>
+        <H3>Digital QC Board Test & FPY / Digital QC Defect Breakdown</H3>
+        <P>
+          Off the same Digital QC Defect Log data the Digital QC screen
+          already uses, merged across every product family. The Defect
+          Breakdown groups that month's failures by the log's 14 fixed
+          defect categories.
+        </P>
+        <H3>Ignition QC Board Test & FPY / Ignition QC Defect Breakdown</H3>
+        <P>
+          Off the same Ignition QC Defect Log data the Ignition QC screen
+          already uses, merged across every product family. The Defect
+          Breakdown groups that month's failures by the log's 14 fixed
+          defect categories.
+        </P>
+        <H3>Kiosk view</H3>
+        <P>
+          Navigating to <code>/reports/kiosk</code> directly opens a
+          chrome-less page (no header, no nav, no Back button) that cycles
+          through all six reports on its own, one minute each, with a fade
+          between them — a trend chart, then that source's Defect Breakdown,
+          for each of Teradyne, Digital QC and Ignition QC in turn. Every
+          chart is shown larger than on its normal page, each trend chart
+          shows the passed count inside its blue segment, and each Defect
+          Breakdown's donut fills most of the screen with a smaller legend
+          beside it. A small Fullscreen button in the corner puts the browser
+          itself into fullscreen. There's no link to it from the Reports
+          page; it's meant for a monitor or kiosk display set up to open that
+          address on its own.
+        </P>
+        <P>
+          Add <code>?theme=dark</code> or <code>?theme=light</code> to the
+          kiosk address to pin that page to one theme, regardless of what's
+          set elsewhere — useful since a chrome-less page has no theme toggle
+          button to reach. Leave it off and the kiosk uses whatever theme was
+          last chosen normally.
+        </P>
+        <P>
+          Add <code>?dept=ICT</code>, <code>?dept=DIG</code>, or{" "}
+          <code>?dept=IGN</code> to show only one source's two reports —
+          Teradyne, Digital QC, or Ignition QC — instead of cycling through
+          all six. Leave it off for the full cycle; an unrecognized value is
+          ignored the same way an unrecognized <code>?theme=</code> is.
+        </P>
+      </>
+    ),
+  },
+  {
     id: "panel-orders",
     title: "Panel Orders",
     group: "Panels",

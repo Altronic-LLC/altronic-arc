@@ -28,11 +28,22 @@ export default {
       },
       animation: {
         "fade-in": "fadeIn 150ms ease-out",
+        // A slower, plain opacity fade for the Reports kiosk cycle — 150ms
+        // read as barely a flicker against a 60s dwell time (reported live,
+        // 2026-09-17); this one is long enough to actually see. Its own
+        // named animation rather than reusing "fade-in" at a new duration,
+        // since a future caller of the fast one shouldn't inherit a kiosk
+        // timing by surprise.
+        "kiosk-fade": "kioskFade 1000ms ease-in-out",
       },
       keyframes: {
         fadeIn: {
           "0%": { opacity: "0", transform: "translateY(4px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        kioskFade: {
+          "0%": { opacity: "0" },
+          "100%": { opacity: "1" },
         },
       },
     },

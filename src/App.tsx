@@ -150,6 +150,46 @@ const TeradyneRefListView = lazy(() =>
   })),
 );
 
+// Reports — fixed KPI dashboards (a step up from Power BI for the numbers
+// people want live inside ARC). Its own small bundle, not part of any one
+// department's.
+const ReportsView = lazy(() =>
+  import("@/views/ReportsView").then((m) => ({ default: m.ReportsView })),
+);
+const TeradyneFpyReportView = lazy(() =>
+  import("@/views/TeradyneFpyReportView").then((m) => ({
+    default: m.TeradyneFpyReportView,
+  })),
+);
+const TeradyneDefectBreakdownReportView = lazy(() =>
+  import("@/views/TeradyneDefectBreakdownReportView").then((m) => ({
+    default: m.TeradyneDefectBreakdownReportView,
+  })),
+);
+const DigitalQcFpyReportView = lazy(() =>
+  import("@/views/DigitalQcFpyReportView").then((m) => ({
+    default: m.DigitalQcFpyReportView,
+  })),
+);
+const DigitalQcDefectBreakdownReportView = lazy(() =>
+  import("@/views/DigitalQcDefectBreakdownReportView").then((m) => ({
+    default: m.DigitalQcDefectBreakdownReportView,
+  })),
+);
+const IgnitionQcFpyReportView = lazy(() =>
+  import("@/views/IgnitionQcFpyReportView").then((m) => ({
+    default: m.IgnitionQcFpyReportView,
+  })),
+);
+const IgnitionQcDefectBreakdownReportView = lazy(() =>
+  import("@/views/IgnitionQcDefectBreakdownReportView").then((m) => ({
+    default: m.IgnitionQcDefectBreakdownReportView,
+  })),
+);
+const KioskReportsView = lazy(() =>
+  import("@/views/KioskReportsView").then((m) => ({ default: m.KioskReportsView })),
+);
+
 // Build Requests — Engineering's master-detail feature (header + parts).
 // Lazy-loaded like the Operations bundle to keep the main chunk lean.
 const BuildRequestsView = lazy(() =>
@@ -258,6 +298,11 @@ export function App() {
   // include the app header/footer. Match any /…/print path.
   const location = useLocation();
   const isPrintRoute = location.pathname.endsWith("/print");
+  // The kiosk view is chrome-less for the same reason — a monitor left
+  // running unattended for hours shouldn't show ARC's own nav, an update
+  // banner, or toasts nobody is there to dismiss.
+  const isKioskRoute = location.pathname === "/reports/kiosk";
+  const hideChrome = isPrintRoute || isKioskRoute;
 
   // Reset the window scroll on every route change. Without this, going
   // from a long list (Tasks/EIRs scrolled halfway down) into a detail
@@ -276,8 +321,8 @@ export function App() {
 
   return (
     <div className="flex min-h-screen flex-col bg-bg">
-      {!isPrintRoute && <Header />}
-      {!isPrintRoute && <UpdateAvailableBanner />}
+      {!hideChrome && <Header />}
+      {!hideChrome && <UpdateAvailableBanner />}
       <main className="min-h-0 flex-1 pb-16">
         {/* The app's only error boundary. A render error used to blank the whole
             page until a manual refresh — including navigating away, since the
@@ -665,6 +710,70 @@ export function App() {
               }
             />
             <Route
+              path="/reports"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the reports" />}>
+                  <ReportsView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/reports/teradyne-fpy"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the Teradyne report" />}>
+                  <TeradyneFpyReportView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/reports/teradyne-defects"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the Teradyne report" />}>
+                  <TeradyneDefectBreakdownReportView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/reports/digital-qc-fpy"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the Digital QC report" />}>
+                  <DigitalQcFpyReportView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/reports/digital-qc-defects"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the Digital QC report" />}>
+                  <DigitalQcDefectBreakdownReportView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/reports/ignition-qc-fpy"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the Ignition QC report" />}>
+                  <IgnitionQcFpyReportView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/reports/ignition-qc-defects"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the Ignition QC report" />}>
+                  <IgnitionQcDefectBreakdownReportView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/reports/kiosk"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the kiosk view" />}>
+                  <KioskReportsView />
+                </Suspense>
+              }
+            />
+            <Route
               path="/build-requests"
               element={
                 <Suspense fallback={<LoadingTasks noun="build requests" />}>
@@ -815,8 +924,8 @@ export function App() {
           </Routes>
         </RouteErrorBoundary>
       </main>
-      {!isPrintRoute && <Footer />}
-      {!isPrintRoute && <ToastContainer />}
+      {!hideChrome && <Footer />}
+      {!hideChrome && <ToastContainer />}
     </div>
   );
 }

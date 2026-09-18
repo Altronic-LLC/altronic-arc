@@ -311,7 +311,7 @@ src/
 │   ├── useEirRoles.ts            EIR roles CRUD + useMyEirRoles() (field gating)
 │   ├── useCsaListings.ts         CSA Listings queries + admin-guarded mutations
 │   ├── useDrawingLogs.ts         Drawing log queries + admin-guarded mutations
-│   ├── useTeradyne.ts            Teradyne log + ref-list queries/mutations (+ usage counts)
+│   ├── useTeradyne.ts            Teradyne log + ref-list queries/mutations (+ usage counts, monthly FPY)
 │   ├── useOperationsTasks.ts     Operations task queries + mutations
 │   ├── useMaintenanceTasks.ts    CMMS work-order queries, mutations, comments + completion guard
 │   ├── useMaintenanceRoles.ts    Maintenance roles CRUD + useMyMaintenanceRoles() (CMMS gating)
@@ -452,6 +452,9 @@ src/
 │   ├── openOrdersExcel.ts        The ONLY file that knows an upload is xlsx
 │   ├── openOrdersWorkbook.ts     The master + per-customer workbook builders
 │   ├── teradyneMapper.ts         Graph item → Teradyne entities; derived titles
+│   ├── teradyneFpy.ts            Teradyne's batch-total-vs-defect-row split + remark-based defect breakdown, on the shared monthlyYield engine
+│   ├── monthlyYield.ts           Shared Reports engine — MonthlyFpy/CategoryBreakdown types, trailingMonths, bucketMonthlyYield, monthlyQuantityYield, categoryBreakdown
+│   ├── reports.ts                Reports registry — one entry per fixed KPI dashboard (FPY + Defect Breakdown per source), drives the landing page + kiosk
 │   ├── spDates.ts                Shared SharePoint date-only helpers (midday-UTC rule)
 │   ├── changeAlerts.ts           Change-alert email construction (pure)
 │   ├── graphFields.ts            multiPersonField / multiLookupField / multiChoiceField
@@ -547,6 +550,9 @@ src/
 │   ├── DrawingLogCreateModal.tsx Add a drawing to a register
 │   ├── DrawingLogFields.tsx      Descriptor-driven detail grid + form inputs
 │   ├── TeradyneLogFormModal.tsx  Create/edit a Teradyne log entry
+│   ├── MonthlyFpyChart.tsx       Hand-rolled SVG chart — stacked bar (passed/failed) + FPY% line, own vertical bands
+│   ├── DefectBreakdownDonut.tsx  Hand-rolled SVG donut — latest month's total tested + defect-category ring
+│   ├── ReportPageShell.tsx       Shared Reports page shell — header, one content card, "Updated <time>" note
 │   ├── CommentThread.tsx         Sorted comment list + inline edit (own mention picker)
 │   ├── CommentComposer.tsx       New-comment editor (+ @-mentions)
 │   ├── AttachmentsSection.tsx    EIR/comment attachments UI
@@ -605,6 +611,14 @@ src/
 │   ├── MaintenanceReferenceListsView.tsx  Departments & Locations for the CMMS — inside the module, gated by manageAssetsGate (not /admin)
 │   ├── TeradyneLogView.tsx       Teradyne Log table + "Manage lists" menu
 │   ├── TeradyneRefListView.tsx   Edit one Teradyne reference list (:kind)
+│   ├── ReportsView.tsx           Reports landing page — one card per registered dashboard, no Kiosk link (machine navigates to /reports/kiosk directly)
+│   ├── TeradyneFpyReportView.tsx Teradyne Board Test & FPY, trailing 3 months
+│   ├── TeradyneDefectBreakdownReportView.tsx  Teradyne Defect Breakdown — latest month's donut, grouped by remark
+│   ├── DigitalQcFpyReportView.tsx  Digital QC Board Test & FPY — merged across 18 product-family lists
+│   ├── DigitalQcDefectBreakdownReportView.tsx  Digital QC Defect Breakdown — latest month's donut, 14 fixed categories
+│   ├── IgnitionQcFpyReportView.tsx Ignition QC Board Test & FPY — merged across 36 product-family lists
+│   ├── IgnitionQcDefectBreakdownReportView.tsx  Ignition QC Defect Breakdown — latest month's donut, 14 fixed categories
+│   ├── KioskReportsView.tsx      /reports/kiosk — cycles all 6 reports every 60s (FPY→donut per source), chrome-less
 │   ├── PanelOrdersView.tsx       Panel Orders list
 │   ├── PanelOrderDetailView.tsx  Panel order detail
 │   ├── PanelTasksView.tsx        Panel Tasks list
@@ -3836,6 +3850,424 @@ Four things that shape this feature:
   genuine assignee-style field in `requestedBy`), `autoWatchFromMentions`
   against `resolveCurrentUserLookupId` (Engineering site), and
   `autoWatchers()` on create so the requester starts out watching.
+
+## Reports — fixed KPI dashboards, not a dashboard builder
+
+`/reports`, its own small lazy-loaded bundle, reached from a **Reports** tab
+in the top nav next to Dashboard and Departments. Tim already reports off
+several of these same SharePoint lists in Power BI and wanted a handful of
+those numbers live inside ARC too (2026-09-17).
+
+**Deliberately code-defined, not a builder UI or an admin-loaded JSON
+config.** The alternative considered and rejected: a generic "assemble your
+own dashboard" screen, or a chart config an admin uploads as a JSON file.
+ARC's whole per-list pattern (`api/<list>.ts` + hooks + views, "columns are
+DATA") already gives a cheap, well-understood way to add a NEW fixed report —
+a hook + a view (using the shared `ReportPageShell` shell below) + one
+registry line — same as any other feature here — and Power BI already exists
+for genuinely flexible, self-service reporting. A builder would mean
+designing and maintaining a second, weaker reporting tool inside ARC for a
+need Power BI already meets. `lib/reports.ts` is the registry `ReportsView`
+renders as one card per entry (and that the kiosk, below, cycles through),
+the same "declare-it-as-data, one landing page renders every entry" shape
+used elsewhere in this app for a small, growing set of named things.
+
+**Six reports today, not three** — a trend chart AND a defect-breakdown donut
+for each of Teradyne, Digital QC and Ignition QC, each its OWN report with its
+own route and its own landing-page card (Tim, 2026-09-18: "can we break the
+donut visuals out as their own reports"). The donut shipped first as a second
+section embedded on each trend-chart report's page; Tim's very next message
+pivoted that to six standalone reports so the kiosk (below) could alternate
+FPY → donut per source rather than grouping every trend chart together and
+every donut together. Adding a seventh fixed dashboard is one array entry in
+`lib/reports.ts` plus its own hook and view, same as before.
+
+**No charting library — every chart here is hand-rolled SVG.** `package.json`
+has never carried one (recharts, Chart.js, visx, …), and two fixed chart
+shapes didn't justify starting now. `components/MonthlyFpyChart.tsx` is
+shared by the three trend-chart reports — `unitLabel` is the only thing that
+varies ("Boards" for Teradyne, "Units" for the two QC defect logs).
+`components/DefectBreakdownDonut.tsx` is shared the same way by the three
+donut reports. A future report reaching for either shape should reuse the
+matching component rather than pulling in a dependency.
+
+**`lib/monthlyYield.ts` is the shared month-bucketing engine**, pulled out
+of what was originally `teradyneFpy.ts`-only logic the moment a THIRD source
+(Digital QC) needed the identical bucketing — two sources sharing a copy is
+a coincidence, three is the "rule of three" this app already applies
+elsewhere (`tableSort.ts`, `calendarGrid.ts`). It owns `MonthlyFpy` (the
+shared `{ monthKey, label, unitsTested, unitsFailed, fpyPercent }` shape),
+`trailingMonths`/`yearsSpanned`, the generic `bucketMonthlyYield<T>(entries,
+months, getMonth, getTested, getFailed)` reducer, and `monthlyQuantityYield`
+— a ready-made wrapper for anything shaped like `{ dateTested, quantityTested,
+quantityRejected }` (Digital QC and Ignition QC's records both satisfy this
+structurally, with no per-source wrapper needed). A source's own module
+still owns whatever is genuinely ITS OWN — Teradyne's batch-total-vs-defect
+row split (below) has no equivalent in the other two, because a Digital/
+Ignition QC row already carries its own Quantity Tested and Quantity
+Rejected directly.
+
+**`components/ReportPageShell.tsx` is the shared page shell, and it knows
+NOTHING about `MonthlyFpy` or `CategoryBreakdown`** — header (icon, title, a
+full `description` STRING the caller builds, including any month-range
+text), a card wrapping whatever `children` it's handed, and the "Updated
+`<time>`" note. It replaced an earlier `MonthlyYieldReportCard`, which baked
+in a `monthly` prop and computed its own range label — that only worked while
+every report was a trend chart; once the donut needed the same shell with
+different content, the shell had to stop knowing what a "report" contains.
+Every concrete report view (all six) is just its own hook call, its own
+`description` string, plus this component wrapping either a
+`MonthlyFpyChart` or a `DefectBreakdownDonut` as `children`; none of them
+hand-roll the layout.
+
+### Teradyne Board Test & FPY — the first report
+
+Reads the SAME Teradyne Log data `/operations/teradyne` already loads —
+nothing new to fill in, no new SharePoint column. A stacked bar per month
+(boards passed at the bottom, boards failed capped on top, so the bar's
+total height is Boards Tested) with a First Pass Yield (FPY%) line over it,
+for the **trailing 3 calendar months, always ending at the current month**
+(Tim, 2026-09-17 — chosen over a fixed year or an admin-configured range).
+
+**A Teradyne Log row is one of two shapes, and only ONE field tells you
+which** (Tim, 2026-09-17, after the first cut of this dashboard risked
+double-counting): `boardsTested` set to a real, non-zero number means the
+row IS the batch's total-tested figure for that test run; `boardsTested`
+left blank means the row is a DEFECT entry instead, whose `numberOfBoards`
+is how many boards in that run failed for the specific `defectiveParts`
+reason it names. One batch commonly has ONE total row and several defect
+rows logged alongside it — summing `boardsTested` across every row would
+count that batch's total once per defect logged against it, inflating
+Boards Tested for months with a lot of distinct failure reasons.
+`isBatchTotalRow()` in `lib/teradyneFpy.ts` is the one place this
+distinction lives; only rows it calls a batch total ever contribute to a
+month's Boards Tested. **Boards Failed is NOT restricted to non-batch
+rows** — it sums `numberOfBoards` across every row in the month regardless,
+deliberately not assuming a batch-total row can never itself carry a
+failure count; since a real batch row normally leaves that field blank,
+this costs nothing in the ordinary case and is simply the safer sum.
+
+**A month with no batch-total rows at all reports `fpyPercent: null`, never
+`0`.** Zero would say every board tested that month failed, which is a
+different claim from "nothing was tested yet" — the same "can't tell vs. a
+real answer" distinction the CMMS's meter-schedule status already draws.
+The chart renders no line point and no percentage label for a `null` month
+rather than drawing a misleading dip to 0%.
+
+**The trailing window can reach into the PREVIOUS calendar year** (e.g.
+viewed in January, it wants Nov/Dec too), and the Teradyne Log is normally
+fetched one year at a time (see the Teradyne section above — SCALE).
+`useTeradyneMonthlyFpy()` in `hooks/useTeradyne.ts` fetches the previous
+year ONLY when the window actually needs it (`enabled: needsPreviousYear`
+on that query), so for most of the year this costs nothing beyond the
+current year's fetch every other Teradyne screen already shares. Verified
+by faking only `Date` (not the timer queue — see the test file's comment)
+and asserting which years the log API was actually called with, for both a
+mid-year window and a January-crossing one.
+
+**The bars and the FPY% line each get their OWN vertical band in the
+chart**, not two 0-max scales sharing the full plot height. Reported live,
+2026-09-17, from a real screenshot: a tall month's Boards-Tested label and a
+high FPY% point's label landed at nearly the same height and rendered as
+overlapping, unreadable text ("4,664" and "94.6%" collided). Splitting the
+plot into a bar band (bottom ~70%) and a line band (top ~30%, with a fixed
+16px gap between them) means neither series' labels can ever reach into the
+other's space, however the numbers land — and bars were slimmed down at the
+same time (capped narrower, `min(56, barW * 0.4)`) so the chart reads less
+like a wall of solid blocks.
+
+**The passed count sits INSIDE the blue segment**, white for contrast
+against `superior-blue`, in addition to the total-tested figure already
+labelled above the bar — total minus failed, the same `passed` value the
+bar's own height already uses, so the label can never disagree with what's
+drawn. **Only shown when the passed segment is tall enough to hold it**
+(`barBottom - yPassedTop >= 22`, in the chart's own viewBox units, so this
+threshold means the same thing at any display size — kiosk mode's larger
+rendering is the SAME viewBox scaled up by CSS, not a second copy of the
+maths) — a month where nearly everything failed still shows its total above
+the bar, it just doesn't try to cram a label into a sliver a couple of
+pixels tall.
+
+**The FPY% axis floor is 50%, not always 0%, but only when every month
+actually clears 50%** (Tim, 2026-09-17) — `percentFloorFor()` in
+`MonthlyFpyChart.tsx` checks every REAL (non-null) value in the data handed
+to the chart and floors at 50 only if all of them are ≥ 50; a `null` month
+(nothing tested) doesn't count either way, and a single genuinely bad month
+under 50% pulls the floor straight back to 0. The point isn't a fixed
+"FPY is usually high" assumption — it's that the bottom half of a 0-100%
+axis carries no real data on it most of the time, and cropping it gives the
+line more room to actually show month-to-month movement. A real low figure
+is never silently cropped off; the floor only ever moves DOWN to cover one.
+
+**The chart polls itself every 2 minutes — unlike every other Teradyne
+screen** (Tim, 2026-09-17: a report screen is typically left open on a
+monitor with nobody driving a navigation or a mutation to refresh it).
+`REPORT_REFETCH_INTERVAL_MS` (`hooks/useTeradyne.ts`) is passed as a NEW,
+opt-in second argument to `useTeradyneLog(scope, { refetchInterval })` —
+the option defaults to `false` (no change) for every other call site, so
+`TeradyneLogView` (someone actively editing a table) still refreshes only
+on navigation, a mutation, or the header's manual Refresh, exactly as
+before. Only `useTeradyneMonthlyFpy`'s own two queries (current year, and
+the previous year when the window needs it) opt in. Verified in
+`hooks/useTeradyne.monthlyFpy.test.tsx` by faking every timer (not just
+`Date`, as the other two tests in that file do) and driving the elapsed
+time with `vi.advanceTimersByTimeAsync` rather than `waitFor`, which polls
+on a real `setTimeout` that full fake timers would otherwise freeze.
+
+**"Updated `<time>`" sits in the card's lower-right corner** (Tim,
+2026-09-17) — `lastRefreshedAt` in `useTeradyneMonthlyFpy`'s return value is
+the LATER of the current and (when fetched) previous year's query
+`dataUpdatedAt`, so it reflects whichever of the two queries actually landed
+last rather than always trusting the current year's alone. `null` before the
+first fetch resolves, so nothing is shown (and nothing claims a time) before
+there's a real one to report.
+
+### Digital QC & Ignition QC Board Test & FPY — a report spanning many lists
+
+Two more reports, added 2026-09-17, the SAME chart shape as Teradyne but a
+genuinely different data-access pattern — Tim flagged up front that these
+sources are "a bit bigger" than Teradyne, and the reason is real: **Digital
+QC has NO single list.** It's **18 separate SharePoint lists**, one per
+product family (`DIGITAL_QC_FAMILY_LIST_IDS` in `api/digitalQc.ts`), all on
+the Engineering site, all with the identical column shape. Ignition QC is
+the same pattern at **36 lists** (`IGNITION_QC_FAMILY_LIST_IDS` in
+`api/ignitionQc.ts`). Building this report meant fetching and merging every
+family, not reading one list.
+
+**Each row already carries its own denominator — no batch/defect split
+needed, unlike Teradyne.** `quantityTested` and `quantityRejected` are real
+per-row fields on both `DigitalQcRecord` and `IgnitionQcRecord` (confirmed
+live 2026-09-17; the form even enforces `quantityRejected` equalling the sum
+of that row's 13 defect-category columns). So the monthly calculation for
+both is just `lib/monthlyYield.ts`'s generic `monthlyQuantityYield()` handed
+the merged records directly — no per-source classification function like
+Teradyne's `isBatchTotalRow()` exists here, or is needed.
+
+**`useAllDigitalQcRecords()` / `useAllIgnitionQcRecords()`
+(`hooks/useDigitalQc.ts` / `useIgnitionQc.ts`) fan out with `useQueries`**,
+one query per family, run in parallel and flattened. Each query reuses the
+**EXACT SAME query key** (`["digitalQcRecords", family]` /
+`["ignitionQcRecords", family]`) that family's own
+`useListDigitalQcRecords(family)` / `useListIgnitionQcRecords(family)` call
+already uses on the Digital QC / Ignition QC screens — so a report open
+alongside either screen shares its cache instead of doubling the request
+count, the same reasoning behind reusing `useTeradyneLog`'s query key for
+the Teradyne report.
+
+**The refetch interval is 5 minutes here, not Teradyne's 2** — a refresh
+means re-querying 18 or 36 lists, not one, so the interval is matched to the
+actual cost of a refresh rather than copied verbatim from Teradyne. Every
+family list still polls independently; on an unattended kiosk cycling every
+60 seconds (below), this is a background timer running underneath whichever
+report happens to be on screen, not something the kiosk itself has to
+manage.
+
+**`lastRefreshedAt` is the MOST RECENT successful fetch across every
+family**, not the current time at render — a first draft of this computed it
+as `isLoading ? null : new Date()`, which would have bumped the displayed
+"Updated" time on every unrelated re-render even when no new data had
+landed. The real fix reads each family query's own `dataUpdatedAt` (the same
+signal `useTeradyneMonthlyFpy` reads) and takes the max, `null` until at
+least the first one resolves — pinned in each hook's own test file by
+asserting it's `null` immediately after mount and a real `Date` only once
+`isLoading` goes false.
+
+**No lookups, no column-name discovery quirks to worry about for this
+report** — unlike the CRUD side of these two features (which discovers each
+family's real column names at runtime, since they vary list to list), the
+report only ever reads `dateTested` / `quantityTested` / `quantityRejected`
+off the already-mapped `DigitalQcRecord` / `IgnitionQcRecord` objects
+`listDigitalQcRecords()` / `listIgnitionQcRecords()` return — that mapping
+work is already done by the time this report sees the data.
+
+### Defect Breakdown — a donut per source, its own report
+
+Teradyne Defect Breakdown, Digital QC Defect Breakdown and Ignition QC
+Defect Breakdown (Tim, 2026-09-18). Each is a donut chart for the LATEST
+month only — the center shows that month's total units tested (the same
+number the matching trend chart's last bar would show), and the ring is
+segmented by defect category.
+
+**Each source's own hook decides what counts as a "category" — there is no
+shared classification function, because the two sources don't agree on what
+a category IS.** Teradyne has no fixed category list; `remark` is a free
+lookup a technician picks per defect row, so
+`latestMonthRemarkBreakdown(entries, month)` (`lib/teradyneFpy.ts`) groups
+non-batch rows (see `isBatchTotalRow()` above) by `remark?.title?.trim() ||
+"Unspecified"` for the one month asked for. Digital QC and Ignition QC both
+have a FIXED set of 14 named defect-category columns instead
+(`QC_DEFECT_CATEGORIES` in `lib/monthlyYield.ts`), so their hooks call the
+generic `categoryBreakdown(records, categories)` reducer against
+`quantityRecordsInMonth(entries, month)` — no per-source wrapper needed,
+mirroring why Teradyne alone needed `isBatchTotalRow()` for its trend chart.
+Both shapes return the same `CategoryBreakdown[]` (`{ label, count }`, zero
+counts dropped, sorted descending) `DefectBreakdownDonut` actually renders.
+
+**The ring's total is the sum of what FAILED, deliberately not the same
+number as the center.** The center answers "out of how many" (units
+tested); the ring answers "of what failed, what actually broke" — a
+smaller, different denominator on purpose. A month with zero defects shows
+the plain empty state ("No defects logged in Sep.") rather than an empty
+ring with nothing to draw.
+
+**Colors are evenly-spaced HSL hues, not the app's usual four brand
+tones** (`segmentColors()` in `DefectBreakdownDonut.tsx`) — the "only four
+brand tones per dashboard section" rule (see "Dashboard cards" under
+Cross-cutting rules) exists for a handful of cards on one screen, not a
+single chart that can carry anywhere from 1 to 14+ segments needing to stay
+visually distinct from their immediate neighbours. The legend beside the
+ring is the definitive label-to-color mapping; a swatch alone was never
+meant to be identifiable on its own.
+
+**This started as a SECOND section embedded on each trend-chart report's own
+page, then was pulled out into three standalone reports the same day** (Tim:
+first "can we now make a donut chart for each dataset", then immediately
+"can we break the donut visuals out as their own reports and in kiosk mode
+alternate fpy then donut for one dataset then fpy and donut from the
+next"). The embedded version needed `ReportPageShell` to accept a second,
+optional content block; splitting it out needed the shell to stop knowing
+about report content at all (see the `ReportPageShell` note above) —
+`children` is now the whole page's content, one chart, whichever kind.
+`lib/reports.ts` deliberately lists each source's FPY report immediately
+followed by its Defect Breakdown report (not all three FPYs then all three
+donuts) specifically so the kiosk cycle below — which just walks that same
+array in order — alternates naturally with no cycle-specific ordering logic
+of its own.
+
+**In kiosk mode the ring dominates and the legend shrinks and narrows,
+rather than growing to fill the row** (Tim, 2026-09-18: "make the defect
+donut larger and make the donut take the majority of the space with a much
+smaller legend"). `DefectBreakdownDonut`'s `large` prop now does three
+things together: the ring's rendered size jumps from `h-40 w-40` to as much
+as `h-[30rem] w-[30rem]` on a wide kiosk screen (the `SIZE`/`RADIUS`/
+`STROKE` constants driving the SVG's `viewBox` are UNCHANGED — a bigger
+CSS box scales every coordinate-based value inside the same `viewBox`
+uniformly, arcs, stroke width and `<text>` font-size alike, the same
+"the SVG needs no per-prop resizing" point the trend chart's kiosk note
+below already makes); the legend switches from growing (`flex-1`) to a
+capped, shrink-proof width (`max-w-[280px]`) with smaller text (`text-xs`)
+so it reads as a small key beside the chart rather than competing with it
+for width; and the whole group centers itself in the page rather than
+sitting flush left, so the extra room a 1800px-wide kiosk card leaves
+around a big donut reads as breathing space, not an accident.
+
+### Kiosk — cycling every report on a monitor
+
+`/reports/kiosk` (`views/KioskReportsView.tsx`). **No link to it anywhere in
+ARC** (Tim, 2026-09-17: "I will setup the machine that displays this to
+navigate directly to /reports/kiosk") — it briefly had a "Kiosk view" link
+on the Reports landing page, removed once Tim confirmed the display machine
+would be configured to open the URL directly. It is never in the main nav
+either way; nobody should stumble into it while browsing ARC.
+
+**It reuses all six concrete report views AS-IS, each rendered with
+`kiosk`** — they already fetch their own data and auto-refresh on their own
+interval; `KIOSK_REPORTS` in `KioskReportsView.tsx` is a small fixed array
+of `{ key, Component }`, and a `setInterval` advances an index into it every
+60 seconds, wrapping back to the first after the last. It mirrors
+`lib/reports.ts`'s own order — FPY then Defect Breakdown, source by source
+(Teradyne, Digital QC, Ignition QC) — so the cycle alternates trend chart
+and donut for one source before moving to the next, rather than grouping
+every trend chart together and every donut together (see the Defect
+Breakdown section above for why the registry is ordered that way).  Adding
+a seventh report to the kiosk cycle is one more entry in that array, not new
+cycling logic.
+
+**Every concrete report view (and `ReportPageShell` / `MonthlyFpyChart` /
+`DefectBreakdownDonut` underneath it) takes a `kiosk` prop** that changes
+THREE things at once, all because Tim's first look at the shipped kiosk was
+on a real monitor with a lot of unused space around a small, 900px-capped
+card (2026-09-17):
+
+- **No `DetailTopBar`** — the "← Back" button and the "REPORTS" chip both
+  disappear. Neither means anything on an unattended screen: there's no
+  browser-history "back" worth offering, and no nav bar for a breadcrumb to
+  orient against. The report's own title (e.g. "Teradyne Board Test & FPY")
+  stays — it's the one thing worth knowing at a glance.
+- **A much wider, more generously padded layout** — `max-w-[900px]` becomes
+  `max-w-[1800px]` at full width, with bigger gaps and padding throughout.
+- **Bigger text and a bigger icon tile**, sized explicitly in the HTML around
+  the chart (title, description, the "Updated `<time>`" note, and
+  `MonthlyFpyChart`'s own `large` prop for its legend). The chart's SVG
+  itself needed NONE of this — it already scales with whatever width its
+  container gives it, and because SVG geometry (including `font-size` set
+  via a CSS class on an SVG `<text>`) is interpreted in the coordinate
+  system the `viewBox`-to-rendered-size mapping establishes, every axis
+  label, bar value and FPY% label inside it grows right along with the SVG
+  itself. Only the plain HTML around it (legend, title, timestamp) needed
+  its own explicit sizing.
+
+**Chrome-less, the same way a print route is** — `App.tsx` already hid
+`Header`/`UpdateAvailableBanner`/`Footer`/`ToastContainer` for any path
+ending `/print`; that check became `hideChrome = isPrintRoute ||
+isKioskRoute` rather than a second parallel set of conditionals, since a
+monitor left running unattended for hours has exactly the same "no nav, no
+banners, no toasts nobody is there to dismiss" needs as a printed page.
+
+**The fade is its OWN `kiosk-fade` animation (1000ms), not the app-wide
+`fade-in` (150ms)** — the first cut reused `fade-in` as-is, and Tim reported
+it live as "really fast... almost not visible": at full-screen scale a
+150ms cut reads as barely a flicker, not a transition. Rather than slow
+down the shared `fade-in` utility (which nothing else in the app used at
+the time, but a FUTURE small-UI-element caller shouldn't silently inherit a
+kiosk-length timing because this file happened to change its duration),
+`kiosk-fade` in `tailwind.config.js` is a separate named animation at
+1000ms — long enough to see, short enough not to feel sluggish against a
+60-second dwell time. Still no true crossfade: the outgoing report simply
+unmounts as the incoming one mounts, re-keyed on the report's own `key` so
+`kiosk-fade` re-triggers on every cycle. Holding the outgoing report's DOM
+around while the incoming one fades in over it would need real two-layer
+stacking and its own unmount timer — a bigger jump than "make the existing
+fade slower," and not worth it for "maybe with a nice fade between."
+
+**A small Fullscreen button, not automatic fullscreen on load** — browsers
+require a genuine user gesture to grant `requestFullscreen()`, so the kiosk
+can't enter fullscreen by itself; the button exists for the person setting
+the display up once, and the call is guarded with `?.()` since jsdom (and
+some older browsers) has no `requestFullscreen` at all. Actually going
+fullscreen — or running the browser in a dedicated kiosk mode — is otherwise
+left to whatever's driving the display, exactly as asked ("when opened in a
+browser in full screen or kiosk").
+
+**`?theme=light` / `?theme=dark` on the URL forces the theme for this page,
+and this page ONLY** (Tim, 2026-09-17) — a genuinely new capability, not a
+tweak to the existing per-user preference. `useTheme()` in
+`hooks/useTheme.ts` gained an optional `override` parameter for exactly this
+caller; when set, it wins over whatever's in `localStorage` and is never
+itself WRITTEN to `localStorage` — a forced theme is a display setting for
+one page, not something that should silently change what the same browser
+shows across the rest of ARC the next time someone opens it there. This
+also closed a real gap found while wiring it up: `useTheme()` had only ever
+been called from `Header`, so with `Header` hidden on this chrome-less
+route, NOTHING was applying the signed-in user's saved preference here —
+`/reports/kiosk` always rendered light regardless of what was set
+elsewhere. Calling `useTheme(overrideFromSearchParams)` in
+`KioskReportsView` fixes both at once: the stored preference now applies by
+default (there being no override), and the URL flag can pin one explicitly
+for a machine with no toggle button to reach. An unrecognized `?theme=`
+value is silently ignored, falling back to the stored preference exactly as
+if the param were absent.
+
+**`?dept=ICT` / `?dept=DIG` / `?dept=IGN` narrows the cycle to one source**
+(Tim, 2026-09-18) — for a display dedicated to a single department rather
+than rotating through all three. `ReportDef.department` (`lib/reports.ts`)
+tags every entry with one of the three codes (Teradyne = ICT, Digital QC =
+DIG, Ignition QC = IGN) — an INTERNAL tag with no other job: it isn't a
+SharePoint concept, and the Reports landing page still shows every report
+regardless of it. `KioskReportsView.tsx`'s own `KIOSK_REPORTS` array mirrors
+that tagging in the same order (it can't import `REPORTS` directly, since it
+needs the actual view Components each entry maps to, not just their
+metadata). `departmentFromSearch()` reads `?dept=` case-insensitively (typed
+into a URL by hand) and an unrecognized value is silently IGNORED, falling
+back to all six reports — the same "never blank the page" rule `?theme=`
+already follows. The cycle interval and the starting index both key off the
+FILTERED list's own length, and `index` resets to 0 whenever the filter
+changes, so a shorter list can't leave `index` pointing past its end.
+
+**No admin gate, no delete concept anywhere in Reports — there's nothing to
+write.** Every report reads; none of them creates or edits a SharePoint row.
+Real enforcement for the underlying data stays whatever its own screen
+already has (`/operations/teradyne`, `/digital-qc`, `/ignition-qc`).
 
 ## Dates: always `DateField`, never `<input type="date">`
 
