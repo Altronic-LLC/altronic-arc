@@ -348,6 +348,32 @@ export const SP_GRAY_MARKET_LIST_ID =
   "bf5e3786-d2c1-4e8d-8bd1-c8d5bab9c85b";
 
 /**
+ * "MRB Data" — the Material Review Board register. Nonconforming material:
+ * the part, the quantity, why it was rejected, who caused it and what was
+ * decided to do with it. A **Supply Chain** feature on the **PMO site**,
+ * the same arrangement as Gray Market Requests above.
+ *
+ * **2,960 rows, of which only 97 are live.** `field_12` ("Data Format")
+ * splits them: `Legacy` rows are retained history imported from the old
+ * Excel workbooks and are not work items; `Current` rows are the register
+ * people actually use. Verified clean — 0 of the 97 Current rows carry a
+ * value in any `(Legacy)` column.
+ *
+ * Every workflow column is called `field_N`; `lib/mrbFields.ts` is the only
+ * place that translation lives. `Title` is the SAP Number, and `LinkTitle`
+ * is a READ-ONLY column carrying the display name "SAP Number" — writing it
+ * is the 403 that broke every Panel QC create.
+ *
+ * Under SharePoint's 5,000-item threshold, so the list is fetched whole and
+ * filtered in the browser. It grows ~250 rows a year, giving roughly eight
+ * years of headroom before that needs revisiting.
+ *
+ * Schema discovered live 2026-09-21 — scripts/mrb-data-schema.json.
+ */
+export const SP_MRB_LIST_ID =
+  import.meta.env.VITE_SP_MRB_LIST_ID || "1ca33f70-c98f-4481-b518-4b15fc8fbfff";
+
+/**
  * Who is emailed when a NEW gray market request is raised (Ray, 2026-08-23).
  *
  * Nobody watches the list itself, so a request used to sit until someone

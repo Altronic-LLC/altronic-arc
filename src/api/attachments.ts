@@ -15,6 +15,7 @@ import {
   SP_PANELTEAM_SITE_URL,
   SP_ALTRONIC_EQUIPMENT_LIST_ID,
   SP_GRAY_MARKET_LIST_ID,
+  SP_MRB_LIST_ID,
   SP_PMO_SITE_URL,
   SP_SALESTEAM_SITE_URL,
   SP_SCHEDULED_MAINTENANCE_LIST_ID,
@@ -64,6 +65,7 @@ export type AttachmentParent =
   | "csaListing"
   | "visitReport"
   | "grayMarketRequest"
+  | "mrb"
   | "supplier"
   | "supplierContact"
   | "supplierIssue"
@@ -131,6 +133,14 @@ const PARENT_CONFIG: Record<AttachmentParent, ParentConfig> = {
     listId: SP_GRAY_MARKET_LIST_ID,
     siteUrl: SP_PMO_SITE_URL,
     listIdEnvVar: "VITE_SP_GRAY_MARKET_LIST_ID",
+  },
+  // MRB — the photo of the defect, the vendor's credit note, the rework
+  // instruction. Attachments are enabled on the list and no row used one at
+  // discovery (2026-09-21), so this is the first thing that will.
+  mrb: {
+    listId: SP_MRB_LIST_ID,
+    siteUrl: SP_PMO_SITE_URL,
+    listIdEnvVar: "VITE_SP_MRB_LIST_ID",
   },
   visitReport: {
     listId: SP_VISIT_REPORTS_LIST_ID,
