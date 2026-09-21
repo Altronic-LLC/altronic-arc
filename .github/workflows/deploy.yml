@@ -87,6 +87,10 @@ jobs:
           # in config.ts — the checklist card on an ECN reports itself "not
           # configured" until this is set, same as Quick Links.
           VITE_SP_ECN_CHECKLISTS_LIST_ID: ${{ vars.VITE_SP_ECN_CHECKLISTS_LIST_ID }}
+          # MRB Data (Supply Chain, PMO site). Documented default in
+          # config.ts, so a build without this still points at the live list;
+          # set it only to override.
+          VITE_SP_MRB_LIST_ID: ${{ vars.VITE_SP_MRB_LIST_ID }}
           VITE_SP_MAINTENANCE_TASKS_LIST_ID: ${{ vars.VITE_SP_MAINTENANCE_TASKS_LIST_ID }}
           VITE_SP_SCHEDULED_MAINTENANCE_LIST_ID: ${{ vars.VITE_SP_SCHEDULED_MAINTENANCE_LIST_ID }}
           # Maintenance Departments / Locations — the two admin-managed

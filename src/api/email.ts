@@ -90,6 +90,7 @@ export interface MentionTarget {
     | "panelTask"
     | "panelQcIssue"
     | "grayMarketRequest"
+    | "mrb"
     | "customerNote"
     | "supplier"
     | "supplierContact"
@@ -129,6 +130,11 @@ const KIND_COPY: Record<
     phrase: "a gray market request",
     calloutLabel: "Gray Market Request",
     buttonText: "Open this request",
+  },
+  mrb: {
+    phrase: "an MRB entry",
+    calloutLabel: "MRB Entry",
+    buttonText: "Open this MRB entry",
   },
   panelOrder: {
     phrase: "a panel order",

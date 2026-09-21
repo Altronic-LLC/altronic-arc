@@ -13,6 +13,7 @@ import GRAY_MARKET from "./GrayMarketRequestDetailView.tsx?raw";
 import MAINTENANCE from "./MaintenanceDetailView.tsx?raw";
 import OPERATIONS from "./OperationsDetailView.tsx?raw";
 import PANEL_ORDER from "./PanelOrderDetailView.tsx?raw";
+import MRB from "./MrbDetailView.tsx?raw";
 import PANEL_TASK from "./PanelTaskDetailView.tsx?raw";
 import SUPPLIER from "./SupplierDetailView.tsx?raw";
 
@@ -66,6 +67,7 @@ const VIEWS: { name: string; source: string }[] = [
   { name: "FeatureRequestDetailView.tsx", source: FEATURE_REQUEST },
   { name: "GrayMarketRequestDetailView.tsx", source: GRAY_MARKET },
   { name: "MaintenanceDetailView.tsx", source: MAINTENANCE },
+  { name: "MrbDetailView.tsx", source: MRB },
   { name: "OperationsDetailView.tsx", source: OPERATIONS },
   { name: "PanelOrderDetailView.tsx", source: PANEL_ORDER },
   { name: "PanelTaskDetailView.tsx", source: PANEL_TASK },

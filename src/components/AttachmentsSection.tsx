@@ -54,6 +54,7 @@ const PARENT_NOUN: Record<AttachmentParent, string> = {
   csaListing: "CSA listing",
   visitReport: "visit report",
   grayMarketRequest: "request",
+  mrb: "MRB entry",
   supplier: "supplier",
   supplierContact: "contact",
   supplierIssue: "issue",
