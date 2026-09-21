@@ -23,6 +23,7 @@ export type AppItemKind =
   | "panelTask"
   | "panelQcIssue"
   | "grayMarketRequest"
+  | "mrb"
   | "customerNote"
   | "supplier"
   | "supplierContact"
@@ -47,6 +48,7 @@ const KIND_SEGMENTS: Record<AppItemKind, string> = {
   panelTask: "panels/task",
   panelQcIssue: "panels/qc-issues",
   grayMarketRequest: "supply-chain/gray-market-request",
+  mrb: "supply-chain/mrb",
   customerNote: "sales/customers",
   supplier: "supply-chain/supplier",
   // Redirect routes: App.tsx looks the row up and forwards to its parent

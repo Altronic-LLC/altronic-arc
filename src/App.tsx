@@ -132,6 +132,12 @@ const CostImpactNoticeDetailView = lazy(() =>
     default: m.CostImpactNoticeDetailView,
   })),
 );
+const MrbView = lazy(() =>
+  import("@/views/MrbView").then((m) => ({ default: m.MrbView })),
+);
+const MrbDetailView = lazy(() =>
+  import("@/views/MrbDetailView").then((m) => ({ default: m.MrbDetailView })),
+);
 const AdminOpenOrdersRolesView = lazy(() =>
   import("@/views/AdminOpenOrdersRolesView").then((m) => ({
     default: m.AdminOpenOrdersRolesView,
@@ -490,6 +496,22 @@ export function App() {
             <Route
               path="/supply-chain/gray-market-request/:id"
               element={<GrayMarketRequestDetailView />}
+            />
+            <Route
+              path="/supply-chain/mrb"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the MRB register" />}>
+                  <MrbView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/supply-chain/mrb/:id"
+              element={
+                <Suspense fallback={<LoadingTasks noun="this MRB entry" />}>
+                  <MrbDetailView />
+                </Suspense>
+              }
             />
             <Route
               path="/sales/open-orders"

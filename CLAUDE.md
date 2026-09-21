@@ -269,6 +269,7 @@ src/
 │   ├── openOrdersCustomers.ts    Open Orders managed customer list CRUD
 │   ├── openOrdersRoles.ts        Open Orders role tags (report manager) CRUD
 │   ├── grayMarketRequests.ts     Gray Market Requests CRUD + comments (PMO site) — no delete
+│   ├── mrb.ts                    MRB Data CRUD + comments (PMO site) — DIFFED edits, no delete
 │   ├── featureRequests.ts        ARC Feature Requests CRUD + comments (Engineering site) — no admin gate, no delete
 │   ├── whereAmI.ts               Where am I? CRUD (Engineering out-of-office calendar)
 │   ├── autoWatch.ts              Shared @-mention → watcher resolution (per-site)
@@ -296,6 +297,7 @@ src/
 │   ├── costImpactMockData.ts     Sample Cost Impact Notices
 │   ├── openOrdersMockData.ts     Sample open order lines + report customers
 │   ├── grayMarketMockData.ts     Sample gray market requests
+│   ├── mrbMockData.ts            Sample MRB entries — live, undecided, and archive rows
 │   ├── featureRequestMockData.ts Sample ARC Feature Requests, spanning all four statuses
 │   ├── whereAmIMockData.ts       Sample out-of-office entries (dated from today)
 │   ├── ecnMockData.ts            Sample ECNs (rich-text fields, a revision)
@@ -336,6 +338,7 @@ src/
 │   ├── useOpenOrdersReports.ts   Parse an extract, generate + upload, download
 │   ├── useOpenOrdersCustomers.ts Customer list + role CRUD (+ useMyOpenOrdersAccess)
 │   ├── useGrayMarketRequests.ts  Gray Market queries, mutations + comment thread
+│   ├── useMrb.ts                 MRB queries, mutations + comment thread (an edit diffs against the cached row)
 │   ├── useFeatureRequests.ts     ARC Feature Requests queries, mutations + comment thread — no admin gate
 │   ├── useWhereAmI.ts            Where am I? queries + mutations
 │   ├── useEcns.ts                ECN queries + mutations (submitter-only notifications)
@@ -439,6 +442,8 @@ src/
 │   ├── featureRequestAlerts.ts   ARC Feature Request intake + status alerts (pure)
 │   ├── grayMarketFields.ts       Gray Market column descriptors (columns are DATA)
 │   ├── grayMarketMapper.ts       Graph item → GrayMarketRequest, and back
+│   ├── mrbFields.ts              MRB column descriptors (field_1…field_23 decoded) + the drifted-choice guard
+│   ├── mrbMapper.ts              Graph item → MrbEntry, and back; the DIFFED write, state + price rules
 │   ├── grayMarketNumber.ts       nextGrayMarketLogNo() — GMR_YYYY-### numbering
 │   ├── grayMarketAlerts.ts      Gray Market intake alert (new request → the config list)
 │   ├── featureRequestMapper.ts  Graph item → FeatureRequest, and back (RequestedBy single-person trap)
@@ -529,6 +534,7 @@ src/
 │   ├── CostImpactNoticeFormModal.tsx Raise a cost impact notice
 │   ├── costImpactAtoms.tsx           Delta-cost chip (increase/decrease/no change)
 │   ├── GrayMarketRequestFormModal.tsx  Raise a gray market request
+│   ├── MrbFormModal.tsx          Log an MRB entry (auto-computes Price Per Issue)
 │   ├── FeatureRequestFormModal.tsx  Suggest a new ARC feature — Title/Description/Department/Priority only
 │   ├── WhereAmIFormModal.tsx     Add/edit an out-of-office entry (+ date range)
 │   ├── ProjectFolderFormModal.tsx  Create a project folder + tag its Project Reference
@@ -573,6 +579,7 @@ src/
 │   ├── panelAtoms.tsx            Panel-specific badges/chips
 │   ├── visitReportAtoms.tsx      Customer-status chip (Sales)
 │   ├── grayMarketAtoms.tsx       Request-status + Pass/Fail chips (Supply Chain)
+│   ├── mrbAtoms.tsx              Disposition / where-caused / archive chips (Supply Chain)
 │   ├── ecnAtoms.tsx              On-hold / flag / stock-disposition chips (ECNs)
 │   ├── faitAtoms.tsx             Status / sign-off / first-pass chips (FAITs)
 │   ├── VisitReportFilterBar.tsx  Shared filter bar for both Visit Report views
@@ -639,6 +646,8 @@ src/
 │   ├── OpenOrdersCustomersView.tsx  The managed customer list (+ import from an extract)
 │   ├── AdminOpenOrdersRolesView.tsx Admin -> Open Orders Roles
 │   ├── GrayMarketRequestsView.tsx      Gray Market Requests list (Supply Chain)
+│   ├── MrbView.tsx               MRB register — Needs disposition / Decided / Archive / All
+│   ├── MrbDetailView.tsx         One MRB entry — Part / Nonconformance / Cost cards, attachments, comments
 │   ├── WhereAmIView.tsx          Where am I? — month grid on desktop, agenda on a phone
 │   ├── EcnsView.tsx              ECNs list (search covers the descriptions)
 │   ├── FaitsView.tsx             FAITs list (Supply Chain)
@@ -1889,6 +1898,199 @@ blank rather than sending `""`, like every other blank column on a create. If
 the SharePoint column is still marked Required in list settings, the create
 will be refused there regardless of what ARC sends — that setting is the place
 to look if new requests start failing.
+
+### MRB — Material Review Board (Supply Chain, PMO site)
+
+`1ca33f70-c98f-4481-b518-4b15fc8fbfff` (env: `VITE_SP_MRB_LIST_ID`), list name
+**"MRB Data"**, on **`SITES.pmo`** — a Supply Chain feature on the PMO site,
+the same arrangement as Gray Market Requests. Nonconforming material: the
+part, the quantity, why it was rejected, where it was caused, and what was
+decided to do with it. Schema and a full 2,960-row profile captured live
+2026-09-21 — `scripts/mrb-data-schema.json`.
+
+**Every workflow column is called `field_N`**, the same migration artefact as
+the ECNs list, and `src/lib/mrbFields.ts` is the only place that translation
+exists:
+
+| Internal name | Actually is | | Internal name | Actually is |
+|---|---|---|---|---|
+| `field_1` | MRB Date | | `field_13` | Source Year |
+| `field_2` | Old Part Number → shown as **Altronic Part Number** | | `field_14` | Vendor Part Number (Legacy) |
+| `field_3` | Quantity | | `field_15` | Where Detected (Legacy) |
+| `field_4` | Description | | `field_16` | SAP Action (Legacy) |
+| `field_5` | Reason | | `field_17` | Status (Legacy) |
+| `field_6` | Where Caused (choice) | | `field_18` | Action Owner (Legacy) |
+| `field_7` | Disposition (choice) | | `field_19` | PO Number (Legacy) |
+| `field_8` | Vendor Name | | `field_20` | Where Caused (Original Text) |
+| `field_9` | Price Per Unit (currency) | | `field_21` | Disposition (Original Text) |
+| `field_10` | Price Per Issue (currency) | | `field_22` | Data Quality Notes |
+| `field_11` | Comments (**a notes field**) | | `field_23` | Source Workbook Row |
+| `field_12` | **Data Format** | | | |
+
+Unlike ECN's, there are no gaps — 1 through 23 all exist.
+
+Seven things that shape this feature:
+
+- **2,863 of the 2,960 rows are NOT work.** `field_12` ("Data Format") is
+  `Legacy` on them and `Current` on the other 97 (Tim, 2026-09-21: the legacy
+  rows are "just data retention from older excel files and not active
+  items"). It is a **clean** discriminator — 0 of the 97 Current rows carry a
+  value in any `(Legacy)` column — so `MrbView` makes it a TAB rather than a
+  filter people have to know to apply, and the register opens on
+  **Needs disposition**: live entries whose Disposition is blank or "To be
+  Determined". 37 of the 97 were in that state at discovery, and that queue is
+  the entire reason the screen exists. Archive rows stay fully searchable,
+  which is the point of keeping them, and are chipped as archive wherever they
+  appear so one reached by search isn't mistaken for something to action.
+
+- **THE TRAP: two choice columns hold a value they do not declare.** 726 rows
+  hold `Where Caused = "Unclassified (Legacy)"` and 8 hold the same in
+  `Disposition` — **with a space** — while the columns declare
+  `"Unclassified(Legacy)"` **without one**, and `allowTextEntry` is **False**
+  on both. So the stored value is not among its own column's choices, and
+  re-sending it makes SharePoint **reject the entire PATCH**. Two defences,
+  and both are needed:
+  - **`buildMrbFields` DIFFS against the row the edit started from** and sends
+    only what changed, so the refused column never travels. This is the Visit
+    Reports mechanism for the identical reason. `updateMrbEntry` therefore
+    *requires* the previous row, and `useUpdateMrbEntry` reads it out of the
+    cache and refuses the write rather than sending everything blind.
+    Pinned in `api/mrb.diffedWrite.test.ts` with `USE_MOCK: false` — verified
+    by removing the diff and watching five cases fail.
+  - **`mrbChoiceOptions` keeps the stored value in the picker.** A picker
+    built from the declared choices alone shows such a row as blank and
+    silently reassigns it on save. Same rule as `rmNameOptions` on Visit
+    Reports.
+
+- **`Title` is the SAP Number, and `LinkTitle` is a READ-ONLY column whose
+  display name is "SAP Number".** Write `Title`; writing `LinkTitle` is the
+  403 that broke every Panel QC create. `MRB_SELECT` deliberately doesn't even
+  ask for it.
+
+- **`field_2` is labelled "Altronic Part Number", not its column's own "Old
+  Part Number"** (Tim, 2026-09-21), and sits beside the SAP Number in the
+  list. Exactly the call the Teradyne Log made for a column literally named
+  `OldSAPNumber`: the user-facing name changed, the SharePoint column
+  deliberately did NOT, because existing views and anything reporting off
+  the list point at it. The domain key stays `oldPartNumber` to match.
+
+  **Every label comes from `MRB_FIELDS`, never a string typed into a view.**
+  The list column, the detail card rows (`label(key)` in `MrbDetailView`),
+  the create form and the edit modal all read the same entry, so a rename
+  can't leave two screens calling one field different things — which is
+  precisely what a half-applied version of this rename would have done.
+
+- **`Price Per Issue` = `Price Per Unit` × `Quantity` on every one of the 97
+  live rows** — and on only 1,792 of 2,162 archive rows. All 370 exceptions
+  are archive (partial credits, rounding, a few with quantity 0). So the rule
+  is the *live process*, not a truth about the data: the form fills the figure
+  in and lets you type over it, the detail page **flags** a stored mismatch,
+  and nothing is ever recalculated over a stored value. Rewriting history to
+  satisfy a rule it predates is not a fix.
+
+- **Dates come back at 04:00Z / 05:00Z** — local midnight in US Eastern,
+  daylight and standard — with three outlier rows at 22:00Z / 23:00Z. The
+  shared `parseSpDateOnly` midday pivot reads all four correctly, which is
+  precisely why that rule isn't a per-list offset. The three outliers shift
+  forward a day under the pivot; at three rows out of 2,960 that is not worth
+  a special case, but it is worth knowing before anybody "fixes" a date.
+
+- **The comment column is `Communications` — PLURAL.** Every other list in
+  ARC calls it `Communication`. Tim added it by hand on 2026-09-21 and named
+  it that way; `MRB_COMMUNICATIONS_COLUMN` in `mrbFields.ts` carries the exact
+  spelling, and writing the singular writes to a column that isn't there.
+  Its shape was checked at creation and is correct — `allowMultipleLines`
+  true (a single-line column would cap the thread at 255 characters),
+  `textType` plain, and crucially **`appendChangesToExistingText` FALSE**,
+  the setting that wiped FAIT 89's whole history.
+
+  **VERIFIED BEHAVIOURALLY on 2026-09-21** (Tim): two comments posted on one
+  entry, and the second replaced the stored value rather than doubling the
+  thread. That check was not optional — Graph has reported this flag as
+  `true` on FAIT however the column was created, and a PATCH setting it
+  false was accepted without changing anything, so the API's answer alone
+  proves nothing here. Re-do it if the column is ever recreated.
+
+  **Don't confuse it with `field_11`**, which is *labelled* "Comments" and is
+  a plain notes box — carried as `notes` in the domain specifically to keep
+  the two apart, the same collision Cost Impact Notices has. `field_11` also
+  holds migration junk (`[Legacy WHERE CAUSED: PRODUCTION]`) on archive rows.
+
+  **So the thread's heading on this page is "Discussion", not "Comments"** —
+  the one page in ARC where it isn't called Comments. `field_11` renders as
+  a field labelled Comments on the Nonconformance card directly above, and
+  two things called Comments on one page, one of which emails people and one
+  of which doesn't, is a trap. A test query tripped over the same ambiguity
+  before a user could. Don't "make it consistent" with the other detail
+  pages without renaming the field first, which would mean renaming the
+  SharePoint column.
+
+- **The `Watchers` column may not exist yet, and the read copes.**
+  `scripts/add-mrb-watchers-column.ps1` creates it, and that runs separately
+  from any deploy — while **selecting a column a list hasn't got 400s the
+  WHOLE read**, which would leave the entire register blank in between. So
+  `listMrbEntries` asks for Watchers, retries once without it on failure, and
+  remembers the answer for the rest of the page session (the
+  `serverFilterUnavailable` shape from the Teradyne log). `mrbWatchersAvailable()`
+  is what the detail page asks before offering the picker, and a watcher
+  WRITE while unavailable is refused with the script's name in the message
+  rather than a raw 400.
+
+  Two things that are deliberate in that fallback: it only concludes the
+  column is missing once the **slim read succeeds** (both failing means
+  something else is wrong, not that watchers are gone), and a failure when
+  the flag is already known propagates instead of retrying — a throttle or an
+  outage must not silently read as "nobody is watching anything".
+
+- **No assignee, so comments notify watchers and mentions only.**
+  `commentNotifyRecipients` gets an empty `assignees` rather than standing
+  something else in: an MRB entry is owned by the board, not one person.
+  Auto-watch-on-mention resolves against the **PMO** site
+  (`resolvePmoSiteUserLookupId`) — a lookupId is per site collection.
+
+- **No admin gate and no roles** — any signed-in user can add an entry and
+  record a disposition (Tim, 2026-09-21), matching Visit Reports and QC Time
+  Tracking. SharePoint's list permissions remain the real boundary.
+
+**No delete**, in the UI or the module — an MRB entry records material that
+was rejected and what was decided, and most of the list is retained history.
+`mrb.test.ts` asserts the module exports nothing matching /delete|remove/.
+
+**On a phone the list is CARDS, not the table** — `MrbView` renders two
+siblings over the same `shown` rows, a `sm:hidden` card list and a
+`hidden sm:block` table, split at 640px. Nine columns don't fit a phone even
+truncated. The `QcCpu95View` / `QcTimeTrackingView` shape, including the card
+being a real `<button>` (nothing competes for the tap target here).
+**jsdom has no breakpoints, so both render at once in a test** and every
+entry's text appears twice — scope to the table or use `getAllBy*`.
+
+**The search/filter panel is collapsed by default ON A PHONE ONLY.** The
+toggle is `sm:hidden` and the panel `sm:grid`, so desktop is unchanged and
+there is one piece of state rather than two behaviours. **An active filter
+forces it open** and badges the count — a list narrowed by a filter nobody
+can see is the invisible-filter trap the EIR status pills already paid for,
+and worse here because the filter can arrive in a shared URL. Don't
+"simplify" `filtersOpen` back to the bare `useState`.
+
+2,960 rows is under the 5,000-item threshold, so the list is fetched whole and
+filtered in the browser — which is what makes searching the Reason text for a
+failure mode possible at all. It grows ~250 rows a year, so there is roughly
+eight years of headroom before that needs revisiting; `MrbView` renders 150
+rows with a "show all", and the filters, counts and cost total always run over
+everything.
+
+**`field_13` (Source Year) contains junk** — one row each of 2027, 2204 and
+5025, obvious typos in the source workbook. It is read and shown but never
+used to filter or group; the year filter derives from the MRB date.
+
+**The dashboard card shares `superior-blue` with FAITs on purpose.** The
+Supply Chain section's four existing cards already use all four brand tones,
+so a fifth must repeat one, and these two are the pair worth pairing: both
+are quality dispositions on inspected material. Repeating Cost Impact's red
+would instead blunt "red means a cost change". Its count is **deliberately
+not scoped by Mine/Company** — there is no person column to scope by — so the
+`unit` reads "need a disposition", describing the register rather than the
+reader.
 
 ### SRM Tool (Supply Chain, Altronic_PMO site)
 

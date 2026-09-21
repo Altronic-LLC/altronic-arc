@@ -49,7 +49,7 @@ const SECTIONS: ManualSection[] = [
       "where do i start",
     ],
     searchText:
-      "Sign in with your altronic-llc.com account. The Dashboard opens after sign-in. A Refresh button in the header pulls the latest data from SharePoint at any time without reloading the page, so anything you have open — a form, a set of filters, a half-typed comment — is kept; its icon spins while data is coming in. Use the top nav to switch between Dashboard, the Departments dropdown, and Admin. The Departments dropdown mirrors the dashboard: Engineering (Engineering Tasks, EIRs, Test Sheets, Project Folders, Build Requests, Drawing File Logs, CSA Listings, Where Am I?, ECNs), Panels, Operations, Coils (Potting Sample Log), Quality Control (Digital QC Defect Log, Ignition QC Defect Log, QC Forms), Supply Chain (Gray Market Requests, FAITs, Suppliers/SRM Tool), and Customer Service / Sales (Open Orders Report, Visit Reports, Customers/CRM Tool).",
+      "Sign in with your altronic-llc.com account. The Dashboard opens after sign-in. A Refresh button in the header pulls the latest data from SharePoint at any time without reloading the page, so anything you have open — a form, a set of filters, a half-typed comment — is kept; its icon spins while data is coming in. Use the top nav to switch between Dashboard, the Departments dropdown, and Admin. The Departments dropdown mirrors the dashboard: Engineering (Engineering Tasks, EIRs, Test Sheets, Project Folders, Build Requests, Drawing File Logs, CSA Listings, Where Am I?, ECNs), Panels, Operations, Coils (Potting Sample Log), Quality Control (Digital QC Defect Log, Ignition QC Defect Log, QC Forms), Supply Chain (Gray Market Requests, FAITs, MRB, Suppliers/SRM Tool), and Customer Service / Sales (Open Orders Report, Visit Reports, Customers/CRM Tool).",
     render: () => (
       <>
         <P>
@@ -63,7 +63,7 @@ const SECTIONS: ManualSection[] = [
           <strong>Operations</strong>, <strong>Coils</strong> (Potting Sample
           Log), <strong>Quality Control</strong> (Digital QC Defect Log,
           Ignition QC Defect Log, QC Forms), <strong>Supply Chain</strong> (Gray Market Requests,
-          FAITs, and the Suppliers SRM tool), and{" "}
+          FAITs, MRB, and the Suppliers SRM tool), and{" "}
           <strong>Customer Service / Sales</strong> (Open Orders Report, Visit
           Reports, and the Customers CRM tool). Engineering Tasks use the{" "}
           <strong>List</strong> and{" "}
@@ -125,7 +125,7 @@ const SECTIONS: ManualSection[] = [
       "quick link buttons",
     ],
     searchText:
-      "The Dashboard is grouped into department sections — Engineering, Panels, Operations, Coils, Quality Control, Supply Chain, and Customer Service / Sales — each a divider heading with its cards beneath. A department can show a row of admin-managed Quick Links buttons above its cards, linking out to a SharePoint site or another tool outside ARC; the row only appears once an admin has added at least one for that department, at /admin/quick-links. Engineering has live cards: Engineering Tasks, EIRs, Test Sheets and more. Coils has the Potting Sample Log; Quality Control has the Digital QC Defect Log, Ignition QC Defect Log and QC Forms; Supply Chain has Gray Market Requests, Suppliers (the SRM tool), Cost Impact Notices and FAITs; Customer Service / Sales has Open Orders Report, Visit Reports and Customers (the CRM tool). Most live cards show the count of active items (tasks not Complete, EIRs not Closed), a colour-coded status mini-bar, and click through to that type's page; a few — Open Orders Report, Visit Reports, Suppliers, Cost Impact Notices and Customers — are description-only, since there's no count that reads as more useful than the tool itself. A Mine / Company switch flips every count and bar between your own items and the whole company's; Mine is the default. A project picker sits next to it and works the same way — pick a project and every card's count and mini-bar narrows to just that project, in place, combining with Mine/Company rather than navigating anywhere. Clicking a card afterward opens that type's full list pre-filtered to the picked project.",
+      "The Dashboard is grouped into department sections — Engineering, Panels, Operations, Coils, Quality Control, Supply Chain, and Customer Service / Sales — each a divider heading with its cards beneath. A department can show a row of admin-managed Quick Links buttons above its cards, linking out to a SharePoint site or another tool outside ARC; the row only appears once an admin has added at least one for that department, at /admin/quick-links. Engineering has live cards: Engineering Tasks, EIRs, Test Sheets and more. Coils has the Potting Sample Log; Quality Control has the Digital QC Defect Log, Ignition QC Defect Log and QC Forms; Supply Chain has Gray Market Requests, Suppliers (the SRM tool), Cost Impact Notices, FAITs and MRB (which counts the live entries still waiting on a disposition); Customer Service / Sales has Open Orders Report, Visit Reports and Customers (the CRM tool). Most live cards show the count of active items (tasks not Complete, EIRs not Closed), a colour-coded status mini-bar, and click through to that type's page; a few — Open Orders Report, Visit Reports, Suppliers, Cost Impact Notices and Customers — are description-only, since there's no count that reads as more useful than the tool itself. A Mine / Company switch flips every count and bar between your own items and the whole company's; Mine is the default. A project picker sits next to it and works the same way — pick a project and every card's count and mini-bar narrows to just that project, in place, combining with Mine/Company rather than navigating anywhere. Clicking a card afterward opens that type's full list pre-filtered to the picked project.",
     render: () => (
       <>
         <P>
@@ -187,7 +187,7 @@ const SECTIONS: ManualSection[] = [
           <strong>Coils</strong> (Potting Sample Log),{" "}
           <strong>Quality Control</strong> (Digital QC Defect Log, Ignition QC
           Defect Log, QC Forms), <strong>Supply Chain</strong> (Gray Market Requests,
-          Suppliers, Cost Impact Notices, FAITs) and{" "}
+          Suppliers, Cost Impact Notices, FAITs, MRB) and{" "}
           <strong>Customer Service / Sales</strong> (Open Orders Report,
           Visit Reports, Customers) all open straight to their lists, and{" "}
           <strong>Panels</strong> and <strong>Operations</strong> link to
@@ -2723,7 +2723,7 @@ const SECTIONS: ManualSection[] = [
       "psr notification",
     ],
     searchText:
-      "Potting Sample Log at /coils/potting-sample-log, under Departments > Coils. Record a potting sample's date, volume and weight. The date defaults to now and the volume to 125, so a normal sample is just the weight plus Save entry. The current Lower and Upper Spec Limits show above the form, and any saved sample outside them is flagged in red in the table as Below lower limit or Above upper limit. Saving an out-of-limit sample automatically emails everyone on the Coil PSR Notification List with the entry's date, volume and weight and both spec limits. Manage lists opens the two reference lists: Spec Limits at /coils/potting-limits and the PSR Notification List at /coils/psr-notifications, where you add or remove people by name and email. Both are editable by any signed-in user, the same as the Teradyne reference lists.",
+      "Potting Sample Log at /coils/potting-sample-log, under Departments > Coils. Click Add entry to open the entry form (a modal on desktop, a full screen on a phone) and record a potting sample's date, volume and weight. The date/time defaults to the current moment each time you open the form and the volume to 125, so a normal sample is just the weight plus Save entry; Cancel backs out without saving anything. The current Lower and Upper Spec Limits show above the table, and any saved sample outside them is flagged in red in the table as Below lower limit or Above upper limit. Saving an out-of-limit sample automatically emails everyone on the Coil PSR Notification List with the entry's date, volume and weight and both spec limits. Manage lists opens the two reference lists: Spec Limits at /coils/potting-limits and the PSR Notification List at /coils/psr-notifications, where you add or remove people by name and email. Both are editable by any signed-in user, the same as the Teradyne reference lists.",
     render: () => (
       <>
         <P>
@@ -2734,14 +2734,18 @@ const SECTIONS: ManualSection[] = [
         <H3>Logging a sample</H3>
         <UL>
           <LI>
-            <strong>Date</strong> is pre-filled with the current date and time
-            and <strong>Volume</strong> with <strong>125</strong>, so a routine
-            sample is just the <strong>Weight</strong> and{" "}
-            <strong>Save entry</strong>.
+            <strong>Add entry</strong> opens the entry form — a modal on
+            desktop, a full screen on a phone. <strong>Date</strong> is
+            pre-filled with the current date and time (refreshed each time you
+            open the form) and <strong>Volume</strong> with{" "}
+            <strong>125</strong>, so a routine sample is just the{" "}
+            <strong>Weight</strong> and <strong>Save entry</strong>.{" "}
+            <strong>Cancel</strong> backs out without saving anything.
           </LI>
           <LI>
             The current <strong>spec limits</strong> show in a strip above the
-            form, so you can see what you're measuring against before you save.
+            table, so you can see what you're measuring against before you add
+            one.
           </LI>
           <LI>
             The entry appears in the table below immediately. A weight outside
@@ -3478,6 +3482,145 @@ const SECTIONS: ManualSection[] = [
           <strong>Testing Required</strong>, and the search box matches every
           field, so a part number, a PO or a vendor all find the request.
         </P>
+      </>
+    ),
+  },
+  {
+    id: "mrb",
+    title: "MRB",
+    group: "Supply Chain",
+    keywords: [
+      "mrb",
+      "material review board",
+      "nonconforming",
+      "non-conforming",
+      "nonconformance",
+      "reject",
+      "rejected material",
+      "disposition",
+      "scrap",
+      "rework",
+      "rma",
+      "use as is",
+      "where caused",
+      "vendor",
+      "supply chain",
+      "scrap cost",
+      "quarantine",
+    ],
+    searchText:
+      "MRB — the Material Review Board register — at /supply-chain/mrb, under Supply Chain in the Departments menu, backed by the MRB Data list on the Altronic_PMO SharePoint site. An MRB entry records nonconforming material: the part, how much of it, why it was rejected, where the problem was caused, and what the board decided to do with it. The list opens on Needs disposition — live entries where the disposition is blank or still To be Determined — with tabs for Decided, Archive and All, each carrying its count. Archive holds several thousand rows of history imported from the old Excel workbooks; they are kept so they stay searchable but they are not live entries and nothing there is waiting on a decision. The list leads with the SAP Number and the Altronic Part Number side by side — the field SharePoint calls Old Part Number — so an entry can be found by either. Filter by Vendor, Where Caused or Year, and the search box matches every field including the Reason text and the comments. The header line shows the total cost of whatever is on screen. Columns sort and filter like the other registers. On a phone the list is a set of tappable cards rather than a wide table, and the Search and filters panel starts collapsed so the entries fill the screen — it opens on a tap, and opens by itself with a count whenever a filter is already narrowing the list. New Entry asks for the SAP Number, MRB date and Reason; Where Caused and Disposition are optional, and leaving Disposition blank is what puts the entry in the Needs disposition queue. Price Per Issue fills itself in as Price Per Unit times Quantity and can be typed over if the invoice disagrees. An entry's detail page reads, with one Edit button per card — Part, Nonconformance, Cost — and Save changes writes only the fields you touched. Archive rows show an extra read-only card with the columns that came from the source workbook, and that card only appears on archive rows. Entries carry attachments, a Discussion thread with @-mentions, and watchers: mentioning someone emails them and starts them watching, and watchers are emailed about later comments. A screenshot pasted into a comment is saved as an attachment. The thread is called Discussion rather than Comments because this list already has a Comments field inside the Nonconformance card, which is a plain notes box on the record that notifies nobody. There is no assignee on this list, so comments reach watchers and anyone mentioned. MRB entries cannot be deleted from ARC.",
+    render: () => (
+      <>
+        <P>
+          <strong>Departments → Supply Chain → MRB</strong>{" "}
+          (<code>/supply-chain/mrb</code>) is the{" "}
+          <strong>Material Review Board</strong> register: nonconforming
+          material, why it was rejected, and what was decided to do with it.
+        </P>
+
+        <H3>The list opens on what needs deciding</H3>
+        <P>
+          The default tab is <strong>Needs disposition</strong> — live entries
+          where the Disposition is blank, or still <em>To be Determined</em>.
+          Those are the ones sitting in a bin waiting on the board.{" "}
+          <strong>Decided</strong> holds the rest of the live register,{" "}
+          <strong>Archive</strong> holds the imported history, and{" "}
+          <strong>All</strong> shows everything. Each tab carries its count.
+        </P>
+        <Tip>
+          <strong>Archive is history, not work.</strong> Several thousand rows
+          were imported from the old Excel workbooks when this list was set up.
+          They are kept so they stay searchable — nothing in Archive is waiting
+          on a decision, and a blank disposition there just means the
+          spreadsheet never recorded one. An archive entry is labelled as one
+          wherever it appears, including when you reach it from a search or a
+          shared link.
+        </Tip>
+
+        <H3>Adding an entry</H3>
+        <P>
+          <strong>New Entry</strong> needs the <strong>SAP Number</strong>, the{" "}
+          <strong>MRB Date</strong> and a <strong>Reason</strong> — what was
+          wrong with the material. Everything else is optional.{" "}
+          <strong>Price Per Issue</strong> fills itself in as Price Per Unit ×
+          Quantity as you type; type over it if the invoice says something
+          different, and it stops following.
+        </P>
+        <Tip>
+          Leave <strong>Disposition</strong> blank until the board actually
+          decides. That is what puts the entry in the{" "}
+          <strong>Needs disposition</strong> queue — picking something on the
+          way in puts a decision on the record that nobody made.
+        </Tip>
+
+        <H3>Recording the decision</H3>
+        <P>
+          Open an entry and each card — <strong>Part</strong>,{" "}
+          <strong>Nonconformance</strong>, <strong>Cost</strong> — has one{" "}
+          <strong>Edit</strong> button in its header. Set the Disposition to{" "}
+          <strong>Use as is</strong>, <strong>Rework</strong>,{" "}
+          <strong>RMA</strong> or <strong>Scrap</strong> and the entry leaves
+          the queue. <strong>Save changes</strong> writes only the fields you
+          touched.
+        </P>
+        <P>
+          Anyone signed in can add an entry and record a disposition — there
+          are no roles on this register.
+        </P>
+
+        <H3>Finding things, and the cost</H3>
+        <P>
+          The list leads with the <strong>SAP Number</strong> and the{" "}
+          <strong>Altronic Part Number</strong> side by side, so an entry can
+          be found by either. Filter by <strong>Vendor</strong>,{" "}
+          <strong>Where Caused</strong> or <strong>Year</strong>; the search
+          box matches every field, so a part number, a failure mode or a
+          vendor all find the entry. The line above
+          the table totals the cost of everything currently shown, so narrowing
+          to one vendor or one year answers &ldquo;what did this cost
+          us?&rdquo; directly. Columns sort and filter like the other
+          registers.
+        </P>
+        <P>
+          <strong>On a phone</strong> the list is a set of tappable cards
+          rather than a wide table, and <strong>Search and filters</strong>{" "}
+          starts collapsed so the entries fill the screen. Tap it to open it —
+          and if a filter is already narrowing the list it opens by itself,
+          with a count, so you can always see why you are looking at what you
+          are looking at.
+        </P>
+
+        <Tip>
+          On an older entry you may see a warning that Price Per Unit ×
+          Quantity doesn&rsquo;t match the stored Price Per Issue. Both figures
+          are shown exactly as they are stored — ARC never recalculates an
+          existing record. Some imported rows carry partial credits or
+          rounding that never followed that rule.
+        </Tip>
+
+        <H3>Discussion and watchers</H3>
+        <P>
+          Each entry has a <strong>Discussion</strong> thread at the bottom
+          with <strong>@-mentions</strong>, and a <strong>Watchers</strong>{" "}
+          list above it. Mentioning someone emails them and adds them as a
+          watcher; watchers are emailed about every later comment. You can
+          paste or drag a screenshot straight into a comment and it is saved
+          as an attachment on the entry.
+        </P>
+        <Tip>
+          The thread is called <strong>Discussion</strong> here, not Comments
+          as it is elsewhere in ARC, because this list already has a field
+          called Comments. That one — inside the{" "}
+          <strong>Nonconformance</strong> card — is a plain notes box on the
+          record, and nobody is emailed when you change it. If you want to
+          reach someone, use the Discussion thread.
+        </Tip>
+        <Tip>
+          There is no Delete. An MRB entry records material that was rejected
+          and what was decided, so correcting one is an edit; removing one has
+          to be done deliberately in SharePoint.
+        </Tip>
       </>
     ),
   },
@@ -4925,7 +5068,7 @@ const SECTIONS: ManualSection[] = [
       "oldest first",
     ],
     searchText:
-      "The filter bar on List, Kanban, and Test Sheets has Project Reference (multi), Assigned (multi, defaults to you), free-text Search, Created By (single), and Watching (single, with your own name first — shows only tasks that person watches, for finding what you track but are not assigned to). Filters live in the URL — bookmark or share a filtered view as a link. People dropdowns (Assigned, Assigned Engineer, Reporter, Requestor, Watchers, Created By) match every word you type in any order, so first name plus surname works whichever way round the name is stored, and an email address finds someone too. admin.first.last accounts are hidden from people lists. Most tables also SORT by any column: click the small arrows beside a column name, and click again to reverse. Clicking the column NAME instead opens a checkbox list of that column's values, so you can narrow to one project, supplier, status or person — several columns can be narrowed at once, and they combine. Dates and numbers sort as values rather than as text, and a blank always sinks to the bottom rather than floating to the top, whichever direction you pick. Sorting and column filters are available on Visit Reports, ECNs, FAITs, Suppliers, CSA Listings, the Teradyne Log, Gray Market Requests, QC Time Tracking and the Panel QC Issue Tracker.",
+      "The filter bar on List, Kanban, and Test Sheets has Project Reference (multi), Assigned (multi, defaults to you), free-text Search, Created By (single), and Watching (single, with your own name first — shows only tasks that person watches, for finding what you track but are not assigned to). Filters live in the URL — bookmark or share a filtered view as a link. People dropdowns (Assigned, Assigned Engineer, Reporter, Requestor, Watchers, Created By) match every word you type in any order, so first name plus surname works whichever way round the name is stored, and an email address finds someone too. admin.first.last accounts are hidden from people lists. Most tables also SORT by any column: click the small arrows beside a column name, and click again to reverse. Clicking the column NAME instead opens a checkbox list of that column's values, so you can narrow to one project, supplier, status or person — several columns can be narrowed at once, and they combine. Dates and numbers sort as values rather than as text, and a blank always sinks to the bottom rather than floating to the top, whichever direction you pick. Sorting and column filters are available on Visit Reports, ECNs, FAITs, Suppliers, CSA Listings, the Teradyne Log, Gray Market Requests, MRB, QC Time Tracking and the Panel QC Issue Tracker.",
     render: () => (
       <>
         <P>

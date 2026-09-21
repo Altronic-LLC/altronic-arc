@@ -20,8 +20,8 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "0.162.0",
-    date: "2026-09-18",
+    version: "0.163.0",
+    date: "2026-09-21",
     changes: [
       "Reports is live — a new Reports tab next to Dashboard and Departments, holding fixed KPI dashboards built into ARC",
       "Six reports: Board Test & FPY, and a Defect Breakdown donut, for each of Teradyne, Digital QC and Ignition QC",
@@ -31,6 +31,37 @@ export const CHANGELOG: ChangelogEntry[] = [
       "A new Kiosk view, at /reports/kiosk, cycles through all six reports automatically — a trend chart, then that source's Defect Breakdown, for each of Teradyne, Digital QC and Ignition QC — one minute each, with a fade between them, in a larger, chrome-less layout built for a spare monitor, with the Defect Breakdown donut shown much larger and its legend smaller so it fills most of the screen",
       "The Kiosk view's address takes an optional ?theme=dark or ?theme=light flag to pin its theme, since that chrome-less page has no toggle button of its own",
       "It also takes an optional ?dept=ICT, ?dept=DIG, or ?dept=IGN flag to show only Teradyne's, Digital QC's, or Ignition QC's two reports instead of cycling through all six",
+    ],
+  },
+  {
+    version: "0.162.0",
+    date: "2026-09-21",
+    changes: [
+      "New: MRB — the Material Review Board register, under Supply Chain. Nonconforming material, why it was rejected, where it was caused and what the board decided to do with it",
+      "The list opens on 'Needs disposition' — the live entries where nobody has recorded a decision yet — with tabs for Decided, Archive and All, each showing its count",
+      "The list shows the Altronic Part Number beside the SAP Number — the field SharePoint calls 'Old Part Number', named the way people actually refer to it, as on the Teradyne Log",
+      "On a phone the list is a set of tappable cards instead of a nine-column table you had to scroll sideways",
+      "Search and filters start collapsed on a phone so the entries fill the screen — the panel opens on a tap, and opens by itself, with a count, whenever a filter is actually narrowing the list",
+      "Several thousand rows imported from the old Excel workbooks sit under Archive, labelled as history: they stay searchable but never appear in the queue",
+      "Filter by vendor, where it was caused or year, search every field including the reason text, and sort or narrow any column",
+      "The line above the table totals the cost of whatever is on screen, so narrowing to one vendor or year answers what it cost",
+      "New Entry fills in Price Per Issue as Price Per Unit x Quantity as you type, and lets you type over it when the invoice disagrees",
+      "An older entry whose stored total doesn't match unit x quantity is flagged rather than quietly recalculated — both figures stay exactly as recorded",
+      "Each card on an entry has one Edit button, and saving writes only the fields you changed",
+      "MRB entries take attachments, and a Discussion thread with @-mentions and watchers — mentioning someone emails them and starts them watching, and a pasted screenshot is saved as an attachment",
+      "The thread is called Discussion rather than Comments, because an MRB entry already has a Comments field of its own that notifies nobody",
+      "Attachments sit beside the Cost card rather than in a full-width panel underneath it",
+      "The 'From the source workbook' card only appears on archive entries — a live one no longer shows a card containing just a spreadsheet row number",
+      "MRB entries cannot be deleted",
+      "The Supply Chain dashboard has an MRB card showing how many entries are waiting on a disposition",
+    ],
+  },
+  {
+    version: "0.161.1",
+    date: "2026-09-18",
+    changes: [
+      "Potting Sample Log: the entry form is now hidden behind an 'Add entry' button instead of always sitting open on the page — it opens as a modal on desktop and a full screen on a phone, with Cancel to back out without saving",
+      "The date/time field defaults to right now each time you open the entry form, not just once when the page loaded",
     ],
   },
   {

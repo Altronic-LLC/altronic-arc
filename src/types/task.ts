@@ -3171,3 +3171,153 @@ export interface FeatureRequestInput {
   department: FeatureRequestDepartment | null;
   priority: FeatureRequestPriority | null;
 }
+
+// =============================================================================
+// MRB — Material Review Board (Supply Chain, "MRB Data" on the PMO site).
+//
+// Nonconforming material: what the part was, how much of it, why it was
+// rejected, who caused it, and what was decided to do with it. 2,960 rows at
+// discovery (2026-09-21), of which only 97 are live — see `dataFormat`.
+//
+// Every workflow column on this list is called `field_N`, the same migration
+// artefact as the ECNs list. `lib/mrbFields.ts` is the ONLY place that
+// translation exists.
+// =============================================================================
+
+/**
+ * "Where Caused" (`field_6`) — what ARC OFFERS.
+ *
+ * The SharePoint column also declares `Unclassified(Legacy)`, deliberately
+ * left out here: it is a migration placeholder, not a cause anybody should
+ * newly pick. Reads are NOT clamped to this list, so a stored value outside
+ * it still renders as itself.
+ */
+export const MRB_WHERE_CAUSED = [
+  "Vendor",
+  "Handling",
+  "Operator Error",
+  "Documentation",
+] as const;
+
+export type MrbWhereCaused = (typeof MRB_WHERE_CAUSED)[number];
+
+/**
+ * "Disposition" (`field_7`) — the MRB decision. Same rule as above:
+ * `Unclassified(Legacy)` exists on the column and is not offered.
+ *
+ * "To be Determined" IS offered — it is a real, current state meaning the
+ * board has looked and not decided yet, distinct from a blank nobody has
+ * touched.
+ */
+export const MRB_DISPOSITIONS = [
+  "To be Determined",
+  "Use as is",
+  "Rework",
+  "RMA",
+  "Scrap",
+] as const;
+
+export type MrbDisposition = (typeof MRB_DISPOSITIONS)[number];
+
+/**
+ * `field_12` "Data Format" — the live/archive discriminator, and the single
+ * most important column on this list.
+ *
+ * `Legacy` rows are retained history imported from the old Excel workbooks
+ * (Tim, 2026-09-21: "just data retention from older excel files and not
+ * active items"). `Current` rows are the live register. Verified as a clean
+ * split: 0 of the 97 Current rows carry a value in any `(Legacy)` column.
+ */
+export const MRB_DATA_FORMATS = ["Current", "Legacy"] as const;
+
+export interface MrbEntry {
+  id: number;
+  /**
+   * `Title` — the list repurposes it as the SAP Number, so there is no
+   * "title" in the domain type (same as CSA Listings and Visit Reports).
+   * NEVER write `LinkTitle`: it is read-only and carries the display name
+   * "SAP Number", which is exactly the trap that 403'd every Panel QC create.
+   */
+  sapNumber: string;
+  /** `field_1`, date-only. */
+  mrbDate: Date | null;
+  /** `field_2`. The pre-SAP part number; set on every live row. */
+  oldPartNumber: string;
+  /** `field_3`. A real number column — `null` is "not recorded", not zero. */
+  quantity: number | null;
+  /** `field_4`. */
+  description: string;
+  /** `field_5` — why it was rejected. The main free-text field. */
+  reason: string;
+  /** `field_6`, a choice. Blank on a live row means nobody has classified it. */
+  whereCaused: string;
+  /** `field_7`, a choice. Blank means the board has not looked at it yet. */
+  disposition: string;
+  /** `field_8`. */
+  vendorName: string;
+  /** `field_9`, currency. */
+  pricePerUnit: number | null;
+  /** `field_10`, currency. On every live row this is `pricePerUnit * quantity`. */
+  pricePerIssue: number | null;
+  /**
+   * `field_11`, labelled "Comments" — a free-text NOTES column, and NOT the
+   * comment thread. Deliberately named `notes` in the domain to keep the two
+   * apart, the same collision Cost Impact Notices has.
+   */
+  notes: string;
+  /**
+   * The comment thread, from the `Communications` column.
+   *
+   * **Note the PLURAL internal name** — every other list in ARC calls this
+   * column `Communication`. It was added by hand on 2026-09-21 and named
+   * that way, so `mrbFields.ts` carries the exact spelling.
+   */
+  comments: Comment[];
+  /**
+   * `Watchers`, multi-person.
+   *
+   * The column is added by `scripts/add-mrb-watchers-column.ps1`. Until that
+   * has been run this is always `[]` and the watcher controls say they are
+   * unavailable — the read degrades rather than failing, see
+   * `listMrbEntries`.
+   */
+  watchers: Person[];
+  /** `field_12` — "Current" or "Legacy". See MRB_DATA_FORMATS. */
+  dataFormat: string;
+  /** `field_13`. Carries three obvious typos in the data (2204, 5025, 2027). */
+  sourceYear: number | null;
+  /**
+   * The `(Legacy)` and provenance columns (`field_14`–`field_23`), keyed by
+   * the descriptor keys in `lib/mrbFields.ts`.
+   *
+   * Only shown on archive rows, and only where filled — a live entry would
+   * otherwise carry six permanently blank "(Legacy)" fields, which reads as
+   * an unmet requirement rather than as "not applicable".
+   */
+  provenance: Record<string, string>;
+  hasAttachments: boolean;
+  createdAt: Date;
+  modifiedAt: Date;
+}
+
+/**
+ * What the create form supplies and what an edit writes.
+ *
+ * `dataFormat`, `sourceYear` and every provenance column are deliberately
+ * absent: ARC stamps `Current` on a new entry and never writes the migration
+ * columns, which belong to the import that produced them.
+ */
+export interface MrbEntryInput {
+  sapNumber: string;
+  mrbDate: Date | null;
+  oldPartNumber: string;
+  quantity: number | null;
+  description: string;
+  reason: string;
+  whereCaused: string;
+  disposition: string;
+  vendorName: string;
+  pricePerUnit: number | null;
+  pricePerIssue: number | null;
+  notes: string;
+}

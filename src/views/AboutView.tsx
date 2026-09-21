@@ -71,9 +71,9 @@ const SYSTEM_TIERS: Tier[] = [
   {
     label: "React SPA",
     nodes: [
-      { label: "Views", hint: "Dashboard · List · Kanban · Detail · EIRs · Test Sheets · Project Folders · CSA Listings · Drawing File Logs · Digital QC · Ignition QC · Coil Defect Log · Potting Sample Log · Visit Reports (list + calendar) · QC Time Tracking · QC Forms (landing + QCFRM-012 CPU-95) · Panel QC Issue Tracker · Open Orders Report · Gray Market Requests · Where Am I? · ECNs (incl. the MFGFRM-038 checklist) · FAITs · ARC Feature Requests · Drawing Work Sheet (print) · Admin (incl. Quick Links)", palette: "ui" },
-      { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useBuildRequests · useCsaListings · useDrawingLogs · useDigitalQc · useIgnitionQc · useCoilsQc · usePottingSampleLog · useVisitReports · useQcTimeTracking · useQcCpu95 · usePanelQcIssues · useOpenOrdersReports · useOpenOrdersCustomers · useGrayMarketRequests · useWhereAmI · useEcns · useEcnChecklists · useFaits · useCustomerNotes · useCustomerContacts · useSpecialPricing · useCapacity · useSuppliers · useSupplierContacts · useSupplierIssues · useCostImpactNotices · useFeatureRequests · useAdmins · useEirRoles · useQuickLinks · useTaskFiles · useProjectFolders", palette: "ui" },
-      { label: "API layer", hint: "src/api/tasks · eirs · testSheets · buildRequests · buildRequestItems · csaListings · drawingLogs · digitalQc · ignitionQc · coilsQc · pottingSampleLog · visitReports · qcCpu95 · panelQcIssues · openOrdersFiles · openOrdersCustomers · openOrdersRoles · grayMarketRequests · whereAmI · ecns · ecnChecklists · faits · customerNotes · customerContacts · specialPricing · capacity · suppliers · supplierContacts · supplierIssues · costImpactNotices · featureRequests · autoWatch · panelOrders · panelTasks · admins · eirRoles · panelRoles · quickLinks · directory · siteUsers · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
+      { label: "Views", hint: "Dashboard · List · Kanban · Detail · EIRs · Test Sheets · Project Folders · CSA Listings · Drawing File Logs · Digital QC · Ignition QC · Coil Defect Log · Potting Sample Log · Visit Reports (list + calendar) · QC Time Tracking · QC Forms (landing + QCFRM-012 CPU-95) · Panel QC Issue Tracker · Open Orders Report · Gray Market Requests · MRB · Where Am I? · ECNs (incl. the MFGFRM-038 checklist) · FAITs · ARC Feature Requests · Drawing Work Sheet (print) · Admin (incl. Quick Links)", palette: "ui" },
+      { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useBuildRequests · useCsaListings · useDrawingLogs · useDigitalQc · useIgnitionQc · useCoilsQc · usePottingSampleLog · useVisitReports · useQcTimeTracking · useQcCpu95 · usePanelQcIssues · useOpenOrdersReports · useOpenOrdersCustomers · useGrayMarketRequests · useMrb · useWhereAmI · useEcns · useEcnChecklists · useFaits · useCustomerNotes · useCustomerContacts · useSpecialPricing · useCapacity · useSuppliers · useSupplierContacts · useSupplierIssues · useCostImpactNotices · useFeatureRequests · useAdmins · useEirRoles · useQuickLinks · useTaskFiles · useProjectFolders", palette: "ui" },
+      { label: "API layer", hint: "src/api/tasks · eirs · testSheets · buildRequests · buildRequestItems · csaListings · drawingLogs · digitalQc · ignitionQc · coilsQc · pottingSampleLog · visitReports · qcCpu95 · panelQcIssues · openOrdersFiles · openOrdersCustomers · openOrdersRoles · grayMarketRequests · mrb · whereAmI · ecns · ecnChecklists · faits · customerNotes · customerContacts · specialPricing · capacity · suppliers · supplierContacts · supplierIssues · costImpactNotices · featureRequests · autoWatch · panelOrders · panelTasks · admins · eirRoles · panelRoles · quickLinks · directory · siteUsers · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
       {
         label: "Open Orders Report (lazy-loaded)",
         hint: "OpenOrdersView · OpenOrdersCustomersView — reads a raw SAP extract in the browser and writes a branded master dashboard plus one workbook per managed customer into SharePoint. ExcelJS (~950KB) is dynamically imported on first use so it never lands in the main chunk.",
@@ -102,6 +102,11 @@ const SYSTEM_TIERS: Tier[] = [
       {
         label: "Supply Chain department",
         hint: "GrayMarketRequestsView · GrayMarketRequestDetailView — useGrayMarketRequests — api/grayMarketRequests. The list lives on the PMO site (where it has always been), but the feature is Supply Chain's: it appears under Supply Chain only.",
+        palette: "ui",
+      },
+      {
+        label: "MRB (lazy-loaded)",
+        hint: "MrbView · MrbDetailView — useMrb — api/mrb. Material Review Board, on the PMO site like Gray Market Requests. 2,960 rows of which only ~97 are live: field_12 (\"Data Format\") splits the live register from the retained Excel history, and the view opens on the live entries still waiting on a disposition.",
         palette: "ui",
       },
       {
@@ -136,7 +141,7 @@ const SYSTEM_TIERS: Tier[] = [
     nodes: [
       { label: "MSAL Entra ID", hint: "Sites.Selected · Mail.Send.Shared · User.ReadBasic.All (tenant directory, optional) · AllSites.Manage (optional)", palette: "auth" },
       { label: "Microsoft Graph v1.0", hint: "Lists, items, drives, users, mail", palette: "gateway" },
-      { label: "SharePoint REST", hint: "List-item attachments (Task, EIR, Operations Task, Maintenance work order, Equipment asset, Panel Order, Visit Report, Gray Market Request, Cost Impact Notice) + site-user resolution — optional", palette: "gateway" },
+      { label: "SharePoint REST", hint: "List-item attachments (Task, EIR, Operations Task, Maintenance work order, Equipment asset, Panel Order, Visit Report, Gray Market Request, MRB entry, Cost Impact Notice) + site-user resolution — optional", palette: "gateway" },
       { label: "Mock store", hint: "in-memory + localStorage (demo mode)", palette: "mock" },
       { label: "Shared mailbox", hint: "@-mention + change notifications, and edit-failure recovery emails", palette: "mock" },
     ],
@@ -185,6 +190,7 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "ECN NEW", hint: "Engineering site — Engineering Change Notices. Every workflow column is named field_2 … field_12, so src/lib/ecnFields.ts is the only place their meaning exists; no Watchers and no requester column, so comments reach the submitter (Graph createdBy) and anyone mentioned", palette: "list" },
       { label: "ECN Checklists", hint: "Engineering site — the Cross-Functional ECN Checklist (Form# MFGFRM-038), one row per ECN, linked by a single EcnRef lookup. All 84 answers are one JSON column; the four item counts are real columns so SharePoint views can report on progress without parsing it", palette: "list" },
       { label: "Gray Market Request", hint: "Altronic_PMO site — parts bought outside normal distribution; Title is the Altronic assembly no, Log No. is calculated from LogNo.Raw, and the list carries its own Communication + Watchers columns", palette: "list" },
+      { label: "MRB Data", hint: "Altronic_PMO site — the Material Review Board register. Every workflow column is called field_N (lib/mrbFields.ts decodes them); Title is the SAP Number; field_12 separates the 97 live entries from 2,863 rows of retained Excel history. No Communication, no Watchers, no person columns.", palette: "list" },
       { label: "Open Orders Report Customers", hint: "ALTRONICSALESTEAM site — who gets an individual open-orders workbook each week. Title is the sold-to account number; CustomerName is the customer-facing name the FILE is named from, because SAP truncates its own at 30 characters. IncludeCustomerMaterialNumber is a per-customer opt-in that adds the consolidated Customer Material Number column to THAT customer's workbook — unset reads as off, and the master always carries it", palette: "list" },
       { label: "Open Orders Roles", hint: "ALTRONICSALESTEAM site — same shape as EIR Roles; Title is an email and Roles is a CSV, today just \"report manager\". Gating is off until the list id is configured, so nobody is locked out before an admin populates it", palette: "list" },
       { label: "Visit Reports", hint: "ALTRONICSALESTEAM site — regional managers' customer visits; Title is the Customer Name, City0/State0 carry the trailing zero, Month/Year/Day are calculated", palette: "list" },
@@ -1281,6 +1287,38 @@ const SCHEMA_TABLES: SchemaTable[] = [
       { name: "completedDate", type: "date", kind: "field" },
       { name: "comments (Communication)", type: "text", kind: "field" },
       { name: "watchers", type: "int[]", kind: "fk", references: "Person.id" },
+      { name: "hasAttachments", type: "bool", kind: "field" },
+    ],
+  },
+  {
+    // Material Review Board. Every workflow column on the list is called
+    // field_N — lib/mrbFields.ts is the only place that translation lives —
+    // so the real names are shown beside the domain ones here.
+    //
+    // NO person columns, NO Communication and NO Watchers, which is why this
+    // table has no FK to Person at all and no comment row. `dataFormat` is
+    // the load-bearing one: it separates the ~97 live entries from 2,863
+    // rows of retained Excel history.
+    name: "MrbEntry",
+    source: "MRB Data (Altronic_PMO site)",
+    palette: "entity",
+    x: 400, y: 6420, width: 360,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "sapNumber (Title)", type: "text", kind: "field" },
+      { name: "mrbDate (field_1)", type: "date", kind: "field" },
+      { name: "oldPartNumber (field_2)", type: "text", kind: "field" },
+      { name: "quantity (field_3)", type: "number", kind: "field" },
+      { name: "description (field_4)", type: "text", kind: "field" },
+      { name: "reason (field_5)", type: "text", kind: "field" },
+      { name: "whereCaused (field_6)", type: "choice", kind: "field" },
+      { name: "disposition (field_7)", type: "choice", kind: "field" },
+      { name: "vendorName (field_8)", type: "text", kind: "field" },
+      { name: "pricePerUnit / pricePerIssue", type: "currency", kind: "field" },
+      { name: "notes (field_11, NOT a thread)", type: "text", kind: "field" },
+      { name: "dataFormat (field_12)", type: "choice", kind: "field" },
+      { name: "sourceYear (field_13)", type: "number", kind: "field" },
+      { name: "provenance (field_14-23)", type: "text", kind: "field" },
       { name: "hasAttachments", type: "bool", kind: "field" },
     ],
   },
