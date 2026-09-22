@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.164.1",
+    date: "2026-09-22",
+    changes: [
+      "Date pickers: the month and year at the top of the calendar are now dropdowns — pick a year directly instead of clicking the arrow a month at a time",
+      "Most useful on CSA Listings, where a Date Certified can be years back; it applies to every date field in ARC",
+      "A record's existing year is always offered, however old, so an old certificate's date can still be changed",
+    ],
+  },
+  {
     version: "0.164.0",
     date: "2026-09-22",
     changes: [

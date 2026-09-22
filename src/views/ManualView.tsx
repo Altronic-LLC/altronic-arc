@@ -47,9 +47,13 @@ const SECTIONS: ManualSection[] = [
       "getting started",
       "open the app",
       "where do i start",
+      "date picker",
+      "choose a year",
+      "pick a date",
+      "calendar",
     ],
     searchText:
-      "Sign in with your altronic-llc.com account. The Dashboard opens after sign-in. A Refresh button in the header pulls the latest data from SharePoint at any time without reloading the page, so anything you have open — a form, a set of filters, a half-typed comment — is kept; its icon spins while data is coming in. Use the top nav to switch between Dashboard, the Departments dropdown, and Admin. The Departments dropdown mirrors the dashboard: Engineering (Engineering Tasks, EIRs, Test Sheets, Project Folders, Build Requests, Drawing File Logs, CSA Listings, Where Am I?, ECNs), Panels, Operations, Coils (Potting Sample Log), Quality Control (Digital QC Defect Log, Ignition QC Defect Log, QC Forms), Supply Chain (Gray Market Requests, FAITs, MRB, Suppliers/SRM Tool), and Customer Service / Sales (Open Orders Report, Visit Reports, Customers/CRM Tool).",
+      "Sign in with your altronic-llc.com account. The Dashboard opens after sign-in. A Refresh button in the header pulls the latest data from SharePoint at any time without reloading the page, so anything you have open — a form, a set of filters, a half-typed comment — is kept; its icon spins while data is coming in. Use the top nav to switch between Dashboard, the Departments dropdown, and Admin. The Departments dropdown mirrors the dashboard: Engineering (Engineering Tasks, EIRs, Test Sheets, Project Folders, Build Requests, Drawing File Logs, CSA Listings, Where Am I?, ECNs), Panels, Operations, Coils (Potting Sample Log), Quality Control (Digital QC Defect Log, Ignition QC Defect Log, QC Forms), Supply Chain (Gray Market Requests, FAITs, MRB, Suppliers/SRM Tool), and Customer Service / Sales (Open Orders Report, Visit Reports, Customers/CRM Tool). Every date in ARC is picked from a calendar: the month and year at the top of it are dropdowns, so you can jump straight to a year instead of clicking the arrow a month at a time, which matters most for older dates like a CSA listing's Date Certified. A record's existing year is always offered however old it is.",
     render: () => (
       <>
         <P>
@@ -75,6 +79,22 @@ const SECTIONS: ManualSection[] = [
           All views share the same data — a change you make in one shows up in
           the others within seconds.
         </Tip>
+        <H3>Picking a date</H3>
+        <P>
+          Every date in ARC is chosen from a calendar rather than typed. Click
+          the field and the calendar opens on the date already set, or on this
+          month if it&apos;s empty.
+        </P>
+        <P>
+          The <strong>month and year at the top are dropdowns</strong> — use
+          them to jump straight to a year instead of clicking the arrow one
+          month at a time. That matters most where dates run well into the
+          past, like a <strong>Date Certified</strong> on a CSA listing. An
+          existing record&apos;s year is always in the list however old it is,
+          so you can always change it. The arrows beside them still nudge a
+          month either way, and <strong>Today</strong> and{" "}
+          <strong>Clear</strong> sit at the bottom.
+        </P>
       </>
     ),
   },

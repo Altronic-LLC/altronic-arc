@@ -4061,6 +4061,28 @@ isn't reachable. It speaks `yyyy-mm-dd` (`""` = unset) like the native input did
 takes `disabled`/`title` for role-gated fields, and forwards a ref to its trigger
 for modal autofocus.
 
+**The month and year are DROPDOWNS, not a label** (Ray, 2026-09-22: "make the
+date pickers where you can choose the year easily instead of scrolling —
+especially on CSA logs"). The header used to be static text with one-month
+arrows either side, so a CSA Date Certified twenty years back was ~240 clicks
+away. Three rules on the year list (`buildYearOptions`, exported and tested):
+
+- **It is a WINDOW, not the full range.** `MIN_YEAR..MAX_YEAR` is 1900–2999;
+  rendering 1,100 options just moves the scrolling into the dropdown.
+  `YEARS_BACK` (30) / `YEARS_FORWARD` (10) covers an old certificate and a
+  forward-dated warranty or LTB date alike.
+- **The value's OWN year is always folded in**, however far outside the
+  window, along with whatever year the arrows have paged to. A picker that
+  can't show the date it is displaying would silently move it on the next
+  save. Its test uses a year computed as `today - YEARS_BACK - 5` — a
+  hardcoded 2004 sat *inside* the window and passed with the fold-in deleted.
+- **Nothing outside 1900–2999 is ever offered**, which is the bound this whole
+  component exists to protect.
+
+Changing the year keeps the month (and vice versa) — one picker moving the
+other is disorienting, and both are one click away anyway. The arrows stay for
+nudging a month either way.
+
 Date maths goes through `src/lib/dateInput.ts` — `parseIsoDate` / `toIsoDate`
 build and read LOCAL dates. Don't use `new Date("2026-05-01")` (parses as UTC,
 lands on the previous day in every US timezone) or `.toISOString().slice(0, 10)`
