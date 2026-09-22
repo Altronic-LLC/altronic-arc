@@ -334,10 +334,13 @@ export async function uploadAttachment(
   }
   const bytes = await file.arrayBuffer();
   // SP REST attachment upload requires a binary POST. The filename has to
-  // travel as a URL parameter — encode it carefully.
+  // travel as an OData string literal, embedded in the URL — encodeURIComponent
+  // alone doesn't escape a literal single quote, which would otherwise let a
+  // crafted filename break out of the FileName='...' literal.
+  const safeName = file.name.replace(/[/\\:\0]/g, "_").slice(0, 256);
   const path =
     `${resolveListPath(parent, itemId)}` +
-    `/AttachmentFiles/add(FileName='${encodeURIComponent(file.name)}')`;
+    `/AttachmentFiles/add(FileName='${encodeURIComponent(safeName)}')`;
   const res = await spFetch<SpAttachmentFile>(path, {
     method: "POST",
     headers: { "Content-Type": "application/octet-stream" },
@@ -361,9 +364,10 @@ export async function deleteAttachment(
     mockStore.set(key, filtered);
     return;
   }
+  const safeFileName = fileName.replace(/[/\\:\0]/g, "_").slice(0, 256);
   const path =
     `${resolveListPath(parent, itemId)}` +
-    `/AttachmentFiles/getByFileName('${encodeURIComponent(fileName)}')`;
+    `/AttachmentFiles/getByFileName('${encodeURIComponent(safeFileName)}')`;
   await spFetch(path, {
     method: "POST",
     headers: { "X-HTTP-Method": "DELETE", "If-Match": "*" },
