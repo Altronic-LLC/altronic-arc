@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.164.2",
+    date: "2026-09-22",
+    changes: [
+      "Fixed the month and year dropdowns in the date picker rendering unreadably in dark mode — black text on white over the dark calendar",
+      "Every native dropdown, scrollbar and form control in ARC now follows the theme instead of always painting light",
+    ],
+  },
+  {
     version: "0.164.1",
     date: "2026-09-22",
     changes: [

@@ -8,6 +8,18 @@
    these, so the theme switch is a single class toggle.
 --------------------------------------------------------------------------- */
 :root {
+  /* Tells the browser which palette to paint NATIVE UI with — a <select>'s
+     dropdown list, scrollbars, and the form controls the OS draws itself.
+     Those are outside CSS's reach: no amount of styling the <select> element
+     reaches the popup list it opens.
+
+     Without this, every native list rendered LIGHT in both themes — black
+     text on white, inside a dark panel (Ray, 2026-09-22, on the date
+     picker's new month/year dropdowns). It has to sit beside the theme
+     variables and change with them, which is why it is declared here and
+     overridden in `.dark` rather than set once on `html`. */
+  color-scheme: light;
+
   /* Light theme */
   --bg: 248 248 247;
   --surface: 255 255 255;
@@ -19,6 +31,8 @@
 }
 
 .dark {
+  color-scheme: dark;
+
   /* Dark theme — matches the existing Power Apps version's mood */
   --bg: 18 18 20;
   --surface: 28 28 32;

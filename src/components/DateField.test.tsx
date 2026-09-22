@@ -229,3 +229,41 @@ describe("choosing a year from the picker", () => {
     expect(onChange).toHaveBeenCalledWith("2015-05-15");
   });
 });
+
+// =============================================================================
+// The month / year pickers have to be readable in BOTH themes.
+//
+// Ray, 2026-09-22, with a dark-mode screenshot: the year list rendered as
+// black-on-white over the dark calendar panel. Two causes, both fixed:
+//
+//  1. The selects carried `bg-transparent`, and a native <select>'s dropdown
+//     list inherits the control's background — so the options were drawn over
+//     whatever sat behind the panel.
+//  2. ARC declared no `color-scheme` at all, so the browser painted every
+//     native list with its LIGHT palette regardless of theme. That lives in
+//     globals.css (`:root` light, `.dark` dark) and can't be asserted from
+//     jsdom, which computes no UA styles — it is pinned by the CSS test below.
+// =============================================================================
+
+describe("the month / year pickers are theme-aware", () => {
+  it("gives both selects a real background, never transparent", async () => {
+    const user = open();
+    render(<DateField value="2026-05-10" onChange={() => {}} aria-label="Date Certified" />);
+    await user.click(screen.getByRole("button", { name: "Date Certified" }));
+    const dialog = await screen.findByRole("dialog");
+
+    for (const name of ["Month", "Year"]) {
+      const el = within(dialog).getByLabelText(name);
+      expect(el.className, name).toContain("bg-surface");
+      expect(el.className, name).not.toContain("bg-transparent");
+    }
+  });
+
+  it("colours their text from the theme token", async () => {
+    const user = open();
+    render(<DateField value="2026-05-10" onChange={() => {}} aria-label="Date Certified" />);
+    await user.click(screen.getByRole("button", { name: "Date Certified" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByLabelText("Year").className).toContain("text-fg");
+  });
+});

@@ -4078,6 +4078,9 @@ away. Three rules on the year list (`buildYearOptions`, exported and tested):
   hardcoded 2004 sat *inside* the window and passed with the fold-in deleted.
 - **Nothing outside 1900–2999 is ever offered**, which is the bound this whole
   component exists to protect.
+- **The selects carry `bg-surface`, never `bg-transparent`.** A native
+  `<select>`'s dropdown list inherits the CONTROL's background, so a
+  transparent one draws its options over whatever sits behind the panel.
 
 Changing the year keeps the month (and vice versa) — one picker moving the
 other is disorienting, and both are one click away anyway. The arrows stay for
@@ -4664,6 +4667,30 @@ If `VITE_SHARED_MAILBOX` is unset, the app falls back to a console.warn (real mo
 **A send that FAILS is no longer silent** — see "Mail that doesn't send says so" under Cross-cutting rules. Step 2 above (Send As per user) is the one that bites in practice: a person who was never added notifies nobody, and before the toast existed nothing anywhere said so.
 
 ## Theming
+
+**`color-scheme` is declared on `:root` (light) and `.dark` (dark), beside the
+theme tokens.** It is the ONLY lever over how the browser paints NATIVE UI —
+the list a `<select>` opens, scrollbars, date and number spinners. None of
+that is reachable from CSS: styling the `<select>` element does not touch the
+popup it opens.
+
+ARC declared no `color-scheme` at all until 2026-09-22, so every native
+control rendered with the LIGHT palette in both themes. It surfaced when the
+date picker gained month/year dropdowns and Ray hit black-on-white options
+over the dark calendar panel — but it had been true of every native control
+all along.
+
+**It must live in those two rules**, not once on `html`: ARC switches theme by
+toggling a `.dark` class, so a single static declaration could never change
+with it. Anything that adds a third theme adds a third `color-scheme`.
+
+**Not covered by a test, deliberately.** Vitest runs with `css: false` and
+jsdom computes no user-agent styles, so neither the declaration's effect nor
+the CSS text is observable from a test — a `?raw` import of a `.css` file
+returns an EMPTY STRING, since Vite's CSS pipeline intercepts it first (tried,
+2026-09-22). `DateField.test.tsx` pins the half that IS observable: the
+selects' own `bg-surface` / `text-fg` classes.
+
 
 Two themes, light and dark, controlled by a `.dark` class on `<html>`.
 All colours flow through CSS variables defined in `src/styles/globals.css`

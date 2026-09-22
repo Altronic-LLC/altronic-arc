@@ -43,6 +43,19 @@ export interface DateFieldProps {
   className?: string;
 }
 
+/**
+ * The month / year pickers in the calendar header.
+ *
+ * `bg-surface`, NOT `bg-transparent`: a native <select>'s dropdown list
+ * inherits the control's own background, so a transparent one renders the
+ * options over whatever is behind the panel — unreadable in dark mode
+ * (Ray, 2026-09-22). The list's TEXT colour comes from `color-scheme` in
+ * globals.css, which is the other half of the same fix.
+ */
+const MONTH_YEAR_SELECT_CLASS =
+  "cursor-pointer rounded-md border border-transparent bg-surface px-1 py-0.5 text-sm font-medium text-fg " +
+  "hover:border-border focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20";
+
 const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -215,7 +228,7 @@ export const DateField = forwardRef<HTMLButtonElement, DateFieldProps>(function 
                 value={view.getMonth()}
                 onChange={(e) => setView(new Date(view.getFullYear(), Number(e.target.value), 1))}
                 aria-label="Month"
-                className="rounded-md border border-transparent bg-transparent px-1 py-0.5 text-sm font-medium text-fg hover:border-border focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                className={MONTH_YEAR_SELECT_CLASS}
               >
                 {MONTHS.map((m, i) => (
                   <option key={m} value={i}>
@@ -227,7 +240,7 @@ export const DateField = forwardRef<HTMLButtonElement, DateFieldProps>(function 
                 value={view.getFullYear()}
                 onChange={(e) => setView(new Date(Number(e.target.value), view.getMonth(), 1))}
                 aria-label="Year"
-                className="rounded-md border border-transparent bg-transparent px-1 py-0.5 text-sm font-medium text-fg hover:border-border focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                className={MONTH_YEAR_SELECT_CLASS}
               >
                 {yearOptions.map((y) => (
                   <option key={y} value={y}>
