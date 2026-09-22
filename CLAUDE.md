@@ -273,6 +273,7 @@ src/
 │   ├── featureRequests.ts        ARC Feature Requests CRUD + comments (Engineering site) — no admin gate, no delete
 │   ├── whereAmI.ts               Where am I? CRUD (Engineering out-of-office calendar)
 │   ├── autoWatch.ts              Shared @-mention → watcher resolution (per-site)
+│   ├── commentMirror.ts          WRITES the comment mirrors — best-effort per target, never throws
 │   ├── projectFiles.ts           Documents-library project folders + files
 │   ├── attachments.ts            List-item attachments (task | eir | csaListing) via SP REST
 │   ├── qzPrint.ts                QZ Tray browser-side client — silent print to a named printer, never throws
@@ -362,6 +363,7 @@ src/
 │   ├── useVersionCheck.ts        Polls version.json → update banner
 │   ├── useUnseenMentions.ts      Unseen-@-mention badge state
 │   ├── useTheme.ts               Dark/light toggle (localStorage)
+│   ├── useCommentMirror.ts       fanOutComment() — resolves the links, writes the mirrors, notifies each side
 │   ├── useDraft.ts               One field's draft in localStorage (comments)
 │   ├── useFormDraft.ts           A whole form's draft — title + description together
 │   └── useIsPhone.ts             Narrow-viewport media query
@@ -405,6 +407,8 @@ src/
 │   ├── buildRequestMapper.ts     Graph item → BuildRequest / BuildRequestItem
 │   ├── buildRequestNumber.ts     Next BR No for a new Build Request
 │   ├── buildRequestChecklist.ts  Build Request item checklist columns + progress
+│   ├── buildRequestFromTask.ts   Task → Build Request: prefill, carried comments, the DERIVED reverse link
+│   ├── commentMirror.ts         Mirroring a comment task ⇄ BR ⇄ part: the origin banner + fan-out routing (pure)
 │   ├── operationsTaskMapper.ts   Graph item → OperationsTask
 │   ├── operationsTaskFilters.ts  Pure Operations task filter predicates
 │   ├── operationsTaskNumbering.ts Operations task numbering (mirrors taskNumbering)
@@ -497,6 +501,7 @@ src/
 │   ├── RichTextWarningDialog.tsx "Rich text turns off X" — configurable copy per caller
 │   ├── useFileDrop.ts            Drag-a-file-onto-a-card drop target (attachments)
 │   ├── PersonMultiField.tsx      Multi-person picker (pills + add)
+│   ├── useCommentOriginLink.ts   Routes a mirrored comment's jump link instead of reloading
 │   ├── useOverlayDismiss.ts      Backdrop dismissal that survives a text-selection drag
 │   ├── DescriptionView.tsx       Renders a Description incl. checklists + sub-tasks
 │   ├── TaskRow.tsx               One task row (list view)
@@ -5533,6 +5538,145 @@ the current task, and Cancel returns to the detail page) — the same narrow,
 per-feature file convention as `DetailView.projectRef` /
 `DetailView.watchers`, since `DetailView.tsx` has no broader test harness in
 this repo.
+
+### Task detail: "Create Build Request" — and the link that is DERIVED, not stored
+
+Added 2026-09-20 (Ray: "a clean way to create a build request from a task…
+pop up the build request creation forms and load the build request after
+submit linked back and forth from task and build request and copy task
+comments to the build request comments").
+
+A "Create Build Request" button on `DetailView`'s toolbar opens
+`BuildRequestFormModal` with a new `fromTask` prop — the same
+prefill-and-lock shape as `TaskFormModal`'s `fromParentTask` and
+`TestSheetFormModal`'s `fromTask`. The pure half is
+**`lib/buildRequestFromTask.ts`**, which mirrors `lib/eirPromotion.ts`
+deliberately rather than inventing a second way to carry a discussion.
+
+**THE LINK IS STORED ONCE, ON THE BUILD REQUEST.** `TaskReference` is a real
+column that already existed on the Build Request Tracker and was previously
+always written `null`. The TASK side is derived —
+`useBuildRequestsForTask(taskId)` filters the already-loaded Build Requests
+list by that column. Ray chose this over adding a Build Request column to the
+Task list, and it is the decision most at risk of being "tidied" later:
+
+- **Two columns can disagree; one cannot.** A stored reverse link is a second
+  copy of the same fact, and nothing would keep them in step — a request
+  re-pointed at another task would leave the old task still claiming it.
+- **It costs nothing.** The Build Requests list is already fetched whole, and
+  the filter runs in the browser. There is no extra request.
+- **It needs no Task-list schema change** on the busiest list in ARC.
+
+Seven things that are load-bearing:
+
+- **`TaskReference` is a SINGLE lookup — a bare integer.**
+  `multiLookupField`'s `Collection(Edm.Int32)` shape 400s it, and a 400 on the
+  create means no build request exists at all. The same trap this file
+  documents for every other single lookup. Pinned in real mode by
+  `api/buildRequests.fromTask.test.ts` — invisible from the mock branch, which
+  reads `input` directly and would pass whatever shape the real branch sent.
+- **Carried comments keep their ORIGINAL author and timestamp.** A carried
+  comment is a record of what was said, not a re-post by whoever pressed the
+  button; re-stamping would credit the wrong person and collapse the whole
+  timeline onto one instant.
+- **They are stored OLDEST-first.** `parseCommunication` hands comments back
+  NEWEST-first, so writing them out in display order stores the thread
+  backwards. Same rule as `buildPromotedCommunication`.
+- **The prefill is the task's PLAIN title, not its numbered one.** The BR's
+  Title column is "Product or Project Name"; `T3-0017-…` is a task identifier
+  and means nothing on a build request.
+- **Status, assignee and dates are deliberately NOT carried.** A task's
+  workflow, engineer and due date are not a build request's — guessing puts
+  somebody's name on work they haven't agreed to. `buildRequestPrefillFromTask`
+  returns exactly three keys and a test asserts that, so a later "helpful"
+  addition has to argue with it.
+- **The button stays available once a request exists.** A task can
+  legitimately need a second one (the first was cancelled, or a second build
+  is genuinely wanted), and every request raised from the task is listed on
+  the task page — so hiding the button would leave no way to raise another.
+  `buildRequestForTask` returns the NEWEST when a caller wants just one.
+- **`buildRequestsForTask` refuses a null taskId.** `null === null` would
+  otherwise link every unlinked build request to every task whose id failed
+  to resolve.
+
+`MOCK_BUILD_REQUESTS`' request #9 had `taskReferenceLookupId: 1` — a task
+that does not exist in `MOCK_TASKS`. Nothing read the column, so it never
+showed; it now points at task 15 so the derived link renders in the demo.
+
+### One conversation across a task, its build request, and its parts
+
+Added 2026-09-21 (Ray: "when comments are added on the task, and or the build
+request that are linked they get sent to both places. If there is a comment on
+a part within the Build request the comment goes on the task with a flag that
+this was on the part within the build request with a link to jump from that
+comment to the build request part comment to reply").
+
+| Posted on | Copied to |
+|---|---|
+| a task | its build request |
+| a build request | the task it was raised from |
+| a **part** | the task **and** its own build request header |
+
+Pieces: **`lib/commentMirror.ts`** (pure — the banner wording and the fan-out
+routing), **`api/commentMirror.ts`** (performs the writes),
+**`hooks/useCommentMirror.ts`** (`fanOutComment` — resolves the links from
+cache, writes, notifies), **`components/useCommentOriginLink.ts`** (makes the
+jump link route). Called from the `onSuccess` of all three comment hooks —
+one shared function rather than three copies, the same reasoning as
+`api/autoWatch.ts`.
+
+**A mirror is a REAL STORED COMMENT, not a render-time merge** (Ray's choice
+of the two options offered). The duplicate buys three things a merge can't: it
+survives in SharePoint's own views of the list, it needs no cross-list read on
+every page load, and it can't disagree with itself when one list is throttled.
+
+Nine things that are load-bearing:
+
+- **The origin marker lives in the comment's HTML BODY**, because there is
+  nowhere else: `Communication` is one serialised text column and `Comment`
+  has no origin field. So the banner is markup — a `span.comment-origin`
+  carrying `data-origin-*` — and `sanitiseHtml` passes `class`, `data-*` and a
+  relative `href` through untouched. That was **verified with a probe, not
+  assumed**, and `commentMirror.test.ts` pins it: the whole design collapses
+  if a future tightening of that allowlist strips the marker.
+- **The jump link is a ROUTER PATH, never an absolute URL** (`appItemPath`,
+  added for this). This markup sits in a SharePoint column for years; an
+  origin or a Pages sub-path baked in breaks the day ARC moves. `appItemUrl`
+  stays for EMAIL, which has no router to resolve a bare path against.
+- **`useCommentOriginLink` intercepts the click**, because the body renders
+  through `dangerouslySetInnerHTML` and the anchor is outside React's tree —
+  a plain click would trigger a full page load, throwing away the bundle, the
+  MSAL cache and anything half-typed. It intercepts ONLY an anchor inside a
+  banner, and leaves a modified or middle click to the browser (ctrl-click for
+  a new tab is exactly the complaint that started the draft-persistence work).
+- **It requires a router above `CommentThread`.** `useNavigate` throws without
+  one, which broke 25 of that component's own tests when this shipped — its
+  test file now wraps every render in a `MemoryRouter`. Reading the navigator
+  out of context to dodge the requirement was tried and REVERTED: it traded a
+  loud failure in one test file for a silently dead link in production.
+- **Carried comments keep their ORIGINAL author.** A mirror is a record of
+  what was said, not a re-post by whoever triggered the fan-out.
+- **Best-effort, per target, and it NEVER throws.** The original comment is
+  already written and on screen by the time this runs, so a failed mirror
+  TOASTS rather than making a successful comment look failed — and one refused
+  target must not lose the other (`Promise.allSettled`, pinned three ways).
+- **A mirror of a mirror is refused** (`isMirroredComment`). Three write paths
+  fan out in three directions; a loop here would stack banners and point the
+  jump link at the wrong hop, silently.
+- **Nothing is ever mirrored TO a part.** Fanning a task-level comment onto
+  every part would multiply one comment by however many parts a request has.
+- **Each side notifies its OWN watchers, de-duped ACROSS the pair.** Somebody
+  watching both the task and the build request gets ONE email;
+  `fanOutComment` accumulates `told` as it walks the targets, so a part's two
+  targets can't each email the same person.
+
+**The de-dupe test passed for the wrong reason at first, and the fix is worth
+copying.** The fixtures share NOBODY between task 15's audience and BR 9's
+except Ray — who was the test's author and therefore excluded from both
+anyway — so removing the `told.push(...)` line did not fail anything. The test
+now INJECTS a shared watcher into both cached records and asserts that person
+is genuinely in the send set before asserting uniqueness. Verified by deleting
+the guard and watching it fail.
 
 ### Description checklists: sub-tasks and attribution
 

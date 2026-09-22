@@ -72,8 +72,8 @@ const SYSTEM_TIERS: Tier[] = [
     label: "React SPA",
     nodes: [
       { label: "Views", hint: "Dashboard · List · Kanban · Detail · EIRs · Test Sheets · Project Folders · CSA Listings · Drawing File Logs · Digital QC · Ignition QC · Coil Defect Log · Potting Sample Log · Visit Reports (list + calendar) · QC Time Tracking · QC Forms (landing + QCFRM-012 CPU-95) · Panel QC Issue Tracker · Open Orders Report · Gray Market Requests · MRB · Where Am I? · ECNs (incl. the MFGFRM-038 checklist) · FAITs · ARC Feature Requests · Drawing Work Sheet (print) · Admin (incl. Quick Links)", palette: "ui" },
-      { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useBuildRequests · useCsaListings · useDrawingLogs · useDigitalQc · useIgnitionQc · useCoilsQc · usePottingSampleLog · useVisitReports · useQcTimeTracking · useQcCpu95 · usePanelQcIssues · useOpenOrdersReports · useOpenOrdersCustomers · useGrayMarketRequests · useMrb · useWhereAmI · useEcns · useEcnChecklists · useFaits · useCustomerNotes · useCustomerContacts · useSpecialPricing · useCapacity · useSuppliers · useSupplierContacts · useSupplierIssues · useCostImpactNotices · useFeatureRequests · useAdmins · useEirRoles · useQuickLinks · useTaskFiles · useProjectFolders", palette: "ui" },
-      { label: "API layer", hint: "src/api/tasks · eirs · testSheets · buildRequests · buildRequestItems · csaListings · drawingLogs · digitalQc · ignitionQc · coilsQc · pottingSampleLog · visitReports · qcCpu95 · panelQcIssues · openOrdersFiles · openOrdersCustomers · openOrdersRoles · grayMarketRequests · mrb · whereAmI · ecns · ecnChecklists · faits · customerNotes · customerContacts · specialPricing · capacity · suppliers · supplierContacts · supplierIssues · costImpactNotices · featureRequests · autoWatch · panelOrders · panelTasks · admins · eirRoles · panelRoles · quickLinks · directory · siteUsers · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
+      { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useBuildRequests · useCommentMirror · useCsaListings · useDrawingLogs · useDigitalQc · useIgnitionQc · useCoilsQc · usePottingSampleLog · useVisitReports · useQcTimeTracking · useQcCpu95 · usePanelQcIssues · useOpenOrdersReports · useOpenOrdersCustomers · useGrayMarketRequests · useMrb · useWhereAmI · useEcns · useEcnChecklists · useFaits · useCustomerNotes · useCustomerContacts · useSpecialPricing · useCapacity · useSuppliers · useSupplierContacts · useSupplierIssues · useCostImpactNotices · useFeatureRequests · useAdmins · useEirRoles · useQuickLinks · useTaskFiles · useProjectFolders", palette: "ui" },
+      { label: "API layer", hint: "src/api/tasks · eirs · testSheets · buildRequests · buildRequestItems · commentMirror · csaListings · drawingLogs · digitalQc · ignitionQc · coilsQc · pottingSampleLog · visitReports · qcCpu95 · panelQcIssues · openOrdersFiles · openOrdersCustomers · openOrdersRoles · grayMarketRequests · mrb · whereAmI · ecns · ecnChecklists · faits · customerNotes · customerContacts · specialPricing · capacity · suppliers · supplierContacts · supplierIssues · costImpactNotices · featureRequests · autoWatch · panelOrders · panelTasks · admins · eirRoles · panelRoles · quickLinks · directory · siteUsers · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
       {
         label: "Open Orders Report (lazy-loaded)",
         hint: "OpenOrdersView · OpenOrdersCustomersView — reads a raw SAP extract in the browser and writes a branded master dashboard plus one workbook per managed customer into SharePoint. ExcelJS (~950KB) is dynamically imported on first use so it never lands in the main chunk.",
@@ -81,7 +81,7 @@ const SYSTEM_TIERS: Tier[] = [
       },
       {
         label: "Build Requests (lazy-loaded)",
-        hint: "BuildRequestsView · BuildRequestDetailView — a master-detail pair: the Tracker header list + any number of parts from the Items list, joined by BuildRequestNo. Own code-split chunk.",
+        hint: "BuildRequestsView · BuildRequestDetailView — a master-detail pair: the Tracker header list + any number of parts from the Items list, joined by BuildRequestNo. A request can be raised FROM a task (Create Build Request on the task page), which writes TaskReference and carries the task's discussion across; the task side of that link is derived from this column, not stored on the Task list. Once linked the two share one comment thread: a comment on either is COPIED to the other, and a comment on a part is copied to both carrying an origin banner that links back to the part. Own code-split chunk.",
         palette: "ui",
       },
       {
@@ -1451,6 +1451,11 @@ const CONNECTIONS: Connection[] = [
   // Communication thread + Watchers.
   { fromTable: "BuildRequestItem", fromColumn: "buildRequestId", toTable: "BuildRequest", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "BuildRequest", fromColumn: "projectReference", toTable: "Project", toColumn: "id", fromCard: "many", toCard: "many" },
+  // The ONE stored half of the task <-> build request link, written when a
+  // request is raised from a task ("Create Build Request"). The task page's
+  // link back is DERIVED from this column — the Task list has no build
+  // request column, deliberately, so the two can never disagree. It is also
+  // what routes a mirrored comment between the two (lib/commentMirror.ts).
   { fromTable: "BuildRequest", fromColumn: "taskReference", toTable: "Task", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "BuildRequest", fromColumn: "requestor", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "BuildRequest", fromColumn: "engineerAssigned", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },

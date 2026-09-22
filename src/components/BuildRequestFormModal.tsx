@@ -20,9 +20,25 @@ import { mergePeople } from "@/lib/people";
 import { DateField } from "./DateField";
 import { useOverlayDismiss } from "./useOverlayDismiss";
 import { YesNoField } from "./YesNoField";
+import {
+  buildCarriedCommunication,
+  buildRequestPrefillFromTask,
+  taskLabel,
+} from "@/lib/buildRequestFromTask";
+import type { Task } from "@/types/task";
 
 interface BuildRequestFormModalProps {
   onClose: () => void;
+  /**
+   * Raise this Build Request FROM a task ("Create Build Request" on the task
+   * detail page). Prefills the title and project, LOCKS the task reference,
+   * and carries the task's discussion into the new request's comments.
+   *
+   * Named `fromTask` to match `TestSheetFormModal`'s prop of the same shape —
+   * both mean "this record is being raised from that task" — but the two are
+   * independent props on independent forms, not one shared contract.
+   */
+  fromTask?: Task;
 }
 
 /**
@@ -31,7 +47,7 @@ interface BuildRequestFormModalProps {
  * worked (header first, then parts). BR No is computed client-side from the
  * loaded list (nextBuildRequestNo) — same convention as EIR numbers.
  */
-export function BuildRequestFormModal({ onClose }: BuildRequestFormModalProps) {
+export function BuildRequestFormModal({ onClose, fromTask }: BuildRequestFormModalProps) {
   const navigate = useNavigate();
   const currentUser = useCurrentUser();
   const { data: allBrs = [] } = useBuildRequests();
@@ -40,7 +56,12 @@ export function BuildRequestFormModal({ onClose }: BuildRequestFormModalProps) {
   const createBr = useCreateBuildRequest();
   const directory = useDirectoryPeople();
 
-  const [title, setTitle] = useState("");
+  // Seeded ONCE from the task, deliberately not a controlled mirror of it:
+  // the tasks list refetches on its own cadence, and re-seeding would wipe
+  // whatever the user has since typed over the prefill.
+  const prefill = fromTask ? buildRequestPrefillFromTask(fromTask) : null;
+
+  const [title, setTitle] = useState(prefill?.title ?? "");
   const [brType, setBrType] = useState<BuildRequestType | "">("");
   const [leadTime, setLeadTime] = useState<BuildRequestLeadTime | "">("STD Lead Time");
   const [shipDate, setShipDate] = useState("");
@@ -49,7 +70,9 @@ export function BuildRequestFormModal({ onClose }: BuildRequestFormModalProps) {
   const [customerName, setCustomerName] = useState("");
   const [customerPO, setCustomerPO] = useState("");
   const [leadFree, setLeadFree] = useState(false);
-  const [projectIds, setProjectIds] = useState<number[]>([]);
+  const [projectIds, setProjectIds] = useState<number[]>(
+    prefill?.parentProjectLookupIds ?? [],
+  );
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -118,6 +141,16 @@ export function BuildRequestFormModal({ onClose }: BuildRequestFormModalProps) {
         leadFree,
         parentProjectLookupIds: projectIds,
         watchers: [currentUser],
+        // The ONE stored half of the task↔BR link. The task side is derived
+        // from this — see lib/buildRequestFromTask.ts.
+        taskReferenceLookupId: fromTask ? fromTask.id : null,
+        communication: fromTask
+          ? buildCarriedCommunication({
+              task: fromTask,
+              raisedBy: currentUser,
+              now: new Date(),
+            })
+          : undefined,
       });
       onClose();
       navigate(`/build-request/${created.id}`);
@@ -142,7 +175,8 @@ export function BuildRequestFormModal({ onClose }: BuildRequestFormModalProps) {
       >
         <div className="mb-4 flex items-center justify-between">
           <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-fg">
-            <Plus className="h-4 w-4 text-accent" /> New Build Request
+            <Plus className="h-4 w-4 text-accent" />
+            {fromTask ? `New Build Request from ${taskLabel(fromTask)}` : "New Build Request"}
           </h2>
           <button
             onClick={onClose}
@@ -242,6 +276,30 @@ export function BuildRequestFormModal({ onClose }: BuildRequestFormModalProps) {
               />
             </FieldLabel>
           </div>
+
+          {fromTask && (
+            <div>
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-fg-muted">
+                Task Reference
+              </span>
+              {/*
+                Read-only, never a picker. The whole point of arriving here
+                from a task is that the task is already decided — offering to
+                change it invites a Build Request pointing at a task whose
+                discussion it just carried over.
+              */}
+              <div className="flex h-[38px] items-center rounded-md border border-dashed border-border bg-surface-2 px-3 text-sm text-fg">
+                <span className="truncate">{taskLabel(fromTask)}</span>
+              </div>
+              <p className="mt-1 text-xs text-fg-muted">
+                {fromTask.comments.length > 0
+                  ? `This task's ${fromTask.comments.length} comment${
+                      fromTask.comments.length === 1 ? "" : "s"
+                    } will be copied into the new build request.`
+                  : "The two will be linked to each other."}
+              </p>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <FieldLabel label="Customer Name">

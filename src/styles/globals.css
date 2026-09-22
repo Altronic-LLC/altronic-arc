@@ -133,6 +133,22 @@ h3,
 .comment-html p:last-child {
   @apply mb-0;
 }
+/* A MIRRORED comment's origin banner — "Posted on part X of build request Y",
+   plus a link back to the one thread where a reply belongs. Written into the
+   stored body by lib/commentMirror.ts, because Communication is a single text
+   column with nowhere else to put it.
+
+   Deliberately quiet: this is provenance, not the comment. It reads as a
+   caption above the body rather than competing with it — but it is NOT
+   colour-only, since the sentence itself says where the comment came from,
+   so it survives a mono print and a colour-blind reader. */
+.comment-html .comment-origin {
+  @apply mb-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 border-l-2 border-border pl-2 text-xs text-fg-muted;
+}
+/* The jump link keeps the accent treatment — it is the actionable half. */
+.comment-html .comment-origin a {
+  @apply font-medium;
+}
 .comment-html a {
   @apply text-accent underline underline-offset-2 hover:no-underline;
 }

@@ -11,6 +11,7 @@ import {
   FolderOpen,
   GitBranch,
   GitBranchPlus,
+  Hammer,
   Link2,
   Pencil,
   Printer,
@@ -74,6 +75,9 @@ import { DateField } from "@/components/DateField";
 import { toLabelsField } from "@/lib/labels";
 import { PersonMultiField } from "@/components/PersonMultiField";
 import { MultiSelect } from "@/components/SearchableSelect";
+import { BuildRequestFormModal } from "@/components/BuildRequestFormModal";
+import { buildRequestStatusColor } from "@/components/buildRequestAtoms";
+import { useBuildRequestsForTask } from "@/hooks/useBuildRequests";
 import { cn } from "@/lib/cn";
 
 export function DetailView() {
@@ -102,9 +106,12 @@ export function DetailView() {
   const [showEdit, setShowEdit] = useState(false);
   const [showNewTestSheet, setShowNewTestSheet] = useState(false);
   const [showNewChildTask, setShowNewChildTask] = useState(false);
+  const [showNewBuildRequest, setShowNewBuildRequest] = useState(false);
   // Final-resolution prompt shown when completing a task tied to an EIR.
   const [showResolution, setShowResolution] = useState(false);
   const { data: allTestSheets = [] } = useTestSheets();
+  // Derived, not stored on the task — see lib/buildRequestFromTask.ts.
+  const { data: linkedBuildRequests } = useBuildRequestsForTask(taskId);
 
   // Comment-collision tracking: we render the comment thread from a frozen
   // snapshot of "comments the user has acknowledged seeing." Background
@@ -506,6 +513,32 @@ export function DetailView() {
               </button>
             )}
 
+            {/* The other half of the task↔BR link, DERIVED from each Build
+                Request's own Task Reference rather than stored here — see
+                lib/buildRequestFromTask.ts. Every one is listed, not just the
+                newest: a task re-raised after a cancelled request has two,
+                and hiding the earlier one hides real history. */}
+            {linkedBuildRequests.map((br) => (
+              <button
+                key={br.id}
+                onClick={() => navigate(`/build-request/${br.id}`)}
+                className="mb-3 ml-0 inline-flex items-center gap-2 rounded-md border border-border bg-surface-2 px-2.5 py-1 text-xs text-fg-muted transition-colors hover:border-fg-muted hover:text-fg sm:ml-2"
+                title="Open the build request raised from this task"
+              >
+                <Hammer className="h-3 w-3" />
+                <span className="text-fg-muted">Build Request:</span>
+                <span className="font-medium text-fg">{br.brNo || br.title}</span>
+                <span
+                  className={cn(
+                    "rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide",
+                    buildRequestStatusColor(br.status),
+                  )}
+                >
+                  {br.status}
+                </span>
+              </button>
+            ))}
+
             <div className="mb-3 flex flex-wrap items-center gap-2">
               {/* `disabled` for the true terminal case (already Complete — nothing to
                   click for). `aria-disabled`, NOT `disabled`, for the open-children
@@ -558,6 +591,21 @@ export function DetailView() {
                 <GitBranchPlus className="h-4 w-4" />
                 <span className="hidden sm:inline">New Child Task</span>
                 <span className="sm:hidden">Child Task</span>
+              </button>
+              {/* Deliberately NOT hidden once a build request exists. A task
+                  CAN legitimately need a second one (the first was cancelled,
+                  or a second build is genuinely wanted), and the existing
+                  links are already visible in the pill row above — so this
+                  stays available rather than disappearing and leaving no way
+                  to raise another. */}
+              <button
+                onClick={() => setShowNewBuildRequest(true)}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg transition-colors hover:bg-surface-2"
+                title="Raise a build request from this task, carrying its comments across"
+              >
+                <Hammer className="h-4 w-4" />
+                <span className="hidden sm:inline">Create Build Request</span>
+                <span className="sm:hidden">Build Request</span>
               </button>
               <Link
                 to={`/task/${task.id}/print`}
@@ -995,6 +1043,12 @@ export function DetailView() {
           mode="create"
           fromParentTask={task}
           onClose={() => setShowNewChildTask(false)}
+        />
+      )}
+      {showNewBuildRequest && (
+        <BuildRequestFormModal
+          fromTask={task}
+          onClose={() => setShowNewBuildRequest(false)}
         />
       )}
       {showResolution && task.eirReference && (

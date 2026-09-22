@@ -20,6 +20,26 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.164.0",
+    date: "2026-09-22",
+    changes: [
+      "A comment on a task or its linked build request now appears on both — one conversation, two places",
+      "A comment on a build request PART also appears on the task and the build request, flagged as coming from that part",
+      "Each copy links straight back to the thread it came from, so you reply where the rest of that discussion lives",
+      "Watchers on each side are emailed once — being on both lists no longer means two emails for one comment",
+    ],
+  },
+  {
+    version: "0.163.0",
+    date: "2026-09-22",
+    changes: [
+      "Create Build Request from a task — the button is on the task page, next to New Child Task",
+      "The new request opens prefilled with the task's name and project, and the task reference is locked in",
+      "The task's whole discussion is copied across, keeping each comment's original author and time",
+      "Task and build request link to each other — each page shows the other, with its status",
+    ],
+  },
+  {
     version: "0.162.0",
     date: "2026-09-21",
     changes: [

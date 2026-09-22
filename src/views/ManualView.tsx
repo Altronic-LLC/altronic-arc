@@ -365,6 +365,8 @@ const SECTIONS: ManualSection[] = [
       "related projects",
       "new child task",
       "child task",
+      "create build request from task",
+      "build request from task",
       "sub-task of a task",
       "numbered title",
       "complete a task",
@@ -383,7 +385,7 @@ const SECTIONS: ManualSection[] = [
       "to-do list",
     ],
     searchText:
-      "Create tasks with the New Task button. Required: Title and Parent Project. NumberedTitle is auto-generated as T{n}-{projectRef}-{title}. Edit fields inline from the right sidebar of the detail page. Use Mark Complete or change Status to close out. A task with any child tasks not yet Complete can't be marked Complete itself — the Mark Complete button, the Status dropdown, and dragging a card to the Complete column on the Kanban all refuse it and say how many child tasks are still open, so finish or close those out first. The New Child Task button on a task's detail page opens the New Task form pre-filled and locked to that task's Parent Task and Parent Project, so a sub-task can't accidentally end up under the wrong parent or project; everything else on the form stays editable and submitting opens the new child task. The Description field can hold a custom checklist — click Turn into checklist while editing, or type - [ ] lines yourself, and check items off directly from the detail page. Checking a box instantly records your name and the time next to the item; unchecking asks Are you sure first and records who unchecked it. Indent a checklist line with Tab (or spaces) to make it a sub-task of the item above it; Shift+Tab outdents. One level of nesting; the parent shows a 1/2 count of its sub-tasks done and is never ticked automatically. Tab only indents on a checklist line — elsewhere it moves to the next field. The Description field also has a Rich text button for bold, italic, underline and lists. It warns before switching, because rich text turns off the checklist function — a rich description cannot use the - [ ] syntax. If the description ALREADY has checkboxes the button is disabled and says why, so you cannot lose a checklist you have been ticking; delete the checklist lines first if you really want rich text. Switching back to plain text restores checklists.",
+      "Create tasks with the New Task button. Required: Title and Parent Project. NumberedTitle is auto-generated as T{n}-{projectRef}-{title}. Edit fields inline from the right sidebar of the detail page. Use Mark Complete or change Status to close out. A task with any child tasks not yet Complete can't be marked Complete itself — the Mark Complete button, the Status dropdown, and dragging a card to the Complete column on the Kanban all refuse it and say how many child tasks are still open, so finish or close those out first. The New Child Task button on a task's detail page opens the New Task form pre-filled and locked to that task's Parent Task and Parent Project, so a sub-task can't accidentally end up under the wrong parent or project; everything else on the form stays editable and submitting opens the new child task. The Description field can hold a custom checklist — click Turn into checklist while editing, or type - [ ] lines yourself, and check items off directly from the detail page. Checking a box instantly records your name and the time next to the item; unchecking asks Are you sure first and records who unchecked it. Indent a checklist line with Tab (or spaces) to make it a sub-task of the item above it; Shift+Tab outdents. One level of nesting; the parent shows a 1/2 count of its sub-tasks done and is never ticked automatically. Tab only indents on a checklist line — elsewhere it moves to the next field. The Description field also has a Rich text button for bold, italic, underline and lists. It warns before switching, because rich text turns off the checklist function — a rich description cannot use the - [ ] syntax. If the description ALREADY has checkboxes the button is disabled and says why, so you cannot lose a checklist you have been ticking; delete the checklist lines first if you really want rich text. Switching back to plain text restores checklists. The Create Build Request button raises a build request from the task: the form opens prefilled with the task's name and project, the Task Reference locked to that task, and the task's whole discussion copied into the new request's comments with each comment's original author and time kept. Afterwards the task page shows a Build Request chip with the request's number and status, and the build request page shows the task it came from. The button stays available so a task can raise a second request if the first was cancelled. Once linked, the task and the build request share one conversation: a comment on either appears on both, and a comment on a part within the build request appears on both marked as coming from that part, with a link that opens the part so a reply lands in the original thread. A copied comment keeps its original author and time. Each side emails its own watchers, so watching both still means one email per comment.",
     render: () => (
       <>
         <H3>Creating a task</H3>
@@ -466,6 +468,58 @@ const SECTIONS: ManualSection[] = [
           parent or project by mistake. Everything else on the form — title,
           description, status, assignees, and the rest — is filled in as
           normal. Submitting takes you straight to the new child task.
+        </P>
+        <P>
+          <strong>Create Build Request</strong>, beside it, raises a build
+          request from the task you&apos;re on. The form opens with the
+          task&apos;s name and project already filled in, and the Task
+          Reference locked to that task (read-only, not a picker). The
+          task&apos;s <strong>whole discussion is copied across</strong> into
+          the new request&apos;s comments — each comment keeps its original
+          author and time, so the thread reads as the record of what was
+          actually said, with a line at the top naming the task it came from.
+          Everything else on the form is filled in as normal, and submitting
+          takes you straight to the new build request.
+        </P>
+        <P>
+          The two then <strong>link to each other</strong>: the task page
+          shows a Build Request chip with the request&apos;s number and
+          current status, and the build request page shows the task it was
+          raised from. The button stays available afterwards — a task can
+          legitimately need a second request if the first was cancelled, and
+          every request raised from the task is listed.
+        </P>
+        <H3>Comments are shared between a task and its build request</H3>
+        <P>
+          Once the two are linked they share <strong>one conversation</strong>.
+          A comment you post on the task appears on the build request, and a
+          comment on the build request appears on the task — so nobody has to
+          know which of the two a discussion started on.
+        </P>
+        <P>
+          A comment on a <strong>part</strong> within a build request appears
+          on both the task and the build request, marked{" "}
+          <em>
+            &quot;Posted on part &lt;number&gt; of build request
+            &lt;number&gt;&quot;
+          </em>{" "}
+          so it is clear where it came from. Each copy carries a link —{" "}
+          <strong>Open the part to reply</strong> — that takes you to that part
+          with its card already expanded, so your reply lands in the thread the
+          rest of that discussion is in rather than starting a second one.
+        </P>
+        <Tip>
+          A copied comment keeps its <strong>original author and time</strong>,
+          so the thread reads as a record of what was actually said. Reply from
+          the link rather than typing on the copy — a reply on the copy is a new
+          comment on that record, which is fine, but it won&apos;t sit under the
+          original.
+        </Tip>
+        <P>
+          Notifications follow the same rule as everywhere else: each side
+          emails its own watchers. If you watch both the task and the build
+          request you still get <strong>one</strong> email about a comment, not
+          two.
         </P>
         <H3>Formatting a Description — the Rich text button</H3>
         <P>
@@ -4605,7 +4659,7 @@ const SECTIONS: ManualSection[] = [
       "sample",
     ],
     searchText:
-      "Build Requests ask manufacturing to build parts. Each request (BR_YYYY-####) has a header — status, type, lead time, requestor, engineer, customer — and any number of parts. Each part has its own comment thread, watchers, attachments, and a Part-Type checklist: PCB parts get the data-package checklist, Harness parts get the terminals checklist. Create from the Build Requests list; add parts from the detail page. Email notifications fire for comments (request or part level), BR Status changes, Engineer Assigned changes, and a part's Part Status changes; part-comment emails open the request with that part expanded. Lead Free requests show a green flag and a warning banner on part printouts; each part has a Print part button for the production floor.",
+      "Build Requests ask manufacturing to build parts. A request can also be raised from a task with the Create Build Request button on the task page, which prefills the task's name and project, locks the Task Reference, and copies the task's discussion into the request's comments; the two then link to each other and share one comment thread, with a comment on a part appearing on both marked as coming from that part.  Each request (BR_YYYY-####) has a header — status, type, lead time, requestor, engineer, customer — and any number of parts. Each part has its own comment thread, watchers, attachments, and a Part-Type checklist: PCB parts get the data-package checklist, Harness parts get the terminals checklist. Create from the Build Requests list; add parts from the detail page. Email notifications fire for comments (request or part level), BR Status changes, Engineer Assigned changes, and a part's Part Status changes; part-comment emails open the request with that part expanded. Lead Free requests show a green flag and a warning banner on part printouts; each part has a Print part button for the production floor.",
     render: () => (
       <>
         <P>
@@ -4626,6 +4680,26 @@ const SECTIONS: ManualSection[] = [
           Quoted Ship Date field, and Type <strong>Sample (A-D)</strong>{" "}
           reveals the Sample Phase. You're set as the Requestor and a watcher
           automatically. The request opens ready for parts.
+        </P>
+        <P>
+          You can also raise one <strong>from a task</strong>: the{" "}
+          <strong>Create Build Request</strong> button on a task&apos;s detail
+          page opens this same form with the task&apos;s name and project
+          already filled in, its Task Reference locked to that task, and the
+          task&apos;s whole discussion copied into the new request&apos;s
+          comments — each comment keeping its original author and time. The
+          two then link to each other: the build request shows the task it
+          came from, and the task shows the request with its current status,
+          and from then on they <strong>share one comment thread</strong> — a
+          comment on either appears on both.
+        </P>
+        <P>
+          That extends to <strong>parts</strong>: a comment on a part appears
+          on the build request and on the linked task, marked as coming from
+          that part and carrying a link that opens the part so a reply lands
+          in the original thread. Each side emails its own watchers, so
+          watching both the task and the request still means one email per
+          comment.
         </P>
         <H3>Adding and editing parts</H3>
         <P>

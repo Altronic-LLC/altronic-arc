@@ -26,6 +26,7 @@ import {
   watchTask,
 } from "@/api/tasks";
 import { autoWatchFromMentions } from "@/api/autoWatch";
+import { fanOutComment } from "@/hooks/useCommentMirror";
 import { listTaskColumns } from "@/api/taskColumns";
 import type {
   Category,
@@ -59,7 +60,9 @@ import { fromLabelsField, toLabelsField } from "@/lib/labels";
 import { htmlToPlainText } from "@/lib/htmlText";
 import { autoWatchers } from "@/lib/people";
 
-const TASK_LIST_KEY = ["tasks", "list"] as const;
+// Exported so the comment fan-out (hooks/useCommentMirror.ts) can read and
+// invalidate the same cache this file owns, rather than re-declaring the key.
+export const TASK_LIST_KEY = ["tasks", "list"] as const;
 const PROJECTS_KEY = ["projects"] as const;
 
 export function useTasks() {
@@ -686,6 +689,17 @@ export function useAddComment() {
           attachments: comment.attachments ?? [],
         });
       }
+
+      // Copy it onto the linked build request, if this task raised one, and
+      // notify THAT side's watchers minus whoever we just emailed. Best-effort
+      // and fire-and-forget: the comment itself is already written and on
+      // screen, so a failed mirror toasts rather than failing the post.
+      void fanOutComment({
+        qc,
+        source: { kind: "task", id },
+        comment,
+        alreadyNotified: recipients,
+      });
 
       // Auto-watch: every newly @-mentioned user becomes a watcher on the task
       // (unless they already are). Resolves the recipient email against the

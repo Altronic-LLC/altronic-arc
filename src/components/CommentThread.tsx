@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AtSign, Paperclip, Pencil, Type, X } from "lucide-react";
 import type { Comment, CommentAttachment, Person } from "@/types/task";
 import { sanitiseHtml } from "@/lib/sanitiseHtml";
+import { useCommentOriginLink } from "./useCommentOriginLink";
 import {
   buildCommentHtml,
   injectMentionsIntoHtml,
@@ -120,6 +121,9 @@ function CommentItem({
   uploadFile?: (file: File) => Promise<{ name: string; webUrl: string }>;
 }) {
   const [editing, setEditing] = useState(false);
+  // Declared ABOVE the early return below — a hook can't be called
+  // conditionally, and the editing branch returns before the body renders.
+  const handleOriginLink = useCommentOriginLink();
 
   if (editing && onEdit) {
     return (
@@ -154,6 +158,11 @@ function CommentItem({
       {comment.bodyHtml ? (
         <div
           className="comment-html"
+          // A MIRRORED comment's origin banner carries a router path, and
+          // this body is rendered outside React's tree — so the click is
+          // delegated here or the link triggers a full page load. Every
+          // other link in a comment is untouched.
+          onClick={handleOriginLink}
           // bodyHtml is authored content from SharePoint users; sanitised
           // through DOMPurify to strip scripts and event handlers before
           // rendering. See src/lib/sanitiseHtml.ts.
