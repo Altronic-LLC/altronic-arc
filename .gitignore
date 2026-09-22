@@ -15,7 +15,6 @@ tsconfig.tsbuildinfo
 # Local-only — never push to the public repo.
 .claude/
 SESSION-NOTES.md
-security-audit.md
 security-review*.md
 
 # Discovery snapshots from scripts/discover-list.ps1 — dumped SharePoint content.
