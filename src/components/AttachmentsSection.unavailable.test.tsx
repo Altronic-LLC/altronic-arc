@@ -23,6 +23,9 @@ vi.mock("@/hooks/useAttachments", () => ({
   useAttachments,
   useUploadAttachment: () => ({ mutate: vi.fn(), isPending: false, error: null }),
   useDeleteAttachment: () => ({ mutate: vi.fn(), isPending: false }),
+  // The comment composer's upload adapter. A mock missing it throws
+  // "No export is defined" as soon as a view that wires it renders.
+  useCommentFileUpload: () => vi.fn(async () => ({ name: "f.png", webUrl: "u" })),
 }));
 
 import { AttachmentsSection } from "./AttachmentsSection";

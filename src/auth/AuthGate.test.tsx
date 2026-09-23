@@ -11,15 +11,18 @@ import {
 const mocks = vi.hoisted(() => ({
   isAuthenticated: true,
   logoutRedirect: vi.fn(),
+  accounts: [] as Array<{ homeAccountId: string }>,
+  activeAccount: { homeAccountId: "acct-1" } as { homeAccountId: string } | null,
+  setActiveAccount: vi.fn(),
 }));
 
 vi.mock("@azure/msal-react", () => ({
   useIsAuthenticated: () => mocks.isAuthenticated,
   useMsal: () => ({
-    accounts: [],
+    accounts: mocks.accounts,
     instance: {
-      getActiveAccount: () => ({ homeAccountId: "acct-1" }),
-      setActiveAccount: vi.fn(),
+      getActiveAccount: () => mocks.activeAccount,
+      setActiveAccount: mocks.setActiveAccount,
       logoutRedirect: mocks.logoutRedirect,
     },
   }),
@@ -35,6 +38,8 @@ import { AuthGate } from "./AuthGate";
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.isAuthenticated = true;
+  mocks.accounts = [];
+  mocks.activeAccount = { homeAccountId: "acct-1" };
   resetSessionExpired();
 });
 
@@ -114,5 +119,53 @@ describe("AuthGate — session expiry", () => {
 
     expect(screen.getByText(/sign in with microsoft/i)).toBeInTheDocument();
     expect(screen.getByText("flag:false")).toBeInTheDocument();
+  });
+});
+
+describe("AuthGate — auto-activating a cached account", () => {
+  // Reported by Ray, 2026-09-02: on a shared browser, MSAL's localStorage
+  // cache held a second person's account from an earlier session. AuthGate
+  // used to activate `accounts[0]` unconditionally, so a NEW person opening
+  // ARC on that same browser was silently signed in as whoever was cached
+  // first — no prompt, nothing wrong-looking, but every write went out under
+  // the wrong name (a Gray Market Request's Requestor, in the report).
+  it("activates the ONE cached account automatically — the harmless, expected case", () => {
+    mocks.activeAccount = null;
+    mocks.accounts = [{ homeAccountId: "acct-1" }];
+
+    renderWithProviders(
+      <AuthGate>
+        <div>App content</div>
+      </AuthGate>,
+    );
+
+    expect(mocks.setActiveAccount).toHaveBeenCalledWith({ homeAccountId: "acct-1" });
+  });
+
+  it("does NOT auto-pick a cached account when MORE THAN ONE is cached", () => {
+    mocks.activeAccount = null;
+    mocks.accounts = [{ homeAccountId: "acct-1" }, { homeAccountId: "acct-2" }];
+
+    renderWithProviders(
+      <AuthGate>
+        <div>App content</div>
+      </AuthGate>,
+    );
+
+    // Never guesses which of the two belongs to whoever's actually here.
+    expect(mocks.setActiveAccount).not.toHaveBeenCalled();
+  });
+
+  it("leaves an already-active account alone even with others cached", () => {
+    mocks.activeAccount = { homeAccountId: "acct-1" };
+    mocks.accounts = [{ homeAccountId: "acct-1" }, { homeAccountId: "acct-2" }];
+
+    renderWithProviders(
+      <AuthGate>
+        <div>App content</div>
+      </AuthGate>,
+    );
+
+    expect(mocks.setActiveAccount).not.toHaveBeenCalled();
   });
 });

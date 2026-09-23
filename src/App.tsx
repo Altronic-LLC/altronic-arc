@@ -132,6 +132,12 @@ const CostImpactNoticeDetailView = lazy(() =>
     default: m.CostImpactNoticeDetailView,
   })),
 );
+const MrbView = lazy(() =>
+  import("@/views/MrbView").then((m) => ({ default: m.MrbView })),
+);
+const MrbDetailView = lazy(() =>
+  import("@/views/MrbDetailView").then((m) => ({ default: m.MrbDetailView })),
+);
 const AdminOpenOrdersRolesView = lazy(() =>
   import("@/views/AdminOpenOrdersRolesView").then((m) => ({
     default: m.AdminOpenOrdersRolesView,
@@ -224,6 +230,26 @@ const PanelTaskDetailView = lazy(() =>
 const QcTimeTrackingView = lazy(() =>
   import("@/views/QcTimeTrackingView").then((m) => ({ default: m.QcTimeTrackingView })),
 );
+const PanelQcIssuesView = lazy(() =>
+  import("@/views/PanelQcIssuesView").then((m) => ({ default: m.PanelQcIssuesView })),
+);
+const PanelQcIssueEditorView = lazy(() =>
+  import("@/views/PanelQcIssueEditorView").then((m) => ({ default: m.PanelQcIssueEditorView })),
+);
+const PrintPanelQcIssueView = lazy(() =>
+  import("@/views/PrintPanelQcIssueView").then((m) => ({ default: m.PrintPanelQcIssueView })),
+);
+// Dev-only QZ Tray print test harness — never rendered in production, see
+// the `import.meta.env.DEV` guard on its <Route> below.
+const DevQzPrintTestView = lazy(() =>
+  import("@/views/DevQzPrintTestView").then((m) => ({ default: m.DevQzPrintTestView })),
+);
+const QcFormsView = lazy(() =>
+  import("@/views/QcFormsView").then((m) => ({ default: m.QcFormsView })),
+);
+const QcCpu95View = lazy(() =>
+  import("@/views/QcCpu95View").then((m) => ({ default: m.QcCpu95View })),
+);
 const FeatureRequestsView = lazy(() =>
   import("@/views/FeatureRequestsView").then((m) => ({ default: m.FeatureRequestsView })),
 );
@@ -255,10 +281,10 @@ export function App() {
   useMentionScanner();
 
   return (
-    <div className="flex min-h-full flex-col bg-bg">
+    <div className="flex min-h-screen flex-col bg-bg">
       {!isPrintRoute && <Header />}
       {!isPrintRoute && <UpdateAvailableBanner />}
-      <main className="flex-1">
+      <main className="min-h-0 flex-1 pb-16">
         {/* The app's only error boundary. A render error used to blank the whole
             page until a manual refresh — including navigating away, since the
             crash takes the router with it. Keyed on the path so moving
@@ -339,6 +365,22 @@ export function App() {
             <Route path="/test-sheet/:id" element={<TestSheetDetailView />} />
             <Route path="/digital-qc" element={<DigitalQcView />} />
             <Route path="/ignition-qc" element={<IgnitionQcView />} />
+            <Route
+              path="/qc-forms"
+              element={
+                <Suspense fallback={<LoadingTasks noun="QC forms" />}>
+                  <QcFormsView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/qc-forms/cpu-95"
+              element={
+                <Suspense fallback={<LoadingTasks noun="CPU-95 test sheets" />}>
+                  <QcCpu95View />
+                </Suspense>
+              }
+            />
             <Route path="/coils/defect-log" element={<CoilsQcView />} />
             <Route
               path="/coils/potting-sample-log"
@@ -409,6 +451,22 @@ export function App() {
             <Route
               path="/supply-chain/gray-market-request/:id"
               element={<GrayMarketRequestDetailView />}
+            />
+            <Route
+              path="/supply-chain/mrb"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the MRB register" />}>
+                  <MrbView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/supply-chain/mrb/:id"
+              element={
+                <Suspense fallback={<LoadingTasks noun="this MRB entry" />}>
+                  <MrbDetailView />
+                </Suspense>
+              }
             />
             <Route
               path="/sales/open-orders"
@@ -701,6 +759,30 @@ export function App() {
               }
             />
             <Route
+              path="/panels/qc-issues"
+              element={
+                <Suspense fallback={<LoadingTasks noun="Panel QC issues" />}>
+                  <PanelQcIssuesView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/panels/qc-issues/:id"
+              element={
+                <Suspense fallback={<LoadingTasks noun="Panel QC issue" />}>
+                  <PanelQcIssueEditorView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/panels/qc-issues/:id/print"
+              element={
+                <Suspense fallback={<LoadingTasks noun="this Panel QC label" />}>
+                  <PrintPanelQcIssueView />
+                </Suspense>
+              }
+            />
+            <Route
               path="/feature-requests"
               element={
                 <Suspense fallback={<LoadingTasks noun="feature requests" />}>
@@ -738,6 +820,19 @@ export function App() {
             />
             <Route path="/about" element={<AboutView />} />
             <Route path="/manual" element={<ManualView />} />
+            {/* Dev-only: import.meta.env.DEV is `false` in a production build, so
+                this route never renders (and the URL 404s to "/") once deployed —
+                see CLAUDE.md's Panel QC printing section for what this is for. */}
+            {import.meta.env.DEV && (
+              <Route
+                path="/dev/qz-print-test"
+                element={
+                  <Suspense fallback={<LoadingTasks noun="the QZ print test page" />}>
+                    <DevQzPrintTestView />
+                  </Suspense>
+                }
+              />
+            )}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </RouteErrorBoundary>

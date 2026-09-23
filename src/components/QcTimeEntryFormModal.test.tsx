@@ -42,6 +42,8 @@ const ENTRY: QcTimeEntry = {
   hoursRaw: "6.5",
   effortType: "New Panel",
   notes: "",
+  onHold: false,
+  holdReason: "",
   createdAt: new Date(),
   modifiedAt: new Date(),
 };

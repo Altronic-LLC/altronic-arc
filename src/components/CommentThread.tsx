@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AtSign, Paperclip, Pencil, X } from "lucide-react";
+import { AtSign, Paperclip, Pencil, Type, X } from "lucide-react";
 import type { Comment, CommentAttachment, Person } from "@/types/task";
 import { sanitiseHtml } from "@/lib/sanitiseHtml";
+import { useCommentOriginLink } from "./useCommentOriginLink";
 import {
   buildCommentHtml,
+  injectMentionsIntoHtml,
   detectMentionQuery,
   extractMentionedRecipients,
   rankMentionCandidates,
@@ -12,6 +14,12 @@ import {
 import { filesFromClipboard } from "@/lib/pasteFiles";
 import { cn } from "@/lib/cn";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
+import { RichTextEditor } from "./RichTextEditor";
+import {
+  RichTextWarningDialog,
+  WATCHERS_STILL_NOTIFIED,
+} from "./RichTextWarningDialog";
+import { hasRichFormatting, plainTextToHtml } from "@/lib/richText";
 import { NameAttachmentDialog, needsAttachmentName } from "./NameAttachmentDialog";
 import { useFileDrop } from "./useFileDrop";
 
@@ -113,6 +121,9 @@ function CommentItem({
   uploadFile?: (file: File) => Promise<{ name: string; webUrl: string }>;
 }) {
   const [editing, setEditing] = useState(false);
+  // Declared ABOVE the early return below — a hook can't be called
+  // conditionally, and the editing branch returns before the body renders.
+  const handleOriginLink = useCommentOriginLink();
 
   if (editing && onEdit) {
     return (
@@ -147,9 +158,16 @@ function CommentItem({
       {comment.bodyHtml ? (
         <div
           className="comment-html"
+          // A MIRRORED comment's origin banner carries a router path, and
+          // this body is rendered outside React's tree — so the click is
+          // delegated here or the link triggers a full page load. Every
+          // other link in a comment is untouched.
+          onClick={handleOriginLink}
           // bodyHtml is authored content from SharePoint users; sanitised
           // through DOMPurify to strip scripts and event handlers before
           // rendering. See src/lib/sanitiseHtml.ts.
+          // `sanitiseHtml` linkifies bare URLs itself, for every render
+          // site at once — see its own note.
           dangerouslySetInnerHTML={{ __html: sanitiseHtml(comment.bodyHtml) }}
         />
       ) : comment.attachments && comment.attachments.length > 0 ? (
@@ -208,6 +226,14 @@ function CommentEditor({
   onSave: (newBodyHtml: string, renotify: boolean) => Promise<void> | void;
   onCancel: () => void;
 }) {
+  // A comment WITH formatting opens in rich mode, because a textarea would
+  // strip it — editing used to silently destroy bold/italic/underline/lists
+  // (Alexander Masgras, 2026-09-17). A plain comment still opens in the
+  // textarea, so @-mentions keep working for the common case.
+  const startsRich = hasRichFormatting(initialBodyHtml);
+  const [rich, setRich] = useState(startsRich);
+  const [richHtml, setRichHtml] = useState(() => (startsRich ? initialBodyHtml : ""));
+  const [warnRich, setWarnRich] = useState(false);
   const [text, setText] = useState(() => htmlToPlainText(initialBodyHtml));
   const [busy, setBusy] = useState(false);
   const [renotify, setRenotify] = useState(false);
@@ -351,11 +377,21 @@ function CommentEditor({
 
   async function handleSave() {
     const trimmed = text.trim();
-    if (!trimmed && attachments.length === 0) return;
+    const richBody = rich ? nonEmptyRichHtml(richHtml) : "";
+    if (!trimmed && !richBody && attachments.length === 0) return;
     setBusy(true);
     setUploadError(null);
     try {
-      let html = trimmed ? buildCommentHtml(trimmed, mentions) : "";
+      // In rich mode the body is ALREADY markup, so it keeps its formatting
+      // and only needs chips injecting. Running it through buildCommentHtml
+      // would escape the tags and show them as visible text.
+      let html = rich
+        ? richBody
+          ? injectMentionsIntoHtml(richBody, mentions)
+          : ""
+        : trimmed
+          ? buildCommentHtml(trimmed, mentions)
+          : "";
 
       // Same branching as CommentComposer: when the parent wired up an
       // upload hook (Task case), push each attached File to the project
@@ -438,6 +474,16 @@ function CommentEditor({
       {...dropProps}
       onPaste={handlePaste}
     >
+      {rich ? (
+        <RichTextEditor
+          value={richHtml}
+          onChange={setRichHtml}
+          disabled={busy}
+          minHeight="6.5rem"
+          placeholder="Edit your comment…"
+          aria-label="Edit comment (rich text)"
+        />
+      ) : (
       <AutoGrowTextarea
         ref={textareaRef}
         style={{ minHeight: "6.5rem" }}
@@ -455,6 +501,7 @@ function CommentEditor({
         autoFocus
         className="w-full resize-y rounded-md bg-bg p-2.5 text-base text-fg placeholder:text-fg-muted focus:outline-none focus:ring-2 focus:ring-accent/30 sm:text-sm"
       />
+      )}
 
       {pickerOpen && candidates.length > 0 && (
         <div
@@ -528,6 +575,36 @@ function CommentEditor({
             <Paperclip className="h-3.5 w-3.5" />
             Attach
           </button>
+          {/* Same toggle as the composer. Switching OFF is free; switching ON
+              warns, because it costs the @-mention picker. */}
+          <button
+            type="button"
+            onClick={() => {
+              if (rich) setRich(false);
+              else setWarnRich(true);
+            }}
+            disabled={busy}
+            aria-pressed={rich}
+            title={
+              rich
+                ? "Back to plain text, with @-mention autocomplete"
+                : "Bold, italic, underline and lists (turns off @-mention autocomplete)"
+            }
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium transition-colors disabled:opacity-50",
+              rich
+                ? "border-accent/40 bg-accent/10 text-accent"
+                : "border-border bg-surface text-fg-muted hover:text-fg",
+            )}
+          >
+            <Type className="h-3.5 w-3.5" />
+            Rich text
+          </button>
+          {rich && (
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-ajax-yellow-fg">
+              @-mentions off
+            </span>
+          )}
           <label
             className="flex items-center gap-1.5 text-xs text-fg-muted"
             title="Sends a fresh notification email to watchers and mentioned people about this update."
@@ -552,7 +629,14 @@ function CommentEditor({
           </button>
           <button
             onClick={handleSave}
-            disabled={busy || (text.trim().length === 0 && attachments.length === 0)}
+            // In rich mode `text` is the stale plain draft, so the rich body
+            // is what decides — otherwise Save sits disabled on a perfectly
+            // good formatted edit.
+            disabled={
+              busy ||
+              ((rich ? nonEmptyRichHtml(richHtml) === "" : text.trim().length === 0) &&
+                attachments.length === 0)
+            }
             className="rounded-md bg-accent px-3 py-1 text-xs font-medium text-white shadow-sm transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busy
@@ -577,6 +661,20 @@ function CommentEditor({
             setNamingQueue((prev) => prev.slice(1));
           }}
           onCancel={() => setNamingQueue((prev) => prev.slice(1))}
+        />
+      )}
+
+      {warnRich && (
+        <RichTextWarningDialog
+          notifyNote={WATCHERS_STILL_NOTIFIED}
+          onConfirm={() => {
+            // Carry the plain draft across as paragraphs, so switching
+            // mid-edit doesn't throw the wording away.
+            setRichHtml((current) => current || plainTextToHtml(text));
+            setRich(true);
+            setWarnRich(false);
+          }}
+          onCancel={() => setWarnRich(false)}
         />
       )}
     </div>
@@ -687,6 +785,21 @@ function formatTimestamp(d: Date): string {
     hour: "numeric",
     minute: "2-digit",
   });
+}
+
+/**
+ * Is there anything in this rich body a reader would see?
+ *
+ * An empty contentEditable leaves `<p><br></p>` behind, so a `trim()` would
+ * call that content and let an empty edit save over a real comment.
+ */
+function nonEmptyRichHtml(html: string): string {
+  const stripped = html
+    .replace(/<br\s*\/?>/gi, "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/<[^>]*>/g, "")
+    .trim();
+  return stripped ? html : "";
 }
 
 /**

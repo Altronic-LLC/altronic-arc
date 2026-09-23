@@ -21,6 +21,14 @@ interface ImportMetaEnv {
   readonly VITE_SP_MAINTENANCE_DEPARTMENTS_LIST_ID: string;
   readonly VITE_SP_MAINTENANCE_LOCATIONS_LIST_ID: string;
   readonly VITE_SP_MAINTENANCE_ROLES_LIST_ID: string;
+  /** Exact Windows printer name for QZ Tray to print Panel QC labels
+   * directly to. Unset = always fall back to the browser print dialog. */
+  readonly VITE_PANEL_QC_LABEL_PRINTER_NAME: string;
+  /** QZ Tray signing cert (public) and its matching PKCS8 private key.
+   * Both unset = requests go out unsigned (QZ Tray's own per-machine
+   * "Allow this site to print?" prompt). See config.ts's QZ_CERTIFICATE. */
+  readonly VITE_QZ_CERTIFICATE: string;
+  readonly VITE_QZ_PRIVATE_KEY: string;
   readonly VITE_SP_SITE_URL: string;
   readonly VITE_SHARED_MAILBOX: string;
   readonly VITE_APP_MANAGER_EMAIL: string;

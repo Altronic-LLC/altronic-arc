@@ -31,6 +31,7 @@ import {
 } from "@/lib/mentions";
 import {
   fireAssigneeChangeAlert,
+  fireEirResolvedAlert,
   fireEirResponseAcceptedAlert,
   fireEirResponseNotAcceptedAlert,
   fireChecklistToggleAlert,
@@ -40,7 +41,11 @@ import {
   notifyMentions,
 } from "@/api/email";
 import { eirTriageStage } from "@/lib/eirTriage";
-import { EIR_RESPONSE_ACCEPTED, EIR_RESPONSE_NOT_ACCEPTED } from "@/lib/eirStatusAlerts";
+import {
+  EIR_RESOLUTION_RESOLVED,
+  EIR_RESPONSE_ACCEPTED,
+  EIR_RESPONSE_NOT_ACCEPTED,
+} from "@/lib/eirStatusAlerts";
 import { diffChecklistToggles } from "@/lib/descriptionChecklist";
 import { buildPromotedCommunication } from "@/lib/eirPromotion";
 import { appItemUrl } from "@/lib/appUrl";
@@ -417,13 +422,21 @@ export function useUpdateEirFields() {
           }
         }
         if ("Resolution" in fields) {
+          const resolutionFrom = ctx.prevEir.resolution;
+          const resolutionTo = String(fields.Resolution ?? "");
           fireFieldChangeAlert({
             target,
             fieldLabel: "resolution",
-            from: ctx.prevEir.resolution,
-            to: String(fields.Resolution ?? ""),
+            from: resolutionFrom,
+            to: resolutionTo,
             ...recipients,
           });
+          // "Resolution" in fields is PRESENCE, not change — same guard as
+          // the Status alerts above, so re-saving an already-Resolved EIR
+          // doesn't re-ask Glenn/Brandon to review it (Ray, 2026-09-04).
+          if (resolutionTo !== resolutionFrom && resolutionTo === EIR_RESOLUTION_RESOLVED) {
+            fireEirResolvedAlert({ target, actor });
+          }
         }
         // The second link in the triage chain: a project reference arriving on
         // an EIR that hasn't got one yet hands it to the assigners.

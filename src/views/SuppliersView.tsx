@@ -6,6 +6,9 @@ import type { Supplier } from "@/types/task";
 import { SUPPLIER_CORE_COMPETENCIES, SUPPLIER_STATUSES } from "@/types/task";
 import { matchesSearch, tokenizeQuery } from "@/lib/itemSearch";
 import { LoadingTasks } from "@/components/LoadingTasks";
+import { SortableHeader } from "@/components/SortableTableHeader";
+import { useSortableTable } from "@/hooks/useSortableTable";
+import type { SortColumn } from "@/lib/tableSort";
 import { SearchInput } from "@/components/SearchInput";
 import { ChoiceSelect } from "@/components/SearchableSelect";
 import { SupplierFormModal } from "@/components/SupplierFormModal";
@@ -22,6 +25,34 @@ import { cn } from "@/lib/cn";
 // =============================================================================
 
 const INITIAL_ROWS = 150;
+
+/**
+ * Sortable columns, as DATA. See lib/tableSort.ts for the rules they inherit.
+ *
+ * Performance is a real NUMBER column, so it sorts numerically and a supplier
+ * with no score recorded sinks to the bottom — a score nobody has measured is
+ * not a score of zero (the same rule the sidebar's "Not recorded" follows).
+ */
+const SUPPLIER_COLUMNS: SortColumn<Supplier>[] = [
+  // `title` is SharePoint's own display convention,
+  // "{BusinessPartnerNumber}-{CompanyName}" — the same string the cell shows.
+  { key: "name", label: "Supplier", value: (s) => s.title },
+  { key: "status", label: "Status", value: (s) => s.status ?? "" },
+  {
+    key: "coreCompetency",
+    label: "Core Competency",
+    // A MULTI choice — joined so the cell and the filter menu agree.
+    value: (s) => s.coreCompetencies.join(", "),
+  },
+  { key: "assignedBuyer", label: "Assigned Buyer", value: (s) => s.assignedBuyer?.displayName ?? "" },
+  {
+    key: "performance",
+    label: "Performance",
+    kind: "number",
+    value: (s) => (s.supplierPerformanceRate === null ? "" : `${s.supplierPerformanceRate}%`),
+    sortValue: (s) => s.supplierPerformanceRate,
+  },
+];
 
 /**
  * Cooper's supplier-onboarding tool — a separate SaaS product (Medius), not
@@ -64,7 +95,15 @@ export function SuppliersView() {
     });
   }, [suppliers, q, status, competency]);
 
-  const shown = showAll ? filtered : filtered.slice(0, INITIAL_ROWS);
+  const table = useSortableTable<Supplier>({
+    rows: filtered,
+    columns: SUPPLIER_COLUMNS,
+    stableKey: (s) => s.id,
+    initialKey: "name",
+    onChange: () => setShowAll(false),
+  });
+
+  const shown = showAll ? table.rows : table.rows.slice(0, INITIAL_ROWS);
 
   return (
     <div className="mx-auto flex max-w-[1200px] flex-col gap-4 px-4 py-4 sm:px-6 sm:py-6">
@@ -172,11 +211,9 @@ export function SuppliersView() {
             <table className="w-full text-left text-sm">
               <thead className="bg-surface-2 text-[11px] uppercase tracking-wider text-fg-muted">
                 <tr>
-                  <th className="px-4 py-2 font-semibold">Supplier</th>
-                  <th className="px-4 py-2 font-semibold">Status</th>
-                  <th className="px-4 py-2 font-semibold">Core Competency</th>
-                  <th className="px-4 py-2 font-semibold">Assigned Buyer</th>
-                  <th className="px-4 py-2 font-semibold">Performance</th>
+                  {SUPPLIER_COLUMNS.map((column) => (
+                    <SortableHeader key={column.key} label={column.label} {...table.headerProps(column.key)} />
+                  ))}
                 </tr>
               </thead>
               <tbody>

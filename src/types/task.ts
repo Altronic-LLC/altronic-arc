@@ -924,6 +924,71 @@ export interface PanelRoleEntry {
   note: string;
 }
 
+/**
+ * A production panel QC issue from the panel team's Panel QC Issues list
+ * (ALTRONICPANELTEAM site). Fields split into what the PANEL DEPARTMENT
+ * records when the defect is first found (panelSerialNumber through
+ * panelsResolution) and what the REPAIR DEPARTMENT records afterward
+ * (repairTechnician through status) — renamed 2026-09-03 to match a
+ * SharePoint column rename Ray made directly on the list (see CLAUDE.md's
+ * Panel QC Issue Tracker section for the old→new mapping). `failureReported`
+ * is the list's free-text column describing the defect — kept apart from
+ * `comments`, the real Communication comment thread, the same collision
+ * CostImpactNotice's `notes` field was named around.
+ */
+export interface PanelQcIssue {
+  id: number;
+  panelSerialNumber: string;
+  /** The PANEL's own part number — distinct from `subComponentPartNumber`,
+   * the defective part found inside it. */
+  panelPartNumber: string;
+  date: Date | null;
+  subComponentPartNumber: string;
+  partDescription: string;
+  subComponentSerialNumber: string;
+  defectCategory: string | null;
+  failureReported: string;
+  panelsResolution: string;
+  repairTechnician: string;
+  /** Choice column — see PANEL_QC_REPAIR_DEFECT_CHOICES_HINT in panelQcMockData.ts;
+   * real mode reads the live SharePoint choice list, never a hardcoded set. */
+  repairDefectCategory: string | null;
+  repairIssueFound: string;
+  repairResolution: string;
+  /** Choice column, defaults to "Created" on create; not shown on the New
+   * Issue form (Ray, 2026-09-03) — only editable once the issue exists. */
+  status: string;
+  watchers: Person[];
+  /** The Communication comment thread, parsed from the SharePoint column. */
+  comments: Comment[];
+  hasAttachments: boolean;
+  tagNumber: string;
+}
+
+export interface PanelQcIssueInput {
+  panelSerialNumber: string;
+  panelPartNumber: string;
+  date: Date | null;
+  subComponentPartNumber: string;
+  partDescription: string;
+  subComponentSerialNumber: string;
+  defectCategory: string | null;
+  failureReported: string;
+  panelsResolution: string;
+  repairTechnician: string;
+  repairDefectCategory: string | null;
+  repairIssueFound: string;
+  repairResolution: string;
+  status: string;
+  watchers: Person[];
+  tagNumber: string;
+}
+
+export interface PanelQcDefect {
+  id: number;
+  name: string;
+}
+
 export const PANEL_TASK_STATUSES = ["Pending", "In Process", "On Hold", "Complete"] as const;
 export type PanelTaskStatus = (typeof PANEL_TASK_STATUSES)[number];
 
@@ -1002,9 +1067,47 @@ export interface QcTimeEntry {
   hoursRaw: string;
   effortType: QcEffortType | null;
   notes: string;
+  /**
+   * `OnHold` — a real boolean column, added 2026-09-16.
+   *
+   * A panel stalls for reasons outside QC's control (a bad Altronic
+   * component, missing parts, a customer delay). The Excel sheet this list
+   * replaced highlighted those rows; ARC had no way to record it at all, so
+   * a tech had nowhere to flag a panel that needs revisiting and management
+   * had nothing to correlate against when times climb.
+   *
+   * Blank genuinely means "not on hold" — there is no third unanswered
+   * state — so it is written on every create, false included, or SharePoint's
+   * own views read the column as blank rather than No.
+   */
+  onHold: boolean;
+  /**
+   * `HoldReason` — a SINGLE choice, not free text, so the reasons stay
+   * countable. NOT clamped to `QC_TIME_HOLD_REASONS` on read: a value
+   * configured in SharePoint before the const catches up must render as
+   * itself rather than vanish.
+   *
+   * Empty when the panel isn't on hold, and when somebody flagged one
+   * without saying why.
+   */
+  holdReason: string;
   createdAt: Date;
   modifiedAt: Date;
 }
+
+/**
+ * Why a panel is on hold. MUST stay in step with the `HoldReason` choice
+ * column — `scripts/add-qc-time-hold-columns.ps1` carries the same list, and
+ * a value here that SharePoint doesn't know is refused on save.
+ */
+export const QC_TIME_HOLD_REASONS = [
+  "Bad Altronic component",
+  "Missing parts",
+  "Customer-caused delay",
+  "Waiting on engineering",
+  "Recurring issue",
+  "Other",
+] as const;
 
 /** Everything `QcTimeEntry` holds except the id/timestamps — what a form edits. */
 export interface QcTimeEntryInput {
@@ -1018,7 +1121,50 @@ export interface QcTimeEntryInput {
   hoursRaw: string;
   effortType: QcEffortType | null;
   notes: string;
+  onHold: boolean;
+  holdReason: string;
 }
+
+// =============================================================================
+// QC Forms — digitized paper QC/test forms, reached from the Quality Control
+// dashboard's "QC Forms" card. Each form is its own SharePoint list; the
+// registry in `lib/qcForms.ts` is what the landing page (search + a button
+// per form) is built from.
+//
+// The first form, QCFRM-012 (CPU-95 Ignition Module Electrical Test and
+// Inspection), has SEVERAL PAPER VARIANTS depending on the unit's Altronic
+// Part Number — CPU-95, CPU-95C, CPU-95 Varispark, CPU-95 EVS, and a
+// multi-application 16/18/20-cylinder sheet. The old Power Apps form used a
+// `Switch()` on the part number to compute an "Altmode" (0-6) that decided
+// which fields printed; see `qcCpu95Altmode()` in `lib/qcCpu95Mapper.ts`.
+// Every column beyond the identifying handful lives in `values`, keyed by the
+// descriptor keys in `lib/qcCpu95Fields.ts` — the same "columns are DATA"
+// pattern as FAIT and the Drawing File Logs. Booleans are carried as
+// "Yes"/"" (checked/unchecked).
+//
+// Which fields apply to which Altmode is `QcCpu95Field.altModes` on each
+// descriptor — `undefined` means always visible, otherwise only for the
+// Altmodes listed (see the file header comment in `lib/qcCpu95Fields.ts`).
+// No delete: each row is a signed, dated test record (Final Test By / Final
+// Inspection By), the same "correct with an edit" treatment as FAIT and
+// Visit Reports.
+// =============================================================================
+
+export interface QcCpu95Record {
+  id: number;
+  /**
+   * Every QCFRM-012 column, keyed by `lib/qcCpu95Fields.ts` descriptor keys —
+   * including the unit's Serial/Unit Number (`Title`, key `serialNumber`) and
+   * its Altronic Part Number (key `altronicPartNumber`), which drives the
+   * Altmode. Booleans are "Yes"/"".
+   */
+  values: Record<string, string>;
+  createdAt: Date;
+  modifiedAt: Date;
+}
+
+/** Everything a create/update writes — the whole values bag, same shape as the record. */
+export type QcCpu95Input = Record<string, string>;
 
 // =============================================================================
 // Drawing File Logs — Engineering's drawing registers, on the Engineering site.
@@ -1585,6 +1731,49 @@ export interface EcnInput {
 }
 
 // =============================================================================
+// ECN Checklist — the Cross-Functional ECN Checklist (Form# MFGFRM-038) as it
+// applies to ONE ECN.
+//
+// One row per ECN on the ECN Checklists list. The 84 per-item answers live in
+// a single multi-line `Answers` column as JSON — see `src/lib/ecnChecklist.ts`
+// for the shape, the merge and why it isn't 84 rows per ECN. The four count
+// columns are REAL columns so SharePoint's own views can answer "which
+// checklists are outstanding" without parsing that blob.
+//
+// The template (the item text, and the form's "On ECN" / "requires review"
+// flags) is NOT stored here — it is identical on every ECN and lives in
+// `src/lib/ecnChecklistTemplate.ts`. Nor is the RACI matrix, which is static
+// reference material shown in a modal (`src/lib/ecnChecklistRaci.ts`).
+// =============================================================================
+
+export interface EcnChecklist {
+  id: number;
+  /** The ECN this checklist belongs to — a SINGLE lookup into the ECNs list. */
+  ecnId: number;
+  /** App-derived from the ECN's Log#, so the row is identifiable in SharePoint. */
+  title: string;
+  /** Derived from the answers — never written independently of them. */
+  status: "Not Started" | "In Progress" | "Complete";
+  /** Which revision of MFGFRM-038 the answers were given against. */
+  templateRevision: string;
+  /** The raw `Answers` column. Parse with `parseAnswers()`; never read by hand. */
+  answersJson: string;
+  /** Rollups, so a SharePoint view needn't parse `answersJson`. */
+  itemsTotal: number;
+  itemsComplete: number;
+  itemsNa: number;
+  itemsFlagged: number;
+  /** Who marked the checklist finished, and when. Null until it is. */
+  completedBy: Person | null;
+  completedDate: Date | null;
+  comments: Comment[];
+  watchers: Person[];
+  hasAttachments: boolean;
+  createdAt: Date;
+  modifiedAt: Date;
+}
+
+// =============================================================================
 // FAITs (First Article Inspection Tests) — Supply Chain, on the Altronic
 // Engineering site.
 //
@@ -1744,6 +1933,22 @@ export interface OpenOrderLine {
   mrpController: string;
   createdBy: string;
   /**
+   * The customer's OWN part number, consolidated from the extract's two
+   * same-named columns.
+   *
+   * The extract can carry BOTH `Customer Material Number` and
+   * `Customer material number` — the same words, differing only in case, as
+   * two separate columns. When both are present the capitalised one wins
+   * wherever it has a value, falling back to the lower-case one; blank in
+   * both is blank here. See `consolidateCustomerMaterial` in
+   * `lib/openOrdersParse.ts`.
+   *
+   * Whether it reaches a CUSTOMER's workbook is per-account —
+   * `OpenOrderCustomerAccount.includeCustomerMaterialNumber`. The master
+   * always carries it.
+   */
+  customerMaterialNumber: string;
+  /**
    * Cell values for columns THIS week's extract carries that ARC doesn't map
    * to a typed field above — keyed by the column's index in that file's
    * header row. SAP's column set changes week to week (a field added,
@@ -1846,6 +2051,21 @@ export interface OpenOrderCustomerAccount {
   customerName: string;
   /** Off the weekly run without deleting the row. */
   active: boolean;
+  /**
+   * Does THIS customer's workbook carry the Customer Material Number column?
+   *
+   * Their own part number for our material — useful to some customers,
+   * meaningless clutter to others, so it is opt-in per account. Defaults to
+   * FALSE when the SharePoint column is missing or unset: an absent flag
+   * means nobody has opted this customer in, and adding a column to a file a
+   * customer receives is not something that should happen silently at the
+   * next deploy. (Deliberately the opposite default from `active`, where an
+   * absent column reading as false would empty the whole weekly run.)
+   *
+   * The MASTER always carries the column regardless — this governs only what
+   * leaves the building.
+   */
+  includeCustomerMaterialNumber: boolean;
   notes: string;
 }
 
@@ -1854,6 +2074,7 @@ export interface OpenOrderCustomerAccountInput {
   accountNumber: string;
   customerName: string;
   active: boolean;
+  includeCustomerMaterialNumber: boolean;
   notes: string;
 }
 
@@ -2003,6 +2224,21 @@ export interface CapacityInput {
 export const SUPPLIER_STATUSES = ["Active", "Phase Out", "Archive", "Indirect"] as const;
 export type SupplierStatus = (typeof SUPPLIER_STATUSES)[number];
 
+/**
+ * `PrimarySupplyFocus` — whatever the column currently offers.
+ *
+ * SharePoint still has this column UNCONFIGURED: Graph reports its choice
+ * list as the single literal placeholder "Choice", and all 531 rows are
+ * blank (confirmed live 2026-09-09). This mirrors that, exactly like
+ * SUPPLIER_ISSUE_STATUSES mirrors its own placeholder trio. **Update this
+ * const and the SharePoint column together** the day Supply Chain sets real
+ * values; until then the picker can only offer what the column offers.
+ *
+ * `Supplier.primarySupplyFocus` is deliberately a plain `string`, not this
+ * union, so a real value configured in SharePoint renders immediately.
+ */
+export const SUPPLIER_PRIMARY_SUPPLY_FOCUSES = ["Choice"] as const;
+
 /** `CoreCompetency` — a MULTI choice (Graph returns an array). ~59 real options. */
 export const SUPPLIER_CORE_COMPETENCIES = [
   "Assembly",
@@ -2099,6 +2335,21 @@ export interface Supplier {
   supplierScore: string;
   coreCompetencies: SupplierCoreCompetency[];
   status: SupplierStatus | null;
+  /**
+   * `PrimarySupplyFocus` — a choice column that is NOT CONFIGURED in
+   * SharePoint: its only choice is the literal placeholder "Choice", and
+   * every sampled row is blank (confirmed live 2026-09-09). Read and written
+   * as a free string rather than clamped to `SUPPLIER_PRIMARY_SUPPLY_FOCUSES`,
+   * so whatever real values Supply Chain configures later show up without a
+   * code change — the same shape-tolerant treatment the Equipment list's
+   * fill-in choice columns get.
+   */
+  primarySupplyFocus: string;
+  /**
+   * `PanelsOnly` — a real SharePoint BOOLEAN, so there is no third
+   * "unanswered" state: blank genuinely means No.
+   */
+  panelsOnly: boolean;
   notes: string;
   assignedBuyer: Person | null;
   supplierIdentifier: string;
@@ -2123,6 +2374,8 @@ export interface SupplierInput {
   address: string;
   website: string;
   status: SupplierStatus | null;
+  primarySupplyFocus: string;
+  panelsOnly: boolean;
   assignedBuyer: Person | null;
   watchers: Person[];
 }
@@ -2917,4 +3170,154 @@ export interface FeatureRequestInput {
   description: string;
   department: FeatureRequestDepartment | null;
   priority: FeatureRequestPriority | null;
+}
+
+// =============================================================================
+// MRB — Material Review Board (Supply Chain, "MRB Data" on the PMO site).
+//
+// Nonconforming material: what the part was, how much of it, why it was
+// rejected, who caused it, and what was decided to do with it. 2,960 rows at
+// discovery (2026-09-21), of which only 97 are live — see `dataFormat`.
+//
+// Every workflow column on this list is called `field_N`, the same migration
+// artefact as the ECNs list. `lib/mrbFields.ts` is the ONLY place that
+// translation exists.
+// =============================================================================
+
+/**
+ * "Where Caused" (`field_6`) — what ARC OFFERS.
+ *
+ * The SharePoint column also declares `Unclassified(Legacy)`, deliberately
+ * left out here: it is a migration placeholder, not a cause anybody should
+ * newly pick. Reads are NOT clamped to this list, so a stored value outside
+ * it still renders as itself.
+ */
+export const MRB_WHERE_CAUSED = [
+  "Vendor",
+  "Handling",
+  "Operator Error",
+  "Documentation",
+] as const;
+
+export type MrbWhereCaused = (typeof MRB_WHERE_CAUSED)[number];
+
+/**
+ * "Disposition" (`field_7`) — the MRB decision. Same rule as above:
+ * `Unclassified(Legacy)` exists on the column and is not offered.
+ *
+ * "To be Determined" IS offered — it is a real, current state meaning the
+ * board has looked and not decided yet, distinct from a blank nobody has
+ * touched.
+ */
+export const MRB_DISPOSITIONS = [
+  "To be Determined",
+  "Use as is",
+  "Rework",
+  "RMA",
+  "Scrap",
+] as const;
+
+export type MrbDisposition = (typeof MRB_DISPOSITIONS)[number];
+
+/**
+ * `field_12` "Data Format" — the live/archive discriminator, and the single
+ * most important column on this list.
+ *
+ * `Legacy` rows are retained history imported from the old Excel workbooks
+ * (Tim, 2026-09-21: "just data retention from older excel files and not
+ * active items"). `Current` rows are the live register. Verified as a clean
+ * split: 0 of the 97 Current rows carry a value in any `(Legacy)` column.
+ */
+export const MRB_DATA_FORMATS = ["Current", "Legacy"] as const;
+
+export interface MrbEntry {
+  id: number;
+  /**
+   * `Title` — the list repurposes it as the SAP Number, so there is no
+   * "title" in the domain type (same as CSA Listings and Visit Reports).
+   * NEVER write `LinkTitle`: it is read-only and carries the display name
+   * "SAP Number", which is exactly the trap that 403'd every Panel QC create.
+   */
+  sapNumber: string;
+  /** `field_1`, date-only. */
+  mrbDate: Date | null;
+  /** `field_2`. The pre-SAP part number; set on every live row. */
+  oldPartNumber: string;
+  /** `field_3`. A real number column — `null` is "not recorded", not zero. */
+  quantity: number | null;
+  /** `field_4`. */
+  description: string;
+  /** `field_5` — why it was rejected. The main free-text field. */
+  reason: string;
+  /** `field_6`, a choice. Blank on a live row means nobody has classified it. */
+  whereCaused: string;
+  /** `field_7`, a choice. Blank means the board has not looked at it yet. */
+  disposition: string;
+  /** `field_8`. */
+  vendorName: string;
+  /** `field_9`, currency. */
+  pricePerUnit: number | null;
+  /** `field_10`, currency. On every live row this is `pricePerUnit * quantity`. */
+  pricePerIssue: number | null;
+  /**
+   * `field_11`, labelled "Comments" — a free-text NOTES column, and NOT the
+   * comment thread. Deliberately named `notes` in the domain to keep the two
+   * apart, the same collision Cost Impact Notices has.
+   */
+  notes: string;
+  /**
+   * The comment thread, from the `Communications` column.
+   *
+   * **Note the PLURAL internal name** — every other list in ARC calls this
+   * column `Communication`. It was added by hand on 2026-09-21 and named
+   * that way, so `mrbFields.ts` carries the exact spelling.
+   */
+  comments: Comment[];
+  /**
+   * `Watchers`, multi-person.
+   *
+   * The column is added by `scripts/add-mrb-watchers-column.ps1`. Until that
+   * has been run this is always `[]` and the watcher controls say they are
+   * unavailable — the read degrades rather than failing, see
+   * `listMrbEntries`.
+   */
+  watchers: Person[];
+  /** `field_12` — "Current" or "Legacy". See MRB_DATA_FORMATS. */
+  dataFormat: string;
+  /** `field_13`. Carries three obvious typos in the data (2204, 5025, 2027). */
+  sourceYear: number | null;
+  /**
+   * The `(Legacy)` and provenance columns (`field_14`–`field_23`), keyed by
+   * the descriptor keys in `lib/mrbFields.ts`.
+   *
+   * Only shown on archive rows, and only where filled — a live entry would
+   * otherwise carry six permanently blank "(Legacy)" fields, which reads as
+   * an unmet requirement rather than as "not applicable".
+   */
+  provenance: Record<string, string>;
+  hasAttachments: boolean;
+  createdAt: Date;
+  modifiedAt: Date;
+}
+
+/**
+ * What the create form supplies and what an edit writes.
+ *
+ * `dataFormat`, `sourceYear` and every provenance column are deliberately
+ * absent: ARC stamps `Current` on a new entry and never writes the migration
+ * columns, which belong to the import that produced them.
+ */
+export interface MrbEntryInput {
+  sapNumber: string;
+  mrbDate: Date | null;
+  oldPartNumber: string;
+  quantity: number | null;
+  description: string;
+  reason: string;
+  whereCaused: string;
+  disposition: string;
+  vendorName: string;
+  pricePerUnit: number | null;
+  pricePerIssue: number | null;
+  notes: string;
 }

@@ -210,6 +210,10 @@ export function useGenerateOpenOrders() {
             accountNumber: report.soldTo,
             customerName: report.customerName,
             active: true,
+            // Unreachable in practice (reports are built FROM the accounts),
+            // but the flag defaults off here for the same reason it does
+            // everywhere else: never opt a customer in by accident.
+            includeCustomerMaterialNumber: false,
             notes: "",
           };
         tick(`${report.customerName} (${done} of ${total})`);
@@ -531,6 +535,7 @@ export function useGenerateCombinedCustomerReport() {
         reports,
         { runDate, generatedBy: user.displayName || undefined },
         layoutFromColumns(parsed.columns),
+        accounts,
       );
       const filename = combinedWorkbookName(
         [reports[0].customerName, reports[1].customerName],

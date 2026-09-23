@@ -18,6 +18,7 @@ import { mergePeople } from "@/lib/people";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { AttachmentsSection } from "@/components/AttachmentsSection";
+import { useCommentFileUpload } from "@/hooks/useAttachments";
 import { FieldEditModal, type EditableFieldSpec } from "@/components/FieldEditModal";
 import { CommentComposer } from "@/components/CommentComposer";
 import { CommentThread } from "@/components/CommentThread";
@@ -46,6 +47,10 @@ export function CostImpactNoticeDetailView() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const noticeId = id ? parseInt(id, 10) : null;
+  // A screenshot pasted or dropped into a comment goes to the SAME
+  // list-item attachment store as the Attachments card, so it survives a
+  // refresh. Without this prop the composer discards it silently.
+  const uploadCommentFile = useCommentFileUpload("costImpactNotice", noticeId);
   const { data: notice, isLoading } = useCostImpactNotice(noticeId);
   const { data: notices = [] } = useCostImpactNotices();
   const currentUser = useCurrentUser();
@@ -276,9 +281,11 @@ export function CostImpactNoticeDetailView() {
                 ? `Posting here emails ${submitter}, who raised this notice, and anyone you @-mention. Cost impact notices have no watchers.`
                 : "Posting here emails anyone you @-mention. Cost impact notices have no watchers."}
             </p>
-            <CommentComposer onSubmit={handleAddComment} mentionablePeople={mentionCandidates} />
+            <CommentComposer
+              draftKey={`costImpact:${noticeId}`} onSubmit={handleAddComment} mentionablePeople={mentionCandidates} uploadFile={uploadCommentFile} />
             <div className="mt-5">
               <CommentThread
+                uploadFile={uploadCommentFile}
                 comments={notice.comments}
                 currentUserEmail={currentUser.email}
                 currentUserName={currentUser.displayName}

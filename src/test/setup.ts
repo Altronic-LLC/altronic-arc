@@ -4,6 +4,10 @@
 //   are available in expect().
 // - Cleans up the DOM between tests so React Testing Library renders don't
 //   leak into each other.
+// - Forgets the app-wide open-dropdown claim, for the same reason: it is a
+//   module-level variable (useDropdownClose.ts), so a panel a test leaves
+//   open closes the NEXT test's panel the moment that one claims. Doing it
+//   here rather than per-file means a new test file can't forget it.
 // - Stubs out browser APIs that jsdom doesn't implement but our code touches
 //   (matchMedia, IntersectionObserver, ResizeObserver). Add to this list as
 //   we discover more.
@@ -11,9 +15,11 @@
 import "@testing-library/jest-dom/vitest";
 import { afterEach } from "vitest";
 import { cleanup } from "@testing-library/react";
+import { resetOpenDropdown } from "@/components/useDropdownClose";
 
 afterEach(() => {
   cleanup();
+  resetOpenDropdown();
 });
 
 // jsdom doesn't ship matchMedia. Some libraries (lucide-react animations,

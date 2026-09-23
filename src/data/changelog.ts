@@ -20,29 +20,408 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "0.142.4",
+    version: "0.164.3",
+    date: "2026-09-23",
+    changes: [
+      "A screen you don't have SharePoint access to now says so, with a Check again action once access is granted, instead of looking like an empty list",
+      "Covers Digital QC, Ignition QC, Coil Defect Log, Potting Sample Log and the Teradyne Log — including when only a reference list behind the screen is unreachable",
+      "Add entry is unavailable on those screens until every list they need can be reached, so an entry can't be lost to a refused save",
+    ],
+  },
+  {
+    version: "0.164.2",
+    date: "2026-09-22",
+    changes: [
+      "Fixed the month and year dropdowns in the date picker rendering unreadably in dark mode — black text on white over the dark calendar",
+      "Every native dropdown, scrollbar and form control in ARC now follows the theme instead of always painting light",
+    ],
+  },
+  {
+    version: "0.164.1",
+    date: "2026-09-22",
+    changes: [
+      "Date pickers: the month and year at the top of the calendar are now dropdowns — pick a year directly instead of clicking the arrow a month at a time",
+      "Most useful on CSA Listings, where a Date Certified can be years back; it applies to every date field in ARC",
+      "A record's existing year is always offered, however old, so an old certificate's date can still be changed",
+    ],
+  },
+  {
+    version: "0.164.0",
+    date: "2026-09-22",
+    changes: [
+      "A comment on a task or its linked build request now appears on both — one conversation, two places",
+      "A comment on a build request PART also appears on the task and the build request, flagged as coming from that part",
+      "Each copy links straight back to the thread it came from, so you reply where the rest of that discussion lives",
+      "Watchers on each side are emailed once — being on both lists no longer means two emails for one comment",
+    ],
+  },
+  {
+    version: "0.163.0",
+    date: "2026-09-22",
+    changes: [
+      "Create Build Request from a task — the button is on the task page, next to New Child Task",
+      "The new request opens prefilled with the task's name and project, and the task reference is locked in",
+      "The task's whole discussion is copied across, keeping each comment's original author and time",
+      "Task and build request link to each other — each page shows the other, with its status",
+    ],
+  },
+  {
+    version: "0.162.0",
+    date: "2026-09-21",
+    changes: [
+      "New: MRB — the Material Review Board register, under Supply Chain. Nonconforming material, why it was rejected, where it was caused and what the board decided to do with it",
+      "The list opens on 'Needs disposition' — the live entries where nobody has recorded a decision yet — with tabs for Decided, Archive and All, each showing its count",
+      "The list shows the Altronic Part Number beside the SAP Number — the field SharePoint calls 'Old Part Number', named the way people actually refer to it, as on the Teradyne Log",
+      "On a phone the list is a set of tappable cards instead of a nine-column table you had to scroll sideways",
+      "Search and filters start collapsed on a phone so the entries fill the screen — the panel opens on a tap, and opens by itself, with a count, whenever a filter is actually narrowing the list",
+      "Several thousand rows imported from the old Excel workbooks sit under Archive, labelled as history: they stay searchable but never appear in the queue",
+      "Filter by vendor, where it was caused or year, search every field including the reason text, and sort or narrow any column",
+      "The line above the table totals the cost of whatever is on screen, so narrowing to one vendor or year answers what it cost",
+      "New Entry fills in Price Per Issue as Price Per Unit x Quantity as you type, and lets you type over it when the invoice disagrees",
+      "An older entry whose stored total doesn't match unit x quantity is flagged rather than quietly recalculated — both figures stay exactly as recorded",
+      "Each card on an entry has one Edit button, and saving writes only the fields you changed",
+      "MRB entries take attachments, and a Discussion thread with @-mentions and watchers — mentioning someone emails them and starts them watching, and a pasted screenshot is saved as an attachment",
+      "The thread is called Discussion rather than Comments, because an MRB entry already has a Comments field of its own that notifies nobody",
+      "Attachments sit beside the Cost card rather than in a full-width panel underneath it",
+      "The 'From the source workbook' card only appears on archive entries — a live one no longer shows a card containing just a spreadsheet row number",
+      "MRB entries cannot be deleted",
+      "The Supply Chain dashboard has an MRB card showing how many entries are waiting on a disposition",
+    ],
+  },
+  {
+    version: "0.161.1",
+    date: "2026-09-18",
+    changes: [
+      "Potting Sample Log: the entry form is now hidden behind an 'Add entry' button instead of always sitting open on the page — it opens as a modal on desktop and a full screen on a phone, with Cancel to back out without saving",
+      "The date/time field defaults to right now each time you open the entry form, not just once when the page loaded",
+    ],
+  },
+  {
+    version: "0.161.0",
+    date: "2026-09-17",
+    changes: [
+      "QC Forms is live — a searchable dashboard of controlled QC/test forms, reached from the Quality Control department",
+      "The first form is QCFRM-012, the CPU-95 ignition module electrical test and inspection sheet, covering the CPU-95, CPU-95C, Varispark, EVS and multi-application 16/18/20-cylinder paper variants",
+      "The form shows only the fields that apply to the unit's Altronic Part Number, automatically",
+      "The 18-cylinder firing angle grid now includes its two extra columns (G and H) that the 16-cylinder grid doesn't have",
+      "The CPU-95 test sheet list shows a status LED on each row — yellow while in process, blue while queued (only Serial Number and Altronic Part Number filled in), red once In Repair is checked, green once Final Inspection is signed off — sorted that way by default (in process, then queued, then in repair, then complete, newest tested first within each)",
+      "The 791950-08 form now labels its firing angle grid '8 Cyl', only shows the 8 columns that unit actually uses, and labels them 8A-8L instead of 16A-16L",
+      "Altronic Part Number now suggests the known CPU-95 variants as you type or scan them, to help catch a typo before it silently picks the wrong test sheet — any other value is still accepted",
+      "Pressing Enter while filling out a CPU-95 test sheet now moves to the next field, like Tab, instead of saving the form early — Save only fires once Enter (or Tab) has actually reached the Save button, and a barcode scanner's CR now moves cleanly from field to field",
+      "The CPU-95 test sheet list is now mobile-friendly — a phone shows a card per sheet instead of a wide table, and the firing angle grid on the form shows two fields per row on a phone for easier reading and tapping",
+    ],
+  },
+  {
+    version: "0.160.0",
+    date: "2026-09-17",
+    changes: [
+      "A half-written comment is kept if you navigate away — go and look up another task, come back, and it's still there",
+      "The same for a new task's title and description, and for the other create forms",
+      "A restored draft says so, with Discard and Keep, so text in a box is never a surprise",
+      "Drafts survive a refresh or a closed tab too, and are forgotten once you post or after a week",
+    ],
+  },
+  {
+    version: "0.159.1",
+    date: "2026-09-17",
+    changes: [
+      "Fixed editing a comment erasing its formatting — bold, italic, underline, lists and links now survive an edit",
+      "A formatted comment opens the editor in rich text automatically; a plain one still opens as plain text so @-mentions keep working",
+    ],
+  },
+  {
+    version: "0.159.0",
+    date: "2026-09-16",
+    changes: [
+      "A pasted web address is now a clickable link wherever ARC shows it — comments, descriptions, ECN and Gray Market cards, supplier and cost impact notes, and the print views",
+      "This applies to everything already saved too, so old comments and descriptions become clickable without anything being re-entered",
+      "Part numbers and references like QMP-4.3 or ALT.III are left alone — only a full http:// or https:// address becomes a link",
+      "A full stop or bracket at the end of a sentence stays out of the link, so the address still works",
+    ],
+  },
+  {
+    version: "0.158.0",
+    date: "2026-09-16",
+    changes: [
+      "Comments have a Rich text button — bold, italic, underline and lists. It warns first, because rich text turns off the @-mention picker for that comment; current watchers are still notified either way",
+      "Task descriptions have the same button, and it warns that rich text turns off the checklist function",
+      "A description that already HAS checkboxes can't be switched — the button says why, so nobody loses a checklist they've been ticking",
+      "Whatever you've already typed carries across when you switch, and you can switch back at any time",
+    ],
+  },
+  {
+    version: "0.157.0",
+    date: "2026-09-16",
+    changes: [
+      "Visit Reports, ECNs, FAITs, Suppliers, CSA Listings, the Teradyne Log and Gray Market Requests all sort by any column now — click the arrows beside a column name",
+      "Clicking a column name instead opens a checkbox list of its values, so you can narrow to one project, supplier or status",
+      "Dates and numbers sort properly rather than as text, and a blank always sinks to the bottom instead of floating to the top",
+    ],
+  },
+  {
+    version: "0.156.1",
+    date: "2026-09-16",
+    changes: [
+      "Fixed the deploy, blocked by a test that opened the ECN project picker before the project list had loaded",
+    ],
+  },
+  {
+    version: "0.156.0",
+    date: "2026-09-16",
+    changes: [
+      "Task and Operations lists can filter by Watching, so you can find what you're tracking without being assigned to it — your own name is first in the list",
+      "QC Time Tracking sorts and filters by any column, the same way the Panel QC Issue Tracker does — including Hours, so long jobs are one click away",
+      "A QC Time panel can be marked On Hold with a reason; those rows are flagged amber and there's a one-click \"on hold\" button to see just them",
+      "Admins can delete a QC Time entry, for when two techs log the same panel twice",
+    ],
+  },
+  {
+    version: "0.155.0",
+    date: "2026-09-16",
+    changes: [
+      "New ARC feature requests now email the person who acts on them — nothing watched that list, so a suggestion could sit unseen",
+      "Moving a feature request's status emails its watchers and the requester, so whoever suggested it hears when it goes In Work or Completed",
+      "Certificates on a CSA listing can be opened by anyone — click the paperclip. Before, the files were only reachable inside the admin-only Edit form, so everyone else could see that a certificate existed and had no way to get at it",
+      "Admins can add and remove those certificates straight from the register too",
+    ],
+  },
+  {
+    version: "0.154.1",
+    date: "2026-09-16",
+    changes: [
+      "Fixed the deploy, which was blocked by a test that had been written to expect the Gray Market requestor bug rather than the fix",
+    ],
+  },
+  {
+    version: "0.154.0",
+    date: "2026-09-16",
+    changes: [
+      "Gray Market Requests show the Requestor and Parts Location again — both read as \"Not set\" even when the SharePoint list had somebody in them",
+      "Screenshots pasted or dropped into a comment now actually save, on EIRs, ECNs, tasks, Operations tasks, Panel orders and tasks, Build Requests, work orders, Suppliers and Cost Impact Notices — before, only FAITs kept them and everywhere else dropped them silently",
+      "A person who can't be matched on the list's own site shows as \"User #n\" rather than as blank, so a field that IS filled in never looks empty",
+    ],
+  },
+  {
+    version: "0.153.2",
+    date: "2026-09-16",
+    changes: [
+      "Fixed the deploy, which was blocked by slow tests timing out rather than by anything wrong with the app",
+    ],
+  },
+  {
+    version: "0.153.1",
+    date: "2026-09-16",
+    changes: [
+      "Fixed the wrong person being added as a watcher or requestor on Gray Market Requests — raising a request could attach somebody who had nothing to do with it",
+      "Same fix reaches Operations tasks, Panel orders and tasks, Panel QC issues, Suppliers, Supplier Contacts, Supplier Issues and CRM customer records, which all had it",
+      "A person is now always looked up on the site being written to, so an assignee, requestor or watcher can no longer come out as a different person",
+      "If someone genuinely can't be found on that site, the field is left empty instead of naming the wrong person",
+    ],
+  },
+  {
+    version: "0.153.0",
+    date: "2026-09-15",
+    changes: [
+      "ECNs now carry the Cross-Functional ECN Checklist (Form# MFGFRM-038) — all 84 review steps across 10 sections, filled out on the ECN's own page",
+      "Every new ECN gets its checklist automatically; an older ECN gets one from the Create checklist button",
+      "Mark each step Complete, N/A or Flagged and record your findings — N/A so a checklist on an ECN that doesn't touch chemicals or CSA files can still reach 100%",
+      "Each step shows whether details must be on the ECN and whether it needs a department review before release, straight off the form",
+      "A \"Who is involved? (RACI)\" link opens the form's role matrix as reference — including per-step, from the steps that have one",
+      "Changes save on their own, with a progress bar and per-section counts; there is no Save button to forget",
+    ],
+  },
+  {
+    version: "0.152.1",
+    date: "2026-09-09",
+    changes: [
+      "Corrected what the app tells you when notification email can't send: you need BOTH Send As and Full Access on the notifications mailbox, not Send As alone — the old message sent people to ask for the wrong permission",
+      "User Manual says the same, in the troubleshooting and comment-notification sections",
+    ],
+  },
+  {
+    version: "0.152.0",
+    date: "2026-09-09",
+    changes: [
+      "New Refresh button in the header — pulls fresh data from SharePoint without reloading the page, so open forms, filters and half-typed comments survive",
+      "Supplier contacts show up again — every contact was being read without its supplier link, so supplier pages listed none of them",
+      "Supplier issues are linked to their supplier the same way, so they list correctly too",
+      "Pick the supplier when adding a contact, instead of being stuck with the page you opened it from",
+      "A contact can't be saved with no supplier — it would never appear anywhere",
+      "Primary Supply Focus now shows and edits on a supplier",
+      "New Yes/No 'Panels Only' field on a supplier, settable when adding one and editable after",
+      "Edit a supplier's four performance scores from the sidebar; a supplier with none can now have its first recorded",
+      "A score that has never been recorded reads 'Not recorded' rather than being hidden",
+    ],
+  },
+  {
+    version: "0.151.2",
+    date: "2026-09-09",
+    changes: [
+      "Fixed the Panel QC label's print sizing leaking into every other printed page in ARC (Drawing Work Sheets, tasks, build request parts, …), shrinking them into a tiny corner of the print preview instead of a full page",
+    ],
+  },
+  {
+    version: "0.151.1",
+    date: "2026-09-09",
+    changes: [
+      "Corrected the Panel QC label's printed size from 2 × 2 inches to 3 × 2 inches to match the real label printer",
+    ],
+  },
+   {
+    version: "0.151.0",
+    date: "2026-09-09",
+    changes: [
+      "Added Panel QC Issue Tracker for recording panel and board defects through resolution, backed by the PANEL COMPONENT FAILURES and PANEL COMPONENT DEFECTS lists on the ALTRONICPANELTEAM SharePoint site",
+      "Defect categories come from a shared list and can be added directly while recording an issue",
+      "Panel QC issues open newest dated records first, keep undated records at the bottom, and can be sorted by any issue field",
+      "Panel QC assigns the next P-YYYY-#### TAG Number automatically when a new issue is created, and shows existing tags in the edit header",
+      "Panel QC lists TAG Number first and keeps desktop column headers spaced with horizontal scrolling when needed",
+      "Panel QC New Issue and edit actions open dedicated views instead of modal dialogs, using the full list width",
+      "New Panel QC entries default to the browser's local date",
+      "Existing Panel QC entries can open a printer-ready 2 × 2 inch label, with zero margins, showing their TAG Number, serial note, part details, and date",
+      "Panel QC issues have a real Communication comment thread with @-mentions and email notifications, Watchers with an immediate Watch/Unwatch button and auto-watch when someone is mentioned, and file attachments",
+      "Panel QC issue search also matches the comment thread and watcher names, and the list shows a comment count and a paperclip icon for issues with attachments",
+      "Panel QC fields are grouped into Panel Department and Repair Department sections in both the new-issue and edit views — the Repair Department section stays hidden until the issue exists",
+      "Panel QC issue fields renamed to match the SharePoint list — Panel Serial Number, Panel Part Number, Sub Component Part Number, Sub Component Serial Number, Failure Reported, Panels Resolution, Repair Technician, Repair Defect Category, Repair Issue Found, Repair Resolution — plus a new Status field",
+      "The Panel QC edit view shows the issue's current Status next to its TAG Number, with a Status picker beside Save changes; new issues always start at Created",
+      "New Panel QC issues can have files attached before saving — they upload automatically once the issue is created, with the Cancel/Add issue buttons sitting below Attachments on that form",
+      "Failure Reported now carries a reminder to attach any relevant photos, configuration files, and documents related to the failure",
+      "Panel QC issue list columns can now be filtered — click a column name to check/uncheck which values to show, with a search box for long lists and a Clear filters button once any are active",
+      "Fixed the column filter panel disappearing when unchecking Select all (or otherwise matching zero rows) before you could pick specific values",
+      "Fixed the column filter panel getting squeezed into a tiny scrollable box instead of overlaying the page, when the table area behind it was short",
+      "Fixed the column filter panel closing itself the instant it opened",
+      "The Status picker on a Panel QC issue is now wide enough to read its longer choices (\"Repair In-Process\", \"Panels Completed\") without truncating them",
+      "Every searchable dropdown in ARC now shows a truncated option's full text on hover",
+      "The app header and footer stay visible while you scroll, with reserved space so page content remains accessible",
+      "Printing a Panel QC label can now go straight to a configured network printer with no print dialog, when QZ Tray is installed and that printer is available — otherwise the usual print preview opens as before",
+      "Fixed a printer check that could hang indefinitely instead of falling back to the print dialog when no network printer was available",
+      "Fixed a clearable dropdown's ✕ button rendering nested inside its own trigger, which browsers accepted visually but wasn't valid — now two separate buttons side by side",
+      "Panel QC's silent network printing can now optionally be cryptographically signed, so a machine set up to trust it skips QZ Tray's one-time \"Allow this site to print?\" prompt entirely",
+      "Increased the font size on the Panel QC 2 × 2 label for easier reading",
+      "Fixed saving a new Panel QC issue failing outright with a permissions error",
+    ],
+  },
+  {
+    version: "0.150.0",
+    date: "2026-09-08",
+    changes: [
+      "Open Orders: a new Include customer material number option on each customer adds a Customer Material Number column — their own part number — to that customer's workbook only",
+      "Where the SAP extract carries two same-named part-number columns, they're combined into one: Customer Material Number is used where it has a value, Customer material number where it doesn't, and blank where neither does",
+      "The master report always carries the combined column, whatever the individual customers are set to",
+      "An upload whose extract has neither column now says so, rather than the column silently going missing from those customers' files",
+      "The customer list shows a Cust. material no. tag on the customers set to receive it",
+    ],
+  },
+  {
+    version: "0.149.0",
+    date: "2026-09-04",
+    changes: [
+      "A parent task can no longer be marked Complete while any of its child tasks are still open — the Mark Complete button, the sidebar Status dropdown, and dragging a card to the Complete column on the Kanban board all refuse it and explain how many child tasks need finishing first",
+    ],
+  },
+  {
+    version: "0.148.0",
+    date: "2026-09-04",
+    changes: [
+      "Task detail: added a New Child Task button — opens the New Task form pre-filled and locked to this task's parent and project, so you only fill in the rest",
+    ],
+  },
+  {
+    version: "0.147.0",
+    date: "2026-09-04",
+    changes: [
+      "Task detail: Watchers is now a picker in the sidebar, like Assigned — add or remove anyone directly, instead of only being able to watch/unwatch yourself",
+    ],
+  },
+  {
+    version: "0.146.2",
+    date: "2026-09-04",
+    changes: [
+      "The EIR-resolved review alert now has its own row on Admin → Notification recipients, instead of being buried in the assign-an-engineer row's description",
+    ],
+  },
+  {
+    version: "0.146.1",
+    date: "2026-09-04",
+    changes: [
+      "Admin → Notification recipients now notes that the EIR assign-an-engineer list is also who's asked to review an EIR once it's Resolved",
+    ],
+  },
+  {
+    version: "0.146.0",
+    date: "2026-09-04",
+    changes: [
+      "When an EIR's Resolution is set to Resolved, Glenn Terry and Brandon Mirto are now emailed to review it and decide whether the response is accepted",
+    ],
+  },
+  {
+    version: "0.145.3",
+    date: "2026-09-04",
+    changes: [
+      "Moved the KAM field back under Assigned Engineer on a FAIT's sidebar",
+    ],
+  },
+  {
+    version: "0.145.2",
+    date: "2026-09-03",
+    changes: [
+      "Fixed: the KAM person field on a FAIT's sidebar now actually hides when there's no OEM Impact (it was only hiding the sign-off requirement note, not the picker itself) — unless a KAM is already assigned, in which case it stays visible so that assignment isn't hidden",
+    ],
+  },
+  {
+    version: "0.145.1",
+    date: "2026-09-03",
+    changes: [
+      "Moved the KAM field ahead of Assigned Engineer on a FAIT's sidebar",
+      "A FAIT with no OEM Impact no longer shows a KAM sign-off requirement — the KAM fields hide, and closing the FAIT no longer waits on a signature that isn't owed",
+    ],
+  },
+  {
+    version: "0.145.0",
+    date: "2026-09-03",
+    changes: [
+      "Checking Notify Initiator on a FAIT now closes it and emails the initiator + watchers that all sign-offs are complete — it only works once SQE, Engineering and (if one is assigned) KAM have all signed off, otherwise the change is refused with an explanation",
+    ],
+  },
+  {
+    version: "0.144.0",
+    date: "2026-09-03",
+    changes: [
+      "FAIT comments now support real file attachments (screenshots included) — the same upload used elsewhere in ARC, not a temporary preview that disappeared on refresh",
+      "The FAIT initiator can no longer be removed from Watchers, in the picker or by any write — they always keep seeing updates on the FAIT they raised",
+      "Added a note explaining what the Notify Initiator checkbox on a FAIT actually does: it emails the initiator and watchers that an update is available — it does not close the FAIT or change its status",
+    ],
+  },
+  {
+    version: "0.143.1",
     date: "2026-09-02",
     changes: [
-      "Teradyne Log now explains when its Operations SharePoint list or reference lists are unavailable instead of appearing empty",
-      "New Teradyne entries are unavailable until the log and its required reference lists can be reached",
+      "New Gray Market Request now shows a Requestor field, defaulted to you — change it if you're filing on someone else's behalf",
+    ],
+  },
+  {
+    version: "0.143.0",
+    date: "2026-09-02",
+    changes: [
+      "Fixed a sign-in bug on shared computers: if more than one person had ever signed into ARC on the same browser, the app could silently continue as whichever one signed in first, instead of asking who's actually there — on a shared workstation, this could put someone else's name on things you submitted, like a Gray Market Request's Requestor",
+      "You'll now see Microsoft's own account picker if more than one Microsoft account is remembered on that browser, instead of ARC guessing",
     ],
   },
   {
     version: "0.142.3",
     date: "2026-09-02",
     changes: [
-      "Coil Defect Log and Potting Sample Log now explain when a required SharePoint list is unavailable instead of appearing empty",
-      "Coil entries cannot be added until the selected app's required SharePoint lists can be reached",
+      "Fixed ARC Feature Requests: manually adding someone as a watcher who wasn't already known to the app silently did nothing",
     ],
   },
   {
     version: "0.142.2",
     date: "2026-09-02",
     changes: [
-      "Digital QC and Ignition QC now explain when your SharePoint list access is missing instead of showing a misleading blank list",
-      "Add entry is unavailable until the selected QC list can be reached, with a Check again action after access is granted",
+      "Fixed ARC Feature Requests: watchers added by @-mentioning someone in a comment could silently disappear moments later",
     ],
   },
+  
   {
     version: "0.142.1",
     date: "2026-09-02",

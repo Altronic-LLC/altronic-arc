@@ -10,6 +10,7 @@ import {
   ChevronDown,
   CircuitBoard,
   ClipboardCheck,
+  ClipboardX,
   ClipboardList,
   Cog,
   DollarSign,
@@ -43,6 +44,8 @@ import type { MaintenanceTask } from "@/types/task";
 import { useCsaListings } from "@/hooks/useCsaListings";
 import { useEcns } from "@/hooks/useEcns";
 import { useFaits } from "@/hooks/useFaits";
+import { useMrbEntries } from "@/hooks/useMrb";
+import { needsDisposition } from "@/lib/mrbMapper";
 import { useQuickLinksFor } from "@/hooks/useQuickLinks";
 import { QuickLinksRow } from "@/components/QuickLinksRow";
 import { isEcnOnHold } from "@/lib/ecnMapper";
@@ -265,6 +268,7 @@ export function DashboardView() {
   } = useCsaListings();
   const { data: ecns = [] } = useEcns();
   const { data: faits = [] } = useFaits();
+  const { data: mrbEntries = [] } = useMrbEntries();
   const {
     data: testSheets = [],
     isError: testSheetsError,
@@ -396,6 +400,22 @@ export function DashboardView() {
       : [];
     return { count: open.length, segments };
   }, [faits, mine, myEmail, projectId]);
+
+  /**
+   * MRB — live entries with no disposition recorded, or explicitly "To be
+   * Determined". Material sitting in a bin that nobody has decided about.
+   *
+   * **Deliberately NOT scoped by Mine/Company.** The list has no person
+   * column of any kind, so there is nothing a "mine" filter could read —
+   * unlike FAITs above, which scopes on initiator / engineer / KAM. The
+   * `unit` says "need a disposition" so the number describes the register
+   * rather than the reader, which is what keeps it honest under either
+   * scope. Archive rows are excluded by `needsDisposition`.
+   */
+  const mrbCard = useMemo(
+    () => ({ count: mrbEntries.filter(needsDisposition).length }),
+    [mrbEntries],
+  );
 
   const eirCard = useMemo(() => {
     const active = eirs.filter(
@@ -845,6 +865,13 @@ export function DashboardView() {
           description="Hours QC spent on each panel — who did the work, when, and how long."
           onClick={() => navigate("/panels/qc-time-tracking")}
         />
+        <TypeCard
+          name="Panel QC Issue Tracker"
+          icon={<ClipboardCheck className="h-5 w-5" />}
+          tone="cooper-green"
+          description="Track panel and board defects from production through resolution."
+          onClick={() => navigate("/panels/qc-issues")}
+        />
         <PlaceholderCard name="Project Folders" icon={<FolderOpen className="h-5 w-5" />} />
       </DeptSection>
 
@@ -932,7 +959,13 @@ export function DashboardView() {
           description="Product-family defect tracking with quick filtering and add-entry capture."
           onClick={() => navigate("/ignition-qc")}
         />
-        <PlaceholderCard name="QC Forms" icon={<FileCheck className="h-5 w-5" />} />
+        <TypeCard
+          name="QC Forms"
+          icon={<FileCheck className="h-5 w-5" />}
+          tone="superior-blue"
+          description="Digitized paper QC/test forms — start with QCFRM-012, the CPU-95 ignition module test sheet."
+          onClick={() => navigate("/qc-forms")}
+        />
       </DeptSection>
 
       <DeptSection
@@ -969,6 +1002,20 @@ export function DashboardView() {
           unit="open"
           segments={faitCard.segments}
           onClick={() => navigate(faitsUrl)}
+        />
+        {/* Shares superior-blue with FAITs on purpose. The section's four
+            cards already use all four brand tones, so a fifth must repeat
+            one — and these two are the pair worth pairing: both are quality
+            dispositions on inspected material, FAIT at the gate and MRB when
+            something fails. Repeating Cost Impact's red would instead blunt
+            "red means a cost change". */}
+        <TypeCard
+          name="MRB"
+          icon={<ClipboardX className="h-5 w-5" />}
+          tone="superior-blue"
+          count={mrbCard.count}
+          unit="need a disposition"
+          onClick={() => navigate("/supply-chain/mrb")}
         />
       </DeptSection>
 

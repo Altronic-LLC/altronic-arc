@@ -10,6 +10,7 @@ import {
   EIR_TRIAGE_ASSIGNERS,
   EIR_TRIAGE_PROJECT_REVIEWERS,
   COST_IMPACT_NOTICE_ALERTS,
+  FEATURE_REQUEST_ALERTS,
   FAIT_NEW_ALERTS,
   FAIT_SQE_REVIEWERS,
   GRAY_MARKET_NEW_REQUEST_ALERTS,
@@ -46,6 +47,21 @@ const LISTS: Array<{ label: string; envVar: string; value: string | undefined; w
     what: "Emailed when a project reference lands on an EIR that still has no engineer. Also the fallback when a rejected response has no engineer to send back to.",
   },
   {
+    // Same underlying list as "EIR — assign an engineer" above — reused
+    // deliberately rather than a new list, since Ray asked for Glenn/Brandon
+    // by name and they already review EIRs at this point in the workflow
+    // (see the EIR status alerts section in CLAUDE.md). Its own ROW here
+    // regardless, not just a mention folded into the row above's `what` text
+    // — a row label is what someone scans for, and "Resolved" wouldn't
+    // otherwise be findable without reading the assign-an-engineer row's
+    // fine print (Ray, 2026-09-04: "the recent email for resolved is not in
+    // the list").
+    label: "EIR — resolved, review the response",
+    envVar: "VITE_EIR_TRIAGE_ASSIGNERS",
+    value: EIR_TRIAGE_ASSIGNERS,
+    what: "Emailed when an EIR's Resolution becomes Resolved, asking them to review it and decide whether the response is accepted. Same list as \"EIR — assign an engineer\" above.",
+  },
+  {
     label: "EIR — response accepted",
     envVar: "VITE_EIR_RESPONSE_ACCEPTED_ALERTS",
     value: EIR_RESPONSE_ACCEPTED_ALERTS,
@@ -68,6 +84,25 @@ const LISTS: Array<{ label: string; envVar: string; value: string | undefined; w
     envVar: "VITE_COST_IMPACT_NOTICE_ALERTS",
     value: COST_IMPACT_NOTICE_ALERTS,
     what: "Emailed when a cost impact notice is raised.",
+  },
+  {
+    // TWO rows share this env var, on purpose — genuinely different triggers
+    // on the same recipients, each worth its own label. A reused list gets
+    // its own row whenever the TRIGGER is a different thing someone would
+    // look for; see the EIR Resolved note in CLAUDE.md for why folding it
+    // into another row's `what` text hides it.
+    label: "ARC Feature Request — new request",
+    envVar: "VITE_FEATURE_REQUEST_ALERTS",
+    value: FEATURE_REQUEST_ALERTS,
+    what: "Emailed when somebody suggests a new ARC feature or change.",
+  },
+  {
+    label: "ARC Feature Request — status change",
+    envVar: "VITE_FEATURE_REQUEST_ALERTS",
+    value: FEATURE_REQUEST_ALERTS,
+    what:
+      "Emailed when a feature request moves — Pending Review to In Work, " +
+      "Completed, or Not Implementing.",
   },
   {
     label: "FAIT — new FAIT",
@@ -176,7 +211,11 @@ export function AdminNotificationRecipientsView() {
           </div>
 
           {audited.map((list, i) => (
-            <section key={list.envVar} className="flex flex-col gap-2">
+            // Keyed on label, not envVar — two rows now deliberately share
+            // an envVar (EIR "assign an engineer" and "resolved, review the
+            // response" both read VITE_EIR_TRIAGE_ASSIGNERS), and label is
+            // unique per row.
+            <section key={list.label} className="flex flex-col gap-2">
               <div className="flex flex-col gap-0.5">
                 <h2 className="font-display text-sm font-semibold uppercase tracking-wider text-fg">
                   {list.label}

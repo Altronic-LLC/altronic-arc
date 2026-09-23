@@ -418,20 +418,25 @@ export function buildFaitSqeFailedEmails(args: {
 }
 
 // =============================================================================
-// "Notify Initiator" — a Sign-off card checkbox with no wiring until now
-// (Ray, 2026-09-01). Ticking it tells the initiator (and every watcher) that
-// an update is available on the FAIT they raised — a general nudge, not tied
-// to any one sign-off step.
+// "Notify Initiator" — a Sign-off card checkbox. Landed with no wiring at
+// all (Ray, 2026-09-01), then wired as a bare "an update is available" nudge
+// unrelated to Status. Ray, 2026-09-03: checking it should CLOSE the FAIT —
+// so ticking it now only succeeds once `faitFullySignedOff` (lib/faitSignOff.ts)
+// says every sign-off this FAIT owes (SQE, Engineering, and KAM if one is
+// owed) is Approved; useFaits.ts's mutationFn refuses the write otherwise,
+// before it reaches the FAIT at all, and the box visibly doesn't save.
 //
 // Fire-once, not a toggle: only the transition INTO checked sends anything
 // (see the `to !== from` guard in useFaits.ts, mirroring faitSignOffOutcome's
 // presence-vs-change pattern). Re-saving the Sign-off card with the box left
-// checked must not re-send this every time.
+// checked must not re-close (and re-email) an already-closed FAIT.
 // =============================================================================
 
 /**
- * Build the "Notify Initiator" email — the initiator plus every watcher,
- * deduped, actor excluded unless that would leave nobody.
+ * Build the "this FAIT is now closed" email — the initiator plus every
+ * watcher, deduped, actor excluded unless that would leave nobody. Only ever
+ * called once the close has actually happened (useFaits.ts's `notifyClosing`
+ * gate), so there is no "not actually done yet" variant of this wording.
  */
 export function buildFaitNotifyInitiatorEmails(args: {
   target: ChangeTarget;
@@ -451,11 +456,11 @@ export function buildFaitNotifyInitiatorEmails(args: {
   return recipients.map((p) => ({
     email: p.email!,
     displayName: p.displayName,
-    subject: `${args.target.title} — update available`,
+    subject: `${args.target.title} — closed`,
     headlineHtml:
-      `<strong>${actorName}</strong> flagged that an update is available on this FAIT you ` +
-      `initiated.`,
-    detailHtml:
-      `<div style="font-size:14px;">Open the FAIT to see what changed.</div>`,
+      `<strong>${actorName}</strong> confirmed all sign-offs are complete on this FAIT` +
+      `${initiatorEmail && p.email?.toLowerCase() === initiatorEmail.toLowerCase() ? " you initiated" : ""}` +
+      `. <strong>It's now closed.</strong>`,
+    detailHtml: `<div style="font-size:14px;">No further action is needed.</div>`,
   }));
 }

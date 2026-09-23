@@ -281,6 +281,40 @@ describe("MaintenanceListView", () => {
   });
 
   describe("the 150-row render cap", () => {
+    /**
+     * WHY THIS BLOCK AVOIDS AN UNSCOPED `getByRole` FOR "Show all".
+     *
+     * A role query builds an accessibility tree across the WHOLE document, so
+     * with 160 rows mounted it costs seconds — profiled on the equivalent EIR
+     * test (`EirsView.rowCap.test.tsx`, 2026-09-16), two such calls were 87%
+     * of that test's runtime. These cases click it up to twice each, which is
+     * what blew the 20s timeout under full-suite load and FAILED THE DEPLOY on
+     * 2026-09-16 (`npm test` gates it).
+     *
+     * `getByText` is a flat text scan and tests the same thing — the button
+     * carries distinctive text. The `pill()` / `typePill()` helpers keep using
+     * roles because they scope `within()` a small container first, which is
+     * what bounds the cost.
+     */
+    const showAll = () => screen.getByText(/show all 160/i);
+
+    /**
+     * `userEvent` with NO inter-event delay, for this block only.
+     *
+     * The default awaits a realistic delay between the pointer events a click
+     * dispatches, and with 160 rows mounted every one of those ticks drags a
+     * re-render behind it. The two-click cases here were the slowest in the
+     * file and timed out on a loaded CI runner while passing in isolation —
+     * the deploy-gating failure on 2026-09-16, which reproduced at commits
+     * predating the change being deployed. The click still dispatches every
+     * event in order; it just doesn't wait between them.
+     *
+     * Deliberately scoped to this describe, not the file: the other blocks
+     * render a handful of rows, are nowhere near a timeout, and are better
+     * left exercising userEvent's realistic default.
+     */
+    const user = userEvent.setup({ delay: null });
+
     // Just over the cap — enough to exercise it without paying to render
     // hundreds of rows several times over in one file.
     const COUNT = 160;
@@ -312,7 +346,7 @@ describe("MaintenanceListView", () => {
     // enough — it timed out there while passing on its own.
     it("shows all of them on request", async () => {
       renderList();
-      await userEvent.click(screen.getByRole("button", { name: /show all 160/i }));
+      await user.click(showAll());
       await waitFor(() => expect(screen.getByText("Job 1")).toBeInTheDocument());
     }, 20_000);
 
@@ -320,27 +354,27 @@ describe("MaintenanceListView", () => {
     // searched for would be perverse — so the cap resets when filters change.
     it("puts the cap back when the filters change", async () => {
       renderList();
-      await userEvent.click(screen.getByRole("button", { name: /show all 160/i }));
+      await user.click(showAll());
       await waitFor(() => expect(screen.getByText("Job 1")).toBeInTheDocument());
 
-      await userEvent.click(pill(/^Backlog/));
+      await user.click(pill(/^Backlog/));
       await waitFor(() =>
-        expect(screen.getByRole("button", { name: /show all 160/i })).toBeInTheDocument(),
+        expect(showAll()).toBeInTheDocument(),
       );
       expect(screen.queryByText("Job 1")).toBeNull();
     }, 20_000);
 
     it("puts the cap back when the Type axis changes", async () => {
       renderList();
-      await userEvent.click(screen.getByRole("button", { name: /show all 160/i }));
+      await user.click(showAll());
       await waitFor(() => expect(screen.getByText("Job 1")).toBeInTheDocument());
 
       const group = screen.getByRole("radiogroup", { name: /type/i });
-      await userEvent.click(within(group).getByRole("radio", { name: /^One-off$/ }));
+      await user.click(within(group).getByRole("radio", { name: /^One-off$/ }));
       // Every fixture row is one-off, so the count is unchanged — what is
       // being asserted is that the cap came back, not that rows went away.
       await waitFor(() =>
-        expect(screen.getByRole("button", { name: /show all 160/i })).toBeInTheDocument(),
+        expect(showAll()).toBeInTheDocument(),
       );
       expect(screen.queryByText("Job 1")).toBeNull();
     }, 20_000);
@@ -348,7 +382,9 @@ describe("MaintenanceListView", () => {
     it("offers no Show all when everything already fits", () => {
       state.tasks = TASKS;
       renderList();
-      expect(screen.queryByRole("button", { name: /show all/i })).toBeNull();
+      // Only the small fixture is mounted here, so a role query is cheap —
+      // but text matching is consistent with the rest of this block.
+      expect(screen.queryByText(/show all/i)).toBeNull();
     });
   });
 

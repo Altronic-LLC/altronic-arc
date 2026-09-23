@@ -188,7 +188,24 @@ export async function updateFeatureRequestFields(
   return reloaded;
 }
 
-/** Replace the Watchers list. */
+/**
+ * Replace the Watchers list.
+ *
+ * Resolves each person's lookupId against the Engineering site FIRST —
+ * `multiPersonField` silently drops anyone with no `lookupId`, and a person
+ * picked from the tenant directory (`useDirectoryPeople`, real mode) never
+ * carries one: that's a per-site SharePoint concept, not a tenant/Entra one.
+ * Without this, manually adding a watcher who wasn't already on some OTHER
+ * feature request (and therefore already resolved into the in-app people
+ * list) silently no-ops — the PATCH "succeeds" with that person simply
+ * missing from the array that was actually sent. Reported by Ray,
+ * 2026-09-02: "i still can not add watchers to feature requests manually."
+ *
+ * Same resolver auto-watch-on-mention already uses
+ * (`resolveFeatureRequestSiteUserLookupId` — a thin wrapper over
+ * `resolveCurrentUserLookupId`, which despite its name resolves ANY email
+ * against the site's User Information List, not just the signed-in user's).
+ */
 export async function setFeatureRequestWatchers(
   id: number,
   people: Person[],
@@ -196,7 +213,15 @@ export async function setFeatureRequestWatchers(
   if (USE_MOCK) {
     return updateFeatureRequestFields(id, { Watchers: people });
   }
-  return updateFeatureRequestFields(id, multiPersonField("Watchers", people));
+  const resolved = await Promise.all(
+    people.map(async (p) => {
+      if (p.lookupId) return p;
+      if (!p.email) return p;
+      const lookupId = await resolveCurrentUserLookupId(p.email);
+      return lookupId ? { ...p, lookupId } : p;
+    }),
+  );
+  return updateFeatureRequestFields(id, multiPersonField("Watchers", resolved));
 }
 
 /** Append a comment to a feature request's Communication field. */
@@ -277,4 +302,18 @@ export function collectFeatureRequestPeople(requests: FeatureRequest[]): Person[
     }
   }
   return [...map.values()];
+}
+
+/**
+ * Test seam — restores the mock store to the shipped fixtures.
+ *
+ * Mock mode mutates a module-level array, so one test moving a request's
+ * status leaks into the next one in the same file. That is how the
+ * "stays quiet on an unchanged status" guard test first passed for the wrong
+ * reason: it re-saved "Pending Review" onto a fixture an earlier test had
+ * already moved to "In Work", so the transition was real and the alert
+ * correctly fired.
+ */
+export function __resetFeatureRequestMockStore(): void {
+  mockStore = MOCK_FEATURE_REQUESTS.map((r) => ({ ...r }));
 }

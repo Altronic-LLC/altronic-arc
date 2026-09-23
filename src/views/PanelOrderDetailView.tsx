@@ -33,6 +33,7 @@ import { PanelOrderStatusBadge } from "@/components/panelAtoms";
 import { CommentComposer } from "@/components/CommentComposer";
 import { CommentThread } from "@/components/CommentThread";
 import { AttachmentsSection } from "@/components/AttachmentsSection";
+import { useCommentFileUpload } from "@/hooks/useAttachments";
 import { PersonMultiField } from "@/components/PersonMultiField";
 import { SingleSelect } from "@/components/SearchableSelect";
 import { LoadingTasks } from "@/components/LoadingTasks";
@@ -47,6 +48,10 @@ import { cn } from "@/lib/cn";
 export function PanelOrderDetailView() {
   const { id } = useParams<{ id: string }>();
   const orderId = id ? parseInt(id, 10) : null;
+  // A screenshot pasted or dropped into a comment goes to the SAME
+  // list-item attachment store as the Attachments card, so it survives a
+  // refresh. Without this prop the composer discards it silently.
+  const uploadCommentFile = useCommentFileUpload("panelOrder", orderId);
   const navigate = useNavigate();
 
   const currentUser = useCurrentUser();
@@ -232,9 +237,11 @@ export function PanelOrderDetailView() {
             <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
               Comments
             </h2>
-            <CommentComposer onSubmit={handleAddComment} mentionablePeople={mentionCandidates} />
+            <CommentComposer
+              draftKey={`panelOrder:${orderId}`} onSubmit={handleAddComment} mentionablePeople={mentionCandidates} uploadFile={uploadCommentFile} />
             <div className="mt-5">
               <CommentThread
+                uploadFile={uploadCommentFile}
                 comments={order.comments}
                 currentUserEmail={currentUser.email}
                 currentUserName={currentUser.displayName}

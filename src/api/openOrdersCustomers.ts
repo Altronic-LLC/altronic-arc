@@ -27,7 +27,7 @@ import { MOCK_OPEN_ORDER_ACCOUNTS } from "@/data/openOrdersMockData";
 
 const LIST = () => SP_OPEN_ORDERS_CUSTOMERS_LIST_ID;
 
-const SELECT = "Title,CustomerName,Active,Notes";
+const SELECT = "Title,CustomerName,Active,IncludeCustomerMaterialNumber,Notes";
 
 interface GraphItem {
   id: string;
@@ -63,6 +63,12 @@ function toAccount(item: GraphItem): OpenOrderCustomerAccount {
     // weekly run the moment the column was added, which is the failure nobody
     // would think to look for.
     active: f.Active === undefined || f.Active === null ? true : f.Active === true,
+    // Deliberately the OPPOSITE default from Active above. A missing or unset
+    // flag means nobody has opted this customer in, and quietly adding a
+    // column to the file a customer receives — the moment the SharePoint
+    // column is created, for every account at once — is the change you don't
+    // want happening by default.
+    includeCustomerMaterialNumber: f.IncludeCustomerMaterialNumber === true,
     notes: text(f.Notes),
   };
 }
@@ -72,6 +78,7 @@ function toFields(input: OpenOrderCustomerAccountInput): Record<string, unknown>
     Title: input.accountNumber.trim(),
     CustomerName: input.customerName.trim(),
     Active: input.active,
+    IncludeCustomerMaterialNumber: input.includeCustomerMaterialNumber,
     Notes: input.notes.trim(),
   };
 }
@@ -111,6 +118,7 @@ export async function createOpenOrdersCustomer(
       accountNumber: input.accountNumber.trim(),
       customerName: input.customerName.trim(),
       active: input.active,
+      includeCustomerMaterialNumber: input.includeCustomerMaterialNumber,
       notes: input.notes.trim(),
     };
     store.push(created);
@@ -137,6 +145,7 @@ export async function updateOpenOrdersCustomer(
       accountNumber: input.accountNumber.trim(),
       customerName: input.customerName.trim(),
       active: input.active,
+      includeCustomerMaterialNumber: input.includeCustomerMaterialNumber,
       notes: input.notes.trim(),
     };
     return { ...store[index] };

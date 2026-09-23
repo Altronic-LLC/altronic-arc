@@ -9,6 +9,9 @@ import { formatSpDate } from "@/lib/spDates";
 import { withPerson } from "@/lib/people";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { LoadingTasks } from "@/components/LoadingTasks";
+import { SortableHeader } from "@/components/SortableTableHeader";
+import { useSortableTable } from "@/hooks/useSortableTable";
+import { dayLabel, type SortColumn } from "@/lib/tableSort";
 import { SearchInput } from "@/components/SearchInput";
 import { ChoiceSelect } from "@/components/SearchableSelect";
 import { GrayMarketRequestFormModal } from "@/components/GrayMarketRequestFormModal";
@@ -29,6 +32,34 @@ import { cn } from "@/lib/cn";
 type StatusFilter = "Open" | "Complete" | "All";
 
 const STATUS_TABS: StatusFilter[] = ["Open", "Complete", "All"];
+
+/**
+ * Sortable columns, as DATA. See lib/tableSort.ts for the shared rules.
+ *
+ * Part matches the cell's own fallback (description, then MFG part number),
+ * so the filter menu offers exactly what is on screen.
+ */
+const GRAY_MARKET_COLUMNS: SortColumn<GrayMarketRequest>[] = [
+  { key: "logNo", label: "Log No.", value: (r) => r.logNo },
+  { key: "title", label: "Title", value: (r) => r.title },
+  {
+    key: "part",
+    label: "Part",
+    value: (r) => r.values.partDescription || r.values.mfgPartNo || "",
+    noFilter: true,
+  },
+  { key: "vendor", label: "Vendor", value: (r) => r.values.vendor ?? "" },
+  { key: "requestor", label: "Requestor", value: (r) => r.requestor?.displayName ?? "" },
+  {
+    key: "requested",
+    label: "Requested",
+    kind: "date",
+    value: (r) => dayLabel(r.requestDate),
+    sortValue: (r) => r.requestDate,
+  },
+  { key: "testing", label: "Testing", value: (r) => r.testingRequired ?? "" },
+  { key: "status", label: "Status", value: (r) => r.status },
+];
 
 export function GrayMarketRequestsView() {
   const navigate = useNavigate();
@@ -76,6 +107,15 @@ export function GrayMarketRequestsView() {
       return matchesSearch(r, tokens);
     });
   }, [requests, q, requestor, testing, status]);
+
+  const table = useSortableTable<GrayMarketRequest>({
+    rows: filtered,
+    columns: GRAY_MARKET_COLUMNS,
+    stableKey: (r) => r.id,
+    // Newest log number first, as before.
+    initialKey: "logNo",
+    initialDirection: "desc",
+  });
 
   return (
     <div className="mx-auto flex max-w-[1500px] flex-col gap-4 px-4 py-4 sm:px-6 sm:py-6">
@@ -173,18 +213,13 @@ export function GrayMarketRequestsView() {
             <table className="w-full text-left text-sm">
               <thead className="bg-surface-2 text-[11px] uppercase tracking-wider text-fg-muted">
                 <tr>
-                  <th className="px-4 py-2 font-semibold">Log No.</th>
-                  <th className="px-4 py-2 font-semibold">Title</th>
-                  <th className="px-4 py-2 font-semibold">Part</th>
-                  <th className="px-4 py-2 font-semibold">Vendor</th>
-                  <th className="px-4 py-2 font-semibold">Requestor</th>
-                  <th className="px-4 py-2 font-semibold">Requested</th>
-                  <th className="px-4 py-2 font-semibold">Testing</th>
-                  <th className="px-4 py-2 font-semibold">Status</th>
+                  {GRAY_MARKET_COLUMNS.map((column) => (
+                    <SortableHeader key={column.key} label={column.label} {...table.headerProps(column.key)} />
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((request) => (
+                {table.rows.map((request) => (
                   <Row
                     key={request.id}
                     request={request}

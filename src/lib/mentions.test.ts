@@ -4,6 +4,7 @@ import {
   commentNotifyRecipients,
   commentRenotifyRecipients,
   extractMentionedRecipients,
+  injectMentionsIntoHtml,
   rankMentionCandidates,
   MENTION_CANDIDATE_LIMIT,
 } from "./mentions";
@@ -418,5 +419,99 @@ describe("rankMentionCandidates — the cap is generous and never silent", () =>
     const out = rankMentionCandidates(manyMikes(10), "mike", -1);
     expect(out.people).toHaveLength(10);
     expect(out.truncated).toBe(false);
+  });
+});
+
+// =============================================================================
+// injectMentionsIntoHtml — chips into text that is ALREADY HTML.
+//
+// The rich-text composer emits real markup, so `buildCommentHtml` can't be
+// used on it: that one escapes its input, which would show `<strong>` as
+// visible text. This walks text nodes instead, so a chip can only ever
+// replace something a reader can see.
+//
+// The output shape is deliberately identical to buildCommentHtml's, because
+// `extractMentionedRecipients` reads both — that is what keeps email
+// notifications working for rich-text comments.
+// =============================================================================
+describe("injectMentionsIntoHtml", () => {
+  const SARAH: Person = { displayName: "Sarah Shaffer", email: "sarah@x.com" };
+  const RAY: Person = { displayName: "Ray White", email: "ray@x.com" };
+
+  it("chips a picked name inside a paragraph", () => {
+    const out = injectMentionsIntoHtml("<p>Ping @Sarah Shaffer please</p>", [SARAH]);
+    expect(out).toContain('class="mention"');
+    expect(out).toContain('data-email="sarah@x.com"');
+    expect(out).toContain("@Sarah Shaffer");
+  });
+
+  it("PRESERVES the surrounding markup", () => {
+    // The whole reason this exists rather than reusing buildCommentHtml.
+    const out = injectMentionsIntoHtml(
+      "<p><strong>Urgent:</strong> @Ray White look</p>",
+      [RAY],
+    );
+    expect(out).toContain("<strong>Urgent:</strong>");
+    expect(out).toContain('class="mention"');
+  });
+
+  it("finds a name nested inside formatting", () => {
+    const out = injectMentionsIntoHtml("<p><em>cc @Ray White</em></p>", [RAY]);
+    expect(out).toContain('class="mention"');
+    expect(out).toContain("<em>");
+  });
+
+  it("leaves a name nobody picked as plain text", () => {
+    const out = injectMentionsIntoHtml("<p>@Someone Else</p>", [SARAH]);
+    expect(out).not.toContain('class="mention"');
+    expect(out).toContain("@Someone Else");
+  });
+
+  it("does NOT nest a chip inside an existing chip", () => {
+    // Re-saving an edited comment runs this over a body that already has
+    // chips; nesting them would break the reader and the parser.
+    const already =
+      '<p><span class="mention" data-email="sarah@x.com">@Sarah Shaffer</span> hi</p>';
+    const out = injectMentionsIntoHtml(already, [SARAH]);
+    expect(out.match(/class="mention"/g)).toHaveLength(1);
+  });
+
+  it("does NOT chip inside a link", () => {
+    // Link text is often an address; chipping part of it breaks the link.
+    const html = '<p><a href="mailto:x@y.com">@Ray White</a></p>';
+    const out = injectMentionsIntoHtml(html, [RAY]);
+    expect(out).not.toContain('class="mention"');
+    expect(out).toContain("<a");
+  });
+
+  it("never corrupts an attribute containing the name", () => {
+    // A string regex over the HTML would match here and destroy the markup.
+    const html = '<p><a href="/u/@Ray White" title="@Ray White">link</a> and @Ray White</p>';
+    const out = injectMentionsIntoHtml(html, [RAY]);
+    expect(out).toContain('href="/u/@Ray White"');
+    expect(out.match(/class="mention"/g)).toHaveLength(1);
+  });
+
+  it("chips every occurrence of the same name", () => {
+    const out = injectMentionsIntoHtml("<p>@Ray White and @Ray White</p>", [RAY]);
+    expect(out.match(/class="mention"/g)).toHaveLength(2);
+  });
+
+  it("matches the LONGER name first when one contains the other", () => {
+    const sarahSmith: Person = { displayName: "Sarah Shaffer-Smith", email: "ss@x.com" };
+    const out = injectMentionsIntoHtml("<p>@Sarah Shaffer-Smith</p>", [SARAH, sarahSmith]);
+    expect(out).toContain('data-email="ss@x.com"');
+    expect(out).not.toContain('data-email="sarah@x.com"');
+  });
+
+  it("returns the html untouched when nobody was picked", () => {
+    const html = "<p>@Sarah Shaffer</p>";
+    expect(injectMentionsIntoHtml(html, [])).toBe(html);
+  });
+
+  it("is read back by extractMentionedRecipients — the notification path", () => {
+    // The shared chip shape is what keeps rich-text comments notifying.
+    const out = injectMentionsIntoHtml("<p><b>@Ray White</b></p>", [RAY]);
+    expect(extractMentionedRecipients(out).map((r) => r.email)).toEqual(["ray@x.com"]);
   });
 });

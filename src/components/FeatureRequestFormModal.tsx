@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { useFormDraft } from "@/hooks/useFormDraft";
+import { DraftRestoredNotice } from "./DraftRestoredNotice";
 import { useNavigate } from "react-router-dom";
 import { Loader2, Plus, X } from "lucide-react";
 import { useCreateFeatureRequest } from "@/hooks/useFeatureRequests";
@@ -25,8 +27,16 @@ export function FeatureRequestFormModal({ onClose }: FeatureRequestFormModalProp
   const navigate = useNavigate();
   const createRequest = useCreateFeatureRequest();
 
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
+  // This form is create-only, so a draft can never overwrite a real record.
+  const draft = useFormDraft<{ title: string; description: string }>("newFeatureRequest");
+  const [title, setTitle] = useState(draft.initial.title ?? "");
+
+  const [description, setDescription] = useState(draft.initial.description ?? "");
+  // Save on every change, so navigating away mid-write keeps the wording.
+  useEffect(() => {
+    draft.save({ title, description });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [title, description]);
   const [department, setDepartment] = useState<FeatureRequestDepartment | "">("");
   const [priority, setPriority] = useState<FeatureRequestPriority | "">("");
   const [error, setError] = useState<string | null>(null);
@@ -70,6 +80,8 @@ export function FeatureRequestFormModal({ onClose }: FeatureRequestFormModalProp
         department: department || null,
         priority: priority || null,
       });
+      // The record exists now, so the draft must go.
+      draft.clear();
       onClose();
       navigate(`/feature-request/${created.id}`);
     } catch {
@@ -104,6 +116,17 @@ export function FeatureRequestFormModal({ onClose }: FeatureRequestFormModalProp
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          {draft.restored && (
+            <DraftRestoredNotice
+              note="Only the text fields were kept."
+              onDiscard={() => {
+                draft.clear();
+                setTitle("");
+                setDescription("");
+              }}
+              onKeep={draft.dismissNotice}
+            />
+          )}
           <FieldLabel label="Summary *">
             <input
               ref={titleInputRef}

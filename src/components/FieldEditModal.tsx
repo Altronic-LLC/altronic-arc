@@ -39,6 +39,13 @@ export type EditableFieldKind =
   | "choice"
   | "suggest"
   /**
+   * A NUMBER column. Still carried as a string like every other field here
+   * (the modal's whole value contract is `Record<string, string>`), so the
+   * CALLER converts on save — and an empty string must map back to `null`,
+   * not 0: a performance score nobody has recorded is not a score of zero.
+   */
+  | "number"
+  /**
    * A date-only column. Always a calendar, never a typed date — see the
    * "Dates: always DateField" rule. FAIT's two date columns edited as free
    * text here, and a value the parser couldn't read was written as `null`,
@@ -287,6 +294,21 @@ function FieldControl({
         disabled={disabled}
         ariaLabel={field.label}
         searchPlaceholder="Search…"
+      />
+    );
+  }
+  if (field.kind === "number") {
+    return (
+      <input
+        autoFocus={autoFocus}
+        type="number"
+        inputMode="decimal"
+        step="any"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        aria-label={field.label}
+        disabled={disabled}
+        className="input"
       />
     );
   }

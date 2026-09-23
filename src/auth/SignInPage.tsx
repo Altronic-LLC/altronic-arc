@@ -82,7 +82,20 @@ export function SignInPage({ onDemoBypass, reason, detail }: SignInPageProps) {
     setBusy(true);
     setError(null);
     try {
-      const result = await msal.loginPopup({ scopes: graphScopes });
+      // `prompt: "select_account"` — always show Microsoft's own account
+      // picker rather than letting MSAL silently reuse whatever's cached.
+      // This screen is reached either with NO cached account at all, or
+      // (see AuthGate/AuthProvider) with MORE THAN ONE and deliberately
+      // nothing auto-activated — in the second case, silently continuing as
+      // "whichever one MSAL feels like" is exactly the bug this forces a
+      // real choice to prevent (Ray, 2026-09-02: a shared browser's cached
+      // account from a previous person was silently attached to someone
+      // else's session, so their Gray Market Request was submitted under
+      // the wrong name).
+      const result = await msal.loginPopup({
+        scopes: graphScopes,
+        prompt: "select_account",
+      });
       // On success, AuthProvider's LOGIN_SUCCESS handler sets the active
       // account, and the parent AuthGate re-renders to show the app.
       if (result?.account) msal.setActiveAccount(result.account);

@@ -26,6 +26,8 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useProjects } from "@/hooks/useTasks";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { AttachmentsSection } from "@/components/AttachmentsSection";
+import { useCommentFileUpload } from "@/hooks/useAttachments";
+import { EcnChecklistCard } from "@/components/EcnChecklistCard";
 import { FieldEditModal, type EditableFieldSpec } from "@/components/FieldEditModal";
 import { CommentComposer } from "@/components/CommentComposer";
 import { CommentThread } from "@/components/CommentThread";
@@ -50,6 +52,10 @@ export function EcnDetailView() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const ecnId = id ? parseInt(id, 10) : null;
+  // A screenshot pasted or dropped into a comment goes to the SAME
+  // list-item attachment store as the Attachments card, so it survives a
+  // refresh. Without this prop the composer discards it silently.
+  const uploadCommentFile = useCommentFileUpload("ecn", ecnId);
   const { data: ecn, isLoading } = useEcn(ecnId);
   const { data: ecns = [] } = useEcns();
   const currentUser = useCurrentUser();
@@ -214,6 +220,8 @@ export function EcnDetailView() {
 
           <AttachmentsSection parent="ecn" itemId={ecn.id} />
 
+          <EcnChecklistCard ecn={ecn} />
+
           <section className="rounded-xl border border-border bg-surface p-4 sm:p-5">
             <h2 className="mb-1 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
               Comments
@@ -224,11 +232,14 @@ export function EcnDetailView() {
                 : "Posting here emails anyone you @-mention. ECNs have no watchers."}
             </p>
             <CommentComposer
+              draftKey={`ecn:${ecnId}`}
+              uploadFile={uploadCommentFile}
               onSubmit={handleAddComment}
               mentionablePeople={mentionCandidates}
             />
             <div className="mt-5">
               <CommentThread
+                uploadFile={uploadCommentFile}
                 comments={ecn.comments}
                 currentUserEmail={currentUser.email}
                 currentUserName={currentUser.displayName}

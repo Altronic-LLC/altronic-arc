@@ -12,6 +12,30 @@ needs detail, add a sub-bullet underneath it.
 
 ## Next up
 
+- **Grant shared-mailbox access automatically for new starters.** Every
+  new Altronic employee who will use ARC has to be added to
+  `automation@altronic-llc.com` by hand (Send-As + FullAccess — see the
+  onboarding item below for the PowerShell). Nothing prompts it, nothing
+  checks it, and the failure is SILENT from the app's side: their comments
+  save fine and their colleagues simply never get emailed. It surfaces only
+  when somebody notices a message that never arrived.
+
+  Make the access follow group membership instead, cheapest option first:
+  - Grant both permissions to a **security group** rather than ~175
+    individuals, and add new starters to that group during onboarding. One
+    thing to maintain instead of a per-person step.
+  - Better, point it at a **dynamic group** whose rule is something already
+    true of the right people (department, licence, job title) — then nobody
+    maintains a list at all and a new account picks it up on creation.
+  - A **scheduled script** (enumerate the population, diff against current
+    delegation, add what's missing) only if group-based permissions turn out
+    not to work here — more moving parts and something to own.
+
+  **Test on one account before rolling out**: whether group-based grants
+  behave for Graph `sendMail` the way per-user ones do is exactly the kind of
+  assumption that already bit us once (Send-As alone looked correct per the
+  docs and silently didn't work).
+
 - **New-user onboarding instructions.** A single document new engineers
   (and the IT / admin person setting them up) can read end-to-end to go
   from "I have an Altronic email" to "I can fully use the app." Put it

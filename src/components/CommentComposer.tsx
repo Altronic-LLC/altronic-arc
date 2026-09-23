@@ -1,9 +1,10 @@
-import { AtSign, Paperclip, Send, X } from "lucide-react";
+import { AtSign, Paperclip, Send, Type, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CommentAttachment, Person } from "@/types/task";
 import { filesFromClipboard } from "@/lib/pasteFiles";
 import {
   buildCommentHtml,
+  injectMentionsIntoHtml,
   detectMentionQuery,
   rankMentionCandidates,
   type MentionCandidates,
@@ -12,6 +13,14 @@ import { cn } from "@/lib/cn";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
 import { NameAttachmentDialog, needsAttachmentName } from "./NameAttachmentDialog";
 import { useFileDrop } from "./useFileDrop";
+import { useDraft } from "@/hooks/useDraft";
+import { plainTextToHtml } from "@/lib/richText";
+import { linkifyHtml } from "@/lib/linkify";
+import { RichTextEditor } from "./RichTextEditor";
+import {
+  RichTextWarningDialog,
+  WATCHERS_STILL_NOTIFIED,
+} from "./RichTextWarningDialog";
 
 interface CommentComposerProps {
   onSubmit: (
@@ -35,6 +44,23 @@ interface CommentComposerProps {
    * the legacy in-memory blob attachment shape.
    */
   uploadFile?: (file: File) => Promise<{ name: string; webUrl: string }>;
+  /**
+   * What the rich-text warning says about who still hears about this comment.
+   *
+   * Every thread states its OWN rule — "watchers are still notified" is not
+   * universal. ECNs, Customer Notes and Cost Impact Notices have no Watchers
+   * column at all, so they pass `SUBMITTER_STILL_NOTIFIED`. Defaults to the
+   * watcher rule, which is what the other threads follow.
+   */
+  richTextNotifyNote?: string;
+  /**
+   * Identity for draft persistence — `"task:47"`, `"eir:1204"`.
+   *
+   * **Must name the RECORD, not just the field.** Without the record every
+   * composer in ARC shares one draft, and opening task B shows the
+   * half-written comment for task A. Omit it to disable persistence.
+   */
+  draftKey?: string;
 }
 
 /**
@@ -53,6 +79,22 @@ interface PendingAttachment extends CommentAttachment {
   file: File;
 }
 
+/**
+ * Is there anything in this HTML a reader would see?
+ *
+ * An empty contentEditable is not an empty string — browsers leave
+ * `<p><br></p>`, `<br>` or `&nbsp;` behind. Trimming the string would call
+ * that content and post a blank comment.
+ */
+function nonEmptyHtml(html: string): string {
+  const stripped = html
+    .replace(/<br\s*\/?>/gi, "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/<[^>]*>/g, "")
+    .trim();
+  return stripped ? html : "";
+}
+
 /** Stable empty result so the closed picker doesn't churn the memo. */
 const NO_CANDIDATES: MentionCandidates = { people: [], total: 0, truncated: false };
 
@@ -61,8 +103,13 @@ export function CommentComposer({
   disabled,
   mentionablePeople = [],
   uploadFile,
+  richTextNotifyNote = WATCHERS_STILL_NOTIFIED,
+  draftKey,
 }: CommentComposerProps) {
-  const [text, setText] = useState("");
+  // A half-written comment survives navigating away to look something up —
+  // the thing Alexander Masgras lost "multiple paragraphs, full lists" to.
+  const draft = useDraft(draftKey ? `${draftKey}:comment` : null);
+  const [text, setText] = useState(draft.initialRich ? "" : draft.initialValue);
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const [busy, setBusy] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -78,6 +125,12 @@ export function CommentComposer({
   // substrings to convert to chips at submit time. Users can manually
   // type "@foo" and it stays plain text — only chosen mentions become chips.
   const [mentions, setMentions] = useState<Person[]>([]);
+  // Rich text is OPT-IN per comment, and plain text is what loads: the
+  // @-mention picker only works in a textarea, so defaulting to rich would
+  // silently take the feature away from everybody (Ray, 2026-09-16).
+  const [rich, setRich] = useState(draft.initialRich);
+  const [richHtml, setRichHtml] = useState(draft.initialRich ? draft.initialValue : "");
+  const [warnRich, setWarnRich] = useState(false);
 
   // Mention popup state: the open boolean plus what the user has typed
   // after the `@`. We compute candidates from mentionablePeople filtered
@@ -167,6 +220,7 @@ export function CommentComposer({
 
   function handleTextChange(next: string) {
     setText(next);
+    draft.save(next, false);
     const caret = textareaRef.current?.selectionStart ?? next.length;
     detectMention(next, caret);
   }
@@ -203,11 +257,27 @@ export function CommentComposer({
 
   async function handleSend() {
     const trimmed = text.trim();
-    if (!trimmed && attachments.length === 0) return;
+    // `richHtml` is markup, so "is there anything here" can't be a trim() —
+    // an empty contentEditable yields things like "<p><br></p>".
+    const richBody = rich ? nonEmptyHtml(richHtml) : "";
+    if (!trimmed && !richBody && attachments.length === 0) return;
     setBusy(true);
     setUploadError(null);
     try {
-      let html = trimmed ? buildCommentHtml(trimmed, mentions) : "";
+      // Two builders, one output shape. Plain text is escaped and wrapped in
+      // <p> by buildCommentHtml; rich text is ALREADY markup, so it only
+      // needs the chips injecting — running it through buildCommentHtml would
+      // show `<strong>` as visible text. Both emit the same chip markup, so
+      // extractMentionedRecipients and the whole email path read either.
+      let html = rich
+        ? richBody
+          ? // Linkify FIRST, then chips: both walk text nodes, and doing
+            // links first means a chip can never land inside an anchor.
+            injectMentionsIntoHtml(linkifyHtml(richBody), mentions)
+          : ""
+        : trimmed
+          ? buildCommentHtml(trimmed, mentions)
+          : "";
 
       // If the parent wired up an upload hook (Task case), push each
       // attached File to the project folder first, then inline a clean
@@ -234,7 +304,12 @@ export function CommentComposer({
         await onSubmit(html, attachments);
       }
 
+      // Clear FIRST: `clear()` cancels the pending debounced write, which
+      // would otherwise land after the post and restore a comment that has
+      // already been sent.
+      draft.clear();
       setText("");
+      setRichHtml("");
       // Release any blob URLs we created for previews.
       for (const a of attachments) {
         if (a.objectUrl) URL.revokeObjectURL(a.objectUrl);
@@ -307,7 +382,8 @@ export function CommentComposer({
     }
   }
 
-  const canSend = (text.trim().length > 0 || attachments.length > 0) && !busy;
+  const hasBody = rich ? nonEmptyHtml(richHtml) !== "" : text.trim().length > 0;
+  const canSend = (hasBody || attachments.length > 0) && !busy;
 
   return (
     <div
@@ -318,6 +394,52 @@ export function CommentComposer({
       {...dropProps}
       onPaste={handlePaste}
     >
+      {draft.restored && (
+        // ANNOUNCED, always. Text appearing in a box by itself is
+        // indistinguishable from a bug, and the user needs a way to say
+        // "not that" without selecting it all and deleting.
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-md border border-ajax-yellow/40 bg-ajax-yellow/10 px-2.5 py-1.5 text-xs">
+          <span className="text-fg">
+            Draft restored from earlier.
+            {attachments.length === 0 && " Any files you'd attached need adding again."}
+          </span>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                draft.clear();
+                setText("");
+                setRichHtml("");
+                setRich(false);
+              }}
+              className="font-medium text-cooper-red underline-offset-2 hover:underline"
+            >
+              Discard
+            </button>
+            <button
+              type="button"
+              onClick={draft.dismissNotice}
+              className="font-medium text-fg-muted underline-offset-2 hover:underline"
+            >
+              Keep
+            </button>
+          </div>
+        </div>
+      )}
+
+      {rich ? (
+        <RichTextEditor
+          value={richHtml}
+          onChange={(html) => {
+            setRichHtml(html);
+            draft.save(html, true);
+          }}
+          disabled={disabled || busy}
+          minHeight="6.5rem"
+          placeholder="Write a comment…"
+          aria-label="Comment (rich text)"
+        />
+      ) : (
       <AutoGrowTextarea
         ref={textareaRef}
         style={{ minHeight: "6.5rem" }}
@@ -338,6 +460,7 @@ export function CommentComposer({
         rows={4}
         className="w-full resize-y rounded-md bg-bg p-3 text-base text-fg placeholder:text-fg-muted focus:outline-none focus:ring-2 focus:ring-accent/30 sm:text-sm"
       />
+      )}
 
       {pickerOpen && candidates.length > 0 && (
         // max-h-72 fits ~8 rows and clips the ninth, so a long list visibly
@@ -414,10 +537,45 @@ export function CommentComposer({
             <Paperclip className="h-3.5 w-3.5" />
             Attach
           </button>
+          {/*
+            Switching ON warns first (it costs the @-mention picker);
+            switching OFF is a free, reversible action and needs no dialog.
+          */}
+          <button
+            type="button"
+            onClick={() => {
+              if (rich) setRich(false);
+              else setWarnRich(true);
+            }}
+            disabled={disabled || busy}
+            aria-pressed={rich}
+            title={
+              rich
+                ? "Back to plain text, with @-mention autocomplete"
+                : "Bold, italic, underline and lists (turns off @-mention autocomplete)"
+            }
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium transition-colors disabled:opacity-50",
+              rich
+                ? "border-accent/40 bg-accent/10 text-accent"
+                : "border-border bg-surface text-fg-muted hover:text-fg",
+            )}
+          >
+            <Type className="h-3.5 w-3.5" />
+            Rich text
+          </button>
           {mentions.length > 0 && (
             <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
               <AtSign className="h-3 w-3" />
               {mentions.length} mention{mentions.length === 1 ? "" : "s"}
+            </span>
+          )}
+          {rich && (
+            // Says WHY @ stopped working, at the moment it matters — the
+            // dialog is long gone by the time somebody tries to mention
+            // somebody.
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-ajax-yellow-fg">
+              @-mentions off
             </span>
           )}
           <span className="hidden text-xs text-fg-muted sm:inline">
@@ -454,6 +612,22 @@ export function CommentComposer({
             setNamingQueue((prev) => prev.slice(1));
           }}
           onCancel={() => setNamingQueue((prev) => prev.slice(1))}
+        />
+      )}
+
+      {warnRich && (
+        <RichTextWarningDialog
+          notifyNote={richTextNotifyNote}
+          onConfirm={() => {
+            // Carry whatever was already typed across, as paragraphs, so
+            // switching mid-comment doesn't throw the draft away. The
+            // mentions PICKED so far survive in `mentions` and are injected
+            // as chips on send.
+            setRichHtml((current) => current || plainTextToHtml(text));
+            setRich(true);
+            setWarnRich(false);
+          }}
+          onCancel={() => setWarnRich(false)}
         />
       )}
     </div>

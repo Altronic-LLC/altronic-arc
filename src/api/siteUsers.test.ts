@@ -20,10 +20,29 @@ describe("ensureSiteUserLookupId (mock mode)", () => {
 });
 
 describe("ensureLookupIds", () => {
-  it("leaves people who already have a lookupId untouched", async () => {
+  // This suite used to assert "leaves people who already have a lookupId
+  // untouched" — it was asserting the BUG. A lookupId is only valid on the one
+  // site it was resolved for, and trusting an incoming one wrote the wrong
+  // person into cross-site person columns twice (Panel QC 2026-09-03, Gray
+  // Market 2026-09-16). Re-resolving by email is the correct behaviour.
+  it("RE-RESOLVES a person who already carries a lookupId from another site", async () => {
+    // 22 is a lookupId resolved somewhere else (in practice: the Engineering
+    // site, via useCurrentUser). It must not be trusted for THIS site.
     const ray: Person = { displayName: "Ray", email: "ray@x.com", lookupId: 22 };
     const [out] = await ensureLookupIds("https://site", [ray]);
-    expect(out).toBe(ray);
+    const expected = await ensureSiteUserLookupId("https://site", "ray@x.com");
+    expect(out.lookupId).toBe(expected);
+    expect(out.lookupId).not.toBe(22);
+    // Identity is preserved — only the id is corrected.
+    expect(out.email).toBe("ray@x.com");
+    expect(out.displayName).toBe("Ray");
+  });
+
+  it("re-resolving an already-correct id returns the same id back", async () => {
+    const id = await ensureSiteUserLookupId("https://site", "sarah@altronic-llc.com");
+    const person: Person = { displayName: "Sarah", email: "sarah@altronic-llc.com", lookupId: id };
+    const [out] = await ensureLookupIds("https://site", [person]);
+    expect(out.lookupId).toBe(id);
   });
 
   it("resolves a lookupId for a directory person that lacks one", async () => {
@@ -37,6 +56,14 @@ describe("ensureLookupIds", () => {
     const noEmail: Person = { displayName: "Ghost" };
     const [out] = await ensureLookupIds("https://site", [noEmail]);
     expect(out.lookupId).toBeUndefined();
+  });
+
+  it("KEEPS the id of an email-less person — there is nothing to re-resolve by", async () => {
+    // The legitimate case: a Person read straight off the list being written,
+    // where Graph returned a bare LookupId with no email attached.
+    const fromThisList: Person = { displayName: "", lookupId: 41 };
+    const [out] = await ensureLookupIds("https://site", [fromThisList]);
+    expect(out.lookupId).toBe(41);
   });
 });
 

@@ -27,6 +27,9 @@ import { SearchInput } from "@/components/SearchInput";
 import { TeradyneLogFormModal } from "@/components/TeradyneLogFormModal";
 import { formatTeradyneDate } from "@/lib/teradyneMapper";
 import type { TeradyneLogEntry } from "@/types/task";
+import { SortableHeader } from "@/components/SortableTableHeader";
+import { useSortableTable } from "@/hooks/useSortableTable";
+import { dayLabel, peopleLabel, type SortColumn } from "@/lib/tableSort";
 import { cn } from "@/lib/cn";
 import { isPermissionDenied } from "@/lib/listWriteErrors";
 
@@ -66,6 +69,69 @@ function parseYearParam(raw: string | null, thisYear: number): number | null {
   if (year > thisYear || year < thisYear - ADMIN_YEARS_BACK) return null;
   return year;
 }
+
+/**
+ * Sortable columns, as DATA. The three per-board figures are real NUMBER
+ * columns, so they sort numerically and a blank sinks — an unrecorded count
+ * is not a count of zero.
+ *
+ * "Defective Parts" and the two part numbers offer no value filter: they are
+ * free text on 16,000+ rows, so grouping them would list thousands of
+ * one-row options. The search box already covers them.
+ *
+ * The "Actions" column stays a plain `<Th>` — it holds no value, and it is
+ * only rendered for an admin.
+ */
+const TERADYNE_COLUMNS: SortColumn<TeradyneLogEntry>[] = [
+  {
+    key: "enterDate",
+    label: "Date",
+    kind: "date",
+    value: (e) => dayLabel(e.enterDate),
+    sortValue: (e) => e.enterDate,
+  },
+  { key: "product", label: "Product", value: (e) => e.product?.title ?? "" },
+  { key: "defectiveParts", label: "Defective Parts", value: (e) => e.defectiveParts, noFilter: true },
+  { key: "remark", label: "Remark", value: (e) => e.remark?.title ?? "" },
+  {
+    key: "numberOfBoards",
+    label: "Boards",
+    kind: "number",
+    value: (e) => (e.numberOfBoards === null ? "" : String(e.numberOfBoards)),
+    sortValue: (e) => e.numberOfBoards,
+  },
+  {
+    key: "boardsTested",
+    label: "Tested",
+    kind: "number",
+    value: (e) => (e.boardsTested === null ? "" : String(e.boardsTested)),
+    sortValue: (e) => e.boardsTested,
+  },
+  {
+    key: "failuresPerBoard",
+    label: "Fails/Bd",
+    kind: "number",
+    value: (e) => (e.failuresPerBoard === null ? "" : String(e.failuresPerBoard)),
+    sortValue: (e) => e.failuresPerBoard,
+  },
+  { key: "sapNumber", label: "SAP No.", value: (e) => e.sapNumber, noFilter: true },
+  {
+    key: "altronicPartNumber",
+    label: "Altronic Part No.",
+    value: (e) => e.altronicPartNumber,
+    noFilter: true,
+  },
+  {
+    key: "employees",
+    label: "Employees",
+    value: (e) =>
+      peopleLabel(
+        [e.employee1, e.employee2]
+          .filter((x): x is NonNullable<typeof x> => x != null)
+          .map((x) => ({ displayName: x.title })),
+      ),
+  },
+];
 
 export function TeradyneLogView() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -159,10 +225,21 @@ export function TeradyneLogView() {
     return { boards, tested };
   }, [filtered]);
 
-  const capped = !showAll && filtered.length > INITIAL_ROWS;
+  const table = useSortableTable<TeradyneLogEntry>({
+    rows: filtered,
+    columns: TERADYNE_COLUMNS,
+    stableKey: (e) => e.id,
+    // Newest first, as before.
+    initialKey: "enterDate",
+    initialDirection: "desc",
+    onChange: () => setShowAll(false),
+  });
+  const sorted = table.rows;
+
+  const capped = !showAll && sorted.length > INITIAL_ROWS;
   const visible = useMemo(
-    () => (capped ? filtered.slice(0, INITIAL_ROWS) : filtered),
-    [filtered, capped],
+    () => (capped ? sorted.slice(0, INITIAL_ROWS) : sorted),
+    [sorted, capped],
   );
 
   async function handleDelete(entry: TeradyneLogEntry) {
@@ -351,16 +428,9 @@ export function TeradyneLogView() {
             <table className="w-full min-w-[1120px] border-collapse text-sm">
               <thead>
                 <tr className="border-b border-border bg-surface-2 text-left">
-                  <Th>Date</Th>
-                  <Th>Product</Th>
-                  <Th>Defective Parts</Th>
-                  <Th>Remark</Th>
-                  <Th className="text-right">Boards</Th>
-                  <Th className="text-right">Tested</Th>
-                  <Th className="text-right">Fails/Bd</Th>
-                  <Th>SAP No.</Th>
-                  <Th>Altronic Part No.</Th>
-                  <Th>Employees</Th>
+                  {TERADYNE_COLUMNS.map((column) => (
+                    <SortableHeader key={column.key} label={column.label} {...table.headerProps(column.key)} />
+                  ))}
                   {/* Always present now: everyone gets the edit pencil, and
                       only admins additionally get the bin. */}
                   <Th className="text-right">Actions</Th>

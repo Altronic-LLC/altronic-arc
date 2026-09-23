@@ -67,8 +67,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const instance = getPca();
         await instance.initialize();
         if (cancelled) return;
+        // Auto-activate a cached account ONLY when there's exactly one — see
+        // the matching guard in AuthGate.tsx for why. With more than one
+        // cached account (a shared workstation), silently picking the first
+        // one attaches whoever happens to be first in the list, with no
+        // check it's the person actually at the keyboard. Leaving nothing
+        // active falls through to AuthGate showing SignInPage, whose button
+        // asks MSAL for `prompt: "select_account"`.
         const accounts = instance.getAllAccounts();
-        if (accounts.length > 0 && !instance.getActiveAccount()) {
+        if (accounts.length === 1 && !instance.getActiveAccount()) {
           instance.setActiveAccount(accounts[0]);
         }
         setState({ kind: "ready" });

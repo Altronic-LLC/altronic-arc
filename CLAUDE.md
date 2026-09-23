@@ -58,6 +58,8 @@ company-wide; some is department-specific. Therefore:
   back into a department.** One-way dependency only.
 - **Keep the existing per-list pattern:** `api/<list>.ts` module + React Query
   hooks (`use<List>`) + views, one set per SharePoint list. New lists follow it.
+  A new list view that renders a TABLE also ships with column sorting and
+  filters — see "Every new table gets sorting and column filters".
 - **Preserve the `USE_MOCK` boundary** so new department features can be built
   and demoed against mock data before the real SharePoint list exists.
 
@@ -230,6 +232,7 @@ src/
 │   ├── eirs.ts                   EIR CRUD
 │   ├── eirRoles.ts               EIR role tags (engineer / supply chain) CRUD
 │   ├── ecns.ts                   ECN CRUD + comments (Engineering) — no delete
+│   ├── ecnChecklists.ts          ECN Checklist CRUD (MFGFRM-038), one row per ECN — no delete
 │   ├── faits.ts                  FAIT CRUD + comments (Supply Chain) — no delete
 │   ├── testSheets.ts             Test Results CRUD
 │   ├── admins.ts                 Admins list CRUD
@@ -252,6 +255,7 @@ src/
 │   ├── panelProjects.ts          Panel Project Reference list
 │   ├── panelRoles.ts             Panel User Roles list CRUD
 │   ├── qcTimeTracking.ts         QC Time Tracking CRUD (panelTeam site) — no delete
+│   ├── qcCpu95.ts                QCFRM-012 (CPU-95) test sheet CRUD (Quality Control, Engineering site) — no delete
 │   ├── visitReports.ts           Visit Reports CRUD (Sales, salesTeam site) — no delete
 │   ├── customerNotes.ts          CRM Tool — Customer Notes CRUD + comments (Sales, salesOrderEntry site)
 │   ├── customerContacts.ts       CRM Tool — Customer Contacts CRUD, scoped to a Customer Note
@@ -265,11 +269,14 @@ src/
 │   ├── openOrdersCustomers.ts    Open Orders managed customer list CRUD
 │   ├── openOrdersRoles.ts        Open Orders role tags (report manager) CRUD
 │   ├── grayMarketRequests.ts     Gray Market Requests CRUD + comments (PMO site) — no delete
+│   ├── mrb.ts                    MRB Data CRUD + comments (PMO site) — DIFFED edits, no delete
 │   ├── featureRequests.ts        ARC Feature Requests CRUD + comments (Engineering site) — no admin gate, no delete
 │   ├── whereAmI.ts               Where am I? CRUD (Engineering out-of-office calendar)
 │   ├── autoWatch.ts              Shared @-mention → watcher resolution (per-site)
+│   ├── commentMirror.ts          WRITES the comment mirrors — best-effort per target, never throws
 │   ├── projectFiles.ts           Documents-library project folders + files
 │   ├── attachments.ts            List-item attachments (task | eir | csaListing) via SP REST
+│   ├── qzPrint.ts                QZ Tray browser-side client — silent print to a named printer, never throws
 │   ├── email.ts                  Mention + change-alert mail; reports sends that FAIL
 │   ├── errorReport.ts            "Report issue" mail to the app manager
 │   └── editFailureReport.ts      Emails the user their input when a write can't be saved
@@ -284,15 +291,18 @@ src/
 │   ├── operationsMockData.ts     Sample Operations tasks + projects
 │   ├── maintenanceMockData.ts    Sample CMMS work orders, PM schedules, equipment + the two reference lists
 │   ├── panelMockData.ts          Sample panel orders + panel tasks
+│   ├── qcCpu95MockData.ts        Sample CPU-95 (QCFRM-012) test sheets, one per Altmode shape
 │   ├── visitReportMockData.ts    Sample visit reports
 │   ├── crmMockData.ts            Sample CRM Tool data — customers, contacts, pricing, capacity
 │   ├── srmMockData.ts            Sample SRM Tool data — suppliers, contacts, issues
 │   ├── costImpactMockData.ts     Sample Cost Impact Notices
 │   ├── openOrdersMockData.ts     Sample open order lines + report customers
 │   ├── grayMarketMockData.ts     Sample gray market requests
+│   ├── mrbMockData.ts            Sample MRB entries — live, undecided, and archive rows
 │   ├── featureRequestMockData.ts Sample ARC Feature Requests, spanning all four statuses
 │   ├── whereAmIMockData.ts       Sample out-of-office entries (dated from today)
 │   ├── ecnMockData.ts            Sample ECNs (rich-text fields, a revision)
+│   ├── ecnChecklistMockData.ts   Sample ECN checklists — part-way, finished, untouched
 │   ├── faitMockData.ts           Sample FAITs (empty Titles, as the live list has)
 │   ├── buildRequestMockData.ts   Sample build requests + items
 │   ├── changelog.ts              Version history (drives footer + history modal)
@@ -316,6 +326,7 @@ src/
 │   ├── usePanelTasks.ts          Panel task queries + mutations
 │   ├── usePanelRoles.ts          Panel User Roles CRUD (admin-guarded)
 │   ├── useQcTimeTracking.ts      QC Time Tracking queries + mutations
+│   ├── useQcCpu95.ts             QCFRM-012 (CPU-95) test sheet queries + mutations — no delete hook
 │   ├── useVisitReports.ts        Visit Report queries + mutations
 │   ├── useCustomerNotes.ts       CRM Tool — Customer Notes queries, mutations + comments
 │   ├── useCustomerContacts.ts    CRM Tool — Customer Contacts queries + mutations
@@ -328,9 +339,11 @@ src/
 │   ├── useOpenOrdersReports.ts   Parse an extract, generate + upload, download
 │   ├── useOpenOrdersCustomers.ts Customer list + role CRUD (+ useMyOpenOrdersAccess)
 │   ├── useGrayMarketRequests.ts  Gray Market queries, mutations + comment thread
+│   ├── useMrb.ts                 MRB queries, mutations + comment thread (an edit diffs against the cached row)
 │   ├── useFeatureRequests.ts     ARC Feature Requests queries, mutations + comment thread — no admin gate
 │   ├── useWhereAmI.ts            Where am I? queries + mutations
 │   ├── useEcns.ts                ECN queries + mutations (submitter-only notifications)
+│   ├── useEcnChecklists.ts       ECN Checklist queries + mutations (no admin gate)
 │   ├── useFaits.ts               FAIT queries + mutations
 │   ├── useVisitReportFilters.ts  URL-backed Visit Report filters (+ filterSearch)
 │   ├── useBuildRequests.ts       Build Requests + Items queries/mutations
@@ -346,9 +359,13 @@ src/
 │   ├── useFilters.ts             URL-backed task filter state + filterSearch()
 │   ├── useEirFilters.ts          URL-backed EIR filter state + eirFilterSearch()
 │   ├── useSessionExpiry.ts       Shared "the token died" flag AuthGate watches
+│   ├── useSortableTable.ts       Sort + column-filter state for a table (wraps tableSort)
 │   ├── useVersionCheck.ts        Polls version.json → update banner
 │   ├── useUnseenMentions.ts      Unseen-@-mention badge state
 │   ├── useTheme.ts               Dark/light toggle (localStorage)
+│   ├── useCommentMirror.ts       fanOutComment() — resolves the links, writes the mirrors, notifies each side
+│   ├── useDraft.ts               One field's draft in localStorage (comments)
+│   ├── useFormDraft.ts           A whole form's draft — title + description together
 │   └── useIsPhone.ts             Narrow-viewport media query
 │
 ├── lib/
@@ -375,6 +392,10 @@ src/
 │   ├── listWriteErrors.ts        A refused SharePoint write, in words
 │   ├── ecnFields.ts              ECN column descriptors (field_2 … field_12 decoded)
 │   ├── ecnMapper.ts              Graph item → Ecn, Log# parsing/sorting
+│   ├── ecnChecklistTemplate.ts   The 84 MFGFRM-038 items as DATA (generated, verbatim)
+│   ├── ecnChecklistRaci.ts       The MFGFRM-038 RACI matrix as STATIC REFERENCE (never stored)
+│   ├── ecnChecklist.ts           Checklist answers — parse/merge/progress (pure)
+│   ├── ecnChecklistMapper.ts     Graph item → EcnChecklist (single-lookup trap)
 │   ├── faitFields.ts             FAIT column descriptors (51 columns, 19 booleans)
 │   ├── faitMapper.ts             Graph item → Fait (+ bare-LookupId people)
 │   ├── faitAlerts.ts             FAIT intake alert (new FAIT → the config list)
@@ -386,6 +407,8 @@ src/
 │   ├── buildRequestMapper.ts     Graph item → BuildRequest / BuildRequestItem
 │   ├── buildRequestNumber.ts     Next BR No for a new Build Request
 │   ├── buildRequestChecklist.ts  Build Request item checklist columns + progress
+│   ├── buildRequestFromTask.ts   Task → Build Request: prefill, carried comments, the DERIVED reverse link
+│   ├── commentMirror.ts         Mirroring a comment task ⇄ BR ⇄ part: the origin banner + fan-out routing (pure)
 │   ├── operationsTaskMapper.ts   Graph item → OperationsTask
 │   ├── operationsTaskFilters.ts  Pure Operations task filter predicates
 │   ├── operationsTaskNumbering.ts Operations task numbering (mirrors taskNumbering)
@@ -405,6 +428,11 @@ src/
 │   ├── panelTaskMapper.ts        Graph item → PanelTask
 │   ├── panelRoles.ts             Panel role → editing-rights mapping (pure)
 │   ├── qcTimeMapper.ts           Graph item → QcTimeEntry, and back
+│   ├── qcTimeSort.ts             QC Time sorting + column filters (pure) — hoursRaw is TEXT
+│   ├── qcForms.ts                QC Forms registry — one entry per controlled form, drives the search/button dashboard
+│   ├── qcCpu95Fields.ts          QCFRM-012 (CPU-95) column descriptors (~200 fields) + per-field Altmode visibility
+│   ├── qcCpu95Mapper.ts          Graph item → QcCpu95Record, and back; qcCpu95Altmode() (part number → 0-6)
+│   ├── tableSort.ts             GENERIC table sorting + column filters (pure) — 7 lists
 │   ├── visitReportMapper.ts      Graph item → VisitReport (+ RM/year options)
 │   ├── customerNoteMapper.ts     Graph item → CustomerNote (CRM Tool anchor list)
 │   ├── customerContactMapper.ts  Graph item → CustomerContact
@@ -415,8 +443,11 @@ src/
 │   ├── supplierIssueMapper.ts    Graph item → SupplierIssue
 │   ├── costImpactNoticeMapper.ts Graph item → CostImpactNotice, and back
 │   ├── costImpactAlerts.ts       Cost Impact Notice intake alert (new notice → the config list)
+│   ├── featureRequestAlerts.ts   ARC Feature Request intake + status alerts (pure)
 │   ├── grayMarketFields.ts       Gray Market column descriptors (columns are DATA)
 │   ├── grayMarketMapper.ts       Graph item → GrayMarketRequest, and back
+│   ├── mrbFields.ts              MRB column descriptors (field_1…field_23 decoded) + the drifted-choice guard
+│   ├── mrbMapper.ts              Graph item → MrbEntry, and back; the DIFFED write, state + price rules
 │   ├── grayMarketNumber.ts       nextGrayMarketLogNo() — GMR_YYYY-### numbering
 │   ├── grayMarketAlerts.ts      Gray Market intake alert (new request → the config list)
 │   ├── featureRequestMapper.ts  Graph item → FeatureRequest, and back (RequestedBy single-person trap)
@@ -434,6 +465,7 @@ src/
 │   ├── changeAlerts.ts           Change-alert email construction (pure)
 │   ├── graphFields.ts            multiPersonField / multiLookupField / multiChoiceField
 │   ├── sanitiseHtml.ts           DOMPurify wrapper for stored HTML
+│   ├── linkify.ts               Bare URL → <a>; two entry points (escaped vs markup)
 │   ├── richText.ts               Plain text ⇄ HTML for the EIR rich-text columns
 │   ├── errorBuffer.ts            Bounded console-error capture (Report issue)
 │   ├── authErrors.ts             AADSTS codes that mean "fix your account", in plain English
@@ -452,6 +484,7 @@ src/
 │   ├── LoadingTasks.tsx          THE app-wide loading screen — verb/noun headline + a rotating "did you know" fact about ARC (data/loadingFacts.ts)
 │   ├── RequireAdmin.tsx          Route guard for /admin/*
 │   ├── DetailTopBar.tsx          Shared "you are here" bar on detail pages
+│   ├── DraftRestoredNotice.tsx   "Draft restored" + Discard/Keep (shared wording)
 │   ├── StatusPills.tsx           Task list status counters
 │   ├── OperationsStatusPills.tsx Operations equivalent
 │   ├── QuickLinksRow.tsx         Admin-managed link buttons above a Dashboard department's cards
@@ -460,11 +493,15 @@ src/
 │   ├── EirViewTabs.tsx           EIR workflow view tabs + counts (list + board)
 │   ├── SearchInput.tsx           Shared debounced search box
 │   ├── SearchableSelect.tsx      MultiSelect / SingleSelect / ChoiceSelect (all searchable)
+│   ├── SortableTableHeader.tsx   Shared sort + per-column filter chrome (from Panel QC)
 │   ├── SuggestInput.tsx          Text field that behaves like a choice field (CAD initials)
 │   ├── AutoGrowTextarea.tsx      <textarea> that grows to fit content
 │   ├── RichTextEditor.tsx        Bold/italic/underline/lists editor (EIR text fields)
+│   ├── RichTextToggleField.tsx  Plain ⇄ rich toggle for a DESCRIPTION (checklist guard)
+│   ├── RichTextWarningDialog.tsx "Rich text turns off X" — configurable copy per caller
 │   ├── useFileDrop.ts            Drag-a-file-onto-a-card drop target (attachments)
 │   ├── PersonMultiField.tsx      Multi-person picker (pills + add)
+│   ├── useCommentOriginLink.ts   Routes a mirrored comment's jump link instead of reloading
 │   ├── useOverlayDismiss.ts      Backdrop dismissal that survives a text-selection drag
 │   ├── DescriptionView.tsx       Renders a Description incl. checklists + sub-tasks
 │   ├── TaskRow.tsx               One task row (list view)
@@ -483,6 +520,7 @@ src/
 │   ├── PanelOrderFormModal.tsx   Create/edit panel order
 │   ├── PanelTaskFormModal.tsx    Create/edit panel task
 │   ├── QcTimeEntryFormModal.tsx  Create/edit a QC Time Tracking entry
+│   ├── QcCpu95FormModal.tsx      Create/edit a QCFRM-012 (CPU-95) test sheet — descriptor + Altmode driven
 │   ├── VisitReportFormModal.tsx  Create/edit a visit report
 │   ├── CustomerNoteFormModal.tsx  CRM Tool — new customer (create-only; details edit on the page)
 │   ├── CustomerContactFormModal.tsx  CRM Tool — add/edit a contact, scoped to a customer
@@ -498,12 +536,16 @@ src/
 │   ├── CostImpactNoticeFormModal.tsx Raise a cost impact notice
 │   ├── costImpactAtoms.tsx           Delta-cost chip (increase/decrease/no change)
 │   ├── GrayMarketRequestFormModal.tsx  Raise a gray market request
+│   ├── MrbFormModal.tsx          Log an MRB entry (auto-computes Price Per Issue)
 │   ├── FeatureRequestFormModal.tsx  Suggest a new ARC feature — Title/Description/Department/Priority only
 │   ├── WhereAmIFormModal.tsx     Add/edit an out-of-office entry (+ date range)
 │   ├── ProjectFolderFormModal.tsx  Create a project folder + tag its Project Reference
 │   ├── EcnFormModal.tsx          Raise an ECN
 │   ├── FaitFormModal.tsx         Raise a FAIT
 │   ├── FieldEditModal.tsx        Shared "edit this card's fields" modal (Gray Market, ECN, FAIT)
+│   ├── CsaAttachmentsModal.tsx   A CSA listing's certificates — readable by anyone, admin-editable
+│   ├── EcnChecklistCard.tsx      The MFGFRM-038 checklist on an ECN — sections, 4-state pills, findings
+│   ├── EcnRaciModal.tsx          The RACI matrix, as a reference modal
 │   ├── YesNoField.tsx            A boolean column as two labelled Yes / No choices
 │   ├── ChoicePills.tsx          Any short choice set as pills (Yes/No, Pass/Fail, …)
 │   ├── BuildRequestFormModal.tsx Create/edit build request
@@ -537,6 +579,7 @@ src/
 │   ├── panelAtoms.tsx            Panel-specific badges/chips
 │   ├── visitReportAtoms.tsx      Customer-status chip (Sales)
 │   ├── grayMarketAtoms.tsx       Request-status + Pass/Fail chips (Supply Chain)
+│   ├── mrbAtoms.tsx              Disposition / where-caused / archive chips (Supply Chain)
 │   ├── ecnAtoms.tsx              On-hold / flag / stock-disposition chips (ECNs)
 │   ├── faitAtoms.tsx             Status / sign-off / first-pass chips (FAITs)
 │   ├── VisitReportFilterBar.tsx  Shared filter bar for both Visit Report views
@@ -580,6 +623,8 @@ src/
 │   ├── PanelTasksView.tsx        Panel Tasks list
 │   ├── PanelTaskDetailView.tsx   Panel task detail
 │   ├── QcTimeTrackingView.tsx    QC Time Tracking list (Panels)
+│   ├── QcFormsView.tsx           QC Forms landing dashboard — search + a button per controlled form
+│   ├── QcCpu95View.tsx           QCFRM-012 (CPU-95) test sheet list (Quality Control)
 │   ├── VisitReportsView.tsx      Visit Reports list (Sales)
 │   ├── CustomerNotesView.tsx     CRM Tool — Customer Notes list, search + Group filter (Sales)
 │   ├── CustomerNoteDetailView.tsx  CRM Tool — one customer + Contacts/Special Pricing/Capacity
@@ -593,6 +638,8 @@ src/
 │   ├── OpenOrdersCustomersView.tsx  The managed customer list (+ import from an extract)
 │   ├── AdminOpenOrdersRolesView.tsx Admin -> Open Orders Roles
 │   ├── GrayMarketRequestsView.tsx      Gray Market Requests list (Supply Chain)
+│   ├── MrbView.tsx               MRB register — Needs disposition / Decided / Archive / All
+│   ├── MrbDetailView.tsx         One MRB entry — Part / Nonconformance / Cost cards, attachments, comments
 │   ├── WhereAmIView.tsx          Where am I? — month grid on desktop, agenda on a phone
 │   ├── EcnsView.tsx              ECNs list (search covers the descriptions)
 │   ├── FaitsView.tsx             FAITs list (Supply Chain)
@@ -615,7 +662,8 @@ src/
 │   ├── AdminQuickLinksView.tsx   Admin → Quick Links (Dashboard button links, per-department reorder)
 │   ├── AdminNotificationRecipientsView.tsx  Admin → Notification recipients
 │   ├── AboutView.tsx             In-app architecture + ER diagrams
-│   └── ManualView.tsx            In-app user manual
+│   ├── ManualView.tsx            In-app user manual
+│   └── DevQzPrintTestView.tsx    Dev-only QZ Tray connection/print test harness — never renders in production
 │
 └── styles/
     └── globals.css               Tailwind + CSS variable theme tokens + @page (letter)
@@ -1044,6 +1092,26 @@ user, and the real boundary remains SharePoint's per-list permissions. Search de
 multi-line fields — a part number people are chasing lives in `PartNoIncluded`,
 not in the file number, and the table can only show its first line.
 
+**READING a certificate is open to everyone; only WRITING is admin-gated.**
+The register's paperclip column was a static ICON — it told you a certificate
+existed and gave you no way to open it — and the files were only reachable
+inside the admin-only Edit modal. So for a non-admin the attachment was
+visible and unreachable (Ray, 2026-09-16: "clicking attachment in CSA listings
+does not work, users need to be able to access them"). The paperclip is a
+BUTTON now, opening `CsaAttachmentsModal` for anyone signed in.
+
+`AttachmentsSection` gained a **`readOnly`** prop for this: it shows the files
+and keeps downloads working while hiding the Add file button, the delete
+button, and the paste/drag targets. **Gating the whole card would have hidden
+the file**, which is the opposite of what was asked — looking a certificate up
+is what this register is for. Admins get the same modal without `readOnly`, so
+the register is now also a place to manage the files rather than only the Edit
+form.
+
+`readOnly` is the pattern for any list where reading an attachment is open and
+changing it isn't. Don't reach for it where the whole card should be hidden —
+an empty read-only card still says "No attachments", which is information.
+
 **There is NO expiry column** on this list, and no expiry feature. A
 `certificationExpiry.ts` (buckets, urgency sort, counts, tested) sat unwired here
 from 2026-07-29 and was **deleted on 2026-07-30** at Ray's request rather than
@@ -1255,6 +1323,118 @@ which KAM fields are showing.
 only in a view is a rule that isn't enforced. Its logic is unchanged;
 `FaitDetailView` imports it.
 
+**No OEM Impact means no KAM sign-off, full stop** (Ray, 2026-09-03: "If
+there is no OEM impact, hide the CAM [KAM] sign-off field") — checked FIRST
+in `kamNeeded()`, ahead of the "KAM assigned or has existing data" check
+above. A KAM only ever signs off on a part that reaches an OEM customer.
+`OEMImpact` is a real SharePoint **boolean** column (unlike the sign-off
+columns, which are text/choice) — stored `"Yes"` or `""` for No, no third
+"unanswered" state — so blank genuinely means No, and `hasOemImpact(fait)`
+(exported alongside `kamNeeded`, for the sidebar hint to explain WHY the KAM
+fields are hidden) is the one place that reads it. Unlike the "AND no
+existing data" carve-out above, this is an UNCONDITIONAL override: a FAIT
+with real, pre-existing `kamSignOff` data still hides it if OEM Impact is
+No — the sign-off literally doesn't apply to a part with no OEM impact, so
+there's no "don't erase real data" case to protect the way there is for "no
+KAM assigned yet". This also feeds `faitFullySignedOff()` (the Notify
+Initiator close gate, below) and `faitSignOffOutcome`'s `kamOwed`, so a FAIT
+with no OEM impact can close on SQE + Engineering alone and never parks at
+"This is with KAM" waiting on a signature nobody owes.
+
+**KAM's sidebar position has moved twice.** Ray, 2026-09-03: "Move the CAM
+[KAM] Person field forward" — put it ahead of Assigned Engineer. Ray,
+2026-09-04: moved it back underneath. People group order is now Initiator →
+Assigned Engineer → KAM → Watchers.
+
+**The KAM sidebar PICKER hides too, not just the sign-off requirement note**
+— a follow-up fix the same day, caught by Ray from a screenshot: the first
+pass only hid the KAM fields on the Sign-off card and swapped in the "no OEM
+Impact" hint text, but the person picker itself kept rendering, so a FAIT
+with no OEM impact still showed an empty, pickable KAM field doing nothing.
+The gate is `hasOemImpact(fait) || fait.kam !== null`, deliberately NOT bare
+`kamNeeded(fait)`: with no OEM impact, `kamNeeded` is unconditionally false
+even when a KAM is already assigned (the sign-off genuinely doesn't apply),
+but the SIDEBAR PICKER still has to show that assignment — an assigned
+person must never become invisible in the UI just because OEM Impact was
+unchecked afterward, same "don't hide real data" rule the Sign-off card's
+own KAM fields already follow for pre-existing sign-off data. Fixture 7 (no
+OEM impact, no KAM) and fixture 6 (no OEM impact, KAM ALREADY assigned) are
+the two shapes `FaitDetailView.test.tsx` pins this with — deliberately two
+different fixtures, since one fixture can't prove both halves of an OR.
+
+**"Notify Initiator" CLOSES the FAIT — once every sign-off it owes is
+Approved.** Ray first asked (2026-09-03, same day) whether checking this
+Sign-off card box closes the FAIT and changes its status; the answer at that
+point was no — it only fired `fireFaitNotifyInitiatorAlert` as a bare "an
+update is available" nudge. Ray then asked for the box to actually do that:
+*"The Notify Initiator button should change the status to Closed and inform
+users of its function... assuming all sign offs are done."*
+
+- **`faitFullySignedOff(fait)`** (`lib/faitSignOff.ts`) is the gate — SQE
+  Approved, Engineering Approved, and KAM Approved only if `kamNeeded(fait)`
+  says one is owed. It restates the same rule `faitSignOffOutcome` already
+  applies one step at a time, as a single point-in-time check for a caller
+  that isn't mid-write.
+- **An incomplete FAIT REFUSES the write**, in `useUpdateFaitFields`'s
+  `mutationFn` — `FaitNotFullySignedOffError`, thrown before any request goes
+  out, so the box visibly doesn't save rather than silently closing something
+  that isn't actually finished. The generic `onError` handler already rolls
+  the optimistic patch back and toasts `err.message`, so no extra plumbing was
+  needed for the refusal to surface.
+- **Whether this write closes the FAIT is decided in `onMutate`**, against
+  the pre-write row (same timing rule as `pendingSignOff` for the ordinary
+  sign-off chain — `onMutate` has already run by the time `mutationFn`
+  fires), and carried forward through a second WeakMap, `pendingNotifyClose`,
+  keyed on the mutation's `vars` object.
+- **The close travels in the SAME PATCH** as the Notify Initiator checkbox
+  itself — `{ NotifyInitiator: true, Status: "Closed" }` in one write, the
+  same "the auto-advance can't disagree with what caused it" rule the
+  ordinary sign-off chain already follows.
+- **The email content changed to match**: `buildFaitNotifyInitiatorEmails`
+  now says "confirmed all sign-offs are complete... it's now closed", not
+  "an update is available" — since a refused write means this can now only
+  ever fire on a genuine close.
+- **Still fire-once, and still never reopens an already-Closed FAIT** — the
+  same `to !== from` / presence-vs-change discipline as everywhere else in
+  this file. Re-saving the Sign-off card with the box already checked sends
+  nothing, so a FAIT that's already Closed can't be "re-closed" (and
+  re-emailed) by an unrelated resave.
+- Both the read-only card (`FieldRow` in `FaitDetailView.tsx`) and the Edit
+  modal say this in words next to the control, via `EditableFieldSpec.hint`
+  on the `notifyInitiator` descriptor in `faitFields.ts`.
+
+**The initiator can never be removed from Watchers — enforced twice.** The
+Watchers picker in `FaitDetailView` refuses the toggle with a toast
+explaining why (UI layer); `useSetFaitWatchers` also re-folds the initiator
+back in via `autoWatchers(people, initiator)` regardless of what the caller
+sends (write layer), so a bug or a future caller bypassing the picker can't
+drop them either. Confirmed by a regression test on each layer, each
+verified by deliberately breaking the guard and watching it fail.
+
+**Comment attachments are real uploads, not ephemeral blobs.** FAIT's
+`CommentComposer` / `CommentThread` now receive `uploadFile`, wired to
+`useUploadAttachment("fait", faitId)` with a small adapter converting its
+`{ fileName, downloadUrl }` return to the composer's `{ name, webUrl }`
+contract — the same list-item attachment store every other attachment in ARC
+uses, so a screenshot dropped into a FAIT comment survives a refresh.
+
+**FAIT 89's Communication field was wiped by "Append Changes to Existing
+Text" being ON** (see the FAIT list-level note above), then recovered from
+SharePoint version history — merged across ALL 21 stored versions, not the
+single richest one. The field had been wiped and restarted several separate
+times during testing, each episode holding genuinely different people's
+comments (Michael Colaneri, Beth Rober ×2, then Ray/Alexandra's thread) that
+never coexisted in one version — picking any single version, however rich,
+loses whichever episode isn't in it. `scripts/restore-fait-89-communication.ps1`
+is the one-time, hard-coded recovery: it re-fetches every version, splits
+each into comment records with the same pattern `communicationParser.ts`
+uses, dedupes by (timestamp, email, body) across all of them, sorts
+oldest-first, and reads the field back after writing to confirm it landed
+exactly (catching a still-on append setting immediately rather than trusting
+the write). **If this happens again on any list**: always check for multiple
+separate wipe/restart episodes across version history before recovering —
+never assume the newest or richest single version contains everything.
+
 #### The sign-off chain — SQE → Engineering → KAM
 
 The three sign-offs could be filled in any order and nobody was told when it
@@ -1412,6 +1592,141 @@ a "show all"; the filters and the count always run over everything.
 
 Attachments are enabled on the list (kind `ecn` in `api/attachments.ts`).
 
+### ECN Checklist — the Cross-Functional ECN Checklist (Form# MFGFRM-038)
+
+`VITE_SP_ECN_CHECKLISTS_LIST_ID` on `SITES.engineering`, created by
+`scripts/create-ecn-checklist-list.ps1`. **ONE ROW PER ECN**, tied to the ECNs
+list by a single `EcnRef` lookup. Renders at the BOTTOM of `EcnDetailView`
+(Ray, 2026-09-15). **No default id** — an unset id shows a "not configured"
+notice, the Quick Links shape; nobody could edit a checklist before this
+shipped, so there is nothing to lock anyone out of.
+
+**The source is a real controlled form** — `MFGFRM-038_Rev 0.xlsx`. Its four
+per-item columns split cleanly, and that split is the whole design:
+
+| Column | Varies per ECN? | Where it lives |
+|---|---|---|
+| A "On ECN" (43 of 84) | no | `ecnChecklistTemplate.ts` |
+| B "Review Steps" (the text) | no | `ecnChecklistTemplate.ts` |
+| D "Requires a review w/depts" (26 of 84) | no | `ecnChecklistTemplate.ts` |
+| C **"Findings/Comments"** | YES | the checklist row |
+| E **"Complete"** | YES | the checklist row |
+
+So **the template is CODE, not data** — 84 items across 10 sections,
+transcribed verbatim from the workbook rather than retyped. Storing A/B/D in
+SharePoint would be 84 copies of the same constants on every one of 1,800+
+ECNs.
+
+**`key` is the contract.** A stored answer references `s3-new-chemicals`, NOT
+row 25, which is what lets a Rev 1 of the form add, reword or reorder items
+without orphaning answers already given. A stored key the template no longer
+declares renders under "No longer on the form" rather than vanishing
+(`retiredAnswers`). **Never reuse or reassign a key.**
+
+**Why the answers are ONE JSON column** (`Answers`), decided with Ray on
+2026-09-15 after walking the alternatives:
+
+- 84 rows per ECN × 1,800+ ECNs is **150,000+ list items** — far past
+  SharePoint's 5,000-item threshold, which this repo has already paid for once
+  on the Teradyne log at 16,000 — plus 84 writes to create one checklist.
+- 84 pairs of real columns is 168 columns on one list, and each form revision
+  becomes a SharePoint migration rather than a code change.
+
+The cost is stated rather than hidden: **individual answers are NOT queryable
+from SharePoint's own views.** That is what `ItemsTotal` / `ItemsComplete` /
+`ItemsNa` / `ItemsFlagged` / `Status` are for — real columns, recomputed on
+every write from the blob they summarise, so a native view can answer "which
+checklists are outstanding". **If per-item cross-ECN reporting is ever needed
+IN SharePoint, this is the decision to revisit.**
+
+**The blob is a KEYED MAP, not a log.** Writing an item REPLACES its one slot;
+nothing appends, and the blob does not grow with edits. (Contrast
+`Communication`, which genuinely appends — the two are easy to conflate.)
+
+**MERGING IS LOAD-BEARING.** Every write rewrites the whole cell, so two people
+in one checklist would otherwise last-writer-wins over all 84 answers.
+`saveChecklistAnswers` **re-reads the row and merges** — `mergeAnswers` applies
+only the changed keys — rather than writing the caller's whole picture. The
+remaining lossy case, two people editing the SAME item's findings in the same
+second, is what SharePoint gives you for any single field anywhere. Pinned in
+`ecnChecklists.lookup.test.ts`, verified by reintroducing the bug and watching
+it fail.
+
+**A blob it could not PARSE is never overwritten.** `parseAnswersResult`
+reports `corrupt` and the write refuses, saying so. Replacing data we failed to
+read is the one outcome worse than an error message.
+
+**FOUR states, not a bare tick** (Ray, 2026-09-15) — Complete / N/A / Flagged /
+Not started. The paper form has one `Complete` column where blank silently
+covers both "doesn't apply" and "haven't got to it"; a reader resolves that
+from the Findings text beside it, and a progress number cannot. Most ECNs never
+touch chemicals, CSA files or panel inventory, so **without N/A a finished
+checklist reads as 51 of 84 for ever** and the number stops meaning anything.
+N/A and Flagged both count as SETTLED. Four options is past `ChoicePills`'
+`MAX_PILL_OPTIONS` of 3, so the control is its own rather than a bent version
+of that one — but still pills, since this is the primary interaction 84 times
+over and a dropdown per row would be brutal.
+
+**Auto-save, no Save button** — a tick writes immediately; findings text writes
+on blur or after a ~1.5s pause, held in local state meanwhile so the network
+never stutters the cursor.
+
+**Created AUTOMATICALLY on ECN create** (Ray, 2026-09-15), best-effort in
+`useCreateEcn`'s `onSuccess` — the ECN is already real and in the cache by
+then, so a failed checklist write TOASTS rather than making a successful create
+look failed (the same rule as the EIR→Task promotion's follow-up writes). The
+**"Create checklist"** button on the ECN's own page is both the recovery and
+the only way the **1,800+ ECNs predating this feature** ever get one.
+`createEcnChecklist` refuses to write a second checklist for an ECN that
+already has one — two would mean whichever loads first wins, silently.
+
+**`EcnRef` is a SINGLE lookup**, the trap documented four times over in this
+file (FAIT's person columns, Supplier `BPReference`, the CMMS lists, Feature
+Requests' `RequestedBy`): Graph returns a bare `EcnRefLookupId`, as a STRING,
+even with the friendly name in the `$select` — so both halves are selected and
+a write is a **bare integer**. Getting this wrong maps every checklist to
+`ecnId: 0`, and it then appears on no ECN's page at all — exactly what happened
+to 566 Supplier Contacts. `CompletedBy` is a single PERSON with the same shape,
+and a sign-off that cannot be resolved is **refused**, never written as `null`.
+
+**No admin gate anywhere** — any signed-in user can create a checklist, answer
+items and sign one off, matching how ECN comments and edits already work. Real
+enforcement stays SharePoint's list permissions.
+
+**No delete**, in the UI or the module — a checklist records a review that was
+done, the same call as the ECNs list it hangs off. `ecnChecklists.test.ts`
+asserts the module exports nothing matching /delete|remove/.
+
+#### The RACI matrix is STATIC REFERENCE, not stored data
+
+`lib/ecnChecklistRaci.ts` + `components/EcnRaciModal.tsx`. Ray, 2026-09-15:
+*"The raci matrix needs to be a created diagram that can be called by pressing
+a link at the top... that way it is separate than the data being stored in a
+sharepoint list."* 32 roles across 9 departments, identical on every ECN, so it
+lives in code and never touches the checklist row.
+
+Four things it gets right, each for a reason:
+
+- **Only the 18 items that carry marks are rendered.** Sections 4–10 have none
+  on Rev 0; 66 empty rows reads as a rendering fault rather than as missing
+  source data, so the count is stated in words instead.
+- **32 columns scroll inside their OWN container**, item text frozen in the
+  first column — the house rule that the page body never scrolls sideways.
+- **A per-item RACI link** opens the matrix AT that step. "Who do I consult for
+  this line" is the question someone actually has while filling it out, and
+  hunting for it in a 32-column grid is worse than not having it.
+- **`A/R` and `C/I` are explained** (`RACI_COMBINED_NOTE`). The form uses both,
+  and its own legend covers only the four single letters.
+
+**`Stragic Buyer` is MISSPELLED in the controlled form** (for "Strategic") and
+is transcribed verbatim — the same call as the `QualityPeformance` column typo
+on the Suppliers List. A controlled document is quoted, not edited; fix the
+workbook first if it should change here.
+
+**`scrollIntoView` is feature-detected** — it is absent in jsdom and on some
+older browsers, and scrolling to a row must never be the reason the whole modal
+fails to render. Found by test, 2026-09-15.
+
 ### "Where am I?" (Engineering out-of-office calendar)
 
 `9483c2c9-8af4-42cb-9e15-a170c8cac225` (env: `VITE_SP_WHERE_AM_I_LIST_ID`) on
@@ -1494,6 +1809,49 @@ Also:
 - **`Communication` and `Watchers` already existed on the list**, which is why
   the standard comment thread wired up with no SharePoint changes.
 
+**`Requestor` and `Parts_x0020_Location` are SINGLE-value person columns, and
+both read as nobody until 2026-09-16.** The `$select` asked for the friendly
+names ALONE, and Graph hands a single-value person column back as a bare
+`<Name>LookupId` regardless — so `parseSinglePerson` (which only understands
+the expanded object) returned `null` on every row, and the detail page showed
+"Requestor: Not set" on a request that genuinely had one (reported on
+GMR_2026-207). The fix is the same three-step this file documents for FAIT,
+Supplier `BPReference`, the CMMS lists and Feature Requests' `RequestedBy`:
+select BOTH halves, read either shape (`personOrLookup` in
+`grayMarketMapper.ts`), then fill the names in from the PMO site's User
+Information List (`attachGrayMarketPeople`, one read per load, in parallel
+with the items and **best-effort** — a throttled directory read must degrade
+to `User #n`, not lose the whole list). An unresolvable id renders as
+`User #46`, never as "Not set". Pinned in
+`grayMarketRequests.requestor.test.ts` with `USE_MOCK: false`, verified by
+reintroducing the bug and watching seven cases fail.
+
+**A test had already PREDICTED this bug, and asserting it broke the deploy.**
+`grayMarketRequests.people.test.ts` (written 2026-09-02, chasing the
+wrong-requestor report) contained a case literally named *"reads Requestor as
+unset when Graph returns only the bare RequestorLookupId, not a wrong
+person"*, asserting `toBeNull()`, with a comment calling it *"a real gap (the
+request shows NO requestor even though one was set)"*. Fixing the gap two
+weeks later made that assertion fail and `npm test` gates the deploy, so the
+fix shipped and the deploy went red.
+
+Two things worth taking from that:
+
+- **A test that pins CURRENT-BUT-WRONG behaviour is a landmine.** It is
+  sometimes the right call — it stops a regression sliding further — but it
+  must be written so the next person knows it is describing a bug, not a
+  contract. Name it for the gap, not the behaviour, and say in the assertion
+  what the fixed version should look like.
+- **Grep for the symptom before fixing it.** The header of that file had
+  already done the diagnosis this fix repeated from scratch; reading it first
+  would have found both the cause and the test that would break.
+
+**Note this is a DIFFERENT bug from the wrong-person-as-watcher one fixed the
+same day** (see "A lookupId is valid on ONE site"). That was a WRITE resolving
+against the wrong site; this is a READ not asking for the id at all. Both
+surfaced on Gray Market Requests within hours of each other, which is a
+coincidence of where people were looking, not one root cause.
+
 **No delete**, in the UI or the API module — a request records a part that was
 bought. `grayMarketRequests.test.ts` asserts the module exports nothing
 matching /delete|remove/.
@@ -1532,6 +1890,199 @@ blank rather than sending `""`, like every other blank column on a create. If
 the SharePoint column is still marked Required in list settings, the create
 will be refused there regardless of what ARC sends — that setting is the place
 to look if new requests start failing.
+
+### MRB — Material Review Board (Supply Chain, PMO site)
+
+`1ca33f70-c98f-4481-b518-4b15fc8fbfff` (env: `VITE_SP_MRB_LIST_ID`), list name
+**"MRB Data"**, on **`SITES.pmo`** — a Supply Chain feature on the PMO site,
+the same arrangement as Gray Market Requests. Nonconforming material: the
+part, the quantity, why it was rejected, where it was caused, and what was
+decided to do with it. Schema and a full 2,960-row profile captured live
+2026-09-21 — `scripts/mrb-data-schema.json`.
+
+**Every workflow column is called `field_N`**, the same migration artefact as
+the ECNs list, and `src/lib/mrbFields.ts` is the only place that translation
+exists:
+
+| Internal name | Actually is | | Internal name | Actually is |
+|---|---|---|---|---|
+| `field_1` | MRB Date | | `field_13` | Source Year |
+| `field_2` | Old Part Number → shown as **Altronic Part Number** | | `field_14` | Vendor Part Number (Legacy) |
+| `field_3` | Quantity | | `field_15` | Where Detected (Legacy) |
+| `field_4` | Description | | `field_16` | SAP Action (Legacy) |
+| `field_5` | Reason | | `field_17` | Status (Legacy) |
+| `field_6` | Where Caused (choice) | | `field_18` | Action Owner (Legacy) |
+| `field_7` | Disposition (choice) | | `field_19` | PO Number (Legacy) |
+| `field_8` | Vendor Name | | `field_20` | Where Caused (Original Text) |
+| `field_9` | Price Per Unit (currency) | | `field_21` | Disposition (Original Text) |
+| `field_10` | Price Per Issue (currency) | | `field_22` | Data Quality Notes |
+| `field_11` | Comments (**a notes field**) | | `field_23` | Source Workbook Row |
+| `field_12` | **Data Format** | | | |
+
+Unlike ECN's, there are no gaps — 1 through 23 all exist.
+
+Seven things that shape this feature:
+
+- **2,863 of the 2,960 rows are NOT work.** `field_12` ("Data Format") is
+  `Legacy` on them and `Current` on the other 97 (Tim, 2026-09-21: the legacy
+  rows are "just data retention from older excel files and not active
+  items"). It is a **clean** discriminator — 0 of the 97 Current rows carry a
+  value in any `(Legacy)` column — so `MrbView` makes it a TAB rather than a
+  filter people have to know to apply, and the register opens on
+  **Needs disposition**: live entries whose Disposition is blank or "To be
+  Determined". 37 of the 97 were in that state at discovery, and that queue is
+  the entire reason the screen exists. Archive rows stay fully searchable,
+  which is the point of keeping them, and are chipped as archive wherever they
+  appear so one reached by search isn't mistaken for something to action.
+
+- **THE TRAP: two choice columns hold a value they do not declare.** 726 rows
+  hold `Where Caused = "Unclassified (Legacy)"` and 8 hold the same in
+  `Disposition` — **with a space** — while the columns declare
+  `"Unclassified(Legacy)"` **without one**, and `allowTextEntry` is **False**
+  on both. So the stored value is not among its own column's choices, and
+  re-sending it makes SharePoint **reject the entire PATCH**. Two defences,
+  and both are needed:
+  - **`buildMrbFields` DIFFS against the row the edit started from** and sends
+    only what changed, so the refused column never travels. This is the Visit
+    Reports mechanism for the identical reason. `updateMrbEntry` therefore
+    *requires* the previous row, and `useUpdateMrbEntry` reads it out of the
+    cache and refuses the write rather than sending everything blind.
+    Pinned in `api/mrb.diffedWrite.test.ts` with `USE_MOCK: false` — verified
+    by removing the diff and watching five cases fail.
+  - **`mrbChoiceOptions` keeps the stored value in the picker.** A picker
+    built from the declared choices alone shows such a row as blank and
+    silently reassigns it on save. Same rule as `rmNameOptions` on Visit
+    Reports.
+
+- **`Title` is the SAP Number, and `LinkTitle` is a READ-ONLY column whose
+  display name is "SAP Number".** Write `Title`; writing `LinkTitle` is the
+  403 that broke every Panel QC create. `MRB_SELECT` deliberately doesn't even
+  ask for it.
+
+- **`field_2` is labelled "Altronic Part Number", not its column's own "Old
+  Part Number"** (Tim, 2026-09-21), and sits beside the SAP Number in the
+  list. Exactly the call the Teradyne Log made for a column literally named
+  `OldSAPNumber`: the user-facing name changed, the SharePoint column
+  deliberately did NOT, because existing views and anything reporting off
+  the list point at it. The domain key stays `oldPartNumber` to match.
+
+  **Every label comes from `MRB_FIELDS`, never a string typed into a view.**
+  The list column, the detail card rows (`label(key)` in `MrbDetailView`),
+  the create form and the edit modal all read the same entry, so a rename
+  can't leave two screens calling one field different things — which is
+  precisely what a half-applied version of this rename would have done.
+
+- **`Price Per Issue` = `Price Per Unit` × `Quantity` on every one of the 97
+  live rows** — and on only 1,792 of 2,162 archive rows. All 370 exceptions
+  are archive (partial credits, rounding, a few with quantity 0). So the rule
+  is the *live process*, not a truth about the data: the form fills the figure
+  in and lets you type over it, the detail page **flags** a stored mismatch,
+  and nothing is ever recalculated over a stored value. Rewriting history to
+  satisfy a rule it predates is not a fix.
+
+- **Dates come back at 04:00Z / 05:00Z** — local midnight in US Eastern,
+  daylight and standard — with three outlier rows at 22:00Z / 23:00Z. The
+  shared `parseSpDateOnly` midday pivot reads all four correctly, which is
+  precisely why that rule isn't a per-list offset. The three outliers shift
+  forward a day under the pivot; at three rows out of 2,960 that is not worth
+  a special case, but it is worth knowing before anybody "fixes" a date.
+
+- **The comment column is `Communications` — PLURAL.** Every other list in
+  ARC calls it `Communication`. Tim added it by hand on 2026-09-21 and named
+  it that way; `MRB_COMMUNICATIONS_COLUMN` in `mrbFields.ts` carries the exact
+  spelling, and writing the singular writes to a column that isn't there.
+  Its shape was checked at creation and is correct — `allowMultipleLines`
+  true (a single-line column would cap the thread at 255 characters),
+  `textType` plain, and crucially **`appendChangesToExistingText` FALSE**,
+  the setting that wiped FAIT 89's whole history.
+
+  **VERIFIED BEHAVIOURALLY on 2026-09-21** (Tim): two comments posted on one
+  entry, and the second replaced the stored value rather than doubling the
+  thread. That check was not optional — Graph has reported this flag as
+  `true` on FAIT however the column was created, and a PATCH setting it
+  false was accepted without changing anything, so the API's answer alone
+  proves nothing here. Re-do it if the column is ever recreated.
+
+  **Don't confuse it with `field_11`**, which is *labelled* "Comments" and is
+  a plain notes box — carried as `notes` in the domain specifically to keep
+  the two apart, the same collision Cost Impact Notices has. `field_11` also
+  holds migration junk (`[Legacy WHERE CAUSED: PRODUCTION]`) on archive rows.
+
+  **So the thread's heading on this page is "Discussion", not "Comments"** —
+  the one page in ARC where it isn't called Comments. `field_11` renders as
+  a field labelled Comments on the Nonconformance card directly above, and
+  two things called Comments on one page, one of which emails people and one
+  of which doesn't, is a trap. A test query tripped over the same ambiguity
+  before a user could. Don't "make it consistent" with the other detail
+  pages without renaming the field first, which would mean renaming the
+  SharePoint column.
+
+- **The `Watchers` column may not exist yet, and the read copes.**
+  `scripts/add-mrb-watchers-column.ps1` creates it, and that runs separately
+  from any deploy — while **selecting a column a list hasn't got 400s the
+  WHOLE read**, which would leave the entire register blank in between. So
+  `listMrbEntries` asks for Watchers, retries once without it on failure, and
+  remembers the answer for the rest of the page session (the
+  `serverFilterUnavailable` shape from the Teradyne log). `mrbWatchersAvailable()`
+  is what the detail page asks before offering the picker, and a watcher
+  WRITE while unavailable is refused with the script's name in the message
+  rather than a raw 400.
+
+  Two things that are deliberate in that fallback: it only concludes the
+  column is missing once the **slim read succeeds** (both failing means
+  something else is wrong, not that watchers are gone), and a failure when
+  the flag is already known propagates instead of retrying — a throttle or an
+  outage must not silently read as "nobody is watching anything".
+
+- **No assignee, so comments notify watchers and mentions only.**
+  `commentNotifyRecipients` gets an empty `assignees` rather than standing
+  something else in: an MRB entry is owned by the board, not one person.
+  Auto-watch-on-mention resolves against the **PMO** site
+  (`resolvePmoSiteUserLookupId`) — a lookupId is per site collection.
+
+- **No admin gate and no roles** — any signed-in user can add an entry and
+  record a disposition (Tim, 2026-09-21), matching Visit Reports and QC Time
+  Tracking. SharePoint's list permissions remain the real boundary.
+
+**No delete**, in the UI or the module — an MRB entry records material that
+was rejected and what was decided, and most of the list is retained history.
+`mrb.test.ts` asserts the module exports nothing matching /delete|remove/.
+
+**On a phone the list is CARDS, not the table** — `MrbView` renders two
+siblings over the same `shown` rows, a `sm:hidden` card list and a
+`hidden sm:block` table, split at 640px. Nine columns don't fit a phone even
+truncated. The `QcCpu95View` / `QcTimeTrackingView` shape, including the card
+being a real `<button>` (nothing competes for the tap target here).
+**jsdom has no breakpoints, so both render at once in a test** and every
+entry's text appears twice — scope to the table or use `getAllBy*`.
+
+**The search/filter panel is collapsed by default ON A PHONE ONLY.** The
+toggle is `sm:hidden` and the panel `sm:grid`, so desktop is unchanged and
+there is one piece of state rather than two behaviours. **An active filter
+forces it open** and badges the count — a list narrowed by a filter nobody
+can see is the invisible-filter trap the EIR status pills already paid for,
+and worse here because the filter can arrive in a shared URL. Don't
+"simplify" `filtersOpen` back to the bare `useState`.
+
+2,960 rows is under the 5,000-item threshold, so the list is fetched whole and
+filtered in the browser — which is what makes searching the Reason text for a
+failure mode possible at all. It grows ~250 rows a year, so there is roughly
+eight years of headroom before that needs revisiting; `MrbView` renders 150
+rows with a "show all", and the filters, counts and cost total always run over
+everything.
+
+**`field_13` (Source Year) contains junk** — one row each of 2027, 2204 and
+5025, obvious typos in the source workbook. It is read and shown but never
+used to filter or group; the year filter derives from the MRB date.
+
+**The dashboard card shares `superior-blue` with FAITs on purpose.** The
+Supply Chain section's four existing cards already use all four brand tones,
+so a fifth must repeat one, and these two are the pair worth pairing: both
+are quality dispositions on inspected material. Repeating Cost Impact's red
+would instead blunt "red means a cost change". Its count is **deliberately
+not scoped by Mine/Company** — there is no person column to scope by — so the
+`unit` reads "need a disposition", describing the register rather than the
+reader.
 
 ### SRM Tool (Supply Chain, Altronic_PMO site)
 
@@ -1577,11 +2128,37 @@ Six things about this list's columns:
 - **`CoreCompetency` is a MULTI choice** (~59 real options, checkboxes
   display); `Status` is a single choice (Active / Phase Out / Archive /
   Indirect) — same single-vs-multi trap as the CRM Tool's Group/CustomerType.
-- **`PrimarySupplyFocus` is UNCONFIGURED** — Graph reports its choice list as
-  a single placeholder value, `["Choice"]`, with free-text entry allowed and
-  every sampled row blank. It is deliberately NOT read or written here,
-  the same call as CSA Listings' deleted expiry feature: don't build a field
-  around data nobody has decided the shape of yet.
+- **`PrimarySupplyFocus` is STILL UNCONFIGURED, but it IS now mapped** (Ray,
+  2026-09-09). Graph reports its choice list as the single placeholder value
+  `["Choice"]`, with free-text entry allowed, and all 531 rows are blank —
+  re-confirmed live on 2026-09-09, so this is not stale information. It was
+  deliberately unmapped until Ray asked for it; it is now read and written as
+  a plain **`string`**, NOT clamped to `SUPPLIER_PRIMARY_SUPPLY_FOCUSES`, so
+  whatever real values Supply Chain configures later appear with no code
+  change. The edit control is `suggest`, not `choice`, for the same reason: a
+  picker would offer one meaningless option. **Swap it to `choice` +
+  `SUPPLIER_PRIMARY_SUPPLY_FOCUSES` the day the column is configured**, and
+  update that const and the SharePoint column together.
+- **`PanelsOnly` ("Panels Only") is a real BOOLEAN**, added to the list by Ray
+  before 2026-09-09 (it is absent from the 2026-08-26 snapshot). Blank
+  genuinely means No — there is no third "unanswered" state — so it renders
+  through `YesNoField` with the `noValue: "empty"` convention, and a create
+  ALWAYS sends it, false included, or SharePoint's own views read the column
+  as blank rather than No. Settable on the New Supplier form (it is known
+  when a supplier is set up) and editable from the Details card after.
+- **The four performance NUMBER columns are editable** (Ray, 2026-09-09) —
+  `SupplierPerformanceRate`, `QualityPerformance`, `QualityPeformance` and
+  `AllDeliveries`, through an "Edit scores" button on the sidebar's
+  Performance field. Two things about that panel: it renders **even when every
+  score is null**, because gating it on `supplierPerformanceRate !== null`
+  (as it did) left a supplier with no scores yet no way to enter the first
+  one; and a null reads **"Not recorded"** rather than being hidden or shown
+  as `0` — a score nobody has measured is not a score of zero, which is also
+  why `inputToNumber` maps a cleared box to `null` and deliberately does NOT
+  use `Number(v) || null` (that turns a genuine 0 into null).
+  `FieldEditModal` gained a **`number`** field kind for these; it still
+  carries values as strings like every other kind there, so the CALLER
+  converts on save.
 - **`Logo` is a modern SharePoint "Image" column** — it stores no binary of
   its own. The value is a JSON blob
   (`{"fileName":"Reserved_ImageAttachment_...","originalImageName":"..."}`)
@@ -1687,6 +2264,40 @@ Six things about this list's columns:
   column and these consts together** the day Supply Chain sets real values —
   until then the picker in `SupplierIssueCard` / `SupplierIssueFormModal`
   can only offer what SharePoint offers.
+
+**`BPReference` needs BOTH halves in the `$select` — this is why contacts
+"weren't showing up"** (Ray, 2026-09-09). Supplier Contacts and Supplier
+Issues each hang off Suppliers List through `BPReference`, a **single**
+lookup, and Graph returns a single-value lookup as a bare
+`BPReferenceLookupId` rather than the expanded friendly-name object. Both
+reads asked for `BPReference` ALONE, so the id never arrived, every row
+mapped to `supplierId: null`, and `SupplierDetailView`'s
+`contacts.filter(c => c.supplierId === supplier.id)` matched **nothing** — on
+566 real contacts. The rows and their lookups were fine the whole time (live
+samples carry 353, 496, 476); the read simply never requested the column the
+mapper reads.
+
+This is the SAME trap already documented under "A single-person column needs
+BOTH halves selected" — it is not person-specific, it applies to every
+single-value lookup — and `Suppliers List` itself had the latent version of
+it on `AssignedBuyer` and `PointofContact`, both fixed in the same pass.
+Graph also hands the id back as a **string** (`"353"`), which is why the
+mappers go through `toInt`.
+
+**None of it is visible from mock mode**, which is why `supplierContacts.test.ts`
+passed throughout. `api/srm.bpReference.test.ts` forces `USE_MOCK: false` and
+asserts the request shape; each case was verified by reintroducing the bug and
+watching it fail. A new lookup column on any list gets a real-mode `$select`
+test or it isn't covered.
+
+**The supplier on a new contact is PICKABLE** (Ray, 2026-09-09) —
+`SupplierContactFormModal` still receives the supplier it was opened from and
+prefills it (the detail page is the only entry point today, so the common case
+costs no extra clicks), but it is a `SingleSelect` over every supplier rather
+than a fixed prop. Re-pointing a contact previously meant editing the row in
+SharePoint. It is **required**: a contact with no `BPReference` belongs to no
+supplier and appears on no screen, since every one of them scopes by that
+lookup — so the form refuses the save and says so.
 
 **Supplier Contact List didn't have Communication or Watchers** — added for
 ARC on 2026-08-26 via `scripts/add-supplier-contact-columns.ps1` (mirrors
@@ -1899,6 +2510,588 @@ a live sample row. The pivot rule handles both cases correctly regardless
 renders a day off from what SharePoint's own list view shows, check the
 actual stored time-of-day on a live row before assuming the bug is
 elsewhere, the same lesson Visit Reports and Gray Market already paid for.
+
+### QC Forms — QCFRM-012, the CPU-95 Ignition Module test sheet (Quality Control, Engineering site)
+
+`4843afdc-5697-4f44-8113-003cc220b57a` (env: `VITE_SP_QC_CPU95_LIST_ID`), list
+name **"CPU-95"**, on `SITES.engineering`. The first of what will be several digitized paper
+QC/test forms, reached from a **"QC Forms"** card on the Quality Control
+dashboard. `lib/qcForms.ts` is the registry a search-plus-button landing page
+(`QcFormsView`, `/qc-forms`) is built from — a second controlled form is a
+second `QcFormDef` entry plus its own list/mapper/fields/view; nothing else
+is shared beyond the registry and the landing page.
+
+QCFRM-012 (CPU-95 Ignition Module Electrical Test and Inspection) has
+SEVERAL PAPER VARIANTS depending on the unit's Altronic Part Number —
+CPU-95, CPU-95C, CPU-95C-3516, CPU-95 Varispark, CPU-95 EVS, and a combined
+16/18/20-cylinder sheet — and which fields print depends on an "Altmode"
+(0–6) the old Power Apps form computed with a `Switch()` on the part
+number. `qcCpu95Altmode()` in `lib/qcCpu95Mapper.ts` is the exact same
+lookup:
+
+| Altronic Part Number | Altmode |
+|---|---|
+| 791950-08 | 1 |
+| 791950-16 | 2 |
+| 791950-20, 791962-20 | 3 |
+| 791950-18 | 4 |
+| 791952-18 | 5 |
+| 791962-18 | 6 |
+| anything else (incl. blank) | 0 |
+
+**The columns are DATA** (`lib/qcCpu95Fields.ts`), the same reasoning as
+Drawing File Logs and FAIT — ~200 fields across 13 sections (Header,
+Startup/Final 20V/24V input, checklists, three firing-angle Spec/Actual
+grids for 16/18/20 cylinders, Current Loop, Defects/NCM, Comments &
+Sign-off), each carrying an optional `altModes?: readonly number[]` —
+`undefined` means always visible, otherwise the field only shows for those
+Altmodes. `qcCpu95VisibleFields(altMode)` filters the whole descriptor
+list; `QcCpu95FormModal` recomputes `altMode` LIVE off the Altronic Part
+Number field as it's typed, so picking a part number immediately shows or
+hides the matching voltage set and cylinder grid — there is no separate
+"visibility rule" to maintain per variant.
+
+The record is a flat `values: Record<string, string>` bag (mirrors FAIT's
+`Fait.values`), not a ~200-property interface — booleans are carried as
+`"Yes"`/`""`, the same convention as everywhere else in ARC. Confirmed live
+against `scripts/cpu-95-schema.json` (`discover-list.ps1`, 2026-09-17), not
+guessed from the original CSV export alone — that pass caught the 18-cylinder
+firing grid actually having 18 columns (it adds G and H; the 16-cylinder grid
+doesn't), which an earlier version of this file had silently missed by
+sharing one 16-letter alphabet between both grids.
+
+**There is deliberately NO `$select` on the CPU-95 read at all** — both
+`listQcCpu95Records` and `getQcCpu95Record` in `api/qcCpu95.ts` use a bare
+`$expand=fields`. With ~200 columns, a fully-named `$select` pushed the
+request URL to nearly 5,000 characters, and Graph/SharePoint's edge came back
+with a bare `404 "UnknownError"` and no rows rather than a clean error —
+found live, 2026-09-17, the first time this shipped against the real list.
+Every other wide list in ARC stays well clear of this (FAIT: 51 columns; the
+ECN checklist collapsed 84 items into one JSON column specifically to avoid
+this exact problem) — CPU-95 is the one list actually wide enough to hit it.
+Fetching every field costs a bigger response, never a wrong one, since
+`toQcCpu95Record` only reads the columns it knows about. **If a future list
+needs a `$select` this large, split it across two reads or drop the `$select`
+the same way — don't assume a $select is always cheaper than fetching
+everything.**
+
+**"Project Tag" (`ProjectTag`) IS a real column** — confirmed via the same
+schema pull as a multi-value lookup into the Projects list (the same list
+Tasks/EIRs/ECNs point at). It's deliberately NOT mapped yet: wiring it in is
+the same join-and-render treatment those other lists give a Project
+Reference, a small feature of its own rather than a field-name fix.
+
+**Which fields are visible per Altmode came from a SECOND export**, not the
+original schema — a 146-line CSV mapping each field to one of five Altmode
+conditions (`ALTMODE_LT_5` / `ALTMODE_GT_4` / `ALTMODE_LT_3` / `ALTMODE_GT_3`
+/ `ALTMODE_EQ_3` in `qcCpu95Fields.ts`, named after the CSV's own condition
+language rather than a guessed meaning). The 32 Startup/Final
+voltage-and-current fields split 16 standard / 16 "Alt" (the
+791962/791952-18 variant); four "On 791956-16 …" checklist booleans share
+the Alt condition; the three firing-angle grids are each pinned to exactly
+one cylinder count's condition.
+
+**791950-08 (Altmode 1) is an 8-cylinder unit hiding inside the 16-cylinder
+firing-angle grid** (Tim, 2026-09-17) — it's the only part number mapping to
+Altmode 1, and SharePoint gives it no columns of its own: it reuses the SAME
+`FiringAngleSpec16*`/`FiringAngleActual16*` columns Altmode 0 and 2 (genuinely
+16-cylinder) use, and only the first 8 of the 16 letters (A-L) ever hold real
+values on it — M through V are unused. `EIGHT_CYL_HIDDEN_KEYS` in
+`qcCpu95Fields.ts` is a DISPLAY-ONLY filter layered on top of the ordinary
+Altmode rule inside `qcCpu95VisibleFields()`, hiding those 16 keys (8 letters
+× Spec/Actual) specifically when `altMode === 1` — Altmode 0 and 2 still show
+all 16 letters. `qcCpu95SectionTitle(section, altMode)` relabels the two
+"16 Cyl" section headers to "8 Cyl", and `qcCpu95FieldLabel(field, altMode)`
+relabels each visible grid cell from "16A".."16L" to "8A".."8L", both for the
+same Altmode only — purely cosmetic, the section's fields, columns and write
+payload are untouched, so this is pinned entirely by tests on those three
+functions rather than needing new descriptor fields.
+
+**Altronic Part Number is a `SuggestInput`, not a closed dropdown** (Tim,
+2026-09-17) — it drives the Altmode switch, so a typo used to silently fall
+through to Altmode 0's field set with nothing saying so. First tried as a
+`SingleSelect` (a closed dropdown you must open before picking), but
+production enters this field with a **barcode scanner** that sends
+characters then a trailing CR (Enter) — a control requiring an explicit
+"open the list" gesture first eats that first scan, since there's nowhere
+for the characters to land until it's opened. `SuggestInput` is the CAD
+`By`/`EnteredBy`/`Software` pattern instead: the input IS the value (a real
+`<input>`, focused and ready the instant you tab or scan into it), and the
+known variants are offered as suggestions rather than the only choices — the
+SharePoint column is, and stays, plain single-line text.
+
+- **`QC_CPU95_PART_NUMBERS`** (`qcCpu95Mapper.ts`) is exactly the 7 keys of
+  `ALTMODE_BY_PART_NUMBER`, same order as the table above.
+- **Anything else is still accepted**, same as before this existed — a real
+  variant this list hasn't caught up to. `SuggestInput` already flags a
+  genuinely unrecognized value with its own quiet "New value…" note.
+- **A bare single-digit suffix normalizes before the ALTMODE lookup** —
+  `normalizePartNumberForAltmode()` pads `"791950-8"` to `"791950-08"`,
+  confirmed against real data: some older rows spell the -08 variant without
+  the leading zero. It's a general `-N → -0N` rule, not a second hardcoded
+  map entry, in case another single-digit suffix turns up the same way.
+- **`QC_CPU95_PART_NUMBER_SUGGESTIONS`, not the bare `QC_CPU95_PART_NUMBERS`,
+  is what `SuggestInput` is actually given** — reported live: scanning
+  `"791950-8"` correctly resolved Altmode 1 (the normalization above), but
+  `SuggestInput` still called it a "New value" because ITS OWN exact-match
+  check has no idea the two spellings are equivalent — confusing for a value
+  that's fully recognized, just spelled the old way. `unpaddedAlias()` is the
+  reverse of `normalizePartNumberForAltmode()`: it adds `"791950-8"` as its
+  own suggestion alongside `"791950-08"` (the only one of the 7 with a
+  zero-padded single-digit suffix, so the only one that gets an alias) —
+  fixed at the CALL SITE, in the options list handed to the shared
+  `SuggestInput` component, not by teaching that generic component about
+  this field's normalization rule.
+- **Enter here isn't handled by `SuggestInput` itself** (it only intercepts
+  Escape, to close its own suggestion panel) — it fall through to
+  `handleEnterAsTab` below exactly like any other field, which is what lets
+  a scanner's CR land on Serial Number, then Altronic Part Number, then
+  Logic Board Date Code, back to back with no manual clicking in between.
+
+**Enter behaves like Tab, never like Save** (Tim, 2026-09-17) — reported
+live: with ~200 fields on one screen, most of them plain text/number/
+checkbox inputs entered one after another across the firing-angle grid,
+Enter is exactly the key someone moving between cells reaches for. Left
+alone, a browser implicitly submits a `<form>` the instant Enter is pressed
+in a single-line text or number input — native behavior, not something this
+app opted into — which saved a half-finished sheet or threw the Serial
+Number required-field error mid-entry.
+
+`handleEnterAsTab` in `QcCpu95FormModal.tsx` is on the DIALOG container, not
+the `<form>` — Cancel and Save sit in a footer `<div>` that's a DOM sibling
+of the `<form>`, not a descendant, so the handler has to cover the whole
+modal for Tab-order continuity into those buttons. For an Enter on anything
+that ISN'T a `<textarea>` or a `<button>`, it calls `preventDefault()` (which
+is what stops the implicit submission) and focuses the next element in DOM
+order — the exact same element Tab would reach. A `<textarea>` (Comments)
+keeps its literal Enter, a new line; a `<button>` (Cancel, Close, a
+DateField trigger, and Save itself) keeps its own native
+Enter-activates-a-focused-button behavior untouched — **Save is the one
+button this can ever reach, so Enter only ever submits once it's already
+been tabbed (or Entered) all the way to it.** No change was needed for a
+button already reaching Save on Enter — that's native browser behavior for a
+focused `<button type="submit">`, not something this file has to implement.
+
+**It skips past a field's OWN auxiliary controls, not just to the next DOM
+element** — found live moving to `SuggestInput` (below): Altronic Part
+Number's input is followed in DOM order by that same field's "show
+suggestions" chevron `<button>`, both inside ONE wrapping `<label>` from
+`Field`. Landing plain Enter-redirect on "the next focusable element" landed
+on that chevron, not on the next actual field — useless for a barcode
+scanner's back-to-back CRs. The fix reads `target.closest("label")` and
+keeps advancing past anything still contained in THAT SAME label before
+focusing, so it skips the whole field's control cluster as one unit and
+lands on the next field's own. This is driven by DOM containment, not a
+hardcoded "skip one button" rule, so it holds for any future field that
+pairs its input with its own auxiliary button the same way.
+
+**No delete** — a test sheet is a signed, dated record (Final Test By /
+Final Inspection By), the same "correct with an edit" treatment as FAIT and
+Visit Reports. `api/qcCpu95.ts` has no delete function at all.
+
+**Any signed-in user can create or edit** — no admin gate, matching Visit
+Reports and QC Time Tracking. Reading and searching are open to everyone;
+SharePoint's own list permissions remain the real boundary.
+
+**No detail page** — clicking a row in `QcCpu95View` opens the same giant
+`QcCpu95FormModal` in edit mode, the QC Time Tracking shape, since every
+field (whichever the current Altmode shows) fits on one scrollable form.
+
+**The list is a card/table split on mobile, the `QcTimeTrackingView` shape**
+(Tim, 2026-09-17) — the table's eight columns don't fit a phone even
+truncated, so `QcCpu95View.tsx` renders two sibling elements over the same
+`table.rows`: a `<div className="... sm:hidden">` of `RecordCard`s and a
+`<div className="hidden ... sm:block">` `<table>` of `Row`s, split at the `sm`
+(640px) breakpoint. `RecordCard` is a real `<button>`, not a `<div>` —
+unlike `QcTimeTrackingView`'s card, there's no competing delete/edit icon
+here, so the whole card is the one tap target, leading with the status dot
+and serial number and listing every other column as a `<dl>` label/value
+pair underneath. **jsdom renders both at once** (no real CSS breakpoints),
+so `QcCpu95View.test.tsx` says so up top and uses `getAllByText`/
+`getAllByTitle` with a length assertion instead of the singular form —
+the same convention `QcTimeTrackingView.test.tsx` already established.
+
+**The firing-angle grid is 2 columns on a phone** (Tim, 2026-09-17) —
+`QcCpu95FormModal`'s grid className is `grid-cols-2 gap-2 sm:grid-cols-6
+md:grid-cols-8`; 4 across made each box too small to tap or read
+comfortably. No re-ordering logic was needed: the letters are already
+declared in the paper form's own left-to-right, top-to-bottom order (A, B,
+C, D, …) in `QC_CPU95_FIELDS`, and CSS grid's default row-major auto-flow
+lays them out that way at any column count.
+
+**Altmode is never shown in the list** (Ray, 2026-09-17) — it's an internal
+routing value that decides which fields the FORM shows, not something a user
+reading the list needs to see. The list's own status signal is a coloured LED
+in the leading column instead: yellow **In Process**, blue **In Queue**
+(Tim, 2026-09-17: ONLY Serial Number and Altronic Part Number are filled
+in — the barcode-scanned identifying pair, nothing from the actual test
+yet), red **In Repair** (`values.inRepair === "Yes"`), green **Complete**
+(`finalInspectionBy` AND `finalInspectionDate` both set). `qcCpu95Status()` /
+`qcCpu95StatusSortKey()` in `lib/qcCpu95Mapper.ts` are the pure functions.
+
+Priority order, each checked before falling through to the next:
+
+1. **Complete wins over everything** — a unit that failed, got fixed, and
+   was signed off is done, not still flagged red or blue because of what it
+   went through earlier.
+2. **In Repair wins over In Queue and the plain In Process default** — a
+   unit flagged for repair is never "just queued", whatever else is or
+   isn't filled in.
+3. **In Queue requires BOTH identifying fields non-blank, and EVERY other
+   field blank** (`hasOnlyIdentifyingFieldsFilled`) — a sheet with only one
+   of the two (or with a single other field started, even just Date Tested)
+   doesn't match; it falls through to the plain In Process default instead.
+   This means a genuinely queued record can never carry a Date Tested —
+   filling one in is exactly what moves it out of "queued" — worth
+   remembering when writing a fixture: giving a "queued" test record a
+   `dateTested` silently makes its real status "new" instead, and a test
+   that doesn't assert the status directly can pass for the wrong reason
+   anyway (this happened once here — see the comment in
+   `qcCpu95Mapper.test.ts`'s `qcCpu95StatusSortKey` suite).
+
+The list's default sort groups by that status — **In Process, then In
+Queue, then In Repair, then Complete** (Tim, 2026-09-17: In Queue sorts
+below In Process but above In Repair) — with the newest Date Tested first
+inside each group, one combined sortable-table column (`kind: "number"`,
+`sortValue` = rank scaled well past any real date's epoch, minus the date)
+rather than a bespoke multi-key sort, so it still plugs into the shared
+`tableSort.ts` engine (clicking the header still works, if oddly, since
+flipping direction reverses both the group order and the within-group date
+order together — accepted, since compressing two sort keys into one numeric
+value is the standard trade-off here).
+
+### Panel QC Issue Tracker (Panels, panelTeam site)
+
+The panel team's production defect log — **PANEL COMPONENT FAILURES** on
+`SITES.panelTeam`, with defect categories drawn from the small companion
+list **PANEL COMPONENT DEFECTS** (`PanelQcDefect`, anyone can add a
+category inline while recording an issue). `api/panelQcIssues.ts`,
+`hooks/usePanelQcIssues.ts`, `components/PanelQcIssueFormModal.tsx`
+(shared by both `/panels/qc-issues/new` and `/panels/qc-issues/:id` — one
+component, not a modal despite the name), `views/PanelQcIssuesView.tsx`,
+`views/PrintPanelQcIssueView.tsx`.
+
+**Every text/choice column was renamed on the list directly by Ray,
+2026-09-03** — the internal `name` didn't necessarily change with the
+`displayName`, so `FIELD_CANDIDATES` in `panelQcIssues.ts` carries BOTH the
+pre-rename and post-rename spellings for every renamed field, same as any
+other "discovered, not hardcoded" field-name table in this app:
+
+| Domain field | Old label | New label |
+|---|---|---|
+| `panelSerialNumber` | Panel / Board Serial Number (Title) | Panel Serial Number |
+| `panelPartNumber` | *(new)* | Panel Part Number |
+| `subComponentPartNumber` | Part Number | Sub Component Part Number |
+| `subComponentSerialNumber` | Serial Reference Note | Sub Component Serial Number |
+| `failureReported` | Comments | Failure Reported |
+| `panelsResolution` | Subsequent Steps / Corrective Action | Panels Resolution |
+| `repairTechnician` | Production Technician | Repair Technician |
+| `repairDefectCategory` | *(new)* | Repair Defect Category |
+| `repairIssueFound` | Production Repair Notes | Repair Issue Found |
+| `repairResolution` | Production Resolution | Repair Resolution |
+| `status` | *(new)* | Status |
+
+**`panelSerialNumber`'s "Title" fallback candidate can silently resolve to
+SharePoint's read-only `LinkTitle` column instead of the real `Title`** —
+hit live 2026-09-09, every create 403ing with `"Field 'LinkTitle' is
+read-only"`. Graph's `/columns` endpoint routinely OMITS the base `Title`
+column from its results (inherited from the base content type, not a
+discoverable site column the way custom ones are), while it DOES list
+`LinkTitle` — the link-wrapper every list gets around Title for view
+rendering — carrying the exact same `displayName: "Title"`. `getFieldNames()`
+now filters out `readOnly` columns before building either lookup map, and
+treats a literal `"Title"` candidate as always matching regardless of
+discovery (it's a guaranteed-real, guaranteed-writable column on every
+SharePoint list, so trusting it outright is safe precisely because
+discovery can't be relied on to confirm it). `getDefectFieldName()` on the
+companion PANEL COMPONENT DEFECTS list had the identical vulnerability
+(matching `["defect","title"]` against name/displayName with no read-only
+exclusion) and got the same filter, though its fallback stays a hardcoded
+`"Defect"` rather than trusting `"Title"` — unlike the issues list, nothing
+here confirms that list's real field is actually named `Title` if discovery
+finds no match. Pinned in `panelQcIssues.linkTitle.test.ts`, both cases
+verified by reverting the filter and watching the write land under
+`LinkTitle` instead.
+
+**The rename is also a split into two departments' fields** — Panel
+Department (everything the panel team records when a defect is first
+found: both serial/part number pairs, date, defect category, part
+description, Failure Reported, Panels Resolution, Watchers-on-create) vs.
+Repair Department (Repair Technician, Repair Defect Category, Repair Issue
+Found, Repair Resolution). `PanelQcIssueFormModal` renders these as two
+separate bordered cards, matching the Watchers/Attachments/Communication
+cards below them rather than one long field list.
+
+**The Repair Department card is hidden ENTIRELY on the New Issue form**
+(Ray, 2026-09-03) — it only renders once `issue` is defined, i.e. only in
+edit mode. The repair team's half of the record doesn't exist to be filled
+in until the panel department has actually raised the issue.
+
+**`Status` and `Repair Defect Category` are both strict Choice columns
+("Can add values manually" is OFF)**, so a value ARC writes that isn't in
+the column's own configured list is refused outright — the same failure
+mode CLAUDE.md documents repeatedly for other choice columns. Rather than
+hardcoding a guessed choice list (the export this list was renamed from
+only ever shows `Status = "Created"`, since nothing has been closed out
+yet, and several `Repair Defect Category` choices were truncated in the
+screenshot they were transcribed from), **both are discovered live from
+the column definition itself** — `getFieldNames()`'s `/columns` fetch now
+also selects `choice`, and stashes each column's `choice.choices` array
+alongside the resolved field name. `listPanelQcStatusChoices()` /
+`listPanelQcRepairDefectChoices()` expose them; `usePanelQcStatusChoices()`
+/ `usePanelQcRepairDefectChoices()` are the hooks. **Mock mode has no live
+schema to read**, so `MOCK_PANEL_QC_STATUS_CHOICES` /
+`MOCK_PANEL_QC_REPAIR_DEFECT_CHOICES` in `panelQcMockData.ts` seed the demo
+picker — explicitly commented as a best-effort transcription that only
+matters for the demo, since real mode never touches them. If either
+column's real choices change in SharePoint, ARC picks it up automatically
+with no code change.
+
+**`Status` defaults to "Created" and has no control on the New Issue
+form** (Ray, 2026-09-03) — `createPanelQcIssue` forces `status: "Created"`
+server-side regardless of what the draft holds, the same belt-and-suspenders
+treatment TAG Number already gets. Once the issue exists, the edit view's
+header shows **"Current Status: `<value>`"** read-only next to the TAG
+Number, and a `Status` picker sits on the LEFT side of the footer bar
+(across from Cancel/Save) — bundled into the same whole-form save as every
+other field, not an immediate-write mutation like Watchers, since a status
+change is a normal part of the record rather than a subscription.
+
+**Attachments are staged locally on the New Issue form, then uploaded
+right after creation** (Ray, 2026-09-03: "attachments should be visible in
+the new entry view") — a real SharePoint list-item attachment needs an
+item id to attach to, which doesn't exist until the create POST succeeds,
+so there's no way to genuinely upload before that. `PendingAttachmentsCard`
+(a small stand-in for `AttachmentsSection`, local to
+`PanelQcIssueFormModal.tsx`) lets the user pick/drag files into memory
+while filling out the rest of the form; `submit()` uploads every staged
+file via `uploadAttachment("panelQcIssue", created.id, file)` immediately
+after `create.mutateAsync` resolves, best-effort per file (one failed
+upload doesn't fail the issue, which already exists by that point — the
+same "a write that already landed must not look like it failed" reasoning
+as the EIR→Task promotion's `EIRReference`/attachment follow-ups). Edit
+mode keeps using the real `AttachmentsSection` once there's a genuine item
+id.
+
+**Watchers were being silently corrupted by a cross-site lookupId reuse
+bug**, caught 2026-09-03 the same day this list's Communication/Watchers/
+Attachments feature shipped: `useCurrentUser()`'s `lookupId` is always
+resolved against the ENGINEERING site, and the creator auto-watches their
+own new issue (`autoWatchers`) — so creating an issue wrote the creator's
+*Engineering* numeric id into the Watchers column, and reading it back
+resolved that number against the ALTRONICPANELTEAM site's OWN User
+Information List, landing on whoever that id happens to belong to there (a
+different, unrelated person). It was first fixed here, locally, with a
+private `forSiteResolution()` helper that stripped incoming ids before
+`ensureLookupIds` saw them.
+
+**That local fix is GONE, and the note it closed on — "likely reaches
+beyond this one list" — was right.** The identical bug was reported on Gray
+Market Requests on 2026-09-16 (Adele raised a request, James Henson was
+added as a watcher), and eight modules across four non-Engineering sites
+had it. `ensureLookupIds` itself now re-resolves by email against its
+target site, so this module needs no local handling and neither does the
+next cross-site list. **Don't reintroduce a per-module version** — see "A
+lookupId is valid on ONE site" under the cross-cutting rules, and
+`api/siteUsers.crossSite.test.ts` for the pinned regression.
+
+Communication (real comment thread, @-mentions, email notification, auto-
+watch-on-mention), Watchers (immediate Watch/Unwatch + picker) and
+Attachments all follow the exact same shape as `panelTasks.ts` — same
+ALTRONICPANELTEAM site, same `resolvePanelSiteUserLookupId` resolver for
+cold-start mentions. `TAGNumber` is `P-YYYY-####`, auto-assigned the same
+way `nextEirNo`/`nextWorkOrderNumber` work elsewhere.
+
+#### Printing the label — QZ Tray, silent to a named network printer
+
+`views/PrintPanelQcIssueView.tsx` (`/panels/qc-issues/:id/print`) is a
+chrome-less popup window, same "one component, print CSS + `window.print()`"
+shape as `PrintDrawingSheetView`/`PrintBuildRequestItemView` — except this
+one now tries a SILENT print first (Ray, 2026-09-08: "if I know the name of
+the network printer, look for that printer and if it's available just print
+without the preview, and if it's not available then open the preview with
+the printer select dialog").
+
+**A browser page cannot do this on its own.** There is no web API to
+enumerate real printers, check whether one is online, or print to it without
+the OS dialog — that's a deliberate browser security boundary, not a gap any
+amount of JS closes. [QZ Tray](https://qz.io) is a small helper app a user
+installs once on their own machine; it runs a local WebSocket server that a
+web page can talk to for genuine OS-level print access. `src/api/qzPrint.ts`
+is the browser side of that connection; `qz-tray` (npm, CJS, no official
+types — `src/types/qz-tray.d.ts` declares it as an untyped module
+deliberately, since this app only ever touches it through the one file
+responsible for using it correctly) is the client library.
+
+- **`printPanelQcLabelSilently(html)`** — resolves `true` once QZ Tray has
+  accepted the job, and `false`, NEVER throws, for every reason it couldn't:
+  no printer configured, QZ Tray not running, the named printer not
+  currently found, or the print call itself failing. `PrintPanelQcIssueView`
+  treats `false` as "fall back to the existing `window.print()` flow" —
+  exactly the dialog-with-printer-picker behaviour it already had, so a
+  machine with no QZ Tray installed sees no change at all. On a genuine
+  silent print, the popup window closes itself afterward rather than
+  leaving a spare tab to notice and close by hand.
+- **The printer name is `VITE_PANEL_QC_LABEL_PRINTER_NAME`**
+  (`PANEL_QC_LABEL_PRINTER_NAME` in `config.ts`), a build-time env var like
+  every other `VITE_*` in this app — a repo variable + redeploy, not a
+  runtime setting. **Unset = always the browser dialog**, the same
+  lockout-safety shape as `EIR_ROLES_ENFORCED`/`MAINTENANCE_ROLES_ENFORCED`:
+  nothing about this feature can make printing WORSE than it already was,
+  only better once configured. `qz.printers.find(name)` is what actually
+  checks "is it available" — it resolves the matching printer's real name
+  when one is currently online, and rejects otherwise, which is exactly the
+  check-then-fallback behaviour asked for.
+- **Bounded by a hard `SILENT_PRINT_TIMEOUT_MS` (4s), or the "always
+  degrades to `false`" promise above is a lie.** Reported by Ray,
+  2026-09-09, testing on a machine with QZ Tray NOT running: the label
+  opened in its popup tab and just sat there — no silent print, but no
+  print DIALOG either, which the un-timed-out code had never done before
+  this feature existed. Root cause: `ensureConnected()`'s
+  `qz.websocket.connect()` had NOTHING bounding how long it could take, and
+  ARC is served over HTTPS (GitHub Pages) while qz-tray's connect attempt
+  can include an insecure `ws://` candidate alongside the secure `wss://`
+  one — a browser blocking that as mixed content doesn't reliably surface
+  as a rejection, so the connect promise can simply never settle. With
+  nothing to catch, the `await` in `runSilentPrint` just hung forever, and
+  the `window.print()` fallback line in `PrintPanelQcIssueView`'s effect
+  was never reached at all. `withTimeout()` wraps both the print attempt
+  AND `checkQzPrinterAvailable` (so the dev harness's "Check printer"
+  button can't hang either) — pinned by two `qzPrint.test.ts` cases using
+  `vi.useFakeTimers()` / `vi.advanceTimersByTimeAsync`, each verified by
+  removing its `withTimeout` call and confirming the test actually HANGS
+  (not just fails) rather than passing some other way.
+- **Signed when `VITE_QZ_CERTIFICATE` / `VITE_QZ_PRIVATE_KEY` are both set,
+  unsigned otherwise** (Ray, 2026-09-08: "let's hold off on signed cert" —
+  deferred that day, decided 2026-09-09). Both blank is still a complete
+  no-op — `configureQzSecurity()` in `qzPrint.ts` returns immediately, and
+  requests go out exactly as before: QZ Tray shows its own native "Allow
+  this site to print?" prompt the first time on each machine, with a
+  "remember this" option.
+
+  **The decision made:** a SELF-SIGNED certificate with the private key
+  EMBEDDED in the public bundle, over standing up a signing endpoint (QZ's
+  own recommended approach, and the only way to keep the key server-side —
+  but ARC has no backend today, and this would have been its first). Signing
+  needs a private key regardless of cert type; the trade-off was never
+  "signed vs. not", it was always "where does that key live". Embedding it
+  means the key is genuinely extractable by ANYONE who fetches the bundle —
+  GitHub Pages serves the JS to anyone on the internet, and Entra sign-in
+  only gates USING the app after it loads, not fetching the file. What
+  bounds that exposure: a self-signed cert is only ever trusted by a machine
+  Cooper has specifically configured to trust THIS cert (a clicked "Always
+  allow", or an IT-deployed override file) — unlike a CA-issued cert (QZ's
+  paid tier), which QZ Tray trusts on ANY machine with no prior setup at
+  all, and would turn the same leaked key into a much wider problem. That
+  asymmetry is why self-signed + embedded was the pairing chosen, not
+  CA-issued + embedded.
+
+  **Generated once, by hand, following QZ Tray's own documented recipe**
+  (`docs.qz.io`, "Manual Certificate/Key Pair Setup"):
+  ```
+  openssl genrsa -out qz-private-key.pem 2048
+  openssl pkcs8 -topk8 -nocrypt -in qz-private-key.pem -out qz-private-key-pkcs8.pem
+  openssl req -x509 -new -key qz-private-key.pem -out qz-certificate.pem -days 3650 \
+    -subj "/CN=ARC Panel QC Label Printing/O=Cooper Machinery Services"
+  ```
+  The PKCS8 conversion is required — `crypto.subtle.importKey("pkcs8", …)`
+  rejects OpenSSL's default PKCS1 (`-----BEGIN RSA PRIVATE KEY-----`) output
+  outright, and only the PKCS8 form (`-----BEGIN PRIVATE KEY-----`) is
+  accepted. `VITE_QZ_CERTIFICATE` holds the (public) cert PEM as an ordinary
+  repo variable; `VITE_QZ_PRIVATE_KEY` holds the PKCS8 key PEM, sourced from
+  a repo SECRET in `deploy.yml` — not because that hides it from the final
+  bundle (it doesn't), but so it isn't sitting in plaintext on the repo's
+  Variables page or echoed into a workflow log. **Rotating either means
+  regenerating both and redeploying** — there is no partial rotation.
+
+  **Signing itself uses the browser's native Web Crypto API
+  (`crypto.subtle`), not a signing library** (jsrsasign/node-forge, the
+  usual QZ Tray sample-code choice) — a PKCS8 key is exactly what
+  `crypto.subtle.importKey` wants natively, so no ~100–300KB dependency
+  earns its place for something the platform already does. `qzPrint.ts`'s
+  `configureQzSecurity()` wires `qz.security.setCertificatePromise` (resolves
+  the cert verbatim), `qz.security.setSignatureAlgorithm("SHA512")`, and
+  `qz.security.setSignaturePromise` (imports the key once and reuses it,
+  RSASSA-PKCS1-v1_5 / SHA-512, base64-encoding the raw signature bytes QZ
+  Tray hands back). Called once, lazily, right before the first connect —
+  that's when QZ Tray actually asks for the certificate. Pinned in
+  `qzPrint.test.ts` by generating a REAL keypair with the SAME Web Crypto API
+  (this project's tsconfig has no Node types, so `node:crypto` isn't an
+  option in a test either) and verifying the produced signature against the
+  public half — proof the signature is genuinely valid, not just
+  base64-shaped — plus a case confirming `qz.security` is never touched at
+  all while either half is unset. Verified by mismatching the hash algorithm
+  and watching the verification fail.
+- **The printed HTML is NOT the on-screen JSX's markup.** QZ Tray's HTML
+  print path renders through its OWN considerably more limited HTML/CSS
+  engine — no access to this app's Tailwind stylesheet (a class name means
+  nothing without the rules behind it) and historically weak support for
+  anything past basic HTML/CSS2. `buildPanelQcLabelHtml(issue)` in
+  `PrintPanelQcIssueView.tsx` is a SEPARATE, fully self-contained,
+  inline-`style=`d HTML string built specifically for QZ — no `class`, no
+  flexbox (a `float` header row stands in for the one two-ends layout this
+  label needs) — exported and pinned by tests precisely because it's the one
+  piece of this feature that can't be exercised by installing QZ Tray in
+  CI. The on-screen/browser-print JSX is untouched and still what renders
+  when the fallback path runs.
+- **The QZ print config's page size matches the existing `@page
+  panel-qc-label` rule** in `globals.css` (`size: 3in 2in; margin: 0`) —
+  `{ size: { width: 3, height: 2 }, units: "in", margins: 0 }` — so the
+  silent path and the browser-dialog path produce the same physical label
+  either way. **Was 2"×2" until 2026-09-09** — that was the originally
+  assumed size; Ray confirmed 3"×2" is what actually prints correctly on
+  the real label printer, and it's the size in every place that has to
+  agree (this CSS rule, `buildPanelQcLabelHtml`'s inline styles, the
+  on-screen JSX, `printPanelQcLabelSilently`'s size, the print button's
+  title/aria-label, and the dev test harness's own description text).
+
+**The `@media print { html, body { width, height } }` sizing rule MUST be
+scoped with `:has(.panel-qc-label)`, never bare `html, body`** — every
+`Print*` view in this app shares the SAME `<html>`/`<body>`, so an unscoped
+rule there applies to EVERY print job, not just Panel QC's. Reported live
+2026-09-09: printing a Drawing Work Sheet or a task showed a tiny
+corner-sized page instead of a full Letter page, because this rule (present
+since the label shipped, at whatever size it was) had no scoping at all.
+The named `@page panel-qc-label` rule right above it was ALWAYS correctly
+isolated — only a page that opts in via `style={{ page: "panel-qc-label" }}`
+uses it, which only `PrintPanelQcIssueView.tsx` does — it was specifically
+the plain `html, body` selector that leaked. Every OTHER print view relies
+on the plain, unnamed `@page { size: letter portrait; margin: 0.4in; }`
+rule further down in `globals.css`; don't add a second view-specific
+`html`/`body` print rule without the same `:has()` scoping, or it will
+collide with that default the same way.
+
+**Still needs, on the real machine(s) that will use this**: QZ Tray actually
+installed, `VITE_PANEL_QC_LABEL_PRINTER_NAME` set to that printer's exact
+Windows name via a repo variable + redeploy, and the printed label eyeballed
+against the on-screen version — QZ's HTML renderer's fidelity to what
+`buildPanelQcLabelHtml` produces is not something this repo's test suite (or
+any CI) can verify.
+
+**Local testing dev harness** (`/dev/qz-print-test`, `views/DevQzPrintTestView.tsx`)
+— added because Ray's own test printer only has a 1"×0.5" label, and the real
+Panel QC label is fixed at 3"×2", so there was no way to end-to-end-test QZ
+Tray's connection/printer-lookup/print mechanics against real hardware
+without either buying a matching test roll or letting a mismatched size onto
+the real printer. It exercises the SAME `api/qzPrint.ts` functions the real
+feature uses, but generically: type in whatever printer name and label size
+you actually have, hit **Check printer** (resolves to the real matched name,
+`null` for "QZ Tray is running but nothing matched", or an error for "QZ
+Tray isn't reachable at all" — three different things to fix, kept
+distinguishable by `checkQzPrinterAvailable`), then **Print test label** to
+send a small self-contained test label (timestamp + the size you entered) to
+it. `printPanelQcLabelSilently` itself is now a thin wrapper over the same
+generic `printHtmlSilently(printerQuery, html, size)` this page calls
+directly — one code path for both, so the dev harness actually proves
+something about the production path rather than being a parallel
+reimplementation that could quietly drift from it.
+
+**Never reaches production.** The route in `App.tsx` is guarded by
+`import.meta.env.DEV`, which Vite inlines to `false` in a production build —
+so the `<Route>` element is never even constructed there, and the URL falls
+through to the catch-all redirect. The lazy chunk still lands in `dist/`
+(harmless, a few KB, never fetched unless the route actually renders), the
+same as any other code-split chunk nobody happens to navigate to.
 
 ### Visit Reports (Customer Service / Sales, salesTeam site)
 
@@ -2270,12 +3463,57 @@ one that was refreshed — whoever sends it cannot tell which is current. The UI
 confirms first, naming what it will replace. Raw extracts use `rename` instead:
 two exports pulled on the same day are two different sets of facts.
 
+**Two columns with the SAME NAME, differing only in case.** The extract can
+carry BOTH `Customer Material Number` and `Customer material number` as
+separate columns (Ray, 2026-09-08) — the customer's own part number for our
+material. `normaliseHeader` deliberately ignores case (so "OPEN QTY" and
+"Open quantity" land on one field), which means it **cannot tell these two
+apart**: declared as ordinary aliases, both normalise to one key,
+`ALIAS_LOOKUP` keeps whichever was declared last, and the parser's
+"first column wins" rule then silently drops the other.
+
+So they are matched **case-sensitively**, by `===` on the trimmed header,
+in `customerMaterialHeaderKind` (`lib/openOrdersFields.ts`) — the one place
+in that file where capitalisation is load-bearing. **Don't fold them back
+into the alias mechanism.** Five rules:
+
+- **They consolidate into ONE column**, `customerMaterialNumber`. The
+  capitalised spelling wins wherever it has a value; the lower-case one is
+  used where it's blank. **Blank in both is blank** — no placeholder, and
+  never a fallback to `material`, which is OUR part number and a different
+  thing.
+- **The consolidated column takes the position of the FIRST of the two** in
+  the raw file, keeping the standing "a report mirrors its upload" rule
+  whichever order the two spellings appear in. It's written under the
+  capitalised header. The second column is dropped, not rendered twice.
+- **It reaches a CUSTOMER's workbook only when that account is flagged**
+  (`includeCustomerMaterialNumber` on the customer list — `layoutForAccount`
+  is the filter). Useful to some customers, meaningless clutter to others.
+  **The master always carries it**: the flag governs what leaves the
+  building, not what we look at.
+- **A missing SharePoint column reads as FALSE** — deliberately the opposite
+  default from `Active`, which reads a missing column as true. An absent flag
+  means nobody has opted in, and the day the column is created every row is
+  unset; reading that as "yes" would add a column to ~70 customer-facing
+  workbooks at once that nobody asked for. (`Active` defaults the other way
+  because reading IT as false would empty the whole weekly run.)
+- **An opted-in customer keeps the column on a week where all their lines are
+  blank in it.** The flag says "this customer's file has this column"; a file
+  that changes shape because SAP sent no values that week is harder to
+  reconcile than an empty column. A week with NEITHER source column raises a
+  `no-customer-material` parse warning — otherwise an opted-in customer just
+  gets a file without it and nothing says why.
+
+Each tab of a **combined** workbook follows its own account's flag, so the two
+tabs can legitimately differ; a combined build given no accounts omits the
+column, the same conservative default.
+
 **One list on the Sales site** (`scripts/create-open-orders-lists.ps1` creates
 it, idempotently, with `-WhatIf`):
 
 | List | env | Shape |
 |---|---|---|
-| Open Orders Report Customers | `VITE_SP_OPEN_ORDERS_CUSTOMERS_LIST_ID` | `Title` = sold-to number, `CustomerName`, `Active`, `Notes` |
+| Open Orders Report Customers | `VITE_SP_OPEN_ORDERS_CUSTOMERS_LIST_ID` | `Title` = sold-to number, `CustomerName`, `Active`, `IncludeCustomerMaterialNumber`, `Notes` |
 
 **There is deliberately NO Open Orders Roles list** (Ray, 2026-08-24: "i only
 want customer list not roles"). The roles code is built and dormant —
@@ -2760,6 +3998,46 @@ Four things that shape this feature:
   Implementing, not removed, the same call as Gray Market Requests and FAITs.
   `featureRequests.test.ts` — actually enforced by inspection, since the
   module simply has no delete function to begin with.
+- **Three notification paths, added 2026-09-16** (Ray: "hard coded alerts to
+  new ARC Feature Requests to email myself... ensure watching and comment
+  mention alerts are wired in for these for status changes etc"). Comments and
+  auto-watch-on-mention were already wired; the intake and status alerts were
+  not, so a suggestion sat unseen and a status change told nobody.
+
+  | When | Who |
+  |---|---|
+  | A request is raised | `FEATURE_REQUEST_ALERTS` (the intake queue) |
+  | Status moves | the request's **watchers + requester** (`fireFieldChangeAlert`) AND the intake queue |
+  | Somebody is @-mentioned | that person, who also becomes a watcher |
+
+  Five things that are load-bearing:
+
+  - **`FEATURE_REQUEST_ALERTS` is just Ray**, and deliberately its OWN env var
+    (`VITE_FEATURE_REQUEST_ALERTS`) rather than a literal address or a reuse of
+    another queue — adding a second person is then a repo variable, and
+    re-pointing one queue can never silently re-point another with a different
+    job. It has TWO rows in `AdminNotificationRecipientsView`'s `LISTS` (new
+    request, status change), because a row LABEL is what somebody scans for;
+    that screen's React key is `list.label` precisely so two rows can share an
+    `envVar`.
+  - **The generic watcher note is NOT suppressed** when the intake alert
+    fires. The intake list tracks the queue; the generic note is what tells the
+    REQUESTER their own suggestion moved (they auto-watch it on create). Same
+    reasoning as EIR's status alerts — some people get two emails, one saying
+    what happened and one saying what to do.
+  - **`to !== from` is OUR guard.** `"Status" in fields` is PRESENCE, not
+    change. The previous value only still exists in the mutation's `ctx`
+    (captured in `onMutate`, before the optimistic patch), which is why the
+    check reads `ctx?.prevRequest?.status` rather than the cache.
+  - **The actor reads through a `useRef`**, not a closure over the first
+    render: `useCurrentUser()` re-resolves when its lookupId arrives, and the
+    callback should use whoever is signed in now.
+  - **The "stays quiet" test starts from a fixture ALREADY at the target
+    status.** A fixture starting elsewhere passes whether the guard exists or
+    not. `__resetFeatureRequestMockStore()` was added for this: mock mode
+    mutates a module-level array, so an earlier test moving a request leaked
+    into the guard test and made it pass for the wrong reason — caught because
+    the first version of the test failed with `from: "In Work"`.
 - **Comments follow the full house rules** —
   `commentNotifyRecipients`/`commentRenotifyRecipients` (not ECN's narrower
   submitter-only rule, since this list DOES have a Watchers column and a
@@ -2783,6 +4061,31 @@ changes — reverted. Graph 404 Not Found" on the EIR's LTB Date.
 isn't reachable. It speaks `yyyy-mm-dd` (`""` = unset) like the native input did,
 takes `disabled`/`title` for role-gated fields, and forwards a ref to its trigger
 for modal autofocus.
+
+**The month and year are DROPDOWNS, not a label** (Ray, 2026-09-22: "make the
+date pickers where you can choose the year easily instead of scrolling —
+especially on CSA logs"). The header used to be static text with one-month
+arrows either side, so a CSA Date Certified twenty years back was ~240 clicks
+away. Three rules on the year list (`buildYearOptions`, exported and tested):
+
+- **It is a WINDOW, not the full range.** `MIN_YEAR..MAX_YEAR` is 1900–2999;
+  rendering 1,100 options just moves the scrolling into the dropdown.
+  `YEARS_BACK` (30) / `YEARS_FORWARD` (10) covers an old certificate and a
+  forward-dated warranty or LTB date alike.
+- **The value's OWN year is always folded in**, however far outside the
+  window, along with whatever year the arrows have paged to. A picker that
+  can't show the date it is displaying would silently move it on the next
+  save. Its test uses a year computed as `today - YEARS_BACK - 5` — a
+  hardcoded 2004 sat *inside* the window and passed with the fold-in deleted.
+- **Nothing outside 1900–2999 is ever offered**, which is the bound this whole
+  component exists to protect.
+- **The selects carry `bg-surface`, never `bg-transparent`.** A native
+  `<select>`'s dropdown list inherits the CONTROL's background, so a
+  transparent one draws its options over whatever sits behind the panel.
+
+Changing the year keeps the month (and vice versa) — one picker moving the
+other is disorienting, and both are one click away anyway. The arrows stay for
+nudging a month either way.
 
 Date maths goes through `src/lib/dateInput.ts` — `parseIsoDate` / `toIsoDate`
 build and read LOCAL dates. Don't use `new Date("2026-05-01")` (parses as UTC,
@@ -3243,20 +4546,39 @@ missing exactly the kind of address problem this screen exists to catch. Not
 caught by any test — Ray caught it by eye ("you did not list them on the
 admin notifications section") right after the FAIT alerts shipped.
 
+**Reusing an EXISTING list for a new trigger still needs its OWN `LISTS`
+row, not just a folded-in mention.** The EIR Resolved alert (2026-09-04)
+deliberately reused `EIR_TRIAGE_ASSIGNERS` rather than adding a new list (see
+the EIR status alerts section) — first landed as a sentence tacked onto the
+"EIR — assign an engineer" row's `what` text, which Ray immediately caught
+as invisible ("the recent email for resolved is not in the list"): a row
+LABEL is what someone scans for, and "Resolved" wasn't findable without
+reading another row's fine print. Two `LISTS` entries now share the same
+`envVar`/`value` (`EIR_TRIAGE_ASSIGNERS`) on purpose — genuinely different
+triggers on the same underlying recipients, each worth its own label. That's
+why the row `<section>`'s React key is `list.label`, not `list.envVar`:
+`envVar` is no longer unique across rows. A reused list gets its own row
+whenever the TRIGGER is a different thing someone would look for — a
+one-line addition to an existing row's `what` is only fine when it's the
+same trigger with slightly more nuance, not a genuinely new reason to email
+the same people.
+
 The failure toast for a bad send goes to the ACTOR, incidentally — so when
 Sheila's action fails to reach Glenn, Ray never sees it. That's why the check
 had to be a screen an admin can open rather than a better toast.
 
-## EIR status alerts — the two transitions that need somebody to act
+## EIR status alerts — the transitions that need somebody to act
 
-Two status changes raise a work request rather than a notification (Ray,
-2026-08-25). Both were previously spotted by someone happening to look.
+Status changes that raise a work request rather than a notification (Ray,
+2026-08-25 for the first two; Ray, 2026-09-04 for Resolved). All were
+previously spotted by someone happening to look.
 
 | Transition | Who's emailed | What it asks |
 |---|---|---|
 | → **Response Accepted** | `EIR_RESPONSE_ACCEPTED_ALERTS` (Sheila Horn, Ray White) | "Please close it" |
 | → **Response Not Accepted** | the EIR's **assigned engineers** | "Please revisit and give a more detailed response" |
 | → **Response Not Accepted**, no engineer reachable | `EIR_TRIAGE_ASSIGNERS` | "No engineer is assigned" — different wording, see below |
+| Resolution → **Resolved** | `EIR_TRIAGE_ASSIGNERS` (Glenn Terry, Brandon Mirto) | "Please review it and decide whether the response is accepted" |
 
 Wording lives in `lib/eirStatusAlerts.ts` (pure, returns `ChangeEmail[]`);
 `fireEirResponseAcceptedAlert` / `fireEirResponseNotAcceptedAlert` in
@@ -3264,6 +4586,19 @@ Wording lives in `lib/eirStatusAlerts.ts` (pure, returns `ChangeEmail[]`);
 `if ("Status" in fields)` block in `useUpdateEirFields` — the only hook that can
 write Status, so the sidebar picker, the board drag and the linked-task
 completion path are all covered by one call site.
+
+**Resolution → Resolved is a SEPARATE `if ("Resolution" in fields)` block in
+the same hook** — Resolution and Status are two different SharePoint columns
+that can each be written independently, so this needed its own `to !== from`
+guard rather than piggybacking on the Status block's. `fireEirResolvedAlert`
+in `api/email.ts` reuses `EIR_TRIAGE_ASSIGNERS` (Glenn Terry / Brandon Mirto)
+DIRECTLY, deliberately NOT a new dedicated env var — Ray asked for those two
+people by name, and they already review EIRs at this exact point in the
+lifecycle (assigning an engineer). This is the one exception to "give every
+alert queue its own env var" elsewhere in this file: that rule exists so
+re-pointing one queue can't silently re-point another with a different job,
+and here there is no other job — it's the same reviewers, asked to do the
+next thing in the same review.
 
 Six rules that are load-bearing:
 
@@ -3333,6 +4668,30 @@ If `VITE_SHARED_MAILBOX` is unset, the app falls back to a console.warn (real mo
 **A send that FAILS is no longer silent** — see "Mail that doesn't send says so" under Cross-cutting rules. Step 2 above (Send As per user) is the one that bites in practice: a person who was never added notifies nobody, and before the toast existed nothing anywhere said so.
 
 ## Theming
+
+**`color-scheme` is declared on `:root` (light) and `.dark` (dark), beside the
+theme tokens.** It is the ONLY lever over how the browser paints NATIVE UI —
+the list a `<select>` opens, scrollbars, date and number spinners. None of
+that is reachable from CSS: styling the `<select>` element does not touch the
+popup it opens.
+
+ARC declared no `color-scheme` at all until 2026-09-22, so every native
+control rendered with the LIGHT palette in both themes. It surfaced when the
+date picker gained month/year dropdowns and Ray hit black-on-white options
+over the dark calendar panel — but it had been true of every native control
+all along.
+
+**It must live in those two rules**, not once on `html`: ARC switches theme by
+toggling a `.dark` class, so a single static declaration could never change
+with it. Anything that adds a third theme adds a third `color-scheme`.
+
+**Not covered by a test, deliberately.** Vitest runs with `css: false` and
+jsdom computes no user-agent styles, so neither the declaration's effect nor
+the CSS text is observable from a test — a `?raw` import of a `.css` file
+returns an EMPTY STRING, since Vite's CSS pipeline intercepts it first (tried,
+2026-09-22). `DateField.test.tsx` pins the half that IS observable: the
+selects' own `bg-surface` / `text-fg` classes.
+
 
 Two themes, light and dark, controlled by a `.dark` class on `<html>`.
 All colours flow through CSS variables defined in `src/styles/globals.css`
@@ -3467,6 +4826,83 @@ them harder to use, not easier, and a checklist is not a Yes/No question. The
 description checklists, the comment "notify everyone again" option, and the
 EIR role tags are UI affordances, not stored Yes/No fields, and stay as they
 are too.
+
+### A lookupId is valid on ONE site — `ensureLookupIds` re-resolves, always
+
+**This bug was reported twice and shipped past the test suite both times.** It
+is the single most expensive trap in this repo's person handling, so it is
+written down at length.
+
+Every SharePoint site collection has its own hidden User Information List, so
+**a lookupId is only meaningful on the site it was resolved for.** Id 88 is one
+person on Engineering and a different person — or nobody — on PMO, the panel
+team site, or Sales.
+
+**`useCurrentUser()` always resolves against the ENGINEERING site**
+(`SP_SITE_URL`, via `resolveCurrentUserLookupId`). It is the app-wide identity
+and cannot know which list a caller is about to write. Every cross-site create
+then passes that `Person` straight in as the requestor / assignee /
+creator-watcher.
+
+`ensureLookupIds` used to open with `if (p.lookupId) return p;` — treating an
+incoming id as already-verified. So the Engineering id was written to another
+site's person column, and on the next read resolved, against *that* site's
+directory, to whoever holds that number there. **Nothing anywhere reported a
+fault**: SharePoint accepts the write, and the value reads back as a real
+person.
+
+| Reported | Symptom |
+|---|---|
+| 2026-09-03 | Panel QC — created an issue, added one watcher, an unrelated third person appeared |
+| 2026-09-16 | Gray Market Requests — Adele raised a request and **James Henson was added as a watcher**, having had nothing to do with it |
+
+The first was fixed **locally**, with a private `forSiteResolution()` helper in
+`panelQcIssues.ts` that stripped incoming ids. That helper is now **deleted**:
+the second report was the identical bug in a module that never got the patch,
+and **eight modules across four non-Engineering sites had it** — Gray Market
+Requests, Operations tasks, Panel orders, Panel tasks, Suppliers, Supplier
+Contacts, Supplier Issues and the CRM's Customer Notes.
+
+**The fix is in the shared resolvers** (`api/siteUsers.ts`), so it reaches all
+of them and the NEXT cross-site list is correct without anybody remembering:
+
+- **`ensureLookupIds`** and **`resolvePeopleLookupIds`** (which had the
+  identical early return) now **re-resolve by email against their target site
+  and ignore whatever lookupId arrived.** Re-resolving an already-correct id
+  returns the same number back — slightly more work, always right.
+- **An unresolvable person has a foreign id DROPPED**, not passed through.
+  Writing it would name the wrong person silently, which is strictly worse than
+  the caller's existing "drop unresolved" / "refuse the write" path.
+- **A person with NO email keeps the id they arrived with.** That is the
+  legitimate case — a `Person` read straight off the list being written, where
+  Graph returned a bare `LookupId` with no email attached (see "A single-person
+  column needs BOTH halves selected"). There is nothing to re-resolve them by.
+
+**Why the tests didn't catch it, twice** — worth understanding before writing a
+test for anything in this area:
+
+1. **Mock mode resolves every email to a deterministic id regardless of site**
+   (`mockLookupIdForEmail`), so cross-site confusion is *structurally
+   invisible* from a mock-mode test. It needs `USE_MOCK: false` and a mock that
+   answers differently per site.
+2. **`siteUsers.test.ts` actively asserted the bug** — a case literally named
+   *"leaves people who already have a lookupId untouched"*. It is now
+   *"RE-RESOLVES a person who already carries a lookupId from another site"*.
+3. **`panelQcIssues.watchers.test.ts` mocked `./siteUsers` wholesale**, so the
+   module containing the bug never ran. It also asserted the *mechanism* (the
+   id was stripped before the call) rather than the *guarantee* (the right
+   site is asked, and the resolved id is what lands) — so it failed against the
+   correct implementation. It asserts the guarantee now.
+
+`src/api/siteUsers.crossSite.test.ts` is the regression file: real mode, one
+person holding a different id on each of two sites, the Engineering id
+deliberately belonging to somebody else on PMO. Verified by reintroducing the
+early return and confirming six cases fail.
+
+**Prefer `resolveSiteUserLookupId` / `resolvePeopleLookupIds` /
+`resolvePersonLookupId`** (Graph-first, then `ensureuser`) for any NEW person
+write — `ensureuser` alone answers 0 when the classic SharePoint scope isn't
+granted. Both families are now site-safe.
 
 ### A single-person column needs BOTH halves selected, and its own read step
 
@@ -3606,6 +5042,30 @@ converted at once; there are none left in a modal.
   the browser's validation bubble was pre-empting the form's own message, so the
   better wording never appeared. Both the task form and the CSA form hit this.
 
+**The clear (✕) button can never sit INSIDE the trigger `<button>`.** It did,
+from launch until 2026-09-09 — `DropdownShell`'s single-trigger branch
+rendered `<button>{summary}<div><button onClick={clear}>✕</button>…</div></button>`
+whenever `onClear` was set (any clearable `SingleSelect`/`ChoiceSelect` with
+a value picked — Panel QC's Defect Category and Repair Defect Category are
+where Ray actually noticed it, via React's own `validateDOMNesting` console
+warning, but every clearable single-select in the app had the identical
+bug). A `<button>` can't contain another `<button>` — invalid HTML, and two
+overlapping click targets, whatever browsers happen to render for it. Fixed
+by giving `onClear` its OWN branch: a plain `<div>` carrying the `.select`
+chrome, with the open-toggle and the clear button as SIBLINGS inside it —
+the same shape the `chips` variant just above it already used for the
+identical reason. The no-clear case (most triggers app-wide: `clearable`
+options that are empty, or `clearable={false}`) is untouched, still one
+plain `<button>`. Because a `<div>` never receives `:focus` itself, `.select`
+in `globals.css` also gained a `:focus-within` twin of its `:focus` rule, so
+the focus ring still shows when the inner open-button is focused rather than
+the (now non-focusable) wrapping div. Pinned in `SearchableSelect.test.tsx`
+by asserting the DOM structurally (`trigger.querySelector("button")` must be
+`null`) rather than by spying on `console.error`, so the test keeps catching
+this even if React ever stops warning about the nesting — verified by
+reverting the fix and confirming the assertion fails against the exact
+nested markup shown above.
+
 ### @-mentions: two pickers, one ranking
 
 `rankMentionCandidates()` in `src/lib/mentions.ts` owns filtering, ranking and
@@ -3659,6 +5119,185 @@ closed included, and still honours an engineer filter that was actually asked
 for). The second was verified by injecting a default-to-me and watching three of
 its four cases fail.
 
+### Sortable, filterable table headers — `components/SortableTableHeader.tsx`
+
+Sorting plus an Excel-style per-column value filter, shared. Lifted out of
+`PanelQcIssuesView`, where it was private (Ray, 2026-09-16: "add the sort
+buttons to all apps tools lists in arc like it is in Panel Qc issue tracker").
+
+`useTableSort(initialKey, initialDirection)` holds the state,
+`SortableHeader` renders one `<th>`, `ColumnFilterButton` is the value menu.
+**Two separate affordances per column, deliberately**: clicking the LABEL
+opens the filter, clicking the ICON sorts. One click doesn't have to mean both
+things.
+
+Three things inside `ColumnFilterButton` were paid for once and must not be
+re-derived by a copy — which is the reason it is shared rather than pasted:
+
+- **The panel PORTALS to `<body>` with a `fixed` position** computed from the
+  trigger's rect during render. A table's `overflow-x-auto` wrapper gets
+  `overflow-y: auto` from the UA rather than `visible`, so a plain `absolute`
+  panel is clipped into the row area instead of overlaying the page.
+- **No `autoFocus` on its search box.** It stole focus the moment the portal
+  mounted, and React attaches an ancestor ref only AFTER a descendant's
+  commit-time `.focus()` — so the trigger's blur reached the close handler
+  while `panelRef.current` was still null, and the panel closed itself the
+  instant it opened (reported 2026-09-04: "the filter popup doesn't work at
+  all").
+- **`selected === undefined` means "everything".** Unchecking back up to the
+  full set snaps to `undefined` rather than an equivalent explicit Set, so a
+  "has filters" check stays accurate.
+
+**Rolled out to the lists people actually work from**, not all 37 (Ray: "the
+only ones people work from"). Seven landed on 2026-09-16: **Visit Reports,
+ECNs, FAITs, Suppliers, CSA Listings, Teradyne Log, Gray Market Requests.**
+
+**A NEW table gets these from the start** — see "Every new table gets sorting
+and column filters" under Common changes. Retrofitting seven lists at once is
+what this section exists to prevent happening again.
+
+**Adding it to another list is a COLUMNS ARRAY, not a comparator.**
+`lib/tableSort.ts` is the generic engine and `hooks/useSortableTable.ts` holds
+the state; a view declares accessors as data and spreads `headerProps(key)`
+onto each `SortableHeader`. Seven hand-written comparators would have been
+seven places for the shared rules to drift.
+
+Four rules every column inherits, each with tests verified by breaking them:
+
+- **An empty value sorts LAST**, whichever direction is chosen. A blank is the
+  absence of a value, not the smallest one; floating a screenful of blanks to
+  the top of an ascending sort buries the rows somebody asked to see.
+- **Ties break on the row id, DESCENDING, never flipped by direction** — so
+  equal rows don't reshuffle when the direction changes, which reads as the
+  table shuffling for no reason.
+- **`kind: "date"` / `"number"` sort as values, not text.** Otherwise "10"
+  sorts before "9", and an Invalid Date orders by NaN. A real `0` is a value,
+  not an empty — `Number.isFinite` decides, never truthiness.
+- **`kind: "numeric-text"` groups its non-numeric values at the END in both
+  directions.** This is QC Time's `hoursRaw` lesson generalised: a TEXT column
+  that usually holds a number really does contain "see notes", a naive numeric
+  sort makes those NaN, every NaN comparison is false, and the rows land
+  wherever the algorithm leaves them — scattered, looking correctly sorted.
+  `leadingNumber` requires the digits at the START, so "abc 5" is a note
+  containing a digit rather than five of something.
+
+Three things about declaring columns:
+
+- **The `value` accessor must match what the CELL shows**, because the filter
+  menu groups by it — a menu offering values nobody can see on screen is
+  worse than no menu. Where a cell falls back (Gray Market's Part shows the
+  description, then the MFG part number) the accessor falls back identically.
+- **`noFilter: true` for long free text.** Grouping a description column on
+  16,000 Teradyne rows lists thousands of one-row options. Those columns still
+  SORT, and the search box already covers them.
+- **Build the array inside the component when an accessor needs joined data** —
+  ECNs and FAITs carry a project lookupId only, so their Project column reads
+  the title map and the array is a `useMemo` on it. Otherwise declare it at
+  module level.
+
+**`views/listSorting.test.tsx` is the wiring test, and it is not redundant with
+the engine's own.** A view whose columns array is perfect but whose `<tbody>`
+still maps the UNSORTED list passes every engine test and does nothing on
+screen — wiring the rows is a separate edit from wiring the headers, in all
+seven. Verified by unwiring three views' rows and watching exactly those three
+cases fail.
+
+**`lib/qcTimeSort.ts` stays as it is.** Its Hours handling predates the generic
+engine, is well covered, and QC Time's hold-reason grouping is genuinely
+special-cased. Don't migrate it for tidiness; new lists use `tableSort.ts`.
+
+### QC Time Tracking — sorting, the hold flag, and the one delete
+
+Three changes on 2026-09-16, all from the floor.
+
+**`hoursRaw` IS NOT A NUMBER, and that shapes the whole sort.** It is a TEXT
+column and the imported data genuinely contains `"see notes"` beside `"6.5"`
+and `""`. Sorting it numerically turns those into `NaN`, every `NaN`
+comparison is false, and the rows land wherever the sort algorithm leaves
+them — scattered through the list, looking like data that sorted correctly.
+
+So `lib/qcTimeSort.ts` is explicit: numeric values sort numerically, and
+anything that isn't a number **groups at the END in BOTH directions**, in its
+own stable alphabetical order. A panel logged as "see notes" is not zero hours
+and must not sit among the quick jobs; nor may it vanish. `hoursValue()` is
+tolerant of what people type (`"6.5 hrs"`, `" 4 "`) but requires the number at
+the START — `"abc 5"` is a note containing a digit, not five hours.
+
+Two rules hold for every column, not just hours:
+
+- **An empty value always sorts LAST**, whichever direction is chosen. A blank
+  isn't the smallest value, it's the absence of one, and floating a screenful
+  of blanks to the top of an ascending sort buries the rows somebody asked to
+  see.
+- **Ties break on `id` descending**, so the order is stable and doesn't
+  reshuffle when an unrelated row is edited.
+
+**The hold flag replaces an Excel highlight.** `OnHold` (boolean) and
+`HoldReason` (SINGLE choice) were added by
+`scripts/add-qc-time-hold-columns.ps1`. A single choice rather than free text
+(Ray's call) so the reasons stay countable — spotting correlations when panel
+times climb needs them to group, which free text never does; `allowTextEntry`
+is off for the same reason.
+
+- **Amber row AND a labelled chip.** Colour is never the only carrier: the
+  tint is the at-a-glance signal the spreadsheet had, and the chip names the
+  reason so it survives a mono print and reaches a colour-blind reader.
+- **`QC_TIME_HOLD_REASONS` in `types/task.ts` must stay in step with the
+  SharePoint column** — the script carries the same list, and a value ARC
+  offers that SharePoint doesn't know is refused on save. The READ is
+  deliberately NOT clamped, so a reason configured in SharePoint first renders
+  as itself rather than vanishing.
+- **Taking a panel off hold clears the reason** (`buildQcTimeFields`), so a
+  stale one can't be counted in a correlation later. The form hides the reason
+  picker entirely when the panel isn't on hold — an always-visible one reads
+  as an unmet requirement, the same call as FAIT's KAM sign-off fields.
+- **The "N on hold" button hides when nothing is on hold.** An always-present
+  "0 on hold" is noise, and its absence is itself the answer.
+- **Grouping keys off the REASON, not Yes/No** (`qcTimeColumnValue`) — "why
+  are panels stalling" is the question worth answering.
+
+**Delete exists now, and is ADMIN-ONLY.** This list had none, on the "a record
+of what happened is corrected, not removed" rule the other record lists follow.
+What changed it: two techs working one panel produce a genuine DUPLICATE, and
+there is nothing to correct in a row that shouldn't exist (Ray: "There's no way
+to remove the duplicate").
+
+Admin-only rather than open, matching the Teradyne Log: an edit leaves a
+corrected record and a delete leaves nothing, so an operator fixing their own
+typo shouldn't need an admin but removing a row should. It also matches what
+SharePoint permits — deleting an item needs more permission than editing one,
+so offering it to everyone hands somebody a button that 403s (see
+`describeListWriteFailure`). **The gate is in `useDeleteQcTimeEntry`'s
+`mutationFn`, not only on the button**, so a future screen can't reach the
+ungated API function without it; both directions are tested, and both were
+verified by removing the gate and watching them fail.
+
+`api/qcTimeTracking.test.ts` used to assert the module exported NO delete. It
+now asserts EXACTLY ONE — that inversion is deliberate, and the comment there
+says why.
+
+### The task filter bar has a Watching axis
+
+`watching=<email>` alongside `q` / `project` / `assigned` / `createdBy`, in
+`FILTER_PARAM_KEYS` so it survives the List ⇄ Kanban switch (Ray, 2026-09-16:
+the old task app had this, and without it the only ways to find something you
+track but aren't assigned to are remembering it or waiting for an email).
+
+- **A SINGLE person, not a multi-select.** "What am I watching" is the
+  question; a set of watchers ORed together answers nobody's.
+- **The signed-in user is pinned FIRST**, labelled "Me (name)". Hunting for
+  your own name in a 200-person dropdown is the thing this filter exists to
+  avoid.
+- **NO first-visit default**, unlike `assigned`. Landing on a list already
+  narrowed to what you watch would hide most of it with no indication why, so
+  it is opt-in and absent from the URL when unset.
+- **It does NOT match on assignment.** That is the whole point, and it has its
+  own test — matching both would make the filter a slightly different
+  "Assigned".
+- **Operations shares `FilterBar`**, so `applyOperationsFilters` got the same
+  predicate. A control that renders and filters nothing is worse than one
+  that isn't offered.
+
 ### Task filters live in the URL and must survive navigation
 
 `filterSearch(search)` in `useFilters.ts` extracts the filter params
@@ -3672,6 +5311,72 @@ encoded — drop it and the default comes back), and `status=` is deliberately N
 carried, since the status pills are component state the URL isn't kept in step
 with. Keep the URL as the source of truth — a filtered view being shareable is
 promised in the manual.
+
+### A row-cap test must not render 150 real rows — it gates the deploy
+
+`npm test` runs in the deploy workflow and **must pass to deploy**. On
+2026-09-16 it failed repeatedly on nothing but slow tests, and the app was
+fine — so this is worth knowing before writing the next capped-list test.
+
+The row-cap tests (`ListView`, `EirsView.rowCap`, `MaintenanceListView`,
+`TeradyneLogView`) seeded 160–200 fixtures to prove a 150-row cap, then
+asserted through the real row components. Three costs compounded, and each one
+was measured rather than guessed:
+
+| What | Cost, 151 rows mounted |
+|---|---|
+| `render` | 726ms |
+| **`findByRole(/show all/)`** | **4,079ms** |
+| `click` | 275ms |
+| `waitFor(getByText(...))` | 116ms |
+| **`queryByRole(/show all/)`** | **3,411ms** |
+
+1. **`*ByRole` builds an accessibility tree across the WHOLE document**, so it
+   scales with every row on screen — those two calls were **87% of the
+   runtime**. `getByText` is a flat text scan, ~30× cheaper here, and the
+   show-all control carries distinctive text so it tests the same thing.
+2. **Rendering the real row 150 times is the rest of it.** `EirRow` /
+   `TaskRow` each render a button plus badges, chips and derived
+   checklist/child-task state, and the lot re-renders on every filter change.
+3. **`userEvent`'s default delay** waits between the events one click
+   dispatches, and every tick drags a re-render of all those rows behind it.
+
+Isolated, the worst file ran in 1.6s. **Inside the full 338-file suite it took
+15–34s** — a 6-10× slowdown from contention alone, blowing a 20s timeout. That
+gap is the whole trap: *the test passes when you run it, and fails the deploy.*
+
+The fixes, cheapest first — apply them in this order:
+
+- **Never `*ByRole` for a control on a capped list.** Match its text.
+- **Stub the row component** (`vi.mock("@/components/EirRow", …)` rendering
+  just the title). A cap test is about HOW MANY rows reach the DOM, not what a
+  row looks like — that belongs in the row's own test file. This took
+  `EirsView.rowCap` from 1,644ms to **159ms**, a 10× cut on top of the query
+  fix.
+- **`userEvent.setup({ delay: null })`** for the block that clicks with many
+  rows mounted. Leave the realistic default elsewhere.
+- **Seed `INITIAL_ROWS + 1`, not a round 200.** Every assertion only needs
+  "more rows than the cap", and 151 makes the boundary assertion *tighter* —
+  row 150 is exactly the first one excluded.
+
+Two things that did NOT work, so nobody repeats them:
+
+- **Raising `testTimeout` globally** (already done, to 20s, before this). Its
+  own code comment calls per-test raises "whack-a-mole"; a global raise is the
+  same move one level up — it treats a scheduling problem as a patience
+  problem, and the suite failed anyway.
+- **Capping the worker pool** (`maxWorkers: 4`). Reduced failures from 4 to 2
+  and made the suite **50% slower** (10.4 min vs 6.7 min). Reverted.
+
+**Verify a cap test still catches a broken cap** by flipping `INITIAL_ROWS` to
+151 and watching it fail. A fast test that asserts nothing is worse than a slow
+one.
+
+And **a random value in a component is not something to assert on**:
+`FeatureRequestsView`'s loading test matched `/loading/i` against
+`LoadingTasks`, which picks its verb at random from a dozen ("Sparking",
+"Igniting", "Loading", …). It passed ~10% of the time by luck. Assert the
+`noun` the caller passes, which is deterministic.
 
 ### Big lists cap what's RENDERED, not what's filtered or counted
 
@@ -3721,6 +5426,308 @@ columns) and calls `onClose()` without awaiting them. That's safe because a
 failed write rolls its own field back and toasts, and React Query finishes
 mutations after unmount. Validation still runs first.
 
+### A parent task can't be marked Complete with open child tasks
+
+Ray, 2026-09-04: child tasks were being left open after their parent was
+marked done, because nothing stopped it — a parent's "Mark Complete" and its
+children's own statuses were two unrelated things as far as the app was
+concerned.
+
+`canCompleteTask(task)` in `src/lib/taskGraph.ts` is the one gate every path
+to Complete checks — mirrors the CMMS's `completeWorkOrderGate` shape
+exactly (`{ allowed, hint }`), so it's asked once and every caller renders
+the SAME reason rather than each inventing its own wording:
+
+- **`src/views/DetailView.tsx`** — `handleMarkComplete()` and
+  `handleStatusChange()` both refuse (via `pushToast`) before writing when
+  `next === "Complete"` and the gate says no. The "Mark Complete" button
+  itself is `aria-disabled`, NOT `disabled`, in that case — CLAUDE.md's own
+  EIR "At Risk Parts" lesson applies here too: Chrome/Edge suppress a
+  disabled control's native tooltip and drop it from the tab order, which
+  would hide the only explanation from keyboard and screen-reader users. The
+  button keeps its `onClick` wired (belt-and-suspenders with the toast) and
+  carries a `title` naming the count. `disabled` (the real HTML attribute)
+  is reserved for the ALREADY-terminal case — the task is already Complete,
+  nothing to click for — where there's nothing to explain. The child tasks
+  card in the sidebar also prints the same hint when blocked, so a user
+  isn't left guessing which children are the problem.
+- **`src/views/KanbanView.tsx`** — the drop decision is pulled into a pure,
+  exported `planTaskStatusDrop()`, mirroring `MaintenanceBoardView.tsx`'s
+  `planStatusDrop` for the identical reason: dnd-kit's pointer sensor needs
+  a layout engine jsdom hasn't got, so a synthetic drag proves nothing, and
+  the RULE is what's worth testing. A refusal returns `{ refusal: string }`
+  instead of calling `setStatus.mutate(...)`; not calling the mutation is
+  enough to keep the card in its original column — `onMutate`'s optimistic
+  cache patch is the only thing that ever moves a card, and it never runs
+  unless `mutate()` is called.
+
+Four things about the rule itself, all in `taskGraph.ts`:
+
+- **"Done" means `status === "Complete"` exactly.** Every other status —
+  including Blocked or On Hold — still counts as an open child.
+  `incompleteChildTasks(task)` is the underlying filter, exported
+  separately so a caller that wants the LIST of blockers (not just a
+  yes/no) doesn't have to re-filter `task.childTasks` itself.
+- **A task with no children is never blocked.** The gate only applies when
+  there's something to wait on — `childTasks.length === 0` short-circuits
+  to allowed with an empty hint.
+- **`task.childTasks` is already loaded — no `resolving` state.** Unlike
+  the CMMS gates, which await an async roles list, `childTasks` is
+  populated synchronously by `attachTaskRelationships()` on every `Task`
+  from the normal `useTasks()` load, so there's nothing to wait on and
+  nothing that can read as "checking…" for a beat.
+- **Un-completing a parent is a separate, unbuilt concern.** A task already
+  Complete is never re-blocked by this — if a child re-opens after its
+  parent was marked done, nothing here reacts to that, on purpose; that's a
+  different feature nobody has asked for yet.
+
+This is UI-level gating only, the same as every other gate in this app —
+the real boundary is SharePoint's own list permissions, and a user with
+direct SharePoint write access could still flip a parent to Complete from
+there. Tests: `taskGraph.test.ts` (the pure functions, break-then-restore
+verified), `DetailView.childGate.test.tsx` (button/dropdown/sidebar
+wiring, using `MOCK_TASKS`' real task 47 → children 48/44 and task 102 →
+child 110 relationships) and `KanbanView.childGate.test.tsx`
+(`planTaskStatusDrop` directly, same convention as
+`MaintenanceBoardView.test.tsx`'s `planStatusDrop` suite).
+
+### Task detail: Watchers is a picker, not read-only text
+
+Ray, 2026-09-04: "allows users to add and remove watchers from the right-view
+pane in the edit screen, similar to EIRs and the other apps." Before this the
+sidebar's Watchers field was a comma-joined name list with no control at
+all — the only way to change it was the "Watch"/"Unwatch" button up top,
+which only ever toggles the SIGNED-IN user, never anyone else.
+
+`useSetWatchers()` in `useTasks.ts` — a whole-array mutation (optimistic
+patch, undo, the same shape as `useSetAssigned`) — already existed and was
+already wired into `TaskFormModal`'s edit form, but had never been connected
+to `DetailView.tsx`'s read/detail page. `handleWatcherToggle` there now
+mirrors `handleAssignedToggle` exactly: `PersonMultiField`'s `onToggle` hands
+back one `Person`, the handler diffs it against `task.watchers` and calls
+`setWatchers.mutate` with the whole next array. Same component, same pattern
+EIR's sidebar already used (`EirDetailView.tsx`'s own `handleWatcherToggle`,
+via `useSetEirWatchers`) — Tasks was the one department detail page that
+hadn't caught up yet.
+
+The one-click **Watch/Unwatch button stays** — it's the "watch it myself"
+shortcut via `useWatchTask`/`useUnwatchTask`, a different pair of hooks that
+each toggle exactly one person (the current user) with their own optimistic
+patch and Undo. The sidebar picker is the FULL list; the button is a
+convenience for the one entry that's almost always wanted. Both write through
+the same underlying `setWatchers` API function in `api/tasks.ts`, so they
+can't disagree about what "the watcher list" means.
+
+Pinned in `DetailView.watchers.test.tsx` — no broader test harness covers
+`DetailView.tsx` in this repo (see the `DetailView.projectRef` /
+`DetailView.relatedProjects` test files for the same convention), so this is
+scoped to the one addition: chips render for existing watchers, the empty
+state reads "Nobody is watching this task" the same as the old text did,
+removing a chip drops that watcher, and picking someone from the dropdown
+adds them. The dropdown panel portals to `document.body` (see
+`SearchableSelect.tsx`), so a test can't scope an option query to the
+field's own DOM subtree once it's open — scope to the single open
+`role="listbox"` instead, not `screen` as a whole, or a query can pick up
+an option from an unrelated field's panel that happens to still be mounted.
+
+### Task detail: "New Child Task" — TaskFormModal's `fromParentTask` prop
+
+Added 2026-09-04. Creating a task under an existing one meant opening the
+plain "New task" form and manually finding the parent in the Parent Task
+dropdown (then hoping to also pick the matching Parent Project — nothing
+enforced the two agreeing). A "New Child Task" button on the task detail
+page's top toolbar, next to New Test Sheet, now opens `TaskFormModal` in
+create mode with the current task passed as `fromParentTask` — its Parent
+Task and Parent Project are pre-filled from the parent AND shown as a
+non-editable `LockedPill`, the same read-only-reference treatment
+`TestSheetFormModal`'s `fromTask` prop already uses for "create a test sheet
+from this task" (see that file for the original pattern this mirrors).
+
+**Why a differently-named prop, not `fromTask` again**: `TestSheetFormModal`'s
+`fromTask` locks a Test Sheet's Task Reference + Project Reference to the
+source task. `TaskFormModal`'s `fromParentTask` locks a NEW TASK's Parent
+Task + Parent Project instead — a different pair of fields, on a different
+entity's create form. Reusing the exact prop name across two different
+components locking two different field pairs would read as one shared
+contract when it isn't; the two are independent props that happen to follow
+the same shape.
+
+Three things about the implementation:
+
+- **`lockToParent = mode === "create" && !!fromParentTask`** gates both the
+  UI lock and the heading. It's `false` outside create mode on purpose —
+  `DetailView` never passes `fromParentTask` to an edit-mode instance, and an
+  edit editing an EXISTING child shouldn't suddenly relock its parent fields
+  just because a stray prop leaked through.
+- **Prefill is `task?.… ?? fromParentTask?.… ?? ""`** on both
+  `parentProjectId` and `parentTaskId` — `task` wins when both are somehow
+  present (shouldn't happen given the mode guard, but the precedence is the
+  same defensive order `TestSheetFormModal` already uses for its own
+  prefills), `fromParentTask` is the new source, empty string is the existing
+  "nothing chosen" sentinel this form already used everywhere else.
+- **Zero new submit-path code.** Create mode already did
+  `createTask.mutateAsync({ …, parentProjectLookupId: parentProjectId, … })`
+  then, if `parentTaskId !== ""`, `setParentTask.mutateAsync({ id: created.id,
+  parentId: parentTaskId })`, then `navigate(`/task/${created.id}`)`. Locking
+  the fields only stops the USER from changing the state that feeds that
+  flow — the flow itself doesn't know or care whether the value came from a
+  picker or a locked prop. This is the same reason `TestSheetFormModal`
+  needed no new submit code for its own `fromTask` either.
+
+The heading changes to `New child task of {fromParentTask.numberedTitle}` in
+this mode (mirroring `TestSheetFormModal`'s own heading behavior for
+`fromTask`) so there's no ambiguity about which task is about to become the
+parent — a plain "New task" heading over two silently-locked fields would
+read as a bug, not a feature.
+
+Pinned in `TaskFormModal.childTask.test.tsx` (the lock, the heading, the
+create → setParentTask → navigate sequence, and a same-file regression check
+that a plain "New task" with no `fromParentTask` is unaffected) and
+`DetailView.childTask.test.tsx` (the button exists, opens the modal wired to
+the current task, and Cancel returns to the detail page) — the same narrow,
+per-feature file convention as `DetailView.projectRef` /
+`DetailView.watchers`, since `DetailView.tsx` has no broader test harness in
+this repo.
+
+### Task detail: "Create Build Request" — and the link that is DERIVED, not stored
+
+Added 2026-09-20 (Ray: "a clean way to create a build request from a task…
+pop up the build request creation forms and load the build request after
+submit linked back and forth from task and build request and copy task
+comments to the build request comments").
+
+A "Create Build Request" button on `DetailView`'s toolbar opens
+`BuildRequestFormModal` with a new `fromTask` prop — the same
+prefill-and-lock shape as `TaskFormModal`'s `fromParentTask` and
+`TestSheetFormModal`'s `fromTask`. The pure half is
+**`lib/buildRequestFromTask.ts`**, which mirrors `lib/eirPromotion.ts`
+deliberately rather than inventing a second way to carry a discussion.
+
+**THE LINK IS STORED ONCE, ON THE BUILD REQUEST.** `TaskReference` is a real
+column that already existed on the Build Request Tracker and was previously
+always written `null`. The TASK side is derived —
+`useBuildRequestsForTask(taskId)` filters the already-loaded Build Requests
+list by that column. Ray chose this over adding a Build Request column to the
+Task list, and it is the decision most at risk of being "tidied" later:
+
+- **Two columns can disagree; one cannot.** A stored reverse link is a second
+  copy of the same fact, and nothing would keep them in step — a request
+  re-pointed at another task would leave the old task still claiming it.
+- **It costs nothing.** The Build Requests list is already fetched whole, and
+  the filter runs in the browser. There is no extra request.
+- **It needs no Task-list schema change** on the busiest list in ARC.
+
+Seven things that are load-bearing:
+
+- **`TaskReference` is a SINGLE lookup — a bare integer.**
+  `multiLookupField`'s `Collection(Edm.Int32)` shape 400s it, and a 400 on the
+  create means no build request exists at all. The same trap this file
+  documents for every other single lookup. Pinned in real mode by
+  `api/buildRequests.fromTask.test.ts` — invisible from the mock branch, which
+  reads `input` directly and would pass whatever shape the real branch sent.
+- **Carried comments keep their ORIGINAL author and timestamp.** A carried
+  comment is a record of what was said, not a re-post by whoever pressed the
+  button; re-stamping would credit the wrong person and collapse the whole
+  timeline onto one instant.
+- **They are stored OLDEST-first.** `parseCommunication` hands comments back
+  NEWEST-first, so writing them out in display order stores the thread
+  backwards. Same rule as `buildPromotedCommunication`.
+- **The prefill is the task's PLAIN title, not its numbered one.** The BR's
+  Title column is "Product or Project Name"; `T3-0017-…` is a task identifier
+  and means nothing on a build request.
+- **Status, assignee and dates are deliberately NOT carried.** A task's
+  workflow, engineer and due date are not a build request's — guessing puts
+  somebody's name on work they haven't agreed to. `buildRequestPrefillFromTask`
+  returns exactly three keys and a test asserts that, so a later "helpful"
+  addition has to argue with it.
+- **The button stays available once a request exists.** A task can
+  legitimately need a second one (the first was cancelled, or a second build
+  is genuinely wanted), and every request raised from the task is listed on
+  the task page — so hiding the button would leave no way to raise another.
+  `buildRequestForTask` returns the NEWEST when a caller wants just one.
+- **`buildRequestsForTask` refuses a null taskId.** `null === null` would
+  otherwise link every unlinked build request to every task whose id failed
+  to resolve.
+
+`MOCK_BUILD_REQUESTS`' request #9 had `taskReferenceLookupId: 1` — a task
+that does not exist in `MOCK_TASKS`. Nothing read the column, so it never
+showed; it now points at task 15 so the derived link renders in the demo.
+
+### One conversation across a task, its build request, and its parts
+
+Added 2026-09-21 (Ray: "when comments are added on the task, and or the build
+request that are linked they get sent to both places. If there is a comment on
+a part within the Build request the comment goes on the task with a flag that
+this was on the part within the build request with a link to jump from that
+comment to the build request part comment to reply").
+
+| Posted on | Copied to |
+|---|---|
+| a task | its build request |
+| a build request | the task it was raised from |
+| a **part** | the task **and** its own build request header |
+
+Pieces: **`lib/commentMirror.ts`** (pure — the banner wording and the fan-out
+routing), **`api/commentMirror.ts`** (performs the writes),
+**`hooks/useCommentMirror.ts`** (`fanOutComment` — resolves the links from
+cache, writes, notifies), **`components/useCommentOriginLink.ts`** (makes the
+jump link route). Called from the `onSuccess` of all three comment hooks —
+one shared function rather than three copies, the same reasoning as
+`api/autoWatch.ts`.
+
+**A mirror is a REAL STORED COMMENT, not a render-time merge** (Ray's choice
+of the two options offered). The duplicate buys three things a merge can't: it
+survives in SharePoint's own views of the list, it needs no cross-list read on
+every page load, and it can't disagree with itself when one list is throttled.
+
+Nine things that are load-bearing:
+
+- **The origin marker lives in the comment's HTML BODY**, because there is
+  nowhere else: `Communication` is one serialised text column and `Comment`
+  has no origin field. So the banner is markup — a `span.comment-origin`
+  carrying `data-origin-*` — and `sanitiseHtml` passes `class`, `data-*` and a
+  relative `href` through untouched. That was **verified with a probe, not
+  assumed**, and `commentMirror.test.ts` pins it: the whole design collapses
+  if a future tightening of that allowlist strips the marker.
+- **The jump link is a ROUTER PATH, never an absolute URL** (`appItemPath`,
+  added for this). This markup sits in a SharePoint column for years; an
+  origin or a Pages sub-path baked in breaks the day ARC moves. `appItemUrl`
+  stays for EMAIL, which has no router to resolve a bare path against.
+- **`useCommentOriginLink` intercepts the click**, because the body renders
+  through `dangerouslySetInnerHTML` and the anchor is outside React's tree —
+  a plain click would trigger a full page load, throwing away the bundle, the
+  MSAL cache and anything half-typed. It intercepts ONLY an anchor inside a
+  banner, and leaves a modified or middle click to the browser (ctrl-click for
+  a new tab is exactly the complaint that started the draft-persistence work).
+- **It requires a router above `CommentThread`.** `useNavigate` throws without
+  one, which broke 25 of that component's own tests when this shipped — its
+  test file now wraps every render in a `MemoryRouter`. Reading the navigator
+  out of context to dodge the requirement was tried and REVERTED: it traded a
+  loud failure in one test file for a silently dead link in production.
+- **Carried comments keep their ORIGINAL author.** A mirror is a record of
+  what was said, not a re-post by whoever triggered the fan-out.
+- **Best-effort, per target, and it NEVER throws.** The original comment is
+  already written and on screen by the time this runs, so a failed mirror
+  TOASTS rather than making a successful comment look failed — and one refused
+  target must not lose the other (`Promise.allSettled`, pinned three ways).
+- **A mirror of a mirror is refused** (`isMirroredComment`). Three write paths
+  fan out in three directions; a loop here would stack banners and point the
+  jump link at the wrong hop, silently.
+- **Nothing is ever mirrored TO a part.** Fanning a task-level comment onto
+  every part would multiply one comment by however many parts a request has.
+- **Each side notifies its OWN watchers, de-duped ACROSS the pair.** Somebody
+  watching both the task and the build request gets ONE email;
+  `fanOutComment` accumulates `told` as it walks the targets, so a part's two
+  targets can't each email the same person.
+
+**The de-dupe test passed for the wrong reason at first, and the fix is worth
+copying.** The fixtures share NOBODY between task 15's audience and BR 9's
+except Ray — who was the test's author and therefore excluded from both
+anyway — so removing the `told.push(...)` line did not fail anything. The test
+now INJECTS a shared watcher into both cached records and asserts that person
+is genuinely in the send set before asserting uniqueness. Verified by deleting
+the guard and watching it fail.
+
 ### Description checklists: sub-tasks and attribution
 
 - **Indent = sub-task.** A checklist line indented with tab, spaces or NBSP is a
@@ -3738,6 +5745,228 @@ mutations after unmount. Validation still runs first.
   indistinguishable from real ones.
 - Indentation and the post-`]` gap round-trip verbatim. This text lives in a
   SharePoint field and is re-parsed, so anything lossy corrupts real data.
+
+### A half-written draft survives navigating away
+
+Alexander Masgras, 2026-09-17: he references other tasks while writing a
+comment, navigates off to look one up, and loses the comment — "sometimes
+multiple paragraphs, full lists". He had opened it as a request for ctrl+click
+on the Back button; the real problem was that drafts lived in component state.
+
+**localStorage, not a store.** Redux (or lifting the state a layer) survives
+NAVIGATION and nothing else — a refresh, a crashed tab or a closed browser
+still loses the draft, which is most of what people want protection from.
+localStorage covers all four, is per-browser-profile (a draft is yours, not
+the record's), and ARC already used it for the theme.
+
+`hooks/useDraft.ts` persists ONE field; `hooks/useFormDraft.ts` wraps it for a
+form's title+description pair. Wired into all **14 comment composers** and the
+create forms.
+
+Seven things that make a restored draft helpful rather than unsettling:
+
+- **`draftKey` must name the RECORD, not just the field** — `"task:47"`, and
+  each view passes a DISTINCT prefix (`task:` / `opsTask:` / `panelTask:`).
+  Without that, two records sharing a numeric id share a draft, and opening
+  task B shows the half-written comment for task A.
+- **It is ANNOUNCED.** `DraftRestoredNotice` with Discard and Keep. Text
+  appearing in a box by itself is indistinguishable from a bug, and on a
+  create form it reads as though the record already exists.
+- **CREATE forms only.** An edit form is seeded from the record, so a stale
+  draft silently overwriting a real title means editing text that looks like
+  the record and isn't — worse than losing a draft. Edit mode passes `null`.
+- **Cleared on a successful save, BEFORE the state resets.** `clear()` cancels
+  the pending debounced write, which would otherwise land after the post and
+  restore a comment that had already been sent. That race has its own test.
+- **The pending write is FLUSHED on unmount.** Navigating away is the exact
+  moment this exists for, and the debounce would swallow the last half-second
+  of typing.
+- **An emptied box means NO draft**, not a draft of nothing — otherwise
+  clearing a field leaves a draft that restores itself.
+- **Seven-day expiry**, and an expired draft is deleted rather than
+  re-checked for ever.
+
+Three things deliberately NOT persisted, each because restoring it would be
+worse than not:
+
+- **Attachments.** A `File` can't be serialised, and restoring a comment whose
+  files silently vanished is a trap. The notice says they need re-adding.
+- **Pickers, dates and people.** Cheap to re-choose, and the part most likely
+  to go stale — restoring a project reference that has since been renamed is
+  worse than an empty field.
+- **The rich-text MODE is persisted**, though, because a draft typed in rich
+  mode must come back in rich mode or its markup renders as visible tags.
+
+**Every `localStorage` access is wrapped in try/catch.** The accessor itself
+throws in a private window, with site data blocked, and during thumbnail
+capture — a detail page must not fail to render because a draft couldn't be
+read. A failed WRITE is silent on purpose: a lost draft is the status quo, and
+a toast on every keystroke would be worse than the problem.
+
+**It is per browser.** A comment started on a laptop isn't on a phone.
+Cross-device would need a server, and ARC hasn't got one.
+
+### A pasted URL is a link — and it happens in `sanitiseHtml`
+
+A URL pasted into a comment or a description used to be dead text (Ray,
+2026-09-16). `lib/linkify.ts` turns one into a real anchor.
+
+**It lives inside `sanitiseHtml`, which is what makes it universal** (Ray:
+"make that universal across arc"). Every place ARC renders stored rich text
+goes through that one function — comment threads, task and EIR descriptions,
+the ECN / Gray Market / Cost Impact / Customer Note detail cards, and both
+print views. Wiring each call site instead would have been a dozen edits and
+a standing invitation to miss the next one; **a new render site is correct by
+default.**
+
+- **On READ, not on write.** That is what reaches the thousands of comments
+  and descriptions saved before this existed. Nothing is migrated and nothing
+  stored changes.
+- **Linkify FIRST, then sanitise.** The anchors it adds are filtered by the
+  same rules as any other markup rather than trusted because we made them.
+
+Two entry points, because two paths hand text over differently:
+
+- **`linkifyHtml(html)`** — real markup. **Walks TEXT NODES**, so it cannot
+  linkify inside an `href`, an `alt`, or any other attribute; a string replace
+  over HTML would match there and wreck the markup. Skips `<a>` contents (no
+  nested anchors) and `span.mention` (chips stay chips).
+- **`linkifyEscaped(escaped)`** — a fragment the caller ALREADY escaped, which
+  is how the comment and description builders work. It must not escape again,
+  or `&amp;` in a query string becomes `&amp;amp;` and the link breaks.
+
+Three rules worth keeping:
+
+- **Only `http://` and `https://`.** Deliberately NOT a bare-domain matcher.
+  These fields are full of part numbers and references — `ALT.III`, `REV.2`,
+  `QMP-4.3, section 4.5` — and guessing at what looks domain-shaped turns them
+  into broken links. A pasted URL carries its scheme; that is the signal worth
+  trusting. `javascript:` and `data:` are never matched.
+- **Trailing punctuation belongs to the sentence.** "See https://x.com/page."
+  — the full stop is the writer's, so it is kept out of the href and
+  re-emitted after the anchor. A closing paren is only trimmed when
+  UNBALANCED, so a Wikipedia-style `..._(disambiguation)` URL survives.
+- **Entities are stripped before punctuation** in `splitTrailing`. Doing it
+  the other way round eats the `;` off `&quot;`, which then no longer matches
+  as an entity and leaves `&quot` welded to the href — found by test.
+
+**The plain-text description branch now sets `innerHTML`.** It used to render
+as raw text, which was its own protection; it escapes, linkifies and renders
+instead, so a URL in a plain description is clickable in place rather than
+needing a separate list of links. `whitespace-pre-wrap` still carries the line
+breaks. Note that `looksLikeHtml` routes anything tag-shaped to the HTML
+branch regardless — that routing predates this and is unchanged.
+
+### Rich text is OPT-IN per field, and it always costs something
+
+A **Rich text** button on every comment composer and on task descriptions
+(Ray, 2026-09-16). Bold / italic / underline / lists, via the existing
+`RichTextEditor` — no new dependency.
+
+**Plain text is what LOADS, everywhere.** Rich mode is opt-in per field and is
+never remembered across fields, because switching genuinely disables a feature
+in both places. Defaulting to rich would take that feature away from everybody
+silently.
+
+**Markdown was asked for and deliberately NOT built** (Ray: "let's bypass
+markdown for now"). It would need either a format column per list or storage
+that renders as literal `**asterisks**` in SharePoint's own views, the Power
+Apps form and every notification email — all of which read these same columns.
+If it comes back, that decision is the thing to settle first.
+
+#### Comments: rich text turns off the @-mention PICKER
+
+The picker reads the CARET POSITION in a plain `<textarea>`
+(`detectMentionQuery(text, caret)`). A contentEditable has no equivalent, so
+in rich mode typing `@` opens nothing.
+
+- **A dialog says so before the switch** — `RichTextWarningDialog`, with
+  "Keep plain text" / "Use rich text". Switching BACK warns about nothing;
+  it costs nothing.
+- **Mentions already PICKED still work.** `injectMentionsIntoHtml` in
+  `lib/mentions.ts` puts chips into HTML that is already HTML — it **walks
+  TEXT NODES**, never the string, because a regex over markup matches inside
+  tags and attributes (an `@name` in a `mailto:` href) and corrupts them. It
+  skips existing `span.mention` (no nesting on a re-save) and `<a>` contents
+  (a link's text is often an address).
+- **Both builders emit the SAME chip markup**, which is the whole reason
+  rich-text comments still notify: `extractMentionedRecipients` and the entire
+  email path read either one unchanged. Don't let the two shapes drift.
+- **The warning's "who still hears" line is a PROP**, not a constant.
+  `WATCHERS_STILL_NOTIFIED` is right for most threads; **ECNs, Customer Notes
+  and Cost Impact Notices have NO Watchers column** and pass
+  `SUBMITTER_STILL_NOTIFIED` instead. Telling somebody "watchers are still
+  notified" on those three would be a confident lie about the one thing they
+  are weighing up.
+- **An "@-mentions off" reminder sits in the toolbar** while rich mode is on.
+  The dialog is long gone by the time somebody tries to mention someone.
+
+#### EDITING a comment must not erase its formatting
+
+Reported by Alexander Masgras, 2026-09-17: a comment with bold, italic and
+underline lost all three the moment it was edited. The edit form only ever
+opened a plain `<textarea>` — `htmlToPlainText` stripped every tag on the way
+in (`.replace(/<[^>]+>/g, "")`) and the save rebuilt plain paragraphs through
+`buildCommentHtml`. So opening an edit and pressing Save destroyed the
+formatting, with nothing on screen warning that it would.
+
+That lossy conversion was a reasonable trade BEFORE rich text existed — its
+own comment said as much ("richer HTML from the Power Apps version loses
+formatting on edit — acceptable"). Shipping the rich editor made it a bug.
+
+**`hasRichFormatting(html)` in `lib/richText.ts` decides which editor opens.**
+A comment carrying formatting opens in RICH mode with its markup intact; a
+plain one still opens the textarea, so **@-mentions keep working for the
+common case** rather than every edit losing the picker.
+
+- **`<p>` and `<br>` do NOT count as formatting.** They round-trip faithfully
+  through the textarea as blank lines and newlines, so forcing rich mode on
+  them would cost the mention picker for nothing.
+- **It is a WHITELIST of tags that matter** (`strong`/`em`/`u`/`ul`/`a`/…),
+  not "any tag except p and br" — a future wrapper element shouldn't drag
+  every comment into rich mode.
+- **The Save button reads the RICH body in rich mode.** `text` is the stale
+  plain draft there, so checking it left Save disabled on a perfectly good
+  formatted edit.
+- **`nonEmptyRichHtml` guards the save**, because an empty contentEditable is
+  `<p><br></p>` rather than `""` — a `trim()` would let an empty edit save
+  over a real comment.
+
+#### Descriptions: rich text turns off the CHECKLIST — and may be blocked
+
+A description's `- [ ]` lines are parsed LINE BY LINE off the raw string
+(`parseChecklistItems`, on `text.split("
+")`). Rich text wraps everything in
+`<p>` and drops the newlines, so a rich description has no checkboxes at all.
+
+`RichTextToggleField` therefore splits on **whether work already exists**
+(Ray: "No block is if already created but if someone goes to enable mention
+that feature disappears"):
+
+| The description | Behaviour |
+|---|---|
+| Has NO checkboxes | **Warns** — the syntax won't be available. Reversible. |
+| ALREADY has checkboxes | **BLOCKED** — button disabled, reason on screen |
+
+The block is the important half: those ticks carry a name and a timestamp
+each, and there is no undo once a rich body is saved over them. **The button
+is disabled rather than hidden** — a control that vanishes reads as a bug, and
+the explanation is the useful part — and the reason is printed **on screen**,
+not only in a `title`, because a `title` needs a hover a phone hasn't got.
+It un-blocks by itself once the checklist lines are gone.
+
+Three things that apply to both:
+
+- **The draft carries across** (`plainTextToHtml`). Throwing away half a
+  comment on a format switch would be its own bug.
+- **"Is there anything here" can't be a `trim()`** in rich mode: an empty
+  contentEditable leaves `<p><br></p>`, so `nonEmptyHtml` strips tags and
+  entities first. Without it the Send button enables on an empty comment.
+- **A toolbar can't live inside a `<label>`.** `TaskFormModal`'s description
+  block became a `<div>` with an `aria-label` on the field — nested
+  interactive controls steal the label's click, and a button inside a label
+  that wraps another button is invalid HTML (the same nesting rule that bit
+  `SearchableSelect`'s clear button).
 
 ### The EIR long-text columns are Enhanced rich text — write HTML
 
@@ -4067,6 +6296,85 @@ open", not a failure. When the session IS dead, `AuthGate` renders
 `SignInPage reason="expired"` rather than the app behind a banner, and signing in
 clears the query cache so nothing comes back still showing the old errors.
 
+### Never silently activate a cached account when more than one exists
+
+MSAL's `cacheLocation: "localStorage"` (msalConfig.ts) is deliberate — it
+keeps users signed in across browser restarts, the normal UX for an internal
+tool. But `localStorage` is shared by every account that has EVER signed
+into ARC on that browser profile, not just whoever's using it right now.
+
+`AuthGate` and `AuthProvider` both used to auto-activate a cached account
+with the same one-liner: `if (accounts.length > 0 && !getActiveAccount())
+setActiveAccount(accounts[0])`. On a browser only one person has ever used,
+that's harmless — `accounts` has exactly one entry, and it's genuinely
+theirs. On a **shared workstation**, or any browser profile a second person
+has ever signed into, `accounts[0]` is whichever account MSAL happens to
+list first — with **no check at all** that it belongs to whoever is actually
+at the keyboard.
+
+Reported by Ray, 2026-09-02: a Gray Market Request's Requestor field showed
+Anisha Hobbs when Patricia was the one who filled it out. Anisha had signed
+into ARC on that browser before; her account was still cached and still
+valid; Patricia opened ARC, saw no sign-in prompt at all, and every write
+she made — `useCurrentUser()` reads whichever account is active, and that
+feeds every "who did this" field in the app — went out under Anisha's
+identity instead of her own. Nothing on screen looked wrong; there was no
+error to notice.
+
+The fix, in both `AuthGate.tsx` and `AuthProvider.tsx`: auto-activate ONLY
+when there is **exactly one** cached account. With two or more, activate
+nothing — `useIsAuthenticated()` then reads `false`, `AuthGate` falls
+through to `SignInPage`, and `SignInPage`'s sign-in button asks MSAL for
+`prompt: "select_account"`, forcing Microsoft's own account picker rather
+than ever guessing. A genuine multi-account ambiguity now costs one visible
+click; silently misattributing someone's identity cost nothing visible at
+all, which is the wrong trade to make by default.
+
+Three things about this fix:
+
+- **It's duplicated in two files on purpose**, same as it was duplicated
+  before the fix — `AuthGate` runs on every render while MSAL is settling,
+  `AuthProvider` runs once at boot before `AuthGate` ever mounts. Fixing
+  only one would leave the other race still open.
+- **This is not specific to Gray Market Requests.** `useCurrentUser()` feeds
+  every "who did this" field across the whole app — Requestor, Assigned,
+  Watchers auto-add, comment authorship, every intake alert's actor
+  exclusion. The bug reached Gray Market Requests because that's where it
+  happened to be noticed first.
+- **Pinned in `AuthGate.test.tsx`**, not `AuthProvider.test.tsx` — the
+  latter constructs a real `PublicClientApplication` and has no existing
+  test harness to extend proportionately for one duplicated condition;
+  `AuthGate`'s coverage of the same one-line guard stands in for both.
+  Verified by reintroducing the bug (`accounts.length > 0`) and confirming
+  the "does NOT auto-pick... when MORE THAN ONE is cached" test fails.
+
+### The header's Refresh button refetches; it does NOT reload
+
+`RefreshButton` in `components/Header.tsx` calls `queryClient.invalidateQueries()`
+with **no key**, so every cached query in the app is invalidated at once
+(Ray, 2026-09-09). Three rules, each with a test that was verified by
+reintroducing the bug:
+
+- **No key.** A key-scoped call would freshen the page you happen to be on and
+  leave the rest of ARC quietly stale — worse than no button, because it looks
+  like it worked.
+- **Never `window.location.reload()`.** A reload throws away the bundle, the
+  MSAL token cache and whatever the user is mid-way through: an open modal, a
+  half-typed comment, a set of filters. Refetching keeps all of it. The reloads
+  that DO exist in ARC — `UpdateAvailableBanner`, `RouteErrorBoundary`,
+  `UserMenu`'s account switch, `AuthProvider` — each need a new bundle or a new
+  session, which is a different job.
+- **Never `disabled`, only spinning.** `useIsFetching()` counts EVERY query in
+  flight anywhere, including a page's own mount-time loads and any background
+  refetch, so `disabled={fetching}` made the button unclickable exactly when
+  somebody would reach for it — on a slow connection or a busy page. Found by
+  test before it shipped. Invalidating twice is harmless (React Query dedupes
+  in-flight fetches per key); a dead button is not.
+
+It renders in **both** header clusters — the `sm:hidden` mobile one and the
+desktop one — like `SuggestFeatureButton` and `NotifyAppManagerButton`. A
+button added to only one is invisible on the other form factor.
+
 ### The app has ONE loading screen — `LoadingTasks`
 
 Every list, board, detail page and lazy-loaded route's `Suspense` fallback
@@ -4148,6 +6456,59 @@ wrong once a whole section is assembled:
 3. Add a nav link in `src/components/Header.tsx`.
 4. **Update the system-flow diagram in `src/views/AboutView.tsx`** so the
    new view appears in the architectural overview. See the rule below.
+5. **If it renders a TABLE of records, give it column sorting and filters** —
+   see "Every new table gets sorting and column filters" below. This is not
+   optional and not a follow-up.
+
+### Every new table gets sorting and column filters — REQUIRED
+
+**Any new list view in ARC that renders a `<table>` of records ships with
+column sorting and per-column value filters.** Not as a follow-up, not "if
+someone asks" — in the same commit as the table (Ray, 2026-09-16: "always add
+those sorts for table type additions to arc").
+
+It went the other way round once: Panel QC had them, nine other lists didn't,
+and people worked around the gap by remembering or scrolling until seven lists
+were retrofitted in one go. That retrofit is why the pieces below are generic —
+use them rather than writing a comparator.
+
+The whole wiring is four steps:
+
+1. **Declare the columns as DATA** — a `SortColumn<T>[]` (`lib/tableSort.ts`).
+   Module-level unless an accessor needs joined data (a project title map, say),
+   in which case a `useMemo` inside the component.
+2. **`useSortableTable({ rows, columns, stableKey, initialKey })`**
+   (`hooks/useSortableTable.ts`). Pass `initialDirection` to keep whatever
+   default order the list already had — a new feature shouldn't change how the
+   screen opens.
+3. **Render `SortableHeader`** (`components/SortableTableHeader.tsx`) per
+   column, spreading `table.headerProps(column.key)`.
+4. **Map `table.rows`, NOT the pre-sort list.** This is the step that gets
+   missed: the headers work, the clicks register, and nothing moves.
+   `views/listSorting.test.tsx` exists for exactly this and a new list belongs
+   in it.
+
+Five things to get right, all learned the hard way — the reasoning is in the
+"Sortable, filterable table headers" section:
+
+- **The `value` accessor must match what the CELL shows.** The filter menu
+  groups by it, and a menu offering values nobody can see on screen is worse
+  than no menu. Where a cell falls back between fields, the accessor falls
+  back identically.
+- **`kind: "date"` / `"number"` for real dates and numbers**, with a
+  `sortValue`. Otherwise "10" sorts before "9".
+- **`kind: "numeric-text"` for a TEXT column that usually holds a number.**
+  Free-text quantity columns in this app really do contain "see notes".
+- **`noFilter: true` for long free text.** Grouping a description column over
+  thousands of rows lists thousands of one-row options; it still sorts, and
+  search already covers it.
+- **Leave action / icon columns as plain `<th>`.** They hold no value worth
+  ordering or grouping by.
+
+**Card-based lists are the exception, for now** — Tasks, EIRs and Build
+Requests render cards, not rows, so there are no headers to click. They need a
+"Sort by" dropdown over the same engine; unbuilt, and worth asking before
+assuming.
 
 ### Hook up the Header view switcher to add more views
 
@@ -4296,6 +6657,55 @@ Deletes are scoped per-storage — removing a file from "On this task" only
 deletes the list-item attachment; removing from the project folder only
 deletes the file in SharePoint. The other copy is untouched. This is by
 design: users may want one but not the other to disappear.
+
+### A comment composer with no `uploadFile` DISCARDS the pasted file, silently
+
+`CommentComposer` holds a pasted or dropped image in memory to show a
+thumbnail, and only uploads it on submit **if the parent passed `uploadFile`**.
+With no prop the comment posts as plain text and the screenshot is gone —
+nothing on screen says so, and a type check can't catch it, because the prop
+has to stay optional (two views genuinely have nowhere to put a file).
+
+**FAIT was the only one of eleven views that passed it.** Ten others didn't:
+EIRs, ECNs, Operations tasks, Panel orders, Panel tasks, Build Requests,
+maintenance work orders, Suppliers and Cost Impact Notices. Reported
+2026-09-16 as "screenshots are not saving as attachments to EIR and are not
+saving to the comments" — EIRs were just where somebody happened to try it.
+
+`useCommentFileUpload(parent, itemId)` in `hooks/useAttachments.ts` is the one
+adapter now — it wraps `useUploadAttachment` into the composer's
+`{ name, webUrl }` contract, so a pasted screenshot lands in the SAME
+list-item attachment store the page's Attachments card already uses and
+survives a refresh. One hook rather than the same four lines in eleven views,
+for the reason the `htmlToPlainText` note gives: that is how one copy drifts.
+
+Three things about the wiring:
+
+- **Pass it to the THREAD as well as the composer.** Both take the prop, and
+  wiring only the composer is the easy half-fix — an edited comment can attach
+  a file too.
+- **Call the hook ABOVE the view's early return**, next to the nullable
+  `<thing>Id`. These views `return` before the item loads, and a hook cannot
+  be called conditionally; the hook takes `number | null` for exactly this.
+- **Two views are deliberately exempt**: `CustomerNoteDetailView` and
+  `FeatureRequestDetailView` have a Communication column but no
+  `AttachmentParent` entry and no `AttachmentsSection`, so there is nowhere
+  for a file to go. Giving either one comment attachments means adding its
+  parent config in `api/attachments.ts` first.
+
+`views/commentFileUpload.wiring.test.ts` pins it structurally — reading each
+view's source via Vite's `?raw` (the app's tsconfig has no Node types), in the
+spirit of `App.routes.test.ts`. A view that renders a composer AND has an
+attachment store must pass the prop to both components; the two exemptions are
+listed with their reason, and the test also fails if an exempt view later
+gains an attachment store, so it can't stay quietly exempt. Verified by
+removing the prop from `EirDetailView` and watching it name the offender.
+
+**A `vi.mock("@/hooks/useAttachments", …)` must include this export.** Six
+test files mock that module wholesale, and a mock missing a member throws
+*"No `useCommentFileUpload` export is defined"* the moment a view that wires
+it renders — so adding a member to that hook module means updating those
+mocks in the same commit.
 
 ### Downloading a list-item attachment goes through the authenticated endpoint
 

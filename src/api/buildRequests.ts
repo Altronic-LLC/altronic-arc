@@ -4,6 +4,7 @@ import { ensureLookupIds, ensurePersonLookupId } from "./siteUsers";
 import type { BuildRequest, GraphListItem, Person } from "@/types/task";
 import { attachBuildRequestReferences, toBuildRequest } from "@/lib/buildRequestMapper";
 import { multiLookupField, multiPersonField } from "@/lib/graphFields";
+import { parseCommunication } from "@/lib/communicationParser";
 import { appendComment, replaceComment } from "@/lib/communicationParser";
 import { listProjects } from "./tasks";
 import { listSiteUsers } from "./eirs";
@@ -126,6 +127,20 @@ export interface CreateBuildRequestInput {
   leadFree?: boolean;
   parentProjectLookupIds?: number[];
   watchers?: Person[];
+  /**
+   * The task this BR was raised from — a SINGLE lookup into the Task List.
+   *
+   * Written in the create POST. It is the ONLY place the task↔BR link is
+   * stored: the task side is derived from it (`useBuildRequestForTask`)
+   * rather than duplicated, so the two can never disagree and no Task-list
+   * schema change was needed.
+   */
+  taskReferenceLookupId?: number | null;
+  /**
+   * Pre-built `Communication` value — the task's discussion carried over.
+   * See `buildCarriedCommunication` in lib/buildRequestFromTask.ts.
+   */
+  communication?: string;
 }
 
 export async function createBuildRequest(input: CreateBuildRequestInput): Promise<BuildRequest> {
@@ -153,11 +168,11 @@ export async function createBuildRequest(input: CreateBuildRequestInput): Promis
         lookupId,
         title: "",
       })),
-      taskReferenceLookupId: null,
+      taskReferenceLookupId: input.taskReferenceLookupId ?? null,
       createdAt: now,
       modifiedAt: now,
       author: input.requestor ?? null,
-      comments: [],
+      comments: input.communication ? parseCommunication(input.communication) : [],
       hasAttachments: false,
     };
     mockStore = [br, ...mockStore];
@@ -189,6 +204,13 @@ export async function createBuildRequest(input: CreateBuildRequestInput): Promis
   if (watchers.some((p) => !!p.lookupId)) {
     Object.assign(fields, multiPersonField("Watchers", watchers));
   }
+
+  // A SINGLE lookup — a bare integer, never multiLookupField's
+  // Collection(Edm.Int32) shape, which 400s here.
+  if (input.taskReferenceLookupId) {
+    fields.TaskReferenceLookupId = input.taskReferenceLookupId;
+  }
+  if (input.communication) fields.Communication = input.communication;
 
   const created = await graphFetch<GraphListItem>(
     `/sites/${SP_SITE_ID}/lists/${SP_BUILD_REQUESTS_LIST_ID}/items`,

@@ -368,3 +368,109 @@ describe("CommentComposer — paste to attach", () => {
     expect(screen.getByText("second shot.png")).toBeInTheDocument();
   });
 });
+
+// =============================================================================
+// The rich-text toggle.
+//
+// Rich text is OPT-IN per comment and plain text is what loads, because the
+// @-mention picker only works in a textarea — defaulting to rich would
+// silently take that away from everybody. Pressing the button warns first,
+// since it costs a real feature (Ray, 2026-09-16).
+// =============================================================================
+describe("CommentComposer — rich text", () => {
+  const SARAH: Person = { displayName: "Sarah Shaffer", email: "sarah@x.com" };
+
+  it("starts in PLAIN text, with the mention picker available", async () => {
+    render(<CommentComposer onSubmit={vi.fn()} mentionablePeople={[SARAH]} />);
+    // The textarea is what drives @-mention detection.
+    expect(screen.getByPlaceholderText(/write a comment/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /rich text/i })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+  });
+
+  it("WARNS before switching, naming what is lost and who still hears", async () => {
+    const user = userEvent.setup();
+    render(<CommentComposer onSubmit={vi.fn()} mentionablePeople={[SARAH]} />);
+
+    await user.click(screen.getByRole("button", { name: /rich text/i }));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveTextContent(/@-mention autocomplete/i);
+    expect(dialog).toHaveTextContent(/watchers are still notified/i);
+  });
+
+  it("does NOT switch when the warning is declined", async () => {
+    const user = userEvent.setup();
+    render(<CommentComposer onSubmit={vi.fn()} mentionablePeople={[SARAH]} />);
+
+    await user.click(screen.getByRole("button", { name: /rich text/i }));
+    await user.click(await screen.findByRole("button", { name: /keep plain text/i }));
+
+    expect(screen.getByPlaceholderText(/write a comment/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /rich text/i })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+  });
+
+  it("switches on confirm, and says @-mentions are off", async () => {
+    const user = userEvent.setup();
+    render(<CommentComposer onSubmit={vi.fn()} mentionablePeople={[SARAH]} />);
+
+    await user.click(screen.getByRole("button", { name: /rich text/i }));
+    await user.click(await screen.findByRole("button", { name: /use rich text/i }));
+
+    // The reminder matters more than the dialog: the dialog is long gone by
+    // the time somebody tries to type @.
+    expect(screen.getByText(/@-mentions off/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /rich text/i })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  it("CARRIES a part-typed draft across the switch", async () => {
+    const user = userEvent.setup();
+    render(<CommentComposer onSubmit={vi.fn()} mentionablePeople={[SARAH]} />);
+
+    await user.type(screen.getByPlaceholderText(/write a comment/i), "half a thought");
+    await user.click(screen.getByRole("button", { name: /rich text/i }));
+    await user.click(await screen.findByRole("button", { name: /use rich text/i }));
+
+    // Throwing the draft away on a format switch would be its own bug.
+    expect(screen.getByText("half a thought")).toBeInTheDocument();
+  });
+
+  it("switches BACK with no warning — it costs nothing", async () => {
+    const user = userEvent.setup();
+    render(<CommentComposer onSubmit={vi.fn()} mentionablePeople={[SARAH]} />);
+
+    await user.click(screen.getByRole("button", { name: /rich text/i }));
+    await user.click(await screen.findByRole("button", { name: /use rich text/i }));
+    await user.click(screen.getByRole("button", { name: /rich text/i }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/write a comment/i)).toBeInTheDocument();
+  });
+
+  it("uses the thread's OWN notification rule when given one", async () => {
+    // ECNs / Customer Notes / Cost Impact Notices have no Watchers column,
+    // so "watchers are still notified" would be a confident lie there.
+    const user = userEvent.setup();
+    render(
+      <CommentComposer
+        onSubmit={vi.fn()}
+        mentionablePeople={[SARAH]}
+        richTextNotifyNote="This list has no watchers: only the submitter hears."
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /rich text/i }));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveTextContent(/no watchers/i);
+    expect(dialog).not.toHaveTextContent(/watchers are still notified/i);
+  });
+});

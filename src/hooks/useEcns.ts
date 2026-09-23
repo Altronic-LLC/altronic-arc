@@ -14,6 +14,8 @@ import { mergePeople } from "@/lib/people";
 import { htmlToPlainText } from "@/lib/htmlText";
 import { useCurrentUser } from "./useCurrentUser";
 import { pushToast } from "@/components/Toast";
+import { createEcnChecklist } from "@/api/ecnChecklists";
+import { ECN_CHECKLISTS_KEY } from "./useEcnChecklists";
 
 // =============================================================================
 // ECN hooks.
@@ -84,6 +86,26 @@ export function useCreateEcn() {
       qc.setQueryData<Ecn[]>(ECN_KEY, (old) => (old ? [created, ...old] : [created]));
       qc.invalidateQueries({ queryKey: ECN_KEY });
       pushToast({ message: `Raised ${ecnLabel(created)}.` });
+
+      // Every new ECN gets its Cross-Functional Checklist automatically (Ray,
+      // 2026-09-15). BEST-EFFORT and deliberately after the ECN is already in
+      // the cache: the ECN is real at this point, so a failed checklist write
+      // must warn rather than make a successful create look like it failed —
+      // the same rule as the EIR→Task promotion's follow-up writes. The
+      // "Create checklist" button on the ECN's own page is the recovery, and
+      // is also how the 1,800+ ECNs that predate this feature get one.
+      void createEcnChecklist(created.id, created.logNo, actor)
+        .then(() => {
+          void qc.invalidateQueries({ queryKey: ECN_CHECKLISTS_KEY });
+        })
+        .catch((err: Error) => {
+          pushToast({
+            message:
+              `${ecnLabel(created)} was raised, but its checklist couldn't be created ` +
+              `(${err.message}). Open the ECN and press "Create checklist".`,
+            variant: "error",
+          });
+        });
     },
     onError: (err: Error) => errorToast(`Couldn't raise the ECN: ${err.message}`),
   });

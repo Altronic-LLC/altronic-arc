@@ -34,6 +34,9 @@ import { ChoiceSelect, MultiSelect } from "./SearchableSelect";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { mergePeople } from "@/lib/people";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
+import { RichTextToggleField } from "./RichTextToggleField";
+import { DraftRestoredNotice } from "./DraftRestoredNotice";
+import { useFormDraft } from "@/hooks/useFormDraft";
 import { cn } from "@/lib/cn";
 import { DateField } from "./DateField";
 import { toLabelsField } from "@/lib/labels";
@@ -47,6 +50,16 @@ interface TaskFormModalProps {
   mode: "create" | "edit";
   /** Required when mode === "edit". Ignored in create mode. */
   task?: Task | null;
+  /**
+   * When creating a CHILD of an existing task (the detail page's "New child
+   * task" button), pass the parent here. Parent Task and Parent Project are
+   * pre-filled from it and locked read-only — the same `fromTask` shape
+   * `TestSheetFormModal` uses for "create a test sheet from this task",
+   * kept as its own prop name because here it locks a DIFFERENT pair of
+   * fields (Parent Task + Parent Project, not Task/Project Reference).
+   * Ignored outside create mode.
+   */
+  fromParentTask?: Task | null;
   /** Called when the modal should close (user cancels or after a successful save). */
   onClose: () => void;
 }
@@ -64,7 +77,7 @@ interface TaskFormModalProps {
  * new task's detail page so the user can do any further setup (parent task,
  * watchers, related projects).
  */
-export function TaskFormModal({ mode, task, onClose }: TaskFormModalProps) {
+export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormModalProps) {
   const navigate = useNavigate();
   const { data: allTasks = [] } = useTasks();
   const { data: projects = [] } = useProjects();
@@ -76,8 +89,16 @@ export function TaskFormModal({ mode, task, onClose }: TaskFormModalProps) {
   const setAssigned = useSetAssigned();
   const setWatchers = useSetWatchers();
 
-  const [title, setTitle] = useState(task?.title ?? "");
-  const [description, setDescription] = useState(task?.description ?? "");
+  // CREATE only. An edit form is seeded from the record, and a stale draft
+  // silently overwriting a real title is worse than losing the draft — you
+  // would be editing text that looks like the record and isn't.
+  const draft = useFormDraft<{ title: string; description: string }>(
+    mode === "create" ? "newTask" : null,
+  );
+  const [title, setTitle] = useState(task?.title ?? draft.initial.title ?? "");
+  const [description, setDescription] = useState(
+    task?.description ?? draft.initial.description ?? "",
+  );
   const [status, setStatus] = useState<Status>(task?.status ?? "BACKLOG");
   // Default Priority to Medium for new tasks (matches the Power App default).
   // In edit mode use whatever the task already has.
@@ -89,10 +110,26 @@ export function TaskFormModal({ mode, task, onClose }: TaskFormModalProps) {
     task?.dueDate ? task.dueDate.toISOString().slice(0, 10) : "",
   );
   const [labels, setLabels] = useState<Label[]>(task?.labels ?? []);
+  // Locking to a parent task locks its project too — "child task" and "same
+  // project" mean the same thing here. Only meaningful in create mode; an
+  // edit never receives fromParentTask (see the DetailView call site).
+  const lockToParent = mode === "create" && !!fromParentTask;
+
+  // Save on every change to either field. One key for the pair: restoring a
+  // title with no description reads as though the description was cleared
+  // deliberately.
+  useEffect(() => {
+    if (mode !== "create") return;
+    draft.save({ title, description });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [title, description, mode]);
+
   const [parentProjectId, setParentProjectId] = useState<number | "">(
-    task?.parentProject?.lookupId ?? "",
+    task?.parentProject?.lookupId ?? fromParentTask?.parentProject?.lookupId ?? "",
   );
-  const [parentTaskId, setParentTaskId] = useState<number | "">(task?.parentTask?.id ?? "");
+  const [parentTaskId, setParentTaskId] = useState<number | "">(
+    task?.parentTask?.id ?? fromParentTask?.id ?? "",
+  );
   const [relatedProjectIds, setRelatedProjectIds] = useState<number[]>(
     task?.relatedProjects.map((r) => r.lookupId) ?? [],
   );
@@ -232,6 +269,9 @@ export function TaskFormModal({ mode, task, onClose }: TaskFormModalProps) {
             lookupIds: relatedProjectIds,
           });
         }
+        // The task exists now, so the draft must go — otherwise it restores
+        // over the next new-task form as if nothing had been created.
+        draft.clear();
         onClose();
         navigate(`/task/${created.id}`);
         return;
@@ -370,7 +410,11 @@ export function TaskFormModal({ mode, task, onClose }: TaskFormModalProps) {
       >
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-5">
           <h2 id="task-form-heading" className="font-display text-base font-semibold text-fg sm:text-lg">
-            {mode === "create" ? "New task" : `Edit ${task?.numberedTitle ?? "task"}`}
+            {mode === "create"
+              ? lockToParent
+                ? `New child task of ${fromParentTask!.numberedTitle}`
+                : "New task"
+              : `Edit ${task?.numberedTitle ?? "task"}`}
           </h2>
           <button
             type="button"
@@ -391,6 +435,18 @@ export function TaskFormModal({ mode, task, onClose }: TaskFormModalProps) {
           )}
 
           <div className="grid gap-4">
+            {draft.restored && (
+              <DraftRestoredNotice
+                note="Only the title and description were kept."
+                onDiscard={() => {
+                  draft.clear();
+                  setTitle("");
+                  setDescription("");
+                }}
+                onKeep={draft.dismissNotice}
+              />
+            )}
+
             <FieldLabel label="Title" required>
               <input
                 ref={titleInputRef}
@@ -404,7 +460,15 @@ export function TaskFormModal({ mode, task, onClose }: TaskFormModalProps) {
               />
             </FieldLabel>
 
-            <label className="block">
+            {/*
+              A DIV, not a <label>. This block holds buttons — "Turn into
+              checklist", and now the rich-text toggle — and interactive
+              controls inside a <label> steal its click and, for a nested
+              button, are invalid HTML (the same nesting rule that bit
+              SearchableSelect's clear button). The field names itself with
+              aria-label instead.
+            */}
+            <div className="block">
               <div className="mb-1 flex items-center justify-between">
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
                   Description
@@ -419,7 +483,15 @@ export function TaskFormModal({ mode, task, onClose }: TaskFormModalProps) {
                   Turn into checklist
                 </button>
               </div>
+              <RichTextToggleField
+                value={description}
+                onChange={setDescription}
+                minHeight="6.5rem"
+                ariaLabel="Description"
+                placeholder="What needs to be done? Acceptance criteria, links, context…"
+                renderPlain={() => (
               <AutoGrowTextarea
+                aria-label="Description"
                 style={{ minHeight: "6.5rem" }}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -448,7 +520,9 @@ export function TaskFormModal({ mode, task, onClose }: TaskFormModalProps) {
                 placeholder="What needs to be done? Acceptance criteria, links, context…"
                 className="w-full resize-y rounded-md border border-border bg-surface px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
               />
-            </label>
+                )}
+              />
+            </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <FieldLabel label="Status">
@@ -516,26 +590,34 @@ export function TaskFormModal({ mode, task, onClose }: TaskFormModalProps) {
             </FieldLabel>
 
             <FieldLabel label="Parent Project" required={mode === "create"}>
-              <ChoiceSelect
-                value={parentProjectId === "" ? "" : String(parentProjectId)}
-                onChange={(v) => setParentProjectId(v === "" ? "" : parseInt(v, 10))}
-                options={projects.map((p) => ({ value: String(p.lookupId), label: p.title }))}
-                emptyLabel={mode === "create" ? "Select a project…" : "None"}
-                searchPlaceholder="Search projects…"
-              />
+              {lockToParent ? (
+                <LockedPill text={fromParentTask?.parentProject?.title ?? "—"} />
+              ) : (
+                <ChoiceSelect
+                  value={parentProjectId === "" ? "" : String(parentProjectId)}
+                  onChange={(v) => setParentProjectId(v === "" ? "" : parseInt(v, 10))}
+                  options={projects.map((p) => ({ value: String(p.lookupId), label: p.title }))}
+                  emptyLabel={mode === "create" ? "Select a project…" : "None"}
+                  searchPlaceholder="Search projects…"
+                />
+              )}
             </FieldLabel>
 
             <FieldLabel label="Parent Task">
-              <ChoiceSelect
-                value={parentTaskId === "" ? "" : String(parentTaskId)}
-                onChange={(v) => setParentTaskId(v === "" ? "" : parseInt(v, 10))}
-                options={parentTaskCandidates.map((t) => ({
-                  value: String(t.id),
-                  label: t.numberedTitle,
-                }))}
-                emptyLabel="None"
-                searchPlaceholder="Search tasks…"
-              />
+              {lockToParent ? (
+                <LockedPill text={fromParentTask?.numberedTitle ?? "—"} />
+              ) : (
+                <ChoiceSelect
+                  value={parentTaskId === "" ? "" : String(parentTaskId)}
+                  onChange={(v) => setParentTaskId(v === "" ? "" : parseInt(v, 10))}
+                  options={parentTaskCandidates.map((t) => ({
+                    value: String(t.id),
+                    label: t.numberedTitle,
+                  }))}
+                  emptyLabel="None"
+                  searchPlaceholder="Search tasks…"
+                />
+              )}
             </FieldLabel>
 
             <FieldLabel label="Related Projects">
@@ -614,6 +696,20 @@ export function TaskFormModal({ mode, task, onClose }: TaskFormModalProps) {
           </button>
         </div>
       </form>
+    </div>
+  );
+}
+
+/**
+ * Read-only stand-in for a locked reference field — same visual treatment as
+ * TestSheetFormModal's LockedPill. Not shared between the two files because
+ * each is a small, self-contained div with no other state; a shared import
+ * would be more indirection than the four lines it saves.
+ */
+function LockedPill({ text }: { text: string }) {
+  return (
+    <div className="flex h-[38px] items-center rounded-md border border-dashed border-border bg-surface-2 px-3 text-sm text-fg sm:h-auto sm:py-2">
+      <span className="truncate">{text || "—"}</span>
     </div>
   );
 }

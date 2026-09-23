@@ -8,7 +8,7 @@ import { useCurrentUser } from "./useCurrentUser";
  * views of the SAME task list (List ⇄ Kanban) must hand these on, or the
  * filters reset — see `filterSearch()`.
  */
-export const FILTER_PARAM_KEYS = ["q", "project", "assigned", "createdBy"] as const;
+export const FILTER_PARAM_KEYS = ["q", "project", "assigned", "createdBy", "watching"] as const;
 
 /**
  * Pick just the filter params out of a location's search string and return
@@ -50,6 +50,7 @@ export function filterSearch(search: string): string {
  *   project    → projectIds  (comma-separated integers, e.g. "10,20")
  *   assigned   → assignedEmails (comma-separated emails)
  *   createdBy  → createdByEmail
+ *   watching   → watchedByEmail
  *
  * "Assigned to me" default: on first visit (URL has no `assigned` param at
  * all), we write the signed-in user's email into the URL so the home page
@@ -92,6 +93,7 @@ export function useFilters(): [Filters, (next: Filters) => void] {
     const projectRaw = searchParams.get("project");
     const assignedRaw = searchParams.get("assigned");
     const createdByRaw = searchParams.get("createdBy");
+    const watchingRaw = searchParams.get("watching");
     return {
       search: searchParams.get("q") ?? "",
       projectIds: parseIntList(projectRaw),
@@ -102,6 +104,10 @@ export function useFilters(): [Filters, (next: Filters) => void] {
       // the proper-cased UPN — still select the right person.
       assignedEmails: parseStringList(assignedRaw).map((e) => e.toLowerCase()),
       createdByEmail: createdByRaw ? createdByRaw.toLowerCase() : null,
+      // Unlike `assigned`, there is NO first-visit default here: landing on a
+      // list already narrowed to what you watch would hide most of it with no
+      // indication why. It is an opt-in.
+      watchedByEmail: watchingRaw ? watchingRaw.toLowerCase() : null,
     };
   }, [searchParams]);
 
@@ -121,6 +127,10 @@ export function useFilters(): [Filters, (next: Filters) => void] {
           else out.set("assigned", "");
           if (next.createdByEmail) out.set("createdBy", next.createdByEmail);
           else out.delete("createdBy");
+          // Absent rather than empty when unset: there is no default to
+          // suppress, so an empty `watching=` would be noise in the URL.
+          if (next.watchedByEmail) out.set("watching", next.watchedByEmail);
+          else out.delete("watching");
           return out;
         },
         { replace: true },

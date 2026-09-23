@@ -5,6 +5,7 @@ import {
   FAIT_STATUS_WITH_ENG,
   FAIT_STATUS_WITH_KAM,
   SQE_SIGN_OFF_COLUMN,
+  faitFullySignedOff,
   faitSignOffOutcome,
   kamNeeded,
 } from "./faitSignOff";
@@ -34,7 +35,12 @@ function aFait(over: Partial<Fait> = {}, values: Record<string, string> = {}): F
     watchers: [],
     comments: [],
     hasAttachments: false,
-    values: { sqeSignOff: "", engSignOff: "", kamSignOff: "", ...values },
+    // oemImpact defaults to "Yes" — most fixtures here exist to test the KAM
+    // half of the chain, and OEMImpact is a real boolean column where blank
+    // means No (see kamNeeded's doc comment), so leaving it unset would hide
+    // KAM regardless of what a test actually sets kam/kamSignOff to. Tests
+    // for the OEM-impact gate itself override it explicitly.
+    values: { sqeSignOff: "", engSignOff: "", kamSignOff: "", oemImpact: "Yes", ...values },
     createdAt: new Date(),
     modifiedAt: new Date(),
     ...over,
@@ -56,6 +62,21 @@ describe("kamNeeded", () => {
     expect(kamNeeded(aFait({}, { kamSignOff: "Approved" }))).toBe(true);
     expect(kamNeeded(aFait({}, { kamInitials: "rw" }))).toBe(true);
     expect(kamNeeded(aFait({}, { kamApprovalNotes: "fine by me" }))).toBe(true);
+  });
+
+  // Ray, 2026-09-03: "If there is no OEM impact, hide the CAM [KAM]
+  // sign-off field." No OEM Impact hides KAM regardless of anything else —
+  // a KAM assigned, or real sign-off data already on the record.
+  it("is false with no OEM Impact, even with a KAM assigned", () => {
+    expect(kamNeeded(aFait({ kam: RAY }, { oemImpact: "" }))).toBe(false);
+  });
+
+  it("is false with no OEM Impact, even with real KAM sign-off data", () => {
+    expect(kamNeeded(aFait({ kam: RAY }, { oemImpact: "", kamSignOff: "Approved" }))).toBe(false);
+  });
+
+  it("is true with OEM Impact checked and a KAM assigned", () => {
+    expect(kamNeeded(aFait({ kam: RAY }, { oemImpact: "Yes" }))).toBe(true);
   });
 });
 
@@ -184,5 +205,50 @@ describe("when the auto-advance stands down", () => {
     });
     expect(out.steps).toEqual([{ kind: "eng-approved", kamOwed: true }]);
     expect(out.nextStatus).toBeNull();
+  });
+});
+
+// =============================================================================
+// faitFullySignedOff — the "is this FAIT actually done" check the Notify
+// Initiator checkbox gates its close on (Ray, 2026-09-03: "assuming all
+// sign offs are done"). Restates the same rule faitSignOffOutcome applies
+// one step at a time, as a single point-in-time read.
+// =============================================================================
+
+describe("faitFullySignedOff", () => {
+  it("is false with nothing signed off yet", () => {
+    expect(faitFullySignedOff(aFait())).toBe(false);
+  });
+
+  it("is false with only SQE approved", () => {
+    expect(faitFullySignedOff(aFait({}, { sqeSignOff: "Approved" }))).toBe(false);
+  });
+
+  it("is true once SQE and Engineering are approved and no KAM is owed", () => {
+    const fait = aFait({}, { sqeSignOff: "Approved", engSignOff: "Approved" });
+    expect(kamNeeded(fait)).toBe(false);
+    expect(faitFullySignedOff(fait)).toBe(true);
+  });
+
+  it("is false with SQE and Engineering approved but a KAM owed and not yet signed", () => {
+    const fait = aFait(
+      { kam: RAY },
+      { sqeSignOff: "Approved", engSignOff: "Approved" },
+    );
+    expect(kamNeeded(fait)).toBe(true);
+    expect(faitFullySignedOff(fait)).toBe(false);
+  });
+
+  it("is true once SQE, Engineering and KAM are all approved", () => {
+    const fait = aFait(
+      { kam: RAY },
+      { sqeSignOff: "Approved", engSignOff: "Approved", kamSignOff: "Approved" },
+    );
+    expect(faitFullySignedOff(fait)).toBe(true);
+  });
+
+  it("is false if SQE failed, even with Engineering somehow approved", () => {
+    const fait = aFait({}, { sqeSignOff: "Failed", engSignOff: "Approved" });
+    expect(faitFullySignedOff(fait)).toBe(false);
   });
 });

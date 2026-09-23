@@ -1,6 +1,7 @@
 import { GraphError, graphFetch } from "./graph";
 import {
   COST_IMPACT_NOTICE_ALERTS,
+  FEATURE_REQUEST_ALERTS,
   EIR_RESPONSE_ACCEPTED_ALERTS,
   EIR_TRIAGE_ASSIGNERS,
   EIR_TRIAGE_PROJECT_REVIEWERS,
@@ -24,6 +25,7 @@ import {
 } from "@/lib/changeAlerts";
 import { buildEirTriageEmails, type EirTriageStage } from "@/lib/eirTriage";
 import {
+  buildEirResolvedEmails,
   buildEirResponseAcceptedEmails,
   buildEirResponseNotAcceptedEmails,
 } from "@/lib/eirStatusAlerts";
@@ -40,6 +42,10 @@ import {
   type FaitSignerRole,
 } from "@/lib/faitAlerts";
 import { buildNewCostImpactNoticeEmails } from "@/lib/costImpactAlerts";
+import {
+  buildFeatureRequestStatusEmails,
+  buildNewFeatureRequestEmails,
+} from "@/lib/featureRequestAlerts";
 
 // =============================================================================
 // Email notifications via Microsoft Graph sendMail.
@@ -48,7 +54,8 @@ import { buildNewCostImpactNoticeEmails } from "@/lib/costImpactAlerts";
 // on a task OR an EIR, the recipients (extracted from the mention chips in the
 // body), the sender + item context, and any attachments from the comment. Mail
 // goes out FROM the shared mailbox configured via VITE_SHARED_MAILBOX (requires
-// Send-As permission for the signed-in user in Exchange).
+// the signed-in user to hold BOTH Send-As and FullAccess on that mailbox in
+// Exchange — Send-As alone did NOT work; see the note on saveToSentItems below).
 //
 // Mock mode logs to console instead of sending — useful for demos. Real mode
 // without VITE_SHARED_MAILBOX set also falls back to console (loud warning so
@@ -81,7 +88,9 @@ export interface MentionTarget {
     | "buildRequestItem"
     | "panelOrder"
     | "panelTask"
+    | "panelQcIssue"
     | "grayMarketRequest"
+    | "mrb"
     | "customerNote"
     | "supplier"
     | "supplierContact"
@@ -122,6 +131,11 @@ const KIND_COPY: Record<
     calloutLabel: "Gray Market Request",
     buttonText: "Open this request",
   },
+  mrb: {
+    phrase: "an MRB entry",
+    calloutLabel: "MRB Entry",
+    buttonText: "Open this MRB entry",
+  },
   panelOrder: {
     phrase: "a panel order",
     calloutLabel: "Panel Order",
@@ -131,6 +145,11 @@ const KIND_COPY: Record<
     phrase: "a panel task",
     calloutLabel: "Panel Task",
     buttonText: "Open this panel task",
+  },
+  panelQcIssue: {
+    phrase: "a panel QC issue",
+    calloutLabel: "Panel QC Issue",
+    buttonText: "Open this issue",
   },
   customerNote: {
     phrase: "a customer",
@@ -324,7 +343,7 @@ export function reportSendFailures(
       message:
         `${saved}, but you don't have access to send notification email — ` +
         `${names} ${denied.length > 1 ? "were" : "was"} NOT notified. ` +
-        `Ask IT to add you to Send As on ${mailbox}.`,
+        `You need both Send As and Full Access on ${mailbox}.`,
       durationMs: 20_000,
     });
   }
@@ -385,16 +404,20 @@ async function sendOne(input: {
     message.attachments = input.attachments;
   }
 
-  // saveToSentItems: false is deliberate.
+  // saveToSentItems: false is deliberate — but NOT for the reason this comment
+  // used to give.
   //
-  // saveToSentItems: true would have Graph write a copy of the message into
-  // the shared mailbox's Sent Items folder — which requires the signed-in
-  // user to hold FullAccess on the shared mailbox. We only require Send-As
-  // (granted broadly to ~175 commenters). Forcing FullAccess on top would
-  // mean every commenter can also read the shared mailbox's inbox, which
-  // we don't want. Setting this to false lets Send-As alone send the mail.
-  // The shared mailbox simply won't accumulate copies of every notification
-  // — arguably better for an internal notification system anyway.
+  // The original reasoning was that saving to Sent Items requires FullAccess
+  // while sending needs only Send-As, so leaving it off kept the grant narrow.
+  // That premise was wrong: Send-As alone did NOT make sendMail work here, and
+  // every ARC commenter holds BOTH Send-As and FullAccess (-AutoMapping:$false)
+  // — see BACKLOG.md's onboarding item for the exact PowerShell. Which of the
+  // two is strictly required was never isolated, so don't drop either on the
+  // assumption it's redundant.
+  //
+  // It stays off because ~175 people's notification traffic piling up in one
+  // mailbox nobody reads is noise, not a record. Exchange message tracing is
+  // the audit path. Turning it on is a one-line change if IT wants it.
   await graphFetch(`/users/${encodeURIComponent(SHARED_MAILBOX!)}/sendMail`, {
     method: "POST",
     body: JSON.stringify({ message, saveToSentItems: false }),
@@ -719,9 +742,11 @@ export function fireFaitSqeFailedAlert(args: {
 
 /**
  * Fire-and-forget: the "Notify Initiator" checkbox on the Sign-off card was
- * just checked — tells the initiator plus every watcher that an update is
- * available. Fires only on the transition into checked; see
- * `notifyInitiatorJustChecked` in useFaits.ts.
+ * just checked, which CLOSES the FAIT — tells the initiator plus every
+ * watcher it's closed. Fires only on the transition into checked, and only
+ * once the write actually closed the FAIT (every sign-off it owes was
+ * already Approved); see `notifyInitiatorJustChecked` and `notifyClosing`
+ * in useFaits.ts.
  */
 export function fireFaitNotifyInitiatorAlert(args: {
   target: ChangeTarget;
@@ -747,6 +772,42 @@ export function fireNewCostImpactNoticeAlert(args: {
   const emails = buildNewCostImpactNoticeEmails({
     ...args,
     recipients: parseRecipientList(COST_IMPACT_NOTICE_ALERTS),
+  });
+  if (emails.length === 0) return;
+  void notifyChangeEmails({ target: args.target, emails });
+}
+
+/**
+ * Fire-and-forget: a new ARC feature request was raised — tell whoever acts on
+ * them. Nothing watches the list, so without this a suggestion sits unseen.
+ */
+export function fireNewFeatureRequestAlert(args: {
+  target: ChangeTarget;
+  actor: Person;
+  details?: AlertDetail[];
+}): void {
+  const emails = buildNewFeatureRequestEmails({
+    ...args,
+    recipients: parseRecipientList(FEATURE_REQUEST_ALERTS),
+  });
+  if (emails.length === 0) return;
+  void notifyChangeEmails({ target: args.target, emails });
+}
+
+/**
+ * Fire-and-forget: a feature request's status moved. The CALLER guards that
+ * this is a genuine change (`to !== from`) — see the note on
+ * `buildFeatureRequestStatusEmails`.
+ */
+export function fireFeatureRequestStatusAlert(args: {
+  target: ChangeTarget;
+  actor: Person;
+  from: string;
+  to: string;
+}): void {
+  const emails = buildFeatureRequestStatusEmails({
+    ...args,
+    recipients: parseRecipientList(FEATURE_REQUEST_ALERTS),
   });
   if (emails.length === 0) return;
   void notifyChangeEmails({ target: args.target, emails });
@@ -781,6 +842,23 @@ export function fireEirResponseNotAcceptedAlert(args: {
   const emails = buildEirResponseNotAcceptedEmails({
     ...args,
     fallback: parseRecipientList(EIR_TRIAGE_ASSIGNERS),
+  });
+  if (emails.length === 0) return;
+  void notifyChangeEmails({ target: args.target, emails });
+}
+
+/**
+ * Fire-and-forget: an EIR's Resolution reached "Resolved" — ask the triage
+ * assigners (Glenn Terry / Brandon Mirto, via EIR_TRIAGE_ASSIGNERS) to review
+ * it and decide whether the response is accepted.
+ */
+export function fireEirResolvedAlert(args: {
+  target: ChangeTarget;
+  actor: Person;
+}): void {
+  const emails = buildEirResolvedEmails({
+    ...args,
+    recipients: parseRecipientList(EIR_TRIAGE_ASSIGNERS),
   });
   if (emails.length === 0) return;
   void notifyChangeEmails({ target: args.target, emails });

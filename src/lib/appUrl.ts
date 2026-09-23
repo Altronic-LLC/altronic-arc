@@ -21,7 +21,9 @@ export type AppItemKind =
   | "buildRequestItem"
   | "panelOrder"
   | "panelTask"
+  | "panelQcIssue"
   | "grayMarketRequest"
+  | "mrb"
   | "customerNote"
   | "supplier"
   | "supplierContact"
@@ -44,7 +46,9 @@ const KIND_SEGMENTS: Record<AppItemKind, string> = {
   buildRequestItem: "build-request-item",
   panelOrder: "panels/order",
   panelTask: "panels/task",
+  panelQcIssue: "panels/qc-issues",
   grayMarketRequest: "supply-chain/gray-market-request",
+  mrb: "supply-chain/mrb",
   customerNote: "sales/customers",
   supplier: "supply-chain/supplier",
   // Redirect routes: App.tsx looks the row up and forwards to its parent
@@ -61,4 +65,21 @@ export function appItemUrl(kind: AppItemKind, id: number): string {
   const base = import.meta.env.BASE_URL ?? "/"; // trailing slash, e.g. "/altronic-arc/"
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   return `${origin}${base}${KIND_SEGMENTS[kind]}/${id}`;
+}
+
+/**
+ * The ROUTER path to an item, with no origin and no deploy sub-path —
+ * `/task/47`, not `https://host/altronic-arc/task/47`.
+ *
+ * For a link that gets STORED. A comment mirrored onto another record lives
+ * in a SharePoint text column for years, so baking in `window.location.origin`
+ * (or the Pages sub-path) would break every one of them the day ARC moves
+ * host or base path. `CommentThread` intercepts clicks on these and routes
+ * them, so the path is resolved against the router at CLICK time instead.
+ *
+ * Deliberately NOT for an email — mail has no router to resolve a bare path
+ * against, so notifications keep using `appItemUrl`.
+ */
+export function appItemPath(kind: AppItemKind, id: number): string {
+  return `/${KIND_SEGMENTS[kind]}/${id}`;
 }

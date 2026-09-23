@@ -53,7 +53,19 @@ describe("FeatureRequestsView", () => {
     state.requests = [];
     state.isLoading = true;
     renderWithProviders(<FeatureRequestsView />);
-    expect(screen.getByText(/loading/i)).toBeInTheDocument();
+    // Assert the NOUN, not the verb. `LoadingTasks` picks its verb at random
+    // from a dozen ("Sparking", "Igniting", "Loading", …) and rotates it on a
+    // timer, so matching /loading/i passed only when the dice landed on that
+    // one word — it failed in the full suite on 2026-09-16 and gated a deploy.
+    // The noun is what the caller passes, so it is the part that is actually
+    // this view's behaviour.
+    //
+    // Matched against the page's own "ARC Feature Requests" heading, which is
+    // rendered behind the loading state, so `getByText` alone finds two —
+    // hence picking the one that is NOT the heading.
+    const matches = screen.getAllByText(/feature requests/i);
+    const loadingLine = matches.find((el) => el.tagName !== "H1");
+    expect(loadingLine).toBeDefined();
   });
 
   it("shows an empty state with no requests", () => {

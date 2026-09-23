@@ -33,6 +33,8 @@ import {
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { resolveCurrentUserLookupId } from "@/api/currentUser";
 import { autoWatchers } from "@/lib/people";
+import { fanOutComment } from "@/hooks/useCommentMirror";
+import { buildRequestsForTask } from "@/lib/buildRequestFromTask";
 
 // =============================================================================
 // Build Request hooks — two query caches (headers + items) with the same
@@ -67,6 +69,27 @@ export function useBuildRequest(id: number | null) {
   return {
     ...list,
     data: id != null ? list.data?.find((b) => b.id === id) ?? null : null,
+  };
+}
+
+/**
+ * The Build Requests raised from a task — DERIVED from each BR's own
+ * `TaskReference`, not stored on the task.
+ *
+ * The Task list has no Build Request column, and adding one would mean two
+ * columns that can disagree about the same link (and a schema change on the
+ * busiest list in ARC). Deriving costs nothing extra: the Build Requests
+ * list is already loaded whole, and the filter runs in the browser.
+ *
+ * `isLoading` is forwarded so a caller can tell "no build request" from
+ * "haven't looked yet" — rendering the first as the second is how a "Create
+ * Build Request" button briefly appears on a task that already has one.
+ */
+export function useBuildRequestsForTask(taskId: number | null) {
+  const list = useBuildRequests();
+  return {
+    ...list,
+    data: buildRequestsForTask(list.data ?? [], taskId),
   };
 }
 
@@ -495,6 +518,15 @@ export function useAddBuildRequestComment() {
         });
       }
 
+      // Copy it onto the task this request was raised from, if any, and
+      // notify that side's watchers minus whoever we just emailed.
+      void fanOutComment({
+        qc,
+        source: { kind: "buildRequest", id },
+        comment,
+        alreadyNotified: recipients,
+      });
+
       const mentioned = extractMentionedRecipients(comment.bodyHtml);
       if (mentioned.length === 0) return;
       const items = qc.getQueryData<BuildRequestItem[]>(BUILD_REQUEST_ITEMS_KEY);
@@ -807,6 +839,16 @@ export function useAddBuildRequestItemComment() {
           attachments: [],
         });
       }
+
+      // A part comment fans out BOTH ways — onto the linked task AND onto its
+      // own build request header — each copy flagged as coming from this part
+      // and linking back here to reply (Ray, 2026-09-21).
+      void fanOutComment({
+        qc,
+        source: { kind: "buildRequestItem", id },
+        comment,
+        alreadyNotified: recipients,
+      });
 
       const mentioned = extractMentionedRecipients(comment.bodyHtml);
       if (mentioned.length === 0) return;

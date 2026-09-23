@@ -8,6 +8,18 @@
    these, so the theme switch is a single class toggle.
 --------------------------------------------------------------------------- */
 :root {
+  /* Tells the browser which palette to paint NATIVE UI with — a <select>'s
+     dropdown list, scrollbars, and the form controls the OS draws itself.
+     Those are outside CSS's reach: no amount of styling the <select> element
+     reaches the popup list it opens.
+
+     Without this, every native list rendered LIGHT in both themes — black
+     text on white, inside a dark panel (Ray, 2026-09-22, on the date
+     picker's new month/year dropdowns). It has to sit beside the theme
+     variables and change with them, which is why it is declared here and
+     overridden in `.dark` rather than set once on `html`. */
+  color-scheme: light;
+
   /* Light theme */
   --bg: 248 248 247;
   --surface: 255 255 255;
@@ -19,6 +31,8 @@
 }
 
 .dark {
+  color-scheme: dark;
+
   /* Dark theme — matches the existing Power Apps version's mood */
   --bg: 18 18 20;
   --surface: 28 28 32;
@@ -38,6 +52,35 @@ body,
 body {
   @apply bg-bg text-fg font-sans antialiased;
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+/* Panel QC label size — 3in x 2in (was 2in x 2in until 2026-09-09, corrected
+   to match the real label printer). */
+@page panel-qc-label {
+  size: 3in 2in;
+  margin: 0;
+}
+
+@media print {
+  /* Scoped with :has() so this NEVER bleeds into every other Print* view
+     (Drawing Work Sheet, tasks, build request items, …) — they share this
+     SAME <html>/<body> and rely on the plain @page rule further down
+     (Letter portrait) instead. Reported live 2026-09-09: printing a
+     Drawing Work Sheet or a task showed a tiny corner-sized page instead
+     of a full Letter page, because this used to apply to html/body on
+     EVERY print, not just Panel QC's. */
+  html:has(.panel-qc-label),
+  body:has(.panel-qc-label) {
+    width: 3in;
+    height: 2in;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .panel-qc-label {
+    break-inside: avoid;
+  }
 }
 
 /* Headings use the condensed display font */
@@ -103,6 +146,22 @@ h3,
 }
 .comment-html p:last-child {
   @apply mb-0;
+}
+/* A MIRRORED comment's origin banner — "Posted on part X of build request Y",
+   plus a link back to the one thread where a reply belongs. Written into the
+   stored body by lib/commentMirror.ts, because Communication is a single text
+   column with nowhere else to put it.
+
+   Deliberately quiet: this is provenance, not the comment. It reads as a
+   caption above the body rather than competing with it — but it is NOT
+   colour-only, since the sentence itself says where the comment came from,
+   so it survives a mono print and a colour-blind reader. */
+.comment-html .comment-origin {
+  @apply mb-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 border-l-2 border-border pl-2 text-xs text-fg-muted;
+}
+/* The jump link keeps the accent treatment — it is the actionable half. */
+.comment-html .comment-origin a {
+  @apply font-medium;
 }
 .comment-html a {
   @apply text-accent underline underline-offset-2 hover:no-underline;
@@ -179,6 +238,16 @@ h3,
   }
 }
 .select:focus {
+  outline: none;
+  border-color: rgb(var(--accent));
+  box-shadow: 0 0 0 3px rgb(var(--accent) / 0.15);
+}
+/* The clearable SingleSelect/ChoiceSelect trigger is a plain <div> carrying
+   this class (not a <button>) when it has a clear button — see DropdownShell
+   in SearchableSelect.tsx for why. A <div> never receives :focus itself, only
+   :focus-within when one of its actual buttons does, so this ring needs its
+   own rule rather than reusing :focus above. */
+.select:focus-within {
   outline: none;
   border-color: rgb(var(--accent));
   box-shadow: 0 0 0 3px rgb(var(--accent) / 0.15);

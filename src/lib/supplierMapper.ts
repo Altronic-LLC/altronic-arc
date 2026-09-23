@@ -96,6 +96,12 @@ export function toSupplier(item: GraphListItem): Supplier {
     supplierScore: text(f.SupplierScore).trim(),
     coreCompetencies: toCoreCompetencies(f.CoreCompetency),
     status: toSupplierStatus(f.Status),
+    // Unclamped on purpose — the column's choice list is still the literal
+    // placeholder "Choice", so clamping would discard any real value the day
+    // Supply Chain configures it. See SUPPLIER_PRIMARY_SUPPLY_FOCUSES.
+    primarySupplyFocus: text(f.PrimarySupplyFocus).trim(),
+    // A real boolean column: blank means No, not "unanswered".
+    panelsOnly: f.PanelsOnly === true,
     notes: text(f.Notes),
     assignedBuyer: parseSinglePersonField(f.AssignedBuyer),
     supplierIdentifier: text(f.SupplierIdentifier).trim(),
@@ -132,6 +138,11 @@ export function buildSupplierCreateFields(
     Address: input.address.trim(),
     Website: input.website.trim(),
     Status: input.status ?? null,
+    PrimarySupplyFocus: input.primarySupplyFocus.trim() || null,
+    // Always sent, even when false: leaving a boolean column null makes
+    // SharePoint's own views read it as blank rather than No — the same rule
+    // the ECN boolean columns follow on create.
+    PanelsOnly: input.panelsOnly,
     AssignedBuyerLookupId: resolved.assignedBuyer?.lookupId ?? null,
     ...multiPersonField("Watchers", resolved.watchers),
   };
@@ -147,8 +158,28 @@ export function buildSupplierCreateFields(
 export function supplierDetailsPatch(
   current: Supplier,
   changed: Partial<
-    Pick<SupplierInput, "companyName" | "businessPartnerNumber" | "address" | "website" | "status">
-  > & { supplierScore?: string; notes?: string; supplierIdentifier?: string; coreCompetencies?: SupplierCoreCompetency[] },
+    Pick<
+      SupplierInput,
+      | "companyName"
+      | "businessPartnerNumber"
+      | "address"
+      | "website"
+      | "status"
+      | "primarySupplyFocus"
+      | "panelsOnly"
+    >
+  > & {
+    supplierScore?: string;
+    notes?: string;
+    supplierIdentifier?: string;
+    coreCompetencies?: SupplierCoreCompetency[];
+    // The four performance numbers. `null` clears the column — a score that
+    // has never been recorded is genuinely different from a zero.
+    allDeliveries?: number | null;
+    supplierPerformanceRate?: number | null;
+    logisticalPerformance?: number | null;
+    qualityPerformance?: number | null;
+  },
 ): Record<string, unknown> {
   const fields: Record<string, unknown> = {};
   if (changed.companyName !== undefined) fields.CompanyName = changed.companyName.trim();
@@ -168,6 +199,21 @@ export function supplierDetailsPatch(
   if (changed.supplierIdentifier !== undefined)
     fields.SupplierIdentifier = changed.supplierIdentifier.trim();
   if (changed.coreCompetencies !== undefined) fields.CoreCompetency = changed.coreCompetencies;
+  if (changed.primarySupplyFocus !== undefined)
+    fields.PrimarySupplyFocus = changed.primarySupplyFocus.trim() || null;
+  if (changed.panelsOnly !== undefined) fields.PanelsOnly = changed.panelsOnly;
+  // The performance numbers. NOTE the deliberate name/column mismatch:
+  // "Logistical Performance" is internally `QualityPeformance` (missing the
+  // second R, a typo baked in at creation) and "Quality Performance" is
+  // `QualityPerformance`. Getting these two backwards silently writes the
+  // wrong number to the wrong line — see the note at the top of this file.
+  if (changed.allDeliveries !== undefined) fields.AllDeliveries = changed.allDeliveries;
+  if (changed.supplierPerformanceRate !== undefined)
+    fields.SupplierPerformanceRate = changed.supplierPerformanceRate;
+  if (changed.logisticalPerformance !== undefined)
+    fields.QualityPeformance = changed.logisticalPerformance;
+  if (changed.qualityPerformance !== undefined)
+    fields.QualityPerformance = changed.qualityPerformance;
   return fields;
 }
 

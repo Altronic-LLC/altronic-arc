@@ -152,7 +152,18 @@ export const FAIT_FIELDS: FaitField[] = [
   },
   { key: "kamInitials", column: "KAMINITIALS", label: "KAM Initials", kind: "text", section: "Sign-off" },
   { key: "kamApprovalNotes", column: "KAMApprovalNotes", label: "KAM Approval Notes", kind: "multiline", section: "Sign-off" },
-  { key: "notifyInitiator", column: "NotifyInitiator", label: "Notify Initiator", kind: "boolean", section: "Sign-off" },
+  {
+    key: "notifyInitiator",
+    column: "NotifyInitiator",
+    label: "Notify Initiator",
+    kind: "boolean",
+    section: "Sign-off",
+    // Ray, 2026-09-03: checking this CLOSES the FAIT, once every sign-off it
+    // owes is Approved (faitFullySignedOff in lib/faitSignOff.ts) — the write
+    // is refused otherwise (FaitNotFullySignedOffError in useFaits.ts), so
+    // the box visibly won't save on an incomplete FAIT.
+    hint: "Checking this closes the FAIT and emails the initiator and watchers — only works once SQE, Engineering and (if assigned) KAM have all signed off.",
+  },
   { key: "notes", column: "Notes", label: "Notes", kind: "multiline", section: "Sign-off" },
 ];
 

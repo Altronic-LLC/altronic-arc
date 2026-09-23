@@ -1,24 +1,42 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, User, X } from "lucide-react";
 import { SUPPLIER_CONTACT_STATUSES } from "@/types/task";
 import { useCreateSupplierContact } from "@/hooks/useSupplierContacts";
-import { ChoiceSelect } from "./SearchableSelect";
+import { useSuppliers } from "@/hooks/useSuppliers";
+import { supplierLabel } from "@/lib/supplierMapper";
+import { ChoiceSelect, SingleSelect } from "./SearchableSelect";
 import { useOverlayDismiss } from "./useOverlayDismiss";
 
 // =============================================================================
-// Add a Supplier Contact — always scoped to the supplier whose detail page it
-// was opened from. Created bare; everything else (notes, comments, watchers,
-// attachments) is filled in on the contact's own inline card.
+// Add a Supplier Contact.
+//
+// The supplier (the list's `BPReference` lookup) is PICKABLE, not fixed. It
+// still arrives prefilled from the supplier detail page — which is the only
+// place this opens from today — but a contact keyed to the wrong supplier is
+// invisible on every page that scopes by it, and re-pointing one meant editing
+// the row in SharePoint (Ray, 2026-09-09). Required, because a contact with no
+// BPReference belongs to no supplier and shows up nowhere.
+//
+// Created bare otherwise; notes, comments, watchers and attachments are filled
+// in on the contact's own inline card.
 // =============================================================================
 
 export function SupplierContactFormModal({
-  supplierId,
+  supplierId: initialSupplierId,
   onClose,
 }: {
   supplierId: number;
   onClose: () => void;
 }) {
   const create = useCreateSupplierContact();
+  const { data: suppliers = [] } = useSuppliers();
+  const [supplierId, setSupplierId] = useState(
+    initialSupplierId ? String(initialSupplierId) : "",
+  );
+  const supplierOptions = useMemo(
+    () => suppliers.map((s) => ({ value: String(s.id), label: supplierLabel(s) })),
+    [suppliers],
+  );
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -48,13 +66,19 @@ export function SupplierContactFormModal({
       setError("Give at least a name or an email — that's how a contact is found later.");
       return;
     }
+    // A contact with no supplier is orphaned: every screen that lists contacts
+    // scopes them by this lookup, so it would simply never appear again.
+    if (!supplierId) {
+      setError("Pick a supplier — a contact with no supplier won't show up anywhere.");
+      return;
+    }
     setError(null);
     try {
       await create.mutateAsync({
         name,
         firstName,
         lastName,
-        supplierId,
+        supplierId: parseInt(supplierId, 10),
         email,
         phone,
         status: (status || null) as (typeof SUPPLIER_CONTACT_STATUSES)[number] | null,
@@ -96,6 +120,17 @@ export function SupplierContactFormModal({
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          <FieldLabel label="Supplier">
+            <SingleSelect
+              selected={supplierId || null}
+              onChange={(next) => setSupplierId(next ?? "")}
+              options={supplierOptions}
+              allLabel="Pick a supplier…"
+              searchPlaceholder="Search suppliers…"
+              disabled={create.isPending}
+              ariaLabel="Supplier"
+            />
+          </FieldLabel>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <FieldLabel label="First Name">
               <input value={firstName} onChange={(e) => setFirstName(e.target.value)} className="input" disabled={create.isPending} />

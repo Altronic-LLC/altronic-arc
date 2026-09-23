@@ -10,10 +10,12 @@ import {
   SP_MAINTENANCE_TASKS_LIST_ID,
   SP_OPERATIONS_TASKS_LIST_ID,
   SP_PANEL_ORDERS_LIST_ID,
+  SP_PANEL_QC_ISSUES_LIST_ID,
   SP_PANEL_TASKS_LIST_ID,
   SP_PANELTEAM_SITE_URL,
   SP_ALTRONIC_EQUIPMENT_LIST_ID,
   SP_GRAY_MARKET_LIST_ID,
+  SP_MRB_LIST_ID,
   SP_PMO_SITE_URL,
   SP_SALESTEAM_SITE_URL,
   SP_SCHEDULED_MAINTENANCE_LIST_ID,
@@ -59,9 +61,11 @@ export type AttachmentParent =
   | "buildRequestItem"
   | "panelOrder"
   | "panelTask"
+  | "panelQcIssue"
   | "csaListing"
   | "visitReport"
   | "grayMarketRequest"
+  | "mrb"
   | "supplier"
   | "supplierContact"
   | "supplierIssue"
@@ -130,6 +134,14 @@ const PARENT_CONFIG: Record<AttachmentParent, ParentConfig> = {
     siteUrl: SP_PMO_SITE_URL,
     listIdEnvVar: "VITE_SP_GRAY_MARKET_LIST_ID",
   },
+  // MRB — the photo of the defect, the vendor's credit note, the rework
+  // instruction. Attachments are enabled on the list and no row used one at
+  // discovery (2026-09-21), so this is the first thing that will.
+  mrb: {
+    listId: SP_MRB_LIST_ID,
+    siteUrl: SP_PMO_SITE_URL,
+    listIdEnvVar: "VITE_SP_MRB_LIST_ID",
+  },
   visitReport: {
     listId: SP_VISIT_REPORTS_LIST_ID,
     siteUrl: SP_SALESTEAM_SITE_URL,
@@ -139,6 +151,13 @@ const PARENT_CONFIG: Record<AttachmentParent, ParentConfig> = {
     listId: SP_PANEL_TASKS_LIST_ID,
     siteUrl: SP_PANELTEAM_SITE_URL,
     listIdEnvVar: "VITE_SP_PANEL_TASKS_LIST_ID",
+  },
+  // The failed part photo, the fixture readout, the rework record — hung off
+  // the QC issue itself. Same ALTRONICPANELTEAM site as panel orders/tasks.
+  panelQcIssue: {
+    listId: SP_PANEL_QC_ISSUES_LIST_ID,
+    siteUrl: SP_PANELTEAM_SITE_URL,
+    listIdEnvVar: "VITE_SP_PANEL_QC_ISSUES_LIST_ID",
   },
   // CSA certificate PDFs. Attachments are already enabled on the list, so this
   // needs nothing in SharePoint beyond the AllSites.Manage consent every other
@@ -291,7 +310,7 @@ export async function listAttachments(
   return res.value.map((f) => ({
     fileName: f.FileName,
     serverRelativeUrl: f.ServerRelativeUrl,
-    downloadUrl: spAbsoluteUrl(f.ServerRelativeUrl),
+    downloadUrl: spAbsoluteUrl(PARENT_CONFIG[parent].siteUrl!, f.ServerRelativeUrl),
   }));
 }
 
@@ -327,7 +346,7 @@ export async function uploadAttachment(
   return {
     fileName: res.FileName,
     serverRelativeUrl: res.ServerRelativeUrl,
-    downloadUrl: spAbsoluteUrl(res.ServerRelativeUrl),
+    downloadUrl: spAbsoluteUrl(PARENT_CONFIG[parent].siteUrl!, res.ServerRelativeUrl),
   };
 }
 
@@ -400,15 +419,39 @@ export async function copyAttachments(
   return { copied, failed };
 }
 
-function spAbsoluteUrl(serverRelative: string): string {
-  // SP_SITE_URL is a site root like https://tenant.sharepoint.com/sites/Y.
-  // ServerRelativeUrl already carries the full site-specific path (e.g.
-  // "/sites/Altronic_PMO/Lists/Z/Attachments/123/file.pdf"), so only the
-  // tenant ORIGIN is needed here — identical across every ARC site
-  // (task/eir/operationsTask all live on the same tenant), so there's no
-  // need to pick a different one per parent kind.
-  const origin = new URL(SP_SITE_URL ?? "https://example.com").origin;
-  return `${origin}${serverRelative}`;
+/**
+ * `siteUrl` is the CALLER'S OWN parent config's site root (e.g.
+ * `PARENT_CONFIG[parent].siteUrl`) — a site root like
+ * `https://tenant.sharepoint.com/sites/Y`. `ServerRelativeUrl` already
+ * carries the full site-specific path (e.g.
+ * "/sites/Altronic_PMO/Lists/Z/Attachments/123/file.pdf"), so only the
+ * tenant ORIGIN is needed here — identical across every ARC site, so any
+ * one of them would do in principle.
+ *
+ * It used to always read the module-level `SP_SITE_URL` (Engineering's own
+ * site) regardless of which site the attachment actually lives on. That
+ * happened to work only because every ARC site shares one tenant — until
+ * someone configures a non-Engineering site (Panels, PMO, Sales, …) without
+ * ALSO setting `VITE_SP_SITE_URL`: `SP_SITE_URL` is then `undefined`, and
+ * while `?? "https://example.com"` (not `||`) was meant to catch that, an
+ * explicitly-blank env var (`VITE_SP_SITE_URL=`) is `""` — falsy, but not
+ * `null`/`undefined`, so `??` let it straight through to `new URL("")`,
+ * which throws `TypeError: Failed to construct 'URL': Invalid URL`. That
+ * happened AFTER the file had already been uploaded to SharePoint
+ * successfully, so it read as attaching a file to a Panel QC issue failing
+ * outright, when the write had actually landed — only the pretty download
+ * link was at risk. Passing the parent's OWN already-resolved site URL
+ * fixes the root cause (Engineering's site URL has nothing to do with a
+ * Panels/PMO/Sales attachment); the try/catch is defense in depth so a
+ * still-malformed value degrades to the plain relative path rather than
+ * failing an upload that already succeeded.
+ */
+function spAbsoluteUrl(siteUrl: string, serverRelative: string): string {
+  try {
+    return `${new URL(siteUrl).origin}${serverRelative}`;
+  } catch {
+    return serverRelative;
+  }
 }
 
 interface SpAttachmentFile {

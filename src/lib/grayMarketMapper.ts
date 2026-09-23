@@ -36,6 +36,25 @@ function text(value: unknown): string {
  * object with LookupId / LookupValue / Email, and occasionally as an array of
  * one when the column was once multi-value.
  */
+/**
+ * A SINGLE-value person column, from either shape Graph might send.
+ *
+ * Graph routinely returns a single-value person column as a bare
+ * `<Name>LookupId` — no name, no email — even when the friendly name is in
+ * the `$select`. `parseSinglePerson` only understands the expanded object, so
+ * on its own it reads such a column as nobody: "Requestor: Not set" on a
+ * request that genuinely had one (reported 2026-09-16). A bare id becomes a
+ * NAMELESS Person that `attachGrayMarketPeople` fills in from the PMO site's
+ * user directory. Mirrors `personOrLookup` in faitMapper.ts.
+ */
+export function personOrLookup(expanded: unknown, rawLookupId: unknown): Person | null {
+  const person = parseSinglePerson(expanded);
+  if (person) return person;
+  if (rawLookupId === null || rawLookupId === undefined || rawLookupId === "") return null;
+  const id = typeof rawLookupId === "number" ? rawLookupId : parseInt(String(rawLookupId), 10);
+  return Number.isFinite(id) && id > 0 ? { displayName: "", lookupId: id } : null;
+}
+
 export function parseSinglePerson(raw: unknown): Person | null {
   const value = Array.isArray(raw) ? raw[0] : raw;
   if (!value || typeof value !== "object") return null;
@@ -72,8 +91,8 @@ export function toGrayMarketRequest(item: GraphListItem): GrayMarketRequest {
     requestDate: parseSpDateOnly(f.TodaysDate),
     dateCompleted: parseSpDateOnly(f.DateCompleted),
     testingRequired: text(f.ProductionTest).trim(),
-    requestor: parseSinglePerson(f.Requestor),
-    partsLocation: parseSinglePerson(f.Parts_x0020_Location),
+    requestor: personOrLookup(f.Requestor, f.RequestorLookupId),
+    partsLocation: personOrLookup(f.Parts_x0020_Location, f.Parts_x0020_LocationLookupId),
     watchers: parsePeople(f.Watchers),
     comments: parseCommunication(text(f.Communication)),
     hasAttachments: f.Attachments === true,
@@ -139,4 +158,32 @@ export function compareGrayMarketRequests(
 /** What to call a request in a toast, an email subject or a page title. */
 export function grayMarketLabel(request: GrayMarketRequest): string {
   return request.logNo || request.title || `Request #${request.id}`;
+}
+
+/**
+ * Fill in display names for people read as a bare lookupId, from the PMO
+ * site's User Information List. Mutates in place; mirrors `attachFaitPeople`.
+ *
+ * **An unresolvable id renders as `User #46`, never as "Not set".** A person
+ * column that IS set must not look empty, or the next person to open the
+ * request overwrites somebody's entry without knowing it was there.
+ */
+export function attachGrayMarketPeople(
+  requests: GrayMarketRequest[],
+  siteUsers: Map<number, Person>,
+): void {
+  const fill = (person: Person | null): Person | null => {
+    if (!person) return null;
+    if (person.displayName) return person;
+    const known = person.lookupId ? siteUsers.get(person.lookupId) : undefined;
+    if (known) return { ...known };
+    return { ...person, displayName: `User #${person.lookupId ?? "?"}` };
+  };
+  for (const request of requests) {
+    request.requestor = fill(request.requestor);
+    request.partsLocation = fill(request.partsLocation);
+    request.watchers = request.watchers
+      .map((w) => fill(w)!)
+      .filter((w): w is Person => w !== null);
+  }
 }

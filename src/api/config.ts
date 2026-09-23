@@ -11,6 +11,43 @@ export const SP_PROJECTS_LIST_ID = import.meta.env.VITE_SP_PROJECTS_LIST_ID;
 /** "Test Results" list on the same Altronic Engineering site. */
 export const SP_TEST_RESULTS_LIST_ID = import.meta.env.VITE_SP_TEST_RESULTS_LIST_ID;
 
+/** Panel QC issue and defect reference lists on ALTRONICPANELTEAM. */
+export const SP_PANEL_QC_ISSUES_LIST_ID =
+  import.meta.env.VITE_SP_PANEL_QC_ISSUES_LIST_ID || "46baeac6-4d56-413c-b7f2-d63ba67e4ed1";
+export const SP_PANEL_QC_DEFECTS_LIST_ID =
+  import.meta.env.VITE_SP_PANEL_QC_DEFECTS_LIST_ID || "862f2dc7-518e-432f-aeee-58386de4bf05";
+
+/**
+ * The exact Windows printer name (as installed/shared on the machine
+ * running QZ Tray — see api/qzPrint.ts) that Panel QC's 3×2 label should
+ * print directly to, bypassing the browser's print dialog. Left UNSET by
+ * default: the feature ships dark until someone actually installs QZ Tray
+ * and a real printer name is configured, the same lockout-safety shape as
+ * every other "off until configured" flag in this app (EIR_ROLES_ENFORCED,
+ * etc.) — an unset value just means "always fall back to window.print()",
+ * never "the print button silently does nothing."
+ */
+export const PANEL_QC_LABEL_PRINTER_NAME: string | undefined =
+  import.meta.env.VITE_PANEL_QC_LABEL_PRINTER_NAME || undefined;
+
+/**
+ * QZ Tray signing — the public certificate and its matching PKCS8 private
+ * key (see api/qzPrint.ts's `configureQzSecurity`). Both unset (the default)
+ * means every request goes out unsigned, exactly as the feature shipped
+ * before signing existed: QZ Tray shows its own native "Allow this site to
+ * print?" prompt once per machine instead of trusting this cert silently.
+ * Signing is what lets IT pre-trust this cert across every machine at once
+ * (a deployed override file) rather than someone clicking Allow locally.
+ *
+ * The private key WILL end up in the public bundle — ARC has no backend to
+ * keep it off the client, and that trade-off (an embedded key, scoped to a
+ * self-signed cert only machines Cooper has explicitly configured to trust
+ * would ever act on) was the explicit choice made over standing up a signing
+ * endpoint. See CLAUDE.md's QZ Tray section before changing this.
+ */
+export const QZ_CERTIFICATE: string | undefined = import.meta.env.VITE_QZ_CERTIFICATE || undefined;
+export const QZ_PRIVATE_KEY: string | undefined = import.meta.env.VITE_QZ_PRIVATE_KEY || undefined;
+
 /** "Engineering Information Request" (EIR) list on the same site. */
 export const SP_EIRS_LIST_ID = import.meta.env.VITE_SP_EIRS_LIST_ID;
 
@@ -65,9 +102,11 @@ export const SP_SITE_URL = import.meta.env.VITE_SP_SITE_URL as string | undefine
 
 /**
  * Email address of the shared mailbox @-mention notifications send FROM.
- * Each user who can post comments must have Send-As permission on this
- * mailbox in Exchange. Leave blank to disable email notifications — they
- * fall back to console.log entries instead.
+ * Each user who can post comments needs BOTH Send-As and FullAccess on this
+ * mailbox in Exchange — Send-As alone did NOT work, despite being what the
+ * Graph docs imply is sufficient. See BACKLOG.md's onboarding item for the
+ * exact PowerShell. Leave blank to disable email notifications — they fall
+ * back to console.log entries instead.
  */
 export const SHARED_MAILBOX = import.meta.env.VITE_SHARED_MAILBOX as string | undefined;
 
@@ -309,6 +348,32 @@ export const SP_GRAY_MARKET_LIST_ID =
   "bf5e3786-d2c1-4e8d-8bd1-c8d5bab9c85b";
 
 /**
+ * "MRB Data" — the Material Review Board register. Nonconforming material:
+ * the part, the quantity, why it was rejected, who caused it and what was
+ * decided to do with it. A **Supply Chain** feature on the **PMO site**,
+ * the same arrangement as Gray Market Requests above.
+ *
+ * **2,960 rows, of which only 97 are live.** `field_12` ("Data Format")
+ * splits them: `Legacy` rows are retained history imported from the old
+ * Excel workbooks and are not work items; `Current` rows are the register
+ * people actually use. Verified clean — 0 of the 97 Current rows carry a
+ * value in any `(Legacy)` column.
+ *
+ * Every workflow column is called `field_N`; `lib/mrbFields.ts` is the only
+ * place that translation lives. `Title` is the SAP Number, and `LinkTitle`
+ * is a READ-ONLY column carrying the display name "SAP Number" — writing it
+ * is the 403 that broke every Panel QC create.
+ *
+ * Under SharePoint's 5,000-item threshold, so the list is fetched whole and
+ * filtered in the browser. It grows ~250 rows a year, giving roughly eight
+ * years of headroom before that needs revisiting.
+ *
+ * Schema discovered live 2026-09-21 — scripts/mrb-data-schema.json.
+ */
+export const SP_MRB_LIST_ID =
+  import.meta.env.VITE_SP_MRB_LIST_ID || "1ca33f70-c98f-4481-b518-4b15fc8fbfff";
+
+/**
  * Who is emailed when a NEW gray market request is raised (Ray, 2026-08-23).
  *
  * Nobody watches the list itself, so a request used to sit until someone
@@ -440,6 +505,16 @@ export const SP_FAIT_LIST_ID =
   "d655b5d6-ee28-45c4-85ab-128198569508";
 
 /**
+ * QCFRM-012 — CPU-95 Ignition Module Electrical Test and Inspection, the
+ * first "QC Forms" module. The SharePoint list is named "CPU-95", on the
+ * Engineering site. Any signed-in user can create/edit; no delete (each row
+ * is a signed, dated test record).
+ */
+export const SP_QC_CPU95_LIST_ID =
+  import.meta.env.VITE_SP_QC_CPU95_LIST_ID ||
+  "4843afdc-5697-4f44-8113-003cc220b57a";
+
+/**
  * "ECN NEW" — Engineering Change Notices, on the Engineering site.
  *
  * The list came out of a migration and its columns are named `field_2` …
@@ -515,6 +590,20 @@ export const EIR_RESPONSE_ACCEPTED_ALERTS =
 export const SP_ECNS_LIST_ID =
   import.meta.env.VITE_SP_ECNS_LIST_ID ||
   "f6917bf4-bdd1-4ff9-ba71-0a17b22b1ecc";
+
+/**
+ * ECN Checklists — the Cross-Functional ECN Checklist (Form# MFGFRM-038), one
+ * row per ECN, on the Engineering site beside the ECNs list it points at.
+ *
+ * **No default**, deliberately: the list is created by
+ * `scripts/create-ecn-checklist-list.ps1` and until its id is set the
+ * checklist card reports itself "not configured yet" rather than erroring —
+ * the same shape as Quick Links and ARC Feature Requests. An unset id here
+ * can't take away anything anyone can do today, since nothing could edit a
+ * checklist before this shipped at all.
+ */
+export const SP_ECN_CHECKLISTS_LIST_ID =
+  import.meta.env.VITE_SP_ECN_CHECKLISTS_LIST_ID || "";
 
 // =============================================================================
 // Digital QC — EIGHTEEN lists on the Engineering site (SITES.engineering),
@@ -718,6 +807,29 @@ export const SP_QC_TIME_TRACKING_LIST_ID =
 export const SP_FEATURE_REQUESTS_LIST_ID =
   import.meta.env.VITE_SP_FEATURE_REQUESTS_LIST_ID ||
   "c7b00c39-4370-4063-a852-05d2c1b9fbfb";
+
+/**
+ * Who hears about a NEW ARC feature request, and about one being closed out.
+ *
+ * ARC's own intake queue. Nothing watches the Feature Requests list, so a
+ * suggestion used to sit until somebody happened to open the screen — the
+ * same gap the Gray Market, FAIT and Cost Impact intake alerts each closed.
+ *
+ * **Deliberately just Ray** (Ray, 2026-09-16: "hard coded alerts to new ARC
+ * Feature Requests to email myself"), because he is the person who acts on
+ * them. It is still an env-overridable list rather than a literal address, so
+ * adding a second person later is a repo variable rather than a code change —
+ * and it gets its own var, NOT a reuse of another queue, for the reason
+ * stated throughout this file: re-pointing one queue must never silently
+ * re-point another with a different job.
+ *
+ * Needs its row in `AdminNotificationRecipientsView`'s `LISTS` and its line
+ * in `deploy.yml` — a new recipient list without both is invisible to the
+ * audit screen and unsettable in production.
+ */
+export const FEATURE_REQUEST_ALERTS =
+  import.meta.env.VITE_FEATURE_REQUEST_ALERTS ||
+  "Ray White <ray.white@altronic-llc.com>";
 
 // =============================================================================
 // CRM Tool — Customer Notes, Customer Contacts, Special Pricing and Capacity,

@@ -9,6 +9,10 @@ import { useAdminAccess } from "@/hooks/useIsAdmin";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { SearchInput } from "@/components/SearchInput";
 import { CsaListingFormModal } from "@/components/CsaListingFormModal";
+import { CsaAttachmentsModal } from "@/components/CsaAttachmentsModal";
+import { SortableHeader } from "@/components/SortableTableHeader";
+import { useSortableTable } from "@/hooks/useSortableTable";
+import { dayLabel, type SortColumn } from "@/lib/tableSort";
 import { csaListingLabel, csaListingMatches } from "@/lib/csaListingMapper";
 import { formatSpDate } from "@/lib/spDates";
 import type { CsaListing } from "@/types/task";
@@ -29,6 +33,31 @@ import { cn } from "@/lib/cn";
 // list permissions are the real boundary.
 // =============================================================================
 
+/**
+ * Sortable columns, as DATA — the five data columns only. "Files" and the
+ * admin "Actions" column stay plain `<Th>`: neither carries a value worth
+ * ordering or grouping by, and Actions isn't even rendered for a non-admin.
+ *
+ * Also Cover and Part No Included are multi-line free text, so they sort but
+ * offer no value filter — grouping them would list hundreds of one-row
+ * options. Searching them is what the search box is for, and it already
+ * covers them (which is the point: a part number lives in Part No Included,
+ * not in the file number).
+ */
+const CSA_COLUMNS: SortColumn<CsaListing>[] = [
+  { key: "fileNumber", label: "File Number", value: (l) => l.fileNumber },
+  { key: "product", label: "Product", value: (l) => l.product },
+  { key: "alsoCover", label: "Also Cover", value: (l) => l.alsoCover, noFilter: true },
+  { key: "partNoIncluded", label: "Part No Included", value: (l) => l.partNoIncluded, noFilter: true },
+  {
+    key: "dateCertified",
+    label: "Certified",
+    kind: "date",
+    value: (l) => dayLabel(l.dateCertified),
+    sortValue: (l) => l.dateCertified,
+  },
+];
+
 export function CsaListingsView() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { data: listings = [], isLoading, error } = useCsaListings();
@@ -37,6 +66,9 @@ export function CsaListingsView() {
 
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<CsaListing | null>(null);
+  // Which listing's certificates are open. Available to EVERYONE — reading a
+  // certificate is the point of the register; only changing them is gated.
+  const [viewingFiles, setViewingFiles] = useState<CsaListing | null>(null);
 
   const query = searchParams.get("q") ?? "";
   const setQuery = (q: string) => {
@@ -50,6 +82,13 @@ export function CsaListingsView() {
     const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
     return listings.filter((l) => csaListingMatches(l, tokens));
   }, [listings, query]);
+
+  const table = useSortableTable<CsaListing>({
+    rows: filtered,
+    columns: CSA_COLUMNS,
+    stableKey: (l) => l.id,
+    initialKey: "fileNumber",
+  });
 
   async function handleDelete(listing: CsaListing) {
     // The button isn't rendered for non-admins; this is the backstop.
@@ -132,17 +171,15 @@ export function CsaListingsView() {
             <table className="w-full min-w-[1000px] border-collapse text-sm">
               <thead>
                 <tr className="border-b border-border bg-surface-2 text-left">
-                  <Th>File Number</Th>
-                  <Th>Product</Th>
-                  <Th>Also Cover</Th>
-                  <Th>Part No Included</Th>
-                  <Th>Certified</Th>
+                  {CSA_COLUMNS.map((column) => (
+                    <SortableHeader key={column.key} label={column.label} {...table.headerProps(column.key)} />
+                  ))}
                   <Th className="text-center">Files</Th>
                   {isAdmin && <Th className="text-right">Actions</Th>}
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((l) => (
+                {table.rows.map((l) => (
                   <tr
                     key={l.id}
                     className="group border-b border-border last:border-0 hover:bg-surface-2/60"
@@ -167,10 +204,15 @@ export function CsaListingsView() {
                     </Td>
                     <Td className="text-center">
                       {l.hasAttachments ? (
-                        <Paperclip
-                          className="mx-auto h-3.5 w-3.5 text-fg-muted"
-                          aria-label="Has attachments"
-                        />
+                        <button
+                          type="button"
+                          onClick={() => setViewingFiles(l)}
+                          className="mx-auto flex items-center justify-center rounded p-1 text-fg-muted transition-colors hover:bg-surface hover:text-accent"
+                          aria-label={`Open attachments for ${csaListingLabel(l)}`}
+                          title="Open attachments"
+                        >
+                          <Paperclip className="h-3.5 w-3.5" />
+                        </button>
                       ) : (
                         <span className="text-fg-muted">—</span>
                       )}
@@ -217,6 +259,14 @@ export function CsaListingsView() {
       {showNew && <CsaListingFormModal onClose={() => setShowNew(false)} />}
       {editing && (
         <CsaListingFormModal listing={editing} onClose={() => setEditing(null)} />
+      )}
+
+      {viewingFiles && (
+        <CsaAttachmentsModal
+          listing={viewingFiles}
+          canEdit={isAdmin}
+          onClose={() => setViewingFiles(null)}
+        />
       )}
     </div>
   );

@@ -63,6 +63,8 @@ jobs:
           # defaults, so these only need setting to override).
           VITE_SP_ENGINEERING_SITE_ID: ${{ vars.VITE_SP_ENGINEERING_SITE_ID }}
           VITE_SP_PANELTEAM_SITE_ID: ${{ vars.VITE_SP_PANELTEAM_SITE_ID }}
+          VITE_SP_PANEL_QC_ISSUES_LIST_ID: ${{ vars.VITE_SP_PANEL_QC_ISSUES_LIST_ID }}
+          VITE_SP_PANEL_QC_DEFECTS_LIST_ID: ${{ vars.VITE_SP_PANEL_QC_DEFECTS_LIST_ID }}
           VITE_SP_SALESTEAM_SITE_ID: ${{ vars.VITE_SP_SALESTEAM_SITE_ID }}
           VITE_SP_SALES_ORDERENTRY_SITE_ID: ${{ vars.VITE_SP_SALES_ORDERENTRY_SITE_ID }}
           VITE_SP_PMO_SITE_ID: ${{ vars.VITE_SP_PMO_SITE_ID }}
@@ -81,6 +83,14 @@ jobs:
           # default in config.ts — the screen reports itself as "not
           # configured yet" until this is set, same as Quick Links.
           VITE_SP_FEATURE_REQUESTS_LIST_ID: ${{ vars.VITE_SP_FEATURE_REQUESTS_LIST_ID }}
+          # ECN Checklists (the MFGFRM-038 checklist on each ECN). No default
+          # in config.ts — the checklist card on an ECN reports itself "not
+          # configured" until this is set, same as Quick Links.
+          VITE_SP_ECN_CHECKLISTS_LIST_ID: ${{ vars.VITE_SP_ECN_CHECKLISTS_LIST_ID }}
+          # MRB Data (Supply Chain, PMO site). Documented default in
+          # config.ts, so a build without this still points at the live list;
+          # set it only to override.
+          VITE_SP_MRB_LIST_ID: ${{ vars.VITE_SP_MRB_LIST_ID }}
           VITE_SP_MAINTENANCE_TASKS_LIST_ID: ${{ vars.VITE_SP_MAINTENANCE_TASKS_LIST_ID }}
           VITE_SP_SCHEDULED_MAINTENANCE_LIST_ID: ${{ vars.VITE_SP_SCHEDULED_MAINTENANCE_LIST_ID }}
           # Maintenance Departments / Locations — the two admin-managed
@@ -109,11 +119,27 @@ jobs:
           VITE_FAIT_NEW_ALERTS: ${{ vars.VITE_FAIT_NEW_ALERTS }}
           VITE_FAIT_SQE_REVIEWERS: ${{ vars.VITE_FAIT_SQE_REVIEWERS }}
           VITE_COST_IMPACT_NOTICE_ALERTS: ${{ vars.VITE_COST_IMPACT_NOTICE_ALERTS }}
+          # ARC Feature Requests — the intake queue for new requests AND for
+          # status changes. Defaults to Ray alone in config.ts, so this only
+          # needs setting to add or change recipients.
+          VITE_FEATURE_REQUEST_ALERTS: ${{ vars.VITE_FEATURE_REQUEST_ALERTS }}
           VITE_EIR_TRIAGE_PROJECT_REVIEWERS: ${{ vars.VITE_EIR_TRIAGE_PROJECT_REVIEWERS }}
           VITE_EIR_TRIAGE_ASSIGNERS: ${{ vars.VITE_EIR_TRIAGE_ASSIGNERS }}
           VITE_EIR_RESPONSE_ACCEPTED_ALERTS: ${{ vars.VITE_EIR_RESPONSE_ACCEPTED_ALERTS }}
           VITE_HIDDEN_PEOPLE: ${{ vars.VITE_HIDDEN_PEOPLE }}
           VITE_APP_MANAGER_EMAIL: ${{ vars.VITE_APP_MANAGER_EMAIL }}
+          # QZ Tray silent printing (Panel QC label). Unset = always the
+          # browser's print dialog — nothing here can make printing worse.
+          VITE_PANEL_QC_LABEL_PRINTER_NAME: ${{ vars.VITE_PANEL_QC_LABEL_PRINTER_NAME }}
+          # The cert is public by definition (it's what QZ Tray verifies a
+          # signed request against), so it's an ordinary repo VARIABLE. The
+          # private key ends up in the built bundle too — see qzPrint.ts's
+          # comment on why that's an accepted trade-off for this feature —
+          # but it's still sourced from a repo SECRET rather than a variable
+          # so it isn't sitting in plaintext on the repo's Variables page or
+          # echoed in a workflow log.
+          VITE_QZ_CERTIFICATE: ${{ vars.VITE_QZ_CERTIFICATE }}
+          VITE_QZ_PRIVATE_KEY: ${{ secrets.VITE_QZ_PRIVATE_KEY }}
 
       - name: Add 404 fallback for client-side routing
         # GitHub Pages serves /404.html for any unmatched path. Copying

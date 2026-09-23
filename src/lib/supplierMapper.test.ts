@@ -100,7 +100,9 @@ describe("buildSupplierCreateFields", () => {
         address: "",
         website: "",
         status: null,
-        assignedBuyer: null,
+        primarySupplyFocus: "",
+      panelsOnly: false,
+      assignedBuyer: null,
         watchers: [],
       },
       { assignedBuyer: null, watchers: [] },
@@ -116,7 +118,9 @@ describe("buildSupplierCreateFields", () => {
         address: "",
         website: "",
         status: null,
-        assignedBuyer: null,
+        primarySupplyFocus: "",
+      panelsOnly: false,
+      assignedBuyer: null,
         watchers: [],
       },
       { assignedBuyer: null, watchers: [{ displayName: "Glenn Terry", lookupId: 21 }] },
@@ -137,6 +141,8 @@ describe("supplierDetailsPatch", () => {
     supplierScore: "",
     coreCompetencies: [],
     status: null,
+    primarySupplyFocus: "",
+    panelsOnly: false,
     notes: "",
     assignedBuyer: null,
     supplierIdentifier: "",
@@ -185,6 +191,81 @@ describe("supplierLabel / compareSuppliers", () => {
   });
 });
 
+describe("the new Suppliers columns (Ray, 2026-09-09)", () => {
+  it("writes Panels Only as a real boolean, false included", () => {
+    // Always sent on create: leaving a boolean column null makes SharePoint's
+    // own views read it as blank rather than No.
+    const fields = buildSupplierCreateFields(
+      {
+        companyName: "X",
+        businessPartnerNumber: "1",
+        address: "",
+        website: "",
+        status: null,
+        primarySupplyFocus: "",
+        panelsOnly: false,
+        assignedBuyer: null,
+        watchers: [],
+      },
+      { assignedBuyer: null, watchers: [] },
+    );
+    expect(fields.PanelsOnly).toBe(false);
+  });
+
+  it("patches Panels Only and Primary Supply Focus", () => {
+    const fields = supplierDetailsPatch(currentFixture(), {
+      panelsOnly: true,
+      primarySupplyFocus: "PCB/PCBA",
+    });
+    expect(fields.PanelsOnly).toBe(true);
+    expect(fields.PrimarySupplyFocus).toBe("PCB/PCBA");
+  });
+
+  it("clears Primary Supply Focus to null rather than an empty string", () => {
+    // A choice column takes null to clear; "" is not one of its choices.
+    const fields = supplierDetailsPatch(currentFixture(), { primarySupplyFocus: "  " });
+    expect(fields.PrimarySupplyFocus).toBeNull();
+  });
+
+  it("sends the two performance columns under their REAL internal names", () => {
+    // The trap this whole file opens with: "Logistical Performance" is
+    // internally `QualityPeformance` (missing the second R) and "Quality
+    // Performance" is `QualityPerformance`. Swapping them silently writes
+    // the wrong number to the wrong line, with no error anywhere.
+    const fields = supplierDetailsPatch(currentFixture(), {
+      logisticalPerformance: 93,
+      qualityPerformance: 100,
+    });
+    expect(fields.QualityPeformance).toBe(93);
+    expect(fields.QualityPerformance).toBe(100);
+  });
+
+  it("patches the other two numbers", () => {
+    const fields = supplierDetailsPatch(currentFixture(), {
+      supplierPerformanceRate: 97,
+      allDeliveries: 616,
+    });
+    expect(fields.SupplierPerformanceRate).toBe(97);
+    expect(fields.AllDeliveries).toBe(616);
+  });
+
+  it("writes a cleared score as null, and keeps a real zero", () => {
+    // "Never recorded" and "recorded as 0" are different facts — a 0 that
+    // became null would erase a genuine measurement.
+    expect(supplierDetailsPatch(currentFixture(), { qualityPerformance: null }).QualityPerformance)
+      .toBeNull();
+    expect(supplierDetailsPatch(currentFixture(), { qualityPerformance: 0 }).QualityPerformance)
+      .toBe(0);
+  });
+
+  it("touches nothing it wasn't asked to change", () => {
+    // The patch is a diff: re-sending an untouched column is how a value
+    // that has drifted outside its choice list gets the whole PATCH refused.
+    const fields = supplierDetailsPatch(currentFixture(), { panelsOnly: true });
+    expect(Object.keys(fields)).toEqual(["PanelsOnly"]);
+  });
+});
+
 function currentFixture(): Supplier {
   return {
     id: 1,
@@ -196,6 +277,8 @@ function currentFixture(): Supplier {
     supplierScore: "",
     coreCompetencies: [],
     status: null,
+    primarySupplyFocus: "",
+    panelsOnly: false,
     notes: "",
     assignedBuyer: null,
     supplierIdentifier: "",

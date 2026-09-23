@@ -75,10 +75,42 @@ async function tryEnsure(siteUrl: string, email: string): Promise<number> {
 }
 
 /**
- * Resolve lookupIds for a list of people, ensuring any that don't already
- * have one (e.g. picked from the directory). People that can't be resolved
- * are returned unchanged (still without a lookupId) so callers' existing
- * "drop unresolved" logic applies.
+ * Resolve lookupIds for a list of people against ONE site.
+ *
+ * **A lookupId is only valid on the site collection it was resolved for.**
+ * Each site has its own User Information List, so id 46 is one person on
+ * Engineering and an unrelated person (or nobody) on PMO, the panel team site
+ * or Sales. So whenever a `Person` carries an email, this **re-resolves
+ * against `siteUrl` and IGNORES any lookupId it arrived with** — re-resolving
+ * an already-correct id simply returns the same number back, which is a
+ * little more work and always right.
+ *
+ * This used to `return p` early for anyone who already had an id, which is
+ * how a wrong person ended up in a person column with nothing anywhere
+ * reporting a fault:
+ *
+ *   `useCurrentUser()` resolves the signed-in user's lookupId against the
+ *   ENGINEERING site (SP_SITE_URL) — it is the app-wide identity and has no
+ *   idea which list a caller is about to write. Every cross-site create then
+ *   passed that Person straight in as the requestor/assignee/creator-watcher,
+ *   the early return trusted its Engineering id, and the number was written to
+ *   a DIFFERENT site's person column. On the next read it resolved, against
+ *   that site's own directory, to whoever happens to hold that id there.
+ *
+ * Reported twice. First on Panel QC (2026-09-03: one watcher added, an
+ * unrelated third person appeared), which was fixed locally in
+ * `panelQcIssues.ts` with a private `forSiteResolution` helper. Then again on
+ * Gray Market Requests (2026-09-16: Adele raised a request and James Henson
+ * was added as a watcher, having had nothing to do with it) — the same bug,
+ * in a module that never got that local patch. Eight modules across four
+ * non-Engineering sites had it; fixing the shared function fixes all of them,
+ * and means the NEXT cross-site list is correct without having to remember.
+ *
+ * A person with NO email keeps whatever id they arrived with — there is
+ * nothing to re-resolve them by, and dropping it would break the legitimate
+ * case of a Person read off the very list being written. People that can't be
+ * resolved are returned without a lookupId, so callers' existing "drop
+ * unresolved" / "refuse the write" logic applies unchanged.
  */
 export async function ensureLookupIds(
   siteUrl: string | undefined,
@@ -86,10 +118,14 @@ export async function ensureLookupIds(
 ): Promise<Person[]> {
   return Promise.all(
     people.map(async (p) => {
-      if (p.lookupId) return p;
+      // No email: nothing to re-resolve by, so trust what we were given.
       if (!p.email) return p;
       const id = await ensureSiteUserLookupId(siteUrl, p.email);
-      return id ? { ...p, lookupId: id } : p;
+      if (id) return { ...p, lookupId: id };
+      // Unresolvable on this site. Drop a lookupId from elsewhere rather than
+      // writing it here — it would name the wrong person, silently, which is
+      // strictly worse than the caller's "couldn't resolve" path.
+      return p.lookupId ? { ...p, lookupId: undefined } : p;
     }),
   );
 }
@@ -201,7 +237,14 @@ export async function resolveSiteUserLookupId(
   return ensureSiteUserLookupId(siteUrl, email);
 }
 
-/** `resolveSiteUserLookupId` for a list of people. Unresolved people come back unchanged. */
+/**
+ * `resolveSiteUserLookupId` for a list of people.
+ *
+ * Re-resolves against THIS site whenever a person carries an email, ignoring
+ * any lookupId they arrived with — a lookupId is only valid on the site it was
+ * resolved for. See the long note on `ensureLookupIds`, which had the same
+ * bug and cost two user-visible reports of the wrong person being added.
+ */
 export async function resolvePeopleLookupIds(
   siteId: string | undefined,
   siteUrl: string | undefined,
@@ -209,10 +252,10 @@ export async function resolvePeopleLookupIds(
 ): Promise<Person[]> {
   return Promise.all(
     people.map(async (p) => {
-      if (p.lookupId) return p;
       if (!p.email) return p;
       const id = await resolveSiteUserLookupId(siteId, siteUrl, p.email);
-      return id ? { ...p, lookupId: id } : p;
+      if (id) return { ...p, lookupId: id };
+      return p.lookupId ? { ...p, lookupId: undefined } : p;
     }),
   );
 }

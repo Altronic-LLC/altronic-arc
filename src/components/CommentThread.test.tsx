@@ -1,7 +1,20 @@
 import { describe, it, expect, vi, beforeAll } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render as rtlRender, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import userEvent from "@testing-library/user-event";
 import { CommentThread } from "./CommentThread";
+
+/**
+ * Every render here goes inside a router.
+ *
+ * A mirrored comment's origin banner carries a link that has to be ROUTED
+ * rather than followed (see `useCommentOriginLink`), so `CommentThread`
+ * requires a router above it — as every real call site has. Wrapping once
+ * here keeps the 25 cases below from each needing to know that.
+ */
+function render(ui: React.ReactElement) {
+  return rtlRender(<MemoryRouter>{ui}</MemoryRouter>);
+}
 import type { Comment } from "@/types/task";
 
 // jsdom has no object-URL implementation; the editor makes one per
@@ -353,5 +366,178 @@ describe("CommentThread — CommentEditor supports drag-and-drop attachments", (
       expect.not.stringContaining("dropped.txt"),
       false,
     );
+  });
+});
+
+// =============================================================================
+// A pasted URL is clickable in a comment.
+//
+// Linkified on READ as well as on write, so comments posted before this
+// existed are clickable too — no migration over thousands of stored rows.
+// =============================================================================
+describe("CommentThread — URLs", () => {
+  function commentWith(bodyHtml: string): Comment {
+    return {
+      timestamp: new Date("2026-09-16T10:00:00Z"),
+      authorName: "Ray White",
+      authorEmail: "ray@x.com",
+      bodyHtml,
+      attachments: [],
+    };
+  }
+
+  it("links a URL stored as plain paragraph text", () => {
+    const { container } = render(
+      <CommentThread
+        comments={[commentWith("<p>Spec is at https://altronic-llc.com/spec</p>")]}
+        currentUserEmail="someone@x.com"
+        currentUserName="Someone"
+      />,
+    );
+    const link = container.querySelector("a");
+    expect(link).toHaveAttribute("href", "https://altronic-llc.com/spec");
+    expect(link).toHaveAttribute("target", "_blank");
+  });
+
+  it("does NOT double-link a comment that already has an anchor", () => {
+    const { container } = render(
+      <CommentThread
+        comments={[
+          commentWith('<p><a href="https://x.com/a">https://x.com/a</a></p>'),
+        ]}
+        currentUserEmail="someone@x.com"
+        currentUserName="Someone"
+      />,
+    );
+    expect(container.querySelectorAll("a")).toHaveLength(1);
+  });
+
+  it("leaves a mention chip intact alongside a link", () => {
+    const { container } = render(
+      <CommentThread
+        comments={[
+          commentWith(
+            '<p><span class="mention" data-email="r@x.com">@Ray White</span> https://x.com/a</p>',
+          ),
+        ]}
+        currentUserEmail="someone@x.com"
+        currentUserName="Someone"
+      />,
+    );
+    expect(container.querySelector("span.mention")).not.toBeNull();
+    expect(container.querySelectorAll("a")).toHaveLength(1);
+  });
+});
+
+// =============================================================================
+// Editing a comment must NOT erase its formatting.
+//
+// Reported by Alexander Masgras, 2026-09-17: a comment with bold, italic and
+// underline applied lost all three the moment it was edited. The edit form
+// opened a plain textarea, `htmlToPlainText` stripped every tag on the way
+// in, and the save rebuilt plain paragraphs — so simply opening and saving an
+// edit destroyed the formatting.
+//
+// A comment WITH formatting now opens in rich mode; a plain one still opens
+// the textarea, so @-mentions keep working for the common case.
+// =============================================================================
+describe("CommentThread — editing keeps rich formatting", () => {
+  const RICH = "<p><strong>Bold</strong> <em>Italic</em> <u>Underline</u></p>";
+
+  function renderThread(bodyHtml: string, onEdit = vi.fn()) {
+    return render(
+      <CommentThread
+        comments={[
+          {
+            timestamp: new Date("2026-09-17T10:00:00Z"),
+            authorName: "Ray White",
+            authorEmail: "ray@x.com",
+            bodyHtml,
+            attachments: [],
+          },
+        ]}
+        currentUserEmail="ray@x.com"
+        currentUserName="Ray White"
+        onEdit={onEdit}
+      />,
+    );
+  }
+
+  it("opens a FORMATTED comment in rich mode, with the markup intact", async () => {
+    const user = userEvent.setup();
+    const { container } = renderThread(RICH);
+
+    await user.click(screen.getByRole("button", { name: /edit/i }));
+
+    // The editor holds real tags, not stripped text.
+    expect(container.querySelector("[contenteditable] strong")).not.toBeNull();
+    expect(container.querySelector("[contenteditable] em")).not.toBeNull();
+    expect(container.querySelector("[contenteditable] u")).not.toBeNull();
+  });
+
+  it("SAVES the formatting back — the reported bug", async () => {
+    const user = userEvent.setup();
+    const onEdit = vi.fn();
+    renderThread(RICH, onEdit);
+
+    await user.click(screen.getByRole("button", { name: /edit/i }));
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    expect(onEdit).toHaveBeenCalled();
+    const saved = onEdit.mock.calls[0][1] as string;
+    expect(saved).toContain("<strong>");
+    expect(saved).toContain("<em>");
+    expect(saved).toContain("<u>");
+  });
+
+  it("starts a formatted comment with the rich toggle already ON", async () => {
+    const user = userEvent.setup();
+    renderThread(RICH);
+
+    await user.click(screen.getByRole("button", { name: /edit/i }));
+
+    expect(screen.getByRole("button", { name: /rich text/i })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  it("opens a PLAIN comment in the textarea, keeping @-mentions", async () => {
+    const user = userEvent.setup();
+    renderThread("<p>Just plain words</p>");
+
+    await user.click(screen.getByRole("button", { name: /edit/i }));
+
+    // A plain comment shouldn't be forced into rich mode — that would cost
+    // the mention picker for no reason.
+    expect(screen.getByDisplayValue("Just plain words")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /rich text/i })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+  });
+
+  it("treats a comment with only <p>/<br> as PLAIN", async () => {
+    // Paragraph and line structure round-trips faithfully through the
+    // textarea, so it isn't formatting worth protecting.
+    const user = userEvent.setup();
+    renderThread("<p>One</p><p>Two<br/>Three</p>");
+
+    await user.click(screen.getByRole("button", { name: /edit/i }));
+
+    expect(screen.getByRole("button", { name: /rich text/i })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+  });
+
+  it("opens a comment containing a LINK in rich mode", async () => {
+    // A link is formatting a textarea would flatten to bare text.
+    const user = userEvent.setup();
+    const { container } = renderThread('<p>See <a href="https://x.com/a">the spec</a></p>');
+
+    await user.click(screen.getByRole("button", { name: /edit/i }));
+
+    expect(container.querySelector("[contenteditable] a")).not.toBeNull();
   });
 });

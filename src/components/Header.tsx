@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { useIsFetching, useQueryClient } from "@tanstack/react-query";
 import {
   BadgeCheck,
   Building2,
@@ -8,6 +9,7 @@ import {
   ChevronDown,
   CircuitBoard,
   ClipboardCheck,
+  ClipboardX,
   ClipboardList,
   Cog,
   DollarSign,
@@ -29,6 +31,7 @@ import {
   MessageSquare,
   Moon,
   PackageSearch,
+  RefreshCw,
   Shield,
   Sun,
   TestTubes,
@@ -162,6 +165,12 @@ const DEPARTMENTS: DepartmentGroup[] = [
         icon: <Timer className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/panels/qc-time-tracking"),
       },
+      {
+        to: "/panels/qc-issues",
+        label: "Panel QC Issue Tracker",
+        icon: <ClipboardCheck className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/panels/qc-issues"),
+      },
       soon("Project Folders", <FolderOpen className="h-4 w-4" />),
     ],
   },
@@ -249,7 +258,12 @@ const DEPARTMENTS: DepartmentGroup[] = [
         icon: <TestTubes className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/ignition-qc"),
       },
-      soon("QC Forms", <FileCheck className="h-4 w-4" />),
+      {
+        to: "/qc-forms",
+        label: "QC Forms",
+        icon: <FileCheck className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/qc-forms"),
+      },
     ],
   },
   {
@@ -280,6 +294,12 @@ const DEPARTMENTS: DepartmentGroup[] = [
         label: "FAITs",
         icon: <ClipboardCheck className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/supply-chain/fait"),
+      },
+      {
+        to: "/supply-chain/mrb",
+        label: "MRB",
+        icon: <ClipboardX className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/supply-chain/mrb"),
       },
     ],
   },
@@ -352,7 +372,7 @@ export function Header() {
   const visitFilterQuery = visitReportFilterSearch(search);
 
   return (
-    <header className="border-b border-border bg-surface">
+    <header className="sticky top-0 z-40 border-b border-border bg-surface shadow-sm">
       <div className="mx-auto flex max-w-[1600px] flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-6 sm:px-6">
         <div className="flex items-center justify-between gap-3 sm:flex-1">
           <Link to="/" className="flex min-w-0 items-center gap-2 text-fg sm:gap-3">
@@ -366,6 +386,7 @@ export function Header() {
           </Link>
 
           <div className="flex items-center gap-2 sm:hidden">
+            <RefreshButton />
             <SuggestFeatureButton />
             <NotifyAppManagerButton />
             <button
@@ -478,6 +499,7 @@ export function Header() {
           <span className="hidden text-[11px] text-fg-muted md:inline">
             {USE_MOCK ? "Demo mode · mock data" : "Connected to SharePoint"}
           </span>
+          <RefreshButton />
           <SuggestFeatureButton />
           <NotifyAppManagerButton />
           <button
@@ -511,6 +533,54 @@ function SuggestFeatureButton() {
       <Lightbulb className="h-4 w-4" />
       <span className="hidden md:inline">Suggest a feature</span>
     </Link>
+  );
+}
+
+/**
+ * Refresh — refetch every query, WITHOUT reloading the page.
+ *
+ * ARC's data is cached by React Query with a staleTime, so a list can sit a
+ * minute or two behind SharePoint after somebody else edits a row, and the
+ * only way to force the issue was a browser reload (Ray, 2026-09-09).
+ *
+ * `invalidateQueries()` with no key invalidates EVERYTHING, so this is
+ * deliberately NOT `window.location.reload()` — a reload throws away the
+ * bundle, the MSAL token cache and, more to the point, whatever the user is
+ * in the middle of: an open modal, a half-typed comment, a set of filters.
+ * Refetching keeps all of it and still gets fresh rows. (The reloads that DO
+ * exist in ARC — the update banner, the error boundary, a session change —
+ * each need a new bundle or a new session, which is a different job.)
+ *
+ * Only ACTIVE queries refetch; an inactive cached one is marked stale and
+ * refetches when something mounts it again, which is React Query's default
+ * and the cheaper behaviour on a 200-person tenant.
+ *
+ * It is deliberately NEVER `disabled`, only spinning. `useIsFetching()`
+ * counts EVERY query in flight anywhere in the app — including the ones the
+ * page loads on mount, and any background refetch — so disabling on it made
+ * the button unclickable exactly when somebody would reach for it, on a slow
+ * connection or a busy page. Invalidating twice is harmless (React Query
+ * dedupes in-flight fetches per key); a dead button is not. Caught by test,
+ * 2026-09-09.
+ */
+function RefreshButton() {
+  const qc = useQueryClient();
+  // Any query in flight anywhere spins the icon — the honest signal, since
+  // this button's whole job is "everything is reloading". A local isPending
+  // would stop spinning while refetches were still landing.
+  const fetching = useIsFetching() > 0;
+
+  return (
+    <button
+      type="button"
+      onClick={() => void qc.invalidateQueries()}
+      title={fetching ? "Refreshing…" : "Refresh data from SharePoint"}
+      aria-label="Refresh data"
+      className="flex h-9 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-medium text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
+    >
+      <RefreshCw className={cn("h-4 w-4", fetching && "animate-spin")} />
+      <span className="hidden md:inline">Refresh</span>
+    </button>
   );
 }
 

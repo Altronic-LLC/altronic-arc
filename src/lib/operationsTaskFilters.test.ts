@@ -38,6 +38,7 @@ const NO_FILTERS: Filters = {
   projectIds: [],
   assignedEmails: [],
   createdByEmail: null,
+  watchedByEmail: null,
 };
 
 describe("collectOperationsPeople", () => {
@@ -145,7 +146,7 @@ describe("applyOperationsFilters", () => {
   describe("createdBy filter", () => {
     it("matches against the assignee + watchers (best-effort)", () => {
       const tasks = [task({ id: 1, watchers: [ALICE] }), task({ id: 2, assigned: BOB })];
-      const out = applyOperationsFilters(tasks, null, { ...NO_FILTERS, createdByEmail: "alice@x.com" });
+      const out = applyOperationsFilters(tasks, null, { ...NO_FILTERS, createdByEmail: "alice@x.com", watchedByEmail: null });
       expect(out.map((t) => t.id)).toEqual([1]);
     });
   });
@@ -206,5 +207,25 @@ describe("applyOperationsFilters", () => {
       search: "match",
     });
     expect(out.map((t) => t.id)).toEqual([1]);
+  });
+});
+
+describe("applyOperationsFilters — watching", () => {
+  it("keeps only what that person watches, not what they are assigned", () => {
+    // Operations shares FilterBar, so the control appears here too and has to
+    // actually work. Its `assigned` is a SINGLE person, unlike a task's array.
+    const watching = task({ id: 1, watchers: [ALICE] });
+    const assigned = task({ id: 2, assigned: ALICE, watchers: [] });
+    const out = applyOperationsFilters(
+      [watching, assigned],
+      null,
+      { ...NO_FILTERS, watchedByEmail: ALICE.email! },
+    );
+    expect(out.map((t) => t.id)).toEqual([1]);
+  });
+
+  it("filters nothing when unset", () => {
+    const tasks = [task({ id: 1, watchers: [ALICE] }), task({ id: 2, watchers: [] })];
+    expect(applyOperationsFilters(tasks, null, NO_FILTERS)).toHaveLength(2);
   });
 });

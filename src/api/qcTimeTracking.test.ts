@@ -16,6 +16,8 @@ const input: QcTimeEntryInput = {
   hoursRaw: "3",
   effortType: "Support",
   notes: "Test entry.",
+  onHold: false,
+  holdReason: "",
 };
 
 describe("QC time tracking API", () => {
@@ -65,11 +67,29 @@ describe("QC time tracking API", () => {
     ]);
   });
 
-  // An entry is a record that QC spent time on something. Correcting one is
-  // an edit; removing one is a deliberate trip to SharePoint — the absence of
-  // a delete function is the feature, not an oversight.
-  it("exposes no delete at all", () => {
+  // This used to assert the module exported NO delete — an entry is a record
+  // that QC spent time on something, so correcting one is an edit. That held
+  // until 2026-09-16, when two techs on one panel produced a genuine
+  // DUPLICATE and there was nothing to correct in a row that shouldn't exist
+  // (Ray). The rule that replaced it: exactly one delete, and the ADMIN GATE
+  // lives in the hook (`useDeleteQcTimeEntry`) — the API function itself is
+  // ungated, so the gate having a test of its own matters
+  // (useQcTimeTracking.test.tsx covers both directions).
+  it("exposes exactly one delete, for a duplicate", () => {
     const exported = Object.keys(qcTimeApi);
-    expect(exported.filter((name) => /delete|remove/i.test(name))).toEqual([]);
+    expect(exported.filter((name) => /delete|remove/i.test(name))).toEqual([
+      "deleteQcTimeEntry",
+    ]);
+  });
+
+  it("deletes the entry it was given, and only that one", async () => {
+    const before = await qcTimeApi.listQcTimeEntries();
+    const target = before[0].id;
+
+    await qcTimeApi.deleteQcTimeEntry(target);
+
+    const after = await qcTimeApi.listQcTimeEntries();
+    expect(after).toHaveLength(before.length - 1);
+    expect(after.some((e) => e.id === target)).toBe(false);
   });
 });

@@ -1,11 +1,22 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
   entries: [] as unknown[],
   isLoading: false,
 }));
+const deleteMutate = vi.hoisted(() => vi.fn());
+
 vi.mock("@/hooks/useQcTimeTracking", () => ({
   useQcTimeEntries: () => ({ data: state.entries, isLoading: state.isLoading }),
+  useDeleteQcTimeEntry: () => ({ mutate: deleteMutate, isPending: false }),
+}));
+
+// Delete is admin-only, so the suites below flip this rather than mocking
+// the gate per test.
+const adminAccess = vi.hoisted(() => ({ isAdmin: false, isResolving: false }));
+vi.mock("@/hooks/useIsAdmin", () => ({
+  useAdminAccess: () => adminAccess,
+  useIsAdmin: () => adminAccess.isAdmin,
 }));
 
 vi.mock("@/components/QcTimeEntryFormModal", () => ({
@@ -22,6 +33,16 @@ import { renderWithProviders } from "@/test/render";
 import type { QcTimeEntry } from "@/types/task";
 import { QcTimeTrackingView } from "./QcTimeTrackingView";
 
+// Reset BOTH the admin flag and the delete spy between tests. Without this a
+// suite that flips isAdmin true leaks into the next one's "non-admin sees no
+// delete" case and makes it pass (or fail) for the wrong reason — the same
+// mock-state leak that made a Feature Request guard test pass spuriously.
+beforeEach(() => {
+  adminAccess.isAdmin = false;
+  adminAccess.isResolving = false;
+  deleteMutate.mockClear();
+});
+
 function makeEntry(over: Partial<QcTimeEntry> = {}): QcTimeEntry {
   return {
     id: 1,
@@ -36,6 +57,8 @@ function makeEntry(over: Partial<QcTimeEntry> = {}): QcTimeEntry {
     hoursRaw: "6.5",
     effortType: "New Panel",
     notes: "",
+    onHold: false,
+    holdReason: "",
     createdAt: new Date(),
     modifiedAt: new Date(),
     ...over,
@@ -47,7 +70,11 @@ describe("QcTimeTrackingView", () => {
     state.entries = [];
     state.isLoading = true;
     renderWithProviders(<QcTimeTrackingView />);
-    expect(screen.getByText(/loading/i)).toBeInTheDocument();
+    // The header's own count also reads "Loading…" while isLoading is true,
+    // so a bare /loading/i matches both it and LoadingTasks' headline —
+    // match LoadingTasks' verb + noun specifically (verb rotates, so loose
+    // on that half), the same convention other views use.
+    expect(screen.getByText(/\w+ qc time entries$/i)).toBeInTheDocument();
   });
 
   it("shows an empty state with no entries", () => {
@@ -118,10 +145,14 @@ describe("the phone card layout", () => {
     state.entries = [makeEntry()];
     state.isLoading = false;
     renderWithProviders(<QcTimeTrackingView />);
-    // The mobile card itself is the labelled button (unlike the desktop row,
-    // whose Edit button is a small pencil icon inside the row) — it's the
-    // first match.
-    const [card] = screen.getAllByRole("button", { name: "Edit entry for DE-4000 Refresh" });
+    // The phone card is a DIV now, not one big button — the delete control
+    // has to live inside it, and a button can't nest a button. Several
+    // buttons therefore share this label (the header pencil, the card body);
+    // the one carrying the field list is the one to assert against.
+    const card = screen
+      .getAllByRole("button", { name: "Edit entry for DE-4000 Refresh" })
+      .find((el) => el.textContent?.includes("Week"))!;
+    expect(card).toBeDefined();
     expect(card).toHaveTextContent("Week");
     expect(card).toHaveTextContent("35");
     expect(card).toHaveTextContent("SAP#");
@@ -136,18 +167,70 @@ describe("the phone card layout", () => {
     ];
     state.isLoading = false;
     renderWithProviders(<QcTimeTrackingView />);
-    const [card] = screen.getAllByRole("button", { name: "Edit entry for DE-4000 Refresh" });
+    const card = screen
+      .getAllByRole("button", { name: "Edit entry for DE-4000 Refresh" })
+      .find((el) => el.textContent?.includes("Week"))!;
     // dl/dt/dd renders each blank field's value as an em dash — assert at
     // least one shows up rather than pinning an exact count.
     expect(within(card).getAllByText("—").length).toBeGreaterThan(0);
   });
 });
 
-describe("what is deliberately absent", () => {
-  it("offers no delete anywhere on the screen", () => {
+// =============================================================================
+// Delete — ADMIN-ONLY, and only for a duplicate.
+//
+// This list had no delete at all until 2026-09-16, on the "a record of what
+// happened is corrected, not removed" rule. Two techs working one panel
+// produce a genuine duplicate, and there is nothing to correct in a row that
+// shouldn't exist (Ray). Admin-only matches the Teradyne Log, and matches what
+// SharePoint permits — deleting an item needs more permission than editing one.
+// =============================================================================
+describe("delete", () => {
+  it("offers NO delete to a non-admin", () => {
+    adminAccess.isAdmin = false;
     state.entries = [makeEntry()];
     state.isLoading = false;
     renderWithProviders(<QcTimeTrackingView />);
-    expect(screen.queryByRole("button", { name: /delete|remove/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^delete entry/i })).not.toBeInTheDocument();
+  });
+
+  it("offers it to an admin", () => {
+    adminAccess.isAdmin = true;
+    state.entries = [makeEntry()];
+    state.isLoading = false;
+    renderWithProviders(<QcTimeTrackingView />);
+    expect(
+      screen.getAllByRole("button", { name: /^delete entry/i }).length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("CONFIRMS before deleting, naming the entry and saying what it is for", async () => {
+    adminAccess.isAdmin = true;
+    state.entries = [makeEntry()];
+    state.isLoading = false;
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    renderWithProviders(<QcTimeTrackingView />);
+
+    await userEvent.click(screen.getAllByRole("button", { name: /^delete entry/i })[0]);
+
+    expect(confirm).toHaveBeenCalledTimes(1);
+    const prompt = confirm.mock.calls[0][0] as string;
+    expect(prompt).toContain("DE-4000 Refresh");
+    expect(prompt).toContain("duplicate");
+    expect(deleteMutate).toHaveBeenCalledWith(1);
+    confirm.mockRestore();
+  });
+
+  it("does NOT delete when the confirm is dismissed", async () => {
+    adminAccess.isAdmin = true;
+    state.entries = [makeEntry()];
+    state.isLoading = false;
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    renderWithProviders(<QcTimeTrackingView />);
+
+    await userEvent.click(screen.getAllByRole("button", { name: /^delete entry/i })[0]);
+
+    expect(deleteMutate).not.toHaveBeenCalled();
+    confirm.mockRestore();
   });
 });

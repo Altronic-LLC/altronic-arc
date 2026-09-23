@@ -66,18 +66,65 @@ async function renderBig(n = 200) {
   return { result, tasks };
 }
 
+/**
+ * STUB `TaskRow`. This file is about the CAP — how many rows reach the DOM —
+ * not about what a row looks like.
+ *
+ * The real row renders a button plus badges, chips and derived checklist and
+ * child-task state, so 150 of them is seconds of work repeated on every
+ * filter change. That cost is why the row-cap files timed out under
+ * full-suite load and FAILED THE DEPLOY on 2026-09-16 (measured on the EIR
+ * equivalent: 1.6s isolated, 15-30s in the suite).
+ *
+ * The stub renders `numberedTitle`, which is exactly what every assertion
+ * here keys on, so the cap is tested as before. **`TaskRow`'s own rendering
+ * now has no test of its own** — it was only ever covered incidentally by
+ * this file, and a dedicated `TaskRow.test.tsx` is the right home for it if
+ * someone wants that coverage back; asserting it 150 times through a cap test
+ * was never the point.
+ */
+vi.mock("@/components/TaskRow", () => ({
+  TaskRow: ({ task }: { task: Task }) => <div>{task.numberedTitle}</div>,
+}));
+
 describe("ListView — rendered-row cap", () => {
-  // Putting 200 rows into jsdom is genuinely slow — comfortably inside the 5s
-  // default alone, but not when the suite runs this file alongside everything
-  // else (same rationale as TeradyneLogView's equivalent test).
+  /**
+   * WHY THIS BLOCK AVOIDS `*ByRole` AND USES 151 ROWS, NOT 200.
+   *
+   * Profiled on the equivalent EIR file (2026-09-16), with 151 rows mounted:
+   *
+   *     render                     726ms
+   *     findByRole(/show all/)   4,079ms   <-- 47%
+   *     click                      275ms
+   *     waitFor(getByText)         116ms
+   *     queryByRole(/show all/)  3,411ms   <-- 39%
+   *
+   * A role query builds an accessibility tree across the WHOLE document, so it
+   * scales with every row on screen; `getByText` is a flat text scan and is
+   * ~30x cheaper. Those two calls were 87% of the runtime, which is what blew
+   * the timeouts under full-suite load and FAILED THE DEPLOY on 2026-09-16
+   * (`npm test` gates it). 151 is just over the 150 cap, which is all any
+   * assertion here needs, and a quarter of the rows to mount once uncapped.
+   *
+   * The `userEvent` instance has no inter-event delay for the same reason: the
+   * default waits between the events a click dispatches, and each of those
+   * ticks drags a re-render of every mounted row behind it.
+   *
+   * **Don't "tidy" these back to getByRole or a round 200** — on a capped-list
+   * view the query cost IS the test's cost. If you raise `INITIAL_ROWS`, raise
+   * OVER_CAP to match it + 1.
+   */
+  const OVER_CAP = 151;
+  const user = userEvent.setup({ delay: null });
+
   it("renders only the first 150 rows, and says that's what it's doing", async () => {
-    await renderBig(200);
+    await renderBig(OVER_CAP);
     await waitFor(
       () => expect(screen.getByText(/showing 150 — show all/i)).toBeInTheDocument(),
       { timeout: 10_000 },
     );
     expect(screen.getByText("T0-0001-Board 0")).toBeInTheDocument();
-    expect(screen.queryByText("T199-0001-Board 199")).not.toBeInTheDocument();
+    expect(screen.queryByText("T150-0001-Board 150")).not.toBeInTheDocument();
   }, 15_000);
 
   // Putting 200 rows into jsdom and then querying them all is genuinely slow
@@ -85,26 +132,26 @@ describe("ListView — rendered-row cap", () => {
   // this file alongside everything else (same rationale as TeradyneLogView's
   // equivalent test).
   it("shows every task once 'show all' is clicked", async () => {
-    await renderBig(200);
-    await userEvent.click(await screen.findByRole("button", { name: /show all/i }));
-    await waitFor(() => expect(screen.getByText("T199-0001-Board 199")).toBeInTheDocument(), {
+    await renderBig(OVER_CAP);
+    await user.click(await screen.findByText(/show all/i));
+    await waitFor(() => expect(screen.getByText("T150-0001-Board 150")).toBeInTheDocument(), {
       timeout: 20_000,
     });
-    expect(screen.queryByRole("button", { name: /show all/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/show all/i)).not.toBeInTheDocument();
   }, 30_000);
 
   it("drops the cap once a filter narrows the list below it", async () => {
-    await renderBig(200);
-    await userEvent.type(screen.getByPlaceholderText(/search/i), "Board 199");
+    await renderBig(OVER_CAP);
+    await user.type(screen.getByPlaceholderText(/search/i), "Board 150");
     await waitFor(
-      () => expect(screen.getByText(/showing 1 of 200 tasks/i)).toBeInTheDocument(),
+      () => expect(screen.getByText(/showing 1 of 151 tasks/i)).toBeInTheDocument(),
       { timeout: 10_000 },
     );
-    expect(screen.queryByRole("button", { name: /show all/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/show all/i)).not.toBeInTheDocument();
   }, 15_000);
 
   it("doesn't cap a list already under the threshold", async () => {
     await renderBig(50);
-    expect(screen.queryByRole("button", { name: /show all/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/show all/i)).not.toBeInTheDocument();
   });
 });

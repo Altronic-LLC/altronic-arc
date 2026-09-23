@@ -1,4 +1,5 @@
 import DOMPurify from "dompurify";
+import { linkifyHtml } from "./linkify";
 
 /**
  * Sanitise HTML coming from SharePoint (comments and descriptions) before
@@ -17,9 +18,27 @@ const ADD_TAGS = ["u"]; // <u> is non-standard but appears in SP comments
 // so we can later extract recipients for email notifications
 const ADD_ATTR = ["target", "rel", "data-email"];
 
+/**
+ * Sanitise, and turn any bare URL into a real link.
+ *
+ * **Linkifying lives HERE so it is universal** (Ray, 2026-09-16: "make that
+ * universal across arc"). Every place ARC renders stored rich text goes
+ * through this one function — comment threads, task and EIR descriptions, the
+ * ECN / Gray Market / Cost Impact / Customer Note detail cards, and both
+ * print views — so wiring each call site individually would have been a dozen
+ * edits and a standing invitation to miss the next one.
+ *
+ * It happens on READ, not on write, which means it also reaches the thousands
+ * of comments and descriptions saved before this existed. Nothing is migrated
+ * and nothing stored changes.
+ *
+ * Order matters: linkify FIRST, then sanitise, so the anchors this adds are
+ * filtered by exactly the same rules as any other markup rather than being
+ * trusted because we made them.
+ */
 export function sanitiseHtml(raw: string | null | undefined): string {
   if (!raw) return "";
-  return DOMPurify.sanitize(raw, {
+  return DOMPurify.sanitize(linkifyHtml(raw), {
     ADD_TAGS,
     ADD_ATTR,
     USE_PROFILES: { html: true },
