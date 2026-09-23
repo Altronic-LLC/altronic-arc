@@ -409,6 +409,7 @@ src/
 │   ├── buildRequestChecklist.ts  Build Request item checklist columns + progress
 │   ├── buildRequestFromTask.ts   Task → Build Request: prefill, carried comments, the DERIVED reverse link
 │   ├── commentMirror.ts         Mirroring a comment task ⇄ BR ⇄ part: the origin banner + fan-out routing (pure)
+│   ├── guestIdentity.ts        Is this address external? One rule, shared with the Power Automate guest flow
 │   ├── operationsTaskMapper.ts   Graph item → OperationsTask
 │   ├── operationsTaskFilters.ts  Pure Operations task filter predicates
 │   ├── operationsTaskNumbering.ts Operations task numbering (mirrors taskNumbering)
@@ -6053,6 +6054,54 @@ dependency, DST handled by re-checking the offset at the instant being solved
 for. Don't reintroduce `d.getHours()` / `new Date(y, m, d, …)` here: those are
 the author's-local-time bug. Tests set `process.env.TZ` explicitly, because
 "it depends where you are" IS the bug.
+
+### Guest notifications go through Power Automate, not ARC
+
+A guest (B2B) user can sign into ARC but **cannot send notification email**.
+Graph `sendMail` needs a mailbox in THIS tenant and the signed-in user needs
+Exchange Send-As + FullAccess on `automation@` — neither of which a guest can
+have, because Exchange permissions need a mail-enabled recipient object here
+and a guest's mailbox lives in their own organisation. Their comment SAVES and
+they get a clear 403 toast; the watchers are simply never emailed.
+
+Ray's call, 2026-09-23: **a Power Automate flow, for guests and scheduled
+alerts only** — Engineering Tasks first. The employee path is untouched. Build
+instructions: `docs/POWER-AUTOMATE-GUEST-NOTIFICATIONS.md`.
+
+Four things that are load-bearing, and the reason the doc exists rather than
+code:
+
+- **SharePoint triggers the flow; ARC NEVER calls it.** An HTTP-triggered flow
+  authenticates by a secret in its URL, and ARC's bundle is public JavaScript
+  — that URL would be extractable, giving anyone a way to send mail as
+  `automation@`. Same reasoning as the QZ Tray private key, except the
+  consequence is a public spoofing endpoint. The flow watches the list, which
+  also covers comments written in SharePoint's own UI.
+- **The flow must send ONLY for external authors.** Employees are already
+  emailed by ARC, so an unconditional flow double-notifies every employee
+  comment. Its check has to stay identical to `INTERNAL_EMAIL_DOMAINS` in
+  `lib/guestIdentity.ts`.
+- **It must read only the NEWEST comment, taking fields from the FRONT.**
+  `Communication` is one column holding the whole thread. Indexing backwards
+  from the end breaks the moment a comment body contains `|||` — every field
+  shifts and the author email reads as a fragment of the body (verified
+  2026-09-23; ARC's own parser re-joins the body for this reason). Split on the
+  newline to isolate the last record, then take fields 0/1/2 and re-join the
+  rest.
+- **A `LastNotifiedComment` column stops it re-sending.** The
+  created-or-modified trigger fires on every column change, so without it a
+  status edit re-emails the last comment. `scripts/add-task-last-notified-column.ps1`
+  creates it. Comparing against the trigger's previous run time instead would
+  collapse two comments in one polling interval into one notification.
+
+**One flow per list** is the cost of this approach — hence starting with one
+and proving it.
+
+**CHECK FIRST whether the guest even needs it.** If Exchange holds a real
+`UserMailbox` for them, a Send-As grant is the whole fix. Exchange admin
+centre → Recipients. (`Connect-ExchangeOnline` crashes in the module's Windows
+broker on at least one machine here; `-Device` avoids it, the portal is
+quicker.)
 
 ### `@hoerbiger.com` is RETIRED — and guests arrive on other domains
 

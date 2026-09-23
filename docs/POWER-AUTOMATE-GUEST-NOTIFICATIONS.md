@@ -1,160 +1,287 @@
-# Guest notifications via Power Automate
+# Guest notifications via Power Automate — Engineering Tasks
 
-**Status: not built.** This is the build brief for whoever creates the flow.
-Decided with Ray on 2026-09-23.
+**Status: ready to build and test.** Step-by-step for the Engineering Project
+Task List only. Decided with Ray, 2026-09-23.
 
-## The problem
+Scope deliberately narrow: **one list, guests only.** Prove it on the task list
+before adding a flow per list, and leave the employee path completely alone.
 
-ARC sends every notification with Graph `sendMail` **from the shared mailbox
+---
+
+## Why this exists
+
+ARC sends notifications with Graph `sendMail` **from
 `automation@altronic-llc.com`, on behalf of the signed-in user**. That needs
 the signed-in user to hold Exchange **Send-As _and_ FullAccess** on that
-mailbox, granted per person (see `BACKLOG.md` — moving this to a group is its
-own queued item).
+mailbox, granted per person.
 
-A **guest (B2B) user cannot be granted either.** Exchange permissions need a
-mail-enabled recipient object in *this* tenant, and a guest's mailbox lives in
-their own organisation. So for a guest:
+A **guest (B2B) user cannot hold either** — Exchange permissions need a
+mail-enabled recipient object in _this_ tenant, and a guest's mailbox lives in
+their own organisation. So today, when a guest comments:
 
-- `sendMail` returns **403**, which ARC classifies as a permission failure
-- the comment **saves normally** — nothing is lost
-- the guest sees a toast: *"Your comment saved, but you don't have access to
-  send notification email — X was NOT notified."*
+- the comment **saves normally** (nothing is lost)
+- `sendMail` returns **403**
+- the guest sees _"Your comment saved, but you don't have access to send
+  notification email — X was NOT notified."_
+- **the watchers are never emailed**
 
-Nothing is silent, but the watchers genuinely are not emailed.
+This flow closes that last gap.
 
-## Why Power Automate and not a server
+### CHECK THIS FIRST — it may make the flow unnecessary
 
-Ray's call, 2026-09-23: **Power Automate, handling guests and scheduled alerts
-only.** The employee path stays exactly as it is.
+If the guest turns out to have a real mailbox in the tenant, he needs a
+permissions grant and no flow at all.
 
-- It runs on the existing M365 licence — no hosting, no Azure subscription, no
-  secret to rotate.
-- A flow sends as **its owner**, not as the signed-in user, so the guest's lack
-  of a mailbox stops mattering.
-- It is already the documented plan for the Medius → Suppliers sync, so this is
-  not ARC's first flow by intent.
+**Exchange admin centre** → <https://admin.exchange.microsoft.com> →
+**Recipients**, search `motortech`:
 
-An Azure Function was the alternative and was **not** chosen for this step.
+| Found under | Means | Do |
+| --- | --- | --- |
+| **Mailboxes** | Real mailbox in this tenant | **No flow.** Grant Send-As + FullAccess on `automation@` — he then works exactly like an employee |
+| **Contacts** | Mail contact / mail user | Build the flow |
+| Nowhere | No Exchange object | Build the flow |
 
-## The trigger: SharePoint, NOT an HTTP call from ARC
+(The PowerShell equivalent is `Get-Recipient RVoelz@motortech.de`, but
+`Connect-ExchangeOnline` crashes on this machine inside the module's Windows
+broker — `-Device` avoids it. The portal is quicker.)
 
-**Do not give ARC a flow URL to call.**
+---
 
-An HTTP-triggered flow authenticates by a **shared secret embedded in its
-URL**. ARC is a static bundle served to anyone on the internet — that URL
-would be extractable from the JavaScript, and anyone who found it could send
-mail as `automation@`. This is the same reasoning as the QZ Tray private key
-(see CLAUDE.md, "Signed when VITE_QZ_CERTIFICATE…"), except the consequence is
-a public spoofing endpoint rather than a print job.
+## Design: SharePoint triggers the flow — ARC never calls it
 
-Use **"When an item is created or modified"** on the list instead. The guest's
-comment already writes to the `Communication` column, so the flow sees it with
-nothing to call and no secret anywhere.
+**Do not create an HTTP-triggered flow for ARC to call.**
+
+An HTTP trigger authenticates by a **shared secret embedded in its URL**. ARC
+is a static bundle served to anyone on the internet, so that URL would be
+extractable from the JavaScript and anyone who found it could send mail as
+`automation@`. Same reasoning as the QZ Tray private key (CLAUDE.md), except
+the consequence is a public spoofing endpoint.
+
+The guest's comment already writes to SharePoint, so watch the list instead:
 
 ```
 Guest posts a comment in ARC
-  → ARC writes Communication to SharePoint        (already works today)
+  → ARC writes Communication to the list     (already works today)
   → Flow triggers on the modified item
-  → Flow parses the NEWEST comment record
-  → Flow checks the author is external
+  → Flow reads the NEWEST comment record
+  → Flow stops unless the author is external
   → Flow emails the watchers, as the flow owner
 ```
 
-A side benefit: this also covers comments written in SharePoint's own UI or the
-legacy Power Apps form, which ARC never sees.
+Bonus: this also covers comments written in SharePoint's own UI or the legacy
+Power Apps form, which ARC never sees.
 
-## Two rules the flow MUST get right
+---
 
-### 1. Only send for EXTERNAL authors
+## What you need
 
-Employees are already emailed by ARC directly. A flow that sends
-unconditionally means **every employee comment notifies twice.**
+| Thing | Value |
+| --- | --- |
+| Site | `https://coopermachineryservices.sharepoint.com/sites/Altronic_Engineering` |
+| List | **Project Task List** (id `42fb8c19-5f33-4fdd-9ef7-df6f21433588`) |
+| Comment column | `Communication` (plain multi-line text) |
+| Watchers column | `Watchers` (multi-person) |
+| Title column | `NumberedTitle` (e.g. `T3-0017-HUB V4 refresh`) |
+| Internal domain | `altronic-llc.com` — everything else is a guest |
 
-The rule Ray chose (2026-09-23): **an address is internal if and only if its
-domain is `altronic-llc.com`; anything else is a guest.**
+**Flow owner:** use a **service account**, not a personal one. A flow sends as
+its owner, so a personal account makes notifications come from a person and
+breaks when they leave.
 
-> This was only safe to adopt because `@hoerbiger.com` is retired. Until
-> 2026-09-23, 25 of the 28 people in ARC's own data were `@hoerbiger.com` and
-> that rule would have labelled most of the company external. If another Cooper
-> domain comes into use, this rule and `isGuestEmail()` in
-> `src/lib/guestIdentity.ts` must be updated **together**.
+---
 
-### 2. Only the NEWEST comment
+## Build it
 
-`Communication` is **one text column holding the entire thread**. A flow that
-reads the whole value on every modification will re-email every historical
-comment, every time anything on the item changes.
+### 1. Trigger
 
-Record format (one per comment, concatenated, oldest first):
+**When an item is created or modified** (SharePoint)
+
+- Site Address: the Altronic_Engineering site above
+- List Name: **Project Task List**
+
+### 2. Get the newest comment — `Compose` actions
+
+`Communication` holds the **entire thread in one column**, records separated by
+a newline, each record being:
 
 ```
 MM/DD/YYYY HH:MM:SS AM/PM|||Author Name|||author@email|||<html body>
 ```
 
-So: split the value on the timestamp pattern, take the **last** record, and
-read field 3 for the author address. Parsing is documented in
-`src/lib/communicationParser.ts` — match its behaviour rather than inventing a
-second parser.
+Power Automate has no regex, so split on the newline to isolate the last
+record, then take fields **from the front**.
 
-**Also guard against re-firing.** A SharePoint modified-trigger fires for every
-column change, not just `Communication`. Without a check, editing a status
-re-sends the last comment. Options, cheapest first:
+> **Take fields from the FRONT, never the back.** A comment body can itself
+> contain `|||`, which shifts every field if you index backwards — the author
+> email then reads as a fragment of the body. Verified, 2026-09-23. ARC's own
+> parser re-joins the body for exactly this reason
+> (`src/lib/communicationParser.ts`).
 
-- Compare the newest comment's timestamp against the trigger's previous run
-- Keep a "last notified comment timestamp" column on the list
-- Accept a duplicate and let the flow's own 5-minute dedupe window absorb it
-  (weakest — do not rely on it)
+**Compose — `LastRecord`**
 
-## Who to email
-
-The item's **`Watchers`** column, minus the comment author. ARC's own rule is
-`commentNotifyRecipients` in `src/lib/mentions.ts` — watchers plus anyone
-@-mentioned, deduped, minus the author unless they mentioned themselves.
-
-An @-mention is stored as:
-
-```html
-<span class="mention" data-email="sarah.shaffer@altronic-llc.com">@Sarah Shaffer</span>
+```
+@{last(split(triggerOutputs()?['body/Communication'], decodeUriComponent('%0A')))}
 ```
 
-so the mentioned addresses are recoverable from the body if the flow wants to
-match ARC exactly.
+**Compose — `Fields`**
 
-## Which lists
+```
+@{split(outputs('LastRecord'), '|||')}
+```
 
-Start with **one** list and prove the mechanism before fanning out. The
-Engineering Project Task List is the obvious first (`VITE_SP_TASK_LIST_ID`, on
-`SITES.engineering`).
+**Compose — `AuthorEmail`**
 
-Every list with a `Communication` column would eventually need its own flow —
-that is the main cost of this approach, and the reason not to build all of them
-up front.
+```
+@{trim(outputs('Fields')[2])}
+```
 
-## What ARC does on its side
+**Compose — `AuthorName`**
 
-`src/lib/guestIdentity.ts` holds the single definition of "is this address
-external", so ARC and the flow can agree. In ARC it is used to:
+```
+@{trim(outputs('Fields')[1])}
+```
 
-- keep the guest **visible in people pickers**, labelled `external`, so they
-  can be @-mentioned and assigned (they were excluded before — `#EXT#` UPNs
-  are filtered out of the directory)
-- **suppress the alarming toast** for a guest, whose mail the flow handles —
-  telling them they "don't have access to send notification email" is wrong
-  once the flow is live
+**Compose — `CommentTimestamp`**
 
-## Still to decide / verify
+```
+@{trim(outputs('Fields')[0])}
+```
 
-- [ ] Does the federated guest actually have a mail-enabled identity in
-      Exchange? If `Get-Recipient` returns `UserMailbox`, he may just need a
-      Send-As grant and **no flow at all**. Run this first:
-      ```powershell
-      Get-Recipient -Identity "<his address>" |
-        Select-Object Name, RecipientType, RecipientTypeDetails, PrimarySmtpAddress
-      ```
-- [ ] Who owns the flow? It sends as its owner, so a personal account makes the
-      mail come from a person and breaks when they leave. A service account is
-      the right answer.
-- [ ] Confirm the flow's sender address is acceptable — it will not be
-      `automation@` unless the owner has rights to it.
-- [ ] Scheduled alerts (overdue PMs, LTB dates, stale FAITs) were the other
-      half of Ray's ask. Separate flows; not covered by this brief.
+**Compose — `CommentBody`** (re-joins, so `|||` in the body survives)
+
+```
+@{join(skip(outputs('Fields'), 3), '|||')}
+```
+
+### 3. Stop unless the author is a guest — `Condition`
+
+Employees are **already emailed by ARC**. Without this check every employee
+comment notifies twice.
+
+**Condition:** `AuthorEmail` _does not end with_ `@altronic-llc.com`
+
+```
+@{not(endsWith(toLower(outputs('AuthorEmail')), '@altronic-llc.com'))}
+```
+
+Put everything below in the **If yes** branch. The **If no** branch does
+nothing — ARC already handled it.
+
+> Matching the domain, not `#EXT#`: ARC stores a person's **mailbox**
+> everywhere, not their UPN. Keep this rule identical to
+> `INTERNAL_EMAIL_DOMAINS` in `src/lib/guestIdentity.ts` — if another Cooper
+> domain is ever added, both change together.
+
+### 4. Don't re-send the same comment — `Condition`
+
+A modified-trigger fires on **every** column change, not just `Communication`.
+Without a guard, changing a task's status re-emails its last comment.
+
+Add the **`LastNotifiedComment`** column to the list first — there is a script
+for it, so you don't have to do it by hand:
+
+```powershell
+# preview, changes nothing
+./scripts/add-task-last-notified-column.ps1 -WhatIf
+
+# create it (-DeviceCode if the sign-in popup can't open)
+./scripts/add-task-last-notified-column.ps1
+```
+
+Then:
+
+**Condition:** `CommentTimestamp` **is not equal to** `LastNotifiedComment`
+
+```
+@{not(equals(outputs('CommentTimestamp'), coalesce(triggerOutputs()?['body/LastNotifiedComment'], '')))}
+```
+
+At the **end** of the flow, **Update item** → set `LastNotifiedComment` to
+`CommentTimestamp`.
+
+> The column is the reliable option. Comparing against the trigger's previous
+> run time is tempting and wrong — two comments inside one polling interval
+> would collapse to one notification.
+
+### 5. Who to email
+
+`Watchers` is multi-person, so use **Apply to each** over
+`triggerOutputs()?['body/Watchers']`.
+
+Inside the loop, **skip the author** (they don't need their own comment):
+
+```
+@{not(equals(toLower(items('Apply_to_each')?['Email']), toLower(outputs('AuthorEmail'))))}
+```
+
+> ARC's full rule is `commentNotifyRecipients` in `src/lib/mentions.ts` —
+> watchers **plus anyone @-mentioned**, deduped, minus the author. Watchers
+> alone is the right starting point; mentions are stored as
+> `<span class="mention" data-email="...">` in the body and can be added later
+> if people miss them.
+
+### 6. Send the email
+
+**Send an email (V2)** — Outlook
+
+- **To:** `items('Apply_to_each')?['Email']`
+- **Subject:** `@{outputs('AuthorName')} commented on @{triggerOutputs()?['body/NumberedTitle']}`
+- **Body:**
+
+```html
+<p><strong>@{outputs('AuthorName')}</strong> (external) commented on
+<strong>@{triggerOutputs()?['body/NumberedTitle']}</strong>:</p>
+
+<blockquote>@{outputs('CommentBody')}</blockquote>
+
+<p><a href="https://altronic-llc.github.io/altronic-arc/task/@{triggerOutputs()?['body/ID']}">Open this task in ARC</a></p>
+
+<p style="color:#888;font-size:12px">Sent by ARC on behalf of an external
+collaborator, who cannot send from the notifications mailbox.</p>
+```
+
+- **Reply-To:** `@{outputs('AuthorEmail')}` — so replies reach the guest
+  rather than the flow owner
+
+The deep link must keep the `/altronic-arc/` sub-path or it 404s on GitHub
+Pages.
+
+---
+
+## Test it
+
+1. **Add yourself as a watcher** on a throwaway task, and make sure the guest
+   is **not** the author yet.
+2. **Comment as an employee** (yourself, in ARC). → You get ARC's normal
+   email. The flow runs and stops at step 3. **You must NOT get two emails** —
+   if you do, the guest condition is inverted.
+3. **Comment as the guest.** → The flow sends. Check: correct task title, the
+   comment body intact, the link opens the right task, Reply-To is the guest.
+4. **Change the task's status** (no new comment). → **No email.** If one
+   arrives, step 4's guard isn't working.
+5. **Comment as the guest twice in a row.** → Two emails, each with the right
+   body — not the same one twice.
+6. **Comment with `|||` in the text.** → The email body shows the pipes and
+   the author is still right. This is the case that breaks a back-indexed
+   parse.
+
+**Check the flow's run history** for every test, not just your inbox — a flow
+that fails silently looks identical to one that correctly decided not to send.
+
+---
+
+## Known limits
+
+- **One flow per list.** This covers Engineering Tasks only. EIRs, ECNs, Build
+  Requests and the rest each need their own — the main cost of this approach,
+  and why it starts with one.
+- **Attachments aren't carried.** ARC inlines comment attachments as links; the
+  flow sends the body as stored, so a screenshot appears as a link needing ARC
+  sign-in. Acceptable — the recipient has to open ARC to reply anyway.
+- **@-mentions don't notify** unless step 5 is extended to parse
+  `data-email` out of the body. Watchers do.
+- **Sender is the flow owner**, not `automation@`, unless the owner has Send-As
+  on it. Worth granting so guest and employee notifications look alike.
+- **The guest still sees the failure toast in ARC** until ARC is taught to
+  suppress it (`isGuestEmail` exists for this; not wired up yet). Tell him to
+  ignore it, or ask for that change.
