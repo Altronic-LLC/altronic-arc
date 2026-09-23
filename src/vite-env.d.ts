@@ -29,6 +29,9 @@ interface ImportMetaEnv {
    * "Allow this site to print?" prompt). See config.ts's QZ_CERTIFICATE. */
   readonly VITE_QZ_CERTIFICATE: string;
   readonly VITE_QZ_PRIVATE_KEY: string;
+  /** Fabric API for GraphQL endpoint — READ-ONLY reference data.
+   * Optional; config.ts carries the documented default. */
+  readonly VITE_FABRIC_GRAPHQL_ENDPOINT: string;
   readonly VITE_SP_SITE_URL: string;
   readonly VITE_SHARED_MAILBOX: string;
   readonly VITE_APP_MANAGER_EMAIL: string;

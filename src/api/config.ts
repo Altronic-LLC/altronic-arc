@@ -930,6 +930,39 @@ export const COST_IMPACT_NOTICE_ALERTS =
 
 export const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 
+// =============================================================================
+// Microsoft Fabric — READ-ONLY reference data
+//
+// ARC never writes to Fabric. The SQL analytics endpoint speaks TDS on port
+// 1433, which a browser cannot do at all, so the only surface reachable from
+// here is a Fabric "API for GraphQL" item, which is HTTPS + an Entra token.
+// See `api/fabric.ts` for the transport and CLAUDE.md for the wider decision.
+// =============================================================================
+
+/**
+ * The Fabric API for GraphQL endpoint. The workspace id appears twice — once
+ * un-hyphenated in the subdomain, once hyphenated in the path — followed by
+ * the GraphQL API item's own id, so this whole URL is copied verbatim out of
+ * the Fabric portal rather than assembled from parts.
+ *
+ * Carries a documented default (env-overridable) like every list id: it is
+ * not a secret — it is useless without a delegated Entra token — and an
+ * unset value here only means the dev harness starts with an empty box.
+ */
+export const FABRIC_GRAPHQL_ENDPOINT: string | undefined =
+  import.meta.env.VITE_FABRIC_GRAPHQL_ENDPOINT ||
+  "https://41ff2528ccc04879a8a8d3e077341e9d.z41.graphql.fabric.microsoft.com" +
+    "/v1/workspaces/41ff2528-ccc0-4879-a8a8-d3e077341e9d" +
+    "/graphqlapis/51f31934-7ba5-4c93-8a0e-979aac00eddf/graphql";
+
+/**
+ * Whether anything in the app may reach for Fabric at all. The same
+ * "off until configured" shape as PANEL_QC_LABEL_PRINTER_NAME and
+ * EIR_ROLES_ENFORCED — an unset endpoint means a Fabric-backed lookup
+ * doesn't render, never that it errors.
+ */
+export const FABRIC_ENABLED = !!FABRIC_GRAPHQL_ENDPOINT;
+
 /** Throw a clear error if the app tries to call Graph without being configured. */
 export function assertGraphConfigured(): void {
   if (USE_MOCK) return;
