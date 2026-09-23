@@ -47,7 +47,44 @@ export function signInErrorMessage(err: unknown): string {
   if (raw.includes("interaction_in_progress")) {
     return "A sign-in prompt is already open. Finish it, or reload this page and try again.";
   }
+  if (isPopupBlocked(raw)) {
+    // Reported 2026-09-23 by an external collaborator, stacked under an
+    // AADSTS50076 (MFA required) message. That combination is a DEAD LOOP and
+    // the raw text explains none of it: Microsoft wants MFA, MFA can only be
+    // approved in the popup, the popup is blocked — so "Sign in again" opens
+    // another blocked popup for ever.
+    //
+    // ARC signs in with `loginPopup` only, with no redirect fallback (Ray's
+    // call, 2026-09-23: explain it rather than change the auth flow), so
+    // allowing popups is genuinely the whole fix and the message has to say
+    // so — naming the browser control, because "enable popups" is not
+    // something most people know where to find.
+    return (
+      "Your browser blocked the sign-in window. Look for the blocked-popup " +
+      "icon at the right-hand end of the address bar and choose “Always " +
+      "allow pop-ups” for this site, then press Sign in again. " +
+      "If your browser settings are managed and you can’t change them, sign " +
+      "in at office.com first, then come back here."
+    );
+  }
   return raw || "Sign-in was cancelled or failed.";
+}
+
+/**
+ * Did the sign-in fail because the popup never opened?
+ *
+ * MSAL reports this as `popup_window_error`, and `empty_window_error` for a
+ * window that opened but was torn down before it could load — an extension or
+ * a policy killing it. Both mean the same thing to the user and have the same
+ * fix, so they share one message.
+ *
+ * Matched on the error CODE rather than the prose: MSAL's wording mentions IE
+ * and has changed between versions, but these codes are stable.
+ */
+export function isPopupBlocked(message: string): boolean {
+  return (
+    message.includes("popup_window_error") || message.includes("empty_window_error")
+  );
 }
 
 /**

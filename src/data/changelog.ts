@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.164.3",
+    date: "2026-09-23",
+    changes: [
+      "If your browser blocks the sign-in window, ARC now tells you where the setting is instead of showing a developer error — and what to do if your browser settings are managed and you can't change them",
+    ],
+  },
+  {
     version: "0.164.2",
     date: "2026-09-22",
     changes: [
