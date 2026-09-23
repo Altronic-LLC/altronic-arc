@@ -6065,8 +6065,18 @@ and a guest's mailbox lives in their own organisation. Their comment SAVES and
 they get a clear 403 toast; the watchers are simply never emailed.
 
 Ray's call, 2026-09-23: **a Power Automate flow, for guests and scheduled
-alerts only** — Engineering Tasks first. The employee path is untouched. Build
-instructions: `docs/POWER-AUTOMATE-GUEST-NOTIFICATIONS.md`.
+alerts only** — Engineering Tasks first. The employee path is untouched.
+
+- `scripts/new-guest-notification-flow.ps1` GENERATES the flow as an
+  importable package, parameterised by list, so the designer never has to be
+  clicked through and the expressions can't be mis-transcribed. It writes a
+  readable `.definition.json` beside the `.zip` for review. **Deliberately a
+  package, not a direct Power Platform API call** — that API is undocumented
+  and unversioned, and the import screen forces the connections to be chosen
+  explicitly rather than failing obscurely.
+- `scripts/add-task-last-notified-column.ps1` adds the support column.
+- `docs/POWER-AUTOMATE-GUEST-NOTIFICATIONS.md` is the reference and the
+  hand-build fallback; `docs/obsidian/` holds a vault-ready copy.
 
 Four things that are load-bearing, and the reason the doc exists rather than
 code:

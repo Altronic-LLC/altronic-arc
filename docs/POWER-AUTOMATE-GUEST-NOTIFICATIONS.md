@@ -3,6 +3,16 @@
 **Status: ready to build and test.** Step-by-step for the Engineering Project
 Task List only. Decided with Ray, 2026-09-23.
 
+> **There is a generator — you probably don't need to build this by hand.**
+> `./scripts/new-guest-notification-flow.ps1` writes an importable package
+> with the site, list, domain and every expression already baked in. Import it
+> at make.powerautomate.com → My flows → Import. This document remains the
+> reference for what the flow does, and the fallback if the import is refused.
+>
+> **For Obsidian:** `docs/obsidian/ARC — Guest comment notifications (Power
+> Automate).md` is the same guide with frontmatter, callouts and wikilinks,
+> written to drop straight into a vault.
+
 Scope deliberately narrow: **one list, guests only.** Prove it on the task list
 before adding a flow per list, and leave the employee path completely alone.
 
