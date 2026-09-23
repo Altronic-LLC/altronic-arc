@@ -53,21 +53,6 @@ export async function listAdmins(): Promise<AdminEntry[]> {
     `/items?$expand=fields&$top=200`;
   const items = await graphFetchAll<GraphListItem>(path);
 
-  // One-time diagnostic to surface the actual column names on this list.
-  if (items.length > 0 && !adminsDebugLogged) {
-    adminsDebugLogged = true;
-    const sample = items[0].fields as Record<string, unknown>;
-    /* eslint-disable no-console */
-    console.group("%c[ADMINS DEBUG] first item field keys", "color:#CB2C30;font-weight:bold");
-    console.log("Keys:", Object.keys(sample).sort());
-    console.log("Title:", sample.Title);
-    console.log("DisplayName:", sample.DisplayName);
-    console.log("Display_x0020_Name:", sample.Display_x0020_Name);
-    console.log("Note:", sample.Note);
-    console.groupEnd();
-    /* eslint-enable no-console */
-  }
-
   return items.map((it) => {
     const f = it.fields as Record<string, unknown>;
     return {
@@ -83,8 +68,6 @@ export async function listAdmins(): Promise<AdminEntry[]> {
     };
   });
 }
-
-let adminsDebugLogged = false;
 
 function pickString(f: Record<string, unknown>, keys: string[]): string {
   for (const k of keys) {

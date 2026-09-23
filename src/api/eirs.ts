@@ -146,22 +146,6 @@ export async function listEirs(): Promise<Eir[]> {
     listSiteUsers().catch(() => []),
   ]);
 
-  // One-time Reporter-shape diagnostic. The single-person Reporter column
-  // sometimes comes back expanded, sometimes just as a bare LookupId —
-  // log both so we can confirm the mapper is reaching for the right key.
-  if (items.length > 0 && !reporterDebugLogged) {
-    reporterDebugLogged = true;
-    const f = (items[0].fields ?? {}) as Record<string, unknown>;
-    /* eslint-disable no-console */
-    console.group("%c[EIR DEBUG] Reporter shape", "color:#CB2C30;font-weight:bold");
-    console.log("Reporter (object?):", f.Reporter);
-    console.log("ReporterLookupId (int?):", f.ReporterLookupId);
-    console.log("First EIR id:", items[0].id);
-    console.log("After mapping → reporter:", toEir(items[0]).reporter);
-    console.groupEnd();
-    /* eslint-enable no-console */
-  }
-
   const eirs = items.map(toEir);
   attachEirReferences(eirs, projects, siteUsers);
   return eirs;
@@ -202,8 +186,6 @@ export async function listSiteUsers(): Promise<Person[]> {
   }
   return people;
 }
-
-let reporterDebugLogged = false;
 
 export async function getEir(id: number): Promise<Eir | null> {
   const all = await listEirs();
