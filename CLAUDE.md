@@ -6074,6 +6074,40 @@ alerts only** — Engineering Tasks first. The employee path is untouched.
   package, not a direct Power Platform API call** — that API is undocumented
   and unversioned, and the import screen forces the connections to be chosen
   explicitly rather than failing obscurely.
+
+  **THE PACKAGE FORMAT IS COPIED FROM A REAL EXPORT, NOT INFERRED — and the
+  first attempt at inferring it FAILED SILENTLY.** Power Automate accepted a
+  plausible-looking package with *"All package resources were successfully
+  imported"*, listed **No items** under Review Package Content, and created
+  nothing (Ray, 2026-09-23, from a screenshot). Three things were wrong at
+  once, and any one of them alone produces that same silent success:
+
+  1. **`manifest.json`'s `resources` was `{}`.** That map is what the import
+     screen reads, so an empty one means an empty package however many files
+     the zip contains. **Five** entries are required: the flow, plus an
+     `apis` AND a `connections` entry per connector, wired by `dependsOn`
+     GUIDs.
+  2. **`definition.json` must be WRAPPED** — `name` / `id` / `type` /
+     `properties`, with the workflow at `properties.definition` and
+     `properties.apiId` = `shared_logicflows`. A bare workflow at the top
+     level is not read.
+  3. **Two files were missing entirely** — `Microsoft.Flow/flows/manifest.json`
+     (the `flowAssets.assetPaths` index) and the per-flow
+     `connectionsMap.json`. `apisMap.json` was also the wrong SHAPE: it maps
+     connector name → the manifest's resource GUID, not to a descriptive
+     object.
+
+  The format was recovered by diffing against
+  `FAITUpdatesNotifications_20260707130655.zip`, an export of a real flow
+  from this tenant. **If an import ever silently does nothing again, export
+  any flow and diff its package against what the script writes** — that is
+  how this was found, and it is faster than re-reading Microsoft's docs,
+  which do not describe this format at all.
+
+  **The import screen's success message is not evidence.** The check that
+  matters is whether **Review Package Content lists the flow plus two
+  connections**; "No items" there means the package is wrong no matter what
+  the green tick says. The script's own closing output says so.
 - `scripts/add-task-last-notified-column.ps1` adds the support column.
 - `docs/POWER-AUTOMATE-GUEST-NOTIFICATIONS.md` is the reference and the
   hand-build fallback; `docs/obsidian/` holds a vault-ready copy.

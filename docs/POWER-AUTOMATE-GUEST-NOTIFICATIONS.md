@@ -9,6 +9,12 @@ Task List only. Decided with Ray, 2026-09-23.
 > at make.powerautomate.com → My flows → Import. This document remains the
 > reference for what the flow does, and the fallback if the import is refused.
 >
+> **When you import, check the Review Package Content table lists the flow
+> plus two connections.** If it says **No items**, the package is wrong and
+> the import will report success while creating nothing — that happened on
+> 2026-09-23 and is now guarded against, but the green tick alone is not
+> evidence the flow exists. Check **My flows** afterwards either way.
+>
 > **For Obsidian:** `docs/obsidian/ARC — Guest comment notifications (Power
 > Automate).md` is the same guide with frontmatter, callouts and wikilinks,
 > written to drop straight into a vault.
