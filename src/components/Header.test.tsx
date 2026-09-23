@@ -27,7 +27,7 @@ const PROJECTS_KEY = ["projects"] as const;
 // Assigned filter is doing something on whichever view we're looking at. Both
 // are active, so neither is hidden by the List's default ALL_ACTIVE status
 // filter, and rows/cards render `numberedTitle`, so that's what we match on.
-const BRANDON = "brandon.mirto@hoerbiger.com";
+const BRANDON = "brandon.mirto@altronic-llc.com";
 const BRANDON_TASK = "T99-0021-Field unit firmware bump";
 const OTHER_TASK = "T88-0017-AMP-5000 redlines for build";
 
@@ -96,15 +96,15 @@ describe("Header — List/Kanban switcher keeps the filters", () => {
 
   it("carries every filter param, and leaves `status` behind", () => {
     renderTaskViews(
-      `/list?assigned=${BRANDON}&project=501&q=firmware&createdBy=ray.white@hoerbiger.com&status=Blocked`,
+      `/list?assigned=${BRANDON}&project=501&q=firmware&createdBy=ray.white@altronic-llc.com&status=Blocked`,
     );
 
     const kanban = screen.getByRole("link", { name: "Kanban" });
     const href = kanban.getAttribute("href")!;
-    expect(href).toContain("assigned=brandon.mirto%40hoerbiger.com");
+    expect(href).toContain("assigned=brandon.mirto%40altronic-llc.com");
     expect(href).toContain("project=501");
     expect(href).toContain("q=firmware");
-    expect(href).toContain("createdBy=ray.white%40hoerbiger.com");
+    expect(href).toContain("createdBy=ray.white%40altronic-llc.com");
     // The status pills are component state the URL isn't kept in step with,
     // so a stale `status=` must not travel.
     expect(href).not.toContain("status=");
@@ -132,7 +132,7 @@ describe("Header — Operations task switcher keeps the filters", () => {
 
     const href = screen.getByRole("link", { name: "Kanban" }).getAttribute("href")!;
     expect(href).toContain("/operations/tasks/kanban?");
-    expect(href).toContain("assigned=brandon.mirto%40hoerbiger.com");
+    expect(href).toContain("assigned=brandon.mirto%40altronic-llc.com");
     expect(href).toContain("q=pump");
   });
 
@@ -140,6 +140,6 @@ describe("Header — Operations task switcher keeps the filters", () => {
     renderOpsHeader(`/operations/tasks/kanban?assigned=${BRANDON}`);
 
     const href = screen.getByRole("link", { name: "List" }).getAttribute("href")!;
-    expect(href).toBe("/operations/tasks?assigned=brandon.mirto%40hoerbiger.com");
+    expect(href).toBe("/operations/tasks?assigned=brandon.mirto%40altronic-llc.com");
   });
 });

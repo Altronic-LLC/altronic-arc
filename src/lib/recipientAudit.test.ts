@@ -9,6 +9,11 @@ import { auditRecipientList, suggestionsFor } from "./recipientAudit";
 // exist and bounces it to the shared mailbox nobody reads.
 // =============================================================================
 
+// `@hoerbiger.com` is RETIRED (2026-09-23) and was swept out of every other
+// fixture in this repo. It stays HERE on purpose: these cases exist to prove
+// the audit catches a WRONG DOMAIN, and that needs two real domains to
+// compare. Replacing it with altronic-llc.com makes three cases pass for the
+// wrong reason — tried, 2026-09-23, and reverted.
 const DIRECTORY: Person[] = [
   { displayName: "Sheila Horn", email: "sheila.horn@altronic-llc.com" },
   { displayName: "Ray White", email: "ray.white@altronic-llc.com" },

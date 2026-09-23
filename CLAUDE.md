@@ -4534,6 +4534,8 @@ Two things about `lib/recipientAudit.ts`:
   out a field and exactly wrong here: it would call
   `glenn.terry@altronic-llc.com` a match for `glenn.terry@hoerbiger.com` and
   hide the single most likely fault in a tenant assembled from two companies.
+  (`@hoerbiger.com` is retired as of 2026-09-23 — still the example of a wrong
+  domain, and GUESTS now supply real ones. See "`@hoerbiger.com` is RETIRED".)
 - **An empty directory reports nothing**, rather than every address as missing.
   `useDirectoryPeople` tolerates an empty result, and a slow request must not
   render a screen full of false alarms.
@@ -6051,6 +6053,54 @@ dependency, DST handled by re-checking the offset at the instant being solved
 for. Don't reintroduce `d.getHours()` / `new Date(y, m, d, …)` here: those are
 the author's-local-time bug. Tests set `process.env.TZ` explicitly, because
 "it depends where you are" IS the bug.
+
+### `@hoerbiger.com` is RETIRED — and guests arrive on other domains
+
+Two facts recorded together on 2026-09-23 (Ray), because they interact.
+
+**The `@hoerbiger.com` domain is gone.** This tenant was assembled from
+Altronic and Hoerbiger/Cooper, and for most of ARC's life real colleagues
+carried `@hoerbiger.com` addresses — Sarah Shaffer, Brandon Mirto, Glenn
+Terry, Steven Landreth and others appear that way throughout this file's own
+examples. Those accounts are now `@altronic-llc.com`.
+
+`src/data/mockData.ts` held 25 such addresses across 8 people (Ray's own
+included) and was updated wholesale. What was deliberately NOT changed:
+
+- **A comment quoting the migration** (`hoerbigergroup.sharepoint…`) inside a
+  mock comment body. That is a historical quote about the tenant migration,
+  not an address.
+- **`scripts/*-schema.json`** — captured SharePoint schema snapshots. They are
+  records of what a list held when it was discovered; rewriting them would
+  falsify the snapshot.
+- **`recipientAudit.ts`'s examples**, which cite the old domain precisely to
+  illustrate a WRONG domain. Annotated as retired rather than replaced.
+
+**No production config was ever affected** — every configured alert list
+(`FAIT_NEW_ALERTS`, `EIR_TRIAGE_ASSIGNERS`, `COST_IMPACT_NOTICE_ALERTS`, …)
+already pointed at `@altronic-llc.com`, and `/admin/notification-recipients`
+is the screen that proves it against the live directory.
+
+**The live SharePoint person columns are a separate question this repo cannot
+answer.** If a real list row still holds a `@hoerbiger.com` address, whether
+it resolves depends on whether the Entra account was RENAMED (Graph follows
+it) or orphaned. Check before assuming ARC is at fault for a name that
+renders as `User #46`.
+
+**`sameEmail`'s local-part fallback is now a REAL misidentification risk.**
+It exists so one person with two spellings is recognised as themselves, and
+this file's own justification is that "two people sharing a local part across
+two domains doesn't occur in this tenant". **Guest (B2B) users break that
+premise**: guests arrive on arbitrary external domains, so
+`john.smith@vendor.com` matches `john.smith@altronic-llc.com` and is treated
+as the same person — by the admin check, EIR role gating, and the
+"can I edit this comment" test.
+
+Flagged, NOT yet changed (Ray's call, 2026-09-23): that helper gates
+permissions in several places, so narrowing it is its own change with its own
+tests rather than a side effect of a guest-notification feature. **If you are
+touching `emailIdentity.ts`, this is the thing to fix**: restrict the
+local-part fallback to two addresses that are BOTH on an internal domain.
 
 ### Matching a person to a stored address: `lib/emailIdentity.ts`
 

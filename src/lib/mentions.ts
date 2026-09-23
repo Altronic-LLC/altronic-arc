@@ -7,7 +7,7 @@ import { matchesTokens } from "./itemSearch";
 // the composer and the persisted HTML form used in the comment body.
 //
 // Persisted shape on a mention:
-//   <span class="mention" data-email="sarah.shaffer@hoerbiger.com">@Sarah Shaffer</span>
+//   <span class="mention" data-email="sarah.shaffer@altronic-llc.com">@Sarah Shaffer</span>
 //
 // The data-email attribute is what lets us later parse the body, dedupe by
 // email, and send notifications. The display text (`@Sarah Shaffer`) keeps
