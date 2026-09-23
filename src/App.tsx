@@ -347,6 +347,11 @@ const DevQzPrintTestView = lazy(() =>
 const DevEmailGroupingTestView = lazy(() =>
   import("@/views/DevEmailGroupingTestView").then((m) => ({ default: m.DevEmailGroupingTestView })),
 );
+// Dev-only Microsoft Fabric GraphQL test harness — never rendered in
+// production, see the `import.meta.env.DEV` guard on its <Route> below.
+const DevFabricTestView = lazy(() =>
+  import("@/views/DevFabricTestView").then((m) => ({ default: m.DevFabricTestView })),
+);
 const QcFormsView = lazy(() =>
   import("@/views/QcFormsView").then((m) => ({ default: m.QcFormsView })),
 );
@@ -1163,6 +1168,16 @@ export function App() {
                 element={
                   <Suspense fallback={<LoadingTasks noun="the email grouping test page" />}>
                     <DevEmailGroupingTestView />
+                  </Suspense>
+                }
+              />
+            )}
+            {import.meta.env.DEV && (
+              <Route
+                path="/dev/fabric-test"
+                element={
+                  <Suspense fallback={<LoadingTasks noun="the Fabric test page" />}>
+                    <DevFabricTestView />
                   </Suspense>
                 }
               />
