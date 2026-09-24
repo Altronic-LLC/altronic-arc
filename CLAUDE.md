@@ -6584,6 +6584,13 @@ Seven things that are load-bearing:
   problem: somebody granted access at 9am would stay locked out until they
   closed the tab. In memory a reload re-learns the truth — which the probe
   makes cheap, since it is two requests rather than a visit to every screen.
+- **Every notice says "ask an admin", not a named person or team** (Tim,
+  2026-09-24, deciding it deliberately). Naming the IT service desk, an AI
+  Champion or a maintainer was the alternative, and it was considered and
+  turned down: the wording appears in the footer notice, the in-screen
+  notices, the locked cards and the locked menu rows, so re-pointing it is a
+  handful of edits that should be made in one pass and on purpose — not one
+  screen at a time.
 - **"Check again" clears the store BEFORE refetching**, so anything since
   granted stops being hidden immediately and anything still refused simply
   registers again a moment later. It also bumps the probe's query key
