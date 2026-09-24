@@ -848,6 +848,42 @@ the old console.error-only behaviour nobody watching the app would ever see.
 Pinned by `tasks.eirReferenceWrite.test.ts` (the two-call shape, real mode)
 and `useEirs.promote.test.tsx` (the warning path).
 
+**The two follow-up fields are SEPARATE PATCHes, and the discussion goes
+FIRST.** They travelled in ONE PATCH until 2026-09-24, so a refused
+`EIRReference` discarded the carried-over EIR comments as collateral — the
+task landed with an empty thread, and the only signal was a toast the user
+navigates straight past, because `PromoteEirModal` navigates to the new task
+the instant the mutation resolves (reported by Ray as "the EIR comments did
+not transfer").
+
+**`EIRReference` is the fragile half by a wide margin, so it must never share
+a write with anything that matters.** It is a Hyperlink column, it already
+400s at create time (above), and Graph cannot even report its type —
+`"unknown"` in `scripts/project-task-list-schema.json`, the same
+unrecoverable-type signature as the Supplier `Logo` column. The comments are
+the half nobody can reconstruct from memory, so they are written first and
+alone: a failed link now costs only the link.
+
+Three things that go with it:
+
+- **Each failed field is COLLECTED, not thrown on immediately**, so one
+  refusal never skips the other write.
+- **`TaskFollowUpWriteError` carries the task as it ACTUALLY stands** —
+  whichever write last succeeded, else a re-read. Handing back the pre-write
+  object on a partial failure would make `usePromoteEirToTask`'s cache seed
+  render an EMPTY thread for comments that genuinely are in SharePoint, which
+  is the original bug wearing a different hat.
+- **The warning names the RECOVERY for whichever half was lost** — "copy the
+  discussion across from EIR_2026-0042", not a bare "by hand", since the
+  comments are still sitting on the EIR.
+
+**No test asserted the comments ever arrived.** Every case in
+`useEirs.promote.test.tsx` checked ids, warning wording and attachment calls,
+so a promotion that carried nothing passed a green suite. It now asserts each
+EIR comment's body, its "carried over from EIR" tag and its ORIGINAL author —
+against a fixture that actually has a discussion, since one with none passes
+whether the carry-over works or not.
+
 **Promoting an EIR also copies its attachments onto the new task** —
 `copyAttachments()` in `src/api/attachments.ts`, added alongside this fix.
 EIR files and task files live in two separate SP REST attachment stores (see

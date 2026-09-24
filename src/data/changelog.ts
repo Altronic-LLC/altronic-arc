@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.164.4",
+    date: "2026-09-24",
+    changes: [
+      "Promoting an EIR to a task no longer loses the EIR's discussion when the task's link back to the EIR can't be saved — the comments are written first, on their own, and still carry their original author, timestamp and a \"carried over from EIR\" note",
+      "If something does fail to save during a promotion, the message now says the discussion can be copied across from the EIR rather than just \"by hand\"",
+    ],
+  },
+  {
     version: "0.164.3",
     date: "2026-09-23",
     changes: [
