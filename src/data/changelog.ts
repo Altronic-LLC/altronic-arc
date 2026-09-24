@@ -24,7 +24,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     date: "2026-09-24",
     changes: [
       "ARC now tells you, anywhere in the app, when a screen's SharePoint data can't be loaded for your account — instead of showing an empty list as though there were nothing to see",
-      "The notice names the app and the SharePoint site to ask an admin about, and has a Check again action for the moment access is granted",
+      "The notice sits in the footer, names the app and the SharePoint site to ask an admin about, and has a Check again action for the moment access is granted — on a narrow screen it collapses to an alert icon you can tap for the same message",
       "Dashboard cards and Departments menu entries for an app you don't have access to are now locked, so you aren't sent to a screen that can only turn you away",
       "ARC checks your access as soon as it loads, so those apps are locked from the start rather than only after you've opened one and been turned away",
       "Nothing is hidden — a locked app still shows its name and a padlock, so you can see it exists and ask for it",

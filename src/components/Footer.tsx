@@ -4,6 +4,7 @@ import { History, Info, Mail, X } from "lucide-react";
 import { CHANGELOG, CURRENT_VERSION } from "@/data/changelog";
 import { useVersionCheck } from "@/hooks/useVersionCheck";
 import { useOverlayDismiss } from "./useOverlayDismiss";
+import { ListAccessIndicator } from "./ListAccessIndicator";
 
 const MAINTAINER_EMAIL = "ray.white@altronic-llc.com";
 const VERSION_SEEN_KEY = "arc-version-seen";
@@ -45,7 +46,12 @@ export function Footer() {
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
+          {/* Between the maintainer line and the About button (Tim,
+              2026-09-24). `min-w-0` so its truncating sentence gives way to
+              the buttons rather than squeezing them off the row. */}
+          <ListAccessIndicator />
+
+          <div className="flex shrink-0 items-center gap-2">
             <Link
               to="/about"
               className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1 text-[11px] text-fg-muted transition-colors hover:border-fg-muted hover:text-fg"

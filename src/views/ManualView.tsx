@@ -117,7 +117,7 @@ const SECTIONS: ManualSection[] = [
       "check again",
     ],
     searchText:
-      "ARC reads its data from SharePoint lists, and access to those lists is granted per site by an administrator — it is not something ARC controls. If your account can't read a list, ARC says so rather than showing an empty screen. A banner appears across the top of the app naming the app or apps affected and the SharePoint site to ask about, with a Check again button to press once access has been granted. On the Dashboard, a card for an app you can't reach shows a padlock and can't be clicked. In the Departments menu, the same app shows a padlock instead of a link. Nothing is hidden — you can still see that the app exists, which is what you ask for access to. A padlock is different from a Soon label, which means the app hasn't been built yet. Ask an admin, or the IT service desk, for access to the named SharePoint site; once granted, press Check again or reload ARC. Reference lists behind a screen count too, so a screen can say it is unavailable when the main list is fine but a lookup list behind it is not.",
+      "ARC reads its data from SharePoint lists, and access to those lists is granted per site by an administrator — it is not something ARC controls. If your account can't read a list, ARC says so rather than showing an empty screen. A notice appears in the footer, between the maintainer's email and the About button, naming the app or apps affected and the SharePoint site to ask about, with a Check again button to press once access has been granted; on a narrow screen it collapses to an alert icon that opens the same message in a popup. On the Dashboard, a card for an app you can't reach shows a padlock and can't be clicked. In the Departments menu, the same app shows a padlock instead of a link. Nothing is hidden — you can still see that the app exists, which is what you ask for access to. A padlock is different from a Soon label, which means the app hasn't been built yet. Ask an admin, or the IT service desk, for access to the named SharePoint site; once granted, press Check again or reload ARC. Reference lists behind a screen count too, so a screen can say it is unavailable when the main list is fine but a lookup list behind it is not.",
     render: () => (
       <>
         <P>
@@ -130,12 +130,14 @@ const SECTIONS: ManualSection[] = [
         </P>
         <H3>What you'll see</H3>
         <P>
-          A banner appears across the top of the app naming what's affected and
-          the SharePoint site to ask about. On the Dashboard, the card for that
-          app shows a <strong>padlock</strong> and can't be clicked; in the{" "}
-          <strong>Departments</strong> menu, the same app shows a padlock
-          instead of a link. Inside a screen you've already opened, you'll get
-          a notice in place of the list.
+          A notice appears in the <strong>footer</strong>, between the
+          maintainer's email and the About button, naming what's affected and
+          the SharePoint site to ask about. On a narrow screen it shows as an
+          alert icon — tap it for the full message. On the Dashboard, the card
+          for that app shows a <strong>padlock</strong> and can't be clicked; in
+          the <strong>Departments</strong> menu, the same app shows a padlock
+          instead of a link. Inside a screen you've already opened, you'll get a
+          notice in place of the list.
         </P>
         <P>
           Nothing is hidden. A locked app still shows its name, because that's

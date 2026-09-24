@@ -570,7 +570,7 @@ src/
 │   ├── PcbChecklistCard.tsx      PCB checklist on a task
 │   ├── NotifyAppManagerButton.tsx  "Report issue" button + modal
 │   ├── ListAccessNotice.tsx        SharePoint list permission notice + retry
-│   ├── ListAccessBanner.tsx        App-wide "you don't have access to X" banner
+│   ├── ListAccessIndicator.tsx     Footer "you don't have access to X" — sentence, or icon + popup
 │   ├── MermaidDiagram.tsx        (legacy) Mermaid renderer
 │   ├── atoms.tsx                 Badges, chips, status colours
 │   ├── operationsAtoms.tsx       Operations-specific badges/chips
@@ -6384,8 +6384,15 @@ Four pieces, each with one job:
   handlers in `main.tsx`, exactly like the session-expiry store beside it. No
   feature wires itself up; a refused list registers wherever it was first
   touched.
-- **`components/ListAccessBanner.tsx`** — the app-wide notice, next to
-  `UpdateAvailableBanner`.
+- **`components/ListAccessIndicator.tsx`** — the app-wide notice, in the
+  **FOOTER**, between the maintainer line and the About button. It shipped as a
+  full-width bar under the header and moved on 2026-09-24 (Tim): it is a
+  standing fact about the account, not news about this page, and a permanent
+  stripe above every screen pushed the page down a row for anyone missing one
+  list. Two renderings, chosen by the `lg` breakpoint rather than a
+  measurement: the sentence inline (truncating, and clickable because it
+  truncates), or a single alert icon that opens the same popup. The popup opens
+  UPWARD — the footer is pinned to the bottom of the window.
 
 Seven things that are load-bearing:
 

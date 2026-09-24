@@ -4,7 +4,6 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { ToastContainer } from "@/components/Toast";
 import { UpdateAvailableBanner } from "@/components/UpdateAvailableBanner";
-import { ListAccessBanner } from "@/components/ListAccessBanner";
 import { useAccessProbe } from "@/hooks/useListAccess";
 import { RequireAdmin } from "@/components/RequireAdmin";
 import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
@@ -289,7 +288,6 @@ export function App() {
     <div className="flex min-h-screen flex-col bg-bg">
       {!isPrintRoute && <Header />}
       {!isPrintRoute && <UpdateAvailableBanner />}
-      {!isPrintRoute && <ListAccessBanner />}
       <main className="min-h-0 flex-1 pb-16">
         {/* The app's only error boundary. A render error used to blank the whole
             page until a manual refresh — including navigating away, since the
