@@ -51,6 +51,7 @@ import {
   SP_SUPPLIERS_LIST_ID,
   SP_TERADYNE_LOG_LIST_ID,
   SP_TEST_RESULTS_LIST_ID,
+  SP_SALES_ORDERENTRY_SITE_URL,
   SP_VISIT_REPORTS_LIST_ID,
   SP_WHERE_AM_I_LIST_ID,
 } from "./config";
@@ -125,6 +126,19 @@ export interface AppSpec {
    * A folder that can't be read is asked about directly.
    */
   drivePath?: string;
+  /**
+   * Ask, at load, whether this list's rows are being hidden from the user —
+   * an empty result corroborated against SharePoint's own untrimmed
+   * ItemCount. See api/listItemCount.ts.
+   *
+   * OPT-IN per app, not the default: it costs one extra SP REST call, and it
+   * only earns that where a list can be readable while every row in it is
+   * withheld. Customers is the one so far (Tim, 2026-09-24) — its 100-odd
+   * records are shared row by row.
+   */
+  detectHiddenRows?: boolean;
+  /** Classic site URL, needed for the SP REST call `detectHiddenRows` makes. */
+  siteUrl?: string;
 }
 
 /** Drop ids that aren't configured — an unset env var is not a denial. */
@@ -205,7 +219,14 @@ export const APPS: AppSpec[] = [
     drivePath: OPEN_ORDERS_PATH,
   },
   { path: "/sales/visit-reports", label: "Visit Reports", site: "salesTeam", lists: ids(SP_VISIT_REPORTS_LIST_ID) },
-  { path: "/sales/customers", label: "Customers", site: "salesOrderEntry", lists: ids(SP_CUSTOMER_NOTES_LIST_ID) },
+  {
+    path: "/sales/customers",
+    label: "Customers",
+    site: "salesOrderEntry",
+    lists: ids(SP_CUSTOMER_NOTES_LIST_ID),
+    detectHiddenRows: true,
+    siteUrl: SP_SALES_ORDERENTRY_SITE_URL,
+  },
 ];
 
 /** Strip a query string, hash and trailing slash before matching a route. */

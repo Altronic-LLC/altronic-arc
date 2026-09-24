@@ -156,6 +156,8 @@ describe("readProbeResponses", () => {
       deniedLists: [],
       deniedDrives: [],
       unreadableApps: [],
+      hiddenRowCounts: {},
+      emptyLists: [],
     });
   });
 
@@ -168,8 +170,74 @@ describe("readProbeResponses", () => {
   });
 
   it("ignores a response it didn't ask for, and an empty body", () => {
-    const empty = { deniedSites: [], deniedLists: [], deniedDrives: [], unreadableApps: [] };
+    const empty = {
+      deniedSites: [],
+      deniedLists: [],
+      deniedDrives: [],
+      unreadableApps: [],
+      hiddenRowCounts: {},
+      emptyLists: [],
+    };
     expect(readProbeResponses(targets, { responses: [{ id: "99", status: 403 }] })).toEqual(empty);
     expect(readProbeResponses(targets, {})).toEqual(empty);
+  });
+
+  it("flags a list that read fine and handed back NOTHING as a candidate", () => {
+    // Not a conclusion: an empty result is indistinguishable from an empty
+    // list until it is checked against the list's own untrimmed count.
+    const itemsTarget: ProbeTarget[] = [
+      {
+        id: "0",
+        url: "u0",
+        siteId: SITES.salesOrderEntry,
+        kind: "items",
+        listId: "customers",
+        appPath: "/sales/customers",
+        siteUrl: "https://example.sharepoint.com/sites/TEAM/OrderEntry",
+      },
+    ];
+
+    const result = readProbeResponses(itemsTarget, {
+      responses: [{ id: "0", status: 200, body: { value: [] } }],
+    });
+
+    expect(result.emptyLists).toEqual([
+      {
+        appPath: "/sales/customers",
+        listId: "customers",
+        siteUrl: "https://example.sharepoint.com/sites/TEAM/OrderEntry",
+      },
+    ]);
+    // Nothing is locked on this alone.
+    expect(result.unreadableApps).toEqual([]);
+  });
+
+  it("flags nothing when a row DID come back", () => {
+    const itemsTarget: ProbeTarget[] = [
+      { id: "0", url: "u0", siteId: SITES.salesOrderEntry, kind: "items", listId: "c", appPath: "/sales/customers" },
+    ];
+    const result = readProbeResponses(itemsTarget, {
+      responses: [{ id: "0", status: 200, body: { value: [{ id: "1" }] } }],
+    });
+    expect(result.emptyLists).toEqual([]);
+  });
+});
+
+describe("probeTargets — the hidden-rows check is OPT-IN", () => {
+  it("asks for one row of a list that declares detectHiddenRows", () => {
+    const customers = APPS.find((a) => a.label === "Customers")!;
+    expect(customers.detectHiddenRows).toBe(true);
+
+    const items = probeTargets([customers]).filter((t) => t.kind === "items");
+    expect(items).toHaveLength(1);
+    expect(items[0].url).toContain("/items?$top=1&$select=id");
+    expect(items[0].appPath).toBe("/sales/customers");
+  });
+
+  it("asks nothing extra of every other app", () => {
+    // It costs an SP REST call, so it is declared per app rather than run
+    // over the whole registry.
+    const others = APPS.filter((a) => !a.detectHiddenRows);
+    expect(probeTargets(others).filter((t) => t.kind === "items")).toEqual([]);
   });
 });

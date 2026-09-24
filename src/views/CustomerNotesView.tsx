@@ -8,8 +8,7 @@ import { matchesSearch, tokenizeQuery } from "@/lib/itemSearch";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { ListAccessNotice } from "@/components/ListAccessNotice";
 import { isPermissionDenied } from "@/lib/listWriteErrors";
-import { useEmptyListCheck } from "@/hooks/useEmptyListCheck";
-import { SP_CUSTOMER_NOTES_LIST_ID, SP_SALES_ORDERENTRY_SITE_URL } from "@/api/config";
+import { useHiddenRowCount } from "@/hooks/useListAccess";
 import { SearchInput } from "@/components/SearchInput";
 import { ChoiceSelect } from "@/components/SearchableSelect";
 import { CustomerNoteFormModal } from "@/components/CustomerNoteFormModal";
@@ -37,17 +36,11 @@ export function CustomerNotesView() {
   // because "empty" and "broken" must not look the same.
   const listUnavailable = !!error && isPermissionDenied(error);
 
-  // Read fine and came back with nothing? Ask SharePoint how many rows it
-  // thinks it has. If it says some, they exist and none of them are visible to
-  // this account — which locks the app's card and menu entry like any other
-  // unavailable app (Tim, 2026-09-24).
-  const { totalItems, hiddenRows } = useEmptyListCheck({
-    appPath: "/sales/customers",
-    siteUrl: SP_SALES_ORDERENTRY_SITE_URL,
-    listId: SP_CUSTOMER_NOTES_LIST_ID,
-    rowCount: notes.length,
-    ready: !isLoading && !error,
-  });
+  // Whether this list's rows are hidden rather than absent is settled at
+  // SIGN-IN, by the access probe, so the card and the menu entry are already
+  // locked before anybody opens this screen (Tim, 2026-09-24). All this screen
+  // does is show the number the probe found.
+  const hiddenRows = useHiddenRowCount("/sales/customers");
   const [params, setParams] = useSearchParams();
   const [showNew, setShowNew] = useState(false);
   const [showAll, setShowAll] = useState(false);
@@ -157,10 +150,10 @@ export function CustomerNotesView() {
               Try again
             </button>
           </div>
-        ) : hiddenRows ? (
+        ) : hiddenRows !== null ? (
           <div className="px-4 py-10 text-center text-sm text-fg-muted">
             <p className="font-medium text-fg">
-              This list has {totalItems?.toLocaleString()} records, and none of them are
+              This list has {hiddenRows.toLocaleString()} records, and none of them are
               visible to your account.
             </p>
             <p className="mx-auto mt-1 max-w-md">

@@ -41,6 +41,12 @@ interface Snapshot extends AccessDenials {
    * the message when no app label can be worked out.
    */
   implicatedSites: ReadonlySet<string>;
+  /**
+   * For an app whose rows are hidden rather than absent: how many the list
+   * actually holds. The screen shows the number so the person can say "it has
+   * 102 records and I can see none of them" to whoever grants access.
+   */
+  hiddenRowCounts: Readonly<Record<string, number>>;
   /** Cheap identity for `useSyncExternalStore` and for "is anything wrong". */
   count: number;
 }
@@ -51,6 +57,7 @@ const EMPTY: Snapshot = {
   drives: new Set(),
   unreadableApps: new Set(),
   implicatedSites: new Set(),
+  hiddenRowCounts: {},
   count: 0,
 };
 
@@ -91,6 +98,7 @@ interface Draft {
   drives: Set<string>;
   unreadableApps: Set<string>;
   implicatedSites: Set<string>;
+  hiddenRowCounts: Record<string, number>;
 }
 
 function commit(next: Draft) {
@@ -109,6 +117,7 @@ function draft(): Draft {
     drives: new Set(snapshot.drives),
     unreadableApps: new Set(snapshot.unreadableApps),
     implicatedSites: new Set(snapshot.implicatedSites),
+    hiddenRowCounts: { ...snapshot.hiddenRowCounts },
   };
 }
 
@@ -157,18 +166,27 @@ export function markDriveDenied(siteId: string): void {
 /**
  * Record that an app's data could not be READ — no refusal anywhere, and the
  * rows or files still aren't there. Two ways in: a declared folder answering
- * `itemNotFound` (the probe), and a list that hands back none of the rows
- * SharePoint reports holding (useEmptyListCheck).
+ * `itemNotFound`, and a list that hands back none of the rows SharePoint
+ * reports holding — both settled by the startup probe (api/accessProbe.ts).
  *
  * Kept apart from every kind of denial above so the message can say what is
  * true: "ARC couldn't read this" rather than "you don't have access", which
  * would send somebody to ask for access they may already have.
  */
-export function markAppUnreadable(appPath: string): void {
-  if (snapshot.unreadableApps.has(appPath)) return;
+export function markAppUnreadable(appPath: string, hiddenRows?: number): void {
+  const knownCount = hiddenRows === undefined || snapshot.hiddenRowCounts[appPath] === hiddenRows;
+  if (snapshot.unreadableApps.has(appPath) && knownCount) return;
+
   const next = draft();
   next.unreadableApps.add(appPath);
+  if (hiddenRows !== undefined) next.hiddenRowCounts[appPath] = hiddenRows;
   commit(next);
+}
+
+/** How many rows this app's list holds that the user cannot see, if known. */
+export function useHiddenRowCount(appPath: string): number | null {
+  const denials = useAccessDenials();
+  return denials.hiddenRowCounts[appPath] ?? null;
 }
 
 /**
@@ -233,7 +251,9 @@ export function useAccessProbe(): void {
     for (const siteId of data.deniedSites) markSiteDenied(siteId);
     for (const denied of data.deniedLists) markListDenied(denied.listId, denied.siteId);
     for (const siteId of data.deniedDrives) markDriveDenied(siteId);
-    for (const appPath of data.unreadableApps) markAppUnreadable(appPath);
+    for (const appPath of data.unreadableApps) {
+      markAppUnreadable(appPath, data.hiddenRowCounts[appPath]);
+    }
   }, [data]);
 }
 

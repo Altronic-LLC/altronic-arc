@@ -13,6 +13,7 @@ import {
   useAccessDenials,
   useAccessProbe,
   useAppUnavailable,
+  useHiddenRowCount,
 } from "./useListAccess";
 
 const visitReports = APPS.find((a) => a.label === "Visit Reports")!;
@@ -26,7 +27,7 @@ function wrapper({ children }: { children: ReactNode }) {
 
 beforeEach(() => {
   probeAppAccess.mockReset();
-  probeAppAccess.mockResolvedValue({ deniedSites: [], deniedLists: [], deniedDrives: [], unreadableApps: [] });
+  probeAppAccess.mockResolvedValue({ deniedSites: [], deniedLists: [], deniedDrives: [], unreadableApps: [], hiddenRowCounts: {} });
 });
 
 afterEach(() => clearAccessDenials());
@@ -41,6 +42,7 @@ describe("useAccessProbe", () => {
       deniedLists: [{ listId: visitReports.lists[0], siteId: SITES.salesTeam }],
       deniedDrives: [],
       unreadableApps: [],
+      hiddenRowCounts: {},
     });
 
     const { result } = renderHook(
@@ -60,6 +62,7 @@ describe("useAccessProbe", () => {
       deniedLists: [{ listId: visitReports.lists[0], siteId: SITES.salesTeam }],
       deniedDrives: [],
       unreadableApps: [],
+      hiddenRowCounts: {},
     });
 
     const { result } = renderHook(
@@ -74,7 +77,7 @@ describe("useAccessProbe", () => {
   });
 
   it("records a refused document library against its site only", async () => {
-    probeAppAccess.mockResolvedValue({ deniedSites: [], deniedLists: [], deniedDrives: [SITES.salesTeam], unreadableApps: [] });
+    probeAppAccess.mockResolvedValue({ deniedSites: [], deniedLists: [], deniedDrives: [SITES.salesTeam], unreadableApps: [], hiddenRowCounts: {} });
 
     const { result } = renderHook(
       () => {
@@ -130,6 +133,7 @@ describe("useAccessProbe", () => {
       deniedLists: [],
       deniedDrives: [],
       unreadableApps: [],
+      hiddenRowCounts: {},
     });
 
     const { result } = renderHook(
@@ -156,6 +160,7 @@ describe("useAccessProbe", () => {
       deniedLists: [],
       deniedDrives: [],
       unreadableApps: ["/sales/open-orders"],
+      hiddenRowCounts: {},
     });
 
     const { result } = renderHook(
@@ -167,5 +172,33 @@ describe("useAccessProbe", () => {
     );
 
     await waitFor(() => expect(result.current).toBe(true));
+  });
+
+  it("locks a list whose rows are hidden, ON LOAD, with the count", async () => {
+    // Tim, 2026-09-24: "I would rather it lock right away" — it used to take
+    // opening the screen, because the check lived in the view.
+    probeAppAccess.mockResolvedValue({
+      deniedSites: [],
+      deniedLists: [],
+      deniedDrives: [],
+      unreadableApps: ["/sales/customers"],
+      hiddenRowCounts: { "/sales/customers": 102 },
+    });
+
+    const { result } = renderHook(
+      () => {
+        useAccessProbe();
+        return {
+          locked: useAppUnavailable("/sales/customers"),
+          hidden: useHiddenRowCount("/sales/customers"),
+        };
+      },
+      { wrapper },
+    );
+
+    await waitFor(() => expect(result.current.locked).toBe(true));
+    // The number travels with the lock, so the screen can show it without
+    // asking SharePoint a second time.
+    expect(result.current.hidden).toBe(102);
   });
 });

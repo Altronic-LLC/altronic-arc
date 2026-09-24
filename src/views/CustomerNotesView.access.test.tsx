@@ -1,6 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { screen } from "@testing-library/react";
 import { renderWithProviders } from "@/test/render";
+import { clearAccessDenials, markAppUnreadable } from "@/hooks/useListAccess";
 
 // =============================================================================
 // A failed read is never rendered as an empty list.
@@ -34,6 +35,8 @@ class FakeGraphError extends Error {
   }
 }
 
+afterEach(() => clearAccessDenials());
+
 describe("CustomerNotesView — a read that fails", () => {
   it("shows the access notice when SharePoint refuses the list", async () => {
     listCustomerNotes.mockRejectedValue(new FakeGraphError(403, '{"error":{"code":"accessDenied"}}'));
@@ -54,17 +57,26 @@ describe("CustomerNotesView — a read that fails", () => {
     expect(screen.queryByText(/No customers match these filters/)).not.toBeInTheDocument();
   });
 
-  it("names item-level permissions as a possibility when the read succeeds with no rows", async () => {
-    // SharePoint answers an item-level permission problem exactly like an
-    // empty list — 200, zero rows, security-trimmed — so ARC can't tell them
-    // apart and must not claim either. Tim's Customers list has ~100 rows in
-    // it and came back with none (2026-09-24).
+  it("states the count when the startup check found the rows hidden", async () => {
+    // The probe settles this at sign-in, so the card and menu entry are
+    // already locked and this screen only has to show the number it found
+    // (Tim, 2026-09-24: "I would rather it lock right away").
+    listCustomerNotes.mockResolvedValue([]);
+    markAppUnreadable("/sales/customers", 102);
+    renderWithProviders(<CustomerNotesView />);
+
+    expect(await screen.findByText(/102 records, and none of them are/)).toBeInTheDocument();
+    expect(screen.getByText(/item-level permissions/)).toBeInTheDocument();
+  });
+
+  it("says only what it knows when the count couldn't be established", async () => {
+    // No SP REST grant, so no corroboration: an empty list must not be
+    // reported as a denial ARC hasn't proved.
     listCustomerNotes.mockResolvedValue([]);
     renderWithProviders(<CustomerNotesView />);
 
     expect(await screen.findByText(/No customers to show/)).toBeInTheDocument();
     expect(screen.getByText(/may be able to open the list without being able/)).toBeInTheDocument();
-    // NOT phrased as a denial: ARC doesn't know that.
     expect(screen.queryByText(/don't have access to this SharePoint list/i)).not.toBeInTheDocument();
   });
 

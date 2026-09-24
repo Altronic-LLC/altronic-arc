@@ -1,6 +1,7 @@
 import { graphFetch } from "./graph";
 import { SITES, USE_MOCK } from "./config";
 import { APPS, type AppSpec } from "./appAccess";
+import { fetchListItemCount } from "./listItemCount";
 
 // =============================================================================
 // Asking SharePoint, once at sign-in, what this user can actually read.
@@ -35,11 +36,13 @@ export interface ProbeTarget {
   id: string;
   url: string;
   siteId: string;
-  kind: "site" | "list" | "drive";
+  kind: "site" | "list" | "drive" | "items";
   /** Set only when `kind` is "list". */
   listId: string | null;
-  /** Set for a folder probe: which app's screen reads it. */
+  /** Set for a folder or items probe: which app's screen reads it. */
   appPath?: string;
+  /** Set for an items probe: where to ask for the untrimmed ItemCount. */
+  siteUrl?: string;
 }
 
 export interface DeniedList {
@@ -58,6 +61,12 @@ export interface ProbeResult {
    * telling somebody to ask for access they may already have.
    */
   unreadableApps: string[];
+  /**
+   * For an app whose rows are being hidden: how many the list actually holds.
+   * The screen shows the number, so the person can say "it has 102 records
+   * and I can see none of them" to whoever grants access.
+   */
+  hiddenRowCounts: Record<string, number>;
 }
 
 /**
@@ -97,6 +106,20 @@ export function probeTargets(apps: readonly AppSpec[] = APPS): ProbeTarget[] {
       });
     }
 
+    // Can the rows be seen at all? One row is enough to know. Compared
+    // against the list's untrimmed ItemCount after the batch — see
+    // resolveHiddenRows.
+    if (app.detectHiddenRows && app.lists.length === 1) {
+      add({
+        url: `/sites/${siteId}/lists/${app.lists[0]}/items?$top=1&$select=id`,
+        siteId,
+        kind: "items",
+        listId: app.lists[0],
+        appPath: app.path,
+        siteUrl: app.siteUrl,
+      });
+    }
+
     if (app.needsDrive) {
       // The FOLDER the screen actually reads where one is declared, not just
       // the library root: Tim could read the Sales library root and still got
@@ -120,7 +143,14 @@ export function chunk<T>(items: T[], size: number): T[][] {
 }
 
 interface BatchResponse {
-  responses?: Array<{ id: string; status: number }>;
+  responses?: Array<{ id: string; status: number; body?: { value?: unknown[] } }>;
+}
+
+/** An items probe that came back readable but EMPTY — a trimming candidate. */
+export interface EmptyListCandidate {
+  appPath: string;
+  listId: string;
+  siteUrl?: string;
 }
 
 /**
@@ -135,12 +165,13 @@ interface BatchResponse {
 export function readProbeResponses(
   targets: readonly ProbeTarget[],
   body: BatchResponse,
-): ProbeResult {
+): ProbeResult & { emptyLists: EmptyListCandidate[] } {
   const byId = new Map(targets.map((t) => [t.id, t]));
   const deniedSites: string[] = [];
   const deniedLists: DeniedList[] = [];
   const deniedDrives: string[] = [];
   const unreadableApps: string[] = [];
+  const emptyLists: EmptyListCandidate[] = [];
 
   for (const response of body.responses ?? []) {
     const target = byId.get(response.id);
@@ -161,9 +192,48 @@ export function readProbeResponses(
     if (response.status === 404 && target.kind === "drive" && target.appPath) {
       unreadableApps.push(target.appPath);
     }
+
+    // Readable, and not one row came back. On its own that is indistinguishable
+    // from an empty list, so it is only a CANDIDATE here — resolveHiddenRows
+    // decides, against a count SharePoint doesn't trim.
+    if (
+      response.status === 200 &&
+      target.kind === "items" &&
+      target.appPath &&
+      target.listId &&
+      (response.body?.value?.length ?? 0) === 0
+    ) {
+      emptyLists.push({
+        appPath: target.appPath,
+        listId: target.listId,
+        siteUrl: target.siteUrl,
+      });
+    }
   }
 
-  return { deniedSites, deniedLists, deniedDrives, unreadableApps };
+  return { deniedSites, deniedLists, deniedDrives, unreadableApps, hiddenRowCounts: {}, emptyLists };
+}
+
+/**
+ * For each list that read fine and handed back nothing: does SharePoint say it
+ * holds rows anyway?
+ *
+ * `ItemCount` is a property of the LIST, so it isn't security-trimmed — "102
+ * items, and you were given none" is positive evidence that the rows are there
+ * and none of them are this account's to see. A count of 0 means the list is
+ * genuinely empty and NOTHING is locked, which is what keeps this safe: the
+ * person whose job is to add the first record is never shut out of the screen
+ * that adds it.
+ */
+export async function resolveHiddenRows(
+  candidates: readonly EmptyListCandidate[],
+): Promise<Record<string, number>> {
+  const counts: Record<string, number> = {};
+  for (const candidate of candidates) {
+    const total = await fetchListItemCount(candidate.siteUrl, candidate.listId);
+    if (typeof total === "number" && total > 0) counts[candidate.appPath] = total;
+  }
+  return counts;
 }
 
 /**
@@ -172,10 +242,18 @@ export function readProbeResponses(
  * direction: a failed probe must not lock anybody out of anything.
  */
 export async function probeAppAccess(apps: readonly AppSpec[] = APPS): Promise<ProbeResult> {
-  if (USE_MOCK) return { deniedSites: [], deniedLists: [], deniedDrives: [], unreadableApps: [] };
+  const empty: ProbeResult = {
+    deniedSites: [],
+    deniedLists: [],
+    deniedDrives: [],
+    unreadableApps: [],
+    hiddenRowCounts: {},
+  };
+  if (USE_MOCK) return empty;
 
   const targets = probeTargets(apps);
-  const result: ProbeResult = { deniedSites: [], deniedLists: [], deniedDrives: [], unreadableApps: [] };
+  const result: ProbeResult = { ...empty, hiddenRowCounts: {} };
+  const emptyLists: EmptyListCandidate[] = [];
 
   for (const batch of chunk(targets, MAX_BATCH_SIZE)) {
     try {
@@ -190,12 +268,18 @@ export async function probeAppAccess(apps: readonly AppSpec[] = APPS): Promise<P
       result.deniedLists.push(...batchResult.deniedLists);
       result.deniedDrives.push(...batchResult.deniedDrives);
       result.unreadableApps.push(...batchResult.unreadableApps);
+      emptyLists.push(...batchResult.emptyLists);
     } catch {
       // A whole batch failing is a network or session problem, not an answer
       // about permissions. Leave the rest of the app to report it.
       continue;
     }
   }
+
+  // After the batch, and only for the lists that came back empty: one SP REST
+  // call each to ask what the list itself says it holds.
+  result.hiddenRowCounts = await resolveHiddenRows(emptyLists);
+  result.unreadableApps.push(...Object.keys(result.hiddenRowCounts));
 
   return result;
 }
