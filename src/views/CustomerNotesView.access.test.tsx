@@ -54,9 +54,40 @@ describe("CustomerNotesView — a read that fails", () => {
     expect(screen.queryByText(/No customers match these filters/)).not.toBeInTheDocument();
   });
 
-  it("still says 'no customers match' when the read SUCCEEDS and is empty", async () => {
+  it("names item-level permissions as a possibility when the read succeeds with no rows", async () => {
+    // SharePoint answers an item-level permission problem exactly like an
+    // empty list — 200, zero rows, security-trimmed — so ARC can't tell them
+    // apart and must not claim either. Tim's Customers list has ~100 rows in
+    // it and came back with none (2026-09-24).
     listCustomerNotes.mockResolvedValue([]);
     renderWithProviders(<CustomerNotesView />);
+
+    expect(await screen.findByText(/No customers to show/)).toBeInTheDocument();
+    expect(screen.getByText(/may be able to open the list without being able/)).toBeInTheDocument();
+    // NOT phrased as a denial: ARC doesn't know that.
+    expect(screen.queryByText(/don't have access to this SharePoint list/i)).not.toBeInTheDocument();
+  });
+
+  it("still blames the filters when rows exist but none match", async () => {
+    listCustomerNotes.mockResolvedValue([
+      {
+        id: 1,
+        customerName: "Global Compression",
+        oldCustomerNumber: "",
+        sapCustomerNumber: "1042",
+        generalNotes: "",
+        complianceNotes: "",
+        group: null,
+        customerTypes: [],
+        csr: [],
+        kam: null,
+        comments: [],
+        hasAttachments: false,
+        createdAt: "2026-01-01T12:00:00Z",
+        modifiedAt: "2026-01-01T12:00:00Z",
+      },
+    ]);
+    renderWithProviders(<CustomerNotesView />, { route: "/sales/customers?q=zzzz" });
 
     expect(await screen.findByText(/No customers match these filters/)).toBeInTheDocument();
   });

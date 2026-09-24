@@ -39,7 +39,7 @@ import { OPEN_ORDERS_PATH } from "@/api/openOrdersFiles";
 import { SP_OPEN_ORDERS_CUSTOMERS_LIST_ID, USE_MOCK } from "@/api/config";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { ListAccessNotice } from "@/components/ListAccessNotice";
-import { isPermissionDenied } from "@/lib/listWriteErrors";
+import { isGone, isPermissionDenied } from "@/lib/listWriteErrors";
 import { DateField } from "@/components/DateField";
 import { toDateInputValue, fromDateInputValue } from "@/lib/spDates";
 import { cn } from "@/lib/cn";
@@ -62,6 +62,31 @@ import { cn } from "@/lib/cn";
 // happens unless somebody does it, and the screen had better not imply
 // otherwise.
 // =============================================================================
+
+/**
+ * A failed folder read, in words.
+ *
+ * The first version printed the raw Graph message, which is a 300-character
+ * URL with the site id and the whole `$select` in it (Tim, 2026-09-24) — true,
+ * unreadable, and it buries the one useful word in it.
+ *
+ * A 404 on a PATH is genuinely ambiguous: Graph answers `itemNotFound` both
+ * for a folder that was never created and for one the account can't see, so
+ * this says both rather than picking. A refusal never reaches here — that gets
+ * the access notice instead.
+ */
+function describeFolderFailure(error: unknown): string {
+  if (isGone(error)) {
+    return (
+      `ARC couldn't find ${OPEN_ORDERS_PATH} on ALTRONICSALESTEAM. ` +
+      "Either no reports have been generated there yet, or your account can't " +
+      "see that folder — an admin can confirm which."
+    );
+  }
+  return `Couldn't read ${OPEN_ORDERS_PATH}: ${
+    error instanceof Error ? error.message : "unknown error"
+  }`;
+}
 
 const CADENCE_NOTE =
   "This is a once-a-week job. Export the open orders report out of SAP, upload it here, " +
@@ -150,10 +175,7 @@ export function OpenOrdersView() {
             onRetry={retryFiles}
           />
         ) : filesError ? (
-          <Empty>
-            Couldn't read the OPEN ORDERS folder —{" "}
-            {filesError instanceof Error ? filesError.message : "unknown error"}
-          </Empty>
+          <Empty>{describeFolderFailure(filesError)}</Empty>
         ) : masters.length === 0 ? (
           <Empty>No master dashboard yet — build one with the tool below.</Empty>
         ) : (

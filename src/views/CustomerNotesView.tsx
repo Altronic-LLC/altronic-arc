@@ -143,6 +143,24 @@ export function CustomerNotesView() {
               Try again
             </button>
           </div>
+        ) : notes.length === 0 ? (
+          // The read SUCCEEDED and came back with nothing. SharePoint answers
+          // an item-level permission problem exactly this way — 200 with zero
+          // rows, security-trimmed — so ARC cannot tell "this list is empty"
+          // from "none of its rows are yours to see" and must not claim
+          // either (Tim, 2026-09-24: no lock, no error, just an empty table
+          // on a list that has a hundred rows in it). Naming the possibility
+          // is the most it can honestly do.
+          <div className="px-4 py-10 text-center text-sm text-fg-muted">
+            <p className="font-medium text-fg">No customers to show.</p>
+            <p className="mx-auto mt-1 max-w-md">
+              SharePoint returned this list with no rows. If you expect records
+              here, your account may be able to open the list without being able
+              to see its items — ask an admin to check your permissions on the{" "}
+              <span className="font-mono text-xs">ALTRONICSALESTEAM/OrderEntry</span>{" "}
+              Customer Notes list.
+            </p>
+          </div>
         ) : filtered.length === 0 ? (
           <div className="px-4 py-10 text-center text-sm text-fg-muted">
             No customers match these filters.
