@@ -222,6 +222,7 @@ src/
 │
 ├── api/                          All mock/real branches live here (USE_MOCK)
 │   ├── config.ts                 USE_MOCK, SITES registry, every list ID, role-enforcement flags
+│   ├── appAccess.ts              Which lists each app needs + site labels (drives the access gating)
 │   ├── graph.ts                  graphFetch / graphFetchAll, throttle retry, ONE shared interactive sign-in
 │   ├── sharepoint.ts             SharePoint REST helper (list-item attachments)
 │   ├── directory.ts              Tenant staff directory (Graph /users) for the pickers
@@ -359,6 +360,7 @@ src/
 │   ├── useFilters.ts             URL-backed task filter state + filterSearch()
 │   ├── useEirFilters.ts          URL-backed EIR filter state + eirFilterSearch()
 │   ├── useSessionExpiry.ts       Shared "the token died" flag AuthGate watches
+│   ├── useListAccess.ts          Shared "SharePoint refused this list" store (banner + nav gating)
 │   ├── useSortableTable.ts       Sort + column-filter state for a table (wraps tableSort)
 │   ├── useVersionCheck.ts        Polls version.json → update banner
 │   ├── useUnseenMentions.ts      Unseen-@-mention badge state
@@ -390,6 +392,7 @@ src/
 │   ├── eirProjectReference.ts    Who may change an EIR's Project Reference (hard-coded)
 │   ├── recipientAudit.ts         Checks configured alert addresses against the directory
 │   ├── listWriteErrors.ts        A refused SharePoint write, in words
+│   ├── listAccess.ts             A refused Graph READ — which list/site, and the wording
 │   ├── ecnFields.ts              ECN column descriptors (field_2 … field_12 decoded)
 │   ├── ecnMapper.ts              Graph item → Ecn, Log# parsing/sorting
 │   ├── ecnChecklistTemplate.ts   The 84 MFGFRM-038 items as DATA (generated, verbatim)
@@ -566,6 +569,7 @@ src/
 │   ├── PcbChecklistCard.tsx      PCB checklist on a task
 │   ├── NotifyAppManagerButton.tsx  "Report issue" button + modal
 │   ├── ListAccessNotice.tsx        SharePoint list permission notice + retry
+│   ├── ListAccessBanner.tsx        App-wide "you don't have access to X" banner
 │   ├── MermaidDiagram.tsx        (legacy) Mermaid renderer
 │   ├── atoms.tsx                 Badges, chips, status colours
 │   ├── operationsAtoms.tsx       Operations-specific badges/chips
@@ -6354,6 +6358,71 @@ told whoever she asked nothing about what to change.
 A refused delete also invalidates the query, because nothing was removed and the
 row is still on screen — without the refetch the list can drift from SharePoint
 after a failure.
+
+### A refused list is said out loud, app-wide — and closes the doors to itself
+
+The other half of the rule above, for READS. Every hook in ARC falls back to
+`?? []`, so a list SharePoint refuses renders as an empty list — "you can't see
+this" and "there's nothing here" look identical, and the Add entry button stays
+enabled until the save is refused too. Five screens were taught to explain this
+by hand in v0.164.4 (`ListAccessNotice`); there are eighty-odd screens, so
+v0.165.0 made it app-wide instead of continuing one at a time.
+
+Four pieces, each with one job:
+
+- **`lib/listAccess.ts`** — pure. Parses the site and list out of a `GraphError`
+  URL, and decides whether an error was the permission boundary at all.
+- **`api/appAccess.ts`** — the registry: which lists each app needs, and what to
+  call each site. Read by the banner, the Departments menu AND the Dashboard
+  cards, because two copies of "which list is behind Teradyne Log" is how a fix
+  reaches the menu and not the card. It lives in `api/` beside `config.ts`,
+  since that is where list ids already live and `lib/` deliberately doesn't
+  import `api/`.
+- **`hooks/useListAccess.ts`** — the store, fed from the ONE place every read
+  and write already flows through: the `QueryCache` / `MutationCache` onError
+  handlers in `main.tsx`, exactly like the session-expiry store beside it. No
+  feature wires itself up; a refused list registers wherever it was first
+  touched.
+- **`components/ListAccessBanner.tsx`** — the app-wide notice, next to
+  `UpdateAvailableBanner`.
+
+Seven things that are load-bearing:
+
+- **The denial check is STRICTER than `isPermissionDenied`** in
+  `lib/listWriteErrors.ts`, which also matches "unauthorized" anywhere in the
+  body. That looseness is right for a toast on a write the user just attempted
+  and wrong here, because this answer disables navigation: a 401 is a dead
+  session, and it must reach the sign-in screen rather than tell somebody they
+  lack access they actually have. 403 or a body carrying `accessDenied`, and
+  nothing else.
+- **A refused LIST never marks its SITE denied.** Somebody can hold access to
+  twenty lists on Altronic_Engineering and not the twenty-first; marking the
+  site would lock every other app on it. The site is remembered separately
+  (`implicatedSites`) purely so the banner can name somewhere to ask about.
+- **An app is unavailable only when EVERY list it names is refused.** Most apps
+  name one, so the readings coincide — it matters for Drawing File Logs' four
+  registers and the QC families, where one refused register still leaves a
+  working screen. Partial refusals are the in-screen notice's job.
+- **`lists: []` means "site-level detection only"** (Project Folders is a
+  document library, not a list) and must never read as "every list denied".
+- **Nothing is HIDDEN.** A locked card and a locked menu row still show the
+  app's name plus a padlock. An entry that vanishes reads as ARC having lost a
+  feature and gives the user nothing to ask for. A "Soon" placeholder and a
+  locked app are also kept visually distinct — they mean different things.
+- **It is DEDUCED, not probed, and deliberately NOT persisted.** ARC only knows
+  a list is out of reach once something has tried to read it — the Dashboard,
+  which queries most lists for its counts, is what usually teaches it. Probing
+  every list at sign-in would be sixty-odd extra requests to answer a question
+  that is almost always "yes". And a denial cached in storage outlives the
+  problem: somebody granted access at 9am would stay locked out until they
+  closed the tab. In memory, a reload re-learns the truth.
+- **"Check again" clears the store BEFORE refetching**, so anything since
+  granted stops being hidden immediately and anything still refused simply
+  registers again a moment later.
+
+The three "does the gate exist" tests were verified by disabling each gate and
+watching them fail — a test that passes either way is how this class of feature
+rots.
 
 ### Mail that doesn't send says so
 

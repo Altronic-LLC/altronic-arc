@@ -56,6 +56,8 @@ import { usePanelTasks } from "@/hooks/usePanelTasks";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useCollapsedSections } from "@/hooks/useCollapsedSections";
 import { isSessionExpiredError } from "@/hooks/useSessionExpiry";
+import { useAccessDenials } from "@/hooks/useListAccess";
+import { isPathUnavailable } from "@/api/appAccess";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { SingleSelect } from "@/components/SearchableSelect";
 import {
@@ -760,6 +762,7 @@ export function DashboardView() {
           count={taskCard.count}
           unit="active"
           segments={taskCard.segments}
+          to={tasksUrl}
           onClick={() => navigate(tasksUrl)}
         />
         <TypeCard
@@ -769,6 +772,7 @@ export function DashboardView() {
           count={eirCard.count}
           unit="open"
           segments={eirCard.segments}
+          to={eirsUrl}
           onClick={() => navigate(eirsUrl)}
         />
         <TypeCard
@@ -777,6 +781,7 @@ export function DashboardView() {
           tone="cooper-green"
           count={testCount}
           unit="records"
+          to={"/test-sheets"}
           onClick={() => navigate("/test-sheets")}
         />
         <TypeCard
@@ -785,6 +790,7 @@ export function DashboardView() {
           tone="ajax-yellow"
           count={folderCount}
           unit="folders"
+          to={"/project-folders"}
           onClick={() => navigate("/project-folders")}
         />
         <TypeCard
@@ -794,6 +800,7 @@ export function DashboardView() {
           count={buildRequestCard.count}
           unit="open"
           segments={buildRequestCard.segments}
+          to={buildRequestsUrl}
           onClick={() => navigate(buildRequestsUrl)}
         />
         <TypeCard
@@ -803,6 +810,7 @@ export function DashboardView() {
           description="CAD, CCC and CEC drawings plus Engineering Sketches — part numbers, revisions and change logs."
           // No count: four registers of different shapes have no one meaningful
           // number, and no `segments` either — a register has no active/done state.
+          to={"/drawing-logs"}
           onClick={() => navigate("/drawing-logs")}
         />
         <TypeCard
@@ -812,6 +820,7 @@ export function DashboardView() {
           count={csaListings.length}
           unit="on file"
           // No `segments` — a certification register has no active/done states.
+          to={"/csa-listings"}
           onClick={() => navigate("/csa-listings")}
         />
         <TypeCard
@@ -819,6 +828,7 @@ export function DashboardView() {
           icon={<CalendarDays className="h-5 w-5" />}
           tone="cooper-red"
           description="Who's out of the office and where the team is — a calendar on a computer, an agenda on your phone."
+          to={"/engineering/where-am-i"}
           onClick={() => navigate("/engineering/where-am-i")}
         />
         <TypeCard
@@ -828,6 +838,7 @@ export function DashboardView() {
           count={ecnCard.count}
           unit="on file"
           segments={ecnCard.segments}
+          to={ecnsUrl}
           onClick={() => navigate(ecnsUrl)}
         />
       </DeptSection>
@@ -847,6 +858,7 @@ export function DashboardView() {
           count={panelOrderCard.count}
           unit="open"
           segments={panelOrderCard.segments}
+          to={panelOrdersUrl}
           onClick={() => navigate(panelOrdersUrl)}
         />
         <TypeCard
@@ -856,6 +868,7 @@ export function DashboardView() {
           count={panelTaskCard.count}
           unit="open"
           segments={panelTaskCard.segments}
+          to={panelTasksUrl}
           onClick={() => navigate(panelTasksUrl)}
         />
         <TypeCard
@@ -863,6 +876,7 @@ export function DashboardView() {
           icon={<Timer className="h-5 w-5" />}
           tone="ajax-yellow"
           description="Hours QC spent on each panel — who did the work, when, and how long."
+          to={"/panels/qc-time-tracking"}
           onClick={() => navigate("/panels/qc-time-tracking")}
         />
         <TypeCard
@@ -870,6 +884,7 @@ export function DashboardView() {
           icon={<ClipboardCheck className="h-5 w-5" />}
           tone="cooper-green"
           description="Track panel and board defects from production through resolution."
+          to={"/panels/qc-issues"}
           onClick={() => navigate("/panels/qc-issues")}
         />
         <PlaceholderCard name="Project Folders" icon={<FolderOpen className="h-5 w-5" />} />
@@ -890,6 +905,7 @@ export function DashboardView() {
           count={operationsTaskCard.count}
           unit="active"
           segments={operationsTaskCard.segments}
+          to={operationsTasksUrl}
           onClick={() => navigate(operationsTasksUrl)}
         />
         <TypeCard
@@ -899,6 +915,7 @@ export function DashboardView() {
           description="Board test failures off the Teradyne / Spea stations — what failed, on which product, and who ran it."
           // No count, and no `segments` — an append-only log has no active/done
           // state, and the year's running total isn't what anyone comes here for.
+          to={"/operations/teradyne"}
           onClick={() => navigate("/operations/teradyne")}
         />
         <TypeCard
@@ -915,6 +932,7 @@ export function DashboardView() {
               ? `${maintenanceCard.overdue} overdue`
               : "Work orders, scheduled maintenance and the plant's asset register."
           }
+          to={"/operations/maintenance/calendar"}
           onClick={() => navigate("/operations/maintenance/calendar")}
         />
       </DeptSection>
@@ -929,6 +947,7 @@ export function DashboardView() {
           icon={<ClipboardList className="h-5 w-5" />}
           tone="cooper-red"
           description="Log potting sample weight and volume; out-of-limit samples email the PSR notification list."
+          to={"/coils/potting-sample-log"}
           onClick={() => navigate("/coils/potting-sample-log")}
         />
         <TypeCard
@@ -936,6 +955,7 @@ export function DashboardView() {
           icon={<FileText className="h-5 w-5" />}
           tone="superior-blue"
           description="Production failures, named defect counts, and Other-fault detail from the coil quality log."
+          to={"/coils/defect-log"}
           onClick={() => navigate("/coils/defect-log")}
         />
       </DeptSection>
@@ -950,6 +970,7 @@ export function DashboardView() {
           icon={<TestTubes className="h-5 w-5" />}
           tone="cooper-red"
           description="Product-family defect tracking with quick filtering and add-entry capture."
+          to={"/digital-qc"}
           onClick={() => navigate("/digital-qc")}
         />
         <TypeCard
@@ -957,6 +978,7 @@ export function DashboardView() {
           icon={<TestTubes className="h-5 w-5" />}
           tone="cooper-red"
           description="Product-family defect tracking with quick filtering and add-entry capture."
+          to={"/ignition-qc"}
           onClick={() => navigate("/ignition-qc")}
         />
         <TypeCard
@@ -964,6 +986,7 @@ export function DashboardView() {
           icon={<FileCheck className="h-5 w-5" />}
           tone="superior-blue"
           description="Digitized paper QC/test forms — start with QCFRM-012, the CPU-95 ignition module test sheet."
+          to={"/qc-forms"}
           onClick={() => navigate("/qc-forms")}
         />
       </DeptSection>
@@ -978,6 +1001,7 @@ export function DashboardView() {
           icon={<PackageSearch className="h-5 w-5" />}
           tone="ajax-yellow"
           description="Parts bought outside normal distribution — request, purchasing, test, inspection and sign-off."
+          to={"/supply-chain/gray-market-requests"}
           onClick={() => navigate("/supply-chain/gray-market-requests")}
         />
         <TypeCard
@@ -985,6 +1009,7 @@ export function DashboardView() {
           icon={<Building2 className="h-5 w-5" />}
           tone="cooper-green"
           description="The SRM tool — every supplier, their contacts and their open issues in one place."
+          to={"/supply-chain/suppliers"}
           onClick={() => navigate("/supply-chain/suppliers")}
         />
         <TypeCard
@@ -992,6 +1017,7 @@ export function DashboardView() {
           icon={<DollarSign className="h-5 w-5" />}
           tone="cooper-red"
           description="A purchased part's cost changed — original, new, the delta, and how soon it bites."
+          to={"/supply-chain/cost-impact-notices"}
           onClick={() => navigate("/supply-chain/cost-impact-notices")}
         />
         <TypeCard
@@ -1001,6 +1027,7 @@ export function DashboardView() {
           count={faitCard.count}
           unit="open"
           segments={faitCard.segments}
+          to={faitsUrl}
           onClick={() => navigate(faitsUrl)}
         />
         {/* Shares superior-blue with FAITs on purpose. The section's four
@@ -1015,6 +1042,7 @@ export function DashboardView() {
           tone="superior-blue"
           count={mrbCard.count}
           unit="need a disposition"
+          to={"/supply-chain/mrb"}
           onClick={() => navigate("/supply-chain/mrb")}
         />
       </DeptSection>
@@ -1029,6 +1057,7 @@ export function DashboardView() {
           icon={<FileSpreadsheet className="h-5 w-5" />}
           tone="superior-blue"
           description="The weekly open orders dashboard, and each customer's own workbook to send on."
+          to={"/sales/open-orders"}
           onClick={() => navigate("/sales/open-orders")}
         />
         <TypeCard
@@ -1036,6 +1065,7 @@ export function DashboardView() {
           icon={<MapPin className="h-5 w-5" />}
           tone="cooper-red"
           description="Customer visits filed by the regional managers — who they saw, why, and what needs doing next."
+          to={"/sales/visit-reports"}
           onClick={() => navigate("/sales/visit-reports")}
         />
         <TypeCard
@@ -1043,6 +1073,7 @@ export function DashboardView() {
           icon={<Users className="h-5 w-5" />}
           tone="superior-blue"
           description="The CRM tool — a customer, their contacts, special pricing and capacity notes."
+          to={"/sales/customers"}
           onClick={() => navigate("/sales/customers")}
         />
         <PlaceholderCard name="Customer Feedback" icon={<MessageSquare className="h-5 w-5" />} />
@@ -1201,6 +1232,7 @@ function TypeCard({
   unit,
   description,
   segments,
+  to,
   onClick,
 }: {
   name: string;
@@ -1216,9 +1248,43 @@ function TypeCard({
    */
   description?: string;
   segments?: Segment[];
+  /**
+   * The route this card opens. Also how the card knows whether the user can
+   * get in at all — a card whose SharePoint list has already been refused
+   * renders locked instead of sending somebody to a screen that can only
+   * tell them no. Kept as one prop rather than a separate `appKey` so the
+   * destination and the access check can never disagree.
+   */
+  to: string;
   onClick: () => void;
 }) {
   const t = TONE[tone] ?? TONE["superior-blue"];
+  const denials = useAccessDenials();
+  const unavailable = isPathUnavailable(to, denials);
+
+  if (unavailable) {
+    return (
+      <div
+        className="flex flex-col gap-3 rounded-lg border border-border bg-surface/60 p-4 opacity-70 sm:p-5"
+        aria-disabled="true"
+        title={`${name} — you don't have SharePoint access to this list`}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className={cn("flex h-9 w-9 items-center justify-center rounded-md", t.chip, t.text)}>
+              {icon}
+            </span>
+            <span className="font-display text-sm font-semibold text-fg">{name}</span>
+          </div>
+          <Lock className="h-4 w-4 text-fg-muted" />
+        </div>
+        <p className="text-sm leading-snug text-fg-muted">
+          No access — ask an admin for access to this SharePoint list.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <button
       onClick={onClick}

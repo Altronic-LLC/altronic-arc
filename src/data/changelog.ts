@@ -20,6 +20,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.165.0",
+    date: "2026-09-24",
+    changes: [
+      "ARC now tells you, anywhere in the app, when a screen's SharePoint data can't be loaded for your account — instead of showing an empty list as though there were nothing to see",
+      "The notice names the app and the SharePoint site to ask an admin about, and has a Check again action for the moment access is granted",
+      "Dashboard cards and Departments menu entries for an app you don't have access to are now locked, so you aren't sent to a screen that can only turn you away",
+      "Nothing is hidden — a locked app still shows its name and a padlock, so you can see it exists and ask for it",
+    ],
+  },
+  {
     version: "0.164.4",
     date: "2026-09-24",
     changes: [

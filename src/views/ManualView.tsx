@@ -99,6 +99,65 @@ const SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: "sharepoint-access",
+    title: "When you don't have access to something",
+    keywords: [
+      "no access",
+      "access denied",
+      "permission",
+      "permissions",
+      "padlock",
+      "locked",
+      "greyed out",
+      "empty list",
+      "nothing showing",
+      "can't see records",
+      "sharepoint access",
+      "ask an admin",
+      "check again",
+    ],
+    searchText:
+      "ARC reads its data from SharePoint lists, and access to those lists is granted per site by an administrator — it is not something ARC controls. If your account can't read a list, ARC says so rather than showing an empty screen. A banner appears across the top of the app naming the app or apps affected and the SharePoint site to ask about, with a Check again button to press once access has been granted. On the Dashboard, a card for an app you can't reach shows a padlock and can't be clicked. In the Departments menu, the same app shows a padlock instead of a link. Nothing is hidden — you can still see that the app exists, which is what you ask for access to. A padlock is different from a Soon label, which means the app hasn't been built yet. Ask an admin, or the IT service desk, for access to the named SharePoint site; once granted, press Check again or reload ARC. Reference lists behind a screen count too, so a screen can say it is unavailable when the main list is fine but a lookup list behind it is not.",
+    render: () => (
+      <>
+        <P>
+          ARC reads everything from SharePoint lists, and who can read which
+          list is decided in SharePoint by an administrator — not in ARC. If
+          your account can't read one, ARC tells you instead of showing an
+          empty screen that looks like there's simply nothing there.
+        </P>
+        <H3>What you'll see</H3>
+        <P>
+          A banner appears across the top of the app naming what's affected and
+          the SharePoint site to ask about. On the Dashboard, the card for that
+          app shows a <strong>padlock</strong> and can't be clicked; in the{" "}
+          <strong>Departments</strong> menu, the same app shows a padlock
+          instead of a link. Inside a screen you've already opened, you'll get
+          a notice in place of the list.
+        </P>
+        <P>
+          Nothing is hidden. A locked app still shows its name, because that's
+          what you need in order to ask for it. A padlock is not the same as a{" "}
+          <strong>Soon</strong> label — Soon means the app hasn't been built
+          yet.
+        </P>
+        <H3>Getting it fixed</H3>
+        <P>
+          Ask an admin or the IT service desk for access to the SharePoint site
+          named in the message. Once it's granted, press{" "}
+          <strong>Check again</strong> on the banner — no need to sign out.
+        </P>
+        <P>
+          Some screens also read smaller lookup lists behind the scenes (part
+          numbers, employees, remarks). If one of those is out of reach the
+          screen will say so and stop you adding a new entry, even though the
+          main list is fine — that's deliberate, so a half-saved entry can't be
+          lost.
+        </P>
+      </>
+    ),
+  },
+  {
     id: "dashboard",
     title: "The Dashboard",
     keywords: [
