@@ -5503,6 +5503,54 @@ carried, since the status pills are component state the URL isn't kept in step
 with. Keep the URL as the source of truth — a filtered view being shareable is
 promised in the manual.
 
+### A test must not depend on a `VITE_*` var being set — CI has none
+
+**`npm test` gates the deploy, and CI has no `.env.local`.** So does a fresh
+clone. Any test that reads a value out of `src/api/config.ts` is reading
+`undefined` there, however green it is on a configured machine.
+
+This is structural, not an oversight: in `.github/workflows/deploy.yml` the
+**Test** step is a bare `run: npm test` with no `env:` block, and the long
+list of `VITE_*` values belongs to the **Build** step below it. Tests are
+*meant* to run unconfigured — so that is the environment to write them for.
+
+v0.165.0's deploy failed on exactly this, in two of its own new files:
+
+```
+appAccess.test.ts   > de-dupes an app registered at more than one route
+accessProbe.test.ts > de-dupes an app registered at more than one route
+    AssertionError: expected [] to have a length of 1
+```
+
+Both asked the live `APPS` registry for Engineering Tasks' list id. **`SP_LIST_ID`
+has no default in `config.ts`** — unlike most list ids, which carry a
+documented fallback — so `ids()` filtered it out, the registry entry carried
+`lists: []`, the denial matched nothing, and the assertion ran against an
+empty array. The code was correct the whole time; only the fixture was
+environment-dependent.
+
+Three rules:
+
+- **Build the fixture, don't read the registry** — `accessProbe.test.ts`
+  already constructed hand-written `AppSpec` objects for every other case;
+  this one case reached into `APPS` and was the one that broke.
+- **Where a function only accepts real registry data** (`unavailableAppLabels`
+  takes denials, not apps), key the test off something that is ALWAYS
+  defined. A **site** id always is; a list id may not be.
+- **Check which ids actually have defaults before relying on one.** Several
+  are deliberately unset so a feature stays off until somebody turns it on
+  (`SP_EIR_ROLES_LIST_ID`, `SP_MAINTENANCE_ROLES_LIST_ID`,
+  `SP_QUICK_LINKS_LIST_ID`, `SP_ECN_CHECKLISTS_LIST_ID`) — that is a feature,
+  not an oversight, and a test must not assume otherwise.
+
+**Reproduce it the way CI sees it**: temporarily move `.env.local` aside and
+run the suite. That is the whole difference, and it takes a moment.
+
+`api/appAccess.envGap.test.ts` is the standing guard — it asserts the registry
+stays well-formed with nothing configured, and that Engineering Tasks really
+is registered at three routes, since both de-dupe cases quietly stop testing
+anything if that ever changes.
+
 ### A row-cap test must not render 150 real rows — it gates the deploy
 
 `npm test` runs in the deploy workflow and **must pass to deploy**. On

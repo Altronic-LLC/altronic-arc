@@ -342,7 +342,9 @@ describe("TeradyneLogView — a log too big to render whole", () => {
       expect(screen.getByText(/showing the newest 200 of 500 matching entries/i)).toBeInTheDocument(),
     );
     // 200 body rows + 1 header row.
-    expect(screen.getAllByRole("row")).toHaveLength(201);
+    // NOT getAllByRole("row") — that builds an a11y tree over all 201 rows
+    // and is the dominant cost in a capped-list test (see CLAUDE.md).
+    expect(document.querySelectorAll("tr")).toHaveLength(201);
     expect(screen.getByText("Board 0")).toBeInTheDocument();
     expect(screen.queryByText("Board 400")).not.toBeInTheDocument();
   });
@@ -355,22 +357,27 @@ describe("TeradyneLogView — a log too big to render whole", () => {
     );
   });
 
-  // Putting 500 rows × 10 cells into jsdom and then querying them all is
-  // genuinely slow — comfortably inside the 5s default alone, but not when the
-  // suite runs this file alongside everything else. The generous timeout is
-  // about machine load, not about the assertion being uncertain.
+  // Putting 500 rows × 10 cells into jsdom is genuinely slow. This FAILED the
+  // v0.165.0 deploy on timing alone while passing in isolation — the exact
+  // trap CLAUDE.md documents for row-cap tests. Three fixes from that note,
+  // cheapest first: match TEXT rather than a role (a *ByRole query builds an
+  // a11y tree across the whole document and was ~87% of the runtime), count
+  // rows with a flat DOM query, and drop userEvent's inter-event delay, which
+  // drags a re-render of every row behind each tick.
   it("renders the rest on 'Show all'", async () => {
+    const user = userEvent.setup({ delay: null });
     await renderBig();
-    await userEvent.click(await screen.findByRole("button", { name: /show all 500 entries/i }));
-    await waitFor(() => expect(screen.getAllByRole("row")).toHaveLength(501));
+    await user.click(screen.getByText(/show all 500 entries/i));
+    await waitFor(() => expect(document.querySelectorAll("tr")).toHaveLength(501));
     expect(screen.getByText("Board 400")).toBeInTheDocument();
     expect(screen.queryByText(/showing the newest/i)).not.toBeInTheDocument();
   }, 20_000);
 
   it("drops the cap once a filter narrows the log below it", async () => {
+    const user = userEvent.setup({ delay: null });
     await renderBig();
     // "Board 499" matches exactly one entry.
-    await userEvent.type(screen.getByPlaceholderText(/search anything/i), "Board 499");
+    await user.type(screen.getByPlaceholderText(/search anything/i), "Board 499");
     await waitFor(() => expect(screen.getByText(/showing 1 of 500 entries/i)).toBeInTheDocument());
     expect(screen.queryByRole("button", { name: /show all/i })).not.toBeInTheDocument();
   });

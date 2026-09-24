@@ -69,10 +69,22 @@ describe("probeTargets", () => {
   });
 
   it("de-dupes an app registered at more than one route", () => {
-    // Engineering Tasks appears at /list, /kanban and /task — one list.
-    const engineeringTasks = APPS.filter((a) => a.label === "Engineering Tasks");
-    expect(engineeringTasks.length).toBeGreaterThan(1);
-    expect(probeTargets(engineeringTasks).filter((t) => t.kind === "list")).toHaveLength(1);
+    // Engineering Tasks is registered at /list, /kanban and /task, all on one
+    // list — it must be probed ONCE.
+    //
+    // Built as a fixture rather than read out of the live APPS registry: the
+    // real entries get their list id from `SP_LIST_ID`, which has no default
+    // in config.ts, so with no .env.local (CI, and any fresh clone) their
+    // `lists` are EMPTY and there is nothing to de-dupe. That made this case
+    // pass locally and fail the deploy — see the same note in
+    // appAccess.test.ts.
+    const routes: AppSpec[] = ["/list", "/kanban", "/task"].map((path) => ({
+      path,
+      label: "Engineering Tasks",
+      site: "engineering",
+      lists: ["task-list-id"],
+    }));
+    expect(probeTargets(routes).filter((t) => t.kind === "list")).toHaveLength(1);
   });
 
   it("gives every target a distinct id", () => {

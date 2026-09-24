@@ -210,8 +210,19 @@ describe("unavailableAppLabels", () => {
   });
 
   it("de-dupes an app registered at more than one route", () => {
-    // Engineering Tasks is registered at /list, /kanban and /task.
-    const labels = unavailableAppLabels(denials({ lists: APPS.find((a) => a.path === "/list")!.lists }));
+    // Engineering Tasks is registered at /list, /kanban and /task, so a
+    // denial that hits it must still name it ONCE.
+    //
+    // Denied by SITE, not by list id. Its list comes from `SP_LIST_ID`,
+    // which has no default in config.ts — so with no .env.local (CI, and any
+    // fresh clone) the registry entries carry `lists: []`, the denial matches
+    // nothing, and this asserted against an empty array. It passed locally
+    // and failed the deploy (v0.165.0). A site id is always defined, and it
+    // exercises the same de-dupe.
+    const multiRoute = APPS.filter((a) => a.label === "Engineering Tasks");
+    expect(multiRoute.length).toBeGreaterThan(1);
+
+    const labels = unavailableAppLabels(denials({ sites: [SITES[multiRoute[0].site]] }));
     expect(labels.filter((l) => l === "Engineering Tasks")).toHaveLength(1);
   });
 
