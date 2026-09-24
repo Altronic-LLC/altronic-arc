@@ -6435,6 +6435,16 @@ Seven things that are load-bearing:
   and only the `needsDrive` apps (Project Folders, Open Orders Report) read it.
   An earlier version recorded a drive 403 as a site denial, which would have
   locked Visit Reports over a folder nobody had shared.
+- **The probe asks about each SITE too, and a refused site takes its SUBSITES
+  with it.** `salesOrderEntry` is a subsite of `salesTeam` (Tim, 2026-09-24:
+  "if I don't have access to salesTeam I won't have access to
+  salesOrderEntry"), so `isAppUnavailable` walks `siteAncestry`, not the app's
+  own site id. Five site probes also answer for the multi-list apps the probe
+  skips: "no access to Altronic_Engineering at all" locks Drawing File Logs and
+  both QC logs without probing their fifty-seven registers.
+  **The inference is one-directional.** A refused SUBSITE says nothing about
+  its parent — a subsite can break inheritance and be shared with people who
+  can't open the site above it, so `SITE_PARENTS` is only ever read upward.
 - **It is deliberately NOT persisted.** A denial cached in storage outlives the
   problem: somebody granted access at 9am would stay locked out until they
   closed the tab. In memory a reload re-learns the truth — which the probe

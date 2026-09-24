@@ -195,6 +195,9 @@ export function useAccessProbe(): void {
 
   useEffect(() => {
     if (!data) return;
+    // Sites first: one refused site answers for every app on it — and for the
+    // apps on any subsite below it (SITE_PARENTS in api/appAccess.ts).
+    for (const siteId of data.deniedSites) markSiteDenied(siteId);
     for (const denied of data.deniedLists) markListDenied(denied.listId, denied.siteId);
     for (const siteId of data.deniedDrives) markDriveDenied(siteId);
   }, [data]);

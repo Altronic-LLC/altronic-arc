@@ -5,6 +5,7 @@ import {
   isAppUnavailable,
   isPathUnavailable,
   normalisePath,
+  siteAncestry,
   siteLabelForId,
   unavailableAppLabels,
   type AccessDenials,
@@ -93,6 +94,28 @@ describe("isAppUnavailable", () => {
   it("locks a file-backed app when its document library is refused", () => {
     const folders = APPS.find((a) => a.label === "Project Folders")!;
     expect(isAppUnavailable(folders, denials({ drives: [SITES.engineering] }))).toBe(true);
+  });
+
+  it("a refused PARENT site locks its subsite's apps", () => {
+    // OrderEntry is a subsite of the Sales Team site: no access to
+    // ALTRONICSALESTEAM means no access to OrderEntry under it (Tim,
+    // 2026-09-24). Exact-match on the app's own site id missed this.
+    const customers = APPS.find((a) => a.label === "Customers")!;
+    expect(customers.site).toBe("salesOrderEntry");
+    expect(isAppUnavailable(customers, denials({ sites: [SITES.salesTeam] }))).toBe(true);
+  });
+
+  it("does NOT infer the parent from a refused SUBSITE", () => {
+    // A subsite can break permission inheritance and be shared with people
+    // who can't open the parent, so this direction is not safe to assume.
+    const visits = APPS.find((a) => a.label === "Visit Reports")!;
+    expect(visits.site).toBe("salesTeam");
+    expect(isAppUnavailable(visits, denials({ sites: [SITES.salesOrderEntry] }))).toBe(false);
+  });
+
+  it("walks the ancestry, nearest first, without looping", () => {
+    expect(siteAncestry("salesOrderEntry")).toEqual(["salesOrderEntry", "salesTeam"]);
+    expect(siteAncestry("engineering")).toEqual(["engineering"]);
   });
 
   it("does NOT let a refused library lock the site's other apps", () => {

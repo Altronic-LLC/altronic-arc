@@ -30,7 +30,8 @@ export interface ProbeTarget {
   id: string;
   url: string;
   siteId: string;
-  /** Set for a list probe; null for a document-library probe. */
+  kind: "site" | "list" | "drive";
+  /** Set only when `kind` is "list". */
   listId: string | null;
 }
 
@@ -41,6 +42,7 @@ export interface DeniedList {
 }
 
 export interface ProbeResult {
+  deniedSites: string[];
   deniedLists: DeniedList[];
   deniedDrives: string[];
 }
@@ -60,17 +62,30 @@ export interface ProbeResult {
 export function probeTargets(apps: readonly AppSpec[] = APPS): ProbeTarget[] {
   const byUrl = new Map<string, ProbeTarget>();
 
+  function add(target: Omit<ProbeTarget, "id">) {
+    if (!byUrl.has(target.url)) byUrl.set(target.url, { id: "", ...target });
+  }
+
   for (const app of apps) {
     const siteId = SITES[app.site];
 
+    // The SITE itself, once per site. Five cheap questions that answer for
+    // every app at once — including the multi-list apps skipped below, and
+    // the OrderEntry subsite, which its parent's refusal takes with it
+    // (SITE_PARENTS in appAccess.ts).
+    add({ url: `/sites/${siteId}?$select=id`, siteId, kind: "site", listId: null });
+
     if (app.lists.length === 1) {
-      const url = `/sites/${siteId}/lists/${app.lists[0]}?$select=id`;
-      if (!byUrl.has(url)) byUrl.set(url, { id: "", url, siteId, listId: app.lists[0] });
+      add({
+        url: `/sites/${siteId}/lists/${app.lists[0]}?$select=id`,
+        siteId,
+        kind: "list",
+        listId: app.lists[0],
+      });
     }
 
     if (app.needsDrive) {
-      const url = `/sites/${siteId}/drive/root?$select=id`;
-      if (!byUrl.has(url)) byUrl.set(url, { id: "", url, siteId, listId: null });
+      add({ url: `/sites/${siteId}/drive/root?$select=id`, siteId, kind: "drive", listId: null });
     }
   }
 
@@ -101,6 +116,7 @@ export function readProbeResponses(
   body: BatchResponse,
 ): ProbeResult {
   const byId = new Map(targets.map((t) => [t.id, t]));
+  const deniedSites: string[] = [];
   const deniedLists: DeniedList[] = [];
   const deniedDrives: string[] = [];
 
@@ -108,11 +124,12 @@ export function readProbeResponses(
     if (response.status !== 403) continue;
     const target = byId.get(response.id);
     if (!target) continue;
-    if (target.listId) deniedLists.push({ listId: target.listId, siteId: target.siteId });
-    else deniedDrives.push(target.siteId);
+    if (target.kind === "site") deniedSites.push(target.siteId);
+    else if (target.kind === "drive") deniedDrives.push(target.siteId);
+    else if (target.listId) deniedLists.push({ listId: target.listId, siteId: target.siteId });
   }
 
-  return { deniedLists, deniedDrives };
+  return { deniedSites, deniedLists, deniedDrives };
 }
 
 /**
@@ -121,10 +138,10 @@ export function readProbeResponses(
  * direction: a failed probe must not lock anybody out of anything.
  */
 export async function probeAppAccess(apps: readonly AppSpec[] = APPS): Promise<ProbeResult> {
-  if (USE_MOCK) return { deniedLists: [], deniedDrives: [] };
+  if (USE_MOCK) return { deniedSites: [], deniedLists: [], deniedDrives: [] };
 
   const targets = probeTargets(apps);
-  const result: ProbeResult = { deniedLists: [], deniedDrives: [] };
+  const result: ProbeResult = { deniedSites: [], deniedLists: [], deniedDrives: [] };
 
   for (const batch of chunk(targets, MAX_BATCH_SIZE)) {
     try {
@@ -135,6 +152,7 @@ export async function probeAppAccess(apps: readonly AppSpec[] = APPS): Promise<P
         }),
       });
       const batchResult = readProbeResponses(batch, body);
+      result.deniedSites.push(...batchResult.deniedSites);
       result.deniedLists.push(...batchResult.deniedLists);
       result.deniedDrives.push(...batchResult.deniedDrives);
     } catch {

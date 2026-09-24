@@ -72,6 +72,32 @@ export const SITE_LABELS: Record<SiteKey, string> = {
   pmo: "Altronic_PMO",
 };
 
+/**
+ * Which site a site sits UNDER. OrderEntry is a subsite of the Sales Team site
+ * (same site collection, different web — see the SITES registry).
+ *
+ * Refusal flows DOWNWARD only (Tim, 2026-09-24): no access to
+ * ALTRONICSALESTEAM means no access to its OrderEntry subsite, so a refused
+ * parent locks the child's apps too. The reverse is NOT true and must not be
+ * inferred — a subsite can break permission inheritance and be shared with
+ * people who can't open the parent, so a refused subsite says nothing about
+ * the site above it.
+ */
+export const SITE_PARENTS: Partial<Record<SiteKey, SiteKey>> = {
+  salesOrderEntry: "salesTeam",
+};
+
+/** A site and every site above it, nearest first. */
+export function siteAncestry(site: SiteKey): SiteKey[] {
+  const chain: SiteKey[] = [site];
+  let parent = SITE_PARENTS[site];
+  while (parent && !chain.includes(parent)) {
+    chain.push(parent);
+    parent = SITE_PARENTS[parent];
+  }
+  return chain;
+}
+
 export interface AppSpec {
   /** The route this app opens at — the key both the menu and the cards use. */
   path: string;
@@ -202,7 +228,11 @@ export interface AccessDenials {
 
 /** Is this app out of reach? See THE RULE FOR `lists` at the top of the file. */
 export function isAppUnavailable(app: AppSpec, denials: AccessDenials): boolean {
-  if (denials.sites.has(SITES[app.site])) return true;
+  // The app's own site OR any site above it — a refused parent takes its
+  // subsites with it. See SITE_PARENTS for why this is one-directional.
+  if (siteAncestry(app.site).some((site) => denials.sites.has(SITES[site]))) return true;
+  // A document library is NOT inherited this way: each site has its own, and a
+  // library's unique permissions are its own business.
   if (app.needsDrive && denials.drives.has(SITES[app.site])) return true;
   if (app.lists.length === 0) return false;
   return app.lists.every((id) => denials.lists.has(id));

@@ -33,7 +33,7 @@ const fileBacked: AppSpec = {
 
 describe("probeTargets", () => {
   it("asks about a single-list app", () => {
-    const [target] = probeTargets([singleList]);
+    const target = probeTargets([singleList]).find((t) => t.kind === "list")!;
     expect(target.url).toBe(`/sites/${SITES.pmo}/lists/list-a?$select=id`);
     expect(target.listId).toBe("list-a");
   });
@@ -44,14 +44,26 @@ describe("probeTargets", () => {
     for (const target of probeTargets()) expect(target.url).toContain("$select=id");
   });
 
-  it("SKIPS an app with more than one list", () => {
+  it("SKIPS the LISTS of an app with more than one list", () => {
     // Those are unavailable only when every register is refused, so proving
     // it costs fifty-odd sub-requests to almost always answer "they're fine".
-    expect(probeTargets([multiList])).toEqual([]);
+    // Its SITE is still probed, which covers the "no access at all" case.
+    const targets = probeTargets([multiList]);
+    expect(targets.filter((t) => t.kind === "list")).toEqual([]);
+    expect(targets.map((t) => t.kind)).toEqual(["site"]);
+  });
+
+  it("probes every site once, whatever its apps", () => {
+    const sites = probeTargets().filter((t) => t.kind === "site");
+    expect(sites).toHaveLength(new Set(sites.map((t) => t.siteId)).size);
+    expect(sites.map((t) => t.siteId)).toContain(SITES.salesTeam);
+    // The subsite is asked about in its own right too: it can be shared with
+    // people who cannot open its parent.
+    expect(sites.map((t) => t.siteId)).toContain(SITES.salesOrderEntry);
   });
 
   it("asks about the document library of a file-backed app", () => {
-    const [target] = probeTargets([fileBacked]);
+    const target = probeTargets([fileBacked]).find((t) => t.kind === "drive")!;
     expect(target.url).toBe(`/sites/${SITES.salesTeam}/drive/root?$select=id`);
     expect(target.listId).toBeNull();
   });
@@ -60,7 +72,7 @@ describe("probeTargets", () => {
     // Engineering Tasks appears at /list, /kanban and /task — one list.
     const engineeringTasks = APPS.filter((a) => a.label === "Engineering Tasks");
     expect(engineeringTasks.length).toBeGreaterThan(1);
-    expect(probeTargets(engineeringTasks)).toHaveLength(1);
+    expect(probeTargets(engineeringTasks).filter((t) => t.kind === "list")).toHaveLength(1);
   });
 
   it("gives every target a distinct id", () => {
@@ -91,15 +103,17 @@ describe("chunk", () => {
 
 describe("readProbeResponses", () => {
   const targets: ProbeTarget[] = [
-    { id: "0", url: "u0", siteId: SITES.pmo, listId: "list-a" },
-    { id: "1", url: "u1", siteId: SITES.salesTeam, listId: null },
-    { id: "2", url: "u2", siteId: SITES.engineering, listId: "list-e" },
+    { id: "0", url: "u0", siteId: SITES.pmo, kind: "list", listId: "list-a" },
+    { id: "1", url: "u1", siteId: SITES.salesTeam, kind: "drive", listId: null },
+    { id: "2", url: "u2", siteId: SITES.engineering, kind: "list", listId: "list-e" },
+    { id: "3", url: "u3", siteId: SITES.salesTeam, kind: "site", listId: null },
   ];
 
   it("records a 403 on a list", () => {
     const result = readProbeResponses(targets, { responses: [{ id: "0", status: 403 }] });
     expect(result.deniedLists).toEqual([{ listId: "list-a", siteId: SITES.pmo }]);
     expect(result.deniedDrives).toEqual([]);
+    expect(result.deniedSites).toEqual([]);
   });
 
   it("records a 403 on a library against its site", () => {
@@ -124,14 +138,27 @@ describe("readProbeResponses", () => {
         { id: "2", status: 500 },
       ],
     });
-    expect(result).toEqual({ deniedLists: [], deniedDrives: [] });
+    expect(result).toEqual({ deniedSites: [], deniedLists: [], deniedDrives: [] });
+  });
+
+  it("records a 403 on the site itself", () => {
+    // One answer for every app on that site — and for the apps on any subsite
+    // beneath it, which appAccess resolves through SITE_PARENTS.
+    const result = readProbeResponses(targets, { responses: [{ id: "3", status: 403 }] });
+    expect(result.deniedSites).toEqual([SITES.salesTeam]);
+    expect(result.deniedLists).toEqual([]);
   });
 
   it("ignores a response it didn't ask for, and an empty body", () => {
     expect(readProbeResponses(targets, { responses: [{ id: "99", status: 403 }] })).toEqual({
+      deniedSites: [],
       deniedLists: [],
       deniedDrives: [],
     });
-    expect(readProbeResponses(targets, {})).toEqual({ deniedLists: [], deniedDrives: [] });
+    expect(readProbeResponses(targets, {})).toEqual({
+      deniedSites: [],
+      deniedLists: [],
+      deniedDrives: [],
+    });
   });
 });

@@ -26,7 +26,7 @@ function wrapper({ children }: { children: ReactNode }) {
 
 beforeEach(() => {
   probeAppAccess.mockReset();
-  probeAppAccess.mockResolvedValue({ deniedLists: [], deniedDrives: [] });
+  probeAppAccess.mockResolvedValue({ deniedSites: [], deniedLists: [], deniedDrives: [] });
 });
 
 afterEach(() => clearAccessDenials());
@@ -37,6 +37,7 @@ describe("useAccessProbe", () => {
     // until he opened Visit Reports, was refused, and came back — at which
     // point one card locked and the rest still invited him in.
     probeAppAccess.mockResolvedValue({
+      deniedSites: [],
       deniedLists: [{ listId: visitReports.lists[0], siteId: SITES.salesTeam }],
       deniedDrives: [],
     });
@@ -54,6 +55,7 @@ describe("useAccessProbe", () => {
 
   it("carries the site through, so the banner can name somewhere to ask", async () => {
     probeAppAccess.mockResolvedValue({
+      deniedSites: [],
       deniedLists: [{ listId: visitReports.lists[0], siteId: SITES.salesTeam }],
       deniedDrives: [],
     });
@@ -70,7 +72,7 @@ describe("useAccessProbe", () => {
   });
 
   it("records a refused document library against its site only", async () => {
-    probeAppAccess.mockResolvedValue({ deniedLists: [], deniedDrives: [SITES.salesTeam] });
+    probeAppAccess.mockResolvedValue({ deniedSites: [], deniedLists: [], deniedDrives: [SITES.salesTeam] });
 
     const { result } = renderHook(
       () => {
@@ -115,5 +117,30 @@ describe("useAccessProbe", () => {
     act(() => clearAccessDenials());
 
     await waitFor(() => expect(probeAppAccess).toHaveBeenCalledTimes(2));
+  });
+
+  it("locks a SUBSITE's app when the parent site is refused", async () => {
+    // OrderEntry sits under ALTRONICSALESTEAM (Tim, 2026-09-24): no access to
+    // the parent means no access to the subsite, so Customers has to lock even
+    // though nothing refused its own list.
+    probeAppAccess.mockResolvedValue({
+      deniedSites: [SITES.salesTeam],
+      deniedLists: [],
+      deniedDrives: [],
+    });
+
+    const { result } = renderHook(
+      () => {
+        useAccessProbe();
+        return {
+          customers: useAppUnavailable("/sales/customers"),
+          visits: useAppUnavailable("/sales/visit-reports"),
+        };
+      },
+      { wrapper },
+    );
+
+    await waitFor(() => expect(result.current.customers).toBe(true));
+    expect(result.current.visits).toBe(true);
   });
 });
