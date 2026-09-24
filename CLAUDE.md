@@ -6208,7 +6208,10 @@ alerts only** — Engineering Tasks first. The employee path is untouched.
   the green tick says. The script's own closing output says so.
 - `scripts/add-task-last-notified-column.ps1` adds the support column.
 - `docs/POWER-AUTOMATE-GUEST-NOTIFICATIONS.md` is the reference and the
-  hand-build fallback; `docs/obsidian/` holds a vault-ready copy.
+  hand-build fallback. A vault-ready copy (frontmatter, callouts, wikilinks)
+  was moved OUT of this repo to `C:\RCW Obsidian\ARC\` on 2026-09-24, so the
+  in-repo file is the only version under version control — it is the source of
+  truth, and the vault copy does not track changes to it.
 
 Four things that are load-bearing, and the reason the doc exists rather than
 code:

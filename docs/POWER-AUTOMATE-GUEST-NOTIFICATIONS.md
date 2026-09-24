@@ -15,9 +15,12 @@ Task List only. Decided with Ray, 2026-09-23.
 > 2026-09-23 and is now guarded against, but the green tick alone is not
 > evidence the flow exists. Check **My flows** afterwards either way.
 >
-> **For Obsidian:** `docs/obsidian/ARC — Guest comment notifications (Power
-> Automate).md` is the same guide with frontmatter, callouts and wikilinks,
-> written to drop straight into a vault.
+> **For Obsidian:** a vault-ready copy of this guide — same content, with
+> frontmatter, callouts and wikilinks — lives OUTSIDE this repo, in Ray's
+> vault at `C:\RCW Obsidian\ARC\ARC — Guest comment notifications (Power
+> Automate).md` (moved there 2026-09-24). **This file is the one under
+> version control**, so a change here does NOT reach the vault copy — update
+> both, or treat this as the source of truth and re-copy.
 
 Scope deliberately narrow: **one list, guests only.** Prove it on the task list
 before adding a flow per list, and leave the employee path completely alone.
@@ -146,6 +149,7 @@ record, then take fields **from the front**.
 ```
 
 **Compose — `AuthorEmail`**
+
 
 ```
 @{trim(outputs('Fields')[2])}
