@@ -215,6 +215,20 @@ Then:
 At the **end** of the flow, **Update item** → set `LastNotifiedComment` to
 `CommentTimestamp`.
 
+> **You must also pass `Title`, echoed back unchanged:**
+> `@{triggerOutputs()?['body/Title']}`
+>
+> `Title` is a **required** column on the list, so `Update item` refuses the
+> whole action without it — *"The API operation 'PatchItem' is missing
+> required property 'item/Title'"*, and it fails at **save** time, before the
+> flow has ever run (2026-09-24).
+>
+> Echo it from the trigger rather than typing anything: this action's only job
+> is stamping `LastNotifiedComment`, so any other value would overwrite a real
+> task title every time a guest comments. And it is `Title` — the task's own
+> short title — **not** `NumberedTitle`; they are two separate columns, and
+> swapping them would rewrite every task's name.
+
 > The column is the reliable option. Comparing against the trigger's previous
 > run time is tempting and wrong — two comments inside one polling interval
 > would collapse to one notification.

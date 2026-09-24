@@ -344,9 +344,23 @@ collaborator, who cannot send from the notifications mailbox.</p>
 | **Site Address** | same as the trigger |
 | **List Name** | **Project Task List** |
 | **Id** | `triggerOutputs()?['body/ID']` (Expression) |
+| **Title** | `triggerOutputs()?['body/Title']` (Expression) |
 | **Last Notified Comment** | `outputs('CommentTimestamp')` (Expression) |
 
 **Save.**
+
+> [!danger] Title is required — the save fails without it
+> `Title` is a **required** column on the list, so `Update item` refuses the
+> whole action without it: *"The API operation 'PatchItem' is missing required
+> property 'item/Title'"*. It fails at **save** time, before the flow has ever
+> run (2026-09-24).
+>
+> **Echo it from the trigger, never type a value.** This action's only job is
+> stamping `LastNotifiedComment`, so anything else would overwrite a real task
+> title every time a guest comments.
+>
+> And it is `Title` — the task's own short title — **not** `NumberedTitle`.
+> Two separate columns; swapping them would rewrite every task's name.
 
 > [!warning] Outside the loop, not inside
 > Inside, it writes once per watcher — harmless but it makes run history much
@@ -413,6 +427,7 @@ Have the guest post `test ||| pipes`.
 | Link 404s | `/altronic-arc/` missing |
 | `items('Each watcher')` invalid | Use underscores: `items('Each_watcher')` |
 | Mail comes from a person | Flow owner is a personal account |
+| Save fails: missing `item/Title` | `Update item` needs Title echoed from the trigger — see B7 |
 | Import rejected | Package format isn't a documented contract — build by hand |
 
 ---
