@@ -33,8 +33,8 @@ vi.mock("@/components/EirRow", () => ({
 }));
 
 vi.mock("@/hooks/useCurrentUser", () => ({
-  useCurrentUser: () => ({ displayName: "Ray White", email: "ray.white@hoerbiger.com", lookupId: 122 }),
-  useCurrentUserEmails: () => ["ray.white@hoerbiger.com"],
+  useCurrentUser: () => ({ displayName: "Ray White", email: "ray.white@altronic-llc.com", lookupId: 122 }),
+  useCurrentUserEmails: () => ["ray.white@altronic-llc.com"],
 }));
 
 import { EirsView } from "./EirsView";

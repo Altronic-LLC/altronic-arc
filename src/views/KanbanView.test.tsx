@@ -42,12 +42,12 @@ function renderKanbanAt(route: string) {
 
 describe("KanbanView — phone fallback to the List", () => {
   it("carries the filters through the redirect", () => {
-    renderKanbanAt("/kanban?assigned=brandon.mirto@hoerbiger.com&q=firmware");
+    renderKanbanAt("/kanban?assigned=brandon.mirto@altronic-llc.com&q=firmware");
 
     const loc = screen.getByTestId("loc").textContent!;
     expect(loc.startsWith("/list?")).toBe(true);
     const params = new URLSearchParams(loc.slice(loc.indexOf("?")));
-    expect(params.get("assigned")).toBe("brandon.mirto@hoerbiger.com");
+    expect(params.get("assigned")).toBe("brandon.mirto@altronic-llc.com");
     expect(params.get("q")).toBe("firmware");
   });
 

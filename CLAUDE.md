@@ -409,6 +409,7 @@ src/
 │   ├── buildRequestChecklist.ts  Build Request item checklist columns + progress
 │   ├── buildRequestFromTask.ts   Task → Build Request: prefill, carried comments, the DERIVED reverse link
 │   ├── commentMirror.ts         Mirroring a comment task ⇄ BR ⇄ part: the origin banner + fan-out routing (pure)
+│   ├── guestIdentity.ts        Is this address external? One rule, shared with the Power Automate guest flow
 │   ├── operationsTaskMapper.ts   Graph item → OperationsTask
 │   ├── operationsTaskFilters.ts  Pure Operations task filter predicates
 │   ├── operationsTaskNumbering.ts Operations task numbering (mirrors taskNumbering)
@@ -4535,6 +4536,8 @@ Two things about `lib/recipientAudit.ts`:
   out a field and exactly wrong here: it would call
   `glenn.terry@altronic-llc.com` a match for `glenn.terry@hoerbiger.com` and
   hide the single most likely fault in a tenant assembled from two companies.
+  (`@hoerbiger.com` is retired as of 2026-09-23 — still the example of a wrong
+  domain, and GUESTS now supply real ones. See "`@hoerbiger.com` is RETIRED".)
 - **An empty directory reports nothing**, rather than every address as missing.
   `useDirectoryPeople` tolerates an empty result, and a slow request must not
   render a screen full of false alarms.
@@ -6052,6 +6055,146 @@ dependency, DST handled by re-checking the offset at the instant being solved
 for. Don't reintroduce `d.getHours()` / `new Date(y, m, d, …)` here: those are
 the author's-local-time bug. Tests set `process.env.TZ` explicitly, because
 "it depends where you are" IS the bug.
+
+### Guest notifications go through Power Automate, not ARC
+
+A guest (B2B) user can sign into ARC but **cannot send notification email**.
+Graph `sendMail` needs a mailbox in THIS tenant and the signed-in user needs
+Exchange Send-As + FullAccess on `automation@` — neither of which a guest can
+have, because Exchange permissions need a mail-enabled recipient object here
+and a guest's mailbox lives in their own organisation. Their comment SAVES and
+they get a clear 403 toast; the watchers are simply never emailed.
+
+Ray's call, 2026-09-23: **a Power Automate flow, for guests and scheduled
+alerts only** — Engineering Tasks first. The employee path is untouched.
+
+- `scripts/new-guest-notification-flow.ps1` GENERATES the flow as an
+  importable package, parameterised by list, so the designer never has to be
+  clicked through and the expressions can't be mis-transcribed. It writes a
+  readable `.definition.json` beside the `.zip` for review. **Deliberately a
+  package, not a direct Power Platform API call** — that API is undocumented
+  and unversioned, and the import screen forces the connections to be chosen
+  explicitly rather than failing obscurely.
+
+  **THE PACKAGE FORMAT IS COPIED FROM A REAL EXPORT, NOT INFERRED — and the
+  first attempt at inferring it FAILED SILENTLY.** Power Automate accepted a
+  plausible-looking package with *"All package resources were successfully
+  imported"*, listed **No items** under Review Package Content, and created
+  nothing (Ray, 2026-09-23, from a screenshot). Three things were wrong at
+  once, and any one of them alone produces that same silent success:
+
+  1. **`manifest.json`'s `resources` was `{}`.** That map is what the import
+     screen reads, so an empty one means an empty package however many files
+     the zip contains. **Five** entries are required: the flow, plus an
+     `apis` AND a `connections` entry per connector, wired by `dependsOn`
+     GUIDs.
+  2. **`definition.json` must be WRAPPED** — `name` / `id` / `type` /
+     `properties`, with the workflow at `properties.definition` and
+     `properties.apiId` = `shared_logicflows`. A bare workflow at the top
+     level is not read.
+  3. **Two files were missing entirely** — `Microsoft.Flow/flows/manifest.json`
+     (the `flowAssets.assetPaths` index) and the per-flow
+     `connectionsMap.json`. `apisMap.json` was also the wrong SHAPE: it maps
+     connector name → the manifest's resource GUID, not to a descriptive
+     object.
+
+  The format was recovered by diffing against
+  `FAITUpdatesNotifications_20260707130655.zip`, an export of a real flow
+  from this tenant. **If an import ever silently does nothing again, export
+  any flow and diff its package against what the script writes** — that is
+  how this was found, and it is faster than re-reading Microsoft's docs,
+  which do not describe this format at all.
+
+  **The import screen's success message is not evidence.** The check that
+  matters is whether **Review Package Content lists the flow plus two
+  connections**; "No items" there means the package is wrong no matter what
+  the green tick says. The script's own closing output says so.
+- `scripts/add-task-last-notified-column.ps1` adds the support column.
+- `docs/POWER-AUTOMATE-GUEST-NOTIFICATIONS.md` is the reference and the
+  hand-build fallback; `docs/obsidian/` holds a vault-ready copy.
+
+Four things that are load-bearing, and the reason the doc exists rather than
+code:
+
+- **SharePoint triggers the flow; ARC NEVER calls it.** An HTTP-triggered flow
+  authenticates by a secret in its URL, and ARC's bundle is public JavaScript
+  — that URL would be extractable, giving anyone a way to send mail as
+  `automation@`. Same reasoning as the QZ Tray private key, except the
+  consequence is a public spoofing endpoint. The flow watches the list, which
+  also covers comments written in SharePoint's own UI.
+- **The flow must send ONLY for external authors.** Employees are already
+  emailed by ARC, so an unconditional flow double-notifies every employee
+  comment. Its check has to stay identical to `INTERNAL_EMAIL_DOMAINS` in
+  `lib/guestIdentity.ts`.
+- **It must read only the NEWEST comment, taking fields from the FRONT.**
+  `Communication` is one column holding the whole thread. Indexing backwards
+  from the end breaks the moment a comment body contains `|||` — every field
+  shifts and the author email reads as a fragment of the body (verified
+  2026-09-23; ARC's own parser re-joins the body for this reason). Split on the
+  newline to isolate the last record, then take fields 0/1/2 and re-join the
+  rest.
+- **A `LastNotifiedComment` column stops it re-sending.** The
+  created-or-modified trigger fires on every column change, so without it a
+  status edit re-emails the last comment. `scripts/add-task-last-notified-column.ps1`
+  creates it. Comparing against the trigger's previous run time instead would
+  collapse two comments in one polling interval into one notification.
+
+**One flow per list** is the cost of this approach — hence starting with one
+and proving it.
+
+**CHECK FIRST whether the guest even needs it.** If Exchange holds a real
+`UserMailbox` for them, a Send-As grant is the whole fix. Exchange admin
+centre → Recipients. (`Connect-ExchangeOnline` crashes in the module's Windows
+broker on at least one machine here; `-Device` avoids it, the portal is
+quicker.)
+
+### `@hoerbiger.com` is RETIRED — and guests arrive on other domains
+
+Two facts recorded together on 2026-09-23 (Ray), because they interact.
+
+**The `@hoerbiger.com` domain is gone.** This tenant was assembled from
+Altronic and Hoerbiger/Cooper, and for most of ARC's life real colleagues
+carried `@hoerbiger.com` addresses — Sarah Shaffer, Brandon Mirto, Glenn
+Terry, Steven Landreth and others appear that way throughout this file's own
+examples. Those accounts are now `@altronic-llc.com`.
+
+`src/data/mockData.ts` held 25 such addresses across 8 people (Ray's own
+included) and was updated wholesale. What was deliberately NOT changed:
+
+- **A comment quoting the migration** (`hoerbigergroup.sharepoint…`) inside a
+  mock comment body. That is a historical quote about the tenant migration,
+  not an address.
+- **`scripts/*-schema.json`** — captured SharePoint schema snapshots. They are
+  records of what a list held when it was discovered; rewriting them would
+  falsify the snapshot.
+- **`recipientAudit.ts`'s examples**, which cite the old domain precisely to
+  illustrate a WRONG domain. Annotated as retired rather than replaced.
+
+**No production config was ever affected** — every configured alert list
+(`FAIT_NEW_ALERTS`, `EIR_TRIAGE_ASSIGNERS`, `COST_IMPACT_NOTICE_ALERTS`, …)
+already pointed at `@altronic-llc.com`, and `/admin/notification-recipients`
+is the screen that proves it against the live directory.
+
+**The live SharePoint person columns are a separate question this repo cannot
+answer.** If a real list row still holds a `@hoerbiger.com` address, whether
+it resolves depends on whether the Entra account was RENAMED (Graph follows
+it) or orphaned. Check before assuming ARC is at fault for a name that
+renders as `User #46`.
+
+**`sameEmail`'s local-part fallback is now a REAL misidentification risk.**
+It exists so one person with two spellings is recognised as themselves, and
+this file's own justification is that "two people sharing a local part across
+two domains doesn't occur in this tenant". **Guest (B2B) users break that
+premise**: guests arrive on arbitrary external domains, so
+`john.smith@vendor.com` matches `john.smith@altronic-llc.com` and is treated
+as the same person — by the admin check, EIR role gating, and the
+"can I edit this comment" test.
+
+Flagged, NOT yet changed (Ray's call, 2026-09-23): that helper gates
+permissions in several places, so narrowing it is its own change with its own
+tests rather than a side effect of a guest-notification feature. **If you are
+touching `emailIdentity.ts`, this is the thing to fix**: restrict the
+local-part fallback to two addresses that are BOTH on an internal domain.
 
 ### Matching a person to a stored address: `lib/emailIdentity.ts`
 

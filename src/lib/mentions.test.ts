@@ -123,12 +123,12 @@ describe("extractMentionedRecipients", () => {
 
   it("recognizes legacy Power Apps mention anchors (href=\"mention:email\")", () => {
     const html =
-      '<div><p><a href="mention:nick.sirianni@hoerbiger.com"><strong><u><em>Nick Sirianni</em></u></strong></a>' +
-      ' <a href="mention:matthew.traina@hoerbiger.com">Matthew Traina</a>&nbsp;is the data complete?</p></div>';
+      '<div><p><a href="mention:nick.sirianni@altronic-llc.com"><strong><u><em>Nick Sirianni</em></u></strong></a>' +
+      ' <a href="mention:matthew.traina@altronic-llc.com">Matthew Traina</a>&nbsp;is the data complete?</p></div>';
     const out = extractMentionedRecipients(html);
     expect(out).toEqual([
-      { email: "nick.sirianni@hoerbiger.com", displayName: "Nick Sirianni" },
-      { email: "matthew.traina@hoerbiger.com", displayName: "Matthew Traina" },
+      { email: "nick.sirianni@altronic-llc.com", displayName: "Nick Sirianni" },
+      { email: "matthew.traina@altronic-llc.com", displayName: "Matthew Traina" },
     ]);
   });
 

@@ -22,14 +22,14 @@ export const MOCK_PROJECTS: ProjectReference[] = [
 
 const projectByName = (name: string) => MOCK_PROJECTS.find((p) => p.title === name)!;
 
-const SARAH = { displayName: "Sarah Shaffer", email: "sarah.shaffer@hoerbiger.com", lookupId: 46 };
-const RAY = { displayName: "Ray White", email: "ray.white@hoerbiger.com", lookupId: 122 };
-const THOMAS = { displayName: "Thomas Terhune", email: "thomas.terhune@hoerbiger.com", lookupId: 87 };
-const CHANDANA = { displayName: "Chandana Ramisetty", email: "chandana.r@hoerbiger.com", lookupId: 134 };
-const AMANDA = { displayName: "Amanda Hoagland", email: "amanda.hoagland@hoerbiger.com", lookupId: 156 };
-const STEVEN = { displayName: "Steven Landreth", email: "steven.landreth@hoerbiger.com", lookupId: 178 };
-const FEMI = { displayName: "femi Olugbon", email: "femi.olugbon@hoerbiger.com", lookupId: 198 };
-const BRANDON = { displayName: "Brandon Mirto", email: "brandon.mirto@hoerbiger.com", lookupId: 215 };
+const SARAH = { displayName: "Sarah Shaffer", email: "sarah.shaffer@altronic-llc.com", lookupId: 46 };
+const RAY = { displayName: "Ray White", email: "ray.white@altronic-llc.com", lookupId: 122 };
+const THOMAS = { displayName: "Thomas Terhune", email: "thomas.terhune@altronic-llc.com", lookupId: 87 };
+const CHANDANA = { displayName: "Chandana Ramisetty", email: "chandana.r@altronic-llc.com", lookupId: 134 };
+const AMANDA = { displayName: "Amanda Hoagland", email: "amanda.hoagland@altronic-llc.com", lookupId: 156 };
+const STEVEN = { displayName: "Steven Landreth", email: "steven.landreth@altronic-llc.com", lookupId: 178 };
+const FEMI = { displayName: "femi Olugbon", email: "femi.olugbon@altronic-llc.com", lookupId: 198 };
+const BRANDON = { displayName: "Brandon Mirto", email: "brandon.mirto@altronic-llc.com", lookupId: 215 };
 
 const MOCK_TASKS_RAW: Omit<Task, "author" | "eirReference">[] = [
   {
@@ -57,7 +57,7 @@ const MOCK_TASKS_RAW: Omit<Task, "author" | "eirReference">[] = [
       {
         timestamp: new Date("2024-07-18T19:28:33"),
         authorName: "Sarah Shaffer",
-        authorEmail: "sarah.shaffer@hoerbiger.com",
+        authorEmail: "sarah.shaffer@altronic-llc.com",
         bodyHtml: "<div><p>PO has been received and entered. Closing this out.</p></div>",
         attachments: [],
       },
@@ -114,7 +114,7 @@ const MOCK_TASKS_RAW: Omit<Task, "author" | "eirReference">[] = [
       {
         timestamp: new Date("2025-10-29T11:48:00"),
         authorName: "Ray White",
-        authorEmail: "ray.white@hoerbiger.com",
+        authorEmail: "ray.white@altronic-llc.com",
         bodyHtml: "<p>Release tonight when you have a second.</p>",
         attachments: [],
       },
@@ -146,7 +146,7 @@ const MOCK_TASKS_RAW: Omit<Task, "author" | "eirReference">[] = [
       {
         timestamp: new Date("2025-06-02T10:34:00"),
         authorName: "Ray White",
-        authorEmail: "ray.white@hoerbiger.com",
+        authorEmail: "ray.white@altronic-llc.com",
         bodyHtml: "<p>This should be working as expected now. Please advise.</p>",
         attachments: [],
       },
@@ -178,7 +178,7 @@ const MOCK_TASKS_RAW: Omit<Task, "author" | "eirReference">[] = [
       {
         timestamp: new Date("2025-01-09T09:20:00"),
         authorName: "Ray White",
-        authorEmail: "ray.white@hoerbiger.com",
+        authorEmail: "ray.white@altronic-llc.com",
         bodyHtml:
           "<p>Thomas, per our discussion, there are only a few people able to delete items. There is no need to waste the time to create this. Training on using the system for users is suffice.</p>",
         attachments: [],
@@ -235,7 +235,7 @@ const MOCK_TASKS_RAW: Omit<Task, "author" | "eirReference">[] = [
       {
         timestamp: new Date("2025-07-14T14:13:00"),
         authorName: "femi Olugbon",
-        authorEmail: "femi.olugbon@hoerbiger.com",
+        authorEmail: "femi.olugbon@altronic-llc.com",
         bodyHtml: "<p>It is fine now, thanks!</p>",
         attachments: [],
       },
@@ -268,7 +268,7 @@ const MOCK_TASKS_RAW: Omit<Task, "author" | "eirReference">[] = [
       {
         timestamp: new Date("2025-11-25T09:12:00"),
         authorName: "Amanda Hoagland",
-        authorEmail: "amanda.hoagland@hoerbiger.com",
+        authorEmail: "amanda.hoagland@altronic-llc.com",
         bodyHtml:
           "<p><strong><u>Steven Landreth</u></strong> we have 2 AMP-5000 panels in process. One has been requested for Jon Nance and the other could be used for Engineering or Sales. Can you please send me back the redlines so we can complete the build? We can use them until the new drawings are complete since the ECN has been released.</p>",
         attachments: [],
@@ -276,14 +276,14 @@ const MOCK_TASKS_RAW: Omit<Task, "author" | "eirReference">[] = [
       {
         timestamp: new Date("2025-11-24T12:33:00"),
         authorName: "Steven Landreth",
-        authorEmail: "steven.landreth@hoerbiger.com",
+        authorEmail: "steven.landreth@altronic-llc.com",
         bodyHtml: "",
         attachments: [],
       },
       {
         timestamp: new Date("2025-11-24T12:27:00"),
         authorName: "Steven Landreth",
-        authorEmail: "steven.landreth@hoerbiger.com",
+        authorEmail: "steven.landreth@altronic-llc.com",
         bodyHtml:
           "<p><strong><u>Ray White</u></strong>, regarding your statement of, \"can we get the AMP-5000 running at the shop\". Are you referring to the engine by the engineering garage? If so, its been modified enough where I am not sure it could be classified as an AMP-5000 any more. See the pic of the inside of the panel.</p><p>Field testing documentation is thin and the best chance to get any more field testing feedback will be from the 2 units for GCS. I'll leave this task in HOLD for now. Any additional field testing data can still be entered into this task.</p><p><a href=\"#\">IMG_7684.jpg</a></p>",
         attachments: [],
@@ -364,7 +364,7 @@ const MOCK_TASKS_RAW: Omit<Task, "author" | "eirReference">[] = [
       {
         timestamp: new Date("2026-05-01T10:00:00"),
         authorName: "Amanda Hoagland",
-        authorEmail: "amanda.hoagland@hoerbiger.com",
+        authorEmail: "amanda.hoagland@altronic-llc.com",
         bodyHtml: "<p>Blocked on the new sensor calibration values from the lab.</p>",
         attachments: [],
       },
@@ -530,7 +530,7 @@ export const MOCK_EIRS: Eir[] = [
       {
         timestamp: new Date("2026-05-11T09:15:00"),
         authorName: "Sarah Shaffer",
-        authorEmail: "sarah.shaffer@hoerbiger.com",
+        authorEmail: "sarah.shaffer@altronic-llc.com",
         bodyHtml: "<p>Murata confirmed EOL. We need a drop-in with matching impedance.</p>",
         attachments: [],
       },
@@ -718,7 +718,7 @@ export const MOCK_EIRS: Eir[] = [
       {
         timestamp: new Date("2026-08-05T10:02:00"),
         authorName: "Amanda Hoagland",
-        authorEmail: "amanda.hoagland@hoerbiger.com",
+        authorEmail: "amanda.hoagland@altronic-llc.com",
         bodyHtml:
           "<p>Both returns are from the same lot. Pulling the cert of conformance from receiving.</p>",
         attachments: [],
@@ -775,7 +775,7 @@ export const MOCK_EIRS: Eir[] = [
       {
         timestamp: new Date("2026-08-01T09:30:00"),
         authorName: "Steven Landreth",
-        authorEmail: "steven.landreth@hoerbiger.com",
+        authorEmail: "steven.landreth@altronic-llc.com",
         bodyHtml:
           "<p>Last-time-buy is end of November. At 1,800/yr our 640 on hand covers about four months after that.</p>",
         attachments: [],
@@ -864,7 +864,7 @@ export const MOCK_EIRS: Eir[] = [
       {
         timestamp: new Date("2026-07-18T08:55:00"),
         authorName: "Chandana Ramisetty",
-        authorEmail: "chandana.r@hoerbiger.com",
+        authorEmail: "chandana.r@altronic-llc.com",
         bodyHtml: "<p>Noise complaints all trace to the 65% lots. Recommend specifying 90% minimum.</p>",
         attachments: [],
       },
@@ -952,7 +952,7 @@ export const MOCK_EIRS: Eir[] = [
       {
         timestamp: new Date("2026-07-30T11:00:00"),
         authorName: "Brandon Mirto",
-        authorEmail: "brandon.mirto@hoerbiger.com",
+        authorEmail: "brandon.mirto@altronic-llc.com",
         bodyHtml:
           "<p>Two candidates with the same outline. Both need a different backlight driver current — firmware change is small but it's a change.</p>",
         attachments: [],
@@ -960,7 +960,7 @@ export const MOCK_EIRS: Eir[] = [
       {
         timestamp: new Date("2026-08-05T13:12:00"),
         authorName: "Thomas Terhune",
-        authorEmail: "thomas.terhune@hoerbiger.com",
+        authorEmail: "thomas.terhune@altronic-llc.com",
         bodyHtml: "<p>Ordered samples of both. Will bench them against the current panel next week.</p>",
         attachments: [],
       },
@@ -1050,7 +1050,7 @@ export const MOCK_EIRS: Eir[] = [
       {
         timestamp: new Date("2026-07-11T16:20:00"),
         authorName: "Brandon Mirto",
-        authorEmail: "brandon.mirto@hoerbiger.com",
+        authorEmail: "brandon.mirto@altronic-llc.com",
         bodyHtml: "<p>Bench data attached. Passing on both units across the full band.</p>",
         attachments: [],
       },
@@ -1140,7 +1140,7 @@ export const MOCK_EIRS: Eir[] = [
       {
         timestamp: new Date("2026-07-24T09:41:00"),
         authorName: "Amanda Hoagland",
-        authorEmail: "amanda.hoagland@hoerbiger.com",
+        authorEmail: "amanda.hoagland@altronic-llc.com",
         bodyHtml:
           "<p>Customer is asking whether a new housing is quotable. Re-opening with purchasing rather than closing this out.</p>",
         attachments: [],

@@ -29,3 +29,8 @@ scripts/reassign-*.csv
 sample-open-orders/
 scripts/.open-orders-sample-bundle.mjs
 sample-open-orders-real/
+
+# Generated Power Automate flow packages (scripts/new-guest-notification-flow.ps1)
+# — regenerate rather than commit; they carry environment-specific ids.
+ARC-GuestNotify-*.zip
+ARC-GuestNotify-*.definition.json

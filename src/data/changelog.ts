@@ -20,12 +20,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "0.164.3",
-    date: "2026-09-23",
+    version: "0.164.4",
+    date: "2026-09-24",
     changes: [
       "A screen you don't have SharePoint access to now says so, with a Check again action once access is granted, instead of looking like an empty list",
       "Covers Digital QC, Ignition QC, Coil Defect Log, Potting Sample Log and the Teradyne Log — including when only a reference list behind the screen is unreachable",
       "Add entry is unavailable on those screens until every list they need can be reached, so an entry can't be lost to a refused save",
+    ],
+  },
+  {
+    version: "0.164.3",
+    date: "2026-09-23",
+    changes: [
+      "If your browser blocks the sign-in window, ARC now tells you where the setting is instead of showing a developer error — and what to do if your browser settings are managed and you can't change them",
     ],
   },
   {
