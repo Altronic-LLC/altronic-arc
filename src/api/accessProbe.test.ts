@@ -7,7 +7,7 @@ import {
   type ProbeTarget,
 } from "./accessProbe";
 import { APPS, type AppSpec } from "./appAccess";
-import { SITES } from "./config";
+import { SITES, SP_SALES_ORDERENTRY_SITE_URL } from "./config";
 
 const singleList: AppSpec = {
   path: "/one",
@@ -224,10 +224,11 @@ describe("readProbeResponses", () => {
 });
 
 describe("probeTargets — the hidden-rows check is OPT-IN", () => {
-  // Asserted against a FIXTURE, not against whichever app carries the flag
-  // today: the flag is a per-app switch that can be turned off (it is, for
-  // Customers, while Tim tests), and the machinery has to stay covered either
-  // way. `APPS` is checked separately, for whatever it currently declares.
+  // The machinery is asserted against a FIXTURE, not against whichever app
+  // carries the flag today — it was switched off for an afternoon while Tim
+  // checked the list's own permissions in SharePoint (2026-09-24), and the
+  // coverage has to survive that. Which apps actually declare it is its own
+  // test, below.
   const opted: AppSpec = {
     path: "/opted",
     label: "Opted In",
@@ -255,5 +256,15 @@ describe("probeTargets — the hidden-rows check is OPT-IN", () => {
     const declaring = APPS.filter((a) => a.detectHiddenRows).map((a) => a.path);
     const asked = probeTargets().filter((t) => t.kind === "items").map((t) => t.appPath);
     expect(asked.sort()).toEqual(declaring.sort());
+  });
+
+  it("Customers declares it — the app the check exists for", () => {
+    // Deliberate guard: this is the one list known to be shared row by row,
+    // and the check being off is the difference between the app locking at
+    // sign-in and looking empty. Turning it off again should be a decision
+    // somebody makes on purpose, not a line that quietly goes missing.
+    const customers = APPS.find((a) => a.label === "Customers")!;
+    expect(customers.detectHiddenRows).toBe(true);
+    expect(customers.siteUrl).toBe(SP_SALES_ORDERENTRY_SITE_URL);
   });
 });

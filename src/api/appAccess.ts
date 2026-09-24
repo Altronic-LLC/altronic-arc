@@ -224,12 +224,7 @@ export const APPS: AppSpec[] = [
     label: "Customers",
     site: "salesOrderEntry",
     lists: ids(SP_CUSTOMER_NOTES_LIST_ID),
-    // TEMPORARILY OFF (Tim, 2026-09-24) — he is checking the list's own
-    // permissions in SharePoint and needs the app reachable while he does.
-    // Set this back to `true` to restore the sign-in check; everything behind
-    // it (the items probe, resolveHiddenRows, the lock, the screen's message)
-    // is in place and tested, and nothing else needs changing.
-    detectHiddenRows: false,
+    detectHiddenRows: true,
     siteUrl: SP_SALES_ORDERENTRY_SITE_URL,
   },
 ];
