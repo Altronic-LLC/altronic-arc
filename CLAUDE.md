@@ -6489,7 +6489,14 @@ grants nothing.
 Three filters sit between the tenant directory and every picker in ARC, all in
 `mapDirectoryUsers` (api/directory.ts) and `isHiddenPerson` (lib/people.ts):
 
-- **No mailbox, or an `#EXT#` guest** → out. Service accounts and externals.
+- **No mailbox at all** → out. Service accounts, and a guest Graph never
+  gave a real address (their `mail` came back blank, so the fallback would
+  otherwise be the `#EXT#` UPN — not an address anyone can be reached at).
+  **A guest with a real address is NOT excluded** (Ray, 2026-09-24: signed-in
+  guests must be assignable and @-mentionable, same as staff). This changed
+  FROM excluding every `#EXT#` UPN outright, reported when
+  carrie@tompkinsdesigns.com couldn't be found in any picker despite already
+  having access to ARC.
 - **`accountEnabled === false`** → out. Leavers, and the stale half of a
   duplicated person. Note the explicit `=== false`: some tenants don't return
   the property at all, and treating "unknown" as disabled would empty every

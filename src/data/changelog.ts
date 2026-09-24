@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.166.0",
+    date: "2026-09-24",
+    changes: [
+      "Guests (external partners signed in with a company invite) can now be assigned tasks and @-mentioned, the same as staff — they were being silently left out of every picker in the app",
+    ],
+  },
+  {
     version: "0.165.1",
     date: "2026-09-24",
     changes: [

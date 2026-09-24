@@ -9,11 +9,16 @@ import { normaliseEmail } from "./emailIdentity";
 // notifications instead (docs/POWER-AUTOMATE-GUEST-NOTIFICATIONS.md), so ARC
 // has to be able to tell the two apart.
 //
-// **The rule is the DOMAIN, not the `#EXT#` UPN.** Graph's directory read
-// already filters `#EXT#` accounts out (api/directory.ts), and in any case a
-// person's UPN is not what ARC stores about them — every person column, every
-// mention chip and every recipient list holds a MAILBOX. The domain is the
-// only signal available at the point the question gets asked.
+// **The rule is the DOMAIN, not the `#EXT#` UPN.** A person's UPN is not what
+// ARC stores about them — every person column, every mention chip and every
+// recipient list holds a MAILBOX, never the UPN. The domain is the only
+// signal available at the point the question gets asked.
+//
+// Guests are NOT filtered out of the directory (api/directory.ts) as of
+// 2026-09-24 — a signed-in guest can be assigned and @-mentioned, same as
+// staff — so this module is what tells them apart from an employee once
+// they're already a candidate, not a backstop for a filter that used to
+// happen upstream.
 //
 // **One internal domain, deliberately.** `@hoerbiger.com` was retired on
 // 2026-09-23; until then 25 of the 28 people in ARC's own mock data carried it

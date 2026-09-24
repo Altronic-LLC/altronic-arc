@@ -93,17 +93,32 @@ export async function listDirectoryPeople(): Promise<Person[]> {
 
 /**
  * Map raw Graph users → deduped, sorted Person[]. Skips accounts with no
- * display name or no email/UPN (service accounts) and external guests
- * (`#EXT#` UPNs). Exported for testing.
+ * display name or no usable email (service accounts, and a guest whose
+ * `mail` came back blank — see the note below). Exported for testing.
  */
 export function mapDirectoryUsers(users: GraphDirectoryUser[]): Person[] {
   const byEmail = new Map<string, Person>();
   for (const u of users) {
     const displayName = (u.displayName ?? "").trim();
     const upn = (u.userPrincipalName ?? "").trim();
-    const email = (u.mail ?? upn).trim();
-    if (!displayName || !email) continue; // skip mail-less service accounts
-    if (upn.includes("#EXT#")) continue; // skip external guests
+    // GUESTS ARE INCLUDED (Ray, 2026-09-24) — a signed-in guest can be
+    // assigned work and @-mentioned the same as staff. This was NOT true
+    // until now: every `#EXT#` UPN (Entra's marker for a B2B guest account)
+    // was filtered out here, so a guest who could sign into ARC still
+    // couldn't be found in any picker — reported when carrie@tompkinsdesigns.com
+    // couldn't be assigned despite already having access.
+    //
+    // The UPN is still checked, but ONLY to refuse a guest with no real
+    // address rather than to exclude every guest. Graph normally populates
+    // `mail` with the guest's own external address once they've been
+    // invited — but if it's ever blank, `email` would otherwise fall back to
+    // the tenant-mangled UPN (`carrie_tompkinsdesigns.com#EXT#@ourtenant.onmicrosoft.com`),
+    // which is not an address anyone can be reached at. Better to drop that
+    // guest from the picker than add them under a garbage address that
+    // silently fails every write/notification aimed at them.
+    const isExternalGuest = upn.includes("#EXT#");
+    const email = (u.mail ?? (isExternalGuest ? "" : upn)).trim();
+    if (!displayName || !email) continue; // skip mail-less service accounts / unresolved guests
     // Disabled accounts — leavers, and the stale half of a duplicated person.
     // You shouldn't be able to assign work to an account nobody can sign into,
     // and a departed colleague lingering in every picker is how the wrong name

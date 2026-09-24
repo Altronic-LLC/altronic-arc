@@ -35,7 +35,12 @@ describe("mapDirectoryUsers", () => {
     expect(out).toHaveLength(1);
   });
 
-  it("skips external guests (#EXT# UPNs)", () => {
+  // Ray, 2026-09-24: a signed-in guest (carrie@tompkinsdesigns.com) could not
+  // be found in any picker despite already having access to ARC — every
+  // `#EXT#` UPN (Entra's B2B guest marker) was filtered out here. Guests are
+  // now included; only a guest Graph gives NO real address for is dropped
+  // (see the next test).
+  it("includes external guests (#EXT# UPNs), keyed on their real mail", () => {
     const out = mapDirectoryUsers([
       {
         id: "1",
@@ -45,6 +50,25 @@ describe("mapDirectoryUsers", () => {
       },
       { id: "2", displayName: "Staff Member", mail: "staff@altronic-llc.com" },
     ]);
+    expect(out).toEqual([
+      { displayName: "Staff Member", email: "staff@altronic-llc.com" },
+      { displayName: "Vendor Guest", email: "guest@vendor.com" },
+    ]);
+  });
+
+  it("drops a guest whose mail Graph never populated, rather than using the mangled UPN as their email", () => {
+    const out = mapDirectoryUsers([
+      {
+        id: "1",
+        displayName: "Unresolved Guest",
+        // No `mail` at all — Graph occasionally returns this for a guest who
+        // hasn't fully accepted the invite.
+        userPrincipalName: "unresolved_vendor.com#EXT#@altronic.onmicrosoft.com",
+      },
+      { id: "2", displayName: "Staff Member", mail: "staff@altronic-llc.com" },
+    ]);
+    // NOT the UPN — that's an Entra-internal identifier, not an address
+    // anyone can be assigned work or emailed at.
     expect(out).toEqual([{ displayName: "Staff Member", email: "staff@altronic-llc.com" }]);
   });
 
