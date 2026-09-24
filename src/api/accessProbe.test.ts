@@ -122,7 +122,20 @@ describe("readProbeResponses", () => {
     expect(result.deniedLists).toEqual([]);
   });
 
-  it("IGNORES a 404", () => {
+  it("reads a 404 on a declared FOLDER as unreadable, not as a refusal", () => {
+    // Tim's case: the Sales library root read fine and the OPEN ORDERS folder
+    // inside it answered itemNotFound, so the app stayed unlocked while the
+    // screen showed nothing (2026-09-24). It locks — with its own wording,
+    // since nothing was actually refused.
+    const withApp: ProbeTarget[] = [
+      { id: "0", url: "u0", siteId: SITES.salesTeam, kind: "drive", listId: null, appPath: "/sales/open-orders" },
+    ];
+    const result = readProbeResponses(withApp, { responses: [{ id: "0", status: 404 }] });
+    expect(result.unreadableApps).toEqual(["/sales/open-orders"]);
+    expect(result.deniedDrives).toEqual([]);
+  });
+
+  it("still IGNORES a 404 on a list", () => {
     // Graph answers 404 for a missing SCOPE as well as a missing list, and the
     // two are indistinguishable here. One of them is a config error that would
     // otherwise lock an app for everybody in the company at once.
@@ -138,7 +151,12 @@ describe("readProbeResponses", () => {
         { id: "2", status: 500 },
       ],
     });
-    expect(result).toEqual({ deniedSites: [], deniedLists: [], deniedDrives: [] });
+    expect(result).toEqual({
+      deniedSites: [],
+      deniedLists: [],
+      deniedDrives: [],
+      unreadableApps: [],
+    });
   });
 
   it("records a 403 on the site itself", () => {
@@ -150,15 +168,8 @@ describe("readProbeResponses", () => {
   });
 
   it("ignores a response it didn't ask for, and an empty body", () => {
-    expect(readProbeResponses(targets, { responses: [{ id: "99", status: 403 }] })).toEqual({
-      deniedSites: [],
-      deniedLists: [],
-      deniedDrives: [],
-    });
-    expect(readProbeResponses(targets, {})).toEqual({
-      deniedSites: [],
-      deniedLists: [],
-      deniedDrives: [],
-    });
+    const empty = { deniedSites: [], deniedLists: [], deniedDrives: [], unreadableApps: [] };
+    expect(readProbeResponses(targets, { responses: [{ id: "99", status: 403 }] })).toEqual(empty);
+    expect(readProbeResponses(targets, {})).toEqual(empty);
   });
 });

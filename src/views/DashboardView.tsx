@@ -57,7 +57,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useCollapsedSections } from "@/hooks/useCollapsedSections";
 import { isSessionExpiredError } from "@/hooks/useSessionExpiry";
 import { useAccessDenials } from "@/hooks/useListAccess";
-import { isPathUnavailable } from "@/api/appAccess";
+import { pathAccessState } from "@/api/appAccess";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { SingleSelect } from "@/components/SearchableSelect";
 import {
@@ -1260,14 +1260,18 @@ function TypeCard({
 }) {
   const t = TONE[tone] ?? TONE["superior-blue"];
   const denials = useAccessDenials();
-  const unavailable = isPathUnavailable(to, denials);
+  const state = pathAccessState(to, denials);
 
-  if (unavailable) {
+  if (state !== "ok") {
     return (
       <div
         className="flex flex-col gap-3 rounded-lg border border-border bg-surface/60 p-4 opacity-70 sm:p-5"
         aria-disabled="true"
-        title={`${name} — you don't have SharePoint access to this list`}
+        title={
+          state === "no-access"
+            ? `${name} — you don't have SharePoint access to this list`
+            : `${name} — ARC couldn't read this app's data`
+        }
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -1279,7 +1283,9 @@ function TypeCard({
           <Lock className="h-4 w-4 text-fg-muted" />
         </div>
         <p className="text-sm leading-snug text-fg-muted">
-          No access — ask an admin for access to this SharePoint list.
+          {state === "no-access"
+            ? "No access — ask an admin for access to this SharePoint list."
+            : "Unavailable — ARC couldn't read this app's data. Open it for the details."}
         </p>
       </div>
     );

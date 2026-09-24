@@ -224,6 +224,7 @@ src/
 │   ├── config.ts                 USE_MOCK, SITES registry, every list ID, role-enforcement flags
 │   ├── appAccess.ts              Which lists each app needs + site labels (drives the access gating)
 │   ├── accessProbe.ts            One Graph $batch at sign-in: which lists can this user read?
+│   ├── listItemCount.ts          SharePoint's UNTRIMMED item count — "the rows exist, you just can't see them"
 │   ├── graph.ts                  graphFetch / graphFetchAll, throttle retry, ONE shared interactive sign-in
 │   ├── sharepoint.ts             SharePoint REST helper (list-item attachments)
 │   ├── directory.ts              Tenant staff directory (Graph /users) for the pickers
@@ -362,6 +363,7 @@ src/
 │   ├── useEirFilters.ts          URL-backed EIR filter state + eirFilterSearch()
 │   ├── useSessionExpiry.ts       Shared "the token died" flag AuthGate watches
 │   ├── useListAccess.ts          Shared "SharePoint refused this list" store (banner + nav gating)
+│   ├── useEmptyListCheck.ts      An empty list: really empty, or trimmed away from you?
 │   ├── useSortableTable.ts       Sort + column-filter state for a table (wraps tableSort)
 │   ├── useVersionCheck.ts        Polls version.json → update banner
 │   ├── useUnseenMentions.ts      Unseen-@-mention badge state
@@ -6442,6 +6444,34 @@ Seven things that are load-bearing:
   and only the `needsDrive` apps (Project Folders, Open Orders Report) read it.
   An earlier version recorded a drive 403 as a site denial, which would have
   locked Visit Reports over a folder nobody had shared.
+- **There are TWO lock reasons, and they are not merged.** `appAccessState`
+  answers `"no-access"` (a 403 — somebody can grant it) or `"unreadable"`
+  (nothing was refused and the data still isn't there). Tim asked for the
+  second case to lock like the first (2026-09-24), and it does — but with its
+  own wording, because "you don't have SharePoint access" would send somebody
+  to ask for access they may already have. A refusal wins when an app is both.
+  Two things feed `"unreadable"`:
+  - **A declared FOLDER answering 404.** `AppSpec.drivePath` names the folder
+    the screen actually reads, imported from the feature rather than retyped.
+    Probing the library ROOT was not enough: Tim could read the Sales library
+    root and still got `itemNotFound` on `General/Order Management/OPEN
+    ORDERS` inside it, so Open Orders stayed unlocked while its screen showed
+    nothing. Still narrow — a 404 counts for a declared folder ONLY, never for
+    a list, because Graph answers 404 for a missing scope too.
+  - **A list handing back none of the rows it reports holding**
+    (`hooks/useEmptyListCheck.ts` + `api/listItemCount.ts`). Customers read
+    fine and returned zero rows, which is exactly how SharePoint answers an
+    item-level permission problem: it SECURITY-TRIMS the result to 200 with an
+    empty array, byte-for-byte identical to an empty list. Nothing in the Graph
+    response separates them. The list's own **`ItemCount` is not trimmed**, so
+    "ItemCount 102, and you were handed 0" is positive evidence. It is asked
+    ONLY when a screen has zero rows and no error, so it costs a request on an
+    empty screen and nothing on a working one.
+    **It cannot fire on a genuinely empty list** — `ItemCount` would be 0 too —
+    which is what makes it safe to lock on: the person whose job is to add the
+    first row is never shut out of the screen that adds it. It goes through SP
+    REST, whose scope this app treats as best-effort, so a missing grant
+    returns null and ARC behaves exactly as it did before.
 - **The probe asks about each SITE too, and a refused site takes its SUBSITES
   with it.** `salesOrderEntry` is a subsite of `salesTeam` (Tim, 2026-09-24:
   "if I don't have access to salesTeam I won't have access to
@@ -6476,7 +6506,7 @@ other error, and the real empty state only when the read actually SUCCEEDED and
 came back empty. Any new list screen owes the same three branches; the row
 count is not a loading or error state.
 
-The four "does the gate exist" tests were verified by disabling each gate and
+The "does the gate exist" tests were verified by disabling each gate and
 watching them fail — a test that passes either way is how this class of feature
 rots. One of them didn't fail at first: the App.tsx source check matched its own
 commented-out call, so it is anchored to the start of a line now.

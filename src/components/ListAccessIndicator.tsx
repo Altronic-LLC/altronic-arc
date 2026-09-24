@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { AlertTriangle, Lock, RotateCw } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { siteLabelForId, unavailableAppLabels } from "@/api/appAccess";
+import { accessGapLabels, siteLabelForId } from "@/api/appAccess";
 import { clearAccessDenials, useAccessDenials } from "@/hooks/useListAccess";
 import { describeAccessGap } from "@/lib/listAccess";
 import { cn } from "@/lib/cn";
@@ -50,12 +50,17 @@ export function ListAccessIndicator() {
 
   if (denials.count === 0) return null;
 
-  const apps = unavailableAppLabels(denials);
+  // Split by reason: an app whose data simply couldn't be READ is not one the
+  // user has been refused, and telling them to ask for access would send them
+  // after something they may already have.
+  const { noAccess, unreadable } = accessGapLabels(denials);
   const sites = [...denials.implicatedSites]
     .map(siteLabelForId)
     .filter((label): label is string => label !== null);
 
-  const message = describeAccessGap(apps, sites);
+  const message = describeAccessGap(noAccess, sites, unreadable);
+  // Only a refusal is somebody's to grant.
+  const showAskLine = sites.length > 0 && noAccess.length > 0;
 
   function checkAgain() {
     // Forget what we learned FIRST, so the refetch below starts from a clean
@@ -123,7 +128,7 @@ export function ListAccessIndicator() {
             <Lock className="mt-0.5 h-4 w-4 shrink-0 text-fg-muted" />
             <div className="min-w-0">
               <p className="font-medium text-fg">{message}</p>
-              {sites.length > 0 && (
+              {showAskLine && (
                 <p className="mt-1 text-fg-muted">
                   Ask an admin for access to{" "}
                   <span className="font-mono text-[11px]">{sites.join(", ")}</span>.

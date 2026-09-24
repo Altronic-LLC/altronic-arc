@@ -8,6 +8,8 @@ import { matchesSearch, tokenizeQuery } from "@/lib/itemSearch";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { ListAccessNotice } from "@/components/ListAccessNotice";
 import { isPermissionDenied } from "@/lib/listWriteErrors";
+import { useEmptyListCheck } from "@/hooks/useEmptyListCheck";
+import { SP_CUSTOMER_NOTES_LIST_ID, SP_SALES_ORDERENTRY_SITE_URL } from "@/api/config";
 import { SearchInput } from "@/components/SearchInput";
 import { ChoiceSelect } from "@/components/SearchableSelect";
 import { CustomerNoteFormModal } from "@/components/CustomerNoteFormModal";
@@ -34,6 +36,18 @@ export function CustomerNotesView() {
   // gets the standard access notice; anything else says it couldn't load,
   // because "empty" and "broken" must not look the same.
   const listUnavailable = !!error && isPermissionDenied(error);
+
+  // Read fine and came back with nothing? Ask SharePoint how many rows it
+  // thinks it has. If it says some, they exist and none of them are visible to
+  // this account — which locks the app's card and menu entry like any other
+  // unavailable app (Tim, 2026-09-24).
+  const { totalItems, hiddenRows } = useEmptyListCheck({
+    appPath: "/sales/customers",
+    siteUrl: SP_SALES_ORDERENTRY_SITE_URL,
+    listId: SP_CUSTOMER_NOTES_LIST_ID,
+    rowCount: notes.length,
+    ready: !isLoading && !error,
+  });
   const [params, setParams] = useSearchParams();
   const [showNew, setShowNew] = useState(false);
   const [showAll, setShowAll] = useState(false);
@@ -142,6 +156,19 @@ export function CustomerNotesView() {
             >
               Try again
             </button>
+          </div>
+        ) : hiddenRows ? (
+          <div className="px-4 py-10 text-center text-sm text-fg-muted">
+            <p className="font-medium text-fg">
+              This list has {totalItems?.toLocaleString()} records, and none of them are
+              visible to your account.
+            </p>
+            <p className="mx-auto mt-1 max-w-md">
+              SharePoint is hiding the rows rather than the list itself — that's
+              item-level permissions. Ask an admin for access to the items on the{" "}
+              <span className="font-mono text-xs">ALTRONICSALESTEAM/OrderEntry</span>{" "}
+              Customer Notes list.
+            </p>
           </div>
         ) : notes.length === 0 ? (
           // The read SUCCEEDED and came back with nothing. SharePoint answers

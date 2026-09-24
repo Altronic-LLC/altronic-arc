@@ -22,6 +22,11 @@ import { APPS, type AppSpec } from "./appAccess";
 // therefore never stale (see hooks/useListAccess.ts).
 // =============================================================================
 
+/** Percent-encode each segment of a drive path, leaving the separators. */
+function encodeDrivePath(path: string): string {
+  return path.split("/").map(encodeURIComponent).join("/");
+}
+
 /** Graph's documented ceiling for a single $batch. */
 export const MAX_BATCH_SIZE = 20;
 
@@ -33,6 +38,8 @@ export interface ProbeTarget {
   kind: "site" | "list" | "drive";
   /** Set only when `kind` is "list". */
   listId: string | null;
+  /** Set for a folder probe: which app's screen reads it. */
+  appPath?: string;
 }
 
 export interface DeniedList {
@@ -45,6 +52,12 @@ export interface ProbeResult {
   deniedSites: string[];
   deniedLists: DeniedList[];
   deniedDrives: string[];
+  /**
+   * App paths whose folder answered 404. NOT a refusal — see the note on
+   * readProbeResponses — so it locks the app with its own wording rather than
+   * telling somebody to ask for access they may already have.
+   */
+  unreadableApps: string[];
 }
 
 /**
@@ -85,7 +98,14 @@ export function probeTargets(apps: readonly AppSpec[] = APPS): ProbeTarget[] {
     }
 
     if (app.needsDrive) {
-      add({ url: `/sites/${siteId}/drive/root?$select=id`, siteId, kind: "drive", listId: null });
+      // The FOLDER the screen actually reads where one is declared, not just
+      // the library root: Tim could read the Sales library root and still got
+      // `itemNotFound` on the OPEN ORDERS folder inside it, so the app stayed
+      // unlocked while its screen showed nothing (2026-09-24).
+      const url = app.drivePath
+        ? `/sites/${siteId}/drive/root:/${encodeDrivePath(app.drivePath)}:?$select=id`
+        : `/sites/${siteId}/drive/root?$select=id`;
+      add({ url, siteId, kind: "drive", listId: null, appPath: app.path });
     }
   }
 
@@ -106,10 +126,11 @@ interface BatchResponse {
 /**
  * Read one batch's answers.
  *
- * ONLY 403 counts. A 404 is deliberately ignored even though Graph answers 404
- * for a missing SCOPE as well as a missing list (see the note in graph.ts):
- * the two are indistinguishable from here, and one of them is a config error
- * that would lock an app for everybody in the company at once.
+ * A 403 is a refusal, wherever it lands. A 404 counts for ONE case only — a
+ * declared FOLDER — and is otherwise ignored, because Graph answers 404 for a
+ * missing SCOPE as well as a missing list (see the note in graph.ts), and
+ * those are indistinguishable from here: acting on them would lock an app for
+ * everybody in the company the first time a list id went stale.
  */
 export function readProbeResponses(
   targets: readonly ProbeTarget[],
@@ -119,17 +140,30 @@ export function readProbeResponses(
   const deniedSites: string[] = [];
   const deniedLists: DeniedList[] = [];
   const deniedDrives: string[] = [];
+  const unreadableApps: string[] = [];
 
   for (const response of body.responses ?? []) {
-    if (response.status !== 403) continue;
     const target = byId.get(response.id);
     if (!target) continue;
-    if (target.kind === "site") deniedSites.push(target.siteId);
-    else if (target.kind === "drive") deniedDrives.push(target.siteId);
-    else if (target.listId) deniedLists.push({ listId: target.listId, siteId: target.siteId });
+
+    if (response.status === 403) {
+      if (target.kind === "site") deniedSites.push(target.siteId);
+      else if (target.kind === "drive") deniedDrives.push(target.siteId);
+      else if (target.listId) deniedLists.push({ listId: target.listId, siteId: target.siteId });
+      continue;
+    }
+
+    // A 404 on a FOLDER is the one non-403 worth acting on, and only for the
+    // one app that reads it: the folder is either not there or not visible,
+    // and either way that screen has nothing to show. It is NOT generalised
+    // to lists — Graph answers 404 for a missing SCOPE too, which would lock
+    // an app for the whole company the first time a list id went stale.
+    if (response.status === 404 && target.kind === "drive" && target.appPath) {
+      unreadableApps.push(target.appPath);
+    }
   }
 
-  return { deniedSites, deniedLists, deniedDrives };
+  return { deniedSites, deniedLists, deniedDrives, unreadableApps };
 }
 
 /**
@@ -138,10 +172,10 @@ export function readProbeResponses(
  * direction: a failed probe must not lock anybody out of anything.
  */
 export async function probeAppAccess(apps: readonly AppSpec[] = APPS): Promise<ProbeResult> {
-  if (USE_MOCK) return { deniedSites: [], deniedLists: [], deniedDrives: [] };
+  if (USE_MOCK) return { deniedSites: [], deniedLists: [], deniedDrives: [], unreadableApps: [] };
 
   const targets = probeTargets(apps);
-  const result: ProbeResult = { deniedSites: [], deniedLists: [], deniedDrives: [] };
+  const result: ProbeResult = { deniedSites: [], deniedLists: [], deniedDrives: [], unreadableApps: [] };
 
   for (const batch of chunk(targets, MAX_BATCH_SIZE)) {
     try {
@@ -155,6 +189,7 @@ export async function probeAppAccess(apps: readonly AppSpec[] = APPS): Promise<P
       result.deniedSites.push(...batchResult.deniedSites);
       result.deniedLists.push(...batchResult.deniedLists);
       result.deniedDrives.push(...batchResult.deniedDrives);
+      result.unreadableApps.push(...batchResult.unreadableApps);
     } catch {
       // A whole batch failing is a network or session problem, not an answer
       // about permissions. Leave the rest of the app to report it.

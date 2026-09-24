@@ -56,6 +56,8 @@ import {
 } from "./config";
 import { DIGITAL_QC_FAMILY_LIST_IDS } from "./digitalQc";
 import { IGNITION_QC_FAMILY_LIST_IDS } from "./ignitionQc";
+import { OPEN_ORDERS_PATH } from "./openOrdersFiles";
+import { PROJECT_FOLDERS_PATH } from "./projectFiles";
 
 export type SiteKey = keyof typeof SITES;
 
@@ -113,6 +115,16 @@ export interface AppSpec {
    * ordinary SharePoint, and it must not lock the site's other apps.
    */
   needsDrive?: boolean;
+  /**
+   * The exact folder the screen reads, relative to the drive root — the same
+   * path the feature itself uses, imported rather than retyped.
+   *
+   * Probing the drive ROOT is not enough: Tim could read the Sales library's
+   * root and still got `itemNotFound` on the OPEN ORDERS folder inside it
+   * (2026-09-24), so the app stayed unlocked while its screen showed nothing.
+   * A folder that can't be read is asked about directly.
+   */
+  drivePath?: string;
 }
 
 /** Drop ids that aren't configured — an unset env var is not a denial. */
@@ -127,7 +139,14 @@ export const APPS: AppSpec[] = [
   { path: "/task", label: "Engineering Tasks", site: "engineering", lists: ids(SP_LIST_ID) },
   { path: "/eirs", label: "EIRs", site: "engineering", lists: ids(SP_EIRS_LIST_ID) },
   { path: "/test-sheets", label: "Test Sheets", site: "engineering", lists: ids(SP_TEST_RESULTS_LIST_ID) },
-  { path: "/project-folders", label: "Project Folders", site: "engineering", lists: [], needsDrive: true },
+  {
+    path: "/project-folders",
+    label: "Project Folders",
+    site: "engineering",
+    lists: [],
+    needsDrive: true,
+    drivePath: PROJECT_FOLDERS_PATH,
+  },
   { path: "/build-requests", label: "Build Requests", site: "engineering", lists: ids(SP_BUILD_REQUESTS_LIST_ID) },
   {
     path: "/drawing-logs",
@@ -183,6 +202,7 @@ export const APPS: AppSpec[] = [
     site: "salesTeam",
     lists: ids(SP_OPEN_ORDERS_CUSTOMERS_LIST_ID),
     needsDrive: true,
+    drivePath: OPEN_ORDERS_PATH,
   },
   { path: "/sales/visit-reports", label: "Visit Reports", site: "salesTeam", lists: ids(SP_VISIT_REPORTS_LIST_ID) },
   { path: "/sales/customers", label: "Customers", site: "salesOrderEntry", lists: ids(SP_CUSTOMER_NOTES_LIST_ID) },
@@ -224,36 +244,81 @@ export interface AccessDenials {
   sites: ReadonlySet<string>;
   /** Sites whose DOCUMENT LIBRARY was refused. Only `needsDrive` apps care. */
   drives: ReadonlySet<string>;
-}
-
-/** Is this app out of reach? See THE RULE FOR `lists` at the top of the file. */
-export function isAppUnavailable(app: AppSpec, denials: AccessDenials): boolean {
-  // The app's own site OR any site above it — a refused parent takes its
-  // subsites with it. See SITE_PARENTS for why this is one-directional.
-  if (siteAncestry(app.site).some((site) => denials.sites.has(SITES[site]))) return true;
-  // A document library is NOT inherited this way: each site has its own, and a
-  // library's unique permissions are its own business.
-  if (app.needsDrive && denials.drives.has(SITES[app.site])) return true;
-  if (app.lists.length === 0) return false;
-  return app.lists.every((id) => denials.lists.has(id));
+  /**
+   * App paths whose data ARC could not read, for a reason that is NOT a
+   * refusal — a folder that answers `itemNotFound`, or a list that hands back
+   * none of the rows SharePoint says it holds. See `appAccessState`.
+   */
+  unreadableApps: ReadonlySet<string>;
 }
 
 /**
- * Is the app behind this route out of reach? The form the Departments menu and
+ * Why an app can't be opened — or "ok".
+ *
+ * Two lock reasons, deliberately not merged (Tim, 2026-09-24: lock these like
+ * the others — but they are not the same fault):
+ *
+ *  - **`"no-access"`** — SharePoint refused it, 403. Somebody can grant it.
+ *  - **`"unreadable"`** — nothing was refused and the data still isn't there:
+ *    the OPEN ORDERS folder answering `itemNotFound`, or a list handing back
+ *    zero of the rows it reports holding. Calling that "no access" would send
+ *    people to ask for something they may already have.
+ */
+export type AppAccessState = "ok" | "no-access" | "unreadable";
+
+export function appAccessState(app: AppSpec, denials: AccessDenials): AppAccessState {
+  // The app's own site OR any site above it — a refused parent takes its
+  // subsites with it. See SITE_PARENTS for why this is one-directional.
+  if (siteAncestry(app.site).some((site) => denials.sites.has(SITES[site]))) return "no-access";
+  // A document library is NOT inherited this way: each site has its own, and a
+  // library's unique permissions are its own business.
+  if (app.needsDrive && denials.drives.has(SITES[app.site])) return "no-access";
+  if (app.lists.length > 0 && app.lists.every((id) => denials.lists.has(id))) return "no-access";
+  // Checked LAST: a refusal is the more specific and more actionable answer.
+  if (denials.unreadableApps.has(app.path)) return "unreadable";
+  return "ok";
+}
+
+/** Is this app out of reach, for either reason? */
+export function isAppUnavailable(app: AppSpec, denials: AccessDenials): boolean {
+  return appAccessState(app, denials) !== "ok";
+}
+
+/**
+ * The state of the app behind this route. The form the Departments menu and
  * the Dashboard cards use, where a hook per item isn't an option (a hook can't
  * live inside a `.map`), so they read the denials once and ask this per row.
  */
-export function isPathUnavailable(path: string | undefined, denials: AccessDenials): boolean {
-  if (!path) return false;
+export function pathAccessState(
+  path: string | undefined,
+  denials: AccessDenials,
+): AppAccessState {
+  if (!path) return "ok";
   const app = appForPath(path);
-  return app ? isAppUnavailable(app, denials) : false;
+  return app ? appAccessState(app, denials) : "ok";
 }
 
-/** The app labels to name in the banner, deduped and in registry order. */
-export function unavailableAppLabels(denials: AccessDenials): string[] {
-  const labels: string[] = [];
+export function isPathUnavailable(path: string | undefined, denials: AccessDenials): boolean {
+  return pathAccessState(path, denials) !== "ok";
+}
+
+/** The app labels to name in the notice, split by reason, in registry order. */
+export function accessGapLabels(denials: AccessDenials): {
+  noAccess: string[];
+  unreadable: string[];
+} {
+  const noAccess: string[] = [];
+  const unreadable: string[] = [];
   for (const app of APPS) {
-    if (isAppUnavailable(app, denials) && !labels.includes(app.label)) labels.push(app.label);
+    const state = appAccessState(app, denials);
+    if (state === "no-access" && !noAccess.includes(app.label)) noAccess.push(app.label);
+    if (state === "unreadable" && !unreadable.includes(app.label)) unreadable.push(app.label);
   }
-  return labels;
+  return { noAccess, unreadable };
+}
+
+/** The app labels to name in the notice, deduped and in registry order. */
+export function unavailableAppLabels(denials: AccessDenials): string[] {
+  const { noAccess, unreadable } = accessGapLabels(denials);
+  return [...noAccess, ...unreadable];
 }

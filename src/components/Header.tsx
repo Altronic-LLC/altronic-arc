@@ -40,7 +40,7 @@ import {
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { isPathUnavailable } from "@/api/appAccess";
+import { pathAccessState } from "@/api/appAccess";
 import { useAccessDenials } from "@/hooks/useListAccess";
 import { useTheme } from "@/hooks/useTheme";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
@@ -689,12 +689,17 @@ function DepartmentsMenu({
                   // Rendered as a locked row rather than hidden: an app that
                   // vanishes reads as "ARC lost a feature", where a lock reads
                   // as "ask someone", which is the true and actionable one.
-                  if (!item.disabled && isPathUnavailable(item.to, denials)) {
+                  const accessState = item.disabled ? "ok" : pathAccessState(item.to, denials);
+                  if (accessState !== "ok") {
                     return (
                       <div
                         key={item.label}
                         className="flex items-center gap-2 rounded-md px-2.5 py-2 text-sm text-fg-muted opacity-60"
-                        title="You don't have SharePoint access to this list — ask an admin for access"
+                        title={
+                          accessState === "no-access"
+                            ? "You don't have SharePoint access to this list — ask an admin for access"
+                            : "ARC couldn't read this app's data — open it for the details"
+                        }
                       >
                         {item.icon}
                         <span>{item.label}</span>

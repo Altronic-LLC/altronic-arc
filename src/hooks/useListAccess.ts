@@ -41,7 +41,7 @@ interface Snapshot extends AccessDenials {
    * the message when no app label can be worked out.
    */
   implicatedSites: ReadonlySet<string>;
-  /** Cheap identity for `useSyncExternalStore` and for "is anything denied". */
+  /** Cheap identity for `useSyncExternalStore` and for "is anything wrong". */
   count: number;
 }
 
@@ -49,6 +49,7 @@ const EMPTY: Snapshot = {
   lists: new Set(),
   sites: new Set(),
   drives: new Set(),
+  unreadableApps: new Set(),
   implicatedSites: new Set(),
   count: 0,
 };
@@ -83,14 +84,32 @@ function getProbeKey(): number {
   return probeKey;
 }
 
-function commit(
-  lists: Set<string>,
-  sites: Set<string>,
-  drives: Set<string>,
-  implicatedSites: Set<string>,
-) {
-  snapshot = { lists, sites, drives, implicatedSites, count: lists.size + sites.size + drives.size };
+/** The snapshot's sets, mutable, while a change is being assembled. */
+interface Draft {
+  lists: Set<string>;
+  sites: Set<string>;
+  drives: Set<string>;
+  unreadableApps: Set<string>;
+  implicatedSites: Set<string>;
+}
+
+function commit(next: Draft) {
+  snapshot = {
+    ...next,
+    count: next.lists.size + next.sites.size + next.drives.size + next.unreadableApps.size,
+  };
   notify();
+}
+
+/** The current sets, as mutable copies to hand back to `commit`. */
+function draft(): Draft {
+  return {
+    lists: new Set(snapshot.lists),
+    sites: new Set(snapshot.sites),
+    drives: new Set(snapshot.drives),
+    unreadableApps: new Set(snapshot.unreadableApps),
+    implicatedSites: new Set(snapshot.implicatedSites),
+  };
 }
 
 /**
@@ -104,21 +123,19 @@ export function markListDenied(listId: string, siteId?: string): void {
   const knownSite = siteId ? snapshot.implicatedSites.has(siteId) : true;
   if (snapshot.lists.has(listId) && knownSite) return;
 
-  const lists = new Set(snapshot.lists);
-  lists.add(listId);
-  const implicated = new Set(snapshot.implicatedSites);
-  if (siteId) implicated.add(siteId);
-  commit(lists, new Set(snapshot.sites), new Set(snapshot.drives), implicated);
+  const next = draft();
+  next.lists.add(listId);
+  if (siteId) next.implicatedSites.add(siteId);
+  commit(next);
 }
 
 /** Record that SharePoint refused the whole site — every app on it is out. */
 export function markSiteDenied(siteId: string): void {
   if (snapshot.sites.has(siteId)) return;
-  const sites = new Set(snapshot.sites);
-  sites.add(siteId);
-  const implicated = new Set(snapshot.implicatedSites);
-  implicated.add(siteId);
-  commit(new Set(snapshot.lists), sites, new Set(snapshot.drives), implicated);
+  const next = draft();
+  next.sites.add(siteId);
+  next.implicatedSites.add(siteId);
+  commit(next);
 }
 
 /**
@@ -131,11 +148,27 @@ export function markSiteDenied(siteId: string): void {
  */
 export function markDriveDenied(siteId: string): void {
   if (snapshot.drives.has(siteId)) return;
-  const drives = new Set(snapshot.drives);
-  drives.add(siteId);
-  const implicated = new Set(snapshot.implicatedSites);
-  implicated.add(siteId);
-  commit(new Set(snapshot.lists), new Set(snapshot.sites), drives, implicated);
+  const next = draft();
+  next.drives.add(siteId);
+  next.implicatedSites.add(siteId);
+  commit(next);
+}
+
+/**
+ * Record that an app's data could not be READ — no refusal anywhere, and the
+ * rows or files still aren't there. Two ways in: a declared folder answering
+ * `itemNotFound` (the probe), and a list that hands back none of the rows
+ * SharePoint reports holding (useEmptyListCheck).
+ *
+ * Kept apart from every kind of denial above so the message can say what is
+ * true: "ARC couldn't read this" rather than "you don't have access", which
+ * would send somebody to ask for access they may already have.
+ */
+export function markAppUnreadable(appPath: string): void {
+  if (snapshot.unreadableApps.has(appPath)) return;
+  const next = draft();
+  next.unreadableApps.add(appPath);
+  commit(next);
 }
 
 /**
@@ -200,6 +233,7 @@ export function useAccessProbe(): void {
     for (const siteId of data.deniedSites) markSiteDenied(siteId);
     for (const denied of data.deniedLists) markListDenied(denied.listId, denied.siteId);
     for (const siteId of data.deniedDrives) markDriveDenied(siteId);
+    for (const appPath of data.unreadableApps) markAppUnreadable(appPath);
   }, [data]);
 }
 

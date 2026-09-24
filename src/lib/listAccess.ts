@@ -97,14 +97,40 @@ export function joinNames(names: string[]): string {
  * otherwise — a user can act on "Teradyne Log" or "Altronic_PMO", and can do
  * nothing whatsoever with a list GUID, which is all a bare denial carries.
  */
-export function describeAccessGap(apps: string[], sites: string[]): string {
+export function describeAccessGap(
+  apps: string[],
+  sites: string[],
+  /**
+   * Apps whose data ARC couldn't read for a reason that ISN'T a refusal. Told
+   * in their own sentence: "you don't have access" would send somebody to ask
+   * for something they may already have.
+   */
+  unreadable: string[] = [],
+): string {
+  const parts: string[] = [];
+
   if (apps.length > 0) {
-    return `You don't have SharePoint access to ${joinNames(apps)}, so ${
-      apps.length === 1 ? "it is" : "they are"
-    } unavailable in ARC.`;
+    parts.push(
+      `You don't have SharePoint access to ${joinNames(apps)}, so ${
+        apps.length === 1 ? "it is" : "they are"
+      } unavailable in ARC.`,
+    );
+  } else if (sites.length > 0 && unreadable.length === 0) {
+    parts.push(
+      `Some ARC data couldn't load — your account doesn't have access to ${joinNames(sites)}.`,
+    );
   }
-  if (sites.length > 0) {
-    return `Some ARC data couldn't load — your account doesn't have access to ${joinNames(sites)}.`;
+
+  if (unreadable.length > 0) {
+    parts.push(
+      `ARC couldn't read the data behind ${joinNames(unreadable)}, so ${
+        unreadable.length === 1 ? "it is" : "they are"
+      } unavailable too.`,
+    );
   }
-  return "Some ARC data couldn't load because your account doesn't have access to it.";
+
+  if (parts.length === 0) {
+    return "Some ARC data couldn't load because your account doesn't have access to it.";
+  }
+  return parts.join(" ");
 }

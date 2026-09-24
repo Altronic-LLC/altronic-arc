@@ -145,6 +145,15 @@ const SECTIONS: ManualSection[] = [
           <strong>Soon</strong> label — Soon means the app hasn't been built
           yet.
         </P>
+        <P>
+          A padlocked app tells you which of two things happened.{" "}
+          <strong>No access</strong> means SharePoint refused it and an admin
+          can grant it. <strong>Unavailable</strong> means nothing was refused
+          and the data still isn't there — a folder ARC can't find, or a list
+          whose records are all hidden from your account. Open it and the screen
+          says which; the second one is still usually a permission to ask for,
+          just a different one.
+        </P>
         <H3>Getting it fixed</H3>
         <P>
           Ask an admin or the IT service desk for access to the SharePoint site

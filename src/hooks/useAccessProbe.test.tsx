@@ -26,7 +26,7 @@ function wrapper({ children }: { children: ReactNode }) {
 
 beforeEach(() => {
   probeAppAccess.mockReset();
-  probeAppAccess.mockResolvedValue({ deniedSites: [], deniedLists: [], deniedDrives: [] });
+  probeAppAccess.mockResolvedValue({ deniedSites: [], deniedLists: [], deniedDrives: [], unreadableApps: [] });
 });
 
 afterEach(() => clearAccessDenials());
@@ -40,6 +40,7 @@ describe("useAccessProbe", () => {
       deniedSites: [],
       deniedLists: [{ listId: visitReports.lists[0], siteId: SITES.salesTeam }],
       deniedDrives: [],
+      unreadableApps: [],
     });
 
     const { result } = renderHook(
@@ -58,6 +59,7 @@ describe("useAccessProbe", () => {
       deniedSites: [],
       deniedLists: [{ listId: visitReports.lists[0], siteId: SITES.salesTeam }],
       deniedDrives: [],
+      unreadableApps: [],
     });
 
     const { result } = renderHook(
@@ -72,7 +74,7 @@ describe("useAccessProbe", () => {
   });
 
   it("records a refused document library against its site only", async () => {
-    probeAppAccess.mockResolvedValue({ deniedSites: [], deniedLists: [], deniedDrives: [SITES.salesTeam] });
+    probeAppAccess.mockResolvedValue({ deniedSites: [], deniedLists: [], deniedDrives: [SITES.salesTeam], unreadableApps: [] });
 
     const { result } = renderHook(
       () => {
@@ -127,6 +129,7 @@ describe("useAccessProbe", () => {
       deniedSites: [SITES.salesTeam],
       deniedLists: [],
       deniedDrives: [],
+      unreadableApps: [],
     });
 
     const { result } = renderHook(
@@ -142,5 +145,27 @@ describe("useAccessProbe", () => {
 
     await waitFor(() => expect(result.current.customers).toBe(true));
     expect(result.current.visits).toBe(true);
+  });
+
+  it("locks an app whose FOLDER couldn't be read", async () => {
+    // Open Orders' files live in a folder that answered itemNotFound for Tim
+    // while the library root read fine (2026-09-24). Nothing was refused, so
+    // it locks as "unreadable" rather than as a denial.
+    probeAppAccess.mockResolvedValue({
+      deniedSites: [],
+      deniedLists: [],
+      deniedDrives: [],
+      unreadableApps: ["/sales/open-orders"],
+    });
+
+    const { result } = renderHook(
+      () => {
+        useAccessProbe();
+        return useAppUnavailable("/sales/open-orders");
+      },
+      { wrapper },
+    );
+
+    await waitFor(() => expect(result.current).toBe(true));
   });
 });

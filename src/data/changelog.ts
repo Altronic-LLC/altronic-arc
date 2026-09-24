@@ -29,6 +29,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "ARC checks your access as soon as it loads, so those apps are locked from the start rather than only after you've opened one and been turned away",
       "Nothing is hidden — a locked app still shows its name and a padlock, so you can see it exists and ask for it",
       "Customers and the Open Orders Report now say when their data couldn't be read at all, instead of showing an empty list or \"no master dashboard yet\" as though nothing had been created",
+      "An app whose data ARC can't read is now locked like one you don't have access to, with wording that says which it is — so a folder ARC can't find, or a list whose records are all hidden from you, no longer looks like an app with nothing in it",
     ],
   },
   {

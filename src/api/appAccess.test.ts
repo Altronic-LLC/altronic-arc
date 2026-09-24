@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   APPS,
+  accessGapLabels,
+  appAccessState,
   appForPath,
   isAppUnavailable,
   isPathUnavailable,
@@ -16,12 +18,19 @@ function denials({
   lists = [],
   sites = [],
   drives = [],
+  unreadableApps = [],
 }: {
   lists?: string[];
   sites?: string[];
   drives?: string[];
+  unreadableApps?: string[];
 }): AccessDenials {
-  return { lists: new Set(lists), sites: new Set(sites), drives: new Set(drives) };
+  return {
+    lists: new Set(lists),
+    sites: new Set(sites),
+    drives: new Set(drives),
+    unreadableApps: new Set(unreadableApps),
+  };
 }
 
 const teradyne = APPS.find((a) => a.label === "Teradyne Log")!;
@@ -128,6 +137,55 @@ describe("isAppUnavailable", () => {
 
     expect(isAppUnavailable(openOrders, refusedLibrary)).toBe(true);
     expect(isAppUnavailable(visits, refusedLibrary)).toBe(false);
+  });
+});
+
+describe("appAccessState — two lock reasons, not one", () => {
+  it("reports an unreadable app separately from a refused one", () => {
+    // "You don't have access" would send somebody to ask for access they may
+    // already have: the OPEN ORDERS folder answering itemNotFound, or a list
+    // handing back none of the rows it says it holds, are not refusals.
+    const openOrders = APPS.find((a) => a.label === "Open Orders Report")!;
+    expect(appAccessState(openOrders, denials({ unreadableApps: [openOrders.path] }))).toBe(
+      "unreadable",
+    );
+    expect(appAccessState(openOrders, denials({ drives: [SITES.salesTeam] }))).toBe("no-access");
+    expect(appAccessState(openOrders, denials({}))).toBe("ok");
+  });
+
+  it("prefers 'no-access' when an app is both", () => {
+    // A refusal is the more specific and more actionable answer.
+    const openOrders = APPS.find((a) => a.label === "Open Orders Report")!;
+    const both = denials({ sites: [SITES.salesTeam], unreadableApps: [openOrders.path] });
+    expect(appAccessState(openOrders, both)).toBe("no-access");
+  });
+
+  it("splits the labels by reason for the notice", () => {
+    const customers = APPS.find((a) => a.label === "Customers")!;
+    const { noAccess, unreadable } = accessGapLabels(
+      denials({ lists: APPS.find((a) => a.label === "Visit Reports")!.lists, unreadableApps: [customers.path] }),
+    );
+    expect(noAccess).toEqual(["Visit Reports"]);
+    expect(unreadable).toEqual(["Customers"]);
+  });
+
+  it("only ever marks the ONE app that couldn't be read", () => {
+    const customers = APPS.find((a) => a.label === "Customers")!;
+    const visits = APPS.find((a) => a.label === "Visit Reports")!;
+    const d = denials({ unreadableApps: [customers.path] });
+    expect(isAppUnavailable(customers, d)).toBe(true);
+    expect(isAppUnavailable(visits, d)).toBe(false);
+  });
+});
+
+describe("the file-backed apps declare the folder they read", () => {
+  it("names the same path the feature itself uses", () => {
+    // Probing the library ROOT wasn't enough: Tim could read the Sales
+    // library root and still got itemNotFound on the folder inside it.
+    const openOrders = APPS.find((a) => a.label === "Open Orders Report")!;
+    const folders = APPS.find((a) => a.label === "Project Folders")!;
+    expect(openOrders.drivePath).toBe("General/Order Management/OPEN ORDERS");
+    expect(folders.drivePath).toBe("General/Project Folders");
   });
 });
 
