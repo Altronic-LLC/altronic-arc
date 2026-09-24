@@ -21,6 +21,7 @@ import {
 } from "@/api/buildRequestItems";
 import type { BuildRequest, BuildRequestItem, Person } from "@/types/task";
 import { ALL_CHECKLIST_FIELDS } from "@/lib/buildRequestChecklist";
+import { describeListWriteFailure } from "@/lib/listWriteErrors";
 import { pushToast } from "@/components/Toast";
 import { autoWatchFromMentions } from "@/api/autoWatch";
 import { fireAssigneeChangeAlert, fireFieldChangeAlert, notifyMentions } from "@/api/email";
@@ -739,9 +740,22 @@ export function useUpdateBuildRequestItemFields() {
         });
       }
     },
-    onError: (_err, _vars, ctx) => {
+    onError: (err, _vars, ctx) => {
       rollbackItem(qc, ctx);
-      errorToast("Couldn't save the part — changes reverted.");
+      // Say WHY. This toast threw the error away entirely, so a refused
+      // write read as "the app is broken" — reported 2026-09-24 against the
+      // Assembly / Operations / Testing pickers, where ARC's own values,
+      // array shape and $select all check out against the live column
+      // definitions, which leaves the SharePoint permission boundary (the
+      // real one — ARC's gating is only UI-level) and nothing on screen
+      // naming it.
+      errorToast(
+        `${describeListWriteFailure(err, {
+          action: "save this part",
+          site: "Engineering",
+          permission: "editing",
+        })} Your changes have been reverted.`,
+      );
     },
     onSettled: () => invalidateItems(qc),
   });

@@ -37,6 +37,13 @@ export interface WriteFailureContext {
   site: string;
   /** Something the user could do instead that needs less permission. */
   alternative?: string;
+  /**
+   * The permission the write actually needed, named in the "ARC's own access
+   * may not include X" sentence. Defaults to "deleting" — the original caller
+   * was a refused delete — but a refused EDIT must not tell somebody to go
+   * and check delete rights, which is the wrong setting to look at.
+   */
+  permission?: string;
 }
 
 /**
@@ -59,7 +66,7 @@ export function describeListWriteFailure(err: unknown, ctx: WriteFailureContext)
   if (isPermissionDenied(err)) {
     const parts = [
       `SharePoint wouldn't let you ${ctx.action}.`,
-      `Your account may have read-only access to the ${ctx.site} site, or ARC's own access to it may not include deleting.`,
+      `Your account may have read-only access to the ${ctx.site} site, or ARC's own access to it may not include ${ctx.permission ?? "deleting"}.`,
     ];
     if (ctx.alternative) parts.push(ctx.alternative);
     parts.push("If you need this, ask an admin to check both.");

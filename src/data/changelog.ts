@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.164.5",
+    date: "2026-09-24",
+    changes: [
+      "When a part on a build request can't be saved, the message now says why — whether SharePoint refused it, or the part was removed by someone else — instead of just \"changes reverted\"",
+    ],
+  },
+  {
     version: "0.164.4",
     date: "2026-09-24",
     changes: [
