@@ -43,6 +43,21 @@ describe("ListAccessIndicator", () => {
     expect(inline.closest("div")?.className).toContain("lg:flex");
   });
 
+  it("uses a warning colour that has a light AND a dark value", () => {
+    // The brand yellows are one fixed hex: fine on the dark footer, almost
+    // invisible on the light one (Tim, 2026-09-24). Anything reintroducing a
+    // single-value brand yellow here fails this.
+    markListDenied(teradyne.lists[0], SITES.pmo);
+    renderWithProviders(<ListAccessIndicator />);
+
+    const icon = screen.getByRole("button", { name: "SharePoint access notice" });
+    const sentence = screen.getByTitle(/don't have SharePoint access/);
+    for (const el of [icon, sentence]) {
+      expect(el.className).toMatch(/dark:text-/);
+      expect(el.className).not.toMatch(/text-ajax-yellow/);
+    }
+  });
+
   it("opens a popup from the icon, carrying the message and Check again", async () => {
     const user = userEvent.setup();
     markListDenied(teradyne.lists[0], SITES.pmo);

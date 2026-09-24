@@ -4,7 +4,19 @@ import { useQueryClient } from "@tanstack/react-query";
 import { siteLabelForId, unavailableAppLabels } from "@/api/appAccess";
 import { clearAccessDenials, useAccessDenials } from "@/hooks/useListAccess";
 import { describeAccessGap } from "@/lib/listAccess";
+import { cn } from "@/lib/cn";
 import { dropdownKeyHandler, useDropdownClose } from "./useDropdownClose";
+
+/**
+ * A warning colour that works on BOTH grounds.
+ *
+ * NOT `text-ajax-yellow`: the brand yellows are a single fixed hex, which sits
+ * well on the dark footer and washes out to near-invisible on the light one
+ * (Tim, 2026-09-24). Amber 700/400 is the pair the admin role screens already
+ * use for the same job, so this is the app's existing idiom rather than a new
+ * colour — and it needs no new CSS variable.
+ */
+const WARNING_TEXT = "text-amber-700 dark:text-amber-400";
 
 // =============================================================================
 // "You don't have access to some of this" — in the FOOTER.
@@ -66,7 +78,10 @@ export function ListAccessIndicator() {
           type="button"
           onClick={() => setOpen((o) => !o)}
           aria-expanded={open}
-          className="flex min-w-0 items-center gap-1.5 text-left text-ajax-yellow transition-colors hover:text-fg"
+          className={cn(
+            "flex min-w-0 items-center gap-1.5 text-left transition-colors hover:text-fg",
+            WARNING_TEXT,
+          )}
           title={message}
         >
           <Lock className="h-3.5 w-3.5 shrink-0" />
@@ -88,7 +103,10 @@ export function ListAccessIndicator() {
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-label="SharePoint access notice"
-        className="inline-flex items-center gap-1.5 rounded-md border border-ajax-yellow/40 bg-ajax-yellow/10 px-2 py-1 text-ajax-yellow transition-colors hover:bg-ajax-yellow/20 lg:hidden"
+        className={cn(
+          "inline-flex items-center gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/15 px-2 py-1 transition-colors hover:bg-amber-500/25 lg:hidden",
+          WARNING_TEXT,
+        )}
       >
         <AlertTriangle className="h-3.5 w-3.5" />
       </button>
