@@ -20,6 +20,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.165.0",
+    date: "2026-09-24",
+    changes: [
+      "ARC now tells you, anywhere in the app, when a screen's SharePoint data can't be loaded for your account — instead of showing an empty list as though there were nothing to see",
+      "The notice sits in the footer, names the app and the SharePoint site to ask an admin about, and has a Check again action for the moment access is granted — on a narrow screen it collapses to an alert icon you can tap for the same message",
+      "ARC checks your access as soon as it loads, so an app you can't use is locked from the start rather than after you've opened it and been turned away",
+      "Dashboard cards and Departments menu entries for those apps are locked, so you aren't sent to a screen that can only turn you away",
+      "Nothing is hidden — a locked app still shows its name and a padlock, so you can see it exists and ask for it",
+      "An app whose data ARC can't read is locked too, with wording that says which it is — a folder ARC can't find, or a list whose records are all hidden from you, no longer looks like an app with nothing in it",
+      "Digital QC, Ignition QC, Coil Defect Log, Potting Sample Log and the Teradyne Log explain a missing list in place of the table, including when only a reference list behind the screen is unreachable",
+      "Add entry is unavailable on those screens until every list they need can be reached, so an entry can't be lost to a refused save",
+      "Customers and the Open Orders Report now say when their data couldn't be read at all, instead of showing an empty list or \"no master dashboard yet\" as though nothing had been created",
+    ],
+  },
+  {
     version: "0.164.5",
     date: "2026-09-24",
     changes: [

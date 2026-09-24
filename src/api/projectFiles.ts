@@ -27,7 +27,8 @@ import { safeUniqueFilename } from "@/lib/uniqueFilename";
 // =============================================================================
 
 /** Library path containing project subfolders, relative to drive root. */
-const PROJECT_FOLDERS_PATH = "General/Project Folders";
+/** Where the project folders live, relative to the drive root. */
+export const PROJECT_FOLDERS_PATH = "General/Project Folders";
 /**
  * Folder name to fall through to when no project folder matches.
  * Case-insensitive `includes("misc")` so the SharePoint folder can be

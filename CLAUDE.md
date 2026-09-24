@@ -222,6 +222,9 @@ src/
 │
 ├── api/                          All mock/real branches live here (USE_MOCK)
 │   ├── config.ts                 USE_MOCK, SITES registry, every list ID, role-enforcement flags
+│   ├── appAccess.ts              Which lists each app needs + site labels (drives the access gating)
+│   ├── accessProbe.ts            One Graph $batch at sign-in: which lists can this user read?
+│   ├── listItemCount.ts          SharePoint's UNTRIMMED item count — "the rows exist, you just can't see them"
 │   ├── graph.ts                  graphFetch / graphFetchAll, throttle retry, ONE shared interactive sign-in
 │   ├── sharepoint.ts             SharePoint REST helper (list-item attachments)
 │   ├── directory.ts              Tenant staff directory (Graph /users) for the pickers
@@ -359,6 +362,8 @@ src/
 │   ├── useFilters.ts             URL-backed task filter state + filterSearch()
 │   ├── useEirFilters.ts          URL-backed EIR filter state + eirFilterSearch()
 │   ├── useSessionExpiry.ts       Shared "the token died" flag AuthGate watches
+│   ├── useListAccess.ts          Shared "SharePoint refused this list" store (banner + nav gating)
+│   ├── useEmptyListCheck.ts      An empty list: really empty, or trimmed away from you?
 │   ├── useSortableTable.ts       Sort + column-filter state for a table (wraps tableSort)
 │   ├── useVersionCheck.ts        Polls version.json → update banner
 │   ├── useUnseenMentions.ts      Unseen-@-mention badge state
@@ -390,6 +395,7 @@ src/
 │   ├── eirProjectReference.ts    Who may change an EIR's Project Reference (hard-coded)
 │   ├── recipientAudit.ts         Checks configured alert addresses against the directory
 │   ├── listWriteErrors.ts        A refused SharePoint write, in words
+│   ├── listAccess.ts             A refused Graph READ — which list/site, and the wording
 │   ├── ecnFields.ts              ECN column descriptors (field_2 … field_12 decoded)
 │   ├── ecnMapper.ts              Graph item → Ecn, Log# parsing/sorting
 │   ├── ecnChecklistTemplate.ts   The 84 MFGFRM-038 items as DATA (generated, verbatim)
@@ -565,6 +571,8 @@ src/
 │   ├── TaskAttachmentsSection.tsx  Task attachments (dual storage)
 │   ├── PcbChecklistCard.tsx      PCB checklist on a task
 │   ├── NotifyAppManagerButton.tsx  "Report issue" button + modal
+│   ├── ListAccessNotice.tsx        SharePoint list permission notice + retry
+│   ├── ListAccessIndicator.tsx     Footer "you don't have access to X" — sentence, or icon + popup
 │   ├── MermaidDiagram.tsx        (legacy) Mermaid renderer
 │   ├── atoms.tsx                 Badges, chips, status colours
 │   ├── operationsAtoms.tsx       Operations-specific badges/chips
@@ -6454,6 +6462,162 @@ told whoever she asked nothing about what to change.
 A refused delete also invalidates the query, because nothing was removed and the
 row is still on screen — without the refetch the list can drift from SharePoint
 after a failure.
+
+### A refused list is said out loud, app-wide — and closes the doors to itself
+
+The other half of the rule above, for READS. Every hook in ARC falls back to
+`?? []`, so a list SharePoint refuses renders as an empty list — "you can't see
+this" and "there's nothing here" look identical, and the Add entry button stays
+enabled until the save is refused too. Five screens were taught to explain this
+by hand in v0.164.4 (`ListAccessNotice`); there are eighty-odd screens, so
+v0.165.0 made it app-wide instead of continuing one at a time.
+
+Four pieces, each with one job:
+
+- **`lib/listAccess.ts`** — pure. Parses the site and list out of a `GraphError`
+  URL, and decides whether an error was the permission boundary at all.
+- **`api/appAccess.ts`** — the registry: which lists each app needs, and what to
+  call each site. Read by the banner, the Departments menu AND the Dashboard
+  cards, because two copies of "which list is behind Teradyne Log" is how a fix
+  reaches the menu and not the card. It lives in `api/` beside `config.ts`,
+  since that is where list ids already live and `lib/` deliberately doesn't
+  import `api/`.
+- **`hooks/useListAccess.ts`** — the store, fed from the ONE place every read
+  and write already flows through: the `QueryCache` / `MutationCache` onError
+  handlers in `main.tsx`, exactly like the session-expiry store beside it. No
+  feature wires itself up; a refused list registers wherever it was first
+  touched.
+- **`components/ListAccessIndicator.tsx`** — the app-wide notice, in the
+  **FOOTER**, between the maintainer line and the About button. It shipped as a
+  full-width bar under the header and moved on 2026-09-24 (Tim): it is a
+  standing fact about the account, not news about this page, and a permanent
+  stripe above every screen pushed the page down a row for anyone missing one
+  list. Two renderings, chosen by the `lg` breakpoint rather than a
+  measurement: the sentence inline (truncating, and clickable because it
+  truncates), or a single alert icon that opens the same popup. The popup opens
+  UPWARD — the footer is pinned to the bottom of the window.
+
+Seven things that are load-bearing:
+
+- **The denial check is STRICTER than `isPermissionDenied`** in
+  `lib/listWriteErrors.ts`, which also matches "unauthorized" anywhere in the
+  body. That looseness is right for a toast on a write the user just attempted
+  and wrong here, because this answer disables navigation: a 401 is a dead
+  session, and it must reach the sign-in screen rather than tell somebody they
+  lack access they actually have. 403 or a body carrying `accessDenied`, and
+  nothing else.
+- **A refused LIST never marks its SITE denied.** Somebody can hold access to
+  twenty lists on Altronic_Engineering and not the twenty-first; marking the
+  site would lock every other app on it. The site is remembered separately
+  (`implicatedSites`) purely so the banner can name somewhere to ask about.
+- **An app is unavailable only when EVERY list it names is refused.** Most apps
+  name one, so the readings coincide — it matters for Drawing File Logs' four
+  registers and the QC families, where one refused register still leaves a
+  working screen. Partial refusals are the in-screen notice's job.
+- **`lists: []` means "site-level detection only"** (Project Folders is a
+  document library, not a list) and must never read as "every list denied".
+- **Nothing is HIDDEN.** A locked card and a locked menu row still show the
+  app's name plus a padlock. An entry that vanishes reads as ARC having lost a
+  feature and gives the user nothing to ask for. A "Soon" placeholder and a
+  locked app are also kept visually distinct — they mean different things.
+- **It is both ASKED and LEARNED — the learner alone answers too late.**
+  v0.165.0 only watched requests fail, which is free but only knows after the
+  fact: every Sales card looked live until Tim opened Visit Reports, was
+  refused, and came back to find ONE card locked and the rest still inviting
+  him in (2026-09-24). `api/accessProbe.ts` now asks up front, in **one Graph
+  `$batch`** (20 sub-requests a call, `$select=id` each — "may I", not "give me
+  the rows"), so the Dashboard and the menu are right the first time. The
+  passive learner stays: it is free, it covers what the probe skips, and access
+  can change mid-session.
+- **The probe SKIPS a multi-list app** — Drawing File Logs' four registers,
+  Digital QC's sixteen families, Ignition QC's thirty-seven. Those need every
+  register refused to count as unavailable, so proving it would cost fifty-odd
+  sub-requests to answer a question that is almost always "they're fine". They
+  keep the learner.
+- **Only 403 counts, and a failed probe changes nothing.** Graph answers **404
+  for a missing SCOPE** as well as a missing list (see the note in `graph.ts`),
+  and the two are indistinguishable from the browser — one of them is a config
+  error that would lock an app for the whole company at once. A whole batch
+  failing is a network or session problem, not an answer about permissions, so
+  `probeAppAccess` swallows it and leaves ARC exactly as it was.
+- **A refused DOCUMENT LIBRARY is not a refused site.** A library with its own
+  broken inheritance is ordinary SharePoint, so `drives` is its own denial kind
+  and only the `needsDrive` apps (Project Folders, Open Orders Report) read it.
+  An earlier version recorded a drive 403 as a site denial, which would have
+  locked Visit Reports over a folder nobody had shared.
+- **There are TWO lock reasons, and they are not merged.** `appAccessState`
+  answers `"no-access"` (a 403 — somebody can grant it) or `"unreadable"`
+  (nothing was refused and the data still isn't there). Tim asked for the
+  second case to lock like the first (2026-09-24), and it does — but with its
+  own wording, because "you don't have SharePoint access" would send somebody
+  to ask for access they may already have. A refusal wins when an app is both.
+  Two things feed `"unreadable"`:
+  - **A declared FOLDER answering 404.** `AppSpec.drivePath` names the folder
+    the screen actually reads, imported from the feature rather than retyped.
+    Probing the library ROOT was not enough: Tim could read the Sales library
+    root and still got `itemNotFound` on `General/Order Management/OPEN
+    ORDERS` inside it, so Open Orders stayed unlocked while its screen showed
+    nothing. Still narrow — a 404 counts for a declared folder ONLY, never for
+    a list, because Graph answers 404 for a missing scope too.
+  - **A list handing back none of the rows it reports holding**
+    (`hooks/useEmptyListCheck.ts` + `api/listItemCount.ts`). Customers read
+    fine and returned zero rows, which is exactly how SharePoint answers an
+    item-level permission problem: it SECURITY-TRIMS the result to 200 with an
+    empty array, byte-for-byte identical to an empty list. Nothing in the Graph
+    response separates them. The list's own **`ItemCount` is not trimmed**, so
+    "ItemCount 102, and you were handed 0" is positive evidence. It is asked
+    ONLY when a screen has zero rows and no error, so it costs a request on an
+    empty screen and nothing on a working one.
+    **It cannot fire on a genuinely empty list** — `ItemCount` would be 0 too —
+    which is what makes it safe to lock on: the person whose job is to add the
+    first row is never shut out of the screen that adds it. It goes through SP
+    REST, whose scope this app treats as best-effort, so a missing grant
+    returns null and ARC behaves exactly as it did before.
+- **The probe asks about each SITE too, and a refused site takes its SUBSITES
+  with it.** `salesOrderEntry` is a subsite of `salesTeam` (Tim, 2026-09-24:
+  "if I don't have access to salesTeam I won't have access to
+  salesOrderEntry"), so `isAppUnavailable` walks `siteAncestry`, not the app's
+  own site id. Five site probes also answer for the multi-list apps the probe
+  skips: "no access to Altronic_Engineering at all" locks Drawing File Logs and
+  both QC logs without probing their fifty-seven registers.
+  **The inference is one-directional.** A refused SUBSITE says nothing about
+  its parent — a subsite can break inheritance and be shared with people who
+  can't open the site above it, so `SITE_PARENTS` is only ever read upward.
+- **It is deliberately NOT persisted.** A denial cached in storage outlives the
+  problem: somebody granted access at 9am would stay locked out until they
+  closed the tab. In memory a reload re-learns the truth — which the probe
+  makes cheap, since it is two requests rather than a visit to every screen.
+- **Every notice says "ask an admin", not a named person or team** (Tim,
+  2026-09-24, deciding it deliberately). Naming the IT service desk, an AI
+  Champion or a maintainer was the alternative, and it was considered and
+  turned down: the wording appears in the footer notice, the in-screen
+  notices, the locked cards and the locked menu rows, so re-pointing it is a
+  handful of edits that should be made in one pass and on purpose — not one
+  screen at a time.
+- **"Check again" clears the store BEFORE refetching**, so anything since
+  granted stops being hidden immediately and anything still refused simply
+  registers again a moment later. It also bumps the probe's query key
+  (`probeKey`), because React Query would otherwise hold the first answer for
+  the whole session and the button would do nothing for the one person it
+  exists for — somebody who has just been granted access.
+
+**And the last mile is per-screen: a failed read is NEVER an empty list.** The
+banner and the locks only fire on a 403 that ARC can attribute. Everything
+else — a 404, a throttle, a bad list id — still reaches a screen that
+destructures `data: x = []` and drops the error, which renders as "nothing
+here". Tim hit exactly that after the gating shipped (2026-09-24): Customers
+showed "No customers match these filters" over a 102-row list, and Open Orders
+showed "No master dashboard yet — build one with the tool below", pointing him
+at a button that would have failed too. Both now branch three ways —
+`ListAccessNotice` for a refusal, a named "couldn't load" with a retry for any
+other error, and the real empty state only when the read actually SUCCEEDED and
+came back empty. Any new list screen owes the same three branches; the row
+count is not a loading or error state.
+
+The "does the gate exist" tests were verified by disabling each gate and
+watching them fail — a test that passes either way is how this class of feature
+rots. One of them didn't fail at first: the App.tsx source check matched its own
+commented-out call, so it is anchored to the start of a line now.
 
 ### Mail that doesn't send says so
 

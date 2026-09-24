@@ -4,6 +4,7 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { ToastContainer } from "@/components/Toast";
 import { UpdateAvailableBanner } from "@/components/UpdateAvailableBanner";
+import { useAccessProbe } from "@/hooks/useListAccess";
 import { RequireAdmin } from "@/components/RequireAdmin";
 import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
 import { LoadingTasks } from "@/components/LoadingTasks";
@@ -279,6 +280,9 @@ export function App() {
   // scan here keeps each row's `useIsMentioned` cheap — rows just read a
   // boolean from the shared store and no longer trigger the scan effect.
   useMentionScanner();
+  // Ask SharePoint what this user can read BEFORE they click into something
+  // and get turned away. One $batch, on load. See api/accessProbe.ts.
+  useAccessProbe();
 
   return (
     <div className="flex min-h-screen flex-col bg-bg">
