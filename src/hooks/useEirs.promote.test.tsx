@@ -106,6 +106,46 @@ describe("usePromoteEirToTask", () => {
     expect(tasks.result.current.data?.some((t) => t.id === taskId)).toBe(true);
   });
 
+  // The EIR's discussion is the whole point of carrying it across, and NO
+  // test asserted it landed — every case here checked ids, warnings and
+  // attachment calls instead, which is how "the comments did not transfer"
+  // (Ray, 2026-09-24) shipped past a green suite.
+  it("carries every EIR comment onto the new task, tagged as from the EIR", async () => {
+    const { Wrapper } = wrapper();
+    const eirs = renderHook(() => useEirs(), { wrapper: Wrapper });
+    await waitFor(() => expect(eirs.result.current.data?.length).toBeGreaterThan(0));
+    // A fixture that ACTUALLY has a discussion — one with none passes
+    // whether the carry-over works or not.
+    const eir = eirs.result.current.data!.find((e) => e.comments.length > 0);
+    expect(eir).toBeDefined();
+
+    const promote = renderHook(() => usePromoteEirToTask(), { wrapper: Wrapper });
+    let result: Awaited<ReturnType<typeof promote.result.current.mutateAsync>>;
+    await act(async () => {
+      result = await promote.result.current.mutateAsync({
+        eir: eir!,
+        title: "Promoted from test",
+        project: null,
+        watchers: [],
+        numberedTitle: "T996-Promoted from test",
+        promotedBy: { displayName: "Ray White", email: "ray.white@altronic-llc.com" },
+      });
+    });
+
+    const carried = result!.task.comments;
+    // The promotion header note, plus one comment per EIR comment.
+    expect(carried.length).toBe(eir!.comments.length + 1);
+    // Every original comment's body is present, and marked as from the EIR.
+    for (const original of eir!.comments) {
+      const match = carried.find((c) => c.bodyHtml.includes(original.bodyHtml));
+      expect(match, `comment "${original.bodyHtml}" did not carry over`).toBeDefined();
+      expect(match!.bodyHtml).toMatch(/carried over from EIR/i);
+      // Original authorship survives — a carried comment is a record of
+      // what was said, not a re-post by whoever pressed the button.
+      expect(match!.authorEmail).toBe(original.authorEmail);
+    }
+  });
+
   // Pins the "for some reason it didn't transfer" report: the task exists
   // (createTask still returns it, wrapped in TaskFollowUpWriteError, when
   // only the EIRReference/Communication follow-up PATCH failed), and the

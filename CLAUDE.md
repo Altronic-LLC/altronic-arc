@@ -856,6 +856,42 @@ the old console.error-only behaviour nobody watching the app would ever see.
 Pinned by `tasks.eirReferenceWrite.test.ts` (the two-call shape, real mode)
 and `useEirs.promote.test.tsx` (the warning path).
 
+**The two follow-up fields are SEPARATE PATCHes, and the discussion goes
+FIRST.** They travelled in ONE PATCH until 2026-09-24, so a refused
+`EIRReference` discarded the carried-over EIR comments as collateral — the
+task landed with an empty thread, and the only signal was a toast the user
+navigates straight past, because `PromoteEirModal` navigates to the new task
+the instant the mutation resolves (reported by Ray as "the EIR comments did
+not transfer").
+
+**`EIRReference` is the fragile half by a wide margin, so it must never share
+a write with anything that matters.** It is a Hyperlink column, it already
+400s at create time (above), and Graph cannot even report its type —
+`"unknown"` in `scripts/project-task-list-schema.json`, the same
+unrecoverable-type signature as the Supplier `Logo` column. The comments are
+the half nobody can reconstruct from memory, so they are written first and
+alone: a failed link now costs only the link.
+
+Three things that go with it:
+
+- **Each failed field is COLLECTED, not thrown on immediately**, so one
+  refusal never skips the other write.
+- **`TaskFollowUpWriteError` carries the task as it ACTUALLY stands** —
+  whichever write last succeeded, else a re-read. Handing back the pre-write
+  object on a partial failure would make `usePromoteEirToTask`'s cache seed
+  render an EMPTY thread for comments that genuinely are in SharePoint, which
+  is the original bug wearing a different hat.
+- **The warning names the RECOVERY for whichever half was lost** — "copy the
+  discussion across from EIR_2026-0042", not a bare "by hand", since the
+  comments are still sitting on the EIR.
+
+**No test asserted the comments ever arrived.** Every case in
+`useEirs.promote.test.tsx` checked ids, warning wording and attachment calls,
+so a promotion that carried nothing passed a green suite. It now asserts each
+EIR comment's body, its "carried over from EIR" tag and its ORIGINAL author —
+against a fixture that actually has a discussion, since one with none passes
+whether the carry-over works or not.
+
 **Promoting an EIR also copies its attachments onto the new task** —
 `copyAttachments()` in `src/api/attachments.ts`, added alongside this fix.
 EIR files and task files live in two separate SP REST attachment stores (see
@@ -3942,6 +3978,68 @@ these lists don't have SharePoint referential integrity enabled. That guard also
 holds while the log query is still loading, when every row would otherwise look
 unused. `IDEmp` / `IDProd` / `IDRem` are legacy ids from the original import —
 read and preserved, never written.
+
+### Build Request Items — Assembly / Operations / Testing are MULTI-choice
+
+Two lists on `SITES.engineering`: **Build Request Tracker** (headers,
+`7e0f94cc-…`) and **Build Request Items** (the parts, `5572f186-…`). Schema
+captured live 2026-09-24 in `scripts/build-request-items-schema.json`.
+
+**THE TRAP: Graph reports these three columns as `type: "choice"` — SINGULAR —
+and they are genuinely MULTI-select.** Graph says `choice` for both kinds, so
+the type name cannot tell them apart. Two signals can:
+
+- **`choice.displayAs` is `"checkBoxes"`** on all three (confirmed live
+  2026-09-24 — it is NOT in the `discover-list.ps1` snapshot, so read it from
+  `/columns` directly). A single-value column renders as a dropdown or radio
+  buttons instead, so this field is the type signal `type` fails to give.
+- **The live rows carry ARRAYS** — `["AOI", "In Circuit", "Safe Power-Up"]`.
+  This is the check that needs no extra call, since the snapshot's
+  `sampleRows` already show it.
+
+So they are written as a **plain string array** (`multiChoiceField`'s shape —
+NO `@odata.type` annotation, which belongs to multi-value lookup and person
+columns and is a hard 400 here), and cleared with `[]`, never `null`.
+
+**Do NOT "fix" this into a bare string on the strength of that type name.**
+The task list's `Labels` column is the opposite case documented in this same
+file — reported as `choice` and genuinely single-value, where writing an array
+400s — so the two look identical from `/columns` and want opposite shapes.
+`displayAs` and a real row are the only way to tell; check both before
+changing either.
+
+`BUILD_REQUEST_ASSEMBLY_OPTIONS` / `_OPERATIONS_` / `_TESTING_` in
+`types/task.ts` mirror the live choice lists exactly (5 / 7 / 10 values,
+verified 2026-09-24). **A value ARC offers that the column does not declare
+makes SharePoint refuse the WHOLE PATCH**, so one wrong option in a picker
+stops every save from that card — `allowTextEntry` is false on all three.
+`buildRequestItems.multiChoice.test.ts` checks the constants against the
+SNAPSHOT rather than a hardcoded copy, so re-running `discover-list.ps1` is
+what updates them.
+
+**A refused write now says WHY** (Ray, 2026-09-24: a user ticking these three
+pickers "got an error that the selections were not saved").
+`useUpdateBuildRequestItemFields`'s `onError` threw the error away entirely
+and toasted a bare "Couldn't save the part — changes reverted", so a refused
+write was indistinguishable from a bug in ARC. It goes through
+`describeListWriteFailure` now — naming the SharePoint permission boundary
+(the real one; ARC has no role gate on this list at all) or the
+somebody-else-deleted-it case.
+
+`describeListWriteFailure` gained a **`permission`** field for this. It
+hardcoded "deleting" in the access-denied sentence, which was right for its
+only previous caller (a refused delete) and would have sent somebody to check
+the wrong setting for a refused EDIT. It still defaults to "deleting", so the
+existing callers' wording is unchanged.
+
+**Every column ARC selects on this list was verified to exist** — including
+the `…LookupId` siblings (`BuildRequestNoLookupId`,
+`ProjectReferenceLookupId`, `Task_x0020_RefLookupId`), which are selectable
+even though `/columns` lists only their base names, and all 17 checklist
+boolean columns. Selecting a column a list hasn't got 400s the WHOLE read, and
+`updateBuildRequestItemFields` re-reads through `listBuildRequestItems()`
+after its PATCH — so a bad `$select` surfaces as "couldn't save" on a write
+that actually landed.
 
 ### ARC Feature Requests (Engineering site)
 

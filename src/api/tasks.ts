@@ -660,28 +660,74 @@ export async function createTask(input: {
   // here must not surface as "promotion failed" — it means the task exists
   // but is missing its "From EIR" link and/or carried-over discussion,
   // which the caller can still see and redo by hand.
-  const followUp: Record<string, unknown> = {};
-  if (input.eirReference && (input.eirReference.url || input.eirReference.label)) {
-    followUp.EIRReference = {
-      Url: input.eirReference.url,
-      Description: input.eirReference.label,
-    };
-  }
-  if (input.communication) followUp.Communication = input.communication;
-  if (Object.keys(followUp).length > 0) {
+  //
+  // THE TWO ARE WRITTEN SEPARATELY, AND THE DISCUSSION GOES FIRST. They
+  // used to travel in ONE PATCH, which meant a refused EIRReference took the
+  // carried-over comments down with it as collateral — the task landed with
+  // an empty thread and the only signal was a toast the user navigates away
+  // from a moment later ("the EIR comments did not transfer", Ray,
+  // 2026-09-24). EIRReference is the fragile half by a wide margin: it is a
+  // Hyperlink column, it already 400s at create time (above), and Graph
+  // cannot even report its type (`"unknown"` in
+  // scripts/project-task-list-schema.json — the same unrecoverable-type
+  // signature as the Supplier Logo column). The comments are the half that
+  // cannot be reconstructed by hand, so they are written first and on their
+  // own: a failed link now costs only the link.
+  //
+  // Each failed field is collected rather than thrown on immediately, so one
+  // refusal never skips the other write.
+  const failed: string[] = [];
+  let latest: Task | null = null;
+  let lastError: unknown = null;
+
+  if (input.communication) {
     try {
-      return await updateTaskFields(task.id, followUp);
+      latest = await updateTaskFields(task.id, { Communication: input.communication });
     } catch (err) {
-      // Don't swallow this — a promotion whose link-back and comment thread
-      // silently failed to land is exactly the "for some reason it didn't
-      // transfer" report this shipped to fix. The task itself is real and
-      // already saved, so this is a distinct error the caller can catch to
-      // still treat the promotion as successful while telling the user what
-      // to redo by hand (see TaskFollowUpWriteError below).
-      throw new TaskFollowUpWriteError(task, Object.keys(followUp), err);
+      failed.push("Communication");
+      lastError = err;
     }
   }
-  return task;
+
+  if (input.eirReference && (input.eirReference.url || input.eirReference.label)) {
+    try {
+      latest = await updateTaskFields(task.id, {
+        EIRReference: {
+          Url: input.eirReference.url,
+          Description: input.eirReference.label,
+        },
+      });
+    } catch (err) {
+      failed.push("EIRReference");
+      lastError = err;
+    }
+  }
+
+  if (failed.length > 0) {
+    // Don't swallow this — a promotion whose link-back and comment thread
+    // silently failed to land is exactly the "for some reason it didn't
+    // transfer" report this shipped to fix. The task itself is real and
+    // already saved, so this is a distinct error the caller can catch to
+    // still treat the promotion as successful while telling the user what
+    // to redo by hand (see TaskFollowUpWriteError below).
+    //
+    // It carries the task as it ACTUALLY stands: on a partial failure (the
+    // comments landed, the link didn't) handing back the pre-write object
+    // would make a cache seeded from it show an EMPTY thread for comments
+    // that are genuinely in SharePoint. `latest` is whichever write last
+    // succeeded; with none, re-read, and fall back to the create's own
+    // object only if even that fails.
+    let current = latest;
+    if (!current) {
+      try {
+        current = await getTask(task.id);
+      } catch {
+        current = null;
+      }
+    }
+    throw new TaskFollowUpWriteError(current ?? task, failed, lastError);
+  }
+  return latest ?? task;
 }
 
 /**

@@ -279,10 +279,22 @@ $definition = [ordered]@{
                                     apiId          = '/providers/Microsoft.PowerApps/apis/shared_sharepointonline'
                                 }
                                 parameters = [ordered]@{
-                                    dataset                       = $SiteUrl
-                                    table                         = $ListId
-                                    id                            = "@triggerOutputs()?['body/ID']"
-                                    'item/LastNotifiedComment'    = "@outputs('CommentTimestamp')"
+                                    dataset = $SiteUrl
+                                    table   = $ListId
+                                    id      = "@triggerOutputs()?['body/ID']"
+                                    # Title is REQUIRED on the list, so PatchItem refuses the
+                                    # whole action without it — "The API operation 'PatchItem'
+                                    # is missing required property 'item/Title'" at SAVE time,
+                                    # before the flow has ever run (reported 2026-09-24).
+                                    #
+                                    # Echoed back from the trigger UNCHANGED. It has to be sent,
+                                    # but this action's only job is stamping LastNotifiedComment
+                                    # — writing anything else here would overwrite a real value
+                                    # every time a guest comments. Note Title is the task's own
+                                    # short title, NOT NumberedTitle: they are two separate
+                                    # columns and swapping them would rewrite every task's name.
+                                    'item/Title'               = "@triggerOutputs()?['body/Title']"
+                                    'item/LastNotifiedComment' = "@outputs('CommentTimestamp')"
                                 }
                                 authentication = "@parameters('`$authentication')"
                             }

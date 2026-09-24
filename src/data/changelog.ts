@@ -25,20 +25,28 @@ export const CHANGELOG: ChangelogEntry[] = [
     changes: [
       "ARC now tells you, anywhere in the app, when a screen's SharePoint data can't be loaded for your account — instead of showing an empty list as though there were nothing to see",
       "The notice sits in the footer, names the app and the SharePoint site to ask an admin about, and has a Check again action for the moment access is granted — on a narrow screen it collapses to an alert icon you can tap for the same message",
-      "Dashboard cards and Departments menu entries for an app you don't have access to are now locked, so you aren't sent to a screen that can only turn you away",
-      "ARC checks your access as soon as it loads, so those apps are locked from the start rather than only after you've opened one and been turned away",
+      "ARC checks your access as soon as it loads, so an app you can't use is locked from the start rather than after you've opened it and been turned away",
+      "Dashboard cards and Departments menu entries for those apps are locked, so you aren't sent to a screen that can only turn you away",
       "Nothing is hidden — a locked app still shows its name and a padlock, so you can see it exists and ask for it",
+      "An app whose data ARC can't read is locked too, with wording that says which it is — a folder ARC can't find, or a list whose records are all hidden from you, no longer looks like an app with nothing in it",
+      "Digital QC, Ignition QC, Coil Defect Log, Potting Sample Log and the Teradyne Log explain a missing list in place of the table, including when only a reference list behind the screen is unreachable",
+      "Add entry is unavailable on those screens until every list they need can be reached, so an entry can't be lost to a refused save",
       "Customers and the Open Orders Report now say when their data couldn't be read at all, instead of showing an empty list or \"no master dashboard yet\" as though nothing had been created",
-      "An app whose data ARC can't read is now locked like one you don't have access to, with wording that says which it is — so a folder ARC can't find, or a list whose records are all hidden from you, no longer looks like an app with nothing in it",
+    ],
+  },
+  {
+    version: "0.164.5",
+    date: "2026-09-24",
+    changes: [
+      "When a part on a build request can't be saved, the message now says why — whether SharePoint refused it, or the part was removed by someone else — instead of just \"changes reverted\"",
     ],
   },
   {
     version: "0.164.4",
     date: "2026-09-24",
     changes: [
-      "A screen you don't have SharePoint access to now says so, with a Check again action once access is granted, instead of looking like an empty list",
-      "Covers Digital QC, Ignition QC, Coil Defect Log, Potting Sample Log and the Teradyne Log — including when only a reference list behind the screen is unreachable",
-      "Add entry is unavailable on those screens until every list they need can be reached, so an entry can't be lost to a refused save",
+      "Promoting an EIR to a task no longer loses the EIR's discussion when the task's link back to the EIR can't be saved — the comments are written first, on their own, and still carry their original author, timestamp and a \"carried over from EIR\" note",
+      "If something does fail to save during a promotion, the message now says the discussion can be copied across from the EIR rather than just \"by hand\"",
     ],
   },
   {

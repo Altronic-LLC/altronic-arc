@@ -248,15 +248,26 @@ export function usePromoteEirToTask() {
         // don't let this go quiet the way it did before — see the comment
         // on TaskFollowUpWriteError.
         if (err instanceof TaskFollowUpWriteError) {
+          // `err.task` is the task as it actually stands, so a partial
+          // failure (the discussion landed, the link didn't) still seeds the
+          // cache with the real comment thread — see createTask.
           task = err.task;
-          const missing = err.failedFields.includes("EIRReference")
-            ? err.failedFields.includes("Communication")
+          const lostLink = err.failedFields.includes("EIRReference");
+          const lostComments = err.failedFields.includes("Communication");
+          const missing = lostLink
+            ? lostComments
               ? "its link back to the EIR and the carried-over discussion"
               : "its link back to the EIR"
             : "the carried-over discussion";
-          warnings.push(`${missing} couldn't be saved — add ${
-            err.failedFields.includes("EIRReference") ? "the link" : "it"
-          } by hand`);
+          // Name the recovery for whichever half was lost. The comments are
+          // the half nobody can reconstruct from memory, so say where they
+          // still are rather than just "by hand".
+          const fix = lostComments
+            ? `copy ${lostLink ? "the discussion" : "it"} across from ${
+                eir.eirNo || `EIR #${eir.id}`
+              }`
+            : "add the link by hand";
+          warnings.push(`${missing} couldn't be saved — ${fix}`);
         } else {
           throw err;
         }
