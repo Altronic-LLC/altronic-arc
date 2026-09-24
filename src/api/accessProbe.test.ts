@@ -224,20 +224,36 @@ describe("readProbeResponses", () => {
 });
 
 describe("probeTargets — the hidden-rows check is OPT-IN", () => {
-  it("asks for one row of a list that declares detectHiddenRows", () => {
-    const customers = APPS.find((a) => a.label === "Customers")!;
-    expect(customers.detectHiddenRows).toBe(true);
+  // Asserted against a FIXTURE, not against whichever app carries the flag
+  // today: the flag is a per-app switch that can be turned off (it is, for
+  // Customers, while Tim tests), and the machinery has to stay covered either
+  // way. `APPS` is checked separately, for whatever it currently declares.
+  const opted: AppSpec = {
+    path: "/opted",
+    label: "Opted In",
+    site: "salesOrderEntry",
+    lists: ["list-x"],
+    detectHiddenRows: true,
+    siteUrl: "https://example.sharepoint.com/sites/TEAM/OrderEntry",
+  };
 
-    const items = probeTargets([customers]).filter((t) => t.kind === "items");
+  it("asks for one row of a list that declares detectHiddenRows", () => {
+    const items = probeTargets([opted]).filter((t) => t.kind === "items");
     expect(items).toHaveLength(1);
     expect(items[0].url).toContain("/items?$top=1&$select=id");
-    expect(items[0].appPath).toBe("/sales/customers");
+    expect(items[0].appPath).toBe("/opted");
+    expect(items[0].siteUrl).toBe(opted.siteUrl);
   });
 
-  it("asks nothing extra of every other app", () => {
+  it("asks nothing extra of an app that doesn't declare it", () => {
     // It costs an SP REST call, so it is declared per app rather than run
     // over the whole registry.
-    const others = APPS.filter((a) => !a.detectHiddenRows);
-    expect(probeTargets(others).filter((t) => t.kind === "items")).toEqual([]);
+    expect(probeTargets([singleList]).filter((t) => t.kind === "items")).toEqual([]);
+  });
+
+  it("only ever asks about the apps that declare it", () => {
+    const declaring = APPS.filter((a) => a.detectHiddenRows).map((a) => a.path);
+    const asked = probeTargets().filter((t) => t.kind === "items").map((t) => t.appPath);
+    expect(asked.sort()).toEqual(declaring.sort());
   });
 });
