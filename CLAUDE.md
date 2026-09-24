@@ -3248,8 +3248,10 @@ Five things about Customer Notes' columns:
   ordinary short choice columns, but Graph returns `Group` as a bare string
   and `CustomerType` as a bare string array — verified against live sample
   rows. Writing `Group` is a plain string (or `null`); writing `CustomerType`
-  is `multiChoiceField`'s plain array, no `@odata.type` annotation (the
-  annotation is for lookups/persons, not choice columns).
+  is `multiChoiceField`'s array **with** the `Collection(Edm.String)`
+  annotation — `CustomerType` is a genuine MultiChoice column
+  (`displayAs: "checkBoxes"`) and a bare array is a 400. This note used to
+  say the opposite; see "A MultiChoice column needs the annotation" below.
 - **`GeneralNotes` and `ComplianceNotes` hold rich HTML in practice**, even
   though the column metadata Graph reports says `text.textType: "plain"` —
   confirmed by reading live sample rows, which contain `<p>` and
@@ -3997,9 +3999,14 @@ the type name cannot tell them apart. Two signals can:
   This is the check that needs no extra call, since the snapshot's
   `sampleRows` already show it.
 
-So they are written as a **plain string array** (`multiChoiceField`'s shape —
-NO `@odata.type` annotation, which belongs to multi-value lookup and person
-columns and is a hard 400 here), and cleared with `[]`, never `null`.
+So they are written as a string array **carrying Graph's
+`Collection(Edm.String)` annotation** (`multiChoiceField`'s shape), and
+cleared with an annotated `[]`, never `null`. A BARE array is refused with a
+bare `400 invalidRequest` naming no field — reported 2026-09-24 by Femi
+Olugbon on build request 70, where none of the three could be ticked at all
+while Part Status and Disposition (single-value `dropDownMenu` columns) saved
+fine. Callers still pass plain arrays; `annotateMultiChoice` in
+`api/buildRequestItems.ts` adds the annotation at the write site.
 
 **Do NOT "fix" this into a bare string on the strength of that type name.**
 The task list's `Labels` column is the opposite case documented in this same
@@ -5011,6 +5018,82 @@ early return and confirming six cases fail.
 `resolvePersonLookupId`** (Graph-first, then `ensureuser`) for any NEW person
 write — `ensureuser` alone answers 0 when the classic SharePoint scope isn't
 granted. Both families are now site-safe.
+
+### A MultiChoice column needs the `Collection(Edm.String)` annotation
+
+**This bug has been introduced TWICE and spanned three modules, so the rule is
+here rather than in one list's section.**
+
+A genuine multi-select Choice column is written as the array **plus** Graph's
+annotation, exactly as a multi-value lookup needs `Collection(Edm.Int32)`:
+
+```json
+{ "Operations@odata.type": "Collection(Edm.String)",
+  "Operations": ["Programming", "Machining"] }
+```
+
+A **bare array is refused with a bare `400 invalidRequest` naming no field** —
+which is why this is expensive: the values, the column and the array all look
+correct in isolation, and the error points at nothing.
+
+**`choice.displayAs` is the ONLY reliable signal.** Graph's `/columns` reports
+`type: "choice"` for single- and multi-value columns alike, and
+`discover-list.ps1` does not record `displayAs` at all — read it from
+`/columns` directly:
+
+| `displayAs` | Type | Write as |
+|---|---|---|
+| `checkBoxes` | MultiChoice | array **+ annotation**; clear with annotated `[]` |
+| `dropDownMenu` / `radioButtons` | single Choice | bare string; **never** annotate |
+
+Annotating a single-value column breaks it the same way omitting it breaks a
+multi one. The live ROWS are the corroborating check the snapshot already
+shows: a multi column's sample values are arrays.
+
+**Every multi-choice column ARC writes, confirmed live 2026-09-24:**
+
+| List | Columns |
+|---|---|
+| Build Request Items | `Assembly`, `Operations`, `Testing` |
+| Suppliers List | `CoreCompetency` (and `PrimarySupplyFocus`, still unconfigured) |
+| Customer Notes | `CustomerType` |
+
+`Project Task List` has one (`Orderanynewpartsthatwedonothavey`) that ARC
+never writes. The Build Request **Tracker** and the EIRs list have none.
+
+**The annotation is applied at each module's WRITE SITE, not per call** —
+`annotateMultiChoiceFields(fields, names)` in `lib/graphFields.ts`, wired into
+the PATCH (and the create, where one writes such a column). Callers keep
+passing plain arrays, so a new caller cannot forget it. A non-array value is
+left alone, because a deliberate `null` clear must stay `null`.
+
+**How it got in twice, which is the part worth remembering:**
+
+1. `multiChoiceField` originally emitted the annotation — correctly.
+2. **v0.17.5 removed it** while fixing a write to `ProjectReference`, which is
+   **not** a multi-choice column. Dropping the annotation fixed that field,
+   and the doc comment then generalised one case into a rule: *"adding the
+   annotation actually breaks the write on some tenants."*
+3. `api/buildRequestItems.ts` inherited that comment as fact, and the helper
+   ended up with **no callers at all** — so nothing in ARC emitted the
+   annotation, and all three lists' multi-choice columns were silently
+   unwritable.
+4. On 2026-09-24 a first pass verified the values, the array shape and the
+   `$select` against the live schema, found them all correct, and concluded
+   ARC was fine — **because it never questioned the annotation, having read
+   that comment.** A test was even written asserting the absence of the
+   annotation, which would have defended the bug.
+
+The lesson generalises beyond this field type: **a doc comment asserting that
+something "breaks on some tenants" deserves the same scepticism as code.**
+This one was a correct observation about one column, written as a universal
+rule, and it cost two investigations. Where a shared helper has NO callers,
+that is itself a signal — either it is dead, or everything that should use it
+is hand-rolling the shape.
+
+Pinned by `lib/graphFields.multiChoice.test.ts` (the helper) and
+`api/multiChoiceWrites.test.ts` (all three modules, `USE_MOCK: false`). Both
+were verified by removing the annotation and watching seven cases fail.
 
 ### A single-person column needs BOTH halves selected, and its own read step
 

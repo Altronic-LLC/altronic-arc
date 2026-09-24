@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.165.1",
+    date: "2026-09-24",
+    changes: [
+      "Assembly, Operations and Testing on a build request part can be ticked again — every selection was being refused by SharePoint",
+      "The same fault was fixed on a supplier's Core Competency and a customer's Customer Type, where it hadn't been reported yet",
+    ],
+  },
+  {
     version: "0.165.0",
     date: "2026-09-24",
     changes: [

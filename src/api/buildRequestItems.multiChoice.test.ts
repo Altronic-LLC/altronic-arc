@@ -13,9 +13,16 @@ import {
 // that and are invisible from mock mode (which applies the fields to an
 // in-memory object and never builds a request):
 //
-//   1. the write SHAPE — a plain string array, no @odata.type annotation.
-//      That annotation is for multi-value LOOKUP and PERSON columns; adding
-//      it to a multi-choice column is a hard 400.
+//   1. the write SHAPE — a string array PLUS Graph's
+//      `Collection(Edm.String)` annotation. A bare array is refused with a
+//      bare `400 invalidRequest` naming no field.
+//
+//      An earlier version of this file asserted the OPPOSITE (no annotation)
+//      and so defended the bug: it passed while users could not tick these
+//      boxes at all. The annotation had been removed in v0.17.5 while fixing
+//      an unrelated single-value column, and the reasoning was generalised
+//      into a rule it does not hold for. Confirmed by the live column
+//      definitions: `displayAs: "checkBoxes"` on all three.
 //   2. the VALUES ARC offers — a choice a column doesn't declare makes
 //      SharePoint reject the whole PATCH, which is how one bad option in a
 //      picker breaks every save from that card.
@@ -29,10 +36,11 @@ import {
 // this block if the SharePoint columns change.
 //
 // NOTE the columns report `type: "choice"` singular even though they are
-// genuinely multi-select — Graph says `choice` for both. The real signal is
-// `displayAs: "checkBoxes"`, and the live rows carry arrays
-// (e.g. ["AOI", "In Circuit", "Safe Power-Up"]). Don't "fix" the array write
-// into a bare string on the strength of that type name.
+// genuinely multi-select — Graph says `choice` for both single and multi.
+// `displayAs` is the ONLY signal: "checkBoxes" means MultiChoice (annotate),
+// "dropDownMenu" means single (bare string, no annotation — which is why
+// Part Status and Disposition saved fine throughout this bug). Don't "fix"
+// the array write into a bare string on the strength of that type name.
 // =============================================================================
 
 const graphFetch = vi.hoisted(() => vi.fn());
@@ -138,21 +146,41 @@ describe("multi-choice Assembly / Operations / Testing", () => {
     ["Assembly", BUILD_REQUEST_ASSEMBLY_OPTIONS],
     ["Operations", BUILD_REQUEST_OPERATIONS_OPTIONS],
     ["Testing", BUILD_REQUEST_TESTING_OPTIONS],
-  ] as const)("%s: writes a plain array with no @odata.type annotation", async (column, offered) => {
+  ] as const)("%s: writes the array WITH the Collection(Edm.String) annotation", async (column, offered) => {
     // Tick several — the whole point of a checkBoxes column.
     const picked = offered.slice(0, 2) as unknown as string[];
     await updateBuildRequestItemFields(58, { [column]: picked });
 
     const body = patchBody();
     expect(body[column]).toEqual(picked);
-    // The annotation belongs to lookups/persons. Here it is a 400.
-    expect(Object.keys(body).filter((k) => k.includes("@odata"))).toEqual([]);
-    // And nothing else rides along that could be refused on its own.
-    expect(Object.keys(body)).toEqual([column]);
+    // Without this, Graph answers 400 invalidRequest and names no field.
+    expect(body[`${column}@odata.type`]).toBe("Collection(Edm.String)");
+    // Nothing else rides along that could be refused on its own.
+    expect(new Set(Object.keys(body))).toEqual(
+      new Set([column, `${column}@odata.type`]),
+    );
   });
 
-  it("clears a column with an empty array rather than null", async () => {
+  it("clears a column with an annotated empty array, never null", async () => {
     await updateBuildRequestItemFields(58, { Testing: [] });
-    expect(patchBody().Testing).toEqual([]);
+    const body = patchBody();
+    expect(body.Testing).toEqual([]);
+    expect(body["Testing@odata.type"]).toBe("Collection(Edm.String)");
+  });
+
+  it("leaves SINGLE-value choice columns unannotated", async () => {
+    // Part Status is `displayAs: "dropDownMenu"`. It saved correctly all
+    // along, and annotating it would break it.
+    await updateBuildRequestItemFields(58, { Part_x0020_Status: "On Hold" });
+    const body = patchBody();
+    expect(body.Part_x0020_Status).toBe("On Hold");
+    expect(Object.keys(body).filter((k) => k.includes("@odata"))).toEqual([]);
+  });
+
+  it("does not annotate a null (a clear sent as null stays null)", async () => {
+    await updateBuildRequestItemFields(58, { Assembly: null });
+    const body = patchBody();
+    expect(body.Assembly).toBeNull();
+    expect(Object.keys(body).filter((k) => k.includes("@odata"))).toEqual([]);
   });
 });

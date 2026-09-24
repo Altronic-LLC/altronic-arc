@@ -3,7 +3,7 @@ import { SP_BUILD_REQUEST_ITEMS_LIST_ID, SP_SITE_ID, USE_MOCK } from "./config";
 import type { BuildRequestItem, GraphListItem, Person } from "@/types/task";
 import { toBuildRequestItem } from "@/lib/buildRequestMapper";
 import { ALL_CHECKLIST_FIELDS } from "@/lib/buildRequestChecklist";
-import { multiPersonField } from "@/lib/graphFields";
+import { annotateMultiChoiceFields, multiPersonField } from "@/lib/graphFields";
 import { appendComment, replaceComment } from "@/lib/communicationParser";
 import { MOCK_BUILD_REQUEST_ITEMS } from "@/data/buildRequestMockData";
 
@@ -11,8 +11,15 @@ import { MOCK_BUILD_REQUEST_ITEMS } from "@/data/buildRequestMockData";
 // Build Request Items API — the parts list. Every item joins to a header in
 // the Build Request Tracker via `BuildRequestNoLookupId`. Callers group the
 // flat list per header client-side (useBuildRequestItems + a groupBy in the
-// views). Multi-choice Assembly / Operations / Testing write as PLAIN string
-// arrays (multiChoiceField shape — no @odata.type annotation).
+// views).
+//
+// Assembly / Operations / Testing are SharePoint MultiChoice columns and MUST
+// carry Graph's `Collection(Edm.String)` annotation — a bare array is refused
+// with a bare `400 invalidRequest`. Callers still pass plain string arrays;
+// `annotateMultiChoice` adds the annotation on the way out, so no call site
+// has to remember. See multiChoiceField in lib/graphFields.ts for the full
+// story (the annotation was removed in v0.17.5 for an unrelated column, and
+// that removal is what broke these three).
 // =============================================================================
 
 const MOCK_STORAGE_KEY = "aets:mock-build-request-items-v1";
@@ -36,6 +43,21 @@ function loadFromStorage(): BuildRequestItem[] | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * The item columns that are genuinely SharePoint MultiChoice
+ * (`choice.displayAs === "checkBoxes"` in the live column definition,
+ * confirmed 2026-09-24). Part Type / Part Status / Disposition are
+ * SINGLE-value choice columns and must NOT be annotated.
+ */
+const MULTI_CHOICE_ITEM_FIELDS = ["Assembly", "Operations", "Testing"] as const;
+
+/** This list's multi-choice columns, annotated. See graphFields.ts. */
+export function annotateMultiChoice(
+  fields: Record<string, unknown>,
+): Record<string, unknown> {
+  return annotateMultiChoiceFields(fields, MULTI_CHOICE_ITEM_FIELDS);
 }
 
 function saveToStorage() {
@@ -227,7 +249,7 @@ export async function updateBuildRequestItemFields(
 
   await graphFetch(
     `/sites/${SP_SITE_ID}/lists/${SP_BUILD_REQUEST_ITEMS_LIST_ID}/items/${id}/fields`,
-    { method: "PATCH", body: JSON.stringify(fields) },
+    { method: "PATCH", body: JSON.stringify(annotateMultiChoice(fields)) },
   );
 
   const all = await listBuildRequestItems();
