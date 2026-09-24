@@ -6456,9 +6456,23 @@ Seven things that are load-bearing:
   the whole session and the button would do nothing for the one person it
   exists for — somebody who has just been granted access.
 
-The three "does the gate exist" tests were verified by disabling each gate and
+**And the last mile is per-screen: a failed read is NEVER an empty list.** The
+banner and the locks only fire on a 403 that ARC can attribute. Everything
+else — a 404, a throttle, a bad list id — still reaches a screen that
+destructures `data: x = []` and drops the error, which renders as "nothing
+here". Tim hit exactly that after the gating shipped (2026-09-24): Customers
+showed "No customers match these filters" over a 102-row list, and Open Orders
+showed "No master dashboard yet — build one with the tool below", pointing him
+at a button that would have failed too. Both now branch three ways —
+`ListAccessNotice` for a refusal, a named "couldn't load" with a retry for any
+other error, and the real empty state only when the read actually SUCCEEDED and
+came back empty. Any new list screen owes the same three branches; the row
+count is not a loading or error state.
+
+The four "does the gate exist" tests were verified by disabling each gate and
 watching them fail — a test that passes either way is how this class of feature
-rots.
+rots. One of them didn't fail at first: the App.tsx source check matched its own
+commented-out call, so it is anchored to the start of a line now.
 
 ### Mail that doesn't send says so
 

@@ -38,6 +38,8 @@ import {
 import { OPEN_ORDERS_PATH } from "@/api/openOrdersFiles";
 import { SP_OPEN_ORDERS_CUSTOMERS_LIST_ID, USE_MOCK } from "@/api/config";
 import { LoadingTasks } from "@/components/LoadingTasks";
+import { ListAccessNotice } from "@/components/ListAccessNotice";
+import { isPermissionDenied } from "@/lib/listWriteErrors";
 import { DateField } from "@/components/DateField";
 import { toDateInputValue, fromDateInputValue } from "@/lib/spDates";
 import { cn } from "@/lib/cn";
@@ -68,8 +70,30 @@ const CADENCE_NOTE =
 export function OpenOrdersView() {
   const access = useMyOpenOrdersAccess();
   const { data: accounts = [], isLoading: accountsLoading } = useOpenOrdersCustomers();
-  const { data: masters = [], isLoading: mastersLoading } = useMasterReports();
-  const { data: weeks = [], isLoading: weeksLoading } = useOpenOrdersWeeks();
+  const {
+    data: masters = [],
+    isLoading: mastersLoading,
+    error: mastersError,
+    refetch: refetchMasters,
+  } = useMasterReports();
+  const {
+    data: weeks = [],
+    isLoading: weeksLoading,
+    error: weeksError,
+    refetch: refetchWeeks,
+  } = useOpenOrdersWeeks();
+
+  // A folder ARC can't read used to render as "No master dashboard yet — build
+  // one with the tool below", which reads as "nobody has run it" and sent
+  // people to a button that would fail too (Tim, 2026-09-24). The files live
+  // in the Sales site's document library, so a refusal here is about that
+  // library, not about the customer list.
+  const filesError = mastersError ?? weeksError;
+  const filesUnavailable = !!filesError && isPermissionDenied(filesError);
+  function retryFiles() {
+    void refetchMasters();
+    void refetchWeeks();
+  }
   const { data: rawUploads = [] } = useRawUploads();
 
   // The newest week is open on arrival, so the individual files are THERE
@@ -119,7 +143,18 @@ export function OpenOrdersView() {
           title="Master dashboard"
           note="The company-wide view. The newest one is the current week's."
         />
-        {masters.length === 0 ? (
+        {filesUnavailable ? (
+          <ListAccessNotice
+            list="The OPEN ORDERS folder"
+            site="ALTRONICSALESTEAM"
+            onRetry={retryFiles}
+          />
+        ) : filesError ? (
+          <Empty>
+            Couldn't read the OPEN ORDERS folder —{" "}
+            {filesError instanceof Error ? filesError.message : "unknown error"}
+          </Empty>
+        ) : masters.length === 0 ? (
           <Empty>No master dashboard yet — build one with the tool below.</Empty>
         ) : (
           <ul className="flex flex-col divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface">
@@ -155,7 +190,11 @@ export function OpenOrdersView() {
           title="Customer workbooks, by week"
           note="Download from here and send them on. One folder per week."
         />
-        {weeks.length === 0 ? (
+        {filesError ? (
+          // The notice above already explains it; repeating it per section
+          // would say the same thing three times down one screen.
+          <Empty>Unavailable while the OPEN ORDERS folder can't be read.</Empty>
+        ) : weeks.length === 0 ? (
           <Empty>No weekly folders yet — the tool below creates one per week.</Empty>
         ) : (
           <ul className="flex flex-col gap-2">

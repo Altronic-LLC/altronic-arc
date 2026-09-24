@@ -6,6 +6,8 @@ import type { CustomerNote } from "@/types/task";
 import { CUSTOMER_GROUPS } from "@/types/task";
 import { matchesSearch, tokenizeQuery } from "@/lib/itemSearch";
 import { LoadingTasks } from "@/components/LoadingTasks";
+import { ListAccessNotice } from "@/components/ListAccessNotice";
+import { isPermissionDenied } from "@/lib/listWriteErrors";
 import { SearchInput } from "@/components/SearchInput";
 import { ChoiceSelect } from "@/components/SearchableSelect";
 import { CustomerNoteFormModal } from "@/components/CustomerNoteFormModal";
@@ -26,7 +28,12 @@ const INITIAL_ROWS = 150;
 
 export function CustomerNotesView() {
   const navigate = useNavigate();
-  const { data: notes = [], isLoading } = useCustomerNotes();
+  const { data: notes = [], isLoading, error, refetch } = useCustomerNotes();
+  // A failed read used to render as "no customers match these filters" — the
+  // 102-row list looked empty and said nothing (Tim, 2026-09-24). A refusal
+  // gets the standard access notice; anything else says it couldn't load,
+  // because "empty" and "broken" must not look the same.
+  const listUnavailable = !!error && isPermissionDenied(error);
   const [params, setParams] = useSearchParams();
   const [showNew, setShowNew] = useState(false);
   const [showAll, setShowAll] = useState(false);
@@ -116,6 +123,26 @@ export function CustomerNotesView() {
 
         {isLoading ? (
           <LoadingTasks noun="customers" />
+        ) : listUnavailable ? (
+          <div className="p-4">
+            <ListAccessNotice
+              list="Customer Notes"
+              site="ALTRONICSALESTEAM/OrderEntry"
+              onRetry={() => void refetch()}
+            />
+          </div>
+        ) : error ? (
+          <div className="px-4 py-10 text-center text-sm text-fg-muted">
+            <p className="font-medium text-fg">Couldn't load customers.</p>
+            <p className="mt-1">{error instanceof Error ? error.message : "Unknown error"}</p>
+            <button
+              type="button"
+              onClick={() => void refetch()}
+              className="mt-3 rounded-md border border-border px-3 py-1.5 text-sm font-medium text-fg hover:bg-surface-2"
+            >
+              Try again
+            </button>
+          </div>
         ) : filtered.length === 0 ? (
           <div className="px-4 py-10 text-center text-sm text-fg-muted">
             No customers match these filters.
