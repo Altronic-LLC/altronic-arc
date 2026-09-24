@@ -1,0 +1,137 @@
+import { describe, expect, it } from "vitest";
+import {
+  MAX_BATCH_SIZE,
+  chunk,
+  probeTargets,
+  readProbeResponses,
+  type ProbeTarget,
+} from "./accessProbe";
+import { APPS, type AppSpec } from "./appAccess";
+import { SITES } from "./config";
+
+const singleList: AppSpec = {
+  path: "/one",
+  label: "One List",
+  site: "pmo",
+  lists: ["list-a"],
+};
+
+const multiList: AppSpec = {
+  path: "/many",
+  label: "Many Registers",
+  site: "engineering",
+  lists: ["list-b", "list-c", "list-d"],
+};
+
+const fileBacked: AppSpec = {
+  path: "/files",
+  label: "Files",
+  site: "salesTeam",
+  lists: [],
+  needsDrive: true,
+};
+
+describe("probeTargets", () => {
+  it("asks about a single-list app", () => {
+    const [target] = probeTargets([singleList]);
+    expect(target.url).toBe(`/sites/${SITES.pmo}/lists/list-a?$select=id`);
+    expect(target.listId).toBe("list-a");
+  });
+
+  it("asks only whether it MAY read, never for the rows", () => {
+    // $select=id keeps the answer to a few bytes. Probing with a real query
+    // would download the whole app's data on every load.
+    for (const target of probeTargets()) expect(target.url).toContain("$select=id");
+  });
+
+  it("SKIPS an app with more than one list", () => {
+    // Those are unavailable only when every register is refused, so proving
+    // it costs fifty-odd sub-requests to almost always answer "they're fine".
+    expect(probeTargets([multiList])).toEqual([]);
+  });
+
+  it("asks about the document library of a file-backed app", () => {
+    const [target] = probeTargets([fileBacked]);
+    expect(target.url).toBe(`/sites/${SITES.salesTeam}/drive/root?$select=id`);
+    expect(target.listId).toBeNull();
+  });
+
+  it("de-dupes an app registered at more than one route", () => {
+    // Engineering Tasks appears at /list, /kanban and /task — one list.
+    const engineeringTasks = APPS.filter((a) => a.label === "Engineering Tasks");
+    expect(engineeringTasks.length).toBeGreaterThan(1);
+    expect(probeTargets(engineeringTasks)).toHaveLength(1);
+  });
+
+  it("gives every target a distinct id", () => {
+    const targets = probeTargets();
+    expect(new Set(targets.map((t) => t.id)).size).toBe(targets.length);
+  });
+
+  it("covers the apps that prompted this — Visit Reports, Open Orders, Customers", () => {
+    const urls = probeTargets().map((t) => t.url);
+    for (const label of ["Visit Reports", "Open Orders Report", "Customers"]) {
+      const app = APPS.find((a) => a.label === label)!;
+      expect(urls.some((u) => u.includes(app.lists[0] ?? "drive/root"))).toBe(true);
+    }
+  });
+});
+
+describe("chunk", () => {
+  it("splits at Graph's batch ceiling", () => {
+    const items = Array.from({ length: 45 }, (_, i) => i);
+    const batches = chunk(items, MAX_BATCH_SIZE);
+    expect(batches.map((b) => b.length)).toEqual([20, 20, 5]);
+  });
+
+  it("returns nothing for nothing", () => {
+    expect(chunk([], MAX_BATCH_SIZE)).toEqual([]);
+  });
+});
+
+describe("readProbeResponses", () => {
+  const targets: ProbeTarget[] = [
+    { id: "0", url: "u0", siteId: SITES.pmo, listId: "list-a" },
+    { id: "1", url: "u1", siteId: SITES.salesTeam, listId: null },
+    { id: "2", url: "u2", siteId: SITES.engineering, listId: "list-e" },
+  ];
+
+  it("records a 403 on a list", () => {
+    const result = readProbeResponses(targets, { responses: [{ id: "0", status: 403 }] });
+    expect(result.deniedLists).toEqual([{ listId: "list-a", siteId: SITES.pmo }]);
+    expect(result.deniedDrives).toEqual([]);
+  });
+
+  it("records a 403 on a library against its site", () => {
+    const result = readProbeResponses(targets, { responses: [{ id: "1", status: 403 }] });
+    expect(result.deniedDrives).toEqual([SITES.salesTeam]);
+    expect(result.deniedLists).toEqual([]);
+  });
+
+  it("IGNORES a 404", () => {
+    // Graph answers 404 for a missing SCOPE as well as a missing list, and the
+    // two are indistinguishable here. One of them is a config error that would
+    // otherwise lock an app for everybody in the company at once.
+    const result = readProbeResponses(targets, { responses: [{ id: "0", status: 404 }] });
+    expect(result.deniedLists).toEqual([]);
+  });
+
+  it("ignores a 200, a throttle and a server error", () => {
+    const result = readProbeResponses(targets, {
+      responses: [
+        { id: "0", status: 200 },
+        { id: "1", status: 429 },
+        { id: "2", status: 500 },
+      ],
+    });
+    expect(result).toEqual({ deniedLists: [], deniedDrives: [] });
+  });
+
+  it("ignores a response it didn't ask for, and an empty body", () => {
+    expect(readProbeResponses(targets, { responses: [{ id: "99", status: 403 }] })).toEqual({
+      deniedLists: [],
+      deniedDrives: [],
+    });
+    expect(readProbeResponses(targets, {})).toEqual({ deniedLists: [], deniedDrives: [] });
+  });
+});

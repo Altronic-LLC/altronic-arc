@@ -80,6 +80,13 @@ export interface AppSpec {
   site: SiteKey;
   /** Unavailable only when every one of these is refused. See the header. */
   lists: string[];
+  /**
+   * The screen's content is FILES in the site's document library, so a refused
+   * library makes it unusable whatever its lists say. Kept separate from a
+   * site-wide refusal: a library with its own broken permission inheritance is
+   * ordinary SharePoint, and it must not lock the site's other apps.
+   */
+  needsDrive?: boolean;
 }
 
 /** Drop ids that aren't configured — an unset env var is not a denial. */
@@ -94,9 +101,7 @@ export const APPS: AppSpec[] = [
   { path: "/task", label: "Engineering Tasks", site: "engineering", lists: ids(SP_LIST_ID) },
   { path: "/eirs", label: "EIRs", site: "engineering", lists: ids(SP_EIRS_LIST_ID) },
   { path: "/test-sheets", label: "Test Sheets", site: "engineering", lists: ids(SP_TEST_RESULTS_LIST_ID) },
-  // Project Folders is a document library, not a list: only a site-wide
-  // refusal can be detected for it, which is exactly what `lists: []` means.
-  { path: "/project-folders", label: "Project Folders", site: "engineering", lists: [] },
+  { path: "/project-folders", label: "Project Folders", site: "engineering", lists: [], needsDrive: true },
   { path: "/build-requests", label: "Build Requests", site: "engineering", lists: ids(SP_BUILD_REQUESTS_LIST_ID) },
   {
     path: "/drawing-logs",
@@ -144,7 +149,15 @@ export const APPS: AppSpec[] = [
   { path: "/supply-chain/mrb", label: "MRB", site: "pmo", lists: ids(SP_MRB_LIST_ID) },
 
   // Sales ----------------------------------------------------------------
-  { path: "/sales/open-orders", label: "Open Orders Report", site: "salesTeam", lists: ids(SP_OPEN_ORDERS_CUSTOMERS_LIST_ID) },
+  // Everything on this screen is a workbook in the Sales document library —
+  // the customer list only says who gets one — so a refused library locks it.
+  {
+    path: "/sales/open-orders",
+    label: "Open Orders Report",
+    site: "salesTeam",
+    lists: ids(SP_OPEN_ORDERS_CUSTOMERS_LIST_ID),
+    needsDrive: true,
+  },
   { path: "/sales/visit-reports", label: "Visit Reports", site: "salesTeam", lists: ids(SP_VISIT_REPORTS_LIST_ID) },
   { path: "/sales/customers", label: "Customers", site: "salesOrderEntry", lists: ids(SP_CUSTOMER_NOTES_LIST_ID) },
 ];
@@ -181,12 +194,16 @@ export function siteLabelForId(siteId: string): string | null {
 
 export interface AccessDenials {
   lists: ReadonlySet<string>;
+  /** Sites refused outright — every app on one is out of reach. */
   sites: ReadonlySet<string>;
+  /** Sites whose DOCUMENT LIBRARY was refused. Only `needsDrive` apps care. */
+  drives: ReadonlySet<string>;
 }
 
 /** Is this app out of reach? See THE RULE FOR `lists` at the top of the file. */
 export function isAppUnavailable(app: AppSpec, denials: AccessDenials): boolean {
   if (denials.sites.has(SITES[app.site])) return true;
+  if (app.needsDrive && denials.drives.has(SITES[app.site])) return true;
   if (app.lists.length === 0) return false;
   return app.lists.every((id) => denials.lists.has(id));
 }

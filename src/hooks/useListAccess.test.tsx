@@ -49,9 +49,20 @@ describe("recordAccessFailure", () => {
     expect(result.current.implicatedSites.has(SITES.pmo)).toBe(true);
   });
 
-  it("marks the site for a refused drive path", () => {
+  it("marks the LIBRARY, not the site, for a refused drive path", () => {
+    // A library with its own broken inheritance is ordinary SharePoint, and
+    // recording it as a site denial would lock every list-backed app there.
     recordAccessFailure(
       new FakeGraphError(403, "", `https://graph.microsoft.com/v1.0/sites/${SITES.engineering}/drive/root`),
+    );
+    const { result } = renderHook(() => useAccessDenials());
+    expect(result.current.drives.has(SITES.engineering)).toBe(true);
+    expect(result.current.sites.size).toBe(0);
+  });
+
+  it("marks the site for a refused site-level read", () => {
+    recordAccessFailure(
+      new FakeGraphError(403, "", `https://graph.microsoft.com/v1.0/sites/${SITES.engineering}?$select=id`),
     );
     const { result } = renderHook(() => useAccessDenials());
     expect(result.current.sites.has(SITES.engineering)).toBe(true);

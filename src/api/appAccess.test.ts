@@ -11,8 +11,16 @@ import {
 } from "./appAccess";
 import { SITES } from "./config";
 
-function denials({ lists = [], sites = [] }: { lists?: string[]; sites?: string[] }): AccessDenials {
-  return { lists: new Set(lists), sites: new Set(sites) };
+function denials({
+  lists = [],
+  sites = [],
+  drives = [],
+}: {
+  lists?: string[];
+  sites?: string[];
+  drives?: string[];
+}): AccessDenials {
+  return { lists: new Set(lists), sites: new Set(sites), drives: new Set(drives) };
 }
 
 const teradyne = APPS.find((a) => a.label === "Teradyne Log")!;
@@ -74,12 +82,29 @@ describe("isAppUnavailable", () => {
   });
 
   it("never reports an app with no list of its own as denied by a list", () => {
-    // Project Folders is a document library: only a site-wide refusal is
-    // detectable for it, and `lists: []` must not read as "every list denied".
+    // Project Folders is a document library, so `lists: []` must not read as
+    // "every list denied" — that would lock it the moment anything else was.
     const folders = APPS.find((a) => a.label === "Project Folders")!;
     expect(folders.lists).toEqual([]);
     expect(isAppUnavailable(folders, denials({ lists: ["anything"] }))).toBe(false);
     expect(isAppUnavailable(folders, denials({ sites: [SITES.engineering] }))).toBe(true);
+  });
+
+  it("locks a file-backed app when its document library is refused", () => {
+    const folders = APPS.find((a) => a.label === "Project Folders")!;
+    expect(isAppUnavailable(folders, denials({ drives: [SITES.engineering] }))).toBe(true);
+  });
+
+  it("does NOT let a refused library lock the site's other apps", () => {
+    // A library with its own broken inheritance is ordinary SharePoint. An
+    // earlier version recorded a refused drive as a SITE denial, which would
+    // have locked Visit Reports over a folder nobody had shared.
+    const visits = APPS.find((a) => a.label === "Visit Reports")!;
+    const openOrders = APPS.find((a) => a.label === "Open Orders Report")!;
+    const refusedLibrary = denials({ drives: [SITES.salesTeam] });
+
+    expect(isAppUnavailable(openOrders, refusedLibrary)).toBe(true);
+    expect(isAppUnavailable(visits, refusedLibrary)).toBe(false);
   });
 });
 

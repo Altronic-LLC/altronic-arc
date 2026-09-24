@@ -13,14 +13,21 @@
 // site was it?" — and everything user-facing is built on top of those.
 // =============================================================================
 
-/** A Graph URL points at a list on a site; a drive URL points only at a site. */
+/**
+ * What a Graph URL was reaching for. The three kinds are NOT interchangeable:
+ * a refused document library says nothing about the site's lists (a library
+ * with its own broken inheritance is ordinary SharePoint), and reading one as
+ * the other would lock every app on the site over one folder.
+ */
 export interface GraphResourceRef {
   siteId: string;
-  /** Null for a site-level resource (a document library / drive path). */
+  /** Set only when `kind` is "list". */
   listId: string | null;
+  kind: "list" | "drive" | "site";
 }
 
 const LIST_IN_URL = /\/sites\/([^/?#]+)\/lists\/([^/?#]+)/i;
+const DRIVE_IN_URL = /\/sites\/([^/?#]+)\/drives?(?:\/|\b)/i;
 const SITE_IN_URL = /\/sites\/([^/?#]+)/i;
 
 /** Strip the quotes Graph allows around a list identified by title. */
@@ -39,10 +46,13 @@ export function parseGraphResourceRef(url: string | undefined | null): GraphReso
   if (!url) return null;
 
   const withList = LIST_IN_URL.exec(url);
-  if (withList) return { siteId: clean(withList[1]), listId: clean(withList[2]) };
+  if (withList) return { siteId: clean(withList[1]), listId: clean(withList[2]), kind: "list" };
+
+  const withDrive = DRIVE_IN_URL.exec(url);
+  if (withDrive) return { siteId: clean(withDrive[1]), listId: null, kind: "drive" };
 
   const siteOnly = SITE_IN_URL.exec(url);
-  if (siteOnly) return { siteId: clean(siteOnly[1]), listId: null };
+  if (siteOnly) return { siteId: clean(siteOnly[1]), listId: null, kind: "site" };
 
   return null;
 }

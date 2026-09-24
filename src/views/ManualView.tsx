@@ -124,7 +124,9 @@ const SECTIONS: ManualSection[] = [
           ARC reads everything from SharePoint lists, and who can read which
           list is decided in SharePoint by an administrator — not in ARC. If
           your account can't read one, ARC tells you instead of showing an
-          empty screen that looks like there's simply nothing there.
+          empty screen that looks like there's simply nothing there. It checks
+          when it loads, so anything you can't reach is marked from the start
+          rather than only once you've opened it.
         </P>
         <H3>What you'll see</H3>
         <P>

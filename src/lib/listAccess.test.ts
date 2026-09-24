@@ -24,7 +24,7 @@ describe("parseGraphResourceRef", () => {
     const ref = parseGraphResourceRef(
       `https://graph.microsoft.com/v1.0/sites/${SITE}/lists/abc-123/items?$expand=fields`,
     );
-    expect(ref).toEqual({ siteId: SITE, listId: "abc-123" });
+    expect(ref).toEqual({ siteId: SITE, listId: "abc-123", kind: "list" });
   });
 
   it("keeps the whole site id, commas and all", () => {
@@ -41,11 +41,16 @@ describe("parseGraphResourceRef", () => {
     expect(ref?.siteId).toBe(SITE);
   });
 
-  it("reports a site with no list for a drive URL", () => {
-    const ref = parseGraphResourceRef(
+  it("tells a document library apart from the site itself", () => {
+    // The distinction is load-bearing: a refused LIBRARY locks only the
+    // file-backed apps, where a refused SITE locks everything on it.
+    const drive = parseGraphResourceRef(
       `https://graph.microsoft.com/v1.0/sites/${SITE}/drive/root:/General/Project Folders:/children`,
     );
-    expect(ref).toEqual({ siteId: SITE, listId: null });
+    expect(drive).toEqual({ siteId: SITE, listId: null, kind: "drive" });
+
+    const site = parseGraphResourceRef(`https://graph.microsoft.com/v1.0/sites/${SITE}?$select=id`);
+    expect(site).toEqual({ siteId: SITE, listId: null, kind: "site" });
   });
 
   it("returns null for a URL that names no site", () => {

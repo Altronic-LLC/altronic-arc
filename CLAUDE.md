@@ -223,6 +223,7 @@ src/
 ├── api/                          All mock/real branches live here (USE_MOCK)
 │   ├── config.ts                 USE_MOCK, SITES registry, every list ID, role-enforcement flags
 │   ├── appAccess.ts              Which lists each app needs + site labels (drives the access gating)
+│   ├── accessProbe.ts            One Graph $batch at sign-in: which lists can this user read?
 │   ├── graph.ts                  graphFetch / graphFetchAll, throttle retry, ONE shared interactive sign-in
 │   ├── sharepoint.ts             SharePoint REST helper (list-item attachments)
 │   ├── directory.ts              Tenant staff directory (Graph /users) for the pickers
@@ -6409,16 +6410,41 @@ Seven things that are load-bearing:
   app's name plus a padlock. An entry that vanishes reads as ARC having lost a
   feature and gives the user nothing to ask for. A "Soon" placeholder and a
   locked app are also kept visually distinct — they mean different things.
-- **It is DEDUCED, not probed, and deliberately NOT persisted.** ARC only knows
-  a list is out of reach once something has tried to read it — the Dashboard,
-  which queries most lists for its counts, is what usually teaches it. Probing
-  every list at sign-in would be sixty-odd extra requests to answer a question
-  that is almost always "yes". And a denial cached in storage outlives the
+- **It is both ASKED and LEARNED — the learner alone answers too late.**
+  v0.165.0 only watched requests fail, which is free but only knows after the
+  fact: every Sales card looked live until Tim opened Visit Reports, was
+  refused, and came back to find ONE card locked and the rest still inviting
+  him in (2026-09-24). `api/accessProbe.ts` now asks up front, in **one Graph
+  `$batch`** (20 sub-requests a call, `$select=id` each — "may I", not "give me
+  the rows"), so the Dashboard and the menu are right the first time. The
+  passive learner stays: it is free, it covers what the probe skips, and access
+  can change mid-session.
+- **The probe SKIPS a multi-list app** — Drawing File Logs' four registers,
+  Digital QC's sixteen families, Ignition QC's thirty-seven. Those need every
+  register refused to count as unavailable, so proving it would cost fifty-odd
+  sub-requests to answer a question that is almost always "they're fine". They
+  keep the learner.
+- **Only 403 counts, and a failed probe changes nothing.** Graph answers **404
+  for a missing SCOPE** as well as a missing list (see the note in `graph.ts`),
+  and the two are indistinguishable from the browser — one of them is a config
+  error that would lock an app for the whole company at once. A whole batch
+  failing is a network or session problem, not an answer about permissions, so
+  `probeAppAccess` swallows it and leaves ARC exactly as it was.
+- **A refused DOCUMENT LIBRARY is not a refused site.** A library with its own
+  broken inheritance is ordinary SharePoint, so `drives` is its own denial kind
+  and only the `needsDrive` apps (Project Folders, Open Orders Report) read it.
+  An earlier version recorded a drive 403 as a site denial, which would have
+  locked Visit Reports over a folder nobody had shared.
+- **It is deliberately NOT persisted.** A denial cached in storage outlives the
   problem: somebody granted access at 9am would stay locked out until they
-  closed the tab. In memory, a reload re-learns the truth.
+  closed the tab. In memory a reload re-learns the truth — which the probe
+  makes cheap, since it is two requests rather than a visit to every screen.
 - **"Check again" clears the store BEFORE refetching**, so anything since
   granted stops being hidden immediately and anything still refused simply
-  registers again a moment later.
+  registers again a moment later. It also bumps the probe's query key
+  (`probeKey`), because React Query would otherwise hold the first answer for
+  the whole session and the button would do nothing for the one person it
+  exists for — somebody who has just been granted access.
 
 The three "does the gate exist" tests were verified by disabling each gate and
 watching them fail — a test that passes either way is how this class of feature
