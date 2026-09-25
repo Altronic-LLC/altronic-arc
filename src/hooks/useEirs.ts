@@ -26,8 +26,6 @@ import { multiLookupField } from "@/lib/graphFields";
 import {
   commentNotifyRecipients,
   commentRenotifyRecipients,
-  extractMentionedRecipients,
-  mockLookupIdForEmail,
 } from "@/lib/mentions";
 import {
   fireAssigneeChangeAlert,
@@ -52,8 +50,12 @@ import { appItemUrl } from "@/lib/appUrl";
 import { htmlToPlainText } from "@/lib/htmlText";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { resolveCurrentUserLookupId } from "@/api/currentUser";
-import { USE_MOCK } from "@/api/config";
 import { autoWatchers } from "@/lib/people";
+import {
+  afterMentionAutoWatch,
+  beginMentionAutoWatch,
+  type MentionAutoWatch,
+} from "./mentionAutoWatch";
 
 const EIRS_KEY = ["eirs", "list"] as const;
 
@@ -589,8 +591,8 @@ export function useAddEirComment() {
       id: number;
       comment: { authorName: string; authorEmail: string; bodyHtml: string };
     }) => addEirComment(id, comment),
-    onMutate: ({ id, comment }) =>
-      snapshotAndPatch(
+    onMutate: async ({ id, comment }) => ({
+      ...(await snapshotAndPatch(
         qc,
         id,
         patchEir(id, (e) => ({
@@ -607,8 +609,13 @@ export function useAddEirComment() {
           ],
           modifiedAt: new Date(),
         })),
-      ),
-    onSuccess: (_data, { id, comment }) => {
+      )),
+      // Mentioned people show as watchers NOW, not after the comment's round
+      // trip — see hooks/mentionAutoWatch.ts.
+      autoWatch: beginEirMentionAutoWatch(qc, id, comment.bodyHtml),
+    }),
+    onSuccess: (_data, { id, comment }, ctx) => {
+      ctx?.autoWatch?.commit();
       pushToast({ message: "Comment posted." });
 
       const eirs = qc.getQueryData<Eir[]>(EIRS_KEY);
@@ -640,108 +647,43 @@ export function useAddEirComment() {
           attachments: [],
         });
       }
-
-      // Auto-watch: anyone @-mentioned becomes a watcher on this EIR (unless
-      // they already are).
-      const mentioned = extractMentionedRecipients(comment.bodyHtml);
-      if (mentioned.length === 0) return;
-      void autoWatchEirFromMentions({
-        recipients: mentioned,
-        currentWatchers: eir.watchers,
-        directory: eirs ? collectPeopleFromEirs(eirs) : [],
-      })
-        .then((additions) => applyEirWatcherAdditions(qc, id, eir.watchers, additions))
-        .catch((err) => {
-          console.error("Auto-watch failed for EIR comment:", err);
-        });
     },
     onError: (_err, _vars, ctx) => {
+      ctx?.autoWatch?.cancel();
       rollback(qc, ctx);
       pushToast({ message: "Couldn't post comment — please retry.", variant: "error" });
     },
-    onSettled: () => invalidate(qc),
+    // Refetch only once any auto-watch write has landed, so the refetch
+    // doesn't read a row without the new watchers and wipe their chips.
+    onSettled: (_d, _e, _v, ctx) => afterMentionAutoWatch(ctx?.autoWatch, () => invalidate(qc)),
   });
 }
 
 /**
- * Apply auto-watch additions optimistically — watcher chips + toast show
- * immediately, the SharePoint write happens in the background (re-patching
- * the cache after it lands in case a refetch overwrote the optimistic
- * version). On failure: error toast + refetch so the UI doesn't lie.
+ * Start auto-watch for an EIR comment: the mentioned people appear as
+ * watchers immediately and are written once the comment lands. Resolves
+ * cold-start mentions against the ENGINEERING site, where the EIRs list lives.
  */
-async function applyEirWatcherAdditions(
+function beginEirMentionAutoWatch(
   qc: QueryClient,
   id: number,
-  currentWatchers: Person[],
-  additions: Person[],
-): Promise<void> {
-  if (additions.length === 0) return;
-  const next = [...currentWatchers, ...additions];
-  const patch = () =>
-    qc.setQueryData<Eir[]>(EIRS_KEY, (old) =>
-      old?.map((e) => (e.id === id ? { ...e, watchers: next } : e)),
-    );
-  patch();
-  pushToast({
-    message:
-      additions.length === 1
-        ? `${additions[0].displayName} is now watching this EIR.`
-        : `${additions.length} people are now watching this EIR.`,
+  bodyHtml: string,
+): MentionAutoWatch | null {
+  const eir = qc.getQueryData<Eir[]>(EIRS_KEY)?.find((e) => e.id === id);
+  if (!eir) return null;
+  return beginMentionAutoWatch({
+    bodyHtml,
+    currentWatchers: eir.watchers,
+    directory: () => collectPeopleFromEirs(qc.getQueryData<Eir[]>(EIRS_KEY) ?? []),
+    resolveLookupId: resolveCurrentUserLookupId,
+    patch: (watchers) =>
+      qc.setQueryData<Eir[]>(EIRS_KEY, (old) =>
+        old?.map((e) => (e.id === id ? { ...e, watchers } : e)),
+      ),
+    write: (watchers) => setEirWatchers(id, watchers),
+    onWriteFailed: () => qc.invalidateQueries({ queryKey: EIRS_KEY }),
+    noun: "EIR",
   });
-  try {
-    await setEirWatchers(id, next);
-    patch();
-  } catch (err) {
-    console.error("Couldn't save auto-watch additions:", err);
-    pushToast({
-      message: "Couldn't add the mentioned person as a watcher — refreshing.",
-      variant: "error",
-    });
-    qc.invalidateQueries({ queryKey: EIRS_KEY });
-  }
-}
-
-/**
- * Resolve which @-mentioned people should become new watchers on an EIR.
- * Prefers the EIR-derived directory (reporter/assignees/watchers across all
- * EIRs); for someone mentioned for the first time who's never appeared
- * there, falls back to resolving their SharePoint lookupId on demand from
- * the site's User Information List — otherwise a cold-start mention (never
- * an EIR participant before) could never be auto-watched.
- */
-async function autoWatchEirFromMentions({
-  recipients,
-  currentWatchers,
-  directory,
-}: {
-  recipients: Person[];
-  currentWatchers: Person[];
-  directory: Person[];
-}): Promise<Person[]> {
-  const alreadyWatching = new Set(
-    currentWatchers.map((w) => (w.email ?? w.displayName).toLowerCase()),
-  );
-  const byEmail = new Map<string, Person>();
-  for (const p of directory) {
-    if (p.email && p.lookupId) byEmail.set(p.email.toLowerCase(), p);
-  }
-  const additions: Person[] = [];
-  for (const r of recipients) {
-    const key = (r.email ?? r.displayName).toLowerCase();
-    if (alreadyWatching.has(key)) continue;
-    if (!r.email) continue;
-    let resolved = byEmail.get(r.email.toLowerCase());
-    if (!resolved) {
-      const lookupId = USE_MOCK
-        ? mockLookupIdForEmail(r.email)
-        : await resolveCurrentUserLookupId(r.email);
-      if (!lookupId) continue;
-      resolved = { displayName: r.displayName, email: r.email, lookupId };
-    }
-    additions.push(resolved);
-    alreadyWatching.add(key);
-  }
-  return additions;
 }
 
 /** Flatten every Person across the EIR list, deduped, lookupId-only. */
@@ -773,8 +715,8 @@ export function useEditEirComment() {
       /** Author opted in to "Notify everyone again" — see onSuccess below. */
       renotify?: boolean;
     }) => editEirComment(id, target, newBodyHtml),
-    onMutate: ({ id, target, newBodyHtml }) =>
-      snapshotAndPatch(
+    onMutate: async ({ id, target, newBodyHtml }) => ({
+      ...(await snapshotAndPatch(
         qc,
         id,
         patchEir(id, (e) => ({
@@ -787,8 +729,13 @@ export function useEditEirComment() {
           ),
           modifiedAt: new Date(),
         })),
-      ),
+      )),
+      // Anyone @-mentioned in the edited body becomes a watcher (unless
+      // already watching) — same rule, and same timing, as a new comment.
+      autoWatch: beginEirMentionAutoWatch(qc, id, newBodyHtml),
+    }),
     onSuccess: (_d, { id, target, newBodyHtml, renotify }, ctx) => {
+      ctx?.autoWatch?.commit();
       const prevComment = ctx?.prevEir?.comments.find(
         (c) =>
           c.timestamp.getTime() === target.timestamp.getTime() &&
@@ -830,27 +777,13 @@ export function useEditEirComment() {
           });
         }
       }
-
-      // Auto-watch: anyone @-mentioned in the edited body becomes a watcher
-      // on this EIR (unless already watching) — same rule as posting a new
-      // comment, regardless of whether renotify was requested.
-      const mentioned = extractMentionedRecipients(newBodyHtml);
-      if (mentioned.length === 0) return;
-      void autoWatchEirFromMentions({
-        recipients: mentioned,
-        currentWatchers: eir.watchers,
-        directory: eirs ? collectPeopleFromEirs(eirs) : [],
-      })
-        .then((additions) => applyEirWatcherAdditions(qc, id, eir.watchers, additions))
-        .catch((err) => {
-          console.error("Auto-watch failed for edited EIR comment:", err);
-        });
     },
     onError: (_err, _vars, ctx) => {
+      ctx?.autoWatch?.cancel();
       rollback(qc, ctx);
       pushToast({ message: "Couldn't save comment — reverted.", variant: "error" });
     },
-    onSettled: () => invalidate(qc),
+    onSettled: (_d, _e, _v, ctx) => afterMentionAutoWatch(ctx?.autoWatch, () => invalidate(qc)),
   });
 }
 

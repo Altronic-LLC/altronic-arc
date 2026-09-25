@@ -34,7 +34,11 @@ import {
   type FaitSignOffOutcome,
 } from "@/lib/faitSignOff";
 import type { AlertDetail } from "@/lib/changeAlerts";
-import { autoWatchFromMentions } from "@/api/autoWatch";
+import {
+  afterMentionAutoWatch,
+  beginMentionAutoWatch,
+  type MentionAutoWatch,
+} from "./mentionAutoWatch";
 // The FAIT list is on the Engineering site, so cold-start mentions resolve there.
 import { resolveCurrentUserLookupId } from "@/api/currentUser";
 import { autoWatchers, mergePeople } from "@/lib/people";
@@ -529,9 +533,12 @@ export function useAddFaitComment() {
         ],
         modifiedAt: new Date(),
       }));
-      return { previous };
+      // Mentioned people show as watchers NOW, not after the comment's round
+      // trip — see hooks/mentionAutoWatch.ts.
+      return { previous, autoWatch: beginFaitMentionAutoWatch(qc, id, comment.bodyHtml) };
     },
-    onSuccess: (_data, { id, comment }) => {
+    onSuccess: (_data, { id, comment }, ctx) => {
+      ctx?.autoWatch?.commit();
       pushToast({ message: "Comment posted." });
 
       const faits = qc.getQueryData<Fait[]>(FAITS_KEY);
@@ -556,23 +563,16 @@ export function useAddFaitComment() {
           attachments: [],
         });
       }
-
-      const mentioned = extractMentionedRecipients(comment.bodyHtml);
-      if (mentioned.length === 0) return;
-      void autoWatchFromMentions({
-        resolveLookupId: resolveCurrentUserLookupId,
-        recipients: mentioned,
-        currentWatchers: fait.watchers,
-        directory: faits ? collectFaitPeople(faits) : [],
-      })
-        .then((additions: Person[]) => applyWatcherAdditions(qc, id, fait.watchers, additions))
-        .catch((err: unknown) => console.error("Auto-watch failed for a FAIT comment:", err));
     },
     onError: (_err, _vars, ctx) => {
+      ctx?.autoWatch?.cancel();
       if (ctx?.previous) qc.setQueryData(FAITS_KEY, ctx.previous);
       errorToast("Couldn't post comment — please retry.");
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: FAITS_KEY }),
+    onSettled: (_data, _err, _vars, ctx) =>
+      afterMentionAutoWatch(ctx?.autoWatch, () => {
+        void qc.invalidateQueries({ queryKey: FAITS_KEY });
+      }),
   });
 }
 
@@ -621,31 +621,27 @@ export function useEditFaitComment() {
   });
 }
 
-/** Apply auto-watch additions optimistically, then save them. */
-async function applyWatcherAdditions(
+/**
+ * Start auto-watch for a FAIT comment: the mentioned people appear as watchers
+ * immediately and are written once the comment lands.
+ */
+function beginFaitMentionAutoWatch(
   qc: QueryClient,
   id: number,
-  currentWatchers: Person[],
-  additions: Person[],
-): Promise<void> {
-  if (additions.length === 0) return;
-  const next = autoWatchers(currentWatchers, additions);
-  const patch = () => patchFait(qc, id, (f) => ({ ...f, watchers: next }));
-  patch();
-  pushToast({
-    message:
-      additions.length === 1
-        ? `${additions[0].displayName} is now watching this FAIT.`
-        : `${additions.length} people are now watching this FAIT.`,
+  bodyHtml: string,
+): MentionAutoWatch | null {
+  const fait = qc.getQueryData<Fait[]>(FAITS_KEY)?.find((f) => f.id === id);
+  if (!fait) return null;
+  return beginMentionAutoWatch({
+    bodyHtml,
+    currentWatchers: fait.watchers,
+    directory: () => collectFaitPeople(qc.getQueryData<Fait[]>(FAITS_KEY) ?? []),
+    resolveLookupId: resolveCurrentUserLookupId,
+    patch: (watchers) => patchFait(qc, id, (f) => ({ ...f, watchers })),
+    write: (watchers) => setFaitWatchers(id, watchers),
+    onWriteFailed: () => void qc.invalidateQueries({ queryKey: FAITS_KEY }),
+    noun: "FAIT",
   });
-  try {
-    await setFaitWatchers(id, next);
-    patch();
-  } catch (err) {
-    console.error("Couldn't save auto-watch additions:", err);
-    errorToast("Couldn't add the mentioned person as a watcher — refreshing.");
-    qc.invalidateQueries({ queryKey: FAITS_KEY });
-  }
 }
 
 export { mergePeople };

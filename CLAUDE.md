@@ -368,6 +368,7 @@ src/
 │   ├── useVersionCheck.ts        Polls version.json → update banner
 │   ├── useUnseenMentions.ts      Unseen-@-mention badge state
 │   ├── useTheme.ts               Dark/light toggle (localStorage)
+│   ├── mentionAutoWatch.ts       @-mention → watcher from onMutate: chips now, write on success (every comment thread)
 │   ├── useCommentMirror.ts       fanOutComment() — resolves the links, writes the mirrors, notifies each side
 │   ├── useDraft.ts               One field's draft in localStorage (comments)
 │   ├── useFormDraft.ts           A whole form's draft — title + description together
@@ -6268,6 +6269,40 @@ Two things to preserve:
 
 A new entity with a Watchers column gets the same treatment in its create hook
 and its assign path — that's six departments doing it identically now.
+
+### A mention becomes a watcher when Post is pressed — `hooks/mentionAutoWatch.ts`
+
+Auto-watch-on-mention used to start in each comment mutation's `onSuccess`, so
+the chip waited on the whole comment round trip (read Communication, PATCH,
+re-read) plus a lookupId resolution — and then the comment's own `onSettled`
+refetch, in flight before the Watchers write landed, wiped the chip until the
+write re-patched it (Ray, 2026-09-25: "they should be added as a watcher more
+quickly"). `beginMentionAutoWatch` splits the work across the lifecycle, and
+every comment thread uses it:
+
+| Phase | What happens |
+|---|---|
+| `onMutate` | chips + toast appear NOW — a chip needs no lookupId, only a write does |
+| `onSuccess` | `commit()` resolves lookupIds and writes Watchers |
+| `onError` | `cancel()` — a failed comment writes nothing; the snapshot rollback removes the chips |
+| `onSettled` | `afterMentionAutoWatch` holds the refetch until the write has landed |
+
+Three rules:
+
+- **Nothing is written before the comment lands.** Optimistic display is
+  free; a subscription left behind by a comment that failed is not.
+- **Don't reconcile a comment write's returned row while an auto-watch is in
+  flight** — it predates the new watchers and wipes their chips. Tasks'
+  `settleCommentWrite` invalidates instead.
+- **A mentioned person with no resolvable lookupId is taken back AND named in
+  a toast.** They used to be skipped silently, which is how a mention that
+  subscribed nobody went unnoticed.
+
+`resolveLookupId` is still per-site and still required — see
+`api/autoWatch.ts`, which the helper calls at commit time.
+`useTasks.mentionWatch.test.tsx` pins the timing against a comment write the
+test controls, and was verified by running it against the old hook (all three
+cases fail).
 
 ### Comment timestamps are on one clock, not the author's
 

@@ -14,7 +14,11 @@ import {
   updatePanelOrderFields,
   watchPanelOrder,
 } from "@/api/panelOrders";
-import { autoWatchFromMentions } from "@/api/autoWatch";
+import {
+  afterMentionAutoWatch,
+  beginMentionAutoWatch,
+  type MentionAutoWatch,
+} from "./mentionAutoWatch";
 import { createPanelProject, listPanelProjects, updatePanelProject } from "@/api/panelProjects";
 import type { PanelOrder, PanelProject, Person } from "@/types/task";
 import { pushToast } from "@/components/Toast";
@@ -372,8 +376,8 @@ export function useAddPanelOrderComment() {
       id: number;
       comment: { authorName: string; authorEmail: string; bodyHtml: string };
     }) => addPanelOrderComment(id, comment),
-    onMutate: ({ id, comment }) =>
-      snapshotAndPatch(
+    onMutate: async ({ id, comment }) => ({
+      ...(await snapshotAndPatch(
         qc,
         id,
         patchPanelOrder(id, (o) => ({
@@ -390,8 +394,13 @@ export function useAddPanelOrderComment() {
           ],
           modifiedAt: new Date(),
         })),
-      ),
-    onSuccess: (_data, { id, comment }) => {
+      )),
+      // Mentioned people show as watchers NOW, not after the comment's round
+      // trip — see hooks/mentionAutoWatch.ts.
+      autoWatch: beginPanelOrderMentionAutoWatch(qc, id, comment.bodyHtml),
+    }),
+    onSuccess: (_data, { id, comment }, ctx) => {
+      ctx?.autoWatch?.commit();
       pushToast({ message: "Comment posted." });
 
       const orders = qc.getQueryData<PanelOrder[]>(PANEL_ORDERS_KEY);
@@ -414,63 +423,43 @@ export function useAddPanelOrderComment() {
           attachments: [],
         });
       }
-
-      const mentioned = extractMentionedRecipients(comment.bodyHtml);
-      if (mentioned.length === 0) return;
-      void autoWatchFromMentions({
-        resolveLookupId: resolvePanelSiteUserLookupId,
-        recipients: mentioned,
-        currentWatchers: order.watchers,
-        directory: orders ? collectPeopleFromPanelOrders(orders) : [],
-      })
-        .then((additions) => applyPanelWatcherAdditions(qc, id, order.watchers, additions))
-        .catch((err) => {
-          console.error("Auto-watch failed for panel order comment:", err);
-        });
     },
     onError: (_err, _vars, ctx) => {
+      ctx?.autoWatch?.cancel();
       rollback(qc, ctx);
       errorToast("Couldn't post comment — please retry.");
     },
-    onSettled: () => invalidatePanelOrders(qc),
+    onSettled: (_data, _err, _vars, ctx) =>
+      afterMentionAutoWatch(ctx?.autoWatch, () => invalidatePanelOrders(qc)),
   });
 }
 
 /**
- * Apply auto-watch additions optimistically — watcher chips + toast show
- * immediately, the SharePoint write happens in the background (re-patching
- * the cache after it lands in case a refetch overwrote the optimistic
- * version). On failure: error toast + refetch so the UI doesn't lie.
+ * Start auto-watch for a panel order comment: the mentioned people appear as
+ * watchers immediately and are written once the comment lands. Resolves
+ * against the panel team site — a lookupId is per site collection.
  */
-async function applyPanelWatcherAdditions(
+function beginPanelOrderMentionAutoWatch(
   qc: QueryClient,
   id: number,
-  currentWatchers: Person[],
-  additions: Person[],
-): Promise<void> {
-  if (additions.length === 0) return;
-  const next = [...currentWatchers, ...additions];
-  const patch = () =>
-    qc.setQueryData<PanelOrder[]>(PANEL_ORDERS_KEY, (old) =>
-      old?.map((o) => (o.id === id ? { ...o, watchers: next } : o)),
-    );
-  patch();
-  pushToast({
-    message:
-      additions.length === 1
-        ? `${additions[0].displayName} is now watching this panel order.`
-        : `${additions.length} people are now watching this panel order.`,
+  bodyHtml: string,
+): MentionAutoWatch | null {
+  const item = qc.getQueryData<PanelOrder[]>(PANEL_ORDERS_KEY)?.find((x) => x.id === id);
+  if (!item) return null;
+  return beginMentionAutoWatch({
+    bodyHtml,
+    currentWatchers: item.watchers,
+    directory: () => collectPeopleFromPanelOrders(qc.getQueryData<PanelOrder[]>(PANEL_ORDERS_KEY) ?? []),
+    resolveLookupId: resolvePanelSiteUserLookupId,
+    patch: (watchers) =>
+      qc.setQueryData<PanelOrder[]>(PANEL_ORDERS_KEY, (old) =>
+        old?.map((x) => (x.id === id ? { ...x, watchers } : x)),
+      ),
+    write: (watchers) => setPanelOrderWatchers(id, watchers),
+    onWriteFailed: () => invalidatePanelOrders(qc),
+    noun: "panel order",
   });
-  try {
-    await setPanelOrderWatchers(id, next);
-    patch();
-  } catch (err) {
-    console.error("Couldn't save auto-watch additions:", err);
-    errorToast("Couldn't add the mentioned person as a watcher — refreshing.");
-    invalidatePanelOrders(qc);
-  }
 }
-
 
 /** Flatten every Person across the panel order list, deduped by email/displayName. */
 function collectPeopleFromPanelOrders(orders: PanelOrder[]): Person[] {
@@ -499,8 +488,8 @@ export function useEditPanelOrderComment() {
       /** Author opted in to "Notify everyone again" — see onSuccess below. */
       renotify?: boolean;
     }) => editPanelOrderComment(id, target, newBodyHtml),
-    onMutate: ({ id, target, newBodyHtml }) =>
-      snapshotAndPatch(
+    onMutate: async ({ id, target, newBodyHtml }) => ({
+      ...(await snapshotAndPatch(
         qc,
         id,
         patchPanelOrder(id, (o) => ({
@@ -513,8 +502,13 @@ export function useEditPanelOrderComment() {
           ),
           modifiedAt: new Date(),
         })),
-      ),
+      )),
+      // Anyone @-mentioned in the edited body becomes a watcher (unless
+      // already watching) — same rule, and same timing, as a new comment.
+      autoWatch: beginPanelOrderMentionAutoWatch(qc, id, newBodyHtml),
+    }),
     onSuccess: (_data, { id, target, newBodyHtml, renotify }, ctx) => {
+      ctx?.autoWatch?.commit();
       const prevComment = ctx?.prevOrder?.comments.find(
         (c) =>
           c.timestamp.getTime() === target.timestamp.getTime() &&
@@ -570,28 +564,14 @@ export function useEditPanelOrderComment() {
           });
         }
       }
-
-      // Auto-watch: anyone @-mentioned in the edited body becomes a watcher
-      // (unless already watching) — same rule as posting a new comment.
-      const mentioned = extractMentionedRecipients(newBodyHtml);
-      if (mentioned.length === 0) return;
-      const allOrders = qc.getQueryData<PanelOrder[]>(PANEL_ORDERS_KEY);
-      void autoWatchFromMentions({
-        resolveLookupId: resolvePanelSiteUserLookupId,
-        recipients: mentioned,
-        currentWatchers: order.watchers,
-        directory: allOrders ? collectPeopleFromPanelOrders(allOrders) : [],
-      })
-        .then((additions) => applyPanelWatcherAdditions(qc, id, order.watchers, additions))
-        .catch((err) => {
-          console.error("Auto-watch failed for edited panel order comment:", err);
-        });
     },
     onError: (_err, _vars, ctx) => {
+      ctx?.autoWatch?.cancel();
       rollback(qc, ctx);
       errorToast("Couldn't save comment — reverted.");
     },
-    onSettled: () => invalidatePanelOrders(qc),
+    onSettled: (_data, _err, _vars, ctx) =>
+      afterMentionAutoWatch(ctx?.autoWatch, () => invalidatePanelOrders(qc)),
   });
 }
 

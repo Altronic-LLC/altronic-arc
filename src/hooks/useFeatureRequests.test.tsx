@@ -15,14 +15,13 @@ vi.mock("@/hooks/useCurrentUser", () => ({
 }));
 
 import {
-  invalidateFeatureRequests,
-  pendingWatcherWrites,
   useAddFeatureRequestComment,
   useCreateFeatureRequest,
   useFeatureRequest,
   useFeatureRequests,
   useUpdateFeatureRequestFields,
 } from "./useFeatureRequests";
+import { __resetFeatureRequestMockStore } from "@/api/featureRequests";
 
 function wrapper({ children }: { children: ReactNode }) {
   const qc = new QueryClient({
@@ -121,9 +120,9 @@ describe("useAddFeatureRequestComment — watchers from a mention must stick", (
   // write) actually settle, then confirms the mention survives as a watcher
   // on the list a second, independent query observes — using ONE shared
   // QueryClient (hookWrapper(), not the per-render `wrapper` above) so the
-  // list hook can actually see the mutation hook's invalidation. Verified by
-  // reintroducing the bug (making onSettled invalidate unconditionally,
-  // ignoring `pendingWatcherWrites`) and confirming this test fails.
+  // list hook can actually see the mutation hook's invalidation. The fix is
+  // now `afterMentionAutoWatch` (hooks/mentionAutoWatch.ts): onSettled's
+  // refetch waits for the watcher write to land.
   it("keeps a mentioned person as a watcher after the comment settles", async () => {
     const sharedWrapper = hookWrapper();
     const list = renderHook(() => useFeatureRequests(), { wrapper: sharedWrapper });
@@ -157,9 +156,8 @@ describe("useAddFeatureRequestComment — watchers from a mention must stick", (
   });
 
   // The common case — no @-mention at all — must still refetch immediately,
-  // the same as before this fix: `mentioned.length === 0` returns before
-  // `pendingWatcherWrites` is ever touched, so onSettled's guard finds
-  // nothing pending and invalidates right away, same as always.
+  // the same as before this fix: no auto-watch handle is started, so
+  // onSettled invalidates right away, same as always.
   it("still posts and reflects a plain comment with no mention", async () => {
     const sharedWrapper = hookWrapper();
     const list = renderHook(() => useFeatureRequests(), { wrapper: sharedWrapper });
@@ -185,35 +183,44 @@ describe("useAddFeatureRequestComment — watchers from a mention must stick", (
   });
 });
 
-describe("pendingWatcherWrites guard (the actual race fix, tested directly)", () => {
-  // The end-to-end test above proves the final state is correct, but a live
-  // async race is inherently timing-dependent and doesn't reliably reproduce
-  // through a full mutation stack in a fast, deterministic test environment
-  // — it passed even with an early version of the fix reverted. This tests
-  // the guard mechanism itself directly: the exported behavior is "a
-  // sibling invalidate for an id with a pending watcher write is a no-op,"
-  // and that IS deterministically testable without racing real promises.
-  it("skips invalidating an id with a watcher write marked pending", async () => {
-    const qc = new QueryClient({
-      defaultOptions: { queries: { retry: false, gcTime: 0 }, mutations: { retry: false } },
+describe("useAddFeatureRequestComment — a mention watches from the moment Post is pressed", () => {
+  // Ray, 2026-09-25: mentioned people took too long to become watchers,
+  // because auto-watch only started once the comment's SharePoint round trip
+  // had finished. The chip now appears in onMutate — while the comment write
+  // is still in flight.
+  //
+  // Mock mode mutates a module-level array, so the "sticks" test above has
+  // already made Sheila a watcher — start from a fresh store.
+  beforeEach(() => __resetFeatureRequestMockStore());
+  it("shows the mentioned person as a watcher before the comment write resolves", async () => {
+    const sharedWrapper = hookWrapper();
+    const list = renderHook(() => useFeatureRequests(), { wrapper: sharedWrapper });
+    await waitFor(() => expect(list.result.current.isSuccess).toBe(true));
+    const target = list.result.current.data!.find(
+      (r) => r.title === "Dark mode for the print views",
+    )!;
+    expect(target.watchers.some((w) => w.email === "sheila.horn@altronic-llc.com")).toBe(false);
+
+    const { result } = renderHook(() => useAddFeatureRequestComment(), { wrapper: sharedWrapper });
+    act(() => {
+      result.current.mutate({
+        id: target.id,
+        comment: {
+          authorName: "Demo User",
+          authorEmail: "demo.user@altronic-llc.com",
+          bodyHtml:
+            '<p>Looping in <span class="mention" data-email="sheila.horn@altronic-llc.com">@Sheila Horn</span></p>',
+        },
+      });
     });
-    const spy = vi.spyOn(qc, "invalidateQueries");
 
-    // Simulate what onSuccess does BEFORE onSettled runs: mark the id
-    // pending, then call the same invalidate onSettled calls.
-    pendingWatcherWrites.add(999);
-    invalidateFeatureRequests(qc, 999);
-    expect(spy).not.toHaveBeenCalled();
-
-    // Once the pending write clears (the real .finally() does this), the
-    // SAME id invalidates normally again.
-    pendingWatcherWrites.delete(999);
-    invalidateFeatureRequests(qc, 999);
-    expect(spy).toHaveBeenCalledTimes(1);
-
-    // An id with nothing pending was never affected by another id's guard.
-    invalidateFeatureRequests(qc, 12345);
-    expect(spy).toHaveBeenCalledTimes(2);
+    await waitFor(() => {
+      const updated = list.result.current.data!.find((r) => r.id === target.id)!;
+      expect(updated.watchers.some((w) => w.email === "sheila.horn@altronic-llc.com")).toBe(true);
+    });
+    // The comment itself hasn't landed yet — the watcher came first.
+    expect(result.current.isPending).toBe(true);
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
   });
 });
 

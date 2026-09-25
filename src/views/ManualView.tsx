@@ -886,7 +886,10 @@ const SECTIONS: ManualSection[] = [
         <P>
           Anyone you @-mention also <strong>becomes a watcher</strong> on
           the item automatically (unless they already are) — tasks, EIRs,
-          build requests, and individual build request parts alike.{" "}
+          build requests, and individual build request parts alike. They
+          appear in Watchers as soon as you press Post; if the comment fails
+          to save, nobody is added, and if someone can't be added because they
+          have no SharePoint account, ARC tells you.{" "}
           <strong>
             Watchers and whoever the item is assigned to are emailed on every new
             comment

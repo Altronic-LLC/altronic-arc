@@ -23,7 +23,6 @@ import type { BuildRequest, BuildRequestItem, Person } from "@/types/task";
 import { ALL_CHECKLIST_FIELDS } from "@/lib/buildRequestChecklist";
 import { describeListWriteFailure } from "@/lib/listWriteErrors";
 import { pushToast } from "@/components/Toast";
-import { autoWatchFromMentions } from "@/api/autoWatch";
 import { fireAssigneeChangeAlert, fireFieldChangeAlert, notifyMentions } from "@/api/email";
 import { htmlToPlainText } from "@/lib/htmlText";
 import {
@@ -35,6 +34,11 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { resolveCurrentUserLookupId } from "@/api/currentUser";
 import { autoWatchers } from "@/lib/people";
 import { fanOutComment } from "@/hooks/useCommentMirror";
+import {
+  afterMentionAutoWatch,
+  beginMentionAutoWatch,
+  type MentionAutoWatch,
+} from "./mentionAutoWatch";
 import { buildRequestsForTask } from "@/lib/buildRequestFromTask";
 
 // =============================================================================
@@ -373,70 +377,66 @@ export function useCreateBuildRequest() {
 // ---- auto-watch helpers -------------------------------------------------------
 
 /**
- * Apply auto-watch additions optimistically — watcher chips + toast show
- * immediately, the SharePoint write happens in the background (re-patching
- * the cache after it lands in case a refetch overwrote the optimistic
- * version). On failure: error toast + refetch so the UI doesn't lie.
+ * Start auto-watch for a build request HEADER comment: the mentioned people
+ * appear as watchers immediately and are written once the comment lands.
+ * Build requests live on the ENGINEERING site — hence that resolver.
  */
-async function applyBrWatcherAdditions(
+function beginBrMentionAutoWatch(
   qc: QueryClient,
   id: number,
-  currentWatchers: Person[],
-  additions: Person[],
-): Promise<void> {
-  if (additions.length === 0) return;
-  const next = [...currentWatchers, ...additions];
-  const patch = () =>
-    qc.setQueryData<BuildRequest[]>(BUILD_REQUESTS_KEY, (old) =>
-      old?.map((b) => (b.id === id ? { ...b, watchers: next } : b)),
-    );
-  patch();
-  pushToast({
-    message:
-      additions.length === 1
-        ? `${additions[0].displayName} is now watching this build request.`
-        : `${additions.length} people are now watching this build request.`,
+  bodyHtml: string,
+): MentionAutoWatch | null {
+  const br = qc.getQueryData<BuildRequest[]>(BUILD_REQUESTS_KEY)?.find((b) => b.id === id);
+  if (!br) return null;
+  return beginMentionAutoWatch({
+    bodyHtml,
+    currentWatchers: br.watchers,
+    directory: () =>
+      collectBuildRequestPeople(
+        qc.getQueryData<BuildRequest[]>(BUILD_REQUESTS_KEY),
+        qc.getQueryData<BuildRequestItem[]>(BUILD_REQUEST_ITEMS_KEY),
+      ),
+    resolveLookupId: resolveCurrentUserLookupId,
+    patch: (watchers) =>
+      qc.setQueryData<BuildRequest[]>(BUILD_REQUESTS_KEY, (old) =>
+        old?.map((b) => (b.id === id ? { ...b, watchers } : b)),
+      ),
+    write: (watchers) => setBuildRequestWatchers(id, watchers),
+    onWriteFailed: () => invalidateBrs(qc),
+    noun: "build request",
   });
-  try {
-    await setBuildRequestWatchers(id, next);
-    patch();
-  } catch (err) {
-    console.error("Couldn't save auto-watch additions:", err);
-    errorToast("Couldn't add the mentioned person as a watcher — refreshing.");
-    invalidateBrs(qc);
-  }
 }
 
-/** Same as applyBrWatcherAdditions, for a build request ITEM's watcher list. */
-async function applyItemWatcherAdditions(
+/**
+ * Same as beginBrMentionAutoWatch, for a PART's comment. A part's watchers
+ * live on the item (Build Request Items list, BUILD_REQUEST_ITEMS_KEY), not
+ * on its header.
+ */
+function beginItemMentionAutoWatch(
   qc: QueryClient,
   id: number,
-  currentWatchers: Person[],
-  additions: Person[],
-): Promise<void> {
-  if (additions.length === 0) return;
-  const next = [...currentWatchers, ...additions];
-  const patch = () =>
-    qc.setQueryData<BuildRequestItem[]>(BUILD_REQUEST_ITEMS_KEY, (old) =>
-      old?.map((i) => (i.id === id ? { ...i, watchers: next } : i)),
-    );
-  patch();
-  pushToast({
-    message:
-      additions.length === 1
-        ? `${additions[0].displayName} is now watching this part.`
-        : `${additions.length} people are now watching this part.`,
+  bodyHtml: string,
+): MentionAutoWatch | null {
+  const item = qc.getQueryData<BuildRequestItem[]>(BUILD_REQUEST_ITEMS_KEY)?.find((i) => i.id === id);
+  if (!item) return null;
+  return beginMentionAutoWatch({
+    bodyHtml,
+    currentWatchers: item.watchers,
+    directory: () =>
+      collectBuildRequestPeople(
+        qc.getQueryData<BuildRequest[]>(BUILD_REQUESTS_KEY),
+        qc.getQueryData<BuildRequestItem[]>(BUILD_REQUEST_ITEMS_KEY),
+      ),
+    resolveLookupId: resolveCurrentUserLookupId,
+    patch: (watchers) =>
+      qc.setQueryData<BuildRequestItem[]>(BUILD_REQUEST_ITEMS_KEY, (old) =>
+        old?.map((i) => (i.id === id ? { ...i, watchers } : i)),
+      ),
+    write: (watchers) => setBuildRequestItemWatchers(id, watchers),
+    onWriteFailed: () => invalidateItems(qc),
+    noun: "part",
   });
-  try {
-    await setBuildRequestItemWatchers(id, next);
-    patch();
-  } catch (err) {
-    console.error("Couldn't save auto-watch additions:", err);
-    errorToast("Couldn't add the mentioned person as a watcher — refreshing.");
-    invalidateItems(qc);
-  }
 }
-
 
 /** Flatten every Person across headers + items, deduped, lookupId-only. */
 function collectBuildRequestPeople(
@@ -472,8 +472,8 @@ export function useAddBuildRequestComment() {
       id: number;
       comment: { authorName: string; authorEmail: string; bodyHtml: string };
     }) => addBuildRequestComment(id, comment),
-    onMutate: ({ id, comment }) =>
-      snapshotAndPatchBr(
+    onMutate: async ({ id, comment }) => ({
+      ...(await snapshotAndPatchBr(
         qc,
         id,
         patchBr(id, (b) => ({
@@ -490,8 +490,13 @@ export function useAddBuildRequestComment() {
           ],
           modifiedAt: new Date(),
         })),
-      ),
-    onSuccess: (_data, { id, comment }) => {
+      )),
+      // Mentioned people show as watchers NOW, not after the comment's round
+      // trip — see hooks/mentionAutoWatch.ts.
+      autoWatch: beginBrMentionAutoWatch(qc, id, comment.bodyHtml),
+    }),
+    onSuccess: (_data, { id, comment }, ctx) => {
+      ctx?.autoWatch?.commit();
       pushToast({ message: "Comment posted." });
 
       const brs = qc.getQueryData<BuildRequest[]>(BUILD_REQUESTS_KEY);
@@ -527,26 +532,16 @@ export function useAddBuildRequestComment() {
         comment,
         alreadyNotified: recipients,
       });
-
-      const mentioned = extractMentionedRecipients(comment.bodyHtml);
-      if (mentioned.length === 0) return;
-      const items = qc.getQueryData<BuildRequestItem[]>(BUILD_REQUEST_ITEMS_KEY);
-      void autoWatchFromMentions({
-        resolveLookupId: resolveCurrentUserLookupId,
-        recipients: mentioned,
-        currentWatchers: br.watchers,
-        directory: collectBuildRequestPeople(brs, items),
-      })
-        .then((additions) => applyBrWatcherAdditions(qc, id, br.watchers, additions))
-        .catch((err) => {
-          console.error("Auto-watch failed for build request comment:", err);
-        });
     },
     onError: (_err, _vars, ctx) => {
+      ctx?.autoWatch?.cancel();
       rollbackBr(qc, ctx);
       errorToast("Couldn't post comment — please retry.");
     },
-    onSettled: () => invalidateBrs(qc),
+    // Refetch only once any auto-watch write has landed, so the refetch
+    // doesn't read a row without the new watchers and wipe their chips.
+    onSettled: (_d, _e, _v, ctx) =>
+      afterMentionAutoWatch(ctx?.autoWatch, () => invalidateBrs(qc)),
   });
 }
 
@@ -563,8 +558,8 @@ export function useEditBuildRequestComment() {
       newBodyHtml: string;
       renotify?: boolean;
     }) => editBuildRequestComment(id, target, newBodyHtml),
-    onMutate: ({ id, target, newBodyHtml }) =>
-      snapshotAndPatchBr(
+    onMutate: async ({ id, target, newBodyHtml }) => ({
+      ...(await snapshotAndPatchBr(
         qc,
         id,
         patchBr(id, (b) => ({
@@ -577,8 +572,13 @@ export function useEditBuildRequestComment() {
           ),
           modifiedAt: new Date(),
         })),
-      ),
+      )),
+      // Mentioned people show as watchers NOW, not after the comment's round
+      // trip — see hooks/mentionAutoWatch.ts.
+      autoWatch: beginBrMentionAutoWatch(qc, id, newBodyHtml),
+    }),
     onSuccess: (_data, { id, target, newBodyHtml, renotify }, ctx) => {
+      ctx?.autoWatch?.commit();
       const prevComment = ctx?.prevBr?.comments.find(
         (c) =>
           c.timestamp.getTime() === target.timestamp.getTime() &&
@@ -637,26 +637,16 @@ export function useEditBuildRequestComment() {
           });
         }
       }
-
-      const mentioned = extractMentionedRecipients(newBodyHtml);
-      if (mentioned.length === 0) return;
-      const items = qc.getQueryData<BuildRequestItem[]>(BUILD_REQUEST_ITEMS_KEY);
-      void autoWatchFromMentions({
-        resolveLookupId: resolveCurrentUserLookupId,
-        recipients: mentioned,
-        currentWatchers: br.watchers,
-        directory: collectBuildRequestPeople(brs, items),
-      })
-        .then((additions) => applyBrWatcherAdditions(qc, id, br.watchers, additions))
-        .catch((err) => {
-          console.error("Auto-watch failed for edited build request comment:", err);
-        });
     },
     onError: (_err, _vars, ctx) => {
+      ctx?.autoWatch?.cancel();
       rollbackBr(qc, ctx);
       errorToast("Couldn't save comment — reverted.");
     },
-    onSettled: () => invalidateBrs(qc),
+    // Refetch only once any auto-watch write has landed, so the refetch
+    // doesn't read a row without the new watchers and wipe their chips.
+    onSettled: (_d, _e, _v, ctx) =>
+      afterMentionAutoWatch(ctx?.autoWatch, () => invalidateBrs(qc)),
   });
 }
 
@@ -808,8 +798,8 @@ export function useAddBuildRequestItemComment() {
       id: number;
       comment: { authorName: string; authorEmail: string; bodyHtml: string };
     }) => addBuildRequestItemComment(id, comment),
-    onMutate: ({ id, comment }) =>
-      snapshotAndPatchItem(
+    onMutate: async ({ id, comment }) => ({
+      ...(await snapshotAndPatchItem(
         qc,
         id,
         patchItem(id, (i) => ({
@@ -826,8 +816,13 @@ export function useAddBuildRequestItemComment() {
           ],
           modifiedAt: new Date(),
         })),
-      ),
-    onSuccess: (_data, { id, comment }) => {
+      )),
+      // Mentioned people show as watchers NOW, not after the comment's round
+      // trip — see hooks/mentionAutoWatch.ts.
+      autoWatch: beginItemMentionAutoWatch(qc, id, comment.bodyHtml),
+    }),
+    onSuccess: (_data, { id, comment }, ctx) => {
+      ctx?.autoWatch?.commit();
       pushToast({ message: "Comment posted." });
 
       const items = qc.getQueryData<BuildRequestItem[]>(BUILD_REQUEST_ITEMS_KEY);
@@ -863,26 +858,16 @@ export function useAddBuildRequestItemComment() {
         comment,
         alreadyNotified: recipients,
       });
-
-      const mentioned = extractMentionedRecipients(comment.bodyHtml);
-      if (mentioned.length === 0) return;
-      const brs = qc.getQueryData<BuildRequest[]>(BUILD_REQUESTS_KEY);
-      void autoWatchFromMentions({
-        resolveLookupId: resolveCurrentUserLookupId,
-        recipients: mentioned,
-        currentWatchers: item.watchers,
-        directory: collectBuildRequestPeople(brs, items),
-      })
-        .then((additions) => applyItemWatcherAdditions(qc, id, item.watchers, additions))
-        .catch((err) => {
-          console.error("Auto-watch failed for build request item comment:", err);
-        });
     },
     onError: (_err, _vars, ctx) => {
+      ctx?.autoWatch?.cancel();
       rollbackItem(qc, ctx);
       errorToast("Couldn't post comment — please retry.");
     },
-    onSettled: () => invalidateItems(qc),
+    // Refetch only once any auto-watch write has landed, so the refetch
+    // doesn't read a row without the new watchers and wipe their chips.
+    onSettled: (_d, _e, _v, ctx) =>
+      afterMentionAutoWatch(ctx?.autoWatch, () => invalidateItems(qc)),
   });
 }
 
@@ -899,8 +884,8 @@ export function useEditBuildRequestItemComment() {
       newBodyHtml: string;
       renotify?: boolean;
     }) => editBuildRequestItemComment(id, target, newBodyHtml),
-    onMutate: ({ id, target, newBodyHtml }) =>
-      snapshotAndPatchItem(
+    onMutate: async ({ id, target, newBodyHtml }) => ({
+      ...(await snapshotAndPatchItem(
         qc,
         id,
         patchItem(id, (i) => ({
@@ -913,8 +898,13 @@ export function useEditBuildRequestItemComment() {
           ),
           modifiedAt: new Date(),
         })),
-      ),
+      )),
+      // Mentioned people show as watchers NOW, not after the comment's round
+      // trip — see hooks/mentionAutoWatch.ts.
+      autoWatch: beginItemMentionAutoWatch(qc, id, newBodyHtml),
+    }),
     onSuccess: (_data, { id, target, newBodyHtml, renotify }, ctx) => {
+      ctx?.autoWatch?.commit();
       const prevComment = ctx?.prevItem?.comments.find(
         (c) =>
           c.timestamp.getTime() === target.timestamp.getTime() &&
@@ -964,26 +954,16 @@ export function useEditBuildRequestItemComment() {
           });
         }
       }
-
-      const mentioned = extractMentionedRecipients(newBodyHtml);
-      if (mentioned.length === 0) return;
-      const brs = qc.getQueryData<BuildRequest[]>(BUILD_REQUESTS_KEY);
-      void autoWatchFromMentions({
-        resolveLookupId: resolveCurrentUserLookupId,
-        recipients: mentioned,
-        currentWatchers: item.watchers,
-        directory: collectBuildRequestPeople(brs, items),
-      })
-        .then((additions) => applyItemWatcherAdditions(qc, id, item.watchers, additions))
-        .catch((err) => {
-          console.error("Auto-watch failed for edited build request item comment:", err);
-        });
     },
     onError: (_err, _vars, ctx) => {
+      ctx?.autoWatch?.cancel();
       rollbackItem(qc, ctx);
       errorToast("Couldn't save comment — reverted.");
     },
-    onSettled: () => invalidateItems(qc),
+    // Refetch only once any auto-watch write has landed, so the refetch
+    // doesn't read a row without the new watchers and wipe their chips.
+    onSettled: (_d, _e, _v, ctx) =>
+      afterMentionAutoWatch(ctx?.autoWatch, () => invalidateItems(qc)),
   });
 }
 
