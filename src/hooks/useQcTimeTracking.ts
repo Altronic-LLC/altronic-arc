@@ -3,6 +3,7 @@ import {
   createQcTimeEntry,
   deleteQcTimeEntry,
   listQcTimeEntries,
+  listQcTimeHoldReasonChoices,
   updateQcTimeEntry,
 } from "@/api/qcTimeTracking";
 import type { QcTimeEntry, QcTimeEntryInput } from "@/types/task";
@@ -22,6 +23,7 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 // =============================================================================
 
 export const QC_TIME_ENTRIES_KEY = ["qcTimeEntries"] as const;
+export const QC_TIME_HOLD_REASON_CHOICES_KEY = ["qcTimeHoldReasonChoices"] as const;
 
 export function useQcTimeEntries() {
   return useQuery({
@@ -30,6 +32,20 @@ export function useQcTimeEntries() {
     // Entries are logged a handful of times a day, not edited continuously —
     // a couple of minutes of staleness costs nothing here.
     staleTime: 2 * 60_000,
+  });
+}
+
+/**
+ * The live "Hold Reason" column's choices, read off SharePoint's own column
+ * config -- see listQcTimeHoldReasonChoices. A long staleTime is fine: this
+ * is column metadata, not a record, and changes as rarely as the column
+ * itself does.
+ */
+export function useQcTimeHoldReasonChoices() {
+  return useQuery({
+    queryKey: QC_TIME_HOLD_REASON_CHOICES_KEY,
+    queryFn: listQcTimeHoldReasonChoices,
+    staleTime: 30 * 60_000,
   });
 }
 

@@ -1,7 +1,7 @@
 import { graphFetch, graphFetchAll } from "./graph";
 import { SITES, SP_PANELTEAM_SITE_URL, SP_QC_TIME_TRACKING_LIST_ID, USE_MOCK } from "./config";
 import { resolvePeopleLookupIds } from "./siteUsers";
-import type { GraphListItem, QcTimeEntry, QcTimeEntryInput } from "@/types/task";
+import { QC_TIME_HOLD_REASONS, type GraphListItem, type QcTimeEntry, type QcTimeEntryInput } from "@/types/task";
 import {
   QC_TIME_SELECT,
   buildQcTimeFields,
@@ -41,6 +41,33 @@ import { MOCK_QC_TIME_ENTRIES } from "@/data/qcTimeMockData";
 // =============================================================================
 
 let mockStore: QcTimeEntry[] = MOCK_QC_TIME_ENTRIES.map((e) => ({ ...e }));
+
+// The live "Hold Reason" column's choices, read straight off SharePoint's own
+// column config rather than a hardcoded list -- so a reason someone adds in
+// SharePoint shows up in the picker on the next load, with no code change or
+// deploy (reported 2026-09-25: a newly-added reason "not showing in ARC").
+// Cached for the session; a column's choice list changes rarely enough that
+// re-reading it on every form open isn't worth the round trip.
+let holdReasonChoices: string[] | null = null;
+
+/** The live "Hold Reason" column's choices, in SharePoint's own configured order. */
+export async function listQcTimeHoldReasonChoices(): Promise<string[]> {
+  if (USE_MOCK) return [...QC_TIME_HOLD_REASONS];
+  if (holdReasonChoices) return holdReasonChoices;
+  const listId = requireListId("load the hold reason choices");
+  try {
+    const columns = await graphFetch<{ value: Array<{ name?: string; choice?: { choices?: string[] } }> }>(
+      `/sites/${SITES.panelTeam}/lists/${listId}/columns?$select=name,choice`,
+    );
+    const match = (columns.value ?? []).find((c) => c.name === "HoldReason");
+    holdReasonChoices = match?.choice?.choices ?? [...QC_TIME_HOLD_REASONS];
+  } catch {
+    // Column metadata can be refused even when items are readable -- fall
+    // back to the last-known list rather than leaving the picker empty.
+    holdReasonChoices = [...QC_TIME_HOLD_REASONS];
+  }
+  return holdReasonChoices;
+}
 
 function delay<T>(value: T, ms = 200): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(value), ms));

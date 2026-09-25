@@ -1096,9 +1096,19 @@ export interface QcTimeEntry {
 }
 
 /**
- * Why a panel is on hold. MUST stay in step with the `HoldReason` choice
- * column — `scripts/add-qc-time-hold-columns.ps1` carries the same list, and
- * a value here that SharePoint doesn't know is refused on save.
+ * Why a panel is on hold — the FALLBACK list, not the live source.
+ *
+ * The picker (QcTimeEntryFormModal) no longer reads this: as of 2026-09-25 it
+ * calls `listQcTimeHoldReasonChoices` (api/qcTimeTracking.ts), which reads
+ * the `HoldReason` column's actual configured choices straight off
+ * SharePoint — so adding a reason there shows up in ARC with no code change.
+ * Reported when a newly-added reason "not showing in ARC" turned out to be
+ * this const going stale, the exact trap the old comment here warned about.
+ *
+ * This array is still used for: mock mode (no live SharePoint schema to
+ * read) and as the fallback if the live column-metadata read fails. Keeping
+ * it in step with SharePoint's real choices is no longer load-bearing for
+ * the picker, but IS still worth doing so mock mode demos the current list.
  */
 export const QC_TIME_HOLD_REASONS = [
   "Bad Altronic component",

@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.166.1",
+    date: "2026-09-25",
+    changes: [
+      "The QC Time Tracking Hold Reason dropdown now shows whatever reasons are configured on the SharePoint list, so a new one you add there appears in ARC without waiting on a code change",
+    ],
+  },
+  {
     version: "0.166.0",
     date: "2026-09-24",
     changes: [
