@@ -14,6 +14,22 @@ const updateEntry = vi.hoisted(() => vi.fn(async () => ({ id: 1 })));
 vi.mock("@/hooks/useQcTimeTracking", () => ({
   useCreateQcTimeEntry: () => ({ mutateAsync: createEntry, isPending: false }),
   useUpdateQcTimeEntry: () => ({ mutateAsync: updateEntry, isPending: false }),
+  // The Hold Reason picker reads this live off SharePoint now (2026-09-25) —
+  // see api/qcTimeTracking.ts. Hardcoded here rather than imported: vi.mock's
+  // factory runs BEFORE this file's own imports are hoisted, so a top-level
+  // import of QC_TIME_HOLD_REASONS referenced in here would be an
+  // uninitialised binding at the moment this factory runs. Kept in step with
+  // QC_TIME_HOLD_REASONS in src/types/task.ts by hand.
+  useQcTimeHoldReasonChoices: () => ({
+    data: [
+      "Bad Altronic component",
+      "Missing parts",
+      "Customer-caused delay",
+      "Waiting on engineering",
+      "Recurring issue",
+      "Other",
+    ],
+  }),
 }));
 
 vi.mock("@/hooks/useDirectory", () => ({
