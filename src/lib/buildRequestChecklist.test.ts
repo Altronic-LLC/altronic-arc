@@ -8,14 +8,16 @@ import {
 } from "./buildRequestChecklist";
 
 describe("checklistForPartType", () => {
-  it("PCB parts get the 14-field PCB data-package checklist", () => {
+  it("PCB parts get the 13-field PCB data-package checklist", () => {
     expect(checklistForPartType("PCB")).toBe(PCB_CHECKLIST);
-    expect(PCB_CHECKLIST).toHaveLength(14);
+    expect(PCB_CHECKLIST).toHaveLength(13);
   });
 
-  it("Harness parts get the 3-field harness checklist", () => {
+  it("Harness parts get the 4-field harness (incl. HI-POT) checklist", () => {
     expect(checklistForPartType("Harness")).toBe(HARNESS_CHECKLIST);
-    expect(HARNESS_CHECKLIST).toHaveLength(3);
+    expect(HARNESS_CHECKLIST).toHaveLength(4);
+    expect(HARNESS_CHECKLIST.map((d) => d.field)).toContain("HI_x002d_POT_x0020_Test");
+    expect(PCB_CHECKLIST.map((d) => d.field)).not.toContain("HI_x002d_POT_x0020_Test");
   });
 
   it("other part types (and null) get no checklist", () => {
@@ -38,8 +40,8 @@ describe("checklistProgress", () => {
       Schematic: true,
       Terminals_x0020_Ordered: true, // harness field — must not count for PCB
     };
-    expect(checklistProgress("PCB", checklist)).toEqual({ done: 2, total: 14 });
-    expect(checklistProgress("Harness", checklist)).toEqual({ done: 1, total: 3 });
+    expect(checklistProgress("PCB", checklist)).toEqual({ done: 2, total: 13 });
+    expect(checklistProgress("Harness", checklist)).toEqual({ done: 1, total: 4 });
   });
 
   it("is 0/0 for part types without a checklist", () => {

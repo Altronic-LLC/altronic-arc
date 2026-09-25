@@ -30,14 +30,18 @@ export const PCB_CHECKLIST: ChecklistFieldDef[] = [
   { field: "Panel_x0020_or_x0020_Frame", label: "Panel or Frame" },
   { field: "Fiducials", label: "Fiducials" },
   { field: "Test_x0020_Requirements", label: "Test Requirements" },
-  { field: "HI_x002d_POT_x0020_Test", label: "HI-POT Test" },
 ];
 
-/** The harness checklist — shown when Part Type = "Harness". */
+/**
+ * The harness checklist — shown when Part Type = "Harness". HI-POT Test lives
+ * here, not on the PCB data package: a high-pot test is run on a harness
+ * (Ray, 2026-09-25). Same SharePoint column either way — only where it shows.
+ */
 export const HARNESS_CHECKLIST: ChecklistFieldDef[] = [
   { field: "Terminals_x0020_Ordered", label: "Terminals Ordered" },
   { field: "New_x0020_Terminal_x0020_Tool", label: "New Terminal Tool" },
   { field: "New_x0020_Harness_x0020_Processe", label: "New Harness Processes" },
+  { field: "HI_x002d_POT_x0020_Test", label: "HI-POT Test" },
 ];
 
 /** Every checklist column — used by the mapper to read all booleans regardless of part type. */

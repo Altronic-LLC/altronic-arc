@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.166.2",
+    date: "2026-09-25",
+    changes: [
+      "On a build request, the HI-POT Test box now appears on the Harness checklist instead of the PCB data-package checklist",
+    ],
+  },
+  {
     version: "0.166.1",
     date: "2026-09-25",
     changes: [

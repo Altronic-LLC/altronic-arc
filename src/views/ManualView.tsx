@@ -4803,12 +4803,13 @@ const SECTIONS: ManualSection[] = [
         </P>
         <H3>Part-Type checklists</H3>
         <P>
-          <strong>PCB</strong> parts show the 14-box data-package checklist
-          (BOMs, Gerbers, coordinate data, fiducials, schematic, HI-POT…);{" "}
-          <strong>Harness</strong> parts show the 3-box harness checklist
-          (Terminals Ordered, New Terminal Tool, New Harness Processes). Other
+          <strong>PCB</strong> parts show the 13-box data-package checklist
+          (BOMs, Gerbers, coordinate data, fiducials, schematic…);{" "}
+          <strong>Harness</strong> parts show the 4-box harness checklist
+          (Terminals Ordered, New Terminal Tool, New Harness Processes, HI-POT
+          Test). Other
           part types have no checklist. The card header shows checklist
-          progress (e.g. 6/14) and turns green when complete.
+          progress (e.g. 6/13) and turns green when complete.
         </P>
         <H3>Printing a part for the production floor</H3>
         <P>
