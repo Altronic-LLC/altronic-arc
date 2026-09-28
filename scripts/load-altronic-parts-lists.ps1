@@ -38,11 +38,16 @@
         (2026-09-25) and lives in data/through-hole-mfg-decisions.csv:
           UseOldMfgName     the old MfgName becomes Mfg Number
           KeepMfgNumber     Mfg Number stays
+          UseValue          neither — OverrideMfgNumber is used (the SAP
+                            export's number, or a corrected one; Tim,
+                            2026-09-28)
           AlternateSources  both are approved sources in SAP — Mfg Number
                             stays, the other is added to Notes as
                             "Alternate Mfg #: <value>" so neither is lost
           NeedsReview /     Mfg Number stays, and the row is listed in
           Unconfirmed       fixes.csv for a person to settle in ARC
+        An OverrideMfgName, when filled in, replaces Mfg Name on that row
+        whatever the decision — for a number from a different manufacturer.
         A decision is applied only while the live legacy row still holds the
         two values it was made against; if the old list has been edited since,
         the row falls back to keeping Mfg Number and is flagged
@@ -122,11 +127,12 @@ New-Item -ItemType Directory -Force -Path $ReportDir | Out-Null
 
 # Per-row Through Hole decisions, keyed by LegacySource. Missing file = every
 # conflict keeps Mfg Number (the behaviour before the decisions existed).
-$ValidDecisions = @("UseOldMfgName", "KeepMfgNumber", "AlternateSources", "NeedsReview", "Unconfirmed")
+$ValidDecisions = @("UseOldMfgName", "KeepMfgNumber", "UseValue", "AlternateSources", "NeedsReview", "Unconfirmed")
 $thDecisions = @{}
 if (Test-Path $MfgDecisions) {
     foreach ($d in (Import-Csv $MfgDecisions)) {
         if ($ValidDecisions -notcontains $d.Decision) { throw "Unknown Decision '$($d.Decision)' for $($d.LegacySource) in $MfgDecisions." }
+        if ($d.Decision -eq "UseValue" -and -not "$($d.OverrideMfgNumber)".Trim()) { throw "$($d.LegacySource) is UseValue but has no OverrideMfgNumber in $MfgDecisions." }
         if ($thDecisions.ContainsKey($d.LegacySource)) { throw "$($d.LegacySource) appears twice in $MfgDecisions." }
         $thDecisions[$d.LegacySource] = $d
     }
@@ -336,6 +342,11 @@ foreach ($l in $legacy) {
                                 "KeepMfgNumber" {
                                     Add-Fix "component" $source $pn "th-decision-keep-mfgnumber" "MfgNumber" $oldName $mfgNumber
                                 }
+                                "UseValue" {
+                                    $v = Str $dec.OverrideMfgNumber
+                                    Add-Fix "component" $source $pn "th-decision-use-value" "MfgNumber" "[$mfgNumber] / [$oldName]" $v
+                                    $mfgNumber = $v
+                                }
                                 "AlternateSources" {
                                     $alt = "Alternate Mfg #: $oldName"
                                     $newNotes = if ($notes) { "$notes`n$alt" } else { $alt }
@@ -346,6 +357,11 @@ foreach ($l in $legacy) {
                                     # NeedsReview / Unconfirmed — a person settles it in ARC.
                                     Add-Fix "component" $source $pn "th-decision-$($dec.Decision.ToLower())-CHECK" "MfgNumber" $oldName $mfgNumber
                                 }
+                            }
+                            $mn = Str $dec.OverrideMfgName
+                            if ($mn -and $mn -ne $mfgName) {
+                                Add-Fix "component" $source $pn "th-decision-mfgname-override" "MfgName" $mfgName $mn
+                                $mfgName = $mn
                             }
                         }
                     }
@@ -472,11 +488,21 @@ if ($work.Count -eq 0) { Write-Host "`nNothing to write.`n" -ForegroundColor Gre
 $failures = [System.Collections.Generic.List[object]]::new()
 $pending = [System.Collections.Generic.List[object]]::new(); $work | ForEach-Object { $pending.Add($_) }
 $done = 0; $round = 0
-while ($pending.Count -gt 0 -and $round -lt 6) {
+# Throttling is handled by PAUSING at the chunk that was throttled, not by
+# carrying on and retrying at the end of the round. Carrying on (the first
+# version) sent ~740 more batches into a throttle on the 2026-09-28 load —
+# 14,803 of 17,943 rows throttled in round 1 — and SharePoint answers that by
+# lengthening the Retry-After.
+while ($pending.Count -gt 0 -and $round -lt 10) {
     $round++
     $retry = [System.Collections.Generic.List[object]]::new()
     $waitSeconds = 0
     for ($i = 0; $i -lt $pending.Count; $i += 20) {
+        if ($waitSeconds -gt 0) {
+            Write-Host "  throttled — pausing $waitSeconds s ($done written so far)" -ForegroundColor Yellow
+            Start-Sleep -Seconds $waitSeconds
+            $waitSeconds = 0
+        }
         $chunk = @($pending[$i..([Math]::Min($i + 19, $pending.Count - 1))])
         $reqs = for ($j = 0; $j -lt $chunk.Count; $j++) {
             @{ id = "$j"; method = $chunk[$j].method; url = $chunk[$j].url; headers = @{ "Content-Type" = "application/json" }; body = $chunk[$j].body }
@@ -502,7 +528,10 @@ while ($pending.Count -gt 0 -and $round -lt 6) {
         Write-Progress -Activity "Writing parts (round $round)" -Status "$done written, $($failures.Count) failed" -PercentComplete ([Math]::Min(100, 100 * ($i + $chunk.Count) / $pending.Count))
     }
     $pending = $retry
-    if ($pending.Count) { Write-Host "  $($pending.Count) throttled — waiting $waitSeconds s, then retrying" -ForegroundColor Yellow; Start-Sleep -Seconds $waitSeconds }
+    if ($pending.Count) {
+        $waitSeconds = [Math]::Max($waitSeconds, 10)
+        Write-Host "  $($pending.Count) throttled — waiting $waitSeconds s, then retrying" -ForegroundColor Yellow; Start-Sleep -Seconds $waitSeconds
+    }
 }
 foreach ($w in $pending) { $failures.Add([pscustomobject]@{ Method = $w.method; Target = $w.target; LegacySource = $w.record.Source; PartNumber = $w.record.PartNumber; Status = "throttled"; Error = "gave up after $round rounds" }) }
 $failures | Export-Csv (Join-Path $ReportDir "failures.csv") -NoTypeInformation -Encoding utf8
