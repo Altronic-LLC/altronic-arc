@@ -4746,7 +4746,7 @@ const SECTIONS: ManualSection[] = [
       "altronic part",
       "parts book",
       "component list",
-      "hoc",
+      "hco",
       "surface mount",
       "through hole",
       "sil",
@@ -4764,10 +4764,10 @@ const SECTIONS: ManualSection[] = [
       "parts roles",
       "reviewing engineer",
       "sap admin",
-      "hoc editor",
+      "hco editor",
     ],
     searchText:
-      "The Parts List holds every Altronic part number, under Engineering. It replaces the Altronic Component List Power App and its 175 separate lists with two: the Altronic Part List (every prefix except the HOC components) and the Altronic Component List (601 and 611 Through Hole, 701 711 and 712 Surface Mount, 722 SIL). A part's first three digits are its parts list and its first digit is its Parts Book. From the landing page pick a Parts Book (100 to 900) and then a list, or type into the box: a three-digit number opens that list, a whole part number opens the part, a single digit opens that book, and anything else runs a Global Search. Global Search covers both lists at once. The search panel down the left has one box per field; searches are not case sensitive and match part of the text, so apacit finds capacitor. Use & to search several things in one box, like resistor&1k; spaces around & count as part of the search. Search everything matches words in any field. Every search is in the web address, so you can send a search as a link. The table sorts by any column and each column header opens a filter. A component's page shows what Rating A, B and C mean for that type of component, from the HOC entry rules. Parts loaded from the old app have no sign-off status because it didn't record approvals. Adding, editing and approving parts is limited to the people on the Parts Roles list, managed by ARC admins at Admin, Parts Roles: Editor adds and edits Part List parts and adds HOC components except 722; HOC editor also edits HOC components and adds to 722; Reviewing engineer approves new components at Engineering Review; SAP admin adds new parts to SAP, gives final approval and can edit every field. Click New part on a list to add one; the next free number is filled in. A new component goes to the reviewing engineers, then the SAP admin; a new Part List part goes to the SAP admin. Approve records a comment in the Approval history. Editing an approved part does not send it back for approval, but the SAP admin is emailed what changed. Part numbers can't be changed.",
+      "The Parts List holds every Altronic part number, under Engineering. It replaces the Altronic Component List Power App and its 175 separate lists with two: the Altronic Part List (every prefix except the HCO components) and the Altronic Component List (601 and 611 Through Hole, 701 711 and 712 Surface Mount, 722 SIL). A part's first three digits are its parts list and its first digit is its Parts Book. From the landing page pick a Parts Book (100 to 900) and then a list, or type into the box: a three-digit number opens that list, a whole part number opens the part, a single digit opens that book, and anything else runs a Global Search. Global Search covers both lists at once. The search panel down the left has one box per field; searches are not case sensitive and match part of the text, so apacit finds capacitor. Use & to search several things in one box, like resistor&1k; spaces around & count as part of the search. Search everything matches words in any field. Every search is in the web address, so you can send a search as a link. The table sorts by any column and each column header opens a filter. A component's page shows what Rating A, B and C mean for that type of component, from the HCO entry rules. Parts loaded from the old app have no sign-off status because it didn't record approvals. Adding, editing and approving parts is limited to the people on the Parts Roles list, managed by ARC admins at Admin, Parts Roles: Editor adds and edits Part List parts and adds HCO components except 722; HCO editor also edits HCO components and adds to 722; Reviewing engineer approves new components at Engineering Review; SAP admin adds new parts to SAP, gives final approval and can edit every field. Click New part on a list to add one; the next free number is filled in. A new component goes to the reviewing engineers, then the SAP admin; a new Part List part goes to the SAP admin. Approve records a comment in the Approval history. Editing an approved part does not send it back for approval, but the SAP admin is emailed what changed. Part numbers can't be changed.",
     render: () => (
       <>
         <P>
@@ -4775,7 +4775,7 @@ const SECTIONS: ManualSection[] = [
           replaces the <strong>Altronic Component List</strong> Power App, which
           read 175 separate SharePoint lists, with two: the{" "}
           <strong>Altronic Part List</strong> and the{" "}
-          <strong>Altronic Component List</strong>, which holds the HOC
+          <strong>Altronic Component List</strong>, which holds the HCO
           components (601 and 611 Through Hole, 701, 711 and 712 Surface Mount,
           and 722 SIL). Reach it from the <strong>Parts List</strong> card on the
           Dashboard, or the <strong>Departments</strong> dropdown's Engineering
@@ -4847,7 +4847,7 @@ const SECTIONS: ManualSection[] = [
         <P>
           Click a part to open it. On a component, the <strong>Ratings</strong>{" "}
           card says what Rating A, B and C mean for that kind of part — for a
-          resistor, resistance, working voltage and power — using the HOC entry
+          resistor, resistance, working voltage and power — using the HCO entry
           rules. When the description doesn't name a type those rules cover, the
           ratings keep their plain names.
         </P>
@@ -4888,14 +4888,14 @@ const SECTIONS: ManualSection[] = [
         <UL>
           <LI>
             <strong>Editor</strong> — adds and edits Part List parts, and adds
-            HOC components (except in the 722 list).
+            HCO components (except in the 722 list).
           </LI>
           <LI>
-            <strong>HOC editor</strong> — also edits HOC components and adds to
+            <strong>HCO editor</strong> — also edits HCO components and adds to
             the 722 list.
           </LI>
           <LI>
-            <strong>Reviewing engineer</strong> — approves new HOC components at
+            <strong>Reviewing engineer</strong> — approves new HCO components at
             the Engineering Review step.
           </LI>
           <LI>

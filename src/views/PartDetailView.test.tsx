@@ -111,13 +111,13 @@ describe("PartDetailView — editing", () => {
     expect(screen.queryByRole("button", { name: /^Edit / })).not.toBeInTheDocument();
   });
 
-  it("keeps HOC components to HOC editors — an editor alone can't change one", async () => {
+  it("keeps HCO components to HCO editors — an editor alone can't change one", async () => {
     __resetPartsRolesMockStore([
       { id: 1, email: "demo.user@altronic-llc.com", displayName: "Demo User", roles: ["editor"], note: "" },
     ]);
     renderPart("/engineering/parts/component/1");
     expect(await screen.findByRole("heading", { name: "601110" })).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByText(/only be edited by HOC editors/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/only be edited by HCO editors/)).toBeInTheDocument());
     expect(screen.queryByRole("button", { name: /^Edit / })).not.toBeInTheDocument();
   });
 });
@@ -263,7 +263,7 @@ describe("PartDetailView — uploading a datasheet", () => {
     expect(await findDatasheet("101022")).toBeNull();
   });
 
-  it("offers no Upload to somebody who can't edit HOC components", async () => {
+  it("offers no Upload to somebody who can't edit HCO components", async () => {
     __resetPartsRolesMockStore([
       { id: 1, email: "demo.user@altronic-llc.com", displayName: "Demo User", roles: ["editor"], note: "" },
     ]);
@@ -300,10 +300,10 @@ describe("PartDetailView — a Component List part", () => {
 
 describe("PartDetailView — deleting a part number", () => {
   const SAP_ONLY = [{ id: 1, email: "demo.user@altronic-llc.com", displayName: "Demo User", roles: ["sap admin" as const], note: "" }];
-  const HOC_ONLY = [{ id: 1, email: "demo.user@altronic-llc.com", displayName: "Demo User", roles: ["hoc editor" as const, "reviewing engineer" as const], note: "" }];
+  const HCO_ONLY = [{ id: 1, email: "demo.user@altronic-llc.com", displayName: "Demo User", roles: ["hco editor" as const, "reviewing engineer" as const], note: "" }];
 
   it("offers Delete to the SAP admin only — hidden from everybody else", async () => {
-    __resetPartsRolesMockStore(HOC_ONLY);
+    __resetPartsRolesMockStore(HCO_ONLY);
     const first = renderPart("/engineering/parts/part/4");
     await screen.findByRole("heading", { name: "204602" });
     await waitFor(() => expect(screen.queryByText(/Checking your Parts List roles/)).not.toBeInTheDocument());

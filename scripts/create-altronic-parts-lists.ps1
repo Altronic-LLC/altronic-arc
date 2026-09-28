@@ -5,7 +5,7 @@
 
 .DESCRIPTION
     Replaces 175 legacy per-prefix lists (the "101" ... "915" lists, "610/615",
-    and the HOC lists "Surface Mount Parts" / "Through Hole Parts" / "SIL Parts")
+    and the HCO lists "Surface Mount Parts" / "Through Hole Parts" / "SIL Parts")
     with two:
 
         Altronic Part List        every part whose number does NOT start 601,
@@ -27,7 +27,7 @@
                                     or Deleted (a deleted number, kept for reuse)
             LegacySource            text — "<old list>#<old item id>"
 
-        Altronic Component List   the HOC parts: 601/611 Through Hole,
+        Altronic Component List   the HCO parts: 601/611 Through Hole,
                                   701/711/712 Surface Mount, 722 SIL
             Title                   Altronic Part #
             Category                choice — Surface Mount / Through Hole / SIL
@@ -65,7 +65,7 @@
     ARC writes (added 2026-09-28, with the write side).
 
     A third list, "Parts Roles", holds who may edit and approve parts (Title =
-    email, Roles = a CSV of editor / hoc editor / reviewing engineer / sap
+    email, Roles = a CSV of editor / hco editor / reviewing engineer / sap
     admin). It is managed in ARC at Admin → Parts Roles. Until it exists and
     VITE_SP_PARTS_ROLES_LIST_ID points at it, the Parts List is read-only.
 
@@ -127,7 +127,7 @@ $Lists = @(
     @{
         name        = "Altronic Part List"
         envVar      = "VITE_SP_ALTRONIC_PART_LIST_ID"
-        description = "Every Altronic part number except the HOC components (601/611/701/711/712/722). Title = Altronic Part #."
+        description = "Every Altronic part number except the HCO components (601/611/701/711/712/722). Title = Altronic Part #."
         columns     = @(
             (Text "Description" "Description"),
             (DateOnly "DateAssigned" "Date Assigned"),
@@ -151,7 +151,7 @@ $Lists = @(
     @{
         name        = "Altronic Component List"
         envVar      = "VITE_SP_ALTRONIC_COMPONENT_LIST_ID"
-        description = "HOC electronic components: 601/611 Through Hole, 701/711/712 Surface Mount, 722 SIL. Title = Altronic Part #."
+        description = "HCO electronic components: 601/611 Through Hole, 701/711/712 Surface Mount, 722 SIL. Title = Altronic Part #."
         columns     = @(
             (Choice "Category" "Category" @("Surface Mount", "Through Hole", "SIL") -Indexed),
             (Text "Description" "Description"),
@@ -173,7 +173,7 @@ $Lists = @(
     },
     @{
         # Who may edit and approve parts (Tim, 2026-09-28). Title = the
-        # person's email; Roles = a lowercase CSV of tags (editor, hoc editor,
+        # person's email; Roles = a lowercase CSV of tags (editor, hco editor,
         # reviewing engineer, sap admin) — the EIR Roles shape, deliberately a
         # TEXT column rather than a choice, so a new tag is a code change and
         # never a column change. Managed in ARC at /admin/parts-roles.

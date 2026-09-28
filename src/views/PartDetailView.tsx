@@ -315,7 +315,7 @@ function ComponentBody({ component }: { component: AltronicComponent }) {
           onEdit={edit.allowed ? () => cards.setEditing("Ratings") : undefined}
           note={
             labels.component
-              ? `What each rating means for a ${labels.component.toLowerCase()}, from the HOC entry rules.`
+              ? `What each rating means for a ${labels.component.toLowerCase()}, from the HCO entry rules.`
               : "This description doesn't name a component type the entry rules cover, so the ratings keep their generic names."
           }
         >

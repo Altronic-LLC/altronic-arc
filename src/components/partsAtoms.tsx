@@ -46,7 +46,7 @@ export function SignOffChip({
   );
 }
 
-/** The component category, or "Part List" for a non-HOC part. */
+/** The component category, or "Part List" for a non-HCO part. */
 export function PartKindChip({ label }: { label: string }) {
   return (
     <span className="inline-flex whitespace-nowrap rounded-full border border-border bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-fg-muted">

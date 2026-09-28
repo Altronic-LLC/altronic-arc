@@ -361,8 +361,8 @@ describe("createAltronicComponent (real mode)", () => {
     });
   });
 
-  it("refuses a number that isn't an HOC number", async () => {
-    await expect(createAltronicComponent({ partNumber: "604700" }, actor)).rejects.toThrow(/isn't an HOC/);
+  it("refuses a number that isn't an HCO number", async () => {
+    await expect(createAltronicComponent({ partNumber: "604700" }, actor)).rejects.toThrow(/isn't an HCO/);
     expect(graphFetch).not.toHaveBeenCalled();
   });
 });

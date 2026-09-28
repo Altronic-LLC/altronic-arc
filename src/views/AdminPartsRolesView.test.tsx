@@ -39,7 +39,7 @@ describe("AdminPartsRolesView", () => {
     const row = (await screen.findByText("Sheila Horn")).closest("tr")!;
     expect(within(row).getByRole("checkbox", { name: "SAP admin (Reviewing Admin)" })).toBeChecked();
     expect(within(row).getByRole("checkbox", { name: "Editor" })).not.toBeChecked();
-    expect(screen.getByText(/Approves new HOC components at the Engineering Review step/)).toBeInTheDocument();
+    expect(screen.getByText(/Approves new HCO components at the Engineering Review step/)).toBeInTheDocument();
   });
 
   it("names who gets which emails, from the list as it stands", async () => {
@@ -51,10 +51,10 @@ describe("AdminPartsRolesView", () => {
   it("changes somebody's roles with a tick", async () => {
     renderView();
     const row = (await screen.findByText("Sheila Horn")).closest("tr")!;
-    await userEvent.click(within(row).getByRole("checkbox", { name: "HOC editor" }));
+    await userEvent.click(within(row).getByRole("checkbox", { name: "HCO editor" }));
     await waitFor(async () =>
       expect((await listPartsRoles()).find((e) => e.displayName === "Sheila Horn")?.roles).toEqual([
-        "hoc editor",
+        "hco editor",
         "sap admin",
       ]),
     );

@@ -242,7 +242,7 @@ src/
 │   ├── quickLinks.ts             Quick Links CRUD (Dashboard button links, admin-managed)
 │   ├── csaListings.ts            CSA Listings CRUD (Engineering certification register)
 │   ├── altronicParts.ts          Altronic Part List read/create/edit/approve/delete (~14,000 part numbers) — delete blanks for reuse
-│   ├── altronicComponents.ts     Altronic Component List read/create/edit/approve/delete (HOC components) — delete blanks for reuse
+│   ├── altronicComponents.ts     Altronic Component List read/create/edit/approve/delete (HCO components) — delete blanks for reuse
 │   ├── partsListShared.ts        Both parts lists' Graph plumbing — the Communication fallback, Title lookup
 │   ├── partsRoles.ts             Parts Roles list CRUD (who may edit/approve parts) — unset = read-only
 │   ├── datasheets.ts             Part + component datasheets — finds / uploads General/Datasheets/<part #>.pdf (never overwrites), archives on delete
@@ -294,7 +294,7 @@ src/
 │   ├── dashboardMockData.ts      Sample dashboard metrics
 │   ├── quickLinksMockData.ts     Sample Quick Links, a few per department
 │   ├── csaMockData.ts            Sample CSA certification files
-│   ├── altronicPartsMockData.ts  Sample parts + HOC components (legacy and mid-approval rows)
+│   ├── altronicPartsMockData.ts  Sample parts + HCO components (legacy and mid-approval rows)
 │   ├── drawingLogMockData.ts     Sample drawings + sketches (incl. sparse & full change logs)
 │   ├── teradyneMockData.ts       Sample Teradyne log + reference rows
 │   ├── operationsMockData.ts     Sample Operations tasks + projects
@@ -418,7 +418,7 @@ src/
 │   ├── eirPromotion.ts           EIR → Task promotion helpers
 │   ├── testSheetMapper.ts        Graph item → TestSheet
 │   ├── csaListingMapper.ts       Graph item → CsaListing (+ label, sort, search)
-│   ├── altronicPartMapper.ts     Graph item → AltronicPart / AltronicComponent; prefix → list/book, HOC prefixes
+│   ├── altronicPartMapper.ts     Graph item → AltronicPart / AltronicComponent; prefix → list/book, HCO prefixes
 │   ├── partSearch.ts             Parts List search rules (substring, & terms, ranges), Parts Book grouping, Global rows
 │   ├── engineeringValue.ts       Reads 4K7 / .1uF / 250mW / 1/4W / -55°C as numbers + units, for range search (pure)
 │   ├── componentRatings.ts       What Rating A/B/C mean per component type (the guide's table, as DATA)
@@ -689,7 +689,7 @@ src/
 │   ├── AdminPanelRolesView.tsx   Admin → Panel User Roles
 │   ├── AdminAdminsView.tsx       Admin → Admins
 │   ├── AdminEirRolesView.tsx     Admin → EIR Roles
-│   ├── AdminPartsRolesView.tsx   Admin → Parts Roles (editor / HOC editor / reviewing engineer / SAP admin)
+│   ├── AdminPartsRolesView.tsx   Admin → Parts Roles (editor / HCO editor / reviewing engineer / SAP admin)
 │   ├── AdminMaintenanceRolesView.tsx  Admin → Maintenance Roles (tech / admin, CMMS)
 │   ├── AdminQuickLinksView.tsx   Admin → Quick Links (Dashboard button links, per-department reorder)
 │   ├── AdminNotificationRecipientsView.tsx  Admin → Notification recipients
@@ -1193,7 +1193,7 @@ src/lib/certificationExpiry.ts`).
 
 Two lists on `SITES.engineering`, replacing the **Altronic Component List**
 Power App, which read **175 legacy per-prefix lists** (the "101" … "915" lists,
-"610/615", and the HOC lists "Surface Mount Parts" / "Through Hole Parts" /
+"610/615", and the HCO lists "Surface Mount Parts" / "Through Hole Parts" /
 "SIL Parts"). Created and loaded 2026-09-28 (Tim).
 
 | List | env / id | Rows |
@@ -1262,7 +1262,7 @@ views:
 | Route | View |
 |---|---|
 | `/engineering/parts` | `PartsBookView` — Parts Book tiles (`?book=N`), jump box, Global Search link |
-| `/engineering/parts/list/:prefix` | `PartsListView` — one list; the HOC prefixes read the Component List |
+| `/engineering/parts/list/:prefix` | `PartsListView` — one list; the HCO prefixes read the Component List |
 | `/engineering/parts/search` | `PartsListView` — Global Search across both lists |
 | `/engineering/parts/:kind/:id` | `PartDetailView` — `kind` is `part` or `component`; anything else is "not found" |
 
@@ -1329,7 +1329,7 @@ Tim's decisions, 2026-09-28:
 - **Everyone signed in can READ both lists; only Engineering can edit.**
 - **Who counts as Engineering is an admin-managed list — Parts Roles.** It is
   managed at `/admin/parts-roles`, so people can be added or changed without
-  a code change. That includes HOC editing, which the 2023 guide hard-wired
+  a code change. That includes HCO editing, which the 2023 guide hard-wired
   to three named people.
 - **The Reviewing Engineers are Glenn Terry and Brandon Mirto; the Reviewing
   Admin is Sheila Horn.** They hold those tags on the list. The names live
@@ -1362,10 +1362,16 @@ which also added the `Communication` column to both parts lists.
 
 | Tag | Grants | Implies |
 |---|---|---|
-| `editor` | add + edit Part List parts; add HOC components except 722 | — |
-| `hoc editor` | + edit HOC components; add to 722 | editor |
-| `reviewing engineer` | + approve a component's Engineering Review step | hoc editor |
+| `editor` | add + edit Part List parts; add HCO components except 722 | — |
+| `hco editor` | + edit HCO components; add to 722 | editor |
+| `reviewing engineer` | + approve a component's Engineering Review step | hco editor |
 | `sap admin` | + approve the Pending SAP step; edit every field on both lists | every EDIT right |
+
+**It is HCO, not HOC** (Tim, 2026-09-28). The first build spelled it HOC
+throughout, and the tag was stored as `hoc editor`. `parsePartsRoles` still
+reads that old spelling as `hco editor` (`LEGACY_TAGS`), so a row saved
+before the rename keeps its rights. The next save from the admin screen
+writes the new name.
 
 `lib/partsRoles.ts` is the ONE place those rules live. `addPartGate`,
 `editPartGate` and `approveGate` are asked by every button AND inside every

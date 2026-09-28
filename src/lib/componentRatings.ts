@@ -2,7 +2,7 @@
 // What Rating A, B and C MEAN for a component — they are three generic columns
 // whose meaning depends on what the part is.
 //
-// The table is transcribed verbatim from the HOC entry rules in Thomas
+// The table is transcribed verbatim from the HCO entry rules in Thomas
 // Terhune's 2023 Altronic Parts List user guide (the "Component / a type /
 // b type / c type" table). "none" in the guide means the rating is unused for
 // that component, which is carried as null here.

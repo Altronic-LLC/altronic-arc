@@ -106,7 +106,7 @@ export interface PartsListSummary {
   /** The three-digit list, e.g. "601". */
   prefix: string;
   count: number;
-  /** Whether the list lives in the Component List (the HOC lists). */
+  /** Whether the list lives in the Component List (the HCO lists). */
   component: boolean;
 }
 

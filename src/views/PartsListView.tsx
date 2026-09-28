@@ -66,7 +66,7 @@ export function PartsListView() {
 }
 
 // -----------------------------------------------------------------------------
-// Part List (every non-HOC list)
+// Part List (every non-HCO list)
 // -----------------------------------------------------------------------------
 
 const PART_COLUMNS: SortColumn<AltronicPart>[] = [

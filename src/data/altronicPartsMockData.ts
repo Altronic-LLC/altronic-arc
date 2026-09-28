@@ -2,7 +2,7 @@ import type { AltronicComponent, AltronicPart, ItemAuthor } from "@/types/task";
 
 // =============================================================================
 // Sample Altronic Parts List data — a handful of parts across several books,
-// and components in every HOC list, shaped like the real load:
+// and components in every HCO list, shaped like the real load:
 //
 //  - Most rows are LEGACY: blank sign-off, a LegacySource pointing at the old
 //    list. A couple are new (no LegacySource) and mid-approval, so the

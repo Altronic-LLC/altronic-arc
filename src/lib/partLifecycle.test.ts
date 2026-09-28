@@ -115,7 +115,7 @@ describe("deletePartGate", () => {
 
   it("is the SAP admin's alone", () => {
     expect(deletePartGate(access(["sap admin"])).allowed).toBe(true);
-    for (const r of ["editor", "hoc editor", "reviewing engineer"] as const) {
+    for (const r of ["editor", "hco editor", "reviewing engineer"] as const) {
       expect(deletePartGate(access([r])).allowed).toBe(false);
     }
   });

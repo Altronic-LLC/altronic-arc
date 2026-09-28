@@ -23,7 +23,7 @@ import { partEvent } from "./partLifecycle";
 // =============================================================================
 
 /**
- * Which HOC prefixes live in the Component List, and their category. Every
+ * Which HCO prefixes live in the Component List, and their category. Every
  * other prefix is in the Part List. Mirrored from the load script's
  * `$CategoryByPrefix` — the two must agree, or a part is looked for on the
  * wrong list.
@@ -144,7 +144,7 @@ export function partBook(partNumber: string): number | null {
   return prefix ? Number(prefix[0]) : null;
 }
 
-/** Is this three-digit list one of the HOC component lists? */
+/** Is this three-digit list one of the HCO component lists? */
 export function isComponentPrefix(prefix: string): boolean {
   return Object.prototype.hasOwnProperty.call(COMPONENT_PREFIX_CATEGORY, prefix);
 }

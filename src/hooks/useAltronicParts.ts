@@ -169,7 +169,7 @@ export function useCreateAltronicPart() {
     mutationFn: async (input: NewAltronicPart) => {
       const prefix = partPrefix(input.partNumber) ?? "";
       if (isComponentPrefix(prefix)) {
-        throw new Error(`${prefix} is an HOC component list — add it as a component.`);
+        throw new Error(`${prefix} is an HCO component list — add it as a component.`);
       }
       const gate = addPartGate(await resolveAccess(), prefix, false);
       if (!gate.allowed) throw new Error(gate.hint);

@@ -116,7 +116,7 @@ describe("PartsListView — one Part List list", () => {
 });
 
 describe("PartsListView — a Component List list", () => {
-  it("reads the Component List for an HOC prefix, with its columns", async () => {
+  it("reads the Component List for an HCO prefix, with its columns", async () => {
     renderList("/engineering/parts/list/701");
     await waitFor(() => expect(screen.getByRole("table")).toBeInTheDocument());
     expect(tablePartNumbers()).toEqual(["701043", "701212", "701990"]);

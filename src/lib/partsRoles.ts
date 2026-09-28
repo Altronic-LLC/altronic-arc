@@ -15,9 +15,9 @@ export { PARTS_ROLE_TAGS, type PartsRole };
 // arrangement). Tags come from the admin-managed Parts Roles list (Tim,
 // 2026-09-28), so who holds them changes on the list, not in code.
 //
-//   editor              add + edit Part List parts; add HOC components
+//   editor              add + edit Part List parts; add HCO components
 //                       (except 722)
-//   hoc editor          + edit HOC components, and add to 722 (the 2023
+//   hco editor          + edit HCO components, and add to 722 (the 2023
 //                       guide limited both to Glenn Terry, Brandon Mirto and
 //                       Sheila Horn — they now hold this tag)
 //   reviewing engineer  + approve a component's Engineering Review step
@@ -26,7 +26,7 @@ export { PARTS_ROLE_TAGS, type PartsRole };
 //                       fields"); told about new parts and every edit
 //
 // IMPLICATIONS, so nobody needs four ticks: a reviewing engineer corrects what
-// they review, so they hold hoc editor; an hoc editor is an engineer, so they
+// they review, so they hold hco editor; an hco editor is an engineer, so they
 // hold editor; a sap admin holds every edit right. APPROVAL rights do NOT
 // imply each other — the SAP admin's step is not an engineering review.
 //
@@ -41,17 +41,24 @@ export { PARTS_ROLE_TAGS, type PartsRole };
 
 export const PARTS_ROLE_LABELS: Record<PartsRole, string> = {
   editor: "Editor",
-  "hoc editor": "HOC editor",
+  "hco editor": "HCO editor",
   "reviewing engineer": "Reviewing engineer",
   "sap admin": "SAP admin (Reviewing Admin)",
 };
 
 export const PARTS_ROLE_DESCRIPTIONS: Record<PartsRole, string> = {
-  editor: "Adds and edits Part List parts, and adds HOC components (not 722).",
-  "hoc editor": "Also edits HOC components and adds to the 722 list. Includes Editor.",
-  "reviewing engineer": "Approves new HOC components at the Engineering Review step. Includes HOC editor.",
+  editor: "Adds and edits Part List parts, and adds HCO components (not 722).",
+  "hco editor": "Also edits HCO components and adds to the 722 list. Includes Editor.",
+  "reviewing engineer": "Approves new HCO components at the Engineering Review step. Includes HCO editor.",
   "sap admin": "Adds new parts to SAP and gives final approval; can edit every field. Emailed about every new part and every edit.",
 };
+
+/**
+ * Old spellings of a tag, read as the current one. The HCO tag was first
+ * written "hoc editor" (a typo for HCO), and rows saved then still hold it;
+ * the next save through the admin screen rewrites it with the right name.
+ */
+const LEGACY_TAGS: Record<string, PartsRole> = { "hoc editor": "hco editor" };
 
 /** Parse a stored Roles value — a lowercase CSV — keeping only known tags. */
 export function parsePartsRoles(raw: unknown): PartsRole[] {
@@ -59,7 +66,8 @@ export function parsePartsRoles(raw: unknown): PartsRole[] {
   const known = new Set<string>(PARTS_ROLE_TAGS);
   const out: PartsRole[] = [];
   for (const piece of raw.split(",")) {
-    const tag = piece.trim().toLowerCase();
+    const lower = piece.trim().toLowerCase();
+    const tag = LEGACY_TAGS[lower] ?? lower;
     if (known.has(tag) && !out.includes(tag as PartsRole)) out.push(tag as PartsRole);
   }
   return PARTS_ROLE_TAGS.filter((t) => out.includes(t));
@@ -85,13 +93,13 @@ export function partsRightsFor(tags: Iterable<PartsRole>): PartsRights {
   const t = new Set(tags);
   const sap = t.has("sap admin");
   const reviewer = t.has("reviewing engineer");
-  const hoc = t.has("hoc editor") || reviewer || sap;
-  const editor = t.has("editor") || hoc;
+  const hco = t.has("hco editor") || reviewer || sap;
+  const editor = t.has("editor") || hco;
   return {
     editParts: editor,
     addComponents: editor,
-    editComponents: hoc,
-    addSil: hoc,
+    editComponents: hco,
+    addSil: hco,
     approveEngineering: reviewer,
     approveSap: sap,
   };
@@ -133,7 +141,7 @@ const ASK = "Ask an ARC admin to add you on Admin → Parts Roles.";
 /** May this person add a part to this three-digit list? */
 export function addPartGate(access: PartsAccess, prefix: string, component: boolean): PartsGate {
   if (component && prefix === "722") {
-    return gate(access, (r) => r.addSil, `Only HOC editors can add to the 722 list. ${ASK}`);
+    return gate(access, (r) => r.addSil, `Only HCO editors can add to the 722 list. ${ASK}`);
   }
   return gate(
     access,
@@ -145,7 +153,7 @@ export function addPartGate(access: PartsAccess, prefix: string, component: bool
 /** May this person edit an existing part on this list? */
 export function editPartGate(access: PartsAccess, component: boolean): PartsGate {
   if (component) {
-    return gate(access, (r) => r.editComponents, `HOC components can only be edited by HOC editors. ${ASK}`);
+    return gate(access, (r) => r.editComponents, `HCO components can only be edited by HCO editors. ${ASK}`);
   }
   return gate(access, (r) => r.editParts, `Editing parts is limited to Engineering. ${ASK}`);
 }

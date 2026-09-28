@@ -41,7 +41,7 @@ describe("PartsBookView", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: /400/ })).toBeDisabled());
   });
 
-  it("opens a book to show its three-digit lists, HOC ones labelled", async () => {
+  it("opens a book to show its three-digit lists, HCO ones labelled", async () => {
     renderBook("/engineering/parts?book=6");
     expect(await screen.findByRole("link", { name: /^601/ })).toHaveAttribute(
       "href",

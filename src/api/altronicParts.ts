@@ -30,7 +30,7 @@ import {
 } from "./partsListShared";
 
 // =============================================================================
-// Altronic Part List API — every Altronic part number except the HOC
+// Altronic Part List API — every Altronic part number except the HCO
 // components, on the Engineering site.
 //
 // ~14,000 rows, past SharePoint's 5,000-item threshold. An UNFILTERED,

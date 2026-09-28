@@ -35,7 +35,7 @@ import {
 } from "./partsListShared";
 
 // =============================================================================
-// Altronic Component List API — the HOC electronic components (601/611 Through
+// Altronic Component List API — the HCO electronic components (601/611 Through
 // Hole, 701/711/712 Surface Mount, 722 SIL), on the Engineering site.
 //
 // ~3,900 rows: under the threshold, fetched whole and searched in the browser,
@@ -113,10 +113,10 @@ export async function componentNumberTaken(partNumber: string): Promise<boolean>
 
 export type NewAltronicComponent = Partial<AltronicComponent> & { partNumber: string };
 
-/** The category a component number belongs to, or throws — it isn't an HOC number. */
+/** The category a component number belongs to, or throws — it isn't an HCO number. */
 export function categoryForNumber(partNumber: string): string {
   const category = COMPONENT_PREFIX_CATEGORY[partPrefix(partNumber) ?? ""];
-  if (!category) throw new Error(`${partNumber} isn't an HOC component number (601/611/701/711/712/722).`);
+  if (!category) throw new Error(`${partNumber} isn't an HCO component number (601/611/701/711/712/722).`);
   return category;
 }
 

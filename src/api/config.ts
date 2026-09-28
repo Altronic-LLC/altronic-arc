@@ -315,7 +315,7 @@ export const SP_CSA_LISTINGS_LIST_ID =
   "758defd2-693c-4324-9e0b-dd2a12c341fa";
 
 /**
- * "Altronic Part List" — every Altronic part number EXCEPT the HOC components
+ * "Altronic Part List" — every Altronic part number EXCEPT the HCO components
  * (601/611/701/711/712/722), ~14,000 rows. Created and loaded 2026-09-28 by
  * `scripts/create-altronic-parts-lists.ps1` / `load-altronic-parts-lists.ps1`
  * from the 175 legacy per-prefix lists. `Title` is the Altronic Part #. A
@@ -327,7 +327,7 @@ export const SP_ALTRONIC_PART_LIST_ID =
   "b054a89a-1428-4a1f-82c5-461c41ae7b0e";
 
 /**
- * "Altronic Component List" — the HOC electronic components, ~3,900 rows:
+ * "Altronic Component List" — the HCO electronic components, ~3,900 rows:
  * 601/611 Through Hole, 701/711/712 Surface Mount, 722 SIL. Same origin and
  * the same `Title` = Altronic Part # rule as the Part List above.
  */
@@ -337,7 +337,7 @@ export const SP_ALTRONIC_COMPONENT_LIST_ID =
 
 /**
  * "Parts Roles" — who may add, edit and approve parts (Tim, 2026-09-28).
- * Title = email, Roles = a CSV of editor / hoc editor / reviewing engineer /
+ * Title = email, Roles = a CSV of editor / hco editor / reviewing engineer /
  * sap admin. Created by `scripts/create-altronic-parts-lists.ps1`; managed at
  * /admin/parts-roles.
  *

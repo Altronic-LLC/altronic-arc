@@ -1286,9 +1286,9 @@ export interface CsaListingInput {
 // Altronic Parts List — every Altronic part number, on the Engineering site.
 //
 // Two lists, replacing a Power App over 175 legacy per-prefix lists (the "101"
-// … "915" lists plus the three HOC lists), loaded 2026-09-28:
+// … "915" lists plus the three HCO lists), loaded 2026-09-28:
 //
-//   Altronic Part List       every prefix EXCEPT the HOC components
+//   Altronic Part List       every prefix EXCEPT the HCO components
 //   Altronic Component List  601/611 Through Hole, 701/711/712 Surface Mount,
 //                            722 SIL — with ratings, temps, footprint
 //
@@ -1331,7 +1331,7 @@ export const PART_PURCHASED = ["Purchased", "Not Purchased"] as const;
  * Parts Roles tags — who may edit and approve. What each one grants, and what
  * implies what, is in lib/partsRoles.ts.
  */
-export const PARTS_ROLE_TAGS = ["editor", "hoc editor", "reviewing engineer", "sap admin"] as const;
+export const PARTS_ROLE_TAGS = ["editor", "hco editor", "reviewing engineer", "sap admin"] as const;
 export type PartsRole = (typeof PARTS_ROLE_TAGS)[number];
 
 /** One row of the Parts Roles list. Title holds the email. */

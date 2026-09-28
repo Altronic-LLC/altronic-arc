@@ -48,13 +48,13 @@ describe("Parts Roles (real mode)", () => {
   });
 
   it("writes a lowercased email and a canonical CSV", async () => {
-    graphFetch.mockResolvedValue({ id: "9", fields: { Title: "a@altronic-llc.com", Roles: "editor, hoc editor" } });
-    await addPartsRole({ email: " A@Altronic-LLC.com ", displayName: "A", roles: ["hoc editor", "editor"], note: "" });
+    graphFetch.mockResolvedValue({ id: "9", fields: { Title: "a@altronic-llc.com", Roles: "editor, hco editor" } });
+    await addPartsRole({ email: " A@Altronic-LLC.com ", displayName: "A", roles: ["hco editor", "editor"], note: "" });
     const [path, init] = graphFetch.mock.calls[0];
     expect(path).toBe("/sites/engineering-site/lists/roles-list/items");
     // PersonName, never DisplayName — Graph silently drops a field by that name.
     expect(JSON.parse(init.body)).toEqual({
-      fields: { Title: "a@altronic-llc.com", Roles: "editor, hoc editor", PersonName: "A" },
+      fields: { Title: "a@altronic-llc.com", Roles: "editor, hco editor", PersonName: "A" },
     });
   });
 

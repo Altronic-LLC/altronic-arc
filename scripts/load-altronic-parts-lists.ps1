@@ -52,7 +52,7 @@
         two values it was made against; if the old list has been edited since,
         the row falls back to keeping Mfg Number and is flagged
         "th-decision-stale".
-      - HOC Sign-off "Pending" -> "Pending Engineering Review". Blank stays
+      - HCO Sign-off "Pending" -> "Pending Engineering Review". Blank stays
         blank: those rows predate approval tracking.
       - Dates: read at the stored instant, a time after 12:00 UTC counting as
         the next day (ARC's parseSpDateOnly rule), and written at 12:00 UTC so
@@ -301,7 +301,7 @@ foreach ($l in $legacy) {
         $isComponent = $CategoryByPrefix.ContainsKey($prefix)
 
         if ($isHoc) {
-            if (-not $isComponent) { Add-Fix "component" $source $pn "hoc-row-with-non-hoc-prefix" "Title" $pn "loaded to Component List anyway" }
+            if (-not $isComponent) { Add-Fix "component" $source $pn "hco-row-with-non-hco-prefix" "Title" $pn "loaded to Component List anyway" }
             $category = if ($isComponent) { $CategoryByPrefix[$prefix] } else { @{ "Surface Mount Parts" = "Surface Mount"; "Through Hole Parts" = "Through Hole"; "SIL Parts" = "SIL" }[$name] }
 
             $mfgName = Str $f["MfgName"]; $mfgNumber = Str $f["Mfg_x0020_Number"]
@@ -381,7 +381,7 @@ foreach ($l in $legacy) {
                 SignOffStatus = $signOut
             }))
         } elseif ($isComponent) {
-            # A HOC-numbered part sitting in a numeric list (722044). The
+            # A HCO-numbered part sitting in a numeric list (722044). The
             # Component List has no home for the drawing/date/purchase columns.
             foreach ($k in @("DateAssigned", "Drawing_x0020_Size", "DateDrawing", "AssignedBy", "Prototype_x0020_or_x0020_Product", "Purchased", "SAP_x0023_", "ItemValue")) {
                 $v = Str $f[$k]; if ($v) { Add-Fix "component" $source $pn "numeric-row-to-component-field-dropped" $k $v "" }

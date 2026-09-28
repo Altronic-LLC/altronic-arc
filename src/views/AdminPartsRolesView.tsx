@@ -29,7 +29,7 @@ import { SP_PARTS_ROLES_LIST_ID, USE_MOCK } from "@/api/config";
 // =============================================================================
 // Admin → Parts Roles. Who may add, edit and approve parts on the Altronic
 // Parts List (Tim, 2026-09-28: an admin-managed list, so people can be added
-// or changed later without a code change — including who is an HOC editor,
+// or changed later without a code change — including who is an HCO editor,
 // which the 2023 guide hard-wired to three named people).
 //
 // ARC admins manage it (RequireAdmin on the route, useIsAdmin in every

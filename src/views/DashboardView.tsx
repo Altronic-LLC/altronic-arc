@@ -833,7 +833,7 @@ export function DashboardView() {
           name="Parts List"
           icon={<Cpu className="h-5 w-5" />}
           tone="superior-blue"
-          description="Every Altronic part number — the Parts Book, the HOC component lists, and Global Search."
+          description="Every Altronic part number — the Parts Book, the HCO component lists, and Global Search."
           to={"/engineering/parts"}
           onClick={() => navigate("/engineering/parts")}
         />

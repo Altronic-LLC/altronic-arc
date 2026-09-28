@@ -23,10 +23,16 @@ describe("parse / serialize", () => {
     expect(parsePartsRoles(undefined)).toEqual([]);
     expect(serializePartsRoles(["sap admin", "editor"])).toBe("editor, sap admin");
   });
+
+  it("reads the old 'hoc editor' spelling as the HCO editor tag, and writes the new one", () => {
+    const roles = parsePartsRoles("hoc editor, reviewing engineer");
+    expect(roles).toEqual(["hco editor", "reviewing engineer"]);
+    expect(serializePartsRoles(roles)).toBe("hco editor, reviewing engineer");
+  });
 });
 
 describe("partsRightsFor — the implications", () => {
-  it("an editor edits Part List parts and adds components, but not HOC edits or 722", () => {
+  it("an editor edits Part List parts and adds components, but not HCO edits or 722", () => {
     expect(partsRightsFor(["editor"])).toEqual({
       editParts: true,
       addComponents: true,
@@ -37,8 +43,8 @@ describe("partsRightsFor — the implications", () => {
     });
   });
 
-  it("an HOC editor is also an editor", () => {
-    expect(partsRightsFor(["hoc editor"])).toMatchObject({ editParts: true, editComponents: true, addSil: true });
+  it("an HCO editor is also an editor", () => {
+    expect(partsRightsFor(["hco editor"])).toMatchObject({ editParts: true, editComponents: true, addSil: true });
   });
 
   it("a reviewing engineer can correct what they review", () => {
@@ -81,14 +87,14 @@ describe("the gates", () => {
     expect(editPartGate(access(["editor"], { failed: true }), false).hint).toMatch(/Couldn't check/);
   });
 
-  it("keep the 722 list to HOC editors", () => {
+  it("keep the 722 list to HCO editors", () => {
     expect(addPartGate(access(["editor"]), "722", true).allowed).toBe(false);
     expect(addPartGate(access(["editor"]), "722", true).hint).toMatch(/722/);
     expect(addPartGate(access(["editor"]), "701", true).allowed).toBe(true);
-    expect(addPartGate(access(["hoc editor"]), "722", true).allowed).toBe(true);
+    expect(addPartGate(access(["hco editor"]), "722", true).allowed).toBe(true);
   });
 
-  it("keep HOC edits to HOC editors", () => {
+  it("keep HCO edits to HCO editors", () => {
     expect(editPartGate(access(["editor"]), true).allowed).toBe(false);
     expect(editPartGate(access(["editor"]), false).allowed).toBe(true);
   });

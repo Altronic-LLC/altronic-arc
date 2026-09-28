@@ -79,11 +79,11 @@ describe("the role is enforced inside the mutation", () => {
     expect((await listAltronicParts()).find((p) => p.id === 9)?.sapNumber).toBe("");
   });
 
-  it("refuses an HOC edit from a plain editor", async () => {
+  it("refuses an HCO edit from a plain editor", async () => {
     __resetPartsRolesMockStore([role(1, DEMO, "Demo User", ["editor"])]);
     const { Wrapper } = wrapper();
     const { result } = renderHook(() => useUpdateAltronicComponent(), { wrapper: Wrapper });
-    await expect(result.current.mutateAsync({ id: 1, patch: { notes: "x" } })).rejects.toThrow(/HOC editors/);
+    await expect(result.current.mutateAsync({ id: 1, patch: { notes: "x" } })).rejects.toThrow(/HCO editors/);
   });
 
   it("refuses a 722 add from a plain editor, but allows a 701", async () => {
@@ -108,11 +108,11 @@ describe("the role is enforced inside the mutation", () => {
     );
   });
 
-  it("won't add a Part List part under an HOC list number", async () => {
+  it("won't add a Part List part under an HCO list number", async () => {
     __resetPartsRolesMockStore([role(1, DEMO, "Demo User", ["sap admin"])]);
     const { Wrapper } = wrapper();
     const { result } = renderHook(() => useCreateAltronicPart(), { wrapper: Wrapper });
-    await expect(result.current.mutateAsync({ partNumber: "601900" })).rejects.toThrow(/HOC component list/);
+    await expect(result.current.mutateAsync({ partNumber: "601900" })).rejects.toThrow(/HCO component list/);
   });
 });
 
@@ -191,7 +191,7 @@ describe("who hears about it", () => {
 });
 
 describe("deleting a part number", () => {
-  it("is refused inside the mutation for anybody but the SAP admin — HOC editors and reviewers included", async () => {
+  it("is refused inside the mutation for anybody but the SAP admin — HCO editors and reviewers included", async () => {
     __resetPartsRolesMockStore([role(1, DEMO, "Demo User", ["reviewing engineer"])]);
     const { Wrapper } = wrapper();
     const { result } = renderHook(() => useDeleteAltronicPart(), { wrapper: Wrapper });

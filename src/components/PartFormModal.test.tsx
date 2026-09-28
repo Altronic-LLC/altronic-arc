@@ -132,12 +132,12 @@ describe("PartFormModal — a component", () => {
     expect(screen.getByLabelText("Mfg Name")).toBeInTheDocument();
   });
 
-  it("keeps 722 to HOC editors", async () => {
+  it("keeps 722 to HCO editors", async () => {
     __resetPartsRolesMockStore([
       { id: 1, email: "demo.user@altronic-llc.com", displayName: "Demo User", roles: ["editor"], note: "" },
     ]);
     renderForm("722");
-    expect(await screen.findByText(/Only HOC editors can add to the 722 list/)).toBeInTheDocument();
+    expect(await screen.findByText(/Only HCO editors can add to the 722 list/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add part" })).toBeDisabled();
   });
 });

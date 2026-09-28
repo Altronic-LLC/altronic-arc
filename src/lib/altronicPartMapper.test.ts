@@ -147,7 +147,7 @@ describe("part-number rules", () => {
     expect(partBook("x")).toBeNull();
   });
 
-  it("knows exactly the six HOC lists, matching the load script", () => {
+  it("knows exactly the six HCO lists, matching the load script", () => {
     expect(Object.keys(COMPONENT_PREFIX_CATEGORY).sort()).toEqual(["601", "611", "701", "711", "712", "722"]);
     expect(isComponentPrefix("722")).toBe(true);
     expect(isComponentPrefix("610")).toBe(false);
