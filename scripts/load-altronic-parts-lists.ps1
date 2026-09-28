@@ -418,9 +418,17 @@ $work       = [System.Collections.Generic.List[object]]::new()   # @{ target; me
 
 foreach ($t in @("part", "component")) {
     $existing = @{}
+    # Every part number the target already holds, whatever its LegacySource.
+    # ARC deletes a part number by blanking its row and then REUSES the row
+    # for a new part, clearing LegacySource — so matching on LegacySource
+    # alone would re-create the old legacy part beside the new one. A number
+    # already in the target is never created again (reported instead).
+    $titlesInTarget = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
     if ($targets[$t]) {
         $rows = Get-All "https://graph.microsoft.com/v1.0/sites/$Site/lists/$($targets[$t])/items?expand=fields&`$top=999"
         foreach ($r in $rows) {
+            $tt = Str $r.fields["Title"]
+            if ($tt) { [void]$titlesInTarget.Add($tt) }
             $key = Str $r.fields["LegacySource"]
             if ($key -and -not $existing.ContainsKey($key)) { $existing[$key] = $r } else { $targetOnly.Add([pscustomobject]@{ Target = $t; ItemId = $r.id; PartNumber = (Str $r.fields["Title"]); LegacySource = $key; Reason = $(if ($key) { "duplicate LegacySource" } else { "no LegacySource" }) }) }
         }
@@ -433,10 +441,17 @@ foreach ($t in @("part", "component")) {
 
     foreach ($rec in $planned) {
         $cur = $existing[$rec.Source]
-        if (-not $cur) {
+        if (-not $cur -and $titlesInTarget.Contains("$($rec.PartNumber)")) {
+            # The number is already in ARC under another row — reused after a
+            # delete, or entered in ARC directly. Never a second copy.
+            $skipped.Add([pscustomobject]@{ LegacySource = $rec.Source; Reason = "$($rec.PartNumber) already in the target list (deleted and reused in ARC, or added there)"; Description = (Str $rec.Fields["Description"]) })
+        } elseif (-not $cur) {
             $body = @{}; foreach ($k in $rec.Fields.Keys) { if ($null -ne $rec.Fields[$k]) { $body[$k] = $rec.Fields[$k] } }
             $changes.Add([pscustomobject]@{ Action = "create"; Target = $t; LegacySource = $rec.Source; PartNumber = $rec.PartNumber; Field = ""; Current = ""; New = "" })
             $work.Add(@{ target = $t; method = "POST"; url = "/sites/$Site/lists/$($targets[$t])/items"; body = @{ fields = $body }; record = $rec })
+        } elseif ((Str $cur.fields["SignOffStatus"]) -eq "Deleted") {
+            # Deleted in ARC: writing the legacy values back would undelete it.
+            $skipped.Add([pscustomobject]@{ LegacySource = $rec.Source; Reason = "$($rec.PartNumber) deleted in ARC — left alone"; Description = (Str $rec.Fields["Description"]) })
         } elseif (-not $OnlyCreate) {
             $patch = @{}
             foreach ($k in $rec.Fields.Keys) {

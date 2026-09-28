@@ -13,6 +13,7 @@ import {
   ClipboardX,
   ClipboardList,
   Cog,
+  Cpu,
   DollarSign,
   FileCheck,
   FileDiff,
@@ -822,6 +823,19 @@ export function DashboardView() {
           // No `segments` — a certification register has no active/done states.
           to={"/csa-listings"}
           onClick={() => navigate("/csa-listings")}
+        />
+        {/* superior-blue repeats Drawing File Logs' tone on purpose: every
+            Engineering tone is taken, and part numbers and drawings are the
+            pair of registers that go together. No count, deliberately — the
+            Part List is ~14,000 rows, and the Dashboard must not download it
+            just to print a number nobody needs to see. */}
+        <TypeCard
+          name="Parts List"
+          icon={<Cpu className="h-5 w-5" />}
+          tone="superior-blue"
+          description="Every Altronic part number — the Parts Book, the HOC component lists, and Global Search."
+          to={"/engineering/parts"}
+          onClick={() => navigate("/engineering/parts")}
         />
         <TypeCard
           name="Where Am I?"

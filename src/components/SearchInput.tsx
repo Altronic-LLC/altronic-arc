@@ -6,6 +6,8 @@ interface SearchInputProps {
   onChange: (next: string) => void;
   placeholder?: string;
   className?: string;
+  /** For a box whose visible label isn't wrapped round it (a From/To pair). */
+  ariaLabel?: string;
 }
 
 /**
@@ -16,7 +18,7 @@ interface SearchInputProps {
  * keystroke straight into URL search params, re-rendering the entire route
  * tree AND re-running the full list filter per character.
  */
-export function SearchInput({ value, onChange, placeholder, className }: SearchInputProps) {
+export function SearchInput({ value, onChange, placeholder, className, ariaLabel }: SearchInputProps) {
   const [local, setLocal] = useState(value);
   const timer = useRef<number>();
   // Tracks the last value we emitted, so the sync effect below can tell an
@@ -50,6 +52,7 @@ export function SearchInput({ value, onChange, placeholder, className }: SearchI
         value={local}
         onChange={(e) => handleChange(e.target.value)}
         placeholder={placeholder}
+        aria-label={ariaLabel}
         className={
           className ??
           "h-10 w-full rounded-md border border-border bg-surface pl-9 pr-3 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"

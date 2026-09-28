@@ -241,6 +241,11 @@ src/
 │   ├── admins.ts                 Admins list CRUD
 │   ├── quickLinks.ts             Quick Links CRUD (Dashboard button links, admin-managed)
 │   ├── csaListings.ts            CSA Listings CRUD (Engineering certification register)
+│   ├── altronicParts.ts          Altronic Part List read/create/edit/approve/delete (~14,000 part numbers) — delete blanks for reuse
+│   ├── altronicComponents.ts     Altronic Component List read/create/edit/approve/delete (HOC components) — delete blanks for reuse
+│   ├── partsListShared.ts        Both parts lists' Graph plumbing — the Communication fallback, Title lookup
+│   ├── partsRoles.ts             Parts Roles list CRUD (who may edit/approve parts) — unset = read-only
+│   ├── datasheets.ts             Part + component datasheets — finds / uploads General/Datasheets/<part #>.pdf (never overwrites), archives on delete
 │   ├── drawingLogs.ts            Drawing File Logs — 4 registers, one parametrised module
 │   ├── buildRequests.ts          Build Requests (master) CRUD
 │   ├── buildRequestItems.ts      Build Request Items (detail) CRUD
@@ -289,6 +294,7 @@ src/
 │   ├── dashboardMockData.ts      Sample dashboard metrics
 │   ├── quickLinksMockData.ts     Sample Quick Links, a few per department
 │   ├── csaMockData.ts            Sample CSA certification files
+│   ├── altronicPartsMockData.ts  Sample parts + HOC components (legacy and mid-approval rows)
 │   ├── drawingLogMockData.ts     Sample drawings + sketches (incl. sparse & full change logs)
 │   ├── teradyneMockData.ts       Sample Teradyne log + reference rows
 │   ├── operationsMockData.ts     Sample Operations tasks + projects
@@ -316,6 +322,9 @@ src/
 │   ├── useEirs.ts                EIR queries + mutations (optimistic + undo)
 │   ├── useEirRoles.ts            EIR roles CRUD + useMyEirRoles() (field gating)
 │   ├── useCsaListings.ts         CSA Listings queries + admin-guarded mutations
+│   ├── useAltronicParts.ts       Part List + Component List queries (long-cached), gated writes + their emails
+│   ├── usePartsRoles.ts          Parts Roles CRUD (admin-guarded) + useMyPartsAccess / resolvePartsPeople
+│   ├── useDatasheet.ts           A part's datasheet, by part number (file lookup, not the flag) + the gated upload
 │   ├── useDrawingLogs.ts         Drawing log queries + admin-guarded mutations
 │   ├── useTeradyne.ts            Teradyne log + ref-list queries/mutations (+ usage counts)
 │   ├── useOperationsTasks.ts     Operations task queries + mutations
@@ -409,6 +418,14 @@ src/
 │   ├── eirPromotion.ts           EIR → Task promotion helpers
 │   ├── testSheetMapper.ts        Graph item → TestSheet
 │   ├── csaListingMapper.ts       Graph item → CsaListing (+ label, sort, search)
+│   ├── altronicPartMapper.ts     Graph item → AltronicPart / AltronicComponent; prefix → list/book, HOC prefixes
+│   ├── partSearch.ts             Parts List search rules (substring, & terms, ranges), Parts Book grouping, Global rows
+│   ├── engineeringValue.ts       Reads 4K7 / .1uF / 250mW / 1/4W / -55°C as numbers + units, for range search (pure)
+│   ├── componentRatings.ts       What Rating A/B/C mean per component type (the guide's table, as DATA)
+│   ├── partFields.ts             Parts List columns as DATA — form ⇄ SharePoint, required rules, next number
+│   ├── partsRoles.ts             Parts Roles tags → rights, the add/edit/approve gates, the approval chain (pure)
+│   ├── partsAlerts.ts            Parts List emails — new part, engineering done, what an edit changed (pure)
+│   ├── partLifecycle.ts          Deleting a part number and reusing it — the marker, blank/replace columns, history records (pure)
 │   ├── drawingLogFields.ts       Per-register column descriptors (columns are DATA)
 │   ├── drawingLogMapper.ts       Graph item → DrawingLogEntry + the 16-slot change-log codec
 │   ├── buildRequestMapper.ts     Graph item → BuildRequest / BuildRequestItem
@@ -552,6 +569,8 @@ src/
 │   ├── FaitFormModal.tsx         Raise a FAIT
 │   ├── FieldEditModal.tsx        Shared "edit this card's fields" modal (Gray Market, ECN, FAIT)
 │   ├── CsaAttachmentsModal.tsx   A CSA listing's certificates — readable by anyone, admin-editable
+│   ├── partsAtoms.tsx            Parts List sign-off / kind chips + the shared loading/refused/failed gate
+│   ├── PartFormModal.tsx         New part (fields follow the number's list, optional datasheet PDF) + NewPartButton (hidden without a role)
 │   ├── EcnChecklistCard.tsx      The MFGFRM-038 checklist on an ECN — sections, 4-state pills, findings
 │   ├── EcnRaciModal.tsx          The RACI matrix, as a reference modal
 │   ├── YesNoField.tsx            A boolean column as two labelled Yes / No choices
@@ -607,6 +626,9 @@ src/
 │   ├── EirKanbanView.tsx         EIRs board — one column per EIR status, drag to set it
 │   ├── EirDetailView.tsx         EIR detail (+ role-gated fields, see below)
 │   ├── CsaListingsView.tsx       CSA Listings table (Engineering, admin-gated writes)
+│   ├── PartsBookView.tsx         Parts List landing — Parts Book tiles, jump box, Global Search link
+│   ├── PartsListView.tsx         One three-digit list, or Global Search — search panel + sortable table
+│   ├── PartDetailView.tsx        One part or component (by item id) — card edits, Approve, approval history
 │   ├── DrawingLogsView.tsx       Drawing File Logs — four tabbed registers
 │   ├── PrintDrawingSheetView.tsx CAD Drawing Work Sheet (FORM #E006), letter portrait
 │   ├── BuildRequestsView.tsx     Build Requests list
@@ -667,6 +689,7 @@ src/
 │   ├── AdminPanelRolesView.tsx   Admin → Panel User Roles
 │   ├── AdminAdminsView.tsx       Admin → Admins
 │   ├── AdminEirRolesView.tsx     Admin → EIR Roles
+│   ├── AdminPartsRolesView.tsx   Admin → Parts Roles (editor / HOC editor / reviewing engineer / SAP admin)
 │   ├── AdminMaintenanceRolesView.tsx  Admin → Maintenance Roles (tech / admin, CMMS)
 │   ├── AdminQuickLinksView.tsx   Admin → Quick Links (Dashboard button links, per-department reorder)
 │   ├── AdminNotificationRecipientsView.tsx  Admin → Notification recipients
@@ -1165,6 +1188,491 @@ code. If expiry comes back, it needs the decision first: a new Expiry Date colum
 in SharePoint, or a rule deriving it from `DateCertified`. Recover the old
 implementation from git history rather than rewriting it (`git log --
 src/lib/certificationExpiry.ts`).
+
+### Altronic Parts List (Engineering)
+
+Two lists on `SITES.engineering`, replacing the **Altronic Component List**
+Power App, which read **175 legacy per-prefix lists** (the "101" … "915" lists,
+"610/615", and the HOC lists "Surface Mount Parts" / "Through Hole Parts" /
+"SIL Parts"). Created and loaded 2026-09-28 (Tim).
+
+| List | env / id | Rows |
+|---|---|---|
+| Altronic Part List | `VITE_SP_ALTRONIC_PART_LIST_ID` — `b054a89a-1428-4a1f-82c5-461c41ae7b0e` | 13,998 |
+| Altronic Component List | `VITE_SP_ALTRONIC_COMPONENT_LIST_ID` — `c48dc016-1f49-4595-809c-9239fb2baeb3` | 3,946 |
+
+Both carry documented defaults in `config.ts`, and both are in `deploy.yml`.
+They gate nothing, so a default can't lock anybody out.
+
+**The workflow to match is Thomas Terhune's 2023 user guide** for the old app,
+and Tim is "not married to the layout". The landing page is the old app's
+home screen: the 100–900 Parts Book tiles, a box for a list number, and Global
+Search. The list screen keeps the old search panel down the left.
+
+**`Title` is the Altronic Part #, on both lists.** A part number's first three
+digits are its **parts list** (the legacy list it came from), and its first
+digit is its **Parts Book**. That is a rule about the NUMBER, not a stored
+column (`partPrefix` / `partBook` in `lib/altronicPartMapper.ts`).
+
+**Which list a part is on is decided by its prefix**:
+- `601/611` are Through Hole, `701/711/712` Surface Mount, and `722` SIL.
+  These six go to the Component List; everything else goes to the Part List.
+- `COMPONENT_PREFIX_CATEGORY` is the one copy in the app, and it must agree
+  with `$CategoryByPrefix` in the load script. A mismatch looks for a part on
+  the wrong list.
+- `722044` sat in the old numeric "722" list and was moved to the Component
+  List as SIL during the load.
+
+#### How the lists were built — the scripts, not an export
+
+- `scripts/create-altronic-parts-lists.ps1` creates both lists with
+  **readable internal names**. It indexes Title, LegacySource, SignOffStatus
+  and Category, and renames Title to "Altronic Part #".
+- `scripts/load-altronic-parts-lists.ps1` reads all 175 lists **live from
+  Graph**. It only reports unless you pass `-Apply`. It matches rows on
+  `LegacySource` (`"<old list>#<old item id>"`), never on part number, and it
+  never deletes.
+- **The export-built "Master Part List" / "Component List" are abandoned.**
+  Their columns were all `field_N`, and the export merge lost Purchased on
+  about 13,900 rows and moved about 3,200 dates by a day. Don't build on them.
+- **`scripts/data/through-hole-mfg-decisions.csv`** holds Tim's per-row
+  decisions for 86 Through Hole rows where two part numbers disagreed. He
+  checked each against the SAP export.
+  - The decisions are `UseOldMfgName`, `KeepMfgNumber`, `UseValue` (with
+    `OverrideMfgNumber` / `OverrideMfgName`), `AlternateSources` (the second
+    number goes into Notes), `NeedsReview` and `Unconfirmed`.
+  - A decision is refused as **stale** if the legacy row changed after it was
+    made.
+  - **9 rows still carry NeedsReview/Unconfirmed**, to be settled in ARC.
+- **The old Power App is still live**, so new parts keep landing in the old
+  lists until cutover. Top them up with `-Apply -OnlyCreate`. Once people edit
+  in ARC, **never run a plain `-Apply`**: it would overwrite their edits with
+  legacy values.
+- **Throttling:** the first load had 14,803 of 17,943 rows throttled in round
+  1, because the batch loop kept sending after a 429. It now pauses at the
+  throttled batch.
+
+#### What the ARC side does — reading
+
+`api/altronicParts.ts` + `api/altronicComponents.ts` (one delete each, which
+BLANKS the row for reuse and never removes it — see "Part numbers are
+deleted, then reused" below), `hooks/useAltronicParts.ts`, and three lazy
+views:
+
+| Route | View |
+|---|---|
+| `/engineering/parts` | `PartsBookView` — Parts Book tiles (`?book=N`), jump box, Global Search link |
+| `/engineering/parts/list/:prefix` | `PartsListView` — one list; the HOC prefixes read the Component List |
+| `/engineering/parts/search` | `PartsListView` — Global Search across both lists |
+| `/engineering/parts/:kind/:id` | `PartDetailView` — `kind` is `part` or `component`; anything else is "not found" |
+
+Seven things that are load-bearing:
+
+- **The Part List is fetched WHOLE: about 15 `$top=999` pages, with no
+  `$filter` or `$orderby`.** Past 5,000 items SharePoint refuses a filter or
+  sort on an unindexed column. A plain paged read works at any size, and a
+  substring search on a description is impossible server-side anyway.
+  - The queries hold the data for a long time (`staleTime` 10 min, `gcTime`
+    30 min), so stepping from the Parts Book into a list and back doesn't
+    re-download 14,000 rows.
+  - The Dashboard card deliberately carries **no count**, so the Dashboard
+    doesn't download the list to print a number.
+- **The nine book tiles render BEFORE either list loads.** Only the counts
+  and a book's lists wait. A blank page for the few seconds the Part List
+  takes reads as broken.
+- **The search rules are the old app's, kept on purpose** (`lib/partSearch.ts`):
+  - Case-insensitive substring match, AND across fields.
+  - `&` means several terms in one field, and **the spaces around `&` are part
+    of the term**. The guide says outright that "hello & world" does not match
+    "helloworld".
+  - A query with no `&` is trimmed.
+  - "Search everything" (`q`) is token-based across every search field, on
+    top of the per-field boxes.
+  - Every search is in the URL (`q`, `f.<field>`).
+  - Pinned by tests, one of them verified by trimming the `&` terms and
+    watching it fail.
+- **The jump box never dead-ends** (`parsePartsQuery`):
+  - one digit opens a book;
+  - three digits open a list;
+  - a whole part number opens the part on whichever list has it;
+  - a part number it can't find becomes a part-number search;
+  - anything else becomes a Global Search.
+- **Global Search is one table over both lists** (`toGlobalRows`).
+  - Manufacturer and Mfg # share a column: they are the same facts under
+    different names on the two lists.
+  - Item ids repeat across the lists, so rows key on `key` (component ids
+    offset by 10,000,000), never `id`.
+- **A detail page is keyed by ITEM ID, not part number.** The legacy data had
+  duplicated part numbers, and a page by number can only ever show one of two.
+- **A whole list returning ZERO rows says so, and names item-level
+  permissions.** It never says "no parts in list 309": thousands of rows
+  coming back empty is how SharePoint security-trims.
+  - The three branches (refused / failed / empty) live in `PartsDataGate`
+    (`components/partsAtoms.tsx`), which all three screens share.
+
+**Rating A/B/C mean different things per component type.**
+`lib/componentRatings.ts` is the guide's table, verbatim, as data. The type is
+read off the START of the description ("CAPACITOR - CERAMIC"), the longest
+match wins, and an `OBSOLETE -` prefix is ignored. An unknown type keeps the
+generic names rather than guessing.
+- The list table keeps "Rating A/B/C", because one list mixes types.
+- Only the detail page names them.
+
+**Sign-off is blank on every LOADED row**, on purpose: those rows predate
+approval tracking. Tables show nothing for a blank; the detail page shows
+"Not tracked" and says why. A blank is never dragged into the approval chain
+(`nextSignOff(null)` is null), so a loaded part has no Approve button.
+
+#### What the ARC side does — writing, and who may
+
+Tim's decisions, 2026-09-28:
+- **Everyone signed in can READ both lists; only Engineering can edit.**
+- **Who counts as Engineering is an admin-managed list — Parts Roles.** It is
+  managed at `/admin/parts-roles`, so people can be added or changed without
+  a code change. That includes HOC editing, which the 2023 guide hard-wired
+  to three named people.
+- **The Reviewing Engineers are Glenn Terry and Brandon Mirto; the Reviewing
+  Admin is Sheila Horn.** They hold those tags on the list. The names live
+  nowhere in code.
+- **Sheila (the SAP admin) can edit every field**, not just SAP # and
+  sign-off.
+- **An edit does NOT send a part back for approval**, but the SAP admins are
+  emailed what changed.
+
+**Parts Roles** — `VITE_SP_PARTS_ROLES_LIST_ID`, default
+`f783e1e3-f81f-4b18-99c3-c69ac96228f6`. Nearly the EIR Roles shape: Title =
+email, plus **`PersonName`** (displayed "Name"), Roles (a lowercase CSV) and
+Note. It was created 2026-09-28 by the same `create-altronic-parts-lists.ps1`,
+which also added the `Communication` column to both parts lists.
+- **The name column is `PersonName`, not `DisplayName`.** Graph silently
+  drops a field called DisplayName; see "A field called `DisplayName` is
+  silently dropped". The list still carries an empty DisplayName column from
+  its first creation, and nothing reads or writes it.
+- **Unlike EIR Roles it HAS a default**, because pointing at the list admits
+  only the people on it. Nobody gains an edit they shouldn't have.
+- **Graph reported "Append Changes to Existing Text" as ON** for both new
+  `Communication` columns. A Graph PATCH to turn it off was accepted and
+  changed nothing (the FAIT 89 pattern). Tim turned it off in List settings,
+  after which Graph read `false`.
+- **VERIFIED BEHAVIOURALLY on 2026-09-28** (Tim). A reused component was
+  taken through both approval steps. The history held exactly three records,
+  each once: reuse, engineering review, SAP. The append setting is genuinely
+  off on the Component List. **Re-do the check if either Communication column
+  is ever recreated**: Graph's answer alone proves nothing here.
+
+| Tag | Grants | Implies |
+|---|---|---|
+| `editor` | add + edit Part List parts; add HOC components except 722 | — |
+| `hoc editor` | + edit HOC components; add to 722 | editor |
+| `reviewing engineer` | + approve a component's Engineering Review step | hoc editor |
+| `sap admin` | + approve the Pending SAP step; edit every field on both lists | every EDIT right |
+
+`lib/partsRoles.ts` is the ONE place those rules live. `addPartGate`,
+`editPartGate` and `approveGate` are asked by every button AND inside every
+`mutationFn` (via `useResolvePartsAccess`, which awaits the list rather than
+trusting a render), so a greyed control and the write behind it can't
+disagree. **Approval rights don't imply each other**: an SAP admin can't do
+the engineering review, because that step isn't hers. Pinned by
+`hooks/useAltronicParts.writes.test.tsx`, which drives the hooks with no
+screen at all; each gate there was checked by deleting it and watching the
+test fail.
+
+**UNSET MEANS READ-ONLY — deliberately the opposite of EIR Roles.** EIR Roles
+falls OPEN so nobody loses an edit they already had. Nobody could edit parts
+in ARC before this list existed, so falling closed takes nothing away, while
+falling open would hand the whole company the write side of a 14,000-part
+register. **ARC admins are NOT auto-granted anything** — they manage the
+list, and add themselves if they need to edit. Mock mode always counts as
+configured, and there the demo user holds every tag.
+
+**The approval chain**, and who is emailed at each step:
+
+| Event | Status becomes | Emailed |
+|---|---|---|
+| New COMPONENT | Pending Engineering Review | the reviewing engineers |
+| Engineering review approved | Pending SAP | the SAP admins |
+| New PART (Part List) | Pending SAP | the SAP admins |
+| SAP step approved | Approved | nobody — the SAP admin IS the last step |
+| Any EDIT | unchanged | the SAP admins, with what changed |
+
+Five things that are load-bearing:
+
+- **Recipients are read from Parts Roles at SEND time** (`resolvePartsPeople`),
+  so a change on the admin screen reaches the very next email with no deploy.
+- **Two actor rules.** The queue emails (review, add to SAP) use
+  `withoutActorUnlessEmpty`, so Sheila adding a part herself still gets her
+  "add to SAP" reminder. The EDIT notice drops the actor STRICTLY: an SAP
+  admin's own edit tells nobody. Both rules are tested, and the strict one was
+  verified by loosening it.
+- **An approval is ONE PATCH of `SignOffStatus` + `Communication`**, made
+  after ONE fresh read. The read refuses a row that has moved on
+  (`StaleApprovalError`), so a step is never approved twice by two people a
+  minute apart. The history record is `approvalRecordHtml` — the step plus
+  the approver's escaped comment — and the record carries its own author and
+  time.
+- **A missing `Communication` column must not blank the Parts List.** The
+  script that adds it runs separately from any deploy, and selecting a column
+  a list hasn't got 400s the WHOLE read. So `api/partsListShared.ts` retries
+  once without it on a 400 (never on a throttle) and remembers per list. An
+  approval while the column is missing is refused, naming the script. This is
+  the MRB Watchers arrangement.
+- **A write never invalidates the whole list.** The hooks `upsert` the row
+  SharePoint hands back into the cache; invalidating would re-download 14,000
+  rows to show one change. The approve hook DOES invalidate on error, because
+  a refused approval usually means the row moved on.
+
+**The columns are data** (`lib/partFields.ts`). One table per list drives:
+- the New Part form, the Edit cards and the write payload;
+- the "what changed" email;
+- the required-field rules, from the 2023 guide:
+  - **Part List:** everything except Mfg Part #, Manufacturer, Date Drawing
+    and Drawing Size. Notes, SAP # and Item Value are optional too: SAP # is
+    the SAP admin's to fill in after the part exists, and Item Value is a
+    legacy column.
+  - **Components:** everything except Notes, and except a rating the entry
+    rules mark unused for that type ("none" in the table, e.g. an electrolytic
+    capacitor's Rating C).
+
+`FieldEditModal` can't enforce a required field, so the part page refuses the
+save with a toast if one is blanked.
+
+**The part NUMBER is not an editable field.** It decides which list a part is
+on and is what drawings, BOMs and SAP point at, so a wrong number is raised
+again as a new part. **New part** (`PartFormModal`) has three modes:
+- **From a list:** the list number is fixed, the next free number is filled in
+  (`nextPartNumber`: one past the highest plain six-digit number, `001` for an
+  empty list), and a full list says so rather than rolling over.
+- **From the Parts Book:** any number, which is how a new three-digit list
+  gets its first part.
+- **The fields follow the number typed.** A 601/611/701/711/712/722 number is
+  a component, and its Category is written from the prefix, never typed.
+
+Uniqueness is checked against the loaded lists and AGAIN by the API against
+SharePoint, on the indexed Title (`titleExists`), because the cache can be ten
+minutes old and two people can pick the same next number. Date Assigned
+defaults to today. The draft survives navigating away (`useFormDraft`, create
+only).
+
+**The New part button is HIDDEN from anyone without a role**, unlike most
+gated controls in ARC, which grey out. The Parts List is read by the whole
+company, and a permanently disabled button on every list for every reader is
+noise. The part page's Record card says who can edit, which is where somebody
+wanting that answer looks.
+
+**An approver sees what's waiting.** The Parts Book shows "Waiting for you: N…"
+for whoever holds an approval right. It links to a plain Global Search on the
+new Sign-off field (`?f.signOffStatus=Pending`), which anyone can also type.
+
+**The real boundary is still SharePoint list permissions** — Read for
+everyone, Edit for Engineering, set by a site owner on the two lists. ARC's
+gating only decides which buttons show.
+
+#### Datasheets — found by FILE, not by the flag
+
+A part's datasheet is a PDF in the Engineering site's Documents
+library: `General/Datasheets/<Altronic Part #>.pdf` (Tim, 2026-09-28). The
+old app linked to it whenever the component's `HasDataSheet` flag was set.
+ARC instead **looks for the file** (`api/datasheets.ts`, one small drive
+request when a component's page opens), because the flag is wrong both ways:
+
+| Checked live 2026-09-28 (3,946 components, 1,776 files) | |
+|---|---|
+| flagged, and the PDF is there | 1,366 |
+| flagged, but NO PDF — a link to nothing | 18 |
+| NOT flagged, but a PDF IS there — hidden by the flag | 380 |
+
+The page shows **Open datasheet** whenever the file exists, and says so when
+the flag and the folder disagree. The flag stays editable in the Manufacturer
+card, so a mismatch can be fixed where it's reported.
+
+Four details:
+- **The path lookup is case-insensitive** in SharePoint. Four files are
+  stored in a different case from their part number.
+- **A 404 means "no datasheet"; anything else propagates.** The page then
+  says it couldn't check, and names the library for a 403. "We couldn't look"
+  must never read as "there is none".
+- **The link is the file's `webUrl`, as a plain new-tab link** — SharePoint's
+  own PDF viewer. A top-level navigation carries the SharePoint sign-in; a
+  fetch from this origin would need a token and hit CORS (the Supplier Logo
+  lesson).
+- **Part List parts get the same lookup** (Tim, 2026-09-28: "we should have
+  the option for a datasheet in the Part List parts"), on the Purchasing
+  card. That list has no `HasDataSheet` column, so the folder is the whole
+  answer there and no mismatch note can appear — `DatasheetField`'s
+  `flagged` is `undefined` for a part, and only `false` (not "absent")
+  triggers the "flag says No" note. Same folder, same `<part #>.pdf` name.
+
+**Uploading** (Tim, 2026-09-28) — an optional PDF on the New Part form, and
+an **Upload datasheet** button on a part's page when it has none (the way
+back from a failed upload, and the only way the ~14,000 Part List parts get
+one — none had a PDF when this shipped). `uploadDatasheet` writes
+`<part #>.pdf` into the same folder, so the lookup needs no second record.
+Seven things that are load-bearing:
+
+- **It NEVER overwrites.** `conflictBehavior: fail` on both the simple PUT
+  and the upload session; a 409 becomes `DatasheetExistsError`, which says
+  the existing file was kept. Replacing a datasheet is a deliberate act in
+  SharePoint, not a side effect of adding a part. `uploadToDriveTarget` in
+  `api/projectFiles.ts` was lifted out of the project-folder upload for this
+  — that one still uses `rename` — so the >4 MB session path is shared.
+  Pinned in `datasheets.real.test.ts`, verified by switching it to `rename`.
+- **PDF only, checked BEFORE the part is created** (`datasheetFileProblem`).
+  The lookup only asks for `.pdf`, so anything else would upload and never be
+  found; checking first means a wrong pick leaves no part behind with no file.
+  Verified by deleting the pre-create check and watching the form test fail.
+- **The part is created FIRST, the file second.** The name needs the final
+  number, and a file uploaded first would be orphaned if the create were
+  refused (a number taken minutes ago). So an upload that fails after the
+  create TOASTS and still opens the part — it is real — naming Upload
+  datasheet as the retry.
+- **`HasDataSheet` is set AFTER the file lands, never in the create.** A Yes
+  over a failed upload is the 18-part "link to nothing" problem again. It left
+  the New Part form for the same reason (`onCreate: false`). It stays editable
+  on the Manufacturer card. The flag write is best-effort — the page finds the
+  file either way — and is reported, not thrown.
+- **The gate depends on WHERE**: `via: "new"` asks `addPartGate` (an editor
+  may add a non-722 component they can't later edit), `via: "edit"` asks
+  `editPartGate`. Both asked inside the `mutationFn`.
+- **No email.** The SAP admins hear about edits to the part's fields; a
+  datasheet is a file beside it.
+- **The file is not in the form draft** — a `File` can't be stored.
+
+#### Part numbers are deleted, then reused
+
+Tim, 2026-09-28: **the SAP admin can delete a part number, and a deleted
+number is handed out again.** Next free offers the **lowest** deleted number
+in the list before one past the highest. So a delete never removes the
+SharePoint row. `lib/partLifecycle.ts` holds the rules; the writes are
+`deleteAltronicPart` / `deleteAltronicComponent` and the reuse branch of each
+create.
+
+**The marker is Sign-off = `Deleted`, not the description** (Tim's pick, of
+the two). Only ARC's delete sets it, so nobody hides a real part by typing
+"deleted" into a description. People already did something like that by
+hand: "OPEN REUSE", "reuse", "AVAILABLE - DO NOT USE" on 5 components, and
+"503064 through 503095 are available" on 5 Part List rows. Those were
+deliberately LEFT ALONE; Sheila can delete them through ARC if they should be
+reused. The description is ALSO set to `DELETED`, so the row reads right in
+SharePoint's own views.
+
+`Deleted` is a real choice on both lists' SignOffStatus column, which is
+`allowTextEntry: false`, so a value it doesn't declare is refused on every
+write. `create-altronic-parts-lists.ps1` adds the missing choice to an
+existing list and reads it back.
+
+Nine things that are load-bearing:
+
+- **Delete BLANKS every descriptor column** (`blankColumns`): text `""`,
+  date/choice `null`, boolean `false`. Nothing of the old part lingers.
+- **Delete KEEPS `LegacySource` and Category.** The load script matches on
+  LegacySource, and without it a top-up would bring the legacy row straight
+  back. Category stays because the number still belongs to the same list.
+- **Reuse overwrites THAT SAME ROW; there is never a second row.**
+  `numberState` asks SharePoint (the indexed Title filter, `rowsForTitle`)
+  who holds the number:
+  - a LIVE row means taken;
+  - otherwise the lowest-id DELETED row is reused.
+
+  So a part number is on a list once, and a deleted number typed by hand is a
+  reuse, not "already taken".
+- **Reuse writes EVERY column** (`replacementColumns`), not a diff. A blank
+  the delete missed can't survive either; Tim asked for both halves.
+- **Reuse clears LegacySource and restarts the history** with a
+  `data-part-event="reused"` record. The mapper reads that record as the new
+  part's **submitter and date** (`origin` in `altronicPartMapper.ts`),
+  because the ROW was created, often years ago, for the part the number used
+  to be.
+- **The ordinary hooks hand back LIVE parts only** — one `select` on
+  `useAltronicParts` / `useAltronicComponents`. That is how every list,
+  Global Search, the Parts Book counts and the approval queue leave deleted
+  numbers out without each screen remembering to.
+  - `useAllAltronicParts` / `useAllAltronicComponents` read the same cache
+    with the deleted rows in.
+  - Two places use them: the detail page, where an old link to a deleted
+    number says "deleted by X on date" rather than showing blanks, and the
+    New Part form, for Next free.
+- **Deleting moves the datasheet first** (`archiveDatasheet`) into
+  `Datasheets/Deleted/<pn> deleted <date>.pdf`. If it stayed, the reused
+  number would show the old part's PDF, and an upload for the new part would
+  be refused as a duplicate.
+  - It happens BEFORE the row is blanked. A datasheet that can't be moved
+    stops the delete.
+  - It is kept, not deleted: it is a record of the part that was.
+- **A part with list-item attachments is refused.** Attachments aren't a
+  column that can be blanked, and a reused row would carry them. They're
+  removed in SharePoint first.
+- **The load script never re-creates a number the target holds, and never
+  writes over a deleted row.** Both land in `skipped.csv`. A reused row has no
+  LegacySource, so matching on LegacySource alone would have created the old
+  legacy part beside the new one.
+
+The delete itself:
+- **SAP admin only** (`deletePartGate`). It is asked by the button and inside
+  the mutation, and verified by removing the mutation's check.
+- **The button is hidden from everybody else.**
+- **The dialog needs a reason AND the number typed back**, because reusing a
+  number changes what it means to every drawing, BOM and SAP record that
+  points at it.
+- **No email is sent.** The SAP admin IS the person who'd be told.
+
+**Undoing a delete (or a reuse) is SharePoint's version history, not ARC.**
+Restore the row's version from before the delete: List → item → Version
+history → Restore, or Graph `POST …/items/{id}/versions/{v}/restoreVersion`.
+Every field comes back, LegacySource and the old history included, so the
+top-up sees the row as loaded again. It was done for 712469 on 2026-09-28,
+after Tim's live test, putting it back to its loaded "OPEN REUSE" state (v1.0)
+for Sheila to delete after go-live. Deleting AGAIN is not an undo: it leaves
+a blanked Deleted row.
+
+**One race remains, and it's stated rather than hidden.** A reuse re-reads
+the row and refuses one that is no longer deleted. But two people reusing the
+same number in the same second both pass that read, and the later write wins.
+If-Match on the PATCH would close it; it wasn't used because it's unverified
+against Graph's listItem fields endpoint.
+
+#### Range search — the old app's "R" button
+
+On Rating A/B/C, Tolerance, Temp Min and Temp Max (`range: true` on the
+`SearchField`), on the component lists and in Global Search, where the old
+app had it. R turns the box into From/To; the URL carries
+`from.<field>` / `to.<field>`, and a range in the URL always shows its boxes,
+so a shared link can't narrow the list invisibly.
+
+**Values are read as ENGINEERING NOTATION** (`lib/engineeringValue.ts`),
+where the old app read `4M1` as 4 (its guide says so). Built against the live
+Component List's 3,946 rows, not guessed. Seven things that are load-bearing:
+
+- **The value must START the text** (after an optional `label:` / `label =`
+  and a `±`). "SEE 701473" and "X7R" are not numbers; reading them as 701,473
+  or 7 would put junk in every range.
+- **A prefix letter counts only before a unit, or at the end of the word.**
+  `100 ppm` is not pico-pm; `1 POS` is not a prefix. The PREFIX is
+  case-sensitive (m milli, M mega); the UNIT isn't (`1 uf`, `3 ma` are real).
+- **RKM codes**: `4K7`, `100R0`, `2u2`, `5V1`, and `R04` / `R330` with the R
+  first. R/K/M codes carry Ω.
+- **A stored range overlaps**: "4.5V TO 5.5V" is found by a 5 V–5 V search.
+- **Units must agree only when BOTH sides name one.** A 5V–12V search skips
+  "10mA" and "8 PINS"; a unitless "1K" to "10K" still finds "4K7". Counted
+  words (PINS, TURNS) are units, singularised, so they don't leak into a
+  volts search.
+- **A value with no number never matches**, and the panel says how many parts
+  on that field can't be found by range — blanks not counted (every Part List
+  row in Global Search is blank).
+- **The panel says how it read what was typed** ("Reads as 1k to 5k"), and
+  names a box it couldn't read rather than silently ignoring it.
+
+How much of the live data it reads (2026-09-28), with what's left almost all
+genuinely not numbers (N/A, SEE DATA SHEET, X7R/COG, colours, switch types):
+Rating A 94%, Rating B 90%, Rating C 72%, Tolerance 59% (1,293 are "N/A"),
+Temp Min / Max 94%. Pinned in `engineeringValue.test.ts` with spellings taken
+from that data; the unit rule and the screen wiring were each verified by
+breaking them and watching tests fail.
+
+Not built yet:
+- **Replacing a datasheet** from ARC. Upload only ever adds a missing one;
+  a wrong PDF is replaced in SharePoint.
+- **Rejecting** a part at a review step. The old app only had Approve; an
+  engineer corrects the part and approves it.
 
 ### FAITs (First Article Inspection Tests)
 
@@ -5114,6 +5622,28 @@ Pinned by `lib/graphFields.multiChoice.test.ts` (the helper) and
 `api/multiChoiceWrites.test.ts` (all three modules, `USE_MOCK: false`). Both
 were verified by removing the annotation and watching seven cases fail.
 
+### A field called `DisplayName` is silently dropped by Graph
+
+Found 2026-09-28, creating Parts Roles: a list column whose internal name is
+**`DisplayName`** cannot be written or read through Graph's `listItem.fields`.
+- A POST or PATCH carrying `DisplayName` is accepted with a 2xx, and nothing
+  is stored.
+- The field never appears on a read, even with `$expand=fields` and nothing
+  else.
+- `/columns` still lists it as a normal, writable text column, so nothing in
+  the schema warns you.
+
+**The EIR Roles list has this bug.** Its name column is `DisplayName`, and
+none of its 22 rows had a name saved at the time of finding. The admin screen
+falls back to deriving a name from the email (`deriveNameFromEmail`), which is
+why nobody noticed. Not fixed yet; the fix is the one Parts Roles got: a
+column with another internal name (`PersonName`), read and written instead.
+
+**Rules that follow from it:**
+- Don't name a new column `DisplayName`.
+- After creating ANY column, write a value through Graph and read it back
+  before building on it. A 2xx from a write is not evidence the value landed.
+
 ### A single-person column needs BOTH halves selected, and its own read step
 
 `$expand=fields($select=Assigned)` on a MULTI-person column returns the
@@ -5569,6 +6099,29 @@ run the suite. That is the whole difference, and it takes a moment.
 stays well-formed with nothing configured, and that Engineering Tasks really
 is registered at three routes, since both de-dupe cases quietly stop testing
 anything if that ever changes.
+
+### `beforeEach(() => mock.mockReset())` runs the mock as cleanup
+
+**A `beforeEach` that RETURNS a function has that function run as the test's
+teardown.** `mockReset()`, `mockClear()` and `mockRestore()` all return the
+mock itself, so the one-line arrow form hands Vitest the mock as a cleanup
+step. After the test, Vitest calls the mock with no arguments; if the test
+gave it an implementation that throws (`mockRejectedValue` included), the
+test FAILS with that error, pointing at the line where the error was created.
+
+It cost an hour on `datasheets.real.test.ts` (2026-09-28): the code was
+right, a probe proved `findDatasheet` returned null, and the test still
+failed with "Graph 404". **Use a block body:**
+
+```ts
+beforeEach(() => {
+  graphFetch.mockReset();
+});
+```
+
+Two older files still use the one-line form and pass only because their
+mocks don't throw when called bare: `accessProbe.hiddenRows.test.ts` and
+`useCommentOriginLink.test.tsx`.
 
 ### A row-cap test must not render 150 real rows — it gates the deploy
 

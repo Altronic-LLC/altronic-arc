@@ -23,7 +23,8 @@
             Purchased               choice — Purchased / Not Purchased
             SAPNumber               text
             ItemValue               text
-            SignOffStatus           choice — Pending SAP / Approved (2-step)
+            SignOffStatus           choice — Pending SAP / Approved (2-step),
+                                    or Deleted (a deleted number, kept for reuse)
             LegacySource            text — "<old list>#<old item id>"
 
         Altronic Component List   the HOC parts: 601/611 Through Hole,
@@ -36,7 +37,11 @@
             Notes                   multi-line plain
             HasDataSheet            yes/no
             SignOffStatus           choice — Pending Engineering Review /
-                                    Pending SAP / Approved (3-step)
+                                    Pending SAP / Approved (3-step), or Deleted
+
+    Re-running on lists that already exist adds any column, AND any choice,
+    they're missing — "Deleted" was added to SignOffStatus after both lists
+    were created.
             LegacySource            text
 
     Why these are NEW lists rather than the "Master Part List" / "Component
@@ -56,8 +61,18 @@
     enforced on Title: the legacy data carries 20 duplicated part numbers that
     a person has to resolve first.
 
+    Both parts lists also carry a Communication column — the approval history
+    ARC writes (added 2026-09-28, with the write side).
+
+    A third list, "Parts Roles", holds who may edit and approve parts (Title =
+    email, Roles = a CSV of editor / hoc editor / reviewing engineer / sap
+    admin). It is managed in ARC at Admin → Parts Roles. Until it exists and
+    VITE_SP_PARTS_ROLES_LIST_ID points at it, the Parts List is read-only.
+
     Idempotent: an existing list is left alone and only missing columns are
-    added. Load the data with load-altronic-parts-lists.ps1.
+    added — so re-running this on the lists created 2026-09-28 just adds
+    Communication and creates Parts Roles. Load the data with
+    load-altronic-parts-lists.ps1.
 
 .PARAMETER WhatIf
     Print what would be created without creating anything.
@@ -95,6 +110,18 @@ function Choice($name, $display, [string[]]$choices, [switch]$Indexed) {
 function DateOnly($name, $display) {
     @{ name = $name; displayName = $display; dateTime = @{ format = "dateOnly"; displayAs = "standard" } }
 }
+# The approval history ARC writes (who approved, when, with what comment).
+# ARC rewrites the WHOLE value on each append, so "Append changes to existing
+# text" must be OFF — with it on, the thread doubles on every write (FAIT 89).
+# Graph has been seen to report the flag as true however the column was
+# created, so VERIFY behaviourally after creating: approve two parts' steps and
+# check the history doesn't repeat.
+function Communication {
+    @{
+        name = "Communication"; displayName = "Communication"
+        text = @{ allowMultipleLines = $true; textType = "plain"; appendChangesToExistingText = $false }
+    }
+}
 
 $Lists = @(
     @{
@@ -114,8 +141,11 @@ $Lists = @(
             (Choice "Purchased" "Purchased" @("Purchased", "Not Purchased")),
             (Text "SAPNumber" "SAP #"),
             (Text "ItemValue" "Item Value"),
-            (Choice "SignOffStatus" "Sign-off Status" @("Pending SAP", "Approved") -Indexed),
-            (Text "LegacySource" "Legacy Source" -Indexed)
+            # "Deleted" marks a deleted part number, kept so it can be reused (ARC,
+            # 2026-09-28) — see "Part numbers are deleted, then reused" in CLAUDE.md.
+            (Choice "SignOffStatus" "Sign-off Status" @("Pending SAP", "Approved", "Deleted") -Indexed),
+            (Text "LegacySource" "Legacy Source" -Indexed),
+            (Communication)
         )
     },
     @{
@@ -136,8 +166,28 @@ $Lists = @(
             (Text "Footprint" "Footprint"),
             (Text "Notes" "Notes" -Multi),
             @{ name = "HasDataSheet"; displayName = "Has Data Sheet"; boolean = @{} },
-            (Choice "SignOffStatus" "Sign-off Status" @("Pending Engineering Review", "Pending SAP", "Approved") -Indexed),
-            (Text "LegacySource" "Legacy Source" -Indexed)
+            (Choice "SignOffStatus" "Sign-off Status" @("Pending Engineering Review", "Pending SAP", "Approved", "Deleted") -Indexed),
+            (Text "LegacySource" "Legacy Source" -Indexed),
+            (Communication)
+        )
+    },
+    @{
+        # Who may edit and approve parts (Tim, 2026-09-28). Title = the
+        # person's email; Roles = a lowercase CSV of tags (editor, hoc editor,
+        # reviewing engineer, sap admin) — the EIR Roles shape, deliberately a
+        # TEXT column rather than a choice, so a new tag is a code change and
+        # never a column change. Managed in ARC at /admin/parts-roles.
+        name         = "Parts Roles"
+        envVar       = "VITE_SP_PARTS_ROLES_LIST_ID"
+        description  = "Who can add, edit and approve parts on the Altronic Part / Component Lists. Title = email. Managed in ARC (Admin → Parts Roles)."
+        titleDisplay = "Email"
+        titleIndexed = $false
+        # PersonName, NOT DisplayName: Graph silently drops a listItem field
+        # called DisplayName (write accepted, nothing stored — 2026-09-28).
+        columns      = @(
+            (Text "PersonName" "Name"),
+            (Text "Roles" "Roles"),
+            (Text "Note" "Note" -Multi)
         )
     }
 )
@@ -176,7 +226,7 @@ foreach ($spec in $Lists) {
         Write-Host "  exists — id $listId" -ForegroundColor Yellow
     } elseif ($WhatIf) {
         Write-Host "  WOULD CREATE with columns: $(($spec.columns | ForEach-Object { $_.name }) -join ', ')" -ForegroundColor Yellow
-        Write-Host "  and would rename Title to 'Altronic Part #' and index it" -ForegroundColor Yellow
+        Write-Host "  and would rename Title to '$(if ($spec.titleDisplay) { $spec.titleDisplay } else { 'Altronic Part #' })'" -ForegroundColor Yellow
         continue
     } else {
         $body = @{
@@ -199,7 +249,35 @@ foreach ($spec in $Lists) {
 
     foreach ($col in $spec.columns) {
         if ($have -contains $col.name) {
-            Write-Host "    $($col.name) — already there"
+            # A choice column that exists may be missing a choice added since —
+            # SignOffStatus gained "Deleted" after both lists were created, and
+            # a value the column doesn't declare is refused on every write.
+            $current = $cols | Where-Object { $_.name -eq $col.name } | Select-Object -First 1
+            $missing = @()
+            if ($col.choice -and $current.choice) {
+                $missing = @($col.choice.choices | Where-Object { $current.choice.choices -notcontains $_ })
+            }
+            if ($missing.Count -eq 0) {
+                Write-Host "    $($col.name) — already there"
+            } elseif ($WhatIf) {
+                Write-Host "    $($col.name) — WOULD ADD choice(s): $($missing -join ', ')" -ForegroundColor Yellow
+            } else {
+                $choices = @($current.choice.choices) + $missing
+                Invoke-MgGraphRequest -Method PATCH `
+                    -Uri "https://graph.microsoft.com/v1.0/sites/$EngineeringSite/lists/$listId/columns/$($current.id)" `
+                    -Body (@{ choice = @{ choices = $choices; displayAs = $current.choice.displayAs; allowTextEntry = [bool]$current.choice.allowTextEntry } } | ConvertTo-Json -Depth 5) `
+                    -ContentType "application/json" | Out-Null
+                # Read it back: a column PATCH has been accepted before and changed
+                # nothing (Communication's append setting).
+                $after = Invoke-MgGraphRequest -Method GET `
+                    -Uri "https://graph.microsoft.com/v1.0/sites/$EngineeringSite/lists/$listId/columns/$($current.id)"
+                $still = @($missing | Where-Object { $after.choice.choices -notcontains $_ })
+                if ($still.Count -eq 0) {
+                    Write-Host "    $($col.name) — added choice(s): $($missing -join ', ')" -ForegroundColor Green
+                } else {
+                    Write-Host "    $($col.name) — choice(s) NOT added: $($still -join ', '). Add them in List settings." -ForegroundColor Red
+                }
+            }
         } elseif ($WhatIf) {
             Write-Host "    $($col.name) — WOULD ADD" -ForegroundColor Yellow
         } else {
@@ -210,26 +288,31 @@ foreach ($spec in $Lists) {
         }
     }
 
-    # Title is the part number: say so in SharePoint's own views, and index it.
+    # Title is the part number (the email, on Parts Roles): say so in
+    # SharePoint's own views, and index it on the two big lists.
+    $titleDisplay = if ($spec.titleDisplay) { $spec.titleDisplay } else { "Altronic Part #" }
+    $titleIndexed = if ($spec.ContainsKey("titleIndexed")) { $spec.titleIndexed } else { $true }
     $title = $cols | Where-Object { $_.name -eq "Title" } | Select-Object -First 1
     if ($title) {
-        if ($title.displayName -eq "Altronic Part #" -and $title.indexed) {
-            Write-Host "    Title — already 'Altronic Part #', indexed"
+        if ($title.displayName -eq $titleDisplay -and ($title.indexed -or -not $titleIndexed)) {
+            Write-Host "    Title — already '$titleDisplay'$(if ($titleIndexed) { ', indexed' })"
         } elseif ($WhatIf) {
-            Write-Host "    Title — WOULD rename to 'Altronic Part #' and index" -ForegroundColor Yellow
+            Write-Host "    Title — WOULD rename to '$titleDisplay'$(if ($titleIndexed) { ' and index' })" -ForegroundColor Yellow
         } else {
             try {
+                $patch = @{ displayName = $titleDisplay }
+                if ($titleIndexed) { $patch.indexed = $true }
                 Invoke-MgGraphRequest -Method PATCH `
                     -Uri "https://graph.microsoft.com/v1.0/sites/$EngineeringSite/lists/$listId/columns/$($title.id)" `
-                    -Body (@{ displayName = "Altronic Part #"; indexed = $true } | ConvertTo-Json) `
+                    -Body ($patch | ConvertTo-Json) `
                     -ContentType "application/json" | Out-Null
-                Write-Host "    Title — renamed 'Altronic Part #', indexed" -ForegroundColor Green
+                Write-Host "    Title — renamed '$titleDisplay'$(if ($titleIndexed) { ', indexed' })" -ForegroundColor Green
             } catch {
                 # Not fatal: ARC reads Title by its internal name either way. The
                 # index is the part that matters past 5,000 rows, so say how to
                 # do it by hand.
                 Write-Host "    Title — could not update ($($_.Exception.Message))." -ForegroundColor Red
-                Write-Host "      Do it in List settings: rename Title to 'Altronic Part #', and add it under Indexed columns." -ForegroundColor Red
+                Write-Host "      Do it in List settings: rename Title to '$titleDisplay'$(if ($titleIndexed) { ', and add it under Indexed columns' })." -ForegroundColor Red
             }
         }
     }

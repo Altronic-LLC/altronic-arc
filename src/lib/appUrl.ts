@@ -29,7 +29,9 @@ export type AppItemKind =
   | "supplierContact"
   | "supplierIssue"
   | "costImpactNotice"
-  | "featureRequest";
+  | "featureRequest"
+  | "altronicPart"
+  | "altronicComponent";
 
 const KIND_SEGMENTS: Record<AppItemKind, string> = {
   task: "task",
@@ -58,6 +60,10 @@ const KIND_SEGMENTS: Record<AppItemKind, string> = {
   supplierIssue: "supply-chain/supplier-issue",
   costImpactNotice: "supply-chain/cost-impact-notice",
   featureRequest: "feature-request",
+  // The Parts List's two lists share ONE detail route, told apart by kind —
+  // item ids repeat across the lists (see lib/partSearch.ts `partPath`).
+  altronicPart: "engineering/parts/part",
+  altronicComponent: "engineering/parts/component",
 };
 
 /** Absolute URL to an item's detail page in this app. */

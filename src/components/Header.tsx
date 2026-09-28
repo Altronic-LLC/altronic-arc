@@ -12,6 +12,7 @@ import {
   ClipboardX,
   ClipboardList,
   Cog,
+  Cpu,
   DollarSign,
   FileCheck,
   FileDiff,
@@ -132,6 +133,12 @@ const DEPARTMENTS: DepartmentGroup[] = [
         label: "CSA Listings",
         icon: <BadgeCheck className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/csa-listings"),
+      },
+      {
+        to: "/engineering/parts",
+        label: "Parts List",
+        icon: <Cpu className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/engineering/parts"),
       },
       {
         to: "/engineering/where-am-i",

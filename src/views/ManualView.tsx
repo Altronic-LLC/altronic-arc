@@ -4737,6 +4737,247 @@ const SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: "parts-list",
+    title: "Parts List",
+    group: "Engineering",
+    keywords: [
+      "parts list",
+      "part number",
+      "altronic part",
+      "parts book",
+      "component list",
+      "hoc",
+      "surface mount",
+      "through hole",
+      "sil",
+      "global search",
+      "manufacturer",
+      "mfg number",
+      "rating",
+      "resistor",
+      "capacitor",
+      "sap",
+      "sign-off",
+      "approve",
+      "approval",
+      "new part",
+      "parts roles",
+      "reviewing engineer",
+      "sap admin",
+      "hoc editor",
+    ],
+    searchText:
+      "The Parts List holds every Altronic part number, under Engineering. It replaces the Altronic Component List Power App and its 175 separate lists with two: the Altronic Part List (every prefix except the HOC components) and the Altronic Component List (601 and 611 Through Hole, 701 711 and 712 Surface Mount, 722 SIL). A part's first three digits are its parts list and its first digit is its Parts Book. From the landing page pick a Parts Book (100 to 900) and then a list, or type into the box: a three-digit number opens that list, a whole part number opens the part, a single digit opens that book, and anything else runs a Global Search. Global Search covers both lists at once. The search panel down the left has one box per field; searches are not case sensitive and match part of the text, so apacit finds capacitor. Use & to search several things in one box, like resistor&1k; spaces around & count as part of the search. Search everything matches words in any field. Every search is in the web address, so you can send a search as a link. The table sorts by any column and each column header opens a filter. A component's page shows what Rating A, B and C mean for that type of component, from the HOC entry rules. Parts loaded from the old app have no sign-off status because it didn't record approvals. Adding, editing and approving parts is limited to the people on the Parts Roles list, managed by ARC admins at Admin, Parts Roles: Editor adds and edits Part List parts and adds HOC components except 722; HOC editor also edits HOC components and adds to 722; Reviewing engineer approves new components at Engineering Review; SAP admin adds new parts to SAP, gives final approval and can edit every field. Click New part on a list to add one; the next free number is filled in. A new component goes to the reviewing engineers, then the SAP admin; a new Part List part goes to the SAP admin. Approve records a comment in the Approval history. Editing an approved part does not send it back for approval, but the SAP admin is emailed what changed. Part numbers can't be changed.",
+    render: () => (
+      <>
+        <P>
+          The <strong>Parts List</strong> holds every Altronic part number. It
+          replaces the <strong>Altronic Component List</strong> Power App, which
+          read 175 separate SharePoint lists, with two: the{" "}
+          <strong>Altronic Part List</strong> and the{" "}
+          <strong>Altronic Component List</strong>, which holds the HOC
+          components (601 and 611 Through Hole, 701, 711 and 712 Surface Mount,
+          and 722 SIL). Reach it from the <strong>Parts List</strong> card on the
+          Dashboard, or the <strong>Departments</strong> dropdown's Engineering
+          group.
+        </P>
+        <P>
+          A part number's first three digits are its <strong>parts list</strong>{" "}
+          — the old list it came from — and its first digit is its{" "}
+          <strong>Parts Book</strong>. You never need to know which of the two
+          SharePoint lists a part is on; ARC works that out from the number.
+        </P>
+        <H3>Finding a part</H3>
+        <P>
+          On the landing page, pick a <strong>Parts Book</strong> (100 to 900) to
+          see its lists, then pick a list. Or type into the box at the top:
+        </P>
+        <UL>
+          <LI>a three-digit number (<strong>601</strong>) opens that list;</LI>
+          <LI>a whole part number (<strong>601110</strong>) opens the part;</LI>
+          <LI>a single digit (<strong>6</strong>) opens that Parts Book;</LI>
+          <LI>anything else runs a Global Search for it.</LI>
+        </UL>
+        <P>
+          <strong>Global Search</strong>, top right, searches both lists at once
+          when you don't know where a part lives.
+        </P>
+        <H3>Searching a list</H3>
+        <P>
+          The search panel down the left has one box per field, just like the old
+          app. Searches are not case sensitive and match part of the text, so{" "}
+          <strong>apacit</strong> finds capacitor. To look for several things in
+          one box, separate them with <strong>&amp;</strong>:{" "}
+          <strong>resistor&amp;1k</strong>. Spaces around the &amp; count as
+          part of the search, so <strong>hello &amp; world</strong> won't match
+          "helloworld". Fill in several boxes and a part has to match all of
+          them.
+        </P>
+        <P>
+          <strong>Search everything</strong>, at the top of the panel, matches
+          words in any field, in any order. Every search is kept in the web
+          address, so you can send someone a link to exactly what you're looking
+          at. On a phone the panel folds away behind a <strong>Search</strong>{" "}
+          button, and opens by itself whenever a search is active.
+        </P>
+        <P>
+          <strong>Range search.</strong> On the component lists (601, 611, 701,
+          711, 712, 722) and in Global Search, Rating A/B/C, Tolerance, Temp Min
+          and Temp Max each have a small <strong>R</strong> button, as in the old
+          app. Press it and the box becomes <strong>From</strong> and{" "}
+          <strong>To</strong>; fill in either or both. Values are read the way
+          engineers write them — <strong>4K7</strong> is 4,700,{" "}
+          <strong>.1uF</strong> is 100 nF, <strong>250mW</strong> is 0.25 W,{" "}
+          <strong>1/4W</strong> too — and the panel says how it read what you
+          typed. So a 1K to 10K search finds a 4K7 resistor. (The old app read
+          4M1 as 4; ARC reads it as 4.1 M.) A value stored as a range, like
+          "4.5V TO 5.5V", is found when it overlaps yours. Units only have to
+          agree when both sides give one, so a 5V to 12V search skips "10mA".
+          Parts whose field holds no number — "SEE DATA SHEET", "X7R" — can't be
+          found by range, and the panel says how many there are. Press R again
+          to go back to a text search.
+        </P>
+        <P>
+          Click any column heading's arrow to sort, or the heading itself to
+          filter by its values. A list shows its first 150 parts; use{" "}
+          <strong>show all</strong> for the rest. The count always covers every
+          match.
+        </P>
+        <H3>A part's page</H3>
+        <P>
+          Click a part to open it. On a component, the <strong>Ratings</strong>{" "}
+          card says what Rating A, B and C mean for that kind of part — for a
+          resistor, resistance, working voltage and power — using the HOC entry
+          rules. When the description doesn't name a type those rules cover, the
+          ratings keep their plain names.
+        </P>
+        <P>
+          Every part's page has a <strong>Datasheet</strong> line — on the
+          Manufacturer card for a component, on the Purchasing card for a Part
+          List part. It shows <strong>Open datasheet</strong> whenever the part's
+          PDF (named by its part number) is in the Engineering Datasheets folder,
+          and opens it in a new tab. For a component, ARC looks for the file
+          itself rather than trusting the Has Data Sheet setting, and says so when
+          the two disagree — then Edit on the Manufacturer card is where to put
+          the setting right.
+        </P>
+        <P>
+          To add a datasheet, choose the PDF under <strong>Datasheet</strong> on
+          the New Part form. It's saved as the part number (for example{" "}
+          <code>604613.pdf</code>) once the part is added, whatever the file was
+          called, and a component's Has Data Sheet is set to Yes for you. A part
+          with no datasheet shows <strong>Upload datasheet</strong> on its page
+          to anyone who can edit it — the same thing, for an existing part or if
+          an upload didn't go through. Only PDFs are accepted, and ARC never
+          replaces a datasheet already in the folder: to swap one, replace the
+          file in SharePoint.
+        </P>
+        <P>
+          <strong>Sign-off status</strong> shows where a new part is in its
+          approval. Parts that came across from the old app show{" "}
+          <strong>Not tracked</strong>: it didn't record approvals, so there is
+          nothing to show.
+        </P>
+        <H3>Who can change parts</H3>
+        <P>
+          Everyone signed in can read and search the Parts List. Adding, editing
+          and approving parts is limited to the people on the{" "}
+          <strong>Parts Roles</strong> list, which ARC admins manage from{" "}
+          <strong>Admin → Parts Roles</strong>:
+        </P>
+        <UL>
+          <LI>
+            <strong>Editor</strong> — adds and edits Part List parts, and adds
+            HOC components (except in the 722 list).
+          </LI>
+          <LI>
+            <strong>HOC editor</strong> — also edits HOC components and adds to
+            the 722 list.
+          </LI>
+          <LI>
+            <strong>Reviewing engineer</strong> — approves new HOC components at
+            the Engineering Review step.
+          </LI>
+          <LI>
+            <strong>SAP admin</strong> — adds new parts to SAP and gives the final
+            approval, and can edit every field.
+          </LI>
+        </UL>
+        <P>
+          If you don't hold a role, you won't see the <strong>New part</strong>{" "}
+          button or any <strong>Edit</strong> buttons, and a part's page says who
+          to ask.
+        </P>
+        <H3>Adding a part</H3>
+        <P>
+          Open the list the part belongs in and click <strong>New part</strong>.
+          The next free number in that list is filled in for you (
+          <strong>Next free</strong> fills it in again if you change it). You can
+          also click New part on the Parts List landing page and type any number,
+          which is how a new three-digit list gets its first part. The form
+          follows the number: a 601, 611, 701, 711, 712 or 722 number gets the
+          component fields, and anything else the Part List fields.
+        </P>
+        <P>
+          Fields marked * are required, following the old app's rules. On a Part
+          List part that's everything except Mfg Part #, Manufacturer, Date
+          Drawing, Drawing Size and Notes; SAP # is left for the SAP admin. On a
+          component it's everything except Notes, plus any rating that doesn't
+          apply to that kind of part. ARC won't accept a number that's already
+          taken or that doesn't start with the list you're adding to.
+        </P>
+        <H3>Deleting and reusing a part number</H3>
+        <P>
+          The SAP admin can delete a part number: <strong>Delete part number</strong>{" "}
+          at the bottom of the part's page. You give a reason and type the number
+          back to confirm. The part disappears from every list and search, every
+          field is cleared, its datasheet (if it has one) is moved to
+          Datasheets/Deleted, and your name, the time and the reason are kept.
+          Nobody else sees the button.
+        </P>
+        <P>
+          A deleted number is <strong>reused</strong>. When somebody adds a part to
+          that list, Next free offers the lowest deleted number first, and the form
+          says it's a reused number. You can also type a deleted number yourself.
+          Nothing from the old part carries over: the new part starts empty,
+          starts its own approvals, and shows its own submitter. A link to a
+          deleted number that hasn't been reused yet says who deleted it and why.
+          Anything that still points at the number — a drawing, a BOM, SAP — will
+          mean the new part once it's reused, so delete only numbers that were
+          never really used.
+        </P>
+        <H3>Approvals</H3>
+        <P>
+          A new <strong>component</strong> goes to the reviewing engineers, who get
+          an email. One of them opens it, corrects anything wrong with Edit, and
+          clicks <strong>Approve</strong> with an optional comment. It then goes to
+          the SAP admin, who adds it to SAP and approves it. A new{" "}
+          <strong>Part List part</strong> goes straight to the SAP admin. Each
+          approval, with its comment, is kept in the part's{" "}
+          <strong>Approval history</strong>.
+        </P>
+        <P>
+          If you approve parts, the Parts List landing page tells you how many are{" "}
+          <strong>waiting for you</strong>. Click it to see them.
+        </P>
+        <H3>Editing a part</H3>
+        <P>
+          On a part's page, click <strong>Edit</strong> on the card you want to
+          change. Only the fields you change are saved, and a required field can't
+          be left blank. Editing an approved part doesn't send it back for
+          approval, but the SAP admin is emailed what changed so SAP can be kept
+          in step. A part number can't be changed — raise the right number as a
+          new part.
+        </P>
+        <Tip>
+          The old Altronic Component List app still works during the move. A part
+          added there reaches ARC the next time the lists are topped up, so check
+          with Engineering before relying on one being in both places.
+        </Tip>
+      </>
+    ),
+  },
+  {
     id: "build-requests",
     title: "Build Requests",
     group: "Engineering requests",
