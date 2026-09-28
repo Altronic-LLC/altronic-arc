@@ -9,6 +9,12 @@ const deleteMutate = vi.hoisted(() => vi.fn());
 vi.mock("@/hooks/useQcTimeTracking", () => ({
   useQcTimeEntries: () => ({ data: state.entries, isLoading: state.isLoading }),
   useDeleteQcTimeEntry: () => ({ mutate: deleteMutate, isPending: false }),
+  // "New Entry" renders QcTimeEntryFormModal, which reads this hook for its
+  // Hold Reason picker (api/qcTimeTracking.ts, 2026-09-25). Included here for
+  // the same reason it had to be added to QcTimeEntryFormModal.test.tsx's
+  // own mock of this module -- a wholesale vi.mock missing a member throws
+  // the moment the real component calls it, and this view mounts that modal.
+  useQcTimeHoldReasonChoices: () => ({ data: [] }),
 }));
 
 // Delete is admin-only, so the suites below flip this rather than mocking

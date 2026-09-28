@@ -598,3 +598,26 @@ export function mockLookupIdForEmail(email: string): number {
   }
   return (hash % 100000) + 900000;
 }
+
+/**
+ * Mention chips for just the people an edit ADDED — `bodyHtml`'s mentions
+ * minus `previousBodyHtml`'s. The SRM edit hooks have always auto-watched only
+ * newly added mentions, so this keeps that rule while handing the shared
+ * helper the HTML it reads. Shared by the three SRM hook modules.
+ */
+export function newlyMentionedHtml(previousBodyHtml: string, bodyHtml: string): string {
+  if (typeof document === "undefined") return "";
+  const before = new Set(
+    extractMentionedRecipients(previousBodyHtml).map((r) => r.email.toLowerCase()),
+  );
+  return extractMentionedRecipients(bodyHtml)
+    .filter((r) => !before.has(r.email.toLowerCase()))
+    .map((r) => {
+      const span = document.createElement("span");
+      span.className = "mention";
+      span.setAttribute("data-email", r.email);
+      span.textContent = `@${r.displayName}`;
+      return span.outerHTML;
+    })
+    .join("");
+}

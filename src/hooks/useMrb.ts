@@ -9,12 +9,16 @@ import {
 } from "@/api/mrb";
 import type { MrbEntry, MrbEntryInput, Person } from "@/types/task";
 import { mrbLabel } from "@/lib/mrbMapper";
-import { commentNotifyRecipients, extractMentionedRecipients } from "@/lib/mentions";
+import { commentNotifyRecipients, extractMentionedRecipients, newlyMentionedHtml } from "@/lib/mentions";
 import { notifyMentions } from "@/api/email";
-import { autoWatchFromMentions } from "@/api/autoWatch";
+import {
+  afterMentionAutoWatch,
+  beginMentionAutoWatch,
+  type MentionAutoWatch,
+} from "./mentionAutoWatch";
 // MRB lives on the PMO site, so cold-start mentions resolve there.
 import { resolvePmoSiteUserLookupId } from "@/api/operationsTasks";
-import { autoWatchers, mergePeople } from "@/lib/people";
+import { mergePeople } from "@/lib/people";
 import { htmlToPlainText } from "@/lib/htmlText";
 import { pushToast } from "@/components/Toast";
 
@@ -160,9 +164,12 @@ export function useAddMrbComment() {
         ],
         modifiedAt: new Date(),
       }));
-      return { previous };
+      // Mentioned people show as watchers NOW, not after the comment's round
+      // trip — see hooks/mentionAutoWatch.ts.
+      return { previous, autoWatch: beginMrbMentionAutoWatch(qc, id, comment.bodyHtml) };
     },
-    onSuccess: (_data, { id, comment }) => {
+    onSuccess: (_data, { id, comment }, ctx) => {
+      ctx?.autoWatch?.commit();
       pushToast({ message: "Comment posted." });
 
       const entries = qc.getQueryData<MrbEntry[]>(MRB_KEY);
@@ -192,25 +199,16 @@ export function useAddMrbComment() {
           attachments: [],
         });
       }
-
-      const mentioned = extractMentionedRecipients(comment.bodyHtml);
-      if (mentioned.length === 0) return;
-      void autoWatchFromMentions({
-        resolveLookupId: resolvePmoSiteUserLookupId,
-        recipients: mentioned,
-        currentWatchers: entry.watchers,
-        directory: entries ? collectMrbPeople(entries) : [],
-      })
-        .then((additions: Person[]) => applyWatcherAdditions(qc, id, entry.watchers, additions))
-        .catch((err: unknown) => {
-          console.error("Auto-watch failed for an MRB comment:", err);
-        });
     },
     onError: (_err, _vars, ctx) => {
+      ctx?.autoWatch?.cancel();
       if (ctx?.previous) qc.setQueryData(MRB_KEY, ctx.previous);
       errorToast("Couldn't post comment — please retry.");
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: MRB_KEY }),
+    onSettled: (_data, _err, _vars, ctx) =>
+      afterMentionAutoWatch(ctx?.autoWatch, () => {
+        void qc.invalidateQueries({ queryKey: MRB_KEY });
+      }),
   });
 }
 
@@ -228,7 +226,14 @@ export function useEditMrbComment() {
       /** Mentions already in the comment before the edit — not re-notified. */
       previousBodyHtml: string;
     }) => editMrbComment(id, target, bodyHtml),
-    onSuccess: (_data, { id, target, bodyHtml, previousBodyHtml }) => {
+    onMutate: async ({ id, bodyHtml, previousBodyHtml }) => {
+      // Only the NEWLY mentioned become watchers — same rule as the email below.
+      const newMentions = newlyMentionedHtml(previousBodyHtml, bodyHtml);
+      if (newMentions) await qc.cancelQueries({ queryKey: MRB_KEY });
+      return { autoWatch: beginMrbMentionAutoWatch(qc, id, newMentions) };
+    },
+    onSuccess: (_data, { id, target, bodyHtml, previousBodyHtml }, ctx) => {
+      ctx?.autoWatch?.commit();
       pushToast({ message: "Comment updated." });
 
       const entries = qc.getQueryData<MrbEntry[]>(MRB_KEY);
@@ -256,49 +261,40 @@ export function useEditMrbComment() {
         commentExcerpt: htmlToPlainText(bodyHtml),
         attachments: [],
       });
-      void autoWatchFromMentions({
-        resolveLookupId: resolvePmoSiteUserLookupId,
-        recipients: added,
-        currentWatchers: entry.watchers,
-        directory: entries ? collectMrbPeople(entries) : [],
-      })
-        .then((additions: Person[]) => applyWatcherAdditions(qc, id, entry.watchers, additions))
-        .catch((err: unknown) => {
-          console.error("Auto-watch failed for an MRB comment edit:", err);
-        });
     },
-    onError: () => errorToast("Couldn't update the comment — please retry."),
-    onSettled: () => qc.invalidateQueries({ queryKey: MRB_KEY }),
+    onError: (_err, _vars, ctx) => {
+      ctx?.autoWatch?.cancel();
+      errorToast("Couldn't update the comment — please retry.");
+    },
+    onSettled: (_data, _err, _vars, ctx) =>
+      afterMentionAutoWatch(ctx?.autoWatch, () => {
+        void qc.invalidateQueries({ queryKey: MRB_KEY });
+      }),
   });
 }
 
 /**
- * Apply auto-watch additions optimistically, then save them — the watcher
- * chips and toast show at once, and a failed write refetches so the UI stops
- * claiming someone is watching when they aren't.
+ * Start auto-watch for an MRB comment: the mentioned people appear as watchers
+ * immediately and are written once the comment lands. `setMrbWatchers` still
+ * refuses the write while the Watchers column is missing, which lands in
+ * `onWriteFailed` — the same outcome as before.
  */
-async function applyWatcherAdditions(
+function beginMrbMentionAutoWatch(
   qc: QueryClient,
   id: number,
-  currentWatchers: Person[],
-  additions: Person[],
-): Promise<void> {
-  if (additions.length === 0) return;
-  const next = autoWatchers(currentWatchers, additions);
-  const patch = () => patchEntry(qc, id, (e) => ({ ...e, watchers: next }));
-  patch();
-  pushToast({
-    message:
-      additions.length === 1
-        ? `${additions[0].displayName} is now watching this MRB entry.`
-        : `${additions.length} people are now watching this MRB entry.`,
+  bodyHtml: string,
+): MentionAutoWatch | null {
+  const entry = qc.getQueryData<MrbEntry[]>(MRB_KEY)?.find((e) => e.id === id);
+  if (!entry || !bodyHtml) return null;
+  return beginMentionAutoWatch({
+    bodyHtml,
+    currentWatchers: entry.watchers,
+    directory: () => collectMrbPeople(qc.getQueryData<MrbEntry[]>(MRB_KEY) ?? []),
+    resolveLookupId: resolvePmoSiteUserLookupId,
+    patch: (watchers) => patchEntry(qc, id, (e) => ({ ...e, watchers })),
+    write: (watchers) => setMrbWatchers(id, watchers),
+    onWriteFailed: () => void qc.invalidateQueries({ queryKey: MRB_KEY }),
+    noun: "MRB entry",
   });
-  try {
-    await setMrbWatchers(id, next);
-    patch();
-  } catch (err) {
-    console.error("Couldn't save auto-watch additions:", err);
-    errorToast("Couldn't add the mentioned person as a watcher — refreshing.");
-    qc.invalidateQueries({ queryKey: MRB_KEY });
-  }
 }
+

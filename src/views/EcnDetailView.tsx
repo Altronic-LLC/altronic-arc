@@ -1,14 +1,16 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { FileDiff, FolderOpen, Pencil, User } from "lucide-react";
+import { FileDiff, FolderOpen, Pencil, Trash2, User } from "lucide-react";
 import {
   collectEcnPeople,
   useAddEcnComment,
   useEcn,
   useEcns,
+  useDeleteEcn,
   useEditEcnComment,
   useUpdateEcnFields,
 } from "@/hooks/useEcns";
+import { useAdminAccess } from "@/hooks/useIsAdmin";
 import type { Comment, Ecn } from "@/types/task";
 import {
   ECN_SECTIONS,
@@ -65,6 +67,8 @@ export function EcnDetailView() {
   const updateFields = useUpdateEcnFields();
   const addComment = useAddEcnComment();
   const editComment = useEditEcnComment();
+  const deleteEcn = useDeleteEcn();
+  const { isAdmin } = useAdminAccess();
 
   const mentionCandidates = useMemo(
     () => mergePeople(collectEcnPeople(ecns), directory),
@@ -172,6 +176,28 @@ export function EcnDetailView() {
     });
   }
 
+  async function handleDelete() {
+    // The button isn't rendered for non-admins; useDeleteEcn checks again.
+    if (!ecn || !isAdmin) return;
+    const label = ecn.logNo ? `ECN ${ecn.logNo}` : `ECN #${ecn.id}`;
+    const ok = window.confirm(
+      `Delete ${label}?
+
+${ecn.title || "No title"}
+
+` +
+        "This removes it from SharePoint, with its comments and attachments. " +
+        "A superseded ECN should normally be revised (an R suffix) rather than deleted.",
+    );
+    if (!ok) return;
+    try {
+      await deleteEcn.mutateAsync(ecn.id);
+      navigate("/engineering/ecns");
+    } catch {
+      // Already toasted by the hook; stay on the page.
+    }
+  }
+
   const submitter = ecn.submittedBy?.displayName;
   const projectTitle =
     projects.find((p) => p.lookupId === ecn.parentProject?.lookupId)?.title ?? null;
@@ -191,6 +217,18 @@ export function EcnDetailView() {
           <p className="text-sm text-fg-muted">{ecn.title || "No title"}</p>
         </div>
         <EcnOnHoldChip onHold={ecn.values.onHold ?? ""} />
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={deleteEcn.isPending}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-xs font-medium text-cooper-red hover:bg-cooper-red/10 disabled:opacity-50"
+            title="Delete this ECN (admins only)"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Delete
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">

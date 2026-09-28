@@ -20,6 +20,29 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.167.0",
+    date: "2026-09-28",
+    changes: [
+      "Admins can now delete an ECN from its page, after confirming — for a duplicate or a notice entered by mistake. A superseded ECN should still be revised rather than deleted",
+    ],
+  },
+  {
+    version: "0.166.3",
+    date: "2026-09-25",
+    changes: [
+      "Someone you @-mention in a comment now shows as a watcher the moment you press Post, instead of a few seconds after the comment saves",
+      "A mentioned watcher no longer briefly disappears and reappears while the comment finishes saving",
+      "If a mentioned person can't be added as a watcher because they have no SharePoint account, ARC now says so instead of skipping them silently",
+    ],
+  },
+  {
+    version: "0.166.2",
+    date: "2026-09-25",
+    changes: [
+      "On a build request, the HI-POT Test box now appears on the Harness checklist instead of the PCB data-package checklist",
+    ],
+  },
+  {
     version: "0.166.1",
     date: "2026-09-25",
     changes: [

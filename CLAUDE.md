@@ -234,7 +234,7 @@ src/
 │   ├── taskColumns.ts            Task list column metadata / choice discovery
 │   ├── eirs.ts                   EIR CRUD
 │   ├── eirRoles.ts               EIR role tags (engineer / supply chain) CRUD
-│   ├── ecns.ts                   ECN CRUD + comments (Engineering) — no delete
+│   ├── ecns.ts                   ECN CRUD + comments (Engineering) — admin-only delete
 │   ├── ecnChecklists.ts          ECN Checklist CRUD (MFGFRM-038), one row per ECN — no delete
 │   ├── faits.ts                  FAIT CRUD + comments (Supply Chain) — no delete
 │   ├── testSheets.ts             Test Results CRUD
@@ -345,7 +345,7 @@ src/
 │   ├── useMrb.ts                 MRB queries, mutations + comment thread (an edit diffs against the cached row)
 │   ├── useFeatureRequests.ts     ARC Feature Requests queries, mutations + comment thread — no admin gate
 │   ├── useWhereAmI.ts            Where am I? queries + mutations
-│   ├── useEcns.ts                ECN queries + mutations (submitter-only notifications)
+│   ├── useEcns.ts                ECN queries + mutations (submitter-only notifications, admin-gated delete)
 │   ├── useEcnChecklists.ts       ECN Checklist queries + mutations (no admin gate)
 │   ├── useFaits.ts               FAIT queries + mutations
 │   ├── useVisitReportFilters.ts  URL-backed Visit Report filters (+ filterSearch)
@@ -368,6 +368,7 @@ src/
 │   ├── useVersionCheck.ts        Polls version.json → update banner
 │   ├── useUnseenMentions.ts      Unseen-@-mention badge state
 │   ├── useTheme.ts               Dark/light toggle (localStorage)
+│   ├── mentionAutoWatch.ts       @-mention → watcher from onMutate: chips now, write on success (every comment thread)
 │   ├── useCommentMirror.ts       fanOutComment() — resolves the links, writes the mirrors, notifies each side
 │   ├── useDraft.ts               One field's draft in localStorage (comments)
 │   ├── useFormDraft.ts           A whole form's draft — title + description together
@@ -1625,9 +1626,27 @@ Five things that shape the feature:
   `toStoredRichText` — the same arrangement as the EIR long fields and Gray
   Market's `WhereUsed`.
 
-**No delete**, in the UI or the API module — an ECN is a controlled record of a
-change that was made, and a superseded notice is revised rather than removed.
-`ecns.test.ts` asserts the module exports nothing matching /delete|remove/.
+**Delete exists now, and is ADMIN-ONLY** (Ray, 2026-09-28) — this list had
+none, on the "a controlled record is revised, not removed" rule, until a row
+that should never have existed (a duplicate, a test entry) had no way out
+short of SharePoint. A superseded notice is STILL revised with an `R` suffix;
+the confirm dialog says so.
+
+- **The gate is in `useDeleteEcn`'s `mutationFn`**, not only on the button, so
+  no future screen reaches `deleteEcn` ungated — the Teradyne Log / QC Time
+  arrangement. `useEcns.delete.test.tsx` was verified by removing the gate and
+  watching it fail.
+- **The button is HIDDEN from non-admins**, not disabled — same as Teradyne's
+  bin (`EcnDetailView.deleteGate.test.tsx`).
+- **Its ECN Checklist row is deliberately left behind.** That list has no
+  delete by design, and an orphan appears on no ECN's page — harmless, and
+  recoverable if the ECN was deleted by mistake.
+- **A refusal goes through `describeListWriteFailure`**: deleting an item needs
+  more SharePoint permission than editing one, so an admin in ARC can still be
+  refused by SharePoint.
+
+`ecns.test.ts` used to assert NO delete; it now asserts EXACTLY ONE
+(`deleteEcn`). That inversion is deliberate.
 
 1,813 rows is under the 5,000-item threshold, so the list is fetched whole and
 filtered in the browser — which is what makes searching the Detailed
@@ -6268,6 +6287,40 @@ Two things to preserve:
 
 A new entity with a Watchers column gets the same treatment in its create hook
 and its assign path — that's six departments doing it identically now.
+
+### A mention becomes a watcher when Post is pressed — `hooks/mentionAutoWatch.ts`
+
+Auto-watch-on-mention used to start in each comment mutation's `onSuccess`, so
+the chip waited on the whole comment round trip (read Communication, PATCH,
+re-read) plus a lookupId resolution — and then the comment's own `onSettled`
+refetch, in flight before the Watchers write landed, wiped the chip until the
+write re-patched it (Ray, 2026-09-25: "they should be added as a watcher more
+quickly"). `beginMentionAutoWatch` splits the work across the lifecycle, and
+every comment thread uses it:
+
+| Phase | What happens |
+|---|---|
+| `onMutate` | chips + toast appear NOW — a chip needs no lookupId, only a write does |
+| `onSuccess` | `commit()` resolves lookupIds and writes Watchers |
+| `onError` | `cancel()` — a failed comment writes nothing; the snapshot rollback removes the chips |
+| `onSettled` | `afterMentionAutoWatch` holds the refetch until the write has landed |
+
+Three rules:
+
+- **Nothing is written before the comment lands.** Optimistic display is
+  free; a subscription left behind by a comment that failed is not.
+- **Don't reconcile a comment write's returned row while an auto-watch is in
+  flight** — it predates the new watchers and wipes their chips. Tasks'
+  `settleCommentWrite` invalidates instead.
+- **A mentioned person with no resolvable lookupId is taken back AND named in
+  a toast.** They used to be skipped silently, which is how a mention that
+  subscribed nobody went unnoticed.
+
+`resolveLookupId` is still per-site and still required — see
+`api/autoWatch.ts`, which the helper calls at commit time.
+`useTasks.mentionWatch.test.tsx` pins the timing against a comment write the
+test controls, and was verified by running it against the old hook (all three
+cases fail).
 
 ### Comment timestamps are on one clock, not the author's
 

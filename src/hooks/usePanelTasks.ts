@@ -11,7 +11,11 @@ import {
   updatePanelTaskFields,
   watchPanelTask,
 } from "@/api/panelTasks";
-import { autoWatchFromMentions } from "@/api/autoWatch";
+import {
+  afterMentionAutoWatch,
+  beginMentionAutoWatch,
+  type MentionAutoWatch,
+} from "./mentionAutoWatch";
 import { resolvePanelSiteUserLookupId } from "@/api/panelOrders";
 import type { PanelProject, PanelTask, Person } from "@/types/task";
 import { pushToast } from "@/components/Toast";
@@ -321,8 +325,8 @@ export function useAddPanelTaskComment() {
       id: number;
       comment: { authorName: string; authorEmail: string; bodyHtml: string };
     }) => addPanelTaskComment(id, comment),
-    onMutate: ({ id, comment }) =>
-      snapshotAndPatch(
+    onMutate: async ({ id, comment }) => ({
+      ...(await snapshotAndPatch(
         qc,
         id,
         patchPanelTask(id, (t) => ({
@@ -339,8 +343,13 @@ export function useAddPanelTaskComment() {
           ],
           modifiedAt: new Date(),
         })),
-      ),
-    onSuccess: (_data, { id, comment }) => {
+      )),
+      // Mentioned people show as watchers NOW, not after the comment's round
+      // trip — see hooks/mentionAutoWatch.ts.
+      autoWatch: beginPanelTaskMentionAutoWatch(qc, id, comment.bodyHtml),
+    }),
+    onSuccess: (_data, { id, comment }, ctx) => {
+      ctx?.autoWatch?.commit();
       pushToast({ message: "Comment posted." });
 
       const tasks = qc.getQueryData<PanelTask[]>(PANEL_TASKS_KEY);
@@ -363,63 +372,43 @@ export function useAddPanelTaskComment() {
           attachments: [],
         });
       }
-
-      const mentioned = extractMentionedRecipients(comment.bodyHtml);
-      if (mentioned.length === 0) return;
-      void autoWatchFromMentions({
-        resolveLookupId: resolvePanelSiteUserLookupId,
-        recipients: mentioned,
-        currentWatchers: task.watchers,
-        directory: tasks ? collectPeopleFromPanelTasks(tasks) : [],
-      })
-        .then((additions) => applyPanelTaskWatcherAdditions(qc, id, task.watchers, additions))
-        .catch((err) => {
-          console.error("Auto-watch failed for panel task comment:", err);
-        });
     },
     onError: (_err, _vars, ctx) => {
+      ctx?.autoWatch?.cancel();
       rollback(qc, ctx);
       errorToast("Couldn't post comment — please retry.");
     },
-    onSettled: () => invalidatePanelTasks(qc),
+    onSettled: (_data, _err, _vars, ctx) =>
+      afterMentionAutoWatch(ctx?.autoWatch, () => invalidatePanelTasks(qc)),
   });
 }
 
 /**
- * Apply auto-watch additions optimistically — watcher chips + toast show
- * immediately, the SharePoint write happens in the background (re-patching
- * after it lands in case a refetch overwrote the optimistic version). On
- * failure: error toast + refetch so the UI doesn't lie.
+ * Start auto-watch for a task comment: the mentioned people appear as
+ * watchers immediately and are written once the comment lands. Resolves
+ * against the panel team site — a lookupId is per site collection.
  */
-async function applyPanelTaskWatcherAdditions(
+function beginPanelTaskMentionAutoWatch(
   qc: QueryClient,
   id: number,
-  currentWatchers: Person[],
-  additions: Person[],
-): Promise<void> {
-  if (additions.length === 0) return;
-  const next = [...currentWatchers, ...additions];
-  const patch = () =>
-    qc.setQueryData<PanelTask[]>(PANEL_TASKS_KEY, (old) =>
-      old?.map((t) => (t.id === id ? { ...t, watchers: next } : t)),
-    );
-  patch();
-  pushToast({
-    message:
-      additions.length === 1
-        ? `${additions[0].displayName} is now watching this task.`
-        : `${additions.length} people are now watching this task.`,
+  bodyHtml: string,
+): MentionAutoWatch | null {
+  const item = qc.getQueryData<PanelTask[]>(PANEL_TASKS_KEY)?.find((x) => x.id === id);
+  if (!item) return null;
+  return beginMentionAutoWatch({
+    bodyHtml,
+    currentWatchers: item.watchers,
+    directory: () => collectPeopleFromPanelTasks(qc.getQueryData<PanelTask[]>(PANEL_TASKS_KEY) ?? []),
+    resolveLookupId: resolvePanelSiteUserLookupId,
+    patch: (watchers) =>
+      qc.setQueryData<PanelTask[]>(PANEL_TASKS_KEY, (old) =>
+        old?.map((x) => (x.id === id ? { ...x, watchers } : x)),
+      ),
+    write: (watchers) => setPanelTaskWatchers(id, watchers),
+    onWriteFailed: () => invalidatePanelTasks(qc),
+    noun: "task",
   });
-  try {
-    await setPanelTaskWatchers(id, next);
-    patch();
-  } catch (err) {
-    console.error("Couldn't save auto-watch additions:", err);
-    errorToast("Couldn't add the mentioned person as a watcher — refreshing.");
-    invalidatePanelTasks(qc);
-  }
 }
-
 
 /** Flatten every Person across the panel task list, deduped by email/displayName. */
 function collectPeopleFromPanelTasks(tasks: PanelTask[]): Person[] {
@@ -448,8 +437,8 @@ export function useEditPanelTaskComment() {
       /** Author opted in to "Notify everyone again" — see onSuccess below. */
       renotify?: boolean;
     }) => editPanelTaskComment(id, target, newBodyHtml),
-    onMutate: ({ id, target, newBodyHtml }) =>
-      snapshotAndPatch(
+    onMutate: async ({ id, target, newBodyHtml }) => ({
+      ...(await snapshotAndPatch(
         qc,
         id,
         patchPanelTask(id, (t) => ({
@@ -462,8 +451,13 @@ export function useEditPanelTaskComment() {
           ),
           modifiedAt: new Date(),
         })),
-      ),
+      )),
+      // Anyone @-mentioned in the edited body becomes a watcher (unless
+      // already watching) — same rule, and same timing, as a new comment.
+      autoWatch: beginPanelTaskMentionAutoWatch(qc, id, newBodyHtml),
+    }),
     onSuccess: (_data, { id, target, newBodyHtml, renotify }, ctx) => {
+      ctx?.autoWatch?.commit();
       const prevComment = ctx?.prevTask?.comments.find(
         (c) =>
           c.timestamp.getTime() === target.timestamp.getTime() &&
@@ -517,26 +511,14 @@ export function useEditPanelTaskComment() {
           });
         }
       }
-
-      const mentioned = extractMentionedRecipients(newBodyHtml);
-      if (mentioned.length === 0) return;
-      const allTasks = qc.getQueryData<PanelTask[]>(PANEL_TASKS_KEY);
-      void autoWatchFromMentions({
-        resolveLookupId: resolvePanelSiteUserLookupId,
-        recipients: mentioned,
-        currentWatchers: task.watchers,
-        directory: allTasks ? collectPeopleFromPanelTasks(allTasks) : [],
-      })
-        .then((additions) => applyPanelTaskWatcherAdditions(qc, id, task.watchers, additions))
-        .catch((err) => {
-          console.error("Auto-watch failed for edited panel task comment:", err);
-        });
     },
     onError: (_err, _vars, ctx) => {
+      ctx?.autoWatch?.cancel();
       rollback(qc, ctx);
       errorToast("Couldn't save comment — reverted.");
     },
-    onSettled: () => invalidatePanelTasks(qc),
+    onSettled: (_data, _err, _vars, ctx) =>
+      afterMentionAutoWatch(ctx?.autoWatch, () => invalidatePanelTasks(qc)),
   });
 }
 

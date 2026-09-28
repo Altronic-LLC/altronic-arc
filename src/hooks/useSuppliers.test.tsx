@@ -12,6 +12,7 @@ import {
   useUpdateSupplierDetails,
   useUpdateSupplierLogo,
 } from "./useSuppliers";
+import { newlyMentionedHtml } from "@/lib/mentions";
 import type { Supplier } from "@/types/task";
 
 const notifyMentions = vi.hoisted(() =>
@@ -209,5 +210,50 @@ describe("useAddSupplierComment", () => {
       const updated = result.current.list.data?.find((s) => s.id === supplier.id);
       expect(updated?.watchers.some((w) => w.email === "jerrod.waldron@altronic-llc.com")).toBe(true);
     });
+  });
+
+  it("shows the mentioned person as a watcher while the comment is still posting", async () => {
+    const wrapper = hookWrapper();
+    const { result } = renderHook(
+      () => ({ add: useAddSupplierComment(), list: useSuppliers() }),
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current.list.data?.length).toBeGreaterThan(0));
+    const supplier = result.current.list.data!.find((s) => s.id === 29)!;
+
+    act(() => {
+      result.current.add.mutate({
+        id: supplier.id,
+        comment: {
+          authorName: "Ray White",
+          authorEmail: "ray.white@altronic-llc.com",
+          bodyHtml: mention("glenn.terry@altronic-llc.com", "Glenn"),
+        },
+      });
+    });
+
+    // The chip must be there BEFORE the comment's round trip finishes.
+    await waitFor(() => {
+      expect(result.current.add.isPending).toBe(true);
+      const updated = result.current.list.data?.find((s) => s.id === supplier.id);
+      expect(updated?.watchers.some((w) => w.email === "glenn.terry@altronic-llc.com")).toBe(true);
+    });
+    await waitFor(() => expect(result.current.add.isSuccess).toBe(true));
+  });
+});
+
+describe("newlyMentionedHtml", () => {
+  it("keeps only the mentions the edit added", () => {
+    const before = mention("a@altronic-llc.com", "Ann");
+    const after = before + mention("b@altronic-llc.com", "Bob");
+    const html = newlyMentionedHtml(before, after);
+    expect(html).toContain('data-email="b@altronic-llc.com"');
+    expect(html).toContain("@Bob");
+    expect(html).not.toContain("a@altronic-llc.com");
+  });
+
+  it("is empty when the edit added nobody", () => {
+    const body = mention("a@altronic-llc.com", "Ann");
+    expect(newlyMentionedHtml(body, body)).toBe("");
   });
 });
