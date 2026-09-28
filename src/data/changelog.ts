@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.167.0",
+    date: "2026-09-28",
+    changes: [
+      "Admins can now delete an ECN from its page, after confirming — for a duplicate or a notice entered by mistake. A superseded ECN should still be revised rather than deleted",
+    ],
+  },
+  {
     version: "0.166.3",
     date: "2026-09-25",
     changes: [

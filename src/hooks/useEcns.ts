@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tansta
 import {
   addEcnComment,
   createEcn,
+  deleteEcn,
   editEcnComment,
   listEcns,
   updateEcnFields,
@@ -16,6 +17,8 @@ import { useCurrentUser } from "./useCurrentUser";
 import { pushToast } from "@/components/Toast";
 import { createEcnChecklist } from "@/api/ecnChecklists";
 import { ECN_CHECKLISTS_KEY } from "./useEcnChecklists";
+import { useIsAdmin } from "./useIsAdmin";
+import { describeListWriteFailure } from "@/lib/listWriteErrors";
 
 // =============================================================================
 // ECN hooks.
@@ -245,5 +248,37 @@ export function useEditEcnComment() {
     },
     onError: () => errorToast("Couldn't update the comment — please retry."),
     onSettled: () => qc.invalidateQueries({ queryKey: ECN_KEY }),
+  });
+}
+
+/**
+ * Delete an ECN — ADMIN-ONLY (Ray, 2026-09-28).
+ *
+ * The check is HERE, in the mutationFn, as well as on the button, so no future
+ * screen or bulk action can delete without it — the Teradyne Log / QC Time
+ * arrangement. SharePoint's own permissions remain the real boundary, and
+ * deleting an item needs more than editing one, so a refusal is worded by
+ * `describeListWriteFailure` rather than shown raw.
+ */
+export function useDeleteEcn() {
+  const qc = useQueryClient();
+  const isAdmin = useIsAdmin();
+  return useMutation({
+    mutationFn: (id: number) => {
+      if (!isAdmin) throw new Error("Only admins can delete ECNs.");
+      return deleteEcn(id);
+    },
+    onSuccess: (_void, id) => {
+      qc.setQueryData<Ecn[]>(ECN_KEY, (old) => old?.filter((e) => e.id !== id));
+      qc.invalidateQueries({ queryKey: ECN_KEY });
+      pushToast({ message: "ECN deleted." });
+    },
+    onError: (err: Error) => {
+      // Nothing was removed — refetch so the screen matches SharePoint.
+      qc.invalidateQueries({ queryKey: ECN_KEY });
+      errorToast(
+        describeListWriteFailure(err, { action: "delete that ECN", site: "Altronic_Engineering" }),
+      );
+    },
   });
 }

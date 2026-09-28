@@ -234,7 +234,7 @@ src/
 │   ├── taskColumns.ts            Task list column metadata / choice discovery
 │   ├── eirs.ts                   EIR CRUD
 │   ├── eirRoles.ts               EIR role tags (engineer / supply chain) CRUD
-│   ├── ecns.ts                   ECN CRUD + comments (Engineering) — no delete
+│   ├── ecns.ts                   ECN CRUD + comments (Engineering) — admin-only delete
 │   ├── ecnChecklists.ts          ECN Checklist CRUD (MFGFRM-038), one row per ECN — no delete
 │   ├── faits.ts                  FAIT CRUD + comments (Supply Chain) — no delete
 │   ├── testSheets.ts             Test Results CRUD
@@ -345,7 +345,7 @@ src/
 │   ├── useMrb.ts                 MRB queries, mutations + comment thread (an edit diffs against the cached row)
 │   ├── useFeatureRequests.ts     ARC Feature Requests queries, mutations + comment thread — no admin gate
 │   ├── useWhereAmI.ts            Where am I? queries + mutations
-│   ├── useEcns.ts                ECN queries + mutations (submitter-only notifications)
+│   ├── useEcns.ts                ECN queries + mutations (submitter-only notifications, admin-gated delete)
 │   ├── useEcnChecklists.ts       ECN Checklist queries + mutations (no admin gate)
 │   ├── useFaits.ts               FAIT queries + mutations
 │   ├── useVisitReportFilters.ts  URL-backed Visit Report filters (+ filterSearch)
@@ -1626,9 +1626,27 @@ Five things that shape the feature:
   `toStoredRichText` — the same arrangement as the EIR long fields and Gray
   Market's `WhereUsed`.
 
-**No delete**, in the UI or the API module — an ECN is a controlled record of a
-change that was made, and a superseded notice is revised rather than removed.
-`ecns.test.ts` asserts the module exports nothing matching /delete|remove/.
+**Delete exists now, and is ADMIN-ONLY** (Ray, 2026-09-28) — this list had
+none, on the "a controlled record is revised, not removed" rule, until a row
+that should never have existed (a duplicate, a test entry) had no way out
+short of SharePoint. A superseded notice is STILL revised with an `R` suffix;
+the confirm dialog says so.
+
+- **The gate is in `useDeleteEcn`'s `mutationFn`**, not only on the button, so
+  no future screen reaches `deleteEcn` ungated — the Teradyne Log / QC Time
+  arrangement. `useEcns.delete.test.tsx` was verified by removing the gate and
+  watching it fail.
+- **The button is HIDDEN from non-admins**, not disabled — same as Teradyne's
+  bin (`EcnDetailView.deleteGate.test.tsx`).
+- **Its ECN Checklist row is deliberately left behind.** That list has no
+  delete by design, and an orphan appears on no ECN's page — harmless, and
+  recoverable if the ECN was deleted by mistake.
+- **A refusal goes through `describeListWriteFailure`**: deleting an item needs
+  more SharePoint permission than editing one, so an admin in ARC can still be
+  refused by SharePoint.
+
+`ecns.test.ts` used to assert NO delete; it now asserts EXACTLY ONE
+(`deleteEcn`). That inversion is deliberate.
 
 1,813 rows is under the 5,000-item threshold, so the list is fetched whole and
 filtered in the browser — which is what makes searching the Detailed
