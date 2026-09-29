@@ -21,7 +21,9 @@
 
 import {
   SITES,
+  SP_ALTRONIC_COMPONENT_LIST_ID,
   SP_ALTRONIC_EQUIPMENT_LIST_ID,
+  SP_ALTRONIC_PART_LIST_ID,
   SP_BUILD_REQUESTS_LIST_ID,
   SP_CAD_DRAWINGS_LIST_ID,
   SP_CCC_DRAWINGS_LIST_ID,
@@ -174,6 +176,14 @@ export const APPS: AppSpec[] = [
     ),
   },
   { path: "/csa-listings", label: "CSA Listings", site: "engineering", lists: ids(SP_CSA_LISTINGS_LIST_ID) },
+  // Two lists: unavailable only when BOTH are refused. One refused list still
+  // leaves half the parts, and the in-screen notice names which half.
+  {
+    path: "/engineering/parts",
+    label: "Parts List",
+    site: "engineering",
+    lists: ids(SP_ALTRONIC_PART_LIST_ID, SP_ALTRONIC_COMPONENT_LIST_ID),
+  },
   { path: "/engineering/where-am-i", label: "Where Am I?", site: "engineering", lists: ids(SP_WHERE_AM_I_LIST_ID) },
   { path: "/engineering/ecns", label: "ECNs", site: "engineering", lists: ids(SP_ECNS_LIST_ID) },
   { path: "/feature-requests", label: "ARC Feature Requests", site: "engineering", lists: ids(SP_FEATURE_REQUESTS_LIST_ID) },

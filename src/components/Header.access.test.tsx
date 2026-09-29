@@ -15,6 +15,14 @@ import { clearAccessDenials, markListDenied, markSiteDenied } from "@/hooks/useL
 // "ask someone", which is the true and actionable version.
 // =============================================================================
 
+// Pinned OFF, so the "before it goes live" case doesn't depend on whether
+// this machine's .env.local sets VITE_PARTS_LIST_LIVE. The live case is
+// Header.partsListLive.test.tsx.
+vi.mock("@/api/config", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/api/config")>();
+  return { ...actual, PARTS_LIST_LIVE: false };
+});
+
 vi.mock("@/hooks/useCurrentUser", () => ({
   useCurrentUser: () => ({
     displayName: "Demo User",
@@ -33,6 +41,15 @@ async function openDepartments() {
   await user.click(screen.getAllByRole("button", { name: /Departments|Depts/ })[0]);
   return user;
 }
+
+describe("Departments menu — the Parts List before it goes live", () => {
+  it("reads Soon and isn't a link — testers go by URL until VITE_PARTS_LIST_LIVE", async () => {
+    await openDepartments();
+    const label = screen.getByText("Parts List");
+    expect(label.closest("a")).toBeNull();
+    expect(label.parentElement).toHaveTextContent(/Soon/);
+  });
+});
 
 describe("Departments menu — refused lists", () => {
   it("links to an app whose list is reachable", async () => {

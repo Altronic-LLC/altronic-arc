@@ -71,9 +71,9 @@ const SYSTEM_TIERS: Tier[] = [
   {
     label: "React SPA",
     nodes: [
-      { label: "Views", hint: "Dashboard · List · Kanban · Detail · EIRs · Test Sheets · Project Folders · CSA Listings · Drawing File Logs · Digital QC · Ignition QC · Coil Defect Log · Potting Sample Log · Visit Reports (list + calendar) · QC Time Tracking · QC Forms (landing + QCFRM-012 CPU-95) · Panel QC Issue Tracker · Open Orders Report · Gray Market Requests · MRB · Where Am I? · ECNs (incl. the MFGFRM-038 checklist) · FAITs · ARC Feature Requests · Drawing Work Sheet (print) · Admin (incl. Quick Links)", palette: "ui" },
-      { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useBuildRequests · useCommentMirror · useCsaListings · useDrawingLogs · useDigitalQc · useIgnitionQc · useCoilsQc · usePottingSampleLog · useVisitReports · useQcTimeTracking · useQcCpu95 · usePanelQcIssues · useOpenOrdersReports · useOpenOrdersCustomers · useGrayMarketRequests · useMrb · useWhereAmI · useEcns · useEcnChecklists · useFaits · useCustomerNotes · useCustomerContacts · useSpecialPricing · useCapacity · useSuppliers · useSupplierContacts · useSupplierIssues · useCostImpactNotices · useFeatureRequests · useAdmins · useEirRoles · useQuickLinks · useListAccess · useTaskFiles · useProjectFolders", palette: "ui" },
-      { label: "API layer", hint: "src/api/tasks · appAccess · eirs · testSheets · buildRequests · buildRequestItems · commentMirror · csaListings · drawingLogs · digitalQc · ignitionQc · coilsQc · pottingSampleLog · visitReports · qcCpu95 · panelQcIssues · openOrdersFiles · openOrdersCustomers · openOrdersRoles · grayMarketRequests · mrb · whereAmI · ecns · ecnChecklists · faits · customerNotes · customerContacts · specialPricing · capacity · suppliers · supplierContacts · supplierIssues · costImpactNotices · featureRequests · autoWatch · panelOrders · panelTasks · admins · eirRoles · panelRoles · quickLinks · directory · siteUsers · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
+      { label: "Views", hint: "Dashboard · List · Kanban · Detail · EIRs · Test Sheets · Project Folders · CSA Listings · Parts List (Parts Book · lists · Global Search · part page · description lists) · Drawing File Logs · Digital QC · Ignition QC · Coil Defect Log · Potting Sample Log · Visit Reports (list + calendar) · QC Time Tracking · QC Forms (landing + QCFRM-012 CPU-95) · Panel QC Issue Tracker · Open Orders Report · Gray Market Requests · MRB · Where Am I? · ECNs (incl. the MFGFRM-038 checklist) · FAITs · ARC Feature Requests · Drawing Work Sheet (print) · Admin (incl. Quick Links, Parts Roles)", palette: "ui" },
+      { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useBuildRequests · useCommentMirror · useCsaListings · useAltronicParts · usePartsRoles · useDatasheet · useComponentDescriptionOptions · useDrawingLogs · useDigitalQc · useIgnitionQc · useCoilsQc · usePottingSampleLog · useVisitReports · useQcTimeTracking · useQcCpu95 · usePanelQcIssues · useOpenOrdersReports · useOpenOrdersCustomers · useGrayMarketRequests · useMrb · useWhereAmI · useEcns · useEcnChecklists · useFaits · useCustomerNotes · useCustomerContacts · useSpecialPricing · useCapacity · useSuppliers · useSupplierContacts · useSupplierIssues · useCostImpactNotices · useFeatureRequests · useAdmins · useEirRoles · useQuickLinks · useListAccess · useTaskFiles · useProjectFolders", palette: "ui" },
+      { label: "API layer", hint: "src/api/tasks · appAccess · eirs · testSheets · buildRequests · buildRequestItems · commentMirror · csaListings · altronicParts · altronicComponents · partsListShared · partsRoles · datasheets · componentDescriptionOptions · drawingLogs · digitalQc · ignitionQc · coilsQc · pottingSampleLog · visitReports · qcCpu95 · panelQcIssues · openOrdersFiles · openOrdersCustomers · openOrdersRoles · grayMarketRequests · mrb · whereAmI · ecns · ecnChecklists · faits · customerNotes · customerContacts · specialPricing · capacity · suppliers · supplierContacts · supplierIssues · costImpactNotices · featureRequests · autoWatch · panelOrders · panelTasks · admins · eirRoles · panelRoles · quickLinks · directory · siteUsers · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
       {
         label: "Open Orders Report (lazy-loaded)",
         hint: "OpenOrdersView · OpenOrdersCustomersView — reads a raw SAP extract in the browser and writes a branded master dashboard plus one workbook per managed customer into SharePoint. ExcelJS (~950KB) is dynamically imported on first use so it never lands in the main chunk.",
@@ -152,6 +152,10 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "EIR Roles", hint: "engineer / supply-chain field permissions", palette: "list" },
       { label: "Quick Links", hint: "Engineering site — admin-managed external-link buttons shown above each Dashboard department's cards; Department is a code-level enum (DASHBOARD_DEPARTMENTS) matched to the Dashboard's own section titles, and SortOrder is admin-set per department", palette: "list" },
       { label: "CSA Listings", hint: "Engineering site — CSA certification files; Title is the File Number, admin-only writes", palette: "list" },
+      { label: "Altronic Part List", hint: "Engineering site — ~14,000 part numbers (every non-HCO prefix); Title is the Altronic Part #; new parts go Pending SAP → Approved", palette: "list" },
+      { label: "Altronic Component List", hint: "Engineering site — ~3,900 HCO components (601/611 TH, 701/711/712 SMT, 722 SIL) with ratings; Engineering Review → SAP → Approved", palette: "list" },
+      { label: "Parts Roles", hint: "Engineering site — who may add, edit and approve parts (editor / HCO editor / reviewing engineer / SAP admin); unset = read-only", palette: "list" },
+      { label: "Component Description Options", hint: "Engineering site — the Description / Type dropdowns for a new component, plus the SIL categories for 722; managed by the SAP admin and reviewing engineers", palette: "list" },
       { label: "Digital QC product-family lists (18)", hint: "Engineering site — one list per product family; shared defect-log fields, with Pyrometer monthly EndSN tracking", palette: "list" },
       { label: "Ignition QC product-family lists (36)", hint: "Engineering site — one list per product family; same shared defect-log fields as Digital QC", palette: "list" },
       { label: "QCCoils", hint: "Engineering site — coil production defect log; named defects are number columns and OtherFaultTable stores selected Other defects with their counts and comments as JSON", palette: "list" },
@@ -761,6 +765,89 @@ const SCHEMA_TABLES: SchemaTable[] = [
       { name: "history", type: "note", kind: "field" },
       { name: "dateCertified", type: "date", kind: "field" },
       { name: "csaId (legacy)", type: "number", kind: "field" },
+    ],
+  },
+
+  // ---- Altronic Parts List (Engineering) ----------------------------------
+  // Two standalone lists, no lookups between them: a part number's first
+  // three digits decide which list it is on (601/611/701/711/712/722 are
+  // components). Placed in the free space below the bottom-right tables.
+  {
+    name: "AltronicPart",
+    source: "Altronic Part List (Engineering site)",
+    palette: "entity",
+    x: 800, y: 6440, width: 300,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "partNumber (Title)", type: "text", kind: "field" },
+      { name: "description", type: "text", kind: "field" },
+      { name: "dateAssigned", type: "date", kind: "field" },
+      { name: "drawingSize", type: "text", kind: "field" },
+      { name: "dateDrawing", type: "date", kind: "field" },
+      { name: "manufacturer", type: "text", kind: "field" },
+      { name: "mfgPartNumber", type: "text", kind: "field" },
+      { name: "assignedBy", type: "text", kind: "field" },
+      { name: "prototypeOrProduction", type: "choice", kind: "field" },
+      { name: "purchased", type: "choice", kind: "field" },
+      { name: "sapNumber", type: "text", kind: "field" },
+      { name: "itemValue", type: "text", kind: "field" },
+      { name: "signOffStatus (incl. Deleted)", type: "choice", kind: "field" },
+      { name: "legacySource", type: "text", kind: "field" },
+      { name: "notes", type: "note", kind: "field" },
+      { name: "communication (approval history)", type: "note", kind: "field" },
+    ],
+  },
+  {
+    name: "AltronicComponent",
+    source: "Altronic Component List (Engineering site)",
+    palette: "entity",
+    x: 1130, y: 6440, width: 300,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "partNumber (Title)", type: "text", kind: "field" },
+      { name: "category", type: "choice", kind: "field" },
+      { name: "description", type: "text", kind: "field" },
+      { name: "mfgName", type: "text", kind: "field" },
+      { name: "mfgNumber", type: "text", kind: "field" },
+      { name: "ratingA / B / C", type: "text", kind: "field" },
+      { name: "tempMin / tempMax", type: "text", kind: "field" },
+      { name: "tolerance", type: "text", kind: "field" },
+      { name: "footprint", type: "text", kind: "field" },
+      { name: "hasDataSheet", type: "boolean", kind: "field" },
+      { name: "signOffStatus (incl. Deleted)", type: "choice", kind: "field" },
+      { name: "legacySource", type: "text", kind: "field" },
+      { name: "notes", type: "note", kind: "field" },
+      { name: "communication (approval history)", type: "note", kind: "field" },
+    ],
+  },
+  // Who may edit and approve both lists above — no lookup to them, the tags
+  // are read by email against the signed-in user. Below the two parts tables.
+  {
+    name: "PartsRole",
+    source: "Parts Roles (Engineering site)",
+    palette: "entity",
+    x: 800, y: 6900, width: 300,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "email (Title)", type: "text", kind: "field" },
+      { name: "displayName", type: "text", kind: "field" },
+      { name: "roles (CSV)", type: "text", kind: "field" },
+      { name: "note", type: "text", kind: "field" },
+    ],
+  },
+  // The dropdowns a NEW component's Description is picked from. No lookup to
+  // the Component List: a part stores the joined TEXT, so nothing points here.
+  {
+    name: "ComponentDescriptionOption",
+    source: "Component Description Options (Engineering site)",
+    palette: "entity",
+    x: 1140, y: 6900, width: 320,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "name (Title)", type: "text", kind: "field" },
+      { name: "kind (Description | SIL Category)", type: "choice", kind: "field" },
+      { name: "types (one per line)", type: "note", kind: "field" },
+      { name: "sortOrder", type: "int", kind: "field" },
     ],
   },
 

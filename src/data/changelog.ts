@@ -12,13 +12,55 @@
 // Group related changes under one version.
 // =============================================================================
 
+import { PARTS_LIST_LIVE } from "@/api/config";
+
 export interface ChangelogEntry {
   version: string;
   date: string; // YYYY-MM-DD
   changes: string[];
 }
 
+/** Shown for v0.168.0 while the Parts List is hidden. */
+const PARTS_LIST_COMING_SOON =
+  "A new Parts List is coming soon under Engineering — its Dashboard card and Departments menu entry say Coming soon for now";
+
+/**
+ * v0.168.0's real notes — the Parts List. Shown once PARTS_LIST_LIVE is on,
+ * in place of the Coming soon line. Add Parts List bullets HERE until it
+ * goes live, not to the entry.
+ */
+const PARTS_LIST_CHANGES: string[] = [
+  "New Parts List under Engineering: every Altronic part number in one place, replacing the Altronic Component List app's 175 separate lists",
+  "Pick a Parts Book and a list, or type a list number, a part number or a description into the box at the top",
+  "From inside a list, the Parts Book link at the top goes back to that book's lists",
+  "On a phone, an open Parts Book shows just its lists, and a list shows each part as a card with a Sort by picker",
+  "Global Search looks through the Part List and the HCO Component List at once",
+  "Each list has the old app's search panel — one box per field, with & to search several things in one box — plus search everything, sorting and column filters",
+  "A component's page says what Rating A, B and C mean for that kind of part",
+  "A part's page links to its datasheet whenever the PDF is in the Datasheets folder — components and Part List parts alike — and a component's page says when its Has Data Sheet setting disagrees",
+  "Attach a datasheet PDF when adding a new part — it's saved under the part number, and a component's Has Data Sheet is set for you",
+  "A part with no datasheet has an Upload datasheet button on its page for anyone who can edit it; ARC never replaces a datasheet that's already there",
+  "Range search is back: the R button beside a component's ratings, tolerance and temperatures searches From/To — and reads 4K7, .1uF and 250mW as the values they are",
+  "The SAP admin can delete a part number, with a reason; it leaves every list, its fields are cleared and its datasheet is moved aside",
+  "A deleted number is reused: Next free offers the lowest deleted number in the list first, and the new part starts completely fresh",
+  "Engineering can add parts with New part — the next free number in the list is filled in, and a taken or wrong-list number is refused",
+  "A new component's description is picked, as in the old app: a Description, then a Type from its list — with a SIL category first on the 722 list — saved in capitals like CAPACITOR - CERAMIC",
+  "The SAP admin and the reviewing engineers manage those description lists from Descriptions on the Parts List page",
+  "New components go to the reviewing engineers and then the SAP admin; new parts go to the SAP admin. Each approval, with its comment, is kept in the part's history",
+  "Approvers see what's waiting for them on the Parts List landing page",
+  "Editing a part doesn't send it back for approval, but the SAP admin is emailed what changed",
+  "New Admin → Parts Roles page to choose who can add, edit and approve parts",
+];
+
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: "0.168.0",
+    date: "2026-09-29",
+    // The Parts List ships hidden until VITE_PARTS_LIST_LIVE (Tim, 2026-09-29):
+    // its features stay out of the history until then, so nobody reads about
+    // a screen they can't open. See PARTS_LIST_CHANGES above.
+    changes: PARTS_LIST_LIVE ? PARTS_LIST_CHANGES : [PARTS_LIST_COMING_SOON],
+  },
   {
     version: "0.167.2",
     date: "2026-09-29",

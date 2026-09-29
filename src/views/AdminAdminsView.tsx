@@ -77,6 +77,12 @@ export function AdminAdminsView() {
             EIR Roles admin →
           </Link>
           <Link
+            to="/admin/parts-roles"
+            className="text-xs text-accent underline-offset-2 hover:underline"
+          >
+            Parts Roles admin →
+          </Link>
+          <Link
             to="/admin/maintenance-roles"
             className="text-xs text-accent underline-offset-2 hover:underline"
           >

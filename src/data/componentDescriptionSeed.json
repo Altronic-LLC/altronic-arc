@@ -1,0 +1,39 @@
+{
+  "_comment": "The old Altronic Component List Power App's Description / Type dropdowns (Tim, 2026-09-28), plus the SIL categories for 722 parts (Tim, 2026-09-29). Seeds the Component Description Options list (scripts/create-altronic-parts-lists.ps1, only when the list is empty) and the mock store. After seeding, the list is the source of truth - edit it in ARC, not here.",
+  "descriptions": [
+    { "name": "Resistor", "types": ["Film", "Wirewound", "Carbon Comp", "Power", "Network"] },
+    { "name": "Capacitor", "types": ["Aluminum", "Tantalum", "Ceramic", "Film", "Network", "Custom"] },
+    { "name": "Diode", "types": ["Schottky", "Zener", "LED", "TVS"] },
+    { "name": "Transistor", "types": ["FET - P channel", "FET - N channel", "Bipolar - PNP", "Bipolar - NPN", "IGBT"] },
+    { "name": "Inductor", "types": ["Standard", "Custom", "Ferrite Beads"] },
+    { "name": "Transformer", "types": ["Standard", "Custom"] },
+    {
+      "name": "IC",
+      "types": [
+        "Logic",
+        "DC/DC - Switching",
+        "DC/DC - Linear",
+        "Microprocessor",
+        "OPAMP - General",
+        "OPAMP - Comparator",
+        "Optocoupler",
+        "D/A - Converter",
+        "A/D - Converter",
+        "Memory - RAM/ROM/EPROM/EE",
+        "Transceiver - Logic/RS232/RS485/CAN/Ethernet/USB",
+        "Voltage Reference",
+        "High Side Driver",
+        "FPGA",
+        "Display - LED/LCD/Driver",
+        "MISC"
+      ]
+    },
+    { "name": "Relay", "types": [] },
+    { "name": "Crystal", "types": [] },
+    { "name": "Oscillator", "types": [] },
+    { "name": "Battery", "types": [] },
+    { "name": "Trimpot", "types": [] },
+    { "name": "Display", "types": [] }
+  ],
+  "silCategories": ["SIL CAT 1", "SIL CAT 2"]
+}

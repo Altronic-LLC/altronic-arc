@@ -1283,6 +1283,153 @@ export interface CsaListingInput {
 }
 
 // =============================================================================
+// Altronic Parts List — every Altronic part number, on the Engineering site.
+//
+// Two lists, replacing a Power App over 175 legacy per-prefix lists (the "101"
+// … "915" lists plus the three HCO lists), loaded 2026-09-28:
+//
+//   Altronic Part List       every prefix EXCEPT the HCO components
+//   Altronic Component List  601/611 Through Hole, 701/711/712 Surface Mount,
+//                            722 SIL — with ratings, temps, footprint
+//
+// `Title` is the Altronic Part # on both, and its first three digits are the
+// "parts list" people think in (the old list name). Choice columns are NOT
+// clamped on read: the lists are new, but a value somebody adds in SharePoint
+// must render as itself rather than vanish.
+//
+// Sign-off is blank on every LOADED row — those predate approval tracking,
+// and loading them as Approved would record approvals nobody gave.
+// =============================================================================
+
+/** The first digit's "parts book", 1–9 — the old app's top-level tiles. */
+export const PARTS_BOOKS = [1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
+
+/** Part List approval: two steps (Tim, 2026-09-25). */
+export const PART_SIGN_OFF_STATUSES = ["Pending SAP", "Approved"] as const;
+
+/** Component List approval: three steps — an engineer reviews first. */
+export const COMPONENT_SIGN_OFF_STATUSES = [
+  "Pending Engineering Review",
+  "Pending SAP",
+  "Approved",
+] as const;
+
+/**
+ * Sign-off on a DELETED part number (Tim, 2026-09-28). The row stays, blanked,
+ * so the number can be handed out again — see lib/partLifecycle.ts. A choice
+ * on both lists' SignOffStatus column, alongside the approval steps.
+ */
+export const PART_DELETED_STATUS = "Deleted";
+
+export const COMPONENT_CATEGORIES = ["Surface Mount", "Through Hole", "SIL"] as const;
+export type ComponentCategory = (typeof COMPONENT_CATEGORIES)[number];
+
+export const PART_PROTOTYPE_OR_PRODUCTION = ["Prototype", "Production"] as const;
+export const PART_PURCHASED = ["Purchased", "Not Purchased"] as const;
+
+/**
+ * Parts Roles tags — who may edit and approve. What each one grants, and what
+ * implies what, is in lib/partsRoles.ts.
+ */
+export const PARTS_ROLE_TAGS = ["editor", "hco editor", "reviewing engineer", "sap admin"] as const;
+export type PartsRole = (typeof PARTS_ROLE_TAGS)[number];
+
+/** One row of the Parts Roles list. Title holds the email. */
+export interface PartsRoleEntry {
+  id: number;
+  email: string;
+  displayName: string;
+  roles: PartsRole[];
+  note: string;
+}
+
+/**
+ * What a Component Description Options row is: a component Description
+ * (with the Types offered under it), or a SIL category offered in front of
+ * a 722 part's description. The Choice column's values, verbatim.
+ */
+export const COMPONENT_DESCRIPTION_OPTION_KINDS = ["Description", "SIL Category"] as const;
+export type ComponentDescriptionOptionKind = (typeof COMPONENT_DESCRIPTION_OPTION_KINDS)[number];
+
+/** One row of the Component Description Options list. */
+export interface ComponentDescriptionOption {
+  id: number;
+  kind: ComponentDescriptionOptionKind;
+  /** The Description ("Capacitor") or the SIL category ("SIL CAT 1"). */
+  name: string;
+  /** The Types offered under a Description, in order. Always [] for a SIL category. */
+  types: string[];
+  sortOrder: number;
+}
+
+/** Who raised an item — Graph's item-level createdBy. */
+export interface ItemAuthor {
+  displayName: string;
+  email: string;
+}
+
+export interface AltronicPart {
+  id: number;
+  /** Altronic Part #, stored in `Title`. */
+  partNumber: string;
+  description: string;
+  dateAssigned: Date | null;
+  drawingSize: string;
+  dateDrawing: Date | null;
+  manufacturer: string;
+  mfgPartNumber: string;
+  notes: string;
+  /** Initials or a name, as typed — not a person column. */
+  assignedBy: string;
+  /** "Prototype" / "Production", or null. */
+  prototypeOrProduction: string | null;
+  /** "Purchased" / "Not Purchased", or null. */
+  purchased: string | null;
+  sapNumber: string;
+  itemValue: string;
+  /** One of PART_SIGN_OFF_STATUSES, or null for a legacy (pre-tracking) row. */
+  signOffStatus: string | null;
+  /** "<old list>#<old item id>" — where the row was loaded from. */
+  legacySource: string;
+  /** The approval history (Communication), newest first. */
+  comments: Comment[];
+  /** Graph's item-level createdBy — the submitter. The load account on legacy rows. */
+  createdBy: ItemAuthor | null;
+  hasAttachments: boolean;
+  createdAt: Date;
+  modifiedAt: Date;
+}
+
+export interface AltronicComponent {
+  id: number;
+  /** Altronic Part #, stored in `Title`. */
+  partNumber: string;
+  category: string | null;
+  description: string;
+  mfgName: string;
+  mfgNumber: string;
+  ratingA: string;
+  ratingB: string;
+  ratingC: string;
+  tempMin: string;
+  tempMax: string;
+  tolerance: string;
+  footprint: string;
+  notes: string;
+  hasDataSheet: boolean;
+  /** One of COMPONENT_SIGN_OFF_STATUSES, or null for a legacy row. */
+  signOffStatus: string | null;
+  legacySource: string;
+  /** The approval history (Communication), newest first. */
+  comments: Comment[];
+  /** Graph's item-level createdBy — the submitter. */
+  createdBy: ItemAuthor | null;
+  hasAttachments: boolean;
+  createdAt: Date;
+  modifiedAt: Date;
+}
+
+// =============================================================================
 // Teradyne — the PCB test log run by Operations, on the PMO site. Four lists:
 // "Teradyne Log" (the entity) plus three reference lists it looks up against
 // (Employees, Products, Remarks), all editable in-app.

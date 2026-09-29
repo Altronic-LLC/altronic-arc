@@ -187,6 +187,23 @@ const CsaListingsView = lazy(() =>
     default: m.CsaListingsView,
   })),
 );
+// Altronic Parts List — every Altronic part number (Part List + Component
+// List). Lazy for the same reason; its three screens share one chunk family.
+const PartsBookView = lazy(() =>
+  import("@/views/PartsBookView").then((m) => ({ default: m.PartsBookView })),
+);
+const PartsListView = lazy(() =>
+  import("@/views/PartsListView").then((m) => ({ default: m.PartsListView })),
+);
+const PartDetailView = lazy(() =>
+  import("@/views/PartDetailView").then((m) => ({ default: m.PartDetailView })),
+);
+const PartDescriptionOptionsView = lazy(() =>
+  import("@/views/PartDescriptionOptionsView").then((m) => ({ default: m.PartDescriptionOptionsView })),
+);
+const AdminPartsRolesView = lazy(() =>
+  import("@/views/AdminPartsRolesView").then((m) => ({ default: m.AdminPartsRolesView })),
+);
 const PrintBuildRequestItemView = lazy(() =>
   import("@/views/PrintBuildRequestItemView").then((m) => ({
     default: m.PrintBuildRequestItemView,
@@ -323,6 +340,16 @@ export function App() {
               element={
                 <RequireAdmin>
                   <AdminEirRolesView />
+                </RequireAdmin>
+              }
+            />
+            <Route
+              path="/admin/parts-roles"
+              element={
+                <RequireAdmin>
+                  <Suspense fallback={<LoadingTasks noun="parts roles" />}>
+                    <AdminPartsRolesView />
+                  </Suspense>
                 </RequireAdmin>
               }
             />
@@ -671,6 +698,46 @@ export function App() {
               element={
                 <Suspense fallback={<LoadingTasks noun="CSA listings" />}>
                   <CsaListingsView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/engineering/parts"
+              element={
+                <Suspense fallback={<LoadingTasks noun="parts list" />}>
+                  <PartsBookView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/engineering/parts/search"
+              element={
+                <Suspense fallback={<LoadingTasks noun="parts" />}>
+                  <PartsListView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/engineering/parts/list/:prefix"
+              element={
+                <Suspense fallback={<LoadingTasks noun="parts" />}>
+                  <PartsListView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/engineering/parts/descriptions"
+              element={
+                <Suspense fallback={<LoadingTasks noun="description lists" />}>
+                  <PartDescriptionOptionsView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/engineering/parts/:kind/:id"
+              element={
+                <Suspense fallback={<LoadingTasks noun="part" />}>
+                  <PartDetailView />
                 </Suspense>
               }
             />

@@ -96,7 +96,9 @@ export interface MentionTarget {
     | "supplierContact"
     | "supplierIssue"
     | "costImpactNotice"
-    | "featureRequest";
+    | "featureRequest"
+    | "altronicPart"
+    | "altronicComponent";
   id: number;
   title: string;
 }
@@ -180,6 +182,16 @@ const KIND_COPY: Record<
     phrase: "a feature request",
     calloutLabel: "Feature Request",
     buttonText: "Open this request",
+  },
+  altronicPart: {
+    phrase: "a part",
+    calloutLabel: "Altronic Part",
+    buttonText: "Open this part",
+  },
+  altronicComponent: {
+    phrase: "a component",
+    calloutLabel: "Altronic Component",
+    buttonText: "Open this component",
   },
 };
 

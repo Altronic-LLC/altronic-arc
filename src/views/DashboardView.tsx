@@ -13,6 +13,7 @@ import {
   ClipboardX,
   ClipboardList,
   Cog,
+  Cpu,
   DollarSign,
   FileCheck,
   FileDiff,
@@ -58,6 +59,7 @@ import { useCollapsedSections } from "@/hooks/useCollapsedSections";
 import { isSessionExpiredError } from "@/hooks/useSessionExpiry";
 import { useAccessDenials } from "@/hooks/useListAccess";
 import { pathAccessState } from "@/api/appAccess";
+import { PARTS_LIST_LIVE } from "@/api/config";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { SingleSelect } from "@/components/SearchableSelect";
 import {
@@ -823,6 +825,23 @@ export function DashboardView() {
           to={"/csa-listings"}
           onClick={() => navigate("/csa-listings")}
         />
+        {/* superior-blue repeats Drawing File Logs' tone on purpose: every
+            Engineering tone is taken, and part numbers and drawings are the
+            pair of registers that go together. No count, deliberately — the
+            Part List is ~14,000 rows, and the Dashboard must not download it
+            just to print a number nobody needs to see. */}
+        {/* Until PARTS_LIST_LIVE, a Coming soon card at the END of the
+            section instead (placeholders sit last) — testers use the URL. */}
+        {PARTS_LIST_LIVE && (
+          <TypeCard
+            name="Parts List"
+            icon={<Cpu className="h-5 w-5" />}
+            tone="superior-blue"
+            description="Every Altronic part number — the Parts Book, the HCO component lists, and Global Search."
+            to={"/engineering/parts"}
+            onClick={() => navigate("/engineering/parts")}
+          />
+        )}
         <TypeCard
           name="Where Am I?"
           icon={<CalendarDays className="h-5 w-5" />}
@@ -841,6 +860,7 @@ export function DashboardView() {
           to={ecnsUrl}
           onClick={() => navigate(ecnsUrl)}
         />
+        {!PARTS_LIST_LIVE && <PlaceholderCard name="Parts List" icon={<Cpu className="h-5 w-5" />} />}
       </DeptSection>
 
       <DeptSection
