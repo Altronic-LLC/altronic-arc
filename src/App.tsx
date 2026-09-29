@@ -198,6 +198,9 @@ const PartsListView = lazy(() =>
 const PartDetailView = lazy(() =>
   import("@/views/PartDetailView").then((m) => ({ default: m.PartDetailView })),
 );
+const PartDescriptionOptionsView = lazy(() =>
+  import("@/views/PartDescriptionOptionsView").then((m) => ({ default: m.PartDescriptionOptionsView })),
+);
 const AdminPartsRolesView = lazy(() =>
   import("@/views/AdminPartsRolesView").then((m) => ({ default: m.AdminPartsRolesView })),
 );
@@ -719,6 +722,14 @@ export function App() {
               element={
                 <Suspense fallback={<LoadingTasks noun="parts" />}>
                   <PartsListView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/engineering/parts/descriptions"
+              element={
+                <Suspense fallback={<LoadingTasks noun="description lists" />}>
+                  <PartDescriptionOptionsView />
                 </Suspense>
               }
             />

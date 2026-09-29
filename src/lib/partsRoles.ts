@@ -168,6 +168,20 @@ export function deletePartGate(access: PartsAccess): PartsGate {
   return gate(access, (r) => r.approveSap, `Only the SAP admin can delete a part number. ${ASK}`);
 }
 
+/**
+ * May this person change the Description / Type / SIL category dropdowns a
+ * new component is described with? The SAP admin and the reviewing engineers
+ * (Tim, 2026-09-28) — the people who approve components, so the people who
+ * see a missing option first.
+ */
+export function manageDescriptionOptionsGate(access: PartsAccess): PartsGate {
+  return gate(
+    access,
+    (r) => r.approveSap || r.approveEngineering,
+    `Only the SAP admin and the reviewing engineers can change the description lists. ${ASK}`,
+  );
+}
+
 // -----------------------------------------------------------------------------
 // The approval chain
 // -----------------------------------------------------------------------------

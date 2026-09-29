@@ -5,6 +5,7 @@ import {
   approveGate,
   editPartGate,
   initialSignOff,
+  manageDescriptionOptionsGate,
   nextSignOff,
   parsePartsRoles,
   partsRightsFor,
@@ -16,6 +17,18 @@ import {
 function access(roles: PartsRole[], over: Partial<PartsAccess> = {}): PartsAccess {
   return { roles, configured: true, resolving: false, failed: false, ...over };
 }
+
+describe("manageDescriptionOptionsGate", () => {
+  it("lets the SAP admin and the reviewing engineers change the description lists — nobody else", () => {
+    expect(manageDescriptionOptionsGate(access(["sap admin"])).allowed).toBe(true);
+    expect(manageDescriptionOptionsGate(access(["reviewing engineer"])).allowed).toBe(true);
+    expect(manageDescriptionOptionsGate(access(["hco editor"]))).toMatchObject({
+      allowed: false,
+      hint: expect.stringMatching(/Only the SAP admin and the reviewing engineers/),
+    });
+    expect(manageDescriptionOptionsGate(access(["sap admin"], { configured: false })).allowed).toBe(false);
+  });
+});
 
 describe("parse / serialize", () => {
   it("keeps known tags, in order, whatever the casing and spacing", () => {

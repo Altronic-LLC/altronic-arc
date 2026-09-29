@@ -3,6 +3,7 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Route, Routes, useLocation } from "react-router-dom";
 import { renderWithProviders } from "@/test/render";
+import { __resetPartsRolesMockStore } from "@/api/partsRoles";
 import { PartsBookView } from "./PartsBookView";
 
 /** Shows where the router ended up, so a navigation can be asserted. */
@@ -91,5 +92,23 @@ describe("PartsBookView", () => {
   it("links to Global Search", () => {
     renderBook();
     expect(screen.getByRole("link", { name: /Global Search/ })).toHaveAttribute("href", "/engineering/parts/search");
+  });
+
+  it("links to the description lists for the people who manage them, and not for anybody else", async () => {
+    // The demo user holds every role in mock mode.
+    const first = renderBook();
+    expect(await screen.findByRole("link", { name: "Descriptions" })).toHaveAttribute(
+      "href",
+      "/engineering/parts/descriptions",
+    );
+    first.unmount();
+
+    __resetPartsRolesMockStore([
+      { id: 1, email: "demo.user@altronic-llc.com", displayName: "Demo User", roles: ["hco editor"], note: "" },
+    ]);
+    renderBook();
+    await screen.findByRole("button", { name: "New part" });
+    expect(screen.queryByRole("link", { name: "Descriptions" })).not.toBeInTheDocument();
+    __resetPartsRolesMockStore();
   });
 });

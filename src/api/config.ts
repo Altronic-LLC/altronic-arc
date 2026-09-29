@@ -357,6 +357,24 @@ export const SP_PARTS_ROLES_LIST_ID: string | undefined =
 export const PARTS_ROLES_CONFIGURED = USE_MOCK || !!SP_PARTS_ROLES_LIST_ID;
 
 /**
+ * "Component Description Options" — the Description / Type dropdowns a new
+ * component is described with, plus the SIL categories offered on the 722
+ * list (Tim, 2026-09-28/29). Kind (Description | SIL Category), Title = the
+ * option, Types = one per line, SortOrder. Created and seeded by
+ * `scripts/create-altronic-parts-lists.ps1`; managed at
+ * /engineering/parts/descriptions by the SAP admin and reviewing engineers.
+ *
+ * Created and seeded 2026-09-29 (Tim). The default is safe: this list gates
+ * nothing, and the worst a wrong id can do is fall back to the plain
+ * Description box — which is also what an unset id does.
+ */
+export const SP_COMPONENT_DESCRIPTION_OPTIONS_LIST_ID: string | undefined =
+  import.meta.env.VITE_SP_COMPONENT_DESCRIPTION_OPTIONS_LIST_ID || "2a5c1ee1-558c-41ad-983a-96c97a29221b";
+
+/** Are the description dropdowns switched on? Mock mode always is. */
+export const COMPONENT_DESCRIPTION_OPTIONS_CONFIGURED = USE_MOCK || !!SP_COMPONENT_DESCRIPTION_OPTIONS_LIST_ID;
+
+/**
  * "Where am I?" — Engineering's out-of-office / where-the-team-is calendar on
  * the Engineering site. Two columns that matter: `Title` (free text, e.g.
  * "Sarah - half day vacation") and `Date` (date-only, required). No end date,

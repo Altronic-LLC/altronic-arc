@@ -69,6 +69,11 @@
     admin). It is managed in ARC at Admin → Parts Roles. Until it exists and
     VITE_SP_PARTS_ROLES_LIST_ID points at it, the Parts List is read-only.
 
+    A fourth, "Component Description Options", holds the Description / Type
+    dropdowns a new component is described with and the SIL categories for
+    722 parts. It is seeded with the old Power App's options only while it is
+    empty, and managed in ARC at /engineering/parts/descriptions.
+
     Idempotent: an existing list is left alone and only missing columns are
     added — so re-running this on the lists created 2026-09-28 just adds
     Communication and creates Parts Roles. Load the data with
@@ -189,8 +194,44 @@ $Lists = @(
             (Text "Roles" "Roles"),
             (Text "Note" "Note" -Multi)
         )
+    },
+    @{
+        # The dropdowns a NEW component's Description is picked from (Tim,
+        # 2026-09-28/29): each Description with its Types (one per line), and
+        # the SIL categories offered in front on the 722 list. Seeded from
+        # src/data/componentDescriptionSeed.json when EMPTY — after that the
+        # list is the source of truth, managed in ARC at
+        # /engineering/parts/descriptions.
+        name         = "Component Description Options"
+        envVar       = "VITE_SP_COMPONENT_DESCRIPTION_OPTIONS_LIST_ID"
+        description  = "The Description / Type dropdowns for a new component, and the SIL categories for 722 parts. Managed in ARC (Parts List → Descriptions)."
+        titleDisplay = "Option"
+        titleIndexed = $false
+        seed         = "componentDescriptionSeed.json"
+        columns      = @(
+            (Choice "Kind" "Kind" @("Description", "SIL Category")),
+            (Text "Types" "Types" -Multi),
+            @{ name = "SortOrder"; displayName = "Sort Order"; number = @{ decimalPlaces = "none" } }
+        )
     }
 )
+
+# The seed rows for a list that has a `seed` file, in the shape ARC writes.
+function Get-SeedRows([string]$File) {
+    $data = Get-Content -Raw -Path (Join-Path $PSScriptRoot "..\src\data\$File") | ConvertFrom-Json
+    $rows = @()
+    $i = 0
+    foreach ($d in $data.descriptions) {
+        $i++
+        $rows += @{ Title = $d.name; Kind = "Description"; Types = (@($d.types) -join "`n"); SortOrder = $i * 10 }
+    }
+    $i = 0
+    foreach ($s in $data.silCategories) {
+        $i++
+        $rows += @{ Title = $s; Kind = "SIL Category"; Types = ""; SortOrder = $i * 10 }
+    }
+    return $rows
+}
 
 if (-not $WhatIf) {
     $ctx = Get-MgContext
@@ -227,6 +268,7 @@ foreach ($spec in $Lists) {
     } elseif ($WhatIf) {
         Write-Host "  WOULD CREATE with columns: $(($spec.columns | ForEach-Object { $_.name }) -join ', ')" -ForegroundColor Yellow
         Write-Host "  and would rename Title to '$(if ($spec.titleDisplay) { $spec.titleDisplay } else { 'Altronic Part #' })'" -ForegroundColor Yellow
+        if ($spec.seed) { Write-Host "  and WOULD SEED $((Get-SeedRows $spec.seed).Count) rows from $($spec.seed)" -ForegroundColor Yellow }
         continue
     } else {
         $body = @{
@@ -313,6 +355,36 @@ foreach ($spec in $Lists) {
                 # do it by hand.
                 Write-Host "    Title — could not update ($($_.Exception.Message))." -ForegroundColor Red
                 Write-Host "      Do it in List settings: rename Title to '$titleDisplay'$(if ($titleIndexed) { ', and add it under Indexed columns' })." -ForegroundColor Red
+            }
+        }
+    }
+
+    # Seed an EMPTY list only. Once anything is on it, people own it in ARC
+    # and a re-run must never put back an option somebody removed.
+    if ($spec.seed) {
+        $rows = Get-SeedRows $spec.seed
+        $any = (Invoke-MgGraphRequest -Method GET `
+            -Uri "https://graph.microsoft.com/v1.0/sites/$EngineeringSite/lists/$listId/items?`$top=1").value
+        if (@($any).Count -gt 0) {
+            Write-Host "    seed — list already has rows, left alone"
+        } elseif ($WhatIf) {
+            Write-Host "    seed — WOULD ADD $($rows.Count) rows from $($spec.seed)" -ForegroundColor Yellow
+        } else {
+            $added = 0
+            foreach ($row in $rows) {
+                Invoke-MgGraphRequest -Method POST `
+                    -Uri "https://graph.microsoft.com/v1.0/sites/$EngineeringSite/lists/$listId/items" `
+                    -Body (@{ fields = $row } | ConvertTo-Json -Depth 5) -ContentType "application/json" | Out-Null
+                $added++
+            }
+            # Read back: a 2xx is not proof a value landed (the DisplayName trap).
+            $back = (Invoke-MgGraphRequest -Method GET `
+                -Uri "https://graph.microsoft.com/v1.0/sites/$EngineeringSite/lists/$listId/items?`$expand=fields(`$select=Title,Kind,Types,SortOrder)&`$top=500").value
+            $withKind = @($back | Where-Object { $_.fields.Kind -and $_.fields.SortOrder -ne $null })
+            if ($withKind.Count -eq $rows.Count) {
+                Write-Host "    seed — added $added rows, read back with Kind and Sort Order" -ForegroundColor Green
+            } else {
+                Write-Host "    seed — added $added rows, but only $($withKind.Count) read back with Kind and Sort Order. Check the list." -ForegroundColor Red
             }
         }
     }

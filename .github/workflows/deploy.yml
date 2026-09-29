@@ -100,6 +100,7 @@ jobs:
           # default in config.ts (it only admits people on the list); set it
           # only to override.
           VITE_SP_PARTS_ROLES_LIST_ID: ${{ vars.VITE_SP_PARTS_ROLES_LIST_ID }}
+          VITE_SP_COMPONENT_DESCRIPTION_OPTIONS_LIST_ID: ${{ vars.VITE_SP_COMPONENT_DESCRIPTION_OPTIONS_LIST_ID }}
           VITE_SP_MAINTENANCE_TASKS_LIST_ID: ${{ vars.VITE_SP_MAINTENANCE_TASKS_LIST_ID }}
           VITE_SP_SCHEDULED_MAINTENANCE_LIST_ID: ${{ vars.VITE_SP_SCHEDULED_MAINTENANCE_LIST_ID }}
           # Maintenance Departments / Locations — the two admin-managed

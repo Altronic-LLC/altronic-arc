@@ -71,9 +71,9 @@ const SYSTEM_TIERS: Tier[] = [
   {
     label: "React SPA",
     nodes: [
-      { label: "Views", hint: "Dashboard · List · Kanban · Detail · EIRs · Test Sheets · Project Folders · CSA Listings · Parts List (Parts Book · lists · Global Search · part page) · Drawing File Logs · Digital QC · Ignition QC · Coil Defect Log · Potting Sample Log · Visit Reports (list + calendar) · QC Time Tracking · QC Forms (landing + QCFRM-012 CPU-95) · Panel QC Issue Tracker · Open Orders Report · Gray Market Requests · MRB · Where Am I? · ECNs (incl. the MFGFRM-038 checklist) · FAITs · ARC Feature Requests · Drawing Work Sheet (print) · Admin (incl. Quick Links, Parts Roles)", palette: "ui" },
-      { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useBuildRequests · useCommentMirror · useCsaListings · useAltronicParts · usePartsRoles · useDatasheet · useDrawingLogs · useDigitalQc · useIgnitionQc · useCoilsQc · usePottingSampleLog · useVisitReports · useQcTimeTracking · useQcCpu95 · usePanelQcIssues · useOpenOrdersReports · useOpenOrdersCustomers · useGrayMarketRequests · useMrb · useWhereAmI · useEcns · useEcnChecklists · useFaits · useCustomerNotes · useCustomerContacts · useSpecialPricing · useCapacity · useSuppliers · useSupplierContacts · useSupplierIssues · useCostImpactNotices · useFeatureRequests · useAdmins · useEirRoles · useQuickLinks · useListAccess · useTaskFiles · useProjectFolders", palette: "ui" },
-      { label: "API layer", hint: "src/api/tasks · appAccess · eirs · testSheets · buildRequests · buildRequestItems · commentMirror · csaListings · altronicParts · altronicComponents · partsListShared · partsRoles · datasheets · drawingLogs · digitalQc · ignitionQc · coilsQc · pottingSampleLog · visitReports · qcCpu95 · panelQcIssues · openOrdersFiles · openOrdersCustomers · openOrdersRoles · grayMarketRequests · mrb · whereAmI · ecns · ecnChecklists · faits · customerNotes · customerContacts · specialPricing · capacity · suppliers · supplierContacts · supplierIssues · costImpactNotices · featureRequests · autoWatch · panelOrders · panelTasks · admins · eirRoles · panelRoles · quickLinks · directory · siteUsers · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
+      { label: "Views", hint: "Dashboard · List · Kanban · Detail · EIRs · Test Sheets · Project Folders · CSA Listings · Parts List (Parts Book · lists · Global Search · part page · description lists) · Drawing File Logs · Digital QC · Ignition QC · Coil Defect Log · Potting Sample Log · Visit Reports (list + calendar) · QC Time Tracking · QC Forms (landing + QCFRM-012 CPU-95) · Panel QC Issue Tracker · Open Orders Report · Gray Market Requests · MRB · Where Am I? · ECNs (incl. the MFGFRM-038 checklist) · FAITs · ARC Feature Requests · Drawing Work Sheet (print) · Admin (incl. Quick Links, Parts Roles)", palette: "ui" },
+      { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useBuildRequests · useCommentMirror · useCsaListings · useAltronicParts · usePartsRoles · useDatasheet · useComponentDescriptionOptions · useDrawingLogs · useDigitalQc · useIgnitionQc · useCoilsQc · usePottingSampleLog · useVisitReports · useQcTimeTracking · useQcCpu95 · usePanelQcIssues · useOpenOrdersReports · useOpenOrdersCustomers · useGrayMarketRequests · useMrb · useWhereAmI · useEcns · useEcnChecklists · useFaits · useCustomerNotes · useCustomerContacts · useSpecialPricing · useCapacity · useSuppliers · useSupplierContacts · useSupplierIssues · useCostImpactNotices · useFeatureRequests · useAdmins · useEirRoles · useQuickLinks · useListAccess · useTaskFiles · useProjectFolders", palette: "ui" },
+      { label: "API layer", hint: "src/api/tasks · appAccess · eirs · testSheets · buildRequests · buildRequestItems · commentMirror · csaListings · altronicParts · altronicComponents · partsListShared · partsRoles · datasheets · componentDescriptionOptions · drawingLogs · digitalQc · ignitionQc · coilsQc · pottingSampleLog · visitReports · qcCpu95 · panelQcIssues · openOrdersFiles · openOrdersCustomers · openOrdersRoles · grayMarketRequests · mrb · whereAmI · ecns · ecnChecklists · faits · customerNotes · customerContacts · specialPricing · capacity · suppliers · supplierContacts · supplierIssues · costImpactNotices · featureRequests · autoWatch · panelOrders · panelTasks · admins · eirRoles · panelRoles · quickLinks · directory · siteUsers · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
       {
         label: "Open Orders Report (lazy-loaded)",
         hint: "OpenOrdersView · OpenOrdersCustomersView — reads a raw SAP extract in the browser and writes a branded master dashboard plus one workbook per managed customer into SharePoint. ExcelJS (~950KB) is dynamically imported on first use so it never lands in the main chunk.",
@@ -155,6 +155,7 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "Altronic Part List", hint: "Engineering site — ~14,000 part numbers (every non-HCO prefix); Title is the Altronic Part #; new parts go Pending SAP → Approved", palette: "list" },
       { label: "Altronic Component List", hint: "Engineering site — ~3,900 HCO components (601/611 TH, 701/711/712 SMT, 722 SIL) with ratings; Engineering Review → SAP → Approved", palette: "list" },
       { label: "Parts Roles", hint: "Engineering site — who may add, edit and approve parts (editor / HCO editor / reviewing engineer / SAP admin); unset = read-only", palette: "list" },
+      { label: "Component Description Options", hint: "Engineering site — the Description / Type dropdowns for a new component, plus the SIL categories for 722; managed by the SAP admin and reviewing engineers", palette: "list" },
       { label: "Digital QC product-family lists (18)", hint: "Engineering site — one list per product family; shared defect-log fields, with Pyrometer monthly EndSN tracking", palette: "list" },
       { label: "Ignition QC product-family lists (36)", hint: "Engineering site — one list per product family; same shared defect-log fields as Digital QC", palette: "list" },
       { label: "QCCoils", hint: "Engineering site — coil production defect log; named defects are number columns and OtherFaultTable stores selected Other defects with their counts and comments as JSON", palette: "list" },
@@ -832,6 +833,21 @@ const SCHEMA_TABLES: SchemaTable[] = [
       { name: "displayName", type: "text", kind: "field" },
       { name: "roles (CSV)", type: "text", kind: "field" },
       { name: "note", type: "text", kind: "field" },
+    ],
+  },
+  // The dropdowns a NEW component's Description is picked from. No lookup to
+  // the Component List: a part stores the joined TEXT, so nothing points here.
+  {
+    name: "ComponentDescriptionOption",
+    source: "Component Description Options (Engineering site)",
+    palette: "entity",
+    x: 1140, y: 6900, width: 320,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "name (Title)", type: "text", kind: "field" },
+      { name: "kind (Description | SIL Category)", type: "choice", kind: "field" },
+      { name: "types (one per line)", type: "note", kind: "field" },
+      { name: "sortOrder", type: "int", kind: "field" },
     ],
   },
 

@@ -30,6 +30,11 @@ describe("ratingLabelsFor", () => {
     expect(ratingLabelsFor("OBSOLETE - TRANSISTOR - FET - N CHANNEL").component).toBe("Transistor fet");
   });
 
+  it("ignores a SIL CAT prefix — how 722 parts are written", () => {
+    expect(ratingLabelsFor("SIL CAT 1 - CAPACITOR - CERAMIC").component).toBe("Capacitor ceramic");
+    expect(ratingLabelsFor("SIL CAT 2 - RESISTOR").component).toBe("Resistor");
+  });
+
   it("maps the guide's 'Capacitance tantalum' row to what the data says", () => {
     expect(ratingLabelsFor("CAPACITOR - TANTALUM").component).toBe("Capacitance tantalum");
   });

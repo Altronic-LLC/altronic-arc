@@ -245,6 +245,7 @@ src/
 │   ├── altronicComponents.ts     Altronic Component List read/create/edit/approve/delete (HCO components) — delete blanks for reuse
 │   ├── partsListShared.ts        Both parts lists' Graph plumbing — the Communication fallback, Title lookup
 │   ├── partsRoles.ts             Parts Roles list CRUD (who may edit/approve parts) — unset = read-only
+│   ├── componentDescriptionOptions.ts  Component Description Options — the new-component Description/Type/SIL dropdowns (delete OK: parts hold text)
 │   ├── datasheets.ts             Part + component datasheets — finds / uploads General/Datasheets/<part #>.pdf (never overwrites), archives on delete
 │   ├── drawingLogs.ts            Drawing File Logs — 4 registers, one parametrised module
 │   ├── buildRequests.ts          Build Requests (master) CRUD
@@ -295,6 +296,7 @@ src/
 │   ├── quickLinksMockData.ts     Sample Quick Links, a few per department
 │   ├── csaMockData.ts            Sample CSA certification files
 │   ├── altronicPartsMockData.ts  Sample parts + HCO components (legacy and mid-approval rows)
+│   ├── componentDescriptionSeed.json  The old app's Description/Type options + SIL categories — seeds the list (script) and the mock
 │   ├── drawingLogMockData.ts     Sample drawings + sketches (incl. sparse & full change logs)
 │   ├── teradyneMockData.ts       Sample Teradyne log + reference rows
 │   ├── operationsMockData.ts     Sample Operations tasks + projects
@@ -324,6 +326,7 @@ src/
 │   ├── useCsaListings.ts         CSA Listings queries + admin-guarded mutations
 │   ├── useAltronicParts.ts       Part List + Component List queries (long-cached), gated writes + their emails
 │   ├── usePartsRoles.ts          Parts Roles CRUD (admin-guarded) + useMyPartsAccess / resolvePartsPeople
+│   ├── useComponentDescriptionOptions.ts  The description dropdowns + their gated writes (SAP admin / reviewing engineers) and reorder
 │   ├── useDatasheet.ts           A part's datasheet, by part number (file lookup, not the flag) + the gated upload
 │   ├── useDrawingLogs.ts         Drawing log queries + admin-guarded mutations
 │   ├── useTeradyne.ts            Teradyne log + ref-list queries/mutations (+ usage counts)
@@ -426,6 +429,7 @@ src/
 │   ├── partsRoles.ts             Parts Roles tags → rights, the add/edit/approve gates, the approval chain (pure)
 │   ├── partsAlerts.ts            Parts List emails — new part, engineering done, what an edit changed (pure)
 │   ├── partLifecycle.ts          Deleting a part number and reusing it — the marker, blank/replace columns, history records (pure)
+│   ├── componentDescriptions.ts  Picked component descriptions — join rule (UPPER, ' - '), what's missing, the seed (pure)
 │   ├── drawingLogFields.ts       Per-register column descriptors (columns are DATA)
 │   ├── drawingLogMapper.ts       Graph item → DrawingLogEntry + the 16-slot change-log codec
 │   ├── buildRequestMapper.ts     Graph item → BuildRequest / BuildRequestItem
@@ -571,6 +575,7 @@ src/
 │   ├── CsaAttachmentsModal.tsx   A CSA listing's certificates — readable by anyone, admin-editable
 │   ├── partsAtoms.tsx            Parts List sign-off / kind chips + the shared loading/refused/failed gate
 │   ├── PartFormModal.tsx         New part (fields follow the number's list, optional datasheet PDF) + NewPartButton (hidden without a role)
+│   ├── ComponentDescriptionPicker.tsx  New component's SIL category / Description / Type dropdowns (Type waits on Description)
 │   ├── EcnChecklistCard.tsx      The MFGFRM-038 checklist on an ECN — sections, 4-state pills, findings
 │   ├── EcnRaciModal.tsx          The RACI matrix, as a reference modal
 │   ├── YesNoField.tsx            A boolean column as two labelled Yes / No choices
@@ -629,6 +634,7 @@ src/
 │   ├── PartsBookView.tsx         Parts List landing — Parts Book tiles, jump box, Global Search link
 │   ├── PartsListView.tsx         One three-digit list, or Global Search — search panel + sortable table
 │   ├── PartDetailView.tsx        One part or component (by item id) — card edits, Approve, approval history
+│   ├── PartDescriptionOptionsView.tsx  The description lists — inside the Parts List, gated to the SAP admin + reviewing engineers
 │   ├── DrawingLogsView.tsx       Drawing File Logs — four tabbed registers
 │   ├── PrintDrawingSheetView.tsx CAD Drawing Work Sheet (FORM #E006), letter portrait
 │   ├── BuildRequestsView.tsx     Build Requests list
@@ -1635,6 +1641,70 @@ the row and refuses one that is no longer deleted. But two people reusing the
 same number in the same second both pass that read, and the later write wins.
 If-Match on the PATCH would close it; it wasn't used because it's unverified
 against Graph's listItem fields endpoint.
+
+#### A new component's description is PICKED, not typed
+
+The old Power App never let anyone type a component description (found by
+Tim while demoing to Brandon, 2026-09-28). It had a **Description** dropdown
+and a **Type** dropdown limited to that description's types, and saved the
+two joined. ARC's New part form does the same for components
+(`ComponentDescriptionPicker`, rules in `lib/componentDescriptions.ts`).
+
+Tim's decisions, 2026-09-28/29:
+- **The options are on a SharePoint list**, Component Description Options
+  (`VITE_SP_COMPONENT_DESCRIPTION_OPTIONS_LIST_ID`), so they can be added or
+  removed without a code change.
+- **The SAP admin and the reviewing engineers manage them**
+  (`manageDescriptionOptionsGate`), inside the Parts List at
+  `/engineering/parts/descriptions` — not under `/admin`, because they aren't
+  necessarily ARC admins. The Parts Book's **Descriptions** button is hidden
+  from everybody else, like New part.
+- **The 722 list gets a SIL category first** — SIL CAT 1 / SIL CAT 2 to begin
+  with, on the same list (`Kind = SIL Category`) so more can be added. Nearly
+  all 122 existing 722 parts are written that way.
+- **Editing keeps the free text box.** About half of the 3,946 existing
+  descriptions aren't a Description/Type pair; an edit must not force them
+  into one.
+- **No OBSOLETE prefix** in the dropdowns, for now.
+
+| Column | Holds |
+|---|---|
+| `Title` (shown "Option") | the Description ("Capacitor") or SIL category ("SIL CAT 1") |
+| `Kind` | Choice: `Description` / `SIL Category` |
+| `Types` | a Description's types, ONE PER LINE; blank for a SIL category |
+| `SortOrder` | the order offered, within its kind |
+
+Seven things that are load-bearing:
+
+- **The saved text is UPPER CASE, joined with `" - "`** —
+  `SIL CAT 1 - CAPACITOR - CERAMIC`. That's how 1,868 of the 1,908 existing
+  rows matching a pair are written, and it's the shape `componentRatings.ts`
+  reads the type from. That file now skips a `SIL CAT n` prefix the way it
+  skips `OBSOLETE`, or every 722 part would get the generic rating names.
+- **A part stores the TEXT, never a pointer to an option.** So the list HAS a
+  delete, unlike ARC's other reference lists: removing or renaming an option
+  changes no part, it just stops being offered.
+- **Types are lines on the description's row, not rows of their own.** A type
+  means nothing without its description, and a second list would make every
+  rename a two-list write.
+- **A trailing dash is dropped from a name** (`cleanOptionName`). Tim wrote
+  the SIL options as "SIL CAT 1 -"; the separator is added on save, so that
+  typed dash would otherwise save as `SIL CAT 1 - - …`.
+- **The SIL pick is required on 722 only while the list offers one** — an
+  emptied SIL list must not make every 722 part impossible to add.
+- **Unset, empty or unreadable list = the plain text box**, with a note when
+  it failed. A form that can't describe a component is worse than one that
+  can't enforce the format. The list was created and seeded 2026-09-29
+  (`2a5c1ee1-558c-41ad-983a-96c97a29221b`, the default in `config.ts`).
+- **The picks travel in the draft under their own keys**
+  (`descSilCategory` / `descName` / `descType`), and `reconcilePicks` drops
+  any a restored draft holds that the list no longer offers.
+
+**Seeding.** `create-altronic-parts-lists.ps1` creates the list and seeds it
+from `src/data/componentDescriptionSeed.json` (the old app's 13 descriptions
+and their types, plus the two SIL categories) — **only while it is EMPTY**.
+After that the list is the source of truth, and a re-run must never put back
+an option somebody removed. The mock store seeds from the same file.
 
 #### Range search — the old app's "R" button
 

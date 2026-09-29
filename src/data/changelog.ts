@@ -35,6 +35,8 @@ export const CHANGELOG: ChangelogEntry[] = [
       "The SAP admin can delete a part number, with a reason; it leaves every list, its fields are cleared and its datasheet is moved aside",
       "A deleted number is reused: Next free offers the lowest deleted number in the list first, and the new part starts completely fresh",
       "Engineering can add parts with New part — the next free number in the list is filled in, and a taken or wrong-list number is refused",
+      "A new component's description is picked, as in the old app: a Description, then a Type from its list — with a SIL category first on the 722 list — saved in capitals like CAPACITOR - CERAMIC",
+      "The SAP admin and the reviewing engineers manage those description lists from Descriptions on the Parts List page",
       "New components go to the reviewing engineers and then the SAP admin; new parts go to the SAP admin. Each approval, with its comment, is kept in the part's history",
       "Approvers see what's waiting for them on the Parts List landing page",
       "Editing a part doesn't send it back for approval, but the SAP admin is emailed what changed",

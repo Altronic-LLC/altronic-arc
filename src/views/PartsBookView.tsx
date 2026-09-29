@@ -1,6 +1,6 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Cpu, Globe, Search } from "lucide-react";
+import { Cpu, Globe, ListTree, Search } from "lucide-react";
 import { useAltronicComponents, useAltronicParts } from "@/hooks/useAltronicParts";
 import { PartKindChip, PartsDataGate } from "@/components/partsAtoms";
 import { buildPartsBooks, parsePartsQuery, partPath } from "@/lib/partSearch";
@@ -8,7 +8,7 @@ import { COMPONENT_PREFIX_CATEGORY } from "@/lib/altronicPartMapper";
 import { PARTS_BOOKS, type AltronicComponent, type AltronicPart } from "@/types/task";
 import { NewPartButton } from "@/components/PartFormModal";
 import { useMyPartsAccess } from "@/hooks/usePartsRoles";
-import { partsRightsFor } from "@/lib/partsRoles";
+import { manageDescriptionOptionsGate, partsRightsFor } from "@/lib/partsRoles";
 import { cn } from "@/lib/cn";
 
 // =============================================================================
@@ -61,6 +61,26 @@ function AwaitingApproval({
         <strong>Waiting for you:</strong> {pieces.join(" and ")}.
       </span>
       <span className="shrink-0 text-xs font-medium text-accent">Open →</span>
+    </Link>
+  );
+}
+
+/**
+ * The way to the description lists, for the people who manage them (the SAP
+ * admin and the reviewing engineers). Hidden from everyone else, like New
+ * part — the page itself is still readable by anyone with the link, which the
+ * New part form gives.
+ */
+function DescriptionListsLink() {
+  const gate = manageDescriptionOptionsGate(useMyPartsAccess());
+  if (!gate.allowed) return null;
+  return (
+    <Link
+      to="/engineering/parts/descriptions"
+      className="inline-flex items-center justify-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg shadow-sm transition-colors hover:bg-surface-2"
+    >
+      <ListTree className="h-4 w-4" />
+      Descriptions
     </Link>
   );
 }
@@ -139,6 +159,7 @@ export function PartsBookView() {
             <Globe className="h-4 w-4" />
             Global Search
           </Link>
+          <DescriptionListsLink />
           <NewPartButton prefix={null} />
         </div>
       </header>

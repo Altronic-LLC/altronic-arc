@@ -32,6 +32,16 @@ import {
   type PartFieldSpec,
 } from "@/lib/partFields";
 import { ratingLabelsFor } from "@/lib/componentRatings";
+import { COMPONENT_DESCRIPTION_OPTIONS_CONFIGURED } from "@/api/config";
+import { useComponentDescriptionOptions } from "@/hooks/useComponentDescriptionOptions";
+import {
+  composeDescription,
+  optionsOfKind,
+  picksProblem,
+  reconcilePicks,
+  type DescriptionPicks,
+} from "@/lib/componentDescriptions";
+import { ComponentDescriptionPicker } from "./ComponentDescriptionPicker";
 import { addPartGate } from "@/lib/partsRoles";
 import { partPath } from "@/lib/partSearch";
 import { toDateInputValue } from "@/lib/spDates";
@@ -58,7 +68,16 @@ import { toDateInputValue } from "@/lib/spDates";
 // refused. It is checked before the create, so a wrong pick leaves nothing
 // behind; an upload that fails after the part exists warns rather than
 // making the part look unsaved, and the part page's Upload is the way back.
+//
+// A COMPONENT's Description is picked from dropdowns (Tim, 2026-09-28/29) —
+// see lib/componentDescriptions.ts. The picks are kept in the draft under
+// their own keys and joined into Description on save. Until the options list
+// is configured, or when it can't be read, the plain box stays: a New part
+// form that can't describe a component is worse than one that can't enforce
+// the format.
 // =============================================================================
+
+const PICK_KEYS = { silCategory: "descSilCategory", name: "descName", type: "descType" } as const;
 
 type AnySpec = PartFieldSpec<Record<string, unknown>>;
 
@@ -122,7 +141,29 @@ export function PartFormModal({ prefix, onClose }: { prefix: string | null; onCl
   const specs = (component ? COMPONENT_FIELDS : PART_FIELDS).filter((s) => s.onCreate !== false) as unknown as AnySpec[];
   const gate = addPartGate(access, typedPrefix, component);
   const busy = createPart.isPending || createComponent.isPending || uploadSheet.isPending;
-  const labels = ratingLabelsFor(values.description ?? "");
+
+  // The description dropdowns — components only, and only once the options
+  // are loaded. A restored draft's picks are checked against today's options.
+  const optionsQuery = useComponentDescriptionOptions();
+  const options = optionsQuery.data ?? [];
+  const pickerAvailable =
+    COMPONENT_DESCRIPTION_OPTIONS_CONFIGURED && optionsOfKind(options, "Description").length > 0;
+  const usePicker = component && pickerAvailable;
+  const pickerLoading = component && COMPONENT_DESCRIPTION_OPTIONS_CONFIGURED && optionsQuery.isLoading;
+  const pickerFailed = component && COMPONENT_DESCRIPTION_OPTIONS_CONFIGURED && optionsQuery.isError;
+  const needSil = typedPrefix === "722";
+  const picks = reconcilePicks(
+    {
+      silCategory: values[PICK_KEYS.silCategory] ?? "",
+      name: values[PICK_KEYS.name] ?? "",
+      type: values[PICK_KEYS.type] ?? "",
+    },
+    options,
+  );
+  const effectiveValues = usePicker
+    ? { ...values, description: composeDescription(needSil ? picks : { ...picks, silCategory: "" }) }
+    : values;
+  const labels = ratingLabelsFor(effectiveValues.description ?? "");
   const listFull = !!prefix && allNumbers.length > 0 && next(prefix) === null;
   // Typing (or being offered) a deleted number reuses it — say so, and when
   // it was deleted, so nobody mistakes it for a number that was never used.
@@ -142,6 +183,15 @@ export function PartFormModal({ prefix, onClose }: { prefix: string | null; onCl
     setValues((prev) => ({ ...prev, [key]: value }));
   }
 
+  function setPicks(next: DescriptionPicks) {
+    setValues((prev) => ({
+      ...prev,
+      [PICK_KEYS.silCategory]: next.silCategory,
+      [PICK_KEYS.name]: next.name,
+      [PICK_KEYS.type]: next.type,
+    }));
+  }
+
   function suggest() {
     const n = typedPrefix ? next(typedPrefix) : null;
     if (n) setPartNumber(n);
@@ -154,13 +204,18 @@ export function PartFormModal({ prefix, onClose }: { prefix: string | null; onCl
     if (!gate.allowed) return setError(gate.hint);
     const numberProblem = partNumberProblem(partNumber, prefix, existing);
     if (numberProblem) return setError(numberProblem);
-    const missing = missingRequired(specs, values);
+    // Picked descriptions say WHICH pick is missing, not just "Description".
+    const pickProblem = usePicker ? picksProblem(picks, options, needSil) : null;
+    const missing = missingRequired(specs, pickProblem ? { ...effectiveValues, description: "x" } : effectiveValues);
+    if (pickProblem) {
+      return setError(missing.length > 0 ? `${pickProblem} Also fill in: ${missing.join(", ")}.` : pickProblem);
+    }
     if (missing.length > 0) return setError(`Fill in: ${missing.join(", ")}.`);
     // Before the create, so a wrong pick doesn't leave a part with no file.
     const fileProblem = datasheet ? datasheetFileProblem(datasheet) : null;
     if (fileProblem) return setError(fileProblem);
 
-    const patch = patchFromForm(specs, values);
+    const patch = patchFromForm(specs, effectiveValues);
     const pn = partNumber.trim();
     let created: { id: number };
     try {
@@ -299,17 +354,38 @@ export function PartFormModal({ prefix, onClose }: { prefix: string | null; onCl
           )}
 
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {specs.map((spec) => (
-              <Field
-                key={spec.key}
-                label={labelFor(spec)}
-                required={isRequired(spec, values)}
-                wide={spec.kind === "multiline" || spec.key === "description"}
-                plain={spec.kind !== "text" && spec.kind !== "multiline"}
-              >
-                <Control spec={spec} value={values[spec.key] ?? ""} onChange={(v) => set(spec.key, v)} disabled={busy} />
-              </Field>
-            ))}
+            {specs.map((spec) =>
+              spec.key === "description" && usePicker ? (
+                <ComponentDescriptionPicker
+                  key={spec.key}
+                  picks={picks}
+                  onChange={setPicks}
+                  options={options}
+                  needSil={needSil}
+                  disabled={busy}
+                />
+              ) : spec.key === "description" && pickerLoading ? (
+                <p key={spec.key} className="text-sm text-fg-muted sm:col-span-2">
+                  Loading the description lists…
+                </p>
+              ) : (
+                <Field
+                  key={spec.key}
+                  label={labelFor(spec)}
+                  required={isRequired(spec, effectiveValues)}
+                  wide={spec.kind === "multiline" || spec.key === "description"}
+                  plain={spec.kind !== "text" && spec.kind !== "multiline"}
+                >
+                  <Control spec={spec} value={values[spec.key] ?? ""} onChange={(v) => set(spec.key, v)} disabled={busy} />
+                  {spec.key === "description" && pickerFailed && (
+                    <span className="mt-1 block text-[11px] text-fg-muted">
+                      Couldn't load the description lists, so type the description — in capitals, like
+                      &quot;CAPACITOR - CERAMIC&quot;.
+                    </span>
+                  )}
+                </Field>
+              ),
+            )}
           </div>
 
           <DatasheetPicker

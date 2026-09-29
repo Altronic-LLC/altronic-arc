@@ -1343,6 +1343,25 @@ export interface PartsRoleEntry {
   note: string;
 }
 
+/**
+ * What a Component Description Options row is: a component Description
+ * (with the Types offered under it), or a SIL category offered in front of
+ * a 722 part's description. The Choice column's values, verbatim.
+ */
+export const COMPONENT_DESCRIPTION_OPTION_KINDS = ["Description", "SIL Category"] as const;
+export type ComponentDescriptionOptionKind = (typeof COMPONENT_DESCRIPTION_OPTION_KINDS)[number];
+
+/** One row of the Component Description Options list. */
+export interface ComponentDescriptionOption {
+  id: number;
+  kind: ComponentDescriptionOptionKind;
+  /** The Description ("Capacitor") or the SIL category ("SIL CAT 1"). */
+  name: string;
+  /** The Types offered under a Description, in order. Always [] for a SIL category. */
+  types: string[];
+  sortOrder: number;
+}
+
 /** Who raised an item — Graph's item-level createdBy. */
 export interface ItemAuthor {
   displayName: string;

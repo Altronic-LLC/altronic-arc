@@ -13,7 +13,8 @@ import { Route, Routes, useLocation } from "react-router-dom";
 import { renderWithProviders } from "@/test/render";
 import { __resetPartsRolesMockStore } from "@/api/partsRoles";
 import { __resetAltronicPartsMockStore, deleteAltronicPart, listAltronicParts } from "@/api/altronicParts";
-import { __resetAltronicComponentsMockStore } from "@/api/altronicComponents";
+import { __resetAltronicComponentsMockStore, listAltronicComponents } from "@/api/altronicComponents";
+import { __resetComponentDescriptionOptionsMockStore } from "@/api/componentDescriptionOptions";
 import { __resetDatasheetsMockStore, findDatasheet, uploadDatasheet } from "@/api/datasheets";
 
 vi.mock("@/api/email", async (importOriginal) => {
@@ -45,6 +46,7 @@ beforeEach(() => {
   __resetAltronicPartsMockStore();
   __resetAltronicComponentsMockStore();
   __resetDatasheetsMockStore();
+  __resetComponentDescriptionOptionsMockStore();
   pushToast.mockClear();
 });
 
@@ -115,12 +117,33 @@ describe("PartFormModal — a Part List part", () => {
   });
 });
 
+/** Open a searchable dropdown by its name and pick an option from it. */
+async function pick(control: string, option: string) {
+  await userEvent.click(await screen.findByRole("button", { name: control }));
+  await userEvent.click(await screen.findByRole("option", { name: option }));
+}
+
+/** Everything a 701 component needs except its description. */
+async function fillComponentExceptDescription() {
+  // Next free fills the number in once the lists load.
+  await waitFor(() => expect(screen.getByLabelText("Altronic Part #")).not.toHaveValue(""));
+  await userEvent.type(screen.getByLabelText("Mfg Name"), "KEMET");
+  await userEvent.type(screen.getByLabelText("Mfg Number"), "C0805C104K5RACTU");
+  await userEvent.type(screen.getByLabelText(/^Rating A/), ".1UF");
+  await userEvent.type(screen.getByLabelText(/^Rating B/), "50V");
+  await userEvent.type(screen.getByLabelText(/^Rating C/), "X7R");
+  await userEvent.type(screen.getByLabelText("Temp Min"), "-55C");
+  await userEvent.type(screen.getByLabelText("Temp Max"), "125C");
+  await userEvent.type(screen.getByLabelText("Tolerance"), "10%");
+  await userEvent.type(screen.getByLabelText("Footprint"), "0805");
+}
+
 describe("PartFormModal — a component", () => {
   it("switches to the component fields and names the ratings for the type", async () => {
     renderForm("701");
-    const description = await screen.findByLabelText("Description");
+    await screen.findByRole("button", { name: "Description" });
     expect(screen.getByText(/Component List/)).toBeInTheDocument();
-    await userEvent.type(description, "RESISTOR");
+    await pick("Description", "Resistor");
     expect(await screen.findByText(/Rating A — Resistance/)).toBeInTheDocument();
     expect(screen.getByText(/Rating C — Power/)).toBeInTheDocument();
   });
@@ -139,6 +162,89 @@ describe("PartFormModal — a component", () => {
     renderForm("722");
     expect(await screen.findByText(/Only HCO editors can add to the 722 list/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add part" })).toBeDisabled();
+  });
+});
+
+describe("PartFormModal — a component's description is picked", () => {
+  it("keeps Type disabled until a Description is picked, then offers only its types", async () => {
+    renderForm("701");
+    const type = await screen.findByRole("button", { name: "Type" });
+    expect(type).toBeDisabled();
+    await pick("Description", "Capacitor");
+    expect(screen.getByRole("button", { name: "Type" })).toBeEnabled();
+    await userEvent.click(screen.getByRole("button", { name: "Type" }));
+    expect(screen.getByRole("option", { name: "Ceramic" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Wirewound" })).not.toBeInTheDocument();
+  });
+
+  it("saves the two joined in capitals", async () => {
+    const { onClose } = renderForm("701");
+    await screen.findByRole("button", { name: "Description" });
+    await pick("Description", "Capacitor");
+    await pick("Type", "Ceramic");
+    expect(screen.getByText("CAPACITOR - CERAMIC")).toBeInTheDocument();
+    await fillComponentExceptDescription();
+    await userEvent.click(screen.getByRole("button", { name: "Add part" }));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    // The newest row — the mock data already holds a CAPACITOR - CERAMIC.
+    const created = (await listAltronicComponents()).reduce((a, b) => (b.id > a.id ? b : a));
+    expect(created).toMatchObject({
+      description: "CAPACITOR - CERAMIC",
+      category: "Surface Mount",
+      signOffStatus: "Pending Engineering Review",
+    });
+  });
+
+  it("says which pick is missing", async () => {
+    renderForm("701");
+    await waitFor(() => expect(screen.getByLabelText("Altronic Part #")).not.toHaveValue(""));
+    await pick("Description", "Capacitor");
+    await userEvent.click(screen.getByRole("button", { name: "Add part" }));
+    expect(await screen.findByText(/^Pick a Type for Capacitor\. Also fill in:/)).toBeInTheDocument();
+  });
+
+  it("puts a SIL category first on the 722 list, and requires it", async () => {
+    const { onClose } = renderForm("722");
+    await screen.findByRole("radiogroup", { name: "SIL category" });
+    await pick("Description", "Capacitor");
+    await pick("Type", "Ceramic");
+    await fillComponentExceptDescription();
+    await userEvent.click(screen.getByRole("button", { name: "Add part" }));
+    expect(await screen.findByText("Pick the SIL category.")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("radio", { name: "SIL CAT 2" }));
+    expect(screen.getByText("SIL CAT 2 - CAPACITOR - CERAMIC")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Add part" }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect((await listAltronicComponents()).some((c) => c.description === "SIL CAT 2 - CAPACITOR - CERAMIC")).toBe(true);
+  });
+
+  it("offers no SIL category off the 722 list", async () => {
+    renderForm("701");
+    await screen.findByRole("button", { name: "Description" });
+    expect(screen.queryByRole("radiogroup", { name: "SIL category" })).not.toBeInTheDocument();
+  });
+
+  it("offers what's on the list today — an option added is offered, one removed isn't", async () => {
+    __resetComponentDescriptionOptionsMockStore([
+      { id: 1, kind: "Description", name: "Fuse", types: ["Glass"], sortOrder: 10 },
+    ]);
+    renderForm("701");
+    await userEvent.click(await screen.findByRole("button", { name: "Description" }));
+    expect(screen.getByRole("option", { name: "Fuse" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Capacitor" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the plain box when the list has no descriptions", async () => {
+    __resetComponentDescriptionOptionsMockStore([]);
+    renderForm("701");
+    expect(await screen.findByRole("textbox", { name: "Description" })).toBeInTheDocument();
+  });
+
+  it("leaves a Part List part's description as a text box", async () => {
+    renderForm("604");
+    expect(await screen.findByRole("textbox", { name: "Description" })).toBeInTheDocument();
   });
 });
 
@@ -205,7 +311,7 @@ describe("PartFormModal — the datasheet", () => {
 
   it("doesn't ask Has Data Sheet on a new component — the upload decides it", async () => {
     renderForm("701");
-    await screen.findByLabelText("Description");
+    await screen.findByRole("button", { name: "Description" });
     expect(screen.queryByText("Has Data Sheet")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Datasheet PDF")).toBeInTheDocument();
   });
