@@ -10,7 +10,8 @@ import {
   type CapturedError,
 } from "@/lib/errorBuffer";
 import { pushToast } from "@/components/Toast";
-import { APP_MANAGER_EMAIL } from "@/api/config";
+import { APP_MANAGER_EMAIL, SHARED_MAILBOX } from "@/api/config";
+import { isSendAsDenied } from "@/api/email";
 import { useOverlayDismiss } from "./useOverlayDismiss";
 
 // =============================================================================
@@ -20,10 +21,10 @@ import { useOverlayDismiss } from "./useOverlayDismiss";
 // the user a chance to describe what they were trying to do, and emails it
 // all to the app maintainer with the reporter CC'd.
 //
-// Designed to fail-soft: if Graph sendMail fails, the toast tells the user
-// the description was logged to console and asks them to send a screenshot
-// instead. We never want a reporting button to itself produce an error the
-// user can't recover from.
+// Designed to fail-soft: if Graph sendMail fails, the modal stays open with
+// the reason, offering Try again and "Use my email instead" (a mailto draft).
+// It never opens the draft on its own — that hid the reason, which is almost
+// always a missing Send As / Full Access grant on the shared mailbox.
 // =============================================================================
 
 export function NotifyAppManagerButton() {
@@ -50,6 +51,11 @@ function NotifyAppManagerModal({ onClose }: { onClose: () => void }) {
   const user = useCurrentUser();
   const [description, setDescription] = useState("");
   const [sending, setSending] = useState(false);
+  // Why the direct send failed, shown IN the modal. It used to open a mailto
+  // draft automatically, which is what people reported as "Report issue forces
+  // me into my own mail" (Ray, 2026-09-28) — and it hid the reason, which is
+  // almost always an Exchange grant somebody can fix.
+  const [sendError, setSendError] = useState<{ denied: boolean; detail: string } | null>(null);
   // Snapshot the buffer at modal-open time so the list the user sees in the
   // preview matches exactly what gets sent — even if more errors stream in
   // while they're typing.
@@ -75,9 +81,23 @@ function NotifyAppManagerModal({ onClose }: { onClose: () => void }) {
   //      keeps the button useful on the unauthenticated landing page.
   const useMailto = !user.email;
 
+  /** The explicit "use my own mail" choice after a failed direct send. */
+  function handleUseOwnMail() {
+    openMailtoDraft({
+      description: description.trim(),
+      captured,
+      pageUrl: typeof window !== "undefined" ? window.location.href : "(unknown)",
+      userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "(unknown)",
+    });
+    clearRecentErrors();
+    pushToast({ message: "Opened a draft in your email client — please review and send." });
+    onClose();
+  }
+
   async function handleSend() {
     if (sending) return;
     setSending(true);
+    setSendError(null);
     const pageUrl = typeof window !== "undefined" ? window.location.href : "(unknown)";
     const userAgent = typeof navigator !== "undefined" ? navigator.userAgent : "(unknown)";
 
@@ -110,27 +130,17 @@ function NotifyAppManagerModal({ onClose }: { onClose: () => void }) {
       });
       onClose();
     } catch (err) {
-      // Graph send failed (usually a shared-mailbox permission/config issue
-      // — 404 ErrorItemNotFound, 403 Forbidden, or 401 SessionExpired). The
-      // report itself is too important to drop on the floor, so fall back
-      // to opening a mailto: draft in the user's own mail client. The
-      // maintainer still gets the message; the user's mailbox is the
-      // From address; we don't need any Exchange config to work for this
-      // path to succeed.
+      // Graph send failed — usually the reporter lacks Send As / Full Access
+      // on the shared mailbox (403), sometimes a session or network problem.
+      // Keep the modal open with the reason and let the PERSON choose: try
+      // again, or send from their own mail. Never open a draft on their behalf.
       // eslint-disable-next-line no-console
-      console.error("[notifyAppManager] Graph send failed, opening mailto fallback:", err);
-      openMailtoDraft({
-        description: description.trim(),
-        captured,
-        pageUrl,
-        userAgent,
+      console.error("[notifyAppManager] Graph send failed:", err);
+      setSendError({
+        denied: isSendAsDenied(err),
+        detail: err instanceof Error ? err.message : String(err),
       });
-      clearRecentErrors();
-      pushToast({
-        message:
-          "Direct send failed — opened a draft in your email client. Please review and send.",
-      });
-      onClose();
+      setSending(false);
     }
   }
 
@@ -257,6 +267,29 @@ function NotifyAppManagerModal({ onClose }: { onClose: () => void }) {
           </p>
         </div>
 
+        {sendError && (
+          <div
+            role="alert"
+            className="shrink-0 border-t border-cooper-red/30 bg-cooper-red/5 px-5 py-3 text-xs text-fg"
+          >
+            <p className="font-medium text-cooper-red">The report wasn't sent.</p>
+            {sendError.denied ? (
+              <p className="mt-1">
+                Your account ({user.email}) isn't set up to send from{" "}
+                <strong>{SHARED_MAILBOX ?? "the notifications mailbox"}</strong>. Ask
+                IT to grant you Send As and Full Access on it — the same access
+                @-mention emails need. Until then you can try again or send it
+                from your own email.
+              </p>
+            ) : (
+              <p className="mt-1">
+                Something went wrong sending it: {sendError.detail}. You can try
+                again, or send it from your own email.
+              </p>
+            )}
+          </div>
+        )}
+
         <div className="flex shrink-0 items-center justify-end gap-2 border-t border-border bg-surface-2 px-5 py-3">
           <button
             type="button"
@@ -266,13 +299,29 @@ function NotifyAppManagerModal({ onClose }: { onClose: () => void }) {
           >
             Cancel
           </button>
+          {sendError && (
+            <button
+              type="button"
+              onClick={handleUseOwnMail}
+              disabled={sending}
+              className="rounded-md border border-border px-3 py-1.5 text-sm font-medium text-fg hover:bg-surface disabled:opacity-50"
+            >
+              Use my email instead
+            </button>
+          )}
           <button
             type="button"
             onClick={handleSend}
             disabled={sending || (!description.trim() && captured.length === 0)}
             className="rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {sending ? "Sending…" : useMailto ? "Open email draft" : "Send report"}
+            {sending
+              ? "Sending…"
+              : useMailto
+                ? "Open email draft"
+                : sendError
+                  ? "Try again"
+                  : "Send report"}
           </button>
         </div>
       </div>

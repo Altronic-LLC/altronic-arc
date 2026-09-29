@@ -15,6 +15,14 @@ import { clearAccessDenials, markListDenied, markSiteDenied } from "@/hooks/useL
 // "ask someone", which is the true and actionable version.
 // =============================================================================
 
+// Pinned OFF, so the "before it goes live" case doesn't depend on whether
+// this machine's .env.local sets VITE_PARTS_LIST_LIVE. The live case is
+// Header.partsListLive.test.tsx.
+vi.mock("@/api/config", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/api/config")>();
+  return { ...actual, PARTS_LIST_LIVE: false };
+});
+
 vi.mock("@/hooks/useCurrentUser", () => ({
   useCurrentUser: () => ({
     displayName: "Demo User",

@@ -62,6 +62,14 @@ export const CHANGELOG: ChangelogEntry[] = [
     changes: PARTS_LIST_LIVE ? PARTS_LIST_CHANGES : [PARTS_LIST_COMING_SOON],
   },
   {
+    version: "0.167.1",
+    date: "2026-09-28",
+    changes: [
+      "Report issue no longer opens your own email by itself when it can't send from the notifications mailbox — it stays open, says why, and offers Try again or Use my email instead",
+      "When the reason is missing access to the notifications mailbox, Report issue names the access to ask IT for",
+    ],
+  },
+  {
     version: "0.167.0",
     date: "2026-09-28",
     changes: [
