@@ -34,6 +34,15 @@ async function openDepartments() {
   return user;
 }
 
+describe("Departments menu — the Parts List before it goes live", () => {
+  it("reads Soon and isn't a link — testers go by URL until VITE_PARTS_LIST_LIVE", async () => {
+    await openDepartments();
+    const label = screen.getByText("Parts List");
+    expect(label.closest("a")).toBeNull();
+    expect(label.parentElement).toHaveTextContent(/Soon/);
+  });
+});
+
 describe("Departments menu — refused lists", () => {
   it("links to an app whose list is reachable", async () => {
     await openDepartments();

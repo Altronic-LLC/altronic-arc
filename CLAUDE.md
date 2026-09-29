@@ -1272,6 +1272,26 @@ views:
 | `/engineering/parts/search` | `PartsListView` — Global Search across both lists |
 | `/engineering/parts/:kind/:id` | `PartDetailView` — `kind` is `part` or `component`; anything else is "not found" |
 
+**It ships HIDDEN behind `PARTS_LIST_LIVE`** (`VITE_PARTS_LIST_LIVE`, in
+`deploy.yml`; Tim, 2026-09-29). The approvers aren't on Parts Roles for
+testing, so until the repo variable is `true` the Dashboard card and the
+Departments entry read **Coming soon**. Both sit LAST in Engineering while
+hidden, because placeholders always do (a Dashboard test enforces it). Every
+route still works, and testers go straight to `/engineering/parts`. **Going
+live is the repo variable plus a redeploy, with no code change.** It hides
+the links only; it is not a permission. `Header` reads the switch once when
+the module loads and the Dashboard reads it at render, which is why the
+Header's live-state test is its own file (`Header.partsListLive.test.tsx`).
+
+**The history follows the same switch.** Until it's live, v0.168.0 in the
+footer's View history shows ONE line, "coming soon". The Parts List's real
+notes live in `PARTS_LIST_CHANGES` in `data/changelog.ts` and replace that
+line once `PARTS_LIST_LIVE` is on. **Until go-live, a new Parts List bullet
+goes into `PARTS_LIST_CHANGES`, not into a new entry's `changes`**, or it
+reaches the history before the screen it describes. Commit messages still
+carry the bullets as usual. Once it's live for good, fold the array back
+into a plain entry and delete the switch.
+
 Seven things that are load-bearing:
 
 - **The Part List is fetched WHOLE: about 15 `$top=999` pages, with no
