@@ -4805,6 +4805,19 @@ const SECTIONS: ManualSection[] = [
           <strong>Global Search</strong>, top right, searches both lists at once
           when you don't know where a part lives.
         </P>
+        <P>
+          From inside a list, the <strong>Parts Book</strong> link at the top
+          (for example <strong>700 Parts Book</strong>) takes you back to that
+          book's lists, so you can move to the next list without starting over.
+        </P>
+        <P>
+          <strong>On a phone</strong>, opening a Parts Book hides the other books
+          and shows just its lists — <strong>All Parts Books</strong> brings them
+          back. A list shows each part as a card (part number, sign-off,
+          description and the main details) instead of the table; tap a card to
+          open the part. Use <strong>Sort by</strong> and the A–Z button above
+          the cards to change the order.
+        </P>
         <H3>Searching a list</H3>
         <P>
           The search panel down the left has one box per field, just like the old

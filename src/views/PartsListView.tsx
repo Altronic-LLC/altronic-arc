@@ -1,12 +1,14 @@
 import { useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ChevronDown, Cpu, Globe, SlidersHorizontal, X } from "lucide-react";
+import { ArrowDownAZ, ArrowUpAZ, ChevronDown, Cpu, Globe, SlidersHorizontal, X } from "lucide-react";
 import { useAltronicComponents, useAltronicParts } from "@/hooks/useAltronicParts";
 import { PartKindChip, PartsDataGate, SignOffChip, type PartsQueryState } from "@/components/partsAtoms";
 import { SearchInput } from "@/components/SearchInput";
 import { NewPartButton } from "@/components/PartFormModal";
 import { SortableHeader } from "@/components/SortableTableHeader";
 import { useSortableTable } from "@/hooks/useSortableTable";
+import { useIsPhone } from "@/hooks/useIsPhone";
+import { ChoiceSelect } from "@/components/SearchableSelect";
 import { dayLabel, type SortColumn } from "@/lib/tableSort";
 import { tokenizeQuery } from "@/lib/itemSearch";
 import {
@@ -20,7 +22,7 @@ import {
   type SearchField,
 } from "@/lib/partSearch";
 import { formatEngineeringValue, parseBound } from "@/lib/engineeringValue";
-import { COMPONENT_PREFIX_CATEGORY, isComponentPrefix, partPrefix } from "@/lib/altronicPartMapper";
+import { COMPONENT_PREFIX_CATEGORY, isComponentPrefix, partBook, partPrefix } from "@/lib/altronicPartMapper";
 import type { AltronicComponent, AltronicPart } from "@/types/task";
 import { cn } from "@/lib/cn";
 
@@ -128,9 +130,14 @@ function PartListScreen({ prefix }: { prefix: string }) {
       emptyText={`No parts in list ${prefix}.`}
       sourceEmpty={query.data?.length === 0}
       action={<NewPartButton prefix={prefix} />}
+      book={partBook(prefix)}
+      cardFields={PART_CARD_FIELDS}
     />
   );
 }
+
+/** What a phone's card shows under the part number and description. */
+const PART_CARD_FIELDS = ["manufacturer", "mfgPartNumber", "dateAssigned", "purchased"];
 
 const partId = (p: AltronicPart) => p.id;
 
@@ -190,9 +197,13 @@ function ComponentListScreen({ prefix }: { prefix: string }) {
       emptyText={`No components in list ${prefix}.`}
       sourceEmpty={query.data?.length === 0}
       action={<NewPartButton prefix={prefix} />}
+      book={partBook(prefix)}
+      cardFields={COMPONENT_CARD_FIELDS}
     />
   );
 }
+
+const COMPONENT_CARD_FIELDS = ["mfgName", "mfgNumber", "ratingA", "ratingB", "ratingC", "footprint"];
 
 const componentId = (c: AltronicComponent) => c.id;
 
@@ -264,9 +275,12 @@ function GlobalSearchScreen() {
       }}
       emptyText="No parts on either list."
       sourceEmpty={rows.length === 0}
+      cardFields={GLOBAL_CARD_FIELDS}
     />
   );
 }
+
+const GLOBAL_CARD_FIELDS = ["list", "kindLabel", "manufacturer", "mfgNumber"];
 
 const globalKey = (r: GlobalPartRow) => r.key;
 
@@ -293,6 +307,10 @@ interface PartsTableProps<T> {
   sourceEmpty: boolean;
   /** Beside the heading — the New part button on a list screen. */
   action?: ReactNode;
+  /** The Parts Book this list is in — the breadcrumb goes back to it. */
+  book?: number | null;
+  /** Column keys a phone's card lists under the part number and description. */
+  cardFields: string[];
 }
 
 function PartsTable<T>({
@@ -310,8 +328,11 @@ function PartsTable<T>({
   emptyText,
   sourceEmpty,
   action,
+  book,
+  cardFields,
 }: PartsTableProps<T>) {
   const navigate = useNavigate();
+  const isPhone = useIsPhone();
   const [params, setParams] = useSearchParams();
   const [showAll, setShowAll] = useState(false);
   const [panelExpanded, setPanelExpanded] = useState(false);
@@ -427,6 +448,15 @@ function PartsTable<T>({
           Parts List
         </Link>
         <span className="text-fg-muted">/</span>
+        {book ? (
+          <>
+            {/* Back to the book, so the next list in it is one tap away (Tim, 2026-09-29). */}
+            <Link to={`/engineering/parts?book=${book}`} className="text-fg-muted hover:text-fg">
+              {book}00 Parts Book
+            </Link>
+            <span className="text-fg-muted">/</span>
+          </>
+        ) : null}
         <span className="font-medium text-fg">{title}</span>
       </nav>
 
@@ -559,6 +589,15 @@ function PartsTable<T>({
                   <p className="px-4 py-10 text-center text-sm text-fg-muted">
                     No parts match this search.
                   </p>
+                ) : isPhone ? (
+                  <PartCards
+                    rows={shown}
+                    columns={columns}
+                    cardFields={cardFields}
+                    stableKey={stableKey}
+                    rowPath={rowPath}
+                    table={table}
+                  />
                 ) : (
                   // Scrolls BOTH ways in its own box on a desktop, so the
                   // horizontal scrollbar is always in view rather than at the
@@ -621,6 +660,108 @@ function PartsTable<T>({
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * The list on a PHONE: one card per part instead of the ten-column table
+ * (Tim, 2026-09-29), the MRB / CPU-95 arrangement. The card is a single link
+ * to the part — nothing inside it competes for the tap.
+ *
+ * Rendered INSTEAD of the table (useIsPhone), not beside it behind CSS
+ * breakpoints as MRB does: these lists put 150 rows in the DOM, and doubling
+ * that on every keystroke of a search is the freeze CLAUDE.md warns about.
+ *
+ * A phone has no column headers, so sorting is a Sort by picker plus a
+ * direction button over the same sort state the table's headers drive.
+ */
+function PartCards<T>({
+  rows,
+  columns,
+  cardFields,
+  stableKey,
+  rowPath,
+  table,
+}: {
+  rows: T[];
+  columns: SortColumn<T>[];
+  cardFields: string[];
+  stableKey: (row: T) => number;
+  rowPath: (row: T) => string;
+  table: {
+    sortKey: string;
+    sortDirection: "asc" | "desc";
+    toggleSort: (key: string) => void;
+    hasFilters: boolean;
+    clearFilters: () => void;
+  };
+}) {
+  const byKey = new Map(columns.map((c) => [c.key, c]));
+  const text = (key: string, row: T) => byKey.get(key)?.value(row) ?? "";
+  const fields = cardFields.map((k) => byKey.get(k)).filter((c): c is SortColumn<T> => !!c);
+  const ascending = table.sortDirection === "asc";
+
+  return (
+    <>
+      <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+        <span className="shrink-0 text-xs font-medium text-fg-muted">Sort by</span>
+        <div className="min-w-0 flex-1">
+          <ChoiceSelect
+            ariaLabel="Sort by"
+            emptyLabel="Part #"
+            options={columns.map((c) => ({ value: c.key, label: c.label }))}
+            value={table.sortKey}
+            onChange={(key) => key && key !== table.sortKey && table.toggleSort(key)}
+            clearable={false}
+          />
+        </div>
+        <button
+          type="button"
+          onClick={() => table.toggleSort(table.sortKey)}
+          aria-label={ascending ? "Sorted A to Z — switch to Z to A" : "Sorted Z to A — switch to A to Z"}
+          className="shrink-0 rounded-md border border-border p-1.5 text-fg-muted hover:bg-surface-2 hover:text-fg"
+        >
+          {ascending ? <ArrowDownAZ className="h-4 w-4" /> : <ArrowUpAZ className="h-4 w-4" />}
+        </button>
+      </div>
+      {table.hasFilters && (
+        // Column filters are set from the table's headers, which a phone
+        // doesn't show — so say one is narrowing the list, and offer a way out.
+        <div className="flex items-center justify-between gap-2 border-b border-border bg-ajax-yellow/10 px-3 py-2 text-xs text-fg">
+          A column filter is narrowing this list.
+          <button type="button" onClick={table.clearFilters} className="font-medium text-accent hover:underline">
+            Clear it
+          </button>
+        </div>
+      )}
+      <ul className="divide-y divide-border" aria-label="Parts">
+        {rows.map((row) => (
+          <li key={stableKey(row)}>
+            <Link to={rowPath(row)} className="block px-4 py-3 hover:bg-surface-2/60">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-mono text-sm font-semibold text-fg">{text("partNumber", row) || "—"}</span>
+                <SignOffChip status={text("signOffStatus", row) || null} />
+              </div>
+              <p className="mt-0.5 text-sm text-fg">{text("description", row) || "No description"}</p>
+              {fields.length > 0 && (
+                <dl className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                  {fields.map((c) => {
+                    const v = c.value(row);
+                    if (!v) return null;
+                    return (
+                      <div key={c.key} className="min-w-0">
+                        <dt className="text-fg-muted">{c.label}</dt>
+                        <dd className="break-words text-fg">{v}</dd>
+                      </div>
+                    );
+                  })}
+                </dl>
+              )}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }
 

@@ -1316,6 +1316,21 @@ Seven things that are load-bearing:
   - The three branches (refused / failed / empty) live in `PartsDataGate`
     (`components/partsAtoms.tsx`), which all three screens share.
 
+**On a phone** (Tim, 2026-09-29):
+- **A list is CARDS, not the table** (`PartCards` in `PartsListView`). They
+  are rendered INSTEAD of the table via `useIsPhone`, deliberately not the
+  MRB/CPU-95 CSS pair: these screens put 150 rows in the DOM and a search
+  re-renders them on every keystroke, so doubling it is the freeze "Big lists
+  cap what's RENDERED" warns about. A side effect: jsdom's width is desktop,
+  so a phone test sets `window.innerWidth` to 375 before rendering.
+- **No headers, so sorting is a Sort by picker plus an A–Z button** over the
+  same `useSortableTable` state. A column filter set on a wider screen can't
+  be seen on a phone, so the cards say one is active and offer Clear.
+- **An open Parts Book hides the other eight** (`hidden sm:block` on the
+  tiles) with an **All Parts Books** button back.
+- **Every list screen's breadcrumb goes back to its BOOK**
+  (`/engineering/parts?book=7`), so the next list in the book is one tap away.
+
 **Rating A/B/C mean different things per component type.**
 `lib/componentRatings.ts` is the guide's table, verbatim, as data. The type is
 read off the START of the description ("CAPACITOR - CERAMIC"), the longest

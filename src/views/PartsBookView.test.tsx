@@ -112,3 +112,15 @@ describe("PartsBookView", () => {
     __resetPartsRolesMockStore();
   });
 });
+
+describe("PartsBookView — on a phone", () => {
+  it("hides the other books once one is open, and brings them back", async () => {
+    renderBook("/engineering/parts?book=7");
+    const books = screen.getByRole("region", { name: "Parts books" });
+    // CSS does the hiding — jsdom has no breakpoints — so assert the class.
+    expect(books).toHaveClass("hidden", "sm:block");
+    await userEvent.click(screen.getByRole("button", { name: "All Parts Books" }));
+    expect(screen.getByRole("region", { name: "Parts books" })).not.toHaveClass("hidden");
+    expect(screen.queryByRole("button", { name: "All Parts Books" })).not.toBeInTheDocument();
+  });
+});

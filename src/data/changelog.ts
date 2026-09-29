@@ -25,6 +25,8 @@ export const CHANGELOG: ChangelogEntry[] = [
     changes: [
       "New Parts List under Engineering: every Altronic part number in one place, replacing the Altronic Component List app's 175 separate lists",
       "Pick a Parts Book and a list, or type a list number, a part number or a description into the box at the top",
+      "From inside a list, the Parts Book link at the top goes back to that book's lists",
+      "On a phone, an open Parts Book shows just its lists, and a list shows each part as a card with a Sort by picker",
       "Global Search looks through the Part List and the HCO Component List at once",
       "Each list has the old app's search panel — one box per field, with & to search several things in one box — plus search everything, sorting and column filters",
       "A component's page says what Rating A, B and C mean for that kind of part",

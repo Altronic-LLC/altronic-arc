@@ -1,6 +1,6 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Cpu, Globe, ListTree, Search } from "lucide-react";
+import { ArrowLeft, Cpu, Globe, ListTree, Search } from "lucide-react";
 import { useAltronicComponents, useAltronicParts } from "@/hooks/useAltronicParts";
 import { PartKindChip, PartsDataGate } from "@/components/partsAtoms";
 import { buildPartsBooks, parsePartsQuery, partPath } from "@/lib/partSearch";
@@ -191,7 +191,10 @@ export function PartsBookView() {
         {notFound && <p className="text-xs text-fg-muted">{notFound}</p>}
       </form>
 
-      <section aria-label="Parts books">
+      {/* On a phone, an open book hides the other eight (Tim, 2026-09-29):
+          nine tiles push its lists off the screen. "All Parts Books" brings
+          them back. A tablet or desktop has room for both, so keeps both. */}
+      <section aria-label="Parts books" className={selectedBook ? "hidden sm:block" : undefined}>
         <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-fg-muted">Parts Books</h2>
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-9">
           {PARTS_BOOKS.map((book) => {
@@ -225,6 +228,14 @@ export function PartsBookView() {
 
       {selectedBook && (
         <section aria-label={`${selectedBook}00 Parts Book`}>
+          <button
+            type="button"
+            onClick={() => selectBook(null)}
+            className="mb-3 inline-flex items-center gap-1 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg hover:bg-surface-2 sm:hidden"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            All Parts Books
+          </button>
           <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-fg-muted">
             {selectedBook}00 Parts Book — pick a list
           </h2>

@@ -310,3 +310,65 @@ describe("PartsListView — deleted part numbers", () => {
     expect(tablePartNumbers()).toContain("309115");
   });
 });
+
+describe("PartsListView — the breadcrumb", () => {
+  it("goes back to the Parts Book the list is in, so the next list is one tap away", async () => {
+    useMockParts();
+    renderList("/engineering/parts/list/722");
+    const crumb = await screen.findByRole("link", { name: "700 Parts Book" });
+    expect(crumb).toHaveAttribute("href", "/engineering/parts?book=7");
+  });
+
+  it("has no book on Global Search, which spans them all", async () => {
+    useMockParts();
+    renderList("/engineering/parts/search");
+    await screen.findByRole("heading", { name: "Global Search" });
+    expect(screen.queryByRole("link", { name: /Parts Book/ })).not.toBeInTheDocument();
+  });
+});
+
+describe("PartsListView — on a phone", () => {
+  const desktopWidth = window.innerWidth;
+  afterEach(() => {
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: desktopWidth });
+  });
+  function asPhone() {
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 375 });
+  }
+
+  /** Part numbers on the cards, top to bottom. */
+  function cardPartNumbers(): string[] {
+    return within(screen.getByRole("list", { name: "Parts" }))
+      .getAllByRole("link")
+      .map((a) => a.querySelector(".font-mono")?.textContent?.trim() ?? "");
+  }
+
+  it("shows cards instead of the table, each one a link to the part", async () => {
+    asPhone();
+    useMockParts();
+    renderList("/engineering/parts/list/309");
+    await waitFor(() => expect(screen.getByRole("list", { name: "Parts" })).toBeInTheDocument());
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(cardPartNumbers()).toEqual(["309114", "309115"]);
+    const first = within(screen.getByRole("list", { name: "Parts" })).getAllByRole("link")[0];
+    expect(first.getAttribute("href")).toMatch(/^\/engineering\/parts\/part\/\d+$/);
+  });
+
+  it("sorts from the Sort by picker and the direction button, having no headers", async () => {
+    asPhone();
+    useMockParts();
+    renderList("/engineering/parts/list/309");
+    await waitFor(() => expect(screen.getByRole("list", { name: "Parts" })).toBeInTheDocument());
+    await userEvent.click(screen.getByRole("button", { name: /Sorted A to Z/ }));
+    expect(cardPartNumbers()).toEqual(["309115", "309114"]);
+    expect(screen.getByRole("button", { name: "Sort by" })).toBeInTheDocument();
+  });
+
+  it("shows a component's ratings on its card", async () => {
+    asPhone();
+    useMockParts();
+    renderList("/engineering/parts/list/701");
+    const cards = await screen.findByRole("list", { name: "Parts" });
+    expect(within(cards).getAllByText("Rating A").length).toBeGreaterThan(0);
+  });
+});
