@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   addBuildRequestComment,
@@ -23,14 +24,27 @@ import type { BuildRequest, BuildRequestItem, Person } from "@/types/task";
 import { ALL_CHECKLIST_FIELDS } from "@/lib/buildRequestChecklist";
 import { describeListWriteFailure } from "@/lib/listWriteErrors";
 import { pushToast } from "@/components/Toast";
-import { fireAssigneeChangeAlert, fireFieldChangeAlert, notifyMentions } from "@/api/email";
+import {
+  fireAssigneeChangeAlert,
+  fireBuildRequestCompleteAlert,
+  fireBuildRequestPartProductionCompleteAlert,
+  fireBuildRequestProductionCompleteAlert,
+  fireBuildRequestReadyForProductionAlert,
+  fireFieldChangeAlert,
+  notifyMentions,
+} from "@/api/email";
 import { htmlToPlainText } from "@/lib/htmlText";
 import {
   commentNotifyRecipients,
   commentRenotifyRecipients,
   extractMentionedRecipients,
 } from "@/lib/mentions";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useCurrentUser, useCurrentUserEmails } from "@/hooks/useCurrentUser";
+import { ADMINS_KEY } from "./useAdmins";
+import { listAdmins } from "@/api/admins";
+import { isAdminEmail } from "@/lib/adminAccess";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { productionTransitionRefusal } from "@/lib/buildRequestProduction";
 import { resolveCurrentUserLookupId } from "@/api/currentUser";
 import { autoWatchers } from "@/lib/people";
 import { fanOutComment } from "@/hooks/useCommentMirror";
@@ -203,31 +217,141 @@ function applyBrFieldsLocally(b: BuildRequest, fields: Record<string, unknown>):
   return next;
 }
 
+/**
+ * A status write the production hand-off rule refused
+ * (`productionTransitionRefusal`). Thrown from `mutationFn` BEFORE any
+ * request goes out, so the status picker can't bypass the detail page's
+ * Ready for Production / Production Complete button.
+ */
+export class BuildRequestProductionRefusedError extends Error {
+  constructor(reason: string) {
+    super(reason);
+    this.name = "BuildRequestProductionRefusedError";
+  }
+}
+
+/**
+ * Refusals decided in `onMutate`, against the PRE-patch row: by the time
+ * `mutationFn` runs the optimistic patch has already moved the cached status
+ * to the target, so every transition would read as a re-save. Keyed on the
+ * variables object React Query hands to both — the FAIT `pendingSignOff`
+ * pattern.
+ */
+const pendingProductionRefusal = new WeakMap<object, string>();
+
+const PRODUCTION_GATED_STATUSES: readonly string[] = ["Ready for Production", "Production Complete"];
+
+/**
+ * Status changes whose own hand-off alert REPLACES the generic "status
+ * changed" note (it already reaches the same watchers — sending both would
+ * double-email them). "Production Complete" is deliberately absent: its own
+ * alert goes only to the reviewer, so the generic note still tells watchers.
+ */
+function brStatusHasOwnAlert(from: string, to: string): boolean {
+  if (from === to) return false;
+  if (to === "Ready for Production") return true;
+  return to === "Complete" && from === "Production Complete";
+}
+
+type BrFieldWrite = { id: number; fields: Record<string, unknown> };
+
 export function useUpdateBuildRequestFields() {
   const qc = useQueryClient();
   const actor = useCurrentUser();
+  const isAdmin = useIsAdmin();
+  const myEmails = useCurrentUserEmails();
+  // Read at mutation time rather than closed over the first render: the
+  // Admins list and /me both resolve asynchronously.
+  const accessRef = useRef({ isAdmin, myEmails });
+  accessRef.current = { isAdmin, myEmails };
+  const actorRef = useRef(actor);
+  actorRef.current = actor;
   return useMutation({
-    mutationFn: ({ id, fields }: { id: number; fields: Record<string, unknown> }) =>
-      updateBuildRequestFields(id, fields),
-    onMutate: ({ id, fields }) =>
-      snapshotAndPatchBr(qc, id, patchBr(id, (b) => applyBrFieldsLocally(b, fields))),
+    mutationFn: (vars: BrFieldWrite) => {
+      const refusal = pendingProductionRefusal.get(vars);
+      if (refusal) throw new BuildRequestProductionRefusedError(refusal);
+      return updateBuildRequestFields(vars.id, vars.fields);
+    },
+    onMutate: async (vars: BrFieldWrite): Promise<BrCtx> => {
+      const { id, fields } = vars;
+      if ("BRStatus" in fields) {
+        const target = String(fields.BRStatus ?? "");
+        if (PRODUCTION_GATED_STATUSES.includes(target)) {
+          const brs = await qc.ensureQueryData({
+            queryKey: BUILD_REQUESTS_KEY,
+            queryFn: listBuildRequests,
+          });
+          const br = brs.find((b) => b.id === id);
+          let refusal: string | null;
+          if (!br) {
+            refusal = "This build request couldn't be found — refresh and try again.";
+          } else {
+            const items = await qc.ensureQueryData({
+              queryKey: BUILD_REQUEST_ITEMS_KEY,
+              queryFn: listBuildRequestItems,
+            });
+            const parts = items.filter((i) => i.buildRequestLookupId === id);
+            // The render-time admin flag reads FALSE while the Admins list is
+            // still loading, which would refuse a real admin on first paint.
+            // Await the list here (the CMMS gates do the same); fall back to
+            // the render-time flag only if that read fails.
+            const { myEmails } = accessRef.current;
+            const admins = await qc
+              .ensureQueryData({ queryKey: ADMINS_KEY, queryFn: listAdmins })
+              .catch(() => null);
+            const isAdmin = admins
+              ? myEmails.some((e) => isAdminEmail(e, admins))
+              : accessRef.current.isAdmin;
+            refusal = productionTransitionRefusal(br, parts, target, { isAdmin, myEmails });
+          }
+          if (refusal) {
+            pendingProductionRefusal.set(vars, refusal);
+            // No optimistic patch: nothing is going to be written.
+            return {};
+          }
+        }
+      }
+      return snapshotAndPatchBr(qc, id, patchBr(id, (b) => applyBrFieldsLocally(b, fields)));
+    },
     onSuccess: (_data, { id, fields }, ctx) => {
       pushToast({ message: "Changes saved." });
-      if ("BRStatus" in fields && ctx?.prevBr) {
-        fireFieldChangeAlert({
-          target: { kind: "buildRequest", id, title: ctx.prevBr.brNo || ctx.prevBr.title },
-          fieldLabel: "status",
-          from: ctx.prevBr.status,
-          to: String(fields.BRStatus ?? ""),
-          actor,
-          watchers: ctx.prevBr.watchers,
-          assignees: ctx.prevBr.engineerAssigned ? [ctx.prevBr.engineerAssigned] : [],
-          reporter: ctx.prevBr.requestor,
-        });
+      const prevBr = ctx?.prevBr;
+      if ("BRStatus" in fields && prevBr) {
+        const from = prevBr.status;
+        const to = String(fields.BRStatus ?? "");
+        const who = actorRef.current;
+        if (!brStatusHasOwnAlert(from, to)) {
+          // No-ops by itself when from === to.
+          fireFieldChangeAlert({
+            target: { kind: "buildRequest", id, title: prevBr.brNo || prevBr.title },
+            fieldLabel: "status",
+            from,
+            to,
+            actor: who,
+            watchers: prevBr.watchers,
+            assignees: prevBr.engineerAssigned ? [prevBr.engineerAssigned] : [],
+            reporter: prevBr.requestor,
+          });
+        }
+        // `"BRStatus" in fields` is PRESENCE, not change — `to !== from` is
+        // OUR guard, so re-saving a status never re-announces it.
+        if (to !== from) {
+          if (to === "Ready for Production") {
+            fireBuildRequestReadyForProductionAlert({ buildRequest: prevBr, actor: who });
+          } else if (to === "Production Complete") {
+            fireBuildRequestProductionCompleteAlert({ buildRequest: prevBr, actor: who });
+          } else if (to === "Complete" && from === "Production Complete") {
+            fireBuildRequestCompleteAlert({ buildRequest: prevBr, actor: who });
+          }
+        }
       }
     },
-    onError: (_err, _vars, ctx) => {
+    onError: (err, _vars, ctx) => {
       rollbackBr(qc, ctx);
+      if (err instanceof BuildRequestProductionRefusedError) {
+        errorToast(err.message);
+        return;
+      }
       errorToast("Couldn't save changes — they have been reverted.");
     },
     onSettled: () => invalidateBrs(qc),
@@ -711,6 +835,9 @@ function applyItemFieldsLocally(
 export function useUpdateBuildRequestItemFields() {
   const qc = useQueryClient();
   const actor = useCurrentUser();
+  // Read at send time: useCurrentUser re-resolves asynchronously.
+  const actorRef = useRef(actor);
+  actorRef.current = actor;
   return useMutation({
     mutationFn: ({ id, fields }: { id: number; fields: Record<string, unknown> }) =>
       updateBuildRequestItemFields(id, fields),
@@ -718,17 +845,45 @@ export function useUpdateBuildRequestItemFields() {
       snapshotAndPatchItem(qc, id, patchItem(id, (i) => applyItemFieldsLocally(i, fields))),
     onSuccess: (_data, { id, fields }, ctx) => {
       pushToast({ message: "Part updated." });
-      if ("Part_x0020_Status" in fields && ctx?.prevItem) {
+      const prevItem = ctx?.prevItem;
+      if (!("Part_x0020_Status" in fields) || !prevItem) return;
+      const from = prevItem.partStatus ?? "Not set";
+      const to = String(fields.Part_x0020_Status ?? "Not set");
+      const generic = () =>
         fireFieldChangeAlert({
-          target: { kind: "buildRequestItem", id, title: ctx.prevItem.partNumber },
+          target: { kind: "buildRequestItem", id, title: prevItem.partNumber },
           fieldLabel: "part status",
-          from: ctx.prevItem.partStatus ?? "Not set",
-          to: String(fields.Part_x0020_Status ?? "Not set"),
-          actor,
-          watchers: ctx.prevItem.watchers,
+          from,
+          to,
+          actor: actorRef.current,
+          watchers: prevItem.watchers,
           assignees: [],
         });
+      // `to !== from` is the guard; presence of the field is not a change.
+      if (to !== "Production Complete" || to === from) {
+        generic();
+        return;
       }
+      // A part REACHING Production Complete gets its own alert (the request's
+      // engineer, watchers and requestor plus the part's watchers), replacing
+      // the generic note rather than doubling it. The parent is LOADED if the
+      // cache hasn't got it — a part edited before the requests list arrived
+      // must still reach the engineer, not only the part's watchers.
+      void qc
+        .ensureQueryData({ queryKey: BUILD_REQUESTS_KEY, queryFn: listBuildRequests })
+        .then((brs) => brs.find((b) => b.id === prevItem.buildRequestLookupId))
+        .catch(() => undefined)
+        .then((parent) => {
+          if (parent) {
+            fireBuildRequestPartProductionCompleteAlert({
+              buildRequest: parent,
+              part: prevItem,
+              actor: actorRef.current,
+            });
+          } else {
+            generic();
+          }
+        });
     },
     onError: (err, _vars, ctx) => {
       rollbackItem(qc, ctx);

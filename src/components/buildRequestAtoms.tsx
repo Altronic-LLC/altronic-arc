@@ -14,6 +14,13 @@ export function buildRequestStatusColor(status: BuildRequestStatus): string {
       return "bg-superior-blue/15 text-superior-blue";
     case "In-process":
       return "bg-ajax-yellow/20 text-ajax-yellow";
+    // Production hand-off (2026-09-29). Both are OPEN states — Production
+    // Complete is waiting on a review before the request is Complete — so
+    // neither borrows Complete's green.
+    case "Ready for Production":
+      return "bg-cyan-500/15 text-cyan-500";
+    case "Production Complete":
+      return "bg-teal-500/15 text-teal-500";
     case "Blocked":
       return "bg-cooper-red/15 text-cooper-red";
     case "Complete":
@@ -44,7 +51,11 @@ export function partStatusColor(status: BuildRequestPartStatus | null): string {
       return "bg-superior-blue/15 text-superior-blue";
     case "Information Needed":
       return "bg-orange-500/15 text-orange-500";
+    // A part's last step is now Production Complete, so that takes the
+    // "done" green and Ready for Production matches the request-level cyan.
     case "Ready for Production":
+      return "bg-cyan-500/15 text-cyan-500";
+    case "Production Complete":
       return "bg-cooper-green/15 text-cooper-green";
     case "On Hold":
       return "bg-violet-500/15 text-violet-500";

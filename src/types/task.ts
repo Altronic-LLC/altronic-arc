@@ -658,6 +658,11 @@ export interface OperationsTaskItemFields {
 export const BUILD_REQUEST_STATUSES = [
   "Submitted",
   "In-process",
+  // The production hand-off (Ray, 2026-09-29). Added to the SharePoint column
+  // first — the mapper clamps a read to this list, so a value missing here
+  // reads back as the fallback status. See lib/buildRequestProduction.ts.
+  "Ready for Production",
+  "Production Complete",
   "Blocked",
   "Complete",
   "Information Needed",
@@ -704,6 +709,7 @@ export const BUILD_REQUEST_PART_STATUSES = [
   "Review Checklist",
   "Information Needed",
   "Ready for Production",
+  "Production Complete",
   "On Hold",
 ] as const;
 export type BuildRequestPartStatus = (typeof BUILD_REQUEST_PART_STATUSES)[number];

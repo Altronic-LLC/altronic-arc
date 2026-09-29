@@ -131,6 +131,9 @@ jobs:
           VITE_GRAY_MARKET_NEW_REQUEST_ALERTS: ${{ vars.VITE_GRAY_MARKET_NEW_REQUEST_ALERTS }}
           VITE_FAIT_NEW_ALERTS: ${{ vars.VITE_FAIT_NEW_ALERTS }}
           VITE_FAIT_SQE_REVIEWERS: ${{ vars.VITE_FAIT_SQE_REVIEWERS }}
+          VITE_BUILD_REQUEST_PRODUCTION_ALERTS: ${{ vars.VITE_BUILD_REQUEST_PRODUCTION_ALERTS }}
+          VITE_BUILD_REQUEST_COMPLETE_REVIEWERS: ${{ vars.VITE_BUILD_REQUEST_COMPLETE_REVIEWERS }}
+          VITE_BUILD_REQUEST_FINAL_ALERTS: ${{ vars.VITE_BUILD_REQUEST_FINAL_ALERTS }}
           VITE_COST_IMPACT_NOTICE_ALERTS: ${{ vars.VITE_COST_IMPACT_NOTICE_ALERTS }}
           # ARC Feature Requests — the intake queue for new requests AND for
           # status changes. Defaults to Ray alone in config.ts, so this only
