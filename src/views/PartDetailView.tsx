@@ -1,5 +1,5 @@
-import { useRef, useState, type ReactNode } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { CheckCircle2, Cpu, ExternalLink, FileText, History, Info, Loader2, Lock, Pencil, Trash2, Upload, X } from "lucide-react";
 import { deletionReason, isDeletedPart, partEvent } from "@/lib/partLifecycle";
 import { useDatasheet, useUploadDatasheet } from "@/hooks/useDatasheet";
@@ -33,7 +33,19 @@ import {
   patchFromForm,
   type PartFieldSpec,
 } from "@/lib/partFields";
-import { approvalStepLabel, approveGate, deletePartGate, editPartGate, nextSignOff, type PartsGate } from "@/lib/partsRoles";
+import {
+  SAP_RESPONSES,
+  SAP_RESPONSE_LABELS,
+  approvalStepLabel,
+  approveGate,
+  deletePartGate,
+  editPartGate,
+  nextSignOff,
+  parseSapResponse,
+  sapResponseNeedsComment,
+  type PartsGate,
+  type SapResponse,
+} from "@/lib/partsRoles";
 import { sanitiseHtml } from "@/lib/sanitiseHtml";
 import type { AltronicComponent, AltronicPart, Comment, ItemAuthor } from "@/types/task";
 
@@ -223,7 +235,10 @@ function PartBody({ part }: { part: AltronicPart }) {
       <ApprovalPanel
         status={part.signOffStatus}
         pending={approve.isPending}
-        onApprove={(comment) => approve.mutate({ id: part.id, expected: part.signOffStatus ?? "", comment })}
+        submitter={part.createdBy}
+        onApprove={(comment, response) =>
+          approve.mutate({ id: part.id, expected: part.signOffStatus ?? "", comment, response })
+        }
       />
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Card title="Part" onEdit={edit.allowed ? () => cards.setEditing("Part") : undefined}>
@@ -292,8 +307,9 @@ function ComponentBody({ component }: { component: AltronicComponent }) {
       <ApprovalPanel
         status={component.signOffStatus}
         pending={approve.isPending}
-        onApprove={(comment) =>
-          approve.mutate({ id: component.id, expected: component.signOffStatus ?? "", comment })
+        submitter={component.createdBy}
+        onApprove={(comment, response) =>
+          approve.mutate({ id: component.id, expected: component.signOffStatus ?? "", comment, response })
         }
       />
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -360,17 +376,50 @@ function ComponentBody({ component }: { component: AltronicComponent }) {
 function ApprovalPanel({
   status,
   pending,
+  submitter,
   onApprove,
 }: {
   status: string | null;
   pending: boolean;
-  onApprove: (comment: string) => void;
+  /** Who added the part — told the SAP step's answer. */
+  submitter: ItemAuthor | null;
+  onApprove: (comment: string, response: SapResponse | null) => void;
 }) {
   const access = useMyPartsAccess();
+  const [params, setParams] = useSearchParams();
   const [open, setOpen] = useState(false);
+  const [initialResponse, setInitialResponse] = useState<SapResponse | null>(null);
+  const [staleAsk, setStaleAsk] = useState(false);
   const next = nextSignOff(status);
-  if (!next) return null;
   const gate = approveGate(access, status);
+  const isSapStep = status === "Pending SAP";
+
+  // An answer button in the SAP email lands here as `?sap=added` (Tim,
+  // 2026-09-29). It OPENS the dialog with that answer picked — it never
+  // approves on its own, because mail scanners follow links too. Consumed
+  // once, so a refresh or Back doesn't reopen it.
+  const asked = parseSapResponse(params.get("sap"));
+  useEffect(() => {
+    if (!asked || gate.resolving) return;
+    if (isSapStep && gate.allowed) {
+      setInitialResponse(asked);
+      setOpen(true);
+    } else if (!isSapStep) {
+      setStaleAsk(true);
+    }
+    const rest = new URLSearchParams(params);
+    rest.delete("sap");
+    setParams(rest, { replace: true });
+  }, [asked, gate.resolving, gate.allowed, isSapStep, params, setParams]);
+
+  if (!next) {
+    return staleAsk ? (
+      <section className="mb-4 rounded-xl border border-border bg-surface-2 p-4 text-sm text-fg-muted">
+        <p className="font-medium text-fg">This part isn't waiting on SAP any more.</p>
+        <p>It's already {status ? status.toLowerCase() : "past that step"}, so the answer from the email wasn't recorded.</p>
+      </section>
+    ) : null;
+  }
   const waitingOn = status === "Pending Engineering Review" ? "an engineering review" : "the SAP admin";
 
   return (
@@ -380,14 +429,17 @@ function ApprovalPanel({
         <p className="text-fg-muted">
           {status === "Pending Engineering Review"
             ? "Check what was entered, correct anything wrong with Edit, then approve — the SAP admin is next."
-            : "Add the part to SAP if it's needed, then approve it."}
+            : "Add the part to SAP if it's needed, then approve it with the answer that fits."}
         </p>
         {!gate.allowed && gate.hint && <p className="mt-1 text-[11px] text-fg-muted">{gate.hint}</p>}
       </div>
       {gate.allowed && (
         <button
           type="button"
-          onClick={() => setOpen(true)}
+          onClick={() => {
+            setInitialResponse(null);
+            setOpen(true);
+          }}
           disabled={pending}
           className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-accent/90 disabled:opacity-60"
         >
@@ -397,12 +449,15 @@ function ApprovalPanel({
       )}
       {open && (
         <ApproveDialog
-          step={approvalStepLabel(status)}
+          step={isSapStep ? "Add to SAP" : approvalStepLabel(status)}
           next={next}
+          askResponse={isSapStep}
+          initialResponse={initialResponse}
+          submitterName={submitter?.displayName || submitter?.email || ""}
           onClose={() => setOpen(false)}
-          onConfirm={(comment) => {
+          onConfirm={(comment, response) => {
             setOpen(false);
-            onApprove(comment);
+            onApprove(comment, response);
           }}
         />
       )}
@@ -413,16 +468,27 @@ function ApprovalPanel({
 function ApproveDialog({
   step,
   next,
+  askResponse,
+  initialResponse,
+  submitterName,
   onClose,
   onConfirm,
 }: {
   step: string;
   next: string;
+  /** The SAP step: one of the three answers must be picked. */
+  askResponse: boolean;
+  initialResponse: SapResponse | null;
+  submitterName: string;
   onClose: () => void;
-  onConfirm: (comment: string) => void;
+  onConfirm: (comment: string, response: SapResponse | null) => void;
 }) {
   const [comment, setComment] = useState("");
+  const [response, setResponse] = useState<SapResponse | null>(initialResponse);
   const overlayDismiss = useOverlayDismiss(onClose);
+  const needsComment = sapResponseNeedsComment(response);
+  const blocked = (askResponse && !response) || (needsComment && !comment.trim());
+  const told = submitterName ? `${submitterName} is emailed which answer you picked.` : "Whoever added it is emailed which answer you picked.";
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4" {...overlayDismiss}>
       <div
@@ -442,16 +508,37 @@ function ApproveDialog({
           className="flex flex-col gap-3 px-5 py-4"
           onSubmit={(e) => {
             e.preventDefault();
-            onConfirm(comment);
+            if (blocked) return;
+            onConfirm(comment, askResponse ? response : null);
           }}
         >
           <p className="text-sm text-fg-muted">
             The part moves to <strong className="text-fg">{next}</strong>. Your name, the time and any comment go in its
-            history.
+            history.{askResponse && ` ${told}`}
           </p>
+          {askResponse && (
+            <div role="radiogroup" aria-label="SAP answer" className="flex flex-col gap-1.5">
+              {SAP_RESPONSES.map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  role="radio"
+                  aria-checked={response === r}
+                  onClick={() => setResponse(r)}
+                  className={`rounded-md border px-3 py-2 text-left text-sm ${
+                    response === r
+                      ? "border-accent bg-accent/10 font-medium text-fg"
+                      : "border-border text-fg-muted hover:bg-surface-2"
+                  }`}
+                >
+                  {SAP_RESPONSE_LABELS[r]}
+                </button>
+              ))}
+            </div>
+          )}
           <label className="block">
             <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
-              Comment (optional)
+              {needsComment ? "What information is needed" : "Comment (optional)"}
             </span>
             <AutoGrowTextarea
               value={comment}
@@ -459,7 +546,7 @@ function ApproveDialog({
               rows={3}
               style={{ minHeight: "5rem" }}
               className="input resize-y"
-              placeholder="What you changed and why, if anything"
+              placeholder={needsComment ? "Sent to whoever added the part" : "What you changed and why, if anything"}
               autoFocus
             />
           </label>
@@ -467,7 +554,11 @@ function ApproveDialog({
             <button type="button" onClick={onClose} className="rounded-md border border-border px-4 py-1.5 text-sm text-fg hover:bg-surface-2">
               Cancel
             </button>
-            <button type="submit" className="rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-accent/90">
+            <button
+              type="submit"
+              disabled={blocked}
+              className="rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-accent/90 disabled:opacity-60"
+            >
               Approve
             </button>
           </div>

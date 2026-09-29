@@ -37,6 +37,7 @@ const PARTS_LIST_CHANGES: string[] = [
   "Global Search looks through the Part List and the HCO Component List at once",
   "Each list has the old app's search panel — one box per field, with & to search several things in one box — plus search everything, sorting and column filters",
   "A component's page says what Rating A, B and C mean for that kind of part",
+  "On New part, a component's three rating boxes are named for the Description picked, as in the old app — Resistance, Working voltage and Power for a resistor; Voltage, Current and Pin count for an IC",
   "A part's page links to its datasheet whenever the PDF is in the Datasheets folder — components and Part List parts alike — and a component's page says when its Has Data Sheet setting disagrees",
   "Attach a datasheet PDF when adding a new part — it's saved under the part number, and a component's Has Data Sheet is set for you",
   "A part with no datasheet has an Upload datasheet button on its page for anyone who can edit it; ARC never replaces a datasheet that's already there",
@@ -44,15 +45,24 @@ const PARTS_LIST_CHANGES: string[] = [
   "The SAP admin can delete a part number, with a reason; it leaves every list, its fields are cleared and its datasheet is moved aside",
   "A deleted number is reused: Next free offers the lowest deleted number in the list first, and the new part starts completely fresh",
   "Engineering can add parts with New part — the next free number in the list is filled in, and a taken or wrong-list number is refused",
+  "Only the SAP admin can start a new parts list. Anyone else who types a number on a list that doesn't exist yet is told so, with an Ask the SAP admin button that emails them the request",
   "A new component's description is picked, as in the old app: a Description, then a Type from its list — with a SIL category first on the 722 list — saved in capitals like CAPACITOR - CERAMIC",
   "The SAP admin and the reviewing engineers manage those description lists from Descriptions on the Parts List page",
   "New components go to the reviewing engineers and then the SAP admin; new parts go to the SAP admin. Each approval, with its comment, is kept in the part's history",
+  "The SAP admin's email for a new part lists every field and has three answers — Added to SAP, Does not need to be added to SAP, and Will be added to SAP but requires more information. Each opens the part with that answer picked, approves it once confirmed, and tells whoever added the part which it was",
   "Approvers see what's waiting for them on the Parts List landing page",
   "Editing a part doesn't send it back for approval, but the SAP admin is emailed what changed",
   "New Admin → Parts Roles page to choose who can add, edit and approve parts",
 ];
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: "0.168.1",
+    date: "2026-09-29",
+    // Parts List work while it's hidden: the real bullet is in
+    // PARTS_LIST_CHANGES, so it reaches the history at go-live, not before.
+    changes: ["More work on the upcoming Parts List"],
+  },
   {
     version: "0.168.0",
     date: "2026-09-29",

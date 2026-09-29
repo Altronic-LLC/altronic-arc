@@ -18,15 +18,27 @@ import {
 } from "@/api/altronicComponents";
 import { isDeletedPart } from "@/lib/partLifecycle";
 import { notifyChangeEmails } from "@/api/email";
-import type { AltronicComponent, AltronicPart, Person } from "@/types/task";
+import type { AltronicComponent, AltronicPart, ItemAuthor, Person } from "@/types/task";
 import type { ChangeEmail, ChangeTarget } from "@/lib/changeAlerts";
 import { altronicPartLabel, isComponentPrefix, partPrefix } from "@/lib/altronicPartMapper";
-import { COMPONENT_FIELDS, PART_FIELDS, describeChanges, type PartFieldSpec } from "@/lib/partFields";
-import { addPartGate, approveGate, deletePartGate, editPartGate } from "@/lib/partsRoles";
+import { COMPONENT_FIELDS, PART_FIELDS, describeChanges, opensNewList, type PartFieldSpec } from "@/lib/partFields";
+import { appPageUrl } from "@/lib/appUrl";
+import {
+  addPartGate,
+  approveGate,
+  deletePartGate,
+  editPartGate,
+  sapResponseNeedsComment,
+  type SapResponse,
+} from "@/lib/partsRoles";
 import {
   buildEngineeringApprovedEmails,
-  buildNewPartEmails,
+  buildNewComponentEmails,
+  buildNewListRequestEmails,
+  buildNewPartForSapEmails,
   buildPartEditedEmails,
+  buildSapResponseEmails,
+  formatCreatedAt,
 } from "@/lib/partsAlerts";
 import { describeListWriteFailure } from "@/lib/listWriteErrors";
 import { pushToast } from "@/components/Toast";
@@ -171,24 +183,38 @@ export function useCreateAltronicPart() {
       if (isComponentPrefix(prefix)) {
         throw new Error(`${prefix} is an HCO component list — add it as a component.`);
       }
-      const gate = addPartGate(await resolveAccess(), prefix, false);
+      // Starting a list is the SAP admin's (Tim, 2026-09-29). Asked against
+      // the whole Part List, deleted numbers included — normally already
+      // cached, since the form reads the same query.
+      const rows = await qc.ensureQueryData({ queryKey: ALTRONIC_PARTS_KEY, queryFn: listAltronicParts, staleTime: STALE_MS });
+      const newList = opensNewList(prefix, rows.map((r) => r.partNumber));
+      const gate = addPartGate(await resolveAccess(), prefix, false, newList);
       if (!gate.allowed) throw new Error(gate.hint);
       return createAltronicPart(input, actor);
     },
     onSuccess: (created) => {
       upsert(qc, ALTRONIC_PARTS_KEY, created);
       sendInBackground(partTarget(created), async () =>
-        buildNewPartEmails({
+        buildNewPartForSapEmails({
           target: partTarget(created),
-          component: false,
+          partNumber: created.partNumber,
+          description: created.description,
           recipients: await resolvePartsPeople(qc, "approveSap"),
           actor,
+          // The old Power Automate email's lines, in its order (Tim, 2026-09-29).
           details: [
+            { label: "Altronic Part Number", value: created.partNumber },
             { label: "Description", value: created.description },
+            { label: "MFG Part Number", value: created.mfgPartNumber },
             { label: "Manufacturer", value: created.manufacturer },
-            { label: "Mfg Part #", value: created.mfgPartNumber },
+            { label: "Drawing Size", value: created.drawingSize },
             { label: "Purchased", value: created.purchased ?? "" },
+            { label: "Prototype or Production", value: created.prototypeOrProduction ?? "" },
+            { label: "Note", value: created.notes },
             { label: "Assigned By", value: created.assignedBy },
+            // Date-only columns are held at midday UTC, so the UTC date IS the day.
+            { label: "Date Assigned", value: created.dateAssigned ? created.dateAssigned.toISOString().slice(0, 10) : "" },
+            { label: "Date Created", value: formatCreatedAt(created.createdAt) },
           ],
         }),
       );
@@ -210,9 +236,8 @@ export function useCreateAltronicComponent() {
     onSuccess: (created) => {
       upsert(qc, ALTRONIC_COMPONENTS_KEY, created);
       sendInBackground(componentTarget(created), async () =>
-        buildNewPartEmails({
+        buildNewComponentEmails({
           target: componentTarget(created),
-          component: true,
           recipients: await resolvePartsPeople(qc, "approveEngineering"),
           actor,
           details: [
@@ -223,6 +248,48 @@ export function useCreateAltronicComponent() {
           ],
         }),
       );
+    },
+  });
+}
+
+// -----------------------------------------------------------------------------
+// Asking for a new list — only the SAP admin opens one
+// -----------------------------------------------------------------------------
+
+export interface NewListRequest {
+  prefix: string;
+  partNumber: string;
+  description: string;
+}
+
+/**
+ * Email the SAP admins that somebody needs a parts list that doesn't exist
+ * yet. Unlike the other part emails this one is AWAITED and throws when it
+ * reaches nobody — the button's whole job is the send, so "sent" must mean
+ * sent.
+ */
+export function useRequestNewPartsList() {
+  const qc = useQueryClient();
+  const actor = useCurrentUser();
+  return useMutation({
+    mutationFn: async ({ prefix, partNumber, description }: NewListRequest) => {
+      const emails = buildNewListRequestEmails({
+        prefix,
+        partNumber: partNumber.trim(),
+        description: description.trim(),
+        recipients: await resolvePartsPeople(qc, "approveSap"),
+        actor,
+      });
+      if (emails.length === 0) {
+        throw new Error("Nobody holds the SAP admin role on Parts Roles, so there's nobody to ask. Tell an ARC admin.");
+      }
+      const result = await notifyChangeEmails({
+        target: { kind: "altronicPart", id: 0, title: `New list ${prefix} — ${prefix.charAt(0)}00 Parts Book` },
+        emails,
+        link: { url: appPageUrl(`/engineering/parts?book=${prefix.charAt(0)}`), buttonText: "Open the Parts Book" },
+      });
+      if (result.sent.length === 0) throw new Error("The email didn't send — try again, or ask the SAP admin directly.");
+      return emails.map((e) => e.displayName);
     },
   });
 }
@@ -312,21 +379,27 @@ export interface ApproveVars {
   /** The status the approver SAW — refused if the row has moved since. */
   expected: string;
   comment: string;
+  /** The SAP step's answer (lib/partsRoles.ts SAP_RESPONSES). Ignored at any other step. */
+  response?: SapResponse | null;
 }
 
-function useApprove<T extends Row & { signOffStatus: string | null }>(opts: {
+function useApprove<T extends Row & { signOffStatus: string | null; createdBy: ItemAuthor | null }>(opts: {
   key: readonly unknown[];
-  approve: (id: number, expected: string, comment: string, actor: Person) => Promise<T>;
+  approve: (id: number, expected: string, comment: string, actor: Person, response: SapResponse | null) => Promise<T>;
   target: (row: T) => ChangeTarget;
 }) {
   const qc = useQueryClient();
   const actor = useCurrentUser();
   const resolveAccess = useResolvePartsAccess();
   return useMutation({
-    mutationFn: async ({ id, expected, comment }: ApproveVars) => {
+    mutationFn: async ({ id, expected, comment, response }: ApproveVars) => {
       const gate = approveGate(await resolveAccess(), expected);
       if (!gate.allowed) throw new Error(gate.hint || "This part isn't waiting on an approval.");
-      return opts.approve(id, expected, comment, actor);
+      const answer = expected === "Pending SAP" ? (response ?? null) : null;
+      if (sapResponseNeedsComment(answer) && !comment.trim()) {
+        throw new Error("Say what information is needed, so whoever added the part can supply it.");
+      }
+      return opts.approve(id, expected, comment, actor, answer);
     },
     onError: (err) => {
       pushToast({
@@ -336,8 +409,14 @@ function useApprove<T extends Row & { signOffStatus: string | null }>(opts: {
       // The row may have moved on under us — show where it actually is.
       void qc.invalidateQueries({ queryKey: opts.key });
     },
-    onSuccess: (updated, { comment }) => {
+    onSuccess: (updated, { expected, comment, response }) => {
       upsert(qc, opts.key, updated);
+      // The SAP admin answered — the person who added the part hears which.
+      if (expected === "Pending SAP" && response) {
+        sendInBackground(opts.target(updated), async () =>
+          buildSapResponseEmails({ target: opts.target(updated), response, submitter: updated.createdBy, actor, comment }),
+        );
+      }
       // Engineering done → the SAP admins are next. Final approval tells
       // nobody new: the SAP admin IS the last step.
       if (updated.signOffStatus === "Pending SAP") {

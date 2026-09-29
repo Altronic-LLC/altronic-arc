@@ -7,6 +7,16 @@ describe("ratingLabelsFor", () => {
     expect(ratingLabelsFor("INDUCTOR")).toMatchObject({ a: "Inductance" });
   });
 
+  it("names an IC's ratings the way the old app's form did", () => {
+    expect(ratingLabelsFor("IC - OP AMP")).toMatchObject({ a: "Voltage", b: "Current", c: "Pin count" });
+    // Only the word IC — not any description starting with those letters.
+    expect(ratingLabelsFor("ICE CUBE")).toBe(GENERIC_RATING_LABELS);
+  });
+
+  it("reads a battery's type as Li3 lithium", () => {
+    expect(ratingLabelsFor("BATTERY").c).toBe("Type (Li3 lithium)");
+  });
+
   it("matches a two-word type written with a dash", () => {
     expect(ratingLabelsFor("CAPACITOR - CERAMIC")).toMatchObject({
       component: "Capacitor ceramic",
@@ -44,11 +54,11 @@ describe("ratingLabelsFor", () => {
   });
 
   it("falls back to the generic names rather than guessing", () => {
-    expect(ratingLabelsFor("IC - MICROCONTROLLER")).toBe(GENERIC_RATING_LABELS);
+    expect(ratingLabelsFor("TRANSFORMER - CUSTOM")).toBe(GENERIC_RATING_LABELS);
     expect(ratingLabelsFor("")).toBe(GENERIC_RATING_LABELS);
   });
 
-  it("has every row of the guide's table", () => {
-    expect(COMPONENT_RATING_TABLE).toHaveLength(17);
+  it("has every row of the guide's table, plus IC from the old app", () => {
+    expect(COMPONENT_RATING_TABLE).toHaveLength(18);
   });
 });

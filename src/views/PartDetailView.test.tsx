@@ -155,6 +155,65 @@ describe("PartDetailView — approval", () => {
     expect(screen.queryByRole("button", { name: "Approve" })).not.toBeInTheDocument();
   });
 
+  it("at the SAP step, won't approve until one of the three answers is picked", async () => {
+    // Mock part 23: Pending SAP, added by Brandon.
+    renderPart("/engineering/parts/part/23");
+    await userEvent.click(await screen.findByRole("button", { name: "Approve" }));
+    const dialog = screen.getByRole("dialog", { name: "Approve" });
+    expect(within(dialog).getByText(/Brandon Mirto is emailed which answer you picked/)).toBeInTheDocument();
+    const submit = within(dialog).getByRole("button", { name: "Approve" });
+    expect(submit).toBeDisabled();
+    await userEvent.click(within(dialog).getByRole("radio", { name: "Added to SAP" }));
+    expect(submit).toBeEnabled();
+    await userEvent.click(submit);
+    expect(await screen.findByText("Added to SAP — approved.")).toBeInTheDocument();
+  });
+
+  it("'more information' needs a note saying what", async () => {
+    renderPart("/engineering/parts/part/23");
+    await userEvent.click(await screen.findByRole("button", { name: "Approve" }));
+    const dialog = screen.getByRole("dialog", { name: "Approve" });
+    await userEvent.click(
+      within(dialog).getByRole("radio", { name: "Will be added to SAP but requires more information" }),
+    );
+    const submit = within(dialog).getByRole("button", { name: "Approve" });
+    expect(submit).toBeDisabled();
+    expect(within(dialog).getByText("What information is needed")).toBeInTheDocument();
+    await userEvent.type(within(dialog).getByRole("textbox"), "Need the vendor part number");
+    await userEvent.click(submit);
+    expect(await screen.findByText("Will be added to SAP but requires more information — approved.")).toBeInTheDocument();
+    expect(screen.getByText("Need the vendor part number")).toBeInTheDocument();
+  });
+
+  it("an answer button in the SAP email opens the dialog with that answer picked — and doesn't approve by itself", async () => {
+    renderPart("/engineering/parts/part/23?sap=not-needed");
+    const dialog = await screen.findByRole("dialog", { name: "Approve" });
+    expect(within(dialog).getByRole("radio", { name: "Does not need to be added to SAP" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+    // Still waiting until the SAP admin confirms.
+    expect(screen.getAllByText("Pending SAP").length).toBeGreaterThan(0);
+    await userEvent.click(within(dialog).getByRole("button", { name: "Approve" }));
+    expect(await screen.findByText("Does not need to be added to SAP — approved.")).toBeInTheDocument();
+  });
+
+  it("an answer link to a part that has already been approved says so", async () => {
+    // Mock part 24 is Approved.
+    renderPart("/engineering/parts/part/24?sap=added");
+    expect(await screen.findByText("This part isn't waiting on SAP any more.")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("an answer link opens nothing for somebody who isn't the SAP admin", async () => {
+    __resetPartsRolesMockStore([
+      { id: 1, email: "demo.user@altronic-llc.com", displayName: "Demo User", roles: ["editor"], note: "" },
+    ]);
+    renderPart("/engineering/parts/part/23?sap=added");
+    await waitFor(() => expect(screen.getByText(/Waiting on the SAP admin to add it to SAP/)).toBeInTheDocument());
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
   it("an SAP admin who is not a reviewing engineer can't do the engineering step", async () => {
     __resetPartsRolesMockStore([
       { id: 1, email: "demo.user@altronic-llc.com", displayName: "Demo User", roles: ["sap admin"], note: "" },
@@ -286,8 +345,8 @@ describe("PartDetailView — a Component List part", () => {
   });
 
   it("keeps the generic names for a type the entry rules don't cover", async () => {
-    // Mock component 13: an IC.
-    renderPart("/engineering/parts/component/13");
+    // Mock component 4: a transformer — neither the guide nor the old app names its ratings.
+    renderPart("/engineering/parts/component/4");
     expect(await screen.findByText("Rating A")).toBeInTheDocument();
     expect(screen.getByText(/doesn't name a component type/)).toBeInTheDocument();
   });

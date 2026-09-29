@@ -73,6 +73,13 @@ export function appItemUrl(kind: AppItemKind, id: number): string {
   return `${origin}${base}${KIND_SEGMENTS[kind]}/${id}`;
 }
 
+/** Absolute URL to any router path in this app — `/engineering/parts?book=4`. */
+export function appPageUrl(path: string): string {
+  const base = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  return `${origin}${base}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
 /**
  * The ROUTER path to an item, with no origin and no deploy sub-path —
  * `/task/47`, not `https://host/altronic-arc/task/47`.

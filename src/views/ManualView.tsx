@@ -4780,7 +4780,7 @@ const SECTIONS: ManualSection[] = [
       "sil cat",
     ],
     searchText:
-      "The Parts List holds every Altronic part number, under Engineering. It replaces the Altronic Component List Power App and its 175 separate lists with two: the Altronic Part List (every prefix except the HCO components) and the Altronic Component List (601 and 611 Through Hole, 701 711 and 712 Surface Mount, 722 SIL). A part's first three digits are its parts list and its first digit is its Parts Book. From the landing page pick a Parts Book (100 to 900) and then a list, or type into the box: a three-digit number opens that list, a whole part number opens the part, a single digit opens that book, and anything else runs a Global Search. Global Search covers both lists at once. The search panel down the left has one box per field; searches are not case sensitive and match part of the text, so apacit finds capacitor. Use & to search several things in one box, like resistor&1k; spaces around & count as part of the search. Search everything matches words in any field. Every search is in the web address, so you can send a search as a link. The table sorts by any column and each column header opens a filter. A component's page shows what Rating A, B and C mean for that type of component, from the HCO entry rules. Parts loaded from the old app have no sign-off status because it didn't record approvals. Adding, editing and approving parts is limited to the people on the Parts Roles list, managed by ARC admins at Admin, Parts Roles: Editor adds and edits Part List parts and adds HCO components except 722; HCO editor also edits HCO components and adds to 722; Reviewing engineer approves new components at Engineering Review; SAP admin adds new parts to SAP, gives final approval and can edit every field. Click New part on a list to add one; the next free number is filled in. A new component goes to the reviewing engineers, then the SAP admin; a new Part List part goes to the SAP admin. Approve records a comment in the Approval history. Editing an approved part does not send it back for approval, but the SAP admin is emailed what changed. Part numbers can't be changed. A new component's description is picked: a Description, then a Type from that description's list, and on the 722 list a SIL category first, saved in capitals like SIL CAT 1 - CAPACITOR - CERAMIC. Editing a component keeps a plain text box. The SAP admin and the reviewing engineers manage the description lists from Descriptions on the Parts List landing page.",
+      "The Parts List holds every Altronic part number, under Engineering. It replaces the Altronic Component List Power App and its 175 separate lists with two: the Altronic Part List (every prefix except the HCO components) and the Altronic Component List (601 and 611 Through Hole, 701 711 and 712 Surface Mount, 722 SIL). A part's first three digits are its parts list and its first digit is its Parts Book. From the landing page pick a Parts Book (100 to 900) and then a list, or type into the box: a three-digit number opens that list, a whole part number opens the part, a single digit opens that book, and anything else runs a Global Search. Global Search covers both lists at once. The search panel down the left has one box per field; searches are not case sensitive and match part of the text, so apacit finds capacitor. Use & to search several things in one box, like resistor&1k; spaces around & count as part of the search. Search everything matches words in any field. Every search is in the web address, so you can send a search as a link. The table sorts by any column and each column header opens a filter. A component's page shows what Rating A, B and C mean for that type of component, from the HCO entry rules. Parts loaded from the old app have no sign-off status because it didn't record approvals. Adding, editing and approving parts is limited to the people on the Parts Roles list, managed by ARC admins at Admin, Parts Roles: Editor adds and edits Part List parts and adds HCO components except 722; HCO editor also edits HCO components and adds to 722; Reviewing engineer approves new components at Engineering Review; SAP admin adds new parts to SAP, gives final approval and can edit every field. Click New part on a list to add one; the next free number is filled in. Only the SAP admin can start a new list; anyone else typing a number on a list that does not exist yet gets an Ask the SAP admin button, which emails the request. A new component goes to the reviewing engineers, then the SAP admin; a new Part List part goes to the SAP admin. Approve records a comment in the Approval history. The SAP admin answers Added to SAP, Does not need to be added to SAP, or Will be added to SAP but requires more information, from the buttons in the email or on the part's page; every answer approves the part and emails whoever added it which answer was given. Editing an approved part does not send it back for approval, but the SAP admin is emailed what changed. Part numbers can't be changed. A new component's description is picked: a Description, then a Type from that description's list, and on the 722 list a SIL category first, saved in capitals like SIL CAT 1 - CAPACITOR - CERAMIC. Editing a component keeps a plain text box. The SAP admin and the reviewing engineers manage the description lists from Descriptions on the Parts List landing page.",
     render: () => (
       <>
         <P>
@@ -4875,7 +4875,10 @@ const SECTIONS: ManualSection[] = [
           card says what Rating A, B and C mean for that kind of part — for a
           resistor, resistance, working voltage and power — using the HCO entry
           rules. When the description doesn't name a type those rules cover, the
-          ratings keep their plain names.
+          ratings keep their plain names. On <strong>New part</strong>, the three
+          rating boxes are named the same way and change as you pick the
+          Description: a resistor asks for Resistance, Working voltage and Power,
+          and an IC for Voltage, Current and Pin count.
         </P>
         <P>
           Every part's page has a <strong>Datasheet</strong> line — on the
@@ -4939,10 +4942,17 @@ const SECTIONS: ManualSection[] = [
           Open the list the part belongs in and click <strong>New part</strong>.
           The next free number in that list is filled in for you (
           <strong>Next free</strong> fills it in again if you change it). You can
-          also click New part on the Parts List landing page and type any number,
-          which is how a new three-digit list gets its first part. The form
-          follows the number: a 601, 611, 701, 711, 712 or 722 number gets the
-          component fields, and anything else the Part List fields.
+          also click New part on the Parts List landing page and type any number.
+          The form follows the number: a 601, 611, 701, 711, 712 or 722 number
+          gets the component fields, and anything else the Part List fields.
+        </P>
+        <P>
+          Only the SAP admin can start a <strong>new list</strong>. If you type a
+          number on a list that doesn't exist yet — 411001 when the 400 book only
+          has list 410 — the form says so and offers{" "}
+          <strong>Ask the SAP admin</strong>, which emails them the number and
+          description you typed. The SAP admin adds the part, and it becomes the
+          new list's first.
         </P>
         <P>
           Fields marked * are required, following the old app's rules. On a Part
@@ -5004,6 +5014,18 @@ const SECTIONS: ManualSection[] = [
           <strong>Part List part</strong> goes straight to the SAP admin. Each
           approval, with its comment, is kept in the part's{" "}
           <strong>Approval history</strong>.
+        </P>
+        <P>
+          The SAP admin's email lists every field of the part and has three
+          answers: <strong>Added to SAP</strong>,{" "}
+          <strong>Does not need to be added to SAP</strong>, and{" "}
+          <strong>Will be added to SAP but requires more information</strong>. Each
+          one opens the part in ARC with that answer picked — nothing is approved
+          until you click Approve there. The same three answers are offered when
+          you click Approve on the part's page. Every answer approves the part,
+          and whoever added it is emailed which one you picked. "Requires more
+          information" needs a note saying what's missing, which goes in that
+          email.
         </P>
         <P>
           If you approve parts, the Parts List landing page tells you how many are{" "}

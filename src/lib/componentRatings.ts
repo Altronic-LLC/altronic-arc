@@ -2,10 +2,14 @@
 // What Rating A, B and C MEAN for a component — they are three generic columns
 // whose meaning depends on what the part is.
 //
-// The table is transcribed verbatim from the HCO entry rules in Thomas
-// Terhune's 2023 Altronic Parts List user guide (the "Component / a type /
-// b type / c type" table). "none" in the guide means the rating is unused for
-// that component, which is carried as null here.
+// The table is transcribed from the HCO entry rules in Thomas Terhune's 2023
+// Altronic Parts List user guide (the "Component / a type / b type / c type"
+// table), plus IC from the old app's form. "none" in the guide means the
+// rating is unused for that component, which is carried as null here.
+//
+// The New Part form shows these AS the field labels ("Resistance", not
+// "Rating A"), the way the old app's form did; the columns are still
+// RatingA/B/C underneath.
 //
 // There is no component-type column, so the type is read off the start of the
 // Description, which is how the data is written ("RESISTOR - FILM", "CAPACITOR
@@ -37,8 +41,12 @@ export const COMPONENT_RATING_TABLE: readonly RatingLabels[] = [
   { component: "Relay", a: "Load voltage", b: "Load current", c: "Contact resistance" },
   { component: "Crystal", a: "Frequency", b: "Power", c: "Load capacitance" },
   { component: "Oscillator", a: "Frequency", b: "Operating voltage", c: "Output current" },
-  { component: "Battery", a: "Voltage", b: "Capacity", c: "Type (i3 lithium)" },
+  // The guide's PDF read "Type (i3 lithium)"; the old app's form says Li3.
+  { component: "Battery", a: "Voltage", b: "Capacity", c: "Type (Li3 lithium)" },
   { component: "Trimpot", a: "Resistance", b: "Power", c: "# of turns" },
+  // Not in the guide's table — taken from the old app's Add Component form
+  // (Tim, 2026-09-29), which labels an IC's ratings this way.
+  { component: "IC", a: "Voltage", b: "Current", c: "Pin count" },
 ];
 
 /** Used when the description names nothing in the table. */

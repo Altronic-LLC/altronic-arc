@@ -2,6 +2,7 @@ import type { AltronicComponent, AltronicPart } from "@/types/task";
 import { PART_PROTOTYPE_OR_PRODUCTION, PART_PURCHASED } from "@/types/task";
 import { formatSpDate, fromDateInputValue, toDateInputValue, toSpDateOnly } from "./spDates";
 import { ratingLabelsFor } from "./componentRatings";
+import { isComponentPrefix } from "./altronicPartMapper";
 
 // =============================================================================
 // The Parts List columns, as DATA — declared once and driving the create form,
@@ -199,10 +200,24 @@ export function missingRequired<T>(specs: PartFieldSpec<T>[], values: Record<str
  * ones are spent. `existing` should include the deleted numbers too, so a
  * fresh number is never one a deleted row still holds.
  *
+ * (`opensNewList` below says whether a prefix has any numbers at all.)
+ *
  * Null when the list is full up to `<prefix>999` with nothing deleted — four
  * lists already are (602, 610, 702, 709). ARC says so rather than rolling over
  * into another list: which list a part goes in is a person's call.
  */
+/**
+ * Would a part on this three-digit list START it — is there no number on it
+ * at all yet? Deleted numbers count: a list whose parts were all deleted still
+ * exists, and its numbers are reused. Only the SAP admin opens a new list
+ * (lib/partsRoles.ts `addPartGate`). The HCO lists always exist.
+ */
+export function opensNewList(prefix: string, allNumbers: Iterable<string>): boolean {
+  if (!/^\d{3}$/.test(prefix) || isComponentPrefix(prefix)) return false;
+  for (const n of allNumbers) if (n.trim().startsWith(prefix)) return false;
+  return true;
+}
+
 export function nextPartNumber(prefix: string, existing: Iterable<string>, deleted: Iterable<string> = []): string | null {
   const reusable = [...deleted]
     .map((pn) => pn.trim())
