@@ -27,6 +27,7 @@ import {
   USE_MOCK,
 } from "./config";
 import { spFetch, SharePointUnavailableError } from "./sharepoint";
+import { formatBytes } from "./projectFiles";
 
 // =============================================================================
 // List-item attachments via the SharePoint REST API.
@@ -338,11 +339,29 @@ export async function uploadAttachment(
   const path =
     `${resolveListPath(parent, itemId)}` +
     `/AttachmentFiles/add(FileName='${encodeURIComponent(file.name)}')`;
-  const res = await spFetch<SpAttachmentFile>(path, {
-    method: "POST",
-    headers: { "Content-Type": "application/octet-stream" },
-    body: bytes,
-  });
+  // ONE request carrying the whole file: SharePoint's list-item attachment
+  // API has no chunked upload, unlike a document library (projectFiles.ts),
+  // and a POST is never retried (it could duplicate the file). So a large
+  // file on a slow or VPN connection can be cut off before SharePoint has it
+  // all. The browser reports that as a bare "Failed to fetch" / "NetworkError",
+  // which read as ARC being broken (Ray, 2026-09-29) — say what happened.
+  let res: SpAttachmentFile;
+  try {
+    res = await spFetch<SpAttachmentFile>(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/octet-stream" },
+      body: bytes,
+    });
+  } catch (err) {
+    if (err instanceof TypeError) {
+      throw new Error(
+        `The upload of "${file.name}" (${formatBytes(file.size)}) was cut off before ` +
+          "SharePoint received all of it. This happens with large files on a slow " +
+          "or VPN connection — try again, ideally on a faster connection.",
+      );
+    }
+    throw err;
+  }
   return {
     fileName: res.FileName,
     serverRelativeUrl: res.ServerRelativeUrl,

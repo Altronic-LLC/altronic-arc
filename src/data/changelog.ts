@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.167.2",
+    date: "2026-09-29",
+    changes: [
+      "Uploading a large file to a task no longer hangs — it finishes as soon as the file is in the project folder, and the extra copy on the task carries on in the background",
+      "Posting a task comment with a large attachment no longer waits on that extra copy",
+      "When a large attachment on an EIR, ECN or other list is cut off before SharePoint receives it, ARC now says so and names the file instead of showing a bare network error",
+    ],
+  },
+  {
     version: "0.167.1",
     date: "2026-09-28",
     changes: [

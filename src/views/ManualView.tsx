@@ -1168,6 +1168,16 @@ const SECTIONS: ManualSection[] = [
           comment; it'll show up in the file list on the next refresh.
         </P>
         <P>
+          On a task, the upload is finished as soon as the file is in the
+          project folder — the extra copy on the task itself carries on in the
+          background, so a large file no longer holds up the upload or your
+          comment. Everywhere else (EIRs, ECNs, FAITs and the other lists) a file
+          is attached to the item itself, which SharePoint takes in one piece,
+          so a very large file on a slow or VPN connection can be cut off. When
+          that happens ARC says so and names the file; try again, ideally on a
+          faster connection.
+        </P>
+        <P>
           Uploading a file whose name is already sitting in that project
           folder doesn't overwrite it — the new file is saved as{" "}
           <code>name (2).ext</code> (then <code>(3)</code>, and so on)
