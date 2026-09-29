@@ -57,6 +57,13 @@ const PARTS_LIST_CHANGES: string[] = [
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.169.1",
+    date: "2026-09-29",
+    changes: [
+      "Build Request Production Complete can now be pressed only by Amanda Hoagland or an admin — the assigned engineer presses Ready for Production, and production signs off that it's done",
+    ],
+  },
+  {
     version: "0.169.0",
     date: "2026-09-29",
     changes: [

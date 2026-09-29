@@ -13,7 +13,11 @@
  * true of an empty list, and a build request with nothing on it has nothing
  * to hand to production.
  *
- * Only the request's assigned engineer or an ARC admin may take either step.
+ * WHO may take each step differs (Ray, 2026-09-29):
+ *   1. Ready for Production — the request's ASSIGNED ENGINEER or an ARC admin.
+ *   2. Production Complete  — an ARC admin or a named production approver
+ *      (`BUILD_REQUEST_PRODUCTION_COMPLETE_APPROVERS`). NOT the engineer: the
+ *      production side signs off that production is done.
  * The button (BuildRequestDetailView) and the write guard
  * (useUpdateBuildRequestFields) both ask THIS file, so the greyed control and
  * the refused write cannot disagree about the rule. UI-level gating only —
@@ -62,18 +66,46 @@ function partsSentence(blocking: number, required: string): string {
 }
 
 const NO_PARTS_SENTENCE = "Add at least one part before handing this build request to production.";
-const NOT_PERMITTED_SENTENCE =
-  "Only the assigned engineer or an ARC admin can move this build request to production.";
+const NOT_PERMITTED_READY =
+  "Only the assigned engineer or an ARC admin can move this build request to Ready for Production.";
+const NOT_PERMITTED_COMPLETE =
+  "Only Amanda Hoagland or an ARC admin can mark this build request Production Complete.";
 
-/** Is the signed-in user this request's assigned engineer, or an ARC admin? */
+/**
+ * Who may press "Build Request Production Complete", besides ARC admins.
+ * Hard-coded, like the EIR Project Reference editors (lib/eirProjectReference.ts):
+ * it is one named person, and changing who needs a deploy — that is the point.
+ * Matched through matchesAnyEmail, so a sign-in name differing from the
+ * mailbox doesn't lock her out. If the name here changes, change
+ * NOT_PERMITTED_COMPLETE with it.
+ */
+export const BUILD_REQUEST_PRODUCTION_COMPLETE_APPROVERS: readonly string[] = [
+  "Amanda.Hoagland@altronic-llc.com",
+];
+
+/**
+ * May the signed-in user take the production step toward `target`?
+ * `target` defaults to the step the request's CURRENT status offers — the
+ * button's view of it; the write guard passes the status being written.
+ */
 export function canPressProduction(
   br: BuildRequest,
   access: { isAdmin: boolean; myEmails: string[] },
+  target: string = br.status === READY ? PROD_COMPLETE : READY,
 ): boolean {
   if (access.isAdmin) return true;
+  if (target === PROD_COMPLETE) {
+    return BUILD_REQUEST_PRODUCTION_COMPLETE_APPROVERS.some((a) =>
+      matchesAnyEmail(access.myEmails, a),
+    );
+  }
   const engineerEmail = br.engineerAssigned?.email;
   if (!engineerEmail) return false;
   return matchesAnyEmail(access.myEmails, engineerEmail);
+}
+
+function notPermittedSentence(target: string): string {
+  return target === PROD_COMPLETE ? NOT_PERMITTED_COMPLETE : NOT_PERMITTED_READY;
 }
 
 interface Requirement {
@@ -142,7 +174,7 @@ export function productionButtonState(
   if (allowed) {
     hint = `Sets this build request's status to ${req.targetStatus}.`;
   } else {
-    hint = [access.permitted ? "" : NOT_PERMITTED_SENTENCE, partsReason].filter(Boolean).join(" ");
+    hint = [access.permitted ? "" : notPermittedSentence(req.targetStatus), partsReason].filter(Boolean).join(" ");
   }
 
   return {
@@ -175,7 +207,7 @@ export function productionTransitionRefusal(
   if (targetStatus !== READY && targetStatus !== PROD_COMPLETE) return null;
   if (targetStatus === br.status) return null;
 
-  if (!canPressProduction(br, access)) return NOT_PERMITTED_SENTENCE;
+  if (!canPressProduction(br, access, targetStatus)) return notPermittedSentence(targetStatus);
 
   if (targetStatus === PROD_COMPLETE && br.status !== READY) {
     return `A build request can only be set to ${PROD_COMPLETE} from ${READY}.`;

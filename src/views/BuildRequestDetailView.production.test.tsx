@@ -102,10 +102,20 @@ describe("BuildRequestDetailView — production hand-off button", () => {
 
   it("offers 'Build Request Production Complete' once the request is Ready for Production", () => {
     setup("Ready for Production", ["Production Complete", "Production Complete"]);
+    state.myEmails = ["amanda.hoagland@altronic-llc.com"];
     renderPage();
     expect(handoffButton(/build request production complete/i)).toHaveAttribute(
       "aria-disabled",
       "false",
+    );
+  });
+
+  it("greys 'Build Request Production Complete' for the assigned engineer, naming who can press it", () => {
+    setup("Ready for Production", ["Production Complete"]);
+    renderPage();
+    expect(handoffButton(/build request production complete/i)).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByTestId("production-handoff-reason")).toHaveTextContent(
+      /only amanda hoagland or an arc admin/i,
     );
   });
 
@@ -206,6 +216,7 @@ describe("BuildRequestDetailView — production hand-off button", () => {
 
   it("pressing 'Build Request Production Complete' writes Production Complete", () => {
     setup("Ready for Production", ["Production Complete"]);
+    state.myEmails = ["amanda.hoagland@altronic-llc.com"];
     renderPage();
     fireEvent.click(handoffButton(/build request production complete/i));
     expect(String(confirmSpy.mock.calls[0][0])).toMatch(/review/i);

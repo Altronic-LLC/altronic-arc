@@ -4788,11 +4788,24 @@ Three things about the rule:
   nothing to hand to production.
 - **A part already at Production Complete satisfies step 1** — it has
   certainly got as far as Ready for Production.
-- **Only the request's assigned engineer or an ARC admin may press it** —
-  `engineerAssigned` matched with `matchesAnyEmail` against
-  `useCurrentUserEmails()`, never `account.username` alone (the Steve Pirko
-  lesson). UI-level gating; SharePoint's list permissions are the real
-  boundary.
+- **WHO may press it depends on the step** (Ray, 2026-09-29, clarified after
+  v0.169.0 shipped with one rule for both):
+  - **Ready for Production** — the request's **assigned engineer** or an ARC
+    admin. `engineerAssigned` matched with `matchesAnyEmail` against
+    `useCurrentUserEmails()`, never `account.username` alone (the Steve Pirko
+    lesson).
+  - **Production Complete** — an ARC admin or **Amanda Hoagland**, and NOT the
+    engineer: the engineer hands the build over, production signs off that
+    it's done. Amanda is hard-coded in
+    `BUILD_REQUEST_PRODUCTION_COMPLETE_APPROVERS`, like the EIR Project
+    Reference editors — one named person, changing who needs a deploy. Change
+    `NOT_PERMITTED_COMPLETE`'s wording with it.
+  - `canPressProduction(br, access, target?)` takes the TARGET status; with
+    none it uses the step the current status offers (the button's view). The
+    write guard passes the status being written, so the picker is judged by
+    the same per-step rule.
+
+  UI-level gating; SharePoint's list permissions are the real boundary.
 
 **The new statuses had to be added to the constants, not only to
 SharePoint.** `Ready for Production` / `Production Complete` (request) and

@@ -5183,9 +5183,13 @@ const SECTIONS: ManualSection[] = [
         </ul>
         <P>
           While parts are still short of the required status, the button is
-          greyed and says how many parts still need to get there. Only the
-          request&apos;s <strong>assigned engineer</strong> or an ARC admin
-          can press it; anyone else sees it greyed with the reason. Once the
+          greyed and says how many parts still need to get there. Who can
+          press it depends on the stage: <strong>Ready for Production</strong>{" "}
+          is for the request&apos;s <strong>assigned engineer</strong> or an ARC
+          admin, and <strong>Build Request Production Complete</strong> is for{" "}
+          <strong>Amanda Hoagland</strong> or an ARC admin — the engineer hands
+          the build to production, and production signs off that it&apos;s
+          done. Anyone else sees it greyed with the reason. Once the
           request is Production Complete the button goes away — Sheila Horn
           reviews the request and sets its status to <strong>Complete</strong>.
         </P>
@@ -5193,7 +5197,9 @@ const SECTIONS: ManualSection[] = [
           The <strong>Status</strong> picker follows the same rule: you
           can&apos;t move a request to Ready for Production or Production
           Complete from the picker before its parts are ready, or unless
-          you&apos;re the assigned engineer or an admin. Other status changes
+          you&apos;re allowed to take that step (the assigned engineer or an
+          admin for Ready for Production; Amanda Hoagland or an admin for
+          Production Complete). Other status changes
           work as before.
         </P>
         <P>Each step sends email (never to the person who took the step):</P>

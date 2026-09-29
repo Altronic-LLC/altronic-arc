@@ -233,6 +233,7 @@ describe("useUpdateBuildRequestFields — the production write guard", () => {
   });
 
   it("refuses Production Complete while a part is only Ready for Production", async () => {
+    access.emails = ["amanda.hoagland@altronic-llc.com"];
     const { error } = await setBrStatus(
       [br(1, "Ready for Production")],
       [part(10, 1, "Production Complete"), part(11, 1, "Ready for Production")],
@@ -241,6 +242,30 @@ describe("useUpdateBuildRequestFields — the production write guard", () => {
     );
     expect((error as Error).message).toMatch(/1 part still needs to reach Production Complete/);
     expect(api.updateBuildRequestFields).not.toHaveBeenCalled();
+  });
+
+  // Step 2 belongs to production, not the engineer who handed it over.
+  it("refuses the assigned engineer at Production Complete, with NO request sent", async () => {
+    const { error } = await setBrStatus(
+      [br(1, "Ready for Production")],
+      [part(10, 1, "Production Complete")],
+      1,
+      "Production Complete",
+    );
+    expect((error as Error).message).toMatch(/Only Amanda Hoagland or an ARC admin/);
+    expect(api.updateBuildRequestFields).not.toHaveBeenCalled();
+  });
+
+  it("lets Amanda Hoagland mark it Production Complete", async () => {
+    access.emails = ["amanda.hoagland@altronic-llc.com"];
+    const { error } = await setBrStatus(
+      [br(1, "Ready for Production")],
+      [part(10, 1, "Production Complete")],
+      1,
+      "Production Complete",
+    );
+    expect(error).toBeNull();
+    expect(api.updateBuildRequestFields).toHaveBeenCalledWith(1, { BRStatus: "Production Complete" });
   });
 
   it("leaves every other status change ungated", async () => {
@@ -270,6 +295,7 @@ describe("useUpdateBuildRequestFields — alerts", () => {
   });
 
   it("c: Production Complete asks the reviewer AND keeps the generic note", async () => {
+    access.emails = ["amanda.hoagland@altronic-llc.com"];
     await setBrStatus([br(1, "Ready for Production")], [part(10, 1, "Production Complete")], 1, "Production Complete");
     expect(email.fireBuildRequestProductionCompleteAlert).toHaveBeenCalledTimes(1);
     expect(email.fireFieldChangeAlert).toHaveBeenCalledTimes(1);
