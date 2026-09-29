@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { findDatasheet, uploadDatasheet, type Datasheet } from "@/api/datasheets";
 import { updateAltronicComponent } from "@/api/altronicComponents";
-import { addPartGate, editPartGate } from "@/lib/partsRoles";
+import { addDatasheetGate, addPartGate } from "@/lib/partsRoles";
 import { isComponentPrefix, partPrefix } from "@/lib/altronicPartMapper";
 import type { AltronicComponent } from "@/types/task";
 import { useResolvePartsAccess } from "./usePartsRoles";
@@ -32,7 +32,8 @@ export interface UploadDatasheetVars {
   /**
    * `new` — straight after the New Part form created it, so the ADD gate
    * applies (an editor may add a component they can't later edit).
-   * `edit` — from the part's own page, so the EDIT gate applies.
+   * `edit` — from the part's own page: whoever can edit the part OR add
+   *   parts to its list (addDatasheetGate) — an upload never replaces a file.
    */
   via: "new" | "edit";
   /** The Component List item to mark Has Data Sheet = Yes, for a component. */
@@ -64,7 +65,7 @@ export function useUploadDatasheet() {
       const prefix = partPrefix(partNumber) ?? "";
       const component = isComponentPrefix(prefix);
       const access = await resolveAccess();
-      const gate = via === "new" ? addPartGate(access, prefix, component) : editPartGate(access, component);
+      const gate = via === "new" ? addPartGate(access, prefix, component) : addDatasheetGate(access, prefix, component);
       if (!gate.allowed) throw new Error(gate.hint);
 
       const sheet = await uploadDatasheet(partNumber, file);

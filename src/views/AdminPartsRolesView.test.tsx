@@ -38,7 +38,7 @@ describe("AdminPartsRolesView", () => {
     renderView();
     const row = (await screen.findByText("Sheila Horn")).closest("tr")!;
     expect(within(row).getByRole("checkbox", { name: "SAP admin (Reviewing Admin)" })).toBeChecked();
-    expect(within(row).getByRole("checkbox", { name: "Editor" })).not.toBeChecked();
+    expect(within(row).getByRole("checkbox", { name: "Add" })).not.toBeChecked();
     expect(screen.getByText(/Approves new HCO components at the Engineering Review step/)).toBeInTheDocument();
   });
 
@@ -51,7 +51,7 @@ describe("AdminPartsRolesView", () => {
   it("changes somebody's roles with a tick", async () => {
     renderView();
     const row = (await screen.findByText("Sheila Horn")).closest("tr")!;
-    await userEvent.click(within(row).getByRole("checkbox", { name: "HCO editor" }));
+    await userEvent.click(within(row).getByRole("checkbox", { name: "Parts editor (incl. HCO)" }));
     await waitFor(async () =>
       expect((await listPartsRoles()).find((e) => e.displayName === "Sheila Horn")?.roles).toEqual([
         "hco editor",
@@ -68,7 +68,7 @@ describe("AdminPartsRolesView", () => {
     // Glenn is already on the list.
     expect(screen.queryByRole("option", { name: /Glenn Terry/ })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("option", { name: /Alexandra Russell/ }));
-    await userEvent.click(within(dialog).getByRole("checkbox", { name: /^Editor/ }));
+    await userEvent.click(within(dialog).getByRole("checkbox", { name: /^Add/ }));
     await userEvent.click(within(dialog).getByRole("button", { name: "Add person" }));
     await waitFor(async () =>
       expect((await listPartsRoles()).find((e) => e.email === "alexandra.russell@altronic-llc.com")?.roles).toEqual([

@@ -29,17 +29,20 @@ import {
   deletePartGate,
   editPartGate,
   sapResponseNeedsComment,
+  suggestCorrectionGate,
   type SapResponse,
 } from "@/lib/partsRoles";
 import {
-  buildEngineeringApprovedEmails,
+  buildCorrectionRequestEmails,
   buildNewComponentEmails,
   buildNewListRequestEmails,
   buildNewPartForSapEmails,
   buildPartEditedEmails,
   buildSapResponseEmails,
-  formatCreatedAt,
+  componentEmailDetails,
+  partEmailDetails,
 } from "@/lib/partsAlerts";
+import type { AlertDetail } from "@/lib/changeAlerts";
 import { describeListWriteFailure } from "@/lib/listWriteErrors";
 import { pushToast } from "@/components/Toast";
 import { useCurrentUser } from "./useCurrentUser";
@@ -201,21 +204,7 @@ export function useCreateAltronicPart() {
           description: created.description,
           recipients: await resolvePartsPeople(qc, "approveSap"),
           actor,
-          // The old Power Automate email's lines, in its order (Tim, 2026-09-29).
-          details: [
-            { label: "Altronic Part Number", value: created.partNumber },
-            { label: "Description", value: created.description },
-            { label: "MFG Part Number", value: created.mfgPartNumber },
-            { label: "Manufacturer", value: created.manufacturer },
-            { label: "Drawing Size", value: created.drawingSize },
-            { label: "Purchased", value: created.purchased ?? "" },
-            { label: "Prototype or Production", value: created.prototypeOrProduction ?? "" },
-            { label: "Note", value: created.notes },
-            { label: "Assigned By", value: created.assignedBy },
-            // Date-only columns are held at midday UTC, so the UTC date IS the day.
-            { label: "Date Assigned", value: created.dateAssigned ? created.dateAssigned.toISOString().slice(0, 10) : "" },
-            { label: "Date Created", value: formatCreatedAt(created.createdAt) },
-          ],
+          details: partEmailDetails(created),
         }),
       );
     },
@@ -240,12 +229,7 @@ export function useCreateAltronicComponent() {
           target: componentTarget(created),
           recipients: await resolvePartsPeople(qc, "approveEngineering"),
           actor,
-          details: [
-            { label: "Description", value: created.description },
-            { label: "Mfg Name", value: created.mfgName },
-            { label: "Mfg Number", value: created.mfgNumber },
-            { label: "Ratings", value: [created.ratingA, created.ratingB, created.ratingC].filter(Boolean).join(" / ") },
-          ],
+          details: componentEmailDetails(created),
         }),
       );
     },
@@ -289,6 +273,55 @@ export function useRequestNewPartsList() {
         link: { url: appPageUrl(`/engineering/parts?book=${prefix.charAt(0)}`), buttonText: "Open the Parts Book" },
       });
       if (result.sent.length === 0) throw new Error("The email didn't send — try again, or ask the SAP admin directly.");
+      return emails.map((e) => e.displayName);
+    },
+  });
+}
+
+// -----------------------------------------------------------------------------
+// Suggesting a correction — for somebody who can add parts but not edit them
+// -----------------------------------------------------------------------------
+
+export interface CorrectionRequest {
+  part: AltronicPart | AltronicComponent;
+  component: boolean;
+  message: string;
+}
+
+/**
+ * Email the reviewing engineers and the SAP admins what's wrong with a part
+ * (Tim, 2026-09-29). Adding and editing are separate rights, so an editor who
+ * spots a typo says so rather than fixing it. AWAITED and throws when it
+ * reaches nobody, like the new-list request: the button's whole job is the
+ * send. Nothing is written to the part — the person who acts on it edits it.
+ */
+export function useSuggestPartCorrection() {
+  const qc = useQueryClient();
+  const actor = useCurrentUser();
+  const resolveAccess = useResolvePartsAccess();
+  return useMutation({
+    mutationFn: async ({ part, component, message }: CorrectionRequest) => {
+      const gate = suggestCorrectionGate(await resolveAccess(), component);
+      if (!gate.allowed) throw new Error(gate.hint);
+      if (!message.trim()) throw new Error("Say what should change, so the reviewers know what to fix.");
+      const target = component ? componentTarget(part as AltronicComponent) : partTarget(part as AltronicPart);
+      const [reviewers, sapAdmins] = await Promise.all([
+        resolvePartsPeople(qc, "approveEngineering"),
+        resolvePartsPeople(qc, "approveSap"),
+      ]);
+      const emails = buildCorrectionRequestEmails({
+        target,
+        partNumber: part.partNumber,
+        description: part.description,
+        message,
+        recipients: [...reviewers, ...sapAdmins],
+        actor,
+      });
+      if (emails.length === 0) {
+        throw new Error("Nobody holds the reviewing engineer or SAP admin role on Parts Roles, so there's nobody to tell. Tell an ARC admin.");
+      }
+      const result = await notifyChangeEmails({ target, emails });
+      if (result.sent.length === 0) throw new Error("The email didn't send — try again, or tell the reviewers directly.");
       return emails.map((e) => e.displayName);
     },
   });
@@ -383,10 +416,14 @@ export interface ApproveVars {
   response?: SapResponse | null;
 }
 
-function useApprove<T extends Row & { signOffStatus: string | null; createdBy: ItemAuthor | null }>(opts: {
+function useApprove<
+  T extends Row & { signOffStatus: string | null; createdBy: ItemAuthor | null; partNumber: string; description: string },
+>(opts: {
   key: readonly unknown[];
   approve: (id: number, expected: string, comment: string, actor: Person, response: SapResponse | null) => Promise<T>;
   target: (row: T) => ChangeTarget;
+  /** The SAP admin's lines when an engineering review hands this row on. */
+  sapDetails: (row: T) => AlertDetail[];
 }) {
   const qc = useQueryClient();
   const actor = useCurrentUser();
@@ -417,15 +454,20 @@ function useApprove<T extends Row & { signOffStatus: string | null; createdBy: I
           buildSapResponseEmails({ target: opts.target(updated), response, submitter: updated.createdBy, actor, comment }),
         );
       }
-      // Engineering done → the SAP admins are next. Final approval tells
-      // nobody new: the SAP admin IS the last step.
+      // Engineering done → the SAP admins are next, with the same email a new
+      // part gets plus the reviewer's comments (Tim, 2026-09-29). Final
+      // approval tells nobody new: the SAP admin IS the last step.
       if (updated.signOffStatus === "Pending SAP") {
         sendInBackground(opts.target(updated), async () =>
-          buildEngineeringApprovedEmails({
+          buildNewPartForSapEmails({
             target: opts.target(updated),
+            partNumber: updated.partNumber,
+            description: updated.description,
             recipients: await resolvePartsPeople(qc, "approveSap"),
             actor,
-            comment,
+            requester: updated.createdBy,
+            review: { comment },
+            details: opts.sapDetails(updated),
           }),
         );
       }
@@ -483,7 +525,12 @@ export function useDeleteAltronicComponent() {
 }
 
 export function useApproveAltronicPart() {
-  return useApprove<AltronicPart>({ key: ALTRONIC_PARTS_KEY, approve: approveAltronicPart, target: partTarget });
+  return useApprove<AltronicPart>({
+    key: ALTRONIC_PARTS_KEY,
+    approve: approveAltronicPart,
+    target: partTarget,
+    sapDetails: partEmailDetails,
+  });
 }
 
 export function useApproveAltronicComponent() {
@@ -491,5 +538,6 @@ export function useApproveAltronicComponent() {
     key: ALTRONIC_COMPONENTS_KEY,
     approve: approveAltronicComponent,
     target: componentTarget,
+    sapDetails: componentEmailDetails,
   });
 }

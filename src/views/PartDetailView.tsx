@@ -1,6 +1,20 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
-import { CheckCircle2, Cpu, ExternalLink, FileText, History, Info, Loader2, Lock, Pencil, Trash2, Upload, X } from "lucide-react";
+import {
+  CheckCircle2,
+  Cpu,
+  ExternalLink,
+  FileText,
+  History,
+  Info,
+  Loader2,
+  Lock,
+  MessageSquareWarning,
+  Pencil,
+  Trash2,
+  Upload,
+  X,
+} from "lucide-react";
 import { deletionReason, isDeletedPart, partEvent } from "@/lib/partLifecycle";
 import { useDatasheet, useUploadDatasheet } from "@/hooks/useDatasheet";
 import { datasheetFileName, datasheetFileProblem } from "@/api/datasheets";
@@ -18,6 +32,7 @@ import {
   useApproveAltronicPart,
   useDeleteAltronicComponent,
   useDeleteAltronicPart,
+  useSuggestPartCorrection,
   useUpdateAltronicComponent,
   useUpdateAltronicPart,
 } from "@/hooks/useAltronicParts";
@@ -36,6 +51,7 @@ import {
 import {
   SAP_RESPONSES,
   SAP_RESPONSE_LABELS,
+  addDatasheetGate,
   approvalStepLabel,
   approveGate,
   deletePartGate,
@@ -43,6 +59,7 @@ import {
   nextSignOff,
   parseSapResponse,
   sapResponseNeedsComment,
+  suggestCorrectionGate,
   type PartsGate,
   type SapResponse,
 } from "@/lib/partsRoles";
@@ -231,6 +248,7 @@ function PartBody({ part }: { part: AltronicPart }) {
         description={part.description}
         kindLabel="Part List"
         signOffStatus={part.signOffStatus}
+        action={<SuggestCorrection part={part} component={false} />}
       />
       <ApprovalPanel
         status={part.signOffStatus}
@@ -259,7 +277,7 @@ function PartBody({ part }: { part: AltronicPart }) {
           {field("itemValue")}
           {/* The Part List has no Has Data Sheet column, so the folder is the
               whole answer here (Tim, 2026-09-28). */}
-          <DatasheetField partNumber={part.partNumber} canUpload={edit.allowed} />
+          <DatasheetField partNumber={part.partNumber} canUpload={addDatasheetGate(access, partPrefix(part.partNumber) ?? "", false).allowed} />
         </Card>
         <NotesCard notes={part.notes} onEdit={edit.allowed ? () => cards.setEditing("Notes") : undefined} />
         <HistoryCard comments={part.comments} />
@@ -303,6 +321,7 @@ function ComponentBody({ component }: { component: AltronicComponent }) {
         description={component.description}
         kindLabel={component.category ?? "Component"}
         signOffStatus={component.signOffStatus}
+        action={<SuggestCorrection part={component} component />}
       />
       <ApprovalPanel
         status={component.signOffStatus}
@@ -322,7 +341,7 @@ function ComponentBody({ component }: { component: AltronicComponent }) {
           <DatasheetField
             partNumber={component.partNumber}
             flagged={component.hasDataSheet}
-            canUpload={edit.allowed}
+            canUpload={addDatasheetGate(access, partPrefix(component.partNumber) ?? "", true).allowed}
             componentId={component.id}
           />
         </Card>
@@ -577,19 +596,22 @@ function Heading({
   description,
   kindLabel,
   signOffStatus,
+  action,
 }: {
   partNumber: string;
   description: string;
   kindLabel: string;
   signOffStatus: string | null;
+  /** Sits at the right on a wide screen, under the chips on a phone. */
+  action?: ReactNode;
 }) {
   const prefix = partPrefix(partNumber);
   return (
-    <header className="mb-4 flex items-start gap-3">
+    <header className="mb-4 flex flex-wrap items-start gap-3">
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-superior-blue/10 text-superior-blue">
         <Cpu className="h-5 w-5" />
       </span>
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <h1 className="font-mono text-xl font-semibold text-fg sm:text-2xl">{partNumber || "(no part number)"}</h1>
         <p className="text-sm text-fg">{description || "No description"}</p>
         <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -606,7 +628,126 @@ function Heading({
           <SignOffChip status={signOffStatus} showUntracked />
         </div>
       </div>
+      {action}
     </header>
+  );
+}
+
+/**
+ * For somebody who can ADD parts but not edit this one (Tim, 2026-09-29):
+ * say what's wrong, and the reviewing engineers and the SAP admin — who can
+ * edit — are emailed. Hidden from everybody else, like New part: a reader
+ * isn't Engineering, and an editor just fixes it. The gate is asked again
+ * inside the mutation.
+ */
+function SuggestCorrection({ part, component }: { part: AltronicPart | AltronicComponent; component: boolean }) {
+  const access = useMyPartsAccess();
+  const suggest = useSuggestPartCorrection();
+  const [open, setOpen] = useState(false);
+  if (!suggestCorrectionGate(access, component).allowed) return null;
+  return (
+    <div className="w-full sm:w-auto">
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm font-medium text-fg hover:bg-surface-2"
+      >
+        <MessageSquareWarning className="h-4 w-4" />
+        Suggest a correction
+      </button>
+      {open && (
+        <SuggestCorrectionDialog
+          partNumber={part.partNumber}
+          pending={suggest.isPending}
+          onClose={() => setOpen(false)}
+          onSend={(message) =>
+            suggest.mutate(
+              { part, component, message },
+              {
+                onSuccess: (names) => {
+                  setOpen(false);
+                  pushToast({ message: `Sent to ${names.join(", ")}.` });
+                },
+                onError: (err) => pushToast({ message: err instanceof Error ? err.message : String(err), variant: "error" }),
+              },
+            )
+          }
+        />
+      )}
+    </div>
+  );
+}
+
+function SuggestCorrectionDialog({
+  partNumber,
+  pending,
+  onClose,
+  onSend,
+}: {
+  partNumber: string;
+  pending: boolean;
+  onClose: () => void;
+  onSend: (message: string) => void;
+}) {
+  const [message, setMessage] = useState("");
+  const overlayDismiss = useOverlayDismiss(onClose);
+  const ready = message.trim().length > 0 && !pending;
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4" {...overlayDismiss}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Suggest a correction"
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-lg rounded-lg border border-border bg-surface shadow-xl"
+      >
+        <div className="flex items-center justify-between border-b border-border px-5 py-3">
+          <h2 className="font-display text-base font-semibold text-fg">Suggest a correction to {partNumber}</h2>
+          <button type="button" onClick={onClose} aria-label="Close" className="rounded-md p-1 text-fg-muted hover:bg-surface-2">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <form
+          className="flex flex-col gap-3 px-5 py-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (ready) onSend(message.trim());
+          }}
+        >
+          <p className="text-sm text-fg-muted">
+            The reviewing engineers and the SAP admin are emailed your message with a link to this part. Nothing on the
+            part changes until one of them edits it.
+          </p>
+          <label className="block">
+            <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
+              What should change <span className="text-cooper-red">*</span>
+            </span>
+            <AutoGrowTextarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              rows={3}
+              style={{ minHeight: "5rem" }}
+              className="input resize-y"
+              placeholder="e.g. Mfg Part # should be ERJ-3EKF4702V, not ERJ-3EKF4701V"
+              autoFocus
+            />
+          </label>
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={onClose} className="rounded-md border border-border px-4 py-1.5 text-sm text-fg hover:bg-surface-2">
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={!ready}
+              className="inline-flex items-center gap-1.5 rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-accent/90 disabled:opacity-60"
+            >
+              {pending && <Loader2 className="h-4 w-4 animate-spin" />}
+              Send
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }
 
@@ -675,7 +816,7 @@ function DatasheetField({
 }: {
   partNumber: string;
   flagged?: boolean;
-  /** The edit gate — only an editor sees Upload. */
+  /** addDatasheetGate — whoever can edit the part or add to its list sees Upload. */
   canUpload: boolean;
   /** Set for a component, whose Has Data Sheet flag the upload turns on. */
   componentId?: number;
