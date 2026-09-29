@@ -7905,6 +7905,25 @@ copy still goes through. The mutation `useUploadTaskFile` always returns
 the project-folder result so callers (incl. the comment composer) keep
 working uniformly.
 
+**It runs in the BACKGROUND, not awaited** (Ray, 2026-09-29: "ARC times out
+when trying to upload large files"). SP REST has NO chunked attachment API, so
+this copy is ONE request carrying the whole file, and a large file on a slow
+or VPN connection can take minutes or be cut off. Awaiting it held the upload
+— and a comment's Post button — hostage even though the project-folder copy
+(chunked, retried) had already landed. `useTaskFiles.upload.test.tsx` pins it,
+verified against the old awaited version.
+
+**Every other list's attachments are that same single request**, and they
+must stay list-item attachments — Ray was explicit (2026-09-29): a file goes
+where its record keeps files, the project folder for a task and the item
+itself for an EIR, ECN, FAIT and the rest. A "large files go to a Documents
+folder instead" design was proposed and turned down for that reason. So
+`uploadAttachment` can't make a big file reliable; what it does is turn a
+cut-off upload (a bare `TypeError: Failed to fetch`) into a sentence naming the
+file and size (`attachments.upload.test.ts`). If a chunked path for list-item
+attachments is ever proven against the live tenant, `uploadAttachment` is the
+one place it goes.
+
 Code: `src/api/attachments.ts` (parametrised over `"task" | "eir"`).
 
 ### UI layout

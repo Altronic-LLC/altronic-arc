@@ -55,11 +55,20 @@ const PARTS_LIST_CHANGES: string[] = [
 export const CHANGELOG: ChangelogEntry[] = [
   {
     version: "0.168.0",
-    date: "2026-09-28",
+    date: "2026-09-29",
     // The Parts List ships hidden until VITE_PARTS_LIST_LIVE (Tim, 2026-09-29):
     // its features stay out of the history until then, so nobody reads about
     // a screen they can't open. See PARTS_LIST_CHANGES above.
     changes: PARTS_LIST_LIVE ? PARTS_LIST_CHANGES : [PARTS_LIST_COMING_SOON],
+  },
+  {
+    version: "0.167.2",
+    date: "2026-09-29",
+    changes: [
+      "Uploading a large file to a task no longer hangs — it finishes as soon as the file is in the project folder, and the extra copy on the task carries on in the background",
+      "Posting a task comment with a large attachment no longer waits on that extra copy",
+      "When a large attachment on an EIR, ECN or other list is cut off before SharePoint receives it, ARC now says so and names the file instead of showing a bare network error",
+    ],
   },
   {
     version: "0.167.1",
