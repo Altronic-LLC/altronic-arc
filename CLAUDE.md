@@ -436,6 +436,8 @@ src/
 │   ├── buildRequestNumber.ts     Next BR No for a new Build Request
 │   ├── buildRequestChecklist.ts  Build Request item checklist columns + progress
 │   ├── buildRequestFromTask.ts   Task → Build Request: prefill, carried comments, the DERIVED reverse link
+│   ├── buildRequestProduction.ts The production hand-off rule — button state + the write guard (pure, ONE place)
+│   ├── buildRequestAlerts.ts     Production hand-off emails — ready / part done / review / complete (pure)
 │   ├── commentMirror.ts         Mirroring a comment task ⇄ BR ⇄ part: the origin banner + fan-out routing (pure)
 │   ├── guestIdentity.ts        Is this address external? One rule, shared with the Power Automate guest flow
 │   ├── operationsTaskMapper.ts   Graph item → OperationsTask
@@ -4753,6 +4755,106 @@ boolean columns. Selecting a column a list hasn't got 400s the WHOLE read, and
 after its PATCH — so a bad `$select` surfaces as "couldn't save" on a write
 that actually landed.
 
+#### Build Request production hand-off
+
+Ray, 2026-09-29. One button on `BuildRequestDetailView` moves a request
+through two production steps, each gated on its parts:
+
+| Request status | Button | Enabled when | Sets BRStatus to |
+|---|---|---|---|
+| anything before the hand-off | **Ready for Production** | at least one part, and EVERY part is Ready for Production or Production Complete | `Ready for Production` |
+| `Ready for Production` | **Build Request Production Complete** | EVERY part is Production Complete | `Production Complete` |
+| `Production Complete` / `Complete` | none | — | (Sheila reviews and sets Complete by hand) |
+
+**`lib/buildRequestProduction.ts` is the ONE place the rule lives**
+(`productionButtonState`, `canPressProduction`, `productionTransitionRefusal`).
+It is asked twice, like the CMMS gates:
+
+- **The button** — greyed with a reason, including how many parts still need
+  to reach the required status. `aria-disabled` + a visible reason, never
+  `disabled`, for the same reason as the child-task gate and the EIR At Risk
+  pills: a disabled control loses its tooltip and leaves the tab order.
+- **The write** — `useUpdateBuildRequestFields`' `mutationFn` refuses a write
+  moving BRStatus TO `Ready for Production` or `Production Complete` unless
+  the rule allows it, reading the request and its parts from the
+  `BUILD_REQUESTS_KEY` / `BUILD_REQUEST_ITEMS_KEY` caches, and throws before
+  any request goes out. **This is what stops the status picker bypassing the
+  button.** Every other status change is unaffected.
+
+Three things about the rule:
+
+- **A request with no parts is never ready.** "Every part is ready" is
+  vacuously true of an empty list, and a request with nothing on it has
+  nothing to hand to production.
+- **A part already at Production Complete satisfies step 1** — it has
+  certainly got as far as Ready for Production.
+- **WHO may press it depends on the step** (Ray, 2026-09-29, clarified after
+  v0.169.0 shipped with one rule for both):
+  - **Ready for Production** — the request's **assigned engineer** or an ARC
+    admin. `engineerAssigned` matched with `matchesAnyEmail` against
+    `useCurrentUserEmails()`, never `account.username` alone (the Steve Pirko
+    lesson).
+  - **Production Complete** — an ARC admin or **Amanda Hoagland**, and NOT the
+    engineer: the engineer hands the build over, production signs off that
+    it's done. Amanda is hard-coded in
+    `BUILD_REQUEST_PRODUCTION_COMPLETE_APPROVERS`, like the EIR Project
+    Reference editors — one named person, changing who needs a deploy. Change
+    `NOT_PERMITTED_COMPLETE`'s wording with it.
+  - `canPressProduction(br, access, target?)` takes the TARGET status; with
+    none it uses the step the current status offers (the button's view). The
+    write guard passes the status being written, so the picker is judged by
+    the same per-step rule.
+
+  UI-level gating; SharePoint's list permissions are the real boundary.
+
+**The new statuses had to be added to the constants, not only to
+SharePoint.** `Ready for Production` / `Production Complete` (request) and
+`Production Complete` (part) already existed as SharePoint choices, but
+`buildRequestMapper.ts` CLAMPS a status read to `BUILD_REQUEST_STATUSES` /
+`BUILD_REQUEST_PART_STATUSES` in `types/task.ts` — so a value missing from
+those arrays reads as nothing, and the button could never see a part reach
+the status it waits on. Both arrays now carry them; keep them in step with
+the SharePoint choice lists.
+
+**Four alerts**, pure builders in `lib/buildRequestAlerts.ts`, sent through
+`notifyChangeEmails` from `api/email.ts`, wired in the build request hooks:
+
+| When | Who's emailed | Generic status alert |
+|---|---|---|
+| a. Request → **Ready for Production** | `BUILD_REQUEST_PRODUCTION_ALERTS` (Amanda Hoagland, Sheila Horn) + assigned engineer + request watchers + requestor | **suppressed** |
+| b. A **part** → **Production Complete** | assigned engineer + request watchers + that part's watchers + requestor | **suppressed** |
+| c. Request → **Production Complete** | `BUILD_REQUEST_COMPLETE_REVIEWERS` (Sheila Horn) — "please review and set it to Complete" | **kept** |
+| d. Request **Production Complete → Complete** only | `BUILD_REQUEST_FINAL_ALERTS` (Amanda Hoagland) + request watchers + assigned engineer + requestor | **suppressed** |
+
+Rules that are load-bearing:
+
+- **`to !== from` is the guard** on all four — `"BRStatus" in fields` is
+  presence, not change, and the "stays quiet" tests start from a fixture
+  ALREADY at the target status. Alert d also requires `from ===
+  "Production Complete"`: a request closed straight from another status is
+  not the end of a production hand-off.
+- **Suppressing the generic alert for a, b and d is deliberate** — each
+  already emails the same watchers, so the generic note would double every
+  one of them. **c keeps it**: the generic note tells the watchers what
+  happened, and Sheila's email is the action request. Every other status
+  change keeps the generic alert exactly as before.
+- **Everyone is de-duped by lower-cased email** across the whole recipient
+  set, so somebody who is both the engineer and a watcher gets one copy.
+- **The actor is excluded** — `withoutActorUnlessEmpty` for the configured
+  queue lists (a queue must not go silent because its only member pressed
+  the button), strictly for watchers / engineer / requestor.
+- **Links go through `appItemUrl`**, kind `buildRequest`; the part alert
+  links to the part the way existing part emails do.
+
+**Three env vars, each its OWN** — `VITE_BUILD_REQUEST_PRODUCTION_ALERTS`,
+`VITE_BUILD_REQUEST_COMPLETE_REVIEWERS`, `VITE_BUILD_REQUEST_FINAL_ALERTS`,
+parsed with `parseRecipientList`. Sheila and Amanda appear in more than one,
+but they are different queues with different jobs, and re-pointing one must
+not silently re-point another (the `FAIT_SQE_REVIEWERS` reasoning). All three
+are in `deploy.yml`'s named list, and each has its own row in
+`AdminNotificationRecipientsView`'s `LISTS` ("Build request — ready for
+production", "— review production complete", "— complete").
+
 ### ARC Feature Requests (Engineering site)
 
 A place for any signed-in user to request a new ARC feature or change,
@@ -4863,6 +4965,20 @@ Four things that shape this feature:
   against `resolveCurrentUserLookupId` (Engineering site), and
   `autoWatchers()` on create so the requester starts out watching.
 
+
+Three things the post-build review caught, fixed before it shipped:
+
+- **The write guard AWAITS the Admins list** (`ensureQueryData` on
+  `ADMINS_KEY`) rather than trusting the render-time `useIsAdmin` flag, which
+  reads false while that list loads — a real, non-bootstrap admin was refused
+  on first paint. The CMMS gates learned the same lesson.
+- **The button shows "Checking your access…"** instead of "only the assigned
+  engineer…" while `useAdminAccess().isResolving` — never a denial it's about
+  to withdraw.
+- **Alert b LOADS the parent request if the cache hasn't got it**
+  (`ensureQueryData`), so a part edited before the requests list arrived still
+  reaches the engineer and watchers rather than falling back to the part-only
+  generic note.
 ## Dates: always `DateField`, never `<input type="date">`
 
 **Every date in the app is picked from a calendar. Never add a bare

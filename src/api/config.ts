@@ -552,6 +552,29 @@ export const FAIT_SQE_REVIEWERS =
   "Jerrod Waldron <Jerrod.Waldron@altronic-llc.com>";
 
 /**
+ * Build Request production hand-off alerts (Ray, 2026-09-29) — three queues,
+ * each its OWN variable so re-pointing one can never re-point another. Same
+ * `Name <email>` format, parsed by parseRecipientList; verify at Admin →
+ * Notification recipients. See lib/buildRequestAlerts.ts for who else is told.
+ *
+ * - PRODUCTION_ALERTS: told when a build request goes Ready for Production.
+ * - COMPLETE_REVIEWERS: asked to review and set Complete once it is
+ *   Production Complete.
+ * - FINAL_ALERTS: told when it is finally set Complete.
+ */
+export const BUILD_REQUEST_PRODUCTION_ALERTS =
+  import.meta.env.VITE_BUILD_REQUEST_PRODUCTION_ALERTS ||
+  "Amanda Hoagland <Amanda.Hoagland@altronic-llc.com>, Sheila Horn <Sheila.Horn@altronic-llc.com>";
+
+export const BUILD_REQUEST_COMPLETE_REVIEWERS =
+  import.meta.env.VITE_BUILD_REQUEST_COMPLETE_REVIEWERS ||
+  "Sheila Horn <Sheila.Horn@altronic-llc.com>";
+
+export const BUILD_REQUEST_FINAL_ALERTS =
+  import.meta.env.VITE_BUILD_REQUEST_FINAL_ALERTS ||
+  "Amanda Hoagland <Amanda.Hoagland@altronic-llc.com>";
+
+/**
  * "Visit Reports" — Customer Service / Sales' record of customer visits, on
  * the ALTRONICSALESTEAM site (SITES.salesTeam). `Title` is repurposed as the
  * Customer Name, City/State are `City0`/`State0`, and Month/Year/Day/Cal Title

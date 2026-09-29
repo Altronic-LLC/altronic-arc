@@ -5069,9 +5069,13 @@ const SECTIONS: ManualSection[] = [
       "requestor",
       "prototype",
       "sample",
+      "ready for production",
+      "production complete",
+      "build request production complete",
+      "production hand-off",
     ],
     searchText:
-      "Build Requests ask manufacturing to build parts. A request can also be raised from a task with the Create Build Request button on the task page, which prefills the task's name and project, locks the Task Reference, and copies the task's discussion into the request's comments; the two then link to each other and share one comment thread, with a comment on a part appearing on both marked as coming from that part.  Each request (BR_YYYY-####) has a header — status, type, lead time, requestor, engineer, customer — and any number of parts. Each part has its own comment thread, watchers, attachments, and a Part-Type checklist: PCB parts get the data-package checklist, Harness parts get the terminals checklist. Create from the Build Requests list; add parts from the detail page. Email notifications fire for comments (request or part level), BR Status changes, Engineer Assigned changes, and a part's Part Status changes; part-comment emails open the request with that part expanded. Lead Free requests show a green flag and a warning banner on part printouts; each part has a Print part button for the production floor.",
+      "Build Requests ask manufacturing to build parts. A request can also be raised from a task with the Create Build Request button on the task page, which prefills the task's name and project, locks the Task Reference, and copies the task's discussion into the request's comments; the two then link to each other and share one comment thread, with a comment on a part appearing on both marked as coming from that part.  Each request (BR_YYYY-####) has a header — status, type, lead time, requestor, engineer, customer — and any number of parts. Each part has its own comment thread, watchers, attachments, and a Part-Type checklist: PCB parts get the data-package checklist, Harness parts get the terminals checklist. Create from the Build Requests list; add parts from the detail page. Email notifications fire for comments (request or part level), BR Status changes, Engineer Assigned changes, and a part's Part Status changes; part-comment emails open the request with that part expanded. Lead Free requests show a green flag and a warning banner on part printouts; each part has a Print part button for the production floor. Production hand-off: once every part is Ready for Production, the assigned engineer (or an admin) presses Ready for Production on the request, which emails Amanda Hoagland, Sheila Horn, the engineer, the watchers and the requestor; once every part is Production Complete the button becomes Build Request Production Complete, which asks Sheila Horn to review and set the request to Complete. Each part reaching Production Complete emails the engineer, the request and part watchers and the requestor, and a request set from Production Complete to Complete emails the watchers, Amanda Hoagland, the engineer and the requestor. The Status picker follows the same rule.",
     render: () => (
       <>
         <P>
@@ -5158,6 +5162,74 @@ const SECTIONS: ManualSection[] = [
           the request with that part expanded. Attachments also exist at both
           levels (on the header and on each part).
         </P>
+        <H3>Handing a request to production</H3>
+        <P>
+          The request header carries a production button with two stages:
+        </P>
+        <ul className="ml-6 list-disc text-sm leading-relaxed text-fg-muted">
+          <li>
+            <strong>Ready for Production</strong> — available once the
+            request has at least one part and every part&apos;s Part Status
+            is Ready for Production (or already Production Complete).
+            Pressing it sets the request&apos;s status to Ready for
+            Production.
+          </li>
+          <li>
+            <strong>Build Request Production Complete</strong> — the same
+            button, once the request is Ready for Production. It is available
+            when every part is Production Complete, and sets the request to
+            Production Complete.
+          </li>
+        </ul>
+        <P>
+          While parts are still short of the required status, the button is
+          greyed and says how many parts still need to get there. Who can
+          press it depends on the stage: <strong>Ready for Production</strong>{" "}
+          is for the request&apos;s <strong>assigned engineer</strong> or an ARC
+          admin, and <strong>Build Request Production Complete</strong> is for{" "}
+          <strong>Amanda Hoagland</strong> or an ARC admin — the engineer hands
+          the build to production, and production signs off that it&apos;s
+          done. Anyone else sees it greyed with the reason. Once the
+          request is Production Complete the button goes away — Sheila Horn
+          reviews the request and sets its status to <strong>Complete</strong>.
+        </P>
+        <P>
+          The <strong>Status</strong> picker follows the same rule: you
+          can&apos;t move a request to Ready for Production or Production
+          Complete from the picker before its parts are ready, or unless
+          you&apos;re allowed to take that step (the assigned engineer or an
+          admin for Ready for Production; Amanda Hoagland or an admin for
+          Production Complete). Other status changes
+          work as before.
+        </P>
+        <P>Each step sends email (never to the person who took the step):</P>
+        <ul className="ml-6 list-disc text-sm leading-relaxed text-fg-muted">
+          <li>
+            <strong>Request set to Ready for Production</strong> — Amanda
+            Hoagland, Sheila Horn, the assigned engineer, the request&apos;s
+            watchers and the requestor.
+          </li>
+          <li>
+            <strong>A part set to Production Complete</strong> — the assigned
+            engineer, the request&apos;s watchers, that part&apos;s watchers
+            and the requestor. The email links to the part.
+          </li>
+          <li>
+            <strong>Request set to Production Complete</strong> — Sheila Horn,
+            asking her to review the request and set it to Complete. Watchers
+            also get the usual status-change note.
+          </li>
+          <li>
+            <strong>Request set from Production Complete to Complete</strong>{" "}
+            — the watchers, Amanda Hoagland, the assigned engineer and the
+            requestor, saying the build request is complete.
+          </li>
+        </ul>
+        <P>
+          Anyone on more than one of those lists gets one copy. These
+          emails replace the ordinary status-change note for those steps, so
+          nobody is emailed twice about the same change.
+        </P>
         <H3>Email notifications</H3>
         <P>
           Build requests send email for: <strong>comments</strong> (request
@@ -5167,7 +5239,8 @@ const SECTIONS: ManualSection[] = [
           + requestor), <strong>Engineer Assigned changes</strong> (personal
           "assigned / unassigned" notes plus a broadcast to watchers and the
           requestor), and a part's <strong>Part Status changes</strong> (that
-          part's watchers). Nothing else emails — adding/removing parts,
+          part's watchers), plus the production hand-off emails described
+          above. Nothing else emails — adding/removing parts,
           checklist ticks, WO No, lead time, and customer edits are quiet. See
           the{" "}
           <a href="#notifications" className="text-accent underline-offset-2 hover:underline">

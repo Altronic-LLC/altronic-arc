@@ -1,5 +1,8 @@
 import { GraphError, graphFetch } from "./graph";
 import {
+  BUILD_REQUEST_COMPLETE_REVIEWERS,
+  BUILD_REQUEST_FINAL_ALERTS,
+  BUILD_REQUEST_PRODUCTION_ALERTS,
   COST_IMPACT_NOTICE_ALERTS,
   FEATURE_REQUEST_ALERTS,
   EIR_RESPONSE_ACCEPTED_ALERTS,
@@ -12,7 +15,12 @@ import {
   USE_MOCK,
 } from "./config";
 import { pushToast } from "@/components/Toast";
-import type { CommentAttachment, Person } from "@/types/task";
+import type {
+  BuildRequest,
+  BuildRequestItem,
+  CommentAttachment,
+  Person,
+} from "@/types/task";
 import { appItemUrl } from "@/lib/appUrl";
 import {
   buildAssigneeChangeEmails,
@@ -43,6 +51,12 @@ import {
   type FaitSignerRole,
 } from "@/lib/faitAlerts";
 import { buildNewCostImpactNoticeEmails } from "@/lib/costImpactAlerts";
+import {
+  buildBrCompleteEmails,
+  buildBrPartProductionCompleteEmails,
+  buildBrProductionCompleteReviewEmails,
+  buildBrReadyForProductionEmails,
+} from "@/lib/buildRequestAlerts";
 import {
   buildFeatureRequestStatusEmails,
   buildNewFeatureRequestEmails,
@@ -882,6 +896,116 @@ export function fireEirResolvedAlert(args: {
   });
   if (emails.length === 0) return;
   void notifyChangeEmails({ target: args.target, emails });
+}
+
+// =============================================================================
+// Build Request production hand-off (Ray, 2026-09-29). The CALLER guards the
+// transition (`to !== from`; for the final alert, `from` must be Production
+// Complete) and decides whether the generic status note also fires — see
+// useUpdateBuildRequestFields. These wrappers only read the configured queues.
+// =============================================================================
+
+type BrForAlert = Pick<
+  BuildRequest,
+  "id" | "brNo" | "title" | "engineerAssigned" | "requestor" | "watchers"
+>;
+
+function buildRequestTarget(br: BrForAlert): ChangeTarget {
+  return { kind: "buildRequest", id: br.id, title: br.brNo || br.title };
+}
+
+/**
+ * Fire-and-forget: a build request reached "Ready for Production" — the
+ * production queue (VITE_BUILD_REQUEST_PRODUCTION_ALERTS) plus the assigned
+ * engineer, watchers and requestor.
+ */
+export function fireBuildRequestReadyForProductionAlert(args: {
+  buildRequest: BrForAlert;
+  actor: Person;
+}): void {
+  const br = args.buildRequest;
+  const target = buildRequestTarget(br);
+  const emails = buildBrReadyForProductionEmails({
+    target,
+    queue: parseRecipientList(BUILD_REQUEST_PRODUCTION_ALERTS),
+    actor: args.actor,
+    engineer: br.engineerAssigned,
+    requestor: br.requestor,
+    watchers: br.watchers,
+  });
+  if (emails.length === 0) return;
+  void notifyChangeEmails({ target, emails });
+}
+
+/**
+ * Fire-and-forget: one PART reached "Production Complete" — the request's
+ * engineer, the request's and the part's watchers, and the requestor. Links
+ * to the part.
+ */
+export function fireBuildRequestPartProductionCompleteAlert(args: {
+  buildRequest: BrForAlert;
+  part: Pick<BuildRequestItem, "id" | "partNumber" | "watchers">;
+  actor: Person;
+}): void {
+  const br = args.buildRequest;
+  const target: ChangeTarget = {
+    kind: "buildRequestItem",
+    id: args.part.id,
+    title: args.part.partNumber,
+  };
+  const emails = buildBrPartProductionCompleteEmails({
+    target,
+    buildRequestTitle: br.brNo || br.title,
+    partWatchers: args.part.watchers,
+    actor: args.actor,
+    engineer: br.engineerAssigned,
+    requestor: br.requestor,
+    watchers: br.watchers,
+  });
+  if (emails.length === 0) return;
+  void notifyChangeEmails({ target, emails });
+}
+
+/**
+ * Fire-and-forget: a build request reached "Production Complete" — ask the
+ * reviewers (VITE_BUILD_REQUEST_COMPLETE_REVIEWERS) to review it and set it
+ * Complete. The generic status note still tells the watchers.
+ */
+export function fireBuildRequestProductionCompleteAlert(args: {
+  buildRequest: BrForAlert;
+  actor: Person;
+}): void {
+  const target = buildRequestTarget(args.buildRequest);
+  const emails = buildBrProductionCompleteReviewEmails({
+    target,
+    reviewers: parseRecipientList(BUILD_REQUEST_COMPLETE_REVIEWERS),
+    actor: args.actor,
+  });
+  if (emails.length === 0) return;
+  void notifyChangeEmails({ target, emails });
+}
+
+/**
+ * Fire-and-forget: a build request went Production Complete → Complete — the
+ * watchers, the final queue (VITE_BUILD_REQUEST_FINAL_ALERTS), the assigned
+ * engineer and the requestor are told it is done.
+ */
+export function fireBuildRequestCompleteAlert(args: {
+  buildRequest: BrForAlert;
+  actor: Person;
+}): void {
+  const br = args.buildRequest;
+  const target = buildRequestTarget(br);
+  const emails = buildBrCompleteEmails({
+    target,
+    queue: parseRecipientList(BUILD_REQUEST_FINAL_ALERTS),
+    actor: args.actor,
+    engineer: br.engineerAssigned,
+    requestor: br.requestor,
+    watchers: br.watchers,
+  });
+  if (emails.length === 0) return;
+  void notifyChangeEmails({ target, emails });
 }
 
 export function firePromotionAlert(args: {

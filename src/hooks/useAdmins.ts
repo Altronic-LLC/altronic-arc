@@ -4,7 +4,7 @@ import { isAdminEmail } from "@/lib/adminAccess";
 import type { AdminEntry } from "@/types/task";
 import { useCurrentUser } from "./useCurrentUser";
 
-const ADMINS_KEY = ["admins", "list"] as const;
+export const ADMINS_KEY = ["admins", "list"] as const;
 
 export function useAdmins() {
   return useQuery<AdminEntry[]>({

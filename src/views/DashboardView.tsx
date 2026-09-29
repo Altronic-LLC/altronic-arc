@@ -193,6 +193,11 @@ const OPERATIONS_BAR_COLOR: Record<OperationsStatus, string> = {
 const BUILD_REQUEST_BAR_COLOR: Record<BuildRequestStatus, string> = {
   Submitted: "bg-superior-blue",
   "In-process": "bg-ajax-yellow",
+  // Production hand-off (2026-09-29) — both still OPEN, so they count in the
+  // card; only "Complete" is done. Kept off the four brand tones the other
+  // statuses already use so each bar segment reads distinctly.
+  "Ready for Production": "bg-cyan-500",
+  "Production Complete": "bg-teal-500",
   Blocked: "bg-cooper-red",
   Complete: "bg-cooper-green",
   "Information Needed": "bg-orange-500",

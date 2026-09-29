@@ -49,6 +49,25 @@ describe("AdminNotificationRecipientsView", () => {
     expect(screen.getByText("VITE_FAIT_SQE_REVIEWERS")).toBeInTheDocument();
   });
 
+  // The build request production hand-off added three queues at once; each
+  // needs its own row, or its addresses are never audited.
+  it("lists all three build request production queues, one row each", () => {
+    renderWithProviders(<AdminNotificationRecipientsView />);
+    expect(screen.getByText("Build request — ready for production")).toBeInTheDocument();
+    expect(screen.getByText("VITE_BUILD_REQUEST_PRODUCTION_ALERTS")).toBeInTheDocument();
+    expect(screen.getByText("Build request — review production complete")).toBeInTheDocument();
+    expect(screen.getByText("VITE_BUILD_REQUEST_COMPLETE_REVIEWERS")).toBeInTheDocument();
+    expect(screen.getByText("Build request — complete")).toBeInTheDocument();
+    expect(screen.getByText("VITE_BUILD_REQUEST_FINAL_ALERTS")).toBeInTheDocument();
+  });
+
+  it("audits the build request queue addresses (Sheila is on two of them)", () => {
+    renderWithProviders(<AdminNotificationRecipientsView />);
+    // Not in the mocked directory, so each row still renders the address.
+    expect(screen.getAllByText(/Sheila\.Horn@altronic-llc\.com/i).length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText(/Amanda\.Hoagland@altronic-llc\.com/i).length).toBeGreaterThanOrEqual(2);
+  });
+
   it("still lists the pre-existing lists", () => {
     renderWithProviders(<AdminNotificationRecipientsView />);
     expect(screen.getByText("Gray Market — new request")).toBeInTheDocument();

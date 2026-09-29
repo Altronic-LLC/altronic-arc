@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   Building2,
   Calendar,
+  CheckCircle2,
   Eye,
   FolderOpen,
   Link2,
@@ -25,7 +26,8 @@ import {
   useUpdateBuildRequestFields,
 } from "@/hooks/useBuildRequests";
 import { useProjects, useTasks } from "@/hooks/useTasks";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useCurrentUser, useCurrentUserEmails } from "@/hooks/useCurrentUser";
+import { useAdminAccess } from "@/hooks/useIsAdmin";
 import { useAdmins } from "@/hooks/useAdmins";
 import {
   BUILD_REQUEST_BLOCKED_REASONS,
@@ -52,6 +54,12 @@ import { mergePeople } from "@/lib/people";
 import { parseIsoDate, toIsoDate } from "@/lib/dateInput";
 import { DateField } from "@/components/DateField";
 import { YesNoField } from "@/components/YesNoField";
+import { canPressProduction, productionButtonState } from "@/lib/buildRequestProduction";
+import { nameList, parseRecipientList } from "@/lib/recipientList";
+import {
+  BUILD_REQUEST_COMPLETE_REVIEWERS,
+  BUILD_REQUEST_PRODUCTION_ALERTS,
+} from "@/api/config";
 
 export function BuildRequestDetailView() {
   const { id } = useParams<{ id: string }>();
@@ -65,6 +73,8 @@ export function BuildRequestDetailView() {
   const focusItemId = searchParams.get("item") ? parseInt(searchParams.get("item")!, 10) : null;
 
   const currentUser = useCurrentUser();
+  const { isAdmin, isResolving: adminResolving } = useAdminAccess();
+  const myEmails = useCurrentUserEmails();
   const { data: br, isLoading } = useBuildRequest(brId);
   const { data: allBrs = [] } = useBuildRequests();
   const { data: allItems = [] } = useBuildRequestItems();
@@ -232,6 +242,18 @@ export function BuildRequestDetailView() {
               </span>
             </div>
             <InlineTitle value={br.title} onSave={(next) => patch({ Title: next })} />
+            <ProductionHandoff
+              state={withAccessCheck(
+                productionButtonState(br, items, {
+                  permitted: canPressProduction(br, { isAdmin, myEmails }),
+                }),
+                adminResolving && !canPressProduction(br, { isAdmin: false, myEmails }),
+              )}
+              status={br.status}
+              brLabel={br.brNo || `#${br.id}`}
+              pending={updateFields.isPending}
+              onPress={(targetStatus) => patch({ BRStatus: targetStatus })}
+            />
           </div>
 
           {/* Parts */}
@@ -518,6 +540,93 @@ export function BuildRequestDetailView() {
 }
 
 // ---- file-local helpers (EirDetailView convention) --------------------------
+
+/**
+ * The production hand-off button (Ray, 2026-09-29). Every rule — label, which
+ * part statuses count, who may press — lives in lib/buildRequestProduction.ts,
+ * which the write guard in useUpdateBuildRequestFields also asks, so the
+ * greyed button and the refused write can't disagree.
+ *
+ * aria-disabled, NOT disabled: Chrome/Edge suppress a disabled control's
+ * tooltip and drop it from the tab order, and the reason is the useful part.
+ * The reason is also printed on screen, since a title needs a hover a phone
+ * hasn't got.
+ */
+function ProductionHandoff({
+  state,
+  status,
+  brLabel,
+  pending,
+  onPress,
+}: {
+  state: ReturnType<typeof productionButtonState>;
+  status: string;
+  brLabel: string;
+  pending: boolean;
+  onPress: (targetStatus: string) => void;
+}) {
+  if (!state.action || !state.targetStatus) {
+    // Production Complete is waiting on review; Complete is done. No button.
+    if (status !== "Production Complete") return null;
+    return (
+      <p className="mt-3 text-xs text-fg-muted" data-testid="production-handoff-note">
+        {state.hint}
+      </p>
+    );
+  }
+
+  const targetStatus = state.targetStatus;
+  const blocked = !state.allowed || pending;
+
+  function handleClick() {
+    if (blocked) return;
+    const who =
+      targetStatus === "Ready for Production"
+        ? `${nameList(parseRecipientList(BUILD_REQUEST_PRODUCTION_ALERTS), "the production team")}, the assigned engineer, the requestor and the watchers will be emailed.`
+        : `${nameList(parseRecipientList(BUILD_REQUEST_COMPLETE_REVIEWERS), "the reviewer")} will be asked to review it and set it to Complete, and the watchers will be told.`;
+    const ok = window.confirm(`Set ${brLabel} to ${targetStatus}?
+
+${who}`);
+    if (ok) onPress(targetStatus);
+  }
+
+  return (
+    <div className="mt-3 flex flex-col gap-1.5 border-t border-border pt-3 sm:flex-row sm:items-center sm:gap-3">
+      <button
+        type="button"
+        onClick={handleClick}
+        aria-disabled={blocked}
+        title={state.hint}
+        className={
+          blocked
+            ? "inline-flex cursor-not-allowed items-center justify-center gap-1.5 rounded-md border border-border bg-surface-2 px-3 py-1.5 text-sm font-medium text-fg-muted"
+            : "inline-flex items-center justify-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-accent/90"
+        }
+      >
+        <CheckCircle2 className="h-4 w-4" />
+        {state.label}
+      </button>
+      {!state.allowed && (
+        <span className="text-xs text-fg-muted" data-testid="production-handoff-reason">
+          {state.hint}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/**
+ * While the Admins list is still loading, a non-engineer might be an admin —
+ * so don't show a denial that's about to be withdrawn. Hold the button with a
+ * neutral "checking" reason instead (the useAdminAccess rule).
+ */
+function withAccessCheck(
+  state: ReturnType<typeof productionButtonState>,
+  resolving: boolean,
+): ReturnType<typeof productionButtonState> {
+  if (!resolving || !state.action) return state;
+  return { ...state, allowed: false, hint: "Checking your access…" };
+}
 
 function InlineTitle({ value, onSave }: { value: string; onSave: (next: string) => void }) {
   const [editing, setEditing] = useState(false);

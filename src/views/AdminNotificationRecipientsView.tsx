@@ -6,6 +6,9 @@ import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { auditRecipientList, suggestionsFor, type AuditedList } from "@/lib/recipientAudit";
 import {
+  BUILD_REQUEST_COMPLETE_REVIEWERS,
+  BUILD_REQUEST_FINAL_ALERTS,
+  BUILD_REQUEST_PRODUCTION_ALERTS,
   EIR_RESPONSE_ACCEPTED_ALERTS,
   EIR_TRIAGE_ASSIGNERS,
   EIR_TRIAGE_PROJECT_REVIEWERS,
@@ -115,6 +118,26 @@ const LISTS: Array<{ label: string; envVar: string; value: string | undefined; w
     envVar: "VITE_FAIT_SQE_REVIEWERS",
     value: FAIT_SQE_REVIEWERS,
     what: "Emailed when a FAIT reaches This is with SQE, asking for the SQE sign-off. Also the fallback when a sign-off is approved and there is no engineer or KAM to ask next.",
+  },
+  {
+    // The build request production hand-off (Ray, 2026-09-29) — three queues,
+    // one row each, added in the SAME change as the alerts themselves.
+    label: "Build request — ready for production",
+    envVar: "VITE_BUILD_REQUEST_PRODUCTION_ALERTS",
+    value: BUILD_REQUEST_PRODUCTION_ALERTS,
+    what: "Emailed when a build request is set Ready for Production, alongside its assigned engineer, requestor and watchers.",
+  },
+  {
+    label: "Build request — review production complete",
+    envVar: "VITE_BUILD_REQUEST_COMPLETE_REVIEWERS",
+    value: BUILD_REQUEST_COMPLETE_REVIEWERS,
+    what: "Emailed when a build request reaches Production Complete, asking them to review it and set its status to Complete.",
+  },
+  {
+    label: "Build request — complete",
+    envVar: "VITE_BUILD_REQUEST_FINAL_ALERTS",
+    value: BUILD_REQUEST_FINAL_ALERTS,
+    what: "Emailed when a Production Complete build request is set Complete, alongside its assigned engineer, requestor and watchers.",
   },
 ];
 

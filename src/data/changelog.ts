@@ -57,6 +57,25 @@ const PARTS_LIST_CHANGES: string[] = [
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.169.1",
+    date: "2026-09-29",
+    changes: [
+      "Build Request Production Complete can now be pressed only by Amanda Hoagland or an admin — the assigned engineer presses Ready for Production, and production signs off that it's done",
+    ],
+  },
+  {
+    version: "0.169.0",
+    date: "2026-09-29",
+    changes: [
+      "Build requests have a production hand-off button: Ready for Production once every part is Ready for Production, then Build Request Production Complete once every part is Production Complete",
+      "Only the assigned engineer or an admin can press it, and the status picker follows the same rule",
+      "New statuses: Ready for Production and Production Complete on build requests, and Production Complete on parts",
+      "Going Ready for Production emails Amanda Hoagland, Sheila Horn, the assigned engineer, the requestor and the watchers",
+      "A part reaching Production Complete emails the assigned engineer, the requestor, the request's watchers and the part's watchers",
+      "A build request reaching Production Complete asks Sheila Horn to review it and set it to Complete; once she does, the watchers, Amanda Hoagland, the assigned engineer and the requestor are told",
+    ],
+  },
+  {
     version: "0.168.1",
     date: "2026-09-29",
     // Parts List work while it's hidden: the real bullet is in
