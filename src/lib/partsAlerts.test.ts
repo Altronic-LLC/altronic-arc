@@ -1,14 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
   SAP_ACTIONS,
-  buildEngineeringApprovedEmails,
+  buildCorrectionRequestEmails,
   buildNewComponentEmails,
   buildNewPartForSapEmails,
   buildPartEditedEmails,
   buildSapResponseEmails,
+  componentEmailDetails,
   formatCreatedAt,
 } from "./partsAlerts";
 import type { ChangeTarget } from "./changeAlerts";
+import type { AltronicComponent } from "@/types/task";
 
 const target: ChangeTarget = { kind: "altronicComponent", id: 17, title: "701990 — RESISTOR" };
 const partTarget: ChangeTarget = { kind: "altronicPart", id: 30, title: "681183 — PCB FINAL" };
@@ -23,14 +25,15 @@ describe("buildNewComponentEmails", () => {
       target,
       recipients: [glenn, brandon],
       actor: sheila,
-      details: [{ label: "Mfg Name", value: "PANASONIC" }, { label: "Blank", value: " " }],
+      details: [{ label: "Mfg Name", value: "PANASONIC" }, { label: "Tolerance", value: " " }],
     });
     expect(emails.map((e) => e.email)).toEqual([glenn.email, brandon.email]);
     expect(emails[0].subject).toBe("New component waiting for engineering review: 701990 — RESISTOR");
     expect(emails[0].headlineHtml).toContain("Sheila Horn");
-    expect(emails[0].detailHtml).toContain("PANASONIC");
-    // A blank detail is dropped, not shown as an empty line.
-    expect(emails[0].detailHtml).not.toContain("Blank");
+    expect(emails[0].detailHtml).toContain("Mfg Name: <strong>PANASONIC</strong>");
+    // Every field is listed under its label, a blank one included — the
+    // reviewer checks what's missing too.
+    expect(emails[0].detailHtml).toContain("Tolerance: <strong></strong>");
     // Engineering review has no answer buttons — those are the SAP step's.
     expect(emails[0].actions).toBeUndefined();
   });
@@ -121,13 +124,132 @@ describe("formatCreatedAt", () => {
   });
 });
 
-describe("buildEngineeringApprovedEmails", () => {
-  it("hands the component to the SAP admins, with the reviewer's comment and the SAP answers", () => {
-    const [email] = buildEngineeringApprovedEmails({ target, recipients: [sheila], actor: glenn, comment: "Checked" });
+const resistor: AltronicComponent = {
+  id: 17,
+  partNumber: "701990",
+  category: "Surface Mount",
+  description: "RESISTOR - FILM",
+  mfgName: "PANASONIC",
+  mfgNumber: "ERJ-3EKF4701V",
+  ratingA: "4K7",
+  ratingB: "75V",
+  ratingC: "",
+  tempMin: "-55C",
+  tempMax: "155C",
+  tolerance: "1%",
+  footprint: "0603",
+  notes: "",
+  hasDataSheet: false,
+  signOffStatus: "Pending SAP",
+  legacySource: "",
+  comments: [],
+  createdBy: chandana,
+  hasAttachments: false,
+  createdAt: new Date("2026-09-29T13:28:00Z"),
+  modifiedAt: new Date("2026-09-29T13:28:00Z"),
+};
+
+describe("componentEmailDetails — every field under its label", () => {
+  it("names each rating for the component type, with its column", () => {
+    const labels = componentEmailDetails(resistor).map((d) => d.label);
+    expect(labels).toContain("Resistance (Rating A)");
+    expect(labels).toContain("Working voltage (Rating B)");
+    expect(labels).toContain("Power (Rating C)");
+    for (const l of ["Altronic Part Number", "Description", "Mfg Name", "Mfg Number", "Tolerance", "Temp Min", "Temp Max", "Footprint", "Note", "Date Created"]) {
+      expect(labels).toContain(l);
+    }
+  });
+
+  it("keeps a rating's value beside its own label", () => {
+    const details = componentEmailDetails(resistor);
+    expect(details.find((d) => d.label === "Resistance (Rating A)")?.value).toBe("4K7");
+  });
+
+  it("says a rating is unused for the type, and keeps the generic name for an unknown type", () => {
+    const electrolytic = componentEmailDetails({ ...resistor, description: "CAPACITOR - ELECTROLYTIC" }).map((d) => d.label);
+    expect(electrolytic).toContain("Rating C (not used)");
+    const unknown = componentEmailDetails({ ...resistor, description: "WIDGET" }).map((d) => d.label);
+    expect(unknown).toEqual(expect.arrayContaining(["Rating A", "Rating B", "Rating C"]));
+  });
+});
+
+describe("buildNewPartForSapEmails — after an HCO engineering review", () => {
+  const build = (comment: string) =>
+    buildNewPartForSapEmails({
+      target,
+      partNumber: resistor.partNumber,
+      description: resistor.description,
+      recipients: [sheila],
+      actor: glenn,
+      requester: resistor.createdBy,
+      review: { comment },
+      details: componentEmailDetails(resistor),
+    });
+
+  it("is the new-part email — same subject, every field, the three answers", () => {
+    const [email] = build("Checked");
     expect(email.email).toBe(sheila.email);
-    expect(email.subject).toBe("Ready for SAP: 701990 — RESISTOR");
-    expect(email.detailHtml).toContain("Checked");
+    expect(email.subject).toBe("New Part to Add to SAP | 701990 | RESISTOR - FILM");
+    expect(email.detailHtml).toContain("Details:");
+    expect(email.detailHtml).toContain("Resistance (Rating A): <strong>4K7</strong>");
     expect(email.actions).toEqual(SAP_ACTIONS);
+  });
+
+  it("is requested by whoever ADDED the component, and says who reviewed it", () => {
+    const [email] = build("Checked");
+    expect(email.headlineHtml).toContain("Requested by <strong>Chandana Ramisetty</strong>");
+    expect(email.headlineHtml).toContain("Engineering review approved by <strong>Glenn Terry</strong>");
+    expect(email.headlineHtml).toContain("tells Chandana Ramisetty which it was");
+  });
+
+  it("adds the reviewer's comments above the details, escaped", () => {
+    const html = build("Footprint <0603> checked\nOK")[0].detailHtml!;
+    expect(html).toContain("Engineering review comments:");
+    expect(html).toContain("Footprint &lt;0603&gt; checked<br/>OK");
+    expect(html.indexOf("Engineering review comments:")).toBeLessThan(html.indexOf("Details:"));
+  });
+
+  it("says there were no comments rather than leaving a gap", () => {
+    expect(build("  ")[0].detailHtml).toContain("<em>None</em>");
+  });
+
+  it("copes with a component nobody is recorded as adding", () => {
+    const [email] = buildNewPartForSapEmails({
+      target,
+      partNumber: "701990",
+      description: "RESISTOR",
+      recipients: [sheila],
+      actor: glenn,
+      requester: null,
+      review: { comment: "" },
+      details: [],
+    });
+    expect(email.headlineHtml).not.toContain("Requested by");
+    expect(email.headlineHtml).toContain("tells whoever added it which it was");
+  });
+});
+
+describe("buildCorrectionRequestEmails", () => {
+  const build = (recipients = [glenn, sheila, { ...sheila, email: "SHEILA.HORN@altronic-llc.com" }]) =>
+    buildCorrectionRequestEmails({
+      target: partTarget,
+      partNumber: "681183",
+      description: "PCB FINAL",
+      message: "Manufacturer is <Acme>\nnot Acme Corp",
+      recipients,
+      actor: chandana,
+    });
+
+  it("goes to the reviewers and the SAP admins, once each", () => {
+    expect(build().map((e) => e.email)).toEqual([glenn.email, sheila.email]);
+  });
+
+  it("names who asked, and carries their message escaped", () => {
+    const [email] = build();
+    expect(email.subject).toBe("Correction suggested: 681183 — PCB FINAL");
+    expect(email.headlineHtml).toContain("Chandana Ramisetty");
+    expect(email.detailHtml).toContain("Manufacturer is &lt;Acme&gt;<br/>not Acme Corp");
+    expect(email.detailHtml).toContain("681183");
   });
 });
 

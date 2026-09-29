@@ -15,16 +15,21 @@ export { PARTS_ROLE_TAGS, type PartsRole };
 // arrangement). Tags come from the admin-managed Parts Roles list (Tim,
 // 2026-09-28), so who holds them changes on the list, not in code.
 //
-//   editor              add + edit Part List parts; add HCO components
-//                       (except 722)
-//   hco editor          + edit HCO components, and add to 722 (the 2023
-//                       guide limited both to Glenn Terry, Brandon Mirto and
-//                       Sheila Horn — they now hold this tag)
+//   editor              ADD Part List parts on existing lists, and HCO
+//                       components (except 722). No editing: they suggest a
+//                       correction instead (suggestCorrectionGate)
+//   hco editor          + EDIT existing parts on BOTH lists, and add to 722
+//                       (shown as "Parts editor")
 //   reviewing engineer  + approve a component's Engineering Review step
 //   sap admin           + approve the Pending SAP step; start a new parts list;
 //                       edits every field on
 //                       both lists (Tim: "Sheila should be able to edit all
 //                       fields"); told about new parts and every edit
+//
+// ADDING and EDITING are separate rights (Tim, with Brandon and Glenn,
+// 2026-09-29). An editor who spots a typo on an existing part sends it to the
+// reviewing engineers and the SAP admin rather than changing it. The stored
+// tag is still "hco editor", so rows already saved keep their rights.
 //
 // IMPLICATIONS, so nobody needs four ticks: a reviewing engineer corrects what
 // they review, so they hold hco editor; an hco editor is an engineer, so they
@@ -41,16 +46,17 @@ export { PARTS_ROLE_TAGS, type PartsRole };
 // =============================================================================
 
 export const PARTS_ROLE_LABELS: Record<PartsRole, string> = {
-  editor: "Editor",
-  "hco editor": "HCO editor",
+  editor: "Add",
+  "hco editor": "Parts editor (incl. HCO)",
   "reviewing engineer": "Reviewing engineer",
   "sap admin": "SAP admin (Reviewing Admin)",
 };
 
 export const PARTS_ROLE_DESCRIPTIONS: Record<PartsRole, string> = {
-  editor: "Adds and edits Part List parts on existing lists, and adds HCO components (not 722).",
-  "hco editor": "Also edits HCO components and adds to the 722 list. Includes Editor.",
-  "reviewing engineer": "Approves new HCO components at the Engineering Review step. Includes HCO editor.",
+  editor:
+    "Adds Part List parts on existing lists and HCO components (not 722). Can't edit existing parts — suggests corrections to the reviewers and the SAP admin instead.",
+  "hco editor": "Also edits existing parts on both lists and adds to the 722 list. Includes Add.",
+  "reviewing engineer": "Approves new HCO components at the Engineering Review step. Includes Parts editor.",
   "sap admin": "Adds new parts to SAP and gives final approval; starts new parts lists; can edit every field. Emailed about every new part and every edit.",
 };
 
@@ -80,6 +86,9 @@ export function serializePartsRoles(roles: readonly PartsRole[]): string {
 }
 
 export interface PartsRights {
+  /** Add a Part List part to an existing list. */
+  addParts: boolean;
+  /** Edit an existing Part List part. */
   editParts: boolean;
   addComponents: boolean;
   editComponents: boolean;
@@ -97,7 +106,8 @@ export function partsRightsFor(tags: Iterable<PartsRole>): PartsRights {
   const hco = t.has("hco editor") || reviewer || sap;
   const editor = t.has("editor") || hco;
   return {
-    editParts: editor,
+    addParts: editor,
+    editParts: hco,
     addComponents: editor,
     editComponents: hco,
     addSil: hco,
@@ -152,7 +162,7 @@ export function addPartGate(
   opensNewList = false,
 ): PartsGate {
   if (component && prefix === "722") {
-    return gate(access, (r) => r.addSil, `Only HCO editors can add to the 722 list. ${ASK}`);
+    return gate(access, (r) => r.addSil, `Only parts editors can add to the 722 list. ${ASK}`);
   }
   if (!component && opensNewList) {
     return gate(
@@ -163,17 +173,52 @@ export function addPartGate(
   }
   return gate(
     access,
-    (r) => (component ? r.addComponents : r.editParts),
+    (r) => (component ? r.addComponents : r.addParts),
     `Adding parts is limited to Engineering. ${ASK}`,
   );
 }
 
-/** May this person edit an existing part on this list? */
+/**
+ * May this person edit an existing part on this list? Parts editors and up,
+ * on both lists — adding a part doesn't let you edit one (Tim, 2026-09-29).
+ */
 export function editPartGate(access: PartsAccess, component: boolean): PartsGate {
-  if (component) {
-    return gate(access, (r) => r.editComponents, `HCO components can only be edited by HCO editors. ${ASK}`);
-  }
-  return gate(access, (r) => r.editParts, `Editing parts is limited to Engineering. ${ASK}`);
+  // Somebody who can add is pointed at the way they CAN help, not at an admin.
+  const mine = partsRightsFor(access.roles);
+  const denied =
+    mine.addParts || mine.addComponents
+      ? "Existing parts can only be edited by parts editors. Use Suggest a correction to send a fix to the reviewing engineers and the SAP admin."
+      : `Existing parts can only be edited by parts editors. ${ASK}`;
+  return gate(access, (r) => (component ? r.editComponents : r.editParts), denied);
+}
+
+/**
+ * May this person upload a MISSING datasheet from a part's page? Anyone who
+ * can edit the part, or add parts to its list (Tim, 2026-09-29): an upload
+ * never replaces a file (api/datasheets.ts), so adding one that isn't there
+ * changes nothing anyone relied on — and it's how the Add role retries an
+ * upload that failed when they added the part. The 722 list stays with parts
+ * editors, as adding to it does.
+ */
+export function addDatasheetGate(access: PartsAccess, prefix: string, component: boolean): PartsGate {
+  const edit = editPartGate(access, component);
+  if (edit.allowed || edit.resolving) return edit;
+  // Refused: the add gate's reason is the specific one (722, or no role).
+  return addPartGate(access, prefix, component);
+}
+
+/**
+ * May this person send a correction for a part they can't edit — a typo, a
+ * wrong rating — to the reviewing engineers and the SAP admin? Anyone who can
+ * ADD parts but not edit this one (Tim, 2026-09-29). Somebody who can edit
+ * just fixes it, and somebody with no role isn't Engineering.
+ */
+export function suggestCorrectionGate(access: PartsAccess, component: boolean): PartsGate {
+  return gate(
+    access,
+    (r) => (r.addParts || r.addComponents) && !(component ? r.editComponents : r.editParts),
+    `Only Engineering can suggest corrections. ${ASK}`,
+  );
 }
 
 /**

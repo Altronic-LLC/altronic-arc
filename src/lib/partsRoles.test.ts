@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  addDatasheetGate,
   addPartGate,
   approvalRecordHtml,
   approveGate,
@@ -12,6 +13,7 @@ import {
   sapResponseNeedsComment,
   partsRightsFor,
   serializePartsRoles,
+  suggestCorrectionGate,
   type PartsAccess,
   type PartsRole,
 } from "./partsRoles";
@@ -47,9 +49,10 @@ describe("parse / serialize", () => {
 });
 
 describe("partsRightsFor — the implications", () => {
-  it("an editor edits Part List parts and adds components, but not HCO edits or 722", () => {
+  it("an editor ADDS parts and components (not 722) but edits nothing", () => {
     expect(partsRightsFor(["editor"])).toEqual({
-      editParts: true,
+      addParts: true,
+      editParts: false,
       addComponents: true,
       editComponents: false,
       addSil: false,
@@ -58,8 +61,13 @@ describe("partsRightsFor — the implications", () => {
     });
   });
 
-  it("an HCO editor is also an editor", () => {
-    expect(partsRightsFor(["hco editor"])).toMatchObject({ editParts: true, editComponents: true, addSil: true });
+  it("a parts editor (the hco editor tag) is also an editor, and edits both lists", () => {
+    expect(partsRightsFor(["hco editor"])).toMatchObject({
+      addParts: true,
+      editParts: true,
+      editComponents: true,
+      addSil: true,
+    });
   });
 
   it("a reviewing engineer can correct what they review", () => {
@@ -109,9 +117,22 @@ describe("the gates", () => {
     expect(addPartGate(access(["hco editor"]), "722", true).allowed).toBe(true);
   });
 
-  it("keep HCO edits to HCO editors", () => {
+  it("keep editing, on both lists, to parts editors and up — adding isn't editing", () => {
     expect(editPartGate(access(["editor"]), true).allowed).toBe(false);
-    expect(editPartGate(access(["editor"]), false).allowed).toBe(true);
+    expect(editPartGate(access(["editor"]), false).allowed).toBe(false);
+    expect(editPartGate(access(["hco editor"]), false).allowed).toBe(true);
+    expect(editPartGate(access(["hco editor"]), true).allowed).toBe(true);
+    expect(editPartGate(access(["sap admin"]), false).allowed).toBe(true);
+  });
+
+  it("point an editor at Suggest a correction, and anybody else at an admin", () => {
+    expect(editPartGate(access(["editor"]), false).hint).toMatch(/Suggest a correction/);
+    expect(editPartGate(access([]), false).hint).toMatch(/Ask an ARC admin/);
+  });
+
+  it("let an editor add to an existing list", () => {
+    expect(addPartGate(access(["editor"]), "604", false).allowed).toBe(true);
+    expect(addPartGate(access([]), "604", false).allowed).toBe(false);
   });
 
   it("give each approval step to its own role", () => {
@@ -178,6 +199,45 @@ describe("the SAP step's three answers", () => {
     expect(sapResponseNeedsComment("more-info")).toBe(true);
     expect(sapResponseNeedsComment("added")).toBe(false);
     expect(sapResponseNeedsComment(null)).toBe(false);
+  });
+});
+
+describe("addDatasheetGate — a missing datasheet from the part page", () => {
+  it("is open to the Add role on the lists it can add to", () => {
+    expect(addDatasheetGate(access(["editor"]), "604", false).allowed).toBe(true);
+    expect(addDatasheetGate(access(["editor"]), "701", true).allowed).toBe(true);
+  });
+
+  it("keeps 722 to parts editors, as adding to it is", () => {
+    expect(addDatasheetGate(access(["editor"]), "722", true).allowed).toBe(false);
+    expect(addDatasheetGate(access(["hco editor"]), "722", true).allowed).toBe(true);
+  });
+
+  it("is open to anyone who can edit the part, and closed to a reader", () => {
+    expect(addDatasheetGate(access(["sap admin"]), "604", false).allowed).toBe(true);
+    expect(addDatasheetGate(access([]), "604", false).allowed).toBe(false);
+  });
+
+  it("waits, rather than refusing, while the roles load", () => {
+    expect(addDatasheetGate(access([], { resolving: true }), "604", false)).toMatchObject({ allowed: false, resolving: true });
+  });
+});
+
+describe("suggestCorrectionGate", () => {
+  it("is for somebody who can add but not edit this part", () => {
+    expect(suggestCorrectionGate(access(["editor"]), false).allowed).toBe(true);
+    expect(suggestCorrectionGate(access(["editor"]), true).allowed).toBe(true);
+  });
+
+  it("isn't offered to somebody who can just edit it", () => {
+    expect(suggestCorrectionGate(access(["hco editor"]), false).allowed).toBe(false);
+    expect(suggestCorrectionGate(access(["reviewing engineer"]), true).allowed).toBe(false);
+    expect(suggestCorrectionGate(access(["sap admin"]), false).allowed).toBe(false);
+  });
+
+  it("isn't offered to a reader with no role, or when the list isn't set up", () => {
+    expect(suggestCorrectionGate(access([]), false).allowed).toBe(false);
+    expect(suggestCorrectionGate(access(["editor"], { configured: false }), false).allowed).toBe(false);
   });
 });
 

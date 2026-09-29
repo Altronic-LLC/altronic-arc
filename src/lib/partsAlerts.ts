@@ -1,22 +1,28 @@
-import type { ItemAuthor, Person } from "@/types/task";
+import type { AltronicComponent, AltronicPart, ItemAuthor, Person } from "@/types/task";
 import type { AlertDetail, ChangeEmail, ChangeTarget, EmailAction } from "./changeAlerts";
 import type { FieldChange } from "./partFields";
 import { escapeHtml } from "./mentions";
 import { withoutActorUnlessEmpty } from "./recipientList";
 import { SAP_RESPONSES, SAP_RESPONSE_LABELS, type SapResponse } from "./partsRoles";
+import { ratingLabelsFor } from "./componentRatings";
 
 // =============================================================================
 // Parts List emails (pure). The old Power App's flow, with ARC sending them:
 //
-//   new COMPONENT   → the reviewing engineers: "please review"
-//   engineering OK  → the SAP admins: "please add it to SAP", with the three
-//                     SAP answers as buttons
+//   new COMPONENT   → the reviewing engineers: "please review", every field
+//                     under its label, ratings named for the component type
+//   engineering OK  → the SAP admins: the SAME email a new part gets — every
+//                     field, the three SAP answers — plus the reviewer's
+//                     comments (Tim, 2026-09-29)
 //   new PART        → the SAP admins: the old Power Automate layout — every
 //                     field, and the three SAP answers as buttons
 //   SAP answered    → whoever ADDED the part: which answer it was
 //   any EDIT        → the SAP admins: what changed, so SAP can follow
 //                     (Tim, 2026-09-28: an edit does NOT go back through
 //                     approval, but the part admin is still told)
+//   CORRECTION      → the reviewing engineers and the SAP admins: an editor
+//                     who can add but not edit says what's wrong
+//                     (Tim, 2026-09-29)
 //
 // Two actor rules, on purpose:
 //  - The work-queue emails (review / add to SAP) drop the actor UNLESS that
@@ -84,10 +90,71 @@ export function formatCreatedAt(d: Date): string {
   });
 }
 
+/** A date-only column is held at midday UTC, so the UTC date IS the day. */
+function dateOnly(d: Date | null): string {
+  return d ? d.toISOString().slice(0, 10) : "";
+}
+
+/** A Part List part's lines for the SAP admin — the old Power Automate email's, in its order. */
+export function partEmailDetails(p: AltronicPart): AlertDetail[] {
+  return [
+    { label: "Altronic Part Number", value: p.partNumber },
+    { label: "Description", value: p.description },
+    { label: "MFG Part Number", value: p.mfgPartNumber },
+    { label: "Manufacturer", value: p.manufacturer },
+    { label: "Drawing Size", value: p.drawingSize },
+    { label: "Purchased", value: p.purchased ?? "" },
+    { label: "Prototype or Production", value: p.prototypeOrProduction ?? "" },
+    { label: "Note", value: p.notes },
+    { label: "Assigned By", value: p.assignedBy },
+    { label: "Date Assigned", value: dateOnly(p.dateAssigned) },
+    { label: "Date Created", value: formatCreatedAt(p.createdAt) },
+  ];
+}
+
 /**
- * A new PART (Part List — not HCO) goes straight to the SAP admin, laid out
- * like the Power Automate email it replaces: who asked, every field, and the
- * three answers as buttons.
+ * What a rating is called in an email: its meaning for this component type,
+ * with the column beside it so it can be found on the page ("Resistance
+ * (Rating A)"). A rating the entry rules don't use says so; an unknown type
+ * keeps the generic name.
+ */
+function ratingLabel(letter: "A" | "B" | "C", meaning: string | null): string {
+  if (meaning === null) return `Rating ${letter} (not used)`;
+  return meaning === `Rating ${letter}` ? meaning : `${meaning} (Rating ${letter})`;
+}
+
+/** An HCO component's lines — every field, each under its label. */
+export function componentEmailDetails(c: AltronicComponent): AlertDetail[] {
+  const r = ratingLabelsFor(c.description);
+  return [
+    { label: "Altronic Part Number", value: c.partNumber },
+    { label: "Category", value: c.category ?? "" },
+    { label: "Description", value: c.description },
+    { label: "Mfg Name", value: c.mfgName },
+    { label: "Mfg Number", value: c.mfgNumber },
+    { label: ratingLabel("A", r.a), value: c.ratingA },
+    { label: ratingLabel("B", r.b), value: c.ratingB },
+    { label: ratingLabel("C", r.c), value: c.ratingC },
+    { label: "Tolerance", value: c.tolerance },
+    { label: "Temp Min", value: c.tempMin },
+    { label: "Temp Max", value: c.tempMax },
+    { label: "Footprint", value: c.footprint },
+    { label: "Note", value: c.notes },
+    { label: "Date Created", value: formatCreatedAt(c.createdAt) },
+  ];
+}
+
+/**
+ * A part for the SAP admin to add, laid out like the Power Automate email it
+ * replaces: who asked, every field, and the three answers as buttons.
+ *
+ * Two senders:
+ *  - a new PART (Part List — not HCO), straight from the New Part form. The
+ *    actor IS the requester.
+ *  - an HCO component whose engineering review just finished (Tim,
+ *    2026-09-29: "the same information … just with the Engineering reviewers
+ *    comments added"). The actor is the REVIEWER; the requester is whoever
+ *    added the component, and `review` carries the reviewer's comments.
  */
 export function buildNewPartForSapEmails(args: {
   target: ChangeTarget;
@@ -96,22 +163,46 @@ export function buildNewPartForSapEmails(args: {
   recipients: Person[];
   actor: Person;
   details: AlertDetail[];
+  /** Who added the part, when that isn't the actor. */
+  requester?: ItemAuthor | null;
+  /** Set when an engineering review sent it here. */
+  review?: { comment: string };
 }): ChangeEmail[] {
-  const name = escapeHtml(args.actor.displayName || "Someone");
-  const email = (args.actor.email ?? "").trim();
-  const requester = email ? `<strong>${name}</strong> &lt;${escapeHtml(email)}&gt;` : `<strong>${name}</strong>`;
+  const asker = args.requester === undefined ? args.actor : args.requester;
+  const name = escapeHtml(asker?.displayName || asker?.email || "");
+  const email = (asker?.email ?? "").trim();
+  const requested = !name
+    ? ""
+    : email
+      ? `Requested by <strong>${name}</strong> &lt;${escapeHtml(email)}&gt;. `
+      : `Requested by <strong>${name}</strong>. `;
+  const reviewed = args.review
+    ? `Engineering review approved by <strong>${escapeHtml(args.actor.displayName || "a reviewing engineer")}</strong>. `
+    : "";
+  const tells = name ? `tells ${name} which it was` : "tells whoever added it which it was";
   const subject = ["New Part to Add to SAP", args.partNumber.trim(), args.description.trim()].filter(Boolean).join(" | ");
+  const reviewHtml = args.review
+    ? `<div style="font-size:14px;margin-bottom:4px;">Engineering review comments:</div>${
+        args.review.comment.trim()
+          ? `<div style="font-size:14px;margin-bottom:12px;">${escapeHtml(args.review.comment.trim()).replace(/\n/g, "<br/>")}</div>`
+          : `<div style="font-size:14px;margin-bottom:12px;"><em>None</em></div>`
+      }`
+    : "";
   return mailable(withoutActorUnlessEmpty(args.recipients, args.actor)).map((p) => ({
     email: p.email,
     displayName: p.displayName,
     subject,
-    headlineHtml: `Requested by ${requester}. Select the appropriate response below — each one approves the part and tells ${name} which it was.`,
-    detailHtml: allDetailsHtml(args.details),
+    headlineHtml: `${requested}${reviewed}Select the appropriate response below — each one approves the part and ${tells}.`,
+    detailHtml: reviewHtml + allDetailsHtml(args.details),
     actions: SAP_ACTIONS,
   }));
 }
 
-/** A new COMPONENT, to the reviewing engineers. */
+/**
+ * A new COMPONENT, to the reviewing engineers — every field, each under its
+ * label, blanks included (Tim, 2026-09-29: the ratings went out as bare
+ * values, "1K / 0.25W", with nothing saying which was which).
+ */
 export function buildNewComponentEmails(args: {
   target: ChangeTarget;
   recipients: Person[];
@@ -124,25 +215,38 @@ export function buildNewComponentEmails(args: {
     displayName: p.displayName,
     subject: `New component waiting for engineering review: ${args.target.title}`,
     headlineHtml: `<strong>${actorName}</strong> added a new component. Please review it — correct anything that's wrong — and approve it in ARC. It goes to the SAP admin next.`,
-    detailHtml: detailsHtml(args.details) || undefined,
+    detailHtml: args.details.length > 0 ? allDetailsHtml(args.details) : undefined,
   }));
 }
 
-/** Engineering review done — the component moves on to the SAP admins. */
-export function buildEngineeringApprovedEmails(args: {
+/**
+ * Somebody who can add parts but not edit this one has spotted something
+ * wrong with it (Tim, 2026-09-29) — to the reviewing engineers and the SAP
+ * admins, who can. Their message verbatim, and what the part says today.
+ */
+export function buildCorrectionRequestEmails(args: {
   target: ChangeTarget;
+  partNumber: string;
+  description: string;
+  message: string;
   recipients: Person[];
   actor: Person;
-  comment: string;
 }): ChangeEmail[] {
-  const actorName = escapeHtml(args.actor.displayName || "Someone");
+  const name = escapeHtml(args.actor.displayName || "Someone");
+  const email = (args.actor.email ?? "").trim();
+  const who = email ? `<strong>${name}</strong> (${escapeHtml(email)})` : `<strong>${name}</strong>`;
+  const message = escapeHtml(args.message.trim()).replace(/\n/g, "<br/>");
   return mailable(withoutActorUnlessEmpty(args.recipients, args.actor)).map((p) => ({
     email: p.email,
     displayName: p.displayName,
-    subject: `Ready for SAP: ${args.target.title}`,
-    headlineHtml: `<strong>${actorName}</strong> finished the engineering review of this component. Select the appropriate response below — each one approves it.`,
-    detailHtml: commentHtml(args.comment) || undefined,
-    actions: SAP_ACTIONS,
+    subject: `Correction suggested: ${args.target.title}`,
+    headlineHtml: `${who} suggests a correction to this part. They can't edit existing parts, so please check it and make the change in ARC if it's right.`,
+    detailHtml:
+      `<div style="font-size:14px;margin-bottom:12px;">&ldquo;${message}&rdquo;</div>` +
+      detailsHtml([
+        { label: "Altronic Part Number", value: args.partNumber },
+        { label: "Description", value: args.description },
+      ]),
   }));
 }
 

@@ -35,6 +35,7 @@ import {
   useDeleteAltronicComponent,
   useDeleteAltronicPart,
   useRequestNewPartsList,
+  useSuggestPartCorrection,
   useUpdateAltronicComponent,
   useUpdateAltronicPart,
 } from "./useAltronicParts";
@@ -76,7 +77,7 @@ describe("the role is enforced inside the mutation", () => {
     const { Wrapper } = wrapper();
     const { result } = renderHook(() => useUpdateAltronicPart(), { wrapper: Wrapper });
     await expect(result.current.mutateAsync({ id: 9, patch: { sapNumber: "X" } })).rejects.toThrow(
-      /limited to Engineering/,
+      /only be edited by parts editors/,
     );
     expect((await listAltronicParts()).find((p) => p.id === 9)?.sapNumber).toBe("");
   });
@@ -85,7 +86,17 @@ describe("the role is enforced inside the mutation", () => {
     __resetPartsRolesMockStore([role(1, DEMO, "Demo User", ["editor"])]);
     const { Wrapper } = wrapper();
     const { result } = renderHook(() => useUpdateAltronicComponent(), { wrapper: Wrapper });
-    await expect(result.current.mutateAsync({ id: 1, patch: { notes: "x" } })).rejects.toThrow(/HCO editors/);
+    await expect(result.current.mutateAsync({ id: 1, patch: { notes: "x" } })).rejects.toThrow(/parts editors/);
+  });
+
+  it("refuses a Part List edit from a plain editor too — adding isn't editing", async () => {
+    __resetPartsRolesMockStore([role(1, DEMO, "Demo User", ["editor"])]);
+    const { Wrapper } = wrapper();
+    const { result } = renderHook(() => useUpdateAltronicPart(), { wrapper: Wrapper });
+    await expect(result.current.mutateAsync({ id: 9, patch: { sapNumber: "X" } })).rejects.toThrow(
+      /Suggest a correction/,
+    );
+    expect((await listAltronicParts()).find((p) => p.id === 9)?.sapNumber).toBe("");
   });
 
   it("refuses a 722 add from a plain editor, but allows a 701", async () => {
@@ -163,6 +174,42 @@ describe("who hears about it", () => {
     await result.current.mutateAsync({ id: 17, expected: "Pending Engineering Review", comment: "OK" });
     await waitFor(() => expect(notifyChangeEmails).toHaveBeenCalled());
     expect(lastRecipients()).toEqual([SHEILA.email]);
+  });
+
+  it("the SAP admin's email after an engineering review is the new-part email, plus the reviewer's comments", async () => {
+    __resetPartsRolesMockStore([role(1, DEMO, "Demo User", ["reviewing engineer"]), SHEILA]);
+    const { Wrapper } = wrapper();
+    const { result } = renderHook(() => useApproveAltronicComponent(), { wrapper: Wrapper });
+    const updated = await result.current.mutateAsync({
+      id: 17,
+      expected: "Pending Engineering Review",
+      comment: "Footprint checked against the datasheet",
+    });
+    await waitFor(() => expect(notifyChangeEmails).toHaveBeenCalled());
+    const email = (
+      notifyChangeEmails.mock.calls.at(-1) as unknown as [
+        { emails: Array<{ subject: string; headlineHtml: string; detailHtml: string; actions: Array<{ query: string }> }> },
+      ]
+    )[0].emails[0];
+    expect(email.subject).toBe(`New Part to Add to SAP | ${updated.partNumber} | ${updated.description}`);
+    expect(email.headlineHtml).toContain("Engineering review approved by");
+    expect(email.detailHtml).toContain("Footprint checked against the datasheet");
+    for (const label of ["Altronic Part Number", "Mfg Name", "Mfg Number", "Tolerance", "Temp Min", "Temp Max", "Footprint", "Date Created"]) {
+      expect(email.detailHtml).toContain(`${label}:`);
+    }
+    expect(email.actions.map((a) => a.query)).toEqual(["sap=added", "sap=not-needed", "sap=more-info"]);
+  });
+
+  it("the new-component email names every field, ratings by what they mean", async () => {
+    __resetPartsRolesMockStore([role(1, DEMO, "Demo User", ["editor"]), GLENN]);
+    const { Wrapper } = wrapper();
+    const { result } = renderHook(() => useCreateAltronicComponent(), { wrapper: Wrapper });
+    await result.current.mutateAsync({ partNumber: "701900", description: "RESISTOR - FILM", ratingA: "4K7" });
+    await waitFor(() => expect(notifyChangeEmails).toHaveBeenCalled());
+    const detail = (notifyChangeEmails.mock.calls.at(-1) as unknown as [{ emails: Array<{ detailHtml: string }> }])[0]
+      .emails[0].detailHtml;
+    expect(detail).toContain("Resistance (Rating A): <strong>4K7</strong>");
+    expect(detail).toContain("Power (Rating C):");
   });
 
   it("the SAP admin's answer goes back to whoever added the part", async () => {
@@ -250,7 +297,7 @@ describe("who hears about it", () => {
   });
 
   it("an edit doesn't reset approval, and tells the SAP admins what changed", async () => {
-    __resetPartsRolesMockStore([role(1, DEMO, "Demo User", ["editor"]), SHEILA]);
+    __resetPartsRolesMockStore([role(1, DEMO, "Demo User", ["hco editor"]), SHEILA]);
     const { qc, Wrapper } = wrapper();
     // The diff is taken against the cached row, as on the real page.
     qc.setQueryData(["altronicParts"], await listAltronicParts());
@@ -283,6 +330,59 @@ describe("who hears about it", () => {
     await new Promise((r) => setTimeout(r, 50));
     // Nobody holds SAP admin, so there's nobody to tell.
     expect(notifyChangeEmails).not.toHaveBeenCalled();
+  });
+});
+
+describe("suggesting a correction", () => {
+  const sent = () =>
+    notifyChangeEmails.mockImplementationOnce((async ({ emails }: { emails: Array<{ email: string }> }) => ({
+      sent: emails.map((e) => e.email),
+      failed: [],
+    })) as never);
+
+  it("emails the reviewing engineers and the SAP admins, and changes nothing on the part", async () => {
+    __resetPartsRolesMockStore([role(1, DEMO, "Demo User", ["editor"]), GLENN, SHEILA]);
+    sent();
+    const part = (await listAltronicParts()).find((p) => p.id === 24)!;
+    const { Wrapper } = wrapper();
+    const { result } = renderHook(() => useSuggestPartCorrection(), { wrapper: Wrapper });
+    await expect(
+      result.current.mutateAsync({ part, component: false, message: "Harness length is 12in, not 10in" }),
+    ).resolves.toEqual(["Glenn Terry", "Sheila Horn"]);
+    expect(lastRecipients()).toEqual([GLENN.email, SHEILA.email].sort());
+    const email = (notifyChangeEmails.mock.calls.at(-1) as unknown as [{ emails: Array<{ subject: string; detailHtml: string }> }])[0]
+      .emails[0];
+    expect(email.subject).toMatch(/^Correction suggested:/);
+    expect(email.detailHtml).toContain("Harness length is 12in, not 10in");
+    expect((await listAltronicParts()).find((p) => p.id === 24)).toEqual(part);
+  });
+
+  it("is refused inside the mutation for somebody who can edit, or has no role", async () => {
+    const part = (await listAltronicParts()).find((p) => p.id === 24)!;
+    for (const roles of [["hco editor"], []] as PartsRoleEntry["roles"][]) {
+      __resetPartsRolesMockStore([role(1, DEMO, "Demo User", roles), GLENN, SHEILA]);
+      const { Wrapper } = wrapper();
+      const { result } = renderHook(() => useSuggestPartCorrection(), { wrapper: Wrapper });
+      await expect(result.current.mutateAsync({ part, component: false, message: "x" })).rejects.toThrow();
+    }
+    expect(notifyChangeEmails).not.toHaveBeenCalled();
+  });
+
+  it("refuses an empty message", async () => {
+    __resetPartsRolesMockStore([role(1, DEMO, "Demo User", ["editor"]), GLENN, SHEILA]);
+    const part = (await listAltronicParts()).find((p) => p.id === 24)!;
+    const { Wrapper } = wrapper();
+    const { result } = renderHook(() => useSuggestPartCorrection(), { wrapper: Wrapper });
+    await expect(result.current.mutateAsync({ part, component: false, message: "  " })).rejects.toThrow(/what should change/);
+    expect(notifyChangeEmails).not.toHaveBeenCalled();
+  });
+
+  it("says so when there's nobody to tell, rather than 'sent'", async () => {
+    __resetPartsRolesMockStore([role(1, DEMO, "Demo User", ["editor"])]);
+    const part = (await listAltronicParts()).find((p) => p.id === 24)!;
+    const { Wrapper } = wrapper();
+    const { result } = renderHook(() => useSuggestPartCorrection(), { wrapper: Wrapper });
+    await expect(result.current.mutateAsync({ part, component: false, message: "x" })).rejects.toThrow(/nobody to tell/);
   });
 });
 

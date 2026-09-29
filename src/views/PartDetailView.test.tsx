@@ -19,6 +19,15 @@ import { PartDetailView } from "./PartDetailView";
 // Mock mode: the demo user holds every Parts Roles tag unless a test empties
 // the store (see api/partsRoles.ts).
 
+/** Can add parts, can't edit them. */
+const EDITOR_ONLY = {
+  id: 1,
+  email: "demo.user@altronic-llc.com",
+  displayName: "Demo User",
+  roles: ["editor" as const],
+  note: "",
+};
+
 function renderPart(route: string) {
   return renderWithProviders(<PartDetailView />, { route, routePattern: "/engineering/parts/:kind/:id" });
 }
@@ -107,18 +116,58 @@ describe("PartDetailView — editing", () => {
     __resetPartsRolesMockStore([]);
     renderPart("/engineering/parts/part/9");
     expect(await screen.findByRole("heading", { name: "504017" })).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByText(/limited to Engineering/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/only be edited by parts editors/)).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: /^Edit / })).not.toBeInTheDocument();
+    // Not Engineering, so no correction button either.
+    expect(screen.queryByRole("button", { name: "Suggest a correction" })).not.toBeInTheDocument();
+  });
+
+  it("keeps HCO components to parts editors — an editor alone can't change one", async () => {
+    __resetPartsRolesMockStore([EDITOR_ONLY]);
+    renderPart("/engineering/parts/component/1");
+    expect(await screen.findByRole("heading", { name: "601110" })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText(/only be edited by parts editors/)).toBeInTheDocument());
     expect(screen.queryByRole("button", { name: /^Edit / })).not.toBeInTheDocument();
   });
 
-  it("keeps HCO components to HCO editors — an editor alone can't change one", async () => {
-    __resetPartsRolesMockStore([
-      { id: 1, email: "demo.user@altronic-llc.com", displayName: "Demo User", roles: ["editor"], note: "" },
-    ]);
-    renderPart("/engineering/parts/component/1");
-    expect(await screen.findByRole("heading", { name: "601110" })).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByText(/only be edited by HCO editors/)).toBeInTheDocument());
+  it("keeps Part List parts to parts editors too — adding isn't editing", async () => {
+    __resetPartsRolesMockStore([EDITOR_ONLY]);
+    renderPart("/engineering/parts/part/9");
+    expect(await screen.findByRole("heading", { name: "504017" })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText(/Use Suggest a correction/)).toBeInTheDocument());
     expect(screen.queryByRole("button", { name: /^Edit / })).not.toBeInTheDocument();
+  });
+});
+
+describe("PartDetailView — suggesting a correction", () => {
+  const GLENN = { id: 2, email: "glenn.terry@altronic-llc.com", displayName: "Glenn Terry", roles: ["reviewing engineer" as const], note: "" };
+  const SHEILA = { id: 3, email: "sheila.horn@altronic-llc.com", displayName: "Sheila Horn", roles: ["sap admin" as const], note: "" };
+
+  it("sends an editor's message to the reviewers and the SAP admin", async () => {
+    __resetPartsRolesMockStore([EDITOR_ONLY, GLENN, SHEILA]);
+    renderPart("/engineering/parts/part/9");
+    await userEvent.click(await screen.findByRole("button", { name: "Suggest a correction" }));
+    const dialog = screen.getByRole("dialog", { name: "Suggest a correction" });
+    const send = within(dialog).getByRole("button", { name: "Send" });
+    // Nothing to send yet.
+    expect(send).toBeDisabled();
+    await userEvent.type(within(dialog).getByRole("textbox"), "Mfg Part # should be LCA2-14-Q");
+    await userEvent.click(send);
+    await waitFor(() => expect(pushToast).toHaveBeenCalledWith({ message: "Sent to Glenn Terry, Sheila Horn." }));
+    expect(screen.queryByRole("dialog", { name: "Suggest a correction" })).not.toBeInTheDocument();
+  });
+
+  it("is offered on an HCO component too", async () => {
+    __resetPartsRolesMockStore([EDITOR_ONLY, GLENN, SHEILA]);
+    renderPart("/engineering/parts/component/1");
+    expect(await screen.findByRole("button", { name: "Suggest a correction" })).toBeInTheDocument();
+  });
+
+  it("isn't offered to somebody who can just edit the part", async () => {
+    // The default store: the demo user holds every tag.
+    renderPart("/engineering/parts/part/9");
+    expect(await screen.findByRole("button", { name: "Edit Purchasing" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Suggest a correction" })).not.toBeInTheDocument();
   });
 });
 
@@ -322,10 +371,28 @@ describe("PartDetailView — uploading a datasheet", () => {
     expect(await findDatasheet("101022")).toBeNull();
   });
 
-  it("offers no Upload to somebody who can't edit HCO components", async () => {
-    __resetPartsRolesMockStore([
-      { id: 1, email: "demo.user@altronic-llc.com", displayName: "Demo User", roles: ["editor"], note: "" },
-    ]);
+  it("lets the Add role add a missing datasheet to a part it can't edit", async () => {
+    __resetPartsRolesMockStore([EDITOR_ONLY]);
+    // Component 2, 601138: no file — and the Add role can't edit components.
+    renderPart("/engineering/parts/component/2");
+    await screen.findByRole("button", { name: /Upload datasheet/ });
+    expect(screen.queryByRole("button", { name: /^Edit / })).not.toBeInTheDocument();
+    await userEvent.upload(screen.getByLabelText("Datasheet PDF"), pdf());
+    expect(await screen.findByRole("link", { name: /Open datasheet/ })).toBeInTheDocument();
+    expect(await findDatasheet("601138")).not.toBeNull();
+  });
+
+  it("keeps a 722 datasheet to parts editors, as adding to 722 is", async () => {
+    __resetPartsRolesMockStore([EDITOR_ONLY]);
+    // Component 15, 722044: no file.
+    renderPart("/engineering/parts/component/15");
+    const label = await screen.findByText("Datasheet");
+    await waitFor(() => expect(label.nextElementSibling).toHaveTextContent("No"));
+    expect(screen.queryByRole("button", { name: /Upload datasheet/ })).not.toBeInTheDocument();
+  });
+
+  it("offers no Upload to somebody with no role", async () => {
+    __resetPartsRolesMockStore([]);
     renderPart("/engineering/parts/component/2");
     const label = await screen.findByText("Datasheet");
     await waitFor(() => expect(label.nextElementSibling).toHaveTextContent("No"));

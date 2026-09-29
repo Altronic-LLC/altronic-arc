@@ -427,7 +427,7 @@ src/
 │   ├── componentRatings.ts       What Rating A/B/C mean per component type (the guide's table, as DATA)
 │   ├── partFields.ts             Parts List columns as DATA — form ⇄ SharePoint, required rules, next number
 │   ├── partsRoles.ts             Parts Roles tags → rights, the add/edit/approve gates, the approval chain (pure)
-│   ├── partsAlerts.ts            Parts List emails — new part, engineering done, what an edit changed (pure)
+│   ├── partsAlerts.ts            Parts List emails — new part, engineering done, what an edit changed, a suggested correction (pure)
 │   ├── partLifecycle.ts          Deleting a part number and reusing it — the marker, blank/replace columns, history records (pure)
 │   ├── componentDescriptions.ts  Picked component descriptions — join rule (UPPER, ' - '), what's missing, the seed (pure)
 │   ├── drawingLogFields.ts       Per-register column descriptors (columns are DATA)
@@ -1417,10 +1417,30 @@ which also added the `Communication` column to both parts lists.
 
 | Tag | Grants | Implies |
 |---|---|---|
-| `editor` | add + edit Part List parts on existing lists; add HCO components except 722 | — |
-| `hco editor` | + edit HCO components; add to 722 | editor |
+| `editor` (shown "Add") | ADD Part List parts on existing lists and HCO components except 722; **no editing** — Suggest a correction instead | — |
+| `hco editor` (shown "Parts editor (incl. HCO)") | + EDIT existing parts on both lists; add to 722 | editor |
 | `reviewing engineer` | + approve a component's Engineering Review step | hco editor |
 | `sap admin` | + approve the Pending SAP step; start a new list; edit every field on both lists | every EDIT right |
+
+**Adding and editing are separate rights** (Tim, with Brandon and Glenn,
+2026-09-29). Until then `editor` could also edit Part List parts. Now:
+- **`addParts` and `editParts` are separate in `PartsRights`.** `addPartGate`
+  asks the first, `editPartGate` the second, and both lists' edits need
+  `hco editor` or above.
+- **The stored tag is still `hco editor`**, so saved rows keep their rights.
+  Only the LABEL changed, because it now edits the Part List too.
+- **An editor gets Suggest a correction on the part page**
+  (`suggestCorrectionGate`: can add, can't edit THIS part). It emails the
+  reviewing engineers AND the SAP admins (`buildCorrectionRequestEmails`).
+  - It is awaited and throws when it reaches nobody, like the new-list request.
+  - It writes nothing to the part. Whoever acts on it edits the part, and
+    the SAP admins hear about that edit as usual.
+  - It is hidden from readers and from anyone who can simply edit.
+- **The edit refusal points an editor at that button**, not at an admin.
+- **The Add role CAN add a missing datasheet** from the part page
+  (`addDatasheetGate`: edit the part, OR add to its list — 722 stays with
+  parts editors). An upload never replaces a file, so this changes nothing
+  anybody relied on, and it's how the Add role retries a failed upload.
 
 **It is HCO, not HOC** (Tim, 2026-09-28). The first build spelled it HOC
 throughout, and the tag was stored as `hoc editor`. `parsePartsRoles` still
@@ -1450,11 +1470,29 @@ configured, and there the demo user holds every tag.
 
 | Event | Status becomes | Emailed |
 |---|---|---|
-| New COMPONENT | Pending Engineering Review | the reviewing engineers |
-| Engineering review approved | Pending SAP | the SAP admins, with the three SAP answers |
+| New COMPONENT | Pending Engineering Review | the reviewing engineers — every field under its label, ratings by meaning |
+| Engineering review approved | Pending SAP | the SAP admins — the new-PART email, plus the reviewer's comments |
 | New PART (Part List) | Pending SAP | the SAP admins — every field, and the three SAP answers |
 | SAP step approved | Approved | whoever ADDED the part, told which answer was given |
 | Any EDIT | unchanged | the SAP admins, with what changed |
+| Correction suggested | unchanged | the reviewing engineers and the SAP admins |
+
+**Both emails to the SAP admin are ONE builder** (Tim, 2026-09-29):
+`buildNewPartForSapEmails`.
+- After an HCO engineering review, it is called with `requester` (whoever
+  ADDED the component, not the reviewer) and `review: { comment }`.
+- The subject, Requested by line, every-field Details and the three answers
+  therefore match a Part List part exactly. The reviewer's comments go above
+  the details, and "None" is shown when there are none.
+- The lines come from `partEmailDetails` / `componentEmailDetails` in
+  `lib/partsAlerts.ts`.
+- **A component's ratings are labelled by what they mean**:
+  - "Resistance (Rating A)", with the column kept so it can be found on the
+    page;
+  - "Rating C (not used)" for a rating the entry rules skip;
+  - plain "Rating A" for an unknown type.
+- Before this, the reviewer's email sent "1K / 0.25W" under one "Ratings"
+  line, with nothing saying which value was which.
 
 **The SAP step has three answers** (Tim, 2026-09-29), the old Power
 Automate approval email's three buttons: **Added to SAP**, **Does not need
@@ -1646,9 +1684,10 @@ Seven things that are load-bearing:
   the New Part form for the same reason (`onCreate: false`). It stays editable
   on the Manufacturer card. The flag write is best-effort — the page finds the
   file either way — and is reported, not thrown.
-- **The gate depends on WHERE**: `via: "new"` asks `addPartGate` (an editor
-  may add a non-722 component they can't later edit), `via: "edit"` asks
-  `editPartGate`. Both asked inside the `mutationFn`.
+- **The gate depends on WHERE**: `via: "new"` asks `addPartGate`, `via:
+  "edit"` asks `addDatasheetGate` — whoever can edit the part OR add to its
+  list, since an upload only ever adds a missing file. Both asked inside the
+  `mutationFn` (`useDatasheet.gate.test.tsx`).
 - **No email.** The SAP admins hear about edits to the part's fields; a
   datasheet is a file beside it.
 - **The file is not in the form draft** — a `File` can't be stored.
