@@ -19,7 +19,13 @@ import { __resetDatasheetsMockStore, findDatasheet, uploadDatasheet } from "@/ap
 
 vi.mock("@/api/email", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/api/email")>();
-  return { ...actual, notifyChangeEmails: vi.fn(async () => ({ sent: [], failed: [] })) };
+  return {
+    ...actual,
+    notifyChangeEmails: vi.fn(async ({ emails }: { emails: Array<{ email: string }> }) => ({
+      sent: emails.map((e) => e.email),
+      failed: [],
+    })),
+  };
 });
 
 import { NewPartButton, PartFormModal } from "./PartFormModal";
@@ -123,29 +129,82 @@ async function pick(control: string, option: string) {
   await userEvent.click(await screen.findByRole("option", { name: option }));
 }
 
-/** Everything a 701 component needs except its description. */
+/** Everything a 701 ceramic capacitor needs except its description (the rating labels are a ceramic's). */
 async function fillComponentExceptDescription() {
   // Next free fills the number in once the lists load.
   await waitFor(() => expect(screen.getByLabelText("Altronic Part #")).not.toHaveValue(""));
   await userEvent.type(screen.getByLabelText("Mfg Name"), "KEMET");
   await userEvent.type(screen.getByLabelText("Mfg Number"), "C0805C104K5RACTU");
-  await userEvent.type(screen.getByLabelText(/^Rating A/), ".1UF");
-  await userEvent.type(screen.getByLabelText(/^Rating B/), "50V");
-  await userEvent.type(screen.getByLabelText(/^Rating C/), "X7R");
+  await userEvent.type(screen.getByLabelText(/^Capacitance/), ".1UF");
+  await userEvent.type(screen.getByLabelText(/^Working voltage/), "50V");
+  await userEvent.type(screen.getByLabelText(/^Temp coef/), "X7R");
   await userEvent.type(screen.getByLabelText("Temp Min"), "-55C");
   await userEvent.type(screen.getByLabelText("Temp Max"), "125C");
   await userEvent.type(screen.getByLabelText("Tolerance"), "10%");
   await userEvent.type(screen.getByLabelText("Footprint"), "0805");
 }
 
+describe("PartFormModal — a new list is the SAP admin's", () => {
+  const SHEILA = { id: 4, email: "sheila.horn@altronic-llc.com", displayName: "Sheila Horn", roles: ["sap admin" as const], note: "" };
+  const ENGINEER = { id: 1, email: "demo.user@altronic-llc.com", displayName: "Demo User", roles: ["editor" as const], note: "" };
+
+  it("stops an engineer starting a list that doesn't exist, and offers to ask the SAP admin", async () => {
+    __resetPartsRolesMockStore([ENGINEER, SHEILA]);
+    renderForm(null);
+    // No part in the mock data starts 411.
+    await userEvent.type(screen.getByLabelText("Altronic Part #"), "411001");
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("There's no list 411 yet, and only the SAP admin can start a new list.");
+    expect(screen.getByRole("button", { name: "Add part" })).toBeDisabled();
+
+    await userEvent.click(within(alert).getByRole("button", { name: "Ask the SAP admin for list 411" }));
+    expect(await within(alert).findByText("Sent to Sheila Horn. You'll hear back once list 411 is open.")).toBeInTheDocument();
+  });
+
+  it("lets the same engineer add to a list that does exist", async () => {
+    __resetPartsRolesMockStore([ENGINEER, SHEILA]);
+    renderForm(null);
+    await userEvent.type(screen.getByLabelText("Altronic Part #"), "604900");
+    await screen.findByText(/Goes on the/);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Add part" })).toBeEnabled());
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("lets the SAP admin start the list, and says that's what this does", async () => {
+    __resetPartsRolesMockStore([{ ...SHEILA, email: "demo.user@altronic-llc.com" }]);
+    renderForm(null);
+    await userEvent.type(screen.getByLabelText("Altronic Part #"), "411001");
+    expect(await screen.findByText(/this part starts it, in the 400/)).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Add part" })).toBeEnabled());
+  });
+});
+
 describe("PartFormModal — a component", () => {
   it("switches to the component fields and names the ratings for the type", async () => {
     renderForm("701");
     await screen.findByRole("button", { name: "Description" });
     expect(screen.getByText(/Component List/)).toBeInTheDocument();
+    // Before a Description, the plain column names.
+    expect(screen.getByLabelText(/^Rating A/)).toBeInTheDocument();
     await pick("Description", "Resistor");
-    expect(await screen.findByText(/Rating A — Resistance/)).toBeInTheDocument();
-    expect(screen.getByText(/Rating C — Power/)).toBeInTheDocument();
+    // The meaning replaces the label, as on the old app's form.
+    expect(await screen.findByLabelText(/^Resistance/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Working voltage/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Power/)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/^Rating A/)).not.toBeInTheDocument();
+    // …and follows the Description when it changes.
+    await pick("Description", "IC");
+    expect(await screen.findByLabelText(/^Pin count/)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/^Resistance/)).not.toBeInTheDocument();
+  });
+
+  it("keeps the plain column names for a Description the old app didn't label, until a Type says more", async () => {
+    renderForm("701");
+    await pick("Description", "Capacitor");
+    expect(await screen.findByLabelText(/^Rating A/)).toBeInTheDocument();
+    await pick("Type", "Ceramic");
+    expect(await screen.findByLabelText(/^Capacitance/)).toBeInTheDocument();
   });
 
   it("follows the number typed on the Parts Book — a 601 is a component", async () => {

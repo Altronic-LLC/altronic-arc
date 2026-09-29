@@ -29,10 +29,12 @@ import {
   useAllAltronicParts,
   useAltronicParts,
   useApproveAltronicComponent,
+  useApproveAltronicPart,
   useCreateAltronicComponent,
   useCreateAltronicPart,
   useDeleteAltronicComponent,
   useDeleteAltronicPart,
+  useRequestNewPartsList,
   useUpdateAltronicComponent,
   useUpdateAltronicPart,
 } from "./useAltronicParts";
@@ -108,6 +110,25 @@ describe("the role is enforced inside the mutation", () => {
     );
   });
 
+  it("refuses an engineer starting a new list, and writes nothing", async () => {
+    __resetPartsRolesMockStore([role(1, DEMO, "Demo User", ["editor"]), SHEILA]);
+    const { Wrapper } = wrapper();
+    const { result } = renderHook(() => useCreateAltronicPart(), { wrapper: Wrapper });
+    await expect(result.current.mutateAsync({ partNumber: "411001", description: "Bracket" })).rejects.toThrow(
+      /only the SAP admin can start a new list/,
+    );
+    expect((await listAltronicParts()).some((p) => p.partNumber === "411001")).toBe(false);
+  });
+
+  it("lets the SAP admin start a new list", async () => {
+    __resetPartsRolesMockStore([role(1, DEMO, "Demo User", ["sap admin"])]);
+    const { Wrapper } = wrapper();
+    const { result } = renderHook(() => useCreateAltronicPart(), { wrapper: Wrapper });
+    await expect(result.current.mutateAsync({ partNumber: "411001", description: "Bracket" })).resolves.toMatchObject({
+      partNumber: "411001",
+    });
+  });
+
   it("won't add a Part List part under an HCO list number", async () => {
     __resetPartsRolesMockStore([role(1, DEMO, "Demo User", ["sap admin"])]);
     const { Wrapper } = wrapper();
@@ -144,7 +165,82 @@ describe("who hears about it", () => {
     expect(lastRecipients()).toEqual([SHEILA.email]);
   });
 
-  it("the final approval emails nobody — the SAP admin IS the last step", async () => {
+  it("the SAP admin's answer goes back to whoever added the part", async () => {
+    __resetPartsRolesMockStore([role(1, DEMO, "Demo User", ["sap admin"])]);
+    const { Wrapper } = wrapper();
+    const { result } = renderHook(() => useApproveAltronicPart(), { wrapper: Wrapper });
+    // Mock part 23 was added by Brandon and is Pending SAP.
+    const updated = await result.current.mutateAsync({ id: 23, expected: "Pending SAP", comment: "", response: "not-needed" });
+    expect(updated.signOffStatus).toBe("Approved");
+    expect(updated.comments[0].bodyHtml).toContain("Does not need to be added to SAP — approved.");
+    await waitFor(() => expect(notifyChangeEmails).toHaveBeenCalled());
+    expect(lastRecipients()).toEqual(["brandon.mirto@altronic-llc.com"]);
+    const subject = (notifyChangeEmails.mock.calls.at(-1) as unknown as [{ emails: Array<{ subject: string }> }])[0]
+      .emails[0].subject;
+    expect(subject).toMatch(/^Approved — not added to SAP:/);
+  });
+
+  it("refuses 'more information' with no note saying what, and approves nothing", async () => {
+    __resetPartsRolesMockStore([role(1, DEMO, "Demo User", ["sap admin"])]);
+    const { Wrapper } = wrapper();
+    const { result } = renderHook(() => useApproveAltronicPart(), { wrapper: Wrapper });
+    await expect(
+      result.current.mutateAsync({ id: 23, expected: "Pending SAP", comment: "  ", response: "more-info" }),
+    ).rejects.toThrow(/what information is needed/);
+    expect((await listAltronicParts()).find((p) => p.id === 23)?.signOffStatus).toBe("Pending SAP");
+    expect(notifyChangeEmails).not.toHaveBeenCalled();
+  });
+
+  it("the new-part email lists every field and carries the three answers", async () => {
+    __resetPartsRolesMockStore([role(1, DEMO, "Demo User", ["editor"]), SHEILA]);
+    const { Wrapper } = wrapper();
+    const { result } = renderHook(() => useCreateAltronicPart(), { wrapper: Wrapper });
+    await result.current.mutateAsync({ partNumber: "604700", description: "Connector", assignedBy: "Matthew Traina" });
+    await waitFor(() => expect(notifyChangeEmails).toHaveBeenCalled());
+    const email = (
+      notifyChangeEmails.mock.calls.at(-1) as unknown as [
+        { emails: Array<{ subject: string; detailHtml: string; actions: Array<{ query: string }> }> },
+      ]
+    )[0].emails[0];
+    expect(email.subject).toBe("New Part to Add to SAP | 604700 | Connector");
+    for (const label of ["Altronic Part Number", "MFG Part Number", "Manufacturer", "Drawing Size", "Prototype or Production", "Note", "Date Assigned", "Date Created"]) {
+      expect(email.detailHtml).toContain(`${label}:`);
+    }
+    expect(email.detailHtml).toContain("Matthew Traina");
+    expect(email.actions.map((a) => a.query)).toEqual(["sap=added", "sap=not-needed", "sap=more-info"]);
+  });
+
+  it("a request for a new list goes to the SAP admins, linking to its Parts Book", async () => {
+    __resetPartsRolesMockStore([role(1, DEMO, "Demo User", ["editor"]), GLENN, SHEILA]);
+    notifyChangeEmails.mockImplementationOnce((async ({ emails }: { emails: Array<{ email: string }> }) => ({
+      sent: emails.map((e) => e.email),
+      failed: [],
+    })) as never);
+    const { Wrapper } = wrapper();
+    const { result } = renderHook(() => useRequestNewPartsList(), { wrapper: Wrapper });
+    await expect(
+      result.current.mutateAsync({ prefix: "411", partNumber: "411001", description: "Bracket" }),
+    ).resolves.toEqual(["Sheila Horn"]);
+    expect(lastRecipients()).toEqual([SHEILA.email]);
+    const call = (notifyChangeEmails.mock.calls.at(-1) as unknown as [
+      { emails: Array<{ subject: string; detailHtml: string }>; link: { url: string } },
+    ])[0];
+    expect(call.emails[0].subject).toBe("New parts list requested: 411");
+    expect(call.emails[0].detailHtml).toContain("411001");
+    expect(call.link.url).toMatch(/\/engineering\/parts\?book=4$/);
+  });
+
+  it("a new-list request with no SAP admin on the list says so rather than 'sent'", async () => {
+    __resetPartsRolesMockStore([role(1, DEMO, "Demo User", ["editor"]), GLENN]);
+    const { Wrapper } = wrapper();
+    const { result } = renderHook(() => useRequestNewPartsList(), { wrapper: Wrapper });
+    await expect(
+      result.current.mutateAsync({ prefix: "411", partNumber: "411001", description: "" }),
+    ).rejects.toThrow(/Nobody holds the SAP admin role/);
+    expect(notifyChangeEmails).not.toHaveBeenCalled();
+  });
+
+  it("the final approval with no answer emails nobody", async () => {
     __resetPartsRolesMockStore([role(1, DEMO, "Demo User", ["sap admin"])]);
     const { Wrapper } = wrapper();
     const { result } = renderHook(() => useApproveAltronicComponent(), { wrapper: Wrapper });

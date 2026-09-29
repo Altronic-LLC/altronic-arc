@@ -34,6 +34,19 @@ export interface ChangeEmail {
   headlineHtml: string;
   /** Optional detail block as trusted HTML (e.g. "Open → Closed"). */
   detailHtml?: string;
+  /**
+   * Optional answer buttons, each a link to the item's page with `query`
+   * appended (`sap=added`). A LINK, never a one-click write: ARC has no server
+   * to receive a click, and mail scanners follow links on their own — so the
+   * page opens with the answer picked and the person confirms it there.
+   */
+  actions?: EmailAction[];
+}
+
+export interface EmailAction {
+  label: string;
+  /** Appended to the item's URL, without the "?". */
+  query: string;
 }
 
 /** What the change is on — drives the noun ("task"/"EIR"/…) in the copy. */

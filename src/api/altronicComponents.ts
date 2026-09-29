@@ -8,7 +8,7 @@ import {
   toAltronicComponent,
 } from "@/lib/altronicPartMapper";
 import { COMPONENT_FIELDS, columnsFromPatch } from "@/lib/partFields";
-import { approvalRecordHtml, initialSignOff, nextSignOff } from "@/lib/partsRoles";
+import { approvalRecordHtml, initialSignOff, nextSignOff, type SapResponse } from "@/lib/partsRoles";
 import {
   DELETED_DESCRIPTION,
   blankColumns,
@@ -326,12 +326,13 @@ export async function approveAltronicComponent(
   expected: string,
   comment: string,
   actor: Person,
+  response: SapResponse | null = null,
 ): Promise<AltronicComponent> {
   const next = nextSignOff(expected);
   const record = {
     authorName: actor.displayName,
     authorEmail: actor.email ?? "",
-    bodyHtml: approvalRecordHtml(expected, comment),
+    bodyHtml: approvalRecordHtml(expected, comment, response),
   };
 
   if (USE_MOCK) {

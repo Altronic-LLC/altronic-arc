@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { FileText, Loader2, Plus, Upload, Wand2, X } from "lucide-react";
+import { FileText, Loader2, Plus, Send, Upload, Wand2, X } from "lucide-react";
 import { datasheetFileName, datasheetFileProblem, DATASHEETS_PATH } from "@/api/datasheets";
 import { formatBytes } from "@/api/projectFiles";
 import { useUploadDatasheet } from "@/hooks/useDatasheet";
@@ -10,6 +10,7 @@ import {
   useAllAltronicParts,
   useCreateAltronicComponent,
   useCreateAltronicPart,
+  useRequestNewPartsList,
 } from "@/hooks/useAltronicParts";
 import { isDeletedPart, partEvent } from "@/lib/partLifecycle";
 import { useMyPartsAccess } from "@/hooks/usePartsRoles";
@@ -27,6 +28,7 @@ import {
   isRequired,
   missingRequired,
   nextPartNumber,
+  opensNewList,
   partNumberProblem,
   patchFromForm,
   type PartFieldSpec,
@@ -139,7 +141,14 @@ export function PartFormModal({ prefix, onClose }: { prefix: string | null; onCl
   const typedPrefix = partPrefix(partNumber) ?? prefix ?? "";
   const component = isComponentPrefix(typedPrefix);
   const specs = (component ? COMPONENT_FIELDS : PART_FIELDS).filter((s) => s.onCreate !== false) as unknown as AnySpec[];
-  const gate = addPartGate(access, typedPrefix, component);
+  // A number on a list with no parts yet STARTS that list — the SAP admin's
+  // alone (Tim, 2026-09-29). Not decided until the Part List has loaded, or
+  // every list would look new for the first few seconds.
+  const newList = !!parts.data && opensNewList(typedPrefix, allNumbers);
+  const gate = addPartGate(access, typedPrefix, component, newList);
+  // Allowed on an existing list, refused only because this one is new — the
+  // case that gets the "ask the SAP admin" button rather than a plain refusal.
+  const needsNewList = newList && !gate.allowed && addPartGate(access, typedPrefix, component).allowed;
   const busy = createPart.isPending || createComponent.isPending || uploadSheet.isPending;
 
   // The description dropdowns — components only, and only once the options
@@ -254,8 +263,10 @@ export function PartFormModal({ prefix, onClose }: { prefix: string | null; onCl
     if (!component) return spec.label;
     const letter = spec.key === "ratingA" ? "a" : spec.key === "ratingB" ? "b" : spec.key === "ratingC" ? "c" : null;
     if (!letter || !labels.component) return spec.label;
+    // The meaning IS the label, as on the old app's form (Tim, 2026-09-29) —
+    // it follows the Description picked; what's saved is still Rating A/B/C.
     const meaning = labels[letter];
-    return meaning ? `${spec.label} — ${meaning}` : `${spec.label} (not used for a ${labels.component.toLowerCase()})`;
+    return meaning ?? `${spec.label} (not used for a ${labels.component.toLowerCase()})`;
   }
 
   return (
@@ -346,6 +357,16 @@ export function PartFormModal({ prefix, onClose }: { prefix: string | null; onCl
             </p>
           )}
 
+          {needsNewList && (
+            <NewListRequest prefix={typedPrefix} partNumber={partNumber} description={values.description ?? ""} />
+          )}
+          {newList && gate.allowed && (
+            <p className="mt-3 rounded-md border border-superior-blue/40 bg-superior-blue/5 px-3 py-2 text-xs text-fg">
+              There's no list <strong>{typedPrefix}</strong> yet — this part starts it, in the {typedPrefix.charAt(0)}00
+              Parts Book.
+            </p>
+          )}
+
           {listFull && (
             <p className="mt-3 rounded-md border border-ajax-yellow/40 bg-ajax-yellow/5 px-3 py-2 text-xs text-fg">
               List {prefix} is full — every number up to {prefix}999 is taken. Check with the SAP admin which list the part
@@ -376,7 +397,7 @@ export function PartFormModal({ prefix, onClose }: { prefix: string | null; onCl
                   wide={spec.kind === "multiline" || spec.key === "description"}
                   plain={spec.kind !== "text" && spec.kind !== "multiline"}
                 >
-                  <Control spec={spec} value={values[spec.key] ?? ""} onChange={(v) => set(spec.key, v)} disabled={busy} />
+                  <Control spec={spec} label={labelFor(spec)} value={values[spec.key] ?? ""} onChange={(v) => set(spec.key, v)} disabled={busy} />
                   {spec.key === "description" && pickerFailed && (
                     <span className="mt-1 block text-[11px] text-fg-muted">
                       Couldn't load the description lists, so type the description — in capitals, like
@@ -398,7 +419,7 @@ export function PartFormModal({ prefix, onClose }: { prefix: string | null; onCl
             disabled={busy}
           />
 
-          {!gate.allowed && !gate.resolving && <p className="mt-4 text-sm text-fg-muted">{gate.hint}</p>}
+          {!gate.allowed && !gate.resolving && !needsNewList && <p className="mt-4 text-sm text-fg-muted">{gate.hint}</p>}
           {error && <p className="mt-4 text-sm text-cooper-red">{error}</p>}
         </form>
 
@@ -455,6 +476,51 @@ export function NewPartButton({ prefix }: { prefix: string | null }) {
       </button>
       {open && <PartFormModal prefix={prefix} onClose={() => setOpen(false)} />}
     </>
+  );
+}
+
+/**
+ * The number typed is on a list that doesn't exist, and only the SAP admin can
+ * start one — say so, and offer to ask them. The request carries what was
+ * typed, so the SAP admin can add it as the list's first part.
+ */
+function NewListRequest({ prefix, partNumber, description }: { prefix: string; partNumber: string; description: string }) {
+  const request = useRequestNewPartsList();
+  // A different list is a different request.
+  const [sentFor, setSentFor] = useState<{ prefix: string; to: string[] } | null>(null);
+  const sent = sentFor?.prefix === prefix ? sentFor : null;
+  return (
+    <div role="alert" className="mt-3 rounded-md border border-cooper-red/40 bg-cooper-red/5 px-3 py-2 text-xs text-fg">
+      <p>
+        There's no list <strong>{prefix}</strong> yet, and only the SAP admin can start a new list. Ask them to open it —
+        they'll add this part as its first.
+      </p>
+      {sent ? (
+        <p className="mt-2 font-medium text-fg">
+          Sent to {sent.to.join(", ")}. You'll hear back once list {prefix} is open.
+        </p>
+      ) : (
+        <button
+          type="button"
+          disabled={request.isPending}
+          onClick={() =>
+            request.mutate(
+              { prefix, partNumber, description },
+              { onSuccess: (to) => setSentFor({ prefix, to }) },
+            )
+          }
+          className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-accent/90 disabled:opacity-60"
+        >
+          {request.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+          Ask the SAP admin for list {prefix}
+        </button>
+      )}
+      {request.isError && !sent && (
+        <p className="mt-2 text-cooper-red">
+          {request.error instanceof Error ? request.error.message : "The request didn't send."}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -523,25 +589,28 @@ function DatasheetPicker({
 
 function Control({
   spec,
+  label = spec.label,
   value,
   onChange,
   disabled,
 }: {
   spec: AnySpec;
+  /** The name shown — and announced. A rating's is its meaning ("Resistance"), not "Rating A". */
+  label?: string;
   value: string;
   onChange: (v: string) => void;
   disabled?: boolean;
 }) {
-  if (spec.kind === "date") return <DateField value={value} onChange={onChange} disabled={disabled} aria-label={spec.label} />;
+  if (spec.kind === "date") return <DateField value={value} onChange={onChange} disabled={disabled} aria-label={label} />;
   if (spec.kind === "boolean") {
-    return <YesNoField label={spec.label} name={`new-part-${spec.key}`} value={value} onChange={onChange} disabled={disabled} />;
+    return <YesNoField label={label} name={`new-part-${spec.key}`} value={value} onChange={onChange} disabled={disabled} />;
   }
   if (spec.kind === "choice") {
     // Two-option choices, required — so pills with no "Not set": nothing is
     // picked until somebody picks, and validation catches the empty.
     return (
       <ChoicePills
-        label={spec.label}
+        label={label}
         name={`new-part-${spec.key}`}
         options={spec.choices ?? []}
         value={value}
@@ -559,11 +628,11 @@ function Control({
         style={{ minHeight: "5rem" }}
         className="input resize-y"
         disabled={disabled}
-        aria-label={spec.label}
+        aria-label={label}
       />
     );
   }
-  return <input value={value} onChange={(e) => onChange(e.target.value)} className="input" disabled={disabled} aria-label={spec.label} />;
+  return <input value={value} onChange={(e) => onChange(e.target.value)} className="input" disabled={disabled} aria-label={label} />;
 }
 
 function Field({

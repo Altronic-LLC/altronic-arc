@@ -22,6 +22,7 @@ import {
   type AlertDetail,
   type ChangeEmail,
   type ChangeTarget,
+  type EmailAction,
 } from "@/lib/changeAlerts";
 import { buildEirTriageEmails, type EirTriageStage } from "@/lib/eirTriage";
 import {
@@ -485,6 +486,11 @@ function itemUrl(kind: MentionTarget["kind"], id: number): string {
 export async function notifyChangeEmails(input: {
   target: ChangeTarget;
   emails: ChangeEmail[];
+  /**
+   * Where the button goes, when that isn't the target's own page — e.g. a
+   * request for a parts list that doesn't exist yet links to its Parts Book.
+   */
+  link?: { url: string; buttonText: string };
 }): Promise<MailSendResult> {
   const emails = input.emails.filter((e) => !!e.email);
   if (emails.length === 0) return NOTHING_SENT;
@@ -495,7 +501,7 @@ export async function notifyChangeEmails(input: {
       from: SHARED_MAILBOX ?? "(no shared mailbox configured)",
       kind: input.target.kind,
       item: input.target.title,
-      url: appItemUrl(input.target.kind, input.target.id),
+      url: input.link?.url ?? appItemUrl(input.target.kind, input.target.id),
       to: emails.map((e) => ({ email: e.email, subject: e.subject })),
     });
     return { sent: emails.map((e) => e.email!), failed: [] };
@@ -509,7 +515,7 @@ export async function notifyChangeEmails(input: {
     return NOTHING_SENT;
   }
 
-  const url = appItemUrl(input.target.kind, input.target.id);
+  const url = input.link?.url ?? appItemUrl(input.target.kind, input.target.id);
   const result: MailSendResult = { sent: [], failed: [] };
 
   for (const e of emails) {
@@ -518,9 +524,11 @@ export async function notifyChangeEmails(input: {
         recipientName: e.displayName,
         headlineHtml: e.headlineHtml,
         detailHtml: e.detailHtml,
+        actions: e.actions,
         kind: input.target.kind,
         itemTitle: input.target.title,
         url,
+        buttonText: input.link?.buttonText,
       });
       const message = {
         subject: e.subject,
@@ -929,6 +937,8 @@ function renderEmailShell(ctx: {
   calloutLabel: string;
   calloutTitle: string;
   messageHtml?: string;
+  /** Answer buttons above the main one — outlined, so the main button stays the obvious "just open it". */
+  actions?: Array<{ label: string; url: string }>;
   buttonText: string;
   url: string;
 }): string {
@@ -940,6 +950,24 @@ function renderEmailShell(ctx: {
               ${ctx.messageHtml}
             </div>`
     : "";
+  // One button per row: three long labels side by side don't fit a phone,
+  // and Outlook can't wrap table cells the way a browser wraps flex items.
+  const actionsBlock = (ctx.actions ?? [])
+    .map(
+      (a) => `
+        <tr>
+          <td align="center" style="padding:0 28px 10px 28px;">
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width:420px;">
+              <tr>
+                <td align="center" style="border:2px solid #CB2C30;border-radius:6px;background:#ffffff;">
+                  <a href="${escapeHtml(a.url)}" style="display:block;padding:10px 18px;color:#CB2C30;text-decoration:none;font-size:14px;font-weight:600;">${escapeHtml(a.label)}</a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>`,
+    )
+    .join("");
 
   return `
 <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#f3f4f6;padding:24px 12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
@@ -963,9 +991,9 @@ function renderEmailShell(ctx: {
             </div>
             ${messageBlock}
           </td>
-        </tr>
+        </tr>${actionsBlock}
         <tr>
-          <td align="center" style="padding:0 28px 28px 28px;">
+          <td align="center" style="padding:${ctx.actions?.length ? "8px" : "0"} 28px 28px 28px;">
             <table role="presentation" cellspacing="0" cellpadding="0" border="0">
               <tr>
                 <td align="center" style="background:#CB2C30;border-radius:6px;">
@@ -1018,9 +1046,11 @@ function renderChangeEmail(ctx: {
   recipientName: string;
   headlineHtml: string;
   detailHtml?: string;
+  actions?: EmailAction[];
   kind: MentionTarget["kind"];
   itemTitle: string;
   url: string;
+  buttonText?: string;
 }): string {
   const copy = KIND_COPY[ctx.kind];
   return renderEmailShell({
@@ -1029,9 +1059,14 @@ function renderChangeEmail(ctx: {
     calloutLabel: copy.calloutLabel,
     calloutTitle: ctx.itemTitle,
     messageHtml: ctx.detailHtml,
-    buttonText: copy.buttonText,
+    actions: ctx.actions?.map((a) => ({ label: a.label, url: withQuery(ctx.url, a.query) })),
+    buttonText: ctx.buttonText ?? copy.buttonText,
     url: ctx.url,
   });
+}
+
+function withQuery(url: string, query: string): string {
+  return `${url}${url.includes("?") ? "&" : "?"}${query}`;
 }
 
 function escapeHtml(s: string): string {

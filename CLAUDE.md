@@ -1352,12 +1352,24 @@ Seven things that are load-bearing:
   (`/engineering/parts?book=7`), so the next list in the book is one tap away.
 
 **Rating A/B/C mean different things per component type.**
-`lib/componentRatings.ts` is the guide's table, verbatim, as data. The type is
-read off the START of the description ("CAPACITOR - CERAMIC"), the longest
-match wins, and an `OBSOLETE -` prefix is ignored. An unknown type keeps the
-generic names rather than guessing.
+`lib/componentRatings.ts` is the guide's table as data, plus an **IC** row
+(Voltage / Current / Pin count) taken from the old app's form. Battery's C
+reads "Type (Li3 lithium)", as the old app has it; the guide's PDF text said
+"i3". The type is read off the START of the description ("CAPACITOR -
+CERAMIC"), the longest match wins, and an `OBSOLETE -` or `SIL CAT n -`
+prefix is ignored. An unknown type keeps the generic names rather than
+guessing.
 - The list table keeps "Rating A/B/C", because one list mixes types.
-- Only the detail page names them.
+- The detail page shows "Rating A" beside its meaning.
+- **The New Part form uses the meaning AS the label** ("Resistance", not
+  "Rating A"), and it changes as the Description is picked, like the old
+  app's form (Tim, 2026-09-29). The accessible name follows the visible
+  label (`Control`'s `label`), so a screen reader doesn't announce "Rating
+  A" under a box that says Resistance. The columns are still RatingA/B/C.
+- Capacitor, Transistor and Transformer have no row of their own, so they
+  read Rating A/B/C until a Type names one the guide covers (Capacitor →
+  Ceramic gives Capacitance / Working voltage / Temp coef). That matches the
+  old app until the Type is picked, then says more than it did.
 
 **Sign-off is blank on every LOADED row**, on purpose: those rows predate
 approval tracking. Tables show nothing for a blank; the detail page shows
@@ -1403,10 +1415,10 @@ which also added the `Communication` column to both parts lists.
 
 | Tag | Grants | Implies |
 |---|---|---|
-| `editor` | add + edit Part List parts; add HCO components except 722 | — |
+| `editor` | add + edit Part List parts on existing lists; add HCO components except 722 | — |
 | `hco editor` | + edit HCO components; add to 722 | editor |
 | `reviewing engineer` | + approve a component's Engineering Review step | hco editor |
-| `sap admin` | + approve the Pending SAP step; edit every field on both lists | every EDIT right |
+| `sap admin` | + approve the Pending SAP step; start a new list; edit every field on both lists | every EDIT right |
 
 **It is HCO, not HOC** (Tim, 2026-09-28). The first build spelled it HOC
 throughout, and the tag was stored as `hoc editor`. `parsePartsRoles` still
@@ -1437,10 +1449,39 @@ configured, and there the demo user holds every tag.
 | Event | Status becomes | Emailed |
 |---|---|---|
 | New COMPONENT | Pending Engineering Review | the reviewing engineers |
-| Engineering review approved | Pending SAP | the SAP admins |
-| New PART (Part List) | Pending SAP | the SAP admins |
-| SAP step approved | Approved | nobody — the SAP admin IS the last step |
+| Engineering review approved | Pending SAP | the SAP admins, with the three SAP answers |
+| New PART (Part List) | Pending SAP | the SAP admins — every field, and the three SAP answers |
+| SAP step approved | Approved | whoever ADDED the part, told which answer was given |
 | Any EDIT | unchanged | the SAP admins, with what changed |
+
+**The SAP step has three answers** (Tim, 2026-09-29), the old Power
+Automate approval email's three buttons: **Added to SAP**, **Does not need
+to be added to SAP**, and **Will be added to SAP but requires more
+information** (`SAP_RESPONSES` in `lib/partsRoles.ts`). **Every one
+approves the part.** They differ only in what the history records and
+what the engineer who added it is told (`buildSapResponseEmails`). The
+new-PART email copies that Power Automate email: the subject is
+`New Part to Add to SAP | <number> | <description>`, and it lists every
+field, blanks included, in the old order (`buildNewPartForSapEmails`).
+
+Four things that go with it:
+- **An email button is a LINK, never a one-click approval.** ARC has no
+  server to receive a click, and Safe Links and other mail scanners follow
+  links on their own. So `?sap=<answer>` OPENS the Approve dialog with that
+  answer picked, and the SAP admin confirms. The param is consumed once, so
+  a refresh doesn't reopen the dialog. A link to a part that has moved on
+  says so; a link opened by somebody who can't approve opens nothing.
+  `ChangeEmail.actions` is the general mechanism, rendered by
+  `renderEmailShell`.
+- **"More information" needs a note.** The engineer can't act on it
+  otherwise, so the note is required, in the dialog AND in the mutationFn,
+  and it goes in their email.
+- **The engineer is `createdBy`** (or the reuse record's author). The actor
+  is dropped STRICTLY: the SAP admin adding a part herself isn't told her
+  own answer. A loaded part has no ARC author, but it has no SAP step
+  either, so it never comes up.
+- **The answer is ignored at the engineering step.** Only `Pending SAP`
+  records or emails one.
 
 Five things that are load-bearing:
 
@@ -1490,9 +1531,35 @@ again as a new part. **New part** (`PartFormModal`) has three modes:
   (`nextPartNumber`: one past the highest plain six-digit number, `001` for an
   empty list), and a full list says so rather than rolling over.
 - **From the Parts Book:** any number, which is how a new three-digit list
-  gets its first part.
+  gets its first part — **by the SAP admin only** (Tim, 2026-09-29; see
+  below).
 - **The fields follow the number typed.** A 601/611/701/711/712/722 number is
   a component, and its Category is written from the prefix, never typed.
+
+**Only the SAP admin starts a new list** (Tim, 2026-09-29). The 400 book has
+only 410 today, so an engineer who types 411001 gets an error. The error
+comes with an **Ask the SAP admin for list 411** button, which emails the SAP
+admins what was typed (`buildNewListRequestEmails`, linking to that Parts
+Book). The SAP admin adds the part and it becomes the list's first.
+- **"New" means no number with that prefix exists, deleted ones included**
+  (`opensNewList` in `lib/partFields.ts`). A list emptied by deletes still
+  exists, and its numbers are reused. The HCO lists always exist, so a
+  component never opens one.
+- **`addPartGate`'s `opensNewList` flag is asked in the form AND in
+  `useCreateAltronicPart`'s mutationFn.** The mutationFn reads the Part List
+  through `ensureQueryData`, which is normally already cached. A list opened
+  in the last ten minutes can therefore still read as new and refuse, which
+  is the safe direction. Verified by removing the flag from the mutationFn
+  and watching its test fail.
+- **The form doesn't decide until the Part List has loaded.** Otherwise every
+  list would look new for the first few seconds.
+- **`NewPartButton` still shows on an empty list screen** for an editor.
+  Opening it explains the rule and offers the request, rather than hiding
+  the button without saying why.
+- **The request is AWAITED and throws when it reaches nobody**, unlike the
+  other parts emails, which are sent in the background. The button's only job
+  is the send, so "Sent to …" must be true. `notifyChangeEmails` gained
+  `link`, so an email can point at a page other than an item's.
 
 Uniqueness is checked against the loaded lists and AGAIN by the API against
 SharePoint, on the indexed Title (`titleExists`), because the cache can be ten

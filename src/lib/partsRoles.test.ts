@@ -8,6 +8,8 @@ import {
   manageDescriptionOptionsGate,
   nextSignOff,
   parsePartsRoles,
+  parseSapResponse,
+  sapResponseNeedsComment,
   partsRightsFor,
   serializePartsRoles,
   type PartsAccess,
@@ -145,5 +147,52 @@ describe("the approval chain", () => {
     expect(approvalRecordHtml("Pending Engineering Review", "")).toBe(
       "<p><strong>Engineering review approved.</strong></p>",
     );
+  });
+});
+
+describe("the SAP step's three answers", () => {
+  it("reads an answer off the email link, and nothing else", () => {
+    expect(parseSapResponse("added")).toBe("added");
+    expect(parseSapResponse("not-needed")).toBe("not-needed");
+    expect(parseSapResponse("more-info")).toBe("more-info");
+    expect(parseSapResponse("approve-everything")).toBeNull();
+    expect(parseSapResponse(null)).toBeNull();
+  });
+
+  it("records the answer given as the step", () => {
+    expect(approvalRecordHtml("Pending SAP", "", "not-needed")).toBe(
+      "<p><strong>Does not need to be added to SAP — approved.</strong></p>",
+    );
+    expect(approvalRecordHtml("Pending SAP", "Need the vendor #", "more-info")).toContain(
+      "Will be added to SAP but requires more information — approved.",
+    );
+  });
+
+  it("ignores an answer at any step but SAP's", () => {
+    expect(approvalRecordHtml("Pending Engineering Review", "", "added")).toBe(
+      "<p><strong>Engineering review approved.</strong></p>",
+    );
+  });
+
+  it("needs a comment only for 'more information'", () => {
+    expect(sapResponseNeedsComment("more-info")).toBe(true);
+    expect(sapResponseNeedsComment("added")).toBe(false);
+    expect(sapResponseNeedsComment(null)).toBe(false);
+  });
+});
+
+describe("addPartGate — a new list", () => {
+  it("is the SAP admin's alone", () => {
+    expect(addPartGate(access(["editor"]), "411", false, true).allowed).toBe(false);
+    expect(addPartGate(access(["reviewing engineer"]), "411", false, true).hint).toMatch(/only the SAP admin can start a new list/);
+    expect(addPartGate(access(["sap admin"]), "411", false, true).allowed).toBe(true);
+  });
+
+  it("leaves adding to an existing list to any editor", () => {
+    expect(addPartGate(access(["editor"]), "410", false, false).allowed).toBe(true);
+  });
+
+  it("doesn't apply to the HCO lists, which always exist", () => {
+    expect(addPartGate(access(["editor"]), "701", true, true).allowed).toBe(true);
   });
 });

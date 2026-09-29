@@ -21,7 +21,8 @@ export { PARTS_ROLE_TAGS, type PartsRole };
 //                       guide limited both to Glenn Terry, Brandon Mirto and
 //                       Sheila Horn — they now hold this tag)
 //   reviewing engineer  + approve a component's Engineering Review step
-//   sap admin           + approve the Pending SAP step; edits every field on
+//   sap admin           + approve the Pending SAP step; start a new parts list;
+//                       edits every field on
 //                       both lists (Tim: "Sheila should be able to edit all
 //                       fields"); told about new parts and every edit
 //
@@ -47,10 +48,10 @@ export const PARTS_ROLE_LABELS: Record<PartsRole, string> = {
 };
 
 export const PARTS_ROLE_DESCRIPTIONS: Record<PartsRole, string> = {
-  editor: "Adds and edits Part List parts, and adds HCO components (not 722).",
+  editor: "Adds and edits Part List parts on existing lists, and adds HCO components (not 722).",
   "hco editor": "Also edits HCO components and adds to the 722 list. Includes Editor.",
   "reviewing engineer": "Approves new HCO components at the Engineering Review step. Includes HCO editor.",
-  "sap admin": "Adds new parts to SAP and gives final approval; can edit every field. Emailed about every new part and every edit.",
+  "sap admin": "Adds new parts to SAP and gives final approval; starts new parts lists; can edit every field. Emailed about every new part and every edit.",
 };
 
 /**
@@ -138,10 +139,27 @@ function gate(access: PartsAccess, allowed: (r: PartsRights) => boolean, deniedH
 
 const ASK = "Ask an ARC admin to add you on Admin → Parts Roles.";
 
-/** May this person add a part to this three-digit list? */
-export function addPartGate(access: PartsAccess, prefix: string, component: boolean): PartsGate {
+/**
+ * May this person add a part to this three-digit list? `opensNewList` — no
+ * part has that prefix yet — is the SAP admin's alone (Tim, 2026-09-29): a
+ * new list is a new SAP numbering range, so an engineer asks for one rather
+ * than starting it. The HCO lists are fixed, so a component never opens one.
+ */
+export function addPartGate(
+  access: PartsAccess,
+  prefix: string,
+  component: boolean,
+  opensNewList = false,
+): PartsGate {
   if (component && prefix === "722") {
     return gate(access, (r) => r.addSil, `Only HCO editors can add to the 722 list. ${ASK}`);
+  }
+  if (!component && opensNewList) {
+    return gate(
+      access,
+      (r) => r.approveSap,
+      `There's no list ${prefix} yet, and only the SAP admin can start a new list. Ask the SAP admin to open it.`,
+    );
   }
   return gate(
     access,
@@ -209,12 +227,41 @@ export function approvalStepLabel(status: string | null): string {
   return "Approved";
 }
 
+// -----------------------------------------------------------------------------
+// The SAP step's three answers (Tim, 2026-09-29) — the old Power Automate
+// approval's three buttons. EVERY one approves the part; they differ only in
+// what the history says and what the engineer who added it is told.
+// -----------------------------------------------------------------------------
+
+export const SAP_RESPONSES = ["added", "not-needed", "more-info"] as const;
+export type SapResponse = (typeof SAP_RESPONSES)[number];
+
+export const SAP_RESPONSE_LABELS: Record<SapResponse, string> = {
+  added: "Added to SAP",
+  "not-needed": "Does not need to be added to SAP",
+  "more-info": "Will be added to SAP but requires more information",
+};
+
+/** Read a response off a URL (`?sap=added`); anything else is no response. */
+export function parseSapResponse(raw: string | null | undefined): SapResponse | null {
+  return (SAP_RESPONSES as readonly string[]).includes(raw ?? "") ? (raw as SapResponse) : null;
+}
+
 /**
- * The history record an approval writes into Communication — the step, then
- * the approver's comment if any. The comment is escaped and kept as plain
- * paragraphs; the author and time come from the record itself.
+ * "More information" is the one answer that means nothing without saying WHAT
+ * is needed — the engineer can't act on it otherwise — so it needs a comment.
  */
-export function approvalRecordHtml(status: string | null, comment: string): string {
+export function sapResponseNeedsComment(response: SapResponse | null): boolean {
+  return response === "more-info";
+}
+
+/**
+ * The history record an approval writes into Communication — the step (or,
+ * at the SAP step, the answer given), then the approver's comment if any. The
+ * comment is escaped and kept as plain paragraphs; the author and time come
+ * from the record itself.
+ */
+export function approvalRecordHtml(status: string | null, comment: string, response: SapResponse | null = null): string {
   const escape = (s: string) =>
     s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   const paragraphs = comment
@@ -224,7 +271,9 @@ export function approvalRecordHtml(status: string | null, comment: string): stri
     .filter(Boolean)
     .map((p) => `<p>${escape(p).replace(/\n/g, "<br/>")}</p>`)
     .join("");
-  return `<p><strong>${approvalStepLabel(status)}.</strong></p>${paragraphs}`;
+  const step =
+    status === "Pending SAP" && response ? `${SAP_RESPONSE_LABELS[response]} — approved` : approvalStepLabel(status);
+  return `<p><strong>${step}.</strong></p>${paragraphs}`;
 }
 
 /** May this person approve the step this part is waiting on? */

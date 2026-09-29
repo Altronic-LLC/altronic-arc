@@ -8,6 +8,7 @@ import {
   formValues,
   missingRequired,
   nextPartNumber,
+  opensNewList,
   partNumberProblem,
   patchFromForm,
 } from "./partFields";
@@ -133,5 +134,25 @@ describe("part numbers", () => {
   it("catch a duplicate across both lists, whatever the case", () => {
     const existing = MOCK_ALTRONIC_COMPONENTS.map((c) => c.partNumber);
     expect(partNumberProblem("601427ht", null, existing)).toMatch(/already/);
+  });
+});
+
+describe("opensNewList — would this part start its list?", () => {
+  const numbers = ["410001", "410002", "604612", "503064"];
+
+  it("is true only for a three-digit list with no number on it", () => {
+    expect(opensNewList("411", numbers)).toBe(true);
+    expect(opensNewList("410", numbers)).toBe(false);
+  });
+
+  it("counts a list whose only numbers are deleted as existing", () => {
+    // allNumbers includes deleted rows — a list emptied by deletes still exists.
+    expect(opensNewList("503", numbers)).toBe(false);
+  });
+
+  it("never treats an HCO list, or an unfinished number, as new", () => {
+    expect(opensNewList("722", [])).toBe(false);
+    expect(opensNewList("41", numbers)).toBe(false);
+    expect(opensNewList("", numbers)).toBe(false);
   });
 });
