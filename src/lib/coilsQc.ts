@@ -76,8 +76,21 @@ export function parseOtherFaults(value: string): OtherFaultTableRow[] | null {
   }
 }
 
+/**
+ * Writes the shape QCCoils stores: `Comment`, `Count`, `Defect` in that order,
+ * with `Defect` as a one-item collection of `{ Value }` records — not the bare
+ * object the form holds in memory. The key order is part of the format, so the
+ * object is built explicitly rather than spread from the row.
+ */
 export function serializeOtherFaults(rows: OtherFaultTableRow[]): string {
-  return rows.length ? JSON.stringify(rows) : "";
+  if (!rows.length) return "";
+  return JSON.stringify(
+    rows.map((row) => ({
+      Comment: row.Comment,
+      Count: row.Count,
+      Defect: [{ Value: row.Defect.Value }],
+    })),
+  );
 }
 
 export function defectTotal(entry: CoilDefectLogEntry): number {

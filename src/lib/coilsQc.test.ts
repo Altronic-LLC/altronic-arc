@@ -20,8 +20,23 @@ describe("OtherFaultTable JSON", () => {
       .toEqual([{ Defect: { Value: "Gap" }, Count: 3, Comment: "" }]);
   });
 
-  it("serializes the typed table back to the QCCoils shape", () => {
-    expect(serializeOtherFaults([{ Defect: { Value: "Gap" }, Count: 3, Comment: "" }]))
-      .toBe('[{"Defect":{"Value":"Gap"},"Count":3,"Comment":""}]');
+  it("serializes Comment, Count, Defect in order, with Defect as a Value collection", () => {
+    expect(
+      serializeOtherFaults([
+        { Defect: { Value: "Pusher" }, Count: 34, Comment: "" },
+        { Defect: { Value: "Bad Board" }, Count: 1, Comment: "lifted pad" },
+      ]),
+    ).toBe(
+      '[{"Comment":"","Count":34,"Defect":[{"Value":"Pusher"}]},{"Comment":"lifted pad","Count":1,"Defect":[{"Value":"Bad Board"}]}]',
+    );
+  });
+
+  it("round-trips: what it writes, it reads back", () => {
+    const rows = [{ Defect: { Value: "Gap" }, Count: 3, Comment: "Tower scratched" }];
+    expect(parseOtherFaults(serializeOtherFaults(rows))).toEqual(rows);
+  });
+
+  it("writes nothing for an empty table", () => {
+    expect(serializeOtherFaults([])).toBe("");
   });
 });
