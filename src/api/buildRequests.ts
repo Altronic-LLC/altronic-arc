@@ -10,6 +10,7 @@ import { listProjects } from "./tasks";
 import { listSiteUsers } from "./eirs";
 import { MOCK_BUILD_REQUESTS } from "@/data/buildRequestMockData";
 import { autoWatchers } from "@/lib/people";
+import { parseWrittenDate } from "@/lib/dateInput";
 
 // =============================================================================
 // Build Request headers API — the "Build Request Tracker" list on the
@@ -242,7 +243,7 @@ export async function updateBuildRequestFields(
     }
     if ("QuotedShipDate" in fields) {
       const v = fields.QuotedShipDate;
-      next.quotedShipDate = v ? new Date(v as string) : null;
+      next.quotedShipDate = parseWrittenDate(v);
     }
     if ("SamplePhase" in fields) {
       next.samplePhase = (fields.SamplePhase as BuildRequest["samplePhase"]) || null;

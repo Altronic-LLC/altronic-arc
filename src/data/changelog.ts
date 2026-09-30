@@ -60,6 +60,14 @@ const PARTS_LIST_CHANGES: string[] = [
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.169.4",
+    date: "2026-09-30",
+    changes: [
+      "Picking a date on an EIR no longer shows the day before for a few seconds while it saves",
+      "The same fix applies to task and Operations task due dates and to a build request's quoted ship date",
+    ],
+  },
+  {
     version: "0.169.3",
     date: "2026-09-30",
     changes: [

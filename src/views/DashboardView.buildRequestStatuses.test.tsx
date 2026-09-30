@@ -47,7 +47,11 @@ const SEEDED: BuildRequest[] = [
 
 describe("DashboardView — Build Requests card and the production statuses", () => {
   it("counts Ready for Production and Production Complete as open, and Complete as done", async () => {
-    const user = userEvent.setup();
+    // No per-event delay, and no *ByRole over the whole dashboard: role
+    // queries build an accessibility tree of every card on the page, which
+    // stretched this test to 24s inside the full suite (CLAUDE.md, "A row-cap
+    // test must not render 150 real rows").
+    const user = userEvent.setup({ delay: null });
     // The dashboard shows its loading screen until every card's query has
     // data, so seed the same set DashboardView.test.tsx does — only the build
     // requests differ.
@@ -69,9 +73,10 @@ describe("DashboardView — Build Requests card and the production statuses", ()
         { key: ["project-folder-entries", "root"], data: folderEntries },
       ],
     });
-    await user.click(screen.getByRole("button", { name: "Company" }));
+    await user.click(screen.getByText("Company", { selector: "button" }));
 
-    const card = screen.getByRole("button", { name: /Build Requests/i });
+    const card = screen.getByText("Build Requests").closest("button") as HTMLElement;
+    expect(card).not.toBeNull();
     expect(within(card).getByText(/^\d+$/, { selector: "span.text-4xl" })).toHaveTextContent("3");
 
     // Each new status gets its own segment, with a real colour class.

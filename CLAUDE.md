@@ -5060,6 +5060,17 @@ Changing the year keeps the month (and vice versa) — one picker moving the
 other is disorienting, and both are one click away anyway. The arrows stay for
 nudging a month either way.
 
+**An optimistic patch reads a picked date through `parseWrittenDate`**, never
+`new Date(v)` (Ray, 2026-09-30: an EIR's date showed 9/29 for a few seconds
+after picking 9/30, then corrected itself when the refetch landed). The picker
+writes a bare `yyyy-mm-dd`; `new Date()` makes that UTC midnight, which the
+detail pages' local getters read as the day before. The SAVE was always right —
+only the moment between pressing and SharePoint answering was wrong. All five
+date columns that patched this way (EIR Requested Completion + LTB, task and
+Operations task Due Date, Build Request Quoted Ship Date) and their mock stores
+use it now. A test for this has to pin `process.env.TZ` to a US zone — at UTC
+the bug doesn't exist and every test passes.
+
 Date maths goes through `src/lib/dateInput.ts` — `parseIsoDate` / `toIsoDate`
 build and read LOCAL dates. Don't use `new Date("2026-05-01")` (parses as UTC,
 lands on the previous day in every US timezone) or `.toISOString().slice(0, 10)`

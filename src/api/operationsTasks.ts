@@ -10,6 +10,7 @@ import { listOperationsProjects } from "./operationsProjects";
 import { listOperationsEquipment } from "./operationsEquipment";
 import { MOCK_OPERATIONS_TASKS } from "@/data/operationsMockData";
 import { autoWatchers } from "@/lib/people";
+import { parseWrittenDate } from "@/lib/dateInput";
 
 // =============================================================================
 // Operations Tasks API — mirrors api/tasks.ts's USE_MOCK-branching structure,
@@ -251,7 +252,7 @@ export async function updateOperationsTaskFields(
     if ("Location" in fields) next.location = fields.Location as OperationsTask["location"];
     if ("DueDate" in fields) {
       const v = fields.DueDate;
-      next.dueDate = v ? new Date(v as string) : null;
+      next.dueDate = parseWrittenDate(v);
     }
     if ("Assigned" in fields) {
       next.assigned = (fields.Assigned as Person | null) ?? null;

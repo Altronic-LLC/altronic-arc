@@ -17,6 +17,7 @@ import { multiLookupField, multiPersonField } from "@/lib/graphFields";
 import { fromLabelsField, toLabelsField } from "@/lib/labels";
 import { MOCK_PROJECTS, MOCK_TASKS } from "@/data/mockData";
 import { autoWatchers } from "@/lib/people";
+import { parseWrittenDate } from "@/lib/dateInput";
 
 // =============================================================================
 // Tasks API
@@ -246,7 +247,7 @@ export async function updateTaskFields(
     if ("Labels" in fields) next.labels = fromLabelsField(fields.Labels);
     if ("DueDate" in fields) {
       const v = fields.DueDate;
-      next.dueDate = v ? new Date(v as string) : null;
+      next.dueDate = parseWrittenDate(v);
     }
     // Person fields — write paths use the *LookupId* shape under the hood;
     // for mock mode we accept either Person[] (semantic) or the lookup-id

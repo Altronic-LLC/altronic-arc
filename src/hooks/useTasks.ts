@@ -63,6 +63,7 @@ import { resolveCurrentUserLookupId } from "@/api/currentUser";
 import { fromLabelsField, toLabelsField } from "@/lib/labels";
 import { htmlToPlainText } from "@/lib/htmlText";
 import { autoWatchers } from "@/lib/people";
+import { parseWrittenDate } from "@/lib/dateInput";
 
 // Exported so the comment fan-out (hooks/useCommentMirror.ts) can read and
 // invalidate the same cache this file owns, rather than re-declaring the key.
@@ -1042,7 +1043,7 @@ function applyFieldsLocally(t: Task, fields: Record<string, unknown>): Task {
   }
   if ("DueDate" in fields) {
     const v = fields.DueDate;
-    next.dueDate = v ? new Date(v as string) : null;
+    next.dueDate = parseWrittenDate(v);
   }
   // Labels arrives as a bare choice string (single-value column) — the shared
   // reader also tolerates the old array shape. See lib/labels.ts.

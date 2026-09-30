@@ -56,6 +56,7 @@ import {
   beginMentionAutoWatch,
   type MentionAutoWatch,
 } from "./mentionAutoWatch";
+import { parseWrittenDate } from "@/lib/dateInput";
 
 const EIRS_KEY = ["eirs", "list"] as const;
 
@@ -837,11 +838,11 @@ function applyFieldsLocally(
     next.technicalPriority = (fields.TechnicalPriority as Eir["technicalPriority"]) ?? null;
   if ("Requested_x0020_Completion_x0020" in fields) {
     const v = fields.Requested_x0020_Completion_x0020;
-    next.requestedCompletionDate = v ? new Date(v as string) : null;
+    next.requestedCompletionDate = parseWrittenDate(v);
   }
   if ("LTBDate" in fields) {
     const v = fields.LTBDate;
-    next.ltbDate = v ? new Date(v as string) : null;
+    next.ltbDate = parseWrittenDate(v);
   }
   if (
     "ProjectReferenceLookupId" in fields ||
