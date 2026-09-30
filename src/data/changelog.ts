@@ -60,6 +60,13 @@ const PARTS_LIST_CHANGES: string[] = [
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.169.3",
+    date: "2026-09-30",
+    changes: [
+      "Coil Defect Log now saves the Other faults table in the format the QCCoils list expects, so saved Other defects read correctly outside ARC",
+    ],
+  },
+  {
     version: "0.169.2",
     date: "2026-09-29",
     // Parts List work while it's hidden: the real bullets are in
