@@ -1,34 +1,33 @@
-name: Deploy to GitHub Pages
+name: Test build on Node 24
+
+# A copy of deploy.yml's build job, run on Node 24, for trying the upgrade
+# without touching the live deploy. It installs, tests and builds, then
+# stops: no Pages artifact, no deploy job, and read-only permissions, so it
+# cannot publish anything. Delete this file once deploy.yml is on Node 24.
 
 on:
   push:
-    branches: [main]
+    branches: [chore/node-24-ci]
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: pages
+  # Its own group, so it can never cancel a real deploy.
+  group: node-24-test-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build:
+  build-node-24:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          # Current Node LTS. Node 20 has a deprecation horizon mid-2026
-          # so we're getting ahead of it. Node 22 ships with npm 10.x by
-          # default; we bump to npm 11 below so CI matches typical local
-          # dev (where contributors usually have npm 11 already). Without
-          # the pin, every `npm install <new-dep>` locally would produce
-          # a lockfile shape CI rejects — that's the loop we want to end.
-          node-version: "22"
+          # The one thing this workflow tests: the build on Node 24.
+          node-version: "24"
           cache: "npm"
 
       - name: Install
@@ -156,23 +155,3 @@ jobs:
           # echoed in a workflow log.
           VITE_QZ_CERTIFICATE: ${{ vars.VITE_QZ_CERTIFICATE }}
           VITE_QZ_PRIVATE_KEY: ${{ secrets.VITE_QZ_PRIVATE_KEY }}
-
-      - name: Add 404 fallback for client-side routing
-        # GitHub Pages serves /404.html for any unmatched path. Copying
-        # index.html to 404.html means the SPA's client-side router still
-        # picks up the URL on a hard refresh of e.g. /task/15.
-        run: cp dist/index.html dist/404.html
-
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
