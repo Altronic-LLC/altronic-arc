@@ -73,6 +73,35 @@ async function loaded(wrap: ReturnType<typeof wrapper>): Promise<MaintenanceTask
   return result.current.data!;
 }
 
+/** Like `loaded`, but keeps the list hook so a test can watch the cache. */
+async function loadedList(wrap: ReturnType<typeof wrapper>) {
+  const { result } = renderHook(() => useMaintenanceTasks(), { wrapper: wrap });
+  await waitFor(() => expect(result.current.data?.length).toBeGreaterThan(0));
+  return result;
+}
+
+/**
+ * Wait for the post-write refetch to put the SAVED comment in the cache.
+ *
+ * Until it lands, the cache holds the optimistic copy, stamped a moment
+ * before the saved one. The edit finds its comment in the cache to the
+ * second, so when the two stamps straddle a second boundary — rare, likelier
+ * under full-suite load — the edit misses it and sends nothing. That was this
+ * file's intermittent failure (2026-10-01). Waiting for the saved copy makes
+ * the edit see what a person editing it would.
+ */
+async function savedCopyLanded(
+  list: Awaited<ReturnType<typeof loadedList>>,
+  id: number,
+  posted: MaintenanceTask,
+) {
+  await waitFor(() =>
+    expect(list.current.data?.find((t) => t.id === id)?.comments[0]?.timestamp.getTime()).toBe(
+      posted.comments[0].timestamp.getTime(),
+    ),
+  );
+}
+
 const mention = (email: string, name: string) =>
   `<p>Hi <span class="mention" data-email="${email}">@${name}</span>, can you look?</p>`;
 
@@ -172,7 +201,8 @@ describe("posting a comment", () => {
 describe("editing a comment", () => {
   it("notifies only the NEWLY added mention, not everyone again", async () => {
     const wrap = wrapper();
-    const tasks = await loaded(wrap);
+    const list = await loadedList(wrap);
+    const tasks = list.current.data!;
     const target = tasks[0];
 
     const add = renderHook(() => useAddMaintenanceComment(), { wrapper: wrap });
@@ -183,6 +213,7 @@ describe("editing a comment", () => {
         comment: { ...AUTHOR, bodyHtml: mention("eric.gilkinson@altronic-llc.com", "Eric") },
       });
     });
+    await savedCopyLanded(list, target.id, posted!);
     notifyMentions.mockClear();
 
     const edit = renderHook(() => useEditMaintenanceComment(), { wrapper: wrap });
@@ -208,7 +239,8 @@ describe("editing a comment", () => {
 
   it("re-notifies everyone when the author asks for it", async () => {
     const wrap = wrapper();
-    const tasks = await loaded(wrap);
+    const list = await loadedList(wrap);
+    const tasks = list.current.data!;
     const target = tasks.find((t) => t.watchers.length > 0)!;
 
     const add = renderHook(() => useAddMaintenanceComment(), { wrapper: wrap });
@@ -219,6 +251,7 @@ describe("editing a comment", () => {
         comment: { ...AUTHOR, bodyHtml: "<p>First take.</p>" },
       });
     });
+    await savedCopyLanded(list, target.id, posted!);
     notifyMentions.mockClear();
 
     const edit = renderHook(() => useEditMaintenanceComment(), { wrapper: wrap });
