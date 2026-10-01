@@ -11,7 +11,7 @@ import {
   toSupplier,
 } from "@/lib/supplierMapper";
 import { appendComment, replaceComment } from "@/lib/communicationParser";
-import { multiPersonField } from "@/lib/graphFields";
+import { annotateMultiChoiceFields, multiPersonField } from "@/lib/graphFields";
 import { MOCK_SUPPLIERS } from "@/data/srmMockData";
 
 // =============================================================================
@@ -57,6 +57,17 @@ const SELECT =
   "PointofContact,PointofContactLookupId," +
   "AllDeliveries,SupplierPerformanceRate,QualityPeformance,QualityPerformance," +
   "Logo,Communication,Attachments,Created,Modified";
+
+/**
+ * Suppliers List multi-choice columns (`displayAs: "checkBoxes"`, confirmed
+ * live 2026-09-24). `Status` is SINGLE-value and deliberately absent.
+ *
+ * `PrimarySupplyFocus` IS a checkBoxes column in SharePoint, but its choice
+ * list is still the placeholder `["Choice"]` and ARC reads/writes it as a
+ * plain string (see CLAUDE.md) — so it is annotated only when a caller
+ * actually sends an array, which `annotateMultiChoiceFields` already handles.
+ */
+const SUPPLIER_MULTI_CHOICE_FIELDS = ["CoreCompetency", "PrimarySupplyFocus"] as const;
 
 export async function listSuppliers(): Promise<Supplier[]> {
   if (USE_MOCK) {
@@ -250,7 +261,10 @@ async function updateSupplierFields(
     return delay({ ...next });
   }
 
-  await graphFetch(`${itemPath(id)}/fields`, { method: "PATCH", body: JSON.stringify(fields) });
+  await graphFetch(`${itemPath(id)}/fields`, {
+    method: "PATCH",
+    body: JSON.stringify(annotateMultiChoiceFields(fields, SUPPLIER_MULTI_CHOICE_FIELDS)),
+  });
   const updated = await getSupplier(id);
   if (!updated) throw new Error(`Supplier ${id} disappeared after update`);
   return updated;

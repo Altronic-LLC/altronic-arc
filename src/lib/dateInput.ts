@@ -82,3 +82,21 @@ export function isCommittableDate(value: string): boolean {
     parsed.getUTCDate() === Number(d)
   );
 }
+
+/**
+ * The Date a just-written date column should show BEFORE SharePoint answers —
+ * for an optimistic patch (and the mock store, which plays the same role).
+ *
+ * A picker writes a bare `yyyy-mm-dd`. `new Date("2026-09-30")` parses that as
+ * UTC MIDNIGHT, and the detail pages read dates back with local getters, so for
+ * a few seconds every US user saw 9/29 until the refetch landed the stored
+ * value (Ray, 2026-09-30, on an EIR). A bare date is read as that LOCAL day, via
+ * `parseIsoDate` — the same rule the picker itself uses. Anything carrying a
+ * time is a real instant and parses as-is.
+ */
+export function parseWrittenDate(raw: unknown): Date | null {
+  if (typeof raw !== "string" || !raw) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return parseIsoDate(raw);
+  const d = new Date(raw);
+  return Number.isNaN(d.getTime()) ? null : d;
+}

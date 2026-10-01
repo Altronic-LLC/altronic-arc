@@ -43,6 +43,19 @@ export interface DateFieldProps {
   className?: string;
 }
 
+/**
+ * The month / year pickers in the calendar header.
+ *
+ * `bg-surface`, NOT `bg-transparent`: a native <select>'s dropdown list
+ * inherits the control's own background, so a transparent one renders the
+ * options over whatever is behind the panel — unreadable in dark mode
+ * (Ray, 2026-09-22). The list's TEXT colour comes from `color-scheme` in
+ * globals.css, which is the other half of the same fix.
+ */
+const MONTH_YEAR_SELECT_CLASS =
+  "cursor-pointer rounded-md border border-transparent bg-surface px-1 py-0.5 text-sm font-medium text-fg " +
+  "hover:border-border focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20";
+
 const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -98,6 +111,24 @@ export const DateField = forwardRef<HTMLButtonElement, DateFieldProps>(function 
   }, [open]);
 
   const days = useMemo(() => monthGrid(view), [view]);
+
+  // The years the dropdown offers.
+  //
+  // NOT all of MIN_YEAR..MAX_YEAR — that is 1,100 entries, which is a scroll
+  // rather than a choice, and the whole point here is to stop scrolling.
+  // A window around today covers every real case: a CSA certificate from
+  // years back, a warranty or last-time-buy date years ahead.
+  //
+  // Whatever the field ALREADY holds is folded in, however old, so an
+  // existing record's year is always selectable — a picker that can't show
+  // the value it is displaying would silently move the date on the next save.
+  const yearOptions = useMemo(
+    () => buildYearOptions(new Date().getFullYear(), selected?.getFullYear(), view.getFullYear()),
+    // `selected` is derived from `value`; depending on the primitive keeps
+    // this from rebuilding on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [value, view.getFullYear()],
+  );
 
   function commit(date: Date) {
     onChange(toIsoDate(date));
@@ -175,7 +206,7 @@ export const DateField = forwardRef<HTMLButtonElement, DateFieldProps>(function 
         <div
           role="dialog"
           aria-label="Choose a date"
-          className="absolute left-0 top-full z-30 mt-1 w-[17rem] rounded-lg border border-border bg-surface p-2 shadow-lg"
+          className="absolute left-0 top-full z-30 mt-1 w-[19rem] rounded-lg border border-border bg-surface p-2 shadow-lg"
         >
           <div className="mb-1 flex items-center justify-between gap-1">
             <button
@@ -187,8 +218,36 @@ export const DateField = forwardRef<HTMLButtonElement, DateFieldProps>(function 
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <div className="text-sm font-medium text-fg">
-              {MONTHS[view.getMonth()]} {view.getFullYear()}
+            {/* Month and year are PICKERS, not a label (Ray, 2026-09-22:
+                "make the date pickers where you can choose the year easily
+                instead of scrolling", especially on CSA logs). A CSA
+                certification can be twenty years old, which at one month per
+                arrow click is 240 clicks to reach. */}
+            <div className="flex items-center gap-1">
+              <select
+                value={view.getMonth()}
+                onChange={(e) => setView(new Date(view.getFullYear(), Number(e.target.value), 1))}
+                aria-label="Month"
+                className={MONTH_YEAR_SELECT_CLASS}
+              >
+                {MONTHS.map((m, i) => (
+                  <option key={m} value={i}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={view.getFullYear()}
+                onChange={(e) => setView(new Date(Number(e.target.value), view.getMonth(), 1))}
+                aria-label="Year"
+                className={MONTH_YEAR_SELECT_CLASS}
+              >
+                {yearOptions.map((y) => (
+                  <option key={y} value={y}>
+                    {y}
+                  </option>
+                ))}
+              </select>
             </div>
             <button
               type="button"
@@ -269,6 +328,30 @@ export const DateField = forwardRef<HTMLButtonElement, DateFieldProps>(function 
     </div>
   );
 });
+
+/** How far back and forward the year dropdown reaches by default. */
+export const YEARS_BACK = 30;
+export const YEARS_FORWARD = 10;
+
+/**
+ * The year list, newest first.
+ *
+ * A window around `currentYear`, plus any `extra` years that must be
+ * selectable — the value the field already holds, and whichever year the
+ * grid has been paged to with the arrows. Both are clamped to
+ * MIN_YEAR..MAX_YEAR, deduped, and sorted descending so this year and the
+ * recent past are at the top where they are wanted most.
+ */
+export function buildYearOptions(currentYear: number, ...extra: (number | undefined)[]): number[] {
+  const years = new Set<number>();
+  for (let y = currentYear - YEARS_BACK; y <= currentYear + YEARS_FORWARD; y++) {
+    if (y >= MIN_YEAR && y <= MAX_YEAR) years.add(y);
+  }
+  for (const y of extra) {
+    if (y != null && y >= MIN_YEAR && y <= MAX_YEAR) years.add(y);
+  }
+  return [...years].sort((a, b) => b - a);
+}
 
 function startOfMonth(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), 1);

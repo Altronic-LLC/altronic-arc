@@ -18,7 +18,11 @@ import {
   watchMaintenanceTask,
 } from "@/api/maintenanceTasks";
 import { resolvePmoSiteUserLookupId } from "@/api/operationsTasks";
-import { autoWatchFromMentions } from "@/api/autoWatch";
+import {
+  afterMentionAutoWatch,
+  beginMentionAutoWatch,
+  type MentionAutoWatch,
+} from "./mentionAutoWatch";
 import {
   fireAssigneeChangeAlert,
   fireFieldChangeAlert,
@@ -551,8 +555,8 @@ export function useAddMaintenanceComment() {
       id: number;
       comment: { authorName: string; authorEmail: string; bodyHtml: string };
     }) => addMaintenanceComment(id, comment),
-    onMutate: ({ id, comment }) =>
-      snapshotAndPatch(
+    onMutate: async ({ id, comment }) => ({
+      ...(await snapshotAndPatch(
         qc,
         id,
         patchTask(id, (t) => ({
@@ -569,8 +573,13 @@ export function useAddMaintenanceComment() {
           ],
           modifiedAt: new Date(),
         })),
-      ),
-    onSuccess: (_data, { id, comment }) => {
+      )),
+      // Mentioned people show as watchers NOW, not after the comment's round
+      // trip — see hooks/mentionAutoWatch.ts.
+      autoWatch: beginMaintenanceMentionAutoWatch(qc, id, comment.bodyHtml),
+    }),
+    onSuccess: (_data, { id, comment }, ctx) => {
+      ctx?.autoWatch?.commit();
       pushToast({ message: "Comment posted." });
 
       const tasks = qc.getQueryData<MaintenanceTask[]>(MAINTENANCE_TASK_LIST_KEY);
@@ -593,26 +602,14 @@ export function useAddMaintenanceComment() {
           attachments: [],
         });
       }
-
-      const mentioned = extractMentionedRecipients(comment.bodyHtml);
-      if (mentioned.length === 0) return;
-      // The PMO site's resolver, not Engineering's — a site user lookupId is
-      // per site collection, which is why `resolveLookupId` is a required
-      // parameter rather than a default (see api/autoWatch.ts).
-      void autoWatchFromMentions({
-        resolveLookupId: resolvePmoSiteUserLookupId,
-        recipients: mentioned,
-        currentWatchers: task.watchers,
-        directory: tasks ? collectMaintenanceTaskPeople(tasks) : [],
-      })
-        .then((additions) => applyWatcherAdditions(qc, id, task.watchers, additions))
-        .catch((err) => console.error("Auto-watch failed for a work-order comment:", err));
     },
     onError: (_err, _vars, ctx) => {
+      ctx?.autoWatch?.cancel();
       rollback(qc, ctx);
-      errorToast("Couldn't post comment — please retry.");
+      errorToast("Couldn't post comment — it's back in the comment box to send again.");
     },
-    onSettled: () => invalidate(qc),
+    onSettled: (_data, _err, _vars, ctx) =>
+      afterMentionAutoWatch(ctx?.autoWatch, () => invalidate(qc)),
   });
 }
 
@@ -653,8 +650,8 @@ export function useEditMaintenanceComment() {
       /** Author opted in to "Notify everyone again". */
       renotify?: boolean;
     }) => editMaintenanceComment(id, target, newBodyHtml),
-    onMutate: ({ id, target, newBodyHtml }) =>
-      snapshotAndPatch(
+    onMutate: async ({ id, target, newBodyHtml }) => ({
+      ...(await snapshotAndPatch(
         qc,
         id,
         patchTask(id, (t) => ({
@@ -664,8 +661,13 @@ export function useEditMaintenanceComment() {
           ),
           modifiedAt: new Date(),
         })),
-      ),
+      )),
+      // Anyone @-mentioned in the edited body becomes a watcher (unless
+      // already watching) — same rule, and same timing, as a new comment.
+      autoWatch: beginMaintenanceMentionAutoWatch(qc, id, newBodyHtml),
+    }),
     onSuccess: (_data, { id, target, newBodyHtml, renotify }, ctx) => {
+      ctx?.autoWatch?.commit();
       const prevComment = ctx?.prevTask?.comments.find((c) => matchesCommentTarget(c, target));
       const prevBody = prevComment?.bodyHtml;
       pushToast({
@@ -720,58 +722,48 @@ export function useEditMaintenanceComment() {
           });
         }
       }
-
-      const mentioned = extractMentionedRecipients(newBodyHtml);
-      if (mentioned.length === 0) return;
-      void autoWatchFromMentions({
-        resolveLookupId: resolvePmoSiteUserLookupId,
-        recipients: mentioned,
-        currentWatchers: task.watchers,
-        directory: tasks ? collectMaintenanceTaskPeople(tasks) : [],
-      })
-        .then((additions) => applyWatcherAdditions(qc, id, task.watchers, additions))
-        .catch((err) => console.error("Auto-watch failed for an edited work-order comment:", err));
     },
     onError: (_err, _vars, ctx) => {
+      ctx?.autoWatch?.cancel();
       rollback(qc, ctx);
       errorToast("Couldn't save comment — reverted.");
     },
-    onSettled: () => invalidate(qc),
+    onSettled: (_data, _err, _vars, ctx) =>
+      afterMentionAutoWatch(ctx?.autoWatch, () => invalidate(qc)),
   });
 }
 
 /**
- * Apply auto-watch additions optimistically — chips and toast show at once,
- * the SharePoint write follows. On failure: error toast + refetch, so the UI
- * never claims somebody is watching who isn't.
+ * Start auto-watch for a work-order comment: the mentioned people appear as
+ * watchers immediately and are written once the comment lands. The PMO site's
+ * resolver, not Engineering's — a site user lookupId is per site collection,
+ * which is why `resolveLookupId` is a required parameter (see api/autoWatch.ts).
  */
-async function applyWatcherAdditions(
+function beginMaintenanceMentionAutoWatch(
   qc: QueryClient,
   id: number,
-  currentWatchers: Person[],
-  additions: Person[],
-): Promise<void> {
-  if (additions.length === 0) return;
-  const next = [...currentWatchers, ...additions];
-  const patch = () =>
-    qc.setQueryData<MaintenanceTask[]>(MAINTENANCE_TASK_LIST_KEY, (old) =>
-      old?.map((t) => (t.id === id ? { ...t, watchers: next } : t)),
-    );
-  patch();
-  pushToast({
-    message:
-      additions.length === 1
-        ? `${additions[0].displayName} is now watching this work order.`
-        : `${additions.length} people are now watching this work order.`,
+  bodyHtml: string,
+): MentionAutoWatch | null {
+  const task = qc
+    .getQueryData<MaintenanceTask[]>(MAINTENANCE_TASK_LIST_KEY)
+    ?.find((t) => t.id === id);
+  if (!task) return null;
+  return beginMentionAutoWatch({
+    bodyHtml,
+    currentWatchers: task.watchers,
+    directory: () =>
+      collectMaintenanceTaskPeople(
+        qc.getQueryData<MaintenanceTask[]>(MAINTENANCE_TASK_LIST_KEY) ?? [],
+      ),
+    resolveLookupId: resolvePmoSiteUserLookupId,
+    patch: (watchers) =>
+      qc.setQueryData<MaintenanceTask[]>(MAINTENANCE_TASK_LIST_KEY, (old) =>
+        old?.map((t) => (t.id === id ? { ...t, watchers } : t)),
+      ),
+    write: (watchers) => setMaintenanceTaskWatchers(id, watchers),
+    onWriteFailed: () => invalidate(qc),
+    noun: "work order",
   });
-  try {
-    await setMaintenanceTaskWatchers(id, next);
-    patch();
-  } catch (err) {
-    console.error("Couldn't save auto-watch additions:", err);
-    errorToast("Couldn't add the mentioned person as a watcher — refreshing.");
-    invalidate(qc);
-  }
 }
 
 export function useCreateMaintenanceTask() {

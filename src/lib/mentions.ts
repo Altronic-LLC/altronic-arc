@@ -7,7 +7,7 @@ import { matchesTokens } from "./itemSearch";
 // the composer and the persisted HTML form used in the comment body.
 //
 // Persisted shape on a mention:
-//   <span class="mention" data-email="sarah.shaffer@hoerbiger.com">@Sarah Shaffer</span>
+//   <span class="mention" data-email="sarah.shaffer@altronic-llc.com">@Sarah Shaffer</span>
 //
 // The data-email attribute is what lets us later parse the body, dedupe by
 // email, and send notifications. The display text (`@Sarah Shaffer`) keeps
@@ -597,4 +597,27 @@ export function mockLookupIdForEmail(email: string): number {
     hash = (hash * 31 + email.charCodeAt(i)) >>> 0;
   }
   return (hash % 100000) + 900000;
+}
+
+/**
+ * Mention chips for just the people an edit ADDED — `bodyHtml`'s mentions
+ * minus `previousBodyHtml`'s. The SRM edit hooks have always auto-watched only
+ * newly added mentions, so this keeps that rule while handing the shared
+ * helper the HTML it reads. Shared by the three SRM hook modules.
+ */
+export function newlyMentionedHtml(previousBodyHtml: string, bodyHtml: string): string {
+  if (typeof document === "undefined") return "";
+  const before = new Set(
+    extractMentionedRecipients(previousBodyHtml).map((r) => r.email.toLowerCase()),
+  );
+  return extractMentionedRecipients(bodyHtml)
+    .filter((r) => !before.has(r.email.toLowerCase()))
+    .map((r) => {
+      const span = document.createElement("span");
+      span.className = "mention";
+      span.setAttribute("data-email", r.email);
+      span.textContent = `@${r.displayName}`;
+      return span.outerHTML;
+    })
+    .join("");
 }

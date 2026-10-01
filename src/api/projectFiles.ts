@@ -27,7 +27,8 @@ import { safeUniqueFilename } from "@/lib/uniqueFilename";
 // =============================================================================
 
 /** Library path containing project subfolders, relative to drive root. */
-const PROJECT_FOLDERS_PATH = "General/Project Folders";
+/** Where the project folders live, relative to the drive root. */
+export const PROJECT_FOLDERS_PATH = "General/Project Folders";
 /**
  * Folder name to fall through to when no project folder matches.
  * Case-insensitive `includes("misc")` so the SharePoint folder can be
@@ -99,26 +100,45 @@ async function uploadToDrive(
     );
   }
   const target = `${basePath}:/${encodeURIComponent(name)}:`;
+  // `rename` is the server-side backstop for the race between our pre-upload
+  // dedupe listing (see resolveUniqueName) and the write: if someone else
+  // wrote the same name in that window, Graph renames ours instead of
+  // clobbering theirs.
+  return uploadToDriveTarget(target, file, { conflict: "rename", onProgress });
+}
 
+/** What Graph does when the target name is already taken. */
+export type DriveConflictBehavior = "rename" | "fail";
+
+/**
+ * Send one file to an exact drive path, picking the transport by size: a
+ * single PUT under 4 MB, a resumable chunked session above it.
+ *
+ * `target` is the file's full Graph path in the colon form, e.g.
+ * `/sites/{id}/drive/root:/General/Datasheets/601110.pdf:`. With
+ * `conflict: "fail"` an existing file is never touched — Graph answers 409.
+ * Shared with the Parts List datasheets (api/datasheets.ts).
+ */
+export async function uploadToDriveTarget(
+  target: string,
+  file: File,
+  opts: { conflict: DriveConflictBehavior; onProgress?: UploadProgress },
+): Promise<GraphDriveChild> {
   if (file.size <= SIMPLE_UPLOAD_MAX_BYTES) {
-    // Server-side backstop for the race between our pre-upload dedupe listing
-    // (see resolveUniqueName) and this PUT: if someone else wrote the same
-    // name in that window, Graph renames ours instead of clobbering theirs.
-    // The chunked path below gets the equivalent via a body param on
-    // createUploadSession — the simple PUT has no body-shaped place for it,
-    // only this query param.
+    // The simple PUT has no body-shaped place for the conflict rule, only this
+    // query param; the chunked path carries it in createUploadSession's body.
     const res = await graphFetch<GraphDriveChild>(
-      `${target}/content?@microsoft.graph.conflictBehavior=rename`,
+      `${target}/content?@microsoft.graph.conflictBehavior=${opts.conflict}`,
       {
         method: "PUT",
         headers: { "Content-Type": "application/octet-stream" },
         body: await file.arrayBuffer(),
       },
     );
-    onProgress?.(1);
+    opts.onProgress?.(1);
     return res;
   }
-  return uploadViaSession(target, file, onProgress);
+  return uploadViaSession(target, file, opts.conflict, opts.onProgress);
 }
 
 /**
@@ -136,6 +156,7 @@ async function uploadToDrive(
 async function uploadViaSession(
   target: string,
   file: File,
+  conflict: DriveConflictBehavior,
   onProgress?: UploadProgress,
 ): Promise<GraphDriveChild> {
   const session = await graphFetch<{ uploadUrl: string }>(
@@ -143,7 +164,7 @@ async function uploadViaSession(
     {
       method: "POST",
       body: JSON.stringify({
-        item: { "@microsoft.graph.conflictBehavior": "rename" },
+        item: { "@microsoft.graph.conflictBehavior": conflict },
       }),
     },
   );
@@ -285,7 +306,7 @@ function mockNow() {
 // Folder discovery (cached by the React Query layer)
 // ---------------------------------------------------------------------------
 
-interface GraphDriveChild {
+export interface GraphDriveChild {
   id: string;
   name: string;
   webUrl: string;

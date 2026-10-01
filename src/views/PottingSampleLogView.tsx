@@ -4,13 +4,18 @@ import { AlertTriangle, Beaker, ChevronDown, Gauge, Mail, Plus, Settings2 } from
 import { useListPottingSampleEntries, usePottingLimits } from "@/hooks/usePottingSampleLog";
 import { checkLimitBreach } from "@/lib/pottingSampleLog";
 import { LoadingTasks } from "@/components/LoadingTasks";
+import { ListAccessNotice } from "@/components/ListAccessNotice";
 import { PottingSampleEntryFormModal } from "@/components/PottingSampleEntryFormModal";
 import { cn } from "@/lib/cn";
+import { isPermissionDenied } from "@/lib/listWriteErrors";
 
 export function PottingSampleLogView() {
-  const { data: entries = [], isLoading } = useListPottingSampleEntries();
-  const { data: limits } = usePottingLimits();
+  const { data: entries = [], isLoading, error: entriesError, refetch } = useListPottingSampleEntries();
+  const { data: limits, error: limitsError, refetch: refetchLimits } = usePottingLimits();
   const [showAddEntry, setShowAddEntry] = useState(false);
+  const listUnavailable = [entriesError, limitsError].some(
+    (queryError) => queryError && isPermissionDenied(queryError),
+  );
 
   return (
     <div className="mx-auto flex max-w-[900px] flex-col gap-5 px-4 py-4 sm:px-6 sm:py-6">
@@ -29,7 +34,9 @@ export function PottingSampleLogView() {
         <button
           type="button"
           onClick={() => setShowAddEntry(true)}
-          className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent/90"
+          disabled={listUnavailable}
+          title={listUnavailable ? "You do not have access to a required SharePoint list" : undefined}
+          className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Plus className="h-4 w-4" />
           Add entry
@@ -56,6 +63,14 @@ export function PottingSampleLogView() {
 
         {isLoading ? (
           <LoadingTasks noun="potting samples" />
+        ) : listUnavailable ? (
+          <div className="p-4">
+            <ListAccessNotice
+              list="Potting Sample Log or its reference list"
+              site="Altronic_PMO"
+              onRetry={() => void Promise.all([refetch(), refetchLimits()])}
+            />
+          </div>
         ) : entries.length === 0 ? (
           <div className="flex items-center justify-center px-4 py-8 text-sm text-fg-muted">
             No entries yet. Add one to get started.

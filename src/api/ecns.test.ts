@@ -3,6 +3,7 @@ import * as ecnsModule from "./ecns";
 import {
   addEcnComment,
   createEcn,
+  deleteEcn,
   editEcnComment,
   getEcn,
   listEcns,
@@ -95,12 +96,19 @@ describe("ECN API", () => {
     expect(await getEcn(999_999)).toBeNull();
   });
 
-  // An ECN is a controlled record of a change that was made. A superseded
-  // notice is revised — a new row with an R suffix — never removed. The
-  // absence from the module is the point: a future screen or bulk action
-  // can't quietly acquire a delete.
-  it("has no delete", () => {
+  // An ECN is a controlled record, and a superseded one is still revised, not
+  // removed. Delete exists ONLY for a row that should never have been (Ray,
+  // 2026-09-28), admin-gated in useDeleteEcn — so there is exactly ONE, and a
+  // second (a "remove" helper, a bulk delete) has to argue with this test.
+  it("has exactly one delete", () => {
     const exported = Object.keys(ecnsModule);
-    expect(exported.filter((name) => /delete|remove/i.test(name))).toEqual([]);
+    expect(exported.filter((name) => /delete|remove/i.test(name))).toEqual(["deleteEcn"]);
+  });
+
+  it("deletes an ECN, and refuses one that isn't there", async () => {
+    const [first] = await listEcns();
+    await deleteEcn(first.id);
+    expect(await getEcn(first.id)).toBeNull();
+    await expect(deleteEcn(999_999)).rejects.toThrow();
   });
 });

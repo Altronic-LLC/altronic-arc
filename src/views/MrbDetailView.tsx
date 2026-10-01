@@ -113,14 +113,15 @@ export function MrbDetailView() {
 
   function handleAddComment(bodyHtml: string) {
     if (!entry) return;
-    addComment.mutate({
+    // Returned, so a comment that fails to post goes back in the composer.
+    return addComment.mutateAsync({
       id: entry.id,
       comment: {
         authorName: currentUser.displayName,
         authorEmail: currentUser.email ?? "",
         bodyHtml,
       },
-    });
+    }).then(() => undefined);
   }
 
   async function handleEditComment(comment: Comment, newBodyHtml: string) {

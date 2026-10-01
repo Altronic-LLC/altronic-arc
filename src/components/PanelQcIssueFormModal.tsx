@@ -151,7 +151,8 @@ export function PanelQcIssueFormModal({ issue, onClose }: Props) {
 
   function handleAddComment(bodyHtml: string) {
     if (!live) return;
-    addComment.mutate({ id: live.id, comment: { authorName: currentUser.displayName, authorEmail: currentUser.email ?? "", bodyHtml } });
+    // Returned, so a comment that fails to post goes back in the composer.
+    return addComment.mutateAsync({ id: live.id, comment: { authorName: currentUser.displayName, authorEmail: currentUser.email ?? "", bodyHtml } }).then(() => undefined);
   }
 
   async function handleEditComment(comment: Comment, newBodyHtml: string, renotify: boolean) {

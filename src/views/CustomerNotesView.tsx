@@ -6,6 +6,9 @@ import type { CustomerNote } from "@/types/task";
 import { CUSTOMER_GROUPS } from "@/types/task";
 import { matchesSearch, tokenizeQuery } from "@/lib/itemSearch";
 import { LoadingTasks } from "@/components/LoadingTasks";
+import { ListAccessNotice } from "@/components/ListAccessNotice";
+import { isPermissionDenied } from "@/lib/listWriteErrors";
+import { useHiddenRowCount } from "@/hooks/useListAccess";
 import { SearchInput } from "@/components/SearchInput";
 import { ChoiceSelect } from "@/components/SearchableSelect";
 import { CustomerNoteFormModal } from "@/components/CustomerNoteFormModal";
@@ -26,7 +29,18 @@ const INITIAL_ROWS = 150;
 
 export function CustomerNotesView() {
   const navigate = useNavigate();
-  const { data: notes = [], isLoading } = useCustomerNotes();
+  const { data: notes = [], isLoading, error, refetch } = useCustomerNotes();
+  // A failed read used to render as "no customers match these filters" — the
+  // 102-row list looked empty and said nothing (Tim, 2026-09-24). A refusal
+  // gets the standard access notice; anything else says it couldn't load,
+  // because "empty" and "broken" must not look the same.
+  const listUnavailable = !!error && isPermissionDenied(error);
+
+  // Whether this list's rows are hidden rather than absent is settled at
+  // SIGN-IN, by the access probe, so the card and the menu entry are already
+  // locked before anybody opens this screen (Tim, 2026-09-24). All this screen
+  // does is show the number the probe found.
+  const hiddenRows = useHiddenRowCount("/sales/customers");
   const [params, setParams] = useSearchParams();
   const [showNew, setShowNew] = useState(false);
   const [showAll, setShowAll] = useState(false);
@@ -116,6 +130,57 @@ export function CustomerNotesView() {
 
         {isLoading ? (
           <LoadingTasks noun="customers" />
+        ) : listUnavailable ? (
+          <div className="p-4">
+            <ListAccessNotice
+              list="Customer Notes"
+              site="ALTRONICSALESTEAM/OrderEntry"
+              onRetry={() => void refetch()}
+            />
+          </div>
+        ) : error ? (
+          <div className="px-4 py-10 text-center text-sm text-fg-muted">
+            <p className="font-medium text-fg">Couldn't load customers.</p>
+            <p className="mt-1">{error instanceof Error ? error.message : "Unknown error"}</p>
+            <button
+              type="button"
+              onClick={() => void refetch()}
+              className="mt-3 rounded-md border border-border px-3 py-1.5 text-sm font-medium text-fg hover:bg-surface-2"
+            >
+              Try again
+            </button>
+          </div>
+        ) : hiddenRows !== null ? (
+          <div className="px-4 py-10 text-center text-sm text-fg-muted">
+            <p className="font-medium text-fg">
+              This list has {hiddenRows.toLocaleString()} records, and none of them are
+              visible to your account.
+            </p>
+            <p className="mx-auto mt-1 max-w-md">
+              SharePoint is hiding the rows rather than the list itself — that's
+              item-level permissions. Ask an admin for access to the items on the{" "}
+              <span className="font-mono text-xs">ALTRONICSALESTEAM/OrderEntry</span>{" "}
+              Customer Notes list.
+            </p>
+          </div>
+        ) : notes.length === 0 ? (
+          // The read SUCCEEDED and came back with nothing. SharePoint answers
+          // an item-level permission problem exactly this way — 200 with zero
+          // rows, security-trimmed — so ARC cannot tell "this list is empty"
+          // from "none of its rows are yours to see" and must not claim
+          // either (Tim, 2026-09-24: no lock, no error, just an empty table
+          // on a list that has a hundred rows in it). Naming the possibility
+          // is the most it can honestly do.
+          <div className="px-4 py-10 text-center text-sm text-fg-muted">
+            <p className="font-medium text-fg">No customers to show.</p>
+            <p className="mx-auto mt-1 max-w-md">
+              SharePoint returned this list with no rows. If you expect records
+              here, your account may be able to open the list without being able
+              to see its items — ask an admin to check your permissions on the{" "}
+              <span className="font-mono text-xs">ALTRONICSALESTEAM/OrderEntry</span>{" "}
+              Customer Notes list.
+            </p>
+          </div>
         ) : filtered.length === 0 ? (
           <div className="px-4 py-10 text-center text-sm text-fg-muted">
             No customers match these filters.

@@ -10,10 +10,12 @@ import { MOCK_ECNS } from "@/data/ecnMockData";
 // ECNs (Engineering Change Notices) — the record of a change to a released
 // product, on the Engineering site.
 //
-// **There is no delete**, in the UI or here — an ECN is a controlled record of
-// a change that was made, and a superseded notice is revised (a new row whose
-// Log# carries an `R` suffix), never removed. `ecns.test.ts` asserts this
-// module exports nothing matching /delete|remove/.
+// **Delete exists, and is ADMIN-ONLY** (Ray, 2026-09-28). An ECN is a
+// controlled record, so a superseded notice is still REVISED (a new row whose
+// Log# carries an `R` suffix), not deleted — delete is for a row that should
+// never have existed (a duplicate, a test entry). The admin check lives in
+// `useDeleteEcn`'s mutationFn, not only on the button, so a future screen
+// can't reach this ungated. `ecns.test.ts` asserts exactly ONE delete export.
 //
 // **1,813 rows**, well under SharePoint's 5,000-item threshold, so the list is
 // fetched whole and filtered in the browser — which is what makes searching
@@ -223,4 +225,21 @@ export async function editEcnComment(
   return updateEcnFields(id, {
     Communication: replaceComment(existingRaw, target, newBodyHtml),
   });
+}
+
+/**
+ * Delete one ECN. ADMIN-ONLY — call it through `useDeleteEcn`, which checks.
+ *
+ * Its ECN Checklist row (if any) is deliberately left in place: that list has
+ * no delete by design, and an orphaned checklist appears on no ECN's page.
+ */
+export async function deleteEcn(id: number): Promise<void> {
+  if (USE_MOCK) {
+    const before = mockStore.length;
+    mockStore = mockStore.filter((e) => e.id !== id);
+    if (mockStore.length === before) throw new Error(`ECN ${id} not found`);
+    await delay(undefined);
+    return;
+  }
+  await graphFetch(itemPath(id), { method: "DELETE" });
 }

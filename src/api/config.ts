@@ -315,6 +315,79 @@ export const SP_CSA_LISTINGS_LIST_ID =
   "758defd2-693c-4324-9e0b-dd2a12c341fa";
 
 /**
+ * "Altronic Part List" — every Altronic part number EXCEPT the HCO components
+ * (601/611/701/711/712/722), ~14,000 rows. Created and loaded 2026-09-28 by
+ * `scripts/create-altronic-parts-lists.ps1` / `load-altronic-parts-lists.ps1`
+ * from the 175 legacy per-prefix lists. `Title` is the Altronic Part #. A
+ * default is safe: this list gates nothing, so the worst an unset override
+ * can do is point at the live list.
+ */
+export const SP_ALTRONIC_PART_LIST_ID =
+  import.meta.env.VITE_SP_ALTRONIC_PART_LIST_ID ||
+  "b054a89a-1428-4a1f-82c5-461c41ae7b0e";
+
+/**
+ * "Altronic Component List" — the HCO electronic components, ~3,900 rows:
+ * 601/611 Through Hole, 701/711/712 Surface Mount, 722 SIL. Same origin and
+ * the same `Title` = Altronic Part # rule as the Part List above.
+ */
+export const SP_ALTRONIC_COMPONENT_LIST_ID =
+  import.meta.env.VITE_SP_ALTRONIC_COMPONENT_LIST_ID ||
+  "c48dc016-1f49-4595-809c-9239fb2baeb3";
+
+/**
+ * "Parts Roles" — who may add, edit and approve parts (Tim, 2026-09-28).
+ * Title = email, Roles = a CSV of editor / hco editor / reviewing engineer /
+ * sap admin. Created by `scripts/create-altronic-parts-lists.ps1`; managed at
+ * /admin/parts-roles.
+ *
+ * UNSET MEANS READ-ONLY. The opposite of EIR Roles, deliberately: nobody could
+ * edit parts in ARC before this list existed, so leaving it unset takes
+ * nothing away from anyone — while falling OPEN would hand every signed-in
+ * user the write side of a 14,000-part register.
+ *
+ * The documented default (created 2026-09-28, Tim) is safe for the same
+ * reason, and is why this one HAS a default where EIR Roles doesn't: pointing
+ * at the list admits only the people on it. Set the env var only to override.
+ */
+export const SP_PARTS_ROLES_LIST_ID: string | undefined =
+  import.meta.env.VITE_SP_PARTS_ROLES_LIST_ID || "f783e1e3-f81f-4b18-99c3-c69ac96228f6";
+
+/**
+ * Is the Parts List OPEN to everyone — its Dashboard card and Departments
+ * menu entry live? (Tim, 2026-09-29.) Off by default: the app is deployed
+ * while testers use it by going straight to /engineering/parts, and the
+ * approvers (Glenn, Brandon, Sheila) aren't on Parts Roles yet. While off
+ * both entry points read "Coming soon" and can't be clicked; the ROUTE still
+ * works, which is the whole point.
+ *
+ * To go live: set the repo variable VITE_PARTS_LIST_LIVE=true and redeploy.
+ * A switch for the links, not a permission — anybody with the URL gets in.
+ */
+export const PARTS_LIST_LIVE = import.meta.env.VITE_PARTS_LIST_LIVE === "true";
+
+/** Is the Parts List write side switched on? Mock mode always is, for demos. */
+export const PARTS_ROLES_CONFIGURED = USE_MOCK || !!SP_PARTS_ROLES_LIST_ID;
+
+/**
+ * "Component Description Options" — the Description / Type dropdowns a new
+ * component is described with, plus the SIL categories offered on the 722
+ * list (Tim, 2026-09-28/29). Kind (Description | SIL Category), Title = the
+ * option, Types = one per line, SortOrder. Created and seeded by
+ * `scripts/create-altronic-parts-lists.ps1`; managed at
+ * /engineering/parts/descriptions by the SAP admin and reviewing engineers.
+ *
+ * Created and seeded 2026-09-29 (Tim). The default is safe: this list gates
+ * nothing, and the worst a wrong id can do is fall back to the plain
+ * Description box — which is also what an unset id does.
+ */
+export const SP_COMPONENT_DESCRIPTION_OPTIONS_LIST_ID: string | undefined =
+  import.meta.env.VITE_SP_COMPONENT_DESCRIPTION_OPTIONS_LIST_ID || "2a5c1ee1-558c-41ad-983a-96c97a29221b";
+
+/** Are the description dropdowns switched on? Mock mode always is. */
+export const COMPONENT_DESCRIPTION_OPTIONS_CONFIGURED = USE_MOCK || !!SP_COMPONENT_DESCRIPTION_OPTIONS_LIST_ID;
+
+/**
  * "Where am I?" — Engineering's out-of-office / where-the-team-is calendar on
  * the Engineering site. Two columns that matter: `Title` (free text, e.g.
  * "Sarah - half day vacation") and `Date` (date-only, required). No end date,
@@ -477,6 +550,29 @@ export const FAIT_NEW_ALERTS =
 export const FAIT_SQE_REVIEWERS =
   import.meta.env.VITE_FAIT_SQE_REVIEWERS ||
   "Jerrod Waldron <Jerrod.Waldron@altronic-llc.com>";
+
+/**
+ * Build Request production hand-off alerts (Ray, 2026-09-29) — three queues,
+ * each its OWN variable so re-pointing one can never re-point another. Same
+ * `Name <email>` format, parsed by parseRecipientList; verify at Admin →
+ * Notification recipients. See lib/buildRequestAlerts.ts for who else is told.
+ *
+ * - PRODUCTION_ALERTS: told when a build request goes Ready for Production.
+ * - COMPLETE_REVIEWERS: asked to review and set Complete once it is
+ *   Production Complete.
+ * - FINAL_ALERTS: told when it is finally set Complete.
+ */
+export const BUILD_REQUEST_PRODUCTION_ALERTS =
+  import.meta.env.VITE_BUILD_REQUEST_PRODUCTION_ALERTS ||
+  "Amanda Hoagland <Amanda.Hoagland@altronic-llc.com>, Sheila Horn <Sheila.Horn@altronic-llc.com>";
+
+export const BUILD_REQUEST_COMPLETE_REVIEWERS =
+  import.meta.env.VITE_BUILD_REQUEST_COMPLETE_REVIEWERS ||
+  "Sheila Horn <Sheila.Horn@altronic-llc.com>";
+
+export const BUILD_REQUEST_FINAL_ALERTS =
+  import.meta.env.VITE_BUILD_REQUEST_FINAL_ALERTS ||
+  "Amanda Hoagland <Amanda.Hoagland@altronic-llc.com>";
 
 /**
  * "Visit Reports" — Customer Service / Sales' record of customer visits, on

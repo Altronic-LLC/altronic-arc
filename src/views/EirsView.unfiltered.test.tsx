@@ -23,10 +23,10 @@ vi.mock("@/hooks/useCurrentUser", () => ({
     // filter would then show a subset rather than nothing, which is exactly how
     // the original bug presented.
     displayName: "Ray White",
-    email: "ray.white@hoerbiger.com",
+    email: "ray.white@altronic-llc.com",
     lookupId: 122,
   }),
-  useCurrentUserEmails: () => ["ray.white@hoerbiger.com"],
+  useCurrentUserEmails: () => ["ray.white@altronic-llc.com"],
 }));
 
 import { EirsView } from "./EirsView";
@@ -71,7 +71,7 @@ describe("the EIR list on arrival", () => {
 
   it("doesn't quietly filter to the signed-in user's own EIRs", async () => {
     const mine = MOCK_EIRS.filter((e) =>
-      e.assignedEngineers.some((p) => p.email === "ray.white@hoerbiger.com"),
+      e.assignedEngineers.some((p) => p.email === "ray.white@altronic-llc.com"),
     );
     // The fixture has to be able to tell the two apart for this to mean
     // anything.
@@ -88,9 +88,9 @@ describe("the EIR list on arrival", () => {
   // the feature.
   it("still honours an engineer filter that was actually asked for", async () => {
     const mine = MOCK_EIRS.filter((e) =>
-      e.assignedEngineers.some((p) => p.email === "ray.white@hoerbiger.com"),
+      e.assignedEngineers.some((p) => p.email === "ray.white@altronic-llc.com"),
     );
-    render("/eirs?engineer=ray.white%40hoerbiger.com");
+    render("/eirs?engineer=ray.white%40altronic-llc.com");
     await waitFor(async () => {
       const { shown } = await showing();
       expect(shown).toBe(mine.length);

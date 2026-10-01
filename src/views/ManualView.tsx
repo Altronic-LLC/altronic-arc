@@ -47,9 +47,13 @@ const SECTIONS: ManualSection[] = [
       "getting started",
       "open the app",
       "where do i start",
+      "date picker",
+      "choose a year",
+      "pick a date",
+      "calendar",
     ],
     searchText:
-      "Sign in with your altronic-llc.com account. The Dashboard opens after sign-in. A Refresh button in the header pulls the latest data from SharePoint at any time without reloading the page, so anything you have open — a form, a set of filters, a half-typed comment — is kept; its icon spins while data is coming in. Use the top nav to switch between Dashboard, the Departments dropdown, and Admin. The Departments dropdown mirrors the dashboard: Engineering (Engineering Tasks, EIRs, Test Sheets, Project Folders, Build Requests, Drawing File Logs, CSA Listings, Where Am I?, ECNs), Panels, Operations, Coils (Potting Sample Log), Quality Control (Digital QC Defect Log, Ignition QC Defect Log, QC Forms), Supply Chain (Gray Market Requests, FAITs, MRB, Suppliers/SRM Tool), and Customer Service / Sales (Open Orders Report, Visit Reports, Customers/CRM Tool).",
+      "Sign in with your altronic-llc.com account. The Dashboard opens after sign-in. A Refresh button in the header pulls the latest data from SharePoint at any time without reloading the page, so anything you have open — a form, a set of filters, a half-typed comment — is kept; its icon spins while data is coming in. Use the top nav to switch between Dashboard, the Departments dropdown, and Admin. The Departments dropdown mirrors the dashboard: Engineering (Engineering Tasks, EIRs, Test Sheets, Project Folders, Build Requests, Drawing File Logs, CSA Listings, Where Am I?, ECNs), Panels, Operations, Coils (Potting Sample Log), Quality Control (Digital QC Defect Log, Ignition QC Defect Log, QC Forms), Supply Chain (Gray Market Requests, FAITs, MRB, Suppliers/SRM Tool), and Customer Service / Sales (Open Orders Report, Visit Reports, Customers/CRM Tool). Every date in ARC is picked from a calendar: the month and year at the top of it are dropdowns, so you can jump straight to a year instead of clicking the arrow a month at a time, which matters most for older dates like a CSA listing's Date Certified. A record's existing year is always offered however old it is.",
     render: () => (
       <>
         <P>
@@ -75,6 +79,94 @@ const SECTIONS: ManualSection[] = [
           All views share the same data — a change you make in one shows up in
           the others within seconds.
         </Tip>
+        <H3>Picking a date</H3>
+        <P>
+          Every date in ARC is chosen from a calendar rather than typed. Click
+          the field and the calendar opens on the date already set, or on this
+          month if it&apos;s empty.
+        </P>
+        <P>
+          The <strong>month and year at the top are dropdowns</strong> — use
+          them to jump straight to a year instead of clicking the arrow one
+          month at a time. That matters most where dates run well into the
+          past, like a <strong>Date Certified</strong> on a CSA listing. An
+          existing record&apos;s year is always in the list however old it is,
+          so you can always change it. The arrows beside them still nudge a
+          month either way, and <strong>Today</strong> and{" "}
+          <strong>Clear</strong> sit at the bottom.
+        </P>
+      </>
+    ),
+  },
+  {
+    id: "sharepoint-access",
+    title: "When you don't have access to something",
+    keywords: [
+      "no access",
+      "access denied",
+      "permission",
+      "permissions",
+      "padlock",
+      "locked",
+      "greyed out",
+      "empty list",
+      "nothing showing",
+      "can't see records",
+      "sharepoint access",
+      "ask an admin",
+      "check again",
+    ],
+    searchText:
+      "ARC reads its data from SharePoint lists, and access to those lists is granted per site by an administrator — it is not something ARC controls. If your account can't read a list, ARC says so rather than showing an empty screen. A notice appears in the footer, between the maintainer's email and the About button, naming the app or apps affected and the SharePoint site to ask about, with a Check again button to press once access has been granted; on a narrow screen it collapses to an alert icon that opens the same message in a popup. On the Dashboard, a card for an app you can't reach shows a padlock and can't be clicked. In the Departments menu, the same app shows a padlock instead of a link. Nothing is hidden — you can still see that the app exists, which is what you ask for access to. A padlock is different from a Soon label, which means the app hasn't been built yet. Ask an admin, or the IT service desk, for access to the named SharePoint site; once granted, press Check again or reload ARC. Reference lists behind a screen count too, so a screen can say it is unavailable when the main list is fine but a lookup list behind it is not.",
+    render: () => (
+      <>
+        <P>
+          ARC reads everything from SharePoint lists, and who can read which
+          list is decided in SharePoint by an administrator — not in ARC. If
+          your account can't read one, ARC tells you instead of showing an
+          empty screen that looks like there's simply nothing there. It checks
+          when it loads, so anything you can't reach is marked from the start
+          rather than only once you've opened it.
+        </P>
+        <H3>What you'll see</H3>
+        <P>
+          A notice appears in the <strong>footer</strong>, between the
+          maintainer's email and the About button, naming what's affected and
+          the SharePoint site to ask about. On a narrow screen it shows as an
+          alert icon — tap it for the full message. On the Dashboard, the card
+          for that app shows a <strong>padlock</strong> and can't be clicked; in
+          the <strong>Departments</strong> menu, the same app shows a padlock
+          instead of a link. Inside a screen you've already opened, you'll get a
+          notice in place of the list.
+        </P>
+        <P>
+          Nothing is hidden. A locked app still shows its name, because that's
+          what you need in order to ask for it. A padlock is not the same as a{" "}
+          <strong>Soon</strong> label — Soon means the app hasn't been built
+          yet.
+        </P>
+        <P>
+          A padlocked app tells you which of two things happened.{" "}
+          <strong>No access</strong> means SharePoint refused it and an admin
+          can grant it. <strong>Unavailable</strong> means nothing was refused
+          and the data still isn't there — a folder ARC can't find, or a list
+          whose records are all hidden from your account. Open it and the screen
+          says which; the second one is still usually a permission to ask for,
+          just a different one.
+        </P>
+        <H3>Getting it fixed</H3>
+        <P>
+          Ask an admin or the IT service desk for access to the SharePoint site
+          named in the message. Once it's granted, press{" "}
+          <strong>Check again</strong> on the banner — no need to sign out.
+        </P>
+        <P>
+          Some screens also read smaller lookup lists behind the scenes (part
+          numbers, employees, remarks). If one of those is out of reach the
+          screen will say so and stop you adding a new entry, even though the
+          main list is fine — that's deliberate, so a half-saved entry can't be
+          lost.
+        </P>
       </>
     ),
   },
@@ -365,6 +457,8 @@ const SECTIONS: ManualSection[] = [
       "related projects",
       "new child task",
       "child task",
+      "create build request from task",
+      "build request from task",
       "sub-task of a task",
       "numbered title",
       "complete a task",
@@ -383,7 +477,7 @@ const SECTIONS: ManualSection[] = [
       "to-do list",
     ],
     searchText:
-      "Create tasks with the New Task button. Required: Title and Parent Project. NumberedTitle is auto-generated as T{n}-{projectRef}-{title}. Edit fields inline from the right sidebar of the detail page. Use Mark Complete or change Status to close out. A task with any child tasks not yet Complete can't be marked Complete itself — the Mark Complete button, the Status dropdown, and dragging a card to the Complete column on the Kanban all refuse it and say how many child tasks are still open, so finish or close those out first. The New Child Task button on a task's detail page opens the New Task form pre-filled and locked to that task's Parent Task and Parent Project, so a sub-task can't accidentally end up under the wrong parent or project; everything else on the form stays editable and submitting opens the new child task. The Description field can hold a custom checklist — click Turn into checklist while editing, or type - [ ] lines yourself, and check items off directly from the detail page. Checking a box instantly records your name and the time next to the item; unchecking asks Are you sure first and records who unchecked it. Indent a checklist line with Tab (or spaces) to make it a sub-task of the item above it; Shift+Tab outdents. One level of nesting; the parent shows a 1/2 count of its sub-tasks done and is never ticked automatically. Tab only indents on a checklist line — elsewhere it moves to the next field. The Description field also has a Rich text button for bold, italic, underline and lists. It warns before switching, because rich text turns off the checklist function — a rich description cannot use the - [ ] syntax. If the description ALREADY has checkboxes the button is disabled and says why, so you cannot lose a checklist you have been ticking; delete the checklist lines first if you really want rich text. Switching back to plain text restores checklists.",
+      "Create tasks with the New Task button. Required: Title and Parent Project. NumberedTitle is auto-generated as T{n}-{projectRef}-{title}. Edit fields inline from the right sidebar of the detail page. Use Mark Complete or change Status to close out. A task with any child tasks not yet Complete can't be marked Complete itself — the Mark Complete button, the Status dropdown, and dragging a card to the Complete column on the Kanban all refuse it and say how many child tasks are still open, so finish or close those out first. The New Child Task button on a task's detail page opens the New Task form pre-filled and locked to that task's Parent Task and Parent Project, so a sub-task can't accidentally end up under the wrong parent or project; everything else on the form stays editable and submitting opens the new child task. The Description field can hold a custom checklist — click Turn into checklist while editing, or type - [ ] lines yourself, and check items off directly from the detail page. Checking a box instantly records your name and the time next to the item; unchecking asks Are you sure first and records who unchecked it. Indent a checklist line with Tab (or spaces) to make it a sub-task of the item above it; Shift+Tab outdents. One level of nesting; the parent shows a 1/2 count of its sub-tasks done and is never ticked automatically. Tab only indents on a checklist line — elsewhere it moves to the next field. The Description field also has a Rich text button for bold, italic, underline and lists. It warns before switching, because rich text turns off the checklist function — a rich description cannot use the - [ ] syntax. If the description ALREADY has checkboxes the button is disabled and says why, so you cannot lose a checklist you have been ticking; delete the checklist lines first if you really want rich text. Switching back to plain text restores checklists. The Create Build Request button raises a build request from the task: the form opens prefilled with the task's name and project, the Task Reference locked to that task, and the task's whole discussion copied into the new request's comments with each comment's original author and time kept. Afterwards the task page shows a Build Request chip with the request's number and status, and the build request page shows the task it came from. The button stays available so a task can raise a second request if the first was cancelled. Once linked, the task and the build request share one conversation: a comment on either appears on both, and a comment on a part within the build request appears on both marked as coming from that part, with a link that opens the part so a reply lands in the original thread. A copied comment keeps its original author and time. Each side emails its own watchers, so watching both still means one email per comment.",
     render: () => (
       <>
         <H3>Creating a task</H3>
@@ -466,6 +560,58 @@ const SECTIONS: ManualSection[] = [
           parent or project by mistake. Everything else on the form — title,
           description, status, assignees, and the rest — is filled in as
           normal. Submitting takes you straight to the new child task.
+        </P>
+        <P>
+          <strong>Create Build Request</strong>, beside it, raises a build
+          request from the task you&apos;re on. The form opens with the
+          task&apos;s name and project already filled in, and the Task
+          Reference locked to that task (read-only, not a picker). The
+          task&apos;s <strong>whole discussion is copied across</strong> into
+          the new request&apos;s comments — each comment keeps its original
+          author and time, so the thread reads as the record of what was
+          actually said, with a line at the top naming the task it came from.
+          Everything else on the form is filled in as normal, and submitting
+          takes you straight to the new build request.
+        </P>
+        <P>
+          The two then <strong>link to each other</strong>: the task page
+          shows a Build Request chip with the request&apos;s number and
+          current status, and the build request page shows the task it was
+          raised from. The button stays available afterwards — a task can
+          legitimately need a second request if the first was cancelled, and
+          every request raised from the task is listed.
+        </P>
+        <H3>Comments are shared between a task and its build request</H3>
+        <P>
+          Once the two are linked they share <strong>one conversation</strong>.
+          A comment you post on the task appears on the build request, and a
+          comment on the build request appears on the task — so nobody has to
+          know which of the two a discussion started on.
+        </P>
+        <P>
+          A comment on a <strong>part</strong> within a build request appears
+          on both the task and the build request, marked{" "}
+          <em>
+            &quot;Posted on part &lt;number&gt; of build request
+            &lt;number&gt;&quot;
+          </em>{" "}
+          so it is clear where it came from. Each copy carries a link —{" "}
+          <strong>Open the part to reply</strong> — that takes you to that part
+          with its card already expanded, so your reply lands in the thread the
+          rest of that discussion is in rather than starting a second one.
+        </P>
+        <Tip>
+          A copied comment keeps its <strong>original author and time</strong>,
+          so the thread reads as a record of what was actually said. Reply from
+          the link rather than typing on the copy — a reply on the copy is a new
+          comment on that record, which is fine, but it won&apos;t sit under the
+          original.
+        </Tip>
+        <P>
+          Notifications follow the same rule as everywhere else: each side
+          emails its own watchers. If you watch both the task and the build
+          request you still get <strong>one</strong> email about a comment, not
+          two.
         </P>
         <H3>Formatting a Description — the Rich text button</H3>
         <P>
@@ -740,7 +886,15 @@ const SECTIONS: ManualSection[] = [
         <P>
           Anyone you @-mention also <strong>becomes a watcher</strong> on
           the item automatically (unless they already are) — tasks, EIRs,
-          build requests, and individual build request parts alike.{" "}
+          build requests, and individual build request parts alike. They
+          appear in Watchers as soon as you press Post; if the comment fails
+          to save, nobody is added, and if someone can't be added because they
+          have no SharePoint account, ARC tells you. An @-mention only counts
+          when you pick the person from the list that opens as you type{" "}
+          <code>@</code> — a name typed or pasted in full stays plain text, and
+          notifies nobody. A comment that fails to post goes back in the
+          comment box, mentions and files included, so you can press Send
+          again without retyping it; its files aren't uploaded twice.{" "}
           <strong>
             Watchers and whoever the item is assigned to are emailed on every new
             comment
@@ -1017,6 +1171,16 @@ const SECTIONS: ManualSection[] = [
           state stays put until it finishes. Past 250 MB, put the file into the
           project folder in SharePoint directly and paste the link into a
           comment; it'll show up in the file list on the next refresh.
+        </P>
+        <P>
+          On a task, the upload is finished as soon as the file is in the
+          project folder — the extra copy on the task itself carries on in the
+          background, so a large file no longer holds up the upload or your
+          comment. Everywhere else (EIRs, ECNs, FAITs and the other lists) a file
+          is attached to the item itself, which SharePoint takes in one piece,
+          so a very large file on a slow or VPN connection can be cut off. When
+          that happens ARC says so and names the file; try again, ideally on a
+          faster connection.
         </P>
         <P>
           Uploading a file whose name is already sitting in that project
@@ -4335,7 +4499,7 @@ const SECTIONS: ManualSection[] = [
       "sign off checklist",
     ],
     searchText:
-      "ECNs at /engineering/ecns, under Engineering — Engineering Change Notices, the record of a change to a released product, backed by the ECN NEW list on the Altronic Engineering SharePoint site. The table lists every notice newest first by Log#. Search covers everything including the Detailed Description, so you can find which ECN changed a part number. Filter by project, In House Stock disposition, whether the drawings are complete, and whether the notice is on hold. Click a row to open it. New ECN raises one: pick the project it belongs to, and type the Log# yourself because it comes off the ECN paperwork, and a revision keeps the number of the notice it revises with an R suffix (260059R1); the form refuses a number another ECN already has. On the notice, each card has one Edit button in its header that opens a box with that card's fields — Change (final assembly part numbers, detailed description, serial numbers), Disposition (in house stock, field returns impacted, drawings complete, on hold) and Sign-off (engineering comments, sign-off status). Save changes writes only the fields you touched. The Log#, Title and Project are edited the same way, from Edit Details in the sidebar. The Dashboard's ECN card counts the notices on file and narrows with the project picker, and clicking it opens the list already filtered to that project. Yes/No columns are picked as Yes or No rather than ticked. You can attach files to a notice. Comments work differently from the rest of ARC: an ECN has no watchers, so posting a comment emails the person who submitted the ECN and anyone you @-mention, and nobody else. Notices are never deleted; a superseded one is revised. Every ECN also carries the Cross-Functional ECN Checklist (Form# MFGFRM-038) at the bottom of its page: all 84 review steps across the form's ten sections, filled out in ARC rather than on paper. A new ECN gets its checklist automatically; an ECN raised before this existed gets one from the Create checklist button. The card shows how many steps are answered with a progress bar; open it and each section expands to its own steps. Each step is marked Complete, N/A or Flagged, with a Findings / comments box beside it. Mark a step N/A when it does not apply to this ECN — that is what lets a finished checklist reach 100% on an ECN that never touches chemicals or CSA files — and Flagged when it needs a department review before release. Steps carry the form's own two markers: Must be on ECN means details have to appear on the notice, and Needs department review mirrors the form's review column. Changes save on their own a moment after you stop typing or click away, so there is no Save button. Who is involved? (RACI) opens the form's role matrix as reference — 32 roles across nine departments, with the R/A/C/I legend; steps that have a RACI assigned show a RACI link that opens the matrix at that step. The RACI is reference only and is never stored against an ECN.",
+      "ECNs at /engineering/ecns, under Engineering — Engineering Change Notices, the record of a change to a released product, backed by the ECN NEW list on the Altronic Engineering SharePoint site. The table lists every notice newest first by Log#. Search covers everything including the Detailed Description, so you can find which ECN changed a part number. Filter by project, In House Stock disposition, whether the drawings are complete, and whether the notice is on hold. Click a row to open it. New ECN raises one: pick the project it belongs to, and type the Log# yourself because it comes off the ECN paperwork, and a revision keeps the number of the notice it revises with an R suffix (260059R1); the form refuses a number another ECN already has. On the notice, each card has one Edit button in its header that opens a box with that card's fields — Change (final assembly part numbers, detailed description, serial numbers), Disposition (in house stock, field returns impacted, drawings complete, on hold) and Sign-off (engineering comments, sign-off status). Save changes writes only the fields you touched. The Log#, Title and Project are edited the same way, from Edit Details in the sidebar. The Dashboard's ECN card counts the notices on file and narrows with the project picker, and clicking it opens the list already filtered to that project. Yes/No columns are picked as Yes or No rather than ticked. You can attach files to a notice. Comments work differently from the rest of ARC: an ECN has no watchers, so posting a comment emails the person who submitted the ECN and anyone you @-mention, and nobody else. Admins can delete a notice from its page — for a duplicate or one entered by mistake — and are asked to confirm first; a superseded ECN should still be revised rather than deleted. Nobody else sees the Delete button. Every ECN also carries the Cross-Functional ECN Checklist (Form# MFGFRM-038) at the bottom of its page: all 84 review steps across the form's ten sections, filled out in ARC rather than on paper. A new ECN gets its checklist automatically; an ECN raised before this existed gets one from the Create checklist button. The card shows how many steps are answered with a progress bar; open it and each section expands to its own steps. Each step is marked Complete, N/A or Flagged, with a Findings / comments box beside it. Mark a step N/A when it does not apply to this ECN — that is what lets a finished checklist reach 100% on an ECN that never touches chemicals or CSA files — and Flagged when it needs a department review before release. Steps carry the form's own two markers: Must be on ECN means details have to appear on the notice, and Needs department review mirrors the form's review column. Changes save on their own a moment after you stop typing or click away, so there is no Save button. Who is involved? (RACI) opens the form's role matrix as reference — 32 roles across nine departments, with the R/A/C/I legend; steps that have a RACI assigned show a RACI link that opens the matrix at that step. The RACI is reference only and is never stored against an ECN.",
     render: () => (
       <>
         <P>
@@ -4484,8 +4648,13 @@ const SECTIONS: ManualSection[] = [
         </P>
 
         <P>
-          There is no delete. An ECN records a change that was made; a
-          superseded notice is revised, not removed.
+          Admins can delete an ECN with the <strong>Delete</strong> button at
+          the top of its page, after confirming — meant for a duplicate or a
+          notice entered by mistake. An ECN records a change that was made, so a
+          superseded notice should still be revised (an R suffix), not deleted.
+          Deleting removes the notice with its comments and attachments; its
+          MFGFRM-038 checklist is left in SharePoint. Nobody else sees the
+          button.
         </P>
       </>
     ),
@@ -4715,6 +4884,322 @@ const SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: "parts-list",
+    title: "Parts List",
+    group: "Engineering",
+    keywords: [
+      "parts list",
+      "part number",
+      "altronic part",
+      "parts book",
+      "component list",
+      "hco",
+      "surface mount",
+      "through hole",
+      "sil",
+      "global search",
+      "manufacturer",
+      "mfg number",
+      "rating",
+      "resistor",
+      "capacitor",
+      "sap",
+      "sign-off",
+      "approve",
+      "approval",
+      "new part",
+      "parts roles",
+      "reviewing engineer",
+      "sap admin",
+      "hco editor",
+      "parts editor",
+      "suggest a correction",
+      "correction",
+      "description",
+      "type",
+      "sil cat",
+    ],
+    searchText:
+      "The Parts List holds every Altronic part number, under Engineering. It replaces the Altronic Component List Power App and its 175 separate lists with two: the Altronic Part List (every prefix except the HCO components) and the Altronic Component List (601 and 611 Through Hole, 701 711 and 712 Surface Mount, 722 SIL). A part's first three digits are its parts list and its first digit is its Parts Book. From the landing page pick a Parts Book (100 to 900) and then a list, or type into the box: a three-digit number opens that list, a whole part number opens the part, a single digit opens that book, and anything else runs a Global Search. Global Search covers both lists at once. The search panel down the left has one box per field; searches are not case sensitive and match part of the text, so apacit finds capacitor. Use & to search several things in one box, like resistor&1k; spaces around & count as part of the search. Search everything matches words in any field. Every search is in the web address, so you can send a search as a link. The table sorts by any column and each column header opens a filter. A component's page shows what Rating A, B and C mean for that type of component, from the HCO entry rules. Parts loaded from the old app have no sign-off status because it didn't record approvals. Adding, editing and approving parts is limited to the people on the Parts Roles list, managed by ARC admins at Admin, Parts Roles: The Add role adds Part List parts and HCO components except 722, and suggests corrections to parts they cannot edit; Parts editor also edits existing parts on both lists and adds to 722; Reviewing engineer approves new components at Engineering Review; SAP admin adds new parts to SAP, gives final approval and can edit every field. Click New part on a list to add one; the next free number is filled in. Only the SAP admin can start a new list; anyone else typing a number on a list that does not exist yet gets an Ask the SAP admin button, which emails the request. A new component goes to the reviewing engineers, then the SAP admin; a new Part List part goes to the SAP admin. Approve records a comment in the Approval history. The SAP admin answers Added to SAP, Does not need to be added to SAP, or Will be added to SAP but requires more information, from the buttons in the email or on the part's page; every answer approves the part and emails whoever added it which answer was given. Editing an approved part does not send it back for approval, but the SAP admin is emailed what changed. Part numbers can't be changed. A new component's description is picked: a Description, then a Type from that description's list, and on the 722 list a SIL category first, saved in capitals like SIL CAT 1 - CAPACITOR - CERAMIC. Editing a component keeps a plain text box. The SAP admin and the reviewing engineers manage the description lists from Descriptions on the Parts List landing page.",
+    render: () => (
+      <>
+        <P>
+          The <strong>Parts List</strong> holds every Altronic part number. It
+          replaces the <strong>Altronic Component List</strong> Power App, which
+          read 175 separate SharePoint lists, with two: the{" "}
+          <strong>Altronic Part List</strong> and the{" "}
+          <strong>Altronic Component List</strong>, which holds the HCO
+          components (601 and 611 Through Hole, 701, 711 and 712 Surface Mount,
+          and 722 SIL). Reach it from the <strong>Parts List</strong> card on the
+          Dashboard, or the <strong>Departments</strong> dropdown's Engineering
+          group.
+        </P>
+        <P>
+          A part number's first three digits are its <strong>parts list</strong>{" "}
+          — the old list it came from — and its first digit is its{" "}
+          <strong>Parts Book</strong>. You never need to know which of the two
+          SharePoint lists a part is on; ARC works that out from the number.
+        </P>
+        <H3>Finding a part</H3>
+        <P>
+          On the landing page, pick a <strong>Parts Book</strong> (100 to 900) to
+          see its lists, then pick a list. Or type into the box at the top:
+        </P>
+        <UL>
+          <LI>a three-digit number (<strong>601</strong>) opens that list;</LI>
+          <LI>a whole part number (<strong>601110</strong>) opens the part;</LI>
+          <LI>a single digit (<strong>6</strong>) opens that Parts Book;</LI>
+          <LI>anything else runs a Global Search for it.</LI>
+        </UL>
+        <P>
+          <strong>Global Search</strong>, top right, searches both lists at once
+          when you don't know where a part lives.
+        </P>
+        <P>
+          From inside a list, the <strong>Parts Book</strong> link at the top
+          (for example <strong>700 Parts Book</strong>) takes you back to that
+          book's lists, so you can move to the next list without starting over.
+        </P>
+        <P>
+          <strong>On a phone</strong>, opening a Parts Book hides the other books
+          and shows just its lists — <strong>All Parts Books</strong> brings them
+          back. A list shows each part as a card (part number, sign-off,
+          description and the main details) instead of the table; tap a card to
+          open the part. Use <strong>Sort by</strong> and the A–Z button above
+          the cards to change the order.
+        </P>
+        <H3>Searching a list</H3>
+        <P>
+          The search panel down the left has one box per field, just like the old
+          app. Searches are not case sensitive and match part of the text, so{" "}
+          <strong>apacit</strong> finds capacitor. To look for several things in
+          one box, separate them with <strong>&amp;</strong>:{" "}
+          <strong>resistor&amp;1k</strong>. Spaces around the &amp; count as
+          part of the search, so <strong>hello &amp; world</strong> won't match
+          "helloworld". Fill in several boxes and a part has to match all of
+          them.
+        </P>
+        <P>
+          <strong>Search everything</strong>, at the top of the panel, matches
+          words in any field, in any order. Every search is kept in the web
+          address, so you can send someone a link to exactly what you're looking
+          at. On a phone the panel folds away behind a <strong>Search</strong>{" "}
+          button, and opens by itself whenever a search is active.
+        </P>
+        <P>
+          <strong>Range search.</strong> On the component lists (601, 611, 701,
+          711, 712, 722) and in Global Search, Rating A/B/C, Tolerance, Temp Min
+          and Temp Max each have a small <strong>R</strong> button, as in the old
+          app. Press it and the box becomes <strong>From</strong> and{" "}
+          <strong>To</strong>; fill in either or both. Values are read the way
+          engineers write them — <strong>4K7</strong> is 4,700,{" "}
+          <strong>.1uF</strong> is 100 nF, <strong>250mW</strong> is 0.25 W,{" "}
+          <strong>1/4W</strong> too — and the panel says how it read what you
+          typed. So a 1K to 10K search finds a 4K7 resistor. (The old app read
+          4M1 as 4; ARC reads it as 4.1 M.) A value stored as a range, like
+          "4.5V TO 5.5V", is found when it overlaps yours. Units only have to
+          agree when both sides give one, so a 5V to 12V search skips "10mA".
+          Parts whose field holds no number — "SEE DATA SHEET", "X7R" — can't be
+          found by range, and the panel says how many there are. Press R again
+          to go back to a text search.
+        </P>
+        <P>
+          Click any column heading's arrow to sort, or the heading itself to
+          filter by its values. A list shows its first 150 parts; use{" "}
+          <strong>show all</strong> for the rest. The count always covers every
+          match.
+        </P>
+        <H3>A part's page</H3>
+        <P>
+          Click a part to open it. On a component, the <strong>Ratings</strong>{" "}
+          card says what Rating A, B and C mean for that kind of part — for a
+          resistor, resistance, working voltage and power — using the HCO entry
+          rules. When the description doesn't name a type those rules cover, the
+          ratings keep their plain names. On <strong>New part</strong>, the three
+          rating boxes are named the same way and change as you pick the
+          Description: a resistor asks for Resistance, Working voltage and Power,
+          and an IC for Voltage, Current and Pin count.
+        </P>
+        <P>
+          Every part's page has a <strong>Datasheet</strong> line — on the
+          Manufacturer card for a component, on the Purchasing card for a Part
+          List part. It shows <strong>Open datasheet</strong> whenever the part's
+          PDF (named by its part number) is in the Engineering Datasheets folder,
+          and opens it in a new tab. For a component, ARC looks for the file
+          itself rather than trusting the Has Data Sheet setting, and says so when
+          the two disagree — then Edit on the Manufacturer card is where to put
+          the setting right.
+        </P>
+        <P>
+          To add a datasheet, choose the PDF under <strong>Datasheet</strong> on
+          the New Part form. It's saved as the part number (for example{" "}
+          <code>604613.pdf</code>) once the part is added, whatever the file was
+          called, and a component's Has Data Sheet is set to Yes for you. A part
+          with no datasheet shows <strong>Upload datasheet</strong> on its page
+          to anyone who can edit it or add parts to its list — the Add role
+          included — for an existing part or if an upload didn't go through. Only PDFs are accepted, and ARC never
+          replaces a datasheet already in the folder: to swap one, replace the
+          file in SharePoint.
+        </P>
+        <P>
+          <strong>Sign-off status</strong> shows where a new part is in its
+          approval. Parts that came across from the old app show{" "}
+          <strong>Not tracked</strong>: it didn't record approvals, so there is
+          nothing to show.
+        </P>
+        <H3>Who can change parts</H3>
+        <P>
+          Everyone signed in can read and search the Parts List. Adding, editing
+          and approving parts is limited to the people on the{" "}
+          <strong>Parts Roles</strong> list, which ARC admins manage from{" "}
+          <strong>Admin → Parts Roles</strong>:
+        </P>
+        <UL>
+          <LI>
+            <strong>Add</strong> — adds Part List parts and HCO components
+            (except in the 722 list). An editor can't change an existing part;
+            they use <strong>Suggest a correction</strong> instead.
+          </LI>
+          <LI>
+            <strong>Parts editor (incl. HCO)</strong> — also edits existing parts
+            on both lists, and adds to the 722 list.
+          </LI>
+          <LI>
+            <strong>Reviewing engineer</strong> — approves new HCO components at
+            the Engineering Review step.
+          </LI>
+          <LI>
+            <strong>SAP admin</strong> — adds new parts to SAP and gives the final
+            approval, and can edit every field.
+          </LI>
+        </UL>
+        <P>
+          If you don't hold a role, you won't see the <strong>New part</strong>{" "}
+          button or any <strong>Edit</strong> buttons, and a part's page says who
+          to ask.
+        </P>
+        <H3>Adding a part</H3>
+        <P>
+          Open the list the part belongs in and click <strong>New part</strong>.
+          The next free number in that list is filled in for you (
+          <strong>Next free</strong> fills it in again if you change it). You can
+          also click New part on the Parts List landing page and type any number.
+          The form follows the number: a 601, 611, 701, 711, 712 or 722 number
+          gets the component fields, and anything else the Part List fields.
+        </P>
+        <P>
+          Only the SAP admin can start a <strong>new list</strong>. If you type a
+          number on a list that doesn't exist yet — 411001 when the 400 book only
+          has list 410 — the form says so and offers{" "}
+          <strong>Ask the SAP admin</strong>, which emails them the number and
+          description you typed. The SAP admin adds the part, and it becomes the
+          new list's first.
+        </P>
+        <P>
+          Fields marked * are required, following the old app's rules. On a Part
+          List part that's everything except Mfg Part #, Manufacturer, Date
+          Drawing, Drawing Size and Notes; SAP # is left for the SAP admin. On a
+          component it's everything except Notes, plus any rating that doesn't
+          apply to that kind of part. ARC won't accept a number that's already
+          taken or that doesn't start with the list you're adding to.
+        </P>
+        <H3>Describing a new component</H3>
+        <P>
+          A new component's description is picked, not typed, as in the old app.
+          Pick a <strong>Description</strong> first (Capacitor, Resistor, IC…),
+          then a <strong>Type</strong> from that description's list — Type stays
+          greyed out until a Description is picked. On the 722 list you also pick
+          a <strong>SIL category</strong> (SIL CAT 1 or SIL CAT 2), which goes
+          first. The form shows what it will save, in capitals: for example{" "}
+          <strong>SIL CAT 1 - CAPACITOR - CERAMIC</strong>. Some descriptions,
+          like Relay, have no types and save on their own.
+        </P>
+        <P>
+          Editing a component later still uses a plain text box for its
+          description, so existing descriptions that don't fit the lists are
+          left as they are. Part List parts are described in a text box too.
+        </P>
+        <P>
+          The SAP admin and the reviewing engineers manage the lists: click{" "}
+          <strong>Descriptions</strong> on the Parts List landing page to add,
+          rename, reorder or remove a description, its types, or a SIL category.
+          Changes only affect what new parts are offered — no existing part
+          changes.
+        </P>
+        <H3>Deleting and reusing a part number</H3>
+        <P>
+          The SAP admin can delete a part number: <strong>Delete part number</strong>{" "}
+          at the bottom of the part's page. You give a reason and type the number
+          back to confirm. The part disappears from every list and search, every
+          field is cleared, its datasheet (if it has one) is moved to
+          Datasheets/Deleted, and your name, the time and the reason are kept.
+          Nobody else sees the button.
+        </P>
+        <P>
+          A deleted number is <strong>reused</strong>. When somebody adds a part to
+          that list, Next free offers the lowest deleted number first, and the form
+          says it's a reused number. You can also type a deleted number yourself.
+          Nothing from the old part carries over: the new part starts empty,
+          starts its own approvals, and shows its own submitter. A link to a
+          deleted number that hasn't been reused yet says who deleted it and why.
+          Anything that still points at the number — a drawing, a BOM, SAP — will
+          mean the new part once it's reused, so delete only numbers that were
+          never really used.
+        </P>
+        <H3>Approvals</H3>
+        <P>
+          A new <strong>component</strong> goes to the reviewing engineers, who get
+          an email listing every field, with each rating named for that kind of
+          part (Resistance, Working voltage…). One of them opens it, corrects
+          anything wrong with Edit, and clicks <strong>Approve</strong> with an
+          optional comment. It then goes to the SAP admin, who gets the same email
+          a new Part List part gets, plus the reviewer's comments, and adds it to
+          SAP and approves it. A new{" "}
+          <strong>Part List part</strong> goes straight to the SAP admin. Each
+          approval, with its comment, is kept in the part's{" "}
+          <strong>Approval history</strong>.
+        </P>
+        <P>
+          The SAP admin's email lists every field of the part and has three
+          answers: <strong>Added to SAP</strong>,{" "}
+          <strong>Does not need to be added to SAP</strong>, and{" "}
+          <strong>Will be added to SAP but requires more information</strong>. Each
+          one opens the part in ARC with that answer picked — nothing is approved
+          until you click Approve there. The same three answers are offered when
+          you click Approve on the part's page. Every answer approves the part,
+          and whoever added it is emailed which one you picked. "Requires more
+          information" needs a note saying what's missing, which goes in that
+          email.
+        </P>
+        <P>
+          If you approve parts, the Parts List landing page tells you how many are{" "}
+          <strong>waiting for you</strong>. Click it to see them.
+        </P>
+        <H3>Editing a part</H3>
+        <P>
+          On a part's page, click <strong>Edit</strong> on the card you want to
+          change. Only the fields you change are saved, and a required field can't
+          be left blank. Editing an approved part doesn't send it back for
+          approval, but the SAP admin is emailed what changed so SAP can be kept
+          in step. A part number can't be changed — raise the right number as a
+          new part.
+        </P>
+        <P>
+          If you can add parts but not edit them, a part's page has a{" "}
+          <strong>Suggest a correction</strong> button instead. Say what should
+          change — a typo, a wrong manufacturer number — and the reviewing
+          engineers and the SAP admin are emailed your message with a link to the
+          part. Nothing changes on the part until one of them edits it.
+        </P>
+        <Tip>
+          The old Altronic Component List app still works during the move. A part
+          added there reaches ARC the next time the lists are topped up, so check
+          with Engineering before relying on one being in both places.
+        </Tip>
+      </>
+    ),
+  },
+  {
     id: "build-requests",
     title: "Build Requests",
     group: "Engineering requests",
@@ -4735,9 +5220,13 @@ const SECTIONS: ManualSection[] = [
       "requestor",
       "prototype",
       "sample",
+      "ready for production",
+      "production complete",
+      "build request production complete",
+      "production hand-off",
     ],
     searchText:
-      "Build Requests ask manufacturing to build parts. Each request (BR_YYYY-####) has a header — status, type, lead time, requestor, engineer, customer — and any number of parts. Each part has its own comment thread, watchers, attachments, and a Part-Type checklist: PCB parts get the data-package checklist, Harness parts get the terminals checklist. Create from the Build Requests list; add parts from the detail page. Email notifications fire for comments (request or part level), BR Status changes, Engineer Assigned changes, and a part's Part Status changes; part-comment emails open the request with that part expanded. Lead Free requests show a green flag and a warning banner on part printouts; each part has a Print part button for the production floor.",
+      "Build Requests ask manufacturing to build parts. A request can also be raised from a task with the Create Build Request button on the task page, which prefills the task's name and project, locks the Task Reference, and copies the task's discussion into the request's comments; the two then link to each other and share one comment thread, with a comment on a part appearing on both marked as coming from that part.  Each request (BR_YYYY-####) has a header — status, type, lead time, requestor, engineer, customer — and any number of parts. Each part has its own comment thread, watchers, attachments, and a Part-Type checklist: PCB parts get the data-package checklist, Harness parts get the terminals checklist. Create from the Build Requests list; add parts from the detail page. Email notifications fire for comments (request or part level), BR Status changes, Engineer Assigned changes, and a part's Part Status changes; part-comment emails open the request with that part expanded. Lead Free requests show a green flag and a warning banner on part printouts; each part has a Print part button for the production floor. Production hand-off: once every part is Ready for Production, the assigned engineer (or an admin) presses Ready for Production on the request, which emails Amanda Hoagland, Sheila Horn, the engineer, the watchers and the requestor; once every part is Production Complete the button becomes Build Request Production Complete, which asks Sheila Horn to review and set the request to Complete. Each part reaching Production Complete emails the engineer, the request and part watchers and the requestor, and a request set from Production Complete to Complete emails the watchers, Amanda Hoagland, the engineer and the requestor. The Status picker follows the same rule.",
     render: () => (
       <>
         <P>
@@ -4759,6 +5248,26 @@ const SECTIONS: ManualSection[] = [
           reveals the Sample Phase. You're set as the Requestor and a watcher
           automatically. The request opens ready for parts.
         </P>
+        <P>
+          You can also raise one <strong>from a task</strong>: the{" "}
+          <strong>Create Build Request</strong> button on a task&apos;s detail
+          page opens this same form with the task&apos;s name and project
+          already filled in, its Task Reference locked to that task, and the
+          task&apos;s whole discussion copied into the new request&apos;s
+          comments — each comment keeping its original author and time. The
+          two then link to each other: the build request shows the task it
+          came from, and the task shows the request with its current status,
+          and from then on they <strong>share one comment thread</strong> — a
+          comment on either appears on both.
+        </P>
+        <P>
+          That extends to <strong>parts</strong>: a comment on a part appears
+          on the build request and on the linked task, marked as coming from
+          that part and carrying a link that opens the part so a reply lands
+          in the original thread. Each side emails its own watchers, so
+          watching both the task and the request still means one email per
+          comment.
+        </P>
         <H3>Adding and editing parts</H3>
         <P>
           On the detail page, click <strong>Add Part</strong> and enter the
@@ -4769,12 +5278,13 @@ const SECTIONS: ManualSection[] = [
         </P>
         <H3>Part-Type checklists</H3>
         <P>
-          <strong>PCB</strong> parts show the 14-box data-package checklist
-          (BOMs, Gerbers, coordinate data, fiducials, schematic, HI-POT…);{" "}
-          <strong>Harness</strong> parts show the 3-box harness checklist
-          (Terminals Ordered, New Terminal Tool, New Harness Processes). Other
+          <strong>PCB</strong> parts show the 13-box data-package checklist
+          (BOMs, Gerbers, coordinate data, fiducials, schematic…);{" "}
+          <strong>Harness</strong> parts show the 4-box harness checklist
+          (Terminals Ordered, New Terminal Tool, New Harness Processes, HI-POT
+          Test). Other
           part types have no checklist. The card header shows checklist
-          progress (e.g. 6/14) and turns green when complete.
+          progress (e.g. 6/13) and turns green when complete.
         </P>
         <H3>Printing a part for the production floor</H3>
         <P>
@@ -4803,6 +5313,74 @@ const SECTIONS: ManualSection[] = [
           the request with that part expanded. Attachments also exist at both
           levels (on the header and on each part).
         </P>
+        <H3>Handing a request to production</H3>
+        <P>
+          The request header carries a production button with two stages:
+        </P>
+        <ul className="ml-6 list-disc text-sm leading-relaxed text-fg-muted">
+          <li>
+            <strong>Ready for Production</strong> — available once the
+            request has at least one part and every part&apos;s Part Status
+            is Ready for Production (or already Production Complete).
+            Pressing it sets the request&apos;s status to Ready for
+            Production.
+          </li>
+          <li>
+            <strong>Build Request Production Complete</strong> — the same
+            button, once the request is Ready for Production. It is available
+            when every part is Production Complete, and sets the request to
+            Production Complete.
+          </li>
+        </ul>
+        <P>
+          While parts are still short of the required status, the button is
+          greyed and says how many parts still need to get there. Who can
+          press it depends on the stage: <strong>Ready for Production</strong>{" "}
+          is for the request&apos;s <strong>assigned engineer</strong> or an ARC
+          admin, and <strong>Build Request Production Complete</strong> is for{" "}
+          <strong>Amanda Hoagland</strong> or an ARC admin — the engineer hands
+          the build to production, and production signs off that it&apos;s
+          done. Anyone else sees it greyed with the reason. Once the
+          request is Production Complete the button goes away — Sheila Horn
+          reviews the request and sets its status to <strong>Complete</strong>.
+        </P>
+        <P>
+          The <strong>Status</strong> picker follows the same rule: you
+          can&apos;t move a request to Ready for Production or Production
+          Complete from the picker before its parts are ready, or unless
+          you&apos;re allowed to take that step (the assigned engineer or an
+          admin for Ready for Production; Amanda Hoagland or an admin for
+          Production Complete). Other status changes
+          work as before.
+        </P>
+        <P>Each step sends email (never to the person who took the step):</P>
+        <ul className="ml-6 list-disc text-sm leading-relaxed text-fg-muted">
+          <li>
+            <strong>Request set to Ready for Production</strong> — Amanda
+            Hoagland, Sheila Horn, the assigned engineer, the request&apos;s
+            watchers and the requestor.
+          </li>
+          <li>
+            <strong>A part set to Production Complete</strong> — the assigned
+            engineer, the request&apos;s watchers, that part&apos;s watchers
+            and the requestor. The email links to the part.
+          </li>
+          <li>
+            <strong>Request set to Production Complete</strong> — Sheila Horn,
+            asking her to review the request and set it to Complete. Watchers
+            also get the usual status-change note.
+          </li>
+          <li>
+            <strong>Request set from Production Complete to Complete</strong>{" "}
+            — the watchers, Amanda Hoagland, the assigned engineer and the
+            requestor, saying the build request is complete.
+          </li>
+        </ul>
+        <P>
+          Anyone on more than one of those lists gets one copy. These
+          emails replace the ordinary status-change note for those steps, so
+          nobody is emailed twice about the same change.
+        </P>
         <H3>Email notifications</H3>
         <P>
           Build requests send email for: <strong>comments</strong> (request
@@ -4812,7 +5390,8 @@ const SECTIONS: ManualSection[] = [
           + requestor), <strong>Engineer Assigned changes</strong> (personal
           "assigned / unassigned" notes plus a broadcast to watchers and the
           requestor), and a part's <strong>Part Status changes</strong> (that
-          part's watchers). Nothing else emails — adding/removing parts,
+          part's watchers), plus the production hand-off emails described
+          above. Nothing else emails — adding/removing parts,
           checklist ticks, WO No, lead time, and customer edits are quiet. See
           the{" "}
           <a href="#notifications" className="text-accent underline-offset-2 hover:underline">
@@ -5895,7 +6474,7 @@ const SECTIONS: ManualSection[] = [
       "stale session",
     ],
     searchText:
-      "Loading hangs? Often sign-in / permission. F12 console: 401 means token expired (re-sign-in), 403 means missing SharePoint access. Change reverted? Someone may have edited at the same time. Data looks out of date, or someone else just changed a row you can't see yet? Press Refresh in the header — it re-reads everything from SharePoint without reloading the page, so nothing you have open is lost. New task missing? Default Assigned filter is you — pick Anyone. Mention email not sent? Manual @Name typing doesn't make a chip — pick from dropdown. Report issue button in the header captures console errors and emails them to the app manager. Notification email not sending? You need both Send As and Full Access on the notifications mailbox — Send As alone is not enough. Left the tab open a long time? Your Microsoft sign-in expires while idle and ARC shows the sign-in screen — click 'Sign in again', enter your password once, and the app comes back with fresh data. No sign-out, no refresh, no clicking Retry.",
+      "Loading hangs? Often sign-in / permission. F12 console: 401 means token expired (re-sign-in), 403 means missing SharePoint access. Change reverted? Someone may have edited at the same time. Data looks out of date, or someone else just changed a row you can't see yet? Press Refresh in the header — it re-reads everything from SharePoint without reloading the page, so nothing you have open is lost. New task missing? Default Assigned filter is you — pick Anyone. Mention email not sent? Manual @Name typing doesn't make a chip — pick from dropdown. Report issue button in the header captures console errors and emails them to the app manager. It sends from the notifications mailbox; if that fails, the box stays open and says why — usually that your account needs Send As and Full Access on that mailbox — with Try again and Use my email instead. It never opens your own mail without you choosing to. Notification email not sending? You need both Send As and Full Access on the notifications mailbox — Send As alone is not enough. Left the tab open a long time? Your Microsoft sign-in expires while idle and ARC shows the sign-in screen — click 'Sign in again', enter your password once, and the app comes back with fresh data. No sign-out, no refresh, no clicking Retry.",
     render: () => (
       <>
         <H3>"Loading tasks…" hangs forever</H3>

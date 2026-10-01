@@ -112,6 +112,17 @@ describe("every sortable list renders its sort buttons", () => {
     await waitForTable();
     expect(screen.getByRole("button", { name: "Sort by Log No." })).toBeInTheDocument();
   });
+
+  it("Parts List (Global Search)", async () => {
+    const { PartsListView } = await import("./PartsListView");
+    renderWithProviders(<PartsListView />, {
+      route: "/engineering/parts/search",
+      routePattern: "/engineering/parts/search",
+    });
+    await waitForTable();
+    expect(screen.getByRole("button", { name: "Sort by Part #" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sort by Type" })).toBeInTheDocument();
+  });
 });
 
 describe("the rows are actually re-ordered", () => {
@@ -158,6 +169,28 @@ describe("the rows are actually re-ordered", () => {
     expect(ascending.length).toBeGreaterThan(1);
 
     await sortBy("Log No.");
+    expect(firstColumnValues()).toEqual([...ascending].reverse());
+  });
+
+  it("a Parts List list sorts by Description — not its default Part # order", async () => {
+    // Part # is the default, so sorting by it would only prove the direction
+    // flips. Description proves the key switches AND the tbody maps the sorted
+    // rows. List 711, because its three descriptions are all different — ties
+    // keep their order in BOTH directions, so a list with two "RESISTOR"s
+    // would not reverse cleanly.
+    const { PartsListView } = await import("./PartsListView");
+    renderWithProviders(<PartsListView />, {
+      route: "/engineering/parts/list/711",
+      routePattern: "/engineering/parts/list/:prefix",
+    });
+    await waitForTable();
+    const byPartNumber = firstColumnValues();
+
+    await sortBy("Description");
+    const ascending = firstColumnValues();
+    expect(ascending).not.toEqual(byPartNumber);
+
+    await sortBy("Description");
     expect(firstColumnValues()).toEqual([...ascending].reverse());
   });
 

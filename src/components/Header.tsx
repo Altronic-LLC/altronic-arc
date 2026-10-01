@@ -13,6 +13,7 @@ import {
   ClipboardX,
   ClipboardList,
   Cog,
+  Cpu,
   DollarSign,
   FileCheck,
   FileDiff,
@@ -28,6 +29,7 @@ import {
   Lightbulb,
   List,
   ListChecks,
+  Lock,
   MapPin,
   MessageSquare,
   Moon,
@@ -40,13 +42,15 @@ import {
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { pathAccessState } from "@/api/appAccess";
+import { useAccessDenials } from "@/hooks/useListAccess";
 import { useTheme } from "@/hooks/useTheme";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useKanbanAvailable } from "@/hooks/useIsPhone";
 import { filterSearch } from "@/hooks/useFilters";
 import { eirFilterSearch } from "@/hooks/useEirFilters";
 import { visitReportFilterSearch } from "@/hooks/useVisitReportFilters";
-import { USE_MOCK } from "@/api/config";
+import { PARTS_LIST_LIVE, USE_MOCK } from "@/api/config";
 import { Brandmark } from "@/components/brand/Brandmark";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { UserMenu } from "@/components/UserMenu";
@@ -131,6 +135,18 @@ const DEPARTMENTS: DepartmentGroup[] = [
         icon: <BadgeCheck className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/csa-listings"),
       },
+      // Until PARTS_LIST_LIVE it's a Soon entry at the END of the group, as
+      // the Dashboard shows it — testers reach it by URL.
+      ...(PARTS_LIST_LIVE
+        ? [
+            {
+              to: "/engineering/parts",
+              label: "Parts List",
+              icon: <Cpu className="h-4 w-4" />,
+              matchesPath: (p: string) => p.startsWith("/engineering/parts"),
+            },
+          ]
+        : []),
       {
         to: "/engineering/where-am-i",
         label: "Where Am I?",
@@ -143,6 +159,7 @@ const DEPARTMENTS: DepartmentGroup[] = [
         icon: <FileDiff className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/engineering/ecn"),
       },
+      ...(PARTS_LIST_LIVE ? [] : [soon("Parts List", <Cpu className="h-4 w-4" />)]),
     ],
   },
   {
@@ -634,6 +651,7 @@ function DepartmentsMenu({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const denials = useAccessDenials();
 
   useEffect(() => {
     if (!open) return;
@@ -684,6 +702,31 @@ function DepartmentsMenu({
               <div className="space-y-1">
                 {group.items.map((item) => {
                   const itemActive = item.matchesPath(pathname);
+
+                  // SharePoint has already refused this app's list for this
+                  // user, so there is nothing behind the link but a notice.
+                  // Rendered as a locked row rather than hidden: an app that
+                  // vanishes reads as "ARC lost a feature", where a lock reads
+                  // as "ask someone", which is the true and actionable one.
+                  const accessState = item.disabled ? "ok" : pathAccessState(item.to, denials);
+                  if (accessState !== "ok") {
+                    return (
+                      <div
+                        key={item.label}
+                        className="flex items-center gap-2 rounded-md px-2.5 py-2 text-sm text-fg-muted opacity-60"
+                        title={
+                          accessState === "no-access"
+                            ? "You don't have SharePoint access to this list — ask an admin for access"
+                            : "ARC couldn't read this app's data — open it for the details"
+                        }
+                      >
+                        {item.icon}
+                        <span>{item.label}</span>
+                        <Lock className="ml-auto h-3.5 w-3.5" aria-label="No access" />
+                      </div>
+                    );
+                  }
+
                   if (item.disabled || !item.to) {
                     return (
                       <div

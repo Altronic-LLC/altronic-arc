@@ -1,5 +1,8 @@
 import { GraphError, graphFetch } from "./graph";
 import {
+  BUILD_REQUEST_COMPLETE_REVIEWERS,
+  BUILD_REQUEST_FINAL_ALERTS,
+  BUILD_REQUEST_PRODUCTION_ALERTS,
   COST_IMPACT_NOTICE_ALERTS,
   FEATURE_REQUEST_ALERTS,
   EIR_RESPONSE_ACCEPTED_ALERTS,
@@ -12,7 +15,12 @@ import {
   USE_MOCK,
 } from "./config";
 import { pushToast } from "@/components/Toast";
-import type { CommentAttachment, Person } from "@/types/task";
+import type {
+  BuildRequest,
+  BuildRequestItem,
+  CommentAttachment,
+  Person,
+} from "@/types/task";
 import { appItemUrl } from "@/lib/appUrl";
 import {
   buildAssigneeChangeEmails,
@@ -22,6 +30,7 @@ import {
   type AlertDetail,
   type ChangeEmail,
   type ChangeTarget,
+  type EmailAction,
 } from "@/lib/changeAlerts";
 import { buildEirTriageEmails, type EirTriageStage } from "@/lib/eirTriage";
 import {
@@ -42,6 +51,12 @@ import {
   type FaitSignerRole,
 } from "@/lib/faitAlerts";
 import { buildNewCostImpactNoticeEmails } from "@/lib/costImpactAlerts";
+import {
+  buildBrCompleteEmails,
+  buildBrPartProductionCompleteEmails,
+  buildBrProductionCompleteReviewEmails,
+  buildBrReadyForProductionEmails,
+} from "@/lib/buildRequestAlerts";
 import {
   buildFeatureRequestStatusEmails,
   buildNewFeatureRequestEmails,
@@ -96,7 +111,9 @@ export interface MentionTarget {
     | "supplierContact"
     | "supplierIssue"
     | "costImpactNotice"
-    | "featureRequest";
+    | "featureRequest"
+    | "altronicPart"
+    | "altronicComponent";
   id: number;
   title: string;
 }
@@ -180,6 +197,16 @@ const KIND_COPY: Record<
     phrase: "a feature request",
     calloutLabel: "Feature Request",
     buttonText: "Open this request",
+  },
+  altronicPart: {
+    phrase: "a part",
+    calloutLabel: "Altronic Part",
+    buttonText: "Open this part",
+  },
+  altronicComponent: {
+    phrase: "a component",
+    calloutLabel: "Altronic Component",
+    buttonText: "Open this component",
   },
 };
 
@@ -473,6 +500,11 @@ function itemUrl(kind: MentionTarget["kind"], id: number): string {
 export async function notifyChangeEmails(input: {
   target: ChangeTarget;
   emails: ChangeEmail[];
+  /**
+   * Where the button goes, when that isn't the target's own page — e.g. a
+   * request for a parts list that doesn't exist yet links to its Parts Book.
+   */
+  link?: { url: string; buttonText: string };
 }): Promise<MailSendResult> {
   const emails = input.emails.filter((e) => !!e.email);
   if (emails.length === 0) return NOTHING_SENT;
@@ -483,7 +515,7 @@ export async function notifyChangeEmails(input: {
       from: SHARED_MAILBOX ?? "(no shared mailbox configured)",
       kind: input.target.kind,
       item: input.target.title,
-      url: appItemUrl(input.target.kind, input.target.id),
+      url: input.link?.url ?? appItemUrl(input.target.kind, input.target.id),
       to: emails.map((e) => ({ email: e.email, subject: e.subject })),
     });
     return { sent: emails.map((e) => e.email!), failed: [] };
@@ -497,7 +529,7 @@ export async function notifyChangeEmails(input: {
     return NOTHING_SENT;
   }
 
-  const url = appItemUrl(input.target.kind, input.target.id);
+  const url = input.link?.url ?? appItemUrl(input.target.kind, input.target.id);
   const result: MailSendResult = { sent: [], failed: [] };
 
   for (const e of emails) {
@@ -506,9 +538,11 @@ export async function notifyChangeEmails(input: {
         recipientName: e.displayName,
         headlineHtml: e.headlineHtml,
         detailHtml: e.detailHtml,
+        actions: e.actions,
         kind: input.target.kind,
         itemTitle: input.target.title,
         url,
+        buttonText: input.link?.buttonText,
       });
       const message = {
         subject: e.subject,
@@ -864,6 +898,116 @@ export function fireEirResolvedAlert(args: {
   void notifyChangeEmails({ target: args.target, emails });
 }
 
+// =============================================================================
+// Build Request production hand-off (Ray, 2026-09-29). The CALLER guards the
+// transition (`to !== from`; for the final alert, `from` must be Production
+// Complete) and decides whether the generic status note also fires — see
+// useUpdateBuildRequestFields. These wrappers only read the configured queues.
+// =============================================================================
+
+type BrForAlert = Pick<
+  BuildRequest,
+  "id" | "brNo" | "title" | "engineerAssigned" | "requestor" | "watchers"
+>;
+
+function buildRequestTarget(br: BrForAlert): ChangeTarget {
+  return { kind: "buildRequest", id: br.id, title: br.brNo || br.title };
+}
+
+/**
+ * Fire-and-forget: a build request reached "Ready for Production" — the
+ * production queue (VITE_BUILD_REQUEST_PRODUCTION_ALERTS) plus the assigned
+ * engineer, watchers and requestor.
+ */
+export function fireBuildRequestReadyForProductionAlert(args: {
+  buildRequest: BrForAlert;
+  actor: Person;
+}): void {
+  const br = args.buildRequest;
+  const target = buildRequestTarget(br);
+  const emails = buildBrReadyForProductionEmails({
+    target,
+    queue: parseRecipientList(BUILD_REQUEST_PRODUCTION_ALERTS),
+    actor: args.actor,
+    engineer: br.engineerAssigned,
+    requestor: br.requestor,
+    watchers: br.watchers,
+  });
+  if (emails.length === 0) return;
+  void notifyChangeEmails({ target, emails });
+}
+
+/**
+ * Fire-and-forget: one PART reached "Production Complete" — the request's
+ * engineer, the request's and the part's watchers, and the requestor. Links
+ * to the part.
+ */
+export function fireBuildRequestPartProductionCompleteAlert(args: {
+  buildRequest: BrForAlert;
+  part: Pick<BuildRequestItem, "id" | "partNumber" | "watchers">;
+  actor: Person;
+}): void {
+  const br = args.buildRequest;
+  const target: ChangeTarget = {
+    kind: "buildRequestItem",
+    id: args.part.id,
+    title: args.part.partNumber,
+  };
+  const emails = buildBrPartProductionCompleteEmails({
+    target,
+    buildRequestTitle: br.brNo || br.title,
+    partWatchers: args.part.watchers,
+    actor: args.actor,
+    engineer: br.engineerAssigned,
+    requestor: br.requestor,
+    watchers: br.watchers,
+  });
+  if (emails.length === 0) return;
+  void notifyChangeEmails({ target, emails });
+}
+
+/**
+ * Fire-and-forget: a build request reached "Production Complete" — ask the
+ * reviewers (VITE_BUILD_REQUEST_COMPLETE_REVIEWERS) to review it and set it
+ * Complete. The generic status note still tells the watchers.
+ */
+export function fireBuildRequestProductionCompleteAlert(args: {
+  buildRequest: BrForAlert;
+  actor: Person;
+}): void {
+  const target = buildRequestTarget(args.buildRequest);
+  const emails = buildBrProductionCompleteReviewEmails({
+    target,
+    reviewers: parseRecipientList(BUILD_REQUEST_COMPLETE_REVIEWERS),
+    actor: args.actor,
+  });
+  if (emails.length === 0) return;
+  void notifyChangeEmails({ target, emails });
+}
+
+/**
+ * Fire-and-forget: a build request went Production Complete → Complete — the
+ * watchers, the final queue (VITE_BUILD_REQUEST_FINAL_ALERTS), the assigned
+ * engineer and the requestor are told it is done.
+ */
+export function fireBuildRequestCompleteAlert(args: {
+  buildRequest: BrForAlert;
+  actor: Person;
+}): void {
+  const br = args.buildRequest;
+  const target = buildRequestTarget(br);
+  const emails = buildBrCompleteEmails({
+    target,
+    queue: parseRecipientList(BUILD_REQUEST_FINAL_ALERTS),
+    actor: args.actor,
+    engineer: br.engineerAssigned,
+    requestor: br.requestor,
+    watchers: br.watchers,
+  });
+  if (emails.length === 0) return;
+  void notifyChangeEmails({ target, emails });
+}
+
 export function firePromotionAlert(args: {
   eir: { id: number; eirNo: string; title: string; watchers: Person[]; reporter?: Person | null };
   task: { id: number; numberedTitle: string; title: string };
@@ -917,6 +1061,8 @@ function renderEmailShell(ctx: {
   calloutLabel: string;
   calloutTitle: string;
   messageHtml?: string;
+  /** Answer buttons above the main one — outlined, so the main button stays the obvious "just open it". */
+  actions?: Array<{ label: string; url: string }>;
   buttonText: string;
   url: string;
 }): string {
@@ -928,6 +1074,24 @@ function renderEmailShell(ctx: {
               ${ctx.messageHtml}
             </div>`
     : "";
+  // One button per row: three long labels side by side don't fit a phone,
+  // and Outlook can't wrap table cells the way a browser wraps flex items.
+  const actionsBlock = (ctx.actions ?? [])
+    .map(
+      (a) => `
+        <tr>
+          <td align="center" style="padding:0 28px 10px 28px;">
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width:420px;">
+              <tr>
+                <td align="center" style="border:2px solid #CB2C30;border-radius:6px;background:#ffffff;">
+                  <a href="${escapeHtml(a.url)}" style="display:block;padding:10px 18px;color:#CB2C30;text-decoration:none;font-size:14px;font-weight:600;">${escapeHtml(a.label)}</a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>`,
+    )
+    .join("");
 
   return `
 <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#f3f4f6;padding:24px 12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
@@ -951,9 +1115,9 @@ function renderEmailShell(ctx: {
             </div>
             ${messageBlock}
           </td>
-        </tr>
+        </tr>${actionsBlock}
         <tr>
-          <td align="center" style="padding:0 28px 28px 28px;">
+          <td align="center" style="padding:${ctx.actions?.length ? "8px" : "0"} 28px 28px 28px;">
             <table role="presentation" cellspacing="0" cellpadding="0" border="0">
               <tr>
                 <td align="center" style="background:#CB2C30;border-radius:6px;">
@@ -1006,9 +1170,11 @@ function renderChangeEmail(ctx: {
   recipientName: string;
   headlineHtml: string;
   detailHtml?: string;
+  actions?: EmailAction[];
   kind: MentionTarget["kind"];
   itemTitle: string;
   url: string;
+  buttonText?: string;
 }): string {
   const copy = KIND_COPY[ctx.kind];
   return renderEmailShell({
@@ -1017,9 +1183,14 @@ function renderChangeEmail(ctx: {
     calloutLabel: copy.calloutLabel,
     calloutTitle: ctx.itemTitle,
     messageHtml: ctx.detailHtml,
-    buttonText: copy.buttonText,
+    actions: ctx.actions?.map((a) => ({ label: a.label, url: withQuery(ctx.url, a.query) })),
+    buttonText: ctx.buttonText ?? copy.buttonText,
     url: ctx.url,
   });
+}
+
+function withQuery(url: string, query: string): string {
+  return `${url}${url.includes("?") ? "&" : "?"}${query}`;
 }
 
 function escapeHtml(s: string): string {

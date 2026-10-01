@@ -236,14 +236,15 @@ export function EirDetailView() {
     if (!eir) return;
     // EIRs reuse the comment data shape; attachments aren't part of the
     // EIR Communication field today (parity with tasks).
-    addComment.mutate({
+    // Returned, so a comment that fails to post goes back in the composer.
+    return addComment.mutateAsync({
       id: eir.id,
       comment: {
         authorName: currentUser.displayName,
         authorEmail: currentUser.email ?? "",
         bodyHtml,
       },
-    });
+    }).then(() => undefined);
   }
 
   async function handleEditComment(comment: CommentType, newBodyHtml: string, renotify: boolean) {

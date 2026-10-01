@@ -20,6 +20,7 @@ import {
   useTeradyneRemarks,
 } from "@/hooks/useTeradyne";
 import { useAdminAccess } from "@/hooks/useIsAdmin";
+import { ListAccessNotice } from "@/components/ListAccessNotice";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { MultiSelect, SingleSelect } from "@/components/SearchableSelect";
 import { SearchInput } from "@/components/SearchInput";
@@ -30,6 +31,7 @@ import { SortableHeader } from "@/components/SortableTableHeader";
 import { useSortableTable } from "@/hooks/useSortableTable";
 import { dayLabel, peopleLabel, type SortColumn } from "@/lib/tableSort";
 import { cn } from "@/lib/cn";
+import { isPermissionDenied } from "@/lib/listWriteErrors";
 
 // =============================================================================
 // Teradyne Log — the Operations PCB test log. A log-style table (this list is
@@ -133,9 +135,9 @@ const TERADYNE_COLUMNS: SortColumn<TeradyneLogEntry>[] = [
 
 export function TeradyneLogView() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { data: products = [] } = useTeradyneProducts();
-  const { data: employees = [] } = useTeradyneEmployees();
-  const { data: remarks = [] } = useTeradyneRemarks();
+  const { data: products = [], error: productsError, refetch: refetchProducts } = useTeradyneProducts();
+  const { data: employees = [], error: employeesError, refetch: refetchEmployees } = useTeradyneEmployees();
+  const { data: remarks = [], error: remarksError, refetch: refetchRemarks } = useTeradyneRemarks();
   const deleteEntry = useDeleteTeradyneLogEntry();
   // Anyone signed in can ADD to the log and CORRECT an entry — operators are the
   // ones running the tester, and a typo caught at the bench shouldn't need an
@@ -156,8 +158,11 @@ export function TeradyneLogView() {
   const year = isAdmin && requestedYear !== null ? requestedYear : thisYear;
   const viewingHistory = year !== thisYear;
 
-  const { data: result, isLoading, error } = useTeradyneLog({ kind: "year", year });
+  const { data: result, isLoading, error, refetch } = useTeradyneLog({ kind: "year", year });
   const log = result?.entries ?? [];
+  const listUnavailable = [error, productsError, employeesError, remarksError].some(
+    (queryError) => queryError && isPermissionDenied(queryError),
+  );
 
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState<TeradyneLogEntry | null>(null);
@@ -266,6 +271,8 @@ export function TeradyneLogView() {
           <ManageListsMenu />
           <button
             onClick={() => setShowNew(true)}
+            disabled={listUnavailable}
+            title={listUnavailable ? "You do not have access to a required SharePoint list" : undefined}
             className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-accent/90"
           >
             <Plus className="h-4 w-4" />
@@ -356,7 +363,13 @@ export function TeradyneLogView() {
         </Field>
       </div>
 
-      {error != null && (
+      {listUnavailable ? (
+        <ListAccessNotice
+          list="Teradyne Log or one of its reference lists"
+          site="Altronic_PMO"
+          onRetry={() => void Promise.all([refetch(), refetchProducts(), refetchEmployees(), refetchRemarks()])}
+        />
+      ) : error != null ? (
         <div className="rounded-lg border border-cooper-red/40 bg-cooper-red/10 p-3 text-xs">
           <div className="mb-1 font-semibold text-cooper-red">
             Couldn't load the Teradyne Log from SharePoint
@@ -365,7 +378,7 @@ export function TeradyneLogView() {
             {(error as Error)?.message ?? "Unknown error"}
           </pre>
         </div>
-      )}
+      ) : null}
 
       {/* No banner when the year filter runs in the browser instead of in
           SharePoint. Either way the user gets exactly the year they asked for,
@@ -373,7 +386,7 @@ export function TeradyneLogView() {
           it's logged to the console for whoever's actually diagnosing speed. */}
       {isLoading ? (
         <LoadingTasks noun="the Teradyne log" />
-      ) : filtered.length === 0 ? (
+      ) : listUnavailable ? null : filtered.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border py-16 text-center text-fg-muted">
           {log.length === 0
             ? `Nothing logged in ${year} yet. Click 'New entry' to add the first one.`

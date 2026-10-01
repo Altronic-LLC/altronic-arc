@@ -22,10 +22,10 @@ import type { Eir } from "@/types/task";
 vi.mock("@/hooks/useCurrentUser", () => ({
   useCurrentUser: () => ({
     displayName: "Ray White",
-    email: "ray.white@hoerbiger.com",
+    email: "ray.white@altronic-llc.com",
     lookupId: 122,
   }),
-  useCurrentUserEmails: () => ["ray.white@hoerbiger.com"],
+  useCurrentUserEmails: () => ["ray.white@altronic-llc.com"],
 }));
 
 import { EirsView } from "./EirsView";

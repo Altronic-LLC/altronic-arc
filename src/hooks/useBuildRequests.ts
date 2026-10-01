@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   addBuildRequestComment,
@@ -21,18 +22,39 @@ import {
 } from "@/api/buildRequestItems";
 import type { BuildRequest, BuildRequestItem, Person } from "@/types/task";
 import { ALL_CHECKLIST_FIELDS } from "@/lib/buildRequestChecklist";
+import { describeListWriteFailure } from "@/lib/listWriteErrors";
 import { pushToast } from "@/components/Toast";
-import { autoWatchFromMentions } from "@/api/autoWatch";
-import { fireAssigneeChangeAlert, fireFieldChangeAlert, notifyMentions } from "@/api/email";
+import {
+  fireAssigneeChangeAlert,
+  fireBuildRequestCompleteAlert,
+  fireBuildRequestPartProductionCompleteAlert,
+  fireBuildRequestProductionCompleteAlert,
+  fireBuildRequestReadyForProductionAlert,
+  fireFieldChangeAlert,
+  notifyMentions,
+} from "@/api/email";
 import { htmlToPlainText } from "@/lib/htmlText";
 import {
   commentNotifyRecipients,
   commentRenotifyRecipients,
   extractMentionedRecipients,
 } from "@/lib/mentions";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useCurrentUser, useCurrentUserEmails } from "@/hooks/useCurrentUser";
+import { ADMINS_KEY } from "./useAdmins";
+import { listAdmins } from "@/api/admins";
+import { isAdminEmail } from "@/lib/adminAccess";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { productionTransitionRefusal } from "@/lib/buildRequestProduction";
 import { resolveCurrentUserLookupId } from "@/api/currentUser";
 import { autoWatchers } from "@/lib/people";
+import { fanOutComment } from "@/hooks/useCommentMirror";
+import {
+  afterMentionAutoWatch,
+  beginMentionAutoWatch,
+  type MentionAutoWatch,
+} from "./mentionAutoWatch";
+import { buildRequestsForTask } from "@/lib/buildRequestFromTask";
+import { parseWrittenDate } from "@/lib/dateInput";
 
 // =============================================================================
 // Build Request hooks — two query caches (headers + items) with the same
@@ -67,6 +89,27 @@ export function useBuildRequest(id: number | null) {
   return {
     ...list,
     data: id != null ? list.data?.find((b) => b.id === id) ?? null : null,
+  };
+}
+
+/**
+ * The Build Requests raised from a task — DERIVED from each BR's own
+ * `TaskReference`, not stored on the task.
+ *
+ * The Task list has no Build Request column, and adding one would mean two
+ * columns that can disagree about the same link (and a schema change on the
+ * busiest list in ARC). Deriving costs nothing extra: the Build Requests
+ * list is already loaded whole, and the filter runs in the browser.
+ *
+ * `isLoading` is forwarded so a caller can tell "no build request" from
+ * "haven't looked yet" — rendering the first as the second is how a "Create
+ * Build Request" button briefly appears on a task that already has one.
+ */
+export function useBuildRequestsForTask(taskId: number | null) {
+  const list = useBuildRequests();
+  return {
+    ...list,
+    data: buildRequestsForTask(list.data ?? [], taskId),
   };
 }
 
@@ -163,7 +206,7 @@ function applyBrFieldsLocally(b: BuildRequest, fields: Record<string, unknown>):
   }
   if ("QuotedShipDate" in fields) {
     const v = fields.QuotedShipDate;
-    next.quotedShipDate = v ? new Date(v as string) : null;
+    next.quotedShipDate = parseWrittenDate(v);
   }
   if ("SamplePhase" in fields) {
     next.samplePhase = (fields.SamplePhase as BuildRequest["samplePhase"]) || null;
@@ -175,31 +218,141 @@ function applyBrFieldsLocally(b: BuildRequest, fields: Record<string, unknown>):
   return next;
 }
 
+/**
+ * A status write the production hand-off rule refused
+ * (`productionTransitionRefusal`). Thrown from `mutationFn` BEFORE any
+ * request goes out, so the status picker can't bypass the detail page's
+ * Ready for Production / Production Complete button.
+ */
+export class BuildRequestProductionRefusedError extends Error {
+  constructor(reason: string) {
+    super(reason);
+    this.name = "BuildRequestProductionRefusedError";
+  }
+}
+
+/**
+ * Refusals decided in `onMutate`, against the PRE-patch row: by the time
+ * `mutationFn` runs the optimistic patch has already moved the cached status
+ * to the target, so every transition would read as a re-save. Keyed on the
+ * variables object React Query hands to both — the FAIT `pendingSignOff`
+ * pattern.
+ */
+const pendingProductionRefusal = new WeakMap<object, string>();
+
+const PRODUCTION_GATED_STATUSES: readonly string[] = ["Ready for Production", "Production Complete"];
+
+/**
+ * Status changes whose own hand-off alert REPLACES the generic "status
+ * changed" note (it already reaches the same watchers — sending both would
+ * double-email them). "Production Complete" is deliberately absent: its own
+ * alert goes only to the reviewer, so the generic note still tells watchers.
+ */
+function brStatusHasOwnAlert(from: string, to: string): boolean {
+  if (from === to) return false;
+  if (to === "Ready for Production") return true;
+  return to === "Complete" && from === "Production Complete";
+}
+
+type BrFieldWrite = { id: number; fields: Record<string, unknown> };
+
 export function useUpdateBuildRequestFields() {
   const qc = useQueryClient();
   const actor = useCurrentUser();
+  const isAdmin = useIsAdmin();
+  const myEmails = useCurrentUserEmails();
+  // Read at mutation time rather than closed over the first render: the
+  // Admins list and /me both resolve asynchronously.
+  const accessRef = useRef({ isAdmin, myEmails });
+  accessRef.current = { isAdmin, myEmails };
+  const actorRef = useRef(actor);
+  actorRef.current = actor;
   return useMutation({
-    mutationFn: ({ id, fields }: { id: number; fields: Record<string, unknown> }) =>
-      updateBuildRequestFields(id, fields),
-    onMutate: ({ id, fields }) =>
-      snapshotAndPatchBr(qc, id, patchBr(id, (b) => applyBrFieldsLocally(b, fields))),
+    mutationFn: (vars: BrFieldWrite) => {
+      const refusal = pendingProductionRefusal.get(vars);
+      if (refusal) throw new BuildRequestProductionRefusedError(refusal);
+      return updateBuildRequestFields(vars.id, vars.fields);
+    },
+    onMutate: async (vars: BrFieldWrite): Promise<BrCtx> => {
+      const { id, fields } = vars;
+      if ("BRStatus" in fields) {
+        const target = String(fields.BRStatus ?? "");
+        if (PRODUCTION_GATED_STATUSES.includes(target)) {
+          const brs = await qc.ensureQueryData({
+            queryKey: BUILD_REQUESTS_KEY,
+            queryFn: listBuildRequests,
+          });
+          const br = brs.find((b) => b.id === id);
+          let refusal: string | null;
+          if (!br) {
+            refusal = "This build request couldn't be found — refresh and try again.";
+          } else {
+            const items = await qc.ensureQueryData({
+              queryKey: BUILD_REQUEST_ITEMS_KEY,
+              queryFn: listBuildRequestItems,
+            });
+            const parts = items.filter((i) => i.buildRequestLookupId === id);
+            // The render-time admin flag reads FALSE while the Admins list is
+            // still loading, which would refuse a real admin on first paint.
+            // Await the list here (the CMMS gates do the same); fall back to
+            // the render-time flag only if that read fails.
+            const { myEmails } = accessRef.current;
+            const admins = await qc
+              .ensureQueryData({ queryKey: ADMINS_KEY, queryFn: listAdmins })
+              .catch(() => null);
+            const isAdmin = admins
+              ? myEmails.some((e) => isAdminEmail(e, admins))
+              : accessRef.current.isAdmin;
+            refusal = productionTransitionRefusal(br, parts, target, { isAdmin, myEmails });
+          }
+          if (refusal) {
+            pendingProductionRefusal.set(vars, refusal);
+            // No optimistic patch: nothing is going to be written.
+            return {};
+          }
+        }
+      }
+      return snapshotAndPatchBr(qc, id, patchBr(id, (b) => applyBrFieldsLocally(b, fields)));
+    },
     onSuccess: (_data, { id, fields }, ctx) => {
       pushToast({ message: "Changes saved." });
-      if ("BRStatus" in fields && ctx?.prevBr) {
-        fireFieldChangeAlert({
-          target: { kind: "buildRequest", id, title: ctx.prevBr.brNo || ctx.prevBr.title },
-          fieldLabel: "status",
-          from: ctx.prevBr.status,
-          to: String(fields.BRStatus ?? ""),
-          actor,
-          watchers: ctx.prevBr.watchers,
-          assignees: ctx.prevBr.engineerAssigned ? [ctx.prevBr.engineerAssigned] : [],
-          reporter: ctx.prevBr.requestor,
-        });
+      const prevBr = ctx?.prevBr;
+      if ("BRStatus" in fields && prevBr) {
+        const from = prevBr.status;
+        const to = String(fields.BRStatus ?? "");
+        const who = actorRef.current;
+        if (!brStatusHasOwnAlert(from, to)) {
+          // No-ops by itself when from === to.
+          fireFieldChangeAlert({
+            target: { kind: "buildRequest", id, title: prevBr.brNo || prevBr.title },
+            fieldLabel: "status",
+            from,
+            to,
+            actor: who,
+            watchers: prevBr.watchers,
+            assignees: prevBr.engineerAssigned ? [prevBr.engineerAssigned] : [],
+            reporter: prevBr.requestor,
+          });
+        }
+        // `"BRStatus" in fields` is PRESENCE, not change — `to !== from` is
+        // OUR guard, so re-saving a status never re-announces it.
+        if (to !== from) {
+          if (to === "Ready for Production") {
+            fireBuildRequestReadyForProductionAlert({ buildRequest: prevBr, actor: who });
+          } else if (to === "Production Complete") {
+            fireBuildRequestProductionCompleteAlert({ buildRequest: prevBr, actor: who });
+          } else if (to === "Complete" && from === "Production Complete") {
+            fireBuildRequestCompleteAlert({ buildRequest: prevBr, actor: who });
+          }
+        }
       }
     },
-    onError: (_err, _vars, ctx) => {
+    onError: (err, _vars, ctx) => {
       rollbackBr(qc, ctx);
+      if (err instanceof BuildRequestProductionRefusedError) {
+        errorToast(err.message);
+        return;
+      }
       errorToast("Couldn't save changes — they have been reverted.");
     },
     onSettled: () => invalidateBrs(qc),
@@ -349,70 +502,66 @@ export function useCreateBuildRequest() {
 // ---- auto-watch helpers -------------------------------------------------------
 
 /**
- * Apply auto-watch additions optimistically — watcher chips + toast show
- * immediately, the SharePoint write happens in the background (re-patching
- * the cache after it lands in case a refetch overwrote the optimistic
- * version). On failure: error toast + refetch so the UI doesn't lie.
+ * Start auto-watch for a build request HEADER comment: the mentioned people
+ * appear as watchers immediately and are written once the comment lands.
+ * Build requests live on the ENGINEERING site — hence that resolver.
  */
-async function applyBrWatcherAdditions(
+function beginBrMentionAutoWatch(
   qc: QueryClient,
   id: number,
-  currentWatchers: Person[],
-  additions: Person[],
-): Promise<void> {
-  if (additions.length === 0) return;
-  const next = [...currentWatchers, ...additions];
-  const patch = () =>
-    qc.setQueryData<BuildRequest[]>(BUILD_REQUESTS_KEY, (old) =>
-      old?.map((b) => (b.id === id ? { ...b, watchers: next } : b)),
-    );
-  patch();
-  pushToast({
-    message:
-      additions.length === 1
-        ? `${additions[0].displayName} is now watching this build request.`
-        : `${additions.length} people are now watching this build request.`,
+  bodyHtml: string,
+): MentionAutoWatch | null {
+  const br = qc.getQueryData<BuildRequest[]>(BUILD_REQUESTS_KEY)?.find((b) => b.id === id);
+  if (!br) return null;
+  return beginMentionAutoWatch({
+    bodyHtml,
+    currentWatchers: br.watchers,
+    directory: () =>
+      collectBuildRequestPeople(
+        qc.getQueryData<BuildRequest[]>(BUILD_REQUESTS_KEY),
+        qc.getQueryData<BuildRequestItem[]>(BUILD_REQUEST_ITEMS_KEY),
+      ),
+    resolveLookupId: resolveCurrentUserLookupId,
+    patch: (watchers) =>
+      qc.setQueryData<BuildRequest[]>(BUILD_REQUESTS_KEY, (old) =>
+        old?.map((b) => (b.id === id ? { ...b, watchers } : b)),
+      ),
+    write: (watchers) => setBuildRequestWatchers(id, watchers),
+    onWriteFailed: () => invalidateBrs(qc),
+    noun: "build request",
   });
-  try {
-    await setBuildRequestWatchers(id, next);
-    patch();
-  } catch (err) {
-    console.error("Couldn't save auto-watch additions:", err);
-    errorToast("Couldn't add the mentioned person as a watcher — refreshing.");
-    invalidateBrs(qc);
-  }
 }
 
-/** Same as applyBrWatcherAdditions, for a build request ITEM's watcher list. */
-async function applyItemWatcherAdditions(
+/**
+ * Same as beginBrMentionAutoWatch, for a PART's comment. A part's watchers
+ * live on the item (Build Request Items list, BUILD_REQUEST_ITEMS_KEY), not
+ * on its header.
+ */
+function beginItemMentionAutoWatch(
   qc: QueryClient,
   id: number,
-  currentWatchers: Person[],
-  additions: Person[],
-): Promise<void> {
-  if (additions.length === 0) return;
-  const next = [...currentWatchers, ...additions];
-  const patch = () =>
-    qc.setQueryData<BuildRequestItem[]>(BUILD_REQUEST_ITEMS_KEY, (old) =>
-      old?.map((i) => (i.id === id ? { ...i, watchers: next } : i)),
-    );
-  patch();
-  pushToast({
-    message:
-      additions.length === 1
-        ? `${additions[0].displayName} is now watching this part.`
-        : `${additions.length} people are now watching this part.`,
+  bodyHtml: string,
+): MentionAutoWatch | null {
+  const item = qc.getQueryData<BuildRequestItem[]>(BUILD_REQUEST_ITEMS_KEY)?.find((i) => i.id === id);
+  if (!item) return null;
+  return beginMentionAutoWatch({
+    bodyHtml,
+    currentWatchers: item.watchers,
+    directory: () =>
+      collectBuildRequestPeople(
+        qc.getQueryData<BuildRequest[]>(BUILD_REQUESTS_KEY),
+        qc.getQueryData<BuildRequestItem[]>(BUILD_REQUEST_ITEMS_KEY),
+      ),
+    resolveLookupId: resolveCurrentUserLookupId,
+    patch: (watchers) =>
+      qc.setQueryData<BuildRequestItem[]>(BUILD_REQUEST_ITEMS_KEY, (old) =>
+        old?.map((i) => (i.id === id ? { ...i, watchers } : i)),
+      ),
+    write: (watchers) => setBuildRequestItemWatchers(id, watchers),
+    onWriteFailed: () => invalidateItems(qc),
+    noun: "part",
   });
-  try {
-    await setBuildRequestItemWatchers(id, next);
-    patch();
-  } catch (err) {
-    console.error("Couldn't save auto-watch additions:", err);
-    errorToast("Couldn't add the mentioned person as a watcher — refreshing.");
-    invalidateItems(qc);
-  }
 }
-
 
 /** Flatten every Person across headers + items, deduped, lookupId-only. */
 function collectBuildRequestPeople(
@@ -448,8 +597,8 @@ export function useAddBuildRequestComment() {
       id: number;
       comment: { authorName: string; authorEmail: string; bodyHtml: string };
     }) => addBuildRequestComment(id, comment),
-    onMutate: ({ id, comment }) =>
-      snapshotAndPatchBr(
+    onMutate: async ({ id, comment }) => ({
+      ...(await snapshotAndPatchBr(
         qc,
         id,
         patchBr(id, (b) => ({
@@ -466,8 +615,13 @@ export function useAddBuildRequestComment() {
           ],
           modifiedAt: new Date(),
         })),
-      ),
-    onSuccess: (_data, { id, comment }) => {
+      )),
+      // Mentioned people show as watchers NOW, not after the comment's round
+      // trip — see hooks/mentionAutoWatch.ts.
+      autoWatch: beginBrMentionAutoWatch(qc, id, comment.bodyHtml),
+    }),
+    onSuccess: (_data, { id, comment }, ctx) => {
+      ctx?.autoWatch?.commit();
       pushToast({ message: "Comment posted." });
 
       const brs = qc.getQueryData<BuildRequest[]>(BUILD_REQUESTS_KEY);
@@ -495,25 +649,24 @@ export function useAddBuildRequestComment() {
         });
       }
 
-      const mentioned = extractMentionedRecipients(comment.bodyHtml);
-      if (mentioned.length === 0) return;
-      const items = qc.getQueryData<BuildRequestItem[]>(BUILD_REQUEST_ITEMS_KEY);
-      void autoWatchFromMentions({
-        resolveLookupId: resolveCurrentUserLookupId,
-        recipients: mentioned,
-        currentWatchers: br.watchers,
-        directory: collectBuildRequestPeople(brs, items),
-      })
-        .then((additions) => applyBrWatcherAdditions(qc, id, br.watchers, additions))
-        .catch((err) => {
-          console.error("Auto-watch failed for build request comment:", err);
-        });
+      // Copy it onto the task this request was raised from, if any, and
+      // notify that side's watchers minus whoever we just emailed.
+      void fanOutComment({
+        qc,
+        source: { kind: "buildRequest", id },
+        comment,
+        alreadyNotified: recipients,
+      });
     },
     onError: (_err, _vars, ctx) => {
+      ctx?.autoWatch?.cancel();
       rollbackBr(qc, ctx);
-      errorToast("Couldn't post comment — please retry.");
+      errorToast("Couldn't post comment — it's back in the comment box to send again.");
     },
-    onSettled: () => invalidateBrs(qc),
+    // Refetch only once any auto-watch write has landed, so the refetch
+    // doesn't read a row without the new watchers and wipe their chips.
+    onSettled: (_d, _e, _v, ctx) =>
+      afterMentionAutoWatch(ctx?.autoWatch, () => invalidateBrs(qc)),
   });
 }
 
@@ -530,8 +683,8 @@ export function useEditBuildRequestComment() {
       newBodyHtml: string;
       renotify?: boolean;
     }) => editBuildRequestComment(id, target, newBodyHtml),
-    onMutate: ({ id, target, newBodyHtml }) =>
-      snapshotAndPatchBr(
+    onMutate: async ({ id, target, newBodyHtml }) => ({
+      ...(await snapshotAndPatchBr(
         qc,
         id,
         patchBr(id, (b) => ({
@@ -544,8 +697,13 @@ export function useEditBuildRequestComment() {
           ),
           modifiedAt: new Date(),
         })),
-      ),
+      )),
+      // Mentioned people show as watchers NOW, not after the comment's round
+      // trip — see hooks/mentionAutoWatch.ts.
+      autoWatch: beginBrMentionAutoWatch(qc, id, newBodyHtml),
+    }),
     onSuccess: (_data, { id, target, newBodyHtml, renotify }, ctx) => {
+      ctx?.autoWatch?.commit();
       const prevComment = ctx?.prevBr?.comments.find(
         (c) =>
           c.timestamp.getTime() === target.timestamp.getTime() &&
@@ -604,26 +762,16 @@ export function useEditBuildRequestComment() {
           });
         }
       }
-
-      const mentioned = extractMentionedRecipients(newBodyHtml);
-      if (mentioned.length === 0) return;
-      const items = qc.getQueryData<BuildRequestItem[]>(BUILD_REQUEST_ITEMS_KEY);
-      void autoWatchFromMentions({
-        resolveLookupId: resolveCurrentUserLookupId,
-        recipients: mentioned,
-        currentWatchers: br.watchers,
-        directory: collectBuildRequestPeople(brs, items),
-      })
-        .then((additions) => applyBrWatcherAdditions(qc, id, br.watchers, additions))
-        .catch((err) => {
-          console.error("Auto-watch failed for edited build request comment:", err);
-        });
     },
     onError: (_err, _vars, ctx) => {
+      ctx?.autoWatch?.cancel();
       rollbackBr(qc, ctx);
       errorToast("Couldn't save comment — reverted.");
     },
-    onSettled: () => invalidateBrs(qc),
+    // Refetch only once any auto-watch write has landed, so the refetch
+    // doesn't read a row without the new watchers and wipe their chips.
+    onSettled: (_d, _e, _v, ctx) =>
+      afterMentionAutoWatch(ctx?.autoWatch, () => invalidateBrs(qc)),
   });
 }
 
@@ -688,6 +836,9 @@ function applyItemFieldsLocally(
 export function useUpdateBuildRequestItemFields() {
   const qc = useQueryClient();
   const actor = useCurrentUser();
+  // Read at send time: useCurrentUser re-resolves asynchronously.
+  const actorRef = useRef(actor);
+  actorRef.current = actor;
   return useMutation({
     mutationFn: ({ id, fields }: { id: number; fields: Record<string, unknown> }) =>
       updateBuildRequestItemFields(id, fields),
@@ -695,21 +846,62 @@ export function useUpdateBuildRequestItemFields() {
       snapshotAndPatchItem(qc, id, patchItem(id, (i) => applyItemFieldsLocally(i, fields))),
     onSuccess: (_data, { id, fields }, ctx) => {
       pushToast({ message: "Part updated." });
-      if ("Part_x0020_Status" in fields && ctx?.prevItem) {
+      const prevItem = ctx?.prevItem;
+      if (!("Part_x0020_Status" in fields) || !prevItem) return;
+      const from = prevItem.partStatus ?? "Not set";
+      const to = String(fields.Part_x0020_Status ?? "Not set");
+      const generic = () =>
         fireFieldChangeAlert({
-          target: { kind: "buildRequestItem", id, title: ctx.prevItem.partNumber },
+          target: { kind: "buildRequestItem", id, title: prevItem.partNumber },
           fieldLabel: "part status",
-          from: ctx.prevItem.partStatus ?? "Not set",
-          to: String(fields.Part_x0020_Status ?? "Not set"),
-          actor,
-          watchers: ctx.prevItem.watchers,
+          from,
+          to,
+          actor: actorRef.current,
+          watchers: prevItem.watchers,
           assignees: [],
         });
+      // `to !== from` is the guard; presence of the field is not a change.
+      if (to !== "Production Complete" || to === from) {
+        generic();
+        return;
       }
+      // A part REACHING Production Complete gets its own alert (the request's
+      // engineer, watchers and requestor plus the part's watchers), replacing
+      // the generic note rather than doubling it. The parent is LOADED if the
+      // cache hasn't got it — a part edited before the requests list arrived
+      // must still reach the engineer, not only the part's watchers.
+      void qc
+        .ensureQueryData({ queryKey: BUILD_REQUESTS_KEY, queryFn: listBuildRequests })
+        .then((brs) => brs.find((b) => b.id === prevItem.buildRequestLookupId))
+        .catch(() => undefined)
+        .then((parent) => {
+          if (parent) {
+            fireBuildRequestPartProductionCompleteAlert({
+              buildRequest: parent,
+              part: prevItem,
+              actor: actorRef.current,
+            });
+          } else {
+            generic();
+          }
+        });
     },
-    onError: (_err, _vars, ctx) => {
+    onError: (err, _vars, ctx) => {
       rollbackItem(qc, ctx);
-      errorToast("Couldn't save the part — changes reverted.");
+      // Say WHY. This toast threw the error away entirely, so a refused
+      // write read as "the app is broken" — reported 2026-09-24 against the
+      // Assembly / Operations / Testing pickers, where ARC's own values,
+      // array shape and $select all check out against the live column
+      // definitions, which leaves the SharePoint permission boundary (the
+      // real one — ARC's gating is only UI-level) and nothing on screen
+      // naming it.
+      errorToast(
+        `${describeListWriteFailure(err, {
+          action: "save this part",
+          site: "Engineering",
+          permission: "editing",
+        })} Your changes have been reverted.`,
+      );
     },
     onSettled: () => invalidateItems(qc),
   });
@@ -762,8 +954,8 @@ export function useAddBuildRequestItemComment() {
       id: number;
       comment: { authorName: string; authorEmail: string; bodyHtml: string };
     }) => addBuildRequestItemComment(id, comment),
-    onMutate: ({ id, comment }) =>
-      snapshotAndPatchItem(
+    onMutate: async ({ id, comment }) => ({
+      ...(await snapshotAndPatchItem(
         qc,
         id,
         patchItem(id, (i) => ({
@@ -780,8 +972,13 @@ export function useAddBuildRequestItemComment() {
           ],
           modifiedAt: new Date(),
         })),
-      ),
-    onSuccess: (_data, { id, comment }) => {
+      )),
+      // Mentioned people show as watchers NOW, not after the comment's round
+      // trip — see hooks/mentionAutoWatch.ts.
+      autoWatch: beginItemMentionAutoWatch(qc, id, comment.bodyHtml),
+    }),
+    onSuccess: (_data, { id, comment }, ctx) => {
+      ctx?.autoWatch?.commit();
       pushToast({ message: "Comment posted." });
 
       const items = qc.getQueryData<BuildRequestItem[]>(BUILD_REQUEST_ITEMS_KEY);
@@ -808,25 +1005,25 @@ export function useAddBuildRequestItemComment() {
         });
       }
 
-      const mentioned = extractMentionedRecipients(comment.bodyHtml);
-      if (mentioned.length === 0) return;
-      const brs = qc.getQueryData<BuildRequest[]>(BUILD_REQUESTS_KEY);
-      void autoWatchFromMentions({
-        resolveLookupId: resolveCurrentUserLookupId,
-        recipients: mentioned,
-        currentWatchers: item.watchers,
-        directory: collectBuildRequestPeople(brs, items),
-      })
-        .then((additions) => applyItemWatcherAdditions(qc, id, item.watchers, additions))
-        .catch((err) => {
-          console.error("Auto-watch failed for build request item comment:", err);
-        });
+      // A part comment fans out BOTH ways — onto the linked task AND onto its
+      // own build request header — each copy flagged as coming from this part
+      // and linking back here to reply (Ray, 2026-09-21).
+      void fanOutComment({
+        qc,
+        source: { kind: "buildRequestItem", id },
+        comment,
+        alreadyNotified: recipients,
+      });
     },
     onError: (_err, _vars, ctx) => {
+      ctx?.autoWatch?.cancel();
       rollbackItem(qc, ctx);
-      errorToast("Couldn't post comment — please retry.");
+      errorToast("Couldn't post comment — it's back in the comment box to send again.");
     },
-    onSettled: () => invalidateItems(qc),
+    // Refetch only once any auto-watch write has landed, so the refetch
+    // doesn't read a row without the new watchers and wipe their chips.
+    onSettled: (_d, _e, _v, ctx) =>
+      afterMentionAutoWatch(ctx?.autoWatch, () => invalidateItems(qc)),
   });
 }
 
@@ -843,8 +1040,8 @@ export function useEditBuildRequestItemComment() {
       newBodyHtml: string;
       renotify?: boolean;
     }) => editBuildRequestItemComment(id, target, newBodyHtml),
-    onMutate: ({ id, target, newBodyHtml }) =>
-      snapshotAndPatchItem(
+    onMutate: async ({ id, target, newBodyHtml }) => ({
+      ...(await snapshotAndPatchItem(
         qc,
         id,
         patchItem(id, (i) => ({
@@ -857,8 +1054,13 @@ export function useEditBuildRequestItemComment() {
           ),
           modifiedAt: new Date(),
         })),
-      ),
+      )),
+      // Mentioned people show as watchers NOW, not after the comment's round
+      // trip — see hooks/mentionAutoWatch.ts.
+      autoWatch: beginItemMentionAutoWatch(qc, id, newBodyHtml),
+    }),
     onSuccess: (_data, { id, target, newBodyHtml, renotify }, ctx) => {
+      ctx?.autoWatch?.commit();
       const prevComment = ctx?.prevItem?.comments.find(
         (c) =>
           c.timestamp.getTime() === target.timestamp.getTime() &&
@@ -908,26 +1110,16 @@ export function useEditBuildRequestItemComment() {
           });
         }
       }
-
-      const mentioned = extractMentionedRecipients(newBodyHtml);
-      if (mentioned.length === 0) return;
-      const brs = qc.getQueryData<BuildRequest[]>(BUILD_REQUESTS_KEY);
-      void autoWatchFromMentions({
-        resolveLookupId: resolveCurrentUserLookupId,
-        recipients: mentioned,
-        currentWatchers: item.watchers,
-        directory: collectBuildRequestPeople(brs, items),
-      })
-        .then((additions) => applyItemWatcherAdditions(qc, id, item.watchers, additions))
-        .catch((err) => {
-          console.error("Auto-watch failed for edited build request item comment:", err);
-        });
     },
     onError: (_err, _vars, ctx) => {
+      ctx?.autoWatch?.cancel();
       rollbackItem(qc, ctx);
       errorToast("Couldn't save comment — reverted.");
     },
-    onSettled: () => invalidateItems(qc),
+    // Refetch only once any auto-watch write has landed, so the refetch
+    // doesn't read a row without the new watchers and wipe their chips.
+    onSettled: (_d, _e, _v, ctx) =>
+      afterMentionAutoWatch(ctx?.autoWatch, () => invalidateItems(qc)),
   });
 }
 

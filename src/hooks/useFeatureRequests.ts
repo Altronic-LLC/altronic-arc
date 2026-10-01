@@ -10,7 +10,11 @@ import {
   setFeatureRequestWatchers,
   updateFeatureRequestFields,
 } from "@/api/featureRequests";
-import { autoWatchFromMentions } from "@/api/autoWatch";
+import {
+  afterMentionAutoWatch,
+  beginMentionAutoWatch,
+  type MentionAutoWatch,
+} from "./mentionAutoWatch";
 import type { FeatureRequest, FeatureRequestInput, Person } from "@/types/task";
 import { pushToast } from "@/components/Toast";
 import {
@@ -71,31 +75,12 @@ function rollback(qc: QueryClient, ctx: FeatureRequestCtx | undefined) {
 }
 
 /**
- * Request ids with an auto-watch-on-mention write still in flight.
- *
- * `applyFeatureRequestWatcherAdditions` fires its `setFeatureRequestWatchers`
- * PATCH as a bare, unawaited async call from inside a mutation's `onSuccess`
- * — invisible to React Query's own `isMutating()` tracking, since it was
- * never started as a tracked mutation. Without this, the COMMENT mutation's
- * own `onSettled` invalidates the list immediately (React Query calls
- * `onSettled` right after `onSuccess` returns — it does not wait for a
- * fire-and-forget promise still running inside it), and that refetch was
- * observed landing BEFORE the watcher PATCH did, overwriting the cache with
- * server data that doesn't have the new watcher yet — "watchers aren't
- * sticking" (Ray, 2026-09-02). This tracks which ids have such a write
- * pending so a sibling invalidate can skip refetching them until it lands.
+ * Refetch the list. Comment mutations don't call this until any auto-watch
+ * write has landed (`afterMentionAutoWatch`), so the refetch can't read a row
+ * that predates the new watchers — "watchers aren't sticking" (Ray,
+ * 2026-09-02) was exactly that race.
  */
-// Exported for a direct test of the guard itself (see
-// useFeatureRequests.test.tsx) — a live async race is inherently
-// timing-dependent and doesn't reliably reproduce through the full mutation
-// stack in a fast, deterministic test environment, so the mechanism is
-// tested directly rather than only through an end-to-end race attempt.
-export const pendingWatcherWrites = new Set<number>();
-
-export function invalidateFeatureRequests(qc: QueryClient, skipIfWatcherPending?: number) {
-  if (skipIfWatcherPending !== undefined && pendingWatcherWrites.has(skipIfWatcherPending)) {
-    return;
-  }
+export function invalidateFeatureRequests(qc: QueryClient) {
   qc.invalidateQueries({ queryKey: FEATURE_REQUESTS_KEY });
 }
 
@@ -264,8 +249,8 @@ export function useAddFeatureRequestComment() {
       id: number;
       comment: { authorName: string; authorEmail: string; bodyHtml: string };
     }) => addFeatureRequestComment(id, comment),
-    onMutate: ({ id, comment }) =>
-      snapshotAndPatch(
+    onMutate: async ({ id, comment }) => ({
+      ...(await snapshotAndPatch(
         qc,
         id,
         patchFeatureRequest(id, (r) => ({
@@ -282,8 +267,13 @@ export function useAddFeatureRequestComment() {
           ],
           modifiedAt: new Date(),
         })),
-      ),
-    onSuccess: (_data, { id, comment }) => {
+      )),
+      // Mentioned people show as watchers NOW, not after the comment's round
+      // trip — see hooks/mentionAutoWatch.ts.
+      autoWatch: beginFeatureRequestMentionAutoWatch(qc, id, comment.bodyHtml),
+    }),
+    onSuccess: (_data, { id, comment }, ctx) => {
+      ctx?.autoWatch?.commit();
       pushToast({ message: "Comment posted." });
 
       const requests = qc.getQueryData<FeatureRequest[]>(FEATURE_REQUESTS_KEY);
@@ -306,68 +296,44 @@ export function useAddFeatureRequestComment() {
           attachments: [],
         });
       }
-
-      const mentioned = extractMentionedRecipients(comment.bodyHtml);
-      if (mentioned.length === 0) return;
-      // Marked BEFORE the async chain starts, not inside it — `onSettled`
-      // below runs synchronously right after this function returns, so the
-      // flag has to already be set by then or the invalidate race it guards
-      // against isn't actually closed. See the comment on
-      // `pendingWatcherWrites` above.
-      pendingWatcherWrites.add(id);
-      void autoWatchFromMentions({
-        resolveLookupId: resolveFeatureRequestSiteUserLookupId,
-        recipients: mentioned,
-        currentWatchers: request.watchers,
-        directory: requests ? collectFeatureRequestPeople(requests) : [],
-      })
-        .then((additions) => applyFeatureRequestWatcherAdditions(qc, id, request.watchers, additions))
-        .catch((err) => {
-          console.error("Auto-watch failed for feature request comment:", err);
-        })
-        .finally(() => {
-          pendingWatcherWrites.delete(id);
-          invalidateFeatureRequests(qc);
-        });
     },
     onError: (_err, _vars, ctx) => {
+      ctx?.autoWatch?.cancel();
       rollback(qc, ctx);
-      errorToast("Couldn't post comment — please retry.");
+      errorToast("Couldn't post comment — it's back in the comment box to send again.");
     },
-    onSettled: (_data, _err, { id }) => invalidateFeatureRequests(qc, id),
+    onSettled: (_data, _err, _vars, ctx) =>
+      afterMentionAutoWatch(ctx?.autoWatch, () => invalidateFeatureRequests(qc)),
   });
 }
 
-async function applyFeatureRequestWatcherAdditions(
+/**
+ * Start auto-watch for a feature request comment: the mentioned people appear
+ * as watchers immediately and are written once the comment lands.
+ */
+function beginFeatureRequestMentionAutoWatch(
   qc: QueryClient,
   id: number,
-  currentWatchers: Person[],
-  additions: Person[],
-): Promise<void> {
-  if (additions.length === 0) return;
-  const next = [...currentWatchers, ...additions];
-  const patch = () =>
-    qc.setQueryData<FeatureRequest[]>(FEATURE_REQUESTS_KEY, (old) =>
-      old?.map((r) => (r.id === id ? { ...r, watchers: next } : r)),
-    );
-  patch();
-  pushToast({
-    message:
-      additions.length === 1
-        ? `${additions[0].displayName} is now watching this request.`
-        : `${additions.length} people are now watching this request.`,
+  bodyHtml: string,
+): MentionAutoWatch | null {
+  const request = qc
+    .getQueryData<FeatureRequest[]>(FEATURE_REQUESTS_KEY)
+    ?.find((r) => r.id === id);
+  if (!request) return null;
+  return beginMentionAutoWatch({
+    bodyHtml,
+    currentWatchers: request.watchers,
+    directory: () =>
+      collectFeatureRequestPeople(qc.getQueryData<FeatureRequest[]>(FEATURE_REQUESTS_KEY) ?? []),
+    resolveLookupId: resolveFeatureRequestSiteUserLookupId,
+    patch: (watchers) =>
+      qc.setQueryData<FeatureRequest[]>(FEATURE_REQUESTS_KEY, (old) =>
+        old?.map((r) => (r.id === id ? { ...r, watchers } : r)),
+      ),
+    write: (watchers) => setFeatureRequestWatchers(id, watchers),
+    onWriteFailed: () => invalidateFeatureRequests(qc),
+    noun: "request",
   });
-  try {
-    await setFeatureRequestWatchers(id, next);
-    patch();
-  } catch (err) {
-    console.error("Couldn't save auto-watch additions:", err);
-    errorToast("Couldn't add the mentioned person as a watcher — refreshing.");
-    // The caller's `.finally()` also invalidates once this promise settles —
-    // this one is redundant but harmless (an extra refetch, not a
-    // correctness issue); left as defence in depth in case this function is
-    // ever called from somewhere without that `.finally()`.
-  }
 }
 
 export function useEditFeatureRequestComment() {
@@ -383,8 +349,8 @@ export function useEditFeatureRequestComment() {
       newBodyHtml: string;
       renotify?: boolean;
     }) => editFeatureRequestComment(id, target, newBodyHtml),
-    onMutate: ({ id, target, newBodyHtml }) =>
-      snapshotAndPatch(
+    onMutate: async ({ id, target, newBodyHtml }) => ({
+      ...(await snapshotAndPatch(
         qc,
         id,
         patchFeatureRequest(id, (r) => ({
@@ -397,8 +363,13 @@ export function useEditFeatureRequestComment() {
           ),
           modifiedAt: new Date(),
         })),
-      ),
+      )),
+      // Anyone @-mentioned in the edited body becomes a watcher (unless
+      // already watching) — same rule, and same timing, as a new comment.
+      autoWatch: beginFeatureRequestMentionAutoWatch(qc, id, newBodyHtml),
+    }),
     onSuccess: (_data, { id, target, newBodyHtml, renotify }, ctx) => {
+      ctx?.autoWatch?.commit();
       const prevComment = ctx?.prevRequest?.comments.find(
         (c) =>
           c.timestamp.getTime() === target.timestamp.getTime() &&
@@ -452,35 +423,14 @@ export function useEditFeatureRequestComment() {
           });
         }
       }
-
-      const mentioned = extractMentionedRecipients(newBodyHtml);
-      if (mentioned.length === 0) return;
-      const allRequests = qc.getQueryData<FeatureRequest[]>(FEATURE_REQUESTS_KEY);
-      // Marked BEFORE the async chain starts — see the comment on
-      // `pendingWatcherWrites` above.
-      pendingWatcherWrites.add(id);
-      void autoWatchFromMentions({
-        resolveLookupId: resolveFeatureRequestSiteUserLookupId,
-        recipients: mentioned,
-        currentWatchers: request.watchers,
-        directory: allRequests ? collectFeatureRequestPeople(allRequests) : [],
-      })
-        .then((additions) =>
-          applyFeatureRequestWatcherAdditions(qc, id, request.watchers, additions),
-        )
-        .catch((err) => {
-          console.error("Auto-watch failed for edited feature request comment:", err);
-        })
-        .finally(() => {
-          pendingWatcherWrites.delete(id);
-          invalidateFeatureRequests(qc);
-        });
     },
     onError: (_err, _vars, ctx) => {
+      ctx?.autoWatch?.cancel();
       rollback(qc, ctx);
       errorToast("Couldn't save comment — reverted.");
     },
-    onSettled: (_data, _err, { id }) => invalidateFeatureRequests(qc, id),
+    onSettled: (_data, _err, _vars, ctx) =>
+      afterMentionAutoWatch(ctx?.autoWatch, () => invalidateFeatureRequests(qc)),
   });
 }
 

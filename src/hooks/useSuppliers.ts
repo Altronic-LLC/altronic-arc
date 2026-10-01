@@ -13,11 +13,19 @@ import {
 } from "@/api/suppliers";
 import type { Person, Supplier, SupplierInput } from "@/types/task";
 import { supplierLabel } from "@/lib/supplierMapper";
-import { commentNotifyRecipients, extractMentionedRecipients } from "@/lib/mentions";
+import {
+  commentNotifyRecipients,
+  extractMentionedRecipients,
+  newlyMentionedHtml,
+} from "@/lib/mentions";
 import { notifyMentions } from "@/api/email";
-import { autoWatchFromMentions } from "@/api/autoWatch";
 // Suppliers live on the PMO site, so cold-start mentions resolve there.
 import { resolvePmoSiteUserLookupId } from "@/api/operationsTasks";
+import {
+  afterMentionAutoWatch,
+  beginMentionAutoWatch,
+  type MentionAutoWatch,
+} from "./mentionAutoWatch";
 import { autoWatchers, mergePeople } from "@/lib/people";
 import { htmlToPlainText } from "@/lib/htmlText";
 import { useCurrentUser } from "./useCurrentUser";
@@ -28,7 +36,7 @@ import { pushToast } from "@/components/Toast";
 // Suppliers List hooks — the SRM tool's anchor list.
 //
 // The comment thread here is the standard one — commentNotifyRecipients,
-// notifyMentions, autoWatchFromMentions — the same shape Gray Market Requests
+// notifyMentions, mention auto-watch (hooks/mentionAutoWatch.ts) — the same shape Gray Market Requests
 // uses, since both live on the PMO site and both have a real Watchers column.
 // =============================================================================
 
@@ -199,9 +207,13 @@ export function useAddSupplierComment() {
         ],
         modifiedAt: new Date(),
       }));
-      return { previous };
+      // Mentioned people show as watchers NOW, not after the comment's round
+      // trip — see hooks/mentionAutoWatch.ts.
+      const autoWatch = beginSupplierMentionAutoWatch(qc, id, comment.bodyHtml);
+      return { previous, autoWatch };
     },
-    onSuccess: (_data, { id, comment }) => {
+    onSuccess: (_data, { id, comment }, ctx) => {
+      ctx?.autoWatch?.commit();
       pushToast({ message: "Comment posted." });
 
       const suppliers = qc.getQueryData<Supplier[]>(SUPPLIERS_KEY);
@@ -224,23 +236,14 @@ export function useAddSupplierComment() {
           attachments: [],
         });
       }
-
-      const mentioned = extractMentionedRecipients(comment.bodyHtml);
-      if (mentioned.length === 0) return;
-      void autoWatchFromMentions({
-        resolveLookupId: resolvePmoSiteUserLookupId,
-        recipients: mentioned,
-        currentWatchers: supplier.watchers,
-        directory: suppliers ? collectSupplierPeople(suppliers) : [],
-      })
-        .then((additions: Person[]) => applyWatcherAdditions(qc, id, supplier.watchers, additions))
-        .catch((err: unknown) => console.error("Auto-watch failed for a supplier comment:", err));
     },
     onError: (_err, _vars, ctx) => {
+      ctx?.autoWatch?.cancel();
       if (ctx?.previous) qc.setQueryData(SUPPLIERS_KEY, ctx.previous);
-      errorToast("Couldn't post comment — please retry.");
+      errorToast("Couldn't post comment — it's back in the comment box to send again.");
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: SUPPLIERS_KEY }),
+    onSettled: (_data, _err, _vars, ctx) =>
+      afterMentionAutoWatch(ctx?.autoWatch, () => void qc.invalidateQueries({ queryKey: SUPPLIERS_KEY })),
   });
 }
 
@@ -257,7 +260,17 @@ export function useEditSupplierComment() {
       bodyHtml: string;
       previousBodyHtml: string;
     }) => editSupplierComment(id, target, bodyHtml),
-    onSuccess: (_data, { id, target, bodyHtml, previousBodyHtml }) => {
+    // Only mentions the edit ADDED subscribe anyone — same rule as before,
+    // now started the moment Save is pressed.
+    onMutate: ({ id, bodyHtml, previousBodyHtml }) => ({
+      autoWatch: beginSupplierMentionAutoWatch(
+        qc,
+        id,
+        newlyMentionedHtml(previousBodyHtml, bodyHtml),
+      ),
+    }),
+    onSuccess: (_data, { id, target, bodyHtml, previousBodyHtml }, ctx) => {
+      ctx?.autoWatch?.commit();
       pushToast({ message: "Comment updated." });
 
       const suppliers = qc.getQueryData<Supplier[]>(SUPPLIERS_KEY);
@@ -279,42 +292,36 @@ export function useEditSupplierComment() {
         commentExcerpt: htmlToPlainText(bodyHtml),
         attachments: [],
       });
-      void autoWatchFromMentions({
-        resolveLookupId: resolvePmoSiteUserLookupId,
-        recipients: added,
-        currentWatchers: supplier.watchers,
-        directory: suppliers ? collectSupplierPeople(suppliers) : [],
-      })
-        .then((additions: Person[]) => applyWatcherAdditions(qc, id, supplier.watchers, additions))
-        .catch((err: unknown) => console.error("Auto-watch failed for a supplier comment edit:", err));
     },
-    onError: () => errorToast("Couldn't update the comment — please retry."),
-    onSettled: () => qc.invalidateQueries({ queryKey: SUPPLIERS_KEY }),
+    onError: (_err, _vars, ctx) => {
+      ctx?.autoWatch?.cancel();
+      errorToast("Couldn't update the comment — please retry.");
+    },
+    onSettled: (_data, _err, _vars, ctx) =>
+      afterMentionAutoWatch(ctx?.autoWatch, () => void qc.invalidateQueries({ queryKey: SUPPLIERS_KEY })),
   });
 }
 
-async function applyWatcherAdditions(
+/**
+ * Start auto-watch for a supplier comment: the mentioned people appear as
+ * watchers immediately and are written once the comment lands.
+ */
+function beginSupplierMentionAutoWatch(
   qc: QueryClient,
   id: number,
-  currentWatchers: Person[],
-  additions: Person[],
-): Promise<void> {
-  if (additions.length === 0) return;
-  const next = autoWatchers(currentWatchers, additions);
-  const patch = () => patchSupplier(qc, id, (s) => ({ ...s, watchers: next }));
-  patch();
-  pushToast({
-    message:
-      additions.length === 1
-        ? `${additions[0].displayName} is now watching this supplier.`
-        : `${additions.length} people are now watching this supplier.`,
+  bodyHtml: string,
+): MentionAutoWatch | null {
+  const supplier = qc.getQueryData<Supplier[]>(SUPPLIERS_KEY)?.find((s) => s.id === id);
+  if (!supplier) return null;
+  return beginMentionAutoWatch({
+    bodyHtml,
+    currentWatchers: supplier.watchers,
+    directory: () => collectSupplierPeople(qc.getQueryData<Supplier[]>(SUPPLIERS_KEY) ?? []),
+    resolveLookupId: resolvePmoSiteUserLookupId,
+    patch: (watchers) => patchSupplier(qc, id, (s) => ({ ...s, watchers })),
+    write: (watchers) => setSupplierWatchers(id, watchers),
+    onWriteFailed: () => void qc.invalidateQueries({ queryKey: SUPPLIERS_KEY }),
+    noun: "supplier",
   });
-  try {
-    await setSupplierWatchers(id, next);
-    patch();
-  } catch (err) {
-    console.error("Couldn't save auto-watch additions:", err);
-    errorToast("Couldn't add the mentioned person as a watcher — refreshing.");
-    qc.invalidateQueries({ queryKey: SUPPLIERS_KEY });
-  }
 }
+

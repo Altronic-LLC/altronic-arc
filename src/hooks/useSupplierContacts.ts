@@ -12,12 +12,17 @@ import type { Person, SupplierContact, SupplierContactInput } from "@/types/task
 import { supplierContactLabel } from "@/lib/supplierContactMapper";
 import { commentNotifyRecipients, extractMentionedRecipients } from "@/lib/mentions";
 import { notifyMentions } from "@/api/email";
-import { autoWatchFromMentions } from "@/api/autoWatch";
 import { resolvePmoSiteUserLookupId } from "@/api/operationsTasks";
 import { autoWatchers, mergePeople } from "@/lib/people";
 import { htmlToPlainText } from "@/lib/htmlText";
 import { useCurrentUser } from "./useCurrentUser";
 import { pushToast } from "@/components/Toast";
+import {
+  afterMentionAutoWatch,
+  beginMentionAutoWatch,
+  type MentionAutoWatch,
+} from "./mentionAutoWatch";
+import { newlyMentionedHtml } from "@/lib/mentions";
 
 // =============================================================================
 // Supplier Contacts hooks. The whole list is fetched once and scoped to one
@@ -146,9 +151,13 @@ export function useAddSupplierContactComment() {
         ],
         modifiedAt: new Date(),
       }));
-      return { previous };
+      // Mentioned people show as watchers NOW, not after the comment's round
+      // trip — see hooks/mentionAutoWatch.ts.
+      const autoWatch = beginContactMentionAutoWatch(qc, id, comment.bodyHtml);
+      return { previous, autoWatch };
     },
-    onSuccess: (_data, { id, comment }) => {
+    onSuccess: (_data, { id, comment }, ctx) => {
+      ctx?.autoWatch?.commit();
       pushToast({ message: "Comment posted." });
 
       const contacts = qc.getQueryData<SupplierContact[]>(SUPPLIER_CONTACTS_KEY);
@@ -171,23 +180,14 @@ export function useAddSupplierContactComment() {
           attachments: [],
         });
       }
-
-      const mentioned = extractMentionedRecipients(comment.bodyHtml);
-      if (mentioned.length === 0) return;
-      void autoWatchFromMentions({
-        resolveLookupId: resolvePmoSiteUserLookupId,
-        recipients: mentioned,
-        currentWatchers: contact.watchers,
-        directory: contacts ? collectSupplierContactPeople(contacts) : [],
-      })
-        .then((additions: Person[]) => applyWatcherAdditions(qc, id, contact.watchers, additions))
-        .catch((err: unknown) => console.error("Auto-watch failed for a supplier contact comment:", err));
     },
     onError: (_err, _vars, ctx) => {
+      ctx?.autoWatch?.cancel();
       if (ctx?.previous) qc.setQueryData(SUPPLIER_CONTACTS_KEY, ctx.previous);
-      errorToast("Couldn't post comment — please retry.");
+      errorToast("Couldn't post comment — it's back in the comment box to send again.");
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: SUPPLIER_CONTACTS_KEY }),
+    onSettled: (_data, _err, _vars, ctx) =>
+      afterMentionAutoWatch(ctx?.autoWatch, () => void qc.invalidateQueries({ queryKey: SUPPLIER_CONTACTS_KEY })),
   });
 }
 
@@ -204,7 +204,13 @@ export function useEditSupplierContactComment() {
       bodyHtml: string;
       previousBodyHtml: string;
     }) => editSupplierContactComment(id, target, bodyHtml),
-    onSuccess: (_data, { id, target, bodyHtml, previousBodyHtml }) => {
+    // Only mentions the edit ADDED subscribe anyone — same rule as before,
+    // now started the moment Save is pressed.
+    onMutate: ({ id, bodyHtml, previousBodyHtml }) => ({
+      autoWatch: beginContactMentionAutoWatch(qc, id, newlyMentionedHtml(previousBodyHtml, bodyHtml)),
+    }),
+    onSuccess: (_data, { id, target, bodyHtml, previousBodyHtml }, ctx) => {
+      ctx?.autoWatch?.commit();
       pushToast({ message: "Comment updated." });
 
       const contacts = qc.getQueryData<SupplierContact[]>(SUPPLIER_CONTACTS_KEY);
@@ -226,42 +232,35 @@ export function useEditSupplierContactComment() {
         commentExcerpt: htmlToPlainText(bodyHtml),
         attachments: [],
       });
-      void autoWatchFromMentions({
-        resolveLookupId: resolvePmoSiteUserLookupId,
-        recipients: added,
-        currentWatchers: contact.watchers,
-        directory: contacts ? collectSupplierContactPeople(contacts) : [],
-      })
-        .then((additions: Person[]) => applyWatcherAdditions(qc, id, contact.watchers, additions))
-        .catch((err: unknown) => console.error("Auto-watch failed for a supplier contact comment edit:", err));
     },
-    onError: () => errorToast("Couldn't update the comment — please retry."),
-    onSettled: () => qc.invalidateQueries({ queryKey: SUPPLIER_CONTACTS_KEY }),
+    onError: (_err, _vars, ctx) => {
+      ctx?.autoWatch?.cancel();
+      errorToast("Couldn't update the comment — please retry.");
+    },
+    onSettled: (_data, _err, _vars, ctx) =>
+      afterMentionAutoWatch(ctx?.autoWatch, () => void qc.invalidateQueries({ queryKey: SUPPLIER_CONTACTS_KEY })),
   });
 }
 
-async function applyWatcherAdditions(
+/**
+ * Start auto-watch for a supplier contact comment: the mentioned people appear as
+ * watchers immediately and are written once the comment lands.
+ */
+function beginContactMentionAutoWatch(
   qc: QueryClient,
   id: number,
-  currentWatchers: Person[],
-  additions: Person[],
-): Promise<void> {
-  if (additions.length === 0) return;
-  const next = autoWatchers(currentWatchers, additions);
-  const patch = () => patchContact(qc, id, (c) => ({ ...c, watchers: next }));
-  patch();
-  pushToast({
-    message:
-      additions.length === 1
-        ? `${additions[0].displayName} is now watching this contact.`
-        : `${additions.length} people are now watching this contact.`,
+  bodyHtml: string,
+): MentionAutoWatch | null {
+  const contact = qc.getQueryData<SupplierContact[]>(SUPPLIER_CONTACTS_KEY)?.find((c) => c.id === id);
+  if (!contact) return null;
+  return beginMentionAutoWatch({
+    bodyHtml,
+    currentWatchers: contact.watchers,
+    directory: () => collectSupplierContactPeople(qc.getQueryData<SupplierContact[]>(SUPPLIER_CONTACTS_KEY) ?? []),
+    resolveLookupId: resolvePmoSiteUserLookupId,
+    patch: (watchers) => patchContact(qc, id, (c) => ({ ...c, watchers })),
+    write: (watchers) => setSupplierContactWatchers(id, watchers),
+    onWriteFailed: () => void qc.invalidateQueries({ queryKey: SUPPLIER_CONTACTS_KEY }),
+    noun: "contact",
   });
-  try {
-    await setSupplierContactWatchers(id, next);
-    patch();
-  } catch (err) {
-    console.error("Couldn't save auto-watch additions:", err);
-    errorToast("Couldn't add the mentioned person as a watcher — refreshing.");
-    qc.invalidateQueries({ queryKey: SUPPLIER_CONTACTS_KEY });
-  }
 }

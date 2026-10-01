@@ -14,6 +14,7 @@ import { toStoredRichText } from "@/lib/richText";
 import { listProjects } from "./tasks";
 import { MOCK_EIRS } from "@/data/mockData";
 import { autoWatchers } from "@/lib/people";
+import { parseWrittenDate } from "@/lib/dateInput";
 
 // =============================================================================
 // EIRs API — mirrors src/api/tasks.ts in shape. Mock + real branches,
@@ -407,11 +408,11 @@ export async function updateEirFields(
       next.technicalPriority = (fields.TechnicalPriority as Eir["technicalPriority"]) ?? null;
     if ("Requested_x0020_Completion_x0020" in fields) {
       const v = fields.Requested_x0020_Completion_x0020;
-      next.requestedCompletionDate = v ? new Date(v as string) : null;
+      next.requestedCompletionDate = parseWrittenDate(v);
     }
     if ("LTBDate" in fields) {
       const v = fields.LTBDate;
-      next.ltbDate = v ? new Date(v as string) : null;
+      next.ltbDate = parseWrittenDate(v);
     }
     if (
       "ProjectReferenceLookupId" in fields ||

@@ -1,7 +1,20 @@
 import { describe, it, expect, vi, beforeAll } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render as rtlRender, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import userEvent from "@testing-library/user-event";
 import { CommentThread } from "./CommentThread";
+
+/**
+ * Every render here goes inside a router.
+ *
+ * A mirrored comment's origin banner carries a link that has to be ROUTED
+ * rather than followed (see `useCommentOriginLink`), so `CommentThread`
+ * requires a router above it — as every real call site has. Wrapping once
+ * here keeps the 25 cases below from each needing to know that.
+ */
+function render(ui: React.ReactElement) {
+  return rtlRender(<MemoryRouter>{ui}</MemoryRouter>);
+}
 import type { Comment } from "@/types/task";
 
 // jsdom has no object-URL implementation; the editor makes one per

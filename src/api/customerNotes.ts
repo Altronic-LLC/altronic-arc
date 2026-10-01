@@ -9,7 +9,7 @@ import {
   toCustomerNote,
 } from "@/lib/customerNoteMapper";
 import { appendComment, replaceComment } from "@/lib/communicationParser";
-import { multiPersonField } from "@/lib/graphFields";
+import { annotateMultiChoiceFields, multiPersonField } from "@/lib/graphFields";
 import { MOCK_CUSTOMER_NOTES } from "@/data/crmMockData";
 
 // =============================================================================
@@ -47,6 +47,13 @@ function itemPath(id: number): string {
 
 const SELECT =
   "Title,OldCustomerNumber,SAPCustomerNumber,GeneralNotes,ComplianceNotes,Group,CustomerType,CSR,KAM,Communication,Attachments,Created,Modified";
+
+/**
+ * Customer Notes multi-choice columns (`displayAs: "checkBoxes"`, confirmed
+ * live 2026-09-24). `Group` is a SINGLE choice and is deliberately absent —
+ * annotating it would break it.
+ */
+const CUSTOMER_NOTE_MULTI_CHOICE_FIELDS = ["CustomerType"] as const;
 
 export async function listCustomerNotes(): Promise<CustomerNote[]> {
   if (USE_MOCK) {
@@ -113,7 +120,17 @@ export async function createCustomerNote(input: CustomerNoteInput): Promise<Cust
   const listId = requireListId("create the customer");
   const created = await graphFetch<GraphListItem>(
     `/sites/${SITES.salesOrderEntry}/lists/${listId}/items`,
-    { method: "POST", body: JSON.stringify({ fields: buildCustomerNoteCreateFields(input, resolved) }) },
+    {
+      method: "POST",
+      // The create writes CustomerType too, so it needs the same annotation
+      // the PATCH does — a bare array is a 400 on either verb.
+      body: JSON.stringify({
+        fields: annotateMultiChoiceFields(
+          buildCustomerNoteCreateFields(input, resolved),
+          CUSTOMER_NOTE_MULTI_CHOICE_FIELDS,
+        ),
+      }),
+    },
   );
   return (await getCustomerNote(parseInt(created.id, 10))) ?? toCustomerNote(created);
 }
@@ -169,7 +186,7 @@ async function updateCustomerNoteFields(
 
   await graphFetch(`${itemPath(id)}/fields`, {
     method: "PATCH",
-    body: JSON.stringify(fields),
+    body: JSON.stringify(annotateMultiChoiceFields(fields, CUSTOMER_NOTE_MULTI_CHOICE_FIELDS)),
   });
   const updated = await getCustomerNote(id);
   if (!updated) throw new Error(`Customer ${id} disappeared after update`);

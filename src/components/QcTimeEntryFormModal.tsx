@@ -2,12 +2,15 @@ import { useEffect, useRef, useState } from "react";
 import { Loader2, Timer, X } from "lucide-react";
 import {
   QC_EFFORT_TYPES,
-  QC_TIME_HOLD_REASONS,
   type Person,
   type QcTimeEntry,
   type QcTimeEntryInput,
 } from "@/types/task";
-import { useCreateQcTimeEntry, useUpdateQcTimeEntry } from "@/hooks/useQcTimeTracking";
+import {
+  useCreateQcTimeEntry,
+  useQcTimeHoldReasonChoices,
+  useUpdateQcTimeEntry,
+} from "@/hooks/useQcTimeTracking";
 import { qcTimeEntryInput } from "@/lib/qcTimeMapper";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { personKey } from "@/lib/people";
@@ -66,6 +69,11 @@ export function QcTimeEntryFormModal({ entry, onClose }: QcTimeEntryFormModalPro
   const [error, setError] = useState<string | null>(null);
   const firstFieldRef = useRef<HTMLInputElement>(null);
   const directory = useDirectoryPeople();
+  // Live off SharePoint's own column config, not a hardcoded list -- see
+  // listQcTimeHoldReasonChoices. Falls back to [] while loading; the picker
+  // just shows "Not set" plus nothing selectable for a beat, same as any
+  // other choice list before its query resolves.
+  const { data: holdReasonChoices = [] } = useQcTimeHoldReasonChoices();
 
   useEffect(() => {
     firstFieldRef.current?.focus();
@@ -212,7 +220,7 @@ export function QcTimeEntryFormModal({ entry, onClose }: QcTimeEntryFormModalPro
                 <ChoiceSelect
                   value={draft.holdReason}
                   onChange={(v) => set("holdReason", v)}
-                  options={QC_TIME_HOLD_REASONS}
+                  options={holdReasonChoices}
                   emptyLabel="Not set"
                   disabled={busy}
                 />

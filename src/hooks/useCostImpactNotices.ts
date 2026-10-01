@@ -184,7 +184,7 @@ export function useAddCostImpactNoticeComment() {
     },
     onError: (_err, _vars, ctx) => {
       if (ctx?.previous) qc.setQueryData(COST_IMPACT_NOTICES_KEY, ctx.previous);
-      errorToast("Couldn't post comment — please retry.");
+      errorToast("Couldn't post comment — it's back in the comment box to send again.");
     },
     onSettled: () => qc.invalidateQueries({ queryKey: COST_IMPACT_NOTICES_KEY }),
   });

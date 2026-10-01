@@ -89,26 +89,36 @@ export function useUploadTaskFile(task: Task | null | undefined) {
     // {name, webUrl}, so the project-folder upload has to be the contract.
     mutationFn: async (file: File) => {
       if (!resolved) throw new Error("No project folder resolved for this task yet.");
+      // The project folder is where a task's file LIVES, and it uploads in
+      // chunks with retries, so a large file gets there.
       const uploaded = await uploadTaskFile(resolved, file);
       if (task) {
-        try {
-          await uploadAttachment("task", task.id, file);
-        } catch (err) {
-          /* eslint-disable no-console */
-          console.warn(
-            "[useUploadTaskFile] List-item attachment upload failed " +
-              "(project folder upload still succeeded):",
-            err,
-          );
-          /* eslint-enable no-console */
-        }
+        // The extra copy on the task item is ONE un-chunked request (SP REST
+        // has no chunked attachment API), so a large file can take minutes or
+        // time out. It used to be awaited here, which held the upload — and
+        // the comment's Post button — hostage to it even though the file had
+        // already landed (Ray, 2026-09-29: "ARC times out when trying to
+        // upload large files"). It now runs in the background: best-effort,
+        // as it always was, and it refreshes the "On this task" list itself
+        // when it lands.
+        const taskId = task.id;
+        void uploadAttachment("task", taskId, file)
+          .then(() => qc.invalidateQueries({ queryKey: listAttachmentsKey(taskId) }))
+          .catch((err) => {
+            /* eslint-disable no-console */
+            console.warn(
+              "[useUploadTaskFile] List-item attachment upload failed " +
+                "(project folder upload still succeeded):",
+              err,
+            );
+            /* eslint-enable no-console */
+          });
       }
       return uploaded;
     },
     onSuccess: () => {
       if (!task) return;
       qc.invalidateQueries({ queryKey: filesKey(task.id) });
-      qc.invalidateQueries({ queryKey: listAttachmentsKey(task.id) });
     },
   });
 }

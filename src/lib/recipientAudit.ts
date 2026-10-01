@@ -113,6 +113,8 @@ export function auditRecipientList(
  *
  * The useful thing to show next to a bad address: "no mailbox
  * glenn.terry@altronic-llc.com — did you mean Glenn.Terry@hoerbiger.com?".
+ * (`@hoerbiger.com` is RETIRED as of 2026-09-23 — kept here as the example of
+ * a wrong domain, which is what it now is.)
  * Matched on the LOCAL PART and on the display name, because a wrong domain is
  * the likeliest way one of these goes wrong in a tenant assembled from two
  * companies.

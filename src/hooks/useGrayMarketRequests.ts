@@ -10,12 +10,16 @@ import {
 import type { GrayMarketRequest, GrayMarketRequestInput, Person } from "@/types/task";
 import { grayMarketLabel } from "@/lib/grayMarketMapper";
 import { formatSpDate } from "@/lib/spDates";
-import { commentNotifyRecipients, extractMentionedRecipients } from "@/lib/mentions";
+import { commentNotifyRecipients, extractMentionedRecipients, newlyMentionedHtml } from "@/lib/mentions";
 import { fireNewGrayMarketRequestAlert, notifyMentions } from "@/api/email";
-import { autoWatchFromMentions } from "@/api/autoWatch";
+import {
+  afterMentionAutoWatch,
+  beginMentionAutoWatch,
+  type MentionAutoWatch,
+} from "./mentionAutoWatch";
 // Gray Market lives on the PMO site, so cold-start mentions resolve there.
 import { resolvePmoSiteUserLookupId } from "@/api/operationsTasks";
-import { autoWatchers, mergePeople } from "@/lib/people";
+import { mergePeople } from "@/lib/people";
 import { htmlToPlainText } from "@/lib/htmlText";
 import { useCurrentUser } from "./useCurrentUser";
 import { pushToast } from "@/components/Toast";
@@ -26,7 +30,7 @@ import { pushToast } from "@/components/Toast";
 // The comment thread is the standard one: post → optimistic insert → email
 // every watcher and @-mentioned person → add the mentioned as watchers. That
 // path is identical across six entities already, so the pieces are shared
-// (commentNotifyRecipients, notifyMentions, autoWatchFromMentions) and only
+// (commentNotifyRecipients, notifyMentions, beginMentionAutoWatch) and only
 // the target kind and the cache key differ here.
 //
 // Field edits are optimistic and single-column, so a choice picker on the
@@ -205,9 +209,12 @@ export function useAddGrayMarketComment() {
         ],
         modifiedAt: new Date(),
       }));
-      return { previous };
+      // Mentioned people show as watchers NOW, not after the comment's round
+      // trip — see hooks/mentionAutoWatch.ts.
+      return { previous, autoWatch: beginGrayMarketMentionAutoWatch(qc, id, comment.bodyHtml) };
     },
-    onSuccess: (_data, { id, comment }) => {
+    onSuccess: (_data, { id, comment }, ctx) => {
+      ctx?.autoWatch?.commit();
       pushToast({ message: "Comment posted." });
 
       const requests = qc.getQueryData<GrayMarketRequest[]>(GRAY_MARKET_KEY);
@@ -240,25 +247,16 @@ export function useAddGrayMarketComment() {
           attachments: [],
         });
       }
-
-      const mentioned = extractMentionedRecipients(comment.bodyHtml);
-      if (mentioned.length === 0) return;
-      void autoWatchFromMentions({
-        resolveLookupId: resolvePmoSiteUserLookupId,
-        recipients: mentioned,
-        currentWatchers: request.watchers,
-        directory: requests ? collectGrayMarketPeople(requests) : [],
-      })
-        .then((additions: Person[]) => applyWatcherAdditions(qc, id, request.watchers, additions))
-        .catch((err: unknown) => {
-          console.error("Auto-watch failed for a gray market comment:", err);
-        });
     },
     onError: (_err, _vars, ctx) => {
+      ctx?.autoWatch?.cancel();
       if (ctx?.previous) qc.setQueryData(GRAY_MARKET_KEY, ctx.previous);
-      errorToast("Couldn't post comment — please retry.");
+      errorToast("Couldn't post comment — it's back in the comment box to send again.");
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: GRAY_MARKET_KEY }),
+    onSettled: (_data, _err, _vars, ctx) =>
+      afterMentionAutoWatch(ctx?.autoWatch, () => {
+        void qc.invalidateQueries({ queryKey: GRAY_MARKET_KEY });
+      }),
   });
 }
 
@@ -276,7 +274,14 @@ export function useEditGrayMarketComment() {
       /** Mentions already in the comment before the edit — not re-notified. */
       previousBodyHtml: string;
     }) => editGrayMarketComment(id, target, bodyHtml),
-    onSuccess: (_data, { id, target, bodyHtml, previousBodyHtml }) => {
+    onMutate: async ({ id, bodyHtml, previousBodyHtml }) => {
+      // Only the NEWLY mentioned become watchers — same rule as the email below.
+      const newMentions = newlyMentionedHtml(previousBodyHtml, bodyHtml);
+      if (newMentions) await qc.cancelQueries({ queryKey: GRAY_MARKET_KEY });
+      return { autoWatch: beginGrayMarketMentionAutoWatch(qc, id, newMentions) };
+    },
+    onSuccess: (_data, { id, target, bodyHtml, previousBodyHtml }, ctx) => {
+      ctx?.autoWatch?.commit();
       pushToast({ message: "Comment updated." });
 
       const requests = qc.getQueryData<GrayMarketRequest[]>(GRAY_MARKET_KEY);
@@ -308,49 +313,39 @@ export function useEditGrayMarketComment() {
         commentExcerpt: htmlToPlainText(bodyHtml),
         attachments: [],
       });
-      void autoWatchFromMentions({
-        resolveLookupId: resolvePmoSiteUserLookupId,
-        recipients: added,
-        currentWatchers: request.watchers,
-        directory: requests ? collectGrayMarketPeople(requests) : [],
-      })
-        .then((additions: Person[]) => applyWatcherAdditions(qc, id, request.watchers, additions))
-        .catch((err: unknown) => {
-          console.error("Auto-watch failed for a gray market comment edit:", err);
-        });
     },
-    onError: () => errorToast("Couldn't update the comment — please retry."),
-    onSettled: () => qc.invalidateQueries({ queryKey: GRAY_MARKET_KEY }),
+    onError: (_err, _vars, ctx) => {
+      ctx?.autoWatch?.cancel();
+      errorToast("Couldn't update the comment — please retry.");
+    },
+    onSettled: (_data, _err, _vars, ctx) =>
+      afterMentionAutoWatch(ctx?.autoWatch, () => {
+        void qc.invalidateQueries({ queryKey: GRAY_MARKET_KEY });
+      }),
   });
 }
 
 /**
- * Apply auto-watch additions optimistically, then save them — the watcher
- * chips and toast show at once, and a failed write refetches so the UI stops
- * claiming someone is watching when they aren't.
+ * Start auto-watch for a gray market comment: the mentioned people appear as
+ * watchers immediately and are written once the comment lands.
  */
-async function applyWatcherAdditions(
+function beginGrayMarketMentionAutoWatch(
   qc: QueryClient,
   id: number,
-  currentWatchers: Person[],
-  additions: Person[],
-): Promise<void> {
-  if (additions.length === 0) return;
-  const next = autoWatchers(currentWatchers, additions);
-  const patch = () => patchRequest(qc, id, (r) => ({ ...r, watchers: next }));
-  patch();
-  pushToast({
-    message:
-      additions.length === 1
-        ? `${additions[0].displayName} is now watching this request.`
-        : `${additions.length} people are now watching this request.`,
+  bodyHtml: string,
+): MentionAutoWatch | null {
+  const request = qc.getQueryData<GrayMarketRequest[]>(GRAY_MARKET_KEY)?.find((r) => r.id === id);
+  if (!request || !bodyHtml) return null;
+  return beginMentionAutoWatch({
+    bodyHtml,
+    currentWatchers: request.watchers,
+    directory: () =>
+      collectGrayMarketPeople(qc.getQueryData<GrayMarketRequest[]>(GRAY_MARKET_KEY) ?? []),
+    resolveLookupId: resolvePmoSiteUserLookupId,
+    patch: (watchers) => patchRequest(qc, id, (r) => ({ ...r, watchers })),
+    write: (watchers) => setGrayMarketWatchers(id, watchers),
+    onWriteFailed: () => void qc.invalidateQueries({ queryKey: GRAY_MARKET_KEY }),
+    noun: "request",
   });
-  try {
-    await setGrayMarketWatchers(id, next);
-    patch();
-  } catch (err) {
-    console.error("Couldn't save auto-watch additions:", err);
-    errorToast("Couldn't add the mentioned person as a watcher — refreshing.");
-    qc.invalidateQueries({ queryKey: GRAY_MARKET_KEY });
-  }
 }
+

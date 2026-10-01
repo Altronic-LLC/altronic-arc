@@ -13,7 +13,11 @@ import {
   updatePanelQcIssue,
   watchPanelQcIssue,
 } from "@/api/panelQcIssues";
-import { autoWatchFromMentions } from "@/api/autoWatch";
+import {
+  afterMentionAutoWatch,
+  beginMentionAutoWatch,
+  type MentionAutoWatch,
+} from "./mentionAutoWatch";
 import { resolvePanelSiteUserLookupId } from "@/api/panelOrders";
 import { notifyMentions } from "@/api/email";
 import { commentNotifyRecipients, commentRenotifyRecipients, extractMentionedRecipients } from "@/lib/mentions";
@@ -153,26 +157,23 @@ export function useUnwatchPanelQcIssue() {
 }
 
 /**
- * Apply auto-watch additions optimistically, then persist. On failure:
- * error toast + refetch, mirroring usePanelTasks.ts's identical helper.
+ * Start auto-watch for a panel QC issue comment: the mentioned people appear
+ * as watchers immediately and are written once the comment lands. Resolves
+ * against the panel team site — a lookupId is per site collection.
  */
-async function applyPanelQcIssueWatcherAdditions(qc: QueryClient, id: number, currentWatchers: Person[], additions: Person[]): Promise<void> {
-  if (additions.length === 0) return;
-  const next = [...currentWatchers, ...additions];
-  patchIssue(qc, id, (issue) => ({ ...issue, watchers: next }));
-  pushToast({
-    message: additions.length === 1
-      ? `${additions[0].displayName} is now watching this issue.`
-      : `${additions.length} people are now watching this issue.`,
+function beginPanelQcIssueMentionAutoWatch(qc: QueryClient, id: number, bodyHtml: string): MentionAutoWatch | null {
+  const issue = qc.getQueryData<PanelQcIssue[]>(PANEL_QC_ISSUES_KEY)?.find((item) => item.id === id);
+  if (!issue) return null;
+  return beginMentionAutoWatch({
+    bodyHtml,
+    currentWatchers: issue.watchers,
+    directory: () => collectPeopleFromPanelQcIssues(qc.getQueryData<PanelQcIssue[]>(PANEL_QC_ISSUES_KEY) ?? []),
+    resolveLookupId: resolvePanelSiteUserLookupId,
+    patch: (watchers) => patchIssue(qc, id, (item) => ({ ...item, watchers })),
+    write: (watchers) => setPanelQcIssueWatchers(id, watchers),
+    onWriteFailed: () => invalidateIssues(qc),
+    noun: "issue",
   });
-  try {
-    await setPanelQcIssueWatchers(id, next);
-    invalidateIssues(qc);
-  } catch (err) {
-    console.error("Couldn't save auto-watch additions:", err);
-    errorToast("Couldn't add the mentioned person as a watcher — refreshing.");
-    invalidateIssues(qc);
-  }
 }
 
 export function useAddPanelQcIssueComment() {
@@ -180,15 +181,20 @@ export function useAddPanelQcIssueComment() {
   return useMutation({
     mutationFn: ({ id, comment }: { id: number; comment: { authorName: string; authorEmail: string; bodyHtml: string } }) =>
       addPanelQcIssueComment(id, comment),
-    onMutate: ({ id, comment }) =>
+    onMutate: ({ id, comment }) => {
       patchIssue(qc, id, (issue) => ({
         ...issue,
         comments: [
           { timestamp: new Date(), authorName: comment.authorName, authorEmail: comment.authorEmail, bodyHtml: comment.bodyHtml, attachments: [] },
           ...issue.comments,
         ],
-      })),
-    onSuccess: (_data, { id, comment }) => {
+      }));
+      // Mentioned people show as watchers NOW, not after the comment's round
+      // trip — see hooks/mentionAutoWatch.ts.
+      return { autoWatch: beginPanelQcIssueMentionAutoWatch(qc, id, comment.bodyHtml) };
+    },
+    onSuccess: (_data, { id, comment }, ctx) => {
+      ctx?.autoWatch?.commit();
       pushToast({ message: "Comment posted." });
 
       const issues = qc.getQueryData<PanelQcIssue[]>(PANEL_QC_ISSUES_KEY);
@@ -211,20 +217,9 @@ export function useAddPanelQcIssueComment() {
           attachments: [],
         });
       }
-
-      const mentioned = extractMentionedRecipients(comment.bodyHtml);
-      if (mentioned.length === 0) return;
-      void autoWatchFromMentions({
-        resolveLookupId: resolvePanelSiteUserLookupId,
-        recipients: mentioned,
-        currentWatchers: issue.watchers,
-        directory: issues ? collectPeopleFromPanelQcIssues(issues) : [],
-      })
-        .then((additions) => applyPanelQcIssueWatcherAdditions(qc, id, issue.watchers, additions))
-        .catch((err) => console.error("Auto-watch failed for panel QC issue comment:", err));
     },
-    onError: () => { invalidateIssues(qc); errorToast("Couldn't post comment — refreshing."); },
-    onSettled: () => invalidateIssues(qc),
+    onError: (_err, _vars, ctx) => { ctx?.autoWatch?.cancel(); invalidateIssues(qc); errorToast("Couldn't post comment — it's back in the comment box to send again."); },
+    onSettled: (_data, _err, _vars, ctx) => afterMentionAutoWatch(ctx?.autoWatch, () => invalidateIssues(qc)),
   });
 }
 
@@ -238,7 +233,7 @@ export function useEditPanelQcIssueComment() {
       /** Author opted in to "Notify everyone again" — see onSuccess below. */
       renotify?: boolean;
     }) => editPanelQcIssueComment(id, target, newBodyHtml),
-    onMutate: ({ id, target, newBodyHtml }) =>
+    onMutate: ({ id, target, newBodyHtml }) => {
       patchIssue(qc, id, (issue) => ({
         ...issue,
         comments: issue.comments.map((c) =>
@@ -246,8 +241,13 @@ export function useEditPanelQcIssueComment() {
             ? { ...c, bodyHtml: newBodyHtml }
             : c,
         ),
-      })),
-    onSuccess: (_data, { id, target, newBodyHtml, renotify }) => {
+      }));
+      // Anyone @-mentioned in the edited body becomes a watcher (unless
+      // already watching) — same rule, and same timing, as a new comment.
+      return { autoWatch: beginPanelQcIssueMentionAutoWatch(qc, id, newBodyHtml) };
+    },
+    onSuccess: (_data, { id, target, newBodyHtml, renotify }, ctx) => {
+      ctx?.autoWatch?.commit();
       pushToast({ message: "Comment updated." });
 
       const issues = qc.getQueryData<PanelQcIssue[]>(PANEL_QC_ISSUES_KEY);
@@ -284,20 +284,9 @@ export function useEditPanelQcIssueComment() {
           });
         }
       }
-
-      const mentioned = extractMentionedRecipients(newBodyHtml);
-      if (mentioned.length === 0) return;
-      void autoWatchFromMentions({
-        resolveLookupId: resolvePanelSiteUserLookupId,
-        recipients: mentioned,
-        currentWatchers: issue.watchers,
-        directory: issues ? collectPeopleFromPanelQcIssues(issues) : [],
-      })
-        .then((additions) => applyPanelQcIssueWatcherAdditions(qc, id, issue.watchers, additions))
-        .catch((err) => console.error("Auto-watch failed for edited panel QC issue comment:", err));
     },
-    onError: () => { invalidateIssues(qc); errorToast("Couldn't save comment — refreshing."); },
-    onSettled: () => invalidateIssues(qc),
+    onError: (_err, _vars, ctx) => { ctx?.autoWatch?.cancel(); invalidateIssues(qc); errorToast("Couldn't save comment — refreshing."); },
+    onSettled: (_data, _err, _vars, ctx) => afterMentionAutoWatch(ctx?.autoWatch, () => invalidateIssues(qc)),
   });
 }
 

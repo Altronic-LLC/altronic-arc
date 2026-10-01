@@ -12,16 +12,56 @@
 // Group related changes under one version.
 // =============================================================================
 
+import { PARTS_LIST_LIVE } from "@/api/config";
+
 export interface ChangelogEntry {
   version: string;
   date: string; // YYYY-MM-DD
   changes: string[];
 }
 
+/** Shown for v0.168.0 while the Parts List is hidden. */
+const PARTS_LIST_COMING_SOON =
+  "A new Parts List is coming soon under Engineering — its Dashboard card and Departments menu entry say Coming soon for now";
+
+/**
+ * v0.168.0's real notes — the Parts List. Shown once PARTS_LIST_LIVE is on,
+ * in place of the Coming soon line. Add Parts List bullets HERE until it
+ * goes live, not to the entry.
+ */
+const PARTS_LIST_CHANGES: string[] = [
+  "New Parts List under Engineering: every Altronic part number in one place, replacing the Altronic Component List app's 175 separate lists",
+  "Pick a Parts Book and a list, or type a list number, a part number or a description into the box at the top",
+  "From inside a list, the Parts Book link at the top goes back to that book's lists",
+  "On a phone, an open Parts Book shows just its lists, and a list shows each part as a card with a Sort by picker",
+  "Global Search looks through the Part List and the HCO Component List at once",
+  "Each list has the old app's search panel — one box per field, with & to search several things in one box — plus search everything, sorting and column filters",
+  "A component's page says what Rating A, B and C mean for that kind of part",
+  "On New part, a component's three rating boxes are named for the Description picked, as in the old app — Resistance, Working voltage and Power for a resistor; Voltage, Current and Pin count for an IC",
+  "A part's page links to its datasheet whenever the PDF is in the Datasheets folder — components and Part List parts alike — and a component's page says when its Has Data Sheet setting disagrees",
+  "Attach a datasheet PDF when adding a new part — it's saved under the part number, and a component's Has Data Sheet is set for you",
+  "A part with no datasheet has an Upload datasheet button on its page for anyone who can edit it or add parts to its list; ARC never replaces a datasheet that's already there",
+  "Range search is back: the R button beside a component's ratings, tolerance and temperatures searches From/To — and reads 4K7, .1uF and 250mW as the values they are",
+  "The SAP admin can delete a part number, with a reason; it leaves every list, its fields are cleared and its datasheet is moved aside",
+  "A deleted number is reused: Next free offers the lowest deleted number in the list first, and the new part starts completely fresh",
+  "Engineering can add parts with New part — the next free number in the list is filled in, and a taken or wrong-list number is refused",
+  "Only the SAP admin can start a new parts list. Anyone else who types a number on a list that doesn't exist yet is told so, with an Ask the SAP admin button that emails them the request",
+  "A new component's description is picked, as in the old app: a Description, then a Type from its list — with a SIL category first on the 722 list — saved in capitals like CAPACITOR - CERAMIC",
+  "The SAP admin and the reviewing engineers manage those description lists from Descriptions on the Parts List page",
+  "New components go to the reviewing engineers and then the SAP admin; new parts go to the SAP admin. Each approval, with its comment, is kept in the part's history",
+  "The reviewing engineers' email for a new component lists every field under its label, with each rating named for that kind of part",
+  "The SAP admin's email for a new part — or for a component that has passed engineering review, with the reviewer's comments added — lists every field and has three answers — Added to SAP, Does not need to be added to SAP, and Will be added to SAP but requires more information. Each opens the part with that answer picked, approves it once confirmed, and tells whoever added the part which it was",
+  "Approvers see what's waiting for them on the Parts List landing page",
+  "Editing a part doesn't send it back for approval, but the SAP admin is emailed what changed",
+  "New Admin → Parts Roles page to choose who can add, edit and approve parts",
+  "Adding a part and editing one are separate: the Add role adds parts, and a Parts editor, the reviewing engineers or the SAP admin edits them",
+  "Anyone who can add parts but not edit one has a Suggest a correction button on its page, which emails the reviewing engineers and the SAP admin what should change",
+];
+
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "0.163.0",
-    date: "2026-09-21",
+    version: "0.170.0",
+    date: "2026-10-01",
     changes: [
       "Reports is live — a new Reports tab next to Dashboard and Departments, holding fixed KPI dashboards built into ARC",
       "Six reports: Board Test & FPY, and a Defect Breakdown donut, for each of Teradyne, Digital QC and Ignition QC",
@@ -31,6 +71,216 @@ export const CHANGELOG: ChangelogEntry[] = [
       "A new Kiosk view, at /reports/kiosk, cycles through all six reports automatically — a trend chart, then that source's Defect Breakdown, for each of Teradyne, Digital QC and Ignition QC — one minute each, with a fade between them, in a larger, chrome-less layout built for a spare monitor, with the Defect Breakdown donut shown much larger and its legend smaller so it fills most of the screen",
       "The Kiosk view's address takes an optional ?theme=dark or ?theme=light flag to pin its theme, since that chrome-less page has no toggle button of its own",
       "It also takes an optional ?dept=ICT, ?dept=DIG, or ?dept=IGN flag to show only Teradyne's, Digital QC's, or Ignition QC's two reports instead of cycling through all six",
+    ],
+  },
+  {
+    version: "0.169.6",
+    date: "2026-10-01",
+    changes: [
+      "A comment that fails to post now goes back in the comment box everywhere in ARC, not just on tasks — EIRs, ECNs, FAITs, build requests and their parts, Operations, maintenance, Panels, Panel QC, suppliers, customers and the rest",
+      "Its @-mentions and files come back with it, so pressing Send again doesn't lose anyone or upload anything twice",
+    ],
+  },
+  {
+    version: "0.169.5",
+    date: "2026-10-01",
+    changes: [
+      "A task comment with pictures attached no longer fails with a Microsoft Graph error while the pictures finish saving to the task",
+      "If a task comment does fail to post, it goes back in the comment box with its @-mentions and files, ready to send again",
+      "Sending a failed comment again doesn't upload its files a second time",
+      "When a comment can't post, the message says so in plain words instead of blaming the attachment",
+    ],
+  },
+  {
+    version: "0.169.4",
+    date: "2026-09-30",
+    changes: [
+      "Picking a date on an EIR no longer shows the day before for a few seconds while it saves",
+      "The same fix applies to task and Operations task due dates and to a build request's quoted ship date",
+    ],
+  },
+  {
+    version: "0.169.3",
+    date: "2026-09-30",
+    changes: [
+      "Coil Defect Log now saves the Other faults table in the format the QCCoils list expects, so saved Other defects read correctly outside ARC",
+    ],
+  },
+  {
+    version: "0.169.2",
+    date: "2026-09-29",
+    // Parts List work while it's hidden: the real bullets are in
+    // PARTS_LIST_CHANGES, so they reach the history at go-live, not before.
+    changes: ["More work on the upcoming Parts List"],
+  },
+  {
+    version: "0.169.1",
+    date: "2026-09-29",
+    changes: [
+      "Build Request Production Complete can now be pressed only by Amanda Hoagland or an admin — the assigned engineer presses Ready for Production, and production signs off that it's done",
+    ],
+  },
+  {
+    version: "0.169.0",
+    date: "2026-09-29",
+    changes: [
+      "Build requests have a production hand-off button: Ready for Production once every part is Ready for Production, then Build Request Production Complete once every part is Production Complete",
+      "Only the assigned engineer or an admin can press it, and the status picker follows the same rule",
+      "New statuses: Ready for Production and Production Complete on build requests, and Production Complete on parts",
+      "Going Ready for Production emails Amanda Hoagland, Sheila Horn, the assigned engineer, the requestor and the watchers",
+      "A part reaching Production Complete emails the assigned engineer, the requestor, the request's watchers and the part's watchers",
+      "A build request reaching Production Complete asks Sheila Horn to review it and set it to Complete; once she does, the watchers, Amanda Hoagland, the assigned engineer and the requestor are told",
+    ],
+  },
+  {
+    version: "0.168.1",
+    date: "2026-09-29",
+    // Parts List work while it's hidden: the real bullet is in
+    // PARTS_LIST_CHANGES, so it reaches the history at go-live, not before.
+    changes: ["More work on the upcoming Parts List"],
+  },
+  {
+    version: "0.168.0",
+    date: "2026-09-29",
+    // The Parts List ships hidden until VITE_PARTS_LIST_LIVE (Tim, 2026-09-29):
+    // its features stay out of the history until then, so nobody reads about
+    // a screen they can't open. See PARTS_LIST_CHANGES above.
+    changes: PARTS_LIST_LIVE ? PARTS_LIST_CHANGES : [PARTS_LIST_COMING_SOON],
+  },
+  {
+    version: "0.167.2",
+    date: "2026-09-29",
+    changes: [
+      "Uploading a large file to a task no longer hangs — it finishes as soon as the file is in the project folder, and the extra copy on the task carries on in the background",
+      "Posting a task comment with a large attachment no longer waits on that extra copy",
+      "When a large attachment on an EIR, ECN or other list is cut off before SharePoint receives it, ARC now says so and names the file instead of showing a bare network error",
+    ],
+  },
+  {
+    version: "0.167.1",
+    date: "2026-09-28",
+    changes: [
+      "Report issue no longer opens your own email by itself when it can't send from the notifications mailbox — it stays open, says why, and offers Try again or Use my email instead",
+      "When the reason is missing access to the notifications mailbox, Report issue names the access to ask IT for",
+    ],
+  },
+  {
+    version: "0.167.0",
+    date: "2026-09-28",
+    changes: [
+      "Admins can now delete an ECN from its page, after confirming — for a duplicate or a notice entered by mistake. A superseded ECN should still be revised rather than deleted",
+    ],
+  },
+  {
+    version: "0.166.3",
+    date: "2026-09-25",
+    changes: [
+      "Someone you @-mention in a comment now shows as a watcher the moment you press Post, instead of a few seconds after the comment saves",
+      "A mentioned watcher no longer briefly disappears and reappears while the comment finishes saving",
+      "If a mentioned person can't be added as a watcher because they have no SharePoint account, ARC now says so instead of skipping them silently",
+    ],
+  },
+  {
+    version: "0.166.2",
+    date: "2026-09-25",
+    changes: [
+      "On a build request, the HI-POT Test box now appears on the Harness checklist instead of the PCB data-package checklist",
+    ],
+  },
+  {
+    version: "0.166.1",
+    date: "2026-09-25",
+    changes: [
+      "The QC Time Tracking Hold Reason dropdown now shows whatever reasons are configured on the SharePoint list, so a new one you add there appears in ARC without waiting on a code change",
+    ],
+  },
+  {
+    version: "0.166.0",
+    date: "2026-09-24",
+    changes: [
+      "Guests (external partners signed in with a company invite) can now be assigned tasks and @-mentioned, the same as staff — they were being silently left out of every picker in the app",
+    ],
+  },
+  {
+    version: "0.165.1",
+    date: "2026-09-24",
+    changes: [
+      "Assembly, Operations and Testing on a build request part can be ticked again — every selection was being refused by SharePoint",
+      "The same fault was fixed on a supplier's Core Competency and a customer's Customer Type, where it hadn't been reported yet",
+    ],
+  },
+  {
+    version: "0.165.0",
+    date: "2026-09-24",
+    changes: [
+      "ARC now tells you, anywhere in the app, when a screen's SharePoint data can't be loaded for your account — instead of showing an empty list as though there were nothing to see",
+      "The notice sits in the footer, names the app and the SharePoint site to ask an admin about, and has a Check again action for the moment access is granted — on a narrow screen it collapses to an alert icon you can tap for the same message",
+      "ARC checks your access as soon as it loads, so an app you can't use is locked from the start rather than after you've opened it and been turned away",
+      "Dashboard cards and Departments menu entries for those apps are locked, so you aren't sent to a screen that can only turn you away",
+      "Nothing is hidden — a locked app still shows its name and a padlock, so you can see it exists and ask for it",
+      "An app whose data ARC can't read is locked too, with wording that says which it is — a folder ARC can't find, or a list whose records are all hidden from you, no longer looks like an app with nothing in it",
+      "Digital QC, Ignition QC, Coil Defect Log, Potting Sample Log and the Teradyne Log explain a missing list in place of the table, including when only a reference list behind the screen is unreachable",
+      "Add entry is unavailable on those screens until every list they need can be reached, so an entry can't be lost to a refused save",
+      "Customers and the Open Orders Report now say when their data couldn't be read at all, instead of showing an empty list or \"no master dashboard yet\" as though nothing had been created",
+    ],
+  },
+  {
+    version: "0.164.5",
+    date: "2026-09-24",
+    changes: [
+      "When a part on a build request can't be saved, the message now says why — whether SharePoint refused it, or the part was removed by someone else — instead of just \"changes reverted\"",
+    ],
+  },
+  {
+    version: "0.164.4",
+    date: "2026-09-24",
+    changes: [
+      "Promoting an EIR to a task no longer loses the EIR's discussion when the task's link back to the EIR can't be saved — the comments are written first, on their own, and still carry their original author, timestamp and a \"carried over from EIR\" note",
+      "If something does fail to save during a promotion, the message now says the discussion can be copied across from the EIR rather than just \"by hand\"",
+    ],
+  },
+  {
+    version: "0.164.3",
+    date: "2026-09-23",
+    changes: [
+      "If your browser blocks the sign-in window, ARC now tells you where the setting is instead of showing a developer error — and what to do if your browser settings are managed and you can't change them",
+    ],
+  },
+  {
+    version: "0.164.2",
+    date: "2026-09-22",
+    changes: [
+      "Fixed the month and year dropdowns in the date picker rendering unreadably in dark mode — black text on white over the dark calendar",
+      "Every native dropdown, scrollbar and form control in ARC now follows the theme instead of always painting light",
+    ],
+  },
+  {
+    version: "0.164.1",
+    date: "2026-09-22",
+    changes: [
+      "Date pickers: the month and year at the top of the calendar are now dropdowns — pick a year directly instead of clicking the arrow a month at a time",
+      "Most useful on CSA Listings, where a Date Certified can be years back; it applies to every date field in ARC",
+      "A record's existing year is always offered, however old, so an old certificate's date can still be changed",
+    ],
+  },
+  {
+    version: "0.164.0",
+    date: "2026-09-22",
+    changes: [
+      "A comment on a task or its linked build request now appears on both — one conversation, two places",
+      "A comment on a build request PART also appears on the task and the build request, flagged as coming from that part",
+      "Each copy links straight back to the thread it came from, so you reply where the rest of that discussion lives",
+      "Watchers on each side are emailed once — being on both lists no longer means two emails for one comment",
+    ],
+  },
+  {
+    version: "0.163.0",
+    date: "2026-09-22",
+    changes: [
+      "Create Build Request from a task — the button is on the task page, next to New Child Task",
+      "The new request opens prefilled with the task's name and project, and the task reference is locked in",
+      "The task's whole discussion is copied across, keeping each comment's original author and time",
+      "Task and build request link to each other — each page shows the other, with its status",
     ],
   },
   {

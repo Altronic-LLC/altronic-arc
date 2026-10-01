@@ -90,7 +90,10 @@ export const MOCK_BUILD_REQUESTS: BuildRequest[] = [
     leadFree: false,
     watchers: [AMANDA, MATT, RAY],
     parentProjects: [{ lookupId: 243, title: "2001-Altronic III" }],
-    taskReferenceLookupId: 1,
+    // A REAL mock task id (15), so the derived task↔BR link renders in the
+    // demo. It was 1 — a task that doesn't exist in MOCK_TASKS — which made
+    // the link silently show nothing, back when nothing read this column.
+    taskReferenceLookupId: 15,
     createdAt: new Date("2026-05-14T19:40:00Z"),
     modifiedAt: new Date("2026-07-12T10:00:00Z"),
     author: AMANDA,

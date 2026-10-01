@@ -8,6 +8,7 @@ import { AuthGate } from "./auth/AuthGate";
 import { assertGraphConfigured } from "./api/config";
 import { installErrorCapture } from "./lib/errorBuffer";
 import { isSessionExpiredError, markSessionExpired } from "./hooks/useSessionExpiry";
+import { recordAccessFailure } from "./hooks/useListAccess";
 import { reportEditFailure } from "./api/editFailureReport";
 import "./styles/globals.css";
 
@@ -46,6 +47,20 @@ try {
 // half of the "let the AuthGate handle re-login" comment below; previously
 // nothing actually read that signal, so a stale session just rendered as
 // empty lists everywhere instead of prompting a fresh sign-in.
+// Global SharePoint-access learner. Every query AND mutation error passes
+// here, so a list the signed-in user can't read registers itself once —
+// wherever it was first touched — and the whole app can then stop pretending
+// that list is empty (see hooks/useListAccess.ts). Ignores anything that
+// isn't positively a 403/accessDenied on a list or site.
+function handlePossibleAccessDenial(error: unknown) {
+  recordAccessFailure(error);
+}
+
+function handleQueryError(error: unknown) {
+  handlePossibleSessionExpiry(error);
+  handlePossibleAccessDenial(error);
+}
+
 function handlePossibleSessionExpiry(error: unknown) {
   if (!isSessionExpiredError(error)) return;
   // The message carries the explanation when the session ended for something
@@ -64,11 +79,12 @@ function handlePossibleSessionExpiry(error: unknown) {
 // and future department for free — no per-mutation wiring.
 function handleMutationError(error: unknown, variables: unknown) {
   handlePossibleSessionExpiry(error);
+  handlePossibleAccessDenial(error);
   void reportEditFailure({ error, variables });
 }
 
 const queryClient = new QueryClient({
-  queryCache: new QueryCache({ onError: handlePossibleSessionExpiry }),
+  queryCache: new QueryCache({ onError: handleQueryError }),
   mutationCache: new MutationCache({ onError: handleMutationError }),
   defaultOptions: {
     queries: {

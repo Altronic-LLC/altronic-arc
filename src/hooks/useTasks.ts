@@ -25,7 +25,12 @@ import {
   updateTaskFields,
   watchTask,
 } from "@/api/tasks";
-import { autoWatchFromMentions } from "@/api/autoWatch";
+import {
+  afterMentionAutoWatch,
+  beginMentionAutoWatch,
+  type MentionAutoWatch,
+} from "./mentionAutoWatch";
+import { fanOutComment } from "@/hooks/useCommentMirror";
 import { listTaskColumns } from "@/api/taskColumns";
 import type {
   Category,
@@ -58,8 +63,11 @@ import { resolveCurrentUserLookupId } from "@/api/currentUser";
 import { fromLabelsField, toLabelsField } from "@/lib/labels";
 import { htmlToPlainText } from "@/lib/htmlText";
 import { autoWatchers } from "@/lib/people";
+import { parseWrittenDate } from "@/lib/dateInput";
 
-const TASK_LIST_KEY = ["tasks", "list"] as const;
+// Exported so the comment fan-out (hooks/useCommentMirror.ts) can read and
+// invalidate the same cache this file owns, rather than re-declaring the key.
+export const TASK_LIST_KEY = ["tasks", "list"] as const;
 const PROJECTS_KEY = ["projects"] as const;
 
 export function useTasks() {
@@ -633,8 +641,8 @@ export function useAddComment() {
         attachments?: CommentAttachment[];
       };
     }) => addComment(id, comment),
-    onMutate: ({ id, comment }) =>
-      snapshotAndPatch(
+    onMutate: async ({ id, comment }) => ({
+      ...(await snapshotAndPatch(
         qc,
         id,
         patchTask(id, (t) => ({
@@ -653,8 +661,13 @@ export function useAddComment() {
           hasAttachments:
             comment.attachments && comment.attachments.length > 0 ? true : t.hasAttachments,
         })),
-      ),
-    onSuccess: (_data, { id, comment }) => {
+      )),
+      // Mentioned people show as watchers NOW, not after the comment's round
+      // trip — see hooks/mentionAutoWatch.ts.
+      autoWatch: beginTaskMentionAutoWatch(qc, id, comment.bodyHtml),
+    }),
+    onSuccess: (_data, { id, comment }, ctx) => {
+      ctx?.autoWatch?.commit();
       pushToast({ message: "Comment posted." });
 
       const tasks = qc.getQueryData<Task[]>(TASK_LIST_KEY);
@@ -687,70 +700,68 @@ export function useAddComment() {
         });
       }
 
-      // Auto-watch: every newly @-mentioned user becomes a watcher on the task
-      // (unless they already are). Resolves the recipient email against the
-      // people directory built from every task's assigned + watchers so we get
-      // a real SharePoint LookupId — without one, Graph can't write the watcher
-      // entry. Silent on success; logs on failure.
-      const mentioned = extractMentionedRecipients(comment.bodyHtml);
-      if (mentioned.length === 0) return;
-      void autoWatchFromMentions({
-        resolveLookupId: resolveCurrentUserLookupId,
-        recipients: mentioned,
-        currentWatchers: task.watchers,
-        directory: tasks ? collectPeopleFromTasks(tasks) : [],
-      })
-        .then((additions) => applyWatcherAdditions(qc, id, task.watchers, additions))
-        .catch((err) => {
-          console.error("Auto-watch failed for task comment:", err);
-        });
+      // Copy it onto the linked build request, if this task raised one, and
+      // notify THAT side's watchers minus whoever we just emailed. Best-effort
+      // and fire-and-forget: the comment itself is already written and on
+      // screen, so a failed mirror toasts rather than failing the post.
+      void fanOutComment({
+        qc,
+        source: { kind: "task", id },
+        comment,
+        alreadyNotified: recipients,
+      });
+
     },
     onError: (_err, _vars, ctx) => {
+      ctx?.autoWatch?.cancel();
       rollback(qc, ctx);
-      errorToast("Couldn't post comment — please retry.");
+      // DetailView hands the composer this mutation's promise, so the
+      // comment is put back in the box rather than lost.
+      errorToast("Couldn't post comment — it's back in the comment box to send again.");
     },
-    onSettled: (server) => settleTasks(qc, server),
+    onSettled: (server, _err, _vars, ctx) => settleCommentWrite(qc, server, ctx?.autoWatch),
   });
 }
 
 /**
- * Apply auto-watch additions optimistically. The watcher chips + toast show
- * IMMEDIATELY — waiting for the SharePoint write and the follow-up list
- * refetch (as this used to) made mentions look like they hadn't added the
- * watcher. The write then happens in the background; the cache is re-patched
- * after it lands in case the comment's own onSettled refetch (in flight
- * without the new watchers yet) overwrote the optimistic version. On failure
- * we surface an error and refetch so the UI doesn't lie.
+ * Start auto-watch for a task comment: the mentioned people appear as
+ * watchers immediately and are written once the comment lands.
  */
-async function applyWatcherAdditions(
+function beginTaskMentionAutoWatch(
   qc: QueryClient,
   id: number,
-  currentWatchers: Person[],
-  additions: Person[],
-): Promise<void> {
-  if (additions.length === 0) return;
-  const next = [...currentWatchers, ...additions];
-  const patch = () =>
-    qc.setQueryData<Task[]>(TASK_LIST_KEY, (old) =>
-      old?.map((t) => (t.id === id ? { ...t, watchers: next } : t)),
-    );
-  patch();
-  pushToast({
-    message:
-      additions.length === 1
-        ? `${additions[0].displayName} is now watching this task.`
-        : `${additions.length} people are now watching this task.`,
+  bodyHtml: string,
+): MentionAutoWatch | null {
+  const task = findTask(qc.getQueriesData<Task[]>(TASK_LIST_FILTER), id);
+  if (!task) return null;
+  return beginMentionAutoWatch({
+    bodyHtml,
+    currentWatchers: task.watchers,
+    directory: () => collectPeopleFromTasks(qc.getQueryData<Task[]>(TASK_LIST_KEY) ?? []),
+    resolveLookupId: resolveCurrentUserLookupId,
+    patch: (watchers) =>
+      qc.setQueriesData<Task[]>(TASK_LIST_FILTER, (old) =>
+        old?.map((t) => (t.id === id ? { ...t, watchers } : t)),
+      ),
+    write: (watchers) => setWatchers(id, watchers),
+    onWriteFailed: () => invalidateTasks(qc),
+    noun: "task",
   });
-  try {
-    await setWatchers(id, next);
-    patch();
-  } catch (err) {
-    console.error("Couldn't save auto-watch additions:", err);
-    errorToast("Couldn't add the mentioned person as a watcher — refreshing.");
-    invalidateTasks(qc);
-  }
 }
 
+/**
+ * onSettled for a comment write. With an auto-watch in flight, the row the
+ * comment returned predates the new watchers — reconciling with it would wipe
+ * their chips — so wait for the watcher write and refetch instead.
+ */
+function settleCommentWrite(
+  qc: QueryClient,
+  server: Task | undefined,
+  autoWatch: MentionAutoWatch | null | undefined,
+) {
+  if (!autoWatch) return settleTasks(qc, server);
+  afterMentionAutoWatch(autoWatch, () => invalidateTasks(qc));
+}
 
 /** Flatten every Person across the task list, deduped by email/displayName. */
 function collectPeopleFromTasks(tasks: Task[]): Person[] {
@@ -779,8 +790,8 @@ export function useEditComment() {
       /** Author opted in to "Notify everyone again" — see onSuccess below. */
       renotify?: boolean;
     }) => editComment(id, target, newBodyHtml),
-    onMutate: ({ id, target, newBodyHtml }) =>
-      snapshotAndPatch(
+    onMutate: async ({ id, target, newBodyHtml }) => ({
+      ...(await snapshotAndPatch(
         qc,
         id,
         patchTask(id, (t) => ({
@@ -793,8 +804,13 @@ export function useEditComment() {
           ),
           modifiedAt: new Date(),
         })),
-      ),
+      )),
+      // Anyone @-mentioned in the edited body becomes a watcher (unless
+      // already watching) — same rule, and same timing, as a new comment.
+      autoWatch: beginTaskMentionAutoWatch(qc, id, newBodyHtml),
+    }),
     onSuccess: (_data, { id, target, newBodyHtml, renotify }, ctx) => {
+      ctx?.autoWatch?.commit();
       const prevComment = ctx?.prevTask?.comments.find(
         (c) =>
           c.timestamp.getTime() === target.timestamp.getTime() &&
@@ -860,28 +876,13 @@ export function useEditComment() {
         }
       }
 
-      // Auto-watch: anyone @-mentioned in the edited body becomes a watcher
-      // (unless already watching) — same rule as posting a new comment,
-      // regardless of whether this mention is new or being re-notified.
-      const mentioned = extractMentionedRecipients(newBodyHtml);
-      if (mentioned.length === 0) return;
-      const allTasks = qc.getQueryData<Task[]>(TASK_LIST_KEY);
-      void autoWatchFromMentions({
-        resolveLookupId: resolveCurrentUserLookupId,
-        recipients: mentioned,
-        currentWatchers: task.watchers,
-        directory: allTasks ? collectPeopleFromTasks(allTasks) : [],
-      })
-        .then((additions) => applyWatcherAdditions(qc, id, task.watchers, additions))
-        .catch((err) => {
-          console.error("Auto-watch failed for edited task comment:", err);
-        });
     },
     onError: (_err, _vars, ctx) => {
+      ctx?.autoWatch?.cancel();
       rollback(qc, ctx);
       errorToast("Couldn't save comment — reverted.");
     },
-    onSettled: (server) => settleTasks(qc, server),
+    onSettled: (server, _err, _vars, ctx) => settleCommentWrite(qc, server, ctx?.autoWatch),
   });
 }
 
@@ -1044,7 +1045,7 @@ function applyFieldsLocally(t: Task, fields: Record<string, unknown>): Task {
   }
   if ("DueDate" in fields) {
     const v = fields.DueDate;
-    next.dueDate = v ? new Date(v as string) : null;
+    next.dueDate = parseWrittenDate(v);
   }
   // Labels arrives as a bare choice string (single-value column) — the shared
   // reader also tolerates the old array shape. See lib/labels.ts.

@@ -11,6 +11,7 @@ import {
   FolderOpen,
   GitBranch,
   GitBranchPlus,
+  Hammer,
   Link2,
   Pencil,
   Printer,
@@ -74,6 +75,9 @@ import { DateField } from "@/components/DateField";
 import { toLabelsField } from "@/lib/labels";
 import { PersonMultiField } from "@/components/PersonMultiField";
 import { MultiSelect } from "@/components/SearchableSelect";
+import { BuildRequestFormModal } from "@/components/BuildRequestFormModal";
+import { buildRequestStatusColor } from "@/components/buildRequestAtoms";
+import { useBuildRequestsForTask } from "@/hooks/useBuildRequests";
 import { cn } from "@/lib/cn";
 
 export function DetailView() {
@@ -102,9 +106,12 @@ export function DetailView() {
   const [showEdit, setShowEdit] = useState(false);
   const [showNewTestSheet, setShowNewTestSheet] = useState(false);
   const [showNewChildTask, setShowNewChildTask] = useState(false);
+  const [showNewBuildRequest, setShowNewBuildRequest] = useState(false);
   // Final-resolution prompt shown when completing a task tied to an EIR.
   const [showResolution, setShowResolution] = useState(false);
   const { data: allTestSheets = [] } = useTestSheets();
+  // Derived, not stored on the task — see lib/buildRequestFromTask.ts.
+  const { data: linkedBuildRequests } = useBuildRequestsForTask(taskId);
 
   // Comment-collision tracking: we render the comment thread from a frozen
   // snapshot of "comments the user has acknowledged seeing." Background
@@ -406,11 +413,14 @@ export function DetailView() {
   function handleAddComment(
     bodyHtml: string,
     attachments: import("@/types/task").CommentAttachment[],
-  ) {
+  ): Promise<void> | undefined {
     if (!task) return;
-    // Fire-and-forget. useAddComment's onMutate inserts the new comment in
-    // the React Query cache synchronously, so it shows up in the thread
-    // immediately. The actual Graph round-trip happens in the background.
+    // useAddComment's onMutate inserts the new comment in the React Query
+    // cache synchronously, so it shows up in the thread immediately and the
+    // composer clears at once. The save's promise is RETURNED, not awaited
+    // here: the composer holds it, and if the post fails it puts the comment
+    // back in the box — chips and files included — instead of it vanishing
+    // (Thomas Terhune, 2026-09-30).
     //
     // We used to refetch the whole tasks list first and pop a confirm()
     // modal if someone else had just commented — the race window for the
@@ -419,15 +429,17 @@ export function DetailView() {
     // background poll already surfaces concurrent comments through the
     // banner above the thread. Trading the modal for the banner is the
     // right call: speed for the common case, awareness for the rare one.
-    addComment.mutate({
-      id: task.id,
-      comment: {
-        authorName: currentUser.displayName,
-        authorEmail: currentUser.email ?? "",
-        bodyHtml,
-        attachments,
-      },
-    });
+    return addComment
+      .mutateAsync({
+        id: task.id,
+        comment: {
+          authorName: currentUser.displayName,
+          authorEmail: currentUser.email ?? "",
+          bodyHtml,
+          attachments,
+        },
+      })
+      .then(() => undefined);
   }
 
   async function handleEditComment(
@@ -506,6 +518,32 @@ export function DetailView() {
               </button>
             )}
 
+            {/* The other half of the task↔BR link, DERIVED from each Build
+                Request's own Task Reference rather than stored here — see
+                lib/buildRequestFromTask.ts. Every one is listed, not just the
+                newest: a task re-raised after a cancelled request has two,
+                and hiding the earlier one hides real history. */}
+            {linkedBuildRequests.map((br) => (
+              <button
+                key={br.id}
+                onClick={() => navigate(`/build-request/${br.id}`)}
+                className="mb-3 ml-0 inline-flex items-center gap-2 rounded-md border border-border bg-surface-2 px-2.5 py-1 text-xs text-fg-muted transition-colors hover:border-fg-muted hover:text-fg sm:ml-2"
+                title="Open the build request raised from this task"
+              >
+                <Hammer className="h-3 w-3" />
+                <span className="text-fg-muted">Build Request:</span>
+                <span className="font-medium text-fg">{br.brNo || br.title}</span>
+                <span
+                  className={cn(
+                    "rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide",
+                    buildRequestStatusColor(br.status),
+                  )}
+                >
+                  {br.status}
+                </span>
+              </button>
+            ))}
+
             <div className="mb-3 flex flex-wrap items-center gap-2">
               {/* `disabled` for the true terminal case (already Complete — nothing to
                   click for). `aria-disabled`, NOT `disabled`, for the open-children
@@ -558,6 +596,21 @@ export function DetailView() {
                 <GitBranchPlus className="h-4 w-4" />
                 <span className="hidden sm:inline">New Child Task</span>
                 <span className="sm:hidden">Child Task</span>
+              </button>
+              {/* Deliberately NOT hidden once a build request exists. A task
+                  CAN legitimately need a second one (the first was cancelled,
+                  or a second build is genuinely wanted), and the existing
+                  links are already visible in the pill row above — so this
+                  stays available rather than disappearing and leaving no way
+                  to raise another. */}
+              <button
+                onClick={() => setShowNewBuildRequest(true)}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg transition-colors hover:bg-surface-2"
+                title="Raise a build request from this task, carrying its comments across"
+              >
+                <Hammer className="h-4 w-4" />
+                <span className="hidden sm:inline">Create Build Request</span>
+                <span className="sm:hidden">Build Request</span>
               </button>
               <Link
                 to={`/task/${task.id}/print`}
@@ -708,15 +761,8 @@ export function DetailView() {
             <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
               Comments
             </h2>
-            {addComment.isError && (
-              <div className="mb-3 rounded-md border border-cooper-red/30 bg-cooper-red/10 px-3 py-2 text-xs text-cooper-red">
-                Couldn't post comment:{" "}
-                {addComment.error instanceof Error
-                  ? addComment.error.message
-                  : "unknown error"}
-                . Your comment was removed from the thread — try again.
-              </div>
-            )}
+            {/* A failed post is reported by the composer itself, which puts
+                the comment back in the box — see handleAddComment. */}
             <CommentComposer
               draftKey={`task:${taskId}`}
               onSubmit={handleAddComment}
@@ -995,6 +1041,12 @@ export function DetailView() {
           mode="create"
           fromParentTask={task}
           onClose={() => setShowNewChildTask(false)}
+        />
+      )}
+      {showNewBuildRequest && (
+        <BuildRequestFormModal
+          fromTask={task}
+          onClose={() => setShowNewBuildRequest(false)}
         />
       )}
       {showResolution && task.eirReference && (

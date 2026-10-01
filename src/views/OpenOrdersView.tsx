@@ -38,6 +38,8 @@ import {
 import { OPEN_ORDERS_PATH } from "@/api/openOrdersFiles";
 import { SP_OPEN_ORDERS_CUSTOMERS_LIST_ID, USE_MOCK } from "@/api/config";
 import { LoadingTasks } from "@/components/LoadingTasks";
+import { ListAccessNotice } from "@/components/ListAccessNotice";
+import { isGone, isPermissionDenied } from "@/lib/listWriteErrors";
 import { DateField } from "@/components/DateField";
 import { toDateInputValue, fromDateInputValue } from "@/lib/spDates";
 import { cn } from "@/lib/cn";
@@ -61,6 +63,31 @@ import { cn } from "@/lib/cn";
 // otherwise.
 // =============================================================================
 
+/**
+ * A failed folder read, in words.
+ *
+ * The first version printed the raw Graph message, which is a 300-character
+ * URL with the site id and the whole `$select` in it (Tim, 2026-09-24) — true,
+ * unreadable, and it buries the one useful word in it.
+ *
+ * A 404 on a PATH is genuinely ambiguous: Graph answers `itemNotFound` both
+ * for a folder that was never created and for one the account can't see, so
+ * this says both rather than picking. A refusal never reaches here — that gets
+ * the access notice instead.
+ */
+function describeFolderFailure(error: unknown): string {
+  if (isGone(error)) {
+    return (
+      `ARC couldn't find ${OPEN_ORDERS_PATH} on ALTRONICSALESTEAM. ` +
+      "Either no reports have been generated there yet, or your account can't " +
+      "see that folder — an admin can confirm which."
+    );
+  }
+  return `Couldn't read ${OPEN_ORDERS_PATH}: ${
+    error instanceof Error ? error.message : "unknown error"
+  }`;
+}
+
 const CADENCE_NOTE =
   "This is a once-a-week job. Export the open orders report out of SAP, upload it here, " +
   "and ARC rebuilds the master dashboard and every customer's workbook in one pass.";
@@ -68,8 +95,30 @@ const CADENCE_NOTE =
 export function OpenOrdersView() {
   const access = useMyOpenOrdersAccess();
   const { data: accounts = [], isLoading: accountsLoading } = useOpenOrdersCustomers();
-  const { data: masters = [], isLoading: mastersLoading } = useMasterReports();
-  const { data: weeks = [], isLoading: weeksLoading } = useOpenOrdersWeeks();
+  const {
+    data: masters = [],
+    isLoading: mastersLoading,
+    error: mastersError,
+    refetch: refetchMasters,
+  } = useMasterReports();
+  const {
+    data: weeks = [],
+    isLoading: weeksLoading,
+    error: weeksError,
+    refetch: refetchWeeks,
+  } = useOpenOrdersWeeks();
+
+  // A folder ARC can't read used to render as "No master dashboard yet — build
+  // one with the tool below", which reads as "nobody has run it" and sent
+  // people to a button that would fail too (Tim, 2026-09-24). The files live
+  // in the Sales site's document library, so a refusal here is about that
+  // library, not about the customer list.
+  const filesError = mastersError ?? weeksError;
+  const filesUnavailable = !!filesError && isPermissionDenied(filesError);
+  function retryFiles() {
+    void refetchMasters();
+    void refetchWeeks();
+  }
   const { data: rawUploads = [] } = useRawUploads();
 
   // The newest week is open on arrival, so the individual files are THERE
@@ -119,7 +168,15 @@ export function OpenOrdersView() {
           title="Master dashboard"
           note="The company-wide view. The newest one is the current week's."
         />
-        {masters.length === 0 ? (
+        {filesUnavailable ? (
+          <ListAccessNotice
+            list="The OPEN ORDERS folder"
+            site="ALTRONICSALESTEAM"
+            onRetry={retryFiles}
+          />
+        ) : filesError ? (
+          <Empty>{describeFolderFailure(filesError)}</Empty>
+        ) : masters.length === 0 ? (
           <Empty>No master dashboard yet — build one with the tool below.</Empty>
         ) : (
           <ul className="flex flex-col divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface">
@@ -155,7 +212,11 @@ export function OpenOrdersView() {
           title="Customer workbooks, by week"
           note="Download from here and send them on. One folder per week."
         />
-        {weeks.length === 0 ? (
+        {filesError ? (
+          // The notice above already explains it; repeating it per section
+          // would say the same thing three times down one screen.
+          <Empty>Unavailable while the OPEN ORDERS folder can't be read.</Empty>
+        ) : weeks.length === 0 ? (
           <Empty>No weekly folders yet — the tool below creates one per week.</Empty>
         ) : (
           <ul className="flex flex-col gap-2">

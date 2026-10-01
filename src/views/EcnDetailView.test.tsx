@@ -186,3 +186,12 @@ describe("EcnDetailView", () => {
     );
   });
 });
+
+// Delete is admin-only: the button renders for an admin and not otherwise.
+// Ray White is a bootstrap admin, which is what the file-level mock signs in as.
+describe("EcnDetailView — delete", () => {
+  it("offers Delete to an admin", async () => {
+    await renderDetail();
+    expect(screen.getByRole("button", { name: /delete/i })).toBeInTheDocument();
+  });
+});

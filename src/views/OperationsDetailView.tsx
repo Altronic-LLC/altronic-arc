@@ -252,14 +252,15 @@ export function OperationsDetailView() {
     // Operations tasks don't have the project-folder attachment mirroring
     // Engineering tasks use — comment attachments aren't supported here,
     // same as EIRs. Use the Attachments card on the task itself instead.
-    addComment.mutate({
+    // Returned, so a comment that fails to post goes back in the composer.
+    return addComment.mutateAsync({
       id: task.id,
       comment: {
         authorName: currentUser.displayName,
         authorEmail: currentUser.email ?? "",
         bodyHtml,
       },
-    });
+    }).then(() => undefined);
   }
 
   async function handleEditComment(
@@ -367,13 +368,8 @@ export function OperationsDetailView() {
             <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
               Comments
             </h2>
-            {addComment.isError && (
-              <div className="mb-3 rounded-md border border-cooper-red/30 bg-cooper-red/10 px-3 py-2 text-xs text-cooper-red">
-                Couldn't post comment:{" "}
-                {addComment.error instanceof Error ? addComment.error.message : "unknown error"}.
-                Your comment was removed from the thread — try again.
-              </div>
-            )}
+            {/* A failed post is reported by the composer, which puts the
+                comment back in the box. */}
             <CommentComposer
               draftKey={`opsTask:${taskId}`} onSubmit={handleAddComment} mentionablePeople={mentionCandidates} uploadFile={uploadCommentFile} />
             {newExternalComments.length > 0 && (

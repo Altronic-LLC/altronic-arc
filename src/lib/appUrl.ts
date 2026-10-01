@@ -29,7 +29,9 @@ export type AppItemKind =
   | "supplierContact"
   | "supplierIssue"
   | "costImpactNotice"
-  | "featureRequest";
+  | "featureRequest"
+  | "altronicPart"
+  | "altronicComponent";
 
 const KIND_SEGMENTS: Record<AppItemKind, string> = {
   task: "task",
@@ -58,6 +60,10 @@ const KIND_SEGMENTS: Record<AppItemKind, string> = {
   supplierIssue: "supply-chain/supplier-issue",
   costImpactNotice: "supply-chain/cost-impact-notice",
   featureRequest: "feature-request",
+  // The Parts List's two lists share ONE detail route, told apart by kind —
+  // item ids repeat across the lists (see lib/partSearch.ts `partPath`).
+  altronicPart: "engineering/parts/part",
+  altronicComponent: "engineering/parts/component",
 };
 
 /** Absolute URL to an item's detail page in this app. */
@@ -65,4 +71,28 @@ export function appItemUrl(kind: AppItemKind, id: number): string {
   const base = import.meta.env.BASE_URL ?? "/"; // trailing slash, e.g. "/altronic-arc/"
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   return `${origin}${base}${KIND_SEGMENTS[kind]}/${id}`;
+}
+
+/** Absolute URL to any router path in this app — `/engineering/parts?book=4`. */
+export function appPageUrl(path: string): string {
+  const base = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  return `${origin}${base}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
+/**
+ * The ROUTER path to an item, with no origin and no deploy sub-path —
+ * `/task/47`, not `https://host/altronic-arc/task/47`.
+ *
+ * For a link that gets STORED. A comment mirrored onto another record lives
+ * in a SharePoint text column for years, so baking in `window.location.origin`
+ * (or the Pages sub-path) would break every one of them the day ARC moves
+ * host or base path. `CommentThread` intercepts clicks on these and routes
+ * them, so the path is resolved against the router at CLICK time instead.
+ *
+ * Deliberately NOT for an email — mail has no router to resolve a bare path
+ * against, so notifications keep using `appItemUrl`.
+ */
+export function appItemPath(kind: AppItemKind, id: number): string {
+  return `/${KIND_SEGMENTS[kind]}/${id}`;
 }

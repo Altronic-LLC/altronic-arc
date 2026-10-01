@@ -4,6 +4,7 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { ToastContainer } from "@/components/Toast";
 import { UpdateAvailableBanner } from "@/components/UpdateAvailableBanner";
+import { useAccessProbe } from "@/hooks/useListAccess";
 import { RequireAdmin } from "@/components/RequireAdmin";
 import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
 import { LoadingTasks } from "@/components/LoadingTasks";
@@ -226,6 +227,23 @@ const CsaListingsView = lazy(() =>
     default: m.CsaListingsView,
   })),
 );
+// Altronic Parts List — every Altronic part number (Part List + Component
+// List). Lazy for the same reason; its three screens share one chunk family.
+const PartsBookView = lazy(() =>
+  import("@/views/PartsBookView").then((m) => ({ default: m.PartsBookView })),
+);
+const PartsListView = lazy(() =>
+  import("@/views/PartsListView").then((m) => ({ default: m.PartsListView })),
+);
+const PartDetailView = lazy(() =>
+  import("@/views/PartDetailView").then((m) => ({ default: m.PartDetailView })),
+);
+const PartDescriptionOptionsView = lazy(() =>
+  import("@/views/PartDescriptionOptionsView").then((m) => ({ default: m.PartDescriptionOptionsView })),
+);
+const AdminPartsRolesView = lazy(() =>
+  import("@/views/AdminPartsRolesView").then((m) => ({ default: m.AdminPartsRolesView })),
+);
 const PrintBuildRequestItemView = lazy(() =>
   import("@/views/PrintBuildRequestItemView").then((m) => ({
     default: m.PrintBuildRequestItemView,
@@ -329,6 +347,9 @@ export function App() {
   // scan here keeps each row's `useIsMentioned` cheap — rows just read a
   // boolean from the shared store and no longer trigger the scan effect.
   useMentionScanner();
+  // Ask SharePoint what this user can read BEFORE they click into something
+  // and get turned away. One $batch, on load. See api/accessProbe.ts.
+  useAccessProbe();
 
   return (
     <div className="flex min-h-screen flex-col bg-bg">
@@ -369,6 +390,16 @@ export function App() {
               element={
                 <RequireAdmin>
                   <AdminEirRolesView />
+                </RequireAdmin>
+              }
+            />
+            <Route
+              path="/admin/parts-roles"
+              element={
+                <RequireAdmin>
+                  <Suspense fallback={<LoadingTasks noun="parts roles" />}>
+                    <AdminPartsRolesView />
+                  </Suspense>
                 </RequireAdmin>
               }
             />
@@ -717,6 +748,46 @@ export function App() {
               element={
                 <Suspense fallback={<LoadingTasks noun="CSA listings" />}>
                   <CsaListingsView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/engineering/parts"
+              element={
+                <Suspense fallback={<LoadingTasks noun="parts list" />}>
+                  <PartsBookView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/engineering/parts/search"
+              element={
+                <Suspense fallback={<LoadingTasks noun="parts" />}>
+                  <PartsListView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/engineering/parts/list/:prefix"
+              element={
+                <Suspense fallback={<LoadingTasks noun="parts" />}>
+                  <PartsListView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/engineering/parts/descriptions"
+              element={
+                <Suspense fallback={<LoadingTasks noun="description lists" />}>
+                  <PartDescriptionOptionsView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/engineering/parts/:kind/:id"
+              element={
+                <Suspense fallback={<LoadingTasks noun="part" />}>
+                  <PartDetailView />
                 </Suspense>
               }
             />

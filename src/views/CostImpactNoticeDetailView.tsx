@@ -157,10 +157,11 @@ export function CostImpactNoticeDetailView() {
 
   function handleAddComment(bodyHtml: string) {
     if (!notice) return;
-    addComment.mutate({
+    // Returned, so a comment that fails to post goes back in the composer.
+    return addComment.mutateAsync({
       id: notice.id,
       comment: { authorName: currentUser.displayName, authorEmail: currentUser.email ?? "", bodyHtml },
-    });
+    }).then(() => undefined);
   }
 
   async function handleEditComment(comment: Comment, newBodyHtml: string) {

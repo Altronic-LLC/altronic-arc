@@ -91,6 +91,19 @@ jobs:
           # config.ts, so a build without this still points at the live list;
           # set it only to override.
           VITE_SP_MRB_LIST_ID: ${{ vars.VITE_SP_MRB_LIST_ID }}
+          # Altronic Part List / Component List (Engineering site). Documented
+          # defaults in config.ts, so a build without these still points at
+          # the live lists; set them only to override.
+          VITE_SP_ALTRONIC_PART_LIST_ID: ${{ vars.VITE_SP_ALTRONIC_PART_LIST_ID }}
+          VITE_SP_ALTRONIC_COMPONENT_LIST_ID: ${{ vars.VITE_SP_ALTRONIC_COMPONENT_LIST_ID }}
+          # Parts Roles — who may add, edit and approve parts. Documented
+          # default in config.ts (it only admits people on the list); set it
+          # only to override.
+          VITE_SP_PARTS_ROLES_LIST_ID: ${{ vars.VITE_SP_PARTS_ROLES_LIST_ID }}
+          VITE_SP_COMPONENT_DESCRIPTION_OPTIONS_LIST_ID: ${{ vars.VITE_SP_COMPONENT_DESCRIPTION_OPTIONS_LIST_ID }}
+          # "true" puts the Parts List on the Dashboard and Departments menu;
+          # unset, both say Coming soon and only the direct URL opens it.
+          VITE_PARTS_LIST_LIVE: ${{ vars.VITE_PARTS_LIST_LIVE }}
           VITE_SP_MAINTENANCE_TASKS_LIST_ID: ${{ vars.VITE_SP_MAINTENANCE_TASKS_LIST_ID }}
           VITE_SP_SCHEDULED_MAINTENANCE_LIST_ID: ${{ vars.VITE_SP_SCHEDULED_MAINTENANCE_LIST_ID }}
           # Maintenance Departments / Locations — the two admin-managed
@@ -118,6 +131,9 @@ jobs:
           VITE_GRAY_MARKET_NEW_REQUEST_ALERTS: ${{ vars.VITE_GRAY_MARKET_NEW_REQUEST_ALERTS }}
           VITE_FAIT_NEW_ALERTS: ${{ vars.VITE_FAIT_NEW_ALERTS }}
           VITE_FAIT_SQE_REVIEWERS: ${{ vars.VITE_FAIT_SQE_REVIEWERS }}
+          VITE_BUILD_REQUEST_PRODUCTION_ALERTS: ${{ vars.VITE_BUILD_REQUEST_PRODUCTION_ALERTS }}
+          VITE_BUILD_REQUEST_COMPLETE_REVIEWERS: ${{ vars.VITE_BUILD_REQUEST_COMPLETE_REVIEWERS }}
+          VITE_BUILD_REQUEST_FINAL_ALERTS: ${{ vars.VITE_BUILD_REQUEST_FINAL_ALERTS }}
           VITE_COST_IMPACT_NOTICE_ALERTS: ${{ vars.VITE_COST_IMPACT_NOTICE_ALERTS }}
           # ARC Feature Requests — the intake queue for new requests AND for
           # status changes. Defaults to Ray alone in config.ts, so this only

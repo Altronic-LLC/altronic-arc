@@ -18,11 +18,16 @@
     `allowTextEntry` is OFF for the same reason — a typed-in variant would
     make its own bucket of one.
 
-    Changing the choices later means editing BOTH this script's list and
-    `QC_TIME_HOLD_REASONS` in src/types/task.ts. ARC does NOT clamp what it
-    reads (an unrecognised value renders as itself rather than vanishing), so
-    a value added in SharePoint first shows up fine — but the picker won't
-    offer it until the const catches up.
+    Changing the choices later: as of 2026-09-25 the ARC picker reads this
+    column's choices LIVE off SharePoint (listQcTimeHoldReasonChoices in
+    src/api/qcTimeTracking.ts), so a value added here with THIS SCRIPT (or
+    directly in SharePoint's own column editor) shows up in the picker on
+    the next load, no code change or deploy needed.
+
+    `QC_TIME_HOLD_REASONS` in src/types/task.ts is only the fallback now
+    (mock mode, and what the picker falls back to if the live column-
+    metadata read fails) — updating it here too keeps mock mode honest, but
+    is no longer required for the real picker to show a new choice.
 
     Idempotent: a column that already exists is left alone.
 
@@ -133,7 +138,8 @@ Write-Host ""
 Write-Host "Hold reasons configured:" -ForegroundColor Cyan
 foreach ($r in $HoldReasons) { Write-Host "  - $r" }
 Write-Host ""
-Write-Host "These MUST stay in step with QC_TIME_HOLD_REASONS in" -ForegroundColor Yellow
-Write-Host "src/types/task.ts — change both together, or the picker offers a" -ForegroundColor Yellow
-Write-Host "value SharePoint refuses (or hides one it would accept)." -ForegroundColor Yellow
+Write-Host "ARC's picker reads this list LIVE off SharePoint now (2026-09-25) --" -ForegroundColor Green
+Write-Host "no code change or deploy needed for these to show up." -ForegroundColor Green
+Write-Host "Update QC_TIME_HOLD_REASONS in src/types/task.ts too, so mock mode" -ForegroundColor Cyan
+Write-Host "stays a faithful demo of the real list." -ForegroundColor Cyan
 Write-Host ""

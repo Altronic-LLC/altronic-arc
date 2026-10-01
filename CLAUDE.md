@@ -222,6 +222,9 @@ src/
 │
 ├── api/                          All mock/real branches live here (USE_MOCK)
 │   ├── config.ts                 USE_MOCK, SITES registry, every list ID, role-enforcement flags
+│   ├── appAccess.ts              Which lists each app needs + site labels (drives the access gating)
+│   ├── accessProbe.ts            One Graph $batch at sign-in: which lists can this user read?
+│   ├── listItemCount.ts          SharePoint's UNTRIMMED item count — "the rows exist, you just can't see them"
 │   ├── graph.ts                  graphFetch / graphFetchAll, throttle retry, ONE shared interactive sign-in
 │   ├── sharepoint.ts             SharePoint REST helper (list-item attachments)
 │   ├── directory.ts              Tenant staff directory (Graph /users) for the pickers
@@ -231,13 +234,19 @@ src/
 │   ├── taskColumns.ts            Task list column metadata / choice discovery
 │   ├── eirs.ts                   EIR CRUD
 │   ├── eirRoles.ts               EIR role tags (engineer / supply chain) CRUD
-│   ├── ecns.ts                   ECN CRUD + comments (Engineering) — no delete
+│   ├── ecns.ts                   ECN CRUD + comments (Engineering) — admin-only delete
 │   ├── ecnChecklists.ts          ECN Checklist CRUD (MFGFRM-038), one row per ECN — no delete
 │   ├── faits.ts                  FAIT CRUD + comments (Supply Chain) — no delete
 │   ├── testSheets.ts             Test Results CRUD
 │   ├── admins.ts                 Admins list CRUD
 │   ├── quickLinks.ts             Quick Links CRUD (Dashboard button links, admin-managed)
 │   ├── csaListings.ts            CSA Listings CRUD (Engineering certification register)
+│   ├── altronicParts.ts          Altronic Part List read/create/edit/approve/delete (~14,000 part numbers) — delete blanks for reuse
+│   ├── altronicComponents.ts     Altronic Component List read/create/edit/approve/delete (HCO components) — delete blanks for reuse
+│   ├── partsListShared.ts        Both parts lists' Graph plumbing — the Communication fallback, Title lookup
+│   ├── partsRoles.ts             Parts Roles list CRUD (who may edit/approve parts) — unset = read-only
+│   ├── componentDescriptionOptions.ts  Component Description Options — the new-component Description/Type/SIL dropdowns (delete OK: parts hold text)
+│   ├── datasheets.ts             Part + component datasheets — finds / uploads General/Datasheets/<part #>.pdf (never overwrites), archives on delete
 │   ├── drawingLogs.ts            Drawing File Logs — 4 registers, one parametrised module
 │   ├── buildRequests.ts          Build Requests (master) CRUD
 │   ├── buildRequestItems.ts      Build Request Items (detail) CRUD
@@ -273,6 +282,7 @@ src/
 │   ├── featureRequests.ts        ARC Feature Requests CRUD + comments (Engineering site) — no admin gate, no delete
 │   ├── whereAmI.ts               Where am I? CRUD (Engineering out-of-office calendar)
 │   ├── autoWatch.ts              Shared @-mention → watcher resolution (per-site)
+│   ├── commentMirror.ts          WRITES the comment mirrors — best-effort per target, never throws
 │   ├── projectFiles.ts           Documents-library project folders + files
 │   ├── attachments.ts            List-item attachments (task | eir | csaListing) via SP REST
 │   ├── qzPrint.ts                QZ Tray browser-side client — silent print to a named printer, never throws
@@ -285,6 +295,8 @@ src/
 │   ├── dashboardMockData.ts      Sample dashboard metrics
 │   ├── quickLinksMockData.ts     Sample Quick Links, a few per department
 │   ├── csaMockData.ts            Sample CSA certification files
+│   ├── altronicPartsMockData.ts  Sample parts + HCO components (legacy and mid-approval rows)
+│   ├── componentDescriptionSeed.json  The old app's Description/Type options + SIL categories — seeds the list (script) and the mock
 │   ├── drawingLogMockData.ts     Sample drawings + sketches (incl. sparse & full change logs)
 │   ├── teradyneMockData.ts       Sample Teradyne log + reference rows
 │   ├── operationsMockData.ts     Sample Operations tasks + projects
@@ -312,6 +324,10 @@ src/
 │   ├── useEirs.ts                EIR queries + mutations (optimistic + undo)
 │   ├── useEirRoles.ts            EIR roles CRUD + useMyEirRoles() (field gating)
 │   ├── useCsaListings.ts         CSA Listings queries + admin-guarded mutations
+│   ├── useAltronicParts.ts       Part List + Component List queries (long-cached), gated writes + their emails
+│   ├── usePartsRoles.ts          Parts Roles CRUD (admin-guarded) + useMyPartsAccess / resolvePartsPeople
+│   ├── useComponentDescriptionOptions.ts  The description dropdowns + their gated writes (SAP admin / reviewing engineers) and reorder
+│   ├── useDatasheet.ts           A part's datasheet, by part number (file lookup, not the flag) + the gated upload
 │   ├── useDrawingLogs.ts         Drawing log queries + admin-guarded mutations
 │   ├── useTeradyne.ts            Teradyne log + ref-list queries/mutations (+ usage counts, monthly FPY)
 │   ├── useOperationsTasks.ts     Operations task queries + mutations
@@ -341,7 +357,7 @@ src/
 │   ├── useMrb.ts                 MRB queries, mutations + comment thread (an edit diffs against the cached row)
 │   ├── useFeatureRequests.ts     ARC Feature Requests queries, mutations + comment thread — no admin gate
 │   ├── useWhereAmI.ts            Where am I? queries + mutations
-│   ├── useEcns.ts                ECN queries + mutations (submitter-only notifications)
+│   ├── useEcns.ts                ECN queries + mutations (submitter-only notifications, admin-gated delete)
 │   ├── useEcnChecklists.ts       ECN Checklist queries + mutations (no admin gate)
 │   ├── useFaits.ts               FAIT queries + mutations
 │   ├── useVisitReportFilters.ts  URL-backed Visit Report filters (+ filterSearch)
@@ -358,10 +374,14 @@ src/
 │   ├── useFilters.ts             URL-backed task filter state + filterSearch()
 │   ├── useEirFilters.ts          URL-backed EIR filter state + eirFilterSearch()
 │   ├── useSessionExpiry.ts       Shared "the token died" flag AuthGate watches
+│   ├── useListAccess.ts          Shared "SharePoint refused this list" store (banner + nav gating)
+│   ├── useEmptyListCheck.ts      An empty list: really empty, or trimmed away from you?
 │   ├── useSortableTable.ts       Sort + column-filter state for a table (wraps tableSort)
 │   ├── useVersionCheck.ts        Polls version.json → update banner
 │   ├── useUnseenMentions.ts      Unseen-@-mention badge state
 │   ├── useTheme.ts               Dark/light toggle (localStorage)
+│   ├── mentionAutoWatch.ts       @-mention → watcher from onMutate: chips now, write on success (every comment thread)
+│   ├── useCommentMirror.ts       fanOutComment() — resolves the links, writes the mirrors, notifies each side
 │   ├── useDraft.ts               One field's draft in localStorage (comments)
 │   ├── useFormDraft.ts           A whole form's draft — title + description together
 │   └── useIsPhone.ts             Narrow-viewport media query
@@ -388,6 +408,7 @@ src/
 │   ├── eirProjectReference.ts    Who may change an EIR's Project Reference (hard-coded)
 │   ├── recipientAudit.ts         Checks configured alert addresses against the directory
 │   ├── listWriteErrors.ts        A refused SharePoint write, in words
+│   ├── listAccess.ts             A refused Graph READ — which list/site, and the wording
 │   ├── ecnFields.ts              ECN column descriptors (field_2 … field_12 decoded)
 │   ├── ecnMapper.ts              Graph item → Ecn, Log# parsing/sorting
 │   ├── ecnChecklistTemplate.ts   The 84 MFGFRM-038 items as DATA (generated, verbatim)
@@ -400,11 +421,25 @@ src/
 │   ├── eirPromotion.ts           EIR → Task promotion helpers
 │   ├── testSheetMapper.ts        Graph item → TestSheet
 │   ├── csaListingMapper.ts       Graph item → CsaListing (+ label, sort, search)
+│   ├── altronicPartMapper.ts     Graph item → AltronicPart / AltronicComponent; prefix → list/book, HCO prefixes
+│   ├── partSearch.ts             Parts List search rules (substring, & terms, ranges), Parts Book grouping, Global rows
+│   ├── engineeringValue.ts       Reads 4K7 / .1uF / 250mW / 1/4W / -55°C as numbers + units, for range search (pure)
+│   ├── componentRatings.ts       What Rating A/B/C mean per component type (the guide's table, as DATA)
+│   ├── partFields.ts             Parts List columns as DATA — form ⇄ SharePoint, required rules, next number
+│   ├── partsRoles.ts             Parts Roles tags → rights, the add/edit/approve gates, the approval chain (pure)
+│   ├── partsAlerts.ts            Parts List emails — new part, engineering done, what an edit changed, a suggested correction (pure)
+│   ├── partLifecycle.ts          Deleting a part number and reusing it — the marker, blank/replace columns, history records (pure)
+│   ├── componentDescriptions.ts  Picked component descriptions — join rule (UPPER, ' - '), what's missing, the seed (pure)
 │   ├── drawingLogFields.ts       Per-register column descriptors (columns are DATA)
 │   ├── drawingLogMapper.ts       Graph item → DrawingLogEntry + the 16-slot change-log codec
 │   ├── buildRequestMapper.ts     Graph item → BuildRequest / BuildRequestItem
 │   ├── buildRequestNumber.ts     Next BR No for a new Build Request
 │   ├── buildRequestChecklist.ts  Build Request item checklist columns + progress
+│   ├── buildRequestFromTask.ts   Task → Build Request: prefill, carried comments, the DERIVED reverse link
+│   ├── buildRequestProduction.ts The production hand-off rule — button state + the write guard (pure, ONE place)
+│   ├── buildRequestAlerts.ts     Production hand-off emails — ready / part done / review / complete (pure)
+│   ├── commentMirror.ts         Mirroring a comment task ⇄ BR ⇄ part: the origin banner + fan-out routing (pure)
+│   ├── guestIdentity.ts        Is this address external? One rule, shared with the Power Automate guest flow
 │   ├── operationsTaskMapper.ts   Graph item → OperationsTask
 │   ├── operationsTaskFilters.ts  Pure Operations task filter predicates
 │   ├── operationsTaskNumbering.ts Operations task numbering (mirrors taskNumbering)
@@ -500,6 +535,7 @@ src/
 │   ├── RichTextWarningDialog.tsx "Rich text turns off X" — configurable copy per caller
 │   ├── useFileDrop.ts            Drag-a-file-onto-a-card drop target (attachments)
 │   ├── PersonMultiField.tsx      Multi-person picker (pills + add)
+│   ├── useCommentOriginLink.ts   Routes a mirrored comment's jump link instead of reloading
 │   ├── useOverlayDismiss.ts      Backdrop dismissal that survives a text-selection drag
 │   ├── DescriptionView.tsx       Renders a Description incl. checklists + sub-tasks
 │   ├── TaskRow.tsx               One task row (list view)
@@ -542,6 +578,9 @@ src/
 │   ├── FaitFormModal.tsx         Raise a FAIT
 │   ├── FieldEditModal.tsx        Shared "edit this card's fields" modal (Gray Market, ECN, FAIT)
 │   ├── CsaAttachmentsModal.tsx   A CSA listing's certificates — readable by anyone, admin-editable
+│   ├── partsAtoms.tsx            Parts List sign-off / kind chips + the shared loading/refused/failed gate
+│   ├── PartFormModal.tsx         New part (fields follow the number's list, optional datasheet PDF) + NewPartButton (hidden without a role)
+│   ├── ComponentDescriptionPicker.tsx  New component's SIL category / Description / Type dropdowns (Type waits on Description)
 │   ├── EcnChecklistCard.tsx      The MFGFRM-038 checklist on an ECN — sections, 4-state pills, findings
 │   ├── EcnRaciModal.tsx          The RACI matrix, as a reference modal
 │   ├── YesNoField.tsx            A boolean column as two labelled Yes / No choices
@@ -565,6 +604,8 @@ src/
 │   ├── TaskAttachmentsSection.tsx  Task attachments (dual storage)
 │   ├── PcbChecklistCard.tsx      PCB checklist on a task
 │   ├── NotifyAppManagerButton.tsx  "Report issue" button + modal
+│   ├── ListAccessNotice.tsx        SharePoint list permission notice + retry
+│   ├── ListAccessIndicator.tsx     Footer "you don't have access to X" — sentence, or icon + popup
 │   ├── MermaidDiagram.tsx        (legacy) Mermaid renderer
 │   ├── atoms.tsx                 Badges, chips, status colours
 │   ├── operationsAtoms.tsx       Operations-specific badges/chips
@@ -598,6 +639,10 @@ src/
 │   ├── EirKanbanView.tsx         EIRs board — one column per EIR status, drag to set it
 │   ├── EirDetailView.tsx         EIR detail (+ role-gated fields, see below)
 │   ├── CsaListingsView.tsx       CSA Listings table (Engineering, admin-gated writes)
+│   ├── PartsBookView.tsx         Parts List landing — Parts Book tiles, jump box, Global Search link
+│   ├── PartsListView.tsx         One three-digit list, or Global Search — search panel + sortable table
+│   ├── PartDetailView.tsx        One part or component (by item id) — card edits, Approve, approval history
+│   ├── PartDescriptionOptionsView.tsx  The description lists — inside the Parts List, gated to the SAP admin + reviewing engineers
 │   ├── DrawingLogsView.tsx       Drawing File Logs — four tabbed registers
 │   ├── PrintDrawingSheetView.tsx CAD Drawing Work Sheet (FORM #E006), letter portrait
 │   ├── BuildRequestsView.tsx     Build Requests list
@@ -666,6 +711,7 @@ src/
 │   ├── AdminPanelRolesView.tsx   Admin → Panel User Roles
 │   ├── AdminAdminsView.tsx       Admin → Admins
 │   ├── AdminEirRolesView.tsx     Admin → EIR Roles
+│   ├── AdminPartsRolesView.tsx   Admin → Parts Roles (editor / HCO editor / reviewing engineer / SAP admin)
 │   ├── AdminMaintenanceRolesView.tsx  Admin → Maintenance Roles (tech / admin, CMMS)
 │   ├── AdminQuickLinksView.tsx   Admin → Quick Links (Dashboard button links, per-department reorder)
 │   ├── AdminNotificationRecipientsView.tsx  Admin → Notification recipients
@@ -855,6 +901,42 @@ what didn't save (the EIR link and/or the carried-over discussion) instead of
 the old console.error-only behaviour nobody watching the app would ever see.
 Pinned by `tasks.eirReferenceWrite.test.ts` (the two-call shape, real mode)
 and `useEirs.promote.test.tsx` (the warning path).
+
+**The two follow-up fields are SEPARATE PATCHes, and the discussion goes
+FIRST.** They travelled in ONE PATCH until 2026-09-24, so a refused
+`EIRReference` discarded the carried-over EIR comments as collateral — the
+task landed with an empty thread, and the only signal was a toast the user
+navigates straight past, because `PromoteEirModal` navigates to the new task
+the instant the mutation resolves (reported by Ray as "the EIR comments did
+not transfer").
+
+**`EIRReference` is the fragile half by a wide margin, so it must never share
+a write with anything that matters.** It is a Hyperlink column, it already
+400s at create time (above), and Graph cannot even report its type —
+`"unknown"` in `scripts/project-task-list-schema.json`, the same
+unrecoverable-type signature as the Supplier `Logo` column. The comments are
+the half nobody can reconstruct from memory, so they are written first and
+alone: a failed link now costs only the link.
+
+Three things that go with it:
+
+- **Each failed field is COLLECTED, not thrown on immediately**, so one
+  refusal never skips the other write.
+- **`TaskFollowUpWriteError` carries the task as it ACTUALLY stands** —
+  whichever write last succeeded, else a re-read. Handing back the pre-write
+  object on a partial failure would make `usePromoteEirToTask`'s cache seed
+  render an EMPTY thread for comments that genuinely are in SharePoint, which
+  is the original bug wearing a different hat.
+- **The warning names the RECOVERY for whichever half was lost** — "copy the
+  discussion across from EIR_2026-0042", not a bare "by hand", since the
+  comments are still sitting on the EIR.
+
+**No test asserted the comments ever arrived.** Every case in
+`useEirs.promote.test.tsx` checked ids, warning wording and attachment calls,
+so a promotion that carried nothing passed a green suite. It now asserts each
+EIR comment's body, its "carried over from EIR" tag and its ORIGINAL author —
+against a fixture that actually has a discussion, since one with none passes
+whether the carry-over works or not.
 
 **Promoting an EIR also copies its attachments onto the new task** —
 `copyAttachments()` in `src/api/attachments.ts`, added alongside this fix.
@@ -1128,6 +1210,702 @@ code. If expiry comes back, it needs the decision first: a new Expiry Date colum
 in SharePoint, or a rule deriving it from `DateCertified`. Recover the old
 implementation from git history rather than rewriting it (`git log --
 src/lib/certificationExpiry.ts`).
+
+### Altronic Parts List (Engineering)
+
+Two lists on `SITES.engineering`, replacing the **Altronic Component List**
+Power App, which read **175 legacy per-prefix lists** (the "101" … "915" lists,
+"610/615", and the HCO lists "Surface Mount Parts" / "Through Hole Parts" /
+"SIL Parts"). Created and loaded 2026-09-28 (Tim).
+
+| List | env / id | Rows |
+|---|---|---|
+| Altronic Part List | `VITE_SP_ALTRONIC_PART_LIST_ID` — `b054a89a-1428-4a1f-82c5-461c41ae7b0e` | 13,998 |
+| Altronic Component List | `VITE_SP_ALTRONIC_COMPONENT_LIST_ID` — `c48dc016-1f49-4595-809c-9239fb2baeb3` | 3,946 |
+
+Both carry documented defaults in `config.ts`, and both are in `deploy.yml`.
+They gate nothing, so a default can't lock anybody out.
+
+**The workflow to match is Thomas Terhune's 2023 user guide** for the old app,
+and Tim is "not married to the layout". The landing page is the old app's
+home screen: the 100–900 Parts Book tiles, a box for a list number, and Global
+Search. The list screen keeps the old search panel down the left.
+
+**`Title` is the Altronic Part #, on both lists.** A part number's first three
+digits are its **parts list** (the legacy list it came from), and its first
+digit is its **Parts Book**. That is a rule about the NUMBER, not a stored
+column (`partPrefix` / `partBook` in `lib/altronicPartMapper.ts`).
+
+**Which list a part is on is decided by its prefix**:
+- `601/611` are Through Hole, `701/711/712` Surface Mount, and `722` SIL.
+  These six go to the Component List; everything else goes to the Part List.
+- `COMPONENT_PREFIX_CATEGORY` is the one copy in the app, and it must agree
+  with `$CategoryByPrefix` in the load script. A mismatch looks for a part on
+  the wrong list.
+- `722044` sat in the old numeric "722" list and was moved to the Component
+  List as SIL during the load.
+
+#### How the lists were built — the scripts, not an export
+
+- `scripts/create-altronic-parts-lists.ps1` creates both lists with
+  **readable internal names**. It indexes Title, LegacySource, SignOffStatus
+  and Category, and renames Title to "Altronic Part #".
+- `scripts/load-altronic-parts-lists.ps1` reads all 175 lists **live from
+  Graph**. It only reports unless you pass `-Apply`. It matches rows on
+  `LegacySource` (`"<old list>#<old item id>"`), never on part number, and it
+  never deletes.
+- **The export-built "Master Part List" / "Component List" are abandoned.**
+  Their columns were all `field_N`, and the export merge lost Purchased on
+  about 13,900 rows and moved about 3,200 dates by a day. Don't build on them.
+- **`scripts/data/through-hole-mfg-decisions.csv`** holds Tim's per-row
+  decisions for 86 Through Hole rows where two part numbers disagreed. He
+  checked each against the SAP export.
+  - The decisions are `UseOldMfgName`, `KeepMfgNumber`, `UseValue` (with
+    `OverrideMfgNumber` / `OverrideMfgName`), `AlternateSources` (the second
+    number goes into Notes), `NeedsReview` and `Unconfirmed`.
+  - A decision is refused as **stale** if the legacy row changed after it was
+    made.
+  - **9 rows still carry NeedsReview/Unconfirmed**, to be settled in ARC.
+- **The old Power App is still live**, so new parts keep landing in the old
+  lists until cutover. Top them up with `-Apply -OnlyCreate`. Once people edit
+  in ARC, **never run a plain `-Apply`**: it would overwrite their edits with
+  legacy values.
+- **Throttling:** the first load had 14,803 of 17,943 rows throttled in round
+  1, because the batch loop kept sending after a 429. It now pauses at the
+  throttled batch.
+
+#### What the ARC side does — reading
+
+`api/altronicParts.ts` + `api/altronicComponents.ts` (one delete each, which
+BLANKS the row for reuse and never removes it — see "Part numbers are
+deleted, then reused" below), `hooks/useAltronicParts.ts`, and three lazy
+views:
+
+| Route | View |
+|---|---|
+| `/engineering/parts` | `PartsBookView` — Parts Book tiles (`?book=N`), jump box, Global Search link |
+| `/engineering/parts/list/:prefix` | `PartsListView` — one list; the HCO prefixes read the Component List |
+| `/engineering/parts/search` | `PartsListView` — Global Search across both lists |
+| `/engineering/parts/:kind/:id` | `PartDetailView` — `kind` is `part` or `component`; anything else is "not found" |
+
+**It ships HIDDEN behind `PARTS_LIST_LIVE`** (`VITE_PARTS_LIST_LIVE`, in
+`deploy.yml`; Tim, 2026-09-29). The approvers aren't on Parts Roles for
+testing, so until the repo variable is `true` the Dashboard card and the
+Departments entry read **Coming soon**. Both sit LAST in Engineering while
+hidden, because placeholders always do (a Dashboard test enforces it). Every
+route still works, and testers go straight to `/engineering/parts`. **Going
+live is the repo variable plus a redeploy, with no code change.** It hides
+the links only; it is not a permission. `Header` reads the switch once when
+the module loads and the Dashboard reads it at render, which is why the
+Header's live-state test is its own file (`Header.partsListLive.test.tsx`).
+
+**The history follows the same switch.** Until it's live, v0.168.0 in the
+footer's View history shows ONE line, "coming soon". The Parts List's real
+notes live in `PARTS_LIST_CHANGES` in `data/changelog.ts` and replace that
+line once `PARTS_LIST_LIVE` is on. **Until go-live, a new Parts List bullet
+goes into `PARTS_LIST_CHANGES`, not into a new entry's `changes`**, or it
+reaches the history before the screen it describes. Commit messages still
+carry the bullets as usual. Once it's live for good, fold the array back
+into a plain entry and delete the switch.
+
+Seven things that are load-bearing:
+
+- **The Part List is fetched WHOLE: about 15 `$top=999` pages, with no
+  `$filter` or `$orderby`.** Past 5,000 items SharePoint refuses a filter or
+  sort on an unindexed column. A plain paged read works at any size, and a
+  substring search on a description is impossible server-side anyway.
+  - The queries hold the data for a long time (`staleTime` 10 min, `gcTime`
+    30 min), so stepping from the Parts Book into a list and back doesn't
+    re-download 14,000 rows.
+  - The Dashboard card deliberately carries **no count**, so the Dashboard
+    doesn't download the list to print a number.
+- **The nine book tiles render BEFORE either list loads.** Only the counts
+  and a book's lists wait. A blank page for the few seconds the Part List
+  takes reads as broken.
+- **The search rules are the old app's, kept on purpose** (`lib/partSearch.ts`):
+  - Case-insensitive substring match, AND across fields.
+  - `&` means several terms in one field, and **the spaces around `&` are part
+    of the term**. The guide says outright that "hello & world" does not match
+    "helloworld".
+  - A query with no `&` is trimmed.
+  - "Search everything" (`q`) is token-based across every search field, on
+    top of the per-field boxes.
+  - Every search is in the URL (`q`, `f.<field>`).
+  - Pinned by tests, one of them verified by trimming the `&` terms and
+    watching it fail.
+- **The jump box never dead-ends** (`parsePartsQuery`):
+  - one digit opens a book;
+  - three digits open a list;
+  - a whole part number opens the part on whichever list has it;
+  - a part number it can't find becomes a part-number search;
+  - anything else becomes a Global Search.
+- **Global Search is one table over both lists** (`toGlobalRows`).
+  - Manufacturer and Mfg # share a column: they are the same facts under
+    different names on the two lists.
+  - Item ids repeat across the lists, so rows key on `key` (component ids
+    offset by 10,000,000), never `id`.
+- **A detail page is keyed by ITEM ID, not part number.** The legacy data had
+  duplicated part numbers, and a page by number can only ever show one of two.
+- **A whole list returning ZERO rows says so, and names item-level
+  permissions.** It never says "no parts in list 309": thousands of rows
+  coming back empty is how SharePoint security-trims.
+  - The three branches (refused / failed / empty) live in `PartsDataGate`
+    (`components/partsAtoms.tsx`), which all three screens share.
+
+**On a phone** (Tim, 2026-09-29):
+- **A list is CARDS, not the table** (`PartCards` in `PartsListView`). They
+  are rendered INSTEAD of the table via `useIsPhone`, deliberately not the
+  MRB/CPU-95 CSS pair: these screens put 150 rows in the DOM and a search
+  re-renders them on every keystroke, so doubling it is the freeze "Big lists
+  cap what's RENDERED" warns about. A side effect: jsdom's width is desktop,
+  so a phone test sets `window.innerWidth` to 375 before rendering.
+- **No headers, so sorting is a Sort by picker plus an A–Z button** over the
+  same `useSortableTable` state. A column filter set on a wider screen can't
+  be seen on a phone, so the cards say one is active and offer Clear.
+- **An open Parts Book hides the other eight** (`hidden sm:block` on the
+  tiles) with an **All Parts Books** button back.
+- **Every list screen's breadcrumb goes back to its BOOK**
+  (`/engineering/parts?book=7`), so the next list in the book is one tap away.
+
+**Rating A/B/C mean different things per component type.**
+`lib/componentRatings.ts` is the guide's table as data, plus an **IC** row
+(Voltage / Current / Pin count) taken from the old app's form. Battery's C
+reads "Type (Li3 lithium)", as the old app has it; the guide's PDF text said
+"i3". The type is read off the START of the description ("CAPACITOR -
+CERAMIC"), the longest match wins, and an `OBSOLETE -` or `SIL CAT n -`
+prefix is ignored. An unknown type keeps the generic names rather than
+guessing.
+- The list table keeps "Rating A/B/C", because one list mixes types.
+- The detail page shows "Rating A" beside its meaning.
+- **The New Part form uses the meaning AS the label** ("Resistance", not
+  "Rating A"), and it changes as the Description is picked, like the old
+  app's form (Tim, 2026-09-29). The accessible name follows the visible
+  label (`Control`'s `label`), so a screen reader doesn't announce "Rating
+  A" under a box that says Resistance. The columns are still RatingA/B/C.
+- Capacitor, Transistor and Transformer have no row of their own, so they
+  read Rating A/B/C until a Type names one the guide covers (Capacitor →
+  Ceramic gives Capacitance / Working voltage / Temp coef). That matches the
+  old app until the Type is picked, then says more than it did.
+
+**Sign-off is blank on every LOADED row**, on purpose: those rows predate
+approval tracking. Tables show nothing for a blank; the detail page shows
+"Not tracked" and says why. A blank is never dragged into the approval chain
+(`nextSignOff(null)` is null), so a loaded part has no Approve button.
+
+#### What the ARC side does — writing, and who may
+
+Tim's decisions, 2026-09-28:
+- **Everyone signed in can READ both lists; only Engineering can edit.**
+- **Who counts as Engineering is an admin-managed list — Parts Roles.** It is
+  managed at `/admin/parts-roles`, so people can be added or changed without
+  a code change. That includes HCO editing, which the 2023 guide hard-wired
+  to three named people.
+- **The Reviewing Engineers are Glenn Terry and Brandon Mirto; the Reviewing
+  Admin is Sheila Horn.** They hold those tags on the list. The names live
+  nowhere in code.
+- **Sheila (the SAP admin) can edit every field**, not just SAP # and
+  sign-off.
+- **An edit does NOT send a part back for approval**, but the SAP admins are
+  emailed what changed.
+
+**Parts Roles** — `VITE_SP_PARTS_ROLES_LIST_ID`, default
+`f783e1e3-f81f-4b18-99c3-c69ac96228f6`. Nearly the EIR Roles shape: Title =
+email, plus **`PersonName`** (displayed "Name"), Roles (a lowercase CSV) and
+Note. It was created 2026-09-28 by the same `create-altronic-parts-lists.ps1`,
+which also added the `Communication` column to both parts lists.
+- **The name column is `PersonName`, not `DisplayName`.** Graph silently
+  drops a field called DisplayName; see "A field called `DisplayName` is
+  silently dropped". The list still carries an empty DisplayName column from
+  its first creation, and nothing reads or writes it.
+- **Unlike EIR Roles it HAS a default**, because pointing at the list admits
+  only the people on it. Nobody gains an edit they shouldn't have.
+- **Graph reported "Append Changes to Existing Text" as ON** for both new
+  `Communication` columns. A Graph PATCH to turn it off was accepted and
+  changed nothing (the FAIT 89 pattern). Tim turned it off in List settings,
+  after which Graph read `false`.
+- **VERIFIED BEHAVIOURALLY on 2026-09-28** (Tim). A reused component was
+  taken through both approval steps. The history held exactly three records,
+  each once: reuse, engineering review, SAP. The append setting is genuinely
+  off on the Component List. **Re-do the check if either Communication column
+  is ever recreated**: Graph's answer alone proves nothing here.
+
+| Tag | Grants | Implies |
+|---|---|---|
+| `editor` (shown "Add") | ADD Part List parts on existing lists and HCO components except 722; **no editing** — Suggest a correction instead | — |
+| `hco editor` (shown "Parts editor (incl. HCO)") | + EDIT existing parts on both lists; add to 722 | editor |
+| `reviewing engineer` | + approve a component's Engineering Review step | hco editor |
+| `sap admin` | + approve the Pending SAP step; start a new list; edit every field on both lists | every EDIT right |
+
+**Adding and editing are separate rights** (Tim, with Brandon and Glenn,
+2026-09-29). Until then `editor` could also edit Part List parts. Now:
+- **`addParts` and `editParts` are separate in `PartsRights`.** `addPartGate`
+  asks the first, `editPartGate` the second, and both lists' edits need
+  `hco editor` or above.
+- **The stored tag is still `hco editor`**, so saved rows keep their rights.
+  Only the LABEL changed, because it now edits the Part List too.
+- **An editor gets Suggest a correction on the part page**
+  (`suggestCorrectionGate`: can add, can't edit THIS part). It emails the
+  reviewing engineers AND the SAP admins (`buildCorrectionRequestEmails`).
+  - It is awaited and throws when it reaches nobody, like the new-list request.
+  - It writes nothing to the part. Whoever acts on it edits the part, and
+    the SAP admins hear about that edit as usual.
+  - It is hidden from readers and from anyone who can simply edit.
+- **The edit refusal points an editor at that button**, not at an admin.
+- **The Add role CAN add a missing datasheet** from the part page
+  (`addDatasheetGate`: edit the part, OR add to its list — 722 stays with
+  parts editors). An upload never replaces a file, so this changes nothing
+  anybody relied on, and it's how the Add role retries a failed upload.
+
+**It is HCO, not HOC** (Tim, 2026-09-28). The first build spelled it HOC
+throughout, and the tag was stored as `hoc editor`. `parsePartsRoles` still
+reads that old spelling as `hco editor` (`LEGACY_TAGS`), so a row saved
+before the rename keeps its rights. The next save from the admin screen
+writes the new name.
+
+`lib/partsRoles.ts` is the ONE place those rules live. `addPartGate`,
+`editPartGate` and `approveGate` are asked by every button AND inside every
+`mutationFn` (via `useResolvePartsAccess`, which awaits the list rather than
+trusting a render), so a greyed control and the write behind it can't
+disagree. **Approval rights don't imply each other**: an SAP admin can't do
+the engineering review, because that step isn't hers. Pinned by
+`hooks/useAltronicParts.writes.test.tsx`, which drives the hooks with no
+screen at all; each gate there was checked by deleting it and watching the
+test fail.
+
+**UNSET MEANS READ-ONLY — deliberately the opposite of EIR Roles.** EIR Roles
+falls OPEN so nobody loses an edit they already had. Nobody could edit parts
+in ARC before this list existed, so falling closed takes nothing away, while
+falling open would hand the whole company the write side of a 14,000-part
+register. **ARC admins are NOT auto-granted anything** — they manage the
+list, and add themselves if they need to edit. Mock mode always counts as
+configured, and there the demo user holds every tag.
+
+**The approval chain**, and who is emailed at each step:
+
+| Event | Status becomes | Emailed |
+|---|---|---|
+| New COMPONENT | Pending Engineering Review | the reviewing engineers — every field under its label, ratings by meaning |
+| Engineering review approved | Pending SAP | the SAP admins — the new-PART email, plus the reviewer's comments |
+| New PART (Part List) | Pending SAP | the SAP admins — every field, and the three SAP answers |
+| SAP step approved | Approved | whoever ADDED the part, told which answer was given |
+| Any EDIT | unchanged | the SAP admins, with what changed |
+| Correction suggested | unchanged | the reviewing engineers and the SAP admins |
+
+**Both emails to the SAP admin are ONE builder** (Tim, 2026-09-29):
+`buildNewPartForSapEmails`.
+- After an HCO engineering review, it is called with `requester` (whoever
+  ADDED the component, not the reviewer) and `review: { comment }`.
+- The subject, Requested by line, every-field Details and the three answers
+  therefore match a Part List part exactly. The reviewer's comments go above
+  the details, and "None" is shown when there are none.
+- The lines come from `partEmailDetails` / `componentEmailDetails` in
+  `lib/partsAlerts.ts`.
+- **A component's ratings are labelled by what they mean**:
+  - "Resistance (Rating A)", with the column kept so it can be found on the
+    page;
+  - "Rating C (not used)" for a rating the entry rules skip;
+  - plain "Rating A" for an unknown type.
+- Before this, the reviewer's email sent "1K / 0.25W" under one "Ratings"
+  line, with nothing saying which value was which.
+
+**The SAP step has three answers** (Tim, 2026-09-29), the old Power
+Automate approval email's three buttons: **Added to SAP**, **Does not need
+to be added to SAP**, and **Will be added to SAP but requires more
+information** (`SAP_RESPONSES` in `lib/partsRoles.ts`). **Every one
+approves the part.** They differ only in what the history records and
+what the engineer who added it is told (`buildSapResponseEmails`). The
+new-PART email copies that Power Automate email: the subject is
+`New Part to Add to SAP | <number> | <description>`, and it lists every
+field, blanks included, in the old order (`buildNewPartForSapEmails`).
+
+Four things that go with it:
+- **An email button is a LINK, never a one-click approval.** ARC has no
+  server to receive a click, and Safe Links and other mail scanners follow
+  links on their own. So `?sap=<answer>` OPENS the Approve dialog with that
+  answer picked, and the SAP admin confirms. The param is consumed once, so
+  a refresh doesn't reopen the dialog. A link to a part that has moved on
+  says so; a link opened by somebody who can't approve opens nothing.
+  `ChangeEmail.actions` is the general mechanism, rendered by
+  `renderEmailShell`.
+- **"More information" needs a note.** The engineer can't act on it
+  otherwise, so the note is required, in the dialog AND in the mutationFn,
+  and it goes in their email.
+- **The engineer is `createdBy`** (or the reuse record's author). The actor
+  is dropped STRICTLY: the SAP admin adding a part herself isn't told her
+  own answer. A loaded part has no ARC author, but it has no SAP step
+  either, so it never comes up.
+- **The answer is ignored at the engineering step.** Only `Pending SAP`
+  records or emails one.
+
+Five things that are load-bearing:
+
+- **Recipients are read from Parts Roles at SEND time** (`resolvePartsPeople`),
+  so a change on the admin screen reaches the very next email with no deploy.
+- **Two actor rules.** The queue emails (review, add to SAP) use
+  `withoutActorUnlessEmpty`, so Sheila adding a part herself still gets her
+  "add to SAP" reminder. The EDIT notice drops the actor STRICTLY: an SAP
+  admin's own edit tells nobody. Both rules are tested, and the strict one was
+  verified by loosening it.
+- **An approval is ONE PATCH of `SignOffStatus` + `Communication`**, made
+  after ONE fresh read. The read refuses a row that has moved on
+  (`StaleApprovalError`), so a step is never approved twice by two people a
+  minute apart. The history record is `approvalRecordHtml` — the step plus
+  the approver's escaped comment — and the record carries its own author and
+  time.
+- **A missing `Communication` column must not blank the Parts List.** The
+  script that adds it runs separately from any deploy, and selecting a column
+  a list hasn't got 400s the WHOLE read. So `api/partsListShared.ts` retries
+  once without it on a 400 (never on a throttle) and remembers per list. An
+  approval while the column is missing is refused, naming the script. This is
+  the MRB Watchers arrangement.
+- **A write never invalidates the whole list.** The hooks `upsert` the row
+  SharePoint hands back into the cache; invalidating would re-download 14,000
+  rows to show one change. The approve hook DOES invalidate on error, because
+  a refused approval usually means the row moved on.
+
+**The columns are data** (`lib/partFields.ts`). One table per list drives:
+- the New Part form, the Edit cards and the write payload;
+- the "what changed" email;
+- the required-field rules, from the 2023 guide:
+  - **Part List:** everything except Mfg Part #, Manufacturer, Date Drawing
+    and Drawing Size. Notes, SAP # and Item Value are optional too: SAP # is
+    the SAP admin's to fill in after the part exists, and Item Value is a
+    legacy column.
+  - **Components:** everything except Notes, and except a rating the entry
+    rules mark unused for that type ("none" in the table, e.g. an electrolytic
+    capacitor's Rating C).
+
+`FieldEditModal` can't enforce a required field, so the part page refuses the
+save with a toast if one is blanked.
+
+**The part NUMBER is not an editable field.** It decides which list a part is
+on and is what drawings, BOMs and SAP point at, so a wrong number is raised
+again as a new part. **New part** (`PartFormModal`) has three modes:
+- **From a list:** the list number is fixed, the next free number is filled in
+  (`nextPartNumber`: one past the highest plain six-digit number, `001` for an
+  empty list), and a full list says so rather than rolling over.
+- **From the Parts Book:** any number, which is how a new three-digit list
+  gets its first part — **by the SAP admin only** (Tim, 2026-09-29; see
+  below).
+- **The fields follow the number typed.** A 601/611/701/711/712/722 number is
+  a component, and its Category is written from the prefix, never typed.
+
+**Only the SAP admin starts a new list** (Tim, 2026-09-29). The 400 book has
+only 410 today, so an engineer who types 411001 gets an error. The error
+comes with an **Ask the SAP admin for list 411** button, which emails the SAP
+admins what was typed (`buildNewListRequestEmails`, linking to that Parts
+Book). The SAP admin adds the part and it becomes the list's first.
+- **"New" means no number with that prefix exists, deleted ones included**
+  (`opensNewList` in `lib/partFields.ts`). A list emptied by deletes still
+  exists, and its numbers are reused. The HCO lists always exist, so a
+  component never opens one.
+- **`addPartGate`'s `opensNewList` flag is asked in the form AND in
+  `useCreateAltronicPart`'s mutationFn.** The mutationFn reads the Part List
+  through `ensureQueryData`, which is normally already cached. A list opened
+  in the last ten minutes can therefore still read as new and refuse, which
+  is the safe direction. Verified by removing the flag from the mutationFn
+  and watching its test fail.
+- **The form doesn't decide until the Part List has loaded.** Otherwise every
+  list would look new for the first few seconds.
+- **`NewPartButton` still shows on an empty list screen** for an editor.
+  Opening it explains the rule and offers the request, rather than hiding
+  the button without saying why.
+- **The request is AWAITED and throws when it reaches nobody**, unlike the
+  other parts emails, which are sent in the background. The button's only job
+  is the send, so "Sent to …" must be true. `notifyChangeEmails` gained
+  `link`, so an email can point at a page other than an item's.
+
+Uniqueness is checked against the loaded lists and AGAIN by the API against
+SharePoint, on the indexed Title (`titleExists`), because the cache can be ten
+minutes old and two people can pick the same next number. Date Assigned
+defaults to today. The draft survives navigating away (`useFormDraft`, create
+only).
+
+**The New part button is HIDDEN from anyone without a role**, unlike most
+gated controls in ARC, which grey out. The Parts List is read by the whole
+company, and a permanently disabled button on every list for every reader is
+noise. The part page's Record card says who can edit, which is where somebody
+wanting that answer looks.
+
+**An approver sees what's waiting.** The Parts Book shows "Waiting for you: N…"
+for whoever holds an approval right. It links to a plain Global Search on the
+new Sign-off field (`?f.signOffStatus=Pending`), which anyone can also type.
+
+**The real boundary is still SharePoint list permissions** — Read for
+everyone, Edit for Engineering, set by a site owner on the two lists. ARC's
+gating only decides which buttons show.
+
+#### Datasheets — found by FILE, not by the flag
+
+A part's datasheet is a PDF in the Engineering site's Documents
+library: `General/Datasheets/<Altronic Part #>.pdf` (Tim, 2026-09-28). The
+old app linked to it whenever the component's `HasDataSheet` flag was set.
+ARC instead **looks for the file** (`api/datasheets.ts`, one small drive
+request when a component's page opens), because the flag is wrong both ways:
+
+| Checked live 2026-09-28 (3,946 components, 1,776 files) | |
+|---|---|
+| flagged, and the PDF is there | 1,366 |
+| flagged, but NO PDF — a link to nothing | 18 |
+| NOT flagged, but a PDF IS there — hidden by the flag | 380 |
+
+The page shows **Open datasheet** whenever the file exists, and says so when
+the flag and the folder disagree. The flag stays editable in the Manufacturer
+card, so a mismatch can be fixed where it's reported.
+
+Four details:
+- **The path lookup is case-insensitive** in SharePoint. Four files are
+  stored in a different case from their part number.
+- **A 404 means "no datasheet"; anything else propagates.** The page then
+  says it couldn't check, and names the library for a 403. "We couldn't look"
+  must never read as "there is none".
+- **The link is the file's `webUrl`, as a plain new-tab link** — SharePoint's
+  own PDF viewer. A top-level navigation carries the SharePoint sign-in; a
+  fetch from this origin would need a token and hit CORS (the Supplier Logo
+  lesson).
+- **Part List parts get the same lookup** (Tim, 2026-09-28: "we should have
+  the option for a datasheet in the Part List parts"), on the Purchasing
+  card. That list has no `HasDataSheet` column, so the folder is the whole
+  answer there and no mismatch note can appear — `DatasheetField`'s
+  `flagged` is `undefined` for a part, and only `false` (not "absent")
+  triggers the "flag says No" note. Same folder, same `<part #>.pdf` name.
+
+**Uploading** (Tim, 2026-09-28) — an optional PDF on the New Part form, and
+an **Upload datasheet** button on a part's page when it has none (the way
+back from a failed upload, and the only way the ~14,000 Part List parts get
+one — none had a PDF when this shipped). `uploadDatasheet` writes
+`<part #>.pdf` into the same folder, so the lookup needs no second record.
+Seven things that are load-bearing:
+
+- **It NEVER overwrites.** `conflictBehavior: fail` on both the simple PUT
+  and the upload session; a 409 becomes `DatasheetExistsError`, which says
+  the existing file was kept. Replacing a datasheet is a deliberate act in
+  SharePoint, not a side effect of adding a part. `uploadToDriveTarget` in
+  `api/projectFiles.ts` was lifted out of the project-folder upload for this
+  — that one still uses `rename` — so the >4 MB session path is shared.
+  Pinned in `datasheets.real.test.ts`, verified by switching it to `rename`.
+- **PDF only, checked BEFORE the part is created** (`datasheetFileProblem`).
+  The lookup only asks for `.pdf`, so anything else would upload and never be
+  found; checking first means a wrong pick leaves no part behind with no file.
+  Verified by deleting the pre-create check and watching the form test fail.
+- **The part is created FIRST, the file second.** The name needs the final
+  number, and a file uploaded first would be orphaned if the create were
+  refused (a number taken minutes ago). So an upload that fails after the
+  create TOASTS and still opens the part — it is real — naming Upload
+  datasheet as the retry.
+- **`HasDataSheet` is set AFTER the file lands, never in the create.** A Yes
+  over a failed upload is the 18-part "link to nothing" problem again. It left
+  the New Part form for the same reason (`onCreate: false`). It stays editable
+  on the Manufacturer card. The flag write is best-effort — the page finds the
+  file either way — and is reported, not thrown.
+- **The gate depends on WHERE**: `via: "new"` asks `addPartGate`, `via:
+  "edit"` asks `addDatasheetGate` — whoever can edit the part OR add to its
+  list, since an upload only ever adds a missing file. Both asked inside the
+  `mutationFn` (`useDatasheet.gate.test.tsx`).
+- **No email.** The SAP admins hear about edits to the part's fields; a
+  datasheet is a file beside it.
+- **The file is not in the form draft** — a `File` can't be stored.
+
+#### Part numbers are deleted, then reused
+
+Tim, 2026-09-28: **the SAP admin can delete a part number, and a deleted
+number is handed out again.** Next free offers the **lowest** deleted number
+in the list before one past the highest. So a delete never removes the
+SharePoint row. `lib/partLifecycle.ts` holds the rules; the writes are
+`deleteAltronicPart` / `deleteAltronicComponent` and the reuse branch of each
+create.
+
+**The marker is Sign-off = `Deleted`, not the description** (Tim's pick, of
+the two). Only ARC's delete sets it, so nobody hides a real part by typing
+"deleted" into a description. People already did something like that by
+hand: "OPEN REUSE", "reuse", "AVAILABLE - DO NOT USE" on 5 components, and
+"503064 through 503095 are available" on 5 Part List rows. Those were
+deliberately LEFT ALONE; Sheila can delete them through ARC if they should be
+reused. The description is ALSO set to `DELETED`, so the row reads right in
+SharePoint's own views.
+
+`Deleted` is a real choice on both lists' SignOffStatus column, which is
+`allowTextEntry: false`, so a value it doesn't declare is refused on every
+write. `create-altronic-parts-lists.ps1` adds the missing choice to an
+existing list and reads it back.
+
+Nine things that are load-bearing:
+
+- **Delete BLANKS every descriptor column** (`blankColumns`): text `""`,
+  date/choice `null`, boolean `false`. Nothing of the old part lingers.
+- **Delete KEEPS `LegacySource` and Category.** The load script matches on
+  LegacySource, and without it a top-up would bring the legacy row straight
+  back. Category stays because the number still belongs to the same list.
+- **Reuse overwrites THAT SAME ROW; there is never a second row.**
+  `numberState` asks SharePoint (the indexed Title filter, `rowsForTitle`)
+  who holds the number:
+  - a LIVE row means taken;
+  - otherwise the lowest-id DELETED row is reused.
+
+  So a part number is on a list once, and a deleted number typed by hand is a
+  reuse, not "already taken".
+- **Reuse writes EVERY column** (`replacementColumns`), not a diff. A blank
+  the delete missed can't survive either; Tim asked for both halves.
+- **Reuse clears LegacySource and restarts the history** with a
+  `data-part-event="reused"` record. The mapper reads that record as the new
+  part's **submitter and date** (`origin` in `altronicPartMapper.ts`),
+  because the ROW was created, often years ago, for the part the number used
+  to be.
+- **The ordinary hooks hand back LIVE parts only** — one `select` on
+  `useAltronicParts` / `useAltronicComponents`. That is how every list,
+  Global Search, the Parts Book counts and the approval queue leave deleted
+  numbers out without each screen remembering to.
+  - `useAllAltronicParts` / `useAllAltronicComponents` read the same cache
+    with the deleted rows in.
+  - Two places use them: the detail page, where an old link to a deleted
+    number says "deleted by X on date" rather than showing blanks, and the
+    New Part form, for Next free.
+- **Deleting moves the datasheet first** (`archiveDatasheet`) into
+  `Datasheets/Deleted/<pn> deleted <date>.pdf`. If it stayed, the reused
+  number would show the old part's PDF, and an upload for the new part would
+  be refused as a duplicate.
+  - It happens BEFORE the row is blanked. A datasheet that can't be moved
+    stops the delete.
+  - It is kept, not deleted: it is a record of the part that was.
+- **A part with list-item attachments is refused.** Attachments aren't a
+  column that can be blanked, and a reused row would carry them. They're
+  removed in SharePoint first.
+- **The load script never re-creates a number the target holds, and never
+  writes over a deleted row.** Both land in `skipped.csv`. A reused row has no
+  LegacySource, so matching on LegacySource alone would have created the old
+  legacy part beside the new one.
+
+The delete itself:
+- **SAP admin only** (`deletePartGate`). It is asked by the button and inside
+  the mutation, and verified by removing the mutation's check.
+- **The button is hidden from everybody else.**
+- **The dialog needs a reason AND the number typed back**, because reusing a
+  number changes what it means to every drawing, BOM and SAP record that
+  points at it.
+- **No email is sent.** The SAP admin IS the person who'd be told.
+
+**Undoing a delete (or a reuse) is SharePoint's version history, not ARC.**
+Restore the row's version from before the delete: List → item → Version
+history → Restore, or Graph `POST …/items/{id}/versions/{v}/restoreVersion`.
+Every field comes back, LegacySource and the old history included, so the
+top-up sees the row as loaded again. It was done for 712469 on 2026-09-28,
+after Tim's live test, putting it back to its loaded "OPEN REUSE" state (v1.0)
+for Sheila to delete after go-live. Deleting AGAIN is not an undo: it leaves
+a blanked Deleted row.
+
+**One race remains, and it's stated rather than hidden.** A reuse re-reads
+the row and refuses one that is no longer deleted. But two people reusing the
+same number in the same second both pass that read, and the later write wins.
+If-Match on the PATCH would close it; it wasn't used because it's unverified
+against Graph's listItem fields endpoint.
+
+#### A new component's description is PICKED, not typed
+
+The old Power App never let anyone type a component description (found by
+Tim while demoing to Brandon, 2026-09-28). It had a **Description** dropdown
+and a **Type** dropdown limited to that description's types, and saved the
+two joined. ARC's New part form does the same for components
+(`ComponentDescriptionPicker`, rules in `lib/componentDescriptions.ts`).
+
+Tim's decisions, 2026-09-28/29:
+- **The options are on a SharePoint list**, Component Description Options
+  (`VITE_SP_COMPONENT_DESCRIPTION_OPTIONS_LIST_ID`), so they can be added or
+  removed without a code change.
+- **The SAP admin and the reviewing engineers manage them**
+  (`manageDescriptionOptionsGate`), inside the Parts List at
+  `/engineering/parts/descriptions` — not under `/admin`, because they aren't
+  necessarily ARC admins. The Parts Book's **Descriptions** button is hidden
+  from everybody else, like New part.
+- **The 722 list gets a SIL category first** — SIL CAT 1 / SIL CAT 2 to begin
+  with, on the same list (`Kind = SIL Category`) so more can be added. Nearly
+  all 122 existing 722 parts are written that way.
+- **Editing keeps the free text box.** About half of the 3,946 existing
+  descriptions aren't a Description/Type pair; an edit must not force them
+  into one.
+- **No OBSOLETE prefix** in the dropdowns, for now.
+
+| Column | Holds |
+|---|---|
+| `Title` (shown "Option") | the Description ("Capacitor") or SIL category ("SIL CAT 1") |
+| `Kind` | Choice: `Description` / `SIL Category` |
+| `Types` | a Description's types, ONE PER LINE; blank for a SIL category |
+| `SortOrder` | the order offered, within its kind |
+
+Seven things that are load-bearing:
+
+- **The saved text is UPPER CASE, joined with `" - "`** —
+  `SIL CAT 1 - CAPACITOR - CERAMIC`. That's how 1,868 of the 1,908 existing
+  rows matching a pair are written, and it's the shape `componentRatings.ts`
+  reads the type from. That file now skips a `SIL CAT n` prefix the way it
+  skips `OBSOLETE`, or every 722 part would get the generic rating names.
+- **A part stores the TEXT, never a pointer to an option.** So the list HAS a
+  delete, unlike ARC's other reference lists: removing or renaming an option
+  changes no part, it just stops being offered.
+- **Types are lines on the description's row, not rows of their own.** A type
+  means nothing without its description, and a second list would make every
+  rename a two-list write.
+- **A trailing dash is dropped from a name** (`cleanOptionName`). Tim wrote
+  the SIL options as "SIL CAT 1 -"; the separator is added on save, so that
+  typed dash would otherwise save as `SIL CAT 1 - - …`.
+- **The SIL pick is required on 722 only while the list offers one** — an
+  emptied SIL list must not make every 722 part impossible to add.
+- **Unset, empty or unreadable list = the plain text box**, with a note when
+  it failed. A form that can't describe a component is worse than one that
+  can't enforce the format. The list was created and seeded 2026-09-29
+  (`2a5c1ee1-558c-41ad-983a-96c97a29221b`, the default in `config.ts`).
+- **The picks travel in the draft under their own keys**
+  (`descSilCategory` / `descName` / `descType`), and `reconcilePicks` drops
+  any a restored draft holds that the list no longer offers.
+
+**Seeding.** `create-altronic-parts-lists.ps1` creates the list and seeds it
+from `src/data/componentDescriptionSeed.json` (the old app's 13 descriptions
+and their types, plus the two SIL categories) — **only while it is EMPTY**.
+After that the list is the source of truth, and a re-run must never put back
+an option somebody removed. The mock store seeds from the same file.
+
+#### Range search — the old app's "R" button
+
+On Rating A/B/C, Tolerance, Temp Min and Temp Max (`range: true` on the
+`SearchField`), on the component lists and in Global Search, where the old
+app had it. R turns the box into From/To; the URL carries
+`from.<field>` / `to.<field>`, and a range in the URL always shows its boxes,
+so a shared link can't narrow the list invisibly.
+
+**Values are read as ENGINEERING NOTATION** (`lib/engineeringValue.ts`),
+where the old app read `4M1` as 4 (its guide says so). Built against the live
+Component List's 3,946 rows, not guessed. Seven things that are load-bearing:
+
+- **The value must START the text** (after an optional `label:` / `label =`
+  and a `±`). "SEE 701473" and "X7R" are not numbers; reading them as 701,473
+  or 7 would put junk in every range.
+- **A prefix letter counts only before a unit, or at the end of the word.**
+  `100 ppm` is not pico-pm; `1 POS` is not a prefix. The PREFIX is
+  case-sensitive (m milli, M mega); the UNIT isn't (`1 uf`, `3 ma` are real).
+- **RKM codes**: `4K7`, `100R0`, `2u2`, `5V1`, and `R04` / `R330` with the R
+  first. R/K/M codes carry Ω.
+- **A stored range overlaps**: "4.5V TO 5.5V" is found by a 5 V–5 V search.
+- **Units must agree only when BOTH sides name one.** A 5V–12V search skips
+  "10mA" and "8 PINS"; a unitless "1K" to "10K" still finds "4K7". Counted
+  words (PINS, TURNS) are units, singularised, so they don't leak into a
+  volts search.
+- **A value with no number never matches**, and the panel says how many parts
+  on that field can't be found by range — blanks not counted (every Part List
+  row in Global Search is blank).
+- **The panel says how it read what was typed** ("Reads as 1k to 5k"), and
+  names a box it couldn't read rather than silently ignoring it.
+
+How much of the live data it reads (2026-09-28), with what's left almost all
+genuinely not numbers (N/A, SEE DATA SHEET, X7R/COG, colours, switch types):
+Rating A 94%, Rating B 90%, Rating C 72%, Tolerance 59% (1,293 are "N/A"),
+Temp Min / Max 94%. Pinned in `engineeringValue.test.ts` with spellings taken
+from that data; the unit rule and the screen wiring were each verified by
+breaking them and watching tests fail.
+
+Not built yet:
+- **Replacing a datasheet** from ARC. Upload only ever adds a missing one;
+  a wrong PDF is replaced in SharePoint.
+- **Rejecting** a part at a review step. The old app only had Approve; an
+  engineer corrects the part and approves it.
 
 ### FAITs (First Article Inspection Tests)
 
@@ -1589,9 +2367,27 @@ Five things that shape the feature:
   `toStoredRichText` — the same arrangement as the EIR long fields and Gray
   Market's `WhereUsed`.
 
-**No delete**, in the UI or the API module — an ECN is a controlled record of a
-change that was made, and a superseded notice is revised rather than removed.
-`ecns.test.ts` asserts the module exports nothing matching /delete|remove/.
+**Delete exists now, and is ADMIN-ONLY** (Ray, 2026-09-28) — this list had
+none, on the "a controlled record is revised, not removed" rule, until a row
+that should never have existed (a duplicate, a test entry) had no way out
+short of SharePoint. A superseded notice is STILL revised with an `R` suffix;
+the confirm dialog says so.
+
+- **The gate is in `useDeleteEcn`'s `mutationFn`**, not only on the button, so
+  no future screen reaches `deleteEcn` ungated — the Teradyne Log / QC Time
+  arrangement. `useEcns.delete.test.tsx` was verified by removing the gate and
+  watching it fail.
+- **The button is HIDDEN from non-admins**, not disabled — same as Teradyne's
+  bin (`EcnDetailView.deleteGate.test.tsx`).
+- **Its ECN Checklist row is deliberately left behind.** That list has no
+  delete by design, and an orphan appears on no ECN's page — harmless, and
+  recoverable if the ECN was deleted by mistake.
+- **A refusal goes through `describeListWriteFailure`**: deleting an item needs
+  more SharePoint permission than editing one, so an admin in ARC can still be
+  refused by SharePoint.
+
+`ecns.test.ts` used to assert NO delete; it now asserts EXACTLY ONE
+(`deleteEcn`). That inversion is deliberate.
 
 1,813 rows is under the 5,000-item threshold, so the list is fetched whole and
 filtered in the browser — which is what makes searching the Detailed
@@ -3212,8 +4008,10 @@ Five things about Customer Notes' columns:
   ordinary short choice columns, but Graph returns `Group` as a bare string
   and `CustomerType` as a bare string array — verified against live sample
   rows. Writing `Group` is a plain string (or `null`); writing `CustomerType`
-  is `multiChoiceField`'s plain array, no `@odata.type` annotation (the
-  annotation is for lookups/persons, not choice columns).
+  is `multiChoiceField`'s array **with** the `Collection(Edm.String)`
+  annotation — `CustomerType` is a genuine MultiChoice column
+  (`displayAs: "checkBoxes"`) and a bare array is a 400. This note used to
+  say the opposite; see "A MultiChoice column needs the annotation" below.
 - **`GeneralNotes` and `ComplianceNotes` hold rich HTML in practice**, even
   though the column metadata Graph reports says `text.textType: "plain"` —
   confirmed by reading live sample rows, which contain `<p>` and
@@ -3943,6 +4741,173 @@ holds while the log query is still loading, when every row would otherwise look
 unused. `IDEmp` / `IDProd` / `IDRem` are legacy ids from the original import —
 read and preserved, never written.
 
+### Build Request Items — Assembly / Operations / Testing are MULTI-choice
+
+Two lists on `SITES.engineering`: **Build Request Tracker** (headers,
+`7e0f94cc-…`) and **Build Request Items** (the parts, `5572f186-…`). Schema
+captured live 2026-09-24 in `scripts/build-request-items-schema.json`.
+
+**THE TRAP: Graph reports these three columns as `type: "choice"` — SINGULAR —
+and they are genuinely MULTI-select.** Graph says `choice` for both kinds, so
+the type name cannot tell them apart. Two signals can:
+
+- **`choice.displayAs` is `"checkBoxes"`** on all three (confirmed live
+  2026-09-24 — it is NOT in the `discover-list.ps1` snapshot, so read it from
+  `/columns` directly). A single-value column renders as a dropdown or radio
+  buttons instead, so this field is the type signal `type` fails to give.
+- **The live rows carry ARRAYS** — `["AOI", "In Circuit", "Safe Power-Up"]`.
+  This is the check that needs no extra call, since the snapshot's
+  `sampleRows` already show it.
+
+So they are written as a string array **carrying Graph's
+`Collection(Edm.String)` annotation** (`multiChoiceField`'s shape), and
+cleared with an annotated `[]`, never `null`. A BARE array is refused with a
+bare `400 invalidRequest` naming no field — reported 2026-09-24 by Femi
+Olugbon on build request 70, where none of the three could be ticked at all
+while Part Status and Disposition (single-value `dropDownMenu` columns) saved
+fine. Callers still pass plain arrays; `annotateMultiChoice` in
+`api/buildRequestItems.ts` adds the annotation at the write site.
+
+**Do NOT "fix" this into a bare string on the strength of that type name.**
+The task list's `Labels` column is the opposite case documented in this same
+file — reported as `choice` and genuinely single-value, where writing an array
+400s — so the two look identical from `/columns` and want opposite shapes.
+`displayAs` and a real row are the only way to tell; check both before
+changing either.
+
+`BUILD_REQUEST_ASSEMBLY_OPTIONS` / `_OPERATIONS_` / `_TESTING_` in
+`types/task.ts` mirror the live choice lists exactly (5 / 7 / 10 values,
+verified 2026-09-24). **A value ARC offers that the column does not declare
+makes SharePoint refuse the WHOLE PATCH**, so one wrong option in a picker
+stops every save from that card — `allowTextEntry` is false on all three.
+`buildRequestItems.multiChoice.test.ts` checks the constants against the
+SNAPSHOT rather than a hardcoded copy, so re-running `discover-list.ps1` is
+what updates them.
+
+**A refused write now says WHY** (Ray, 2026-09-24: a user ticking these three
+pickers "got an error that the selections were not saved").
+`useUpdateBuildRequestItemFields`'s `onError` threw the error away entirely
+and toasted a bare "Couldn't save the part — changes reverted", so a refused
+write was indistinguishable from a bug in ARC. It goes through
+`describeListWriteFailure` now — naming the SharePoint permission boundary
+(the real one; ARC has no role gate on this list at all) or the
+somebody-else-deleted-it case.
+
+`describeListWriteFailure` gained a **`permission`** field for this. It
+hardcoded "deleting" in the access-denied sentence, which was right for its
+only previous caller (a refused delete) and would have sent somebody to check
+the wrong setting for a refused EDIT. It still defaults to "deleting", so the
+existing callers' wording is unchanged.
+
+**Every column ARC selects on this list was verified to exist** — including
+the `…LookupId` siblings (`BuildRequestNoLookupId`,
+`ProjectReferenceLookupId`, `Task_x0020_RefLookupId`), which are selectable
+even though `/columns` lists only their base names, and all 17 checklist
+boolean columns. Selecting a column a list hasn't got 400s the WHOLE read, and
+`updateBuildRequestItemFields` re-reads through `listBuildRequestItems()`
+after its PATCH — so a bad `$select` surfaces as "couldn't save" on a write
+that actually landed.
+
+#### Build Request production hand-off
+
+Ray, 2026-09-29. One button on `BuildRequestDetailView` moves a request
+through two production steps, each gated on its parts:
+
+| Request status | Button | Enabled when | Sets BRStatus to |
+|---|---|---|---|
+| anything before the hand-off | **Ready for Production** | at least one part, and EVERY part is Ready for Production or Production Complete | `Ready for Production` |
+| `Ready for Production` | **Build Request Production Complete** | EVERY part is Production Complete | `Production Complete` |
+| `Production Complete` / `Complete` | none | — | (Sheila reviews and sets Complete by hand) |
+
+**`lib/buildRequestProduction.ts` is the ONE place the rule lives**
+(`productionButtonState`, `canPressProduction`, `productionTransitionRefusal`).
+It is asked twice, like the CMMS gates:
+
+- **The button** — greyed with a reason, including how many parts still need
+  to reach the required status. `aria-disabled` + a visible reason, never
+  `disabled`, for the same reason as the child-task gate and the EIR At Risk
+  pills: a disabled control loses its tooltip and leaves the tab order.
+- **The write** — `useUpdateBuildRequestFields`' `mutationFn` refuses a write
+  moving BRStatus TO `Ready for Production` or `Production Complete` unless
+  the rule allows it, reading the request and its parts from the
+  `BUILD_REQUESTS_KEY` / `BUILD_REQUEST_ITEMS_KEY` caches, and throws before
+  any request goes out. **This is what stops the status picker bypassing the
+  button.** Every other status change is unaffected.
+
+Three things about the rule:
+
+- **A request with no parts is never ready.** "Every part is ready" is
+  vacuously true of an empty list, and a request with nothing on it has
+  nothing to hand to production.
+- **A part already at Production Complete satisfies step 1** — it has
+  certainly got as far as Ready for Production.
+- **WHO may press it depends on the step** (Ray, 2026-09-29, clarified after
+  v0.169.0 shipped with one rule for both):
+  - **Ready for Production** — the request's **assigned engineer** or an ARC
+    admin. `engineerAssigned` matched with `matchesAnyEmail` against
+    `useCurrentUserEmails()`, never `account.username` alone (the Steve Pirko
+    lesson).
+  - **Production Complete** — an ARC admin or **Amanda Hoagland**, and NOT the
+    engineer: the engineer hands the build over, production signs off that
+    it's done. Amanda is hard-coded in
+    `BUILD_REQUEST_PRODUCTION_COMPLETE_APPROVERS`, like the EIR Project
+    Reference editors — one named person, changing who needs a deploy. Change
+    `NOT_PERMITTED_COMPLETE`'s wording with it.
+  - `canPressProduction(br, access, target?)` takes the TARGET status; with
+    none it uses the step the current status offers (the button's view). The
+    write guard passes the status being written, so the picker is judged by
+    the same per-step rule.
+
+  UI-level gating; SharePoint's list permissions are the real boundary.
+
+**The new statuses had to be added to the constants, not only to
+SharePoint.** `Ready for Production` / `Production Complete` (request) and
+`Production Complete` (part) already existed as SharePoint choices, but
+`buildRequestMapper.ts` CLAMPS a status read to `BUILD_REQUEST_STATUSES` /
+`BUILD_REQUEST_PART_STATUSES` in `types/task.ts` — so a value missing from
+those arrays reads as nothing, and the button could never see a part reach
+the status it waits on. Both arrays now carry them; keep them in step with
+the SharePoint choice lists.
+
+**Four alerts**, pure builders in `lib/buildRequestAlerts.ts`, sent through
+`notifyChangeEmails` from `api/email.ts`, wired in the build request hooks:
+
+| When | Who's emailed | Generic status alert |
+|---|---|---|
+| a. Request → **Ready for Production** | `BUILD_REQUEST_PRODUCTION_ALERTS` (Amanda Hoagland, Sheila Horn) + assigned engineer + request watchers + requestor | **suppressed** |
+| b. A **part** → **Production Complete** | assigned engineer + request watchers + that part's watchers + requestor | **suppressed** |
+| c. Request → **Production Complete** | `BUILD_REQUEST_COMPLETE_REVIEWERS` (Sheila Horn) — "please review and set it to Complete" | **kept** |
+| d. Request **Production Complete → Complete** only | `BUILD_REQUEST_FINAL_ALERTS` (Amanda Hoagland) + request watchers + assigned engineer + requestor | **suppressed** |
+
+Rules that are load-bearing:
+
+- **`to !== from` is the guard** on all four — `"BRStatus" in fields` is
+  presence, not change, and the "stays quiet" tests start from a fixture
+  ALREADY at the target status. Alert d also requires `from ===
+  "Production Complete"`: a request closed straight from another status is
+  not the end of a production hand-off.
+- **Suppressing the generic alert for a, b and d is deliberate** — each
+  already emails the same watchers, so the generic note would double every
+  one of them. **c keeps it**: the generic note tells the watchers what
+  happened, and Sheila's email is the action request. Every other status
+  change keeps the generic alert exactly as before.
+- **Everyone is de-duped by lower-cased email** across the whole recipient
+  set, so somebody who is both the engineer and a watcher gets one copy.
+- **The actor is excluded** — `withoutActorUnlessEmpty` for the configured
+  queue lists (a queue must not go silent because its only member pressed
+  the button), strictly for watchers / engineer / requestor.
+- **Links go through `appItemUrl`**, kind `buildRequest`; the part alert
+  links to the part the way existing part emails do.
+
+**Three env vars, each its OWN** — `VITE_BUILD_REQUEST_PRODUCTION_ALERTS`,
+`VITE_BUILD_REQUEST_COMPLETE_REVIEWERS`, `VITE_BUILD_REQUEST_FINAL_ALERTS`,
+parsed with `parseRecipientList`. Sheila and Amanda appear in more than one,
+but they are different queues with different jobs, and re-pointing one must
+not silently re-point another (the `FAIT_SQE_REVIEWERS` reasoning). All three
+are in `deploy.yml`'s named list, and each has its own row in
+`AdminNotificationRecipientsView`'s `LISTS` ("Build request — ready for
+production", "— review production complete", "— complete").
+
 ### ARC Feature Requests (Engineering site)
 
 A place for any signed-in user to request a new ARC feature or change,
@@ -4052,6 +5017,20 @@ Four things that shape this feature:
   genuine assignee-style field in `requestedBy`), `autoWatchFromMentions`
   against `resolveCurrentUserLookupId` (Engineering site), and
   `autoWatchers()` on create so the requester starts out watching.
+
+Three things the post-build review caught, fixed before it shipped:
+
+- **The write guard AWAITS the Admins list** (`ensureQueryData` on
+  `ADMINS_KEY`) rather than trusting the render-time `useIsAdmin` flag, which
+  reads false while that list loads — a real, non-bootstrap admin was refused
+  on first paint. The CMMS gates learned the same lesson.
+- **The button shows "Checking your access…"** instead of "only the assigned
+  engineer…" while `useAdminAccess().isResolving` — never a denial it's about
+  to withdraw.
+- **Alert b LOADS the parent request if the cache hasn't got it**
+  (`ensureQueryData`), so a part edited before the requests list arrived still
+  reaches the engineer and watchers rather than falling back to the part-only
+  generic note.
 
 ## Reports — fixed KPI dashboards, not a dashboard builder
 
@@ -4487,6 +5466,42 @@ changes — reverted. Graph 404 Not Found" on the EIR's LTB Date.
 isn't reachable. It speaks `yyyy-mm-dd` (`""` = unset) like the native input did,
 takes `disabled`/`title` for role-gated fields, and forwards a ref to its trigger
 for modal autofocus.
+
+**The month and year are DROPDOWNS, not a label** (Ray, 2026-09-22: "make the
+date pickers where you can choose the year easily instead of scrolling —
+especially on CSA logs"). The header used to be static text with one-month
+arrows either side, so a CSA Date Certified twenty years back was ~240 clicks
+away. Three rules on the year list (`buildYearOptions`, exported and tested):
+
+- **It is a WINDOW, not the full range.** `MIN_YEAR..MAX_YEAR` is 1900–2999;
+  rendering 1,100 options just moves the scrolling into the dropdown.
+  `YEARS_BACK` (30) / `YEARS_FORWARD` (10) covers an old certificate and a
+  forward-dated warranty or LTB date alike.
+- **The value's OWN year is always folded in**, however far outside the
+  window, along with whatever year the arrows have paged to. A picker that
+  can't show the date it is displaying would silently move it on the next
+  save. Its test uses a year computed as `today - YEARS_BACK - 5` — a
+  hardcoded 2004 sat *inside* the window and passed with the fold-in deleted.
+- **Nothing outside 1900–2999 is ever offered**, which is the bound this whole
+  component exists to protect.
+- **The selects carry `bg-surface`, never `bg-transparent`.** A native
+  `<select>`'s dropdown list inherits the CONTROL's background, so a
+  transparent one draws its options over whatever sits behind the panel.
+
+Changing the year keeps the month (and vice versa) — one picker moving the
+other is disorienting, and both are one click away anyway. The arrows stay for
+nudging a month either way.
+
+**An optimistic patch reads a picked date through `parseWrittenDate`**, never
+`new Date(v)` (Ray, 2026-09-30: an EIR's date showed 9/29 for a few seconds
+after picking 9/30, then corrected itself when the refetch landed). The picker
+writes a bare `yyyy-mm-dd`; `new Date()` makes that UTC midnight, which the
+detail pages' local getters read as the day before. The SAVE was always right —
+only the moment between pressing and SharePoint answering was wrong. All five
+date columns that patched this way (EIR Requested Completion + LTB, task and
+Operations task Due Date, Build Request Quoted Ship Date) and their mock stores
+use it now. A test for this has to pin `process.env.TZ` to a US zone — at UTC
+the bug doesn't exist and every test passes.
 
 Date maths goes through `src/lib/dateInput.ts` — `parseIsoDate` / `toIsoDate`
 build and read LOCAL dates. Don't use `new Date("2026-05-01")` (parses as UTC,
@@ -4936,6 +5951,8 @@ Two things about `lib/recipientAudit.ts`:
   out a field and exactly wrong here: it would call
   `glenn.terry@altronic-llc.com` a match for `glenn.terry@hoerbiger.com` and
   hide the single most likely fault in a tenant assembled from two companies.
+  (`@hoerbiger.com` is retired as of 2026-09-23 — still the example of a wrong
+  domain, and GUESTS now supply real ones. See "`@hoerbiger.com` is RETIRED".)
 - **An empty directory reports nothing**, rather than every address as missing.
   `useDirectoryPeople` tolerates an empty result, and a slow request must not
   render a screen full of false alarms.
@@ -5069,6 +6086,30 @@ If `VITE_SHARED_MAILBOX` is unset, the app falls back to a console.warn (real mo
 **A send that FAILS is no longer silent** — see "Mail that doesn't send says so" under Cross-cutting rules. Step 2 above (Send As per user) is the one that bites in practice: a person who was never added notifies nobody, and before the toast existed nothing anywhere said so.
 
 ## Theming
+
+**`color-scheme` is declared on `:root` (light) and `.dark` (dark), beside the
+theme tokens.** It is the ONLY lever over how the browser paints NATIVE UI —
+the list a `<select>` opens, scrollbars, date and number spinners. None of
+that is reachable from CSS: styling the `<select>` element does not touch the
+popup it opens.
+
+ARC declared no `color-scheme` at all until 2026-09-22, so every native
+control rendered with the LIGHT palette in both themes. It surfaced when the
+date picker gained month/year dropdowns and Ray hit black-on-white options
+over the dark calendar panel — but it had been true of every native control
+all along.
+
+**It must live in those two rules**, not once on `html`: ARC switches theme by
+toggling a `.dark` class, so a single static declaration could never change
+with it. Anything that adds a third theme adds a third `color-scheme`.
+
+**Not covered by a test, deliberately.** Vitest runs with `css: false` and
+jsdom computes no user-agent styles, so neither the declaration's effect nor
+the CSS text is observable from a test — a `?raw` import of a `.css` file
+returns an EMPTY STRING, since Vite's CSS pipeline intercepts it first (tried,
+2026-09-22). `DateField.test.tsx` pins the half that IS observable: the
+selects' own `bg-surface` / `text-fg` classes.
+
 
 Two themes, light and dark, controlled by a `.dark` class on `<html>`.
 All colours flow through CSS variables defined in `src/styles/globals.css`
@@ -5280,6 +6321,104 @@ early return and confirming six cases fail.
 `resolvePersonLookupId`** (Graph-first, then `ensureuser`) for any NEW person
 write — `ensureuser` alone answers 0 when the classic SharePoint scope isn't
 granted. Both families are now site-safe.
+
+### A MultiChoice column needs the `Collection(Edm.String)` annotation
+
+**This bug has been introduced TWICE and spanned three modules, so the rule is
+here rather than in one list's section.**
+
+A genuine multi-select Choice column is written as the array **plus** Graph's
+annotation, exactly as a multi-value lookup needs `Collection(Edm.Int32)`:
+
+```json
+{ "Operations@odata.type": "Collection(Edm.String)",
+  "Operations": ["Programming", "Machining"] }
+```
+
+A **bare array is refused with a bare `400 invalidRequest` naming no field** —
+which is why this is expensive: the values, the column and the array all look
+correct in isolation, and the error points at nothing.
+
+**`choice.displayAs` is the ONLY reliable signal.** Graph's `/columns` reports
+`type: "choice"` for single- and multi-value columns alike, and
+`discover-list.ps1` does not record `displayAs` at all — read it from
+`/columns` directly:
+
+| `displayAs` | Type | Write as |
+|---|---|---|
+| `checkBoxes` | MultiChoice | array **+ annotation**; clear with annotated `[]` |
+| `dropDownMenu` / `radioButtons` | single Choice | bare string; **never** annotate |
+
+Annotating a single-value column breaks it the same way omitting it breaks a
+multi one. The live ROWS are the corroborating check the snapshot already
+shows: a multi column's sample values are arrays.
+
+**Every multi-choice column ARC writes, confirmed live 2026-09-24:**
+
+| List | Columns |
+|---|---|
+| Build Request Items | `Assembly`, `Operations`, `Testing` |
+| Suppliers List | `CoreCompetency` (and `PrimarySupplyFocus`, still unconfigured) |
+| Customer Notes | `CustomerType` |
+
+`Project Task List` has one (`Orderanynewpartsthatwedonothavey`) that ARC
+never writes. The Build Request **Tracker** and the EIRs list have none.
+
+**The annotation is applied at each module's WRITE SITE, not per call** —
+`annotateMultiChoiceFields(fields, names)` in `lib/graphFields.ts`, wired into
+the PATCH (and the create, where one writes such a column). Callers keep
+passing plain arrays, so a new caller cannot forget it. A non-array value is
+left alone, because a deliberate `null` clear must stay `null`.
+
+**How it got in twice, which is the part worth remembering:**
+
+1. `multiChoiceField` originally emitted the annotation — correctly.
+2. **v0.17.5 removed it** while fixing a write to `ProjectReference`, which is
+   **not** a multi-choice column. Dropping the annotation fixed that field,
+   and the doc comment then generalised one case into a rule: *"adding the
+   annotation actually breaks the write on some tenants."*
+3. `api/buildRequestItems.ts` inherited that comment as fact, and the helper
+   ended up with **no callers at all** — so nothing in ARC emitted the
+   annotation, and all three lists' multi-choice columns were silently
+   unwritable.
+4. On 2026-09-24 a first pass verified the values, the array shape and the
+   `$select` against the live schema, found them all correct, and concluded
+   ARC was fine — **because it never questioned the annotation, having read
+   that comment.** A test was even written asserting the absence of the
+   annotation, which would have defended the bug.
+
+The lesson generalises beyond this field type: **a doc comment asserting that
+something "breaks on some tenants" deserves the same scepticism as code.**
+This one was a correct observation about one column, written as a universal
+rule, and it cost two investigations. Where a shared helper has NO callers,
+that is itself a signal — either it is dead, or everything that should use it
+is hand-rolling the shape.
+
+Pinned by `lib/graphFields.multiChoice.test.ts` (the helper) and
+`api/multiChoiceWrites.test.ts` (all three modules, `USE_MOCK: false`). Both
+were verified by removing the annotation and watching seven cases fail.
+
+### A field called `DisplayName` is silently dropped by Graph
+
+Found 2026-09-28, creating Parts Roles: a list column whose internal name is
+**`DisplayName`** cannot be written or read through Graph's `listItem.fields`.
+- A POST or PATCH carrying `DisplayName` is accepted with a 2xx, and nothing
+  is stored.
+- The field never appears on a read, even with `$expand=fields` and nothing
+  else.
+- `/columns` still lists it as a normal, writable text column, so nothing in
+  the schema warns you.
+
+**The EIR Roles list has this bug.** Its name column is `DisplayName`, and
+none of its 22 rows had a name saved at the time of finding. The admin screen
+falls back to deriving a name from the email (`deriveNameFromEmail`), which is
+why nobody noticed. Not fixed yet; the fix is the one Parts Roles got: a
+column with another internal name (`PersonName`), read and written instead.
+
+**Rules that follow from it:**
+- Don't name a new column `DisplayName`.
+- After creating ANY column, write a value through Graph and read it back
+  before building on it. A 2xx from a write is not evidence the value landed.
 
 ### A single-person column needs BOTH halves selected, and its own read step
 
@@ -5689,6 +6828,77 @@ carried, since the status pills are component state the URL isn't kept in step
 with. Keep the URL as the source of truth — a filtered view being shareable is
 promised in the manual.
 
+### A test must not depend on a `VITE_*` var being set — CI has none
+
+**`npm test` gates the deploy, and CI has no `.env.local`.** So does a fresh
+clone. Any test that reads a value out of `src/api/config.ts` is reading
+`undefined` there, however green it is on a configured machine.
+
+This is structural, not an oversight: in `.github/workflows/deploy.yml` the
+**Test** step is a bare `run: npm test` with no `env:` block, and the long
+list of `VITE_*` values belongs to the **Build** step below it. Tests are
+*meant* to run unconfigured — so that is the environment to write them for.
+
+v0.165.0's deploy failed on exactly this, in two of its own new files:
+
+```
+appAccess.test.ts   > de-dupes an app registered at more than one route
+accessProbe.test.ts > de-dupes an app registered at more than one route
+    AssertionError: expected [] to have a length of 1
+```
+
+Both asked the live `APPS` registry for Engineering Tasks' list id. **`SP_LIST_ID`
+has no default in `config.ts`** — unlike most list ids, which carry a
+documented fallback — so `ids()` filtered it out, the registry entry carried
+`lists: []`, the denial matched nothing, and the assertion ran against an
+empty array. The code was correct the whole time; only the fixture was
+environment-dependent.
+
+Three rules:
+
+- **Build the fixture, don't read the registry** — `accessProbe.test.ts`
+  already constructed hand-written `AppSpec` objects for every other case;
+  this one case reached into `APPS` and was the one that broke.
+- **Where a function only accepts real registry data** (`unavailableAppLabels`
+  takes denials, not apps), key the test off something that is ALWAYS
+  defined. A **site** id always is; a list id may not be.
+- **Check which ids actually have defaults before relying on one.** Several
+  are deliberately unset so a feature stays off until somebody turns it on
+  (`SP_EIR_ROLES_LIST_ID`, `SP_MAINTENANCE_ROLES_LIST_ID`,
+  `SP_QUICK_LINKS_LIST_ID`, `SP_ECN_CHECKLISTS_LIST_ID`) — that is a feature,
+  not an oversight, and a test must not assume otherwise.
+
+**Reproduce it the way CI sees it**: temporarily move `.env.local` aside and
+run the suite. That is the whole difference, and it takes a moment.
+
+`api/appAccess.envGap.test.ts` is the standing guard — it asserts the registry
+stays well-formed with nothing configured, and that Engineering Tasks really
+is registered at three routes, since both de-dupe cases quietly stop testing
+anything if that ever changes.
+
+### `beforeEach(() => mock.mockReset())` runs the mock as cleanup
+
+**A `beforeEach` that RETURNS a function has that function run as the test's
+teardown.** `mockReset()`, `mockClear()` and `mockRestore()` all return the
+mock itself, so the one-line arrow form hands Vitest the mock as a cleanup
+step. After the test, Vitest calls the mock with no arguments; if the test
+gave it an implementation that throws (`mockRejectedValue` included), the
+test FAILS with that error, pointing at the line where the error was created.
+
+It cost an hour on `datasheets.real.test.ts` (2026-09-28): the code was
+right, a probe proved `findDatasheet` returned null, and the test still
+failed with "Graph 404". **Use a block body:**
+
+```ts
+beforeEach(() => {
+  graphFetch.mockReset();
+});
+```
+
+Two older files still use the one-line form and pass only because their
+mocks don't throw when called bare: `accessProbe.hiddenRows.test.ts` and
+`useCommentOriginLink.test.tsx`.
+
 ### A row-cap test must not render 150 real rows — it gates the deploy
 
 `npm test` runs in the deploy workflow and **must pass to deploy**. On
@@ -5965,6 +7175,145 @@ the current task, and Cancel returns to the detail page) — the same narrow,
 per-feature file convention as `DetailView.projectRef` /
 `DetailView.watchers`, since `DetailView.tsx` has no broader test harness in
 this repo.
+
+### Task detail: "Create Build Request" — and the link that is DERIVED, not stored
+
+Added 2026-09-20 (Ray: "a clean way to create a build request from a task…
+pop up the build request creation forms and load the build request after
+submit linked back and forth from task and build request and copy task
+comments to the build request comments").
+
+A "Create Build Request" button on `DetailView`'s toolbar opens
+`BuildRequestFormModal` with a new `fromTask` prop — the same
+prefill-and-lock shape as `TaskFormModal`'s `fromParentTask` and
+`TestSheetFormModal`'s `fromTask`. The pure half is
+**`lib/buildRequestFromTask.ts`**, which mirrors `lib/eirPromotion.ts`
+deliberately rather than inventing a second way to carry a discussion.
+
+**THE LINK IS STORED ONCE, ON THE BUILD REQUEST.** `TaskReference` is a real
+column that already existed on the Build Request Tracker and was previously
+always written `null`. The TASK side is derived —
+`useBuildRequestsForTask(taskId)` filters the already-loaded Build Requests
+list by that column. Ray chose this over adding a Build Request column to the
+Task list, and it is the decision most at risk of being "tidied" later:
+
+- **Two columns can disagree; one cannot.** A stored reverse link is a second
+  copy of the same fact, and nothing would keep them in step — a request
+  re-pointed at another task would leave the old task still claiming it.
+- **It costs nothing.** The Build Requests list is already fetched whole, and
+  the filter runs in the browser. There is no extra request.
+- **It needs no Task-list schema change** on the busiest list in ARC.
+
+Seven things that are load-bearing:
+
+- **`TaskReference` is a SINGLE lookup — a bare integer.**
+  `multiLookupField`'s `Collection(Edm.Int32)` shape 400s it, and a 400 on the
+  create means no build request exists at all. The same trap this file
+  documents for every other single lookup. Pinned in real mode by
+  `api/buildRequests.fromTask.test.ts` — invisible from the mock branch, which
+  reads `input` directly and would pass whatever shape the real branch sent.
+- **Carried comments keep their ORIGINAL author and timestamp.** A carried
+  comment is a record of what was said, not a re-post by whoever pressed the
+  button; re-stamping would credit the wrong person and collapse the whole
+  timeline onto one instant.
+- **They are stored OLDEST-first.** `parseCommunication` hands comments back
+  NEWEST-first, so writing them out in display order stores the thread
+  backwards. Same rule as `buildPromotedCommunication`.
+- **The prefill is the task's PLAIN title, not its numbered one.** The BR's
+  Title column is "Product or Project Name"; `T3-0017-…` is a task identifier
+  and means nothing on a build request.
+- **Status, assignee and dates are deliberately NOT carried.** A task's
+  workflow, engineer and due date are not a build request's — guessing puts
+  somebody's name on work they haven't agreed to. `buildRequestPrefillFromTask`
+  returns exactly three keys and a test asserts that, so a later "helpful"
+  addition has to argue with it.
+- **The button stays available once a request exists.** A task can
+  legitimately need a second one (the first was cancelled, or a second build
+  is genuinely wanted), and every request raised from the task is listed on
+  the task page — so hiding the button would leave no way to raise another.
+  `buildRequestForTask` returns the NEWEST when a caller wants just one.
+- **`buildRequestsForTask` refuses a null taskId.** `null === null` would
+  otherwise link every unlinked build request to every task whose id failed
+  to resolve.
+
+`MOCK_BUILD_REQUESTS`' request #9 had `taskReferenceLookupId: 1` — a task
+that does not exist in `MOCK_TASKS`. Nothing read the column, so it never
+showed; it now points at task 15 so the derived link renders in the demo.
+
+### One conversation across a task, its build request, and its parts
+
+Added 2026-09-21 (Ray: "when comments are added on the task, and or the build
+request that are linked they get sent to both places. If there is a comment on
+a part within the Build request the comment goes on the task with a flag that
+this was on the part within the build request with a link to jump from that
+comment to the build request part comment to reply").
+
+| Posted on | Copied to |
+|---|---|
+| a task | its build request |
+| a build request | the task it was raised from |
+| a **part** | the task **and** its own build request header |
+
+Pieces: **`lib/commentMirror.ts`** (pure — the banner wording and the fan-out
+routing), **`api/commentMirror.ts`** (performs the writes),
+**`hooks/useCommentMirror.ts`** (`fanOutComment` — resolves the links from
+cache, writes, notifies), **`components/useCommentOriginLink.ts`** (makes the
+jump link route). Called from the `onSuccess` of all three comment hooks —
+one shared function rather than three copies, the same reasoning as
+`api/autoWatch.ts`.
+
+**A mirror is a REAL STORED COMMENT, not a render-time merge** (Ray's choice
+of the two options offered). The duplicate buys three things a merge can't: it
+survives in SharePoint's own views of the list, it needs no cross-list read on
+every page load, and it can't disagree with itself when one list is throttled.
+
+Nine things that are load-bearing:
+
+- **The origin marker lives in the comment's HTML BODY**, because there is
+  nowhere else: `Communication` is one serialised text column and `Comment`
+  has no origin field. So the banner is markup — a `span.comment-origin`
+  carrying `data-origin-*` — and `sanitiseHtml` passes `class`, `data-*` and a
+  relative `href` through untouched. That was **verified with a probe, not
+  assumed**, and `commentMirror.test.ts` pins it: the whole design collapses
+  if a future tightening of that allowlist strips the marker.
+- **The jump link is a ROUTER PATH, never an absolute URL** (`appItemPath`,
+  added for this). This markup sits in a SharePoint column for years; an
+  origin or a Pages sub-path baked in breaks the day ARC moves. `appItemUrl`
+  stays for EMAIL, which has no router to resolve a bare path against.
+- **`useCommentOriginLink` intercepts the click**, because the body renders
+  through `dangerouslySetInnerHTML` and the anchor is outside React's tree —
+  a plain click would trigger a full page load, throwing away the bundle, the
+  MSAL cache and anything half-typed. It intercepts ONLY an anchor inside a
+  banner, and leaves a modified or middle click to the browser (ctrl-click for
+  a new tab is exactly the complaint that started the draft-persistence work).
+- **It requires a router above `CommentThread`.** `useNavigate` throws without
+  one, which broke 25 of that component's own tests when this shipped — its
+  test file now wraps every render in a `MemoryRouter`. Reading the navigator
+  out of context to dodge the requirement was tried and REVERTED: it traded a
+  loud failure in one test file for a silently dead link in production.
+- **Carried comments keep their ORIGINAL author.** A mirror is a record of
+  what was said, not a re-post by whoever triggered the fan-out.
+- **Best-effort, per target, and it NEVER throws.** The original comment is
+  already written and on screen by the time this runs, so a failed mirror
+  TOASTS rather than making a successful comment look failed — and one refused
+  target must not lose the other (`Promise.allSettled`, pinned three ways).
+- **A mirror of a mirror is refused** (`isMirroredComment`). Three write paths
+  fan out in three directions; a loop here would stack banners and point the
+  jump link at the wrong hop, silently.
+- **Nothing is ever mirrored TO a part.** Fanning a task-level comment onto
+  every part would multiply one comment by however many parts a request has.
+- **Each side notifies its OWN watchers, de-duped ACROSS the pair.** Somebody
+  watching both the task and the build request gets ONE email;
+  `fanOutComment` accumulates `told` as it walks the targets, so a part's two
+  targets can't each email the same person.
+
+**The de-dupe test passed for the wrong reason at first, and the fix is worth
+copying.** The fixtures share NOBODY between task 15's audience and BR 9's
+except Ray — who was the test's author and therefore excluded from both
+anyway — so removing the `told.push(...)` line did not fail anything. The test
+now INJECTS a shared watcher into both cached records and asserts that person
+is genuinely in the send set before asserting uniqueness. Verified by deleting
+the guard and watching it fail.
 
 ### Description checklists: sub-tasks and attribution
 
@@ -6268,6 +7617,40 @@ Two things to preserve:
 A new entity with a Watchers column gets the same treatment in its create hook
 and its assign path — that's six departments doing it identically now.
 
+### A mention becomes a watcher when Post is pressed — `hooks/mentionAutoWatch.ts`
+
+Auto-watch-on-mention used to start in each comment mutation's `onSuccess`, so
+the chip waited on the whole comment round trip (read Communication, PATCH,
+re-read) plus a lookupId resolution — and then the comment's own `onSettled`
+refetch, in flight before the Watchers write landed, wiped the chip until the
+write re-patched it (Ray, 2026-09-25: "they should be added as a watcher more
+quickly"). `beginMentionAutoWatch` splits the work across the lifecycle, and
+every comment thread uses it:
+
+| Phase | What happens |
+|---|---|
+| `onMutate` | chips + toast appear NOW — a chip needs no lookupId, only a write does |
+| `onSuccess` | `commit()` resolves lookupIds and writes Watchers |
+| `onError` | `cancel()` — a failed comment writes nothing; the snapshot rollback removes the chips |
+| `onSettled` | `afterMentionAutoWatch` holds the refetch until the write has landed |
+
+Three rules:
+
+- **Nothing is written before the comment lands.** Optimistic display is
+  free; a subscription left behind by a comment that failed is not.
+- **Don't reconcile a comment write's returned row while an auto-watch is in
+  flight** — it predates the new watchers and wipes their chips. Tasks'
+  `settleCommentWrite` invalidates instead.
+- **A mentioned person with no resolvable lookupId is taken back AND named in
+  a toast.** They used to be skipped silently, which is how a mention that
+  subscribed nobody went unnoticed.
+
+`resolveLookupId` is still per-site and still required — see
+`api/autoWatch.ts`, which the helper calls at commit time.
+`useTasks.mentionWatch.test.tsx` pins the timing against a comment write the
+test controls, and was verified by running it against the old hook (all three
+cases fail).
+
 ### Comment timestamps are on one clock, not the author's
 
 The `Communication` record starts with a bare `MM/DD/YYYY HH:MM:SS AM/PM` and
@@ -6290,6 +7673,149 @@ dependency, DST handled by re-checking the offset at the instant being solved
 for. Don't reintroduce `d.getHours()` / `new Date(y, m, d, …)` here: those are
 the author's-local-time bug. Tests set `process.env.TZ` explicitly, because
 "it depends where you are" IS the bug.
+
+### Guest notifications go through Power Automate, not ARC
+
+A guest (B2B) user can sign into ARC but **cannot send notification email**.
+Graph `sendMail` needs a mailbox in THIS tenant and the signed-in user needs
+Exchange Send-As + FullAccess on `automation@` — neither of which a guest can
+have, because Exchange permissions need a mail-enabled recipient object here
+and a guest's mailbox lives in their own organisation. Their comment SAVES and
+they get a clear 403 toast; the watchers are simply never emailed.
+
+Ray's call, 2026-09-23: **a Power Automate flow, for guests and scheduled
+alerts only** — Engineering Tasks first. The employee path is untouched.
+
+- `scripts/new-guest-notification-flow.ps1` GENERATES the flow as an
+  importable package, parameterised by list, so the designer never has to be
+  clicked through and the expressions can't be mis-transcribed. It writes a
+  readable `.definition.json` beside the `.zip` for review. **Deliberately a
+  package, not a direct Power Platform API call** — that API is undocumented
+  and unversioned, and the import screen forces the connections to be chosen
+  explicitly rather than failing obscurely.
+
+  **THE PACKAGE FORMAT IS COPIED FROM A REAL EXPORT, NOT INFERRED — and the
+  first attempt at inferring it FAILED SILENTLY.** Power Automate accepted a
+  plausible-looking package with *"All package resources were successfully
+  imported"*, listed **No items** under Review Package Content, and created
+  nothing (Ray, 2026-09-23, from a screenshot). Three things were wrong at
+  once, and any one of them alone produces that same silent success:
+
+  1. **`manifest.json`'s `resources` was `{}`.** That map is what the import
+     screen reads, so an empty one means an empty package however many files
+     the zip contains. **Five** entries are required: the flow, plus an
+     `apis` AND a `connections` entry per connector, wired by `dependsOn`
+     GUIDs.
+  2. **`definition.json` must be WRAPPED** — `name` / `id` / `type` /
+     `properties`, with the workflow at `properties.definition` and
+     `properties.apiId` = `shared_logicflows`. A bare workflow at the top
+     level is not read.
+  3. **Two files were missing entirely** — `Microsoft.Flow/flows/manifest.json`
+     (the `flowAssets.assetPaths` index) and the per-flow
+     `connectionsMap.json`. `apisMap.json` was also the wrong SHAPE: it maps
+     connector name → the manifest's resource GUID, not to a descriptive
+     object.
+
+  The format was recovered by diffing against
+  `FAITUpdatesNotifications_20260707130655.zip`, an export of a real flow
+  from this tenant. **If an import ever silently does nothing again, export
+  any flow and diff its package against what the script writes** — that is
+  how this was found, and it is faster than re-reading Microsoft's docs,
+  which do not describe this format at all.
+
+  **The import screen's success message is not evidence.** The check that
+  matters is whether **Review Package Content lists the flow plus two
+  connections**; "No items" there means the package is wrong no matter what
+  the green tick says. The script's own closing output says so.
+- `scripts/add-task-last-notified-column.ps1` adds the support column.
+- `docs/POWER-AUTOMATE-GUEST-NOTIFICATIONS.md` is the reference and the
+  hand-build fallback. A vault-ready copy (frontmatter, callouts, wikilinks)
+  was moved OUT of this repo to `C:\RCW Obsidian\ARC\` on 2026-09-24, so the
+  in-repo file is the only version under version control — it is the source of
+  truth, and the vault copy does not track changes to it.
+
+Four things that are load-bearing, and the reason the doc exists rather than
+code:
+
+- **SharePoint triggers the flow; ARC NEVER calls it.** An HTTP-triggered flow
+  authenticates by a secret in its URL, and ARC's bundle is public JavaScript
+  — that URL would be extractable, giving anyone a way to send mail as
+  `automation@`. Same reasoning as the QZ Tray private key, except the
+  consequence is a public spoofing endpoint. The flow watches the list, which
+  also covers comments written in SharePoint's own UI.
+- **The flow must send ONLY for external authors.** Employees are already
+  emailed by ARC, so an unconditional flow double-notifies every employee
+  comment. Its check has to stay identical to `INTERNAL_EMAIL_DOMAINS` in
+  `lib/guestIdentity.ts`.
+- **It must read only the NEWEST comment, taking fields from the FRONT.**
+  `Communication` is one column holding the whole thread. Indexing backwards
+  from the end breaks the moment a comment body contains `|||` — every field
+  shifts and the author email reads as a fragment of the body (verified
+  2026-09-23; ARC's own parser re-joins the body for this reason). Split on the
+  newline to isolate the last record, then take fields 0/1/2 and re-join the
+  rest.
+- **A `LastNotifiedComment` column stops it re-sending.** The
+  created-or-modified trigger fires on every column change, so without it a
+  status edit re-emails the last comment. `scripts/add-task-last-notified-column.ps1`
+  creates it. Comparing against the trigger's previous run time instead would
+  collapse two comments in one polling interval into one notification.
+
+**One flow per list** is the cost of this approach — hence starting with one
+and proving it.
+
+**CHECK FIRST whether the guest even needs it.** If Exchange holds a real
+`UserMailbox` for them, a Send-As grant is the whole fix. Exchange admin
+centre → Recipients. (`Connect-ExchangeOnline` crashes in the module's Windows
+broker on at least one machine here; `-Device` avoids it, the portal is
+quicker.)
+
+### `@hoerbiger.com` is RETIRED — and guests arrive on other domains
+
+Two facts recorded together on 2026-09-23 (Ray), because they interact.
+
+**The `@hoerbiger.com` domain is gone.** This tenant was assembled from
+Altronic and Hoerbiger/Cooper, and for most of ARC's life real colleagues
+carried `@hoerbiger.com` addresses — Sarah Shaffer, Brandon Mirto, Glenn
+Terry, Steven Landreth and others appear that way throughout this file's own
+examples. Those accounts are now `@altronic-llc.com`.
+
+`src/data/mockData.ts` held 25 such addresses across 8 people (Ray's own
+included) and was updated wholesale. What was deliberately NOT changed:
+
+- **A comment quoting the migration** (`hoerbigergroup.sharepoint…`) inside a
+  mock comment body. That is a historical quote about the tenant migration,
+  not an address.
+- **`scripts/*-schema.json`** — captured SharePoint schema snapshots. They are
+  records of what a list held when it was discovered; rewriting them would
+  falsify the snapshot.
+- **`recipientAudit.ts`'s examples**, which cite the old domain precisely to
+  illustrate a WRONG domain. Annotated as retired rather than replaced.
+
+**No production config was ever affected** — every configured alert list
+(`FAIT_NEW_ALERTS`, `EIR_TRIAGE_ASSIGNERS`, `COST_IMPACT_NOTICE_ALERTS`, …)
+already pointed at `@altronic-llc.com`, and `/admin/notification-recipients`
+is the screen that proves it against the live directory.
+
+**The live SharePoint person columns are a separate question this repo cannot
+answer.** If a real list row still holds a `@hoerbiger.com` address, whether
+it resolves depends on whether the Entra account was RENAMED (Graph follows
+it) or orphaned. Check before assuming ARC is at fault for a name that
+renders as `User #46`.
+
+**`sameEmail`'s local-part fallback is now a REAL misidentification risk.**
+It exists so one person with two spellings is recognised as themselves, and
+this file's own justification is that "two people sharing a local part across
+two domains doesn't occur in this tenant". **Guest (B2B) users break that
+premise**: guests arrive on arbitrary external domains, so
+`john.smith@vendor.com` matches `john.smith@altronic-llc.com` and is treated
+as the same person — by the admin check, EIR role gating, and the
+"can I edit this comment" test.
+
+Flagged, NOT yet changed (Ray's call, 2026-09-23): that helper gates
+permissions in several places, so narrowing it is its own change with its own
+tests rather than a side effect of a guest-notification feature. **If you are
+touching `emailIdentity.ts`, this is the thing to fix**: restrict the
+local-part fallback to two addresses that are BOTH on an internal domain.
 
 ### Matching a person to a stored address: `lib/emailIdentity.ts`
 
@@ -6345,7 +7871,14 @@ grants nothing.
 Three filters sit between the tenant directory and every picker in ARC, all in
 `mapDirectoryUsers` (api/directory.ts) and `isHiddenPerson` (lib/people.ts):
 
-- **No mailbox, or an `#EXT#` guest** → out. Service accounts and externals.
+- **No mailbox at all** → out. Service accounts, and a guest Graph never
+  gave a real address (their `mail` came back blank, so the fallback would
+  otherwise be the `#EXT#` UPN — not an address anyone can be reached at).
+  **A guest with a real address is NOT excluded** (Ray, 2026-09-24: signed-in
+  guests must be assignable and @-mentionable, same as staff). This changed
+  FROM excluding every `#EXT#` UPN outright, reported when
+  carrie@tompkinsdesigns.com couldn't be found in any picker despite already
+  having access to ARC.
 - **`accountEnabled === false`** → out. Leavers, and the stale half of a
   duplicated person. Note the explicit `=== false`: some tenants don't return
   the property at all, and treating "unknown" as disabled would empty every
@@ -6449,6 +7982,162 @@ told whoever she asked nothing about what to change.
 A refused delete also invalidates the query, because nothing was removed and the
 row is still on screen — without the refetch the list can drift from SharePoint
 after a failure.
+
+### A refused list is said out loud, app-wide — and closes the doors to itself
+
+The other half of the rule above, for READS. Every hook in ARC falls back to
+`?? []`, so a list SharePoint refuses renders as an empty list — "you can't see
+this" and "there's nothing here" look identical, and the Add entry button stays
+enabled until the save is refused too. Five screens were taught to explain this
+by hand in v0.164.4 (`ListAccessNotice`); there are eighty-odd screens, so
+v0.165.0 made it app-wide instead of continuing one at a time.
+
+Four pieces, each with one job:
+
+- **`lib/listAccess.ts`** — pure. Parses the site and list out of a `GraphError`
+  URL, and decides whether an error was the permission boundary at all.
+- **`api/appAccess.ts`** — the registry: which lists each app needs, and what to
+  call each site. Read by the banner, the Departments menu AND the Dashboard
+  cards, because two copies of "which list is behind Teradyne Log" is how a fix
+  reaches the menu and not the card. It lives in `api/` beside `config.ts`,
+  since that is where list ids already live and `lib/` deliberately doesn't
+  import `api/`.
+- **`hooks/useListAccess.ts`** — the store, fed from the ONE place every read
+  and write already flows through: the `QueryCache` / `MutationCache` onError
+  handlers in `main.tsx`, exactly like the session-expiry store beside it. No
+  feature wires itself up; a refused list registers wherever it was first
+  touched.
+- **`components/ListAccessIndicator.tsx`** — the app-wide notice, in the
+  **FOOTER**, between the maintainer line and the About button. It shipped as a
+  full-width bar under the header and moved on 2026-09-24 (Tim): it is a
+  standing fact about the account, not news about this page, and a permanent
+  stripe above every screen pushed the page down a row for anyone missing one
+  list. Two renderings, chosen by the `lg` breakpoint rather than a
+  measurement: the sentence inline (truncating, and clickable because it
+  truncates), or a single alert icon that opens the same popup. The popup opens
+  UPWARD — the footer is pinned to the bottom of the window.
+
+Seven things that are load-bearing:
+
+- **The denial check is STRICTER than `isPermissionDenied`** in
+  `lib/listWriteErrors.ts`, which also matches "unauthorized" anywhere in the
+  body. That looseness is right for a toast on a write the user just attempted
+  and wrong here, because this answer disables navigation: a 401 is a dead
+  session, and it must reach the sign-in screen rather than tell somebody they
+  lack access they actually have. 403 or a body carrying `accessDenied`, and
+  nothing else.
+- **A refused LIST never marks its SITE denied.** Somebody can hold access to
+  twenty lists on Altronic_Engineering and not the twenty-first; marking the
+  site would lock every other app on it. The site is remembered separately
+  (`implicatedSites`) purely so the banner can name somewhere to ask about.
+- **An app is unavailable only when EVERY list it names is refused.** Most apps
+  name one, so the readings coincide — it matters for Drawing File Logs' four
+  registers and the QC families, where one refused register still leaves a
+  working screen. Partial refusals are the in-screen notice's job.
+- **`lists: []` means "site-level detection only"** (Project Folders is a
+  document library, not a list) and must never read as "every list denied".
+- **Nothing is HIDDEN.** A locked card and a locked menu row still show the
+  app's name plus a padlock. An entry that vanishes reads as ARC having lost a
+  feature and gives the user nothing to ask for. A "Soon" placeholder and a
+  locked app are also kept visually distinct — they mean different things.
+- **It is both ASKED and LEARNED — the learner alone answers too late.**
+  v0.165.0 only watched requests fail, which is free but only knows after the
+  fact: every Sales card looked live until Tim opened Visit Reports, was
+  refused, and came back to find ONE card locked and the rest still inviting
+  him in (2026-09-24). `api/accessProbe.ts` now asks up front, in **one Graph
+  `$batch`** (20 sub-requests a call, `$select=id` each — "may I", not "give me
+  the rows"), so the Dashboard and the menu are right the first time. The
+  passive learner stays: it is free, it covers what the probe skips, and access
+  can change mid-session.
+- **The probe SKIPS a multi-list app** — Drawing File Logs' four registers,
+  Digital QC's sixteen families, Ignition QC's thirty-seven. Those need every
+  register refused to count as unavailable, so proving it would cost fifty-odd
+  sub-requests to answer a question that is almost always "they're fine". They
+  keep the learner.
+- **Only 403 counts, and a failed probe changes nothing.** Graph answers **404
+  for a missing SCOPE** as well as a missing list (see the note in `graph.ts`),
+  and the two are indistinguishable from the browser — one of them is a config
+  error that would lock an app for the whole company at once. A whole batch
+  failing is a network or session problem, not an answer about permissions, so
+  `probeAppAccess` swallows it and leaves ARC exactly as it was.
+- **A refused DOCUMENT LIBRARY is not a refused site.** A library with its own
+  broken inheritance is ordinary SharePoint, so `drives` is its own denial kind
+  and only the `needsDrive` apps (Project Folders, Open Orders Report) read it.
+  An earlier version recorded a drive 403 as a site denial, which would have
+  locked Visit Reports over a folder nobody had shared.
+- **There are TWO lock reasons, and they are not merged.** `appAccessState`
+  answers `"no-access"` (a 403 — somebody can grant it) or `"unreadable"`
+  (nothing was refused and the data still isn't there). Tim asked for the
+  second case to lock like the first (2026-09-24), and it does — but with its
+  own wording, because "you don't have SharePoint access" would send somebody
+  to ask for access they may already have. A refusal wins when an app is both.
+  Two things feed `"unreadable"`:
+  - **A declared FOLDER answering 404.** `AppSpec.drivePath` names the folder
+    the screen actually reads, imported from the feature rather than retyped.
+    Probing the library ROOT was not enough: Tim could read the Sales library
+    root and still got `itemNotFound` on `General/Order Management/OPEN
+    ORDERS` inside it, so Open Orders stayed unlocked while its screen showed
+    nothing. Still narrow — a 404 counts for a declared folder ONLY, never for
+    a list, because Graph answers 404 for a missing scope too.
+  - **A list handing back none of the rows it reports holding**
+    (`hooks/useEmptyListCheck.ts` + `api/listItemCount.ts`). Customers read
+    fine and returned zero rows, which is exactly how SharePoint answers an
+    item-level permission problem: it SECURITY-TRIMS the result to 200 with an
+    empty array, byte-for-byte identical to an empty list. Nothing in the Graph
+    response separates them. The list's own **`ItemCount` is not trimmed**, so
+    "ItemCount 102, and you were handed 0" is positive evidence. It is asked
+    ONLY when a screen has zero rows and no error, so it costs a request on an
+    empty screen and nothing on a working one.
+    **It cannot fire on a genuinely empty list** — `ItemCount` would be 0 too —
+    which is what makes it safe to lock on: the person whose job is to add the
+    first row is never shut out of the screen that adds it. It goes through SP
+    REST, whose scope this app treats as best-effort, so a missing grant
+    returns null and ARC behaves exactly as it did before.
+- **The probe asks about each SITE too, and a refused site takes its SUBSITES
+  with it.** `salesOrderEntry` is a subsite of `salesTeam` (Tim, 2026-09-24:
+  "if I don't have access to salesTeam I won't have access to
+  salesOrderEntry"), so `isAppUnavailable` walks `siteAncestry`, not the app's
+  own site id. Five site probes also answer for the multi-list apps the probe
+  skips: "no access to Altronic_Engineering at all" locks Drawing File Logs and
+  both QC logs without probing their fifty-seven registers.
+  **The inference is one-directional.** A refused SUBSITE says nothing about
+  its parent — a subsite can break inheritance and be shared with people who
+  can't open the site above it, so `SITE_PARENTS` is only ever read upward.
+- **It is deliberately NOT persisted.** A denial cached in storage outlives the
+  problem: somebody granted access at 9am would stay locked out until they
+  closed the tab. In memory a reload re-learns the truth — which the probe
+  makes cheap, since it is two requests rather than a visit to every screen.
+- **Every notice says "ask an admin", not a named person or team** (Tim,
+  2026-09-24, deciding it deliberately). Naming the IT service desk, an AI
+  Champion or a maintainer was the alternative, and it was considered and
+  turned down: the wording appears in the footer notice, the in-screen
+  notices, the locked cards and the locked menu rows, so re-pointing it is a
+  handful of edits that should be made in one pass and on purpose — not one
+  screen at a time.
+- **"Check again" clears the store BEFORE refetching**, so anything since
+  granted stops being hidden immediately and anything still refused simply
+  registers again a moment later. It also bumps the probe's query key
+  (`probeKey`), because React Query would otherwise hold the first answer for
+  the whole session and the button would do nothing for the one person it
+  exists for — somebody who has just been granted access.
+
+**And the last mile is per-screen: a failed read is NEVER an empty list.** The
+banner and the locks only fire on a 403 that ARC can attribute. Everything
+else — a 404, a throttle, a bad list id — still reaches a screen that
+destructures `data: x = []` and drops the error, which renders as "nothing
+here". Tim hit exactly that after the gating shipped (2026-09-24): Customers
+showed "No customers match these filters" over a 102-row list, and Open Orders
+showed "No master dashboard yet — build one with the tool below", pointing him
+at a button that would have failed too. Both now branch three ways —
+`ListAccessNotice` for a refusal, a named "couldn't load" with a retry for any
+other error, and the real empty state only when the read actually SUCCEEDED and
+came back empty. Any new list screen owes the same three branches; the row
+count is not a loading or error state.
+
+The "does the gate exist" tests were verified by disabling each gate and
+watching them fail — a test that passes either way is how this class of feature
+rots. One of them didn't fail at first: the App.tsx source check matched its own
+commented-out call, so it is anchored to the start of a line now.
 
 ### Mail that doesn't send says so
 
@@ -6880,6 +8569,59 @@ isn't set, the list-item upload silently no-ops and the project-folder
 copy still goes through. The mutation `useUploadTaskFile` always returns
 the project-folder result so callers (incl. the comment composer) keep
 working uniformly.
+
+**It runs in the BACKGROUND, not awaited** (Ray, 2026-09-29: "ARC times out
+when trying to upload large files"). SP REST has NO chunked attachment API, so
+this copy is ONE request carrying the whole file, and a large file on a slow
+or VPN connection can take minutes or be cut off. Awaiting it held the upload
+— and a comment's Post button — hostage even though the project-folder copy
+(chunked, retried) had already landed. `useTaskFiles.upload.test.tsx` pins it,
+verified against the old awaited version.
+
+**That background copy WRITES THE TASK ITEM while the comment PATCH is in
+flight**, so SharePoint refused the comment with `409 resourceModified`
+("usually an eTag mismatch") — ARC sends no If-Match; this is SharePoint's
+own concurrency check. Thomas Terhune hit it on task 3347 with two pictures
+(2026-09-30), and the composer had already cleared, so the comment was gone:
+he re-pasted it, which turned his @-mentions into plain text that subscribed
+nobody, and each retry re-uploaded the pictures as `IMG_1224 (2).jpg`. Fixed
+in v0.169.5, in three places:
+
+- **`api/tasks.ts` retries a task write on `isEditConflict`**
+  (`lib/listWriteErrors.ts`), up to `CONFLICT_RETRY_DELAYS_MS`. A whole-value
+  write (Status, Watchers, …) is simply sent again. **A Communication write
+  is NOT** — `updateTaskFields` refuses to retry one blind, because the value
+  was built from an earlier read; `addComment` / `editComment` go through
+  `rewriteCommunication`, which RE-READS inside the retry. The comment's
+  timestamp is fixed once, outside it. Pinned in
+  `tasks.conflictRetry.test.ts` (real mode), each guard verified by breaking
+  it.
+- **The composer restores a failed comment** — text, rich mode, mention chips
+  and files — when `onSubmit` RETURNS the save's promise and it rejects. It
+  still clears at once; a fire-and-forget caller is unchanged. **Every
+  composer in ARC returns its promise** (v0.169.6) — each
+  `handleAddComment` does `return addComment.mutateAsync(…)`, never
+  `.mutate(…)`. `views/commentRestore.wiring.test.ts` enforces it across all
+  19 files that render a composer, and was verified by reverting one; a NEW
+  composer belongs in its list. The inline "Your comment was removed from the
+  thread" banners on the Task, Operations and Maintenance pages were removed
+  — the composer reports the failure itself.
+- **Files an attempt already uploaded are linked again, not re-uploaded**
+  (`uploadedRef` in `CommentComposer`, keyed by attachment id).
+
+Don't "fix" the race by awaiting the background copy again — that is the
+large-file hang this section opens with.
+
+**Every other list's attachments are that same single request**, and they
+must stay list-item attachments — Ray was explicit (2026-09-29): a file goes
+where its record keeps files, the project folder for a task and the item
+itself for an EIR, ECN, FAIT and the rest. A "large files go to a Documents
+folder instead" design was proposed and turned down for that reason. So
+`uploadAttachment` can't make a big file reliable; what it does is turn a
+cut-off upload (a bare `TypeError: Failed to fetch`) into a sentence naming the
+file and size (`attachments.upload.test.ts`). If a chunked path for list-item
+attachments is ever proven against the live tenant, `uploadAttachment` is the
+one place it goes.
 
 Code: `src/api/attachments.ts` (parametrised over `"task" | "eir"`).
 

@@ -23,6 +23,7 @@ vi.mock("@/api/errorReport", () => ({
 // Stub config so the button label paragraph is stable.
 vi.mock("@/api/config", () => ({
   APP_MANAGER_EMAIL: "ray.white@altronic-llc.com",
+  SHARED_MAILBOX: "automation@altronic-llc.com",
 }));
 
 // Control what the console-error buffer hands the modal. Defaults to empty so
@@ -179,7 +180,11 @@ describe("NotifyAppManagerButton", () => {
     });
   });
 
-  it("falls back to a mailto: draft when Graph send fails (e.g. shared mailbox 404)", async () => {
+  // A failed direct send must NOT open the reporter's own mail by itself —
+  // that was reported as "Report issue forces users to local mail" (Ray,
+  // 2026-09-28). The modal stays open with the reason; the draft opens only
+  // when the person asks for it.
+  it("keeps the modal open with the reason when Graph send fails, and opens a draft only on request", async () => {
     sendMock.mockRejectedValueOnce(
       Object.assign(new Error("Graph 404 ErrorItemNotFound"), { name: "GraphError" }),
     );
@@ -194,7 +199,6 @@ describe("NotifyAppManagerButton", () => {
       configurable: true,
       value: locationStub,
     });
-    // Silence the deliberate console.error so it doesn't clutter output.
     const origErr = console.error;
     console.error = vi.fn();
 
@@ -208,20 +212,39 @@ describe("NotifyAppManagerButton", () => {
       await user.type(textarea, "mailbox is broken");
       await user.click(screen.getByRole("button", { name: /send report/i }));
 
-      // Graph was tried first…
-      await waitFor(() => {
-        expect(sendMock).toHaveBeenCalledTimes(1);
-      });
-      // …and then the mailto: draft opened as fallback.
-      await waitFor(() => {
-        expect(hrefSetter).toHaveBeenCalledTimes(1);
-      });
+      await waitFor(() => expect(sendMock).toHaveBeenCalledTimes(1));
+      const alert = await screen.findByRole("alert");
+      expect(alert).toHaveTextContent(/wasn't sent/i);
+      expect(alert).toHaveTextContent(/ErrorItemNotFound/);
+      // Nothing opened on its own, and the typed report is still there.
+      expect(hrefSetter).not.toHaveBeenCalled();
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /try again/i })).toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: /use my email instead/i }));
+      expect(hrefSetter).toHaveBeenCalledTimes(1);
       const href = hrefSetter.mock.calls[0]![0] as string;
       expect(href.startsWith("mailto:ray.white@altronic-llc.com")).toBe(true);
       expect(decodeURIComponent(href)).toContain("mailbox is broken");
-      await waitFor(() => {
-        expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-      });
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    } finally {
+      console.error = origErr;
+    }
+  });
+
+  it("names the missing Send As / Full Access grant when the send is refused", async () => {
+    sendMock.mockRejectedValueOnce(new Error("Graph 403 Forbidden: ErrorAccessDenied"));
+    const origErr = console.error;
+    console.error = vi.fn();
+    try {
+      const user = userEvent.setup();
+      renderWithProviders(<NotifyAppManagerButton />);
+      fireEvent.click(screen.getByRole("button", { name: /notify app manager/i }));
+      const textarea = await screen.findByPlaceholderText(/I tried to drag/i);
+      await user.type(textarea, "x");
+      await user.click(screen.getByRole("button", { name: /send report/i }));
+      const alert = await screen.findByRole("alert");
+      expect(alert).toHaveTextContent(/Send As and Full Access/);
     } finally {
       console.error = origErr;
     }
