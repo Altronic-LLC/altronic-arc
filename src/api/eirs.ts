@@ -15,6 +15,7 @@ import { listProjects } from "./tasks";
 import { MOCK_EIRS } from "@/data/mockData";
 import { autoWatchers } from "@/lib/people";
 import { parseWrittenDate } from "@/lib/dateInput";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // EIRs API — mirrors src/api/tasks.ts in shape. Mock + real branches,
@@ -65,14 +66,10 @@ function saveToStorage() {
 
 let mockStore: Eir[] = loadFromStorage() ?? [...MOCK_EIRS];
 
-function delay<T>(value: T, ms = 100): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
-
 export async function listEirs(): Promise<Eir[]> {
   if (USE_MOCK) {
     const projects = (await listProjects()) as ProjectReference[];
-    return delay(
+    return mockDelay(
       attachEirReferences(
         mockStore.map((e) => ({ ...e })),
         projects,
@@ -287,7 +284,7 @@ export async function createEir(input: CreateEirInput): Promise<Eir> {
     };
     mockStore = [eir, ...mockStore];
     saveToStorage();
-    return delay(eir);
+    return mockDelay(eir);
   }
 
   if (!SP_EIRS_LIST_ID) {
@@ -453,7 +450,7 @@ export async function updateEirFields(
     }
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
     saveToStorage();
-    return delay(next);
+    return mockDelay(next);
   }
 
   if (!SP_EIRS_LIST_ID) {
@@ -516,7 +513,7 @@ export async function setEirReporter(id: number, person: Person | null): Promise
     if (idx < 0) throw new Error(`EIR ${id} not found`);
     mockStore[idx] = { ...mockStore[idx], reporter: person, modifiedAt: new Date() };
     saveToStorage();
-    return delay({ ...mockStore[idx] });
+    return mockDelay({ ...mockStore[idx] });
   }
   const ensured = await ensurePersonLookupId(SP_SITE_URL, person);
   return updateEirFields(id, { ReporterLookupId: ensured?.lookupId ?? null });
@@ -544,7 +541,7 @@ export async function addEirComment(
     next.modifiedAt = new Date();
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
     saveToStorage();
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
   if (!SP_EIRS_LIST_ID) {
     throw new Error("Cannot post EIR comment: VITE_SP_EIRS_LIST_ID is not set.");
@@ -576,7 +573,7 @@ export async function editEirComment(
     next.modifiedAt = new Date();
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
     saveToStorage();
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
   if (!SP_EIRS_LIST_ID) {
     throw new Error("Cannot edit EIR comment: VITE_SP_EIRS_LIST_ID is not set.");

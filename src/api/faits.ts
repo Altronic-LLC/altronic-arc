@@ -18,6 +18,7 @@ import { appendComment, replaceComment } from "@/lib/communicationParser";
 import { multiPersonField } from "@/lib/graphFields";
 import { autoWatchers } from "@/lib/people";
 import { MOCK_FAITS } from "@/data/faitMockData";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // FAITs — First Article Inspection Tests.
@@ -32,10 +33,6 @@ import { MOCK_FAITS } from "@/data/faitMockData";
 // =============================================================================
 
 let mockStore: Fait[] = MOCK_FAITS.map((f) => ({ ...f }));
-
-function delay<T>(value: T, ms = 200): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
 
 function requireListId(action: string): string {
   if (!SP_FAIT_LIST_ID) throw new Error(`Cannot ${action}: VITE_SP_FAIT_LIST_ID is not set.`);
@@ -85,7 +82,7 @@ function requireResolved(person: Person | null, resolved: Person | null, label: 
 /** Every FAIT, newest first. */
 export async function listFaits(): Promise<Fait[]> {
   if (USE_MOCK) {
-    return delay([...mockStore].sort(compareFaits).map((f) => ({ ...f })));
+    return mockDelay([...mockStore].sort(compareFaits).map((f) => ({ ...f })));
   }
   const listId = requireListId("load FAITs");
   // The site-user directory in parallel: the three single-person columns come
@@ -107,7 +104,7 @@ export async function listFaits(): Promise<Fait[]> {
 export async function getFait(id: number): Promise<Fait | null> {
   if (USE_MOCK) {
     const found = mockStore.find((f) => f.id === id);
-    return delay(found ? { ...found } : null);
+    return mockDelay(found ? { ...found } : null);
   }
   // A 404 is a real answer ("it isn't there"); anything else is a fault and
   // must propagate. This used to swallow EVERY failure into `null`, which
@@ -160,7 +157,7 @@ export async function createFait(
       modifiedAt: now,
     };
     mockStore = [fait, ...mockStore];
-    return delay(fait);
+    return mockDelay(fait);
   }
 
   const listId = requireListId("create the FAIT");
@@ -230,7 +227,7 @@ export async function updateFaitFields(
     };
     applyMockFields(next, fields);
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   await graphFetch(`${itemPath(id)}/fields`, {
@@ -398,7 +395,7 @@ export async function addFaitComment(
       modifiedAt: new Date(),
     };
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   // Read-modify-write on one field, the same as every other comment thread.
@@ -429,7 +426,7 @@ export async function editFaitComment(
       modifiedAt: new Date(),
     };
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   const existing = await graphFetch<GraphListItem>(

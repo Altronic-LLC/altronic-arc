@@ -18,6 +18,7 @@ import {
 } from "@/lib/teradyneMapper";
 import { listTeradyneRefs } from "./teradyneRefs";
 import { MOCK_TERADYNE_LOG } from "@/data/teradyneMockData";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // Teradyne Log API — the primary list for the Operations Teradyne app, on the
@@ -95,10 +96,6 @@ export function resetTeradyneFilterProbe() {
   serverFilterUnavailable = false;
 }
 
-function delay<T>(value: T, ms = 250): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
-
 /** True when the entry falls inside the scope. Used by the mock + fallback paths. */
 export function entryInScope(entry: TeradyneLogEntry, scope: TeradyneLogScope): boolean {
   if (scope.kind === "all") return true;
@@ -153,7 +150,7 @@ export async function listTeradyneLog(
       .filter((e) => entryInScope(e, scope))
       .sort(compareTeradyneLogEntries)
       .map((e) => ({ ...e }));
-    return delay({ entries, filteredServerSide: true, fetchedRows: entries.length });
+    return mockDelay({ entries, filteredServerSide: true, fetchedRows: entries.length });
   }
 
   const base = `/sites/${SITES.pmo}/lists/${SP_TERADYNE_LOG_LIST_ID}/items`;
@@ -250,7 +247,7 @@ export async function listTeradyneLookupUsage(): Promise<TeradyneLookupUsage> {
       );
       empIds.forEach((id) => bump(usage.employees, id));
     }
-    return delay(usage);
+    return mockDelay(usage);
   }
 
   const items = await graphFetchAll<GraphListItem>(
@@ -378,7 +375,7 @@ export async function createTeradyneLogEntry(
     const nextId = Math.max(0, ...mockStore.map((e) => e.id)) + 1;
     const created = applyInput(emptyEntry(nextId), input, titles);
     mockStore = [...mockStore, created];
-    return delay({ ...created });
+    return mockDelay({ ...created });
   }
 
   const created = await graphFetch<GraphListItem>(
@@ -405,7 +402,7 @@ export async function updateTeradyneLogEntry(
     if (idx < 0) throw new Error(`Teradyne log entry ${id} not found`);
     const next = applyInput(mockStore[idx], input, titles);
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   await graphFetch(
@@ -425,7 +422,7 @@ export async function updateTeradyneLogEntry(
 export async function deleteTeradyneLogEntry(id: number): Promise<void> {
   if (USE_MOCK) {
     mockStore = mockStore.filter((e) => e.id !== id);
-    await delay(null);
+    await mockDelay(null);
     return;
   }
 

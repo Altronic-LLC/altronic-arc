@@ -13,6 +13,7 @@ import {
 import { appendComment, replaceComment } from "@/lib/communicationParser";
 import { annotateMultiChoiceFields, multiPersonField } from "@/lib/graphFields";
 import { MOCK_SUPPLIERS } from "@/data/srmMockData";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // "Suppliers List" — the SRM tool's anchor list, on the PMO site. Supplier
@@ -27,10 +28,6 @@ import { MOCK_SUPPLIERS } from "@/data/srmMockData";
 // =============================================================================
 
 let mockStore: Supplier[] = MOCK_SUPPLIERS.map((s) => ({ ...s }));
-
-function delay<T>(value: T, ms = 200): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
 
 function requireListId(action: string): string {
   if (!SP_SUPPLIERS_LIST_ID) {
@@ -71,7 +68,7 @@ const SUPPLIER_MULTI_CHOICE_FIELDS = ["CoreCompetency", "PrimarySupplyFocus"] as
 
 export async function listSuppliers(): Promise<Supplier[]> {
   if (USE_MOCK) {
-    return delay([...mockStore].sort(compareSuppliers).map((s) => ({ ...s })));
+    return mockDelay([...mockStore].sort(compareSuppliers).map((s) => ({ ...s })));
   }
   const listId = requireListId("load suppliers");
   const items = await graphFetchAll<GraphListItem>(
@@ -83,7 +80,7 @@ export async function listSuppliers(): Promise<Supplier[]> {
 export async function getSupplier(id: number): Promise<Supplier | null> {
   if (USE_MOCK) {
     const found = mockStore.find((s) => s.id === id);
-    return delay(found ? { ...found } : null);
+    return mockDelay(found ? { ...found } : null);
   }
   try {
     const item = await graphFetch<GraphListItem>(`${itemPath(id)}?$expand=fields($select=${SELECT})`);
@@ -132,7 +129,7 @@ export async function createSupplier(input: SupplierInput): Promise<Supplier> {
       modifiedAt: now,
     };
     mockStore = [supplier, ...mockStore];
-    return delay(supplier);
+    return mockDelay(supplier);
   }
 
   const listId = requireListId("create the supplier");
@@ -258,7 +255,7 @@ async function updateSupplierFields(
     const next: Supplier = { ...mockStore[idx], modifiedAt: new Date() };
     applyMockFields(next, fields);
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   await graphFetch(`${itemPath(id)}/fields`, {
@@ -339,7 +336,7 @@ export async function addSupplierComment(
       modifiedAt: new Date(),
     };
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   const existing = await graphFetch<GraphListItem>(
@@ -368,7 +365,7 @@ export async function editSupplierComment(
       modifiedAt: new Date(),
     };
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   const existing = await graphFetch<GraphListItem>(

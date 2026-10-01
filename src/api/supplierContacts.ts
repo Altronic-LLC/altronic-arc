@@ -11,6 +11,7 @@ import {
 import { appendComment, replaceComment } from "@/lib/communicationParser";
 import { multiPersonField } from "@/lib/graphFields";
 import { MOCK_SUPPLIER_CONTACTS } from "@/data/srmMockData";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // "Supplier Contact List" — one row per person at a supplier, on the PMO
@@ -27,10 +28,6 @@ import { MOCK_SUPPLIER_CONTACTS } from "@/data/srmMockData";
 // =============================================================================
 
 let mockStore: SupplierContact[] = MOCK_SUPPLIER_CONTACTS.map((c) => ({ ...c }));
-
-function delay<T>(value: T, ms = 200): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
 
 function requireListId(action: string): string {
   if (!SP_SUPPLIER_CONTACTS_LIST_ID) {
@@ -56,7 +53,7 @@ const SELECT =
 
 export async function listSupplierContacts(): Promise<SupplierContact[]> {
   if (USE_MOCK) {
-    return delay([...mockStore].sort(compareSupplierContacts).map((c) => ({ ...c })));
+    return mockDelay([...mockStore].sort(compareSupplierContacts).map((c) => ({ ...c })));
   }
   const listId = requireListId("load supplier contacts");
   const items = await graphFetchAll<GraphListItem>(
@@ -89,7 +86,7 @@ export async function createSupplierContact(
       modifiedAt: now,
     };
     mockStore = [contact, ...mockStore];
-    return delay(contact);
+    return mockDelay(contact);
   }
   const listId = requireListId("create the contact");
   const created = await graphFetch<GraphListItem>(
@@ -130,7 +127,7 @@ async function updateFields(id: number, fields: Record<string, unknown>): Promis
     const next: SupplierContact = { ...mockStore[idx], modifiedAt: new Date() };
     applyMockFields(next, fields);
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
   await graphFetch(`${itemPath(id)}/fields`, { method: "PATCH", body: JSON.stringify(fields) });
   const item = await graphFetch<GraphListItem>(`${itemPath(id)}?$expand=fields($select=${SELECT})`);
@@ -158,7 +155,7 @@ function applyMockFields(next: SupplierContact, fields: Record<string, unknown>)
 export async function deleteSupplierContact(id: number): Promise<void> {
   if (USE_MOCK) {
     mockStore = mockStore.filter((c) => c.id !== id);
-    return delay(undefined);
+    return mockDelay(undefined);
   }
   await graphFetch(itemPath(id), { method: "DELETE" });
 }
@@ -179,7 +176,7 @@ export async function addSupplierContactComment(
       modifiedAt: new Date(),
     };
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
   const existing = await graphFetch<GraphListItem>(
     `${itemPath(id)}?$expand=fields($select=Communication)`,
@@ -207,7 +204,7 @@ export async function editSupplierContactComment(
       modifiedAt: new Date(),
     };
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
   const existing = await graphFetch<GraphListItem>(
     `${itemPath(id)}?$expand=fields($select=Communication)`,

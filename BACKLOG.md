@@ -145,6 +145,30 @@ needs detail, add a sub-bullet underneath it.
   `{ scheduleRef }` / `{ scheduleId }`, imported by both. Then delete the
   calendar's inline lines and keep the agreement test as a regression guard.
 
+- **Put the saved comment in the cache as soon as a post succeeds.** After
+  posting, the comment hooks leave the OPTIMISTIC copy in the cache until the
+  background refetch lands. That copy is stamped in `onMutate`, a moment
+  before the saved one, so for that window the cache and SharePoint disagree
+  about the comment's timestamp — and an edit finds its comment by timestamp.
+  CLAUDE.md already states the rule for tasks ("Use the returned row"); the
+  comment hooks don't follow it. Found chasing a flaky test, 2026-10-01: on
+  maintenance work orders, when the two stamps straddle a second boundary and
+  the edit starts before the refetch, the edit can't find the comment and
+  silently skips its notification and its Undo. Proven with a forced
+  one-second straddle. The tests now wait for the refetch; the hook doesn't.
+
+  Real-world odds are low — people edit the copy that's on screen, and the
+  refetch usually lands within a second — but the fix is small: in each add
+  hook's `onSuccess`, write the returned item into the list cache.
+
+  While there, the matching is inconsistent: maintenance compares to the
+  SECOND (`matchesCommentTarget`), while tasks, EIRs, Operations, build
+  requests, panel orders/tasks and feature requests compare to the exact
+  MILLISECOND — and the mock `editMaintenanceComment` matches exactly too.
+  The maintenance comment says exact matching made edits silently no-op
+  "about half the time". Check whether the others have the same gap, and
+  settle on one shared matcher.
+
 ## Later
 
 ## Done / shipped

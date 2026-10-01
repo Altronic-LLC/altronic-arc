@@ -239,6 +239,10 @@ describe("ScheduledMaintenanceFormModal — department, location and Operations 
     renderWithProviders(
       <ScheduledMaintenanceFormModal schedule={schedule} onClose={vi.fn()} />,
     );
+    // The Equipment trigger reads "No asset" until the register loads, then
+    // shows the schedule's own asset. Wait for that before picking, or the
+    // pick races the load.
+    await waitFor(() => expect(shown("Equipment")).toContain("COMPRESSOR"));
     await pick("Equipment", /REFLOW OVEN/);
     expect(shown("Department")).toContain("MACH SHOP");
     expect(shown("Location")).toContain("PANELS");

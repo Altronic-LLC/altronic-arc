@@ -9,6 +9,7 @@ import { listPanelProjects } from "./panelProjects";
 import { listPanelSiteUsers } from "./panelOrders";
 import { MOCK_PANEL_PROJECTS, MOCK_PANEL_TASKS } from "@/data/panelMockData";
 import { autoWatchers } from "@/lib/people";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // Panel Tasks API — the panel team's task list on the ALTRONICPANELTEAM site.
@@ -81,14 +82,10 @@ export function resetPanelTasksMockStore(): void {
   mockStore = MOCK_PANEL_TASKS.map((t) => ({ ...t }));
 }
 
-function delay<T>(value: T, ms = 250): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
-
 /** List all panel tasks, resolving project titles + assignee names. */
 export async function listPanelTasks(): Promise<PanelTask[]> {
   if (USE_MOCK) {
-    return delay(mockStore.map((t) => ({ ...t })));
+    return mockDelay(mockStore.map((t) => ({ ...t })));
   }
 
   const path =
@@ -139,7 +136,7 @@ export async function updatePanelTaskFields(
     next.modifiedAt = new Date();
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
     saveMockStoreToStorage();
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   const path = `/sites/${SITES.panelTeam}/lists/${SP_PANEL_TASKS_LIST_ID}/items/${id}/fields`;
@@ -244,7 +241,7 @@ export async function addPanelTaskComment(
     next.modifiedAt = new Date();
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
     saveMockStoreToStorage();
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   const path =
@@ -276,7 +273,7 @@ export async function editPanelTaskComment(
     next.modifiedAt = new Date();
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
     saveMockStoreToStorage();
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   const path =
@@ -323,7 +320,7 @@ export async function createPanelTask(input: {
     };
     mockStore = [task, ...mockStore];
     saveMockStoreToStorage();
-    return delay({ ...task });
+    return mockDelay({ ...task });
   }
 
   const fields: Record<string, unknown> = {

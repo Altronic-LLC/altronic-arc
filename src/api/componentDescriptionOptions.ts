@@ -7,6 +7,7 @@ import {
 import { graphFetch, graphFetchAll } from "./graph";
 import { SITES, SP_COMPONENT_DESCRIPTION_OPTIONS_LIST_ID, USE_MOCK } from "./config";
 import { cleanOptionName, parseTypes, seedOptions, serializeTypes } from "@/lib/componentDescriptions";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // Component Description Options list — the dropdowns a NEW component is
@@ -38,10 +39,6 @@ export function __resetComponentDescriptionOptionsMockStore(rows?: ComponentDesc
   mockStore = (rows ?? seedOptions()).map((o) => ({ ...o, types: [...o.types] }));
 }
 
-function delay<T>(value: T, ms = 40): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
-
 const copy = (o: ComponentDescriptionOption): ComponentDescriptionOption => ({ ...o, types: [...o.types] });
 
 function toKind(raw: unknown): ComponentDescriptionOptionKind {
@@ -69,7 +66,7 @@ function listPath(): string {
 }
 
 export async function listComponentDescriptionOptions(): Promise<ComponentDescriptionOption[]> {
-  if (USE_MOCK) return delay(mockStore.map(copy));
+  if (USE_MOCK) return mockDelay(mockStore.map(copy));
   if (!SP_COMPONENT_DESCRIPTION_OPTIONS_LIST_ID) return [];
   const items = await graphFetchAll<GraphListItem>(
     `${listPath()}?$expand=fields($select=Title,Kind,Types,SortOrder)&$top=500`,
@@ -98,7 +95,7 @@ export async function createComponentDescriptionOption(
       sortOrder: input.sortOrder,
     };
     mockStore.push(row);
-    return delay(copy(row));
+    return mockDelay(copy(row));
   }
   if (!SP_COMPONENT_DESCRIPTION_OPTIONS_LIST_ID) throw new Error(`Can't add that option: ${NOT_SET}`);
   const created = await graphFetch<GraphListItem>(listPath(), {
@@ -123,7 +120,7 @@ export async function updateComponentDescriptionOption(input: {
     if (input.name !== undefined) row.name = cleanOptionName(input.name);
     if (input.types !== undefined && row.kind === "Description") row.types = parseTypes(input.types.join("\n"));
     if (input.sortOrder !== undefined) row.sortOrder = input.sortOrder;
-    return delay(copy(row));
+    return mockDelay(copy(row));
   }
   if (!SP_COMPONENT_DESCRIPTION_OPTIONS_LIST_ID) throw new Error(`Can't change that option: ${NOT_SET}`);
   const fields: Record<string, string | number> = {};
@@ -139,7 +136,7 @@ export async function updateComponentDescriptionOption(input: {
 export async function deleteComponentDescriptionOption(id: number): Promise<void> {
   if (USE_MOCK) {
     mockStore = mockStore.filter((o) => o.id !== id);
-    await delay(null);
+    await mockDelay(null);
     return;
   }
   if (!SP_COMPONENT_DESCRIPTION_OPTIONS_LIST_ID) throw new Error(`Can't remove that option: ${NOT_SET}`);

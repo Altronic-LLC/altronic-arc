@@ -8,6 +8,7 @@ import {
   VISIT_REPORT_SELECT,
 } from "@/lib/visitReportMapper";
 import { MOCK_VISIT_REPORTS } from "@/data/visitReportMockData";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // Visit Reports API — Customer Service / Sales, on the ALTRONICSALESTEAM site.
@@ -30,10 +31,6 @@ import { MOCK_VISIT_REPORTS } from "@/data/visitReportMockData";
 
 let mockStore: VisitReport[] = MOCK_VISIT_REPORTS.map((r) => ({ ...r }));
 
-function delay<T>(value: T, ms = 220): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
-
 function requireListId(action: string): string {
   if (!SP_VISIT_REPORTS_LIST_ID) {
     throw new Error(
@@ -46,7 +43,7 @@ function requireListId(action: string): string {
 /** Every visit report, newest visit first. */
 export async function listVisitReports(): Promise<VisitReport[]> {
   if (USE_MOCK) {
-    return delay([...mockStore].sort(compareVisitReports).map((r) => ({ ...r })));
+    return mockDelay([...mockStore].sort(compareVisitReports).map((r) => ({ ...r })));
   }
 
   const listId = requireListId("load visit reports");
@@ -61,7 +58,7 @@ export async function listVisitReports(): Promise<VisitReport[]> {
 export async function getVisitReport(id: number): Promise<VisitReport | null> {
   if (USE_MOCK) {
     const found = mockStore.find((r) => r.id === id);
-    return delay(found ? { ...found } : null);
+    return mockDelay(found ? { ...found } : null);
   }
 
   const listId = requireListId("load the visit report");
@@ -98,7 +95,7 @@ export async function createVisitReport(
       modifiedAt: now,
     };
     mockStore = [report, ...mockStore];
-    return delay(report);
+    return mockDelay(report);
   }
 
   const listId = requireListId("create the visit report");
@@ -140,7 +137,7 @@ export async function updateVisitReportFields(
       next.visitDate = raw ? new Date(String(raw)) : null;
     }
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay(next);
+    return mockDelay(next);
   }
 
   const listId = requireListId("save the visit report");

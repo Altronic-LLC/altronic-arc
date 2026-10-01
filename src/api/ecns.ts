@@ -5,6 +5,7 @@ import { buildEcnCreateFields, compareEcns, toEcn } from "@/lib/ecnMapper";
 import { ECN_FIELDS, ECN_SELECT } from "@/lib/ecnFields";
 import { appendComment, replaceComment } from "@/lib/communicationParser";
 import { MOCK_ECNS } from "@/data/ecnMockData";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // ECNs (Engineering Change Notices) — the record of a change to a released
@@ -29,10 +30,6 @@ import { MOCK_ECNS } from "@/data/ecnMockData";
 
 let mockStore: Ecn[] = MOCK_ECNS.map((e) => ({ ...e }));
 
-function delay<T>(value: T, ms = 200): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
-
 function requireListId(action: string): string {
   if (!SP_ECNS_LIST_ID) {
     throw new Error(`Cannot ${action}: VITE_SP_ECNS_LIST_ID is not set.`);
@@ -50,7 +47,7 @@ const ITEM_SELECT = "id,createdBy,createdDateTime,lastModifiedDateTime";
 /** Every ECN, newest Log# first. */
 export async function listEcns(): Promise<Ecn[]> {
   if (USE_MOCK) {
-    return delay([...mockStore].sort(compareEcns).map((e) => ({ ...e })));
+    return mockDelay([...mockStore].sort(compareEcns).map((e) => ({ ...e })));
   }
   const listId = requireListId("load ECNs");
   const items = await graphFetchAll<GraphListItem>(
@@ -63,7 +60,7 @@ export async function listEcns(): Promise<Ecn[]> {
 export async function getEcn(id: number): Promise<Ecn | null> {
   if (USE_MOCK) {
     const found = mockStore.find((e) => e.id === id);
-    return delay(found ? { ...found } : null);
+    return mockDelay(found ? { ...found } : null);
   }
   try {
     const item = await graphFetch<GraphListItem>(
@@ -96,7 +93,7 @@ export async function createEcn(input: EcnInput, actor?: { displayName: string; 
       modifiedAt: now,
     };
     mockStore = [ecn, ...mockStore];
-    return delay(ecn);
+    return mockDelay(ecn);
   }
 
   const listId = requireListId("create the ECN");
@@ -125,7 +122,7 @@ export async function updateEcnFields(
     };
     applyMockFields(next, fields);
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   await graphFetch(`${itemPath(id)}/fields`, {
@@ -182,7 +179,7 @@ export async function addEcnComment(
       modifiedAt: new Date(),
     };
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   // Read-modify-write on one field, the same as every other comment thread —
@@ -215,7 +212,7 @@ export async function editEcnComment(
       modifiedAt: new Date(),
     };
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   const existing = await graphFetch<GraphListItem>(
@@ -238,7 +235,7 @@ export async function deleteEcn(id: number): Promise<void> {
     const before = mockStore.length;
     mockStore = mockStore.filter((e) => e.id !== id);
     if (mockStore.length === before) throw new Error(`ECN ${id} not found`);
-    await delay(undefined);
+    await mockDelay(undefined);
     return;
   }
   await graphFetch(itemPath(id), { method: "DELETE" });

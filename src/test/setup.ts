@@ -8,6 +8,9 @@
 //   module-level variable (useDropdownClose.ts), so a panel a test leaves
 //   open closes the NEXT test's panel the moment that one claims. Doing it
 //   here rather than per-file means a new test file can't forget it.
+// - Clears any mock-latency override (src/api/mockLatency.ts). Mock calls
+//   answer with no delay under Vitest; a test that needs a write still in
+//   flight turns latency on for itself, and must not slow every test after it.
 // - Stubs out browser APIs that jsdom doesn't implement but our code touches
 //   (matchMedia, IntersectionObserver, ResizeObserver). Add to this list as
 //   we discover more.
@@ -16,10 +19,12 @@ import "@testing-library/jest-dom/vitest";
 import { afterEach } from "vitest";
 import { cleanup } from "@testing-library/react";
 import { resetOpenDropdown } from "@/components/useDropdownClose";
+import { setMockLatency } from "@/api/mockLatency";
 
 afterEach(() => {
   cleanup();
   resetOpenDropdown();
+  setMockLatency(null);
 });
 
 // jsdom doesn't ship matchMedia. Some libraries (lucide-react animations,

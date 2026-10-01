@@ -7,6 +7,7 @@ import {
   toSpecialPricingEntry,
 } from "@/lib/specialPricingMapper";
 import { MOCK_SPECIAL_PRICING } from "@/data/crmMockData";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // "Special Pricing" — a pricing note or agreement tied to a customer, on the
@@ -15,10 +16,6 @@ import { MOCK_SPECIAL_PRICING } from "@/data/crmMockData";
 // =============================================================================
 
 let mockStore: SpecialPricingEntry[] = MOCK_SPECIAL_PRICING.map((e) => ({ ...e }));
-
-function delay<T>(value: T, ms = 200): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
 
 function requireListId(action: string): string {
   if (!SP_SPECIAL_PRICING_LIST_ID) {
@@ -35,7 +32,7 @@ const SELECT = "Title,CustomerLookupId,PricingNotes,AIPartNumber";
 
 export async function listSpecialPricing(): Promise<SpecialPricingEntry[]> {
   if (USE_MOCK) {
-    return delay([...mockStore].sort(compareSpecialPricingEntries).map((e) => ({ ...e })));
+    return mockDelay([...mockStore].sort(compareSpecialPricingEntries).map((e) => ({ ...e })));
   }
   const listId = requireListId("load special pricing");
   const items = await graphFetchAll<GraphListItem>(
@@ -56,7 +53,7 @@ export async function createSpecialPricing(
       aiPartNumber: input.aiPartNumber.trim(),
     };
     mockStore = [entry, ...mockStore];
-    return delay(entry);
+    return mockDelay(entry);
   }
   const listId = requireListId("create the pricing entry");
   const created = await graphFetch<GraphListItem>(
@@ -76,7 +73,7 @@ export async function updateSpecialPricing(
     if (idx < 0) throw new Error(`Pricing entry ${id} not found`);
     const next: SpecialPricingEntry = { ...mockStore[idx], ...changed };
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
   await graphFetch(`${itemPath(id)}/fields`, { method: "PATCH", body: JSON.stringify(fields) });
   const item = await graphFetch<GraphListItem>(`${itemPath(id)}?$expand=fields($select=${SELECT})`);
@@ -86,7 +83,7 @@ export async function updateSpecialPricing(
 export async function deleteSpecialPricing(id: number): Promise<void> {
   if (USE_MOCK) {
     mockStore = mockStore.filter((e) => e.id !== id);
-    return delay(undefined);
+    return mockDelay(undefined);
   }
   await graphFetch(itemPath(id), { method: "DELETE" });
 }

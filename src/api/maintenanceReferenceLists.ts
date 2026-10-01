@@ -16,6 +16,7 @@ import {
   MOCK_MAINTENANCE_DEPARTMENTS,
   MOCK_MAINTENANCE_LOCATIONS,
 } from "@/data/maintenanceMockData";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // Maintenance Departments and Maintenance Locations — the two admin-managed
@@ -85,10 +86,6 @@ export function resetMaintenanceReferenceMockStores(): void {
   mockStores.locations = MOCK_MAINTENANCE_LOCATIONS.map((v) => ({ ...v }));
 }
 
-function delay<T>(value: T, ms = 150): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
-
 function requireListId(kind: MaintenanceReferenceKind, action: string): string {
   const spec = REFERENCE_LISTS[kind];
   if (!spec.listId) {
@@ -155,7 +152,7 @@ export async function listMaintenanceReferenceValues(
   kind: MaintenanceReferenceKind,
 ): Promise<MaintenanceReferenceValue[]> {
   if (USE_MOCK) {
-    return delay([...mockStores[kind]].sort(compareReferenceValues).map((v) => ({ ...v })));
+    return mockDelay([...mockStores[kind]].sort(compareReferenceValues).map((v) => ({ ...v })));
   }
 
   const path =
@@ -198,7 +195,7 @@ export async function createMaintenanceReferenceValue(
       note: input.note ?? "",
     };
     mockStores[kind] = [...store, value];
-    return delay({ ...value });
+    return mockDelay({ ...value });
   }
 
   const created = await graphFetch<GraphListItem>(
@@ -234,7 +231,7 @@ export async function updateMaintenanceReferenceValue(
       note: input.note ?? store[idx].note,
     };
     mockStores[kind] = [...store.slice(0, idx), next, ...store.slice(idx + 1)];
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   const path = listPath(kind, `rename a ${REFERENCE_LISTS[kind].singular}`);
@@ -267,7 +264,7 @@ export async function setMaintenanceReferenceValueActive(
     if (idx < 0) throw new Error(`${REFERENCE_LISTS[kind].singular} ${lookupId} not found`);
     const next: MaintenanceReferenceValue = { ...store[idx], active };
     mockStores[kind] = [...store.slice(0, idx), next, ...store.slice(idx + 1)];
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   const path = listPath(kind, `retire a ${REFERENCE_LISTS[kind].singular}`);

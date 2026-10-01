@@ -19,6 +19,7 @@ import { MOCK_PROJECTS, MOCK_TASKS } from "@/data/mockData";
 import { autoWatchers } from "@/lib/people";
 import { parseWrittenDate } from "@/lib/dateInput";
 import { isEditConflict } from "@/lib/listWriteErrors";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // Tasks API
@@ -155,10 +156,6 @@ export function resetMockStore(): void {
   mockProjectStore = [...MOCK_PROJECTS];
 }
 
-function delay<T>(value: T, ms = 250): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
-
 /**
  * List all tasks. Walks @odata.nextLink in real mode to ensure complete
  * results — the SharePoint list has hundreds of items. After loading,
@@ -175,7 +172,7 @@ export async function listTasks(): Promise<Task[]> {
     }));
     attachTaskRelationships(copy);
     attachProjectTitles(copy, mockProjectStore);
-    return delay(copy);
+    return mockDelay(copy);
   }
 
   const path = `/sites/${SP_SITE_ID}/lists/${SP_LIST_ID}/items?$expand=fields($select=${TASK_FIELD_SELECT})&$top=200`;
@@ -302,7 +299,7 @@ export async function updateTaskFields(
     next.modifiedAt = new Date();
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
     saveMockStoreToStorage();
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   // A write carrying Communication is read-modify-write: the caller built it
@@ -537,7 +534,7 @@ export async function addComment(
     next.modifiedAt = new Date();
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
     saveMockStoreToStorage();
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   // Real Graph: append to the Communication string field. Files arrive
@@ -588,7 +585,7 @@ export async function editComment(
     next.modifiedAt = new Date();
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
     saveMockStoreToStorage();
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   return rewriteCommunication(id, (existingRaw) =>
@@ -670,7 +667,7 @@ export async function createTask(input: {
     };
     mockStore = [task, ...mockStore];
     saveMockStoreToStorage();
-    return delay(task);
+    return mockDelay(task);
   }
 
   const path = `/sites/${SP_SITE_ID}/lists/${SP_LIST_ID}/items`;
@@ -823,7 +820,7 @@ export async function deleteTask(id: number): Promise<void> {
   if (USE_MOCK) {
     mockStore = mockStore.filter((t) => t.id !== id);
     saveMockStoreToStorage();
-    await delay(null);
+    await mockDelay(null);
     return;
   }
 
@@ -844,7 +841,7 @@ export async function listProjects(): Promise<ProjectReference[]> {
     const sorted = [...mockProjectStore].sort((a, b) =>
       a.title.localeCompare(b.title, undefined, { numeric: true }),
     );
-    return delay(sorted);
+    return mockDelay(sorted);
   }
 
   const projectsListId = import.meta.env.VITE_SP_PROJECTS_LIST_ID;
@@ -883,7 +880,7 @@ export async function createProject(input: { title: string }): Promise<ProjectRe
     const project: ProjectReference = { lookupId: nextId, title: input.title };
     mockProjectStore = [...mockProjectStore, project];
     saveMockProjectsToStorage();
-    return delay(project);
+    return mockDelay(project);
   }
 
   const projectsListId = import.meta.env.VITE_SP_PROJECTS_LIST_ID;
@@ -920,7 +917,7 @@ export async function updateProject(
       ...mockProjectStore.slice(idx + 1),
     ];
     saveMockProjectsToStorage();
-    return delay({ lookupId, title });
+    return mockDelay({ lookupId, title });
   }
 
   const projectsListId = import.meta.env.VITE_SP_PROJECTS_LIST_ID;

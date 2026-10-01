@@ -16,6 +16,7 @@ import { listPanelProjects } from "./panelProjects";
 import { ensureLookupIds, ensurePersonLookupId, ensureSiteUserLookupId } from "./siteUsers";
 import { MOCK_PANEL_ORDERS, MOCK_PANEL_PROJECTS, MOCK_PANEL_ROLES } from "@/data/panelMockData";
 import { autoWatchers } from "@/lib/people";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // Panel Orders API — mirrors api/operationsTasks.ts's USE_MOCK-branching
@@ -92,10 +93,6 @@ export function resetPanelOrdersMockStore(): void {
   mockStore = MOCK_PANEL_ORDERS.map((o) => ({ ...o }));
 }
 
-function delay<T>(value: T, ms = 250): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
-
 interface SpSiteUser {
   Id: number;
   Title: string;
@@ -120,7 +117,7 @@ export async function listPanelSiteUsers(): Promise<Map<number, Person>> {
     for (const r of MOCK_PANEL_ROLES) {
       if (r.user?.lookupId) map.set(r.user.lookupId, r.user);
     }
-    return delay(map, 50);
+    return mockDelay(map, 50);
   }
   try {
     const res = await spFetch<{ value: SpSiteUser[] }>(
@@ -161,7 +158,7 @@ export async function resolvePanelSiteUserLookupId(email: string): Promise<numbe
 export async function listPanelOrders(): Promise<PanelOrder[]> {
   if (USE_MOCK) {
     const copy = mockStore.map((o) => ({ ...o }));
-    return delay(copy);
+    return mockDelay(copy);
   }
 
   const path =
@@ -223,7 +220,7 @@ export async function updatePanelOrderFields(
     next.modifiedAt = new Date();
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
     saveMockStoreToStorage();
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   const path = `/sites/${SITES.panelTeam}/lists/${SP_PANEL_ORDERS_LIST_ID}/items/${id}/fields`;
@@ -337,7 +334,7 @@ export async function addPanelOrderComment(
     next.modifiedAt = new Date();
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
     saveMockStoreToStorage();
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   const path =
@@ -369,7 +366,7 @@ export async function editPanelOrderComment(
     next.modifiedAt = new Date();
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
     saveMockStoreToStorage();
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   const path =
@@ -424,7 +421,7 @@ export async function createPanelOrder(input: {
     };
     mockStore = [order, ...mockStore];
     saveMockStoreToStorage();
-    return delay({ ...order });
+    return mockDelay({ ...order });
   }
 
   const fields: Record<string, unknown> = {
@@ -493,7 +490,7 @@ export async function getPanelOrderChoices(): Promise<PanelOrderChoices> {
     ...new Set(MOCK_PANEL_PROJECTS.map((p) => p.customer).filter(Boolean)),
   ].sort();
   if (USE_MOCK) {
-    return delay({ status: [...PANEL_ORDER_STATUSES], customer: fallbackCustomers }, 50);
+    return mockDelay({ status: [...PANEL_ORDER_STATUSES], customer: fallbackCustomers }, 50);
   }
 
   try {
