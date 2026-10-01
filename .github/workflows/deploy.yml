@@ -2,9 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    # chore/node-24-ci runs install/test/build only (deploy is main-only,
-    # below). Drop it from this list once Node 24 is merged.
-    branches: [main, chore/node-24-ci]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
