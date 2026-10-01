@@ -715,7 +715,9 @@ export function useAddComment() {
     onError: (_err, _vars, ctx) => {
       ctx?.autoWatch?.cancel();
       rollback(qc, ctx);
-      errorToast("Couldn't post comment — please retry.");
+      // DetailView hands the composer this mutation's promise, so the
+      // comment is put back in the box rather than lost.
+      errorToast("Couldn't post comment — it's back in the comment box to send again.");
     },
     onSettled: (server, _err, _vars, ctx) => settleCommentWrite(qc, server, ctx?.autoWatch),
   });

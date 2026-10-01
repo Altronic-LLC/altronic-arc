@@ -889,7 +889,12 @@ const SECTIONS: ManualSection[] = [
           build requests, and individual build request parts alike. They
           appear in Watchers as soon as you press Post; if the comment fails
           to save, nobody is added, and if someone can't be added because they
-          have no SharePoint account, ARC tells you.{" "}
+          have no SharePoint account, ARC tells you. An @-mention only counts
+          when you pick the person from the list that opens as you type{" "}
+          <code>@</code> — a name typed or pasted in full stays plain text, and
+          notifies nobody. On a task, a comment that fails to post goes back
+          in the comment box, mentions and files included, so you can press
+          Send again without retyping it; its files aren't uploaded twice.{" "}
           <strong>
             Watchers and whoever the item is assigned to are emailed on every new
             comment
