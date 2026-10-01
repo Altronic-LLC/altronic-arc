@@ -129,14 +129,15 @@ export function GrayMarketRequestDetailView() {
 
   function handleAddComment(bodyHtml: string) {
     if (!request) return;
-    addComment.mutate({
+    // Returned, so a comment that fails to post goes back in the composer.
+    return addComment.mutateAsync({
       id: request.id,
       comment: {
         authorName: currentUser.displayName,
         authorEmail: currentUser.email ?? "",
         bodyHtml,
       },
-    });
+    }).then(() => undefined);
   }
 
   /** Add or remove one watcher — the picker toggles, the write replaces. */

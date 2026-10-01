@@ -8146,6 +8146,40 @@ or VPN connection can take minutes or be cut off. Awaiting it held the upload
 (chunked, retried) had already landed. `useTaskFiles.upload.test.tsx` pins it,
 verified against the old awaited version.
 
+**That background copy WRITES THE TASK ITEM while the comment PATCH is in
+flight**, so SharePoint refused the comment with `409 resourceModified`
+("usually an eTag mismatch") — ARC sends no If-Match; this is SharePoint's
+own concurrency check. Thomas Terhune hit it on task 3347 with two pictures
+(2026-09-30), and the composer had already cleared, so the comment was gone:
+he re-pasted it, which turned his @-mentions into plain text that subscribed
+nobody, and each retry re-uploaded the pictures as `IMG_1224 (2).jpg`. Fixed
+in v0.169.5, in three places:
+
+- **`api/tasks.ts` retries a task write on `isEditConflict`**
+  (`lib/listWriteErrors.ts`), up to `CONFLICT_RETRY_DELAYS_MS`. A whole-value
+  write (Status, Watchers, …) is simply sent again. **A Communication write
+  is NOT** — `updateTaskFields` refuses to retry one blind, because the value
+  was built from an earlier read; `addComment` / `editComment` go through
+  `rewriteCommunication`, which RE-READS inside the retry. The comment's
+  timestamp is fixed once, outside it. Pinned in
+  `tasks.conflictRetry.test.ts` (real mode), each guard verified by breaking
+  it.
+- **The composer restores a failed comment** — text, rich mode, mention chips
+  and files — when `onSubmit` RETURNS the save's promise and it rejects. It
+  still clears at once; a fire-and-forget caller is unchanged. **Every
+  composer in ARC returns its promise** (v0.169.6) — each
+  `handleAddComment` does `return addComment.mutateAsync(…)`, never
+  `.mutate(…)`. `views/commentRestore.wiring.test.ts` enforces it across all
+  19 files that render a composer, and was verified by reverting one; a NEW
+  composer belongs in its list. The inline "Your comment was removed from the
+  thread" banners on the Task, Operations and Maintenance pages were removed
+  — the composer reports the failure itself.
+- **Files an attempt already uploaded are linked again, not re-uploaded**
+  (`uploadedRef` in `CommentComposer`, keyed by attachment id).
+
+Don't "fix" the race by awaiting the background copy again — that is the
+large-file hang this section opens with.
+
 **Every other list's attachments are that same single request**, and they
 must stay list-item attachments — Ray was explicit (2026-09-29): a file goes
 where its record keeps files, the project folder for a task and the item

@@ -65,9 +65,10 @@ export function parseCommunication(raw: string | null | undefined): Comment[] {
  */
 export function appendComment(
   existingRaw: string | null | undefined,
-  comment: { authorName: string; authorEmail: string; bodyHtml: string },
+  comment: { authorName: string; authorEmail: string; bodyHtml: string; timestamp?: Date },
 ): string {
-  const ts = formatSpDate(new Date());
+  // `timestamp` lets a retried append keep the moment the comment was posted.
+  const ts = formatSpDate(comment.timestamp ?? new Date());
   const record = `${ts}|||${comment.authorName}|||${comment.authorEmail}|||${comment.bodyHtml}`;
   if (!existingRaw) return record;
   // Newline separator between records. The parser uses a lookahead and

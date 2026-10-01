@@ -413,11 +413,14 @@ export function DetailView() {
   function handleAddComment(
     bodyHtml: string,
     attachments: import("@/types/task").CommentAttachment[],
-  ) {
+  ): Promise<void> | undefined {
     if (!task) return;
-    // Fire-and-forget. useAddComment's onMutate inserts the new comment in
-    // the React Query cache synchronously, so it shows up in the thread
-    // immediately. The actual Graph round-trip happens in the background.
+    // useAddComment's onMutate inserts the new comment in the React Query
+    // cache synchronously, so it shows up in the thread immediately and the
+    // composer clears at once. The save's promise is RETURNED, not awaited
+    // here: the composer holds it, and if the post fails it puts the comment
+    // back in the box — chips and files included — instead of it vanishing
+    // (Thomas Terhune, 2026-09-30).
     //
     // We used to refetch the whole tasks list first and pop a confirm()
     // modal if someone else had just commented — the race window for the
@@ -426,15 +429,17 @@ export function DetailView() {
     // background poll already surfaces concurrent comments through the
     // banner above the thread. Trading the modal for the banner is the
     // right call: speed for the common case, awareness for the rare one.
-    addComment.mutate({
-      id: task.id,
-      comment: {
-        authorName: currentUser.displayName,
-        authorEmail: currentUser.email ?? "",
-        bodyHtml,
-        attachments,
-      },
-    });
+    return addComment
+      .mutateAsync({
+        id: task.id,
+        comment: {
+          authorName: currentUser.displayName,
+          authorEmail: currentUser.email ?? "",
+          bodyHtml,
+          attachments,
+        },
+      })
+      .then(() => undefined);
   }
 
   async function handleEditComment(
@@ -756,15 +761,8 @@ export function DetailView() {
             <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
               Comments
             </h2>
-            {addComment.isError && (
-              <div className="mb-3 rounded-md border border-cooper-red/30 bg-cooper-red/10 px-3 py-2 text-xs text-cooper-red">
-                Couldn't post comment:{" "}
-                {addComment.error instanceof Error
-                  ? addComment.error.message
-                  : "unknown error"}
-                . Your comment was removed from the thread — try again.
-              </div>
-            )}
+            {/* A failed post is reported by the composer itself, which puts
+                the comment back in the box — see handleAddComment. */}
             <CommentComposer
               draftKey={`task:${taskId}`}
               onSubmit={handleAddComment}

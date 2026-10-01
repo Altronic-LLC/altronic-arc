@@ -18,6 +18,7 @@ import { fromLabelsField, toLabelsField } from "@/lib/labels";
 import { MOCK_PROJECTS, MOCK_TASKS } from "@/data/mockData";
 import { autoWatchers } from "@/lib/people";
 import { parseWrittenDate } from "@/lib/dateInput";
+import { isEditConflict } from "@/lib/listWriteErrors";
 
 // =============================================================================
 // Tasks API
@@ -304,13 +305,79 @@ export async function updateTaskFields(
     return delay({ ...next });
   }
 
+  // A write carrying Communication is read-modify-write: the caller built it
+  // from a value it read a moment ago, so re-sending it blind after a
+  // conflict could overwrite a comment that landed in between. Those callers
+  // (addComment / editComment) retry themselves, re-reading each time.
+  // Everything else here sets a whole value, so sending it again is safe.
+  if ("Communication" in fields) {
+    await patchTaskFields(id, fields);
+  } else {
+    await withConflictRetry(() => patchTaskFields(id, fields));
+  }
+  return reloadTask(id);
+}
+
+/** The raw PATCH, no retry. Real mode only. */
+async function patchTaskFields(id: number, fields: Record<string, unknown>): Promise<void> {
   const path = `/sites/${SP_SITE_ID}/lists/${SP_LIST_ID}/items/${id}/fields`;
   await graphFetch(path, { method: "PATCH", body: JSON.stringify(fields) });
+}
 
-  // Re-fetch the canonical state.
+/** Re-fetch the canonical state after a write. */
+async function reloadTask(id: number): Promise<Task> {
   const reloaded = await getTask(id);
   if (!reloaded) throw new Error(`Task ${id} disappeared after update`);
   return reloaded;
+}
+
+/**
+ * Pauses between attempts when SharePoint answers `409 resourceModified`.
+ * Two retries, so three attempts in all: the writes that collide with ours
+ * (the background list-item attachment copies, a watcher update) take well
+ * under a second each.
+ */
+export const CONFLICT_RETRY_DELAYS_MS = [400, 1200] as const;
+
+/**
+ * Run a write, trying again when SharePoint refuses it because the item
+ * changed mid-flight (`isEditConflict`). A refused write saved nothing, so
+ * another attempt is safe — PROVIDED `write` rebuilds anything it derived
+ * from a read, which is why the comment writes put their read inside it.
+ *
+ * Why this exists: posting a task comment with pictures starts a background
+ * copy of each picture onto the task item (useUploadTaskFile — not awaited,
+ * since v0.167.2, so large files don't hang the Post button). Those copies
+ * write the same item the comment PATCH writes, and SharePoint refuses
+ * whichever arrives second (Thomas Terhune, 2026-09-30).
+ */
+async function withConflictRetry<T>(write: () => Promise<T>): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await write();
+    } catch (err) {
+      const delay = CONFLICT_RETRY_DELAYS_MS[attempt];
+      if (delay === undefined || !isEditConflict(err)) throw err;
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+}
+
+/**
+ * Read Communication, rebuild it with `change`, write it back — re-reading on
+ * every attempt, so a retry after a conflict never re-sends a stale thread.
+ */
+async function rewriteCommunication(
+  id: number,
+  change: (existingRaw: string) => string,
+): Promise<Task> {
+  const path = `/sites/${SP_SITE_ID}/lists/${SP_LIST_ID}/items/${id}?$expand=fields($select=Communication)`;
+  await withConflictRetry(async () => {
+    const existing = await graphFetch<GraphListItem>(path);
+    const existingRaw = (existing.fields.Communication as string | undefined) ?? "";
+    await patchTaskFields(id, { Communication: change(existingRaw) });
+  });
+  return reloadTask(id);
 }
 
 /** Convenience: just change the status. Used by Kanban drag-and-drop. */
@@ -435,10 +502,11 @@ export async function unwatchTask(id: number, person: Person): Promise<Task> {
  * insert the comment locally before this resolves.
  *
  * Attachments: in mock mode, attachments are kept on the in-memory comment
- * record (URL.createObjectURL blob URLs). In real mode the attachments are
- * NOT yet uploaded — this is the stub described in backlog item 2. When
- * upload-to-SharePoint is wired up, do it here before the PATCH and put
- * the resulting URLs into the body HTML or a separate attachments list.
+ * record (URL.createObjectURL blob URLs). In real mode the composer uploads
+ * them to the project folder first and links them in the body HTML.
+ *
+ * Retries on `409 resourceModified`, re-reading the thread each time — see
+ * `withConflictRetry`.
  */
 export async function addComment(
   id: number,
@@ -472,20 +540,21 @@ export async function addComment(
     return delay({ ...next });
   }
 
-  // Real Graph: append to the Communication string field.
-  // TODO (backlog: attachments storage rules): upload attachments to a
-  // SharePoint document library first, then embed their URLs in bodyHtml
-  // before writing. Today, attachments on real mode are dropped on the
-  // floor; the body text still appends correctly.
-  const path = `/sites/${SP_SITE_ID}/lists/${SP_LIST_ID}/items/${id}?$expand=fields($select=Communication)`;
-  const existing = await graphFetch<GraphListItem>(path);
-  const existingRaw = (existing.fields.Communication as string | undefined) ?? "";
-  const newRaw = appendComment(existingRaw, {
-    authorName: comment.authorName,
-    authorEmail: comment.authorEmail,
-    bodyHtml: comment.bodyHtml,
-  });
-  return updateTaskFields(id, { Communication: newRaw });
+  // Real Graph: append to the Communication string field. Files arrive
+  // already uploaded — the composer puts their links in bodyHtml — so the
+  // `attachments` array is unused here.
+  //
+  // The timestamp is fixed ONCE, outside the retry: a retried append is the
+  // same comment, not a new one posted a second later.
+  const timestamp = new Date();
+  return rewriteCommunication(id, (existingRaw) =>
+    appendComment(existingRaw, {
+      authorName: comment.authorName,
+      authorEmail: comment.authorEmail,
+      bodyHtml: comment.bodyHtml,
+      timestamp,
+    }),
+  );
 }
 
 /**
@@ -522,11 +591,9 @@ export async function editComment(
     return delay({ ...next });
   }
 
-  const path = `/sites/${SP_SITE_ID}/lists/${SP_LIST_ID}/items/${id}?$expand=fields($select=Communication)`;
-  const existing = await graphFetch<GraphListItem>(path);
-  const existingRaw = (existing.fields.Communication as string | undefined) ?? "";
-  const newRaw = replaceComment(existingRaw, target, newBodyHtml);
-  return updateTaskFields(id, { Communication: newRaw });
+  return rewriteCommunication(id, (existingRaw) =>
+    replaceComment(existingRaw, target, newBodyHtml),
+  );
 }
 
 /**

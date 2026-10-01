@@ -1,9 +1,30 @@
 import { describe, it, expect } from "vitest";
 import {
   describeListWriteFailure,
+  isEditConflict,
   isGone,
   isPermissionDenied,
 } from "./listWriteErrors";
+
+describe("isEditConflict", () => {
+  it("is true for a 409", () => {
+    expect(isEditConflict({ status: 409, body: "" })).toBe(true);
+  });
+
+  it("is true for a resourceModified body, whatever the status says", () => {
+    // The body Thomas Terhune's comment came back with, 2026-09-30.
+    const body =
+      '{"error":{"code":"resourceModified","message":"The resource has changed since the caller last read it; usually an eTag mismatch"}}';
+    expect(isEditConflict({ body })).toBe(true);
+  });
+
+  it("is false for a permission refusal, a missing row, or nothing at all", () => {
+    expect(isEditConflict({ status: 403, body: "accessDenied" })).toBe(false);
+    expect(isEditConflict({ status: 404, body: "itemNotFound" })).toBe(false);
+    expect(isEditConflict(new Error("Failed to fetch"))).toBe(false);
+    expect(isEditConflict(null)).toBe(false);
+  });
+});
 
 // =============================================================================
 // Hailey Sturtz tried to remove a customer from the Open Orders list and got

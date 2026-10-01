@@ -172,14 +172,15 @@ export function FaitDetailView() {
 
   function handleAddComment(bodyHtml: string) {
     if (!fait) return;
-    addComment.mutate({
+    // Returned, so a comment that fails to post goes back in the composer.
+    return addComment.mutateAsync({
       id: fait.id,
       comment: {
         authorName: currentUser.displayName,
         authorEmail: currentUser.email ?? "",
         bodyHtml,
       },
-    });
+    }).then(() => undefined);
   }
 
   function handleWatcherToggle(person: Person) {

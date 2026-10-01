@@ -661,7 +661,7 @@ export function useAddBuildRequestComment() {
     onError: (_err, _vars, ctx) => {
       ctx?.autoWatch?.cancel();
       rollbackBr(qc, ctx);
-      errorToast("Couldn't post comment — please retry.");
+      errorToast("Couldn't post comment — it's back in the comment box to send again.");
     },
     // Refetch only once any auto-watch write has landed, so the refetch
     // doesn't read a row without the new watchers and wipe their chips.
@@ -1018,7 +1018,7 @@ export function useAddBuildRequestItemComment() {
     onError: (_err, _vars, ctx) => {
       ctx?.autoWatch?.cancel();
       rollbackItem(qc, ctx);
-      errorToast("Couldn't post comment — please retry.");
+      errorToast("Couldn't post comment — it's back in the comment box to send again.");
     },
     // Refetch only once any auto-watch write has landed, so the refetch
     // doesn't read a row without the new watchers and wipe their chips.
