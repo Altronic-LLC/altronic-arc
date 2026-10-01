@@ -80,14 +80,15 @@ export function FeatureRequestDetailView() {
 
   function handleAddComment(bodyHtml: string) {
     if (!request) return;
-    addComment.mutate({
+    // Returned, so a comment that fails to post goes back in the composer.
+    return addComment.mutateAsync({
       id: request.id,
       comment: {
         authorName: currentUser.displayName,
         authorEmail: currentUser.email ?? "",
         bodyHtml,
       },
-    });
+    }).then(() => undefined);
   }
 
   function handleWatcherToggle(person: Person) {

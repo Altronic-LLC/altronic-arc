@@ -652,7 +652,7 @@ export function useAddEirComment() {
     onError: (_err, _vars, ctx) => {
       ctx?.autoWatch?.cancel();
       rollback(qc, ctx);
-      pushToast({ message: "Couldn't post comment — please retry.", variant: "error" });
+      pushToast({ message: "Couldn't post comment — it's back in the comment box to send again.", variant: "error" });
     },
     // Refetch only once any auto-watch write has landed, so the refetch
     // doesn't read a row without the new watchers and wipe their chips.

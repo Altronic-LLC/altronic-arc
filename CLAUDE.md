@@ -8166,10 +8166,14 @@ in v0.169.5, in three places:
   it.
 - **The composer restores a failed comment** — text, rich mode, mention chips
   and files — when `onSubmit` RETURNS the save's promise and it rejects. It
-  still clears at once; a fire-and-forget caller is unchanged. Only the task
-  page returns its promise today (`DetailView.handleAddComment`, via
-  `mutateAsync`); the other fourteen detail pages still `mutate()` and lose a
-  failed comment, and switching one over is a one-line change.
+  still clears at once; a fire-and-forget caller is unchanged. **Every
+  composer in ARC returns its promise** (v0.169.6) — each
+  `handleAddComment` does `return addComment.mutateAsync(…)`, never
+  `.mutate(…)`. `views/commentRestore.wiring.test.ts` enforces it across all
+  19 files that render a composer, and was verified by reverting one; a NEW
+  composer belongs in its list. The inline "Your comment was removed from the
+  thread" banners on the Task, Operations and Maintenance pages were removed
+  — the composer reports the failure itself.
 - **Files an attempt already uploaded are linked again, not re-uploaded**
   (`uploadedRef` in `CommentComposer`, keyed by attachment id).
 

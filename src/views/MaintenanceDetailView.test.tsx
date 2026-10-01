@@ -53,7 +53,7 @@ const state = vi.hoisted(() => ({
   complete: vi.fn(),
   setAssigned: vi.fn(),
   setEquipment: vi.fn(),
-  addComment: vi.fn(),
+  addComment: vi.fn(async (_vars: unknown) => undefined),
 }));
 
 vi.mock("@/hooks/useMaintenanceTasks", async (importOriginal) => {
@@ -69,7 +69,8 @@ vi.mock("@/hooks/useMaintenanceTasks", async (importOriginal) => {
     useSetMaintenanceTaskEquipment: () => ({ mutate: state.setEquipment }),
     useWatchMaintenanceTask: () => ({ mutate: vi.fn() }),
     useUnwatchMaintenanceTask: () => ({ mutate: vi.fn() }),
-    useAddMaintenanceComment: () => ({ mutate: state.addComment, isError: false, error: null }),
+    // mutateAsync: the page returns the save's promise to the composer.
+    useAddMaintenanceComment: () => ({ mutateAsync: state.addComment }),
     useEditMaintenanceComment: () => ({ mutateAsync: vi.fn() }),
   };
 });

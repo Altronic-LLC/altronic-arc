@@ -60,6 +60,14 @@ const PARTS_LIST_CHANGES: string[] = [
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.169.6",
+    date: "2026-10-01",
+    changes: [
+      "A comment that fails to post now goes back in the comment box everywhere in ARC, not just on tasks — EIRs, ECNs, FAITs, build requests and their parts, Operations, maintenance, Panels, Panel QC, suppliers, customers and the rest",
+      "Its @-mentions and files come back with it, so pressing Send again doesn't lose anyone or upload anything twice",
+    ],
+  },
+  {
     version: "0.169.5",
     date: "2026-10-01",
     changes: [

@@ -80,14 +80,15 @@ export function BuildRequestItemCard({
   }
 
   function handleAddComment(bodyHtml: string) {
-    addComment.mutate({
+    // Returned, so a comment that fails to post goes back in the composer.
+    return addComment.mutateAsync({
       id: item.id,
       comment: {
         authorName: currentUser.displayName,
         authorEmail: currentUser.email ?? "",
         bodyHtml,
       },
-    });
+    }).then(() => undefined);
   }
 
   async function handleEditComment(comment: Comment, newBodyHtml: string, renotify: boolean) {

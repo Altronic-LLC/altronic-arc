@@ -190,7 +190,7 @@ export function useAddCustomerNoteComment() {
     },
     onError: (_err, _vars, ctx) => {
       if (ctx?.previous) qc.setQueryData(CUSTOMER_NOTES_KEY, ctx.previous);
-      errorToast("Couldn't post comment — please retry.");
+      errorToast("Couldn't post comment — it's back in the comment box to send again.");
     },
     onSettled: () => qc.invalidateQueries({ queryKey: CUSTOMER_NOTES_KEY }),
   });

@@ -197,7 +197,7 @@ export function useAddEcnComment() {
     },
     onError: (_err, _vars, ctx) => {
       if (ctx?.previous) qc.setQueryData(ECN_KEY, ctx.previous);
-      errorToast("Couldn't post comment — please retry.");
+      errorToast("Couldn't post comment — it's back in the comment box to send again.");
     },
     onSettled: () => qc.invalidateQueries({ queryKey: ECN_KEY }),
   });
