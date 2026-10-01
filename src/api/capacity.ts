@@ -3,6 +3,7 @@ import { SITES, SP_CAPACITY_LIST_ID, USE_MOCK } from "./config";
 import type { CapacityEntry, CapacityInput, GraphListItem } from "@/types/task";
 import { buildCapacityFields, compareCapacityEntries, toCapacityEntry } from "@/lib/capacityMapper";
 import { MOCK_CAPACITY } from "@/data/crmMockData";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // "Capacity" — a per-part weekly production capacity commitment to a
@@ -11,10 +12,6 @@ import { MOCK_CAPACITY } from "@/data/crmMockData";
 // =============================================================================
 
 let mockStore: CapacityEntry[] = MOCK_CAPACITY.map((e) => ({ ...e }));
-
-function delay<T>(value: T, ms = 200): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
 
 function requireListId(action: string): string {
   if (!SP_CAPACITY_LIST_ID) {
@@ -31,7 +28,7 @@ const SELECT = "Title,CustomerLookupId,Description,WeeklyMax,Notes,CustomerP_x00
 
 export async function listCapacity(): Promise<CapacityEntry[]> {
   if (USE_MOCK) {
-    return delay([...mockStore].sort(compareCapacityEntries).map((e) => ({ ...e })));
+    return mockDelay([...mockStore].sort(compareCapacityEntries).map((e) => ({ ...e })));
   }
   const listId = requireListId("load capacity");
   const items = await graphFetchAll<GraphListItem>(
@@ -52,7 +49,7 @@ export async function createCapacity(input: CapacityInput): Promise<CapacityEntr
       customerPartNumber: input.customerPartNumber.trim(),
     };
     mockStore = [entry, ...mockStore];
-    return delay(entry);
+    return mockDelay(entry);
   }
   const listId = requireListId("create the capacity entry");
   const created = await graphFetch<GraphListItem>(
@@ -72,7 +69,7 @@ export async function updateCapacity(
     if (idx < 0) throw new Error(`Capacity entry ${id} not found`);
     const next: CapacityEntry = { ...mockStore[idx], ...changed };
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
   await graphFetch(`${itemPath(id)}/fields`, { method: "PATCH", body: JSON.stringify(fields) });
   const item = await graphFetch<GraphListItem>(`${itemPath(id)}?$expand=fields($select=${SELECT})`);
@@ -82,7 +79,7 @@ export async function updateCapacity(
 export async function deleteCapacity(id: number): Promise<void> {
   if (USE_MOCK) {
     mockStore = mockStore.filter((e) => e.id !== id);
-    return delay(undefined);
+    return mockDelay(undefined);
   }
   await graphFetch(itemPath(id), { method: "DELETE" });
 }

@@ -11,6 +11,7 @@ import { listOperationsEquipment } from "./operationsEquipment";
 import { MOCK_OPERATIONS_TASKS } from "@/data/operationsMockData";
 import { autoWatchers } from "@/lib/people";
 import { parseWrittenDate } from "@/lib/dateInput";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // Operations Tasks API — mirrors api/tasks.ts's USE_MOCK-branching structure,
@@ -88,10 +89,6 @@ export function resetOperationsMockStore(): void {
     }
   }
   mockStore = [...MOCK_OPERATIONS_TASKS];
-}
-
-function delay<T>(value: T, ms = 250): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
 }
 
 interface SpSiteUser {
@@ -187,7 +184,7 @@ function attachLookupTitles(
 export async function listOperationsTasks(): Promise<OperationsTask[]> {
   if (USE_MOCK) {
     const copy = mockStore.map((t) => ({ ...t }));
-    return delay(copy);
+    return mockDelay(copy);
   }
 
   const path =
@@ -271,7 +268,7 @@ export async function updateOperationsTaskFields(
     next.modifiedAt = new Date();
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
     saveMockStoreToStorage();
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   const path = `/sites/${SITES.pmo}/lists/${SP_OPERATIONS_TASKS_LIST_ID}/items/${id}/fields`;
@@ -406,7 +403,7 @@ export async function addOperationsComment(
     next.modifiedAt = new Date();
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
     saveMockStoreToStorage();
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   const path =
@@ -438,7 +435,7 @@ export async function editOperationsComment(
     next.modifiedAt = new Date();
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
     saveMockStoreToStorage();
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   const path =
@@ -500,7 +497,7 @@ export async function createOperationsTask(input: {
     };
     mockStore = [task, ...mockStore];
     saveMockStoreToStorage();
-    return delay(task);
+    return mockDelay(task);
   }
 
   const path = `/sites/${SITES.pmo}/lists/${SP_OPERATIONS_TASKS_LIST_ID}/items`;

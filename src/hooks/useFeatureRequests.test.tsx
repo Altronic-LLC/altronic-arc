@@ -22,6 +22,7 @@ import {
   useUpdateFeatureRequestFields,
 } from "./useFeatureRequests";
 import { __resetFeatureRequestMockStore } from "@/api/featureRequests";
+import { setMockLatency } from "@/api/mockLatency";
 
 function wrapper({ children }: { children: ReactNode }) {
   const qc = new QueryClient({
@@ -202,6 +203,9 @@ describe("useAddFeatureRequestComment — a mention watches from the moment Post
     expect(target.watchers.some((w) => w.email === "sheila.horn@altronic-llc.com")).toBe(false);
 
     const { result } = renderHook(() => useAddFeatureRequestComment(), { wrapper: sharedWrapper });
+    // Mock calls answer instantly in tests (api/mockLatency.ts) — hold the
+    // comment write open so there is a "before it resolves" to look at.
+    setMockLatency(200);
     act(() => {
       result.current.mutate({
         id: target.id,

@@ -9,14 +9,17 @@ vi.mock("react-router-dom", async (importOriginal) => {
   return { ...actual, useNavigate: () => vi.fn() };
 });
 
+// The mock "0017-AMP-5000 Refresh" folder is tagged with the project of the
+// SAME title, so once the Projects list loads the text appears twice (name +
+// project subtitle). Target the folder's button, not the text.
+const ampFolder = () => screen.getByRole("button", { name: /0017-AMP-5000 Refresh/ });
+
 async function renderBrowser() {
   const result = renderWithProviders(<ProjectFoldersView />, {
     route: "/project-folders",
     routePattern: "/project-folders",
   });
-  await waitFor(() =>
-    expect(screen.getByText("0017-AMP-5000 Refresh")).toBeInTheDocument(),
-  );
+  await waitFor(() => expect(ampFolder()).toBeInTheDocument());
   return result;
 }
 
@@ -33,7 +36,7 @@ describe("ProjectFoldersView", () => {
     expect(screen.getByRole("button", { name: /new project folder/i })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /upload file/i })).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByText("0017-AMP-5000 Refresh"));
+    await userEvent.click(ampFolder());
 
     await waitFor(() =>
       expect(screen.getByRole("button", { name: /upload file/i })).toBeInTheDocument(),

@@ -13,6 +13,7 @@ import { appendComment, replaceComment } from "@/lib/communicationParser";
 import { multiPersonField } from "@/lib/graphFields";
 import { autoWatchers } from "@/lib/people";
 import { MOCK_FEATURE_REQUESTS } from "@/data/featureRequestMockData";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // ARC Feature Requests — Engineering site (SITES.engineering).
@@ -36,10 +37,6 @@ import { MOCK_FEATURE_REQUESTS } from "@/data/featureRequestMockData";
 
 let mockStore: FeatureRequest[] = MOCK_FEATURE_REQUESTS.map((r) => ({ ...r }));
 
-function delay<T>(value: T, ms = 200): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
-
 function requireListId(action: string): string {
   if (!SP_FEATURE_REQUESTS_LIST_ID) {
     throw new Error(`Cannot ${action}: VITE_SP_FEATURE_REQUESTS_LIST_ID is not set.`);
@@ -62,7 +59,7 @@ function itemPath(id: number): string {
  */
 export async function listFeatureRequests(): Promise<FeatureRequest[]> {
   if (USE_MOCK) {
-    return delay([...mockStore].sort(compareFeatureRequests).map((r) => ({ ...r })));
+    return mockDelay([...mockStore].sort(compareFeatureRequests).map((r) => ({ ...r })));
   }
   if (!SP_FEATURE_REQUESTS_LIST_ID) return [];
 
@@ -81,7 +78,7 @@ export async function listFeatureRequests(): Promise<FeatureRequest[]> {
 export async function getFeatureRequest(id: number): Promise<FeatureRequest | null> {
   if (USE_MOCK) {
     const found = mockStore.find((r) => r.id === id);
-    return delay(found ? { ...found } : null);
+    return mockDelay(found ? { ...found } : null);
   }
   if (!SP_FEATURE_REQUESTS_LIST_ID) return null;
 
@@ -126,7 +123,7 @@ export async function createFeatureRequest(
       author: requester,
     };
     mockStore = [request, ...mockStore];
-    return delay({ ...request });
+    return mockDelay({ ...request });
   }
 
   const listId = requireListId("create the feature request");
@@ -179,7 +176,7 @@ export async function updateFeatureRequestFields(
     }
     next.modifiedAt = new Date();
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   await graphFetch(`${itemPath(id)}/fields`, { method: "PATCH", body: JSON.stringify(fields) });
@@ -245,7 +242,7 @@ export async function addFeatureRequestComment(
     ];
     next.modifiedAt = new Date();
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   const existing = await graphFetch<GraphListItem>(
@@ -275,7 +272,7 @@ export async function editFeatureRequestComment(
     );
     next.modifiedAt = new Date();
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   const existing = await graphFetch<GraphListItem>(

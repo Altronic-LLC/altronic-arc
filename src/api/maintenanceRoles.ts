@@ -2,6 +2,7 @@ import type { GraphListItem, MaintenanceRole, MaintenanceRoleEntry } from "@/typ
 import { MAINTENANCE_ROLES } from "@/types/task";
 import { graphFetch, graphFetchAll } from "./graph";
 import { SITES, SP_MAINTENANCE_ROLES_LIST_ID, USE_MOCK } from "./config";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // Maintenance Roles list — one row per user controlling what they may do in
@@ -88,10 +89,6 @@ let mockStore: MaintenanceRoleEntry[] = MOCK_SEED.map((e) => ({ ...e, roles: [..
 /** Mock-mode only: put the store back to its seed (used by tests). */
 export function resetMaintenanceRolesMockStore(): void {
   mockStore = MOCK_SEED.map((e) => ({ ...e, roles: [...e.roles] }));
-}
-
-function delay<T>(value: T, ms = 60): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
 }
 
 /**
@@ -212,7 +209,7 @@ function pickString(f: Record<string, unknown>, keys: string[]): string {
 
 export async function listMaintenanceRoles(): Promise<MaintenanceRoleEntry[]> {
   if (USE_MOCK) {
-    return delay(mockStore.map((e) => ({ ...e, roles: [...e.roles] })));
+    return mockDelay(mockStore.map((e) => ({ ...e, roles: [...e.roles] })));
   }
   // Not an error: gating is OFF until the list is configured, so an empty
   // answer here is the unconfigured state, not a failure.
@@ -317,7 +314,7 @@ export async function addMaintenanceRole(input: {
       note: input.note,
     };
     mockStore = [...mockStore, entry];
-    return delay({ ...entry, roles: [...entry.roles] });
+    return mockDelay({ ...entry, roles: [...entry.roles] });
   }
   if (!SP_MAINTENANCE_ROLES_LIST_ID) {
     throw new Error(
@@ -367,7 +364,7 @@ export async function updateMaintenanceRole(input: {
           }
         : e,
     );
-    await delay(null);
+    await mockDelay(null);
     return;
   }
   if (!SP_MAINTENANCE_ROLES_LIST_ID) {
@@ -390,7 +387,7 @@ export async function updateMaintenanceRole(input: {
 export async function removeMaintenanceRole(id: number): Promise<void> {
   if (USE_MOCK) {
     mockStore = mockStore.filter((e) => e.id !== id);
-    await delay(null);
+    await mockDelay(null);
     return;
   }
   if (!SP_MAINTENANCE_ROLES_LIST_ID) {

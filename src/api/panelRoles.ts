@@ -4,6 +4,7 @@ import { graphFetch, graphFetchAll } from "./graph";
 import { SITES, SP_PANEL_ROLES_LIST_ID, USE_MOCK } from "./config";
 import { listPanelSiteUsers } from "./panelOrders";
 import { MOCK_PANEL_ROLES } from "@/data/panelMockData";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // Panel User Roles list — one row per user PER role (User person column +
@@ -19,10 +20,6 @@ import { MOCK_PANEL_ROLES } from "@/data/panelMockData";
 // =============================================================================
 
 let mockStore: PanelRoleEntry[] = MOCK_PANEL_ROLES.map((e) => ({ ...e }));
-
-function delay<T>(value: T, ms = 60): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
 
 function clampRole(raw: unknown): PanelRole | null {
   return typeof raw === "string" && (PANEL_ROLE_CHOICES as readonly string[]).includes(raw)
@@ -41,7 +38,7 @@ function toInt(raw: unknown): number {
 
 export async function listPanelRoles(): Promise<PanelRoleEntry[]> {
   if (USE_MOCK) {
-    return delay(mockStore.map((e) => ({ ...e })));
+    return mockDelay(mockStore.map((e) => ({ ...e })));
   }
   if (!SP_PANEL_ROLES_LIST_ID) return [];
 
@@ -82,7 +79,7 @@ export async function addPanelRole(input: {
       note: input.note ?? "",
     };
     mockStore = [...mockStore, entry];
-    return delay({ ...entry });
+    return mockDelay({ ...entry });
   }
   if (!SP_PANEL_ROLES_LIST_ID) {
     throw new Error("Cannot add panel role: VITE_SP_PANEL_ROLES_LIST_ID is not set.");
@@ -128,7 +125,7 @@ export async function updatePanelRole(input: {
           }
         : e,
     );
-    await delay(null);
+    await mockDelay(null);
     return;
   }
   if (!SP_PANEL_ROLES_LIST_ID) {
@@ -146,7 +143,7 @@ export async function updatePanelRole(input: {
 export async function removePanelRole(id: number): Promise<void> {
   if (USE_MOCK) {
     mockStore = mockStore.filter((e) => e.id !== id);
-    await delay(null);
+    await mockDelay(null);
     return;
   }
   if (!SP_PANEL_ROLES_LIST_ID) {

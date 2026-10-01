@@ -38,6 +38,7 @@ vi.mock("@/api/eirs", async (importOriginal) => {
   };
 });
 
+import { setMockLatency } from "@/api/mockLatency";
 import { useAddEirComment, useEditEirComment, useEirs } from "./useEirs";
 import {
   useAddBuildRequestComment,
@@ -45,6 +46,10 @@ import {
   useBuildRequestItems,
   useBuildRequests,
 } from "./useBuildRequests";
+
+// Mock calls answer instantly in tests (api/mockLatency.ts); these cases need
+// the comment write still in flight while they look at the cache.
+const IN_FLIGHT_MS = 200;
 
 const NEWCOMER = "mention.newcomer@altronic-llc.com";
 const mention = (email: string, name: string) =>
@@ -76,6 +81,7 @@ describe("EIR comments — mention auto-watch timing", () => {
     const eir = result.current.list.data![0];
     expect(hasNewcomer(eir.watchers)).toBe(false);
 
+    setMockLatency(IN_FLIGHT_MS); // hold the write open long enough to see it pending
     act(() => {
       result.current.add.mutate({ id: eir.id, comment: { ...author, bodyHtml: mention(NEWCOMER, "Newcomer") } });
     });
@@ -114,6 +120,7 @@ describe("EIR comments — mention auto-watch timing", () => {
     const eir = result.current.list.data!.find((e) => e.comments.length > 0)!;
     const target = eir.comments[0];
 
+    setMockLatency(IN_FLIGHT_MS); // hold the write open long enough to see it pending
     act(() => {
       result.current.edit.mutate({
         id: eir.id,
@@ -138,6 +145,7 @@ describe("Build request comments — mention auto-watch timing", () => {
     await waitFor(() => expect(result.current.list.data?.length).toBeGreaterThan(0));
     const br = result.current.list.data![0];
 
+    setMockLatency(IN_FLIGHT_MS); // hold the write open long enough to see it pending
     act(() => {
       result.current.add.mutate({ id: br.id, comment: { ...author, bodyHtml: mention(NEWCOMER, "Newcomer") } });
     });
@@ -161,6 +169,7 @@ describe("Build request comments — mention auto-watch timing", () => {
     await waitFor(() => expect(result.current.brs.data?.length).toBeGreaterThan(0));
     const item = result.current.items.data![0];
 
+    setMockLatency(IN_FLIGHT_MS); // hold the write open long enough to see it pending
     act(() => {
       result.current.add.mutate({ id: item.id, comment: { ...author, bodyHtml: mention(NEWCOMER, "Newcomer") } });
     });

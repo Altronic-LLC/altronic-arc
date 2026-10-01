@@ -3,6 +3,7 @@ import { SITES, SP_PANEL_PROJECTS_LIST_ID, USE_MOCK } from "./config";
 import type { GraphListItem, PanelProject } from "@/types/task";
 import { PANEL_PROJECT_DEPARTMENTS, PANEL_PROJECT_TYPES } from "@/types/task";
 import { MOCK_PANEL_PROJECTS } from "@/data/panelMockData";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // Panel Project Reference API — the Panels department's admin-managed project
@@ -13,10 +14,6 @@ import { MOCK_PANEL_PROJECTS } from "@/data/panelMockData";
 // =============================================================================
 
 let mockStore: PanelProject[] = MOCK_PANEL_PROJECTS.map((p) => ({ ...p }));
-
-function delay<T>(value: T, ms = 250): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
 
 function clampChoice<T extends string>(raw: unknown, allowed: readonly T[]): T | null {
   return typeof raw === "string" && (allowed as readonly string[]).includes(raw)
@@ -43,7 +40,7 @@ export async function listPanelProjects(): Promise<PanelProject[]> {
     const sorted = [...mockStore].sort((a, b) =>
       a.title.localeCompare(b.title, undefined, { numeric: true }),
     );
-    return delay(sorted.map((p) => ({ ...p })));
+    return mockDelay(sorted.map((p) => ({ ...p })));
   }
 
   const path =
@@ -72,7 +69,7 @@ export async function createPanelProject(input: Omit<PanelProject, "id">): Promi
     const nextId = Math.max(0, ...mockStore.map((p) => p.id)) + 1;
     const project: PanelProject = { ...input, id: nextId };
     mockStore = [...mockStore, project];
-    return delay({ ...project });
+    return mockDelay({ ...project });
   }
 
   const created = await graphFetch<GraphListItem>(
@@ -92,7 +89,7 @@ export async function updatePanelProject(
     if (idx < 0) throw new Error(`Panel project ${id} not found`);
     const next: PanelProject = { ...input, id };
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   await graphFetch(

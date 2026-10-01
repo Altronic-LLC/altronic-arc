@@ -30,6 +30,7 @@ import {
   toDrawingLogEntry,
 } from "@/lib/drawingLogMapper";
 import { MOCK_DRAWING_LOGS } from "@/data/drawingLogMockData";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // Drawing File Logs API — the four Engineering drawing registers behind one
@@ -91,10 +92,6 @@ let mockStore: DrawingLogEntry[] = MOCK_DRAWING_LOGS.map((e) => ({
   changes: e.changes.map((c) => ({ ...c })),
 }));
 
-function delay<T>(value: T, ms = 220): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
-
 function clone(entry: DrawingLogEntry): DrawingLogEntry {
   return { ...entry, values: { ...entry.values }, changes: entry.changes.map((c) => ({ ...c })) };
 }
@@ -116,7 +113,7 @@ function itemsPath(kind: DrawingLogKind): string {
 /** Every row of one register, most recent first. */
 export async function listDrawingLog(kind: DrawingLogKind): Promise<DrawingLogEntry[]> {
   if (USE_MOCK) {
-    return delay(
+    return mockDelay(
       mockStore.filter((e) => e.kind === kind).sort(compareDrawingLogEntries).map(clone),
     );
   }
@@ -156,7 +153,7 @@ export async function createDrawingLogEntry(
     const nextId = Math.max(0, ...mockStore.map((e) => e.id)) + 1;
     const created = applyInput(emptyEntry(kind, nextId), input);
     mockStore = [...mockStore, created];
-    return delay(clone(created));
+    return mockDelay(clone(created));
   }
 
   const created = await graphFetch<GraphListItem>(itemsPath(kind), {
@@ -176,7 +173,7 @@ export async function updateDrawingLogEntry(
     if (idx < 0) throw new Error(`Drawing ${id} not found in ${DRAWING_LOGS[kind].label}`);
     const next = applyInput(mockStore[idx], input);
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay(clone(next));
+    return mockDelay(clone(next));
   }
 
   await graphFetch(`${itemsPath(kind)}/${id}/fields`, {
@@ -229,7 +226,7 @@ export async function appendDrawingChange(
       modifiedAt: new Date(),
     };
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay(clone(next));
+    return mockDelay(clone(next));
   }
 
   // Re-read first: the free slot depends on what's there NOW, and two people
@@ -287,7 +284,7 @@ export async function updateDrawingChange(
       modifiedAt: new Date(),
     };
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay(clone(next));
+    return mockDelay(clone(next));
   }
 
   await graphFetch(`${itemsPath(kind)}/${id}/fields`, {
@@ -304,7 +301,7 @@ export async function updateDrawingChange(
 export async function deleteDrawingLogEntry(kind: DrawingLogKind, id: number): Promise<void> {
   if (USE_MOCK) {
     mockStore = mockStore.filter((e) => !(e.id === id && e.kind === kind));
-    await delay(null);
+    await mockDelay(null);
     return;
   }
   await graphFetch(`${itemsPath(kind)}/${id}`, { method: "DELETE" });

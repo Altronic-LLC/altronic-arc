@@ -90,6 +90,37 @@ When adding a new operation (e.g. updating attachments):
 This pattern keeps the mock and real implementations explicit, side by side,
 in one place — easy to compare, easy to keep in sync.
 
+### Mock latency — `mockDelay()`, and why it is zero in tests
+
+A mock branch waits before it answers, so the demo feels like a real network
+(spinners show, optimistic updates are visible). **Use `mockDelay(value)` from
+`src/api/mockLatency.ts` — never a private `delay()` helper.** 47 modules each
+carried their own copy of 40–300ms until 2026-10-01, and the suite waited on
+every one: ~430s of the 672s spent inside test files was mock latency. The
+CMMS API tests (`scheduledMaintenance`, `maintenanceTasks`) took 20s+ each for
+work that takes milliseconds. Making it zero under Vitest cut the local suite
+from ~65s to ~45s.
+
+Three things that go with it:
+
+- **Zero is still a 0ms TIMER, not a bare resolved promise.** A mock call stays
+  asynchronous the way a real one is. Resolving inline was tried first and
+  broke 37 tests on ordering alone; the timer broke 12, all genuine.
+- **A test that needs a write still IN FLIGHT calls `setMockLatency(ms)`** —
+  "the mentioned person shows as a watcher while the comment is still
+  posting", "Uploading…" on screen. Those tests used to pass because every
+  write took 200ms, which was luck, not a contract. `src/test/setup.ts` resets
+  the override after every test (pinned in `mockLatency.test.ts`).
+- **A test that only passed because one query landed AFTER another needs a
+  real wait.** Two were found when the delay went: `ProjectFoldersView` (the
+  mock folder and its project share a title, so the name appears twice once
+  Projects loads) and an edit-mode `ScheduledMaintenanceFormModal` case (the
+  Equipment trigger reads "No asset" until the register loads). Wait for the
+  data you're about to interact with; don't lean on load order.
+
+`graph.ts`'s and `projectFiles.ts`'s `sleep()` are REAL throttle/retry
+backoffs, not mock latency, and are deliberately untouched.
+
 ## Backlog (`BACKLOG.md`)
 
 Queued work that hasn't been picked up yet lives in `BACKLOG.md` at the
@@ -222,6 +253,7 @@ src/
 │
 ├── api/                          All mock/real branches live here (USE_MOCK)
 │   ├── config.ts                 USE_MOCK, SITES registry, every list ID, role-enforcement flags
+│   ├── mockLatency.ts            mockDelay() — the ONE fake round-trip for every mock branch; zero under Vitest
 │   ├── appAccess.ts              Which lists each app needs + site labels (drives the access gating)
 │   ├── accessProbe.ts            One Graph $batch at sign-in: which lists can this user read?
 │   ├── listItemCount.ts          SharePoint's UNTRIMMED item count — "the rows exist, you just can't see them"

@@ -17,6 +17,7 @@ import {
 import { ECN_CHECKLIST_TEMPLATE_REVISION } from "@/lib/ecnChecklistTemplate";
 import { toEcnChecklist } from "@/lib/ecnChecklistMapper";
 import { MOCK_ECN_CHECKLISTS } from "@/data/ecnChecklistMockData";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // ECN Checklists — the Cross-Functional ECN Checklist (Form# MFGFRM-038), one
@@ -42,10 +43,6 @@ import { MOCK_ECN_CHECKLISTS } from "@/data/ecnChecklistMockData";
 // =============================================================================
 
 let mockStore: EcnChecklist[] = MOCK_ECN_CHECKLISTS.map((c) => ({ ...c }));
-
-function delay<T>(value: T, ms = 200): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
 
 /** True when the list has been created and its id configured. */
 export function ecnChecklistsConfigured(): boolean {
@@ -95,7 +92,7 @@ export const ECN_CHECKLIST_SELECT = [
 
 /** Every checklist. Small list — one row per ECN — so it is fetched whole. */
 export async function listEcnChecklists(): Promise<EcnChecklist[]> {
-  if (USE_MOCK) return delay(mockStore.map((c) => ({ ...c })));
+  if (USE_MOCK) return mockDelay(mockStore.map((c) => ({ ...c })));
   if (!SP_ECN_CHECKLISTS_LIST_ID) return [];
   const items = await graphFetchAll<GraphListItem>(
     `/sites/${SITES.engineering}/lists/${SP_ECN_CHECKLISTS_LIST_ID}/items` +
@@ -113,7 +110,7 @@ export async function getChecklistForEcn(ecnId: number): Promise<EcnChecklist | 
 export async function getEcnChecklist(id: number): Promise<EcnChecklist | null> {
   if (USE_MOCK) {
     const found = mockStore.find((c) => c.id === id);
-    return delay(found ? { ...found } : null);
+    return mockDelay(found ? { ...found } : null);
   }
   try {
     const item = await graphFetch<GraphListItem>(
@@ -176,7 +173,7 @@ export async function createEcnChecklist(
       modifiedAt: now,
     };
     mockStore = [checklist, ...mockStore];
-    return delay({ ...checklist });
+    return mockDelay({ ...checklist });
   }
 
   const listId = requireListId("create the checklist");
@@ -251,7 +248,7 @@ export async function saveChecklistAnswers(
       modifiedAt: new Date(),
     };
     mockStore = mockStore.map((c) => (c.id === id ? next : c));
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   await graphFetch(`${itemPath(id)}/fields`, {
@@ -280,7 +277,7 @@ export async function setChecklistCompletedBy(
       modifiedAt: new Date(),
     };
     mockStore = mockStore.map((c) => (c.id === id ? next : c));
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   let lookupId: number | null = null;
@@ -317,7 +314,7 @@ export async function setEcnChecklistWatchers(
     if (!current) throw new Error(`Checklist ${id} no longer exists.`);
     const next = { ...current, watchers: people, modifiedAt: new Date() };
     mockStore = mockStore.map((c) => (c.id === id ? next : c));
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   const resolved: Person[] = [];
@@ -363,7 +360,7 @@ export async function addEcnChecklistComment(
       modifiedAt: new Date(),
     };
     mockStore = mockStore.map((c) => (c.id === id ? next : c));
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   const item = await graphFetch<GraphListItem>(
@@ -405,7 +402,7 @@ export async function editEcnChecklistComment(
       modifiedAt: new Date(),
     };
     mockStore = mockStore.map((c) => (c.id === id ? next : c));
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   const item = await graphFetch<GraphListItem>(

@@ -9,6 +9,7 @@ import {
   toQcTimeEntry,
 } from "@/lib/qcTimeMapper";
 import { MOCK_QC_TIME_ENTRIES } from "@/data/qcTimeMockData";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // QC Time Tracking — Panels, ALTRONICPANELTEAM site.
@@ -69,10 +70,6 @@ export async function listQcTimeHoldReasonChoices(): Promise<string[]> {
   return holdReasonChoices;
 }
 
-function delay<T>(value: T, ms = 200): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
-
 function requireListId(action: string): string {
   if (!SP_QC_TIME_TRACKING_LIST_ID) {
     throw new Error(`Cannot ${action}: VITE_SP_QC_TIME_TRACKING_LIST_ID is not set.`);
@@ -83,7 +80,7 @@ function requireListId(action: string): string {
 /** Every QC time entry, newest week first. */
 export async function listQcTimeEntries(): Promise<QcTimeEntry[]> {
   if (USE_MOCK) {
-    return delay([...mockStore].sort(compareQcTimeEntries).map((e) => ({ ...e })));
+    return mockDelay([...mockStore].sort(compareQcTimeEntries).map((e) => ({ ...e })));
   }
 
   const listId = requireListId("load QC time entries");
@@ -98,7 +95,7 @@ export async function listQcTimeEntries(): Promise<QcTimeEntry[]> {
 export async function getQcTimeEntry(id: number): Promise<QcTimeEntry | null> {
   if (USE_MOCK) {
     const found = mockStore.find((e) => e.id === id);
-    return delay(found ? { ...found } : null);
+    return mockDelay(found ? { ...found } : null);
   }
 
   const listId = requireListId("load the QC time entry");
@@ -139,7 +136,7 @@ export async function createQcTimeEntry(input: QcTimeEntryInput): Promise<QcTime
       modifiedAt: now,
     };
     mockStore = [entry, ...mockStore];
-    return delay(entry);
+    return mockDelay(entry);
   }
 
   const listId = requireListId("add the QC time entry");
@@ -180,7 +177,7 @@ export async function updateQcTimeEntry(
       modifiedAt: new Date(),
     };
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay(next);
+    return mockDelay(next);
   }
 
   const listId = requireListId("save the QC time entry");
@@ -205,7 +202,7 @@ export async function updateQcTimeEntry(
 export async function deleteQcTimeEntry(id: number): Promise<void> {
   if (USE_MOCK) {
     mockStore = mockStore.filter((e) => e.id !== id);
-    await delay(undefined);
+    await mockDelay(undefined);
     return;
   }
   const listId = requireListId("delete the QC time entry");

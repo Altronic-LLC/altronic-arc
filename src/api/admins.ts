@@ -1,6 +1,7 @@
 import type { AdminEntry, GraphListItem } from "@/types/task";
 import { graphFetch, graphFetchAll } from "./graph";
 import { SP_ADMINS_LIST_ID, SP_SITE_ID, USE_MOCK } from "./config";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // Admins list. Single-column SharePoint list whose Title field stores an
@@ -34,13 +35,9 @@ const MOCK_STORE: AdminEntry[] = [
   },
 ];
 
-function delay<T>(value: T, ms = 60): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
-
 export async function listAdmins(): Promise<AdminEntry[]> {
   if (USE_MOCK) {
-    return delay([...MOCK_STORE]);
+    return mockDelay([...MOCK_STORE]);
   }
   if (!SP_ADMINS_LIST_ID) return [];
 
@@ -103,7 +100,7 @@ export async function addAdmin(input: {
     const nextId = (MOCK_STORE[MOCK_STORE.length - 1]?.id ?? 0) + 1;
     const entry: AdminEntry = { id: nextId, ...input };
     MOCK_STORE.push(entry);
-    return delay(entry);
+    return mockDelay(entry);
   }
   if (!SP_ADMINS_LIST_ID) {
     throw new Error("Cannot add admin: VITE_SP_ADMINS_LIST_ID is not set.");
@@ -135,7 +132,7 @@ export async function removeAdmin(id: number): Promise<void> {
   if (USE_MOCK) {
     const idx = MOCK_STORE.findIndex((a) => a.id === id);
     if (idx >= 0) MOCK_STORE.splice(idx, 1);
-    await delay(null);
+    await mockDelay(null);
     return;
   }
   if (!SP_ADMINS_LIST_ID) {

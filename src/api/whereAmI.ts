@@ -8,6 +8,7 @@ import {
   WHERE_AM_I_SELECT,
 } from "@/lib/whereAmI";
 import { MOCK_WHERE_AM_I } from "@/data/whereAmIMockData";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // "Where am I?" API — Engineering's out-of-office calendar.
@@ -24,10 +25,6 @@ import { MOCK_WHERE_AM_I } from "@/data/whereAmIMockData";
 
 let mockStore: WhereAmIEntry[] = MOCK_WHERE_AM_I.map((e) => ({ ...e }));
 
-function delay<T>(value: T, ms = 180): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
-
 function requireListId(action: string): string {
   if (!SP_WHERE_AM_I_LIST_ID) {
     throw new Error(`Cannot ${action}: VITE_SP_WHERE_AM_I_LIST_ID is not set.`);
@@ -38,7 +35,7 @@ function requireListId(action: string): string {
 /** Every entry, soonest first. */
 export async function listWhereAmI(): Promise<WhereAmIEntry[]> {
   if (USE_MOCK) {
-    return delay([...mockStore].sort(compareByDate).map((e) => ({ ...e })));
+    return mockDelay([...mockStore].sort(compareByDate).map((e) => ({ ...e })));
   }
   const listId = requireListId("load the calendar");
   const items = await graphFetchAll<GraphListItem>(
@@ -62,7 +59,7 @@ export async function createWhereAmI(input: {
       modifiedAt: now,
     };
     mockStore = [...mockStore, entry];
-    return delay(entry);
+    return mockDelay(entry);
   }
 
   const listId = requireListId("add to the calendar");
@@ -96,7 +93,7 @@ export async function updateWhereAmI(
       modifiedAt: new Date(),
     };
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay(next);
+    return mockDelay(next);
   }
 
   const listId = requireListId("save the entry");
@@ -123,7 +120,7 @@ export async function updateWhereAmI(
 export async function deleteWhereAmI(id: number): Promise<void> {
   if (USE_MOCK) {
     mockStore = mockStore.filter((e) => e.id !== id);
-    await delay(null);
+    await mockDelay(null);
     return;
   }
   const listId = requireListId("remove the entry");

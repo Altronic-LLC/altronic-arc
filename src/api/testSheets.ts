@@ -10,6 +10,7 @@ import type {
 import { attachTestSheetReferences, toTestSheet } from "@/lib/testSheetMapper";
 import { listProjects, listTasks } from "./tasks";
 import { MOCK_TEST_SHEETS } from "@/data/mockData";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // Test Sheets API — mirrors src/api/tasks.ts in shape. Operates on a separate
@@ -46,10 +47,6 @@ function saveMockStoreToStorage() {
 
 let mockStore: TestSheet[] = loadMockStoreFromStorage() ?? [...MOCK_TEST_SHEETS];
 
-function delay<T>(value: T, ms = 100): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
-
 // Fields we read in the mapper — passed to $expand=fields($select=…) so we
 // only pull the columns we use, not all of them. Keep in sync with
 // `testSheetMapper.toTestSheet()`.
@@ -73,7 +70,7 @@ export async function listTestSheets(): Promise<TestSheet[]> {
     // projects/tasks show updated titles.
     const projects = (await listProjects()) as ProjectReference[];
     const tasks = await listTasks();
-    return delay(
+    return mockDelay(
       attachTestSheetReferences(
         mockStore.map((s) => ({ ...s })),
         projects,
@@ -154,7 +151,7 @@ export async function createTestSheet(input: CreateTestSheetInput): Promise<Test
     };
     mockStore = [sheet, ...mockStore];
     saveMockStoreToStorage();
-    return delay(sheet);
+    return mockDelay(sheet);
   }
 
   if (!SP_TEST_RESULTS_LIST_ID) {
@@ -229,7 +226,7 @@ export async function updateTestSheetFields(
     }
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
     saveMockStoreToStorage();
-    return delay(next);
+    return mockDelay(next);
   }
 
   if (!SP_TEST_RESULTS_LIST_ID) {

@@ -6,6 +6,7 @@ import { ALL_CHECKLIST_FIELDS } from "@/lib/buildRequestChecklist";
 import { annotateMultiChoiceFields, multiPersonField } from "@/lib/graphFields";
 import { appendComment, replaceComment } from "@/lib/communicationParser";
 import { MOCK_BUILD_REQUEST_ITEMS } from "@/data/buildRequestMockData";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // Build Request Items API — the parts list. Every item joins to a header in
@@ -71,10 +72,6 @@ function saveToStorage() {
 
 let mockStore: BuildRequestItem[] = loadFromStorage() ?? [...MOCK_BUILD_REQUEST_ITEMS];
 
-function delay<T>(value: T, ms = 100): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
-
 const ITEM_FIELD_SELECT = [
   "Title",
   "BuildRequestNoLookupId",
@@ -104,7 +101,7 @@ const ITEM_FIELD_SELECT = [
 
 export async function listBuildRequestItems(): Promise<BuildRequestItem[]> {
   if (USE_MOCK) {
-    return delay(mockStore.map((i) => ({ ...i })));
+    return mockDelay(mockStore.map((i) => ({ ...i })));
   }
 
   const path =
@@ -169,7 +166,7 @@ export async function createBuildRequestItem(
     };
     mockStore = [item, ...mockStore];
     saveToStorage();
-    return delay({ ...item });
+    return mockDelay({ ...item });
   }
 
   const fields: Record<string, unknown> = {
@@ -244,7 +241,7 @@ export async function updateBuildRequestItemFields(
     next.modifiedAt = new Date();
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
     saveToStorage();
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   await graphFetch(
@@ -263,7 +260,7 @@ export async function deleteBuildRequestItem(id: number): Promise<void> {
   if (USE_MOCK) {
     mockStore = mockStore.filter((i) => i.id !== id);
     saveToStorage();
-    await delay(null);
+    await mockDelay(null);
     return;
   }
   await graphFetch(
@@ -312,7 +309,7 @@ export async function addBuildRequestItemComment(
     next.modifiedAt = new Date();
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
     saveToStorage();
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   const path =
@@ -344,7 +341,7 @@ export async function editBuildRequestItemComment(
     next.modifiedAt = new Date();
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
     saveToStorage();
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   const path =
