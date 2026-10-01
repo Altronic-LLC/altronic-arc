@@ -2,7 +2,9 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    # chore/node-24-ci runs install/test/build only (deploy is main-only,
+    # below). Drop it from this list once Node 24 is merged.
+    branches: [main, chore/node-24-ci]
   workflow_dispatch:
 
 permissions:
@@ -11,7 +13,8 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
+  # Per-branch, so a test-branch run can never cancel a production deploy.
+  group: pages-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -22,24 +25,23 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          # Current Node LTS. Node 20 has a deprecation horizon mid-2026
-          # so we're getting ahead of it. Node 22 ships with npm 10.x by
-          # default; we bump to npm 11 below so CI matches typical local
-          # dev (where contributors usually have npm 11 already). Without
-          # the pin, every `npm install <new-dep>` locally would produce
-          # a lockfile shape CI rejects — that's the loop we want to end.
-          node-version: "22"
+          # Node 24 (Active LTS) — matches local dev. It ships with npm 11,
+          # so the npm@11 pin below is now belt-and-braces rather than
+          # required: it keeps CI on npm 11 whatever npm a future Node
+          # image bundles. Without it, a lockfile written by a newer local
+          # npm can be rejected by an older CI npm — the loop we ended.
+          node-version: "24"
           cache: "npm"
 
       - name: Install
-        # Node 22 ships with npm 10.x. Our contributors typically have
-        # npm 11 locally (Node 22+ with the latest), which produces a
-        # lockfile shape npm 10 rejects. The clean fix is to run `npm ci`
+        # Pinned to npm 11 so CI always matches the lockfile shape local
+        # dev writes, regardless of which npm the Node image bundles
+        # (Node 22 shipped npm 10, which rejected it). We run `npm ci`
         # through npx with a pinned version — no global install (which
         # tends to fail with "Cannot find module 'promise-retry'" when
         # npm tries to replace itself mid-run) and no version drift.
         # Subsequent npm commands (test, build) just run scripts so they
-        # work fine on Node 22's built-in npm.
+        # work fine on the Node image's built-in npm.
         run: npx -y npm@11 ci
 
       - name: Test
@@ -169,6 +171,9 @@ jobs:
 
   deploy:
     needs: build
+    # Only main publishes. Any other branch (or a manual run on one) stops
+    # after build, so testing a CI change can't overwrite the live site.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
