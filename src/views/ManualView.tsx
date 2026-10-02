@@ -901,7 +901,9 @@ const SECTIONS: ManualSection[] = [
           </strong>{" "}
           — not just when they're mentioned — so the whole thread stays in the
           loop. The email says why it reached you: mentioned, assigned to you, or
-          watching. You're
+          watching. A comment that is only attached files, with no text, is
+          emailed too, and reads as "Name added an attachment" with the file
+          names listed. You're
           never emailed for your own comment, unless you @-mention yourself. To stop
           watching, the mentioned user removes themselves from the
           Watchers field on the detail sidebar. (Heads-up: a fresh

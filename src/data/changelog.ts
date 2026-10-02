@@ -60,6 +60,14 @@ const PARTS_LIST_CHANGES: string[] = [
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.169.7",
+    date: "2026-10-02",
+    changes: [
+      "A comment that is only an attachment now emails as \"Name added an attachment\", listing the files, instead of a blank-looking new comment",
+      "This applies to every comment thread, EIRs included",
+    ],
+  },
+  {
     version: "0.169.6",
     date: "2026-10-01",
     changes: [
