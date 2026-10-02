@@ -3,6 +3,7 @@ import { SITES, SP_QC_CPU95_LIST_ID, USE_MOCK } from "./config";
 import type { GraphListItem, QcCpu95Record } from "@/types/task";
 import { buildQcCpu95Fields, compareQcCpu95Records, toQcCpu95Record } from "@/lib/qcCpu95Mapper";
 import { MOCK_QC_CPU95_RECORDS } from "@/data/qcCpu95MockData";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // QCFRM-012 (CPU-95) — Engineering site.
@@ -22,10 +23,6 @@ import { MOCK_QC_CPU95_RECORDS } from "@/data/qcCpu95MockData";
 
 let mockStore: QcCpu95Record[] = MOCK_QC_CPU95_RECORDS.map((r) => ({ ...r, values: { ...r.values } }));
 
-function delay<T>(value: T, ms = 200): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
-
 function requireListId(action: string): string {
   if (!SP_QC_CPU95_LIST_ID) {
     throw new Error(`Cannot ${action}: VITE_SP_QC_CPU95_LIST_ID is not set.`);
@@ -36,7 +33,7 @@ function requireListId(action: string): string {
 /** Every CPU-95 test sheet, newest tested first. */
 export async function listQcCpu95Records(): Promise<QcCpu95Record[]> {
   if (USE_MOCK) {
-    return delay([...mockStore].sort(compareQcCpu95Records).map((r) => ({ ...r, values: { ...r.values } })));
+    return mockDelay([...mockStore].sort(compareQcCpu95Records).map((r) => ({ ...r, values: { ...r.values } })));
   }
 
   const listId = requireListId("load CPU-95 test sheets");
@@ -50,7 +47,7 @@ export async function listQcCpu95Records(): Promise<QcCpu95Record[]> {
 export async function getQcCpu95Record(id: number): Promise<QcCpu95Record | null> {
   if (USE_MOCK) {
     const found = mockStore.find((r) => r.id === id);
-    return delay(found ? { ...found, values: { ...found.values } } : null);
+    return mockDelay(found ? { ...found, values: { ...found.values } } : null);
   }
 
   const listId = requireListId("load the CPU-95 test sheet");
@@ -74,7 +71,7 @@ export async function createQcCpu95Record(values: Record<string, string>): Promi
       modifiedAt: now,
     };
     mockStore = [record, ...mockStore];
-    return delay(record);
+    return mockDelay(record);
   }
 
   const listId = requireListId("add the CPU-95 test sheet");
@@ -97,7 +94,7 @@ export async function updateQcCpu95Record(
     if (idx < 0) throw new Error(`CPU-95 test sheet ${id} not found`);
     const next: QcCpu95Record = { ...mockStore[idx], values: { ...values }, modifiedAt: new Date() };
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay(next);
+    return mockDelay(next);
   }
 
   const listId = requireListId("save the CPU-95 test sheet");

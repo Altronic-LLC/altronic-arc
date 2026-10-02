@@ -16,6 +16,7 @@ import {
 import { appendComment, replaceComment } from "@/lib/communicationParser";
 import { multiPersonField } from "@/lib/graphFields";
 import { MOCK_MRB_ENTRIES } from "@/data/mrbMockData";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // MRB Data API — the Material Review Board register.
@@ -71,10 +72,6 @@ export function __resetMrbMockStore(): void {
   watchersColumnAvailable = null;
 }
 
-function delay<T>(value: T, ms = 200): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
-
 function requireListId(action: string): string {
   if (!SP_MRB_LIST_ID) {
     throw new Error(`Cannot ${action}: VITE_SP_MRB_LIST_ID is not set.`);
@@ -116,7 +113,7 @@ async function withWatchersFallback<T>(read: (select: string) => Promise<T>): Pr
 /** Every entry, newest MRB date first. Archive rows included — the view splits them. */
 export async function listMrbEntries(): Promise<MrbEntry[]> {
   if (USE_MOCK) {
-    return delay([...mockStore].sort(compareMrbEntries).map((e) => ({ ...e })));
+    return mockDelay([...mockStore].sort(compareMrbEntries).map((e) => ({ ...e })));
   }
   const listId = requireListId("load MRB entries");
   const items = await withWatchersFallback((select) =>
@@ -131,7 +128,7 @@ export async function listMrbEntries(): Promise<MrbEntry[]> {
 export async function getMrbEntry(id: number): Promise<MrbEntry | null> {
   if (USE_MOCK) {
     const found = mockStore.find((e) => e.id === id);
-    return delay(found ? { ...found } : null);
+    return mockDelay(found ? { ...found } : null);
   }
   try {
     const item = await withWatchersFallback((select) =>
@@ -171,7 +168,7 @@ export async function createMrbEntry(input: MrbEntryInput): Promise<MrbEntry> {
       modifiedAt: now,
     };
     mockStore = [entry, ...mockStore];
-    return delay(entry);
+    return mockDelay(entry);
   }
 
   const listId = requireListId("create the entry");
@@ -217,7 +214,7 @@ export async function updateMrbEntry(
       modifiedAt: new Date(),
     };
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   // Nothing actually changed — don't send an empty PATCH.
@@ -274,7 +271,7 @@ export async function addMrbComment(
       modifiedAt: new Date(),
     };
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   // Read-modify-write on one field, the same as every other comment thread —
@@ -310,7 +307,7 @@ export async function editMrbComment(
       modifiedAt: new Date(),
     };
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   const existing = await graphFetch<GraphListItem>(
@@ -336,7 +333,7 @@ export async function setMrbWatchers(id: number, people: Person[]): Promise<MrbE
     if (idx < 0) throw new Error(`MRB entry ${id} not found`);
     const next: MrbEntry = { ...mockStore[idx], watchers: people, modifiedAt: new Date() };
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   if (watchersColumnAvailable === false) {

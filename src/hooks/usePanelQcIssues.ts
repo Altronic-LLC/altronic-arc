@@ -218,7 +218,7 @@ export function useAddPanelQcIssueComment() {
         });
       }
     },
-    onError: (_err, _vars, ctx) => { ctx?.autoWatch?.cancel(); invalidateIssues(qc); errorToast("Couldn't post comment — refreshing."); },
+    onError: (_err, _vars, ctx) => { ctx?.autoWatch?.cancel(); invalidateIssues(qc); errorToast("Couldn't post comment — it's back in the comment box to send again."); },
     onSettled: (_data, _err, _vars, ctx) => afterMentionAutoWatch(ctx?.autoWatch, () => invalidateIssues(qc)),
   });
 }

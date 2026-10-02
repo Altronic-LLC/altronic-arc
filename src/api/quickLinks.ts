@@ -3,6 +3,7 @@ import { DASHBOARD_DEPARTMENTS } from "@/types/task";
 import { graphFetch, graphFetchAll } from "./graph";
 import { SITES, SP_QUICK_LINKS_LIST_ID, USE_MOCK } from "./config";
 import { MOCK_QUICK_LINKS } from "@/data/quickLinksMockData";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // Quick Links — admin-managed external-link buttons shown above each
@@ -26,10 +27,6 @@ import { MOCK_QUICK_LINKS } from "@/data/quickLinksMockData";
 // =============================================================================
 
 let mockStore: QuickLink[] = MOCK_QUICK_LINKS.map((l) => ({ ...l }));
-
-function delay<T>(value: T, ms = 150): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
 
 function requireListId(action: string): string {
   if (!SP_QUICK_LINKS_LIST_ID) {
@@ -63,7 +60,7 @@ function toQuickLink(item: GraphListItem): QuickLink | null {
 /** Every quick link, sorted by department (Dashboard order) then its own order, then id. */
 export async function listQuickLinks(): Promise<QuickLink[]> {
   const links = USE_MOCK
-    ? await delay([...mockStore])
+    ? await mockDelay([...mockStore])
     : await (async () => {
         if (!SP_QUICK_LINKS_LIST_ID) return [];
         const items = await graphFetchAll<GraphListItem>(
@@ -95,7 +92,7 @@ export async function createQuickLink(input: QuickLinkInput): Promise<QuickLink>
     const nextId = Math.max(0, ...mockStore.map((l) => l.id)) + 1;
     const link: QuickLink = { id: nextId, ...input };
     mockStore = [...mockStore, link];
-    return delay(link);
+    return mockDelay(link);
   }
   const listId = requireListId("add the quick link");
   const created = await graphFetch<GraphListItem>(
@@ -130,7 +127,7 @@ export async function updateQuickLink(
     if (idx < 0) throw new Error(`Quick link ${id} not found`);
     const next: QuickLink = { ...mockStore[idx], ...input };
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
   const listId = requireListId("update the quick link");
   await graphFetch(`/sites/${SITES.engineering}/lists/${listId}/items/${id}/fields`, {
@@ -153,7 +150,7 @@ export async function setQuickLinkOrder(id: number, order: number): Promise<Quic
     if (idx < 0) throw new Error(`Quick link ${id} not found`);
     const next: QuickLink = { ...mockStore[idx], order };
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
   const listId = requireListId("reorder the quick link");
   await graphFetch(`/sites/${SITES.engineering}/lists/${listId}/items/${id}/fields`, {
@@ -181,7 +178,7 @@ async function getQuickLink(id: number): Promise<QuickLink | null> {
 export async function deleteQuickLink(id: number): Promise<void> {
   if (USE_MOCK) {
     mockStore = mockStore.filter((l) => l.id !== id);
-    await delay(null);
+    await mockDelay(null);
     return;
   }
   const listId = requireListId("remove the quick link");

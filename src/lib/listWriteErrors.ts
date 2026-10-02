@@ -30,6 +30,25 @@ export function isGone(err: unknown): boolean {
   return /itemnotfound|does not exist/i.test(body);
 }
 
+/**
+ * Did SharePoint refuse the write because the item changed while it was in
+ * flight?
+ *
+ * Graph answers `409 resourceModified` ("usually an eTag mismatch") even when
+ * ARC sends no If-Match at all — SharePoint's own concurrency check fires when
+ * another write lands on the same item at the same moment. Thomas Terhune hit
+ * it posting a task comment with two pictures (2026-09-30): the background
+ * list-item attachment copies were writing the item as the Communication PATCH
+ * arrived. Nothing was saved, so the write is safe to try again.
+ */
+export function isEditConflict(err: unknown): boolean {
+  const status = (err as { status?: number } | null)?.status;
+  if (status === 409) return true;
+  const body = (err as { body?: string } | null)?.body ?? "";
+  const message = err instanceof Error ? err.message : String(err ?? "");
+  return /resourcemodified/i.test(`${body} ${message}`);
+}
+
 export interface WriteFailureContext {
   /** What was being attempted, lower case: "remove this customer". */
   action: string;

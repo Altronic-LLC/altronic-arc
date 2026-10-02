@@ -11,6 +11,7 @@ import {
 import { appendComment, replaceComment } from "@/lib/communicationParser";
 import { annotateMultiChoiceFields, multiPersonField } from "@/lib/graphFields";
 import { MOCK_CUSTOMER_NOTES } from "@/data/crmMockData";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // "Customer Notes" — the anchor list for the CRM tool, on the salesOrderEntry
@@ -29,10 +30,6 @@ import { MOCK_CUSTOMER_NOTES } from "@/data/crmMockData";
 // =============================================================================
 
 let mockStore: CustomerNote[] = MOCK_CUSTOMER_NOTES.map((c) => ({ ...c }));
-
-function delay<T>(value: T, ms = 200): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
 
 function requireListId(action: string): string {
   if (!SP_CUSTOMER_NOTES_LIST_ID) {
@@ -57,7 +54,7 @@ const CUSTOMER_NOTE_MULTI_CHOICE_FIELDS = ["CustomerType"] as const;
 
 export async function listCustomerNotes(): Promise<CustomerNote[]> {
   if (USE_MOCK) {
-    return delay([...mockStore].sort(compareCustomerNotes).map((c) => ({ ...c })));
+    return mockDelay([...mockStore].sort(compareCustomerNotes).map((c) => ({ ...c })));
   }
   const listId = requireListId("load customers");
   const items = await graphFetchAll<GraphListItem>(
@@ -69,7 +66,7 @@ export async function listCustomerNotes(): Promise<CustomerNote[]> {
 export async function getCustomerNote(id: number): Promise<CustomerNote | null> {
   if (USE_MOCK) {
     const found = mockStore.find((c) => c.id === id);
-    return delay(found ? { ...found } : null);
+    return mockDelay(found ? { ...found } : null);
   }
   try {
     const item = await graphFetch<GraphListItem>(
@@ -114,7 +111,7 @@ export async function createCustomerNote(input: CustomerNoteInput): Promise<Cust
       modifiedAt: now,
     };
     mockStore = [note, ...mockStore];
-    return delay(note);
+    return mockDelay(note);
   }
 
   const listId = requireListId("create the customer");
@@ -181,7 +178,7 @@ async function updateCustomerNoteFields(
     const next: CustomerNote = { ...mockStore[idx], modifiedAt: new Date() };
     applyMockFields(next, fields);
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   await graphFetch(`${itemPath(id)}/fields`, {
@@ -214,7 +211,7 @@ function applyMockFields(next: CustomerNote, fields: Record<string, unknown>) {
 export async function deleteCustomerNote(id: number): Promise<void> {
   if (USE_MOCK) {
     mockStore = mockStore.filter((c) => c.id !== id);
-    return delay(undefined);
+    return mockDelay(undefined);
   }
   await graphFetch(itemPath(id), { method: "DELETE" });
 }
@@ -236,7 +233,7 @@ export async function addCustomerNoteComment(
       modifiedAt: new Date(),
     };
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   const existing = await graphFetch<GraphListItem>(
@@ -266,7 +263,7 @@ export async function editCustomerNoteComment(
       modifiedAt: new Date(),
     };
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   const existing = await graphFetch<GraphListItem>(

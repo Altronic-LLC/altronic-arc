@@ -16,6 +16,7 @@ import { useFileDrop } from "./useFileDrop";
 import { useDraft } from "@/hooks/useDraft";
 import { plainTextToHtml } from "@/lib/richText";
 import { linkifyHtml } from "@/lib/linkify";
+import { isEditConflict } from "@/lib/listWriteErrors";
 import { RichTextEditor } from "./RichTextEditor";
 import {
   RichTextWarningDialog,
@@ -95,6 +96,20 @@ function nonEmptyHtml(html: string): string {
   return stripped ? html : "";
 }
 
+/**
+ * Why a post failed, short enough to read in the comment box. A Graph error's
+ * message carries the whole request URL and response body; the useful part is
+ * the cause.
+ */
+function failureReason(err: unknown): string {
+  if (isEditConflict(err)) {
+    return "SharePoint was still saving another change to this item";
+  }
+  const message = err instanceof Error ? err.message : "";
+  if (!message) return "unknown error";
+  return message.length > 140 ? `${message.slice(0, 140)}…` : message;
+}
+
 /** Stable empty result so the closed picker doesn't churn the memo. */
 const NO_CANDIDATES: MentionCandidates = { people: [], total: 0, truncated: false };
 
@@ -132,6 +147,14 @@ export function CommentComposer({
   const [richHtml, setRichHtml] = useState(draft.initialRich ? draft.initialValue : "");
   const [warnRich, setWarnRich] = useState(false);
 
+  // Files already uploaded by an attempt that then failed to post, by
+  // attachment id, so Send-again links them instead of uploading copies.
+  const uploadedRef = useRef(new Map<string, { name: string; webUrl: string }>());
+  // What's in the box NOW, for a failure that resolves after the box was
+  // cleared — the closure in handleSend only sees what was there at Send.
+  const latestRef = useRef({ text, richHtml, attachments });
+  latestRef.current = { text, richHtml, attachments };
+
   // Mention popup state: the open boolean plus what the user has typed
   // after the `@`. We compute candidates from mentionablePeople filtered
   // by the query. activeIndex tracks the keyboard-highlighted candidate.
@@ -161,6 +184,7 @@ export function CommentComposer({
     setAttachments((prev) => {
       const removed = prev.find((a) => a.id === id);
       if (removed?.objectUrl) URL.revokeObjectURL(removed.objectUrl);
+      uploadedRef.current.delete(id);
       return prev.filter((a) => a.id !== id);
     });
   }
@@ -263,68 +287,139 @@ export function CommentComposer({
     if (!trimmed && !richBody && attachments.length === 0) return;
     setBusy(true);
     setUploadError(null);
-    try {
-      // Two builders, one output shape. Plain text is escaped and wrapped in
-      // <p> by buildCommentHtml; rich text is ALREADY markup, so it only
-      // needs the chips injecting — running it through buildCommentHtml would
-      // show `<strong>` as visible text. Both emit the same chip markup, so
-      // extractMentionedRecipients and the whole email path read either.
-      let html = rich
-        ? richBody
-          ? // Linkify FIRST, then chips: both walk text nodes, and doing
-            // links first means a chip can never land inside an anchor.
-            injectMentionsIntoHtml(linkifyHtml(richBody), mentions)
-          : ""
-        : trimmed
-          ? buildCommentHtml(trimmed, mentions)
-          : "";
 
-      // If the parent wired up an upload hook (Task case), push each
-      // attached File to the project folder first, then inline a clean
-      // hyperlink for each one at the bottom of the body. The legacy
-      // `attachments` channel goes empty in that path — the links live
-      // in the comment HTML, which is what users actually see + click.
-      if (uploadFile && attachments.length > 0) {
-        const uploaded: { name: string; webUrl: string }[] = [];
+    // Everything needed to put the comment back if the post fails.
+    const sent = { text, richHtml, rich, mentions, attachments };
+
+    // Two builders, one output shape. Plain text is escaped and wrapped in
+    // <p> by buildCommentHtml; rich text is ALREADY markup, so it only
+    // needs the chips injecting — running it through buildCommentHtml would
+    // show `<strong>` as visible text. Both emit the same chip markup, so
+    // extractMentionedRecipients and the whole email path read either.
+    let html = rich
+      ? richBody
+        ? // Linkify FIRST, then chips: both walk text nodes, and doing
+          // links first means a chip can never land inside an anchor.
+          injectMentionsIntoHtml(linkifyHtml(richBody), mentions)
+        : ""
+      : trimmed
+        ? buildCommentHtml(trimmed, mentions)
+        : "";
+
+    // If the parent wired up an upload hook (Task case), push each
+    // attached File to the project folder first, then inline a clean
+    // hyperlink for each one at the bottom of the body. The legacy
+    // `attachments` channel goes empty in that path — the links live
+    // in the comment HTML, which is what users actually see + click.
+    if (uploadFile && attachments.length > 0) {
+      const uploaded: { name: string; webUrl: string }[] = [];
+      try {
         for (const a of attachments) {
-          // eslint-disable-next-line no-await-in-loop
-          const result = await uploadFile(a.file);
+          // A file an earlier, failed attempt already uploaded is linked
+          // again rather than uploaded twice — a second upload lands as
+          // "IMG_1224 (2).jpg" beside the first.
+          let result = uploadedRef.current.get(a.id);
+          if (!result) {
+            // eslint-disable-next-line no-await-in-loop
+            result = await uploadFile(a.file);
+            uploadedRef.current.set(a.id, result);
+          }
           uploaded.push(result);
         }
-        const linksHtml = uploaded
+      } catch (err) {
+        setUploadError(
+          err instanceof Error
+            ? `Couldn't attach file: ${err.message}`
+            : "Couldn't attach file.",
+        );
+        setBusy(false);
+        return;
+      }
+      html =
+        html +
+        uploaded
           .map(
             (u) =>
               `<p>📎 <a href="${escapeAttr(u.webUrl)}" target="_blank" rel="noopener noreferrer">${escapeText(u.name)}</a></p>`,
           )
           .join("");
-        html = html + linksHtml;
-        await onSubmit(html, []);
-      } else {
-        // Legacy in-memory attachment shape (EIR composer + mock mode).
-        await onSubmit(html, attachments);
-      }
-
-      // Clear FIRST: `clear()` cancels the pending debounced write, which
-      // would otherwise land after the post and restore a comment that has
-      // already been sent.
-      draft.clear();
-      setText("");
-      setRichHtml("");
-      // Release any blob URLs we created for previews.
-      for (const a of attachments) {
-        if (a.objectUrl) URL.revokeObjectURL(a.objectUrl);
-      }
-      setAttachments([]);
-      setMentions([]);
-    } catch (err) {
-      setUploadError(
-        err instanceof Error
-          ? `Couldn't attach file: ${err.message}`
-          : "Couldn't attach file.",
-      );
-    } finally {
-      setBusy(false);
     }
+
+    // Hand it over, then clear straight away so the next comment can be
+    // typed while this one saves. Clear the draft FIRST: `clear()` cancels
+    // the pending debounced write, which would otherwise land after the post
+    // and restore a comment that has already been sent.
+    let pending: void | Promise<void>;
+    try {
+      // Legacy in-memory attachment shape (EIR composer + mock mode) when
+      // there's no upload hook; otherwise the links are already in the body.
+      pending = onSubmit(html, uploadFile ? [] : attachments);
+    } catch (err) {
+      pending = Promise.reject(err);
+    }
+    draft.clear();
+    setText("");
+    setRichHtml("");
+    setAttachments([]);
+    setMentions([]);
+    setBusy(false);
+
+    try {
+      await pending;
+    } catch (err) {
+      restoreFailedComment(sent, err);
+      return;
+    }
+    // Posted. Release the blob URLs made for previews, and forget the
+    // uploads — they belong to a comment that exists now.
+    for (const a of sent.attachments) {
+      if (a.objectUrl) URL.revokeObjectURL(a.objectUrl);
+      uploadedRef.current.delete(a.id);
+    }
+  }
+
+  /**
+   * The post failed: put the comment back in the box, chips and files
+   * included, so Send tries again. Before this, a failed comment was simply
+   * gone, and re-pasting its text turned every @-mention into plain text that
+   * notifies and subscribes nobody (Thomas Terhune, 2026-09-30).
+   *
+   * Only an `onSubmit` that RETURNS the save's promise can be restored — a
+   * fire-and-forget caller resolves at once, and its failure never reaches
+   * here.
+   */
+  function restoreFailedComment(
+    sent: {
+      text: string;
+      richHtml: string;
+      rich: boolean;
+      mentions: Person[];
+      attachments: PendingAttachment[];
+    },
+    err: unknown,
+  ) {
+    const reason = failureReason(err);
+    const now = latestRef.current;
+    const startedAnother = now.text.trim() !== "" || nonEmptyHtml(now.richHtml) !== "" || now.attachments.length > 0;
+    if (startedAnother) {
+      // Don't overwrite what they're typing now. The failed comment's files
+      // are still in the project folder, so nothing uploaded is lost.
+      for (const a of sent.attachments) {
+        if (a.objectUrl) URL.revokeObjectURL(a.objectUrl);
+        uploadedRef.current.delete(a.id);
+      }
+      setUploadError(`Your last comment didn't post (${reason}). Please send it again.`);
+      return;
+    }
+    setRich(sent.rich);
+    setText(sent.text);
+    setRichHtml(sent.richHtml);
+    setMentions(sent.mentions);
+    setAttachments(sent.attachments);
+    draft.save(sent.rich ? sent.richHtml : sent.text, sent.rich);
+    setUploadError(
+      `Your comment didn't post (${reason}). It's back in the box — press Send to try again.`,
+    );
   }
 
   /**
@@ -599,7 +694,10 @@ export function CommentComposer({
         </button>
       </div>
       {uploadError && (
-        <div className="mt-2 rounded-md border border-cooper-red/30 bg-cooper-red/10 px-2 py-1 text-xs text-cooper-red">
+        <div
+          role="alert"
+          className="mt-2 rounded-md border border-cooper-red/30 bg-cooper-red/10 px-2 py-1 text-xs text-cooper-red"
+        >
           {uploadError}
         </div>
       )}

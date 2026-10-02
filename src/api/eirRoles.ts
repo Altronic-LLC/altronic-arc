@@ -2,6 +2,7 @@ import type { EirRole, EirRoleEntry, GraphListItem } from "@/types/task";
 import { EIR_ROLES } from "@/types/task";
 import { graphFetch, graphFetchAll } from "./graph";
 import { SP_EIR_ROLES_LIST_ID, SP_SITE_ID, USE_MOCK } from "./config";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // EIR Roles list. One row per user controlling which EIR fields they may edit
@@ -44,10 +45,6 @@ const MOCK_STORE: EirRoleEntry[] = [
   },
 ];
 
-function delay<T>(value: T, ms = 60): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
-
 /**
  * Parse the stored Roles CSV into a validated, de-duplicated EirRole[].
  * Unknown tokens are dropped so a typo in SharePoint can't break the UI.
@@ -79,7 +76,7 @@ function pickString(f: Record<string, unknown>, keys: string[]): string {
 
 export async function listEirRoles(): Promise<EirRoleEntry[]> {
   if (USE_MOCK) {
-    return delay(MOCK_STORE.map((e) => ({ ...e, roles: [...e.roles] })));
+    return mockDelay(MOCK_STORE.map((e) => ({ ...e, roles: [...e.roles] })));
   }
   if (!SP_EIR_ROLES_LIST_ID) return [];
 
@@ -121,7 +118,7 @@ export async function addEirRole(input: {
       note: input.note,
     };
     MOCK_STORE.push(entry);
-    return delay({ ...entry, roles: [...entry.roles] });
+    return mockDelay({ ...entry, roles: [...entry.roles] });
   }
   if (!SP_EIR_ROLES_LIST_ID) {
     throw new Error("Cannot add EIR role: VITE_SP_EIR_ROLES_LIST_ID is not set.");
@@ -160,7 +157,7 @@ export async function updateEirRole(input: {
       if (input.roles !== undefined) entry.roles = parseRoles(serializeRoles(input.roles));
       if (input.note !== undefined) entry.note = input.note;
     }
-    await delay(null);
+    await mockDelay(null);
     return;
   }
   if (!SP_EIR_ROLES_LIST_ID) {
@@ -180,7 +177,7 @@ export async function removeEirRole(id: number): Promise<void> {
   if (USE_MOCK) {
     const idx = MOCK_STORE.findIndex((e) => e.id === id);
     if (idx >= 0) MOCK_STORE.splice(idx, 1);
-    await delay(null);
+    await mockDelay(null);
     return;
   }
   if (!SP_EIR_ROLES_LIST_ID) {

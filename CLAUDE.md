@@ -90,6 +90,37 @@ When adding a new operation (e.g. updating attachments):
 This pattern keeps the mock and real implementations explicit, side by side,
 in one place — easy to compare, easy to keep in sync.
 
+### Mock latency — `mockDelay()`, and why it is zero in tests
+
+A mock branch waits before it answers, so the demo feels like a real network
+(spinners show, optimistic updates are visible). **Use `mockDelay(value)` from
+`src/api/mockLatency.ts` — never a private `delay()` helper.** 47 modules each
+carried their own copy of 40–300ms until 2026-10-01, and the suite waited on
+every one: ~430s of the 672s spent inside test files was mock latency. The
+CMMS API tests (`scheduledMaintenance`, `maintenanceTasks`) took 20s+ each for
+work that takes milliseconds. Making it zero under Vitest cut the local suite
+from ~65s to ~45s.
+
+Three things that go with it:
+
+- **Zero is still a 0ms TIMER, not a bare resolved promise.** A mock call stays
+  asynchronous the way a real one is. Resolving inline was tried first and
+  broke 37 tests on ordering alone; the timer broke 12, all genuine.
+- **A test that needs a write still IN FLIGHT calls `setMockLatency(ms)`** —
+  "the mentioned person shows as a watcher while the comment is still
+  posting", "Uploading…" on screen. Those tests used to pass because every
+  write took 200ms, which was luck, not a contract. `src/test/setup.ts` resets
+  the override after every test (pinned in `mockLatency.test.ts`).
+- **A test that only passed because one query landed AFTER another needs a
+  real wait.** Two were found when the delay went: `ProjectFoldersView` (the
+  mock folder and its project share a title, so the name appears twice once
+  Projects loads) and an edit-mode `ScheduledMaintenanceFormModal` case (the
+  Equipment trigger reads "No asset" until the register loads). Wait for the
+  data you're about to interact with; don't lean on load order.
+
+`graph.ts`'s and `projectFiles.ts`'s `sleep()` are REAL throttle/retry
+backoffs, not mock latency, and are deliberately untouched.
+
 ## Backlog (`BACKLOG.md`)
 
 Queued work that hasn't been picked up yet lives in `BACKLOG.md` at the
@@ -222,6 +253,7 @@ src/
 │
 ├── api/                          All mock/real branches live here (USE_MOCK)
 │   ├── config.ts                 USE_MOCK, SITES registry, every list ID, role-enforcement flags
+│   ├── mockLatency.ts            mockDelay() — the ONE fake round-trip for every mock branch; zero under Vitest
 │   ├── appAccess.ts              Which lists each app needs + site labels (drives the access gating)
 │   ├── accessProbe.ts            One Graph $batch at sign-in: which lists can this user read?
 │   ├── listItemCount.ts          SharePoint's UNTRIMMED item count — "the rows exist, you just can't see them"
@@ -5060,6 +5092,17 @@ Changing the year keeps the month (and vice versa) — one picker moving the
 other is disorienting, and both are one click away anyway. The arrows stay for
 nudging a month either way.
 
+**An optimistic patch reads a picked date through `parseWrittenDate`**, never
+`new Date(v)` (Ray, 2026-09-30: an EIR's date showed 9/29 for a few seconds
+after picking 9/30, then corrected itself when the refetch landed). The picker
+writes a bare `yyyy-mm-dd`; `new Date()` makes that UTC midnight, which the
+detail pages' local getters read as the day before. The SAVE was always right —
+only the moment between pressing and SharePoint answering was wrong. All five
+date columns that patched this way (EIR Requested Completion + LTB, task and
+Operations task Due Date, Build Request Quoted Ship Date) and their mock stores
+use it now. A test for this has to pin `process.env.TZ` to a US zone — at UTC
+the bug doesn't exist and every test passes.
+
 Date maths goes through `src/lib/dateInput.ts` — `parseIsoDate` / `toIsoDate`
 build and read LOCAL dates. Don't use `new Date("2026-05-01")` (parses as UTC,
 lands on the previous day in every US timezone) or `.toISOString().slice(0, 10)`
@@ -6455,6 +6498,54 @@ beforeEach(() => {
 Two older files still use the one-line form and pass only because their
 mocks don't throw when called bare: `accessProbe.hiddenRows.test.ts` and
 `useCommentOriginLink.test.tsx`.
+
+### act() warnings — the suite has none, keep it that way
+
+The CI log carried 252 "not wrapped in act(...)" warnings across 18 files
+until 2026-10-02. All tests passed; the warnings were noise that would hide a
+real one. They're worth getting right before a React 19 upgrade, because 19
+is stricter about act.
+
+**You probably can't see them locally.** Vitest 4 notices it's running under
+an AI agent and switches to a quiet reporter that drops console output from
+passing tests. A test that deliberately updates state outside act printed
+nothing. To see what CI sees, run without `.env.local` (move it aside) and
+with:
+
+```
+npx vitest run --reporter=default --silent=false
+```
+
+Five patterns caused all of it:
+
+- **`await result.current.mutateAsync(...)` in a renderHook test.** Wrap it:
+  `await act(() => result.current.mutateAsync(...))`. `act` returns the
+  callback's value, so `const out = await act(() => …)` works.
+- **An act() that REJECTS.** `await expect(act(() => call)).rejects…` keeps
+  React 18's act queue set after the rejection. Every later update in that
+  test (inside `waitFor` too) then warns "the current testing environment is
+  not configured to support act". Put the assertion INSIDE the act:
+  `await act(() => expect(call).rejects.toThrow(...))`. The act then resolves
+  and cleans up.
+- **Resetting a module-level store in the file's own `afterEach`**
+  (`clearAccessDenials`, `resetSessionExpired`). The file's `afterEach` runs
+  BEFORE the setup file's `cleanup()`, so the reset re-renders everything
+  still mounted, outside act. One reset in DashboardView.access caused 58
+  warnings, one per card. Call `cleanup()` first, then reset.
+- **A bare DOM call**, such as `form.requestSubmit()` or `button.click()`.
+  Wrap it in `act()`, or use `userEvent`, which already does.
+- **Reading the mock store right after a save while the component is still
+  mounted** (`await listScheduledMaintenance()` once `onClose` has fired).
+  React Query is still telling the component its mutations settled, and those
+  re-renders land during the bare await. Do the read inside act (see
+  `readSchedules()` in `ScheduledMaintenanceFormModal.test.tsx`).
+
+Wrapping `requestSubmit()` made LogPmCompletionModal's refusal render
+straight away, and that exposed a weak test. It had been finding the gate
+NOTICE, which is on screen before anyone submits, and never checked the
+refusal error at all. It now requires both copies. The same thing can happen
+elsewhere: if wrapping a call in act breaks an assertion, check what the
+assertion was really matching before you loosen it.
 
 ### A row-cap test must not render 150 real rows — it gates the deploy
 
@@ -8134,6 +8225,40 @@ or VPN connection can take minutes or be cut off. Awaiting it held the upload
 — and a comment's Post button — hostage even though the project-folder copy
 (chunked, retried) had already landed. `useTaskFiles.upload.test.tsx` pins it,
 verified against the old awaited version.
+
+**That background copy WRITES THE TASK ITEM while the comment PATCH is in
+flight**, so SharePoint refused the comment with `409 resourceModified`
+("usually an eTag mismatch") — ARC sends no If-Match; this is SharePoint's
+own concurrency check. Thomas Terhune hit it on task 3347 with two pictures
+(2026-09-30), and the composer had already cleared, so the comment was gone:
+he re-pasted it, which turned his @-mentions into plain text that subscribed
+nobody, and each retry re-uploaded the pictures as `IMG_1224 (2).jpg`. Fixed
+in v0.169.5, in three places:
+
+- **`api/tasks.ts` retries a task write on `isEditConflict`**
+  (`lib/listWriteErrors.ts`), up to `CONFLICT_RETRY_DELAYS_MS`. A whole-value
+  write (Status, Watchers, …) is simply sent again. **A Communication write
+  is NOT** — `updateTaskFields` refuses to retry one blind, because the value
+  was built from an earlier read; `addComment` / `editComment` go through
+  `rewriteCommunication`, which RE-READS inside the retry. The comment's
+  timestamp is fixed once, outside it. Pinned in
+  `tasks.conflictRetry.test.ts` (real mode), each guard verified by breaking
+  it.
+- **The composer restores a failed comment** — text, rich mode, mention chips
+  and files — when `onSubmit` RETURNS the save's promise and it rejects. It
+  still clears at once; a fire-and-forget caller is unchanged. **Every
+  composer in ARC returns its promise** (v0.169.6) — each
+  `handleAddComment` does `return addComment.mutateAsync(…)`, never
+  `.mutate(…)`. `views/commentRestore.wiring.test.ts` enforces it across all
+  19 files that render a composer, and was verified by reverting one; a NEW
+  composer belongs in its list. The inline "Your comment was removed from the
+  thread" banners on the Task, Operations and Maintenance pages were removed
+  — the composer reports the failure itself.
+- **Files an attempt already uploaded are linked again, not re-uploaded**
+  (`uploadedRef` in `CommentComposer`, keyed by attachment id).
+
+Don't "fix" the race by awaiting the background copy again — that is the
+large-file hang this section opens with.
 
 **Every other list's attachments are that same single request**, and they
 must stay list-item attachments — Ray was explicit (2026-09-29): a file goes

@@ -13,6 +13,7 @@ import {
   POTTING_SAMPLE_MOCK_ENTRIES,
   PSR_NOTIFICATION_MOCK,
 } from "@/data/pottingSampleMockData";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // Coils — Potting Sample Log API.
@@ -37,10 +38,6 @@ function toPottingSampleEntry(item: GraphListItem): PottingSampleEntry {
     volume: Number(fields.Volume ?? 0),
     weight: Number(fields.Weight ?? 0),
   };
-}
-
-function mockDelay<T>(value: T, ms = 250): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
 }
 
 let mockEntries = POTTING_SAMPLE_MOCK_ENTRIES;

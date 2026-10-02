@@ -13,6 +13,7 @@ import {
   useUpdateSupplierLogo,
 } from "./useSuppliers";
 import { newlyMentionedHtml } from "@/lib/mentions";
+import { setMockLatency } from "@/api/mockLatency";
 import type { Supplier } from "@/types/task";
 
 const notifyMentions = vi.hoisted(() =>
@@ -221,6 +222,9 @@ describe("useAddSupplierComment", () => {
     await waitFor(() => expect(result.current.list.data?.length).toBeGreaterThan(0));
     const supplier = result.current.list.data!.find((s) => s.id === 29)!;
 
+    // Mock calls answer instantly in tests (api/mockLatency.ts) — hold the
+    // comment write open so it is still posting when we look.
+    setMockLatency(200);
     act(() => {
       result.current.add.mutate({
         id: supplier.id,

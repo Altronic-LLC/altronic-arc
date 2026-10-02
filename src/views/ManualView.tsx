@@ -889,14 +889,21 @@ const SECTIONS: ManualSection[] = [
           build requests, and individual build request parts alike. They
           appear in Watchers as soon as you press Post; if the comment fails
           to save, nobody is added, and if someone can't be added because they
-          have no SharePoint account, ARC tells you.{" "}
+          have no SharePoint account, ARC tells you. An @-mention only counts
+          when you pick the person from the list that opens as you type{" "}
+          <code>@</code> — a name typed or pasted in full stays plain text, and
+          notifies nobody. A comment that fails to post goes back in the
+          comment box, mentions and files included, so you can press Send
+          again without retyping it; its files aren't uploaded twice.{" "}
           <strong>
             Watchers and whoever the item is assigned to are emailed on every new
             comment
           </strong>{" "}
           — not just when they're mentioned — so the whole thread stays in the
           loop. The email says why it reached you: mentioned, assigned to you, or
-          watching. You're
+          watching. A comment that is only attached files, with no text, is
+          emailed too, and reads as "Name added an attachment" with the file
+          names listed. You're
           never emailed for your own comment, unless you @-mention yourself. To stop
           watching, the mentioned user removes themselves from the
           Watchers field on the detail sidebar. (Heads-up: a fresh

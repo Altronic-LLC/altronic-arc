@@ -12,7 +12,7 @@ vi.mock("@/hooks/useMaintenanceRoles", () => ({
   useMyMaintenanceRoles: () => maintenanceAccess.value,
   useResolveMaintenanceAccess: () => async () => maintenanceAccess.value,
 }));
-import { screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
 import {
@@ -256,10 +256,15 @@ describe("LogPmCompletionModal", () => {
       );
 
       const form = container.querySelector("#log-pm-form") as HTMLFormElement;
-      form.requestSubmit();
+      act(() => form.requestSubmit());
 
-      expect(await screen.findByText(/limited to\s+maintenance techs/i)).toBeInTheDocument();
-      expect((await listMaintenanceTasks()).length).toBe(before);
+      // The gate notice is on screen before submitting; the refused submit adds
+      // the same sentence as its error. Matching one copy proved nothing.
+      await waitFor(() =>
+        expect(screen.getAllByText(/limited to\s+maintenance techs/i)).toHaveLength(2),
+      );
+      // Read inside act(): the modal's own queries are still landing.
+      expect((await act(() => listMaintenanceTasks())).length).toBe(before);
     });
 
     it("lets a tech log one", async () => {

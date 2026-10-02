@@ -63,3 +63,25 @@ export function htmlToPlainText(html: string): string {
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
+
+/** The marker `CommentComposer` puts in front of each uploaded file's link. */
+const ATTACHMENT_MARKER = "📎";
+
+/**
+ * The file names, when a comment's plain-text excerpt is NOTHING BUT attached
+ * files — else null.
+ *
+ * `CommentComposer` writes each uploaded file as its own `<p>📎 <a>name</a></p>`,
+ * so an attachment-only comment's excerpt is one `📎 name` line per file. The
+ * notification reads such a comment as "X added an attachment" rather than a
+ * "New comment" whose whole body is a paperclip (Ray, 2026-10-02). Any line
+ * that isn't a file — a sentence, a mention — makes it a real comment.
+ */
+export function attachmentOnlyFileNames(excerpt: string): string[] | null {
+  const lines = excerpt
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+  if (lines.length === 0 || !lines.every((l) => l.startsWith(ATTACHMENT_MARKER))) return null;
+  return lines.map((l) => l.slice(ATTACHMENT_MARKER.length).trim());
+}

@@ -3,6 +3,7 @@ import { SITES, USE_MOCK } from "./config";
 import type { GraphListItem } from "@/types/task";
 import type { IgnitionQcRecord } from "@/lib/ignitionQc";
 import { IGNITION_QC_SAMPLE_RECORDS } from "@/data/ignitionQcMockData";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // Ignition QC API
@@ -214,11 +215,6 @@ function toIgnitionQcRecord(
     toRP: Number(field("toRP") ?? 0),
     other: Number(field("other") ?? 0),
   };
-}
-
-// Simulate a small delay in mock mode so loading states can be seen.
-function mockDelay(): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, 300));
 }
 
 let mockRecords = IGNITION_QC_SAMPLE_RECORDS;

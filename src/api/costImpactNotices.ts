@@ -9,6 +9,7 @@ import {
 import { appendComment, replaceComment } from "@/lib/communicationParser";
 import { toStoredRichText } from "@/lib/richText";
 import { MOCK_COST_IMPACT_NOTICES } from "@/data/costImpactMockData";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // "Cost Impact Portal" — Supply Chain's notice that a purchased part's cost
@@ -24,10 +25,6 @@ import { MOCK_COST_IMPACT_NOTICES } from "@/data/costImpactMockData";
 // =============================================================================
 
 let mockStore: CostImpactNotice[] = MOCK_COST_IMPACT_NOTICES.map((n) => ({ ...n }));
-
-function delay<T>(value: T, ms = 200): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
 
 function requireListId(action: string): string {
   if (!SP_COST_IMPACT_NOTICES_LIST_ID) {
@@ -50,7 +47,7 @@ const SELECT =
 
 export async function listCostImpactNotices(): Promise<CostImpactNotice[]> {
   if (USE_MOCK) {
-    return delay([...mockStore].sort(compareCostImpactNotices).map((n) => ({ ...n })));
+    return mockDelay([...mockStore].sort(compareCostImpactNotices).map((n) => ({ ...n })));
   }
   const listId = requireListId("load cost impact notices");
   const items = await graphFetchAll<GraphListItem>(
@@ -63,7 +60,7 @@ export async function listCostImpactNotices(): Promise<CostImpactNotice[]> {
 export async function getCostImpactNotice(id: number): Promise<CostImpactNotice | null> {
   if (USE_MOCK) {
     const found = mockStore.find((n) => n.id === id);
-    return delay(found ? { ...found } : null);
+    return mockDelay(found ? { ...found } : null);
   }
   try {
     const item = await graphFetch<GraphListItem>(
@@ -105,7 +102,7 @@ export async function createCostImpactNotice(
       modifiedAt: now,
     };
     mockStore = [notice, ...mockStore];
-    return delay(notice);
+    return mockDelay(notice);
   }
 
   const listId = requireListId("raise the cost impact notice");
@@ -137,7 +134,7 @@ export async function updateCostImpactNoticeFields(
     const next: CostImpactNotice = { ...mockStore[idx], modifiedAt: new Date() };
     applyMockFields(next, fields);
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   await graphFetch(`${itemPath(id)}/fields`, { method: "PATCH", body: JSON.stringify(fields) });
@@ -183,7 +180,7 @@ export async function addCostImpactNoticeComment(
       modifiedAt: new Date(),
     };
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   const existing = await graphFetch<GraphListItem>(
@@ -212,7 +209,7 @@ export async function editCostImpactNoticeComment(
       modifiedAt: new Date(),
     };
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   const existing = await graphFetch<GraphListItem>(

@@ -37,6 +37,7 @@ import { listOperationsTaskReferences } from "./operationsTasks";
 import { listOperationsProjects } from "./operationsProjects";
 import { listMaintenanceReferenceLists } from "./maintenanceReferenceLists";
 import { MOCK_MAINTENANCE_TASKS } from "@/data/maintenanceMockData";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // Altronic Maintenance Tasks — the CMMS work orders, on the PMO site
@@ -111,10 +112,6 @@ export function resetMaintenanceMockStore(): void {
     }
   }
   mockStore = MOCK_MAINTENANCE_TASKS.map(reviveTask);
-}
-
-function delay<T>(value: T, ms = 200): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
 }
 
 function requireListId(action: string): string {
@@ -203,7 +200,7 @@ export async function listMaintenanceTasks(): Promise<MaintenanceTask[]> {
   if (USE_MOCK) {
     const tasks = [...mockStore].sort(compareMaintenanceTasks).map((t) => ({ ...t }));
     await resolveTaskReferences(tasks);
-    return delay(tasks);
+    return mockDelay(tasks);
   }
 
   // The site-user directory in parallel with the items: Assigned, Reported By
@@ -277,7 +274,7 @@ export async function updateMaintenanceTaskFields(
     await resolveTaskReferences([next]);
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
     saveMockStoreToStorage();
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   await graphFetch(`${itemPath(id)}/fields`, { method: "PATCH", body: JSON.stringify(safe) });
@@ -598,7 +595,7 @@ export async function addMaintenanceComment(
     };
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
     saveMockStoreToStorage();
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   const existing = await graphFetch<GraphListItem>(
@@ -630,7 +627,7 @@ export async function editMaintenanceComment(
     };
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
     saveMockStoreToStorage();
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   const existing = await graphFetch<GraphListItem>(
@@ -713,7 +710,7 @@ export async function createMaintenanceTask(
     await resolveTaskReferences([task]);
     mockStore = [task, ...mockStore];
     saveMockStoreToStorage();
-    return delay(task);
+    return mockDelay(task);
   }
 
   const fields = buildMaintenanceTaskCreateFields(input, woNumber);

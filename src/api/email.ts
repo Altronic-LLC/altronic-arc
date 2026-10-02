@@ -22,6 +22,7 @@ import type {
   Person,
 } from "@/types/task";
 import { appItemUrl } from "@/lib/appUrl";
+import { attachmentOnlyFileNames } from "@/lib/htmlText";
 import {
   buildAssigneeChangeEmails,
   buildChecklistToggleEmails,
@@ -403,8 +404,16 @@ async function sendOne(input: {
 }): Promise<void> {
   const { target } = input;
   const reason = input.recipient.reason;
-  const subject =
-    reason === "mentioned"
+  // A comment that is only files reads as "X added an attachment", not as a
+  // "New comment" whose whole body is a paperclip. An EDIT keeps its own
+  // wording: "updated a comment" is still what happened.
+  const attachmentNames =
+    reason === "edited" ? null : attachmentOnlyFileNames(input.commentExcerpt);
+  const subject = attachmentNames
+    ? `${input.sender.displayName} added ${
+        attachmentNames.length === 1 ? "an attachment" : `${attachmentNames.length} attachments`
+      } to ${target.title}`
+    : reason === "mentioned"
       ? `You were mentioned in ${target.title}`
       : reason === "edited"
         ? `Updated comment on ${target.title}`
@@ -417,6 +426,7 @@ async function sendOne(input: {
     reason,
     itemTitle: target.title,
     commentExcerpt: input.commentExcerpt,
+    attachmentNames,
     url,
   });
 
@@ -1037,6 +1047,8 @@ interface MentionEmailContext {
   reason: MentionRecipient["reason"];
   itemTitle: string;
   commentExcerpt: string;
+  /** Set when the comment is ONLY attached files — see attachmentOnlyFileNames. */
+  attachmentNames?: string[] | null;
   url: string;
 }
 
@@ -1143,6 +1155,27 @@ function renderMentionEmail(ctx: MentionEmailContext): string {
   const sender = escapeHtml(ctx.senderName);
   const excerpt = escapeHtml(ctx.commentExcerpt).replace(/\n/g, "<br/>");
   const copy = KIND_COPY[ctx.kind];
+  const files = ctx.attachmentNames;
+  if (files) {
+    const what = files.length === 1 ? "an attachment" : `${files.length} attachments`;
+    const why =
+      ctx.reason === "assigned"
+        ? " assigned to you"
+        : ctx.reason === "submitted"
+          ? " you submitted"
+          : ctx.reason === "watching"
+            ? " you're watching"
+            : "";
+    return renderEmailShell({
+      recipientName: ctx.recipientName,
+      introHtml: `<strong>${sender}</strong> added ${what} to ${copy.phrase}${why}.`,
+      calloutLabel: copy.calloutLabel,
+      calloutTitle: ctx.itemTitle,
+      messageHtml: files.map((f) => `📎 ${escapeHtml(f)}`).join("<br/>"),
+      buttonText: copy.buttonText,
+      url: ctx.url,
+    });
+  }
   const intro =
     ctx.reason === "mentioned"
       ? `You were mentioned in ${copy.phrase} by <strong>${sender}</strong>.`

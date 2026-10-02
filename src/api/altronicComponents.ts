@@ -33,6 +33,7 @@ import {
   readWholeList,
   rowsForTitle,
 } from "./partsListShared";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // Altronic Component List API — the HCO electronic components (601/611 Through
@@ -64,10 +65,6 @@ function clone(c: AltronicComponent): AltronicComponent {
   return { ...c, comments: [...c.comments] };
 }
 
-function delay<T>(value: T, ms = 220): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
-
 const byPartNumber = (a: AltronicComponent, b: AltronicComponent) =>
   comparePartNumbers(a.partNumber, b.partNumber) || a.id - b.id;
 
@@ -77,7 +74,7 @@ function listId(): string {
 
 /** Every component, in part-number order. */
 export async function listAltronicComponents(): Promise<AltronicComponent[]> {
-  if (USE_MOCK) return delay(mockStore.map(clone).sort(byPartNumber));
+  if (USE_MOCK) return mockDelay(mockStore.map(clone).sort(byPartNumber));
   const items = await readWholeList(listId(), ALTRONIC_COMPONENT_SELECT);
   return items.map(toAltronicComponent).sort(byPartNumber);
 }
@@ -159,7 +156,7 @@ export async function createAltronicComponent(
       modifiedAt: now,
     };
     mockStore.push(created);
-    return delay(clone(created));
+    return mockDelay(clone(created));
   }
 
   const fields = {
@@ -226,7 +223,7 @@ async function reuseComponent(
       createdAt: comments[0]?.timestamp ?? now,
       modifiedAt: now,
     };
-    return delay(clone(mockStore[idx]));
+    return mockDelay(clone(mockStore[idx]));
   }
 
   const fresh = await readItem(listId(), id, ALTRONIC_COMPONENT_SELECT);
@@ -273,7 +270,7 @@ export async function deleteAltronicComponent(
       comments: [...history, ...mockStore[idx].comments],
       modifiedAt: new Date(),
     };
-    return delay(clone(mockStore[idx]));
+    return mockDelay(clone(mockStore[idx]));
   }
 
   if (!communicationAvailable(listId())) throw new Error(COMMUNICATION_MISSING);
@@ -313,7 +310,7 @@ export async function updateAltronicComponent(
     const idx = mockStore.findIndex((c) => c.id === id);
     if (idx < 0) throw new Error(`Component ${id} isn't on the Component List any more.`);
     mockStore[idx] = { ...mockStore[idx], ...patch, id, modifiedAt: new Date() };
-    return delay(clone(mockStore[idx]));
+    return mockDelay(clone(mockStore[idx]));
   }
   const fields = columnsFromPatch(COMPONENT_FIELDS, patch);
   if (Object.keys(fields).length > 0) await patchItem(listId(), id, fields);
@@ -347,7 +344,7 @@ export async function approveAltronicComponent(
       comments: [...parseCommunication(appendComment("", record)), ...mockStore[idx].comments],
       modifiedAt: new Date(),
     };
-    return delay(clone(mockStore[idx]));
+    return mockDelay(clone(mockStore[idx]));
   }
 
   if (!communicationAvailable(listId())) throw new Error(COMMUNICATION_MISSING);

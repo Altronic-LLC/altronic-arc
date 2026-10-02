@@ -54,6 +54,7 @@ import {
   type MentionAutoWatch,
 } from "./mentionAutoWatch";
 import { buildRequestsForTask } from "@/lib/buildRequestFromTask";
+import { parseWrittenDate } from "@/lib/dateInput";
 
 // =============================================================================
 // Build Request hooks — two query caches (headers + items) with the same
@@ -205,7 +206,7 @@ function applyBrFieldsLocally(b: BuildRequest, fields: Record<string, unknown>):
   }
   if ("QuotedShipDate" in fields) {
     const v = fields.QuotedShipDate;
-    next.quotedShipDate = v ? new Date(v as string) : null;
+    next.quotedShipDate = parseWrittenDate(v);
   }
   if ("SamplePhase" in fields) {
     next.samplePhase = (fields.SamplePhase as BuildRequest["samplePhase"]) || null;
@@ -660,7 +661,7 @@ export function useAddBuildRequestComment() {
     onError: (_err, _vars, ctx) => {
       ctx?.autoWatch?.cancel();
       rollbackBr(qc, ctx);
-      errorToast("Couldn't post comment — please retry.");
+      errorToast("Couldn't post comment — it's back in the comment box to send again.");
     },
     // Refetch only once any auto-watch write has landed, so the refetch
     // doesn't read a row without the new watchers and wipe their chips.
@@ -1017,7 +1018,7 @@ export function useAddBuildRequestItemComment() {
     onError: (_err, _vars, ctx) => {
       ctx?.autoWatch?.cancel();
       rollbackItem(qc, ctx);
-      errorToast("Couldn't post comment — please retry.");
+      errorToast("Couldn't post comment — it's back in the comment box to send again.");
     },
     // Refetch only once any auto-watch write has landed, so the refetch
     // doesn't read a row without the new watchers and wipe their chips.

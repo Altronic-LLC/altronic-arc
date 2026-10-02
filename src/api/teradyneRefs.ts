@@ -26,6 +26,7 @@ import {
   MOCK_TERADYNE_PRODUCTS,
   MOCK_TERADYNE_REMARKS,
 } from "@/data/teradyneMockData";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // Teradyne reference lists (Employees / Products / Remarks) — the three lookup
@@ -122,10 +123,6 @@ const mockStores: {
   remarks: MOCK_TERADYNE_REMARKS.map((r) => ({ ...r })),
 };
 
-function delay<T>(value: T, ms = 200): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
-
 /** Build a mock row of the right shape for the kind, from a generic input. */
 function mockRowFrom(kind: TeradyneRefKind, lookupId: number, input: TeradyneRefInput): TeradyneRefRow {
   if (kind === "employees") {
@@ -183,7 +180,7 @@ export async function listTeradyneRefs(kind: TeradyneRefKind): Promise<TeradyneR
   const spec = REF_LISTS[kind];
 
   if (USE_MOCK) {
-    return delay([...mockStores[kind]].sort(byTitle).map((r) => ({ ...r })));
+    return mockDelay([...mockStores[kind]].sort(byTitle).map((r) => ({ ...r })));
   }
 
   const path =
@@ -204,7 +201,7 @@ export async function createTeradyneRef(
     const row = mockRowFrom(kind, nextId, input);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (mockStores[kind] as any[]).push(row);
-    return delay({ ...row });
+    return mockDelay({ ...row });
   }
 
   const created = await graphFetch<GraphListItem>(
@@ -234,7 +231,7 @@ export async function updateTeradyneRef(
     const merged = { ...existing, ...next, ...readOnlyLegacyIdOf(existing) } as TeradyneRefRow;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (store as any[])[idx] = merged;
-    return delay({ ...merged });
+    return mockDelay({ ...merged });
   }
 
   await graphFetch(
@@ -260,7 +257,7 @@ export async function deleteTeradyneRef(kind: TeradyneRefKind, lookupId: number)
   if (USE_MOCK) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (mockStores as any)[kind] = mockStores[kind].filter((r) => r.lookupId !== lookupId);
-    await delay(null);
+    await mockDelay(null);
     return;
   }
 

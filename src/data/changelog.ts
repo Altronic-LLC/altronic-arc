@@ -60,6 +60,47 @@ const PARTS_LIST_CHANGES: string[] = [
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.169.7",
+    date: "2026-10-02",
+    changes: [
+      "A comment that is only an attachment now emails as \"Name added an attachment\", listing the files, instead of a blank-looking new comment",
+      "This applies to every comment thread, EIRs included",
+    ],
+  },
+  {
+    version: "0.169.6",
+    date: "2026-10-01",
+    changes: [
+      "A comment that fails to post now goes back in the comment box everywhere in ARC, not just on tasks — EIRs, ECNs, FAITs, build requests and their parts, Operations, maintenance, Panels, Panel QC, suppliers, customers and the rest",
+      "Its @-mentions and files come back with it, so pressing Send again doesn't lose anyone or upload anything twice",
+    ],
+  },
+  {
+    version: "0.169.5",
+    date: "2026-10-01",
+    changes: [
+      "A task comment with pictures attached no longer fails with a Microsoft Graph error while the pictures finish saving to the task",
+      "If a task comment does fail to post, it goes back in the comment box with its @-mentions and files, ready to send again",
+      "Sending a failed comment again doesn't upload its files a second time",
+      "When a comment can't post, the message says so in plain words instead of blaming the attachment",
+    ],
+  },
+  {
+    version: "0.169.4",
+    date: "2026-09-30",
+    changes: [
+      "Picking a date on an EIR no longer shows the day before for a few seconds while it saves",
+      "The same fix applies to task and Operations task due dates and to a build request's quoted ship date",
+    ],
+  },
+  {
+    version: "0.169.3",
+    date: "2026-09-30",
+    changes: [
+      "Coil Defect Log now saves the Other faults table in the format the QCCoils list expects, so saved Other defects read correctly outside ARC",
+    ],
+  },
+  {
     version: "0.169.2",
     date: "2026-09-29",
     // Parts List work while it's hidden: the real bullets are in

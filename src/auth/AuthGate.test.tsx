@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { act } from "@testing-library/react";
+import { act, cleanup } from "@testing-library/react";
 import { screen } from "@testing-library/react";
 import { renderWithProviders } from "@/test/render";
 import {
@@ -44,6 +44,10 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  // Unmount BEFORE resetting the store: this afterEach runs ahead of the
+  // setup file's cleanup(), so a reset here would re-render whatever is still
+  // mounted outside act().
+  cleanup();
   resetSessionExpired();
 });
 

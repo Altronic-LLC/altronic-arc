@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
-import { renderHook, waitFor, act } from "@testing-library/react";
+import { renderHook, waitFor, act, cleanup } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SITES } from "@/api/config";
 import { APPS } from "@/api/appAccess";
@@ -30,7 +30,13 @@ beforeEach(() => {
   probeAppAccess.mockResolvedValue({ deniedSites: [], deniedLists: [], deniedDrives: [], unreadableApps: [], hiddenRowCounts: {} });
 });
 
-afterEach(() => clearAccessDenials());
+afterEach(() => {
+  // Unmount BEFORE resetting the store: this afterEach runs ahead of the
+  // setup file's cleanup(), so a reset here would re-render whatever is still
+  // mounted outside act().
+  cleanup();
+  clearAccessDenials();
+});
 
 describe("useAccessProbe", () => {
   it("locks an app on FIRST LOAD, before anything has been opened", async () => {

@@ -376,7 +376,7 @@ export function useAddPanelTaskComment() {
     onError: (_err, _vars, ctx) => {
       ctx?.autoWatch?.cancel();
       rollback(qc, ctx);
-      errorToast("Couldn't post comment — please retry.");
+      errorToast("Couldn't post comment — it's back in the comment box to send again.");
     },
     onSettled: (_data, _err, _vars, ctx) =>
       afterMentionAutoWatch(ctx?.autoWatch, () => invalidatePanelTasks(qc)),

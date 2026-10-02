@@ -2,6 +2,7 @@ import type { GraphListItem, PartsRole, PartsRoleEntry } from "@/types/task";
 import { graphFetch, graphFetchAll } from "./graph";
 import { SITES, SP_PARTS_ROLES_LIST_ID, USE_MOCK } from "./config";
 import { parsePartsRoles, serializePartsRoles } from "@/lib/partsRoles";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // Parts Roles list — who may add, edit and approve parts on the Altronic Part
@@ -60,10 +61,6 @@ export function __resetPartsRolesMockStore(entries?: PartsRoleEntry[]) {
 }
 const INITIAL_MOCK = mockStore.map((e) => ({ ...e, roles: [...e.roles] }));
 
-function delay<T>(value: T, ms = 60): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
-
 function text(f: Record<string, unknown>, key: string): string {
   const v = f[key];
   return typeof v === "string" ? v.trim() : "";
@@ -87,7 +84,7 @@ function listPath(): string {
 }
 
 export async function listPartsRoles(): Promise<PartsRoleEntry[]> {
-  if (USE_MOCK) return delay(mockStore.map((e) => ({ ...e, roles: [...e.roles] })));
+  if (USE_MOCK) return mockDelay(mockStore.map((e) => ({ ...e, roles: [...e.roles] })));
   if (!SP_PARTS_ROLES_LIST_ID) return [];
   const items = await graphFetchAll<GraphListItem>(
     `${listPath()}?$expand=fields($select=Title,PersonName,Roles,Note)&$top=200`,
@@ -113,7 +110,7 @@ export async function addPartsRole(input: PartsRoleInput): Promise<PartsRoleEntr
       note: input.note.trim(),
     };
     mockStore.push(entry);
-    return delay({ ...entry, roles: [...entry.roles] });
+    return mockDelay({ ...entry, roles: [...entry.roles] });
   }
   if (!SP_PARTS_ROLES_LIST_ID) throw new Error(`Can't add that person: ${NOT_SET}`);
   const fields: Record<string, string> = { Title: email, Roles: serializePartsRoles(input.roles) };
@@ -139,7 +136,7 @@ export async function updatePartsRole(input: {
       if (input.roles !== undefined) entry.roles = parsePartsRoles(serializePartsRoles(input.roles));
       if (input.note !== undefined) entry.note = input.note;
     }
-    await delay(null);
+    await mockDelay(null);
     return;
   }
   if (!SP_PARTS_ROLES_LIST_ID) throw new Error(`Can't update that person: ${NOT_SET}`);
@@ -158,7 +155,7 @@ export async function updatePartsRole(input: {
 export async function removePartsRole(id: number): Promise<void> {
   if (USE_MOCK) {
     mockStore = mockStore.filter((e) => e.id !== id);
-    await delay(null);
+    await mockDelay(null);
     return;
   }
   if (!SP_PARTS_ROLES_LIST_ID) throw new Error(`Can't remove that person: ${NOT_SET}`);

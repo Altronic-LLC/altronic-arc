@@ -56,6 +56,7 @@ import {
   beginMentionAutoWatch,
   type MentionAutoWatch,
 } from "./mentionAutoWatch";
+import { parseWrittenDate } from "@/lib/dateInput";
 
 const EIRS_KEY = ["eirs", "list"] as const;
 
@@ -651,7 +652,7 @@ export function useAddEirComment() {
     onError: (_err, _vars, ctx) => {
       ctx?.autoWatch?.cancel();
       rollback(qc, ctx);
-      pushToast({ message: "Couldn't post comment — please retry.", variant: "error" });
+      pushToast({ message: "Couldn't post comment — it's back in the comment box to send again.", variant: "error" });
     },
     // Refetch only once any auto-watch write has landed, so the refetch
     // doesn't read a row without the new watchers and wipe their chips.
@@ -837,11 +838,11 @@ function applyFieldsLocally(
     next.technicalPriority = (fields.TechnicalPriority as Eir["technicalPriority"]) ?? null;
   if ("Requested_x0020_Completion_x0020" in fields) {
     const v = fields.Requested_x0020_Completion_x0020;
-    next.requestedCompletionDate = v ? new Date(v as string) : null;
+    next.requestedCompletionDate = parseWrittenDate(v);
   }
   if ("LTBDate" in fields) {
     const v = fields.LTBDate;
-    next.ltbDate = v ? new Date(v as string) : null;
+    next.ltbDate = parseWrittenDate(v);
   }
   if (
     "ProjectReferenceLookupId" in fields ||

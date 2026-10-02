@@ -41,6 +41,7 @@ import {
 } from "@/lib/mentions";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { autoWatchers } from "@/lib/people";
+import { parseWrittenDate } from "@/lib/dateInput";
 
 // =============================================================================
 // Operations department hooks — mirrors useTasks.ts's optimistic-update
@@ -456,7 +457,7 @@ export function useAddOperationsComment() {
     onError: (_err, _vars, ctx) => {
       ctx?.autoWatch?.cancel();
       rollback(qc, ctx);
-      errorToast("Couldn't post comment — please retry.");
+      errorToast("Couldn't post comment — it's back in the comment box to send again.");
     },
     onSettled: (_data, _err, _vars, ctx) =>
       afterMentionAutoWatch(ctx?.autoWatch, () => invalidateOperationsTasks(qc)),
@@ -735,7 +736,7 @@ function applyFieldsLocally(t: OperationsTask, fields: Record<string, unknown>):
   if ("Location" in fields) next.location = fields.Location as OperationsTask["location"];
   if ("DueDate" in fields) {
     const v = fields.DueDate;
-    next.dueDate = v ? new Date(v as string) : null;
+    next.dueDate = parseWrittenDate(v);
   }
   next.modifiedAt = new Date();
   return next;
