@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { screen } from "@testing-library/react";
+import { screen, cleanup } from "@testing-library/react";
 import { renderWithProviders } from "@/test/render";
 import { clearAccessDenials, markAppUnreadable } from "@/hooks/useListAccess";
 
@@ -35,7 +35,13 @@ class FakeGraphError extends Error {
   }
 }
 
-afterEach(() => clearAccessDenials());
+afterEach(() => {
+  // Unmount BEFORE resetting the store: this afterEach runs ahead of the
+  // setup file's cleanup(), so a reset here would re-render whatever is still
+  // mounted outside act().
+  cleanup();
+  clearAccessDenials();
+});
 
 describe("CustomerNotesView — a read that fails", () => {
   it("shows the access notice when SharePoint refuses the list", async () => {

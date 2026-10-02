@@ -12,7 +12,7 @@ vi.mock("@/hooks/useMaintenanceRoles", () => ({
   useMyMaintenanceRoles: () => maintenanceAccess.value,
   useResolveMaintenanceAccess: () => async () => maintenanceAccess.value,
 }));
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
 import { MaintenanceBoardView, planStatusDrop } from "./MaintenanceBoardView";
@@ -218,7 +218,7 @@ describe("MaintenanceBoardView", () => {
     const button = [...container.querySelectorAll("button")].find((b) =>
       /new work order/i.test(b.textContent ?? ""),
     )!;
-    button.click();
+    act(() => button.click());
     await waitFor(() =>
       expect(screen.getByRole("dialog", { name: /new work order/i })).toBeInTheDocument(),
     );
