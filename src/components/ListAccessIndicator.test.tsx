@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { screen, within } from "@testing-library/react";
+import { screen, within, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
 import { ListAccessIndicator } from "./ListAccessIndicator";
@@ -12,7 +12,13 @@ import { resetOpenDropdown } from "./useDropdownClose";
 const teradyne = APPS.find((a) => a.label === "Teradyne Log")!;
 
 beforeEach(() => resetOpenDropdown());
-afterEach(() => clearAccessDenials());
+afterEach(() => {
+  // Unmount BEFORE resetting the store: this afterEach runs ahead of the
+  // setup file's cleanup(), so a reset here would re-render whatever is still
+  // mounted outside act().
+  cleanup();
+  clearAccessDenials();
+});
 
 describe("ListAccessIndicator", () => {
   it("renders nothing when the user has access to everything", () => {

@@ -12,7 +12,7 @@ vi.mock("@/hooks/useMaintenanceRoles", () => ({
   useMyMaintenanceRoles: () => maintenanceAccess.value,
   useResolveMaintenanceAccess: () => async () => maintenanceAccess.value,
 }));
-import { screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
 import {
@@ -32,8 +32,15 @@ function utc(y: number, m: number, d: number): Date {
   return new Date(Date.UTC(y, m - 1, d, 12, 0, 0, 0));
 }
 
+/** Reads the mock store inside act(). A save resolves onClose before React
+ *  Query has finished telling the still-mounted modal its mutations settled,
+ *  so a bare await here lets those re-renders land outside act(). */
+function readSchedules(): Promise<ScheduledMaintenance[]> {
+  return act(() => listScheduledMaintenance());
+}
+
 async function loadSchedule(id: number): Promise<ScheduledMaintenance> {
-  const all = await listScheduledMaintenance();
+  const all = await readSchedules();
   return all.find((s) => s.id === id)!;
 }
 
@@ -117,7 +124,7 @@ describe("ScheduledMaintenanceFormModal", () => {
     await waitFor(() => expect(onCreated).toHaveBeenCalled(), SLOW);
     expect(onClose).toHaveBeenCalled();
 
-    const created = (await listScheduledMaintenance()).find(
+    const created = (await readSchedules()).find(
       (s) => s.title === "Quarterly filter swap",
     );
     expect(created).toBeDefined();
@@ -264,7 +271,7 @@ describe("ScheduledMaintenanceFormModal — department, location and Operations 
     await userEvent.click(screen.getByRole("button", { name: /create schedule/i }));
 
     await waitFor(() => expect(onClose).toHaveBeenCalled(), SLOW);
-    const created = (await listScheduledMaintenance()).find(
+    const created = (await readSchedules()).find(
       (s) => s.title === "Bench light checks",
     );
     // Both are reference-list LOOKUPS since 2026-08-28, so what is stored is
@@ -290,7 +297,7 @@ describe("ScheduledMaintenanceFormModal — department, location and Operations 
     await userEvent.click(screen.getByRole("button", { name: /create schedule/i }));
 
     await waitFor(() => expect(onClose).toHaveBeenCalled(), SLOW);
-    const created = (await listScheduledMaintenance()).find((s) => s.title === "Bare schedule");
+    const created = (await readSchedules()).find((s) => s.title === "Bare schedule");
     expect(created).toBeDefined();
     expect(created?.department).toBeNull();
     expect(created?.location).toBeNull();
@@ -363,11 +370,11 @@ describe("ScheduledMaintenanceFormModal — department, location and Operations 
       );
 
       const form = container.querySelector("#schedule-form") as HTMLFormElement;
-      form.requestSubmit();
+      act(() => form.requestSubmit());
 
       await waitFor(() => expect((container.textContent ?? "")).toMatch(/maintenance admins/i));
       expect(onClose).not.toHaveBeenCalled();
-      expect((await listScheduledMaintenance()).length).toBe(before);
+      expect((await readSchedules()).length).toBe(before);
     });
 
     it("lets a maintenance admin save", async () => {
@@ -507,7 +514,7 @@ describe("ScheduledMaintenanceFormModal — Hourmeter", () => {
     await userEvent.click(screen.getByRole("button", { name: "Create schedule" }));
 
     await waitFor(() => expect(onClose).toHaveBeenCalled(), SLOW);
-    const created = (await listScheduledMaintenance()).find((s) => s.title === "Oil change");
+    const created = (await readSchedules()).find((s) => s.title === "Oil change");
     expect(created?.scheduleBasis).toBe("Hourmeter");
     expect(created?.frequencyUnit).toBe("Hours");
     expect(created?.frequencyInterval).toBe(500);
@@ -524,7 +531,7 @@ describe("ScheduledMaintenanceFormModal — Hourmeter", () => {
     await userEvent.click(screen.getByRole("button", { name: "Create schedule" }));
 
     await waitFor(() => expect(onClose).toHaveBeenCalled(), SLOW);
-    const created = (await listScheduledMaintenance()).find((s) => s.title === "Valve check");
+    const created = (await readSchedules()).find((s) => s.title === "Valve check");
     expect(created?.nextDueHours).toBe(5500);
   });
 

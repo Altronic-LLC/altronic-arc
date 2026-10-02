@@ -6499,6 +6499,54 @@ Two older files still use the one-line form and pass only because their
 mocks don't throw when called bare: `accessProbe.hiddenRows.test.ts` and
 `useCommentOriginLink.test.tsx`.
 
+### act() warnings — the suite has none, keep it that way
+
+The CI log carried 252 "not wrapped in act(...)" warnings across 18 files
+until 2026-10-02. All tests passed; the warnings were noise that would hide a
+real one. They're worth getting right before a React 19 upgrade, because 19
+is stricter about act.
+
+**You probably can't see them locally.** Vitest 4 notices it's running under
+an AI agent and switches to a quiet reporter that drops console output from
+passing tests. A test that deliberately updates state outside act printed
+nothing. To see what CI sees, run without `.env.local` (move it aside) and
+with:
+
+```
+npx vitest run --reporter=default --silent=false
+```
+
+Five patterns caused all of it:
+
+- **`await result.current.mutateAsync(...)` in a renderHook test.** Wrap it:
+  `await act(() => result.current.mutateAsync(...))`. `act` returns the
+  callback's value, so `const out = await act(() => …)` works.
+- **An act() that REJECTS.** `await expect(act(() => call)).rejects…` keeps
+  React 18's act queue set after the rejection. Every later update in that
+  test (inside `waitFor` too) then warns "the current testing environment is
+  not configured to support act". Put the assertion INSIDE the act:
+  `await act(() => expect(call).rejects.toThrow(...))`. The act then resolves
+  and cleans up.
+- **Resetting a module-level store in the file's own `afterEach`**
+  (`clearAccessDenials`, `resetSessionExpired`). The file's `afterEach` runs
+  BEFORE the setup file's `cleanup()`, so the reset re-renders everything
+  still mounted, outside act. One reset in DashboardView.access caused 58
+  warnings, one per card. Call `cleanup()` first, then reset.
+- **A bare DOM call**, such as `form.requestSubmit()` or `button.click()`.
+  Wrap it in `act()`, or use `userEvent`, which already does.
+- **Reading the mock store right after a save while the component is still
+  mounted** (`await listScheduledMaintenance()` once `onClose` has fired).
+  React Query is still telling the component its mutations settled, and those
+  re-renders land during the bare await. Do the read inside act (see
+  `readSchedules()` in `ScheduledMaintenanceFormModal.test.tsx`).
+
+Wrapping `requestSubmit()` made LogPmCompletionModal's refusal render
+straight away, and that exposed a weak test. It had been finding the gate
+NOTICE, which is on screen before anyone submits, and never checked the
+refusal error at all. It now requires both copies. The same thing can happen
+elsewhere: if wrapping a call in act breaks an assertion, check what the
+assertion was really matching before you loosen it.
+
 ### A row-cap test must not render 150 real rows — it gates the deploy
 
 `npm test` runs in the deploy workflow and **must pass to deploy**. On

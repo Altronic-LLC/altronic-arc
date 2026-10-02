@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { screen } from "@testing-library/react";
+import { screen, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
 import { Header } from "./Header";
@@ -33,7 +33,13 @@ vi.mock("@/hooks/useCurrentUser", () => ({
 
 const teradyne = APPS.find((a) => a.label === "Teradyne Log")!;
 
-afterEach(() => clearAccessDenials());
+afterEach(() => {
+  // Unmount BEFORE resetting the store: this afterEach runs ahead of the
+  // setup file's cleanup(), so a reset here would re-render whatever is still
+  // mounted outside act().
+  cleanup();
+  clearAccessDenials();
+});
 
 async function openDepartments() {
   const user = userEvent.setup();

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 import type { ReactNode } from "react";
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { OpenOrderCustomerAccount, OpenOrderLine } from "@/types/task";
 import type { OpenOrdersFile } from "@/api/openOrdersFiles";
@@ -176,25 +176,29 @@ beforeEach(() => {
 describe("useGenerateCombinedCustomerReport", () => {
   it("refuses to combine an account with itself", async () => {
     const { result } = renderHook(() => useGenerateCombinedCustomerReport(), { wrapper });
-    await expect(
-      result.current.mutateAsync([ACCOUNT_A, { ...ACCOUNT_A }]),
-    ).rejects.toThrow(/two different accounts/i);
+    await act(() =>
+      expect(result.current.mutateAsync([ACCOUNT_A, { ...ACCOUNT_A }])).rejects.toThrow(/two different accounts/i),
+    );
     expect(mocks.listMasterReports).not.toHaveBeenCalled();
   });
 
   it("recognises the same account by number even with padding — sameAccount, not ===", async () => {
     const { result } = renderHook(() => useGenerateCombinedCustomerReport(), { wrapper });
     const padded = { ...ACCOUNT_A, accountNumber: "0001042" };
-    await expect(result.current.mutateAsync([ACCOUNT_A, padded])).rejects.toThrow(
-      /two different accounts/i,
+    await act(() =>
+      expect(result.current.mutateAsync([ACCOUNT_A, padded])).rejects.toThrow(
+        /two different accounts/i,
+      ),
     );
   });
 
   it("fails clearly when there's no master workbook to find a run date from", async () => {
     mocks.listMasterReports.mockResolvedValue([]);
     const { result } = renderHook(() => useGenerateCombinedCustomerReport(), { wrapper });
-    await expect(result.current.mutateAsync([ACCOUNT_A, ACCOUNT_B])).rejects.toThrow(
-      /no master workbook/i,
+    await act(() =>
+      expect(result.current.mutateAsync([ACCOUNT_A, ACCOUNT_B])).rejects.toThrow(
+        /no master workbook/i,
+      ),
     );
     expect(mocks.downloadOpenOrdersFile).not.toHaveBeenCalled();
   });
@@ -202,8 +206,8 @@ describe("useGenerateCombinedCustomerReport", () => {
   it("fails clearly when the raw extract isn't filed", async () => {
     mocks.listRawUploads.mockResolvedValue([]);
     const { result } = renderHook(() => useGenerateCombinedCustomerReport(), { wrapper });
-    await expect(result.current.mutateAsync([ACCOUNT_A, ACCOUNT_B])).rejects.toThrow(
-      /raw extract/i,
+    await act(() =>
+      expect(result.current.mutateAsync([ACCOUNT_A, ACCOUNT_B])).rejects.toThrow(/raw extract/i),
     );
   });
 
@@ -211,8 +215,8 @@ describe("useGenerateCombinedCustomerReport", () => {
     // customerReport is the REAL pure function (not mocked) — with no lines
     // parsed, both accounts naturally have 0.
     const { result } = renderHook(() => useGenerateCombinedCustomerReport(), { wrapper });
-    await expect(result.current.mutateAsync([ACCOUNT_A, ACCOUNT_B])).rejects.toThrow(
-      /has open lines/i,
+    await act(() =>
+      expect(result.current.mutateAsync([ACCOUNT_A, ACCOUNT_B])).rejects.toThrow(/has open lines/i),
     );
     expect(mocks.buildCombinedCustomerWorkbook).not.toHaveBeenCalled();
   });
@@ -226,7 +230,7 @@ describe("useGenerateCombinedCustomerReport", () => {
       columns: [],
     });
     const { result } = renderHook(() => useGenerateCombinedCustomerReport(), { wrapper });
-    const out = await result.current.mutateAsync([ACCOUNT_A, ACCOUNT_B]);
+    const out = await act(() => result.current.mutateAsync([ACCOUNT_A, ACCOUNT_B]));
 
     expect(mocks.buildCombinedCustomerWorkbook).toHaveBeenCalledTimes(1);
     // The two reports passed to the builder, one per account, in the order given.
@@ -250,7 +254,7 @@ describe("useGenerateCombinedCustomerReport", () => {
       columns: [],
     });
     const { result } = renderHook(() => useGenerateCombinedCustomerReport(), { wrapper });
-    await result.current.mutateAsync([ACCOUNT_A, ACCOUNT_B]);
+    await act(() => result.current.mutateAsync([ACCOUNT_A, ACCOUNT_B]));
     await waitFor(() =>
       expect(pushToast as Mock).toHaveBeenCalledWith(
         expect.objectContaining({ message: expect.stringMatching(/Downloaded/) }),
@@ -261,7 +265,7 @@ describe("useGenerateCombinedCustomerReport", () => {
   it("toasts the error message on failure, and clears `step`", async () => {
     mocks.listMasterReports.mockResolvedValue([]);
     const { result } = renderHook(() => useGenerateCombinedCustomerReport(), { wrapper });
-    await expect(result.current.mutateAsync([ACCOUNT_A, ACCOUNT_B])).rejects.toThrow();
+    await act(() => expect(result.current.mutateAsync([ACCOUNT_A, ACCOUNT_B])).rejects.toThrow());
     await waitFor(() =>
       expect(pushToast as Mock).toHaveBeenCalledWith(
         expect.objectContaining({ variant: "error" }),
@@ -286,8 +290,8 @@ describe("useGenerateCombinedCustomerReport", () => {
       columns: [],
     });
     const { result } = renderHook(() => useGenerateCombinedCustomerReport(), { wrapper });
-    await expect(result.current.mutateAsync([blankA, blankB])).rejects.toThrow(
-      /has open lines/i,
+    await act(() =>
+      expect(result.current.mutateAsync([blankA, blankB])).rejects.toThrow(/has open lines/i),
     );
   });
 
@@ -302,7 +306,7 @@ describe("useGenerateCombinedCustomerReport", () => {
       columns: [],
     });
     const { result } = renderHook(() => useGenerateCombinedCustomerReport(), { wrapper });
-    const out = await result.current.mutateAsync([blankA, ACCOUNT_B]);
+    const out = await act(() => result.current.mutateAsync([blankA, ACCOUNT_B]));
     const [, reports] = mocks.buildCombinedCustomerWorkbook.mock.calls[0];
     expect(reports[0].metrics.lines).toBe(0);
     expect(reports[1].metrics.lines).toBe(1);
@@ -334,15 +338,17 @@ describe("useDownloadWeekAsZip", () => {
 
   it("refuses an empty folder rather than producing an empty zip", async () => {
     const { result } = renderHook(() => useDownloadWeekAsZip(), { wrapper });
-    await expect(
-      result.current.mutateAsync({ weekName: "Week of 2026-08-24", files: [] }),
-    ).rejects.toThrow(/empty/i);
+    await act(() =>
+      expect(result.current.mutateAsync({ weekName: "Week of 2026-08-24", files: [] })).rejects.toThrow(/empty/i),
+    );
     expect(mocks.downloadOpenOrdersFile).not.toHaveBeenCalled();
   });
 
   it("downloads every file in the folder, one call each — same path as a single download", async () => {
     const { result } = renderHook(() => useDownloadWeekAsZip(), { wrapper });
-    const out = await result.current.mutateAsync({ weekName: "Week of 2026-08-24", files: FILES });
+    const out = await act(() =>
+      result.current.mutateAsync({ weekName: "Week of 2026-08-24", files: FILES }),
+    );
     expect(mocks.downloadOpenOrdersFile).toHaveBeenCalledTimes(2);
     expect(mocks.downloadOpenOrdersFile).toHaveBeenCalledWith("f1");
     expect(mocks.downloadOpenOrdersFile).toHaveBeenCalledWith("f2");
@@ -360,13 +366,13 @@ describe("useDownloadWeekAsZip", () => {
       return "x"; // see the note on the beforeEach default, above
     });
     const { result } = renderHook(() => useDownloadWeekAsZip(), { wrapper });
-    await result.current.mutateAsync({ weekName: "Week of 2026-08-24", files: FILES });
+    await act(() => result.current.mutateAsync({ weekName: "Week of 2026-08-24", files: FILES }));
     expect(sawOverlap).toBe(false);
   });
 
   it("names the download after the week folder", async () => {
     const { result } = renderHook(() => useDownloadWeekAsZip(), { wrapper });
-    await result.current.mutateAsync({ weekName: "Week of 2026-08-24", files: FILES });
+    await act(() => result.current.mutateAsync({ weekName: "Week of 2026-08-24", files: FILES }));
     // The <a download> element is created and clicked, then removed — assert
     // via the object URL lifecycle rather than reaching into the DOM node
     // that no longer exists once the handler returns.
@@ -377,9 +383,9 @@ describe("useDownloadWeekAsZip", () => {
     mocks.downloadOpenOrdersFile.mockResolvedValueOnce("ok"); // see the beforeEach note, above
     mocks.downloadOpenOrdersFile.mockRejectedValueOnce(new Error("network blip"));
     const { result } = renderHook(() => useDownloadWeekAsZip(), { wrapper });
-    await expect(
-      result.current.mutateAsync({ weekName: "Week of 2026-08-24", files: FILES }),
-    ).rejects.toThrow("network blip");
+    await act(() =>
+      expect(result.current.mutateAsync({ weekName: "Week of 2026-08-24", files: FILES })).rejects.toThrow("network blip"),
+    );
     await waitFor(() =>
       expect(pushToast as Mock).toHaveBeenCalledWith(
         expect.objectContaining({ variant: "error", message: expect.stringMatching(/network blip/) }),
