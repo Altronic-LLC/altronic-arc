@@ -43,7 +43,7 @@
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
-    "@vitest/coverage-v8": "^4.1.6",
+    "@vitest/coverage-v8": "^4.1.11",
     "autoprefixer": "^10.4.20",
     "jsdom": "^29.1.1",
     "postcss": "^8.4.49",
@@ -51,6 +51,17 @@
     "tailwindcss": "^3.4.15",
     "typescript": "^5.6.3",
     "vite": "^5.4.11",
-    "vitest": "^4.1.6"
+    "vitest": "^4.1.11"
+  },
+  "overrides": {
+    "exceljs": {
+      "archiver": "^7.0.1",
+      "unzipper": "^0.12.3",
+      "fast-csv": "^5.0.5",
+      "uuid": "^11.1.1"
+    },
+    "archiver-utils": {
+      "glob": "^13.0.0"
+    }
   }
 }
