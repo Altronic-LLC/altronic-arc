@@ -1351,6 +1351,16 @@ Seven things that are load-bearing:
   - Every search is in the URL (`q`, `f.<field>`).
   - Pinned by tests, one of them verified by trimming the `&` terms and
     watching it fail.
+  - **A search on a component list covers its whole CATEGORY** (Tim,
+    2026-10-02): from 701, 711 or 712 it searches all three, from 601 or 611
+    both; 722 is alone. The old app held each category as ONE list ("Surface
+    Mount Parts", "Through Hole Parts"), so that's what a search there found.
+    `componentSearchPrefixes` is the rule; `PartsTable`'s `searchRows` is the
+    wider pool, used only while ANY box holds something (`widened`) — browsing
+    with no search still shows just the list. Counts, the empty states and the
+    range panel's "no number here" count all read that pool, and the count
+    line says "in lists 701, 711 and 712". Verified by disabling `widened` and
+    watching five tests fail.
 - **The jump box never dead-ends** (`parsePartsQuery`):
   - one digit opens a book;
   - three digits open a list;

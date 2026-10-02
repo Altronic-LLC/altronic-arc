@@ -150,6 +150,21 @@ export function isComponentPrefix(prefix: string): boolean {
 }
 
 /**
+ * The HCO lists a search on `prefix` covers: every prefix in the same
+ * category, in order — 601/611 (Through Hole), 701/711/712 (Surface Mount),
+ * 722 alone (SIL). The old app kept each category as ONE list ("Through Hole
+ * Parts", "Surface Mount Parts"), so searching from 711 found a 701 part, and
+ * ARC does the same (Tim, 2026-10-02). Empty for a Part List prefix.
+ */
+export function componentSearchPrefixes(prefix: string): string[] {
+  const category = isComponentPrefix(prefix) ? COMPONENT_PREFIX_CATEGORY[prefix] : null;
+  if (!category) return [];
+  return Object.keys(COMPONENT_PREFIX_CATEGORY)
+    .filter((p) => COMPONENT_PREFIX_CATEGORY[p] === category)
+    .sort();
+}
+
+/**
  * Part numbers in the order people expect: numerically, so `601099` comes
  * before `601100`, with a suffixed number (`601427HT`) right after its base.
  */

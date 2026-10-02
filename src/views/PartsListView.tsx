@@ -22,7 +22,13 @@ import {
   type SearchField,
 } from "@/lib/partSearch";
 import { formatEngineeringValue, parseBound } from "@/lib/engineeringValue";
-import { COMPONENT_PREFIX_CATEGORY, isComponentPrefix, partBook, partPrefix } from "@/lib/altronicPartMapper";
+import {
+  COMPONENT_PREFIX_CATEGORY,
+  componentSearchPrefixes,
+  isComponentPrefix,
+  partBook,
+  partPrefix,
+} from "@/lib/altronicPartMapper";
 import type { AltronicComponent, AltronicPart } from "@/types/task";
 import { cn } from "@/lib/cn";
 
@@ -182,6 +188,17 @@ function ComponentListScreen({ prefix }: { prefix: string }) {
     () => (query.data ?? []).filter((c) => partPrefix(c.partNumber) === prefix),
     [query.data, prefix],
   );
+  // A SEARCH from 701, 711 or 712 covers all three (601/611 likewise) — the
+  // old app kept each category as one list (Tim, 2026-10-02). Browsing with
+  // no search still shows just this list.
+  const family = componentSearchPrefixes(prefix);
+  const familyRows = useMemo(() => {
+    if (family.length < 2) return undefined;
+    const wanted = new Set(family);
+    return (query.data ?? []).filter((c) => wanted.has(partPrefix(c.partNumber) ?? ""));
+    // `family` is derived from `prefix`; a new array each render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query.data, prefix]);
   return (
     <PartsTable<AltronicComponent>
       title={`${prefix} List`}
@@ -189,6 +206,8 @@ function ComponentListScreen({ prefix }: { prefix: string }) {
       queries={[query]}
       listNames="Altronic Component List"
       rows={rows}
+      searchRows={familyRows}
+      searchScope={familyRows ? listOfLists(family) : undefined}
       columns={COMPONENT_COLUMNS}
       searchFields={COMPONENT_SEARCH_FIELDS}
       stableKey={componentId}
@@ -206,6 +225,13 @@ function ComponentListScreen({ prefix }: { prefix: string }) {
 const COMPONENT_CARD_FIELDS = ["mfgName", "mfgNumber", "ratingA", "ratingB", "ratingC", "footprint"];
 
 const componentId = (c: AltronicComponent) => c.id;
+
+/** "601 and 611", "701, 711 and 712". */
+function listOfLists(prefixes: string[]): string {
+  return prefixes.length < 2
+    ? prefixes.join("")
+    : `${prefixes.slice(0, -1).join(", ")} and ${prefixes[prefixes.length - 1]}`;
+}
 
 // -----------------------------------------------------------------------------
 // Global Search — both lists at once
@@ -295,6 +321,13 @@ interface PartsTableProps<T> {
   queries: PartsQueryState[];
   listNames: string;
   rows: T[];
+  /**
+   * What a SEARCH looks through, when wider than `rows` — a component list's
+   * whole category. With no search active, only `rows` show.
+   */
+  searchRows?: T[];
+  /** The lists `searchRows` spans, in words ("701, 711 and 712"). */
+  searchScope?: string;
   columns: SortColumn<T>[];
   searchFields: SearchField<T>[];
   stableKey: (row: T) => number;
@@ -319,7 +352,9 @@ function PartsTable<T>({
   icon,
   queries,
   listNames,
-  rows,
+  rows: listRows,
+  searchRows,
+  searchScope,
   columns,
   searchFields,
   stableKey,
@@ -359,6 +394,16 @@ function PartsTable<T>({
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paramKey, searchFields]);
+
+  const activeCount =
+    (q.trim() ? 1 : 0) +
+    Object.values(fieldQueries).filter((v) => v.trim()).length +
+    Object.keys(rangeQueries).length;
+  // Any search widens a component list to its whole category; browsing
+  // doesn't. Everything below — counts, the empty states, the range panel's
+  // "no number here" count — reads the pool actually being searched.
+  const widened = activeCount > 0 && !!searchRows;
+  const rows = widened ? searchRows : listRows;
 
   // Which fields show From/To. A range in the URL always does — a shared
   // link must show the search that is narrowing the list.
@@ -407,11 +452,13 @@ function PartsTable<T>({
 
   // The lowercased text "Search everything" looks through, built once per
   // list load rather than once per keystroke — 18,000 rows in Global Search.
+  // Over the widest pool, so starting a search doesn't rebuild it.
+  const haystackRows = searchRows ?? listRows;
   const haystacks = useMemo(() => {
     const map = new Map<T, string>();
-    for (const row of rows) map.set(row, searchFields.map((f) => f.value(row)).join(" ").toLowerCase());
+    for (const row of haystackRows) map.set(row, searchFields.map((f) => f.value(row)).join(" ").toLowerCase());
     return map;
-  }, [rows, searchFields]);
+  }, [haystackRows, searchFields]);
 
   const filtered = useMemo(() => {
     const byField = applyRangeQueries(applyFieldQueries(rows, searchFields, fieldQueries), searchFields, rangeQueries);
@@ -433,10 +480,6 @@ function PartsTable<T>({
 
   const shown = showAll ? table.rows : table.rows.slice(0, INITIAL_ROWS);
 
-  const activeCount =
-    (q.trim() ? 1 : 0) +
-    Object.values(fieldQueries).filter((v) => v.trim()).length +
-    Object.keys(rangeQueries).length;
   // An active search forces the panel open on a phone, so the reason the
   // list is narrowed can never be hidden — including one from a shared link.
   const panelOpen = panelExpanded || activeCount > 0;
@@ -508,6 +551,11 @@ function PartsTable<T>({
             Or search one field. Use <span className="font-mono">&amp;</span> for several things in one
             box: <span className="font-mono">resistor&amp;1k</span>.
           </p>
+          {searchScope && (
+            <p className="text-[11px] text-fg-muted">
+              A search here looks through lists {searchScope} together, as the old app's list did.
+            </p>
+          )}
           {searchFields.map((f) =>
             f.range ? (
               <RangeField
@@ -574,6 +622,7 @@ function PartsTable<T>({
                     {table.rows.length === rows.length
                       ? `${rows.length.toLocaleString()} part${rows.length === 1 ? "" : "s"}`
                       : `${table.rows.length.toLocaleString()} of ${rows.length.toLocaleString()} parts`}
+                    {widened && searchScope ? ` in lists ${searchScope}` : ""}
                   </span>
                   {shown.length < table.rows.length && (
                     <button
