@@ -1,9 +1,12 @@
-name: Test build on Node 24
+name: Rehearse the Node 24 deploy build
 
-# A copy of deploy.yml's build job, run on Node 24, for trying the upgrade
-# without touching the live deploy. It installs, tests and builds, then
-# stops: no Pages artifact, no deploy job, and read-only permissions, so it
-# cannot publish anything. Delete this file once deploy.yml is on Node 24.
+# A copy of deploy.yml's BUILD job: Node 24, the new action majors, and
+# the Pages artifact upload. It runs on Ubuntu 24.04 and 26.04 and then
+# stops. There is no deploy job and permissions are read-only, so it cannot
+# publish anything. deploy-pages@v5 is the one piece it can't exercise.
+#
+# Generated from deploy.yml; regenerate rather than hand-edit. Delete this
+# file once the deploy.yml change has merged and deployed.
 
 on:
   push:
@@ -15,31 +18,33 @@ permissions:
 
 concurrency:
   # Its own group, so it can never cancel a real deploy.
-  group: node-24-test-${{ github.ref }}
+  group: node-24-rehearsal-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build-node-24:
-    runs-on: ubuntu-latest
+  rehearse:
+    # 24.04 is what ubuntu-latest runs today; 26.04 is what it becomes
+    # between 2026-10-19 and 2026-11-19 (actions/runner-images#14748).
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-26.04]
+    runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          # The one thing this workflow tests: the build on Node 24.
+          # Node 24, the current LTS. It ships with npm 11, which is what
+          # contributors run locally, so the lockfile shape agrees between
+          # local and CI. Node 22 shipped npm 10, which rejects that
+          # lockfile and forced an `npx -y npm@11 ci` workaround. The
+          # workaround was removed with this upgrade.
           node-version: "24"
           cache: "npm"
 
       - name: Install
-        # Node 22 ships with npm 10.x. Our contributors typically have
-        # npm 11 locally (Node 22+ with the latest), which produces a
-        # lockfile shape npm 10 rejects. The clean fix is to run `npm ci`
-        # through npx with a pinned version — no global install (which
-        # tends to fail with "Cannot find module 'promise-retry'" when
-        # npm tries to replace itself mid-run) and no version drift.
-        # Subsequent npm commands (test, build) just run scripts so they
-        # work fine on Node 22's built-in npm.
-        run: npx -y npm@11 ci
+        run: npm ci
 
       - name: Test
         # Project standard is 100% unit-test coverage; tests must pass to
@@ -155,3 +160,17 @@ jobs:
           # echoed in a workflow log.
           VITE_QZ_CERTIFICATE: ${{ vars.VITE_QZ_CERTIFICATE }}
           VITE_QZ_PRIVATE_KEY: ${{ secrets.VITE_QZ_PRIVATE_KEY }}
+
+      - name: Add 404 fallback for client-side routing
+        # GitHub Pages serves /404.html for any unmatched path. Copying
+        # index.html to 404.html means the SPA's client-side router still
+        # picks up the URL on a hard refresh of e.g. /task/15.
+        run: cp dist/index.html dist/404.html
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+          # One artifact per runner image, so the two matrix legs don't collide.
+          # Nothing deploys it; it only proves the upload step works.
+          name: github-pages-${{ matrix.os }}
+          retention-days: 1
