@@ -4,6 +4,7 @@ import {
   COMPONENT_PREFIX_CATEGORY,
   altronicPartLabel,
   comparePartNumbers,
+  componentSearchPrefixes,
   isComponentPrefix,
   partBook,
   partPrefix,
@@ -153,6 +154,16 @@ describe("part-number rules", () => {
     expect(isComponentPrefix("610")).toBe(false);
     // An inherited property must not read as a prefix.
     expect(isComponentPrefix("toString")).toBe(false);
+  });
+
+  it("searches a component list across its whole category, as the old app's lists did", () => {
+    expect(componentSearchPrefixes("701")).toEqual(["701", "711", "712"]);
+    expect(componentSearchPrefixes("712")).toEqual(["701", "711", "712"]);
+    expect(componentSearchPrefixes("611")).toEqual(["601", "611"]);
+    expect(componentSearchPrefixes("722")).toEqual(["722"]);
+    // A Part List list has no family.
+    expect(componentSearchPrefixes("610")).toEqual([]);
+    expect(componentSearchPrefixes("toString")).toEqual([]);
   });
 
   it("orders part numbers numerically, a suffix right after its base", () => {

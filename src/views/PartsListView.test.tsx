@@ -127,6 +127,63 @@ describe("PartsListView — a Component List list", () => {
   });
 });
 
+describe("PartsListView — a component search covers its whole category", () => {
+  // The old app kept 701/711/712 as ONE list (Surface Mount Parts) and 601/611
+  // as another (Through Hole Parts), so a search from any of them found all.
+
+  it("searches 701, 711 and 712 together from the 701 list, and says so", async () => {
+    renderList("/engineering/parts/list/701?q=diode");
+    await waitFor(() => expect(screen.getByRole("table")).toBeInTheDocument());
+    expect(tablePartNumbers()).toEqual(["711508", "711702"]);
+    expect(screen.getByText("2 of 8 parts in lists 701, 711 and 712")).toBeInTheDocument();
+  });
+
+  it("does the same from 712, with a field search", async () => {
+    renderList("/engineering/parts/list/712?f.footprint=0603");
+    await waitFor(() => expect(screen.getByRole("table")).toBeInTheDocument());
+    expect(tablePartNumbers()).toEqual(["701043", "701212", "701990", "711702"]);
+  });
+
+  it("searches 601 and 611 together", async () => {
+    renderList("/engineering/parts/list/611?f.mfgName=vishay");
+    await waitFor(() => expect(screen.getByRole("table")).toBeInTheDocument());
+    expect(tablePartNumbers()).toEqual(["601110", "601138"]);
+    expect(screen.getByText(/in lists 601 and 611/)).toBeInTheDocument();
+  });
+
+  it("shows only the list itself while nothing is searched", async () => {
+    renderList("/engineering/parts/list/711");
+    await waitFor(() => expect(screen.getByRole("table")).toBeInTheDocument());
+    expect(tablePartNumbers()).toEqual(["711508", "711640", "711702"]);
+    expect(screen.getByText("3 parts")).toBeInTheDocument();
+    // The panel says what a search will cover before one is typed.
+    expect(screen.getByText(/looks through lists 701, 711 and 712 together/)).toBeInTheDocument();
+  });
+
+  it("goes back to the list itself when the search is cleared", async () => {
+    renderList("/engineering/parts/list/701?q=diode");
+    await waitFor(() => expect(tablePartNumbers()).toEqual(["711508", "711702"]));
+    await userEvent.click(screen.getByRole("button", { name: "Clear search" }));
+    await waitFor(() => expect(tablePartNumbers()).toEqual(["701043", "701212", "701990"]));
+  });
+
+  it("keeps 722 to itself — SIL has no other list", async () => {
+    renderList("/engineering/parts/list/722?q=sil");
+    await waitFor(() => expect(screen.getByRole("table")).toBeInTheDocument());
+    expect(tablePartNumbers()).toEqual(["722044", "722051"]);
+    expect(screen.queryByText(/in lists/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/looks through lists/)).not.toBeInTheDocument();
+  });
+
+  it("leaves a Part List list to itself", async () => {
+    useMockParts();
+    renderList("/engineering/parts/list/604?q=connector");
+    await waitFor(() => expect(screen.getByRole("table")).toBeInTheDocument());
+    expect(tablePartNumbers()).toEqual(["604596", "604612"]);
+    expect(screen.queryByText(/in lists/)).not.toBeInTheDocument();
+  });
+});
+
 describe("PartsListView — range search (the old app's R)", () => {
   // Mock list 701: 701043 RESISTOR 10K, 701212 CAPACITOR 0.1uF, 701990 RESISTOR 4K7.
 
@@ -153,7 +210,9 @@ describe("PartsListView — range search (the old app's R)", () => {
     renderList("/engineering/parts/list/701?from.ratingA=lots");
     await waitFor(() => expect(screen.getByRole("table")).toBeInTheDocument());
     expect(screen.getByText(/Couldn't read “lots” as a value/)).toBeInTheDocument();
-    expect(tablePartNumbers()).toEqual(["701043", "701212", "701990"]);
+    // Nothing is narrowed by it — though a box with something typed is still a
+    // search, so the whole Surface Mount family shows.
+    expect(tablePartNumbers()).toEqual(["701043", "701212", "701990", "711508", "711640", "711702", "712044", "712101"]);
   });
 
   it("goes back to a text search with R again, dropping the range", async () => {

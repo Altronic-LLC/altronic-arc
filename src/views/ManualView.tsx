@@ -4857,6 +4857,14 @@ const SECTIONS: ManualSection[] = [
           button, and opens by itself whenever a search is active.
         </P>
         <P>
+          <strong>Component lists search their whole family.</strong> A search
+          from the 701, 711 or 712 list looks through all three, and one from
+          601 or 611 looks through both — the old app kept these as one Surface
+          Mount list and one Through Hole list. The count above the table says
+          which lists it covered. With no search, a list shows only its own
+          parts. 722 (SIL) searches on its own.
+        </P>
+        <P>
           <strong>Range search.</strong> On the component lists (601, 611, 701,
           711, 712, 722) and in Global Search, Rating A/B/C, Tolerance, Temp Min
           and Temp Max each have a small <strong>R</strong> button, as in the old
