@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { renderHook, act } from "@testing-library/react";
+import { renderHook, act, cleanup } from "@testing-library/react";
 import {
   clearAccessDenials,
   markListDenied,
@@ -27,6 +27,10 @@ const teradyneListId = teradyne.lists[0];
 const itemsUrl = `https://graph.microsoft.com/v1.0/sites/${SITES.pmo}/lists/${teradyneListId}/items`;
 
 afterEach(() => {
+  // Unmount BEFORE resetting the store: this afterEach runs ahead of the
+  // setup file's cleanup(), so a reset here would re-render whatever is still
+  // mounted outside act().
+  cleanup();
   // The store is module-level, so a denial left behind leaks into the next
   // test — the same discipline resetOpenDropdown() needs.
   clearAccessDenials();

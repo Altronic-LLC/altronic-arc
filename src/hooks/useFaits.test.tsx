@@ -225,15 +225,17 @@ describe("checking Notify Initiator closes the FAIT", () => {
     // Status drifted to.
     const statusBefore = fait.status;
 
-    await expect(
-      act(async () => {
-        await result.current.update.mutateAsync({
+    // The rejection is asserted INSIDE act(): an act() that itself rejects
+    // leaves React 18's act queue set, and later updates then warn.
+    await act(() =>
+      expect(
+        result.current.update.mutateAsync({
           id: fait.id,
           fields: { NotifyInitiator: true },
           patch: (f) => ({ ...f, values: { ...f.values, notifyInitiator: "Yes" } }),
-        });
-      }),
-    ).rejects.toThrow(/sign-off/i);
+        }),
+      ).rejects.toThrow(/sign-off/i),
+    );
 
     await waitFor(() => {
       const updated = result.current.list.data!.find((f) => f.id === fait.id)!;
