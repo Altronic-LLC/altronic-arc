@@ -1,22 +1,35 @@
-name: Deploy to GitHub Pages
+name: Rehearse the Node 24 deploy build
+
+# A copy of deploy.yml's BUILD job: Node 24, the new action majors, and
+# the Pages artifact upload. It runs on Ubuntu 24.04 and 26.04 and then
+# stops. There is no deploy job and permissions are read-only, so it cannot
+# publish anything. deploy-pages@v5 is the one piece it can't exercise.
+#
+# Generated from deploy.yml; regenerate rather than hand-edit. Delete this
+# file once the deploy.yml change has merged and deployed.
 
 on:
   push:
-    branches: [main]
+    branches: [chore/node-24-ci]
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: pages
+  # Its own group, so it can never cancel a real deploy.
+  group: node-24-rehearsal-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  rehearse:
+    # 24.04 is what ubuntu-latest runs today; 26.04 is what it becomes
+    # between 2026-10-19 and 2026-11-19 (actions/runner-images#14748).
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-26.04]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
 
@@ -157,13 +170,7 @@ jobs:
       - uses: actions/upload-pages-artifact@v5
         with:
           path: dist
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v5
+          # One artifact per runner image, so the two matrix legs don't collide.
+          # Nothing deploys it; it only proves the upload step works.
+          name: github-pages-${{ matrix.os }}
+          retention-days: 1
