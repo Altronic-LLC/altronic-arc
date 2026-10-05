@@ -5,7 +5,6 @@ import {
   BUILD_REQUEST_ASSEMBLY_OPTIONS,
   BUILD_REQUEST_DISPOSITIONS,
   BUILD_REQUEST_OPERATIONS_OPTIONS,
-  BUILD_REQUEST_PART_STATUSES,
   BUILD_REQUEST_PART_TYPES,
   BUILD_REQUEST_TESTING_OPTIONS,
 } from "@/types/task";
@@ -14,6 +13,7 @@ import {
   useAddBuildRequestItemComment,
   useDeleteBuildRequestItem,
   useEditBuildRequestItemComment,
+  useBuildRequestPartStatusChoices,
   useSetBuildRequestItemWatchers,
   useUpdateBuildRequestItemFields,
 } from "@/hooks/useBuildRequests";
@@ -26,6 +26,7 @@ import { CommentThread } from "./CommentThread";
 import { AttachmentsSection } from "./AttachmentsSection";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
 import { cn } from "@/lib/cn";
+import { withCurrentChoice } from "@/api/columnChoices";
 import { markAsSeen, useIsMentioned } from "@/hooks/useUnseenMentions";
 
 interface BuildRequestItemCardProps {
@@ -55,6 +56,8 @@ export function BuildRequestItemCard({
   const deleteItem = useDeleteBuildRequestItem();
   const addComment = useAddBuildRequestItemComment();
   const editComment = useEditBuildRequestItemComment();
+  const { data: liveStatuses = [] } = useBuildRequestPartStatusChoices();
+  const partStatusOptions = withCurrentChoice(liveStatuses, item.partStatus);
 
   const hasMention = useIsMentioned(`buildRequestItem:${item.id}`);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -198,7 +201,7 @@ export function BuildRequestItemCard({
                 <SelectField
                   label="Part Status"
                   value={item.partStatus ?? ""}
-                  options={BUILD_REQUEST_PART_STATUSES}
+                  options={partStatusOptions}
                   onChange={(v) => patch({ Part_x0020_Status: v || null })}
                 />
                 <SelectField

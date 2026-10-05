@@ -1,5 +1,7 @@
 import { graphFetch, graphFetchAll } from "./graph";
+import { readColumnChoices } from "./columnChoices";
 import { SP_BUILD_REQUEST_ITEMS_LIST_ID, SP_SITE_ID, USE_MOCK } from "./config";
+import { BUILD_REQUEST_PART_STATUSES } from "@/types/task";
 import type { BuildRequestItem, GraphListItem, Person } from "@/types/task";
 import { toBuildRequestItem } from "@/lib/buildRequestMapper";
 import { ALL_CHECKLIST_FIELDS } from "@/lib/buildRequestChecklist";
@@ -109,6 +111,22 @@ export async function listBuildRequestItems(): Promise<BuildRequestItem[]> {
     `/items?$expand=fields($select=${ITEM_FIELD_SELECT})&$top=500`;
   const items = await graphFetchAll<GraphListItem>(path);
   return items.map(toBuildRequestItem);
+}
+
+/**
+ * The Part Status column's LIVE choices, in SharePoint's own order.
+ *
+ * Read off the column definition rather than hardcoded: the hardcoded list
+ * drifted from SharePoint (Ray, 2026-10-05), and the column is a strict
+ * Choice, so a stale list both hides real statuses and offers values
+ * SharePoint refuses. A status added in SharePoint now appears on the next
+ * load with no deploy. Falls back to BUILD_REQUEST_PART_STATUSES if the
+ * column can't be read — column metadata can be refused even when items
+ * aren't, and an empty picker is worse than a slightly stale one.
+ */
+export async function listBuildRequestPartStatusChoices(): Promise<string[]> {
+  if (USE_MOCK) return [...BUILD_REQUEST_PART_STATUSES];
+  return readColumnChoices(SP_SITE_ID, SP_BUILD_REQUEST_ITEMS_LIST_ID, "Part_x0020_Status", BUILD_REQUEST_PART_STATUSES);
 }
 
 export interface CreateBuildRequestItemInput {

@@ -10,11 +10,14 @@ import { useSortableTable } from "@/hooks/useSortableTable";
 import { useIsPhone } from "@/hooks/useIsPhone";
 import { ChoiceSelect } from "@/components/SearchableSelect";
 import { dayLabel, type SortColumn } from "@/lib/tableSort";
-import { tokenizeQuery } from "@/lib/itemSearch";
+import { sharedRatingLabels } from "@/lib/componentRatings";
 import {
   applyFieldQueries,
   applyRangeQueries,
   partPath,
+  rowMatchesAllTokens,
+  searchEverythingText,
+  searchEverythingTokens,
   toGlobalRows,
   unreadableCount,
   type GlobalPartRow,
@@ -152,8 +155,10 @@ const partId = (p: AltronicPart) => p.id;
 // -----------------------------------------------------------------------------
 
 // Rating A/B/C mean different things per component type (see
-// lib/componentRatings.ts), and one list mixes types, so the table keeps the
-// generic names. The part's own page shows what each one means for it.
+// lib/componentRatings.ts), and one list mixes types, so these are the
+// generic names. When every row ON SCREEN agrees on what a column means — a
+// list searched down to resistors, say — the header says so instead
+// (`sharedRatingLabels`, via PartsTable's `relabel`).
 const COMPONENT_COLUMNS: SortColumn<AltronicComponent>[] = [
   { key: "partNumber", label: "Part #", value: (c) => c.partNumber, noFilter: true },
   { key: "description", label: "Description", value: (c) => c.description, noFilter: true },
@@ -218,6 +223,7 @@ function ComponentListScreen({ prefix }: { prefix: string }) {
       action={<NewPartButton prefix={prefix} />}
       book={partBook(prefix)}
       cardFields={COMPONENT_CARD_FIELDS}
+      relabel={sharedRatingLabels}
     />
   );
 }
@@ -344,6 +350,13 @@ interface PartsTableProps<T> {
   book?: number | null;
   /** Column keys a phone's card lists under the part number and description. */
   cardFields: string[];
+  /**
+   * Better names for some columns, given the rows on screen — the component
+   * ratings' meaning once every row agrees on it. A renamed column keeps its
+   * letter ("Resistance (A)") so it still lines up with the search panel's
+   * Rating A box and the `f.ratingA` in the address.
+   */
+  relabel?: (rows: T[]) => Partial<Record<string, string>>;
 }
 
 function PartsTable<T>({
@@ -365,6 +378,7 @@ function PartsTable<T>({
   action,
   book,
   cardFields,
+  relabel,
 }: PartsTableProps<T>) {
   const navigate = useNavigate();
   const isPhone = useIsPhone();
@@ -455,18 +469,21 @@ function PartsTable<T>({
   // Over the widest pool, so starting a search doesn't rebuild it.
   const haystackRows = searchRows ?? listRows;
   const haystacks = useMemo(() => {
-    const map = new Map<T, string>();
-    for (const row of haystackRows) map.set(row, searchFields.map((f) => f.value(row)).join(" ").toLowerCase());
+    const map = new Map<T, { values: string[]; text: string }>();
+    for (const row of haystackRows) {
+      const values = searchFields.map((f) => f.value(row));
+      map.set(row, { values, text: searchEverythingText(values) });
+    }
     return map;
   }, [haystackRows, searchFields]);
 
   const filtered = useMemo(() => {
     const byField = applyRangeQueries(applyFieldQueries(rows, searchFields, fieldQueries), searchFields, rangeQueries);
-    const tokens = tokenizeQuery(q);
+    const tokens = searchEverythingTokens(q);
     if (tokens.length === 0) return byField;
     return byField.filter((row) => {
-      const hay = haystacks.get(row) ?? "";
-      return tokens.every((t) => hay.includes(t));
+      const hay = haystacks.get(row);
+      return hay ? rowMatchesAllTokens(hay.values, hay.text, tokens) : false;
     });
   }, [rows, searchFields, fieldQueries, rangeQueries, q, haystacks]);
 
@@ -479,6 +496,17 @@ function PartsTable<T>({
   });
 
   const shown = showAll ? table.rows : table.rows.slice(0, INITIAL_ROWS);
+
+  // Over EVERY matching row, not just the 150 rendered — a header must not
+  // claim a meaning that row 151 contradicts. Column filters included, since
+  // table.rows is after them.
+  const displayColumns = useMemo(() => {
+    const names = relabel?.(table.rows) ?? {};
+    return columns.map((c) => {
+      const meaning = names[c.key];
+      return meaning ? { ...c, label: `${meaning} (${c.label.replace(/^Rating /, "")})` } : c;
+    });
+  }, [relabel, table.rows, columns]);
 
   // An active search forces the panel open on a phone, so the reason the
   // list is narrowed can never be hidden — including one from a shared link.
@@ -549,7 +577,9 @@ function PartsTable<T>({
           </PanelField>
           <p className="text-[11px] text-fg-muted">
             Or search one field. Use <span className="font-mono">&amp;</span> for several things in one
-            box: <span className="font-mono">resistor&amp;1k</span>.
+            box: <span className="font-mono">resistor&amp;1k</span>. Use{" "}
+            <span className="font-mono">*</span> as a wildcard: <span className="font-mono">15k*</span> starts
+            with 15k, <span className="font-mono">*50*</span> has 50 anywhere.
           </p>
           {searchScope && (
             <p className="text-[11px] text-fg-muted">
@@ -641,7 +671,7 @@ function PartsTable<T>({
                 ) : isPhone ? (
                   <PartCards
                     rows={shown}
-                    columns={columns}
+                    columns={displayColumns}
                     cardFields={cardFields}
                     stableKey={stableKey}
                     rowPath={rowPath}
@@ -656,7 +686,7 @@ function PartsTable<T>({
                       {/* Sticky, so the headings stay put while the rows scroll. */}
                       <thead className="sticky top-0 z-10">
                         <tr className="border-b border-border bg-surface-2 text-left">
-                          {columns.map((column) => (
+                          {displayColumns.map((column) => (
                             <SortableHeader
                               key={column.key}
                               label={column.label}

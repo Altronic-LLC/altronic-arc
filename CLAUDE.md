@@ -258,6 +258,7 @@ src/
 │   ├── accessProbe.ts            One Graph $batch at sign-in: which lists can this user read?
 │   ├── listItemCount.ts          SharePoint's UNTRIMMED item count — "the rows exist, you just can't see them"
 │   ├── graph.ts                  graphFetch / graphFetchAll, throttle retry, ONE shared interactive sign-in
+│   ├── columnChoices.ts          A Choice column's LIVE choices (+ fallback), and withCurrentChoice for pickers
 │   ├── sharepoint.ts             SharePoint REST helper (list-item attachments)
 │   ├── directory.ts              Tenant staff directory (Graph /users) for the pickers
 │   ├── siteUsers.ts              Site user resolution — Graph UIL first, then "ensure user"
@@ -1341,6 +1342,26 @@ Seven things that are load-bearing:
     `0.1uF` (a lone leading zero). The identifier fields stay plain
     substring, so `1018` still finds 701018 — don't widen the rule to them.
     `fieldQueryMatches`'s `numeric` flag; Search everything is unchanged.
+  - **`*` is a wildcard** (Tim, 2026-10-05). A term holding one is a glob
+    over the WHOLE value (trimmed, case-insensitive): `15k*` starts with,
+    `*50` ends with, `*50*` anywhere, `1*w` both ends. It is ARC's, not the
+    old app's.
+    - The stars override the number-start rule above, so `*50*` finds 250V.
+      Plain `50` still doesn't.
+    - Every other character is literal (`escapeRegExp`), so `1.5*` doesn't
+      match 105K.
+    - In Search everything a wildcard word must match ONE field's value
+      (`rowMatchesAllTokens`). Gluing a glob onto the joined row text would
+      only ever test the first field.
+    - `parsePartsQuery` sends anything with a `*` to Global Search, so the
+      jump box never looks up `701*` as a part number.
+  - **Spaces around a dash don't count** (Tim, 2026-10-05): most rows read
+    "CAPACITOR - CERAMIC", some "CAPACITOR-CERAMIC". `normalizeDashes`
+    collapses `\s*-\s*` (en/em dashes too) on BOTH the query and the value,
+    in the field boxes, wildcards and Search everything. Unlike `&`, where
+    the spaces ARE part of the term. Search everything normalises each value
+    BEFORE joining (`searchEverythingText`), or a leading-dash value like
+    "-55" would glue onto the field before it.
   - "Search everything" (`q`) is token-based across every search field, on
     top of the per-field boxes.
   - Every search is in the URL (`q`, `f.<field>`).
@@ -1398,7 +1419,25 @@ reads "Type (Li3 lithium)", as the old app has it; the guide's PDF text said
 CERAMIC"), the longest match wins, and an `OBSOLETE -` or `SIL CAT n -`
 prefix is ignored. An unknown type keeps the generic names rather than
 guessing.
-- The list table keeps "Rating A/B/C", because one list mixes types.
+- **A Resistor's B and C are the REVERSE of the guide** (BusinessIT#18,
+  2026-10-05): B = Power, C = Working voltage. The guide says the opposite,
+  but 872 of the 1,016 live resistors hold power in B and voltage in C
+  ("681R / 250mW / 200V"), so labelling by the guide put "Working voltage:
+  250mW" on most of them. 40 were entered the guide's way round — 37 of them
+  recently, following the old labels — and were swapped on 2026-10-05 with
+  Brandon's agreement by `scripts/swap-resistor-rating-bc.ps1` (which only
+  touches a row still holding its as-found values, and has `-Undo`). **Check the live data before trusting the guide on any other row**:
+  the guide describes intent, the data is what's on the page.
+- The list table says "Rating A/B/C", because one list mixes types —
+  **until every matching row agrees** on what a column means (Tim,
+  2026-10-05). Searched down to resistors, the headers read "Resistance (A)",
+  "Power (B)", "Working voltage (C)". `sharedRatingLabels` decides it PER
+  COLUMN from rows holding a value there (a blank contradicts nothing), and
+  any unknown type keeps the column generic. It reads `table.rows` — every
+  match after column filters, NOT the 150 rendered — so row 151 can't
+  contradict a header. The letter stays in the name so it still lines up
+  with the search panel's "Rating A" box and `f.ratingA` in the URL; those
+  boxes deliberately keep their generic names.
 - The detail page shows "Rating A" beside its meaning.
 - **The New Part form uses the meaning AS the label** ("Resistance", not
   "Rating A"), and it changes as the Description is picked, like the old
@@ -4889,8 +4928,25 @@ SharePoint.** `Ready for Production` / `Production Complete` (request) and
 `buildRequestMapper.ts` CLAMPS a status read to `BUILD_REQUEST_STATUSES` /
 `BUILD_REQUEST_PART_STATUSES` in `types/task.ts` — so a value missing from
 those arrays reads as nothing, and the button could never see a part reach
-the status it waits on. Both arrays now carry them; keep them in step with
-the SharePoint choice lists.
+the status it waits on. Both arrays now carry them.
+
+**Request Status and Part Status are no longer clamped or hardcoded** (Ray,
+2026-10-05: both pickers had drifted from SharePoint). They read the columns'
+LIVE choices — `listBuildRequestStatusChoices` (BRStatus) and
+`listBuildRequestPartStatusChoices` (Part_x0020_Status), both through
+`readColumnChoices` in `api/columnChoices.ts` — and the mapper keeps whatever
+string a row holds, so a status added in SharePoint appears with no deploy.
+That covers the detail-page picker, the part card's picker, the Build
+Requests list's status pills and the Dashboard card's bar.
+
+- `BUILD_REQUEST_STATUSES` / `BUILD_REQUEST_PART_STATUSES` are now only the
+  FALLBACK (mock mode, or the column can't be read).
+- `withCurrentChoice` keeps a record's current value in its picker (and its
+  pill) if SharePoint stops offering it, so a save can't silently change it.
+- A status with no colour in `buildRequestAtoms` / `BUILD_REQUEST_BAR_COLOR`
+  renders the neutral grey — add a colour there if a new one matters.
+- The production hand-off still keys off the exact strings `Ready for
+  Production` / `Production Complete`; renaming those in SharePoint breaks it.
 
 **Four alerts**, pure builders in `lib/buildRequestAlerts.ts`, sent through
 `notifyChangeEmails` from `api/email.ts`, wired in the build request hooks:

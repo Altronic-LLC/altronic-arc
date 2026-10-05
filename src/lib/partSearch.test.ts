@@ -9,6 +9,9 @@ import {
   fieldQueryTerms,
   parsePartsQuery,
   partPath,
+  rowMatchesAllTokens,
+  searchEverythingText,
+  searchEverythingTokens,
   toGlobalRows,
   type SearchField,
 } from "./partSearch";
@@ -125,6 +128,115 @@ describe("field queries — value fields match where a number starts", () => {
   });
 });
 
+describe("field queries — * is a wildcard over the whole value", () => {
+  it("15k* finds values STARTING with 15k, and nothing with 15k later on", () => {
+    expect(fieldQueryMatches("15K0", "15k*")).toBe(true);
+    expect(fieldQueryMatches("15K", "15k*")).toBe(true);
+    expect(fieldQueryMatches("150K", "15k*")).toBe(false);
+    expect(fieldQueryMatches("1.15K", "15k*")).toBe(false);
+  });
+
+  it("*50* finds 50 anywhere — even mid-number on a value field", () => {
+    expect(fieldQueryMatches("250V", "*50*", true)).toBe(true);
+    expect(fieldQueryMatches("50V", "*50*", true)).toBe(true);
+    expect(fieldQueryMatches("1500", "*50*", true)).toBe(true);
+    expect(fieldQueryMatches("5V", "*50*", true)).toBe(false);
+    // Without the stars the number-start rule still holds.
+    expect(fieldQueryMatches("250V", "50", true)).toBe(false);
+  });
+
+  it("*50 finds values ENDING with 50", () => {
+    expect(fieldQueryMatches("250", "*50")).toBe(true);
+    expect(fieldQueryMatches("250V", "*50")).toBe(false);
+  });
+
+  it("a star in the middle anchors both ends", () => {
+    expect(fieldQueryMatches("1/4W", "1*w")).toBe(true);
+    expect(fieldQueryMatches("10mW", "1*w")).toBe(true);
+    expect(fieldQueryMatches("1/4W MAX", "1*w")).toBe(false);
+  });
+
+  it("is case-insensitive and ignores spaces around the stored value", () => {
+    expect(fieldQueryMatches(" Resistor - Film ", "RESISTOR*")).toBe(true);
+    expect(fieldQueryMatches("resistor", "*STOR")).toBe(true);
+  });
+
+  it("takes every other character literally — no accidental regex", () => {
+    expect(fieldQueryMatches("1/4W", "1/4*")).toBe(true);
+    expect(fieldQueryMatches("1.5K", "1.5*")).toBe(true);
+    expect(fieldQueryMatches("105K", "1.5*")).toBe(false);
+    expect(fieldQueryMatches("A(1)B", "*(1)*")).toBe(true);
+    expect(fieldQueryMatches("X", "[x]*")).toBe(false);
+  });
+
+  it("combines with & — every pattern must hold", () => {
+    expect(fieldQueryMatches("RESISTOR - FILM", "resistor*&*film")).toBe(true);
+    expect(fieldQueryMatches("RESISTOR - WIREWOUND", "resistor*&*film")).toBe(false);
+  });
+
+  it("a lone * matches everything, blanks included", () => {
+    expect(fieldQueryMatches("", "*")).toBe(true);
+    expect(fieldQueryMatches("anything", "*")).toBe(true);
+  });
+});
+
+describe("field queries — spaces around a dash don't count", () => {
+  it("finds CAPACITOR - CERAMIC from CAPACITOR-CERAMIC, and the other way round", () => {
+    expect(fieldQueryMatches("CAPACITOR - CERAMIC", "capacitor-ceramic")).toBe(true);
+    expect(fieldQueryMatches("CAPACITOR-CERAMIC", "capacitor - ceramic")).toBe(true);
+    expect(fieldQueryMatches("CAPACITOR -CERAMIC", "capacitor- ceramic")).toBe(true);
+  });
+
+  it("treats en and em dashes as dashes", () => {
+    expect(fieldQueryMatches("CAPACITOR – CERAMIC", "capacitor-ceramic")).toBe(true);
+    expect(fieldQueryMatches("CAPACITOR—CERAMIC", "capacitor - ceramic")).toBe(true);
+  });
+
+  it("still needs the dash — a space alone isn't one", () => {
+    expect(fieldQueryMatches("CAPACITOR CERAMIC", "capacitor-ceramic")).toBe(false);
+  });
+
+  it("works inside & terms and wildcards", () => {
+    expect(fieldQueryMatches("SIL CAT 1 - CAPACITOR - CERAMIC", "sil cat 1-capacitor&ceramic")).toBe(true);
+    expect(fieldQueryMatches("CAPACITOR - CERAMIC", "capacitor-*")).toBe(true);
+    expect(fieldQueryMatches("CAPACITOR-CERAMIC", "*r - c*")).toBe(true);
+  });
+
+  it("leaves negative temperatures readable on the value fields", () => {
+    expect(fieldQueryMatches("- 55°C", "-55", true)).toBe(true);
+    expect(fieldQueryMatches("-55°C", "55", true)).toBe(true);
+    expect(fieldQueryMatches("4.5V - 5.5V", "5.5v", true)).toBe(true);
+  });
+
+  it("does the same in Search everything, without gluing a leading dash onto the field before", () => {
+    const values = ["601138", "CAPACITOR - CERAMIC", "-55"];
+    const text = searchEverythingText(values);
+    expect(rowMatchesAllTokens(values, text, searchEverythingTokens("capacitor-ceramic"))).toBe(true);
+    expect(rowMatchesAllTokens(values, text, searchEverythingTokens("CAPACITOR - CERAMIC"))).toBe(true);
+    expect(text).toContain("601138 ");
+  });
+});
+
+describe("Search everything — rowMatchesAllTokens", () => {
+  const values = ["701043", "RESISTOR", "15K0", "1/10W"];
+  const text = values.join(" ").toLowerCase();
+
+  it("matches a wildcard word against ONE field's whole value", () => {
+    // The joined row starts "701043 …", so these only pass per field.
+    expect(rowMatchesAllTokens(values, text, ["15k*"])).toBe(true);
+    expect(rowMatchesAllTokens(values, text, ["resist*"])).toBe(true);
+    // The joined row ends "1/10w", so this only passes per field too.
+    expect(rowMatchesAllTokens(values, text, ["*stor"])).toBe(true);
+    // A pattern spanning two fields matches no one field.
+    expect(rowMatchesAllTokens(values, text, ["resistor*15k*"])).toBe(false);
+  });
+
+  it("keeps plain words as a substring of the whole row, ANDed with patterns", () => {
+    expect(rowMatchesAllTokens(values, text, ["resist", "15k*"])).toBe(true);
+    expect(rowMatchesAllTokens(values, text, ["capac", "15k*"])).toBe(false);
+  });
+});
+
 describe("buildPartsBooks", () => {
   it("groups by first digit, then three-digit list, with counts", () => {
     const books = buildPartsBooks(["601110", "601138", "611075", "101022", "610086"]);
@@ -167,6 +279,11 @@ describe("parsePartsQuery — the landing page's box", () => {
   it("searches for anything else, so the box is never a dead end", () => {
     expect(parsePartsQuery("usb modbus")).toEqual({ kind: "search", query: "usb modbus" });
     expect(parsePartsQuery("0")).toEqual({ kind: "search", query: "0" });
+  });
+
+  it("searches a wildcard rather than looking it up as a part number", () => {
+    expect(parsePartsQuery("701*")).toEqual({ kind: "search", query: "701*" });
+    expect(parsePartsQuery("*50*")).toEqual({ kind: "search", query: "*50*" });
   });
 
   it("does nothing for an empty box", () => {

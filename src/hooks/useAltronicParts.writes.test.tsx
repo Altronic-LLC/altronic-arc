@@ -231,7 +231,8 @@ describe("who hears about it", () => {
     const detail = (notifyChangeEmails.mock.calls.at(-1) as unknown as [{ emails: Array<{ detailHtml: string }> }])[0]
       .emails[0].detailHtml;
     expect(detail).toContain("Resistance (Rating A): <strong>4K7</strong>");
-    expect(detail).toContain("Power (Rating C):");
+    expect(detail).toContain("Power (Rating B):");
+    expect(detail).toContain("Working voltage (Rating C):");
   });
 
   it("the SAP admin's answer goes back to whoever added the part", async () => {
