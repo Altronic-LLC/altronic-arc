@@ -50,8 +50,12 @@ const PROD_COMPLETE = "Production Complete" as const;
 /** Statuses at which the hand-off is over and no button is offered. */
 const NO_BUTTON_STATUSES: readonly string[] = [PROD_COMPLETE, "Complete"];
 
-/** Part statuses that satisfy step 1. */
-const READY_PART_STATUSES: readonly string[] = [READY, PROD_COMPLETE];
+/**
+ * Part statuses that satisfy step 1 — Ready for Production or any status a
+ * part only reaches after it (In Production, 2026-10-05; see
+ * lib/buildRequestPartProduction.ts).
+ */
+const READY_PART_STATUSES: readonly string[] = [READY, "In Production", PROD_COMPLETE];
 /** Part statuses that satisfy step 2. */
 const COMPLETE_PART_STATUSES: readonly string[] = [PROD_COMPLETE];
 
@@ -84,6 +88,18 @@ export const BUILD_REQUEST_PRODUCTION_COMPLETE_APPROVERS: readonly string[] = [
 ];
 
 /**
+ * Is the signed-in user a production approver — an ARC admin or one of
+ * BUILD_REQUEST_PRODUCTION_COMPLETE_APPROVERS? Also gates a PART's production
+ * steps (lib/buildRequestPartProduction.ts).
+ */
+export function isProductionApprover(access: { isAdmin: boolean; myEmails: string[] }): boolean {
+  return (
+    access.isAdmin ||
+    BUILD_REQUEST_PRODUCTION_COMPLETE_APPROVERS.some((a) => matchesAnyEmail(access.myEmails, a))
+  );
+}
+
+/**
  * May the signed-in user take the production step toward `target`?
  * `target` defaults to the step the request's CURRENT status offers — the
  * button's view of it; the write guard passes the status being written.
@@ -94,11 +110,7 @@ export function canPressProduction(
   target: string = br.status === READY ? PROD_COMPLETE : READY,
 ): boolean {
   if (access.isAdmin) return true;
-  if (target === PROD_COMPLETE) {
-    return BUILD_REQUEST_PRODUCTION_COMPLETE_APPROVERS.some((a) =>
-      matchesAnyEmail(access.myEmails, a),
-    );
-  }
+  if (target === PROD_COMPLETE) return isProductionApprover(access);
   const engineerEmail = br.engineerAssigned?.email;
   if (!engineerEmail) return false;
   return matchesAnyEmail(access.myEmails, engineerEmail);

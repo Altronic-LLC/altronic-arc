@@ -470,6 +470,7 @@ src/
 │   ├── buildRequestChecklist.ts  Build Request item checklist columns + progress
 │   ├── buildRequestFromTask.ts   Task → Build Request: prefill, carried comments, the DERIVED reverse link
 │   ├── buildRequestProduction.ts The production hand-off rule — button state + the write guard (pure, ONE place)
+│   ├── buildRequestPartProduction.ts A PART's production buttons — readiness, who presses which step, the write guard (pure)
 │   ├── buildRequestAlerts.ts     Production hand-off emails — ready / part done / review / complete (pure)
 │   ├── commentMirror.ts         Mirroring a comment task ⇄ BR ⇄ part: the origin banner + fan-out routing (pure)
 │   ├── guestIdentity.ts        Is this address external? One rule, shared with the Power Automate guest flow
@@ -4947,6 +4948,42 @@ Requests list's status pills and the Dashboard card's bar.
   renders the neutral grey — add a colour there if a new one matters.
 - The production hand-off still keys off the exact strings `Ready for
   Production` / `Production Complete`; renaming those in SharePoint breaks it.
+
+#### A part's status moves through BUTTONS, not a dropdown
+
+Ray, 2026-10-05. The part card's Part Status dropdown is gone; production
+buttons sit above **Print part**, with a note under them.
+`lib/buildRequestPartProduction.ts` is the ONE place the rules live, asked by
+the card (`partProductionState`) AND inside `useUpdateBuildRequestItemFields`
+(`partStatusTransitionRefusal`, decided in `onMutate` against the pre-patch
+row, thrown from `mutationFn` — the request-level guard's pattern).
+
+| Part status | Buttons | Who |
+|---|---|---|
+| anything before production | **Mark as Ready for Production** (bright red) | anyone, once the part is READY |
+| Ready for Production | Mark as In Production | production approver |
+| In Production | Put On Hold · Mark as Production Complete | production approver |
+| On Hold | Mark as In Production · Mark as Production Complete | production approver |
+| Production Complete | none | — |
+
+- **READY** = every checklist box ticked for a PCB or Harness part; for any
+  other part, Part Number, Qty (> 0), Part Description, Part Type and
+  Disposition all filled in. A checklist part is judged on its checklist only.
+- **The production approver** is the request-level Production Complete
+  approver — `isProductionApprover` (Amanda Hoagland via
+  `BUILD_REQUEST_PRODUCTION_COMPLETE_APPROVERS`, or an ARC admin). Marking a
+  part Ready is NOT role-gated.
+- **"In Production" must be a choice on the SharePoint Part Status column.**
+  It's a strict Choice, so a value it doesn't declare is refused; the card
+  reads the live choices and greys the step with that reason rather than
+  failing on press.
+- **In Production counts as past Ready** for the request's step 1
+  (`READY_PART_STATUSES`). On Hold deliberately does NOT — it predates this
+  workflow as a pre-production status on older parts.
+- A greyed button is `aria-disabled` with its reason printed on screen, never
+  `disabled` (the EIR At Risk pills lesson).
+- Statuses outside the workflow (Review Checklist, Information Needed) are no
+  longer settable from ARC; set them in SharePoint if needed.
 
 **Four alerts**, pure builders in `lib/buildRequestAlerts.ts`, sent through
 `notifyChangeEmails` from `api/email.ts`, wired in the build request hooks:

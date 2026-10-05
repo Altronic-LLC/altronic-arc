@@ -5136,7 +5136,7 @@ const SECTIONS: ManualSection[] = [
       "production hand-off",
     ],
     searchText:
-      "Build Requests ask manufacturing to build parts. A request can also be raised from a task with the Create Build Request button on the task page, which prefills the task's name and project, locks the Task Reference, and copies the task's discussion into the request's comments; the two then link to each other and share one comment thread, with a comment on a part appearing on both marked as coming from that part.  Each request (BR_YYYY-####) has a header — status, type, lead time, requestor, engineer, customer — and any number of parts. Each part has its own comment thread, watchers, attachments, and a Part-Type checklist: PCB parts get the data-package checklist, Harness parts get the terminals checklist. Create from the Build Requests list; add parts from the detail page. Email notifications fire for comments (request or part level), BR Status changes, Engineer Assigned changes, and a part's Part Status changes; part-comment emails open the request with that part expanded. Lead Free requests show a green flag and a warning banner on part printouts; each part has a Print part button for the production floor. Production hand-off: once every part is Ready for Production, the assigned engineer (or an admin) presses Ready for Production on the request, which emails Amanda Hoagland, Sheila Horn, the engineer, the watchers and the requestor; once every part is Production Complete the button becomes Build Request Production Complete, which asks Sheila Horn to review and set the request to Complete. Each part reaching Production Complete emails the engineer, the request and part watchers and the requestor, and a request set from Production Complete to Complete emails the watchers, Amanda Hoagland, the engineer and the requestor. The Status picker follows the same rule.",
+      "Build Requests ask manufacturing to build parts. A request can also be raised from a task with the Create Build Request button on the task page, which prefills the task's name and project, locks the Task Reference, and copies the task's discussion into the request's comments; the two then link to each other and share one comment thread, with a comment on a part appearing on both marked as coming from that part.  Each request (BR_YYYY-####) has a header — status, type, lead time, requestor, engineer, customer — and any number of parts. Each part has its own comment thread, watchers, attachments, and a Part-Type checklist: PCB parts get the data-package checklist, Harness parts get the terminals checklist. A part's status moves through buttons, not a dropdown: Mark as Ready for Production (once its checklist, or its Part Number, Qty, Part Description, Part Type and Disposition, are complete), then Amanda Hoagland or an admin marks it In Production, On Hold or Production Complete. Create from the Build Requests list; add parts from the detail page. Email notifications fire for comments (request or part level), BR Status changes, Engineer Assigned changes, and a part's Part Status changes; part-comment emails open the request with that part expanded. Lead Free requests show a green flag and a warning banner on part printouts; each part has a Print part button for the production floor. Production hand-off: once every part is Ready for Production, the assigned engineer (or an admin) presses Ready for Production on the request, which emails Amanda Hoagland, Sheila Horn, the engineer, the watchers and the requestor; once every part is Production Complete the button becomes Build Request Production Complete, which asks Sheila Horn to review and set the request to Complete. Each part reaching Production Complete emails the engineer, the request and part watchers and the requestor, and a request set from Production Complete to Complete emails the watchers, Amanda Hoagland, the engineer and the requestor. The Status picker follows the same rule.",
     render: () => (
       <>
         <P>
@@ -5183,8 +5183,25 @@ const SECTIONS: ManualSection[] = [
           On the detail page, click <strong>Add Part</strong> and enter the
           part number, quantity, drawing info, and Part Type. Each part shows
           as a collapsible card — click it to expand and edit everything
-          inline: WO No (filled by manufacturing), Part Status, Disposition,
-          and the multi-select Assembly / Operations / Testing pickers.
+          inline: WO No (filled by manufacturing), Disposition, and the
+          multi-select Assembly / Operations / Testing pickers. A part&apos;s
+          status is not a dropdown — it moves through buttons (below).
+        </P>
+        <H3>Moving a part through production</H3>
+        <P>
+          Next to <strong>Print part</strong>, each part has a red{" "}
+          <strong>Mark as Ready for Production</strong> button. Press it only
+          when everything for that part is ready: every checklist box ticked
+          for a PCB or Harness part, or for any other part its Part Number,
+          Qty, Part Description, Part Type and Disposition filled in. Until
+          then the button is greyed and says what&apos;s left. After that,
+          Amanda Hoagland (or an ARC admin) takes the part through
+          production: <strong>Mark as In Production</strong>, then{" "}
+          <strong>Put On Hold</strong> or{" "}
+          <strong>Mark as Production Complete</strong>; a part on hold can go
+          back into production or straight to Production Complete. Each step
+          changes the part&apos;s Part Status, and the request&apos;s own
+          production hand-off waits on those statuses.
         </P>
         <H3>Part-Type checklists</H3>
         <P>

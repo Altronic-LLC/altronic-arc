@@ -25,6 +25,9 @@ export const CHANGELOG: ChangelogEntry[] = [
     changes: [
       "The email you get when you're assigned an Engineering task now shows the task's due date, so you can see how urgent it is at a glance",
       "That email also includes the task's description, so you have the context without opening the link",
+      "Each part on a build request has a red Mark as Ready for Production button next to Print part, in place of the Part Status dropdown",
+      "The button only works once the part is ready: every checklist box ticked for a PCB or Harness part, or Part Number, Qty, Part Description, Part Type and Disposition filled in for any other part — until then it says what's left",
+      "Amanda Hoagland (or an admin) then moves the part to In Production, On Hold or Production Complete with the same buttons",
     ],
   },
   {
