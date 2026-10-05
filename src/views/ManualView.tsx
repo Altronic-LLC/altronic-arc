@@ -4797,7 +4797,7 @@ const SECTIONS: ManualSection[] = [
       "sil cat",
     ],
     searchText:
-      "The Parts List holds every Altronic part number, under Engineering. It replaces the Altronic Component List Power App and its 175 separate lists with two: the Altronic Part List (every prefix except the HCO components) and the Altronic Component List (601 and 611 Through Hole, 701 711 and 712 Surface Mount, 722 SIL). A part's first three digits are its parts list and its first digit is its Parts Book. From the landing page pick a Parts Book (100 to 900) and then a list, or type into the box: a three-digit number opens that list, a whole part number opens the part, a single digit opens that book, and anything else runs a Global Search. Global Search covers both lists at once. The search panel down the left has one box per field; searches are not case sensitive and match part of the text, so apacit finds capacitor. Use & to search several things in one box, like resistor&1k; spaces around & count as part of the search. Search everything matches words in any field. Every search is in the web address, so you can send a search as a link. The table sorts by any column and each column header opens a filter. A component's page shows what Rating A, B and C mean for that type of component, from the HCO entry rules. Parts loaded from the old app have no sign-off status because it didn't record approvals. Adding, editing and approving parts is limited to the people on the Parts Roles list, managed by ARC admins at Admin, Parts Roles: The Add role adds Part List parts and HCO components except 722, and suggests corrections to parts they cannot edit; Parts editor also edits existing parts on both lists and adds to 722; Reviewing engineer approves new components at Engineering Review; SAP admin adds new parts to SAP, gives final approval and can edit every field. Click New part on a list to add one; the next free number is filled in. Only the SAP admin can start a new list; anyone else typing a number on a list that does not exist yet gets an Ask the SAP admin button, which emails the request. A new component goes to the reviewing engineers, then the SAP admin; a new Part List part goes to the SAP admin. Approve records a comment in the Approval history. The SAP admin answers Added to SAP, Does not need to be added to SAP, or Will be added to SAP but requires more information, from the buttons in the email or on the part's page; every answer approves the part and emails whoever added it which answer was given. Editing an approved part does not send it back for approval, but the SAP admin is emailed what changed. Part numbers can't be changed. A new component's description is picked: a Description, then a Type from that description's list, and on the 722 list a SIL category first, saved in capitals like SIL CAT 1 - CAPACITOR - CERAMIC. Editing a component keeps a plain text box. The SAP admin and the reviewing engineers manage the description lists from Descriptions on the Parts List landing page.",
+      "The Parts List holds every Altronic part number, under Engineering. It replaces the Altronic Component List Power App and its 175 separate lists with two: the Altronic Part List (every prefix except the HCO components) and the Altronic Component List (601 and 611 Through Hole, 701 711 and 712 Surface Mount, 722 SIL). A part's first three digits are its parts list and its first digit is its Parts Book. From the landing page pick a Parts Book (100 to 900) and then a list, or type into the box: a three-digit number opens that list, a whole part number opens the part, a single digit opens that book, and anything else runs a Global Search. Global Search covers both lists at once. The search panel down the left has one box per field; searches are not case sensitive and match part of the text, so apacit finds capacitor. Use & to search several things in one box, like resistor&1k; spaces around & count as part of the search, but spaces around a dash don't, so capacitor-ceramic finds CAPACITOR - CERAMIC. Use * as a wildcard: 15k* finds values starting with 15k, *50 values ending with 50, *50* values with 50 anywhere. Search everything matches words in any field. Every search is in the web address, so you can send a search as a link. The table sorts by any column and each column header opens a filter. A component's page shows what Rating A, B and C mean for that type of component, from the HCO entry rules. Parts loaded from the old app have no sign-off status because it didn't record approvals. Adding, editing and approving parts is limited to the people on the Parts Roles list, managed by ARC admins at Admin, Parts Roles: The Add role adds Part List parts and HCO components except 722, and suggests corrections to parts they cannot edit; Parts editor also edits existing parts on both lists and adds to 722; Reviewing engineer approves new components at Engineering Review; SAP admin adds new parts to SAP, gives final approval and can edit every field. Click New part on a list to add one; the next free number is filled in. Only the SAP admin can start a new list; anyone else typing a number on a list that does not exist yet gets an Ask the SAP admin button, which emails the request. A new component goes to the reviewing engineers, then the SAP admin; a new Part List part goes to the SAP admin. Approve records a comment in the Approval history. The SAP admin answers Added to SAP, Does not need to be added to SAP, or Will be added to SAP but requires more information, from the buttons in the email or on the part's page; every answer approves the part and emails whoever added it which answer was given. Editing an approved part does not send it back for approval, but the SAP admin is emailed what changed. Part numbers can't be changed. A new component's description is picked: a Description, then a Type from that description's list, and on the 722 list a SIL category first, saved in capitals like SIL CAT 1 - CAPACITOR - CERAMIC. Editing a component keeps a plain text box. The SAP admin and the reviewing engineers manage the description lists from Descriptions on the Parts List landing page.",
     render: () => (
       <>
         <P>
@@ -4853,8 +4853,9 @@ const SECTIONS: ManualSection[] = [
           one box, separate them with <strong>&amp;</strong>:{" "}
           <strong>resistor&amp;1k</strong>. Spaces around the &amp; count as
           part of the search, so <strong>hello &amp; world</strong> won't match
-          "helloworld". Fill in several boxes and a part has to match all of
-          them.
+          "helloworld". Spaces around a dash don't matter, so{" "}
+          <strong>capacitor-ceramic</strong> also finds "CAPACITOR - CERAMIC".
+          Fill in several boxes and a part has to match all of them.
         </P>
         <P>
           In the value boxes — Rating A/B/C, Tolerance, Temp Min and Temp Max — a
@@ -4863,6 +4864,16 @@ const SECTIONS: ManualSection[] = [
           find 250V. <strong>.1uF</strong> still finds 0.1uF. The other boxes,
           like Altronic Part # and Mfg Number, match any part of the text, so{" "}
           <strong>1018</strong> still finds 701018.
+        </P>
+        <P>
+          Use <strong>*</strong> as a wildcard in any box, Search everything
+          included. With a * in it, the search has to match the whole value:{" "}
+          <strong>15k*</strong> finds values that start with 15k,{" "}
+          <strong>*50</strong> values that end with 50, and <strong>*50*</strong>{" "}
+          values with 50 anywhere in them, so 250V is found too.{" "}
+          <strong>1*w</strong> finds values that start with 1 and end with W.
+          Typing a wildcard in the Parts Book's box, like <strong>701*</strong>,
+          runs a Global Search.
         </P>
         <P>
           <strong>Search everything</strong>, at the top of the panel, matches
@@ -4906,12 +4917,18 @@ const SECTIONS: ManualSection[] = [
         <P>
           Click a part to open it. On a component, the <strong>Ratings</strong>{" "}
           card says what Rating A, B and C mean for that kind of part — for a
-          resistor, resistance, working voltage and power — using the HCO entry
-          rules. When the description doesn't name a type those rules cover, the
+          resistor, resistance, power and working voltage — using the HCO entry
+          rules, except that a resistor's power and working voltage follow the
+          order the existing parts were entered in. When the description doesn't name a type those rules cover, the
           ratings keep their plain names. On <strong>New part</strong>, the three
           rating boxes are named the same way and change as you pick the
-          Description: a resistor asks for Resistance, Working voltage and Power,
-          and an IC for Voltage, Current and Pin count.
+          Description: a resistor asks for Resistance, Power and Working voltage,
+          and an IC for Voltage, Current and Pin count. A component list's
+          columns say Rating A, B and C, because one list mixes kinds of part.
+          Narrow it to one kind, for example by searching the Description for
+          resistor, and the columns are named for it: Resistance (A), Power (B)
+          and Working voltage (C). If even one part on screen is a different
+          kind, that column goes back to its plain name.
         </P>
         <P>
           Every part's page has a <strong>Datasheet</strong> line — on the

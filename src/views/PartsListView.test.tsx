@@ -184,6 +184,59 @@ describe("PartsListView — a component search covers its whole category", () =>
   });
 });
 
+describe("PartsListView — rating headers name what the rows have in common", () => {
+  const headers = () => screen.getAllByRole("columnheader").map((h) => h.textContent ?? "");
+
+  it("keeps Rating A/B/C on a list that mixes types", async () => {
+    renderList("/engineering/parts/list/701");
+    await waitFor(() => expect(screen.getByRole("table")).toBeInTheDocument());
+    expect(headers().some((h) => h.includes("Rating A"))).toBe(true);
+    expect(headers().some((h) => h.includes("Resistance"))).toBe(false);
+  });
+
+  it("names the columns once the search narrows it to resistors", async () => {
+    renderList("/engineering/parts/list/701?f.description=resistor");
+    await waitFor(() => expect(tablePartNumbers()).toEqual(["701043", "701990"]));
+    const h = headers();
+    expect(h.some((t) => t.includes("Resistance (A)"))).toBe(true);
+    expect(h.some((t) => t.includes("Power (B)"))).toBe(true);
+    expect(h.some((t) => t.includes("Working voltage (C)"))).toBe(true);
+    expect(h.some((t) => t.includes("Rating A"))).toBe(false);
+  });
+});
+
+describe("PartsListView — * wildcards", () => {
+  // Rating A across 701/711/712: 10K, 0.1uF, 4K7, 40V, 50V, 5V, (blank), 10uH.
+
+  it("4k* in a field box finds values starting 4k", async () => {
+    renderList("/engineering/parts/list/701?f.ratingA=4k*");
+    await waitFor(() => expect(screen.getByRole("table")).toBeInTheDocument());
+    expect(tablePartNumbers()).toEqual(["701990"]);
+  });
+
+  it("*0v finds values ending 0V — 40V and 50V, not 5V", async () => {
+    renderList("/engineering/parts/list/701?f.ratingA=*0v");
+    await waitFor(() => expect(screen.getByRole("table")).toBeInTheDocument());
+    expect(tablePartNumbers()).toEqual(["711508", "711640"]);
+  });
+
+  it("finds CAPACITOR - CERAMIC from capacitor-ceramic, in a field box and in Search everything", async () => {
+    const { unmount } = renderList("/engineering/parts/list/701?f.description=capacitor-ceramic");
+    await waitFor(() => expect(screen.getByRole("table")).toBeInTheDocument());
+    expect(tablePartNumbers()).toEqual(["701212"]);
+    unmount();
+    renderList("/engineering/parts/list/701?q=capacitor-ceramic");
+    await waitFor(() => expect(screen.getByRole("table")).toBeInTheDocument());
+    expect(tablePartNumbers()).toEqual(["701212"]);
+  });
+
+  it("works in Search everything, one field at a time", async () => {
+    renderList("/engineering/parts/list/701?q=4k*");
+    await waitFor(() => expect(screen.getByRole("table")).toBeInTheDocument());
+    expect(tablePartNumbers()).toEqual(["701990"]);
+  });
+});
+
 describe("PartsListView — range search (the old app's R)", () => {
   // Mock list 701: 701043 RESISTOR 10K, 701212 CAPACITOR 0.1uF, 701990 RESISTOR 4K7.
 
