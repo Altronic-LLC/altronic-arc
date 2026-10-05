@@ -4,10 +4,8 @@ import type {
   BuildRequestDisposition,
   BuildRequestItem,
   BuildRequestLeadTime,
-  BuildRequestPartStatus,
   BuildRequestPartType,
   BuildRequestSamplePhase,
-  BuildRequestStatus,
   BuildRequestType,
   GraphListItem,
   Person,
@@ -17,10 +15,8 @@ import {
   BUILD_REQUEST_BLOCKED_REASONS,
   BUILD_REQUEST_DISPOSITIONS,
   BUILD_REQUEST_LEAD_TIMES,
-  BUILD_REQUEST_PART_STATUSES,
   BUILD_REQUEST_PART_TYPES,
   BUILD_REQUEST_SAMPLE_PHASES,
-  BUILD_REQUEST_STATUSES,
   BUILD_REQUEST_TYPES,
 } from "@/types/task";
 import { parseCommunication } from "./communicationParser";
@@ -50,11 +46,8 @@ export function toBuildRequest(item: GraphListItem): BuildRequest {
     brNo: (f.BRNo_x002e_ as string) ?? "",
     title: (f.Title as string) ?? "(untitled)",
     product: (f.Product as string) ?? "",
-    status: clampRequired<BuildRequestStatus>(
-      f.BRStatus as string,
-      BUILD_REQUEST_STATUSES,
-      "Submitted",
-    ),
+    // NOT clamped: a status added in SharePoint must show as itself.
+    status: ((f.BRStatus as string | undefined) ?? "").trim() || "Submitted",
     brType: clampOptional<BuildRequestType>(f.BrType0 as string, BUILD_REQUEST_TYPES),
     blockedReason: clampOptional<BuildRequestBlockedReason>(
       f.BlockedReason as string,
@@ -118,10 +111,8 @@ export function toBuildRequestItem(item: GraphListItem): BuildRequestItem {
       f.PartType as string,
       BUILD_REQUEST_PART_TYPES,
     ),
-    partStatus: clampOptional<BuildRequestPartStatus>(
-      f.Part_x0020_Status as string,
-      BUILD_REQUEST_PART_STATUSES,
-    ),
+    // NOT clamped: a status added in SharePoint must show as itself.
+    partStatus: ((f.Part_x0020_Status as string | undefined) ?? "").trim() || null,
     disposition: clampOptional<BuildRequestDisposition>(
       f.Disposition as string,
       BUILD_REQUEST_DISPOSITIONS,
@@ -174,15 +165,6 @@ export function attachBuildRequestReferences(
 }
 
 // ---- helpers ---------------------------------------------------------------
-
-function clampRequired<T extends string>(
-  raw: string | undefined,
-  allowed: readonly T[],
-  fallback: T,
-): T {
-  if (raw && (allowed as readonly string[]).includes(raw)) return raw as T;
-  return fallback;
-}
 
 function clampOptional<T extends string>(
   raw: string | undefined,

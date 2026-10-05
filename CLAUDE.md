@@ -258,6 +258,7 @@ src/
 │   ├── accessProbe.ts            One Graph $batch at sign-in: which lists can this user read?
 │   ├── listItemCount.ts          SharePoint's UNTRIMMED item count — "the rows exist, you just can't see them"
 │   ├── graph.ts                  graphFetch / graphFetchAll, throttle retry, ONE shared interactive sign-in
+│   ├── columnChoices.ts          A Choice column's LIVE choices (+ fallback), and withCurrentChoice for pickers
 │   ├── sharepoint.ts             SharePoint REST helper (list-item attachments)
 │   ├── directory.ts              Tenant staff directory (Graph /users) for the pickers
 │   ├── siteUsers.ts              Site user resolution — Graph UIL first, then "ensure user"
@@ -4927,8 +4928,25 @@ SharePoint.** `Ready for Production` / `Production Complete` (request) and
 `buildRequestMapper.ts` CLAMPS a status read to `BUILD_REQUEST_STATUSES` /
 `BUILD_REQUEST_PART_STATUSES` in `types/task.ts` — so a value missing from
 those arrays reads as nothing, and the button could never see a part reach
-the status it waits on. Both arrays now carry them; keep them in step with
-the SharePoint choice lists.
+the status it waits on. Both arrays now carry them.
+
+**Request Status and Part Status are no longer clamped or hardcoded** (Ray,
+2026-10-05: both pickers had drifted from SharePoint). They read the columns'
+LIVE choices — `listBuildRequestStatusChoices` (BRStatus) and
+`listBuildRequestPartStatusChoices` (Part_x0020_Status), both through
+`readColumnChoices` in `api/columnChoices.ts` — and the mapper keeps whatever
+string a row holds, so a status added in SharePoint appears with no deploy.
+That covers the detail-page picker, the part card's picker, the Build
+Requests list's status pills and the Dashboard card's bar.
+
+- `BUILD_REQUEST_STATUSES` / `BUILD_REQUEST_PART_STATUSES` are now only the
+  FALLBACK (mock mode, or the column can't be read).
+- `withCurrentChoice` keeps a record's current value in its picker (and its
+  pill) if SharePoint stops offering it, so a save can't silently change it.
+- A status with no colour in `buildRequestAtoms` / `BUILD_REQUEST_BAR_COLOR`
+  renders the neutral grey — add a colour there if a new one matters.
+- The production hand-off still keys off the exact strings `Ready for
+  Production` / `Production Complete`; renaming those in SharePoint breaks it.
 
 **Four alerts**, pure builders in `lib/buildRequestAlerts.ts`, sent through
 `notifyChangeEmails` from `api/email.ts`, wired in the build request hooks:

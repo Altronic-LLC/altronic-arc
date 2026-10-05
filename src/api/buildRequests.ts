@@ -1,5 +1,7 @@
 import { graphFetch, graphFetchAll } from "./graph";
 import { SP_BUILD_REQUESTS_LIST_ID, SP_SITE_ID, SP_SITE_URL, USE_MOCK } from "./config";
+import { readColumnChoices } from "./columnChoices";
+import { BUILD_REQUEST_STATUSES } from "@/types/task";
 import { ensureLookupIds, ensurePersonLookupId } from "./siteUsers";
 import type { BuildRequest, GraphListItem, Person } from "@/types/task";
 import { attachBuildRequestReferences, toBuildRequest } from "@/lib/buildRequestMapper";
@@ -77,6 +79,16 @@ const BR_FIELD_SELECT = [
   "Communication",
   "Attachments",
 ].join(",");
+
+/**
+ * The BRStatus column's LIVE choices (Ray, 2026-10-05) — the hardcoded list had
+ * drifted from SharePoint. Drives the status picker, the list's status pills and
+ * the Dashboard card. Falls back to BUILD_REQUEST_STATUSES if unreadable.
+ */
+export async function listBuildRequestStatusChoices(): Promise<string[]> {
+  if (USE_MOCK) return [...BUILD_REQUEST_STATUSES];
+  return readColumnChoices(SP_SITE_ID, SP_BUILD_REQUESTS_LIST_ID, "BRStatus", BUILD_REQUEST_STATUSES);
+}
 
 export async function listBuildRequests(): Promise<BuildRequest[]> {
   if (USE_MOCK) {

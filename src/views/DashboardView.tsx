@@ -51,7 +51,8 @@ import { useQuickLinksFor } from "@/hooks/useQuickLinks";
 import { QuickLinksRow } from "@/components/QuickLinksRow";
 import { isEcnOnHold } from "@/lib/ecnMapper";
 import { isFaitOpen } from "@/lib/faitFields";
-import { useBuildRequests } from "@/hooks/useBuildRequests";
+import { useBuildRequestStatusChoices, useBuildRequests } from "@/hooks/useBuildRequests";
+import { withCurrentChoice } from "@/api/columnChoices";
 import { usePanelOrders } from "@/hooks/usePanelOrders";
 import { usePanelTasks } from "@/hooks/usePanelTasks";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -62,7 +63,6 @@ import { pathAccessState } from "@/api/appAccess";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { SingleSelect } from "@/components/SearchableSelect";
 import {
-  BUILD_REQUEST_STATUSES,
   DASHBOARD_DEPARTMENTS,
   type DashboardDepartment,
   EIR_STATUSES,
@@ -71,7 +71,6 @@ import {
   PANEL_TASK_STATUSES,
   STATUSES,
   type BuildRequest,
-  type BuildRequestStatus,
   type Ecn,
   type Fait,
   type Eir,
@@ -189,7 +188,8 @@ const OPERATIONS_BAR_COLOR: Record<OperationsStatus, string> = {
   Canceled: "bg-cooper-red",
 };
 
-const BUILD_REQUEST_BAR_COLOR: Record<BuildRequestStatus, string> = {
+/** Bar colour per BRStatus; a status added in SharePoint gets the neutral grey. */
+const BUILD_REQUEST_BAR_COLOR: Record<string, string> = {
   Submitted: "bg-superior-blue",
   "In-process": "bg-ajax-yellow",
   // Production hand-off (2026-09-29) — both still OPEN, so they count in the
@@ -290,6 +290,7 @@ export function DashboardView() {
     error: buildRequestsErrorObj,
     refetch: refetchBuildRequests,
   } = useBuildRequests();
+  const { data: buildRequestStatuses = [] } = useBuildRequestStatusChoices();
   const {
     data: panelOrders = [],
     isLoading: panelOrdersLoading,
@@ -496,15 +497,16 @@ export function DashboardView() {
           personMatchesSingle(b.engineerAssigned, myEmail)) &&
         buildRequestMatchesProject(b, projectId),
     );
-    const segments: Segment[] = BUILD_REQUEST_STATUSES.filter((s) => s !== "Complete").map(
-      (s) => ({
-        label: s,
-        count: active.filter((b) => b.status === s).length,
-        color: BUILD_REQUEST_BAR_COLOR[s],
-      }),
-    );
+    // SharePoint's live statuses, plus any an open request holds that the
+    // column no longer offers — every counted request lands in a segment.
+    const statuses = active.reduce((acc, b) => withCurrentChoice(acc, b.status), buildRequestStatuses);
+    const segments: Segment[] = statuses.filter((s) => s !== "Complete").map((s) => ({
+      label: s,
+      count: active.filter((b) => b.status === s).length,
+      color: BUILD_REQUEST_BAR_COLOR[s] ?? "bg-fg-muted",
+    }));
     return { count: active.length, segments };
-  }, [buildRequests, mine, myEmail, projectId]);
+  }, [buildRequests, buildRequestStatuses, mine, myEmail, projectId]);
 
   const panelOrderCard = useMemo(() => {
     // "Mine" for a panel order = I'm the assigned engineer or a watcher.

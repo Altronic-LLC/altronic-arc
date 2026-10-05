@@ -26,6 +26,7 @@ vi.mock("@/hooks/useBuildRequests", () => {
     useBuildRequest: () => ({ data: state.br, isLoading: false }),
     useBuildRequests: () => ({ data: [state.br] }),
     useBuildRequestItems: () => ({ data: state.items }),
+    useBuildRequestStatusChoices: () => ({ data: ["Submitted", "In-process", "Ready for Production", "Production Complete", "Complete"] }),
     useUpdateBuildRequestFields: () => ({ mutate: state.mutate, isPending: false }),
     useAddBuildRequestComment: noop,
     useEditBuildRequestComment: noop,

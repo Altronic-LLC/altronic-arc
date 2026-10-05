@@ -655,12 +655,15 @@ export interface OperationsTaskItemFields {
 //     Assembly / Operations / Testing columns.
 // =============================================================================
 
+/**
+ * FALLBACK ONLY — pickers, pills and the dashboard read BRStatus's live
+ * choices from SharePoint (listBuildRequestStatusChoices). This is what mock
+ * mode offers and what's used if the column can't be read.
+ */
 export const BUILD_REQUEST_STATUSES = [
   "Submitted",
   "In-process",
-  // The production hand-off (Ray, 2026-09-29). Added to the SharePoint column
-  // first — the mapper clamps a read to this list, so a value missing here
-  // reads back as the fallback status. See lib/buildRequestProduction.ts.
+  // The production hand-off (Ray, 2026-09-29). See lib/buildRequestProduction.ts.
   "Ready for Production",
   "Production Complete",
   "Blocked",
@@ -705,6 +708,11 @@ export const BUILD_REQUEST_PART_TYPES = [
 ] as const;
 export type BuildRequestPartType = (typeof BUILD_REQUEST_PART_TYPES)[number];
 
+/**
+ * FALLBACK ONLY — the Part Status picker reads the column's live choices from
+ * SharePoint (listBuildRequestPartStatusChoices). This list is what mock mode
+ * offers and what the picker falls back to if the column can't be read.
+ */
 export const BUILD_REQUEST_PART_STATUSES = [
   "Review Checklist",
   "Information Needed",
@@ -757,7 +765,11 @@ export interface BuildRequest {
   /** "Product or Project Name" (the Title column). */
   title: string;
   product: string;
-  status: BuildRequestStatus;
+  /**
+   * Whatever SharePoint holds (BRStatus) — NOT clamped, so a status added in
+   * SharePoint shows as itself. Blank reads as "Submitted".
+   */
+  status: string;
   brType: BuildRequestType | null;
   blockedReason: BuildRequestBlockedReason | null;
   requiredLeadTime: BuildRequestLeadTime | null;
@@ -806,7 +818,12 @@ export interface BuildRequestItem {
   /** Free-text on the list (mixed formats in live data), so kept as text. */
   revisionDate: string;
   partType: BuildRequestPartType | null;
-  partStatus: BuildRequestPartStatus | null;
+  /**
+   * Whatever SharePoint holds, NOT clamped to BUILD_REQUEST_PART_STATUSES — a
+   * status added to the column in SharePoint must render as itself, not as
+   * "No status". The picker reads the live choices (listBuildRequestPartStatusChoices).
+   */
+  partStatus: string | null;
   disposition: BuildRequestDisposition | null;
   assembly: string[];
   operations: string[];
