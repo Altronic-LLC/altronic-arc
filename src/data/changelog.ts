@@ -61,6 +61,13 @@ const PARTS_LIST_CHANGES: string[] = [
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.169.9",
+    date: "2026-10-05",
+    changes: [
+      "The PCB checklist on a task has two new items after Schematic Part Number: Fiducials on top and bottom of actual PCB, and Design Rule Checks Completed and Resolved",
+    ],
+  },
+  {
     version: "0.169.8",
     date: "2026-10-02",
     // Parts List work while it's hidden: the real bullet is in
