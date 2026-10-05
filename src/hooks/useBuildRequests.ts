@@ -46,7 +46,8 @@ import { ADMINS_KEY } from "./useAdmins";
 import { listAdmins } from "@/api/admins";
 import { isAdminEmail } from "@/lib/adminAccess";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
-import { productionTransitionRefusal } from "@/lib/buildRequestProduction";
+import { isProductionApprover, productionTransitionRefusal } from "@/lib/buildRequestProduction";
+import { partStatusTransitionRefusal } from "@/lib/buildRequestPartProduction";
 import { resolveCurrentUserLookupId } from "@/api/currentUser";
 import { autoWatchers } from "@/lib/people";
 import { fanOutComment } from "@/hooks/useCommentMirror";
@@ -860,17 +861,66 @@ function applyItemFieldsLocally(
   return next;
 }
 
+/**
+ * A Part Status write the part production workflow refused
+ * (`partStatusTransitionRefusal`) — thrown from `mutationFn` before any
+ * request goes out, so nothing can skip the card's buttons.
+ */
+export class PartProductionRefusedError extends Error {
+  constructor(reason: string) {
+    super(reason);
+    this.name = "PartProductionRefusedError";
+  }
+}
+
+/** Decided in onMutate against the PRE-patch row — see pendingProductionRefusal. */
+const pendingPartRefusal = new WeakMap<object, string>();
+
+type ItemFieldWrite = { id: number; fields: Record<string, unknown> };
+
 export function useUpdateBuildRequestItemFields() {
   const qc = useQueryClient();
   const actor = useCurrentUser();
   // Read at send time: useCurrentUser re-resolves asynchronously.
   const actorRef = useRef(actor);
   actorRef.current = actor;
+  const isAdmin = useIsAdmin();
+  const myEmails = useCurrentUserEmails();
+  const accessRef = useRef({ isAdmin, myEmails });
+  accessRef.current = { isAdmin, myEmails };
   return useMutation({
-    mutationFn: ({ id, fields }: { id: number; fields: Record<string, unknown> }) =>
-      updateBuildRequestItemFields(id, fields),
-    onMutate: ({ id, fields }) =>
-      snapshotAndPatchItem(qc, id, patchItem(id, (i) => applyItemFieldsLocally(i, fields))),
+    mutationFn: (vars: ItemFieldWrite) => {
+      const refusal = pendingPartRefusal.get(vars);
+      if (refusal) throw new PartProductionRefusedError(refusal);
+      return updateBuildRequestItemFields(vars.id, vars.fields);
+    },
+    onMutate: async (vars: ItemFieldWrite) => {
+      const { id, fields } = vars;
+      if ("Part_x0020_Status" in fields) {
+        const items = await qc.ensureQueryData({
+          queryKey: BUILD_REQUEST_ITEMS_KEY,
+          queryFn: listBuildRequestItems,
+        });
+        const item = items.find((i) => i.id === id);
+        // Await the Admins list rather than trusting the render-time flag,
+        // which reads false while it loads (same as the request-level guard).
+        const { myEmails } = accessRef.current;
+        const admins = await qc
+          .ensureQueryData({ queryKey: ADMINS_KEY, queryFn: listAdmins })
+          .catch(() => null);
+        const isAdmin = admins ? myEmails.some((e) => isAdminEmail(e, admins)) : accessRef.current.isAdmin;
+        const refusal = item
+          ? partStatusTransitionRefusal(item, String(fields.Part_x0020_Status ?? ""), {
+              isApprover: isProductionApprover({ isAdmin, myEmails }),
+            })
+          : null;
+        if (refusal) {
+          pendingPartRefusal.set(vars, refusal);
+          return {};
+        }
+      }
+      return snapshotAndPatchItem(qc, id, patchItem(id, (i) => applyItemFieldsLocally(i, fields)));
+    },
     onSuccess: (_data, { id, fields }, ctx) => {
       pushToast({ message: "Part updated." });
       const prevItem = ctx?.prevItem;
@@ -915,6 +965,10 @@ export function useUpdateBuildRequestItemFields() {
     },
     onError: (err, _vars, ctx) => {
       rollbackItem(qc, ctx);
+      if (err instanceof PartProductionRefusedError) {
+        errorToast(err.message);
+        return;
+      }
       // Say WHY. This toast threw the error away entirely, so a refused
       // write read as "the app is broken" — reported 2026-09-24 against the
       // Assembly / Operations / Testing pickers, where ARC's own values,

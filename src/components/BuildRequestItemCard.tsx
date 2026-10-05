@@ -17,7 +17,13 @@ import {
   useSetBuildRequestItemWatchers,
   useUpdateBuildRequestItemFields,
 } from "@/hooks/useBuildRequests";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useCurrentUser, useCurrentUserEmails } from "@/hooks/useCurrentUser";
+import { useAdminAccess } from "@/hooks/useIsAdmin";
+import { isProductionApprover } from "@/lib/buildRequestProduction";
+import {
+  partProductionState,
+  type PartProductionState,
+} from "@/lib/buildRequestPartProduction";
 import { PartStatusBadge } from "./buildRequestAtoms";
 import { MultiSelect } from "./SearchableSelect";
 import { PersonMultiField } from "./PersonMultiField";
@@ -26,7 +32,6 @@ import { CommentThread } from "./CommentThread";
 import { AttachmentsSection } from "./AttachmentsSection";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
 import { cn } from "@/lib/cn";
-import { withCurrentChoice } from "@/api/columnChoices";
 import { markAsSeen, useIsMentioned } from "@/hooks/useUnseenMentions";
 
 interface BuildRequestItemCardProps {
@@ -57,7 +62,13 @@ export function BuildRequestItemCard({
   const addComment = useAddBuildRequestItemComment();
   const editComment = useEditBuildRequestItemComment();
   const { data: liveStatuses = [] } = useBuildRequestPartStatusChoices();
-  const partStatusOptions = withCurrentChoice(liveStatuses, item.partStatus);
+  const { isAdmin, isResolving } = useAdminAccess();
+  const myEmails = useCurrentUserEmails();
+  const production = partProductionState(
+    item,
+    { isApprover: isProductionApprover({ isAdmin, myEmails }), resolving: isResolving },
+    liveStatuses,
+  );
 
   const hasMention = useIsMentioned(`buildRequestItem:${item.id}`);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -65,7 +76,8 @@ export function BuildRequestItemCard({
   // Deep-link scroll: when auto-expanded via ?item=, bring the card into view.
   useEffect(() => {
     if (defaultExpanded && cardRef.current) {
-      cardRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      // Feature-detected: absent in jsdom and some older browsers.
+      cardRef.current.scrollIntoView?.({ behavior: "smooth", block: "start" });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -191,18 +203,14 @@ export function BuildRequestItemCard({
                 onSave={(v) => patch({ PartDesc: v })}
               />
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              {/* Part Status has no dropdown: it moves through the production
+                  buttons beside Print part (lib/buildRequestPartProduction.ts). */}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <SelectField
                   label="Part Type"
                   value={item.partType ?? ""}
                   options={BUILD_REQUEST_PART_TYPES}
                   onChange={(v) => patch({ PartType: v || null })}
-                />
-                <SelectField
-                  label="Part Status"
-                  value={item.partStatus ?? ""}
-                  options={partStatusOptions}
-                  onChange={(v) => patch({ Part_x0020_Status: v || null })}
                 />
                 <SelectField
                   label="Disposition"
@@ -341,6 +349,11 @@ export function BuildRequestItemCard({
                 {item.author?.displayName ? ` by ${item.author.displayName}` : ""}
               </div>
 
+              <PartProductionControl
+                state={production}
+                onPress={(target) => patch({ Part_x0020_Status: target })}
+              />
+
               <button
                 onClick={() =>
                   window.open(
@@ -369,6 +382,57 @@ export function BuildRequestItemCard({
             </div>
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The part's production buttons plus the note under them. A greyed button
+ * uses aria-disabled, not `disabled`, so its reason stays reachable — and the
+ * reason is printed on screen too, since a tooltip needs a hover a phone
+ * hasn't got.
+ */
+function PartProductionControl({
+  state,
+  onPress,
+}: {
+  state: PartProductionState;
+  onPress: (target: string) => void;
+}) {
+  const blocked = state.buttons.filter((b) => !b.allowed);
+  return (
+    <div className="flex flex-col gap-1.5">
+      {state.buttons.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {state.buttons.map((b) => (
+            <button
+              key={b.target}
+              type="button"
+              aria-disabled={!b.allowed}
+              title={b.hint}
+              onClick={() => {
+                if (b.allowed) onPress(b.target);
+              }}
+              className={cn(
+                "inline-flex w-fit items-center rounded-md px-3 py-1.5 text-xs font-semibold shadow-sm transition-colors",
+                b.primary
+                  ? "bg-cooper-red text-white hover:bg-cooper-red/90"
+                  : "border border-cooper-red/50 bg-surface text-cooper-red hover:bg-cooper-red/10",
+                !b.allowed && "cursor-not-allowed opacity-50 hover:bg-cooper-red",
+                !b.allowed && !b.primary && "hover:bg-surface",
+              )}
+            >
+              {b.label}
+            </button>
+          ))}
+        </div>
+      )}
+      <p className="text-[11px] leading-relaxed text-fg-muted">{state.note}</p>
+      {blocked.length > 0 && (
+        <p className="text-[11px] leading-relaxed text-cooper-red">
+          {[...new Set(blocked.map((b) => b.hint))].join(" ")}
+        </p>
       )}
     </div>
   );

@@ -523,6 +523,7 @@ export function useSetAssigned() {
           next: people,
           actor,
           watchers: ctx.prevTask.watchers,
+          details: { dueDate: ctx.prevTask.dueDate, description: ctx.prevTask.description },
         });
       }
     },
@@ -913,6 +914,12 @@ export function useCreateTask() {
           next: assignees,
           actor,
           watchers: [],
+          // Off the mutation input, like the assignees: the input is exactly
+          // what the creator typed, and the response's copy adds nothing.
+          details: {
+            dueDate: variables.dueDate ?? null,
+            description: variables.description ?? "",
+          },
         });
       }
       // Seed the new task into the cache immediately — TaskFormModal

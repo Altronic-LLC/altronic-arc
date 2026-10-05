@@ -1,4 +1,6 @@
 import type { Person } from "@/types/task";
+import { looksLikeHtml, parseChecklistItems } from "./descriptionChecklist";
+import { htmlToPlainText } from "./htmlText";
 import { escapeHtml } from "./mentions";
 
 // =============================================================================
@@ -205,9 +207,81 @@ export function buildChecklistToggleEmails(args: {
 }
 
 /**
+ * What the personal "You've been assigned" email says about the work itself,
+ * so the assignee can judge urgency and context without opening the link
+ * (David Markovitch, BusinessIT #5 / #6). Engineering tasks only for now —
+ * every other caller omits it and its email is unchanged.
+ */
+export interface AssignmentDetails {
+  dueDate: Date | null;
+  /** The raw stored Description — HTML or plain text, checklists included. */
+  description: string;
+}
+
+/**
+ * Longest description excerpt an assignment email carries. Long enough for a
+ * normal task's context; a multi-page spec stops here rather than burying
+ * the Open button under it.
+ */
+export const ASSIGNMENT_DESCRIPTION_MAX_CHARS = 600;
+
+function formatDueDate(d: Date | null): string {
+  // Local getters, as the task page reads it — the sender's browser builds the
+  // email, and that's the same day the sender sees on screen.
+  if (!d || Number.isNaN(d.getTime())) return "No due date";
+  return d.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+/**
+ * A description as readable plain text for an email: HTML stripped, and each
+ * `- [ ]` / `- [x]` checklist line shown as a box with its who/when stamp
+ * dropped (the stamp is working detail, not context). Capped at
+ * ASSIGNMENT_DESCRIPTION_MAX_CHARS on a word boundary, ending "…".
+ */
+export function assignmentDescriptionExcerpt(description: string): string {
+  const raw = description ?? "";
+  // A plain description goes through as typed: htmlToPlainText's tag strip
+  // would eat "< 5V … >" out of ordinary prose.
+  const plain = looksLikeHtml(raw) ? htmlToPlainText(raw) : raw.trim();
+  if (!plain) return "";
+
+  const lines = plain.split("\n");
+  for (const item of parseChecklistItems(plain) ?? []) {
+    lines[item.lineIndex] =
+      `${item.depth === 1 ? "    " : ""}${item.checked ? "☑" : "☐"} ${item.text.trim()}`;
+  }
+  const text = lines.join("\n").trim();
+  if (text.length <= ASSIGNMENT_DESCRIPTION_MAX_CHARS) return text;
+
+  const cut = text.slice(0, ASSIGNMENT_DESCRIPTION_MAX_CHARS);
+  const lastBreak = cut.search(/\s\S*$/);
+  // No whitespace in the back half means one enormous word — cut it mid-word
+  // rather than throwing most of the excerpt away.
+  const end = lastBreak > ASSIGNMENT_DESCRIPTION_MAX_CHARS / 2 ? lastBreak : cut.length;
+  return `${cut.slice(0, end).trimEnd()}…`;
+}
+
+function assignmentDetailHtml(details: AssignmentDetails): string {
+  const due = `<div style="font-size:14px;"><strong>Due:</strong> ${escapeHtml(formatDueDate(details.dueDate))}</div>`;
+  const excerpt = assignmentDescriptionExcerpt(details.description);
+  if (!excerpt) return due;
+  return (
+    due +
+    `<div style="font-size:14px;margin-top:12px;"><strong>Description</strong></div>` +
+    `<div style="font-size:14px;margin-top:4px;">${escapeHtml(excerpt).replace(/\n/g, "<br/>")}</div>`
+  );
+}
+
+/**
  * Alerts for an assignee change.
  *
- * - Each newly ADDED person gets a personal "You've been assigned…" email.
+ * - Each newly ADDED person gets a personal "You've been assigned…" email,
+ *   carrying the due date and description when `details` is passed.
  * - Each REMOVED person gets a personal "You've been unassigned…" email.
  * - Everyone else who cares (watchers + remaining assignees + reporter) gets a
  *   broadcast summarising what changed.
@@ -222,6 +296,7 @@ export function buildAssigneeChangeEmails(args: {
   actor: Person;
   watchers: Person[];
   reporter?: Person | null;
+  details?: AssignmentDetails;
 }): ChangeEmail[] {
   const prevKeys = new Set(args.prev.map(keyOf));
   const nextKeys = new Set(args.next.map(keyOf));
@@ -236,6 +311,7 @@ export function buildAssigneeChangeEmails(args: {
   const emails: ChangeEmail[] = [];
   // Emails handled personally — excluded from the broadcast to avoid doubles.
   const personalEmails = new Set<string>();
+  const assignedDetailHtml = args.details ? assignmentDetailHtml(args.details) : undefined;
 
   for (const p of added) {
     const email = p.email?.trim();
@@ -246,6 +322,7 @@ export function buildAssigneeChangeEmails(args: {
       displayName: p.displayName,
       subject: `You've been assigned to ${args.target.title}`,
       headlineHtml: `<strong>${actorName}</strong> assigned you to this ${noun}.`,
+      detailHtml: assignedDetailHtml,
     });
   }
   for (const p of removed) {

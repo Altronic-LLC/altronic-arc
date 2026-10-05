@@ -57,6 +57,8 @@ export function partStatusColor(status: string | null): string {
     // "done" green and Ready for Production matches the request-level cyan.
     case "Ready for Production":
       return "bg-cyan-500/15 text-cyan-500";
+    case "In Production":
+      return "bg-teal-500/15 text-teal-500";
     case "Production Complete":
       return "bg-cooper-green/15 text-cooper-green";
     case "On Hold":

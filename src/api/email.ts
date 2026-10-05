@@ -29,6 +29,7 @@ import {
   buildFieldChangeEmails,
   buildPromotionEmails,
   type AlertDetail,
+  type AssignmentDetails,
   type ChangeEmail,
   type ChangeTarget,
   type EmailAction,
@@ -618,6 +619,7 @@ export function fireAssigneeChangeAlert(args: {
   actor: Person;
   watchers: Person[];
   reporter?: Person | null;
+  details?: AssignmentDetails;
 }): void {
   const emails = buildAssigneeChangeEmails(args);
   if (emails.length === 0) return;

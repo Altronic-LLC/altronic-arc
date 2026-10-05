@@ -717,6 +717,9 @@ export const BUILD_REQUEST_PART_STATUSES = [
   "Review Checklist",
   "Information Needed",
   "Ready for Production",
+  // Set by the part's production buttons (2026-10-05) — must ALSO be a choice
+  // on the SharePoint column, or the write is refused.
+  "In Production",
   "Production Complete",
   "On Hold",
 ] as const;

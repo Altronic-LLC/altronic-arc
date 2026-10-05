@@ -329,10 +329,16 @@ describe("useUpdateBuildRequestFields — alerts", () => {
 });
 
 describe("useUpdateBuildRequestItemFields — alert b", () => {
+  // Moving a part through production is the production approver's step
+  // (lib/buildRequestPartProduction.ts), and only from In Production / On Hold.
+  beforeEach(() => {
+    access.admins = ["eng.one@altronic-llc.com"];
+  });
+
   it("a part reaching Production Complete fires the part alert with its parent, not the generic note", async () => {
     await setPartStatus(
       [br(1, "Ready for Production")],
-      [part(10, 1, "Ready for Production")],
+      [part(10, 1, "In Production")],
       10,
       "Production Complete",
     );
@@ -347,7 +353,7 @@ describe("useUpdateBuildRequestItemFields — alert b", () => {
 
   it("still reaches the parent request's people when the requests cache is empty", async () => {
     const parent = br(1, "Ready for Production");
-    const { wrapper, qc } = setup([parent], [part(10, 1, "Ready for Production")]);
+    const { wrapper, qc } = setup([parent], [part(10, 1, "In Production")]);
     qc.removeQueries({ queryKey: BUILD_REQUESTS_KEY });
     const { result } = renderHook(() => useUpdateBuildRequestItemFields(), { wrapper });
     await act(async () => {
@@ -371,7 +377,9 @@ describe("useUpdateBuildRequestItemFields — alert b", () => {
   });
 
   it("any other part status change keeps the generic note", async () => {
-    await setPartStatus([br(1, "In-process")], [part(10, 1, null)], 10, "Ready for Production");
+    // A part with every required field filled in, so the readiness rule lets it through.
+    const ready = { ...part(10, 1, null), qty: 2, partDesc: "Bracket", partType: "Machining" as const, disposition: "For Stock" as const };
+    await setPartStatus([br(1, "In-process")], [ready], 10, "Ready for Production");
     expect(email.fireBuildRequestPartProductionCompleteAlert).not.toHaveBeenCalled();
     expect(email.fireFieldChangeAlert).toHaveBeenCalledTimes(1);
   });
