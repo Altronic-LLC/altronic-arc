@@ -1,5 +1,4 @@
 import { Leaf } from "lucide-react";
-import type { BuildRequestPartStatus, BuildRequestStatus } from "@/types/task";
 import { cn } from "@/lib/cn";
 
 // =============================================================================
@@ -8,7 +7,7 @@ import { cn } from "@/lib/cn";
 // separate file so BR-only styling doesn't grow the shared atoms bundle.
 // =============================================================================
 
-export function buildRequestStatusColor(status: BuildRequestStatus): string {
+export function buildRequestStatusColor(status: string): string {
   switch (status) {
     case "Submitted":
       return "bg-superior-blue/15 text-superior-blue";
@@ -29,10 +28,13 @@ export function buildRequestStatusColor(status: BuildRequestStatus): string {
       return "bg-orange-500/15 text-orange-500";
     case "On Hold":
       return "bg-violet-500/15 text-violet-500";
+    // A status added in SharePoint that ARC has no colour for yet.
+    default:
+      return "bg-fg-muted/15 text-fg-muted";
   }
 }
 
-export function BuildRequestStatusBadge({ status }: { status: BuildRequestStatus }) {
+export function BuildRequestStatusBadge({ status }: { status: string }) {
   return (
     <span
       className={cn(
@@ -45,7 +47,7 @@ export function BuildRequestStatusBadge({ status }: { status: BuildRequestStatus
   );
 }
 
-export function partStatusColor(status: BuildRequestPartStatus | null): string {
+export function partStatusColor(status: string | null): string {
   switch (status) {
     case "Review Checklist":
       return "bg-superior-blue/15 text-superior-blue";
@@ -64,7 +66,7 @@ export function partStatusColor(status: BuildRequestPartStatus | null): string {
   }
 }
 
-export function PartStatusBadge({ status }: { status: BuildRequestPartStatus | null }) {
+export function PartStatusBadge({ status }: { status: string | null }) {
   return (
     <span
       className={cn(

@@ -4,6 +4,7 @@ import {
   addBuildRequestComment,
   createBuildRequest,
   editBuildRequestComment,
+  listBuildRequestStatusChoices,
   listBuildRequests,
   setBuildRequestEngineer,
   setBuildRequestProjects,
@@ -17,6 +18,7 @@ import {
   deleteBuildRequestItem,
   editBuildRequestItemComment,
   listBuildRequestItems,
+  listBuildRequestPartStatusChoices,
   setBuildRequestItemWatchers,
   updateBuildRequestItemFields,
 } from "@/api/buildRequestItems";
@@ -80,6 +82,31 @@ export function useBuildRequestItems() {
     queryKey: BUILD_REQUEST_ITEMS_KEY,
     queryFn: listBuildRequestItems,
     staleTime: 30_000,
+  });
+}
+
+export const BUILD_REQUEST_STATUS_CHOICES_KEY = ["buildRequestStatusChoices"] as const;
+
+/** The BRStatus column's live choices from SharePoint, held for 30 minutes. */
+export function useBuildRequestStatusChoices() {
+  return useQuery({
+    queryKey: BUILD_REQUEST_STATUS_CHOICES_KEY,
+    queryFn: listBuildRequestStatusChoices,
+    staleTime: 30 * 60_000,
+  });
+}
+
+export const BUILD_REQUEST_PART_STATUS_CHOICES_KEY = ["buildRequestPartStatusChoices"] as const;
+
+/**
+ * The Part Status column's live choices from SharePoint. A choice list changes
+ * rarely, so it's held for 30 minutes; a reload picks up a new status.
+ */
+export function useBuildRequestPartStatusChoices() {
+  return useQuery({
+    queryKey: BUILD_REQUEST_PART_STATUS_CHOICES_KEY,
+    queryFn: listBuildRequestPartStatusChoices,
+    staleTime: 30 * 60_000,
   });
 }
 
