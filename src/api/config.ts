@@ -353,19 +353,6 @@ export const SP_ALTRONIC_COMPONENT_LIST_ID =
 export const SP_PARTS_ROLES_LIST_ID: string | undefined =
   import.meta.env.VITE_SP_PARTS_ROLES_LIST_ID || "f783e1e3-f81f-4b18-99c3-c69ac96228f6";
 
-/**
- * Is the Parts List OPEN to everyone — its Dashboard card and Departments
- * menu entry live? (Tim, 2026-09-29.) Off by default: the app is deployed
- * while testers use it by going straight to /engineering/parts, and the
- * approvers (Glenn, Brandon, Sheila) aren't on Parts Roles yet. While off
- * both entry points read "Coming soon" and can't be clicked; the ROUTE still
- * works, which is the whole point.
- *
- * To go live: set the repo variable VITE_PARTS_LIST_LIVE=true and redeploy.
- * A switch for the links, not a permission — anybody with the URL gets in.
- */
-export const PARTS_LIST_LIVE = import.meta.env.VITE_PARTS_LIST_LIVE === "true";
-
 /** Is the Parts List write side switched on? Mock mode always is, for demos. */
 export const PARTS_ROLES_CONFIGURED = USE_MOCK || !!SP_PARTS_ROLES_LIST_ID;
 

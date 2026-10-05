@@ -39,6 +39,8 @@ interface GraphColumnDef {
 // so demo mode has something realistic to render against.
 const MOCK_TASK_COLUMNS: TaskColumn[] = [
   ...pcbBoolean("Schematic Part Number Pulled If new"),
+  ...pcbBoolean("Fiducials on top and bottom of actual PCB"),
+  ...pcbBoolean("Design Rule Checks Completed and Resolved"),
   ...pcbBoolean("PCB Part Number pulled if new"),
   ...pcbBoolean("Place backup on archive server location"),
   ...pcbBoolean("Output files and put them on SMT Data"),
