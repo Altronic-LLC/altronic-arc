@@ -38,6 +38,15 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
+    version: "0.169.11",
+    date: "2026-10-05",
+    changes: [
+      "A build request's Status and each part's Part Status now offer exactly the statuses set up in SharePoint, so a status added or removed there shows up in ARC with no update",
+      "The status pills on the Build Requests list and the Dashboard's Build Requests card follow the same SharePoint list",
+      "A request or part whose status isn't one ARC already knew now shows that status, instead of \"Submitted\" or \"No status\"",
+    ],
+  },
+  {
     version: "0.169.10",
     date: "2026-10-05",
     changes: [
