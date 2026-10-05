@@ -762,22 +762,29 @@ const SECTIONS: ManualSection[] = [
       "part number pulled",
       "altium",
       "cad output",
+      "fiducials",
+      "fiducial",
+      "drc",
+      "design rule check",
     ],
     searchText:
-      "Tasks with category PCB show a Checklist card on the detail page with 17 items — 13 Yes/No checkboxes and 4 Choice radio groups. Items cover schematic + PCB part numbers, archive backup, SMT data output, BOM compare + send to CAD, 3D model export, revision documentation, build request, ordering, and gerber package. Checking a box writes to SharePoint instantly; a small done/total counter in the card header tracks progress. The card only renders for category=PCB tasks.",
+      "Tasks with category PCB show a Checklist card on the detail page with 19 items — 15 Yes/No checkboxes and 4 Choice radio groups. Items cover schematic + PCB part numbers, fiducials on both sides of the board, design rule checks, archive backup, SMT data output, BOM compare + send to CAD, 3D model export, revision documentation, build request, ordering, and gerber package. Checking a box writes to SharePoint instantly; a small done/total counter in the card header tracks progress. The card only renders for category=PCB tasks.",
     render: () => (
       <>
         <P>
           When a task is set to category <strong>PCB</strong>, a{" "}
           <strong>Checklist</strong> card appears on the detail page above
-          the Attachments section. It mirrors the 17-item checklist from
-          the original Power Apps form: 13 Yes/No items as checkboxes and
-          4 multi-option items as radio groups, laid out in two columns.
+          the Attachments section. It mirrors the checklist from the
+          original Power Apps form, plus two production items added since:
+          19 items in all — 15 Yes/No items as checkboxes and 4
+          multi-option items as radio groups, laid out in two columns.
         </P>
         <H3>What's on the list</H3>
         <P>
           The checklist covers everything from pulling new schematic / PCB
-          part numbers, placing backups on the archive server, comparing
+          part numbers, confirming fiducials are on the top and bottom of
+          the board and that design rule checks are completed and
+          resolved, placing backups on the archive server, comparing
           BOM with SAP, outputting BOM + 3D model + gerber files, sending
           to CAD, submitting the build request, and the ordering /
           pre-release vs released documentation flow. The radio groups
