@@ -64,6 +64,67 @@ describe("field queries — the old app's rules", () => {
   });
 });
 
+describe("field queries — value fields match where a number starts", () => {
+  it("finds 1uF but not .1uF, .01uF or 11uF", () => {
+    expect(fieldQueryMatches("1uF", "1uF", true)).toBe(true);
+    expect(fieldQueryMatches("1UF", "1uf", true)).toBe(true);
+    expect(fieldQueryMatches(".1uF", "1uF", true)).toBe(false);
+    expect(fieldQueryMatches(".01uF", "1uF", true)).toBe(false);
+    expect(fieldQueryMatches("0.1uF", "1uF", true)).toBe(false);
+    expect(fieldQueryMatches("11uF", "1uF", true)).toBe(false);
+  });
+
+  it("still matches a number after a space, label or sign", () => {
+    expect(fieldQueryMatches("C: 1uF", "1uF", true)).toBe(true);
+    expect(fieldQueryMatches("±10%", "10%", true)).toBe(true);
+    expect(fieldQueryMatches("-55°C", "55", true)).toBe(true);
+    expect(fieldQueryMatches("4.5V TO 5.5V", "5.5v", true)).toBe(true);
+  });
+
+  it("stops 50V finding 250V", () => {
+    expect(fieldQueryMatches("250V", "50V", true)).toBe(false);
+    expect(fieldQueryMatches("50V", "50V", true)).toBe(true);
+  });
+
+  it("lets .1uF find 0.1uF, its other spelling, but not 1.1uF", () => {
+    expect(fieldQueryMatches(".1uF", ".1uF", true)).toBe(true);
+    expect(fieldQueryMatches("0.1uF", ".1uF", true)).toBe(true);
+    expect(fieldQueryMatches("1.1uF", ".1uF", true)).toBe(false);
+    expect(fieldQueryMatches("10.1uF", ".1uF", true)).toBe(false);
+  });
+
+  it("finds a later occurrence when the first is mid-number", () => {
+    expect(fieldQueryMatches(".1uF OR 1uF", "1uF", true)).toBe(true);
+  });
+
+  it("leaves a term starting with a letter as plain substring", () => {
+    // A digit after a LETTER is fine — only a digit or "." before it is mid-number.
+    expect(fieldQueryMatches("X7R", "7r", true)).toBe(true);
+    expect(fieldQueryMatches("X7R", "x7", true)).toBe(true);
+    expect(fieldQueryMatches("ISOLATED", "sol", true)).toBe(true);
+  });
+
+  it("is off for the other fields — 1018 still finds 701018", () => {
+    expect(fieldQueryMatches("701018", "1018")).toBe(true);
+    expect(fieldQueryMatches(".1uF", "1uF")).toBe(true);
+  });
+
+  it("applyFieldQueries uses it on range fields only", () => {
+    type Row = { pn: string; rating: string };
+    const fields: SearchField<Row>[] = [
+      { key: "pn", label: "Part #", value: (r) => r.pn },
+      { key: "rating", label: "Rating A", value: (r) => r.rating, range: true },
+    ];
+    const rows: Row[] = [
+      { pn: "701018", rating: ".01uF" },
+      { pn: "701112", rating: "1uF" },
+      { pn: "701135", rating: ".1uF" },
+    ];
+    expect(applyFieldQueries(rows, fields, { rating: "1uF" })).toEqual([rows[1]]);
+    expect(applyFieldQueries(rows, fields, { pn: "1018" })).toEqual([rows[0]]);
+  });
+});
+
 describe("buildPartsBooks", () => {
   it("groups by first digit, then three-digit list, with counts", () => {
     const books = buildPartsBooks(["601110", "601138", "611075", "101022", "610086"]);

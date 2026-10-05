@@ -30,12 +30,44 @@ export function fieldQueryTerms(query: string): string[] {
     .map((t) => t.toLowerCase());
 }
 
-/** Does one field's value satisfy a field query? */
-export function fieldQueryMatches(value: string, query: string): boolean {
+/**
+ * Does one field's value satisfy a field query?
+ *
+ * `numeric` is for the value fields (ratings, tolerance, temperatures): there
+ * a term that starts with a number only matches where a number STARTS, so
+ * "1uF" finds 1uF and not .1uF, .01uF or 11uF (Tim, 2026-10-05). Plain
+ * substring would read the "1" out of the middle of another value. The
+ * identifier fields keep plain substring — "1018" must still find 701018.
+ */
+export function fieldQueryMatches(value: string, query: string, numeric = false): boolean {
   const terms = fieldQueryTerms(query);
   if (terms.length === 0) return true;
   const hay = value.toLowerCase();
-  return terms.every((t) => hay.includes(t));
+  return terms.every((t) => (numeric ? includesAtNumberStart(hay, t) : hay.includes(t)));
+}
+
+const isDigit = (c: string | undefined) => c !== undefined && c >= "0" && c <= "9";
+
+/**
+ * Substring match, except a term starting with a digit or "." can't begin
+ * part-way through a number. ".1uF" still finds "0.1uF" — a lone leading 0
+ * is the same value written another way — but not "1.1uF".
+ */
+function includesAtNumberStart(hay: string, term: string): boolean {
+  const first = term[0];
+  const anchored = isDigit(first) || (first === "." && isDigit(term[1]));
+  if (!anchored) return hay.includes(term);
+  for (let i = hay.indexOf(term); i !== -1; i = hay.indexOf(term, i + 1)) {
+    const before = hay[i - 1];
+    if (first === ".") {
+      if (!isDigit(before)) return true;
+      // "0.1uF": the 0 is a leading zero only if nothing numeric precedes it.
+      if (before === "0" && !isDigit(hay[i - 2]) && hay[i - 2] !== ".") return true;
+    } else if (!isDigit(before) && before !== ".") {
+      return true;
+    }
+  }
+  return false;
 }
 
 export interface SearchField<T> {
@@ -57,7 +89,9 @@ export function applyFieldQueries<T>(
 ): T[] {
   const active = fields.filter((f) => fieldQueryTerms(queries[f.key] ?? "").length > 0);
   if (active.length === 0) return rows;
-  return rows.filter((row) => active.every((f) => fieldQueryMatches(f.value(row), queries[f.key])));
+  return rows.filter((row) =>
+    active.every((f) => fieldQueryMatches(f.value(row), queries[f.key], f.range === true)),
+  );
 }
 
 /** One field's From/To boxes, as typed. */

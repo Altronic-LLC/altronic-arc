@@ -37,6 +37,7 @@ const PARTS_LIST_CHANGES: string[] = [
   "Global Search looks through the Part List and the HCO Component List at once",
   "Each list has the old app's search panel — one box per field, with & to search several things in one box — plus search everything, sorting and column filters",
   "A search from the 701, 711 or 712 list looks through all three, and one from 601 or 611 looks through both, as the old app's Surface Mount and Through Hole lists did",
+  "In the rating, tolerance and temperature boxes a number only matches where a number starts, so 1uF finds 1uF and not .1uF, .01uF or 11uF",
   "A component's page says what Rating A, B and C mean for that kind of part",
   "On New part, a component's three rating boxes are named for the Description picked, as in the old app — Resistance, Working voltage and Power for a resistor; Voltage, Current and Pin count for an IC",
   "A part's page links to its datasheet whenever the PDF is in the Datasheets folder — components and Part List parts alike — and a component's page says when its Has Data Sheet setting disagrees",
@@ -60,6 +61,13 @@ const PARTS_LIST_CHANGES: string[] = [
 ];
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: "0.169.9",
+    date: "2026-10-05",
+    // Parts List work while it's hidden: the real bullet is in
+    // PARTS_LIST_CHANGES, so it reaches the history at go-live, not before.
+    changes: ["More work on the upcoming Parts List"],
+  },
   {
     version: "0.169.8",
     date: "2026-10-02",

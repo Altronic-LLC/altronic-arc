@@ -1346,6 +1346,12 @@ Seven things that are load-bearing:
     of the term**. The guide says outright that "hello & world" does not match
     "helloworld".
   - A query with no `&` is trimmed.
+  - **On the value fields (`range: true`) a term starting with a digit
+    matches only where a number STARTS** (Tim, 2026-10-05): `1uF` finds 1uF,
+    not .1uF / .01uF / 11uF, and `50V` doesn't find 250V. `.1uF` still finds
+    `0.1uF` (a lone leading zero). The identifier fields stay plain
+    substring, so `1018` still finds 701018 — don't widen the rule to them.
+    `fieldQueryMatches`'s `numeric` flag; Search everything is unchanged.
   - "Search everything" (`q`) is token-based across every search field, on
     top of the per-field boxes.
   - Every search is in the URL (`q`, `f.<field>`).
