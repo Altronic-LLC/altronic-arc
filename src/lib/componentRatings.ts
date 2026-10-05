@@ -26,7 +26,14 @@ export interface RatingLabels {
 }
 
 export const COMPONENT_RATING_TABLE: readonly RatingLabels[] = [
-  { component: "Resistor", a: "Resistance", b: "Working voltage", c: "Power" },
+  // B and C are the REVERSE of the guide, which reads B = Working voltage,
+  // C = Power. The data says otherwise: of the 1,016 resistors on the live
+  // Component List (2026-10-05), 872 hold power in B and voltage in C
+  // ("681R / 250mW / 200V"), and only 40 the guide's way round — 37 of those
+  // entered recently, following a form that used the guide's labels.
+  // Labelling by the guide put "Working voltage: 250mW" on most resistors
+  // (BusinessIT#18). Trimpot, below, already reads B = Power.
+  { component: "Resistor", a: "Resistance", b: "Power", c: "Working voltage" },
   { component: "Capacitor ceramic", a: "Capacitance", b: "Working voltage", c: "Temp coef" },
   { component: "Capacitor electrolytic", a: "Capacitance", b: "Working voltage", c: null },
   { component: "Capacitance tantalum", a: "Capacitance", b: "Working voltage", c: null },
@@ -95,4 +102,48 @@ export function ratingLabelsFor(description: string): RatingLabels {
     }
   }
   return best ?? GENERIC_RATING_LABELS;
+}
+
+export type RatingKey = "ratingA" | "ratingB" | "ratingC";
+
+const RATING_LETTERS: readonly [RatingKey, "a" | "b" | "c"][] = [
+  ["ratingA", "a"],
+  ["ratingB", "b"],
+  ["ratingC", "c"],
+];
+
+/**
+ * What each Rating column means for a SET of components, when they agree —
+ * so a list narrowed to resistors can head its columns Resistance / Power /
+ * Working voltage instead of Rating A/B/C (Tim, 2026-10-05). A column absent
+ * from the result keeps its generic name.
+ *
+ * Decided per column, from the rows that HOLD a value there. A blank can't
+ * contradict anything, so ceramic and electrolytic capacitors together still
+ * agree on C (only the ceramics fill it in), and resistors with resistor
+ * networks still agree on A (Resistance) while B and C stay generic.
+ *
+ * Any row whose type isn't in the table, or that holds a value in a column
+ * its type says is unused, means we can't say — generic, rather than a label
+ * that's wrong for some of the rows on screen.
+ */
+export function sharedRatingLabels(
+  rows: readonly { description: string; ratingA: string; ratingB: string; ratingC: string }[],
+): Partial<Record<RatingKey, string>> {
+  const out: Partial<Record<RatingKey, string>> = {};
+  for (const [key, letter] of RATING_LETTERS) {
+    let shared: string | null | undefined;
+    for (const row of rows) {
+      if (!row[key].trim()) continue;
+      const labels = ratingLabelsFor(row.description);
+      const meaning = labels.component ? labels[letter] : null;
+      if (meaning === null || (shared !== undefined && shared !== meaning)) {
+        shared = null;
+        break;
+      }
+      shared = meaning;
+    }
+    if (shared) out[key] = shared;
+  }
+  return out;
 }

@@ -1,10 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { COMPONENT_RATING_TABLE, GENERIC_RATING_LABELS, ratingLabelsFor } from "./componentRatings";
+import { COMPONENT_RATING_TABLE, GENERIC_RATING_LABELS, ratingLabelsFor, sharedRatingLabels } from "./componentRatings";
 
 describe("ratingLabelsFor", () => {
   it("reads a plain component type off the description", () => {
-    expect(ratingLabelsFor("RESISTOR")).toMatchObject({ a: "Resistance", b: "Working voltage", c: "Power" });
     expect(ratingLabelsFor("INDUCTOR")).toMatchObject({ a: "Inductance" });
+  });
+
+  it("labels a resistor the way the data is stored — power in B, voltage in C, not the guide's order", () => {
+    // 872 of the 1,016 live resistors are "681R / 250mW / 200V" (BusinessIT#18).
+    expect(ratingLabelsFor("RESISTOR")).toMatchObject({ a: "Resistance", b: "Power", c: "Working voltage" });
+    expect(ratingLabelsFor("RESISTOR - FILM")).toMatchObject({ b: "Power", c: "Working voltage" });
+    // A network is unaffected — its data matches the guide.
+    expect(ratingLabelsFor("RESISTOR NETWORK")).toMatchObject({ b: "# circuits" });
   });
 
   it("names an IC's ratings the way the old app's form did", () => {
@@ -60,5 +67,46 @@ describe("ratingLabelsFor", () => {
 
   it("has every row of the guide's table, plus IC from the old app", () => {
     expect(COMPONENT_RATING_TABLE).toHaveLength(18);
+  });
+});
+
+describe("sharedRatingLabels — naming the columns when the rows agree", () => {
+  const row = (description: string, ratingA = "x", ratingB = "x", ratingC = "x") => ({
+    description,
+    ratingA,
+    ratingB,
+    ratingC,
+  });
+
+  it("names all three when every row is one type", () => {
+    expect(sharedRatingLabels([row("RESISTOR"), row("RESISTOR - FILM"), row("OBSOLETE - RESISTOR")])).toEqual({
+      ratingA: "Resistance",
+      ratingB: "Power",
+      ratingC: "Working voltage",
+    });
+  });
+
+  it("names only the columns two types agree on", () => {
+    // Resistor and resistor network share A = Resistance, nothing else.
+    expect(sharedRatingLabels([row("RESISTOR"), row("RESISTOR NETWORK")])).toEqual({ ratingA: "Resistance" });
+  });
+
+  it("lets a blank agree with anything", () => {
+    // An electrolytic's C is unused and blank; the ceramic's names the column.
+    expect(sharedRatingLabels([row("CAPACITOR - CERAMIC"), row("CAPACITOR - ELECTROLYTIC", "x", "x", "")])).toEqual({
+      ratingA: "Capacitance",
+      ratingB: "Working voltage",
+      ratingC: "Temp coef",
+    });
+  });
+
+  it("says nothing when a row's type is unknown, or holds a value its type doesn't use", () => {
+    expect(sharedRatingLabels([row("RESISTOR"), row("TRANSFORMER - CUSTOM")])).toEqual({});
+    expect(sharedRatingLabels([row("CAPACITOR - ELECTROLYTIC")]).ratingC).toBeUndefined();
+  });
+
+  it("names nothing for no rows, or a column nobody filled in", () => {
+    expect(sharedRatingLabels([])).toEqual({});
+    expect(sharedRatingLabels([row("RESISTOR", "1K", "", "")])).toEqual({ ratingA: "Resistance" });
   });
 });

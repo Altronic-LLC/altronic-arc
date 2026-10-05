@@ -20,12 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "0.169.11",
+    version: "0.170.0",
     date: "2026-10-05",
     changes: [
-      "A build request's Status and each part's Part Status now offer exactly the statuses set up in SharePoint, so a status added or removed there shows up in ARC with no update",
-      "The status pills on the Build Requests list and the Dashboard's Build Requests card follow the same SharePoint list",
-      "A request or part whose status isn't one ARC already knew now shows that status, instead of \"Submitted\" or \"No status\"",
+      "Parts List searches take * as a wildcard: 15k* finds values starting with 15k, *50 values ending with 50, and *50* values with 50 anywhere",
+      "Parts List searches ignore spaces around a dash, so CAPACITOR-CERAMIC also finds CAPACITOR - CERAMIC",
+      "When a component list is narrowed to one kind of part, its Rating A/B/C columns are named for it, like Resistance (A), Power (B) and Working voltage (C) for resistors",
+      "A resistor's Rating B now reads Power and Rating C Working voltage, matching how resistors were entered, so a part page no longer shows a wattage under Working voltage",
     ],
   },
   {
