@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.171.0",
+    date: "2026-10-05",
+    changes: [
+      "The email you get when you're assigned an Engineering task now shows the task's due date, so you can see how urgent it is at a glance",
+      "That email also includes the task's description, so you have the context without opening the link",
+    ],
+  },
+  {
     version: "0.169.10",
     date: "2026-10-05",
     changes: [
