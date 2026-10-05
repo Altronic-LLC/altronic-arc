@@ -4857,6 +4857,14 @@ const SECTIONS: ManualSection[] = [
           them.
         </P>
         <P>
+          In the value boxes — Rating A/B/C, Tolerance, Temp Min and Temp Max — a
+          number only matches where a number starts. So <strong>1uF</strong>{" "}
+          finds 1uF but not .1uF, .01uF or 11uF, and <strong>50V</strong> doesn't
+          find 250V. <strong>.1uF</strong> still finds 0.1uF. The other boxes,
+          like Altronic Part # and Mfg Number, match any part of the text, so{" "}
+          <strong>1018</strong> still finds 701018.
+        </P>
+        <P>
           <strong>Search everything</strong>, at the top of the panel, matches
           words in any field, in any order. Every search is kept in the web
           address, so you can send someone a link to exactly what you're looking

@@ -22,18 +22,6 @@ vi.mock("@/hooks/useCurrentUser", () => ({
   useCurrentUser: () => ({ displayName: "Demo User", email: "demo.user@altronic-llc.com", lookupId: 0 }),
 }));
 
-// The Parts List's go-live switch, flipped per test (read at render time).
-const partsLive = vi.hoisted(() => ({ on: false }));
-vi.mock("@/api/config", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/api/config")>();
-  return {
-    ...actual,
-    get PARTS_LIST_LIVE() {
-      return partsLive.on;
-    },
-  };
-});
-
 const TASK_LIST_KEY = ["tasks", "list"] as const;
 const PROJECTS_KEY = ["projects"] as const;
 const EIRS_KEY = ["eirs", "list"] as const;
@@ -308,28 +296,13 @@ describe("DashboardView — a shipped feature is never a 'Coming soon' card", ()
   });
 });
 
-describe("DashboardView — the Parts List's go-live switch", () => {
-  // Tim, 2026-09-29: deployed for testers (who use the URL) before the
-  // approvers are on Parts Roles — so the card reads Coming soon until
-  // VITE_PARTS_LIST_LIVE is set.
-  it("is a Coming soon placeholder, last in Engineering, until it's live", async () => {
-    partsLive.on = false;
-    await renderDashboard();
-    expect(screen.queryByRole("button", { name: /Parts List/ })).not.toBeInTheDocument();
-    const placeholder = screen.getByTitle("Parts List — coming soon");
-    expect(placeholder).toHaveAttribute("aria-disabled", "true");
-    const section = screen.getByRole("heading", { name: "Engineering", level: 2 }).closest("section") as HTMLElement;
-    expect(section).toContainElement(placeholder);
-  });
-
-  it("is a real card that opens the Parts List once it's live", async () => {
-    partsLive.on = true;
+describe("DashboardView — the Parts List", () => {
+  it("is a real card that opens the Parts List, with no Coming soon placeholder", async () => {
     const user = userEvent.setup();
     await renderDashboard();
     await user.click(screen.getByRole("button", { name: /Parts List/ }));
     expect(mockNavigate).toHaveBeenCalledWith("/engineering/parts");
     expect(screen.queryByTitle("Parts List — coming soon")).not.toBeInTheDocument();
-    partsLive.on = false;
   });
 });
 

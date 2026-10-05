@@ -92,9 +92,6 @@ jobs:
           # only to override.
           VITE_SP_PARTS_ROLES_LIST_ID: ${{ vars.VITE_SP_PARTS_ROLES_LIST_ID }}
           VITE_SP_COMPONENT_DESCRIPTION_OPTIONS_LIST_ID: ${{ vars.VITE_SP_COMPONENT_DESCRIPTION_OPTIONS_LIST_ID }}
-          # "true" puts the Parts List on the Dashboard and Departments menu;
-          # unset, both say Coming soon and only the direct URL opens it.
-          VITE_PARTS_LIST_LIVE: ${{ vars.VITE_PARTS_LIST_LIVE }}
           VITE_SP_MAINTENANCE_TASKS_LIST_ID: ${{ vars.VITE_SP_MAINTENANCE_TASKS_LIST_ID }}
           VITE_SP_SCHEDULED_MAINTENANCE_LIST_ID: ${{ vars.VITE_SP_SCHEDULED_MAINTENANCE_LIST_ID }}
           # Maintenance Departments / Locations — the two admin-managed
