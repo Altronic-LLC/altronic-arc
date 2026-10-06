@@ -10,6 +10,7 @@ import {
   EIR_TRIAGE_PROJECT_REVIEWERS,
   FAIT_NEW_ALERTS,
   FAIT_SQE_REVIEWERS,
+  GRAY_MARKET_CHANGE_ALERTS,
   GRAY_MARKET_NEW_REQUEST_ALERTS,
   SHARED_MAILBOX,
   USE_MOCK,
@@ -41,7 +42,11 @@ import {
   buildEirResponseNotAcceptedEmails,
 } from "@/lib/eirStatusAlerts";
 import { parseRecipientList } from "@/lib/recipientList";
-import { buildNewGrayMarketRequestEmails } from "@/lib/grayMarketAlerts";
+import {
+  buildGrayMarketFieldChangeEmails,
+  buildNewGrayMarketRequestEmails,
+  type GrayMarketFieldChange,
+} from "@/lib/grayMarketAlerts";
 import {
   buildFaitAssignmentHeadsUpEmails,
   buildFaitClosedEmails,
@@ -665,6 +670,25 @@ export function fireNewGrayMarketRequestAlert(args: {
   const emails = buildNewGrayMarketRequestEmails({
     ...args,
     recipients: parseRecipientList(GRAY_MARKET_NEW_REQUEST_ALERTS),
+  });
+  if (emails.length === 0) return;
+  void notifyChangeEmails({ target: args.target, emails });
+}
+
+/**
+ * Fire-and-forget alert for a gray market request whose Testing Required,
+ * Engineering or Production fields changed — the configured list
+ * (VITE_GRAY_MARKET_CHANGE_ALERTS) plus the request's watchers.
+ */
+export function fireGrayMarketFieldChangeAlert(args: {
+  target: ChangeTarget;
+  changes: GrayMarketFieldChange[];
+  watchers: Person[];
+  actor: Person;
+}): void {
+  const emails = buildGrayMarketFieldChangeEmails({
+    ...args,
+    alertList: parseRecipientList(GRAY_MARKET_CHANGE_ALERTS),
   });
   if (emails.length === 0) return;
   void notifyChangeEmails({ target: args.target, emails });

@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import {
   addGrayMarketComment,
@@ -11,7 +12,12 @@ import type { GrayMarketRequest, GrayMarketRequestInput, Person } from "@/types/
 import { grayMarketLabel } from "@/lib/grayMarketMapper";
 import { formatSpDate } from "@/lib/spDates";
 import { commentNotifyRecipients, extractMentionedRecipients, newlyMentionedHtml } from "@/lib/mentions";
-import { fireNewGrayMarketRequestAlert, notifyMentions } from "@/api/email";
+import {
+  fireGrayMarketFieldChangeAlert,
+  fireNewGrayMarketRequestAlert,
+  notifyMentions,
+} from "@/api/email";
+import { grayMarketAlertChanges } from "@/lib/grayMarketAlerts";
 import {
   afterMentionAutoWatch,
   beginMentionAutoWatch,
@@ -134,9 +140,23 @@ function newRequestDetails(r: GrayMarketRequest) {
   ];
 }
 
-/** Patch one or more columns, optimistically. */
+/**
+ * Patch one or more columns, optimistically.
+ *
+ * A change to Testing Required or to the Engineering / Production cards emails
+ * GRAY_MARKET_CHANGE_ALERTS and the request's watchers (BusinessIT#20). The
+ * comparison is against the row as it stood BEFORE the optimistic patch —
+ * captured in onMutate, since by onSuccess the cache already shows the new
+ * values — and the row SharePoint hands back, so a re-save of unchanged values
+ * sends nothing.
+ */
 export function useUpdateGrayMarketFields() {
   const qc = useQueryClient();
+  // A ref, not a closure over the first render: useCurrentUser re-resolves
+  // when its lookupId arrives, and the alert should name whoever is signed in.
+  const actor = useCurrentUser();
+  const actorRef = useRef(actor);
+  actorRef.current = actor;
   return useMutation({
     mutationFn: ({
       id,
@@ -149,11 +169,25 @@ export function useUpdateGrayMarketFields() {
     onMutate: async ({ id, patch }) => {
       await qc.cancelQueries({ queryKey: GRAY_MARKET_KEY });
       const previous = qc.getQueryData<GrayMarketRequest[]>(GRAY_MARKET_KEY);
+      const before = previous?.find((r) => r.id === id);
       patchRequest(qc, id, patch);
-      return { previous };
+      return { previous, before };
     },
-    onSuccess: (updated) => {
+    onSuccess: (updated, _vars, ctx) => {
       patchRequest(qc, updated.id, () => updated);
+      if (!ctx?.before) return;
+      const changes = grayMarketAlertChanges(ctx.before, updated);
+      if (changes.length === 0) return;
+      fireGrayMarketFieldChangeAlert({
+        target: {
+          kind: "grayMarketRequest",
+          id: updated.id,
+          title: grayMarketLabel(updated),
+        },
+        changes,
+        watchers: updated.watchers,
+        actor: actorRef.current,
+      });
     },
     onError: (err: Error, _vars, ctx) => {
       if (ctx?.previous) qc.setQueryData(GRAY_MARKET_KEY, ctx.previous);

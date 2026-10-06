@@ -514,7 +514,7 @@ src/
 │   ├── mrbFields.ts              MRB column descriptors (field_1…field_23 decoded) + the drifted-choice guard
 │   ├── mrbMapper.ts              Graph item → MrbEntry, and back; the DIFFED write, state + price rules
 │   ├── grayMarketNumber.ts       nextGrayMarketLogNo() — GMR_YYYY-### numbering
-│   ├── grayMarketAlerts.ts      Gray Market intake alert (new request → the config list)
+│   ├── grayMarketAlerts.ts      Gray Market intake alert + the testing/engineering/production change alert (pure)
 │   ├── featureRequestMapper.ts  Graph item → FeatureRequest, and back (RequestedBy single-person trap)
 │   ├── recipientList.ts         Parsing the env-configured recipient lists (shared)
 │   ├── calendarGrid.ts           Shared month-grid maths for every calendar view
@@ -2749,6 +2749,29 @@ returns `ChangeEmail[]`, so the wording is tested without touching Graph;
 dropped from the email** — a new request is mostly empty by design, since
 purchasing, engineering and inspection fill their own stages in later, and a
 grid of dashes reads as a fault.
+
+**A change to Testing Required, or to anything on the Engineering or
+Production cards, emails `GRAY_MARKET_CHANGE_ALERTS` + the request's
+watchers** (Katie Fleming via BusinessIT#20, 2026-10-06: "at minimum, Alex
+needs notified"; Ray added the watchers). `grayMarketAlertChanges` +
+`buildGrayMarketFieldChangeEmails` in `lib/grayMarketAlerts.ts`, wired in
+`useUpdateGrayMarketFields`. Four things that are load-bearing:
+
+- **It compares ROWS, not the PATCH** — the row as it stood BEFORE the
+  optimistic patch (captured in `onMutate`; by `onSuccess` the cache already
+  shows the new value) against the row SharePoint hands back. So a card
+  re-saved unchanged sends nothing, whatever the caller sent. The hook test
+  was verified by breaking the before-capture and watching it fail.
+- **The watched set is DATA**: `ALERT_SECTIONS` reads `section` off
+  `GRAY_MARKET_FIELDS`, so a field added to either card is covered with no
+  edit here. Testing Required (`ProductionTest`) sits outside the cards and
+  is listed by hand.
+- **Two actor rules**: the configured list drops the actor only if somebody
+  is left (`withoutActorUnlessEmpty`); watchers drop the actor strictly.
+  De-duped by lower-cased email across both.
+- **Its OWN env var**, `VITE_GRAY_MARKET_CHANGE_ALERTS` (default Alexandra
+  Russell), not the intake list — re-pointing one must not re-point the
+  other. In `deploy.yml` and `AdminNotificationRecipientsView`'s `LISTS`.
 
 **`Testing Required` is NOT required on create** (Ray, 2026-08-23) — whether
 testing is needed is decided later in the workflow. The pills carry a "Not set"
