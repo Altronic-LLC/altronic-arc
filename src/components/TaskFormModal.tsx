@@ -32,7 +32,9 @@ import {
 } from "@/lib/descriptionChecklist";
 import { ChoiceSelect, MultiSelect } from "./SearchableSelect";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { mergePeople } from "@/lib/people";
+import { sameEmail } from "@/lib/emailIdentity";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
 import { RichTextToggleField } from "./RichTextToggleField";
 import { DraftRestoredNotice } from "./DraftRestoredNotice";
@@ -189,6 +191,7 @@ export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormM
   // Altronic. Directory people have no lookupId, but the write path resolves
   // it on demand via ensureuser, so picking one works.
   const directory = useDirectoryPeople();
+  const me = useCurrentUser();
   const allPeople: Person[] = useMemo(() => {
     const seen = new Map<string, Person>();
     for (const t of allTasks) {
@@ -197,8 +200,27 @@ export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormM
         if (!seen.has(key)) seen.set(key, p);
       }
     }
-    return mergePeople([...seen.values()], directory);
-  }, [allTasks, directory]);
+    // The signed-in user is always pickable, so "Add myself" never adds
+    // somebody the Assigned picker can't show — before the directory loads,
+    // or for a new starter on no task yet.
+    return mergePeople([...seen.values()], directory, me.email ? [me] : []);
+  }, [allTasks, directory, me]);
+
+  // "Add myself as an assignee" (BusinessIT#14) is a VIEW of the Assigned
+  // list, not a second piece of state: ticked whenever you're in it, however
+  // you got there, so the box and the picker can never disagree.
+  const meAssigned = !!me.email && assigned.some((p) => sameEmail(p.email, me.email));
+  function toggleAssignMe(checked: boolean) {
+    if (checked) {
+      if (meAssigned) return;
+      // Add the picker's own entry for you where there is one, so the chip
+      // keys off the same address the option does.
+      const mine = allPeople.find((p) => sameEmail(p.email, me.email)) ?? me;
+      setAssignedState((prev) => [...prev, mine]);
+    } else {
+      setAssignedState((prev) => prev.filter((p) => !sameEmail(p.email, me.email)));
+    }
+  }
 
   // Single-select: the SharePoint column holds one choice, so picking a label
   // replaces whatever was there and clicking the current one clears it.
@@ -647,6 +669,23 @@ export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormM
                 allLabel="Unassigned"
               />
             </FieldLabel>
+            {/*
+              Its own <label>, not inside the Assigned one: that label already
+              wraps the picker, and a second control inside it would steal the
+              click. Create mode only — editing a task already shows who's on it.
+            */}
+            {mode === "create" && (
+              <label className="-mt-2 inline-flex w-fit items-center gap-2 text-sm text-fg">
+                <input
+                  type="checkbox"
+                  checked={meAssigned}
+                  onChange={(e) => toggleAssignMe(e.target.checked)}
+                  disabled={!me.email}
+                  className="h-4 w-4 rounded border-border accent-accent"
+                />
+                Add myself as an assignee
+              </label>
+            )}
 
             <FieldLabel label="Watchers">
               <PersonMultiSelect

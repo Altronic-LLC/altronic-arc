@@ -502,7 +502,9 @@ const SECTIONS: ManualSection[] = [
           <LI>
             <strong>Assigned / Watchers</strong> — searchable dropdowns of
             team members. Multi-select; pick everyone who should be on this
-            task.
+            task. Tick <strong>Add myself as an assignee</strong> under
+            Assigned to put yourself on it in one click; untick it to take
+            yourself off.
           </LI>
           <LI>
             <strong>Description, Software Revision</strong> — free-text
