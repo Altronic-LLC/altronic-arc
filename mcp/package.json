@@ -1,0 +1,16 @@
+{
+  "name": "arc-mcp",
+  "version": "0.0.0",
+  "private": true,
+  "description": "ARC MCP server — lets Claude read ARC (SharePoint via Graph) as the signed-in user. See docs/MCP-SERVER-PLAN.md.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test-signin": "node scripts/test-signin.mjs"
+  },
+  "dependencies": {
+    "@azure/msal-node": "^7.0.1"
+  }
+}
