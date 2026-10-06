@@ -209,8 +209,8 @@ export function buildChecklistToggleEmails(args: {
 /**
  * What the personal "You've been assigned" email says about the work itself,
  * so the assignee can judge urgency and context without opening the link
- * (David Markovitch, BusinessIT #5 / #6). Engineering tasks only for now —
- * every other caller omits it and its email is unchanged.
+ * (David Markovitch, BusinessIT #5 / #6). Engineering and Operations tasks
+ * pass it; every other caller omits it and its email is unchanged.
  */
 export interface AssignmentDetails {
   dueDate: Date | null;

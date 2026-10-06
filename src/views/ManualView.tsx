@@ -6118,7 +6118,8 @@ const SECTIONS: ManualSection[] = [
         <UL>
           <LI>
             The person <strong>added</strong> → "You've been assigned to …".
-            On an Engineering task this email also shows the task's{" "}
+            On an Engineering or Operations task this email also shows the
+            task's{" "}
             <strong>due date</strong> (or "No due date") and its{" "}
             <strong>description</strong>, so you can see how urgent it is and
             what it's about without opening the link. A long description is
