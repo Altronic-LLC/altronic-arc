@@ -20,6 +20,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.173.0",
+    date: "2026-10-06",
+    changes: [
+      "ARC Feature Requests has a GitHub column for Ray and Tim, linking each request to the BusinessIT issue already tracking it",
+      "An Issue Status column beside Status shows where that issue sits on the Business IT Tasks board (Backlog, In progress, In review, On Hold, Done)",
+      "Create issue opens a request as an \"ARC: …\" BusinessIT issue, labelled by department and priority, and puts it in Backlog on the Business IT Tasks board",
+      "When an existing issue looks like the request (similar title or description, or it names the same requester), ARC offers to Link it instead of creating a duplicate",
+    ],
+  },
+  {
     version: "0.172.0",
     date: "2026-10-06",
     changes: [
