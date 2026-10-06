@@ -28,6 +28,13 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
+    version: "0.171.1",
+    date: "2026-10-06",
+    changes: [
+      "The New Task form has an Add myself as an assignee checkbox under Assigned, so you can put yourself on a task you're creating in one click",
+    ],
+  },
+  {
     version: "0.171.0",
     date: "2026-10-05",
     changes: [
