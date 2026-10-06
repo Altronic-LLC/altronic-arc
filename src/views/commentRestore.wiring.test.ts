@@ -85,4 +85,17 @@ describe("comment restore wiring", () => {
 
     expect(offenders).toEqual([]);
   });
+
+  it("every comment thread offers Reply through that same handler", () => {
+    // Threaded replies (BusinessIT#9) post through the page's own
+    // handleAddComment, so notifications, mirrors and restore-on-failure all
+    // come with them. A thread without onReply silently has no Reply button.
+    const offenders = SOURCES.filter(({ source }) => {
+      const start = source.indexOf("<CommentThread");
+      const block = start < 0 ? "" : source.slice(start, source.indexOf("/>", start));
+      return !block.includes("onReply={handleAddComment}");
+    }).map(({ name }) => name);
+
+    expect(offenders).toEqual([]);
+  });
 });

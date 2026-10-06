@@ -789,6 +789,8 @@ export function DetailView() {
                 currentUserName={currentUser.displayName}
                 mentionablePeople={mentionCandidates}
                 onEdit={handleEditComment}
+                onReply={handleAddComment}
+                draftKey={`task:${taskId}`}
                 uploadFile={async (file) => {
                   // Same route as the composer above — SharePoint project
                   // folder (or Miscellaneous with prefix) — so editing a

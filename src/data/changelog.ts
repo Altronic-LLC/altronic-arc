@@ -20,6 +20,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.174.0",
+    date: "2026-10-06",
+    changes: [
+      "Every comment has a Reply button, and your reply appears indented directly under the comment it answers instead of at the top of the thread",
+      "A reply starts with a short line saying who and what it answers, so it still makes sense in SharePoint and the old Power Apps form",
+      "Replying to a reply keeps it in the same thread, one level deep",
+      "The person you reply to is emailed that you replied to their comment, even if they aren't watching",
+      "On a phone, a comment's author name sits on its own line under the date instead of wrapping partway",
+    ],
+  },
+  {
     version: "0.173.1",
     date: "2026-10-06",
     changes: [

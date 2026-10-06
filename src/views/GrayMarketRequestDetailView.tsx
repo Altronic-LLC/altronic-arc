@@ -231,6 +231,8 @@ export function GrayMarketRequestDetailView() {
                 currentUserName={currentUser.displayName}
                 mentionablePeople={mentionCandidates}
                 onEdit={handleEditComment}
+                onReply={handleAddComment}
+                draftKey={`grayMarket:${requestId}`}
               />
             </div>
           </section>

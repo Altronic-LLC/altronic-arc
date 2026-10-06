@@ -91,10 +91,11 @@ export interface MentionRecipient {
    * Why they're being notified — "mentioned", "assigned" (the item is assigned
    * to them), "submitted" (they raised the item; ECNs have no watchers and no
    * assignee, so this is the only standing recipient), or a plain "watching"
-   * comment alert; "edited" when the author checked "Notify everyone again"
-   * after editing an existing comment.
+   * comment alert; "replied" when the comment is a reply to theirs;
+   * "edited" when the author checked "Notify everyone again" after editing an
+   * existing comment.
    */
-  reason: "mentioned" | "assigned" | "submitted" | "watching" | "edited";
+  reason: "mentioned" | "replied" | "assigned" | "submitted" | "watching" | "edited";
 }
 
 /** What the mention is on — drives the wording, link, and button text. */
@@ -421,7 +422,9 @@ async function sendOne(input: {
       } to ${target.title}`
     : reason === "mentioned"
       ? `You were mentioned in ${target.title}`
-      : reason === "edited"
+      : reason === "replied"
+        ? `${input.sender.displayName} replied to your comment on ${target.title}`
+        : reason === "edited"
         ? `Updated comment on ${target.title}`
         : `New comment on ${target.title}`;
   const url = itemUrl(target.kind, target.id);
@@ -1191,7 +1194,9 @@ function renderMentionEmail(ctx: MentionEmailContext): string {
           ? " you submitted"
           : ctx.reason === "watching"
             ? " you're watching"
-            : "";
+            : ctx.reason === "replied"
+              ? ", in reply to your comment"
+              : "";
     return renderEmailShell({
       recipientName: ctx.recipientName,
       introHtml: `<strong>${sender}</strong> added ${what} to ${copy.phrase}${why}.`,
@@ -1205,7 +1210,9 @@ function renderMentionEmail(ctx: MentionEmailContext): string {
   const intro =
     ctx.reason === "mentioned"
       ? `You were mentioned in ${copy.phrase} by <strong>${sender}</strong>.`
-      : ctx.reason === "edited"
+      : ctx.reason === "replied"
+        ? `<strong>${sender}</strong> replied to your comment on ${copy.phrase}.`
+        : ctx.reason === "edited"
         ? `<strong>${sender}</strong> updated a comment on ${copy.phrase} you're following — here's the latest version:`
         : ctx.reason === "assigned"
           ? `<strong>${sender}</strong> commented on ${copy.phrase} assigned to you.`

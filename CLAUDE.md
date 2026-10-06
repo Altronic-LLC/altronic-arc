@@ -477,6 +477,7 @@ src/
 │   ├── buildRequestPartProduction.ts A PART's production buttons — readiness, who presses which step, the write guard (pure)
 │   ├── buildRequestAlerts.ts     Production hand-off emails — ready / part done / review / complete (pure)
 │   ├── commentMirror.ts         Mirroring a comment task ⇄ BR ⇄ part: the origin banner + fan-out routing (pure)
+│   ├── commentReplies.ts        Threaded replies — the reply marker in the body, and grouping a thread one level deep (pure)
 │   ├── guestIdentity.ts        Is this address external? One rule, shared with the Power Automate guest flow
 │   ├── operationsTaskMapper.ts   Graph item → OperationsTask
 │   ├── operationsTaskFilters.ts  Pure Operations task filter predicates
@@ -7159,6 +7160,53 @@ anyway — so removing the `told.push(...)` line did not fail anything. The test
 now INJECTS a shared watcher into both cached records and asserts that person
 is genuinely in the send set before asserting uniqueness. Verified by deleting
 the guard and watching it fail.
+
+### Threaded replies — the link to the parent lives in the reply's BODY
+
+BusinessIT#9 (requested by Matthew Traina; design picked by Tim, 2026-10-06).
+Replying used to post at the top of the thread, far from the comment being
+answered. Every `CommentThread` now has a **Reply** button, and a reply sits
+indented under the comment it answers. Pieces: **`lib/commentReplies.ts`**
+(pure — marker, parsing, grouping), `CommentThread` (Reply button, inline
+`ReplyBox`, grouping), and `replyRecipient` in `lib/mentions.ts`.
+
+**The marker is in the HTML body, not a new record field.** `Communication`
+is `timestamp|||name|||email|||html`, and the guest Power Automate flow reads
+author and email by POSITION from the front of each record — a fifth field
+would shift them and break it. So a reply's body starts with
+`<p><span class="comment-reply" data-reply-ts data-reply-email
+data-reply-name>↪ Replying to Name: “snippet”</span></p>`. SharePoint views,
+Power Apps and the flow see an ordinary comment opening with a readable quote.
+The same reasoning as the mirrored-comment origin banner.
+
+Seven things that are load-bearing:
+
+- **The parent is named by timestamp + author email**, because comments have
+  no id. Editing keeps a comment's timestamp (`replaceComment`), so an edited
+  parent is still found.
+- **A MIRRORED parent is found within a 2-minute window** (same author,
+  nearest in time) after an exact match fails. A mirror is stamped "now" by
+  the fan-out, a second or so after the original the reply names.
+- **ONE level of display nesting**, but the marker records the DIRECT parent.
+  So deeper nesting could be shown later with no change to stored data. A
+  reply whose parent can't be found shows as top-level — never dropped — and
+  a cycle (hand-edited data only) falls back to top-level rather than hanging.
+- **Replies post through the page's own `handleAddComment`** (`onReply`), so
+  notifications, auto-watch, mirrors and restore-on-failure all apply
+  unchanged. `views/commentRestore.wiring.test.ts` fails if a thread lacks
+  `onReply={handleAddComment}`; a new comment thread belongs in its list.
+- **The person replied to is emailed (`reason: "replied"`) on EVERY thread**,
+  ECN / Customer Note / Cost Impact included. It outranks watching/assigned/
+  submitted and is outranked by a mention. **It is NOT a `span.mention`**, on
+  purpose: being replied to emails you once but doesn't make you a watcher.
+- **Editing a reply holds the marker OUT of the edit box** (`splitReplyMarker`)
+  and puts it back on save. The plain-text editor's `htmlToPlainText` would
+  otherwise flatten it into words, losing the attributes — and the reply would
+  come back unthreaded. Pinned in `CommentThread.replies.test.tsx`.
+- **`commentReplies.ts` must not import `mentions.ts` or `commentMirror.ts`**
+  — `mentions.ts` imports it, and `commentMirror.ts` imports `mentions.ts`.
+  That's why it has its own `escapeHtml` and an `ORIGIN_BANNER_CLASS` copy
+  (a test pins it equal to `ORIGIN_MARKER_CLASS`).
 
 ### Description checklists: sub-tasks and attribution
 

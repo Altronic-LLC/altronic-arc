@@ -383,6 +383,8 @@ export function OperationsDetailView() {
                 currentUserName={currentUser.displayName}
                 mentionablePeople={mentionCandidates}
                 onEdit={handleEditComment}
+                onReply={handleAddComment}
+                draftKey={`opsTask:${taskId}`}
               />
             </div>
           </div>

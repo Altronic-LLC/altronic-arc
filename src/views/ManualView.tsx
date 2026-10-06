@@ -844,6 +844,10 @@ const SECTIONS: ManualSection[] = [
       "notify someone",
       "send email to teammate",
       "reply",
+      "replies",
+      "reply to comment",
+      "threaded",
+      "indent",
       "attachment",
       "attach file",
       "screenshot",
@@ -860,7 +864,7 @@ const SECTIONS: ManualSection[] = [
       "resend notification",
     ],
     searchText:
-      "Type @ in the comment composer to open the mention picker. Arrow keys then Enter or Tab to pick. You can type a first name and surname after the @ — the space no longer closes the picker — and matching works in any order or by email address. admin.first.last accounts are not listed. Comment boxes auto-grow as you type or paste. Mentioned people get an email with the task/EIR name, the comment quote, and a link. Attach files by drag-drop, click Attach, or paste with Ctrl+V. Pasting a screenshot opens a naming prompt before it attaches anywhere — Cancel discards it instead of attaching it — and the named file uploads to the task's SharePoint project folder like any other attachment; a name already taken there is saved as name (2).ext instead of overwriting it. You can edit your own comments inline (a comment is yours if its saved name or email matches you, so older imported comments count too). Check Notify everyone again when editing to re-email every watcher and mention. Ctrl+Enter sends. Comments have a Rich text button for bold, italic, underline and bulleted or numbered lists. It asks first, because rich text turns off the @-mention picker for that comment — typing @ no longer opens the name list, so you cannot add a new mention. Current watchers are still notified either way, and anyone you already picked before switching is still mentioned and still emailed. Whatever you have typed carries across, and you can switch back to plain text at any time. On ECNs, Customer Notes and Cost Impact Notices, which have no watchers, the warning says the submitter is still notified instead. A half-written comment is kept if you navigate away — look something up in another task and come back, and the draft is still there; it survives a refresh, a closed tab and a browser restart too. A restored draft says so, with Discard and Keep, is forgotten once you post or after a week, and does not keep attachments. The same applies to the title and description on new task and other create forms; editing an existing record does not use drafts. Drafts are per browser and per device. Pasting a web address into a comment or a description makes it a clickable link automatically — no formatting needed, and it works in plain text as well as rich text. This applies to comments and descriptions already saved, so older ones are clickable too. Only a full http:// or https:// address becomes a link, so part numbers and references like QMP-4.3 are left alone, and a full stop or bracket ending the sentence stays outside the link.",
+      "Type @ in the comment composer to open the mention picker. Arrow keys then Enter or Tab to pick. You can type a first name and surname after the @ — the space no longer closes the picker — and matching works in any order or by email address. admin.first.last accounts are not listed. Comment boxes auto-grow as you type or paste. Mentioned people get an email with the task/EIR name, the comment quote, and a link. Attach files by drag-drop, click Attach, or paste with Ctrl+V. Pasting a screenshot opens a naming prompt before it attaches anywhere — Cancel discards it instead of attaching it — and the named file uploads to the task's SharePoint project folder like any other attachment; a name already taken there is saved as name (2).ext instead of overwriting it. You can edit your own comments inline (a comment is yours if its saved name or email matches you, so older imported comments count too). Check Notify everyone again when editing to re-email every watcher and mention. Ctrl+Enter sends. Every comment has a Reply button: the reply is posted indented directly under that comment instead of at the top of the thread, starts with a line naming who it answers, and emails that person even if they aren't watching. Replies are one level deep, so replying to a reply adds to the same thread. Comments have a Rich text button for bold, italic, underline and bulleted or numbered lists. It asks first, because rich text turns off the @-mention picker for that comment — typing @ no longer opens the name list, so you cannot add a new mention. Current watchers are still notified either way, and anyone you already picked before switching is still mentioned and still emailed. Whatever you have typed carries across, and you can switch back to plain text at any time. On ECNs, Customer Notes and Cost Impact Notices, which have no watchers, the warning says the submitter is still notified instead. A half-written comment is kept if you navigate away — look something up in another task and come back, and the draft is still there; it survives a refresh, a closed tab and a browser restart too. A restored draft says so, with Discard and Keep, is forgotten once you post or after a week, and does not keep attachments. The same applies to the title and description on new task and other create forms; editing an existing record does not use drafts. Drafts are per browser and per device. Pasting a web address into a comment or a description makes it a clickable link automatically — no formatting needed, and it works in plain text as well as rich text. This applies to comments and descriptions already saved, so older ones are clickable too. Only a full http:// or https:// address becomes a link, so part numbers and references like QMP-4.3 are left alone, and a full stop or bracket ending the sentence stays outside the link.",
     render: () => (
       <>
         <P>
@@ -891,6 +895,25 @@ const SECTIONS: ManualSection[] = [
           were actually posted — every timestamp is recorded on one company
           clock and then shown in your local time, so a thread between people
           in different time zones still reads in order.
+        </P>
+        <H3>Replying to a comment</H3>
+        <P>
+          Every comment has a <strong>Reply</strong> button. It opens a reply
+          box directly under that comment, and your reply is shown{" "}
+          <strong>indented beneath it</strong> instead of at the top of the
+          thread, so the conversation stays together. Replies read oldest
+          first, top to bottom. A reply starts with a short line saying who and
+          what it answers ("↪ Replying to Matthew Traina: …"), which is also
+          what you see in SharePoint and the old Power Apps form. Replies are
+          one level deep: replying to a reply adds to the same thread, and its
+          opening line names the person you answered. The reply box works like
+          the main one — @-mentions, attachments, rich text, Ctrl+Enter, and a
+          half-written reply is kept if you navigate away. Cancel closes it.
+          The person you reply to is emailed "Name replied to your comment",
+          even if they aren't watching, and isn't added as a watcher. Everyone
+          who would hear about a new comment still does. If the comment a reply
+          answered has been removed, the reply shows as an ordinary comment
+          with its opening line intact.
         </P>
         <P>
           Anyone you @-mention also <strong>becomes a watcher</strong> on

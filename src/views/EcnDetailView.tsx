@@ -284,6 +284,8 @@ ${ecn.title || "No title"}
                 currentUserName={currentUser.displayName}
                 mentionablePeople={mentionCandidates}
                 onEdit={handleEditComment}
+                onReply={handleAddComment}
+                draftKey={`ecn:${ecnId}`}
               />
             </div>
           </section>

@@ -292,6 +292,8 @@ export function CostImpactNoticeDetailView() {
                 currentUserName={currentUser.displayName}
                 mentionablePeople={mentionCandidates}
                 onEdit={handleEditComment}
+                onReply={handleAddComment}
+                draftKey={`costImpact:${noticeId}`}
               />
             </div>
           </section>
