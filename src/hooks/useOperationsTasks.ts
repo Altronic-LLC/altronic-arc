@@ -299,6 +299,7 @@ export function useSetOperationsAssigned() {
           next: person ? [person] : [],
           actor,
           watchers: ctx.prevTask.watchers,
+          details: { dueDate: ctx.prevTask.dueDate, description: ctx.prevTask.description },
         });
       }
     },
@@ -639,6 +640,12 @@ export function useCreateOperationsTask() {
           next: [assignee],
           actor,
           watchers: [],
+          // Off the mutation input, like the assignee — see useTasks.ts's
+          // useCreateTask, which does the same for Engineering.
+          details: {
+            dueDate: variables.dueDate ?? null,
+            description: variables.description ?? "",
+          },
         });
       }
       // Seed the cache immediately — see the identical fix in useTasks.ts's
