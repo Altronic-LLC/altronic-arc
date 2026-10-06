@@ -1,8 +1,29 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { Lightbulb, Plus } from "lucide-react";
 import { SP_FEATURE_REQUESTS_LIST_ID, USE_MOCK } from "@/api/config";
 import { useFeatureRequests } from "@/hooks/useFeatureRequests";
+import {
+  BUSINESS_IT_KEY,
+  useBusinessItBoardStatuses,
+  useBusinessItIssues,
+  useCanManageFeatureRequestIssues,
+  useCreateBusinessItIssue,
+  useGitHubConnected,
+  useLinkBusinessItIssue,
+} from "@/hooks/useBusinessItIssues";
+import { GitHubError } from "@/api/githubIssues";
+import type { GitHubIssue } from "@/lib/featureRequestIssues";
+import {
+  CreateIssueDialog,
+  FeatureRequestIssueCell,
+  GitHubConnectBar,
+  IssueBoardStatusCell,
+  GitHubConnectDialog,
+  type IssueScanStatus,
+} from "@/components/FeatureRequestGitHub";
+import { pushToast } from "@/components/Toast";
 import type { FeatureRequest, FeatureRequestDepartment, FeatureRequestStatus } from "@/types/task";
 import { FEATURE_REQUEST_DEPARTMENTS, FEATURE_REQUEST_STATUSES } from "@/types/task";
 import { featureRequestLabel } from "@/lib/featureRequestMapper";
@@ -42,6 +63,87 @@ export function FeatureRequestsView() {
   const [status, setStatus] = useState<FeatureRequestStatus | null>(null);
   const [showAll, setShowAll] = useState(false);
   const [showNew, setShowNew] = useState(false);
+
+  // --- BusinessIT GitHub issues (Ray and Tim only) ---------------------------
+  const qc = useQueryClient();
+  const canManageIssues = useCanManageFeatureRequestIssues();
+  const githubConnected = useGitHubConnected();
+  const issuesQuery = useBusinessItIssues(canManageIssues);
+  const boardQuery = useBusinessItBoardStatuses(canManageIssues);
+  const createIssue = useCreateBusinessItIssue();
+  const linkIssue = useLinkBusinessItIssue();
+  const [showConnect, setShowConnect] = useState(false);
+  const [confirming, setConfirming] = useState<{
+    request: FeatureRequest;
+    similar: GitHubIssue[];
+  } | null>(null);
+  const scanStatus: IssueScanStatus = !githubConnected
+    ? "disconnected"
+    : issuesQuery.isError
+      ? "error"
+      : issuesQuery.data
+        ? "ready"
+        : "loading";
+  const scanNeedsReconnect =
+    issuesQuery.error instanceof GitHubError && issuesQuery.error.isAuth;
+  const creatingId = createIssue.isPending
+    ? (createIssue.variables?.id ?? null)
+    : linkIssue.isPending
+      ? (linkIssue.variables?.request.id ?? null)
+      : null;
+  const github = canManageIssues
+    ? {
+        issues: issuesQuery.data,
+        status: scanStatus,
+        boardStatuses: boardQuery.data,
+        boardError: boardQuery.error?.message ?? null,
+        creatingId,
+        onCreate: (request: FeatureRequest, similar: GitHubIssue[]) =>
+          setConfirming({ request, similar }),
+      }
+    : null;
+
+  function confirmCreate() {
+    if (!confirming) return;
+    const { request } = confirming;
+    setConfirming(null);
+    createIssue.mutate(request, {
+      onSuccess: ({ issue, alreadyExisted, projectError }) => {
+        if (alreadyExisted) {
+          pushToast({
+            message: `Already tracked as BusinessIT #${issue.number} — nothing new was created.`,
+          });
+        } else if (projectError) {
+          pushToast({
+            variant: "error",
+            durationMs: 15000,
+            message: `Created BusinessIT #${issue.number}, but it couldn't be put in Backlog on the Business IT Tasks board (${projectError}). Set it from the board.`,
+          });
+        } else {
+          pushToast({ message: `Created BusinessIT #${issue.number} and put it in Backlog on the board.` });
+        }
+      },
+      onError: (err) => pushToast({ variant: "error", message: err.message }),
+    });
+  }
+
+  function confirmLink(issue: GitHubIssue) {
+    if (!confirming) return;
+    const { request } = confirming;
+    setConfirming(null);
+    linkIssue.mutate(
+      { request, issue },
+      {
+        onSuccess: ({ issue: linked, alreadyLinked }) =>
+          pushToast({
+            message: alreadyLinked
+              ? `BusinessIT #${linked.number} was already linked to this request.`
+              : `Linked BusinessIT #${linked.number} to this request.`,
+          }),
+        onError: (err) => pushToast({ variant: "error", message: err.message }),
+      },
+    );
+  }
 
   const filtered = useMemo(() => {
     return requests.filter((r) => {
@@ -94,6 +196,19 @@ export function FeatureRequestsView() {
           An admin needs to run <code>scripts/create-feature-requests-list.ps1</code> and set{" "}
           <code>VITE_SP_FEATURE_REQUESTS_LIST_ID</code>. Until then no requests can be submitted.
         </div>
+      )}
+
+      {canManageIssues && (
+        <GitHubConnectBar
+          status={scanStatus}
+          error={issuesQuery.error?.message ?? null}
+          needsReconnect={scanNeedsReconnect}
+          onConnect={() => setShowConnect(true)}
+          onRetry={() => {
+            void issuesQuery.refetch();
+            void boardQuery.refetch();
+          }}
+        />
       )}
 
       <div className="flex flex-wrap gap-2">
@@ -192,6 +307,7 @@ export function FeatureRequestsView() {
                 <RequestCard
                   key={request.id}
                   request={request}
+                  github={github}
                   onClick={() => navigate(`/feature-request/${request.id}`)}
                 />
               ))}
@@ -204,8 +320,10 @@ export function FeatureRequestsView() {
                     <th className="px-4 py-2 font-semibold">Department</th>
                     <th className="px-4 py-2 font-semibold">Priority</th>
                     <th className="px-4 py-2 font-semibold">Status</th>
+                    {github && <th className="px-4 py-2 font-semibold">Issue Status</th>}
                     <th className="px-4 py-2 font-semibold">Requested By</th>
                     <th className="px-4 py-2 font-semibold">Target Version</th>
+                    {github && <th className="px-4 py-2 font-semibold">GitHub</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -213,6 +331,7 @@ export function FeatureRequestsView() {
                     <Row
                       key={request.id}
                       request={request}
+                      github={github}
                       onClick={() => navigate(`/feature-request/${request.id}`)}
                     />
                   ))}
@@ -224,11 +343,70 @@ export function FeatureRequestsView() {
       </div>
 
       {showNew && <FeatureRequestFormModal onClose={() => setShowNew(false)} />}
+      {showConnect && (
+        <GitHubConnectDialog
+          onClose={() => setShowConnect(false)}
+          // Reset, not invalidate: a scan that failed on the OLD token must
+          // not keep showing its error while the new one is tried.
+          onConnected={() => void qc.resetQueries({ queryKey: BUSINESS_IT_KEY })}
+        />
+      )}
+      {confirming && (
+        <CreateIssueDialog
+          request={confirming.request}
+          similar={confirming.similar}
+          onConfirm={confirmCreate}
+          onLink={confirmLink}
+          onCancel={() => setConfirming(null)}
+        />
+      )}
     </div>
   );
 }
 
-function Row({ request, onClick }: { request: FeatureRequest; onClick: () => void }) {
+/** What a row needs to show its GitHub state; null for everyone but Ray and Tim. */
+interface RowGitHub {
+  issues: GitHubIssue[] | undefined;
+  status: IssueScanStatus;
+  boardStatuses: Record<number, string> | undefined;
+  boardError: string | null;
+  creatingId: number | null;
+  onCreate: (request: FeatureRequest, similar: GitHubIssue[]) => void;
+}
+
+function IssueCell({ request, github }: { request: FeatureRequest; github: RowGitHub }) {
+  return (
+    <FeatureRequestIssueCell
+      request={request}
+      issues={github.issues}
+      status={github.status}
+      creating={github.creatingId === request.id}
+      onCreate={github.onCreate}
+    />
+  );
+}
+
+function BoardStatusCell({ request, github }: { request: FeatureRequest; github: RowGitHub }) {
+  return (
+    <IssueBoardStatusCell
+      request={request}
+      issues={github.issues}
+      status={github.status}
+      boardStatuses={github.boardStatuses}
+      boardError={github.boardError}
+    />
+  );
+}
+
+function Row({
+  request,
+  github,
+  onClick,
+}: {
+  request: FeatureRequest;
+  github: RowGitHub | null;
+  onClick: () => void;
+}) {
   return (
     <tr
       onClick={onClick}
@@ -242,18 +420,36 @@ function Row({ request, onClick }: { request: FeatureRequest; onClick: () => voi
       <td className="whitespace-nowrap px-4 py-2">
         <StatusBadge status={request.status} />
       </td>
+      {github && (
+        <td className="whitespace-nowrap px-4 py-2">
+          <BoardStatusCell request={request} github={github} />
+        </td>
+      )}
       <td className="whitespace-nowrap px-4 py-2 text-fg-muted">
         {request.requestedBy?.displayName || "—"}
       </td>
       <td className="whitespace-nowrap px-4 py-2 text-fg-muted">
         {request.targetVersion || "—"}
       </td>
+      {github && (
+        <td className="px-4 py-2">
+          <IssueCell request={request} github={github} />
+        </td>
+      )}
     </tr>
   );
 }
 
-function RequestCard({ request, onClick }: { request: FeatureRequest; onClick: () => void }) {
-  return (
+function RequestCard({
+  request,
+  github,
+  onClick,
+}: {
+  request: FeatureRequest;
+  github: RowGitHub | null;
+  onClick: () => void;
+}) {
+  const card = (
     <button
       type="button"
       onClick={onClick}
@@ -286,6 +482,24 @@ function RequestCard({ request, onClick }: { request: FeatureRequest; onClick: (
         )}
       </dl>
     </button>
+  );
+  if (!github) return card;
+  // The card is a <button>, and a button can't contain the GitHub link or
+  // button — so the GitHub row sits BESIDE it, not inside.
+  return (
+    <div>
+      {card}
+      <div className="flex flex-col gap-1.5 px-4 pb-3 text-sm">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-fg-muted">Issue Status</span>
+          <BoardStatusCell request={request} github={github} />
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-fg-muted">GitHub</span>
+          <IssueCell request={request} github={github} />
+        </div>
+      </div>
+    </div>
   );
 }
 

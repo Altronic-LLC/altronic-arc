@@ -927,6 +927,36 @@ export const FEATURE_REQUEST_ALERTS =
   import.meta.env.VITE_FEATURE_REQUEST_ALERTS ||
   "Ray White <ray.white@altronic-llc.com>";
 
+/**
+ * Where a feature request becomes a GitHub issue: the private BusinessIT
+ * repo, added to the "Business IT Tasks" Projects (v2) board. Confirmed live
+ * 2026-10-06 (`gh project list --owner Altronic-LLC` → #8).
+ *
+ * Plain constants, not `VITE_*` vars: they name a GitHub repo, not a
+ * SharePoint list, and they gate nothing — every call is made with the
+ * signed-in person's OWN GitHub token, which is what decides whether it
+ * succeeds. See `api/githubIssues.ts`.
+ */
+export const BUSINESS_IT_REPO = { owner: "Altronic-LLC", name: "BusinessIT" } as const;
+export const BUSINESS_IT_PROJECT_ID = "PVT_kwDOBlqe584Bld8C";
+export const BUSINESS_IT_PROJECT_URL = "https://github.com/orgs/Altronic-LLC/projects/8";
+/**
+ * The board's Status field and its "Backlog" option — a new issue lands there
+ * (Tim, 2026-10-06). Read live 2026-10-06; renaming or recreating the option
+ * on the board changes the id, and the status write then fails (as a warning;
+ * the issue is still created).
+ */
+export const BUSINESS_IT_STATUS_FIELD_ID = "PVTSSF_lADOBlqe584Bld8CzhkKt3I";
+export const BUSINESS_IT_BACKLOG_OPTION_ID = "f75ad846";
+
+/**
+ * ARC's live address, for links that are STORED somewhere else (a GitHub
+ * issue). `appItemUrl` uses the current origin, which from the dev server is
+ * localhost — fine for an email sent while testing, useless baked into an
+ * issue Ray opens next month.
+ */
+export const ARC_PRODUCTION_URL = "https://altronic-llc.github.io/altronic-arc";
+
 // =============================================================================
 // CRM Tool — Customer Notes, Customer Contacts, Special Pricing and Capacity,
 // all on the salesOrderEntry site (SITES.salesOrderEntry — the OrderEntry

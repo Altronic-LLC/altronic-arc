@@ -313,6 +313,7 @@ src/
 │   ├── grayMarketRequests.ts     Gray Market Requests CRUD + comments (PMO site) — no delete
 │   ├── mrb.ts                    MRB Data CRUD + comments (PMO site) — DIFFED edits, no delete
 │   ├── featureRequests.ts        ARC Feature Requests CRUD + comments (Engineering site) — no admin gate, no delete
+│   ├── githubIssues.ts           BusinessIT GitHub issues — list/labels/create/append-link + board (Backlog), with the person's OWN token
 │   ├── whereAmI.ts               Where am I? CRUD (Engineering out-of-office calendar)
 │   ├── autoWatch.ts              Shared @-mention → watcher resolution (per-site)
 │   ├── commentMirror.ts          WRITES the comment mirrors — best-effort per target, never throws
@@ -344,6 +345,7 @@ src/
 │   ├── grayMarketMockData.ts     Sample gray market requests
 │   ├── mrbMockData.ts            Sample MRB entries — live, undecided, and archive rows
 │   ├── featureRequestMockData.ts Sample ARC Feature Requests, spanning all four statuses
+│   ├── businessItIssueMockData.ts Sample BusinessIT issues + labels — one linked, one same-title "possible match"
 │   ├── whereAmIMockData.ts       Sample out-of-office entries (dated from today)
 │   ├── ecnMockData.ts            Sample ECNs (rich-text fields, a revision)
 │   ├── ecnChecklistMockData.ts   Sample ECN checklists — part-way, finished, untouched
@@ -389,6 +391,8 @@ src/
 │   ├── useGrayMarketRequests.ts  Gray Market queries, mutations + comment thread
 │   ├── useMrb.ts                 MRB queries, mutations + comment thread (an edit diffs against the cached row)
 │   ├── useFeatureRequests.ts     ARC Feature Requests queries, mutations + comment thread — no admin gate
+│   ├── useBusinessItIssues.ts    BusinessIT issue scan, create + link an existing one (Ray/Tim only; re-reads GitHub before writing)
+│   ├── useGitHubToken.ts         The person's GitHub token, in THIS browser's localStorage (never the bundle)
 │   ├── useWhereAmI.ts            Where am I? queries + mutations
 │   ├── useEcns.ts                ECN queries + mutations (submitter-only notifications, admin-gated delete)
 │   ├── useEcnChecklists.ts       ECN Checklist queries + mutations (no admin gate)
@@ -509,6 +513,7 @@ src/
 │   ├── costImpactNoticeMapper.ts Graph item → CostImpactNotice, and back
 │   ├── costImpactAlerts.ts       Cost Impact Notice intake alert (new notice → the config list)
 │   ├── featureRequestAlerts.ts   ARC Feature Request intake + status alerts (pure)
+│   ├── featureRequestIssues.ts   Feature request → BusinessIT issue: who (Ray/Tim), the link marker, matching, the issue body (pure)
 │   ├── grayMarketFields.ts       Gray Market column descriptors (columns are DATA)
 │   ├── grayMarketMapper.ts       Graph item → GrayMarketRequest, and back
 │   ├── mrbFields.ts              MRB column descriptors (field_1…field_23 decoded) + the drifted-choice guard
@@ -603,6 +608,7 @@ src/
 │   ├── GrayMarketRequestFormModal.tsx  Raise a gray market request
 │   ├── MrbFormModal.tsx          Log an MRB entry (auto-computes Price Per Issue)
 │   ├── FeatureRequestFormModal.tsx  Suggest a new ARC feature — Title/Description/Department/Priority only
+│   ├── FeatureRequestGitHub.tsx  GitHub connect bar + token dialog, per-row issue link / Create issue, confirm dialog
 │   ├── WhereAmIFormModal.tsx     Add/edit an out-of-office entry (+ date range)
 │   ├── ProjectFolderFormModal.tsx  Create a project folder + tag its Project Reference
 │   ├── EcnFormModal.tsx          Raise an ECN
@@ -5157,6 +5163,76 @@ Four things that shape this feature:
   against `resolveCurrentUserLookupId` (Engineering site), and
   `autoWatchers()` on create so the requester starts out watching.
 
+#### Turning a request into a BusinessIT GitHub issue (Ray and Tim only)
+
+Tim, 2026-10-06. Ray and Tim both work the private **Altronic-LLC/BusinessIT**
+repo and its **Business IT Tasks** Projects (v2) board (#8,
+`BUSINESS_IT_PROJECT_ID` in `config.ts`). The Feature Requests list shows them
+a **GitHub** column: the issue already tracking each request (a link that
+opens GitHub), or **Create issue**. Pieces: `lib/featureRequestIssues.ts`
+(pure), `api/githubIssues.ts`, `hooks/useBusinessItIssues.ts`,
+`hooks/useGitHubToken.ts`, `components/FeatureRequestGitHub.tsx`.
+
+Ten things that are load-bearing:
+
+- **Each person's OWN GitHub token, kept in their browser's localStorage —
+  never a token in the bundle.** ARC is public JavaScript on GitHub Pages, so a
+  shared token there would be anybody's (the Power Automate flow URL
+  reasoning). A personal token also makes GitHub the real permission
+  boundary. api.github.com answers CORS for any origin, so no backend is
+  needed. Fine-grained token: owner Altronic-LLC, BusinessIT repo, Issues R/W,
+  org Projects R/W; classic: `repo` + `project`.
+- **The link lives in the ISSUE, not SharePoint.** Every created issue carries
+  `<!-- arc-feature-request:<id> -->` plus a visible ARC link, and
+  `featureRequestIdsInIssue` reads either — so a hand-made issue pasting the
+  ARC link is recognised too. No column to keep in step. `(?!\d)` keeps
+  request 12 from matching a link to 123.
+- **Issues are LISTED, not searched.** The search API lags new issues by up to
+  a minute, so a just-created issue would scan as missing and be created
+  twice. The repo is small; one paged list per load, shared by every row.
+- **`mutationFn` re-scans FRESH before creating** and returns the existing
+  issue (`alreadyExisted`) instead of making a second — the cached scan can be
+  two minutes old and Ray and Tim can both be on the same request. Verified by
+  removing the check and watching the hook test fail.
+- **A likely match is only "Similar" until somebody presses Link.** Issues
+  #1–#15 were raised by hand before this existed: REWORDED "ARC: …" titles, a
+  `**Requested by:**` line, no ID or link — so the first, exact-title version
+  found one of fifteen (Tim, 2026-10-06). `issueMatchScore` uses three
+  signals: title words in common, the request's description words found in
+  the issue, and the issue's "Requested by" naming the requester. An issue
+  already linked to ANY request is never a candidate. **Link** (in the confirm
+  dialog) appends `linkedIssueFooter` to the issue body as it stands NOW,
+  which turns the guess into an exact match for good. It refuses an issue
+  linked to a different request.
+- **New issues are titled `ARC: <request>`** (never doubled) and **set to
+  Backlog** on the board: `addProjectV2ItemById`, then
+  `updateProjectV2ItemFieldValue` with `BUSINESS_IT_STATUS_FIELD_ID` /
+  `BUSINESS_IT_BACKLOG_OPTION_ID` (read live 2026-10-06; recreating the
+  option on the board changes its id).
+- **The link stored in an issue is `ARC_PRODUCTION_URL`, not `appItemUrl`.**
+  The latter uses the current origin, so an issue created from the dev server
+  linked to `localhost:5173` (BusinessIT #28).
+- **Labels are asked for only if the repo has them** (`labelsForFeatureRequest`
+  against `listBusinessItLabels`) — there is no `dept: Panels` yet, and an
+  invented label is clutter.
+- **Issue Status (the column after Status) is the BOARD's Status, read from
+  the project items** (`listBusinessItBoardStatuses`, GraphQL, paged), keyed
+  by issue number, filtered to BusinessIT issues. It is its OWN query
+  (`BUSINESS_IT_BOARD_KEY`), so a token lacking Projects permission still
+  shows which issues exist — only this column reads "Unknown". Status names
+  are shown as GitHub has them, so a new board column needs no code change.
+  "Not on board" / "Closed" are said in words rather than a dash, which would
+  read as "not linked".
+- **The board add (and Backlog) is best-effort.** The issue is real by then,
+  so a refused board write (token lacks Projects) TOASTS and the issue still
+  shows. GraphQL answers 200 with an `errors` array for a refusal, so the body
+  is checked.
+
+The gate is `FEATURE_REQUEST_ISSUE_MANAGERS` (hard-coded Ray + Tim, like the
+EIR Project Reference editors), asked by the view AND in the `mutationFn`. In
+mock mode the demo user counts, and the API's mock branch serves
+`businessItIssueMockData.ts`. Nobody else's browser ever calls GitHub — the
+scan query is disabled unless the person is a manager with a token.
 
 Three things the post-build review caught, fixed before it shipped:
 

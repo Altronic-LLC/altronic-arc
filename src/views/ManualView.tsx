@@ -6315,7 +6315,7 @@ const SECTIONS: ManualSection[] = [
       "feedback",
     ],
     searchText:
-      "ARC Feature Requests at /feature-requests, reached from the Suggest a feature button (lightbulb icon) in the header next to Report issue. A place to ask for a new ARC feature or change — Report issue is for something BROKEN, this is for something you WANT. Any signed-in user can submit one: a short summary, a description of what's needed and why, an optional Department and Priority. Requested By is filled in automatically to whoever submits it. Every request starts as Pending Review and moves through In Work, Completed or Not Implementing — the status, priority, department and target version can all be changed by any signed-in user from the request's detail page, not just an admin. Requests have a comment thread and watchers, same as everywhere else in ARC, so a discussion about the idea stays attached to it. The list is open-first: Pending Review and In Work requests sort above Completed and Not Implementing ones, newest first within each group. Raising a request emails whoever looks after them, so a suggestion does not sit unseen. Changing a request's status emails its watchers and the person who raised it — you watch your own request automatically — so you hear when yours moves to In Work or Completed. @-mentioning somebody in a comment emails them and adds them as a watcher, the same as everywhere else in ARC.",
+      "ARC Feature Requests at /feature-requests, reached from the Suggest a feature button (lightbulb icon) in the header next to Report issue. A place to ask for a new ARC feature or change — Report issue is for something BROKEN, this is for something you WANT. Any signed-in user can submit one: a short summary, a description of what's needed and why, an optional Department and Priority. Requested By is filled in automatically to whoever submits it. Every request starts as Pending Review and moves through In Work, Completed or Not Implementing — the status, priority, department and target version can all be changed by any signed-in user from the request's detail page, not just an admin. Requests have a comment thread and watchers, same as everywhere else in ARC, so a discussion about the idea stays attached to it. The list is open-first: Pending Review and In Work requests sort above Completed and Not Implementing ones, newest first within each group. Raising a request emails whoever looks after them, so a suggestion does not sit unseen. Changing a request's status emails its watchers and the person who raised it — you watch your own request automatically — so you hear when yours moves to In Work or Completed. @-mentioning somebody in a comment emails them and adds them as a watcher, the same as everywhere else in ARC. Ray White and Tim Webster see a GitHub column: ARC checks the BusinessIT repo for an issue already tracking each request and links to it, or offers Create issue, which opens the request as an ARC: BusinessIT issue in Backlog on the Business IT Tasks board. An existing issue that looks like the request can be linked instead. An Issue Status column shows the issue's board status (Backlog, In progress, In review, On Hold, Done). Connect GitHub once per browser with your own personal access token.",
     render: () => (
       <>
         <P>
@@ -6386,6 +6386,40 @@ const SECTIONS: ManualSection[] = [
             the same as everywhere else in ARC.
           </LI>
         </UL>
+
+        <H3>Turning a request into a GitHub issue (Ray and Tim)</H3>
+        <P>
+          Ray White and Tim Webster see a <strong>GitHub</strong> column on the
+          list. ARC checks the BusinessIT repo's issues and shows the one
+          already tracking each request as a link (<strong>#27</strong>) that
+          opens it on GitHub. Where there is none, <strong>Create issue</strong>{" "}
+          opens the request as a BusinessIT issue titled "ARC: …", labelled
+          ARC, enhancement, its department and its priority, and puts it in{" "}
+          <strong>Backlog</strong> on the Business IT Tasks board. The issue
+          links back to the request. ARC asks you to confirm first.
+        </P>
+        <P>
+          An <strong>Issue Status</strong> column, right after Status, shows
+          where the linked issue sits on the Business IT Tasks board: Backlog,
+          In progress, In review, On Hold or Done. "Not on board" means the
+          issue exists but isn't on the board; a dash means the request has no
+          issue yet.
+        </P>
+        <P>
+          When an existing issue looks like the request (a similar title or
+          description, or it names the same requester), the row shows it as{" "}
+          <strong>Similar #12</strong> and the button reads{" "}
+          <strong>Link or create</strong>. Choosing <strong>Link</strong> adds
+          a link to the request at the bottom of that issue, so ARC recognises
+          it from then on. Use it for issues that were raised by hand.
+        </P>
+        <P>
+          The first time, click <strong>Connect GitHub</strong> and paste your
+          own GitHub personal access token. It needs access to the BusinessIT
+          repo with Issues read and write, plus Projects read and write for
+          the board. The token is saved in that browser only, so you connect
+          once on each computer. <strong>Disconnect</strong> removes it.
+        </P>
       </>
     ),
   },
