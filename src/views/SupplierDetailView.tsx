@@ -245,6 +245,8 @@ export function SupplierDetailView() {
                 currentUserName={currentUser.displayName}
                 mentionablePeople={allPeople}
                 onEdit={handleEditComment}
+                onReply={handleAddComment}
+                draftKey={`supplier:${supplierId}`}
               />
             </div>
           </section>

@@ -309,6 +309,7 @@ export function PanelQcIssueFormModal({ issue, onClose }: Props) {
                 currentUserName={currentUser.displayName}
                 mentionablePeople={mentionCandidates}
                 onEdit={handleEditComment}
+                onReply={handleAddComment}
               />
             </div>
           </div>

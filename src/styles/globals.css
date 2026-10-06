@@ -166,6 +166,13 @@ h3,
 .comment-html a {
   @apply text-accent underline underline-offset-2 hover:no-underline;
 }
+/* A threaded reply's "↪ Replying to X: “…”" line (lib/commentReplies.ts).
+   Muted and set off by a rule, like the origin banner — it's context, not
+   the reply itself. The text carries the meaning, so it reads the same in a
+   mono print. */
+.comment-html .comment-reply {
+  @apply mb-1 block border-l-2 border-border pl-2 text-xs italic text-fg-muted;
+}
 /* Only true external links (http / https) keep the loud accent style.
    Everything else — `mailto:` chips, anchor-only refs, javascript:,
    SharePoint internal hrefs, missing-href stubs — falls back to plain

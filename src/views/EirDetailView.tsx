@@ -449,6 +449,8 @@ export function EirDetailView() {
                 currentUserName={currentUser.displayName}
                 mentionablePeople={mentionCandidates}
                 onEdit={handleEditComment}
+                onReply={handleAddComment}
+                draftKey={`eir:${eirId}`}
               />
             </div>
           </div>

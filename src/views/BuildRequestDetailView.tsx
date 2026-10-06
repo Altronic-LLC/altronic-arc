@@ -309,6 +309,8 @@ export function BuildRequestDetailView() {
                 currentUserName={currentUser.displayName}
                 mentionablePeople={mentionCandidates}
                 onEdit={handleEditComment}
+                onReply={handleAddComment}
+                draftKey={`buildRequest:${brId}`}
               />
             </div>
           </div>

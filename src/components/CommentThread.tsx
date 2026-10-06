@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AtSign, Paperclip, Pencil, Type, X } from "lucide-react";
+import { AtSign, Paperclip, Pencil, Reply, Type, X } from "lucide-react";
 import type { Comment, CommentAttachment, Person } from "@/types/task";
 import { sanitiseHtml } from "@/lib/sanitiseHtml";
+import {
+  groupCommentThreads,
+  splitReplyMarker,
+  withReplyMarker,
+} from "@/lib/commentReplies";
+import { CommentComposer } from "./CommentComposer";
 import { useCommentOriginLink } from "./useCommentOriginLink";
 import {
   buildCommentHtml,
@@ -58,9 +64,30 @@ interface CommentThreadProps {
    * every other page omits it and keeps today's blob-attachment behavior.
    */
   uploadFile?: (file: File) => Promise<{ name: string; webUrl: string }>;
+  /**
+   * Post a threaded reply — the SAME handler the page's own `CommentComposer`
+   * gets as `onSubmit`. The thread prepends the reply marker
+   * (`lib/commentReplies.ts`) before calling it, so the page's add-comment
+   * path, notifications and mirrors all run unchanged. Omit it and no Reply
+   * button is shown.
+   */
+  onReply?: (bodyHtml: string, attachments: CommentAttachment[]) => Promise<void> | void;
+  /**
+   * The page composer's `draftKey` ("task:47"). A half-written reply is kept
+   * under `<draftKey>:reply:<parent timestamp>`, so it survives navigating
+   * away like any other comment. Omit it to disable persistence.
+   */
+  draftKey?: string;
+  /** Passed through to the reply box — see `CommentComposer`'s prop. */
+  richTextNotifyNote?: string;
 }
 
 const NO_CANDIDATES: MentionCandidates = { people: [], total: 0, truncated: false };
+
+/** A comment's identity within its thread — timestamp plus author email. */
+function commentKey(c: Comment): string {
+  return `${c.timestamp.getTime()}|${(c.authorEmail ?? "").toLowerCase()}`;
+}
 
 export function CommentThread({
   comments,
@@ -69,7 +96,15 @@ export function CommentThread({
   mentionablePeople = [],
   onEdit,
   uploadFile,
+  onReply,
+  draftKey,
+  richTextNotifyNote,
 }: CommentThreadProps) {
+  // Which comment the open reply box answers. Kept by KEY, not object: the
+  // list refetches after every write and hands back new objects.
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const groups = useMemo(() => groupCommentThreads(comments), [comments]);
+
   if (comments.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-fg-muted">
@@ -81,28 +116,117 @@ export function CommentThread({
   const myEmail = (currentUserEmail ?? "").toLowerCase().trim();
   const myName = (currentUserName ?? "").toLowerCase().trim();
 
+  // A comment is "yours" (editable) if its saved email OR its saved author
+  // name matches you. The name fallback covers older / imported comments
+  // whose stored email doesn't equal your current sign-in.
+  const isOwn = (c: Comment) => {
+    const authorEmail = (c.authorEmail ?? "").toLowerCase().trim();
+    const authorName = (c.authorName ?? "").toLowerCase().trim();
+    return (!!myEmail && authorEmail === myEmail) || (!!myName && authorName === myName);
+  };
+
+  const renderItem = (c: Comment, key: string) => (
+    <CommentItem
+      key={key}
+      comment={c}
+      canEdit={isOwn(c) && !!onEdit}
+      mentionablePeople={mentionablePeople}
+      onEdit={onEdit}
+      uploadFile={uploadFile}
+      onReply={onReply ? () => setReplyingTo(commentKey(c)) : undefined}
+    />
+  );
+
   return (
     <div className="divide-y divide-border">
-      {comments.map((c, i) => {
-        // A comment is "yours" (editable) if its saved email OR its saved
-        // author name matches you. The name fallback covers older / imported
-        // comments whose stored email doesn't equal your current sign-in.
-        const authorEmail = (c.authorEmail ?? "").toLowerCase().trim();
-        const authorName = (c.authorName ?? "").toLowerCase().trim();
-        const isOwn =
-          (!!myEmail && authorEmail === myEmail) ||
-          (!!myName && authorName === myName);
+      {groups.map((group, gi) => {
+        // The reply box opens under the WHOLE group, after its last reply —
+        // a reply to a reply still lands in this one thread (one level).
+        const members = [group.comment, ...group.replies];
+        const replyParent = members.find((c) => commentKey(c) === replyingTo) ?? null;
         return (
-          <CommentItem
-            key={`${c.timestamp.getTime()}-${i}`}
-            comment={c}
-            canEdit={isOwn && !!onEdit}
-            mentionablePeople={mentionablePeople}
-            onEdit={onEdit}
-            uploadFile={uploadFile}
-          />
+          <div key={`${commentKey(group.comment)}-${gi}`} className="py-4 first:pt-0 last:pb-0">
+            {renderItem(group.comment, "root")}
+            {(group.replies.length > 0 || replyParent) && (
+              <div
+                // Indented under the comment it answers. Kept narrow on a
+                // phone so a reply never squeezes to a sliver.
+                className="ml-3 mt-3 space-y-4 border-l-2 border-border pl-3 sm:ml-6 sm:pl-4"
+                data-testid="comment-replies"
+              >
+                {group.replies.map((r, ri) => renderItem(r, `${commentKey(r)}-${ri}`))}
+                {replyParent && onReply && (
+                  <ReplyBox
+                    parent={replyParent}
+                    onReply={onReply}
+                    onClose={() => setReplyingTo(null)}
+                    mentionablePeople={mentionablePeople}
+                    uploadFile={uploadFile}
+                    draftKey={draftKey}
+                    richTextNotifyNote={richTextNotifyNote}
+                  />
+                )}
+              </div>
+            )}
+          </div>
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * The inline box a reply is written in. It IS the page's `CommentComposer` —
+ * mentions, attachments, rich text, drafts and restore-on-failure all come
+ * with it — and only adds the marker naming the parent.
+ */
+function ReplyBox({
+  parent,
+  onReply,
+  onClose,
+  mentionablePeople,
+  uploadFile,
+  draftKey,
+  richTextNotifyNote,
+}: {
+  parent: Comment;
+  onReply: NonNullable<CommentThreadProps["onReply"]>;
+  onClose: () => void;
+  mentionablePeople: Person[];
+  uploadFile?: CommentThreadProps["uploadFile"];
+  draftKey?: string;
+  richTextNotifyNote?: string;
+}) {
+  const name = parent.authorName || parent.authorEmail || "this comment";
+  return (
+    <div aria-label={`Reply to ${name}`} role="group">
+      <div className="mb-1.5 flex items-center justify-between gap-2 text-xs text-fg-muted">
+        <span className="inline-flex items-center gap-1">
+          <Reply className="h-3.5 w-3.5" />
+          Replying to <span className="font-medium text-fg">{name}</span>
+        </span>
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded px-1.5 py-0.5 hover:bg-surface-2 hover:text-fg"
+        >
+          Cancel
+        </button>
+      </div>
+      <CommentComposer
+        // Returning the promise is what lets the composer put a reply back in
+        // the box if the save fails — see views/commentRestore.wiring.test.ts.
+        onSubmit={async (bodyHtml, attachments) => {
+          await onReply(withReplyMarker(bodyHtml, parent), attachments);
+          onClose();
+        }}
+        mentionablePeople={mentionablePeople}
+        uploadFile={uploadFile}
+        richTextNotifyNote={richTextNotifyNote}
+        draftKey={draftKey ? `${draftKey}:reply:${parent.timestamp.getTime()}` : undefined}
+        placeholder="Write a reply…"
+        autoFocus
+      />
     </div>
   );
 }
@@ -113,12 +237,14 @@ function CommentItem({
   mentionablePeople,
   onEdit,
   uploadFile,
+  onReply,
 }: {
   comment: Comment;
   canEdit: boolean;
   mentionablePeople: Person[];
   onEdit?: (comment: Comment, newBodyHtml: string, renotify: boolean) => Promise<void> | void;
   uploadFile?: (file: File) => Promise<{ name: string; webUrl: string }>;
+  onReply?: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   // Declared ABOVE the early return below — a hook can't be called
@@ -126,15 +252,25 @@ function CommentItem({
   const handleOriginLink = useCommentOriginLink();
 
   if (editing && onEdit) {
+    // A reply's marker is held OUT of the edit box and put back on save. The
+    // plain-text editor would otherwise flatten it into ordinary words and
+    // drop its attributes, and the reply would come back unthreaded.
+    const { marker, body } = splitReplyMarker(comment.bodyHtml);
     return (
-      <article className="py-4 first:pt-0 last:pb-0">
+      <article>
+        {marker && (
+          <div
+            className="comment-html"
+            dangerouslySetInnerHTML={{ __html: sanitiseHtml(marker) }}
+          />
+        )}
         <CommentEditor
-          initialBodyHtml={comment.bodyHtml}
+          initialBodyHtml={body}
           mentionablePeople={mentionablePeople}
           uploadFile={uploadFile}
           onCancel={() => setEditing(false)}
           onSave={async (newBodyHtml, renotify) => {
-            await onEdit(comment, newBodyHtml, renotify);
+            await onEdit(comment, marker + newBodyHtml, renotify);
             setEditing(false);
           }}
         />
@@ -146,15 +282,14 @@ function CommentItem({
           </div>
         )}
         <div className="mt-2 text-right text-xs text-fg-muted">
-          {formatTimestamp(comment.timestamp)}{" "}
-          by <span className="font-medium text-fg">{comment.authorName}</span>
+          <CommentByline comment={comment} />
         </div>
       </article>
     );
   }
 
   return (
-    <article className="py-4 first:pt-0 last:pb-0">
+    <article>
       {comment.bodyHtml ? (
         <div
           className="comment-html"
@@ -185,6 +320,17 @@ function CommentItem({
       )}
 
       <div className="mt-2 flex items-center justify-end gap-2 text-xs text-fg-muted">
+        {onReply && (
+          <button
+            type="button"
+            onClick={onReply}
+            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-fg-muted hover:bg-surface-2 hover:text-fg"
+            title="Reply to this comment"
+          >
+            <Reply className="h-3 w-3" />
+            Reply
+          </button>
+        )}
         {canEdit && (
           <button
             onClick={() => setEditing(true)}
@@ -195,12 +341,25 @@ function CommentItem({
             Edit
           </button>
         )}
-        <span>
-          {formatTimestamp(comment.timestamp)}{" "}
-          by <span className="font-medium text-fg">{comment.authorName}</span>
-        </span>
+        <CommentByline comment={comment} />
       </div>
     </article>
+  );
+}
+
+/**
+ * "10/6/2026, 7:41 AM by Tim Webster". On a phone the author drops to its own
+ * line: next to Reply and Edit there's no room, and the name wrapped mid-way
+ * ("by Tim / Webster"). The date never breaks.
+ */
+function CommentByline({ comment }: { comment: Comment }) {
+  return (
+    <span className="text-right">
+      <span className="whitespace-nowrap">{formatTimestamp(comment.timestamp)}</span>
+      <span className="block sm:inline">
+        {" "}by <span className="font-medium text-fg">{comment.authorName}</span>
+      </span>
+    </span>
   );
 }
 

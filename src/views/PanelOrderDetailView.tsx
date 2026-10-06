@@ -248,6 +248,8 @@ export function PanelOrderDetailView() {
                 currentUserName={currentUser.displayName}
                 mentionablePeople={mentionCandidates}
                 onEdit={handleEditComment}
+                onReply={handleAddComment}
+                draftKey={`panelOrder:${orderId}`}
               />
             </div>
           </div>

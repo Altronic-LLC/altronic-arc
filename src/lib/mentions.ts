@@ -1,6 +1,7 @@
 import type { Person } from "@/types/task";
 import { linkifyEscaped } from "./linkify";
 import { matchesTokens } from "./itemSearch";
+import { readReplyRef } from "./commentReplies";
 
 // =============================================================================
 // @mentions — utilities for converting between plain-text "@Display Name" in
@@ -337,7 +338,35 @@ export interface CommentRecipient {
   email: string;
   displayName: string;
   /** Why they're being notified — drives the email wording. */
-  reason: "mentioned" | "assigned" | "submitted" | "watching" | "edited";
+  reason: "mentioned" | "replied" | "assigned" | "submitted" | "watching" | "edited";
+}
+
+/**
+ * The person a reply answers, read from the reply's marker — they're emailed
+ * "X replied to your comment" (BusinessIT#9). Null for an ordinary comment,
+ * or for a parent with no address to send to.
+ *
+ * Deliberately NOT folded into `extractMentionedRecipients`: being replied to
+ * emails you once, but doesn't make you a watcher the way an @-mention does.
+ */
+export function replyRecipient(
+  bodyHtml: string,
+): { email: string; displayName: string } | null {
+  const ref = readReplyRef(bodyHtml);
+  if (!ref || !ref.authorEmail) return null;
+  return { email: ref.authorEmail, displayName: ref.authorName || ref.authorEmail };
+}
+
+/**
+ * Put the person replied to into a recipient map. Outranks being a watcher,
+ * the assignee or the submitter — "replied to your comment" is the more
+ * specific reason — and is outranked by a mention, so callers apply it BEFORE
+ * the mentions.
+ */
+function addReplyRecipient(byEmail: Map<string, CommentRecipient>, bodyHtml: string): void {
+  const parent = replyRecipient(bodyHtml);
+  if (!parent) return;
+  byEmail.set(parent.email.toLowerCase(), { ...parent, reason: "replied" });
 }
 
 /** A person as the recipient math needs them — a name plus a maybe-missing email. */
@@ -354,6 +383,8 @@ export type NotifiablePerson = { displayName: string; email?: string };
  */
 function buildCommentRecipients(args: {
   mentions: Array<{ email: string; displayName: string }>;
+  /** The body, for the reply marker — see `replyRecipient`. */
+  bodyHtml: string;
   watchers: NotifiablePerson[];
   assignees: Array<NotifiablePerson | null | undefined>;
   authorEmail: string;
@@ -382,7 +413,8 @@ function buildCommentRecipients(args: {
       reason: "assigned",
     });
   }
-  // Mentions override both — a mention is the strongest signal.
+  addReplyRecipient(byEmail, args.bodyHtml);
+  // Mentions override everything — a mention is the strongest signal.
   for (const m of args.mentions) {
     byEmail.set(m.email.toLowerCase(), {
       email: m.email,
@@ -415,6 +447,7 @@ export function commentNotifyRecipients(args: {
 }): CommentRecipient[] {
   return buildCommentRecipients({
     mentions: extractMentionedRecipients(args.bodyHtml),
+    bodyHtml: args.bodyHtml,
     watchers: args.watchers,
     assignees: args.assignees,
     authorEmail: args.authorEmail,
@@ -448,6 +481,7 @@ export function commentRenotifyRecipients(args: {
   }
   return buildCommentRecipients({
     mentions: Array.from(mentions.values()),
+    bodyHtml: args.bodyHtml,
     watchers: args.watchers,
     assignees: args.assignees,
     authorEmail: args.authorEmail,
@@ -492,6 +526,7 @@ export function ecnCommentRecipients(args: {
       reason: "submitted",
     });
   }
+  addReplyRecipient(byEmail, args.bodyHtml);
   // A mention outranks being the submitter — "you were mentioned" is the
   // stronger signal, and the submitter usually IS mentioned by name.
   for (const m of mentions) {
@@ -526,6 +561,8 @@ export function customerNoteCommentRecipients(args: {
   const selfMentioned = mentions.some((m) => m.email.toLowerCase() === author);
 
   const byEmail = new Map<string, CommentRecipient>();
+  // Replying to someone's comment is as direct as tagging them.
+  addReplyRecipient(byEmail, args.bodyHtml);
   for (const m of mentions) {
     byEmail.set(m.email.toLowerCase(), {
       email: m.email,
@@ -569,6 +606,7 @@ export function costImpactNoticeCommentRecipients(args: {
       reason: "submitted",
     });
   }
+  addReplyRecipient(byEmail, args.bodyHtml);
   // A mention outranks being the submitter — "you were mentioned" is the
   // stronger signal, and the submitter usually IS mentioned by name.
   for (const m of mentions) {
