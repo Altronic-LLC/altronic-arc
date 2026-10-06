@@ -500,6 +500,19 @@ export const GRAY_MARKET_NEW_REQUEST_ALERTS =
   "Glenn Terry <glenn.terry@altronic-llc.com>";
 
 /**
+ * Gray Market field-change alert — told when Testing Required, or anything on
+ * the Engineering or Production cards, changes on a request (Katie Fleming via
+ * BusinessIT#20, 2026-10-06: "at minimum, Alex needs notified"). The request's
+ * watchers are told too; see buildGrayMarketFieldChangeEmails.
+ *
+ * Its OWN variable, not a reuse of GRAY_MARKET_NEW_REQUEST_ALERTS: that is the
+ * intake queue, and re-pointing it must not re-point who hears about changes.
+ */
+export const GRAY_MARKET_CHANGE_ALERTS =
+  import.meta.env.VITE_GRAY_MARKET_CHANGE_ALERTS ||
+  "Alexandra Russell <Alexandra.Russell@altronic-llc.com>";
+
+/**
  * FAIT intake alert — who picks up a newly-raised First Article Inspection
  * Test (Ray, 2026-08-26). Same shape as GRAY_MARKET_NEW_REQUEST_ALERTS: an
  * intake queue, not the FAIT's Watchers column, so being on this list doesn't

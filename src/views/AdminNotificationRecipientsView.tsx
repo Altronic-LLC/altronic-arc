@@ -16,6 +16,7 @@ import {
   FEATURE_REQUEST_ALERTS,
   FAIT_NEW_ALERTS,
   FAIT_SQE_REVIEWERS,
+  GRAY_MARKET_CHANGE_ALERTS,
   GRAY_MARKET_NEW_REQUEST_ALERTS,
   SHARED_MAILBOX,
 } from "@/api/config";
@@ -75,6 +76,12 @@ const LISTS: Array<{ label: string; envVar: string; value: string | undefined; w
     envVar: "VITE_GRAY_MARKET_NEW_REQUEST_ALERTS",
     value: GRAY_MARKET_NEW_REQUEST_ALERTS,
     what: "Emailed when a gray market request is raised.",
+  },
+  {
+    label: "Gray Market — testing, engineering or production changed",
+    envVar: "VITE_GRAY_MARKET_CHANGE_ALERTS",
+    value: GRAY_MARKET_CHANGE_ALERTS,
+    what: "Emailed when Testing Required, or any field on the Engineering or Production cards, changes on a request. The request's watchers are emailed too.",
   },
   {
     // Shipped 2026-08-27 without a LISTS entry — the exact gap this screen

@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.172.0",
+    date: "2026-10-06",
+    changes: [
+      "Changing a gray market request's Testing Required, or any field on its Engineering or Production card, now emails Alexandra Russell and everyone watching the request",
+      "The email lists each field that changed, with its old and new value; re-saving a card without changing anything sends nothing",
+    ],
+  },
+  {
     version: "0.171.0",
     date: "2026-10-05",
     changes: [

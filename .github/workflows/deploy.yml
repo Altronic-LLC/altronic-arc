@@ -117,6 +117,7 @@ jobs:
           # as env-overridable while the build had no way to receive them, which
           # made that untrue in production.
           VITE_GRAY_MARKET_NEW_REQUEST_ALERTS: ${{ vars.VITE_GRAY_MARKET_NEW_REQUEST_ALERTS }}
+          VITE_GRAY_MARKET_CHANGE_ALERTS: ${{ vars.VITE_GRAY_MARKET_CHANGE_ALERTS }}
           VITE_FAIT_NEW_ALERTS: ${{ vars.VITE_FAIT_NEW_ALERTS }}
           VITE_FAIT_SQE_REVIEWERS: ${{ vars.VITE_FAIT_SQE_REVIEWERS }}
           VITE_BUILD_REQUEST_PRODUCTION_ALERTS: ${{ vars.VITE_BUILD_REQUEST_PRODUCTION_ALERTS }}
