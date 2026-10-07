@@ -76,14 +76,14 @@ describe("MonthTrendHeadline", () => {
   it("holds the chip back while the month is too thin, saying when it will compare", () => {
     render(
       <MonthTrendHeadline
-        monthly={[month("Sep", 4664, 252), month("Oct", 120, 20)]}
+        monthly={[month("Sep", 4664, 252), month("Oct", 30, 5)]}
         metric="fpy"
         unitLabel="Boards"
       />,
     );
     expect(screen.queryByTitle(/percentage points/)).not.toBeInTheDocument();
     expect(
-      screen.getByText("Compared with Sep once 200 boards are tested (120 so far)."),
+      screen.getByText("Compared with Sep once 50 boards are tested (30 so far)."),
     ).toBeInTheDocument();
   });
 

@@ -23,7 +23,7 @@ import type { MonthlyFpy } from "@/lib/monthlyYield";
 // =============================================================================
 
 /** Units the current month must test before it is compared with the previous one. */
-export const MIN_UNITS_FOR_COMPARISON = 200;
+export const MIN_UNITS_FOR_COMPARISON = 50;
 
 /** …or this share of the previous month's units, whichever is smaller. */
 export const MIN_SHARE_OF_PREVIOUS_MONTH = 0.25;

@@ -105,12 +105,12 @@ describe("monthTrend", () => {
   });
 
   it("is too early to compare until the month has tested enough units", () => {
-    const trend = monthTrend([month("Sep", 4664, 252), month("Oct", 120, 20)], "fpy");
+    const trend = monthTrend([month("Sep", 4664, 252), month("Oct", 30, 5)], "fpy");
     expect(trend.kind).toBe("too-early");
     if (trend.kind !== "too-early") return;
-    expect(trend.unitsSoFar).toBe(120);
+    expect(trend.unitsSoFar).toBe(30);
     expect(trend.unitsNeeded).toBe(MIN_UNITS_FOR_COMPARISON);
-    expect(trend.value).toBeCloseTo((100 / 120) * 100);
+    expect(trend.value).toBeCloseTo((25 / 30) * 100);
   });
 
   it("compares as soon as the month reaches the minimum exactly", () => {

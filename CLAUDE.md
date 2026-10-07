@@ -5883,7 +5883,7 @@ Three rules that are load-bearing, each tested and verified by breaking it:
 - **`good` is not `up`.** FPY rising is green; the failure rate rising is
   red. The component reads `good`, never the arrow direction.
 - **Too early to compare.** No chip until the month has tested
-  `MIN_UNITS_FOR_COMPARISON` (200) units, or a quarter of last month's total
+  `MIN_UNITS_FOR_COMPARISON` (50, Tim's pick) units, or a quarter of last month's total
   if that's fewer (`unitsNeededToCompare`) — so a low-volume source isn't left
   waiting for a number it never reaches. Until then it says how many so far.
 
