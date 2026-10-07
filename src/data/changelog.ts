@@ -20,6 +20,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.176.1",
+    date: "2026-10-07",
+    changes: [
+      "CAD Drawings: 'Completed' is now 'Drawing Completed' and 'Date' is now 'Sheet Date', on screen and on the printed work sheet",
+      "A new CAD drawing's Sheet Date starts at today — change it if you need to",
+      "The Log Book Date is read-only — older drawings still show it, but it's no longer entered or printed",
+      "Drawing dates can be picked back to 1950, for documenting older drawings",
+      "The printed Drawing History no longer shows the slot number, and its Date column is narrower to leave room for the ECN #",
+    ],
+  },
+  {
     version: "0.176.0",
     date: "2026-10-07",
     changes: [

@@ -41,6 +41,13 @@ export interface DateFieldProps {
   "aria-label"?: string;
   /** Extra classes for the trigger, to match the surrounding inputs. */
   className?: string;
+  /**
+   * Widen the year dropdown back to this year (never below MIN_YEAR). Unset =
+   * the default window of YEARS_BACK, which is right for almost every date in
+   * ARC. The Drawing File Logs pass 1950, because they document drawings far
+   * older than that window (BusinessIT#32).
+   */
+  earliestYear?: number;
 }
 
 /**
@@ -71,6 +78,7 @@ export const DateField = forwardRef<HTMLButtonElement, DateFieldProps>(function 
   placeholder = "Not set",
   "aria-label": ariaLabel,
   className,
+  earliestYear,
 }, triggerRef) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -123,11 +131,16 @@ export const DateField = forwardRef<HTMLButtonElement, DateFieldProps>(function 
   // existing record's year is always selectable — a picker that can't show
   // the value it is displaying would silently move the date on the next save.
   const yearOptions = useMemo(
-    () => buildYearOptions(new Date().getFullYear(), selected?.getFullYear(), view.getFullYear()),
+    () =>
+      buildYearOptions(
+        { currentYear: new Date().getFullYear(), earliestYear },
+        selected?.getFullYear(),
+        view.getFullYear(),
+      ),
     // `selected` is derived from `value`; depending on the primitive keeps
     // this from rebuilding on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [value, view.getFullYear()],
+    [value, view.getFullYear(), earliestYear],
   );
 
   function commit(date: Date) {
@@ -341,10 +354,21 @@ export const YEARS_FORWARD = 10;
  * grid has been paged to with the arrows. Both are clamped to
  * MIN_YEAR..MAX_YEAR, deduped, and sorted descending so this year and the
  * recent past are at the top where they are wanted most.
+ *
+ * The first argument is either the current year, or `{ currentYear,
+ * earliestYear }` to widen the window back to `earliestYear` — only ever
+ * WIDEN: an `earliestYear` inside the default window changes nothing.
  */
-export function buildYearOptions(currentYear: number, ...extra: (number | undefined)[]): number[] {
+export function buildYearOptions(
+  base: number | { currentYear: number; earliestYear?: number },
+  ...extra: (number | undefined)[]
+): number[] {
+  const { currentYear, earliestYear } =
+    typeof base === "number" ? { currentYear: base, earliestYear: undefined } : base;
+  // Clamped first, so a silly earliestYear can't make this a million-step loop.
+  const from = Math.max(MIN_YEAR, Math.min(currentYear - YEARS_BACK, earliestYear ?? Infinity));
   const years = new Set<number>();
-  for (let y = currentYear - YEARS_BACK; y <= currentYear + YEARS_FORWARD; y++) {
+  for (let y = from; y <= currentYear + YEARS_FORWARD; y++) {
     if (y >= MIN_YEAR && y <= MAX_YEAR) years.add(y);
   }
   for (const y of extra) {

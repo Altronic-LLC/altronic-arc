@@ -45,7 +45,22 @@ export interface LogField {
    * actually fixed — initials, the CAD software used.
    */
   suggest?: boolean;
+  /**
+   * A DATE that starts at today on the Add form — and ONLY there. Editing an
+   * existing row never touches it, so a stored date is never overwritten. Still
+   * editable, so a drawing documented after the fact can carry its real date.
+   */
+  defaultToday?: boolean;
 }
+
+/**
+ * How far back a drawing register's date pickers reach (BusinessIT#32, John,
+ * 2026-10-07). The register documents drawings decades older than ARC's
+ * default 30-year picker window, so the change-log year list "started at '96".
+ * Per-register rather than global: every other date in ARC is recent, and a
+ * 75-year dropdown there is a scroll rather than a choice.
+ */
+export const DRAWING_LOG_EARLIEST_YEAR = 1950;
 
 export interface DrawingLogFieldSpec {
   label: string;
@@ -91,9 +106,13 @@ export const DRAWING_LOG_FIELDS: Record<DrawingLogKind, DrawingLogFieldSpec> = {
       { key: "drawingTitle", column: "DrawingTitle", label: "Drawing Title", type: "text", table: true, wide: true },
       { key: "size", column: "SIZE", label: "Size", type: "text", table: true },
       { key: "newRevision", column: "NewRevision", label: "Rev", type: "text", table: true },
-      { key: "dateCompleted", column: "DateCompleted", label: "Completed", type: "date", table: true },
-      { key: "drawingDate", column: "DrawingDATE", label: "Date", type: "date", table: true },
-      { key: "logBookDate", column: "LogBookDate", label: "Log Book Date", type: "date" },
+      { key: "dateCompleted", column: "DateCompleted", label: "Drawing Completed", type: "date", table: true },
+      // Labels only — the SharePoint columns keep their names (BusinessIT#32).
+      // Sheet Date starts at today on a new drawing, still editable.
+      { key: "drawingDate", column: "DrawingDATE", label: "Sheet Date", type: "date", table: true, defaultToday: true },
+      // Read-only since 2026-10-07 (BusinessIT#32): no longer entered or printed,
+      // but older drawings still show their value on the detail panel.
+      { key: "logBookDate", column: "LogBookDate", label: "Log Book Date", type: "date", readOnly: true },
       // Read-only: dropped from the new-drawing and edit forms (Ray, 2026-07-30)
       // while staying visible on the detail panel, since existing rows carry it.
       { key: "newDrawing", column: "NewDrawing", label: "New Drawing", type: "text", readOnly: true },

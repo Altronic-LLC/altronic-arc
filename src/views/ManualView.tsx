@@ -4897,9 +4897,12 @@ const SECTIONS: ManualSection[] = [
       "sk_num",
       "ventura",
       "record a change",
+      "sheet date",
+      "drawing completed",
+      "log book date",
     ],
     searchText:
-      "Drawing File Logs brings Engineering's drawing registers together on one screen as tabs: CAD Drawings, CCC Drawings, CEC Drawings and Engineering Sketches. Each tab is a searchable table; click any row for the full record and its change log — the dated revisions and ECNs that SharePoint stores across 48 columns. Search covers the ECNs too, so you can find which drawing a change notice affected. Admins can add a drawing, edit its details, and record a change, which also updates the drawing's current revision. Admins can also correct an existing change entry with the pencil beside it, which edits just that entry without moving the drawing's current revision; clearing all three values empties the slot and frees it for reuse. A drawing has sixteen change slots; once they're used the app says so rather than overwriting an old entry. CAD drawings carry By, Entered By and Software, which behave like drop-downs built from the values already in use while still accepting a new one, and the New Drawing field is no longer on the add or edit form. Engineering Sketches has its own columns (sketch number, V code, Ventura) and no change log, because the list doesn't have one. Reading and searching are open to everyone. Open a CAD drawing and click Work Sheet to print FORM #E006, the Drawing Work Sheet that accompanies a drawing until release: it opens in a new tab already filled in from the register, laid out for 8.5 x 11 portrait, with the print dialog open so you can print it or Save as PDF. It prints everything the register holds — including the Entered By / By initials and all sixteen change slots, both of which the old form left off — plus the sections that exist only on paper: Prototype / Preliminary / Production, the checked-approved, entered-in-system and to-mylar dates, and the Print Distribution block, all left blank to fill in by hand. The Work Sheet is CAD only.",
+      "Drawing File Logs brings Engineering's drawing registers together on one screen as tabs: CAD Drawings, CCC Drawings, CEC Drawings and Engineering Sketches. Each tab is a searchable table; click any row for the full record and its change log — the dated revisions and ECNs that SharePoint stores across 48 columns. Search covers the ECNs too, so you can find which drawing a change notice affected. Admins can add a drawing, edit its details, and record a change, which also updates the drawing's current revision. Admins can also correct an existing change entry with the pencil beside it, which edits just that entry without moving the drawing's current revision; clearing all three values empties the slot and frees it for reuse. A drawing has sixteen change slots; once they're used the app says so rather than overwriting an old entry. CAD drawings carry By, Entered By and Software, which behave like drop-downs built from the values already in use while still accepting a new one, and the New Drawing field is no longer on the add or edit form. On CAD the two main dates are labelled Drawing Completed and Sheet Date; a new drawing's Sheet Date starts at today and can be changed. The Log Book Date is read-only: older drawings still show it on their panel, but it is no longer entered or printed. Every date in the drawing registers, including the change log, can be picked back to 1950 for documenting older drawings. Engineering Sketches has its own columns (sketch number, V code, Ventura) and no change log, because the list doesn't have one. Reading and searching are open to everyone. Open a CAD drawing and click Work Sheet to print FORM #E006, the Drawing Work Sheet that accompanies a drawing until release: it opens in a new tab already filled in from the register, laid out for 8.5 x 11 portrait, with the print dialog open so you can print it or Save as PDF. It prints the Sheet Date and Drawing Completed dates, the Entered By / By initials and all sixteen change slots — both of which the old form left off — without the slot number, and with a narrow Date Changed column to leave room for the ECN #. The Log Book Date is not printed; its line is left blank. It also prints the sections that exist only on paper: Prototype / Preliminary / Production, the checked-approved, entered-in-system and to-mylar dates, and the Print Distribution block, all left blank to fill in by hand. The Work Sheet is CAD only.",
     render: () => (
       <>
         <P>
@@ -4959,6 +4962,26 @@ const SECTIONS: ManualSection[] = [
           The <strong>New Drawing</strong> field is no longer on the add or edit
           form; existing values still show on the drawing's panel.
         </P>
+        <H3>CAD dates</H3>
+        <P>
+          A CAD drawing's two main dates are <strong>Drawing Completed</strong>{" "}
+          and <strong>Sheet Date</strong> (SharePoint still calls them
+          DateCompleted and DrawingDATE). When you add a drawing, its{" "}
+          <strong>Sheet Date starts at today</strong> — change it if the sheet
+          is dated otherwise. Editing a drawing never changes a date you didn't
+          touch.
+        </P>
+        <P>
+          The <strong>Log Book Date</strong> is <strong>read-only</strong>. Older
+          drawings still show theirs on the drawing's panel, but it's no longer on
+          the add or edit form and isn't printed.
+        </P>
+        <P>
+          Every date in the drawing registers — including the change log's — can
+          be picked <strong>back to 1950</strong> from the year drop-down, so an
+          older drawing can be documented with its real dates. (Elsewhere in ARC
+          the year list covers the last thirty years.)
+        </P>
 
         <H3>Printing the Drawing Work Sheet</H3>
         <P>
@@ -4969,12 +4992,16 @@ const SECTIONS: ManualSection[] = [
           <em>Save as PDF</em>. It's laid out for 8.5 × 11 portrait.
         </P>
         <P>
-          It prints <strong>everything the register holds</strong>, including two
-          things the old form left off: the <strong>Entered By</strong> and{" "}
-          <strong>By</strong> initials, and the <strong>second half of the change
-          history</strong> (revisions 9–16). All sixteen slots are printed, in the
-          two columns the paper form uses, numbered so you can tell slot 4 from the
-          fourth line down on a drawing with gaps.
+          It prints the drawing's <strong>Sheet Date</strong> and{" "}
+          <strong>Drawing Completed</strong> date, and two things the old form
+          left off: the <strong>Entered By</strong> and <strong>By</strong>{" "}
+          initials, and the <strong>second half of the change history</strong>{" "}
+          (revisions 9–16). All sixteen slots are printed, in the two columns the
+          paper form uses — with <strong>no slot number</strong>, since it read
+          like the revision and isn't, and a narrow <strong>Date Changed</strong>{" "}
+          column that leaves the ECN # room. The <strong>Log Book Date</strong>{" "}
+          isn't printed; its line is left blank so the rest of the form stays
+          where it was.
         </P>
         <P>
           The rest of the form is <strong>deliberately blank</strong> — Prototype /

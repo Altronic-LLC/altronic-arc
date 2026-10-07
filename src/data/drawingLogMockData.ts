@@ -43,7 +43,8 @@ export const MOCK_DRAWING_LOGS: DrawingLogEntry[] = [
       newRevision: "2",
       dateCompleted: d("2025-12-30T12:00:00Z"),
       drawingDate: d("2025-12-30T12:00:00Z"),
-      logBookDate: null,
+      // A historical value: the column is read-only now, but old rows carry one.
+      logBookDate: d("2025-12-29T12:00:00Z"),
       newDrawing: "",
       software: "SolidWorks",
       by: "JFD",

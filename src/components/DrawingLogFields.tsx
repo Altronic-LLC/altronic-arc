@@ -4,10 +4,13 @@ import type {
   DrawingLogInput,
   DrawingLogKind,
 } from "@/types/task";
+import { useEffect, useRef } from "react";
 import type { LogField } from "@/lib/drawingLogFields";
 import { formatSpDate, fromDateInputValue, toDateInputValue } from "@/lib/spDates";
+import { toIsoDate } from "@/lib/dateInput";
 import { SuggestInput, distinctValues } from "./SuggestInput";
-import { suggestFields } from "@/lib/drawingLogFields";
+import { DateField } from "./DateField";
+import { DRAWING_LOG_EARLIEST_YEAR, suggestFields } from "@/lib/drawingLogFields";
 
 // =============================================================================
 // Rendering and editing for descriptor-declared drawing fields.
@@ -87,9 +90,16 @@ export function fromInputValue(raw: string, field: LogField): DrawingFieldValue 
   return raw;
 }
 
-/** A blank draft for a register — every writable field, empty. */
-export function emptyDraft(fields: LogField[]): Record<string, string> {
-  return Object.fromEntries(fields.map((f) => [f.key, ""]));
+/**
+ * A NEW drawing's starting draft — every writable field empty, except a date
+ * declared `defaultToday`, which starts at today (CAD's Sheet Date). Used by the
+ * Add form only; an edit starts from `draftFromEntry`, so a stored date is never
+ * replaced by today's.
+ */
+export function emptyDraft(fields: LogField[], today: Date = new Date()): Record<string, string> {
+  return Object.fromEntries(
+    fields.map((f) => [f.key, f.type === "date" && f.defaultToday ? toIsoDate(today) : ""]),
+  );
 }
 
 /** A draft pre-filled from an existing entry. */
@@ -132,34 +142,68 @@ export function FieldInputs({
   /** Existing values per field key, for fields declared `suggest`. */
   suggestions?: Record<string, string[]>;
 }) {
+  // DateField forwards its ref to its trigger, so a date can take the
+  // autofocus too — `autoFocus` itself is an <input> prop.
+  const firstDateRef = useRef<HTMLButtonElement>(null);
+  const focusFirstDate = autoFocusFirst && fields[0]?.type === "date";
+  useEffect(() => {
+    if (focusFirstDate) firstDateRef.current?.focus();
+  }, [focusFirstDate]);
+
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-      {fields.map((f, i) => (
-        <label key={f.key} className={`flex flex-col gap-1.5 ${f.wide ? "sm:col-span-2" : ""}`}>
+      {fields.map((f, i) => {
+        const span = `flex flex-col gap-1.5 ${f.wide ? "sm:col-span-2" : ""}`;
+        const caption = (
           <span className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
             {f.label}
           </span>
-          {f.suggest ? (
-            <SuggestInput
-              value={draft[f.key] ?? ""}
-              onChange={(next) => onChange(f.key, next)}
-              options={suggestions[f.key] ?? []}
-              disabled={disabled}
-              ariaLabel={f.label}
-            />
-          ) : (
-            <input
-              // eslint-disable-next-line jsx-a11y/no-autofocus
-              autoFocus={autoFocusFirst && i === 0}
-              type={f.type === "date" ? "date" : f.type === "number" ? "number" : "text"}
-              value={draft[f.key] ?? ""}
-              onChange={(e) => onChange(f.key, e.target.value)}
-              className="select"
-              disabled={disabled}
-            />
-          )}
-        </label>
-      ))}
+        );
+        // A date is a DateField, never a bare <input type="date"> (see the
+        // "Dates: always DateField" rule in CLAUDE.md). It sits in a <div>, not a
+        // <label>: the calendar panel is full of buttons and selects, and a
+        // wrapping label would re-click the trigger on any click inside it.
+        if (f.type === "date") {
+          return (
+            <div key={f.key} className={span}>
+              {caption}
+              <DateField
+                ref={i === 0 ? firstDateRef : undefined}
+                value={draft[f.key] ?? ""}
+                onChange={(next) => onChange(f.key, next)}
+                disabled={disabled}
+                aria-label={f.label}
+                earliestYear={DRAWING_LOG_EARLIEST_YEAR}
+                className="py-1.5"
+              />
+            </div>
+          );
+        }
+        return (
+          <label key={f.key} className={span}>
+            {caption}
+            {f.suggest ? (
+              <SuggestInput
+                value={draft[f.key] ?? ""}
+                onChange={(next) => onChange(f.key, next)}
+                options={suggestions[f.key] ?? []}
+                disabled={disabled}
+                ariaLabel={f.label}
+              />
+            ) : (
+              <input
+                // eslint-disable-next-line jsx-a11y/no-autofocus
+                autoFocus={autoFocusFirst && i === 0}
+                type={f.type === "number" ? "number" : "text"}
+                value={draft[f.key] ?? ""}
+                onChange={(e) => onChange(f.key, e.target.value)}
+                className="select"
+                disabled={disabled}
+              />
+            )}
+          </label>
+        );
+      })}
     </div>
   );
 }
