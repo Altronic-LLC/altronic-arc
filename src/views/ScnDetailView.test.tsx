@@ -117,11 +117,13 @@ describe("ScnDetailView — the page", () => {
     expect(screen.queryByText(/PartsEffected|Progress|Priority/)).toBeNull();
   });
 
-  it("renders the Planner link read-only, opening in a new tab", async () => {
+  it("shows a legacy Planner link in the right panel, opening in a new tab", async () => {
     await renderScn();
-    const link = within(section("Outcome")).getByRole("link", { name: /DD-40NTS obsolescence plan/ });
+    const link = screen.getByRole("link", { name: /Planner: DD-40NTS obsolescence plan/ });
     expect(link).toHaveAttribute("href", expect.stringContaining("tasks.office.com"));
     expect(link).toHaveAttribute("target", "_blank");
+    // …and no longer on the Outcome card.
+    expect(within(section("Outcome")).queryByText("Task List")).toBeNull();
   });
 
   it("formats a date-only column as a date, and says Not set for an empty one", async () => {
@@ -211,6 +213,59 @@ describe("ScnDetailView — the card Edit modal", () => {
     await userEvent.click(within(dialog).getByRole("button", { name: /save changes/i }));
     await waitFor(() => expect(writes.patches).toHaveLength(1));
     expect(writes.patches[0].changes).toEqual({ finalDisposition: "LTB agreed" });
+  });
+});
+
+describe("ScnDetailView — Project Reference, from Engineering's projects (right panel)", () => {
+  it("links a stored project title to that Engineering project", async () => {
+    await renderScn();
+    expect(screen.getByRole("button", { name: "Project Reference" })).toHaveTextContent(
+      "0017-AMP-5000 Refresh",
+    );
+    expect(await screen.findByRole("link", { name: "Open the project" })).toHaveAttribute(
+      "href",
+      "/project/501",
+    );
+    // Not on the Outcome card any more, and not in its editor.
+    expect(within(section("Outcome")).queryByText("Project Reference")).toBeNull();
+  });
+
+  it("is a dropdown of Engineering projects that saves the title on pick", async () => {
+    await renderScn(2);
+    await userEvent.click(screen.getByRole("button", { name: "Project Reference" }));
+    await userEvent.click(await screen.findByRole("option", { name: "0000-Engineering Apps" }));
+
+    await waitFor(() => expect(writes.patches).toHaveLength(1));
+    expect(writes.patches[0]).toEqual({ id: 2, changes: { projectReference: "0000-Engineering Apps" } });
+    expect(await screen.findByRole("link", { name: "Open the project" })).toHaveAttribute(
+      "href",
+      "/project/274",
+    );
+  });
+});
+
+describe("ScnDetailView — Engineering task", () => {
+  it("picks an Engineering task, linking the SCN to it in ARC", async () => {
+    await renderScn(2);
+    await userEvent.click(screen.getByRole("button", { name: "Engineering task" }));
+    await userEvent.click(
+      await screen.findByRole("option", { name: "T0-335-Purchase Order from Jenbacher Needed" }),
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("link", { name: "Open the task" })).toHaveAttribute("href", "/task/15"),
+    );
+    expect(screen.getByRole("button", { name: "Engineering task" })).toHaveTextContent(
+      "T0-335-Purchase Order from Jenbacher Needed",
+    );
+  });
+
+  it("keeps a legacy Planner link visible until a task is picked", async () => {
+    await renderScn();
+    expect(screen.getByRole("button", { name: "Engineering task" })).toHaveTextContent("Not set");
+    expect(screen.getByRole("link", { name: /Planner: DD-40NTS obsolescence plan/ })).toHaveAttribute(
+      "href",
+      expect.stringContaining("tasks.office.com"),
+    );
   });
 });
 

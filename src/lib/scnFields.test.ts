@@ -164,6 +164,9 @@ describe("sections", () => {
       "approvalStatus",
       "assignedTo",
       "owner",
+      // Ray, 2026-10-07: the two cross-site references live in the right panel.
+      "projectReference",
+      "taskList",
     ]);
   });
 
@@ -195,8 +198,6 @@ describe("sections", () => {
       "salesHistory",
       "ltsExpires",
       "ltbExpires",
-      "projectReference",
-      "taskList",
       "notes",
     ]);
   });

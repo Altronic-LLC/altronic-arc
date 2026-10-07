@@ -5,6 +5,8 @@ import { SCN_APPROVAL_STATUSES, SCN_CATEGORIES } from "@/types/task";
 import { collectScnPeople, useCreateScn, useScns } from "@/hooks/useScns";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
+import { useProjects } from "@/hooks/useTasks";
+import { scnProjectOptions } from "@/lib/scnProjects";
 import { useFormDraft } from "@/hooks/useFormDraft";
 import { scnFieldLabel } from "@/lib/scnFields";
 import { nextScnNumber } from "@/lib/scnNumber";
@@ -59,6 +61,7 @@ export function ScnFormModal({ onClose, onCreated }: ScnFormModalProps) {
   const currentUser = useCurrentUser();
   const directory = useDirectoryPeople();
   const { data: scns = [] } = useScns();
+  const { data: projects = [] } = useProjects();
 
   // Create-only, so a draft can never overwrite a real record. Text only —
   // the pickers and the two person fields are cheap to re-choose.
@@ -70,6 +73,8 @@ export function ScnFormModal({ onClose, onCreated }: ScnFormModalProps) {
   }, [text]);
 
   const [category, setCategory] = useState("");
+  // Picked from Engineering's Project References, stored as the title.
+  const [projectReference, setProjectReference] = useState("");
   const [approvalStatus, setApprovalStatus] = useState("");
   const [assignedTo, setAssignedTo] = useState<Person[]>([]);
   const [owner, setOwner] = useState<Person[]>([]);
@@ -123,6 +128,7 @@ export function ScnFormModal({ onClose, onCreated }: ScnFormModalProps) {
 
     const values: Record<string, string> = {};
     for (const key of TEXT_KEYS) values[key] = text[key];
+    if (projectReference) values.projectReference = projectReference;
     const input: ScnInput = {
       product: text.product,
       category,
@@ -233,6 +239,18 @@ export function ScnFormModal({ onClose, onCreated }: ScnFormModalProps) {
                 options={SCN_APPROVAL_STATUSES}
                 value={approvalStatus}
                 onChange={setApprovalStatus}
+                disabled={busy}
+              />
+            </Field>
+
+            <Field label={scnFieldLabel("projectReference")} plain>
+              <ChoiceSelect
+                value={projectReference}
+                onChange={setProjectReference}
+                options={scnProjectOptions(projects, projectReference)}
+                emptyLabel="Not set"
+                ariaLabel={scnFieldLabel("projectReference")}
+                searchPlaceholder="Search Engineering projects…"
                 disabled={busy}
               />
             </Field>

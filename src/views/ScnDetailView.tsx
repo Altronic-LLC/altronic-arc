@@ -18,10 +18,11 @@ import {
   useScns,
   useSetScnAssigned,
   useSetScnOwner,
+  useSetScnTask,
   useSetScnWatchers,
   useUpdateScnFields,
 } from "@/hooks/useScns";
-import type { Comment, Person, Scn, ScnPatch } from "@/types/task";
+import type { Comment, Person, ProjectReference, Scn, ScnPatch } from "@/types/task";
 import { SCN_APPROVAL_STATUSES, SCN_STATUSES } from "@/types/task";
 import {
   SCN_SECTIONS,
@@ -36,6 +37,9 @@ import { formatSpDate, fromDateInputValue, toDateInputValue } from "@/lib/spDate
 import { mergePeople, personKey } from "@/lib/people";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
+import { useProjects, useTasks } from "@/hooks/useTasks";
+import { linkedScnTaskId, scnTaskLink } from "@/lib/scnTasks";
+import { findScnProject, scnProjectOptions } from "@/lib/scnProjects";
 import { AttachmentsSection } from "@/components/AttachmentsSection";
 import { useCommentFileUpload } from "@/hooks/useAttachments";
 import { FieldEditModal, type EditableFieldSpec } from "@/components/FieldEditModal";
@@ -81,11 +85,23 @@ export function ScnDetailView() {
   const { data: scns = [] } = useScns();
   const currentUser = useCurrentUser();
   const directory = useDirectoryPeople();
+  // Engineering's Project References — what Project Reference is picked from.
+  const { data: projects = [] } = useProjects();
+  // Engineering's tasks — what the SCN's Task is picked from.
+  const { data: tasks = [] } = useTasks();
+  const taskOptions = useMemo(
+    () =>
+      tasks
+        .map((t) => ({ value: String(t.id), label: t.numberedTitle }))
+        .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true })),
+    [tasks],
+  );
 
   const update = useUpdateScnFields();
   const setWatchers = useSetScnWatchers();
   const setAssigned = useSetScnAssigned();
   const setOwner = useSetScnOwner();
+  const setTask = useSetScnTask();
   const addComment = useAddScnComment();
   const editComment = useEditScnComment();
 
@@ -298,6 +314,25 @@ export function ScnDetailView() {
               />
             </SidebarField>
 
+            <SidebarField label={scnFieldLabel("projectReference")}>
+              <ProjectPicker
+                scn={scn}
+                projects={projects}
+                onPick={(title) => patch({ projectReference: title })}
+              />
+            </SidebarField>
+
+            <SidebarField label="Engineering task">
+              <TaskPicker
+                scn={scn}
+                options={taskOptions}
+                onPick={(taskId) => {
+                  const task = taskId ? tasks.find((t) => t.id === Number(taskId)) : null;
+                  setTask.mutate({ id: scn.id, link: task ? scnTaskLink(task) : null });
+                }}
+              />
+            </SidebarField>
+
             <SidebarField label="Year" icon={<Calendar className="h-3.5 w-3.5" />}>
               <p className="px-1 text-sm text-fg">
                 {scn.year || <span className="text-fg-muted">Not set</span>}
@@ -421,23 +456,11 @@ function EditButton({ label, onClick }: { label: string; onClick: () => void }) 
   );
 }
 
-/** One descriptor field, read-only — text, a date, or the Planner link. */
+/** One descriptor field, read-only — text or a date. */
 function FieldRow({ field, scn }: { field: ScnField; scn: Scn }) {
   const long = field.kind === "multiline";
   let body: React.ReactNode;
-  if (field.kind === "link") {
-    body = scn.taskList ? (
-      <a
-        href={scn.taskList.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex items-center gap-1 text-sm text-accent underline-offset-2 hover:underline"
-      >
-        {scn.taskList.description}
-        <ExternalLink className="h-3 w-3" />
-      </a>
-    ) : null;
-  } else if (field.kind === "date") {
+  if (field.kind === "date") {
     const date = scn.dates[field.key] ?? null;
     body = date ? <p className="text-sm tabular-nums text-fg">{formatSpDate(date)}</p> : null;
   } else {
@@ -503,6 +526,93 @@ function ChecklistField({
         })}
       </div>
     </fieldset>
+  );
+}
+
+/**
+ * The SCN's Project Reference, picked from Engineering's projects and stored
+ * as the title (lib/scnProjects.ts). Saves on pick, like the status.
+ */
+function ProjectPicker({
+  scn,
+  projects,
+  onPick,
+}: {
+  scn: Scn;
+  projects: readonly ProjectReference[];
+  onPick: (title: string) => void;
+}) {
+  const current = scnValue(scn, "projectReference");
+  const value = typeof current === "string" ? current : "";
+  const project = findScnProject(projects, value);
+  return (
+    <div className="flex flex-col gap-1">
+      <ChoiceSelect
+        value={value}
+        onChange={onPick}
+        options={scnProjectOptions(projects, value)}
+        emptyLabel="Not set"
+        ariaLabel={scnFieldLabel("projectReference")}
+        searchPlaceholder="Search Engineering projects…"
+      />
+      {project && (
+        <Link
+          to={`/project/${project.lookupId}`}
+          className="px-1 text-xs text-accent underline-offset-2 hover:underline"
+        >
+          Open the project
+        </Link>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The SCN's Engineering task. Its value is the task an ARC link points at; a
+ * legacy Planner link has no task, so the picker reads Not set and the Planner
+ * link is still shown underneath until somebody picks a task.
+ */
+function TaskPicker({
+  scn,
+  options,
+  onPick,
+}: {
+  scn: Scn;
+  options: { value: string; label: string }[];
+  onPick: (taskId: string) => void;
+}) {
+  const taskId = linkedScnTaskId(scn.taskList);
+  const value = taskId !== null ? String(taskId) : "";
+  // A linked task the list hasn't loaded (or that has gone) stays visible.
+  const withCurrent =
+    taskId !== null && !options.some((o) => o.value === value)
+      ? [{ value, label: scn.taskList?.description || `Task #${taskId}` }, ...options]
+      : options;
+  return (
+    <div className="flex flex-col gap-1">
+      <ChoiceSelect
+        value={value}
+        onChange={onPick}
+        options={withCurrent}
+        emptyLabel="Not set"
+        ariaLabel="Engineering task"
+        searchPlaceholder="Search Engineering tasks…"
+      />
+      {taskId !== null ? (
+        <Link to={`/task/${taskId}`} className="px-1 text-xs text-accent underline-offset-2 hover:underline">
+          Open the task
+        </Link>
+      ) : scn.taskList ? (
+        <a
+          href={scn.taskList.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 px-1 text-xs text-fg-muted underline-offset-2 hover:underline"
+        >
+          Planner: {scn.taskList.description} <ExternalLink className="h-3 w-3" />
+        </a>
+      ) : null}
+    </div>
   );
 }
 

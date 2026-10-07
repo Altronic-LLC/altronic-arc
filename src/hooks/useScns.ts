@@ -9,10 +9,11 @@ import {
   resolveScnSiteUserLookupId,
   setScnAssigned,
   setScnOwner,
+  setScnTask,
   setScnWatchers,
   updateScnFields,
 } from "@/api/scns";
-import type { Person, Scn, ScnInput, ScnPatch } from "@/types/task";
+import type { Person, Scn, ScnInput, ScnLink, ScnPatch } from "@/types/task";
 import { applyScnPatch, scnLabel } from "@/lib/scnMapper";
 import { scnFieldLabel } from "@/lib/scnFields";
 import { autoWatchers, mergePeople } from "@/lib/people";
@@ -211,6 +212,31 @@ export function useSetScnWatchers() {
       if (ctx?.previous) qc.setQueryData(SCNS_KEY, ctx.previous);
       errorToast(
         describeListWriteFailure(err, { action: "update the watchers", site: SITE_LABEL, permission: "editing" }),
+      );
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: SCNS_KEY }),
+  });
+}
+
+/**
+ * Set (or clear) the SCN's Engineering task — the Task List hyperlink. Its own
+ * write; see `setScnTask`.
+ */
+export function useSetScnTask() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, link }: { id: number; link: ScnLink | null }) => setScnTask(id, link),
+    onMutate: async ({ id, link }) => {
+      await qc.cancelQueries({ queryKey: SCNS_KEY });
+      const previous = qc.getQueryData<Scn[]>(SCNS_KEY);
+      patchScn(qc, id, (s) => ({ ...s, taskList: link }));
+      return { previous };
+    },
+    onSuccess: (updated) => patchScn(qc, updated.id, () => updated),
+    onError: (err: unknown, _vars, ctx) => {
+      if (ctx?.previous) qc.setQueryData(SCNS_KEY, ctx.previous);
+      errorToast(
+        describeListWriteFailure(err, { action: "set the task", site: SITE_LABEL, permission: "editing" }),
       );
     },
     onSettled: () => qc.invalidateQueries({ queryKey: SCNS_KEY }),

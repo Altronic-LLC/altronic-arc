@@ -1,7 +1,7 @@
 import { graphFetch, graphFetchAll } from "./graph";
 import { SITES, SP_SCNS_LIST_ID, SP_SCN_SITE_URL, USE_MOCK } from "./config";
 import { resolvePeopleLookupIds, resolveSiteUserLookupId } from "./siteUsers";
-import type { GraphListItem, Person, Scn, ScnInput, ScnPatch } from "@/types/task";
+import type { GraphListItem, Person, Scn, ScnInput, ScnLink, ScnPatch } from "@/types/task";
 import {
   applyScnPatch,
   buildScnCreateFields,
@@ -258,6 +258,27 @@ export async function updateScnFields(id: number, changes: ScnPatch, previous: S
 
   if (Object.keys(fields).length === 0) return previous;
   return patchColumns(id, annotateMultiChoiceFields(fields, SCN_MULTI_CHOICE_COLUMNS));
+}
+
+/**
+ * Point the SCN's Task List hyperlink at an Engineering task (see
+ * lib/scnTasks.ts), or clear it with `null`.
+ *
+ * Its OWN PATCH, never folded into another write: a Hyperlink column is the
+ * fragile kind (it 400s at create, and Graph can't report its type), so a
+ * refusal here must cost only the link — the EIRReference lesson.
+ */
+export async function setScnTask(id: number, link: ScnLink | null): Promise<Scn> {
+  if (USE_MOCK) {
+    const idx = mockStore.findIndex((s) => s.id === id);
+    if (idx < 0) throw new Error(`SCN ${id} not found`);
+    const next = { ...clone(mockStore[idx]), taskList: link ? { ...link } : null, modifiedAt: new Date() };
+    mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
+    return mockDelay(clone(next));
+  }
+  return patchColumns(id, {
+    Task_x0020_List: link ? { Url: link.url, Description: link.description } : null,
+  });
 }
 
 /**

@@ -87,6 +87,8 @@ export const MOCK_SCNS: Scn[] = [
       oldNumber: "791080-1\n791080-2",
       sapNumber: "1000-6210-00\n1000-6211-00",
       partDescription: "DISPLAY ASSY, DD-40NTS",
+      // A title from MOCK_PROJECTS, so the demo shows the project link.
+      projectReference: "0017-AMP-5000 Refresh",
       notes: "9/30/26 Supplier EOL notice received.\n10/2/26 Pulled 24-month sales history for DB.",
     },
     checks: { ...NO_CHECKS, preliminaryReviews: ["Master List Reviewed"] },

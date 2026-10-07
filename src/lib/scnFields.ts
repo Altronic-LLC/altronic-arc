@@ -80,6 +80,12 @@ export interface ScnField {
    * named property is what every screen sorts and filters on.
    */
   named?: boolean;
+  /**
+   * A TEXT column filled from Engineering's Project References and stored as
+   * the project's title (`lib/scnProjects.ts`). It can't be a real lookup —
+   * the Projects list is in another site collection.
+   */
+  project?: boolean;
 }
 
 /**
@@ -121,8 +127,8 @@ export const SCN_FIELDS: ScnField[] = [
   { key: "salesHistory", column: "SalesHistory", label: "Sales History", kind: "multiline", section: "Outcome" },
   { key: "ltsExpires", column: "EOLExpires", label: "LTS Expires", kind: "date", section: "Outcome" }, // column says EOL, label says LTS
   { key: "ltbExpires", column: "LTBExpires", label: "LTB Expires", kind: "date", section: "Outcome" },
-  { key: "projectReference", column: "ProjectReference", label: "Project Reference", kind: "text", section: "Outcome" }, // TEXT, not a lookup
-  { key: "taskList", column: "Task_x0020_List", label: "Task List", kind: "link", section: "Outcome", readOnly: true },
+  { key: "projectReference", column: "ProjectReference", label: "Project Reference", kind: "text", section: "Sidebar", project: true }, // TEXT, picked from Engineering's Projects
+  { key: "taskList", column: "Task_x0020_List", label: "Task List", kind: "link", section: "Sidebar", readOnly: true }, // written by setScnTask, not the descriptor path
   { key: "notes", column: "Notes", label: "Notes", kind: "multiline", section: "Outcome" }, // a running dated log
 ];
 

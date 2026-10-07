@@ -3928,7 +3928,7 @@ const SECTIONS: ManualSection[] = [
       "approval status",
     ],
     searchText:
-      "SCNs at /supply-chain/scns, under Supply Chain in the Departments menu, backed by the SCN Dashboard list on the ALTRONICSALESTEAM/SCN SharePoint site. A Supply Chain Notice records a product or part being obsoleted (OBS), phased out, an EECR, or a plain notification. The list searches every field, has SCN Status pills with counts, Category and Year filters, and sortable, filterable column headers; on a phone it is a card list. New SCN asks for Product, Description and Approval Status (required) plus Category, Assigned to, Owner, Customer, Old Number, SAP Number and Part Description; the SCN# is numbered automatically and the year is filled in for you. An SCN is four cards - Notice, Parts, Review, Outcome - each with one Edit button; the Review card has three checklists, Preliminary Reviews, Secondary Review and Project Status. The sidebar has SCN Status, Approval Status, Assigned to, Owner, Watchers, Raised by and Year. Comments, @-mentions, pasted screenshots and attachments all work the usual way; whoever raises an SCN, is assigned to it or owns it watches it automatically. SCNs cannot be deleted - set SCN Status to Cancelled instead. The Documents button opens the SCN Documents library: browse folders, create a new folder, upload files (drag and drop, several at once), edit Word Excel PowerPoint files in Office for the web, download, open in SharePoint, rename and delete files and folders. A deleted item goes to the SCN site's SharePoint recycle bin, restorable for 93 days.",
+      "SCNs at /supply-chain/scns, under Supply Chain in the Departments menu, backed by the SCN Dashboard list on the ALTRONICSALESTEAM/SCN SharePoint site. A Supply Chain Notice records a product or part being obsoleted (OBS), phased out, an EECR, or a plain notification. The list searches every field, has SCN Status pills with counts, Category and Year filters, and sortable, filterable column headers; on a phone it is a card list. New SCN asks for Product, Description and Approval Status (required) plus Category, Project Reference, Assigned to, Owner, Customer, Old Number, SAP Number and Part Description; the SCN# is numbered automatically and the year is filled in for you. An SCN is four cards - Notice, Parts, Review, Outcome - each with one Edit button; the Review card has three checklists, Preliminary Reviews, Secondary Review and Project Status. The sidebar has SCN Status, Approval Status, Project Reference (picked from Engineering projects), Engineering task (picked from Engineering tasks), Assigned to, Owner, Watchers, Raised by and Year. Comments, @-mentions, pasted screenshots and attachments all work the usual way; whoever raises an SCN, is assigned to it or owns it watches it automatically. SCNs cannot be deleted - set SCN Status to Cancelled instead. The Documents button opens the SCN Documents library: browse folders, create a new folder, upload files (drag and drop, several at once), edit Word Excel PowerPoint files in Office for the web, download, open in SharePoint, rename and delete files and folders. A deleted item goes to the SCN site's SharePoint recycle bin, restorable for 93 days.",
     render: () => (
       <>
         <P>
@@ -3998,9 +3998,16 @@ const SECTIONS: ManualSection[] = [
           <strong>Approval Status</strong> (each saves as soon as you pick),{" "}
           <strong>Assigned to</strong> and <strong>Owner</strong> (both can
           hold more than one person), the <strong>Watchers</strong>, who
-          raised it and its Year. A <strong>Task List</strong> link from the
-          old Planner board shows on the Outcome card when one was recorded —
-          it can be opened but not changed from ARC.
+          raised it and its Year.
+        </P>
+        <P>
+          The sidebar is also where an SCN is tied to Engineering. Pick its{" "}
+          <strong>Project Reference</strong> from Engineering&apos;s project
+          references, and its <strong>Engineering task</strong> from
+          Engineering&apos;s tasks — each saves as soon as you pick and gives
+          you a link straight to that project or task. An older SCN that
+          pointed at a Planner board still shows that Planner link until you
+          pick an Engineering task for it.
         </P>
         <H3>Watching, comments and attachments</H3>
         <UL>

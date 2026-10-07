@@ -391,6 +391,29 @@ describe("comments", () => {
   });
 });
 
+describe("the Engineering task (Task List hyperlink)", () => {
+  beforeEach(() => {
+    graphFetch.mockReset();
+    graphFetch.mockImplementation(async (_url: string, init?: RequestInit) =>
+      init?.method === "PATCH" ? undefined : rawItem(),
+    );
+  });
+
+  it("writes ONLY the hyperlink, as { Url, Description }, in its own PATCH", async () => {
+    await scns.setScnTask(42, { url: "https://arc.example/altronic-arc/task/15", description: "T0-335-Purchase Order" });
+    const { body, method } = lastWrite();
+    expect(method).toBe("PATCH");
+    expect(body).toEqual({
+      Task_x0020_List: { Url: "https://arc.example/altronic-arc/task/15", Description: "T0-335-Purchase Order" },
+    });
+  });
+
+  it("clears it with null", async () => {
+    await scns.setScnTask(42, null);
+    expect(lastWrite().body).toEqual({ Task_x0020_List: null });
+  });
+});
+
 describe("the module", () => {
   it("exports nothing that deletes", () => {
     expect(Object.keys(scns).filter((n) => /delete|remove/i.test(n))).toEqual([]);

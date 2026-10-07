@@ -521,6 +521,8 @@ src/
 │   ├── scnFields.ts              SCN column descriptors (columns are DATA) — the four internal names that LIE are decoded here
 │   ├── scnMapper.ts              Graph item → Scn, and back (multi-person, multi-choice, the read-only Task List hyperlink)
 │   ├── scnNumber.ts              nextScnNumber() — YYYY-NNNN, a GLOBAL 4-digit sequence since 2024 (legacy 3-digit titles ignored)
+│   ├── scnProjects.ts            SCN Project Reference ⇄ Engineering's Projects — matched by title (it's a text column on another site collection)
+│   ├── scnTasks.ts               SCN Task List hyperlink ⇄ an Engineering task — writes ARC's task URL, recognises it on read
 │   ├── featureRequestAlerts.ts   ARC Feature Request intake + status alerts (pure)
 │   ├── featureRequestIssues.ts   Feature request → BusinessIT issue: who (Ray/Tim), the link marker, matching, the issue body (pure)
 │   ├── grayMarketFields.ts       Gray Market column descriptors (columns are DATA)
@@ -3467,12 +3469,20 @@ Nine things that shape this feature:
   `FixtureReview` are date-only; the shared `parseSpDateOnly` midday pivot
   reads them and `toSpDateOnly` writes them, through `DateField` only. Only
   two rows held an LTS date at discovery and none held the other two.
-- **`Task_x0020_List` is a HYPERLINK column, and ARC never writes it.** 38 rows
-  carry a `{ Url, Description }` pointing at a Planner board. It renders as a
-  plain link on the Outcome card when present and is **read-only in ARC** — a
-  Hyperlink column is refused at item creation (see "Hyperlink columns: never
-  in the create POST"), and nobody asked to set one, so there is no follow-up
-  PATCH either. Pinned: `Task_x0020_List` appears in no write payload.
+- **`Task_x0020_List` is a HYPERLINK column, and it is the SCN's ENGINEERING
+  TASK** (Ray, 2026-10-07: "task should be a choice from SCN based on
+  engineering tasks"). A lookup is impossible — the Project Task List is in
+  another site collection — so the right panel's **Engineering task** picker
+  offers every Engineering task and `setScnTask` writes the hyperlink itself:
+  `{ Url: <the task's ARC URL>, Description: <its numbered title> }`
+  (`lib/scnTasks.ts`). That reads correctly in SharePoint's own views, and
+  `linkedScnTaskId` recognises ARC's own links to route them in-app. Three
+  rules: it is **its OWN PATCH**, never folded into another write — a Hyperlink
+  column is the fragile kind, and a refusal must cost only the link (the
+  EIRReference lesson); it is **never in the create POST** (Hyperlink columns
+  400 at creation), so the New SCN form doesn't offer it; and **the 38 legacy
+  Planner links are left alone** until somebody picks a task for that SCN —
+  they still show, as an external "Planner:" link under the picker.
 - **`ApprovalStatus` is REQUIRED on create** (`Approved` / `Denied` — 139 /
   3). SharePoint refuses a blank, so the New SCN form's pills carry NO "Not
   set" option and validation catches the empty — the Cost Impact `TimeofImpact`
@@ -3482,8 +3492,19 @@ Nine things that shape this feature:
   Brooks/David Bell", "Pending". It is kept as a plain text field. **Do not
   invent a choice list for it**: there is no column behind one, and the values
   are whoever signed, as typed.
-- **`ProjectReference` is a plain TEXT column, NOT a lookup** (0 set) — no
-  join to the Projects list, no `LookupId`, no FK on the About diagram.
+- **`ProjectReference` is a plain TEXT column, filled from ENGINEERING's
+  Project References** (Ray, 2026-10-07). It can't be a lookup — the Projects
+  list (`6280c711-…`) is on Altronic_Engineering, another site collection — so
+  ARC offers the Projects list as a choice and stores the project's TITLE
+  (`lib/scnProjects.ts`, the `project: true` descriptor flag). The match back
+  to a project is by title, case-insensitive; a project renamed after it was
+  picked stops matching, still shows as text, and stays in the picker marked
+  "(not an Engineering project)" so a save can't silently clear it. No FK on
+  the About diagram, since nothing in SharePoint enforces it. Picked on the New
+  SCN form and in the right panel (saves on pick).
+- **Project Reference and the Engineering task live in the RIGHT PANEL, not
+  on the Outcome card** (Ray, 2026-10-07) — both are `section: "Sidebar"`, so
+  no card or card editor renders them.
   `Notes` is a running dated log people type into (118 rows) and stays a plain
   textarea; `Description` is set on every row and holds no HTML.
 - **`YEAR` is a text column ARC writes on create**, derived from the SCN#, and
