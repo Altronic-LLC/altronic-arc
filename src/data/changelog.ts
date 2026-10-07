@@ -23,7 +23,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     version: "0.176.0",
     date: "2026-10-07",
     changes: [
-      "Reports — fixed KPI dashboards built into ARC, at /reports. Not in the top nav yet; open it by its address",
+      "Reports — fixed KPI dashboards built into ARC, available for testing. Not in the top nav yet",
       "Six reports: Board Test & FPY, and a Defect Breakdown donut, for each of Teradyne, Digital QC and Ignition QC",
       "Each FPY chart shows boards/units tested, boards/units failed (with the passed count inside the blue segment), and First Pass Yield, for the trailing 3 calendar months, always ending at the current month",
       "Each Defect Breakdown shows the latest month's total tested and a breakdown by defect category, as its own report and its own card on the Reports page",
