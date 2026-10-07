@@ -3,7 +3,6 @@ import { Link, useLocation } from "react-router-dom";
 import { useIsFetching, useQueryClient } from "@tanstack/react-query";
 import {
   BadgeCheck,
-  BarChart3,
   Building2,
   Calculator,
   CalendarDays,
@@ -358,7 +357,6 @@ export function Header() {
   const kanbanAvailable = useKanbanAvailable();
 
   const isDashboard = pathname === "/";
-  const isReportsPage = pathname.startsWith("/reports");
   const isList = pathname.startsWith("/list");
   const isKanban = pathname.startsWith("/kanban");
   const isDepartmentPage = DEPARTMENTS.some((group) =>
@@ -426,9 +424,8 @@ export function Header() {
             <span className="sm:hidden">Home</span>
           </NavLink>
           <DepartmentsMenu active={isDepartmentPage} pathname={pathname} />
-          <NavLink to="/reports" active={isReportsPage} icon={<BarChart3 className="h-4 w-4" />}>
-            Reports
-          </NavLink>
+          {/* No Reports tab (Tim, 2026-10-07): /reports and /reports/kiosk
+              stay reachable by URL, but aren't advertised in the nav yet. */}
           {isAdmin && (
             <NavLink
               to="/admin/admins"

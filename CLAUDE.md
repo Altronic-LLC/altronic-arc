@@ -5558,8 +5558,11 @@ Three things the post-build review caught, fixed before it shipped:
 
 ## Reports — fixed KPI dashboards, not a dashboard builder
 
-`/reports`, its own small lazy-loaded bundle, reached from a **Reports** tab
-in the top nav next to Dashboard and Departments. Tim already reports off
+`/reports`, its own small lazy-loaded bundle. **There is NO nav entry** (Tim,
+2026-10-07): the Reports tab beside Dashboard and Departments was removed
+before go-live, and the routes stay reachable by URL only — the same
+arrangement as `/reports/kiosk`. Re-adding it is one `NavLink` in
+`Header.tsx` (icon `BarChart3`, active on `pathname.startsWith("/reports")`). Tim already reports off
 several of these same SharePoint lists in Power BI and wanted a handful of
 those numbers live inside ARC too (2026-09-17).
 
