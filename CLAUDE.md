@@ -5564,7 +5564,13 @@ Three things the post-build review caught, fixed before it shipped:
 2026-10-07): the Reports tab beside Dashboard and Departments was removed
 before go-live, and the routes stay reachable by URL only — the same
 arrangement as `/reports/kiosk`. Re-adding it is one `NavLink` in
-`Header.tsx` (icon `BarChart3`, active on `pathname.startsWith("/reports")`). Tim already reports off
+`Header.tsx` (icon `BarChart3`, active on `pathname.startsWith("/reports")`).
+
+**The changelog and the user manual deliberately give NO addresses** (Tim,
+2026-10-07) — not `/reports`, not `/reports/kiosk`, and not the kiosk's
+`?theme=` / `?dept=` options. Both say Reports is "available for testing".
+The addresses are documented here only. Put them back in the manual when the
+tab goes back in the nav, not before. Tim already reports off
 several of these same SharePoint lists in Power BI and wanted a handful of
 those numbers live inside ARC too (2026-09-17).
 
