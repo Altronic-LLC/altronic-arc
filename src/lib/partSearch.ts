@@ -1,6 +1,7 @@
 import type { AltronicComponent, AltronicPart } from "@/types/task";
 import { comparePartNumbers, isComponentPrefix, partPrefix } from "./altronicPartMapper";
 import { parseEngineeringValue, rangeBounds, valueInRange } from "./engineeringValue";
+import { tokenizeQuery } from "./itemSearch";
 
 // =============================================================================
 // Searching the Parts List — the rules the old Power App taught people, kept
@@ -14,6 +15,17 @@ import { parseEngineeringValue, rangeBounds, valueInRange } from "./engineeringV
 //    are NOT trimmed when there is an `&`. A query with no `&` IS trimmed —
 //    a stray trailing space in a single search is a typo, not a request.
 //  - Every filled-in field must match (AND across fields).
+//  - `*` is a wildcard, and a term holding one is matched against the WHOLE
+//    value rather than as a substring (Tim, 2026-10-05): "15k*" finds values
+//    STARTING 15k, "*50" values ENDING 50, "*50*" values with 50 anywhere,
+//    "1*w" values starting 1 and ending w. That last one is why it's a glob
+//    over the whole value and not just "strip the stars, then decide".
+//    `*50*` also opts OUT of the value fields' number-start rule below — the
+//    stars are the user saying "anywhere", so 250V matches.
+//  - Spaces around a dash don't count (Tim, 2026-10-05): the data mostly
+//    says "CAPACITOR - CERAMIC", some rows "CAPACITOR-CERAMIC", and a search
+//    for one used to miss the other. Both sides go through `normalizeDashes`
+//    before any comparison. En and em dashes count as dashes too.
 //
 // Pure, no React — the views and their tests both call these.
 // =============================================================================
@@ -30,12 +42,95 @@ export function fieldQueryTerms(query: string): string[] {
     .map((t) => t.toLowerCase());
 }
 
-/** Does one field's value satisfy a field query? */
-export function fieldQueryMatches(value: string, query: string): boolean {
-  const terms = fieldQueryTerms(query);
+/**
+ * Does one field's value satisfy a field query?
+ *
+ * `numeric` is for the value fields (ratings, tolerance, temperatures): there
+ * a term that starts with a number only matches where a number STARTS, so
+ * "1uF" finds 1uF and not .1uF, .01uF or 11uF (Tim, 2026-10-05). Plain
+ * substring would read the "1" out of the middle of another value. The
+ * identifier fields keep plain substring — "1018" must still find 701018.
+ */
+export function fieldQueryMatches(value: string, query: string, numeric = false): boolean {
+  const terms = fieldQueryTerms(query).map(normalizeDashes);
   if (terms.length === 0) return true;
-  const hay = value.toLowerCase();
-  return terms.every((t) => hay.includes(t));
+  const hay = normalizeDashes(value.toLowerCase());
+  return terms.every((t) =>
+    isWildcardTerm(t) ? wildcardMatches(hay, t) : numeric ? includesAtNumberStart(hay, t) : hay.includes(t),
+  );
+}
+
+/** Whether a term is a wildcard pattern rather than a plain substring. */
+export function isWildcardTerm(term: string): boolean {
+  return term.includes("*");
+}
+
+const escapeRegExp = (s: string) => s.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * A `*` pattern against the WHOLE value, case-insensitive. The value is
+ * trimmed — a stray trailing space in SharePoint must not stop "*50" finding
+ * "250". Every other regex character in the term is literal: "1/4*" and
+ * "(1)*" mean what they say.
+ */
+export function wildcardMatches(value: string, term: string): boolean {
+  const pattern = normalizeDashes(term.toLowerCase()).split("*").map(escapeRegExp).join(".*");
+  return new RegExp(`^${pattern}$`, "s").test(normalizeDashes(value.trim().toLowerCase()));
+}
+
+/** "CAPACITOR - CERAMIC", "CAPACITOR-CERAMIC" and "CAPACITOR – CERAMIC" all read alike. */
+export function normalizeDashes(text: string): string {
+  return text.replace(/\s*[-–—]\s*/g, "-");
+}
+
+/** The words of a Search everything query, dashes normalised like the values. */
+export function searchEverythingTokens(query: string): string[] {
+  return tokenizeQuery(normalizeDashes(query));
+}
+
+/**
+ * A row's text for Search everything. Each value is normalised BEFORE they're
+ * joined, so a value starting with a dash ("-55") isn't glued onto the one
+ * before it.
+ */
+export function searchEverythingText(values: string[]): string {
+  return values.map((v) => normalizeDashes(v.toLowerCase())).join(" ");
+}
+
+/**
+ * The "Search everything" box: every word must appear somewhere in the row.
+ * A plain word is a substring of the row's text; a wildcard word must match
+ * ONE field's whole value — "15k*" against the joined row would only ever
+ * test the first field.
+ */
+export function rowMatchesAllTokens(fieldValues: string[], haystack: string, tokens: string[]): boolean {
+  return tokens.every((t) =>
+    isWildcardTerm(t) ? fieldValues.some((v) => wildcardMatches(v, t)) : haystack.includes(t),
+  );
+}
+
+const isDigit = (c: string | undefined) => c !== undefined && c >= "0" && c <= "9";
+
+/**
+ * Substring match, except a term starting with a digit or "." can't begin
+ * part-way through a number. ".1uF" still finds "0.1uF" — a lone leading 0
+ * is the same value written another way — but not "1.1uF".
+ */
+function includesAtNumberStart(hay: string, term: string): boolean {
+  const first = term[0];
+  const anchored = isDigit(first) || (first === "." && isDigit(term[1]));
+  if (!anchored) return hay.includes(term);
+  for (let i = hay.indexOf(term); i !== -1; i = hay.indexOf(term, i + 1)) {
+    const before = hay[i - 1];
+    if (first === ".") {
+      if (!isDigit(before)) return true;
+      // "0.1uF": the 0 is a leading zero only if nothing numeric precedes it.
+      if (before === "0" && !isDigit(hay[i - 2]) && hay[i - 2] !== ".") return true;
+    } else if (!isDigit(before) && before !== ".") {
+      return true;
+    }
+  }
+  return false;
 }
 
 export interface SearchField<T> {
@@ -57,7 +152,9 @@ export function applyFieldQueries<T>(
 ): T[] {
   const active = fields.filter((f) => fieldQueryTerms(queries[f.key] ?? "").length > 0);
   if (active.length === 0) return rows;
-  return rows.filter((row) => active.every((f) => fieldQueryMatches(f.value(row), queries[f.key])));
+  return rows.filter((row) =>
+    active.every((f) => fieldQueryMatches(f.value(row), queries[f.key], f.range === true)),
+  );
 }
 
 /** One field's From/To boxes, as typed. */
@@ -253,6 +350,8 @@ export type PartsQueryTarget =
 export function parsePartsQuery(input: string): PartsQueryTarget {
   const q = input.trim();
   if (!q) return null;
+  // "701*" is a pattern, not a part number to look up.
+  if (q.includes("*")) return { kind: "search", query: q };
   if (/^[1-9]$/.test(q)) return { kind: "book", book: Number(q) };
   if (/^\d{3}$/.test(q)) return { kind: "list", prefix: q };
   if (/^\d{3}\S*$/.test(q) && q.length > 3) return { kind: "part", partNumber: q };

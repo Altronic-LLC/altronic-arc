@@ -238,6 +238,8 @@ export function PanelTaskDetailView() {
                 currentUserName={currentUser.displayName}
                 mentionablePeople={mentionCandidates}
                 onEdit={handleEditComment}
+                onReply={handleAddComment}
+                draftKey={`panelTask:${taskId}`}
               />
             </div>
           </div>

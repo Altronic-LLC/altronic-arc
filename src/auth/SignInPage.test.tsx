@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
 import {
@@ -30,7 +30,13 @@ beforeEach(() => {
   msal.loginPopup.mockResolvedValue({ account: ACCOUNT });
 });
 
-afterEach(() => resetSessionExpired());
+afterEach(() => {
+  // Unmount BEFORE resetting the store: this afterEach runs ahead of the
+  // setup file's cleanup(), so a reset here would re-render whatever is still
+  // mounted outside act().
+  cleanup();
+  resetSessionExpired();
+});
 
 function FlagProbe() {
   return <span>flag:{String(useSessionExpired())}</span>;

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { htmlToPlainText } from "./htmlText";
+import { attachmentOnlyFileNames, htmlToPlainText } from "./htmlText";
 
 describe("htmlToPlainText", () => {
   it("returns empty for empty input", () => {
@@ -77,5 +77,31 @@ describe("htmlToPlainText", () => {
       "I'll be interested to see how the reworks test.\n\n" +
         "It's the VHB version of the LSE adhesive we're using, so it's thicker.",
     );
+  });
+});
+
+describe("attachmentOnlyFileNames", () => {
+  // The exact markup CommentComposer writes for an uploaded file.
+  const file = (name: string) =>
+    `<p>📎 <a href="https://x/${name}" target="_blank" rel="noopener noreferrer">${name}</a></p>`;
+
+  it("reads one file", () => {
+    expect(attachmentOnlyFileNames(htmlToPlainText(file("shot.png")))).toEqual(["shot.png"]);
+  });
+
+  it("reads several files", () => {
+    expect(attachmentOnlyFileNames(htmlToPlainText(file("a.pdf") + file("b.png")))).toEqual([
+      "a.pdf",
+      "b.png",
+    ]);
+  });
+
+  it("is null when there is any text alongside the files", () => {
+    expect(attachmentOnlyFileNames(htmlToPlainText(`<p>See this</p>${file("a.pdf")}`))).toBeNull();
+  });
+
+  it("is null for a plain comment and for an empty one", () => {
+    expect(attachmentOnlyFileNames("hello")).toBeNull();
+    expect(attachmentOnlyFileNames("")).toBeNull();
   });
 });

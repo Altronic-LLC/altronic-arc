@@ -15,6 +15,7 @@ import MRB from "./MrbDetailView.tsx?raw";
 import OPERATIONS from "./OperationsDetailView.tsx?raw";
 import PANEL_ORDER from "./PanelOrderDetailView.tsx?raw";
 import PANEL_TASK from "./PanelTaskDetailView.tsx?raw";
+import SCN from "./ScnDetailView.tsx?raw";
 import SUPPLIER from "./SupplierDetailView.tsx?raw";
 import BUILD_REQUEST_ITEM from "@/components/BuildRequestItemCard.tsx?raw";
 import PANEL_QC_ISSUE from "@/components/PanelQcIssueFormModal.tsx?raw";
@@ -54,6 +55,7 @@ const SOURCES: { name: string; source: string }[] = [
   { name: "OperationsDetailView.tsx", source: OPERATIONS },
   { name: "PanelOrderDetailView.tsx", source: PANEL_ORDER },
   { name: "PanelTaskDetailView.tsx", source: PANEL_TASK },
+  { name: "ScnDetailView.tsx", source: SCN },
   { name: "SupplierDetailView.tsx", source: SUPPLIER },
   { name: "BuildRequestItemCard.tsx", source: BUILD_REQUEST_ITEM },
   { name: "PanelQcIssueFormModal.tsx", source: PANEL_QC_ISSUE },
@@ -81,6 +83,19 @@ describe("comment restore wiring", () => {
     const offenders = SOURCES.filter(({ source }) => {
       const body = handler(source) ?? "";
       return !/return [\s\S]*mutateAsync\(/.test(body) || /\.mutate\(/.test(body);
+    }).map(({ name }) => name);
+
+    expect(offenders).toEqual([]);
+  });
+
+  it("every comment thread offers Reply through that same handler", () => {
+    // Threaded replies (BusinessIT#9) post through the page's own
+    // handleAddComment, so notifications, mirrors and restore-on-failure all
+    // come with them. A thread without onReply silently has no Reply button.
+    const offenders = SOURCES.filter(({ source }) => {
+      const start = source.indexOf("<CommentThread");
+      const block = start < 0 ? "" : source.slice(start, source.indexOf("/>", start));
+      return !block.includes("onReply={handleAddComment}");
     }).map(({ name }) => name);
 
     expect(offenders).toEqual([]);

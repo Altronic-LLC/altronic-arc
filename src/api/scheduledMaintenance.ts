@@ -38,6 +38,7 @@ import { listEquipment } from "./operationsEquipment";
 import { listOperationsProjects } from "./operationsProjects";
 import { listMaintenanceReferenceLists } from "./maintenanceReferenceLists";
 import { MOCK_SCHEDULED_MAINTENANCE } from "@/data/maintenanceMockData";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // Scheduled Maintenance — the PM schedules work orders are raised from, on the
@@ -104,10 +105,6 @@ export function resetScheduledMaintenanceMockStore(): void {
   mockStore = MOCK_SCHEDULED_MAINTENANCE.map(revive);
 }
 
-function delay<T>(value: T, ms = 200): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
-
 function requireListId(action: string): string {
   if (!SP_SCHEDULED_MAINTENANCE_LIST_ID) {
     throw new Error(`Cannot ${action}: VITE_SP_SCHEDULED_MAINTENANCE_LIST_ID is not set.`);
@@ -151,7 +148,7 @@ export async function listScheduledMaintenance(): Promise<ScheduledMaintenance[]
   if (USE_MOCK) {
     const schedules = [...mockStore].sort(compareScheduledMaintenance).map((s) => ({ ...s }));
     await resolveScheduleReferences(schedules);
-    return delay(schedules);
+    return mockDelay(schedules);
   }
 
   const [items, siteUsers, equipment, operationsProjects, references] = await Promise.all([
@@ -205,7 +202,7 @@ export async function updateScheduledMaintenanceFields(
     await resolveScheduleReferences([next]);
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
     saveMockStoreToStorage();
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   await graphFetch(`${itemPath(id)}/fields`, { method: "PATCH", body: JSON.stringify(fields) });
@@ -476,7 +473,7 @@ export async function createScheduledMaintenance(
     await resolveScheduleReferences([schedule]);
     mockStore = [schedule, ...mockStore];
     saveMockStoreToStorage();
-    return delay(schedule);
+    return mockDelay(schedule);
   }
 
   const fields = buildScheduledMaintenanceCreateFields(input);

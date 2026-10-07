@@ -143,3 +143,19 @@ describe("Header — Operations task switcher keeps the filters", () => {
     expect(href).toBe("/operations/tasks?assigned=brandon.mirto%40altronic-llc.com");
   });
 });
+
+describe("Header — Departments menu lists SCNs under Supply Chain", () => {
+  // The menu mirrors the Dashboard's sections one-to-one. A new Supply Chain
+  // app that reaches the Dashboard but not this menu is reachable only by
+  // URL, which is how a feature quietly goes unused.
+  it("offers SCNs as a menu item pointing at the list", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<Header />, { route: "/" });
+
+    await user.click(screen.getByRole("button", { name: /departments/i }));
+    const item = await screen.findByRole("menuitem", { name: /SCNs/ });
+    expect(item).toHaveAttribute("href", "/supply-chain/scns");
+    // Next to the rest of Supply Chain, not off in another group.
+    expect(screen.getByRole("menuitem", { name: /^MRB/ })).toBeInTheDocument();
+  });
+});

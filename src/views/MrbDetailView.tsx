@@ -307,6 +307,8 @@ export function MrbDetailView() {
             currentUserName={currentUser.displayName}
             mentionablePeople={mentionCandidates}
             onEdit={handleEditComment}
+            onReply={handleAddComment}
+            draftKey={`mrb:${entryId}`}
           />
         </div>
       </section>

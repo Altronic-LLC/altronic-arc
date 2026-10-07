@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { renderHook, act } from "@testing-library/react";
+import { renderHook, act, cleanup } from "@testing-library/react";
 import {
   isSessionExpiredError,
   markSessionExpired,
@@ -15,6 +15,10 @@ class SessionExpiredError extends Error {
 }
 
 afterEach(() => {
+  // Unmount BEFORE resetting the store: this afterEach runs ahead of the
+  // setup file's cleanup(), so a reset here would re-render whatever is still
+  // mounted outside act().
+  cleanup();
   resetSessionExpired();
 });
 

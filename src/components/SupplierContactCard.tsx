@@ -152,6 +152,7 @@ export function SupplierContactCard({
                     currentUserName={currentUser.displayName}
                     mentionablePeople={mentionCandidates}
                     onEdit={handleEditComment}
+                    onReply={handleAddComment}
                   />
                 </div>
               </div>

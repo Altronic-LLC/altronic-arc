@@ -10,6 +10,7 @@ import {
   EIR_TRIAGE_PROJECT_REVIEWERS,
   FAIT_NEW_ALERTS,
   FAIT_SQE_REVIEWERS,
+  GRAY_MARKET_CHANGE_ALERTS,
   GRAY_MARKET_NEW_REQUEST_ALERTS,
   SHARED_MAILBOX,
   USE_MOCK,
@@ -22,12 +23,14 @@ import type {
   Person,
 } from "@/types/task";
 import { appItemUrl } from "@/lib/appUrl";
+import { attachmentOnlyFileNames } from "@/lib/htmlText";
 import {
   buildAssigneeChangeEmails,
   buildChecklistToggleEmails,
   buildFieldChangeEmails,
   buildPromotionEmails,
   type AlertDetail,
+  type AssignmentDetails,
   type ChangeEmail,
   type ChangeTarget,
   type EmailAction,
@@ -39,7 +42,11 @@ import {
   buildEirResponseNotAcceptedEmails,
 } from "@/lib/eirStatusAlerts";
 import { parseRecipientList } from "@/lib/recipientList";
-import { buildNewGrayMarketRequestEmails } from "@/lib/grayMarketAlerts";
+import {
+  buildGrayMarketFieldChangeEmails,
+  buildNewGrayMarketRequestEmails,
+  type GrayMarketFieldChange,
+} from "@/lib/grayMarketAlerts";
 import {
   buildFaitAssignmentHeadsUpEmails,
   buildFaitClosedEmails,
@@ -84,10 +91,11 @@ export interface MentionRecipient {
    * Why they're being notified — "mentioned", "assigned" (the item is assigned
    * to them), "submitted" (they raised the item; ECNs have no watchers and no
    * assignee, so this is the only standing recipient), or a plain "watching"
-   * comment alert; "edited" when the author checked "Notify everyone again"
-   * after editing an existing comment.
+   * comment alert; "replied" when the comment is a reply to theirs;
+   * "edited" when the author checked "Notify everyone again" after editing an
+   * existing comment.
    */
-  reason: "mentioned" | "assigned" | "submitted" | "watching" | "edited";
+  reason: "mentioned" | "replied" | "assigned" | "submitted" | "watching" | "edited";
 }
 
 /** What the mention is on — drives the wording, link, and button text. */
@@ -111,6 +119,7 @@ export interface MentionTarget {
     | "supplierContact"
     | "supplierIssue"
     | "costImpactNotice"
+    | "scn"
     | "featureRequest"
     | "altronicPart"
     | "altronicComponent";
@@ -187,6 +196,11 @@ const KIND_COPY: Record<
     phrase: "a supplier issue",
     calloutLabel: "Supplier Issue",
     buttonText: "Open this issue",
+  },
+  scn: {
+    phrase: "an SCN",
+    calloutLabel: "SCN",
+    buttonText: "Open this SCN",
   },
   costImpactNotice: {
     phrase: "a cost impact notice",
@@ -403,10 +417,20 @@ async function sendOne(input: {
 }): Promise<void> {
   const { target } = input;
   const reason = input.recipient.reason;
-  const subject =
-    reason === "mentioned"
+  // A comment that is only files reads as "X added an attachment", not as a
+  // "New comment" whose whole body is a paperclip. An EDIT keeps its own
+  // wording: "updated a comment" is still what happened.
+  const attachmentNames =
+    reason === "edited" ? null : attachmentOnlyFileNames(input.commentExcerpt);
+  const subject = attachmentNames
+    ? `${input.sender.displayName} added ${
+        attachmentNames.length === 1 ? "an attachment" : `${attachmentNames.length} attachments`
+      } to ${target.title}`
+    : reason === "mentioned"
       ? `You were mentioned in ${target.title}`
-      : reason === "edited"
+      : reason === "replied"
+        ? `${input.sender.displayName} replied to your comment on ${target.title}`
+        : reason === "edited"
         ? `Updated comment on ${target.title}`
         : `New comment on ${target.title}`;
   const url = itemUrl(target.kind, target.id);
@@ -417,6 +441,7 @@ async function sendOne(input: {
     reason,
     itemTitle: target.title,
     commentExcerpt: input.commentExcerpt,
+    attachmentNames,
     url,
   });
 
@@ -608,6 +633,7 @@ export function fireAssigneeChangeAlert(args: {
   actor: Person;
   watchers: Person[];
   reporter?: Person | null;
+  details?: AssignmentDetails;
 }): void {
   const emails = buildAssigneeChangeEmails(args);
   if (emails.length === 0) return;
@@ -653,6 +679,25 @@ export function fireNewGrayMarketRequestAlert(args: {
   const emails = buildNewGrayMarketRequestEmails({
     ...args,
     recipients: parseRecipientList(GRAY_MARKET_NEW_REQUEST_ALERTS),
+  });
+  if (emails.length === 0) return;
+  void notifyChangeEmails({ target: args.target, emails });
+}
+
+/**
+ * Fire-and-forget alert for a gray market request whose Testing Required,
+ * Engineering or Production fields changed — the configured list
+ * (VITE_GRAY_MARKET_CHANGE_ALERTS) plus the request's watchers.
+ */
+export function fireGrayMarketFieldChangeAlert(args: {
+  target: ChangeTarget;
+  changes: GrayMarketFieldChange[];
+  watchers: Person[];
+  actor: Person;
+}): void {
+  const emails = buildGrayMarketFieldChangeEmails({
+    ...args,
+    alertList: parseRecipientList(GRAY_MARKET_CHANGE_ALERTS),
   });
   if (emails.length === 0) return;
   void notifyChangeEmails({ target: args.target, emails });
@@ -1037,6 +1082,8 @@ interface MentionEmailContext {
   reason: MentionRecipient["reason"];
   itemTitle: string;
   commentExcerpt: string;
+  /** Set when the comment is ONLY attached files — see attachmentOnlyFileNames. */
+  attachmentNames?: string[] | null;
   url: string;
 }
 
@@ -1143,10 +1190,35 @@ function renderMentionEmail(ctx: MentionEmailContext): string {
   const sender = escapeHtml(ctx.senderName);
   const excerpt = escapeHtml(ctx.commentExcerpt).replace(/\n/g, "<br/>");
   const copy = KIND_COPY[ctx.kind];
+  const files = ctx.attachmentNames;
+  if (files) {
+    const what = files.length === 1 ? "an attachment" : `${files.length} attachments`;
+    const why =
+      ctx.reason === "assigned"
+        ? " assigned to you"
+        : ctx.reason === "submitted"
+          ? " you submitted"
+          : ctx.reason === "watching"
+            ? " you're watching"
+            : ctx.reason === "replied"
+              ? ", in reply to your comment"
+              : "";
+    return renderEmailShell({
+      recipientName: ctx.recipientName,
+      introHtml: `<strong>${sender}</strong> added ${what} to ${copy.phrase}${why}.`,
+      calloutLabel: copy.calloutLabel,
+      calloutTitle: ctx.itemTitle,
+      messageHtml: files.map((f) => `📎 ${escapeHtml(f)}`).join("<br/>"),
+      buttonText: copy.buttonText,
+      url: ctx.url,
+    });
+  }
   const intro =
     ctx.reason === "mentioned"
       ? `You were mentioned in ${copy.phrase} by <strong>${sender}</strong>.`
-      : ctx.reason === "edited"
+      : ctx.reason === "replied"
+        ? `<strong>${sender}</strong> replied to your comment on ${copy.phrase}.`
+        : ctx.reason === "edited"
         ? `<strong>${sender}</strong> updated a comment on ${copy.phrase} you're following — here's the latest version:`
         : ctx.reason === "assigned"
           ? `<strong>${sender}</strong> commented on ${copy.phrase} assigned to you.`

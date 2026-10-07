@@ -157,6 +157,8 @@ export function FeatureRequestDetailView() {
                 currentUserName={currentUser.displayName}
                 mentionablePeople={mentionCandidates}
                 onEdit={handleEditComment}
+                onReply={handleAddComment}
+                draftKey={`featureRequest:${requestId}`}
               />
             </div>
           </section>

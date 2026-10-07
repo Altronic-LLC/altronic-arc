@@ -190,8 +190,11 @@ describe("PartFormModal — a component", () => {
     await pick("Description", "Resistor");
     // The meaning replaces the label, as on the old app's form.
     expect(await screen.findByLabelText(/^Resistance/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/^Working voltage/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/^Power/)).toBeInTheDocument();
+    // B is Power and C is Working voltage — the order the data is stored in
+    // (BusinessIT#18), so Power's box comes first.
+    const power = screen.getByLabelText(/^Power/);
+    const voltage = screen.getByLabelText(/^Working voltage/);
+    expect(power.compareDocumentPosition(voltage) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.queryByLabelText(/^Rating A/)).not.toBeInTheDocument();
     // …and follows the Description when it changes.
     await pick("Description", "IC");

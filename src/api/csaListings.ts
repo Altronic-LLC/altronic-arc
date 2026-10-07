@@ -4,6 +4,7 @@ import type { CsaListing, CsaListingInput, GraphListItem } from "@/types/task";
 import { compareCsaListings, toCsaListing } from "@/lib/csaListingMapper";
 import { toSpDateOnly } from "@/lib/spDates";
 import { MOCK_CSA_LISTINGS } from "@/data/csaMockData";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // CSA Listings API — Engineering's CSA product-certification register, on the
@@ -23,14 +24,10 @@ const CSA_SELECT =
 
 let mockStore: CsaListing[] = MOCK_CSA_LISTINGS.map((l) => ({ ...l }));
 
-function delay<T>(value: T, ms = 220): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
-
 /** Every CSA listing, newest certification date first. */
 export async function listCsaListings(): Promise<CsaListing[]> {
   if (USE_MOCK) {
-    return delay([...mockStore].sort(compareCsaListings).map((l) => ({ ...l })));
+    return mockDelay([...mockStore].sort(compareCsaListings).map((l) => ({ ...l })));
   }
 
   const items = await graphFetchAll<GraphListItem>(
@@ -93,7 +90,7 @@ export async function createCsaListing(input: CsaListingInput): Promise<CsaListi
     const nextId = Math.max(0, ...mockStore.map((l) => l.id)) + 1;
     const created = applyInput(emptyListing(nextId), input);
     mockStore = [...mockStore, created];
-    return delay({ ...created });
+    return mockDelay({ ...created });
   }
 
   const created = await graphFetch<GraphListItem>(
@@ -112,7 +109,7 @@ export async function updateCsaListing(
     if (idx < 0) throw new Error(`CSA listing ${id} not found`);
     const next = applyInput(mockStore[idx], input);
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   await graphFetch(
@@ -127,7 +124,7 @@ export async function updateCsaListing(
 export async function deleteCsaListing(id: number): Promise<void> {
   if (USE_MOCK) {
     mockStore = mockStore.filter((l) => l.id !== id);
-    await delay(null);
+    await mockDelay(null);
     return;
   }
 

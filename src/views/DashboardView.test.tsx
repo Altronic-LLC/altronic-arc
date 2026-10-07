@@ -10,6 +10,7 @@ import { MOCK_ECNS } from "@/data/ecnMockData";
 import { MOCK_FAITS } from "@/data/faitMockData";
 import { MOCK_CUSTOMER_NOTES } from "@/data/crmMockData";
 import { MOCK_SUPPLIERS } from "@/data/srmMockData";
+import { MOCK_SCNS } from "@/data/scnMockData";
 import { listProjectFolderEntries } from "@/api/projectFiles";
 
 const mockNavigate = vi.fn();
@@ -21,18 +22,6 @@ vi.mock("react-router-dom", async (importOriginal) => {
 vi.mock("@/hooks/useCurrentUser", () => ({
   useCurrentUser: () => ({ displayName: "Demo User", email: "demo.user@altronic-llc.com", lookupId: 0 }),
 }));
-
-// The Parts List's go-live switch, flipped per test (read at render time).
-const partsLive = vi.hoisted(() => ({ on: false }));
-vi.mock("@/api/config", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/api/config")>();
-  return {
-    ...actual,
-    get PARTS_LIST_LIVE() {
-      return partsLive.on;
-    },
-  };
-});
 
 const TASK_LIST_KEY = ["tasks", "list"] as const;
 const PROJECTS_KEY = ["projects"] as const;
@@ -46,6 +35,7 @@ const ECNS_KEY = ["ecns"] as const;
 const FAITS_KEY = ["faits"] as const;
 const CUSTOMER_NOTES_KEY = ["customerNotes"] as const;
 const SUPPLIERS_KEY = ["suppliers"] as const;
+const SCNS_KEY = ["scns"] as const;
 const FOLDER_ENTRIES_KEY = ["project-folder-entries", "root"] as const;
 
 import { DashboardView } from "./DashboardView";
@@ -66,6 +56,7 @@ async function renderDashboard() {
       { key: FAITS_KEY, data: MOCK_FAITS },
       { key: CUSTOMER_NOTES_KEY, data: MOCK_CUSTOMER_NOTES },
       { key: SUPPLIERS_KEY, data: MOCK_SUPPLIERS },
+      { key: SCNS_KEY, data: MOCK_SCNS },
       { key: FOLDER_ENTRIES_KEY, data: folderEntries },
     ],
   });
@@ -259,6 +250,7 @@ describe("DashboardView — a shipped feature is never a 'Coming soon' card", ()
     { name: /^Customers/i, url: "/sales/customers" },
     { name: /^Suppliers/i, url: "/supply-chain/suppliers" },
     { name: /Cost Impact Notices/i, url: "/supply-chain/cost-impact-notices" },
+    { name: /^SCNs/i, url: "/supply-chain/scns" },
     { name: /Teradyne Log/i, url: "/operations/teradyne" },
     { name: /QC Time Tracking/i, url: "/panels/qc-time-tracking" },
   ];
@@ -294,6 +286,20 @@ describe("DashboardView — a shipped feature is never a 'Coming soon' card", ()
     expect(Number(bigCount(card).textContent)).toBeGreaterThan(0);
   });
 
+  // SCNs count the notices not yet CLOSED or Cancelled, in BOTH scopes — a
+  // notice is Supply Chain's as a whole, so there is no "mine" to narrow to.
+  it("counts the open SCNs, unscoped by Mine/Company", async () => {
+    const user = userEvent.setup();
+    await renderDashboard();
+    const card = screen.getByRole("button", { name: /^SCNs/i });
+    // Mock data: WIP, LTB in process, Customer Phase Out, On Hold are open;
+    // three CLOSED and one Cancelled are not.
+    expect(bigCount(card)).toHaveTextContent("4");
+    expect(within(card).getByText("open")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Company" }));
+    expect(bigCount(screen.getByRole("button", { name: /^SCNs/i }))).toHaveTextContent("4");
+  });
+
   // Customers and Suppliers are description-only cards (Ray, 2026-08-27) —
   // like Open Orders Report and Visit Reports, they explain the tool rather
   // than counting anything, in both dashboard scopes.
@@ -308,28 +314,13 @@ describe("DashboardView — a shipped feature is never a 'Coming soon' card", ()
   });
 });
 
-describe("DashboardView — the Parts List's go-live switch", () => {
-  // Tim, 2026-09-29: deployed for testers (who use the URL) before the
-  // approvers are on Parts Roles — so the card reads Coming soon until
-  // VITE_PARTS_LIST_LIVE is set.
-  it("is a Coming soon placeholder, last in Engineering, until it's live", async () => {
-    partsLive.on = false;
-    await renderDashboard();
-    expect(screen.queryByRole("button", { name: /Parts List/ })).not.toBeInTheDocument();
-    const placeholder = screen.getByTitle("Parts List — coming soon");
-    expect(placeholder).toHaveAttribute("aria-disabled", "true");
-    const section = screen.getByRole("heading", { name: "Engineering", level: 2 }).closest("section") as HTMLElement;
-    expect(section).toContainElement(placeholder);
-  });
-
-  it("is a real card that opens the Parts List once it's live", async () => {
-    partsLive.on = true;
+describe("DashboardView — the Parts List", () => {
+  it("is a real card that opens the Parts List, with no Coming soon placeholder", async () => {
     const user = userEvent.setup();
     await renderDashboard();
     await user.click(screen.getByRole("button", { name: /Parts List/ }));
     expect(mockNavigate).toHaveBeenCalledWith("/engineering/parts");
     expect(screen.queryByTitle("Parts List — coming soon")).not.toBeInTheDocument();
-    partsLive.on = false;
   });
 });
 

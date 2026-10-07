@@ -90,6 +90,37 @@ When adding a new operation (e.g. updating attachments):
 This pattern keeps the mock and real implementations explicit, side by side,
 in one place — easy to compare, easy to keep in sync.
 
+### Mock latency — `mockDelay()`, and why it is zero in tests
+
+A mock branch waits before it answers, so the demo feels like a real network
+(spinners show, optimistic updates are visible). **Use `mockDelay(value)` from
+`src/api/mockLatency.ts` — never a private `delay()` helper.** 47 modules each
+carried their own copy of 40–300ms until 2026-10-01, and the suite waited on
+every one: ~430s of the 672s spent inside test files was mock latency. The
+CMMS API tests (`scheduledMaintenance`, `maintenanceTasks`) took 20s+ each for
+work that takes milliseconds. Making it zero under Vitest cut the local suite
+from ~65s to ~45s.
+
+Three things that go with it:
+
+- **Zero is still a 0ms TIMER, not a bare resolved promise.** A mock call stays
+  asynchronous the way a real one is. Resolving inline was tried first and
+  broke 37 tests on ordering alone; the timer broke 12, all genuine.
+- **A test that needs a write still IN FLIGHT calls `setMockLatency(ms)`** —
+  "the mentioned person shows as a watcher while the comment is still
+  posting", "Uploading…" on screen. Those tests used to pass because every
+  write took 200ms, which was luck, not a contract. `src/test/setup.ts` resets
+  the override after every test (pinned in `mockLatency.test.ts`).
+- **A test that only passed because one query landed AFTER another needs a
+  real wait.** Two were found when the delay went: `ProjectFoldersView` (the
+  mock folder and its project share a title, so the name appears twice once
+  Projects loads) and an edit-mode `ScheduledMaintenanceFormModal` case (the
+  Equipment trigger reads "No asset" until the register loads). Wait for the
+  data you're about to interact with; don't lean on load order.
+
+`graph.ts`'s and `projectFiles.ts`'s `sleep()` are REAL throttle/retry
+backoffs, not mock latency, and are deliberately untouched.
+
 ## Backlog (`BACKLOG.md`)
 
 Queued work that hasn't been picked up yet lives in `BACKLOG.md` at the
@@ -222,10 +253,12 @@ src/
 │
 ├── api/                          All mock/real branches live here (USE_MOCK)
 │   ├── config.ts                 USE_MOCK, SITES registry, every list ID, role-enforcement flags
+│   ├── mockLatency.ts            mockDelay() — the ONE fake round-trip for every mock branch; zero under Vitest
 │   ├── appAccess.ts              Which lists each app needs + site labels (drives the access gating)
 │   ├── accessProbe.ts            One Graph $batch at sign-in: which lists can this user read?
 │   ├── listItemCount.ts          SharePoint's UNTRIMMED item count — "the rows exist, you just can't see them"
 │   ├── graph.ts                  graphFetch / graphFetchAll, throttle retry, ONE shared interactive sign-in
+│   ├── columnChoices.ts          A Choice column's LIVE choices (+ fallback), and withCurrentChoice for pickers
 │   ├── sharepoint.ts             SharePoint REST helper (list-item attachments)
 │   ├── directory.ts              Tenant staff directory (Graph /users) for the pickers
 │   ├── siteUsers.ts              Site user resolution — Graph UIL first, then "ensure user"
@@ -274,12 +307,15 @@ src/
 │   ├── supplierContacts.ts       SRM Tool — Supplier Contacts CRUD + comments + watchers, scoped to a Supplier
 │   ├── supplierIssues.ts         SRM Tool — Supplier Issue Tracker CRUD + comments + watchers, scoped to a Supplier
 │   ├── costImpactNotices.ts      Cost Impact Notices CRUD + comments (Supply Chain, salesTeam site) — no delete
+│   ├── scns.ts                   SCNs — Supply Chain Notices CRUD + comments + watchers (Supply Chain, scn subsite of salesTeam) — DIFFED edits, no delete
+│   ├── scnDocuments.ts           SCN Documents library (the scn subsite's default drive) — list/breadcrumb/create folder/upload/download/rename/delete (recycle bin)
 │   ├── openOrdersFiles.ts        Open Orders SharePoint folder — list/upload/download
 │   ├── openOrdersCustomers.ts    Open Orders managed customer list CRUD
 │   ├── openOrdersRoles.ts        Open Orders role tags (report manager) CRUD
 │   ├── grayMarketRequests.ts     Gray Market Requests CRUD + comments (PMO site) — no delete
 │   ├── mrb.ts                    MRB Data CRUD + comments (PMO site) — DIFFED edits, no delete
 │   ├── featureRequests.ts        ARC Feature Requests CRUD + comments (Engineering site) — no admin gate, no delete
+│   ├── githubIssues.ts           BusinessIT GitHub issues — list/labels/create/append-link + board (Backlog), with the person's OWN token
 │   ├── whereAmI.ts               Where am I? CRUD (Engineering out-of-office calendar)
 │   ├── autoWatch.ts              Shared @-mention → watcher resolution (per-site)
 │   ├── commentMirror.ts          WRITES the comment mirrors — best-effort per target, never throws
@@ -307,10 +343,12 @@ src/
 │   ├── crmMockData.ts            Sample CRM Tool data — customers, contacts, pricing, capacity
 │   ├── srmMockData.ts            Sample SRM Tool data — suppliers, contacts, issues
 │   ├── costImpactMockData.ts     Sample Cost Impact Notices
+│   ├── scnMockData.ts            Sample SCNs — every status and category, one with all three review checklists, one Denied
 │   ├── openOrdersMockData.ts     Sample open order lines + report customers
 │   ├── grayMarketMockData.ts     Sample gray market requests
 │   ├── mrbMockData.ts            Sample MRB entries — live, undecided, and archive rows
 │   ├── featureRequestMockData.ts Sample ARC Feature Requests, spanning all four statuses
+│   ├── businessItIssueMockData.ts Sample BusinessIT issues + labels — one linked, one same-title "possible match"
 │   ├── whereAmIMockData.ts       Sample out-of-office entries (dated from today)
 │   ├── ecnMockData.ts            Sample ECNs (rich-text fields, a revision)
 │   ├── ecnChecklistMockData.ts   Sample ECN checklists — part-way, finished, untouched
@@ -351,11 +389,15 @@ src/
 │   ├── useSupplierContacts.ts    SRM Tool — Supplier Contacts queries, mutations + comments + watchers
 │   ├── useSupplierIssues.ts      SRM Tool — Supplier Issue Tracker queries, mutations + comments + watchers
 │   ├── useCostImpactNotices.ts   Cost Impact Notices queries, mutations + comment thread + intake alert
+│   ├── useScns.ts                SCN queries, mutations (diffed against the cached row), watchers + comment thread
+│   ├── useScnDocuments.ts        SCN Documents folder listing + breadcrumb, create folder, one-at-a-time multi-file upload with progress
 │   ├── useOpenOrdersReports.ts   Parse an extract, generate + upload, download
 │   ├── useOpenOrdersCustomers.ts Customer list + role CRUD (+ useMyOpenOrdersAccess)
 │   ├── useGrayMarketRequests.ts  Gray Market queries, mutations + comment thread
 │   ├── useMrb.ts                 MRB queries, mutations + comment thread (an edit diffs against the cached row)
 │   ├── useFeatureRequests.ts     ARC Feature Requests queries, mutations + comment thread — no admin gate
+│   ├── useBusinessItIssues.ts    BusinessIT issue scan, create + link an existing one (Ray/Tim only; re-reads GitHub before writing)
+│   ├── useGitHubToken.ts         The person's GitHub token, in THIS browser's localStorage (never the bundle)
 │   ├── useWhereAmI.ts            Where am I? queries + mutations
 │   ├── useEcns.ts                ECN queries + mutations (submitter-only notifications, admin-gated delete)
 │   ├── useEcnChecklists.ts       ECN Checklist queries + mutations (no admin gate)
@@ -437,8 +479,10 @@ src/
 │   ├── buildRequestChecklist.ts  Build Request item checklist columns + progress
 │   ├── buildRequestFromTask.ts   Task → Build Request: prefill, carried comments, the DERIVED reverse link
 │   ├── buildRequestProduction.ts The production hand-off rule — button state + the write guard (pure, ONE place)
+│   ├── buildRequestPartProduction.ts A PART's production buttons — readiness, who presses which step, the write guard (pure)
 │   ├── buildRequestAlerts.ts     Production hand-off emails — ready / part done / review / complete (pure)
 │   ├── commentMirror.ts         Mirroring a comment task ⇄ BR ⇄ part: the origin banner + fan-out routing (pure)
+│   ├── commentReplies.ts        Threaded replies — the reply marker in the body, and grouping a thread one level deep (pure)
 │   ├── guestIdentity.ts        Is this address external? One rule, shared with the Power Automate guest flow
 │   ├── operationsTaskMapper.ts   Graph item → OperationsTask
 │   ├── operationsTaskFilters.ts  Pure Operations task filter predicates
@@ -474,13 +518,19 @@ src/
 │   ├── supplierIssueMapper.ts    Graph item → SupplierIssue
 │   ├── costImpactNoticeMapper.ts Graph item → CostImpactNotice, and back
 │   ├── costImpactAlerts.ts       Cost Impact Notice intake alert (new notice → the config list)
+│   ├── scnFields.ts              SCN column descriptors (columns are DATA) — the four internal names that LIE are decoded here
+│   ├── scnMapper.ts              Graph item → Scn, and back (multi-person, multi-choice, the read-only Task List hyperlink)
+│   ├── scnNumber.ts              nextScnNumber() — YYYY-NNNN, a GLOBAL 4-digit sequence since 2024 (legacy 3-digit titles ignored)
+│   ├── scnProjects.ts            SCN Project Reference ⇄ Engineering's Projects — matched by title (it's a text column on another site collection)
+│   ├── scnTasks.ts               SCN Task List hyperlink ⇄ an Engineering task — writes ARC's task URL, recognises it on read
 │   ├── featureRequestAlerts.ts   ARC Feature Request intake + status alerts (pure)
+│   ├── featureRequestIssues.ts   Feature request → BusinessIT issue: who (Ray/Tim), the link marker, matching, the issue body (pure)
 │   ├── grayMarketFields.ts       Gray Market column descriptors (columns are DATA)
 │   ├── grayMarketMapper.ts       Graph item → GrayMarketRequest, and back
 │   ├── mrbFields.ts              MRB column descriptors (field_1…field_23 decoded) + the drifted-choice guard
 │   ├── mrbMapper.ts              Graph item → MrbEntry, and back; the DIFFED write, state + price rules
 │   ├── grayMarketNumber.ts       nextGrayMarketLogNo() — GMR_YYYY-### numbering
-│   ├── grayMarketAlerts.ts      Gray Market intake alert (new request → the config list)
+│   ├── grayMarketAlerts.ts      Gray Market intake alert + the testing/engineering/production change alert (pure)
 │   ├── featureRequestMapper.ts  Graph item → FeatureRequest, and back (RequestedBy single-person trap)
 │   ├── recipientList.ts         Parsing the env-configured recipient lists (shared)
 │   ├── calendarGrid.ts           Shared month-grid maths for every calendar view
@@ -568,10 +618,13 @@ src/
 │   ├── SupplierLogo.tsx              SRM Tool — resolves and renders a supplier's Logo image column
 │   ├── SupplierLogoEditor.tsx        SRM Tool — Change/Remove links over SupplierLogo (detail page only)
 │   ├── CostImpactNoticeFormModal.tsx Raise a cost impact notice
+│   ├── ScnFormModal.tsx              Raise an SCN — Product/Description/Approval Status required, SCN# shown as "will be …"
 │   ├── costImpactAtoms.tsx           Delta-cost chip (increase/decrease/no change)
+│   ├── scnAtoms.tsx                  SCN Status / Category / Approval chips (Supply Chain)
 │   ├── GrayMarketRequestFormModal.tsx  Raise a gray market request
 │   ├── MrbFormModal.tsx          Log an MRB entry (auto-computes Price Per Issue)
 │   ├── FeatureRequestFormModal.tsx  Suggest a new ARC feature — Title/Description/Department/Priority only
+│   ├── FeatureRequestGitHub.tsx  GitHub connect bar + token dialog, per-row issue link / Create issue, confirm dialog
 │   ├── WhereAmIFormModal.tsx     Add/edit an out-of-office entry (+ date range)
 │   ├── ProjectFolderFormModal.tsx  Create a project folder + tag its Project Reference
 │   ├── EcnFormModal.tsx          Raise an ECN
@@ -687,6 +740,9 @@ src/
 │   ├── SupplierIssueRedirect.tsx    Deep-link target for issue-comment emails
 │   ├── CostImpactNoticesView.tsx    Cost Impact Notices list, search + Time of Impact filter (Supply Chain)
 │   ├── CostImpactNoticeDetailView.tsx  One notice — Part/Cost & Impact/Where Used/Notes cards, comments, attachments
+│   ├── ScnsView.tsx              SCNs list — search, status pills, Category/Year filters, sortable headers; cards on a phone (Supply Chain)
+│   ├── ScnDetailView.tsx         One SCN — Notice/Parts/Review/Outcome cards, the three review checklists, sidebar people, comments, attachments
+│   ├── ScnDocumentsView.tsx      SCN Documents library browser (?folder=) — breadcrumb, new folder, upload, Edit in Office, download, rename, delete; sortable, cards on a phone
 │   ├── OpenOrdersView.tsx        Open Orders Report Tool — upload, generate, download
 │   ├── OpenOrdersCustomersView.tsx  The managed customer list (+ import from an extract)
 │   ├── AdminOpenOrdersRolesView.tsx Admin -> Open Orders Roles
@@ -1020,6 +1076,7 @@ single `SP_SITE_ID`.
 | `panelTeam` | ALTRONICPANELTEAM → Panels | `…,fdf31131-2076-4618-923b-a1856e6b0f2a,3eb6cb9c-6535-4c69-a8d7-e90b2f90a9eb` |
 | `salesTeam` | ALTRONICSALESTEAM → Customer Service / Sales (Visit Reports) | `…,dd86bf69-a010-481a-9920-78b079c5ec1e,aa6b9467-3f57-4213-bbd4-60b94403421a` |
 | `salesOrderEntry` | ALTRONICSALESTEAM/OrderEntry (**subsite** of salesTeam — same collection, shares its grant) | `…,dd86bf69-a010-481a-9920-78b079c5ec1e,583688a6-3238-4f79-aed5-8e2d8ce38c41` |
+| `scn` | ALTRONICSALESTEAM/SCN → Supply Chain (SCNs) (**subsite** of salesTeam — same collection, shares its grant, like salesOrderEntry) | `…,dd86bf69-a010-481a-9920-78b079c5ec1e,ca3d027d-afcb-44e9-9d1b-f5cf4b025e80` |
 | `pmo` | Altronic_PMO | `…,915a6183-2b71-4dfd-a8b9-181126dfbe78,3eb6cb9c-6535-4c69-a8d7-e90b2f90a9eb` |
 
 (`…` = `coopermachineryservices.sharepoint.com`.) All granted **read + write**.
@@ -1288,25 +1345,14 @@ views:
 | `/engineering/parts/search` | `PartsListView` — Global Search across both lists |
 | `/engineering/parts/:kind/:id` | `PartDetailView` — `kind` is `part` or `component`; anything else is "not found" |
 
-**It ships HIDDEN behind `PARTS_LIST_LIVE`** (`VITE_PARTS_LIST_LIVE`, in
-`deploy.yml`; Tim, 2026-09-29). The approvers aren't on Parts Roles for
-testing, so until the repo variable is `true` the Dashboard card and the
-Departments entry read **Coming soon**. Both sit LAST in Engineering while
-hidden, because placeholders always do (a Dashboard test enforces it). Every
-route still works, and testers go straight to `/engineering/parts`. **Going
-live is the repo variable plus a redeploy, with no code change.** It hides
-the links only; it is not a permission. `Header` reads the switch once when
-the module loads and the Dashboard reads it at render, which is why the
-Header's live-state test is its own file (`Header.partsListLive.test.tsx`).
-
-**The history follows the same switch.** Until it's live, v0.168.0 in the
-footer's View history shows ONE line, "coming soon". The Parts List's real
-notes live in `PARTS_LIST_CHANGES` in `data/changelog.ts` and replace that
-line once `PARTS_LIST_LIVE` is on. **Until go-live, a new Parts List bullet
-goes into `PARTS_LIST_CHANGES`, not into a new entry's `changes`**, or it
-reaches the history before the screen it describes. Commit messages still
-carry the bullets as usual. Once it's live for good, fold the array back
-into a plain entry and delete the switch.
+**It is LIVE** (Tim, 2026-10-05): a Dashboard card and a Departments menu
+entry like any other Engineering app. It shipped hidden behind a
+`PARTS_LIST_LIVE` switch (`VITE_PARTS_LIST_LIVE`) while testers used the URL
+and the approvers weren't yet on Parts Roles. That switch, and the
+`PARTS_LIST_CHANGES` array that held v0.168.0's notes back until go-live, were
+removed in v0.169.10. **A Parts List change now gets an ordinary changelog
+entry.** Three older entries (v0.168.1, v0.169.2, v0.169.8) read "More work on
+the Parts List" because their real bullets were folded into v0.168.0.
 
 Seven things that are load-bearing:
 
@@ -1328,11 +1374,47 @@ Seven things that are load-bearing:
     of the term**. The guide says outright that "hello & world" does not match
     "helloworld".
   - A query with no `&` is trimmed.
+  - **On the value fields (`range: true`) a term starting with a digit
+    matches only where a number STARTS** (Tim, 2026-10-05): `1uF` finds 1uF,
+    not .1uF / .01uF / 11uF, and `50V` doesn't find 250V. `.1uF` still finds
+    `0.1uF` (a lone leading zero). The identifier fields stay plain
+    substring, so `1018` still finds 701018 — don't widen the rule to them.
+    `fieldQueryMatches`'s `numeric` flag; Search everything is unchanged.
+  - **`*` is a wildcard** (Tim, 2026-10-05). A term holding one is a glob
+    over the WHOLE value (trimmed, case-insensitive): `15k*` starts with,
+    `*50` ends with, `*50*` anywhere, `1*w` both ends. It is ARC's, not the
+    old app's.
+    - The stars override the number-start rule above, so `*50*` finds 250V.
+      Plain `50` still doesn't.
+    - Every other character is literal (`escapeRegExp`), so `1.5*` doesn't
+      match 105K.
+    - In Search everything a wildcard word must match ONE field's value
+      (`rowMatchesAllTokens`). Gluing a glob onto the joined row text would
+      only ever test the first field.
+    - `parsePartsQuery` sends anything with a `*` to Global Search, so the
+      jump box never looks up `701*` as a part number.
+  - **Spaces around a dash don't count** (Tim, 2026-10-05): most rows read
+    "CAPACITOR - CERAMIC", some "CAPACITOR-CERAMIC". `normalizeDashes`
+    collapses `\s*-\s*` (en/em dashes too) on BOTH the query and the value,
+    in the field boxes, wildcards and Search everything. Unlike `&`, where
+    the spaces ARE part of the term. Search everything normalises each value
+    BEFORE joining (`searchEverythingText`), or a leading-dash value like
+    "-55" would glue onto the field before it.
   - "Search everything" (`q`) is token-based across every search field, on
     top of the per-field boxes.
   - Every search is in the URL (`q`, `f.<field>`).
   - Pinned by tests, one of them verified by trimming the `&` terms and
     watching it fail.
+  - **A search on a component list covers its whole CATEGORY** (Tim,
+    2026-10-02): from 701, 711 or 712 it searches all three, from 601 or 611
+    both; 722 is alone. The old app held each category as ONE list ("Surface
+    Mount Parts", "Through Hole Parts"), so that's what a search there found.
+    `componentSearchPrefixes` is the rule; `PartsTable`'s `searchRows` is the
+    wider pool, used only while ANY box holds something (`widened`) — browsing
+    with no search still shows just the list. Counts, the empty states and the
+    range panel's "no number here" count all read that pool, and the count
+    line says "in lists 701, 711 and 712". Verified by disabling `widened` and
+    watching five tests fail.
 - **The jump box never dead-ends** (`parsePartsQuery`):
   - one digit opens a book;
   - three digits open a list;
@@ -1375,7 +1457,25 @@ reads "Type (Li3 lithium)", as the old app has it; the guide's PDF text said
 CERAMIC"), the longest match wins, and an `OBSOLETE -` or `SIL CAT n -`
 prefix is ignored. An unknown type keeps the generic names rather than
 guessing.
-- The list table keeps "Rating A/B/C", because one list mixes types.
+- **A Resistor's B and C are the REVERSE of the guide** (BusinessIT#18,
+  2026-10-05): B = Power, C = Working voltage. The guide says the opposite,
+  but 872 of the 1,016 live resistors hold power in B and voltage in C
+  ("681R / 250mW / 200V"), so labelling by the guide put "Working voltage:
+  250mW" on most of them. 40 were entered the guide's way round — 37 of them
+  recently, following the old labels — and were swapped on 2026-10-05 with
+  Brandon's agreement by `scripts/swap-resistor-rating-bc.ps1` (which only
+  touches a row still holding its as-found values, and has `-Undo`). **Check the live data before trusting the guide on any other row**:
+  the guide describes intent, the data is what's on the page.
+- The list table says "Rating A/B/C", because one list mixes types —
+  **until every matching row agrees** on what a column means (Tim,
+  2026-10-05). Searched down to resistors, the headers read "Resistance (A)",
+  "Power (B)", "Working voltage (C)". `sharedRatingLabels` decides it PER
+  COLUMN from rows holding a value there (a blank contradicts nothing), and
+  any unknown type keeps the column generic. It reads `table.rows` — every
+  match after column filters, NOT the 150 rendered — so row 151 can't
+  contradict a header. The letter stays in the name so it still lines up
+  with the search panel's "Rating A" box and `f.ratingA` in the URL; those
+  boxes deliberately keep their generic names.
 - The detail page shows "Rating A" beside its meaning.
 - **The New Part form uses the meaning AS the label** ("Resistance", not
   "Rating A"), and it changes as the Description is picked, like the old
@@ -2687,6 +2787,29 @@ dropped from the email** — a new request is mostly empty by design, since
 purchasing, engineering and inspection fill their own stages in later, and a
 grid of dashes reads as a fault.
 
+**A change to Testing Required, or to anything on the Engineering or
+Production cards, emails `GRAY_MARKET_CHANGE_ALERTS` + the request's
+watchers** (Katie Fleming via BusinessIT#20, 2026-10-06: "at minimum, Alex
+needs notified"; Ray added the watchers). `grayMarketAlertChanges` +
+`buildGrayMarketFieldChangeEmails` in `lib/grayMarketAlerts.ts`, wired in
+`useUpdateGrayMarketFields`. Four things that are load-bearing:
+
+- **It compares ROWS, not the PATCH** — the row as it stood BEFORE the
+  optimistic patch (captured in `onMutate`; by `onSuccess` the cache already
+  shows the new value) against the row SharePoint hands back. So a card
+  re-saved unchanged sends nothing, whatever the caller sent. The hook test
+  was verified by breaking the before-capture and watching it fail.
+- **The watched set is DATA**: `ALERT_SECTIONS` reads `section` off
+  `GRAY_MARKET_FIELDS`, so a field added to either card is covered with no
+  edit here. Testing Required (`ProductionTest`) sits outside the cards and
+  is listed by hand.
+- **Two actor rules**: the configured list drops the actor only if somebody
+  is left (`withoutActorUnlessEmpty`); watchers drop the actor strictly.
+  De-duped by lower-cased email across both.
+- **Its OWN env var**, `VITE_GRAY_MARKET_CHANGE_ALERTS` (default Alexandra
+  Russell), not the intake list — re-pointing one must not re-point the
+  other. In `deploy.yml` and `AdminNotificationRecipientsView`'s `LISTS`.
+
 **`Testing Required` is NOT required on create** (Ray, 2026-08-23) — whether
 testing is needed is decided later in the workflow. The pills carry a "Not set"
 option, and `buildGrayMarketCreateFields` OMITS `ProductionTest` when it's
@@ -3261,6 +3384,283 @@ site user lookupId is per site collection, so sharing them naively would have
 written a wrong (or non-existent) user into the person columns on Operations,
 Panels and Gray Market. `resolveLookupId` is therefore a **required
 parameter** — a new caller has to say which site it means.
+
+### SCNs — Supply Chain Notices (Supply Chain, ALTRONICSALESTEAM/SCN subsite)
+
+`1d7401c5-1751-430c-a0ab-38991f07120a` (env `VITE_SP_SCNS_LIST_ID`, with that
+value as the documented default — it gates nothing) on **`SITES.scn`**, a NEW
+registry entry: the **SCN subsite of ALTRONICSALESTEAM**
+(`https://coopermachineryservices.sharepoint.com/sites/ALTRONICSALESTEAM/SCN`,
+env `VITE_SP_SCN_SITE_ID` / `VITE_SP_SCN_SITE_URL`). It is a **subsite of
+`salesTeam`** — same site collection `dd86bf69-…`, so it **shares salesTeam's
+`Sites.Selected` grant** exactly as `salesOrderEntry` does, and `scn →
+salesTeam` is in `SITE_PARENTS` so a refused salesTeam locks it too. A
+**Supply Chain** feature on a Sales-site list (Ray, 2026-10-07: "This should
+be under SUPPLY Chain for now"), the same arrangement as Gray Market Requests
+on PMO and Cost Impact Notices on salesTeam. Discovered live 2026-10-07 —
+`scripts/scn-dashboard-schema.json` is the snapshot (`discover-list.ps1`
+gained an `scn` site for it). **That snapshot is GITIGNORED**
+(`scripts/*-schema.json`), so the `scnFields` / `scnMapper` tests INLINE the
+live column list and a sample row rather than importing it — an import passes
+locally and fails the deploy, the `buildRequestItems.multiChoice.test.ts`
+lesson. Re-run the script if the columns change.
+
+**The display name and the URL name have drifted.** The list is called **SCN
+Dashboard** and its URL segment is `Progress tracker list`. Match it by id,
+never by URL name — `discover-list.ps1` matches on display name, URL name OR
+the webUrl's trailing segment for exactly this reason.
+
+An SCN records a product or part being **obsoleted** (`OBS`), **phased out**,
+raised as an **EECR**, or plainly notified: what it is, which part numbers it
+covers, the reviews done against the master list / price list / where-used /
+sales history, and the outcome (final disposition, LTS / LTB dates).
+
+**The columns are DATA** (`src/lib/scnFields.ts`), the Gray Market shape — one
+descriptor table drives the mapper, `$select`, write payload, the four detail
+cards (Notice → Parts → Review → Outcome), the create form and `FieldEditModal`.
+The main reason that table exists: **four internal names say the wrong thing**.
+
+| Internal name | Actually is |
+|---|---|
+| `Progress` | **Product** — the product name, set on all 142 rows; nothing to do with progress |
+| `Priority` | **Category** — a choice of `OBS` / `PHASE OUT` / `EECR` / `Notification`; nothing to do with priority |
+| `PartsEffected` | **Old Number** — the superseded part number(s), often several, one per line |
+| `EOLExpires` | **LTS Expires** — the last-time-SUPPORT date, paired with `LTBExpires` |
+
+Also: `Title` is the **SCN#** (app-generated, never typed — below);
+`CustomerRef_x0023_` is "Customer Ref#"; `Sign_x002d_off_x0020_status` is
+"Sign-off status"; `Task_x0020_List` is "Task List". **Every label comes from
+`SCN_FIELDS`**, never a string typed into a view, so the list, the cards, the
+form and the edit modal can't call one column two things.
+
+Nine things that shape this feature:
+
+- **Three MULTI-choice columns, all `displayAs: checkBoxes`** — `ProjectStatus`
+  (Immediate Phase Complete / Analysis Phase Complete / Inventory Mgmt Phase
+  Complete / Final Obsolescence Complete), `PreliminaryReviews` (Master List /
+  Price List / Where Used Reviewed, Service Team Review Completed) and
+  `SecondaryReview` (Service / Master List / Price List / Sales History Review
+  Completed). Graph reports all three as `type: "choice"`, SINGULAR, and the
+  live rows carry ARRAYS — the Build Request Items trap exactly. They are
+  written through `annotateMultiChoiceFields` with the `Collection(Edm.String)`
+  annotation and cleared with an annotated `[]`, never `null`; a bare array is
+  a bare `400 invalidRequest` naming no field (see "A MultiChoice column needs
+  the annotation"). They RENDER as **checklists of four boxes** — these are
+  progress checklists, like the Build Request item checklists, not Yes/No
+  questions, so they are deliberately not `ChoicePills`. Pinned in real mode
+  (`USE_MOCK: false`) on all three columns, since none of this is visible from
+  the mock branch.
+- **Three MULTI-person columns** — `AssignedTo` (45 set, 3 with more than one
+  person), `Owner` (135 set, 2 with more than one) and `Watchers`. All three
+  go through `multiPersonField` (the two-key `Collection(Edm.Int32)` shape),
+  and the people are resolved **against the salesTeam COLLECTION ROOT, not
+  `SITES.scn`** — `resolvePeopleLookupIds(SITES.salesTeam, SP_SCN_SITE_URL,
+  people)`. A lookupId is per site collection and the hidden User Information
+  List lives on the collection's root web; a subsite has none of its own to
+  read. So the Graph-first half asks the root's directory and the `ensureuser`
+  fallback hits the SCN subsite's own REST root (the `customerNotes.ts` shape,
+  which reads no directory at all). `useCurrentUser()` resolves against
+  Engineering (see "A lookupId is valid on ONE site"), so every incoming id is
+  re-resolved by email. **Not verified live yet** — one real-mode write and a
+  read-back is the check. Because all three columns are MULTI-value, Graph
+  expands them in full on read and `parsePersonField` handles it — there is NO
+  `User #n` attach step here, unlike the single-person lists. Comments follow
+  the FULL house rules — `commentNotifyRecipients` with assignees =
+  AssignedTo ∪ Owner, `autoWatchFromMentions` against
+  `resolveScnSiteUserLookupId`, and `autoWatchers()` on create so the creator,
+  assignees and owners start out watching.
+- **`Communication` and `Watchers` EXIST but were EMPTY on every one of the
+  142 rows.** Graph reports `appendChangesToExistingText: false` on
+  Communication, which is the right answer — but Graph said the same of FAIT's
+  column while the setting was genuinely ON (and wiped FAIT 89's thread), and a
+  PATCH correcting it is accepted without changing anything. So **verify
+  BEHAVIOURALLY before trusting a real-mode thread**: post two comments on one
+  SCN and confirm the second REPLACES the stored value rather than doubling it.
+  Not yet done at the time of writing.
+- **Dates are stored at 22:00Z / 23:00Z** — local midnight in the site's
+  regional timezone, summer and winter, the same tenant quirk as Visit Reports
+  and Gray Market. `EOLExpires` (LTS Expires), `LTBExpires` and
+  `FixtureReview` are date-only; the shared `parseSpDateOnly` midday pivot
+  reads them and `toSpDateOnly` writes them, through `DateField` only. Only
+  two rows held an LTS date at discovery and none held the other two.
+- **`Task_x0020_List` is a HYPERLINK column, and it is the SCN's ENGINEERING
+  TASK** (Ray, 2026-10-07: "task should be a choice from SCN based on
+  engineering tasks"). A lookup is impossible — the Project Task List is in
+  another site collection — so the right panel's **Engineering task** picker
+  offers every Engineering task and `setScnTask` writes the hyperlink itself:
+  `{ Url: <the task's ARC URL>, Description: <its numbered title> }`
+  (`lib/scnTasks.ts`). That reads correctly in SharePoint's own views, and
+  `linkedScnTaskId` recognises ARC's own links to route them in-app. Three
+  rules: it is **its OWN PATCH**, never folded into another write — a Hyperlink
+  column is the fragile kind, and a refusal must cost only the link (the
+  EIRReference lesson); it is **never in the create POST** (Hyperlink columns
+  400 at creation), so the New SCN form doesn't offer it; and **the 38 legacy
+  Planner links are left alone** until somebody picks a task for that SCN —
+  they still show, as an external "Planner:" link under the picker.
+- **`ApprovalStatus` is REQUIRED on create** (`Approved` / `Denied` — 139 /
+  3). SharePoint refuses a blank, so the New SCN form's pills carry NO "Not
+  set" option and validation catches the empty — the Cost Impact `TimeofImpact`
+  arrangement. Two options → pills, per the ≤3 rule. `Priority` (Category) has
+  four options, so it is a `ChoiceSelect`, not pills.
+- **`Sign-off status` is FREE TEXT holding NAMES** — "David Bell", "Keith
+  Brooks/David Bell", "Pending". It is kept as a plain text field. **Do not
+  invent a choice list for it**: there is no column behind one, and the values
+  are whoever signed, as typed.
+- **`ProjectReference` is a plain TEXT column, filled from ENGINEERING's
+  Project References** (Ray, 2026-10-07). It can't be a lookup — the Projects
+  list (`6280c711-…`) is on Altronic_Engineering, another site collection — so
+  ARC offers the Projects list as a choice and stores the project's TITLE
+  (`lib/scnProjects.ts`, the `project: true` descriptor flag). The match back
+  to a project is by title, case-insensitive; a project renamed after it was
+  picked stops matching, still shows as text, and stays in the picker marked
+  "(not an Engineering project)" so a save can't silently clear it. No FK on
+  the About diagram, since nothing in SharePoint enforces it. Picked on the New
+  SCN form and in the right panel (saves on pick).
+- **Project Reference and the Engineering task live in the RIGHT PANEL, not
+  on the Outcome card** (Ray, 2026-10-07) — both are `section: "Sidebar"`, so
+  no card or card editor renders them.
+  `Notes` is a running dated log people type into (118 rows) and stays a plain
+  textarea; `Description` is set on every row and holds no HTML.
+- **`YEAR` is a text column ARC writes on create**, derived from the SCN#, and
+  it drives the list's Year filter. `createdBy` / `createdDateTime` come from
+  Graph's item level and show as "Raised by".
+
+**Numbering — `nextScnNumber()` in `lib/scnNumber.ts`.** The live titles
+tell the whole story: `2020-001 … 2020-022`, `2021-001 … 2021-007`, `2022-001 …
+2022-016`, `2023-001 … 2023-012` — a THREE-digit sequence that restarted each
+year — then from 2024 a **GLOBAL running sequence padded to FOUR**: `2024-0064
+… 2024-0094`, `2025-0095 … 2025-0127`, `2026-0128 … 2026-0148`. The rule for a
+new number is `${currentYear}-${pad4(max 4-digit sequence seen across ALL
+titles + 1)}`: only titles matching `^\d{4}-(\d{4})$` feed the max, so the
+legacy 3-digit per-year numbers are IGNORED rather than mis-read as a sequence
+that would make the next number `2026-0023`. With no 4-digit title at all it
+starts at `0001`. Pure and tested, the `nextEirNo` / `nextGrayMarketLogNo`
+shape — including their caveat that two people creating in the same second
+can land on the same number. The create form shows the number it will get as
+read-only text; Title is never in a PATCH.
+
+**Edits are DIFFED against the row the edit started from** —
+`useUpdateScnFields` takes `{ id, patch }` only; it captures the pre-patch row
+in `onMutate` (a WeakMap keyed on the variables object, falling back to
+`getScn(id)` when the row isn't cached) and `updateScnFields(id, changes,
+previous)` sends only the columns that changed, the Visit Reports / MRB
+mechanism. Nothing changed → nothing sent, `previous` returned. Two of the 142 rows carry a blank
+Category and `Priority` is `allowTextEntry: false`, so re-sending everything
+blind is how a save on an unrelated card gets refused for a column nobody
+touched.
+
+**The list opens on OPEN SCNs, not All** — 128 of the 142 live rows are
+CLOSED, so opening on everything buries the work. An absent `status=` means
+Open (not CLOSED / Cancelled; a blank status counts as open), `?status=All` and
+each single status are pills, and the counts on the pills are over the set
+filtered by the OTHER axes. `isOpenScn` / `SCN_CLOSED_STATUSES` in
+`components/scnAtoms.tsx` is the ONE definition of "open", shared by the chip,
+the Open pill and the Dashboard card's count, so they can't disagree. The
+Dashboard card is `cooper-green`, shared with Suppliers: the Supply Chain
+section's five cards already use all four tones, and green pairs SCNs with the
+SRM tool — who supplies us, and what they tell us is going obsolete. The card
+shows a COUNT (it is a work queue), not a description — `TypeCard` renders one
+or the other.
+
+**No delete**, in the UI or the module — an SCN is a controlled notice of what
+was decided about a part, the same call as Gray Market, FAIT and Cost Impact.
+One that no longer applies has its `SCNStatus` set to `Cancelled` (3 rows are).
+`scns.test.ts` asserts the module exports nothing matching /delete|remove/.
+
+**No role gating** (Ray didn't specify per-field roles) — any signed-in user
+can raise, edit, comment and watch. SharePoint's list permissions remain the
+real boundary. No intake alert either; nobody asked for one. The generic
+`fireFieldChangeAlert` on an `SCNStatus` change reaches watchers plus
+AssignedTo ∪ Owner, with `to !== from` as the guard.
+
+**The data at discovery**: 142 rows, fetched WHOLE and filtered in the browser
+(far under the 5,000-item threshold — it grows ~20 a year). SCN Status: 128
+CLOSED, 3 WIP, 5 Customer Phase Out, 2 LTB in process, 1 On Hold, 3 Cancelled;
+a new SCN defaults to `WIP`. Category: 134 OBS, 6 PHASE OUT, 2 blank. 71 rows
+have attachments (kind `scn` in `api/attachments.ts`). The list renders 150
+rows with "Show all"; filters, pill counts and the Year filter always run over
+everything. On a phone it is cards (`sm:hidden` + `hidden sm:block`, the MRB
+shape — jsdom renders both, so tests use `getAllBy*`).
+
+**The older "SCN LOG" list is deliberately OUT OF SCOPE.** Its snapshot
+(`scripts/scn-log-schema.json`) was taken alongside; it is a legacy log, 40 of
+its 98 titles overlap the Dashboard, and wiring it would put two registers of
+the same notices in front of people. Don't wire it without a decision.
+
+#### SCN Documents library
+
+Ray, 2026-10-07: from SCNs, "access the documents folder… create subfolders,
+see subfolders, edit files, add files directly in ARC". `ScnDocumentsView` at
+`/supply-chain/scns/documents`, linked by a **Documents** button on both the
+SCNs list header and an SCN's detail page. Pieces: `api/scnDocuments.ts`,
+`hooks/useScnDocuments.ts`, `views/ScnDocumentsView.tsx`.
+
+- **The library is the DEFAULT drive of `SITES.scn`** ("Documents", live
+  2026-10-07 — root holds ARCHIVE, EECR, General, Inventory Review Reports, LTB
+  Analysis, SCN, Single Use Reports and four loose files; the mock mirrors it).
+  Every URL is `/sites/{SITES.scn}/drive/…`, the shape `lib/listAccess.ts`
+  reads as a DRIVE refusal, and the screen has its OWN `APPS` entry
+  (`needsDrive: true`, no lists) so a refused library locks it — and only it;
+  the SCN list is unaffected. Without that entry `appForPath` resolves the
+  route to SCNs.
+- **The folder is `?folder=<driveItemId>`** (absent = root), so Back, a refresh
+  and a shared link land in the right place. The breadcrumb reads the folder
+  ONCE for its `parentReference.path` (ancestor NAMES), then resolves each
+  ancestor's id by path in parallel — cheaper than walking up one dependent
+  request at a time.
+- **Edit = the file's `webUrl` in a new tab.** For Office files
+  (docx/xlsx/pptx/doc/xls/ppt) that is Word / Excel / PowerPoint for the web,
+  which edits the file IN PLACE in SharePoint — nothing to upload back. The
+  button says "Edit in Office" for those and "Open" for anything else.
+- **Download goes through the item's pre-authenticated
+  `@microsoft.graph.downloadUrl`** (the Open Orders arrangement), never the
+  webUrl — a background fetch of a SharePoint page carries no sign-in on a
+  phone. Not Graph's `/content` through `graphFetch` either: that helper reads
+  the body as text and would corrupt a binary.
+- **Conflict rules — nothing is ever overwritten.** A new folder POSTs with
+  `conflictBehavior: fail`, and a 409 becomes "A folder called X already exists
+  here."; names are checked client-side first (`scnFolderNameProblem`:
+  `" * : < > ? / \ |`, leading/trailing space or full stop). An upload goes
+  through the shared `uploadToDriveTarget` (chunked above 4 MB, 250 MB cap)
+  with `rename`, so a second "SCN FLOW.pdf" lands as "SCN FLOW 1.pdf".
+- **Several files upload ONE AT A TIME** with per-file progress; one failure
+  doesn't stop the rest, and each failure is toasted through
+  `describeListWriteFailure`.
+- **Rename and delete — any signed-in user, no admin gate** (Ray,
+  2026-10-07: "Go ahead and allow delete and rename"). SharePoint's own library
+  permissions are the boundary, as for upload and new folder; a refusal goes
+  through `describeListWriteFailure` with `permission: "editing"` (rename) or
+  `"deleting"` (delete). Both buttons sit on every row, table AND phone card.
+  `scnDocuments.test.ts` used to assert NO delete/rename export; it now asserts
+  EXACTLY `deleteScnDocument` + `renameScnDocument` — inverted deliberately.
+  - **Delete = `DELETE /drive/items/{id}`, which MOVES the item to the SCN
+    site's recycle bin** — a folder together with its contents — restorable
+    for 93 days. There is no permanent delete in ARC. **A 404 resolves** (it's
+    already gone, which is what was asked for); anything else throws.
+  - **The confirm names the item. A folder that still holds items says how
+    many (`childCount`) and needs its name typed back**, exact and
+    case-sensitive (the Parts List delete pattern); a file or an EMPTY folder
+    is a plain confirm. Not optimistic: the row stays until SharePoint answers,
+    and a refusal refetches.
+  - **Rename = `PATCH /drive/items/{id}` with `{ name,
+    "@microsoft.graph.conflictBehavior": "fail" }`** (fail is also Graph's
+    PATCH default). A 409 becomes "A file or folder called X already exists
+    here." — never a silent replace or "X 1". A name case-sensitively EQUAL to
+    the current one sends nothing; a case-only change IS sent. Names are
+    checked first by `scnItemNameProblem(name, "file" | "folder")`
+    (`scnFolderNameProblem` remains as the folder wrapper).
+  - **A FILE's rename pre-selects only the STEM**, so typing keeps
+    `.docx`; changing or dropping the extension shows a warning ("Changing the
+    extension can stop the file opening") but is allowed. Escape closes the
+    dialog and stops there (the house rule).
+  - **A rename keeps the drive-item id**, so ARC's `?folder=` links survive it;
+    a SharePoint link pasted into an SCN comment by PATH does not. Both writes
+    invalidate EVERY `scn-documents` listing and `scn-documents-path`
+    breadcrumb, since a renamed folder is a crumb in every breadcrumb below it.
+- **Caveat:** a 403 on a WRITE (creating a folder, say, by somebody with
+  read-only access) flows through the global MutationCache learner like every
+  other refused write, and marks the drive denied for the session — "Check
+  again" clears it.
 
 ### QC Time Tracking (Panels, panelTeam site)
 
@@ -4866,8 +5266,61 @@ SharePoint.** `Ready for Production` / `Production Complete` (request) and
 `buildRequestMapper.ts` CLAMPS a status read to `BUILD_REQUEST_STATUSES` /
 `BUILD_REQUEST_PART_STATUSES` in `types/task.ts` — so a value missing from
 those arrays reads as nothing, and the button could never see a part reach
-the status it waits on. Both arrays now carry them; keep them in step with
-the SharePoint choice lists.
+the status it waits on. Both arrays now carry them.
+
+**Request Status and Part Status are no longer clamped or hardcoded** (Ray,
+2026-10-05: both pickers had drifted from SharePoint). They read the columns'
+LIVE choices — `listBuildRequestStatusChoices` (BRStatus) and
+`listBuildRequestPartStatusChoices` (Part_x0020_Status), both through
+`readColumnChoices` in `api/columnChoices.ts` — and the mapper keeps whatever
+string a row holds, so a status added in SharePoint appears with no deploy.
+That covers the detail-page picker, the part card's picker, the Build
+Requests list's status pills and the Dashboard card's bar.
+
+- `BUILD_REQUEST_STATUSES` / `BUILD_REQUEST_PART_STATUSES` are now only the
+  FALLBACK (mock mode, or the column can't be read).
+- `withCurrentChoice` keeps a record's current value in its picker (and its
+  pill) if SharePoint stops offering it, so a save can't silently change it.
+- A status with no colour in `buildRequestAtoms` / `BUILD_REQUEST_BAR_COLOR`
+  renders the neutral grey — add a colour there if a new one matters.
+- The production hand-off still keys off the exact strings `Ready for
+  Production` / `Production Complete`; renaming those in SharePoint breaks it.
+
+#### A part's status moves through BUTTONS, not a dropdown
+
+Ray, 2026-10-05. The part card's Part Status dropdown is gone; production
+buttons sit above **Print part**, with a note under them.
+`lib/buildRequestPartProduction.ts` is the ONE place the rules live, asked by
+the card (`partProductionState`) AND inside `useUpdateBuildRequestItemFields`
+(`partStatusTransitionRefusal`, decided in `onMutate` against the pre-patch
+row, thrown from `mutationFn` — the request-level guard's pattern).
+
+| Part status | Buttons | Who |
+|---|---|---|
+| anything before production | **Mark as Ready for Production** (bright red) | anyone, once the part is READY |
+| Ready for Production | Mark as In Production | production approver |
+| In Production | Put On Hold · Mark as Production Complete | production approver |
+| On Hold | Mark as In Production · Mark as Production Complete | production approver |
+| Production Complete | none | — |
+
+- **READY** = every checklist box ticked for a PCB or Harness part; for any
+  other part, Part Number, Qty (> 0), Part Description, Part Type and
+  Disposition all filled in. A checklist part is judged on its checklist only.
+- **The production approver** is the request-level Production Complete
+  approver — `isProductionApprover` (Amanda Hoagland via
+  `BUILD_REQUEST_PRODUCTION_COMPLETE_APPROVERS`, or an ARC admin). Marking a
+  part Ready is NOT role-gated.
+- **"In Production" must be a choice on the SharePoint Part Status column.**
+  It's a strict Choice, so a value it doesn't declare is refused; the card
+  reads the live choices and greys the step with that reason rather than
+  failing on press.
+- **In Production counts as past Ready** for the request's step 1
+  (`READY_PART_STATUSES`). On Hold deliberately does NOT — it predates this
+  workflow as a pre-production status on older parts.
+- A greyed button is `aria-disabled` with its reason printed on screen, never
+  `disabled` (the EIR At Risk pills lesson).
+- Statuses outside the workflow (Review Checklist, Information Needed) are no
+  longer settable from ARC; set them in SharePoint if needed.
 
 **Four alerts**, pure builders in `lib/buildRequestAlerts.ts`, sent through
 `notifyChangeEmails` from `api/email.ts`, wired in the build request hooks:
@@ -5017,6 +5470,77 @@ Four things that shape this feature:
   genuine assignee-style field in `requestedBy`), `autoWatchFromMentions`
   against `resolveCurrentUserLookupId` (Engineering site), and
   `autoWatchers()` on create so the requester starts out watching.
+
+#### Turning a request into a BusinessIT GitHub issue (Ray and Tim only)
+
+Tim, 2026-10-06. Ray and Tim both work the private **Altronic-LLC/BusinessIT**
+repo and its **Business IT Tasks** Projects (v2) board (#8,
+`BUSINESS_IT_PROJECT_ID` in `config.ts`). The Feature Requests list shows them
+a **GitHub** column: the issue already tracking each request (a link that
+opens GitHub), or **Create issue**. Pieces: `lib/featureRequestIssues.ts`
+(pure), `api/githubIssues.ts`, `hooks/useBusinessItIssues.ts`,
+`hooks/useGitHubToken.ts`, `components/FeatureRequestGitHub.tsx`.
+
+Ten things that are load-bearing:
+
+- **Each person's OWN GitHub token, kept in their browser's localStorage —
+  never a token in the bundle.** ARC is public JavaScript on GitHub Pages, so a
+  shared token there would be anybody's (the Power Automate flow URL
+  reasoning). A personal token also makes GitHub the real permission
+  boundary. api.github.com answers CORS for any origin, so no backend is
+  needed. Fine-grained token: owner Altronic-LLC, BusinessIT repo, Issues R/W,
+  org Projects R/W; classic: `repo` + `project`.
+- **The link lives in the ISSUE, not SharePoint.** Every created issue carries
+  `<!-- arc-feature-request:<id> -->` plus a visible ARC link, and
+  `featureRequestIdsInIssue` reads either — so a hand-made issue pasting the
+  ARC link is recognised too. No column to keep in step. `(?!\d)` keeps
+  request 12 from matching a link to 123.
+- **Issues are LISTED, not searched.** The search API lags new issues by up to
+  a minute, so a just-created issue would scan as missing and be created
+  twice. The repo is small; one paged list per load, shared by every row.
+- **`mutationFn` re-scans FRESH before creating** and returns the existing
+  issue (`alreadyExisted`) instead of making a second — the cached scan can be
+  two minutes old and Ray and Tim can both be on the same request. Verified by
+  removing the check and watching the hook test fail.
+- **A likely match is only "Similar" until somebody presses Link.** Issues
+  #1–#15 were raised by hand before this existed: REWORDED "ARC: …" titles, a
+  `**Requested by:**` line, no ID or link — so the first, exact-title version
+  found one of fifteen (Tim, 2026-10-06). `issueMatchScore` uses three
+  signals: title words in common, the request's description words found in
+  the issue, and the issue's "Requested by" naming the requester. An issue
+  already linked to ANY request is never a candidate. **Link** (in the confirm
+  dialog) appends `linkedIssueFooter` to the issue body as it stands NOW,
+  which turns the guess into an exact match for good. It refuses an issue
+  linked to a different request.
+- **New issues are titled `ARC: <request>`** (never doubled) and **set to
+  Backlog** on the board: `addProjectV2ItemById`, then
+  `updateProjectV2ItemFieldValue` with `BUSINESS_IT_STATUS_FIELD_ID` /
+  `BUSINESS_IT_BACKLOG_OPTION_ID` (read live 2026-10-06; recreating the
+  option on the board changes its id).
+- **The link stored in an issue is `ARC_PRODUCTION_URL`, not `appItemUrl`.**
+  The latter uses the current origin, so an issue created from the dev server
+  linked to `localhost:5173` (BusinessIT #28).
+- **Labels are asked for only if the repo has them** (`labelsForFeatureRequest`
+  against `listBusinessItLabels`) — there is no `dept: Panels` yet, and an
+  invented label is clutter.
+- **Issue Status (the column after Status) is the BOARD's Status, read from
+  the project items** (`listBusinessItBoardStatuses`, GraphQL, paged), keyed
+  by issue number, filtered to BusinessIT issues. It is its OWN query
+  (`BUSINESS_IT_BOARD_KEY`), so a token lacking Projects permission still
+  shows which issues exist — only this column reads "Unknown". Status names
+  are shown as GitHub has them, so a new board column needs no code change.
+  "Not on board" / "Closed" are said in words rather than a dash, which would
+  read as "not linked".
+- **The board add (and Backlog) is best-effort.** The issue is real by then,
+  so a refused board write (token lacks Projects) TOASTS and the issue still
+  shows. GraphQL answers 200 with an `errors` array for a refusal, so the body
+  is checked.
+
+The gate is `FEATURE_REQUEST_ISSUE_MANAGERS` (hard-coded Ray + Tim, like the
+EIR Project Reference editors), asked by the view AND in the `mutationFn`. In
+mock mode the demo user counts, and the API's mock branch serves
+`businessItIssueMockData.ts`. Nobody else's browser ever calls GitHub — the
+scan query is disabled unless the person is a manager with a token.
 
 Three things the post-build review caught, fixed before it shipped:
 
@@ -6899,6 +7423,54 @@ Two older files still use the one-line form and pass only because their
 mocks don't throw when called bare: `accessProbe.hiddenRows.test.ts` and
 `useCommentOriginLink.test.tsx`.
 
+### act() warnings — the suite has none, keep it that way
+
+The CI log carried 252 "not wrapped in act(...)" warnings across 18 files
+until 2026-10-02. All tests passed; the warnings were noise that would hide a
+real one. They're worth getting right before a React 19 upgrade, because 19
+is stricter about act.
+
+**You probably can't see them locally.** Vitest 4 notices it's running under
+an AI agent and switches to a quiet reporter that drops console output from
+passing tests. A test that deliberately updates state outside act printed
+nothing. To see what CI sees, run without `.env.local` (move it aside) and
+with:
+
+```
+npx vitest run --reporter=default --silent=false
+```
+
+Five patterns caused all of it:
+
+- **`await result.current.mutateAsync(...)` in a renderHook test.** Wrap it:
+  `await act(() => result.current.mutateAsync(...))`. `act` returns the
+  callback's value, so `const out = await act(() => …)` works.
+- **An act() that REJECTS.** `await expect(act(() => call)).rejects…` keeps
+  React 18's act queue set after the rejection. Every later update in that
+  test (inside `waitFor` too) then warns "the current testing environment is
+  not configured to support act". Put the assertion INSIDE the act:
+  `await act(() => expect(call).rejects.toThrow(...))`. The act then resolves
+  and cleans up.
+- **Resetting a module-level store in the file's own `afterEach`**
+  (`clearAccessDenials`, `resetSessionExpired`). The file's `afterEach` runs
+  BEFORE the setup file's `cleanup()`, so the reset re-renders everything
+  still mounted, outside act. One reset in DashboardView.access caused 58
+  warnings, one per card. Call `cleanup()` first, then reset.
+- **A bare DOM call**, such as `form.requestSubmit()` or `button.click()`.
+  Wrap it in `act()`, or use `userEvent`, which already does.
+- **Reading the mock store right after a save while the component is still
+  mounted** (`await listScheduledMaintenance()` once `onClose` has fired).
+  React Query is still telling the component its mutations settled, and those
+  re-renders land during the bare await. Do the read inside act (see
+  `readSchedules()` in `ScheduledMaintenanceFormModal.test.tsx`).
+
+Wrapping `requestSubmit()` made LogPmCompletionModal's refusal render
+straight away, and that exposed a weak test. It had been finding the gate
+NOTICE, which is on screen before anyone submits, and never checked the
+refusal error at all. It now requires both copies. The same thing can happen
+elsewhere: if wrapping a call in act breaks an assertion, check what the
+assertion was really matching before you loosen it.
+
 ### A row-cap test must not render 150 real rows — it gates the deploy
 
 `npm test` runs in the deploy workflow and **must pass to deploy**. On
@@ -7314,6 +7886,53 @@ anyway — so removing the `told.push(...)` line did not fail anything. The test
 now INJECTS a shared watcher into both cached records and asserts that person
 is genuinely in the send set before asserting uniqueness. Verified by deleting
 the guard and watching it fail.
+
+### Threaded replies — the link to the parent lives in the reply's BODY
+
+BusinessIT#9 (requested by Matthew Traina; design picked by Tim, 2026-10-06).
+Replying used to post at the top of the thread, far from the comment being
+answered. Every `CommentThread` now has a **Reply** button, and a reply sits
+indented under the comment it answers. Pieces: **`lib/commentReplies.ts`**
+(pure — marker, parsing, grouping), `CommentThread` (Reply button, inline
+`ReplyBox`, grouping), and `replyRecipient` in `lib/mentions.ts`.
+
+**The marker is in the HTML body, not a new record field.** `Communication`
+is `timestamp|||name|||email|||html`, and the guest Power Automate flow reads
+author and email by POSITION from the front of each record — a fifth field
+would shift them and break it. So a reply's body starts with
+`<p><span class="comment-reply" data-reply-ts data-reply-email
+data-reply-name>↪ Replying to Name: “snippet”</span></p>`. SharePoint views,
+Power Apps and the flow see an ordinary comment opening with a readable quote.
+The same reasoning as the mirrored-comment origin banner.
+
+Seven things that are load-bearing:
+
+- **The parent is named by timestamp + author email**, because comments have
+  no id. Editing keeps a comment's timestamp (`replaceComment`), so an edited
+  parent is still found.
+- **A MIRRORED parent is found within a 2-minute window** (same author,
+  nearest in time) after an exact match fails. A mirror is stamped "now" by
+  the fan-out, a second or so after the original the reply names.
+- **ONE level of display nesting**, but the marker records the DIRECT parent.
+  So deeper nesting could be shown later with no change to stored data. A
+  reply whose parent can't be found shows as top-level — never dropped — and
+  a cycle (hand-edited data only) falls back to top-level rather than hanging.
+- **Replies post through the page's own `handleAddComment`** (`onReply`), so
+  notifications, auto-watch, mirrors and restore-on-failure all apply
+  unchanged. `views/commentRestore.wiring.test.ts` fails if a thread lacks
+  `onReply={handleAddComment}`; a new comment thread belongs in its list.
+- **The person replied to is emailed (`reason: "replied"`) on EVERY thread**,
+  ECN / Customer Note / Cost Impact included. It outranks watching/assigned/
+  submitted and is outranked by a mention. **It is NOT a `span.mention`**, on
+  purpose: being replied to emails you once but doesn't make you a watcher.
+- **Editing a reply holds the marker OUT of the edit box** (`splitReplyMarker`)
+  and puts it back on save. The plain-text editor's `htmlToPlainText` would
+  otherwise flatten it into words, losing the attributes — and the reply would
+  come back unthreaded. Pinned in `CommentThread.replies.test.tsx`.
+- **`commentReplies.ts` must not import `mentions.ts` or `commentMirror.ts`**
+  — `mentions.ts` imports it, and `commentMirror.ts` imports `mentions.ts`.
+  That's why it has its own `escapeHtml` and an `ORIGIN_BANNER_CLASS` copy
+  (a test pins it equal to `ORIGIN_MARKER_CLASS`).
 
 ### Description checklists: sub-tasks and attribution
 

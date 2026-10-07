@@ -18,6 +18,7 @@ import { nextGrayMarketLogNo } from "@/lib/grayMarketNumber";
 import { appendComment, replaceComment } from "@/lib/communicationParser";
 import { multiPersonField } from "@/lib/graphFields";
 import { MOCK_GRAY_MARKET_REQUESTS } from "@/data/grayMarketMockData";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // Gray Market Requests API — a part bought outside normal distribution,
@@ -37,10 +38,6 @@ import { MOCK_GRAY_MARKET_REQUESTS } from "@/data/grayMarketMockData";
 
 let mockStore: GrayMarketRequest[] = MOCK_GRAY_MARKET_REQUESTS.map((r) => ({ ...r }));
 
-function delay<T>(value: T, ms = 200): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
-
 function requireListId(action: string): string {
   if (!SP_GRAY_MARKET_LIST_ID) {
     throw new Error(`Cannot ${action}: VITE_SP_GRAY_MARKET_LIST_ID is not set.`);
@@ -55,7 +52,7 @@ function itemPath(id: number): string {
 /** Every request, newest first. */
 export async function listGrayMarketRequests(): Promise<GrayMarketRequest[]> {
   if (USE_MOCK) {
-    return delay([...mockStore].sort(compareGrayMarketRequests).map((r) => ({ ...r })));
+    return mockDelay([...mockStore].sort(compareGrayMarketRequests).map((r) => ({ ...r })));
   }
   const listId = requireListId("load gray market requests");
   // The site directory is read in PARALLEL with the items, once per load, and
@@ -82,7 +79,7 @@ export async function getGrayMarketRequest(
 ): Promise<GrayMarketRequest | null> {
   if (USE_MOCK) {
     const found = mockStore.find((r) => r.id === id);
-    return delay(found ? { ...found } : null);
+    return mockDelay(found ? { ...found } : null);
   }
   try {
     const [item, siteUsers] = await Promise.all([
@@ -128,7 +125,7 @@ export async function createGrayMarketRequest(
       modifiedAt: now,
     };
     mockStore = [request, ...mockStore];
-    return delay(request);
+    return mockDelay(request);
   }
 
   const listId = requireListId("create the request");
@@ -169,7 +166,7 @@ export async function updateGrayMarketFields(
     };
     applyMockFields(next, fields);
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   await graphFetch(`${itemPath(id)}/fields`, {
@@ -251,7 +248,7 @@ export async function addGrayMarketComment(
       modifiedAt: new Date(),
     };
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   // Read-modify-write on one field, the same as every other comment thread —
@@ -286,7 +283,7 @@ export async function editGrayMarketComment(
       modifiedAt: new Date(),
     };
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   const existing = await graphFetch<GraphListItem>(

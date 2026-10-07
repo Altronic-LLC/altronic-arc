@@ -2,6 +2,7 @@ import { graphFetch, graphFetchAll } from "./graph";
 import { SITES, SP_OPERATIONS_PROJECTS_LIST_ID, USE_MOCK } from "./config";
 import type { GraphListItem, ProjectReference } from "@/types/task";
 import { MOCK_OPERATIONS_PROJECTS } from "@/data/operationsMockData";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // Operations Projects API — the Operations department's own parent-project
@@ -15,10 +16,6 @@ import { MOCK_OPERATIONS_PROJECTS } from "@/data/operationsMockData";
 
 let mockStore: ProjectReference[] = [...MOCK_OPERATIONS_PROJECTS];
 
-function delay<T>(value: T, ms = 250): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
-
 function buildProjectRef(projectNumber: string, title: string): string {
   return `${projectNumber}-${title}`;
 }
@@ -29,7 +26,7 @@ export async function listOperationsProjects(): Promise<ProjectReference[]> {
     const sorted = [...mockStore].sort((a, b) =>
       a.title.localeCompare(b.title, undefined, { numeric: true }),
     );
-    return delay(sorted);
+    return mockDelay(sorted);
   }
 
   const path =
@@ -61,7 +58,7 @@ export async function createOperationsProject(input: {
       description: input.description || undefined,
     };
     mockStore = [...mockStore, project];
-    return delay(project);
+    return mockDelay(project);
   }
 
   const path = `/sites/${SITES.pmo}/lists/${SP_OPERATIONS_PROJECTS_LIST_ID}/items`;
@@ -99,7 +96,7 @@ export async function updateOperationsProject(
     if (idx < 0) throw new Error(`Operations project ${lookupId} not found`);
     const next = { lookupId, title: projectRef, description: input.description || undefined };
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay(next);
+    return mockDelay(next);
   }
 
   await graphFetch(

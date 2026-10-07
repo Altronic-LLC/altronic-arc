@@ -7,6 +7,7 @@ import {
   toCustomerContact,
 } from "@/lib/customerContactMapper";
 import { MOCK_CUSTOMER_CONTACTS } from "@/data/crmMockData";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // "Customer Contacts" — one row per person at a customer, on the
@@ -16,10 +17,6 @@ import { MOCK_CUSTOMER_CONTACTS } from "@/data/crmMockData";
 // =============================================================================
 
 let mockStore: CustomerContact[] = MOCK_CUSTOMER_CONTACTS.map((c) => ({ ...c }));
-
-function delay<T>(value: T, ms = 200): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
 
 function requireListId(action: string): string {
   if (!SP_CUSTOMER_CONTACTS_LIST_ID) {
@@ -36,7 +33,7 @@ const SELECT = "Title,CustomerLookupId,Email,PhoneNumber,JobTitle,ContactNotes";
 
 export async function listCustomerContacts(): Promise<CustomerContact[]> {
   if (USE_MOCK) {
-    return delay([...mockStore].sort(compareCustomerContacts).map((c) => ({ ...c })));
+    return mockDelay([...mockStore].sort(compareCustomerContacts).map((c) => ({ ...c })));
   }
   const listId = requireListId("load contacts");
   const items = await graphFetchAll<GraphListItem>(
@@ -59,7 +56,7 @@ export async function createCustomerContact(
       contactNotes: input.contactNotes.trim(),
     };
     mockStore = [contact, ...mockStore];
-    return delay(contact);
+    return mockDelay(contact);
   }
   const listId = requireListId("create the contact");
   const created = await graphFetch<GraphListItem>(
@@ -79,7 +76,7 @@ export async function updateCustomerContact(
     if (idx < 0) throw new Error(`Contact ${id} not found`);
     const next: CustomerContact = { ...mockStore[idx], ...changed };
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
   await graphFetch(`${itemPath(id)}/fields`, { method: "PATCH", body: JSON.stringify(fields) });
   const item = await graphFetch<GraphListItem>(`${itemPath(id)}?$expand=fields($select=${SELECT})`);
@@ -89,7 +86,7 @@ export async function updateCustomerContact(
 export async function deleteCustomerContact(id: number): Promise<void> {
   if (USE_MOCK) {
     mockStore = mockStore.filter((c) => c.id !== id);
-    return delay(undefined);
+    return mockDelay(undefined);
   }
   await graphFetch(itemPath(id), { method: "DELETE" });
 }

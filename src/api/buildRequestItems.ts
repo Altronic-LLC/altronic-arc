@@ -1,11 +1,14 @@
 import { graphFetch, graphFetchAll } from "./graph";
+import { readColumnChoices } from "./columnChoices";
 import { SP_BUILD_REQUEST_ITEMS_LIST_ID, SP_SITE_ID, USE_MOCK } from "./config";
+import { BUILD_REQUEST_PART_STATUSES } from "@/types/task";
 import type { BuildRequestItem, GraphListItem, Person } from "@/types/task";
 import { toBuildRequestItem } from "@/lib/buildRequestMapper";
 import { ALL_CHECKLIST_FIELDS } from "@/lib/buildRequestChecklist";
 import { annotateMultiChoiceFields, multiPersonField } from "@/lib/graphFields";
 import { appendComment, replaceComment } from "@/lib/communicationParser";
 import { MOCK_BUILD_REQUEST_ITEMS } from "@/data/buildRequestMockData";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // Build Request Items API — the parts list. Every item joins to a header in
@@ -71,10 +74,6 @@ function saveToStorage() {
 
 let mockStore: BuildRequestItem[] = loadFromStorage() ?? [...MOCK_BUILD_REQUEST_ITEMS];
 
-function delay<T>(value: T, ms = 100): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
-
 const ITEM_FIELD_SELECT = [
   "Title",
   "BuildRequestNoLookupId",
@@ -104,7 +103,7 @@ const ITEM_FIELD_SELECT = [
 
 export async function listBuildRequestItems(): Promise<BuildRequestItem[]> {
   if (USE_MOCK) {
-    return delay(mockStore.map((i) => ({ ...i })));
+    return mockDelay(mockStore.map((i) => ({ ...i })));
   }
 
   const path =
@@ -112,6 +111,22 @@ export async function listBuildRequestItems(): Promise<BuildRequestItem[]> {
     `/items?$expand=fields($select=${ITEM_FIELD_SELECT})&$top=500`;
   const items = await graphFetchAll<GraphListItem>(path);
   return items.map(toBuildRequestItem);
+}
+
+/**
+ * The Part Status column's LIVE choices, in SharePoint's own order.
+ *
+ * Read off the column definition rather than hardcoded: the hardcoded list
+ * drifted from SharePoint (Ray, 2026-10-05), and the column is a strict
+ * Choice, so a stale list both hides real statuses and offers values
+ * SharePoint refuses. A status added in SharePoint now appears on the next
+ * load with no deploy. Falls back to BUILD_REQUEST_PART_STATUSES if the
+ * column can't be read — column metadata can be refused even when items
+ * aren't, and an empty picker is worse than a slightly stale one.
+ */
+export async function listBuildRequestPartStatusChoices(): Promise<string[]> {
+  if (USE_MOCK) return [...BUILD_REQUEST_PART_STATUSES];
+  return readColumnChoices(SP_SITE_ID, SP_BUILD_REQUEST_ITEMS_LIST_ID, "Part_x0020_Status", BUILD_REQUEST_PART_STATUSES);
 }
 
 export interface CreateBuildRequestItemInput {
@@ -169,7 +184,7 @@ export async function createBuildRequestItem(
     };
     mockStore = [item, ...mockStore];
     saveToStorage();
-    return delay({ ...item });
+    return mockDelay({ ...item });
   }
 
   const fields: Record<string, unknown> = {
@@ -244,7 +259,7 @@ export async function updateBuildRequestItemFields(
     next.modifiedAt = new Date();
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
     saveToStorage();
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   await graphFetch(
@@ -263,7 +278,7 @@ export async function deleteBuildRequestItem(id: number): Promise<void> {
   if (USE_MOCK) {
     mockStore = mockStore.filter((i) => i.id !== id);
     saveToStorage();
-    await delay(null);
+    await mockDelay(null);
     return;
   }
   await graphFetch(
@@ -312,7 +327,7 @@ export async function addBuildRequestItemComment(
     next.modifiedAt = new Date();
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
     saveToStorage();
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   const path =
@@ -344,7 +359,7 @@ export async function editBuildRequestItemComment(
     next.modifiedAt = new Date();
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
     saveToStorage();
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   const path =

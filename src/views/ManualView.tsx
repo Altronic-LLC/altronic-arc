@@ -502,7 +502,9 @@ const SECTIONS: ManualSection[] = [
           <LI>
             <strong>Assigned / Watchers</strong> — searchable dropdowns of
             team members. Multi-select; pick everyone who should be on this
-            task.
+            task. Tick <strong>Add myself as an assignee</strong> under
+            Assigned to put yourself on it in one click; untick it to take
+            yourself off.
           </LI>
           <LI>
             <strong>Description, Software Revision</strong> — free-text
@@ -762,22 +764,29 @@ const SECTIONS: ManualSection[] = [
       "part number pulled",
       "altium",
       "cad output",
+      "fiducials",
+      "fiducial",
+      "drc",
+      "design rule check",
     ],
     searchText:
-      "Tasks with category PCB show a Checklist card on the detail page with 17 items — 13 Yes/No checkboxes and 4 Choice radio groups. Items cover schematic + PCB part numbers, archive backup, SMT data output, BOM compare + send to CAD, 3D model export, revision documentation, build request, ordering, and gerber package. Checking a box writes to SharePoint instantly; a small done/total counter in the card header tracks progress. The card only renders for category=PCB tasks.",
+      "Tasks with category PCB show a Checklist card on the detail page with 19 items — 15 Yes/No checkboxes and 4 Choice radio groups. Items cover schematic + PCB part numbers, fiducials on both sides of the board, design rule checks, archive backup, SMT data output, BOM compare + send to CAD, 3D model export, revision documentation, build request, ordering, and gerber package. Checking a box writes to SharePoint instantly; a small done/total counter in the card header tracks progress. The card only renders for category=PCB tasks.",
     render: () => (
       <>
         <P>
           When a task is set to category <strong>PCB</strong>, a{" "}
           <strong>Checklist</strong> card appears on the detail page above
-          the Attachments section. It mirrors the 17-item checklist from
-          the original Power Apps form: 13 Yes/No items as checkboxes and
-          4 multi-option items as radio groups, laid out in two columns.
+          the Attachments section. It mirrors the checklist from the
+          original Power Apps form, plus two production items added since:
+          19 items in all — 15 Yes/No items as checkboxes and 4
+          multi-option items as radio groups, laid out in two columns.
         </P>
         <H3>What's on the list</H3>
         <P>
           The checklist covers everything from pulling new schematic / PCB
-          part numbers, placing backups on the archive server, comparing
+          part numbers, confirming fiducials are on the top and bottom of
+          the board and that design rule checks are completed and
+          resolved, placing backups on the archive server, comparing
           BOM with SAP, outputting BOM + 3D model + gerber files, sending
           to CAD, submitting the build request, and the ordering /
           pre-release vs released documentation flow. The radio groups
@@ -835,6 +844,10 @@ const SECTIONS: ManualSection[] = [
       "notify someone",
       "send email to teammate",
       "reply",
+      "replies",
+      "reply to comment",
+      "threaded",
+      "indent",
       "attachment",
       "attach file",
       "screenshot",
@@ -851,7 +864,7 @@ const SECTIONS: ManualSection[] = [
       "resend notification",
     ],
     searchText:
-      "Type @ in the comment composer to open the mention picker. Arrow keys then Enter or Tab to pick. You can type a first name and surname after the @ — the space no longer closes the picker — and matching works in any order or by email address. admin.first.last accounts are not listed. Comment boxes auto-grow as you type or paste. Mentioned people get an email with the task/EIR name, the comment quote, and a link. Attach files by drag-drop, click Attach, or paste with Ctrl+V. Pasting a screenshot opens a naming prompt before it attaches anywhere — Cancel discards it instead of attaching it — and the named file uploads to the task's SharePoint project folder like any other attachment; a name already taken there is saved as name (2).ext instead of overwriting it. You can edit your own comments inline (a comment is yours if its saved name or email matches you, so older imported comments count too). Check Notify everyone again when editing to re-email every watcher and mention. Ctrl+Enter sends. Comments have a Rich text button for bold, italic, underline and bulleted or numbered lists. It asks first, because rich text turns off the @-mention picker for that comment — typing @ no longer opens the name list, so you cannot add a new mention. Current watchers are still notified either way, and anyone you already picked before switching is still mentioned and still emailed. Whatever you have typed carries across, and you can switch back to plain text at any time. On ECNs, Customer Notes and Cost Impact Notices, which have no watchers, the warning says the submitter is still notified instead. A half-written comment is kept if you navigate away — look something up in another task and come back, and the draft is still there; it survives a refresh, a closed tab and a browser restart too. A restored draft says so, with Discard and Keep, is forgotten once you post or after a week, and does not keep attachments. The same applies to the title and description on new task and other create forms; editing an existing record does not use drafts. Drafts are per browser and per device. Pasting a web address into a comment or a description makes it a clickable link automatically — no formatting needed, and it works in plain text as well as rich text. This applies to comments and descriptions already saved, so older ones are clickable too. Only a full http:// or https:// address becomes a link, so part numbers and references like QMP-4.3 are left alone, and a full stop or bracket ending the sentence stays outside the link.",
+      "Type @ in the comment composer to open the mention picker. Arrow keys then Enter or Tab to pick. You can type a first name and surname after the @ — the space no longer closes the picker — and matching works in any order or by email address. admin.first.last accounts are not listed. Comment boxes auto-grow as you type or paste. Mentioned people get an email with the task/EIR name, the comment quote, and a link. Attach files by drag-drop, click Attach, or paste with Ctrl+V. Pasting a screenshot opens a naming prompt before it attaches anywhere — Cancel discards it instead of attaching it — and the named file uploads to the task's SharePoint project folder like any other attachment; a name already taken there is saved as name (2).ext instead of overwriting it. You can edit your own comments inline (a comment is yours if its saved name or email matches you, so older imported comments count too). Check Notify everyone again when editing to re-email every watcher and mention. Ctrl+Enter sends. Every comment has a Reply button: the reply is posted indented directly under that comment instead of at the top of the thread, starts with a line naming who it answers, and emails that person even if they aren't watching. Replies are one level deep, so replying to a reply adds to the same thread. Comments have a Rich text button for bold, italic, underline and bulleted or numbered lists. It asks first, because rich text turns off the @-mention picker for that comment — typing @ no longer opens the name list, so you cannot add a new mention. Current watchers are still notified either way, and anyone you already picked before switching is still mentioned and still emailed. Whatever you have typed carries across, and you can switch back to plain text at any time. On ECNs, Customer Notes and Cost Impact Notices, which have no watchers, the warning says the submitter is still notified instead. A half-written comment is kept if you navigate away — look something up in another task and come back, and the draft is still there; it survives a refresh, a closed tab and a browser restart too. A restored draft says so, with Discard and Keep, is forgotten once you post or after a week, and does not keep attachments. The same applies to the title and description on new task and other create forms; editing an existing record does not use drafts. Drafts are per browser and per device. Pasting a web address into a comment or a description makes it a clickable link automatically — no formatting needed, and it works in plain text as well as rich text. This applies to comments and descriptions already saved, so older ones are clickable too. Only a full http:// or https:// address becomes a link, so part numbers and references like QMP-4.3 are left alone, and a full stop or bracket ending the sentence stays outside the link.",
     render: () => (
       <>
         <P>
@@ -883,6 +896,25 @@ const SECTIONS: ManualSection[] = [
           clock and then shown in your local time, so a thread between people
           in different time zones still reads in order.
         </P>
+        <H3>Replying to a comment</H3>
+        <P>
+          Every comment has a <strong>Reply</strong> button. It opens a reply
+          box directly under that comment, and your reply is shown{" "}
+          <strong>indented beneath it</strong> instead of at the top of the
+          thread, so the conversation stays together. Replies read oldest
+          first, top to bottom. A reply starts with a short line saying who and
+          what it answers ("↪ Replying to Matthew Traina: …"), which is also
+          what you see in SharePoint and the old Power Apps form. Replies are
+          one level deep: replying to a reply adds to the same thread, and its
+          opening line names the person you answered. The reply box works like
+          the main one — @-mentions, attachments, rich text, Ctrl+Enter, and a
+          half-written reply is kept if you navigate away. Cancel closes it.
+          The person you reply to is emailed "Name replied to your comment",
+          even if they aren't watching, and isn't added as a watcher. Everyone
+          who would hear about a new comment still does. If the comment a reply
+          answered has been removed, the reply shows as an ordinary comment
+          with its opening line intact.
+        </P>
         <P>
           Anyone you @-mention also <strong>becomes a watcher</strong> on
           the item automatically (unless they already are) — tasks, EIRs,
@@ -901,7 +933,9 @@ const SECTIONS: ManualSection[] = [
           </strong>{" "}
           — not just when they're mentioned — so the whole thread stays in the
           loop. The email says why it reached you: mentioned, assigned to you, or
-          watching. You're
+          watching. A comment that is only attached files, with no text, is
+          emailed too, and reads as "Name added an attachment" with the file
+          names listed. You're
           never emailed for your own comment, unless you @-mention yourself. To stop
           watching, the mentioned user removes themselves from the
           Watchers field on the detail sidebar. (Heads-up: a fresh
@@ -3565,7 +3599,7 @@ const SECTIONS: ManualSection[] = [
       "sign-off",
     ],
     searchText:
-      "Gray Market Requests at /supply-chain/gray-market-requests, under Supply Chain in the Departments menu, backed by the Gray Market Request list on the Altronic_PMO SharePoint site. A gray market request tracks a part bought outside normal distribution from the request through purchasing, engineering test, inspection and production sign-off. The list opens on Open requests with pills for Open / Complete / All, filters for Requestor and Testing Required, and an all-fields search. New Request asks only for the Title (the Altronic assembly number), request date and the purchasing details; the Log No. is generated as GMR_YYYY-###. Testing Required is on the form but optional — that call is made later in the workflow, so it can be left Not set and answered on the request once it is decided. Everything else is filled in on the request itself, in five cards — Request, Purchasing, Engineering, Inspection, Production — each card with one Edit button in its header that opens a box holding that stage's fields; Save changes writes only the fields you touched. Requests carry comments with @-mentions, watchers, and attachments. Whoever raises a request watches it. Raising a request emails Katie Fleming, Alexandra Russell and Glenn Terry — the intake list who pick a new request up — with the assembly number, vendor and PO details; the person who raised it is left off their own alert, and being on that list is not the same as watching the request. Requests cannot be deleted from ARC.",
+      "Gray Market Requests at /supply-chain/gray-market-requests, under Supply Chain in the Departments menu, backed by the Gray Market Request list on the Altronic_PMO SharePoint site. A gray market request tracks a part bought outside normal distribution from the request through purchasing, engineering test, inspection and production sign-off. The list opens on Open requests with pills for Open / Complete / All, filters for Requestor and Testing Required, and an all-fields search. New Request asks only for the Title (the Altronic assembly number), request date and the purchasing details; the Log No. is generated as GMR_YYYY-###. Testing Required is on the form but optional — that call is made later in the workflow, so it can be left Not set and answered on the request once it is decided. Everything else is filled in on the request itself, in five cards — Request, Purchasing, Engineering, Inspection, Production — each card with one Edit button in its header that opens a box holding that stage's fields; Save changes writes only the fields you touched. Requests carry comments with @-mentions, watchers, and attachments. Changing Testing Required or any Engineering or Production field emails Alexandra Russell and the request's watchers with what changed. Whoever raises a request watches it. Raising a request emails Katie Fleming, Alexandra Russell and Glenn Terry — the intake list who pick a new request up — with the assembly number, vendor and PO details; the person who raised it is left off their own alert, and being on that list is not the same as watching the request. Requests cannot be deleted from ARC.",
     render: () => (
       <>
         <P>
@@ -3617,6 +3651,15 @@ const SECTIONS: ManualSection[] = [
           <strong>Save changes</strong>. Only the fields you actually touched
           are written, so four teams can fill in their parts without waiting
           for each other or overwriting each other's columns.
+        </P>
+        <P>
+          Changing <strong>Testing Required</strong>, or any field on the{" "}
+          <strong>Engineering</strong> or <strong>Production</strong> card,
+          emails <strong>Alexandra Russell</strong> and everyone watching the
+          request. The email lists each field that changed, old value to new.
+          Re-saving a card without changing anything sends nothing, and you
+          aren't emailed about your own change. Edits to the Request,
+          Purchasing and Inspection cards don't send this email.
         </P>
         <UL>
           <LI>
@@ -3985,6 +4028,174 @@ const SECTIONS: ManualSection[] = [
           cost change and who was told about it. A superseded one is a new
           notice, not a correction to the old one.
         </Tip>
+      </>
+    ),
+  },
+  {
+    id: "scns",
+    title: "SCNs (Supply Chain Notices)",
+    group: "Supply Chain",
+    keywords: [
+      "scn",
+      "scns",
+      "supply chain notice",
+      "scn dashboard",
+      "scn documents",
+      "documents library",
+      "obsolete",
+      "obsolescence",
+      "obs",
+      "phase out",
+      "eecr",
+      "end of life",
+      "last time buy",
+      "ltb",
+      "lts expires",
+      "ltb expires",
+      "old number",
+      "preliminary reviews",
+      "secondary review",
+      "project status",
+      "sign-off status",
+      "approval status",
+    ],
+    searchText:
+      "SCNs at /supply-chain/scns, under Supply Chain in the Departments menu, backed by the SCN Dashboard list on the ALTRONICSALESTEAM/SCN SharePoint site. A Supply Chain Notice records a product or part being obsoleted (OBS), phased out, an EECR, or a plain notification. The list searches every field, has SCN Status pills with counts, Category and Year filters, and sortable, filterable column headers; on a phone it is a card list. New SCN asks for Product, Description and Approval Status (required) plus Category, Project Reference, Assigned to, Owner, Customer, Old Number, SAP Number and Part Description; the SCN# is numbered automatically and the year is filled in for you. An SCN is four cards - Notice, Parts, Review, Outcome - each with one Edit button; the Review card has three checklists, Preliminary Reviews, Secondary Review and Project Status. The sidebar has SCN Status, Approval Status, Project Reference (picked from Engineering projects), Engineering task (picked from Engineering tasks), Assigned to, Owner, Watchers, Raised by and Year. Comments, @-mentions, pasted screenshots and attachments all work the usual way; whoever raises an SCN, is assigned to it or owns it watches it automatically. SCNs cannot be deleted - set SCN Status to Cancelled instead. The Documents button opens the SCN Documents library: browse folders, create a new folder, upload files (drag and drop, several at once), edit Word Excel PowerPoint files in Office for the web, download, open in SharePoint, rename and delete files and folders. A deleted item goes to the SCN site's SharePoint recycle bin, restorable for 93 days.",
+    render: () => (
+      <>
+        <P>
+          <strong>Departments → Supply Chain → SCNs</strong>{" "}
+          (<code>/supply-chain/scns</code>) is the register of Supply Chain
+          Notices — one SCN per product or part that is being{" "}
+          <strong>obsoleted</strong> (OBS), <strong>phased out</strong>, raised
+          as an <strong>EECR</strong>, or simply notified. It opens from the
+          SCNs card on the Dashboard's Supply Chain section too.
+        </P>
+        <UL>
+          <LI>
+            The <strong>search box</strong> covers every field — type a part
+            number, a product, a customer or a word from the description.
+          </LI>
+          <LI>
+            The <strong>status pills</strong> narrow the list to one SCN
+            Status (WIP, CLOSED, Cancelled, On Hold, LTB in process, Customer
+            Phase Out). The counts are always over the whole list.
+          </LI>
+          <LI>
+            Filter by <strong>Category</strong> (OBS, PHASE OUT, EECR,
+            Notification) and by <strong>Year</strong>.
+          </LI>
+          <LI>
+            Click a <strong>column header's label</strong> to filter on its
+            values, and its <strong>arrow</strong> to sort — the same headers
+            as every other list in ARC. The list opens newest SCN# first.
+          </LI>
+          <LI>
+            On a phone the list is a stack of cards rather than a table.
+          </LI>
+        </UL>
+        <H3>Raising an SCN</H3>
+        <P>
+          <strong>New SCN</strong> asks for the <strong>Product</strong>, a{" "}
+          <strong>Description</strong> and an <strong>Approval Status</strong>{" "}
+          (Approved or Denied) — those three are required. Category, Assigned
+          to, Owner, Customer, Old Number, SAP Number and Part Description can
+          be filled in now or later. The <strong>SCN#</strong> is assigned
+          for you (the form shows the number it will get), the Year is filled
+          in from it, and a new SCN starts as <strong>WIP</strong>. A
+          half-written form survives navigating away.
+        </P>
+        <H3>Working one through</H3>
+        <P>
+          An SCN is four cards — <strong>Notice</strong> (product, category,
+          description, customer), <strong>Parts</strong> (old number, SAP
+          number, drawing number, part description, ECN),{" "}
+          <strong>Review</strong> and <strong>Outcome</strong> (final
+          disposition, sales history, LTS and LTB expiry dates, notes) — each
+          with one <strong>Edit</strong> button. Only the fields you change
+          are saved.
+        </P>
+        <P>
+          The <strong>Review</strong> card carries three checklists you tick
+          as the work is done: <strong>Preliminary Reviews</strong> (master
+          list, price list, where used, service team),{" "}
+          <strong>Secondary Review</strong> (service, master list, price list,
+          sales history) and <strong>Project Status</strong> (immediate,
+          analysis, inventory management and final obsolescence phases). The
+          card also holds the <strong>Sign-off status</strong> — the name of
+          whoever signed it off, as typed — and a Fixture Review date.
+        </P>
+        <P>
+          The sidebar holds the <strong>SCN Status</strong> and{" "}
+          <strong>Approval Status</strong> (each saves as soon as you pick),{" "}
+          <strong>Assigned to</strong> and <strong>Owner</strong> (both can
+          hold more than one person), the <strong>Watchers</strong>, who
+          raised it and its Year.
+        </P>
+        <P>
+          The sidebar is also where an SCN is tied to Engineering. Pick its{" "}
+          <strong>Project Reference</strong> from Engineering&apos;s project
+          references, and its <strong>Engineering task</strong> from
+          Engineering&apos;s tasks — each saves as soon as you pick and gives
+          you a link straight to that project or task. An older SCN that
+          pointed at a Planner board still shows that Planner link until you
+          pick an Engineering task for it.
+        </P>
+        <H3>Watching, comments and attachments</H3>
+        <UL>
+          <LI>
+            Whoever raises an SCN, is assigned to it or owns it{" "}
+            <strong>watches it automatically</strong>. Anyone else presses{" "}
+            <strong>Watch</strong>, or is added from the Watchers field.
+          </LI>
+          <LI>
+            Comments work as everywhere in ARC — <strong>@-mention</strong>{" "}
+            someone to pull them in (they start watching too), and a
+            screenshot pasted into a comment is saved as an attachment on the
+            SCN.
+          </LI>
+          <LI>
+            The <strong>Attachments</strong> card holds the SCN's files —
+            quotes, supplier letters, drawings. Drop a file on it or press
+            Add file.
+          </LI>
+        </UL>
+        <Tip>
+          SCNs can't be deleted from ARC — a notice is a controlled record of
+          what was decided about a part. One that no longer applies gets its{" "}
+          <strong>SCN Status set to Cancelled</strong>, which keeps the
+          history and takes it out of the working set.
+        </Tip>
+        <H3>The SCN Documents library</H3>
+        <P>
+          The <strong>Documents</strong> button — on the SCNs list and on every
+          SCN — opens the SCN site's Documents library inside ARC. Click a
+          folder to go into it, and use the path above the list to come back
+          up; the address keeps the folder, so you can bookmark or share it.{" "}
+          <strong>New folder</strong> makes a subfolder where you are (Enter
+          creates it, Escape cancels). <strong>Upload files</strong> adds one
+          or several files — or drop them onto the list — and shows each
+          file's progress; a file with the same name as one already there is
+          saved alongside it with a number added, never over it.{" "}
+          <strong>Edit in Office</strong> opens a Word, Excel or PowerPoint
+          file in Office for the web, and your changes save straight back to
+          the folder; other files have <strong>Open</strong> instead, and every
+          file has a Download button. <strong>Open in SharePoint</strong>{" "}
+          takes you to the folder you're in.
+        </P>
+        <P>
+          Every file and folder has a <strong>Rename</strong> and a{" "}
+          <strong>Delete</strong> button. Rename selects the name without its
+          extension, so typing keeps the <code>.docx</code> or{" "}
+          <code>.xlsx</code>; it warns you if you change the extension, since
+          that can stop the file opening, and it won't let you use a name
+          something else in that folder already has. Delete asks you to
+          confirm; for a folder that still has things in it, it says how many
+          and you type the folder's name to confirm. A deleted file or folder
+          (with everything in it) goes to the SCN site's{" "}
+          <strong>recycle bin</strong> in SharePoint, where it can be restored
+          for 93 days.
+        </P>
       </>
     ),
   },
@@ -4920,7 +5131,7 @@ const SECTIONS: ManualSection[] = [
       "sil cat",
     ],
     searchText:
-      "The Parts List holds every Altronic part number, under Engineering. It replaces the Altronic Component List Power App and its 175 separate lists with two: the Altronic Part List (every prefix except the HCO components) and the Altronic Component List (601 and 611 Through Hole, 701 711 and 712 Surface Mount, 722 SIL). A part's first three digits are its parts list and its first digit is its Parts Book. From the landing page pick a Parts Book (100 to 900) and then a list, or type into the box: a three-digit number opens that list, a whole part number opens the part, a single digit opens that book, and anything else runs a Global Search. Global Search covers both lists at once. The search panel down the left has one box per field; searches are not case sensitive and match part of the text, so apacit finds capacitor. Use & to search several things in one box, like resistor&1k; spaces around & count as part of the search. Search everything matches words in any field. Every search is in the web address, so you can send a search as a link. The table sorts by any column and each column header opens a filter. A component's page shows what Rating A, B and C mean for that type of component, from the HCO entry rules. Parts loaded from the old app have no sign-off status because it didn't record approvals. Adding, editing and approving parts is limited to the people on the Parts Roles list, managed by ARC admins at Admin, Parts Roles: The Add role adds Part List parts and HCO components except 722, and suggests corrections to parts they cannot edit; Parts editor also edits existing parts on both lists and adds to 722; Reviewing engineer approves new components at Engineering Review; SAP admin adds new parts to SAP, gives final approval and can edit every field. Click New part on a list to add one; the next free number is filled in. Only the SAP admin can start a new list; anyone else typing a number on a list that does not exist yet gets an Ask the SAP admin button, which emails the request. A new component goes to the reviewing engineers, then the SAP admin; a new Part List part goes to the SAP admin. Approve records a comment in the Approval history. The SAP admin answers Added to SAP, Does not need to be added to SAP, or Will be added to SAP but requires more information, from the buttons in the email or on the part's page; every answer approves the part and emails whoever added it which answer was given. Editing an approved part does not send it back for approval, but the SAP admin is emailed what changed. Part numbers can't be changed. A new component's description is picked: a Description, then a Type from that description's list, and on the 722 list a SIL category first, saved in capitals like SIL CAT 1 - CAPACITOR - CERAMIC. Editing a component keeps a plain text box. The SAP admin and the reviewing engineers manage the description lists from Descriptions on the Parts List landing page.",
+      "The Parts List holds every Altronic part number, under Engineering. It replaces the Altronic Component List Power App and its 175 separate lists with two: the Altronic Part List (every prefix except the HCO components) and the Altronic Component List (601 and 611 Through Hole, 701 711 and 712 Surface Mount, 722 SIL). A part's first three digits are its parts list and its first digit is its Parts Book. From the landing page pick a Parts Book (100 to 900) and then a list, or type into the box: a three-digit number opens that list, a whole part number opens the part, a single digit opens that book, and anything else runs a Global Search. Global Search covers both lists at once. The search panel down the left has one box per field; searches are not case sensitive and match part of the text, so apacit finds capacitor. Use & to search several things in one box, like resistor&1k; spaces around & count as part of the search, but spaces around a dash don't, so capacitor-ceramic finds CAPACITOR - CERAMIC. Use * as a wildcard: 15k* finds values starting with 15k, *50 values ending with 50, *50* values with 50 anywhere. Search everything matches words in any field. Every search is in the web address, so you can send a search as a link. The table sorts by any column and each column header opens a filter. A component's page shows what Rating A, B and C mean for that type of component, from the HCO entry rules. Parts loaded from the old app have no sign-off status because it didn't record approvals. Adding, editing and approving parts is limited to the people on the Parts Roles list, managed by ARC admins at Admin, Parts Roles: The Add role adds Part List parts and HCO components except 722, and suggests corrections to parts they cannot edit; Parts editor also edits existing parts on both lists and adds to 722; Reviewing engineer approves new components at Engineering Review; SAP admin adds new parts to SAP, gives final approval and can edit every field. Click New part on a list to add one; the next free number is filled in. Only the SAP admin can start a new list; anyone else typing a number on a list that does not exist yet gets an Ask the SAP admin button, which emails the request. A new component goes to the reviewing engineers, then the SAP admin; a new Part List part goes to the SAP admin. Approve records a comment in the Approval history. The SAP admin answers Added to SAP, Does not need to be added to SAP, or Will be added to SAP but requires more information, from the buttons in the email or on the part's page; every answer approves the part and emails whoever added it which answer was given. Editing an approved part does not send it back for approval, but the SAP admin is emailed what changed. Part numbers can't be changed. A new component's description is picked: a Description, then a Type from that description's list, and on the 722 list a SIL category first, saved in capitals like SIL CAT 1 - CAPACITOR - CERAMIC. Editing a component keeps a plain text box. The SAP admin and the reviewing engineers manage the description lists from Descriptions on the Parts List landing page.",
     render: () => (
       <>
         <P>
@@ -4976,8 +5187,27 @@ const SECTIONS: ManualSection[] = [
           one box, separate them with <strong>&amp;</strong>:{" "}
           <strong>resistor&amp;1k</strong>. Spaces around the &amp; count as
           part of the search, so <strong>hello &amp; world</strong> won't match
-          "helloworld". Fill in several boxes and a part has to match all of
-          them.
+          "helloworld". Spaces around a dash don't matter, so{" "}
+          <strong>capacitor-ceramic</strong> also finds "CAPACITOR - CERAMIC".
+          Fill in several boxes and a part has to match all of them.
+        </P>
+        <P>
+          In the value boxes — Rating A/B/C, Tolerance, Temp Min and Temp Max — a
+          number only matches where a number starts. So <strong>1uF</strong>{" "}
+          finds 1uF but not .1uF, .01uF or 11uF, and <strong>50V</strong> doesn't
+          find 250V. <strong>.1uF</strong> still finds 0.1uF. The other boxes,
+          like Altronic Part # and Mfg Number, match any part of the text, so{" "}
+          <strong>1018</strong> still finds 701018.
+        </P>
+        <P>
+          Use <strong>*</strong> as a wildcard in any box, Search everything
+          included. With a * in it, the search has to match the whole value:{" "}
+          <strong>15k*</strong> finds values that start with 15k,{" "}
+          <strong>*50</strong> values that end with 50, and <strong>*50*</strong>{" "}
+          values with 50 anywhere in them, so 250V is found too.{" "}
+          <strong>1*w</strong> finds values that start with 1 and end with W.
+          Typing a wildcard in the Parts Book's box, like <strong>701*</strong>,
+          runs a Global Search.
         </P>
         <P>
           <strong>Search everything</strong>, at the top of the panel, matches
@@ -4985,6 +5215,14 @@ const SECTIONS: ManualSection[] = [
           address, so you can send someone a link to exactly what you're looking
           at. On a phone the panel folds away behind a <strong>Search</strong>{" "}
           button, and opens by itself whenever a search is active.
+        </P>
+        <P>
+          <strong>Component lists search their whole family.</strong> A search
+          from the 701, 711 or 712 list looks through all three, and one from
+          601 or 611 looks through both — the old app kept these as one Surface
+          Mount list and one Through Hole list. The count above the table says
+          which lists it covered. With no search, a list shows only its own
+          parts. 722 (SIL) searches on its own.
         </P>
         <P>
           <strong>Range search.</strong> On the component lists (601, 611, 701,
@@ -5013,12 +5251,18 @@ const SECTIONS: ManualSection[] = [
         <P>
           Click a part to open it. On a component, the <strong>Ratings</strong>{" "}
           card says what Rating A, B and C mean for that kind of part — for a
-          resistor, resistance, working voltage and power — using the HCO entry
-          rules. When the description doesn't name a type those rules cover, the
+          resistor, resistance, power and working voltage — using the HCO entry
+          rules, except that a resistor's power and working voltage follow the
+          order the existing parts were entered in. When the description doesn't name a type those rules cover, the
           ratings keep their plain names. On <strong>New part</strong>, the three
           rating boxes are named the same way and change as you pick the
-          Description: a resistor asks for Resistance, Working voltage and Power,
-          and an IC for Voltage, Current and Pin count.
+          Description: a resistor asks for Resistance, Power and Working voltage,
+          and an IC for Voltage, Current and Pin count. A component list's
+          columns say Rating A, B and C, because one list mixes kinds of part.
+          Narrow it to one kind, for example by searching the Description for
+          resistor, and the columns are named for it: Resistance (A), Power (B)
+          and Working voltage (C). If even one part on screen is a different
+          kind, that column goes back to its plain name.
         </P>
         <P>
           Every part's page has a <strong>Datasheet</strong> line — on the
@@ -5226,7 +5470,7 @@ const SECTIONS: ManualSection[] = [
       "production hand-off",
     ],
     searchText:
-      "Build Requests ask manufacturing to build parts. A request can also be raised from a task with the Create Build Request button on the task page, which prefills the task's name and project, locks the Task Reference, and copies the task's discussion into the request's comments; the two then link to each other and share one comment thread, with a comment on a part appearing on both marked as coming from that part.  Each request (BR_YYYY-####) has a header — status, type, lead time, requestor, engineer, customer — and any number of parts. Each part has its own comment thread, watchers, attachments, and a Part-Type checklist: PCB parts get the data-package checklist, Harness parts get the terminals checklist. Create from the Build Requests list; add parts from the detail page. Email notifications fire for comments (request or part level), BR Status changes, Engineer Assigned changes, and a part's Part Status changes; part-comment emails open the request with that part expanded. Lead Free requests show a green flag and a warning banner on part printouts; each part has a Print part button for the production floor. Production hand-off: once every part is Ready for Production, the assigned engineer (or an admin) presses Ready for Production on the request, which emails Amanda Hoagland, Sheila Horn, the engineer, the watchers and the requestor; once every part is Production Complete the button becomes Build Request Production Complete, which asks Sheila Horn to review and set the request to Complete. Each part reaching Production Complete emails the engineer, the request and part watchers and the requestor, and a request set from Production Complete to Complete emails the watchers, Amanda Hoagland, the engineer and the requestor. The Status picker follows the same rule.",
+      "Build Requests ask manufacturing to build parts. A request can also be raised from a task with the Create Build Request button on the task page, which prefills the task's name and project, locks the Task Reference, and copies the task's discussion into the request's comments; the two then link to each other and share one comment thread, with a comment on a part appearing on both marked as coming from that part.  Each request (BR_YYYY-####) has a header — status, type, lead time, requestor, engineer, customer — and any number of parts. Each part has its own comment thread, watchers, attachments, and a Part-Type checklist: PCB parts get the data-package checklist, Harness parts get the terminals checklist. A part's status moves through buttons, not a dropdown: Mark as Ready for Production (once its checklist, or its Part Number, Qty, Part Description, Part Type and Disposition, are complete), then Amanda Hoagland or an admin marks it In Production, On Hold or Production Complete. Create from the Build Requests list; add parts from the detail page. Email notifications fire for comments (request or part level), BR Status changes, Engineer Assigned changes, and a part's Part Status changes; part-comment emails open the request with that part expanded. Lead Free requests show a green flag and a warning banner on part printouts; each part has a Print part button for the production floor. Production hand-off: once every part is Ready for Production, the assigned engineer (or an admin) presses Ready for Production on the request, which emails Amanda Hoagland, Sheila Horn, the engineer, the watchers and the requestor; once every part is Production Complete the button becomes Build Request Production Complete, which asks Sheila Horn to review and set the request to Complete. Each part reaching Production Complete emails the engineer, the request and part watchers and the requestor, and a request set from Production Complete to Complete emails the watchers, Amanda Hoagland, the engineer and the requestor. The Status picker follows the same rule.",
     render: () => (
       <>
         <P>
@@ -5273,8 +5517,25 @@ const SECTIONS: ManualSection[] = [
           On the detail page, click <strong>Add Part</strong> and enter the
           part number, quantity, drawing info, and Part Type. Each part shows
           as a collapsible card — click it to expand and edit everything
-          inline: WO No (filled by manufacturing), Part Status, Disposition,
-          and the multi-select Assembly / Operations / Testing pickers.
+          inline: WO No (filled by manufacturing), Disposition, and the
+          multi-select Assembly / Operations / Testing pickers. A part&apos;s
+          status is not a dropdown — it moves through buttons (below).
+        </P>
+        <H3>Moving a part through production</H3>
+        <P>
+          Next to <strong>Print part</strong>, each part has a red{" "}
+          <strong>Mark as Ready for Production</strong> button. Press it only
+          when everything for that part is ready: every checklist box ticked
+          for a PCB or Harness part, or for any other part its Part Number,
+          Qty, Part Description, Part Type and Disposition filled in. Until
+          then the button is greyed and says what&apos;s left. After that,
+          Amanda Hoagland (or an ARC admin) takes the part through
+          production: <strong>Mark as In Production</strong>, then{" "}
+          <strong>Put On Hold</strong> or{" "}
+          <strong>Mark as Production Complete</strong>; a part on hold can go
+          back into production or straight to Production Complete. Each step
+          changes the part&apos;s Part Status, and the request&apos;s own
+          production hand-off waits on those statuses.
         </P>
         <H3>Part-Type checklists</H3>
         <P>
@@ -5825,7 +6086,7 @@ const SECTIONS: ManualSection[] = [
       "bounced email",
     ],
     searchText:
-      "Commenting on a task, EIR, build request, or build request part emails everyone watching it, whoever it's assigned to, plus everyone you @-mention, from automation@altronic-llc.com. A comment with no mention at all still emails watchers and assignees. Mentioned people get a 'You were mentioned' email; assignees and other watchers get a 'New comment on' email that says whether it's assigned to them or they're watching. Build request parts have their own watcher lists and no Assigned field; part-comment emails deep-link to the request with that part expanded. You're never emailed for your own comment unless you @-mention yourself. @-mentioning auto-adds the person as a watcher. You also become a watcher automatically when you create an item and when something is assigned to you — on the create form and on later reassignments — alongside anyone added by hand to the Watchers field. Being unassigned does not remove you; use Unwatch. Comment timestamps are recorded on one company clock (Eastern) and displayed in your own local time, so a thread reads in the order it was written even when the authors are in different time zones. Editing a comment emails only newly added mentions by default, but checking 'Notify everyone again' resends an 'Updated comment on' email to watchers and assignees plus everyone mentioned in the new AND previous version of the comment. Change alerts: changing a Status (task, EIR, or build request), an EIR Resolution, a build request part's Part Status, or the assignees (including a build request's Engineer Assigned) emails the watchers, current assignees, and the EIR reporter or BR requestor. Checking or unchecking a Description checklist box (task, Operations task, or EIR) emails the watchers and current assignees with a Checklist updated on email naming the item. Being added as an assignee emails you 'You've been assigned'; being removed emails 'You've been unassigned'; everyone else gets a broadcast. Promoting an EIR to a task emails the EIR's watchers and reporter with a link to the new task. Creating/deleting parts and other field edits (lead time, customer, build request part checklists, WO No) send no email. You're never emailed for a change you made yourself. Intake alerts go to a fixed configured list rather than an item's watchers: an EIR raised with no project reference asks the project-reviewer list (default Sheila Horn, Ray White) to add one; a project reference landing on an EIR with none asks the assigner list (default Glenn Terry, Brandon Mirto) to assign an engineer. An EIR reaching Response Accepted asks the response-accepted list (default Sheila Horn, Ray White) to close it; Response Not Accepted asks the assigned engineers to revisit, or the assigner list if none are assigned. An EIR's Resolution reaching Resolved asks the assigner list (default Glenn Terry, Brandon Mirto) to review it and decide whether the response is accepted. A new gray market request emails the intake list (default Katie Fleming, Alexandra Russell, Glenn Terry); a new FAIT emails its own intake list (default Jerrod Waldron, Alexandra Russell, Katie Fleming). Being on an intake list is not the same as watching the item, and the person who triggered it is left off their own alert unless that would leave nobody. FAIT status changes email its watchers plus its initiator, assigned engineer and KAM. The FAIT sign-off chain adds its own: being assigned as a FAIT's engineer or KAM emails you a heads-up that explicitly says no action is required yet; a FAIT reaching This is with SQE emails the configured SQE reviewer list (default Jerrod Waldron, VITE_FAIT_SQE_REVIEWERS - a separate list from the FAIT intake one); an approved SQE sign-off emails the assigned engineer, an approved Eng sign-off emails the KAM where one is needed, and either falls back to the SQE reviewers when that person is not assigned; a Failed SQE sign-off emails whoever raised the FAIT. Closing a FAIT emails everyone watching plus the intake list, de-duplicated so nobody gets two. Maintenance work orders follow the same rules as tasks: commenting, @-mentioning, assigning and changing a status emails the watchers and the assignee, and you start watching a work order you create, are assigned or are @-mentioned on. Time-based maintenance reminders — what is due soon, what has gone overdue — do NOT come from ARC: a Power Automate flow outside ARC sends those and maintains the Due Status column. ARC only sends the immediate emails, the ones caused by somebody doing something. Admins can check every configured list's addresses against the staff directory at Admin -> Notification recipients, which flags an address with no real mailbox before it fails silently.",
+      "Commenting on a task, EIR, build request, or build request part emails everyone watching it, whoever it's assigned to, plus everyone you @-mention, from automation@altronic-llc.com. A comment with no mention at all still emails watchers and assignees. Mentioned people get a 'You were mentioned' email; assignees and other watchers get a 'New comment on' email that says whether it's assigned to them or they're watching. Build request parts have their own watcher lists and no Assigned field; part-comment emails deep-link to the request with that part expanded. You're never emailed for your own comment unless you @-mention yourself. @-mentioning auto-adds the person as a watcher. You also become a watcher automatically when you create an item and when something is assigned to you — on the create form and on later reassignments — alongside anyone added by hand to the Watchers field. Being unassigned does not remove you; use Unwatch. Comment timestamps are recorded on one company clock (Eastern) and displayed in your own local time, so a thread reads in the order it was written even when the authors are in different time zones. Editing a comment emails only newly added mentions by default, but checking 'Notify everyone again' resends an 'Updated comment on' email to watchers and assignees plus everyone mentioned in the new AND previous version of the comment. Change alerts: changing a Status (task, EIR, or build request), an EIR Resolution, a build request part's Part Status, or the assignees (including a build request's Engineer Assigned) emails the watchers, current assignees, and the EIR reporter or BR requestor. Checking or unchecking a Description checklist box (task, Operations task, or EIR) emails the watchers and current assignees with a Checklist updated on email naming the item. Being added as an assignee emails you 'You've been assigned'; being removed emails 'You've been unassigned'; everyone else gets a broadcast. Promoting an EIR to a task emails the EIR's watchers and reporter with a link to the new task. Creating/deleting parts and other field edits (lead time, customer, build request part checklists, WO No) send no email. You're never emailed for a change you made yourself. Intake alerts go to a fixed configured list rather than an item's watchers: an EIR raised with no project reference asks the project-reviewer list (default Sheila Horn, Ray White) to add one; a project reference landing on an EIR with none asks the assigner list (default Glenn Terry, Brandon Mirto) to assign an engineer. An EIR reaching Response Accepted asks the response-accepted list (default Sheila Horn, Ray White) to close it; Response Not Accepted asks the assigned engineers to revisit, or the assigner list if none are assigned. An EIR's Resolution reaching Resolved asks the assigner list (default Glenn Terry, Brandon Mirto) to review it and decide whether the response is accepted. A new gray market request emails the intake list (default Katie Fleming, Alexandra Russell, Glenn Terry), and a change to a request's Testing Required or to its Engineering or Production fields emails Alexandra Russell plus the request's watchers; a new FAIT emails its own intake list (default Jerrod Waldron, Alexandra Russell, Katie Fleming). Being on an intake list is not the same as watching the item, and the person who triggered it is left off their own alert unless that would leave nobody. FAIT status changes email its watchers plus its initiator, assigned engineer and KAM. The FAIT sign-off chain adds its own: being assigned as a FAIT's engineer or KAM emails you a heads-up that explicitly says no action is required yet; a FAIT reaching This is with SQE emails the configured SQE reviewer list (default Jerrod Waldron, VITE_FAIT_SQE_REVIEWERS - a separate list from the FAIT intake one); an approved SQE sign-off emails the assigned engineer, an approved Eng sign-off emails the KAM where one is needed, and either falls back to the SQE reviewers when that person is not assigned; a Failed SQE sign-off emails whoever raised the FAIT. Closing a FAIT emails everyone watching plus the intake list, de-duplicated so nobody gets two. Maintenance work orders follow the same rules as tasks: commenting, @-mentioning, assigning and changing a status emails the watchers and the assignee, and you start watching a work order you create, are assigned or are @-mentioned on. Time-based maintenance reminders — what is due soon, what has gone overdue — do NOT come from ARC: a Power Automate flow outside ARC sends those and maintains the Due Status column. ARC only sends the immediate emails, the ones caused by somebody doing something. Admins can check every configured list's addresses against the staff directory at Admin -> Notification recipients, which flags an address with no real mailbox before it fails silently.",
     render: () => (
       <>
         <P>
@@ -6003,6 +6264,11 @@ const SECTIONS: ManualSection[] = [
               "New gray market request: … — Please pick it up",
             ],
             [
+              "A gray market request's Testing Required, Engineering or Production fields change",
+              "The configured change list (default Alexandra Russell) + the request's watchers (minus you)",
+              "Gray market request updated: … — each field, old → new",
+            ],
+            [
               "A FAIT is raised",
               "The configured intake list (default Jerrod Waldron, Alexandra Russell, Katie Fleming)",
               "New FAIT: … — Please pick it up",
@@ -6175,6 +6441,12 @@ const SECTIONS: ManualSection[] = [
         <UL>
           <LI>
             The person <strong>added</strong> → "You've been assigned to …".
+            On an Engineering or Operations task this email also shows the
+            task's{" "}
+            <strong>due date</strong> (or "No due date") and its{" "}
+            <strong>description</strong>, so you can see how urgent it is and
+            what it's about without opening the link. A long description is
+            cut short with "…", and checklist items show as boxes.
           </LI>
           <LI>
             The person <strong>removed</strong> → "You've been unassigned from
@@ -6367,7 +6639,7 @@ const SECTIONS: ManualSection[] = [
       "feedback",
     ],
     searchText:
-      "ARC Feature Requests at /feature-requests, reached from the Suggest a feature button (lightbulb icon) in the header next to Report issue. A place to ask for a new ARC feature or change — Report issue is for something BROKEN, this is for something you WANT. Any signed-in user can submit one: a short summary, a description of what's needed and why, an optional Department and Priority. Requested By is filled in automatically to whoever submits it. Every request starts as Pending Review and moves through In Work, Completed or Not Implementing — the status, priority, department and target version can all be changed by any signed-in user from the request's detail page, not just an admin. Requests have a comment thread and watchers, same as everywhere else in ARC, so a discussion about the idea stays attached to it. The list is open-first: Pending Review and In Work requests sort above Completed and Not Implementing ones, newest first within each group. Raising a request emails whoever looks after them, so a suggestion does not sit unseen. Changing a request's status emails its watchers and the person who raised it — you watch your own request automatically — so you hear when yours moves to In Work or Completed. @-mentioning somebody in a comment emails them and adds them as a watcher, the same as everywhere else in ARC.",
+      "ARC Feature Requests at /feature-requests, reached from the Suggest a feature button (lightbulb icon) in the header next to Report issue. A place to ask for a new ARC feature or change — Report issue is for something BROKEN, this is for something you WANT. Any signed-in user can submit one: a short summary, a description of what's needed and why, an optional Department and Priority. Requested By is filled in automatically to whoever submits it. Every request starts as Pending Review and moves through In Work, Completed or Not Implementing — the status, priority, department and target version can all be changed by any signed-in user from the request's detail page, not just an admin. Requests have a comment thread and watchers, same as everywhere else in ARC, so a discussion about the idea stays attached to it. The list is open-first: Pending Review and In Work requests sort above Completed and Not Implementing ones, newest first within each group. Raising a request emails whoever looks after them, so a suggestion does not sit unseen. Changing a request's status emails its watchers and the person who raised it — you watch your own request automatically — so you hear when yours moves to In Work or Completed. @-mentioning somebody in a comment emails them and adds them as a watcher, the same as everywhere else in ARC. Ray White and Tim Webster see a GitHub column: ARC checks the BusinessIT repo for an issue already tracking each request and links to it, or offers Create issue, which opens the request as an ARC: BusinessIT issue in Backlog on the Business IT Tasks board. An existing issue that looks like the request can be linked instead. An Issue Status column shows the issue's board status (Backlog, In progress, In review, On Hold, Done). Connect GitHub once per browser with your own personal access token.",
     render: () => (
       <>
         <P>
@@ -6438,6 +6710,40 @@ const SECTIONS: ManualSection[] = [
             the same as everywhere else in ARC.
           </LI>
         </UL>
+
+        <H3>Turning a request into a GitHub issue (Ray and Tim)</H3>
+        <P>
+          Ray White and Tim Webster see a <strong>GitHub</strong> column on the
+          list. ARC checks the BusinessIT repo's issues and shows the one
+          already tracking each request as a link (<strong>#27</strong>) that
+          opens it on GitHub. Where there is none, <strong>Create issue</strong>{" "}
+          opens the request as a BusinessIT issue titled "ARC: …", labelled
+          ARC, enhancement, its department and its priority, and puts it in{" "}
+          <strong>Backlog</strong> on the Business IT Tasks board. The issue
+          links back to the request. ARC asks you to confirm first.
+        </P>
+        <P>
+          An <strong>Issue Status</strong> column, right after Status, shows
+          where the linked issue sits on the Business IT Tasks board: Backlog,
+          In progress, In review, On Hold or Done. "Not on board" means the
+          issue exists but isn't on the board; a dash means the request has no
+          issue yet.
+        </P>
+        <P>
+          When an existing issue looks like the request (a similar title or
+          description, or it names the same requester), the row shows it as{" "}
+          <strong>Similar #12</strong> and the button reads{" "}
+          <strong>Link or create</strong>. Choosing <strong>Link</strong> adds
+          a link to the request at the bottom of that issue, so ARC recognises
+          it from then on. Use it for issues that were raised by hand.
+        </P>
+        <P>
+          The first time, click <strong>Connect GitHub</strong> and paste your
+          own GitHub personal access token. It needs access to the BusinessIT
+          repo with Issues read and write, plus Projects read and write for
+          the board. The token is saved in that browser only, so you connect
+          once on each computer. <strong>Disconnect</strong> removes it.
+        </P>
       </>
     ),
   },

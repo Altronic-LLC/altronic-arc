@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { ReactNode } from "react";
-import { renderHook } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { __resetPartsRolesMockStore } from "@/api/partsRoles";
 import { __resetDatasheetsMockStore, findDatasheet } from "@/api/datasheets";
@@ -32,23 +32,25 @@ describe("uploading a missing datasheet from a part's page", () => {
   it("lets the Add role do it", async () => {
     asDemo(["editor"]);
     const { result } = renderHook(() => useUploadDatasheet(), { wrapper: wrapper() });
-    await result.current.mutateAsync({ partNumber: "101022", file: pdf(), via: "edit" });
+    await act(() => result.current.mutateAsync({ partNumber: "101022", file: pdf(), via: "edit" }));
     expect(await findDatasheet("101022")).not.toBeNull();
   });
 
   it("refuses somebody with no role, and uploads nothing", async () => {
     asDemo([]);
     const { result } = renderHook(() => useUploadDatasheet(), { wrapper: wrapper() });
-    await expect(result.current.mutateAsync({ partNumber: "101022", file: pdf(), via: "edit" })).rejects.toThrow();
+    await act(() =>
+      expect(result.current.mutateAsync({ partNumber: "101022", file: pdf(), via: "edit" })).rejects.toThrow(),
+    );
     expect(await findDatasheet("101022")).toBeNull();
   });
 
   it("refuses the Add role on the 722 list", async () => {
     asDemo(["editor"]);
     const { result } = renderHook(() => useUploadDatasheet(), { wrapper: wrapper() });
-    await expect(
-      result.current.mutateAsync({ partNumber: "722044", file: pdf(), via: "edit", componentId: 15 }),
-    ).rejects.toThrow(/722/);
+    await act(() =>
+      expect(result.current.mutateAsync({ partNumber: "722044", file: pdf(), via: "edit", componentId: 15 })).rejects.toThrow(/722/),
+    );
     expect(await findDatasheet("722044")).toBeNull();
   });
 });

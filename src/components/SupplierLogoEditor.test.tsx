@@ -5,6 +5,7 @@ import { renderWithProviders } from "@/test/render";
 import type { Supplier } from "@/types/task";
 import { SupplierLogoEditor } from "./SupplierLogoEditor";
 import { pushToast } from "./Toast";
+import { setMockLatency } from "@/api/mockLatency";
 
 vi.mock("./Toast", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./Toast")>()),
@@ -28,6 +29,9 @@ describe("SupplierLogoEditor", () => {
     expect(screen.queryByRole("button", { name: "Remove" })).not.toBeInTheDocument();
 
     const file = new File(["bytes"], "logo.png", { type: "image/png" });
+    // Mock calls answer instantly in tests (api/mockLatency.ts) — hold the
+    // upload open so "Uploading…" is on screen long enough to see.
+    setMockLatency(200);
     await userEvent.upload(screen.getByLabelText("Add logo"), file);
 
     await waitFor(() => expect(screen.getByText(/uploading/i)).toBeInTheDocument());

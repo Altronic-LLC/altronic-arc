@@ -11,6 +11,11 @@ interface ImportMetaEnv {
   readonly VITE_SP_PANELTEAM_SITE_ID: string;
   readonly VITE_SP_SALESTEAM_SITE_ID: string;
   readonly VITE_SP_SALES_ORDERENTRY_SITE_ID: string;
+  // ALTRONICSALESTEAM/SCN subsite — the SCN Dashboard list. All three optional;
+  // config.ts carries documented defaults.
+  readonly VITE_SP_SCN_SITE_ID: string;
+  readonly VITE_SP_SCN_SITE_URL: string;
+  readonly VITE_SP_SCNS_LIST_ID: string;
   readonly VITE_SP_PMO_SITE_ID: string;
   readonly VITE_SP_LIST_ID: string;
   readonly VITE_SP_PROJECTS_LIST_ID: string;

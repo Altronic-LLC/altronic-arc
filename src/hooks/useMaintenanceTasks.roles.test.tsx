@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { ReactNode } from "react";
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 // =============================================================================
@@ -115,18 +115,18 @@ describe("completing a work order requires the tech role", () => {
     const target = await assignedElsewhere(wrap);
 
     const { result } = renderHook(() => useUpdateMaintenanceTaskFields(), { wrapper: wrap });
-    await expect(
-      result.current.mutateAsync({ id: target.id, fields: { Status: "Complete" } }),
-    ).rejects.toThrow(/limited to maintenance techs/i);
+    await act(() =>
+      expect(result.current.mutateAsync({ id: target.id, fields: { Status: "Complete" } })).rejects.toThrow(/limited to maintenance techs/i),
+    );
   });
 
   it("says which role and which screen, not just 'denied'", async () => {
     const wrap = wrapper();
     const target = await assignedElsewhere(wrap);
     const { result } = renderHook(() => useUpdateMaintenanceTaskFields(), { wrapper: wrap });
-    await expect(
-      result.current.mutateAsync({ id: target.id, fields: { Status: "Complete" } }),
-    ).rejects.toThrow(/Maintenance Roles/);
+    await act(() =>
+      expect(result.current.mutateAsync({ id: target.id, fields: { Status: "Complete" } })).rejects.toThrow(/Maintenance Roles/),
+    );
   });
 
   // The rule this REPLACED: the assignee check is gone, so a tech closes out
@@ -137,7 +137,7 @@ describe("completing a work order requires the tech role", () => {
     const target = await assignedElsewhere(wrap);
 
     const { result } = renderHook(() => useUpdateMaintenanceTaskFields(), { wrapper: wrap });
-    await result.current.mutateAsync({ id: target.id, fields: { Status: "Complete" } });
+    await act(() => result.current.mutateAsync({ id: target.id, fields: { Status: "Complete" } }));
 
     const after = await loaded(wrapper());
     expect(after.find((t) => t.id === target.id)?.status).toBe("Complete");
@@ -148,7 +148,7 @@ describe("completing a work order requires the tech role", () => {
     const wrap = wrapper();
     const target = await assignedElsewhere(wrap);
     const { result } = renderHook(() => useUpdateMaintenanceTaskFields(), { wrapper: wrap });
-    await result.current.mutateAsync({ id: target.id, fields: { Status: "Complete" } });
+    await act(() => result.current.mutateAsync({ id: target.id, fields: { Status: "Complete" } }));
     const after = await loaded(wrapper());
     expect(after.find((t) => t.id === target.id)?.status).toBe("Complete");
   });
@@ -159,7 +159,7 @@ describe("completing a work order requires the tech role", () => {
     const wrap = wrapper();
     const target = await assignedElsewhere(wrap);
     const { result } = renderHook(() => useUpdateMaintenanceTaskFields(), { wrapper: wrap });
-    await result.current.mutateAsync({ id: target.id, fields: { Status: "Complete" } });
+    await act(() => result.current.mutateAsync({ id: target.id, fields: { Status: "Complete" } }));
     const after = await loaded(wrapper());
     expect(after.find((t) => t.id === target.id)?.status).toBe("Complete");
   });
@@ -168,9 +168,9 @@ describe("completing a work order requires the tech role", () => {
     const wrap = wrapper();
     const target = await assignedElsewhere(wrap);
     const { result } = renderHook(() => useCompleteMaintenanceTask(), { wrapper: wrap });
-    await expect(
-      result.current.mutateAsync({ id: target.id, completedOn: new Date() }),
-    ).rejects.toThrow(/limited to maintenance techs/i);
+    await act(() =>
+      expect(result.current.mutateAsync({ id: target.id, completedOn: new Date() })).rejects.toThrow(/limited to maintenance techs/i),
+    );
   });
 
   // The kept half of the old rule: whoever closes out an unassigned job gets
@@ -182,10 +182,12 @@ describe("completing a work order requires the tech role", () => {
     const target = tasks.find((t) => !t.assigned && t.status !== "Complete")!;
 
     const { result } = renderHook(() => useCompleteMaintenanceTask(), { wrapper: wrap });
-    const done = await result.current.mutateAsync({
-      id: target.id,
-      completedOn: new Date("2026-08-20T12:00:00Z"),
-    });
+    const done = await act(() =>
+      result.current.mutateAsync({
+        id: target.id,
+        completedOn: new Date("2026-08-20T12:00:00Z"),
+      }),
+    );
     expect(done.status).toBe("Complete");
     expect(done.completedBy?.email).toBe(ME.email);
     expect(done.assigned?.email).toBe(ME.email);
@@ -196,7 +198,7 @@ describe("completing a work order requires the tech role", () => {
     const wrap = wrapper();
     const target = await assignedElsewhere(wrap);
     const { result } = renderHook(() => useUpdateMaintenanceTaskFields(), { wrapper: wrap });
-    await result.current.mutateAsync({ id: target.id, fields: { Status: "On Hold" } });
+    await act(() => result.current.mutateAsync({ id: target.id, fields: { Status: "On Hold" } }));
     const after = await loaded(wrapper());
     expect(after.find((t) => t.id === target.id)?.status).toBe("On Hold");
   });
@@ -205,7 +207,7 @@ describe("completing a work order requires the tech role", () => {
     const wrap = wrapper();
     await loaded(wrap);
     const { result } = renderHook(() => useCreateMaintenanceTask(), { wrapper: wrap });
-    const created = await result.current.mutateAsync({ title: "Belt squealing" });
+    const created = await act(() => result.current.mutateAsync({ title: "Belt squealing" }));
     expect(created.title).toBe("Belt squealing");
   });
 
@@ -213,7 +215,9 @@ describe("completing a work order requires the tech role", () => {
     const wrap = wrapper();
     const target = await assignedElsewhere(wrap);
     const { result } = renderHook(() => useUpdateMaintenanceTaskFields(), { wrapper: wrap });
-    await result.current.mutateAsync({ id: target.id, fields: { TechNotes: "Checked the belt" } });
+    await act(() =>
+      result.current.mutateAsync({ id: target.id, fields: { TechNotes: "Checked the belt" } }),
+    );
     const after = await loaded(wrapper());
     expect(after.find((t) => t.id === target.id)?.techNotes).toBe("Checked the belt");
   });
@@ -234,7 +238,7 @@ describe("gating is OFF when MAINTENANCE_ROLES_ENFORCED is false", () => {
     const wrap = wrapper();
     const target = await assignedElsewhere(wrap);
     const { result } = renderHook(() => useUpdateMaintenanceTaskFields(), { wrapper: wrap });
-    await result.current.mutateAsync({ id: target.id, fields: { Status: "Complete" } });
+    await act(() => result.current.mutateAsync({ id: target.id, fields: { Status: "Complete" } }));
     const after = await loaded(wrapper());
     expect(after.find((t) => t.id === target.id)?.status).toBe("Complete");
   });
@@ -243,7 +247,9 @@ describe("gating is OFF when MAINTENANCE_ROLES_ENFORCED is false", () => {
     const wrap = wrapper();
     const target = await assignedElsewhere(wrap);
     const { result } = renderHook(() => useCompleteMaintenanceTask(), { wrapper: wrap });
-    const done = await result.current.mutateAsync({ id: target.id, completedOn: new Date() });
+    const done = await act(() =>
+      result.current.mutateAsync({ id: target.id, completedOn: new Date() }),
+    );
     expect(done.status).toBe("Complete");
   });
 
@@ -252,7 +258,9 @@ describe("gating is OFF when MAINTENANCE_ROLES_ENFORCED is false", () => {
     const tasks = await loaded(wrap);
     const target = tasks.find((t) => !t.assigned && t.status !== "Complete")!;
     const { result } = renderHook(() => useCompleteMaintenanceTask(), { wrapper: wrap });
-    const done = await result.current.mutateAsync({ id: target.id, completedOn: new Date() });
+    const done = await act(() =>
+      result.current.mutateAsync({ id: target.id, completedOn: new Date() }),
+    );
     expect(done.assigned?.email).toBe(ME.email);
   });
 });

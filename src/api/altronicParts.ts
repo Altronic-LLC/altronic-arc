@@ -28,6 +28,7 @@ import {
   readWholeList,
   rowsForTitle,
 } from "./partsListShared";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // Altronic Part List API — every Altronic part number except the HCO
@@ -69,10 +70,6 @@ function clone(p: AltronicPart): AltronicPart {
   return { ...p, comments: [...p.comments] };
 }
 
-function delay<T>(value: T, ms = 220): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
-
 const byPartNumber = (a: AltronicPart, b: AltronicPart) =>
   comparePartNumbers(a.partNumber, b.partNumber) || a.id - b.id;
 
@@ -82,7 +79,7 @@ function listId(): string {
 
 /** Every part on the Part List, in part-number order. */
 export async function listAltronicParts(): Promise<AltronicPart[]> {
-  if (USE_MOCK) return delay(mockStore.map(clone).sort(byPartNumber));
+  if (USE_MOCK) return mockDelay(mockStore.map(clone).sort(byPartNumber));
   const items = await readWholeList(listId(), ALTRONIC_PART_SELECT);
   return items.map(toAltronicPart).sort(byPartNumber);
 }
@@ -158,7 +155,7 @@ export async function createAltronicPart(input: NewAltronicPart, actor: Person):
       modifiedAt: now,
     };
     mockStore.push(created);
-    return delay(clone(created));
+    return mockDelay(clone(created));
   }
 
   const fields = {
@@ -221,7 +218,7 @@ async function reusePart(id: number, input: NewAltronicPart, actor: Person): Pro
       createdAt: comments[0]?.timestamp ?? now,
       modifiedAt: now,
     };
-    return delay(clone(mockStore[idx]));
+    return mockDelay(clone(mockStore[idx]));
   }
 
   const fresh = await readItem(listId(), id, ALTRONIC_PART_SELECT);
@@ -275,7 +272,7 @@ export async function deleteAltronicPart(
       comments: [...history, ...mockStore[idx].comments],
       modifiedAt: new Date(),
     };
-    return delay(clone(mockStore[idx]));
+    return mockDelay(clone(mockStore[idx]));
   }
 
   if (!communicationAvailable(listId())) throw new Error(COMMUNICATION_MISSING);
@@ -317,7 +314,7 @@ export async function updateAltronicPart(id: number, patch: Partial<AltronicPart
     const idx = mockStore.findIndex((p) => p.id === id);
     if (idx < 0) throw new Error(`Part ${id} isn't on the Part List any more.`);
     mockStore[idx] = { ...mockStore[idx], ...patch, id, modifiedAt: new Date() };
-    return delay(clone(mockStore[idx]));
+    return mockDelay(clone(mockStore[idx]));
   }
   const fields = columnsFromPatch(PART_FIELDS, patch);
   if (Object.keys(fields).length > 0) await patchItem(listId(), id, fields);
@@ -355,7 +352,7 @@ export async function approveAltronicPart(
       comments: [...parseCommunication(appendComment("", record)), ...mockStore[idx].comments],
       modifiedAt: new Date(),
     };
-    return delay(clone(mockStore[idx]));
+    return mockDelay(clone(mockStore[idx]));
   }
 
   if (!communicationAvailable(listId())) throw new Error(COMMUNICATION_MISSING);

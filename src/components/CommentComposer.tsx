@@ -62,6 +62,10 @@ interface CommentComposerProps {
    * half-written comment for task A. Omit it to disable persistence.
    */
   draftKey?: string;
+  /** The box's prompt — "Write a reply…" for a threaded reply. */
+  placeholder?: string;
+  /** Focus the box on mount — a reply box opens because Reply was pressed. */
+  autoFocus?: boolean;
 }
 
 /**
@@ -120,6 +124,8 @@ export function CommentComposer({
   uploadFile,
   richTextNotifyNote = WATCHERS_STILL_NOTIFIED,
   draftKey,
+  placeholder = "Write a comment…",
+  autoFocus,
 }: CommentComposerProps) {
   // A half-written comment survives navigating away to look something up —
   // the thing Alexander Masgras lost "multiple paragraphs, full lists" to.
@@ -531,7 +537,7 @@ export function CommentComposer({
           }}
           disabled={disabled || busy}
           minHeight="6.5rem"
-          placeholder="Write a comment…"
+          placeholder={placeholder}
           aria-label="Comment (rich text)"
         />
       ) : (
@@ -549,9 +555,10 @@ export function CommentComposer({
         placeholder={
           isDragging
             ? "Drop files here…"
-            : "Write a comment… (type @ to mention someone, drop or paste files to attach)"
+            : `${placeholder} (type @ to mention someone, drop or paste files to attach)`
         }
         disabled={disabled || busy}
+        autoFocus={autoFocus}
         rows={4}
         className="w-full resize-y rounded-md bg-bg p-3 text-base text-fg placeholder:text-fg-muted focus:outline-none focus:ring-2 focus:ring-accent/30 sm:text-sm"
       />

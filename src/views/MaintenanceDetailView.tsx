@@ -415,6 +415,8 @@ export function MaintenanceDetailView() {
                 currentUserName={currentUser.displayName}
                 mentionablePeople={mentionCandidates}
                 onEdit={handleEditComment}
+                onReply={handleAddComment}
+                draftKey={`workOrder:${taskId}`}
               />
             </div>
           </div>

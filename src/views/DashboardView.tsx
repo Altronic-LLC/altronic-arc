@@ -27,6 +27,7 @@ import {
   ListChecks,
   Lock,
   MapPin,
+  Megaphone,
   MessageSquare,
   PackageSearch,
   Sparkles,
@@ -47,11 +48,14 @@ import { useEcns } from "@/hooks/useEcns";
 import { useFaits } from "@/hooks/useFaits";
 import { useMrbEntries } from "@/hooks/useMrb";
 import { needsDisposition } from "@/lib/mrbMapper";
+import { useScns } from "@/hooks/useScns";
+import { isOpenScn } from "@/components/scnAtoms";
 import { useQuickLinksFor } from "@/hooks/useQuickLinks";
 import { QuickLinksRow } from "@/components/QuickLinksRow";
 import { isEcnOnHold } from "@/lib/ecnMapper";
 import { isFaitOpen } from "@/lib/faitFields";
-import { useBuildRequests } from "@/hooks/useBuildRequests";
+import { useBuildRequestStatusChoices, useBuildRequests } from "@/hooks/useBuildRequests";
+import { withCurrentChoice } from "@/api/columnChoices";
 import { usePanelOrders } from "@/hooks/usePanelOrders";
 import { usePanelTasks } from "@/hooks/usePanelTasks";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -59,11 +63,9 @@ import { useCollapsedSections } from "@/hooks/useCollapsedSections";
 import { isSessionExpiredError } from "@/hooks/useSessionExpiry";
 import { useAccessDenials } from "@/hooks/useListAccess";
 import { pathAccessState } from "@/api/appAccess";
-import { PARTS_LIST_LIVE } from "@/api/config";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { SingleSelect } from "@/components/SearchableSelect";
 import {
-  BUILD_REQUEST_STATUSES,
   DASHBOARD_DEPARTMENTS,
   type DashboardDepartment,
   EIR_STATUSES,
@@ -72,7 +74,6 @@ import {
   PANEL_TASK_STATUSES,
   STATUSES,
   type BuildRequest,
-  type BuildRequestStatus,
   type Ecn,
   type Fait,
   type Eir,
@@ -190,7 +191,8 @@ const OPERATIONS_BAR_COLOR: Record<OperationsStatus, string> = {
   Canceled: "bg-cooper-red",
 };
 
-const BUILD_REQUEST_BAR_COLOR: Record<BuildRequestStatus, string> = {
+/** Bar colour per BRStatus; a status added in SharePoint gets the neutral grey. */
+const BUILD_REQUEST_BAR_COLOR: Record<string, string> = {
   Submitted: "bg-superior-blue",
   "In-process": "bg-ajax-yellow",
   // Production hand-off (2026-09-29) — both still OPEN, so they count in the
@@ -278,6 +280,7 @@ export function DashboardView() {
   const { data: ecns = [] } = useEcns();
   const { data: faits = [] } = useFaits();
   const { data: mrbEntries = [] } = useMrbEntries();
+  const { data: scns = [] } = useScns();
   const {
     data: testSheets = [],
     isError: testSheetsError,
@@ -291,6 +294,7 @@ export function DashboardView() {
     error: buildRequestsErrorObj,
     refetch: refetchBuildRequests,
   } = useBuildRequests();
+  const { data: buildRequestStatuses = [] } = useBuildRequestStatusChoices();
   const {
     data: panelOrders = [],
     isLoading: panelOrdersLoading,
@@ -426,6 +430,17 @@ export function DashboardView() {
     [mrbEntries],
   );
 
+  /**
+   * SCNs: every notice not yet CLOSED or Cancelled. Like MRB, deliberately
+   * NOT scoped by Mine/Company — a notice is worked by Supply Chain as a
+   * whole, and `unit` says "open" so the number describes the register
+   * rather than the reader.
+   */
+  const scnCard = useMemo(
+    () => ({ count: scns.filter((s) => isOpenScn(s.status)).length }),
+    [scns],
+  );
+
   const eirCard = useMemo(() => {
     const active = eirs.filter(
       (e: Eir) =>
@@ -497,15 +512,16 @@ export function DashboardView() {
           personMatchesSingle(b.engineerAssigned, myEmail)) &&
         buildRequestMatchesProject(b, projectId),
     );
-    const segments: Segment[] = BUILD_REQUEST_STATUSES.filter((s) => s !== "Complete").map(
-      (s) => ({
-        label: s,
-        count: active.filter((b) => b.status === s).length,
-        color: BUILD_REQUEST_BAR_COLOR[s],
-      }),
-    );
+    // SharePoint's live statuses, plus any an open request holds that the
+    // column no longer offers — every counted request lands in a segment.
+    const statuses = active.reduce((acc, b) => withCurrentChoice(acc, b.status), buildRequestStatuses);
+    const segments: Segment[] = statuses.filter((s) => s !== "Complete").map((s) => ({
+      label: s,
+      count: active.filter((b) => b.status === s).length,
+      color: BUILD_REQUEST_BAR_COLOR[s] ?? "bg-fg-muted",
+    }));
     return { count: active.length, segments };
-  }, [buildRequests, mine, myEmail, projectId]);
+  }, [buildRequests, buildRequestStatuses, mine, myEmail, projectId]);
 
   const panelOrderCard = useMemo(() => {
     // "Mine" for a panel order = I'm the assigned engineer or a watcher.
@@ -835,18 +851,14 @@ export function DashboardView() {
             pair of registers that go together. No count, deliberately — the
             Part List is ~14,000 rows, and the Dashboard must not download it
             just to print a number nobody needs to see. */}
-        {/* Until PARTS_LIST_LIVE, a Coming soon card at the END of the
-            section instead (placeholders sit last) — testers use the URL. */}
-        {PARTS_LIST_LIVE && (
-          <TypeCard
-            name="Parts List"
-            icon={<Cpu className="h-5 w-5" />}
-            tone="superior-blue"
-            description="Every Altronic part number — the Parts Book, the HCO component lists, and Global Search."
-            to={"/engineering/parts"}
-            onClick={() => navigate("/engineering/parts")}
-          />
-        )}
+        <TypeCard
+          name="Parts List"
+          icon={<Cpu className="h-5 w-5" />}
+          tone="superior-blue"
+          description="Every Altronic part number — the Parts Book, the HCO component lists, and Global Search."
+          to={"/engineering/parts"}
+          onClick={() => navigate("/engineering/parts")}
+        />
         <TypeCard
           name="Where Am I?"
           icon={<CalendarDays className="h-5 w-5" />}
@@ -865,7 +877,6 @@ export function DashboardView() {
           to={ecnsUrl}
           onClick={() => navigate(ecnsUrl)}
         />
-        {!PARTS_LIST_LIVE && <PlaceholderCard name="Parts List" icon={<Cpu className="h-5 w-5" />} />}
       </DeptSection>
 
       <DeptSection
@@ -1069,6 +1080,21 @@ export function DashboardView() {
           unit="need a disposition"
           to={"/supply-chain/mrb"}
           onClick={() => navigate("/supply-chain/mrb")}
+        />
+        {/* Shares cooper-green with Suppliers on purpose. Six cards over
+            four tones means a repeat, and these two are the pair worth
+            pairing: both are about what our SUPPLIERS do — the SRM tool is
+            who supplies us, an SCN is what they tell us is going obsolete
+            or being phased out. Red would blunt "red means a cost change",
+            and blue already carries the FAIT/MRB inspection pair. */}
+        <TypeCard
+          name="SCNs"
+          icon={<Megaphone className="h-5 w-5" />}
+          tone="cooper-green"
+          count={scnCard.count}
+          unit="open"
+          to={"/supply-chain/scns"}
+          onClick={() => navigate("/supply-chain/scns")}
         />
       </DeptSection>
 

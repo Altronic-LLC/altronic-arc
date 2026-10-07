@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { screen } from "@testing-library/react";
+import { screen, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
 import { Header } from "./Header";
@@ -15,14 +15,6 @@ import { clearAccessDenials, markListDenied, markSiteDenied } from "@/hooks/useL
 // "ask someone", which is the true and actionable version.
 // =============================================================================
 
-// Pinned OFF, so the "before it goes live" case doesn't depend on whether
-// this machine's .env.local sets VITE_PARTS_LIST_LIVE. The live case is
-// Header.partsListLive.test.tsx.
-vi.mock("@/api/config", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/api/config")>();
-  return { ...actual, PARTS_LIST_LIVE: false };
-});
-
 vi.mock("@/hooks/useCurrentUser", () => ({
   useCurrentUser: () => ({
     displayName: "Demo User",
@@ -33,7 +25,13 @@ vi.mock("@/hooks/useCurrentUser", () => ({
 
 const teradyne = APPS.find((a) => a.label === "Teradyne Log")!;
 
-afterEach(() => clearAccessDenials());
+afterEach(() => {
+  // Unmount BEFORE resetting the store: this afterEach runs ahead of the
+  // setup file's cleanup(), so a reset here would re-render whatever is still
+  // mounted outside act().
+  cleanup();
+  clearAccessDenials();
+});
 
 async function openDepartments() {
   const user = userEvent.setup();
@@ -42,12 +40,11 @@ async function openDepartments() {
   return user;
 }
 
-describe("Departments menu — the Parts List before it goes live", () => {
-  it("reads Soon and isn't a link — testers go by URL until VITE_PARTS_LIST_LIVE", async () => {
+describe("Departments menu — the Parts List", () => {
+  it("is a link to /engineering/parts", async () => {
     await openDepartments();
-    const label = screen.getByText("Parts List");
-    expect(label.closest("a")).toBeNull();
-    expect(label.parentElement).toHaveTextContent(/Soon/);
+    // The menu's links carry role="menuitem".
+    expect(screen.getByRole("menuitem", { name: /Parts List/ })).toHaveAttribute("href", "/engineering/parts");
   });
 });
 

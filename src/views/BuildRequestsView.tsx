@@ -1,19 +1,19 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { HardHat, Plus, X } from "lucide-react";
-import { useBuildRequestItems, useBuildRequests } from "@/hooks/useBuildRequests";
+import {
+  useBuildRequestItems,
+  useBuildRequestStatusChoices,
+  useBuildRequests,
+} from "@/hooks/useBuildRequests";
 import { useProjects } from "@/hooks/useTasks";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { MultiSelect, SingleSelect } from "@/components/SearchableSelect";
 import { SearchInput } from "@/components/SearchInput";
 import { BuildRequestFormModal } from "@/components/BuildRequestFormModal";
 import { BuildRequestRow } from "@/components/BuildRequestRow";
-import {
-  BUILD_REQUEST_STATUSES,
-  type BuildRequest,
-  type BuildRequestStatus,
-  type Person,
-} from "@/types/task";
+import type { BuildRequest, Person } from "@/types/task";
+import { withCurrentChoice } from "@/api/columnChoices";
 import { cn } from "@/lib/cn";
 import { matchesSearch, tokenizeQuery } from "@/lib/itemSearch";
 import { withPerson } from "@/lib/people";
@@ -26,9 +26,9 @@ import { useUnseenMentionSet } from "@/hooks/useUnseenMentions";
 // view is shareable: status, q, project, engineer, requestor.
 // =============================================================================
 
-type StatusFilter = BuildRequestStatus | "ALL_OPEN" | null;
+type StatusFilter = string | null;
 
-function isOpen(status: BuildRequestStatus): boolean {
+function isOpen(status: string): boolean {
   return status !== "Complete";
 }
 
@@ -146,13 +146,17 @@ export function BuildRequestsView() {
   );
 
   const countByStatus = useMemo(() => {
-    const counts = Object.fromEntries(BUILD_REQUEST_STATUSES.map((s) => [s, 0])) as Record<
-      BuildRequestStatus,
-      number
-    >;
-    for (const b of filteredByBar) counts[b.status]++;
+    const counts: Record<string, number> = {};
+    for (const b of filteredByBar) counts[b.status] = (counts[b.status] ?? 0) + 1;
     return counts;
   }, [filteredByBar]);
+  // SharePoint's live BRStatus choices, plus any status a request holds that
+  // the column no longer offers — so no request is left without a pill.
+  const { data: liveStatuses = [] } = useBuildRequestStatusChoices();
+  const statusPills = useMemo(
+    () => brs.reduce((acc, b) => withCurrentChoice(acc, b.status), liveStatuses),
+    [brs, liveStatuses],
+  );
   const openCount = filteredByBar.filter((b) => isOpen(b.status)).length;
 
   // Header ids that have at least one part with an unseen mention — surfaces
@@ -205,11 +209,11 @@ export function BuildRequestsView() {
             onClick={() => setStatus(statusFilter === "ALL_OPEN" ? null : "ALL_OPEN")}
             emphasized
           />
-          {BUILD_REQUEST_STATUSES.map((s) => (
+          {statusPills.map((s) => (
             <Pill
               key={s}
               label={s}
-              count={countByStatus[s]}
+              count={countByStatus[s] ?? 0}
               active={statusFilter === s}
               onClick={() => setStatus(statusFilter === s ? null : s)}
             />

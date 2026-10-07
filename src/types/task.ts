@@ -655,12 +655,15 @@ export interface OperationsTaskItemFields {
 //     Assembly / Operations / Testing columns.
 // =============================================================================
 
+/**
+ * FALLBACK ONLY — pickers, pills and the dashboard read BRStatus's live
+ * choices from SharePoint (listBuildRequestStatusChoices). This is what mock
+ * mode offers and what's used if the column can't be read.
+ */
 export const BUILD_REQUEST_STATUSES = [
   "Submitted",
   "In-process",
-  // The production hand-off (Ray, 2026-09-29). Added to the SharePoint column
-  // first — the mapper clamps a read to this list, so a value missing here
-  // reads back as the fallback status. See lib/buildRequestProduction.ts.
+  // The production hand-off (Ray, 2026-09-29). See lib/buildRequestProduction.ts.
   "Ready for Production",
   "Production Complete",
   "Blocked",
@@ -705,10 +708,18 @@ export const BUILD_REQUEST_PART_TYPES = [
 ] as const;
 export type BuildRequestPartType = (typeof BUILD_REQUEST_PART_TYPES)[number];
 
+/**
+ * FALLBACK ONLY — the Part Status picker reads the column's live choices from
+ * SharePoint (listBuildRequestPartStatusChoices). This list is what mock mode
+ * offers and what the picker falls back to if the column can't be read.
+ */
 export const BUILD_REQUEST_PART_STATUSES = [
   "Review Checklist",
   "Information Needed",
   "Ready for Production",
+  // Set by the part's production buttons (2026-10-05) — must ALSO be a choice
+  // on the SharePoint column, or the write is refused.
+  "In Production",
   "Production Complete",
   "On Hold",
 ] as const;
@@ -757,7 +768,11 @@ export interface BuildRequest {
   /** "Product or Project Name" (the Title column). */
   title: string;
   product: string;
-  status: BuildRequestStatus;
+  /**
+   * Whatever SharePoint holds (BRStatus) — NOT clamped, so a status added in
+   * SharePoint shows as itself. Blank reads as "Submitted".
+   */
+  status: string;
   brType: BuildRequestType | null;
   blockedReason: BuildRequestBlockedReason | null;
   requiredLeadTime: BuildRequestLeadTime | null;
@@ -806,7 +821,12 @@ export interface BuildRequestItem {
   /** Free-text on the list (mixed formats in live data), so kept as text. */
   revisionDate: string;
   partType: BuildRequestPartType | null;
-  partStatus: BuildRequestPartStatus | null;
+  /**
+   * Whatever SharePoint holds, NOT clamped to BUILD_REQUEST_PART_STATUSES — a
+   * status added to the column in SharePoint must render as itself, not as
+   * "No status". The picker reads the live choices (listBuildRequestPartStatusChoices).
+   */
+  partStatus: string | null;
   disposition: BuildRequestDisposition | null;
   assembly: string[];
   operations: string[];
@@ -3484,3 +3504,127 @@ export interface MrbEntryInput {
   pricePerIssue: number | null;
   notes: string;
 }
+
+// =============================================================================
+// SCNs — Supply Chain Notices (Supply Chain, on the ALTRONICSALESTEAM/SCN
+// subsite). A notice that a product or part is going obsolete, being phased
+// out, or otherwise changing in a way the customer-facing side has to act on:
+// which parts, which customers, what the reviews found and what was decided.
+//
+// `Title` is the SCN# (`YYYY-NNNN`, app-generated — see lib/scnNumber.ts).
+// Several internal column names LIE about their meaning (`Progress` is the
+// Product, `Priority` is the Category, `PartsEffected` is the Old Number); the
+// translation lives in `lib/scnFields.ts` and nowhere else, and the text,
+// checklist and date columns are carried in `values` / `checks` / `dates`
+// keyed by that file's descriptor keys.
+// =============================================================================
+
+/** `SCNStatus`. Default on create is WIP. The READ is not clamped. */
+export const SCN_STATUSES = [
+  "WIP",
+  "CLOSED",
+  "Cancelled",
+  "On Hold",
+  "LTB in process",
+  "Customer Phase Out",
+] as const;
+export type ScnStatus = (typeof SCN_STATUSES)[number];
+
+/** `Priority` — labelled "Category". Two live rows are blank; the READ is not clamped. */
+export const SCN_CATEGORIES = ["OBS", "PHASE OUT", "EECR", "Notification"] as const;
+export type ScnCategory = (typeof SCN_CATEGORIES)[number];
+
+/** `ApprovalStatus` — REQUIRED by the list, so a create must pick one. */
+export const SCN_APPROVAL_STATUSES = ["Approved", "Denied"] as const;
+export type ScnApprovalStatus = (typeof SCN_APPROVAL_STATUSES)[number];
+
+/** `ProjectStatus` — a MULTI-choice progress checklist (checkBoxes). */
+export const SCN_PROJECT_STATUS_OPTIONS = [
+  "Immediate Phase Complete",
+  "Analysis Phase Complete",
+  "Inventory Mgmt Phase Complete",
+  "Final Obsolescence Complete",
+] as const;
+
+/** `PreliminaryReviews` — MULTI-choice (checkBoxes). */
+export const SCN_PRELIMINARY_REVIEW_OPTIONS = [
+  "Master List Reviewed",
+  "Price List Reviewed",
+  "Where Used Reviewed",
+  "Service Team Review Completed",
+] as const;
+
+/** `SecondaryReview` — MULTI-choice (checkBoxes). */
+export const SCN_SECONDARY_REVIEW_OPTIONS = [
+  "Service Review Completed",
+  "Master List Review Completed",
+  "Price List Review Completed",
+  "Sales History Review Completed",
+] as const;
+
+/** A SharePoint Hyperlink column's value (`Task_x0020_List` — Planner links). Read-only in ARC. */
+export interface ScnLink {
+  url: string;
+  description: string;
+}
+
+export interface Scn {
+  id: number;
+  /** `Title` — the SCN#, `YYYY-NNNN`. Generated on create, never typed. */
+  scnNumber: string;
+  /** `YEAR` — text, written from the SCN# on create. Drives the Year filter. */
+  year: string;
+  /** `Progress` — the PRODUCT name, whatever the column is called. */
+  product: string;
+  /** `Priority` — the CATEGORY (OBS / PHASE OUT / EECR / Notification), not clamped. */
+  category: string;
+  /** `SCNStatus`, not clamped. */
+  status: string;
+  /** `ApprovalStatus` — Approved / Denied. */
+  approvalStatus: string;
+  /** `AssignedTo` — MULTI-person. */
+  assignedTo: Person[];
+  /** `Owner` — MULTI-person. */
+  owner: Person[];
+  watchers: Person[];
+  comments: Comment[];
+  hasAttachments: boolean;
+  /** Every text / multiline column, keyed by the descriptor keys in lib/scnFields.ts. */
+  values: Record<string, string>;
+  /** The three multi-choice checklists (projectStatus / preliminaryReviews / secondaryReview). */
+  checks: Record<string, string[]>;
+  /** The three date-only columns (ltsExpires / ltbExpires / fixtureReview). */
+  dates: Record<string, Date | null>;
+  /** `Task_x0020_List` — a Hyperlink column. Rendered when present, never written. */
+  taskList: ScnLink | null;
+  /** Graph's item-level `createdBy` — shown as "Raised by". */
+  createdBy: Person | null;
+  createdAt: Date;
+  modifiedAt: Date;
+}
+
+/**
+ * Everything a create needs. `scnNumber` and `year` are computed by the API;
+ * `status` defaults to WIP when blank. Edits go through `ScnPatch`.
+ */
+export interface ScnInput {
+  product: string;
+  category: string;
+  /** Required by the list — a blank is refused by SharePoint. */
+  approvalStatus: string;
+  status?: string;
+  assignedTo: Person[];
+  owner: Person[];
+  /** Usually left to the hook, which folds the creator, assignees and owners in. */
+  watchers?: Person[];
+  /** Other text columns by descriptor key: description, customer, oldNumber, sapNumber, partDescription, … */
+  values: Record<string, string>;
+}
+
+/**
+ * A field-level edit, keyed by descriptor key: a string for a text / choice
+ * column, a string[] for a multi-choice checklist, a Date (or null) for a
+ * date column. Person columns go through setScnAssigned / setScnOwner /
+ * setScnWatchers, and `Task_x0020_List` is never written.
+ */
+export type ScnPatch = Record<string, string | string[] | Date | null>;

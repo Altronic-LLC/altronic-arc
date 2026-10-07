@@ -50,6 +50,7 @@ import {
   SP_QC_CPU95_LIST_ID,
   SP_QC_TIME_TRACKING_LIST_ID,
   SP_SCHEDULED_MAINTENANCE_LIST_ID,
+  SP_SCNS_LIST_ID,
   SP_SUPPLIERS_LIST_ID,
   SP_TERADYNE_LOG_LIST_ID,
   SP_TEST_RESULTS_LIST_ID,
@@ -74,6 +75,7 @@ export const SITE_LABELS: Record<SiteKey, string> = {
   panelTeam: "ALTRONICPANELTEAM",
   salesTeam: "ALTRONICSALESTEAM",
   salesOrderEntry: "ALTRONICSALESTEAM/OrderEntry",
+  scn: "ALTRONICSALESTEAM/SCN",
   pmo: "Altronic_PMO",
 };
 
@@ -90,6 +92,8 @@ export const SITE_LABELS: Record<SiteKey, string> = {
  */
 export const SITE_PARENTS: Partial<Record<SiteKey, SiteKey>> = {
   salesOrderEntry: "salesTeam",
+  // The SCN subsite sits in the same collection, under the same parent.
+  scn: "salesTeam",
 };
 
 /** A site and every site above it, nearest first. */
@@ -216,6 +220,17 @@ export const APPS: AppSpec[] = [
   { path: "/supply-chain/cost-impact-notices", label: "Cost Impact Notices", site: "salesTeam", lists: ids(SP_COST_IMPACT_NOTICES_LIST_ID) },
   { path: "/supply-chain/faits", label: "FAITs", site: "engineering", lists: ids(SP_FAIT_LIST_ID) },
   { path: "/supply-chain/mrb", label: "MRB", site: "pmo", lists: ids(SP_MRB_LIST_ID) },
+  { path: "/supply-chain/scns", label: "SCNs", site: "scn", lists: ids(SP_SCNS_LIST_ID) },
+  // The SCN subsite's Documents library — files, not list rows, so a refused
+  // library locks it and only it (the SCN list itself is unaffected). Its own
+  // entry, because appForPath would otherwise resolve this route to SCNs.
+  {
+    path: "/supply-chain/scns/documents",
+    label: "SCN Documents",
+    site: "scn",
+    lists: [],
+    needsDrive: true,
+  },
 
   // Sales ----------------------------------------------------------------
   // Everything on this screen is a workbook in the Sales document library —

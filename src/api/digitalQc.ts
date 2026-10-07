@@ -3,6 +3,7 @@ import { SITES, USE_MOCK } from "./config";
 import type { GraphListItem } from "@/types/task";
 import type { DigitalQcRecord } from "@/lib/digitalQc";
 import { DIGITAL_QC_SAMPLE_RECORDS } from "@/data/digitalQcMockData";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // Digital QC API
@@ -166,11 +167,6 @@ function toDigitalQcRecord(
     toRP: Number(field("toRP") ?? 0),
     other: Number(field("other") ?? 0),
   };
-}
-
-// Simulate a small delay in mock mode so loading states can be seen.
-function mockDelay(): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, 300));
 }
 
 let mockRecords = DIGITAL_QC_SAMPLE_RECORDS;

@@ -18,29 +18,20 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          # Current Node LTS. Node 20 has a deprecation horizon mid-2026
-          # so we're getting ahead of it. Node 22 ships with npm 10.x by
-          # default; we bump to npm 11 below so CI matches typical local
-          # dev (where contributors usually have npm 11 already). Without
-          # the pin, every `npm install <new-dep>` locally would produce
-          # a lockfile shape CI rejects — that's the loop we want to end.
-          node-version: "22"
+          # Node 24, the current LTS. It ships with npm 11, which is what
+          # contributors run locally, so the lockfile shape agrees between
+          # local and CI. Node 22 shipped npm 10, which rejects that
+          # lockfile and forced an `npx -y npm@11 ci` workaround. The
+          # workaround was removed with this upgrade.
+          node-version: "24"
           cache: "npm"
 
       - name: Install
-        # Node 22 ships with npm 10.x. Our contributors typically have
-        # npm 11 locally (Node 22+ with the latest), which produces a
-        # lockfile shape npm 10 rejects. The clean fix is to run `npm ci`
-        # through npx with a pinned version — no global install (which
-        # tends to fail with "Cannot find module 'promise-retry'" when
-        # npm tries to replace itself mid-run) and no version drift.
-        # Subsequent npm commands (test, build) just run scripts so they
-        # work fine on Node 22's built-in npm.
-        run: npx -y npm@11 ci
+        run: npm ci
 
       - name: Test
         # Project standard is 100% unit-test coverage; tests must pass to
@@ -67,6 +58,12 @@ jobs:
           VITE_SP_PANEL_QC_DEFECTS_LIST_ID: ${{ vars.VITE_SP_PANEL_QC_DEFECTS_LIST_ID }}
           VITE_SP_SALESTEAM_SITE_ID: ${{ vars.VITE_SP_SALESTEAM_SITE_ID }}
           VITE_SP_SALES_ORDERENTRY_SITE_ID: ${{ vars.VITE_SP_SALES_ORDERENTRY_SITE_ID }}
+          # SCNs (Supply Chain, ALTRONICSALESTEAM/SCN subsite). Documented
+          # defaults in config.ts for all three, so a build without them still
+          # points at the live list; set them only to override.
+          VITE_SP_SCN_SITE_ID: ${{ vars.VITE_SP_SCN_SITE_ID }}
+          VITE_SP_SCN_SITE_URL: ${{ vars.VITE_SP_SCN_SITE_URL }}
+          VITE_SP_SCNS_LIST_ID: ${{ vars.VITE_SP_SCNS_LIST_ID }}
           VITE_SP_PMO_SITE_ID: ${{ vars.VITE_SP_PMO_SITE_ID }}
           VITE_SP_LIST_ID: ${{ vars.VITE_SP_LIST_ID }}
           VITE_SP_PROJECTS_LIST_ID: ${{ vars.VITE_SP_PROJECTS_LIST_ID }}
@@ -101,9 +98,6 @@ jobs:
           # only to override.
           VITE_SP_PARTS_ROLES_LIST_ID: ${{ vars.VITE_SP_PARTS_ROLES_LIST_ID }}
           VITE_SP_COMPONENT_DESCRIPTION_OPTIONS_LIST_ID: ${{ vars.VITE_SP_COMPONENT_DESCRIPTION_OPTIONS_LIST_ID }}
-          # "true" puts the Parts List on the Dashboard and Departments menu;
-          # unset, both say Coming soon and only the direct URL opens it.
-          VITE_PARTS_LIST_LIVE: ${{ vars.VITE_PARTS_LIST_LIVE }}
           VITE_SP_MAINTENANCE_TASKS_LIST_ID: ${{ vars.VITE_SP_MAINTENANCE_TASKS_LIST_ID }}
           VITE_SP_SCHEDULED_MAINTENANCE_LIST_ID: ${{ vars.VITE_SP_SCHEDULED_MAINTENANCE_LIST_ID }}
           # Maintenance Departments / Locations — the two admin-managed
@@ -129,6 +123,7 @@ jobs:
           # as env-overridable while the build had no way to receive them, which
           # made that untrue in production.
           VITE_GRAY_MARKET_NEW_REQUEST_ALERTS: ${{ vars.VITE_GRAY_MARKET_NEW_REQUEST_ALERTS }}
+          VITE_GRAY_MARKET_CHANGE_ALERTS: ${{ vars.VITE_GRAY_MARKET_CHANGE_ALERTS }}
           VITE_FAIT_NEW_ALERTS: ${{ vars.VITE_FAIT_NEW_ALERTS }}
           VITE_FAIT_SQE_REVIEWERS: ${{ vars.VITE_FAIT_SQE_REVIEWERS }}
           VITE_BUILD_REQUEST_PRODUCTION_ALERTS: ${{ vars.VITE_BUILD_REQUEST_PRODUCTION_ALERTS }}
@@ -163,7 +158,7 @@ jobs:
         # picks up the URL on a hard refresh of e.g. /task/15.
         run: cp dist/index.html dist/404.html
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: dist
 
@@ -175,4 +170,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

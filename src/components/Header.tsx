@@ -31,6 +31,7 @@ import {
   ListChecks,
   Lock,
   MapPin,
+  Megaphone,
   MessageSquare,
   Moon,
   PackageSearch,
@@ -50,7 +51,7 @@ import { useKanbanAvailable } from "@/hooks/useIsPhone";
 import { filterSearch } from "@/hooks/useFilters";
 import { eirFilterSearch } from "@/hooks/useEirFilters";
 import { visitReportFilterSearch } from "@/hooks/useVisitReportFilters";
-import { PARTS_LIST_LIVE, USE_MOCK } from "@/api/config";
+import { USE_MOCK } from "@/api/config";
 import { Brandmark } from "@/components/brand/Brandmark";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { UserMenu } from "@/components/UserMenu";
@@ -135,18 +136,12 @@ const DEPARTMENTS: DepartmentGroup[] = [
         icon: <BadgeCheck className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/csa-listings"),
       },
-      // Until PARTS_LIST_LIVE it's a Soon entry at the END of the group, as
-      // the Dashboard shows it — testers reach it by URL.
-      ...(PARTS_LIST_LIVE
-        ? [
-            {
-              to: "/engineering/parts",
-              label: "Parts List",
-              icon: <Cpu className="h-4 w-4" />,
-              matchesPath: (p: string) => p.startsWith("/engineering/parts"),
-            },
-          ]
-        : []),
+      {
+        to: "/engineering/parts",
+        label: "Parts List",
+        icon: <Cpu className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/engineering/parts"),
+      },
       {
         to: "/engineering/where-am-i",
         label: "Where Am I?",
@@ -159,7 +154,6 @@ const DEPARTMENTS: DepartmentGroup[] = [
         icon: <FileDiff className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/engineering/ecn"),
       },
-      ...(PARTS_LIST_LIVE ? [] : [soon("Parts List", <Cpu className="h-4 w-4" />)]),
     ],
   },
   {
@@ -318,6 +312,13 @@ const DEPARTMENTS: DepartmentGroup[] = [
         label: "MRB",
         icon: <ClipboardX className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/supply-chain/mrb"),
+      },
+      {
+        to: "/supply-chain/scns",
+        label: "SCNs",
+        icon: <Megaphone className="h-4 w-4" />,
+        // Covers both /supply-chain/scns and /supply-chain/scn/:id.
+        matchesPath: (p) => p.startsWith("/supply-chain/scn"),
       },
     ],
   },

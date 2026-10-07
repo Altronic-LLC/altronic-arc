@@ -16,6 +16,7 @@ import {
 import {
   useAddBuildRequestComment,
   useBuildRequest,
+  useBuildRequestStatusChoices,
   useBuildRequestItems,
   useBuildRequests,
   useEditBuildRequestComment,
@@ -25,6 +26,7 @@ import {
   useSetBuildRequestWatchers,
   useUpdateBuildRequestFields,
 } from "@/hooks/useBuildRequests";
+import { withCurrentChoice } from "@/api/columnChoices";
 import { useProjects, useTasks } from "@/hooks/useTasks";
 import { useCurrentUser, useCurrentUserEmails } from "@/hooks/useCurrentUser";
 import { useAdminAccess } from "@/hooks/useIsAdmin";
@@ -33,7 +35,6 @@ import {
   BUILD_REQUEST_BLOCKED_REASONS,
   BUILD_REQUEST_LEAD_TIMES,
   BUILD_REQUEST_SAMPLE_PHASES,
-  BUILD_REQUEST_STATUSES,
   BUILD_REQUEST_TYPES,
   type Comment,
   type Person,
@@ -76,6 +77,7 @@ export function BuildRequestDetailView() {
   const { isAdmin, isResolving: adminResolving } = useAdminAccess();
   const myEmails = useCurrentUserEmails();
   const { data: br, isLoading } = useBuildRequest(brId);
+  const { data: liveStatuses = [] } = useBuildRequestStatusChoices();
   const { data: allBrs = [] } = useBuildRequests();
   const { data: allItems = [] } = useBuildRequestItems();
   const { data: projects = [] } = useProjects();
@@ -307,6 +309,8 @@ export function BuildRequestDetailView() {
                 currentUserName={currentUser.displayName}
                 mentionablePeople={mentionCandidates}
                 onEdit={handleEditComment}
+                onReply={handleAddComment}
+                draftKey={`buildRequest:${brId}`}
               />
             </div>
           </div>
@@ -325,7 +329,7 @@ export function BuildRequestDetailView() {
                   onChange={(e) => patch({ BRStatus: e.target.value })}
                   className="select"
                 >
-                  {BUILD_REQUEST_STATUSES.map((s) => (
+                  {withCurrentChoice(liveStatuses, br.status).map((s) => (
                     <option key={s} value={s}>
                       {s}
                     </option>

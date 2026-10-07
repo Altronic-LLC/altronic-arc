@@ -132,8 +132,8 @@ const resistor: AltronicComponent = {
   mfgName: "PANASONIC",
   mfgNumber: "ERJ-3EKF4701V",
   ratingA: "4K7",
-  ratingB: "75V",
-  ratingC: "",
+  ratingB: "1/10W",
+  ratingC: "75V",
   tempMin: "-55C",
   tempMax: "155C",
   tolerance: "1%",
@@ -153,8 +153,8 @@ describe("componentEmailDetails — every field under its label", () => {
   it("names each rating for the component type, with its column", () => {
     const labels = componentEmailDetails(resistor).map((d) => d.label);
     expect(labels).toContain("Resistance (Rating A)");
-    expect(labels).toContain("Working voltage (Rating B)");
-    expect(labels).toContain("Power (Rating C)");
+    expect(labels).toContain("Power (Rating B)");
+    expect(labels).toContain("Working voltage (Rating C)");
     for (const l of ["Altronic Part Number", "Description", "Mfg Name", "Mfg Number", "Tolerance", "Temp Min", "Temp Max", "Footprint", "Note", "Date Created"]) {
       expect(labels).toContain(l);
     }
@@ -163,6 +163,8 @@ describe("componentEmailDetails — every field under its label", () => {
   it("keeps a rating's value beside its own label", () => {
     const details = componentEmailDetails(resistor);
     expect(details.find((d) => d.label === "Resistance (Rating A)")?.value).toBe("4K7");
+    expect(details.find((d) => d.label === "Power (Rating B)")?.value).toBe("1/10W");
+    expect(details.find((d) => d.label === "Working voltage (Rating C)")?.value).toBe("75V");
   });
 
   it("says a rating is unused for the type, and keeps the generic name for an unknown type", () => {

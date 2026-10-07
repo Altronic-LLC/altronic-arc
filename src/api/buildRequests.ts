@@ -1,5 +1,7 @@
 import { graphFetch, graphFetchAll } from "./graph";
 import { SP_BUILD_REQUESTS_LIST_ID, SP_SITE_ID, SP_SITE_URL, USE_MOCK } from "./config";
+import { readColumnChoices } from "./columnChoices";
+import { BUILD_REQUEST_STATUSES } from "@/types/task";
 import { ensureLookupIds, ensurePersonLookupId } from "./siteUsers";
 import type { BuildRequest, GraphListItem, Person } from "@/types/task";
 import { attachBuildRequestReferences, toBuildRequest } from "@/lib/buildRequestMapper";
@@ -11,6 +13,7 @@ import { listSiteUsers } from "./eirs";
 import { MOCK_BUILD_REQUESTS } from "@/data/buildRequestMockData";
 import { autoWatchers } from "@/lib/people";
 import { parseWrittenDate } from "@/lib/dateInput";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // Build Request headers API — the "Build Request Tracker" list on the
@@ -53,10 +56,6 @@ function saveToStorage() {
 
 let mockStore: BuildRequest[] = loadFromStorage() ?? [...MOCK_BUILD_REQUESTS];
 
-function delay<T>(value: T, ms = 100): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
-
 const BR_FIELD_SELECT = [
   "Title",
   "Product",
@@ -81,9 +80,19 @@ const BR_FIELD_SELECT = [
   "Attachments",
 ].join(",");
 
+/**
+ * The BRStatus column's LIVE choices (Ray, 2026-10-05) — the hardcoded list had
+ * drifted from SharePoint. Drives the status picker, the list's status pills and
+ * the Dashboard card. Falls back to BUILD_REQUEST_STATUSES if unreadable.
+ */
+export async function listBuildRequestStatusChoices(): Promise<string[]> {
+  if (USE_MOCK) return [...BUILD_REQUEST_STATUSES];
+  return readColumnChoices(SP_SITE_ID, SP_BUILD_REQUESTS_LIST_ID, "BRStatus", BUILD_REQUEST_STATUSES);
+}
+
 export async function listBuildRequests(): Promise<BuildRequest[]> {
   if (USE_MOCK) {
-    return delay(mockStore.map((b) => ({ ...b })));
+    return mockDelay(mockStore.map((b) => ({ ...b })));
   }
 
   const path =
@@ -178,7 +187,7 @@ export async function createBuildRequest(input: CreateBuildRequestInput): Promis
     };
     mockStore = [br, ...mockStore];
     saveToStorage();
-    return delay({ ...br });
+    return mockDelay({ ...br });
   }
 
   // Null/empty fields are omitted on POST — SharePoint rejects nulls,
@@ -267,7 +276,7 @@ export async function updateBuildRequestFields(
     next.modifiedAt = new Date();
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
     saveToStorage();
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   await graphFetch(
@@ -290,7 +299,7 @@ export async function setBuildRequestRequestor(
     if (idx < 0) throw new Error(`Build request ${id} not found`);
     mockStore[idx] = { ...mockStore[idx], requestor: person, modifiedAt: new Date() };
     saveToStorage();
-    return delay({ ...mockStore[idx] });
+    return mockDelay({ ...mockStore[idx] });
   }
   const ensured = await ensurePersonLookupId(SP_SITE_URL, person);
   return updateBuildRequestFields(id, { RequestorLookupId: ensured?.lookupId ?? null });
@@ -312,7 +321,7 @@ export async function setBuildRequestEngineer(
       modifiedAt: new Date(),
     };
     saveToStorage();
-    return delay({ ...mockStore[idx] });
+    return mockDelay({ ...mockStore[idx] });
   }
   const current = await getBuildRequest(id);
   const watchers = autoWatchers(current?.watchers, person);
@@ -373,7 +382,7 @@ export async function addBuildRequestComment(
     next.modifiedAt = new Date();
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
     saveToStorage();
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   const path =
@@ -405,7 +414,7 @@ export async function editBuildRequestComment(
     next.modifiedAt = new Date();
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
     saveToStorage();
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
 
   const path =

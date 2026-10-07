@@ -29,6 +29,7 @@ export type AppItemKind =
   | "supplierContact"
   | "supplierIssue"
   | "costImpactNotice"
+  | "scn"
   | "featureRequest"
   | "altronicPart"
   | "altronicComponent";
@@ -59,6 +60,9 @@ const KIND_SEGMENTS: Record<AppItemKind, string> = {
   supplierContact: "supply-chain/supplier-contact",
   supplierIssue: "supply-chain/supplier-issue",
   costImpactNotice: "supply-chain/cost-impact-notice",
+  // The SCN detail page (the list is at /supply-chain/scns). Wired with the
+  // views; this segment is the contract between them and every email.
+  scn: "supply-chain/scn",
   featureRequest: "feature-request",
   // The Parts List's two lists share ONE detail route, told apart by kind —
   // item ids repeat across the lists (see lib/partSearch.ts `partPath`).

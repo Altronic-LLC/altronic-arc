@@ -11,6 +11,7 @@ import {
 import { appendComment, replaceComment } from "@/lib/communicationParser";
 import { multiPersonField } from "@/lib/graphFields";
 import { MOCK_SUPPLIER_ISSUES } from "@/data/srmMockData";
+import { mockDelay } from "./mockLatency";
 
 // =============================================================================
 // "Supplier Issue Tracker" — one row per quality/delivery issue against a
@@ -27,10 +28,6 @@ import { MOCK_SUPPLIER_ISSUES } from "@/data/srmMockData";
 // =============================================================================
 
 let mockStore: SupplierIssue[] = MOCK_SUPPLIER_ISSUES.map((i) => ({ ...i }));
-
-function delay<T>(value: T, ms = 200): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
 
 function requireListId(action: string): string {
   if (!SP_SUPPLIER_ISSUES_LIST_ID) {
@@ -51,7 +48,7 @@ const SELECT =
 
 export async function listSupplierIssues(): Promise<SupplierIssue[]> {
   if (USE_MOCK) {
-    return delay([...mockStore].sort(compareSupplierIssues).map((i) => ({ ...i })));
+    return mockDelay([...mockStore].sort(compareSupplierIssues).map((i) => ({ ...i })));
   }
   const listId = requireListId("load supplier issues");
   const items = await graphFetchAll<GraphListItem>(
@@ -80,7 +77,7 @@ export async function createSupplierIssue(input: SupplierIssueInput): Promise<Su
       modifiedAt: now,
     };
     mockStore = [issue, ...mockStore];
-    return delay(issue);
+    return mockDelay(issue);
   }
   const listId = requireListId("create the issue");
   const created = await graphFetch<GraphListItem>(
@@ -118,7 +115,7 @@ async function updateFields(id: number, fields: Record<string, unknown>): Promis
     const next: SupplierIssue = { ...mockStore[idx], modifiedAt: new Date() };
     applyMockFields(next, fields);
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
   await graphFetch(`${itemPath(id)}/fields`, { method: "PATCH", body: JSON.stringify(fields) });
   const item = await graphFetch<GraphListItem>(`${itemPath(id)}?$expand=fields($select=${SELECT})`);
@@ -157,7 +154,7 @@ export async function addSupplierIssueComment(
       modifiedAt: new Date(),
     };
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
   const existing = await graphFetch<GraphListItem>(
     `${itemPath(id)}?$expand=fields($select=Communication)`,
@@ -185,7 +182,7 @@ export async function editSupplierIssueComment(
       modifiedAt: new Date(),
     };
     mockStore = [...mockStore.slice(0, idx), next, ...mockStore.slice(idx + 1)];
-    return delay({ ...next });
+    return mockDelay({ ...next });
   }
   const existing = await graphFetch<GraphListItem>(
     `${itemPath(id)}?$expand=fields($select=Communication)`,

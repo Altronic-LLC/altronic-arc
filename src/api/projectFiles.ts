@@ -576,7 +576,7 @@ export interface DriveEntry {
   projectLookupId?: number;
 }
 
-function mapEntry(c: GraphDriveChild, computeLookup: boolean): DriveEntry {
+export function mapEntry(c: GraphDriveChild, computeLookup: boolean): DriveEntry {
   return {
     id: c.id,
     name: c.name,
@@ -591,7 +591,7 @@ function mapEntry(c: GraphDriveChild, computeLookup: boolean): DriveEntry {
 }
 
 /** Folders first, then files; each alphabetical (numeric-aware). */
-function sortEntries(entries: DriveEntry[]): DriveEntry[] {
+export function sortEntries(entries: DriveEntry[]): DriveEntry[] {
   return entries.sort((a, b) => {
     if (a.isFolder !== b.isFolder) return a.isFolder ? -1 : 1;
     return a.name.localeCompare(b.name, undefined, { numeric: true });

@@ -1,9 +1,14 @@
 import type { TaskColumn } from "@/api/taskColumns";
 
 // =============================================================================
-// PCB checklist registry. The 17 fields users work through on a PCB task,
+// PCB checklist registry. The 19 fields users work through on a PCB task,
 // keyed by SharePoint *display name* — that's the only stable identifier
 // since internal names get encoded / truncated / renamed at will.
+//
+// ADDING AN ITEM: create the SharePoint column FIRST (see
+// scripts/add-pcb-checklist-columns.ps1), with a display name matching the
+// entry here exactly. An entry whose column doesn't exist yet renders as a
+// red "column missing" box on every PCB task.
 //
 // Each item declares:
 //   - displayName: must match the SharePoint column display name exactly
@@ -26,14 +31,18 @@ export interface PcbChecklistItem {
 export const PCB_CHECKLIST_ITEMS: PcbChecklistItem[] = [
   // Left column
   { displayName: "Schematic Part Number Pulled If new", kind: "boolean", column: "left", order: 1 },
-  { displayName: "Place backup on archive server location", kind: "boolean", column: "left", order: 2 },
-  { displayName: "Compare BOM from tool to what is in SAP if BOM already exists", kind: "boolean", column: "left", order: 3 },
-  { displayName: "Output the 3D Model and send to CAD", kind: "boolean", column: "left", order: 4 },
-  { displayName: "PCB revision updated and documented for the change", kind: "choice", column: "left", order: 5 },
-  { displayName: "Pull part numbers for those parts", kind: "boolean", column: "left", order: 6 },
-  { displayName: "Capture part costs if purchased on credit card or cost center PO (tracking via task system)", kind: "boolean", column: "left", order: 7 },
-  { displayName: "Pre-release vs Released Process updating Drawings and SAP", kind: "boolean", column: "left", order: 8 },
-  { displayName: "Order_Parts", kind: "choice", column: "left", order: 9 },
+  // Production requirements + design-improvement updates (Sarah Shaffer,
+  // 2026-10-02) — deliberately directly after the schematic part number.
+  { displayName: "Fiducials on top and bottom of actual PCB", kind: "boolean", column: "left", order: 2 },
+  { displayName: "Design Rule Checks Completed and Resolved", kind: "boolean", column: "left", order: 3 },
+  { displayName: "Place backup on archive server location", kind: "boolean", column: "left", order: 4 },
+  { displayName: "Compare BOM from tool to what is in SAP if BOM already exists", kind: "boolean", column: "left", order: 5 },
+  { displayName: "Output the 3D Model and send to CAD", kind: "boolean", column: "left", order: 6 },
+  { displayName: "PCB revision updated and documented for the change", kind: "choice", column: "left", order: 7 },
+  { displayName: "Pull part numbers for those parts", kind: "boolean", column: "left", order: 8 },
+  { displayName: "Capture part costs if purchased on credit card or cost center PO (tracking via task system)", kind: "boolean", column: "left", order: 9 },
+  { displayName: "Pre-release vs Released Process updating Drawings and SAP", kind: "boolean", column: "left", order: 10 },
+  { displayName: "Order_Parts", kind: "choice", column: "left", order: 11 },
 
   // Right column
   { displayName: "PCB Part Number pulled if new", kind: "boolean", column: "right", order: 1 },

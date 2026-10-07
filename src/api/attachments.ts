@@ -18,6 +18,8 @@ import {
   SP_MRB_LIST_ID,
   SP_PMO_SITE_URL,
   SP_SALESTEAM_SITE_URL,
+  SP_SCNS_LIST_ID,
+  SP_SCN_SITE_URL,
   SP_SCHEDULED_MAINTENANCE_LIST_ID,
   SP_SITE_URL,
   SP_SUPPLIERS_LIST_ID,
@@ -71,6 +73,7 @@ export type AttachmentParent =
   | "supplierContact"
   | "supplierIssue"
   | "costImpactNotice"
+  | "scn"
   | "equipment";
 
 interface ParentConfig {
@@ -187,6 +190,14 @@ const PARENT_CONFIG: Record<AttachmentParent, ParentConfig> = {
     listId: SP_COST_IMPACT_NOTICES_LIST_ID,
     siteUrl: SP_SALESTEAM_SITE_URL,
     listIdEnvVar: "VITE_SP_COST_IMPACT_NOTICES_LIST_ID",
+  },
+  // SCNs — the supplier's EOL notice, the customer letter, the sales-history
+  // export. Attachments are enabled on the list and 71 of 142 rows carried
+  // files at discovery (2026-10-07). The SCN subsite has its own REST root.
+  scn: {
+    listId: SP_SCNS_LIST_ID,
+    siteUrl: SP_SCN_SITE_URL,
+    listIdEnvVar: "VITE_SP_SCNS_LIST_ID",
   },
   // The machine's manuals, wiring diagrams and nameplate photos, hung off the
   // asset itself rather than off whichever work order happened to need them

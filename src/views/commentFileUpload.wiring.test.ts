@@ -15,6 +15,7 @@ import OPERATIONS from "./OperationsDetailView.tsx?raw";
 import PANEL_ORDER from "./PanelOrderDetailView.tsx?raw";
 import MRB from "./MrbDetailView.tsx?raw";
 import PANEL_TASK from "./PanelTaskDetailView.tsx?raw";
+import SCN from "./ScnDetailView.tsx?raw";
 import SUPPLIER from "./SupplierDetailView.tsx?raw";
 
 // =============================================================================
@@ -71,6 +72,7 @@ const VIEWS: { name: string; source: string }[] = [
   { name: "OperationsDetailView.tsx", source: OPERATIONS },
   { name: "PanelOrderDetailView.tsx", source: PANEL_ORDER },
   { name: "PanelTaskDetailView.tsx", source: PANEL_TASK },
+  { name: "ScnDetailView.tsx", source: SCN },
   { name: "SupplierDetailView.tsx", source: SUPPLIER },
 ];
 
