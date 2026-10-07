@@ -307,6 +307,8 @@ src/
 │   ├── supplierContacts.ts       SRM Tool — Supplier Contacts CRUD + comments + watchers, scoped to a Supplier
 │   ├── supplierIssues.ts         SRM Tool — Supplier Issue Tracker CRUD + comments + watchers, scoped to a Supplier
 │   ├── costImpactNotices.ts      Cost Impact Notices CRUD + comments (Supply Chain, salesTeam site) — no delete
+│   ├── scns.ts                   SCNs — Supply Chain Notices CRUD + comments + watchers (Supply Chain, scn subsite of salesTeam) — DIFFED edits, no delete
+│   ├── scnDocuments.ts           SCN Documents library (the scn subsite's default drive) — list/breadcrumb/create folder/upload/download/rename/delete (recycle bin)
 │   ├── openOrdersFiles.ts        Open Orders SharePoint folder — list/upload/download
 │   ├── openOrdersCustomers.ts    Open Orders managed customer list CRUD
 │   ├── openOrdersRoles.ts        Open Orders role tags (report manager) CRUD
@@ -341,6 +343,7 @@ src/
 │   ├── crmMockData.ts            Sample CRM Tool data — customers, contacts, pricing, capacity
 │   ├── srmMockData.ts            Sample SRM Tool data — suppliers, contacts, issues
 │   ├── costImpactMockData.ts     Sample Cost Impact Notices
+│   ├── scnMockData.ts            Sample SCNs — every status and category, one with all three review checklists, one Denied
 │   ├── openOrdersMockData.ts     Sample open order lines + report customers
 │   ├── grayMarketMockData.ts     Sample gray market requests
 │   ├── mrbMockData.ts            Sample MRB entries — live, undecided, and archive rows
@@ -386,6 +389,8 @@ src/
 │   ├── useSupplierContacts.ts    SRM Tool — Supplier Contacts queries, mutations + comments + watchers
 │   ├── useSupplierIssues.ts      SRM Tool — Supplier Issue Tracker queries, mutations + comments + watchers
 │   ├── useCostImpactNotices.ts   Cost Impact Notices queries, mutations + comment thread + intake alert
+│   ├── useScns.ts                SCN queries, mutations (diffed against the cached row), watchers + comment thread
+│   ├── useScnDocuments.ts        SCN Documents folder listing + breadcrumb, create folder, one-at-a-time multi-file upload with progress
 │   ├── useOpenOrdersReports.ts   Parse an extract, generate + upload, download
 │   ├── useOpenOrdersCustomers.ts Customer list + role CRUD (+ useMyOpenOrdersAccess)
 │   ├── useGrayMarketRequests.ts  Gray Market queries, mutations + comment thread
@@ -513,6 +518,11 @@ src/
 │   ├── supplierIssueMapper.ts    Graph item → SupplierIssue
 │   ├── costImpactNoticeMapper.ts Graph item → CostImpactNotice, and back
 │   ├── costImpactAlerts.ts       Cost Impact Notice intake alert (new notice → the config list)
+│   ├── scnFields.ts              SCN column descriptors (columns are DATA) — the four internal names that LIE are decoded here
+│   ├── scnMapper.ts              Graph item → Scn, and back (multi-person, multi-choice, the read-only Task List hyperlink)
+│   ├── scnNumber.ts              nextScnNumber() — YYYY-NNNN, a GLOBAL 4-digit sequence since 2024 (legacy 3-digit titles ignored)
+│   ├── scnProjects.ts            SCN Project Reference ⇄ Engineering's Projects — matched by title (it's a text column on another site collection)
+│   ├── scnTasks.ts               SCN Task List hyperlink ⇄ an Engineering task — writes ARC's task URL, recognises it on read
 │   ├── featureRequestAlerts.ts   ARC Feature Request intake + status alerts (pure)
 │   ├── featureRequestIssues.ts   Feature request → BusinessIT issue: who (Ray/Tim), the link marker, matching, the issue body (pure)
 │   ├── grayMarketFields.ts       Gray Market column descriptors (columns are DATA)
@@ -605,7 +615,9 @@ src/
 │   ├── SupplierLogo.tsx              SRM Tool — resolves and renders a supplier's Logo image column
 │   ├── SupplierLogoEditor.tsx        SRM Tool — Change/Remove links over SupplierLogo (detail page only)
 │   ├── CostImpactNoticeFormModal.tsx Raise a cost impact notice
+│   ├── ScnFormModal.tsx              Raise an SCN — Product/Description/Approval Status required, SCN# shown as "will be …"
 │   ├── costImpactAtoms.tsx           Delta-cost chip (increase/decrease/no change)
+│   ├── scnAtoms.tsx                  SCN Status / Category / Approval chips (Supply Chain)
 │   ├── GrayMarketRequestFormModal.tsx  Raise a gray market request
 │   ├── MrbFormModal.tsx          Log an MRB entry (auto-computes Price Per Issue)
 │   ├── FeatureRequestFormModal.tsx  Suggest a new ARC feature — Title/Description/Department/Priority only
@@ -714,6 +726,9 @@ src/
 │   ├── SupplierIssueRedirect.tsx    Deep-link target for issue-comment emails
 │   ├── CostImpactNoticesView.tsx    Cost Impact Notices list, search + Time of Impact filter (Supply Chain)
 │   ├── CostImpactNoticeDetailView.tsx  One notice — Part/Cost & Impact/Where Used/Notes cards, comments, attachments
+│   ├── ScnsView.tsx              SCNs list — search, status pills, Category/Year filters, sortable headers; cards on a phone (Supply Chain)
+│   ├── ScnDetailView.tsx         One SCN — Notice/Parts/Review/Outcome cards, the three review checklists, sidebar people, comments, attachments
+│   ├── ScnDocumentsView.tsx      SCN Documents library browser (?folder=) — breadcrumb, new folder, upload, Edit in Office, download, rename, delete; sortable, cards on a phone
 │   ├── OpenOrdersView.tsx        Open Orders Report Tool — upload, generate, download
 │   ├── OpenOrdersCustomersView.tsx  The managed customer list (+ import from an extract)
 │   ├── AdminOpenOrdersRolesView.tsx Admin -> Open Orders Roles
@@ -1047,6 +1062,7 @@ single `SP_SITE_ID`.
 | `panelTeam` | ALTRONICPANELTEAM → Panels | `…,fdf31131-2076-4618-923b-a1856e6b0f2a,3eb6cb9c-6535-4c69-a8d7-e90b2f90a9eb` |
 | `salesTeam` | ALTRONICSALESTEAM → Customer Service / Sales (Visit Reports) | `…,dd86bf69-a010-481a-9920-78b079c5ec1e,aa6b9467-3f57-4213-bbd4-60b94403421a` |
 | `salesOrderEntry` | ALTRONICSALESTEAM/OrderEntry (**subsite** of salesTeam — same collection, shares its grant) | `…,dd86bf69-a010-481a-9920-78b079c5ec1e,583688a6-3238-4f79-aed5-8e2d8ce38c41` |
+| `scn` | ALTRONICSALESTEAM/SCN → Supply Chain (SCNs) (**subsite** of salesTeam — same collection, shares its grant, like salesOrderEntry) | `…,dd86bf69-a010-481a-9920-78b079c5ec1e,ca3d027d-afcb-44e9-9d1b-f5cf4b025e80` |
 | `pmo` | Altronic_PMO | `…,915a6183-2b71-4dfd-a8b9-181126dfbe78,3eb6cb9c-6535-4c69-a8d7-e90b2f90a9eb` |
 
 (`…` = `coopermachineryservices.sharepoint.com`.) All granted **read + write**.
@@ -3354,6 +3370,283 @@ site user lookupId is per site collection, so sharing them naively would have
 written a wrong (or non-existent) user into the person columns on Operations,
 Panels and Gray Market. `resolveLookupId` is therefore a **required
 parameter** — a new caller has to say which site it means.
+
+### SCNs — Supply Chain Notices (Supply Chain, ALTRONICSALESTEAM/SCN subsite)
+
+`1d7401c5-1751-430c-a0ab-38991f07120a` (env `VITE_SP_SCNS_LIST_ID`, with that
+value as the documented default — it gates nothing) on **`SITES.scn`**, a NEW
+registry entry: the **SCN subsite of ALTRONICSALESTEAM**
+(`https://coopermachineryservices.sharepoint.com/sites/ALTRONICSALESTEAM/SCN`,
+env `VITE_SP_SCN_SITE_ID` / `VITE_SP_SCN_SITE_URL`). It is a **subsite of
+`salesTeam`** — same site collection `dd86bf69-…`, so it **shares salesTeam's
+`Sites.Selected` grant** exactly as `salesOrderEntry` does, and `scn →
+salesTeam` is in `SITE_PARENTS` so a refused salesTeam locks it too. A
+**Supply Chain** feature on a Sales-site list (Ray, 2026-10-07: "This should
+be under SUPPLY Chain for now"), the same arrangement as Gray Market Requests
+on PMO and Cost Impact Notices on salesTeam. Discovered live 2026-10-07 —
+`scripts/scn-dashboard-schema.json` is the snapshot (`discover-list.ps1`
+gained an `scn` site for it). **That snapshot is GITIGNORED**
+(`scripts/*-schema.json`), so the `scnFields` / `scnMapper` tests INLINE the
+live column list and a sample row rather than importing it — an import passes
+locally and fails the deploy, the `buildRequestItems.multiChoice.test.ts`
+lesson. Re-run the script if the columns change.
+
+**The display name and the URL name have drifted.** The list is called **SCN
+Dashboard** and its URL segment is `Progress tracker list`. Match it by id,
+never by URL name — `discover-list.ps1` matches on display name, URL name OR
+the webUrl's trailing segment for exactly this reason.
+
+An SCN records a product or part being **obsoleted** (`OBS`), **phased out**,
+raised as an **EECR**, or plainly notified: what it is, which part numbers it
+covers, the reviews done against the master list / price list / where-used /
+sales history, and the outcome (final disposition, LTS / LTB dates).
+
+**The columns are DATA** (`src/lib/scnFields.ts`), the Gray Market shape — one
+descriptor table drives the mapper, `$select`, write payload, the four detail
+cards (Notice → Parts → Review → Outcome), the create form and `FieldEditModal`.
+The main reason that table exists: **four internal names say the wrong thing**.
+
+| Internal name | Actually is |
+|---|---|
+| `Progress` | **Product** — the product name, set on all 142 rows; nothing to do with progress |
+| `Priority` | **Category** — a choice of `OBS` / `PHASE OUT` / `EECR` / `Notification`; nothing to do with priority |
+| `PartsEffected` | **Old Number** — the superseded part number(s), often several, one per line |
+| `EOLExpires` | **LTS Expires** — the last-time-SUPPORT date, paired with `LTBExpires` |
+
+Also: `Title` is the **SCN#** (app-generated, never typed — below);
+`CustomerRef_x0023_` is "Customer Ref#"; `Sign_x002d_off_x0020_status` is
+"Sign-off status"; `Task_x0020_List` is "Task List". **Every label comes from
+`SCN_FIELDS`**, never a string typed into a view, so the list, the cards, the
+form and the edit modal can't call one column two things.
+
+Nine things that shape this feature:
+
+- **Three MULTI-choice columns, all `displayAs: checkBoxes`** — `ProjectStatus`
+  (Immediate Phase Complete / Analysis Phase Complete / Inventory Mgmt Phase
+  Complete / Final Obsolescence Complete), `PreliminaryReviews` (Master List /
+  Price List / Where Used Reviewed, Service Team Review Completed) and
+  `SecondaryReview` (Service / Master List / Price List / Sales History Review
+  Completed). Graph reports all three as `type: "choice"`, SINGULAR, and the
+  live rows carry ARRAYS — the Build Request Items trap exactly. They are
+  written through `annotateMultiChoiceFields` with the `Collection(Edm.String)`
+  annotation and cleared with an annotated `[]`, never `null`; a bare array is
+  a bare `400 invalidRequest` naming no field (see "A MultiChoice column needs
+  the annotation"). They RENDER as **checklists of four boxes** — these are
+  progress checklists, like the Build Request item checklists, not Yes/No
+  questions, so they are deliberately not `ChoicePills`. Pinned in real mode
+  (`USE_MOCK: false`) on all three columns, since none of this is visible from
+  the mock branch.
+- **Three MULTI-person columns** — `AssignedTo` (45 set, 3 with more than one
+  person), `Owner` (135 set, 2 with more than one) and `Watchers`. All three
+  go through `multiPersonField` (the two-key `Collection(Edm.Int32)` shape),
+  and the people are resolved **against the salesTeam COLLECTION ROOT, not
+  `SITES.scn`** — `resolvePeopleLookupIds(SITES.salesTeam, SP_SCN_SITE_URL,
+  people)`. A lookupId is per site collection and the hidden User Information
+  List lives on the collection's root web; a subsite has none of its own to
+  read. So the Graph-first half asks the root's directory and the `ensureuser`
+  fallback hits the SCN subsite's own REST root (the `customerNotes.ts` shape,
+  which reads no directory at all). `useCurrentUser()` resolves against
+  Engineering (see "A lookupId is valid on ONE site"), so every incoming id is
+  re-resolved by email. **Not verified live yet** — one real-mode write and a
+  read-back is the check. Because all three columns are MULTI-value, Graph
+  expands them in full on read and `parsePersonField` handles it — there is NO
+  `User #n` attach step here, unlike the single-person lists. Comments follow
+  the FULL house rules — `commentNotifyRecipients` with assignees =
+  AssignedTo ∪ Owner, `autoWatchFromMentions` against
+  `resolveScnSiteUserLookupId`, and `autoWatchers()` on create so the creator,
+  assignees and owners start out watching.
+- **`Communication` and `Watchers` EXIST but were EMPTY on every one of the
+  142 rows.** Graph reports `appendChangesToExistingText: false` on
+  Communication, which is the right answer — but Graph said the same of FAIT's
+  column while the setting was genuinely ON (and wiped FAIT 89's thread), and a
+  PATCH correcting it is accepted without changing anything. So **verify
+  BEHAVIOURALLY before trusting a real-mode thread**: post two comments on one
+  SCN and confirm the second REPLACES the stored value rather than doubling it.
+  Not yet done at the time of writing.
+- **Dates are stored at 22:00Z / 23:00Z** — local midnight in the site's
+  regional timezone, summer and winter, the same tenant quirk as Visit Reports
+  and Gray Market. `EOLExpires` (LTS Expires), `LTBExpires` and
+  `FixtureReview` are date-only; the shared `parseSpDateOnly` midday pivot
+  reads them and `toSpDateOnly` writes them, through `DateField` only. Only
+  two rows held an LTS date at discovery and none held the other two.
+- **`Task_x0020_List` is a HYPERLINK column, and it is the SCN's ENGINEERING
+  TASK** (Ray, 2026-10-07: "task should be a choice from SCN based on
+  engineering tasks"). A lookup is impossible — the Project Task List is in
+  another site collection — so the right panel's **Engineering task** picker
+  offers every Engineering task and `setScnTask` writes the hyperlink itself:
+  `{ Url: <the task's ARC URL>, Description: <its numbered title> }`
+  (`lib/scnTasks.ts`). That reads correctly in SharePoint's own views, and
+  `linkedScnTaskId` recognises ARC's own links to route them in-app. Three
+  rules: it is **its OWN PATCH**, never folded into another write — a Hyperlink
+  column is the fragile kind, and a refusal must cost only the link (the
+  EIRReference lesson); it is **never in the create POST** (Hyperlink columns
+  400 at creation), so the New SCN form doesn't offer it; and **the 38 legacy
+  Planner links are left alone** until somebody picks a task for that SCN —
+  they still show, as an external "Planner:" link under the picker.
+- **`ApprovalStatus` is REQUIRED on create** (`Approved` / `Denied` — 139 /
+  3). SharePoint refuses a blank, so the New SCN form's pills carry NO "Not
+  set" option and validation catches the empty — the Cost Impact `TimeofImpact`
+  arrangement. Two options → pills, per the ≤3 rule. `Priority` (Category) has
+  four options, so it is a `ChoiceSelect`, not pills.
+- **`Sign-off status` is FREE TEXT holding NAMES** — "David Bell", "Keith
+  Brooks/David Bell", "Pending". It is kept as a plain text field. **Do not
+  invent a choice list for it**: there is no column behind one, and the values
+  are whoever signed, as typed.
+- **`ProjectReference` is a plain TEXT column, filled from ENGINEERING's
+  Project References** (Ray, 2026-10-07). It can't be a lookup — the Projects
+  list (`6280c711-…`) is on Altronic_Engineering, another site collection — so
+  ARC offers the Projects list as a choice and stores the project's TITLE
+  (`lib/scnProjects.ts`, the `project: true` descriptor flag). The match back
+  to a project is by title, case-insensitive; a project renamed after it was
+  picked stops matching, still shows as text, and stays in the picker marked
+  "(not an Engineering project)" so a save can't silently clear it. No FK on
+  the About diagram, since nothing in SharePoint enforces it. Picked on the New
+  SCN form and in the right panel (saves on pick).
+- **Project Reference and the Engineering task live in the RIGHT PANEL, not
+  on the Outcome card** (Ray, 2026-10-07) — both are `section: "Sidebar"`, so
+  no card or card editor renders them.
+  `Notes` is a running dated log people type into (118 rows) and stays a plain
+  textarea; `Description` is set on every row and holds no HTML.
+- **`YEAR` is a text column ARC writes on create**, derived from the SCN#, and
+  it drives the list's Year filter. `createdBy` / `createdDateTime` come from
+  Graph's item level and show as "Raised by".
+
+**Numbering — `nextScnNumber()` in `lib/scnNumber.ts`.** The live titles
+tell the whole story: `2020-001 … 2020-022`, `2021-001 … 2021-007`, `2022-001 …
+2022-016`, `2023-001 … 2023-012` — a THREE-digit sequence that restarted each
+year — then from 2024 a **GLOBAL running sequence padded to FOUR**: `2024-0064
+… 2024-0094`, `2025-0095 … 2025-0127`, `2026-0128 … 2026-0148`. The rule for a
+new number is `${currentYear}-${pad4(max 4-digit sequence seen across ALL
+titles + 1)}`: only titles matching `^\d{4}-(\d{4})$` feed the max, so the
+legacy 3-digit per-year numbers are IGNORED rather than mis-read as a sequence
+that would make the next number `2026-0023`. With no 4-digit title at all it
+starts at `0001`. Pure and tested, the `nextEirNo` / `nextGrayMarketLogNo`
+shape — including their caveat that two people creating in the same second
+can land on the same number. The create form shows the number it will get as
+read-only text; Title is never in a PATCH.
+
+**Edits are DIFFED against the row the edit started from** —
+`useUpdateScnFields` takes `{ id, patch }` only; it captures the pre-patch row
+in `onMutate` (a WeakMap keyed on the variables object, falling back to
+`getScn(id)` when the row isn't cached) and `updateScnFields(id, changes,
+previous)` sends only the columns that changed, the Visit Reports / MRB
+mechanism. Nothing changed → nothing sent, `previous` returned. Two of the 142 rows carry a blank
+Category and `Priority` is `allowTextEntry: false`, so re-sending everything
+blind is how a save on an unrelated card gets refused for a column nobody
+touched.
+
+**The list opens on OPEN SCNs, not All** — 128 of the 142 live rows are
+CLOSED, so opening on everything buries the work. An absent `status=` means
+Open (not CLOSED / Cancelled; a blank status counts as open), `?status=All` and
+each single status are pills, and the counts on the pills are over the set
+filtered by the OTHER axes. `isOpenScn` / `SCN_CLOSED_STATUSES` in
+`components/scnAtoms.tsx` is the ONE definition of "open", shared by the chip,
+the Open pill and the Dashboard card's count, so they can't disagree. The
+Dashboard card is `cooper-green`, shared with Suppliers: the Supply Chain
+section's five cards already use all four tones, and green pairs SCNs with the
+SRM tool — who supplies us, and what they tell us is going obsolete. The card
+shows a COUNT (it is a work queue), not a description — `TypeCard` renders one
+or the other.
+
+**No delete**, in the UI or the module — an SCN is a controlled notice of what
+was decided about a part, the same call as Gray Market, FAIT and Cost Impact.
+One that no longer applies has its `SCNStatus` set to `Cancelled` (3 rows are).
+`scns.test.ts` asserts the module exports nothing matching /delete|remove/.
+
+**No role gating** (Ray didn't specify per-field roles) — any signed-in user
+can raise, edit, comment and watch. SharePoint's list permissions remain the
+real boundary. No intake alert either; nobody asked for one. The generic
+`fireFieldChangeAlert` on an `SCNStatus` change reaches watchers plus
+AssignedTo ∪ Owner, with `to !== from` as the guard.
+
+**The data at discovery**: 142 rows, fetched WHOLE and filtered in the browser
+(far under the 5,000-item threshold — it grows ~20 a year). SCN Status: 128
+CLOSED, 3 WIP, 5 Customer Phase Out, 2 LTB in process, 1 On Hold, 3 Cancelled;
+a new SCN defaults to `WIP`. Category: 134 OBS, 6 PHASE OUT, 2 blank. 71 rows
+have attachments (kind `scn` in `api/attachments.ts`). The list renders 150
+rows with "Show all"; filters, pill counts and the Year filter always run over
+everything. On a phone it is cards (`sm:hidden` + `hidden sm:block`, the MRB
+shape — jsdom renders both, so tests use `getAllBy*`).
+
+**The older "SCN LOG" list is deliberately OUT OF SCOPE.** Its snapshot
+(`scripts/scn-log-schema.json`) was taken alongside; it is a legacy log, 40 of
+its 98 titles overlap the Dashboard, and wiring it would put two registers of
+the same notices in front of people. Don't wire it without a decision.
+
+#### SCN Documents library
+
+Ray, 2026-10-07: from SCNs, "access the documents folder… create subfolders,
+see subfolders, edit files, add files directly in ARC". `ScnDocumentsView` at
+`/supply-chain/scns/documents`, linked by a **Documents** button on both the
+SCNs list header and an SCN's detail page. Pieces: `api/scnDocuments.ts`,
+`hooks/useScnDocuments.ts`, `views/ScnDocumentsView.tsx`.
+
+- **The library is the DEFAULT drive of `SITES.scn`** ("Documents", live
+  2026-10-07 — root holds ARCHIVE, EECR, General, Inventory Review Reports, LTB
+  Analysis, SCN, Single Use Reports and four loose files; the mock mirrors it).
+  Every URL is `/sites/{SITES.scn}/drive/…`, the shape `lib/listAccess.ts`
+  reads as a DRIVE refusal, and the screen has its OWN `APPS` entry
+  (`needsDrive: true`, no lists) so a refused library locks it — and only it;
+  the SCN list is unaffected. Without that entry `appForPath` resolves the
+  route to SCNs.
+- **The folder is `?folder=<driveItemId>`** (absent = root), so Back, a refresh
+  and a shared link land in the right place. The breadcrumb reads the folder
+  ONCE for its `parentReference.path` (ancestor NAMES), then resolves each
+  ancestor's id by path in parallel — cheaper than walking up one dependent
+  request at a time.
+- **Edit = the file's `webUrl` in a new tab.** For Office files
+  (docx/xlsx/pptx/doc/xls/ppt) that is Word / Excel / PowerPoint for the web,
+  which edits the file IN PLACE in SharePoint — nothing to upload back. The
+  button says "Edit in Office" for those and "Open" for anything else.
+- **Download goes through the item's pre-authenticated
+  `@microsoft.graph.downloadUrl`** (the Open Orders arrangement), never the
+  webUrl — a background fetch of a SharePoint page carries no sign-in on a
+  phone. Not Graph's `/content` through `graphFetch` either: that helper reads
+  the body as text and would corrupt a binary.
+- **Conflict rules — nothing is ever overwritten.** A new folder POSTs with
+  `conflictBehavior: fail`, and a 409 becomes "A folder called X already exists
+  here."; names are checked client-side first (`scnFolderNameProblem`:
+  `" * : < > ? / \ |`, leading/trailing space or full stop). An upload goes
+  through the shared `uploadToDriveTarget` (chunked above 4 MB, 250 MB cap)
+  with `rename`, so a second "SCN FLOW.pdf" lands as "SCN FLOW 1.pdf".
+- **Several files upload ONE AT A TIME** with per-file progress; one failure
+  doesn't stop the rest, and each failure is toasted through
+  `describeListWriteFailure`.
+- **Rename and delete — any signed-in user, no admin gate** (Ray,
+  2026-10-07: "Go ahead and allow delete and rename"). SharePoint's own library
+  permissions are the boundary, as for upload and new folder; a refusal goes
+  through `describeListWriteFailure` with `permission: "editing"` (rename) or
+  `"deleting"` (delete). Both buttons sit on every row, table AND phone card.
+  `scnDocuments.test.ts` used to assert NO delete/rename export; it now asserts
+  EXACTLY `deleteScnDocument` + `renameScnDocument` — inverted deliberately.
+  - **Delete = `DELETE /drive/items/{id}`, which MOVES the item to the SCN
+    site's recycle bin** — a folder together with its contents — restorable
+    for 93 days. There is no permanent delete in ARC. **A 404 resolves** (it's
+    already gone, which is what was asked for); anything else throws.
+  - **The confirm names the item. A folder that still holds items says how
+    many (`childCount`) and needs its name typed back**, exact and
+    case-sensitive (the Parts List delete pattern); a file or an EMPTY folder
+    is a plain confirm. Not optimistic: the row stays until SharePoint answers,
+    and a refusal refetches.
+  - **Rename = `PATCH /drive/items/{id}` with `{ name,
+    "@microsoft.graph.conflictBehavior": "fail" }`** (fail is also Graph's
+    PATCH default). A 409 becomes "A file or folder called X already exists
+    here." — never a silent replace or "X 1". A name case-sensitively EQUAL to
+    the current one sends nothing; a case-only change IS sent. Names are
+    checked first by `scnItemNameProblem(name, "file" | "folder")`
+    (`scnFolderNameProblem` remains as the folder wrapper).
+  - **A FILE's rename pre-selects only the STEM**, so typing keeps
+    `.docx`; changing or dropping the extension shows a warning ("Changing the
+    extension can stop the file opening") but is allowed. Escape closes the
+    dialog and stops there (the house rule).
+  - **A rename keeps the drive-item id**, so ARC's `?folder=` links survive it;
+    a SharePoint link pasted into an SCN comment by PATH does not. Both writes
+    invalidate EVERY `scn-documents` listing and `scn-documents-path`
+    breadcrumb, since a renamed folder is a crumb in every breadcrumb below it.
+- **Caveat:** a 403 on a WRITE (creating a folder, say, by somebody with
+  read-only access) flows through the global MutationCache learner like every
+  other refused write, and marks the drive denied for the session — "Check
+  again" clears it.
 
 ### QC Time Tracking (Panels, panelTeam site)
 

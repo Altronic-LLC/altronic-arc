@@ -65,6 +65,7 @@ export interface ChangeTarget {
     | "grayMarketRequest"
     | "fait"
     | "costImpactNotice"
+    | "scn"
     | "featureRequest"
     | "altronicPart"
     | "altronicComponent";
@@ -84,6 +85,7 @@ const NOUNS: Record<ChangeTarget["kind"], string> = {
   grayMarketRequest: "gray market request",
   fait: "FAIT",
   costImpactNotice: "cost impact notice",
+  scn: "SCN",
   featureRequest: "feature request",
   altronicPart: "part",
   altronicComponent: "component",

@@ -20,6 +20,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.175.0",
+    date: "2026-10-07",
+    changes: [
+      "Supply Chain has a new SCNs app: browse, search and sort the SCN Dashboard list, with status pills and Category and Year filters",
+      "Raise an SCN from ARC — Product, Description and Approval Status are required, and the SCN# is numbered automatically",
+      "Open an SCN to edit its Notice, Parts, Review and Outcome cards, tick the Preliminary Reviews, Secondary Review and Project Status checklists, and set Assigned to and Owner",
+      "Pick an SCN's Project Reference from Engineering's projects and its Task from Engineering's tasks, in the right panel — each links straight to the project or task",
+      "Watch an SCN, comment on it with @-mentions (a pasted screenshot is saved as an attachment), and add files to it",
+      "Open the SCN Documents library from ARC — browse and create folders, upload files, and edit Office files in Word or Excel for the web",
+      "Rename and delete files and folders in the SCN Documents library — deleted items go to the SharePoint recycle bin for 93 days",
+      "An SCN is never deleted — set its SCN Status to Cancelled instead",
+    ],
+  },
+  {
     version: "0.174.0",
     date: "2026-10-06",
     changes: [

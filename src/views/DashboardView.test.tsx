@@ -10,6 +10,7 @@ import { MOCK_ECNS } from "@/data/ecnMockData";
 import { MOCK_FAITS } from "@/data/faitMockData";
 import { MOCK_CUSTOMER_NOTES } from "@/data/crmMockData";
 import { MOCK_SUPPLIERS } from "@/data/srmMockData";
+import { MOCK_SCNS } from "@/data/scnMockData";
 import { listProjectFolderEntries } from "@/api/projectFiles";
 
 const mockNavigate = vi.fn();
@@ -34,6 +35,7 @@ const ECNS_KEY = ["ecns"] as const;
 const FAITS_KEY = ["faits"] as const;
 const CUSTOMER_NOTES_KEY = ["customerNotes"] as const;
 const SUPPLIERS_KEY = ["suppliers"] as const;
+const SCNS_KEY = ["scns"] as const;
 const FOLDER_ENTRIES_KEY = ["project-folder-entries", "root"] as const;
 
 import { DashboardView } from "./DashboardView";
@@ -54,6 +56,7 @@ async function renderDashboard() {
       { key: FAITS_KEY, data: MOCK_FAITS },
       { key: CUSTOMER_NOTES_KEY, data: MOCK_CUSTOMER_NOTES },
       { key: SUPPLIERS_KEY, data: MOCK_SUPPLIERS },
+      { key: SCNS_KEY, data: MOCK_SCNS },
       { key: FOLDER_ENTRIES_KEY, data: folderEntries },
     ],
   });
@@ -247,6 +250,7 @@ describe("DashboardView — a shipped feature is never a 'Coming soon' card", ()
     { name: /^Customers/i, url: "/sales/customers" },
     { name: /^Suppliers/i, url: "/supply-chain/suppliers" },
     { name: /Cost Impact Notices/i, url: "/supply-chain/cost-impact-notices" },
+    { name: /^SCNs/i, url: "/supply-chain/scns" },
     { name: /Teradyne Log/i, url: "/operations/teradyne" },
     { name: /QC Time Tracking/i, url: "/panels/qc-time-tracking" },
   ];
@@ -280,6 +284,20 @@ describe("DashboardView — a shipped feature is never a 'Coming soon' card", ()
     const card = screen.getByRole("button", { name: /ECNs/i });
     expect(within(card).queryByText(/coming soon/i)).toBeNull();
     expect(Number(bigCount(card).textContent)).toBeGreaterThan(0);
+  });
+
+  // SCNs count the notices not yet CLOSED or Cancelled, in BOTH scopes — a
+  // notice is Supply Chain's as a whole, so there is no "mine" to narrow to.
+  it("counts the open SCNs, unscoped by Mine/Company", async () => {
+    const user = userEvent.setup();
+    await renderDashboard();
+    const card = screen.getByRole("button", { name: /^SCNs/i });
+    // Mock data: WIP, LTB in process, Customer Phase Out, On Hold are open;
+    // three CLOSED and one Cancelled are not.
+    expect(bigCount(card)).toHaveTextContent("4");
+    expect(within(card).getByText("open")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Company" }));
+    expect(bigCount(screen.getByRole("button", { name: /^SCNs/i }))).toHaveTextContent("4");
   });
 
   // Customers and Suppliers are description-only cards (Ray, 2026-08-27) —

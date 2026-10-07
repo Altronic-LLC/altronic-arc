@@ -30,6 +30,7 @@ import {
   ListChecks,
   Lock,
   MapPin,
+  Megaphone,
   MessageSquare,
   Moon,
   PackageSearch,
@@ -310,6 +311,13 @@ const DEPARTMENTS: DepartmentGroup[] = [
         label: "MRB",
         icon: <ClipboardX className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/supply-chain/mrb"),
+      },
+      {
+        to: "/supply-chain/scns",
+        label: "SCNs",
+        icon: <Megaphone className="h-4 w-4" />,
+        // Covers both /supply-chain/scns and /supply-chain/scn/:id.
+        matchesPath: (p) => p.startsWith("/supply-chain/scn"),
       },
     ],
   },

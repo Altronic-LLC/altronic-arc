@@ -71,9 +71,9 @@ const SYSTEM_TIERS: Tier[] = [
   {
     label: "React SPA",
     nodes: [
-      { label: "Views", hint: "Dashboard · List · Kanban · Detail · EIRs · Test Sheets · Project Folders · CSA Listings · Parts List (Parts Book · lists · Global Search · part page · description lists) · Drawing File Logs · Digital QC · Ignition QC · Coil Defect Log · Potting Sample Log · Visit Reports (list + calendar) · QC Time Tracking · QC Forms (landing + QCFRM-012 CPU-95) · Panel QC Issue Tracker · Open Orders Report · Gray Market Requests · MRB · Where Am I? · ECNs (incl. the MFGFRM-038 checklist) · FAITs · ARC Feature Requests · Drawing Work Sheet (print) · Admin (incl. Quick Links, Parts Roles)", palette: "ui" },
-      { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useBuildRequests · useCommentMirror · useCsaListings · useAltronicParts · usePartsRoles · useDatasheet · useComponentDescriptionOptions · useDrawingLogs · useDigitalQc · useIgnitionQc · useCoilsQc · usePottingSampleLog · useVisitReports · useQcTimeTracking · useQcCpu95 · usePanelQcIssues · useOpenOrdersReports · useOpenOrdersCustomers · useGrayMarketRequests · useMrb · useWhereAmI · useEcns · useEcnChecklists · useFaits · useCustomerNotes · useCustomerContacts · useSpecialPricing · useCapacity · useSuppliers · useSupplierContacts · useSupplierIssues · useCostImpactNotices · useFeatureRequests · useBusinessItIssues · useAdmins · useEirRoles · useQuickLinks · useListAccess · useTaskFiles · useProjectFolders", palette: "ui" },
-      { label: "API layer", hint: "src/api/tasks · appAccess · eirs · testSheets · buildRequests · buildRequestItems · commentMirror · csaListings · altronicParts · altronicComponents · partsListShared · partsRoles · datasheets · componentDescriptionOptions · drawingLogs · digitalQc · ignitionQc · coilsQc · pottingSampleLog · visitReports · qcCpu95 · panelQcIssues · openOrdersFiles · openOrdersCustomers · openOrdersRoles · grayMarketRequests · mrb · whereAmI · ecns · ecnChecklists · faits · customerNotes · customerContacts · specialPricing · capacity · suppliers · supplierContacts · supplierIssues · costImpactNotices · featureRequests · githubIssues (BusinessIT issues via api.github.com, with the person's own token) · autoWatch · panelOrders · panelTasks · admins · eirRoles · panelRoles · quickLinks · directory · siteUsers · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
+      { label: "Views", hint: "Dashboard · List · Kanban · Detail · EIRs · Test Sheets · Project Folders · CSA Listings · Parts List (Parts Book · lists · Global Search · part page · description lists) · Drawing File Logs · Digital QC · Ignition QC · Coil Defect Log · Potting Sample Log · Visit Reports (list + calendar) · QC Time Tracking · QC Forms (landing + QCFRM-012 CPU-95) · Panel QC Issue Tracker · Open Orders Report · Gray Market Requests · MRB · SCNs (+ SCN Documents library) · Where Am I? · ECNs (incl. the MFGFRM-038 checklist) · FAITs · ARC Feature Requests · Drawing Work Sheet (print) · Admin (incl. Quick Links, Parts Roles)", palette: "ui" },
+      { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useBuildRequests · useCommentMirror · useCsaListings · useAltronicParts · usePartsRoles · useDatasheet · useComponentDescriptionOptions · useDrawingLogs · useDigitalQc · useIgnitionQc · useCoilsQc · usePottingSampleLog · useVisitReports · useQcTimeTracking · useQcCpu95 · usePanelQcIssues · useOpenOrdersReports · useOpenOrdersCustomers · useGrayMarketRequests · useMrb · useWhereAmI · useEcns · useEcnChecklists · useFaits · useCustomerNotes · useCustomerContacts · useSpecialPricing · useCapacity · useSuppliers · useSupplierContacts · useSupplierIssues · useCostImpactNotices · useScns · useScnDocuments · useFeatureRequests · useBusinessItIssues · useAdmins · useEirRoles · useQuickLinks · useListAccess · useTaskFiles · useProjectFolders", palette: "ui" },
+      { label: "API layer", hint: "src/api/tasks · appAccess · eirs · testSheets · buildRequests · buildRequestItems · commentMirror · csaListings · altronicParts · altronicComponents · partsListShared · partsRoles · datasheets · componentDescriptionOptions · drawingLogs · digitalQc · ignitionQc · coilsQc · pottingSampleLog · visitReports · qcCpu95 · panelQcIssues · openOrdersFiles · openOrdersCustomers · openOrdersRoles · grayMarketRequests · mrb · whereAmI · ecns · ecnChecklists · faits · customerNotes · customerContacts · specialPricing · capacity · suppliers · supplierContacts · supplierIssues · costImpactNotices · scns · featureRequests · githubIssues (BusinessIT issues via api.github.com, with the person's own token) · autoWatch · panelOrders · panelTasks · admins · eirRoles · panelRoles · quickLinks · directory · siteUsers · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
       {
         label: "Open Orders Report (lazy-loaded)",
         hint: "OpenOrdersView · OpenOrdersCustomersView — reads a raw SAP extract in the browser and writes a branded master dashboard plus one workbook per managed customer into SharePoint. ExcelJS (~950KB) is dynamically imported on first use so it never lands in the main chunk.",
@@ -110,6 +110,11 @@ const SYSTEM_TIERS: Tier[] = [
         palette: "ui",
       },
       {
+        label: "SCNs — Supply Chain Notices (lazy-loaded)",
+        hint: "ScnsView · ScnDetailView · ScnFormModal — useScns — api/scns — lib/scnFields (every column declared once, the grayMarketFields shape) · scnMapper · scnNumber (the YYYY-NNNN global sequence). The SCN Dashboard list lives on the SCN SUBSITE of ALTRONICSALESTEAM (a Sales site collection, so it shares salesTeam's grant — exactly like the CRM's OrderEntry subsite); the feature is Supply Chain's and appears under Supply Chain only. Routes /supply-chain/scns and /supply-chain/scn/:id. ScnDocumentsView (/supply-chain/scns/documents?folder=) — useScnDocuments — api/scnDocuments: a browser over the SCN subsite's default Documents library (Graph drive) — breadcrumb, new folder (conflictBehavior fail), upload (uploadToDriveTarget, rename), Edit in Office for the web, download, rename (PATCH, conflictBehavior fail) and delete (to the site recycle bin, 93 days).",
+        palette: "ui",
+      },
+      {
         label: "SRM Tool (lazy-loaded)",
         hint: "SuppliersView · SupplierDetailView · SupplierContactRedirect · SupplierIssueRedirect — useSuppliers · useSupplierContacts · useSupplierIssues — api/suppliers · supplierContacts · supplierIssues. Own site (PMO). Suppliers List is the anchor; Contacts and Issue Tracker render as expandable inline cards on a supplier's own page, the same pattern Build Request Items use, because both need their own comment thread, watchers and attachments.",
         palette: "ui",
@@ -136,7 +141,7 @@ const SYSTEM_TIERS: Tier[] = [
     nodes: [
       { label: "MSAL Entra ID", hint: "Sites.Selected · Mail.Send.Shared · User.ReadBasic.All (tenant directory, optional) · AllSites.Manage (optional)", palette: "auth" },
       { label: "Microsoft Graph v1.0", hint: "Lists, items, drives, users, mail", palette: "gateway" },
-      { label: "SharePoint REST", hint: "List-item attachments (Task, EIR, Operations Task, Maintenance work order, Equipment asset, Panel Order, Visit Report, Gray Market Request, MRB entry, Cost Impact Notice) + site-user resolution — optional", palette: "gateway" },
+      { label: "SharePoint REST", hint: "List-item attachments (Task, EIR, Operations Task, Maintenance work order, Equipment asset, Panel Order, Visit Report, Gray Market Request, MRB entry, Cost Impact Notice, SCN) + site-user resolution — optional", palette: "gateway" },
       { label: "Mock store", hint: "in-memory + localStorage (demo mode)", palette: "mock" },
       { label: "Shared mailbox", hint: "@-mention + change notifications, and edit-failure recovery emails", palette: "mock" },
     ],
@@ -162,7 +167,7 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "CoilPN / CoilOtherFaultList", hint: "Engineering site — editable reference lists for the Coil Defect Log part-number and Other-defect pickers", palette: "list" },
       { label: "CAD / CCC / CEC Drawings", hint: "Engineering site — drawing registers; a 16-slot change log across 48 CH_* columns", palette: "list" },
       { label: "Engineering Sketches", hint: "Engineering site — sketch register; own columns, no change log", palette: "list" },
-      { label: "Documents library", hint: "General/Project Folders/* — task & comment files land here", palette: "list" },
+      { label: "Documents library", hint: "General/Project Folders/* on Engineering — task & comment files land here; plus the SCN subsite's Documents library, browsed from SCN Documents", palette: "list" },
       { label: "List-item attachments", hint: "SharePoint REST · per-item files on Tasks, EIRs, CSA Listings and more", palette: "list" },
       { label: "Operations Task List", hint: "Altronic_PMO site — separate from Engineering's Task List. Carries a Maintenance Task Reference column: set when a task has been promoted to a CMMS work order, and non-empty means it can't be promoted again", palette: "list" },
       { label: "Operations Projects", hint: "Altronic_PMO site — Operations' own parent-project reference list", palette: "list" },
@@ -201,6 +206,7 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "Supplier Contact List", hint: "Altronic_PMO site — one row per person at a supplier, 566 rows; Title/FirstName/LastName are blank on every row seen so far — a contact is identified by email; Communication and Watchers were added for ARC on 2026-08-26; BPReference is a SINGLE lookup, so BOTH halves must be in the $select or every contact reads as belonging to no supplier", palette: "list" },
       { label: "Supplier Issue Tracker", hint: "Altronic_PMO site — near-empty (1 row at discovery); Status and Severity are UNCONFIGURED placeholder choices (\"Choice 1/2/3\") — update the consts once Supply Chain sets real values", palette: "list" },
       { label: "Cost Impact Portal", hint: "ALTRONICSALESTEAM site (a Supply Chain feature) — a purchased part's cost changed. Original Cost/New Cost are TEXT columns; Delta Cost is a genuine SharePoint calculated column despite that; no Watchers, so comments reach the submitter (createdBy) and anyone mentioned, same as ECNs", palette: "list" },
+      { label: "SCN Dashboard", hint: "ALTRONICSALESTEAM/SCN subsite (a Supply Chain feature) — Supply Chain Notices: a product or part being obsoleted, phased out, or raised as an EECR. 142 rows, fetched whole. Several internal names LIE: Progress is the Product, Priority is the Category, PartsEffected is the Old Number, EOLExpires is LTS Expires — lib/scnFields.ts is the only place that translation lives. Title is the SCN# (YYYY-NNNN, a global 4-digit sequence since 2024, app-generated). Three multi-choice checkBoxes columns (Preliminary Reviews, Secondary Review, Project Status) need the Collection(Edm.String) annotation; AssignedTo and Owner are multi-person; Task List is a Hyperlink column ARC reads and never writes; Communication and Watchers exist but were empty on every row. No delete, no role gating.", palette: "list" },
       { label: "ARC Feature Requests", hint: "Engineering site — a place for any signed-in user to request a new ARC feature or change, separate from Report Issue. RequestedBy is a single-person column (Graph returns a bare RequestedByLookupId, resolved via the site directory), auto-filled to the submitter on create and never re-picked. No default list id — the screen reports itself as not configured until the setup script has run", palette: "list" },
       { label: "CPU-95", hint: "Engineering site — the SharePoint list backing QCFRM-012, the first QC Forms controlled form; ~200 columns across Header/Startup/Final/checklist/firing-angle/Current Loop/Defects/Sign-off, only some of which apply to a given unit depending on its Altronic Part Number (\"Altmode\", 0-6). No delete; any signed-in user can create/edit", palette: "list" },
     ],
@@ -1247,6 +1253,44 @@ const SCHEMA_TABLES: SchemaTable[] = [
       { name: "bpReference", type: "text", kind: "field" },
       { name: "notes (Comments)", type: "text", kind: "field" },
       { name: "submittedBy (createdBy)", type: "person", kind: "field" },
+      { name: "comments (Communication)", type: "text", kind: "field" },
+      { name: "hasAttachments", type: "bool", kind: "field" },
+    ],
+  },
+  {
+    // Supply Chain Notices. A standalone entity — ProjectReference is a plain
+    // TEXT column here, not a lookup, so there is no FK to Project; the three
+    // person columns are drawn as fields (same as GrayMarketRequest) rather
+    // than connectors to Person, which sits 5,000px above on this canvas.
+    //
+    // Four internal names lie about what they hold, so the real column is
+    // shown in brackets beside the domain name — lib/scnFields.ts is the one
+    // place that translation lives. Title is the app-generated SCN#, a global
+    // 4-digit sequence since 2024 (lib/scnNumber.ts). The three multi-choice
+    // columns are checklists, not pills. Task List is a Hyperlink column ARC
+    // reads and never writes.
+    name: "Scn",
+    source: "SCN Dashboard (ALTRONICSALESTEAM/SCN subsite)",
+    palette: "entity",
+    x: 400, y: 5170, width: 360,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "scnNumber (Title, YYYY-NNNN)", type: "text", kind: "field" },
+      { name: "product (Progress)", type: "text", kind: "field" },
+      { name: "category (Priority)", type: "choice", kind: "field" },
+      { name: "status (SCNStatus)", type: "choice", kind: "field" },
+      { name: "approvalStatus", type: "choice", kind: "field" },
+      { name: "description / notes", type: "text", kind: "field" },
+      { name: "assignedTo", type: "person[]", kind: "field" },
+      { name: "owner", type: "person[]", kind: "field" },
+      { name: "watchers", type: "person[]", kind: "field" },
+      { name: "oldNumber (PartsEffected) / sapNumber", type: "text", kind: "field" },
+      { name: "drawingNumber / partDescription / ecn", type: "text", kind: "field" },
+      { name: "preliminaryReviews / secondaryReview / projectStatus", type: "choice[]", kind: "field" },
+      { name: "ltsExpires (EOLExpires) / ltbExpires / fixtureReview", type: "date", kind: "field" },
+      { name: "signOffStatus / finalDisposition / salesHistory", type: "text", kind: "field" },
+      { name: "taskList (Hyperlink, read-only)", type: "link", kind: "field" },
+      { name: "year / projectReference (text)", type: "text", kind: "field" },
       { name: "comments (Communication)", type: "text", kind: "field" },
       { name: "hasAttachments", type: "bool", kind: "field" },
     ],

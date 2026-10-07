@@ -139,6 +139,15 @@ const MrbView = lazy(() =>
 const MrbDetailView = lazy(() =>
   import("@/views/MrbDetailView").then((m) => ({ default: m.MrbDetailView })),
 );
+const ScnsView = lazy(() =>
+  import("@/views/ScnsView").then((m) => ({ default: m.ScnsView })),
+);
+const ScnDetailView = lazy(() =>
+  import("@/views/ScnDetailView").then((m) => ({ default: m.ScnDetailView })),
+);
+const ScnDocumentsView = lazy(() =>
+  import("@/views/ScnDocumentsView").then((m) => ({ default: m.ScnDocumentsView })),
+);
 const AdminOpenOrdersRolesView = lazy(() =>
   import("@/views/AdminOpenOrdersRolesView").then((m) => ({
     default: m.AdminOpenOrdersRolesView,
@@ -496,6 +505,30 @@ export function App() {
               element={
                 <Suspense fallback={<LoadingTasks noun="this MRB entry" />}>
                   <MrbDetailView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/supply-chain/scns"
+              element={
+                <Suspense fallback={<LoadingTasks noun="SCNs" />}>
+                  <ScnsView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/supply-chain/scns/documents"
+              element={
+                <Suspense fallback={<LoadingTasks noun="SCN documents" />}>
+                  <ScnDocumentsView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/supply-chain/scn/:id"
+              element={
+                <Suspense fallback={<LoadingTasks noun="SCNs" />}>
+                  <ScnDetailView />
                 </Suspense>
               }
             />

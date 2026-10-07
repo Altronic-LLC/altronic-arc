@@ -58,6 +58,12 @@ jobs:
           VITE_SP_PANEL_QC_DEFECTS_LIST_ID: ${{ vars.VITE_SP_PANEL_QC_DEFECTS_LIST_ID }}
           VITE_SP_SALESTEAM_SITE_ID: ${{ vars.VITE_SP_SALESTEAM_SITE_ID }}
           VITE_SP_SALES_ORDERENTRY_SITE_ID: ${{ vars.VITE_SP_SALES_ORDERENTRY_SITE_ID }}
+          # SCNs (Supply Chain, ALTRONICSALESTEAM/SCN subsite). Documented
+          # defaults in config.ts for all three, so a build without them still
+          # points at the live list; set them only to override.
+          VITE_SP_SCN_SITE_ID: ${{ vars.VITE_SP_SCN_SITE_ID }}
+          VITE_SP_SCN_SITE_URL: ${{ vars.VITE_SP_SCN_SITE_URL }}
+          VITE_SP_SCNS_LIST_ID: ${{ vars.VITE_SP_SCNS_LIST_ID }}
           VITE_SP_PMO_SITE_ID: ${{ vars.VITE_SP_PMO_SITE_ID }}
           VITE_SP_LIST_ID: ${{ vars.VITE_SP_LIST_ID }}
           VITE_SP_PROJECTS_LIST_ID: ${{ vars.VITE_SP_PROJECTS_LIST_ID }}

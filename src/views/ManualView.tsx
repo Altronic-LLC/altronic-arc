@@ -3900,6 +3900,174 @@ const SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: "scns",
+    title: "SCNs (Supply Chain Notices)",
+    group: "Supply Chain",
+    keywords: [
+      "scn",
+      "scns",
+      "supply chain notice",
+      "scn dashboard",
+      "scn documents",
+      "documents library",
+      "obsolete",
+      "obsolescence",
+      "obs",
+      "phase out",
+      "eecr",
+      "end of life",
+      "last time buy",
+      "ltb",
+      "lts expires",
+      "ltb expires",
+      "old number",
+      "preliminary reviews",
+      "secondary review",
+      "project status",
+      "sign-off status",
+      "approval status",
+    ],
+    searchText:
+      "SCNs at /supply-chain/scns, under Supply Chain in the Departments menu, backed by the SCN Dashboard list on the ALTRONICSALESTEAM/SCN SharePoint site. A Supply Chain Notice records a product or part being obsoleted (OBS), phased out, an EECR, or a plain notification. The list searches every field, has SCN Status pills with counts, Category and Year filters, and sortable, filterable column headers; on a phone it is a card list. New SCN asks for Product, Description and Approval Status (required) plus Category, Project Reference, Assigned to, Owner, Customer, Old Number, SAP Number and Part Description; the SCN# is numbered automatically and the year is filled in for you. An SCN is four cards - Notice, Parts, Review, Outcome - each with one Edit button; the Review card has three checklists, Preliminary Reviews, Secondary Review and Project Status. The sidebar has SCN Status, Approval Status, Project Reference (picked from Engineering projects), Engineering task (picked from Engineering tasks), Assigned to, Owner, Watchers, Raised by and Year. Comments, @-mentions, pasted screenshots and attachments all work the usual way; whoever raises an SCN, is assigned to it or owns it watches it automatically. SCNs cannot be deleted - set SCN Status to Cancelled instead. The Documents button opens the SCN Documents library: browse folders, create a new folder, upload files (drag and drop, several at once), edit Word Excel PowerPoint files in Office for the web, download, open in SharePoint, rename and delete files and folders. A deleted item goes to the SCN site's SharePoint recycle bin, restorable for 93 days.",
+    render: () => (
+      <>
+        <P>
+          <strong>Departments → Supply Chain → SCNs</strong>{" "}
+          (<code>/supply-chain/scns</code>) is the register of Supply Chain
+          Notices — one SCN per product or part that is being{" "}
+          <strong>obsoleted</strong> (OBS), <strong>phased out</strong>, raised
+          as an <strong>EECR</strong>, or simply notified. It opens from the
+          SCNs card on the Dashboard's Supply Chain section too.
+        </P>
+        <UL>
+          <LI>
+            The <strong>search box</strong> covers every field — type a part
+            number, a product, a customer or a word from the description.
+          </LI>
+          <LI>
+            The <strong>status pills</strong> narrow the list to one SCN
+            Status (WIP, CLOSED, Cancelled, On Hold, LTB in process, Customer
+            Phase Out). The counts are always over the whole list.
+          </LI>
+          <LI>
+            Filter by <strong>Category</strong> (OBS, PHASE OUT, EECR,
+            Notification) and by <strong>Year</strong>.
+          </LI>
+          <LI>
+            Click a <strong>column header's label</strong> to filter on its
+            values, and its <strong>arrow</strong> to sort — the same headers
+            as every other list in ARC. The list opens newest SCN# first.
+          </LI>
+          <LI>
+            On a phone the list is a stack of cards rather than a table.
+          </LI>
+        </UL>
+        <H3>Raising an SCN</H3>
+        <P>
+          <strong>New SCN</strong> asks for the <strong>Product</strong>, a{" "}
+          <strong>Description</strong> and an <strong>Approval Status</strong>{" "}
+          (Approved or Denied) — those three are required. Category, Assigned
+          to, Owner, Customer, Old Number, SAP Number and Part Description can
+          be filled in now or later. The <strong>SCN#</strong> is assigned
+          for you (the form shows the number it will get), the Year is filled
+          in from it, and a new SCN starts as <strong>WIP</strong>. A
+          half-written form survives navigating away.
+        </P>
+        <H3>Working one through</H3>
+        <P>
+          An SCN is four cards — <strong>Notice</strong> (product, category,
+          description, customer), <strong>Parts</strong> (old number, SAP
+          number, drawing number, part description, ECN),{" "}
+          <strong>Review</strong> and <strong>Outcome</strong> (final
+          disposition, sales history, LTS and LTB expiry dates, notes) — each
+          with one <strong>Edit</strong> button. Only the fields you change
+          are saved.
+        </P>
+        <P>
+          The <strong>Review</strong> card carries three checklists you tick
+          as the work is done: <strong>Preliminary Reviews</strong> (master
+          list, price list, where used, service team),{" "}
+          <strong>Secondary Review</strong> (service, master list, price list,
+          sales history) and <strong>Project Status</strong> (immediate,
+          analysis, inventory management and final obsolescence phases). The
+          card also holds the <strong>Sign-off status</strong> — the name of
+          whoever signed it off, as typed — and a Fixture Review date.
+        </P>
+        <P>
+          The sidebar holds the <strong>SCN Status</strong> and{" "}
+          <strong>Approval Status</strong> (each saves as soon as you pick),{" "}
+          <strong>Assigned to</strong> and <strong>Owner</strong> (both can
+          hold more than one person), the <strong>Watchers</strong>, who
+          raised it and its Year.
+        </P>
+        <P>
+          The sidebar is also where an SCN is tied to Engineering. Pick its{" "}
+          <strong>Project Reference</strong> from Engineering&apos;s project
+          references, and its <strong>Engineering task</strong> from
+          Engineering&apos;s tasks — each saves as soon as you pick and gives
+          you a link straight to that project or task. An older SCN that
+          pointed at a Planner board still shows that Planner link until you
+          pick an Engineering task for it.
+        </P>
+        <H3>Watching, comments and attachments</H3>
+        <UL>
+          <LI>
+            Whoever raises an SCN, is assigned to it or owns it{" "}
+            <strong>watches it automatically</strong>. Anyone else presses{" "}
+            <strong>Watch</strong>, or is added from the Watchers field.
+          </LI>
+          <LI>
+            Comments work as everywhere in ARC — <strong>@-mention</strong>{" "}
+            someone to pull them in (they start watching too), and a
+            screenshot pasted into a comment is saved as an attachment on the
+            SCN.
+          </LI>
+          <LI>
+            The <strong>Attachments</strong> card holds the SCN's files —
+            quotes, supplier letters, drawings. Drop a file on it or press
+            Add file.
+          </LI>
+        </UL>
+        <Tip>
+          SCNs can't be deleted from ARC — a notice is a controlled record of
+          what was decided about a part. One that no longer applies gets its{" "}
+          <strong>SCN Status set to Cancelled</strong>, which keeps the
+          history and takes it out of the working set.
+        </Tip>
+        <H3>The SCN Documents library</H3>
+        <P>
+          The <strong>Documents</strong> button — on the SCNs list and on every
+          SCN — opens the SCN site's Documents library inside ARC. Click a
+          folder to go into it, and use the path above the list to come back
+          up; the address keeps the folder, so you can bookmark or share it.{" "}
+          <strong>New folder</strong> makes a subfolder where you are (Enter
+          creates it, Escape cancels). <strong>Upload files</strong> adds one
+          or several files — or drop them onto the list — and shows each
+          file's progress; a file with the same name as one already there is
+          saved alongside it with a number added, never over it.{" "}
+          <strong>Edit in Office</strong> opens a Word, Excel or PowerPoint
+          file in Office for the web, and your changes save straight back to
+          the folder; other files have <strong>Open</strong> instead, and every
+          file has a Download button. <strong>Open in SharePoint</strong>{" "}
+          takes you to the folder you're in.
+        </P>
+        <P>
+          Every file and folder has a <strong>Rename</strong> and a{" "}
+          <strong>Delete</strong> button. Rename selects the name without its
+          extension, so typing keeps the <code>.docx</code> or{" "}
+          <code>.xlsx</code>; it warns you if you change the extension, since
+          that can stop the file opening, and it won't let you use a name
+          something else in that folder already has. Delete asks you to
+          confirm; for a folder that still has things in it, it says how many
+          and you type the folder's name to confirm. A deleted file or folder
+          (with everything in it) goes to the SCN site's{" "}
+          <strong>recycle bin</strong> in SharePoint, where it can be restored
+          for 93 days.
+        </P>
+      </>
+    ),
+  },
+  {
     id: "where-am-i",
     title: "Where Am I?",
     group: "Engineering",
