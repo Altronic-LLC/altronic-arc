@@ -27,6 +27,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Raise an SCN from ARC — Product, Description and Approval Status are required, and the SCN# is numbered automatically",
       "Open an SCN to edit its Notice, Parts, Review and Outcome cards, tick the Preliminary Reviews, Secondary Review and Project Status checklists, and set Assigned to and Owner",
       "Watch an SCN, comment on it with @-mentions (a pasted screenshot is saved as an attachment), and add files to it",
+      "Open the SCN Documents library from ARC — browse and create folders, upload files, and edit Office files in Word or Excel for the web",
       "An SCN is never deleted — set its SCN Status to Cancelled instead",
     ],
   },

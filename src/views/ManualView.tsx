@@ -3908,6 +3908,8 @@ const SECTIONS: ManualSection[] = [
       "scns",
       "supply chain notice",
       "scn dashboard",
+      "scn documents",
+      "documents library",
       "obsolete",
       "obsolescence",
       "obs",
@@ -3926,7 +3928,7 @@ const SECTIONS: ManualSection[] = [
       "approval status",
     ],
     searchText:
-      "SCNs at /supply-chain/scns, under Supply Chain in the Departments menu, backed by the SCN Dashboard list on the ALTRONICSALESTEAM/SCN SharePoint site. A Supply Chain Notice records a product or part being obsoleted (OBS), phased out, an EECR, or a plain notification. The list searches every field, has SCN Status pills with counts, Category and Year filters, and sortable, filterable column headers; on a phone it is a card list. New SCN asks for Product, Description and Approval Status (required) plus Category, Assigned to, Owner, Customer, Old Number, SAP Number and Part Description; the SCN# is numbered automatically and the year is filled in for you. An SCN is four cards - Notice, Parts, Review, Outcome - each with one Edit button; the Review card has three checklists, Preliminary Reviews, Secondary Review and Project Status. The sidebar has SCN Status, Approval Status, Assigned to, Owner, Watchers, Raised by and Year. Comments, @-mentions, pasted screenshots and attachments all work the usual way; whoever raises an SCN, is assigned to it or owns it watches it automatically. SCNs cannot be deleted - set SCN Status to Cancelled instead.",
+      "SCNs at /supply-chain/scns, under Supply Chain in the Departments menu, backed by the SCN Dashboard list on the ALTRONICSALESTEAM/SCN SharePoint site. A Supply Chain Notice records a product or part being obsoleted (OBS), phased out, an EECR, or a plain notification. The list searches every field, has SCN Status pills with counts, Category and Year filters, and sortable, filterable column headers; on a phone it is a card list. New SCN asks for Product, Description and Approval Status (required) plus Category, Assigned to, Owner, Customer, Old Number, SAP Number and Part Description; the SCN# is numbered automatically and the year is filled in for you. An SCN is four cards - Notice, Parts, Review, Outcome - each with one Edit button; the Review card has three checklists, Preliminary Reviews, Secondary Review and Project Status. The sidebar has SCN Status, Approval Status, Assigned to, Owner, Watchers, Raised by and Year. Comments, @-mentions, pasted screenshots and attachments all work the usual way; whoever raises an SCN, is assigned to it or owns it watches it automatically. SCNs cannot be deleted - set SCN Status to Cancelled instead. The Documents button opens the SCN Documents library: browse folders, create a new folder, upload files (drag and drop, several at once), edit Word Excel PowerPoint files in Office for the web, download, open in SharePoint. No delete or rename in ARC.",
     render: () => (
       <>
         <P>
@@ -4025,6 +4027,24 @@ const SECTIONS: ManualSection[] = [
           <strong>SCN Status set to Cancelled</strong>, which keeps the
           history and takes it out of the working set.
         </Tip>
+        <H3>The SCN Documents library</H3>
+        <P>
+          The <strong>Documents</strong> button — on the SCNs list and on every
+          SCN — opens the SCN site's Documents library inside ARC. Click a
+          folder to go into it, and use the path above the list to come back
+          up; the address keeps the folder, so you can bookmark or share it.{" "}
+          <strong>New folder</strong> makes a subfolder where you are (Enter
+          creates it, Escape cancels). <strong>Upload files</strong> adds one
+          or several files — or drop them onto the list — and shows each
+          file's progress; a file with the same name as one already there is
+          saved alongside it with a number added, never over it.{" "}
+          <strong>Edit in Office</strong> opens a Word, Excel or PowerPoint
+          file in Office for the web, and your changes save straight back to
+          the folder; other files have <strong>Open</strong> instead, and every
+          file has a Download button. Deleting or renaming is done in
+          SharePoint — <strong>Open in SharePoint</strong> takes you to the
+          folder you're in.
+        </P>
       </>
     ),
   },

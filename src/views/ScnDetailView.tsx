@@ -1,6 +1,15 @@
 import { useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { Bell, BellOff, Calendar, ExternalLink, Megaphone, Pencil, User } from "lucide-react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import {
+  Bell,
+  BellOff,
+  Calendar,
+  ExternalLink,
+  FolderOpen,
+  Megaphone,
+  Pencil,
+  User,
+} from "lucide-react";
 import {
   collectScnPeople,
   useAddScnComment,
@@ -199,6 +208,13 @@ export function ScnDetailView() {
           {watching ? <BellOff className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
           {watching ? "Unwatch" : "Watch"}
         </button>
+        <Link
+          to="/supply-chain/scns/documents"
+          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg transition-colors hover:bg-surface-2"
+        >
+          <FolderOpen className="h-4 w-4" />
+          Documents
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">

@@ -85,6 +85,14 @@ describe("ScnDetailView — the page", () => {
     expect(within(header).getByText("OBS")).toBeInTheDocument();
   });
 
+  it("links to the SCN Documents library", async () => {
+    await renderScn();
+    expect(screen.getByRole("link", { name: /^Documents$/ })).toHaveAttribute(
+      "href",
+      "/supply-chain/scns/documents",
+    );
+  });
+
   it("lays the notice out as the four descriptor cards, each with one Edit button", async () => {
     await renderScn();
     for (const name of ["Notice", "Parts", "Review", "Outcome"]) {

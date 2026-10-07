@@ -85,6 +85,14 @@ describe("ScnsView — what is shown", () => {
     expect(shown("2026-0143")).toBe(0); // Cancelled
   });
 
+  it("links to the SCN Documents library from the header", async () => {
+    await renderList();
+    expect(screen.getByRole("link", { name: /Documents/ })).toHaveAttribute(
+      "href",
+      "/supply-chain/scns/documents",
+    );
+  });
+
   it("counts every pill over the whole set", async () => {
     await renderList();
     expect(screen.getByRole("button", { name: /^Open/ })).toHaveTextContent("4");

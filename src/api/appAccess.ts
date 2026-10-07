@@ -221,6 +221,16 @@ export const APPS: AppSpec[] = [
   { path: "/supply-chain/faits", label: "FAITs", site: "engineering", lists: ids(SP_FAIT_LIST_ID) },
   { path: "/supply-chain/mrb", label: "MRB", site: "pmo", lists: ids(SP_MRB_LIST_ID) },
   { path: "/supply-chain/scns", label: "SCNs", site: "scn", lists: ids(SP_SCNS_LIST_ID) },
+  // The SCN subsite's Documents library — files, not list rows, so a refused
+  // library locks it and only it (the SCN list itself is unaffected). Its own
+  // entry, because appForPath would otherwise resolve this route to SCNs.
+  {
+    path: "/supply-chain/scns/documents",
+    label: "SCN Documents",
+    site: "scn",
+    lists: [],
+    needsDrive: true,
+  },
 
   // Sales ----------------------------------------------------------------
   // Everything on this screen is a workbook in the Sales document library —

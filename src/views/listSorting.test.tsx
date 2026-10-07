@@ -198,6 +198,26 @@ describe("the rows are actually re-ordered", () => {
     expect(firstColumnValues()).toEqual([...ascending].reverse());
   });
 
+  it("SCN Documents sorts by Modified, folders still first", async () => {
+    // Name is the default, so Modified proves the key switches AND the tbody
+    // maps the sorted rows. Folders always lead whatever the sort.
+    const { ScnDocumentsView } = await import("./ScnDocumentsView");
+    renderWithProviders(<ScnDocumentsView />, { route: "/supply-chain/scns/documents" });
+    await waitForTable();
+    const byName = firstColumnValues();
+    expect(byName[0]).toBe("ARCHIVE");
+
+    await sortBy("Modified");
+    const ascending = firstColumnValues();
+    expect(ascending).not.toEqual(byName);
+    expect(ascending.slice(0, 7).every((n) => !n.includes("."))).toBe(true);
+
+    await sortBy("Modified");
+    const descending = firstColumnValues();
+    expect(descending.slice(0, 7)).toEqual([...ascending.slice(0, 7)].reverse());
+    expect(descending.slice(7)).toEqual([...ascending.slice(7)].reverse());
+  });
+
   it("a Parts List list sorts by Description — not its default Part # order", async () => {
     // Part # is the default, so sorting by it would only prove the direction
     // flips. Description proves the key switches AND the tbody maps the sorted

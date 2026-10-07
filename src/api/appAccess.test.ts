@@ -139,6 +139,19 @@ describe("isAppUnavailable", () => {
     expect(isAppUnavailable(customers, denials({ sites: [SITES.scn] }))).toBe(false);
   });
 
+  it("locks SCN Documents — and only it — when the SCN library is refused", () => {
+    const docs = appForPath("/supply-chain/scns/documents?folder=01ABC")!;
+    expect(docs.label).toBe("SCN Documents");
+    expect(docs.needsDrive).toBe(true);
+    expect(docs.site).toBe("scn");
+    expect(isAppUnavailable(docs, denials({ drives: [SITES.scn] }))).toBe(true);
+    // The SCN list itself is untouched by a refused library.
+    const scns = APPS.find((a) => a.label === "SCNs")!;
+    expect(isAppUnavailable(scns, denials({ drives: [SITES.scn] }))).toBe(false);
+    // A refused parent site takes the library with it.
+    expect(isAppUnavailable(docs, denials({ sites: [SITES.salesTeam] }))).toBe(true);
+  });
+
   it("does NOT let a refused library lock the site's other apps", () => {
     // A library with its own broken inheritance is ordinary SharePoint. An
     // earlier version recorded a refused drive as a SITE denial, which would

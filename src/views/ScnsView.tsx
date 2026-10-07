@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { ChevronDown, Megaphone, MessageSquare, Paperclip, Plus, SlidersHorizontal } from "lucide-react";
+import {
+  ChevronDown,
+  FolderOpen,
+  Megaphone,
+  MessageSquare,
+  Paperclip,
+  Plus,
+  SlidersHorizontal,
+} from "lucide-react";
 import { useScns } from "@/hooks/useScns";
 import type { Scn } from "@/types/task";
 import { SCN_CATEGORIES, SCN_STATUSES } from "@/types/task";
@@ -169,13 +177,22 @@ export function ScnsView() {
             first notice to the final disposition.
           </p>
         </div>
-        <button
-          onClick={() => setShowNew(true)}
-          className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90"
-        >
-          <Plus className="h-4 w-4" />
-          New SCN
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            to="/supply-chain/scns/documents"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg transition-colors hover:bg-surface-2"
+          >
+            <FolderOpen className="h-4 w-4" />
+            Documents
+          </Link>
+          <button
+            onClick={() => setShowNew(true)}
+            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90"
+          >
+            <Plus className="h-4 w-4" />
+            New SCN
+          </button>
+        </div>
       </header>
 
       <div className="flex flex-wrap items-center gap-1 rounded-lg bg-surface-2 p-1">

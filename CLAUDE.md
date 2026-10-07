@@ -308,6 +308,7 @@ src/
 │   ├── supplierIssues.ts         SRM Tool — Supplier Issue Tracker CRUD + comments + watchers, scoped to a Supplier
 │   ├── costImpactNotices.ts      Cost Impact Notices CRUD + comments (Supply Chain, salesTeam site) — no delete
 │   ├── scns.ts                   SCNs — Supply Chain Notices CRUD + comments + watchers (Supply Chain, scn subsite of salesTeam) — DIFFED edits, no delete
+│   ├── scnDocuments.ts           SCN Documents library (the scn subsite's default drive) — list/breadcrumb/create folder/upload/download; no delete, no rename
 │   ├── openOrdersFiles.ts        Open Orders SharePoint folder — list/upload/download
 │   ├── openOrdersCustomers.ts    Open Orders managed customer list CRUD
 │   ├── openOrdersRoles.ts        Open Orders role tags (report manager) CRUD
@@ -389,6 +390,7 @@ src/
 │   ├── useSupplierIssues.ts      SRM Tool — Supplier Issue Tracker queries, mutations + comments + watchers
 │   ├── useCostImpactNotices.ts   Cost Impact Notices queries, mutations + comment thread + intake alert
 │   ├── useScns.ts                SCN queries, mutations (diffed against the cached row), watchers + comment thread
+│   ├── useScnDocuments.ts        SCN Documents folder listing + breadcrumb, create folder, one-at-a-time multi-file upload with progress
 │   ├── useOpenOrdersReports.ts   Parse an extract, generate + upload, download
 │   ├── useOpenOrdersCustomers.ts Customer list + role CRUD (+ useMyOpenOrdersAccess)
 │   ├── useGrayMarketRequests.ts  Gray Market queries, mutations + comment thread
@@ -724,6 +726,7 @@ src/
 │   ├── CostImpactNoticeDetailView.tsx  One notice — Part/Cost & Impact/Where Used/Notes cards, comments, attachments
 │   ├── ScnsView.tsx              SCNs list — search, status pills, Category/Year filters, sortable headers; cards on a phone (Supply Chain)
 │   ├── ScnDetailView.tsx         One SCN — Notice/Parts/Review/Outcome cards, the three review checklists, sidebar people, comments, attachments
+│   ├── ScnDocumentsView.tsx      SCN Documents library browser (?folder=) — breadcrumb, new folder, upload, Edit in Office, download; sortable, cards on a phone
 │   ├── OpenOrdersView.tsx        Open Orders Report Tool — upload, generate, download
 │   ├── OpenOrdersCustomersView.tsx  The managed customer list (+ import from an extract)
 │   ├── AdminOpenOrdersRolesView.tsx Admin -> Open Orders Roles
@@ -3548,6 +3551,54 @@ shape — jsdom renders both, so tests use `getAllBy*`).
 (`scripts/scn-log-schema.json`) was taken alongside; it is a legacy log, 40 of
 its 98 titles overlap the Dashboard, and wiring it would put two registers of
 the same notices in front of people. Don't wire it without a decision.
+
+#### SCN Documents library
+
+Ray, 2026-10-07: from SCNs, "access the documents folder… create subfolders,
+see subfolders, edit files, add files directly in ARC". `ScnDocumentsView` at
+`/supply-chain/scns/documents`, linked by a **Documents** button on both the
+SCNs list header and an SCN's detail page. Pieces: `api/scnDocuments.ts`,
+`hooks/useScnDocuments.ts`, `views/ScnDocumentsView.tsx`.
+
+- **The library is the DEFAULT drive of `SITES.scn`** ("Documents", live
+  2026-10-07 — root holds ARCHIVE, EECR, General, Inventory Review Reports, LTB
+  Analysis, SCN, Single Use Reports and four loose files; the mock mirrors it).
+  Every URL is `/sites/{SITES.scn}/drive/…`, the shape `lib/listAccess.ts`
+  reads as a DRIVE refusal, and the screen has its OWN `APPS` entry
+  (`needsDrive: true`, no lists) so a refused library locks it — and only it;
+  the SCN list is unaffected. Without that entry `appForPath` resolves the
+  route to SCNs.
+- **The folder is `?folder=<driveItemId>`** (absent = root), so Back, a refresh
+  and a shared link land in the right place. The breadcrumb reads the folder
+  ONCE for its `parentReference.path` (ancestor NAMES), then resolves each
+  ancestor's id by path in parallel — cheaper than walking up one dependent
+  request at a time.
+- **Edit = the file's `webUrl` in a new tab.** For Office files
+  (docx/xlsx/pptx/doc/xls/ppt) that is Word / Excel / PowerPoint for the web,
+  which edits the file IN PLACE in SharePoint — nothing to upload back. The
+  button says "Edit in Office" for those and "Open" for anything else.
+- **Download goes through the item's pre-authenticated
+  `@microsoft.graph.downloadUrl`** (the Open Orders arrangement), never the
+  webUrl — a background fetch of a SharePoint page carries no sign-in on a
+  phone. Not Graph's `/content` through `graphFetch` either: that helper reads
+  the body as text and would corrupt a binary.
+- **Conflict rules — nothing is ever overwritten.** A new folder POSTs with
+  `conflictBehavior: fail`, and a 409 becomes "A folder called X already exists
+  here."; names are checked client-side first (`scnFolderNameProblem`:
+  `" * : < > ? / \ |`, leading/trailing space or full stop). An upload goes
+  through the shared `uploadToDriveTarget` (chunked above 4 MB, 250 MB cap)
+  with `rename`, so a second "SCN FLOW.pdf" lands as "SCN FLOW 1.pdf".
+- **Several files upload ONE AT A TIME** with per-file progress; one failure
+  doesn't stop the rest, and each failure is toasted through
+  `describeListWriteFailure`.
+- **No delete and no rename, by choice.** Both are deliberate trips to
+  SharePoint ("Open in SharePoint" is on the toolbar), and a rename would break
+  every link pasted into an SCN comment. `scnDocuments.test.ts` asserts the
+  module exports nothing matching /delete|remove|rename/.
+- **Caveat:** a 403 on a WRITE (creating a folder, say, by somebody with
+  read-only access) flows through the global MutationCache learner like every
+  other refused write, and marks the drive denied for the session — "Check
+  again" clears it.
 
 ### QC Time Tracking (Panels, panelTeam site)
 
