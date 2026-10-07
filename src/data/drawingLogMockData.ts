@@ -8,7 +8,8 @@ import type { DrawingChange, DrawingLogEntry, DrawingLogKind } from "@/types/tas
 // SK_Num and no change log — with invented content.
 //
 // Deliberately includes the cases the change-log code has to survive: several
-// entries, SPARSE slots (01 and 03 used, 02 empty), a full 16-slot log, and rows
+// entries, SPARSE slots (01 and 03 used, 02 empty), a full 16-slot log (CAD
+// 404), and rows
 // with no changes at all.
 // =============================================================================
 
@@ -86,6 +87,78 @@ export const MOCK_DRAWING_LOGS: DrawingLogEntry[] = [
     enteredBy: "JFD",
     legacyId: 17858,
   }),
+
+  // A FULL change log — all 16 slots — on a drawing old enough to need the
+  // 1950 year range (BusinessIT#32). Fills both columns of the printed Drawing
+  // History, and its long ECN numbers show why ECN # gets the width.
+  entry(
+    "cad",
+    404,
+    {
+      drawingNo: "310 220",
+      cadNumber: "310220",
+      drawingTitle: "MAGNETO HOUSING, MACHINED, 8-CYL",
+      size: "C",
+      newRevision: "16",
+      dateCompleted: d("1962-03-14T12:00:00Z"),
+      drawingDate: d("2025-11-18T12:00:00Z"),
+      logBookDate: d("1962-03-20T12:00:00Z"),
+      newDrawing: "",
+      software: "SolidWorks",
+      by: "HWK",
+      enteredBy: "JFD",
+      legacyId: 1204,
+    },
+    [
+      { slot: 1, date: d("1964-08-11T12:00:00Z"), ecn: "640118", rev: "1" },
+      { slot: 2, date: d("1967-02-02T12:00:00Z"), ecn: "670031", rev: "2" },
+      { slot: 3, date: d("1971-10-19T12:00:00Z"), ecn: "710247", rev: "3" },
+      { slot: 4, date: d("1975-05-06T12:00:00Z"), ecn: "750092", rev: "4" },
+      { slot: 5, date: d("1979-09-24T12:00:00Z"), ecn: "790305", rev: "5" },
+      { slot: 6, date: d("1983-01-17T12:00:00Z"), ecn: "830012", rev: "6" },
+      { slot: 7, date: d("1987-06-30T12:00:00Z"), ecn: "870188", rev: "7" },
+      { slot: 8, date: d("1991-11-12T12:00:00Z"), ecn: "910276", rev: "8" },
+      { slot: 9, date: d("1996-04-08T12:00:00Z"), ecn: "960104", rev: "9" },
+      { slot: 10, date: d("2001-07-23T12:00:00Z"), ecn: "010199", rev: "10" },
+      { slot: 11, date: d("2005-02-14T12:00:00Z"), ecn: "050037", rev: "11" },
+      { slot: 12, date: d("2009-10-05T12:00:00Z"), ecn: "ECN-2009-00412", rev: "12" },
+      { slot: 13, date: d("2013-03-19T12:00:00Z"), ecn: "ECN-2013-00088", rev: "13" },
+      { slot: 14, date: d("2017-08-28T12:00:00Z"), ecn: "170264", rev: "14" },
+      { slot: 15, date: d("2021-12-06T12:00:00Z"), ecn: "210331", rev: "15" },
+      { slot: 16, date: d("2025-11-18T12:00:00Z"), ecn: "250418", rev: "16" },
+    ],
+  ),
+
+  // SEVEN revisions: one short of filling the printed sheet's left column, so
+  // the right column prints as empty ruled lines.
+  entry(
+    "cad",
+    405,
+    {
+      drawingNo: "582 117",
+      cadNumber: "582117",
+      drawingTitle: "IGNITION COIL BRACKET, STAINLESS",
+      size: "B",
+      newRevision: "7",
+      dateCompleted: d("1998-06-09T12:00:00Z"),
+      drawingDate: d("2024-09-16T12:00:00Z"),
+      logBookDate: null,
+      newDrawing: "",
+      software: "AutoCAD",
+      by: "MTK",
+      enteredBy: "RJW",
+      legacyId: 9921,
+    },
+    [
+      { slot: 1, date: d("2000-03-21T12:00:00Z"), ecn: "000084", rev: "1" },
+      { slot: 2, date: d("2003-11-04T12:00:00Z"), ecn: "030277", rev: "2" },
+      { slot: 3, date: d("2008-05-13T12:00:00Z"), ecn: "080141", rev: "3" },
+      { slot: 4, date: d("2012-01-30T12:00:00Z"), ecn: "ECN-2012-00019", rev: "4" },
+      { slot: 5, date: d("2016-07-18T12:00:00Z"), ecn: "160203", rev: "5" },
+      { slot: 6, date: d("2020-10-05T12:00:00Z"), ecn: "200356", rev: "6" },
+      { slot: 7, date: d("2024-09-16T12:00:00Z"), ecn: "240299", rev: "7" },
+    ],
+  ),
 
   // ---- CCC ----------------------------------------------------------------
   entry(
