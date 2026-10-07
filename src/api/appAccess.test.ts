@@ -127,6 +127,18 @@ describe("isAppUnavailable", () => {
     expect(siteAncestry("engineering")).toEqual(["engineering"]);
   });
 
+  it("locks SCNs when the Sales Team site is refused — the SCN subsite sits under it", () => {
+    const scns = APPS.find((a) => a.label === "SCNs")!;
+    expect(scns.site).toBe("scn");
+    expect(scns.path).toBe("/supply-chain/scns");
+    expect(siteAncestry("scn")).toEqual(["scn", "salesTeam"]);
+    expect(isAppUnavailable(scns, denials({ sites: [SITES.salesTeam] }))).toBe(true);
+    expect(isAppUnavailable(scns, denials({ sites: [SITES.scn] }))).toBe(true);
+    // A refused SCN subsite says nothing about its sibling subsite or parent.
+    const customers = APPS.find((a) => a.label === "Customers")!;
+    expect(isAppUnavailable(customers, denials({ sites: [SITES.scn] }))).toBe(false);
+  });
+
   it("does NOT let a refused library lock the site's other apps", () => {
     // A library with its own broken inheritance is ordinary SharePoint. An
     // earlier version recorded a refused drive as a SITE denial, which would
@@ -235,6 +247,7 @@ describe("siteLabelForId", () => {
   it("names every site in the registry", () => {
     expect(siteLabelForId(SITES.pmo)).toBe("Altronic_PMO");
     expect(siteLabelForId(SITES.engineering)).toBe("Altronic_Engineering");
+    expect(siteLabelForId(SITES.scn)).toBe("ALTRONICSALESTEAM/SCN");
   });
 
   it("returns null for a site ARC doesn't know", () => {

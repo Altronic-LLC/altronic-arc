@@ -113,6 +113,14 @@ describe("every sortable list renders its sort buttons", () => {
     expect(screen.getByRole("button", { name: "Sort by Log No." })).toBeInTheDocument();
   });
 
+  it("SCNs", async () => {
+    const { ScnsView } = await import("./ScnsView");
+    renderWithProviders(<ScnsView />, { route: "/supply-chain/scns" });
+    await waitForTable();
+    expect(screen.getByRole("button", { name: "Sort by SCN#" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sort by Owner" })).toBeInTheDocument();
+  });
+
   it("Parts List (Global Search)", async () => {
     const { PartsListView } = await import("./PartsListView");
     renderWithProviders(<PartsListView />, {
@@ -169,6 +177,24 @@ describe("the rows are actually re-ordered", () => {
     expect(ascending.length).toBeGreaterThan(1);
 
     await sortBy("Log No.");
+    expect(firstColumnValues()).toEqual([...ascending].reverse());
+  });
+
+  it("SCNs sorts by Product — a column that is NOT the default", async () => {
+    // SCN# is the default (descending), so sorting by it would only prove the
+    // direction flips. Product proves the key switches AND the tbody maps the
+    // sorted rows; `?status=All` so every mock row is on screen.
+    const { ScnsView } = await import("./ScnsView");
+    renderWithProviders(<ScnsView />, { route: "/supply-chain/scns?status=All" });
+    await waitForTable();
+    const byNumber = firstColumnValues();
+
+    await sortBy("Product");
+    const ascending = firstColumnValues();
+    expect(ascending.length).toBeGreaterThan(1);
+    expect(ascending).not.toEqual(byNumber);
+
+    await sortBy("Product");
     expect(firstColumnValues()).toEqual([...ascending].reverse());
   });
 

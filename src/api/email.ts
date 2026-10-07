@@ -119,6 +119,7 @@ export interface MentionTarget {
     | "supplierContact"
     | "supplierIssue"
     | "costImpactNotice"
+    | "scn"
     | "featureRequest"
     | "altronicPart"
     | "altronicComponent";
@@ -195,6 +196,11 @@ const KIND_COPY: Record<
     phrase: "a supplier issue",
     calloutLabel: "Supplier Issue",
     buttonText: "Open this issue",
+  },
+  scn: {
+    phrase: "an SCN",
+    calloutLabel: "SCN",
+    buttonText: "Open this SCN",
   },
   costImpactNotice: {
     phrase: "a cost impact notice",

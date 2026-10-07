@@ -27,6 +27,7 @@ import {
   ListChecks,
   Lock,
   MapPin,
+  Megaphone,
   MessageSquare,
   PackageSearch,
   Sparkles,
@@ -47,6 +48,8 @@ import { useEcns } from "@/hooks/useEcns";
 import { useFaits } from "@/hooks/useFaits";
 import { useMrbEntries } from "@/hooks/useMrb";
 import { needsDisposition } from "@/lib/mrbMapper";
+import { useScns } from "@/hooks/useScns";
+import { isOpenScn } from "@/components/scnAtoms";
 import { useQuickLinksFor } from "@/hooks/useQuickLinks";
 import { QuickLinksRow } from "@/components/QuickLinksRow";
 import { isEcnOnHold } from "@/lib/ecnMapper";
@@ -277,6 +280,7 @@ export function DashboardView() {
   const { data: ecns = [] } = useEcns();
   const { data: faits = [] } = useFaits();
   const { data: mrbEntries = [] } = useMrbEntries();
+  const { data: scns = [] } = useScns();
   const {
     data: testSheets = [],
     isError: testSheetsError,
@@ -424,6 +428,17 @@ export function DashboardView() {
   const mrbCard = useMemo(
     () => ({ count: mrbEntries.filter(needsDisposition).length }),
     [mrbEntries],
+  );
+
+  /**
+   * SCNs: every notice not yet CLOSED or Cancelled. Like MRB, deliberately
+   * NOT scoped by Mine/Company — a notice is worked by Supply Chain as a
+   * whole, and `unit` says "open" so the number describes the register
+   * rather than the reader.
+   */
+  const scnCard = useMemo(
+    () => ({ count: scns.filter((s) => isOpenScn(s.status)).length }),
+    [scns],
   );
 
   const eirCard = useMemo(() => {
@@ -1065,6 +1080,21 @@ export function DashboardView() {
           unit="need a disposition"
           to={"/supply-chain/mrb"}
           onClick={() => navigate("/supply-chain/mrb")}
+        />
+        {/* Shares cooper-green with Suppliers on purpose. Six cards over
+            four tones means a repeat, and these two are the pair worth
+            pairing: both are about what our SUPPLIERS do — the SRM tool is
+            who supplies us, an SCN is what they tell us is going obsolete
+            or being phased out. Red would blunt "red means a cost change",
+            and blue already carries the FAIT/MRB inspection pair. */}
+        <TypeCard
+          name="SCNs"
+          icon={<Megaphone className="h-5 w-5" />}
+          tone="cooper-green"
+          count={scnCard.count}
+          unit="open"
+          to={"/supply-chain/scns"}
+          onClick={() => navigate("/supply-chain/scns")}
         />
       </DeptSection>
 
