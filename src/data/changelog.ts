@@ -20,6 +20,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.177.0",
+    date: "2026-10-07",
+    changes: [
+      "The About page's Data model can be zoomed and moved around: zoom buttons, Fit and 100%, Ctrl + scroll or a pinch, drag to move, and a full-screen view",
+      "Tables are grouped by department and laid out so none overlap, and the lines between them run in the gaps instead of behind other tables",
+      "Hover over or tap a table to highlight its relationships and fade everything else; tap again to clear",
+      "Links to Person, Comment and Attachment are hidden until you switch them on, since half the tables point at them",
+      "Fixed two relationship lines (ECN Checklist to ECN, and Panel QC Issue to its defect category) that pointed at the wrong row",
+      "The User Manual's Build Requests section now opens with a workflow diagram: each step from raising a request to closing it, who takes it, the status it lands in, and who is emailed",
+      "The diagram also shows the order a part's own status moves through, and the statuses a request can be set to at any time",
+    ],
+  },
+  {
     version: "0.175.0",
     date: "2026-10-07",
     changes: [

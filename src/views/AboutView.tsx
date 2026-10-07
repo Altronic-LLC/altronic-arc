@@ -17,6 +17,8 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { DIRECTORY_KEY, useDirectoryDiagnostics } from "@/hooks/useDirectory";
 import { grantDirectoryAccess } from "@/api/directory";
 import { cn } from "@/lib/cn";
+import { ErDiagram } from "@/components/ErDiagram";
+import type { ErConnection, ErGroup, ErTable } from "@/lib/erLayout";
 // =============================================================================
 // About page — high-level system map.
 //
@@ -214,61 +216,44 @@ const SYSTEM_TIERS: Tier[] = [
 ];
 
 // =============================================================================
-// Data model — drawn as a real ER diagram on a single SVG canvas.
-// Each table is positioned by hand on a 1280x880 canvas, with crow's-foot
-// connectors drawn between FK columns and their targets (one-end on the
-// PK side, many-end on the FK side).
+// Data model — an ER diagram, drawn and laid out by components/ErDiagram.tsx
+// and lib/erLayout.ts.
 //
-// To add a column or relationship: bump the row count in SCHEMA_TABLES,
-// adjust the table's `y` if it pushes neighbours, and add a row to
-// CONNECTIONS. The renderer computes port positions from row index.
+// Nothing here is positioned by hand. Each table names the GROUP (department)
+// it is drawn in, and the layout packs groups and tables so no two cards
+// overlap. To add a list: add its SCHEMA_TABLES entry with a `group` from
+// ER_GROUPS (and a `width` its longest column name fits in), then add each
+// foreign key to CONNECTIONS. A new department is a new ER_GROUPS entry —
+// groups are drawn in the order listed here.
 // =============================================================================
 
-type ColumnKind = "pk" | "field" | "fk";
+type SchemaTable = ErTable;
+type Connection = ErConnection;
 
-interface SchemaColumn {
-  name: string;
-  type: string;
-  kind: ColumnKind;
-  /** Where this FK points, e.g. "Project.id" or "Person.id[]". */
-  references?: string;
-}
+export const ER_GROUPS: ErGroup[] = [
+  { id: "engineering", label: "Engineering" },
+  { id: "core", label: "Shared across ARC" },
+  { id: "parts", label: "Parts List" },
+  { id: "operations", label: "Operations & maintenance" },
+  { id: "teradyne", label: "Teradyne" },
+  { id: "panels", label: "Panels" },
+  { id: "qc", label: "Quality Control" },
+  { id: "sales", label: "Sales" },
+  { id: "supplyChain", label: "Supply Chain" },
+];
 
-interface SchemaTable {
-  name: string;
-  /** SharePoint list display name (or "Concept" for shared/derived ones). */
-  source: string;
-  palette: PaletteKey;
-  columns: SchemaColumn[];
-  /** Top-left x position on the ER canvas. */
-  x: number;
-  /** Top-left y position on the ER canvas. */
-  y: number;
-  /** Card width. */
-  width: number;
-}
+/**
+ * Pointed at from half the diagram — their links are hidden until switched
+ * on, and always shown for the table being traced.
+ */
+export const ER_HUB_TABLES = ["Person", "Comment", "Attachment"];
 
-// ----- ER canvas geometry --------------------------------------------------
-const HEADER_HEIGHT = 50;
-const ROW_HEIGHT = 22;
-
-/** Compute the table's total rendered height. */
-function tableHeight(t: SchemaTable): number {
-  return HEADER_HEIGHT + t.columns.length * ROW_HEIGHT + 6;
-}
-
-/** Y coordinate of a column's center (used for connection endpoints). */
-function rowCenterY(t: SchemaTable, columnName: string): number {
-  const idx = t.columns.findIndex((c) => c.name === columnName);
-  return t.y + HEADER_HEIGHT + idx * ROW_HEIGHT + ROW_HEIGHT / 2;
-}
-
-const SCHEMA_TABLES: SchemaTable[] = [
+export const SCHEMA_TABLES: SchemaTable[] = [
   {
     name: "Project",
     source: "Projects list",
     palette: "entity",
-    x: 530, y: 20, width: 240,
+    group: "engineering", width: 240,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title", type: "text", kind: "field" },
@@ -278,7 +263,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "Person",
     source: "Concept (User Info list)",
     palette: "shared",
-    x: 960, y: 20, width: 290,
+    group: "core", width: 290,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "displayName", type: "text", kind: "field" },
@@ -289,7 +274,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "Task",
     source: "Project Task List",
     palette: "entity",
-    x: 20, y: 220, width: 360,
+    group: "engineering", width: 360,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title", type: "text", kind: "field" },
@@ -310,7 +295,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "EIR",
     source: "Engineering Information Request",
     palette: "entity",
-    x: 410, y: 220, width: 420,
+    group: "engineering", width: 420,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "eirNo", type: "text", kind: "field" },
@@ -330,7 +315,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "Admin",
     source: "Admins list",
     palette: "entity",
-    x: 960, y: 240, width: 290,
+    group: "core", width: 290,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "email", type: "text", kind: "fk", references: "Person.email" },
@@ -341,7 +326,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "EirRole",
     source: "EIR Roles list",
     palette: "entity",
-    x: 960, y: 660, width: 290,
+    group: "engineering", width: 290,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "email", type: "text", kind: "fk", references: "Person.email" },
@@ -357,7 +342,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "MaintenanceRole",
     source: "Maintenance Roles list (Altronic_PMO site)",
     palette: "entity",
-    x: 960, y: 820, width: 290,
+    group: "operations", width: 290,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "email", type: "text", kind: "fk", references: "Person.email" },
@@ -369,7 +354,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "Comment",
     source: "Concept (Communication field)",
     palette: "shared",
-    x: 960, y: 380, width: 290,
+    group: "core", width: 290,
     columns: [
       { name: "parentId", type: "int", kind: "fk", references: "Task / EIR / OperationsTask / MaintenanceTask" },
       { name: "timestamp", type: "datetime", kind: "field" },
@@ -381,7 +366,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "TestSheet",
     source: "Test Results",
     palette: "entity",
-    x: 20, y: 566, width: 360,
+    group: "engineering", width: 360,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title", type: "text", kind: "field" },
@@ -396,7 +381,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "Attachment",
     source: "List-item attachments across entities (SP REST)",
     palette: "shared",
-    x: 960, y: 540, width: 290,
+    group: "core", width: 290,
     columns: [
       { name: "parentId", type: "int", kind: "fk", references: "Task / EIR / CsaListing / …" },
       { name: "fileName", type: "text", kind: "field" },
@@ -407,7 +392,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "ProjectFolder",
     source: "Documents / General / Project Folders",
     palette: "shared",
-    x: 410, y: 540, width: 420,
+    group: "engineering", width: 420,
     columns: [
       { name: "id", type: "driveItemId", kind: "pk" },
       { name: "name", type: "text", kind: "field" },
@@ -419,7 +404,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "ProjectFile",
     source: "Files inside a ProjectFolder",
     palette: "shared",
-    x: 20, y: 792, width: 360,
+    group: "engineering", width: 360,
     columns: [
       { name: "id", type: "driveItemId", kind: "pk" },
       { name: "folderId", type: "driveItemId", kind: "fk", references: "ProjectFolder.id" },
@@ -438,7 +423,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "OperationsTask",
     source: "Operations Task List (Altronic_PMO site)",
     palette: "entity",
-    x: 20, y: 1000, width: 380,
+    group: "operations", width: 380,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title", type: "text", kind: "field" },
@@ -459,7 +444,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "OperationsProject",
     source: "Operations Projects (Altronic_PMO site)",
     palette: "entity",
-    x: 430, y: 1000, width: 260,
+    group: "operations", width: 260,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "projectNumber", type: "text", kind: "field" },
@@ -481,7 +466,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "AltronicEquipment",
     source: "Altronic Equipment List (Altronic_PMO site) — 378 assets",
     palette: "shared",
-    x: 720, y: 1000, width: 300,
+    group: "operations", width: 300,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title", type: "text", kind: "field" },
@@ -522,7 +507,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     palette: "entity",
     // Moved up 60px when DepartmentRef / LocationRef were added, so the two
     // extra rows don't crowd BuildRequest below it.
-    x: 20, y: 1400, width: 380,
+    group: "operations", width: 380,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "woNumber", type: "text", kind: "field" },
@@ -567,7 +552,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "ScheduledMaintenance",
     source: "Scheduled Maintenance (Altronic_PMO site)",
     palette: "entity",
-    x: 440, y: 1400, width: 340,
+    group: "operations", width: 340,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title", type: "text", kind: "field" },
@@ -616,7 +601,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "MaintenanceDepartment",
     source: "Maintenance Departments (Altronic_PMO site) — 9 values",
     palette: "shared",
-    x: 820, y: 1600, width: 320,
+    group: "operations", width: 320,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title", type: "text", kind: "field" },
@@ -632,7 +617,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "MaintenanceLocation",
     source: "Maintenance Locations (Altronic_PMO site) — 64 values",
     palette: "shared",
-    x: 820, y: 1780, width: 320,
+    group: "operations", width: 320,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title", type: "text", kind: "field" },
@@ -644,7 +629,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "BuildRequest",
     source: "Build Request Tracker (Engineering site)",
     palette: "entity",
-    x: 20, y: 2170, width: 370,
+    group: "engineering", width: 370,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "brNo", type: "text", kind: "field" },
@@ -667,7 +652,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "BuildRequestItem",
     source: "Build Request Items (Engineering site)",
     palette: "entity",
-    x: 440, y: 2170, width: 380,
+    group: "engineering", width: 380,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "partNumber", type: "text", kind: "field" },
@@ -693,7 +678,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "PanelOrder",
     source: "Panel Order Headers (ALTRONICPANELTEAM site)",
     palette: "entity",
-    x: 20, y: 2630, width: 380,
+    group: "panels", width: 380,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title", type: "text", kind: "field" },
@@ -714,7 +699,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "PanelProject",
     source: "Panel Project Reference (ALTRONICPANELTEAM site)",
     palette: "entity",
-    x: 440, y: 2630, width: 280,
+    group: "panels", width: 280,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title (ref no)", type: "text", kind: "field" },
@@ -729,7 +714,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "PanelUserRole",
     source: "Panel User Roles (ALTRONICPANELTEAM site)",
     palette: "entity",
-    x: 760, y: 2630, width: 280,
+    group: "panels", width: 280,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "user", type: "int", kind: "fk", references: "Person.id" },
@@ -741,7 +726,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "PanelTask",
     source: "Panel Tasks (ALTRONICPANELTEAM site)",
     palette: "entity",
-    x: 760, y: 2830, width: 300,
+    group: "panels", width: 300,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title", type: "text", kind: "field" },
@@ -761,7 +746,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "CsaListing",
     source: "CSA Listings (Engineering site)",
     palette: "entity",
-    x: 1080, y: 3130, width: 300,
+    group: "engineering", width: 300,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "fileNumber (Title)", type: "text", kind: "field" },
@@ -782,7 +767,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "AltronicPart",
     source: "Altronic Part List (Engineering site)",
     palette: "entity",
-    x: 800, y: 6440, width: 300,
+    group: "parts", width: 300,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "partNumber (Title)", type: "text", kind: "field" },
@@ -807,7 +792,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "AltronicComponent",
     source: "Altronic Component List (Engineering site)",
     palette: "entity",
-    x: 1130, y: 6440, width: 300,
+    group: "parts", width: 300,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "partNumber (Title)", type: "text", kind: "field" },
@@ -832,7 +817,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "PartsRole",
     source: "Parts Roles (Engineering site)",
     palette: "entity",
-    x: 800, y: 6900, width: 300,
+    group: "parts", width: 300,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "email (Title)", type: "text", kind: "field" },
@@ -847,7 +832,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "ComponentDescriptionOption",
     source: "Component Description Options (Engineering site)",
     palette: "entity",
-    x: 1140, y: 6900, width: 320,
+    group: "parts", width: 320,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "name (Title)", type: "text", kind: "field" },
@@ -866,7 +851,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "DrawingLogEntry",
     source: "CAD / CCC / CEC Drawings (Engineering site)",
     palette: "entity",
-    x: 1080, y: 3420, width: 320,
+    group: "engineering", width: 320,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title (drawing no.)", type: "text", kind: "field" },
@@ -881,7 +866,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "SketchLogEntry",
     source: "Engineering Sketches (Engineering site)",
     palette: "entity",
-    x: 1080, y: 3660, width: 320,
+    group: "engineering", width: 320,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title", type: "text", kind: "field" },
@@ -899,7 +884,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "DigitalQc",
     source: "18 Digital QC product-family lists (Engineering site)",
     palette: "entity",
-    x: 440, y: 3420, width: 500,
+    group: "qc", width: 500,
     columns: [
       { name: "id", type: "text", kind: "pk" },
       { name: "workOrder / dateTested / operator", type: "text / date", kind: "field" },
@@ -917,7 +902,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "IgnitionQc",
     source: "36 Ignition QC product-family lists (Engineering site)",
     palette: "entity",
-    x: 990, y: 3420, width: 480,
+    group: "qc", width: 480,
     columns: [
       { name: "id", type: "text", kind: "pk" },
       { name: "workOrder / dateTested / operator", type: "text / date", kind: "field" },
@@ -938,7 +923,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "TeradyneLogEntry",
     source: "Teradyne Log (Altronic_PMO site)",
     palette: "entity",
-    x: 20, y: 3130, width: 380,
+    group: "teradyne", width: 380,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title (derived)", type: "text", kind: "field" },
@@ -961,7 +946,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "TeradyneProduct",
     source: "Teradyne Products (Altronic_PMO site)",
     palette: "entity",
-    x: 440, y: 3130, width: 270,
+    group: "teradyne", width: 270,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title (Product)", type: "text", kind: "field" },
@@ -973,7 +958,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "TeradyneEmployee",
     source: "Teradyne Employees (Altronic_PMO site)",
     palette: "entity",
-    x: 750, y: 3130, width: 290,
+    group: "teradyne", width: 290,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title (derived name)", type: "text", kind: "field" },
@@ -987,7 +972,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "TeradyneRemark",
     source: "Teradyne Remarks (Altronic_PMO site)",
     palette: "entity",
-    x: 440, y: 3270, width: 270,
+    group: "teradyne", width: 270,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title", type: "text", kind: "field" },
@@ -1000,7 +985,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "PottingSampleEntry",
     source: "Coil-PottingSampleLog (Altronic_PMO site)",
     palette: "entity",
-    x: 20, y: 3760, width: 280,
+    group: "qc", width: 280,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "date", type: "datetime", kind: "field" },
@@ -1012,7 +997,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "PottingLimits",
     source: "Coil-PottingLimit (Altronic_PMO site)",
     palette: "entity",
-    x: 330, y: 3760, width: 280,
+    group: "qc", width: 280,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title (Lower/Upper Spec Limit)", type: "text", kind: "field" },
@@ -1023,7 +1008,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "PsrNotificationPerson",
     source: "Coil PSR Notification List (Altronic_PMO site)",
     palette: "entity",
-    x: 640, y: 3760, width: 300,
+    group: "qc", width: 300,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "displayName (Title)", type: "text", kind: "field" },
@@ -1036,7 +1021,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "GrayMarketRequest",
     source: "Gray Market Request (Altronic_PMO site)",
     palette: "entity",
-    x: 400, y: 3930, width: 340,
+    group: "supplyChain", width: 340,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title (assembly no)", type: "text", kind: "field" },
@@ -1063,7 +1048,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "ECN",
     source: "ECN NEW (Engineering site)",
     palette: "entity",
-    x: 790, y: 3930, width: 330,
+    group: "engineering", width: 330,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "logNo (field_2)", type: "text", kind: "field" },
@@ -1081,7 +1066,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "VisitReport",
     source: "Visit Reports (ALTRONICSALESTEAM site)",
     palette: "entity",
-    x: 20, y: 3930, width: 330,
+    group: "sales", width: 330,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "customerName (Title)", type: "text", kind: "field" },
@@ -1104,7 +1089,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "CustomerNote",
     source: "Customer Notes (salesOrderEntry site)",
     palette: "entity",
-    x: 20, y: 4280, width: 300,
+    group: "sales", width: 300,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "customerName (Title)", type: "text", kind: "field" },
@@ -1124,7 +1109,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "CustomerContact",
     source: "Customer Contacts (salesOrderEntry site)",
     palette: "entity",
-    x: 350, y: 4280, width: 270,
+    group: "sales", width: 270,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "name (Title)", type: "text", kind: "field" },
@@ -1139,7 +1124,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "SpecialPricingEntry",
     source: "Special Pricing (salesOrderEntry site)",
     palette: "entity",
-    x: 650, y: 4280, width: 260,
+    group: "sales", width: 260,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title (Title)", type: "text", kind: "field" },
@@ -1152,7 +1137,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "CapacityEntry",
     source: "Capacity (salesOrderEntry site)",
     palette: "entity",
-    x: 940, y: 4280, width: 280,
+    group: "sales", width: 280,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "partNumber (Title)", type: "text", kind: "field" },
@@ -1169,7 +1154,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "Supplier",
     source: "Suppliers List (Altronic_PMO site)",
     palette: "entity",
-    x: 20, y: 4630, width: 310,
+    group: "supplyChain", width: 310,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title (Title)", type: "text", kind: "field" },
@@ -1197,7 +1182,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "SupplierContact",
     source: "Supplier Contact List (Altronic_PMO site)",
     palette: "entity",
-    x: 360, y: 4630, width: 280,
+    group: "supplyChain", width: 280,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "name (Title)", type: "text", kind: "field" },
@@ -1215,7 +1200,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "SupplierIssue",
     source: "Supplier Issue Tracker (Altronic_PMO site)",
     palette: "entity",
-    x: 670, y: 4630, width: 280,
+    group: "supplyChain", width: 280,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title (Title)", type: "text", kind: "field" },
@@ -1235,7 +1220,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "CostImpactNotice",
     source: "Cost Impact Portal (ALTRONICSALESTEAM site)",
     palette: "entity",
-    x: 20, y: 5170, width: 340,
+    group: "supplyChain", width: 340,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title (part)", type: "text", kind: "field" },
@@ -1272,7 +1257,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "Scn",
     source: "SCN Dashboard (ALTRONICSALESTEAM/SCN subsite)",
     palette: "entity",
-    x: 400, y: 5170, width: 360,
+    group: "supplyChain", width: 360,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "scnNumber (Title, YYYY-NNNN)", type: "text", kind: "field" },
@@ -1302,7 +1287,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "QuickLink",
     source: "Quick Links list",
     palette: "entity",
-    x: 20, y: 5640, width: 300,
+    group: "core", width: 300,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "label", type: "text", kind: "field" },
@@ -1317,7 +1302,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "CoilDefectLogEntry",
     source: "QCCoils (Engineering site)",
     palette: "entity",
-    x: 20, y: 5860, width: 390,
+    group: "qc", width: 390,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "coilPartNumber (Title)", type: "text", kind: "field" },
@@ -1332,7 +1317,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "CoilPartNumber",
     source: "CoilPN (Engineering site)",
     palette: "entity",
-    x: 440, y: 5860, width: 270,
+    group: "qc", width: 270,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title (part number)", type: "text", kind: "field" },
@@ -1342,7 +1327,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "CoilOtherFault",
     source: "CoilOtherFaultList (Engineering site)",
     palette: "entity",
-    x: 740, y: 5860, width: 290,
+    group: "qc", width: 290,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title (defect)", type: "text", kind: "field" },
@@ -1354,7 +1339,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "QcTimeEntry",
     source: "QC Time Tracking (ALTRONICPANELTEAM site)",
     palette: "entity",
-    x: 20, y: 6100, width: 320,
+    group: "panels", width: 320,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "project (Title)", type: "text", kind: "field" },
@@ -1374,7 +1359,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "FeatureRequest",
     source: "ARC Feature Requests (Engineering site)",
     palette: "entity",
-    x: 20, y: 6400, width: 340,
+    group: "core", width: 340,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "title", type: "text", kind: "field" },
@@ -1400,7 +1385,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "EcnChecklist",
     source: "ECN Checklists (Engineering site)",
     palette: "entity",
-    x: 20, y: 6700, width: 360,
+    group: "engineering", width: 360,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "ecnId (EcnRef)", type: "int", kind: "fk", references: "ECN.id" },
@@ -1428,7 +1413,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "MrbEntry",
     source: "MRB Data (Altronic_PMO site)",
     palette: "entity",
-    x: 400, y: 6420, width: 360,
+    group: "supplyChain", width: 360,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "sapNumber (Title)", type: "text", kind: "field" },
@@ -1452,7 +1437,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "PanelQcIssue",
     source: "PANEL COMPONENT FAILURES (ALTRONICPANELTEAM site)",
     palette: "entity",
-    x: 380, y: 6100, width: 360,
+    group: "panels", width: 360,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "panelSerialNumber / panelPartNumber", type: "text", kind: "field" },
@@ -1471,7 +1456,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
     name: "PanelQcDefect",
     source: "PANEL COMPONENT DEFECTS (ALTRONICPANELTEAM site)",
     palette: "entity",
-    x: 760, y: 6100, width: 300,
+    group: "panels", width: 300,
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "name (Title)", type: "text", kind: "field" },
@@ -1480,16 +1465,7 @@ const SCHEMA_TABLES: SchemaTable[] = [
 ];
 
 // ----- Connections (FK → target). Cardinality at each end: "one" | "many" --
-interface Connection {
-  fromTable: string;
-  fromColumn: string;
-  toTable: string;
-  toColumn: string;
-  fromCard: "one" | "many";
-  toCard: "one" | "many";
-}
-
-const CONNECTIONS: Connection[] = [
+export const CONNECTIONS: Connection[] = [
   // Task → Project, Person
   { fromTable: "Task", fromColumn: "parentProjectId", toTable: "Project", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "Task", fromColumn: "relatedProjects", toTable: "Project", toColumn: "id", fromCard: "many", toCard: "many" },
@@ -1498,7 +1474,7 @@ const CONNECTIONS: Connection[] = [
   // Task → EIR (a promoted task links back to its source EIR, one-to-one)
   { fromTable: "Task", fromColumn: "eirReference", toTable: "EIR", toColumn: "id", fromCard: "one", toCard: "one" },
   // EcnChecklist → ECN (one checklist per ECN), Person
-  { fromTable: "EcnChecklist", fromColumn: "ecnId", toTable: "ECN", toColumn: "id", fromCard: "one", toCard: "one" },
+  { fromTable: "EcnChecklist", fromColumn: "ecnId (EcnRef)", toTable: "ECN", toColumn: "id", fromCard: "one", toCard: "one" },
   { fromTable: "EcnChecklist", fromColumn: "completedBy", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "EcnChecklist", fromColumn: "watchers", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
   // EIR → Project, Person
@@ -1635,7 +1611,7 @@ const CONNECTIONS: Connection[] = [
   // create and never re-picked; Watchers starts as just the requester.
   { fromTable: "FeatureRequest", fromColumn: "requestedBy", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "FeatureRequest", fromColumn: "watchers", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
-  { fromTable: "PanelQcIssue", fromColumn: "defectCategory", toTable: "PanelQcDefect", toColumn: "name", fromCard: "many", toCard: "one" },
+  { fromTable: "PanelQcIssue", fromColumn: "defectCategory", toTable: "PanelQcDefect", toColumn: "name (Title)", fromCard: "many", toCard: "one" },
   { fromTable: "PanelQcIssue", fromColumn: "watchers", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
 ];
 
@@ -1756,9 +1732,14 @@ export function AboutView() {
 
       <Section
         title="Data model"
-        description="ER diagram of the SharePoint schema. Each table is one entity (a list, or a derived concept). PK rows are flagged in red; FK rows are flagged blue. Connectors show foreign-key relationships with crow's-foot cardinality at each end (○ = one, ⋖ = many). The diagram is wide — scroll horizontally on small screens."
+        description="ER diagram of the SharePoint schema. Each table is one entity (a list, or a derived concept). PK rows are flagged in red; FK rows are flagged blue. Connectors show foreign-key relationships with crow's-foot cardinality at each end (○ = one, ⋖ = many). Tables are grouped by department. Zoom with the buttons, Ctrl/⌘ + scroll or a pinch, drag to move around, and hover or tap a table to trace its relationships."
       >
-        <ErDiagram />
+        <ErDiagram
+          tables={SCHEMA_TABLES}
+          groups={ER_GROUPS}
+          connections={CONNECTIONS}
+          hubTables={ER_HUB_TABLES}
+        />
         <Legend
           items={[
             { palette: "entity", label: "Entity (SharePoint list)" },
@@ -2152,275 +2133,6 @@ function DiagramNode({
       <div className="text-sm font-semibold">{node.label}</div>
       {node.hint && <div className="mt-0.5 text-[11px] text-fg-muted">{node.hint}</div>}
     </div>
-  );
-}
-
-/**
- * Three-tier reference hierarchy. Project at top → Task in the middle →
- * EIR + Test Sheet at the bottom. Between each tier we render a labelled
- * "reference bar" showing the exact SharePoint columns carrying the
- * relationship (and which source entity sets each one).
- *
- * Visual cue: every arrow points UPWARD because references in SharePoint
- * point at the parent (the child stores the lookup id).
- */
-/**
- * ER diagram drawn as a single SVG canvas. Tables are positioned by hand
- * in SCHEMA_TABLES; connectors come from CONNECTIONS. Crow's-foot markers
- * (`one` = open circle, `many` = three-prong) carry cardinality at each
- * end. Lines route as a simple right-angle: source → midpoint → target.
- */
-function ErDiagram() {
-  // Compute canvas dimensions from the table footprints.
-  const maxX = Math.max(...SCHEMA_TABLES.map((t) => t.x + t.width)) + 30;
-  const maxY = Math.max(...SCHEMA_TABLES.map((t) => t.y + tableHeight(t))) + 30;
-  const byName = Object.fromEntries(SCHEMA_TABLES.map((t) => [t.name, t]));
-
-  return (
-    <div className="overflow-x-auto rounded-md border border-border bg-bg p-3">
-      <svg
-        viewBox={`0 0 ${maxX} ${maxY}`}
-        width={maxX}
-        height={maxY}
-        style={{ minWidth: "100%", maxWidth: `${maxX}px` }}
-        role="img"
-        aria-label="Entity-relationship diagram for ARC (Altronic Resource Center)"
-      >
-        <defs>
-          {/* "many" crow's-foot — three lines fanning from the table edge. */}
-          <marker
-            id="er-many"
-            markerWidth="14"
-            markerHeight="14"
-            refX="13"
-            refY="7"
-            orient="auto"
-            markerUnits="userSpaceOnUse"
-          >
-            <path
-              d="M 13,7 L 2,0 M 13,7 L 2,7 M 13,7 L 2,14"
-              stroke="rgb(var(--fg-muted))"
-              strokeWidth="1.4"
-              fill="none"
-            />
-          </marker>
-          {/* "one" — open circle just outside the table edge. */}
-          <marker
-            id="er-one"
-            markerWidth="14"
-            markerHeight="14"
-            refX="13"
-            refY="7"
-            orient="auto"
-            markerUnits="userSpaceOnUse"
-          >
-            <circle
-              cx="6"
-              cy="7"
-              r="3"
-              stroke="rgb(var(--fg-muted))"
-              strokeWidth="1.4"
-              fill="rgb(var(--bg))"
-            />
-            <line
-              x1="9"
-              y1="7"
-              x2="13"
-              y2="7"
-              stroke="rgb(var(--fg-muted))"
-              strokeWidth="1.4"
-            />
-          </marker>
-        </defs>
-
-        {/* Connectors first so they sit behind the table cards. */}
-        {CONNECTIONS.map((c, i) => (
-          <ConnectionPath key={i} c={c} byName={byName} />
-        ))}
-
-        {/* Tables on top. */}
-        {SCHEMA_TABLES.map((t) => (
-          <SchemaTableSvg key={t.name} table={t} />
-        ))}
-      </svg>
-    </div>
-  );
-}
-
-function ConnectionPath({
-  c,
-  byName,
-}: {
-  c: Connection;
-  byName: Record<string, SchemaTable>;
-}) {
-  const from = byName[c.fromTable];
-  const to = byName[c.toTable];
-  if (!from || !to) return null;
-
-  // Pick the port side (left / right of each table) based on which
-  // direction the connector is travelling.
-  const fromRight = from.x + from.width / 2 < to.x + to.width / 2;
-  const srcX = fromRight ? from.x + from.width : from.x;
-  const tgtX = fromRight ? to.x : to.x + to.width;
-  const srcY = rowCenterY(from, c.fromColumn);
-  const tgtY = rowCenterY(to, c.toColumn);
-
-  // Right-angle path with the bend in the midline between the two
-  // tables. A small offset away from each table edge keeps the markers
-  // from clipping the table border.
-  const midX = (srcX + tgtX) / 2;
-  const d = `M ${srcX} ${srcY} L ${midX} ${srcY} L ${midX} ${tgtY} L ${tgtX} ${tgtY}`;
-
-  return (
-    <path
-      d={d}
-      stroke="rgb(var(--fg-muted))"
-      strokeWidth="1.2"
-      fill="none"
-      markerStart={`url(#er-${c.fromCard})`}
-      markerEnd={`url(#er-${c.toCard})`}
-    />
-  );
-}
-
-function SchemaTableSvg({ table }: { table: SchemaTable }) {
-  const h = tableHeight(table);
-  const isEntity = table.palette === "entity";
-  const headerFill = isEntity ? "#CB2C30" : "#1C60AC";
-
-  // Index of the last PK row so we can draw the dashed separator after it.
-  const lastPkIdx = table.columns.findIndex((c) => c.kind !== "pk") - 1;
-
-  return (
-    <g>
-      {/* Outer border */}
-      <rect
-        x={table.x}
-        y={table.y}
-        width={table.width}
-        height={h}
-        rx="6"
-        ry="6"
-        fill="rgb(var(--surface))"
-        stroke="rgb(var(--border))"
-      />
-
-      {/* Header band */}
-      <path
-        d={`M ${table.x} ${table.y + HEADER_HEIGHT}
-            L ${table.x} ${table.y + 6}
-            Q ${table.x} ${table.y} ${table.x + 6} ${table.y}
-            L ${table.x + table.width - 6} ${table.y}
-            Q ${table.x + table.width} ${table.y} ${table.x + table.width} ${table.y + 6}
-            L ${table.x + table.width} ${table.y + HEADER_HEIGHT} Z`}
-        fill={headerFill}
-      />
-      <text
-        x={table.x + table.width / 2}
-        y={table.y + 22}
-        fontSize="14"
-        fontWeight="700"
-        fill="#fff"
-        textAnchor="middle"
-      >
-        {table.name}
-      </text>
-      <text
-        x={table.x + table.width / 2}
-        y={table.y + 40}
-        fontSize="10"
-        fill="rgba(255,255,255,0.85)"
-        textAnchor="middle"
-      >
-        {table.source}
-      </text>
-
-      {/* Rows */}
-      {table.columns.map((col, i) => {
-        const rowY = table.y + HEADER_HEIGHT + i * ROW_HEIGHT;
-        return (
-          <g key={col.name}>
-            {/* PK badge */}
-            {col.kind === "pk" && (
-              <>
-                <rect
-                  x={table.x + 8}
-                  y={rowY + 4}
-                  width={26}
-                  height={14}
-                  rx="3"
-                  fill="#CB2C30"
-                />
-                <text
-                  x={table.x + 21}
-                  y={rowY + 14}
-                  fontSize="9"
-                  fontWeight="700"
-                  fill="#fff"
-                  textAnchor="middle"
-                >
-                  PK
-                </text>
-              </>
-            )}
-            {col.kind === "fk" && (
-              <>
-                <rect
-                  x={table.x + 8}
-                  y={rowY + 4}
-                  width={26}
-                  height={14}
-                  rx="3"
-                  fill="#1C60AC"
-                />
-                <text
-                  x={table.x + 21}
-                  y={rowY + 14}
-                  fontSize="9"
-                  fontWeight="700"
-                  fill="#fff"
-                  textAnchor="middle"
-                >
-                  FK
-                </text>
-              </>
-            )}
-            <text
-              x={table.x + 42}
-              y={rowY + 15}
-              fontSize="11"
-              fill="rgb(var(--fg))"
-              fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
-            >
-              {col.name}
-            </text>
-            <text
-              x={table.x + table.width - 8}
-              y={rowY + 15}
-              fontSize="10"
-              fill="rgb(var(--fg-muted))"
-              textAnchor="end"
-              fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
-            >
-              {col.type}
-            </text>
-          </g>
-        );
-      })}
-
-      {/* Dashed separator under the PK rows (Visio convention). */}
-      {lastPkIdx >= 0 && (
-        <line
-          x1={table.x + 8}
-          y1={table.y + HEADER_HEIGHT + (lastPkIdx + 1) * ROW_HEIGHT - 1}
-          x2={table.x + table.width - 8}
-          y2={table.y + HEADER_HEIGHT + (lastPkIdx + 1) * ROW_HEIGHT - 1}
-          stroke="rgb(var(--border))"
-          strokeDasharray="2 3"
-        />
-      )}
-    </g>
   );
 }
 

@@ -551,6 +551,7 @@ src/
 │   ├── errorBuffer.ts            Bounded console-error capture (Report issue)
 │   ├── authErrors.ts             AADSTS codes that mean "fix your account", in plain English
 │   ├── emailIdentity.ts          Matching a person to a stored address (sign-in name ≠ mailbox)
+│   ├── erLayout.ts               About-page ER diagram geometry — department groups packed, connectors routed round cards (pure)
 │   └── pcbChecklist.ts           PCB-category task checklist logic
 │
 ├── types/
@@ -593,6 +594,7 @@ src/
 │   ├── PanelTaskRow.tsx          One panel task row
 │   ├── BuildRequestRow.tsx       One build request row
 │   ├── BuildRequestItemCard.tsx  One part on a build request
+│   ├── BuildRequestWorkflowDiagram.tsx  The build request process as a step diagram (User Manual) — steps are DATA, reuses the real status badges
 │   ├── EirRow.tsx                One EIR row (EIRs list)
 │   ├── EirKanbanCard.tsx         One EIR card (EIRs board)
 │   ├── TaskFormModal.tsx         Create/edit task
@@ -633,6 +635,7 @@ src/
 │   ├── ComponentDescriptionPicker.tsx  New component's SIL category / Description / Type dropdowns (Type waits on Description)
 │   ├── EcnChecklistCard.tsx      The MFGFRM-038 checklist on an ECN — sections, 4-state pills, findings
 │   ├── EcnRaciModal.tsx          The RACI matrix, as a reference modal
+│   ├── ErDiagram.tsx             About-page Data model — zoom/pan/full screen, hover or tap a table to trace its links
 │   ├── YesNoField.tsx            A boolean column as two labelled Yes / No choices
 │   ├── ChoicePills.tsx          Any short choice set as pills (Yes/No, Pass/Fail, …)
 │   ├── BuildRequestFormModal.tsx Create/edit build request
@@ -757,7 +760,7 @@ src/
 │   ├── AdminMaintenanceRolesView.tsx  Admin → Maintenance Roles (tech / admin, CMMS)
 │   ├── AdminQuickLinksView.tsx   Admin → Quick Links (Dashboard button links, per-department reorder)
 │   ├── AdminNotificationRecipientsView.tsx  Admin → Notification recipients
-│   ├── AboutView.tsx             In-app architecture + ER diagrams
+│   ├── AboutView.tsx             In-app architecture + ER diagram DATA (tables, groups, connections)
 │   ├── ManualView.tsx            In-app user manual
 │   └── DevQzPrintTestView.tsx    Dev-only QZ Tray connection/print test harness — never renders in production
 │
@@ -8637,11 +8640,13 @@ parser kept choking on edge cases):
 1. **System flow** — defined by the `SYSTEM_TIERS` array near the top.
    Vertical tiers (User → React SPA → Auth & transport → SharePoint
    lists) with colour-coded chips.
-2. **Data model** — a real ER diagram drawn on an SVG canvas. Tables
-   come from the `SCHEMA_TABLES` array (each entry has hand-tuned
-   `x` / `y` / `width` + columns); foreign-key relationships come from
-   the `CONNECTIONS` array with crow's-foot cardinality. Both are at the
-   top of `AboutView.tsx`.
+2. **Data model** — an ER diagram you can zoom and pan
+   (`components/ErDiagram.tsx`). Tables come from the `SCHEMA_TABLES`
+   array, each naming the department `group` it's drawn in (from
+   `ER_GROUPS`) plus a `width` and its columns; foreign-key relationships
+   come from the `CONNECTIONS` array with crow's-foot cardinality. All
+   three are at the top of `AboutView.tsx`. **Nothing is positioned by
+   hand** — `lib/erLayout.ts` packs the groups and tables (see below).
 
 **Anything that's structurally visible to a user belongs in these
 diagrams. That means update the data at the top of `AboutView.tsx` in
@@ -8652,18 +8657,49 @@ the SAME commit when you:**
   to the React SPA tier's Hooks chip.
 - Add a new module in `src/api/` (e.g. a third SharePoint list API) → add
   it to the React SPA tier's API chip.
-- Add a new SharePoint list → add a `SCHEMA_TABLES` entry with position
-  + columns, AND add it to the SharePoint lists tier in `SYSTEM_TIERS`.
+- Add a new SharePoint list → add a `SCHEMA_TABLES` entry with its
+  `group` + columns, AND add it to the SharePoint lists tier in
+  `SYSTEM_TIERS`. A new department is a new `ER_GROUPS` entry.
 - Add a new column on an existing entity → add a row in that table's
-  `columns` array (mind the height — neighbour positions may need a
-  small `y` bump if the new column pushes the bottom edge into another
-  table).
+  `columns` array. Nothing else moves by hand.
 - Add a new foreign-key relationship between lists → add a `CONNECTIONS`
-  entry with the FK column / target / cardinality.
+  entry with the FK column / target / cardinality. **The column names must
+  match the `columns` entries exactly** (`"ecnId (EcnRef)"`, not `"ecnId"`)
+  — `lib/erLayout.test.ts` fails on a mismatch, which otherwise draws the
+  line from the table's first row, pointing at the wrong field. Two had
+  drifted that way before the test existed.
 
-Tip when positioning tables: each row is `ROW_HEIGHT` (22px) tall and the
-header is `HEADER_HEIGHT` (50px). Total table height = HEADER + rows*22
-+ ~6px padding — use that to budget vertical space between cards.
+How the Data model stays readable, so nobody "simplifies" it back
+(Tim, 2026-10-07 — the hand-placed version had grown to ~1,500 × 7,300px
+with overlapping cards and lines running behind them):
+
+- **Layout is computed, never hand-placed.** Within a group, tables fill
+  columns masonry-style in declaration order; groups pack into rows in
+  `ER_GROUPS` order. A group joining a row picks the column count whose
+  height best matches the row — unless that squeezes it more than 30%
+  taller than its own natural shape, when it starts a new row instead.
+  `erLayout.test.ts` asserts no two cards and no two group frames overlap
+  on the REAL data.
+- **Connectors route around cards.** `routeConnection` tries a bend in
+  every gutter between card columns, and a C round the outside, and keeps
+  the route crossing the fewest cards. The old rule — bend at the
+  midpoint — ran lines through whatever card sat there. A route can
+  still cross a card when no clear one exists.
+- **Links to Person, Comment and Attachment are hidden by default**
+  (`ER_HUB_TABLES`, a checkbox turns them on). Half the diagram points at
+  them, and drawn all at once they bury every other line. A traced table
+  always shows its own.
+- **Hover (or tap) a table to trace it** — its links light up and every
+  table it isn't connected to fades. A tap pins it.
+- **A plain scroll still scrolls the PAGE.** Zoom is Ctrl/⌘ + scroll
+  (also what a trackpad pinch sends), a two-finger pinch, the buttons, or
+  +/−. Swallowing the wheel would trap people half way down the About
+  page. In full screen there's no page, so the wheel pans there.
+- **Panning re-renders only the transform** — the drawing is a memoised
+  element. Don't move per-frame state into it.
+- **The crow's-foot markers use `orient="auto-start-reverse"`.** With
+  plain `auto`, a marker at the START of a line pointed into its own card
+  and was hidden under it.
 
 No code-review hand-wringing, no separate ticket — just edit the arrays
 in the same commit. The footer "About" link is the source of truth that
