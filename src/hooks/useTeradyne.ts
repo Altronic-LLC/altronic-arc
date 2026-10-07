@@ -11,6 +11,13 @@ import {
   type TeradyneLogScope,
   type TeradyneRefTitles,
 } from "@/api/teradyneLog";
+import { latestMonthRemarkBreakdown, monthlyFpy } from "@/lib/teradyneFpy";
+import {
+  trailingMonths,
+  yearsSpanned,
+  type CategoryBreakdown,
+  type MonthlyFpy,
+} from "@/lib/monthlyYield";
 import {
   REF_LISTS,
   createTeradyneRef,
@@ -54,18 +61,99 @@ export const teradyneRefKey = (kind: TeradyneRefKind) => ["teradyneRefs", kind] 
  * The log for one scope — the current year unless told otherwise. The list is
  * 16k+ rows with legacy history in it, so loading a year at a time is the
  * difference between one request and eighteen (see src/api/teradyneLog.ts).
+ *
+ * No periodic refetch by default — someone editing the table drives its own
+ * refreshes through navigation and mutations. `refetchInterval` is opt-in,
+ * for a screen nobody is actively working in (see `useTeradyneMonthlyFpy`).
  */
-export function useTeradyneLog(scope: TeradyneLogScope = CURRENT_YEAR_SCOPE()) {
+export function useTeradyneLog(
+  scope: TeradyneLogScope = CURRENT_YEAR_SCOPE(),
+  options?: { refetchInterval?: number | false },
+) {
   return useQuery({
     queryKey: teradyneLogKey(scope),
     queryFn: () => listTeradyneLog(scope),
     staleTime: 120_000,
+    refetchInterval: options?.refetchInterval ?? false,
   });
 }
 
 /** Just the entries, for callers that don't care how the fetch went. */
 export function useTeradyneLogEntries(scope?: TeradyneLogScope): TeradyneLogEntry[] {
   return useTeradyneLog(scope).data?.entries ?? [];
+}
+
+/**
+ * A report screen is typically left open unattended (a monitor, a kiosk) with
+ * nobody driving a navigation or a mutation to refresh it — 2 minutes keeps
+ * it current without hammering Graph for month-bucketed data that only
+ * changes as fast as someone logs a new batch.
+ */
+const REPORT_REFETCH_INTERVAL_MS = 120_000;
+
+/**
+ * Monthly Boards Tested / Boards Failed / FPY% for the trailing N months
+ * (default 3), always ending at the current month — the Reports dashboard.
+ *
+ * A trailing window can reach into the PREVIOUS calendar year (e.g. viewed
+ * in January, it wants Nov/Dec too), and the log is normally fetched one
+ * year at a time. Rather than always fetching two years, last year is only
+ * queried when the window actually needs it (`enabled`) — most of the year
+ * this costs nothing beyond the current year's fetch every other Teradyne
+ * screen already shares.
+ */
+export function useTeradyneMonthlyFpy(monthsBack = 3): {
+  monthly: MonthlyFpy[];
+  isLoading: boolean;
+  /** When the data on screen last landed — `null` before the first fetch resolves. */
+  lastRefreshedAt: Date | null;
+  /** What failed, and by how much, in the most recent of the trailing months — the donut chart. */
+  latestMonthBreakdown: CategoryBreakdown[];
+} {
+  const months = useMemo(() => trailingMonths(monthsBack), [monthsBack]);
+  const years = useMemo(() => yearsSpanned(months), [months]);
+  const currentYear = new Date().getUTCFullYear();
+  const needsPreviousYear = years.includes(currentYear - 1);
+
+  const current = useTeradyneLog(
+    { kind: "year", year: currentYear },
+    { refetchInterval: REPORT_REFETCH_INTERVAL_MS },
+  );
+  const previous = useQuery({
+    queryKey: teradyneLogKey({ kind: "year", year: currentYear - 1 }),
+    queryFn: () => listTeradyneLog({ kind: "year", year: currentYear - 1 }),
+    staleTime: 120_000,
+    refetchInterval: needsPreviousYear ? REPORT_REFETCH_INTERVAL_MS : false,
+    enabled: needsPreviousYear,
+  });
+
+  const entries = useMemo(() => {
+    const currentEntries = current.data?.entries ?? [];
+    if (!needsPreviousYear) return currentEntries;
+    return [...currentEntries, ...(previous.data?.entries ?? [])];
+  }, [current.data, previous.data, needsPreviousYear]);
+
+  const monthly = useMemo(() => monthlyFpy(entries, months), [entries, months]);
+
+  const lastRefreshedAt = useMemo(() => {
+    const timestamps = [
+      current.dataUpdatedAt,
+      needsPreviousYear ? previous.dataUpdatedAt : 0,
+    ].filter((t) => t > 0);
+    return timestamps.length > 0 ? new Date(Math.max(...timestamps)) : null;
+  }, [current.dataUpdatedAt, previous.dataUpdatedAt, needsPreviousYear]);
+
+  const latestMonthBreakdown = useMemo(
+    () => latestMonthRemarkBreakdown(entries, months[months.length - 1]),
+    [entries, months],
+  );
+
+  return {
+    monthly,
+    isLoading: current.isLoading || (needsPreviousYear && previous.isLoading),
+    lastRefreshedAt,
+    latestMonthBreakdown,
+  };
 }
 
 export function useTeradyneEmployees() {
