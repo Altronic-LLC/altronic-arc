@@ -28,6 +28,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Open an SCN to edit its Notice, Parts, Review and Outcome cards, tick the Preliminary Reviews, Secondary Review and Project Status checklists, and set Assigned to and Owner",
       "Watch an SCN, comment on it with @-mentions (a pasted screenshot is saved as an attachment), and add files to it",
       "Open the SCN Documents library from ARC — browse and create folders, upload files, and edit Office files in Word or Excel for the web",
+      "Rename and delete files and folders in the SCN Documents library — deleted items go to the SharePoint recycle bin for 93 days",
       "An SCN is never deleted — set its SCN Status to Cancelled instead",
     ],
   },

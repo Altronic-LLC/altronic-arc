@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   ChevronRight,
@@ -10,6 +10,9 @@ import {
   FolderPlus,
   Loader2,
   Pencil,
+  TextCursorInput,
+  Trash2,
+  TriangleAlert,
   Upload,
 } from "lucide-react";
 import type { DriveEntry } from "@/api/projectFiles";
@@ -17,9 +20,12 @@ import {
   SCN_DOCUMENTS_LIBRARY_URL,
   downloadScnDocument,
   scnFolderNameProblem,
+  scnItemNameProblem,
 } from "@/api/scnDocuments";
 import {
   useCreateScnFolder,
+  useDeleteScnDocument,
+  useRenameScnDocument,
   useScnDocumentPath,
   useScnDocuments,
   useUploadScnDocument,
@@ -32,6 +38,7 @@ import { DetailTopBar } from "@/components/DetailTopBar";
 import { ListAccessNotice } from "@/components/ListAccessNotice";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { SortableHeader } from "@/components/SortableTableHeader";
+import { useOverlayDismiss } from "@/components/useOverlayDismiss";
 import { pushToast } from "@/components/Toast";
 import { cn } from "@/lib/cn";
 
@@ -45,8 +52,11 @@ import { cn } from "@/lib/cn";
 //
 // "Edit" opens the file's webUrl in a new tab. For an Office file that IS
 // Word / Excel / PowerPoint for the web, which edits the file in place in
-// SharePoint — nothing to upload back. No delete and no rename, by choice:
-// those are done in SharePoint ("Open in SharePoint" is one click away).
+// SharePoint — nothing to upload back.
+//
+// Rename and Delete sit on every row (Ray, 2026-10-07), open to anyone signed
+// in. Delete sends the item to the SCN site's recycle bin (93 days); a folder
+// that still holds items needs its name typed back first.
 // =============================================================================
 
 const OFFICE_EXTENSIONS = new Set(["docx", "xlsx", "pptx", "doc", "xls", "ppt"]);
@@ -55,6 +65,18 @@ const OFFICE_EXTENSIONS = new Set(["docx", "xlsx", "pptx", "doc", "xls", "ppt"])
 export function isOfficeFile(name: string): boolean {
   const dot = name.lastIndexOf(".");
   return dot > 0 && OFFICE_EXTENSIONS.has(name.slice(dot + 1).toLowerCase());
+}
+
+/** The lower-cased extension ("docx"), or "" when there isn't one. */
+export function extensionOf(name: string): string {
+  const dot = name.lastIndexOf(".");
+  return dot > 0 && dot < name.length - 1 ? name.slice(dot + 1).toLowerCase() : "";
+}
+
+/** Where a file name's stem ends — what Rename pre-selects. */
+export function stemLength(name: string): number {
+  const dot = name.lastIndexOf(".");
+  return dot > 0 ? dot : name.length;
 }
 
 function hasDate(d: Date): boolean {
@@ -125,6 +147,8 @@ export function ScnDocumentsView() {
   const [newFolderOpen, setNewFolderOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [downloading, setDownloading] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState<DriveEntry | null>(null);
+  const [deleting, setDeleting] = useState<DriveEntry | null>(null);
 
   const order = useMemo(() => new Map(entries.map((e, i) => [e.id, i])), [entries]);
   const table = useSortableTable({
@@ -207,6 +231,39 @@ export function ScnDocumentsView() {
     } finally {
       setDownloading(null);
     }
+  }
+
+  /** Rename + Delete, on every row (table AND phone card). */
+  function itemActions(entry: DriveEntry) {
+    const kind = entry.isFolder ? "folder" : "file";
+    return (
+      <span className="flex shrink-0 items-center gap-1">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setRenaming(entry);
+          }}
+          aria-label={`Rename ${entry.name}`}
+          title={`Rename this ${kind}`}
+          className="inline-flex items-center rounded-md border border-border p-1 text-fg-muted hover:bg-surface-2 hover:text-fg"
+        >
+          <TextCursorInput className="h-3.5 w-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setDeleting(entry);
+          }}
+          aria-label={`Delete ${entry.name}`}
+          title={`Delete this ${kind} (it goes to the recycle bin)`}
+          className="inline-flex items-center rounded-md border border-border p-1 text-fg-muted hover:border-cooper-red/40 hover:bg-cooper-red/10 hover:text-cooper-red"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </span>
+    );
   }
 
   function fileActions(entry: DriveEntry) {
@@ -449,7 +506,10 @@ export function ScnDocumentsView() {
                       {[modifiedLabel(entry), sizeLabel(entry)].filter(Boolean).join(" · ")}
                     </div>
                   </div>
-                  {!entry.isFolder && fileActions(entry)}
+                  <div className="flex shrink-0 flex-col items-end gap-1.5">
+                    {!entry.isFolder && fileActions(entry)}
+                    {itemActions(entry)}
+                  </div>
                 </li>
               ))}
             </ul>
@@ -482,7 +542,7 @@ export function ScnDocumentsView() {
                         {sizeLabel(entry)}
                       </td>
                       <td className="px-4 py-2">
-                        <div className="flex justify-end">
+                        <div className="flex items-center justify-end gap-1.5">
                           {entry.isFolder ? (
                             <button
                               type="button"
@@ -496,6 +556,7 @@ export function ScnDocumentsView() {
                           ) : (
                             fileActions(entry)
                           )}
+                          {itemActions(entry)}
                         </div>
                       </td>
                     </tr>
@@ -505,6 +566,191 @@ export function ScnDocumentsView() {
             </div>
           </>
         )}
+      </div>
+
+      {renaming && <RenameDialog entry={renaming} onClose={() => setRenaming(null)} />}
+      {deleting && <DeleteDialog entry={deleting} onClose={() => setDeleting(null)} />}
+    </div>
+  );
+}
+
+/** Escape closes THIS dialog and nothing behind it (the house rule). */
+function escapeCloses(onClose: () => void) {
+  return (e: React.KeyboardEvent) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      onClose();
+    }
+  };
+}
+
+function RenameDialog({ entry, onClose }: { entry: DriveEntry; onClose: () => void }) {
+  const rename = useRenameScnDocument();
+  const [name, setName] = useState(entry.name);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const kind = entry.isFolder ? "folder" : "file";
+  const overlay = useOverlayDismiss(onClose, rename.isPending);
+
+  // A FILE pre-selects only its stem, so typing replaces "Report" and keeps ".docx".
+  useEffect(() => {
+    const input = inputRef.current;
+    if (!input) return;
+    input.focus();
+    input.setSelectionRange(0, entry.isFolder ? entry.name.length : stemLength(entry.name));
+  }, [entry]);
+
+  const problem = scnItemNameProblem(name, kind);
+  const oldExt = entry.isFolder ? "" : extensionOf(entry.name);
+  const extensionChanged = !entry.isFolder && !problem && extensionOf(name) !== oldExt;
+
+  function submit(e?: React.FormEvent) {
+    e?.preventDefault();
+    if (problem || rename.isPending) return;
+    if (name === entry.name) {
+      onClose();
+      return;
+    }
+    rename.mutate({ item: entry, newName: name }, { onSuccess: onClose });
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4"
+      {...overlay}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Rename ${entry.name}`}
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={escapeCloses(onClose)}
+        className="mt-16 w-full max-w-md rounded-lg border border-border bg-surface p-5 shadow-xl"
+      >
+        <form onSubmit={submit} className="flex flex-col gap-3">
+          <h2 className="font-display text-base font-semibold text-fg">Rename {kind}</h2>
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-fg-muted">New name</span>
+            <input
+              ref={inputRef}
+              aria-label="New name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="input w-full"
+            />
+          </label>
+          {problem && <p className="text-xs text-cooper-red">{problem}</p>}
+          {extensionChanged && (
+            <p className="flex items-start gap-1.5 rounded-md border border-ajax-yellow/40 bg-ajax-yellow/5 px-2.5 py-1.5 text-xs text-fg">
+              <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ajax-yellow" />
+              {oldExt
+                ? `Changing the extension can stop the file opening (it was .${oldExt}).`
+                : "Changing the extension can stop the file opening."}
+            </p>
+          )}
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md border border-border px-3 py-1.5 text-sm font-medium text-fg hover:bg-surface-2"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={!!problem || rename.isPending}
+              className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent/90 disabled:opacity-50"
+            >
+              {rename.isPending ? "Renaming…" : "Rename"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function DeleteDialog({ entry, onClose }: { entry: DriveEntry; onClose: () => void }) {
+  const del = useDeleteScnDocument();
+  const [typed, setTyped] = useState("");
+  const overlay = useOverlayDismiss(onClose, del.isPending);
+  const count = entry.isFolder ? (entry.childCount ?? 0) : 0;
+  // A folder that still holds items needs its name typed back — the Parts List pattern.
+  const needsTyped = entry.isFolder && count > 0;
+  const confirmed = !needsTyped || typed === entry.name;
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  const typedRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    (needsTyped ? typedRef.current : cancelRef.current)?.focus();
+  }, [needsTyped]);
+
+  const question = entry.isFolder
+    ? count > 0
+      ? `Delete "${entry.name}" and the ${count} item${count === 1 ? "" : "s"} in it?`
+      : `Delete the empty folder "${entry.name}"?`
+    : `Delete "${entry.name}"?`;
+
+  function confirm(e?: React.FormEvent) {
+    e?.preventDefault();
+    if (!confirmed || del.isPending) return;
+    del.mutate({ item: entry }, { onSuccess: onClose });
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4"
+      {...overlay}
+    >
+      <div
+        role="alertdialog"
+        aria-modal="true"
+        aria-label={`Delete ${entry.name}`}
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={escapeCloses(onClose)}
+        className="mt-16 w-full max-w-md rounded-lg border border-border bg-surface p-5 shadow-xl"
+      >
+        <form onSubmit={confirm} className="flex flex-col gap-3">
+          <h2 className="flex items-center gap-2 font-display text-base font-semibold text-fg">
+            <Trash2 className="h-4 w-4 shrink-0 text-cooper-red" />
+            <span className="min-w-0 break-words">{question}</span>
+          </h2>
+          <p className="text-sm text-fg-muted">
+            {needsTyped ? "The folder and everything in it go" : "It goes"} to the SCN site's
+            recycle bin in SharePoint, where it can be restored for 93 days.
+          </p>
+          {needsTyped && (
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-fg-muted">
+                Type <span className="font-semibold text-fg">{entry.name}</span> to confirm
+              </span>
+              <input
+                ref={typedRef}
+                aria-label="Type the folder name to confirm"
+                value={typed}
+                onChange={(e) => setTyped(e.target.value)}
+                className="input w-full"
+              />
+            </label>
+          )}
+          <div className="flex justify-end gap-2">
+            <button
+              ref={cancelRef}
+              type="button"
+              onClick={onClose}
+              className="rounded-md border border-border px-3 py-1.5 text-sm font-medium text-fg hover:bg-surface-2"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={!confirmed || del.isPending}
+              className="rounded-md bg-cooper-red px-3 py-1.5 text-sm font-medium text-white hover:bg-cooper-red/90 disabled:opacity-50"
+            >
+              {del.isPending ? "Deleting…" : "Delete"}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

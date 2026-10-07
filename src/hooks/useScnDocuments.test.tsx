@@ -9,6 +9,8 @@ const api = vi.hoisted(() => ({
   getScnDocumentPath: vi.fn(async () => []),
   createScnFolder: vi.fn(),
   uploadScnDocument: vi.fn(),
+  renameScnDocument: vi.fn(),
+  deleteScnDocument: vi.fn(),
 }));
 const pushToast = vi.hoisted(() => vi.fn());
 
@@ -18,6 +20,8 @@ vi.mock("@/components/Toast", () => ({ pushToast }));
 import {
   SCN_DOCUMENTS_KEY,
   useCreateScnFolder,
+  useDeleteScnDocument,
+  useRenameScnDocument,
   useScnDocumentPath,
   useScnDocuments,
   useUploadScnDocument,
@@ -138,5 +142,74 @@ describe("useUploadScnDocument", () => {
     expect(out.failed[0].message).toMatch(/SharePoint wouldn't let you upload "a.pdf"/);
     expect(pushToast).toHaveBeenCalledWith({ message: 'Uploaded "b.docx".' });
     expect(pushToast).toHaveBeenCalledWith(expect.objectContaining({ variant: "error" }));
+  });
+});
+
+describe("useRenameScnDocument", () => {
+  const item = { id: "f1", name: "Old.docx", isFolder: false };
+
+  it("renames, refreshes EVERY listing and breadcrumb, and says so", async () => {
+    api.renameScnDocument.mockResolvedValue({ id: "f1", name: "New.docx" });
+    const { qc, wrapper } = setup();
+    const spy = vi.spyOn(qc, "invalidateQueries");
+    const { result } = renderHook(() => useRenameScnDocument(), { wrapper });
+    await act(() => result.current.mutateAsync({ item, newName: "New.docx" }));
+    expect(api.renameScnDocument).toHaveBeenCalledWith("f1", "New.docx", {
+      currentName: "Old.docx",
+      isFolder: false,
+    });
+    expect(spy).toHaveBeenCalledWith({ queryKey: ["scn-documents"] });
+    expect(spy).toHaveBeenCalledWith({ queryKey: ["scn-documents-path"] });
+    expect(pushToast).toHaveBeenCalledWith({ message: 'Renamed "Old.docx" to "New.docx".' });
+  });
+
+  it("an unchanged name is silent", async () => {
+    api.renameScnDocument.mockResolvedValue(null);
+    const { wrapper } = setup();
+    const { result } = renderHook(() => useRenameScnDocument(), { wrapper });
+    await act(() => result.current.mutateAsync({ item, newName: "Old.docx" }));
+    expect(pushToast).not.toHaveBeenCalled();
+  });
+
+  it("a 403 names the site and EDITING", async () => {
+    api.renameScnDocument.mockRejectedValue(forbidden());
+    const { wrapper } = setup();
+    const { result } = renderHook(() => useRenameScnDocument(), { wrapper });
+    await act(() =>
+      expect(result.current.mutateAsync({ item, newName: "New.docx" })).rejects.toThrow(),
+    );
+    const message = pushToast.mock.calls[0][0].message as string;
+    expect(message).toMatch(/SharePoint wouldn't let you rename "Old.docx"/);
+    expect(message).toContain("ALTRONICSALESTEAM / SCN");
+    expect(message).toContain("may not include editing");
+  });
+});
+
+describe("useDeleteScnDocument", () => {
+  const item = { id: "d1", name: "LTB Analysis", isFolder: true };
+
+  it("deletes, refreshes everything, and says where it went", async () => {
+    api.deleteScnDocument.mockResolvedValue(undefined);
+    const { qc, wrapper } = setup();
+    const spy = vi.spyOn(qc, "invalidateQueries");
+    const { result } = renderHook(() => useDeleteScnDocument(), { wrapper });
+    await act(() => result.current.mutateAsync({ item }));
+    expect(api.deleteScnDocument).toHaveBeenCalledWith("d1");
+    expect(spy).toHaveBeenCalledWith({ queryKey: ["scn-documents"] });
+    expect(pushToast).toHaveBeenCalledWith({
+      message: `Deleted "LTB Analysis" — it's in the SCN site's recycle bin for 93 days.`,
+    });
+  });
+
+  it("a 403 names the site and DELETING, and refreshes the listing", async () => {
+    api.deleteScnDocument.mockRejectedValue(forbidden());
+    const { qc, wrapper } = setup();
+    const spy = vi.spyOn(qc, "invalidateQueries");
+    const { result } = renderHook(() => useDeleteScnDocument(), { wrapper });
+    await act(() => expect(result.current.mutateAsync({ item })).rejects.toThrow());
+    const message = pushToast.mock.calls[0][0].message as string;
+    expect(message).toMatch(/SharePoint wouldn't let you delete "LTB Analysis"/);
+    expect(message).toContain("may not include deleting");
+    expect(spy).toHaveBeenCalledWith({ queryKey: ["scn-documents"] });
   });
 });

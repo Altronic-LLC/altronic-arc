@@ -3928,7 +3928,7 @@ const SECTIONS: ManualSection[] = [
       "approval status",
     ],
     searchText:
-      "SCNs at /supply-chain/scns, under Supply Chain in the Departments menu, backed by the SCN Dashboard list on the ALTRONICSALESTEAM/SCN SharePoint site. A Supply Chain Notice records a product or part being obsoleted (OBS), phased out, an EECR, or a plain notification. The list searches every field, has SCN Status pills with counts, Category and Year filters, and sortable, filterable column headers; on a phone it is a card list. New SCN asks for Product, Description and Approval Status (required) plus Category, Assigned to, Owner, Customer, Old Number, SAP Number and Part Description; the SCN# is numbered automatically and the year is filled in for you. An SCN is four cards - Notice, Parts, Review, Outcome - each with one Edit button; the Review card has three checklists, Preliminary Reviews, Secondary Review and Project Status. The sidebar has SCN Status, Approval Status, Assigned to, Owner, Watchers, Raised by and Year. Comments, @-mentions, pasted screenshots and attachments all work the usual way; whoever raises an SCN, is assigned to it or owns it watches it automatically. SCNs cannot be deleted - set SCN Status to Cancelled instead. The Documents button opens the SCN Documents library: browse folders, create a new folder, upload files (drag and drop, several at once), edit Word Excel PowerPoint files in Office for the web, download, open in SharePoint. No delete or rename in ARC.",
+      "SCNs at /supply-chain/scns, under Supply Chain in the Departments menu, backed by the SCN Dashboard list on the ALTRONICSALESTEAM/SCN SharePoint site. A Supply Chain Notice records a product or part being obsoleted (OBS), phased out, an EECR, or a plain notification. The list searches every field, has SCN Status pills with counts, Category and Year filters, and sortable, filterable column headers; on a phone it is a card list. New SCN asks for Product, Description and Approval Status (required) plus Category, Assigned to, Owner, Customer, Old Number, SAP Number and Part Description; the SCN# is numbered automatically and the year is filled in for you. An SCN is four cards - Notice, Parts, Review, Outcome - each with one Edit button; the Review card has three checklists, Preliminary Reviews, Secondary Review and Project Status. The sidebar has SCN Status, Approval Status, Assigned to, Owner, Watchers, Raised by and Year. Comments, @-mentions, pasted screenshots and attachments all work the usual way; whoever raises an SCN, is assigned to it or owns it watches it automatically. SCNs cannot be deleted - set SCN Status to Cancelled instead. The Documents button opens the SCN Documents library: browse folders, create a new folder, upload files (drag and drop, several at once), edit Word Excel PowerPoint files in Office for the web, download, open in SharePoint, rename and delete files and folders. A deleted item goes to the SCN site's SharePoint recycle bin, restorable for 93 days.",
     render: () => (
       <>
         <P>
@@ -4041,9 +4041,21 @@ const SECTIONS: ManualSection[] = [
           <strong>Edit in Office</strong> opens a Word, Excel or PowerPoint
           file in Office for the web, and your changes save straight back to
           the folder; other files have <strong>Open</strong> instead, and every
-          file has a Download button. Deleting or renaming is done in
-          SharePoint — <strong>Open in SharePoint</strong> takes you to the
-          folder you're in.
+          file has a Download button. <strong>Open in SharePoint</strong>{" "}
+          takes you to the folder you're in.
+        </P>
+        <P>
+          Every file and folder has a <strong>Rename</strong> and a{" "}
+          <strong>Delete</strong> button. Rename selects the name without its
+          extension, so typing keeps the <code>.docx</code> or{" "}
+          <code>.xlsx</code>; it warns you if you change the extension, since
+          that can stop the file opening, and it won't let you use a name
+          something else in that folder already has. Delete asks you to
+          confirm; for a folder that still has things in it, it says how many
+          and you type the folder's name to confirm. A deleted file or folder
+          (with everything in it) goes to the SCN site's{" "}
+          <strong>recycle bin</strong> in SharePoint, where it can be restored
+          for 93 days.
         </P>
       </>
     ),

@@ -45,10 +45,12 @@ import { GraphError } from "./graph";
 import { SITES } from "./config";
 import {
   createScnFolder,
+  deleteScnDocument,
   downloadScnDocument,
   getScnDocumentPath,
   listScnDocuments,
   pathSegments,
+  renameScnDocument,
   uploadScnDocument,
 } from "./scnDocuments";
 
@@ -210,5 +212,74 @@ describe("downloadScnDocument (real mode)", () => {
     expect(fetchSpy).toHaveBeenCalledWith("https://dl/x");
     expect(await blob.text()).toBe("bytes");
     fetchSpy.mockRestore();
+  });
+});
+
+describe("renameScnDocument (real mode)", () => {
+  it("PATCHes the item with the new name and conflictBehavior fail", async () => {
+    graphFetch.mockResolvedValue({ id: "f1", name: "New.docx", webUrl: "w", file: {}, size: 3 });
+    const entry = await renameScnDocument("f1", "New.docx", { currentName: "Old.docx" });
+    const [url, init] = graphFetch.mock.calls[0];
+    expect(url).toBe(`${DRIVE}/items/f1`);
+    expect((init as RequestInit).method).toBe("PATCH");
+    expect(JSON.parse(String((init as RequestInit).body))).toEqual({
+      name: "New.docx",
+      "@microsoft.graph.conflictBehavior": "fail",
+    });
+    expect(entry).toMatchObject({ id: "f1", name: "New.docx", isFolder: false });
+  });
+
+  it("turns a 409 into a sentence naming the taken name", async () => {
+    graphFetch.mockRejectedValue(
+      new GraphError(409, "Conflict", '{"error":{"code":"nameAlreadyExists"}}', "u"),
+    );
+    await expect(renameScnDocument("f1", "SCN FLOW.pdf")).rejects.toThrow(
+      'A file or folder called "SCN FLOW.pdf" already exists here.',
+    );
+  });
+
+  it("sends NOTHING when the name is unchanged", async () => {
+    expect(await renameScnDocument("f1", "Same.pdf", { currentName: "Same.pdf" })).toBeNull();
+    expect(graphFetch).not.toHaveBeenCalled();
+  });
+
+  it("DOES send a case-only change", async () => {
+    graphFetch.mockResolvedValue({ id: "d", name: "Eecr", webUrl: "w", folder: { childCount: 1 } });
+    await renameScnDocument("d", "Eecr", { currentName: "EECR", isFolder: true });
+    expect(graphFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses an illegal name before sending anything", async () => {
+    await expect(renameScnDocument("f1", "a:b.pdf")).rejects.toThrow(/^A file name can't contain/);
+    await expect(renameScnDocument("d", "", { isFolder: true })).rejects.toThrow(
+      "A folder name is required.",
+    );
+    expect(graphFetch).not.toHaveBeenCalled();
+  });
+
+  it("passes a refusal through", async () => {
+    graphFetch.mockRejectedValue(new GraphError(403, "Forbidden", "accessDenied", "u"));
+    await expect(renameScnDocument("f1", "x.pdf")).rejects.toMatchObject({ status: 403 });
+  });
+});
+
+describe("deleteScnDocument (real mode)", () => {
+  it("DELETEs the drive item (Graph moves it to the recycle bin)", async () => {
+    graphFetch.mockResolvedValue(undefined);
+    await deleteScnDocument("d1");
+    const [url, init] = graphFetch.mock.calls[0];
+    expect(url).toBe(`${DRIVE}/items/d1`);
+    expect((init as RequestInit).method).toBe("DELETE");
+    expect((init as RequestInit).body).toBeUndefined();
+  });
+
+  it("treats a 404 as already gone", async () => {
+    graphFetch.mockRejectedValue(new GraphError(404, "Not Found", "itemNotFound", "u"));
+    await expect(deleteScnDocument("d1")).resolves.toBeUndefined();
+  });
+
+  it("passes any other failure through", async () => {
+    graphFetch.mockRejectedValue(new GraphError(403, "Forbidden", "accessDenied", "u"));
+    await expect(deleteScnDocument("d1")).rejects.toMatchObject({ status: 403 });
   });
 });

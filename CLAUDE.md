@@ -308,7 +308,7 @@ src/
 │   ├── supplierIssues.ts         SRM Tool — Supplier Issue Tracker CRUD + comments + watchers, scoped to a Supplier
 │   ├── costImpactNotices.ts      Cost Impact Notices CRUD + comments (Supply Chain, salesTeam site) — no delete
 │   ├── scns.ts                   SCNs — Supply Chain Notices CRUD + comments + watchers (Supply Chain, scn subsite of salesTeam) — DIFFED edits, no delete
-│   ├── scnDocuments.ts           SCN Documents library (the scn subsite's default drive) — list/breadcrumb/create folder/upload/download; no delete, no rename
+│   ├── scnDocuments.ts           SCN Documents library (the scn subsite's default drive) — list/breadcrumb/create folder/upload/download/rename/delete (recycle bin)
 │   ├── openOrdersFiles.ts        Open Orders SharePoint folder — list/upload/download
 │   ├── openOrdersCustomers.ts    Open Orders managed customer list CRUD
 │   ├── openOrdersRoles.ts        Open Orders role tags (report manager) CRUD
@@ -726,7 +726,7 @@ src/
 │   ├── CostImpactNoticeDetailView.tsx  One notice — Part/Cost & Impact/Where Used/Notes cards, comments, attachments
 │   ├── ScnsView.tsx              SCNs list — search, status pills, Category/Year filters, sortable headers; cards on a phone (Supply Chain)
 │   ├── ScnDetailView.tsx         One SCN — Notice/Parts/Review/Outcome cards, the three review checklists, sidebar people, comments, attachments
-│   ├── ScnDocumentsView.tsx      SCN Documents library browser (?folder=) — breadcrumb, new folder, upload, Edit in Office, download; sortable, cards on a phone
+│   ├── ScnDocumentsView.tsx      SCN Documents library browser (?folder=) — breadcrumb, new folder, upload, Edit in Office, download, rename, delete; sortable, cards on a phone
 │   ├── OpenOrdersView.tsx        Open Orders Report Tool — upload, generate, download
 │   ├── OpenOrdersCustomersView.tsx  The managed customer list (+ import from an extract)
 │   ├── AdminOpenOrdersRolesView.tsx Admin -> Open Orders Roles
@@ -3591,10 +3591,37 @@ SCNs list header and an SCN's detail page. Pieces: `api/scnDocuments.ts`,
 - **Several files upload ONE AT A TIME** with per-file progress; one failure
   doesn't stop the rest, and each failure is toasted through
   `describeListWriteFailure`.
-- **No delete and no rename, by choice.** Both are deliberate trips to
-  SharePoint ("Open in SharePoint" is on the toolbar), and a rename would break
-  every link pasted into an SCN comment. `scnDocuments.test.ts` asserts the
-  module exports nothing matching /delete|remove|rename/.
+- **Rename and delete — any signed-in user, no admin gate** (Ray,
+  2026-10-07: "Go ahead and allow delete and rename"). SharePoint's own library
+  permissions are the boundary, as for upload and new folder; a refusal goes
+  through `describeListWriteFailure` with `permission: "editing"` (rename) or
+  `"deleting"` (delete). Both buttons sit on every row, table AND phone card.
+  `scnDocuments.test.ts` used to assert NO delete/rename export; it now asserts
+  EXACTLY `deleteScnDocument` + `renameScnDocument` — inverted deliberately.
+  - **Delete = `DELETE /drive/items/{id}`, which MOVES the item to the SCN
+    site's recycle bin** — a folder together with its contents — restorable
+    for 93 days. There is no permanent delete in ARC. **A 404 resolves** (it's
+    already gone, which is what was asked for); anything else throws.
+  - **The confirm names the item. A folder that still holds items says how
+    many (`childCount`) and needs its name typed back**, exact and
+    case-sensitive (the Parts List delete pattern); a file or an EMPTY folder
+    is a plain confirm. Not optimistic: the row stays until SharePoint answers,
+    and a refusal refetches.
+  - **Rename = `PATCH /drive/items/{id}` with `{ name,
+    "@microsoft.graph.conflictBehavior": "fail" }`** (fail is also Graph's
+    PATCH default). A 409 becomes "A file or folder called X already exists
+    here." — never a silent replace or "X 1". A name case-sensitively EQUAL to
+    the current one sends nothing; a case-only change IS sent. Names are
+    checked first by `scnItemNameProblem(name, "file" | "folder")`
+    (`scnFolderNameProblem` remains as the folder wrapper).
+  - **A FILE's rename pre-selects only the STEM**, so typing keeps
+    `.docx`; changing or dropping the extension shows a warning ("Changing the
+    extension can stop the file opening") but is allowed. Escape closes the
+    dialog and stops there (the house rule).
+  - **A rename keeps the drive-item id**, so ARC's `?folder=` links survive it;
+    a SharePoint link pasted into an SCN comment by PATH does not. Both writes
+    invalidate EVERY `scn-documents` listing and `scn-documents-path`
+    breadcrumb, since a renamed folder is a crumb in every breadcrumb below it.
 - **Caveat:** a 403 on a WRITE (creating a folder, say, by somebody with
   read-only access) flows through the global MutationCache learner like every
   other refused write, and marks the drive denied for the session — "Check

@@ -3,8 +3,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   SCN_DOCUMENTS_SITE_LABEL,
   createScnFolder,
+  deleteScnDocument,
   getScnDocumentPath,
   listScnDocuments,
+  renameScnDocument,
   uploadScnDocument,
 } from "@/api/scnDocuments";
 import type { DriveEntry } from "@/api/projectFiles";
@@ -19,6 +21,17 @@ import { pushToast } from "@/components/Toast";
 export const SCN_DOCUMENTS_KEY = (folderId?: string | null) =>
   ["scn-documents", folderId ?? "root"] as const;
 const PATH_KEY = (folderId?: string | null) => ["scn-documents-path", folderId ?? "root"] as const;
+
+/**
+ * Every cached listing AND breadcrumb. A rename or delete can touch more than
+ * the folder it happened in — a renamed folder is a crumb in every breadcrumb
+ * beneath it, a deleted one takes its whole subtree — so both refresh all.
+ * Cheap: only the folder on screen is actually refetched.
+ */
+function invalidateEverything(qc: ReturnType<typeof useQueryClient>) {
+  void qc.invalidateQueries({ queryKey: ["scn-documents"] });
+  void qc.invalidateQueries({ queryKey: ["scn-documents-path"] });
+}
 
 export function useScnDocuments(folderId?: string | null) {
   return useQuery<DriveEntry[]>({
@@ -134,4 +147,64 @@ export function useUploadScnDocument() {
   });
 
   return { ...mutation, progress };
+}
+
+export interface ScnItemRef {
+  id: string;
+  name: string;
+  isFolder: boolean;
+}
+
+/** Rename a file or folder. Any signed-in user; SharePoint is the boundary. */
+export function useRenameScnDocument() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ item, newName }: { item: ScnItemRef; newName: string }) =>
+      renameScnDocument(item.id, newName, { currentName: item.name, isFolder: item.isFolder }),
+    onSuccess: (entry, { item, newName }) => {
+      if (!entry) return; // unchanged — nothing was sent
+      invalidateEverything(qc);
+      pushToast({ message: `Renamed "${item.name}" to "${newName}".` });
+    },
+    onError: (err, { item }) => {
+      pushToast({
+        message: describeListWriteFailure(err, {
+          action: `rename "${item.name}"`,
+          site: SCN_DOCUMENTS_SITE_LABEL,
+          permission: "editing",
+        }),
+        variant: "error",
+      });
+    },
+  });
+}
+
+/**
+ * Delete a file or folder — it goes to the SCN site's recycle bin (93 days).
+ * Not optimistic: the row stays until SharePoint confirms, so a refusal never
+ * has to put anything back.
+ */
+export function useDeleteScnDocument() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ item }: { item: ScnItemRef }) => deleteScnDocument(item.id),
+    onSuccess: (_void, { item }) => {
+      invalidateEverything(qc);
+      pushToast({
+        message: `Deleted "${item.name}" — it's in the SCN site's recycle bin for 93 days.`,
+      });
+    },
+    onError: (err, { item }) => {
+      // Refetch either way: a refused delete leaves the row, a vanished one doesn't.
+      invalidateEverything(qc);
+      pushToast({
+        message: describeListWriteFailure(err, {
+          action: `delete "${item.name}"`,
+          site: SCN_DOCUMENTS_SITE_LABEL,
+          permission: "deleting",
+        }),
+        variant: "error",
+      });
+    },
+  });
 }

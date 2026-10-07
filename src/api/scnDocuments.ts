@@ -25,13 +25,21 @@ import {
 // `lib/listAccess.ts` recognises as a DRIVE refusal, so a 403 locks the
 // documents screen (APPS' `needsDrive`) without touching the SCN list.
 //
-// Deliberately NO delete and NO rename. Removing or renaming a file is a
-// deliberate trip to SharePoint — "Open in SharePoint" is one click away — and
-// a rename breaks every link somebody pasted into an SCN comment.
+// Rename and delete are open to any signed-in user (Ray, 2026-10-07: "Go ahead
+// and allow delete and rename") — no admin gate; the library's own SharePoint
+// permissions are the boundary, as for upload and new folder.
+//  - DELETE moves the item to the SCN site's RECYCLE BIN — a folder WITH its
+//    contents — where it can be restored for 93 days. There is no permanent
+//    delete here, deliberately. A 404 means somebody already removed it, which
+//    is the outcome asked for, so it resolves rather than throws.
+//  - A RENAME keeps the item's id, so ARC's own `?folder=` links survive it;
+//    a link pasted into an SCN comment by PATH does not.
 //
-// Conflict rules, both chosen so nothing is ever silently overwritten:
+// Conflict rules, all chosen so nothing is ever silently overwritten:
 //  - a new FOLDER uses `conflictBehavior: fail` — a clashing name is an error
 //    naming the folder, never a quiet "General 1";
+//  - a RENAME sends `conflictBehavior: fail` too (also Graph's default for a
+//    PATCH), and a 409 becomes "A file or folder called X already exists here.";
 //  - an uploaded FILE uses `rename`, so a second "SCN FLOW.pdf" lands as
 //    "SCN FLOW 1.pdf" beside the first instead of replacing it.
 // =============================================================================
@@ -177,17 +185,26 @@ export async function downloadScnDocument(itemId: string): Promise<Blob> {
 const ILLEGAL_NAME_CHARS = /["*:<>?/\\|]/;
 
 /**
- * Why SharePoint would refuse this folder name, or null when it's fine.
- * Checked before the request so the reason is a sentence, not a bare 400.
+ * Why SharePoint would refuse this file or folder name, or null when it's
+ * fine. Checked before the request so the reason is a sentence, not a bare 400.
  */
-export function scnFolderNameProblem(name: string): string | null {
-  if (!name.trim()) return "A folder name is required.";
+export function scnItemNameProblem(
+  name: string,
+  kind: "folder" | "file" = "folder",
+): string | null {
+  const noun = `A ${kind} name`;
+  if (!name.trim()) return `${noun} is required.`;
   if (ILLEGAL_NAME_CHARS.test(name)) {
-    return 'A folder name can\'t contain any of these: " * : < > ? / \\ |';
+    return `${noun} can't contain any of these: " * : < > ? / \\ |`;
   }
-  if (/^\s|\s$/.test(name)) return "A folder name can't start or end with a space.";
-  if (/^\.|\.$/.test(name)) return "A folder name can't start or end with a full stop.";
+  if (/^\s|\s$/.test(name)) return `${noun} can't start or end with a space.`;
+  if (/^\.|\.$/.test(name)) return `${noun} can't start or end with a full stop.`;
   return null;
+}
+
+/** A folder name's problem — `scnItemNameProblem` for a folder. */
+export function scnFolderNameProblem(name: string): string | null {
+  return scnItemNameProblem(name, "folder");
 }
 
 /** Did Graph refuse because the name is already taken? */
@@ -288,6 +305,91 @@ export async function uploadScnDocument(
   return mapEntry(res, false);
 }
 
+/**
+ * Rename a file or folder. Returns the renamed entry, or `null` when the name
+ * is unchanged (case-sensitively equal to `currentName`) — then nothing is
+ * sent. A case-only change IS sent.
+ *
+ * `conflictBehavior: fail` travels as an instance annotation in the PATCH body
+ * (fail is also Graph's default for a rename), so a taken name is a 409 —
+ * turned into a sentence — and never a silent replace or "Name 1".
+ */
+export async function renameScnDocument(
+  itemId: string,
+  newName: string,
+  options: { currentName?: string; isFolder?: boolean } = {},
+): Promise<DriveEntry | null> {
+  const problem = scnItemNameProblem(newName, options.isFolder ? "folder" : "file");
+  if (problem) throw new Error(problem);
+  if (options.currentName !== undefined && options.currentName === newName) return null;
+  const clash = () => new Error(`A file or folder called "${newName}" already exists here.`);
+
+  if (USE_MOCK) {
+    const parentKey = mockParent.get(itemId);
+    const entry = parentKey ? mockFind(itemId) : undefined;
+    if (!parentKey || !entry) throw new Error("That item isn't in the library any more.");
+    if (entry.name === newName) return mockDelay(null);
+    const siblings = mockChildren(parentKey);
+    if (
+      siblings.some((e) => e.id !== itemId && e.name.toLowerCase() === newName.toLowerCase())
+    ) {
+      throw clash();
+    }
+    const renamed: DriveEntry = {
+      ...entry,
+      name: newName,
+      webUrl: mockWebUrl(parentKey, newName),
+      lastModified: new Date(),
+    };
+    mockTree.set(
+      parentKey,
+      siblings.map((e) => (e.id === itemId ? renamed : e)),
+    );
+    return mockDelay(withChildCount(renamed));
+  }
+
+  try {
+    const updated = await graphFetch<GraphDriveChild>(`${DRIVE()}/items/${itemId}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        name: newName,
+        "@microsoft.graph.conflictBehavior": "fail",
+      }),
+    });
+    return mapEntry(updated, false);
+  } catch (err) {
+    if (isNameConflict(err)) throw clash();
+    throw err;
+  }
+}
+
+/**
+ * Delete a file or folder. Graph MOVES it to the SCN site's recycle bin — a
+ * folder together with everything in it — where a site member can restore it
+ * for 93 days. There is no permanent delete in ARC.
+ *
+ * A 404 means it's already gone (somebody else removed it), which is the
+ * outcome asked for, so that resolves rather than throws.
+ */
+export async function deleteScnDocument(itemId: string): Promise<void> {
+  if (USE_MOCK) {
+    const parentKey = mockParent.get(itemId);
+    if (!parentKey) return mockDelay(undefined);
+    mockTree.set(
+      parentKey,
+      mockChildren(parentKey).filter((e) => e.id !== itemId),
+    );
+    mockRemoveSubtree(itemId);
+    return mockDelay(undefined);
+  }
+  try {
+    await graphFetch(`${DRIVE()}/items/${itemId}`, { method: "DELETE" });
+  } catch (err) {
+    if (err instanceof GraphError && err.status === 404) return;
+    throw err;
+  }
+}
+
 // -----------------------------------------------------------------------------
 // Mock library — mirrors the live root (2026-10-07), a few levels deep.
 // -----------------------------------------------------------------------------
@@ -378,6 +480,13 @@ function mockChildren(key: string): DriveEntry[] {
 function mockFind(id: string): DriveEntry | undefined {
   const parent = mockParent.get(id);
   return parent ? mockChildren(parent).find((e) => e.id === id) : undefined;
+}
+
+/** Forget an item and, for a folder, everything beneath it. */
+function mockRemoveSubtree(id: string): void {
+  for (const child of mockChildren(id)) mockRemoveSubtree(child.id);
+  mockTree.delete(id);
+  mockParent.delete(id);
 }
 
 function withChildCount(e: DriveEntry): DriveEntry {

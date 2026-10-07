@@ -177,4 +177,124 @@ describe("ScnDocumentsView", () => {
     renderWithProviders(<ScnDocumentsView />, { route: ROUTE });
     expect(screen.getByText("This folder is empty.")).toBeInTheDocument();
   });
+
+  it("every row — table and phone card — has Rename and Delete", async () => {
+    renderWithProviders(<ScnDocumentsView />, { route: ROUTE });
+    const t = await table();
+    const row = t.getByText("SCN FLOW.pdf").closest("tr")!;
+    expect(within(row).getByRole("button", { name: "Rename SCN FLOW.pdf" })).toBeInTheDocument();
+    expect(within(row).getByRole("button", { name: "Delete SCN FLOW.pdf" })).toBeInTheDocument();
+    const folderRow = t.getByRole("button", { name: "EECR" }).closest("tr")!;
+    expect(within(folderRow).getByRole("button", { name: "Rename EECR" })).toBeInTheDocument();
+    // Cards render too in jsdom (no breakpoints): one in the table, one on a card.
+    expect(screen.getAllByRole("button", { name: "Delete EECR" })).toHaveLength(2);
+  });
+
+  it("renames a file: only the STEM is pre-selected, and the new name appears", async () => {
+    renderWithProviders(<ScnDocumentsView />, { route: ROUTE });
+    const t = await table();
+    await userEvent.click(t.getByRole("button", { name: "Rename Submitting an SCN.docx" }));
+    const input = screen.getByLabelText("New name") as HTMLInputElement;
+    await waitFor(() => expect(input).toHaveFocus());
+    expect(input.selectionStart).toBe(0);
+    expect(input.selectionEnd).toBe("Submitting an SCN".length);
+    await userEvent.keyboard("How to submit an SCN");
+    expect(input.value).toBe("How to submit an SCN.docx");
+    await userEvent.keyboard("{Enter}");
+    const after = await table();
+    expect(await after.findByText("How to submit an SCN.docx")).toBeInTheDocument();
+    expect(after.queryByText("Submitting an SCN.docx")).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("warns — but allows it — when a rename changes the extension", async () => {
+    renderWithProviders(<ScnDocumentsView />, { route: ROUTE });
+    const t = await table();
+    await userEvent.click(t.getByRole("button", { name: "Rename SCN FLOW.pdf" }));
+    const input = screen.getByLabelText("New name");
+    await userEvent.clear(input);
+    await userEvent.type(input, "SCN FLOW.txt");
+    expect(screen.getByText(/Changing the extension can stop the file opening/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Rename" })).toBeEnabled();
+    await userEvent.clear(input);
+    await userEvent.type(input, "SCN FLOW");
+    expect(screen.getByText(/Changing the extension can stop the file opening/)).toBeInTheDocument();
+  });
+
+  it("refuses an illegal rename before sending, and Escape cancels without reaching anything behind", async () => {
+    const behind = vi.fn();
+    document.addEventListener("keydown", behind);
+    renderWithProviders(<ScnDocumentsView />, { route: ROUTE });
+    const t = await table();
+    await userEvent.click(t.getByRole("button", { name: "Rename EECR" }));
+    const input = screen.getByLabelText("New name") as HTMLInputElement;
+    // A folder pre-selects the whole name.
+    await waitFor(() => expect(input.selectionEnd).toBe("EECR".length));
+    await userEvent.clear(input);
+    await userEvent.type(input, "A|B");
+    expect(screen.getByText(/A folder name can't contain/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Rename" })).toBeDisabled();
+    behind.mockClear();
+    await userEvent.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(behind).not.toHaveBeenCalled();
+    document.removeEventListener("keydown", behind);
+  });
+
+  it("deletes a FILE on a plain confirm, naming the recycle bin", async () => {
+    renderWithProviders(<ScnDocumentsView />, { route: ROUTE });
+    const t = await table();
+    await userEvent.click(t.getByRole("button", { name: "Delete SCN FLOW.pdf" }));
+    const dialog = screen.getByRole("alertdialog");
+    expect(within(dialog).getByText('Delete "SCN FLOW.pdf"?')).toBeInTheDocument();
+    expect(within(dialog).getByText(/recycle bin .* restored for 93 days/)).toBeInTheDocument();
+    expect(within(dialog).queryByLabelText(/Type the folder name/)).toBeNull();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    await waitFor(() => expect(t.queryByText("SCN FLOW.pdf")).toBeNull());
+  });
+
+  it("a folder WITH items needs its name typed back, and says how many it holds", async () => {
+    renderWithProviders(<ScnDocumentsView />, { route: ROUTE });
+    const t = await table();
+    await userEvent.click(t.getByRole("button", { name: "Delete General" }));
+    const dialog = screen.getByRole("alertdialog");
+    expect(within(dialog).getByText('Delete "General" and the 2 items in it?')).toBeInTheDocument();
+    const confirm = within(dialog).getByRole("button", { name: "Delete" });
+    expect(confirm).toBeDisabled();
+    await userEvent.type(within(dialog).getByLabelText(/Type the folder name/), "general");
+    expect(confirm).toBeDisabled(); // exact, case-sensitive
+    await userEvent.clear(within(dialog).getByLabelText(/Type the folder name/));
+    await userEvent.type(within(dialog).getByLabelText(/Type the folder name/), "General");
+    expect(confirm).toBeEnabled();
+    await userEvent.click(confirm);
+    await waitFor(() => expect(t.queryByRole("button", { name: "General" })).toBeNull());
+  });
+
+  it("an EMPTY folder is a plain confirm, and Cancel leaves it", async () => {
+    renderWithProviders(<ScnDocumentsView />, { route: ROUTE });
+    const t = await table();
+    await userEvent.click(t.getByRole("button", { name: "Delete Inventory Review Reports" }));
+    const dialog = screen.getByRole("alertdialog");
+    expect(
+      within(dialog).getByText('Delete the empty folder "Inventory Review Reports"?'),
+    ).toBeInTheDocument();
+    expect(within(dialog).queryByLabelText(/Type the folder name/)).toBeNull();
+    expect(within(dialog).getByRole("button", { name: "Delete" })).toBeEnabled();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(t.getByRole("button", { name: "Inventory Review Reports" })).toBeInTheDocument();
+  });
+
+  it("Escape closes the delete confirm and nothing behind it", async () => {
+    const behind = vi.fn();
+    renderWithProviders(<ScnDocumentsView />, { route: ROUTE });
+    const t = await table();
+    await userEvent.click(t.getByRole("button", { name: "Delete LTB Analysis" }));
+    document.addEventListener("keydown", behind);
+    await userEvent.keyboard("{Escape}");
+    document.removeEventListener("keydown", behind);
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(behind).not.toHaveBeenCalled();
+  });
 });
