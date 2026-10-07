@@ -51,3 +51,15 @@ describe("DigitalQcFpyReportView", () => {
     expect(screen.getByText("Units passed")).toBeInTheDocument();
   });
 });
+
+describe("DigitalQcFpyReportView — trend vs last month", () => {
+  it("shows this month's FPY with an Up chip against last month", () => {
+    state.monthly = [
+      { monthKey: "2026-09", label: "Sep", unitsTested: 1000, unitsFailed: 60, fpyPercent: 94 },
+      { monthKey: "2026-10", label: "Oct", unitsTested: 1000, unitsFailed: 40, fpyPercent: 96 },
+    ];
+    renderWithProviders(<DigitalQcFpyReportView />);
+    expect(screen.getByText(/FPY · Oct so far/)).toBeInTheDocument();
+    expect(screen.getByTitle(/percentage points/)).toHaveTextContent("Up 2.0 pts vs Sep");
+  });
+});

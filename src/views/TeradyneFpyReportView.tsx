@@ -2,6 +2,8 @@ import { CircuitBoard } from "lucide-react";
 import { useTeradyneMonthlyFpy } from "@/hooks/useTeradyne";
 import { ReportPageShell } from "@/components/ReportPageShell";
 import { MonthlyFpyChart } from "@/components/MonthlyFpyChart";
+import { MonthTrendHeadline } from "@/components/MonthTrendHeadline";
+import { cn } from "@/lib/cn";
 
 // =============================================================================
 // Teradyne Board Test & FPY — the first Reports dashboard. Trailing 3
@@ -27,7 +29,10 @@ export function TeradyneFpyReportView({ kiosk = false }: { kiosk?: boolean } = {
       loadingNoun="the Teradyne board test data"
       kiosk={kiosk}
     >
-      <MonthlyFpyChart data={monthly} unitLabel="Boards" large={kiosk} />
+      <div className={cn("flex flex-col", kiosk ? "gap-6" : "gap-3")}>
+        <MonthTrendHeadline monthly={monthly} metric="fpy" unitLabel="Boards" large={kiosk} />
+        <MonthlyFpyChart data={monthly} unitLabel="Boards" large={kiosk} />
+      </div>
     </ReportPageShell>
   );
 }

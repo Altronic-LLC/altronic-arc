@@ -2,6 +2,8 @@ import { CircuitBoard } from "lucide-react";
 import { useTeradyneMonthlyFpy } from "@/hooks/useTeradyne";
 import { ReportPageShell } from "@/components/ReportPageShell";
 import { DefectBreakdownDonut } from "@/components/DefectBreakdownDonut";
+import { MonthTrendHeadline } from "@/components/MonthTrendHeadline";
+import { cn } from "@/lib/cn";
 
 // =============================================================================
 // Teradyne Defect Breakdown — a donut of the most recent month's defects,
@@ -27,13 +29,21 @@ export function TeradyneDefectBreakdownReportView({ kiosk = false }: { kiosk?: b
       kiosk={kiosk}
     >
       {latest && (
-        <DefectBreakdownDonut
-          monthLabel={latest.label}
-          total={latest.unitsTested}
-          unitLabel="Boards"
-          segments={latestMonthBreakdown}
-          large={kiosk}
-        />
+        <div className={cn("flex flex-col", kiosk ? "gap-6" : "gap-4")}>
+          <MonthTrendHeadline
+            monthly={monthly}
+            metric="failureRate"
+            unitLabel="Boards"
+            large={kiosk}
+          />
+          <DefectBreakdownDonut
+            monthLabel={latest.label}
+            total={latest.unitsTested}
+            unitLabel="Boards"
+            segments={latestMonthBreakdown}
+            large={kiosk}
+          />
+        </div>
       )}
     </ReportPageShell>
   );

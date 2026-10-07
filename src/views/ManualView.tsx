@@ -2327,9 +2327,13 @@ const SECTIONS: ManualSection[] = [
       "ict",
       "dig",
       "ign",
+      "trend arrow",
+      "vs last month",
+      "month over month",
+      "failure rate",
     ],
     searchText:
-      "Reports is a small area of fixed dashboards — a handful of numbers people want live inside ARC, opened at the /reports address (it isn't in the top nav yet). Unlike Power BI, which still covers deeper or more flexible reporting, each one here is a fixed chart, not something you build yourself. Six reports today — a trend chart and a Defect Breakdown donut for each of Teradyne, Digital QC and Ignition QC. Each trend chart is a stacked bar per month (units passed at the bottom, with its own count labelled inside the blue segment, units failed capped on top, the total height is Units Tested) with a First Pass Yield percentage line over it, for the trailing three calendar months, always ending at the current month. Each Defect Breakdown is a donut chart for the latest month only: the center shows that month's total units tested, and the ring is segmented by defect category, with a legend naming each category's count and share. Teradyne Board Test & FPY and Teradyne Defect Breakdown read the Teradyne Log, grouping defects by their canned remark. Digital QC and Ignition QC's reports read the Digital QC and Ignition QC Defect Logs, grouping defects by their 14 fixed named categories. A month with nothing tested yet shows no FPY line rather than a misleading 0%; a month with nothing failed shows a plain empty donut state instead of an empty ring. Each report refreshes itself automatically every couple of minutes and shows an Updated time in the lower-right corner. Navigating to /reports/kiosk directly (there's no link to it) opens a chrome-less, larger, fullscreen-friendly page that cycles through all six reports on its own — a trend chart, then that source's Defect Breakdown, for each of Teradyne, Digital QC and Ignition QC — one minute each, fading between them, with the kiosk's donut shown much larger and its legend smaller than on the ordinary report page. Meant for a spare monitor set up to open that address on its own, not for everyday browsing. Add ?theme=dark or ?theme=light to the kiosk address to pin its theme, since that page has no toggle button. Add ?dept=ICT, ?dept=DIG, or ?dept=IGN to show only one source's two reports (Teradyne, Digital QC, or Ignition QC) instead of cycling through all six.",
+      "Reports is a small area of fixed dashboards — a handful of numbers people want live inside ARC, opened at the /reports address (it isn't in the top nav yet). Unlike Power BI, which still covers deeper or more flexible reporting, each one here is a fixed chart, not something you build yourself. Six reports today — a trend chart and a Defect Breakdown donut for each of Teradyne, Digital QC and Ignition QC. Each trend chart is a stacked bar per month (units passed at the bottom, with its own count labelled inside the blue segment, units failed capped on top, the total height is Units Tested) with a First Pass Yield percentage line over it, for the trailing three calendar months, always ending at the current month. Each Defect Breakdown is a donut chart for the latest month only: the center shows that month's total units tested, and the ring is segmented by defect category, with a legend naming each category's count and share. Teradyne Board Test & FPY and Teradyne Defect Breakdown read the Teradyne Log, grouping defects by their canned remark. Digital QC and Ignition QC's reports read the Digital QC and Ignition QC Defect Logs, grouping defects by their 14 fixed named categories. A month with nothing tested yet shows no FPY line rather than a misleading 0%; a month with nothing failed shows a plain empty donut state instead of an empty ring. Every report leads with this month's figure so far and a green or red arrow comparing it with last month in percentage points: FPY on the trend charts, failure rate on the Defect Breakdowns, where falling is green. It compares rates, not counts, and waits until 200 units are tested this month (or a quarter of last month's total if fewer). Each report refreshes itself automatically every couple of minutes and shows an Updated time in the lower-right corner. Navigating to /reports/kiosk directly (there's no link to it) opens a chrome-less, larger, fullscreen-friendly page that cycles through all six reports on its own — a trend chart, then that source's Defect Breakdown, for each of Teradyne, Digital QC and Ignition QC — one minute each, fading between them, with the kiosk's donut shown much larger and its legend smaller than on the ordinary report page. Meant for a spare monitor set up to open that address on its own, not for everyday browsing. Add ?theme=dark or ?theme=light to the kiosk address to pin its theme, since that page has no toggle button. Add ?dept=ICT, ?dept=DIG, or ?dept=IGN to show only one source's two reports (Teradyne, Digital QC, or Ignition QC) instead of cycling through all six.",
     render: () => (
       <>
         <P>
@@ -2364,6 +2368,24 @@ const SECTIONS: ManualSection[] = [
           legend beside it naming each category's count and share of what
           failed. A month with nothing failed shows a plain "No defects
           logged" message instead of an empty ring.
+        </P>
+        <H3>The trend vs last month</H3>
+        <P>
+          Every report leads with <strong>this month's figure so far</strong>{" "}
+          and an arrow showing how it compares with last month, in
+          percentage points. The trend charts show FPY. The Defect
+          Breakdowns show the <strong>failure rate</strong>, the share of
+          units that failed. A <strong>green</strong> arrow means better and
+          a <strong>red</strong> one means worse, so a falling failure rate
+          is green.
+        </P>
+        <P>
+          It compares rates, not counts. This month isn't over, so it has
+          always tested fewer units than last month, and that isn't a drop.
+          Early in the month the arrow waits until 200 units are tested, or
+          a quarter of last month's total if that's fewer. Until then it
+          says how many have been tested so far. If nothing was tested last
+          month, it says there's nothing to compare with.
         </P>
         <H3>Teradyne Board Test & FPY / Teradyne Defect Breakdown</H3>
         <P>

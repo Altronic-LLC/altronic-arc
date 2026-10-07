@@ -544,6 +544,7 @@ src/
 │   ├── teradyneMapper.ts         Graph item → Teradyne entities; derived titles
 │   ├── teradyneFpy.ts            Teradyne's batch-total-vs-defect-row split + remark-based defect breakdown, on the shared monthlyYield engine
 │   ├── monthlyYield.ts           Shared Reports engine — MonthlyFpy/CategoryBreakdown types, trailingMonths, bucketMonthlyYield, monthlyQuantityYield, categoryBreakdown
+│   ├── monthTrend.ts             Reports' this-month-vs-last-month rule — rates not counts, good ≠ up, too-early threshold (pure)
 │   ├── reports.ts                Reports registry — one entry per fixed KPI dashboard (FPY + Defect Breakdown per source), drives the landing page + kiosk
 │   ├── spDates.ts                Shared SharePoint date-only helpers (midday-UTC rule)
 │   ├── changeAlerts.ts           Change-alert email construction (pure)
@@ -651,6 +652,7 @@ src/
 │   ├── MonthlyFpyChart.tsx       Hand-rolled SVG chart — stacked bar (passed/failed) + FPY% line, own vertical bands
 │   ├── DefectBreakdownDonut.tsx  Hand-rolled SVG donut — latest month's total tested + defect-category ring
 │   ├── ReportPageShell.tsx       Shared Reports page shell — header, one content card, "Updated <time>" note
+│   ├── MonthTrendHeadline.tsx    This month's figure + a green/red arrow vs last month, above every Reports chart
 │   ├── CommentThread.tsx         Sorted comment list + inline edit (own mention picker)
 │   ├── CommentComposer.tsx       New-comment editor (+ @-mentions)
 │   ├── AttachmentsSection.tsx    EIR/comment attachments UI
@@ -5858,6 +5860,36 @@ so it reads as a small key beside the chart rather than competing with it
 for width; and the whole group centers itself in the page rather than
 sitting flush left, so the extra room a 1800px-wide kiosk card leaves
 around a big donut reads as breathing space, not an accident.
+
+### The trend vs last month — an arrow, not a trend line
+
+Every report leads with this month's figure so far and a chip comparing it
+with last month (Tim, 2026-10-07). `lib/monthTrend.ts` holds the rule (pure);
+`components/MonthTrendHeadline.tsx` renders it above the chart in all six
+views. FPY reports compare **FPY**; Defect Breakdowns compare the **failure
+rate** (`100 − FPY`).
+
+**A best-fit trend line was mocked beside it and turned down.** With three
+months on the chart, a line through three points nearly retraces the FPY
+line already drawn, and a donut has nowhere to put one. If the window ever
+grows well past three months, that's the time to revisit it.
+
+Three rules that are load-bearing, each tested and verified by breaking it:
+
+- **Rates, never counts.** The latest month in a trailing window is always
+  the current, PARTIAL month, so comparing units tested would show a fake
+  drop every month until the last day. Don't add a "units tested vs last
+  month" chip.
+- **`good` is not `up`.** FPY rising is green; the failure rate rising is
+  red. The component reads `good`, never the arrow direction.
+- **Too early to compare.** No chip until the month has tested
+  `MIN_UNITS_FOR_COMPARISON` (200) units, or a quarter of last month's total
+  if that's fewer (`unitsNeededToCompare`) — so a low-volume source isn't left
+  waiting for a number it never reaches. Until then it says how many so far.
+
+A change under 0.05 pts reads "No change", neutral, because it would print
+as "0.0". The per-category share deltas shown in the mock were left out;
+they'd need each hook to return the previous month's breakdown too.
 
 ### Kiosk — cycling every report on a monitor
 

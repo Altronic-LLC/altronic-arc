@@ -2,6 +2,8 @@ import { TestTubes } from "lucide-react";
 import { useIgnitionQcMonthlyFpy } from "@/hooks/useIgnitionQc";
 import { ReportPageShell } from "@/components/ReportPageShell";
 import { MonthlyFpyChart } from "@/components/MonthlyFpyChart";
+import { MonthTrendHeadline } from "@/components/MonthTrendHeadline";
+import { cn } from "@/lib/cn";
 
 // =============================================================================
 // Ignition QC Board Test & FPY — units tested, units failed, and First Pass
@@ -26,7 +28,10 @@ export function IgnitionQcFpyReportView({ kiosk = false }: { kiosk?: boolean } =
       loadingNoun="the Ignition QC test data"
       kiosk={kiosk}
     >
-      <MonthlyFpyChart data={monthly} unitLabel="Units" large={kiosk} />
+      <div className={cn("flex flex-col", kiosk ? "gap-6" : "gap-3")}>
+        <MonthTrendHeadline monthly={monthly} metric="fpy" unitLabel="Units" large={kiosk} />
+        <MonthlyFpyChart data={monthly} unitLabel="Units" large={kiosk} />
+      </div>
     </ReportPageShell>
   );
 }

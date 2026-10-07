@@ -61,3 +61,18 @@ describe("TeradyneDefectBreakdownReportView", () => {
     expect(screen.getByText("No defects logged in Sep.")).toBeInTheDocument();
   });
 });
+
+describe("TeradyneDefectBreakdownReportView — trend vs last month", () => {
+  it("shows this month's failure rate, and a falling one as an improvement", () => {
+    state.monthly = [
+      { monthKey: "2026-09", label: "Sep", unitsTested: 1000, unitsFailed: 60, fpyPercent: 94 },
+      { monthKey: "2026-10", label: "Oct", unitsTested: 1000, unitsFailed: 40, fpyPercent: 96 },
+    ];
+    state.latestMonthBreakdown = [{ label: "Example defect", count: 40 }];
+    renderWithProviders(<TeradyneDefectBreakdownReportView />);
+    expect(screen.getByText(/failure rate · Oct so far/)).toBeInTheDocument();
+    const chip = screen.getByTitle(/percentage points/);
+    expect(chip).toHaveTextContent("Down 2.0 pts vs Sep");
+    expect(chip.className).toContain("text-cooper-green");
+  });
+});

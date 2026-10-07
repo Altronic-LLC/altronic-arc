@@ -2,6 +2,8 @@ import { TestTubes } from "lucide-react";
 import { useIgnitionQcMonthlyFpy } from "@/hooks/useIgnitionQc";
 import { ReportPageShell } from "@/components/ReportPageShell";
 import { DefectBreakdownDonut } from "@/components/DefectBreakdownDonut";
+import { MonthTrendHeadline } from "@/components/MonthTrendHeadline";
+import { cn } from "@/lib/cn";
 
 // =============================================================================
 // Ignition QC Defect Breakdown — a donut of the most recent month's defects,
@@ -27,13 +29,21 @@ export function IgnitionQcDefectBreakdownReportView({ kiosk = false }: { kiosk?:
       kiosk={kiosk}
     >
       {latest && (
-        <DefectBreakdownDonut
-          monthLabel={latest.label}
-          total={latest.unitsTested}
-          unitLabel="Units"
-          segments={latestMonthBreakdown}
-          large={kiosk}
-        />
+        <div className={cn("flex flex-col", kiosk ? "gap-6" : "gap-4")}>
+          <MonthTrendHeadline
+            monthly={monthly}
+            metric="failureRate"
+            unitLabel="Units"
+            large={kiosk}
+          />
+          <DefectBreakdownDonut
+            monthLabel={latest.label}
+            total={latest.unitsTested}
+            unitLabel="Units"
+            segments={latestMonthBreakdown}
+            large={kiosk}
+          />
+        </div>
       )}
     </ReportPageShell>
   );

@@ -27,6 +27,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Six reports: Board Test & FPY, and a Defect Breakdown donut, for each of Teradyne, Digital QC and Ignition QC",
       "Each FPY chart shows boards/units tested, boards/units failed (with the passed count inside the blue segment), and First Pass Yield, for the trailing 3 calendar months, always ending at the current month",
       "Each Defect Breakdown shows the latest month's total tested and a breakdown by defect category, as its own report and its own card on the Reports page",
+      "Every report leads with this month's figure so far and a green or red arrow showing the change from last month: FPY on the trend charts, failure rate on the Defect Breakdowns. The arrow waits until enough has been tested this month to be meaningful",
       "Every report refreshes itself automatically every couple of minutes, so a screen left open on a monitor stays current, and shows an \"Updated <time>\" note in the lower-right corner",
       "A new Kiosk view, at /reports/kiosk, cycles through all six reports automatically — a trend chart, then that source's Defect Breakdown, for each of Teradyne, Digital QC and Ignition QC — one minute each, with a fade between them, in a larger, chrome-less layout built for a spare monitor, with the Defect Breakdown donut shown much larger and its legend smaller so it fills most of the screen",
       "The Kiosk view's address takes an optional ?theme=dark or ?theme=light flag to pin its theme, since that chrome-less page has no toggle button of its own",
