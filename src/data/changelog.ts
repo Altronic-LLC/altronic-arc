@@ -33,6 +33,14 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
+    version: "0.175.1",
+    date: "2026-10-07",
+    changes: [
+      "A new Operations task takes the number one past the highest already used in its project, so a number is never handed out twice — counting tasks used to slip backwards after a delete and repeat numbers such as Task 0000-11",
+      "If someone else numbers a task in the same project at the same moment, ARC refreshes the list and takes the next free number instead of failing",
+    ],
+  },
+  {
     version: "0.175.0",
     date: "2026-10-07",
     changes: [

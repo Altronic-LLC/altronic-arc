@@ -486,7 +486,7 @@ src/
 │   ├── guestIdentity.ts        Is this address external? One rule, shared with the Power Automate guest flow
 │   ├── operationsTaskMapper.ts   Graph item → OperationsTask
 │   ├── operationsTaskFilters.ts  Pure Operations task filter predicates
-│   ├── operationsTaskNumbering.ts Operations task numbering (mirrors taskNumbering)
+│   ├── operationsTaskNumbering.ts Operations task numbering — highest n + 1 per project code (NOT count + 1)
 │   ├── maintenanceSchedule.ts    PM scheduling maths — Fixed/Floating dates, Hourmeter run-hours, overdue
 │   ├── maintenanceShared.ts      Read helpers shared by the three CMMS mappers
 │   ├── maintenanceTaskMapper.ts  Graph item → MaintenanceTask (+ create payload)
@@ -4779,6 +4779,35 @@ built in ~1s, so all 71 customers run comfortably in a browser.
 `scripts/generate-open-orders-from-file.mjs <extract.xlsx>` builds the whole set
 locally through the app's own parser and builders — the way to eyeball a change
 to the workbooks without a round trip through SharePoint.
+
+### Operations task numbering — highest + 1, never count + 1
+
+`TaskNumber` on the Operations Task List is app-owned (`Task {code}-{n}`,
+`src/lib/operationsTaskNumbering.ts`), and `n` is **the highest n already
+used under that 4-digit project code, plus one**. From 2026-08-17 it was
+count-of-tasks-in-project + 1, inferred from two data points, and that handed
+numbers out twice: a count slips backwards when a task is deleted, and it never
+saw the legacy numbers (items up to ID 198 carry n = item ID, so `Task 0000-51`
+exists with only a handful of 0000 tasks). By 2026-10-07 three distinct tasks
+shared a number (`Task 0000-11`, `0000-12`, `0002-8`) and a fourth
+(`0000-13`) was issued that afternoon. The list was deduplicated the same day
+(16 items renumbered; snapshot `otl_dedup_backup_2026-10-07_133145` in the PMO
+SharePoint Exports folder) and **Enforce unique values** was switched on for
+`TaskNumber`, so a repeat is now rejected by SharePoint at save.
+
+Two consequences for code:
+- The match is on the number string's code, not `parentProject.lookupId` —
+  uniqueness is a property of the string, and a task moved between projects
+  keeps its number.
+- `OperationsTaskFormModal` numbers off the cached list (up to 120 s stale).
+  When the create is rejected it refetches, recomputes, and retries exactly
+  once — and only if the fresh list yields a different number; any other
+  error surfaces unchanged. Don't "fix" a rejected create by retrying blindly.
+
+Engineering's `computeNumberedTitle` (`src/lib/taskNumbering.ts`) still uses
+count + 1 and has the same exposure; it was left alone on 2026-10-07 because
+the Project Task List has no unique constraint and its `NumberedTitle` embeds
+the title, so a repeat there is a cosmetic duplicate, not a rejected save.
 
 ### CMMS — maintenance (Operations, PMO site)
 
