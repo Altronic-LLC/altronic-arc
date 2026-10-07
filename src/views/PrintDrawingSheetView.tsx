@@ -345,7 +345,14 @@ function Recipient({ label }: { label: string }) {
  */
 function HistoryColumn({ rows }: { rows: Array<DrawingChange | null> }) {
   return (
-    <table className="w-full border-collapse text-[8.5pt]">
+    // `table-fixed` + every row a FIXED height: the sheet must look the same
+    // with one revision or sixteen (BusinessIT#32). Without them an empty
+    // row's cells collapsed to nothing — they held a plain space, which the
+    // browser drops — so a short log printed as a squashed stack of border
+    // lines, and the columns shifted to fit whatever text happened to be in
+    // them. A long ECN is clipped rather than wrapped, since a wrap would make
+    // that one row taller than the rest.
+    <table className="w-full table-fixed border-collapse text-[8.5pt]">
       <thead>
         <tr className="border-b border-black text-[7.5pt] uppercase">
           <th className="w-[0.85in] text-left font-bold">Date Changed</th>
@@ -355,13 +362,26 @@ function HistoryColumn({ rows }: { rows: Array<DrawingChange | null> }) {
       </thead>
       <tbody>
         {rows.map((change, i) => (
-          <tr key={i} className="border-b border-gray-300">
-            <td>{change?.date ? formatSpDate(change.date) : " "}</td>
-            <td>{change?.rev || " "}</td>
-            <td>{change?.ecn || " "}</td>
+          <tr key={i} data-testid="history-row" className="h-[0.24in] border-b border-gray-300">
+            <HistoryCell>{change?.date ? formatSpDate(change.date) : ""}</HistoryCell>
+            <HistoryCell>{change?.rev ?? ""}</HistoryCell>
+            <HistoryCell>{change?.ecn ?? ""}</HistoryCell>
           </tr>
         ))}
       </tbody>
     </table>
+  );
+}
+
+/**
+ * One history cell: bottom-aligned on its ruled line, one line only, and a
+ * NON-BREAKING space when empty — a plain space collapses and takes the row's
+ * height with it.
+ */
+function HistoryCell({ children }: { children: string }) {
+  return (
+    <td className="overflow-hidden text-ellipsis whitespace-nowrap align-bottom">
+      {children || "\u00a0"}
+    </td>
   );
 }

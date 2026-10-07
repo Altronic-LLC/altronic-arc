@@ -261,6 +261,32 @@ describe("PrintDrawingSheetView — BusinessIT#32 clean-up", () => {
     }
   });
 
+  // jsdom has no layout, so the spacing is pinned by what DRIVES it: a fixed
+  // table layout, one fixed row height, and empty cells that can't collapse.
+  it.each([
+    ["no revisions", "504535"],
+    ["two revisions", "501505"],
+    ["seven revisions", "582117"],
+    ["all sixteen", "310220"],
+  ])("spaces the history the same with %s", async (_label, cadNumber) => {
+    const row = await cadRow((v) => v.cadNumber === cadNumber);
+    const { container } = await renderSheet(row.id);
+    const rows = Array.from(container.querySelectorAll('[data-testid="history-row"]'));
+    expect(rows).toHaveLength(16);
+    for (const tr of rows) {
+      expect(tr.className.split(" ")).toContain("h-[0.24in]");
+      for (const td of Array.from(tr.querySelectorAll("td"))) {
+        // A plain space collapses and takes the row height with it.
+        expect(td.textContent).not.toBe("");
+        expect(td.textContent).not.toBe(" ");
+        expect(td.className.split(" ")).toContain("whitespace-nowrap");
+      }
+    }
+    for (const table of screen.getAllByRole("table")) {
+      expect(table.className.split(" ")).toContain("table-fixed");
+    }
+  });
+
   it("gives Date Changed a fixed width so ECN # takes the rest", async () => {
     const row = await cadRow((v) => v.cadNumber === "501505");
     await renderSheet(row.id);
@@ -268,6 +294,6 @@ describe("PrintDrawingSheetView — BusinessIT#32 clean-up", () => {
     const date = within(table).getByRole("columnheader", { name: "Date Changed" });
     const ecn = within(table).getByRole("columnheader", { name: "ECN #" });
     expect(date.className).toMatch(/w-\[0\.85in\]/);
-    expect(ecn.className).not.toMatch(/w-\[/);
+    expect(ecn.className.split(" ").some((c) => c.startsWith("w-["))).toBe(false);
   });
 });

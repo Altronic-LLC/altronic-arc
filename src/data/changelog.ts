@@ -28,6 +28,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "The Log Book Date is read-only — older drawings still show it, but it's no longer entered or printed",
       "Drawing dates can be picked back to 1950, for documenting older drawings",
       "The printed Drawing History no longer shows the slot number, and its Date column is narrower to leave room for the ECN #",
+      "The printed Drawing History keeps even spacing whether a drawing has one revision or sixteen",
     ],
   },
   {

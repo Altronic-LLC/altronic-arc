@@ -1203,6 +1203,18 @@ should survive future edits:
     16 slots — only the number column went. **Date Changed is a fixed 0.85in**
     and **ECN # takes the remaining width**, the other way round from before,
     since a date is short and ECN numbers run long.
+  - **The history spaces the same with 0 revisions or 16** (Ray, 2026-10-07).
+    Three things hold it, all in `HistoryColumn` / `HistoryCell`, and all
+    pinned in `PrintDrawingSheetView.test.tsx` for 0, 2, 7 and 16 revisions:
+    `table-fixed` (columns no longer resize to whatever text a short log
+    holds), a fixed row height (`h-[0.24in]`), and an empty cell that holds a
+    NON-BREAKING space written as `" "`. Empty cells used to hold a plain
+    space, which the browser collapses, so a short log printed as a squashed
+    stack of border lines. Long text is clipped (`whitespace-nowrap`), never
+    wrapped, since a wrap makes one row taller than the rest. Assert class
+    tokens with `.split(" ")`, not a regex: a `\b` typed through a script came
+    out as a literal backspace byte, which made a `not.toMatch` assertion
+    impossible to fail.
 - **Half of it is deliberately blank.** Prototype / Preliminary / Production, the
   checked-approved / entered-in-system / to-mylar dates, and the whole Print
   Distribution block have no SharePoint columns behind them and are filled in by
