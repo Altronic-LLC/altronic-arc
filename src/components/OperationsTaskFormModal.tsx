@@ -54,7 +54,7 @@ interface OperationsTaskFormModalProps {
  */
 export function OperationsTaskFormModal({ mode, task, onClose }: OperationsTaskFormModalProps) {
   const navigate = useNavigate();
-  const { data: allTasks = [] } = useOperationsTasks();
+  const { data: allTasks = [], refetch: refetchTasks } = useOperationsTasks();
   const { data: projects = [] } = useOperationsProjects();
   const { data: equipment = [] } = useOperationsEquipment();
   const createTask = useCreateOperationsTask();
@@ -145,22 +145,38 @@ export function OperationsTaskFormModal({ mode, task, onClose }: OperationsTaskF
       if (mode === "create") {
         const chosenProject =
           parentProjectId === "" ? null : projects.find((p) => p.lookupId === parentProjectId) ?? null;
-        const taskNumber = computeOperationsTaskNumber(chosenProject, allTasks);
+        const createWithNumber = (taskNumber: string) =>
+          createTask.mutateAsync({
+            title: trimmedTitle,
+            taskNumber,
+            description: description.trim() || undefined,
+            status,
+            priority: priority || null,
+            taskType: taskType || null,
+            location: location || null,
+            dueDate: dueDate ? new Date(dueDate) : null,
+            parentProjectLookupId: parentProjectId === "" ? null : parentProjectId,
+            equipmentLookupId: equipmentId === "" ? null : equipmentId,
+            assigned,
+            watchers,
+          });
 
-        const created = await createTask.mutateAsync({
-          title: trimmedTitle,
-          taskNumber,
-          description: description.trim() || undefined,
-          status,
-          priority: priority || null,
-          taskType: taskType || null,
-          location: location || null,
-          dueDate: dueDate ? new Date(dueDate) : null,
-          parentProjectLookupId: parentProjectId === "" ? null : parentProjectId,
-          equipmentLookupId: equipmentId === "" ? null : equipmentId,
-          assigned,
-          watchers,
-        });
+        // The number comes off the cached list, which can be up to two minutes
+        // stale (staleTime). TaskNumber has "Enforce unique values" on in
+        // SharePoint, so if someone else numbered a task under the same code
+        // meanwhile the create is rejected rather than duplicated. Refetch,
+        // renumber and retry exactly once — and only when the fresh list
+        // actually yields a different number; any other failure surfaces as is.
+        const firstNumber = computeOperationsTaskNumber(chosenProject, allTasks);
+        let created: OperationsTask;
+        try {
+          created = await createWithNumber(firstNumber);
+        } catch (err) {
+          const fresh = (await refetchTasks()).data ?? allTasks;
+          const nextNumber = computeOperationsTaskNumber(chosenProject, fresh);
+          if (nextNumber === firstNumber) throw err;
+          created = await createWithNumber(nextNumber);
+        }
         onClose();
         navigate(`/operations/task/${created.id}`);
         return;

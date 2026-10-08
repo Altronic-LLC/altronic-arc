@@ -424,6 +424,8 @@ export function Header() {
             <span className="sm:hidden">Home</span>
           </NavLink>
           <DepartmentsMenu active={isDepartmentPage} pathname={pathname} />
+          {/* No Reports tab (Tim, 2026-10-07): /reports and /reports/kiosk
+              stay reachable by URL, but aren't advertised in the nav yet. */}
           {isAdmin && (
             <NavLink
               to="/admin/admins"

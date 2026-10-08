@@ -2287,6 +2287,136 @@ const SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: "reports",
+    title: "Reports",
+    group: "Reports",
+    keywords: [
+      "reports",
+      "dashboard chart",
+      "kpi",
+      "teradyne fpy",
+      "digital qc fpy",
+      "ignition qc fpy",
+      "fpy",
+      "first pass yield",
+      "yield",
+      "boards tested",
+      "boards failed",
+      "units tested",
+      "units failed",
+      "board test chart",
+      "power bi",
+      "trend",
+      "stacked bar",
+      "kiosk",
+      "kiosk view",
+      "cycle dashboards",
+      "monitor",
+      "fullscreen",
+      "updated time",
+      "last refreshed",
+      "auto refresh",
+      "passed count",
+      "defect breakdown",
+      "donut chart",
+      "defect categories",
+      "trend arrow",
+      "vs last month",
+      "month over month",
+      "failure rate",
+    ],
+    searchText:
+      "Reports is a small area of fixed dashboards — a handful of numbers people want live inside ARC, available for testing (it isn't in the top nav yet). Unlike Power BI, which still covers deeper or more flexible reporting, each one here is a fixed chart, not something you build yourself. Six reports today — a trend chart and a Defect Breakdown donut for each of Teradyne, Digital QC and Ignition QC. Each trend chart is a stacked bar per month (units passed at the bottom, with its own count labelled inside the blue segment, units failed capped on top, the total height is Units Tested) with a First Pass Yield percentage line over it, for the trailing three calendar months, always ending at the current month. Each Defect Breakdown is a donut chart for the latest month only: the center shows that month's total units tested, and the ring is segmented by defect category, with a legend naming each category's count and share. Teradyne Board Test & FPY and Teradyne Defect Breakdown read the Teradyne Log, grouping defects by their canned remark. Digital QC and Ignition QC's reports read the Digital QC and Ignition QC Defect Logs, grouping defects by their 14 fixed named categories. A month with nothing tested yet shows no FPY line rather than a misleading 0%; a month with nothing failed shows a plain empty donut state instead of an empty ring. Every report leads with this month's figure so far and a green or red arrow comparing it with last month in percentage points: FPY on the trend charts, failure rate on the Defect Breakdowns, where falling is green. It compares rates, not counts, and waits until 50 units are tested this month (or a quarter of last month's total if fewer). Each report refreshes itself automatically every couple of minutes and shows an Updated time in the lower-right corner. The kiosk view is a chrome-less, larger, fullscreen-friendly page that cycles through all six reports on its own — a trend chart, then that source's Defect Breakdown, for each of Teradyne, Digital QC and Ignition QC — one minute each, fading between them, with the kiosk's donut shown much larger and its legend smaller than on the ordinary report page. Meant for a spare monitor, and available for testing.",
+    render: () => (
+      <>
+        <P>
+          <strong>Reports</strong> holds a small set of fixed KPI dashboards.
+          It's available for testing and isn't in the top nav yet. Power BI
+          still covers deeper,
+          build-it-yourself reporting off these same SharePoint lists; Reports
+          is for the handful of numbers worth having live inside ARC itself.
+        </P>
+        <P>
+          Six reports today — a <strong>trend chart</strong> and a{" "}
+          <strong>Defect Breakdown</strong> donut for each of Teradyne,
+          Digital QC and Ignition QC. Every report shows an{" "}
+          <strong>"Updated"</strong> time in the lower-right corner, since
+          each refreshes itself automatically every couple of minutes without
+          needing a click.
+        </P>
+        <P>
+          Each trend chart is a stacked bar per month —{" "}
+          <strong>units passed</strong> at the bottom,{" "}
+          <strong>units failed</strong> capped on top, so the bar's full
+          height is Units Tested — with a{" "}
+          <strong>First Pass Yield (FPY%)</strong> line over it, always
+          showing the trailing three calendar months, ending at the current
+          month. A month with nothing tested yet shows no point on the FPY
+          line for that month, rather than a misleading 0%.
+        </P>
+        <P>
+          Each Defect Breakdown is a <strong>donut chart</strong> for the
+          latest month only — the center shows that month's total units
+          tested, and the ring is segmented by defect category, with a
+          legend beside it naming each category's count and share of what
+          failed. A month with nothing failed shows a plain "No defects
+          logged" message instead of an empty ring.
+        </P>
+        <H3>The trend vs last month</H3>
+        <P>
+          Every report leads with <strong>this month's figure so far</strong>{" "}
+          and an arrow showing how it compares with last month, in
+          percentage points. The trend charts show FPY. The Defect
+          Breakdowns show the <strong>failure rate</strong>, the share of
+          units that failed. A <strong>green</strong> arrow means better and
+          a <strong>red</strong> one means worse, so a falling failure rate
+          is green.
+        </P>
+        <P>
+          It compares rates, not counts. This month isn't over, so it has
+          always tested fewer units than last month, and that isn't a drop.
+          Early in the month the arrow waits until 50 units are tested, or
+          a quarter of last month's total if that's fewer. Until then it
+          says how many have been tested so far. If nothing was tested last
+          month, it says there's nothing to compare with.
+        </P>
+        <H3>Teradyne Board Test & FPY / Teradyne Defect Breakdown</H3>
+        <P>
+          Off the same Teradyne Log data the Teradyne Log screen already
+          uses — there's nothing new to fill in. The Defect Breakdown groups
+          that month's failures by their canned remark.
+        </P>
+        <H3>Digital QC Board Test & FPY / Digital QC Defect Breakdown</H3>
+        <P>
+          Off the same Digital QC Defect Log data the Digital QC screen
+          already uses, merged across every product family. The Defect
+          Breakdown groups that month's failures by the log's 14 fixed
+          defect categories.
+        </P>
+        <H3>Ignition QC Board Test & FPY / Ignition QC Defect Breakdown</H3>
+        <P>
+          Off the same Ignition QC Defect Log data the Ignition QC screen
+          already uses, merged across every product family. The Defect
+          Breakdown groups that month's failures by the log's 14 fixed
+          defect categories.
+        </P>
+        <H3>Kiosk view</H3>
+        <P>
+          The kiosk view is a chrome-less page (no header, no nav, no Back button) that cycles
+          through all six reports on its own, one minute each, with a fade
+          between them — a trend chart, then that source's Defect Breakdown,
+          for each of Teradyne, Digital QC and Ignition QC in turn. Every
+          chart is shown larger than on its normal page, each trend chart
+          shows the passed count inside its blue segment, and each Defect
+          Breakdown's donut fills most of the screen with a smaller legend
+          beside it. A small Fullscreen button in the corner puts the browser
+          itself into fullscreen. It's meant for a monitor or kiosk display
+          and is available for testing.
+        </P>
+      </>
+    ),
+  },
+  {
     id: "panel-orders",
     title: "Panel Orders",
     group: "Panels",
@@ -4768,9 +4898,12 @@ const SECTIONS: ManualSection[] = [
       "sk_num",
       "ventura",
       "record a change",
+      "sheet date",
+      "drawing completed",
+      "log book date",
     ],
     searchText:
-      "Drawing File Logs brings Engineering's drawing registers together on one screen as tabs: CAD Drawings, CCC Drawings, CEC Drawings and Engineering Sketches. Each tab is a searchable table; click any row for the full record and its change log — the dated revisions and ECNs that SharePoint stores across 48 columns. Search covers the ECNs too, so you can find which drawing a change notice affected. Admins can add a drawing, edit its details, and record a change, which also updates the drawing's current revision. Admins can also correct an existing change entry with the pencil beside it, which edits just that entry without moving the drawing's current revision; clearing all three values empties the slot and frees it for reuse. A drawing has sixteen change slots; once they're used the app says so rather than overwriting an old entry. CAD drawings carry By, Entered By and Software, which behave like drop-downs built from the values already in use while still accepting a new one, and the New Drawing field is no longer on the add or edit form. Engineering Sketches has its own columns (sketch number, V code, Ventura) and no change log, because the list doesn't have one. Reading and searching are open to everyone. Open a CAD drawing and click Work Sheet to print FORM #E006, the Drawing Work Sheet that accompanies a drawing until release: it opens in a new tab already filled in from the register, laid out for 8.5 x 11 portrait, with the print dialog open so you can print it or Save as PDF. It prints everything the register holds — including the Entered By / By initials and all sixteen change slots, both of which the old form left off — plus the sections that exist only on paper: Prototype / Preliminary / Production, the checked-approved, entered-in-system and to-mylar dates, and the Print Distribution block, all left blank to fill in by hand. The Work Sheet is CAD only.",
+      "Drawing File Logs brings Engineering's drawing registers together on one screen as tabs: CAD Drawings, CCC Drawings, CEC Drawings and Engineering Sketches. Each tab is a searchable table; click any row for the full record and its change log — the dated revisions and ECNs that SharePoint stores across 48 columns. Search covers the ECNs too, so you can find which drawing a change notice affected. Admins can add a drawing, edit its details, and record a change, which also updates the drawing's current revision. Admins can also correct an existing change entry with the pencil beside it, which edits just that entry without moving the drawing's current revision; clearing all three values empties the slot and frees it for reuse. A drawing has sixteen change slots; once they're used the app says so rather than overwriting an old entry. CAD drawings carry By, Entered By and Software, which behave like drop-downs built from the values already in use while still accepting a new one, and the New Drawing field is no longer on the add or edit form. On CAD the two main dates are labelled Drawing Completed and Sheet Date; a new drawing's Sheet Date starts at today and can be changed. The Log Book Date is read-only: older drawings still show it on their panel, but it is no longer entered or printed. Every date in the drawing registers, including the change log, can be picked back to 1950 for documenting older drawings. Engineering Sketches has its own columns (sketch number, V code, Ventura) and no change log, because the list doesn't have one. Reading and searching are open to everyone. Open a CAD drawing and click Work Sheet to print FORM #E006, the Drawing Work Sheet that accompanies a drawing until release: it opens in a new tab already filled in from the register, laid out for 8.5 x 11 portrait, with the print dialog open so you can print it or Save as PDF. It prints the Sheet Date and Drawing Completed dates, the Entered By / By initials and all sixteen change slots — both of which the old form left off — without the slot number, and with a narrow Date Changed column to leave room for the ECN #. The Log Book Date is not printed; its line is left blank. It also prints the sections that exist only on paper: Prototype / Preliminary / Production, the checked-approved, entered-in-system and to-mylar dates, and the Print Distribution block, all left blank to fill in by hand. The Work Sheet is CAD only.",
     render: () => (
       <>
         <P>
@@ -4830,6 +4963,26 @@ const SECTIONS: ManualSection[] = [
           The <strong>New Drawing</strong> field is no longer on the add or edit
           form; existing values still show on the drawing's panel.
         </P>
+        <H3>CAD dates</H3>
+        <P>
+          A CAD drawing's two main dates are <strong>Drawing Completed</strong>{" "}
+          and <strong>Sheet Date</strong> (SharePoint still calls them
+          DateCompleted and DrawingDATE). When you add a drawing, its{" "}
+          <strong>Sheet Date starts at today</strong> — change it if the sheet
+          is dated otherwise. Editing a drawing never changes a date you didn't
+          touch.
+        </P>
+        <P>
+          The <strong>Log Book Date</strong> is <strong>read-only</strong>. Older
+          drawings still show theirs on the drawing's panel, but it's no longer on
+          the add or edit form and isn't printed.
+        </P>
+        <P>
+          Every date in the drawing registers — including the change log's — can
+          be picked <strong>back to 1950</strong> from the year drop-down, so an
+          older drawing can be documented with its real dates. (Elsewhere in ARC
+          the year list covers the last thirty years.)
+        </P>
 
         <H3>Printing the Drawing Work Sheet</H3>
         <P>
@@ -4840,12 +4993,16 @@ const SECTIONS: ManualSection[] = [
           <em>Save as PDF</em>. It's laid out for 8.5 × 11 portrait.
         </P>
         <P>
-          It prints <strong>everything the register holds</strong>, including two
-          things the old form left off: the <strong>Entered By</strong> and{" "}
-          <strong>By</strong> initials, and the <strong>second half of the change
-          history</strong> (revisions 9–16). All sixteen slots are printed, in the
-          two columns the paper form uses, numbered so you can tell slot 4 from the
-          fourth line down on a drawing with gaps.
+          It prints the drawing's <strong>Sheet Date</strong> and{" "}
+          <strong>Drawing Completed</strong> date, and two things the old form
+          left off: the <strong>Entered By</strong> and <strong>By</strong>{" "}
+          initials, and the <strong>second half of the change history</strong>{" "}
+          (revisions 9–16). All sixteen slots are printed, in the two columns the
+          paper form uses — with <strong>no slot number</strong>, since it read
+          like the revision and isn't, and a narrow <strong>Date Changed</strong>{" "}
+          column that leaves the ECN # room. The <strong>Log Book Date</strong>{" "}
+          isn't printed; its line is left blank so the rest of the form stays
+          where it was.
         </P>
         <P>
           The rest of the form is <strong>deliberately blank</strong> — Prototype /

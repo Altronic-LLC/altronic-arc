@@ -33,6 +33,39 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
+    version: "0.176.1",
+    date: "2026-10-07",
+    changes: [
+      "CAD Drawings: 'Completed' is now 'Drawing Completed' and 'Date' is now 'Sheet Date', on screen and on the printed work sheet",
+      "A new CAD drawing's Sheet Date starts at today — change it if you need to",
+      "The Log Book Date is read-only — older drawings still show it, but it's no longer entered or printed",
+      "Drawing dates can be picked back to 1950, for documenting older drawings",
+      "The printed Drawing History no longer shows the slot number, and its Date column is narrower to leave room for the ECN #",
+      "The printed Drawing History keeps even spacing whether a drawing has one revision or sixteen",
+    ],
+  },
+  {
+    version: "0.176.0",
+    date: "2026-10-07",
+    changes: [
+      "Reports — fixed KPI dashboards built into ARC, available for testing. Not in the top nav yet",
+      "Six reports: Board Test & FPY, and a Defect Breakdown donut, for each of Teradyne, Digital QC and Ignition QC",
+      "Each FPY chart shows boards/units tested, boards/units failed (with the passed count inside the blue segment), and First Pass Yield, for the trailing 3 calendar months, always ending at the current month",
+      "Each Defect Breakdown shows the latest month's total tested and a breakdown by defect category, as its own report and its own card on the Reports page",
+      "Every report leads with this month's figure so far and a green or red arrow showing the change from last month: FPY on the trend charts, failure rate on the Defect Breakdowns. The arrow waits until enough has been tested this month to be meaningful",
+      "Every report refreshes itself automatically every couple of minutes, so a screen left open on a monitor stays current, and shows an \"Updated <time>\" note in the lower-right corner",
+      "A new Kiosk view cycles through all six reports automatically — a trend chart, then that source's Defect Breakdown, for each of Teradyne, Digital QC and Ignition QC — one minute each, with a fade between them, in a larger, chrome-less layout built for a spare monitor",
+    ],
+  },
+  {
+    version: "0.175.1",
+    date: "2026-10-07",
+    changes: [
+      "A new Operations task takes the number one past the highest already used in its project, so a number is never handed out twice — counting tasks used to slip backwards after a delete and repeat numbers such as Task 0000-11",
+      "If someone else numbers a task in the same project at the same moment, ARC refreshes the list and takes the next free number instead of failing",
+    ],
+  },
+  {
     version: "0.175.0",
     date: "2026-10-07",
     changes: [

@@ -199,7 +199,7 @@ describe("PrintDrawingSheetView — ruled lines only where they're needed", () =
     const row = await cadRow((v) => v.drawingNo === "501 505");
     await renderSheet(row.id);
 
-    for (const label of ["Date:", "Drawing Number:", "CAD Drawing Number:", "Drawing Title:"]) {
+    for (const label of ["Sheet Date:", "Drawing Number:", "CAD Drawing Number:", "Drawing Title:"]) {
       expect(valueOf(label).className).not.toMatch(/border-b/);
     }
   });
@@ -220,5 +220,80 @@ describe("PrintDrawingSheetView — ruled lines only where they're needed", () =
     ]) {
       expect(valueOf(label).className).toMatch(/border-b/);
     }
+  });
+});
+
+describe("PrintDrawingSheetView — BusinessIT#32 clean-up", () => {
+  it("labels the dates Sheet Date and Drawing Completed, as on screen", async () => {
+    const row = await cadRow((v) => v.drawingNo === "501 505");
+    await renderSheet(row.id);
+    expect(screen.getByText("Sheet Date:")).toBeInTheDocument();
+    expect(screen.getByText("Drawing Completed:")).toBeInTheDocument();
+    expect(screen.queryByText("Date:")).toBeNull();
+    expect(screen.queryByText("Date Completed:")).toBeNull();
+  });
+
+  it("no longer prints the Log Book date, but keeps its space", async () => {
+    // The fixture row HAS a historical log book date — it must still not print.
+    const row = await cadRow((v) => v.logBookDate instanceof Date);
+    const { container } = await renderSheet(row.id);
+    expect(screen.queryByText(/log book/i)).toBeNull();
+    expect(screen.queryByText(/Dec 29, 2025/)).toBeNull();
+    // A blank spacer holds the row so nothing below it moves on the paper form.
+    const spacer = container.querySelector('[data-testid="blank-row"]')!;
+    expect(spacer).not.toBeNull();
+    expect(spacer.nextElementSibling).toHaveTextContent("Drawing Completed:");
+  });
+
+  it("drops the slot-number column but keeps all sixteen rows", async () => {
+    const row = await cadRow((v) => v.cadNumber === "501505");
+    await renderSheet(row.id);
+    const tables = screen.getAllByRole("table");
+    expect(tables).toHaveLength(2);
+    for (const table of tables) {
+      const headers = within(table).getAllByRole("columnheader").map((h) => h.textContent);
+      expect(headers).toEqual(["Date Changed", "Rev #", "ECN #"]);
+      expect(within(table).getAllByRole("row")).toHaveLength(HISTORY_ROWS + 1);
+      // Three cells a row — no stray number cell.
+      for (const r of within(table).getAllByRole("row").slice(1)) {
+        expect(r.querySelectorAll("td")).toHaveLength(3);
+      }
+    }
+  });
+
+  // jsdom has no layout, so the spacing is pinned by what DRIVES it: a fixed
+  // table layout, one fixed row height, and empty cells that can't collapse.
+  it.each([
+    ["no revisions", "504535"],
+    ["two revisions", "501505"],
+    ["seven revisions", "582117"],
+    ["all sixteen", "310220"],
+  ])("spaces the history the same with %s", async (_label, cadNumber) => {
+    const row = await cadRow((v) => v.cadNumber === cadNumber);
+    const { container } = await renderSheet(row.id);
+    const rows = Array.from(container.querySelectorAll('[data-testid="history-row"]'));
+    expect(rows).toHaveLength(16);
+    for (const tr of rows) {
+      expect(tr.className.split(" ")).toContain("h-[0.24in]");
+      for (const td of Array.from(tr.querySelectorAll("td"))) {
+        // A plain space collapses and takes the row height with it.
+        expect(td.textContent).not.toBe("");
+        expect(td.textContent).not.toBe(" ");
+        expect(td.className.split(" ")).toContain("whitespace-nowrap");
+      }
+    }
+    for (const table of screen.getAllByRole("table")) {
+      expect(table.className.split(" ")).toContain("table-fixed");
+    }
+  });
+
+  it("gives Date Changed a fixed width so ECN # takes the rest", async () => {
+    const row = await cadRow((v) => v.cadNumber === "501505");
+    await renderSheet(row.id);
+    const [table] = screen.getAllByRole("table");
+    const date = within(table).getByRole("columnheader", { name: "Date Changed" });
+    const ecn = within(table).getByRole("columnheader", { name: "ECN #" });
+    expect(date.className).toMatch(/w-\[0\.85in\]/);
+    expect(ecn.className.split(" ").some((c) => c.startsWith("w-["))).toBe(false);
   });
 });
