@@ -166,6 +166,19 @@ const TeradyneRefListView = lazy(() =>
   })),
 );
 
+// Harness Production Log — Operations; replaced an Access database. Its part
+// numbers have their own admin-managed screen.
+const HarnessProductionLogView = lazy(() =>
+  import("@/views/HarnessProductionLogView").then((m) => ({
+    default: m.HarnessProductionLogView,
+  })),
+);
+const HarnessPartNumbersView = lazy(() =>
+  import("@/views/HarnessPartNumbersView").then((m) => ({
+    default: m.HarnessPartNumbersView,
+  })),
+);
+
 // Reports — fixed KPI dashboards (a step up from Power BI for the numbers
 // people want live inside ARC). Its own small bundle, not part of any one
 // department's.
@@ -832,6 +845,22 @@ export function App() {
               element={
                 <Suspense fallback={<LoadingTasks noun="the list" />}>
                   <TeradyneRefListView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/operations/harness-log"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the harness log" />}>
+                  <HarnessProductionLogView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/operations/harness-log/part-numbers"
+              element={
+                <Suspense fallback={<LoadingTasks noun="the part numbers" />}>
+                  <HarnessPartNumbersView />
                 </Suspense>
               }
             />

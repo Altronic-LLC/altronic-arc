@@ -93,7 +93,7 @@ const SYSTEM_TIERS: Tier[] = [
       },
       {
         label: "Operations department (lazy-loaded bundle)",
-        hint: "OperationsListView · OperationsKanbanView · OperationsDetailView · AdminOperationsProjectsView · TeradyneLogView · TeradyneRefListView — useOperationsTasks · useTeradyne — api/operationsTasks · operationsProjects · operationsEquipment · teradyneLog · teradyneRefs. Own site (PMO), own code-split chunk; no imports from the Engineering views/hooks above. The CMMS below is part of this same bundle.",
+        hint: "OperationsListView · OperationsKanbanView · OperationsDetailView · AdminOperationsProjectsView · TeradyneLogView · TeradyneRefListView · HarnessProductionLogView · HarnessPartNumbersView — useOperationsTasks · useTeradyne · useHarnessProductionLog — api/operationsTasks · operationsProjects · operationsEquipment · teradyneLog · teradyneRefs · harnessProductionLog · harnessPartNumbers. Own site (PMO), own code-split chunk; no imports from the Engineering views/hooks above. The CMMS below is part of this same bundle.",
         palette: "ui",
       },
       {
@@ -185,6 +185,8 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "Scheduled Maintenance", hint: "Altronic_PMO site — the recurring PM rules the calendar projects from. Fixed, Floating or Hourmeter basis, an interval + unit, grace and lead days. Hourmeter is due at a run-hours READING rather than a date (LastCompletedHours / NextDueHours, against the asset's CurrentMachineHours) and reaches the calendar only on the day the reading passes the target — grace and lead days are in DAYS and do not apply to it. No Communication column by design (a schedule is a rule; the conversation belongs on the work order it made) and no delete — a schedule is retired by clearing Active", palette: "list" },
       { label: "Teradyne Log", hint: "Altronic_PMO site — board test failures; Title is app-derived from Product + Defective Parts", palette: "list" },
       { label: "Teradyne Employees / Products / Remarks", hint: "Altronic_PMO site — the log's three lookup lists, editable in-app by any signed-in user", palette: "list" },
+      { label: "Harness Production Log", hint: "Altronic_PMO site — one row per harness built, imported from the old Access database; read a year at a time on the indexed ProductionDate", palette: "list" },
+      { label: "Harness Part Numbers", hint: "Altronic_PMO site — the log's PartNumber lookup; ARC admins add, rename and retire (no delete)", palette: "list" },
       { label: "Coil-PottingSampleLog", hint: "Altronic_PMO site — operator-entered potting samples (Date, Volume, Weight)", palette: "list" },
       { label: "Coil-PottingLimit", hint: "Altronic_PMO site — two rows (Lower/Upper Spec Limit), editable by any signed-in user", palette: "list" },
       { label: "Coil PSR Notification List", hint: "Altronic_PMO site — email list for out-of-limit alerts, editable by any signed-in user", palette: "list" },
@@ -985,6 +987,42 @@ export const SCHEMA_TABLES: SchemaTable[] = [
     ],
   },
 
+  // ---- Harness Production Log (Operations, Altronic_PMO site) -----------------
+  // Replaced an Access database. Built By / Visual Check are clock numbers or
+  // initials as typed (no Person FK), the same reasoning as Teradyne's own
+  // employee list — shop-floor people, not ARC sign-ins.
+  {
+    name: "HarnessLogEntry",
+    source: "Harness Production Log (Altronic_PMO site)",
+    palette: "entity",
+    group: "operations", width: 330,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title (derived)", type: "text", kind: "field" },
+      { name: "productionDate (indexed)", type: "date", kind: "field" },
+      { name: "workOrder", type: "text", kind: "field" },
+      { name: "part (PartNumber)", type: "int", kind: "fk", references: "HarnessPartNumber.id" },
+      { name: "quantity / reworkQuantity", type: "number", kind: "field" },
+      { name: "builtBy / visualCheck", type: "text", kind: "field" },
+      { name: "comments", type: "text", kind: "field" },
+      { name: "dataQualityNotes (import)", type: "text", kind: "field" },
+      { name: "legacySource (indexed)", type: "text", kind: "field" },
+    ],
+  },
+  {
+    name: "HarnessPartNumber",
+    source: "Harness Part Numbers (Altronic_PMO site)",
+    palette: "entity",
+    group: "operations", width: 270,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "title (Part Number)", type: "text", kind: "field" },
+      { name: "description", type: "text", kind: "field" },
+      { name: "active", type: "bool", kind: "field" },
+      { name: "note", type: "text", kind: "field" },
+    ],
+  },
+
   // ---- Coils — Potting Sample Log (Altronic_PMO site) — no FKs between them
   {
     name: "PottingSampleEntry",
@@ -1595,6 +1633,8 @@ export const CONNECTIONS: Connection[] = [
   { fromTable: "TeradyneLogEntry", fromColumn: "employee1", toTable: "TeradyneEmployee", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "TeradyneLogEntry", fromColumn: "employee2", toTable: "TeradyneEmployee", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "TeradyneLogEntry", fromColumn: "remark", toTable: "TeradyneRemark", toColumn: "id", fromCard: "many", toCard: "one" },
+  // Harness Production Log — one single lookup into the admin-managed part list.
+  { fromTable: "HarnessLogEntry", fromColumn: "part (PartNumber)", toTable: "HarnessPartNumber", toColumn: "id", fromCard: "many", toCard: "one" },
   // CSA Listings — certificates attach to the list item; no other relationships.
   { fromTable: "Attachment", fromColumn: "parentId", toTable: "CsaListing", toColumn: "id", fromCard: "many", toCard: "one" },
   // CRM tool — CustomerNote is the hub; the other three all point INTO it.

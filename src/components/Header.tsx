@@ -7,6 +7,7 @@ import {
   Calculator,
   CalendarDays,
   ChevronDown,
+  Cable,
   CircuitBoard,
   ClipboardCheck,
   ClipboardX,
@@ -199,6 +200,12 @@ const DEPARTMENTS: DepartmentGroup[] = [
         label: "Teradyne Log",
         icon: <CircuitBoard className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/operations/teradyne"),
+      },
+      {
+        to: "/operations/harness-log",
+        label: "Harness Production Log",
+        icon: <Cable className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/operations/harness-log"),
       },
       // CMMS. Four entries rather than one, because these are four different
       // jobs: raise/track a work order, see what's due, manage the recurring

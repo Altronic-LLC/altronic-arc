@@ -133,6 +133,35 @@ describe("every sortable list renders its sort buttons", () => {
   });
 });
 
+describe("the Harness Production Log", () => {
+  it("renders its sort buttons", async () => {
+    const { HarnessProductionLogView } = await import("./HarnessProductionLogView");
+    renderWithProviders(<HarnessProductionLogView />, { route: "/operations/harness-log" });
+    await waitForTable();
+    expect(screen.getByRole("button", { name: "Sort by Date" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sort by Part Number" })).toBeInTheDocument();
+  });
+
+  it("re-orders its rows by Work Order, then reverses", async () => {
+    const { HarnessProductionLogView } = await import("./HarnessProductionLogView");
+    renderWithProviders(<HarnessProductionLogView />, { route: "/operations/harness-log" });
+    await waitForTable();
+    const workOrders = () =>
+      within(screen.getByRole("table"))
+        .getAllByRole("row")
+        .slice(1)
+        .map((r) => r.querySelectorAll("td")[1]?.textContent?.trim() ?? "");
+
+    await sortBy("Work Order");
+    const ascending = workOrders();
+    expect(ascending.length).toBeGreaterThan(1);
+    expect(ascending).toEqual([...ascending].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })));
+
+    await sortBy("Work Order");
+    expect(workOrders()).toEqual([...ascending].reverse());
+  });
+});
+
 describe("the rows are actually re-ordered", () => {
   // Each case clicks a column and asserts the FIRST cell changed or the order
   // reversed. This is what catches a view whose <tbody> still maps the

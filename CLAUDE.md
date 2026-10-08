@@ -292,6 +292,8 @@ src/
 │   ├── maintenanceReferenceLists.ts  Maintenance Departments / Locations — 2 lists, one parametrised module, no delete
 │   ├── teradyneLog.ts            Teradyne Log CRUD, year-scoped (Operations, PMO site)
 │   ├── teradyneRefs.ts           Teradyne Employees/Products/Remarks (one parametrised module)
+│   ├── harnessProductionLog.ts   Harness Production Log CRUD, year-scoped (Operations, PMO site) — admin-gated delete
+│   ├── harnessPartNumbers.ts     Harness Part Numbers — the log's part lookup; add/rename/retire, NO delete
 │   ├── panelOrders.ts            Panel Orders CRUD (panelTeam site)
 │   ├── panelTasks.ts             Panel Tasks CRUD
 │   ├── panelProjects.ts          Panel Project Reference list
@@ -335,6 +337,7 @@ src/
 │   ├── componentDescriptionSeed.json  The old app's Description/Type options + SIL categories — seeds the list (script) and the mock
 │   ├── drawingLogMockData.ts     Sample drawings + sketches (incl. sparse & full change logs)
 │   ├── teradyneMockData.ts       Sample Teradyne log + reference rows
+│   ├── harnessMockData.ts        Sample harness log rows (this year + last) + part numbers, one retired
 │   ├── operationsMockData.ts     Sample Operations tasks + projects
 │   ├── maintenanceMockData.ts    Sample CMMS work orders, PM schedules, equipment + the two reference lists
 │   ├── panelMockData.ts          Sample panel orders + panel tasks
@@ -368,6 +371,7 @@ src/
 │   ├── useDatasheet.ts           A part's datasheet, by part number (file lookup, not the flag) + the gated upload
 │   ├── useDrawingLogs.ts         Drawing log queries + admin-guarded mutations
 │   ├── useTeradyne.ts            Teradyne log + ref-list queries/mutations (+ usage counts, monthly FPY)
+│   ├── useHarnessProductionLog.ts Harness log + part-number queries/mutations; delete and every part write are ARC-admin only
 │   ├── useOperationsTasks.ts     Operations task queries + mutations
 │   ├── useMaintenanceTasks.ts    CMMS work-order queries, mutations, comments + completion guard
 │   ├── useMaintenanceRoles.ts    Maintenance roles CRUD + useMyMaintenanceRoles() (CMMS gating)
@@ -542,6 +546,8 @@ src/
 │   ├── openOrdersExcel.ts        The ONLY file that knows an upload is xlsx
 │   ├── openOrdersWorkbook.ts     The master + per-customer workbook builders
 │   ├── teradyneMapper.ts         Graph item → Teradyne entities; derived titles
+│   ├── harnessLogMapper.ts       Graph item ⇄ harness log entry / part number; the derived Title
+│   ├── harnessLegacyClean.ts     Cleaning the Access export for the load (pure; run by scripts/clean-harness-production-log.mjs, not imported by the app)
 │   ├── teradyneFpy.ts            Teradyne's batch-total-vs-defect-row split + remark-based defect breakdown, on the shared monthlyYield engine
 │   ├── monthlyYield.ts           Shared Reports engine — MonthlyFpy/CategoryBreakdown types, trailingMonths, bucketMonthlyYield, monthlyQuantityYield, categoryBreakdown
 │   ├── monthTrend.ts             Reports' this-month-vs-last-month rule — rates not counts, good ≠ up, too-early threshold (pure)
@@ -656,6 +662,7 @@ src/
 │   ├── DrawingLogCreateModal.tsx Add a drawing to a register
 │   ├── DrawingLogFields.tsx      Descriptor-driven detail grid + form inputs
 │   ├── TeradyneLogFormModal.tsx  Create/edit a Teradyne log entry
+│   ├── HarnessLogFormModal.tsx   Create/edit a harness log entry — part picked from the list, never typed
 │   ├── MonthlyFpyChart.tsx       Hand-rolled SVG chart — stacked bar (passed/failed) + FPY% line, own vertical bands
 │   ├── DefectBreakdownDonut.tsx  Hand-rolled SVG donut — latest month's total tested + defect-category ring
 │   ├── ReportPageShell.tsx       Shared Reports page shell — header, one content card, "Updated <time>" note
@@ -725,6 +732,8 @@ src/
 │   ├── MaintenanceReferenceListsView.tsx  Departments & Locations for the CMMS — inside the module, gated by manageAssetsGate (not /admin)
 │   ├── TeradyneLogView.tsx       Teradyne Log table + "Manage lists" menu
 │   ├── TeradyneRefListView.tsx   Edit one Teradyne reference list (:kind)
+│   ├── HarnessProductionLogView.tsx  Harness Production Log — any year (or all), sortable, cards on a phone
+│   ├── HarnessPartNumbersView.tsx    Harness Part Numbers — readable by all, ARC admins add/rename/retire
 │   ├── ReportsView.tsx           Reports landing page — one card per registered dashboard, no Kiosk link (machine navigates to /reports/kiosk directly)
 │   ├── TeradyneFpyReportView.tsx Teradyne Board Test & FPY, trailing 3 months
 │   ├── TeradyneDefectBreakdownReportView.tsx  Teradyne Defect Breakdown — latest month's donut, grouped by remark
@@ -5229,6 +5238,91 @@ these lists don't have SharePoint referential integrity enabled. That guard also
 holds while the log query is still loading, when every row would otherwise look
 unused. `IDEmp` / `IDProd` / `IDRem` are legacy ids from the original import —
 read and preserved, never written.
+
+### Harness Production Log (Operations, PMO site)
+
+Two lists on `SITES.pmo`, replacing an **Access database on a production PC**
+(Tim, 2026-10-08). Both ids are **unset by default** —
+`VITE_SP_HARNESS_PRODUCTION_LOG_LIST_ID` / `VITE_SP_HARNESS_PART_NUMBERS_LIST_ID`,
+in `deploy.yml` — and an unset id shows a "not set up yet" notice
+(`HARNESS_CONFIGURED`). Nothing gates on them, so setting them locks nobody out.
+
+| List | Columns |
+|---|---|
+| Harness Production Log | `Title` (app-derived, "593027-15 / WO 1000209528"), `ProductionDate` (date-only, **indexed**), `WorkOrder`, `PartNumber` (**single lookup**), `Quantity`, `ReworkQuantity`, `Comments`, `BuiltBy`, `VisualCheck`, `DataQualityNotes`, `LegacySource` (**indexed**) |
+| Harness Part Numbers | `Title` (shown "Part Number", **indexed**), `Description`, `Active`, `Note` |
+
+**The pipeline is three scripts, run in order:**
+
+1. `node scripts/clean-harness-production-log.mjs "<export.csv>" [outDir] [today]`
+   — runs `src/lib/harnessLegacyClean.ts` (pure, tested) and writes the clean
+   log CSV, the part list CSV and a report BESIDE the input, never into the
+   repo, because it is production data.
+2. `scripts/create-harness-production-lists.ps1` — creates both lists,
+   indexes, and **writes and reads back every column** with a throwaway row.
+3. `scripts/load-harness-production-log.ps1 -CleanDir … -PartsListId …
+   -LogListId … [-Apply]` — **add-only**: parts matched on Title, log rows on
+   `LegacySource`; an existing row is never rewritten. The Access database
+   stays in use until cutover, so re-export, re-clean and re-run to top up.
+
+**The cleaning rule: fix what is unambiguous, FLAG the rest, never lose a
+value.** Every change lands in the row's `DataQualityNotes` with the original
+text. What the export held (22,184 rows, 2026-10-08):
+
+- **Dates were typed by hand** — M/D/YYYY, then M/D/YY from late 2021, M/D
+  with no year, and typos ("10/8/269", "2/202026"). Rows were appended in
+  order, so a date is judged against the MEDIAN of its ±10 believable
+  neighbours (`settleDates`): believed within 60 days; otherwise repaired
+  (same month/day in a neighbouring year, a month that lost a digit, day and
+  month swapped); a complete real date no repair explains is kept as typed;
+  only then is the previous row's date borrowed. ~2,450 rows carry a date note.
+- **Part numbers: 1,310 spellings for ~1,050 parts.** `mechanicalPart` fixes
+  case and stray punctuation; `WAUKESHA_TO_ALTRONIC` maps Waukesha numbers
+  (read off the rows' own comments) and `EXPLICIT_PART_FIXES` a handful of
+  typos. Then `decidePartSpellings`: a spelling used 3+ times and well-formed
+  is KNOWN; a rare one is matched by dash placement, a missing suffix with
+  exactly one known variant, or — **only if MALFORMED** — one edit from
+  exactly one spelling in the data that is known. A well-formed rare number
+  is left alone (it may be a real part), and a dashless 7-digit run is never
+  "fixed" by dropping a digit. 32 spellings stay flagged and retired.
+- **The first nine rows are a setup test** (clock "KN", part 999888), dropped
+  as everything before the first real ten-digit work order.
+- `LegacySource` is built from the row's RAW values plus a duplicate counter —
+  never its line number, since a re-export can come out in another order.
+- A part is **Active** on import if built in the last 24 months.
+
+Five things about the app side:
+
+- **Read one year at a time** (`listHarnessLog(scope)`), the Teradyne Log
+  arrangement exactly — bare DateTimeOffset literal first, quoted second,
+  whole-list fallback remembered for the session. ~22,000 rows at import.
+- **But every year is open to EVERYONE, plus All years** — unlike Teradyne's
+  admin-only year picker. The old database held the whole history and people
+  looked things up in it; hiding it would make ARC a step back from Access.
+- **`PartNumber` is a single lookup**: read `PartNumberLookupId`, joined to
+  the part list client-side; written as a bare integer. Pinned in real mode
+  by `api/harnessProductionLog.real.test.ts`.
+- **Who can do what** (Tim): anyone signed in adds and edits entries; **only
+  ARC admins delete** one, and **only ARC admins add, rename or retire** a part
+  number. Every admin write asks `useRequireHarnessAdmin` INSIDE its
+  `mutationFn`, which awaits the Admins list (`ensureQueryData`) rather than
+  trusting the render-time flag. Verified by removing the delete guard.
+- **No part-number delete.** Retire (`Active = false`) leaves the dropdown;
+  every entry using it keeps it (`harnessPartOptions` keeps the current value,
+  marked "(retired)"). A rename never re-sends `Active`, and a part number may
+  be on the list once (checked case-insensitively before every write).
+
+`DataQualityNotes` and `LegacySource` belong to the import: read, shown (the
+yellow **i** beside the part number, and in the edit form), never written by
+ARC. `Built By` / `Visual Check` stay free text with suggestions — they hold
+clock numbers AND initials ("342/208", "PJ"), so a closed list would refuse
+real values. Their SUGGESTIONS are the values used in the last 12 months
+(`listHarnessRecentCodes` → `useHarnessRecentCodes`, most-used first), read
+separately from the year on screen: this year alone is nearly empty in January,
+and "All years" is every leaver and typo since 2018. Nothing is stored — a new
+code typed today is a suggestion on the next load. The Built By FILTER on the
+log still offers the loaded entries' values, since it filters them. **`HARN1` appears in ~2,950 comments** and its meaning is
+unconfirmed; it is left as comment text rather than guessed into a field.
 
 ### Build Request Items — Assembly / Operations / Testing are MULTI-choice
 

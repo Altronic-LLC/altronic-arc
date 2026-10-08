@@ -37,6 +37,7 @@ import {
   SP_FAIT_LIST_ID,
   SP_FEATURE_REQUESTS_LIST_ID,
   SP_GRAY_MARKET_LIST_ID,
+  SP_HARNESS_PRODUCTION_LOG_LIST_ID,
   SP_LIST_ID,
   SP_MAINTENANCE_TASKS_LIST_ID,
   SP_MRB_LIST_ID,
@@ -201,6 +202,7 @@ export const APPS: AppSpec[] = [
   // Operations -----------------------------------------------------------
   { path: "/operations/tasks", label: "Operational Tasks", site: "pmo", lists: ids(SP_OPERATIONS_TASKS_LIST_ID) },
   { path: "/operations/teradyne", label: "Teradyne Log", site: "pmo", lists: ids(SP_TERADYNE_LOG_LIST_ID) },
+  { path: "/operations/harness-log", label: "Harness Production Log", site: "pmo", lists: ids(SP_HARNESS_PRODUCTION_LOG_LIST_ID) },
   { path: "/operations/maintenance/schedules", label: "Maintenance Schedules", site: "pmo", lists: ids(SP_SCHEDULED_MAINTENANCE_LIST_ID) },
   { path: "/operations/maintenance/assets", label: "Equipment Register", site: "pmo", lists: ids(SP_ALTRONIC_EQUIPMENT_LIST_ID) },
   { path: "/operations/maintenance", label: "Work Orders", site: "pmo", lists: ids(SP_MAINTENANCE_TASKS_LIST_ID) },
