@@ -452,6 +452,7 @@ src/
 │   ├── eirTriage.ts              Chasing a new EIR until it has a project + an engineer
 │   ├── eirStatusAlerts.ts        Response Accepted / Not Accepted work requests
 │   ├── eirProjectReference.ts    Who may change an EIR's Project Reference (hard-coded)
+│   ├── eirTaskReference.ts       EIR Task Reference → the task it names; never guesses between repeated T-numbers
 │   ├── recipientAudit.ts         Checks configured alert addresses against the directory
 │   ├── listWriteErrors.ts        A refused SharePoint write, in words
 │   ├── listAccess.ts             A refused Graph READ — which list/site, and the wording
@@ -1032,6 +1033,20 @@ DetailView flashed "Task not found" until the refetch eventually caught up.
 onSuccess comment); `usePromoteEirToTask` went through `createTask` directly
 rather than that hook and needed the identical `setQueryData` seeding.
 
+**Promoting copies EVERY EIR Project Reference onto the task's Related
+Projects** (Ray, 2026-10-08). The parent project is ONE pick (the EIR's first
+project by default), and EIR_2026-0270 — projects 321, 343 and 369 — became
+task 3344 with only 321: the other two were simply dropped, since nothing
+wrote the task's `ProjectReference` (Related Projects) column. Now
+`usePromoteEirToTask` calls `setRelatedProjects` with every EIR project after
+the create (merged with anything already there, de-duplicated, the parent
+included — "whatever project reference appears in the EIR"). It is its own
+write and best-effort, like the EIRReference/Communication follow-ups: the task
+already exists, so a refusal adds a warning naming the projects to add by
+hand. `PromoteEirModal` lists them as "Related projects" so it's visible
+before Create. Pinned in `useEirs.promote.test.tsx`, verified by removing the
+call.
+
 **Promoting also requires a parent project, same as New Task, for the same
 reason `computeNumberedTitle` needs one** (`T{n}-{project code}-{title}`, see
 `src/lib/taskNumbering.ts`): with no project, the code falls back to `"0000"`,
@@ -1042,6 +1057,35 @@ didn't, and a promotion without one produced exactly that — reported
 **Create task** (and validating in `handleConfirm`, belt-and-suspenders) until
 a project is chosen, mirroring `TaskFormModal`'s `required={mode === "create"}`
 treatment of the same field exactly.
+
+### An EIR's Task Reference: task numbers repeat across projects
+
+ARC's promotion writes the new task's FULL numbered title into the EIR's
+free-text `TaskReference` (`T188-321--CM4 BOM changes …`), and the EIR's
+Linked Task card shows the task that resolves to — through
+`lib/eirTaskReference.ts`, nowhere else.
+
+**`T{n}` is only unique WITHIN a project.** The number restarts in every
+project (see `taskNumbering.ts`), and live there were three T188s (0001, 321
+and 328). The card used to keep only the `T188` prefix and show the FIRST
+task starting `T188-`, so EIR_2026-0270, promoted correctly into task 3344,
+showed task 2142 — and five other promoted EIRs showed the wrong task the
+same way (reported 2026-10-08). Brandon then pasted `…/altronic-arc/task/3344`
+to fix it by hand, and THAT read as no link at all, because only Power Apps
+`ItemID=` links were understood. The rules now:
+
+- **A link** (Power Apps `ItemID=` or an ARC `/task/{id}` URL) names the id.
+- **A full numbered title matches EXACTLY**, case- and space-insensitive, and
+  never falls back to its `T{n}` prefix.
+- **A short `T{n}` or `T{n}-{project}` links only when exactly ONE task
+  carries it.** Several is ambiguous: the card links nothing and lists the
+  candidates; picking one saves that task's full numbered title.
+- Guessing is the bug. Don't reintroduce "first match wins" for tidiness.
+
+No SharePoint data needed changing: every affected EIR already stored the
+right full title. `EirDetailView.linkedTask.test.tsx` restores the sample
+EIR's reference in an `afterEach` — the mock EIR store is module state with
+no reset helper, so a test that saves a reference otherwise leaks it.
 
 ## Parent project resolution
 

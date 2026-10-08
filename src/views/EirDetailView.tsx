@@ -64,6 +64,7 @@ import {
 } from "@/lib/eirProjectReference";
 import { cn } from "@/lib/cn";
 import { AutoGrowTextarea } from "@/components/AutoGrowTextarea";
+import { matchEirTaskReference, taskIdFromLink } from "@/lib/eirTaskReference";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import {
   isEmptyRichText,
@@ -109,47 +110,21 @@ export function EirDetailView() {
   const addComment = useAddEirComment();
   const editComment = useEditEirComment();
 
-  // Match the EIR's Task Reference to a real task. The field can hold any
-  // of three shapes — depending on whether the EIR was promoted via the
-  // original Power Apps form, by hand, or via this app:
-  //
-  //   1. A Power Apps deep link, e.g.
-  //      `https://apps.powerapps.com/.../?...&ItemID=2755`
-  //      The `ItemID=` query param IS the SharePoint list-item id (== task.id).
-  //   2. A task number prefix like `T115` or `T115-PROJ-Title`. Matched
-  //      against task.numberedTitle.
-  //   3. A bare SharePoint item id like `2755`. Matched against task.id.
-  //
-  // We try them in that order so a URL doesn't get accidentally parsed as
-  // a bare id from a substring.
-  const linkedTask = useMemo(() => {
-    const raw = eir?.taskReference?.trim();
-    if (!raw) return null;
-    const fromUrl = extractItemIdFromUrl(raw);
-    if (fromUrl != null) {
-      const byId = tasks.find((t) => t.id === fromUrl);
-      if (byId) return byId;
-    }
-    const prefix = (/^T\d+/i.exec(raw)?.[0] ?? "").toUpperCase();
-    if (prefix) {
-      const byNumber = tasks.find((t) =>
-        t.numberedTitle?.toUpperCase().startsWith(prefix + "-") ||
-        t.numberedTitle?.toUpperCase() === prefix,
-      );
-      if (byNumber) return byNumber;
-    }
-    const asId = parseInt(raw.replace(/^T/i, ""), 10);
-    if (!Number.isNaN(asId)) {
-      const byId = tasks.find((t) => t.id === asId);
-      if (byId) return byId;
-    }
-    return null;
-  }, [eir?.taskReference, tasks]);
+  // Match the EIR's Task Reference to a real task — see lib/eirTaskReference.ts.
+  // A task number is only unique WITHIN a project (there are three T188s), so a
+  // reference that fits several tasks links to none of them and offers them
+  // instead. Guessing the first one is what linked EIR_2026-0270 to the wrong
+  // task.
+  const taskMatch = useMemo(
+    () => matchEirTaskReference(eir?.taskReference, tasks),
+    [eir?.taskReference, tasks],
+  );
+  const linkedTask = taskMatch.task;
 
   // True when the stored value is a Power Apps URL (vs a typed "T115").
   // Drives the UI swap below: instead of showing a hideous URL in a text
   // input, we render the linked task as a chip.
-  const taskRefIsUrl = !!eir && extractItemIdFromUrl(eir.taskReference) != null;
+  const taskRefIsUrl = !!eir && taskIdFromLink(eir.taskReference) != null;
 
   // People directory — collected across tasks + EIRs to give the pickers
   // a useful starting set even before the EIR list itself has watchers.
@@ -427,6 +402,7 @@ export function EirDetailView() {
             linkedTask={linkedTask}
             rawReference={eir.taskReference}
             referenceIsUrl={taskRefIsUrl}
+            ambiguous={taskMatch.ambiguous}
             onSaveReference={(v) =>
               updateFields.mutate({ id: eir.id, fields: { TaskReference: v } })
             }
@@ -890,14 +866,6 @@ function EditableTextCard({
  * param is the underlying SP list-item id (== `task.id` in this app).
  * Returns null if `raw` isn't a Power Apps URL with an ItemID.
  */
-function extractItemIdFromUrl(raw: string): number | null {
-  if (!raw || !/^https?:\/\//i.test(raw)) return null;
-  const match = /[?&]ItemID=(\d+)/i.exec(raw);
-  if (!match) return null;
-  const n = parseInt(match[1], 10);
-  return Number.isNaN(n) || n <= 0 ? null : n;
-}
-
 /**
  * Linked-Task card — main-column section that mirrors the "Child tasks"
  * card on the task detail view. One row per linked task (just one for
@@ -914,11 +882,14 @@ function LinkedTaskCard({
   linkedTask,
   rawReference,
   referenceIsUrl,
+  ambiguous,
   onSaveReference,
 }: {
   linkedTask: import("@/types/task").Task | null;
   rawReference: string;
   referenceIsUrl: boolean;
+  /** Tasks the reference fits equally — offered, never guessed between. */
+  ambiguous: import("@/types/task").Task[];
   onSaveReference: (next: string) => void;
 }) {
   const navigate = useNavigate();
@@ -991,6 +962,26 @@ function LinkedTaskCard({
             {linkedTask.status}
           </span>
         </button>
+      ) : ambiguous.length > 0 ? (
+        <div className="rounded-md border border-dashed border-border px-3 py-2 text-xs text-fg-muted">
+          <p>
+            <code className="break-all">{rawReference}</code> matches {ambiguous.length} tasks —
+            task numbers repeat across projects. Pick the right one:
+          </p>
+          <ul className="mt-2 flex flex-col gap-1">
+            {ambiguous.map((t) => (
+              <li key={t.id}>
+                <button
+                  type="button"
+                  onClick={() => onSaveReference(t.numberedTitle)}
+                  className="w-full truncate rounded-md border border-border bg-surface px-2 py-1 text-left text-xs text-fg hover:bg-surface-2"
+                >
+                  {t.numberedTitle}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
       ) : hasReference ? (
         <div className="rounded-md border border-dashed border-border px-3 py-2 text-xs text-fg-muted">
           Reference is set but the linked task hasn't loaded yet (or it lives outside
