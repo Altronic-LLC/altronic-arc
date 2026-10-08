@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { History, Pencil, Plus, Printer, Trash2, X } from "lucide-react";
 import { DRAWING_LOGS } from "@/api/drawingLogs";
-import { writableFields } from "@/lib/drawingLogFields";
+import { DRAWING_LOG_EARLIEST_YEAR, writableFields } from "@/lib/drawingLogFields";
 import {
   useAppendDrawingChange,
   useDeleteDrawingLogEntry,
@@ -400,6 +400,7 @@ function EditChangeRow({
           value={date}
           onChange={setDate}
           aria-label="Change date"
+          earliestYear={DRAWING_LOG_EARLIEST_YEAR}
           className="py-1"
         />
       </ChTd>
@@ -478,6 +479,7 @@ function AddChangeForm({
             value={date}
             onChange={setDate}
             aria-label="Date"
+            earliestYear={DRAWING_LOG_EARLIEST_YEAR}
           />
         </Labelled>
         <Labelled label="ECN">

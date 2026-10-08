@@ -1149,6 +1149,36 @@ the tab.
 (Ray, 2026-07-30) while still showing on the detail panel, since existing rows
 carry values.
 
+**The CAD clean-up — BusinessIT#32 (Ray/John, 2026-10-07).** John, who keeps the
+CAD register, asked for four things, all done in the DESCRIPTORS so no screen
+special-cases CAD:
+
+- **Labels, not columns.** `DateCompleted` reads **"Drawing Completed"** and
+  `DrawingDATE` reads **"Sheet Date"**, on screen and on the work sheet (which
+  reads its labels from the descriptors via `cadLabel`, so the two can't drift).
+  The SharePoint columns are NOT renamed.
+- **Sheet Date defaults to today on the ADD form only** — a `defaultToday: true`
+  descriptor flag, applied by `emptyDraft` (`components/DrawingLogFields.tsx`).
+  An edit starts from `draftFromEntry`, so a stored date is never replaced by
+  today's. Still editable. The create form doesn't use `useFormDraft`, so there
+  is no restored-draft case to arbitrate.
+- **`LogBookDate` is `readOnly`**, the `NewDrawing` treatment: out of the add/edit
+  forms and the write payload (`writableFields`), still selected, mapped and
+  shown on the detail panel, so historical values stay visible.
+- **Every date in the register reaches back to 1950** —
+  `DRAWING_LOG_EARLIEST_YEAR`, passed as `earliestYear` to every `DateField` in
+  the drawing register (the add/edit form fields and both change-log pickers in
+  `DrawingLogDetailModal`). The default 30-year window is why the change-log
+  year list "started at '96", and this register documents drawings far older
+  than that. It is PER-REGISTER, not a new global default: everywhere else in
+  ARC a date is recent, and a 75-year dropdown there is a scroll rather than a
+  choice — the very thing the dropdown was added to end.
+
+The add/edit form's date fields were a bare `<input type="date">` until this
+change — the pattern "Dates: always DateField" bans. They are `DateField`s now,
+wrapped in a `<div>` rather than a `<label>` (a label around a calendar panel
+full of buttons would re-click the trigger).
+
 **Change-log entries are editable in place** (`updateDrawingChange` →
 `buildChangeUpdateFields`). Unlike appending, that writes ONLY the slot's three
 columns — correcting a 1994 typo must not make 1994 the drawing's latest
@@ -1160,10 +1190,31 @@ the only way to undo a mistaken change on a fixed sixteen-slot log.
 marked-up FORM #E006 REV. 7 (2026-07-30). Two rules come from that markup and
 should survive future edits:
 
-- **It prints everything the register holds.** The form Hoerbiger generates omits
+- **It prints what the register is used for.** The form Hoerbiger generates omits
   the `By` / `EnteredBy` initials and change slots 9–16 — both annotated "in DB
   but doesn't print". So the sheet renders all 16 slots (padded, not filtered:
-  it's a fixed grid of ruled lines) and every CAD field including read-only ones.
+  it's a fixed grid of ruled lines) and the CAD fields, read-only ones included
+  — with two deliberate exceptions from BusinessIT#32 (Ray/John, 2026-10-07):
+  - **The Log Book Date is NOT printed.** It is read-only now, and its row is a
+    blank spacer (`BlankRow`) of the same height, so nothing below it moves on
+    the reproduced form. Don't "tidy" the spacer away.
+  - **The history tables have no slot-number column.** It confused people
+    because the slot doesn't match the revision. Rows are still padded to all
+    16 slots — only the number column went. **Date Changed is a fixed 0.85in**
+    and **ECN # takes the remaining width**, the other way round from before,
+    since a date is short and ECN numbers run long.
+  - **The history spaces the same with 0 revisions or 16** (Ray, 2026-10-07).
+    Three things hold it, all in `HistoryColumn` / `HistoryCell`, and all
+    pinned in `PrintDrawingSheetView.test.tsx` for 0, 2, 7 and 16 revisions:
+    `table-fixed` (columns no longer resize to whatever text a short log
+    holds), a fixed row height (`h-[0.24in]`), and an empty cell that holds a
+    NON-BREAKING space written as `" "`. Empty cells used to hold a plain
+    space, which the browser collapses, so a short log printed as a squashed
+    stack of border lines. Long text is clipped (`whitespace-nowrap`), never
+    wrapped, since a wrap makes one row taller than the rest. Assert class
+    tokens with `.split(" ")`, not a regex: a `\b` typed through a script came
+    out as a literal backspace byte, which made a `not.toMatch` assertion
+    impossible to fail.
 - **Half of it is deliberately blank.** Prototype / Preliminary / Production, the
   checked-approved / entered-in-system / to-mylar dates, and the whole Print
   Distribution block have no SharePoint columns behind them and are filled in by
@@ -6081,6 +6132,15 @@ away. Three rules on the year list (`buildYearOptions`, exported and tested):
 - **The selects carry `bg-surface`, never `bg-transparent`.** A native
   `<select>`'s dropdown list inherits the CONTROL's background, so a
   transparent one draws its options over whatever sits behind the panel.
+
+**`earliestYear` widens the window for one field** (BusinessIT#32,
+2026-10-07). Optional; unset keeps the default `YEARS_BACK` window, so every
+screen that doesn't pass it is unchanged. It only ever WIDENS (an
+`earliestYear` inside the window changes nothing) and is clamped to
+`MIN_YEAR`. The Drawing File Logs pass `DRAWING_LOG_EARLIEST_YEAR` (1950);
+reach for it when a register genuinely documents old records, not as a
+blanket default. `buildYearOptions` takes `{ currentYear, earliestYear }` or a
+bare year for this.
 
 Changing the year keeps the month (and vice versa) — one picker moving the
 other is disorienting, and both are one click away anyway. The arrows stay for
