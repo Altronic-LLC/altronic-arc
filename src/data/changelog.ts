@@ -23,6 +23,9 @@ export const CHANGELOG: ChangelogEntry[] = [
     version: "0.178.1",
     date: "2026-10-08",
     changes: [
+      "An EIR promoted to a task now shows the right linked task — it could show a different task with the same T-number from another project",
+      "An EIR's Linked Task also recognises a pasted ARC task link",
+      "When a Task Reference fits several tasks, the EIR lists them so you can pick the right one, instead of guessing",
       "Promoting an EIR to a task now copies every Project Reference on the EIR onto the task's Related Projects — before, an EIR with several projects passed on only the one chosen as Parent Project",
     ],
   },
