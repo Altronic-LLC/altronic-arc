@@ -174,6 +174,16 @@ export function PromoteEirModal({ eir, onClose }: { eir: Eir; onClose: () => voi
                 eir.watchers.length
               } watcher${eir.watchers.length === 1 ? "" : "s"}`}
             />
+            {/* Every EIR project goes onto the task's Related Projects — the
+                parent project below is only one of them. */}
+            <Row
+              label="Related projects"
+              value={
+                eir.parentProjects.length > 0
+                  ? eir.parentProjects.map((p) => p.title || `#${p.lookupId}`).join(", ")
+                  : "None on this EIR"
+              }
+            />
           </div>
 
           <label className="flex flex-col gap-1.5">

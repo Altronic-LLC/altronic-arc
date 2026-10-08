@@ -20,6 +20,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.178.1",
+    date: "2026-10-08",
+    changes: [
+      "Promoting an EIR to a task now copies every Project Reference on the EIR onto the task's Related Projects — before, an EIR with several projects passed on only the one chosen as Parent Project",
+    ],
+  },
+  {
     version: "0.178.0",
     date: "2026-10-08",
     changes: [

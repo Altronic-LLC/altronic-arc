@@ -10,7 +10,7 @@ import {
   updateEirFields,
   type CreateEirInput,
 } from "@/api/eirs";
-import { createTask, TaskFollowUpWriteError } from "@/api/tasks";
+import { createTask, setRelatedProjects, TaskFollowUpWriteError } from "@/api/tasks";
 import { copyAttachments } from "@/api/attachments";
 import type {
   Eir,
@@ -222,6 +222,11 @@ export interface PromoteEirResult {
   followUpWarning: string | null;
 }
 
+/** Two lists of lookup ids as one, de-duplicated, order kept. */
+function mergeProjectIds(existing: number[], added: number[]): number[] {
+  return [...new Set([...existing, ...added])];
+}
+
 export function usePromoteEirToTask() {
   const qc = useQueryClient();
   return useMutation<PromoteEirResult, unknown, PromoteEirInput>({
@@ -273,6 +278,29 @@ export function usePromoteEirToTask() {
           warnings.push(`${missing} couldn't be saved — ${fix}`);
         } else {
           throw err;
+        }
+      }
+      // Every Project Reference on the EIR goes onto the task's Related
+      // Projects (Ray, 2026-10-08). The parent project is ONE pick — the first
+      // EIR project by default — so an EIR covering several projects (EIR_2026-
+      // 0270 had 321, 343 and 369) lost all but one. Its own write after the
+      // create, best-effort like the follow-ups above: the task exists either
+      // way, so a refusal is a warning naming what to add, never a failed
+      // promotion.
+      const eirProjects = eir.parentProjects.filter((p) => p.lookupId > 0);
+      if (eirProjects.length > 0) {
+        try {
+          task = await setRelatedProjects(
+            task.id,
+            mergeProjectIds((task.relatedProjects ?? []).map((r) => r.lookupId), eirProjects.map((p) => p.lookupId)),
+          );
+        } catch (err) {
+          console.error(`usePromoteEirToTask: related projects failed for EIR ${eir.id}`, err);
+          warnings.push(
+            `the EIR's project references couldn't be added — add ${eirProjects
+              .map((p) => p.title || `#${p.lookupId}`)
+              .join(", ")} under Related Projects by hand`,
+          );
         }
       }
       // Files live in TWO separate SP REST attachment stores (the EIR's and

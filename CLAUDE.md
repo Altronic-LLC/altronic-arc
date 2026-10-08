@@ -1032,6 +1032,20 @@ DetailView flashed "Task not found" until the refetch eventually caught up.
 onSuccess comment); `usePromoteEirToTask` went through `createTask` directly
 rather than that hook and needed the identical `setQueryData` seeding.
 
+**Promoting copies EVERY EIR Project Reference onto the task's Related
+Projects** (Ray, 2026-10-08). The parent project is ONE pick (the EIR's first
+project by default), and EIR_2026-0270 — projects 321, 343 and 369 — became
+task 3344 with only 321: the other two were simply dropped, since nothing
+wrote the task's `ProjectReference` (Related Projects) column. Now
+`usePromoteEirToTask` calls `setRelatedProjects` with every EIR project after
+the create (merged with anything already there, de-duplicated, the parent
+included — "whatever project reference appears in the EIR"). It is its own
+write and best-effort, like the EIRReference/Communication follow-ups: the task
+already exists, so a refusal adds a warning naming the projects to add by
+hand. `PromoteEirModal` lists them as "Related projects" so it's visible
+before Create. Pinned in `useEirs.promote.test.tsx`, verified by removing the
+call.
+
 **Promoting also requires a parent project, same as New Task, for the same
 reason `computeNumberedTitle` needs one** (`T{n}-{project code}-{title}`, see
 `src/lib/taskNumbering.ts`): with no project, the code falls back to `"0000"`,
