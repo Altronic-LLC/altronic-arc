@@ -598,7 +598,11 @@ src/
 │   ├── PanelTaskRow.tsx          One panel task row
 │   ├── BuildRequestRow.tsx       One build request row
 │   ├── BuildRequestItemCard.tsx  One part on a build request
-│   ├── BuildRequestWorkflowDiagram.tsx  The build request process as a step diagram (User Manual) — steps are DATA, reuses the real status badges
+│   ├── WorkflowDiagram.tsx       The User Manual's shared workflow diagram — numbered steps, gates, branches/loops, tracks; each department passes DATA + its own status badge
+│   ├── BuildRequestWorkflowDiagram.tsx  The build request process (User Manual), on WorkflowDiagram
+│   ├── FaitWorkflowDiagram.tsx   The FAIT SQE → ENG → KAM sign-off chain (User Manual), names read from the alert config
+│   ├── EirWorkflowDiagram.tsx    The EIR triage → response → accept/reject loop (User Manual), names read from the alert config
+│   ├── PartsApprovalWorkflowDiagram.tsx  Both Parts List approval paths (User Manual), roles not names
 │   ├── EirRow.tsx                One EIR row (EIRs list)
 │   ├── EirKanbanCard.tsx         One EIR card (EIRs board)
 │   ├── TaskFormModal.tsx         Create/edit task
@@ -9282,6 +9286,15 @@ goes stale fast if we don't maintain it deliberately.
 - Add/remove a keyboard shortcut.
 - Change a notification path (email recipients, who gets pinged, etc.).
 - Modify the filter / search semantics.
+- **Change a workflow that has a diagram** — Build Requests, FAITs, EIRs and
+  the Parts List approvals each have one (`*WorkflowDiagram.tsx`, on the
+  shared `WorkflowDiagram`). The steps are hand-written DATA beside the rules
+  they describe, so a new step, status, gate or email recipient means editing
+  that array. Each diagram's test checks its statuses against the real
+  constants and, where it can, its order against the real rule
+  (`nextSignOff`, the FAIT status constants), so drift fails a test. Named
+  queues are read from the same config the emails use — don't type a name in
+  that config already holds.
 
 Sections in the manual are organised by user task — drop additions into
 the right section rather than starting new ones. Keep section ids stable

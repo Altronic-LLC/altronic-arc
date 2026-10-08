@@ -30,6 +30,10 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Fixed two relationship lines (ECN Checklist to ECN, and Panel QC Issue to its defect category) that pointed at the wrong row",
       "The User Manual's Build Requests section now opens with a workflow diagram: each step from raising a request to closing it, who takes it, the status it lands in, and who is emailed",
       "The diagram also shows the order a part's own status moves through, and the statuses a request can be set to at any time",
+      "The User Manual's FAITs section now has a workflow diagram of the SQE, Engineering and KAM sign-off chain, including a failed SQE sign-off going back to the initiator and closing with Notify Initiator",
+      "The User Manual's EIRs section now has a workflow diagram: raising, adding the project, assigning an engineer, the response, and accepting it or sending it back",
+      "The User Manual's Parts List section now has a workflow diagram of both approval paths, for a new component and a new Part List part",
+      "The FAITs section of the manual now explains that a KAM sign-off is only owed when OEM Impact is Yes, and that Notify Initiator closes the FAIT once every sign-off is approved",
     ],
   },
   {
