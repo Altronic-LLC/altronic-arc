@@ -106,6 +106,11 @@ jobs:
           # these still points at the live lists; set them only to override.
           VITE_SP_MAINTENANCE_DEPARTMENTS_LIST_ID: ${{ vars.VITE_SP_MAINTENANCE_DEPARTMENTS_LIST_ID }}
           VITE_SP_MAINTENANCE_LOCATIONS_LIST_ID: ${{ vars.VITE_SP_MAINTENANCE_LOCATIONS_LIST_ID }}
+          # Harness Production Log + Harness Part Numbers (Operations, PMO).
+          # No defaults in config.ts — the screen says "not set up yet" until
+          # scripts/create-harness-production-lists.ps1 has run and these are set.
+          VITE_SP_HARNESS_PRODUCTION_LOG_LIST_ID: ${{ vars.VITE_SP_HARNESS_PRODUCTION_LOG_LIST_ID }}
+          VITE_SP_HARNESS_PART_NUMBERS_LIST_ID: ${{ vars.VITE_SP_HARNESS_PART_NUMBERS_LIST_ID }}
           # Maintenance Roles (Admin -> Maintenance Roles). No default in
           # config.ts — setting this switches CMMS role gating ON, so populate
           # the list first. Until it is set, everyone signed in keeps the

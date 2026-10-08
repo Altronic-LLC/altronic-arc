@@ -20,6 +20,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.178.0",
+    date: "2026-10-08",
+    changes: [
+      "New Harness Production Log under Operations, replacing the Access database on the production PC: log each harness built with its work order, part number, quantity, rework, who built it and who did the visual check",
+      "Part numbers are picked from a dropdown instead of typed, so the same part is always spelled the same way",
+      "A new Harness Part Numbers list behind that dropdown — anyone can see it, and ARC admins can add, rename or retire part numbers (a retired part stays on old entries but is no longer offered)",
+      "Every year back to 2018 can be viewed, plus All years, with filters for part number and builder, a search box, sortable columns, and quantity and rework totals",
+      "Built By and Visual Check suggest the clock numbers and initials used in the last 12 months, most-used first, and still accept a new one",
+      "Anyone signed in can add and correct entries; only ARC admins can delete one",
+      "Entries carried over from the old database show what was tidied on import (a part number's spelling, an unreadable date) next to the part number",
+    ],
+  },
+  {
     version: "0.177.0",
     date: "2026-10-07",
     changes: [

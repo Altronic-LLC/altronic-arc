@@ -1527,6 +1527,65 @@ export interface TeradyneLogInput {
   operatorNotes: string;
 }
 
+// =============================================================================
+// Harness Production Log — Operations, on the PMO site. Replaces an Access
+// database on a production PC. Two lists: the log itself and "Harness Part
+// Numbers", the admin-managed list its PartNumber single lookup points at.
+// Same two traps as Teradyne: the lookup arrives as a bare `PartNumberLookupId`
+// (joined to a title client-side) and the log's `Title` is app-derived.
+// =============================================================================
+
+/** One row of "Harness Part Numbers". Never deleted — retired via `active`. */
+export interface HarnessPartNumber {
+  lookupId: number;
+  /** The part number itself (the list's Title, shown as "Part Number"). */
+  title: string;
+  description: string;
+  active: boolean;
+  note: string;
+}
+
+export interface HarnessPartNumberInput {
+  title: string;
+  description?: string;
+  active?: boolean;
+  note?: string;
+}
+
+/** One row of the Harness Production Log, with its part lookup resolved. */
+export interface HarnessLogEntry {
+  id: number;
+  /** App-derived: "{Part} / WO {Work Order}". Not user-editable. */
+  title: string;
+  productionDate: Date | null;
+  workOrder: string;
+  /** null when no part was recorded; "(missing #n)" when the part row is gone. */
+  part: TeradyneRef | null;
+  quantity: number | null;
+  reworkQuantity: number | null;
+  comments: string;
+  /** Clock number(s) or initials of whoever built it ("342", "342/208", "PJ"). */
+  builtBy: string;
+  /** Clock number(s) or initials of whoever did the visual check. */
+  visualCheck: string;
+  /** What the Access import changed on this row. Read-only; blank for ARC rows. */
+  dataQualityNotes: string;
+  createdAt: Date;
+  modifiedAt: Date;
+}
+
+/** Everything a create/update of a log entry needs. `title` is computed. */
+export interface HarnessLogInput {
+  productionDate: Date | null;
+  workOrder: string;
+  partLookupId: number | null;
+  quantity: number | null;
+  reworkQuantity: number | null;
+  comments: string;
+  builtBy: string;
+  visualCheck: string;
+}
+
 /** Row in "Teradyne Employees". Title is derived from first + last name. */
 export interface TeradyneEmployee {
   lookupId: number;

@@ -2290,6 +2290,113 @@ const SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: "harness-production-log",
+    title: "Harness Production Log",
+    group: "Operations",
+    keywords: [
+      "harness",
+      "harness production",
+      "harness log",
+      "harness production report",
+      "access database",
+      "wire harness",
+      "work order",
+      "wo number",
+      "part number",
+      "harness part numbers",
+      "add part number",
+      "retire part number",
+      "rework",
+      "rework qty",
+      "built by",
+      "clock number",
+      "visual check",
+      "all years",
+      "imported",
+      "data quality",
+    ],
+    searchText:
+      "The Harness Production Log replaces the Access database that ran on the production PC. Each row is one harness build: production date, work order, part number, quantity, rework quantity, who built it (clock number or initials), who did the visual check, and comments. Reach it from the Harness Production Log card on the Dashboard or the Departments menu under Operations. Click New entry; the date defaults to today, and Production Date, Part Number and Qty are required. The part number is picked from a dropdown, never typed, so the same part is always spelled the same way. If a part number is missing, an ARC admin adds it on the Part numbers screen; anyone else asks an admin. Built By and Visual Check suggest the clock numbers and initials used in the last 12 months, most-used first, whichever year you are viewing, but accept anything; a new one typed today is suggested from then on. Rework can't be more than the quantity. The log opens on the current year; the Year picker goes back to 2018 and has All years, for anyone. Filter by part number and by builder, or search work order, part, comments and import notes; filters live in the URL. Columns sort and filter from their headers. The totals line adds up the quantity built and reworked for everything matching. The table shows 200 rows with Show all. On a phone the log is cards. Anyone signed in can add and correct entries; only ARC admins can delete one. Rows imported from Access may show a small yellow i next to the part number: hover it, or open the row, to see what was tidied on import, such as a part number's spelling or a date that couldn't be read. The Harness Part Numbers screen lists every part number with how many entries use it. Anyone can see it; ARC admins can add, rename or retire a part number. There's no delete: retiring takes a part out of the New entry dropdown while every entry already using it keeps it, and it can be restored. Renaming changes what every entry using that part shows, so use it to fix a typo, not to turn it into a different part.",
+    render: () => (
+      <>
+        <P>
+          <strong>Harness Production Log</strong> replaces the Access database
+          that ran on the production PC. Each row is one harness build. Reach it
+          from the <strong>Harness Production Log</strong> card on the Dashboard,
+          or the <strong>Departments</strong> menu's Operations group.
+        </P>
+        <H3>Adding an entry</H3>
+        <P>
+          Click <strong>New entry</strong>. The date defaults to today.{" "}
+          <strong>Production Date</strong>, <strong>Part Number</strong> and{" "}
+          <strong>Qty</strong> are required.
+        </P>
+        <UL>
+          <LI>
+            <strong>The part number is picked, never typed</strong>, so the same
+            part is always spelled the same way. If it isn't in the list, an ARC
+            admin adds it on the <strong>Part numbers</strong> screen; anyone
+            else asks an admin.
+          </LI>
+          <LI>
+            <strong>Built By</strong> and <strong>Visual Check</strong> take a
+            clock number or initials. They suggest the values used in the last
+            12 months, most-used first, whichever year you're viewing, but
+            accept anything, including two people ("342/208"). A new one you
+            type is suggested to everyone from then on.
+          </LI>
+          <LI>Rework can't be more than the quantity built.</LI>
+        </UL>
+        <H3>Finding entries</H3>
+        <P>
+          The log opens on the <strong>current year</strong>. The{" "}
+          <strong>Year</strong> picker goes back to 2018 and has{" "}
+          <strong>All years</strong>, for everyone. Filter by part number and by
+          builder, or search work orders, part numbers, comments and import
+          notes. Every filter lives in the URL, so a link shows exactly what
+          you're looking at. Click a column heading to sort it or filter it by
+          value. The line above the table totals the quantity built and
+          reworked for everything matching, not just the 200 rows shown before{" "}
+          <strong>Show all</strong>. On a phone the log is a list of cards; tap
+          one to edit it.
+        </P>
+        <H3>Entries from the old database</H3>
+        <P>
+          Rows brought over from Access were tidied on the way in. Where
+          something was changed, such as a part number's spelling, a Waukesha
+          number swapped for ours, or a date that couldn't be read, a small
+          yellow <strong>i</strong> sits next to the part number. Hover it, or
+          open the row, to see what was changed and what was originally typed.
+        </P>
+        <H3>Editing and deleting</H3>
+        <P>
+          <strong>Anyone can add an entry and correct one</strong>: hover a row
+          for the pencil. Only <strong>ARC admins can delete</strong>, because an
+          edit leaves a corrected record and a delete leaves nothing.
+        </P>
+        <H3>Harness Part Numbers</H3>
+        <P>
+          The <strong>Part numbers</strong> button opens the list behind the
+          dropdown, with how many entries use each part. Anyone can see it;{" "}
+          <strong>ARC admins</strong> can add, rename or retire a part number.
+        </P>
+        <UL>
+          <LI>
+            <strong>There's no delete.</strong> <strong>Retire</strong> takes a
+            part out of the New entry dropdown, and every entry already using it
+            keeps it. Tick <em>Show retired</em> to see retired parts and restore
+            one.
+          </LI>
+          <LI>
+            <strong>Renaming</strong> changes what every entry using that part
+            shows. Use it to fix a typo, not to turn one part into another.
+          </LI>
+          <LI>A part number can only be on the list once.</LI>
+        </UL>
+      </>
+    ),
+  },
+  {
     id: "reports",
     title: "Reports",
     group: "Reports",

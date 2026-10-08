@@ -804,6 +804,25 @@ export const SP_TERADYNE_REMARKS_LIST_ID =
   "3d7ccd9a-e1d8-4faa-9d46-bcbf94d76e3b";
 
 // =============================================================================
+// Harness Production Log — TWO lists on the PMO site (SITES.pmo), part of the
+// Operations department, replacing an Access database on a production PC.
+// Created by scripts/create-harness-production-lists.ps1 and loaded by
+// scripts/load-harness-production-log.ps1.
+//
+// NO DEFAULTS, on purpose: the lists don't exist until that script runs, and
+// an unset id shows a "not set up yet" notice rather than a 404 on every load.
+// Nothing gates on these, so setting them can't lock anybody out.
+// =============================================================================
+
+/** "Harness Production Log" — one row per harness build. ~22,000 rows at import. */
+export const SP_HARNESS_PRODUCTION_LOG_LIST_ID =
+  (import.meta.env.VITE_SP_HARNESS_PRODUCTION_LOG_LIST_ID as string | undefined) ?? "";
+
+/** "Harness Part Numbers" — the log's PartNumber lookup source, admin-managed. */
+export const SP_HARNESS_PART_NUMBERS_LIST_ID =
+  (import.meta.env.VITE_SP_HARNESS_PART_NUMBERS_LIST_ID as string | undefined) ?? "";
+
+// =============================================================================
 // Coils — Potting Sample Log, THREE lists on the PMO site (SITES.pmo). The
 // sample log is operator-entered (any signed-in user); the limit + PSR
 // notification lists are editable by any signed-in user (same pattern as
