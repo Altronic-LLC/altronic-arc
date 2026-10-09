@@ -142,3 +142,17 @@ export const MOCK_ALTRONIC_COMPONENTS: AltronicComponent[] = [
     ],
   }),
 ];
+
+/**
+ * DEMO ONLY — the last number on 701 and 711, so both read as FULL and New
+ * part on 701 overflows to the next free 712 number, saying why (Tim,
+ * 2026-10-09). Add a 712999 row to see every linked list full and the "ask
+ * the SAP admin for the next linked list" button instead. A list is full when
+ * its highest number reaches 999, so one row each is enough. Seeded into the
+ * browser's mock store only, never under Vitest: plenty of tests rely on 701
+ * still having room.
+ */
+export const MOCK_FULL_SURFACE_MOUNT_COMPONENTS: AltronicComponent[] = [
+  component({ id: 9701, partNumber: "701999", category: "Surface Mount", description: "RESISTOR", mfgName: "YAGEO", mfgNumber: "RC0603FR-07100KL", ratingA: "100K", ratingB: "1/10W", ratingC: "75V", tolerance: "1%", tempMin: "-55", tempMax: "155", footprint: "0603", signOffStatus: "Approved", createdBy: BRANDON }),
+  component({ id: 9711, partNumber: "711999", category: "Surface Mount", description: "DIODE - TVS", mfgName: "LITTELFUSE", mfgNumber: "SMBJ33A", ratingA: "33V", ratingB: "600W", ratingC: "53.3V", tempMin: "-65", tempMax: "150", footprint: "SMB", signOffStatus: "Approved", createdBy: GLENN }),
+];

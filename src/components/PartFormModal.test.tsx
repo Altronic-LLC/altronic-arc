@@ -28,7 +28,16 @@ vi.mock("@/api/email", async (importOriginal) => {
   };
 });
 
+import { notifyChangeEmails } from "@/api/email";
+import { MOCK_ALTRONIC_COMPONENTS } from "@/data/altronicPartsMockData";
+import { COMPONENT_PREFIX_CATEGORY } from "@/lib/altronicPartMapper";
 import { NewPartButton, PartFormModal } from "./PartFormModal";
+
+/** Every new part needs its datasheet (Tim, 2026-10-09). */
+const pdf = () => new File([new Uint8Array([37, 80, 68, 70])], "USB4105 datasheet.pdf", { type: "application/pdf" });
+async function attachDatasheet() {
+  await userEvent.upload(screen.getByLabelText("Datasheet PDF"), pdf());
+}
 
 function Where() {
   const loc = useLocation();
@@ -75,7 +84,21 @@ describe("PartFormModal — a Part List part", () => {
     renderForm("604");
     await waitFor(() => expect(screen.getByLabelText("Altronic Part #")).toHaveValue("604613"));
     await userEvent.click(screen.getByRole("button", { name: "Add part" }));
-    expect(await screen.findByText(/Fill in: Description, Assigned By, Prototype or Production, Purchased\./)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Fill in: Description, Assigned By, Prototype or Production, Purchased, Datasheet\./),
+    ).toBeInTheDocument();
+    expect((await listAltronicParts()).some((p) => p.partNumber === "604613")).toBe(false);
+  });
+
+  it("won't add a part with no datasheet, even with every field filled in", async () => {
+    renderForm("604");
+    await waitFor(() => expect(screen.getByLabelText("Altronic Part #")).toHaveValue("604613"));
+    await userEvent.type(screen.getByLabelText("Description"), "Connector, test");
+    await userEvent.type(screen.getByLabelText("Assigned By"), "TW");
+    await userEvent.click(screen.getByRole("radio", { name: "Production" }));
+    await userEvent.click(screen.getByRole("radio", { name: "Purchased" }));
+    await userEvent.click(screen.getByRole("button", { name: "Add part" }));
+    expect(await screen.findByText("Fill in: Datasheet.")).toBeInTheDocument();
     expect((await listAltronicParts()).some((p) => p.partNumber === "604613")).toBe(false);
   });
 
@@ -106,6 +129,7 @@ describe("PartFormModal — a Part List part", () => {
     await userEvent.type(screen.getByLabelText("Assigned By"), "TW");
     await userEvent.click(screen.getByRole("radio", { name: "Production" }));
     await userEvent.click(screen.getByRole("radio", { name: "Purchased" }));
+    await attachDatasheet();
     await userEvent.click(screen.getByRole("button", { name: "Add part" }));
 
     await waitFor(() => expect(onClose).toHaveBeenCalled());
@@ -246,6 +270,7 @@ describe("PartFormModal — a component's description is picked", () => {
     await pick("Type", "Ceramic");
     expect(screen.getByText("CAPACITOR - CERAMIC")).toBeInTheDocument();
     await fillComponentExceptDescription();
+    await attachDatasheet();
     await userEvent.click(screen.getByRole("button", { name: "Add part" }));
 
     await waitFor(() => expect(onClose).toHaveBeenCalled());
@@ -272,6 +297,7 @@ describe("PartFormModal — a component's description is picked", () => {
     await pick("Description", "Capacitor");
     await pick("Type", "Ceramic");
     await fillComponentExceptDescription();
+    await attachDatasheet();
     await userEvent.click(screen.getByRole("button", { name: "Add part" }));
     expect(await screen.findByText("Pick the SIL category.")).toBeInTheDocument();
 
@@ -311,8 +337,6 @@ describe("PartFormModal — a component's description is picked", () => {
 });
 
 describe("PartFormModal — the datasheet", () => {
-  const pdf = () => new File([new Uint8Array([37, 80, 68, 70])], "USB4105 datasheet.pdf", { type: "application/pdf" });
-
   async function fillPart() {
     await waitFor(() => expect(screen.getByLabelText("Altronic Part #")).toHaveValue("604613"));
     await userEvent.type(screen.getByLabelText("Description"), "Connector, test");
@@ -429,6 +453,7 @@ describe("PartFormModal — reusing a deleted number", () => {
     await userEvent.type(screen.getByLabelText("Assigned By"), "TW");
     await userEvent.click(screen.getByRole("radio", { name: "Production" }));
     await userEvent.click(screen.getByRole("radio", { name: "Purchased" }));
+    await attachDatasheet();
     await userEvent.click(screen.getByRole("button", { name: "Add part" }));
 
     await waitFor(() => expect(onClose).toHaveBeenCalled());
@@ -452,5 +477,90 @@ describe("PartFormModal — reusing a deleted number", () => {
     await userEvent.type(pn, "604612");
     await userEvent.click(screen.getByRole("button", { name: "Add part" }));
     expect(await screen.findByText("604612 is already on the parts list.")).toBeInTheDocument();
+  });
+});
+
+describe("PartFormModal — linked HCO lists overflow into the next one", () => {
+  /** The mock components, plus a 999 on each list named — so those are full. */
+  function fill(...prefixes: string[]) {
+    const base = MOCK_ALTRONIC_COMPONENTS[0];
+    __resetAltronicComponentsMockStore([
+      ...MOCK_ALTRONIC_COMPONENTS,
+      ...prefixes.map((p, i) => ({
+        ...base,
+        id: 9000 + i,
+        partNumber: `${p}999`,
+        category: COMPONENT_PREFIX_CATEGORY[p],
+        legacySource: "",
+      })),
+    ]);
+  }
+
+  it("takes the next free 712 number when 701 and 711 are full, and says why", async () => {
+    fill("701", "711");
+    const { onClose } = renderForm("701");
+    // Mock list 712 holds 712044 and 712101.
+    await waitFor(() => expect(screen.getByLabelText("Altronic Part #")).toHaveValue("712102"));
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Lists 701 and 711 are full, so this part takes the next free number in the linked list 712.",
+    );
+
+    // And a 712 number is accepted on the 701 form.
+    await pick("Description", "Capacitor");
+    await pick("Type", "Ceramic");
+    await fillComponentExceptDescription();
+    await attachDatasheet();
+    await userEvent.click(screen.getByRole("button", { name: "Add part" }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect((await listAltronicComponents()).find((c) => c.partNumber === "712102")).toMatchObject({
+      category: "Surface Mount",
+    });
+  });
+
+  it("stays on 701 while 701 has room — no notice", async () => {
+    renderForm("701");
+    await waitFor(() => expect(screen.getByLabelText("Altronic Part #")).toHaveValue("701991"));
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("overflows from the Parts Book too, with Next free", async () => {
+    fill("701", "711");
+    renderForm(null);
+    await userEvent.type(screen.getByLabelText("Altronic Part #"), "701");
+    // Pressed until the lists have loaded: before then 701 looks empty.
+    await waitFor(async () => {
+      await userEvent.click(screen.getByRole("button", { name: /Next free/ }));
+      expect(screen.getByLabelText("Altronic Part #")).toHaveValue("712102");
+    });
+    expect(screen.getByRole("status")).toHaveTextContent("Lists 701 and 711 are full");
+  });
+
+  it("refuses a number from outside the linked lists", async () => {
+    fill("701", "711");
+    renderForm("701");
+    const pn = screen.getByLabelText("Altronic Part #");
+    await waitFor(() => expect(pn).toHaveValue("712102"));
+    await userEvent.clear(pn);
+    await userEvent.type(pn, "601500");
+    await userEvent.click(screen.getByRole("button", { name: "Add part" }));
+    expect(await screen.findByText("A part in list 701 must start with 701, 711 or 712.")).toBeInTheDocument();
+  });
+
+  it("asks the SAP admin for the next linked list once every one is full", async () => {
+    fill("601", "611");
+    renderForm("601");
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Every linked Through Hole list is full (601 and 611)");
+    expect(screen.getByLabelText("Altronic Part #")).toHaveValue("");
+
+    await userEvent.click(within(alert).getByRole("button", { name: "Ask the SAP admin for the next Through Hole list" }));
+    expect(await within(alert).findByText(/^Sent to /)).toBeInTheDocument();
+    expect(vi.mocked(notifyChangeEmails)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        emails: expect.arrayContaining([
+          expect.objectContaining({ subject: "Through Hole parts lists are full: 601 and 611" }),
+        ]),
+      }),
+    );
   });
 });

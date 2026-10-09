@@ -21,7 +21,14 @@ import { notifyChangeEmails } from "@/api/email";
 import type { AltronicComponent, AltronicPart, ItemAuthor, Person } from "@/types/task";
 import type { ChangeEmail, ChangeTarget } from "@/lib/changeAlerts";
 import { altronicPartLabel, isComponentPrefix, partPrefix } from "@/lib/altronicPartMapper";
-import { COMPONENT_FIELDS, PART_FIELDS, describeChanges, opensNewList, type PartFieldSpec } from "@/lib/partFields";
+import {
+  COMPONENT_FIELDS,
+  PART_FIELDS,
+  describeChanges,
+  listNames,
+  opensNewList,
+  type PartFieldSpec,
+} from "@/lib/partFields";
 import { appPageUrl } from "@/lib/appUrl";
 import {
   addPartGate,
@@ -34,6 +41,7 @@ import {
 } from "@/lib/partsRoles";
 import {
   buildCorrectionRequestEmails,
+  buildLinkedListsFullEmails,
   buildNewComponentEmails,
   buildNewListRequestEmails,
   buildNewPartForSapEmails,
@@ -271,6 +279,46 @@ export function useRequestNewPartsList() {
         target: { kind: "altronicPart", id: 0, title: `New list ${prefix} — ${prefix.charAt(0)}00 Parts Book` },
         emails,
         link: { url: appPageUrl(`/engineering/parts?book=${prefix.charAt(0)}`), buttonText: "Open the Parts Book" },
+      });
+      if (result.sent.length === 0) throw new Error("The email didn't send — try again, or ask the SAP admin directly.");
+      return emails.map((e) => e.displayName);
+    },
+  });
+}
+
+export interface LinkedListsFullRequest {
+  /** "Surface Mount", "Through Hole", "SIL". */
+  category: string;
+  /** Every linked list in the category, all full. */
+  lists: string[];
+  description: string;
+}
+
+/**
+ * Email the SAP admins that every linked HCO list in a category is full, so
+ * they create the next one (Tim, 2026-10-09). Awaited and throws when it
+ * reaches nobody, like the new-list request — the button's job is the send.
+ */
+export function useRequestNextLinkedList() {
+  const qc = useQueryClient();
+  const actor = useCurrentUser();
+  return useMutation({
+    mutationFn: async ({ category, lists, description }: LinkedListsFullRequest) => {
+      const emails = buildLinkedListsFullEmails({
+        category,
+        lists,
+        description: description.trim(),
+        recipients: await resolvePartsPeople(qc, "approveSap"),
+        actor,
+      });
+      if (emails.length === 0) {
+        throw new Error("Nobody holds the SAP admin role on Parts Roles, so there's nobody to ask. Tell an ARC admin.");
+      }
+      const book = lists[0]?.charAt(0) ?? "";
+      const result = await notifyChangeEmails({
+        target: { kind: "altronicPart", id: 0, title: `${category} lists ${listNames(lists)} are full` },
+        emails,
+        link: { url: appPageUrl(`/engineering/parts?book=${book}`), buttonText: "Open the Parts Book" },
       });
       if (result.sent.length === 0) throw new Error("The email didn't send — try again, or ask the SAP admin directly.");
       return emails.map((e) => e.displayName);

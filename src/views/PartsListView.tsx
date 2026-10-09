@@ -32,6 +32,7 @@ import {
   partBook,
   partPrefix,
 } from "@/lib/altronicPartMapper";
+import { listMeaning, partsBookLabel } from "@/lib/partNumberScheme";
 import type { AltronicComponent, AltronicPart } from "@/types/task";
 import { cn } from "@/lib/cn";
 
@@ -120,10 +121,19 @@ function PartListScreen({ prefix }: { prefix: string }) {
     () => (query.data ?? []).filter((p) => partPrefix(p.partNumber) === prefix),
     [query.data, prefix],
   );
+  const book = partBook(prefix);
+  const meaning = listMeaning(prefix);
   return (
     <PartsTable<AltronicPart>
       title={`${prefix} List`}
-      subtitle="Altronic Part List"
+      subtitle={[
+        "Altronic Part List",
+        book ? partsBookLabel(book) : null,
+        meaning?.summary,
+      ]
+        .filter(Boolean)
+        .join(" · ")}
+      subtitleHint={meaning?.description}
       queries={[query]}
       listNames="Altronic Part List"
       rows={rows}
@@ -323,6 +333,8 @@ const globalKey = (r: GlobalPartRow) => r.key;
 interface PartsTableProps<T> {
   title: string;
   subtitle: string;
+  /** A tooltip on the subtitle — the list's full EWI-005 meaning. */
+  subtitleHint?: string;
   icon?: ReactNode;
   queries: PartsQueryState[];
   listNames: string;
@@ -362,6 +374,7 @@ interface PartsTableProps<T> {
 function PartsTable<T>({
   title,
   subtitle,
+  subtitleHint,
   icon,
   queries,
   listNames,
@@ -537,7 +550,9 @@ function PartsTable<T>({
         </span>
         <div className="min-w-0 flex-1">
           <h1 className="font-display text-xl font-semibold text-fg sm:text-2xl">{title}</h1>
-          <p className="text-sm text-fg-muted">{subtitle}</p>
+          <p className="text-sm text-fg-muted" title={subtitleHint}>
+            {subtitle}
+          </p>
         </div>
         {action}
       </header>
