@@ -1924,7 +1924,10 @@ Four details:
 
 **Uploading** (Tim, 2026-09-28) — a PDF on the New Part form (**REQUIRED**
 since 2026-10-09, Tim: the form refuses to submit without one, naming
-"Datasheet" with the other missing fields; it was optional before), and
+"Datasheet" with the other missing fields; it was optional before — EXCEPT
+on a drawing number, EWI-005 device type 9 "Wire Diagram, Sales Drawing,
+etc." (`isDrawingNumber` in `lib/partNumberScheme.ts`), which has no
+datasheet and stays optional), and
 an **Upload datasheet** button on a part's page when it has none (the way
 back from a failed upload, and the only way the ~14,000 Part List parts get
 one — none had a PDF when this shipped). `uploadDatasheet` writes

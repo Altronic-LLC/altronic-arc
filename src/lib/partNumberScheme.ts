@@ -109,6 +109,17 @@ export function partsBookTooltip(book: number): string {
     : `${book}00 Parts Book — ${code.full} (${EWI_005})`;
 }
 
+/**
+ * Is this a DRAWING number — device type 9, "Wire Diagram, Sales Drawing,
+ * etc." (the third digit)? A drawing has no datasheet, so the New Part form
+ * doesn't require one for it (Tim, 2026-10-09). Takes a part number or a
+ * three-digit list; the HCO component lists are never drawings.
+ */
+export function isDrawingNumber(partNumberOrPrefix: string): boolean {
+  const m = /^(\d{3})/.exec(partNumberOrPrefix.trim());
+  return !!m && !isComponentPrefix(m[1]) && m[1][2] === "9";
+}
+
 export interface ListMeaning {
   /** Tile lines, in order — the assembly level, then the device type (if any). */
   lines: string[];

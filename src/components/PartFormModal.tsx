@@ -54,6 +54,7 @@ import {
 } from "@/lib/componentDescriptions";
 import { ComponentDescriptionPicker } from "./ComponentDescriptionPicker";
 import { addPartGate } from "@/lib/partsRoles";
+import { isDrawingNumber } from "@/lib/partNumberScheme";
 import { partPath } from "@/lib/partSearch";
 import { toDateInputValue } from "@/lib/spDates";
 
@@ -74,7 +75,9 @@ import { toDateInputValue } from "@/lib/spDates";
 // something up doesn't lose it. The datasheet is NOT — a File can't be stored.
 //
 // A datasheet PDF is REQUIRED (Tim, 2026-10-09; optional from 2026-09-28
-// until then) — the form refuses to submit without one. It is uploaded as
+// until then) — the form refuses to submit without one — EXCEPT on a drawing
+// number (EWI-005 device type 9, `isDrawingNumber`), which has no datasheet
+// and keeps it optional. It is uploaded as
 // `<part #>.pdf` right AFTER the part is created — the name needs the final
 // number, and a file uploaded first would be left behind if the create were
 // refused. It is checked before the create, so a wrong pick leaves nothing
@@ -155,6 +158,8 @@ export function PartFormModal({ prefix, onClose }: { prefix: string | null; onCl
 
   const typedPrefix = partPrefix(partNumber) ?? prefix ?? "";
   const component = isComponentPrefix(typedPrefix);
+  // A drawing number (EWI-005 device type 9) has no datasheet to attach.
+  const datasheetRequired = !isDrawingNumber(typedPrefix);
   const specs = (component ? COMPONENT_FIELDS : PART_FIELDS).filter((s) => s.onCreate !== false) as unknown as AnySpec[];
   // A number on a list with no parts yet STARTS that list — the SAP admin's
   // alone (Tim, 2026-09-29). Not decided until the Part List has loaded, or
@@ -256,8 +261,9 @@ export function PartFormModal({ prefix, onClose }: { prefix: string | null; onCl
     // Picked descriptions say WHICH pick is missing, not just "Description".
     const pickProblem = usePicker ? picksProblem(picks, options, needSil) : null;
     const missing = missingRequired(specs, pickProblem ? { ...effectiveValues, description: "x" } : effectiveValues);
-    // Every new part needs its datasheet (Tim, 2026-10-09).
-    if (!datasheet) missing.push("Datasheet");
+    // Every new part needs its datasheet (Tim, 2026-10-09) — except a
+    // drawing number, which has none.
+    if (datasheetRequired && !datasheet) missing.push("Datasheet");
     if (pickProblem) {
       return setError(missing.length > 0 ? `${pickProblem} Also fill in: ${missing.join(", ")}.` : pickProblem);
     }
@@ -478,6 +484,7 @@ export function PartFormModal({ prefix, onClose }: { prefix: string | null; onCl
               setDatasheet(f);
             }}
             fileName={partNumber.trim() ? datasheetFileName(partNumber) : "<part #>.pdf"}
+            required={datasheetRequired}
             disabled={busy}
           />
 
@@ -639,16 +646,21 @@ function LinkedListsFullRequest({
   );
 }
 
-/** The datasheet PDF — required on every new part, named after its number when uploaded. */
+/**
+ * The datasheet PDF — required on every new part except a drawing number,
+ * named after its number when uploaded.
+ */
 function DatasheetPicker({
   file,
   onChange,
   fileName,
+  required,
   disabled,
 }: {
   file: File | null;
   onChange: (file: File | null) => void;
   fileName: string;
+  required: boolean;
   disabled?: boolean;
 }) {
   const input = useRef<HTMLInputElement>(null);
@@ -656,7 +668,7 @@ function DatasheetPicker({
     <div className="mt-4 rounded-md border border-dashed border-border px-3 py-3">
       <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
         Datasheet
-        <span className="ml-1 text-cooper-red">*</span>
+        {required && <span className="ml-1 text-cooper-red">*</span>}
       </span>
       <input
         ref={input}
@@ -698,7 +710,7 @@ function DatasheetPicker({
         </button>
       )}
       <p className="mt-1.5 text-[11px] text-fg-muted">
-        Required. Saved to {DATASHEETS_PATH} as <span className="font-mono">{fileName}</span> once the part is added. A
+        {required ? "Required." : "Optional — a drawing number has no datasheet."} Saved to {DATASHEETS_PATH} as <span className="font-mono">{fileName}</span> once the part is added. A
         datasheet already there under that name is kept, not replaced.
       </p>
     </div>

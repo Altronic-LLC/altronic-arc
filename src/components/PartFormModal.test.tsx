@@ -102,6 +102,20 @@ describe("PartFormModal — a Part List part", () => {
     expect((await listAltronicParts()).some((p) => p.partNumber === "604613")).toBe(false);
   });
 
+  it("doesn't require a datasheet on a drawing number (device type 9)", async () => {
+    const { onClose } = renderForm("309");
+    // Mock list 309 holds 309114 and 309115.
+    await waitFor(() => expect(screen.getByLabelText("Altronic Part #")).toHaveValue("309116"));
+    expect(screen.getByText(/Optional — a drawing number has no datasheet\./)).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText("Description"), "Wire diagram, test");
+    await userEvent.type(screen.getByLabelText("Assigned By"), "TW");
+    await userEvent.click(screen.getByRole("radio", { name: "Production" }));
+    await userEvent.click(screen.getByRole("radio", { name: "Not Purchased" }));
+    await userEvent.click(screen.getByRole("button", { name: "Add part" }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect((await listAltronicParts()).some((p) => p.partNumber === "309116")).toBe(true);
+  });
+
   it("refuses a number from another list", async () => {
     renderForm("604");
     const pn = screen.getByLabelText("Altronic Part #");

@@ -5473,7 +5473,7 @@ const SECTIONS: ManualSection[] = [
           the setting right.
         </P>
         <P>
-          A new part needs a datasheet: choose the PDF under{" "}
+          A new part needs a datasheet (a drawing number doesn't): choose the PDF under{" "}
           <strong>Datasheet</strong> on the New Part form. It's saved as the part number (for example{" "}
           <code>604613.pdf</code>) once the part is added, whatever the file was
           called, and a component's Has Data Sheet is set to Yes for you. A part
@@ -5553,7 +5553,9 @@ const SECTIONS: ManualSection[] = [
           Drawing, Drawing Size and Notes; SAP # is left for the SAP admin. On a
           component it's everything except Notes, plus any rating that doesn't
           apply to that kind of part. <strong>Every new part also needs its
-          datasheet PDF.</strong> ARC won't accept a number that's already taken
+          datasheet PDF</strong>, except a drawing number — one whose third digit
+          is 9 (wire diagrams, sales drawings and the like), where the datasheet is
+          optional. ARC won't accept a number that's already taken
           or that doesn't start with the list you're adding to (or, on a
           component list, one of the linked lists after it).
         </P>

@@ -3,6 +3,7 @@ import {
   ASSEMBLY_LEVELS,
   DEVICE_TYPES,
   PRODUCT_CODES,
+  isDrawingNumber,
   listMeaning,
   partsBookFullLabel,
   partsBookLabel,
@@ -42,6 +43,23 @@ describe("the EWI-005 tables", () => {
 
   it("transcribes Rev 5's duplicate: B = 0 and B = 3 mean the same thing", () => {
     expect(ASSEMBLY_LEVELS[3].full).toBe(ASSEMBLY_LEVELS[0].full);
+  });
+});
+
+describe("isDrawingNumber", () => {
+  it("is device type 9 — Wire Diagram, Sales Drawing, etc.", () => {
+    expect(isDrawingNumber("309")).toBe(true);
+    expect(isDrawingNumber("309116")).toBe(true);
+    expect(isDrawingNumber("699001")).toBe(true);
+    expect(isDrawingNumber(" 519 ")).toBe(true);
+  });
+
+  it("is nothing else", () => {
+    expect(isDrawingNumber("604613")).toBe(false);
+    expect(isDrawingNumber("390001")).toBe(false); // 9 as the assembly level, not the device type
+    expect(isDrawingNumber("701043")).toBe(false);
+    expect(isDrawingNumber("")).toBe(false);
+    expect(isDrawingNumber("9")).toBe(false);
   });
 });
 
