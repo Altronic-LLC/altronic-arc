@@ -73,9 +73,9 @@ const SYSTEM_TIERS: Tier[] = [
   {
     label: "React SPA",
     nodes: [
-      { label: "Views", hint: "Dashboard · List · Kanban · Detail · EIRs · Test Sheets · Project Folders · CSA Listings · Parts List (Parts Book · lists · Global Search · part page · description lists) · Drawing File Logs · Digital QC · Ignition QC · Coil Defect Log · Potting Sample Log · Visit Reports (list + calendar) · QC Time Tracking · QC Forms (landing + QCFRM-012 CPU-95) · Panel QC Issue Tracker · Open Orders Report · Gray Market Requests · MRB · SCNs (+ SCN Documents library) · Where Am I? · ECNs (incl. the MFGFRM-038 checklist) · FAITs · ARC Feature Requests · Drawing Work Sheet (print) · Admin (incl. Quick Links, Parts Roles)", palette: "ui" },
-      { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useBuildRequests · useCommentMirror · useCsaListings · useAltronicParts · usePartsRoles · useDatasheet · useComponentDescriptionOptions · useDrawingLogs · useDigitalQc · useIgnitionQc · useCoilsQc · usePottingSampleLog · useVisitReports · useQcTimeTracking · useQcCpu95 · usePanelQcIssues · useOpenOrdersReports · useOpenOrdersCustomers · useGrayMarketRequests · useMrb · useWhereAmI · useEcns · useEcnChecklists · useFaits · useCustomerNotes · useCustomerContacts · useSpecialPricing · useCapacity · useSuppliers · useSupplierContacts · useSupplierIssues · useCostImpactNotices · useScns · useScnDocuments · useFeatureRequests · useBusinessItIssues · useAdmins · useEirRoles · useQuickLinks · useListAccess · useTaskFiles · useProjectFolders", palette: "ui" },
-      { label: "API layer", hint: "src/api/tasks · appAccess · eirs · testSheets · buildRequests · buildRequestItems · commentMirror · csaListings · altronicParts · altronicComponents · partsListShared · partsRoles · datasheets · componentDescriptionOptions · drawingLogs · digitalQc · ignitionQc · coilsQc · pottingSampleLog · visitReports · qcCpu95 · panelQcIssues · openOrdersFiles · openOrdersCustomers · openOrdersRoles · grayMarketRequests · mrb · whereAmI · ecns · ecnChecklists · faits · customerNotes · customerContacts · specialPricing · capacity · suppliers · supplierContacts · supplierIssues · costImpactNotices · scns · featureRequests · githubIssues (BusinessIT issues via api.github.com, with the person's own token) · autoWatch · panelOrders · panelTasks · admins · eirRoles · panelRoles · quickLinks · directory · siteUsers · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
+      { label: "Views", hint: "Dashboard · List · Kanban · Detail · EIRs · Test Sheets · Project Folders · CSA Listings · Parts List (Parts Book · lists · Global Search · part page · description lists) · Drawing File Logs · Digital QC · Ignition QC · Coil Defect Log · Potting Sample Log · Visit Reports (list + calendar) · QC Time Tracking · QC Forms (landing + QCFRM-012 CPU-95) · Panel QC Issue Tracker · Open Orders Report · Insourcing Quotes (list · worksheet · customers · roles) · Gray Market Requests · MRB · SCNs (+ SCN Documents library) · Where Am I? · ECNs (incl. the MFGFRM-038 checklist) · FAITs · ARC Feature Requests · Drawing Work Sheet (print) · Admin (incl. Quick Links, Parts Roles)", palette: "ui" },
+      { label: "React Query hooks", hint: "useTasks · useEirs · useTestSheets · useBuildRequests · useCommentMirror · useCsaListings · useAltronicParts · usePartsRoles · useDatasheet · useComponentDescriptionOptions · useDrawingLogs · useDigitalQc · useIgnitionQc · useCoilsQc · usePottingSampleLog · useVisitReports · useQcTimeTracking · useQcCpu95 · usePanelQcIssues · useOpenOrdersReports · useOpenOrdersCustomers · useQuotes · useQuoteAssemblies · useQuoteItems · useQuoteCustomers · useQuoteRoles · useQuotePdf · useGrayMarketRequests · useMrb · useWhereAmI · useEcns · useEcnChecklists · useFaits · useCustomerNotes · useCustomerContacts · useSpecialPricing · useCapacity · useSuppliers · useSupplierContacts · useSupplierIssues · useCostImpactNotices · useScns · useScnDocuments · useFeatureRequests · useBusinessItIssues · useAdmins · useEirRoles · useQuickLinks · useListAccess · useTaskFiles · useProjectFolders", palette: "ui" },
+      { label: "API layer", hint: "src/api/tasks · appAccess · eirs · testSheets · buildRequests · buildRequestItems · commentMirror · csaListings · altronicParts · altronicComponents · partsListShared · partsRoles · datasheets · componentDescriptionOptions · drawingLogs · digitalQc · ignitionQc · coilsQc · pottingSampleLog · visitReports · qcCpu95 · panelQcIssues · openOrdersFiles · openOrdersCustomers · openOrdersRoles · quotes · quoteAssemblies · quoteItems · quoteCustomers · quoteRoles · quoteRevisions · quotePdfFiles · grayMarketRequests · mrb · whereAmI · ecns · ecnChecklists · faits · customerNotes · customerContacts · specialPricing · capacity · suppliers · supplierContacts · supplierIssues · costImpactNotices · scns · featureRequests · githubIssues (BusinessIT issues via api.github.com, with the person's own token) · autoWatch · panelOrders · panelTasks · admins · eirRoles · panelRoles · quickLinks · directory · siteUsers · projectFiles · attachments · email · errorReport · editFailureReport", palette: "ui" },
       {
         label: "Open Orders Report (lazy-loaded)",
         hint: "OpenOrdersView · OpenOrdersCustomersView — reads a raw SAP extract in the browser and writes a branded master dashboard plus one workbook per managed customer into SharePoint. ExcelJS (~950KB) is dynamically imported on first use so it never lands in the main chunk.",
@@ -137,6 +137,11 @@ const SYSTEM_TIERS: Tier[] = [
         palette: "ui",
       },
       {
+        label: "Insourcing Quotes (lazy-loaded)",
+        hint: "QuotesView · QuoteDetailView · QuoteCustomersView · QuoteRolesView · QuotesNav + the Quote form modals — useQuotes · useQuoteAssemblies · useQuoteItems · useQuoteCustomers · useQuoteRoles · useQuotePdf — api/quotes · quoteAssemblies · quoteItems · quoteCustomers · quoteRoles · quoteRevisions (New rev: copies header, assemblies, components, comments and attachments) · quotePdfFiles (Save to folder, General/IC Quotes on the PMO library, rename on clash) — lib/quotePricing (component cost only; the line's ONE target GM prices it; Part lines; breaks; WEIGHTED quote GM) · quoteMoney (2-decimal display) · sapPartNumber (####-####-##) · quoteRoles (viewer / quoter / manager; no role = no access) · quoteNumber (IQ-CODE-####-R#, global sequence) · quoteCustomerCode · quotePdfModel (the customer-facing shape that cannot carry cost) · quotePdf (jsPDF + AutoTable, dynamically imported) · quoteMapper. Routes /sales/quotes, /sales/quotes/:id, /sales/quotes/customers, /sales/quotes/roles. Five lists on Altronic_PMO; cost and margin are hidden from viewers in the UI only — SharePoint list permissions are the real boundary.",
+        palette: "ui",
+      },
+      {
         label: "Panels department (lazy-loaded bundle)",
         hint: "PanelOrdersView · PanelOrderDetailView · PanelTasksView · PanelTaskDetailView · QcTimeTrackingView · PanelQcIssuesView · AdminPanelProjectsView · AdminPanelRolesView — usePanelOrders · usePanelTasks · useQcTimeTracking · usePanelQcIssues · usePanelRoles — api/panelOrders · panelTasks · panelProjects · panelRoles · qcTimeTracking · panelQcIssues. All Panel features use ALTRONICPANELTEAM. Own code-split chunk; no cross-department imports.",
         palette: "ui",
@@ -148,7 +153,7 @@ const SYSTEM_TIERS: Tier[] = [
     nodes: [
       { label: "MSAL Entra ID", hint: "Sites.Selected · Mail.Send.Shared · User.ReadBasic.All (tenant directory, optional) · AllSites.Manage (optional)", palette: "auth" },
       { label: "Microsoft Graph v1.0", hint: "Lists, items, drives, users, mail", palette: "gateway" },
-      { label: "SharePoint REST", hint: "List-item attachments (Task, EIR, Operations Task, Maintenance work order, Equipment asset, Panel Order, Visit Report, Gray Market Request, MRB entry, Cost Impact Notice, SCN) + site-user resolution — optional", palette: "gateway" },
+      { label: "SharePoint REST", hint: "List-item attachments (Task, EIR, Operations Task, Maintenance work order, Equipment asset, Panel Order, Visit Report, Gray Market Request, MRB entry, Cost Impact Notice, SCN, Quote, Quote Item) + site-user resolution — optional", palette: "gateway" },
       { label: "Mock store", hint: "in-memory + localStorage (demo mode)", palette: "mock" },
       { label: "Shared mailbox", hint: "@-mention + change notifications, and edit-failure recovery emails", palette: "mock" },
     ],
@@ -174,7 +179,7 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "CoilPN / CoilOtherFaultList", hint: "Engineering site — editable reference lists for the Coil Defect Log part-number and Other-defect pickers", palette: "list" },
       { label: "CAD / CCC / CEC Drawings", hint: "Engineering site — drawing registers; a 16-slot change log across 48 CH_* columns", palette: "list" },
       { label: "Engineering Sketches", hint: "Engineering site — sketch register; own columns, no change log", palette: "list" },
-      { label: "Documents library", hint: "General/Project Folders/* on Engineering — task & comment files land here; plus the SCN subsite's Documents library, browsed from SCN Documents", palette: "list" },
+      { label: "Documents library", hint: "General/Project Folders/* on Engineering — task & comment files land here; plus the SCN subsite's Documents library, browsed from SCN Documents; plus General/IC Quotes on Altronic_PMO, where Insourcing Quotes saves a customer PDF on request (never overwritten, never created by ARC)", palette: "list" },
       { label: "List-item attachments", hint: "SharePoint REST · per-item files on Tasks, EIRs, CSA Listings and more", palette: "list" },
       { label: "Operations Task List", hint: "Altronic_PMO site — separate from Engineering's Task List. Carries a Maintenance Task Reference column: set when a task has been promoted to a CMMS work order, and non-empty means it can't be promoted again", palette: "list" },
       { label: "Operations Projects", hint: "Altronic_PMO site — Operations' own parent-project reference list", palette: "list" },
@@ -216,6 +221,11 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "Supplier Issue Tracker", hint: "Altronic_PMO site — near-empty (1 row at discovery); Status and Severity are UNCONFIGURED placeholder choices (\"Choice 1/2/3\") — update the consts once Supply Chain sets real values", palette: "list" },
       { label: "Cost Impact Portal", hint: "ALTRONICSALESTEAM site (a Supply Chain feature) — a purchased part's cost changed. Original Cost/New Cost are TEXT columns; Delta Cost is a genuine SharePoint calculated column despite that; no Watchers, so comments reach the submitter (createdBy) and anyone mentioned, same as ECNs", palette: "list" },
       { label: "SCN Dashboard", hint: "ALTRONICSALESTEAM/SCN subsite (a Supply Chain feature) — Supply Chain Notices: a product or part being obsoleted, phased out, or raised as an EECR. 142 rows, fetched whole. Several internal names LIE: Progress is the Product, Priority is the Category, PartsEffected is the Old Number, EOLExpires is LTS Expires — lib/scnFields.ts is the only place that translation lives. Title is the SCN# (YYYY-NNNN, a global 4-digit sequence since 2024, app-generated). Three multi-choice checkBoxes columns (Preliminary Reviews, Secondary Review, Project Status) need the Collection(Edm.String) annotation; AssignedTo and Owner are multi-person; Task List is a Hyperlink column ARC reads and never writes; Communication and Watchers exist but were empty on every row. No delete, no role gating.", palette: "list" },
+      { label: "Quotes", hint: "Altronic_PMO site (Insourcing Quotes) — the quote header. Title is the quote number IQ-CODE-####-R# with Enforce Unique Values (a simultaneous create is refused and ARC renumbers once); QuoteBase + Rev keep revs together, and a rev is a NEW row, the latest derived, never stored. CustomerRef is a single lookup. Communication + Watchers; attachments carry the customer's data package. EngineeringTaskLink / OperationsTaskLink (Hyperlinks, never in the create POST) and EngineeringProjectRef (text) exist for Phase 2, read-only. No delete; no default list id", palette: "list" },
+      { label: "Quote Assemblies", hint: "Altronic_PMO site — one row per quote LINE: a final assembly or a standalone Part (LineType; a Part carries its own Cost + MaterialOverheadPct, no components); QuoteRef single lookup; TargetGM is the line's ONE margin; PriceBreaks is JSON (up to three, on the line); ManualPrice overrides; CustomerPrice is stored for SharePoint views and recomputed by lib/quotePricing on every change. No comments, no attachments; deletable while drafting", palette: "list" },
+      { label: "Quote Items", hint: "Altronic_PMO site — the components of an assembly; QuoteRef + AssemblyRef single lookups; Quantity per assembly, Cost, MaterialOverheadPct — cost only, NO margin (hidden from viewers in the UI only). Own Communication + Watchers + attachments; deletable while drafting", palette: "list" },
+      { label: "Quote Customers", hint: "Altronic_PMO site — customers ARC quotes to; CustomerCode (2–5 characters) is generated, frozen at creation and Enforce Unique Values; CustomerNumber is TEXT to keep SAP leading zeros. Manager-only writes; retired via Active, never deleted", palette: "list" },
+      { label: "Quote Roles", hint: "Altronic_PMO site — Title = email, PersonName (never DisplayName), Roles CSV of viewer / quoter / manager. No role = no access; no default list id. Managed by a quote manager or an ARC admin, though an admin gets no quote access from it", palette: "list" },
       { label: "ARC Feature Requests", hint: "Engineering site — a place for any signed-in user to request a new ARC feature or change, separate from Report Issue. RequestedBy is a single-person column (Graph returns a bare RequestedByLookupId, resolved via the site directory), auto-filled to the submitter on create and never re-picked. No default list id — the screen reports itself as not configured until the setup script has run", palette: "list" },
       { label: "CPU-95", hint: "Engineering site — the SharePoint list backing QCFRM-012, the first QC Forms controlled form; ~200 columns across Header/Startup/Final/checklist/firing-angle/Current Loop/Defects/Sign-off, only some of which apply to a given unit depending on its Altronic Part Number (\"Altmode\", 0-6). No delete; any signed-in user can create/edit", palette: "list" },
     ],
@@ -247,6 +257,7 @@ export const ER_GROUPS: ErGroup[] = [
   { id: "qc", label: "Quality Control" },
   { id: "sales", label: "Sales" },
   { id: "supplyChain", label: "Supply Chain" },
+  { id: "quotes", label: "Insourcing Quotes" },
 ];
 
 /**
@@ -1505,6 +1516,106 @@ export const SCHEMA_TABLES: SchemaTable[] = [
       { name: "name (Title)", type: "text", kind: "field" },
     ],
   },
+  // ----- Insourcing Quotes (Customer Service / Sales, Altronic_PMO site) -----
+  // Quote → Line (final assembly or Part) → Component. The ONE target GM is
+  // on the line (QuoteAssembly); a component carries cost only. A Part line
+  // carries its own cost/overhead and has no components. The three lookups (CustomerRef,
+  // QuoteRef, AssemblyRef) are SINGLE lookups written as bare integers. The
+  // Phase-2 columns (two Hyperlinks + EngineeringProjectRef, a project TITLE)
+  // are shown as plain fields: nothing in SharePoint enforces them, so no FK.
+  {
+    name: "QuoteCustomer",
+    source: "Quote Customers (Altronic_PMO site)",
+    palette: "entity",
+    group: "quotes", width: 300,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "name (Title)", type: "text", kind: "field" },
+      { name: "customerCode (unique, frozen)", type: "text", kind: "field" },
+      { name: "customerNumber (SAP sold-to)", type: "text", kind: "field" },
+      { name: "active", type: "bool", kind: "field" },
+      { name: "note", type: "text", kind: "field" },
+    ],
+  },
+  {
+    name: "QuoteRole",
+    source: "Quote Roles (Altronic_PMO site)",
+    palette: "entity",
+    group: "quotes", width: 300,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "email (Title)", type: "text", kind: "field" },
+      { name: "personName", type: "text", kind: "field" },
+      { name: "roles (viewer/quoter/manager)", type: "text", kind: "field" },
+      { name: "note", type: "text", kind: "field" },
+    ],
+  },
+  {
+    name: "Quote",
+    source: "Quotes (Altronic_PMO site)",
+    palette: "entity",
+    group: "quotes", width: 360,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "quoteNumber (Title, unique)", type: "text", kind: "field" },
+      { name: "quoteBase", type: "text", kind: "field" },
+      { name: "rev", type: "int", kind: "field" },
+      { name: "customerId", type: "int", kind: "fk", references: "QuoteCustomer.id" },
+      { name: "status", type: "choice", kind: "field" },
+      { name: "validityDays", type: "int", kind: "field" },
+      { name: "contactName / contactEmail", type: "text", kind: "field" },
+      { name: "budgetary", type: "bool", kind: "field" },
+      { name: "budgetaryText", type: "text", kind: "field" },
+      { name: "quoteNotes", type: "text", kind: "field" },
+      { name: "comments (Communication)", type: "text", kind: "field" },
+      { name: "watchers", type: "person[]", kind: "field" },
+      { name: "engineering / operationsTaskLink", type: "url", kind: "field" },
+      { name: "engineeringProjectRef (title)", type: "text", kind: "field" },
+    ],
+  },
+  {
+    name: "QuoteAssembly",
+    source: "Quote Assemblies (Altronic_PMO site)",
+    palette: "entity",
+    group: "quotes", width: 330,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "altronicPartNumber (Title)", type: "text", kind: "field" },
+      { name: "quoteId", type: "int", kind: "fk", references: "Quote.id" },
+      { name: "lineNo", type: "int", kind: "field" },
+      { name: "quotedQty (≥ 1, default 1)", type: "int", kind: "field" },
+      { name: "lineType (Assembly / Part)", type: "choice", kind: "field" },
+      { name: "cost (Part lines only)", type: "currency", kind: "field" },
+      { name: "materialOverheadPct (Part only)", type: "number", kind: "field" },
+      { name: "sapPartNumber (####-####-##)", type: "text", kind: "field" },
+      { name: "customerPartNumber", type: "text", kind: "field" },
+      { name: "description", type: "text", kind: "field" },
+      { name: "priceBreaks (JSON, ≤3)", type: "text", kind: "field" },
+      { name: "targetGM (the line's one margin)", type: "number", kind: "field" },
+      { name: "manualPrice", type: "currency", kind: "field" },
+      { name: "customerPrice (stored)", type: "currency", kind: "field" },
+    ],
+  },
+  {
+    name: "QuoteItem",
+    source: "Quote Items (Altronic_PMO site)",
+    palette: "entity",
+    group: "quotes", width: 330,
+    columns: [
+      { name: "id", type: "int", kind: "pk" },
+      { name: "altronicPartNumber (Title)", type: "text", kind: "field" },
+      { name: "quoteId", type: "int", kind: "fk", references: "Quote.id" },
+      { name: "assemblyId", type: "int", kind: "fk", references: "QuoteAssembly.id" },
+      { name: "lineNo", type: "int", kind: "field" },
+      { name: "sapPartNumber (####-####-##)", type: "text", kind: "field" },
+      { name: "description", type: "text", kind: "field" },
+      { name: "quantity (per assembly)", type: "number", kind: "field" },
+      { name: "cost", type: "currency", kind: "field" },
+      { name: "materialOverheadPct", type: "number", kind: "field" },
+      { name: "comments (Communication)", type: "text", kind: "field" },
+      { name: "watchers", type: "person[]", kind: "field" },
+    ],
+  },
 ];
 
 // ----- Connections (FK → target). Cardinality at each end: "one" | "many" --
@@ -1658,6 +1769,11 @@ export const CONNECTIONS: Connection[] = [
   { fromTable: "FeatureRequest", fromColumn: "watchers", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
   { fromTable: "PanelQcIssue", fromColumn: "defectCategory", toTable: "PanelQcDefect", toColumn: "name (Title)", fromCard: "many", toCard: "one" },
   { fromTable: "PanelQcIssue", fromColumn: "watchers", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
+  // Insourcing Quotes — Quote → Final assembly → Component, plus the customer.
+  { fromTable: "Quote", fromColumn: "customerId", toTable: "QuoteCustomer", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "QuoteAssembly", fromColumn: "quoteId", toTable: "Quote", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "QuoteItem", fromColumn: "quoteId", toTable: "Quote", toColumn: "id", fromCard: "many", toCard: "one" },
+  { fromTable: "QuoteItem", fromColumn: "assemblyId", toTable: "QuoteAssembly", toColumn: "id", fromCard: "many", toCard: "one" },
 ];
 
 export function AboutView() {

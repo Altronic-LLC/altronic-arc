@@ -32,6 +32,7 @@ vi.mock("@/hooks/useCurrentUser", () => ({
     email: "demo.user@altronic-llc.com",
     lookupId: 0,
   }),
+  useCurrentUserEmails: () => ["demo.user@altronic-llc.com"],
 }));
 
 const SEEDED = [["tasks", "list"], ["suppliers"], ["eirs", "list"]];

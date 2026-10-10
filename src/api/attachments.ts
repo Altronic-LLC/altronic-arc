@@ -17,6 +17,8 @@ import {
   SP_GRAY_MARKET_LIST_ID,
   SP_MRB_LIST_ID,
   SP_PMO_SITE_URL,
+  SP_QUOTES_LIST_ID,
+  SP_QUOTE_ITEMS_LIST_ID,
   SP_SALESTEAM_SITE_URL,
   SP_SCNS_LIST_ID,
   SP_SCN_SITE_URL,
@@ -74,7 +76,9 @@ export type AttachmentParent =
   | "supplierIssue"
   | "costImpactNotice"
   | "scn"
-  | "equipment";
+  | "equipment"
+  | "quote"
+  | "quoteItem";
 
 interface ParentConfig {
   listId: string | undefined;
@@ -206,6 +210,19 @@ const PARENT_CONFIG: Record<AttachmentParent, ParentConfig> = {
     listId: SP_ALTRONIC_EQUIPMENT_LIST_ID,
     siteUrl: SP_PMO_SITE_URL,
     listIdEnvVar: "VITE_SP_ALTRONIC_EQUIPMENT_LIST_ID",
+  },
+  // Insourcing Quotes — the customer's data package (drawings, specs, BOMs)
+  // hangs off the quote header; a component's datasheet or vendor quote off
+  // the Quote Item. Assemblies deliberately have no attachments. All on PMO.
+  quote: {
+    listId: SP_QUOTES_LIST_ID,
+    siteUrl: SP_PMO_SITE_URL,
+    listIdEnvVar: "VITE_SP_QUOTES_LIST_ID",
+  },
+  quoteItem: {
+    listId: SP_QUOTE_ITEMS_LIST_ID,
+    siteUrl: SP_PMO_SITE_URL,
+    listIdEnvVar: "VITE_SP_QUOTE_ITEMS_LIST_ID",
   },
 };
 

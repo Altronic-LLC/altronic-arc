@@ -314,6 +314,13 @@ src/
 │   ├── openOrdersFiles.ts        Open Orders SharePoint folder — list/upload/download
 │   ├── openOrdersCustomers.ts    Open Orders managed customer list CRUD
 │   ├── openOrdersRoles.ts        Open Orders role tags (report manager) CRUD
+│   ├── quotes.ts                 Insourcing Quotes header CRUD + comments + watchers (PMO site) — numbered create with ONE retry, no delete
+│   ├── quoteAssemblies.ts        Quote LINES CRUD — final assemblies and standalone Parts (delete OK — the composition of a draft)
+│   ├── quoteItems.ts             Quote components CRUD + comments + watchers (delete OK)
+│   ├── quoteCustomers.ts         Quote Customers create/edit — unique CustomerCode, retired not deleted
+│   ├── quoteRoles.ts             Quote Roles list CRUD (viewer / quoter / manager) — unset = nobody has access
+│   ├── quoteRevisions.ts         New rev — copies header, assemblies, components, comments, attachments; best-effort after the header
+│   ├── quotePdfFiles.ts          Save a quote PDF to General/IC Quotes (PMO library) — rename on clash, never creates the folder
 │   ├── grayMarketRequests.ts     Gray Market Requests CRUD + comments (PMO site) — no delete
 │   ├── mrb.ts                    MRB Data CRUD + comments (PMO site) — DIFFED edits, no delete
 │   ├── featureRequests.ts        ARC Feature Requests CRUD + comments (Engineering site) — no admin gate, no delete
@@ -348,6 +355,7 @@ src/
 │   ├── costImpactMockData.ts     Sample Cost Impact Notices
 │   ├── scnMockData.ts            Sample SCNs — every status and category, one with all three review checklists, one Denied
 │   ├── openOrdersMockData.ts     Sample open order lines + report customers
+│   ├── quoteMockData.ts          Sample quotes (incl. an R1/R2 pair), assemblies, components, customers + roles
 │   ├── grayMarketMockData.ts     Sample gray market requests
 │   ├── mrbMockData.ts            Sample MRB entries — live, undecided, and archive rows
 │   ├── featureRequestMockData.ts Sample ARC Feature Requests, spanning all four statuses
@@ -397,6 +405,12 @@ src/
 │   ├── useScnDocuments.ts        SCN Documents folder listing + breadcrumb, create folder, one-at-a-time multi-file upload with progress
 │   ├── useOpenOrdersReports.ts   Parse an extract, generate + upload, download
 │   ├── useOpenOrdersCustomers.ts Customer list + role CRUD (+ useMyOpenOrdersAccess)
+│   ├── useQuotes.ts              Quote queries, numbered create, diffed edits, watchers, comment thread, New rev
+│   ├── useQuoteAssemblies.ts     Assembly queries + gated mutations; re-stores CustomerPrice after any change
+│   ├── useQuoteItems.ts          Component queries + gated mutations, watchers + per-component comment thread
+│   ├── useQuoteCustomers.ts      Quote Customers queries + manager-gated mutations
+│   ├── useQuoteRoles.ts          Quote Roles CRUD + useMyQuoteAccess / useResolveQuoteAccess (awaited in every mutationFn)
+│   ├── useQuotePdf.ts            Generate the customer PDF (local download) + the explicit Save to folder
 │   ├── useGrayMarketRequests.ts  Gray Market queries, mutations + comment thread
 │   ├── useMrb.ts                 MRB queries, mutations + comment thread (an edit diffs against the cached row)
 │   ├── useFeatureRequests.ts     ARC Feature Requests queries, mutations + comment thread — no admin gate
@@ -529,6 +543,15 @@ src/
 │   ├── scnNumber.ts              nextScnNumber() — YYYY-NNNN, a GLOBAL 4-digit sequence since 2024 (legacy 3-digit titles ignored)
 │   ├── scnProjects.ts            SCN Project Reference ⇄ Engineering's Projects — matched by title (it's a text column on another site collection)
 │   ├── scnTasks.ts               SCN Task List hyperlink ⇄ an Engineering task — writes ARC's task URL, recognises it on read
+│   ├── quotePricing.ts           Quote pricing (pure) — component COST, the line's ONE target GM, Part lines, breaks, WEIGHTED quote GM
+│   ├── quoteMoney.ts             Quote money display — derived values 2 decimals, a typed unit cost up to 4 (pure)
+│   ├── sapPartNumber.ts          SAP part # ####-####-## — format as typed, validate (pure; not the sold-to)
+│   ├── quoteRoles.ts             Quote Roles tags → rights + every gate (pure) — no role = no access
+│   ├── quoteNumber.ts            IQ-CODE-####-R# — global sequence, highest base + 1; revs of a base (pure)
+│   ├── quoteCustomerCode.ts      Propose a 2–5 letter customer code, next candidates on a clash, similar-name check (pure)
+│   ├── quotePdfModel.ts          Record → QuotePdfModel, the customer-facing shape that CANNOT carry cost or margin
+│   ├── quotePdf.ts               QuotePdfModel → real-text PDF (jsPDF + AutoTable, dynamically imported)
+│   ├── quoteMapper.ts            Graph item ⇄ all five quote lists; field builders, PriceBreaks JSON, unique-value refusal
 │   ├── featureRequestAlerts.ts   ARC Feature Request intake + status alerts (pure)
 │   ├── featureRequestIssues.ts   Feature request → BusinessIT issue: who (Ray/Tim), the link marker, matching, the issue body (pure)
 │   ├── grayMarketFields.ts       Gray Market column descriptors (columns are DATA)
@@ -567,7 +590,8 @@ src/
 │   └── pcbChecklist.ts           PCB-category task checklist logic
 │
 ├── types/
-│   └── task.ts                   All domain types + constants (Task, Eir, Panel*, …)
+│   ├── task.ts                   All domain types + constants (Task, Eir, Panel*, …)
+│   └── quote.ts                  Insourcing Quotes types + constants (Quote, QuoteAssembly, QuoteItem, roles, statuses)
 │
 ├── components/
 │   ├── Header.tsx                Top nav (departments menu, view switcher, theme, Report issue)
@@ -636,6 +660,11 @@ src/
 │   ├── ScnFormModal.tsx              Raise an SCN — Product/Description/Approval Status required, SCN# shown as "will be …"
 │   ├── costImpactAtoms.tsx           Delta-cost chip (increase/decrease/no change)
 │   ├── scnAtoms.tsx                  SCN Status / Category / Approval chips (Supply Chain)
+│   ├── QuotesNav.tsx                 Insourcing Quotes sub-nav — Quotes / Customers / Roles (Roles only for whoever can manage it)
+│   ├── QuoteFormModal.tsx            New quote — customer, contact, validity, budgetary text, notes (number shown as "will be …")
+│   ├── QuoteAssemblyFormModal.tsx    Add/edit a quote LINE (final assembly or Part) — part numbers, target GM, Part cost, breaks, manual price
+│   ├── QuoteItemFormModal.tsx        Add/edit a component — part numbers, quantity, cost, overhead (NO margin — that's the line's)
+│   ├── QuoteCustomerFormModal.tsx    New/edit a quote customer — proposed code, clash candidates, similar-name warning (manager)
 │   ├── GrayMarketRequestFormModal.tsx  Raise a gray market request
 │   ├── MrbFormModal.tsx          Log an MRB entry (auto-computes Price Per Issue)
 │   ├── FeatureRequestFormModal.tsx  Suggest a new ARC feature — Title/Description/Department/Priority only
@@ -766,6 +795,10 @@ src/
 │   ├── OpenOrdersView.tsx        Open Orders Report Tool — upload, generate, download
 │   ├── OpenOrdersCustomersView.tsx  The managed customer list (+ import from an extract)
 │   ├── AdminOpenOrdersRolesView.tsx Admin -> Open Orders Roles
+│   ├── QuotesView.tsx            Insourcing Quotes list — current rev per base, earlier revs expandable; sortable (role-gated)
+│   ├── QuoteDetailView.tsx       One quote — worksheet (lines → components, cost hidden from viewers), revs, PDF, comments
+│   ├── QuoteCustomersView.tsx    Quote Customers — codes, retire; manager-only writes
+│   ├── QuoteRolesView.tsx        Quote Roles — viewer / quoter / manager; a quote manager OR an ARC admin manages it
 │   ├── GrayMarketRequestsView.tsx      Gray Market Requests list (Supply Chain)
 │   ├── MrbView.tsx               MRB register — Needs disposition / Decided / Archive / All
 │   ├── MrbDetailView.tsx         One MRB entry — Part / Nonconformance / Cost cards, attachments, comments
@@ -3818,6 +3851,271 @@ SCNs list header and an SCN's detail page. Pieces: `api/scnDocuments.ts`,
   read-only access) flows through the global MutationCache learner like every
   other refused write, and marks the drive denied for the session — "Check
   again" clears it.
+
+### Insourcing Quotes (Customer Service / Sales, PMO site)
+
+BusinessIT #37. A tool for building insourcing quotes — the customer's data
+package, per-component cost, one margin per line, the conversation between Sales,
+Engineering, Supply Chain and Operations — that outputs a customer PDF.
+**Customers never use it; they only receive the PDF.** Routes:
+`/sales/quotes`, `/sales/quotes/:id`, `/sales/quotes/customers`,
+`/sales/quotes/roles`, lazy-loaded, with `QuotesNav` across all four.
+`docs/INSOURCING-QUOTING-DESIGN.md` is the design, and its section 13 (the
+build contract) wins wherever it differs from the sections above it. The
+pricing maths is ported from Ray's AltronicQuoteTool (AQT).
+
+Five lists on **`SITES.pmo`**, created by `scripts/create-quote-lists.ps1`
+(readable internal names, idempotent, `-WhatIf`), off the site navigation:
+
+| List | env | Shape |
+|---|---|---|
+| Quotes | `VITE_SP_QUOTES_LIST_ID` | the header; attachments ON (the customer's data package) |
+| Quote Assemblies | `VITE_SP_QUOTE_ASSEMBLIES_LIST_ID` | quote LINES (assembly or Part); `QuoteRef` single lookup; `TargetGM`; attachments OFF |
+| Quote Items | `VITE_SP_QUOTE_ITEMS_LIST_ID` | `QuoteRef` + `AssemblyRef` single lookups; attachments ON |
+| Quote Customers | `VITE_SP_QUOTE_CUSTOMERS_LIST_ID` | `CustomerCode` unique |
+| Quote Roles | `VITE_SP_QUOTE_ROLES_LIST_ID` | Title = email, `PersonName`, `Roles`, `Note` |
+
+**None of the five has a default in `config.ts`**, and `QUOTES_CONFIGURED`
+needs all five. Unlike EIR Roles, a default here is not a lockout risk — an
+unset Quote Roles list means NOBODY has access — but the lists must exist and
+the roles list be populated before anyone is admitted, so turning the feature
+on is a deliberate act (set all five repo variables, redeploy). All five are in
+`deploy.yml`'s named list and `vite-env.d.ts`.
+
+**Quote → Line → Component.** A quote holds LINES (what the customer buys),
+each one of two types (`LineType` on Quote Assemblies — the list and the
+`QuoteAssembly` type keep their names to avoid churn):
+
+- **Final assembly** — built from components. A component carries **cost
+  only**: cost, optional material overhead, quantity per assembly. **No target
+  GM, no sell price, no GM — anywhere** (type, column, form, worksheet).
+- **Part** — a standalone part quoted on its own (Ray, 2026-10-09). Its
+  `Cost` and `MaterialOverheadPct` live on the line itself and it has **no
+  components** (no components section, no "Add component"; `useCreateQuoteItem`
+  refuses one).
+
+**The margin is set ONCE, on the line** (`TargetGM` on Quote Assemblies) —
+Ray, 2026-10-09: "I only want to adjust the gross margin on the final
+assembly." It moved there from Quote Items; the script reports a leftover
+Quote Items `TargetGM` column as unused and never deletes it. **Assembly →
+Part is REFUSED while the line has components** (`QuoteLineTypeChangeError`);
+**Part → Assembly clears the line's own Cost / overhead in the same write**
+(`normalizeLineTypePatch`). The worksheet's "Add line" offers Final assembly or
+Part as pills. On lines and items `Title` IS the Altronic part number. **A
+component has NO customer part number** (Ray, 2026-10-09) — it's a LINE
+field; `QUOTE_ITEM_SELECT` must not ask for `CustomerPartNumber` (selecting a
+column the list hasn't got 400s the whole read), and the script stops creating
+it on Quote Items (an existing one is reported unused, never deleted). The
+customer sees per line only its part numbers, description and quantity-break
+table — a Part prints exactly like an assembly — never components, cost or
+margin.
+
+**SAP part numbers are `####-####-##`** (10 digits, 4-4-2, e.g.
+1003-0114-40) on lines and components — `lib/sapPartNumber.ts` is the ONE
+place: `formatSapPartNumber` dashes as you type (digits only, max 10),
+`sapPartNumberProblem` allows blank or exactly 10 digits. The forms format and
+validate and store the DASHED form; **the mapper reads whatever is stored**
+(no reformat on read or write), so a legacy value displays as saved. NOT the
+customer's SAP sold-to (`CustomerNumber`), which stays free text.
+
+**Roles** — `lib/quoteRoles.ts` is the ONE place the rules live, asked by
+every control AND inside every `mutationFn` through `useResolveQuoteAccess`
+(the roles list awaited via `ensureQueryData`, never a render-time flag — the
+Parts Roles / CMMS pattern). Each tag implies the ones below it.
+
+| | `viewer` | `quoter` | `manager` |
+|---|---|---|---|
+| See quotes and sell / break prices; comment, attach, watch | yes | yes | yes |
+| See and edit cost, overhead, a line's target GM, margin | — | yes | yes |
+| Create and edit quotes, assemblies, components, revs; generate the PDF | — | yes | yes |
+| Set Won / Lost / Expired | — | — | yes |
+| Create and edit customers; manage the roles list | — | — | yes |
+
+- **The Dashboard card AND the Departments menu entry sit under SUPPLY
+  CHAIN for now** (Ray, 2026-10-09; card in ajax-yellow). The routes stay
+  `/sales/quotes`, so links already sent in comment emails keep working.
+- **No role = no access** — the Dashboard card and menu entry stay hidden. The
+  opposite of EIR Roles' fall-open: nobody quoted in ARC before this, so falling
+  closed takes nothing away, while falling open shows the company cost and
+  margin.
+- **ARC admins get NO quote access**, only the right to manage the roles list —
+  so a list nobody holds `manager` on is never locked from the inside, but being
+  an ARC admin is not a reason to see commercial cost.
+- **Hiding cost and margin from a viewer is UI-ONLY.** Graph still returns
+  those columns and the bundle is public, so a viewer with dev tools can read
+  them. A separate restricted cost list was considered and **deliberately not
+  built**; SharePoint list permissions are the real boundary. Don't describe
+  the viewer role as securing cost — the Manual says this plainly too.
+
+**Pricing — `lib/quotePricing.ts`, pure, the single source of truth.** GM is
+`(price − cost) / price`.
+
+- **A component is COST only**: `loadedUnitCost = cost × (1 +
+  MaterialOverheadPct/100)` (blank overhead = 0), `extendedCost = quantity ×
+  loadedUnitCost`. `QuoteItemPricing` is `{ itemId, loadedUnitCost,
+  extendedCost, problem }` — nothing else.
+- **A line's `unitCost`**: an assembly's = Σ component `extendedCost`; a
+  Part's = its own `cost × (1 + overhead/100)`. Overhead is a real cost, so GM
+  is measured on loaded cost.
+- **`computedPrice` = `roundCents(unitCost ÷ (1 − targetGM/100))`** — the
+  margin applied ONCE, to the line's total, rounded ONCE, there. Null (with a
+  named problem — "No target GM set for this assembly.", a component with no
+  cost, …) when the cost is unknown or the GM is missing or not `0 < GM < 100`.
+  Worked example, pinned: components $38.40 + $18.795 at 40% → **$95.33**.
+- **`roundCents` trims the cents figure to 12 significant digits before
+  rounding**, so `57.195 ÷ 0.6` (floats as 95.32499…) rounds to 95.33. A bare
+  `Number.EPSILON` nudge was too small above ~1.
+- **`ManualPrice` overrides** the computed price (and may stand with no target
+  GM, in which case the missing-GM problem is not raised); GM is recomputed
+  from it, and the worksheet marks it so it is never mistaken for the computed
+  one. A target GM edit re-syncs `CustomerPrice` exactly like a manual price.
+- **The quote's GM is WEIGHTED over the totals, never averaged across lines**:
+  `(Σ price − Σ unitCost) ÷ Σ price`.
+- **Quantity breaks (up to three) are on the LINE**, stored as JSON in
+  `PriceBreaks`. Each tier is `roundCents(price × (1 − discount))` with cost
+  held fixed, so GM falls at volume; the base tier is `1 – (firstBreak − 1)`.
+- **`CustomerPrice` is STORED** so SharePoint's own views and exports can show
+  it, and re-stored by the hooks after any line or component change —
+  `quotePricing` recomputes it every time; never trust the stored value over it.
+- **Every line has a QUOTED QUANTITY** (`QuotedQty`, Ray, 2026-10-09: "defaults
+  to ONE piece and is never blank") — a whole number ≥ 1; the mapper reads a
+  missing/invalid value as 1 and a create always sends it. `tierForQty` picks
+  the tier whose min ≤ qty ≤ max; **Subtotal** (`lineTotal`) =
+  `roundCents(tier unit price × qty)`, with cost/profit/GM at that qty. The
+  quote's **Total** (`quoteTotal`) = Σ Subtotals — null only while a line
+  can't be priced, which `priceQuote().problems` names. The worksheet shows
+  Qty / Unit price / Subtotal on every line to EVERYONE (sell figures) and the
+  Total card; QuotesView's Total column is `quoteTotal`. `totalPrice` (one of
+  each at base) still exists but nothing shows it.
+- **Display — `lib/quoteMoney.ts`**: every DERIVED money value (loaded / ext.
+  cost, line cost, price, profit, tiers, totals) shows exactly 2 decimals; a
+  TYPED unit cost shows up to 4 only when sub-cent precision was entered
+  (`formatUnitCost`). Display only — the maths keeps full precision. A
+  walkthrough once showed "$18.795"; that's what this rule is for.
+- **The AQT "user price" layer is DEFERRED** (channel discount, round-up to a
+  dollar, which price the customer sees): no columns for it. It can be added
+  later without disturbing anything, because it applies once, on the assembly.
+
+**Numbering — `IQ-<CUSTOMERCODE>-<####>-R<rev>`** (`lib/quoteNumber.ts`), e.g.
+`IQ-COO-0042-R1`. The sequence is **GLOBAL** (one counter, not per customer),
+so two customers can never collide, and **next = highest base + 1, never
+count + 1** (the Operations task numbering lesson). `Title` carries **Enforce
+Unique Values**: two simultaneous creates → the second is refused, ARC
+refetches, renumbers and retries **ONCE**, and any other error surfaces
+unchanged. `QuoteBase` and `Rev` are separate columns so revs sort together.
+
+**`isUniqueValueRejection` (`lib/quoteMapper.ts`) is UNCONFIRMED against a
+live refusal.** It matches SharePoint's documented wording ("duplicate
+values…", `nameAlreadyExists`) and deliberately NOT a bare 409, which is also
+`resourceModified`. If a real duplicate surfaces as a raw error instead of a
+retry, that function is the place to look.
+
+**Customer codes** (`lib/quoteCustomerCode.ts`) — 2–5 characters, proposed
+from the first significant word of the name (punctuation, "The", "Inc"
+ignored), **frozen at creation**: renaming a customer never changes its code
+or any quote number. On a clash the form shows it and offers candidates
+(`COP`, `COO2`) for the manager to choose — **never a silently appended
+digit**, because a clash often means a duplicate customer, which is also why
+names are compared case- and punctuation-insensitively. `CustomerCode` has
+Enforce Unique Values; the in-app check only gives the friendly message first.
+**Only a manager creates or edits customers**, and a customer is **retired**
+(`Active`), never deleted — quotes point at it. `CustomerNumber` is TEXT so
+SAP leading zeros survive.
+
+**Revisions.** Two actions: **New rev** (`api/quoteRevisions.ts`) copies the
+header, every assembly and every component forward as NEW rows, carries the
+comments (original author and timestamp, oldest-first, tagged "carried over
+from R1" — the EIR promotion rule) and copies attachments with
+`copyAttachments`; the old rev is never touched, so each rev keeps exactly
+what was sent. Only the header is fatal; everything after it is best-effort
+and COLLECTED into warnings naming what didn't come across — making a real R2
+look failed is how somebody creates R3 to "retry". **Update in place** edits
+the current rev; on a **Sent** rev it first asks "This rev was sent to the
+customer. Update R1 anyway, or create R2?" — both allowed, the choice just
+made deliberate. **The latest rev is DERIVED** (highest `Rev` for a
+`QuoteBase`), never stored, so there is no "Superseded" status to drift.
+
+**The PDF** (`lib/quotePdfModel.ts` → `lib/quotePdf.ts`):
+
+- **Real, selectable text drawn with jsPDF + AutoTable**, not AQT's
+  html2canvas screenshot; built-in Helvetica, the Altronic PNG mark;
+  **dynamically imported**, so it is not in the main bundle.
+- **Built ONLY from `QuotePdfModel`**, a customer-facing type with no cost,
+  margin, discount or component fields. One mapper builds it and the printer
+  accepts only the model, so a future edit cannot print cost — the field
+  doesn't exist where the printer can reach it.
+- **Leak tests** generate a PDF from distinctive cost and margin values,
+  extract its text and fail on any of them or the words "cost", "margin",
+  "markup". That works only because the text is real.
+- **`BudgetaryText` and `QuoteNotes` are the only customer-visible free
+  text**, typed on purpose, so the leak test cannot judge them — the form says
+  beside each that it prints. Budgetary text is seeded from AQT's default
+  wording when Budgetary is ticked and the field is empty, and never
+  overwritten once edited. Comments and attachments never print.
+- **The tier labels' en dash ("1 – 9") is WinAnsi 0x96**, which Helvetica's
+  built-in encoding has, so it prints correctly — don't "fix" it to a hyphen.
+- Breaks print without AQT's "−x% off base" badge (redundant, and invites
+  negotiating the percentage).
+- **"Prepared by" = whoever GENERATES the PDF** — `useGenerateQuotePdf` reads
+  `useCurrentUser()`'s display name and MAILBOX (never `account.username`)
+  through a ref, and the model carries them field by field (`preparedBy`, null
+  when both blank). It sits beside "Prepared for".
+- **Each line spans the page width** (Ray, 2026-10-09): a grey band with the
+  number + part # in bold and the description on the SAME line after an em
+  dash (wrapping under the part number), then a smaller grey "SAP part no. … ·
+  Your part no. …" line (blanks omitted); a full-width "Quantity | Unit price |
+  Subtotal" row at the quoted quantity; a "Volume pricing" table only when the
+  line has breaks; and a right-aligned "Total" after the lines. The band moves
+  to the next page unless it and the next table's header + row fit. Pinned by
+  tests reading x / y positions out of the content stream (the em dash is the
+  WinAnsi byte 0x97 there).
+
+**Saving is EXPLICIT.** Generate downloads locally and saves nothing; **Save
+to folder** (`api/quotePdfFiles.ts`) writes to `General/IC Quotes` in the PMO
+default Documents library (path from Ray, verified read-only by
+`scripts/verify-quote-pdf-folder.ps1`; the share link he sent is not used,
+since a token can be regenerated). It goes through `uploadToDriveTarget` with
+`conflictBehavior: rename` — **never overwrite** — and **ARC never creates the
+folder**: it resolves it by path first and a 404 is an error naming the path,
+because a PUT by full path would silently create it in the wrong place.
+
+**Phase 2 columns exist but are read-only in this release** —
+`EngineeringTaskLink` and `OperationsTaskLink` (Hyperlink; the Project Task
+List is in another site collection, so no lookup) and
+`EngineeringProjectRef` (text holding an Engineering project TITLE, the SCN
+pattern). Hyperlinks are **never in the create POST**, only their own
+follow-up PATCH (see "Hyperlink columns"); a new rev copies them that way. No
+FK on the About diagram for any of the three.
+
+Six more things that are load-bearing:
+
+- **Single lookups (`CustomerRef`, `QuoteRef`, `AssemblyRef`) are bare
+  integers on write with both halves `$select`ed** — invisible from mock mode,
+  so each is pinned by a `USE_MOCK: false` request-shape test.
+- **Delete is per-list**: assemblies and components CAN be deleted by a
+  quoter/manager (they are a draft's composition, and a rev preserves what was
+  sent); **quotes cannot** — a withdrawn quote is Lost or Expired; customers
+  are retired; roles rows can be deleted.
+- **Comments follow the full house rules** on quotes and on each component
+  (`commentNotifyRecipients`, auto-watch on create and on mention against the
+  PMO resolver, `useCommentFileUpload`). There is deliberately **no thread on
+  assemblies** — assembly-level discussion goes on the quote — and component
+  threads are never mirrored.
+- **Both `Communication` columns must be verified BEHAVIOURALLY** after the
+  script runs: post two comments and confirm the second replaces rather than
+  doubles the thread. Graph's `appendChangesToExistingText` answer proves
+  nothing (FAIT 89).
+- **Worksheet layout**: the quote's own Attachments (the customer's data
+  package) sit in the MAIN column directly above the Discussion, not the
+  sidebar. A component's expanded panel is a two-column grid — Attachments
+  then the thread in the wide column, Watchers in the narrow one, stacked
+  below `md` — rendered in a full-width `<td colSpan>` whose content is
+  `sticky left-0` at the components box's measured visible width, so the
+  table scrolling sideways never makes the panel scroll.
+- **The roles list is managed at `/sales/quotes/roles`**, inside the module,
+  by a quote manager or an ARC admin — not under `/admin`.
+- **Still open**: manager approval before Sent (not built), and nested
+  component sub-assemblies (out of scope; the roll-up is flat).
 
 ### QC Time Tracking (Panels, panelTeam site)
 

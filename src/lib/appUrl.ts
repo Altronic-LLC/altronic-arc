@@ -32,7 +32,8 @@ export type AppItemKind =
   | "scn"
   | "featureRequest"
   | "altronicPart"
-  | "altronicComponent";
+  | "altronicComponent"
+  | "quote";
 
 const KIND_SEGMENTS: Record<AppItemKind, string> = {
   task: "task",
@@ -68,6 +69,9 @@ const KIND_SEGMENTS: Record<AppItemKind, string> = {
   // item ids repeat across the lists (see lib/partSearch.ts `partPath`).
   altronicPart: "engineering/parts/part",
   altronicComponent: "engineering/parts/component",
+  // Insourcing Quotes detail page (/sales/quotes/:id). A component's thread
+  // links to its parent quote — there is no per-component page.
+  quote: "sales/quotes",
 };
 
 /** Absolute URL to an item's detail page in this app. */

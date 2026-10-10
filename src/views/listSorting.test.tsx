@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
+import { quoteMockDb } from "@/data/quoteMockData";
 
 // =============================================================================
 // Column sorting, exercised through real views.
@@ -35,6 +36,35 @@ vi.mock("@/hooks/useIsAdmin", () => ({
   useAdminAccess: () => adminAccess,
   useIsAdmin: () => adminAccess.isAdmin,
 }));
+
+// Insourcing Quotes is role-gated; give this file's user a quote manager's
+// rights so the two quote registers render their tables.
+vi.mock("@/hooks/useQuoteRoles", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/hooks/useQuoteRoles")>();
+  const { quoteRightsFrom } = await import("@/lib/quoteRoles");
+  return {
+    ...actual,
+    useMyQuoteAccess: () => ({
+      rights: quoteRightsFrom(["manager"], { isArcAdmin: false }),
+      resolving: false,
+      failed: false,
+      configured: true,
+    }),
+  };
+});
+
+/** Insourcing Quotes admits only people with a quote role — give the mocked user one. */
+function grantQuoteRole() {
+  if (!quoteMockDb.roles.some((r) => r.email === "ray.white@altronic-llc.com")) {
+    quoteMockDb.roles.push({
+      id: 990,
+      email: "ray.white@altronic-llc.com",
+      displayName: "Ray White",
+      roles: ["manager"],
+      note: "",
+    });
+  }
+}
 
 /** The data cells of the rendered rows, first column only. */
 function firstColumnValues(): string[] {
@@ -121,6 +151,15 @@ describe("every sortable list renders its sort buttons", () => {
     expect(screen.getByRole("button", { name: "Sort by Owner" })).toBeInTheDocument();
   });
 
+  it("Insourcing Quotes", async () => {
+    grantQuoteRole();
+    const { QuotesView } = await import("./QuotesView");
+    renderWithProviders(<QuotesView />, { route: "/sales/quotes" });
+    await waitForTable();
+    expect(screen.getByRole("button", { name: "Sort by Quote #" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sort by Customer" })).toBeInTheDocument();
+  });
+
   it("Parts List (Global Search)", async () => {
     const { PartsListView } = await import("./PartsListView");
     renderWithProviders(<PartsListView />, {
@@ -130,6 +169,21 @@ describe("every sortable list renders its sort buttons", () => {
     await waitForTable();
     expect(screen.getByRole("button", { name: "Sort by Part #" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Sort by Type" })).toBeInTheDocument();
+  });
+
+  it("Quote Customers", async () => {
+    const { QuoteCustomersView } = await import("./QuoteCustomersView");
+    renderWithProviders(<QuoteCustomersView />, { route: "/sales/quotes/customers" });
+    await waitForTable();
+    expect(screen.getByRole("button", { name: "Sort by Code" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sort by Customer #" })).toBeInTheDocument();
+  });
+
+  it("Quote Roles", async () => {
+    const { QuoteRolesView } = await import("./QuoteRolesView");
+    renderWithProviders(<QuoteRolesView />, { route: "/sales/quotes/roles" });
+    await waitForTable();
+    expect(screen.getByRole("button", { name: "Sort by Roles" })).toBeInTheDocument();
   });
 });
 
@@ -166,6 +220,26 @@ describe("the rows are actually re-ordered", () => {
   // Each case clicks a column and asserts the FIRST cell changed or the order
   // reversed. This is what catches a view whose <tbody> still maps the
   // unsorted list — the engine tests can't see that.
+
+  it("Quote Customers sorts by Name, then reverses", async () => {
+    const { QuoteCustomersView } = await import("./QuoteCustomersView");
+    renderWithProviders(<QuoteCustomersView />, { route: "/sales/quotes/customers" });
+    await waitForTable();
+    const ascending = firstColumnValues();
+    expect(ascending.length).toBeGreaterThan(1);
+    await sortBy("Name");
+    expect(firstColumnValues()).toEqual([...ascending].reverse());
+  });
+
+  it("Quote Roles sorts by Name, then reverses", async () => {
+    const { QuoteRolesView } = await import("./QuoteRolesView");
+    renderWithProviders(<QuoteRolesView />, { route: "/sales/quotes/roles" });
+    await waitForTable();
+    const ascending = firstColumnValues();
+    expect(ascending.length).toBeGreaterThan(1);
+    await sortBy("Name");
+    expect(firstColumnValues()).toEqual([...ascending].reverse());
+  });
 
   it("CSA Listings sorts by File Number, then reverses", async () => {
     const { CsaListingsView } = await import("./CsaListingsView");
@@ -266,6 +340,22 @@ describe("the rows are actually re-ordered", () => {
     expect(ascending).not.toEqual(byPartNumber);
 
     await sortBy("Description");
+    expect(firstColumnValues()).toEqual([...ascending].reverse());
+  });
+
+  it("Insourcing Quotes sorts by Customer — a column that is NOT the default", async () => {
+    grantQuoteRole();
+    const { QuotesView } = await import("./QuotesView");
+    renderWithProviders(<QuotesView />, { route: "/sales/quotes" });
+    await waitForTable();
+    const byNumber = firstColumnValues();
+
+    await sortBy("Customer");
+    const ascending = firstColumnValues();
+    expect(ascending.length).toBeGreaterThan(1);
+    expect(ascending).not.toEqual(byNumber);
+
+    await sortBy("Customer");
     expect(firstColumnValues()).toEqual([...ascending].reverse());
   });
 

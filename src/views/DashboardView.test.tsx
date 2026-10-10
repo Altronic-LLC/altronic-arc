@@ -21,6 +21,7 @@ vi.mock("react-router-dom", async (importOriginal) => {
 
 vi.mock("@/hooks/useCurrentUser", () => ({
   useCurrentUser: () => ({ displayName: "Demo User", email: "demo.user@altronic-llc.com", lookupId: 0 }),
+  useCurrentUserEmails: () => ["demo.user@altronic-llc.com"],
 }));
 
 const TASK_LIST_KEY = ["tasks", "list"] as const;

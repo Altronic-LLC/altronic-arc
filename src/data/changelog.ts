@@ -20,6 +20,26 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.180.0",
+    date: "2026-10-09",
+    changes: [
+      "There is a new Insourcing Quotes tool for building quotes from final assemblies and the components they are made of — or from parts quoted on their own",
+      "Components carry cost and material overhead, and each final assembly has one target gross margin that prices it, with up to three quantity breaks and an optional manual price",
+      "A standalone part can be its own quote line: enter its cost, optional overhead and target gross margin, with no components",
+      "Each line has a quoted quantity (one unless you change it), priced at its quantity break into a Subtotal, and the quote shows a Total",
+      "SAP part numbers are entered as ####-####-##, formatted as you type",
+      "A Quote Customers list gives each customer a short code, and quotes are numbered automatically, like IQ-COO-0042-R1",
+      "Create a new rev to change a quote that was sent — the earlier rev keeps exactly what the customer received — or update the current rev in place",
+      "Generate the customer's PDF quote, with optional budgetary wording and notes, and save it to the IC Quotes folder when you choose to",
+      "The PDF lists every line in one Quoted Items table — part numbers, description, price breaks, quantity and subtotal — and names whoever generated it under Prepared by, so the customer knows who to contact",
+      "Comment, watch and attach files on quotes and on each component",
+      "Viewer, quoter and manager roles decide who can see and change quotes; viewers never see cost or margin",
+      "Insourcing Quotes is listed under Supply Chain for now, on the Dashboard and in the Departments menu",
+      "On laptop-width screens the header's Refresh, Suggest a feature and Report issue buttons show as icons, so pages no longer scroll sideways",
+      "Comment box buttons wrap as whole buttons on narrow screens instead of breaking a word across two lines",
+    ],
+  },
+  {
     version: "0.179.0",
     date: "2026-10-09",
     changes: [

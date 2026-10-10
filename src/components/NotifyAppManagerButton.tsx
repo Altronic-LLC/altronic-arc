@@ -40,7 +40,7 @@ export function NotifyAppManagerButton() {
         className="flex h-9 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-medium text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
       >
         <LifeBuoy className="h-4 w-4" />
-        <span className="hidden md:inline">Report issue</span>
+        <span className="hidden whitespace-nowrap xl:inline">Report issue</span>
       </button>
       {open && <NotifyAppManagerModal onClose={() => setOpen(false)} />}
     </>

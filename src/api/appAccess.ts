@@ -50,6 +50,9 @@ import {
   SP_QC_COILS_LIST_ID,
   SP_QC_CPU95_LIST_ID,
   SP_QC_TIME_TRACKING_LIST_ID,
+  SP_QUOTE_ASSEMBLIES_LIST_ID,
+  SP_QUOTE_ITEMS_LIST_ID,
+  SP_QUOTES_LIST_ID,
   SP_SCHEDULED_MAINTENANCE_LIST_ID,
   SP_SCNS_LIST_ID,
   SP_SUPPLIERS_LIST_ID,
@@ -253,6 +256,14 @@ export const APPS: AppSpec[] = [
     lists: ids(SP_CUSTOMER_NOTES_LIST_ID),
     detectHiddenRows: true,
     siteUrl: SP_SALES_ORDERENTRY_SITE_URL,
+  },
+  // Insourcing Quotes — three lists on the PMO site (customers and roles sit
+  // beside them). Locked only when ALL three are refused, like any multi-list app.
+  {
+    path: "/sales/quotes",
+    label: "Insourcing Quotes",
+    site: "pmo",
+    lists: ids(SP_QUOTES_LIST_ID, SP_QUOTE_ASSEMBLIES_LIST_ID, SP_QUOTE_ITEMS_LIST_ID),
   },
 ];
 

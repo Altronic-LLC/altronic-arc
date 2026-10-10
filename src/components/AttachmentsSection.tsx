@@ -58,6 +58,8 @@ const PARENT_NOUN: Record<AttachmentParent, string> = {
   supplier: "supplier",
   supplierContact: "contact",
   supplierIssue: "issue",
+  quote: "quote",
+  quoteItem: "component",
   costImpactNotice: "notice",
   scn: "SCN",
 };

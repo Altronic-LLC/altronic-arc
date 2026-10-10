@@ -1113,6 +1113,52 @@ export const COST_IMPACT_NOTICE_ALERTS =
   "Mark Balent <Mark.Balent@altronic-llc.com>, " +
   "Katie Fleming <katie.fleming@altronic-llc.com>";
 
+// =============================================================================
+// Insourcing Quotes (BusinessIT #37) — FIVE lists on the PMO site (SITES.pmo),
+// created by `scripts/create-quote-lists.ps1` and kept off the site's
+// navigation (reachable via Site contents only). Design:
+// docs/INSOURCING-QUOTING-DESIGN.md.
+//
+// NO DEFAULTS, deliberately: the lists did not exist when this shipped, and
+// an unset id must read as "not set up" rather than point at nothing. Set each
+// as a repo variable once the script has run — and every one is in
+// deploy.yml's named list, or a production build can never see it.
+// =============================================================================
+
+/** "Quotes" — the header, one row per quote REVISION. */
+export const SP_QUOTES_LIST_ID: string | undefined =
+  import.meta.env.VITE_SP_QUOTES_LIST_ID || undefined;
+
+/** "Quote Assemblies" — the final assemblies on a quote. */
+export const SP_QUOTE_ASSEMBLIES_LIST_ID: string | undefined =
+  import.meta.env.VITE_SP_QUOTE_ASSEMBLIES_LIST_ID || undefined;
+
+/** "Quote Items" — the components under each final assembly. */
+export const SP_QUOTE_ITEMS_LIST_ID: string | undefined =
+  import.meta.env.VITE_SP_QUOTE_ITEMS_LIST_ID || undefined;
+
+/** "Quote Customers" — name, generated code, SAP sold-to number. */
+export const SP_QUOTE_CUSTOMERS_LIST_ID: string | undefined =
+  import.meta.env.VITE_SP_QUOTE_CUSTOMERS_LIST_ID || undefined;
+
+/**
+ * "Quote Roles" — viewer / quoter / manager. UNSET MEANS NO ACCESS: nobody
+ * could quote in ARC before this list existed, and the tool carries cost and
+ * margin data, so falling closed takes nothing away while falling open would
+ * hand that data to everyone signed in.
+ */
+export const SP_QUOTE_ROLES_LIST_ID: string | undefined =
+  import.meta.env.VITE_SP_QUOTE_ROLES_LIST_ID || undefined;
+
+/** Are all five quote lists configured? Mock mode always is, for demos. */
+export const QUOTES_CONFIGURED =
+  USE_MOCK ||
+  (!!SP_QUOTES_LIST_ID &&
+    !!SP_QUOTE_ASSEMBLIES_LIST_ID &&
+    !!SP_QUOTE_ITEMS_LIST_ID &&
+    !!SP_QUOTE_CUSTOMERS_LIST_ID &&
+    !!SP_QUOTE_ROLES_LIST_ID);
+
 export const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 
 /** Throw a clear error if the app tries to call Graph without being configured. */
