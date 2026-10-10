@@ -31,7 +31,6 @@ import { AttachmentsSection } from "@/components/AttachmentsSection";
 import { useCommentFileUpload } from "@/hooks/useAttachments";
 import { FieldEditModal, type EditableFieldSpec } from "@/components/FieldEditModal";
 import { ChoiceSelect } from "@/components/SearchableSelect";
-import { ChoicePills } from "@/components/ChoicePills";
 import { CommentComposer } from "@/components/CommentComposer";
 import { CommentThread } from "@/components/CommentThread";
 import { DateField } from "@/components/DateField";
@@ -120,11 +119,20 @@ export function GrayMarketRequestDetailView() {
    * SharePoint reject the whole PATCH.
    */
   function saveFields(changed: Record<string, string>) {
+    const { [TESTING_REQUIRED_KEY]: testing, ...descriptorValues } = changed;
     const fields: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(changed)) {
+    for (const [key, value] of Object.entries(descriptorValues)) {
       Object.assign(fields, grayMarketFieldPatch(key, value));
     }
-    save(fields, (r) => ({ ...r, values: { ...r.values, ...changed } }));
+    // Testing Required isn't a descriptor — it's its own column and its own
+    // property on the record — so it is written alongside the card's fields,
+    // in the SAME write, rather than as a second save.
+    if (testing !== undefined) fields.ProductionTest = testing;
+    save(fields, (r) => ({
+      ...r,
+      ...(testing !== undefined ? { testingRequired: testing } : {}),
+      values: { ...r.values, ...descriptorValues },
+    }));
   }
 
   function handleAddComment(bodyHtml: string) {
@@ -200,6 +208,9 @@ export function GrayMarketRequestDetailView() {
                 <EditButton label={section} onClick={() => setEditing(section)} />
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {section === TESTING_REQUIRED_SECTION && (
+                  <TestingRequiredRow value={request.testingRequired} />
+                )}
                 {fieldsInSection(section).map((field) => (
                   <FieldRow
                     key={field.key}
@@ -246,19 +257,6 @@ export function GrayMarketRequestDetailView() {
               options={GRAY_MARKET_STATUSES}
               emptyLabel="Open"
               clearable={false}
-            />
-          </SidebarField>
-
-          <SidebarField label="Testing Required">
-            {/* Three options — pills, not a dropdown. See ChoicePills. */}
-            <ChoicePills
-              label="Testing Required"
-              name="gray-market-testing-required"
-              options={GRAY_MARKET_TESTING_REQUIRED}
-              value={request.testingRequired}
-              onChange={(v) =>
-                save({ ProductionTest: v }, (r) => ({ ...r, testingRequired: v }))
-              }
             />
           </SidebarField>
 
@@ -331,14 +329,42 @@ export function GrayMarketRequestDetailView() {
       {editing && (
         <FieldEditModal
           title={`Edit ${editing}`}
-          fields={fieldsInSection(editing).map(editSpec)}
-          values={editValues(request, fieldsInSection(editing))}
+          fields={editSpecs(editing)}
+          values={editValues(request, editing)}
           onClose={() => setEditing(null)}
           onSave={saveFields}
         />
       )}
     </div>
   );
+}
+
+/**
+ * Testing Required lives on the ENGINEERING card (BusinessIT#26).
+ *
+ * It sat in the sidebar as pills that saved on click — but it's Engineering's
+ * call, and the sidebar is where the request's own bookkeeping lives. It isn't
+ * a descriptor in `GRAY_MARKET_FIELDS` (it's its own column, `ProductionTest`,
+ * and its own property, `testingRequired`, read by the list filter and the
+ * change alert), so the card adds it by hand: shown first, and first in the
+ * card's editor.
+ */
+const TESTING_REQUIRED_SECTION: GrayMarketSection = "Engineering";
+const TESTING_REQUIRED_KEY = "testingRequired";
+
+const TESTING_REQUIRED_SPEC: EditableFieldSpec = {
+  key: TESTING_REQUIRED_KEY,
+  label: "Testing Required",
+  // Three options, so the shared editor renders pills with a Not set — the
+  // question is often still open.
+  kind: "choice",
+  choices: GRAY_MARKET_TESTING_REQUIRED,
+};
+
+/** Everything one card's editor holds. */
+function editSpecs(section: GrayMarketSection): EditableFieldSpec[] {
+  const specs = fieldsInSection(section).map(editSpec);
+  return section === TESTING_REQUIRED_SECTION ? [TESTING_REQUIRED_SPEC, ...specs] : specs;
 }
 
 /** A descriptor → what the shared editor needs to render it. */
@@ -360,10 +386,13 @@ function editSpec(field: GrayMarketField): EditableFieldSpec {
  */
 function editValues(
   request: GrayMarketRequest,
-  fields: GrayMarketField[],
+  section: GrayMarketSection,
 ): Record<string, string> {
   const values: Record<string, string> = {};
-  for (const field of fields) {
+  if (section === TESTING_REQUIRED_SECTION) {
+    values[TESTING_REQUIRED_KEY] = request.testingRequired;
+  }
+  for (const field of fieldsInSection(section)) {
     const raw = request.values[field.key] ?? "";
     values[field.key] = field.kind === "richText" ? toPlainTextForEditing(raw) : raw;
   }
@@ -382,6 +411,22 @@ function EditButton({ label, onClick }: { label: string; onClick: () => void }) 
       <Pencil className="h-3 w-3" />
       Edit
     </button>
+  );
+}
+
+/** Testing Required, read-only, in the same shape as a descriptor row. */
+function TestingRequiredRow({ value }: { value: string }) {
+  return (
+    <div>
+      <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
+        Testing Required
+      </span>
+      {value ? (
+        <p className="text-sm text-fg">{value}</p>
+      ) : (
+        <p className="text-sm text-fg-muted">Not set</p>
+      )}
+    </div>
   );
 }
 

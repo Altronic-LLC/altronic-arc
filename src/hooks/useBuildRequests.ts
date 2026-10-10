@@ -46,7 +46,12 @@ import { ADMINS_KEY } from "./useAdmins";
 import { listAdmins } from "@/api/admins";
 import { isAdminEmail } from "@/lib/adminAccess";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
-import { isProductionApprover, productionTransitionRefusal } from "@/lib/buildRequestProduction";
+import {
+  completeReviewerEmails,
+  isProductionApprover,
+  productionTransitionRefusal,
+} from "@/lib/buildRequestProduction";
+import { BUILD_REQUEST_COMPLETE_REVIEWERS } from "@/api/config";
 import { partStatusTransitionRefusal } from "@/lib/buildRequestPartProduction";
 import { resolveCurrentUserLookupId } from "@/api/currentUser";
 import { autoWatchers } from "@/lib/people";
@@ -250,7 +255,7 @@ function applyBrFieldsLocally(b: BuildRequest, fields: Record<string, unknown>):
  * A status write the production hand-off rule refused
  * (`productionTransitionRefusal`). Thrown from `mutationFn` BEFORE any
  * request goes out, so the status picker can't bypass the detail page's
- * Ready for Production / Production Complete button.
+ * Ready for Production / Production Complete / Complete button.
  */
 export class BuildRequestProductionRefusedError extends Error {
   constructor(reason: string) {
@@ -268,7 +273,12 @@ export class BuildRequestProductionRefusedError extends Error {
  */
 const pendingProductionRefusal = new WeakMap<object, string>();
 
-const PRODUCTION_GATED_STATUSES: readonly string[] = ["Ready for Production", "Production Complete"];
+const PRODUCTION_GATED_STATUSES: readonly string[] = [
+  "Ready for Production",
+  "Production Complete",
+  "Complete",
+];
+
 
 /**
  * Status changes whose own hand-off alert REPLACES the generic "status
@@ -331,7 +341,11 @@ export function useUpdateBuildRequestFields() {
             const isAdmin = admins
               ? myEmails.some((e) => isAdminEmail(e, admins))
               : accessRef.current.isAdmin;
-            refusal = productionTransitionRefusal(br, parts, target, { isAdmin, myEmails });
+            refusal = productionTransitionRefusal(br, parts, target, {
+              isAdmin,
+              myEmails,
+              completeReviewers: completeReviewerEmails(BUILD_REQUEST_COMPLETE_REVIEWERS),
+            });
           }
           if (refusal) {
             pendingProductionRefusal.set(vars, refusal);

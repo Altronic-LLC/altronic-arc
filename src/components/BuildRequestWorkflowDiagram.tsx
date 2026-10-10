@@ -64,10 +64,10 @@ export const BUILD_REQUEST_FLOW: (FlowStep | WorkflowGate)[] = [
   },
   {
     kind: "step",
-    who: "Sheila Horn",
-    title: "Review and close",
+    who: "Sheila Horn or admin",
+    title: "Press Mark Build Request Complete",
     status: "Complete",
-    detail: "Sets the request's Status to Complete.",
+    detail: "Sheila reviews the request and closes it. Every part must still be Production Complete. A task the request was raised from can be completed after this.",
     emails: "Watchers, Amanda Hoagland, the engineer, the requestor",
   },
 ];
@@ -135,8 +135,9 @@ function OffPath() {
           <BuildRequestStatusBadge status={s} />
         </span>
       ))}{" "}
-      from the Status picker at any time. The two production statuses can&apos;t be
-      picked there until their gate above is unlocked.
+      on older requests, but there is no Status dropdown in ARC any more: the buttons
+      above and on each part move a request along. To set one of these, change it in
+      SharePoint.
     </p>
   );
 }

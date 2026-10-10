@@ -154,18 +154,33 @@ describe("BuildRequestDetailView — production hand-off button", () => {
     expect(screen.getByTestId("production-handoff-reason")).toHaveTextContent(/at least one part/i);
   });
 
-  it("shows no button at Production Complete, only a read-only note", () => {
+  // Step 3 (BusinessIT#31): with the Status dropdown gone, the reviewer sets
+  // Complete from here — it was a read-only "waiting on review" note before.
+  it("offers 'Mark Build Request Complete' to the reviewer at Production Complete", () => {
     setup("Production Complete", ["Production Complete"]);
+    state.myEmails = ["sheila.horn@altronic-llc.com"];
     renderPage();
-    expect(screen.queryByRole("button", { name: /ready for production|production complete/i })).toBeNull();
-    expect(screen.getByTestId("production-handoff-note")).toHaveTextContent(/waiting on review/i);
+    fireEvent.click(handoffButton(/mark build request complete/i));
+    expect(String(confirmSpy.mock.calls[0][0])).toMatch(/Set .* to Complete/);
+    expect(state.mutate).toHaveBeenCalledWith({ id: 2, fields: { BRStatus: "Complete" } });
   });
 
-  it("shows no button and no note at Complete", () => {
+  it("greys 'Mark Build Request Complete' for anyone else, saying it waits on review", () => {
+    setup("Production Complete", ["Production Complete"]);
+    renderPage();
+    const btn = handoffButton(/mark build request complete/i);
+    expect(btn).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByTestId("production-handoff-reason")).toHaveTextContent(/waiting on review/i);
+    fireEvent.click(btn);
+    expect(state.mutate).not.toHaveBeenCalled();
+  });
+
+  it("shows no hand-off button at Complete", () => {
     setup("Complete", ["Production Complete"]);
     renderPage();
-    expect(screen.queryByRole("button", { name: /ready for production|production complete/i })).toBeNull();
-    expect(screen.queryByTestId("production-handoff-note")).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: /ready for production|production complete|mark build request complete/i }),
+    ).toBeNull();
   });
 
   it("is greyed for somebody who is neither the engineer nor an admin, even with every part ready", () => {
@@ -232,10 +247,13 @@ describe("BuildRequestDetailView — production hand-off button", () => {
     expect(state.mutate).not.toHaveBeenCalled();
   });
 
-  it("does not replace the sidebar status picker", () => {
+  // BusinessIT#31 — the buttons here and on each part replace the dropdown.
+  it("has no Status dropdown — the status shows only as the header badge", () => {
     setup("In-process", ["Ready for Production"]);
     renderPage();
-    const combo = screen.getAllByRole("combobox")[0];
-    expect(within(combo).getByRole("option", { name: "Ready for Production" })).toBeInTheDocument();
+    for (const combo of screen.queryAllByRole("combobox")) {
+      expect(within(combo).queryByRole("option", { name: "Ready for Production" })).toBeNull();
+    }
+    expect(screen.queryByText("Status", { selector: "aside *" })).toBeNull();
   });
 });

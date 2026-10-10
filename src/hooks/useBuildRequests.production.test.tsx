@@ -311,15 +311,29 @@ describe("useUpdateBuildRequestFields — alerts", () => {
   });
 
   it("d: Production Complete -> Complete fires the final alert and NOT the generic note", async () => {
-    await setBrStatus([br(1, "Production Complete")], [], 1, "Complete");
+    // Step 3 is the reviewer's or an admin's (BusinessIT#31).
+    access.admins = ["eng.one@altronic-llc.com"];
+    await setBrStatus([br(1, "Production Complete")], [part(10, 1, "Production Complete")], 1, "Complete");
     expect(email.fireBuildRequestCompleteAlert).toHaveBeenCalledTimes(1);
     expect(email.fireFieldChangeAlert).not.toHaveBeenCalled();
   });
 
-  it("d: Complete from anywhere else keeps the generic note and sends no final alert", async () => {
-    await setBrStatus([br(1, "In-process")], [], 1, "Complete");
+  // With the Status dropdown gone (BusinessIT#31), Complete is the third
+  // hand-off step — reachable only from Production Complete, like step 2.
+  it("d: Complete from anywhere else is refused, writes nothing and emails nobody", async () => {
+    access.admins = ["eng.one@altronic-llc.com"];
+    const { error } = await setBrStatus([br(1, "In-process")], [part(10, 1, "Production Complete")], 1, "Complete");
+    expect(String(error)).toMatch(/only be set to Complete from Production Complete/);
+    expect(api.updateBuildRequestFields).not.toHaveBeenCalled();
     expect(email.fireBuildRequestCompleteAlert).not.toHaveBeenCalled();
-    expect(email.fireFieldChangeAlert).toHaveBeenCalledTimes(1);
+    expect(email.fireFieldChangeAlert).not.toHaveBeenCalled();
+  });
+
+  it("d: Complete is refused for somebody who isn't the reviewer or an admin", async () => {
+    access.admins = [];
+    const { error } = await setBrStatus([br(1, "Production Complete")], [part(10, 1, "Production Complete")], 1, "Complete");
+    expect(String(error)).toMatch(/Only the build request reviewer or an ARC admin/);
+    expect(api.updateBuildRequestFields).not.toHaveBeenCalled();
   });
 
   it("d: re-saving Complete (already there) sends no final alert", async () => {
