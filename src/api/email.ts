@@ -122,7 +122,8 @@ export interface MentionTarget {
     | "scn"
     | "featureRequest"
     | "altronicPart"
-    | "altronicComponent";
+    | "altronicComponent"
+    | "quote";
   id: number;
   title: string;
 }
@@ -221,6 +222,11 @@ const KIND_COPY: Record<
     phrase: "a component",
     calloutLabel: "Altronic Component",
     buttonText: "Open this component",
+  },
+  quote: {
+    phrase: "an insourcing quote",
+    calloutLabel: "Quote",
+    buttonText: "Open this quote",
   },
 };
 

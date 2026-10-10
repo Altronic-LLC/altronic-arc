@@ -34,6 +34,7 @@ import {
   Megaphone,
   MessageSquare,
   Moon,
+  Receipt,
   PackageSearch,
   RefreshCw,
   Shield,
@@ -45,6 +46,7 @@ import {
 import { cn } from "@/lib/cn";
 import { pathAccessState } from "@/api/appAccess";
 import { useAccessDenials } from "@/hooks/useListAccess";
+import { useMyQuoteAccess } from "@/hooks/useQuoteRoles";
 import { useTheme } from "@/hooks/useTheme";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useKanbanAvailable } from "@/hooks/useIsPhone";
@@ -76,6 +78,13 @@ interface DepartmentItem {
   icon: React.ReactNode;
   matchesPath: (pathname: string) => boolean;
   disabled?: boolean;
+  /**
+   * Shown ONLY to someone holding a quote role (or who can manage the roles
+   * list). No role means the entry doesn't appear at all — Insourcing Quotes
+   * shows cost and margin, so it isn't advertised to the whole company.
+   * Navigation only; every quote screen and write asks its own gate.
+   */
+  requiresQuoteAccess?: boolean;
 }
 
 interface DepartmentGroup {
@@ -326,6 +335,16 @@ const DEPARTMENTS: DepartmentGroup[] = [
         // Covers both /supply-chain/scns and /supply-chain/scn/:id.
         matchesPath: (p) => p.startsWith("/supply-chain/scn"),
       },
+      // Insourcing Quotes is listed under Supply Chain for now (Ray,
+      // 2026-10-09), matching its Dashboard card; its routes stay
+      // /sales/quotes so links already sent in emails keep working.
+      {
+        to: "/sales/quotes",
+        label: "Insourcing Quotes",
+        icon: <Receipt className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/sales/quotes"),
+        requiresQuoteAccess: true,
+      },
     ],
   },
   {
@@ -523,7 +542,7 @@ export function Header() {
         )}
 
         <div className="ml-auto hidden items-center gap-3 sm:flex">
-          <span className="hidden text-[11px] text-fg-muted md:inline">
+          <span className="hidden whitespace-nowrap text-[11px] text-fg-muted xl:inline">
             {USE_MOCK ? "Demo mode · mock data" : "Connected to SharePoint"}
           </span>
           <RefreshButton />
@@ -558,7 +577,7 @@ function SuggestFeatureButton() {
       className="flex h-9 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-medium text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
     >
       <Lightbulb className="h-4 w-4" />
-      <span className="hidden md:inline">Suggest a feature</span>
+      <span className="hidden whitespace-nowrap xl:inline">Suggest a feature</span>
     </Link>
   );
 }
@@ -606,7 +625,7 @@ function RefreshButton() {
       className="flex h-9 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-medium text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
     >
       <RefreshCw className={cn("h-4 w-4", fetching && "animate-spin")} />
-      <span className="hidden md:inline">Refresh</span>
+      <span className="hidden whitespace-nowrap xl:inline">Refresh</span>
     </button>
   );
 }
@@ -657,6 +676,8 @@ function DepartmentsMenu({
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const denials = useAccessDenials();
+  const { rights: quoteRights } = useMyQuoteAccess();
+  const canSeeQuotes = quoteRights.canAccess || quoteRights.canManageRoles;
 
   useEffect(() => {
     if (!open) return;
@@ -705,7 +726,9 @@ function DepartmentsMenu({
                 {group.name}
               </div>
               <div className="space-y-1">
-                {group.items.map((item) => {
+                {group.items
+                  .filter((item) => !item.requiresQuoteAccess || canSeeQuotes)
+                  .map((item) => {
                   const itemActive = item.matchesPath(pathname);
 
                   // SharePoint has already refused this app's list for this

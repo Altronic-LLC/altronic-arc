@@ -65,6 +65,14 @@ jobs:
           VITE_SP_SCN_SITE_URL: ${{ vars.VITE_SP_SCN_SITE_URL }}
           VITE_SP_SCNS_LIST_ID: ${{ vars.VITE_SP_SCNS_LIST_ID }}
           VITE_SP_PMO_SITE_ID: ${{ vars.VITE_SP_PMO_SITE_ID }}
+          # Insourcing Quotes (PMO site). NO defaults in config.ts — unset
+          # reads as "not set up", and an unset Quote Roles list admits nobody.
+          # Set all five after scripts/create-quote-lists.ps1 has run.
+          VITE_SP_QUOTES_LIST_ID: ${{ vars.VITE_SP_QUOTES_LIST_ID }}
+          VITE_SP_QUOTE_ASSEMBLIES_LIST_ID: ${{ vars.VITE_SP_QUOTE_ASSEMBLIES_LIST_ID }}
+          VITE_SP_QUOTE_ITEMS_LIST_ID: ${{ vars.VITE_SP_QUOTE_ITEMS_LIST_ID }}
+          VITE_SP_QUOTE_CUSTOMERS_LIST_ID: ${{ vars.VITE_SP_QUOTE_CUSTOMERS_LIST_ID }}
+          VITE_SP_QUOTE_ROLES_LIST_ID: ${{ vars.VITE_SP_QUOTE_ROLES_LIST_ID }}
           VITE_SP_LIST_ID: ${{ vars.VITE_SP_LIST_ID }}
           VITE_SP_PROJECTS_LIST_ID: ${{ vars.VITE_SP_PROJECTS_LIST_ID }}
           VITE_SP_TEST_RESULTS_LIST_ID: ${{ vars.VITE_SP_TEST_RESULTS_LIST_ID }}

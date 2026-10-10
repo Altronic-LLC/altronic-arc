@@ -148,6 +148,18 @@ const ScnDetailView = lazy(() =>
 const ScnDocumentsView = lazy(() =>
   import("@/views/ScnDocumentsView").then((m) => ({ default: m.ScnDocumentsView })),
 );
+const QuotesView = lazy(() =>
+  import("@/views/QuotesView").then((m) => ({ default: m.QuotesView })),
+);
+const QuoteDetailView = lazy(() =>
+  import("@/views/QuoteDetailView").then((m) => ({ default: m.QuoteDetailView })),
+);
+const QuoteCustomersView = lazy(() =>
+  import("@/views/QuoteCustomersView").then((m) => ({ default: m.QuoteCustomersView })),
+);
+const QuoteRolesView = lazy(() =>
+  import("@/views/QuoteRolesView").then((m) => ({ default: m.QuoteRolesView })),
+);
 const AdminOpenOrdersRolesView = lazy(() =>
   import("@/views/AdminOpenOrdersRolesView").then((m) => ({
     default: m.AdminOpenOrdersRolesView,
@@ -626,6 +638,38 @@ export function App() {
                     <AdminOpenOrdersRolesView />
                   </Suspense>
                 </RequireAdmin>
+              }
+            />
+            <Route
+              path="/sales/quotes"
+              element={
+                <Suspense fallback={<LoadingTasks noun="quotes" />}>
+                  <QuotesView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/sales/quotes/customers"
+              element={
+                <Suspense fallback={<LoadingTasks noun="quote customers" />}>
+                  <QuoteCustomersView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/sales/quotes/roles"
+              element={
+                <Suspense fallback={<LoadingTasks noun="quote roles" />}>
+                  <QuoteRolesView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/sales/quotes/:id"
+              element={
+                <Suspense fallback={<LoadingTasks noun="this quote" />}>
+                  <QuoteDetailView />
+                </Suspense>
               }
             />
             <Route

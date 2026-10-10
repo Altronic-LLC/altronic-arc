@@ -31,6 +31,7 @@ import {
   Megaphone,
   MessageSquare,
   PackageSearch,
+  Receipt,
   Sparkles,
   TestTubes,
   Timer,
@@ -52,6 +53,9 @@ import { needsDisposition } from "@/lib/mrbMapper";
 import { useScns } from "@/hooks/useScns";
 import { isOpenScn } from "@/components/scnAtoms";
 import { useQuickLinksFor } from "@/hooks/useQuickLinks";
+import { useQuotes } from "@/hooks/useQuotes";
+import { useMyQuoteAccess } from "@/hooks/useQuoteRoles";
+import { latestRevisions } from "@/lib/quoteNumber";
 import { QuickLinksRow } from "@/components/QuickLinksRow";
 import { isEcnOnHold } from "@/lib/ecnMapper";
 import { isFaitOpen } from "@/lib/faitFields";
@@ -1107,6 +1111,9 @@ export function DashboardView() {
           to={"/supply-chain/scns"}
           onClick={() => navigate("/supply-chain/scns")}
         />
+        {/* Insourcing Quotes sits under Supply Chain on the Dashboard for now
+            (Ray, 2026-10-09) — its routes stay /sales/quotes. */}
+        <InsourcingQuotesCard onOpen={() => navigate("/sales/quotes")} />
       </DeptSection>
 
       <DeptSection
@@ -1412,6 +1419,42 @@ function MiniBar({ segments }: { segments: Segment[] }) {
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Insourcing Quotes — shown ONLY to someone holding a quote role. No role, no
+ * card: the tool shows cost and margin, so it isn't advertised company-wide.
+ * The quotes list is read only once the card is actually rendered, so a
+ * reader without a role never fetches it.
+ */
+function InsourcingQuotesCard({ onOpen }: { onOpen: () => void }) {
+  const { rights } = useMyQuoteAccess();
+  if (!rights.canAccess) return null;
+  return <InsourcingQuotesCardBody onOpen={onOpen} />;
+}
+
+function InsourcingQuotesCardBody({ onOpen }: { onOpen: () => void }) {
+  const { data: quotes = [] } = useQuotes();
+  // Open = the LATEST rev of each quote, still Draft or Sent. An R1 that was
+  // superseded by an R2 is history, not work.
+  const open = useMemo(
+    () => latestRevisions(quotes).filter((q) => q.status === "Draft" || q.status === "Sent").length,
+    [quotes],
+  );
+  // ajax-yellow: in Supply Chain, where the card lives for now, green
+  // (Suppliers, SCNs), blue (FAITs, MRB) and red (Cost Impact) are already
+  // taken twice or carry a meaning; yellow is the least used (Gray Market).
+  return (
+    <TypeCard
+      name="Insourcing Quotes"
+      icon={<Receipt className="h-5 w-5" />}
+      tone="ajax-yellow"
+      count={open}
+      unit="open"
+      to={"/sales/quotes"}
+      onClick={onOpen}
+    />
   );
 }
 

@@ -619,8 +619,8 @@ export function CommentComposer({
         </div>
       )}
 
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <input
             ref={fileInputRef}
             type="file"
@@ -634,7 +634,7 @@ export function CommentComposer({
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={disabled || busy}
-            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs font-medium text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg disabled:opacity-50"
+            className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs font-medium text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg disabled:opacity-50"
           >
             <Paperclip className="h-3.5 w-3.5" />
             Attach
@@ -657,7 +657,7 @@ export function CommentComposer({
                 : "Bold, italic, underline and lists (turns off @-mention autocomplete)"
             }
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium transition-colors disabled:opacity-50",
+              "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border px-2 py-1 text-xs font-medium transition-colors disabled:opacity-50",
               rich
                 ? "border-accent/40 bg-accent/10 text-accent"
                 : "border-border bg-surface text-fg-muted hover:text-fg",
@@ -680,7 +680,7 @@ export function CommentComposer({
               @-mentions off
             </span>
           )}
-          <span className="hidden text-xs text-fg-muted sm:inline">
+          <span className="hidden whitespace-nowrap text-xs text-fg-muted sm:inline">
             Press{" "}
             <kbd className="rounded border border-border bg-bg px-1 py-0.5 text-[10px]">Ctrl</kbd>+
             <kbd className="rounded border border-border bg-bg px-1 py-0.5 text-[10px]">Enter</kbd>{" "}
@@ -690,7 +690,7 @@ export function CommentComposer({
         <button
           onClick={handleSend}
           disabled={!canSend}
-          className="flex items-center gap-1.5 rounded-md bg-accent px-3.5 py-1.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
+          className="ml-auto flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md bg-accent px-3.5 py-1.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Send className="h-3.5 w-3.5" />
           {busy

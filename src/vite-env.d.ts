@@ -16,6 +16,11 @@ interface ImportMetaEnv {
   readonly VITE_SP_SCN_SITE_ID: string;
   readonly VITE_SP_SCN_SITE_URL: string;
   readonly VITE_SP_SCNS_LIST_ID: string;
+  readonly VITE_SP_QUOTES_LIST_ID: string;
+  readonly VITE_SP_QUOTE_ASSEMBLIES_LIST_ID: string;
+  readonly VITE_SP_QUOTE_ITEMS_LIST_ID: string;
+  readonly VITE_SP_QUOTE_CUSTOMERS_LIST_ID: string;
+  readonly VITE_SP_QUOTE_ROLES_LIST_ID: string;
   readonly VITE_SP_PMO_SITE_ID: string;
   readonly VITE_SP_LIST_ID: string;
   readonly VITE_SP_PROJECTS_LIST_ID: string;
