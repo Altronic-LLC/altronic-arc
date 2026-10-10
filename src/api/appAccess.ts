@@ -65,6 +65,7 @@ import {
 import { DIGITAL_QC_FAMILY_LIST_IDS } from "./digitalQc";
 import { IGNITION_QC_FAMILY_LIST_IDS } from "./ignitionQc";
 import { OPEN_ORDERS_PATH } from "./openOrdersFiles";
+import { SUPPLY_CHAIN_FILES_PATH } from "./supplyChainFiles";
 import { PROJECT_FOLDERS_PATH } from "./projectFiles";
 
 export type SiteKey = keyof typeof SITES;
@@ -235,6 +236,16 @@ export const APPS: AppSpec[] = [
     site: "scn",
     lists: [],
     needsDrive: true,
+  },
+  // General/Supply Chain Files in the PMO library — a folder, not a list, so a
+  // refused library (or a missing folder) locks it and only it.
+  {
+    path: "/supply-chain/files",
+    label: "Supply Chain Files",
+    site: "pmo",
+    lists: [],
+    needsDrive: true,
+    drivePath: SUPPLY_CHAIN_FILES_PATH,
   },
 
   // Sales ----------------------------------------------------------------

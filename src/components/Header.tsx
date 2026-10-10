@@ -335,6 +335,12 @@ const DEPARTMENTS: DepartmentGroup[] = [
         // Covers both /supply-chain/scns and /supply-chain/scn/:id.
         matchesPath: (p) => p.startsWith("/supply-chain/scn"),
       },
+      {
+        to: "/supply-chain/files",
+        label: "Supply Chain Files",
+        icon: <FolderOpen className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/supply-chain/files"),
+      },
       // Insourcing Quotes is listed under Supply Chain for now (Ray,
       // 2026-10-09), matching its Dashboard card; its routes stay
       // /sales/quotes so links already sent in emails keep working.

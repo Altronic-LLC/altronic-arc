@@ -145,6 +145,9 @@ const ScnsView = lazy(() =>
 const ScnDetailView = lazy(() =>
   import("@/views/ScnDetailView").then((m) => ({ default: m.ScnDetailView })),
 );
+const SupplyChainFilesView = lazy(() =>
+  import("@/views/SupplyChainFilesView").then((m) => ({ default: m.SupplyChainFilesView })),
+);
 const ScnDocumentsView = lazy(() =>
   import("@/views/ScnDocumentsView").then((m) => ({ default: m.ScnDocumentsView })),
 );
@@ -591,6 +594,14 @@ export function App() {
               element={
                 <Suspense fallback={<LoadingTasks noun="SCN documents" />}>
                   <ScnDocumentsView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/supply-chain/files"
+              element={
+                <Suspense fallback={<LoadingTasks noun="Supply Chain files" />}>
+                  <SupplyChainFilesView />
                 </Suspense>
               }
             />
