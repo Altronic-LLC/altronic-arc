@@ -5036,7 +5036,7 @@ const SECTIONS: ManualSection[] = [
       "tag folder",
     ],
     searchText:
-      "Project Folders is a browser over the Engineering document library (General/Project Folders). Open the Project Folders card on the dashboard or the Departments menu. Navigate into a project folder and its subfolders with the breadcrumb, click a file or folder to open it in SharePoint, and upload files into the folder you're in (up to 250 MB — files over about 4 MB upload in chunks). At the top level, New project folder creates a folder and tags it with its project, so files uploaded from a task on that project land in it automatically; a project that already has a folder is marked and can't be given a second one. Deleting is done in SharePoint itself.",
+      "Project Folders is a browser over the Engineering document library (General/Project Folders). Open the Project Folders card on the dashboard or the Departments menu. Navigate into a project folder and its subfolders with the breadcrumb, click a file or folder to open it in SharePoint, and upload files into the folder you're in (up to 250 MB — files over about 4 MB upload in chunks). At the top level, New project folder creates a folder and tags it with its project, so files uploaded from a task on that project land in it automatically; a project that already has a folder is marked and can't be given a second one. Each top-level project folder has a pencil button to fix its name or its project tag (for example to correct a typo): change what is wrong and Save changes. A project that already has a different folder can't be picked, and the Miscellaneous folder can't be edited. Deleting is done in SharePoint itself.",
     render: () => (
       <>
         <P>
@@ -5065,6 +5065,11 @@ const SECTIONS: ManualSection[] = [
             <strong>New project folder</strong> — at the top level, create a
             folder for a project. Pick the project and the name fills itself in
             to match; both stay editable.
+          </LI>
+          <LI>
+            <strong>Edit (pencil)</strong> — on a top-level folder, rename it
+            or change which project it is tagged with. Only what you change is
+            saved. Miscellaneous has no pencil.
           </LI>
         </UL>
         <P>

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FolderPlus, Loader2, X } from "lucide-react";
 import type { ProjectReference } from "@/types/task";
-import { useCreateProjectFolder } from "@/hooks/useProjectFolders";
+import { useCreateProjectFolder, useUpdateProjectFolder } from "@/hooks/useProjectFolders";
+import type { DriveEntry } from "@/api/projectFiles";
 import { ChoiceSelect } from "./SearchableSelect";
 import { useOverlayDismiss } from "./useOverlayDismiss";
 
@@ -14,6 +15,10 @@ import { useOverlayDismiss } from "./useOverlayDismiss";
 // be set by hand in SharePoint, so a folder created in ARC was invisible to the
 // router that needed it.
 //
+// With `folder` set it EDITS that folder instead (BusinessIT#25): rename it and/or
+// change its project tag. Only what changed is sent, and the folder's own project
+// is not "taken" by itself.
+//
 // The name defaults to the project's title, because that's the convention the
 // existing folders follow ("0017-AMP-5000 Refresh"). It stays editable — the
 // convention isn't enforced anywhere and older folders don't all match it.
@@ -23,23 +28,37 @@ interface ProjectFolderFormModalProps {
   projects: ProjectReference[];
   /** Projects that already have a folder — offered greyed out, not hidden. */
   takenLookupIds: Set<number>;
+  /** Edit this existing top-level folder instead of creating one. */
+  folder?: DriveEntry;
   onClose: () => void;
   onCreated?: (folderName: string) => void;
 }
 
 export function ProjectFolderFormModal({
   projects,
-  takenLookupIds,
+  takenLookupIds: takenIds,
+  folder,
   onClose,
   onCreated,
 }: ProjectFolderFormModalProps) {
   const create = useCreateProjectFolder();
-  const busy = create.isPending;
+  const update = useUpdateProjectFolder();
+  const editing = !!folder;
+  const busy = create.isPending || update.isPending;
 
-  const [projectId, setProjectId] = useState("");
-  const [name, setName] = useState("");
+  // A folder's own project doesn't count as taken when editing that folder.
+  const takenLookupIds = useMemo(() => {
+    const t = new Set(takenIds);
+    if (folder?.projectLookupId) t.delete(folder.projectLookupId);
+    return t;
+  }, [takenIds, folder]);
+
+  const [projectId, setProjectId] = useState(
+    folder?.projectLookupId ? String(folder.projectLookupId) : "",
+  );
+  const [name, setName] = useState(folder?.name ?? "");
   /** True once the name has been typed in, so it stops tracking the project. */
-  const [nameEdited, setNameEdited] = useState(false);
+  const [nameEdited, setNameEdited] = useState(editing);
   const [error, setError] = useState<string | null>(null);
   const nameRef = useRef<HTMLInputElement>(null);
 
@@ -83,6 +102,18 @@ export function ProjectFolderFormModal({
     }
     setError(null);
     try {
+      if (folder) {
+        const changes: { name?: string; projectLookupId?: number } = {};
+        if (name.trim() !== folder.name) changes.name = name;
+        const picked = parseInt(projectId, 10);
+        if (picked !== (folder.projectLookupId ?? 0)) changes.projectLookupId = picked;
+        // Nothing changed — nothing to send.
+        if (Object.keys(changes).length > 0) {
+          await update.mutateAsync({ folderId: folder.id, changes });
+        }
+        onClose();
+        return;
+      }
       await create.mutateAsync({ name, projectLookupId: parseInt(projectId, 10) });
       onClose();
       onCreated?.(name.trim());
@@ -99,14 +130,14 @@ export function ProjectFolderFormModal({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="New project folder"
+        aria-label={editing ? "Edit project folder" : "New project folder"}
         onClick={(e) => e.stopPropagation()}
         className="flex max-h-[calc(100vh-2rem)] w-full max-w-lg flex-col rounded-lg border border-border bg-surface shadow-xl"
       >
         <div className="flex items-center justify-between border-b border-border px-5 py-3">
           <h2 className="flex items-center gap-2 font-display text-base font-semibold text-fg">
             <FolderPlus className="h-4 w-4 text-accent" />
-            New project folder
+            {editing ? "Edit project folder" : "New project folder"}
           </h2>
           <button
             type="button"
@@ -188,7 +219,7 @@ export function ProjectFolderFormModal({
             className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent/90 disabled:opacity-60"
           >
             {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-            Create folder
+            {editing ? "Save changes" : "Create folder"}
           </button>
         </div>
       </div>

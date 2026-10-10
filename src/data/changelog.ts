@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.181.1",
+    date: "2026-10-10",
+    changes: [
+      "Project folders can now be edited in ARC: a pencil on each top-level folder lets you fix its name and its project tag, so typos can be corrected without going to SharePoint",
+      "A folder can't be given a project that already has a different folder, and the Miscellaneous folder is left alone",
+    ],
+  },
+  {
     version: "0.181.0",
     date: "2026-10-10",
     changes: [

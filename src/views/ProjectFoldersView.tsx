@@ -8,6 +8,7 @@ import {
   Folder,
   FolderOpen,
   FolderPlus,
+  Pencil,
   Loader2,
   Upload,
 } from "lucide-react";
@@ -21,7 +22,8 @@ import type { DriveEntry } from "@/api/projectFiles";
 // Project Folders — a nested browser over the site's "General/Project Folders"
 // document library. Navigate into folders (breadcrumb to come back up), open
 // files/folders in SharePoint, and upload files into the current folder.
-// Read + open + upload only; deleting is done in SharePoint itself.
+// Top-level project folders can be renamed and re-tagged with their project
+// (BusinessIT#25). Deleting is done in SharePoint itself.
 // =============================================================================
 
 interface Crumb {
@@ -42,6 +44,7 @@ export function ProjectFoldersView() {
   const upload = useUploadToFolder();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showNewFolder, setShowNewFolder] = useState(false);
+  const [editingFolder, setEditingFolder] = useState<DriveEntry | null>(null);
 
   const projectTitleById = useMemo(() => {
     const m = new Map<number, string>();
@@ -194,6 +197,16 @@ export function ProjectFoldersView() {
                       : null}
                   </span>
                 </button>
+                {atRoot && !/^misc/i.test(entry.name) && (
+                  <button
+                    onClick={() => setEditingFolder(entry)}
+                    className="shrink-0 rounded p-1 text-fg-muted hover:bg-surface hover:text-fg"
+                    title="Edit folder name and project"
+                    aria-label={`Edit ${entry.name}`}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                )}
                 <button
                   onClick={() => openInSharePoint(entry)}
                   className="shrink-0 rounded p-1 text-fg-muted opacity-0 transition-opacity hover:bg-surface hover:text-fg group-hover:opacity-100"
@@ -222,6 +235,15 @@ export function ProjectFoldersView() {
             ),
           )}
         </div>
+      )}
+
+      {editingFolder && (
+        <ProjectFolderFormModal
+          projects={projects}
+          takenLookupIds={takenLookupIds}
+          folder={editingFolder}
+          onClose={() => setEditingFolder(null)}
+        />
       )}
 
       {showNewFolder && (

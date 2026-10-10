@@ -1,4 +1,4 @@
-import { graphFetch } from "./graph";
+import { GraphError, graphFetch } from "./graph";
 import { SP_SITE_ID, USE_MOCK } from "./config";
 import { safeUniqueFilename } from "@/lib/uniqueFilename";
 
@@ -776,6 +776,124 @@ export async function createProjectFolder(
   }
 
   return { ...mapEntry(created, false), projectLookupId, childCount: 0 };
+}
+
+/**
+ * Edit a top-level project folder: rename it and/or change its Project
+ * Reference tag (BusinessIT#25 — "so Sheila can correct any typos"). Pass only
+ * what changed; an unchanged field is never sent.
+ *
+ *  - The rename is a PATCH with `conflictBehavior: fail`, so a name already in
+ *    use is an error naming it, never a silent "… 1". A rename keeps the drive
+ *    item id, and task uploads route by the Project Reference TAG, not the name.
+ *  - Re-tagging to a project that already has a DIFFERENT folder is refused,
+ *    for the same reason `createProjectFolder` refuses it: the router takes the
+ *    first match and would choose arbitrarily between two.
+ *  - The Miscellaneous folder can't be edited — it is found by NAME, so a
+ *    rename would silently stop routing fallback uploads into it.
+ *  - The rename goes first. If the tag write then fails the name is already
+ *    changed, and the error says exactly that.
+ */
+export async function updateProjectFolder(
+  folderId: string,
+  changes: { name?: string; projectLookupId?: number },
+): Promise<DriveEntry> {
+  const newName = changes.name?.trim();
+  if (changes.name !== undefined && !newName) throw new Error("A folder name is required.");
+  if (changes.projectLookupId !== undefined && !(changes.projectLookupId > 0)) {
+    throw new Error("Pick the project this folder is for.");
+  }
+  if (newName && /["*:<>?/\\|]/.test(newName)) {
+    throw new Error("A folder name can't contain any of these: \" * : < > ? / \\ |");
+  }
+
+  if (USE_MOCK) {
+    const root = mockTree.get(MOCK_ROOT) ?? [];
+    const current = root.find((e) => e.id === folderId);
+    if (!current) throw new Error("That folder isn't in the library any more.");
+    if (isMiscFolder(current.name)) throw new Error("The Miscellaneous folder can't be edited.");
+    if (newName && root.some((e) => e.id !== folderId && e.name.toLowerCase() === newName.toLowerCase())) {
+      throw new Error(`A folder called "${newName}" already exists.`);
+    }
+    if (changes.projectLookupId !== undefined) {
+      const taken = root.find(
+        (e) => e.id !== folderId && e.projectLookupId === changes.projectLookupId,
+      );
+      if (taken) throw new Error(`That project already has a folder — "${taken.name}".`);
+    }
+    const updated: DriveEntry = {
+      ...current,
+      name: newName ?? current.name,
+      projectLookupId: changes.projectLookupId ?? current.projectLookupId,
+      lastModified: mockNow(),
+    };
+    mockTree.set(
+      MOCK_ROOT,
+      root.map((e) => (e.id === folderId ? updated : e)),
+    );
+    return { ...updated };
+  }
+
+  const rootPath =
+    `/sites/${SP_SITE_ID}/drive/root:/${encodeDrivePath(PROJECT_FOLDERS_PATH.split("/"))}`;
+  const itemPath = `/sites/${SP_SITE_ID}/drive/items/${folderId}`;
+
+  // The siblings tell us what the Project Reference column is called AND
+  // whether the chosen project is already covered by another folder.
+  const siblings = await graphFetch<{ value: GraphDriveChild[] }>(
+    `${rootPath}:/children?$expand=listItem($expand=fields)&$top=999`,
+  );
+  const folders = (siblings.value ?? []).filter((c) => c.folder);
+  const target = folders.find((c) => c.id === folderId);
+  if (!target) throw new Error("That folder isn't in the library any more.");
+  if (isMiscFolder(target.name)) throw new Error("The Miscellaneous folder can't be edited.");
+  if (changes.projectLookupId !== undefined) {
+    const taken = folders.find(
+      (c) =>
+        c.id !== folderId &&
+        !isMiscFolder(c.name) &&
+        readLookupId(c.listItem?.fields ?? {}) === changes.projectLookupId,
+    );
+    if (taken) throw new Error(`That project already has a folder — "${taken.name}".`);
+  }
+  const writeKey = projectRefWriteKey(folders.map((c) => c.listItem?.fields ?? {}));
+
+  let renamed: GraphDriveChild = target;
+  if (newName && newName !== target.name) {
+    try {
+      renamed = await graphFetch<GraphDriveChild>(itemPath, {
+        method: "PATCH",
+        body: JSON.stringify({
+          name: newName,
+          "@microsoft.graph.conflictBehavior": "fail",
+        }),
+      });
+    } catch (err) {
+      if (err instanceof GraphError && (err.status === 409 || /nameAlreadyExists/i.test(err.body))) {
+        throw new Error(`A folder called "${newName}" already exists.`);
+      }
+      throw err;
+    }
+  }
+
+  let projectLookupId = readLookupId(target.listItem?.fields ?? {});
+  if (changes.projectLookupId !== undefined && changes.projectLookupId !== projectLookupId) {
+    try {
+      await graphFetch(`${itemPath}/listItem/fields`, {
+        method: "PATCH",
+        body: JSON.stringify({ [writeKey]: changes.projectLookupId }),
+      });
+      projectLookupId = changes.projectLookupId;
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      throw new Error(
+        (newName && newName !== target.name ? `Renamed the folder to "${newName}", but ` : "") +
+          `couldn't change its Project Reference. Set it in SharePoint instead. ${detail}`,
+      );
+    }
+  }
+
+  return { ...mapEntry(renamed, false), projectLookupId };
 }
 
 // ---- Mock project-folder tree (demo mode) ---------------------------------
