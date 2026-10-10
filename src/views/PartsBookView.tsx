@@ -5,6 +5,7 @@ import { useAltronicComponents, useAltronicParts } from "@/hooks/useAltronicPart
 import { PartKindChip, PartsDataGate } from "@/components/partsAtoms";
 import { buildPartsBooks, parsePartsQuery, partPath } from "@/lib/partSearch";
 import { COMPONENT_PREFIX_CATEGORY } from "@/lib/altronicPartMapper";
+import { listMeaning, partsBookLabel, partsBookTooltip } from "@/lib/partNumberScheme";
 import { PARTS_BOOKS, type AltronicComponent, type AltronicPart } from "@/types/task";
 import { NewPartButton } from "@/components/PartFormModal";
 import { useMyPartsAccess } from "@/hooks/usePartsRoles";
@@ -207,6 +208,7 @@ export function PartsBookView() {
                 onClick={() => selectBook(selectedBook === book ? null : book)}
                 disabled={empty}
                 aria-pressed={selectedBook === book}
+                title={partsBookTooltip(book)}
                 className={cn(
                   "flex flex-col items-center justify-center rounded-lg border px-2 py-3 text-center transition-colors",
                   selectedBook === book
@@ -216,7 +218,7 @@ export function PartsBookView() {
                 )}
               >
                 <span className="font-display text-lg font-semibold tabular-nums">{book}00</span>
-                <span className="text-[11px] text-fg-muted">Parts Book</span>
+                <span className="text-[11px] leading-tight text-fg-muted">{partsBookLabel(book)}</span>
                 <span className="mt-0.5 text-[11px] tabular-nums text-fg-muted">
                   {books === null ? "…" : summary ? `${summary.count.toLocaleString()} parts` : "no parts"}
                 </span>
@@ -237,7 +239,7 @@ export function PartsBookView() {
             All Parts Books
           </button>
           <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-fg-muted">
-            {selectedBook}00 Parts Book — pick a list
+            {selectedBook}00 Parts Book · {partsBookLabel(selectedBook)} — pick a list
           </h2>
           <PartsDataGate
             queries={[partsQuery, componentsQuery]}
@@ -246,19 +248,30 @@ export function PartsBookView() {
           >
             {bookSummary ? (
               <div className="grid grid-cols-3 gap-2 sm:grid-cols-6 lg:grid-cols-8">
-                {bookSummary.lists.map((list) => (
-                  <Link
-                    key={list.prefix}
-                    to={`/engineering/parts/list/${list.prefix}`}
-                    className="flex flex-col items-center gap-0.5 rounded-lg border border-border bg-surface px-2 py-2.5 text-center transition-colors hover:border-accent hover:bg-surface-2"
-                  >
-                    <span className="font-mono text-base font-semibold text-fg">{list.prefix}</span>
-                    <span className="text-[11px] tabular-nums text-fg-muted">
-                      {list.count.toLocaleString()} part{list.count === 1 ? "" : "s"}
-                    </span>
-                    {list.component && <PartKindChip label={COMPONENT_PREFIX_CATEGORY[list.prefix]} />}
-                  </Link>
-                ))}
+                {bookSummary.lists.map((list) => {
+                  // EWI-005 meaning for a Part List list; the HCO lists keep
+                  // their Through Hole / Surface Mount / SIL chip instead.
+                  const meaning = listMeaning(list.prefix);
+                  return (
+                    <Link
+                      key={list.prefix}
+                      to={`/engineering/parts/list/${list.prefix}`}
+                      title={meaning?.description}
+                      className="flex flex-col items-center gap-0.5 rounded-lg border border-border bg-surface px-2 py-2.5 text-center transition-colors hover:border-accent hover:bg-surface-2"
+                    >
+                      <span className="font-mono text-base font-semibold text-fg">{list.prefix}</span>
+                      {meaning?.lines.map((line) => (
+                        <span key={line} className="text-[11px] leading-tight text-fg">
+                          {line}
+                        </span>
+                      ))}
+                      <span className="text-[11px] tabular-nums text-fg-muted">
+                        {list.count.toLocaleString()} part{list.count === 1 ? "" : "s"}
+                      </span>
+                      {list.component && <PartKindChip label={COMPONENT_PREFIX_CATEGORY[list.prefix]} />}
+                    </Link>
+                  );
+                })}
               </div>
             ) : (
               <p className="rounded-lg border border-dashed border-border py-8 text-center text-sm text-fg-muted">

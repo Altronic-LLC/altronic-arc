@@ -2,7 +2,7 @@ import type { AltronicComponent, AltronicPart } from "@/types/task";
 import { PART_PROTOTYPE_OR_PRODUCTION, PART_PURCHASED } from "@/types/task";
 import { formatSpDate, fromDateInputValue, toDateInputValue, toSpDateOnly } from "./spDates";
 import { ratingLabelsFor } from "./componentRatings";
-import { isComponentPrefix } from "./altronicPartMapper";
+import { componentSearchPrefixes, isComponentPrefix } from "./altronicPartMapper";
 
 // =============================================================================
 // The Parts List columns, as DATA — declared once and driving the create form,
@@ -203,8 +203,9 @@ export function missingRequired<T>(specs: PartFieldSpec<T>[], values: Record<str
  * (`opensNewList` below says whether a prefix has any numbers at all.)
  *
  * Null when the list is full up to `<prefix>999` with nothing deleted — four
- * lists already are (602, 610, 702, 709). ARC says so rather than rolling over
- * into another list: which list a part goes in is a person's call.
+ * lists already are (602, 610, 702, 709). A Part List list never rolls over
+ * into another: which list a part goes in is a person's call. The LINKED HCO
+ * lists do (701 → 711 → 712, 601 → 611) — that's `nextLinkedPartNumber`.
  */
 /**
  * Would a part on this three-digit list START it — is there no number on it
@@ -233,7 +234,66 @@ export function nextPartNumber(prefix: string, existing: Iterable<string>, delet
   return `${prefix}${String(highest + 1).padStart(3, "0")}`;
 }
 
-/** Why a new part number can't be used, or null when it can. */
+/**
+ * The HCO lists a new part on `prefix` may land on, in order: `prefix` itself,
+ * then the LINKED lists after it in the same category (Tim, 2026-10-09) —
+ * 701 → 711 → 712, 601 → 611. 722 is alone. Any other list is just itself.
+ * Only lists AFTER `prefix` count: the earlier ones are the ones that filled
+ * first, and handing out a number behind the list somebody opened is a
+ * surprise nobody asked for.
+ */
+export function linkedListChain(prefix: string): string[] {
+  const family = componentSearchPrefixes(prefix);
+  const at = family.indexOf(prefix);
+  return at < 0 ? [prefix] : family.slice(at);
+}
+
+/** The words for a set of lists — "701", "701 and 711", "701, 711 and 712". */
+export function listNames(prefixes: string[]): string {
+  return prefixes.length < 2
+    ? prefixes.join("")
+    : `${prefixes.slice(0, -1).join(", ")} and ${prefixes[prefixes.length - 1]}`;
+}
+
+export interface LinkedNextNumber {
+  /** The number to use, or null when every list in the chain is full. */
+  partNumber: string | null;
+  /** The list that number is on (the opened one when nothing is free). */
+  prefix: string;
+  /** Linked lists passed over because they're full, in order. */
+  skipped: string[];
+  /** Every list tried — all full when `partNumber` is null. */
+  chain: string[];
+}
+
+/**
+ * The next free number for a new part on `prefix`, OVERFLOWING into the
+ * linked lists after it when it's full (Tim, 2026-10-09): from a full 701 and
+ * 711, the next free 712 number, with 701 and 711 in `skipped` so the form can
+ * say why. A Part List list has no links, so a full one is just full.
+ */
+export function nextLinkedPartNumber(
+  prefix: string,
+  existing: Iterable<string>,
+  deleted: Iterable<string> = [],
+): LinkedNextNumber {
+  const all = [...existing];
+  const dead = [...deleted];
+  const chain = linkedListChain(prefix);
+  const skipped: string[] = [];
+  for (const p of chain) {
+    const n = nextPartNumber(p, all, dead);
+    if (n) return { partNumber: n, prefix: p, skipped, chain };
+    skipped.push(p);
+  }
+  return { partNumber: null, prefix, skipped, chain };
+}
+
+/**
+ * Why a new part number can't be used, or null when it can. `requiredPrefix`
+ * is the list the form was opened on — a part opened there may also land on
+ * the linked lists after it (`linkedListChain`).
+ */
 export function partNumberProblem(
   partNumber: string,
   requiredPrefix: string | null,
@@ -242,8 +302,13 @@ export function partNumberProblem(
   const pn = partNumber.trim();
   if (!pn) return "Enter the Altronic part number.";
   if (!/^\d{3}/.test(pn)) return "A part number starts with its three-digit list number.";
-  if (requiredPrefix && !pn.startsWith(requiredPrefix)) {
-    return `A part in list ${requiredPrefix} must start with ${requiredPrefix}.`;
+  if (requiredPrefix) {
+    const allowed = linkedListChain(requiredPrefix);
+    if (!allowed.some((p) => pn.startsWith(p))) {
+      return allowed.length > 1
+        ? `A part in list ${requiredPrefix} must start with ${listNames(allowed).replace(/ and /, " or ")}.`
+        : `A part in list ${requiredPrefix} must start with ${requiredPrefix}.`;
+    }
   }
   const wanted = pn.toLowerCase();
   for (const e of existing) if (e.trim().toLowerCase() === wanted) return `${pn} is already on the parts list.`;

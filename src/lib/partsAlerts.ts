@@ -1,6 +1,6 @@
 import type { AltronicComponent, AltronicPart, ItemAuthor, Person } from "@/types/task";
 import type { AlertDetail, ChangeEmail, ChangeTarget, EmailAction } from "./changeAlerts";
-import type { FieldChange } from "./partFields";
+import { listNames, type FieldChange } from "./partFields";
 import { escapeHtml } from "./mentions";
 import { withoutActorUnlessEmpty } from "./recipientList";
 import { SAP_RESPONSES, SAP_RESPONSE_LABELS, type SapResponse } from "./partsRoles";
@@ -278,6 +278,44 @@ export function buildNewListRequestEmails(args: {
     displayName: p.displayName,
     subject: `New parts list requested: ${args.prefix}`,
     headlineHtml: `${who} needs a new parts list, <strong>${escapeHtml(args.prefix)}</strong>, which doesn't exist yet. Only the SAP admin can start a list: add its first part from the Parts Book with New part, then let ${name} know.`,
+    detailHtml: detailsHtml(details) || undefined,
+  }));
+}
+
+/**
+ * Every linked HCO list in a category is full (Tim, 2026-10-09) — 701, 711
+ * and 712 for Surface Mount, 601 and 611 for Through Hole — so a new component
+ * has nowhere to go. Asks the SAP admins to create the next linked list.
+ *
+ * It names no list number: which one comes next is theirs to decide. It does
+ * say ARC needs the new number added to its component lists, because ARC
+ * knows the linked lists by number (COMPONENT_PREFIX_CATEGORY) and a new one
+ * isn't a component list there until it's added.
+ */
+export function buildLinkedListsFullEmails(args: {
+  category: string;
+  lists: string[];
+  description: string;
+  recipients: Person[];
+  actor: Person;
+}): ChangeEmail[] {
+  const name = escapeHtml(args.actor.displayName || "Someone");
+  const email = (args.actor.email ?? "").trim();
+  const who = email ? `<strong>${name}</strong> (${escapeHtml(email)})` : `<strong>${name}</strong>`;
+  const lists = listNames(args.lists);
+  const details: AlertDetail[] = [
+    { label: "Category", value: args.category },
+    { label: "Full lists", value: lists },
+    { label: "Description", value: args.description },
+  ];
+  return mailable(withoutActorUnlessEmpty(args.recipients, args.actor)).map((p) => ({
+    email: p.email,
+    displayName: p.displayName,
+    subject: `${args.category} parts lists are full: ${lists}`,
+    headlineHtml:
+      `${who} tried to add a ${escapeHtml(args.category)} part, but every linked list is full (${escapeHtml(lists)}). ` +
+      `Please create the next linked ${escapeHtml(args.category)} list, then let ${name} know. ` +
+      `ARC needs the new list number added to its component lists before parts can go in it.`,
     detailHtml: detailsHtml(details) || undefined,
   }));
 }

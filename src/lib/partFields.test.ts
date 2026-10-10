@@ -6,12 +6,76 @@ import {
   columnsFromPatch,
   describeChanges,
   formValues,
+  linkedListChain,
+  listNames,
   missingRequired,
+  nextLinkedPartNumber,
   nextPartNumber,
   opensNewList,
   partNumberProblem,
   patchFromForm,
 } from "./partFields";
+
+describe("linked HCO lists (Tim, 2026-10-09)", () => {
+  /** Every number up to <prefix>999 taken. */
+  const full = (prefix: string) => [`${prefix}999`];
+
+  it("chains each linked list to the ones after it, and nothing else", () => {
+    expect(linkedListChain("701")).toEqual(["701", "711", "712"]);
+    expect(linkedListChain("711")).toEqual(["711", "712"]);
+    expect(linkedListChain("712")).toEqual(["712"]);
+    expect(linkedListChain("601")).toEqual(["601", "611"]);
+    expect(linkedListChain("722")).toEqual(["722"]);
+    expect(linkedListChain("604")).toEqual(["604"]);
+  });
+
+  it("stays on the list asked for while it has room", () => {
+    expect(nextLinkedPartNumber("701", ["701010", "711020"])).toEqual({
+      partNumber: "701011",
+      prefix: "701",
+      skipped: [],
+      chain: ["701", "711", "712"],
+    });
+  });
+
+  it("overflows past every full list to the next one with room", () => {
+    const r = nextLinkedPartNumber("701", [...full("701"), ...full("711"), "712101"]);
+    expect(r).toMatchObject({ partNumber: "712102", prefix: "712", skipped: ["701", "711"] });
+    expect(nextLinkedPartNumber("601", [...full("601")])).toMatchObject({ partNumber: "611001", skipped: ["601"] });
+  });
+
+  it("reuses a deleted number before overflowing", () => {
+    expect(nextLinkedPartNumber("701", [...full("701")], ["701500"])).toMatchObject({ partNumber: "701500" });
+  });
+
+  it("says when every linked list is full", () => {
+    expect(nextLinkedPartNumber("601", [...full("601"), ...full("611")])).toEqual({
+      partNumber: null,
+      prefix: "601",
+      skipped: ["601", "611"],
+      chain: ["601", "611"],
+    });
+  });
+
+  it("never rolls a Part List list over into another", () => {
+    expect(nextLinkedPartNumber("602", full("602"))).toMatchObject({ partNumber: null, chain: ["602"] });
+  });
+
+  it("accepts a number on a linked list after the one the form was opened on", () => {
+    expect(partNumberProblem("712102", "701", [])).toBeNull();
+    expect(partNumberProblem("611001", "601", [])).toBeNull();
+    // Not one BEFORE it, and not another category.
+    expect(partNumberProblem("701001", "711", [])).toBe("A part in list 711 must start with 711 or 712.");
+    expect(partNumberProblem("601001", "701", [])).toBe("A part in list 701 must start with 701, 711 or 712.");
+    expect(partNumberProblem("605001", "604", [])).toBe("A part in list 604 must start with 604.");
+  });
+
+  it("names lists the way a sentence does", () => {
+    expect(listNames(["701"])).toBe("701");
+    expect(listNames(["701", "711"])).toBe("701 and 711");
+    expect(listNames(["701", "711", "712"])).toBe("701, 711 and 712");
+  });
+});
 import { ALTRONIC_COMPONENT_SELECT } from "@/api/altronicComponents";
 import { ALTRONIC_PART_SELECT } from "@/api/altronicParts";
 

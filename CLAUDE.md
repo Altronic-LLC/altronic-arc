@@ -470,6 +470,7 @@ src/
 │   ├── csaListingMapper.ts       Graph item → CsaListing (+ label, sort, search)
 │   ├── altronicPartMapper.ts     Graph item → AltronicPart / AltronicComponent; prefix → list/book, HCO prefixes
 │   ├── partSearch.ts             Parts List search rules (substring, & terms, ranges), Parts Book grouping, Global rows
+│   ├── partNumberScheme.ts       What a part number's digits mean (EWI-005 Rev 5) — Parts Book + list labels (pure)
 │   ├── engineeringValue.ts       Reads 4K7 / .1uF / 250mW / 1/4W / -55°C as numbers + units, for range search (pure)
 │   ├── componentRatings.ts       What Rating A/B/C mean per component type (the guide's table, as DATA)
 │   ├── partFields.ts             Parts List columns as DATA — form ⇄ SharePoint, required rules, next number
@@ -1481,6 +1482,23 @@ Seven things that are load-bearing:
 - **The nine book tiles render BEFORE either list loads.** Only the counts
   and a book's lists wait. A blank page for the few seconds the Part List
   takes reads as broken.
+- **The tiles are labelled from EWI-005 Rev 5** (Tim, 2026-10-09) —
+  `lib/partNumberScheme.ts`, the one copy of §3.9's "ABC" tables. A book is
+  named by its product code (A); a Part List list by its assembly level (B)
+  and device type (C), with the EWI's full wording in the tooltip and on the
+  list page's subtitle. Three rules:
+  - **The HCO lists keep Through Hole / Surface Mount / SIL** —
+    `listMeaning` returns null for them.
+  - **An unused device type (C = 5, 7, 8) is never shown as "Unused"** on a
+    tile; legacy lists like 915 hold real parts, so the tile shows the level
+    alone and the tooltip says the type isn't assigned.
+  - **The 800 book is "Special Products"** (Tim, 2026-10-09) — Altronic's
+    name, since EWI-005 lists 8 as unused. Its tooltips say it isn't the
+    EWI's wording (`partsBookTooltip` / `partsBookFullLabel`).
+  - **Rev 5 gives B = 0 and B = 3 the same wording.** Transcribed as written;
+    don't change one without the document changing.
+  The labels say what a number means UNDER THE GUIDELINE; legacy numbers
+  predate it, and the manual says so.
 - **The search rules are the old app's, kept on purpose** (`lib/partSearch.ts`):
   - Case-insensitive substring match, AND across fields.
   - `&` means several terms in one field, and **the spaces around `&` are part
@@ -1796,7 +1814,28 @@ on and is what drawings, BOMs and SAP point at, so a wrong number is raised
 again as a new part. **New part** (`PartFormModal`) has three modes:
 - **From a list:** the list number is fixed, the next free number is filled in
   (`nextPartNumber`: one past the highest plain six-digit number, `001` for an
-  empty list), and a full list says so rather than rolling over.
+  empty list), and a full Part List list says so rather than rolling over.
+- **The linked HCO lists DO roll over** (Tim, 2026-10-09):
+  - **The chain is 701 → 711 → 712 and 601 → 611; 722 stands alone.**
+    `linkedListChain` takes `componentSearchPrefixes` from the opened list
+    onward. Only LATER lists count, never earlier ones.
+  - **Next free overflows** (`nextLinkedPartNumber`): on a full 701 and 711
+    it hands out the next free 712 number. The form then says which lists
+    were full (`overflowedPast`, a `role="status"` note).
+  - **`partNumberProblem` accepts any list in the chain** — a 712 number on
+    the 701 form, but not a 701 on the 711 form.
+  - **On the Parts Book**, `suggestedFrom` remembers the list Next free
+    worked from, so the note survives the number becoming 712.
+  - **When the whole chain is full**, `LinkedListsFullRequest` offers to
+    email the SAP admins (`useRequestNextLinkedList` /
+    `buildLinkedListsFullEmails`). It is awaited and throws when it reaches
+    nobody, like the new-list request.
+  - **The email names no list number**, because which one comes next is the
+    SAP admin's decision. It does say ARC must add the new number:
+    **`COMPONENT_PREFIX_CATEGORY` (and the load script's
+    `$CategoryByPrefix`) is the only thing that makes a list a linked
+    component list.** Until it's added there, a new 713 is a plain Part List
+    list.
 - **From the Parts Book:** any number, which is how a new three-digit list
   gets its first part — **by the SAP admin only** (Tim, 2026-09-29; see
   below).
@@ -1883,7 +1922,12 @@ Four details:
   `flagged` is `undefined` for a part, and only `false` (not "absent")
   triggers the "flag says No" note. Same folder, same `<part #>.pdf` name.
 
-**Uploading** (Tim, 2026-09-28) — an optional PDF on the New Part form, and
+**Uploading** (Tim, 2026-09-28) — a PDF on the New Part form (**REQUIRED**
+since 2026-10-09, Tim: the form refuses to submit without one, naming
+"Datasheet" with the other missing fields; it was optional before — EXCEPT
+on a drawing number, EWI-005 device type 9 "Wire Diagram, Sales Drawing,
+etc." (`isDrawingNumber` in `lib/partNumberScheme.ts`), which has no
+datasheet and stays optional), and
 an **Upload datasheet** button on a part's page when it has none (the way
 back from a failed upload, and the only way the ~14,000 Part List parts get
 one — none had a PDF when this shipped). `uploadDatasheet` writes

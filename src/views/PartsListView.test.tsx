@@ -56,6 +56,22 @@ describe("PartsListView — one Part List list", () => {
     expect(screen.getByRole("heading", { name: "309 List" })).toBeInTheDocument();
   });
 
+  it("says what the list's number means under EWI-005, in full on hover", async () => {
+    useMockParts();
+    renderList("/engineering/parts/list/309");
+    const subtitle = await screen.findByText(
+      "Altronic Part List · Altronic III Ignition · Components / Hardware · Wire Diagram / Sales Drawing",
+    );
+    expect(subtitle.getAttribute("title")).toMatch(/^EWI-005 Rev 5: 3 = Altronic III Ignition System/);
+  });
+
+  it("keeps a component list's own category, with no EWI-005 meaning", async () => {
+    useMockParts();
+    renderList("/engineering/parts/list/601");
+    const subtitle = await screen.findByText("Altronic Component List · Through Hole");
+    expect(subtitle).not.toHaveAttribute("title");
+  });
+
   it("offers New part to somebody who can add there", async () => {
     // Mock mode: the demo user holds every Parts Roles tag.
     useMockParts();

@@ -20,6 +20,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.179.0",
+    date: "2026-10-09",
+    changes: [
+      "Parts List: every new part needs its datasheet PDF attached before it can be added, except a drawing number (third digit 9 — wire diagrams, sales drawings and the like)",
+      "Parts List: a new part on a full 701 or 711 list now takes the next free number in the next linked list (711, then 712), and the form says which lists were full; the same goes for 601 and 611",
+      "Parts List: when every linked list in a category is full, the New Part form offers a button to ask the SAP admin to create the next one",
+      "Parts List: each Parts Book tile now names its product line from EWI-005, for example 300 is Altronic III Ignition",
+      "Parts List: the 800 book is labelled Special Products",
+      "Parts List: each list tile says what its number means, by assembly level and device type, for example 309 is Components / Hardware · Wire Diagram / Sales Drawing",
+      "Parts List: hover over a tile, or a list's subtitle, to see each digit explained in EWI-005's own words",
+    ],
+  },
+  {
     version: "0.178.1",
     date: "2026-10-08",
     changes: [

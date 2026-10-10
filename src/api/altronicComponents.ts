@@ -19,7 +19,7 @@ import {
   reuseRecordHtml,
 } from "@/lib/partLifecycle";
 import { appendComment, parseCommunication } from "@/lib/communicationParser";
-import { MOCK_ALTRONIC_COMPONENTS } from "@/data/altronicPartsMockData";
+import { MOCK_ALTRONIC_COMPONENTS, MOCK_FULL_SURFACE_MOUNT_COMPONENTS } from "@/data/altronicPartsMockData";
 import { archiveDatasheet } from "./datasheets";
 import {
   COMMUNICATION_MISSING,
@@ -54,11 +54,16 @@ export const ALTRONIC_COMPONENT_SELECT =
   "Title,Category,Description,MfgName,MfgNumber,RatingA,RatingB,RatingC,TempMin,TempMax," +
   "Tolerance,Footprint,Notes,HasDataSheet,SignOffStatus,LegacySource,Attachments";
 
-let mockStore: AltronicComponent[] = MOCK_ALTRONIC_COMPONENTS.map(clone);
+// The browser demo also gets full 701 and 711 lists, to show New part
+// overflowing into 712. Not under Vitest — tests expect 701 to have room.
+let mockStore: AltronicComponent[] = [
+  ...MOCK_ALTRONIC_COMPONENTS,
+  ...(import.meta.env.MODE === "test" ? [] : MOCK_FULL_SURFACE_MOUNT_COMPONENTS),
+].map(clone);
 
 /** Test hook: put the mock store back to its fixtures. */
-export function __resetAltronicComponentsMockStore() {
-  mockStore = MOCK_ALTRONIC_COMPONENTS.map(clone);
+export function __resetAltronicComponentsMockStore(rows: AltronicComponent[] = MOCK_ALTRONIC_COMPONENTS) {
+  mockStore = rows.map(clone);
 }
 
 function clone(c: AltronicComponent): AltronicComponent {

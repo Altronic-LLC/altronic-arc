@@ -5335,6 +5335,20 @@ const SECTIONS: ManualSection[] = [
           <strong>Parts Book</strong>. You never need to know which of the two
           SharePoint lists a part is on; ARC works that out from the number.
         </P>
+        <P>
+          The labels on the tiles follow <strong>EWI-005</strong> (Component/Document
+          Part Number Guidelines). A Parts Book is named by its product code (the
+          300 book is <strong>Altronic III Ignition</strong>). EWI-005 leaves 8
+          unused, so the 800 book is called <strong>Special Products</strong>. A
+          list is labelled by
+          its second digit, the assembly level, and its third digit, the device type
+          (list 309 is <strong>Components / Hardware · Wire Diagram / Sales
+          Drawing</strong>). Hover over a tile, or a list's subtitle, to see each
+          digit in the EWI's own words. Where EWI-005 doesn't assign a device type,
+          only the assembly level is shown. Older part numbers predate the
+          guideline, so not every part in a list will match its label. The HCO
+          lists keep their Through Hole, Surface Mount and SIL labels.
+        </P>
         <H3>Finding a part</H3>
         <P>
           On the landing page, pick a <strong>Parts Book</strong> (100 to 900) to
@@ -5459,8 +5473,8 @@ const SECTIONS: ManualSection[] = [
           the setting right.
         </P>
         <P>
-          To add a datasheet, choose the PDF under <strong>Datasheet</strong> on
-          the New Part form. It's saved as the part number (for example{" "}
+          A new part needs a datasheet (a drawing number doesn't): choose the PDF under{" "}
+          <strong>Datasheet</strong> on the New Part form. It's saved as the part number (for example{" "}
           <code>604613.pdf</code>) once the part is added, whatever the file was
           called, and a component's Has Data Sheet is set to Yes for you. A part
           with no datasheet shows <strong>Upload datasheet</strong> on its page
@@ -5524,12 +5538,26 @@ const SECTIONS: ManualSection[] = [
           new list's first.
         </P>
         <P>
+          The component lists are <strong>linked</strong>: 701, 711 and 712 for
+          Surface Mount, and 601 and 611 for Through Hole. When the list you open
+          is full, the form fills in the next free number from the next linked
+          list instead and says so — on a full 701 and 711 you get a 712 number,
+          with a note that 701 and 711 are full. When every linked list in the
+          category is full, the form offers{" "}
+          <strong>Ask the SAP admin for the next list</strong>, which emails them
+          to create one.
+        </P>
+        <P>
           Fields marked * are required, following the old app's rules. On a Part
           List part that's everything except Mfg Part #, Manufacturer, Date
           Drawing, Drawing Size and Notes; SAP # is left for the SAP admin. On a
           component it's everything except Notes, plus any rating that doesn't
-          apply to that kind of part. ARC won't accept a number that's already
-          taken or that doesn't start with the list you're adding to.
+          apply to that kind of part. <strong>Every new part also needs its
+          datasheet PDF</strong>, except a drawing number — one whose third digit
+          is 9 (wire diagrams, sales drawings and the like), where the datasheet is
+          optional. ARC won't accept a number that's already taken
+          or that doesn't start with the list you're adding to (or, on a
+          component list, one of the linked lists after it).
         </P>
         <H3>Describing a new component</H3>
         <P>
