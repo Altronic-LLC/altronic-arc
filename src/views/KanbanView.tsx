@@ -25,7 +25,8 @@ import { TaskFormModal } from "@/components/TaskFormModal";
 import { pushToast } from "@/components/Toast";
 import { statusColor } from "@/components/atoms";
 import { applyFilters, collectPeople } from "@/lib/taskFilters";
-import { canCompleteTask } from "@/lib/taskGraph";
+import { canCompleteTask, type LinkedBuildRequests } from "@/lib/taskGraph";
+import { useBuildRequests } from "@/hooks/useBuildRequests";
 import { withPerson } from "@/lib/people";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { cn } from "@/lib/cn";
@@ -45,8 +46,8 @@ export type TaskStatusDropPlan =
  * Returns `null` for a drop that changes nothing (outside a column, onto the
  * column it's already in, or a card that has since vanished), the write to
  * make, or a refusal to show the user — a parent dragged onto Complete with
- * any open (non-Complete) child task, per `canCompleteTask` in
- * `taskGraph.ts`. Refusing here means the caller never calls the mutation,
+ * any open (non-Complete) child task, or a task with an open linked build
+ * request (BusinessIT#2), per `canCompleteTask` in `taskGraph.ts`. Refusing here means the caller never calls the mutation,
  * so the card stays in its original column for free: @dnd-kit itself moves
  * nothing, only the mutation's optimistic `onMutate` patch would, and that
  * patch never runs.
@@ -55,10 +56,12 @@ export function planTaskStatusDrop({
   activeId,
   overId,
   tasks,
+  linked,
 }: {
   activeId: string | number;
   overId: string | number | null;
   tasks: Task[];
+  linked?: LinkedBuildRequests;
 }): TaskStatusDropPlan | null {
   if (overId === null) return null;
 
@@ -76,7 +79,7 @@ export function planTaskStatusDrop({
   if (!target || target === task.status) return null;
 
   if (target === "Complete") {
-    const gate = canCompleteTask(task);
+    const gate = canCompleteTask(task, linked);
     if (!gate.allowed) return { refusal: gate.hint };
   }
 
@@ -90,6 +93,7 @@ export function KanbanView() {
   const { data: projects = [] } = useProjects();
   const [filters, setFilters] = useFilters();
   const setStatus = useSetStatus();
+  const { data: buildRequests = [], isLoading: buildRequestsLoading } = useBuildRequests();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [showNewTask, setShowNewTask] = useState(false);
   // Kanban is only offered on tablets wider than an iPad mini. Below that we
@@ -144,6 +148,7 @@ export function KanbanView() {
       activeId: event.active.id,
       overId: event.over?.id ?? null,
       tasks,
+      linked: { buildRequests, resolving: buildRequestsLoading },
     });
     if (!plan) return;
     if ("refusal" in plan) {

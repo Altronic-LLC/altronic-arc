@@ -3000,6 +3000,15 @@ needs notified"; Ray added the watchers). `grayMarketAlertChanges` +
   Russell), not the intake list — re-pointing one must not re-point the
   other. In `deploy.yml` and `AdminNotificationRecipientsView`'s `LISTS`.
 
+**`Testing Required` lives on the ENGINEERING card** (BusinessIT#26,
+2026-10-10), not in the sidebar. It is Engineering's call. It isn't a
+`GRAY_MARKET_FIELDS` descriptor (its own column, `ProductionTest`, and its own
+`testingRequired` property, read by the list filter and the change alert), so
+the detail view adds it by hand — first row of the card, first field of the
+card's Edit modal — and `saveFields` writes it in the SAME PATCH as the
+card's other fields. Don't make it a descriptor without moving those readers.
+It stays on the New Request form, still optional.
+
 **`Testing Required` is NOT required on create** (Ray, 2026-08-23) — whether
 testing is needed is decided later in the workflow. The pills carry a "Not set"
 option, and `buildGrayMarketCreateFields` OMITS `ProductionTest` when it's
@@ -5786,7 +5795,26 @@ through two production steps, each gated on its parts:
 |---|---|---|---|
 | anything before the hand-off | **Ready for Production** | at least one part, and EVERY part is Ready for Production or Production Complete | `Ready for Production` |
 | `Ready for Production` | **Build Request Production Complete** | EVERY part is Production Complete | `Production Complete` |
-| `Production Complete` / `Complete` | none | — | (Sheila reviews and sets Complete by hand) |
+| `Production Complete` | **Mark Build Request Complete** | EVERY part is STILL Production Complete | `Complete` |
+| `Complete` | none | — | — |
+
+**There is NO Status dropdown on the request any more** (BusinessIT#31,
+2026-10-10). These buttons and the part buttons replace it, so the third step
+was added: without it nothing in ARC could set Complete — the status alert c
+asks Sheila to set, and the one a linked task waits on (BusinessIT#2, below).
+Three consequences worth knowing:
+
+- **Step 3 is for an ARC admin or a COMPLETE REVIEWER** — the people in
+  `VITE_BUILD_REQUEST_COMPLETE_REVIEWERS`, the SAME list alert c emails, so
+  the email asking someone to "set it to Complete" and the button they need
+  can't disagree. `lib/` can't import `api/config`, so callers pass them in
+  as `access.completeReviewers` (`completeReviewerEmails(raw)`).
+- **The write guard judges Complete too**, and only FROM Production Complete,
+  the same single forward step as step 2.
+- **Blocked / On Hold / Information Needed / In-process can't be set from
+  ARC.** Older rows still show them (the header badge); changing one is a
+  SharePoint edit. If those are wanted back, they need a deliberate control,
+  not the dropdown.
 
 **`lib/buildRequestProduction.ts` is the ONE place the rule lives**
 (`productionButtonState`, `canPressProduction`, `productionTransitionRefusal`).
@@ -5797,11 +5825,12 @@ It is asked twice, like the CMMS gates:
   `disabled`, for the same reason as the child-task gate and the EIR At Risk
   pills: a disabled control loses its tooltip and leaves the tab order.
 - **The write** — `useUpdateBuildRequestFields`' `mutationFn` refuses a write
-  moving BRStatus TO `Ready for Production` or `Production Complete` unless
+  moving BRStatus TO `Ready for Production`, `Production Complete` or `Complete` unless
   the rule allows it, reading the request and its parts from the
   `BUILD_REQUESTS_KEY` / `BUILD_REQUEST_ITEMS_KEY` caches, and throws before
-  any request goes out. **This is what stops the status picker bypassing the
-  button.** Every other status change is unaffected.
+  any request goes out. It stopped the old status picker bypassing the
+  button, and still stops any future caller doing so. Every other status
+  change is unaffected.
 
 Three things about the rule:
 
@@ -8202,7 +8231,7 @@ columns) and calls `onClose()` without awaiting them. That's safe because a
 failed write rolls its own field back and toasts, and React Query finishes
 mutations after unmount. Validation still runs first.
 
-### A parent task can't be marked Complete with open child tasks
+### A task can't be marked Complete with open child tasks — or an open build request
 
 Ray, 2026-09-04: child tasks were being left open after their parent was
 marked done, because nothing stopped it — a parent's "Mark Complete" and its
@@ -8256,6 +8285,28 @@ Four things about the rule itself, all in `taskGraph.ts`:
   Complete is never re-blocked by this — if a child re-opens after its
   parent was marked done, nothing here reacts to that, on purpose; that's a
   different feature nobody has asked for yet.
+
+**A linked build request that isn't Complete blocks it too** (BusinessIT#2,
+2026-10-10). `canCompleteTask(task, linked)` takes `{ buildRequests,
+resolving }` — the whole loaded Build Requests list; the link is DERIVED, so
+`openBuildRequestsForTask` (in `lib/buildRequestFromTask.ts`) filters by
+`TaskReference`. "Done" is `status === "Complete"`, which a request only
+reaches through its final hand-off step with every part Production Complete
+— so the rule needs no separate part check. Three things that are
+load-bearing:
+
+- **Loading is "checking", not allowed** — `resolving: true` refuses with
+  "Checking the linked build requests…", or the first second of the page is a
+  window round the rule.
+- **A list that FAILED to read is passed as `[]` and allows.** Somebody who
+  can't read the Build Request list must not be unable to close any task.
+- **There are FOUR paths now, not three** — the edit form's Status picker
+  (`TaskFormModal`) never asked even the child rule until this change. When
+  both rules block, the hint names both.
+
+Pinned in `taskGraph.test.ts`, `DetailView.buildRequestGate.test.tsx`,
+`KanbanView.childGate.test.tsx` and `TaskFormModal.buildRequestGate.test.tsx`
+(the blocking cases verified by disabling the rule).
 
 This is UI-level gating only, the same as every other gate in this app —
 the real boundary is SharePoint's own list permissions, and a user with

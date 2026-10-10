@@ -481,7 +481,7 @@ const SECTIONS: ManualSection[] = [
       "to-do list",
     ],
     searchText:
-      "Create tasks with the New Task button. Required: Title and Parent Project. NumberedTitle is auto-generated as T{n}-{projectRef}-{title}. Edit fields inline from the right sidebar of the detail page. Use Mark Complete or change Status to close out. A task with any child tasks not yet Complete can't be marked Complete itself — the Mark Complete button, the Status dropdown, and dragging a card to the Complete column on the Kanban all refuse it and say how many child tasks are still open, so finish or close those out first. The New Child Task button on a task's detail page opens the New Task form pre-filled and locked to that task's Parent Task and Parent Project, so a sub-task can't accidentally end up under the wrong parent or project; everything else on the form stays editable and submitting opens the new child task. The Description field can hold a custom checklist — click Turn into checklist while editing, or type - [ ] lines yourself, and check items off directly from the detail page. Checking a box instantly records your name and the time next to the item; unchecking asks Are you sure first and records who unchecked it. Indent a checklist line with Tab (or spaces) to make it a sub-task of the item above it; Shift+Tab outdents. One level of nesting; the parent shows a 1/2 count of its sub-tasks done and is never ticked automatically. Tab only indents on a checklist line — elsewhere it moves to the next field. The Description field also has a Rich text button for bold, italic, underline and lists. It warns before switching, because rich text turns off the checklist function — a rich description cannot use the - [ ] syntax. If the description ALREADY has checkboxes the button is disabled and says why, so you cannot lose a checklist you have been ticking; delete the checklist lines first if you really want rich text. Switching back to plain text restores checklists. The Create Build Request button raises a build request from the task: the form opens prefilled with the task's name and project, the Task Reference locked to that task, and the task's whole discussion copied into the new request's comments with each comment's original author and time kept. Afterwards the task page shows a Build Request chip with the request's number and status, and the build request page shows the task it came from. The button stays available so a task can raise a second request if the first was cancelled. Once linked, the task and the build request share one conversation: a comment on either appears on both, and a comment on a part within the build request appears on both marked as coming from that part, with a link that opens the part so a reply lands in the original thread. A copied comment keeps its original author and time. Each side emails its own watchers, so watching both still means one email per comment.",
+      "Create tasks with the New Task button. Required: Title and Parent Project. NumberedTitle is auto-generated as T{n}-{projectRef}-{title}. Edit fields inline from the right sidebar of the detail page. Use Mark Complete or change Status to close out. A task with any child tasks not yet Complete can't be marked Complete itself — the Mark Complete button, the Status dropdown, the Edit form, and dragging a card to the Complete column on the Kanban all refuse it and say how many child tasks are still open, so finish or close those out first. The same goes for a task with a linked build request that isn't Complete yet: it can be closed once the build request is Complete, which means every part on it is done. The New Child Task button on a task's detail page opens the New Task form pre-filled and locked to that task's Parent Task and Parent Project, so a sub-task can't accidentally end up under the wrong parent or project; everything else on the form stays editable and submitting opens the new child task. The Description field can hold a custom checklist — click Turn into checklist while editing, or type - [ ] lines yourself, and check items off directly from the detail page. Checking a box instantly records your name and the time next to the item; unchecking asks Are you sure first and records who unchecked it. Indent a checklist line with Tab (or spaces) to make it a sub-task of the item above it; Shift+Tab outdents. One level of nesting; the parent shows a 1/2 count of its sub-tasks done and is never ticked automatically. Tab only indents on a checklist line — elsewhere it moves to the next field. The Description field also has a Rich text button for bold, italic, underline and lists. It warns before switching, because rich text turns off the checklist function — a rich description cannot use the - [ ] syntax. If the description ALREADY has checkboxes the button is disabled and says why, so you cannot lose a checklist you have been ticking; delete the checklist lines first if you really want rich text. Switching back to plain text restores checklists. The Create Build Request button raises a build request from the task: the form opens prefilled with the task's name and project, the Task Reference locked to that task, and the task's whole discussion copied into the new request's comments with each comment's original author and time kept. Afterwards the task page shows a Build Request chip with the request's number and status, and the build request page shows the task it came from. The button stays available so a task can raise a second request if the first was cancelled. Once linked, the task and the build request share one conversation: a comment on either appears on both, and a comment on a part within the build request appears on both marked as coming from that part, with a link that opens the part so a reply lands in the original thread. A copied comment keeps its original author and time. Each side emails its own watchers, so watching both still means one email per comment.",
     render: () => (
       <>
         <H3>Creating a task</H3>
@@ -736,6 +736,14 @@ const SECTIONS: ManualSection[] = [
           see why), and the task's Child tasks card in the sidebar lists
           which ones are blocking it. Finish or close out the child tasks
           first, then come back and mark the parent complete.
+        </P>
+        <P>
+          A task with a linked <strong>build request</strong> that isn&apos;t
+          Complete can&apos;t be completed either — every way of completing
+          it, the Edit form included, says which build request is holding
+          it and what status it&apos;s at. A build request is only Complete
+          once every part on it is Production Complete and it has been
+          reviewed, so finish the build first.
         </P>
         <P>
           If the task was promoted from an EIR (it shows a{" "}
@@ -3727,7 +3735,7 @@ const SECTIONS: ManualSection[] = [
       "sign-off",
     ],
     searchText:
-      "Gray Market Requests at /supply-chain/gray-market-requests, under Supply Chain in the Departments menu, backed by the Gray Market Request list on the Altronic_PMO SharePoint site. A gray market request tracks a part bought outside normal distribution from the request through purchasing, engineering test, inspection and production sign-off. The list opens on Open requests with pills for Open / Complete / All, filters for Requestor and Testing Required, and an all-fields search. New Request asks only for the Title (the Altronic assembly number), request date and the purchasing details; the Log No. is generated as GMR_YYYY-###. Testing Required is on the form but optional — that call is made later in the workflow, so it can be left Not set and answered on the request once it is decided. Everything else is filled in on the request itself, in five cards — Request, Purchasing, Engineering, Inspection, Production — each card with one Edit button in its header that opens a box holding that stage's fields; Save changes writes only the fields you touched. Requests carry comments with @-mentions, watchers, and attachments. Changing Testing Required or any Engineering or Production field emails Alexandra Russell and the request's watchers with what changed. Whoever raises a request watches it. Raising a request emails Katie Fleming, Alexandra Russell and Glenn Terry — the intake list who pick a new request up — with the assembly number, vendor and PO details; the person who raised it is left off their own alert, and being on that list is not the same as watching the request. Requests cannot be deleted from ARC.",
+      "Gray Market Requests at /supply-chain/gray-market-requests, under Supply Chain in the Departments menu, backed by the Gray Market Request list on the Altronic_PMO SharePoint site. A gray market request tracks a part bought outside normal distribution from the request through purchasing, engineering test, inspection and production sign-off. The list opens on Open requests with pills for Open / Complete / All, filters for Requestor and Testing Required, and an all-fields search. New Request asks only for the Title (the Altronic assembly number), request date and the purchasing details; the Log No. is generated as GMR_YYYY-###. Testing Required is on the form but optional — that call is made later in the workflow, so it can be left Not set; Engineering answers it on the request's Engineering card, where it is the first field and changes through that card's Edit button. Everything else is filled in on the request itself, in five cards — Request, Purchasing, Engineering, Inspection, Production — each card with one Edit button in its header that opens a box holding that stage's fields; Save changes writes only the fields you touched. Requests carry comments with @-mentions, watchers, and attachments. Changing Testing Required or any Engineering or Production field emails Alexandra Russell and the request's watchers with what changed. Whoever raises a request watches it. Raising a request emails Katie Fleming, Alexandra Russell and Glenn Terry — the intake list who pick a new request up — with the assembly number, vendor and PO details; the person who raised it is left off their own alert, and being on that list is not the same as watching the request. Requests cannot be deleted from ARC.",
     render: () => (
       <>
         <P>
@@ -3752,8 +3760,8 @@ const SECTIONS: ManualSection[] = [
         <P>
           <strong>Testing Required</strong> is on the form but optional — that
           call is made later in the workflow, so leave it on{" "}
-          <strong>Not set</strong> and answer it on the request itself once it's
-          decided.
+          <strong>Not set</strong>. Engineering answers it on the request&apos;s{" "}
+          <strong>Engineering</strong> card once it&apos;s decided.
         </P>
         <P>
           You're recorded as the requestor and start watching it, so you hear
@@ -3791,8 +3799,10 @@ const SECTIONS: ManualSection[] = [
         </P>
         <UL>
           <LI>
-            <strong>Request Status</strong>, <strong>Testing Required</strong>{" "}
-            and the two dates live in the sidebar, along with the watchers.
+            <strong>Request Status</strong> and the two dates live in the
+            sidebar, along with the watchers. <strong>Testing Required</strong>{" "}
+            is the first field on the <strong>Engineering</strong> card, and
+            changes through that card&apos;s Edit button.
           </LI>
           <LI>
             <strong>Comments</strong> work exactly as they do on a task or an
@@ -5956,7 +5966,7 @@ const SECTIONS: ManualSection[] = [
       "flowchart",
     ],
     searchText:
-      "Build Requests ask manufacturing to build parts. A workflow diagram shows the whole process: the requestor raises the request (Submitted); the engineer adds parts, prepares each one and presses Mark as Ready for Production on it; once every part is ready the assigned engineer presses Ready for Production on the request; Amanda Hoagland moves each part to In Production and then Production Complete, presses Build Request Production Complete, and Sheila Horn reviews and sets the request to Complete. A request can also be raised from a task with the Create Build Request button on the task page, which prefills the task's name and project, locks the Task Reference, and copies the task's discussion into the request's comments; the two then link to each other and share one comment thread, with a comment on a part appearing on both marked as coming from that part.  Each request (BR_YYYY-####) has a header — status, type, lead time, requestor, engineer, customer — and any number of parts. Each part has its own comment thread, watchers, attachments, and a Part-Type checklist: PCB parts get the data-package checklist, Harness parts get the terminals checklist. A part's status moves through buttons, not a dropdown: Mark as Ready for Production (once its checklist, or its Part Number, Qty, Part Description, Part Type and Disposition, are complete), then Amanda Hoagland or an admin marks it In Production, On Hold or Production Complete. Create from the Build Requests list; add parts from the detail page. Email notifications fire for comments (request or part level), BR Status changes, Engineer Assigned changes, and a part's Part Status changes; part-comment emails open the request with that part expanded. Lead Free requests show a green flag and a warning banner on part printouts; each part has a Print part button for the production floor. Production hand-off: once every part is Ready for Production, the assigned engineer (or an admin) presses Ready for Production on the request, which emails Amanda Hoagland, Sheila Horn, the engineer, the watchers and the requestor; once every part is Production Complete the button becomes Build Request Production Complete, which asks Sheila Horn to review and set the request to Complete. Each part reaching Production Complete emails the engineer, the request and part watchers and the requestor, and a request set from Production Complete to Complete emails the watchers, Amanda Hoagland, the engineer and the requestor. The Status picker follows the same rule.",
+      "Build Requests ask manufacturing to build parts. A workflow diagram shows the whole process: the requestor raises the request (Submitted); the engineer adds parts, prepares each one and presses Mark as Ready for Production on it; once every part is ready the assigned engineer presses Ready for Production on the request; Amanda Hoagland moves each part to In Production and then Production Complete, presses Build Request Production Complete, and Sheila Horn reviews the request and presses Mark Build Request Complete. There is no Status dropdown: these buttons move the request along. A request can also be raised from a task with the Create Build Request button on the task page, which prefills the task's name and project, locks the Task Reference, and copies the task's discussion into the request's comments; the two then link to each other and share one comment thread, with a comment on a part appearing on both marked as coming from that part.  Each request (BR_YYYY-####) has a header — status, type, lead time, requestor, engineer, customer — and any number of parts. Each part has its own comment thread, watchers, attachments, and a Part-Type checklist: PCB parts get the data-package checklist, Harness parts get the terminals checklist. A part's status moves through buttons, not a dropdown: Mark as Ready for Production (once its checklist, or its Part Number, Qty, Part Description, Part Type and Disposition, are complete), then Amanda Hoagland or an admin marks it In Production, On Hold or Production Complete. Create from the Build Requests list; add parts from the detail page. Email notifications fire for comments (request or part level), BR Status changes, Engineer Assigned changes, and a part's Part Status changes; part-comment emails open the request with that part expanded. Lead Free requests show a green flag and a warning banner on part printouts; each part has a Print part button for the production floor. Production hand-off: once every part is Ready for Production, the assigned engineer (or an admin) presses Ready for Production on the request, which emails Amanda Hoagland, Sheila Horn, the engineer, the watchers and the requestor; once every part is Production Complete the button becomes Build Request Production Complete, which asks Sheila Horn to review the request; she (or an admin) then presses Mark Build Request Complete, available while every part is still Production Complete. Each part reaching Production Complete emails the engineer, the request and part watchers and the requestor, and a request set from Production Complete to Complete emails the watchers, Amanda Hoagland, the engineer and the requestor. A task the request was raised from can't be marked Complete until the request is Complete.",
     render: () => (
       <>
         <P>
@@ -6070,7 +6080,10 @@ const SECTIONS: ManualSection[] = [
         </P>
         <H3>Handing a request to production</H3>
         <P>
-          The request header carries a production button with two stages:
+          The request header carries a production button with three stages.
+          There is no Status dropdown: these buttons, and the ones on each
+          part, move a request along. Its status shows as the badge at the
+          top.
         </P>
         <ul className="ml-6 list-disc text-sm leading-relaxed text-fg-muted">
           <li>
@@ -6086,6 +6099,14 @@ const SECTIONS: ManualSection[] = [
             when every part is Production Complete, and sets the request to
             Production Complete.
           </li>
+          <li>
+            <strong>Mark Build Request Complete</strong> — the same button,
+            once the request is Production Complete. Sheila Horn (the
+            reviewer) or an ARC admin presses it after reviewing the request.
+            Every part must still be Production Complete. It sets the
+            request to <strong>Complete</strong>, and a task the request was
+            raised from can then be completed.
+          </li>
         </ul>
         <P>
           While parts are still short of the required status, the button is
@@ -6095,18 +6116,14 @@ const SECTIONS: ManualSection[] = [
           admin, and <strong>Build Request Production Complete</strong> is for{" "}
           <strong>Amanda Hoagland</strong> or an ARC admin — the engineer hands
           the build to production, and production signs off that it&apos;s
-          done. Anyone else sees it greyed with the reason. Once the
-          request is Production Complete the button goes away — Sheila Horn
-          reviews the request and sets its status to <strong>Complete</strong>.
+          done. <strong>Mark Build Request Complete</strong> is for Sheila
+          Horn or an ARC admin. Anyone else sees it greyed with the reason.
+          Once the request is Complete the button goes away.
         </P>
         <P>
-          The <strong>Status</strong> picker follows the same rule: you
-          can&apos;t move a request to Ready for Production or Production
-          Complete from the picker before its parts are ready, or unless
-          you&apos;re allowed to take that step (the assigned engineer or an
-          admin for Ready for Production; Amanda Hoagland or an admin for
-          Production Complete). Other status changes
-          work as before.
+          Blocked, On Hold and Information Needed can no longer be set from
+          ARC. Older requests may still show them; change them in SharePoint
+          if you need to.
         </P>
         <P>Each step sends email (never to the person who took the step):</P>
         <ul className="ml-6 list-disc text-sm leading-relaxed text-fg-muted">

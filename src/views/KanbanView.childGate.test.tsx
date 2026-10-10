@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { planTaskStatusDrop } from "./KanbanView";
 import { MOCK_TASKS } from "@/data/mockData";
+import { MOCK_BUILD_REQUESTS } from "@/data/buildRequestMockData";
 
 // The drop DECISION, tested directly — same reasoning as
 // MaintenanceBoardView's planStatusDrop tests: dnd-kit's pointer sensor
@@ -87,5 +88,43 @@ describe("planTaskStatusDrop", () => {
       taskId: 47,
       target: "On Hold",
     });
+  });
+});
+
+// BusinessIT#2 — the drag is a path to Complete too.
+describe("planTaskStatusDrop — linked build requests", () => {
+  const openBr = { ...MOCK_BUILD_REQUESTS[0], id: 9, brNo: "BR_2026-9", status: "In-process", taskReferenceLookupId: CHILDLESS.id };
+
+  it("refuses a drop onto Complete while a linked build request is open", () => {
+    const plan = planTaskStatusDrop({
+      activeId: CHILDLESS.id,
+      overId: "Complete",
+      tasks: [CHILDLESS],
+      linked: { buildRequests: [openBr] },
+    });
+    expect(plan).toEqual({
+      refusal: "Build request BR_2026-9 is still In-process — it must be Complete first.",
+    });
+  });
+
+  it("allows it once that build request is Complete", () => {
+    const plan = planTaskStatusDrop({
+      activeId: CHILDLESS.id,
+      overId: "Complete",
+      tasks: [CHILDLESS],
+      linked: { buildRequests: [{ ...openBr, status: "Complete" }] },
+    });
+    expect(plan).toEqual({ taskId: CHILDLESS.id, target: "Complete" });
+  });
+
+  it("doesn't judge a drop onto any other column", () => {
+    const other = CHILDLESS.status === "Blocked" ? "On Hold" : "Blocked";
+    const plan = planTaskStatusDrop({
+      activeId: CHILDLESS.id,
+      overId: other,
+      tasks: [CHILDLESS],
+      linked: { buildRequests: [openBr] },
+    });
+    expect(plan).toEqual({ taskId: CHILDLESS.id, target: other });
   });
 });

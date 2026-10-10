@@ -239,27 +239,102 @@ describe("productionButtonState — step 2 (Production Complete)", () => {
   });
 });
 
+// Step 3 replaced the Status dropdown's last job (BusinessIT#31): nothing
+// else in ARC can set Complete once that dropdown is gone.
+describe("productionButtonState — step 3 (Complete)", () => {
+  it("offers Mark Build Request Complete at Production Complete", () => {
+    const s = productionButtonState(br("Production Complete"), [part("Production Complete")], PERMITTED);
+    expect(s.action).toBe("complete");
+    expect(s.label).toBe("Mark Build Request Complete");
+    expect(s.targetStatus).toBe("Complete");
+    expect(s.allowed).toBe(true);
+  });
+
+  it("is greyed while a part has been re-opened since Production Complete", () => {
+    const s = productionButtonState(
+      br("Production Complete"),
+      [part("Production Complete"), part("In Production")],
+      PERMITTED,
+    );
+    expect(s.allowed).toBe(false);
+    expect(s.hint).toBe("1 part still needs to reach Production Complete.");
+  });
+
+  it("tells somebody who can't press it that it is waiting on review, and by whom", () => {
+    const s = productionButtonState(br("Production Complete"), [part("Production Complete")], NOT_PERMITTED);
+    expect(s.allowed).toBe(false);
+    expect(s.hint).toMatch(/waiting on review/i);
+    expect(s.hint).toMatch(/Only the build request reviewer or an ARC admin/);
+  });
+});
+
 describe("productionButtonState — no button", () => {
-  it.each<BuildRequestStatus>(["Production Complete", "Complete"])("offers nothing at %s", (status) => {
-    const s = productionButtonState(br(status), [part("Production Complete")], PERMITTED);
+  it("offers nothing at Complete", () => {
+    const s = productionButtonState(br("Complete"), [part("Production Complete")], PERMITTED);
     expect(s.action).toBeNull();
     expect(s.label).toBe("");
     expect(s.targetStatus).toBeNull();
     expect(s.allowed).toBe(false);
   });
+});
 
-  it("says a Production Complete request is waiting on review", () => {
-    expect(productionButtonState(br("Production Complete"), [], PERMITTED).hint).toMatch(/review/i);
+describe("canPressProduction — step 3 (Complete)", () => {
+  const SHEILA = { isAdmin: false, myEmails: ["sheila.horn@altronic-llc.com"], completeReviewers: ["Sheila.Horn@altronic-llc.com"] };
+
+  it("allows a complete reviewer, whatever the case of her address", () => {
+    expect(canPressProduction(br("Production Complete"), SHEILA)).toBe(true);
+  });
+
+  it("allows an admin", () => {
+    expect(canPressProduction(br("Production Complete"), ADMIN_ACCESS)).toBe(true);
+  });
+
+  it("refuses the engineer and the production approver", () => {
+    const reviewers = { completeReviewers: ["Sheila.Horn@altronic-llc.com"] };
+    expect(canPressProduction(br("Production Complete"), { ...ENGINEER_ACCESS, ...reviewers })).toBe(false);
+    expect(canPressProduction(br("Production Complete"), { ...AMANDA_ACCESS, ...reviewers })).toBe(false);
+  });
+
+  it("refuses everybody but admins when no reviewer is configured", () => {
+    expect(canPressProduction(br("Production Complete"), { ...SHEILA, completeReviewers: [] })).toBe(false);
   });
 });
 
 describe("productionTransitionRefusal", () => {
-  it.each(["Submitted", "In-process", "Blocked", "Complete", "On Hold", "Information Needed"])(
+  it.each(["Submitted", "In-process", "Blocked", "On Hold", "Information Needed"])(
     "returns null for the ungated target %s, even for someone not permitted with no parts ready",
     (target) => {
       expect(productionTransitionRefusal(br("In-process"), [part("Review Checklist")], target, OTHER_ACCESS)).toBeNull();
     },
   );
+
+  it("allows Complete from Production Complete for a reviewer when every part is Production Complete", () => {
+    expect(
+      productionTransitionRefusal(br("Production Complete"), [part("Production Complete")], "Complete", {
+        isAdmin: false,
+        myEmails: ["sheila.horn@altronic-llc.com"],
+        completeReviewers: ["Sheila.Horn@altronic-llc.com"],
+      }),
+    ).toBeNull();
+  });
+
+  it("refuses Complete from anywhere but Production Complete", () => {
+    expect(
+      productionTransitionRefusal(br("In-process"), [part("Production Complete")], "Complete", ADMIN_ACCESS),
+    ).toBe("A build request can only be set to Complete from Production Complete.");
+  });
+
+  it("refuses Complete to somebody who isn't a reviewer or an admin", () => {
+    expect(
+      productionTransitionRefusal(br("Production Complete"), [part("Production Complete")], "Complete", OTHER_ACCESS),
+    ).toMatch(/Only the build request reviewer or an ARC admin/);
+  });
+
+  it("refuses Complete while a part is no longer Production Complete", () => {
+    expect(
+      productionTransitionRefusal(br("Production Complete"), [part("In Production")], "Complete", ADMIN_ACCESS),
+    ).toBe("1 part still needs to reach Production Complete.");
+  });
 
   it("allows the engineer to move to Ready for Production when every part is ready", () => {
     expect(

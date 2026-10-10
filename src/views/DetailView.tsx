@@ -111,7 +111,7 @@ export function DetailView() {
   const [showResolution, setShowResolution] = useState(false);
   const { data: allTestSheets = [] } = useTestSheets();
   // Derived, not stored on the task — see lib/buildRequestFromTask.ts.
-  const { data: linkedBuildRequests } = useBuildRequestsForTask(taskId);
+  const { data: linkedBuildRequests, isLoading: buildRequestsLoading } = useBuildRequestsForTask(taskId);
 
   // Comment-collision tracking: we render the comment thread from a frozen
   // snapshot of "comments the user has acknowledged seeing." Background
@@ -249,10 +249,13 @@ export function DetailView() {
     (w) => w.email && currentUser.email && w.email.toLowerCase() === currentUser.email.toLowerCase(),
   );
 
-  // A parent with open child tasks can't be marked Complete — see
-  // canCompleteTask in taskGraph.ts. Computed once here so the button, the
-  // sidebar dropdown's refusal message and the child-tasks card all agree.
-  const completeGate = canCompleteTask(task);
+  // A parent with open child tasks, or a task with an open linked build
+  // request (BusinessIT#2), can't be marked Complete — see canCompleteTask in
+  // taskGraph.ts. Computed once here so the button, the sidebar dropdown's
+  // refusal message and the notes on the page all agree.
+  const linkedGate = { buildRequests: linkedBuildRequests, resolving: buildRequestsLoading };
+  const completeGate = canCompleteTask(task, linkedGate);
+  const hasOpenBuildRequest = linkedBuildRequests.some((br) => br.status !== "Complete");
 
   function handleStatusChange(next: Status) {
     if (!task) return;
@@ -261,7 +264,7 @@ export function DetailView() {
     // the sidebar dropdown can't be used to route around the same rule the
     // "Mark Complete" button enforces below.
     if (next === "Complete" && task.status !== "Complete") {
-      const gate = canCompleteTask(task);
+      const gate = canCompleteTask(task, linkedGate);
       if (!gate.allowed) {
         pushToast({ message: gate.hint, variant: "error" });
         return;
@@ -352,7 +355,7 @@ export function DetailView() {
   function handleMarkComplete() {
     if (!task) return;
     if (task.status !== "Complete") {
-      const gate = canCompleteTask(task);
+      const gate = canCompleteTask(task, linkedGate);
       if (!gate.allowed) {
         pushToast({ message: gate.hint, variant: "error" });
         return;
@@ -543,6 +546,16 @@ export function DetailView() {
                 </span>
               </button>
             ))}
+
+            {/* Says why Mark Complete is greyed when a linked build request
+                is what's holding it (BusinessIT#2) — a title needs a hover a
+                phone hasn't got. Child tasks explain themselves on their own
+                card below. */}
+            {hasOpenBuildRequest && task.status !== "Complete" && !completeGate.allowed && (
+              <p className="mb-3 text-xs text-fg-muted" data-testid="task-complete-gate">
+                {completeGate.hint}
+              </p>
+            )}
 
             <div className="mb-3 flex flex-wrap items-center gap-2">
               {/* `disabled` for the true terminal case (already Complete — nothing to

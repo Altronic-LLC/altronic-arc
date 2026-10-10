@@ -16,7 +16,6 @@ import {
 import {
   useAddBuildRequestComment,
   useBuildRequest,
-  useBuildRequestStatusChoices,
   useBuildRequestItems,
   useBuildRequests,
   useEditBuildRequestComment,
@@ -26,7 +25,6 @@ import {
   useSetBuildRequestWatchers,
   useUpdateBuildRequestFields,
 } from "@/hooks/useBuildRequests";
-import { withCurrentChoice } from "@/api/columnChoices";
 import { useProjects, useTasks } from "@/hooks/useTasks";
 import { useCurrentUser, useCurrentUserEmails } from "@/hooks/useCurrentUser";
 import { useAdminAccess } from "@/hooks/useIsAdmin";
@@ -55,10 +53,15 @@ import { mergePeople } from "@/lib/people";
 import { parseIsoDate, toIsoDate } from "@/lib/dateInput";
 import { DateField } from "@/components/DateField";
 import { YesNoField } from "@/components/YesNoField";
-import { canPressProduction, productionButtonState } from "@/lib/buildRequestProduction";
+import {
+  canPressProduction,
+  completeReviewerEmails,
+  productionButtonState,
+} from "@/lib/buildRequestProduction";
 import { nameList, parseRecipientList } from "@/lib/recipientList";
 import {
   BUILD_REQUEST_COMPLETE_REVIEWERS,
+  BUILD_REQUEST_FINAL_ALERTS,
   BUILD_REQUEST_PRODUCTION_ALERTS,
 } from "@/api/config";
 
@@ -77,7 +80,6 @@ export function BuildRequestDetailView() {
   const { isAdmin, isResolving: adminResolving } = useAdminAccess();
   const myEmails = useCurrentUserEmails();
   const { data: br, isLoading } = useBuildRequest(brId);
-  const { data: liveStatuses = [] } = useBuildRequestStatusChoices();
   const { data: allBrs = [] } = useBuildRequests();
   const { data: allItems = [] } = useBuildRequestItems();
   const { data: projects = [] } = useProjects();
@@ -248,11 +250,19 @@ export function BuildRequestDetailView() {
             <ProductionHandoff
               state={withAccessCheck(
                 productionButtonState(br, items, {
-                  permitted: canPressProduction(br, { isAdmin, myEmails }),
+                  permitted: canPressProduction(br, {
+                    isAdmin,
+                    myEmails,
+                    completeReviewers: completeReviewerEmails(BUILD_REQUEST_COMPLETE_REVIEWERS),
+                  }),
                 }),
-                adminResolving && !canPressProduction(br, { isAdmin: false, myEmails }),
+                adminResolving &&
+                  !canPressProduction(br, {
+                    isAdmin: false,
+                    myEmails,
+                    completeReviewers: completeReviewerEmails(BUILD_REQUEST_COMPLETE_REVIEWERS),
+                  }),
               )}
-              status={br.status}
               brLabel={br.brNo || `#${br.id}`}
               pending={updateFields.isPending}
               onPress={(targetStatus) => patch({ BRStatus: targetStatus })}
@@ -323,20 +333,9 @@ export function BuildRequestDetailView() {
                 growing to its widest child (e.g. a long project chip). A bare
                 `grid` uses an auto column, which overflows the card. */}
             <div className="grid grid-cols-1 gap-4">
-              <SideField label="Status">
-                <select
-                  value={br.status}
-                  onChange={(e) => patch({ BRStatus: e.target.value })}
-                  className="select"
-                >
-                  {withCurrentChoice(liveStatuses, br.status).map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
-              </SideField>
-
+              {/* No Status dropdown (BusinessIT#31): the production buttons
+                  above and on each part move the status. It still shows as
+                  the badge in the header. */}
               {br.status === "Blocked" && (
                 <SideField label="Blocked Reason">
                   <select
@@ -559,26 +558,17 @@ export function BuildRequestDetailView() {
  */
 function ProductionHandoff({
   state,
-  status,
   brLabel,
   pending,
   onPress,
 }: {
   state: ReturnType<typeof productionButtonState>;
-  status: string;
   brLabel: string;
   pending: boolean;
   onPress: (targetStatus: string) => void;
 }) {
-  if (!state.action || !state.targetStatus) {
-    // Production Complete is waiting on review; Complete is done. No button.
-    if (status !== "Production Complete") return null;
-    return (
-      <p className="mt-3 text-xs text-fg-muted" data-testid="production-handoff-note">
-        {state.hint}
-      </p>
-    );
-  }
+  // Complete is the end of the line — no button.
+  if (!state.action || !state.targetStatus) return null;
 
   const targetStatus = state.targetStatus;
   const blocked = !state.allowed || pending;
@@ -588,7 +578,9 @@ function ProductionHandoff({
     const who =
       targetStatus === "Ready for Production"
         ? `${nameList(parseRecipientList(BUILD_REQUEST_PRODUCTION_ALERTS), "the production team")}, the assigned engineer, the requestor and the watchers will be emailed.`
-        : `${nameList(parseRecipientList(BUILD_REQUEST_COMPLETE_REVIEWERS), "the reviewer")} will be asked to review it and set it to Complete, and the watchers will be told.`;
+        : targetStatus === "Complete"
+          ? `${nameList(parseRecipientList(BUILD_REQUEST_FINAL_ALERTS), "production")}, the assigned engineer, the requestor and the watchers will be emailed. A task waiting on this build request can then be completed.`
+          : `${nameList(parseRecipientList(BUILD_REQUEST_COMPLETE_REVIEWERS), "the reviewer")} will be asked to review it and set it to Complete, and the watchers will be told.`;
     const ok = window.confirm(`Set ${brLabel} to ${targetStatus}?
 
 ${who}`);

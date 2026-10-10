@@ -1,4 +1,5 @@
-import type { ProjectReference, Task, TaskRef } from "@/types/task";
+import type { BuildRequest, ProjectReference, Task, TaskRef } from "@/types/task";
+import { openBuildRequestsForTask } from "./buildRequestFromTask";
 
 // =============================================================================
 // Task graph helpers.
@@ -128,37 +129,81 @@ export function incompleteChildTasks(task: Task): TaskRef[] {
 }
 
 /**
- * Can `task` be marked Complete right now? A parent with any open child
- * cannot — added 2026-09-04 (Ray: child tasks were being left open after
- * their parent was marked done, because nothing stopped it). Mirrors the
- * CMMS's `completeWorkOrderGate` shape (`{ allowed, hint }`) so every
- * caller — the "Mark Complete" button, the sidebar Status dropdown, and a
- * Kanban drag to the Complete column — asks the SAME function and can't
- * disagree about the rule or the wording.
+ * What a completion check needs to know about the task's linked Build
+ * Requests. `buildRequests` is the whole loaded list (the link is DERIVED —
+ * stored once, on the request; see lib/buildRequestFromTask.ts).
+ * `resolving` is true while that list is still loading: the answer isn't
+ * "allowed" yet, it's "checking".
+ *
+ * A list that FAILED to load is passed as `[]` with `resolving: false` —
+ * deliberately allowing the completion. Somebody without access to the Build
+ * Request list must not be unable to finish any task at all; SharePoint's
+ * permissions stay the real boundary.
+ */
+export interface LinkedBuildRequests {
+  buildRequests: readonly BuildRequest[];
+  resolving?: boolean;
+}
+
+/**
+ * Can `task` be marked Complete right now? Two rules, one answer:
+ *
+ *   - A parent with any open child task cannot (Ray, 2026-09-04: child
+ *     tasks were being left open after their parent was marked done).
+ *   - A task with an open linked Build Request cannot (BusinessIT#2): the
+ *     task isn't done until the build is, and the request is only Complete
+ *     once every part on it is Production Complete.
+ *
+ * Mirrors the CMMS's `completeWorkOrderGate` shape (`{ allowed, hint }`) so
+ * every caller — the "Mark Complete" button, the sidebar Status dropdown, a
+ * Kanban drag to the Complete column, and the edit form's Status picker —
+ * asks the SAME function and can't disagree about the rule or the wording.
+ * When both rules block, the hint names both.
  *
  * This is UI-level gating only, same as every other gate in this app
  * (CLAUDE.md — "role-based field-level permissions" / CMMS roles): the real
- * boundary is SharePoint's own list permissions. There's no `resolving`
- * state here unlike the CMMS gates — `task.childTasks` is already loaded
- * synchronously with the task, nothing to await.
+ * boundary is SharePoint's own list permissions.
+ *
+ * `linked` is optional so a caller with no Build Request list (a test, a
+ * future screen) still gets the child rule — but every real path to Complete
+ * passes it.
  *
  * A task already Complete is never re-blocked by this — completing an
  * already-complete task is a no-op the callers already guard separately,
  * and un-completing a parent when a child reopens is a deliberately
  * separate, unbuilt concern.
  */
-export function canCompleteTask(task: Task): { allowed: boolean; hint: string } {
+export function canCompleteTask(
+  task: Task,
+  linked?: LinkedBuildRequests,
+): { allowed: boolean; hint: string } {
+  const reasons: string[] = [];
+
   const open = incompleteChildTasks(task);
-  if (open.length === 0) {
-    return { allowed: true, hint: "" };
+  if (open.length === 1) reasons.push("1 child task is still open — finish it first.");
+  else if (open.length > 1) reasons.push(`${open.length} child tasks are still open — finish them first.`);
+
+  if (linked?.resolving) {
+    reasons.push("Checking the linked build requests…");
+  } else if (linked) {
+    const openBrs = openBuildRequestsForTask(linked.buildRequests, task.id);
+    if (openBrs.length === 1) {
+      const br = openBrs[0];
+      reasons.push(
+        `Build request ${br.brNo || `#${br.id}`} is still ${br.status} — it must be Complete first.`,
+      );
+    } else if (openBrs.length > 1) {
+      reasons.push(
+        `${openBrs.length} linked build requests aren't Complete yet (${openBrs
+          .map((br) => br.brNo || `#${br.id}`)
+          .join(", ")}) — they must be Complete first.`,
+      );
+    }
   }
-  return {
-    allowed: false,
-    hint:
-      open.length === 1
-        ? "1 child task is still open — finish it first."
-        : `${open.length} child tasks are still open — finish them first.`,
-  };
+
+  return reasons.length === 0
+    ? { allowed: true, hint: "" }
+    : { allowed: false, hint: reasons.join(" ") };
 }
 
 /**

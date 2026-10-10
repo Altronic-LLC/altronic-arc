@@ -24,7 +24,8 @@ import {
   type Status,
   type Task,
 } from "@/types/task";
-import { wouldCreateCycle } from "@/lib/taskGraph";
+import { canCompleteTask, wouldCreateCycle } from "@/lib/taskGraph";
+import { useBuildRequests } from "@/hooks/useBuildRequests";
 import { computeNumberedTitle } from "@/lib/taskNumbering";
 import {
   convertToChecklist,
@@ -83,6 +84,7 @@ export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormM
   const navigate = useNavigate();
   const { data: allTasks = [] } = useTasks();
   const { data: projects = [] } = useProjects();
+  const { data: buildRequests = [], isLoading: buildRequestsLoading } = useBuildRequests();
   const createTask = useCreateTask();
   const updateFields = useUpdateTaskFields();
   const setParentTask = useSetParentTask();
@@ -306,7 +308,21 @@ export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormM
       const baseFields: Record<string, unknown> = {};
       if (trimmedTitle !== task.title) baseFields.Title = trimmedTitle;
       if (description !== task.description) baseFields.Description = description;
-      if (status !== task.status) baseFields.Status = status;
+      if (status !== task.status) {
+        // The edit form is a path to Complete too, so it asks the same gate as
+        // the button, the sidebar picker and a Kanban drag (BusinessIT#2).
+        if (status === "Complete") {
+          const gate = canCompleteTask(task, {
+            buildRequests,
+            resolving: buildRequestsLoading,
+          });
+          if (!gate.allowed) {
+            setError(gate.hint);
+            return;
+          }
+        }
+        baseFields.Status = status;
+      }
       if ((priority || null) !== task.priority) baseFields.Priority = priority || null;
       if ((category || null) !== task.category) baseFields.Category = category || null;
       // Compare DATE TO DATE. The input holds "YYYY-MM-DD" while the task holds a

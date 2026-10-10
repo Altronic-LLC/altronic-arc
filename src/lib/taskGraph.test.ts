@@ -6,7 +6,8 @@ import {
   incompleteChildTasks,
   wouldCreateCycle,
 } from "./taskGraph";
-import type { ProjectReference, Task } from "@/types/task";
+import type { BuildRequest, ProjectReference, Task } from "@/types/task";
+import { MOCK_BUILD_REQUESTS } from "@/data/buildRequestMockData";
 
 function makeTask(overrides: Partial<Task>): Task {
   return {
@@ -279,6 +280,61 @@ describe("canCompleteTask", () => {
       childTasks: [{ id: 2, numberedTitle: "T2", status: "Blocked" }],
     });
     expect(canCompleteTask(task).allowed).toBe(false);
+  });
+});
+
+// BusinessIT#2 — a task with an open linked build request can't be closed.
+describe("canCompleteTask — linked build requests", () => {
+  function br(id: number, status: string, taskId: number | null = 1): BuildRequest {
+    return { ...MOCK_BUILD_REQUESTS[0], id, brNo: `BR_2026-${id}`, status, taskReferenceLookupId: taskId };
+  }
+
+  it("refuses a task whose linked build request isn't Complete, naming it and its status", () => {
+    const gate = canCompleteTask(makeTask({ id: 1 }), { buildRequests: [br(9, "Production Complete")] });
+    expect(gate.allowed).toBe(false);
+    expect(gate.hint).toBe("Build request BR_2026-9 is still Production Complete — it must be Complete first.");
+  });
+
+  it("allows it once the linked build request is Complete", () => {
+    expect(canCompleteTask(makeTask({ id: 1 }), { buildRequests: [br(9, "Complete")] })).toEqual({
+      allowed: true,
+      hint: "",
+    });
+  });
+
+  it("ignores build requests raised from a different task, or from none", () => {
+    const gate = canCompleteTask(makeTask({ id: 1 }), {
+      buildRequests: [br(9, "In-process", 2), br(10, "In-process", null)],
+    });
+    expect(gate.allowed).toBe(true);
+  });
+
+  it("counts every open linked build request", () => {
+    const gate = canCompleteTask(makeTask({ id: 1 }), {
+      buildRequests: [br(9, "Blocked"), br(10, "Complete"), br(11, "Submitted")],
+    });
+    expect(gate.hint).toBe(
+      "2 linked build requests aren't Complete yet (BR_2026-11, BR_2026-9) — they must be Complete first.",
+    );
+  });
+
+  it("names both reasons when a child task AND a build request are open", () => {
+    const task = makeTask({ id: 1, childTasks: [{ id: 2, numberedTitle: "T2", status: "Blocked" }] });
+    const gate = canCompleteTask(task, { buildRequests: [br(9, "In-process")] });
+    expect(gate.hint).toMatch(/^1 child task is still open/);
+    expect(gate.hint).toMatch(/Build request BR_2026-9 is still In-process/);
+  });
+
+  // Loading is "checking", never "allowed" — otherwise the first second of
+  // the page is a window to close a task the rule would refuse.
+  it("refuses with a checking reason while the build request list loads", () => {
+    const gate = canCompleteTask(makeTask({ id: 1 }), { buildRequests: [], resolving: true });
+    expect(gate).toEqual({ allowed: false, hint: "Checking the linked build requests…" });
+  });
+
+  // A list that couldn't be read arrives as [] — and must not lock every task.
+  it("allows it when the list came back empty (or couldn't be read)", () => {
+    expect(canCompleteTask(makeTask({ id: 1 }), { buildRequests: [] }).allowed).toBe(true);
   });
 });
 

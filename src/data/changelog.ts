@@ -20,6 +20,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.182.0",
+    date: "2026-10-10",
+    changes: [
+      "A task can't be marked Complete while a build request raised from it isn't Complete — Mark Complete, the Status picker, the Edit form and a Kanban drag all say which build request is holding it",
+      "Build requests no longer have a Status dropdown — the buttons on the request and on each part move it along",
+      "A build request at Production Complete now has a Mark Build Request Complete button for the reviewer (or an admin), which closes it once every part is still Production Complete",
+      "On a gray market request, Testing Required has moved from the sidebar to the Engineering card, and is changed with that card's Edit button",
+    ],
+  },
+  {
     version: "0.181.1",
     date: "2026-10-10",
     changes: [
