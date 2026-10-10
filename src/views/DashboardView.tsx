@@ -1111,6 +1111,17 @@ export function DashboardView() {
           to={"/supply-chain/scns"}
           onClick={() => navigate("/supply-chain/scns")}
         />
+        {/* Supply Chain Files (BusinessIT#36) — a shared folder, so a description
+            rather than a count. Blue repeats FAIT/MRB's tone; every section
+            with more than four live cards has to repeat one. */}
+        <TypeCard
+          name="Supply Chain Files"
+          icon={<FolderOpen className="h-5 w-5" />}
+          tone="superior-blue"
+          description="The team's shared folder — browse, add, edit and organise files."
+          to={"/supply-chain/files"}
+          onClick={() => navigate("/supply-chain/files")}
+        />
         {/* Insourcing Quotes sits under Supply Chain on the Dashboard for now
             (Ray, 2026-10-09) — its routes stay /sales/quotes. */}
         <InsourcingQuotesCard onOpen={() => navigate("/sales/quotes")} />

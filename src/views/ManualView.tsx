@@ -4294,6 +4294,21 @@ const SECTIONS: ManualSection[] = [
           <strong>SCN Status set to Cancelled</strong>, which keeps the
           history and takes it out of the working set.
         </Tip>
+        <H3>Supply Chain Files</H3>
+        <P>
+          <strong>Supply Chain Files</strong>, under Supply Chain in the
+          Departments menu and on the Supply Chain Dashboard, is the team's
+          shared folder (General / Supply Chain Files on the Altronic_PMO
+          site) inside ARC. It works exactly like the SCN Documents library
+          below: click a folder to go into it, <strong>New folder</strong> makes
+          a subfolder, <strong>Upload files</strong> adds files (or drop them
+          on the list), <strong>Edit in Office</strong> opens Word, Excel and
+          PowerPoint files in the browser and saves straight back, and every
+          file and folder has Rename and Delete. A deleted item goes to the
+          Altronic_PMO site's recycle bin and can be restored for 93 days.
+          What you can change is decided by your SharePoint permissions on
+          that folder.
+        </P>
         <H3>The SCN Documents library</H3>
         <P>
           The <strong>Documents</strong> button — on the SCNs list and on every
