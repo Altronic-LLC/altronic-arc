@@ -146,7 +146,7 @@ describe("productionButtonState — step 1 (Ready for Production)", () => {
     expect(s.hint).toMatch(/Ready for Production/);
   });
 
-  it.each<BuildRequestStatus>(["Submitted", "Blocked", "Information Needed", "On Hold"])(
+  it.each<BuildRequestStatus>(["Pending Submission", "Blocked", "Information Needed", "On Hold"])(
     "offers step 1 at %s too",
     (status) => {
       expect(productionButtonState(br(status), [part("Ready for Production")], PERMITTED).action).toBe(
@@ -301,7 +301,7 @@ describe("canPressProduction — step 3 (Complete)", () => {
 });
 
 describe("productionTransitionRefusal", () => {
-  it.each(["Submitted", "In-process", "Blocked", "On Hold", "Information Needed"])(
+  it.each(["Pending Submission", "In-process", "Blocked", "On Hold", "Information Needed"])(
     "returns null for the ungated target %s, even for someone not permitted with no parts ready",
     (target) => {
       expect(productionTransitionRefusal(br("In-process"), [part("Review Checklist")], target, OTHER_ACCESS)).toBeNull();

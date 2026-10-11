@@ -24,9 +24,9 @@ export const BUILD_REQUEST_FLOW: (FlowStep | WorkflowGate)[] = [
     kind: "step",
     who: "Requestor",
     title: "Raise the build request",
-    status: "Submitted",
+    status: "Pending Submission",
     detail:
-      "New Build Request on the list, or Create Build Request on a task. The requestor is set as a watcher automatically.",
+      "New Build Request on the list, or Create Build Request on a task. It starts as Pending Submission — being worked on, not yet handed to production. The requestor is set as a watcher automatically.",
   },
   {
     kind: "step",
@@ -42,7 +42,8 @@ export const BUILD_REQUEST_FLOW: (FlowStep | WorkflowGate)[] = [
     who: "Assigned engineer or admin",
     title: "Press Ready for Production",
     status: "Ready for Production",
-    detail: "Hands the build request to production.",
+    detail:
+      "The last step of submitting the build request: once every part is Ready for Production, this button says it needs pressing now. It hands the build request to production.",
     emails: "Amanda Hoagland, Sheila Horn, the engineer, watchers, the requestor",
   },
   {

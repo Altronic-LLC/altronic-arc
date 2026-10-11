@@ -661,7 +661,10 @@ export interface OperationsTaskItemFields {
  * mode offers and what's used if the column can't be read.
  */
 export const BUILD_REQUEST_STATUSES = [
-  "Submitted",
+  // The default for a new request (Ray, 2026-10-10): still being worked on,
+  // not yet handed to production. It REPLACED "Submitted" — a row still
+  // holding that reads as Pending Submission (normaliseBuildRequestStatus).
+  "Pending Submission",
   "In-process",
   // The production hand-off (Ray, 2026-09-29). See lib/buildRequestProduction.ts.
   "Ready for Production",

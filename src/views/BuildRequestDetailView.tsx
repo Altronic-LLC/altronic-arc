@@ -608,6 +608,13 @@ ${who}`);
           {state.hint}
         </span>
       )}
+      {/* Pressing it is the last step of submitting the request — say so
+          once every part is ready, so nobody leaves it parked (Ray, 2026-10-10). */}
+      {state.allowed && targetStatus === "Ready for Production" && (
+        <span className="text-xs font-medium text-accent" data-testid="production-handoff-prompt">
+          {state.hint}
+        </span>
+      )}
     </div>
   );
 }

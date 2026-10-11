@@ -198,7 +198,7 @@ const OPERATIONS_BAR_COLOR: Record<OperationsStatus, string> = {
 
 /** Bar colour per BRStatus; a status added in SharePoint gets the neutral grey. */
 const BUILD_REQUEST_BAR_COLOR: Record<string, string> = {
-  Submitted: "bg-superior-blue",
+  "Pending Submission": "bg-superior-blue",
   "In-process": "bg-ajax-yellow",
   // Production hand-off (2026-09-29) — both still OPEN, so they count in the
   // card; only "Complete" is done. Kept off the four brand tones the other

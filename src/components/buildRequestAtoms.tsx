@@ -9,7 +9,7 @@ import { cn } from "@/lib/cn";
 
 export function buildRequestStatusColor(status: string): string {
   switch (status) {
-    case "Submitted":
+    case "Pending Submission":
       return "bg-superior-blue/15 text-superior-blue";
     case "In-process":
       return "bg-ajax-yellow/20 text-ajax-yellow";

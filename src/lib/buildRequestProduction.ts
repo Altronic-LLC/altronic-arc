@@ -237,7 +237,10 @@ export function productionButtonState(
 
   let hint: string;
   if (allowed) {
-    hint = `Sets this build request's status to ${req.targetStatus}.`;
+    hint =
+      req.targetStatus === READY
+        ? "All parts are marked Ready for Production — press this now to submit the build request to production."
+        : `Sets this build request's status to ${req.targetStatus}.`;
   } else if (req.action === "complete" && !access.permitted && partsReady) {
     // Not the reviewer's own view — say what it's waiting on, not only who.
     hint = `Production is complete — waiting on review before this build request is set to Complete. ${NOT_PERMITTED_FINAL}`;

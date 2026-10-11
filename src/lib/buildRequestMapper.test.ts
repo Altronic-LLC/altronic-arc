@@ -49,9 +49,10 @@ describe("toBuildRequest — header mapping", () => {
   // NOT clamped any more (2026-10-05): a status added in SharePoint must show
   // as itself, or the request reads as Submitted when it isn't. Blank still
   // reads as Submitted.
-  it("keeps a status ARC doesn't know, and reads a blank as Submitted", () => {
+  it("keeps a status ARC doesn't know, and reads a blank or Submitted as Pending Submission", () => {
     expect(toBuildRequest(makeItem({ BRStatus: "Awaiting Parts" })).status).toBe("Awaiting Parts");
-    expect(toBuildRequest(makeItem({})).status).toBe("Submitted");
+    expect(toBuildRequest(makeItem({})).status).toBe("Pending Submission");
+    expect(toBuildRequest(makeItem({ BRStatus: "Submitted" })).status).toBe("Pending Submission");
   });
 
   it("falls back to a name-less Person from bare LookupIds for Requestor/EngineerAssigned", () => {

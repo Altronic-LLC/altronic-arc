@@ -99,6 +99,10 @@ describe("BuildRequestDetailView — production hand-off button", () => {
     const btn = handoffButton(/^ready for production$/i);
     expect(btn).toHaveAttribute("aria-disabled", "false");
     expect(btn).not.toBeDisabled();
+    // Once every part is ready, say it needs pressing now (Ray, 2026-10-10).
+    expect(screen.getByTestId("production-handoff-prompt")).toHaveTextContent(
+      /all parts are marked ready for production — press this now/i,
+    );
   });
 
   it("offers 'Build Request Production Complete' once the request is Ready for Production", () => {

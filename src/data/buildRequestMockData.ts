@@ -52,7 +52,7 @@ export const MOCK_BUILD_REQUESTS: BuildRequest[] = [
     brNo: "BR_2026-1018",
     title: "Stator trial",
     product: "571004-1 Stator trial",
-    status: "Submitted",
+    status: "Pending Submission",
     brType: "Prototype",
     blockedReason: null,
     requiredLeadTime: "STD Lead Time",

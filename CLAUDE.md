@@ -5883,6 +5883,13 @@ Requests list's status pills and the Dashboard card's bar.
   renders the neutral grey — add a colour there if a new one matters.
 - The production hand-off still keys off the exact strings `Ready for
   Production` / `Production Complete`; renaming those in SharePoint breaks it.
+- **"Pending Submission" replaced "Submitted"** (Ray, 2026-10-10) as the first
+  status: a new request is being worked on until Ready for Production submits
+  it. `normaliseBuildRequestStatus` reads a blank or a legacy "Submitted" as
+  Pending Submission, and `buildRequestStatusOptions` drops "Submitted" from
+  the live choices and puts Pending Submission first (list pills,
+  Dashboard). Once every part is ready, the detail page prints a note beside
+  the Ready for Production button saying to press it now.
 
 #### A part's status moves through BUTTONS, not a dropdown
 

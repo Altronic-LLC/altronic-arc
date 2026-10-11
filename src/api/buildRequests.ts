@@ -4,7 +4,7 @@ import { readColumnChoices } from "./columnChoices";
 import { BUILD_REQUEST_STATUSES } from "@/types/task";
 import { ensureLookupIds, ensurePersonLookupId } from "./siteUsers";
 import type { BuildRequest, GraphListItem, Person } from "@/types/task";
-import { attachBuildRequestReferences, toBuildRequest } from "@/lib/buildRequestMapper";
+import { attachBuildRequestReferences, buildRequestStatusOptions, toBuildRequest } from "@/lib/buildRequestMapper";
 import { multiLookupField, multiPersonField } from "@/lib/graphFields";
 import { parseCommunication } from "@/lib/communicationParser";
 import { appendComment, replaceComment } from "@/lib/communicationParser";
@@ -86,8 +86,10 @@ const BR_FIELD_SELECT = [
  * the Dashboard card. Falls back to BUILD_REQUEST_STATUSES if unreadable.
  */
 export async function listBuildRequestStatusChoices(): Promise<string[]> {
-  if (USE_MOCK) return [...BUILD_REQUEST_STATUSES];
-  return readColumnChoices(SP_SITE_ID, SP_BUILD_REQUESTS_LIST_ID, "BRStatus", BUILD_REQUEST_STATUSES);
+  if (USE_MOCK) return buildRequestStatusOptions(BUILD_REQUEST_STATUSES);
+  return buildRequestStatusOptions(
+    await readColumnChoices(SP_SITE_ID, SP_BUILD_REQUESTS_LIST_ID, "BRStatus", BUILD_REQUEST_STATUSES),
+  );
 }
 
 export async function listBuildRequests(): Promise<BuildRequest[]> {
@@ -162,7 +164,7 @@ export async function createBuildRequest(input: CreateBuildRequestInput): Promis
       brNo: input.brNo,
       title: input.title,
       product: input.product ?? "",
-      status: input.status ?? "Submitted",
+      status: input.status ?? "Pending Submission",
       brType: input.brType ?? null,
       blockedReason: null,
       requiredLeadTime: input.requiredLeadTime ?? null,
@@ -194,7 +196,7 @@ export async function createBuildRequest(input: CreateBuildRequestInput): Promis
   // especially for lookups.
   const fields: Record<string, unknown> = { Title: input.title, BRNo_x002e_: input.brNo };
   if (input.product) fields.Product = input.product;
-  fields.BRStatus = input.status ?? "Submitted";
+  fields.BRStatus = input.status ?? "Pending Submission";
   if (input.brType) fields.BrType0 = input.brType;
   if (input.requiredLeadTime) fields.RequiredLeadTime = input.requiredLeadTime;
   if (input.quotedShipDate) fields.QuotedShipDate = input.quotedShipDate.toISOString();

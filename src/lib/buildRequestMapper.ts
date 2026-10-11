@@ -38,6 +38,29 @@ import { ALL_CHECKLIST_FIELDS } from "./buildRequestChecklist";
 //     string shape defensively.
 // =============================================================================
 
+/**
+ * "Submitted" was the old first status; "Pending Submission" replaced it (Ray,
+ * 2026-10-10) — a request is being worked on until Ready for Production
+ * submits it. Older rows still hold "Submitted", and a blank status is a new
+ * request, so both read as Pending Submission.
+ */
+export const LEGACY_SUBMITTED = "Submitted";
+export const PENDING_SUBMISSION = "Pending Submission";
+
+export function normaliseBuildRequestStatus(raw: string | null | undefined): string {
+  const s = (raw ?? "").trim();
+  return !s || s === LEGACY_SUBMITTED ? PENDING_SUBMISSION : s;
+}
+
+/**
+ * The BRStatus choices ARC offers (picker, list pills, Dashboard): "Submitted"
+ * dropped, Pending Submission first.
+ */
+export function buildRequestStatusOptions(choices: readonly string[]): string[] {
+  const rest = choices.filter((c) => c !== LEGACY_SUBMITTED && c !== PENDING_SUBMISSION);
+  return [PENDING_SUBMISSION, ...rest];
+}
+
 export function toBuildRequest(item: GraphListItem): BuildRequest {
   const f = item.fields as Record<string, unknown>;
 
@@ -47,7 +70,7 @@ export function toBuildRequest(item: GraphListItem): BuildRequest {
     title: (f.Title as string) ?? "(untitled)",
     product: (f.Product as string) ?? "",
     // NOT clamped: a status added in SharePoint must show as itself.
-    status: ((f.BRStatus as string | undefined) ?? "").trim() || "Submitted",
+    status: normaliseBuildRequestStatus(f.BRStatus as string | undefined),
     brType: clampOptional<BuildRequestType>(f.BrType0 as string, BUILD_REQUEST_TYPES),
     blockedReason: clampOptional<BuildRequestBlockedReason>(
       f.BlockedReason as string,

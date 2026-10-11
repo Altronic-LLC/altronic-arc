@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.182.1",
+    date: "2026-10-10",
+    changes: [
+      "A new build request now starts as Pending Submission — it's being worked on and hasn't been handed to production yet",
+      "Submitted is gone from the Build Requests status filters — Pending Submission takes its place at the front, and older Submitted requests show as Pending Submission",
+      "Once every part is Ready for Production, a note beside the Ready for Production button says to press it now to submit the build request to production",
+    ],
+  },
+  {
     version: "0.182.0",
     date: "2026-10-10",
     changes: [
