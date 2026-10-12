@@ -232,6 +232,12 @@ export function useSetScheduleAssignedTo() {
             kind: "maintenanceTask",
             id,
             title: `PM schedule: ${scheduledMaintenanceLabel(ctx.prev)}`,
+            // A schedule's own conversation — `id` is a SCHEDULE id, so the
+            // default `maintenanceTask:id` would claim a work order's.
+            thread: {
+              key: `scheduledMaintenance:${id}`,
+              subject: `PM schedule: ${scheduledMaintenanceLabel(ctx.prev)}`,
+            },
           },
           prev: prev ? [prev] : [],
           next: person ? [person] : [],

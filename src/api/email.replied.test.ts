@@ -49,7 +49,10 @@ describe("notifyMentions — a reply", () => {
   it("tells the parent's author that someone replied to them", async () => {
     await notifyMentions({ ...base, recipients: [parentAuthor], commentExcerpt: "On it." });
     const [mail] = sent();
-    expect(mail.subject).toBe("Ray White replied to your comment on T1-0017-Coil rework");
+    // The subject is the task's own (one Outlook conversation per item); what
+    // happened is the hidden preview line.
+    expect(mail.subject).toBe("T1-0017-Coil rework");
+    expect(mail.html).toContain(">Ray White replied to your comment on T1-0017-Coil rework</div>");
     expect(mail.html).toContain("replied to your comment on");
   });
 

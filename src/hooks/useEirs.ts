@@ -670,7 +670,7 @@ export function useAddEirComment() {
           target: {
             kind: "eir",
             id: eir.id,
-            title: [eir.eirNo, eir.title].filter(Boolean).join(" — ") || eir.title,
+            title: eirTargetTitle(eir),
           },
           commentExcerpt: eirCommentExcerpt(comment.bodyHtml),
           attachments: [],

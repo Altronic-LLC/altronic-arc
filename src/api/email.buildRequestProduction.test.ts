@@ -126,6 +126,15 @@ describe("fireBuildRequestCompleteAlert", () => {
   it("falls back to the title when there is no BR No.", async () => {
     email.fireBuildRequestCompleteAlert({ buildRequest: { ...BR, brNo: "" }, actor: ACTOR });
     await settle();
-    expect(sent()[0].subject).toBe("Build request complete: Panel build");
+    // The subject is the request's own (one Outlook conversation per request);
+    // what happened is the hidden preview line.
+    expect(sent()[0].subject).toBe("Panel build");
+    expect(sent()[0].html).toContain(">Build request complete: Panel build</div>");
+  });
+
+  it("is subjected 'BR No — title', like the request's comment emails", async () => {
+    email.fireBuildRequestCompleteAlert({ buildRequest: BR, actor: ACTOR });
+    await settle();
+    expect(sent()[0].subject).toBe("BR_2026-0070 — Panel build");
   });
 });

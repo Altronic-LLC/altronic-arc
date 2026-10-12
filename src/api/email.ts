@@ -43,6 +43,13 @@ import {
 } from "@/lib/eirStatusAlerts";
 import { parseRecipientList } from "@/lib/recipientList";
 import {
+  conversationIndexProperty,
+  emailThreadFor,
+  previewLineHtml,
+  type EmailThread,
+  type ThreadableTarget,
+} from "@/lib/emailThread";
+import {
   buildGrayMarketFieldChangeEmails,
   buildNewGrayMarketRequestEmails,
   type GrayMarketFieldChange,
@@ -63,6 +70,7 @@ import {
   buildBrPartProductionCompleteEmails,
   buildBrProductionCompleteReviewEmails,
   buildBrReadyForProductionEmails,
+  buildRequestEmailTitle,
 } from "@/lib/buildRequestAlerts";
 import {
   buildFeatureRequestStatusEmails,
@@ -126,6 +134,8 @@ export interface MentionTarget {
     | "quote";
   id: number;
   title: string;
+  /** Overrides which Outlook conversation the email joins — see lib/emailThread.ts. */
+  thread?: EmailThread | null;
 }
 
 /** Per-kind copy for the email templates — one row per notification target type. */
@@ -262,6 +272,7 @@ export async function notifyMentions(
       sender: input.sender.displayName,
       kind: input.target.kind,
       item: input.target.title,
+      subject: emailThreadFor(input.target)?.subject ?? "(its own)",
       url: itemUrl(input.target.kind, input.target.id),
       attachmentCount: input.attachments.length,
     });
@@ -289,6 +300,7 @@ export async function notifyMentions(
   });
 
   const result: MailSendResult = { sent: [], failed: [] };
+  const threading = await threadingFor(input.target);
 
   for (const recipient of recipients) {
     try {
@@ -296,6 +308,7 @@ export async function notifyMentions(
         recipient,
         sender: input.sender,
         target: input.target,
+        threading,
         commentExcerpt: input.commentExcerpt,
         attachments: encoded,
       });
@@ -340,6 +353,51 @@ export interface MailSendFailure {
 }
 
 const NOTHING_SENT: MailSendResult = { sent: [], failed: [] };
+
+// =============================================================================
+// One Outlook conversation per item (BusinessIT#7) — see lib/emailThread.ts for
+// what was measured and why it takes BOTH the subject and the index.
+// =============================================================================
+
+interface Threading {
+  thread: EmailThread | null;
+  /** The conversation-index extended property, or null if it couldn't be built. */
+  indexProp: { id: string; value: string } | null;
+}
+
+/** Worked out once per batch: every email in it is about the same target. */
+async function threadingFor(target: ThreadableTarget): Promise<Threading> {
+  const thread = emailThreadFor(target);
+  if (!thread) return { thread: null, indexProp: null };
+  try {
+    return { thread, indexProp: await conversationIndexProperty(thread) };
+  } catch (err) {
+    // No Web Crypto (an insecure context) — still send, just ungrouped by index.
+    console.warn("[email] Couldn't build the conversation index — sending without it.", err);
+    return { thread, indexProp: null };
+  }
+}
+
+/**
+ * The subject, body and conversation fields of one Graph message. `summary` is
+ * what happened: the subject of an email that isn't about one item, otherwise
+ * the hidden preview line under the item's own subject.
+ */
+function threadedMessage(
+  threading: Threading,
+  summary: string,
+  bodyHtml: string,
+): Record<string, unknown> {
+  if (!threading.thread) {
+    return { subject: summary, body: { contentType: "HTML", content: bodyHtml } };
+  }
+  const message: Record<string, unknown> = {
+    subject: threading.thread.subject,
+    body: { contentType: "HTML", content: previewLineHtml(summary) + bodyHtml },
+  };
+  if (threading.indexProp) message.singleValueExtendedProperties = [threading.indexProp];
+  return message;
+}
 
 /**
  * Is this failure the signed-in user lacking Send-As on the shared mailbox?
@@ -418,6 +476,7 @@ async function sendOne(input: {
   recipient: MentionRecipient;
   sender: Person;
   target: MentionTarget;
+  threading: Threading;
   commentExcerpt: string;
   attachments: GraphFileAttachment[];
 }): Promise<void> {
@@ -428,7 +487,8 @@ async function sendOne(input: {
   // wording: "updated a comment" is still what happened.
   const attachmentNames =
     reason === "edited" ? null : attachmentOnlyFileNames(input.commentExcerpt);
-  const subject = attachmentNames
+  // What happened — the hidden preview line under the item's own subject.
+  const summary = attachmentNames
     ? `${input.sender.displayName} added ${
         attachmentNames.length === 1 ? "an attachment" : `${attachmentNames.length} attachments`
       } to ${target.title}`
@@ -452,8 +512,7 @@ async function sendOne(input: {
   });
 
   const message: Record<string, unknown> = {
-    subject,
-    body: { contentType: "HTML", content: bodyHtml },
+    ...threadedMessage(input.threading, summary, bodyHtml),
     toRecipients: [
       { emailAddress: { address: input.recipient.email, name: input.recipient.displayName } },
     ],
@@ -547,7 +606,8 @@ export async function notifyChangeEmails(input: {
       kind: input.target.kind,
       item: input.target.title,
       url: input.link?.url ?? appItemUrl(input.target.kind, input.target.id),
-      to: emails.map((e) => ({ email: e.email, subject: e.subject })),
+      subject: emailThreadFor(input.target)?.subject ?? "(each email's own)",
+      to: emails.map((e) => ({ email: e.email, summary: e.subject })),
     });
     return { sent: emails.map((e) => e.email!), failed: [] };
   }
@@ -562,6 +622,7 @@ export async function notifyChangeEmails(input: {
 
   const url = input.link?.url ?? appItemUrl(input.target.kind, input.target.id);
   const result: MailSendResult = { sent: [], failed: [] };
+  const threading = await threadingFor(input.target);
 
   for (const e of emails) {
     try {
@@ -576,8 +637,7 @@ export async function notifyChangeEmails(input: {
         buttonText: input.link?.buttonText,
       });
       const message = {
-        subject: e.subject,
-        body: { contentType: "HTML", content: bodyHtml },
+        ...threadedMessage(threading, e.subject, bodyHtml),
         toRecipients: [{ emailAddress: { address: e.email, name: e.displayName } }],
       };
       await graphFetch(`/users/${encodeURIComponent(SHARED_MAILBOX)}/sendMail`, {
@@ -962,7 +1022,7 @@ type BrForAlert = Pick<
 >;
 
 function buildRequestTarget(br: BrForAlert): ChangeTarget {
-  return { kind: "buildRequest", id: br.id, title: br.brNo || br.title };
+  return { kind: "buildRequest", id: br.id, title: buildRequestEmailTitle(br) };
 }
 
 /**
@@ -1076,6 +1136,12 @@ export function firePromotionAlert(args: {
       kind: "task",
       id: args.task.id,
       title: args.task.numberedTitle || args.task.title,
+      // Told to the EIR's people, so it joins the EIR's conversation — the
+      // subject is the EIR's own emails' (eirTargetTitle in useEirs.ts).
+      thread: {
+        key: `eir:${args.eir.id}`,
+        subject: [args.eir.eirNo, args.eir.title].filter(Boolean).join(" — ") || args.eir.title,
+      },
     },
     emails,
   });

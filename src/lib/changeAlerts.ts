@@ -1,4 +1,5 @@
 import type { Person } from "@/types/task";
+import type { EmailThread } from "./emailThread";
 import { looksLikeHtml, parseChecklistItems } from "./descriptionChecklist";
 import { htmlToPlainText } from "./htmlText";
 import { escapeHtml } from "./mentions";
@@ -30,7 +31,13 @@ export interface AlertDetail {
 export interface ChangeEmail {
   email: string;
   displayName: string;
-  /** Plain-text subject line. */
+  /**
+   * What happened, in one line ("Status changed on …"). The SUBJECT of an email
+   * about an item is the item's title, so its emails group into one Outlook
+   * conversation (lib/emailThread.ts); this line then becomes the hidden preview
+   * Outlook shows under it. Only an email that isn't about one item is sent
+   * with this as its subject.
+   */
   subject: string;
   /** Intro sentence as trusted HTML (dynamic parts already escaped here). */
   headlineHtml: string;
@@ -71,6 +78,8 @@ export interface ChangeTarget {
     | "altronicComponent";
   id: number;
   title: string;
+  /** Overrides which Outlook conversation the email joins — see lib/emailThread.ts. */
+  thread?: EmailThread | null;
 }
 
 const NOUNS: Record<ChangeTarget["kind"], string> = {
