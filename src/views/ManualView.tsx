@@ -326,9 +326,13 @@ const SECTIONS: ManualSection[] = [
       "quotes",
       "show all",
       "slow",
+      "sort by",
+      "engineering and operations",
+      "operations tasks",
+      "combined task list",
     ],
     searchText:
-      "The List view shows every task with status pills at the top, a filter bar (Project, Assigned, Search, Created By, Watching), and a New Task button. The Watching filter shows only tasks that person watches — your own name is first in the list, so finding what you are tracking but are not assigned to is one pick. Search matches all fields on every list; multiple words are ANDed together, and double quotes match an exact phrase. Click a row to open the task detail. Filters live in the URL so views are shareable. Only the first 150 matches are rendered at once, with a show all link if there are more — filtering, sorting and the count always cover everything.",
+      "The List view shows every task with status pills at the top, a filter bar (Project, Assigned, Search, Created By, Watching), and a New Task button. The Watching filter shows only tasks that person watches — your own name is first in the list, so finding what you are tracking but are not assigned to is one pick. Search matches all fields on every list; multiple words are ANDed together, and double quotes match an exact phrase. Click a row to open the task detail. Filters live in the URL so views are shareable. Only the first 150 matches are rendered at once, with a show all link if there are more — filtering, sorting and the count always cover everything. Sort by orders the list by Created, Due date, Title, Status or Department. Switch from Engineering to Engineering + Operations at the top to see both departments' tasks in one list, each marked with its department and opening its own task page.",
     render: () => (
       <>
         <P>
@@ -353,7 +357,25 @@ const SECTIONS: ManualSection[] = [
             </a>
             ).
           </LI>
+          <LI>
+            <strong>Sort by</strong> — above the rows: Created, Due date,
+            Title, Status or Department. The arrow beside it flips the order.
+          </LI>
         </UL>
+        <H3>Seeing Operations tasks alongside</H3>
+        <P>
+          At the top of the list, switch from <strong>Engineering</strong> to{" "}
+          <strong>Engineering + Operations</strong> to see both departments'
+          tasks in one list. Each row is marked with its department, and
+          clicking it opens that task's own page — edits happen there. The
+          Operations task list has the same switch the other way round; see{" "}
+          <a href="#operations-tasks" className="text-accent underline-offset-2 hover:underline">
+            Operations Tasks
+          </a>{" "}
+          for how the combined status pills and the Department filter work.
+          The combined view is a list only — the Kanban board still shows one
+          department.
+        </P>
         <H3>How search works (all lists)</H3>
         <P>
           The Search box behaves the same on every list — Tasks, EIRs,
@@ -1328,7 +1350,9 @@ const SECTIONS: ManualSection[] = [
           tasks in one list. Each row is marked with its department, and
           clicking it opens that task's own page — edits happen there, just as
           they would from the department's own list. The switch is in the
-          page address, so a link to the combined list opens it that way.
+          page address, so a link to the combined list opens it that way. The
+          Engineering task list has the same switch the other way round
+          (Engineering + Operations).
         </P>
         <UL>
           <LI>
@@ -1349,12 +1373,12 @@ const SECTIONS: ManualSection[] = [
             direction. It works on the Operations-only list too.
           </LI>
           <LI>
-            The combined view is a list only for now — the Kanban board still
-            shows Operations tasks only.
+            The combined view is a list only for now — the Kanban boards still
+            show one department each.
           </LI>
           <LI>
-            If you don't have access to the Engineering task list, the
-            combined view says so and still shows the Operations tasks.
+            If you don't have access to the other department's task list, the
+            combined view says so and still shows your own department's tasks.
           </LI>
         </UL>
         <H3>Operations Projects</H3>

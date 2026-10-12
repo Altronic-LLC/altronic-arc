@@ -4,10 +4,11 @@ import userEvent from "@testing-library/user-event";
 import { Route, Routes } from "react-router-dom";
 import { renderWithProviders } from "@/test/render";
 import { GraphError } from "@/api/graph";
+import { SAMPLE_ENGINEERING_TASKS, SAMPLE_OPERATIONS_TASKS } from "@/test/taskFixtures";
 import type { OperationsTask, Task } from "@/types/task";
 
 // =============================================================================
-// The Operations task list's scope toggle (Tim, 2026-10-12): "Operations"
+// The Operations task list's scope toggle (BusinessIT#39, Tim, 2026-10-12): "Operations"
 // (the list as it always was) or "Operations + Engineering", which merges the
 // Engineering task list in, read-only. The merge rules are pinned in
 // lib/combinedTasks.test.ts; this file pins the WIRING — what reaches the
@@ -51,77 +52,8 @@ vi.mock("@/components/OperationsTaskRow", () => ({
   ),
 }));
 
-const day = (d: number) => new Date(Date.UTC(2026, 0, d));
-
-function engTask(id: number, title: string, over: Partial<Task>): Task {
-  return {
-    id,
-    numberedTitle: `T${id}-0001-${title}`,
-    title,
-    description: "",
-    status: "BACKLOG",
-    priority: null,
-    category: null,
-    labels: [],
-    dueDate: null,
-    createdAt: day(1),
-    modifiedAt: day(1),
-    authorLookupId: 0,
-    author: null,
-    editorLookupId: 0,
-    parentProject: null,
-    relatedProjects: [],
-    parentTask: null,
-    childTasks: [],
-    assigned: [],
-    watchers: [],
-    softwareRevision: "",
-    eirReference: null,
-    comments: [],
-    hasAttachments: false,
-    ...over,
-  };
-}
-
-function opsTask(id: number, title: string, over: Partial<OperationsTask>): OperationsTask {
-  return {
-    id,
-    taskNumber: `Task 0001-${id}`,
-    title,
-    description: "",
-    status: "Backlog",
-    priority: null,
-    taskType: null,
-    location: null,
-    dueDate: null,
-    createdAt: day(1),
-    modifiedAt: day(1),
-    authorLookupId: 0,
-    author: null,
-    editorLookupId: 0,
-    assigned: null,
-    watchers: [],
-    parentProject: null,
-    equipment: null,
-    comments: [],
-    hasAttachments: false,
-    ...over,
-  };
-}
-
-// The SAME item id on both lists, on purpose — keys must not collide.
-const ENG = [
-  engTask(1, "Board rework", { status: "In Progress", createdAt: day(3) }),
-  engTask(2, "Old drawing", { status: "Complete", createdAt: day(1) }),
-];
-const OPS = [
-  opsTask(1, "Lathe install", {
-    status: "WIP",
-    createdAt: day(2),
-    parentProject: { lookupId: 99, title: "Shop floor" },
-  }),
-  opsTask(2, "Press move", { status: "Canceled", createdAt: day(1) }),
-];
+const ENG = SAMPLE_ENGINEERING_TASKS;
+const OPS = SAMPLE_OPERATIONS_TASKS;
 
 async function renderList(route: string) {
   const { OperationsListView } = await import("./OperationsListView");

@@ -54,11 +54,17 @@ const OPERATIONS_TASK_LIST_KEY = ["operationsTasks", "list"] as const;
 const OPERATIONS_PROJECTS_KEY = ["operationsProjects"] as const;
 const OPERATIONS_EQUIPMENT_KEY = ["operationsEquipment"] as const;
 
-export function useOperationsTasks() {
+/**
+ * `enabled: false` lets a screen that only SOMETIMES shows Operations tasks
+ * (the Engineering list's "Engineering + Operations" scope) skip downloading
+ * the list until it's asked for. Same key either way, so it shares the cache.
+ */
+export function useOperationsTasks({ enabled = true }: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: OPERATIONS_TASK_LIST_KEY,
     queryFn: listOperationsTasks,
     staleTime: 120_000,
+    enabled,
   });
 }
 

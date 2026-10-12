@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { EMPTY_FILTERS } from "@/components/FilterBar";
-import type { OperationsStatus, OperationsTask, Person, Status, Task } from "@/types/task";
+import type { OperationsStatus, Person, Status } from "@/types/task";
+import { makeOperationsTask, makeTask } from "@/test/taskFixtures";
 import { sortRows } from "./tableSort";
 import {
   applyStageFilter,
@@ -12,78 +13,32 @@ import {
   filterCombinedTasks,
   readTaskScope,
   taskStage,
+  withTaskScope,
   type CombinedTask,
 } from "./combinedTasks";
 
 const ray: Person = { lookupId: 1, displayName: "Ray White", email: "ray.white@altronic-llc.com" };
 const tim: Person = { lookupId: 2, displayName: "Tim Webster", email: "tim.webster@altronic-llc.com" };
 
-function engTask(id: number, over: Partial<Task> = {}): Task {
-  return {
-    id,
-    numberedTitle: `T${id}-0001-Eng ${id}`,
-    title: `Eng ${id}`,
-    description: "",
-    status: "BACKLOG",
-    priority: null,
-    category: null,
-    labels: [],
-    dueDate: null,
-    createdAt: new Date(Date.UTC(2026, 0, 1)),
-    modifiedAt: new Date(Date.UTC(2026, 0, 1)),
-    authorLookupId: 0,
-    author: null,
-    editorLookupId: 0,
-    parentProject: null,
-    relatedProjects: [],
-    parentTask: null,
-    childTasks: [],
-    assigned: [],
-    watchers: [],
-    softwareRevision: "",
-    eirReference: null,
-    comments: [],
-    hasAttachments: false,
-    ...over,
-  };
-}
-
-function opsTask(id: number, over: Partial<OperationsTask> = {}): OperationsTask {
-  return {
-    id,
-    taskNumber: `Task 0001-${id}`,
-    title: `Ops ${id}`,
-    description: "",
-    status: "Backlog",
-    priority: null,
-    taskType: null,
-    location: null,
-    dueDate: null,
-    createdAt: new Date(Date.UTC(2026, 0, 1)),
-    modifiedAt: new Date(Date.UTC(2026, 0, 1)),
-    authorLookupId: 0,
-    author: null,
-    editorLookupId: 0,
-    assigned: null,
-    watchers: [],
-    parentProject: null,
-    equipment: null,
-    comments: [],
-    hasAttachments: false,
-    ...over,
-  };
-}
+const engTask = makeTask;
+const opsTask = makeOperationsTask;
 
 const eng = (status: Status): CombinedTask => ({ department: "Engineering", task: engTask(1, { status }) });
 const ops = (status: OperationsStatus): CombinedTask => ({ department: "Operations", task: opsTask(1, { status }) });
 
-describe("readTaskScope", () => {
-  it("is Operations-only unless the URL says exactly `all`", () => {
-    expect(readTaskScope(null)).toBe("operations");
-    expect(readTaskScope("")).toBe("operations");
-    expect(readTaskScope("ALL")).toBe("operations");
-    expect(readTaskScope("everything")).toBe("operations");
+describe("readTaskScope / withTaskScope", () => {
+  it("is the department's own list unless the URL says exactly `all`", () => {
+    expect(readTaskScope(null)).toBe("own");
+    expect(readTaskScope("")).toBe("own");
+    expect(readTaskScope("ALL")).toBe("own");
+    expect(readTaskScope("everything")).toBe("own");
     expect(readTaskScope("all")).toBe("all");
+  });
+
+  it("sets the scope, keeps every other param, and drops it for the default", () => {
+    const all = withTaskScope(new URLSearchParams("assigned=&q=pump"), "all");
+    expect(all.toString()).toBe("assigned=&q=pump&scope=all");
+    expect(withTaskScope(all, "own").toString()).toBe("assigned=&q=pump");
   });
 });
 

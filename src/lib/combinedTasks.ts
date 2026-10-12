@@ -6,8 +6,9 @@ import { mergePeople } from "./people";
 import { dayLabel, type SortColumn } from "./tableSort";
 
 // =============================================================================
-// Engineering + Operations tasks in ONE list — the "All tasks" scope on the
-// Operations task list (Tim, 2026-10-12).
+// Engineering + Operations tasks in ONE list — the "both departments" scope on
+// the Operations AND Engineering task lists (BusinessIT#39, Tim, 2026-10-12):
+// for the people who work in both systems on a regular basis.
 //
 // The two lists are different SharePoint lists on different sites, with
 // different status sets, different project lists and a different assignee
@@ -19,14 +20,25 @@ import { dayLabel, type SortColumn } from "./tableSort";
 // edit goes through that list's own hooks and permissions. Nothing here writes.
 // =============================================================================
 
-/** Which tasks the Operations list shows. Lives in the URL as `?scope=all`. */
-export type TaskScope = "operations" | "all";
+/**
+ * Which tasks a department's task list shows: its `own` list (the default) or
+ * `all` — both departments. Lives in the URL as `?scope=all`.
+ */
+export type TaskScope = "own" | "all";
 
 export const TASK_SCOPE_PARAM = "scope";
 
-/** Anything but the literal `all` is the Operations-only list — the default. */
+/** Anything but the literal `all` is the department's own list — the default. */
 export function readTaskScope(raw: string | null): TaskScope {
-  return raw === "all" ? "all" : "operations";
+  return raw === "all" ? "all" : "own";
+}
+
+/** `search` with the scope set (or removed, for the default). */
+export function withTaskScope(search: URLSearchParams, scope: TaskScope): URLSearchParams {
+  const out = new URLSearchParams(search);
+  if (scope === "all") out.set(TASK_SCOPE_PARAM, "all");
+  else out.delete(TASK_SCOPE_PARAM);
+  return out;
 }
 
 export const COMBINED_DEPARTMENTS = ["Engineering", "Operations"] as const;

@@ -23,11 +23,11 @@ export const CHANGELOG: ChangelogEntry[] = [
     version: "0.184.0",
     date: "2026-10-12",
     changes: [
-      "The Operations task list can now show Engineering tasks too — switch from Operations to Operations + Engineering at the top of the list",
+      "The Engineering and Operations task lists can now show each other's tasks — switch to Engineering + Operations (or Operations + Engineering) at the top of either list",
       "In the combined list each task is marked with its department, and clicking it opens that task's own page",
       "The combined list's status pills group both departments' statuses (Not started, In progress, On hold, Complete, Canceled), and a Department filter takes the place of Project",
-      "The Operations task list has a Sort by picker — Created, Due date, Title, Status or Department — with an arrow to flip the order",
-      "If you can't open the Engineering task list, the combined view says so and still shows the Operations tasks",
+      "Both task lists have a Sort by picker — Created, Due date, Title, Status or Department — with an arrow to flip the order",
+      "If you can't open the other department's task list, the combined view says so and still shows your own department's tasks",
     ],
   },
   {

@@ -607,7 +607,8 @@ src/
 │   ├── DraftRestoredNotice.tsx   "Draft restored" + Discard/Keep (shared wording)
 │   ├── StatusPills.tsx           Task list status counters
 │   ├── OperationsStatusPills.tsx Operations equivalent
-│   ├── TaskStagePills.tsx        Shared-stage pills for the Operations list's Engineering + Operations scope
+│   ├── TaskStagePills.tsx        Shared-stage pills for the task lists' Engineering + Operations scope
+│   ├── CombinedTaskList.tsx      Both task lists' scope toggle, Department filter, other-list notice, sortable capped rows
 │   ├── QuickLinksRow.tsx         Admin-managed link buttons above a Dashboard department's cards
 │   ├── FilterBar.tsx             Task Project / Assigned / Search / Created By filters
 │   ├── EirFilterBar.tsx          EIR Project / Engineer / Search / Reporter filters
@@ -732,7 +733,7 @@ src/
 │
 ├── views/
 │   ├── DashboardView.tsx         Landing dashboard (metric cards + breakdown)
-│   ├── ListView.tsx              Engineering task list
+│   ├── ListView.tsx              Engineering task list — `?scope=all` adds Operations tasks, read-only
 │   ├── KanbanView.tsx            Engineering task board
 │   ├── DetailView.tsx            Task detail (description, sidebar, comments)
 │   ├── PrintTaskView.tsx         Chrome-less printable task page
