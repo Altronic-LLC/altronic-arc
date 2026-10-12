@@ -169,6 +169,17 @@ needs detail, add a sub-bullet underneath it.
   "about half the time". Check whether the others have the same gap, and
   settle on one shared matcher.
 
+- **PM schedule owner-change emails link to the wrong page.**
+  `useSetScheduleAssignedTo` (`hooks/useScheduledMaintenance.ts`) sends its
+  assignee-change alert with `kind: "maintenanceTask"` and the SCHEDULE's id,
+  so `appItemUrl` builds `operations/maintenance-task/{scheduleId}` — the
+  "Open" button lands on a work order that happens to share the number, or on
+  "not found". Found during BusinessIT#7 (2026-10-12), which gave these emails
+  their own Outlook conversation (`thread` key `scheduledMaintenance:id`) but
+  left the link alone. Needs a `scheduledMaintenance` email kind (or a `link`
+  override on the alert) pointing at the PM library / the schedule, plus its
+  `KIND_COPY` wording ("a PM schedule", "Open this schedule").
+
 ## Later
 
 ## Done / shipped
