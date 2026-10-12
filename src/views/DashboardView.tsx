@@ -1156,6 +1156,17 @@ export function DashboardView() {
           to={"/sales/customers"}
           onClick={() => navigate("/sales/customers")}
         />
+        {/* Sales Documentation (BusinessIT#24) — a shared folder, so a
+            description rather than a count. Green is the one tone this
+            section hadn't used. */}
+        <TypeCard
+          name="Sales Documentation"
+          icon={<FolderOpen className="h-5 w-5" />}
+          tone="cooper-green"
+          description="Altronic's documentation folder — browse, add, edit and organise files."
+          to={"/sales/documentation"}
+          onClick={() => navigate("/sales/documentation")}
+        />
         <PlaceholderCard name="Customer Feedback" icon={<MessageSquare className="h-5 w-5" />} />
         <PlaceholderCard name="Pricing Requests" icon={<Calculator className="h-5 w-5" />} />
       </DeptSection>

@@ -152,6 +152,12 @@ export const SITES = {
   scn:
     import.meta.env.VITE_SP_SCN_SITE_ID ||
     "coopermachineryservices.sharepoint.com,dd86bf69-a010-481a-9920-78b079c5ec1e,ca3d027d-afcb-44e9-9d1b-f5cf4b025e80",
+  // ALTRONICSALESTEAM/AltronicDocumentation — a third SUBSITE of the Sales
+  // Team collection (same middle GUID), sharing that grant. Discovered live
+  // 2026-10-12; its Documents library holds Sales Documentation (BusinessIT#24).
+  salesDocumentation:
+    import.meta.env.VITE_SP_SALES_DOCUMENTATION_SITE_ID ||
+    "coopermachineryservices.sharepoint.com,dd86bf69-a010-481a-9920-78b079c5ec1e,0a686f85-1497-4ed7-8c6c-3114ba3c2a65",
   pmo:
     import.meta.env.VITE_SP_PMO_SITE_ID ||
     "coopermachineryservices.sharepoint.com,915a6183-2b71-4dfd-a8b9-181126dfbe78,3eb6cb9c-6535-4c69-a8d7-e90b2f90a9eb",
@@ -1052,6 +1058,14 @@ export const SP_SCNS_LIST_ID =
 export const SP_SCN_SITE_URL =
   (import.meta.env.VITE_SP_SCN_SITE_URL as string | undefined) ??
   "https://coopermachineryservices.sharepoint.com/sites/ALTRONICSALESTEAM/SCN";
+
+/**
+ * The AltronicDocumentation subsite's web URL — the root of the Sales
+ * Documentation folder's "Open in SharePoint" link (api/salesDocumentation.ts).
+ */
+export const SP_SALES_DOCUMENTATION_SITE_URL =
+  (import.meta.env.VITE_SP_SALES_DOCUMENTATION_SITE_URL as string | undefined) ??
+  "https://coopermachineryservices.sharepoint.com/sites/ALTRONICSALESTEAM/AltronicDocumentation";
 
 // =============================================================================
 // SRM Tool — Suppliers List, Supplier Contact List and Supplier Issue

@@ -15,6 +15,8 @@ interface ImportMetaEnv {
   // config.ts carries documented defaults.
   readonly VITE_SP_SCN_SITE_ID: string;
   readonly VITE_SP_SCN_SITE_URL: string;
+  readonly VITE_SP_SALES_DOCUMENTATION_SITE_ID: string;
+  readonly VITE_SP_SALES_DOCUMENTATION_SITE_URL: string;
   readonly VITE_SP_SCNS_LIST_ID: string;
   readonly VITE_SP_QUOTES_LIST_ID: string;
   readonly VITE_SP_QUOTE_ASSEMBLIES_LIST_ID: string;

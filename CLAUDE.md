@@ -311,6 +311,9 @@ src/
 │   ├── costImpactNotices.ts      Cost Impact Notices CRUD + comments (Supply Chain, salesTeam site) — no delete
 │   ├── scns.ts                   SCNs — Supply Chain Notices CRUD + comments + watchers (Supply Chain, scn subsite of salesTeam) — DIFFED edits, no delete
 │   ├── scnDocuments.ts           SCN Documents library (the scn subsite's default drive) — list/breadcrumb/create folder/upload/download/rename/delete (recycle bin)
+│   ├── driveLibrary.ts           Shared folder-library engine (SCN Documents, Supply Chain Files, Sales Documentation) — list/breadcrumb/folder/upload/rename/delete
+│   ├── supplyChainFiles.ts       Supply Chain Files — General/Supply Chain Files in the PMO library, on driveLibrary
+│   ├── salesDocumentation.ts     Sales Documentation (BusinessIT#24) — Main Channel in the AltronicDocumentation subsite's library, on driveLibrary
 │   ├── openOrdersFiles.ts        Open Orders SharePoint folder — list/upload/download
 │   ├── openOrdersCustomers.ts    Open Orders managed customer list CRUD
 │   ├── openOrdersRoles.ts        Open Orders role tags (report manager) CRUD
@@ -403,6 +406,9 @@ src/
 │   ├── useCostImpactNotices.ts   Cost Impact Notices queries, mutations + comment thread + intake alert
 │   ├── useScns.ts                SCN queries, mutations (diffed against the cached row), watchers + comment thread
 │   ├── useScnDocuments.ts        SCN Documents folder listing + breadcrumb, create folder, one-at-a-time multi-file upload with progress
+│   ├── driveLibraryHooks.ts      Shared hooks factory for every folder library (listing, breadcrumb, new folder, upload, rename, delete)
+│   ├── useSupplyChainFiles.ts    Supply Chain Files — driveLibraryHooks configured for the PMO folder
+│   ├── useSalesDocumentation.ts  Sales Documentation — driveLibraryHooks configured for Main Channel
 │   ├── useOpenOrdersReports.ts   Parse an extract, generate + upload, download
 │   ├── useOpenOrdersCustomers.ts Customer list + role CRUD (+ useMyOpenOrdersAccess)
 │   ├── useQuotes.ts              Quote queries, numbered create, diffed edits, watchers, comment thread, New rev
@@ -793,6 +799,9 @@ src/
 │   ├── ScnsView.tsx              SCNs list — search, status pills, Category/Year filters, sortable headers; cards on a phone (Supply Chain)
 │   ├── ScnDetailView.tsx         One SCN — Notice/Parts/Review/Outcome cards, the three review checklists, sidebar people, comments, attachments
 │   ├── ScnDocumentsView.tsx      SCN Documents library browser (?folder=) — breadcrumb, new folder, upload, Edit in Office, download, rename, delete; sortable, cards on a phone
+│   ├── DriveLibraryView.tsx      THE folder-library screen — SCN Documents, Supply Chain Files and Sales Documentation are thin configs of it
+│   ├── SupplyChainFilesView.tsx  Supply Chain Files (/supply-chain/files)
+│   ├── SalesDocumentationView.tsx Sales Documentation (/sales/documentation) — Main Channel, AltronicDocumentation subsite
 │   ├── OpenOrdersView.tsx        Open Orders Report Tool — upload, generate, download
 │   ├── OpenOrdersCustomersView.tsx  The managed customer list (+ import from an extract)
 │   ├── AdminOpenOrdersRolesView.tsx Admin -> Open Orders Roles
@@ -1175,6 +1184,7 @@ single `SP_SITE_ID`.
 | `salesTeam` | ALTRONICSALESTEAM → Customer Service / Sales (Visit Reports) | `…,dd86bf69-a010-481a-9920-78b079c5ec1e,aa6b9467-3f57-4213-bbd4-60b94403421a` |
 | `salesOrderEntry` | ALTRONICSALESTEAM/OrderEntry (**subsite** of salesTeam — same collection, shares its grant) | `…,dd86bf69-a010-481a-9920-78b079c5ec1e,583688a6-3238-4f79-aed5-8e2d8ce38c41` |
 | `scn` | ALTRONICSALESTEAM/SCN → Supply Chain (SCNs) (**subsite** of salesTeam — same collection, shares its grant, like salesOrderEntry) | `…,dd86bf69-a010-481a-9920-78b079c5ec1e,ca3d027d-afcb-44e9-9d1b-f5cf4b025e80` |
+| `salesDocumentation` | ALTRONICSALESTEAM/AltronicDocumentation → Sales (Sales Documentation, its Documents library's Main Channel folder) (**subsite** of salesTeam — shares its grant) | `…,dd86bf69-a010-481a-9920-78b079c5ec1e,0a686f85-1497-4ed7-8c6c-3114ba3c2a65` |
 | `pmo` | Altronic_PMO | `…,915a6183-2b71-4dfd-a8b9-181126dfbe78,3eb6cb9c-6535-4c69-a8d7-e90b2f90a9eb` |
 
 (`…` = `coopermachineryservices.sharepoint.com`.) All granted **read + write**.
