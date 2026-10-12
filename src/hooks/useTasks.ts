@@ -70,11 +70,17 @@ import { parseWrittenDate } from "@/lib/dateInput";
 export const TASK_LIST_KEY = ["tasks", "list"] as const;
 const PROJECTS_KEY = ["projects"] as const;
 
-export function useTasks() {
+/**
+ * `enabled: false` lets a screen that only SOMETIMES shows Engineering tasks
+ * (the Operations list's "All tasks" scope) skip downloading the whole task
+ * list until it's asked for. Same key either way, so it shares the cache.
+ */
+export function useTasks({ enabled = true }: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: TASK_LIST_KEY,
     queryFn: listTasks,
     staleTime: 120_000,
+    enabled,
   });
 }
 

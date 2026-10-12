@@ -507,6 +507,7 @@ src/
 │   ├── operationsTaskMapper.ts   Graph item → OperationsTask
 │   ├── operationsTaskFilters.ts  Pure Operations task filter predicates
 │   ├── operationsTaskNumbering.ts Operations task numbering — highest n + 1 per project code (NOT count + 1)
+│   ├── combinedTasks.ts          Engineering + Operations tasks in one list — shared stages, filters, sort columns (pure, read-only)
 │   ├── maintenanceSchedule.ts    PM scheduling maths — Fixed/Floating dates, Hourmeter run-hours, overdue
 │   ├── maintenanceShared.ts      Read helpers shared by the three CMMS mappers
 │   ├── maintenanceTaskMapper.ts  Graph item → MaintenanceTask (+ create payload)
@@ -605,6 +606,7 @@ src/
 │   ├── DraftRestoredNotice.tsx   "Draft restored" + Discard/Keep (shared wording)
 │   ├── StatusPills.tsx           Task list status counters
 │   ├── OperationsStatusPills.tsx Operations equivalent
+│   ├── TaskStagePills.tsx        Shared-stage pills for the Operations list's Engineering + Operations scope
 │   ├── QuickLinksRow.tsx         Admin-managed link buttons above a Dashboard department's cards
 │   ├── FilterBar.tsx             Task Project / Assigned / Search / Created By filters
 │   ├── EirFilterBar.tsx          EIR Project / Engineer / Search / Reporter filters
@@ -749,7 +751,7 @@ src/
 │   ├── BuildRequestDetailView.tsx  One request + its parts
 │   ├── BuildRequestItemRedirect.tsx  Deep-link target for part-comment emails
 │   ├── PrintBuildRequestItemView.tsx  One part per page, for the floor
-│   ├── OperationsListView.tsx    Operations task list
+│   ├── OperationsListView.tsx    Operations task list — `?scope=all` adds Engineering tasks, read-only
 │   ├── OperationsKanbanView.tsx  Operations task board
 │   ├── OperationsDetailView.tsx  Operations task detail
 │   ├── MaintenanceListView.tsx   CMMS work order list

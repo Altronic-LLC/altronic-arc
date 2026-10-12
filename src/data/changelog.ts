@@ -20,6 +20,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.184.0",
+    date: "2026-10-12",
+    changes: [
+      "The Operations task list can now show Engineering tasks too — switch from Operations to Operations + Engineering at the top of the list",
+      "In the combined list each task is marked with its department, and clicking it opens that task's own page",
+      "The combined list's status pills group both departments' statuses (Not started, In progress, On hold, Complete, Canceled), and a Department filter takes the place of Project",
+      "The Operations task list has a Sort by picker — Created, Due date, Title, Status or Department — with an arrow to flip the order",
+      "If you can't open the Engineering task list, the combined view says so and still shows the Operations tasks",
+    ],
+  },
+  {
     version: "0.182.1",
     date: "2026-10-10",
     changes: [

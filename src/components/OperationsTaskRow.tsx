@@ -5,6 +5,7 @@ import {
   AttachmentIndicator,
   CategoryChip,
   CommentCount,
+  DepartmentChip,
   DueDateBadge,
 } from "./atoms";
 import { OperationsPriorityFlag, OperationsStatusBadge } from "./operationsAtoms";
@@ -13,9 +14,11 @@ import { markAsSeen, useIsMentioned } from "@/hooks/useUnseenMentions";
 interface OperationsTaskRowProps {
   task: OperationsTask;
   onOpen: (id: number) => void;
+  /** Shown as a chip beside the status — set only where rows from two lists mix. */
+  department?: string;
 }
 
-export function OperationsTaskRow({ task, onOpen }: OperationsTaskRowProps) {
+export function OperationsTaskRow({ task, onOpen, department }: OperationsTaskRowProps) {
   const lastComment = task.comments[0];
   const hasMention = useIsMentioned(`operationsTask:${task.id}`);
   const rowRef = useRef<HTMLButtonElement>(null);
@@ -45,6 +48,7 @@ export function OperationsTaskRow({ task, onOpen }: OperationsTaskRowProps) {
       <div className="flex flex-col gap-2 sm:w-72 sm:shrink-0">
         <div className="flex flex-wrap items-center gap-2">
           <OperationsStatusBadge status={task.status} />
+          {department && <DepartmentChip department={department} />}
           {hasMention && (
             <span className="rounded-full bg-cooper-red px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-white">
               Mentioned

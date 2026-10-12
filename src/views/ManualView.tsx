@@ -1263,9 +1263,14 @@ const SECTIONS: ManualSection[] = [
       "operations kanban",
       "operations list view",
       "pmo",
+      "engineering and operations",
+      "combined task list",
+      "all tasks",
+      "scope",
+      "sort by",
     ],
     searchText:
-      "Operations Tasks is the second department wired into ARC after Engineering, backed by the Operations Task List and Operations Projects lists on the Altronic_PMO SharePoint site. Same flow as Engineering tasks — List and Kanban views, a detail page, comments with @-mentions, watchers, attachments, and the Description checklist — with a few real differences: Assigned is a single person (not multiple), Status is Backlog/WIP/On Hold/Complete/Canceled, Priority is Low/Med/High, there's a Task Type field instead of Category, plus a Location field (shop-floor area) and an Equipment picker that Engineering tasks don't have. Reach it from the Dashboard's Operational Tasks card or the Departments dropdown's Operations group.",
+      "Operations Tasks is the second department wired into ARC after Engineering, backed by the Operations Task List and Operations Projects lists on the Altronic_PMO SharePoint site. Same flow as Engineering tasks — List and Kanban views, a detail page, comments with @-mentions, watchers, attachments, and the Description checklist — with a few real differences: Assigned is a single person (not multiple), Status is Backlog/WIP/On Hold/Complete/Canceled, Priority is Low/Med/High, there's a Task Type field instead of Category, plus a Location field (shop-floor area) and an Equipment picker that Engineering tasks don't have. Reach it from the Dashboard's Operational Tasks card or the Departments dropdown's Operations group. Switch the list from Operations to Operations + Engineering to see both departments' tasks in one list, each marked with its department and opening its own task page; the status pills group both into Not started / In progress / On hold / Complete / Canceled, Department replaces the Project filter, and Sort by orders the list by Created, Due date, Title, Status or Department.",
     render: () => (
       <>
         <P>
@@ -1315,6 +1320,43 @@ const SECTIONS: ManualSection[] = [
           difference: Operations tasks only support list-item attachments
           (no project-folder mirroring) — same as EIRs today.
         </P>
+        <H3>Seeing Engineering tasks alongside</H3>
+        <P>
+          At the top of the Operations task list, switch from{" "}
+          <strong>Operations</strong> to{" "}
+          <strong>Operations + Engineering</strong> to see both departments'
+          tasks in one list. Each row is marked with its department, and
+          clicking it opens that task's own page — edits happen there, just as
+          they would from the department's own list. The switch is in the
+          page address, so a link to the combined list opens it that way.
+        </P>
+        <UL>
+          <LI>
+            The status pills group both departments' statuses into{" "}
+            <strong>Not started</strong>, <strong>In progress</strong>,{" "}
+            <strong>On hold</strong>, <strong>Complete</strong> and{" "}
+            <strong>Canceled</strong> (Engineering's Blocked counts as On hold).
+            Each row still shows its own real status.
+          </LI>
+          <LI>
+            The two departments use different project lists, so the Project
+            filter is replaced by a <strong>Department</strong> filter here.
+            Assigned, Search, Created By and Watching work across both.
+          </LI>
+          <LI>
+            <strong>Sort by</strong> orders the list by Created, Due date,
+            Title, Status or Department; the arrow beside it flips the
+            direction. It works on the Operations-only list too.
+          </LI>
+          <LI>
+            The combined view is a list only for now — the Kanban board still
+            shows Operations tasks only.
+          </LI>
+          <LI>
+            If you don't have access to the Engineering task list, the
+            combined view says so and still shows the Operations tasks.
+          </LI>
+        </UL>
         <H3>Operations Projects</H3>
         <P>
           Operations tasks reference their own project list — Operations

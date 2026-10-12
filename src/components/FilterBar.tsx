@@ -36,9 +36,16 @@ interface FilterBarProps {
   onChange: (f: Filters) => void;
   projects: ProjectReference[];
   people: Person[]; // deduplicated set of people who appear on any task
+  /**
+   * Rendered IN PLACE of the Project Reference control. The Operations list's
+   * "All tasks" scope spans two lists whose project ids mean different
+   * projects, so it swaps Project for a Department filter rather than offering
+   * a control that can't be right for both halves.
+   */
+  replaceProjectWith?: { label: string; control: React.ReactNode };
 }
 
-export function FilterBar({ filters, onChange, projects, people }: FilterBarProps) {
+export function FilterBar({ filters, onChange, projects, people, replaceProjectWith }: FilterBarProps) {
   const me = useCurrentUser();
   const peopleSorted = [...people].sort((a, b) => a.displayName.localeCompare(b.displayName));
   const peopleOptions = peopleSorted.map((p) => ({
@@ -65,20 +72,24 @@ export function FilterBar({ filters, onChange, projects, people }: FilterBarProp
     // Watching field dropped onto a row of its own looking like an
     // afterthought. The md:2 step is unchanged.
     <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-      <Field label="Project Reference">
-        <MultiSelect
-          allLabel="All projects"
-          searchPlaceholder="Search projects…"
-          options={projects.map((p) => ({ value: String(p.lookupId), label: p.title }))}
-          selected={filters.projectIds.map(String)}
-          onChange={(next) =>
-            onChange({
-              ...filters,
-              projectIds: next.map((v) => parseInt(v, 10)).filter((n) => !Number.isNaN(n)),
-            })
-          }
-        />
-      </Field>
+      {replaceProjectWith ? (
+        <Field label={replaceProjectWith.label}>{replaceProjectWith.control}</Field>
+      ) : (
+        <Field label="Project Reference">
+          <MultiSelect
+            allLabel="All projects"
+            searchPlaceholder="Search projects…"
+            options={projects.map((p) => ({ value: String(p.lookupId), label: p.title }))}
+            selected={filters.projectIds.map(String)}
+            onChange={(next) =>
+              onChange({
+                ...filters,
+                projectIds: next.map((v) => parseInt(v, 10)).filter((n) => !Number.isNaN(n)),
+              })
+            }
+          />
+        </Field>
+      )}
 
       <Field label="Assigned">
         <MultiSelect
