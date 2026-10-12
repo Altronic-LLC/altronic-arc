@@ -28,6 +28,16 @@ import type { ChangeEmail, ChangeTarget } from "./changeAlerts";
 // who is both on the queue and watching gets ONE email.
 // =============================================================================
 
+/**
+ * A build request's name on EVERY email about it — status alerts, hand-offs,
+ * comments and mirrored comments alike. It is the email's subject, and Outlook
+ * only groups emails whose subjects match (lib/emailThread.ts), so this is the
+ * one place it's spelled. Three spellings existed before BusinessIT#7.
+ */
+export function buildRequestEmailTitle(br: { id: number; brNo: string; title: string }): string {
+  return [br.brNo, br.title].filter(Boolean).join(" — ") || `Build request #${br.id}`;
+}
+
 function emailKey(p: Person | null | undefined): string {
   return (p?.email ?? "").trim().toLowerCase();
 }

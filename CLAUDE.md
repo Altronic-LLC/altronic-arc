@@ -579,6 +579,7 @@ src/
 │   ├── reports.ts                Reports registry — one entry per fixed KPI dashboard (FPY + Defect Breakdown per source), drives the landing page + kiosk
 │   ├── spDates.ts                Shared SharePoint date-only helpers (midday-UTC rule)
 │   ├── changeAlerts.ts           Change-alert email construction (pure)
+│   ├── emailThread.ts            One Outlook conversation per item — the subject + conversation index every email about it carries (pure)
 │   ├── graphFields.ts            multiPersonField / multiLookupField / multiChoiceField
 │   ├── sanitiseHtml.ts           DOMPurify wrapper for stored HTML
 │   ├── linkify.ts               Bare URL → <a>; two entry points (escaped vs markup)
@@ -826,7 +827,8 @@ src/
 │   ├── AdminNotificationRecipientsView.tsx  Admin → Notification recipients
 │   ├── AboutView.tsx             In-app architecture + ER diagram DATA (tables, groups, connections)
 │   ├── ManualView.tsx            In-app user manual
-│   └── DevQzPrintTestView.tsx    Dev-only QZ Tray connection/print test harness — never renders in production
+│   ├── DevQzPrintTestView.tsx    Dev-only QZ Tray connection/print test harness — never renders in production
+│   └── DevEmailGroupingTestView.tsx  Dev-only: sends test emails to yourself to check Outlook conversation grouping — never renders in production
 │
 └── styles/
     └── globals.css               Tailwind + CSS variable theme tokens + @page (letter)
@@ -7261,6 +7263,68 @@ This fires for comments on **six entities** — Engineering tasks, EIRs, Operati
 If `VITE_SHARED_MAILBOX` is unset, the app falls back to a console.warn (real mode) or console.info (mock mode) — no mail goes out, comments still post normally.
 
 **A send that FAILS is no longer silent** — see "Mail that doesn't send says so" under Cross-cutting rules. Step 2 above (Send As per user) is the one that bites in practice: a person who was never added notifies nobody, and before the toast existed nothing anywhere said so.
+
+### One Outlook conversation per item — the subject is the ITEM, not the event
+
+BusinessIT#7 (Brandon Mirto; built 2026-10-12, Tim). Every email about one
+item groups into a single Outlook conversation. `lib/emailThread.ts` holds the
+rules and applies them in BOTH send paths in `api/email.ts`
+(`threadingFor` + `threadedMessage`), so no builder or hook knows about it.
+
+**What groups was MEASURED, not assumed** — five rounds of test sends from the
+shared mailbox to Tim's Exchange Online inbox, read in new Outlook with
+conversation view on. `/dev/email-grouping-test`
+(`views/DevEmailGroupingTestView.tsx`, dev-only) still sends the final shape,
+so re-run it before changing anything here:
+
+| Tried | Grouped? |
+|---|---|
+| Identical subject alone | no |
+| Shared `PidTagConversationIndex` (`Binary 0x0071`), different subjects — with or without `PidTagConversationIndexTracking` | no |
+| …plus a shared `PidTagConversationTopic` (`String 0x0070`) | no — Exchange takes the topic from the subject |
+| `In-Reply-To` / `References` (MAPI `0x1042` / `0x1039`) to a root, the root sent first, saved to Sent Items or not | no — they arrive, and Exchange still starts a fresh `Thread-Index` |
+| **Shared index AND identical subject** | **yes** |
+
+So every email about an item carries:
+
+- **The item's title as the SUBJECT** — the same string whatever happened.
+  `emailThreadFor(target)`: `kind:id` as the key, `target.title` (one line)
+  as the subject.
+- **The SAME conversation index** — 22 bytes, a fixed date
+  (`THREAD_INDEX_DATE`) plus the first half of a SHA-256 of `arc:kind:id`, no
+  reply block, no tracking flag. A pure function of the item, so any sender
+  produces the same bytes without knowing what went out before. **Never change
+  `THREAD_INDEX_DATE` or the hash input** — every open conversation would split.
+- **What happened as a hidden preview line** (`previewLineHtml`) at the top of
+  the body — what used to be the subject. Outlook shows it under the subject;
+  the visible email is unchanged. `ChangeEmail.subject` and `sendOne`'s wording
+  therefore still say "Status changed on …" — they are the SUMMARY now, and
+  only become the subject for an email that doesn't thread.
+
+Five things that are load-bearing:
+
+- **Every call site for one kind must build the SAME title**, or its emails
+  split into two conversations. An audit on 2026-10-12 found Build Requests
+  with three spellings ("BR-12", "BR-12 — title", the mirror's own); they all
+  go through `buildRequestEmailTitle` now. A new email about an existing kind
+  reuses that kind's existing label — check its other call sites.
+- **`target.thread` overrides the default.** An `EmailThread` files the email
+  under ANOTHER item's conversation: a quote component's comments go to the
+  quote (`useQuoteItems.itemTarget`), the EIR-promotion email to the EIR
+  (`firePromotionAlert`), and a PM-schedule alert gets its own
+  `scheduledMaintenance:id` key, since its id is a schedule's and the default
+  would be a work order's. **`thread: null` opts out** — the two parts-list
+  requests, which aren't about one part.
+- **`id: 0` never threads**, nor does a blank title — `emailThreadFor`
+  returns null and the email keeps its summary as its subject.
+- **Renaming an item starts a new conversation.** Accepted (Tim): an id-only
+  subject never splits but is much harder to scan.
+- **No Web Crypto, no index** — `threadingFor` catches and sends ungrouped
+  rather than not at all. A notification must never fail for its grouping.
+
+`api/email.threading.test.ts` pins the guarantee in real mode across both
+paths — a comment and a status alert on one item share subject AND index —
+and was verified by removing the index and watching it fail.
 
 ## Theming
 

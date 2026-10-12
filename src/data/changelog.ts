@@ -20,6 +20,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.183.0",
+    date: "2026-10-12",
+    changes: [
+      "Every email about one item now lands in a single Outlook conversation — comments, mentions, replies, status and assignment changes, and sign-off requests are grouped together, so they're easier to review, sort and archive",
+      "An email's subject is now the item's own name (e.g. \"EIR_2026-0245 — Pump seal supplier change\"); what happened shows as the preview line under it",
+      "Build request emails all name the request the same way — \"BR No — title\" — instead of sometimes just the BR number",
+      "A quote component's comments join the quote's email conversation, and the email saying an EIR was promoted joins the EIR's",
+    ],
+  },
+  {
     version: "0.182.1",
     date: "2026-10-10",
     changes: [
