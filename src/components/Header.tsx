@@ -377,6 +377,12 @@ const DEPARTMENTS: DepartmentGroup[] = [
         // detail page, not as separate screens — see CLAUDE.md.
         matchesPath: (p) => p.startsWith("/sales/customer"),
       },
+      {
+        to: "/sales/documentation",
+        label: "Sales Documentation",
+        icon: <FolderOpen className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/sales/documentation"),
+      },
       soon("Pricing Requests", <Calculator className="h-4 w-4" />),
     ],
   },

@@ -49,7 +49,7 @@ param(
     [Parameter(Mandatory = $true)]
     [string[]]$ListName,
 
-    [ValidateSet("engineering", "pmo", "panelTeam", "salesTeam", "salesOrderEntry", "scn")]
+    [ValidateSet("engineering", "pmo", "panelTeam", "salesTeam", "salesOrderEntry", "scn", "salesDocumentation")]
     [string]$Site = "engineering",
 
     [string]$SiteId
@@ -65,6 +65,7 @@ $sites = @{
     salesTeam       = "coopermachineryservices.sharepoint.com,dd86bf69-a010-481a-9920-78b079c5ec1e,aa6b9467-3f57-4213-bbd4-60b94403421a"
     salesOrderEntry = "coopermachineryservices.sharepoint.com,dd86bf69-a010-481a-9920-78b079c5ec1e,583688a6-3238-4f79-aed5-8e2d8ce38c41"
     scn             = "coopermachineryservices.sharepoint.com,dd86bf69-a010-481a-9920-78b079c5ec1e,ca3d027d-afcb-44e9-9d1b-f5cf4b025e80"
+    salesDocumentation = "coopermachineryservices.sharepoint.com,dd86bf69-a010-481a-9920-78b079c5ec1e,0a686f85-1497-4ed7-8c6c-3114ba3c2a65"
 }
 
 $targetSite = if ($SiteId) { $SiteId } else { $sites[$Site] }

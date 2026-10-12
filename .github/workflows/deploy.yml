@@ -63,6 +63,8 @@ jobs:
           # points at the live list; set them only to override.
           VITE_SP_SCN_SITE_ID: ${{ vars.VITE_SP_SCN_SITE_ID }}
           VITE_SP_SCN_SITE_URL: ${{ vars.VITE_SP_SCN_SITE_URL }}
+          VITE_SP_SALES_DOCUMENTATION_SITE_ID: ${{ vars.VITE_SP_SALES_DOCUMENTATION_SITE_ID }}
+          VITE_SP_SALES_DOCUMENTATION_SITE_URL: ${{ vars.VITE_SP_SALES_DOCUMENTATION_SITE_URL }}
           VITE_SP_SCNS_LIST_ID: ${{ vars.VITE_SP_SCNS_LIST_ID }}
           VITE_SP_PMO_SITE_ID: ${{ vars.VITE_SP_PMO_SITE_ID }}
           # Insourcing Quotes (PMO site). NO defaults in config.ts — unset

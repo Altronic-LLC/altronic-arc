@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.184.0",
+    date: "2026-10-12",
+    changes: [
+      "There is a new Sales Documentation tool under Customer Service / Sales, showing Altronic's documentation folder (Altronic Documentation › Main Channel) and every folder and file in it right inside ARC",
+      "You can create subfolders, upload files (drag and drop, several at once), edit Word, Excel and PowerPoint files in the browser, download, rename and delete files and folders",
+      "A deleted file or folder goes to the SharePoint recycle bin and can be restored for 93 days",
+    ],
+  },
+  {
     version: "0.183.0",
     date: "2026-10-12",
     changes: [
