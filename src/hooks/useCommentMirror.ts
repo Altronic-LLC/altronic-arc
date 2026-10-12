@@ -7,6 +7,7 @@ import {
   type CommentOriginKind,
 } from "@/lib/commentMirror";
 import { buildRequestForTask, taskLabel } from "@/lib/buildRequestFromTask";
+import { buildRequestEmailTitle } from "@/lib/buildRequestAlerts";
 import { commentNotifyRecipients } from "@/lib/mentions";
 import { htmlToPlainText } from "@/lib/htmlText";
 import { notifyMentions } from "@/api/email";
@@ -134,7 +135,9 @@ function audienceFor(
     return {
       watchers: br.watchers,
       assignees: br.engineerAssigned ? [br.engineerAssigned] : [],
-      title: brLabel(br),
+      // The EMAIL title, not the banner's brLabel: it is the subject, and it
+      // must match the request's own emails to join their conversation.
+      title: buildRequestEmailTitle(br),
     };
   }
   const item = qc

@@ -339,6 +339,11 @@ const PrintPanelQcIssueView = lazy(() =>
 const DevQzPrintTestView = lazy(() =>
   import("@/views/DevQzPrintTestView").then((m) => ({ default: m.DevQzPrintTestView })),
 );
+// Dev-only Outlook conversation-grouping test (BusinessIT#7) — same
+// `import.meta.env.DEV` guard on its <Route> below.
+const DevEmailGroupingTestView = lazy(() =>
+  import("@/views/DevEmailGroupingTestView").then((m) => ({ default: m.DevEmailGroupingTestView })),
+);
 const QcFormsView = lazy(() =>
   import("@/views/QcFormsView").then((m) => ({ default: m.QcFormsView })),
 );
@@ -1126,6 +1131,16 @@ export function App() {
                 element={
                   <Suspense fallback={<LoadingTasks noun="the QZ print test page" />}>
                     <DevQzPrintTestView />
+                  </Suspense>
+                }
+              />
+            )}
+            {import.meta.env.DEV && (
+              <Route
+                path="/dev/email-grouping-test"
+                element={
+                  <Suspense fallback={<LoadingTasks noun="the email grouping test page" />}>
+                    <DevEmailGroupingTestView />
                   </Suspense>
                 }
               />

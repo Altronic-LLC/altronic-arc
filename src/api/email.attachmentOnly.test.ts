@@ -24,12 +24,15 @@ vi.mock("./config", async (importOriginal) => ({
 
 const { notifyMentions } = await import("./email");
 
-function sent(): { subject: string; html: string }[] {
+// The SUBJECT is the item's own (one Outlook conversation per item, BusinessIT#7);
+// what happened is the hidden preview line at the top of the body — `summary`.
+function sent(): { subject: string; summary: string; html: string }[] {
   return graphFetch.mock.calls
     .filter(([path]) => String(path).includes("/sendMail"))
     .map(([, init]) => {
       const m = JSON.parse(String(init?.body)).message;
-      return { subject: m.subject, html: m.body.content };
+      const summary = /^<div style="display:none;[^"]*">([^<]*)<\/div>/.exec(m.body.content)?.[1] ?? "";
+      return { subject: m.subject, summary, html: m.body.content };
     });
 }
 
@@ -46,7 +49,8 @@ describe("notifyMentions — attachment-only comment", () => {
   it("says the sender added an attachment, and names the file", async () => {
     await notifyMentions({ ...base, recipients: [watcher], commentExcerpt: "📎 shot.png" });
     const [mail] = sent();
-    expect(mail.subject).toBe("Jerrod Waldron added an attachment to EIR_2026-0042 — Coil");
+    expect(mail.subject).toBe("EIR_2026-0042 — Coil");
+    expect(mail.summary).toBe("Jerrod Waldron added an attachment to EIR_2026-0042 — Coil");
     expect(mail.html).toContain("added an attachment to an EIR you're watching");
     expect(mail.html).toContain("shot.png");
     expect(mail.html).not.toContain("commented on");
@@ -59,13 +63,13 @@ describe("notifyMentions — attachment-only comment", () => {
       commentExcerpt: "📎 a.pdf\n\n📎 b.png",
     });
     const [mail] = sent();
-    expect(mail.subject).toBe("Jerrod Waldron added 2 attachments to EIR_2026-0042 — Coil");
+    expect(mail.summary).toBe("Jerrod Waldron added 2 attachments to EIR_2026-0042 — Coil");
     expect(mail.html).toContain("assigned to you");
   });
 
   it("a comment with text keeps the normal wording", async () => {
     await notifyMentions({ ...base, recipients: [watcher], commentExcerpt: "See this\n\n📎 a.pdf" });
-    expect(sent()[0].subject).toBe("New comment on EIR_2026-0042 — Coil");
+    expect(sent()[0].summary).toBe("New comment on EIR_2026-0042 — Coil");
   });
 
   it("an edited comment keeps its own wording", async () => {
@@ -74,6 +78,6 @@ describe("notifyMentions — attachment-only comment", () => {
       recipients: [{ ...watcher, reason: "edited" }],
       commentExcerpt: "📎 shot.png",
     });
-    expect(sent()[0].subject).toBe("Updated comment on EIR_2026-0042 — Coil");
+    expect(sent()[0].summary).toBe("Updated comment on EIR_2026-0042 — Coil");
   });
 });

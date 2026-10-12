@@ -62,6 +62,7 @@ import {
   type MentionAutoWatch,
 } from "./mentionAutoWatch";
 import { buildRequestsForTask } from "@/lib/buildRequestFromTask";
+import { buildRequestEmailTitle } from "@/lib/buildRequestAlerts";
 import { parseWrittenDate } from "@/lib/dateInput";
 
 // =============================================================================
@@ -366,7 +367,7 @@ export function useUpdateBuildRequestFields() {
         if (!brStatusHasOwnAlert(from, to)) {
           // No-ops by itself when from === to.
           fireFieldChangeAlert({
-            target: { kind: "buildRequest", id, title: prevBr.brNo || prevBr.title },
+            target: { kind: "buildRequest", id, title: buildRequestEmailTitle(prevBr) },
             fieldLabel: "status",
             from,
             to,
@@ -443,7 +444,7 @@ export function useSetBuildRequestEngineer() {
       });
       if (ctx?.prevBr) {
         fireAssigneeChangeAlert({
-          target: { kind: "buildRequest", id, title: ctx.prevBr.brNo || ctx.prevBr.title },
+          target: { kind: "buildRequest", id, title: buildRequestEmailTitle(ctx.prevBr) },
           prev: prev ? [prev] : [],
           next: person ? [person] : [],
           actor,
@@ -529,7 +530,7 @@ export function useCreateBuildRequest() {
       const engineer = variables.engineerAssigned ?? null;
       if (engineer) {
         fireAssigneeChangeAlert({
-          target: { kind: "buildRequest", id: br.id, title: br.brNo || br.title },
+          target: { kind: "buildRequest", id: br.id, title: buildRequestEmailTitle(br) },
           prev: [],
           next: [engineer],
           actor,
@@ -684,7 +685,7 @@ export function useAddBuildRequestComment() {
           target: {
             kind: "buildRequest",
             id: br.id,
-            title: [br.brNo, br.title].filter(Boolean).join(" — ") || br.title,
+            title: buildRequestEmailTitle(br),
           },
           commentExcerpt: htmlToPlainText(comment.bodyHtml),
           attachments: [],
@@ -767,7 +768,7 @@ export function useEditBuildRequestComment() {
       const targetRef = {
         kind: "buildRequest" as const,
         id: br.id,
-        title: [br.brNo, br.title].filter(Boolean).join(" — ") || br.title,
+        title: buildRequestEmailTitle(br),
       };
 
       if (renotify) {

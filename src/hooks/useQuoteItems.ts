@@ -241,6 +241,9 @@ function itemTarget(qc: QueryClient, item: QuoteItem): MentionTarget | null {
     kind: "quote",
     id: item.quoteId,
     title: quote ? `${quote.quoteNumber} — component ${part}` : `component ${part}`,
+    // Filed under the QUOTE's Outlook conversation (its own emails' subject is
+    // the quote number), so a component's discussion reads alongside the quote's.
+    ...(quote ? { thread: { key: `quote:${quote.id}`, subject: quote.quoteNumber } } : {}),
   };
 }
 

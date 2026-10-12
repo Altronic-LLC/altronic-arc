@@ -276,7 +276,8 @@ export function useRequestNewPartsList() {
         throw new Error("Nobody holds the SAP admin role on Parts Roles, so there's nobody to ask. Tell an ARC admin.");
       }
       const result = await notifyChangeEmails({
-        target: { kind: "altronicPart", id: 0, title: `New list ${prefix} — ${prefix.charAt(0)}00 Parts Book` },
+        // Not about one part: keeps its own subject, no Outlook conversation.
+        target: { kind: "altronicPart", id: 0, title: `New list ${prefix} — ${prefix.charAt(0)}00 Parts Book`, thread: null },
         emails,
         link: { url: appPageUrl(`/engineering/parts?book=${prefix.charAt(0)}`), buttonText: "Open the Parts Book" },
       });
@@ -316,7 +317,8 @@ export function useRequestNextLinkedList() {
       }
       const book = lists[0]?.charAt(0) ?? "";
       const result = await notifyChangeEmails({
-        target: { kind: "altronicPart", id: 0, title: `${category} lists ${listNames(lists)} are full` },
+        // Not about one part: keeps its own subject, no Outlook conversation.
+        target: { kind: "altronicPart", id: 0, title: `${category} lists ${listNames(lists)} are full`, thread: null },
         emails,
         link: { url: appPageUrl(`/engineering/parts?book=${book}`), buttonText: "Open the Parts Book" },
       });
