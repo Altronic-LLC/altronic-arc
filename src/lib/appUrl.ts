@@ -33,7 +33,9 @@ export type AppItemKind =
   | "featureRequest"
   | "altronicPart"
   | "altronicComponent"
-  | "quote";
+  | "quote"
+  | "pricingRequest"
+  | "newProductPricing";
 
 const KIND_SEGMENTS: Record<AppItemKind, string> = {
   task: "task",
@@ -72,6 +74,10 @@ const KIND_SEGMENTS: Record<AppItemKind, string> = {
   // Insourcing Quotes detail page (/sales/quotes/:id). A component's thread
   // links to its parent quote — there is no per-component page.
   quote: "sales/quotes",
+  // Sales Pricing (BusinessIT#47). The detail routes are wired in App.tsx;
+  // these segments are the contract between them and every email.
+  pricingRequest: "sales/pricing/request",
+  newProductPricing: "sales/pricing/new-product",
 };
 
 /** Absolute URL to an item's detail page in this app. */

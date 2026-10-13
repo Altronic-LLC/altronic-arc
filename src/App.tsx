@@ -166,6 +166,16 @@ const QuoteCustomersView = lazy(() =>
 const QuoteRolesView = lazy(() =>
   import("@/views/QuoteRolesView").then((m) => ({ default: m.QuoteRolesView })),
 );
+// Sales Pricing (BusinessIT#47) — its own lazy chunk, like every department screen.
+const PricingRequestsView = lazy(() =>
+  import("@/views/PricingRequestsView").then((m) => ({ default: m.PricingRequestsView })),
+);
+const PricingRequestDetailView = lazy(() =>
+  import("@/views/PricingRequestDetailView").then((m) => ({ default: m.PricingRequestDetailView })),
+);
+const PricingRolesView = lazy(() =>
+  import("@/views/PricingRolesView").then((m) => ({ default: m.PricingRolesView })),
+);
 const AdminOpenOrdersRolesView = lazy(() =>
   import("@/views/AdminOpenOrdersRolesView").then((m) => ({
     default: m.AdminOpenOrdersRolesView,
@@ -688,6 +698,30 @@ export function App() {
               element={
                 <Suspense fallback={<LoadingTasks noun="quote roles" />}>
                   <QuoteRolesView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/sales/pricing"
+              element={
+                <Suspense fallback={<LoadingTasks noun="pricing requests" />}>
+                  <PricingRequestsView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/sales/pricing/request/:id"
+              element={
+                <Suspense fallback={<LoadingTasks noun="this request" />}>
+                  <PricingRequestDetailView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/sales/pricing/roles"
+              element={
+                <Suspense fallback={<LoadingTasks noun="pricing roles" />}>
+                  <PricingRolesView />
                 </Suspense>
               }
             />

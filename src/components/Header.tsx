@@ -47,6 +47,7 @@ import { cn } from "@/lib/cn";
 import { pathAccessState } from "@/api/appAccess";
 import { useAccessDenials } from "@/hooks/useListAccess";
 import { useMyQuoteAccess } from "@/hooks/useQuoteRoles";
+import { useMyPricingAccess } from "@/hooks/usePricingRoles";
 import { useTheme } from "@/hooks/useTheme";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useKanbanAvailable } from "@/hooks/useIsPhone";
@@ -85,6 +86,12 @@ interface DepartmentItem {
    * Navigation only; every quote screen and write asks its own gate.
    */
   requiresQuoteAccess?: boolean;
+  /**
+   * Sales Pricing: `"with"` is shown only to someone with pricing access (the
+   * preview switch AND a pricing role); `"without"` only to everyone else —
+   * the old "Coming soon" row, so the review stays private.
+   */
+  pricingAccess?: "with" | "without";
 }
 
 interface DepartmentGroup {
@@ -383,7 +390,14 @@ const DEPARTMENTS: DepartmentGroup[] = [
         icon: <FolderOpen className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/sales/documentation"),
       },
-      soon("Pricing Requests", <Calculator className="h-4 w-4" />),
+      {
+        to: "/sales/pricing",
+        label: "Sales Pricing",
+        icon: <Calculator className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/sales/pricing"),
+        pricingAccess: "with",
+      },
+      { ...soon("Pricing Requests", <Calculator className="h-4 w-4" />), pricingAccess: "without" },
     ],
   },
 ];
@@ -690,6 +704,8 @@ function DepartmentsMenu({
   const denials = useAccessDenials();
   const { rights: quoteRights } = useMyQuoteAccess();
   const canSeeQuotes = quoteRights.canAccess || quoteRights.canManageRoles;
+  const { rights: pricingRights } = useMyPricingAccess();
+  const canSeePricing = pricingRights.canAccess;
 
   useEffect(() => {
     if (!open) return;
@@ -740,6 +756,10 @@ function DepartmentsMenu({
               <div className="space-y-1">
                 {group.items
                   .filter((item) => !item.requiresQuoteAccess || canSeeQuotes)
+                  .filter(
+                    (item) =>
+                      !item.pricingAccess || (item.pricingAccess === "with" ? canSeePricing : !canSeePricing),
+                  )
                   .map((item) => {
                   const itemActive = item.matchesPath(pathname);
 

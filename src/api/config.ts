@@ -1189,6 +1189,46 @@ export const QUOTES_CONFIGURED =
     !!SP_QUOTE_CUSTOMERS_LIST_ID &&
     !!SP_QUOTE_ROLES_LIST_ID);
 
+// =============================================================================
+// Sales Pricing (BusinessIT#47) — four lists on ALTRONICSALESTEAM
+// (SITES.salesTeam), created by scripts/create-pricing-lists.ps1 on
+// 2026-10-13. Each has UNIQUE permissions: Pricing History and New Product
+// Pricing hold cost and margin and are readable by managers and admins only.
+//
+// The ids carry documented defaults: they gate nothing by themselves (an
+// unset Pricing Roles list means nobody has a role, and the preview switch
+// below means nobody but the reviewer gets in while it's being built).
+// =============================================================================
+
+/** "Pricing Roles" — requester / manager / admin. No role = no access. */
+export const SP_PRICING_ROLES_LIST_ID =
+  import.meta.env.VITE_SP_PRICING_ROLES_LIST_ID || "b7d55541-b016-495c-b04b-e164b980862b";
+
+/** "Pricing Requests" — every pricing role reads it; the FINAL price only. */
+export const SP_PRICING_REQUESTS_LIST_ID =
+  import.meta.env.VITE_SP_PRICING_REQUESTS_LIST_ID || "2b0e934b-5795-40f4-abb0-c7ccdcfcc5c6";
+
+/** "Pricing History" — how each price was reached. Managers and admins only. */
+export const SP_PRICING_HISTORY_LIST_ID =
+  import.meta.env.VITE_SP_PRICING_HISTORY_LIST_ID || "a59a40e1-4470-4d42-bc11-a81d93c326d0";
+
+/** "New Product Pricing" — worksheets for products not yet in SAP. Managers and admins only. */
+export const SP_NEW_PRODUCT_PRICING_LIST_ID =
+  import.meta.env.VITE_SP_NEW_PRODUCT_PRICING_LIST_ID || "1dae4eb5-058e-4a93-81c7-4bbf90f65b2a";
+
+/**
+ * Sales Pricing is IN REVIEW until this is "true" (Ray, 2026-10-13: "grant me
+ * exclusive access so I can review it"). While it isn't, only the addresses
+ * in PRICING_PREVIEW_USERS can see or open the tool — whatever the Pricing
+ * Roles list says, ARC admins included. Mock mode ignores it, so the demo
+ * works. Going live is one repo variable and a redeploy.
+ */
+export const PRICING_LIVE = USE_MOCK || import.meta.env.VITE_PRICING_LIVE === "true";
+
+/** Comma-separated addresses let in while PRICING_LIVE is off. */
+export const PRICING_PREVIEW_USERS: string =
+  import.meta.env.VITE_PRICING_PREVIEW_USERS || "ray.white@altronic-llc.com";
+
 export const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 
 /** Throw a clear error if the app tries to call Graph without being configured. */

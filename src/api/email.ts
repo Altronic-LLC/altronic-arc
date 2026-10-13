@@ -133,7 +133,8 @@ export interface MentionTarget {
     | "featureRequest"
     | "altronicPart"
     | "altronicComponent"
-    | "quote";
+    | "quote"
+    | "pricingRequest";
   id: number;
   title: string;
   /** Overrides which Outlook conversation the email joins — see lib/emailThread.ts. */
@@ -239,6 +240,11 @@ const KIND_COPY: Record<
     phrase: "an insourcing quote",
     calloutLabel: "Quote",
     buttonText: "Open this quote",
+  },
+  pricingRequest: {
+    phrase: "a pricing request",
+    calloutLabel: "Pricing Request",
+    buttonText: "Open this request",
   },
 };
 
