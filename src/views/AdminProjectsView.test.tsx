@@ -17,6 +17,8 @@ const mocks = vi.hoisted(() => ({
   isLoading: false,
   create: { mutateAsync: vi.fn().mockResolvedValue({}), isPending: false },
   update: { mutate: vi.fn(), isPending: false },
+  usage: { data: [] as { label: string; count: number }[], isLoading: false, isError: false, error: null, refetch: vi.fn() },
+  del: { mutateAsync: vi.fn().mockResolvedValue({}), isPending: false },
 }));
 
 vi.mock("@/hooks/useIsAdmin", () => ({ useIsAdmin: () => mocks.isAdmin }));
@@ -26,12 +28,19 @@ vi.mock("@/hooks/useTasks", () => ({
   useUpdateProject: () => mocks.update,
 }));
 
+vi.mock("@/hooks/useDeleteProject", () => ({
+  useProjectUsage: () => mocks.usage,
+  useDeleteProject: () => mocks.del,
+}));
+
 import { AdminProjectsView } from "./AdminProjectsView";
 
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.isAdmin = true;
   mocks.isLoading = false;
+  mocks.usage = { data: [], isLoading: false, isError: false, error: null, refetch: vi.fn() };
+  mocks.del = { mutateAsync: vi.fn().mockResolvedValue({}), isPending: false };
   mocks.projects = [
     { lookupId: 1, title: "0017-AMP-5000 Refresh" },
     { lookupId: 2, title: "0021-CleanBurn Telemetry" },
@@ -82,5 +91,46 @@ describe("AdminProjectsView — search", () => {
     await userEvent.clear(input);
     expect(await screen.findByText(/existing projects \(5\)/i)).toBeInTheDocument();
     expect(screen.getByText("2004-Legacy Ignition Harness")).toBeInTheDocument();
+  });
+});
+
+// BusinessIT#41 — delete a duplicate project, refused while anything uses it.
+describe("AdminProjectsView — delete", () => {
+  it("deletes a project nothing points at, after confirming", async () => {
+    render();
+    await userEvent.click(screen.getByRole("button", { name: "Delete 0017-AMP-5000 Refresh" }));
+    expect(screen.getByText(/nothing points at this project/i)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /delete project$/i }));
+    expect(mocks.del.mutateAsync).toHaveBeenCalledWith({ lookupId: 1, title: "0017-AMP-5000 Refresh" });
+  });
+
+  it("says where a project is used and won't delete it", async () => {
+    mocks.usage.data = [
+      { label: "tasks", count: 3 },
+      { label: "EIR", count: 1 },
+    ];
+    render();
+    await userEvent.click(screen.getByRole("button", { name: "Delete 0017-AMP-5000 Refresh" }));
+    expect(screen.getByText(/still used by 3 tasks and 1 EIR/i)).toBeInTheDocument();
+    const del = screen.getByRole("button", { name: /delete project$/i });
+    expect(del).toHaveAttribute("aria-disabled", "true");
+    await userEvent.click(del);
+    expect(mocks.del.mutateAsync).not.toHaveBeenCalled();
+  });
+
+  it("won't delete while the check is still running", async () => {
+    mocks.usage = { ...mocks.usage, data: [], isLoading: true };
+    render();
+    await userEvent.click(screen.getByRole("button", { name: "Delete 0017-AMP-5000 Refresh" }));
+    await userEvent.click(screen.getByRole("button", { name: /delete project$/i }));
+    expect(mocks.del.mutateAsync).not.toHaveBeenCalled();
+  });
+
+  it("Cancel closes the dialog without deleting", async () => {
+    render();
+    await userEvent.click(screen.getByRole("button", { name: "Delete 0017-AMP-5000 Refresh" }));
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(mocks.del.mutateAsync).not.toHaveBeenCalled();
   });
 });

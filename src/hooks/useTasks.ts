@@ -68,7 +68,7 @@ import { parseWrittenDate } from "@/lib/dateInput";
 // Exported so the comment fan-out (hooks/useCommentMirror.ts) can read and
 // invalidate the same cache this file owns, rather than re-declaring the key.
 export const TASK_LIST_KEY = ["tasks", "list"] as const;
-const PROJECTS_KEY = ["projects"] as const;
+export const PROJECTS_KEY = ["projects"] as const;
 
 /**
  * `enabled: false` lets a screen that only SOMETIMES shows Engineering tasks

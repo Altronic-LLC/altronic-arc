@@ -52,6 +52,12 @@ export interface GrayMarketField {
   kind: GrayMarketFieldKind;
   section: GrayMarketSection;
   choices?: readonly string[];
+  /**
+   * The New Request form refuses to submit without it. Create only: requests
+   * raised before the column existed are blank, and the card editor
+   * (FieldEditModal) can't enforce a required field anyway.
+   */
+  requiredOnCreate?: boolean;
 }
 
 /**
@@ -66,6 +72,9 @@ export const GRAY_MARKET_FIELDS: GrayMarketField[] = [
   { key: "aiPartNo", column: "AIPartNo_x002e_", label: "AI Part No.", kind: "text", section: "Request" },
   { key: "partDescription", column: "PartDescription", label: "Part Description", kind: "text", section: "Request" },
   { key: "mfgPartNo", column: "MFG_x002e_PartNo_x002e_", label: "MFG. Part No.", kind: "text", section: "Request" },
+  // Added to the list by Ray before 2026-10-13 (BusinessIT#8, Katie Fleming).
+  // Its SharePoint display name carries a trailing space; the label here doesn't.
+  { key: "partManufacturer", column: "PartManufacturer", label: "Part Manufacturer", kind: "text", section: "Request", requiredOnCreate: true },
   { key: "whereUsed", column: "WhereUsed", label: "Where Used", kind: "richText", section: "Request" },
   { key: "eirNo", column: "EIRNO_x002e_", label: "EIR No.", kind: "text", section: "Request" },
 
@@ -139,6 +148,16 @@ export const GRAY_MARKET_FIELDS: GrayMarketField[] = [
   { key: "productionInitials", column: "ProductionInitials", label: "Production Initials", kind: "text", section: "Production" },
   { key: "signOffStatus", column: "Sign_x002d_off_x0020_status", label: "Sign-off status", kind: "text", section: "Production" },
 ];
+
+/** Descriptors the New Request form requires, in form order. */
+export const GRAY_MARKET_REQUIRED_ON_CREATE = GRAY_MARKET_FIELDS.filter((f) => f.requiredOnCreate);
+
+/** Labels of the required-on-create fields left blank in `values`. */
+export function missingRequiredOnCreate(values: Record<string, string>): string[] {
+  return GRAY_MARKET_REQUIRED_ON_CREATE.filter((f) => !(values[f.key] ?? "").trim()).map(
+    (f) => f.label,
+  );
+}
 
 export function fieldsInSection(section: GrayMarketSection): GrayMarketField[] {
   return GRAY_MARKET_FIELDS.filter((f) => f.section === section);

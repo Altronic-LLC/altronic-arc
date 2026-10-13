@@ -20,6 +20,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.186.0",
+    date: "2026-10-13",
+    changes: [
+      "Gray Market Requests have a Part Manufacturer field, shown on the Request card; a new request can't be logged without it",
+      "The new-request email to the Gray Market intake list now names the part manufacturer",
+      "Admins can delete a project from the Engineering Project Log, for removing a duplicate — the bin icon beside each project",
+      "A project can only be deleted once nothing points at it: the confirmation lists the tasks, EIRs, ECNs, test sheets, build requests, FAITs and project folders still using it, so they can be moved to the project you're keeping first",
+    ],
+  },
+  {
     version: "0.185.0",
     date: "2026-10-13",
     changes: [

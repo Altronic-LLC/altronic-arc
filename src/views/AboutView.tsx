@@ -1088,7 +1088,7 @@ export const SCHEMA_TABLES: SchemaTable[] = [
       { name: "partsLocation", type: "person", kind: "field" },
       { name: "watchers", type: "person[]", kind: "field" },
       { name: "comments (Communication)", type: "text", kind: "field" },
-      { name: "values (30 columns)", type: "text", kind: "field" },
+      { name: "values (31 columns, incl. PartManufacturer)", type: "text", kind: "field" },
     ],
   },
   {
