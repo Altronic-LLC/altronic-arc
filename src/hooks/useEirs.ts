@@ -3,6 +3,7 @@ import {
   addEirComment,
   createEir,
   editEirComment,
+  EirNumberUnconfirmedError,
   listEirs,
   setEirAssignedEngineers,
   setEirReporter,
@@ -142,11 +143,22 @@ export function useCreateEir() {
   return useMutation({
     // Whoever raises an EIR watches it, and so does any engineer assigned
     // on the form — see autoWatchers() in lib/people.ts.
-    mutationFn: (input: CreateEirInput) =>
-      createEir({
-        ...input,
-        watchers: autoWatchers(input.watchers, input.assignedEngineers, actor),
-      }),
+    mutationFn: async (input: CreateEirInput) => {
+      try {
+        return await createEir({
+          ...input,
+          watchers: autoWatchers(input.watchers, input.assignedEngineers, actor),
+        });
+      } catch (err) {
+        // The EIR exists; only the uniqueness check of its number failed.
+        // Treat it as created (alerts, cache, navigation) and say so.
+        if (err instanceof EirNumberUnconfirmedError) {
+          pushToast({ message: err.message, variant: "error" });
+          return err.eir;
+        }
+        throw err;
+      }
+    },
     onSuccess: (created, variables) => {
       qc.setQueryData<Eir[]>(EIRS_KEY, (old) => (old ? [created, ...old] : [created]));
       qc.invalidateQueries({ queryKey: EIRS_KEY });
