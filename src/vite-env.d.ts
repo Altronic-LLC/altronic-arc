@@ -23,6 +23,10 @@ interface ImportMetaEnv {
   readonly VITE_SP_QUOTE_ITEMS_LIST_ID: string;
   readonly VITE_SP_QUOTE_CUSTOMERS_LIST_ID: string;
   readonly VITE_SP_QUOTE_ROLES_LIST_ID: string;
+  readonly VITE_SP_PRICING_ROLES_LIST_ID: string;
+  readonly VITE_SP_PRICING_REQUESTS_LIST_ID: string;
+  readonly VITE_SP_PRICING_HISTORY_LIST_ID: string;
+  readonly VITE_SP_NEW_PRODUCT_PRICING_LIST_ID: string;
   readonly VITE_SP_PMO_SITE_ID: string;
   readonly VITE_SP_LIST_ID: string;
   readonly VITE_SP_PROJECTS_LIST_ID: string;
