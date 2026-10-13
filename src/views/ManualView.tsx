@@ -3362,6 +3362,44 @@ const SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: "sales-documentation",
+    title: "Sales Documentation",
+    group: "Customer Service / Sales",
+    keywords: [
+      "sales documentation",
+      "altronic documentation",
+      "main channel",
+      "documents",
+      "folder",
+      "upload",
+      "brand guidelines",
+    ],
+    searchText:
+      "Sales Documentation at /sales/documentation, under Departments > Customer Service / Sales: Altronic's documentation folder, Main Channel in the Documents library of the ALTRONICSALESTEAM/AltronicDocumentation SharePoint site, with its whole folder tree. Open folders, create subfolders with New folder, upload files (drag and drop, several at once), edit Word, Excel and PowerPoint files in the browser with Edit in Office, download, rename and delete files and folders. Deleted items go to the site's recycle bin for 93 days. Your SharePoint permissions on the folder decide what you can change.",
+    render: () => (
+      <>
+        <P>
+          <strong>Sales Documentation</strong>, under Customer Service / Sales
+          in the Departments menu and on the Sales Dashboard, is Altronic's
+          documentation folder (Main Channel in the Altronic Documentation
+          site's Documents library) inside ARC. Every folder and file in it is
+          there, as it is in SharePoint.
+        </P>
+        <P>
+          It works exactly like Supply Chain Files and the SCN Documents
+          library: click a folder to go into it, <strong>New folder</strong>{" "}
+          makes a subfolder, <strong>Upload files</strong> adds files (or drop
+          them on the list), <strong>Edit in Office</strong> opens Word, Excel
+          and PowerPoint files in the browser and saves straight back,{" "}
+          <strong>Download</strong> saves a copy, and every file and folder has
+          Rename and Delete. A deleted item goes to the Altronic Documentation
+          site's recycle bin and can be restored for 93 days. What you can
+          change is decided by your SharePoint permissions on that folder.
+        </P>
+      </>
+    ),
+  },
+  {
     id: "visit-reports",
     title: "Visit Reports",
     group: "Customer Service / Sales",

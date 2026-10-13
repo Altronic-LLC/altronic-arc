@@ -20,14 +20,23 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "0.184.0",
-    date: "2026-10-12",
+    version: "0.185.0",
+    date: "2026-10-13",
     changes: [
       "The Engineering and Operations task lists can now show each other's tasks — switch to Engineering + Operations (or Operations + Engineering) at the top of either list",
       "In the combined list each task is marked with its department, and clicking it opens that task's own page",
       "The combined list's status pills group both departments' statuses (Not started, In progress, On hold, Complete, Canceled), and a Department filter takes the place of Project",
       "Both task lists have a Sort by picker — Created, Due date, Title, Status or Department — with an arrow to flip the order",
       "If you can't open the other department's task list, the combined view says so and still shows your own department's tasks",
+    ],
+  },
+  {
+    version: "0.184.0",
+    date: "2026-10-12",
+    changes: [
+      "There is a new Sales Documentation tool under Customer Service / Sales, showing Altronic's documentation folder (Altronic Documentation › Main Channel) and every folder and file in it right inside ARC",
+      "You can create subfolders, upload files (drag and drop, several at once), edit Word, Excel and PowerPoint files in the browser, download, rename and delete files and folders",
+      "A deleted file or folder goes to the SharePoint recycle bin and can be restored for 93 days",
     ],
   },
   {

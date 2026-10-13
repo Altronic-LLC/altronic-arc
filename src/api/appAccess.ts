@@ -66,6 +66,7 @@ import { DIGITAL_QC_FAMILY_LIST_IDS } from "./digitalQc";
 import { IGNITION_QC_FAMILY_LIST_IDS } from "./ignitionQc";
 import { OPEN_ORDERS_PATH } from "./openOrdersFiles";
 import { SUPPLY_CHAIN_FILES_PATH } from "./supplyChainFiles";
+import { SALES_DOCUMENTATION_PATH } from "./salesDocumentation";
 import { PROJECT_FOLDERS_PATH } from "./projectFiles";
 
 export type SiteKey = keyof typeof SITES;
@@ -81,6 +82,7 @@ export const SITE_LABELS: Record<SiteKey, string> = {
   salesTeam: "ALTRONICSALESTEAM",
   salesOrderEntry: "ALTRONICSALESTEAM/OrderEntry",
   scn: "ALTRONICSALESTEAM/SCN",
+  salesDocumentation: "ALTRONICSALESTEAM/AltronicDocumentation",
   pmo: "Altronic_PMO",
 };
 
@@ -99,6 +101,7 @@ export const SITE_PARENTS: Partial<Record<SiteKey, SiteKey>> = {
   salesOrderEntry: "salesTeam",
   // The SCN subsite sits in the same collection, under the same parent.
   scn: "salesTeam",
+  salesDocumentation: "salesTeam",
 };
 
 /** A site and every site above it, nearest first. */
@@ -258,6 +261,16 @@ export const APPS: AppSpec[] = [
     lists: ids(SP_OPEN_ORDERS_CUSTOMERS_LIST_ID),
     needsDrive: true,
     drivePath: OPEN_ORDERS_PATH,
+  },
+  // Main Channel in the AltronicDocumentation subsite's library — a folder,
+  // not a list, so a refused library (or a missing folder) locks it alone.
+  {
+    path: "/sales/documentation",
+    label: "Sales Documentation",
+    site: "salesDocumentation",
+    lists: [],
+    needsDrive: true,
+    drivePath: SALES_DOCUMENTATION_PATH,
   },
   { path: "/sales/visit-reports", label: "Visit Reports", site: "salesTeam", lists: ids(SP_VISIT_REPORTS_LIST_ID) },
   {
