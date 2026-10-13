@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ListChecks, Loader2, Plus, X } from "lucide-react";
 import {
@@ -24,7 +24,10 @@ import {
   OPERATIONS_STATUSES,
   type Person,
 } from "@/types/task";
-import { computeOperationsTaskNumber } from "@/lib/operationsTaskNumbering";
+import {
+  computeOperationsTaskNumber,
+  renumberedOperationsTaskNumber,
+} from "@/lib/operationsTaskNumbering";
 import {
   convertToChecklist,
   indentChecklistLine,
@@ -130,6 +133,17 @@ export function OperationsTaskFormModal({ mode, task, onClose }: OperationsTaskF
     }
     return mergePeople([...seen.values()], directory);
   })();
+
+  // Edit mode: the number a project change will give this task (BusinessIT#33),
+  // by the same rule the hook applies on save. Null when it keeps its number.
+  const renumberPreview = useMemo(() => {
+    if (mode !== "edit" || !task) return null;
+    const nextId = parentProjectId === "" ? null : parentProjectId;
+    if (nextId === (task.parentProject?.lookupId ?? null)) return null;
+    const project = nextId == null ? null : projects.find((p) => p.lookupId === nextId) ?? null;
+    if (nextId != null && !project) return null;
+    return renumberedOperationsTaskNumber(task, project, allTasks);
+  }, [mode, task, parentProjectId, projects, allTasks]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -408,6 +422,13 @@ export function OperationsTaskFormModal({ mode, task, onClose }: OperationsTaskF
                 emptyLabel="None"
                 searchPlaceholder="Search projects…"
               />
+              {renumberPreview && (
+                <span role="status" className="mt-1 block text-xs text-fg-muted">
+                  Saving renumbers this task:{" "}
+                  <span className="font-mono">{task?.taskNumber || "no number"}</span> becomes{" "}
+                  <span className="font-mono font-semibold text-fg">{renumberPreview}</span>
+                </span>
+              )}
             </FieldLabel>
 
             <FieldLabel label="Equipment">

@@ -940,7 +940,7 @@ SharePoint internal column names (which is what Graph returns under
 |---|---|---|
 | `id` | (from `item.id`, not fields) | Numeric string in Graph, parsed to int |
 | `title` | `Title` | |
-| `numberedTitle` | `NumberedTitle` | Writable text column, but the app owns it: format `T{n}-{projectRef}-{title}` where n = count of tasks already under the chosen project + 1. Form computes it; `createTask` writes it. |
+| `numberedTitle` | `NumberedTitle` | Writable text column, but the app owns it: format `T{n}-{projectRef}-{title}` where n = count of tasks already under the chosen project + 1. Form computes it; `createTask` writes it. A project move RENUMBERS it and a title edit keeps the prefix — see "Changing a task's project renumbers it". |
 | `description` | `Description` | HTML or plain text |
 | `status` | `Status` | One of `STATUSES` |
 | `priority` | `Priority` | One of `PRIORITIES`, nullable |
@@ -5323,8 +5323,15 @@ SharePoint Exports folder) and **Enforce unique values** was switched on for
 
 Two consequences for code:
 - The match is on the number string's code, not `parentProject.lookupId` —
-  uniqueness is a property of the string, and a task moved between projects
-  keeps its number.
+  uniqueness is a property of the string.
+- **A task moved to a project with a different code is RENUMBERED**
+  (BusinessIT#33; it used to keep its number). `useSetOperationsParentProject`
+  writes `ProjectRefLookupId` + `TaskNumber` in ONE PATCH, from
+  `renumberedOperationsTaskNumber`; a move to a project sharing the code keeps
+  the number. The plan is made in `onMutate` from the row BEFORE the
+  optimistic patch (after it, the row already carries the new code and reads
+  as "nothing to renumber"). A refused write is retried once against a fresh
+  list, the create form's rule.
 - `OperationsTaskFormModal` numbers off the cached list (up to 120 s stale).
   When the create is rejected it refetches, recomputes, and retries exactly
   once — and only if the fresh list yields a different number; any other
@@ -5334,6 +5341,46 @@ Engineering's `computeNumberedTitle` (`src/lib/taskNumbering.ts`) still uses
 count + 1 and has the same exposure; it was left alone on 2026-10-07 because
 the Project Task List has no unique constraint and its `NumberedTitle` embeds
 the title, so a repeat there is a cosmetic duplicate, not a rejected save.
+
+### Changing a task's project renumbers it — and a title edit keeps the number
+
+BusinessIT#33 (Ray, 2026-10-13). An Engineering task's `NumberedTitle` is
+`T{n}-{code}-{title}`, and until this change editing the project or the title
+left it stale — a task moved from 0017 to 0042 still read `T3-0017-…`. Rules,
+all in `lib/taskNumbering.ts`:
+
+- **A project move takes the next number in the new project**
+  (`renumberedTitle` → `nextTaskSequence`): one past the HIGHEST `T{n}` there,
+  never below count + 1, excluding the moving task. Highest, not count, so a
+  deleted task can't hand its number out twice. NEW tasks still use
+  `computeNumberedTitle`'s count + 1 — deliberately untouched here.
+- **A title edit keeps the prefix** (`retitledNumberedTitle`). A legacy row
+  with no recognisable `T{n}-{code}-` prefix is left alone, never invented.
+- **Re-picking the same project is not a move** — the number stays.
+
+Four things in the hooks that are load-bearing:
+
+- **One PATCH.** `useSetParentProject` writes the lookup and `NumberedTitle`
+  together; `useUpdateTaskFields` adds `NumberedTitle` to any write carrying
+  `Title` (`withNumberedTitle`). The edit form, when the project AND the title
+  change, sends the title through `useSetParentProject({ title })` and drops it
+  from the fields write — two parallel writes would each rebuild
+  `NumberedTitle` from a different half.
+- **Plan from the row BEFORE the optimistic patch.** After `onMutate` patches
+  the cache the task already sits in the new project, so planning from it
+  reads as "same project" and skips the renumber. The pre-patch row is stashed
+  with the plan; this bug was caught by test.
+- **Never write without a number.** If the projects or tasks aren't cached,
+  the mutationFn loads them (`ensureQueryData`) and plans again.
+- **Linked EIRs follow** (`relinkEirTaskReferences`). The EIR's Task Reference
+  holds the FULL numbered title and is matched exactly, so after a renumber or
+  retitle every EIR naming the old title is PATCHed to the new one
+  (`sameTaskReference`), best-effort, naming any it couldn't fix in a toast.
+  Undo reverts the task and re-points the EIRs back.
+
+EIRs and Build Requests need nothing: their numbers (`EIR_YYYY-####`,
+`BR_YYYY-####`) don't carry the project, and both already edit their project
+reference after creation (an EIR's only by the two named editors).
 
 ### CMMS — maintenance (Operations, PMO site)
 

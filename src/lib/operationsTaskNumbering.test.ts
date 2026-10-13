@@ -4,6 +4,7 @@ import {
   computeOperationsTaskNumber,
   highestOperationsTaskNumber,
   operationsProjectCode,
+  renumberedOperationsTaskNumber,
 } from "./operationsTaskNumbering";
 
 const PROJECT: ProjectReference = { lookupId: 3, title: "0002-PVA Conformal Coating Machine" };
@@ -103,5 +104,27 @@ describe("helpers", () => {
   it("highestOperationsTaskNumber is 0 when nothing matches the code", () => {
     expect(highestOperationsTaskNumber("0035", [task({ taskNumber: "Task 0002-4" })])).toBe(0);
     expect(highestOperationsTaskNumber("0002", [task({ taskNumber: "Task 0002-4" })])).toBe(4);
+  });
+});
+
+describe("renumberedOperationsTaskNumber (BusinessIT#33)", () => {
+  const P35: ProjectReference = { lookupId: 35, title: "0035-Aqueous wash" };
+  const P42: ProjectReference = { lookupId: 42, title: "0042-Line 4" };
+
+  it("gives a moved task the next number under its new code", () => {
+    const moving = task({ id: 1, taskNumber: "Task 0035-4" });
+    const tasks = [moving, task({ id: 2, taskNumber: "Task 0042-6" })];
+    expect(renumberedOperationsTaskNumber(moving, P42, tasks)).toBe("Task 0042-7");
+    expect(renumberedOperationsTaskNumber(moving, null, tasks)).toBe("Task 0000-1");
+  });
+
+  it("keeps the number when the code doesn't change", () => {
+    const moving = task({ id: 1, taskNumber: "Task 0035-4" });
+    expect(renumberedOperationsTaskNumber(moving, P35, [moving])).toBeNull();
+  });
+
+  it("numbers a task that had no recognisable number", () => {
+    const moving = task({ id: 1, taskNumber: "" });
+    expect(renumberedOperationsTaskNumber(moving, P35, [moving])).toBe("Task 0035-1");
   });
 });

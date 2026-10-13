@@ -387,11 +387,6 @@ export async function setParentTask(id: number, parentId: number | null): Promis
   return updateTaskFields(id, { ParentTaskLookupId: parentId });
 }
 
-/** Change the parent project (or clear with `null`). */
-export async function setParentProject(id: number, projectLookupId: number | null): Promise<Task> {
-  return updateTaskFields(id, { Parent_x0020_Project_x0020_ReferLookupId: projectLookupId });
-}
-
 /**
  * Replace the related-projects list with the given lookup IDs.
  *

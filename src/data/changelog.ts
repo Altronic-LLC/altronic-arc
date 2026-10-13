@@ -20,6 +20,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.188.0",
+    date: "2026-10-13",
+    changes: [
+      "Changing a task's Parent Project now renumbers it: the task takes the next number in the new project, so T3-0017-EMI sweep moved to 0042 becomes T7-0042-EMI sweep",
+      "Editing a task's title keeps its number and changes only the text after it; the number shows beside the title box in the Edit form",
+      "The Edit form says what a project change will renumber the task to before you save, and Undo puts the old project and number back",
+      "An EIR promoted into a task keeps its link when the task is renumbered or retitled — its Task Reference is updated for you",
+      "Changing an Operations task's Project Ref gives it the next Task number under the new project's code",
+    ],
+  },
+  {
     version: "0.187.0",
     date: "2026-10-13",
     changes: [

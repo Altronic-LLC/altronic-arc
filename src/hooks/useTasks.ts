@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   type QueryClient,
   type QueryKey,
@@ -16,7 +17,6 @@ import {
   listProjects,
   listTasks,
   setAssigned,
-  setParentProject,
   setParentTask,
   setRelatedProjects,
   setTaskStatus,
@@ -32,9 +32,14 @@ import {
 } from "./mentionAutoWatch";
 import { fanOutComment } from "@/hooks/useCommentMirror";
 import { listTaskColumns } from "@/api/taskColumns";
+import { listEirs, updateEirFields } from "@/api/eirs";
+import { EIRS_KEY } from "./useEirs";
+import { sameTaskReference } from "@/lib/eirTaskReference";
+import { renumberedTitle, retitledNumberedTitle } from "@/lib/taskNumbering";
 import type {
   Category,
   CommentAttachment,
+  Eir,
   Person,
   Priority,
   ProjectReference,
@@ -349,21 +354,41 @@ function stampChecklistEdits(
 export function useUpdateTaskFields() {
   const qc = useQueryClient();
   const actor = useCurrentUser();
+  // The fields actually sent, keyed on the variables object React Query hands
+  // to every phase. A Title edit grows a NumberedTitle (withNumberedTitle), and
+  // the write, the optimistic patch and the undo must all agree on it.
+  const [sent] = useState(() => new WeakMap<object, Record<string, unknown>>());
+  const fieldsFor = (vars: { id: number; fields: Record<string, unknown> }) =>
+    sent.get(vars) ?? vars.fields;
   return useMutation({
     mutationKey: TASK_WRITE_KEY,
-    mutationFn: ({ id, fields }: { id: number; fields: Record<string, unknown> }) =>
-      updateTaskFields(id, stampChecklistEdits(qc, id, fields, actor?.displayName)),
-    onMutate: ({ id, fields }) =>
-      snapshotAndPatch(qc, id, patchTask(id, (t) => applyFieldsLocally(t, fields))),
-    onSuccess: (_data, { id, fields }, ctx) => {
+    mutationFn: (vars: { id: number; fields: Record<string, unknown> }) =>
+      updateTaskFields(
+        vars.id,
+        stampChecklistEdits(qc, vars.id, fieldsFor(vars), actor?.displayName),
+      ),
+    onMutate: (vars) => {
+      sent.set(vars, withNumberedTitle(qc, vars.id, vars.fields));
+      const fields = fieldsFor(vars);
+      return snapshotAndPatch(qc, vars.id, patchTask(vars.id, (t) => applyFieldsLocally(t, fields)));
+    },
+    onSuccess: (_data, vars, ctx) => {
+      const { id } = vars;
+      const fields = fieldsFor(vars);
       const prevFields = ctx?.prevTask ? extractInverseFields(ctx.prevTask, fields) : null;
+      const renamedFrom = ctx?.prevTask?.numberedTitle ?? "";
+      const renamedTo = typeof fields.NumberedTitle === "string" ? fields.NumberedTitle : "";
       pushToast({
         message: messageForFieldsUpdate(fields),
         undo:
           prevFields && Object.keys(prevFields).length > 0
-            ? buildUndo(qc, ctx?.snapshots, () => updateTaskFields(id, prevFields))
+            ? buildUndo(qc, ctx?.snapshots, async () => {
+                await updateTaskFields(id, prevFields);
+                if (renamedTo) await relinkEirTaskReferences(qc, renamedTo, renamedFrom);
+              })
             : undefined,
       });
+      if (renamedTo) void relinkEirTaskReferences(qc, renamedFrom, renamedTo);
       // Status is the only notify-worthy single field routed through
       // updateTaskFields (the detail view's Status dropdown). Assignment goes
       // through useSetAssigned; other fields here (priority, due date, …)
@@ -437,31 +462,82 @@ export function useSetParentTask() {
   });
 }
 
+/**
+ * Move a task to another parent project, and RENUMBER it (BusinessIT#33).
+ *
+ * `NumberedTitle` is `T{n}-{project code}-{title}`, so a task moved from 0017
+ * to 0042 takes the next number in 0042, in the SAME PATCH as the lookup. Two
+ * writes could half-fail and leave the number naming a project the task is no
+ * longer in. `title`, when given, is the edit form's new title, written in
+ * that same PATCH for the same reason.
+ *
+ * An EIR whose Task Reference held the old numbered title is re-pointed at
+ * the new one afterwards (best-effort). That reference is matched by exact
+ * title, so its Linked Task card would otherwise stop finding the task.
+ */
 export function useSetParentProject() {
   const qc = useQueryClient();
+  // The PATCH, and the row it was planned from. That row is captured BEFORE
+  // the optimistic patch: after it, the cached task already sits in the new
+  // project, and planning from it would read as "nothing moved".
+  const [plans] = useState(
+    () => new WeakMap<object, { fields: Record<string, unknown>; before?: Task }>(),
+  );
+  type Vars = { id: number; projectLookupId: number | null; title?: string };
   return useMutation({
     mutationKey: TASK_WRITE_KEY,
-    mutationFn: ({ id, projectLookupId }: { id: number; projectLookupId: number | null }) =>
-      setParentProject(id, projectLookupId),
-    onMutate: ({ id, projectLookupId }) =>
-      snapshotAndPatch(
+    mutationFn: async (vars: Vars) => {
+      const planned = plans.get(vars);
+      let fields = planned?.fields ?? planProjectMove(qc, vars);
+      // The number needs the project's title and every task in it. Normally
+      // both are cached; if not, load them rather than write a stale number.
+      if (!("NumberedTitle" in fields)) {
+        await Promise.all([
+          qc.ensureQueryData({ queryKey: PROJECTS_KEY, queryFn: listProjects }),
+          qc.ensureQueryData({ queryKey: TASK_LIST_KEY, queryFn: listTasks }),
+        ]);
+        fields = planProjectMove(qc, vars, planned?.before);
+        plans.set(vars, { fields, before: planned?.before });
+      }
+      return updateTaskFields(vars.id, fields);
+    },
+    onMutate: (vars) => {
+      const before = cachedTasks(qc)?.find((t) => t.id === vars.id);
+      const fields = planProjectMove(qc, vars, before);
+      plans.set(vars, { fields, before });
+      const { id, projectLookupId } = vars;
+      return snapshotAndPatch(
         qc,
         id,
         patchTask(id, (t) => ({
-          ...t,
+          ...applyFieldsLocally(t, fields),
           parentProject:
             projectLookupId != null
               ? resolveProject(qc, projectLookupId) ?? { lookupId: projectLookupId, title: "" }
               : null,
-          modifiedAt: new Date(),
         })),
-      ),
-    onSuccess: (_data, { id }, ctx) => {
-      const prev = ctx?.prevTask?.parentProject?.lookupId ?? null;
+      );
+    },
+    onSuccess: (server, vars, ctx) => {
+      const { id } = vars;
+      const fields = plans.get(vars)?.fields ?? {};
+      const prev = ctx?.prevTask;
+      const from = prev?.numberedTitle ?? "";
+      const to = server?.numberedTitle || (fields.NumberedTitle as string | undefined) || "";
+      const renumbered = "NumberedTitle" in fields && !!from && to !== from;
+      const inverse: Record<string, unknown> = {
+        Parent_x0020_Project_x0020_ReferLookupId: prev?.parentProject?.lookupId ?? null,
+      };
+      if (prev && "NumberedTitle" in fields) inverse.NumberedTitle = prev.numberedTitle;
+      if (prev && "Title" in fields) inverse.Title = prev.title;
       pushToast({
-        message: "Parent project updated.",
-        undo: buildUndo(qc, ctx?.snapshots, () => setParentProject(id, prev)),
+        message: renumbered ? `Parent project updated. Now ${to}.` : "Parent project updated.",
+        undo: buildUndo(qc, ctx?.snapshots, async () => {
+          await updateTaskFields(id, inverse);
+          if (renumbered) await relinkEirTaskReferences(qc, to, from);
+        }),
       });
+      if (renumbered) void relinkEirTaskReferences(qc, from, to);
     },
     onError: (_err, _vars, ctx) => {
       rollback(qc, ctx);
@@ -469,6 +545,100 @@ export function useSetParentProject() {
     },
     onSettled: (server) => settleTasks(qc, server),
   });
+}
+
+/** The first cached tasks list holding data. Every list query holds the same rows. */
+function cachedTasks(qc: QueryClient): Task[] | undefined {
+  for (const [, tasks] of qc.getQueriesData<Task[]>(TASK_LIST_FILTER)) {
+    if (tasks) return tasks;
+  }
+  return undefined;
+}
+
+/**
+ * The PATCH for a project move: the lookup, the new title if one was given,
+ * and the new `NumberedTitle` whenever the project's title and the task are
+ * both known. NumberedTitle is left out rather than guessed when they aren't;
+ * the mutationFn then loads them and plans again.
+ */
+function planProjectMove(
+  qc: QueryClient,
+  { id, projectLookupId, title }: { id: number; projectLookupId: number | null; title?: string },
+  before?: Task,
+): Record<string, unknown> {
+  const fields: Record<string, unknown> = {
+    Parent_x0020_Project_x0020_ReferLookupId: projectLookupId,
+  };
+  if (title !== undefined) fields.Title = title;
+  const tasks = cachedTasks(qc);
+  const self = before ?? tasks?.find((t) => t.id === id);
+  if (!tasks || !self) return fields;
+  const project = projectLookupId == null ? null : resolveProject(qc, projectLookupId);
+  if (projectLookupId != null && !project) return fields;
+  const nextTitle = title ?? self.title;
+  // Re-picking the project the task is already in isn't a move: it keeps its
+  // number, and only follows a title change.
+  const sameProject = (self.parentProject?.lookupId ?? null) === projectLookupId;
+  const numbered = sameProject
+    ? retitledNumberedTitle(self, nextTitle)
+    : renumberedTitle(self, nextTitle, project, tasks);
+  if (numbered && numbered !== self.numberedTitle) fields.NumberedTitle = numbered;
+  return fields;
+}
+
+/**
+ * A Title edit keeps the task's number and replaces the text after it
+ * (BusinessIT#33): `T3-0017-Old` becomes `T3-0017-New`. Left alone when the
+ * caller already set NumberedTitle, or when the stored value has no
+ * `T{n}-{code}-` prefix to keep (a legacy row). Inventing a number there
+ * would be worse than leaving it.
+ */
+function withNumberedTitle(
+  qc: QueryClient,
+  id: number,
+  fields: Record<string, unknown>,
+): Record<string, unknown> {
+  if (!("Title" in fields) || "NumberedTitle" in fields) return fields;
+  const self = cachedTasks(qc)?.find((t) => t.id === id);
+  if (!self) return fields;
+  const numbered = retitledNumberedTitle(self, String(fields.Title ?? ""));
+  if (!numbered || numbered === self.numberedTitle) return fields;
+  return { ...fields, NumberedTitle: numbered };
+}
+
+/**
+ * Re-point every EIR whose Task Reference names `from` at `to`. ARC's
+ * promotion writes the task's FULL numbered title there, and the EIR's Linked
+ * Task card matches it exactly (lib/eirTaskReference.ts), so a renumbered or
+ * retitled task would otherwise drop off the EIR that raised it.
+ *
+ * Best-effort and never throws: the task's own write has already landed. A
+ * refusal is named in a toast so somebody can fix that EIR by hand.
+ */
+async function relinkEirTaskReferences(qc: QueryClient, from: string, to: string): Promise<void> {
+  if (!from || !to || from === to) return;
+  let eirs: Eir[];
+  try {
+    eirs = await qc.fetchQuery({ queryKey: EIRS_KEY, queryFn: listEirs, staleTime: 30_000 });
+  } catch (err) {
+    console.error("Couldn't read EIRs to update their task reference:", err);
+    return;
+  }
+  const linked = eirs.filter((e) => sameTaskReference(e.taskReference, from));
+  if (linked.length === 0) return;
+  const results = await Promise.allSettled(
+    linked.map((e) => updateEirFields(e.id, { TaskReference: to })),
+  );
+  const failed = linked.filter((_, i) => results[i].status === "rejected");
+  qc.invalidateQueries({ queryKey: EIRS_KEY });
+  if (failed.length > 0) {
+    pushToast({
+      message: `Couldn't update the task reference on ${failed
+        .map((e) => e.eirNo || `EIR #${e.id}`)
+        .join(", ")}. Set it to ${to} by hand.`,
+      variant: "error",
+    });
+  }
 }
 
 export function useSetRelatedProjects() {
