@@ -388,6 +388,9 @@ export function DetailView() {
           Resolution: "Resolved",
           Status: "Closed",
         },
+        // Closing as a consequence of completing the task — exempt from the
+        // EIR Status gate, which is for hand edits (BusinessIT#45).
+        viaLinkedTask: true,
       });
     } else {
       pushToast({

@@ -62,6 +62,8 @@ import {
   EIR_PROJECT_REFERENCE_HINT,
   canEditEirProjectReference,
 } from "@/lib/eirProjectReference";
+import { EIR_WORKFLOW_HINT } from "@/lib/eirWorkflowEditors";
+import { useCanEditEirWorkflow } from "@/hooks/useEirWorkflowAccess";
 import { cn } from "@/lib/cn";
 import { AutoGrowTextarea } from "@/components/AutoGrowTextarea";
 import { matchEirTaskReference, taskIdFromLink } from "@/lib/eirTaskReference";
@@ -99,6 +101,9 @@ export function EirDetailView() {
   // so the ROLES LIST can be missing without locking anyone out, and there is
   // no list here to be missing.
   const canEditProjectRef = canEditEirProjectReference(useCurrentUserEmails());
+  // Status and the assigned engineer belong to a hard-coded set of workflow
+  // editors (BusinessIT#45) — see lib/eirWorkflowEditors.ts.
+  const canEditWorkflow = useCanEditEirWorkflow();
   // LTB Date is set freely on the New EIR form; once the EIR is submitted it
   // belongs to Supply Chain, so the detail view locks it for everyone else.
   const supplyChainLocked = enforced && !isSupplyChain;
@@ -445,6 +450,8 @@ export function EirDetailView() {
                 label="Status"
                 value={eir.status}
                 options={EIR_STATUSES}
+                disabled={!canEditWorkflow}
+                disabledHint={EIR_WORKFLOW_HINT}
                 onChange={(v) => updateFields.mutate({ id: eir.id, fields: { Status: v } })}
               />
               <SidebarSelect
@@ -502,31 +509,51 @@ export function EirDetailView() {
                 />
               </SidebarField>
 
-              <SidebarField icon={<Users />} label="Assigned">
-                {/*
-                 * Type-to-filter dropdown rather than a flat list of every
-                 * person: the options are the whole staff directory (200+),
-                 * which is unusable as a wall of chips. "chips" keeps the
-                 * selected engineers visible and individually removable,
-                 * the way the field has always looked.
-                 */}
-                <MultiSelect
-                  variant="chips"
-                  allLabel="Unassigned"
-                  searchPlaceholder="Search people…"
-                  options={engineerOptions.map((p) => ({
-                    value: personKey(p),
-                    label: p.displayName,
-                  }))}
-                  selected={eir.assignedEngineers.map(personKey)}
-                  onChange={(keys) => {
-                    const byKey = new Map(engineerOptions.map((p) => [personKey(p), p]));
-                    const people = keys
-                      .map((k) => byKey.get(k))
-                      .filter((p): p is Person => !!p);
-                    setEngineers.mutate({ id: eir.id, people });
-                  }}
-                />
+              <SidebarField icon={<Users />} label="Assigned" locked={!canEditWorkflow}>
+                {!canEditWorkflow ? (
+                  // Locked: the engineers stay legible as static chips, the
+                  // ProjectLookupPicker arrangement — MultiSelect has no
+                  // `disabled` prop.
+                  <div className="flex flex-wrap gap-1.5" title={EIR_WORKFLOW_HINT}>
+                    {eir.assignedEngineers.length === 0 ? (
+                      <span className="text-sm text-fg-muted">Unassigned</span>
+                    ) : (
+                      eir.assignedEngineers.map((p) => (
+                        <span
+                          key={personKey(p)}
+                          className="rounded-full border border-border bg-bg px-2 py-0.5 text-xs text-fg"
+                        >
+                          {p.displayName}
+                        </span>
+                      ))
+                    )}
+                  </div>
+                ) : (
+                  /*
+                   * Type-to-filter dropdown rather than a flat list of every
+                   * person: the options are the whole staff directory (200+),
+                   * which is unusable as a wall of chips. "chips" keeps the
+                   * selected engineers visible and individually removable,
+                   * the way the field has always looked.
+                   */
+                  <MultiSelect
+                    variant="chips"
+                    allLabel="Unassigned"
+                    searchPlaceholder="Search people…"
+                    options={engineerOptions.map((p) => ({
+                      value: personKey(p),
+                      label: p.displayName,
+                    }))}
+                    selected={eir.assignedEngineers.map(personKey)}
+                    onChange={(keys) => {
+                      const byKey = new Map(engineerOptions.map((p) => [personKey(p), p]));
+                      const people = keys
+                        .map((k) => byKey.get(k))
+                        .filter((p): p is Person => !!p);
+                      setEngineers.mutate({ id: eir.id, people });
+                    }}
+                  />
+                )}
               </SidebarField>
 
               <SidebarField
@@ -1247,6 +1274,8 @@ function SidebarSelect<T extends string>({
   options,
   onChange,
   renderOption,
+  disabled = false,
+  disabledHint,
 }: {
   icon: React.ReactNode;
   label: string;
@@ -1254,13 +1283,18 @@ function SidebarSelect<T extends string>({
   options: readonly T[];
   onChange: (next: T) => void;
   renderOption?: (v: T) => string;
+  /** Greyed out, with the padlock, for somebody who may not change it. */
+  disabled?: boolean;
+  disabledHint?: string;
 }) {
   return (
-    <SidebarField icon={icon} label={label}>
+    <SidebarField icon={icon} label={label} locked={disabled}>
       <select
         value={value}
+        disabled={disabled}
+        title={disabled ? disabledHint : undefined}
         onChange={(e) => onChange(e.target.value as T)}
-        className="w-full rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+        className="w-full rounded-md border border-border bg-bg px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {options.map((o) => (
           <option key={o || "__empty"} value={o}>

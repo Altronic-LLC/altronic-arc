@@ -5,6 +5,7 @@ import {
   BUILD_REQUEST_PRODUCTION_ALERTS,
   COST_IMPACT_NOTICE_ALERTS,
   FEATURE_REQUEST_ALERTS,
+  EIR_CLOSED_ALERTS,
   EIR_RESPONSE_ACCEPTED_ALERTS,
   EIR_TRIAGE_ASSIGNERS,
   EIR_TRIAGE_PROJECT_REVIEWERS,
@@ -37,6 +38,7 @@ import {
 } from "@/lib/changeAlerts";
 import { buildEirTriageEmails, type EirTriageStage } from "@/lib/eirTriage";
 import {
+  buildEirClosedEmails,
   buildEirResolvedEmails,
   buildEirResponseAcceptedEmails,
   buildEirResponseNotAcceptedEmails,
@@ -987,6 +989,24 @@ export function fireEirResponseNotAcceptedAlert(args: {
   const emails = buildEirResponseNotAcceptedEmails({
     ...args,
     fallback: parseRecipientList(EIR_TRIAGE_ASSIGNERS),
+  });
+  if (emails.length === 0) return;
+  void notifyChangeEmails({ target: args.target, emails });
+}
+
+/**
+ * Fire-and-forget: an EIR's Status reached "Closed" — tell the configured
+ * review group (EIR_CLOSED_ALERTS), minus anyone the generic status note
+ * already reached (BusinessIT#44).
+ */
+export function fireEirClosedAlert(args: {
+  target: ChangeTarget;
+  actor: Person;
+  alreadyNotified?: Person[];
+}): void {
+  const emails = buildEirClosedEmails({
+    ...args,
+    recipients: parseRecipientList(EIR_CLOSED_ALERTS),
   });
   if (emails.length === 0) return;
   void notifyChangeEmails({ target: args.target, emails });
