@@ -695,6 +695,22 @@ export const EIR_RESPONSE_ACCEPTED_ALERTS =
   import.meta.env.VITE_EIR_RESPONSE_ACCEPTED_ALERTS ||
   "Sheila Horn <sheila.horn@altronic-llc.com>, Ray White <ray.white@altronic-llc.com>";
 
+/**
+ * Who is told when an EIR's Status becomes **"Closed"** (BusinessIT#44, Ray,
+ * 2026-10-13): Glenn Terry, Brandon Mirto and Sheila Horn, who run the EIR
+ * review — on top of the watchers, assigned engineer(s) and reporter, who
+ * already get the generic status note.
+ *
+ * Its OWN variable, not a reuse of EIR_TRIAGE_ASSIGNERS (which includes Ray
+ * and is the "assign an engineer" queue): re-pointing one must not silently
+ * re-point the other. Same `Name <email>` format, parsed by parseRecipientList.
+ */
+export const EIR_CLOSED_ALERTS =
+  import.meta.env.VITE_EIR_CLOSED_ALERTS ||
+  "Glenn Terry <glenn.terry@altronic-llc.com>, " +
+  "Brandon Mirto <brandon.mirto@altronic-llc.com>, " +
+  "Sheila Horn <sheila.horn@altronic-llc.com>";
+
 export const SP_ECNS_LIST_ID =
   import.meta.env.VITE_SP_ECNS_LIST_ID ||
   "f6917bf4-bdd1-4ff9-ba71-0a17b22b1ecc";

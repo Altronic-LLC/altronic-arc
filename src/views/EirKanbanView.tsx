@@ -16,6 +16,9 @@ import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { Plus } from "lucide-react";
 import { useProjects } from "@/hooks/useTasks";
 import { useEirs, useUpdateEirFields } from "@/hooks/useEirs";
+import { pushToast } from "@/components/Toast";
+import { useCanEditEirWorkflow } from "@/hooks/useEirWorkflowAccess";
+import { EIR_WORKFLOW_HINT } from "@/lib/eirWorkflowEditors";
 import { eirFilterSearch, useEirFilters } from "@/hooks/useEirFilters";
 import { useKanbanAvailable } from "@/hooks/useIsPhone";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -42,10 +45,28 @@ import { cn } from "@/lib/cn";
 //
 // Dropping a card writes Status through `useUpdateEirFields`, which is
 // already optimistic with rollback, a toast and Undo — a failed write puts
-// the card back where it came from. Status is not one of the role-gated EIR
-// fields (that's Engineering Response, Technical Priority, Buyer Code, Risk
-// Part, Risk Part Level), so any signed-in user can drag.
+// the card back where it came from. Status belongs to the hard-coded EIR
+// workflow editors (BusinessIT#45, lib/eirWorkflowEditors.ts): anybody else's
+// drop is refused with a toast naming who can, and the card stays put.
 // =============================================================================
+
+/**
+ * What a drop of `eir` onto `target` should do. Pure, and exported for tests:
+ * dnd-kit's pointer sensor needs a layout engine jsdom hasn't got, so the RULE
+ * is what's tested (the MaintenanceBoardView `planStatusDrop` arrangement).
+ *
+ * null = nothing to do (no column, or the same column). A refusal = somebody
+ * who isn't an EIR workflow editor tried to move it (BusinessIT#45).
+ */
+export function planEirStatusDrop(
+  eir: Eir,
+  target: EirStatus | null,
+  canEditWorkflow: boolean,
+): { status: EirStatus } | { refusal: string } | null {
+  if (!target || target === eir.status) return null;
+  if (!canEditWorkflow) return { refusal: EIR_WORKFLOW_HINT };
+  return { status: target };
+}
 
 export function EirKanbanView() {
   const navigate = useNavigate();
@@ -62,6 +83,7 @@ export function EirKanbanView() {
     setView,
   } = useEirFilters();
   const updateFields = useUpdateEirFields();
+  const canEditWorkflow = useCanEditEirWorkflow();
   const [activeEir, setActiveEir] = useState<Eir | null>(null);
   const [showNew, setShowNew] = useState(false);
   // Board is only offered on tablets wider than an iPad mini. Below that we
@@ -126,9 +148,15 @@ export function EirKanbanView() {
       if (overEir) target = overEir.status;
     }
 
-    if (target && target !== eir.status) {
-      updateFields.mutate({ id: eir.id, fields: { Status: target } });
+    const plan = planEirStatusDrop(eir, target, canEditWorkflow);
+    if (!plan) return;
+    if ("refusal" in plan) {
+      // Not calling mutate is enough to keep the card where it was — only
+      // the optimistic patch ever moves one.
+      pushToast({ message: plan.refusal, variant: "error" });
+      return;
     }
+    updateFields.mutate({ id: eir.id, fields: { Status: plan.status } });
   }
 
   // Phones / small tablets: the board isn't offered — send them to the list,

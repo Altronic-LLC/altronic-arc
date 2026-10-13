@@ -27,6 +27,7 @@ import type { ChangeEmail, ChangeTarget } from "./changeAlerts";
 
 /** The status values these alerts fire on. */
 export const EIR_RESPONSE_ACCEPTED = "Response Accepted";
+export const EIR_CLOSED = "Closed";
 export const EIR_RESPONSE_NOT_ACCEPTED = "Response Not Accepted";
 
 /** The Resolution value the resolved-review alert fires on. */
@@ -181,5 +182,47 @@ export function buildEirResolvedEmails(args: {
     detailHtml:
       `<div style="font-size:14px;">Setting Status to Response Accepted or Response Not ` +
       `Accepted moves it to the next step of the workflow.</div>`,
+  }));
+}
+
+/**
+ * "Closed" — tell the EIR review group (Glenn, Brandon, Sheila by default) that
+ * the EIR is finished (BusinessIT#44).
+ *
+ * The watchers, assigned engineer(s) and reporter already get the generic
+ * status note, so anyone in `alreadyNotified` is dropped here rather than sent
+ * a second email about the same close — the FAIT closed-alert rule. The
+ * de-dupe runs BEFORE `withoutActorUnlessEmpty`, so that fallback can't bring
+ * back somebody the generic note already covered.
+ */
+export function buildEirClosedEmails(args: {
+  target: ChangeTarget;
+  /** The configured closed-alert list, already parsed. */
+  recipients: Person[];
+  actor: Person;
+  /** Whoever the generic status note reaches. */
+  alreadyNotified?: Person[];
+}): ChangeEmail[] {
+  const covered = new Set(
+    (args.alreadyNotified ?? [])
+      .map((p) => (p?.email ?? "").trim().toLowerCase())
+      .filter(Boolean),
+  );
+  const pool = args.recipients.filter(
+    (p) => !!p.email && !covered.has(p.email.trim().toLowerCase()),
+  );
+  const recipients = withoutActorUnlessEmpty(pool, args.actor);
+  if (recipients.length === 0) return [];
+
+  const actorName = escapeHtml(args.actor.displayName || "Someone");
+  return recipients.map((p) => ({
+    email: p.email!,
+    displayName: p.displayName,
+    // Subject is PLAIN TEXT — escaping it would put &amp; in an inbox.
+    subject: `${args.target.title} — closed`,
+    headlineHtml: `<strong>${actorName}</strong> set this EIR to <strong>Closed</strong>.`,
+    detailHtml:
+      `<div style="font-size:14px;">No further action is needed unless something looks ` +
+      `wrong — reopen it by changing its status.</div>`,
   }));
 }

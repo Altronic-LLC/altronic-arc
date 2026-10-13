@@ -375,6 +375,7 @@ src/
 │   ├── useTasks.ts               Task queries + OPTIMISTIC mutations (see below)
 │   ├── useEirs.ts                EIR queries + mutations (optimistic + undo)
 │   ├── useEirRoles.ts            EIR roles CRUD + useMyEirRoles() (field gating)
+│   ├── useEirWorkflowAccess.ts   useCanEditEirWorkflow() + the awaited write guard (Status / engineer)
 │   ├── useCsaListings.ts         CSA Listings queries + admin-guarded mutations
 │   ├── useAltronicParts.ts       Part List + Component List queries (long-cached), gated writes + their emails
 │   ├── usePartsRoles.ts          Parts Roles CRUD (admin-guarded) + useMyPartsAccess / resolvePartsPeople
@@ -474,6 +475,7 @@ src/
 │   ├── eirTriage.ts              Chasing a new EIR until it has a project + an engineer
 │   ├── eirStatusAlerts.ts        Response Accepted / Not Accepted work requests
 │   ├── eirProjectReference.ts    Who may change an EIR's Project Reference (hard-coded)
+│   ├── eirWorkflowEditors.ts     Who may change an EIR's Status / assigned engineer (hard-coded)
 │   ├── eirTaskReference.ts       EIR Task Reference → the task it names; never guesses between repeated T-numbers
 │   ├── recipientAudit.ts         Checks configured alert addresses against the directory
 │   ├── listWriteErrors.ts        A refused SharePoint write, in words
@@ -923,8 +925,10 @@ Two things that are deliberate:
   `status=Closed` across leaves four empty columns, which reads as broken.
 - **A drop writes Status through `useUpdateEirFields`** — no dedicated API
   function, since that mutation is already optimistic with rollback, toast,
-  Undo and the watcher/engineer/reporter status-change email. Status is not
-  one of the role-gated EIR fields, so any signed-in user can drag.
+  Undo and the watcher/engineer/reporter status-change email. Status belongs
+  to the EIR workflow editors (see "Only four people may change an EIR's
+  Status or engineer"), so anybody else's drop is refused by
+  `planEirStatusDrop` with a toast, and the card stays put.
 
 ## Data model
 
@@ -7102,6 +7106,28 @@ deploy; that is the point.
   is an explicit exception, recorded here so a later tidy-up doesn't "fix" it by
   adding one.
 
+## Only four people may change an EIR's Status or engineer
+
+BusinessIT#45 (Ray, 2026-10-13): Glenn Terry, Brandon Mirto, Sheila Horn —
+and Ray. Hard-coded in `lib/eirWorkflowEditors.ts`, the
+`eirProjectReference.ts` arrangement, NOT an EIR Roles tag, and NOT subject to
+`enforced`.
+
+- **Asked twice.** The detail page (Status `SidebarSelect` disabled + padlock;
+  Assigned rendered as static chips) and the board (`planEirStatusDrop`) via
+  `useCanEditEirWorkflow()`; and inside `useUpdateEirFields` (any write
+  carrying `Status`) and `useSetEirAssignedEngineers` via
+  `assertCanEditEirWorkflow()`, which AWAITS `/me` (`resolveMyIdentity`)
+  rather than a render flag. An empty identity refuses.
+- **Mock mode always allows** — the demo user isn't one of the four. So the
+  write guard is only visible from a `USE_MOCK: false` test
+  (`useEirs.workflowGate.test.tsx`).
+- **The linked-task close is exempt** — `viaLinkedTask: true` from
+  `DetailView`'s resolution prompt. Completing a promoted task closes its EIR
+  whoever completes it; that's the workflow, not a hand edit.
+- **The New EIR form is untouched** — it has no status choice or engineer
+  picker.
+
 ## Admin → Quick Links
 
 One shared list (`api/quickLinks.ts`), tagged per row with one of the seven
@@ -7234,6 +7260,7 @@ previously spotted by someone happening to look.
 | → **Response Not Accepted** | the EIR's **assigned engineers** | "Please revisit and give a more detailed response" |
 | → **Response Not Accepted**, no engineer reachable | `EIR_TRIAGE_ASSIGNERS` | "No engineer is assigned" — different wording, see below |
 | Resolution → **Resolved** | `EIR_TRIAGE_ASSIGNERS` (Glenn Terry, Brandon Mirto) | "Please review it and decide whether the response is accepted" |
+| → **Closed** | `EIR_CLOSED_ALERTS` (Glenn Terry, Brandon Mirto, Sheila Horn), minus anyone the generic note reached | "This EIR is closed" — informational |
 
 Wording lives in `lib/eirStatusAlerts.ts` (pure, returns `ChangeEmail[]`);
 `fireEirResponseAcceptedAlert` / `fireEirResponseNotAcceptedAlert` in
@@ -7295,6 +7322,14 @@ Six rules that are load-bearing:
   leaves Sheila with a "please close this" email and nothing to correct it.
   Pre-existing for the generic status alert; more consequential now, and stated
   rather than silently accepted (Ray, 2026-08-25 — accepted as-is).
+
+**→ Closed (BusinessIT#44, 2026-10-13)** has its OWN env var,
+`VITE_EIR_CLOSED_ALERTS` (in `deploy.yml` and its own `LISTS` row) — not a
+reuse of `EIR_TRIAGE_ASSIGNERS`, which carries Ray and is the "assign an
+engineer" queue. The generic status note still reaches watchers + engineers +
+reporter; `fireEirClosedAlert` takes them as `alreadyNotified` and drops them
+BEFORE `withoutActorUnlessEmpty`, the FAIT closed-alert rule, so nobody gets
+two emails. It fires on the linked-task completion path too.
 
 ## @-mention email notifications
 

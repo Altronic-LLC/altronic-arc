@@ -20,6 +20,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.187.0",
+    date: "2026-10-13",
+    changes: [
+      "Closing an EIR now emails Glenn Terry, Brandon Mirto and Sheila Horn, as well as the watchers, assigned engineers and reporter — nobody gets the same close twice",
+      "Only Glenn Terry, Brandon Mirto, Sheila Horn and Ray White can change an EIR's Status or Assigned engineers; for everyone else both fields are locked, with a padlock saying who to ask",
+      "Dragging an EIR to another column on the board is refused for anyone else, and the card stays where it was",
+      "Completing a task promoted from an EIR still closes that EIR, whoever completes the task",
+    ],
+  },
+  {
     version: "0.186.1",
     date: "2026-10-13",
     changes: [

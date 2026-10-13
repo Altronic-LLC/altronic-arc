@@ -9,6 +9,7 @@ import {
   BUILD_REQUEST_COMPLETE_REVIEWERS,
   BUILD_REQUEST_FINAL_ALERTS,
   BUILD_REQUEST_PRODUCTION_ALERTS,
+  EIR_CLOSED_ALERTS,
   EIR_RESPONSE_ACCEPTED_ALERTS,
   EIR_TRIAGE_ASSIGNERS,
   EIR_TRIAGE_PROJECT_REVIEWERS,
@@ -70,6 +71,12 @@ const LISTS: Array<{ label: string; envVar: string; value: string | undefined; w
     envVar: "VITE_EIR_RESPONSE_ACCEPTED_ALERTS",
     value: EIR_RESPONSE_ACCEPTED_ALERTS,
     what: "Emailed when an EIR's status becomes Response Accepted, asking for it to be closed.",
+  },
+  {
+    label: "EIR — closed",
+    envVar: "VITE_EIR_CLOSED_ALERTS",
+    value: EIR_CLOSED_ALERTS,
+    what: "Emailed when an EIR's status becomes Closed. Watchers, the assigned engineer and the reporter are told as well.",
   },
   {
     label: "Gray Market — new request",

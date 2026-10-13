@@ -21,12 +21,14 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 const fireEirResponseAcceptedAlert = vi.hoisted(() => vi.fn());
 const fireEirResponseNotAcceptedAlert = vi.hoisted(() => vi.fn());
 const fireEirResolvedAlert = vi.hoisted(() => vi.fn());
+const fireEirClosedAlert = vi.hoisted(() => vi.fn());
 const fireFieldChangeAlert = vi.hoisted(() => vi.fn());
 
 vi.mock("@/api/email", () => ({
   fireEirResponseAcceptedAlert,
   fireEirResponseNotAcceptedAlert,
   fireEirResolvedAlert,
+  fireEirClosedAlert,
   fireFieldChangeAlert,
   fireAssigneeChangeAlert: vi.fn(),
   fireChecklistToggleAlert: vi.fn(),
@@ -66,6 +68,7 @@ beforeEach(() => {
   fireEirResponseAcceptedAlert.mockClear();
   fireEirResponseNotAcceptedAlert.mockClear();
   fireEirResolvedAlert.mockClear();
+  fireEirClosedAlert.mockClear();
   fireFieldChangeAlert.mockClear();
 });
 
@@ -283,5 +286,48 @@ describe("the generic status note", () => {
     expect(fireFieldChangeAlert).toHaveBeenCalledWith(
       expect.objectContaining({ fieldLabel: "status", to: "Response Accepted" }),
     );
+  });
+});
+
+// BusinessIT#44: closing an EIR also tells Glenn, Brandon and Sheila. The
+// watchers, engineer(s) and reporter get the generic note, and are handed to
+// the closed alert so it can drop them rather than email them twice.
+describe("moving an EIR to Closed", () => {
+  it("tells the review group, passing on who the generic note reaches", async () => {
+    const wrap = wrapper();
+    const eir = await anEir(
+      wrap,
+      (e) => e.status !== "Closed" && e.watchers.length > 0 && e.assignedEngineers.length > 0,
+    );
+    await setStatus(wrap, eir, "Closed");
+
+    await waitFor(() => expect(fireEirClosedAlert).toHaveBeenCalledTimes(1));
+    const args = fireEirClosedAlert.mock.calls[0][0];
+    expect(args.target).toMatchObject({ kind: "eir", id: eir.id });
+    expect(args.actor.email).toBe("sheila.horn@altronic-llc.com");
+    const told = args.alreadyNotified.map((p: { email?: string }) => p.email);
+    for (const p of [...eir.watchers, ...eir.assignedEngineers]) expect(told).toContain(p.email);
+    if (eir.reporter) expect(told).toContain(eir.reporter.email);
+    // The generic note still goes — it is what reaches the watchers.
+    expect(fireFieldChangeAlert).toHaveBeenCalled();
+  });
+
+  // THE GUARD: a fixture already Closed.
+  it("stays quiet when the write re-sends Closed", async () => {
+    const wrap = wrapper();
+    const already = await anEir(wrap, (e) => e.status === "Closed");
+    await setStatus(wrap, already, "Closed");
+
+    await waitFor(() => expect(fireFieldChangeAlert).toHaveBeenCalled());
+    expect(fireEirClosedAlert).not.toHaveBeenCalled();
+  });
+
+  it("does not fire on any other status", async () => {
+    const wrap = wrapper();
+    const eir = await anEir(wrap, (e) => e.status !== "Under Review");
+    await setStatus(wrap, eir, "Under Review");
+
+    await waitFor(() => expect(fireFieldChangeAlert).toHaveBeenCalled());
+    expect(fireEirClosedAlert).not.toHaveBeenCalled();
   });
 });

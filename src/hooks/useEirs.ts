@@ -23,6 +23,7 @@ import type {
   Task,
 } from "@/types/task";
 import { pushToast } from "@/components/Toast";
+import { assertCanEditEirWorkflow, EirWorkflowNotPermittedError } from "./useEirWorkflowAccess";
 import { multiLookupField } from "@/lib/graphFields";
 import {
   commentNotifyRecipients,
@@ -30,6 +31,7 @@ import {
 } from "@/lib/mentions";
 import {
   fireAssigneeChangeAlert,
+  fireEirClosedAlert,
   fireEirResolvedAlert,
   fireEirResponseAcceptedAlert,
   fireEirResponseNotAcceptedAlert,
@@ -41,6 +43,7 @@ import {
 } from "@/api/email";
 import { eirTriageStage } from "@/lib/eirTriage";
 import {
+  EIR_CLOSED,
   EIR_RESOLUTION_RESOLVED,
   EIR_RESPONSE_ACCEPTED,
   EIR_RESPONSE_NOT_ACCEPTED,
@@ -413,8 +416,26 @@ export function useUpdateEirFields() {
   const qc = useQueryClient();
   const actor = useCurrentUser();
   return useMutation({
-    mutationFn: ({ id, fields }: { id: number; fields: Record<string, unknown> }) =>
-      updateEirFields(id, fields),
+    mutationFn: async ({
+      id,
+      fields,
+      viaLinkedTask = false,
+    }: {
+      id: number;
+      fields: Record<string, unknown>;
+      /**
+       * The write closes the EIR because the task it was promoted to was
+       * completed. That is the workflow running, not somebody hand-editing
+       * Status, so it is exempt from the Status gate (BusinessIT#45).
+       */
+      viaLinkedTask?: boolean;
+    }) => {
+      // Only the named workflow editors may change Status — see
+      // lib/eirWorkflowEditors.ts. Asked here as well as on the controls, so
+      // a future screen can't write Status without it.
+      if ("Status" in fields && !viaLinkedTask) await assertCanEditEirWorkflow();
+      return updateEirFields(id, fields);
+    },
     onMutate: ({ id, fields }) =>
       snapshotAndPatch(qc, id, patchEir(id, (e) => applyFieldsLocally(e, fields))),
     onSuccess: (_data, { id, fields }, ctx) => {
@@ -465,6 +486,20 @@ export function useUpdateEirFields() {
           if (to !== from) {
             if (to === EIR_RESPONSE_ACCEPTED) {
               fireEirResponseAcceptedAlert({ target, actor });
+            }
+            if (to === EIR_CLOSED) {
+              // The review group, on top of the generic note above
+              // (BusinessIT#44). Anyone that note already reached is
+              // dropped, so nobody gets two emails about one close.
+              fireEirClosedAlert({
+                target,
+                actor,
+                alreadyNotified: [
+                  ...ctx.prevEir.watchers,
+                  ...ctx.prevEir.assignedEngineers,
+                  ...(ctx.prevEir.reporter ? [ctx.prevEir.reporter] : []),
+                ],
+              });
             }
             if (to === EIR_RESPONSE_NOT_ACCEPTED) {
               fireEirResponseNotAcceptedAlert({
@@ -572,8 +607,11 @@ export function useSetEirAssignedEngineers() {
   const qc = useQueryClient();
   const actor = useCurrentUser();
   return useMutation({
-    mutationFn: ({ id, people }: { id: number; people: Person[] }) =>
-      setEirAssignedEngineers(id, people),
+    mutationFn: async ({ id, people }: { id: number; people: Person[] }) => {
+      // Assigning the engineer is a workflow-editor action (BusinessIT#45).
+      await assertCanEditEirWorkflow();
+      return setEirAssignedEngineers(id, people);
+    },
     onMutate: ({ id, people }) =>
       snapshotAndPatch(qc, id, patchEir(id, (e) => ({ ...e, assignedEngineers: people, modifiedAt: new Date() }))),
     onSuccess: (_d, { id, people }, ctx) => {
@@ -593,9 +631,15 @@ export function useSetEirAssignedEngineers() {
         });
       }
     },
-    onError: (_err, _vars, ctx) => {
+    onError: (err, _vars, ctx) => {
       rollback(qc, ctx);
-      pushToast({ message: "Couldn't update engineers — reverted.", variant: "error" });
+      pushToast({
+        message:
+          err instanceof EirWorkflowNotPermittedError
+            ? err.message
+            : "Couldn't update engineers — reverted.",
+        variant: "error",
+      });
     },
     onSettled: () => invalidate(qc),
   });

@@ -4,7 +4,8 @@ import { Route, Routes, useLocation } from "react-router-dom";
 import { renderWithProviders } from "@/test/render";
 import { MOCK_EIRS, MOCK_PROJECTS } from "@/data/mockData";
 import { EIR_STATUSES } from "@/types/task";
-import { EirKanbanView } from "./EirKanbanView";
+import { EirKanbanView, planEirStatusDrop } from "./EirKanbanView";
+import { EIR_WORKFLOW_HINT } from "@/lib/eirWorkflowEditors";
 
 vi.mock("@/hooks/useCurrentUser", () => ({
   useCurrentUser: () => ({
@@ -12,6 +13,7 @@ vi.mock("@/hooks/useCurrentUser", () => ({
     email: "demo.user@altronic-llc.com",
     lookupId: 0,
   }),
+  useCurrentUserEmails: () => ["demo.user@altronic-llc.com"],
 }));
 
 // Toggled per-test: the board is only offered above phone width.
@@ -148,5 +150,25 @@ describe("EirKanbanView — view tabs", () => {
 
     const allTab = screen.getByRole("button", { name: /^All/ });
     expect(within(allTab).getByText(String(MOCK_EIRS.length))).toBeInTheDocument();
+  });
+});
+
+// BusinessIT#45: only the EIR workflow editors may move a card between status
+// columns. The rule is tested directly — dnd-kit's pointer sensor needs a
+// layout engine jsdom hasn't got.
+describe("planEirStatusDrop", () => {
+  const eir = MOCK_EIRS.find((e) => e.status === "Under Review")!;
+
+  it("moves the card for a workflow editor", () => {
+    expect(planEirStatusDrop(eir, "Closed", true)).toEqual({ status: "Closed" });
+  });
+
+  it("refuses anybody else, naming who can", () => {
+    expect(planEirStatusDrop(eir, "Closed", false)).toEqual({ refusal: EIR_WORKFLOW_HINT });
+  });
+
+  it("does nothing for the same column or no column, whoever drops it", () => {
+    expect(planEirStatusDrop(eir, eir.status, false)).toBeNull();
+    expect(planEirStatusDrop(eir, null, true)).toBeNull();
   });
 });
