@@ -64,6 +64,7 @@ const PARENT_NOUN: Record<AttachmentParent, string> = {
   scn: "SCN",
   pricingRequest: "request",
   newProductPricing: "worksheet",
+  customerQuote: "quote",
 };
 
 export function parentNoun(parent: AttachmentParent): string {

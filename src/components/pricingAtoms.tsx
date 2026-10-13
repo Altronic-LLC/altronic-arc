@@ -32,11 +32,17 @@ export function PricingStatusChip({ status }: { status: PricingRequestStatus }) 
   );
 }
 
-/** Requests / Roles. Roles shows only to whoever can manage it. Navigation, not security. */
+/**
+ * Requests / New Products / Customer Quotes / Roles. The middle two show only
+ * to managers and admins, Roles only to whoever can manage it. Navigation,
+ * not security — every screen and write asks its own gate.
+ */
 export function PricingNav() {
   const access = useMyPricingAccess();
   const tabs = [
     { to: "/sales/pricing", label: "Requests", end: true, show: access.rights.canAccess },
+    { to: "/sales/pricing/new-products", label: "New Products", end: false, show: access.rights.canPrice },
+    { to: "/sales/pricing/quotes", label: "Customer Quotes", end: false, show: access.rights.canPrice },
     { to: "/sales/pricing/roles", label: "Roles", end: false, show: managePricingRolesGate(access).allowed },
   ].filter((t) => t.show);
   if (tabs.length <= 1) return null;
@@ -113,6 +119,50 @@ export function PricingAccessGate({
     );
   }
   return <>{children(access)}</>;
+}
+
+/**
+ * The managers-and-admins screens (New Products, Customer Quotes): a
+ * requester is told plainly rather than shown an empty list. `configured`
+ * false names the list still to be created.
+ */
+export function PricingManagerGate({
+  children,
+  configured,
+  listName,
+  envVar,
+}: {
+  children: (access: MyPricingAccess) => React.ReactNode;
+  configured: boolean;
+  listName: string;
+  envVar: string;
+}) {
+  return (
+    <PricingAccessGate>
+      {(access) =>
+        !access.rights.canPrice ? (
+          <PricingPage>
+            <div className="rounded-xl border border-border bg-surface px-4 py-10 text-center text-sm text-fg-muted">
+              <Lock className="mx-auto h-8 w-8" />
+              <p className="mt-3 font-medium text-fg">This is for pricing managers and admins.</p>
+            </div>
+          </PricingPage>
+        ) : !configured ? (
+          <PricingPage>
+            <div className="rounded-xl border border-ajax-yellow/40 bg-ajax-yellow/10 p-4 text-sm text-fg">
+              <p className="font-medium">The {listName} list isn't set up yet.</p>
+              <p className="mt-1 text-fg-muted">
+                Run <code>scripts/create-pricing-lists.ps1</code> again (it only adds what's missing), set{" "}
+                <code>{envVar}</code> as a repo variable, and redeploy.
+              </p>
+            </div>
+          </PricingPage>
+        ) : (
+          children(access)
+        )
+      }
+    </PricingAccessGate>
+  );
 }
 
 export function PricingHeader({

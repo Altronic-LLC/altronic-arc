@@ -176,6 +176,18 @@ const PricingRequestDetailView = lazy(() =>
 const PricingRolesView = lazy(() =>
   import("@/views/PricingRolesView").then((m) => ({ default: m.PricingRolesView })),
 );
+const NewProductPricingView = lazy(() =>
+  import("@/views/NewProductPricingView").then((m) => ({ default: m.NewProductPricingView })),
+);
+const NewProductPricingDetailView = lazy(() =>
+  import("@/views/NewProductPricingDetailView").then((m) => ({ default: m.NewProductPricingDetailView })),
+);
+const CustomerQuotesView = lazy(() =>
+  import("@/views/CustomerQuotesView").then((m) => ({ default: m.CustomerQuotesView })),
+);
+const CustomerQuoteDetailView = lazy(() =>
+  import("@/views/CustomerQuoteDetailView").then((m) => ({ default: m.CustomerQuoteDetailView })),
+);
 const AdminOpenOrdersRolesView = lazy(() =>
   import("@/views/AdminOpenOrdersRolesView").then((m) => ({
     default: m.AdminOpenOrdersRolesView,
@@ -714,6 +726,38 @@ export function App() {
               element={
                 <Suspense fallback={<LoadingTasks noun="this request" />}>
                   <PricingRequestDetailView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/sales/pricing/new-products"
+              element={
+                <Suspense fallback={<LoadingTasks noun="worksheets" />}>
+                  <NewProductPricingView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/sales/pricing/new-product/:id"
+              element={
+                <Suspense fallback={<LoadingTasks noun="this worksheet" />}>
+                  <NewProductPricingDetailView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/sales/pricing/quotes"
+              element={
+                <Suspense fallback={<LoadingTasks noun="customer quotes" />}>
+                  <CustomerQuotesView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/sales/pricing/quote/:id"
+              element={
+                <Suspense fallback={<LoadingTasks noun="this quote" />}>
+                  <CustomerQuoteDetailView />
                 </Suspense>
               }
             />

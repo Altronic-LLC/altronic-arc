@@ -24,7 +24,8 @@ import { nextPricingMockId, pricingMockClone, pricingMockDb } from "@/data/prici
 // no longer applies is Cancelled.
 //
 // ONE row per worksheet, carrying its CURRENT revision as columns, and every
-// revision's full snapshot in `History` (JSON, lib/pricingHistory.ts). Each
+// revision's totals in `History` (JSON, lib/pricingHistory.ts). The lines are
+// on NP Sub-Assemblies, one row per sub-assembly per revision. Each
 // save is the manager's choice (Ray, 2026-10-13):
 //   * Save            — rewrites the current revision's snapshot.
 //   * Save as new rev — Rev + 1, a new snapshot appended; earlier ones are
@@ -96,7 +97,6 @@ async function postWorksheet(worksheetNumber: string, input: NewProductCreateInp
       customerName: input.customerName.trim(),
       expectedAnnualVolume: input.expectedAnnualVolume,
       requestId: input.requestId,
-      bom: [],
       overheadPct: 0,
       mpg: "",
       distributorDiscountPct: STANDARD_DISTRIBUTOR_DISCOUNT_PCT,

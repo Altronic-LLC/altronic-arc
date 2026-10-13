@@ -1,10 +1,12 @@
 import type {
-  BomLine,
   ComparablesSummary,
   PriceBreakTier,
   PriceInput,
   PricedBreak,
   SapPart,
+  SubAssembly,
+  SubAssemblyLine,
+  SubAssemblyTotals,
 } from "@/types/pricing";
 import { roundCents } from "./quotePricing";
 
@@ -233,35 +235,104 @@ export function summarizePanel(key: string, panel: ComparablesPanel): Comparable
 
 export const MAX_PRICE_BREAKS = 3;
 
-export interface BomCost {
-  /** Σ quantity × unit cost, before overhead. */
-  materialCost: number;
-  /** Material cost × (1 + overhead%). null while any line can't be costed. */
-  unitCost: number | null;
-  /** Lines with no usable cost or quantity, in words. */
+/** The cost used for a line: the manager's adjustment if there is one, else the sheet's. */
+export function lineUnitCost(line: SubAssemblyLine): number | null {
+  return finite(line.adjustedCost) ? line.adjustedCost : finite(line.uploadedCost) ? line.uploadedCost : null;
+}
+
+export interface CostPair {
+  /** At the costs the CSV carried. */
+  uploaded: number | null;
+  /** At the costs used (adjusted where adjusted). */
+  used: number | null;
+}
+
+export interface SubAssemblyCost extends CostPair {
+  /** Lines that can't be costed, in words. */
   problems: string[];
 }
 
-/** The unit cost of a BOM with one overhead percentage on top. */
-export function bomCost(lines: BomLine[], overheadPct: number | null | undefined): BomCost {
+/**
+ * One sub-assembly's cost per ONE of it — Σ quantity × unit cost, at uploaded
+ * and at used cost. A line with no quantity or no cost makes the total
+ * unknown (null) and says which line, rather than silently counting it as 0.
+ */
+export function subAssemblyCost(sub: Pick<SubAssembly, "name" | "lines">): SubAssemblyCost {
   const problems: string[] = [];
-  let material = 0;
-  lines.forEach((line, i) => {
-    const label = line.partNumber.trim() || `Line ${i + 1}`;
-    if (!finite(line.quantity) || line.quantity <= 0) problems.push(`${label} has no quantity.`);
-    else if (!finite(line.unitCost) || line.unitCost < 0) problems.push(`${label} has no cost.`);
-    else material += line.quantity * line.unitCost;
+  let uploaded = 0;
+  let used = 0;
+  let uploadedKnown = true;
+  sub.lines.forEach((line, i) => {
+    const label = line.partNumber.trim() || `line ${i + 1}`;
+    if (!finite(line.quantity) || line.quantity <= 0) {
+      problems.push(`${sub.name}: ${label} has no quantity.`);
+      return;
+    }
+    const u = lineUnitCost(line);
+    if (u === null) problems.push(`${sub.name}: ${label} has no cost.`);
+    else used += line.quantity * u;
+    if (finite(line.uploadedCost)) uploaded += line.quantity * line.uploadedCost;
+    else uploadedKnown = false;
   });
-  if (lines.length === 0) problems.push("Add at least one BOM line.");
-  const overhead = finite(overheadPct) ? overheadPct : 0;
-  if (overhead < 0) problems.push("Overhead can't be negative.");
+  if (sub.lines.length === 0) problems.push(`${sub.name} has no lines — upload its CSV.`);
   return {
-    materialCost: material,
-    unitCost: problems.length ? null : material * (1 + overhead / 100),
+    uploaded: uploadedKnown && sub.lines.length > 0 ? uploaded : null,
+    used: problems.length ? null : used,
     problems,
   };
 }
 
+export interface WorksheetCost {
+  /** Σ sub-assembly cost × quantity per product, before overhead. */
+  material: CostPair;
+  /** Material × (1 + overhead%) — what one product costs. */
+  unit: CostPair;
+  problems: string[];
+}
+
+/** One product's cost from its sub-assemblies, with one overhead % on top. */
+export function worksheetCost(subs: SubAssembly[], overheadPct: number | null | undefined): WorksheetCost {
+  const problems: string[] = [];
+  let used: number | null = 0;
+  let uploaded: number | null = 0;
+  for (const sub of subs) {
+    const c = subAssemblyCost(sub);
+    problems.push(...c.problems);
+    const qty = finite(sub.quantityPerProduct) && sub.quantityPerProduct > 0 ? sub.quantityPerProduct : null;
+    if (qty === null) problems.push(`${sub.name} needs a quantity per product.`);
+    used = used !== null && c.used !== null && qty !== null ? used + c.used * qty : null;
+    uploaded = uploaded !== null && c.uploaded !== null && qty !== null ? uploaded + c.uploaded * qty : null;
+  }
+  if (subs.length === 0) problems.push("Add a sub-assembly and upload its CSV.");
+  const overhead = finite(overheadPct) ? overheadPct : 0;
+  if (overhead < 0) problems.push("Overhead can't be negative.");
+  const factor = 1 + overhead / 100;
+  const ok = problems.length === 0;
+  return {
+    material: { uploaded: subs.length ? uploaded : null, used: ok ? used : null },
+    unit: {
+      uploaded: subs.length && uploaded !== null ? uploaded * factor : null,
+      used: ok && used !== null ? used * factor : null,
+    },
+    problems,
+  };
+}
+
+/** The totals a revision records for each sub-assembly. */
+export function subAssemblyTotals(subs: SubAssembly[]): SubAssemblyTotals[] {
+  return [...subs]
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id)
+    .map((s) => {
+      const c = subAssemblyCost(s);
+      return {
+        name: s.name,
+        quantityPerProduct: s.quantityPerProduct,
+        lineCount: s.lines.length,
+        uploadedCost: c.uploaded,
+        cost: c.used,
+      };
+    });
+}
 /** Why a set of breaks can't be used, or null. Quantities must rise, discounts be 0–<100. */
 export function priceBreaksProblem(tiers: PriceBreakTier[]): string | null {
   if (tiers.length > MAX_PRICE_BREAKS) return `Up to ${MAX_PRICE_BREAKS} quantity breaks.`;
@@ -305,4 +376,22 @@ export function tierRanges(tiers: PriceBreakTier[]): string[] {
     const next = firsts[i + 1];
     return next === undefined ? `${from}+` : next - 1 === from ? `${from}` : `${from}–${next - 1}`;
   });
+}
+
+/**
+ * A customer's prices from a list price and its quantity breaks: each break's
+ * whole-dollar list price (`priceBreaks`), less this customer's discount, to
+ * the cent. `discountPct` null means no discount — list prices.
+ */
+export function customerPriceBreaks(
+  listPrice: number,
+  tiers: PriceBreakTier[],
+  discountPct: number | null,
+): { unitPrice: number; breaks: { minQty: number; price: number }[] } {
+  const d = finite(discountPct) && !discountProblem(discountPct) ? discountPct : 0;
+  const net = (p: number) => roundCents(p * (1 - d / 100));
+  return {
+    unitPrice: net(listPrice),
+    breaks: priceBreaks(listPrice, null, 0, tiers).map((b) => ({ minQty: b.minQty, price: net(b.price) })),
+  };
 }

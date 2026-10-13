@@ -157,17 +157,35 @@ export interface PricingHistoryRecord {
 export const NEW_PRODUCT_STATUSES = ["Active", "Cancelled"] as const;
 export type NewProductStatus = (typeof NEW_PRODUCT_STATUSES)[number];
 
-/** Where a BOM line's cost came from. An estimate is typed for a part not in SAP. */
-export type BomCostSource = "SAP" | "Estimate";
-
-export interface BomLine {
-  /** Stable within a worksheet — React keys and edits. */
-  id: string;
+/**
+ * One line of a sub-assembly, from its CSV (Ray, 2026-10-13). The UPLOADED cost
+ * is the sheet's and is never changed by ARC; the ADJUSTED cost is the
+ * manager's, blank until set. The cost used is adjusted ?? uploaded.
+ */
+export interface SubAssemblyLine {
   partNumber: string;
   description: string;
   quantity: number;
-  unitCost: number | null;
-  costSource: BomCostSource;
+  uploadedCost: number | null;
+  adjustedCost: number | null;
+}
+
+/** One sub-assembly of a worksheet, at one revision (a row of NP Sub-Assemblies). */
+export interface SubAssembly {
+  id: number;
+  worksheetId: number;
+  rev: number;
+  /** Title. */
+  name: string;
+  sortOrder: number;
+  /** How many of this sub-assembly go into one product. */
+  quantityPerProduct: number;
+  lines: SubAssemblyLine[];
+  /** The Lines JSON couldn't be read — ARC refuses to write over it. */
+  linesCorrupt: boolean;
+  fileName: string;
+  uploadedAt: string | null;
+  uploadedBy: { displayName: string; email: string } | null;
 }
 
 /** A quantity break: at `minQty` or more, `discountPct` off list. */
@@ -182,15 +200,30 @@ export interface PricedBreak extends PriceBreakTier {
   baseGM: number | null;
 }
 
-/** One revision's full snapshot — an entry in the worksheet's JSON history. */
+/** One sub-assembly's totals, as a revision recorded them. */
+export interface SubAssemblyTotals {
+  name: string;
+  quantityPerProduct: number;
+  lineCount: number;
+  /** Per ONE sub-assembly, at uploaded and at adjusted (used) cost. */
+  uploadedCost: number | null;
+  cost: number | null;
+}
+
+/**
+ * One revision's totals — an entry in the worksheet's JSON history. The lines
+ * themselves are on NP Sub-Assemblies, stamped with the same revision.
+ */
 export interface NewProductRevision {
   rev: number;
   savedAt: string;
   savedBy: { displayName: string; email: string };
   /** What changed in this revision. Required when a revision is started. */
   note: string;
-  bom: BomLine[];
+  subAssemblies: SubAssemblyTotals[];
   overheadPct: number;
+  /** Unit cost at the sheets' uploaded costs, and at the costs used. */
+  uploadedUnitCost: number | null;
   unitCost: number | null;
   mpg: string;
   distributorDiscountPct: number;
@@ -214,7 +247,6 @@ export interface NewProductWorksheet {
   expectedAnnualVolume: number | null;
   /** The request a manager started this from, if any. */
   requestId: number | null;
-  bom: BomLine[];
   overheadPct: number;
   mpg: string;
   distributorDiscountPct: number;
@@ -254,4 +286,76 @@ export interface SapCustomer {
   soldTo: string;
   name: string;
   customerGroup: string;
+}
+
+// -----------------------------------------------------------------------------
+// Customer Quotes (managers and admins only)
+// -----------------------------------------------------------------------------
+
+export const CUSTOMER_QUOTE_STATUSES = ["Draft", "Sent", "Won", "Lost", "Expired"] as const;
+export type CustomerQuoteStatus = (typeof CUSTOMER_QUOTE_STATUSES)[number];
+
+/** The customer, stored as JSON on the quote (Ray, 2026-10-13). */
+export interface QuoteCustomerInfo {
+  soldTo: string;
+  name: string;
+  customerGroup: string;
+  contactName: string;
+  contactEmail: string;
+}
+
+/** Where a quote line came from. */
+export type CustomerQuoteLineKind = "worksheet" | "sapPart" | "request" | "free";
+
+/** A quantity break as the CUSTOMER sees it: at `minQty` or more, `price` each. */
+export interface CustomerPriceBreak {
+  minQty: number;
+  price: number;
+}
+
+export interface CustomerQuoteLine {
+  /** Stable within a quote — React keys and edits. */
+  id: string;
+  kind: CustomerQuoteLineKind;
+  partNumber: string;
+  description: string;
+  /** The quantity quoted. Never blank — defaults to 1. */
+  quantity: number;
+  /** INTERNAL: the list price the customer price came from. Never printed. */
+  listPrice: number | null;
+  /** INTERNAL: the discount applied. Never printed. */
+  customerDiscountPct: number | null;
+  /** This customer's price for 1 – (first break − 1). */
+  unitPrice: number;
+  /** This customer's price at each quantity break, ascending. */
+  breaks: CustomerPriceBreak[];
+  /** A worksheet line remembers the revision it was priced from (pinned). */
+  worksheetId?: number;
+  worksheetNumber?: string;
+  worksheetRev?: number;
+  requestId?: number;
+  requestNumber?: string;
+  sapPartNumber?: string;
+}
+
+export interface CustomerQuote {
+  id: number;
+  /** Title — SQ-YYYY-####-R#. */
+  quoteNumber: string;
+  quoteBase: string;
+  rev: number;
+  status: CustomerQuoteStatus;
+  validityDays: number;
+  customer: QuoteCustomerInfo;
+  lines: CustomerQuoteLine[];
+  /** The Lines JSON couldn't be read — ARC refuses to write over it. */
+  linesCorrupt: boolean;
+  /** Printed on the PDF. */
+  notes: string;
+  comments: Comment[];
+  watchers: Person[];
+  hasAttachments: boolean;
+  createdBy: Person | null;
+  createdAt: string | null;
+  modifiedAt: string | null;
 }

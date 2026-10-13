@@ -1,10 +1,10 @@
 <#
 .SYNOPSIS
-    Creates the four lists behind ARC's Sales Pricing tool (BusinessIT#47), on
+    Creates the six lists behind ARC's Sales Pricing tool (BusinessIT#47), on
     the ALTRONICSALESTEAM site.
 
 .DESCRIPTION
-    Four lists, created in dependency order (a lookup needs its target first):
+    Six lists, created in dependency order (a lookup needs its target first):
 
         Pricing Roles         Title = email; PersonName, Roles (lowercase CSV
                               of requester / manager / admin), Note
@@ -19,11 +19,22 @@
                               summary, and History (a JSON array, one entry per
                               pricing). MANAGERS AND ADMINS ONLY.
         New Product Pricing   Title = NP-YYYY-#### (indexed, unique). Products
-                              not yet in SAP: the current revision's BOM (JSON),
-                              overhead %, discount, target GM, list price,
-                              quantity breaks (JSON), and History (JSON, one
-                              full snapshot per revision). MANAGERS AND ADMINS
-                              ONLY.
+                              not yet in SAP: overhead %, discount, target GM,
+                              list price, quantity breaks (JSON), and History
+                              (JSON, the totals of each revision). Its `Bom`
+                              column predates sub-assemblies and is unused.
+                              MANAGERS AND ADMINS ONLY.
+        NP Sub-Assemblies     One row per sub-assembly PER REVISION of a
+                              worksheet (WorksheetRef + Rev, both indexed). Lines
+                              (JSON: part, description, qty, uploaded cost,
+                              adjusted cost) from a CSV upload, its file name,
+                              when and by whom. A new revision copies the rows
+                              forward; earlier revisions are never rewritten.
+                              MANAGERS AND ADMINS ONLY.
+        Customer Quotes       Title = SQ-YYYY-####-R# (indexed, unique), one row
+                              per quote revision. Customer (JSON), Lines (JSON),
+                              status, validity, notes, comments, watchers.
+                              MANAGERS AND ADMINS ONLY.
 
     THE INTERNAL NAMES ARE A CONTRACT with the app code (src/api/pricing*.ts,
     not yet written). Do not rename a column here without changing it there in
@@ -284,8 +295,52 @@ $Lists = @(
             # Compare to SAP — remembered once typed (Ray, 2026-10-13).
             (Text "AltronicPartNumber" "Altronic Part #"),
             (Text "SapPartNumber" "SAP Part #"),
-            # JSON array, one FULL snapshot per revision.
+            # JSON array, the totals of each revision; the lines live on
+            # NP Sub-Assemblies, stamped by revision.
             (Note "History" "History")
+        )
+    },
+    @{
+        name         = "NP Sub-Assemblies"
+        envVar       = "VITE_SP_NP_SUBASSEMBLIES_LIST_ID"
+        description  = "The sub-assemblies of each New Product Pricing worksheet, one row per sub-assembly per revision. Lines are JSON from a CSV upload. MANAGERS AND ADMINS ONLY. Edit through ARC."
+        titleDisplay = "Sub-Assembly"
+        attachments  = $false
+        columns      = @(
+            (Lookup "WorksheetRef" "Worksheet" "New Product Pricing" -Indexed),
+            (Number "Rev" "Rev" "none" 1),
+            (Number "SortOrder" "Sort Order" "none"),
+            (Number "QuantityPerProduct" "Qty per Product" "automatic" 1),
+            # JSON: [{ partNumber, description, quantity, uploadedCost, adjustedCost }].
+            # The uploaded cost is the sheet's and is never changed by ARC.
+            (Note "Lines" "Lines"),
+            (Text "FileName" "File Name"),
+            (DateAndTime "UploadedAt" "Uploaded At"),
+            (Text "UploadedByName" "Uploaded By"),
+            (Text "UploadedByEmail" "Uploaded By Email")
+        )
+    },
+    @{
+        name         = "Customer Quotes"
+        envVar       = "VITE_SP_CUSTOMER_QUOTES_LIST_ID"
+        description  = "Customer quotes built from New Product Pricing worksheets, SAP parts, priced requests and free lines. Title = SQ-YYYY-####-R#. A revision is a new row sharing QuoteBase. Never deleted. MANAGERS AND ADMINS ONLY."
+        titleDisplay = "Quote Number"
+        titleUnique  = $true
+        attachments  = $true
+        columns      = @(
+            (Text "QuoteBase" "Quote Base" -Indexed),
+            (Number "Rev" "Rev" "none" 1),
+            (Choice "Status" "Status" @("Draft", "Sent", "Won", "Lost", "Expired") "Draft" -Indexed),
+            (Number "ValidityDays" "Validity Days" "none" 30),
+            (Text "CustomerSoldTo" "Customer Sold-To" -Indexed),
+            (Text "CustomerName" "Customer Name"),
+            # JSON: { soldTo, name, customerGroup, contactName, contactEmail }.
+            (Note "Customer" "Customer"),
+            # JSON: the quote lines, each with its source and its customer prices.
+            (Note "Lines" "Lines"),
+            (Note "QuoteNotes" "Quote Notes"),
+            (Communication),
+            (People "Watchers" "Watchers")
         )
     }
 )
@@ -547,6 +602,8 @@ Write-Host "    Pricing Roles         every pricing user = Read (ARC reads it to
 Write-Host "    Pricing Requests      requesters, managers, admins = Contribute" -ForegroundColor Yellow
 Write-Host "    Pricing History       managers, admins = Contribute.  NO requesters — this list holds cost and margin." -ForegroundColor Yellow
 Write-Host "    New Product Pricing   managers, admins = Contribute.  NO requesters." -ForegroundColor Yellow
+Write-Host "    NP Sub-Assemblies     managers, admins = Contribute.  NO requesters." -ForegroundColor Yellow
+Write-Host "    Customer Quotes       managers, admins = Contribute.  NO requesters." -ForegroundColor Yellow
 Write-Host "  Grant at the LIST, never per item: ARC reads a list returning no rows it reports holding as" -ForegroundColor Yellow
 Write-Host "  'you can't read this' and locks the screen." -ForegroundColor Yellow
 Write-Host "  Fabric: give only managers and admins 'Run Queries and Mutations' on the GraphQL API item, so a" -ForegroundColor Yellow

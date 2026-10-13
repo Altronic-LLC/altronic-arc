@@ -1217,6 +1217,22 @@ export const SP_NEW_PRODUCT_PRICING_LIST_ID =
   import.meta.env.VITE_SP_NEW_PRODUCT_PRICING_LIST_ID || "1dae4eb5-058e-4a93-81c7-4bbf90f65b2a";
 
 /**
+ * "NP Sub-Assemblies" — each worksheet's sub-assemblies, one row per
+ * sub-assembly per revision. NO default: created by a later run of
+ * create-pricing-lists.ps1, and unset means the worksheet screens say so.
+ */
+export const SP_NP_SUBASSEMBLIES_LIST_ID: string | undefined =
+  import.meta.env.VITE_SP_NP_SUBASSEMBLIES_LIST_ID || undefined;
+
+/** "Customer Quotes" — SQ-YYYY-####-R#. NO default, for the same reason. */
+export const SP_CUSTOMER_QUOTES_LIST_ID: string | undefined =
+  import.meta.env.VITE_SP_CUSTOMER_QUOTES_LIST_ID || undefined;
+
+/** Are the New Product Pricing lists all there? Mock mode always is. */
+export const NEW_PRODUCT_PRICING_CONFIGURED = USE_MOCK || !!SP_NP_SUBASSEMBLIES_LIST_ID;
+export const CUSTOMER_QUOTES_CONFIGURED = USE_MOCK || !!SP_CUSTOMER_QUOTES_LIST_ID;
+
+/**
  * Sales Pricing is IN REVIEW until this is "true" (Ray, 2026-10-13: "grant me
  * exclusive access so I can review it"). While it isn't, only the addresses
  * in PRICING_PREVIEW_USERS can see or open the tool — whatever the Pricing

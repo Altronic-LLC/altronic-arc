@@ -1,11 +1,13 @@
 import type { Comment, Person } from "@/types/task";
 import type {
+  CustomerQuote,
   NewProductWorksheet,
   PricingHistoryRecord,
   PricingRequest,
   PricingRoleEntry,
   SapCustomer,
   SapPart,
+  SubAssembly,
 } from "@/types/pricing";
 
 // =============================================================================
@@ -280,16 +282,11 @@ export const MOCK_PRICING_HISTORY: PricingHistoryRecord[] = [
 ];
 
 // -----------------------------------------------------------------------------
-// New Product Pricing
+// New Product Pricing — worksheets, built from sub-assemblies
 // -----------------------------------------------------------------------------
 
-const BOM_R2 = [
-  { id: "l1", partNumber: "410022-1", description: "ENCLOSURE, ALUMINIUM, CPU-95", quantity: 1, unitCost: 186, costSource: "SAP" as const },
-  { id: "l2", partNumber: "701230", description: "IC, MICROCONTROLLER, 32-BIT", quantity: 2, unitCost: 11.6, costSource: "SAP" as const },
-  { id: "l3", partNumber: "601018", description: "RESISTOR, 4K7, 1/4W", quantity: 48, unitCost: 0.04, costSource: "SAP" as const },
-  { id: "l4", partNumber: "NEW-PCB-24", description: "MAIN BOARD, 24 CYL (prototype quote)", quantity: 1, unitCost: 640, costSource: "Estimate" as const },
-  { id: "l5", partNumber: "NEW-COIL-24", description: "OUTPUT TRANSFORMER SET (supplier estimate)", quantity: 1, unitCost: 410, costSource: "Estimate" as const },
-];
+const SAVED_BY_BRANDON = { displayName: BRANDON.displayName, email: BRANDON.email ?? "" };
+const SAVED_BY_RAY = { displayName: RAY.displayName, email: RAY.email ?? "" };
 
 export const MOCK_NEW_PRODUCT_WORKSHEETS: NewProductWorksheet[] = [
   {
@@ -303,15 +300,14 @@ export const MOCK_NEW_PRODUCT_WORKSHEETS: NewProductWorksheet[] = [
     customerName: "Power Solutions Supply",
     expectedAnnualVolume: 60,
     requestId: 4,
-    bom: BOM_R2,
     overheadPct: 22,
     mpg: "IGN",
     distributorDiscountPct: 36,
     discountSource: "SAP",
     targetGM: 45,
-    unitCost: 1520.55,
-    listPrice: 4319,
-    baseGM: 45.0,
+    unitCost: 817.24,
+    listPrice: 2322,
+    baseGM: 45.01,
     priceBreaks: [
       { minQty: 10, discountPct: 5 },
       { minQty: 50, discountPct: 10 },
@@ -322,36 +318,46 @@ export const MOCK_NEW_PRODUCT_WORKSHEETS: NewProductWorksheet[] = [
       {
         rev: 1,
         savedAt: "2026-10-08T16:00:00Z",
-        savedBy: { displayName: BRANDON.displayName, email: BRANDON.email ?? "" },
-        note: "First costing from the engineering BOM.",
-        bom: BOM_R2.map((l) => (l.id === "l4" ? { ...l, unitCost: 720 } : l)),
+        savedBy: SAVED_BY_BRANDON,
+        note: "First costing from the engineering sub-assembly BOMs.",
+        subAssemblies: [
+          { name: "Main board", quantityPerProduct: 1, lineCount: 4, uploadedCost: 249.67, cost: 249.67 },
+          { name: "Output coil set", quantityPerProduct: 1, lineCount: 2, uploadedCost: 242.8, cost: 242.8 },
+          { name: "Enclosure", quantityPerProduct: 1, lineCount: 3, uploadedCost: 205.25, cost: 205.25 },
+        ],
         overheadPct: 22,
-        unitCost: 1618.15,
+        uploadedUnitCost: 851.22,
+        unitCost: 851.22,
         mpg: "IGN",
         distributorDiscountPct: 36,
         discountSource: "SAP",
         input: { kind: "gm", value: 45 },
-        listPrice: 4597,
+        listPrice: 2418,
         baseGM: 45.0,
-        priceBreaks: [{ minQty: 10, discountPct: 5, price: 4367, baseGM: 42.1 }],
+        priceBreaks: [{ minQty: 10, discountPct: 5, price: 2297, baseGM: 42.1 }],
       },
       {
         rev: 2,
         savedAt: "2026-10-12T10:45:00Z",
-        savedBy: { displayName: RAY.displayName, email: RAY.email ?? "" },
-        note: "Board quote came in lower ($640 vs $720); added a 50+ break.",
-        bom: BOM_R2,
+        savedBy: SAVED_BY_RAY,
+        note: "Bare board quoted lower ($185 vs $210) and a cheaper hardware kit; added a 50+ break.",
+        subAssemblies: [
+          { name: "Main board", quantityPerProduct: 1, lineCount: 4, uploadedCost: 249.67, cost: 224.67 },
+          { name: "Output coil set", quantityPerProduct: 1, lineCount: 2, uploadedCost: 242.8, cost: 242.8 },
+          { name: "Enclosure", quantityPerProduct: 1, lineCount: 3, uploadedCost: 205.25, cost: 202.4 },
+        ],
         overheadPct: 22,
-        unitCost: 1520.55,
+        uploadedUnitCost: 851.22,
+        unitCost: 817.24,
         mpg: "IGN",
         distributorDiscountPct: 36,
         discountSource: "SAP",
         input: { kind: "gm", value: 45 },
-        listPrice: 4319,
-        baseGM: 45.0,
+        listPrice: 2322,
+        baseGM: 45.01,
         priceBreaks: [
-          { minQty: 10, discountPct: 5, price: 4103, baseGM: 42.1 },
-          { minQty: 50, discountPct: 10, price: 3887, baseGM: 38.9 },
+          { minQty: 10, discountPct: 5, price: 2206, baseGM: 42.11 },
+          { minQty: 50, discountPct: 10, price: 2090, baseGM: 38.9 },
         ],
       },
     ],
@@ -367,21 +373,17 @@ export const MOCK_NEW_PRODUCT_WORKSHEETS: NewProductWorksheet[] = [
     status: "Active",
     rev: 1,
     productName: "DE-3000 remote display, sealed",
-    description: "Sealed remote display for wash-down skids. Early estimate.",
+    description: "Sealed remote display for wash-down skids. Early estimate — not priced yet.",
     customerSoldTo: "",
     customerName: "",
     expectedAnnualVolume: 120,
     requestId: null,
-    bom: [
-      { id: "l1", partNumber: "690100-1", description: "DE-3000 DISPLAY MODULE", quantity: 1, unitCost: 760, costSource: "SAP" },
-      { id: "l2", partNumber: "NEW-GASKET-IP67", description: "IP67 GASKET KIT (estimate)", quantity: 1, unitCost: 38, costSource: "Estimate" },
-    ],
     overheadPct: 15,
     mpg: "",
     distributorDiscountPct: 34,
     discountSource: "Default",
     targetGM: null,
-    unitCost: 917.7,
+    unitCost: null,
     listPrice: null,
     baseGM: null,
     priceBreaks: [],
@@ -396,6 +398,157 @@ export const MOCK_NEW_PRODUCT_WORKSHEETS: NewProductWorksheet[] = [
   },
 ];
 
+const UPLOAD_R1 = { uploadedAt: "2026-10-08T15:40:00Z", uploadedBy: SAVED_BY_BRANDON };
+
+const BOARD_LINES = [
+  { partNumber: "701230", description: "IC, MICROCONTROLLER, 32-BIT", quantity: 2, uploadedCost: 11.6, adjustedCost: null },
+  { partNumber: "601018", description: "RESISTOR, 4K7, 1/4W", quantity: 48, uploadedCost: 0.04, adjustedCost: null },
+  { partNumber: "PCB-24-BARE", description: "BARE BOARD, 24 CYL MAIN", quantity: 1, uploadedCost: 210, adjustedCost: null },
+  { partNumber: "CON-12P", description: "CONNECTOR, 12-PIN", quantity: 3, uploadedCost: 4.85, adjustedCost: null },
+];
+const COIL_LINES = [
+  { partNumber: "COIL-24-OUT", description: "COIL, OUTPUT, 24 CYL", quantity: 12, uploadedCost: 18.4, adjustedCost: null },
+  { partNumber: "BRKT-COIL", description: "BRACKET, COIL MOUNT", quantity: 1, uploadedCost: 22, adjustedCost: null },
+];
+const ENCLOSURE_LINES = [
+  { partNumber: "410022-1", description: "ENCLOSURE, ALUMINIUM, CPU-95", quantity: 1, uploadedCost: 186, adjustedCost: null },
+  { partNumber: "GSK-410", description: "GASKET, ENCLOSURE", quantity: 1, uploadedCost: 6.5, adjustedCost: null },
+  { partNumber: "HW-KIT-95", description: "HARDWARE KIT", quantity: 1, uploadedCost: 12.75, adjustedCost: null },
+];
+
+function adjust<T extends { partNumber: string; adjustedCost: number | null }>(lines: T[], pn: string, cost: number): T[] {
+  return lines.map((l) => (l.partNumber === pn ? { ...l, adjustedCost: cost } : l));
+}
+
+/** Rows of NP Sub-Assemblies — R1 and R2 of NP-2026-0001 (R1 is never rewritten), and R1 of NP-2026-0002. */
+export const MOCK_SUB_ASSEMBLIES: SubAssembly[] = [
+  { id: 1, worksheetId: 1, rev: 1, name: "Main board", sortOrder: 1, quantityPerProduct: 1, lines: BOARD_LINES, linesCorrupt: false, fileName: "main-board-bom.csv", ...UPLOAD_R1 },
+  { id: 2, worksheetId: 1, rev: 1, name: "Output coil set", sortOrder: 2, quantityPerProduct: 1, lines: COIL_LINES, linesCorrupt: false, fileName: "coil-set-bom.csv", ...UPLOAD_R1 },
+  { id: 3, worksheetId: 1, rev: 1, name: "Enclosure", sortOrder: 3, quantityPerProduct: 1, lines: ENCLOSURE_LINES, linesCorrupt: false, fileName: "enclosure-bom.csv", ...UPLOAD_R1 },
+  { id: 4, worksheetId: 1, rev: 2, name: "Main board", sortOrder: 1, quantityPerProduct: 1, lines: adjust(BOARD_LINES, "PCB-24-BARE", 185), linesCorrupt: false, fileName: "main-board-bom.csv", ...UPLOAD_R1 },
+  { id: 5, worksheetId: 1, rev: 2, name: "Output coil set", sortOrder: 2, quantityPerProduct: 1, lines: COIL_LINES, linesCorrupt: false, fileName: "coil-set-bom.csv", ...UPLOAD_R1 },
+  { id: 6, worksheetId: 1, rev: 2, name: "Enclosure", sortOrder: 3, quantityPerProduct: 1, lines: adjust(ENCLOSURE_LINES, "HW-KIT-95", 9.9), linesCorrupt: false, fileName: "enclosure-bom.csv", ...UPLOAD_R1 },
+  {
+    id: 7,
+    worksheetId: 2,
+    rev: 1,
+    name: "Display assembly",
+    sortOrder: 1,
+    quantityPerProduct: 1,
+    lines: [
+      { partNumber: "690100-1", description: "DE-3000 DISPLAY MODULE", quantity: 1, uploadedCost: 760, adjustedCost: null },
+      { partNumber: "GSK-IP67", description: "IP67 GASKET KIT", quantity: 1, uploadedCost: 38, adjustedCost: null },
+      { partNumber: "LENS-SEAL", description: "SEALED LENS", quantity: 1, uploadedCost: null, adjustedCost: null },
+    ],
+    linesCorrupt: false,
+    fileName: "display-assy.csv",
+    uploadedAt: "2026-10-13T08:05:00Z",
+    uploadedBy: { displayName: DEMO.displayName, email: DEMO.email ?? "" },
+  },
+];
+
+// -----------------------------------------------------------------------------
+// Customer Quotes
+// -----------------------------------------------------------------------------
+
+export const MOCK_CUSTOMER_QUOTES: CustomerQuote[] = [
+  {
+    id: 1,
+    quoteNumber: "SQ-2026-0001-R1",
+    quoteBase: "SQ-2026-0001",
+    rev: 1,
+    status: "Sent",
+    validityDays: 30,
+    customer: {
+      soldTo: "0004410",
+      name: "Power Solutions Supply",
+      customerGroup: "DI",
+      contactName: "Dana Ortiz",
+      contactEmail: "dana.ortiz@example.com",
+    },
+    lines: [
+      {
+        // Priced from R1 — the worksheet has since moved to R2, so it offers an update.
+        id: "q1-l1",
+        kind: "worksheet",
+        partNumber: "NP-2026-0001",
+        description: "CPU-95 24-cylinder ignition module",
+        quantity: 10,
+        listPrice: 2418,
+        customerDiscountPct: 34,
+        unitPrice: 1595.88,
+        breaks: [{ minQty: 10, price: 1516.02 }],
+        worksheetId: 1,
+        worksheetNumber: "NP-2026-0001",
+        worksheetRev: 1,
+      },
+      {
+        id: "q1-l2",
+        kind: "sapPart",
+        partNumber: "593027-25",
+        description: "HARNESS, CPU-95, 25 FT",
+        quantity: 10,
+        listPrice: 480,
+        customerDiscountPct: 34,
+        unitPrice: 316.8,
+        breaks: [],
+        sapPartNumber: "2001-0310-25",
+      },
+      {
+        id: "q1-l3",
+        kind: "free",
+        partNumber: "",
+        description: "Freight, prepaid and added",
+        quantity: 1,
+        listPrice: null,
+        customerDiscountPct: null,
+        unitPrice: 85,
+        breaks: [],
+      },
+    ],
+    linesCorrupt: false,
+    notes: "Prices are for the 24-cylinder module as specified in your RFQ of 7 October.",
+    comments: [comment("2026-10-09T14:00:00Z", BRANDON, "<p>Sent to Dana today.</p>")],
+    watchers: [BRANDON, DEMO],
+    hasAttachments: false,
+    createdBy: BRANDON,
+    createdAt: "2026-10-09T13:30:00Z",
+    modifiedAt: "2026-10-09T14:00:00Z",
+  },
+  {
+    id: 2,
+    quoteNumber: "SQ-2026-0002-R1",
+    quoteBase: "SQ-2026-0002",
+    rev: 1,
+    status: "Draft",
+    validityDays: 45,
+    customer: { soldTo: "0001042", name: "Cooper Machinery Services", customerGroup: "OE", contactName: "", contactEmail: "" },
+    lines: [
+      {
+        id: "q2-l1",
+        kind: "request",
+        partNumber: "791950-16",
+        description: "CPU-95 IGNITION MODULE, 16 CYL",
+        quantity: 40,
+        listPrice: 4120,
+        customerDiscountPct: 20,
+        unitPrice: 3296,
+        breaks: [],
+        requestId: 1,
+        requestNumber: "PR-2026-0001",
+        sapPartNumber: "1003-0114-16",
+      },
+    ],
+    linesCorrupt: false,
+    notes: "",
+    comments: [],
+    watchers: [DEMO],
+    hasAttachments: false,
+    createdBy: DEMO,
+    createdAt: "2026-10-13T09:00:00Z",
+    modifiedAt: "2026-10-13T09:00:00Z",
+  },
+];
 // -----------------------------------------------------------------------------
 // The mutable store
 // -----------------------------------------------------------------------------
@@ -417,6 +570,8 @@ export const pricingMockDb = {
   requests: clone(MOCK_PRICING_REQUESTS),
   history: clone(MOCK_PRICING_HISTORY),
   worksheets: clone(MOCK_NEW_PRODUCT_WORKSHEETS),
+  subAssemblies: clone(MOCK_SUB_ASSEMBLIES),
+  quotes: clone(MOCK_CUSTOMER_QUOTES),
   sapParts: clone(MOCK_SAP_PARTS),
 };
 
@@ -426,6 +581,8 @@ export function __resetPricingMockStores(): void {
   pricingMockDb.requests = clone(MOCK_PRICING_REQUESTS);
   pricingMockDb.history = clone(MOCK_PRICING_HISTORY);
   pricingMockDb.worksheets = clone(MOCK_NEW_PRODUCT_WORKSHEETS);
+  pricingMockDb.subAssemblies = clone(MOCK_SUB_ASSEMBLIES);
+  pricingMockDb.quotes = clone(MOCK_CUSTOMER_QUOTES);
   pricingMockDb.sapParts = clone(MOCK_SAP_PARTS);
 }
 

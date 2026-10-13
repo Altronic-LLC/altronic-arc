@@ -63,7 +63,7 @@ export function parseRevisionHistory(raw: unknown): { entries: NewProductRevisio
   const { entries, corrupt } = parseArray(raw);
   return {
     entries: entries
-      .filter((e): e is NewProductRevision => isObject(e) && typeof e.rev === "number" && Array.isArray(e.bom))
+      .filter((e): e is NewProductRevision => isObject(e) && typeof e.rev === "number" && Array.isArray(e.subAssemblies))
       .sort((a, b) => a.rev - b.rev),
     corrupt,
   };

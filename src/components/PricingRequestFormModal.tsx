@@ -3,12 +3,11 @@ import { Loader2, X } from "lucide-react";
 import type { Person } from "@/types/task";
 import type { SapCustomer } from "@/types/pricing";
 import { useCreatePricingRequest } from "@/hooks/usePricingRequests";
-import { useSapCustomerSearch } from "@/hooks/usePricingLookup";
-import { SAP_DATA_CONNECTED } from "@/api/pricingLookup";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { mergePeople, personKey } from "@/lib/people";
 import { SingleSelect } from "./SearchableSelect";
+import { SapCustomerPicker } from "./SapCustomerPicker";
 import { useOverlayDismiss } from "./useOverlayDismiss";
 
 // =============================================================================
@@ -39,12 +38,7 @@ export function PricingRequestFormModal({
   const [notes, setNotes] = useState("");
   const [requesterKey, setRequesterKey] = useState<string | null>(personKey(me));
   const [customer, setCustomer] = useState<SapCustomer | null>(null);
-  const [customerQuery, setCustomerQuery] = useState("");
-  const [manual, setManual] = useState<SapCustomer>({ soldTo: "", name: "", customerGroup: "" });
   const [error, setError] = useState<string | null>(null);
-
-  const search = useSapCustomerSearch(customer ? "" : customerQuery);
-  const typingCustomer = !SAP_DATA_CONNECTED || search.notConnected;
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -66,11 +60,7 @@ export function PricingRequestFormModal({
   );
   const requester: Person | null = people.find((p) => personKey(p) === requesterKey) ?? null;
 
-  const chosen: SapCustomer | null = typingCustomer
-    ? manual.name.trim()
-      ? manual
-      : null
-    : customer;
+  const chosen = customer && customer.name.trim() ? customer : null;
 
   const missing = [
     !altronic.trim() && "Altronic part #",
@@ -150,77 +140,7 @@ export function PricingRequestFormModal({
             <span className="font-semibold uppercase tracking-wider text-fg-muted">
               Customer <span className="text-cooper-red">*</span>
             </span>
-            {typingCustomer ? (
-              <>
-                <p className="rounded-md border border-ajax-yellow/40 bg-ajax-yellow/10 px-2 py-1.5 text-[11px] text-fg">
-                  SAP customer lookup isn't connected yet — type the customer in.
-                </p>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                  <input
-                    aria-label="Sold-to number"
-                    placeholder="Sold-to #"
-                    value={manual.soldTo}
-                    onChange={(e) => setManual({ ...manual, soldTo: e.target.value })}
-                    className="input"
-                  />
-                  <input
-                    aria-label="Customer name"
-                    placeholder="Customer name"
-                    value={manual.name}
-                    onChange={(e) => setManual({ ...manual, name: e.target.value })}
-                    className="input sm:col-span-2"
-                  />
-                </div>
-                <input
-                  aria-label="Customer group"
-                  placeholder="Customer group (decides their discount)"
-                  value={manual.customerGroup}
-                  onChange={(e) => setManual({ ...manual, customerGroup: e.target.value })}
-                  className="input"
-                />
-              </>
-            ) : customer ? (
-              <div className="flex items-center justify-between gap-2 rounded-md border border-border bg-surface-2/50 px-3 py-2 text-sm">
-                <span className="min-w-0">
-                  <span className="font-medium text-fg">{customer.name}</span>
-                  <span className="ml-2 font-mono text-xs text-fg-muted">{customer.soldTo}</span>
-                  <span className="ml-2 text-xs text-fg-muted">group {customer.customerGroup || "—"}</span>
-                </span>
-                <button type="button" onClick={() => setCustomer(null)} className="text-xs text-accent hover:underline">
-                  Change
-                </button>
-              </div>
-            ) : (
-              <>
-                <input
-                  aria-label="Search SAP customers"
-                  placeholder="Search SAP customers by name or sold-to #…"
-                  value={customerQuery}
-                  onChange={(e) => setCustomerQuery(e.target.value)}
-                  className="input"
-                />
-                {customerQuery.trim().length >= 2 && (
-                  <ul className="max-h-48 overflow-y-auto rounded-md border border-border" role="listbox" aria-label="SAP customers">
-                    {search.isLoading && <li className="px-3 py-2 text-fg-muted">Searching…</li>}
-                    {search.data?.length === 0 && <li className="px-3 py-2 text-fg-muted">No SAP customer matches.</li>}
-                    {search.data?.map((c) => (
-                      <li key={c.soldTo}>
-                        <button
-                          type="button"
-                          role="option"
-                          aria-selected={false}
-                          onClick={() => setCustomer(c)}
-                          className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-surface-2"
-                        >
-                          <span className="text-fg">{c.name}</span>
-                          <span className="font-mono text-xs text-fg-muted">{c.soldTo}</span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </>
-            )}
+            <SapCustomerPicker value={customer} onChange={setCustomer} />
           </div>
 
           <Field label="Notes" hint="Context for the pricing manager — volumes, timing, what the customer asked for.">

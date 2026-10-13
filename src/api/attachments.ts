@@ -19,6 +19,7 @@ import {
   SP_PMO_SITE_URL,
   SP_PRICING_REQUESTS_LIST_ID,
   SP_NEW_PRODUCT_PRICING_LIST_ID,
+  SP_CUSTOMER_QUOTES_LIST_ID,
   SP_QUOTES_LIST_ID,
   SP_QUOTE_ITEMS_LIST_ID,
   SP_SALESTEAM_SITE_URL,
@@ -82,7 +83,8 @@ export type AttachmentParent =
   | "quote"
   | "quoteItem"
   | "pricingRequest"
-  | "newProductPricing";
+  | "newProductPricing"
+  | "customerQuote";
 
 interface ParentConfig {
   listId: string | undefined;
@@ -239,6 +241,11 @@ const PARENT_CONFIG: Record<AttachmentParent, ParentConfig> = {
     listId: SP_NEW_PRODUCT_PRICING_LIST_ID,
     siteUrl: SP_SALESTEAM_SITE_URL,
     listIdEnvVar: "VITE_SP_NEW_PRODUCT_PRICING_LIST_ID",
+  },
+  customerQuote: {
+    listId: SP_CUSTOMER_QUOTES_LIST_ID,
+    siteUrl: SP_SALESTEAM_SITE_URL,
+    listIdEnvVar: "VITE_SP_CUSTOMER_QUOTES_LIST_ID",
   },
 };
 

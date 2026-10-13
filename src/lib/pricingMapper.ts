@@ -4,8 +4,14 @@ import {
   DISCOUNT_SOURCES,
   NEW_PRODUCT_STATUSES,
   PRICING_REQUEST_STATUSES,
-  type BomLine,
+  CUSTOMER_QUOTE_STATUSES,
   type CostSource,
+  type CustomerQuote,
+  type CustomerQuoteLine,
+  type CustomerQuoteStatus,
+  type QuoteCustomerInfo,
+  type SubAssembly,
+  type SubAssemblyLine,
   type DiscountSource,
   type NewProductStatus,
   type NewProductWorksheet,
@@ -22,9 +28,11 @@ import { personOrLookup } from "./faitMapper";
 import { parsePricingRoles, serializePricingRoles } from "./pricingRoles";
 import { parsePricingHistory, parseRevisionHistory } from "./pricingHistory";
 import { STANDARD_DISTRIBUTOR_DISCOUNT_PCT } from "./pricingMath";
+import { parseSubAssemblyLines } from "./subAssemblyCsv";
+import { parseQuoteCustomer, parseQuoteLines } from "./customerQuotes";
 
 // =============================================================================
-// Sales Pricing — Graph item ⇄ domain, for the four lists on ALTRONICSALESTEAM.
+// Sales Pricing — Graph item ⇄ domain, for the six lists on ALTRONICSALESTEAM.
 //
 // The internal names are the contract with scripts/create-pricing-lists.ps1.
 // Never `$select` a column that isn't there: one missing column 400s the
@@ -106,7 +114,6 @@ export const NEW_PRODUCT_SELECT = [
   "ExpectedAnnualVolume",
   "RequestRef",
   "RequestRefLookupId",
-  "Bom",
   "OverheadPct",
   "Mpg",
   "DistributorDiscountPct",
@@ -408,29 +415,7 @@ export function toPricingHistoryRecord(item: GraphListItem): PricingHistoryRecor
 // New Product Pricing
 // -----------------------------------------------------------------------------
 
-/** `Bom` JSON → lines. Tolerant: junk is `[]`, a line without a part number keeps a blank one. */
-export function parseBom(raw: unknown): BomLine[] {
-  if (typeof raw !== "string" || !raw.trim()) return [];
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return [];
-  }
-  if (!Array.isArray(parsed)) return [];
-  return parsed
-    .filter((l): l is Record<string, unknown> => !!l && typeof l === "object")
-    .map((l, i) => ({
-      id: typeof l.id === "string" && l.id ? l.id : `line-${i + 1}`,
-      partNumber: text(l.partNumber),
-      description: text(l.description),
-      quantity: num(l.quantity) ?? 0,
-      unitCost: num(l.unitCost),
-      costSource: l.costSource === "SAP" ? "SAP" : "Estimate",
-    }));
-}
-
-/** `PriceBreaks` JSON → tiers, sorted. Tolerant like `parseBom`. */
+/** `PriceBreaks` JSON → tiers, sorted. Tolerant: junk is `[]`, a tier with no quantity is dropped. */
 export function parseBreakTiers(raw: unknown): PriceBreakTier[] {
   if (typeof raw !== "string" || !raw.trim()) return [];
   let parsed: unknown;
@@ -461,7 +446,6 @@ export function toNewProductWorksheet(item: GraphListItem): NewProductWorksheet 
     customerName: text(f.CustomerName).trim(),
     expectedAnnualVolume: num(f.ExpectedAnnualVolume),
     requestId: lookupId(f, "RequestRef"),
-    bom: parseBom(f.Bom),
     overheadPct: num(f.OverheadPct) ?? 0,
     mpg: text(f.Mpg).trim(),
     distributorDiscountPct: num(f.DistributorDiscountPct) ?? STANDARD_DISTRIBUTOR_DISCOUNT_PCT,
@@ -492,7 +476,6 @@ export type NewProductPatch = Partial<
     | "customerSoldTo"
     | "customerName"
     | "expectedAnnualVolume"
-    | "bom"
     | "overheadPct"
     | "mpg"
     | "distributorDiscountPct"
@@ -519,7 +502,6 @@ export function buildNewProductFields(patch: NewProductPatch): Record<string, un
   set("CustomerSoldTo", patch.customerSoldTo?.trim());
   set("CustomerName", patch.customerName?.trim());
   set("ExpectedAnnualVolume", patch.expectedAnnualVolume);
-  if (patch.bom !== undefined) out.Bom = JSON.stringify(patch.bom);
   set("OverheadPct", patch.overheadPct);
   set("Mpg", patch.mpg?.trim());
   set("DistributorDiscountPct", patch.distributorDiscountPct);
@@ -545,4 +527,155 @@ export function applyNewProductPatch(ws: NewProductWorksheet, patch: NewProductP
 
 export function compareWorksheets(a: NewProductWorksheet, b: NewProductWorksheet): number {
   return (b.createdAt ?? "").localeCompare(a.createdAt ?? "") || b.id - a.id;
+}
+
+// -----------------------------------------------------------------------------
+// NP Sub-Assemblies
+// -----------------------------------------------------------------------------
+
+export const SUB_ASSEMBLY_SELECT = [
+  "Title",
+  "WorksheetRef",
+  "WorksheetRefLookupId",
+  "Rev",
+  "SortOrder",
+  "QuantityPerProduct",
+  "Lines",
+  "FileName",
+  "UploadedAt",
+  "UploadedByName",
+  "UploadedByEmail",
+].join(",");
+
+export function toSubAssembly(item: GraphListItem): SubAssembly {
+  const f = item.fields ?? {};
+  const { lines, corrupt } = parseSubAssemblyLines(f.Lines);
+  const byName = text(f.UploadedByName).trim();
+  const byEmail = text(f.UploadedByEmail).trim();
+  return {
+    id: parseInt(item.id, 10),
+    worksheetId: lookupId(f, "WorksheetRef") ?? 0,
+    rev: Math.max(1, Math.trunc(num(f.Rev) ?? 1)),
+    name: text(f.Title).trim(),
+    sortOrder: num(f.SortOrder) ?? 0,
+    quantityPerProduct: num(f.QuantityPerProduct) ?? 1,
+    lines,
+    linesCorrupt: corrupt,
+    fileName: text(f.FileName).trim(),
+    uploadedAt: isoOrNull(f.UploadedAt),
+    uploadedBy: byName || byEmail ? { displayName: byName || byEmail, email: byEmail } : null,
+  };
+}
+
+export interface SubAssemblyFields {
+  name?: string;
+  sortOrder?: number;
+  quantityPerProduct?: number;
+  lines?: SubAssemblyLine[];
+  fileName?: string;
+  uploadedAt?: string | null;
+  uploadedBy?: { displayName: string; email: string } | null;
+}
+
+/** Columns for a sub-assembly write. `Lines` is serialised here, once. */
+export function buildSubAssemblyFields(input: SubAssemblyFields): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (input.name !== undefined) out.Title = input.name.trim();
+  if (input.sortOrder !== undefined) out.SortOrder = input.sortOrder;
+  if (input.quantityPerProduct !== undefined) out.QuantityPerProduct = input.quantityPerProduct;
+  if (input.lines !== undefined) out.Lines = JSON.stringify(input.lines);
+  if (input.fileName !== undefined) out.FileName = input.fileName;
+  if (input.uploadedAt !== undefined) out.UploadedAt = input.uploadedAt;
+  if (input.uploadedBy !== undefined) {
+    out.UploadedByName = input.uploadedBy?.displayName ?? "";
+    out.UploadedByEmail = input.uploadedBy?.email ?? "";
+  }
+  return out;
+}
+
+// -----------------------------------------------------------------------------
+// Customer Quotes
+// -----------------------------------------------------------------------------
+
+export const CUSTOMER_QUOTE_SELECT = [
+  "Title",
+  "QuoteBase",
+  "Rev",
+  "Status",
+  "ValidityDays",
+  "CustomerSoldTo",
+  "CustomerName",
+  "Customer",
+  "Lines",
+  "QuoteNotes",
+  "Communication",
+  "Watchers",
+  "Attachments",
+].join(",");
+
+export function toCustomerQuote(item: GraphListItem): CustomerQuote {
+  const f = item.fields ?? {};
+  const { lines, corrupt } = parseQuoteLines(f.Lines);
+  const customer = parseQuoteCustomer(f.Customer);
+  // The plain columns are what SharePoint's views show; the JSON is the record.
+  // Fall back to the columns if the JSON is missing its name.
+  if (!customer.name) customer.name = text(f.CustomerName).trim();
+  if (!customer.soldTo) customer.soldTo = text(f.CustomerSoldTo).trim();
+  const quoteNumber = text(f.Title).trim();
+  return {
+    id: parseInt(item.id, 10),
+    quoteNumber,
+    quoteBase: text(f.QuoteBase).trim() || quoteNumber.replace(/-R\d+$/i, ""),
+    rev: Math.max(1, Math.trunc(num(f.Rev) ?? 1)),
+    status: oneOf<CustomerQuoteStatus>(f.Status, CUSTOMER_QUOTE_STATUSES, "Draft"),
+    validityDays: Math.max(1, Math.trunc(num(f.ValidityDays) ?? 30)),
+    customer,
+    lines,
+    linesCorrupt: corrupt,
+    notes: text(f.QuoteNotes),
+    comments: parseCommunication(text(f.Communication)),
+    watchers: parsePersonField(f.Watchers),
+    hasAttachments: f.Attachments === true,
+    createdBy: parseCreatedBy(item),
+    createdAt: item.createdDateTime ?? null,
+    modifiedAt: item.lastModifiedDateTime ?? null,
+  };
+}
+
+export interface CustomerQuotePatch {
+  status?: CustomerQuoteStatus;
+  validityDays?: number;
+  customer?: QuoteCustomerInfo;
+  lines?: CustomerQuoteLine[];
+  notes?: string;
+}
+
+/** Columns for a quote write. The customer is written as JSON AND as its two plain columns. */
+export function buildCustomerQuoteFields(patch: CustomerQuotePatch): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (patch.status !== undefined) out.Status = patch.status;
+  if (patch.validityDays !== undefined) out.ValidityDays = patch.validityDays;
+  if (patch.customer !== undefined) {
+    out.Customer = JSON.stringify(patch.customer);
+    out.CustomerSoldTo = patch.customer.soldTo.trim();
+    out.CustomerName = patch.customer.name.trim();
+  }
+  if (patch.lines !== undefined) out.Lines = JSON.stringify(patch.lines);
+  if (patch.notes !== undefined) out.QuoteNotes = patch.notes;
+  return out;
+}
+
+export function applyCustomerQuotePatch(q: CustomerQuote, patch: CustomerQuotePatch): CustomerQuote {
+  return {
+    ...q,
+    ...(patch.status !== undefined && { status: patch.status }),
+    ...(patch.validityDays !== undefined && { validityDays: patch.validityDays }),
+    ...(patch.customer !== undefined && { customer: { ...patch.customer } }),
+    ...(patch.lines !== undefined && { lines: patch.lines.map((l) => ({ ...l })) }),
+    ...(patch.notes !== undefined && { notes: patch.notes }),
+  };
+}
+
+export function compareCustomerQuotes(a: CustomerQuote, b: CustomerQuote): number {
+  return b.quoteBase.localeCompare(a.quoteBase) || b.rev - a.rev;
 }

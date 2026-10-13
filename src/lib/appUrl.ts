@@ -35,7 +35,8 @@ export type AppItemKind =
   | "altronicComponent"
   | "quote"
   | "pricingRequest"
-  | "newProductPricing";
+  | "newProductPricing"
+  | "customerQuote";
 
 const KIND_SEGMENTS: Record<AppItemKind, string> = {
   task: "task",
@@ -78,6 +79,7 @@ const KIND_SEGMENTS: Record<AppItemKind, string> = {
   // these segments are the contract between them and every email.
   pricingRequest: "sales/pricing/request",
   newProductPricing: "sales/pricing/new-product",
+  customerQuote: "sales/pricing/quote",
 };
 
 /** Absolute URL to an item's detail page in this app. */

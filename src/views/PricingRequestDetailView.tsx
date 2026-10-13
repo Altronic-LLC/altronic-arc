@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Ban, CheckCircle2, Loader2, RotateCcw, X } from "lucide-react";
+import { Ban, CheckCircle2, Download, FilePlus2, Loader2, RotateCcw, X } from "lucide-react";
 import type { Comment, Person } from "@/types/task";
 import {
   collectPricingPeople,
@@ -25,6 +25,11 @@ import { mergePeople, personKey } from "@/lib/people";
 import { formatMoney } from "@/lib/quoteMoney";
 import { isPermissionDenied } from "@/lib/listWriteErrors";
 import { SAP_DATA_CONNECTED } from "@/api/pricingLookup";
+import { NEW_PRODUCT_PRICING_CONFIGURED } from "@/api/config";
+import { downloadBlob } from "@/hooks/useQuotePdf";
+import { generatePricingPdf, pricingPdfFileName, requestPdfModel } from "@/lib/pricingPdf";
+import { pushToast } from "@/components/Toast";
+import { NewWorksheetFormModal } from "@/components/NewWorksheetFormModal";
 import { AttachmentsSection } from "@/components/AttachmentsSection";
 import { CommentComposer } from "@/components/CommentComposer";
 import { CommentThread } from "@/components/CommentThread";
@@ -77,7 +82,7 @@ function RequestDetail({ access }: { access: MyPricingAccess }) {
   const setWatchers = useSetPricingRequestWatchers();
   const startReview = useStartPricingReview();
   const reopen = useReopenPricingRequest();
-  const [dialog, setDialog] = useState<"sap" | "cancel" | null>(null);
+  const [dialog, setDialog] = useState<"sap" | "cancel" | "worksheet" | null>(null);
 
   // Submitted → In Review the first time a manager opens it. Once per page.
   const reviewStarted = useRef(false);
@@ -149,6 +154,16 @@ function RequestDetail({ access }: { access: MyPricingAccess }) {
     });
   }
 
+  async function downloadPdf() {
+    const model = requestPdfModel(r, { name: currentUser.displayName, email: currentUser.email ?? "" });
+    if (!model) return;
+    try {
+      downloadBlob(await generatePricingPdf(model), pricingPdfFileName(model));
+    } catch (err) {
+      pushToast({ message: `Couldn't build the PDF: ${err instanceof Error ? err.message : "unknown error"}`, variant: "error" });
+    }
+  }
+
   function toggledWatchers(person: Person): Person[] {
     const key = personKey(person);
     return r.watchers.some((p) => personKey(p) === key)
@@ -173,6 +188,20 @@ function RequestDetail({ access }: { access: MyPricingAccess }) {
           {r.status === "Awaiting SAP" && sapGate.allowed && (
             <ActionButton primary onClick={() => setDialog("sap")} icon={<CheckCircle2 className="h-4 w-4" />}>
               Added to SAP
+            </ActionButton>
+          )}
+          {r.status === "Priced" && r.listPrice !== null && (
+            <ActionButton onClick={() => void downloadPdf()} icon={<Download className="h-4 w-4" />}>
+              Customer PDF
+            </ActionButton>
+          )}
+          {canPrice && NEW_PRODUCT_PRICING_CONFIGURED && r.status !== "Cancelled" && (
+            <ActionButton
+              onClick={() => setDialog("worksheet")}
+              icon={<FilePlus2 className="h-4 w-4" />}
+              title="For a product that needs costing from its sub-assemblies"
+            >
+              Start new-product worksheet
             </ActionButton>
           )}
           {r.status === "Priced" && canPrice && (
@@ -321,6 +350,20 @@ function RequestDetail({ access }: { access: MyPricingAccess }) {
 
       {dialog === "sap" && <AddedToSapDialog requestId={r.id} partNumber={r.altronicPartNumber} onClose={() => setDialog(null)} />}
       {dialog === "cancel" && <CancelDialog requestId={r.id} number={r.requestNumber} onClose={() => setDialog(null)} />}
+      {dialog === "worksheet" && (
+        <NewWorksheetFormModal
+          onClose={() => setDialog(null)}
+          onSaved={(wsId) => navigate(`/sales/pricing/new-product/${wsId}`)}
+          prefill={{
+            requestId: r.id,
+            productName: r.description || r.altronicPartNumber,
+            description: [r.altronicPartNumber, r.notes].filter(Boolean).join(" — "),
+            customer: r.customerName
+              ? { soldTo: r.customerSoldTo, name: r.customerName, customerGroup: r.customerGroup }
+              : null,
+          }}
+        />
+      )}
     </PricingPage>
   );
 }
