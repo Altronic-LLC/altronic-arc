@@ -263,7 +263,7 @@ src/
 │   ├── directory.ts              Tenant staff directory (Graph /users) for the pickers
 │   ├── siteUsers.ts              Site user resolution — Graph UIL first, then "ensure user"
 │   ├── currentUser.ts            Resolve the signed-in user's SP lookupId
-│   ├── tasks.ts                  Engineering task CRUD
+│   ├── tasks.ts                  Engineering task CRUD + the Projects list (create / rename / delete)
 │   ├── taskColumns.ts            Task list column metadata / choice discovery
 │   ├── eirs.ts                   EIR CRUD
 │   ├── eirRoles.ts               EIR role tags (engineer / supply chain) CRUD
@@ -423,6 +423,7 @@ src/
 │   ├── useBusinessItIssues.ts    BusinessIT issue scan, create + link an existing one (Ray/Tim only; re-reads GitHub before writing)
 │   ├── useGitHubToken.ts         The person's GitHub token, in THIS browser's localStorage (never the bundle)
 │   ├── useWhereAmI.ts            Where am I? queries + mutations
+│   ├── useDeleteProject.ts       Delete an Engineering project — admin only, refused while anything still points at it
 │   ├── useEcns.ts                ECN queries + mutations (submitter-only notifications, admin-gated delete)
 │   ├── useEcnChecklists.ts       ECN Checklist queries + mutations (no admin gate)
 │   ├── useFaits.ts               FAIT queries + mutations
@@ -465,6 +466,7 @@ src/
 │   ├── taskMapper.ts             Graph item → Task
 │   ├── taskNumbering.ts          NumberedTitle computation (the app owns that column)
 │   ├── taskGraph.ts              Parent/child task relationships + cycle checks
+│   ├── projectUsage.ts           Which records still point at an Engineering project (the delete guard, pure)
 │   ├── taskFilters.ts            Pure task filter predicates
 │   ├── eirFilters.ts             Pure EIR filter/sort/count predicates (list + board)
 │   ├── eirMapper.ts              Graph item → Eir (field-name quirks)
@@ -1141,6 +1143,25 @@ The `Parent_x0020_Project_x0020_ReferLookupId` field is a SharePoint lookup
 into the "Projects" list, which IS identified:
 `6280c711-14f6-4546-b730-8781b9d3c960` (env `VITE_SP_PROJECTS_LIST_ID`, with
 that value as the built-in default). Project titles resolve today.
+
+**A project can be DELETED, by an ARC admin, once nothing points at it**
+(BusinessIT#41 — removing duplicate project references). `deleteProject` in
+`api/tasks.ts` does the DELETE; `useDeleteProject` (`hooks/useDeleteProject.ts`)
+is the only caller and asks two things inside its `mutationFn`: the Admins
+list (awaited, the harness pattern), and `projectUsage` (`lib/projectUsage.ts`)
+over tasks (parent + related), EIRs, ECNs, test sheets, build requests, build
+request parts, FAITs and project folders — any use REFUSES, naming the
+counts, so the admin re-points those records to the surviving project first.
+A dangling lookup would render as a project nobody can identify. Two rules:
+
+- **A list that can't be read refuses the delete.** "Couldn't look" must
+  never read as "nothing uses it".
+- **SCNs and CPU-95 are not checked**: SCNs store the project TITLE as text
+  (another site collection), and CPU-95's `ProjectTag` lookup isn't read by
+  ARC yet. Add it to `projectUsage` the day it is.
+
+The lists are re-read at most 30s old; the remaining race (somebody linking a
+record in the seconds before the DELETE) is stated, not closed.
 
 Kept because the discovery recipe below is the one to reuse for the NEXT lookup
 column on a list nobody has mapped yet:
@@ -3014,6 +3035,15 @@ needs notified"; Ray added the watchers). `grayMarketAlertChanges` +
 - **Its OWN env var**, `VITE_GRAY_MARKET_CHANGE_ALERTS` (default Alexandra
   Russell), not the intake list — re-pointing one must not re-point the
   other. In `deploy.yml` and `AdminNotificationRecipientsView`'s `LISTS`.
+
+**`PartManufacturer` ("Part Manufacturer") is REQUIRED on create only**
+(BusinessIT#8, Katie Fleming; column added by Ray, 2026-10-13). A plain
+single-line text column, NOT marked required in SharePoint — every request
+raised before it existed is blank, and the card editor (`FieldEditModal`)
+can't enforce a required field anyway. So the rule is the descriptor flag
+`requiredOnCreate`, read by `missingRequiredOnCreate` in the New Request form
+only. Its SharePoint display name carries a trailing space; the label in
+`grayMarketFields.ts` doesn't. It is in the intake email's details.
 
 **`Testing Required` lives on the ENGINEERING card** (BusinessIT#26,
 2026-10-10), not in the sidebar. It is Engineering's call. It isn't a

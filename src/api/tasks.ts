@@ -18,7 +18,7 @@ import { fromLabelsField, toLabelsField } from "@/lib/labels";
 import { MOCK_PROJECTS, MOCK_TASKS } from "@/data/mockData";
 import { autoWatchers } from "@/lib/people";
 import { parseWrittenDate } from "@/lib/dateInput";
-import { isEditConflict } from "@/lib/listWriteErrors";
+import { isEditConflict, isGone } from "@/lib/listWriteErrors";
 import { mockDelay } from "./mockLatency";
 
 // =============================================================================
@@ -929,4 +929,35 @@ export async function updateProject(
     { method: "PATCH", body: JSON.stringify({ Title: title }) },
   );
   return { lookupId, title };
+}
+
+/**
+ * Delete a project from the Projects list (BusinessIT#41 — removing a
+ * duplicate project reference).
+ *
+ * This does NOT check whether anything still points at the project — that
+ * needs eight other lists loaded, so it lives in `useDeleteProject`, which
+ * refuses first. Call this only through that hook.
+ *
+ * A 404 resolves: the project is already gone, which is what was asked for.
+ */
+export async function deleteProject(lookupId: number): Promise<void> {
+  if (USE_MOCK) {
+    mockProjectStore = mockProjectStore.filter((p) => p.lookupId !== lookupId);
+    saveMockProjectsToStorage();
+    return mockDelay(undefined);
+  }
+
+  const projectsListId = import.meta.env.VITE_SP_PROJECTS_LIST_ID;
+  if (!projectsListId) {
+    throw new Error("VITE_SP_PROJECTS_LIST_ID is not set — cannot delete projects in real mode.");
+  }
+  try {
+    await graphFetch(`/sites/${SP_SITE_ID}/lists/${projectsListId}/items/${lookupId}`, {
+      method: "DELETE",
+    });
+  } catch (err) {
+    if (isGone(err)) return;
+    throw err;
+  }
 }

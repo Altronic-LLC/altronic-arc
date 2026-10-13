@@ -58,7 +58,7 @@ import {
 } from "./mentionAutoWatch";
 import { parseWrittenDate } from "@/lib/dateInput";
 
-const EIRS_KEY = ["eirs", "list"] as const;
+export const EIRS_KEY = ["eirs", "list"] as const;
 
 export function useEirs() {
   return useQuery({

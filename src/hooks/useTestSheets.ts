@@ -8,7 +8,7 @@ import {
 import type { Person, TestSheet } from "@/types/task";
 import { pushToast } from "@/components/Toast";
 
-const TEST_SHEETS_KEY = ["testSheets", "list"] as const;
+export const TEST_SHEETS_KEY = ["testSheets", "list"] as const;
 
 export function useTestSheets() {
   return useQuery({

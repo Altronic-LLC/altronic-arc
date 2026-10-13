@@ -3839,7 +3839,7 @@ const SECTIONS: ManualSection[] = [
       "sign-off",
     ],
     searchText:
-      "Gray Market Requests at /supply-chain/gray-market-requests, under Supply Chain in the Departments menu, backed by the Gray Market Request list on the Altronic_PMO SharePoint site. A gray market request tracks a part bought outside normal distribution from the request through purchasing, engineering test, inspection and production sign-off. The list opens on Open requests with pills for Open / Complete / All, filters for Requestor and Testing Required, and an all-fields search. New Request asks only for the Title (the Altronic assembly number), request date and the purchasing details; the Log No. is generated as GMR_YYYY-###. Testing Required is on the form but optional — that call is made later in the workflow, so it can be left Not set; Engineering answers it on the request's Engineering card, where it is the first field and changes through that card's Edit button. Everything else is filled in on the request itself, in five cards — Request, Purchasing, Engineering, Inspection, Production — each card with one Edit button in its header that opens a box holding that stage's fields; Save changes writes only the fields you touched. Requests carry comments with @-mentions, watchers, and attachments. Changing Testing Required or any Engineering or Production field emails Alexandra Russell and the request's watchers with what changed. Whoever raises a request watches it. Raising a request emails Katie Fleming, Alexandra Russell and Glenn Terry — the intake list who pick a new request up — with the assembly number, vendor and PO details; the person who raised it is left off their own alert, and being on that list is not the same as watching the request. Requests cannot be deleted from ARC.",
+      "Gray Market Requests at /supply-chain/gray-market-requests, under Supply Chain in the Departments menu, backed by the Gray Market Request list on the Altronic_PMO SharePoint site. A gray market request tracks a part bought outside normal distribution from the request through purchasing, engineering test, inspection and production sign-off. The list opens on Open requests with pills for Open / Complete / All, filters for Requestor and Testing Required, and an all-fields search. New Request asks only for the Title (the Altronic assembly number), request date, the part manufacturer (required) and the purchasing details; the Log No. is generated as GMR_YYYY-###. Testing Required is on the form but optional — that call is made later in the workflow, so it can be left Not set; Engineering answers it on the request's Engineering card, where it is the first field and changes through that card's Edit button. Everything else is filled in on the request itself, in five cards — Request, Purchasing, Engineering, Inspection, Production — each card with one Edit button in its header that opens a box holding that stage's fields; Save changes writes only the fields you touched. Requests carry comments with @-mentions, watchers, and attachments. Changing Testing Required or any Engineering or Production field emails Alexandra Russell and the request's watchers with what changed. Whoever raises a request watches it. Raising a request emails Katie Fleming, Alexandra Russell and Glenn Terry — the intake list who pick a new request up — with the assembly number, part manufacturer, vendor and PO details; the person who raised it is left off their own alert, and being on that list is not the same as watching the request. Requests cannot be deleted from ARC.",
     render: () => (
       <>
         <P>
@@ -3858,8 +3858,10 @@ const SECTIONS: ManualSection[] = [
           <strong>New Request</strong> asks only for what's known at the start:
           the <strong>Title</strong> (the Altronic assembly number), the{" "}
           <strong>request date</strong>, and the purchasing details — vendor,
-          quantity, PO number, part numbers. The <strong>Log No.</strong>{" "}
-          (<code>GMR_2026-004</code>) is assigned on save; you never type it.
+          quantity, PO number, part numbers. <strong>Part Manufacturer</strong>{" "}
+          is required — the request won&apos;t save without it. The{" "}
+          <strong>Log No.</strong> (<code>GMR_2026-004</code>) is assigned on
+          save; you never type it.
         </P>
         <P>
           <strong>Testing Required</strong> is on the form but optional — that
@@ -3875,7 +3877,7 @@ const SECTIONS: ManualSection[] = [
           Raising a request also emails <strong>Katie Fleming</strong>,{" "}
           <strong>Alexandra Russell</strong> and <strong>Glenn Terry</strong> —
           the people who pick a new request up — with the assembly number,
-          vendor and PO details you filled in. You aren't emailed about your own
+          part manufacturer, vendor and PO details you filled in. You aren't emailed about your own
           request. Being on that list isn't the same as watching: they press{" "}
           <strong>Watch</strong> on a request to follow its comments and
           changes.
@@ -6326,7 +6328,7 @@ const SECTIONS: ManualSection[] = [
       "reorder quick links",
     ],
     searchText:
-      "Admins manage several things from the Admin section in the header: the list of admin users (/admin/admins), the Engineering Project Log — the master project list (/admin/projects), EIR roles (/admin/eir-roles) which control who can edit the Engineering Response (engineer role) and Buyer Code (supply chain role) fields on an EIR, the Operations Projects list (/admin/operations-projects) — the master project list for Operations tasks, Panel Projects and Panel User Roles, and Quick Links (/admin/quick-links) — button links shown above each department's cards on the Dashboard, grouped by department, reordered with up/down arrows within their own department, and shown to everyone signed in even though only admins can manage them. The Admin link only appears in the header for users on the admin list, and non-admins who open an /admin URL directly are sent back to the dashboard — the admin pages never show for them. Add an admin from the Admins page; their name appears in the header on their next sign-in. Removing yourself is disabled to prevent lockouts. A small hardcoded bootstrap set of admins stays in the code as a safety net.",
+      "Admins manage several things from the Admin section in the header: the list of admin users (/admin/admins), the Engineering Project Log — the master project list (/admin/projects), where a duplicate project can be deleted once nothing points at it any more, EIR roles (/admin/eir-roles) which control who can edit the Engineering Response (engineer role) and Buyer Code (supply chain role) fields on an EIR, the Operations Projects list (/admin/operations-projects) — the master project list for Operations tasks, Panel Projects and Panel User Roles, and Quick Links (/admin/quick-links) — button links shown above each department's cards on the Dashboard, grouped by department, reordered with up/down arrows within their own department, and shown to everyone signed in even though only admins can manage them. The Admin link only appears in the header for users on the admin list, and non-admins who open an /admin URL directly are sent back to the dashboard — the admin pages never show for them. Add an admin from the Admins page; their name appears in the header on their next sign-in. Removing yourself is disabled to prevent lockouts. A small hardcoded bootstrap set of admins stays in the code as a safety net.",
     render: () => (
       <>
         <P>
@@ -6370,6 +6372,16 @@ const SECTIONS: ManualSection[] = [
           the name live in the project title (e.g. <code>0017-AMP-5000 Refresh</code>),
           so one edit changes either — and if you change the leading number, the
           project moves to the matching table automatically.
+        </P>
+        <P>
+          To <strong>delete a project</strong> — usually a duplicate — hover it
+          and click the <strong>bin</strong>. ARC first checks the tasks, EIRs,
+          ECNs, test sheets, build requests, build request parts, FAITs and
+          project folders for anything still pointing at that project. If any
+          do, it lists how many and won&apos;t delete: move them to the project
+          you&apos;re keeping (change their Project Reference), then delete the
+          duplicate. Deleting a project that&apos;s still in use would leave
+          those records pointing at a project that no longer exists.
         </P>
         <P>
           The existing projects are split into tables by their project number —

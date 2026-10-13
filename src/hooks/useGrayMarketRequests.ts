@@ -131,6 +131,7 @@ function newRequestDetails(r: GrayMarketRequest) {
     { label: "Assembly number", value: r.title },
     { label: "Part description", value: r.values.partDescription ?? "" },
     { label: "AI part no.", value: r.values.aiPartNo ?? "" },
+    { label: "Part manufacturer", value: r.values.partManufacturer ?? "" },
     { label: "Vendor", value: r.values.vendor ?? "" },
     { label: "Qty purchased", value: r.values.qtyPurchased ?? "" },
     { label: "PO no.", value: r.values.poNo ?? "" },
