@@ -20,6 +20,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.189.0",
+    date: "2026-10-13",
+    changes: [
+      "New My Agenda page: your Engineering tasks and EIRs that are overdue or coming due, grouped as Overdue, Today, Tomorrow and each day after",
+      "Choose how far ahead it looks (7, 14, 30 or 90 days) and whether to include items you're only watching; ARC remembers your choice",
+      "A My Agenda button in the header shows how many of your items are overdue or due today",
+      "Overdue items stay on the agenda until they're done or re-dated, and a list that can't load says so rather than looking empty",
+      "Where Am I?: each week now grows to fit its busiest day, so entries no longer get squashed into slivers; a day with more than six shows \"+N more\"",
+      "Click a day's date on the Where Am I? calendar to open that day on the right, with every entry in full, previous / next day arrows and Add to this day; click the date again to close it",
+      "The Where Am I? calendar uses more of the screen width",
+      "The Dashboard shows its cards straight away instead of a loading screen: a card still waiting on SharePoint says Loading… and opens once its count arrives",
+      "When the Dashboard refreshes, each card keeps its last count and stays clickable, with a small Updating marker until the new numbers land",
+    ],
+  },
+  {
     version: "0.188.0",
     date: "2026-10-13",
     changes: [

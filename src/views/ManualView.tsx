@@ -221,7 +221,7 @@ const SECTIONS: ManualSection[] = [
       "quick link buttons",
     ],
     searchText:
-      "The Dashboard is grouped into department sections — Engineering, Panels, Operations, Coils, Quality Control, Supply Chain, and Customer Service / Sales — each a divider heading with its cards beneath. A department can show a row of admin-managed Quick Links buttons above its cards, linking out to a SharePoint site or another tool outside ARC; the row only appears once an admin has added at least one for that department, at /admin/quick-links. Engineering has live cards: Engineering Tasks, EIRs, Test Sheets and more. Coils has the Potting Sample Log; Quality Control has the Digital QC Defect Log, Ignition QC Defect Log and QC Forms; Supply Chain has Gray Market Requests, Suppliers (the SRM tool), Cost Impact Notices, FAITs and MRB (which counts the live entries still waiting on a disposition); Customer Service / Sales has Open Orders Report, Visit Reports and Customers (the CRM tool). Most live cards show the count of active items (tasks not Complete, EIRs not Closed), a colour-coded status mini-bar, and click through to that type's page; a few — Open Orders Report, Visit Reports, Suppliers, Cost Impact Notices and Customers — are description-only, since there's no count that reads as more useful than the tool itself. A Mine / Company switch flips every count and bar between your own items and the whole company's; Mine is the default. A project picker sits next to it and works the same way — pick a project and every card's count and mini-bar narrows to just that project, in place, combining with Mine/Company rather than navigating anywhere. Clicking a card afterward opens that type's full list pre-filtered to the picked project.",
+      "The Dashboard is grouped into department sections — Engineering, Panels, Operations, Coils, Quality Control, Supply Chain, and Customer Service / Sales — each a divider heading with its cards beneath. A department can show a row of admin-managed Quick Links buttons above its cards, linking out to a SharePoint site or another tool outside ARC; the row only appears once an admin has added at least one for that department, at /admin/quick-links. Engineering has live cards: Engineering Tasks, EIRs, Test Sheets and more. Coils has the Potting Sample Log; Quality Control has the Digital QC Defect Log, Ignition QC Defect Log and QC Forms; Supply Chain has Gray Market Requests, Suppliers (the SRM tool), Cost Impact Notices, FAITs and MRB (which counts the live entries still waiting on a disposition); Customer Service / Sales has Open Orders Report, Visit Reports and Customers (the CRM tool). Most live cards show the count of active items (tasks not Complete, EIRs not Closed), a colour-coded status mini-bar, and click through to that type's page; a few — Open Orders Report, Visit Reports, Suppliers, Cost Impact Notices and Customers — are description-only, since there's no count that reads as more useful than the tool itself. A Mine / Company switch flips every count and bar between your own items and the whole company's; Mine is the default. A project picker sits next to it and works the same way — pick a project and every card's count and mini-bar narrows to just that project, in place, combining with Mine/Company rather than navigating anywhere. Clicking a card afterward opens that type's full list pre-filtered to the picked project. The page shows its cards straight away; a card still waiting on its SharePoint list says Loading… and can't be opened until its count arrives, and during a refresh each card keeps its last count, stays clickable and shows Updating.",
     render: () => (
       <>
         <P>
@@ -240,6 +240,15 @@ const SECTIONS: ManualSection[] = [
           manage these at <strong>Admin → Quick Links</strong>; the row only
           appears once a department has at least one configured, and clicking
           a button opens it in a new tab.
+        </P>
+        <P>
+          The cards appear as soon as the page opens. A card whose SharePoint
+          list is still loading says <strong>Loading…</strong> instead of a
+          number and can't be opened until its count arrives; cards that just
+          describe a tool can be opened straight away. When the data refreshes
+          (the Refresh button, or coming back after an edit), each card keeps
+          its last count, stays clickable and shows a small{" "}
+          <strong>Updating</strong> marker.
         </P>
         <P>
           Within a section you get one <strong>card per work type</strong>. Each
@@ -303,6 +312,70 @@ const SECTIONS: ManualSection[] = [
           Pricing Requests) — appear as dimmed{" "}
           <strong>Coming soon</strong> placeholders. They'll light up with live
           counts as each department comes online.
+        </P>
+      </>
+    ),
+  },
+  {
+    id: "my-agenda",
+    title: "My Agenda",
+    keywords: [
+      "agenda",
+      "my agenda",
+      "due date",
+      "due soon",
+      "overdue",
+      "reminder",
+      "reminders",
+      "upcoming",
+      "what's due",
+      "requested completion",
+      "badge",
+      "watching",
+    ],
+    searchText:
+      "My Agenda lists your Engineering tasks and EIRs that are overdue or coming due. Open it with the My Agenda button in the header; a red number on it counts your items overdue or due today. Items are grouped Overdue, Today, Tomorrow and each day after, and overdue items stay until they're done or re-dated. Tasks appear when you're assigned, they have a Due Date and aren't Complete. EIRs appear when you're an assigned engineer and they have a Requested Completion Date; Closed, EIR Not Accepted and Response Accepted EIRs are left out, and the LTB date isn't used. Look 7, 14, 30 or 90 days ahead, and include items you're watching; ARC remembers both. A list that can't load says so rather than showing nothing due.",
+    render: () => (
+      <>
+        <P>
+          <strong>My Agenda</strong> lists your Engineering tasks and EIRs
+          that are overdue or coming due. Open it with the{" "}
+          <strong>My Agenda</strong> button (calendar icon) in the header. A red
+          number on the button is how many of your items are overdue or due
+          today. The number doesn't appear until your tasks and EIRs have
+          loaded, and it doesn't appear at all when nothing is due.
+        </P>
+        <P>
+          Items are grouped as <strong>Overdue</strong> first, then{" "}
+          <strong>Today</strong>, <strong>Tomorrow</strong> and each day after.
+          An overdue item stays at the top until you complete it or change its
+          date. Click a row to open the task or EIR.
+        </P>
+        <UL>
+          <LI>
+            <strong>Tasks</strong> appear when you're one of the Assigned
+            people, the task has a Due Date, and it isn't Complete.
+          </LI>
+          <LI>
+            <strong>EIRs</strong> appear when you're an assigned engineer and
+            the EIR has a Requested Completion Date. EIRs that are Closed, EIR
+            Not Accepted or Response Accepted are left out, because there's
+            nothing left for the engineer to do on them. The LTB date isn't
+            used.
+          </LI>
+        </UL>
+        <P>
+          Use the buttons at the top to look <strong>7, 14, 30 or 90 days</strong>{" "}
+          ahead (14 is the default). Tick <strong>Include items I'm
+          watching</strong> to add things you watch but aren't assigned to;
+          those rows are marked <strong>Watching</strong>. The header number
+          only counts items assigned to you. ARC remembers both choices in
+          this browser, and the page address carries them, so you can share a
+          link to the same view.
+        </P>
+        <P>
+          If the task list or the EIR list can't load, the page says which one
+          and offers a retry. It never shows that list as having nothing due.
         </P>
       </>
     ),
@@ -4742,7 +4815,7 @@ const SECTIONS: ManualSection[] = [
       "absence",
     ],
     searchText:
-      "Where Am I? at /engineering/where-am-i, under Engineering — the team's out-of-office calendar, backed by the Where am I? list on the Altronic Engineering SharePoint site. Each entry is a line of text and a day: who you are and what you're doing (\"Sarah - half day vacation\"). On a computer it's a month grid: click a day to add yourself, click an entry to edit or remove it, arrows and Today move between months. On a phone the grid is replaced by an upcoming agenda grouped by day — Today, Tomorrow, then dates — because seven columns can't be read at phone width. Adding lets you set a Through date, which creates one entry per day (the list stores a single date per row), capped at 60 days. Anyone signed in can add, edit and remove entries, including other people's. The search box matches names and reasons.",
+      "Where Am I? at /engineering/where-am-i, under Engineering — the team's out-of-office calendar, backed by the Where am I? list on the Altronic Engineering SharePoint site. Each entry is a line of text and a day: who you are and what you're doing (\"Sarah - half day vacation\"). On a computer it's a month grid: click a day to add yourself, click an entry to edit or remove it, arrows and Today move between months. Each week grows to fit its busiest day, showing up to six entries per day and then \"+N more\". Click a day's date to open a day panel on the right with all of that day's entries in full, previous and next day arrows, and Add to this day; clicking the same date again, Escape or the X closes it, and the page address keeps the chosen day. On a phone the grid is replaced by an upcoming agenda grouped by day — Today, Tomorrow, then dates — because seven columns can't be read at phone width. Adding lets you set a Through date, which creates one entry per day (the list stores a single date per row), capped at 60 days. Anyone signed in can add, edit and remove entries, including other people's. The search box matches names and reasons.",
     render: () => (
       <>
         <P>
@@ -4771,6 +4844,18 @@ const SECTIONS: ManualSection[] = [
           <LI>
             The arrows move a month at a time, and <strong>Today</strong> jumps
             back.
+          </LI>
+          <LI>
+            Each week grows to fit its busiest day. A day shows up to six
+            entries; past that it says <strong>+N more</strong>.
+          </LI>
+          <LI>
+            <strong>Click a day's date</strong> (the strip at the top of the
+            day) to open that day on the right: every entry in full, arrows to
+            step to the previous or next day, and <strong>Add to this
+            day</strong>. Click an entry there to edit it. Click the same date
+            again, press Escape or use the X to close it. The page address keeps the day, so you can share a
+            link to it.
           </LI>
         </UL>
         <H3>Away for more than a day</H3>

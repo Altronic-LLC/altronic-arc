@@ -5,6 +5,7 @@ import {
   BadgeCheck,
   Building2,
   Calculator,
+  CalendarClock,
   CalendarDays,
   ChevronDown,
   Cable,
@@ -50,6 +51,7 @@ import { useMyQuoteAccess } from "@/hooks/useQuoteRoles";
 import { useTheme } from "@/hooks/useTheme";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useKanbanAvailable } from "@/hooks/useIsPhone";
+import { useAgendaAttentionCount } from "@/hooks/useAgenda";
 import { filterSearch } from "@/hooks/useFilters";
 import { eirFilterSearch } from "@/hooks/useEirFilters";
 import { visitReportFilterSearch } from "@/hooks/useVisitReportFilters";
@@ -442,6 +444,7 @@ export function Header() {
           </Link>
 
           <div className="flex items-center gap-2 sm:hidden">
+            <AgendaButton />
             <RefreshButton />
             <SuggestFeatureButton />
             <NotifyAppManagerButton />
@@ -557,6 +560,7 @@ export function Header() {
           <span className="hidden whitespace-nowrap text-[11px] text-fg-muted xl:inline">
             {USE_MOCK ? "Demo mode · mock data" : "Connected to SharePoint"}
           </span>
+          <AgendaButton />
           <RefreshButton />
           <SuggestFeatureButton />
           <NotifyAppManagerButton />
@@ -571,6 +575,41 @@ export function Header() {
         </div>
       </div>
     </header>
+  );
+}
+
+/**
+ * My agenda (BusinessIT#13) — a link to `/agenda`, badged with how many of
+ * the person's tasks and EIRs are overdue or due today.
+ *
+ * The badge is hidden until BOTH lists have loaded (`null`), and hidden at
+ * zero — a permanent "0" is noise. It reads queries `useMentionScanner`
+ * already holds on every page, so it adds no request.
+ */
+function AgendaButton() {
+  const count = useAgendaAttentionCount();
+  const label =
+    count && count > 0
+      ? `My agenda — ${count} overdue or due today`
+      : "My agenda";
+  return (
+    <Link
+      to="/agenda"
+      title={label}
+      aria-label={label}
+      className="relative flex h-9 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-medium text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
+    >
+      <CalendarClock className="h-4 w-4" />
+      <span className="hidden whitespace-nowrap xl:inline">My Agenda</span>
+      {count != null && count > 0 && (
+        <span
+          data-testid="agenda-badge"
+          className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-cooper-red px-1 text-[10px] font-semibold leading-none text-white"
+        >
+          {count > 99 ? "99+" : count}
+        </span>
+      )}
+    </Link>
   );
 }
 

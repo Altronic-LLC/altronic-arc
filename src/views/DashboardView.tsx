@@ -36,6 +36,7 @@ import {
   TestTubes,
   Timer,
   Users,
+  Loader2,
 } from "lucide-react";
 import { useProjects, useTasks } from "@/hooks/useTasks";
 import { useEirs } from "@/hooks/useEirs";
@@ -68,7 +69,6 @@ import { useCollapsedSections } from "@/hooks/useCollapsedSections";
 import { isSessionExpiredError } from "@/hooks/useSessionExpiry";
 import { useAccessDenials } from "@/hooks/useListAccess";
 import { pathAccessState } from "@/api/appAccess";
-import { LoadingTasks } from "@/components/LoadingTasks";
 import { SingleSelect } from "@/components/SearchableSelect";
 import {
   DASHBOARD_DEPARTMENTS,
@@ -250,76 +250,107 @@ interface Segment {
   color: string;
 }
 
+/**
+ * A card's load state, from its own query.
+ *
+ * `loading` — nothing to show yet: the card says "Loading…" and can't be
+ * opened, because a 0 there would be a claim nobody has checked.
+ * `refreshing` — a background refetch over data already shown (the header's
+ * Refresh, or coming back after an edit). The card keeps its last count and
+ * STAYS clickable, with an "Updating" spinner: that number is still right,
+ * and locking every card on every refetch would block navigation for a beat
+ * many times a day.
+ */
+export function cardLoad(q: { isLoading: boolean; isFetching: boolean }): {
+  loading: boolean;
+  refreshing: boolean;
+} {
+  return { loading: q.isLoading, refreshing: !q.isLoading && q.isFetching };
+}
+
 export function DashboardView() {
   const navigate = useNavigate();
+  // Each card follows ITS OWN list (Tim, 2026-10-13). The page used to sit
+  // behind one full-screen loading screen until six lists had all arrived,
+  // and the cards fed by the other lists showed a confident 0 while theirs
+  // were still on the way. Now the page renders at once and a card whose list
+  // hasn't arrived says "Loading…" — see `cardLoad` and TypeCard.
+  const tasksQ = useTasks();
   const {
     data: tasks = [],
-    isLoading,
     isError: tasksError,
     error: tasksErrorObj,
     refetch: refetchTasks,
-  } = useTasks();
+  } = tasksQ;
+  const eirsQ = useEirs();
   const {
     data: eirs = [],
-    isLoading: eirsLoading,
     isError: eirsError,
     error: eirsErrorObj,
     refetch: refetchEirs,
-  } = useEirs();
+  } = eirsQ;
+  const operationsTasksQ = useOperationsTasks();
   const {
     data: operationsTasks = [],
-    isLoading: operationsTasksLoading,
     isError: operationsTasksError,
     error: operationsTasksErrorObj,
     refetch: refetchOperationsTasks,
-  } = useOperationsTasks();
-  const { data: maintenanceTasks = [] } = useMaintenanceTasks();
+  } = operationsTasksQ;
+  const maintenanceTasksQ = useMaintenanceTasks();
+  const { data: maintenanceTasks = [] } = maintenanceTasksQ;
   // Certification register — small, changes rarely, and like Teradyne it has no
   // status workflow, so the card is a plain count with no segments.
+  const csaQ = useCsaListings();
   const {
     data: csaListings = [],
     isError: csaError,
     error: csaErrorObj,
     refetch: refetchCsa,
-  } = useCsaListings();
-  const { data: ecns = [] } = useEcns();
-  const { data: faits = [] } = useFaits();
-  const { data: mrbEntries = [] } = useMrbEntries();
-  const { data: scns = [] } = useScns();
+  } = csaQ;
+  const ecnsQ = useEcns();
+  const { data: ecns = [] } = ecnsQ;
+  const faitsQ = useFaits();
+  const { data: faits = [] } = faitsQ;
+  const mrbQ = useMrbEntries();
+  const { data: mrbEntries = [] } = mrbQ;
+  const scnsQ = useScns();
+  const { data: scns = [] } = scnsQ;
+  const testSheetsQ = useTestSheets();
   const {
     data: testSheets = [],
     isError: testSheetsError,
     error: testSheetsErrorObj,
     refetch: refetchTestSheets,
-  } = useTestSheets();
+  } = testSheetsQ;
+  const buildRequestsQ = useBuildRequests();
   const {
     data: buildRequests = [],
-    isLoading: buildRequestsLoading,
     isError: buildRequestsError,
     error: buildRequestsErrorObj,
     refetch: refetchBuildRequests,
-  } = useBuildRequests();
+  } = buildRequestsQ;
   const { data: buildRequestStatuses = [] } = useBuildRequestStatusChoices();
+  const panelOrdersQ = usePanelOrders();
   const {
     data: panelOrders = [],
-    isLoading: panelOrdersLoading,
     isError: panelOrdersError,
     error: panelOrdersErrorObj,
     refetch: refetchPanelOrders,
-  } = usePanelOrders();
+  } = panelOrdersQ;
+  const panelTasksQ = usePanelTasks();
   const {
     data: panelTasks = [],
-    isLoading: panelTasksLoading,
     isError: panelTasksError,
     error: panelTasksErrorObj,
     refetch: refetchPanelTasks,
-  } = usePanelTasks();
+  } = panelTasksQ;
+  const foldersQ = useProjectFolderEntries(undefined);
   const {
     data: folderEntries = [],
     isError: foldersError,
     error: foldersErrorObj,
     refetch: refetchFolders,
-  } = useProjectFolderEntries(undefined);
+  } = foldersQ;
   const { data: projects = [] } = useProjects();
   const currentUser = useCurrentUser();
   const [scope, setScope] = useState<Scope>("mine");
@@ -565,17 +596,6 @@ export function DashboardView() {
     return { count: active.length, segments };
   }, [panelTasks, mine, myEmail]);
 
-  if (
-    isLoading ||
-    eirsLoading ||
-    operationsTasksLoading ||
-    buildRequestsLoading ||
-    panelOrdersLoading ||
-    panelTasksLoading
-  ) {
-    return <LoadingTasks noun="your dashboard" />;
-  }
-
   // URLSearchParams encodes its values itself — don't pre-encode here, or
   // the email ends up double-encoded (e.g. "%2540" instead of "%40") and
   // never matches a task's assigned email on the other side.
@@ -788,6 +808,7 @@ export function DashboardView() {
           icon={<ListChecks className="h-5 w-5" />}
           tone="superior-blue"
           count={taskCard.count}
+          {...cardLoad(tasksQ)}
           unit="active"
           segments={taskCard.segments}
           to={tasksUrl}
@@ -798,6 +819,7 @@ export function DashboardView() {
           icon={<FileText className="h-5 w-5" />}
           tone="cooper-red"
           count={eirCard.count}
+          {...cardLoad(eirsQ)}
           unit="open"
           segments={eirCard.segments}
           to={eirsUrl}
@@ -808,6 +830,7 @@ export function DashboardView() {
           icon={<ClipboardCheck className="h-5 w-5" />}
           tone="cooper-green"
           count={testCount}
+          {...cardLoad(testSheetsQ)}
           unit="records"
           to={"/test-sheets"}
           onClick={() => navigate("/test-sheets")}
@@ -817,6 +840,7 @@ export function DashboardView() {
           icon={<FolderOpen className="h-5 w-5" />}
           tone="ajax-yellow"
           count={folderCount}
+          {...cardLoad(foldersQ)}
           unit="folders"
           to={"/project-folders"}
           onClick={() => navigate("/project-folders")}
@@ -826,6 +850,7 @@ export function DashboardView() {
           icon={<HardHat className="h-5 w-5" />}
           tone="ajax-yellow"
           count={buildRequestCard.count}
+          {...cardLoad(buildRequestsQ)}
           unit="open"
           segments={buildRequestCard.segments}
           to={buildRequestsUrl}
@@ -846,6 +871,7 @@ export function DashboardView() {
           icon={<BadgeCheck className="h-5 w-5" />}
           tone="cooper-green"
           count={csaListings.length}
+          {...cardLoad(csaQ)}
           unit="on file"
           // No `segments` — a certification register has no active/done states.
           to={"/csa-listings"}
@@ -877,6 +903,7 @@ export function DashboardView() {
           icon={<FileDiff className="h-5 w-5" />}
           tone="ajax-yellow"
           count={ecnCard.count}
+          {...cardLoad(ecnsQ)}
           unit="on file"
           segments={ecnCard.segments}
           to={ecnsUrl}
@@ -897,6 +924,7 @@ export function DashboardView() {
           icon={<LayoutDashboard className="h-5 w-5" />}
           tone="cooper-red"
           count={panelOrderCard.count}
+          {...cardLoad(panelOrdersQ)}
           unit="open"
           segments={panelOrderCard.segments}
           to={panelOrdersUrl}
@@ -907,6 +935,7 @@ export function DashboardView() {
           icon={<ListChecks className="h-5 w-5" />}
           tone="superior-blue"
           count={panelTaskCard.count}
+          {...cardLoad(panelTasksQ)}
           unit="open"
           segments={panelTaskCard.segments}
           to={panelTasksUrl}
@@ -944,6 +973,7 @@ export function DashboardView() {
           icon={<Cog className="h-5 w-5" />}
           tone="superior-blue"
           count={operationsTaskCard.count}
+          {...cardLoad(operationsTasksQ)}
           unit="active"
           segments={operationsTaskCard.segments}
           to={operationsTasksUrl}
@@ -977,6 +1007,7 @@ export function DashboardView() {
           // a section. Yellow also reads as the right kind of caution here.
           tone="ajax-yellow"
           count={maintenanceCard.count}
+          {...cardLoad(maintenanceTasksQ)}
           unit="open"
           description={
             maintenanceCard.overdue > 0
@@ -1076,6 +1107,7 @@ export function DashboardView() {
           icon={<ClipboardCheck className="h-5 w-5" />}
           tone="superior-blue"
           count={faitCard.count}
+          {...cardLoad(faitsQ)}
           unit="open"
           segments={faitCard.segments}
           to={faitsUrl}
@@ -1092,6 +1124,7 @@ export function DashboardView() {
           icon={<ClipboardX className="h-5 w-5" />}
           tone="superior-blue"
           count={mrbCard.count}
+          {...cardLoad(mrbQ)}
           unit="need a disposition"
           to={"/supply-chain/mrb"}
           onClick={() => navigate("/supply-chain/mrb")}
@@ -1107,6 +1140,7 @@ export function DashboardView() {
           icon={<Megaphone className="h-5 w-5" />}
           tone="cooper-green"
           count={scnCard.count}
+          {...cardLoad(scnsQ)}
           unit="open"
           to={"/supply-chain/scns"}
           onClick={() => navigate("/supply-chain/scns")}
@@ -1323,6 +1357,8 @@ function TypeCard({
   unit,
   description,
   segments,
+  loading = false,
+  refreshing = false,
   to,
   onClick,
 }: {
@@ -1339,6 +1375,10 @@ function TypeCard({
    */
   description?: string;
   segments?: Segment[];
+  /** Its list hasn't arrived yet — "Loading…", and not clickable. See `cardLoad`. */
+  loading?: boolean;
+  /** A background refetch over data already shown — stays clickable, shows "Updating". */
+  refreshing?: boolean;
   /**
    * The route this card opens. Also how the card knows whether the user can
    * get in at all — a card whose SharePoint list has already been refused
@@ -1382,9 +1422,38 @@ function TypeCard({
     );
   }
 
+  // Its list is still on the way. Disabled rather than clickable-with-a-0:
+  // a number nobody has checked is worse than no number. aria-disabled on a
+  // div, not a disabled <button>, so the reason stays readable and hoverable.
+  if (loading) {
+    return (
+      <div
+        className="flex flex-col gap-3 rounded-lg border border-border bg-surface/60 p-4 sm:p-5"
+        aria-disabled="true"
+        aria-busy="true"
+        title={`${name} — loading from SharePoint`}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 opacity-70">
+            <span className={cn("flex h-9 w-9 items-center justify-center rounded-md", t.chip, t.text)}>
+              {icon}
+            </span>
+            <span className="font-display text-sm font-semibold text-fg">{name}</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 text-sm text-fg-muted">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading…
+        </div>
+        {segments && <div className="h-2 w-full animate-pulse rounded-full bg-surface-2" />}
+      </div>
+    );
+  }
+
   return (
     <button
       onClick={onClick}
+      aria-busy={refreshing || undefined}
       className="group flex flex-col gap-3 rounded-lg border border-border bg-surface p-4 text-left transition-all hover:border-fg-muted hover:shadow-md sm:p-5"
     >
       <div className="flex items-center justify-between">
@@ -1394,7 +1463,18 @@ function TypeCard({
           </span>
           <span className="font-display text-sm font-semibold text-fg">{name}</span>
         </div>
-        <ArrowRight className="h-4 w-4 text-fg-muted transition-transform group-hover:translate-x-0.5 group-hover:text-fg" />
+        <span className="flex items-center gap-2">
+          {refreshing && (
+            <span
+              className="inline-flex items-center gap-1 text-[11px] text-fg-muted"
+              title="Updating from SharePoint"
+            >
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Updating
+            </span>
+          )}
+          <ArrowRight className="h-4 w-4 text-fg-muted transition-transform group-hover:translate-x-0.5 group-hover:text-fg" />
+        </span>
       </div>
 
       {description !== undefined ? (
@@ -1457,7 +1537,8 @@ function InsourcingQuotesCard({ onOpen }: { onOpen: () => void }) {
 }
 
 function InsourcingQuotesCardBody({ onOpen }: { onOpen: () => void }) {
-  const { data: quotes = [] } = useQuotes();
+  const quotesQ = useQuotes();
+  const { data: quotes = [] } = quotesQ;
   // Open = the LATEST rev of each quote, still Draft or Sent. An R1 that was
   // superseded by an R2 is history, not work.
   const open = useMemo(
@@ -1474,6 +1555,7 @@ function InsourcingQuotesCardBody({ onOpen }: { onOpen: () => void }) {
       tone="ajax-yellow"
       count={open}
       unit="open"
+      {...cardLoad(quotesQ)}
       to={"/sales/quotes"}
       onClick={onOpen}
     />

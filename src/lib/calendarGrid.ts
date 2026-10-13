@@ -42,6 +42,21 @@ export function parseMonthKey(raw: string | null, now: Date = new Date()): Date 
   return new Date(Date.UTC(year, month, 1));
 }
 
+/** Parse `yyyy-mm-dd` to that day (UTC midnight); null if it isn't a real day. */
+export function parseDayKey(raw: string | null | undefined): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw ?? "");
+  if (!match) return null;
+  const [y, m, d] = [match[1], match[2], match[3]].map((s) => parseInt(s, 10));
+  const day = new Date(Date.UTC(y, m - 1, d));
+  // Reject a day the calendar hasn't got (2026-02-31 would roll into March).
+  return dayKey(day) === match[0] ? day : null;
+}
+
+/** The day `by` days from this one (negative goes back). */
+export function shiftDay(day: Date, by: number): Date {
+  return new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate() + by));
+}
+
 /** The month `by` months from this one (negative goes back). */
 export function shiftMonth(monthStart: Date, by: number): Date {
   return new Date(
