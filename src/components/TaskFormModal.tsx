@@ -26,7 +26,12 @@ import {
 } from "@/types/task";
 import { canCompleteTask, wouldCreateCycle } from "@/lib/taskGraph";
 import { useBuildRequests } from "@/hooks/useBuildRequests";
-import { computeNumberedTitle } from "@/lib/taskNumbering";
+import {
+  computeNumberedTitle,
+  numberedTitlePrefix,
+  renumberedTitle,
+  retitledNumberedTitle,
+} from "@/lib/taskNumbering";
 import {
   convertToChecklist,
   indentChecklistLine,
@@ -243,6 +248,27 @@ export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormM
       );
   }, [projects, parentProjectId]);
 
+  // Edit mode: the number this task will carry once saved (BusinessIT#33).
+  // A new project means a new number in that project; a new title keeps the
+  // number and replaces only the text after it. Same rules the hooks apply on
+  // save (lib/taskNumbering.ts), shown here so the change isn't a surprise.
+  const editNumbering = useMemo(() => {
+    if (mode !== "edit" || !task) return null;
+    const nextTitle = title.trim() || task.title;
+    const nextProjectId = parentProjectId === "" ? null : parentProjectId;
+    const projectChanged = nextProjectId !== (task.parentProject?.lookupId ?? null);
+    const nextProject =
+      nextProjectId == null ? null : projects.find((p) => p.lookupId === nextProjectId) ?? null;
+    const canRenumber = projectChanged && (nextProjectId == null || nextProject !== null);
+    const next = canRenumber
+      ? renumberedTitle(task, nextTitle, nextProject, allTasks)
+      : retitledNumberedTitle(task, nextTitle) ?? task.numberedTitle;
+    const prefix = canRenumber
+      ? next.slice(0, next.length - nextTitle.length)
+      : numberedTitlePrefix(task);
+    return { projectChanged: canRenumber, current: task.numberedTitle, next, prefix };
+  }, [mode, task, title, parentProjectId, projects, allTasks]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const trimmedTitle = title.trim();
@@ -352,18 +378,24 @@ export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormM
       // re-thrown for the catch below to surface.
       const writes: Array<Promise<unknown>> = [];
 
-      if (Object.keys(baseFields).length > 0) {
-        writes.push(updateFields.mutateAsync({ id: task.id, fields: baseFields }));
-      }
-
       const newParentProjectId = parentProjectId === "" ? null : parentProjectId;
       if (newParentProjectId !== (task.parentProject?.lookupId ?? null)) {
+        // A project move renumbers the task, and the number carries the title,
+        // so a title change rides in the SAME write. Sent separately, the two
+        // writes would each rebuild NumberedTitle from a different half.
+        const movedTitle = "Title" in baseFields ? trimmedTitle : undefined;
+        delete baseFields.Title;
         writes.push(
           setParentProject.mutateAsync({
             id: task.id,
             projectLookupId: newParentProjectId,
+            title: movedTitle,
           }),
         );
+      }
+
+      if (Object.keys(baseFields).length > 0) {
+        writes.push(updateFields.mutateAsync({ id: task.id, fields: baseFields }));
       }
 
       const newParentTaskId = parentTaskId === "" ? null : parentTaskId;
@@ -486,16 +518,33 @@ export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormM
             )}
 
             <FieldLabel label="Title" required>
-              <input
-                ref={titleInputRef}
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Short, action-oriented summary"
-                className="w-full rounded-md border border-border bg-surface px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm"
-                required
-                maxLength={255}
-              />
+              <div className="flex items-stretch">
+                {/* The task number is the app's. Shown beside the title so it
+                    reads as one value, and kept out of the box so editing the
+                    title can't change it (BusinessIT#33). */}
+                {editNumbering?.prefix && (
+                  <span
+                    data-testid="numbered-title-prefix"
+                    title="The task number is set by ARC. Change the project to renumber it."
+                    className="inline-flex shrink-0 items-center rounded-l-md border border-r-0 border-border bg-surface-2 px-2 font-mono text-xs font-semibold text-fg-muted"
+                  >
+                    {editNumbering.prefix}
+                  </span>
+                )}
+                <input
+                  ref={titleInputRef}
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Short, action-oriented summary"
+                  className={cn(
+                    "w-full min-w-0 border border-border bg-surface px-3 py-2 text-base text-fg placeholder:text-fg-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:text-sm",
+                    editNumbering?.prefix ? "rounded-r-md" : "rounded-md",
+                  )}
+                  required
+                  maxLength={255}
+                />
+              </div>
             </FieldLabel>
 
             {/*
@@ -638,6 +687,13 @@ export function TaskFormModal({ mode, task, fromParentTask, onClose }: TaskFormM
                   emptyLabel={mode === "create" ? "Select a project…" : "None"}
                   searchPlaceholder="Search projects…"
                 />
+              )}
+              {editNumbering?.projectChanged && (
+                <span role="status" className="mt-1 block text-xs text-fg-muted">
+                  Saving renumbers this task:{" "}
+                  <span className="font-mono">{editNumbering.current}</span> becomes{" "}
+                  <span className="font-mono font-semibold text-fg">{editNumbering.next}</span>
+                </span>
               )}
             </FieldLabel>
 

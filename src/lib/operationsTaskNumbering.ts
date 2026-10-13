@@ -18,8 +18,8 @@ import type { OperationsTask, ProjectReference } from "@/types/task";
 // as long as the caller passes the whole list.
 //
 // The match is on the NUMBER STRING's code, not on parentProject.lookupId:
-// uniqueness is a property of the string, and a task moved between projects
-// keeps its number.
+// uniqueness is a property of the string. A task moved to a project with a
+// different code is renumbered (renumberedOperationsTaskNumber, BusinessIT#33).
 // =============================================================================
 
 const TASK_NUMBER_RE = /^\s*Task\s+(\d{4})-(\d+)\s*$/i;
@@ -55,4 +55,29 @@ export function computeOperationsTaskNumber(
 ): string {
   const code = operationsProjectCode(project);
   return `Task ${code}-${highestOperationsTaskNumber(code, allTasks) + 1}`;
+}
+
+/**
+ * The `TaskNumber` a task takes when it moves to `project` (BusinessIT#33), or
+ * null when it keeps the one it has. Until then a moved task kept its old
+ * number by design; people asked for the number to follow the project, the
+ * same as an Engineering task's.
+ *
+ * Null when the new project shares the task's current code (the number
+ * already names it). A task with no recognisable number is given one. The
+ * moving task is left out of the highest-used search, so it never counts
+ * against the project it is joining.
+ */
+export function renumberedOperationsTaskNumber(
+  task: Pick<OperationsTask, "id" | "taskNumber">,
+  project: ProjectReference | null,
+  allTasks: readonly OperationsTask[],
+): string | null {
+  const code = operationsProjectCode(project);
+  const current = TASK_NUMBER_RE.exec(task.taskNumber ?? "");
+  if (current && current[1] === code) return null;
+  return computeOperationsTaskNumber(
+    project,
+    allTasks.filter((t) => t.id !== task.id),
+  );
 }

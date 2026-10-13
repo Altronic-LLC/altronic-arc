@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { Task } from "@/types/task";
-import { matchEirTaskReference, resolveEirTaskReference, taskIdFromLink } from "./eirTaskReference";
+import {
+  matchEirTaskReference,
+  resolveEirTaskReference,
+  sameTaskReference,
+  taskIdFromLink,
+} from "./eirTaskReference";
 
 /** Only the two fields the resolver reads. */
 function task(id: number, numberedTitle: string): Task {
@@ -99,5 +104,15 @@ describe("taskIdFromLink", () => {
     expect(taskIdFromLink("T188")).toBeNull();
     expect(taskIdFromLink("https://a.example/altronic-arc/eir/3344")).toBeNull();
     expect(taskIdFromLink("https://a.example/task/3344/comments")).toBe(3344);
+  });
+});
+
+describe("sameTaskReference (BusinessIT#33)", () => {
+  it("matches a stored reference to a numbered title, ignoring case and spacing", () => {
+    expect(sameTaskReference("t3-0017-EMI  sweep ", "T3-0017-EMI sweep")).toBe(true);
+    expect(sameTaskReference("T3-0017-EMI sweep", "T3-0042-EMI sweep")).toBe(false);
+    // An empty reference names nothing, whatever it's compared with.
+    expect(sameTaskReference("", "")).toBe(false);
+    expect(sameTaskReference(null, "T3-0017-x")).toBe(false);
   });
 });

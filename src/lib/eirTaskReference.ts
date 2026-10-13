@@ -32,6 +32,17 @@ function norm(s: string): string {
 }
 
 /**
+ * Does a stored Task Reference name exactly this numbered title? The same
+ * case- and space-insensitive comparison the resolver uses, so a reference
+ * rewritten after a renumber (BusinessIT#33) is matched by the same rule
+ * that will later read it.
+ */
+export function sameTaskReference(reference: string | null | undefined, numberedTitle: string): boolean {
+  const ref = norm(reference ?? "");
+  return ref !== "" && ref === norm(numberedTitle);
+}
+
+/**
  * The task item id a LINK carries — a Power Apps `ItemID=` deep link or an
  * ARC `/task/{id}` URL — or null when the text isn't a link to a task.
  */
