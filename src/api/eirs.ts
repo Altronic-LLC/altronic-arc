@@ -11,6 +11,7 @@ import { attachEirReferences, toEir } from "@/lib/eirMapper";
 import { multiLookupField, multiPersonField } from "@/lib/graphFields";
 import { appendComment, replaceComment } from "@/lib/communicationParser";
 import { toStoredRichText } from "@/lib/richText";
+import { nextEirNo } from "@/lib/eirNumber";
 import { listProjects } from "./tasks";
 import { MOCK_EIRS } from "@/data/mockData";
 import { autoWatchers } from "@/lib/people";
@@ -210,8 +211,6 @@ export async function getEir(id: number): Promise<Eir | null> {
 
 export interface CreateEirInput {
   title: string;
-  /** Pre-computed "EIR No" (EIR_YYYY-####). Written to the EIRNo column. */
-  eirNo?: string;
   description?: string;
   parentProjectLookupId?: number | null;
   requestType?: "EIR" | "ECR" | "Temporary Deviation";
@@ -243,7 +242,7 @@ export async function createEir(input: CreateEirInput): Promise<Eir> {
     const now = new Date();
     const eir: Eir = {
       id: nextId,
-      eirNo: input.eirNo ?? `EIR_${now.getFullYear()}-${String(1000 + nextId).slice(-4)}`,
+      eirNo: nextEirNo(mockStore, now),
       title: input.title,
       description: toStoredRichText(input.description ?? ""),
       requestType: input.requestType ?? "EIR",
@@ -291,8 +290,13 @@ export async function createEir(input: CreateEirInput): Promise<Eir> {
     throw new Error("Cannot create EIR: VITE_SP_EIRS_LIST_ID is not set.");
   }
 
-  const fields: Record<string, unknown> = { Title: input.title };
-  if (input.eirNo) fields.EIRNo = input.eirNo;
+  // The EIR No is decided HERE, from a fresh read, never by the form: the
+  // form's cached list can be an hour old by the time Create is pressed
+  // (BusinessIT#27). settleEirNumber() below closes the remaining window.
+  const fields: Record<string, unknown> = {
+    Title: input.title,
+    EIRNo: nextEirNo(await listEirNumbers()),
+  };
   if (input.description) fields.Description = toStoredRichText(input.description);
   if (input.requestType) fields.RequestType = input.requestType;
   if (input.status) fields.Status = input.status;
@@ -340,7 +344,75 @@ export async function createEir(input: CreateEirInput): Promise<Eir> {
     `/sites/${SP_SITE_ID}/lists/${SP_EIRS_LIST_ID}/items`,
     { method: "POST", body: JSON.stringify({ fields }) },
   );
-  return toEir(created);
+  return settleEirNumber(toEir(created));
+}
+
+/** Every EIR's id and EIR No, read fresh — the input to numbering. */
+export async function listEirNumbers(): Promise<{ id: number; eirNo: string }[]> {
+  const items = await graphFetchAll<GraphListItem>(
+    `/sites/${SP_SITE_ID}/lists/${SP_EIRS_LIST_ID}/items?$expand=fields($select=EIRNo)&$top=999`,
+  );
+  return items.map((item) => ({
+    id: Number(item.id),
+    eirNo: ((item.fields?.EIRNo as string | undefined) ?? "").trim(),
+  }));
+}
+
+/** `EIR-2026-0042` and `eir_2026-0042` are the same number. */
+function sameEirNo(a: string, b: string): boolean {
+  const norm = (s: string) => s.trim().toUpperCase().replace(/^EIR-/, "EIR_");
+  return !!a.trim() && norm(a) === norm(b);
+}
+
+/** How many times a just-created EIR may be renumbered before giving up. */
+const MAX_RENUMBER_ATTEMPTS = 3;
+
+/**
+ * The number an EIR was created with, or the EIR's own record if checking it
+ * failed. The EIR EXISTS whenever this is thrown — a caller must treat the
+ * create as having succeeded, and say the number may be shared.
+ */
+export class EirNumberUnconfirmedError extends Error {
+  readonly eir: Eir;
+  constructor(eir: Eir, cause?: unknown) {
+    super(
+      `${eir.eirNo || `EIR ${eir.id}`} was created, but ARC couldn't confirm its EIR No is ` +
+        `unique. Check the EIRs list for another EIR with the same number.`,
+    );
+    this.name = "EirNumberUnconfirmedError";
+    this.eir = eir;
+    this.cause = cause;
+  }
+}
+
+/**
+ * After the POST: is anyone ELSE holding this number? Two people pressing
+ * Create within the same second both read the same highest number, and the
+ * EIRNo column can't be made unique in SharePoint while EIR_2026-0263 and
+ * EIR_2026-0271 are duplicated (they are left as they are — BusinessIT#27).
+ *
+ * So the OLDER item (lower id) keeps the number and the newer one takes the
+ * next free number in place. Both racers apply the same rule, so exactly one
+ * of them moves. A clash with a NEWER item is that item's to resolve.
+ */
+async function settleEirNumber(created: Eir): Promise<Eir> {
+  let eir = created;
+  try {
+    for (let attempt = 0; attempt < MAX_RENUMBER_ATTEMPTS; attempt++) {
+      const all = await listEirNumbers();
+      const taken = all.some((n) => n.id < eir.id && sameEirNo(n.eirNo, eir.eirNo));
+      if (!taken) return eir;
+      const next = nextEirNo(all);
+      await graphFetch(
+        `/sites/${SP_SITE_ID}/lists/${SP_EIRS_LIST_ID}/items/${eir.id}/fields`,
+        { method: "PATCH", body: JSON.stringify({ EIRNo: next }) },
+      );
+      eir = { ...eir, eirNo: next };
+    }
+  } catch (err) {
+    throw new EirNumberUnconfirmedError(eir, err);
+  }
+  throw new EirNumberUnconfirmedError(eir);
 }
 
 /**

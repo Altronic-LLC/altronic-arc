@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.186.1",
+    date: "2026-10-13",
+    changes: [
+      "A new EIR's number is now taken when you press Create, from the latest EIRs list, so a form left open while you write can no longer reuse a number someone else has taken since",
+      "If two EIRs are saved with the same number at the same moment, the later one moves to the next free number on its own",
+    ],
+  },
+  {
     version: "0.186.0",
     date: "2026-10-13",
     changes: [

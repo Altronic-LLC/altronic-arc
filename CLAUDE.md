@@ -1220,6 +1220,21 @@ single `SP_SITE_ID`.
 is generated on create as `EIR_YYYY-####` — the next sequence for the current
 year (highest existing + 1) via `src/lib/eirNumber.ts` — and SharePoint's
 calculated **EIR Log No.** derives from it, so we only write `EIRNo`.
+
+  **`createEir` numbers it, never the form** (BusinessIT#27, 2026-10-13).
+  EIR_2026-0263 and EIR_2026-0271 were each issued twice, both times to an EIR
+  whose form had been open 65 and 7 minutes — `nextEirNo` ran over the form's
+  cached list, and with `refetchOnWindowFocus: false` nothing refreshes it
+  while a form sits open. Now `createEir` reads every EIR No fresh
+  (`listEirNumbers`) just before the POST, then re-reads after it: if an
+  OLDER item (lower id) holds the same number, the new EIR is PATCHed to the
+  next free one (`settleEirNumber`, up to 3 tries). Both racers apply the same
+  rule, so exactly one moves. **The column can't be made unique** — SharePoint
+  refuses while the two historic duplicates exist, and they are deliberately
+  left as they are. A check that fails after the EIR exists throws
+  `EirNumberUnconfirmedError` carrying the EIR; `useCreateEir` treats that as
+  a create with a warning toast. Pinned in `api/eirs.numbering.test.ts` (real
+  mode), verified by disabling the check and by flipping the older-wins rule.
 - **EIR Roles List ID:** `e85aeb77-9dbf-4962-ade2-08cb977a5b79` (env: `VITE_SP_EIR_ROLES_LIST_ID`) — admin-managed list on the Engineering site (Title = email, plus `DisplayName`, `Note`, and `Roles` text columns). `Roles` holds a lowercase CSV of role tags (`engineer`, `supply chain`). Gates which EIR fields a user may edit (see "EIR field permissions" below). Managed at `/admin/eir-roles`.
 
   **The list EXISTS** — confirmed live 2026-08-24. This entry said "not yet created" for months and was wrong; the id above is the one the site returned. There is deliberately **no default in `config.ts`**: adding one turns EIR field gating ON at the next deploy, and every engineer not on the list would lose fields they can edit today. Set the env var only once the list is populated — that decision is Ray's, not a tidy-up.
