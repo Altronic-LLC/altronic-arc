@@ -353,6 +353,9 @@ const QcFormsView = lazy(() =>
 const QcCpu95View = lazy(() =>
   import("@/views/QcCpu95View").then((m) => ({ default: m.QcCpu95View })),
 );
+// My agenda (BusinessIT#13) — shared layer, not a department: it reads
+// Engineering's lists today and is meant to take Operations' later.
+const AgendaView = lazy(() => import("@/views/AgendaView"));
 const FeatureRequestsView = lazy(() =>
   import("@/views/FeatureRequestsView").then((m) => ({ default: m.FeatureRequestsView })),
 );
@@ -1092,6 +1095,14 @@ export function App() {
               element={
                 <Suspense fallback={<LoadingTasks noun="this Panel QC label" />}>
                   <PrintPanelQcIssueView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/agenda"
+              element={
+                <Suspense fallback={<LoadingTasks noun="your agenda" />}>
+                  <AgendaView />
                 </Suspense>
               }
             />

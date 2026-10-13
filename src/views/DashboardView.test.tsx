@@ -259,7 +259,9 @@ describe("DashboardView — a shipped feature is never a 'Coming soon' card", ()
   it.each(SHIPPED)("$name is a button that goes to $url", async ({ name, url }) => {
     const user = userEvent.setup();
     await renderDashboard();
-    const card = screen.getByRole("button", { name });
+    // findBy, not getBy: a card whose list isn't seeded here (CSA Listings)
+    // shows "Loading…" — not yet a button — until its mock read lands.
+    const card = await screen.findByRole("button", { name });
     // A placeholder is a <div aria-disabled> showing an em dash — never a button.
     expect(card).not.toHaveAttribute("aria-disabled");
     expect(within(card).queryByText(/coming soon/i)).toBeNull();
@@ -349,14 +351,17 @@ describe("DashboardView — 'Coming soon' cards sit at the end of their section"
     // means something unrelated to "this is a Coming Soon placeholder".
     const grid = within(section).getByTestId("dept-cards");
     // Every card, in DOM order — a live card is a <button>, a placeholder is
-    // the aria-disabled <div> PlaceholderCard renders.
+    // the aria-disabled <div> PlaceholderCard renders. A card whose list is
+    // still LOADING is also an aria-disabled div, but it carries aria-busy and
+    // is a live card, so it doesn't count as a placeholder.
     const cards = Array.from(
       grid.querySelectorAll<HTMLElement>("button, [aria-disabled='true']"),
     );
 
     let seenPlaceholder = false;
     for (const card of cards) {
-      const isPlaceholder = card.getAttribute("aria-disabled") === "true";
+      const isPlaceholder =
+        card.getAttribute("aria-disabled") === "true" && card.getAttribute("aria-busy") !== "true";
       if (!isPlaceholder && seenPlaceholder) {
         throw new Error(`A live card follows a "Coming soon" placeholder in ${title}`);
       }

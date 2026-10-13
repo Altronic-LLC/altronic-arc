@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { CalendarDays, ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
 import { useWhereAmI } from "@/hooks/useWhereAmI";
 import { useKanbanAvailable } from "@/hooks/useIsPhone";
 import type { WhereAmIEntry } from "@/types/task";
@@ -16,8 +16,10 @@ import {
   dayLabel,
   monthKey,
   monthLabel,
+  parseDayKey,
   parseMonthKey,
   relativeDayLabel,
+  shiftDay,
   shiftMonth,
   WEEKDAYS,
 } from "@/lib/calendarGrid";
@@ -40,7 +42,20 @@ import { cn } from "@/lib/cn";
 //
 // The device gate is `useKanbanAvailable()`, the orientation-independent check
 // the boards use, so a phone turned sideways doesn't get the grid.
+//
+// On the grid (Tim, 2026-10-13):
+//   - A week row GROWS to fit its busiest day, up to `MAX_VISIBLE_PER_DAY`
+//     entries; past that the day shows "+N more". It used to cap the cell at a
+//     fixed height, and the entries — flex children with `truncate`, so a
+//     min-height of 0 — SHRANK to slivers instead of scrolling.
+//   - Clicking a day's date (its header strip) opens a DAY PANEL on the right:
+//     that day's entries in full, previous / next day, and Add. The day is in
+//     the URL (`?day=yyyy-mm-dd`) so Back and a shared link land on it.
+//     Clicking the rest of the cell still adds, as it always has.
 // =============================================================================
+
+/** Entries shown in a grid cell before it says "+N more". */
+export const MAX_VISIBLE_PER_DAY = 6;
 
 export function WhereAmIView() {
   const gridAvailable = useKanbanAvailable();
@@ -51,6 +66,8 @@ export function WhereAmIView() {
 
   const q = params.get("q") ?? "";
   const monthStart = parseMonthKey(params.get("month"));
+  // The panel is a grid feature; a phone already reads as an agenda.
+  const selectedDay = gridAvailable ? parseDayKey(params.get("day")) : null;
 
   function setParam(key: string, value: string) {
     const next = new URLSearchParams(params);
@@ -59,12 +76,36 @@ export function WhereAmIView() {
     setParams(next, { replace: true });
   }
 
+  /** Open (or move) the day panel, following the grid to that day's month. */
+  function selectDay(day: Date | null) {
+    const next = new URLSearchParams(params);
+    if (day) {
+      next.set("day", dayKey(day));
+      if (monthKey(day) !== monthKey(monthStart)) next.set("month", monthKey(day));
+    } else {
+      next.delete("day");
+    }
+    setParams(next, { replace: true });
+  }
+
+  // Escape closes the panel — but not while a form is open over it, which
+  // handles its own Escape (one thing at a time; see CLAUDE.md).
+  const formOpen = adding !== null || editing !== null;
+  useEffect(() => {
+    if (!selectedDay || formOpen) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") selectDay(null);
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  });
+
   const filtered = useMemo(() => filterWhereAmI(entries, q), [entries, q]);
   const byDay = useMemo(() => groupByDay(filtered), [filtered]);
   const upcoming = useMemo(() => upcomingEntries(filtered), [filtered]);
 
   return (
-    <div className="mx-auto flex max-w-[1400px] flex-col gap-4 px-4 py-4 sm:px-6 sm:py-6">
+    <div className="mx-auto flex max-w-[1600px] flex-col gap-4 px-4 py-4 sm:px-6 sm:py-6">
       <header className="flex flex-wrap items-center gap-3">
         <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-cooper-red/10 text-cooper-red">
           <CalendarDays className="h-5 w-5" />
@@ -97,13 +138,32 @@ export function WhereAmIView() {
       {isLoading ? (
         <LoadingTasks noun="the calendar" />
       ) : gridAvailable ? (
-        <MonthGrid
-          monthStart={monthStart}
-          byDay={byDay}
-          onMonth={(next) => setParam("month", monthKey(next))}
-          onAdd={setAdding}
-          onEdit={setEditing}
-        />
+        <div
+          className={cn(
+            "grid items-start gap-4",
+            selectedDay && "lg:grid-cols-[minmax(0,1fr)_320px]",
+          )}
+        >
+          <MonthGrid
+            monthStart={monthStart}
+            byDay={byDay}
+            selectedKey={selectedDay ? dayKey(selectedDay) : null}
+            onMonth={(next) => setParam("month", monthKey(next))}
+            onSelectDay={selectDay}
+            onAdd={setAdding}
+            onEdit={setEditing}
+          />
+          {selectedDay && (
+            <DayPanel
+              day={selectedDay}
+              entries={byDay.get(dayKey(selectedDay)) ?? []}
+              onStep={(by) => selectDay(shiftDay(selectedDay, by))}
+              onClose={() => selectDay(null)}
+              onAdd={() => setAdding(selectedDay)}
+              onEdit={setEditing}
+            />
+          )}
+        </div>
       ) : (
         <Agenda entries={upcoming} onEdit={setEditing} />
       )}
@@ -125,13 +185,17 @@ export function WhereAmIView() {
 function MonthGrid({
   monthStart,
   byDay,
+  selectedKey,
   onMonth,
+  onSelectDay,
   onAdd,
   onEdit,
 }: {
   monthStart: Date;
   byDay: Map<string, WhereAmIEntry[]>;
+  selectedKey: string | null;
   onMonth: (next: Date) => void;
+  onSelectDay: (day: Date | null) => void;
   onAdd: (day: Date) => void;
   onEdit: (entry: WhereAmIEntry) => void;
 }) {
@@ -181,27 +245,53 @@ function MonthGrid({
         {days.map((day) => {
           const key = dayKey(day);
           const entries = byDay.get(key) ?? [];
+          const visible = entries.slice(0, MAX_VISIBLE_PER_DAY);
+          const hidden = entries.length - visible.length;
           const otherMonth = monthKey(day) !== thisMonth;
+          const selected = key === selectedKey;
           return (
             <div
               key={key}
               onClick={() => onAdd(day)}
               className={cn(
-                "group flex min-h-[7rem] cursor-pointer flex-col gap-1 border-b border-r border-border p-1.5 transition-colors hover:bg-surface-2",
+                "group flex min-h-[7rem] min-w-0 cursor-pointer flex-col gap-1 border-b border-r border-border p-1.5 transition-colors hover:bg-surface-2",
                 otherMonth && "bg-surface-2/40",
+                selected && "bg-accent/5 ring-2 ring-inset ring-accent",
               )}
             >
-              <div className="flex items-center justify-between">
-                <span
-                  className={cn(
-                    "inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-xs tabular-nums",
-                    key === todayKey && "bg-accent font-semibold text-white",
-                    key !== todayKey && otherMonth && "text-fg-muted/60",
-                    key !== todayKey && !otherMonth && "text-fg-muted",
-                  )}
+              <div className="flex items-center gap-1">
+                {/* The header strip — date and the empty space beside it — opens
+                    the day panel, and clicking it again on the day already
+                    showing closes it (Tim, 2026-10-13). One button, so the
+                    whole strip is the target and a keyboard can reach it; a
+                    toggle, so its name stays put and aria-pressed carries the
+                    state. */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelectDay(selected ? null : day);
+                  }}
+                  aria-label={`Show ${dayLabel(day)}`}
+                  aria-pressed={selected}
+                  title={
+                    selected
+                      ? `Close ${dayLabel(day)}`
+                      : `Show everything on ${dayLabel(day)}`
+                  }
+                  className="flex flex-1 items-center rounded px-0.5 py-0.5 text-left hover:bg-surface"
                 >
-                  {day.getUTCDate()}
-                </span>
+                  <span
+                    className={cn(
+                      "inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-xs tabular-nums",
+                      key === todayKey && "bg-accent font-semibold text-white",
+                      key !== todayKey && otherMonth && "text-fg-muted/60",
+                      key !== todayKey && !otherMonth && "text-fg-muted",
+                    )}
+                  >
+                    {day.getUTCDate()}
+                  </span>
+                </button>
                 <button
                   type="button"
                   onClick={(e) => {
@@ -216,8 +306,11 @@ function MonthGrid({
                 </button>
               </div>
 
-              <div className="flex max-h-[6rem] flex-col gap-1 overflow-y-auto">
-                {entries.map((entry) => (
+              {/* No height cap: the week row grows to its busiest day, up to
+                  MAX_VISIBLE_PER_DAY. `shrink-0` is load-bearing — a truncating
+                  flex child has a min-height of 0 and squashes otherwise. */}
+              <div className="flex flex-col gap-1">
+                {visible.map((entry) => (
                   <button
                     key={entry.id}
                     type="button"
@@ -226,17 +319,121 @@ function MonthGrid({
                       onEdit(entry);
                     }}
                     title={entry.title}
-                    className="w-full truncate rounded border border-border bg-surface px-1.5 py-1 text-left text-[11px] text-fg transition-colors hover:border-accent"
+                    className="w-full shrink-0 truncate rounded border border-border bg-surface px-1.5 py-1 text-left text-[11px] text-fg transition-colors hover:border-accent"
                   >
                     {entry.title}
                   </button>
                 ))}
+                {hidden > 0 && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectDay(day);
+                    }}
+                    className="shrink-0 rounded px-1.5 py-0.5 text-left text-[11px] font-medium text-accent hover:underline"
+                  >
+                    +{hidden} more
+                  </button>
+                )}
               </div>
             </div>
           );
         })}
       </div>
     </div>
+  );
+}
+
+/**
+ * The day panel — one day's entries in full, beside the grid. A busy day's
+ * cell can only show a line of each (and stops at MAX_VISIBLE_PER_DAY); this
+ * is where the whole text, and every entry, can be read.
+ */
+function DayPanel({
+  day,
+  entries,
+  onStep,
+  onClose,
+  onAdd,
+  onEdit,
+}: {
+  day: Date;
+  entries: WhereAmIEntry[];
+  onStep: (by: number) => void;
+  onClose: () => void;
+  onAdd: () => void;
+  onEdit: (entry: WhereAmIEntry) => void;
+}) {
+  const relative = relativeDayLabel(day);
+  const full = dayLabel(day);
+  return (
+    <aside
+      aria-label={`Entries for ${full}`}
+      className="overflow-hidden rounded-xl border border-border bg-surface lg:sticky lg:top-24"
+    >
+      <div className="flex items-center gap-1 border-b border-border bg-surface-2 px-3 py-2">
+        <div className="min-w-0 flex-1">
+          <h2 className="truncate font-display text-base font-semibold text-fg">{relative}</h2>
+          {relative !== full && <p className="truncate text-xs text-fg-muted">{full}</p>}
+        </div>
+        <button
+          type="button"
+          onClick={() => onStep(-1)}
+          aria-label="Previous day"
+          className="rounded-md border border-border bg-surface p-1.5 text-fg-muted transition-colors hover:text-fg"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={() => onStep(1)}
+          aria-label="Next day"
+          className="rounded-md border border-border bg-surface p-1.5 text-fg-muted transition-colors hover:text-fg"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close day"
+          className="rounded-md p-1.5 text-fg-muted transition-colors hover:bg-surface hover:text-fg"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      {entries.length === 0 ? (
+        <p className="px-3 py-6 text-center text-sm text-fg-muted">
+          Nobody's on the calendar this day.
+        </p>
+      ) : (
+        <ul className="divide-y divide-border">
+          {entries.map((entry) => (
+            <li key={entry.id}>
+              <button
+                type="button"
+                onClick={() => onEdit(entry)}
+                className="w-full px-3 py-2.5 text-left text-sm text-fg transition-colors hover:bg-surface-2"
+              >
+                {entry.title}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="border-t border-border p-2">
+        <button
+          type="button"
+          onClick={onAdd}
+          className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm font-medium text-fg transition-colors hover:bg-surface-2"
+        >
+          <Plus className="h-4 w-4" />
+          Add to this day
+        </button>
+      </div>
+    </aside>
   );
 }
 

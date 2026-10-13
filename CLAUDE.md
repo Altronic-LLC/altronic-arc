@@ -424,6 +424,7 @@ src/
 │   ├── useBusinessItIssues.ts    BusinessIT issue scan, create + link an existing one (Ray/Tim only; re-reads GitHub before writing)
 │   ├── useGitHubToken.ts         The person's GitHub token, in THIS browser's localStorage (never the bundle)
 │   ├── useWhereAmI.ts            Where am I? queries + mutations
+│   ├── useAgenda.ts              My agenda over the cached task + EIR lists, and the header badge count (no new request)
 │   ├── useDeleteProject.ts       Delete an Engineering project — admin only, refused while anything still points at it
 │   ├── useEcns.ts                ECN queries + mutations (submitter-only notifications, admin-gated delete)
 │   ├── useEcnChecklists.ts       ECN Checklist queries + mutations (no admin gate)
@@ -575,6 +576,7 @@ src/
 │   ├── recipientList.ts         Parsing the env-configured recipient lists (shared)
 │   ├── calendarGrid.ts           Shared month-grid maths for every calendar view
 │   ├── whereAmI.ts               Where am I? mapper, grouping, date-range expansion
+│   ├── agenda.ts                 My agenda (pure) — whose tasks/EIRs, which dates, the window, LOCAL-day grouping, the badge count
 │   ├── visitReportFilters.ts     Pure Visit Report filter/group predicates (list + calendar)
 │   ├── openOrders.ts             Open Orders maths — aging, rollups, repairs split, filenames
 │   ├── openOrdersFields.ts       The 27 SAP extract columns as DATA (+ aliases)
@@ -819,7 +821,8 @@ src/
 │   ├── GrayMarketRequestsView.tsx      Gray Market Requests list (Supply Chain)
 │   ├── MrbView.tsx               MRB register — Needs disposition / Decided / Archive / All
 │   ├── MrbDetailView.tsx         One MRB entry — Part / Nonconformance / Cost cards, attachments, comments
-│   ├── WhereAmIView.tsx          Where am I? — month grid on desktop, agenda on a phone
+│   ├── WhereAmIView.tsx          Where am I? — month grid (rows grow, +N more, day panel via ?day=) on desktop, agenda on a phone
+│   ├── AgendaView.tsx            /agenda — your tasks + EIRs overdue or coming due; window + Watching in the URL and remembered
 │   ├── EcnsView.tsx              ECNs list (search covers the descriptions)
 │   ├── FaitsView.tsx             FAITs list (Supply Chain)
 │   ├── FaitDetailView.tsx        One FAIT — five workflow cards, sign-offs, comments
@@ -2915,6 +2918,62 @@ a rendering of its own that answers the question people open it to ask.
 The month-grid maths (`calendarDays`, month keys, labels) lives in
 **`src/lib/calendarGrid.ts`**, shared with the Visit Reports calendar — pulled
 out when this second calendar arrived, before there was a copy to drift.
+
+**The grid grows to fit; the day panel holds the rest** (Tim, 2026-10-13).
+A cell used to cap its entries at `max-h-[6rem]`, and the entries — flex
+children with `truncate`, so a min-height of 0 — SHRANK to slivers rather
+than scrolling. Now there is no height cap: a week row grows to its busiest
+day, up to `MAX_VISIBLE_PER_DAY` (6), then "+N more". **`shrink-0` on the
+entries is load-bearing.** jsdom can't see layout, so that half was checked
+in a real browser, not a test.
+
+Clicking a day's DATE STRIP opens a day panel on the right (every entry in
+full, previous / next day, Add to this day); clicking the rest of the cell
+still ADDS, as it always did. Clicking the OPEN day's date again closes
+the panel (a toggle: stable name, `aria-pressed`); another day's date moves
+it, and "+N more" only ever opens. The day is `?day=yyyy-mm-dd` (`parseDayKey` /
+`shiftDay` in `calendarGrid.ts`), stepping into another month moves the grid
+with it, and a phone ignores it. Escape closes the panel only when no form is
+open over it — one thing at a time (pinned, and verified by removing the
+guard).
+
+### My Agenda (`/agenda`) — what's coming due, across tasks and EIRs
+
+BusinessIT#13 (Thomas Terhune asked for due-date reminder EMAILS; Tim chose to
+build this first, 2026-10-13). ARC has no scheduler, so an email needs a Power
+Automate flow; the agenda needs nothing new, and a later email can link to it.
+`lib/agenda.ts` (pure), `hooks/useAgenda.ts`, `views/AgendaView.tsx`, and a
+**My Agenda** button with a badge in BOTH header clusters.
+
+Seven things that are load-bearing:
+
+- **Days are LOCAL, not UTC.** Task DueDate and EIR Requested Completion are
+  read as instants and shown with local getters everywhere else, so the agenda
+  keys days with `toIsoDate`. `lib/calendarGrid.ts` is UTC because ITS lists
+  are midday-UTC date-only values — borrowing it puts a late-evening due date
+  on the wrong day. `agenda.test.ts` pins `TZ` to New York for this, and was
+  verified by switching to a UTC key.
+- **Whose:** a task's Assigned, an EIR's assigned engineers, matched with
+  `matchesAnyEmail` against `useCurrentUserEmails()` (never `account.username`
+  alone). Watchers only with the toggle, marked "Watching".
+- **Which dates:** task Due Date; EIR Requested Completion. **Not the EIR's LTB
+  date** — that's a supply-chain deadline, not the engineer's.
+- **An EIR leaves the agenda at Closed, EIR Not Accepted OR Response
+  Accepted** (`EIR_STATUSES_OFF_AGENDA`) — wider than `isOpenEir`, because the
+  last two have nothing left for the engineer. Response Not Accepted stays.
+- **Overdue never ages off.** The window bounds the FUTURE only.
+- **The badge costs no request**: `useMentionScanner` (App.tsx) already holds
+  the task and EIR queries on every page. It is `null` (hidden) until BOTH have
+  loaded, hidden at 0, and counts overdue + today, ASSIGNED only. A test that
+  observes those query keys with its own queryFn (Header.refresh.test.tsx)
+  must stub `useAgenda`, or the badge's observer's queryFn runs instead.
+- **A failed list is SAID**, per list, never an empty agenda —
+  `ListAccessNotice` for a 403, a named "Couldn't load" otherwise.
+
+`?days=` (7/14/30/90, default 14) and `?watching=1` are in the URL and
+remembered in localStorage (`arc-agenda-prefs`, try/catch); the URL wins. The
+page lives in the SHARED layer, not Engineering, so Operations tasks and CMMS
+work orders can join it later without a cross-department import.
 
 ### Gray Market Requests (Supply Chain, PMO site)
 
@@ -9833,6 +9892,28 @@ Three things about the facts, not the verbs:
 - **The starting fact IS randomized**, though — across dozens of short loads
   in one session, always leading with fact #0 would make it the only one
   most people ever actually see.
+
+### The Dashboard renders at once; each card follows its OWN list
+
+Tim, 2026-10-13. `DashboardView` used to return a full-page `LoadingTasks`
+until SIX lists had all arrived, while cards fed by the other lists (ECNs,
+FAITs, MRB, SCNs, CSA, test sheets, maintenance) showed a confident **0**
+during their own load. Now the page renders immediately and each counted card
+takes `{...cardLoad(query)}` from its own query:
+
+- **`loading`** (no data yet): an `aria-disabled` + `aria-busy` div saying
+  "Loading…", no number, not clickable — a 0 there is a claim nobody checked.
+- **`refreshing`** (a refetch over data already shown): the card KEEPS its
+  count, STAYS clickable and shows "Updating". Tim asked for disabled during
+  refresh too; it was deliberately not done, because every invalidation (the
+  Refresh button, returning after an edit) would lock navigation for a beat
+  while showing a number that's still right. One line in `cardLoad` changes it.
+- **Description-only cards** take no load props and are clickable at once.
+- **The access lock wins over loading** — it's checked first in `TypeCard`.
+
+A test identifying "Coming soon" placeholders by `aria-disabled` must exclude
+`aria-busy` (a loading card is live); `DashboardView.test.tsx` does. A new
+counted card gets `cardLoad` from its query in the same edit.
 
 ### Dashboard cards: distinct tones per section, placeholders last
 
