@@ -62,10 +62,18 @@ function sentHtml(n = 0): string {
   return JSON.parse(String(call[1]?.body)).message.body.content;
 }
 
-/** Wait for the fire-and-forget sends to land. */
-async function settle(): Promise<void> {
-  await new Promise((r) => setTimeout(r, 0));
-  await new Promise((r) => setTimeout(r, 0));
+/**
+ * Wait for the fire-and-forget sends to land — ALL of them. Each send first
+ * awaits a Web Crypto digest (the Outlook thread index), so a fixed number of
+ * ticks isn't enough under full-suite load: a slow send then leaks into the
+ * NEXT test, which sees doubles while this one sees none.
+ */
+async function settle(expected = 1): Promise<void> {
+  await vi.waitFor(() =>
+    expect(
+      graphFetch.mock.calls.filter(([path]) => String(path).includes("/sendMail")),
+    ).toHaveLength(expected),
+  );
 }
 
 const TARGET = { kind: "eir" as const, id: 7, title: "EIR_2026-0042" };
