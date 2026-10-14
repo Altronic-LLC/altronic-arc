@@ -49,7 +49,7 @@ function row(id: number, rev: number, name: string, worksheetId = 3) {
 }
 
 function draft(id: number | null, name: string): SubAssemblyDraft {
-  return { key: `k-${name}`, id, name, kind: "subAssembly", altronicPartNumber: "", sapPartNumber: "", quantityPerProduct: 1, overheadPct: null, lines: [LINE], fileName: "", uploadedAt: null, uploadedBy: null };
+  return { key: `k-${name}`, id, name, kind: "subAssembly", altronicPartNumber: "", sapPartNumber: "", quantityPerProduct: 1, overheadPct: null, pricing: null, pricingCorrupt: false, lines: [LINE], fileName: "", uploadedAt: null, uploadedBy: null };
 }
 
 const byMethod = (m: string) => graphFetch.mock.calls.filter(([, init]) => init?.method === m);
@@ -81,6 +81,23 @@ describe("saveRevisionRows", () => {
     expect(fields.Rev).toBe(2);
     expect(fields.Title).toBe("Harness");
     expect(JSON.parse(fields.Lines)).toEqual([LINE]);
+  });
+
+  it("writes a row's own selling price as JSON, and clears it with a blank Pricing column", async () => {
+    graphFetchAll.mockResolvedValue([row(10, 1, "Harness"), row(11, 1, "Enclosure")]);
+    const { saveRevisionRows } = await load();
+    const pricing = { input: { kind: "gm" as const, value: 40 }, distributorDiscountPct: null, priceBreaks: [{ minQty: 10, discountPct: 5 }] };
+    await saveRevisionRows(3, 1, [{ ...draft(10, "Harness"), pricing }, draft(11, "Enclosure")]);
+    const [first, second] = byMethod("PATCH").map(bodyOf);
+    expect(JSON.parse(first.Pricing)).toEqual(pricing);
+    expect(second.Pricing).toBe("");
+  });
+
+  it("never writes over a selling price it couldn't read — the Pricing column is left out", async () => {
+    graphFetchAll.mockResolvedValue([row(10, 1, "Harness")]);
+    const { saveRevisionRows } = await load();
+    await saveRevisionRows(3, 1, [{ ...draft(10, "Harness"), pricingCorrupt: true }]);
+    expect(bodyOf(byMethod("PATCH")[0])).not.toHaveProperty("Pricing");
   });
 
   it("PATCHes this revision's own row in place", async () => {

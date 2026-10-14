@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import {
   isPricingDataNotConnected,
   listFamilyParts,
@@ -9,7 +9,7 @@ import {
   searchSapCustomers,
 } from "@/api/pricingLookup";
 import type { SapCustomer, SapPart } from "@/types/pricing";
-import { buildComparablesPanel, type ComparablesPanel } from "@/lib/pricingMath";
+import { buildComparablesPanel, comparisonFigures, type ComparablesPanel, type ComparisonFigures } from "@/lib/pricingMath";
 
 // =============================================================================
 // Sales Pricing — the SAP facts, as queries. Every one of these can answer
@@ -99,4 +99,51 @@ export function useComparables(
     retry,
   });
   return { ...q, ...connectionOf(q) };
+}
+
+export interface SapComparisonRow {
+  /** What was asked for. */
+  sapPartNumber: string;
+  loading: boolean;
+  /** null = SAP doesn't hold that number. */
+  part: SapPart | null;
+  figures: ComparisonFigures | null;
+}
+
+/**
+ * A worksheet's reference parts as SAP has them now (Ray, 2026-10-14) — one
+ * lookup per SAP number (the same cache entries `useSapPart` uses), then each
+ * part's MPG discount in one read. Re-read every time: the worksheet keeps the
+ * NUMBERS, never the figures, so the reference can't go stale.
+ */
+export function useSapComparison(sapPartNumbers: string[]) {
+  const parts = useQueries({
+    queries: sapPartNumbers.map((pn) => ({
+      queryKey: ["pricing-sap", "part", "", pn.trim().toLowerCase()],
+      queryFn: () => lookupSapPart({ altronicPartNumber: "", sapPartNumber: pn }),
+      staleTime: STALE_MS,
+      retry,
+    })),
+  });
+  const mpgs = [...new Set(parts.map((q) => q.data?.mpg).filter((m): m is string => !!m))].sort();
+  const discounts = useQuery<Record<string, number | null>>({
+    queryKey: ["pricing-sap", "mpg-discounts", ...mpgs],
+    queryFn: () => sapMpgDistributorDiscounts(mpgs),
+    enabled: mpgs.length > 0,
+    staleTime: STALE_MS,
+    retry,
+  });
+  const rows: SapComparisonRow[] = sapPartNumbers.map((pn, i) => {
+    const part = parts[i]?.data ?? null;
+    const discountKnown = !part || !part.mpg || discounts.data !== undefined || discounts.isError;
+    return {
+      sapPartNumber: pn,
+      loading: !!parts[i]?.isLoading || (!!part?.mpg && discounts.isLoading),
+      part,
+      figures: part && discountKnown ? comparisonFigures(part, part.mpg ? discounts.data?.[part.mpg] ?? null : null) : null,
+    };
+  });
+  const notConnected = parts.some((q) => isPricingDataNotConnected(q.error)) || isPricingDataNotConnected(discounts.error);
+  const failed = !notConnected && (parts.some((q) => q.isError) || discounts.isError);
+  return { rows, notConnected, failed };
 }

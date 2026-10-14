@@ -342,12 +342,88 @@ export function worksheetCost(subs: SubAssembly[], legacyOverheadPct?: number | 
   };
 }
 
-/** The totals a revision records for each sub-assembly. */
-export function subAssemblyTotals(subs: SubAssembly[]): SubAssemblyTotals[] {
+/** One of a row, with its overhead — what the row costs when sold on its own. */
+export function rowUnitCost(sub: Pick<SubAssembly, "name" | "lines" | "overheadPct">): CostPair & { problems: string[] } {
+  const c = subAssemblyCost(sub);
+  const f = overheadFactor(sub.overheadPct);
+  return {
+    uploaded: c.uploaded === null ? null : c.uploaded * f,
+    used: c.used === null ? null : c.used * f,
+    problems: c.problems,
+  };
+}
+
+/**
+ * A sub-assembly's OWN selling price (Ray, 2026-10-14): the same maths as the
+ * product, on one of the row at its own cost. The discount is the worksheet's
+ * unless the row overrides it.
+ */
+export function rowSellingPrice(
+  sub: Pick<SubAssembly, "name" | "lines" | "overheadPct" | "pricing">,
+  worksheetDiscountPct: number,
+): { cost: number | null; discountPct: number; result: PriceResult; breaks: PricedBreak[]; problem: string | null } | null {
+  if (!sub.pricing) return null;
+  const cost = rowUnitCost(sub).used;
+  const discountPct = finite(sub.pricing.distributorDiscountPct) ? sub.pricing.distributorDiscountPct : worksheetDiscountPct;
+  // A blank box is held as NaN while it's being typed — say so, never price 0.
+  const result = finite(sub.pricing.input.value)
+    ? priceFromInput({ cost, distributorDiscountPct: discountPct, input: sub.pricing.input, customerDiscountPct: null })
+    : {
+        listPrice: null,
+        distributorPrice: null,
+        baseGM: null,
+        customerPrice: null,
+        customerGM: null,
+        problem: sub.pricing.input.kind === "gm" ? "Enter a target GM." : sub.pricing.input.kind === "list" ? "Enter a list price." : "Enter a customer price.",
+      };
+  return {
+    cost,
+    discountPct,
+    result,
+    breaks: priceBreaks(result.listPrice, cost, discountPct, sub.pricing.priceBreaks),
+    problem: result.problem ?? priceBreaksProblem(sub.pricing.priceBreaks),
+  };
+}
+
+/**
+ * Why the worksheet can't be saved because of a row's own price — one line per
+ * row that's priced separately but has no usable price or breaks. A row with
+ * no own price is never a problem.
+ */
+export function rowPricingProblems(subs: SubAssembly[], worksheetDiscountPct: number): string[] {
+  const out: string[] = [];
+  for (const s of subs) {
+    const sell = rowSellingPrice(s, worksheetDiscountPct);
+    if (!sell) continue;
+    const name = s.name || (s.kind === "part" ? "A part" : "A sub-assembly");
+    const discountBad = s.pricing && finite(s.pricing.distributorDiscountPct) ? discountProblem(s.pricing.distributorDiscountPct) : null;
+    // Only what was TYPED blocks a save. A cost still being worked out (a
+    // component with no cost yet) doesn't — the product price doesn't block on
+    // that either, and a half-built worksheet must still save.
+    const v = s.pricing!.input.value;
+    const kind = s.pricing!.input.kind;
+    const inputBad = !finite(v)
+      ? sell.result.problem
+      : kind === "gm"
+        ? v <= 0 || v >= 100
+          ? "The target GM must be above 0% and below 100%."
+          : null
+        : v <= 0
+          ? `Enter a ${kind === "list" ? "list" : "customer"} price above $0.`
+          : null;
+    const problem = discountBad ?? inputBad ?? priceBreaksProblem(s.pricing!.priceBreaks);
+    if (problem) out.push(`${name}'s own price: ${problem}`);
+  }
+  return out;
+}
+
+/** The totals a revision records for each sub-assembly — with its own price, when it has one. */
+export function subAssemblyTotals(subs: SubAssembly[], worksheetDiscountPct = STANDARD_DISTRIBUTOR_DISCOUNT_PCT): SubAssemblyTotals[] {
   return [...subs]
     .sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id)
     .map((s) => {
       const c = subAssemblyCost(s);
+      const sell = rowSellingPrice(s, worksheetDiscountPct);
       return {
         name: s.name,
         quantityPerProduct: s.quantityPerProduct,
@@ -355,6 +431,18 @@ export function subAssemblyTotals(subs: SubAssembly[]): SubAssemblyTotals[] {
         lineCount: s.lines.length,
         uploadedCost: c.uploaded,
         cost: c.used,
+        ...(s.altronicPartNumber && { altronicPartNumber: s.altronicPartNumber }),
+        ...(s.sapPartNumber && { sapPartNumber: s.sapPartNumber }),
+        ...(sell &&
+          sell.result.listPrice !== null && {
+            sellingPrice: {
+              distributorDiscountPct: sell.discountPct,
+              unitCost: sell.cost,
+              listPrice: sell.result.listPrice,
+              baseGM: sell.result.baseGM,
+              priceBreaks: s.pricing!.priceBreaks,
+            },
+          }),
       };
     });
 }
@@ -419,4 +507,72 @@ export function customerPriceBreaks(
     unitPrice: net(listPrice),
     breaks: priceBreaks(listPrice, null, 0, tiers).map((b) => ({ minQty: b.minQty, price: net(b.price) })),
   };
+}
+// -----------------------------------------------------------------------------
+// SAP comparison — reference parts kept on a New Product worksheet
+// (Ray, 2026-10-14)
+// -----------------------------------------------------------------------------
+
+/** Most SAP part numbers one worksheet's comparison holds — a reference, not a report. */
+export const MAX_COMPARISON_PARTS = 50;
+
+/**
+ * Part numbers out of whatever was pasted — one per line, or separated by
+ * commas, semicolons, tabs or spaces (a column copied out of Excel works).
+ * De-duplicated case-insensitively, order kept; blanks dropped.
+ */
+export function parsePartNumberList(text: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of text.split(/[\s,;]+/)) {
+    const pn = raw.trim();
+    if (!pn || seen.has(pn.toLowerCase())) continue;
+    seen.add(pn.toLowerCase());
+    out.push(pn);
+  }
+  return out;
+}
+
+/** `adding` appended to `current`, skipping any already there (case-insensitive), capped. */
+export function addComparisonParts(current: string[], adding: string[]): { parts: string[]; skipped: number } {
+  const have = new Set(current.map((p) => p.toLowerCase()));
+  const parts = [...current];
+  let skipped = 0;
+  for (const pn of adding) {
+    if (have.has(pn.toLowerCase())) continue;
+    if (parts.length >= MAX_COMPARISON_PARTS) {
+      skipped++;
+      continue;
+    }
+    have.add(pn.toLowerCase());
+    parts.push(pn);
+  }
+  return { parts, skipped };
+}
+
+export interface ComparisonFigures {
+  /** SAP's discount for the part's MPG, else the standard 34%. */
+  distributorDiscountPct: number;
+  discountFromSap: boolean;
+  distributorPrice: number | null;
+  /** At the distributor price, the same way every comparable is measured. */
+  baseGM: number | null;
+}
+
+/** One reference part's figures — its list, its MPG's discount, its cost. */
+export function comparisonFigures(part: Pick<SapPart, "listPrice" | "cost">, mpgDiscountPct: number | null): ComparisonFigures {
+  const discountFromSap = finite(mpgDiscountPct);
+  const d = discountFromSap ? mpgDiscountPct : STANDARD_DISTRIBUTOR_DISCOUNT_PCT;
+  return {
+    distributorDiscountPct: d,
+    discountFromSap,
+    distributorPrice: finite(part.listPrice) ? roundCents(distributorPrice(part.listPrice, d)) : null,
+    baseGM: baseGrossMarginPct(part.listPrice, part.cost, d),
+  };
+}
+
+/** A simple average of the base GMs that could be worked out — null when none could. */
+export function averageBaseGM(gms: (number | null)[]): { average: number | null; counted: number } {
+  const known = gms.filter((g): g is number => finite(g));
+  return { average: known.length ? known.reduce((a, b) => a + b, 0) / known.length : null, counted: known.length };
 }

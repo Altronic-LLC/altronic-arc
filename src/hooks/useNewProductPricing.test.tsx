@@ -76,6 +76,8 @@ describe("worksheetSnapshot", () => {
       sortOrder: 1,
       quantityPerProduct: 2,
       overheadPct: null,
+      pricing: null,
+      pricingCorrupt: false,
       lines: [
         { partNumber: "A", description: "", quantity: 2, uploadedCost: 10, adjustedCost: null },
         { partNumber: "B", description: "", quantity: 1, uploadedCost: 30, adjustedCost: 20 },

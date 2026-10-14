@@ -46,6 +46,8 @@ function sub(over: Partial<SubAssembly> = {}): SubAssembly {
     sapPartNumber: "",
     sortOrder: 0,
     quantityPerProduct: 1,
+    pricing: null,
+    pricingCorrupt: false,
     overheadPct: null,
     lines: [line()],
     linesCorrupt: false,

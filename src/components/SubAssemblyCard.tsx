@@ -8,6 +8,7 @@ import { importSubAssemblyCsv, lineLabel, mergeUpload, type UploadChanges } from
 import { lineUnitCost, overheadFactor, subAssemblyCost } from "@/lib/pricingMath";
 import { formatMoney, formatUnitCost } from "@/lib/quoteMoney";
 import { AttachmentsSection } from "./AttachmentsSection";
+import { RowSellingPrice } from "./RowSellingPrice";
 import { cn } from "@/lib/cn";
 
 // =============================================================================
@@ -50,6 +51,8 @@ export function draftAsSubAssembly(d: SubAssemblyDraft): SubAssembly {
     sortOrder: 0,
     quantityPerProduct: d.quantityPerProduct,
     overheadPct: d.overheadPct,
+    pricing: d.pricing,
+    pricingCorrupt: d.pricingCorrupt,
     lines: d.lines,
     linesCorrupt: false,
     fileName: d.fileName,
@@ -138,12 +141,15 @@ export function SubAssemblyCard({
   onRemove,
   readOnly,
   uploader,
+  worksheetDiscountPct,
 }: {
   draft: SubAssemblyDraft;
   onChange: (next: SubAssemblyDraft) => void;
   onRemove: () => void;
   readOnly: boolean;
   uploader: { displayName: string; email: string };
+  /** The worksheet's distributor discount — a row's own price uses it unless it overrides. */
+  worksheetDiscountPct: number;
 }) {
   const fileInput = useRef<HTMLInputElement>(null);
   const [report, setReport] = useState<{ errors: string[]; skipped: string[]; changes: UploadChanges | null } | null>(null);
@@ -470,6 +476,7 @@ export function SubAssemblyCard({
         </div>
       )}
 
+      <RowSellingPrice draft={draft} onChange={onChange} readOnly={readOnly} worksheetDiscountPct={worksheetDiscountPct} label={draft.name || "this sub-assembly"} />
       <RowFiles draft={draft} readOnly={readOnly} name={name} />
     </section>
   );
@@ -625,11 +632,13 @@ export function PartCard({
   onChange,
   onRemove,
   readOnly,
+  worksheetDiscountPct,
 }: {
   draft: SubAssemblyDraft;
   onChange: (next: SubAssemblyDraft) => void;
   onRemove: () => void;
   readOnly: boolean;
+  worksheetDiscountPct: number;
 }) {
   const line: SubAssemblyLine = draft.lines[0] ?? {
     partNumber: "",
@@ -751,6 +760,7 @@ export function PartCard({
         </div>
       </div>
 
+      <RowSellingPrice draft={draft} onChange={onChange} readOnly={readOnly} worksheetDiscountPct={worksheetDiscountPct} label={label} />
       <RowFiles draft={draft} readOnly={readOnly} name={label} />
     </section>
   );

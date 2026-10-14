@@ -73,6 +73,10 @@ export interface SubAssemblyDraft {
   sapPartNumber: string;
   quantityPerProduct: number;
   overheadPct: number | null;
+  /** The row's own selling price — null when it isn't sold on its own. */
+  pricing: SubAssembly["pricing"];
+  /** The stored price couldn't be read; the save leaves the column alone. */
+  pricingCorrupt: boolean;
   lines: SubAssemblyLine[];
   fileName: string;
   uploadedAt: string | null;
@@ -89,6 +93,8 @@ export function draftFrom(sub: SubAssembly): SubAssemblyDraft {
     sapPartNumber: sub.sapPartNumber,
     quantityPerProduct: sub.quantityPerProduct,
     overheadPct: sub.overheadPct,
+    pricing: sub.pricing ? { ...sub.pricing, input: { ...sub.pricing.input }, priceBreaks: sub.pricing.priceBreaks.map((t) => ({ ...t })) } : null,
+    pricingCorrupt: sub.pricingCorrupt,
     lines: sub.lines.map((l) => ({ ...l })),
     fileName: sub.fileName,
     uploadedAt: sub.uploadedAt,
@@ -119,6 +125,8 @@ export async function saveRevisionRows(
       sortOrder: i + 1,
       quantityPerProduct: d.quantityPerProduct,
       overheadPct: d.overheadPct,
+      // A price ARC couldn't read is never written over: the column is left out.
+      ...(!d.pricingCorrupt && { pricing: d.pricing }),
       lines: d.lines,
       fileName: d.fileName,
       uploadedAt: d.uploadedAt,
@@ -139,6 +147,7 @@ export async function saveRevisionRows(
           sortOrder: i + 1,
           quantityPerProduct: d.quantityPerProduct,
       overheadPct: d.overheadPct,
+          ...(!d.pricingCorrupt && { pricing: d.pricing }),
           lines: d.lines.map((l) => ({ ...l })),
           fileName: d.fileName,
           uploadedAt: d.uploadedAt,
@@ -159,6 +168,8 @@ export async function saveRevisionRows(
         sortOrder: i + 1,
         quantityPerProduct: d.quantityPerProduct,
       overheadPct: d.overheadPct,
+        pricing: d.pricingCorrupt ? null : d.pricing,
+        pricingCorrupt: false,
         lines: d.lines.map((l) => ({ ...l })),
         linesCorrupt: false,
         fileName: d.fileName,

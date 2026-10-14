@@ -183,7 +183,7 @@ export function worksheetSnapshot(args: {
     savedAt: args.savedAt,
     savedBy: args.savedBy,
     note: args.note,
-    subAssemblies: subAssemblyTotals(args.rows),
+    subAssemblies: subAssemblyTotals(args.rows, args.pricing.distributorDiscountPct),
     overheadPct: args.pricing.overheadPct,
     uploadedUnitCost: cost.unit.uploaded,
     unitCost: cost.unit.used,

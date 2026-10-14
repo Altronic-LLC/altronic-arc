@@ -221,12 +221,38 @@ export interface SubAssembly {
    * It replaced the single worksheet-wide overhead.
    */
   overheadPct: number | null;
+  /**
+   * The row's OWN selling price (Ray, 2026-10-14) — null when it isn't sold
+   * on its own. Independent of the product price: one worksheet can price the
+   * whole product, its parts separately, or both.
+   */
+  pricing: RowPricing | null;
+  /** The Pricing JSON couldn't be read — ARC refuses to write over it. */
+  pricingCorrupt: boolean;
   lines: SubAssemblyLine[];
   /** The Lines JSON couldn't be read — ARC refuses to write over it. */
   linesCorrupt: boolean;
   fileName: string;
   uploadedAt: string | null;
   uploadedBy: { displayName: string; email: string } | null;
+}
+
+/** A sub-assembly's own selling price — stored as JSON on its NP Sub-Assemblies row. */
+export interface RowPricing {
+  input: PriceInput;
+  /** null = the worksheet's distributor discount; a number overrides it for this row. */
+  distributorDiscountPct: number | null;
+  priceBreaks: PriceBreakTier[];
+}
+
+/** A row's price as a revision recorded it — what a quote line pins to. */
+export interface RowSellingPrice {
+  distributorDiscountPct: number;
+  /** Per ONE of the row, with its overhead. */
+  unitCost: number | null;
+  listPrice: number;
+  baseGM: number | null;
+  priceBreaks: PriceBreakTier[];
 }
 
 /** A quantity break: at `minQty` or more, `discountPct` off list. */
@@ -251,6 +277,10 @@ export interface SubAssemblyTotals {
   /** Per ONE sub-assembly, at uploaded and at adjusted (used) cost. */
   uploadedCost: number | null;
   cost: number | null;
+  altronicPartNumber?: string;
+  sapPartNumber?: string;
+  /** Present only when the row was priced on its own at this revision. */
+  sellingPrice?: RowSellingPrice;
 }
 
 /**
@@ -302,6 +332,11 @@ export interface NewProductWorksheet {
   /** Remembered for Compare to SAP. */
   altronicPartNumber: string;
   sapPartNumber: string;
+  /**
+   * SAP part numbers kept on the worksheet as a pricing reference (Ray,
+   * 2026-10-14). Not revisioned: the figures are re-read from SAP every time.
+   */
+  comparisonParts: string[];
   /** One full snapshot per revision, oldest first. */
   history: NewProductRevision[];
   historyCorrupt: boolean;
@@ -376,6 +411,11 @@ export interface CustomerQuoteLine {
   breaks: CustomerPriceBreak[];
   /** A worksheet line remembers the revision it was priced from (pinned). */
   worksheetId?: number;
+  /**
+   * Set when the line is ONE separately priced sub-assembly of the worksheet,
+   * not the whole product — its name at the pinned revision.
+   */
+  worksheetRow?: string;
   worksheetNumber?: string;
   worksheetRev?: number;
   requestId?: number;

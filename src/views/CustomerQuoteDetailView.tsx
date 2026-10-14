@@ -365,6 +365,9 @@ function Quote({ quote: q }: { quote: CustomerQuote }) {
                               <Link to={`/sales/pricing/new-product/${l.worksheetId}`} className="text-accent hover:underline">
                                 {l.worksheetNumber} R{l.worksheetRev}
                               </Link>
+                            ) : null}
+                            {l.kind === "worksheet" ? (
+                              l.worksheetRow !== undefined && <span className="block text-[11px]">sub-assembly</span>
                             ) : l.kind === "request" ? (
                               <Link to={`/sales/pricing/request/${l.requestId}`} className="text-accent hover:underline">
                                 {l.requestNumber}

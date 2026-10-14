@@ -376,6 +376,91 @@ describe("NewProductPricingDetailView — discussion and watchers", () => {
   });
 });
 
+describe("NewProductPricingDetailView — a sub-assembly's own selling price", () => {
+  it("shows the Main board's own price, priced from its own cost at the worksheet's discount", async () => {
+    renderWorksheet();
+    await waitForWorksheet();
+    const panel = within(screen.getByRole("region", { name: "Main board — own selling price" }));
+    expect(panel.getByRole("spinbutton", { name: "Target base GM for Main board" })).toHaveValue(45);
+    expect(panel.getByText("The worksheet's (36%).")).toBeInTheDocument();
+    const figures = within(panel.getByLabelText("Main board — own price"));
+    expect(figures.getByText("List price").nextElementSibling?.textContent).toMatch(/^\$[\d,]+\.00$/);
+    expect(panel.getByRole("spinbutton", { name: "Main board break 1 quantity" })).toHaveValue(10);
+  });
+
+  it("Sell separately adds a price — Save waits for one, then writes it to the row", async () => {
+    renderWorksheet();
+    await waitForWorksheet();
+    await userEvent.click(screen.getByRole("button", { name: "Sell Output coil set separately" }));
+    const save = screen.getByRole("button", { name: "Save R2" });
+    expect(save).toBeDisabled();
+    expect(screen.getByText("Output coil set's own price: Enter a target GM.")).toBeInTheDocument();
+
+    await userEvent.type(screen.getByRole("spinbutton", { name: "Target base GM for Output coil set" }), "40");
+    await waitFor(() => expect(save).toBeEnabled());
+    await userEvent.click(save);
+    await waitFor(() =>
+      expect(pricingMockDb.subAssemblies.find((s) => s.worksheetId === 1 && s.rev === 2 && s.name === "Output coil set")?.pricing).toEqual({
+        input: { kind: "gm", value: 40 },
+        distributorDiscountPct: null,
+        priceBreaks: [],
+      }),
+    );
+  });
+
+  it("Stop selling separately takes the price off", async () => {
+    renderWorksheet();
+    await waitForWorksheet();
+    await userEvent.click(screen.getByRole("button", { name: "Stop selling separately" }));
+    expect(screen.queryByRole("region", { name: "Main board — own selling price" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Sell Main board separately" })).toBeInTheDocument();
+  });
+
+  it("an earlier revision's rows show no Sell separately button", async () => {
+    renderWorksheet();
+    await waitForWorksheet();
+    await userEvent.click(screen.getByRole("button", { name: /^R1(?!d)/ }));
+    await waitFor(() => expect(screen.getByText(/You're viewing R1/)).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: /separately/ })).toBeNull();
+  });
+});
+
+describe("NewProductPricingDetailView — SAP comparison", () => {
+  const card = () => within(screen.getByTestId("sap-comparison"));
+
+  it("shows the worksheet's reference parts with list, cost and base GM from SAP", async () => {
+    renderWorksheet();
+    await waitForWorksheet();
+    await waitFor(() => expect(card().getByText("1003-0114-16")).toBeInTheDocument());
+    await waitFor(() => expect(card().getAllByText(/^\d+\.\d%$/).length).toBe(3));
+    expect(card().getByText(/^Average base GM/)).toBeInTheDocument();
+  });
+
+  it("adds pasted part numbers, kept on the worksheet — and says so for one SAP doesn't have", async () => {
+    renderWorksheet();
+    await waitForWorksheet();
+    await userEvent.type(card().getByLabelText("SAP part numbers to compare"), "2001-0310-15, 9999-0000-00");
+    await userEvent.click(card().getByRole("button", { name: "Add" }));
+    await waitFor(() =>
+      expect(pricingMockDb.worksheets.find((w) => w.id === 1)?.comparisonParts).toEqual([
+        "1003-0114-16",
+        "1003-0114-18",
+        "1003-0114-20",
+        "2001-0310-15",
+        "9999-0000-00",
+      ]),
+    );
+    expect(await card().findByText("Not in SAP — check the number.")).toBeInTheDocument();
+  });
+
+  it("removes a part from the list", async () => {
+    renderWorksheet();
+    await waitForWorksheet();
+    await userEvent.click(await card().findByRole("button", { name: "Remove 1003-0114-18" }));
+    await waitFor(() => expect(pricingMockDb.worksheets.find((w) => w.id === 1)?.comparisonParts).toEqual(["1003-0114-16", "1003-0114-20"]));
+  });
+});
+
 describe("NewProductPricingDetailView — customer price and Compare to SAP", () => {
   it("works the list price back from a typed customer price", async () => {
     renderWorksheet();

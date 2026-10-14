@@ -39,6 +39,28 @@ function renderModal() {
 }
 
 describe("QuoteLineModal", () => {
+  it("adds ONE separately priced sub-assembly as its own line, at its own price and breaks", async () => {
+    const { onAdd, dialog } = renderModal();
+    const worksheet = within(dialog).getByLabelText("Worksheet");
+    await waitFor(() => expect(within(worksheet).getAllByRole("option").length).toBeGreaterThan(1));
+    await userEvent.selectOptions(worksheet, within(worksheet).getByRole("option", { name: /NP-2026-0001/ }));
+    // NP-2026-0001 R2 prices its Main board on its own, at $779 list.
+    await userEvent.selectOptions(within(dialog).getByLabelText("What to quote"), "Main board");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Add line" }));
+
+    expect(onAdd).toHaveBeenCalledTimes(1);
+    expect(onAdd.mock.calls[0][0]).toMatchObject({
+      kind: "worksheet",
+      partNumber: "791990-24",
+      description: "Main board",
+      listPrice: 779,
+      customerDiscountPct: 36,
+      unitPrice: 498.56,
+      worksheetRev: 2,
+      worksheetRow: "Main board",
+    });
+  });
+
   it("an Other line carries its customer part number (and SAP #) onto the line", async () => {
     const { onAdd, dialog } = renderModal();
     await userEvent.click(within(dialog).getByRole("radio", { name: "Other line" }));

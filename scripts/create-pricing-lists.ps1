@@ -305,6 +305,8 @@ $Lists = @(
             # Compare to SAP — remembered once typed (Ray, 2026-10-13).
             (Text "AltronicPartNumber" "Altronic Part #"),
             (Text "SapPartNumber" "SAP Part #"),
+            # SAP part numbers kept as a pricing reference (JSON) — the figures are re-read from SAP.
+            (Note "ComparisonParts" "Comparison Parts"),
             # JSON array, the totals of each revision; the lines live on
             # NP Sub-Assemblies, stamped by revision.
             (Note "History" "History"),
@@ -335,6 +337,8 @@ $Lists = @(
             # Optional overhead % on this row's cost — blank = none (Ray,
             # 2026-10-13). It replaced the worksheet-wide OverheadPct.
             (Number "OverheadPct" "Overhead %"),
+            # The row's OWN selling price as JSON (Ray, 2026-10-14) — blank when it isn't sold on its own.
+            (Note "Pricing" "Own Selling Price"),
             # JSON: [{ partNumber, description, quantity, uploadedCost, adjustedCost }].
             # The uploaded cost is the sheet's and is never changed by ARC.
             (Note "Lines" "Lines"),

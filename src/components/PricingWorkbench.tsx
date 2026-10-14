@@ -18,7 +18,7 @@ import { formatMoney, formatPct } from "@/lib/quoteMoney";
 import { useComparables, useMpgDistributorDiscount, useSapPart } from "@/hooks/usePricingLookup";
 import { usePriceRequest } from "@/hooks/usePricingRequests";
 import { SAP_DATA_CONNECTED } from "@/api/pricingLookup";
-import { PricingCard } from "./pricingAtoms";
+import { FieldColumn, FieldLabel, PricingCard } from "./pricingAtoms";
 import { ChoicePills } from "./ChoicePills";
 import { cn } from "@/lib/cn";
 
@@ -294,24 +294,6 @@ export function PricingWorkbench({
       {history && history.history.length > 0 && <PriceHistoryCard history={history} />}
     </div>
   );
-}
-
-// Every field in the price row shares one grid: a label row, a control row
-// and a hint row, each a FIXED height. That is what makes the boxes line up
-// whatever sits in the label row (a plain label, or the Target GM / List
-// price toggle) and whatever the control is (an input, or Yes / No pills).
-function FieldColumn({ header, hint, children }: { header: ReactNode; hint?: string; children: ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1 text-xs">
-      <div className="flex h-6 items-end">{header}</div>
-      <div className="flex h-9 items-center gap-1">{children}</div>
-      {hint && <span className="max-w-[16rem] text-[11px] text-fg-muted">{hint}</span>}
-    </div>
-  );
-}
-
-function FieldLabel({ children }: { children: ReactNode }) {
-  return <span className="font-semibold uppercase tracking-wider text-fg-muted">{children}</span>;
 }
 
 function NumberField({

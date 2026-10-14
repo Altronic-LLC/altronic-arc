@@ -710,6 +710,8 @@ src/
 │   ├── PricingWorkbench.tsx          The manager's pricing panel — cost, discounts, target GM or list, result, MPG + family comparables (cost-gated)
 │   ├── SapCustomerPicker.tsx         Pick a customer from SAP (sold-to, name, group); typed while SAP data isn't connected
 │   ├── NewWorksheetFormModal.tsx     Start a New Product Pricing worksheet (never from a request)
+│   ├── RowSellingPrice.tsx           A worksheet row's OWN selling price — "Sell separately", target GM / list / customer, discount override, its own breaks (edits the DRAFT)
+│   ├── SapComparisonCard.tsx         A worksheet's SAP comparison — reference SAP parts, list / cost / base GM re-read from SAP, saved straight away
 │   ├── SubAssemblyCard.tsx           A worksheet sub-assembly (CSV and/or hand-added components) or standalone part (SAP or manual) — Altronic + SAP #, base vs adjusted cost, files (edits the DRAFT)
 │   ├── QuoteLineModal.tsx            Add a customer-quote line — worksheet (pinned rev), SAP part, priced request, or free line
 │   ├── GrayMarketRequestFormModal.tsx  Raise a gray market request
@@ -4315,8 +4317,8 @@ names — **the internal names are the contract** with `lib/pricingMapper.ts`):
 | Pricing Roles | `VITE_SP_PRICING_ROLES_LIST_ID` (default `b7d55541-…`) | Title = email, `PersonName`, `Roles` (lowercase CSV), `Note` | every pricing user (ARC reads it to decide access) |
 | Pricing Requests | `VITE_SP_PRICING_REQUESTS_LIST_ID` (default `2b0e934b-…`) | Title = `PR-YYYY-####` (unique); the request and its **FINAL price only** | every pricing role |
 | Pricing History | `VITE_SP_PRICING_HISTORY_LIST_ID` (default `a59a40e1-…`) | Title = the same PR number; `RequestRef` lookup; cost, discounts, GM, comparables summary, `History` JSON | **managers and admins only** |
-| New Product Pricing | `VITE_SP_NEW_PRODUCT_PRICING_LIST_ID` (default `1dae4eb5-…`) | Title = `NP-YYYY-####`; overhead, discount, GM, list, `PriceBreaks` JSON, `History` JSON, `Communication`, `Watchers` (`RequestRef` exists, unused) | **managers and admins only** |
-| NP Sub-Assemblies | `VITE_SP_NP_SUBASSEMBLIES_LIST_ID` (**no default**) | `WorksheetRef` lookup + `Rev`; `Kind` (Sub-Assembly / Part), `AltronicPartNumber`, `SapPartNumber`, `OverheadPct` (optional); `Lines` JSON; file name, uploaded at / by; **attachments ON** | **managers and admins only** |
+| New Product Pricing | `VITE_SP_NEW_PRODUCT_PRICING_LIST_ID` (default `1dae4eb5-…`) | Title = `NP-YYYY-####`; overhead, discount, GM, list, `PriceBreaks` JSON, `History` JSON, `ComparisonParts` JSON, `Communication`, `Watchers` (`RequestRef` exists, unused) | **managers and admins only** |
+| NP Sub-Assemblies | `VITE_SP_NP_SUBASSEMBLIES_LIST_ID` (**no default**) | `WorksheetRef` lookup + `Rev`; `Kind` (Sub-Assembly / Part), `AltronicPartNumber`, `SapPartNumber`, `OverheadPct` (optional); `Pricing` JSON (the row's own selling price, blank = none); `Lines` JSON; file name, uploaded at / by; **attachments ON** | **managers and admins only** |
 | Customer Quotes | `VITE_SP_CUSTOMER_QUOTES_LIST_ID` (**no default**) | Title = `SQ-YYYY-####-R#`; `QuoteBase`, `Rev`, status, validity, `Customer` JSON, `Lines` JSON, notes, comments, watchers | **managers and admins only** |
 
 The first four carry documented defaults — they gate nothing by themselves.
@@ -4533,6 +4535,37 @@ Wiring it is that one file plus flipping `SAP_DATA_CONNECTED`.
   `SapPartNumber` column); **Excel export**
   (`lib/worksheetExcel.ts`, ExcelJS dynamically imported). Cancelled, never
   deleted.
+- **A sub-assembly or part can have its OWN selling price** (Ray,
+  2026-10-14) — so one worksheet can price a few parts individually, each with
+  its own quantity breaks. `components/RowSellingPrice.tsx` ("Sell
+  separately"), maths in `rowSellingPrice` / `rowPricingProblems`. Six rules:
+  - **Independent of the product price.** A worksheet can price the whole
+    product, its rows separately, or both; neither hides the other.
+  - **Priced on ONE of the row**, at its own cost with its own overhead
+    (`rowUnitCost`) — never times the quantity per product.
+  - **The discount is the worksheet's unless the row overrides it** (a part
+    that sells in another MPG). Blank = the worksheet's, said beside the box.
+  - **Stored as JSON in the row's `Pricing` column**, so it moves with the
+    row: Save as new revision writes fresh rows carrying it. A `Pricing` value
+    ARC can't read is `pricingCorrupt` and the save LEAVES THE COLUMN OUT —
+    never written over (the ECN checklist rule). Blank = not sold separately.
+  - **Save is blocked only by what was TYPED** (a blank or out-of-range price,
+    bad breaks, a bad discount) — not by a component still missing its cost,
+    which the product price doesn't block on either. The draft holds a blank
+    box as `NaN`, which `rowSellingPrice` reports rather than pricing at 0.
+  - **Each revision's snapshot records the row's price**
+    (`SubAssemblyTotals.sellingPrice`) — that is what a quote line pins to.
+- **SAP comparison** (`components/SapComparisonCard.tsx`, Ray, 2026-10-14):
+  any number of existing SAP part numbers kept on the worksheet
+  (`ComparisonParts` JSON, up to `MAX_COMPARISON_PARTS`), each shown with
+  list, MPG discount, distributor price, cost and base GM, read from SAP
+  through `useSapComparison` (the same cache as `useSapPart`). The worksheet
+  keeps the NUMBERS, never the figures, so the reference can't go stale; it
+  is **saved straight away and not revisioned** — it describes the market,
+  not the product; and base GM is at the distributor price, each part at its
+  own MPG's discount (else 34%), like every comparable here. Paste a column
+  from Excel: `parsePartNumberList` splits on lines, commas and spaces. While
+  SAP isn't connected the numbers are kept and the screen says so.
 
 #### Customer Quotes
 
@@ -4548,6 +4581,13 @@ Wiring it is that one file plus flipping `SAP_DATA_CONNECTED`.
   customer's price is the **distributor price**: the worksheet's own
   distributor discount, or SAP's for the part's MPG (else 34%) — shown and
   editable on the line.
+- **A worksheet line can be ONE separately priced sub-assembly** (Ray,
+  2026-10-14), not the whole product — `lineFromWorksheetRow`, read from the
+  CURRENT revision's snapshot (`pricedRowsOf`), at the row's own discount.
+  The line remembers the row by name (`worksheetRow`); **"Update to R#" is
+  offered only while a later revision still prices that row**, and otherwise
+  the line is left as it was. A worksheet with no product price but a priced
+  row is still offered (`worksheetIsQuotable`).
 - **Each line shows its SAP # when it has one, and takes an optional CUSTOMER
   part number** (Ray, 2026-10-13); both print on the PDF under the part
   ("SAP part no. … · Your part no. …").

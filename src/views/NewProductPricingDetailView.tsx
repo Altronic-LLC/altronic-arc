@@ -29,6 +29,7 @@ import {
   priceBreaks,
   priceBreaksProblem,
   priceFromInput,
+  rowPricingProblems,
   tierRanges,
   worksheetCost,
 } from "@/lib/pricingMath";
@@ -41,6 +42,7 @@ import { DetailTopBar } from "@/components/DetailTopBar";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { ListAccessNotice } from "@/components/ListAccessNotice";
 import { PartCard, SubAssemblyCard, draftAsSubAssembly } from "@/components/SubAssemblyCard";
+import { SapComparisonCard } from "@/components/SapComparisonCard";
 import { CommentComposer } from "@/components/CommentComposer";
 import { CommentThread } from "@/components/CommentThread";
 import { PersonMultiField } from "@/components/PersonMultiField";
@@ -203,6 +205,9 @@ function Worksheet({ ws, rows }: { ws: NewProductWorksheet; rows: SubAssembly[] 
   const breaks = priceBreaks(result.listPrice, cost.unit.used, discountNum, tiers);
   const breakProblem = priceBreaksProblem(tiers);
   const snapshot = viewingCurrent ? null : ws.history.find((h) => h.rev === viewRev) ?? null;
+  // An earlier revision's rows are priced at the discount THAT revision saved.
+  const viewedDiscount = snapshot?.distributorDiscountPct ?? ws.distributorDiscountPct;
+  const rowProblems = viewingCurrent ? rowPricingProblems(shownSubs, discountNum) : [];
 
   function doSave(asNewRevision: boolean, note: string) {
     save.mutate(
@@ -324,7 +329,7 @@ function Worksheet({ ws, rows }: { ws: NewProductWorksheet; rows: SubAssembly[] 
                     touch();
                   };
                   return d.kind === "part" ? (
-                    <PartCard key={d.key} draft={d} readOnly={readOnly} onChange={onChange} onRemove={onRemove} />
+                    <PartCard key={d.key} draft={d} readOnly={readOnly} onChange={onChange} onRemove={onRemove} worksheetDiscountPct={discountNum} />
                   ) : (
                     <SubAssemblyCard
                       key={d.key}
@@ -333,14 +338,15 @@ function Worksheet({ ws, rows }: { ws: NewProductWorksheet; rows: SubAssembly[] 
                       uploader={{ displayName: me.displayName, email: me.email ?? "" }}
                       onChange={onChange}
                       onRemove={onRemove}
+                      worksheetDiscountPct={discountNum}
                     />
                   );
                 })
               : shownSubs.map((s) =>
                   s.kind === "part" ? (
-                    <PartCard key={s.id} draft={draftFrom(s)} readOnly onChange={() => {}} onRemove={() => {}} />
+                    <PartCard key={s.id} draft={draftFrom(s)} readOnly onChange={() => {}} onRemove={() => {}} worksheetDiscountPct={viewedDiscount} />
                   ) : (
-                    <SubAssemblyCard key={s.id} draft={draftFrom(s)} readOnly onChange={() => {}} onRemove={() => {}} uploader={{ displayName: "", email: "" }} />
+                    <SubAssemblyCard key={s.id} draft={draftFrom(s)} readOnly onChange={() => {}} onRemove={() => {}} uploader={{ displayName: "", email: "" }} worksheetDiscountPct={viewedDiscount} />
                   ),
                 )}
               {!readOnly && (
@@ -361,6 +367,8 @@ function Worksheet({ ws, rows }: { ws: NewProductWorksheet; rows: SubAssembly[] 
                             sapPartNumber: "",
                             quantityPerProduct: 1,
                             overheadPct: null,
+                            pricing: null,
+                            pricingCorrupt: false,
                             lines: [],
                             fileName: "",
                             uploadedAt: null,
@@ -377,6 +385,8 @@ function Worksheet({ ws, rows }: { ws: NewProductWorksheet; rows: SubAssembly[] 
                 </div>
               )}
           </section>
+
+          <SapComparisonCard ws={ws} readOnly={cancelled} />
 
           <PricingCard title="Price">
             <div className="flex flex-wrap items-start gap-x-6 gap-y-3">
@@ -578,7 +588,7 @@ function Worksheet({ ws, rows }: { ws: NewProductWorksheet; rows: SubAssembly[] 
               <button
                 type="button"
                 onClick={() => doSave(false, "")}
-                disabled={save.isPending || !!breakProblem}
+                disabled={save.isPending || !!breakProblem || rowProblems.length > 0}
                 className="inline-flex items-center justify-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent/90 disabled:opacity-50"
               >
                 {save.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -587,11 +597,18 @@ function Worksheet({ ws, rows }: { ws: NewProductWorksheet; rows: SubAssembly[] 
               <button
                 type="button"
                 onClick={() => setNewRevOpen(true)}
-                disabled={save.isPending || !!breakProblem}
+                disabled={save.isPending || !!breakProblem || rowProblems.length > 0}
                 className="inline-flex items-center justify-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg hover:bg-surface-2 disabled:opacity-50"
               >
                 Save as R{ws.rev + 1}
               </button>
+              {rowProblems.length > 0 && (
+                <ul role="alert" className="list-disc pl-4 text-[11px] text-cooper-red">
+                  {rowProblems.map((p) => (
+                    <li key={p}>{p}</li>
+                  ))}
+                </ul>
+              )}
               <p className="text-[11px] text-fg-muted">
                 Save overwrites R{ws.rev}. Save as R{ws.rev + 1} keeps R{ws.rev} exactly as it is.
               </p>

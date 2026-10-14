@@ -4,7 +4,9 @@ import type {
   NewProductWorksheet,
   PricingRequest,
   QuoteCustomerInfo,
+  RowSellingPrice,
   SapPart,
+  SubAssemblyTotals,
 } from "@/types/pricing";
 import { customerPriceBreaks } from "./pricingMath";
 import { roundCents } from "./quotePricing";
@@ -132,12 +134,62 @@ export function lineFromWorksheet(
   };
 }
 
+/**
+ * The sub-assemblies priced on their OWN at the worksheet's current revision
+ * (Ray, 2026-10-14), read from that revision's snapshot — what was saved, not
+ * what's half-typed on somebody's screen.
+ */
+export function pricedRowsOf(ws: NewProductWorksheet): (SubAssemblyTotals & { sellingPrice: RowSellingPrice })[] {
+  const snap = ws.history.find((h) => h.rev === ws.rev);
+  return (snap?.subAssemblies ?? []).filter((s): s is SubAssemblyTotals & { sellingPrice: RowSellingPrice } => !!s.sellingPrice);
+}
+
+/** True when the worksheet can put ANY line on a quote — the product, or one of its rows. */
+export function worksheetIsQuotable(ws: NewProductWorksheet): boolean {
+  return ws.listPrice !== null || pricedRowsOf(ws).length > 0;
+}
+
+/**
+ * ONE separately priced sub-assembly as a line — its own list and breaks less
+ * this customer's discount, pinned to the revision like a whole-product line.
+ * `worksheetRow` names the row, which is how "Update to R#" finds it again.
+ */
+export function lineFromWorksheetRow(
+  ws: NewProductWorksheet,
+  rowName: string,
+  customerDiscountPct: number | null,
+  quantity = 1,
+): CustomerQuoteLine | null {
+  const row = pricedRowsOf(ws).find((r) => r.name === rowName);
+  if (!row) return null;
+  const { unitPrice, breaks } = customerPriceBreaks(row.sellingPrice.listPrice, row.sellingPrice.priceBreaks, customerDiscountPct);
+  return {
+    id: newLineId(),
+    kind: "worksheet",
+    partNumber: row.altronicPartNumber || ws.worksheetNumber,
+    description: row.name,
+    quantity,
+    listPrice: row.sellingPrice.listPrice,
+    customerDiscountPct,
+    unitPrice,
+    breaks,
+    worksheetId: ws.id,
+    worksheetNumber: ws.worksheetNumber,
+    worksheetRev: ws.rev,
+    worksheetRow: row.name,
+    sapPartNumber: row.sapPartNumber || undefined,
+  };
+}
+
 /** "Update to R3": the same line, re-priced from the worksheet's current revision. Quantity kept. */
 export function refreshWorksheetLine(
   line: CustomerQuoteLine,
   ws: NewProductWorksheet,
 ): CustomerQuoteLine {
-  const fresh = lineFromWorksheet(ws, line.customerDiscountPct, line.quantity);
+  const fresh =
+    line.worksheetRow !== undefined
+      ? lineFromWorksheetRow(ws, line.worksheetRow, line.customerDiscountPct, line.quantity)
+      : lineFromWorksheet(ws, line.customerDiscountPct, line.quantity);
   // The customer's part number is the quote's, not the worksheet's — kept.
   return fresh
     ? { ...fresh, id: line.id, partNumber: line.partNumber || fresh.partNumber, customerPartNumber: line.customerPartNumber }
@@ -148,7 +200,10 @@ export function refreshWorksheetLine(
 export function worksheetLineIsStale(line: CustomerQuoteLine, worksheets: NewProductWorksheet[]): NewProductWorksheet | null {
   if (line.kind !== "worksheet" || line.worksheetId === undefined) return null;
   const ws = worksheets.find((w) => w.id === line.worksheetId);
-  return ws && ws.rev > (line.worksheetRev ?? 0) && ws.listPrice !== null ? ws : null;
+  if (!ws || ws.rev <= (line.worksheetRev ?? 0)) return null;
+  // A sub-assembly line can only move on if that row is still priced on its own.
+  if (line.worksheetRow !== undefined) return pricedRowsOf(ws).some((r) => r.name === line.worksheetRow) ? ws : null;
+  return ws.listPrice !== null ? ws : null;
 }
 
 /** An existing SAP part at its list price less this customer's discount. null with no list price. */

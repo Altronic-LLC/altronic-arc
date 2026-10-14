@@ -12,6 +12,7 @@ import {
   type QuoteCustomerInfo,
   type SubAssembly,
   type SubAssemblyLine,
+  type RowPricing,
   type DiscountSource,
   type NewProductStatus,
   type NewProductWorksheet,
@@ -126,6 +127,7 @@ export const NEW_PRODUCT_SELECT = [
   "PriceBreaks",
   "AltronicPartNumber",
   "SapPartNumber",
+  "ComparisonParts",
   "History",
   "Communication",
   "Watchers",
@@ -440,6 +442,64 @@ export function parseBreakTiers(raw: unknown): PriceBreakTier[] {
     .sort((a, b) => a.minQty - b.minQty);
 }
 
+/**
+ * `ComparisonParts` JSON → SAP part numbers, de-duplicated, order kept.
+ * Tolerant, because it is a REFERENCE list re-read from SAP every time: a
+ * value it can't read is an empty list, never a reason to refuse anything.
+ */
+export function parseComparisonParts(raw: unknown): string[] {
+  if (typeof raw !== "string" || !raw.trim()) return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(parsed)) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const v of parsed) {
+    const pn = typeof v === "string" ? v.trim() : "";
+    if (pn && !seen.has(pn)) {
+      seen.add(pn);
+      out.push(pn);
+    }
+  }
+  return out;
+}
+
+/**
+ * A sub-assembly's `Pricing` JSON → its own selling price (Ray, 2026-10-14).
+ * Blank is null (not priced on its own). Anything else that isn't a valid
+ * price is CORRUPT — the row then refuses to write over it, the ECN checklist
+ * rule, rather than silently erasing a price somebody set.
+ */
+export function parseRowPricing(raw: unknown): { pricing: RowPricing | null; corrupt: boolean } {
+  if (raw === null || raw === undefined || (typeof raw === "string" && !raw.trim())) return { pricing: null, corrupt: false };
+  if (typeof raw !== "string") return { pricing: null, corrupt: true };
+  let p: unknown;
+  try {
+    p = JSON.parse(raw);
+  } catch {
+    return { pricing: null, corrupt: true };
+  }
+  if (p === null) return { pricing: null, corrupt: false };
+  if (typeof p !== "object") return { pricing: null, corrupt: true };
+  const o = p as Record<string, unknown>;
+  const input = o.input as Record<string, unknown> | undefined;
+  const kind = input?.kind;
+  const value = num(input?.value);
+  if ((kind !== "gm" && kind !== "list" && kind !== "customer") || value === null) return { pricing: null, corrupt: true };
+  return {
+    pricing: {
+      input: { kind, value },
+      distributorDiscountPct: num(o.distributorDiscountPct),
+      priceBreaks: parseBreakTiers(JSON.stringify(Array.isArray(o.priceBreaks) ? o.priceBreaks : [])),
+    },
+    corrupt: false,
+  };
+}
+
 export function toNewProductWorksheet(item: GraphListItem): NewProductWorksheet {
   const f = item.fields ?? {};
   const { entries, corrupt } = parseRevisionHistory(f.History);
@@ -465,6 +525,7 @@ export function toNewProductWorksheet(item: GraphListItem): NewProductWorksheet 
     priceBreaks: parseBreakTiers(f.PriceBreaks),
     altronicPartNumber: text(f.AltronicPartNumber).trim(),
     sapPartNumber: text(f.SapPartNumber).trim(),
+    comparisonParts: parseComparisonParts(f.ComparisonParts),
     history: entries,
     historyCorrupt: corrupt,
     comments: parseCommunication(text(f.Communication)),
@@ -497,6 +558,7 @@ export type NewProductPatch = Partial<
     | "priceBreaks"
     | "altronicPartNumber"
     | "sapPartNumber"
+    | "comparisonParts"
   >
 >;
 
@@ -523,6 +585,7 @@ export function buildNewProductFields(patch: NewProductPatch): Record<string, un
   if (patch.priceBreaks !== undefined) out.PriceBreaks = JSON.stringify(patch.priceBreaks);
   set("AltronicPartNumber", patch.altronicPartNumber?.trim());
   set("SapPartNumber", patch.sapPartNumber?.trim());
+  if (patch.comparisonParts !== undefined) out.ComparisonParts = JSON.stringify(patch.comparisonParts);
   return out;
 }
 
@@ -554,6 +617,7 @@ export const SUB_ASSEMBLY_SELECT = [
   "SortOrder",
   "QuantityPerProduct",
   "OverheadPct",
+  "Pricing",
   "Lines",
   "FileName",
   "UploadedAt",
@@ -564,6 +628,7 @@ export const SUB_ASSEMBLY_SELECT = [
 export function toSubAssembly(item: GraphListItem): SubAssembly {
   const f = item.fields ?? {};
   const { lines, corrupt } = parseSubAssemblyLines(f.Lines);
+  const rowPricing = parseRowPricing(f.Pricing);
   const byName = text(f.UploadedByName).trim();
   const byEmail = text(f.UploadedByEmail).trim();
   return {
@@ -578,6 +643,8 @@ export function toSubAssembly(item: GraphListItem): SubAssembly {
     sortOrder: num(f.SortOrder) ?? 0,
     quantityPerProduct: num(f.QuantityPerProduct) ?? 1,
     overheadPct: num(f.OverheadPct),
+    pricing: rowPricing.pricing,
+    pricingCorrupt: rowPricing.corrupt,
     lines,
     linesCorrupt: corrupt,
     fileName: text(f.FileName).trim(),
@@ -594,6 +661,7 @@ export interface SubAssemblyFields {
   sortOrder?: number;
   quantityPerProduct?: number;
   overheadPct?: number | null;
+  pricing?: RowPricing | null;
   lines?: SubAssemblyLine[];
   fileName?: string;
   uploadedAt?: string | null;
@@ -610,6 +678,8 @@ export function buildSubAssemblyFields(input: SubAssemblyFields): Record<string,
   if (input.sortOrder !== undefined) out.SortOrder = input.sortOrder;
   if (input.quantityPerProduct !== undefined) out.QuantityPerProduct = input.quantityPerProduct;
   if (input.overheadPct !== undefined) out.OverheadPct = input.overheadPct;
+  // null clears it — the row is no longer sold on its own.
+  if (input.pricing !== undefined) out.Pricing = input.pricing === null ? "" : JSON.stringify(input.pricing);
   if (input.lines !== undefined) out.Lines = JSON.stringify(input.lines);
   if (input.fileName !== undefined) out.FileName = input.fileName;
   if (input.uploadedAt !== undefined) out.UploadedAt = input.uploadedAt;

@@ -1,6 +1,6 @@
 import type ExcelJS from "exceljs";
 import type { NewProductWorksheet, SubAssembly } from "@/types/pricing";
-import { lineUnitCost, priceBreaks, subAssemblyCost, tierRanges, worksheetCost } from "./pricingMath";
+import { lineUnitCost, priceBreaks, rowSellingPrice, subAssemblyCost, tierRanges, worksheetCost } from "./pricingMath";
 
 // =============================================================================
 // One New Product Pricing worksheet as an xlsx (Ray, 2026-10-13) — managers
@@ -122,6 +122,25 @@ export async function buildWorksheetWorkbook(
       ...priceBreaks(ws.listPrice, ws.unitCost, ws.distributorDiscountPct, ws.priceBreaks),
     ];
     tiers.forEach((t, i) => {
+      const row = sheet.addRow([ranges[i], t.price, "", t.baseGM]);
+      row.getCell(2).numFmt = MONEY;
+      row.getCell(4).numFmt = PCT;
+    });
+  }
+
+  // Sub-assemblies priced on their own (Ray, 2026-10-14), each with its breaks.
+  for (const sub of current) {
+    const sell = rowSellingPrice(sub, ws.distributorDiscountPct);
+    if (!sell || sell.result.listPrice === null) continue;
+    sheet.addRow([]);
+    bold(sheet.addRow([`${sub.name} — sold on its own`]));
+    const d = sheet.addRow(["Distributor discount", `${sell.discountPct}%${sub.pricing?.distributorDiscountPct != null ? " (this row)" : ""}`]);
+    d.getCell(2).alignment = { horizontal: "left" };
+    const c = sheet.addRow(["Cost (one, with overhead)", sell.cost]);
+    c.getCell(2).numFmt = MONEY;
+    const ranges = tierRanges(sub.pricing!.priceBreaks);
+    bold(sheet.addRow(["Quantity", "Price each", "", "Base GM"]));
+    [{ price: sell.result.listPrice, baseGM: sell.result.baseGM }, ...sell.breaks].forEach((t, i) => {
       const row = sheet.addRow([ranges[i], t.price, "", t.baseGM]);
       row.getCell(2).numFmt = MONEY;
       row.getCell(4).numFmt = PCT;

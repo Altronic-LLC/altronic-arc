@@ -39,6 +39,7 @@ function ws(over: Partial<NewProductWorksheet> = {}): NewProductWorksheet {
     mpg: "",
     distributorDiscountPct: 34,
     discountSource: "Default",
+    comparisonParts: [],
     comments: [],
     watchers: [],
     targetGM: 40,

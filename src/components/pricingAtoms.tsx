@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 import { Calculator, Lock } from "lucide-react";
 import type { PricingRequestStatus } from "@/types/pricing";
@@ -264,4 +265,22 @@ export function ActionButton({
       {children}
     </button>
   );
+}
+
+// Every field in the price row shares one grid: a label row, a control row
+// and a hint row, each a FIXED height. That is what makes the boxes line up
+// whatever sits in the label row (a plain label, or the Target GM / List
+// price toggle) and whatever the control is (an input, or Yes / No pills).
+export function FieldColumn({ header, hint, children }: { header: ReactNode; hint?: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1 text-xs">
+      <div className="flex h-6 items-end">{header}</div>
+      <div className="flex h-9 items-center gap-1">{children}</div>
+      {hint && <span className="max-w-[16rem] text-[11px] text-fg-muted">{hint}</span>}
+    </div>
+  );
+}
+
+export function FieldLabel({ children }: { children: ReactNode }) {
+  return <span className="font-semibold uppercase tracking-wider text-fg-muted">{children}</span>;
 }

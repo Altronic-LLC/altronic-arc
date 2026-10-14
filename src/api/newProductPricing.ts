@@ -111,6 +111,7 @@ async function postWorksheet(worksheetNumber: string, input: NewProductCreateInp
       priceBreaks: [],
       altronicPartNumber: "",
       sapPartNumber: "",
+      comparisonParts: [],
       history: [],
       historyCorrupt: false,
       comments: [],

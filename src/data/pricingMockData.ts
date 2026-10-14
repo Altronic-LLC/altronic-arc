@@ -317,6 +317,7 @@ export const MOCK_NEW_PRODUCT_WORKSHEETS: NewProductWorksheet[] = [
     ],
     altronicPartNumber: "",
     sapPartNumber: "",
+    comparisonParts: ["1003-0114-16", "1003-0114-18", "1003-0114-20"],
     history: [
       {
         rev: 1,
@@ -345,7 +346,17 @@ export const MOCK_NEW_PRODUCT_WORKSHEETS: NewProductWorksheet[] = [
         savedBy: SAVED_BY_RAY,
         note: "Bare board quoted lower ($185 vs $210) and a cheaper hardware kit; added a 50+ break.",
         subAssemblies: [
-          { name: "Main board", quantityPerProduct: 1, lineCount: 4, uploadedCost: 249.67, cost: 224.67 },
+          {
+            name: "Main board",
+            quantityPerProduct: 1,
+            overheadPct: 22,
+            lineCount: 4,
+            uploadedCost: 249.67,
+            cost: 224.67,
+            altronicPartNumber: "791990-24",
+            // Sold on its own too (Ray, 2026-10-14): 224.67 × 1.22 = 274.10 at 45% / 36% → $779.
+            sellingPrice: { distributorDiscountPct: 36, unitCost: 274.1, listPrice: 779, baseGM: 45.02, priceBreaks: [{ minQty: 10, discountPct: 5 }] },
+          },
           { name: "Output coil set", quantityPerProduct: 1, lineCount: 2, uploadedCost: 242.8, cost: 242.8 },
           { name: "Enclosure", quantityPerProduct: 1, lineCount: 3, uploadedCost: 205.25, cost: 202.4 },
         ],
@@ -394,6 +405,7 @@ export const MOCK_NEW_PRODUCT_WORKSHEETS: NewProductWorksheet[] = [
     priceBreaks: [],
     altronicPartNumber: "",
     sapPartNumber: "",
+    comparisonParts: [],
     history: [],
     historyCorrupt: false,
     comments: [],
@@ -429,12 +441,12 @@ function adjust<T extends { partNumber: string; adjustedCost: number | null }>(l
 
 /** Rows of NP Sub-Assemblies — R1 and R2 of NP-2026-0001 (R1 is never rewritten), and R1 of NP-2026-0002. */
 export const MOCK_SUB_ASSEMBLIES: SubAssembly[] = [
-  { id: 1, worksheetId: 1, rev: 1, name: "Main board", kind: "subAssembly", altronicPartNumber: "791990-24", sapPartNumber: "", sortOrder: 1, quantityPerProduct: 1, overheadPct: 22, lines: BOARD_LINES, linesCorrupt: false, fileName: "main-board-bom.csv", ...UPLOAD_R1 },
-  { id: 2, worksheetId: 1, rev: 1, name: "Output coil set", kind: "subAssembly", altronicPartNumber: "", sapPartNumber: "", sortOrder: 2, quantityPerProduct: 1, overheadPct: 22, lines: COIL_LINES, linesCorrupt: false, fileName: "coil-set-bom.csv", ...UPLOAD_R1 },
-  { id: 3, worksheetId: 1, rev: 1, name: "Enclosure", kind: "subAssembly", altronicPartNumber: "", sapPartNumber: "", sortOrder: 3, quantityPerProduct: 1, overheadPct: 22, lines: ENCLOSURE_LINES, linesCorrupt: false, fileName: "enclosure-bom.csv", ...UPLOAD_R1 },
-  { id: 4, worksheetId: 1, rev: 2, name: "Main board", kind: "subAssembly", altronicPartNumber: "791990-24", sapPartNumber: "", sortOrder: 1, quantityPerProduct: 1, overheadPct: 22, lines: adjust(BOARD_LINES, "PCB-24-BARE", 185), linesCorrupt: false, fileName: "main-board-bom.csv", ...UPLOAD_R1 },
-  { id: 5, worksheetId: 1, rev: 2, name: "Output coil set", kind: "subAssembly", altronicPartNumber: "", sapPartNumber: "", sortOrder: 2, quantityPerProduct: 1, overheadPct: 22, lines: COIL_LINES, linesCorrupt: false, fileName: "coil-set-bom.csv", ...UPLOAD_R1 },
-  { id: 6, worksheetId: 1, rev: 2, name: "Enclosure", kind: "subAssembly", altronicPartNumber: "", sapPartNumber: "", sortOrder: 3, quantityPerProduct: 1, overheadPct: 22, lines: adjust(ENCLOSURE_LINES, "HW-KIT-95", 9.9), linesCorrupt: false, fileName: "enclosure-bom.csv", ...UPLOAD_R1 },
+  { id: 1, worksheetId: 1, rev: 1, name: "Main board", kind: "subAssembly", altronicPartNumber: "791990-24", sapPartNumber: "", sortOrder: 1, quantityPerProduct: 1, overheadPct: 22, pricing: null, pricingCorrupt: false, lines: BOARD_LINES, linesCorrupt: false, fileName: "main-board-bom.csv", ...UPLOAD_R1 },
+  { id: 2, worksheetId: 1, rev: 1, name: "Output coil set", kind: "subAssembly", altronicPartNumber: "", sapPartNumber: "", sortOrder: 2, quantityPerProduct: 1, overheadPct: 22, pricing: null, pricingCorrupt: false, lines: COIL_LINES, linesCorrupt: false, fileName: "coil-set-bom.csv", ...UPLOAD_R1 },
+  { id: 3, worksheetId: 1, rev: 1, name: "Enclosure", kind: "subAssembly", altronicPartNumber: "", sapPartNumber: "", sortOrder: 3, quantityPerProduct: 1, overheadPct: 22, pricing: null, pricingCorrupt: false, lines: ENCLOSURE_LINES, linesCorrupt: false, fileName: "enclosure-bom.csv", ...UPLOAD_R1 },
+  { id: 4, worksheetId: 1, rev: 2, name: "Main board", kind: "subAssembly", altronicPartNumber: "791990-24", sapPartNumber: "", sortOrder: 1, quantityPerProduct: 1, overheadPct: 22, pricing: { input: { kind: "gm", value: 45 }, distributorDiscountPct: null, priceBreaks: [{ minQty: 10, discountPct: 5 }] }, pricingCorrupt: false, lines: adjust(BOARD_LINES, "PCB-24-BARE", 185), linesCorrupt: false, fileName: "main-board-bom.csv", ...UPLOAD_R1 },
+  { id: 5, worksheetId: 1, rev: 2, name: "Output coil set", kind: "subAssembly", altronicPartNumber: "", sapPartNumber: "", sortOrder: 2, quantityPerProduct: 1, overheadPct: 22, pricing: null, pricingCorrupt: false, lines: COIL_LINES, linesCorrupt: false, fileName: "coil-set-bom.csv", ...UPLOAD_R1 },
+  { id: 6, worksheetId: 1, rev: 2, name: "Enclosure", kind: "subAssembly", altronicPartNumber: "", sapPartNumber: "", sortOrder: 3, quantityPerProduct: 1, overheadPct: 22, pricing: null, pricingCorrupt: false, lines: adjust(ENCLOSURE_LINES, "HW-KIT-95", 9.9), linesCorrupt: false, fileName: "enclosure-bom.csv", ...UPLOAD_R1 },
   {
     id: 7,
     worksheetId: 2,
@@ -444,6 +456,8 @@ export const MOCK_SUB_ASSEMBLIES: SubAssembly[] = [
     sortOrder: 1,
     quantityPerProduct: 1,
     overheadPct: 15,
+    pricing: null,
+    pricingCorrupt: false,
     lines: [
       { partNumber: "690100-1", description: "DE-3000 DISPLAY MODULE", quantity: 1, uploadedCost: 760, adjustedCost: null },
       { partNumber: "GSK-IP67", description: "IP67 GASKET KIT", quantity: 1, uploadedCost: 38, adjustedCost: null },
@@ -464,6 +478,8 @@ export const MOCK_SUB_ASSEMBLIES: SubAssembly[] = [
     sortOrder: 2,
     quantityPerProduct: 1,
     overheadPct: 15,
+    pricing: null,
+    pricingCorrupt: false,
     lines: [{ partNumber: "BRKT-KIT-SEAL", description: "MOUNTING BRACKET KIT, STAINLESS", quantity: 1, uploadedCost: 24.5, adjustedCost: null, source: "manual" }],
     linesCorrupt: false,
     fileName: "",

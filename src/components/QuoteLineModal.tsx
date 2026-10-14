@@ -6,7 +6,15 @@ import { usePricingRequests } from "@/hooks/usePricingRequests";
 import { useMpgDistributorDiscount, useSapPart } from "@/hooks/usePricingLookup";
 import { STANDARD_DISTRIBUTOR_DISCOUNT_PCT } from "@/lib/pricingMath";
 import { SAP_DATA_CONNECTED } from "@/api/pricingLookup";
-import { freeLine, lineFromRequest, lineFromSapPart, lineFromWorksheet } from "@/lib/customerQuotes";
+import {
+  freeLine,
+  lineFromRequest,
+  lineFromSapPart,
+  lineFromWorksheet,
+  lineFromWorksheetRow,
+  pricedRowsOf,
+  worksheetIsQuotable,
+} from "@/lib/customerQuotes";
 import { formatMoney } from "@/lib/quoteMoney";
 import { useOverlayDismiss } from "./useOverlayDismiss";
 import { cn } from "@/lib/cn";
@@ -45,6 +53,8 @@ export function QuoteLineModal({
   const [kind, setKind] = useState<Kind>("worksheet");
   const [qty, setQty] = useState("1");
   const [worksheetId, setWorksheetId] = useState("");
+  // "" = the whole product; otherwise the name of one separately priced row.
+  const [rowName, setRowName] = useState("");
   const [requestId, setRequestId] = useState("");
   const [partNumber, setPartNumber] = useState("");
   const [freeSap, setFreeSap] = useState("");
@@ -67,7 +77,7 @@ export function QuoteLineModal({
   const { data: worksheets = [] } = useNewProductWorksheets();
   const { data: requests = [] } = usePricingRequests();
   const priced = useMemo(
-    () => worksheets.filter((w) => w.status === "Active" && w.listPrice !== null),
+    () => worksheets.filter((w) => w.status === "Active" && worksheetIsQuotable(w)),
     [worksheets],
   );
   const pricedRequests = useMemo(
@@ -78,15 +88,19 @@ export function QuoteLineModal({
     [requests, customer.soldTo],
   );
   const ws = priced.find((w) => String(w.id) === worksheetId) ?? null;
+  const rowsOfWs = ws ? pricedRowsOf(ws) : [];
+  const row = rowsOfWs.find((r) => r.name === rowName) ?? null;
   const sapPart = useSapPart({ altronicPartNumber: lookedUp, sapPartNumber: "" }, kind === "sapPart" && !!lookedUp);
   const mpg = kind === "worksheet" ? ws?.mpg ?? "" : kind === "sapPart" ? sapPart.data?.mpg ?? "" : "";
   const mpgDiscount = useMpgDistributorDiscount(kind === "sapPart" ? mpg : "");
   // The distributor discount this line starts from, and where it came from.
   const suggested: { pct: number; from: string } | null =
     kind === "worksheet"
-      ? ws
-        ? { pct: ws.distributorDiscountPct, from: `${ws.worksheetNumber}'s distributor discount` }
-        : null
+      ? row
+        ? { pct: row.sellingPrice.distributorDiscountPct, from: `${row.name}'s distributor discount on ${ws!.worksheetNumber}` }
+        : ws
+          ? { pct: ws.distributorDiscountPct, from: `${ws.worksheetNumber}'s distributor discount` }
+          : null
       : kind === "sapPart" && sapPart.data
         ? mpgDiscount.data !== null && mpgDiscount.data !== undefined
           ? { pct: mpgDiscount.data, from: `SAP's distributor discount for ${mpg}` }
@@ -95,14 +109,17 @@ export function QuoteLineModal({
 
   useEffect(() => {
     if (!discountTouched) setDiscount(suggested ? String(suggested.pct) : "");
-  }, [suggested?.pct, discountTouched]);
+  }, [suggested?.pct, suggested?.from, discountTouched]);
 
   const quantity = Number(qty);
   const discountNum = discount.trim() === "" ? null : Number(discount);
   const preview: CustomerQuoteLine | null = (() => {
     if (!Number.isInteger(quantity) || quantity < 1) return null;
     if (discountNum !== null && (!Number.isFinite(discountNum) || discountNum < 0 || discountNum >= 100)) return null;
-    if (kind === "worksheet") return ws ? lineFromWorksheet(ws, discountNum, quantity) : null;
+    if (kind === "worksheet") {
+      if (!ws) return null;
+      return row ? lineFromWorksheetRow(ws, row.name, discountNum, quantity) : lineFromWorksheet(ws, discountNum, quantity);
+    }
     if (kind === "sapPart") return sapPart.data ? lineFromSapPart(sapPart.data, discountNum, quantity) : null;
     if (kind === "request") {
       const r = requests.find((x) => String(x.id) === requestId);
@@ -160,15 +177,51 @@ export function QuoteLineModal({
           {kind === "worksheet" && (
             <label className="flex flex-col gap-1 text-xs">
               <span className="font-semibold uppercase tracking-wider text-fg-muted">Worksheet</span>
-              <select value={worksheetId} onChange={(e) => setWorksheetId(e.target.value)} className="input" aria-label="Worksheet">
+              <select
+                value={worksheetId}
+                onChange={(e) => {
+                  setWorksheetId(e.target.value);
+                  const next = priced.find((w) => String(w.id) === e.target.value);
+                  // Start on the whole product when it has a price, else the first priced row.
+                  setRowName(next && next.listPrice === null ? pricedRowsOf(next)[0]?.name ?? "" : "");
+                  setDiscountTouched(false);
+                }}
+                className="input"
+                aria-label="Worksheet"
+              >
                 <option value="">Pick a priced worksheet…</option>
                 {priced.map((w) => (
                   <option key={w.id} value={w.id}>
-                    {w.worksheetNumber} R{w.rev} — {w.productName} ({formatMoney(w.listPrice)} list)
+                    {w.worksheetNumber} R{w.rev} — {w.productName}
+                    {w.listPrice !== null ? ` (${formatMoney(w.listPrice)} list)` : " (parts priced separately)"}
                   </option>
                 ))}
               </select>
               {priced.length === 0 && <span className="text-[11px] text-fg-muted">No worksheet has a price saved yet.</span>}
+            </label>
+          )}
+          {kind === "worksheet" && ws && rowsOfWs.length > 0 && (
+            <label className="flex flex-col gap-1 text-xs">
+              <span className="font-semibold uppercase tracking-wider text-fg-muted">Quote</span>
+              <select
+                value={rowName}
+                onChange={(e) => {
+                  setRowName(e.target.value);
+                  setDiscountTouched(false);
+                }}
+                className="input"
+                aria-label="What to quote"
+              >
+                <option value="" disabled={ws.listPrice === null}>
+                  The whole product{ws.listPrice !== null ? ` (${formatMoney(ws.listPrice)} list)` : " — no product price saved"}
+                </option>
+                {rowsOfWs.map((r) => (
+                  <option key={r.name} value={r.name}>
+                    {r.name} on its own ({formatMoney(r.sellingPrice.listPrice)} list)
+                  </option>
+                ))}
+              </select>
+              <span className="text-[11px] text-fg-muted">Sub-assemblies priced separately on R{ws.rev}, with their own breaks.</span>
             </label>
           )}
           {kind === "sapPart" && (

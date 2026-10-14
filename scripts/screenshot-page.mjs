@@ -118,7 +118,14 @@ if (!rect) {
   writeFileSync(out, Buffer.from(full.result.data, "base64"));
   fail(`"${selector}" never appeared at ${await evalJs("location.href")} — saved the whole page to ${out}`);
 }
+// The app header is sticky; un-stick it so it can't sit over the capture.
+await evalJs(`document.querySelectorAll("header").forEach((h) => { h.style.position = "static"; }); true`);
 await sleep(800);
+rect = await evalJs(`(() => {
+  const el = document.querySelector(${JSON.stringify(selector)});
+  const r = el.getBoundingClientRect();
+  return { x: r.x + scrollX, y: r.y + scrollY, width: r.width, height: r.height };
+})()`);
 const shot = await send("Page.captureScreenshot", {
   format: "png",
   captureBeyondViewport: true,
