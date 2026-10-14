@@ -20,6 +20,35 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.190.0",
+    date: "2026-10-13",
+    changes: [
+      "New Sales Pricing tool, in review — only the reviewer can open it for now; everyone else still sees Pricing Requests as Coming soon",
+      "Raise a pricing request for a Contact Factory part: Altronic and SAP part numbers, description, who it's for, notes and the customer",
+      "A request for a part SAP already has goes straight to the pricing managers; one SAP hasn't got goes to an admin to set it up first, then on with Added to SAP",
+      "Pricing managers see the part's cost, the distributor and customer discounts, and the average margin of its material price group and its part family, then set a target margin or a list price",
+      "The list price is worked back from cost and rounded to the dollar; the requester is emailed the list price and this customer's price, and can download a price PDF",
+      "Every price keeps a history of how it was reached, and a manager can reopen a request to change it",
+      "New Product Pricing: cost a product that isn't in SAP yet from its sub-assembly BOMs, each uploaded from a CSV, with the uploaded and adjusted cost side by side",
+      "Worksheets have quantity breaks and revisions — save over the current revision or save a new one, compare with SAP once the product exists, and export to Excel",
+      "Customer Quotes: build a quote from new-product worksheets, SAP parts, priced requests and extra lines, at the customer's price for each quantity break, and download the customer PDF",
+    ],
+  },  {
+    version: "0.189.0",
+    date: "2026-10-13",
+    changes: [
+      "New My Agenda page: your Engineering tasks and EIRs that are overdue or coming due, grouped as Overdue, Today, Tomorrow and each day after",
+      "Choose how far ahead it looks (7, 14, 30 or 90 days) and whether to include items you're only watching; ARC remembers your choice",
+      "A My Agenda button in the header shows how many of your items are overdue or due today",
+      "Overdue items stay on the agenda until they're done or re-dated, and a list that can't load says so rather than looking empty",
+      "Where Am I?: each week now grows to fit its busiest day, so entries no longer get squashed into slivers; a day with more than six shows \"+N more\"",
+      "Click a day's date on the Where Am I? calendar to open that day on the right, with every entry in full, previous / next day arrows and Add to this day; click the date again to close it",
+      "The Where Am I? calendar uses more of the screen width",
+      "The Dashboard shows its cards straight away instead of a loading screen: a card still waiting on SharePoint says Loading… and opens once its count arrives",
+      "When the Dashboard refreshes, each card keeps its last count and stays clickable, with a small Updating marker until the new numbers land",
+    ],
+  },
+  {
     version: "0.188.0",
     date: "2026-10-13",
     changes: [

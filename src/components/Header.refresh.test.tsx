@@ -35,6 +35,14 @@ vi.mock("@/hooks/useCurrentUser", () => ({
   useCurrentUserEmails: () => ["demo.user@altronic-llc.com"],
 }));
 
+// The agenda badge observes the task and EIR lists itself. Left real, ITS
+// observer's queryFn is the one a refetch runs, so the counting queryFn below
+// would never be called and the test would fail for a reason that has nothing
+// to do with Refresh.
+vi.mock("@/hooks/useAgenda", () => ({
+  useAgendaAttentionCount: () => null,
+}));
+
 const SEEDED = [["tasks", "list"], ["suppliers"], ["eirs", "list"]];
 
 function renderHeader() {

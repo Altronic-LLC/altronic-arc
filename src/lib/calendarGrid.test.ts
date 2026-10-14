@@ -6,8 +6,10 @@ import {
   dayLabel,
   monthKey,
   monthLabel,
+  parseDayKey,
   parseMonthKey,
   relativeDayLabel,
+  shiftDay,
   shiftMonth,
   WEEKDAYS,
 } from "./calendarGrid";
@@ -97,5 +99,26 @@ describe("labels", () => {
   it("rolls Tomorrow over a month end", () => {
     const now = new Date("2026-08-31T09:00:00Z");
     expect(relativeDayLabel(new Date("2026-09-01T12:00:00Z"), now)).toBe("Tomorrow");
+  });
+});
+
+describe("parseDayKey / shiftDay", () => {
+  it("round-trips a day key", () => {
+    const day = parseDayKey("2026-10-13");
+    expect(day).not.toBeNull();
+    expect(dayKey(day!)).toBe("2026-10-13");
+  });
+
+  it("refuses anything that isn't a real day", () => {
+    expect(parseDayKey("2026-02-31")).toBeNull();
+    expect(parseDayKey("2026-13-01")).toBeNull();
+    expect(parseDayKey("13/10/2026")).toBeNull();
+    expect(parseDayKey("")).toBeNull();
+    expect(parseDayKey(null)).toBeNull();
+  });
+
+  it("steps across month and year ends", () => {
+    expect(dayKey(shiftDay(parseDayKey("2026-10-31")!, 1))).toBe("2026-11-01");
+    expect(dayKey(shiftDay(parseDayKey("2027-01-01")!, -1))).toBe("2026-12-31");
   });
 });
