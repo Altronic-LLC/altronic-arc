@@ -324,6 +324,13 @@ src/
 │   ├── quoteRoles.ts             Quote Roles list CRUD (viewer / quoter / manager) — unset = nobody has access
 │   ├── quoteRevisions.ts         New rev — copies header, assemblies, components, comments, attachments; best-effort after the header
 │   ├── quotePdfFiles.ts          Save a quote PDF to General/IC Quotes (PMO library) — rename on clash, never creates the folder
+│   ├── pricingLookup.ts          Sales Pricing's ONE seam to SAP (Fabric warehouse) — parts, customers, discounts, comparables; mock now, real throws PricingDataNotConnectedError
+│   ├── pricingRequests.ts        Pricing Requests CRUD + comments + watchers (salesTeam site) — PR-YYYY-####, final price only, DIFFED edits, no delete
+│   ├── pricingHistory.ts         Pricing History — one row per request, JSON History APPENDED per pricing; refuses to write over a History it can't parse
+│   ├── pricingRoles.ts           Pricing Roles list CRUD (requester / manager / admin) — unset = nobody has access
+│   ├── newProductPricing.ts      New Product Pricing worksheets — NP-YYYY-####, Save (current rev) / new rev in the same PATCH as Rev, no delete
+│   ├── newProductSubAssemblies.ts NP Sub-Assemblies — one row per sub-assembly PER REVISION; a new rev always writes fresh rows
+│   ├── customerQuotes.ts         Customer Quotes CRUD + comments + watchers — SQ-YYYY-####-R#, New revision = new row, Lines JSON, no delete
 │   ├── grayMarketRequests.ts     Gray Market Requests CRUD + comments (PMO site) — no delete
 │   ├── mrb.ts                    MRB Data CRUD + comments (PMO site) — DIFFED edits, no delete
 │   ├── featureRequests.ts        ARC Feature Requests CRUD + comments (Engineering site) — no admin gate, no delete
@@ -359,6 +366,7 @@ src/
 │   ├── scnMockData.ts            Sample SCNs — every status and category, one with all three review checklists, one Denied
 │   ├── openOrdersMockData.ts     Sample open order lines + report customers
 │   ├── quoteMockData.ts          Sample quotes (incl. an R1/R2 pair), assemblies, components, customers + roles
+│   ├── pricingMockData.ts        Sales Pricing mock store (one reset) + the SAP/Fabric stand-in: parts across three MPGs, discounts, customers
 │   ├── grayMarketMockData.ts     Sample gray market requests
 │   ├── mrbMockData.ts            Sample MRB entries — live, undecided, and archive rows
 │   ├── featureRequestMockData.ts Sample ARC Feature Requests, spanning all four statuses
@@ -418,6 +426,11 @@ src/
 │   ├── useQuoteCustomers.ts      Quote Customers queries + manager-gated mutations
 │   ├── useQuoteRoles.ts          Quote Roles CRUD + useMyQuoteAccess / useResolveQuoteAccess (awaited in every mutationFn)
 │   ├── useQuotePdf.ts            Generate the customer PDF (local download) + the explicit Save to folder
+│   ├── usePricingRoles.ts        Pricing Roles CRUD + useMyPricingAccess / useResolvePricingAccess — the preview switch sits in front of both
+│   ├── usePricingLookup.ts       SAP facts as queries — each answers `notConnected` so a screen falls back to typed entry
+│   ├── usePricingRequests.ts     Pricing request queries + the workflow (submit routing, Added to SAP, In Review, Price → History first, reopen, cancel), comments, watchers
+│   ├── useNewProductPricing.ts   Worksheet queries + gated writes — rows first, then the worksheet and its revision snapshot
+│   ├── useCustomerQuotes.ts      Customer Quote queries, numbered create, New revision, lines, comments + watchers — every write priceGate'd
 │   ├── useGrayMarketRequests.ts  Gray Market queries, mutations + comment thread
 │   ├── useMrb.ts                 MRB queries, mutations + comment thread (an edit diffs against the cached row)
 │   ├── useFeatureRequests.ts     ARC Feature Requests queries, mutations + comment thread — no admin gate
@@ -563,6 +576,16 @@ src/
 │   ├── quotePdfModel.ts          Record → QuotePdfModel, the customer-facing shape that CANNOT carry cost or margin
 │   ├── quotePdf.ts               QuotePdfModel → real-text PDF (jsPDF + AutoTable, dynamically imported)
 │   ├── quoteMapper.ts            Graph item ⇄ all five quote lists; field builders, PriceBreaks JSON, unique-value refusal
+│   ├── pricingMath.ts            Sales Pricing maths (pure) — list from target GM ÷ distributor discount (whole dollar), base GM, customer price, comparables, BOM cost, breaks
+│   ├── pricingRoles.ts           Pricing role → rights + every gate + previewAllows (pure) — no role = no access
+│   ├── pricingHistory.ts         The two JSON History columns — parse (corrupt is never overwritten), append / keyed-by-rev (pure)
+│   ├── pricingNumber.ts          PR-YYYY-#### / NP-YYYY-#### — highest that year + 1, never count + 1 (pure)
+│   ├── pricingMapper.ts          Graph item ⇄ all six pricing lists; $selects, single lookups both halves, diffed request writes
+│   ├── pricingAlerts.ts          Sales Pricing emails — raised (managers / admins), Added to SAP, Priced (pure)
+│   ├── pricingPdf.ts             PricingPdfModel → customer quote / price confirmation PDF; the model CANNOT carry cost, margin, list or discount
+│   ├── subAssemblyCsv.ts         A sub-assembly's BOM from CSV — header-matched, refuses a missing column, re-upload keeps adjustments (pure)
+│   ├── customerQuotes.ts         Customer Quote rules (pure) — SQ numbering, lines from worksheets / SAP / requests / free, pinned revs, totals
+│   ├── worksheetExcel.ts         One New Product worksheet as an xlsx (ExcelJS injected, dynamically imported)
 │   ├── featureRequestAlerts.ts   ARC Feature Request intake + status alerts (pure)
 │   ├── featureRequestIssues.ts   Feature request → BusinessIT issue: who (Ray/Tim), the link marker, matching, the issue body (pure)
 │   ├── grayMarketFields.ts       Gray Market column descriptors (columns are DATA)
@@ -603,6 +626,7 @@ src/
 │
 ├── types/
 │   ├── task.ts                   All domain types + constants (Task, Eir, Panel*, …)
+│   ├── pricing.ts                Sales Pricing types + constants (requests, history, worksheets, sub-assemblies, SAP facts, customer quotes, roles)
 │   └── quote.ts                  Insourcing Quotes types + constants (Quote, QuoteAssembly, QuoteItem, roles, statuses)
 │
 ├── components/
@@ -679,6 +703,13 @@ src/
 │   ├── QuoteAssemblyFormModal.tsx    Add/edit a quote LINE (final assembly or Part) — part numbers, target GM, Part cost, breaks, manual price
 │   ├── QuoteItemFormModal.tsx        Add/edit a component — part numbers, quantity, cost, overhead (NO margin — that's the line's)
 │   ├── QuoteCustomerFormModal.tsx    New/edit a quote customer — proposed code, clash candidates, similar-name warning (manager)
+│   ├── pricingAtoms.tsx              Sales Pricing status chip, sub-nav (Requests / New Products / Customer Quotes / Roles), access gate, card shells
+│   ├── PricingRequestFormModal.tsx   New pricing request — Altronic # / SAP # (optional), description, customer from SAP (typed while not connected)
+│   ├── PricingWorkbench.tsx          The manager's pricing panel — cost, discounts, target GM or list, result, MPG + family comparables (cost-gated)
+│   ├── SapCustomerPicker.tsx         Pick a customer from SAP (sold-to, name, group); typed while SAP data isn't connected
+│   ├── NewWorksheetFormModal.tsx     Start a New Product Pricing worksheet — optionally from a request (RequestRef)
+│   ├── SubAssemblyCard.tsx           One worksheet sub-assembly — CSV upload, uploaded vs adjusted cost per line, totals (edits the DRAFT)
+│   ├── QuoteLineModal.tsx            Add a customer-quote line — worksheet (pinned rev), SAP part, priced request, or free line
 │   ├── GrayMarketRequestFormModal.tsx  Raise a gray market request
 │   ├── MrbFormModal.tsx          Log an MRB entry (auto-computes Price Per Issue)
 │   ├── FeatureRequestFormModal.tsx  Suggest a new ARC feature — Title/Description/Department/Priority only
@@ -816,6 +847,13 @@ src/
 │   ├── QuoteDetailView.tsx       One quote — worksheet (lines → components, cost hidden from viewers), revs, PDF, comments
 │   ├── QuoteCustomersView.tsx    Quote Customers — codes, retire; manager-only writes
 │   ├── QuoteRolesView.tsx        Quote Roles — viewer / quoter / manager; a quote manager OR an ARC admin manages it
+│   ├── PricingRequestsView.tsx   Sales Pricing — every request, opens on open ones; status pills, sortable; cards on a phone
+│   ├── PricingRequestDetailView.tsx  One request — final price, comments, attachments, customer PDF; the PricingWorkbench for managers
+│   ├── NewProductPricingView.tsx Sales Pricing → New Product Pricing worksheets list (managers / admins)
+│   ├── NewProductPricingDetailView.tsx  One worksheet — edits a DRAFT; Save / Save as new revision, read-only earlier revs, Compare to SAP, Excel
+│   ├── CustomerQuotesView.tsx    Sales Pricing → Customer Quotes — latest rev per base, earlier revs on request (managers / admins)
+│   ├── CustomerQuoteDetailView.tsx  One customer quote — lines (Draft only), Update to R#, New revision, PDF, comments, watchers, attachments
+│   ├── PricingRolesView.tsx      Sales Pricing → Roles — requester / manager / admin; a pricing admin OR an ARC admin manages it
 │   ├── GrayMarketRequestsView.tsx      Gray Market Requests list (Supply Chain)
 │   ├── MrbView.tsx               MRB register — Needs disposition / Decided / Archive / All
 │   ├── MrbDetailView.tsx         One MRB entry — Part / Nonconformance / Cost cards, attachments, comments
@@ -1209,7 +1247,7 @@ single `SP_SITE_ID`.
 |---|---|---|
 | `engineering` | Altronic_Engineering | `…,ddb5fc80-ea51-4d56-b008-ce6a82af49b0,aa6b9467-3f57-4213-bbd4-60b94403421a` |
 | `panelTeam` | ALTRONICPANELTEAM → Panels | `…,fdf31131-2076-4618-923b-a1856e6b0f2a,3eb6cb9c-6535-4c69-a8d7-e90b2f90a9eb` |
-| `salesTeam` | ALTRONICSALESTEAM → Customer Service / Sales (Visit Reports) | `…,dd86bf69-a010-481a-9920-78b079c5ec1e,aa6b9467-3f57-4213-bbd4-60b94403421a` |
+| `salesTeam` | ALTRONICSALESTEAM → Customer Service / Sales (Visit Reports, Sales Pricing) | `…,dd86bf69-a010-481a-9920-78b079c5ec1e,aa6b9467-3f57-4213-bbd4-60b94403421a` |
 | `salesOrderEntry` | ALTRONICSALESTEAM/OrderEntry (**subsite** of salesTeam — same collection, shares its grant) | `…,dd86bf69-a010-481a-9920-78b079c5ec1e,583688a6-3238-4f79-aed5-8e2d8ce38c41` |
 | `scn` | ALTRONICSALESTEAM/SCN → Supply Chain (SCNs) (**subsite** of salesTeam — same collection, shares its grant, like salesOrderEntry) | `…,dd86bf69-a010-481a-9920-78b079c5ec1e,ca3d027d-afcb-44e9-9d1b-f5cf4b025e80` |
 | `salesDocumentation` | ALTRONICSALESTEAM/AltronicDocumentation → Sales (Sales Documentation, its Documents library's Main Channel folder) (**subsite** of salesTeam — shares its grant) | `…,dd86bf69-a010-481a-9920-78b079c5ec1e,0a686f85-1497-4ed7-8c6c-3114ba3c2a65` |
@@ -4189,6 +4227,243 @@ Six more things that are load-bearing:
   by a quote manager or an ARC admin — not under `/admin`.
 - **Still open**: manager approval before Sent (not built), and nested
   component sub-assemblies (out of scope; the roll-up is flat).
+
+### Sales Pricing (Customer Service / Sales, ALTRONICSALESTEAM site)
+
+BusinessIT#47 (Ray, 2026-10-13). A **Sales-only** tool for pricing parts: a
+requester asks for a price on an Altronic part, a pricing manager works it out
+from cost and margin, and the final price goes back to the requester. It also
+prices **new products** not yet in SAP (from their sub-assemblies) and builds
+**customer quotes** with a customer-facing PDF. Routes, all lazy-loaded and
+sharing the `PricingNav` sub-nav (`components/pricingAtoms.tsx`):
+
+| Route | View |
+|---|---|
+| `/sales/pricing` | `PricingRequestsView` — every request; opens on the open ones |
+| `/sales/pricing/request/:id` | `PricingRequestDetailView` — the request; `PricingWorkbench` for managers |
+| `/sales/pricing/new-products` | `NewProductPricingView` — worksheets (managers / admins) |
+| `/sales/pricing/new-product/:id` | `NewProductPricingDetailView` — one worksheet |
+| `/sales/pricing/quotes` | `CustomerQuotesView` — customer quotes (managers / admins) |
+| `/sales/pricing/quote/:id` | `CustomerQuoteDetailView` — one quote |
+| `/sales/pricing/roles` | `PricingRolesView` — inside the module, not under `/admin` |
+
+Six lists on **`SITES.salesTeam`**, created by
+`scripts/create-pricing-lists.ps1` (idempotent, `-WhatIf`, readable internal
+names — **the internal names are the contract** with `lib/pricingMapper.ts`):
+
+| List | env | Holds | Who can read it |
+|---|---|---|---|
+| Pricing Roles | `VITE_SP_PRICING_ROLES_LIST_ID` (default `b7d55541-…`) | Title = email, `PersonName`, `Roles` (lowercase CSV), `Note` | every pricing user (ARC reads it to decide access) |
+| Pricing Requests | `VITE_SP_PRICING_REQUESTS_LIST_ID` (default `2b0e934b-…`) | Title = `PR-YYYY-####` (unique); the request and its **FINAL price only** | every pricing role |
+| Pricing History | `VITE_SP_PRICING_HISTORY_LIST_ID` (default `a59a40e1-…`) | Title = the same PR number; `RequestRef` lookup; cost, discounts, GM, comparables summary, `History` JSON | **managers and admins only** |
+| New Product Pricing | `VITE_SP_NEW_PRODUCT_PRICING_LIST_ID` (default `1dae4eb5-…`) | Title = `NP-YYYY-####`; optional `RequestRef`; overhead, discount, GM, list, `PriceBreaks` JSON, `History` JSON | **managers and admins only** |
+| NP Sub-Assemblies | `VITE_SP_NP_SUBASSEMBLIES_LIST_ID` (**no default**) | `WorksheetRef` lookup + `Rev`; `Lines` JSON from a CSV, file name, uploaded at / by | **managers and admins only** |
+| Customer Quotes | `VITE_SP_CUSTOMER_QUOTES_LIST_ID` (**no default**) | Title = `SQ-YYYY-####-R#`; `QuoteBase`, `Rev`, status, validity, `Customer` JSON, `Lines` JSON, notes, comments, watchers | **managers and admins only** |
+
+The first four carry documented defaults — they gate nothing by themselves.
+NP Sub-Assemblies and Customer Quotes have none; unset means their screens say
+so (`NEW_PRODUCT_PRICING_CONFIGURED` / `CUSTOMER_QUOTES_CONFIGURED`). All
+eight `VITE_*` vars (the six ids plus the two preview vars below) are in
+`deploy.yml`'s named list and `vite-env.d.ts`.
+
+**EVERY LIST HAS UNIQUE (non-inherited) PERMISSIONS, and that is the
+design.** Hiding a column in ARC is UI-only — the bundle is public and Graph
+returns every column the caller can read — so anything a requester must not
+see lives on a list they cannot open. That is why the request holds the final
+price only and cost, margin and reasoning sit on Pricing History. Unlike
+Insourcing Quotes (where hiding cost from a viewer is UI-only), **here the
+cost lists ARE the permission boundary**. Graph can't set permissions, so the
+script PRINTS the matrix to apply by hand. Grant at the LIST, never per item:
+a list returning none of the rows it reports holding reads as "you can't read
+this" and locks the screen. Fabric gets the same split — only managers and
+admins get "Run Queries and Mutations" on the GraphQL API item.
+
+#### Roles — `lib/pricingRoles.ts`, the ONE place the rules live
+
+| Right | `requester` | `manager` | `admin` |
+|---|---|---|---|
+| See requests and final prices, raise, comment, watch, customer PDF | yes | yes | yes |
+| See cost, margin, comparables and price history | — | yes | yes |
+| Price / re-price; New Product Pricing; Customer Quotes | — | yes | yes |
+| Added to SAP | — | — | yes |
+| Manage the Pricing Roles list | — | — | yes |
+
+- **admin ⊃ manager ⊃ requester.** **No role = no access** — the Quote Roles
+  rule, and the opposite of EIR Roles' fall-open.
+- **An ARC admin gets ONLY `canManageRoles`**, so a roles list nobody holds
+  `admin` on is never locked from the inside. Being an ARC admin is not a
+  reason to see cost.
+- Every control AND every `mutationFn` asks the same gate
+  (`accessPricingGate`, `seePricingCostGate`, `priceGate`, `addedToSapGate`,
+  `managePricingRolesGate`, `cancelRequestGate`); the mutationFn goes through
+  `useResolvePricingAccess`, which AWAITS the roles and Admins lists rather
+  than trusting a render-time flag.
+- **Cancel**: the person who raised a request may withdraw it until it is
+  Priced; a manager or admin may cancel any that isn't already Cancelled.
+- The name column is `PersonName`, never `DisplayName` (Graph silently drops
+  that field).
+
+#### The preview switch — and how to go live
+
+`PRICING_LIVE` (`VITE_PRICING_LIVE`) is off by default. While it is off, only
+the addresses in `PRICING_PREVIEW_USERS` (`VITE_PRICING_PREVIEW_USERS`,
+default `ray.white@altronic-llc.com`) get ANY rights — whatever the roles list
+says, ARC admins included (`previewAllows`, applied in front of both
+`useMyPricingAccess` and `useResolvePricingAccess`). Everybody else still sees
+**"Pricing Requests — Coming soon"** on the Dashboard and in the Departments
+menu; the real card and menu entry show only to someone with access
+(`pricingAccess: "with" | "without"` in `Header.tsx`). An empty preview list
+lets the roles decide rather than locking everybody out. Mock mode ignores the
+switch.
+
+**Going live**: populate Pricing Roles, apply the permission matrix, set the
+repo variable `VITE_PRICING_LIVE=true`, redeploy.
+
+#### The request workflow — `hooks/usePricingRequests.ts`
+
+```
+Awaiting SAP → Submitted → In Review → Priced       (and Cancelled)
+```
+
+- **On submit ARC looks the part up in SAP** (`routeNewRequest`). Found →
+  **Submitted**, SAP's number, description and MPG filled in, the managers
+  emailed (and a receipt to the requester). Not found → **Awaiting SAP**, the
+  pricing admins emailed to set it up. While SAP data isn't connected, a TYPED
+  SAP number is the requester's word that it exists — a request is never
+  refused for want of a lookup.
+- `RequestedDescription` keeps what the requester typed; `Description` is
+  overwritten with SAP's.
+- **Added to SAP** (admin only) re-checks SAP and moves it to Submitted,
+  stamping `AddedToSapBy` / `AddedToSapAt`.
+- **In Review is set the first time a manager opens a Submitted request** —
+  quietly; a failure costs only the label.
+- **Priced writes Pricing History FIRST, then the request**, then emails the
+  requester and watchers. A price on the request with no record of how it was
+  reached is the outcome this feature exists to prevent. An Awaiting SAP or
+  Cancelled request can't be priced.
+- **A manager can reopen** a Priced request (back to In Review); the old
+  pricing stays in History.
+- **No delete** — Cancelled, with a required reason.
+- Comments, watchers and attachments follow the full house rules
+  (`commentNotifyRecipients`, mention → watcher on Post, resolved on the
+  **Sales** site). Any role can download a **customer price confirmation
+  PDF** of a PRICED request.
+
+Emails (`lib/pricingAlerts.ts`, pure): recipients are read from Pricing Roles
+at SEND time; the queue emails drop the actor only if somebody is left; the
+priced email drops the actor strictly; a queue nobody holds `manager` for
+falls back to the admins.
+
+#### The maths — `lib/pricingMath.ts`, pure, nothing re-derives it
+
+- **Base GM is measured at the DISTRIBUTOR price**, never at list:
+  `distributor = list × (1 − distributor discount)`,
+  `base GM = (distributor − cost) ÷ distributor`. Every comparable is measured
+  the same way.
+- **The manager types a target base GM OR a list price.** From a GM:
+  `list = cost ÷ (1 − GM) ÷ (1 − discount)`, **rounded to the whole dollar**,
+  and the ACTUAL base GM is recomputed from the rounded list. A list price
+  typed by the manager is taken as typed (to the cent).
+- **Distributor discount**: SAP's per MPG, else the standard **34%**
+  (`STANDARD_DISTRIBUTOR_DISCOUNT_PCT`); editable either way, and its source
+  (`SAP` / `Default` / `Manual`) is saved with the price. Cost's source
+  (`SAP` / `Manual`) likewise.
+- **Customer price** = `list × (1 − the customer group's discount for the MPG)`.
+- **Comparables**: two panels — the part's **MPG**, and its **family** (the
+  first six digits of the Altronic number). Each part is measured at ITS OWN
+  MPG's discount (a family can span several MPGs), the average is a **simple
+  average**, and the part being priced plus any part with no list price or no
+  cost are excluded and say why. Only the SUMMARY (key, average, count) is
+  saved to History, never every row.
+
+#### SAP data — the Fabric seam, NOT wired yet
+
+`api/pricingLookup.ts` is the ONE seam to SAP: parts, customers, per-MPG
+distributor discounts, customer group discounts, MPG and family parts. It is
+**read-only** — ARC never writes to SAP or Fabric. The data will come from the
+Fabric SAP warehouse through Tim's Fabric API-for-GraphQL module
+(`api/fabric.ts` on Tim-Sandbox); the table names are still to come. Until
+then:
+
+- **Mock mode** reads the warehouse stand-in in `data/pricingMockData.ts`.
+- **Real mode throws `PricingDataNotConnectedError`** from every call, and
+  `SAP_DATA_CONNECTED` is false, so every screen shows **typed entry from the
+  start** — typed cost, typed customer (`SapCustomerPicker`), no comparables —
+  rather than breaking. `usePricingLookup`'s queries report `notConnected` and
+  never retry it.
+
+Wiring it is that one file plus flipping `SAP_DATA_CONNECTED`.
+
+#### New Product Pricing — worksheets for products not yet in SAP
+
+- **Sub-assemblies come from CSV** (`lib/subAssemblyCsv.ts`): Part Number,
+  Description, Current Cost, Qty — matched by header name with spelling slack.
+  A file missing one is REFUSED, naming it; bad rows are reported and skipped.
+  ARC stamps the upload time and who uploaded.
+- **The uploaded cost is never changed**; the manager types an ADJUSTED cost
+  beside it, and the cost used is `adjusted ?? uploaded`. Both are shown, per
+  line and in the totals.
+- **Re-uploading REPLACES the lines but keeps each part's adjustment**
+  (`mergeUpload`, by part number) and says what changed.
+- Unit cost = Σ sub-assembly cost × quantity per product, plus one overhead %,
+  priced with the same maths as a request. **Quantity breaks** (up to three)
+  are a % off list, rounded to the dollar, each showing its base GM.
+- **THE PAGE EDITS A DRAFT.** Nothing is written until **Save**, which
+  overwrites the CURRENT revision, or **Save as new revision**, which needs a
+  note and writes **fresh rows** on NP Sub-Assemblies for rev + 1 — the
+  previous revision's rows and snapshot are never touched. Leaving with unsaved
+  changes asks first. Earlier revisions open read-only.
+- **A save writes the rows FIRST**, then the worksheet's columns and its
+  revision snapshot, worked out from the rows AS SAVED so the history can't
+  disagree with the lines. The `Rev` column moves in the same PATCH.
+- The worksheet's `History` is JSON keyed by revision (one totals snapshot
+  each). Its `Bom` column predates sub-assemblies and is unused.
+- **Compare to SAP** reads a chosen revision's figures against SAP's now (the
+  part number is remembered on the worksheet); **Excel export**
+  (`lib/worksheetExcel.ts`, ExcelJS dynamically imported). A worksheet can be
+  started from a request (`RequestRef`). Cancelled, never deleted.
+
+#### Customer Quotes
+
+- **`SQ-YYYY-####-R#`** (`lib/customerQuotes.ts`) — the Insourcing Quotes
+  shape: next base = highest that year + 1, a **New revision is a new Draft
+  row** sharing `QuoteBase`, the latest is DERIVED (highest `Rev`), and the
+  old one is untouched. Statuses Draft / Sent / Won / Lost / Expired; a
+  validity in days.
+- **Lines come from four places**: a New Product worksheet (its list and
+  breaks less this customer's discount, **pinned to the revision** — when the
+  worksheet has moved on, the line offers **"Update to R#"**), an existing SAP
+  part, a priced request, or a free line (freight, tooling, NRE). The
+  customer's discount comes from SAP (group × MPG), or is typed — and shown.
+- **The customer and the lines are JSON** (`Customer`, `Lines`). **Lines are
+  editable only while Draft**; once Sent, change them with New revision.
+- **The PDF is built from a model that CANNOT carry cost, margin, list price
+  or discount** (`PricingPdfModel` in `lib/pricingPdf.ts`) — a line's
+  `listPrice` and `customerDiscountPct` are internal and never printed.
+- Comments, watchers and attachments; every write is gated by `priceGate`.
+
+#### Load-bearing rules
+
+- **Single lookups and single-person columns select BOTH halves and are
+  written as a bare integer** — `RequestRef`, `WorksheetRef`, `RequestedBy`,
+  `PricedBy`, `AddedToSapBy`. A person who can't be resolved on the **Sales
+  site** REFUSES the write rather than clearing the column.
+- **Pricing History is append-only**: the first pricing creates the row, every
+  later one appends to `History` after a FRESH read. **A History or Lines value
+  ARC can't parse is never written over** (`HistoryUnreadableError`,
+  `linesCorrupt`) — the ECN checklist rule.
+- **Fresh rows per revision**, on NP Sub-Assemblies and Customer Quotes alike.
+  An earlier revision is never rewritten.
+- **Draft-then-save** on the worksheet page.
+- **Request edits are DIFFED** against the row the edit started from.
+- **Numbers** (`PR-`, `NP-`, `SQ-`) are highest + 1, never count + 1, from a
+  fresh read; `Title` is unique, and a unique-value refusal ONLY re-reads,
+  renumbers and retries once.
+- **The cost lists are the permission boundary**; ARC's gating decides what is
+  offered.
+- **Verify the JSON / Communication columns behaviourally** after the script
+  runs: post two comments and price one request twice — the second write must
+  REPLACE the value, not double it (FAIT 89).
 
 ### QC Time Tracking (Panels, panelTeam site)
 

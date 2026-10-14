@@ -3647,6 +3647,235 @@ const SECTIONS: ManualSection[] = [
     ),
   },
   {
+    id: "sales-pricing",
+    title: "Sales Pricing",
+    group: "Customer Service / Sales",
+    keywords: [
+      "pricing",
+      "price",
+      "price request",
+      "pricing request",
+      "list price",
+      "customer price",
+      "distributor discount",
+      "gross margin",
+      "base gm",
+      "target gm",
+      "cost",
+      "mpg",
+      "material price group",
+      "comparables",
+      "family",
+      "added to sap",
+      "awaiting sap",
+      "new product pricing",
+      "new product",
+      "worksheet",
+      "sub-assembly",
+      "bom",
+      "csv",
+      "quantity breaks",
+      "customer quote",
+      "sales quote",
+      "quotation",
+      "price confirmation",
+      "pricing roles",
+      "requester",
+      "pricing manager",
+      "pricing admin",
+    ],
+    searchText:
+      "Sales Pricing at /sales/pricing, under Departments > Customer Service / Sales, backed by six lists on the ALTRONICSALESTEAM SharePoint site. It is being reviewed before it opens to everyone; until then only the reviewer can open it and everyone else sees Pricing Requests as Coming soon. Access comes from the Pricing Roles list: requester, manager or admin, each including the one before; with no role you have no access. A requester raises a pricing request with New request: the Altronic part number, the SAP part number if known, a description, notes and the customer picked from SAP. ARC looks the part up in SAP: if it is there the request is Submitted and the pricing managers are emailed; if not it is Awaiting SAP and the pricing admins are emailed to set it up, and an admin presses Added to SAP to move it on. The first time a manager opens a Submitted request it moves to In Review. The manager sees cost, the distributor discount (SAP's for the material price group, else 34%), and comparables for the same MPG and the same six-digit family, and types a target GM or a list price; a list worked out from a GM is rounded to the whole dollar. The customer price is the list less the customer group's discount for the MPG. Pricing it sets Priced and emails the requester and watchers; the requester sees the final price only, never cost or margin. A manager can reopen a priced request; earlier prices are kept in the price history. Requests are cancelled, never deleted. Any role can download a customer PDF of a priced request. New Product Pricing prices a product not yet in SAP from its sub-assemblies: upload each sub-assembly as a CSV with Part Number, Description, Current Cost and Qty, adjust any cost, set overhead, a target GM or list price and up to three quantity breaks. The page is a draft until you Save (the current revision) or Save as new revision (with a note); earlier revisions are read-only. Compare to SAP, and export the worksheet to Excel. Customer Quotes are numbered SQ-YYYY-####-R#, built from worksheets, SAP parts, priced requests and free lines, priced for the customer, editable while Draft, with a PDF that never shows cost or margin and New revision for changes after it is sent. Managers and admins only for New Product Pricing and Customer Quotes. While SAP data isn't connected you type the cost and customer yourself.",
+    render: () => (
+      <>
+        <P>
+          <strong>Departments → Customer Service / Sales → Sales Pricing</strong>{" "}
+          (<code>/sales/pricing</code>) is where Sales asks for a price on a
+          part and a pricing manager sets it. It also prices new products that
+          aren't in SAP yet and builds customer quotes. The tabs across the top
+          are <strong>Requests</strong>, <strong>New Products</strong>,{" "}
+          <strong>Customer Quotes</strong> and <strong>Roles</strong> — you
+          see only the ones your role can use.
+        </P>
+        <Tip>
+          Sales Pricing is being reviewed before it opens to everyone. Until
+          then only the reviewer can open it, and everyone else sees{" "}
+          <strong>Pricing Requests — Coming soon</strong> on the Dashboard and
+          in the Departments menu.
+        </Tip>
+        <H3>Who can do what</H3>
+        <P>
+          Access comes from the <strong>Pricing Roles</strong> list. Each role
+          includes the one before it, and{" "}
+          <strong>with no role you have no access</strong>.
+        </P>
+        <UL>
+          <LI>
+            <strong>Requester</strong> — raise requests, see every request and
+            its final price, comment, watch, attach files and download the
+            customer PDF.
+          </LI>
+          <LI>
+            <strong>Manager</strong> — also sees cost, margin, comparables and
+            the price history; sets and changes prices; works New Product
+            Pricing and Customer Quotes.
+          </LI>
+          <LI>
+            <strong>Admin</strong> — also confirms a part was{" "}
+            <strong>Added to SAP</strong> and manages the Roles tab.
+          </LI>
+        </UL>
+        <P>
+          Cost and margin aren't just hidden on screen: they live on SharePoint
+          lists a requester has no permission to open. An ARC admin can manage
+          the Roles tab but gets no pricing access from that alone.
+        </P>
+        <H3>Raising a request</H3>
+        <P>
+          Press <strong>New request</strong> and enter the{" "}
+          <strong>Altronic part number</strong>, the{" "}
+          <strong>SAP part number</strong> if you know it, a description,
+          notes, and the <strong>customer</strong>, picked from SAP — their
+          customer group decides their discount. ARC looks the part up in SAP
+          when you submit:
+        </P>
+        <UL>
+          <LI>
+            <strong>Found</strong> — the request is <strong>Submitted</strong>,
+            SAP's part number and description are filled in, and the pricing
+            managers are emailed. You get a receipt.
+          </LI>
+          <LI>
+            <strong>Not in SAP</strong> — the request is{" "}
+            <strong>Awaiting SAP</strong> and the pricing admins are emailed to
+            set the part up. When they have, an admin presses{" "}
+            <strong>Added to SAP</strong> and it moves on to Submitted.
+          </LI>
+        </UL>
+        <P>
+          The list opens on the open requests — Awaiting SAP, Submitted and In
+          Review — with Priced, Cancelled and All a pill away. The first time a
+          manager opens a Submitted request it moves to{" "}
+          <strong>In Review</strong>, so you can see somebody has picked it up.
+          You can withdraw your own request until it's priced; a request is{" "}
+          <strong>cancelled with a reason, never deleted</strong>.
+        </P>
+        <H3>Setting a price (managers)</H3>
+        <P>
+          A manager sees the pricing panel on the request: the{" "}
+          <strong>cost</strong>, the <strong>distributor discount</strong>{" "}
+          (SAP's for the part's material price group, or the standard 34% when
+          SAP has none), and two comparison panels — other parts in the{" "}
+          <strong>same MPG</strong> and in the <strong>same family</strong>{" "}
+          (the first six digits of the Altronic number), each with its average
+          base GM. Every figure starts from SAP and can be changed; the price
+          history records whether each came from SAP or was typed.
+        </P>
+        <UL>
+          <LI>
+            Type a <strong>target GM</strong> and ARC works out the list price,{" "}
+            <strong>rounded to the whole dollar</strong>, and shows the margin
+            you actually get after rounding. Or type a{" "}
+            <strong>list price</strong> and it's used as typed.
+          </LI>
+          <LI>
+            <strong>Base GM</strong> is the margin at the distributor price
+            (list less the distributor discount), the same way every
+            comparable is measured.
+          </LI>
+          <LI>
+            The <strong>customer price</strong> is the list price less the
+            customer group's discount for the MPG.
+          </LI>
+        </UL>
+        <P>
+          Pricing it sets the request to <strong>Priced</strong> and emails the
+          requester and the watchers. The requester sees the final list,
+          discount and customer price — never the cost or margin. A manager
+          can <strong>Reopen to re-price</strong> a priced request to change the price;
+          every earlier pricing stays in the price history. Once priced,
+          anyone can download a <strong>Customer PDF</strong> confirming the
+          price.
+        </P>
+        <Tip>
+          SAP data isn't connected to ARC yet. Until it is, you type the cost
+          and the customer yourself and there are no comparables — nothing is
+          blocked, and the price history records the figures as typed.
+        </Tip>
+        <H3>New Product Pricing (managers)</H3>
+        <P>
+          <strong>New Products</strong> prices a product that isn't in SAP yet.
+          Start a worksheet with <strong>New worksheet</strong> (or from a
+          request, which links the two), then add its{" "}
+          <strong>sub-assemblies</strong>:
+        </P>
+        <UL>
+          <LI>
+            <strong>Upload CSV</strong> for each one, with the columns{" "}
+            <strong>Part Number</strong>, <strong>Description</strong>,{" "}
+            <strong>Current Cost</strong> and <strong>Qty</strong>. A file
+            missing a column is refused and says which; a bad row is reported
+            and the rest import. ARC records when and by whom.
+          </LI>
+          <LI>
+            Each line shows the <strong>uploaded cost</strong> beside an{" "}
+            <strong>adjusted cost</strong> you can type. The adjusted cost is
+            used when set; clear it to go back to the uploaded one. Totals show
+            both.
+          </LI>
+          <LI>
+            <strong>Uploading again replaces the lines</strong> but keeps your
+            adjustments for any part still on the sheet, and tells you what
+            changed.
+          </LI>
+        </UL>
+        <P>
+          Add an overhead %, then a target GM or a list price as on a request,
+          and up to three <strong>quantity breaks</strong> — each a % off list,
+          rounded to the dollar, showing the margin at that quantity.
+        </P>
+        <P>
+          <strong>The page is a draft until you save.</strong>{" "}
+          <strong>Save</strong> overwrites the current revision;{" "}
+          <strong>Save as new revision</strong> asks what changed and keeps the
+          current revision exactly as it was. Earlier revisions open
+          read-only from the history. ARC asks before you leave with unsaved
+          changes. <strong>Compare to SAP</strong> sets a revision's figures
+          beside SAP's once the product has a part number, and{" "}
+          the <strong>Excel</strong> button downloads the worksheet.
+        </P>
+        <H3>Customer Quotes (managers)</H3>
+        <P>
+          <strong>Customer Quotes</strong> are numbered{" "}
+          <code>SQ-2026-0001-R1</code>. Press <strong>New quote</strong> and pick the customer, then add lines from
+          a <strong>New Product worksheet</strong>, an existing{" "}
+          <strong>SAP part</strong>, a <strong>priced request</strong>, or a{" "}
+          <strong>free line</strong> for freight, tooling or NRE. Each line is
+          priced for this customer — their discount from SAP, or typed and
+          shown when SAP has none.
+        </P>
+        <UL>
+          <LI>
+            A worksheet line stays on the revision it was priced from. When the
+            worksheet moves on, the line says so and offers{" "}
+            <strong>Update to R#</strong>.
+          </LI>
+          <LI>
+            Lines can be changed only while the quote is a{" "}
+            <strong>Draft</strong>. Once it's Sent, Won, Lost or Expired, use{" "}
+            <strong>New revision</strong>, which copies it to the next R number
+            and leaves the sent one as it was.
+          </LI>
+          <LI>
+            The <strong>PDF</strong> shows customer prices, quantities and
+            quantity breaks only — never cost, margin, list price or discount.
+          </LI>
+          <LI>Quotes have comments with @-mentions, watchers and attachments.</LI>
+        </UL>
+      </>
+    ),
+  },
+  {
     id: "faits",
     title: "FAITs",
     group: "Supply Chain",

@@ -3,6 +3,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
 import { quoteMockDb } from "@/data/quoteMockData";
+import { pricingMockDb } from "@/data/pricingMockData";
 
 // =============================================================================
 // Column sorting, exercised through real views.
@@ -61,6 +62,19 @@ function grantQuoteRole() {
       email: "ray.white@altronic-llc.com",
       displayName: "Ray White",
       roles: ["manager"],
+      note: "",
+    });
+  }
+}
+
+/** Sales Pricing admits only people on its roles list — make the mocked user a pricing admin. */
+function grantPricingRole() {
+  if (!pricingMockDb.roles.some((r) => r.email === "ray.white@altronic-llc.com")) {
+    pricingMockDb.roles.push({
+      id: 990,
+      email: "ray.white@altronic-llc.com",
+      displayName: "Ray White",
+      roles: ["admin"],
       note: "",
     });
   }
@@ -182,6 +196,40 @@ describe("every sortable list renders its sort buttons", () => {
   it("Quote Roles", async () => {
     const { QuoteRolesView } = await import("./QuoteRolesView");
     renderWithProviders(<QuoteRolesView />, { route: "/sales/quotes/roles" });
+    await waitForTable();
+    expect(screen.getByRole("button", { name: "Sort by Roles" })).toBeInTheDocument();
+  });
+  it("Sales Pricing requests", async () => {
+    grantPricingRole();
+    const { PricingRequestsView } = await import("./PricingRequestsView");
+    renderWithProviders(<PricingRequestsView />, { route: "/sales/pricing" });
+    await waitForTable();
+    expect(screen.getByRole("button", { name: "Sort by Request #" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sort by Customer" })).toBeInTheDocument();
+  });
+
+  it("New Product Pricing", async () => {
+    grantPricingRole();
+    const { NewProductPricingView } = await import("./NewProductPricingView");
+    renderWithProviders(<NewProductPricingView />, { route: "/sales/pricing/new-products" });
+    await waitForTable();
+    expect(screen.getByRole("button", { name: "Sort by Worksheet #" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sort by Base GM" })).toBeInTheDocument();
+  });
+
+  it("Customer Quotes", async () => {
+    grantPricingRole();
+    const { CustomerQuotesView } = await import("./CustomerQuotesView");
+    renderWithProviders(<CustomerQuotesView />, { route: "/sales/pricing/quotes" });
+    await waitForTable();
+    expect(screen.getByRole("button", { name: "Sort by Quote #" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sort by Total" })).toBeInTheDocument();
+  });
+
+  it("Pricing Roles", async () => {
+    grantPricingRole();
+    const { PricingRolesView } = await import("./PricingRolesView");
+    renderWithProviders(<PricingRolesView />, { route: "/sales/pricing/roles" });
     await waitForTable();
     expect(screen.getByRole("button", { name: "Sort by Roles" })).toBeInTheDocument();
   });
@@ -356,6 +404,65 @@ describe("the rows are actually re-ordered", () => {
     expect(ascending).not.toEqual(byNumber);
 
     await sortBy("Customer");
+    expect(firstColumnValues()).toEqual([...ascending].reverse());
+  });
+
+  it("Sales Pricing requests sort by Customer — a column that is NOT the default", async () => {
+    grantPricingRole();
+    const { PricingRequestsView } = await import("./PricingRequestsView");
+    renderWithProviders(<PricingRequestsView />, { route: "/sales/pricing" });
+    await waitForTable();
+    const byRaised = firstColumnValues();
+
+    await sortBy("Customer");
+    const ascending = firstColumnValues();
+    expect(ascending.length).toBeGreaterThan(1);
+    expect(ascending).not.toEqual(byRaised);
+
+    await sortBy("Customer");
+    expect(firstColumnValues()).toEqual([...ascending].reverse());
+  });
+
+  it("New Product Pricing sorts by Product — a column that is NOT the default", async () => {
+    grantPricingRole();
+    const { NewProductPricingView } = await import("./NewProductPricingView");
+    renderWithProviders(<NewProductPricingView />, { route: "/sales/pricing/new-products" });
+    await waitForTable();
+    const byUpdated = firstColumnValues();
+
+    await sortBy("Product");
+    const ascending = firstColumnValues();
+    expect(ascending.length).toBeGreaterThan(1);
+    expect(ascending).not.toEqual(byUpdated);
+
+    await sortBy("Product");
+    expect(firstColumnValues()).toEqual([...ascending].reverse());
+  });
+
+  it("Customer Quotes sorts by Created — a column that is NOT the default", async () => {
+    grantPricingRole();
+    const { CustomerQuotesView } = await import("./CustomerQuotesView");
+    renderWithProviders(<CustomerQuotesView />, { route: "/sales/pricing/quotes" });
+    await waitForTable();
+    const byNumber = firstColumnValues();
+
+    await sortBy("Created");
+    const ascending = firstColumnValues();
+    expect(ascending.length).toBeGreaterThan(1);
+    expect(ascending).not.toEqual(byNumber);
+
+    await sortBy("Created");
+    expect(firstColumnValues()).toEqual([...ascending].reverse());
+  });
+
+  it("Pricing Roles sorts by Name, then reverses", async () => {
+    grantPricingRole();
+    const { PricingRolesView } = await import("./PricingRolesView");
+    renderWithProviders(<PricingRolesView />, { route: "/sales/pricing/roles" });
+    await waitForTable();
+    const ascending = firstColumnValues();
+    expect(ascending.length).toBeGreaterThan(1);
+    await sortBy("Name");
     expect(firstColumnValues()).toEqual([...ascending].reverse());
   });
 

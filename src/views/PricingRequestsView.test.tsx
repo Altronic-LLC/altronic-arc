@@ -87,4 +87,23 @@ describe("PricingRequestDetailView", () => {
     await screen.findByText("PR-2026-0004");
     expect(screen.queryByRole("button", { name: /Added to SAP/ })).toBeNull();
   });
+
+  it("offers a requester the Customer PDF on a priced request", async () => {
+    who.email = REQUESTER;
+    renderDetail(1);
+    await screen.findByText("PR-2026-0001");
+    expect(screen.getByRole("button", { name: /Customer PDF/ })).toBeInTheDocument();
+  });
+
+  it("offers a manager a new-product worksheet, and a requester not", async () => {
+    who.email = MANAGER;
+    const { unmount } = renderDetail(2);
+    expect(await screen.findByRole("button", { name: /Start new-product worksheet/ })).toBeInTheDocument();
+    unmount();
+
+    who.email = REQUESTER;
+    renderDetail(2);
+    await screen.findByText("PR-2026-0002");
+    expect(screen.queryByRole("button", { name: /Start new-product worksheet/ })).toBeNull();
+  });
 });
