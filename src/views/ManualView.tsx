@@ -3922,8 +3922,9 @@ const SECTIONS: ManualSection[] = [
           </LI>
         </UL>
         <P>
-          Add an overhead %, then a target GM or a list price as on a request,
-          and up to three <strong>quantity breaks</strong> — each a % off list,
+          Add an overhead %, then a target GM, a list price, or a{" "}
+          <strong>customer price</strong> — the distributor price, from which
+          ARC works the list price back — and up to three <strong>quantity breaks</strong> — each a % off list,
           rounded to the dollar, showing the margin at that quantity.
         </P>
         <P>
@@ -3933,7 +3934,7 @@ const SECTIONS: ManualSection[] = [
           current revision exactly as it was. Earlier revisions open
           read-only from the history. ARC asks before you leave with unsaved
           changes. <strong>Compare to SAP</strong> sets a revision's figures
-          beside SAP's once the product has a part number, and{" "}
+          beside SAP's once you enter the product's SAP part number, and{" "}
           the <strong>Excel</strong> button downloads the worksheet.
         </P>
         <H3>Customer Quotes (managers)</H3>

@@ -338,7 +338,7 @@ export function SubAssemblyCard({
                           aria-label={`Altronic part number, line ${i + 1}`}
                           value={line.partNumber}
                           onChange={(e) => setLine(i, { partNumber: e.target.value })}
-                          className="input w-28 font-mono text-xs"
+                          className="input !w-28 font-mono text-xs"
                         />
                       )}
                       <SourceChip source={line.source} />
@@ -351,7 +351,7 @@ export function SubAssemblyCard({
                           aria-label={`SAP part number, line ${i + 1}`}
                           value={line.sapPartNumber ?? ""}
                           onChange={(e) => setLine(i, { sapPartNumber: e.target.value })}
-                          className="input w-28 font-mono text-xs"
+                          className="input !w-28 font-mono text-xs"
                         />
                       )}
                     </td>
@@ -363,7 +363,7 @@ export function SubAssemblyCard({
                           aria-label={`Description, line ${i + 1}`}
                           value={line.description}
                           onChange={(e) => setLine(i, { description: e.target.value })}
-                          className="input w-full"
+                          className="input !w-full"
                         />
                       )}
                     </td>
@@ -378,7 +378,7 @@ export function SubAssemblyCard({
                           aria-label={`Quantity for ${label}`}
                           value={line.quantity}
                           onChange={(e) => setLine(i, { quantity: num(e.target.value) ?? 0 })}
-                          className="input w-full px-1.5 text-right tabular-nums"
+                          className="input !w-full !px-1.5 text-right tabular-nums"
                         />
                       )}
                     </td>
@@ -392,7 +392,7 @@ export function SubAssemblyCard({
                           value={line.uploadedCost ?? ""}
                           placeholder="—"
                           onChange={(e) => setLine(i, { uploadedCost: num(e.target.value) })}
-                          className="input w-full px-1.5 text-right tabular-nums"
+                          className="input !w-full !px-1.5 text-right tabular-nums"
                         />
                       ) : line.uploadedCost === null ? (
                         <span className="text-cooper-red no-underline">none</span>
@@ -485,7 +485,7 @@ function AdjustedCost({
         value={line.adjustedCost ?? ""}
         placeholder="—"
         onChange={(e) => onChange(num(e.target.value))}
-        className={cn("input w-[4.5rem] px-1.5 text-right tabular-nums", adjusted && "border-ajax-yellow")}
+        className={cn("input !w-[4.5rem] !px-1.5 text-right tabular-nums", adjusted && "border-ajax-yellow")}
       />
       {adjusted && (
         <button
@@ -537,7 +537,7 @@ function AddComponentRow({ onAdd, onCancel }: { onAdd: (line: SubAssemblyLine) =
           aria-label="New component Altronic part number"
           value={partNumber}
           onChange={(e) => setPartNumber(e.target.value)}
-          className="input w-28 font-mono text-xs"
+          className="input !w-28 font-mono text-xs"
           autoFocus
           placeholder="Altronic #"
         />
@@ -547,7 +547,7 @@ function AddComponentRow({ onAdd, onCancel }: { onAdd: (line: SubAssemblyLine) =
           aria-label="New component SAP part number"
           value={sapPartNumber}
           onChange={(e) => setSapPartNumber(e.target.value)}
-          className="input w-28 font-mono text-xs"
+          className="input !w-28 font-mono text-xs"
           placeholder="SAP #"
         />
       </td>
@@ -556,7 +556,7 @@ function AddComponentRow({ onAdd, onCancel }: { onAdd: (line: SubAssemblyLine) =
           aria-label="New component description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          className="input w-full"
+          className="input !w-full"
           placeholder="Description"
         />
       </td>
@@ -568,7 +568,7 @@ function AddComponentRow({ onAdd, onCancel }: { onAdd: (line: SubAssemblyLine) =
           aria-label="New component quantity"
           value={qty}
           onChange={(e) => setQty(e.target.value)}
-          className="input w-full px-1.5 text-right tabular-nums"
+          className="input !w-full !px-1.5 text-right tabular-nums"
         />
       </td>
       <td className="px-2 py-1.5 text-right">
@@ -579,7 +579,7 @@ function AddComponentRow({ onAdd, onCancel }: { onAdd: (line: SubAssemblyLine) =
           aria-label="New component cost"
           value={cost}
           onChange={(e) => setCost(e.target.value)}
-          className="input w-full px-1.5 text-right tabular-nums"
+          className="input !w-full !px-1.5 text-right tabular-nums"
           placeholder="Cost"
         />
       </td>
@@ -722,7 +722,7 @@ export function PartCard({
               aria-label={`Base cost for ${label}`}
               value={line.uploadedCost ?? ""}
               onChange={(e) => set({}, { uploadedCost: num(e.target.value), source: "manual" })}
-              className="input w-28 text-right tabular-nums"
+              className="input !w-28 text-right tabular-nums"
             />
           )}
           <SourceChip source={line.source} />

@@ -90,9 +90,13 @@ export type CostSource = (typeof COST_SOURCES)[number];
 export const DISCOUNT_SOURCES = ["SAP", "Default", "Manual"] as const;
 export type DiscountSource = (typeof DISCOUNT_SOURCES)[number];
 
-/** What the manager typed: a target base GM, or a list price. */
+/**
+ * What the manager typed: a target base GM, a list price, or the CUSTOMER
+ * price (= the distributor price), from which the list is worked back
+ * (New Product Pricing only — Ray, 2026-10-13).
+ */
 export interface PriceInput {
-  kind: "gm" | "list";
+  kind: "gm" | "list" | "customer";
   value: number;
 }
 

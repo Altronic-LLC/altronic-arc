@@ -137,6 +137,22 @@ describe("listPriceForTargetGm", () => {
 });
 
 describe("priceFromInput", () => {
+  it("works the list price back from a typed CUSTOMER (distributor) price, to the cent", () => {
+    const r = priceFromInput({ cost: 500, distributorDiscountPct: 36, input: { kind: "customer", value: 1280 }, customerDiscountPct: null });
+    expect(r.listPrice).toBe(2000);
+    expect(r.distributorPrice).toBe(1280);
+    // An uneven price keeps its cents rather than rounding the list to the dollar.
+    const odd = priceFromInput({ cost: 500, distributorDiscountPct: 34, input: { kind: "customer", value: 1000 }, customerDiscountPct: null });
+    expect(odd.listPrice).toBe(1515.15);
+    expect(odd.distributorPrice).toBe(1000);
+  });
+
+  it("refuses a customer price of $0 or less", () => {
+    const r = priceFromInput({ cost: 500, distributorDiscountPct: 34, input: { kind: "customer", value: 0 }, customerDiscountPct: null });
+    expect(r.problem).toBe("Enter a customer price above $0.");
+    expect(r.listPrice).toBeNull();
+  });
+
   it("asks for an input when there is none", () => {
     const r = priceFromInput({ cost: 100, distributorDiscountPct: 34, input: null, customerDiscountPct: null });
     expect(r.problem).toBe("Enter a target GM or a list price.");

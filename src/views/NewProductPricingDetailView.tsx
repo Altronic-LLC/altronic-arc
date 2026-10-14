@@ -379,16 +379,17 @@ function Worksheet({ ws, rows }: { ws: NewProductWorksheet; rows: SubAssembly[] 
           </section>
 
           <PricingCard title="Price">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <Num label="Overhead" suffix="%" value={overhead} disabled={readOnly} onChange={(v) => { setOverhead(v); touch(); }} />
+            <div className="flex flex-wrap items-start gap-x-6 gap-y-3">
+              <Num label="Overhead" suffix="%" width="!w-24" value={overhead} disabled={readOnly} onChange={(v) => { setOverhead(v); touch(); }} />
               <label className="flex flex-col gap-1 text-xs">
                 <span className="font-semibold uppercase tracking-wider text-fg-muted">Material price group</span>
-                <input value={mpg} disabled={readOnly} onChange={(e) => { setMpg(e.target.value.toUpperCase()); touch(); }} className="input" placeholder="Optional" />
+                <input value={mpg} disabled={readOnly} onChange={(e) => { setMpg(e.target.value.toUpperCase()); touch(); }} className="input !w-36" placeholder="Optional" />
                 <span className="text-[11px] text-fg-muted">Brings in SAP's distributor discount for it.</span>
               </label>
               <Num
                 label="Distributor discount"
                 suffix="%"
+                width="!w-24"
                 value={discount}
                 disabled={readOnly}
                 onChange={(v) => {
@@ -401,7 +402,7 @@ function Worksheet({ ws, rows }: { ws: NewProductWorksheet; rows: SubAssembly[] 
             </div>
             <div className="mt-4 flex flex-wrap items-end gap-3">
               <div role="radiogroup" aria-label="Price from" className="inline-flex gap-1 rounded-lg bg-surface-2 p-1">
-                {(["gm", "list"] as const).map((k) => (
+                {(["gm", "list", "customer"] as const).map((k) => (
                   <button
                     key={k}
                     type="button"
@@ -415,15 +416,17 @@ function Worksheet({ ws, rows }: { ws: NewProductWorksheet; rows: SubAssembly[] 
                     }}
                     className={cn("rounded-md px-3 py-1.5 text-sm font-medium", inputKind === k ? "bg-surface text-fg shadow-sm" : "text-fg-muted hover:text-fg")}
                   >
-                    {k === "gm" ? "Target GM" : "List price"}
+                    {k === "gm" ? "Target GM" : k === "list" ? "List price" : "Customer price"}
                   </button>
                 ))}
               </div>
-              <div className="w-48">
+              <div>
                 <Num
-                  label={inputKind === "gm" ? "Target base GM" : "List price"}
+                  label={inputKind === "gm" ? "Target base GM" : inputKind === "list" ? "List price" : "Customer price"}
                   suffix={inputKind === "gm" ? "%" : undefined}
-                  prefix={inputKind === "list" ? "$" : undefined}
+                  prefix={inputKind === "gm" ? undefined : "$"}
+                  width="!w-32"
+                  hint={inputKind === "customer" ? "The distributor price; the list is worked back from it." : undefined}
                   value={inputValue}
                   disabled={readOnly}
                   onChange={(v) => {
@@ -434,10 +437,11 @@ function Worksheet({ ws, rows }: { ws: NewProductWorksheet; rows: SubAssembly[] 
               </div>
             </div>
 
-            <dl className="mt-4 grid grid-cols-2 gap-3 rounded-lg border border-border bg-surface-2/40 p-3 sm:grid-cols-4" aria-label="Cost and price">
+            <dl className="mt-4 grid grid-cols-2 gap-3 rounded-lg border border-border bg-surface-2/40 p-3 sm:grid-cols-5" aria-label="Cost and price">
               <Result label="Unit cost (uploaded)" value={formatMoney(cost.unit.uploaded)} />
               <Result label="Unit cost (used)" value={formatMoney(cost.unit.used)} strong />
               <Result label="List price" value={formatMoney(result.listPrice)} strong />
+              <Result label="Customer price" value={formatMoney(result.distributorPrice)} strong />
               <Result label="Base GM" value={formatPct(result.baseGM)} strong />
             </dl>
             {cost.problems.length > 0 && (
@@ -468,7 +472,7 @@ function Worksheet({ ws, rows }: { ws: NewProductWorksheet; rows: SubAssembly[] 
                   </button>
                 )}
               </div>
-              <table className="mt-2 w-full text-sm">
+              <table className="mt-2 w-full max-w-xl text-sm">
                 <thead className="text-[11px] uppercase tracking-wider text-fg-muted">
                   <tr>
                     <th className="px-2 py-1 text-left font-semibold">Quantity</th>
@@ -502,7 +506,7 @@ function Worksheet({ ws, rows }: { ws: NewProductWorksheet; rows: SubAssembly[] 
                             setTiers(tiers.map((x, j) => (j === i ? { ...x, minQty: Number(e.target.value) } : x)));
                             touch();
                           }}
-                          className="input w-20 tabular-nums"
+                          className="input !w-20 tabular-nums"
                         />
                       </td>
                       <td className="px-2 py-1">
@@ -516,7 +520,7 @@ function Worksheet({ ws, rows }: { ws: NewProductWorksheet; rows: SubAssembly[] 
                             setTiers(tiers.map((x, j) => (j === i ? { ...x, discountPct: Number(e.target.value) } : x)));
                             touch();
                           }}
-                          className="input w-20 tabular-nums"
+                          className="input !w-20 tabular-nums"
                         />
                       </td>
                       <td className="px-2 py-1 text-right tabular-nums">{formatMoney(breaks.find((b) => b.minQty === t.minQty)?.price ?? null)}</td>
@@ -615,8 +619,11 @@ function Num({
   prefix,
   suffix,
   hint,
+  width,
 }: {
   label: string;
+  /** An important-prefixed width class (".input" sets width: 100%). */
+  width?: string;
   value: string;
   onChange: (v: string) => void;
   disabled?: boolean;
@@ -629,7 +636,7 @@ function Num({
       <span className="font-semibold uppercase tracking-wider text-fg-muted">{label}</span>
       <span className="flex items-center gap-1">
         {prefix && <span className="text-fg-muted">{prefix}</span>}
-        <input type="number" step="any" value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} className="input tabular-nums" />
+        <input type="number" step="any" value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} className={cn("input tabular-nums", width)} />
         {suffix && <span className="text-fg-muted">{suffix}</span>}
       </span>
       {hint && <span className="text-[11px] text-fg-muted">{hint}</span>}
@@ -687,15 +694,16 @@ function RevisionHistory({ ws, viewRev, onView }: { ws: NewProductWorksheet; vie
 }
 
 /**
- * Compare a revision's intended figures with SAP's now — read-only. The part
- * number is remembered on the worksheet once typed (Ray, 2026-10-13).
+ * Compare a revision's intended figures with SAP's now — read-only. The
+ * comparison is by the SAP PART NUMBER typed here (Ray, 2026-10-13), which is
+ * remembered on the worksheet's SapPartNumber column.
  */
 function CompareToSap({ ws }: { ws: NewProductWorksheet }) {
   const update = useUpdateNewProductWorksheet();
-  const [part, setPart] = useState(ws.altronicPartNumber || ws.sapPartNumber);
+  const [part, setPart] = useState(ws.sapPartNumber);
   const [compareRev, setCompareRev] = useState(ws.history[ws.history.length - 1]?.rev ?? ws.rev);
-  const remembered = ws.altronicPartNumber || ws.sapPartNumber;
-  const sap = useSapPart({ altronicPartNumber: remembered, sapPartNumber: "" }, !!remembered);
+  const remembered = ws.sapPartNumber;
+  const sap = useSapPart({ altronicPartNumber: "", sapPartNumber: remembered }, !!remembered);
   const intended = ws.history.find((h) => h.rev === compareRev) ?? null;
 
   if (!SAP_DATA_CONNECTED) {
@@ -719,25 +727,25 @@ function CompareToSap({ ws }: { ws: NewProductWorksheet }) {
     <PricingCard title="Compare to SAP">
       <div className="flex gap-2">
         <input
-          aria-label="Part number in SAP"
-          placeholder="Altronic part #"
+          aria-label="SAP part number"
+          placeholder="SAP part #"
           value={part}
           onChange={(e) => setPart(e.target.value)}
-          className="input min-w-0 flex-1"
+          className="input !min-w-0 flex-1 font-mono"
         />
         <button
           type="button"
           disabled={!part.trim() || part.trim() === remembered || update.isPending}
-          onClick={() => update.mutate({ id: ws.id, patch: { altronicPartNumber: part.trim() } })}
+          onClick={() => update.mutate({ id: ws.id, patch: { sapPartNumber: part.trim() } })}
           className="rounded-md border border-border px-2.5 text-xs font-medium text-fg hover:bg-surface-2 disabled:opacity-50"
         >
           {remembered ? "Change" : "Remember"}
         </button>
       </div>
       {ws.history.length > 1 && (
-        <label className="mt-2 flex items-center gap-2 text-xs text-fg-muted">
+        <label className="mt-2 flex items-center gap-2 whitespace-nowrap text-xs text-fg-muted">
           Compare
-          <select value={compareRev} onChange={(e) => setCompareRev(Number(e.target.value))} className="input w-auto py-1" aria-label="Revision to compare">
+          <select value={compareRev} onChange={(e) => setCompareRev(Number(e.target.value))} className="input !h-8 !w-16 !px-2 !py-0" aria-label="Revision to compare">
             {ws.history.map((h) => (
               <option key={h.rev} value={h.rev}>
                 R{h.rev}
@@ -748,7 +756,7 @@ function CompareToSap({ ws }: { ws: NewProductWorksheet }) {
         </label>
       )}
       {!remembered ? (
-        <p className="mt-2 text-xs text-fg-muted">Once the product is in SAP, enter its part number to compare.</p>
+        <p className="mt-2 text-xs text-fg-muted">Once the product is in SAP, enter its SAP part number to compare.</p>
       ) : sap.isLoading ? (
         <p className="mt-2 text-xs text-fg-muted">Looking it up…</p>
       ) : !actual ? (
@@ -804,7 +812,7 @@ function NewRevisionDialog({
       <div role="dialog" aria-modal="true" aria-label={`Save as R${rev}`} onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-lg border border-border bg-surface p-5 shadow-xl">
         <h2 className="font-display text-lg font-semibold text-fg">Save as R{rev}</h2>
         <p className="mt-1 text-sm text-fg-muted">The current revision stays exactly as it is. Say what changed.</p>
-        <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} className="input mt-3 w-full" autoFocus aria-label="What changed" />
+        <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} className="input mt-3 !w-full" autoFocus aria-label="What changed" />
         <div className="mt-4 flex justify-end gap-2">
           <button type="button" onClick={onClose} className="rounded-md px-3 py-1.5 text-sm text-fg-muted hover:text-fg">
             Cancel

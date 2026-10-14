@@ -124,11 +124,19 @@ export function priceFromInput(args: {
     const result = listPriceForTargetGm(args.cost, args.input.value, args.distributorDiscountPct);
     if ("problem" in result) return { ...empty, problem: result.problem };
     listPrice = result.listPrice;
-  } else {
+  } else if (args.input.kind === "list") {
     if (!finite(args.input.value) || args.input.value <= 0) return { ...empty, problem: "Enter a list price above $0." };
     const bad = discountProblem(args.distributorDiscountPct);
     if (bad) return { ...empty, problem: bad };
     listPrice = roundCents(args.input.value);
+  } else {
+    // The customer price IS the distributor price, so the list is worked back
+    // through the distributor discount — to the cent, not the dollar, so the
+    // price typed is the price the customer sees.
+    if (!finite(args.input.value) || args.input.value <= 0) return { ...empty, problem: "Enter a customer price above $0." };
+    const bad = discountProblem(args.distributorDiscountPct);
+    if (bad) return { ...empty, problem: bad };
+    listPrice = roundCents(args.input.value / (1 - args.distributorDiscountPct / 100));
   }
 
   const distributor = roundCents(distributorPrice(listPrice, args.distributorDiscountPct));

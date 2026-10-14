@@ -372,3 +372,28 @@ describe("NewProductPricingDetailView — discussion and watchers", () => {
     expect(pricingMockDb.worksheets.find((w) => w.id === 1)?.comments.some((c) => c.bodyHtml.includes("Coil price holds"))).toBe(true);
   });
 });
+
+describe("NewProductPricingDetailView — customer price and Compare to SAP", () => {
+  it("works the list price back from a typed customer price", async () => {
+    renderWorksheet();
+    await waitForWorksheet();
+    await userEvent.click(screen.getByRole("radio", { name: "Customer price" }));
+    const box = screen.getByRole("spinbutton", { name: /^Customer price/ });
+    await userEvent.type(box, "1280");
+    // NP-2026-0001's distributor discount is 36%: 1280 / 0.64 = 2000.
+    const figures = within(screen.getByLabelText("Cost and price"));
+    await waitFor(() => expect(figures.getByText("List price").nextElementSibling?.textContent).toBe("$2,000.00"));
+    expect(figures.getByText("Customer price").nextElementSibling?.textContent).toBe("$1,280.00");
+  });
+
+  it("compares by the SAP part number typed, remembered on the worksheet", async () => {
+    renderWorksheet();
+    await waitForWorksheet();
+    const box = screen.getByLabelText("SAP part number", { selector: "input[placeholder='SAP part #']" });
+    await userEvent.clear(box);
+    await userEvent.type(box, "1003-0114-16");
+    await userEvent.click(screen.getByRole("button", { name: /Remember|Change/ }));
+    await waitFor(() => expect(pricingMockDb.worksheets.find((w) => w.id === 1)?.sapPartNumber).toBe("1003-0114-16"));
+    expect(await screen.findByRole("table", { name: "Intended versus SAP" })).toBeInTheDocument();
+  });
+});

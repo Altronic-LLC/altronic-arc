@@ -4497,7 +4497,11 @@ Wiring it is that one file plus flipping `SAP_DATA_CONNECTED`.
   the full house rules, mentions resolved on the Sales site, every write
   gated by `priceGate`.
 - Unit cost = Σ (sub-assembly or part) cost × quantity per product, plus one overhead %,
-  priced with the same maths as a request. **Quantity breaks** (up to three)
+  priced with the same maths as a request — plus a third input a request
+  hasn't got: a **customer price** (`PriceInput.kind = "customer"`, Ray,
+  2026-10-13). It IS the distributor price, so `list = customer ÷ (1 −
+  discount)`, rounded to the CENT (not the dollar) so the price typed is the
+  price shown. **Quantity breaks** (up to three)
   are a % off list, rounded to the dollar, each showing its base GM.
 - **THE PAGE EDITS A DRAFT.** Nothing is written until **Save**, which
   overwrites the CURRENT revision, or **Save as new revision**, which needs a
@@ -4509,8 +4513,9 @@ Wiring it is that one file plus flipping `SAP_DATA_CONNECTED`.
   disagree with the lines. The `Rev` column moves in the same PATCH.
 - The worksheet's `History` is JSON keyed by revision (one totals snapshot
   each). Its `Bom` column predates sub-assemblies and is unused.
-- **Compare to SAP** reads a chosen revision's figures against SAP's now (the
-  part number is remembered on the worksheet); **Excel export**
+- **Compare to SAP** reads a chosen revision's figures against SAP's now, by
+  the **SAP part number** typed there (remembered in the worksheet's
+  `SapPartNumber` column); **Excel export**
   (`lib/worksheetExcel.ts`, ExcelJS dynamically imported). Cancelled, never
   deleted.
 
@@ -4552,6 +4557,11 @@ Wiring it is that one file plus flipping `SAP_DATA_CONNECTED`.
 - **Fresh rows per revision**, on NP Sub-Assemblies and Customer Quotes alike.
   An earlier revision is never rewritten.
 - **Draft-then-save** on the worksheet page.
+- **A width on an `.input` needs `!`** (`!w-24`, `!px-1.5`). `.input` in
+  `globals.css` sets `width: 100%` AFTER Tailwind's utilities, so a plain
+  `w-20` is silently ignored — that is why the break fields once stretched
+  across the card. Fixing `.input` itself would resize every screen in ARC,
+  so the pricing screens opt in instead.
 - **Request edits are DIFFED** against the row the edit started from.
 - **Numbers** (`PR-`, `NP-`, `SQ-`) are highest + 1, never count + 1, from a
   fresh read; `Title` is unique, and a unique-value refusal ONLY re-reads,
