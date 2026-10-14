@@ -171,6 +171,7 @@ async function postRequest(requestNumber: string, input: PricingRequestCreateInp
       listPrice: null,
       customerDiscountPct: null,
       customerPrice: null,
+      leaveAsContactFactory: null,
       pricedBy: null,
       pricedAt: null,
       addedToSapBy: null,

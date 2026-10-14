@@ -67,6 +67,11 @@ export interface PricingRequest {
   listPrice: number | null;
   customerDiscountPct: number | null;
   customerPrice: number | null;
+  /**
+   * The manager's answer, written with the price (Ray, 2026-10-14): does the
+   * part stay "Contact Factory"? null = not answered (never priced).
+   */
+  leaveAsContactFactory: boolean | null;
   pricedBy: Person | null;
   pricedAt: string | null;
   addedToSapBy: Person | null;
@@ -125,6 +130,8 @@ export interface PricingHistoryEntry {
   customerGM: number | null;
   mpg: ComparablesSummary | null;
   family: ComparablesSummary | null;
+  /** Optional: pricings recorded before 2026-10-14 have none. */
+  leaveAsContactFactory?: boolean;
   note: string;
 }
 

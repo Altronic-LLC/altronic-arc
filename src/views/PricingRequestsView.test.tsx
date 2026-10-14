@@ -77,6 +77,34 @@ describe("PricingRequestDetailView", () => {
     expect(screen.getByText("Family 593027…")).toBeInTheDocument();
   });
 
+  it("won't set a price until the manager answers Leave as Contact Factory, then writes it to the request", async () => {
+    who.email = MANAGER;
+    renderDetail(3);
+    await screen.findByTestId("pricing-workbench");
+    // Opening a Submitted request moves it to In Review, which remounts the
+    // workbench — wait for that before typing into it.
+    await waitFor(() => expect(screen.getAllByText("In Review").length).toBeGreaterThan(0));
+    const workbench = screen.getByTestId("pricing-workbench");
+    const user = userEvent.setup();
+    const cost = within(workbench).getByRole("spinbutton", { name: /^Cost/ });
+    await user.clear(cost);
+    await user.type(cost, "600");
+    await user.type(within(workbench).getByRole("spinbutton", { name: /^Target base GM/ }), "40");
+    const setPrice = within(workbench).getByRole("button", { name: "Set price" });
+    // A full price is worked out — only the Contact Factory answer is missing.
+    expect(within(workbench).getByLabelText("Result")).toHaveTextContent("$1,515.00");
+    expect(setPrice).toBeDisabled();
+    expect(within(workbench).getByText("Required — the requester sees this.")).toBeInTheDocument();
+
+    await user.click(within(workbench).getByRole("radio", { name: "Yes" }));
+    expect(setPrice).toBeEnabled();
+    await user.click(setPrice);
+
+    const price = await screen.findByTestId("request-price");
+    await waitFor(() => expect(within(price).getByText("Leave as Contact Factory")).toBeInTheDocument(), { timeout: 10_000 });
+    expect(within(price).getByText("Yes")).toBeInTheDocument();
+  });
+
   it("offers Added to SAP to an admin on a request SAP hasn't got", async () => {
     renderDetail(4);
     expect(await screen.findByRole("button", { name: /Added to SAP/ })).toBeInTheDocument();

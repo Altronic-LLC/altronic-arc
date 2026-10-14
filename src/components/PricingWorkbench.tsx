@@ -19,6 +19,7 @@ import { useComparables, useMpgDistributorDiscount, useSapPart } from "@/hooks/u
 import { usePriceRequest } from "@/hooks/usePricingRequests";
 import { SAP_DATA_CONNECTED } from "@/api/pricingLookup";
 import { PricingCard } from "./pricingAtoms";
+import { ChoicePills } from "./ChoicePills";
 import { cn } from "@/lib/cn";
 
 // =============================================================================
@@ -72,6 +73,12 @@ export function PricingWorkbench({
   const [inputKind, setInputKind] = useState<PriceInput["kind"]>(last?.input.kind ?? "gm");
   const [inputValue, setInputValue] = useState(fmtInput(last?.input.value));
   const [note, setNote] = useState("");
+  // Does the part stay "Contact Factory"? The manager must answer before the
+  // price is set; it is written to the request beside the price, where the
+  // requester reads it (Ray, 2026-10-14). Seeded from the last answer.
+  const [contactFactory, setContactFactory] = useState<"" | "Yes" | "No">(
+    yesNo(request.leaveAsContactFactory ?? last?.leaveAsContactFactory ?? null),
+  );
 
   const sapCost = sapPart.data?.cost ?? null;
   const sapMpgDiscount = mpgDiscount.data ?? null;
@@ -112,7 +119,8 @@ export function PricingWorkbench({
     [costNum, discountNum, inputKind, inputNum, customerDiscountNum],
   );
 
-  const canSubmit = !locked && result.listPrice !== null && costNum !== null && !price.isPending;
+  const canSubmit =
+    !locked && result.listPrice !== null && costNum !== null && contactFactory !== "" && !price.isPending;
 
   function submit() {
     if (!canSubmit || result.listPrice === null || costNum === null || inputNum === null) return;
@@ -132,6 +140,7 @@ export function PricingWorkbench({
         customerGM: result.customerGM,
         mpg: mpg && mpgPanel.data ? summarizePanel(mpg, mpgPanel.data) : null,
         family: prefix && familyPanel.data ? summarizePanel(prefix, familyPanel.data) : null,
+        leaveAsContactFactory: contactFactory === "Yes",
         note: note.trim(),
       },
     });
@@ -146,10 +155,11 @@ export function PricingWorkbench({
       )}
 
       <PricingCard title="Price this request">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="flex flex-wrap items-start gap-x-6 gap-y-3">
           <NumberField
             label="Cost"
             prefix="$"
+            width="!w-32"
             value={cost}
             onChange={(v) => {
               setCost(v);
@@ -161,6 +171,7 @@ export function PricingWorkbench({
           <NumberField
             label="Distributor discount"
             suffix="%"
+            width="!w-20"
             value={discount}
             onChange={(v) => {
               setDiscount(v);
@@ -175,48 +186,57 @@ export function PricingWorkbench({
                   : "typed"
             }
           />
-        </div>
-
-        <div className="mt-4 flex flex-col gap-2">
-          <div role="radiogroup" aria-label="Price from" className="inline-flex w-fit gap-1 rounded-lg bg-surface-2 p-1">
-            {(["gm", "list"] as const).map((k) => (
-              <button
-                key={k}
-                type="button"
-                role="radio"
-                aria-checked={inputKind === k}
-                disabled={locked}
-                onClick={() => {
-                  setInputKind(k);
-                  setInputValue("");
-                }}
-                className={cn(
-                  "rounded-md px-3 py-1.5 text-sm font-medium",
-                  inputKind === k ? "bg-surface text-fg shadow-sm" : "text-fg-muted hover:text-fg",
-                )}
-              >
-                {k === "gm" ? "Target GM" : "List price"}
-              </button>
-            ))}
-          </div>
-          <div className="max-w-xs">
+          <div className="flex flex-col gap-1">
+            <div role="radiogroup" aria-label="Price from" className="inline-flex w-fit gap-0.5 rounded-md bg-surface-2 p-0.5">
+              {(["gm", "list"] as const).map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  role="radio"
+                  aria-checked={inputKind === k}
+                  disabled={locked}
+                  onClick={() => {
+                    setInputKind(k);
+                    setInputValue("");
+                  }}
+                  className={cn(
+                    "rounded px-2 py-0.5 text-xs font-medium",
+                    inputKind === k ? "bg-surface text-fg shadow-sm" : "text-fg-muted hover:text-fg",
+                  )}
+                >
+                  {k === "gm" ? "Target GM" : "List price"}
+                </button>
+              ))}
+            </div>
             <NumberField
               label={inputKind === "gm" ? "Target base GM" : "List price"}
+              hideLabel
               prefix={inputKind === "list" ? "$" : undefined}
               suffix={inputKind === "gm" ? "%" : undefined}
+              width={inputKind === "gm" ? "!w-20" : "!w-32"}
               value={inputValue}
               onChange={setInputValue}
               disabled={locked}
-              source={
-                inputKind === "gm"
-                  ? "List = cost ÷ (1 − GM) ÷ (1 − discount), rounded to the dollar."
-                  : "Taken as typed."
-              }
+              source={inputKind === "gm" ? "Rounded to the dollar." : "Taken as typed."}
             />
+          </div>
+          <div className="flex flex-col gap-1 text-xs">
+            <span className="font-semibold uppercase tracking-wider text-fg-muted">Leave as Contact Factory?</span>
+            <ChoicePills
+              label="Leave as Contact Factory?"
+              name="leave-as-contact-factory"
+              options={["Yes", "No"]}
+              value={contactFactory}
+              onChange={(v) => setContactFactory(v as "Yes" | "No")}
+              disabled={locked}
+            />
+            <span className="text-[11px] text-fg-muted">
+              {contactFactory === "" && !locked ? "Required — the requester sees this." : "The requester sees this."}
+            </span>
           </div>
         </div>
 
-        <dl className="mt-4 grid grid-cols-1 gap-3 rounded-lg border border-border bg-surface-2/40 p-3 sm:grid-cols-3" aria-label="Result">
+        <dl className="mt-4 grid max-w-3xl grid-cols-1 gap-3 rounded-lg border border-border bg-surface-2/40 p-3 sm:grid-cols-3" aria-label="Result">
           <Result label="List price" value={formatMoney(result.listPrice)} strong />
           <Result label={`Price for ${request.customerName || "the customer"} (distributor price)`} value={formatMoney(result.customerPrice)} strong />
           <Result label="Base GM" value={formatPct(result.baseGM)} strong />
@@ -236,9 +256,9 @@ export function PricingWorkbench({
           <>
             <label className="mt-4 flex flex-col gap-1 text-xs">
               <span className="font-semibold uppercase tracking-wider text-fg-muted">Why this price (saved with it)</span>
-              <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} className="input" />
+              <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} className="input max-w-3xl" />
             </label>
-            <div className="mt-3 flex justify-end">
+            <div className="mt-3 flex max-w-3xl justify-end">
               <button
                 type="button"
                 onClick={submit}
@@ -284,8 +304,13 @@ function NumberField({
   prefix,
   suffix,
   source,
+  width = "!w-28",
+  hideLabel,
 }: {
   label: string;
+  width?: string;
+  /** The label stays the input's accessible name, just not drawn. */
+  hideLabel?: boolean;
   value: string;
   onChange: (v: string) => void;
   disabled?: boolean;
@@ -295,7 +320,7 @@ function NumberField({
 }) {
   return (
     <label className="flex flex-col gap-1 text-xs">
-      <span className="font-semibold uppercase tracking-wider text-fg-muted">{label}</span>
+      <span className={cn("font-semibold uppercase tracking-wider text-fg-muted", hideLabel && "sr-only")}>{label}</span>
       <span className="flex items-center gap-1">
         {prefix && <span className="text-fg-muted">{prefix}</span>}
         <input
@@ -305,11 +330,11 @@ function NumberField({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
-          className="input tabular-nums"
+          className={cn("input tabular-nums text-right", width)}
         />
         {suffix && <span className="text-fg-muted">{suffix}</span>}
       </span>
-      {source && <span className="text-[11px] text-fg-muted">{source}</span>}
+      {source && <span className="max-w-[16rem] text-[11px] text-fg-muted">{source}</span>}
     </label>
   );
 }
@@ -420,6 +445,7 @@ function PriceHistoryCard({ history }: { history: PricingHistoryRecord }) {
               base GM {formatPct(e.baseGM)}
               {e.customerPrice !== null && ` · customer ${formatMoney(e.customerPrice)} (${formatPct(e.customerGM)})`}
               {e.input.kind === "gm" ? ` · from a ${e.input.value}% target` : " · list typed"}
+              {e.leaveAsContactFactory !== undefined && ` · Contact Factory: ${e.leaveAsContactFactory ? "Yes" : "No"}`}
             </p>
             {(e.mpg || e.family) && (
               <p className="mt-1 text-xs text-fg-muted">
@@ -434,4 +460,8 @@ function PriceHistoryCard({ history }: { history: PricingHistoryRecord }) {
       </ol>
     </PricingCard>
   );
+}
+
+function yesNo(v: boolean | null): "" | "Yes" | "No" {
+  return v === null ? "" : v ? "Yes" : "No";
 }

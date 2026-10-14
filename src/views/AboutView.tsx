@@ -1666,6 +1666,7 @@ export const SCHEMA_TABLES: SchemaTable[] = [
       { name: "listPrice", type: "currency", kind: "field" },
       { name: "customerDiscountPct", type: "number", kind: "field" },
       { name: "customerPrice", type: "currency", kind: "field" },
+      { name: "leaveAsContactFactory", type: "boolean", kind: "field" },
       { name: "pricedBy", type: "int", kind: "fk", references: "Person.id" },
       { name: "addedToSapBy", type: "int", kind: "fk", references: "Person.id" },
       { name: "cancelReason", type: "text", kind: "field" },

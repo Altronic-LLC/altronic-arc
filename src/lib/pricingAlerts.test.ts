@@ -188,6 +188,13 @@ describe("buildPricedEmails", () => {
     expect(out[0].detailHtml).toContain("Acme");
   });
 
+  it("says whether the part stays Contact Factory — and says nothing when it wasn't answered", () => {
+    const args = { ...base, actor: MANAGER, requester: REQUESTER, watchers: [] };
+    expect(buildPricedEmails({ ...args, leaveAsContactFactory: true })[0].detailHtml).toContain("Leave as Contact Factory: <strong>Yes</strong>");
+    expect(buildPricedEmails({ ...args, leaveAsContactFactory: false })[0].detailHtml).toContain("Leave as Contact Factory: <strong>No</strong>");
+    expect(buildPricedEmails({ ...args, leaveAsContactFactory: null })[0].detailHtml).not.toContain("Contact Factory");
+  });
+
   it("drops the actor STRICTLY — even when that leaves nobody", () => {
     const out = buildPricedEmails({ ...base, actor: MANAGER, requester: MANAGER, watchers: [MANAGER] });
     expect(out).toEqual([]);

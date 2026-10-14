@@ -91,6 +91,7 @@ function request(over: Partial<PricingRequest> = {}): PricingRequest {
     listPrice: 200,
     customerDiscountPct: 10,
     customerPrice: 180,
+    leaveAsContactFactory: null,
     pricedBy: null,
     pricedAt: null,
     addedToSapBy: null,

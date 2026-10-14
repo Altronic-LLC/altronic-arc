@@ -117,6 +117,7 @@ function request(r: Partial<PricingRequest> & Pick<PricingRequest, "id" | "reque
     listPrice: null,
     customerDiscountPct: null,
     customerPrice: null,
+    leaveAsContactFactory: null,
     pricedBy: null,
     pricedAt: null,
     addedToSapBy: null,
@@ -150,6 +151,7 @@ export const MOCK_PRICING_REQUESTS: PricingRequest[] = [
     listPrice: 4120,
     customerDiscountPct: 20,
     customerPrice: 3296,
+    leaveAsContactFactory: false,
     pricedBy: BRANDON,
     pricedAt: "2026-10-06T15:20:00Z",
     comments: [
@@ -272,6 +274,7 @@ export const MOCK_PRICING_HISTORY: PricingHistoryRecord[] = [
         customerDiscountPct: 20,
         customerPrice: 3296,
         customerGM: 57.22,
+        leaveAsContactFactory: false,
         mpg: { key: "IGN", averageGM: 45.1, counted: 4 },
         family: { key: "791950", averageGM: 45.0, counted: 3 },
         note: "Kept list where it is — in line with the family.",

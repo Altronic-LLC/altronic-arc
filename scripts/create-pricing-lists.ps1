@@ -147,6 +147,10 @@ function Choice($name, $display, [string[]]$Choices, $Default, [switch]$Indexed)
     if ($Indexed) { $c.indexed = $true }
     $c
 }
+# A real boolean: false is a value, not "unanswered".
+function YesNo($name, $display) {
+    @{ name = $name; displayName = $display; boolean = @{} }
+}
 function DateOnly($name, $display) {
     @{ name = $name; displayName = $display; dateTime = @{ format = "dateOnly"; displayAs = "standard" } }
 }
@@ -223,6 +227,10 @@ $Lists = @(
             (Currency "ListPrice" "List Price"),
             (Number "CustomerDiscountPct" "Customer Discount %"),
             (Currency "CustomerPrice" "Customer Price"),
+            # The manager's call, written WITH the price (Ray, 2026-10-14):
+            # does the part stay "Contact Factory" for pricing? Requesters
+            # read it here, so it is on this list, not on Pricing History.
+            (YesNo "LeaveAsContactFactory" "Leave as Contact Factory"),
             (Person "PricedBy" "Priced By"),
             (DateAndTime "PricedAt" "Priced At"),
             (Person "AddedToSapBy" "Added to SAP By"),

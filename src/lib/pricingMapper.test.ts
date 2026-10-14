@@ -60,6 +60,13 @@ describe("toPricingRequest", () => {
     expect(r.createdBy).toEqual({ displayName: "Ray White", email: "ray.white@altronic-llc.com" });
     expect(r.pricedAt).toBeNull();
   });
+
+  it("reads Leave as Contact Factory only on a priced request — an unpriced row's No is 'not answered'", () => {
+    expect(toPricingRequest(item({ LeaveAsContactFactory: true, PricedAt: "2026-10-14T12:00:00Z" })).leaveAsContactFactory).toBe(true);
+    expect(toPricingRequest(item({ LeaveAsContactFactory: false, PricedAt: "2026-10-14T12:00:00Z" })).leaveAsContactFactory).toBe(false);
+    expect(toPricingRequest(item({ LeaveAsContactFactory: false })).leaveAsContactFactory).toBeNull();
+    expect(toPricingRequest(item({})).leaveAsContactFactory).toBeNull();
+  });
 });
 
 describe("attachPricingPeople", () => {
@@ -90,6 +97,11 @@ describe("buildPricingRequestUpdateFields", () => {
     expect(
       buildPricingRequestUpdateFields({ status: "Submitted", description: "New", listPrice: 100, notes: "" }, previous),
     ).toEqual({ Description: "New" });
+  });
+
+  it("writes Leave as Contact Factory as a real boolean — No included", () => {
+    expect(buildPricingRequestUpdateFields({ leaveAsContactFactory: false }, previous)).toEqual({ LeaveAsContactFactory: false });
+    expect(buildPricingRequestUpdateFields({ leaveAsContactFactory: true }, previous)).toEqual({ LeaveAsContactFactory: true });
   });
 
   it("is {} when nothing changed (or only undefined was passed)", () => {

@@ -376,6 +376,8 @@ export function usePriceRequest() {
           listPrice: entry.listPrice,
           customerDiscountPct: entry.customerDiscountPct,
           customerPrice: entry.customerPrice,
+          // Written WITH the price, so a requester never sees one without the other.
+          leaveAsContactFactory: entry.leaveAsContactFactory ?? null,
           pricedAt,
         },
         before,
@@ -397,6 +399,7 @@ export function usePriceRequest() {
           listPrice: updated.listPrice ?? 0,
           customerName: updated.customerName,
           customerPrice: updated.customerPrice,
+          leaveAsContactFactory: updated.leaveAsContactFactory,
           repriced,
         }),
       );

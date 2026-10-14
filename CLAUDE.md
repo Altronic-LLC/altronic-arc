@@ -4404,6 +4404,14 @@ Awaiting SAP → Submitted → In Review → Priced       (and Cancelled)
   requester and watchers. A price on the request with no record of how it was
   reached is the outcome this feature exists to prevent. An Awaiting SAP or
   Cancelled request can't be priced.
+- **Leave as Contact Factory? is a required Yes/No** (Ray, 2026-10-14). The
+  manager answers it in the workbench (`ChoicePills`, Set price stays disabled
+  until it's answered). It is written to the REQUEST (`LeaveAsContactFactory`,
+  a real boolean on Pricing Requests) in the SAME PATCH as the price, because
+  requesters read that list and can't read Pricing History; it is also in the
+  history entry and the priced email. The mapper reads it as `null` unless the
+  request has a `PricedAt`, so an unpriced row's SharePoint default No never
+  reads as an answer.
 - **A manager can reopen** a Priced request (back to In Review); the old
   pricing stays in History.
 - **No delete** — Cancelled, with a required reason.

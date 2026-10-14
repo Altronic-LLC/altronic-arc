@@ -171,6 +171,7 @@ export function buildPricedEmails(args: {
   listPrice: number;
   customerName: string;
   customerPrice: number | null;
+  leaveAsContactFactory?: boolean | null;
   repriced: boolean;
 }): ChangeEmail[] {
   const actorEmail = (args.actor.email ?? "").toLowerCase();
@@ -184,6 +185,9 @@ export function buildPricedEmails(args: {
       ? `<div style="font-size:14px;">Price for ${escapeHtml(args.customerName || "this customer")}: ` +
         `<strong>${escapeHtml(formatMoney(args.customerPrice))}</strong></div>`
       : "",
+    args.leaveAsContactFactory == null
+      ? ""
+      : `<div style="font-size:14px;">Leave as Contact Factory: <strong>${args.leaveAsContactFactory ? "Yes" : "No"}</strong></div>`,
   ].join("");
   return to(people, () => ({
     subject: `${args.repriced ? "Re-priced" : "Priced"}: ${args.target.title}`,

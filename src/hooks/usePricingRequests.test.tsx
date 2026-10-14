@@ -285,6 +285,19 @@ describe("usePriceRequest", () => {
     expect(pricingMockDb.requests.find((r) => r.id === 3)?.status).toBe("Priced");
   });
 
+  it("writes Leave as Contact Factory to the REQUEST in the same PATCH as the price, and into History", async () => {
+    who.person = PEOPLE.manager;
+    const { wrapper } = setup();
+    const { result } = renderHook(() => usePriceRequest(), { wrapper });
+    const out = await act(() =>
+      result.current.mutateAsync({ id: 3, entry: { ...ENTRY, leaveAsContactFactory: true } }),
+    );
+    const patch = vi.mocked(requestsApi.updatePricingRequest).mock.calls[0][1];
+    expect(patch).toMatchObject({ status: "Priced", listPrice: 3600, leaveAsContactFactory: true });
+    expect(out.updated.leaveAsContactFactory).toBe(true);
+    expect(out.record.history.at(-1)?.leaveAsContactFactory).toBe(true);
+  });
+
   it("refuses an Awaiting SAP request without writing History", async () => {
     who.person = PEOPLE.manager;
     const { wrapper } = setup();

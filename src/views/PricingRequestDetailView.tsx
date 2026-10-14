@@ -254,7 +254,7 @@ function RequestDetail({ access }: { access: MyPricingAccess }) {
                 {r.status === "Cancelled" ? "Not priced." : "Not priced yet — you'll be emailed when it is."}
               </p>
             ) : (
-              <dl className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <dl className="grid grid-cols-1 gap-3 sm:grid-cols-4">
                 <ReadField label="List price">
                   <span className="text-lg font-semibold">{formatMoney(r.listPrice)}</span>
                 </ReadField>
@@ -266,6 +266,11 @@ function RequestDetail({ access }: { access: MyPricingAccess }) {
                         <span className="ml-1 text-xs font-normal text-fg-muted">({r.customerDiscountPct}% off list)</span>
                       )}
                     </span>
+                  )}
+                </ReadField>
+                <ReadField label="Leave as Contact Factory">
+                  {r.leaveAsContactFactory === null ? null : (
+                    <span className="text-lg font-semibold">{r.leaveAsContactFactory ? "Yes" : "No"}</span>
                   )}
                 </ReadField>
                 <ReadField label="Priced">

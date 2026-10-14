@@ -69,6 +69,7 @@ export const PRICING_REQUEST_SELECT = [
   "ListPrice",
   "CustomerDiscountPct",
   "CustomerPrice",
+  "LeaveAsContactFactory",
   "PricedBy",
   "PricedByLookupId",
   "PricedAt",
@@ -244,6 +245,9 @@ export function toPricingRequest(item: GraphListItem): PricingRequest {
     listPrice: num(f.ListPrice),
     customerDiscountPct: num(f.CustomerDiscountPct),
     customerPrice: num(f.CustomerPrice),
+    // Only a request that has been priced carries an answer.
+    leaveAsContactFactory:
+      f.LeaveAsContactFactory === true ? true : f.LeaveAsContactFactory === false && f.PricedAt ? false : null,
     pricedBy: personOrLookup(f.PricedBy, f.PricedByLookupId),
     pricedAt: isoOrNull(f.PricedAt),
     addedToSapBy: personOrLookup(f.AddedToSapBy, f.AddedToSapByLookupId),
@@ -292,6 +296,7 @@ export type PricingRequestPatch = Partial<
     | "listPrice"
     | "customerDiscountPct"
     | "customerPrice"
+    | "leaveAsContactFactory"
     | "pricedAt"
     | "addedToSapAt"
     | "cancelReason"
@@ -311,6 +316,7 @@ const REQUEST_COLUMNS: Record<keyof PricingRequestPatch, string> = {
   listPrice: "ListPrice",
   customerDiscountPct: "CustomerDiscountPct",
   customerPrice: "CustomerPrice",
+  leaveAsContactFactory: "LeaveAsContactFactory",
   pricedAt: "PricedAt",
   addedToSapAt: "AddedToSapAt",
   cancelReason: "CancelReason",
