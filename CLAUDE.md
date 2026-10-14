@@ -584,7 +584,7 @@ src/
 │   ├── pricingMapper.ts          Graph item ⇄ all six pricing lists; $selects, single lookups both halves, diffed request writes
 │   ├── pricingAlerts.ts          Sales Pricing emails — raised (managers / admins), Added to SAP, Priced (pure)
 │   ├── pricingPdf.ts             PricingPdfModel → customer quote / price confirmation PDF; the model CANNOT carry cost, margin, list or discount
-│   ├── subAssemblyCsv.ts         A sub-assembly's BOM from CSV — header-matched, refuses a missing column, re-upload keeps adjustments (pure)
+│   ├── subAssemblyCsv.ts         A sub-assembly's BOM from CSV — Altronic and/or SAP #, header-matched; re-upload keeps adjustments and hand-added lines (pure)
 │   ├── customerQuotes.ts         Customer Quote rules (pure) — SQ numbering, lines from worksheets / SAP / requests / free, pinned revs, totals
 │   ├── worksheetExcel.ts         One New Product worksheet as an xlsx (ExcelJS injected, dynamically imported)
 │   ├── featureRequestAlerts.ts   ARC Feature Request intake + status alerts (pure)
@@ -709,8 +709,8 @@ src/
 │   ├── PricingRequestFormModal.tsx   New pricing request — Altronic # / SAP # (optional), description, customer from SAP (typed while not connected)
 │   ├── PricingWorkbench.tsx          The manager's pricing panel — cost, discounts, target GM or list, result, MPG + family comparables (cost-gated)
 │   ├── SapCustomerPicker.tsx         Pick a customer from SAP (sold-to, name, group); typed while SAP data isn't connected
-│   ├── NewWorksheetFormModal.tsx     Start a New Product Pricing worksheet — optionally from a request (RequestRef)
-│   ├── SubAssemblyCard.tsx           One worksheet sub-assembly — CSV upload, uploaded vs adjusted cost per line, totals (edits the DRAFT)
+│   ├── NewWorksheetFormModal.tsx     Start a New Product Pricing worksheet (never from a request)
+│   ├── SubAssemblyCard.tsx           A worksheet sub-assembly (CSV and/or hand-added components) or standalone part (SAP or manual) — Altronic + SAP #, base vs adjusted cost, files (edits the DRAFT)
 │   ├── QuoteLineModal.tsx            Add a customer-quote line — worksheet (pinned rev), SAP part, priced request, or free line
 │   ├── GrayMarketRequestFormModal.tsx  Raise a gray market request
 │   ├── MrbFormModal.tsx          Log an MRB entry (auto-computes Price Per Issue)
@@ -4315,8 +4315,8 @@ names — **the internal names are the contract** with `lib/pricingMapper.ts`):
 | Pricing Roles | `VITE_SP_PRICING_ROLES_LIST_ID` (default `b7d55541-…`) | Title = email, `PersonName`, `Roles` (lowercase CSV), `Note` | every pricing user (ARC reads it to decide access) |
 | Pricing Requests | `VITE_SP_PRICING_REQUESTS_LIST_ID` (default `2b0e934b-…`) | Title = `PR-YYYY-####` (unique); the request and its **FINAL price only** | every pricing role |
 | Pricing History | `VITE_SP_PRICING_HISTORY_LIST_ID` (default `a59a40e1-…`) | Title = the same PR number; `RequestRef` lookup; cost, discounts, GM, comparables summary, `History` JSON | **managers and admins only** |
-| New Product Pricing | `VITE_SP_NEW_PRODUCT_PRICING_LIST_ID` (default `1dae4eb5-…`) | Title = `NP-YYYY-####`; optional `RequestRef`; overhead, discount, GM, list, `PriceBreaks` JSON, `History` JSON | **managers and admins only** |
-| NP Sub-Assemblies | `VITE_SP_NP_SUBASSEMBLIES_LIST_ID` (**no default**) | `WorksheetRef` lookup + `Rev`; `Lines` JSON from a CSV, file name, uploaded at / by | **managers and admins only** |
+| New Product Pricing | `VITE_SP_NEW_PRODUCT_PRICING_LIST_ID` (default `1dae4eb5-…`) | Title = `NP-YYYY-####`; overhead, discount, GM, list, `PriceBreaks` JSON, `History` JSON, `Communication`, `Watchers` (`RequestRef` exists, unused) | **managers and admins only** |
+| NP Sub-Assemblies | `VITE_SP_NP_SUBASSEMBLIES_LIST_ID` (**no default**) | `WorksheetRef` lookup + `Rev`; `Kind` (Sub-Assembly / Part), `AltronicPartNumber`, `SapPartNumber`; `Lines` JSON; file name, uploaded at / by; **attachments ON** | **managers and admins only** |
 | Customer Quotes | `VITE_SP_CUSTOMER_QUOTES_LIST_ID` (**no default**) | Title = `SQ-YYYY-####-R#`; `QuoteBase`, `Rev`, status, validity, `Customer` JSON, `Lines` JSON, notes, comments, watchers | **managers and admins only** |
 
 The first four carry documented defaults — they gate nothing by themselves.
@@ -4384,9 +4384,13 @@ repo variable `VITE_PRICING_LIVE=true`, redeploy.
 Awaiting SAP → Submitted → In Review → Priced       (and Cancelled)
 ```
 
+- **Either part number will do** (Ray, 2026-10-13). The form looks the OTHER
+  one up in SAP when either box is left, filling only BLANK boxes; somebody
+  who only knows the SAP number gets the Altronic (old) number pulled in.
 - **On submit ARC looks the part up in SAP** (`routeNewRequest`). Found →
-  **Submitted**, SAP's number, description and MPG filled in, the managers
-  emailed (and a receipt to the requester). Not found → **Awaiting SAP**, the
+  **Submitted**, SAP's number, description and MPG filled in — and the
+  Altronic number when none was typed — the managers emailed (and a receipt to
+  the requester). Not found → **Awaiting SAP**, the
   pricing admins emailed to set it up. While SAP data isn't connected, a TYPED
   SAP number is the requester's word that it exists — a request is never
   refused for want of a lookup.
@@ -4407,6 +4411,8 @@ Awaiting SAP → Submitted → In Review → Priced       (and Cancelled)
   (`commentNotifyRecipients`, mention → watcher on Post, resolved on the
   **Sales** site). Any role can download a **customer price confirmation
   PDF** of a PRICED request.
+- **A worksheet is never started from a request** (Ray, 2026-10-13) — the
+  button was built and removed; `RequestRef` on New Product Pricing is unused.
 
 Emails (`lib/pricingAlerts.ts`, pure): recipients are read from Pricing Roles
 at SEND time; the queue emails drop the actor only if somebody is left; the
@@ -4427,7 +4433,9 @@ falls back to the admins.
   (`STANDARD_DISTRIBUTOR_DISCOUNT_PCT`); editable either way, and its source
   (`SAP` / `Default` / `Manual`) is saved with the price. Cost's source
   (`SAP` / `Manual`) likewise.
-- **Customer price** = `list × (1 − the customer group's discount for the MPG)`.
+- **The customer's price IS the distributor price** (Ray, 2026-10-13):
+  `list × (1 − distributor discount)`, with the same margin as the base GM.
+  There is no separate customer-group discount to enter on a request.
 - **Comparables**: two panels — the part's **MPG**, and its **family** (the
   first six digits of the Altronic number). Each part is measured at ITS OWN
   MPG's discount (a family can span several MPGs), the average is a **simple
@@ -4437,8 +4445,10 @@ falls back to the admins.
 
 #### SAP data — the Fabric seam, NOT wired yet
 
-`api/pricingLookup.ts` is the ONE seam to SAP: parts, customers, per-MPG
-distributor discounts, customer group discounts, MPG and family parts. It is
+`api/pricingLookup.ts` is the ONE seam to SAP: parts (by either number),
+customers, per-MPG distributor discounts, MPG and family parts (its
+customer-group discount lookup is unused since the customer price became the
+distributor price). It is
 **read-only** — ARC never writes to SAP or Fabric. The data will come from the
 Fabric SAP warehouse through Tim's Fabric API-for-GraphQL module
 (`api/fabric.ts` on Tim-Sandbox); the table names are still to come. Until
@@ -4455,16 +4465,38 @@ Wiring it is that one file plus flipping `SAP_DATA_CONNECTED`.
 
 #### New Product Pricing — worksheets for products not yet in SAP
 
-- **Sub-assemblies come from CSV** (`lib/subAssemblyCsv.ts`): Part Number,
-  Description, Current Cost, Qty — matched by header name with spelling slack.
-  A file missing one is REFUSED, naming it; bad rows are reported and skipped.
-  ARC stamps the upload time and who uploaded.
-- **The uploaded cost is never changed**; the manager types an ADJUSTED cost
-  beside it, and the cost used is `adjusted ?? uploaded`. Both are shown, per
-  line and in the totals.
-- **Re-uploading REPLACES the lines but keeps each part's adjustment**
-  (`mergeUpload`, by part number) and says what changed.
-- Unit cost = Σ sub-assembly cost × quantity per product, plus one overhead %,
+- **A worksheet holds SUB-ASSEMBLIES and standalone PARTS** — both rows of NP
+  Sub-Assemblies (`Kind`). A part is held as a row with exactly ONE line, so
+  the roll-up and revisions are identical for both. Sub-assemblies, parts and
+  their components each carry an **Altronic # AND an SAP #** (Ray,
+  2026-10-13); a line's Altronic number is the JSON field `partNumber` (its
+  original name — the contract) beside `sapPartNumber`.
+- **Components come from a CSV, are added by hand, or both.** The CSV
+  (`lib/subAssemblyCsv.ts`) needs Part Number and/or SAP Part Number,
+  Description, Current Cost and Qty — matched by header name with spelling
+  slack; a file missing them is REFUSED, naming what; a row needs at least one
+  number. ARC stamps the upload time and who uploaded. Every component's
+  numbers, description and quantity are editable, and any line removable.
+- **A standalone part** is looked up in SAP by either number (its cost comes
+  in as the base cost, chipped SAP) or typed by hand.
+- **Each line has a BASE cost** (the JSON field `uploadedCost`, named for the
+  CSV case) and a `source`: `csv` and `sap` base costs are never edited — the
+  manager types an ADJUSTED cost; a `manual` line's base cost is typed and
+  editable. The cost used is `adjusted ?? base`; both are shown, per line and
+  in the totals. A line saved before `source` existed reads as `csv`.
+- **Re-uploading REPLACES the CSV lines**, keeps each part's adjustment
+  (`mergeUpload`, keyed by Altronic # else SAP # — `lineKey`) and **keeps
+  every hand-added line** the file doesn't carry; it says what changed.
+- **Files per sub-assembly / part** (`npSubAssembly` attachments, on NP
+  Sub-Assemblies). A row must be SAVED before it can take a file. **Save as
+  new revision copies each row's files onto its fresh row**, best-effort per
+  file — the revision is saved by then, so a failed copy is a warning naming
+  what to re-attach.
+- **Comments and watchers are on the WORKSHEET** (not per sub-assembly — a
+  sub-assembly is a fresh row every revision, so a thread on it would split):
+  the full house rules, mentions resolved on the Sales site, every write
+  gated by `priceGate`.
+- Unit cost = Σ (sub-assembly or part) cost × quantity per product, plus one overhead %,
   priced with the same maths as a request. **Quantity breaks** (up to three)
   are a % off list, rounded to the dollar, each showing its base GM.
 - **THE PAGE EDITS A DRAFT.** Nothing is written until **Save**, which
@@ -4479,8 +4511,8 @@ Wiring it is that one file plus flipping `SAP_DATA_CONNECTED`.
   each). Its `Bom` column predates sub-assemblies and is unused.
 - **Compare to SAP** reads a chosen revision's figures against SAP's now (the
   part number is remembered on the worksheet); **Excel export**
-  (`lib/worksheetExcel.ts`, ExcelJS dynamically imported). A worksheet can be
-  started from a request (`RequestRef`). Cancelled, never deleted.
+  (`lib/worksheetExcel.ts`, ExcelJS dynamically imported). Cancelled, never
+  deleted.
 
 #### Customer Quotes
 
@@ -4490,12 +4522,18 @@ Wiring it is that one file plus flipping `SAP_DATA_CONNECTED`.
   old one is untouched. Statuses Draft / Sent / Won / Lost / Expired; a
   validity in days.
 - **Lines come from four places**: a New Product worksheet (its list and
-  breaks less this customer's discount, **pinned to the revision** — when the
+  breaks at the distributor price, **pinned to the revision** — when the
   worksheet has moved on, the line offers **"Update to R#"**), an existing SAP
   part, a priced request, or a free line (freight, tooling, NRE). The
-  customer's discount comes from SAP (group × MPG), or is typed — and shown.
-- **The customer and the lines are JSON** (`Customer`, `Lines`). **Lines are
-  editable only while Draft**; once Sent, change them with New revision.
+  customer's price is the **distributor price**: the worksheet's own
+  distributor discount, or SAP's for the part's MPG (else 34%) — shown and
+  editable on the line.
+- **Each line shows its SAP # when it has one, and takes an optional CUSTOMER
+  part number** (Ray, 2026-10-13); both print on the PDF under the part
+  ("SAP part no. … · Your part no. …").
+- **The customer and the lines are JSON** (`Customer`, `Lines`). **Lines and
+  the header (customer, contact, validity — the Customer card's Edit button)
+  are editable only while Draft**; once Sent, change them with New revision.
 - **The PDF is built from a model that CANNOT carry cost, margin, list price
   or discount** (`PricingPdfModel` in `lib/pricingPdf.ts`) — a line's
   `listPrice` and `customerDiscountPct` are internal and never printed.

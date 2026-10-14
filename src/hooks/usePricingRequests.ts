@@ -99,11 +99,15 @@ export function usePricingHistory(requestId: number | null, canSeeCost: boolean)
   });
 }
 
-export function targetOf(r: Pick<PricingRequest, "id" | "requestNumber" | "altronicPartNumber">): ChangeTarget {
+export function targetOf(
+  r: Pick<PricingRequest, "id" | "requestNumber" | "altronicPartNumber" | "sapPartNumber">,
+): ChangeTarget {
   return {
     kind: "pricingRequest",
     id: r.id,
-    title: r.altronicPartNumber ? `${r.requestNumber} — ${r.altronicPartNumber}` : r.requestNumber,
+    title: r.altronicPartNumber || r.sapPartNumber
+      ? `${r.requestNumber} — ${r.altronicPartNumber || r.sapPartNumber}`
+      : r.requestNumber,
   };
 }
 
@@ -166,12 +170,21 @@ export interface PricingRequestFormInput {
  * `notConnected` false means SAP genuinely hasn't got it.
  */
 export function routeNewRequest(
-  input: Pick<PricingRequestFormInput, "sapPartNumber" | "description">,
+  input: Pick<PricingRequestFormInput, "altronicPartNumber" | "sapPartNumber" | "description">,
   sap: { part: SapPart | null; notConnected: boolean },
-): { inSap: boolean; sapPartNumber: string; description: string; mpg: string } {
+): { inSap: boolean; altronicPartNumber: string; sapPartNumber: string; description: string; mpg: string } {
+  const typed = {
+    altronicPartNumber: input.altronicPartNumber.trim(),
+    sapPartNumber: input.sapPartNumber.trim(),
+    description: input.description,
+    mpg: "",
+  };
   if (sap.part) {
     return {
       inSap: true,
+      // Somebody who only knew the SAP number gets the Altronic (old) number
+      // pulled in from SAP (Ray, 2026-10-13); a number they typed is kept.
+      altronicPartNumber: typed.altronicPartNumber || sap.part.altronicPartNumber,
       sapPartNumber: sap.part.sapPartNumber,
       description: sap.part.description || input.description,
       mpg: sap.part.mpg,
@@ -179,9 +192,9 @@ export function routeNewRequest(
   }
   if (sap.notConnected) {
     // No warehouse to ask: a typed SAP number is the requester's word that it exists.
-    return { inSap: !!input.sapPartNumber.trim(), sapPartNumber: input.sapPartNumber.trim(), description: input.description, mpg: "" };
+    return { inSap: !!typed.sapPartNumber, ...typed };
   }
-  return { inSap: false, sapPartNumber: input.sapPartNumber.trim(), description: input.description, mpg: "" };
+  return { inSap: false, ...typed };
 }
 
 async function askSap(args: { altronicPartNumber: string; sapPartNumber: string }) {
@@ -203,7 +216,7 @@ export function useCreatePricingRequest() {
       const route = routeNewRequest(input, await askSap(input));
       const created = await createPricingRequest({
         status: route.inSap ? "Submitted" : "Awaiting SAP",
-        altronicPartNumber: input.altronicPartNumber,
+        altronicPartNumber: route.altronicPartNumber,
         sapPartNumber: route.sapPartNumber,
         requestedDescription: input.description,
         description: route.description,

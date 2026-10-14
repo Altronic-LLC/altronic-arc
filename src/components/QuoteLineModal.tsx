@@ -3,7 +3,8 @@ import { X } from "lucide-react";
 import type { CustomerQuoteLine, QuoteCustomerInfo } from "@/types/pricing";
 import { useNewProductWorksheets } from "@/hooks/useNewProductPricing";
 import { usePricingRequests } from "@/hooks/usePricingRequests";
-import { useCustomerGroupDiscount, useSapPart } from "@/hooks/usePricingLookup";
+import { useMpgDistributorDiscount, useSapPart } from "@/hooks/usePricingLookup";
+import { STANDARD_DISTRIBUTOR_DISCOUNT_PCT } from "@/lib/pricingMath";
 import { SAP_DATA_CONNECTED } from "@/api/pricingLookup";
 import { freeLine, lineFromRequest, lineFromSapPart, lineFromWorksheet } from "@/lib/customerQuotes";
 import { formatMoney } from "@/lib/quoteMoney";
@@ -17,9 +18,10 @@ import { cn } from "@/lib/cn";
 //   * an existing SAP part — list price less the discount;
 //   * a priced pricing request — the customer price it was given;
 //   * a free-typed line — freight, tooling, NRE.
-// The customer's discount comes from SAP (their group × the MPG). While SAP
-// data isn't connected, or SAP has none, it is typed — and shown, so a line
-// is never priced at a discount nobody saw.
+// The customer's price is the DISTRIBUTOR price (Ray, 2026-10-13): list less
+// the distributor discount — the worksheet's own for a worksheet line, SAP's
+// for the part's MPG (else the standard 34%) for a SAP part. It is shown and
+// editable, so a line is never priced at a discount nobody saw.
 // =============================================================================
 
 type Kind = CustomerQuoteLine["kind"];
@@ -45,6 +47,8 @@ export function QuoteLineModal({
   const [worksheetId, setWorksheetId] = useState("");
   const [requestId, setRequestId] = useState("");
   const [partNumber, setPartNumber] = useState("");
+  const [freeSap, setFreeSap] = useState("");
+  const [customerPn, setCustomerPn] = useState("");
   const [lookedUp, setLookedUp] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
@@ -76,11 +80,22 @@ export function QuoteLineModal({
   const ws = priced.find((w) => String(w.id) === worksheetId) ?? null;
   const sapPart = useSapPart({ altronicPartNumber: lookedUp, sapPartNumber: "" }, kind === "sapPart" && !!lookedUp);
   const mpg = kind === "worksheet" ? ws?.mpg ?? "" : kind === "sapPart" ? sapPart.data?.mpg ?? "" : "";
-  const groupDiscount = useCustomerGroupDiscount(customer.customerGroup, mpg);
+  const mpgDiscount = useMpgDistributorDiscount(kind === "sapPart" ? mpg : "");
+  // The distributor discount this line starts from, and where it came from.
+  const suggested: { pct: number; from: string } | null =
+    kind === "worksheet"
+      ? ws
+        ? { pct: ws.distributorDiscountPct, from: `${ws.worksheetNumber}'s distributor discount` }
+        : null
+      : kind === "sapPart" && sapPart.data
+        ? mpgDiscount.data !== null && mpgDiscount.data !== undefined
+          ? { pct: mpgDiscount.data, from: `SAP's distributor discount for ${mpg}` }
+          : { pct: STANDARD_DISTRIBUTOR_DISCOUNT_PCT, from: `the standard ${STANDARD_DISTRIBUTOR_DISCOUNT_PCT}% — SAP has none for ${mpg || "it"}` }
+        : null;
 
   useEffect(() => {
-    if (!discountTouched) setDiscount(groupDiscount.data !== null && groupDiscount.data !== undefined ? String(groupDiscount.data) : "");
-  }, [groupDiscount.data, discountTouched]);
+    if (!discountTouched) setDiscount(suggested ? String(suggested.pct) : "");
+  }, [suggested?.pct, discountTouched]);
 
   const quantity = Number(qty);
   const discountNum = discount.trim() === "" ? null : Number(discount);
@@ -95,16 +110,19 @@ export function QuoteLineModal({
     }
     const p = Number(price);
     return description.trim() && price.trim() !== "" && Number.isFinite(p) && p >= 0
-      ? freeLine({ partNumber, description, quantity, unitPrice: p })
+      ? freeLine({ partNumber, sapPartNumber: freeSap, description, quantity, unitPrice: p })
       : null;
   })();
+  const line: CustomerQuoteLine | null = preview
+    ? { ...preview, customerPartNumber: customerPn.trim() || undefined }
+    : null;
 
   function add() {
-    if (!preview) {
+    if (!line) {
       setError("Fill in the line first.");
       return;
     }
-    onAdd(preview);
+    onAdd(line);
     onClose();
   }
 
@@ -189,10 +207,16 @@ export function QuoteLineModal({
           )}
           {kind === "free" && (
             <>
-              <label className="flex flex-col gap-1 text-xs">
-                <span className="font-semibold uppercase tracking-wider text-fg-muted">Part # (optional)</span>
-                <input value={partNumber} onChange={(e) => setPartNumber(e.target.value)} className="input" />
-              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="flex flex-col gap-1 text-xs">
+                  <span className="font-semibold uppercase tracking-wider text-fg-muted">Altronic # (optional)</span>
+                  <input value={partNumber} onChange={(e) => setPartNumber(e.target.value)} className="input" />
+                </label>
+                <label className="flex flex-col gap-1 text-xs">
+                  <span className="font-semibold uppercase tracking-wider text-fg-muted">SAP # (optional)</span>
+                  <input value={freeSap} onChange={(e) => setFreeSap(e.target.value)} className="input" aria-label="SAP part number" />
+                </label>
+              </div>
               <label className="flex flex-col gap-1 text-xs">
                 <span className="font-semibold uppercase tracking-wider text-fg-muted">Description</span>
                 <input value={description} onChange={(e) => setDescription(e.target.value)} className="input" aria-label="Description" />
@@ -204,6 +228,12 @@ export function QuoteLineModal({
             </>
           )}
 
+          <label className="flex flex-col gap-1 text-xs">
+            <span className="font-semibold uppercase tracking-wider text-fg-muted">Customer part # (optional)</span>
+            <input value={customerPn} onChange={(e) => setCustomerPn(e.target.value)} className="input" aria-label="Customer part number" />
+            <span className="text-[11px] text-fg-muted">The customer's own number for it — printed on the PDF.</span>
+          </label>
+
           <div className="flex flex-wrap gap-3">
             <label className="flex flex-col gap-1 text-xs">
               <span className="font-semibold uppercase tracking-wider text-fg-muted">Quantity</span>
@@ -211,7 +241,7 @@ export function QuoteLineModal({
             </label>
             {showsDiscount && (
               <label className="flex flex-col gap-1 text-xs">
-                <span className="font-semibold uppercase tracking-wider text-fg-muted">{customer.name || "Customer"} discount %</span>
+                <span className="font-semibold uppercase tracking-wider text-fg-muted">Distributor discount %</span>
                 <input
                   type="number"
                   min={0}
@@ -225,18 +255,17 @@ export function QuoteLineModal({
                   aria-label="Customer discount"
                 />
                 <span className="text-[11px] text-fg-muted">
-                  {groupDiscount.data !== null && groupDiscount.data !== undefined && !discountTouched
-                    ? `group ${customer.customerGroup} for ${mpg}, from SAP`
-                    : "blank = list price"}
+                  {suggested && !discountTouched ? suggested.from : "typed — blank = list price"}
                 </span>
               </label>
             )}
           </div>
 
-          {preview && (
+          {line && (
             <div className="rounded-md border border-border bg-surface-2/40 px-3 py-2 text-sm">
-              <span className="font-medium text-fg">{formatMoney(preview.unitPrice)}</span> each
-              {preview.breaks.map((b) => (
+              {line.sapPartNumber && <span className="mr-3 font-mono text-xs text-fg-muted">SAP {line.sapPartNumber}</span>}
+              <span className="font-medium text-fg">{formatMoney(line.unitPrice)}</span> each
+              {line.breaks.map((b) => (
                 <span key={b.minQty} className="ml-3 text-fg-muted">
                   {b.minQty}+ {formatMoney(b.price)}
                 </span>
@@ -250,7 +279,7 @@ export function QuoteLineModal({
           <button type="button" onClick={onClose} className="rounded-md px-3 py-1.5 text-sm text-fg-muted hover:text-fg">
             Cancel
           </button>
-          <button type="button" onClick={add} disabled={!preview} className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent/90 disabled:opacity-50">
+          <button type="button" onClick={add} disabled={!line} className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent/90 disabled:opacity-50">
             Add line
           </button>
         </div>

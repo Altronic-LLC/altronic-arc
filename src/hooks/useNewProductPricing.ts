@@ -9,6 +9,21 @@ import {
   type NewProductCreateInput,
 } from "@/api/newProductPricing";
 import { listSubAssemblies, saveRevisionRows, type SubAssemblyDraft } from "@/api/newProductSubAssemblies";
+import {
+  addWorksheetComment,
+  editWorksheetComment,
+  setWorksheetWatchers,
+  type WorksheetCommentInput,
+} from "@/api/newProductPricing";
+import { copyAttachments } from "@/api/attachments";
+import { resolveSalesTeamSiteUserLookupId } from "@/api/pricingRequests";
+import { notifyMentions } from "@/api/email";
+import type { Person } from "@/types/task";
+import { mergePeople } from "@/lib/people";
+import { commentNotifyRecipients, newlyMentionedHtml } from "@/lib/mentions";
+import { htmlToPlainText } from "@/lib/htmlText";
+import { afterMentionAutoWatch, beginMentionAutoWatch, type MentionAutoWatch } from "./mentionAutoWatch";
+import { newlyMentionedRecipients } from "./useQuotes";
 import type { NewProductRevision, NewProductWorksheet, PriceInput, PriceBreakTier, SubAssembly } from "@/types/pricing";
 import type { NewProductPatch } from "@/lib/pricingMapper";
 import { priceGate } from "@/lib/pricingRoles";
@@ -207,6 +222,22 @@ export function useSaveNewProductWorksheet() {
         rev,
         asNewRevision ? drafts.map((d) => ({ ...d, id: null })) : drafts,
       );
+      // Each sub-assembly's files go with it onto its fresh row. Best-effort,
+      // per file: the revision is saved by now, so a failed copy is a WARNING
+      // naming what to re-attach, never a failed save.
+      const warnings: string[] = [];
+      if (asNewRevision) {
+        const fresh = [...rows].sort((a, b) => a.sortOrder - b.sortOrder);
+        for (const [i, d] of drafts.entries()) {
+          if (d.id === null || !fresh[i]) continue;
+          try {
+            const { failed } = await copyAttachments("npSubAssembly", d.id, "npSubAssembly", fresh[i].id);
+            if (failed.length) warnings.push(`${d.name || "A sub-assembly"}: ${failed.join(", ")}`);
+          } catch {
+            warnings.push(`${d.name || "A sub-assembly"}: its files`);
+          }
+        }
+      }
       const actor = actorRef.current;
       const { patch, snapshot } = worksheetSnapshot({
         rev,
@@ -216,13 +247,17 @@ export function useSaveNewProductWorksheet() {
         savedBy: { displayName: actor.displayName, email: actor.email ?? "" },
         savedAt: new Date().toISOString(),
       });
-      return saveNewProductWorksheet(worksheet.id, patch, snapshot);
+      const saved = await saveNewProductWorksheet(worksheet.id, patch, snapshot);
+      return { saved, warnings };
     },
-    onSuccess: (saved, vars) => {
+    onSuccess: ({ saved, warnings }, vars) => {
       upsert(qc, saved);
       pushToast({
         message: vars.asNewRevision ? `Saved ${saved.worksheetNumber} R${saved.rev}.` : `Saved ${saved.worksheetNumber}.`,
       });
+      if (warnings.length) {
+        errorToast(`R${saved.rev} is saved, but these files didn't copy across — attach them again: ${warnings.join("; ")}.`);
+      }
     },
     onError: (err: unknown) =>
       errorToast(describeListWriteFailure(err, { action: "save the worksheet", site: PRICING_SITE_LABEL, permission: "editing" })),
@@ -246,5 +281,141 @@ export function useUpdateNewProductWorksheet() {
     onError: (err: unknown) =>
       errorToast(describeListWriteFailure(err, { action: "save that change", site: PRICING_SITE_LABEL, permission: "editing" })),
     onSettled: () => qc.invalidateQueries({ queryKey: WORKSHEETS_KEY }),
+  });
+}
+
+// -----------------------------------------------------------------------------
+// The worksheet's watchers and discussion (Ray, 2026-10-13) — managers and
+// admins only, like everything on a worksheet. Watchers + @-mentions are
+// emailed; a mention becomes a watcher when Post is pressed (Sales site).
+// -----------------------------------------------------------------------------
+
+function patchWorksheet(qc: QueryClient, id: number, update: (w: NewProductWorksheet) => NewProductWorksheet) {
+  qc.setQueryData<NewProductWorksheet[]>(WORKSHEETS_KEY, (old) => old?.map((w) => (w.id === id ? update(w) : w)));
+}
+
+export function collectWorksheetPeople(worksheets: NewProductWorksheet[]): Person[] {
+  return mergePeople(...worksheets.map((w) => [...w.watchers, ...(w.createdBy ? [w.createdBy] : [])]));
+}
+
+export function useSetWorksheetWatchers() {
+  const qc = useQueryClient();
+  const resolve = useResolvePricingAccess();
+  return useMutation({
+    mutationFn: async ({ id, people }: { id: number; people: Person[] }) => {
+      requirePricingGate(priceGate(await resolve()));
+      return setWorksheetWatchers(id, people);
+    },
+    onMutate: async ({ id, people }) => {
+      await qc.cancelQueries({ queryKey: WORKSHEETS_KEY });
+      const previous = qc.getQueryData<NewProductWorksheet[]>(WORKSHEETS_KEY);
+      patchWorksheet(qc, id, (w) => ({ ...w, watchers: people }));
+      return { previous };
+    },
+    onSuccess: (saved) => upsert(qc, saved),
+    onError: (err: unknown, _vars, ctx) => {
+      if (ctx?.previous) qc.setQueryData(WORKSHEETS_KEY, ctx.previous);
+      errorToast(describeListWriteFailure(err, { action: "update the watchers", site: PRICING_SITE_LABEL, permission: "editing" }));
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: WORKSHEETS_KEY }),
+  });
+}
+
+function beginWorksheetMentionAutoWatch(qc: QueryClient, id: number, bodyHtml: string): MentionAutoWatch | null {
+  const ws = qc.getQueryData<NewProductWorksheet[]>(WORKSHEETS_KEY)?.find((w) => w.id === id);
+  if (!ws || !bodyHtml) return null;
+  return beginMentionAutoWatch({
+    bodyHtml,
+    currentWatchers: ws.watchers,
+    directory: () => collectWorksheetPeople(qc.getQueryData<NewProductWorksheet[]>(WORKSHEETS_KEY) ?? []),
+    resolveLookupId: resolveSalesTeamSiteUserLookupId,
+    patch: (watchers) => patchWorksheet(qc, id, (w) => ({ ...w, watchers })),
+    write: (watchers) => setWorksheetWatchers(id, watchers),
+    onWriteFailed: () => void qc.invalidateQueries({ queryKey: WORKSHEETS_KEY }),
+    noun: "worksheet",
+  });
+}
+
+/** Call `mutateAsync` and RETURN its promise from the composer, so a failed comment is restored. */
+export function useAddWorksheetComment() {
+  const qc = useQueryClient();
+  const resolve = useResolvePricingAccess();
+  return useMutation({
+    mutationFn: async ({ id, comment }: { id: number; comment: WorksheetCommentInput }) => {
+      requirePricingGate(priceGate(await resolve()));
+      return addWorksheetComment(id, comment);
+    },
+    onMutate: async ({ id, comment }) => {
+      await qc.cancelQueries({ queryKey: WORKSHEETS_KEY });
+      const previous = qc.getQueryData<NewProductWorksheet[]>(WORKSHEETS_KEY);
+      patchWorksheet(qc, id, (w) => ({ ...w, comments: [{ ...comment, timestamp: new Date(), attachments: [] }, ...w.comments] }));
+      return { previous, autoWatch: beginWorksheetMentionAutoWatch(qc, id, comment.bodyHtml) };
+    },
+    onSuccess: (_d, { id, comment }, ctx) => {
+      ctx?.autoWatch?.commit();
+      pushToast({ message: "Comment posted." });
+      const ws = qc.getQueryData<NewProductWorksheet[]>(WORKSHEETS_KEY)?.find((w) => w.id === id);
+      if (!ws) return;
+      const recipients = commentNotifyRecipients({
+        bodyHtml: comment.bodyHtml,
+        watchers: ws.watchers,
+        assignees: [],
+        authorEmail: comment.authorEmail,
+      });
+      if (recipients.length === 0) return;
+      void notifyMentions({
+        recipients,
+        sender: { displayName: comment.authorName, email: comment.authorEmail },
+        target: { kind: "newProductPricing", id: ws.id, title: `${ws.worksheetNumber} — ${ws.productName}` },
+        commentExcerpt: htmlToPlainText(comment.bodyHtml),
+        attachments: [],
+      });
+    },
+    onError: (_err, _vars, ctx) => {
+      ctx?.autoWatch?.cancel();
+      if (ctx?.previous) qc.setQueryData(WORKSHEETS_KEY, ctx.previous);
+      errorToast("Couldn't post comment — it's back in the comment box to send again.");
+    },
+    onSettled: (_d, _e, _v, ctx) =>
+      afterMentionAutoWatch(ctx?.autoWatch, () => {
+        void qc.invalidateQueries({ queryKey: WORKSHEETS_KEY });
+      }),
+  });
+}
+
+export function useEditWorksheetComment() {
+  const qc = useQueryClient();
+  const resolve = useResolvePricingAccess();
+  return useMutation({
+    mutationFn: async (vars: { id: number; target: { timestamp: Date; authorEmail: string }; bodyHtml: string; previousBodyHtml: string }) => {
+      requirePricingGate(priceGate(await resolve()));
+      return editWorksheetComment(vars.id, vars.target, vars.bodyHtml);
+    },
+    onMutate: async ({ id, bodyHtml, previousBodyHtml }) => {
+      const newMentions = newlyMentionedHtml(previousBodyHtml, bodyHtml);
+      if (newMentions) await qc.cancelQueries({ queryKey: WORKSHEETS_KEY });
+      return { autoWatch: beginWorksheetMentionAutoWatch(qc, id, newMentions) };
+    },
+    onSuccess: (saved, { target, bodyHtml, previousBodyHtml }, ctx) => {
+      ctx?.autoWatch?.commit();
+      pushToast({ message: "Comment updated." });
+      const added = newlyMentionedRecipients(previousBodyHtml, bodyHtml);
+      if (added.length === 0) return;
+      void notifyMentions({
+        recipients: added,
+        sender: { displayName: "", email: target.authorEmail },
+        target: { kind: "newProductPricing", id: saved.id, title: `${saved.worksheetNumber} — ${saved.productName}` },
+        commentExcerpt: htmlToPlainText(bodyHtml),
+        attachments: [],
+      });
+    },
+    onError: (_err, _vars, ctx) => {
+      ctx?.autoWatch?.cancel();
+      errorToast("Couldn't update the comment — please retry.");
+    },
+    onSettled: (_d, _e, _v, ctx) =>
+      afterMentionAutoWatch(ctx?.autoWatch, () => {
+        void qc.invalidateQueries({ queryKey: WORKSHEETS_KEY });
+      }),
   });
 }

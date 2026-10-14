@@ -95,18 +95,16 @@ function Shell({ children }: { children: React.ReactNode }) {
   );
 }
 
-function RoleChip({ role }: { role: PricingRole }) {
-  return (
-    <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[11px] font-semibold text-accent">
-      {PRICING_ROLE_LABELS[role]}
-    </span>
-  );
-}
-
 function RolesManager() {
   const myEmails = useCurrentUserEmails();
   const { data: entries = [], isLoading, error, refetch } = usePricingRoleEntries();
   const remove = useDeletePricingRoleEntry();
+  const update = useUpdatePricingRoleEntry();
+
+  function toggleRole(entry: PricingRoleEntry, role: PricingRole) {
+    const next = entry.roles.includes(role) ? entry.roles.filter((r) => r !== role) : [...entry.roles, role];
+    update.mutate({ id: entry.id, roles: next });
+  }
   // undefined = closed, null = add, a row = edit.
   const [editing, setEditing] = useState<PricingRoleEntry | null | undefined>(undefined);
   const listUnavailable = !!error && isPermissionDenied(error);
@@ -209,13 +207,27 @@ function RolesManager() {
                       )}
                     </td>
                     <td className="px-4 py-2">
-                      <div className="flex flex-wrap gap-1">
-                        {e.roles.length ? (
-                          e.roles.map((r) => <RoleChip key={r} role={r} />)
-                        ) : (
-                          <span className="text-xs italic text-fg-muted">none — no access</span>
-                        )}
+                      {/* A checkbox per role, saved as it's ticked — the EIR Roles display (Ray, 2026-10-13). */}
+                      <div className="flex flex-wrap gap-x-4 gap-y-1">
+                        {PRICING_ROLES.map((role) => (
+                          <label
+                            key={role}
+                            className="inline-flex items-center gap-1.5 text-xs text-fg"
+                            title={PRICING_ROLE_DESCRIPTIONS[role]}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={e.roles.includes(role)}
+                              disabled={update.isPending}
+                              onChange={() => toggleRole(e, role)}
+                              aria-label={`${PRICING_ROLE_LABELS[role]} for ${name}`}
+                              className="h-3.5 w-3.5 accent-accent"
+                            />
+                            {PRICING_ROLE_LABELS[role]}
+                          </label>
+                        ))}
                       </div>
+                      {e.roles.length === 0 && <span className="text-[11px] italic text-fg-muted">no role — no access</span>}
                     </td>
                     <td className="px-4 py-2 text-xs text-fg-muted">{e.note || "—"}</td>
                     <td className="whitespace-nowrap px-4 py-2 text-right">
@@ -246,6 +258,12 @@ function RolesManager() {
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {update.error && (
+        <div role="alert" className="rounded-md border border-cooper-red/40 bg-cooper-red/10 p-3 text-xs text-cooper-red">
+          Couldn't change that role: {(update.error as Error).message}
         </div>
       )}
 

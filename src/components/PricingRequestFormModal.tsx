@@ -3,6 +3,7 @@ import { Loader2, X } from "lucide-react";
 import type { Person } from "@/types/task";
 import type { SapCustomer } from "@/types/pricing";
 import { useCreatePricingRequest } from "@/hooks/usePricingRequests";
+import { useSapPart } from "@/hooks/usePricingLookup";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useDirectoryPeople } from "@/hooks/useDirectory";
 import { mergePeople, personKey } from "@/lib/people";
@@ -40,6 +41,22 @@ export function PricingRequestFormModal({
   const [customer, setCustomer] = useState<SapCustomer | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Ray, 2026-10-13: somebody who only knows the SAP number gets the Altronic
+  // (old) number pulled in from SAP — and the other way round. Looked up when
+  // they leave either box; only BLANK boxes are filled, never one they typed.
+  const [lookup, setLookup] = useState({ altronicPartNumber: "", sapPartNumber: "" });
+  const found = useSapPart(lookup);
+  const sapPart = found.data ?? null;
+  useEffect(() => {
+    if (!sapPart) return;
+    setAltronic((v) => (v.trim() ? v : sapPart.altronicPartNumber));
+    setSap((v) => (v.trim() ? v : sapPart.sapPartNumber));
+    setDescription((v) => (v.trim() ? v : sapPart.description));
+  }, [sapPart]);
+  function lookUp() {
+    setLookup({ altronicPartNumber: altronic.trim(), sapPartNumber: sap.trim() });
+  }
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape" && !pending) onClose();
@@ -63,7 +80,7 @@ export function PricingRequestFormModal({
   const chosen = customer && customer.name.trim() ? customer : null;
 
   const missing = [
-    !altronic.trim() && "Altronic part #",
+    !altronic.trim() && !sap.trim() && "Altronic or SAP part #",
     !description.trim() && "Description",
     !requester && "Requested by",
     !chosen && "Customer",
@@ -111,13 +128,20 @@ export function PricingRequestFormModal({
         </div>
         <form onSubmit={handleSubmit} className="flex flex-col gap-3 overflow-y-auto px-5 py-4">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field label="Altronic part #" required>
-              <input value={altronic} onChange={(e) => setAltronic(e.target.value)} className="input" autoFocus />
+            <Field label="Altronic part #">
+              <input value={altronic} onChange={(e) => setAltronic(e.target.value)} onBlur={lookUp} className="input" autoFocus />
             </Field>
-            <Field label="SAP part #" hint="If you know it. ARC looks it up in SAP either way.">
-              <input value={sap} onChange={(e) => setSap(e.target.value)} className="input" />
+            <Field label="SAP part #">
+              <input value={sap} onChange={(e) => setSap(e.target.value)} onBlur={lookUp} className="input" />
             </Field>
           </div>
+          <p className="-mt-1 text-[11px] text-fg-muted" role="status">
+            {sapPart
+              ? `Found in SAP: ${sapPart.altronicPartNumber} · ${sapPart.sapPartNumber} — ${sapPart.description}`
+              : found.isFetching
+                ? "Looking it up in SAP…"
+                : "Either number will do — ARC looks the other one up in SAP."}
+          </p>
           <Field label="Description" required hint="Replaced by SAP's description once ARC finds the part — yours is kept too.">
             <input value={description} onChange={(e) => setDescription(e.target.value)} className="input" />
           </Field>

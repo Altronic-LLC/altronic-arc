@@ -15,7 +15,7 @@ import {
   type ComparablesPanel,
 } from "@/lib/pricingMath";
 import { formatMoney, formatPct } from "@/lib/quoteMoney";
-import { useComparables, useCustomerGroupDiscount, useMpgDistributorDiscount, useSapPart } from "@/hooks/usePricingLookup";
+import { useComparables, useMpgDistributorDiscount, useSapPart } from "@/hooks/usePricingLookup";
 import { usePriceRequest } from "@/hooks/usePricingRequests";
 import { SAP_DATA_CONNECTED } from "@/api/pricingLookup";
 import { PricingCard } from "./pricingAtoms";
@@ -55,7 +55,6 @@ export function PricingWorkbench({
   const sapPart = useSapPart({ altronicPartNumber: request.altronicPartNumber, sapPartNumber: request.sapPartNumber });
   const mpg = request.mpg || sapPart.data?.mpg || "";
   const mpgDiscount = useMpgDistributorDiscount(mpg);
-  const groupDiscount = useCustomerGroupDiscount(request.customerGroup, mpg);
   const subject = { altronicPartNumber: request.altronicPartNumber, sapPartNumber: request.sapPartNumber };
   const prefix = familyPrefix(request.altronicPartNumber);
   const mpgPanel = useComparables("mpg", mpg || null, subject);
@@ -70,15 +69,12 @@ export function PricingWorkbench({
   const [costTouched, setCostTouched] = useState(!!last);
   const [discount, setDiscount] = useState(fmtInput(last?.distributorDiscountPct));
   const [discountTouched, setDiscountTouched] = useState(!!last);
-  const [customerDiscount, setCustomerDiscount] = useState(fmtInput(last?.customerDiscountPct));
-  const [customerDiscountTouched, setCustomerDiscountTouched] = useState(!!last);
   const [inputKind, setInputKind] = useState<PriceInput["kind"]>(last?.input.kind ?? "gm");
   const [inputValue, setInputValue] = useState(fmtInput(last?.input.value));
   const [note, setNote] = useState("");
 
   const sapCost = sapPart.data?.cost ?? null;
   const sapMpgDiscount = mpgDiscount.data ?? null;
-  const sapGroupDiscount = groupDiscount.data ?? null;
 
   useEffect(() => {
     if (!costTouched && sapCost !== null) setCost(String(sapCost));
@@ -88,13 +84,13 @@ export function PricingWorkbench({
     if (sapMpgDiscount !== null) setDiscount(String(sapMpgDiscount));
     else if (!mpgDiscount.isLoading) setDiscount(String(STANDARD_DISTRIBUTOR_DISCOUNT_PCT));
   }, [sapMpgDiscount, mpgDiscount.isLoading, discountTouched]);
-  useEffect(() => {
-    if (!customerDiscountTouched && sapGroupDiscount !== null) setCustomerDiscount(String(sapGroupDiscount));
-  }, [sapGroupDiscount, customerDiscountTouched]);
 
   const costNum = toNumber(cost);
   const discountNum = toNumber(discount) ?? STANDARD_DISTRIBUTOR_DISCOUNT_PCT;
-  const customerDiscountNum = toNumber(customerDiscount);
+  // The customer's price IS the distributor price (Ray, 2026-10-13): the
+  // customer is given list less the distributor discount, so there is no
+  // separate customer discount to enter.
+  const customerDiscountNum = discountNum;
   const inputNum = toNumber(inputValue);
 
   const costSource: CostSource = sapCost !== null && costNum === sapCost ? "SAP" : "Manual";
@@ -150,7 +146,7 @@ export function PricingWorkbench({
       )}
 
       <PricingCard title="Price this request">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <NumberField
             label="Cost"
             prefix="$"
@@ -177,23 +173,6 @@ export function PricingWorkbench({
                 : discountSource === "Default"
                   ? `standard ${STANDARD_DISTRIBUTOR_DISCOUNT_PCT}% — SAP has none${mpg ? ` for ${mpg}` : ""}`
                   : "typed"
-            }
-          />
-          <NumberField
-            label={`${request.customerName || "Customer"} discount`}
-            suffix="%"
-            value={customerDiscount}
-            onChange={(v) => {
-              setCustomerDiscount(v);
-              setCustomerDiscountTouched(true);
-            }}
-            disabled={locked}
-            source={
-              sapGroupDiscount !== null && customerDiscountNum === sapGroupDiscount
-                ? `group ${request.customerGroup}, from SAP`
-                : request.customerGroup
-                  ? `group ${request.customerGroup}`
-                  : "no customer group"
             }
           />
         </div>
@@ -237,12 +216,10 @@ export function PricingWorkbench({
           </div>
         </div>
 
-        <dl className="mt-4 grid grid-cols-2 gap-3 rounded-lg border border-border bg-surface-2/40 p-3 sm:grid-cols-5" aria-label="Result">
+        <dl className="mt-4 grid grid-cols-1 gap-3 rounded-lg border border-border bg-surface-2/40 p-3 sm:grid-cols-3" aria-label="Result">
           <Result label="List price" value={formatMoney(result.listPrice)} strong />
-          <Result label="Distributor price" value={formatMoney(result.distributorPrice)} />
+          <Result label={`Price for ${request.customerName || "the customer"} (distributor price)`} value={formatMoney(result.customerPrice)} strong />
           <Result label="Base GM" value={formatPct(result.baseGM)} strong />
-          <Result label="Customer price" value={formatMoney(result.customerPrice)} />
-          <Result label="Customer GM" value={formatPct(result.customerGM)} />
         </dl>
         {result.problem && inputValue.trim() !== "" && (
           <p className="mt-2 text-xs text-cooper-red" role="alert">

@@ -180,3 +180,38 @@ describe("buildPricingPdf — the leak test on real PDF text", () => {
     for (const bad of FORBIDDEN) expect(text).not.toContain(bad);
   });
 });
+
+describe("SAP and customer part numbers on the quote PDF", () => {
+  function withNumbers(): CustomerQuote {
+    const q = quote();
+    return {
+      ...q,
+      lines: [
+        { ...q.lines[0], sapPartNumber: "1003-0114-24", customerPartNumber: "ACME-PN-9" },
+        { ...q.lines[1], sapPartNumber: undefined, customerPartNumber: undefined },
+      ],
+    };
+  }
+
+  it("the model carries each line's SAP and customer part number, blank when unset", () => {
+    const model = customerQuotePdfModel(withNumbers(), null, TODAY);
+    expect(model.lines[0].sapPartNumber).toBe("1003-0114-24");
+    expect(model.lines[0].customerPartNumber).toBe("ACME-PN-9");
+    expect(model.lines[1].sapPartNumber).toBe("");
+    expect(model.lines[1].customerPartNumber).toBe("");
+  });
+
+  it("prints them on the PDF when set", async () => {
+    const doc = await buildPricingPdf(customerQuotePdfModel(withNumbers(), null, TODAY), { compress: false, logo: false });
+    const text = pdfText(doc.output());
+    expect(text).toContain("SAP part no. 1003-0114-24");
+    expect(text).toContain("Your part no. ACME-PN-9");
+  });
+
+  it("prints neither label when no line has them", async () => {
+    const doc = await buildPricingPdf(customerQuotePdfModel(quote(), null, TODAY), { compress: false, logo: false });
+    const text = pdfText(doc.output());
+    expect(text).not.toContain("SAP part no.");
+    expect(text).not.toContain("Your part no.");
+  });
+});

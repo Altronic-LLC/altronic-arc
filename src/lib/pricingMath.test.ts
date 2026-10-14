@@ -40,6 +40,9 @@ function sub(over: Partial<SubAssembly> = {}): SubAssembly {
     worksheetId: 1,
     rev: 1,
     name: "Board",
+    kind: "subAssembly",
+    altronicPartNumber: "",
+    sapPartNumber: "",
     sortOrder: 0,
     quantityPerProduct: 1,
     lines: [line()],
@@ -375,7 +378,7 @@ describe("subAssemblyCost", () => {
 
   it("asks for the CSV when there are no lines", () => {
     const c = subAssemblyCost(sub({ lines: [] }));
-    expect(c).toEqual({ uploaded: null, used: null, problems: ["Board has no lines — upload its CSV."] });
+    expect(c).toEqual({ uploaded: null, used: null, problems: ["Board has no components — upload its CSV or add them by hand."] });
   });
 });
 
@@ -415,7 +418,7 @@ describe("worksheetCost", () => {
 
   it("asks for a sub-assembly when there are none", () => {
     const w = worksheetCost([], 10);
-    expect(w.problems).toEqual(["Add a sub-assembly and upload its CSV."]);
+    expect(w.problems).toEqual(["Add a sub-assembly, then upload its CSV or add its components by hand."]);
     expect(w.material).toEqual({ uploaded: null, used: null });
     expect(w.unit).toEqual({ uploaded: null, used: null });
   });

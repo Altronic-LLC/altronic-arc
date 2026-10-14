@@ -7,32 +7,22 @@ import { useOverlayDismiss } from "./useOverlayDismiss";
 
 // =============================================================================
 // Start a New Product Pricing worksheet — the product, an optional customer
-// and expected volume. Its sub-assemblies and price are worked on the
-// worksheet itself. Opened from a request, it is pre-filled from it and the
-// two are linked (the worksheet's RequestRef).
+// and expected volume. Its sub-assemblies, parts and price are worked on the
+// worksheet itself. (Not started from a pricing request — Ray, 2026-10-13.)
 // =============================================================================
-
-export interface NewWorksheetPrefill {
-  requestId: number;
-  productName: string;
-  description: string;
-  customer: SapCustomer | null;
-}
 
 export function NewWorksheetFormModal({
   onClose,
   onSaved,
-  prefill,
 }: {
   onClose: () => void;
   onSaved: (id: number) => void;
-  prefill?: NewWorksheetPrefill;
 }) {
   const create = useCreateNewProductWorksheet();
   const pending = create.isPending;
-  const [productName, setProductName] = useState(prefill?.productName ?? "");
-  const [description, setDescription] = useState(prefill?.description ?? "");
-  const [customer, setCustomer] = useState<SapCustomer | null>(prefill?.customer ?? null);
+  const [productName, setProductName] = useState("");
+  const [description, setDescription] = useState("");
+  const [customer, setCustomer] = useState<SapCustomer | null>(null);
   const [volume, setVolume] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -64,7 +54,7 @@ export function NewWorksheetFormModal({
         customerSoldTo: customer?.soldTo ?? "",
         customerName: customer?.name ?? "",
         expectedAnnualVolume: v,
-        requestId: prefill?.requestId ?? null,
+        requestId: null,
       });
       onClose();
       onSaved(created.id);
@@ -107,9 +97,6 @@ export function NewWorksheetFormModal({
             <span className="font-semibold uppercase tracking-wider text-fg-muted">Expected annual volume</span>
             <input type="number" min={0} value={volume} onChange={(e) => setVolume(e.target.value)} className="input max-w-[12rem]" />
           </label>
-          {prefill && (
-            <p className="text-[11px] text-fg-muted">Linked to the request it was started from.</p>
-          )}
           {error && (
             <div role="alert" className="rounded-md border border-cooper-red/40 bg-cooper-red/10 px-2 py-1.5 text-xs text-cooper-red">
               {error}

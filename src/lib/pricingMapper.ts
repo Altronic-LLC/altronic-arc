@@ -126,6 +126,8 @@ export const NEW_PRODUCT_SELECT = [
   "AltronicPartNumber",
   "SapPartNumber",
   "History",
+  "Communication",
+  "Watchers",
   "Attachments",
 ].join(",");
 
@@ -459,6 +461,8 @@ export function toNewProductWorksheet(item: GraphListItem): NewProductWorksheet 
     sapPartNumber: text(f.SapPartNumber).trim(),
     history: entries,
     historyCorrupt: corrupt,
+    comments: parseCommunication(text(f.Communication)),
+    watchers: parsePersonField(f.Watchers),
     hasAttachments: f.Attachments === true,
     createdBy: parseCreatedBy(item),
     createdAt: item.createdDateTime ?? null,
@@ -538,6 +542,9 @@ export const SUB_ASSEMBLY_SELECT = [
   "WorksheetRef",
   "WorksheetRefLookupId",
   "Rev",
+  "Kind",
+  "AltronicPartNumber",
+  "SapPartNumber",
   "SortOrder",
   "QuantityPerProduct",
   "Lines",
@@ -557,6 +564,10 @@ export function toSubAssembly(item: GraphListItem): SubAssembly {
     worksheetId: lookupId(f, "WorksheetRef") ?? 0,
     rev: Math.max(1, Math.trunc(num(f.Rev) ?? 1)),
     name: text(f.Title).trim(),
+    // A blank Kind (rows written before parts existed) is a sub-assembly.
+    kind: text(f.Kind).trim() === "Part" ? "part" : "subAssembly",
+    altronicPartNumber: text(f.AltronicPartNumber).trim(),
+    sapPartNumber: text(f.SapPartNumber).trim(),
     sortOrder: num(f.SortOrder) ?? 0,
     quantityPerProduct: num(f.QuantityPerProduct) ?? 1,
     lines,
@@ -569,6 +580,9 @@ export function toSubAssembly(item: GraphListItem): SubAssembly {
 
 export interface SubAssemblyFields {
   name?: string;
+  kind?: SubAssembly["kind"];
+  altronicPartNumber?: string;
+  sapPartNumber?: string;
   sortOrder?: number;
   quantityPerProduct?: number;
   lines?: SubAssemblyLine[];
@@ -581,6 +595,9 @@ export interface SubAssemblyFields {
 export function buildSubAssemblyFields(input: SubAssemblyFields): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   if (input.name !== undefined) out.Title = input.name.trim();
+  if (input.kind !== undefined) out.Kind = input.kind === "part" ? "Part" : "Sub-Assembly";
+  if (input.altronicPartNumber !== undefined) out.AltronicPartNumber = input.altronicPartNumber.trim();
+  if (input.sapPartNumber !== undefined) out.SapPartNumber = input.sapPartNumber.trim();
   if (input.sortOrder !== undefined) out.SortOrder = input.sortOrder;
   if (input.quantityPerProduct !== undefined) out.QuantityPerProduct = input.quantityPerProduct;
   if (input.lines !== undefined) out.Lines = JSON.stringify(input.lines);

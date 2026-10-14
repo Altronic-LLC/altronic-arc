@@ -163,12 +163,33 @@ export type NewProductStatus = (typeof NEW_PRODUCT_STATUSES)[number];
  * manager's, blank until set. The cost used is adjusted ?? uploaded.
  */
 export interface SubAssemblyLine {
+  /** The ALTRONIC part number. Named before SAP numbers were added; it is the JSON contract. */
   partNumber: string;
+  /** The SAP part number (Ray, 2026-10-13). Absent on lines saved before it existed = "". */
+  sapPartNumber?: string;
   description: string;
   quantity: number;
+  /**
+   * The BASE cost: the sheet's for a CSV line (never changed by ARC), or what
+   * was typed when the line was added by hand. Named for the CSV case, which
+   * came first; it is the JSON contract, so it keeps its name.
+   */
   uploadedCost: number | null;
   adjustedCost: number | null;
+  /** Where the line came from (Ray, 2026-10-13). Absent on lines saved before this = "csv". */
+  source?: SubAssemblyLineSource;
 }
+
+/** A line from a CSV upload, one added by hand, or a part looked up in SAP. */
+export type SubAssemblyLineSource = "csv" | "manual" | "sap";
+
+/**
+ * A worksheet row is a SUB-ASSEMBLY (many components), or a standalone PART
+ * on the product (Ray, 2026-10-13) — a part from SAP or one typed by hand.
+ * A part is held as a row with exactly ONE line, so the cost roll-up and the
+ * revision handling are the same for both.
+ */
+export type SubAssemblyKind = "subAssembly" | "part";
 
 /** One sub-assembly of a worksheet, at one revision (a row of NP Sub-Assemblies). */
 export interface SubAssembly {
@@ -177,6 +198,10 @@ export interface SubAssembly {
   rev: number;
   /** Title. */
   name: string;
+  /** The sub-assembly's (or part's) own numbers (Ray, 2026-10-13). */
+  altronicPartNumber: string;
+  sapPartNumber: string;
+  kind: SubAssemblyKind;
   sortOrder: number;
   /** How many of this sub-assembly go into one product. */
   quantityPerProduct: number;
@@ -262,6 +287,8 @@ export interface NewProductWorksheet {
   /** One full snapshot per revision, oldest first. */
   history: NewProductRevision[];
   historyCorrupt: boolean;
+  comments: Comment[];
+  watchers: Person[];
   hasAttachments: boolean;
   createdBy: Person | null;
   createdAt: string | null;
@@ -335,7 +362,10 @@ export interface CustomerQuoteLine {
   worksheetRev?: number;
   requestId?: number;
   requestNumber?: string;
+  /** Shown on the quote and the PDF when the part has one (Ray, 2026-10-13). */
   sapPartNumber?: string;
+  /** The CUSTOMER's own number for the part — optional, typed, printed. */
+  customerPartNumber?: string;
 }
 
 export interface CustomerQuote {

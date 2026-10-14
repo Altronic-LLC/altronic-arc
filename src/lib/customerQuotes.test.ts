@@ -39,6 +39,8 @@ function ws(over: Partial<NewProductWorksheet> = {}): NewProductWorksheet {
     mpg: "",
     distributorDiscountPct: 34,
     discountSource: "Default",
+    comments: [],
+    watchers: [],
     targetGM: 40,
     unitCost: 100,
     listPrice: 253,
@@ -311,6 +313,28 @@ describe("freeLine", () => {
       customerDiscountPct: null,
       breaks: [],
     });
+  });
+});
+
+describe("SAP and customer part numbers on a line", () => {
+  it("lineFromWorksheet copies the worksheet's SAP part number, and leaves it off when blank", () => {
+    expect(lineFromWorksheet(ws({ sapPartNumber: "1003-0114-24" }), 10)!.sapPartNumber).toBe("1003-0114-24");
+    expect(lineFromWorksheet(ws({ sapPartNumber: "" }), 10)!.sapPartNumber).toBeUndefined();
+  });
+
+  it("refreshWorksheetLine keeps the quote's customer part number, and takes the worksheet's new SAP #", () => {
+    const old = { ...lineFromWorksheet(ws({ rev: 1, listPrice: 200 }), 10, 7)!, customerPartNumber: "CUST-77" };
+    const fresh = refreshWorksheetLine(old, ws({ rev: 3, listPrice: 300, priceBreaks: [], sapPartNumber: "1003-0114-24" }));
+    expect(fresh.customerPartNumber).toBe("CUST-77");
+    expect(fresh.sapPartNumber).toBe("1003-0114-24");
+    expect(fresh.worksheetRev).toBe(3);
+  });
+
+  it("freeLine takes an SAP part number, trimmed, and drops a blank one", () => {
+    const base = { partNumber: "NRE", description: "Tooling", quantity: 1, unitPrice: 10 };
+    expect(freeLine({ ...base, sapPartNumber: " 2001-0310-25 " }).sapPartNumber).toBe("2001-0310-25");
+    expect(freeLine({ ...base, sapPartNumber: "   " }).sapPartNumber).toBeUndefined();
+    expect(freeLine(base).sapPartNumber).toBeUndefined();
   });
 });
 

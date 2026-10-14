@@ -143,7 +143,7 @@ const SYSTEM_TIERS: Tier[] = [
       },
       {
         label: "Sales Pricing (lazy-loaded)",
-        hint: "PricingRequestsView · PricingRequestDetailView · NewProductPricingView · NewProductPricingDetailView · CustomerQuotesView · CustomerQuoteDetailView · PricingRolesView + pricingAtoms (PricingNav) · PricingWorkbench · PricingRequestFormModal · SapCustomerPicker · NewWorksheetFormModal · SubAssemblyCard · QuoteLineModal — usePricingRequests · usePricingRoles · usePricingLookup · useNewProductPricing · useCustomerQuotes — api/pricingRequests · pricingHistory · pricingRoles · newProductPricing · newProductSubAssemblies · customerQuotes · pricingLookup (the ONE seam to SAP, the Fabric warehouse; mock now, real mode falls back to typed entry) — lib/pricingMath (list from target GM ÷ distributor discount, whole dollar; base GM at the distributor price; customer price; MPG + family comparables; BOM cost; breaks) · pricingRoles (requester / manager / admin; no role = no access; the preview switch) · pricingHistory · pricingNumber · pricingMapper · pricingAlerts · pricingPdf (a model that cannot carry cost) · subAssemblyCsv · customerQuotes · worksheetExcel. Routes under /sales/pricing. Six lists on ALTRONICSALESTEAM with UNIQUE permissions — the cost lists ARE the boundary. In review behind VITE_PRICING_LIVE.",
+        hint: "PricingRequestsView · PricingRequestDetailView · NewProductPricingView · NewProductPricingDetailView · CustomerQuotesView · CustomerQuoteDetailView · PricingRolesView + pricingAtoms (PricingNav) · PricingWorkbench · PricingRequestFormModal · SapCustomerPicker · NewWorksheetFormModal · SubAssemblyCard · QuoteLineModal — usePricingRequests · usePricingRoles · usePricingLookup · useNewProductPricing · useCustomerQuotes — api/pricingRequests · pricingHistory · pricingRoles · newProductPricing · newProductSubAssemblies · customerQuotes · pricingLookup (the ONE seam to SAP, the Fabric warehouse; mock now, real mode falls back to typed entry) — lib/pricingMath (list from target GM ÷ distributor discount, whole dollar; base GM at the distributor price; customer price = distributor price; MPG + family comparables; BOM cost; breaks) · pricingRoles (requester / manager / admin; no role = no access; the preview switch) · pricingHistory · pricingNumber · pricingMapper · pricingAlerts · pricingPdf (a model that cannot carry cost) · subAssemblyCsv · customerQuotes · worksheetExcel. Routes under /sales/pricing. Six lists on ALTRONICSALESTEAM with UNIQUE permissions — the cost lists ARE the boundary. In review behind VITE_PRICING_LIVE.",
         palette: "ui",
       },
       {
@@ -234,8 +234,8 @@ const SYSTEM_TIERS: Tier[] = [
       { label: "Pricing Roles", hint: "ALTRONICSALESTEAM site (Sales Pricing) — Title = email, PersonName (never DisplayName), Roles CSV of requester / manager / admin. No role = no access. Managed by a pricing admin or an ARC admin, who gets no pricing access from it", palette: "list" },
       { label: "Pricing Requests", hint: "ALTRONICSALESTEAM site — PR-YYYY-#### (unique). Awaiting SAP → Submitted → In Review → Priced (and Cancelled, never deleted). Every pricing role reads it, so it holds the FINAL price only — no cost, no margin. RequestedBy / PricedBy / AddedToSapBy are single-person; Communication + Watchers + attachments", palette: "list" },
       { label: "Pricing History", hint: "ALTRONICSALESTEAM site — MANAGERS AND ADMINS ONLY. One row per request (RequestRef, a single lookup): cost and its source, distributor discount and its source, target / base / customer GM, the MPG and family comparables summary, and History — a JSON array APPENDED on every pricing, never written over when it can't be parsed", palette: "list" },
-      { label: "New Product Pricing", hint: "ALTRONICSALESTEAM site — MANAGERS AND ADMINS ONLY. NP-YYYY-#### worksheets for products not yet in SAP; optional RequestRef; overhead, discount, target GM, list price, PriceBreaks JSON, Rev, and History JSON (one totals snapshot per revision). Cancelled, never deleted", palette: "list" },
-      { label: "NP Sub-Assemblies", hint: "ALTRONICSALESTEAM site — MANAGERS AND ADMINS ONLY. One row per sub-assembly PER REVISION (WorksheetRef single lookup + Rev); Lines JSON from a CSV (uploaded cost kept, adjusted cost beside it). A new revision writes fresh rows; no default list id", palette: "list" },
+      { label: "New Product Pricing", hint: "ALTRONICSALESTEAM site — MANAGERS AND ADMINS ONLY. NP-YYYY-#### worksheets for products not yet in SAP; overhead, discount, target GM, list price, PriceBreaks JSON, Rev, History JSON (one totals snapshot per revision), Communication and Watchers. RequestRef exists but ARC no longer sets it. Cancelled, never deleted", palette: "list" },
+      { label: "NP Sub-Assemblies", hint: "ALTRONICSALESTEAM site — MANAGERS AND ADMINS ONLY. One row per sub-assembly or standalone part PER REVISION (WorksheetRef single lookup + Rev, Kind, Altronic # + SAP #); Lines JSON from a CSV, by hand or SAP (base cost kept, adjusted cost beside it); attachments per row, copied to a new revision. A new revision writes fresh rows; no default list id", palette: "list" },
       { label: "Customer Quotes", hint: "ALTRONICSALESTEAM site — MANAGERS AND ADMINS ONLY. SQ-YYYY-####-R# (unique); a revision is a new row sharing QuoteBase. Customer and Lines as JSON; lines editable only in Draft; the PDF never carries cost or margin. Communication + Watchers + attachments; no default list id", palette: "list" },
       { label: "ARC Feature Requests", hint: "Engineering site — a place for any signed-in user to request a new ARC feature or change, separate from Report Issue. RequestedBy is a single-person column (Graph returns a bare RequestedByLookupId, resolved via the site directory), auto-filled to the submitter on create and never re-picked. No default list id — the screen reports itself as not configured until the setup script has run", palette: "list" },
       { label: "CPU-95", hint: "Engineering site — the SharePoint list backing QCFRM-012, the first QC Forms controlled form; ~200 columns across Header/Startup/Final/checklist/firing-angle/Current Loop/Defects/Sign-off, only some of which apply to a given unit depending on its Altronic Part Number (\"Altmode\", 0-6). No delete; any signed-in user can create/edit", palette: "list" },
@@ -1712,6 +1712,8 @@ export const SCHEMA_TABLES: SchemaTable[] = [
       { name: "unitCost / listPrice", type: "currency", kind: "field" },
       { name: "priceBreaks (JSON, ≤3)", type: "text", kind: "field" },
       { name: "history (JSON, per revision)", type: "text", kind: "field" },
+      { name: "comments (Communication)", type: "text", kind: "field" },
+      { name: "watchers", type: "int[]", kind: "fk", references: "Person.id" },
     ],
   },
   {
@@ -1722,11 +1724,13 @@ export const SCHEMA_TABLES: SchemaTable[] = [
     columns: [
       { name: "id", type: "int", kind: "pk" },
       { name: "name (Title)", type: "text", kind: "field" },
+      { name: "kind (Sub-Assembly / Part)", type: "choice", kind: "field" },
+      { name: "altronicPartNumber / sapPartNumber", type: "text", kind: "field" },
       { name: "worksheetId (WorksheetRef)", type: "int", kind: "fk", references: "NewProductWorksheet.id" },
       { name: "rev", type: "int", kind: "field" },
       { name: "sortOrder", type: "int", kind: "field" },
       { name: "quantityPerProduct", type: "number", kind: "field" },
-      { name: "lines (JSON from CSV)", type: "text", kind: "field" },
+      { name: "lines (JSON — CSV, by hand or SAP)", type: "text", kind: "field" },
       { name: "fileName", type: "text", kind: "field" },
       { name: "uploadedAt / uploadedBy", type: "datetime", kind: "field" },
     ],
@@ -1917,6 +1921,7 @@ export const CONNECTIONS: Connection[] = [
   { fromTable: "PricingRequest", fromColumn: "addedToSapBy", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "one" },
   { fromTable: "PricingRequest", fromColumn: "watchers", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
   { fromTable: "CustomerQuote", fromColumn: "watchers", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
+  { fromTable: "NewProductWorksheet", fromColumn: "watchers", toTable: "Person", toColumn: "id", fromCard: "many", toCard: "many" },
 ];
 
 export function AboutView() {

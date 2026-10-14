@@ -135,6 +135,7 @@ export interface MentionTarget {
     | "altronicComponent"
     | "quote"
     | "pricingRequest"
+    | "newProductPricing"
     | "customerQuote";
   id: number;
   title: string;
@@ -246,6 +247,11 @@ const KIND_COPY: Record<
     phrase: "a pricing request",
     calloutLabel: "Pricing Request",
     buttonText: "Open this request",
+  },
+  newProductPricing: {
+    phrase: "a new product worksheet",
+    calloutLabel: "New Product Worksheet",
+    buttonText: "Open this worksheet",
   },
   customerQuote: {
     phrase: "a customer quote",

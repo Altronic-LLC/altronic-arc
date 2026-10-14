@@ -24,12 +24,14 @@
                               (JSON, the totals of each revision). Its `Bom`
                               column predates sub-assemblies and is unused.
                               MANAGERS AND ADMINS ONLY.
-        NP Sub-Assemblies     One row per sub-assembly PER REVISION of a
-                              worksheet (WorksheetRef + Rev, both indexed). Lines
-                              (JSON: part, description, qty, uploaded cost,
-                              adjusted cost) from a CSV upload, its file name,
-                              when and by whom. A new revision copies the rows
-                              forward; earlier revisions are never rewritten.
+        NP Sub-Assemblies     One row per sub-assembly OR standalone part PER
+                              REVISION of a worksheet (WorksheetRef + Rev,
+                              indexed; Kind). Lines (JSON: part, description,
+                              qty, base cost, adjusted cost, source) from a CSV
+                              upload, typed by hand, or a SAP part; its file
+                              name, when and by whom. Attachments ON. A new
+                              revision writes fresh rows (files copied across);
+                              earlier revisions are never rewritten.
                               MANAGERS AND ADMINS ONLY.
         Customer Quotes       Title = SQ-YYYY-####-R# (indexed, unique), one row
                               per quote revision. Customer (JSON), Lines (JSON),
@@ -297,18 +299,29 @@ $Lists = @(
             (Text "SapPartNumber" "SAP Part #"),
             # JSON array, the totals of each revision; the lines live on
             # NP Sub-Assemblies, stamped by revision.
-            (Note "History" "History")
+            (Note "History" "History"),
+            # The worksheet's discussion (Ray, 2026-10-13).
+            (Communication),
+            (People "Watchers" "Watchers")
         )
     },
     @{
         name         = "NP Sub-Assemblies"
         envVar       = "VITE_SP_NP_SUBASSEMBLIES_LIST_ID"
-        description  = "The sub-assemblies of each New Product Pricing worksheet, one row per sub-assembly per revision. Lines are JSON from a CSV upload. MANAGERS AND ADMINS ONLY. Edit through ARC."
+        description  = "The sub-assemblies and parts of each New Product Pricing worksheet, one row per sub-assembly or part per revision. Lines are JSON. Files hang off each row. MANAGERS AND ADMINS ONLY. Edit through ARC."
         titleDisplay = "Sub-Assembly"
-        attachments  = $false
+        # Each sub-assembly's own files (Ray, 2026-10-13) — copied forward when
+        # a new revision writes fresh rows.
+        attachments  = $true
         columns      = @(
             (Lookup "WorksheetRef" "Worksheet" "New Product Pricing" -Indexed),
             (Number "Rev" "Rev" "none" 1),
+            # A sub-assembly (many components), or a standalone part (one line).
+            (Choice "Kind" "Kind" @("Sub-Assembly", "Part") "Sub-Assembly"),
+            # The sub-assembly's (or part's) own numbers. Components carry
+            # theirs inside Lines.
+            (Text "AltronicPartNumber" "Altronic Part #"),
+            (Text "SapPartNumber" "SAP Part #"),
             (Number "SortOrder" "Sort Order" "none"),
             (Number "QuantityPerProduct" "Qty per Product" "automatic" 1),
             # JSON: [{ partNumber, description, quantity, uploadedCost, adjustedCost }].

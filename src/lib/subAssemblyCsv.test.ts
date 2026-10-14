@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SubAssemblyLine } from "@/types/pricing";
-import { importSubAssemblyCsv, mergeUpload, parseCsvRows, parseSubAssemblyLines } from "./subAssemblyCsv";
+import { importSubAssemblyCsv, lineKey, mergeUpload, parseCsvRows, parseSubAssemblyLines } from "./subAssemblyCsv";
 
 function line(over: Partial<SubAssemblyLine> = {}): SubAssemblyLine {
   return { partNumber: "P1", description: "", quantity: 1, uploadedCost: 10, adjustedCost: null, ...over };
@@ -38,7 +38,7 @@ describe("importSubAssemblyCsv", () => {
     expect(out.errors).toEqual([]);
     expect(out.skipped).toEqual([]);
     expect(out.lines).toEqual([
-      { partNumber: "791950-08", description: "Board", quantity: 2, uploadedCost: 1234.5, adjustedCost: null },
+      { partNumber: "791950-08", sapPartNumber: "", description: "Board", quantity: 2, uploadedCost: 1234.5, adjustedCost: null, source: "csv" },
     ]);
   });
 
@@ -62,7 +62,7 @@ describe("importSubAssemblyCsv", () => {
 
   it("allows a blank cost (a part not costed yet)", () => {
     const out = importSubAssemblyCsv("Part,Description,Cost,Qty\nA,x,,3");
-    expect(out.lines[0]).toEqual({ partNumber: "A", description: "x", quantity: 3, uploadedCost: null, adjustedCost: null });
+    expect(out.lines[0]).toEqual({ partNumber: "A", sapPartNumber: "", description: "x", quantity: 3, uploadedCost: null, adjustedCost: null, source: "csv" });
   });
 
   it("skips bad rows by spreadsheet row number, imports the rest, and ignores blank rows", () => {
@@ -119,17 +119,52 @@ describe("mergeUpload", () => {
     expect(changes).toEqual({
       added: ["NEW"],
       removed: ["GONE"],
-      costChanged: [{ partNumber: " ABC-1 ", from: 10, to: 11 }],
+      // Named trimmed — the label a person reads.
+      costChanged: [{ partNumber: "ABC-1", from: 10, to: 11 }],
       keptAdjustments: 1,
+      keptManual: 0,
     });
   });
 
   it("an upload into an empty sub-assembly adds everything", () => {
     const { changes } = mergeUpload([], [line({ partNumber: "A" })]);
-    expect(changes).toEqual({ added: ["A"], removed: [], costChanged: [], keptAdjustments: 0 });
+    expect(changes).toEqual({ added: ["A"], removed: [], costChanged: [], keptAdjustments: 0, keptManual: 0 });
   });
 });
 
+describe("mergeUpload — components added by hand", () => {
+  it("keeps a hand-added component the file doesn't carry, after the file's lines, and counts it", () => {
+    const previous = [
+      line({ partNumber: "CSV-1", uploadedCost: 10 }),
+      line({ partNumber: "HAND-1", uploadedCost: 4, adjustedCost: 3, source: "manual" }),
+    ];
+    const { lines, changes } = mergeUpload(previous, [line({ partNumber: "CSV-1", uploadedCost: 10, source: "csv" })]);
+    expect(lines.map((l) => [l.partNumber, l.source, l.adjustedCost])).toEqual([
+      ["CSV-1", "csv", null],
+      ["HAND-1", "manual", 3],
+    ]);
+    expect(changes.keptManual).toBe(1);
+    // A hand-added line is not the file's to remove.
+    expect(changes.removed).toEqual([]);
+  });
+
+  it("lets the file take over a hand-added part number it now carries, adjustment and all", () => {
+    const previous = [line({ partNumber: "P9", uploadedCost: 4, adjustedCost: 3, source: "manual" })];
+    const { lines, changes } = mergeUpload(previous, [line({ partNumber: "p9", uploadedCost: 5, source: "csv" })]);
+    expect(lines).toEqual([expect.objectContaining({ partNumber: "p9", source: "csv", uploadedCost: 5, adjustedCost: 3 })]);
+    expect(changes.keptManual).toBe(0);
+  });
+});
+
+describe("parseSubAssemblyLines — source", () => {
+  it("reads a manual line as manual, and a line saved before sources existed as csv", () => {
+    const raw = JSON.stringify([
+      { partNumber: "A", description: "", quantity: 1, uploadedCost: 1, adjustedCost: null, source: "manual" },
+      { partNumber: "B", description: "", quantity: 1, uploadedCost: 1, adjustedCost: null },
+    ]);
+    expect(parseSubAssemblyLines(raw).lines.map((l) => l.source)).toEqual(["manual", "csv"]);
+  });
+});
 describe("parseSubAssemblyLines", () => {
   it("reads blank as empty, not corrupt", () => {
     for (const raw of [null, undefined, "", "  "]) {
@@ -151,10 +186,43 @@ describe("parseSubAssemblyLines", () => {
     ]);
     expect(parseSubAssemblyLines(raw)).toEqual({
       lines: [
-        { partNumber: "A", description: "x", quantity: 2, uploadedCost: 3, adjustedCost: null },
-        { partNumber: "", description: "", quantity: 0, uploadedCost: null, adjustedCost: null },
+        { partNumber: "A", sapPartNumber: "", description: "x", quantity: 2, uploadedCost: 3, adjustedCost: null, source: "csv" },
+        { partNumber: "", sapPartNumber: "", description: "", quantity: 0, uploadedCost: null, adjustedCost: null, source: "csv" },
       ],
       corrupt: false,
     });
+  });
+});
+
+describe("SAP part numbers on components (Ray, 2026-10-13)", () => {
+  it("reads an SAP Part Number column beside the Altronic one", () => {
+    const out = importSubAssemblyCsv("Part Number,SAP Part Number,Description,Current Cost,Qty\nA1,1003-0001-00,X,2,1\n");
+    expect(out.lines[0]).toEqual(expect.objectContaining({ partNumber: "A1", sapPartNumber: "1003-0001-00" }));
+  });
+
+  it("imports a file with ONLY an SAP number column", () => {
+    const out = importSubAssemblyCsv("SAP #,Description,Cost,Qty\n1003-0001-00,X,2,1\n");
+    expect(out.errors).toEqual([]);
+    expect(out.lines[0]).toEqual(expect.objectContaining({ partNumber: "", sapPartNumber: "1003-0001-00" }));
+  });
+
+  it("refuses a file with neither number column, naming both", () => {
+    const out = importSubAssemblyCsv("Description,Current Cost,Qty\nX,2,1\n");
+    expect(out.errors[0]).toContain('"Part Number" or "SAP Part Number"');
+  });
+
+  it("a row is kept if it has either number, skipped if it has neither", () => {
+    const out = importSubAssemblyCsv("Part Number,SAP Part Number,Description,Current Cost,Qty\n,9999,X,2,1\n,,Y,2,1\n");
+    expect(out.lines.map((l) => l.sapPartNumber)).toEqual(["9999"]);
+    expect(out.skipped).toEqual(["Row 3: no part number."]);
+  });
+
+  it("a re-upload matches a component with no Altronic number by its SAP number", () => {
+    const previous = [{ partNumber: "", sapPartNumber: "9999", description: "", quantity: 1, uploadedCost: 5, adjustedCost: 4, source: "csv" as const }];
+    const { lines } = mergeUpload(previous, [
+      { partNumber: "", sapPartNumber: "9999", description: "", quantity: 1, uploadedCost: 6, adjustedCost: null, source: "csv" },
+    ]);
+    expect(lines[0].adjustedCost).toBe(4);
+    expect(lineKey(previous[0])).toBe("sap:9999");
   });
 });

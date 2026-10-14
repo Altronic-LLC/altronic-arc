@@ -20,6 +20,7 @@ import {
   SP_PRICING_REQUESTS_LIST_ID,
   SP_NEW_PRODUCT_PRICING_LIST_ID,
   SP_CUSTOMER_QUOTES_LIST_ID,
+  SP_NP_SUBASSEMBLIES_LIST_ID,
   SP_QUOTES_LIST_ID,
   SP_QUOTE_ITEMS_LIST_ID,
   SP_SALESTEAM_SITE_URL,
@@ -84,6 +85,7 @@ export type AttachmentParent =
   | "quoteItem"
   | "pricingRequest"
   | "newProductPricing"
+  | "npSubAssembly"
   | "customerQuote";
 
 interface ParentConfig {
@@ -241,6 +243,13 @@ const PARENT_CONFIG: Record<AttachmentParent, ParentConfig> = {
     listId: SP_NEW_PRODUCT_PRICING_LIST_ID,
     siteUrl: SP_SALESTEAM_SITE_URL,
     listIdEnvVar: "VITE_SP_NEW_PRODUCT_PRICING_LIST_ID",
+  },
+  // Each sub-assembly's (or part's) own files — copied onto the fresh row a
+  // new revision writes, so every revision keeps its files.
+  npSubAssembly: {
+    listId: SP_NP_SUBASSEMBLIES_LIST_ID,
+    siteUrl: SP_SALESTEAM_SITE_URL,
+    listIdEnvVar: "VITE_SP_NP_SUBASSEMBLIES_LIST_ID",
   },
   customerQuote: {
     listId: SP_CUSTOMER_QUOTES_LIST_ID,

@@ -20,6 +20,9 @@ import { tierRanges } from "./pricingMath";
 
 export interface PricingPdfLine {
   partNumber: string;
+  /** Printed under the part when there is one. */
+  sapPartNumber: string;
+  customerPartNumber: string;
   description: string;
   quantity: number;
   unitPrice: number;
@@ -80,6 +83,8 @@ export function customerQuotePdfModel(
       const prices = [l.unitPrice, ...[...l.breaks].sort((a, b) => a.minQty - b.minQty).map((b) => b.price)];
       return {
         partNumber: l.partNumber,
+        sapPartNumber: l.sapPartNumber ?? "",
+        customerPartNumber: l.customerPartNumber ?? "",
         description: l.description,
         quantity: l.quantity,
         unitPrice: unitPriceAt(l, l.quantity),
@@ -110,6 +115,8 @@ export function requestPdfModel(
     lines: [
       {
         partNumber: request.altronicPartNumber,
+        sapPartNumber: request.sapPartNumber,
+        customerPartNumber: "",
         description: request.description,
         quantity: 1,
         unitPrice: price,
@@ -199,7 +206,15 @@ export function renderPricingPdf(doc: jsPDF, autoTable: AutoTableFn, model: Pric
   y += 14 + Math.max(forLines.length, 2) * 13 + 14;
 
   const body = model.lines.map((l) => [
-    `${l.partNumber}${l.partNumber && l.description ? "\n" : ""}${l.description}`,
+    [
+      l.partNumber,
+      l.description,
+      [l.sapPartNumber && `SAP part no. ${l.sapPartNumber}`, l.customerPartNumber && `Your part no. ${l.customerPartNumber}`]
+        .filter(Boolean)
+        .join(" · "),
+    ]
+      .filter(Boolean)
+      .join("\n"),
     l.breaks.length ? l.breaks.map((b) => `${b.range} pcs   ${money(b.price)}`).join("\n") : money(l.unitPrice),
     String(l.quantity),
     money(l.subtotal),

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
-import { __resetPricingMockStores } from "@/data/pricingMockData";
+import { __resetPricingMockStores, pricingMockDb } from "@/data/pricingMockData";
 import { NewProductPricingDetailView } from "./NewProductPricingDetailView";
 
 // =============================================================================
@@ -60,7 +60,7 @@ describe("NewProductPricingDetailView", () => {
     expect(screen.getByRole("region", { name: "Sub-assembly Enclosure" })).toBeInTheDocument();
 
     const board = screen.getByRole("region", { name: "Sub-assembly Main board" });
-    const row = within(board).getByText("PCB-24-BARE").closest("tr")!;
+    const row = within(board).getByDisplayValue("PCB-24-BARE").closest("tr")!;
     expect(within(row).getByText("$210.00")).toBeInTheDocument();
     expect(within(board).getByLabelText("Adjusted cost for PCB-24-BARE")).toHaveValue(185);
   });
@@ -84,8 +84,8 @@ describe("NewProductPricingDetailView", () => {
     });
 
     const card = await screen.findByRole("region", { name: "Sub-assembly widgets" });
-    expect(within(card).getByText("NEW-001")).toBeInTheDocument();
-    expect(within(card).getByText("NEW-002")).toBeInTheDocument();
+    expect(within(card).getByDisplayValue("NEW-001")).toBeInTheDocument();
+    expect(within(card).getByDisplayValue("NEW-002")).toBeInTheDocument();
     expect(within(card).getByText("$12.50")).toBeInTheDocument();
     expect(screen.getByText("You have unsaved changes.")).toBeInTheDocument();
   });
@@ -103,7 +103,7 @@ describe("NewProductPricingDetailView", () => {
 
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent('The file has no "Qty" column.');
-    expect(screen.queryByText("NEW-001")).toBeNull();
+    expect(screen.queryByDisplayValue("NEW-001")).toBeNull();
   });
 
   it("an adjusted cost moves the cost USED, never the cost uploaded", async () => {
@@ -122,6 +122,81 @@ describe("NewProductPricingDetailView", () => {
     expect(figure("Unit cost (uploaded)")).toBe(uploaded);
   });
 
+  it("adds a component by hand, marked Manual, and its cost counts", async () => {
+    renderWorksheet();
+    await waitForWorksheet();
+    const board = screen.getByRole("region", { name: "Sub-assembly Main board" });
+
+    await userEvent.click(within(board).getByRole("button", { name: /Add component/ }));
+    await userEvent.type(within(board).getByLabelText("New component Altronic part number"), "HAND-01");
+    await userEvent.type(within(board).getByLabelText("New component description"), "SHIELD CAN");
+    await userEvent.clear(within(board).getByLabelText("New component quantity"));
+    await userEvent.type(within(board).getByLabelText("New component quantity"), "2");
+    await userEvent.type(within(board).getByLabelText("New component cost"), "5");
+    await userEvent.click(within(board).getByRole("button", { name: "Add" }));
+
+    const row = within(board).getByDisplayValue("HAND-01").closest("tr")!;
+    expect(within(row).getByText("Manual")).toBeInTheDocument();
+    // A hand-added component's base cost stays editable.
+    expect(within(row).getByLabelText("Base cost for HAND-01")).toHaveValue(5);
+    // 2 × $5 more on the board, through 22% overhead: 817.24 + 12.20.
+    await waitFor(() => expect(figure("Unit cost (used)")).toBe("$829.44"));
+    expect(screen.getByText("You have unsaved changes.")).toBeInTheDocument();
+  });
+
+  it("won't add a component without a part number", async () => {
+    renderWorksheet();
+    await waitForWorksheet();
+    const board = screen.getByRole("region", { name: "Sub-assembly Main board" });
+    await userEvent.click(within(board).getByRole("button", { name: /Add component/ }));
+    expect(within(board).getByRole("button", { name: "Add" })).toBeDisabled();
+  });
+
+  it("edits a CSV component's quantity and description, but not its uploaded cost", async () => {
+    renderWorksheet();
+    await waitForWorksheet();
+    const board = screen.getByRole("region", { name: "Sub-assembly Main board" });
+    const row = within(board).getByDisplayValue("CON-12P").closest("tr")!;
+
+    expect(within(row).queryByLabelText("Base cost for CON-12P")).toBeNull();
+    expect(within(row).getByText("$4.85")).toBeInTheDocument();
+
+    fireEvent.change(within(row).getByLabelText("Quantity for CON-12P"), { target: { value: "4" } });
+    fireEvent.change(within(row).getByLabelText("Description, line 4"), { target: { value: "CONNECTOR, 12-PIN, GOLD" } });
+    // One more connector at $4.85, through 22% overhead.
+    await waitFor(() => expect(figure("Unit cost (used)")).toBe("$823.16"));
+    expect(within(board).getByDisplayValue("CONNECTOR, 12-PIN, GOLD")).toBeInTheDocument();
+  });
+
+  it("removes a component", async () => {
+    renderWorksheet();
+    await waitForWorksheet();
+    const board = screen.getByRole("region", { name: "Sub-assembly Main board" });
+    await userEvent.click(within(board).getByRole("button", { name: "Remove CON-12P" }));
+    expect(within(board).queryByDisplayValue("CON-12P")).toBeNull();
+  });
+
+  it("a re-upload keeps the components added by hand", async () => {
+    renderWorksheet();
+    await waitForWorksheet();
+    const board = screen.getByRole("region", { name: "Sub-assembly Main board" });
+    await userEvent.click(within(board).getByRole("button", { name: /Add component/ }));
+    await userEvent.type(within(board).getByLabelText("New component Altronic part number"), "HAND-01");
+    await userEvent.type(within(board).getByLabelText("New component cost"), "5");
+    await userEvent.click(within(board).getByRole("button", { name: "Add" }));
+
+    const csv = "Part Number,Description,Current Cost,Qty\n701230,IC,11.60,2\n";
+    await act(async () => {
+      fireEvent.change(within(board).getByLabelText("Upload CSV for Main board"), {
+        target: { files: [csvFile("main-board-bom.csv", csv)] },
+      });
+    });
+
+    await waitFor(() => expect(within(board).queryByDisplayValue("PCB-24-BARE")).toBeNull());
+    expect(within(board).getByDisplayValue("701230")).toBeInTheDocument();
+    expect(within(board).getByDisplayValue("HAND-01")).toBeInTheDocument();
+    expect(within(board).getByRole("status")).toHaveTextContent("1 component(s) added by hand kept");
+  });
   it("Save as a new revision needs a note, and then the page is on R3", async () => {
     renderWorksheet();
     await waitForWorksheet();
@@ -159,5 +234,141 @@ describe("NewProductPricingDetailView", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Back to R2" }));
     expect(screen.getByRole("button", { name: "Save R2" })).toBeInTheDocument();
+  });
+});
+
+// -----------------------------------------------------------------------------
+// Standalone parts, both numbers on every row, files per row, and the
+// worksheet's discussion and watchers (Ray, 2026-10-13).
+// -----------------------------------------------------------------------------
+
+async function waitForNumber(number: string) {
+  await screen.findByRole("heading", { level: 1, name: new RegExp(number) }, { timeout: 10_000 });
+}
+
+describe("NewProductPricingDetailView — standalone parts", () => {
+  it("Add part adds a Part card; a typed base cost and qty / product move the cost used", async () => {
+    renderWorksheet();
+    await waitForWorksheet();
+    expect(figure("Unit cost (used)")).toBe("$817.24");
+
+    await userEvent.click(screen.getByRole("button", { name: /Add part/ }));
+    const part = screen.getByRole("region", { name: "Part this part" });
+    // A part typed by hand: its base cost is editable and marked Manual.
+    expect(within(part).getByText("Manual")).toBeInTheDocument();
+    fireEvent.change(within(part).getByLabelText("Base cost for this part"), { target: { value: "10" } });
+    fireEvent.change(within(part).getByLabelText("Quantity per product of this part"), { target: { value: "2" } });
+
+    // 2 × $10 more, through 22% overhead: 817.24 + 24.40.
+    await waitFor(() => expect(figure("Unit cost (used)")).toBe("$841.64"));
+    expect(screen.getByText("You have unsaved changes.")).toBeInTheDocument();
+  });
+
+  it("a part looked up in SAP takes SAP's numbers, description and cost — and the cost isn't editable", async () => {
+    renderWorksheet();
+    await waitForWorksheet();
+    await userEvent.click(screen.getByRole("button", { name: /Add part/ }));
+    const blank = screen.getByRole("region", { name: "Part this part" });
+    await userEvent.type(within(blank).getByLabelText("Altronic part number of this row"), "593027-25");
+    await userEvent.click(within(blank).getByRole("button", { name: /Look up in SAP/ }));
+
+    const part = await screen.findByRole("region", { name: "Part 593027-25" }, { timeout: 10_000 });
+    await waitFor(() => expect(within(part).getByLabelText(/^SAP part number of/)).toHaveValue("2001-0310-25"));
+    expect(within(part).getByLabelText("Description of 593027-25")).toHaveValue("HARNESS, CPU-95, 25 FT");
+    expect(within(part).getByText("Base cost").parentElement).toHaveTextContent("$142.00");
+    expect(within(part).getByText("SAP")).toBeInTheDocument();
+    expect(within(part).queryByLabelText("Base cost for 593027-25")).toBeNull();
+    // $142 through 22% overhead: 817.24 + 173.24.
+    await waitFor(() => expect(figure("Unit cost (used)")).toBe("$990.48"));
+  });
+
+  it("worksheet 2 shows its standalone hand-typed part", async () => {
+    renderWorksheet(2);
+    await waitForNumber("NP-2026-0002");
+    const part = screen.getByRole("region", { name: "Part BRKT-KIT-SEAL" });
+    expect(within(part).getByLabelText("Description of BRKT-KIT-SEAL")).toHaveValue("Mounting bracket kit");
+    expect(within(part).getByLabelText("Base cost for BRKT-KIT-SEAL")).toHaveValue(24.5);
+    expect(within(part).getByText("Manual")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Sub-assembly Display assembly" })).toBeInTheDocument();
+  });
+});
+
+describe("NewProductPricingDetailView — part numbers on sub-assemblies", () => {
+  it("a sub-assembly has both an Altronic # and a SAP #, and so does each component", async () => {
+    renderWorksheet();
+    await waitForWorksheet();
+    const board = screen.getByRole("region", { name: "Sub-assembly Main board" });
+    expect(within(board).getByLabelText("Altronic part number of Main board")).toHaveValue("791990-24");
+    expect(within(board).getByLabelText("SAP part number of Main board")).toHaveValue("");
+
+    fireEvent.change(within(board).getByLabelText("SAP part number of Main board"), { target: { value: "1003-0199-24" } });
+    expect(within(board).getByLabelText("SAP part number of Main board")).toHaveValue("1003-0199-24");
+
+    // Line 1 is the microcontroller, 701230.
+    expect(within(board).getByLabelText("Altronic part number, line 1")).toHaveValue("701230");
+    const sap = within(board).getByLabelText("SAP part number, line 1");
+    fireEvent.change(sap, { target: { value: "5200-0230-00" } });
+    expect(within(board).getByLabelText("SAP part number, line 1")).toHaveValue("5200-0230-00");
+    expect(screen.getByText("You have unsaved changes.")).toBeInTheDocument();
+  });
+});
+
+describe("NewProductPricingDetailView — files per row", () => {
+  it("a SAVED sub-assembly has a Files disclosure with its attachments", async () => {
+    renderWorksheet();
+    await waitForWorksheet();
+    const board = screen.getByRole("region", { name: "Sub-assembly Main board" });
+    const summary = within(board).getByText("Files for Main board");
+    await userEvent.click(summary);
+    expect(await within(board).findByRole("button", { name: /Add file/ }, { timeout: 10_000 })).toBeInTheDocument();
+  });
+
+  it("a NEW sub-assembly says to save the worksheet first", async () => {
+    renderWorksheet();
+    await waitForWorksheet();
+    await userEvent.click(screen.getByRole("button", { name: /Add sub-assembly/ }));
+    const card = screen.getByRole("region", { name: "Sub-assembly (unnamed)" });
+    expect(within(card).getByText(/Save the worksheet to attach files to sub-assembly\./)).toBeInTheDocument();
+    expect(within(card).queryByText(/^Files for/)).toBeNull();
+  });
+
+  it("an earlier revision's files are read-only", async () => {
+    renderWorksheet();
+    await waitForWorksheet();
+    await userEvent.click(screen.getByRole("button", { name: /^R1(?!\d)/ }));
+    const board = screen.getByRole("region", { name: "Sub-assembly Main board" });
+    await userEvent.click(within(board).getByText("Files for Main board"));
+    expect(await within(board).findByText("No attachments.", {}, { timeout: 10_000 })).toBeInTheDocument();
+    expect(within(board).queryByRole("button", { name: /Add file/ })).toBeNull();
+  });
+});
+
+describe("NewProductPricingDetailView — discussion and watchers", () => {
+  it("lists the worksheet's watchers", async () => {
+    renderWorksheet();
+    await waitForWorksheet();
+    const watchers = screen.getByText("Watchers").parentElement!;
+    expect(within(watchers).getByText("Brandon Mirto")).toBeInTheDocument();
+    expect(within(watchers).getByText("Ray White")).toBeInTheDocument();
+  });
+
+  it("posting a comment shows it in the discussion", async () => {
+    renderWorksheet();
+    await waitForWorksheet();
+    const discussion = screen.getByRole("heading", { name: "Discussion" }).closest("section")!;
+    expect(within(discussion).getByText(/R2 uses the lower board quote/)).toBeInTheDocument();
+
+    await userEvent.type(within(discussion).getByPlaceholderText(/Write a comment/), "Coil price holds at 60 a year.");
+    await userEvent.click(within(discussion).getByRole("button", { name: "Send" }));
+
+    // The page re-renders around the saved worksheet, so look the thread up afresh.
+    await waitFor(
+      () => {
+        const thread = screen.getByRole("heading", { name: "Discussion" }).closest("section")!;
+        expect(within(thread).getByText("Coil price holds at 60 a year.")).toBeInTheDocument();
+      },
+      { timeout: 10_000 },
+    );
+    expect(pricingMockDb.worksheets.find((w) => w.id === 1)?.comments.some((c) => c.bodyHtml.includes("Coil price holds"))).toBe(true);
   });
 });

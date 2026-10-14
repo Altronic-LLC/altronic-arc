@@ -1,5 +1,8 @@
 import { graphFetch, graphFetchAll } from "./graph";
-import { SITES, SP_NEW_PRODUCT_PRICING_LIST_ID, USE_MOCK } from "./config";
+import { SITES, SP_NEW_PRODUCT_PRICING_LIST_ID, SP_SALESTEAM_SITE_URL, USE_MOCK } from "./config";
+import { resolvePeopleLookupIds } from "./siteUsers";
+import { appendComment, replaceComment } from "@/lib/communicationParser";
+import { multiPersonField } from "@/lib/graphFields";
 import { mockDelay } from "./mockLatency";
 import type { GraphListItem, Person } from "@/types/task";
 import type { NewProductRevision, NewProductWorksheet } from "@/types/pricing";
@@ -110,6 +113,8 @@ async function postWorksheet(worksheetNumber: string, input: NewProductCreateInp
       sapPartNumber: "",
       history: [],
       historyCorrupt: false,
+      comments: [],
+      watchers: [{ ...input.createdBy }],
       hasAttachments: false,
       createdBy: { ...input.createdBy },
       createdAt: now,
@@ -134,6 +139,9 @@ async function postWorksheet(worksheetNumber: string, input: NewProductCreateInp
   };
   // A SINGLE lookup — a bare integer, and only when there is one.
   if (input.requestId) fields.RequestRefLookupId = input.requestId;
+  // Whoever starts a worksheet watches it — resolved on the Sales site.
+  const watchers = await resolvePeopleLookupIds(SITES.salesTeam, SP_SALESTEAM_SITE_URL, [input.createdBy]);
+  if (watchers.some((p) => p.lookupId)) Object.assign(fields, multiPersonField("Watchers", watchers));
   const created = await graphFetch<GraphListItem>(listPath(), { method: "POST", body: JSON.stringify({ fields }) });
   return (await getNewProductWorksheet(parseInt(created.id, 10))) ?? toNewProductWorksheet(created);
 }
@@ -207,4 +215,68 @@ export async function updateNewProductWorksheet(id: number, patch: NewProductPat
   const updated = await getNewProductWorksheet(id);
   if (!updated) throw new Error(`Worksheet ${id} disappeared after saving`);
   return updated;
+}
+
+// -----------------------------------------------------------------------------
+// Watchers and the discussion (Ray, 2026-10-13)
+// -----------------------------------------------------------------------------
+
+function mockReplace(id: number, update: (w: NewProductWorksheet) => NewProductWorksheet): Promise<NewProductWorksheet> {
+  const idx = pricingMockDb.worksheets.findIndex((w) => w.id === id);
+  if (idx < 0) throw new Error(`Worksheet ${id} not found`);
+  pricingMockDb.worksheets[idx] = { ...update(pricingMockDb.worksheets[idx]), modifiedAt: new Date().toISOString() };
+  return mockDelay(pricingMockClone(pricingMockDb.worksheets[idx]));
+}
+
+/** Replace the Watchers list. Refused when nobody in a non-empty list resolves. */
+export async function setWorksheetWatchers(id: number, people: Person[]): Promise<NewProductWorksheet> {
+  if (USE_MOCK) return mockReplace(id, (w) => ({ ...w, watchers: people.map((p) => ({ ...p })) }));
+  const resolved = await resolvePeopleLookupIds(SITES.salesTeam, SP_SALESTEAM_SITE_URL, people);
+  if (people.length > 0 && !resolved.some((p) => p.lookupId)) {
+    throw new Error("Cannot update Watchers: couldn't resolve a SharePoint user for any of the selected people.");
+  }
+  await graphFetch(`${listPath()}/${id}/fields`, { method: "PATCH", body: JSON.stringify(multiPersonField("Watchers", resolved)) });
+  const updated = await getNewProductWorksheet(id);
+  if (!updated) throw new Error(`Worksheet ${id} disappeared after saving`);
+  return updated;
+}
+
+export interface WorksheetCommentInput {
+  authorName: string;
+  authorEmail: string;
+  bodyHtml: string;
+}
+
+/** Re-read Communication, rebuild, write back — never a stale thread. */
+async function rewriteCommunication(id: number, change: (raw: string) => string): Promise<NewProductWorksheet> {
+  const existing = await graphFetch<GraphListItem>(`${listPath()}/${id}?$expand=fields($select=Communication)`);
+  const raw = (existing.fields?.Communication as string | undefined) ?? "";
+  await graphFetch(`${listPath()}/${id}/fields`, { method: "PATCH", body: JSON.stringify({ Communication: change(raw) }) });
+  const updated = await getNewProductWorksheet(id);
+  if (!updated) throw new Error(`Worksheet ${id} disappeared after saving`);
+  return updated;
+}
+
+export async function addWorksheetComment(id: number, comment: WorksheetCommentInput): Promise<NewProductWorksheet> {
+  const timestamp = new Date();
+  if (USE_MOCK) return mockReplace(id, (w) => ({ ...w, comments: [{ ...comment, timestamp, attachments: [] }, ...w.comments] }));
+  return rewriteCommunication(id, (raw) => appendComment(raw, { ...comment, timestamp }));
+}
+
+export async function editWorksheetComment(
+  id: number,
+  target: { timestamp: Date; authorEmail: string },
+  newBodyHtml: string,
+): Promise<NewProductWorksheet> {
+  if (USE_MOCK) {
+    return mockReplace(id, (w) => ({
+      ...w,
+      comments: w.comments.map((c) =>
+        c.timestamp.getTime() === target.timestamp.getTime() && c.authorEmail.toLowerCase() === target.authorEmail.toLowerCase()
+          ? { ...c, bodyHtml: newBodyHtml }
+          : c,
+      ),
+    }));
+  }
+  return rewriteCommunication(id, (raw) => replaceComment(raw, target, newBodyHtml));
 }

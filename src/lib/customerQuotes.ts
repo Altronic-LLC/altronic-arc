@@ -128,6 +128,7 @@ export function lineFromWorksheet(
     worksheetId: ws.id,
     worksheetNumber: ws.worksheetNumber,
     worksheetRev: ws.rev,
+    sapPartNumber: ws.sapPartNumber || undefined,
   };
 }
 
@@ -137,7 +138,10 @@ export function refreshWorksheetLine(
   ws: NewProductWorksheet,
 ): CustomerQuoteLine {
   const fresh = lineFromWorksheet(ws, line.customerDiscountPct, line.quantity);
-  return fresh ? { ...fresh, id: line.id, partNumber: line.partNumber || fresh.partNumber } : line;
+  // The customer's part number is the quote's, not the worksheet's — kept.
+  return fresh
+    ? { ...fresh, id: line.id, partNumber: line.partNumber || fresh.partNumber, customerPartNumber: line.customerPartNumber }
+    : line;
 }
 
 /** True when the worksheet has moved on from the revision a line was priced at. */
@@ -184,11 +188,18 @@ export function lineFromRequest(r: PricingRequest, quantity = 1): CustomerQuoteL
   };
 }
 
-export function freeLine(input: { partNumber: string; description: string; quantity: number; unitPrice: number }): CustomerQuoteLine {
+export function freeLine(input: {
+  partNumber: string;
+  sapPartNumber?: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+}): CustomerQuoteLine {
   return {
     id: newLineId(),
     kind: "free",
     partNumber: input.partNumber.trim(),
+    sapPartNumber: input.sapPartNumber?.trim() || undefined,
     description: input.description.trim(),
     quantity: input.quantity,
     listPrice: null,

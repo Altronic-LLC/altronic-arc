@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { AlertTriangle, Download, Loader2, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { AlertTriangle, Download, Loader2, Pencil, Plus, RefreshCw, Trash2, X } from "lucide-react";
+import type { SapCustomer } from "@/types/pricing";
+import type { CustomerQuotePatch } from "@/lib/pricingMapper";
+import { SapCustomerPicker } from "@/components/SapCustomerPicker";
+import { useOverlayDismiss } from "@/components/useOverlayDismiss";
 import { CUSTOMER_QUOTES_CONFIGURED } from "@/api/config";
 import type { Comment, Person } from "@/types/task";
 import { CUSTOMER_QUOTE_STATUSES, type CustomerQuote, type CustomerQuoteLine, type CustomerQuoteStatus } from "@/types/pricing";
@@ -117,6 +121,7 @@ function Quote({ quote: q }: { quote: CustomerQuote }) {
   const editComment = useEditCustomerQuoteComment();
   const uploadCommentFile = useCommentFileUpload("customerQuote", q.id);
   const [adding, setAdding] = useState(false);
+  const [editingHeader, setEditingHeader] = useState(false);
   const [notes, setNotes] = useState(q.notes);
   const [pdfBusy, setPdfBusy] = useState(false);
 
@@ -247,7 +252,24 @@ function Quote({ quote: q }: { quote: CustomerQuote }) {
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="flex min-w-0 flex-col gap-4">
-          <PricingCard title="Customer">
+          <PricingCard
+            title="Customer"
+            action={
+              draft ? (
+                <button
+                  type="button"
+                  onClick={() => setEditingHeader(true)}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1 text-xs font-medium normal-case tracking-normal text-fg hover:bg-surface-2"
+                >
+                  <Pencil className="h-3 w-3" /> Edit
+                </button>
+              ) : (
+                <span className="text-[11px] font-normal normal-case tracking-normal text-fg-muted">
+                  {q.status} — use New revision to change it
+                </span>
+              )
+            }
+          >
             <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <ReadField label="Customer">{q.customer.name}</ReadField>
               <ReadField label="Sold-to">{q.customer.soldTo}</ReadField>
@@ -299,7 +321,26 @@ function Quote({ quote: q }: { quote: CustomerQuote }) {
                         <tr key={l.id} className="border-t border-border align-top">
                           <td className="px-2 py-1.5">
                             <span className="font-mono text-xs">{l.partNumber}</span>
+                            {l.sapPartNumber && <span className="ml-2 font-mono text-[11px] text-fg-muted">SAP {l.sapPartNumber}</span>}
                             <span className="block">{l.description}</span>
+                            {draft && !q.linesCorrupt ? (
+                              <input
+                                aria-label={`Customer part number for ${l.partNumber || l.description}`}
+                                placeholder="Customer part # (optional)"
+                                defaultValue={l.customerPartNumber ?? ""}
+                                onBlur={(e) => {
+                                  const v = e.target.value.trim();
+                                  if (v !== (l.customerPartNumber ?? "")) {
+                                    saveLines(q.lines.map((x) => (x.id === l.id ? { ...x, customerPartNumber: v || undefined } : x)));
+                                  }
+                                }}
+                                className="input mt-1 w-56 py-0.5 text-xs"
+                              />
+                            ) : (
+                              l.customerPartNumber && (
+                                <span className="block text-[11px] text-fg-muted">Customer part # {l.customerPartNumber}</span>
+                              )
+                            )}
                             {l.breaks.length > 0 && (
                               <span className="block text-[11px] text-fg-muted">
                                 {l.breaks.map((b) => `${b.minQty}+ ${formatMoney(b.price)}`).join(" · ")}
@@ -444,7 +485,116 @@ function Quote({ quote: q }: { quote: CustomerQuote }) {
         </aside>
       </div>
 
+      {editingHeader && (
+        <QuoteHeaderModal
+          quote={q}
+          pending={update.isPending}
+          onClose={() => setEditingHeader(false)}
+          onSave={(patch) => update.mutate({ id: q.id, patch }, { onSuccess: () => setEditingHeader(false) })}
+        />
+      )}
       {adding && <QuoteLineModal customer={q.customer} onClose={() => setAdding(false)} onAdd={(line) => saveLines([...q.lines, line])} />}
     </PricingPage>
+  );
+}
+
+/**
+ * Edit the quote header — customer, contact and validity (Ray, 2026-10-13).
+ * A Draft only: a Sent quote is what the customer was given, so it changes
+ * through New revision. The customer is saved as JSON on the quote.
+ */
+function QuoteHeaderModal({
+  quote,
+  pending,
+  onClose,
+  onSave,
+}: {
+  quote: CustomerQuote;
+  pending: boolean;
+  onClose: () => void;
+  onSave: (patch: CustomerQuotePatch) => void;
+}) {
+  const [customer, setCustomer] = useState<SapCustomer | null>(
+    quote.customer.name || quote.customer.soldTo
+      ? { soldTo: quote.customer.soldTo, name: quote.customer.name, customerGroup: quote.customer.customerGroup }
+      : null,
+  );
+  const [contactName, setContactName] = useState(quote.customer.contactName);
+  const [contactEmail, setContactEmail] = useState(quote.customer.contactEmail);
+  const [validity, setValidity] = useState(String(quote.validityDays));
+  const [error, setError] = useState<string | null>(null);
+  const overlay = useOverlayDismiss(onClose, pending);
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape" && !pending) onClose();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [pending, onClose]);
+
+  function save() {
+    const days = Number(validity);
+    if (!customer?.name.trim()) return setError("Pick the customer.");
+    if (!Number.isInteger(days) || days < 1) return setError("Validity must be a whole number of days.");
+    setError(null);
+    onSave({
+      validityDays: days,
+      customer: { ...customer, contactName: contactName.trim(), contactEmail: contactEmail.trim() },
+    });
+  }
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4" {...overlay}>
+      <div role="dialog" aria-modal="true" aria-label="Edit quote details" onClick={(e) => e.stopPropagation()} className="w-full max-w-lg rounded-lg border border-border bg-surface p-5 shadow-xl">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="font-display text-lg font-semibold text-fg">Edit {quote.quoteNumber}</h2>
+          <button type="button" onClick={onClose} aria-label="Close" className="rounded p-1 text-fg-muted hover:text-fg">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1 text-xs">
+            <span className="font-semibold uppercase tracking-wider text-fg-muted">Customer</span>
+            <SapCustomerPicker value={customer} onChange={setCustomer} />
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="flex flex-col gap-1 text-xs">
+              <span className="font-semibold uppercase tracking-wider text-fg-muted">Contact name</span>
+              <input value={contactName} onChange={(e) => setContactName(e.target.value)} className="input" />
+            </label>
+            <label className="flex flex-col gap-1 text-xs">
+              <span className="font-semibold uppercase tracking-wider text-fg-muted">Contact email</span>
+              <input type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} className="input" />
+            </label>
+          </div>
+          <label className="flex flex-col gap-1 text-xs">
+            <span className="font-semibold uppercase tracking-wider text-fg-muted">Valid for (days)</span>
+            <input type="number" min={1} value={validity} onChange={(e) => setValidity(e.target.value)} className="input w-32" />
+          </label>
+          <p className="text-[11px] text-fg-muted">
+            Line prices aren't changed — a line keeps the price it was added at.
+          </p>
+          {error && (
+            <p role="alert" className="text-xs text-cooper-red">
+              {error}
+            </p>
+          )}
+        </div>
+        <div className="mt-4 flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="rounded-md px-3 py-1.5 text-sm text-fg-muted hover:text-fg">
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={save}
+            disabled={pending}
+            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent/90 disabled:opacity-50"
+          >
+            {pending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

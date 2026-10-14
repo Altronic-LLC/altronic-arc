@@ -26,7 +26,8 @@ export async function buildWorksheetWorkbook(
   wb.creator = "Altronic ARC";
   const sheet = wb.addWorksheet(`${ws.worksheetNumber} R${ws.rev}`.slice(0, 31));
   sheet.columns = [
-    { width: 22 },
+    { width: 20 },
+    { width: 18 },
     { width: 42 },
     { width: 10 },
     { width: 15 },
@@ -46,12 +47,24 @@ export async function buildWorksheetWorkbook(
 
   const current = [...subs].filter((s) => s.rev === ws.rev).sort((a, b) => a.sortOrder - b.sortOrder);
   for (const sub of current) {
-    bold(sheet.addRow([sub.name, `× ${sub.quantityPerProduct} per product`, "", "", "", "", sub.fileName]));
-    bold(sheet.addRow(["Part number", "Description", "Qty", "Uploaded cost", "Adjusted cost", "Cost used", "Extended"]));
+    bold(
+      sheet.addRow([
+        sub.kind === "part" ? `Part: ${sub.name}` : sub.name,
+        [sub.altronicPartNumber, sub.sapPartNumber].filter(Boolean).join(" / "),
+        `× ${sub.quantityPerProduct} per product`,
+        "",
+        "",
+        "",
+        "",
+        sub.fileName,
+      ]),
+    );
+    bold(sheet.addRow(["Altronic #", "SAP #", "Description", "Qty", "Base cost", "Adjusted cost", "Cost used", "Extended"]));
     for (const line of sub.lines) {
       const used = lineUnitCost(line);
       const row = sheet.addRow([
-        line.partNumber,
+        line.source === "manual" ? `${line.partNumber} (manual)` : line.source === "sap" ? `${line.partNumber} (SAP)` : line.partNumber,
+        line.sapPartNumber ?? "",
         line.description,
         line.quantity,
         line.uploadedCost,
@@ -59,25 +72,25 @@ export async function buildWorksheetWorkbook(
         used,
         used === null ? null : used * line.quantity,
       ]);
-      [4, 5, 6].forEach((c) => (row.getCell(c).numFmt = MONEY4));
-      row.getCell(7).numFmt = MONEY;
+      [5, 6, 7].forEach((c) => (row.getCell(c).numFmt = MONEY4));
+      row.getCell(8).numFmt = MONEY;
     }
     const c = subAssemblyCost(sub);
-    const total = sheet.addRow(["", `${sub.name} — per one`, "", c.uploaded, "", c.used, ""]);
+    const total = sheet.addRow(["", "", `${sub.name} — per one`, "", c.uploaded, "", c.used, ""]);
     bold(total);
-    total.getCell(4).numFmt = MONEY;
-    total.getCell(6).numFmt = MONEY;
+    total.getCell(5).numFmt = MONEY;
+    total.getCell(7).numFmt = MONEY;
     sheet.addRow([]);
   }
 
   const cost = worksheetCost(current, ws.overheadPct);
-  bold(sheet.addRow(["Cost roll-up", "", "", "Uploaded", "", "Used"]));
-  const material = sheet.addRow(["Material", "Σ sub-assembly × qty per product", "", cost.material.uploaded, "", cost.material.used]);
-  sheet.addRow(["Overhead", `${ws.overheadPct}%`]);
-  const unit = sheet.addRow(["Unit cost", "material × (1 + overhead)", "", cost.unit.uploaded, "", cost.unit.used]);
+  bold(sheet.addRow(["Cost roll-up", "", "", "", "Base", "", "Used"]));
+  const material = sheet.addRow(["Material", "", "Σ sub-assemblies and parts × qty per product", "", cost.material.uploaded, "", cost.material.used]);
+  sheet.addRow(["Overhead", "", `${ws.overheadPct}%`]);
+  const unit = sheet.addRow(["Unit cost", "", "material × (1 + overhead)", "", cost.unit.uploaded, "", cost.unit.used]);
   for (const r of [material, unit]) {
-    r.getCell(4).numFmt = MONEY;
-    r.getCell(6).numFmt = MONEY;
+    r.getCell(5).numFmt = MONEY;
+    r.getCell(7).numFmt = MONEY;
   }
   bold(unit);
   sheet.addRow([]);

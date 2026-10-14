@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
 import { __resetPricingMockStores } from "@/data/pricingMockData";
 import { PricingRequestsView } from "./PricingRequestsView";
 import { PricingRequestDetailView } from "./PricingRequestDetailView";
+import { PricingRequestFormModal } from "@/components/PricingRequestFormModal";
 
 // =============================================================================
 // Sales Pricing screens, in mock mode. Who is signed in is a hoisted variable,
@@ -95,15 +96,58 @@ describe("PricingRequestDetailView", () => {
     expect(screen.getByRole("button", { name: /Customer PDF/ })).toBeInTheDocument();
   });
 
-  it("offers a manager a new-product worksheet, and a requester not", async () => {
+  // Ray, 2026-10-13: a worksheet is never started from a pricing request.
+  it("never offers to start a new-product worksheet from a request, even to a manager", async () => {
     who.email = MANAGER;
-    const { unmount } = renderDetail(2);
-    expect(await screen.findByRole("button", { name: /Start new-product worksheet/ })).toBeInTheDocument();
-    unmount();
-
-    who.email = REQUESTER;
     renderDetail(2);
-    await screen.findByText("PR-2026-0002");
-    expect(screen.queryByRole("button", { name: /Start new-product worksheet/ })).toBeNull();
+    await screen.findByTestId("pricing-workbench");
+    expect(screen.queryByRole("button", { name: /new-product worksheet/i })).toBeNull();
+  });
+
+  it("shows the customer price as the distributor price, with no separate customer discount to enter", async () => {
+    who.email = MANAGER;
+    renderDetail(2);
+    await screen.findByTestId("pricing-workbench");
+    expect(screen.getByText(/Price for Gulf Coast Compression \(distributor price\)/)).toBeInTheDocument();
+    expect(screen.queryByText(/Gulf Coast Compression discount/)).toBeNull();
+  });
+});
+
+describe("PricingRequestFormModal — either part number will do", () => {
+  function renderForm() {
+    renderWithProviders(<PricingRequestFormModal onClose={vi.fn()} onSaved={vi.fn()} />);
+    return screen.getByRole("dialog", { name: "New pricing request" });
+  }
+
+  it("an SAP # alone fills the Altronic # and the description from SAP when the box is left", async () => {
+    const dialog = renderForm();
+    await userEvent.type(within(dialog).getByLabelText("SAP part #"), "1003-0114-08");
+    await userEvent.tab();
+
+    await waitFor(() => expect(within(dialog).getByLabelText("Altronic part #")).toHaveValue("791950-08"), { timeout: 10_000 });
+    expect(within(dialog).getByLabelText(/^Description/)).toHaveValue("CPU-95 IGNITION MODULE, 8 CYL");
+    expect(within(dialog).getByLabelText("SAP part #")).toHaveValue("1003-0114-08");
+    expect(within(dialog).getByText(/Found in SAP: 791950-08/)).toBeInTheDocument();
+  });
+
+  it("never replaces an Altronic # that was typed", async () => {
+    const dialog = renderForm();
+    await userEvent.type(within(dialog).getByLabelText("Altronic part #"), "MY-OWN-1");
+    await userEvent.type(within(dialog).getByLabelText("SAP part #"), "1003-0114-08");
+    await userEvent.tab();
+
+    // The lookup has landed once the blank description is filled…
+    await waitFor(() => expect(within(dialog).getByLabelText(/^Description/)).toHaveValue("CPU-95 IGNITION MODULE, 8 CYL"), {
+      timeout: 10_000,
+    });
+    // …and the typed number is still the one that was typed.
+    expect(within(dialog).getByLabelText("Altronic part #")).toHaveValue("MY-OWN-1");
+  });
+
+  it("refuses a request with neither part number", async () => {
+    const dialog = renderForm();
+    await userEvent.type(within(dialog).getByLabelText(/^Description/), "Something new");
+    await userEvent.click(within(dialog).getByRole("button", { name: /Submit request/ }));
+    expect(within(dialog).getByRole("alert")).toHaveTextContent("Altronic or SAP part #");
   });
 });

@@ -274,7 +274,7 @@ export function subAssemblyCost(sub: Pick<SubAssembly, "name" | "lines">): SubAs
     if (finite(line.uploadedCost)) uploaded += line.quantity * line.uploadedCost;
     else uploadedKnown = false;
   });
-  if (sub.lines.length === 0) problems.push(`${sub.name} has no lines — upload its CSV.`);
+  if (sub.lines.length === 0) problems.push(`${sub.name} has no components — upload its CSV or add them by hand.`);
   return {
     uploaded: uploadedKnown && sub.lines.length > 0 ? uploaded : null,
     used: problems.length ? null : used,
@@ -303,7 +303,7 @@ export function worksheetCost(subs: SubAssembly[], overheadPct: number | null | 
     used = used !== null && c.used !== null && qty !== null ? used + c.used * qty : null;
     uploaded = uploaded !== null && c.uploaded !== null && qty !== null ? uploaded + c.uploaded * qty : null;
   }
-  if (subs.length === 0) problems.push("Add a sub-assembly and upload its CSV.");
+  if (subs.length === 0) problems.push("Add a sub-assembly, then upload its CSV or add its components by hand.");
   const overhead = finite(overheadPct) ? overheadPct : 0;
   if (overhead < 0) problems.push("Overhead can't be negative.");
   const factor = 1 + overhead / 100;

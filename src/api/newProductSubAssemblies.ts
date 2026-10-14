@@ -68,6 +68,9 @@ export interface SubAssemblyDraft {
   /** The row this came from — only reused when it belongs to the revision being saved. */
   id: number | null;
   name: string;
+  kind: SubAssembly["kind"];
+  altronicPartNumber: string;
+  sapPartNumber: string;
   quantityPerProduct: number;
   lines: SubAssemblyLine[];
   fileName: string;
@@ -80,6 +83,9 @@ export function draftFrom(sub: SubAssembly): SubAssemblyDraft {
     key: `row-${sub.id}`,
     id: sub.id,
     name: sub.name,
+    kind: sub.kind,
+    altronicPartNumber: sub.altronicPartNumber,
+    sapPartNumber: sub.sapPartNumber,
     quantityPerProduct: sub.quantityPerProduct,
     lines: sub.lines.map((l) => ({ ...l })),
     fileName: sub.fileName,
@@ -105,6 +111,9 @@ export async function saveRevisionRows(
   for (const [i, d] of drafts.entries()) {
     const fields = buildSubAssemblyFields({
       name: d.name,
+      kind: d.kind,
+      altronicPartNumber: d.altronicPartNumber,
+      sapPartNumber: d.sapPartNumber,
       sortOrder: i + 1,
       quantityPerProduct: d.quantityPerProduct,
       lines: d.lines,
@@ -121,6 +130,9 @@ export async function saveRevisionRows(
         pricingMockDb.subAssemblies[idx] = {
           ...row,
           name: d.name.trim(),
+          kind: d.kind,
+          altronicPartNumber: d.altronicPartNumber.trim(),
+          sapPartNumber: d.sapPartNumber.trim(),
           sortOrder: i + 1,
           quantityPerProduct: d.quantityPerProduct,
           lines: d.lines.map((l) => ({ ...l })),
@@ -137,6 +149,9 @@ export async function saveRevisionRows(
         worksheetId,
         rev,
         name: d.name.trim(),
+        kind: d.kind,
+        altronicPartNumber: d.altronicPartNumber.trim(),
+        sapPartNumber: d.sapPartNumber.trim(),
         sortOrder: i + 1,
         quantityPerProduct: d.quantityPerProduct,
         lines: d.lines.map((l) => ({ ...l })),

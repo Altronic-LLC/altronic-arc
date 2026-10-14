@@ -1,10 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Ban, Download, Loader2, Plus, Save, X } from "lucide-react";
 import { NEW_PRODUCT_PRICING_CONFIGURED } from "@/api/config";
 import { draftFrom, type SubAssemblyDraft } from "@/api/newProductSubAssemblies";
 import type { DiscountSource, NewProductWorksheet, PriceBreakTier, PriceInput, SubAssembly } from "@/types/pricing";
 import {
+  collectWorksheetPeople,
+  useAddWorksheetComment,
+  useEditWorksheetComment,
+  useNewProductWorksheets,
+  useSetWorksheetWatchers,
   useNewProductWorksheet,
   useSaveNewProductWorksheet,
   useSubAssemblies,
@@ -12,6 +17,10 @@ import {
 } from "@/hooks/useNewProductPricing";
 import { useMpgDistributorDiscount, useSapPart } from "@/hooks/usePricingLookup";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useDirectoryPeople } from "@/hooks/useDirectory";
+import { useCommentFileUpload } from "@/hooks/useAttachments";
+import type { Comment, Person } from "@/types/task";
+import { mergePeople, personKey } from "@/lib/people";
 import { downloadBlob } from "@/hooks/useQuotePdf";
 import {
   MAX_PRICE_BREAKS,
@@ -31,7 +40,10 @@ import { AttachmentsSection } from "@/components/AttachmentsSection";
 import { DetailTopBar } from "@/components/DetailTopBar";
 import { LoadingTasks } from "@/components/LoadingTasks";
 import { ListAccessNotice } from "@/components/ListAccessNotice";
-import { SubAssemblyCard, draftAsSubAssembly } from "@/components/SubAssemblyCard";
+import { PartCard, SubAssemblyCard, draftAsSubAssembly } from "@/components/SubAssemblyCard";
+import { CommentComposer } from "@/components/CommentComposer";
+import { CommentThread } from "@/components/CommentThread";
+import { PersonMultiField } from "@/components/PersonMultiField";
 import { useOverlayDismiss } from "@/components/useOverlayDismiss";
 import { ActionButton, PricingCard, PricingManagerGate, PricingPage, ReadField } from "@/components/pricingAtoms";
 import { cn } from "@/lib/cn";
@@ -284,13 +296,6 @@ function Worksheet({ ws, rows }: { ws: NewProductWorksheet; rows: SubAssembly[] 
                 {ws.customerName ? `${ws.customerName}${ws.customerSoldTo ? ` (${ws.customerSoldTo})` : ""}` : null}
               </ReadField>
               <ReadField label="Expected annual volume">{ws.expectedAnnualVolume?.toLocaleString() ?? null}</ReadField>
-              <ReadField label="From request">
-                {ws.requestId ? (
-                  <Link to={`/sales/pricing/request/${ws.requestId}`} className="text-accent hover:underline">
-                    Open the request
-                  </Link>
-                ) : null}
-              </ReadField>
               <ReadField label="Description" wide>
                 {ws.description}
               </ReadField>
@@ -298,52 +303,79 @@ function Worksheet({ ws, rows }: { ws: NewProductWorksheet; rows: SubAssembly[] 
           </PricingCard>
 
           <section className="flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <h2 className="font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
-                Sub-assemblies {viewingCurrent ? "" : `— R${viewRev}`}
-              </h2>
-              {!readOnly && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDrafts((d) => [
-                      ...d,
-                      { key: newKey(), id: null, name: "", quantityPerProduct: 1, lines: [], fileName: "", uploadedAt: null, uploadedBy: null },
-                    ]);
-                    touch();
-                  }}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1 text-xs font-medium text-fg hover:bg-surface-2"
-                >
-                  <Plus className="h-3 w-3" /> Add sub-assembly
-                </button>
-              )}
-            </div>
+            <h2 className="font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">
+              Sub-assemblies and parts {viewingCurrent ? "" : `— R${viewRev}`}
+            </h2>
             {shownSubs.length === 0 && (
               <p className="rounded-xl border border-dashed border-border bg-surface p-6 text-center text-sm text-fg-muted">
-                No sub-assemblies yet — add one and upload its CSV.
+                Nothing here yet — add a sub-assembly (upload its CSV or add its components by hand), or add a single
+                part from SAP or typed by hand.
               </p>
             )}
             {viewingCurrent
-              ? drafts.map((d, i) => (
-                  <SubAssemblyCard
-                    key={d.key}
-                    draft={d}
-                    readOnly={readOnly}
-                    uploader={{ displayName: me.displayName, email: me.email ?? "" }}
-                    onChange={(next) => {
-                      setDrafts((all) => all.map((x, j) => (j === i ? next : x)));
-                      touch();
-                    }}
-                    onRemove={() => {
-                      if (d.lines.length && !window.confirm(`Remove "${d.name || "this sub-assembly"}" from R${ws.rev}?`)) return;
-                      setDrafts((all) => all.filter((_, j) => j !== i));
-                      touch();
-                    }}
-                  />
-                ))
-              : shownSubs.map((s) => (
-                  <SubAssemblyCard key={s.id} draft={draftFrom(s)} readOnly onChange={() => {}} onRemove={() => {}} uploader={{ displayName: "", email: "" }} />
-                ))}
+              ? drafts.map((d, i) => {
+                  const onChange = (next: SubAssemblyDraft) => {
+                    setDrafts((all) => all.map((x, j) => (j === i ? next : x)));
+                    touch();
+                  };
+                  const onRemove = () => {
+                    const what = d.name || (d.kind === "part" ? "this part" : "this sub-assembly");
+                    if (d.lines.length && !window.confirm(`Remove "${what}" from R${ws.rev}?`)) return;
+                    setDrafts((all) => all.filter((_, j) => j !== i));
+                    touch();
+                  };
+                  return d.kind === "part" ? (
+                    <PartCard key={d.key} draft={d} readOnly={readOnly} onChange={onChange} onRemove={onRemove} />
+                  ) : (
+                    <SubAssemblyCard
+                      key={d.key}
+                      draft={d}
+                      readOnly={readOnly}
+                      uploader={{ displayName: me.displayName, email: me.email ?? "" }}
+                      onChange={onChange}
+                      onRemove={onRemove}
+                    />
+                  );
+                })
+              : shownSubs.map((s) =>
+                  s.kind === "part" ? (
+                    <PartCard key={s.id} draft={draftFrom(s)} readOnly onChange={() => {}} onRemove={() => {}} />
+                  ) : (
+                    <SubAssemblyCard key={s.id} draft={draftFrom(s)} readOnly onChange={() => {}} onRemove={() => {}} uploader={{ displayName: "", email: "" }} />
+                  ),
+                )}
+              {!readOnly && (
+                <div className="flex flex-wrap gap-2">
+                  {(["subAssembly", "part"] as const).map((kind) => (
+                    <button
+                      key={kind}
+                      type="button"
+                      onClick={() => {
+                        setDrafts((d) => [
+                          ...d,
+                          {
+                            key: newKey(),
+                            id: null,
+                            name: "",
+                            kind,
+                            altronicPartNumber: "",
+                            sapPartNumber: "",
+                            quantityPerProduct: 1,
+                            lines: [],
+                            fileName: "",
+                            uploadedAt: null,
+                            uploadedBy: null,
+                          },
+                        ]);
+                        touch();
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1 text-xs font-medium text-fg hover:bg-surface-2"
+                    >
+                      <Plus className="h-3 w-3" /> {kind === "part" ? "Add part" : "Add sub-assembly"}
+                    </button>
+                  ))}
+                </div>
+              )}
           </section>
 
           <PricingCard title="Price">
@@ -526,6 +558,8 @@ function Worksheet({ ws, rows }: { ws: NewProductWorksheet; rows: SubAssembly[] 
           <div className="min-w-0">
             <AttachmentsSection parent="newProductPricing" itemId={ws.id} />
           </div>
+
+          <WorksheetDiscussion ws={ws} />
         </div>
 
         <aside className="flex min-w-0 flex-col gap-4">
@@ -555,6 +589,7 @@ function Worksheet({ ws, rows }: { ws: NewProductWorksheet; rows: SubAssembly[] 
             </div>
           )}
 
+          <WorksheetWatchers ws={ws} />
           <RevisionHistory ws={ws} viewRev={viewRev} onView={setViewRev} />
           <CompareToSap ws={ws} />
         </aside>
@@ -786,5 +821,78 @@ function NewRevisionDialog({
         </div>
       </div>
     </div>
+  );
+}
+
+/** Who to suggest when @-mentioning or adding a watcher. */
+function useWorksheetPeople() {
+  const me = useCurrentUser();
+  const directory = useDirectoryPeople();
+  const { data: worksheets = [] } = useNewProductWorksheets();
+  return useMemo(() => mergePeople(collectWorksheetPeople(worksheets), directory, [me]), [worksheets, directory, me]);
+}
+
+function WorksheetWatchers({ ws }: { ws: NewProductWorksheet }) {
+  const setWatchers = useSetWorksheetWatchers();
+  const people = useWorksheetPeople();
+  function toggled(person: Person): Person[] {
+    const key = personKey(person);
+    return ws.watchers.some((p) => personKey(p) === key) ? ws.watchers.filter((p) => personKey(p) !== key) : [...ws.watchers, person];
+  }
+  return (
+    <div className="flex flex-col gap-1 rounded-xl border border-border bg-surface p-4">
+      <span className="px-1 text-[11px] font-semibold uppercase tracking-wider text-fg-muted">Watchers</span>
+      <PersonMultiField
+        value={ws.watchers}
+        allPeople={people}
+        onToggle={(p) => setWatchers.mutate({ id: ws.id, people: toggled(p) })}
+        emptyLabel="No watchers"
+        searchPlaceholder="Add a watcher…"
+      />
+    </div>
+  );
+}
+
+/** The worksheet's discussion (Ray, 2026-10-13). A pasted file goes to the worksheet's attachments. */
+function WorksheetDiscussion({ ws }: { ws: NewProductWorksheet }) {
+  const me = useCurrentUser();
+  const people = useWorksheetPeople();
+  const addComment = useAddWorksheetComment();
+  const editComment = useEditWorksheetComment();
+  const uploadCommentFile = useCommentFileUpload("newProductPricing", ws.id);
+
+  function handleAddComment(bodyHtml: string) {
+    // Returned, so a comment that fails to post goes back in the composer.
+    return addComment
+      .mutateAsync({ id: ws.id, comment: { authorName: me.displayName, authorEmail: me.email ?? "", bodyHtml } })
+      .then(() => undefined);
+  }
+
+  async function handleEditComment(comment: Comment, bodyHtml: string) {
+    await editComment.mutateAsync({
+      id: ws.id,
+      target: { timestamp: comment.timestamp, authorEmail: comment.authorEmail },
+      bodyHtml,
+      previousBodyHtml: comment.bodyHtml,
+    });
+  }
+
+  return (
+    <section className="rounded-xl border border-border bg-surface p-4 sm:p-5">
+      <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">Discussion</h2>
+      <CommentComposer draftKey={`npWorksheet:${ws.id}`} uploadFile={uploadCommentFile} onSubmit={handleAddComment} mentionablePeople={people} />
+      <div className="mt-5">
+        <CommentThread
+          uploadFile={uploadCommentFile}
+          comments={ws.comments}
+          currentUserEmail={me.email}
+          currentUserName={me.displayName}
+          mentionablePeople={people}
+          onEdit={handleEditComment}
+          onReply={handleAddComment}
+          draftKey={`npWorksheet:${ws.id}`}
+        />
+      </div>
+    </section>
   );
 }

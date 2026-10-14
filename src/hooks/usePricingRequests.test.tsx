@@ -120,26 +120,36 @@ describe("routeNewRequest", () => {
   };
 
   it("a part SAP has is in SAP, with SAP's number, description and MPG", () => {
-    expect(routeNewRequest({ sapPartNumber: "", description: "typed" }, { part, notConnected: false })).toEqual({
+    expect(routeNewRequest({ altronicPartNumber: "", sapPartNumber: "", description: "typed" }, { part, notConnected: false })).toEqual({
       inSap: true,
+      altronicPartNumber: "791950-08",
       sapPartNumber: "1003-0114-08",
       description: "CPU-95",
       mpg: "IGN",
     });
   });
 
+  it("only the SAP # known: the Altronic (old) number is pulled in from SAP", () => {
+    const r = routeNewRequest({ altronicPartNumber: "", sapPartNumber: "1003-0114-08", description: "" }, { part, notConnected: false });
+    expect(r.altronicPartNumber).toBe("791950-08");
+  });
+
+  it("an Altronic # that was typed is kept, never replaced by SAP's", () => {
+    const r = routeNewRequest({ altronicPartNumber: "791950-8", sapPartNumber: "", description: "" }, { part, notConnected: false });
+    expect(r.altronicPartNumber).toBe("791950-8");
+  });
   it("not connected: a typed SAP # counts as in SAP", () => {
-    const r = routeNewRequest({ sapPartNumber: " 1003-0114-40 ", description: "typed" }, { part: null, notConnected: true });
+    const r = routeNewRequest({ altronicPartNumber: "", sapPartNumber: " 1003-0114-40 ", description: "typed" }, { part: null, notConnected: true });
     expect(r.inSap).toBe(true);
     expect(r.sapPartNumber).toBe("1003-0114-40");
   });
 
   it("not connected without a SAP # is NOT in SAP", () => {
-    expect(routeNewRequest({ sapPartNumber: "  ", description: "t" }, { part: null, notConnected: true }).inSap).toBe(false);
+    expect(routeNewRequest({ altronicPartNumber: "X", sapPartNumber: "  ", description: "t" }, { part: null, notConnected: true }).inSap).toBe(false);
   });
 
   it("connected and not found is NOT in SAP, even with a typed number", () => {
-    expect(routeNewRequest({ sapPartNumber: "1003", description: "t" }, { part: null, notConnected: false }).inSap).toBe(false);
+    expect(routeNewRequest({ altronicPartNumber: "X", sapPartNumber: "1003", description: "t" }, { part: null, notConnected: false }).inSap).toBe(false);
   });
 });
 

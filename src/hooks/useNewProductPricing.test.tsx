@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import type { ReactNode } from "react";
 import { act, renderHook } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -18,6 +18,16 @@ vi.mock("./useCurrentUser", () => ({
   useCurrentUser: () => who.person,
   useCurrentUserEmails: () => (who.person.email ? [who.person.email] : []),
 }));
+
+// copyAttachments is spied on: a new revision must carry each sub-assembly's
+// files onto its fresh row, and a plain Save must never copy anything.
+type CopyAttachments = typeof import("@/api/attachments").copyAttachments;
+const copy = vi.hoisted(() => ({ fn: null as unknown as Mock<CopyAttachments> }));
+vi.mock("@/api/attachments", async (importActual) => {
+  const actual = await importActual<typeof import("@/api/attachments")>();
+  copy.fn = vi.fn<CopyAttachments>(async () => ({ copied: [], failed: [] }));
+  return { ...actual, copyAttachments: (...args: Parameters<CopyAttachments>) => copy.fn(...args) };
+});
 
 import { draftFrom } from "@/api/newProductSubAssemblies";
 import { useSaveNewProductWorksheet, worksheetSnapshot, type WorksheetPricingInput } from "./useNewProductPricing";
@@ -48,6 +58,8 @@ const PRICING: WorksheetPricingInput = {
 beforeEach(() => {
   __resetPricingMockStores();
   who.person = MANAGER;
+  copy.fn.mockReset();
+  copy.fn.mockResolvedValue({ copied: [], failed: [] });
 });
 
 describe("worksheetSnapshot", () => {
@@ -58,6 +70,9 @@ describe("worksheetSnapshot", () => {
       worksheetId: 9,
       rev: 3,
       name: "Board",
+      kind: "subAssembly",
+      altronicPartNumber: "",
+      sapPartNumber: "",
       sortOrder: 1,
       quantityPerProduct: 2,
       lines: [
@@ -130,7 +145,7 @@ describe("useSaveNewProductWorksheet", () => {
     const before = pricingMockClone(pricingMockDb.subAssemblies);
     const { wrapper } = setup();
     const { result } = renderHook(() => useSaveNewProductWorksheet(), { wrapper });
-    const saved = await act(() => result.current.mutateAsync(vars()));
+    const { saved } = await act(() => result.current.mutateAsync(vars()));
 
     expect(saved.rev).toBe(3);
     // Every earlier row is still there, exactly as it was.
@@ -171,5 +186,71 @@ describe("useSaveNewProductWorksheet", () => {
     const { result } = renderHook(() => useSaveNewProductWorksheet(), { wrapper });
     await act(() => expect(result.current.mutateAsync(stale)).rejects.toThrow(/Someone saved R3/));
     expect(pricingMockDb.subAssemblies).toEqual(before);
+  });
+});
+
+describe("useSaveNewProductWorksheet — each sub-assembly's files", () => {
+  function vars(overrides: { asNewRevision?: boolean; note?: string } = {}) {
+    const worksheet = pricingMockClone(pricingMockDb.worksheets.find((w) => w.id === 1)!);
+    const drafts = pricingMockDb.subAssemblies.filter((s) => s.worksheetId === 1 && s.rev === worksheet.rev).map(draftFrom);
+    return { worksheet, drafts, pricing: PRICING, asNewRevision: true, note: "Cheaper enclosure", ...overrides };
+  }
+  const r3Rows = () =>
+    pricingMockDb.subAssemblies.filter((s) => s.worksheetId === 1 && s.rev === 3).sort((a, b) => a.sortOrder - b.sortOrder);
+
+  it("a new revision copies each existing row's files onto its fresh R3 row, in the same position", async () => {
+    const { wrapper } = setup();
+    const { result } = renderHook(() => useSaveNewProductWorksheet(), { wrapper });
+    const { warnings } = await act(() => result.current.mutateAsync(vars()));
+
+    const r3 = r3Rows();
+    expect(r3.map((s) => s.name)).toEqual(["Main board", "Output coil set", "Enclosure"]);
+    expect(copy.fn).toHaveBeenCalledTimes(3);
+    expect(copy.fn.mock.calls).toEqual([
+      ["npSubAssembly", 4, "npSubAssembly", r3[0].id],
+      ["npSubAssembly", 5, "npSubAssembly", r3[1].id],
+      ["npSubAssembly", 6, "npSubAssembly", r3[2].id],
+    ]);
+    expect(warnings).toEqual([]);
+  });
+
+  it("skips a row that was never saved — it has no files to copy", async () => {
+    const v = vars();
+    v.drafts = [...v.drafts, { ...v.drafts[0], key: "new", id: null, name: "Brand new" }];
+    const { wrapper } = setup();
+    const { result } = renderHook(() => useSaveNewProductWorksheet(), { wrapper });
+    await act(() => result.current.mutateAsync(v));
+    expect(copy.fn).toHaveBeenCalledTimes(3);
+    expect(copy.fn.mock.calls.map((c) => c[1])).toEqual([4, 5, 6]);
+  });
+
+  it("a file that didn't copy is a WARNING naming the sub-assembly and file — the save still succeeds", async () => {
+    copy.fn.mockImplementation(async (_from: unknown, fromId: unknown) =>
+      fromId === 5 ? { copied: [], failed: ["x.pdf"] } : { copied: [], failed: [] },
+    );
+    const { wrapper } = setup();
+    const { result } = renderHook(() => useSaveNewProductWorksheet(), { wrapper });
+    const { saved, warnings } = await act(() => result.current.mutateAsync(vars()));
+
+    expect(saved.rev).toBe(3);
+    expect(warnings).toEqual(["Output coil set: x.pdf"]);
+    expect(pricingMockDb.worksheets.find((w) => w.id === 1)?.rev).toBe(3);
+  });
+
+  it("a copy that throws is still only a warning", async () => {
+    copy.fn.mockRejectedValueOnce(new Error("SharePoint said no"));
+    const { wrapper } = setup();
+    const { result } = renderHook(() => useSaveNewProductWorksheet(), { wrapper });
+    const { saved, warnings } = await act(() => result.current.mutateAsync(vars()));
+    expect(saved.rev).toBe(3);
+    expect(warnings).toEqual(["Main board: its files"]);
+  });
+
+  it("a plain Save never copies files", async () => {
+    const { wrapper } = setup();
+    const { result } = renderHook(() => useSaveNewProductWorksheet(), { wrapper });
+    const { saved } = await act(() => result.current.mutateAsync(vars({ asNewRevision: false, note: "" })));
+    expect(saved.rev).toBe(2);
+    expect(copy.fn).not.toHaveBeenCalled();
   });
 });
