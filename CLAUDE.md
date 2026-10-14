@@ -8019,7 +8019,7 @@ and this screenshot loop are what stands in for one.
 Ray, 2026-10-14, on the pricing workbench: four fields side by side didn't
 line up, because one column put a toggle where the others had a label (taller,
 so its input sat lower) and another held Yes/No pills (a different height
-from an input). `FieldColumn` in `components/PricingWorkbench.tsx` is the
+from an input). `FieldColumn` (with `FieldLabel`) in `components/pricingAtoms.tsx` is the
 pattern: every field is three rows, each a FIXED height —
 
 - **label row `h-6 items-end`** — a plain label, or a compact control sized
