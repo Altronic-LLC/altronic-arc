@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Loader2 } from "lucide-react";
 import type {
   CostSource,
@@ -186,42 +186,45 @@ export function PricingWorkbench({
                   : "typed"
             }
           />
-          <div className="flex flex-col gap-1">
-            <div role="radiogroup" aria-label="Price from" className="inline-flex w-fit gap-0.5 rounded-md bg-surface-2 p-0.5">
-              {(["gm", "list"] as const).map((k) => (
-                <button
-                  key={k}
-                  type="button"
-                  role="radio"
-                  aria-checked={inputKind === k}
-                  disabled={locked}
-                  onClick={() => {
-                    setInputKind(k);
-                    setInputValue("");
-                  }}
-                  className={cn(
-                    "rounded px-2 py-0.5 text-xs font-medium",
-                    inputKind === k ? "bg-surface text-fg shadow-sm" : "text-fg-muted hover:text-fg",
-                  )}
-                >
-                  {k === "gm" ? "Target GM" : "List price"}
-                </button>
-              ))}
-            </div>
-            <NumberField
-              label={inputKind === "gm" ? "Target base GM" : "List price"}
-              hideLabel
-              prefix={inputKind === "list" ? "$" : undefined}
-              suffix={inputKind === "gm" ? "%" : undefined}
-              width={inputKind === "gm" ? "!w-20" : "!w-32"}
-              value={inputValue}
-              onChange={setInputValue}
-              disabled={locked}
-              source={inputKind === "gm" ? "Rounded to the dollar." : "Taken as typed."}
-            />
-          </div>
-          <div className="flex flex-col gap-1 text-xs">
-            <span className="font-semibold uppercase tracking-wider text-fg-muted">Leave as Contact Factory?</span>
+          <NumberField
+            label={inputKind === "gm" ? "Target base GM" : "List price"}
+            header={
+              // The toggle sits in the LABEL row, at the label row's height,
+              // so this box lines up with Cost and Discount beside it.
+              <div role="radiogroup" aria-label="Price from" className="inline-flex h-6 items-stretch gap-0.5 rounded-md bg-surface-2 p-0.5">
+                {(["gm", "list"] as const).map((k) => (
+                  <button
+                    key={k}
+                    type="button"
+                    role="radio"
+                    aria-checked={inputKind === k}
+                    disabled={locked}
+                    onClick={() => {
+                      setInputKind(k);
+                      setInputValue("");
+                    }}
+                    className={cn(
+                      "rounded px-2 text-[11px] font-semibold uppercase tracking-wider",
+                      inputKind === k ? "bg-surface text-fg shadow-sm" : "text-fg-muted hover:text-fg",
+                    )}
+                  >
+                    {k === "gm" ? "Target GM" : "List price"}
+                  </button>
+                ))}
+              </div>
+            }
+            prefix={inputKind === "list" ? "$" : undefined}
+            suffix={inputKind === "gm" ? "%" : undefined}
+            width={inputKind === "gm" ? "!w-20" : "!w-32"}
+            value={inputValue}
+            onChange={setInputValue}
+            disabled={locked}
+            source={inputKind === "gm" ? "Rounded to the dollar." : "Taken as typed."}
+          />
+          <FieldColumn
+            header={<FieldLabel>Leave as Contact Factory?</FieldLabel>}
+            hint={contactFactory === "" && !locked ? "Required — the requester sees this." : "The requester sees this."}
+          >
             <ChoicePills
               label="Leave as Contact Factory?"
               name="leave-as-contact-factory"
@@ -230,10 +233,7 @@ export function PricingWorkbench({
               onChange={(v) => setContactFactory(v as "Yes" | "No")}
               disabled={locked}
             />
-            <span className="text-[11px] text-fg-muted">
-              {contactFactory === "" && !locked ? "Required — the requester sees this." : "The requester sees this."}
-            </span>
-          </div>
+          </FieldColumn>
         </div>
 
         <dl className="mt-4 grid max-w-3xl grid-cols-1 gap-3 rounded-lg border border-border bg-surface-2/40 p-3 sm:grid-cols-3" aria-label="Result">
@@ -296,8 +296,27 @@ export function PricingWorkbench({
   );
 }
 
+// Every field in the price row shares one grid: a label row, a control row
+// and a hint row, each a FIXED height. That is what makes the boxes line up
+// whatever sits in the label row (a plain label, or the Target GM / List
+// price toggle) and whatever the control is (an input, or Yes / No pills).
+function FieldColumn({ header, hint, children }: { header: ReactNode; hint?: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1 text-xs">
+      <div className="flex h-6 items-end">{header}</div>
+      <div className="flex h-9 items-center gap-1">{children}</div>
+      {hint && <span className="max-w-[16rem] text-[11px] text-fg-muted">{hint}</span>}
+    </div>
+  );
+}
+
+function FieldLabel({ children }: { children: ReactNode }) {
+  return <span className="font-semibold uppercase tracking-wider text-fg-muted">{children}</span>;
+}
+
 function NumberField({
   label,
+  header,
   value,
   onChange,
   disabled,
@@ -305,12 +324,11 @@ function NumberField({
   suffix,
   source,
   width = "!w-28",
-  hideLabel,
 }: {
+  /** The input's accessible name; drawn as the label unless `header` replaces it. */
   label: string;
+  header?: ReactNode;
   width?: string;
-  /** The label stays the input's accessible name, just not drawn. */
-  hideLabel?: boolean;
   value: string;
   onChange: (v: string) => void;
   disabled?: boolean;
@@ -319,23 +337,20 @@ function NumberField({
   source?: string;
 }) {
   return (
-    <label className="flex flex-col gap-1 text-xs">
-      <span className={cn("font-semibold uppercase tracking-wider text-fg-muted", hideLabel && "sr-only")}>{label}</span>
-      <span className="flex items-center gap-1">
-        {prefix && <span className="text-fg-muted">{prefix}</span>}
-        <input
-          type="number"
-          inputMode="decimal"
-          step="any"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          disabled={disabled}
-          className={cn("input tabular-nums text-right", width)}
-        />
-        {suffix && <span className="text-fg-muted">{suffix}</span>}
-      </span>
-      {source && <span className="max-w-[16rem] text-[11px] text-fg-muted">{source}</span>}
-    </label>
+    <FieldColumn header={header ?? <FieldLabel>{label}</FieldLabel>} hint={source}>
+      {prefix && <span className="text-fg-muted">{prefix}</span>}
+      <input
+        type="number"
+        inputMode="decimal"
+        step="any"
+        aria-label={label}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+        className={cn("input !h-9 tabular-nums text-right", width)}
+      />
+      {suffix && <span className="text-fg-muted">{suffix}</span>}
+    </FieldColumn>
   );
 }
 

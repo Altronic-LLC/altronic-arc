@@ -7943,6 +7943,58 @@ These apply app-wide, not to one department. They were all learned from a real
 report, and each has tests pinning it — if you change one, expect a test to
 argue with you.
 
+### Frontend changes are checked by EYE, not only by tests
+
+jsdom computes no layout, so "these fields line up", "nothing overlaps" and
+"it reads in dark mode" can't be asserted by Vitest. Before calling a UI
+change done, screenshot it from the running dev server:
+
+```
+VITE_USE_MOCK=true npx vite --port 5180          # in the background
+node scripts/screenshot-page.mjs http://localhost:5180/<route> '<css selector>' out.png [light|dark]
+```
+
+`scripts/screenshot-page.mjs` (Ray, 2026-10-14) drives the installed Chrome
+headless over the DevTools protocol — Node's built-in `fetch` + `WebSocket`,
+no Playwright or Puppeteer — presses **Continue as Demo User**, routes
+in-app (a reload would lose the in-memory demo sign-in), waits for the
+selector and captures just that element; the image can then be read back and
+looked at. Three things it had to learn:
+
+- **Click the demo button until the sign-in page is GONE**, not once on a
+  timer. The page only appears after MSAL settles, and a single timed click
+  missed about half the time.
+- **`--remote-debugging-port=0`**, read back from `DevToolsActivePort`. A
+  fixed port collides with the previous run's Chrome still shutting down.
+- **The theme is `localStorage["aets-theme"]`**, set before the app renders.
+  Check light AND dark — native controls and tinted panels differ between them.
+
+A `data-testid` on the section being changed makes a stable selector. There
+is no app-UI design skill installed in this environment (the `artifact-*`
+skills are for published Artifact pages, not ARC's screens); the rules below
+and this screenshot loop are what stands in for one.
+
+### A row of form fields shares ONE grid: label row, control row, hint row
+
+Ray, 2026-10-14, on the pricing workbench: four fields side by side didn't
+line up, because one column put a toggle where the others had a label (taller,
+so its input sat lower) and another held Yes/No pills (a different height
+from an input). `FieldColumn` in `components/PricingWorkbench.tsx` is the
+pattern: every field is three rows, each a FIXED height —
+
+- **label row `h-6 items-end`** — a plain label, or a compact control sized
+  to fit (the Target GM / List price toggle is `h-6`, `text-[11px]`);
+- **control row `h-9 items-center`** — inputs are `!h-9`, pills centre in it,
+  a `$` / `%` affix sits beside;
+- **hint row** — free height, `max-w-[16rem]` so a long hint wraps rather
+  than widening its column.
+
+Put the row in `flex flex-wrap items-start`. A control that takes the
+label's place must be a `<div>` with the input named by `aria-label` — a
+button inside a `<label>` steals its click (the `SearchableSelect` nesting
+lesson). Reach for this whenever fields sit side by side, and check it with
+the screenshot above, since no test can.
+
 ### Detail pages read; a card's Edit button writes
 
 Gray Market requests and ECNs both used to edit field by field: an "Edit" link
