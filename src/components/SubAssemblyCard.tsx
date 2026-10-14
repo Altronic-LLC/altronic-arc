@@ -5,7 +5,7 @@ import type { SubAssemblyDraft } from "@/api/newProductSubAssemblies";
 import { SAP_DATA_CONNECTED } from "@/api/pricingLookup";
 import { useSapPart } from "@/hooks/usePricingLookup";
 import { importSubAssemblyCsv, lineLabel, mergeUpload, type UploadChanges } from "@/lib/subAssemblyCsv";
-import { lineUnitCost, subAssemblyCost } from "@/lib/pricingMath";
+import { lineUnitCost, overheadFactor, subAssemblyCost } from "@/lib/pricingMath";
 import { formatMoney, formatUnitCost } from "@/lib/quoteMoney";
 import { AttachmentsSection } from "./AttachmentsSection";
 import { cn } from "@/lib/cn";
@@ -49,6 +49,7 @@ export function draftAsSubAssembly(d: SubAssemblyDraft): SubAssembly {
     sapPartNumber: d.sapPartNumber,
     sortOrder: 0,
     quantityPerProduct: d.quantityPerProduct,
+    overheadPct: d.overheadPct,
     lines: d.lines,
     linesCorrupt: false,
     fileName: d.fileName,
@@ -188,7 +189,7 @@ export function SubAssemblyCard({
           />
         </label>
         <NumberInputs draft={draft} onChange={onChange} readOnly={readOnly} />
-        <label className="flex w-28 flex-col gap-1 text-xs">
+        <label className="flex w-24 flex-col gap-1 text-xs">
           <span className="font-semibold uppercase tracking-wider text-fg-muted">Qty / product</span>
           <input
             type="number"
@@ -201,6 +202,7 @@ export function SubAssemblyCard({
             aria-label={`Quantity per product of ${name}`}
           />
         </label>
+        <OverheadInput value={draft.overheadPct} readOnly={readOnly} label={name} onChange={(v) => onChange({ ...draft, overheadPct: v })} />
         {!readOnly && (
           <div className="flex flex-wrap gap-2">
             <input
@@ -444,6 +446,17 @@ export function SubAssemblyCard({
                   <td className="px-2 py-1.5 text-right tabular-nums">{formatMoney(cost.used)}</td>
                   <td />
                 </tr>
+                {overheadFactor(draft.overheadPct) !== 1 && (
+                  <tr className="font-medium">
+                    <td className="px-2 py-1.5 text-fg-muted" colSpan={6}>
+                      With {draft.overheadPct}% overhead
+                    </td>
+                    <td className="px-2 py-1.5 text-right tabular-nums">
+                      {cost.used === null ? "—" : formatMoney(cost.used * overheadFactor(draft.overheadPct))}
+                    </td>
+                    <td />
+                  </tr>
+                )}
               </tfoot>
             )}
           </table>
@@ -677,7 +690,7 @@ export function PartCard({
           <span className="font-semibold uppercase tracking-wider text-fg-muted">Description</span>
           <input value={draft.name} onChange={(e) => set({ name: e.target.value })} disabled={readOnly} className="input" aria-label={`Description of ${label}`} />
         </label>
-        <label className="flex w-28 flex-col gap-1 text-xs">
+        <label className="flex w-24 flex-col gap-1 text-xs">
           <span className="font-semibold uppercase tracking-wider text-fg-muted">Qty / product</span>
           <input
             type="number"
@@ -690,6 +703,7 @@ export function PartCard({
             aria-label={`Quantity per product of ${label}`}
           />
         </label>
+        <OverheadInput value={draft.overheadPct} readOnly={readOnly} label={label} onChange={(v) => set({ overheadPct: v })} />
         {!readOnly && (
           <button
             type="button"
@@ -733,11 +747,41 @@ export function PartCard({
         </div>
         <div className="flex flex-col gap-1 text-xs">
           <span className="font-semibold uppercase tracking-wider text-fg-muted">Extended</span>
-          <span className="text-sm tabular-nums text-fg">{used === null ? "—" : formatMoney(used * draft.quantityPerProduct)}</span>
+          <span className="text-sm tabular-nums text-fg">{used === null ? "—" : formatMoney(used * draft.quantityPerProduct * overheadFactor(draft.overheadPct))}</span>
         </div>
       </div>
 
       <RowFiles draft={draft} readOnly={readOnly} name={label} />
     </section>
+  );
+}
+
+/** A row's optional overhead % — blank means none (Ray, 2026-10-13). */
+function OverheadInput({
+  value,
+  readOnly,
+  label,
+  onChange,
+}: {
+  value: number | null;
+  readOnly: boolean;
+  label: string;
+  onChange: (v: number | null) => void;
+}) {
+  return (
+    <label className="flex flex-col gap-1 text-xs">
+      <span className="font-semibold uppercase tracking-wider text-fg-muted">Overhead %</span>
+      <input
+        type="number"
+        min={0}
+        step="any"
+        value={value ?? ""}
+        placeholder="None"
+        onChange={(e) => onChange(num(e.target.value))}
+        disabled={readOnly}
+        className="input !w-24 tabular-nums"
+        aria-label={`Overhead % on ${label}`}
+      />
+    </label>
   );
 }

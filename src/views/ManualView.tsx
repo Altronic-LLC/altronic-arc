@@ -3922,7 +3922,9 @@ const SECTIONS: ManualSection[] = [
           </LI>
         </UL>
         <P>
-          Add an overhead %, then a target GM, a list price, or a{" "}
+          Each sub-assembly and part has an optional{" "}
+          <strong>Overhead %</strong>, added to its own cost. Then set a target GM,
+          a list price, or a{" "}
           <strong>customer price</strong> — the distributor price, from which
           ARC works the list price back — and up to three <strong>quantity breaks</strong> — each a % off list,
           rounded to the dollar, showing the margin at that quantity.

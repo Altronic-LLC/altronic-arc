@@ -86,7 +86,16 @@ export async function buildWorksheetWorkbook(
   const cost = worksheetCost(current, ws.overheadPct);
   bold(sheet.addRow(["Cost roll-up", "", "", "", "Base", "", "Used"]));
   const material = sheet.addRow(["Material", "", "Σ sub-assemblies and parts × qty per product", "", cost.material.uploaded, "", cost.material.used]);
-  sheet.addRow(["Overhead", "", `${ws.overheadPct}%`]);
+  sheet.addRow([
+    "Overhead",
+    "",
+    ws.overheadPct > 0
+      ? `${ws.overheadPct}% on the whole product (saved before overhead moved onto each row)`
+      : "per sub-assembly / part, as below",
+  ]);
+  for (const sub of current.filter((s) => (s.overheadPct ?? 0) > 0)) {
+    sheet.addRow(["", "", `${sub.name}: ${sub.overheadPct}%`]);
+  }
   const unit = sheet.addRow(["Unit cost", "", "material × (1 + overhead)", "", cost.unit.uploaded, "", cost.unit.used]);
   for (const r of [material, unit]) {
     r.getCell(5).numFmt = MONEY;

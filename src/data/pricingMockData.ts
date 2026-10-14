@@ -300,7 +300,7 @@ export const MOCK_NEW_PRODUCT_WORKSHEETS: NewProductWorksheet[] = [
     customerName: "Power Solutions Supply",
     expectedAnnualVolume: 60,
     requestId: 4,
-    overheadPct: 22,
+    overheadPct: 0, // overhead is per row now; history snapshots keep the 22% they were saved with
     mpg: "IGN",
     distributorDiscountPct: 36,
     discountSource: "SAP",
@@ -380,7 +380,7 @@ export const MOCK_NEW_PRODUCT_WORKSHEETS: NewProductWorksheet[] = [
     customerName: "",
     expectedAnnualVolume: 120,
     requestId: null,
-    overheadPct: 15,
+    overheadPct: 0,
     mpg: "",
     distributorDiscountPct: 34,
     discountSource: "Default",
@@ -426,12 +426,12 @@ function adjust<T extends { partNumber: string; adjustedCost: number | null }>(l
 
 /** Rows of NP Sub-Assemblies — R1 and R2 of NP-2026-0001 (R1 is never rewritten), and R1 of NP-2026-0002. */
 export const MOCK_SUB_ASSEMBLIES: SubAssembly[] = [
-  { id: 1, worksheetId: 1, rev: 1, name: "Main board", kind: "subAssembly", altronicPartNumber: "791990-24", sapPartNumber: "", sortOrder: 1, quantityPerProduct: 1, lines: BOARD_LINES, linesCorrupt: false, fileName: "main-board-bom.csv", ...UPLOAD_R1 },
-  { id: 2, worksheetId: 1, rev: 1, name: "Output coil set", kind: "subAssembly", altronicPartNumber: "", sapPartNumber: "", sortOrder: 2, quantityPerProduct: 1, lines: COIL_LINES, linesCorrupt: false, fileName: "coil-set-bom.csv", ...UPLOAD_R1 },
-  { id: 3, worksheetId: 1, rev: 1, name: "Enclosure", kind: "subAssembly", altronicPartNumber: "", sapPartNumber: "", sortOrder: 3, quantityPerProduct: 1, lines: ENCLOSURE_LINES, linesCorrupt: false, fileName: "enclosure-bom.csv", ...UPLOAD_R1 },
-  { id: 4, worksheetId: 1, rev: 2, name: "Main board", kind: "subAssembly", altronicPartNumber: "791990-24", sapPartNumber: "", sortOrder: 1, quantityPerProduct: 1, lines: adjust(BOARD_LINES, "PCB-24-BARE", 185), linesCorrupt: false, fileName: "main-board-bom.csv", ...UPLOAD_R1 },
-  { id: 5, worksheetId: 1, rev: 2, name: "Output coil set", kind: "subAssembly", altronicPartNumber: "", sapPartNumber: "", sortOrder: 2, quantityPerProduct: 1, lines: COIL_LINES, linesCorrupt: false, fileName: "coil-set-bom.csv", ...UPLOAD_R1 },
-  { id: 6, worksheetId: 1, rev: 2, name: "Enclosure", kind: "subAssembly", altronicPartNumber: "", sapPartNumber: "", sortOrder: 3, quantityPerProduct: 1, lines: adjust(ENCLOSURE_LINES, "HW-KIT-95", 9.9), linesCorrupt: false, fileName: "enclosure-bom.csv", ...UPLOAD_R1 },
+  { id: 1, worksheetId: 1, rev: 1, name: "Main board", kind: "subAssembly", altronicPartNumber: "791990-24", sapPartNumber: "", sortOrder: 1, quantityPerProduct: 1, overheadPct: 22, lines: BOARD_LINES, linesCorrupt: false, fileName: "main-board-bom.csv", ...UPLOAD_R1 },
+  { id: 2, worksheetId: 1, rev: 1, name: "Output coil set", kind: "subAssembly", altronicPartNumber: "", sapPartNumber: "", sortOrder: 2, quantityPerProduct: 1, overheadPct: 22, lines: COIL_LINES, linesCorrupt: false, fileName: "coil-set-bom.csv", ...UPLOAD_R1 },
+  { id: 3, worksheetId: 1, rev: 1, name: "Enclosure", kind: "subAssembly", altronicPartNumber: "", sapPartNumber: "", sortOrder: 3, quantityPerProduct: 1, overheadPct: 22, lines: ENCLOSURE_LINES, linesCorrupt: false, fileName: "enclosure-bom.csv", ...UPLOAD_R1 },
+  { id: 4, worksheetId: 1, rev: 2, name: "Main board", kind: "subAssembly", altronicPartNumber: "791990-24", sapPartNumber: "", sortOrder: 1, quantityPerProduct: 1, overheadPct: 22, lines: adjust(BOARD_LINES, "PCB-24-BARE", 185), linesCorrupt: false, fileName: "main-board-bom.csv", ...UPLOAD_R1 },
+  { id: 5, worksheetId: 1, rev: 2, name: "Output coil set", kind: "subAssembly", altronicPartNumber: "", sapPartNumber: "", sortOrder: 2, quantityPerProduct: 1, overheadPct: 22, lines: COIL_LINES, linesCorrupt: false, fileName: "coil-set-bom.csv", ...UPLOAD_R1 },
+  { id: 6, worksheetId: 1, rev: 2, name: "Enclosure", kind: "subAssembly", altronicPartNumber: "", sapPartNumber: "", sortOrder: 3, quantityPerProduct: 1, overheadPct: 22, lines: adjust(ENCLOSURE_LINES, "HW-KIT-95", 9.9), linesCorrupt: false, fileName: "enclosure-bom.csv", ...UPLOAD_R1 },
   {
     id: 7,
     worksheetId: 2,
@@ -440,6 +440,7 @@ export const MOCK_SUB_ASSEMBLIES: SubAssembly[] = [
     kind: "subAssembly", altronicPartNumber: "", sapPartNumber: "",
     sortOrder: 1,
     quantityPerProduct: 1,
+    overheadPct: 15,
     lines: [
       { partNumber: "690100-1", description: "DE-3000 DISPLAY MODULE", quantity: 1, uploadedCost: 760, adjustedCost: null },
       { partNumber: "GSK-IP67", description: "IP67 GASKET KIT", quantity: 1, uploadedCost: 38, adjustedCost: null },
@@ -459,6 +460,7 @@ export const MOCK_SUB_ASSEMBLIES: SubAssembly[] = [
     kind: "part", altronicPartNumber: "BRKT-KIT-SEAL", sapPartNumber: "",
     sortOrder: 2,
     quantityPerProduct: 1,
+    overheadPct: 15,
     lines: [{ partNumber: "BRKT-KIT-SEAL", description: "MOUNTING BRACKET KIT, STAINLESS", quantity: 1, uploadedCost: 24.5, adjustedCost: null, source: "manual" }],
     linesCorrupt: false,
     fileName: "",

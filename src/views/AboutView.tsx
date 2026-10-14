@@ -1730,6 +1730,7 @@ export const SCHEMA_TABLES: SchemaTable[] = [
       { name: "rev", type: "int", kind: "field" },
       { name: "sortOrder", type: "int", kind: "field" },
       { name: "quantityPerProduct", type: "number", kind: "field" },
+      { name: "overheadPct (optional)", type: "number", kind: "field" },
       { name: "lines (JSON — CSV, by hand or SAP)", type: "text", kind: "field" },
       { name: "fileName", type: "text", kind: "field" },
       { name: "uploadedAt / uploadedBy", type: "datetime", kind: "field" },

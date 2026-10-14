@@ -290,37 +290,53 @@ export function subAssemblyCost(sub: Pick<SubAssembly, "name" | "lines">): SubAs
   };
 }
 
+/** A row's optional overhead as a multiplier — blank or 0 is 1 (Ray, 2026-10-13). */
+export function overheadFactor(overheadPct: number | null | undefined): number {
+  return finite(overheadPct) && overheadPct > 0 ? 1 + overheadPct / 100 : 1;
+}
+
 export interface WorksheetCost {
-  /** Σ sub-assembly cost × quantity per product, before overhead. */
+  /** Σ sub-assembly cost × quantity per product, before any overhead. */
   material: CostPair;
-  /** Material × (1 + overhead%) — what one product costs. */
+  /** Σ sub-assembly cost × (1 + ITS overhead%) × quantity per product — what one product costs. */
   unit: CostPair;
   problems: string[];
 }
 
-/** One product's cost from its sub-assemblies, with one overhead % on top. */
-export function worksheetCost(subs: SubAssembly[], overheadPct: number | null | undefined): WorksheetCost {
+/**
+ * One product's cost from its sub-assemblies and parts. Each row carries its
+ * OWN optional overhead % (Ray, 2026-10-13). `legacyOverheadPct` is the
+ * worksheet-wide overhead of worksheets saved before that — applied on top of
+ * the total, and 0 for anything saved since.
+ */
+export function worksheetCost(subs: SubAssembly[], legacyOverheadPct?: number | null): WorksheetCost {
   const problems: string[] = [];
   let used: number | null = 0;
   let uploaded: number | null = 0;
+  let unitUsed: number | null = 0;
+  let unitUploaded: number | null = 0;
   for (const sub of subs) {
     const c = subAssemblyCost(sub);
     problems.push(...c.problems);
     const qty = finite(sub.quantityPerProduct) && sub.quantityPerProduct > 0 ? sub.quantityPerProduct : null;
     if (qty === null) problems.push(`${sub.name} needs a quantity per product.`);
+    if (finite(sub.overheadPct) && sub.overheadPct < 0) problems.push(`${sub.name}: overhead can't be negative.`);
+    const f = overheadFactor(sub.overheadPct);
     used = used !== null && c.used !== null && qty !== null ? used + c.used * qty : null;
     uploaded = uploaded !== null && c.uploaded !== null && qty !== null ? uploaded + c.uploaded * qty : null;
+    unitUsed = unitUsed !== null && c.used !== null && qty !== null ? unitUsed + c.used * qty * f : null;
+    unitUploaded = unitUploaded !== null && c.uploaded !== null && qty !== null ? unitUploaded + c.uploaded * qty * f : null;
   }
   if (subs.length === 0) problems.push("Add a sub-assembly, then upload its CSV or add its components by hand.");
-  const overhead = finite(overheadPct) ? overheadPct : 0;
-  if (overhead < 0) problems.push("Overhead can't be negative.");
-  const factor = 1 + overhead / 100;
+  const legacy = finite(legacyOverheadPct) ? legacyOverheadPct : 0;
+  if (legacy < 0) problems.push("Overhead can't be negative.");
+  const factor = 1 + legacy / 100;
   const ok = problems.length === 0;
   return {
     material: { uploaded: subs.length ? uploaded : null, used: ok ? used : null },
     unit: {
-      uploaded: subs.length && uploaded !== null ? uploaded * factor : null,
-      used: ok && used !== null ? used * factor : null,
+      uploaded: subs.length && unitUploaded !== null ? unitUploaded * factor : null,
+      used: ok && unitUsed !== null ? unitUsed * factor : null,
     },
     problems,
   };
@@ -335,6 +351,7 @@ export function subAssemblyTotals(subs: SubAssembly[]): SubAssemblyTotals[] {
       return {
         name: s.name,
         quantityPerProduct: s.quantityPerProduct,
+        ...(s.overheadPct !== null && { overheadPct: s.overheadPct }),
         lineCount: s.lines.length,
         uploadedCost: c.uploaded,
         cost: c.used,

@@ -147,7 +147,6 @@ function Worksheet({ ws, rows }: { ws: NewProductWorksheet; rows: SubAssembly[] 
   const [drafts, setDrafts] = useState<SubAssemblyDraft[]>(() =>
     rows.filter((r) => r.rev === ws.rev).sort((a, b) => a.sortOrder - b.sortOrder).map(draftFrom),
   );
-  const [overhead, setOverhead] = useState(String(ws.overheadPct));
   const [mpg, setMpg] = useState(ws.mpg);
   const [discount, setDiscount] = useState(String(ws.distributorDiscountPct));
   const [discountSource, setDiscountSource] = useState<DiscountSource>(ws.discountSource);
@@ -191,10 +190,10 @@ function Worksheet({ ws, rows }: { ws: NewProductWorksheet; rows: SubAssembly[] 
   const shownSubs: SubAssembly[] = viewingCurrent
     ? drafts.map(draftAsSubAssembly)
     : rows.filter((r) => r.rev === viewRev).sort((a, b) => a.sortOrder - b.sortOrder);
-  const overheadNum = toNumber(overhead) ?? 0;
   const discountNum = toNumber(discount) ?? STANDARD_DISTRIBUTOR_DISCOUNT_PCT;
   const inputNum = toNumber(inputValue);
-  const cost = useMemo(() => worksheetCost(shownSubs, overheadNum), [shownSubs, overheadNum]);
+  // Overhead is per row now (Ray, 2026-10-13); the worksheet-wide figure is legacy.
+  const cost = useMemo(() => worksheetCost(shownSubs), [shownSubs]);
   const result = priceFromInput({
     cost: cost.unit.used,
     distributorDiscountPct: discountNum,
@@ -213,7 +212,7 @@ function Worksheet({ ws, rows }: { ws: NewProductWorksheet; rows: SubAssembly[] 
         asNewRevision,
         note,
         pricing: {
-          overheadPct: overheadNum,
+          overheadPct: 0,
           mpg: mpg.trim(),
           distributorDiscountPct: discountNum,
           discountSource,
@@ -361,6 +360,7 @@ function Worksheet({ ws, rows }: { ws: NewProductWorksheet; rows: SubAssembly[] 
                             altronicPartNumber: "",
                             sapPartNumber: "",
                             quantityPerProduct: 1,
+                            overheadPct: null,
                             lines: [],
                             fileName: "",
                             uploadedAt: null,
@@ -380,7 +380,6 @@ function Worksheet({ ws, rows }: { ws: NewProductWorksheet; rows: SubAssembly[] 
 
           <PricingCard title="Price">
             <div className="flex flex-wrap items-start gap-x-6 gap-y-3">
-              <Num label="Overhead" suffix="%" width="!w-24" value={overhead} disabled={readOnly} onChange={(v) => { setOverhead(v); touch(); }} />
               <label className="flex flex-col gap-1 text-xs">
                 <span className="font-semibold uppercase tracking-wider text-fg-muted">Material price group</span>
                 <input value={mpg} disabled={readOnly} onChange={(e) => { setMpg(e.target.value.toUpperCase()); touch(); }} className="input !w-36" placeholder="Optional" />
@@ -400,6 +399,12 @@ function Worksheet({ ws, rows }: { ws: NewProductWorksheet; rows: SubAssembly[] 
                 hint={discountSource === "SAP" ? `SAP's for ${mpg}` : discountSource === "Default" ? `standard ${STANDARD_DISTRIBUTOR_DISCOUNT_PCT}%` : "typed"}
               />
             </div>
+            {ws.overheadPct > 0 && viewingCurrent && (
+              <p className="mt-3 rounded-md border border-ajax-yellow/40 bg-ajax-yellow/10 px-3 py-2 text-xs text-fg">
+                This worksheet was last saved with a {ws.overheadPct}% overhead on the whole product. Overhead is now set on
+                each sub-assembly or part — add it there before saving.
+              </p>
+            )}
             <div className="mt-4 flex flex-wrap items-end gap-3">
               <div role="radiogroup" aria-label="Price from" className="inline-flex gap-1 rounded-lg bg-surface-2 p-1">
                 {(["gm", "list", "customer"] as const).map((k) => (

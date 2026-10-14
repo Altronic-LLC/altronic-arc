@@ -218,7 +218,7 @@ function Quote({ quote: q }: { quote: CustomerQuote }) {
         <div className="flex flex-wrap items-center gap-2">
           <label className="inline-flex items-center gap-2 text-xs text-fg-muted">
             Status
-            <select value={q.status} onChange={(e) => setStatus(e.target.value as CustomerQuoteStatus)} className="input w-auto py-1" aria-label="Quote status">
+            <select value={q.status} onChange={(e) => setStatus(e.target.value as CustomerQuoteStatus)} className="input !h-8 !w-auto !py-0" aria-label="Quote status">
               {CUSTOMER_QUOTE_STATUSES.map((s) => (
                 <option key={s} value={s}>
                   {s}
@@ -334,7 +334,7 @@ function Quote({ quote: q }: { quote: CustomerQuote }) {
                                     saveLines(q.lines.map((x) => (x.id === l.id ? { ...x, customerPartNumber: v || undefined } : x)));
                                   }
                                 }}
-                                className="input mt-1 w-56 py-0.5 text-xs"
+                                className="input mt-1 !h-7 !w-48 !px-2 text-xs"
                               />
                             ) : (
                               l.customerPartNumber && (
@@ -390,7 +390,7 @@ function Quote({ quote: q }: { quote: CustomerQuote }) {
                                     saveLines(q.lines.map((x) => (x.id === l.id ? { ...x, quantity: n } : x)));
                                   } else e.target.value = String(l.quantity);
                                 }}
-                                className="input w-20 text-right tabular-nums"
+                                className="input !h-8 !w-20 !px-2 text-right tabular-nums"
                               />
                             ) : (
                               <span className="tabular-nums">{l.quantity}</span>
@@ -569,7 +569,7 @@ function QuoteHeaderModal({
           </div>
           <label className="flex flex-col gap-1 text-xs">
             <span className="font-semibold uppercase tracking-wider text-fg-muted">Valid for (days)</span>
-            <input type="number" min={1} value={validity} onChange={(e) => setValidity(e.target.value)} className="input w-32" />
+            <input type="number" min={1} value={validity} onChange={(e) => setValidity(e.target.value)} className="input !w-32" />
           </label>
           <p className="text-[11px] text-fg-muted">
             Line prices aren't changed — a line keeps the price it was added at.

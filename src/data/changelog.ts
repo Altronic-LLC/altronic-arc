@@ -36,6 +36,8 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Price a new product from a customer price as well as a target GM or list price — ARC works the list price back from it",
       "Compare to SAP looks the product up by the SAP part number you enter",
       "The worksheet's price fields, revision picker and quantity breaks are sized to their contents",
+      "Overhead is set on each sub-assembly or part, and is optional — it replaces the one overhead on the whole product",
+      "A customer quote's quantity, customer part # and status fields are sized to their contents",
       "Worksheets have quantity breaks and revisions — save over the current revision or save a new one, compare with SAP once the product exists, and export to Excel",
       "Customer Quotes: build a quote from new-product worksheets, SAP parts, priced requests and extra lines, at the distributor price for each quantity break, and download the customer PDF",
       "Quote lines show their SAP part number and take an optional customer part number, both on the PDF; edit a draft quote's customer, contact and validity from the Customer card",

@@ -547,6 +547,7 @@ export const SUB_ASSEMBLY_SELECT = [
   "SapPartNumber",
   "SortOrder",
   "QuantityPerProduct",
+  "OverheadPct",
   "Lines",
   "FileName",
   "UploadedAt",
@@ -570,6 +571,7 @@ export function toSubAssembly(item: GraphListItem): SubAssembly {
     sapPartNumber: text(f.SapPartNumber).trim(),
     sortOrder: num(f.SortOrder) ?? 0,
     quantityPerProduct: num(f.QuantityPerProduct) ?? 1,
+    overheadPct: num(f.OverheadPct),
     lines,
     linesCorrupt: corrupt,
     fileName: text(f.FileName).trim(),
@@ -585,6 +587,7 @@ export interface SubAssemblyFields {
   sapPartNumber?: string;
   sortOrder?: number;
   quantityPerProduct?: number;
+  overheadPct?: number | null;
   lines?: SubAssemblyLine[];
   fileName?: string;
   uploadedAt?: string | null;
@@ -600,6 +603,7 @@ export function buildSubAssemblyFields(input: SubAssemblyFields): Record<string,
   if (input.sapPartNumber !== undefined) out.SapPartNumber = input.sapPartNumber.trim();
   if (input.sortOrder !== undefined) out.SortOrder = input.sortOrder;
   if (input.quantityPerProduct !== undefined) out.QuantityPerProduct = input.quantityPerProduct;
+  if (input.overheadPct !== undefined) out.OverheadPct = input.overheadPct;
   if (input.lines !== undefined) out.Lines = JSON.stringify(input.lines);
   if (input.fileName !== undefined) out.FileName = input.fileName;
   if (input.uploadedAt !== undefined) out.UploadedAt = input.uploadedAt;

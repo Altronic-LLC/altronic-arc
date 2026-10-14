@@ -20,6 +20,7 @@ import {
   summarizePanel,
   tierRanges,
   worksheetCost,
+  overheadFactor,
 } from "./pricingMath";
 
 // =============================================================================
@@ -45,6 +46,7 @@ function sub(over: Partial<SubAssembly> = {}): SubAssembly {
     sapPartNumber: "",
     sortOrder: 0,
     quantityPerProduct: 1,
+    overheadPct: null,
     lines: [line()],
     linesCorrupt: false,
     fileName: "",
@@ -529,5 +531,35 @@ describe("customerPriceBreaks", () => {
       breaks: [{ minQty: 5, price: 90 }],
     });
     expect(customerPriceBreaks(100, [], 150).unitPrice).toBe(100);
+  });
+});
+
+describe("per-row overhead (Ray, 2026-10-13)", () => {
+  it("adds each row's own overhead before its quantity per product; blank is none", () => {
+    const cost = worksheetCost([
+      sub({ name: "A", lines: [line({ uploadedCost: 100 })], quantityPerProduct: 2, overheadPct: 10 }),
+      sub({ id: 2, name: "B", lines: [line({ uploadedCost: 50 })], overheadPct: null }),
+    ]);
+    expect(cost.material.used).toBe(250);
+    // 100 × 1.1 × 2 + 50 = 270
+    expect(cost.unit.used).toBeCloseTo(270);
+    expect(cost.unit.uploaded).toBeCloseTo(270);
+  });
+
+  it("still applies a legacy worksheet-wide overhead on top", () => {
+    const cost = worksheetCost([sub({ lines: [line({ uploadedCost: 100 })], overheadPct: 10 })], 20);
+    expect(cost.unit.used).toBeCloseTo(132);
+  });
+
+  it("refuses a negative row overhead, naming the row", () => {
+    const cost = worksheetCost([sub({ name: "A", overheadPct: -5 })]);
+    expect(cost.unit.used).toBeNull();
+    expect(cost.problems).toContain("A: overhead can't be negative.");
+  });
+
+  it("overheadFactor treats blank and 0 as no overhead", () => {
+    expect(overheadFactor(null)).toBe(1);
+    expect(overheadFactor(0)).toBe(1);
+    expect(overheadFactor(25)).toBe(1.25);
   });
 });

@@ -4316,7 +4316,7 @@ names — **the internal names are the contract** with `lib/pricingMapper.ts`):
 | Pricing Requests | `VITE_SP_PRICING_REQUESTS_LIST_ID` (default `2b0e934b-…`) | Title = `PR-YYYY-####` (unique); the request and its **FINAL price only** | every pricing role |
 | Pricing History | `VITE_SP_PRICING_HISTORY_LIST_ID` (default `a59a40e1-…`) | Title = the same PR number; `RequestRef` lookup; cost, discounts, GM, comparables summary, `History` JSON | **managers and admins only** |
 | New Product Pricing | `VITE_SP_NEW_PRODUCT_PRICING_LIST_ID` (default `1dae4eb5-…`) | Title = `NP-YYYY-####`; overhead, discount, GM, list, `PriceBreaks` JSON, `History` JSON, `Communication`, `Watchers` (`RequestRef` exists, unused) | **managers and admins only** |
-| NP Sub-Assemblies | `VITE_SP_NP_SUBASSEMBLIES_LIST_ID` (**no default**) | `WorksheetRef` lookup + `Rev`; `Kind` (Sub-Assembly / Part), `AltronicPartNumber`, `SapPartNumber`; `Lines` JSON; file name, uploaded at / by; **attachments ON** | **managers and admins only** |
+| NP Sub-Assemblies | `VITE_SP_NP_SUBASSEMBLIES_LIST_ID` (**no default**) | `WorksheetRef` lookup + `Rev`; `Kind` (Sub-Assembly / Part), `AltronicPartNumber`, `SapPartNumber`, `OverheadPct` (optional); `Lines` JSON; file name, uploaded at / by; **attachments ON** | **managers and admins only** |
 | Customer Quotes | `VITE_SP_CUSTOMER_QUOTES_LIST_ID` (**no default**) | Title = `SQ-YYYY-####-R#`; `QuoteBase`, `Rev`, status, validity, `Customer` JSON, `Lines` JSON, notes, comments, watchers | **managers and admins only** |
 
 The first four carry documented defaults — they gate nothing by themselves.
@@ -4496,7 +4496,14 @@ Wiring it is that one file plus flipping `SAP_DATA_CONNECTED`.
   sub-assembly is a fresh row every revision, so a thread on it would split):
   the full house rules, mentions resolved on the Sales site, every write
   gated by `priceGate`.
-- Unit cost = Σ (sub-assembly or part) cost × quantity per product, plus one overhead %,
+- Unit cost = Σ (sub-assembly or part) cost × (1 + ITS overhead %) × quantity
+  per product. **Overhead is per row and optional** (`OverheadPct` on NP
+  Sub-Assemblies, blank = none — Ray, 2026-10-13); it REPLACED the single
+  worksheet-wide overhead. The worksheet's own `OverheadPct` is now written
+  0, and `worksheetCost`'s second argument applies an OLDER save's figure on
+  top (the Excel export passes it); the page warns when a worksheet still
+  carries one. The mock moved its 22% / 15% onto each row, so the demo totals
+  didn't change. The product is
   priced with the same maths as a request — plus a third input a request
   hasn't got: a **customer price** (`PriceInput.kind = "customer"`, Ray,
   2026-10-13). It IS the distributor price, so `list = customer ÷ (1 −

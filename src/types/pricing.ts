@@ -209,6 +209,11 @@ export interface SubAssembly {
   sortOrder: number;
   /** How many of this sub-assembly go into one product. */
   quantityPerProduct: number;
+  /**
+   * Optional overhead on THIS row's cost (Ray, 2026-10-13) — null = none.
+   * It replaced the single worksheet-wide overhead.
+   */
+  overheadPct: number | null;
   lines: SubAssemblyLine[];
   /** The Lines JSON couldn't be read — ARC refuses to write over it. */
   linesCorrupt: boolean;
@@ -233,6 +238,8 @@ export interface PricedBreak extends PriceBreakTier {
 export interface SubAssemblyTotals {
   name: string;
   quantityPerProduct: number;
+  /** The row's own overhead %, when it had one. */
+  overheadPct?: number | null;
   lineCount: number;
   /** Per ONE sub-assembly, at uploaded and at adjusted (used) cost. */
   uploadedCost: number | null;

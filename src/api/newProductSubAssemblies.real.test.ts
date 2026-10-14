@@ -49,7 +49,7 @@ function row(id: number, rev: number, name: string, worksheetId = 3) {
 }
 
 function draft(id: number | null, name: string): SubAssemblyDraft {
-  return { key: `k-${name}`, id, name, kind: "subAssembly", altronicPartNumber: "", sapPartNumber: "", quantityPerProduct: 1, lines: [LINE], fileName: "", uploadedAt: null, uploadedBy: null };
+  return { key: `k-${name}`, id, name, kind: "subAssembly", altronicPartNumber: "", sapPartNumber: "", quantityPerProduct: 1, overheadPct: null, lines: [LINE], fileName: "", uploadedAt: null, uploadedBy: null };
 }
 
 const byMethod = (m: string) => graphFetch.mock.calls.filter(([, init]) => init?.method === m);

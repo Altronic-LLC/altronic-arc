@@ -259,7 +259,10 @@ describe("NewProductPricingDetailView — standalone parts", () => {
     fireEvent.change(within(part).getByLabelText("Base cost for this part"), { target: { value: "10" } });
     fireEvent.change(within(part).getByLabelText("Quantity per product of this part"), { target: { value: "2" } });
 
-    // 2 × $10 more, through 22% overhead: 817.24 + 24.40.
+    // A new row has no overhead until one is typed: 817.24 + 2 × $10.
+    await waitFor(() => expect(figure("Unit cost (used)")).toBe("$837.24"));
+    // Its own optional overhead: 2 × $10 × 1.22 = 24.40.
+    fireEvent.change(within(part).getByLabelText("Overhead % on this part"), { target: { value: "22" } });
     await waitFor(() => expect(figure("Unit cost (used)")).toBe("$841.64"));
     expect(screen.getByText("You have unsaved changes.")).toBeInTheDocument();
   });
@@ -278,8 +281,8 @@ describe("NewProductPricingDetailView — standalone parts", () => {
     expect(within(part).getByText("Base cost").parentElement).toHaveTextContent("$142.00");
     expect(within(part).getByText("SAP")).toBeInTheDocument();
     expect(within(part).queryByLabelText("Base cost for 593027-25")).toBeNull();
-    // $142 through 22% overhead: 817.24 + 173.24.
-    await waitFor(() => expect(figure("Unit cost (used)")).toBe("$990.48"));
+    // $142, no overhead on a new row: 817.24 + 142.
+    await waitFor(() => expect(figure("Unit cost (used)")).toBe("$959.24"));
   });
 
   it("worksheet 2 shows its standalone hand-typed part", async () => {

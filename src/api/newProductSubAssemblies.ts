@@ -72,6 +72,7 @@ export interface SubAssemblyDraft {
   altronicPartNumber: string;
   sapPartNumber: string;
   quantityPerProduct: number;
+  overheadPct: number | null;
   lines: SubAssemblyLine[];
   fileName: string;
   uploadedAt: string | null;
@@ -87,6 +88,7 @@ export function draftFrom(sub: SubAssembly): SubAssemblyDraft {
     altronicPartNumber: sub.altronicPartNumber,
     sapPartNumber: sub.sapPartNumber,
     quantityPerProduct: sub.quantityPerProduct,
+    overheadPct: sub.overheadPct,
     lines: sub.lines.map((l) => ({ ...l })),
     fileName: sub.fileName,
     uploadedAt: sub.uploadedAt,
@@ -116,6 +118,7 @@ export async function saveRevisionRows(
       sapPartNumber: d.sapPartNumber,
       sortOrder: i + 1,
       quantityPerProduct: d.quantityPerProduct,
+      overheadPct: d.overheadPct,
       lines: d.lines,
       fileName: d.fileName,
       uploadedAt: d.uploadedAt,
@@ -135,6 +138,7 @@ export async function saveRevisionRows(
           sapPartNumber: d.sapPartNumber.trim(),
           sortOrder: i + 1,
           quantityPerProduct: d.quantityPerProduct,
+      overheadPct: d.overheadPct,
           lines: d.lines.map((l) => ({ ...l })),
           fileName: d.fileName,
           uploadedAt: d.uploadedAt,
@@ -154,6 +158,7 @@ export async function saveRevisionRows(
         sapPartNumber: d.sapPartNumber.trim(),
         sortOrder: i + 1,
         quantityPerProduct: d.quantityPerProduct,
+      overheadPct: d.overheadPct,
         lines: d.lines.map((l) => ({ ...l })),
         linesCorrupt: false,
         fileName: d.fileName,

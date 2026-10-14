@@ -324,6 +324,9 @@ $Lists = @(
             (Text "SapPartNumber" "SAP Part #"),
             (Number "SortOrder" "Sort Order" "none"),
             (Number "QuantityPerProduct" "Qty per Product" "automatic" 1),
+            # Optional overhead % on this row's cost — blank = none (Ray,
+            # 2026-10-13). It replaced the worksheet-wide OverheadPct.
+            (Number "OverheadPct" "Overhead %"),
             # JSON: [{ partNumber, description, quantity, uploadedCost, adjustedCost }].
             # The uploaded cost is the sheet's and is never changed by ARC.
             (Note "Lines" "Lines"),
