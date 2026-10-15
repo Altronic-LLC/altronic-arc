@@ -700,8 +700,20 @@ function RevisionHistory({ ws, viewRev, onView }: { ws: NewProductWorksheet; vie
                 )}
               >
                 <span className="font-semibold text-fg">R{h.rev}</span>
-                <span className="ml-2 tabular-nums text-fg">{formatMoney(h.listPrice)}</span>
-                <span className="ml-2 text-xs text-fg-muted">{formatPct(h.baseGM)} GM</span>
+                {h.listPrice !== null ? (
+                  <>
+                    <span className="ml-2 tabular-nums text-fg">{formatMoney(h.listPrice)}</span>
+                    <span className="ml-2 text-xs text-fg-muted">{formatPct(h.baseGM)} GM</span>
+                  </>
+                ) : (
+                  // A revision that priced only its rows says so, not "— — GM".
+                  <span className="ml-2 text-xs text-fg-muted">
+                    {(() => {
+                      const n = h.subAssemblies.filter((s) => s.sellingPrice).length;
+                      return n ? `${n} part${n === 1 ? "" : "s"} priced separately` : "not priced";
+                    })()}
+                  </span>
+                )}
                 <span className="block text-[11px] text-fg-muted">
                   {h.savedBy.displayName} · {new Date(h.savedAt).toLocaleDateString()}
                 </span>

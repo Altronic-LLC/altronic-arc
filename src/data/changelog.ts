@@ -43,6 +43,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "A sub-assembly or part on a New Product worksheet can be sold separately, with its own price, distributor discount and quantity breaks",
       "Customer Quotes can add a separately priced sub-assembly as its own line, pinned to the revision",
       "New Product worksheets keep an SAP comparison — existing SAP parts with their list price, cost and base GM, as a pricing reference",
+      "A worksheet revision that prices only its parts says how many in the revision list, instead of a blank price",
       "Worksheets have quantity breaks and revisions — save over the current revision or save a new one, compare with SAP once the product exists, and export to Excel",
       "Customer Quotes: build a quote from new-product worksheets, SAP parts, priced requests and extra lines, at the distributor price for each quantity break, and download the customer PDF",
       "Quote lines show their SAP part number and take an optional customer part number, both on the PDF; edit a draft quote's customer, contact and validity from the Customer card",

@@ -73,8 +73,9 @@ describe("CustomerQuoteDetailView", () => {
   it("adds an Other line to a DRAFT quote and updates the total", async () => {
     renderQuote(2);
     await waitForQuote("SQ-2026-0002-R1");
-    // 40 × $3,296.
-    expect(totalCell()).toContain("$131,840.00");
+    // 40 × $3,296, plus the Main board on its own: 12 at the 10+ price of $473.60.
+    expect(totalCell()).toContain("$137,523.20");
+    expect(within(linesTable()).getByText("sub-assembly")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: /Add line/ }));
     const dialog = screen.getByRole("dialog", { name: "Add a quote line" });
@@ -89,7 +90,7 @@ describe("CustomerQuoteDetailView", () => {
     await waitFor(() => expect(within(linesTable()).getByText("Commissioning visit")).toBeInTheDocument(), {
       timeout: 10_000,
     });
-    expect(totalCell()).toContain("$131,940.00");
+    expect(totalCell()).toContain("$137,623.20");
   });
 
   it("offers Update to R2 on a worksheet line pinned to R1 — once the quote is a Draft", async () => {
