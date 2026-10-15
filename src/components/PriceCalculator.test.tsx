@@ -109,6 +109,45 @@ describe("PriceCalculatorDialog", () => {
     expect(dialog.getByLabelText("COGS")).toHaveValue(12);
   });
 
+  it("brings in SAP's current cost (and the description) for an SAP part number", async () => {
+    const dialog = await open();
+    await userEvent.type(dialog.getByLabelText("SAP part number"), "2001031015");
+    expect(dialog.getByLabelText("SAP part number")).toHaveValue("2001-0310-15");
+    await userEvent.click(dialog.getByRole("button", { name: "Look up" }));
+
+    await waitFor(() => expect(dialog.getByLabelText("COGS")).toHaveValue(120));
+    expect(dialog.getByLabelText("Description")).toHaveValue("HARNESS, CPU-95, 15 FT");
+    expect(dialog.getByText("From SAP — current cost.")).toBeInTheDocument();
+    // Typing over it is the user's call — the hint stops claiming SAP.
+    await userEvent.clear(dialog.getByLabelText("COGS"));
+    await userEvent.type(dialog.getByLabelText("COGS"), "125");
+    expect(dialog.getByText("Cost of one.")).toBeInTheDocument();
+  });
+
+  it("says when SAP hasn't got the part, or has no cost for it — and leaves the cost alone", async () => {
+    const dialog = await open();
+    await userEvent.type(dialog.getByLabelText("COGS"), "50");
+    await userEvent.type(dialog.getByLabelText("SAP part number"), "9999000000{Enter}");
+    expect(await dialog.findByText("SAP doesn't have 9999-0000-00.")).toBeInTheDocument();
+    expect(dialog.getByLabelText("COGS")).toHaveValue(50);
+
+    await userEvent.clear(dialog.getByLabelText("SAP part number"));
+    await userEvent.type(dialog.getByLabelText("SAP part number"), "1003011518{Enter}");
+    expect(await dialog.findByText("SAP has no cost for 1003-0115-18 — type it.")).toBeInTheDocument();
+    expect(dialog.getByLabelText("COGS")).toHaveValue(50);
+  });
+
+  it("names the SAP part in the copied results", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    const dialog = await open();
+    await userEvent.type(dialog.getByLabelText("SAP part number"), "2001031015{Enter}");
+    await waitFor(() => expect(dialog.getByLabelText("COGS")).toHaveValue(120));
+    await userEvent.type(dialog.getByLabelText("GM wanted"), "50");
+    await userEvent.click(dialog.getByRole("button", { name: /Copy results/ }));
+    expect(writeText.mock.calls[0][0]).toContain("SAP part #: 2001-0310-15");
+  });
+
   it("closes on Escape", async () => {
     await open();
     await userEvent.keyboard("{Escape}");

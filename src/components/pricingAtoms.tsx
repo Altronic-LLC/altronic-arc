@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 import { Calculator, Lock } from "lucide-react";
 import type { PricingRequestStatus } from "@/types/pricing";
@@ -6,6 +5,9 @@ import { accessPricingGate, managePricingRolesGate } from "@/lib/pricingRoles";
 import { useMyPricingAccess, type MyPricingAccess } from "@/hooks/usePricingRoles";
 import { LoadingTasks } from "./LoadingTasks";
 import { cn } from "@/lib/cn";
+import { PriceCalculatorButton } from "./PriceCalculator";
+
+export { COST_PANEL, FieldColumn, FieldLabel, PRICE_PANEL, REFERENCE_PANEL } from "./pricingFields";
 
 // =============================================================================
 // Sales Pricing — the small shared pieces every pricing screen uses: the
@@ -40,30 +42,37 @@ export function PricingStatusChip({ status }: { status: PricingRequestStatus }) 
  */
 export function PricingNav() {
   const access = useMyPricingAccess();
+  if (!access.rights.canAccess) return null;
   const tabs = [
     { to: "/sales/pricing", label: "Requests", end: true, show: access.rights.canAccess },
     { to: "/sales/pricing/new-products", label: "New Products", end: false, show: access.rights.canPrice },
     { to: "/sales/pricing/quotes", label: "Customer Quotes", end: false, show: access.rights.canPrice },
     { to: "/sales/pricing/roles", label: "Roles", end: false, show: managePricingRolesGate(access).allowed },
   ].filter((t) => t.show);
-  if (tabs.length <= 1) return null;
   return (
-    <nav aria-label="Sales pricing" className="inline-flex flex-wrap gap-1 rounded-lg border border-border bg-surface p-1">
-      {tabs.map((t) => (
-        <NavLink
-          key={t.to}
-          to={t.to}
-          end={t.end}
-          className={({ isActive }) =>
-            cn(
-              "rounded-md px-3 py-1.5 text-xs font-semibold transition-colors",
-              isActive ? "bg-accent text-white shadow-sm" : "text-fg-muted hover:bg-surface-2 hover:text-fg",
-            )
-          }
-        >
-          {t.label}
-        </NavLink>
-      ))}
+    <nav aria-label="Sales pricing" className="flex flex-wrap items-center gap-1 rounded-lg border border-border bg-surface p-1">
+      {/* A requester has only Requests — no tabs to switch between, but the
+          bar stays for the calculator. */}
+      {tabs.length > 1 &&
+        tabs.map((t) => (
+          <NavLink
+            key={t.to}
+            to={t.to}
+            end={t.end}
+            className={({ isActive }) =>
+              cn(
+                "rounded-md px-3 py-1.5 text-xs font-semibold transition-colors",
+                isActive ? "bg-accent text-white shadow-sm" : "text-fg-muted hover:bg-surface-2 hover:text-fg",
+              )
+            }
+          >
+            {t.label}
+          </NavLink>
+        ))}
+      {/* The quick price calculator lives HERE, in the Pricing tool only (Ray, 2026-10-15). */}
+      <span className="ml-auto">
+        <PriceCalculatorButton />
+      </span>
     </nav>
   );
 }
@@ -209,13 +218,6 @@ const CARD_TONE: Record<PricingTone, string> = {
   reference: "border-l-4 border-l-superior-blue bg-superior-blue/[0.03]",
 };
 
-/** A block of SELLING figures — list, customer price, GM. */
-export const PRICE_PANEL = "rounded-lg border border-cooper-green/40 bg-cooper-green/10";
-/** A block of COST figures — the working-out, deliberately plain. */
-export const COST_PANEL = "rounded-lg border border-border bg-surface-2/60";
-/** A block of REFERENCE figures — what SAP or comparable parts say. */
-export const REFERENCE_PANEL = "rounded-lg border border-superior-blue/30 bg-superior-blue/10";
-
 export function PricingCard({
   title,
   action,
@@ -297,22 +299,4 @@ export function ActionButton({
       {children}
     </button>
   );
-}
-
-// Every field in the price row shares one grid: a label row, a control row
-// and a hint row, each a FIXED height. That is what makes the boxes line up
-// whatever sits in the label row (a plain label, or the Target GM / List
-// price toggle) and whatever the control is (an input, or Yes / No pills).
-export function FieldColumn({ header, hint, children }: { header: ReactNode; hint?: string; children: ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1 text-xs">
-      <div className="flex h-6 items-end">{header}</div>
-      <div className="flex h-9 items-center gap-1">{children}</div>
-      {hint && <span className="max-w-[16rem] text-[11px] text-fg-muted">{hint}</span>}
-    </div>
-  );
-}
-
-export function FieldLabel({ children }: { children: ReactNode }) {
-  return <span className="font-semibold uppercase tracking-wider text-fg-muted">{children}</span>;
 }

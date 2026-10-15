@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GM_LADDER_STEPS, calculate, gmLadder, resultsText } from "./priceCalculator";
+import { calculate, gmLadder, resultsText } from "./priceCalculator";
 
 describe("calculate", () => {
   it("prices from a target GM: cost ÷ (1 − GM), to the cent", () => {
@@ -31,28 +31,42 @@ describe("calculate", () => {
   });
 });
 
-describe("gmLadder", () => {
-  it("steps the GM 10 points down and 20 up, in 5s, with the result in the middle", () => {
+describe("gmLadder — round GM steps", () => {
+  it("steps in round 5s, 10 points below to 20 above, with the result as its row", () => {
     const result = calculate({ cogs: 12, mode: "gm", gm: 40, price: null });
     const rows = gmLadder(12, 40, result);
-    expect(rows.map((r) => r.step)).toEqual([...GM_LADDER_STEPS]);
+    expect(rows.map((r) => Math.round(r.gm))).toEqual([30, 35, 40, 45, 50, 55, 60]);
     expect(rows.map((r) => r.price)).toEqual([17.14, 18.46, 20, 21.82, 24, 26.67, 30]);
     expect(rows.filter((r) => r.current).map((r) => r.price)).toEqual([20]);
   });
 
-  it("centres on a typed price's GM and keeps that row exactly the price typed", () => {
-    const result = calculate({ cogs: 15, mode: "price", gm: null, price: 24.99 });
-    const rows = gmLadder(15, result.gm!, result);
-    const current = rows.find((r) => r.current)!;
-    expect(current.price).toBe(24.99);
-    expect(rows[0].gm).toBeCloseTo(current.gm - 10, 0);
+  it("rounds an odd GM to the nearest 5 and slots the result in between", () => {
+    const result = calculate({ cogs: 12, mode: "gm", gm: 37, price: null });
+    const rows = gmLadder(12, 37, result);
+    expect(rows.filter((r) => !r.current).map((r) => r.gm)).toEqual([25, 30, 35, 40, 45, 50, 55]);
+    const at = rows.findIndex((r) => r.current);
+    expect(rows[at - 1].gm).toBe(35);
+    expect(rows[at + 1].gm).toBe(40);
+    expect(rows[at].price).toBe(result.price);
+  });
+
+  it("keeps a typed price exactly as typed, matching a round row when its GM is one", () => {
+    const round = calculate({ cogs: 15, mode: "price", gm: null, price: 25 }); // 40.0%
+    const rows = gmLadder(15, round.gm!, round);
+    expect(rows).toHaveLength(7);
+    expect(rows.find((r) => r.current)!.price).toBe(25);
+
+    const odd = calculate({ cogs: 15, mode: "price", gm: null, price: 24.99 }); // 39.98%
+    const oddRows = gmLadder(15, odd.gm!, odd);
+    expect(oddRows.find((r) => r.current)!.price).toBe(24.99);
+    expect(oddRows.filter((r) => !r.current).every((r) => r.gm % 5 === 0)).toBe(true);
   });
 
   it("leaves out steps at or below 0% and at or above 100%", () => {
     const low = calculate({ cogs: 10, mode: "gm", gm: 5, price: null });
-    expect(gmLadder(10, 5, low).map((r) => r.step)).toEqual([0, 5, 10, 15, 20]);
+    expect(gmLadder(10, 5, low).map((r) => Math.round(r.gm))).toEqual([5, 10, 15, 20, 25]);
     const high = calculate({ cogs: 10, mode: "gm", gm: 90, price: null });
-    expect(gmLadder(10, 90, high).map((r) => r.step)).toEqual([-10, -5, 0, 5]);
+    expect(gmLadder(10, 90, high).map((r) => Math.round(r.gm))).toEqual([80, 85, 90, 95]);
   });
 
   it("is empty when there's no price, or no cost to price from", () => {

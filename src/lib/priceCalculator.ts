@@ -10,8 +10,9 @@ import { formatMoney, formatPct } from "./quoteMoney";
 //   here — this is the price the customer pays, nothing worked back.
 // * GM is (price − cost) ÷ price, always measured on the price as ROUNDED, so
 //   the margin shown is the margin that price really earns.
-// * The ladder steps the GM in 5-point increments, 10 below to 20 above. A
-//   step at or below 0%, or at or above 100%, isn't a price and is left out.
+// * The ladder is at ROUND GMs — multiples of 5 — from the one nearest the
+//   result, 10 below to 20 above, with the result slotted in if it falls
+//   between. A step at or below 0%, or at or above 100%, is left out.
 // =============================================================================
 
 export type CalcMode = "gm" | "price";
@@ -28,7 +29,7 @@ export interface CalcResult {
 }
 
 export interface LadderRow {
-  /** Points from the GM worked out: −10 … +20. */
+  /** Points from the round GM nearest the result: −10 … +20 (the result's own row, if between, its offset). */
   step: number;
   gm: number;
   price: number;
@@ -70,23 +71,38 @@ export function calculate(input: { cogs: number | null; mode: CalcMode; gm: numb
 }
 
 /**
- * The prices either side of a result, at 5-point GM steps. The ladder is
- * centred on the GM as typed in "gm" mode, or on the result's GM (to one
- * decimal) when the price was typed — so a typed $20 on a $12 cost (40.0%)
- * ladders 30 / 35 / 40 / 45 … and its own row is exactly the price typed.
+ * Prices at ROUND GM steps — multiples of 5 (Ray, 2026-10-15: "rounded to 5,
+ * like 5, 10, 15%"). The ladder runs from the multiple of 5 nearest the
+ * result, 10 points below to 20 above, so 37% ladders 25 … 55.
+ *
+ * The result itself is always a row, marked `current`: when its GM is a
+ * multiple of 5 it IS that row (a typed price shown exactly as typed);
+ * otherwise it's slotted in, in order, between the round steps either side.
  */
-export function gmLadder(cogs: number, centreGm: number, result: CalcResult): LadderRow[] {
-  if (!finite(cogs) || cogs <= 0 || !finite(centreGm) || result.price === null) return [];
-  const centre = Math.round(centreGm * 10) / 10;
+export function gmLadder(cogs: number, resultGm: number, result: CalcResult): LadderRow[] {
+  if (!finite(cogs) || cogs <= 0 || !finite(resultGm) || result.price === null) return [];
+  const base = Math.round(resultGm / 5) * 5;
+  const matches = (gm: number) => Math.abs(gm - resultGm) < 0.05;
+  const own: LadderRow = {
+    step: Math.round((resultGm - base) * 10) / 10,
+    gm: result.gm ?? resultGm,
+    price: result.price,
+    profit: roundCents(result.price - cogs),
+    current: true,
+  };
   const rows: LadderRow[] = [];
   for (const step of GM_LADDER_STEPS) {
-    const gm = Math.round((centre + step) * 10) / 10;
+    const gm = base + step;
     if (gm <= 0 || gm >= 100) continue;
-    // The centre row is the result itself, so a typed price is shown as typed.
-    const price = step === 0 ? result.price : priceForGm(cogs, gm);
-    rows.push({ step, gm: step === 0 ? result.gm ?? gm : marginPct(price, cogs), price, profit: roundCents(price - cogs), current: step === 0 });
+    if (matches(gm)) {
+      rows.push({ ...own, step });
+      continue;
+    }
+    const price = priceForGm(cogs, gm);
+    rows.push({ step, gm, price, profit: roundCents(price - cogs), current: false });
   }
-  return rows;
+  if (!rows.some((r) => r.current)) rows.push(own);
+  return rows.sort((a, b) => a.gm - b.gm);
 }
 
 /**
@@ -95,6 +111,8 @@ export function gmLadder(cogs: number, centreGm: number, result: CalcResult): La
  */
 export function resultsText(args: {
   description: string;
+  /** The SAP part looked up, if any — named under the heading. */
+  sapPartNumber?: string;
   cogs: number;
   mode: CalcMode;
   result: CalcResult;
@@ -103,6 +121,7 @@ export function resultsText(args: {
   const { result } = args;
   const lines = [
     `Price calculator${args.description.trim() ? ` — ${args.description.trim()}` : ""}`,
+    ...(args.sapPartNumber ? [`SAP part #: ${args.sapPartNumber}`] : []),
     `COGS: ${formatMoney(args.cogs)}`,
     args.mode === "gm" ? `Target GM: ${formatPct(result.gm)}` : `Price entered: ${formatMoney(result.price)}`,
     `Customer price: ${formatMoney(result.price)} (GM ${formatPct(result.gm)}, profit ${formatMoney(result.profit)})`,

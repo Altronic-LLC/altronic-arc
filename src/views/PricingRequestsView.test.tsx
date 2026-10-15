@@ -52,6 +52,14 @@ describe("PricingRequestsView", () => {
     expect(screen.getAllByText("PR-2026-0005").length).toBeGreaterThan(0);
   });
 
+  it("puts the Calculator on the Pricing bar — even for a requester, who has no other tabs", async () => {
+    who.email = REQUESTER;
+    renderWithProviders(<PricingRequestsView />, { route: "/sales/pricing" });
+    const bar = await screen.findByRole("navigation", { name: "Sales pricing" });
+    expect(within(bar).getByRole("button", { name: "Price calculator" })).toBeInTheDocument();
+    expect(within(bar).queryByRole("link", { name: "New Products" })).toBeNull();
+  });
+
   it("refuses somebody with no pricing role", async () => {
     who.email = NOBODY;
     renderWithProviders(<PricingRequestsView />, { route: "/sales/pricing" });

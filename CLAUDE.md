@@ -577,7 +577,7 @@ src/
 │   ├── quotePdfModel.ts          Record → QuotePdfModel, the customer-facing shape that CANNOT carry cost or margin
 │   ├── quotePdf.ts               QuotePdfModel → real-text PDF (jsPDF + AutoTable, dynamically imported)
 │   ├── quoteMapper.ts            Graph item ⇄ all five quote lists; field builders, PriceBreaks JSON, unique-value refusal
-│   ├── priceCalculator.ts        The header's quick price calculator (pure) — customer price from COGS + GM or a manual price, the ±GM ladder, copy text
+│   ├── priceCalculator.ts        The Pricing tool's quick calculator (pure) — customer price from COGS + GM or a manual price, the round-5 GM ladder, copy text
 │   ├── pricingMath.ts            Sales Pricing maths (pure) — list from target GM ÷ distributor discount (whole dollar), base GM, customer price, comparables, BOM cost, breaks
 │   ├── pricingRoles.ts           Pricing role → rights + every gate + previewAllows (pure) — no role = no access
 │   ├── pricingHistory.ts         The two JSON History columns — parse (corrupt is never overwritten), append / keyed-by-rev (pure)
@@ -711,7 +711,8 @@ src/
 │   ├── PricingWorkbench.tsx          The manager's pricing panel — cost, discounts, target GM or list, result, MPG + family comparables (cost-gated)
 │   ├── SapCustomerPicker.tsx         Pick a customer from SAP (sold-to, name, group); typed while SAP data isn't connected
 │   ├── NewWorksheetFormModal.tsx     Start a New Product Pricing worksheet (never from a request)
-│   ├── PriceCalculator.tsx           Header button + dialog: quick customer price, ±GM ladder, Copy results — every pricing role, nothing saved
+│   ├── PriceCalculator.tsx           The Pricing bar's Calculator + dialog: SAP cost lookup, quick customer price, round-5 GM ladder, Copy results — every pricing role, nothing saved
+│   ├── pricingFields.tsx             Pricing's field grid (FieldColumn / FieldLabel) + colour panels — own file so PriceCalculator avoids a cycle; re-exported by pricingAtoms
 │   ├── RowSellingPrice.tsx           A worksheet row's OWN selling price — "Sell separately", target GM / list / customer, discount override, its own breaks (edits the DRAFT)
 │   ├── SapComparisonCard.tsx         A worksheet's SAP comparison — reference SAP parts, list / cost / base GM re-read from SAP, saved straight away
 │   ├── SubAssemblyCard.tsx           A worksheet sub-assembly (CSV and/or hand-added components) or standalone part (SAP or manual) — Altronic + SAP #, base vs adjusted cost, files (edits the DRAFT)
@@ -4429,18 +4430,31 @@ Awaiting SAP → Submitted → In Review → Priced       (and Cancelled)
   (`commentNotifyRecipients`, mention → watcher on Post, resolved on the
   **Sales** site). Any role can download a **customer price confirmation
   PDF** of a PRICED request.
-- **The quick price calculator** (Ray, 2026-10-15) — a calculator button in
-  BOTH header clusters for every pricing role (`components/PriceCalculator.tsx`,
-  maths in `lib/priceCalculator.ts`). No back end: a description, COGS, then
-  a GM wanted OR a manual price; it shows the CUSTOMER price (`cost ÷ (1 −
-  GM)`, to the cent — **no list price**), the GM and profit, and a ladder at
-  5-point GM steps from 10 below to 20 above (steps at ≤0% or ≥100% dropped).
-  The GM shown is what the ROUNDED price earns; a manual price's own row is
-  exactly the price typed. **Copy results** writes plain text with
-  TAB-separated columns, so it pastes into email, Teams or Excel. What was
-  typed survives closing and reopening in the same page session (module
-  state — tests call `__resetPriceCalculatorSession`); nothing is stored
-  anywhere. Hidden from anyone without Pricing access, like the menu entry.
+- **The quick price calculator** (Ray, 2026-10-15) — a **Calculator** button
+  on the PRICING BAR (`PricingNav`), so it lives in the Pricing tool only —
+  it was in the top bar for an hour and Ray moved it. Every pricing role gets
+  it, so the bar now shows for a requester too (who has no other tab). Pieces:
+  `components/PriceCalculator.tsx`, maths in `lib/priceCalculator.ts`.
+  - **No back end**: a description, COGS, then a GM wanted OR a manual price.
+    It shows the CUSTOMER price (`cost ÷ (1 − GM)`, to the cent — **no list
+    price**), the GM and profit. The GM shown is what the ROUNDED price earns.
+  - **The ladder is at ROUND GMs — multiples of 5** (Ray: "rounded to 5, like
+    5, 10, 15%"): from the multiple of 5 nearest the result, 10 below to 20
+    above, steps at ≤0% or ≥100% dropped. The result is always its own row:
+    it IS the round row when its GM is one, otherwise it's slotted in between.
+  - **SAP part #** + Look up brings in SAP's CURRENT cost as COGS (and the
+    description when blank) through `useSapPart` — applied once per lookup,
+    so typing over it sticks, and the COGS hint says "From SAP" only while
+    the box still holds SAP's figure. Not found / no cost / not connected /
+    unreachable each say so and leave the cost alone.
+  - **Copy results** writes plain text with TAB-separated columns (and the
+    SAP # when one was looked up), so it pastes into email, Teams or Excel.
+  - What was typed survives closing and reopening in the same page session
+    (module state — tests call `__resetPriceCalculatorSession`); nothing is
+    stored anywhere.
+  - **`pricingFields.tsx` exists to break an import cycle**: `pricingAtoms`
+    renders the calculator in the bar, and the calculator needs the field
+    grid, so the grid and panels moved out; `pricingAtoms` re-exports them.
 - **A worksheet is never started from a request** (Ray, 2026-10-13) — the
   button was built and removed; `RequestRef` on New Product Pricing is unused.
 

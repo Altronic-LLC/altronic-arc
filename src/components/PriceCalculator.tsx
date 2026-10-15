@@ -1,19 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Calculator, Check, Copy, X } from "lucide-react";
+import { Calculator, Check, Copy, Loader2, Search, X } from "lucide-react";
 import { useMyPricingAccess } from "@/hooks/usePricingRoles";
+import { useSapPart } from "@/hooks/usePricingLookup";
+import { formatSapPartNumber } from "@/lib/sapPartNumber";
 import { calculate, gmLadder, resultsText, type CalcMode } from "@/lib/priceCalculator";
 import { formatMoney, formatPct } from "@/lib/quoteMoney";
-import { FieldColumn, FieldLabel, PRICE_PANEL } from "./pricingAtoms";
+import { FieldColumn, FieldLabel, PRICE_PANEL } from "./pricingFields";
 import { pushToast } from "./Toast";
 import { useOverlayDismiss } from "./useOverlayDismiss";
 import { cn } from "@/lib/cn";
 
 // =============================================================================
-// The quick price calculator (Ray, 2026-10-15) — a header button for everyone
-// with Pricing access (requester, manager or admin). A scratch pad: a
+// The quick price calculator (Ray, 2026-10-15) — a Calculator button on the
+// Pricing bar, so it's found in the Pricing tool and nowhere else, for every
+// pricing role (requester, manager or admin). A scratch pad: a
 // description, the cost, then a target GM or a price, and it shows the
-// CUSTOMER price (no list price) with a ladder of prices from 10 GM points
-// below to 20 above. Copy puts it all on the clipboard. Nothing is saved — the
+// CUSTOMER price (no list price) with a ladder of prices at ROUND GMs (5, 10,
+// 15 … — from 10 points below the result to 20 above). Copy puts it all on the clipboard. Nothing is saved — the
 // figures live only while the dialog is open (kept if it's closed and
 // reopened in the same session, so a quick look elsewhere loses nothing).
 // The maths is `lib/priceCalculator.ts`.
@@ -21,8 +24,8 @@ import { cn } from "@/lib/cn";
 
 const asNumber = (raw: string): number | null => (raw.trim() === "" ? null : Number(raw));
 
-/** The header button — renders nothing without Pricing access. */
-export function PriceCalculatorButton({ compact = false }: { compact?: boolean }) {
+/** The Pricing bar's Calculator button — renders nothing without Pricing access. */
+export function PriceCalculatorButton() {
   const { rights } = useMyPricingAccess();
   const [open, setOpen] = useState(false);
   if (!rights.canAccess) return null;
@@ -33,13 +36,10 @@ export function PriceCalculatorButton({ compact = false }: { compact?: boolean }
         onClick={() => setOpen(true)}
         title="Price calculator"
         aria-label="Price calculator"
-        className={cn(
-          "flex items-center gap-1.5 rounded-md border border-border text-xs font-medium text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg",
-          compact ? "h-8 w-8 shrink-0 justify-center" : "h-9 px-2.5",
-        )}
+        className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
       >
-        <Calculator className="h-4 w-4" />
-        {!compact && <span className="hidden whitespace-nowrap 2xl:inline">Calculator</span>}
+        <Calculator className="h-3.5 w-3.5" />
+        Calculator
       </button>
       {open && <PriceCalculatorDialog onClose={() => setOpen(false)} />}
     </>
@@ -47,14 +47,17 @@ export function PriceCalculatorButton({ compact = false }: { compact?: boolean }
 }
 
 // Kept for the session so closing and reopening doesn't lose what was typed.
-const session = { description: "", cogs: "", mode: "gm" as CalcMode, value: "" };
+const session = { sap: "", description: "", cogs: "", mode: "gm" as CalcMode, value: "" };
 
 /** Tests only — the session store is module state, so each test starts clean. */
 export function __resetPriceCalculatorSession() {
-  Object.assign(session, { description: "", cogs: "", mode: "gm", value: "" });
+  Object.assign(session, { sap: "", description: "", cogs: "", mode: "gm", value: "" });
 }
 
 export function PriceCalculatorDialog({ onClose }: { onClose: () => void }) {
+  const [sap, setSap] = useState(session.sap);
+  // The SAP number last LOOKED UP — the lookup runs on demand, not per keystroke.
+  const [lookedUp, setLookedUp] = useState("");
   const [description, setDescription] = useState(session.description);
   const [cogs, setCogs] = useState(session.cogs);
   const [mode, setMode] = useState<CalcMode>(session.mode);
@@ -64,8 +67,33 @@ export function PriceCalculatorDialog({ onClose }: { onClose: () => void }) {
   const first = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    Object.assign(session, { description, cogs, mode, value });
-  }, [description, cogs, mode, value]);
+    Object.assign(session, { sap, description, cogs, mode, value });
+  }, [sap, description, cogs, mode, value]);
+
+  // SAP's current cost for a part number (Ray, 2026-10-15) — fills COGS, and
+  // the description when it's blank. Applied ONCE per lookup, so typing over
+  // the cost afterwards sticks. Real mode answers "not connected" until the
+  // Fabric connection is wired, and the dialog says so.
+  const sapPart = useSapPart({ altronicPartNumber: "", sapPartNumber: lookedUp }, lookedUp !== "");
+  const [sapCost, setSapCost] = useState<number | null>(null);
+  const applied = useRef("");
+  useEffect(() => {
+    const part = sapPart.data;
+    if (!lookedUp || !part || applied.current === lookedUp) return;
+    applied.current = lookedUp;
+    if (part.cost !== null) {
+      setCogs(String(part.cost));
+      setSapCost(part.cost);
+    }
+    setDescription((d) => (d.trim() ? d : part.description));
+  }, [sapPart.data, lookedUp]);
+
+  function lookUp() {
+    const pn = sap.trim();
+    if (!pn) return;
+    applied.current = "";
+    setLookedUp(pn);
+  }
 
   useEffect(() => {
     first.current?.focus();
@@ -90,7 +118,7 @@ export function PriceCalculatorDialog({ onClose }: { onClose: () => void }) {
 
   async function copy() {
     if (result.price === null || cost === null) return;
-    const text = resultsText({ description, cogs: cost, mode, result, ladder });
+    const text = resultsText({ description, sapPartNumber: lookedUp && sapPart.data ? lookedUp : "", cogs: cost, mode, result, ladder });
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
@@ -100,7 +128,20 @@ export function PriceCalculatorDialog({ onClose }: { onClose: () => void }) {
     }
   }
 
+  function sapHint(): string {
+    if (!lookedUp) return "Enter it and press Look up.";
+    if (sapPart.isFetching) return "Looking it up in SAP…";
+    if (sapPart.notConnected) return "SAP data isn't connected to ARC yet — type the cost.";
+    if (sapPart.isError) return "Couldn't reach SAP just now — type the cost, or try again.";
+    if (sapPart.data === null) return `SAP doesn't have ${lookedUp}.`;
+    if (sapPart.data && sapPart.data.cost === null) return `SAP has no cost for ${lookedUp} — type it.`;
+    return sapPart.data ? `${sapPart.data.description} — cost brought in.` : "";
+  }
+
   function clear() {
+    setSap("");
+    setLookedUp("");
+    setSapCost(null);
     setDescription("");
     setCogs("");
     setValue("");
@@ -126,10 +167,37 @@ export function PriceCalculatorDialog({ onClose }: { onClose: () => void }) {
         </div>
         <p className="mb-4 text-xs text-fg-muted">A quick customer price from cost and margin. Nothing is saved.</p>
 
+        <div className="mb-3">
+          <FieldColumn header={<FieldLabel>SAP part #</FieldLabel>} hint={sapHint()}>
+            <input
+              ref={first}
+              aria-label="SAP part number"
+              value={sap}
+              onChange={(e) => setSap(formatSapPartNumber(e.target.value))}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  lookUp();
+                }
+              }}
+              placeholder="Optional — brings in SAP's cost"
+              className="input !h-9 !w-56 font-mono text-sm"
+            />
+            <button
+              type="button"
+              onClick={lookUp}
+              disabled={!sap.trim() || sapPart.isFetching}
+              className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border bg-surface px-3 text-sm font-medium text-fg hover:bg-surface-2 disabled:opacity-50"
+            >
+              {sapPart.isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+              Look up
+            </button>
+          </FieldColumn>
+        </div>
+
         <label className="flex flex-col gap-1 text-xs">
           <FieldLabel>Description</FieldLabel>
           <input
-            ref={first}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Optional — what you're pricing"
@@ -138,7 +206,7 @@ export function PriceCalculatorDialog({ onClose }: { onClose: () => void }) {
         </label>
 
         <div className="mt-3 flex flex-wrap items-start gap-x-6 gap-y-3">
-          <FieldColumn header={<FieldLabel>COGS</FieldLabel>} hint="Cost of one.">
+          <FieldColumn header={<FieldLabel>COGS</FieldLabel>} hint={sapCost !== null && asNumber(cogs) === sapCost ? "From SAP — current cost." : "Cost of one."}>
             <span className="text-fg-muted">$</span>
             <input
               type="number"
@@ -207,15 +275,13 @@ export function PriceCalculatorDialog({ onClose }: { onClose: () => void }) {
             <tbody>
               {ladder.map((r) => (
                 <tr
-                  key={r.step}
+                  key={r.current ? "current" : r.gm}
                   aria-current={r.current || undefined}
                   className={cn("border-t border-border", r.current && "bg-cooper-green/10 font-semibold")}
                 >
                   <td className="px-2 py-1 tabular-nums">
                     {formatPct(r.gm)}
-                    <span className="ml-2 text-[11px] font-normal text-fg-muted">
-                      {r.step === 0 ? "this price" : `${r.step > 0 ? "+" : "−"}${Math.abs(r.step)} pts`}
-                    </span>
+                    {r.current && <span className="ml-2 text-[11px] font-normal text-fg-muted">this price</span>}
                   </td>
                   <td className="px-2 py-1 text-right tabular-nums">{formatMoney(r.price)}</td>
                   <td className="px-2 py-1 text-right tabular-nums">{formatMoney(r.profit)}</td>
