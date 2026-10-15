@@ -8008,6 +8008,25 @@ looked at. Three things it had to learn:
   fixed port collides with the previous run's Chrome still shutting down.
 - **The theme is `localStorage["aets-theme"]`**, set before the app renders.
   Check light AND dark — native controls and tinted panels differ between them.
+- **`SHOT_WIDTH=768 node scripts/…`** checks another window width, and every
+  run reports when the PAGE scrolls sideways ("WARNING: the page scrolls
+  sideways by 55px") — the house rule a screenshot of one element can't show.
+  Sweep a few widths (640, 768, 1024, 1300, 1600) after a layout change.
+
+### The header fits every width — labels at 2xl, the buttons wrap below
+
+Found 2026-10-15 with the screenshot sweep above: at 1300px the header's
+buttons showed their text labels (from `xl`, 1280px) and pushed the whole page
+55px sideways, and at 768px the one-row header overflowed by 149px. Two rules,
+in `Header.tsx` / `NotifyAppManagerButton.tsx`:
+
+- **Button labels (My Agenda, Refresh, Suggest a feature, Report issue) show
+  from `2xl` (1536px)**; below that they're icon-only, each with a `title`
+  and an `aria-label`, as they always were on smaller screens. A new header
+  button follows the same `hidden 2xl:inline` label and keeps both.
+- **The header row is `sm:flex-wrap`**, so when it can't fit, the button
+  group drops to a second line (right-aligned by its `ml-auto`) instead of
+  widening the page. Re-run the width sweep after adding anything to it.
 
 A `data-testid` on the section being changed makes a stable selector. There
 is no app-UI design skill installed in this environment (the `artifact-*`

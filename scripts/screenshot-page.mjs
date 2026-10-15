@@ -33,7 +33,8 @@ const chrome = spawn(CHROME, [
   // Port 0: Chrome picks a free one and writes it to DevToolsActivePort, so
   // two runs back to back never collide on a port the last Chrome still holds.
   "--remote-debugging-port=0",
-  "--window-size=1300,1600",
+  // SHOT_WIDTH checks a layout at another width (default 1300).
+  `--window-size=${process.env.SHOT_WIDTH ?? "1300"},1600`,
   `--user-data-dir=${profile}`,
   "about:blank",
 ]);
@@ -132,6 +133,8 @@ const shot = await send("Page.captureScreenshot", {
   clip: { ...rect, scale: 1 },
 });
 writeFileSync(out, Buffer.from(shot.result.data, "base64"));
-console.log(`saved ${out}`);
+// The house rule is no sideways page scroll — say so when there is one.
+const overflow = await evalJs(`document.documentElement.scrollWidth - document.documentElement.clientWidth`);
+console.log(`saved ${out}${overflow > 0 ? ` — WARNING: the page scrolls sideways by ${overflow}px` : ""}`);
 chrome.kill();
 process.exit(0);
