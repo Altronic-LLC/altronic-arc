@@ -112,7 +112,7 @@ export function accessPricingGate(access: PricingAccess): PricingGate {
     access,
     (r) => r.canAccess,
     "You can raise pricing requests.",
-    "Sales Pricing is limited to people with a pricing role. Ask a pricing admin to add you on the Pricing Roles list.",
+    "Pricing is limited to people with a pricing role. Ask a pricing admin to add you on the Pricing Roles list.",
   );
 }
 

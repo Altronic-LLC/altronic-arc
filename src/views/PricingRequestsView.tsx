@@ -140,7 +140,7 @@ function RequestsList({ access: _access }: { access: MyPricingAccess }) {
   return (
     <PricingPage wide>
       <PricingHeader
-        title="Sales Pricing"
+        title="Pricing"
         subtitle="Pricing requests for Contact Factory items — raised by Sales, priced by the pricing managers."
         actions={
           <button

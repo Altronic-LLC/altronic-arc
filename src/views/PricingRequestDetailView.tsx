@@ -171,7 +171,7 @@ function RequestDetail({ access }: { access: MyPricingAccess }) {
 
   return (
     <PricingPage wide>
-      <DetailTopBar category="Sales Pricing" listTo="/sales/pricing" />
+      <DetailTopBar category="Pricing" listTo="/sales/pricing" />
 
       <div className="flex flex-wrap items-start gap-3">
         <div className="min-w-0 flex-1">

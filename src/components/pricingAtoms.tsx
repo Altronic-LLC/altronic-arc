@@ -109,10 +109,10 @@ export function PricingAccessGate({
           <Lock className="mx-auto h-8 w-8" />
           <p className="mt-3 font-medium text-fg">
             {access.inPreviewOnly
-              ? "Sales Pricing is still being reviewed and isn't open yet."
+              ? "Pricing is still being reviewed and isn't open yet."
               : access.failed
                 ? gate.hint
-                : "You don't have access to Sales Pricing."}
+                : "You don't have access to Pricing."}
           </p>
           {!access.inPreviewOnly && !access.failed && <p className="mt-1">{gate.hint}</p>}
         </div>

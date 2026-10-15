@@ -57,8 +57,6 @@ import { useQuickLinksFor } from "@/hooks/useQuickLinks";
 import { useQuotes } from "@/hooks/useQuotes";
 import { useMyQuoteAccess } from "@/hooks/useQuoteRoles";
 import { useMyPricingAccess } from "@/hooks/usePricingRoles";
-import { usePricingRequests } from "@/hooks/usePricingRequests";
-import { OPEN_PRICING_STATUSES } from "@/types/pricing";
 import { latestRevisions } from "@/lib/quoteNumber";
 import { QuickLinksRow } from "@/components/QuickLinksRow";
 import { isEcnOnHold } from "@/lib/ecnMapper";
@@ -1575,20 +1573,15 @@ function InsourcingQuotesCardBody({ onOpen }: { onOpen: () => void }) {
 function SalesPricingCard({ onOpen }: { onOpen: () => void }) {
   const { rights } = useMyPricingAccess();
   if (!rights.canAccess) return null;
-  return <SalesPricingCardBody onOpen={onOpen} />;
-}
-
-function SalesPricingCardBody({ onOpen }: { onOpen: () => void }) {
-  const { data: requests = [] } = usePricingRequests();
-  const open = useMemo(() => requests.filter((r) => OPEN_PRICING_STATUSES.includes(r.status)).length, [requests]);
+  // "Pricing", with NO count (Ray, 2026-10-15) — a description card, like
+  // Customers and Visit Reports, so the Dashboard reads no pricing list.
   // ajax-yellow: the one tone this section hadn't used.
   return (
     <TypeCard
-      name="Sales Pricing"
+      name="Pricing"
       icon={<Calculator className="h-5 w-5" />}
       tone="ajax-yellow"
-      count={open}
-      unit="open"
+      description="Price parts and new products from cost and margin, and build customer quotes."
       to={"/sales/pricing"}
       onClick={onOpen}
     />
@@ -1599,7 +1592,7 @@ function SalesPricingCardBody({ onOpen }: { onOpen: () => void }) {
 function SalesPricingPlaceholder() {
   const { rights } = useMyPricingAccess();
   if (rights.canAccess) return null;
-  return <PlaceholderCard name="Pricing Requests" icon={<Calculator className="h-5 w-5" />} />;
+  return <PlaceholderCard name="Pricing" icon={<Calculator className="h-5 w-5" />} />;
 }
 
 function PlaceholderCard({ name, icon }: { name: string; icon: React.ReactNode }) {

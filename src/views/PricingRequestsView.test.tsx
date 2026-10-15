@@ -55,7 +55,7 @@ describe("PricingRequestsView", () => {
   it("refuses somebody with no pricing role", async () => {
     who.email = NOBODY;
     renderWithProviders(<PricingRequestsView />, { route: "/sales/pricing" });
-    expect(await screen.findByText("You don't have access to Sales Pricing.")).toBeInTheDocument();
+    expect(await screen.findByText("You don't have access to Pricing.")).toBeInTheDocument();
     expect(screen.queryByRole("table")).toBeNull();
   });
 });

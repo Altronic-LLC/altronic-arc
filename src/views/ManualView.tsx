@@ -3721,7 +3721,7 @@ const SECTIONS: ManualSection[] = [
   },
   {
     id: "sales-pricing",
-    title: "Sales Pricing",
+    title: "Pricing",
     group: "Customer Service / Sales",
     keywords: [
       "pricing",
@@ -3758,11 +3758,11 @@ const SECTIONS: ManualSection[] = [
       "pricing admin",
     ],
     searchText:
-      "Sales Pricing at /sales/pricing, under Departments > Customer Service / Sales, backed by six lists on the ALTRONICSALESTEAM SharePoint site. It is being reviewed before it opens to everyone; until then only the reviewer can open it and everyone else sees Pricing Requests as Coming soon. Access comes from the Pricing Roles list: requester, manager or admin, each including the one before; with no role you have no access. A requester raises a pricing request with New request: the Altronic part number, the SAP part number if known, a description, notes and the customer picked from SAP. ARC looks the part up in SAP: if it is there the request is Submitted and the pricing managers are emailed; if not it is Awaiting SAP and the pricing admins are emailed to set it up, and an admin presses Added to SAP to move it on. The first time a manager opens a Submitted request it moves to In Review. The manager sees cost, the distributor discount (SAP's for the material price group, else 34%), and comparables for the same MPG and the same six-digit family, and types a target GM or a list price; a list worked out from a GM is rounded to the whole dollar, and answers Leave as Contact Factory? Yes or No, which is saved with the price for the requester to see. The customer price is the distributor price. A requester can enter either part number and ARC fills in the other. Pricing it sets Priced and emails the requester and watchers; the requester sees the final price only, never cost or margin. A manager can reopen a priced request; earlier prices are kept in the price history. Requests are cancelled, never deleted. Any role can download a customer PDF of a priced request. New Product Pricing prices a product not yet in SAP from its sub-assemblies and standalone parts, each with an Altronic and an SAP part number: add components from a CSV (Part Number and/or SAP Part Number, Description, Current Cost, Qty) or by hand and edit them, add a part from SAP or with a typed cost, attach files to each, comment and watch the worksheet, adjust any cost, set overhead, a target GM or list price and up to three quantity breaks. The page is a draft until you Save (the current revision) or Save as new revision (with a note); earlier revisions are read-only. Compare to SAP, and export the worksheet to Excel. Sell a sub-assembly or part separately to give it its own price and quantity breaks, and keep an SAP comparison of existing parts with their list, cost and base GM as a reference. Customer Quotes are numbered SQ-YYYY-####-R#, built from worksheets, SAP parts, priced requests and free lines at the distributor price, each line showing its SAP part number and an optional customer part number, with the header and lines editable while Draft, with a PDF that never shows cost or margin and New revision for changes after it is sent. Managers and admins only for New Product Pricing and Customer Quotes. While SAP data isn't connected you type the cost and customer yourself.",
+      "Pricing at /sales/pricing, under Departments > Customer Service / Sales, backed by six lists on the ALTRONICSALESTEAM SharePoint site. It is being reviewed before it opens to everyone; until then only the reviewer can open it and everyone else sees Pricing as Coming soon. Access comes from the Pricing Roles list: requester, manager or admin, each including the one before; with no role you have no access. A requester raises a pricing request with New request: the Altronic part number, the SAP part number if known, a description, notes and the customer picked from SAP. ARC looks the part up in SAP: if it is there the request is Submitted and the pricing managers are emailed; if not it is Awaiting SAP and the pricing admins are emailed to set it up, and an admin presses Added to SAP to move it on. The first time a manager opens a Submitted request it moves to In Review. The manager sees cost, the distributor discount (SAP's for the material price group, else 34%), and comparables for the same MPG and the same six-digit family, and types a target GM or a list price; a list worked out from a GM is rounded to the whole dollar, and answers Leave as Contact Factory? Yes or No, which is saved with the price for the requester to see. The customer price is the distributor price. A requester can enter either part number and ARC fills in the other. Pricing it sets Priced and emails the requester and watchers; the requester sees the final price only, never cost or margin. A manager can reopen a priced request; earlier prices are kept in the price history. Requests are cancelled, never deleted. Any role can download a customer PDF of a priced request. New Product Pricing prices a product not yet in SAP from its sub-assemblies and standalone parts, each with an Altronic and an SAP part number: add components from a CSV (Part Number and/or SAP Part Number, Description, Current Cost, Qty) or by hand and edit them, add a part from SAP or with a typed cost, attach files to each, comment and watch the worksheet, adjust any cost, set overhead, a target GM or list price and up to three quantity breaks. The page is a draft until you Save (the current revision) or Save as new revision (with a note); earlier revisions are read-only. Compare to SAP, and export the worksheet to Excel. Sell a sub-assembly or part separately to give it its own price and quantity breaks, and keep an SAP comparison of existing parts with their list, cost and base GM as a reference. Customer Quotes are numbered SQ-YYYY-####-R#, built from worksheets, SAP parts, priced requests and free lines at the distributor price, each line showing its SAP part number and an optional customer part number, with the header and lines editable while Draft, with a PDF that never shows cost or margin and New revision for changes after it is sent. Managers and admins only for New Product Pricing and Customer Quotes. While SAP data isn't connected you type the cost and customer yourself.",
     render: () => (
       <>
         <P>
-          <strong>Departments → Customer Service / Sales → Sales Pricing</strong>{" "}
+          <strong>Departments → Customer Service / Sales → Pricing</strong>{" "}
           (<code>/sales/pricing</code>) is where Sales asks for a price on a
           part and a pricing manager sets it. It also prices new products that
           aren't in SAP yet and builds customer quotes. The tabs across the top
@@ -3771,7 +3771,7 @@ const SECTIONS: ManualSection[] = [
           see only the ones your role can use.
         </P>
         <Tip>
-          Sales Pricing is being reviewed before it opens to everyone. Until
+          Pricing is being reviewed before it opens to everyone. Until
           then only the reviewer can open it, and everyone else sees{" "}
           <strong>Pricing Requests — Coming soon</strong> on the Dashboard and
           in the Departments menu.
@@ -3946,7 +3946,7 @@ const SECTIONS: ManualSection[] = [
           the <strong>Excel</strong> button downloads the worksheet.
         </P>
         <P>
-          Colour tells you what a figure is across Sales Pricing:{" "}
+          Colour tells you what a figure is across Pricing:{" "}
           <strong>green</strong> is a selling price (list, customer price,
           margin, breaks and a quote's total), <strong>blue</strong> is
           reference from SAP or comparable parts, and plain boxes are cost.

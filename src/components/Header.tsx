@@ -394,12 +394,12 @@ const DEPARTMENTS: DepartmentGroup[] = [
       },
       {
         to: "/sales/pricing",
-        label: "Sales Pricing",
+        label: "Pricing",
         icon: <Calculator className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/sales/pricing"),
         pricingAccess: "with",
       },
-      { ...soon("Pricing Requests", <Calculator className="h-4 w-4" />), pricingAccess: "without" },
+      { ...soon("Pricing", <Calculator className="h-4 w-4" />), pricingAccess: "without" },
     ],
   },
 ];

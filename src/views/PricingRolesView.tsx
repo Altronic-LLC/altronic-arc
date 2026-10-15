@@ -126,7 +126,7 @@ function RolesManager() {
           <div className="min-w-0">
             <h1 className="font-display text-xl font-semibold text-fg sm:text-2xl">Pricing roles</h1>
             <p className="text-sm text-fg-muted">
-              Who can use Sales Pricing. Anyone not listed here has no access.
+              Who can use Pricing. Anyone not listed here has no access.
             </p>
           </div>
         </div>

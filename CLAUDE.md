@@ -4371,9 +4371,15 @@ the addresses in `PRICING_PREVIEW_USERS` (`VITE_PRICING_PREVIEW_USERS`,
 default `ray.white@altronic-llc.com`) get ANY rights — whatever the roles list
 says, ARC admins included (`previewAllows`, applied in front of both
 `useMyPricingAccess` and `useResolvePricingAccess`). Everybody else still sees
-**"Pricing Requests — Coming soon"** on the Dashboard and in the Departments
+**"Pricing — Coming soon"** on the Dashboard and in the Departments
 menu; the real card and menu entry show only to someone with access
-(`pricingAccess: "with" | "without"` in `Header.tsx`). An empty preview list
+(`pricingAccess: "with" | "without"` in `Header.tsx`).
+
+**The tool is called "Pricing"** everywhere a user sees it — Dashboard card,
+Departments menu, page title, breadcrumb, access notices (Ray, 2026-10-15).
+"Sales Pricing" survives only in code comments and this file's headings. **The
+Dashboard card carries NO count** — a description card, like Customers and
+Visit Reports — so the Dashboard reads no pricing list at all. An empty preview list
 lets the roles decide rather than locking everybody out. Mock mode ignores the
 switch.
 
