@@ -577,6 +577,7 @@ src/
 │   ├── quotePdfModel.ts          Record → QuotePdfModel, the customer-facing shape that CANNOT carry cost or margin
 │   ├── quotePdf.ts               QuotePdfModel → real-text PDF (jsPDF + AutoTable, dynamically imported)
 │   ├── quoteMapper.ts            Graph item ⇄ all five quote lists; field builders, PriceBreaks JSON, unique-value refusal
+│   ├── priceCalculator.ts        The header's quick price calculator (pure) — customer price from COGS + GM or a manual price, the ±GM ladder, copy text
 │   ├── pricingMath.ts            Sales Pricing maths (pure) — list from target GM ÷ distributor discount (whole dollar), base GM, customer price, comparables, BOM cost, breaks
 │   ├── pricingRoles.ts           Pricing role → rights + every gate + previewAllows (pure) — no role = no access
 │   ├── pricingHistory.ts         The two JSON History columns — parse (corrupt is never overwritten), append / keyed-by-rev (pure)
@@ -710,6 +711,7 @@ src/
 │   ├── PricingWorkbench.tsx          The manager's pricing panel — cost, discounts, target GM or list, result, MPG + family comparables (cost-gated)
 │   ├── SapCustomerPicker.tsx         Pick a customer from SAP (sold-to, name, group); typed while SAP data isn't connected
 │   ├── NewWorksheetFormModal.tsx     Start a New Product Pricing worksheet (never from a request)
+│   ├── PriceCalculator.tsx           Header button + dialog: quick customer price, ±GM ladder, Copy results — every pricing role, nothing saved
 │   ├── RowSellingPrice.tsx           A worksheet row's OWN selling price — "Sell separately", target GM / list / customer, discount override, its own breaks (edits the DRAFT)
 │   ├── SapComparisonCard.tsx         A worksheet's SAP comparison — reference SAP parts, list / cost / base GM re-read from SAP, saved straight away
 │   ├── SubAssemblyCard.tsx           A worksheet sub-assembly (CSV and/or hand-added components) or standalone part (SAP or manual) — Altronic + SAP #, base vs adjusted cost, files (edits the DRAFT)
@@ -4427,6 +4429,18 @@ Awaiting SAP → Submitted → In Review → Priced       (and Cancelled)
   (`commentNotifyRecipients`, mention → watcher on Post, resolved on the
   **Sales** site). Any role can download a **customer price confirmation
   PDF** of a PRICED request.
+- **The quick price calculator** (Ray, 2026-10-15) — a calculator button in
+  BOTH header clusters for every pricing role (`components/PriceCalculator.tsx`,
+  maths in `lib/priceCalculator.ts`). No back end: a description, COGS, then
+  a GM wanted OR a manual price; it shows the CUSTOMER price (`cost ÷ (1 −
+  GM)`, to the cent — **no list price**), the GM and profit, and a ladder at
+  5-point GM steps from 10 below to 20 above (steps at ≤0% or ≥100% dropped).
+  The GM shown is what the ROUNDED price earns; a manual price's own row is
+  exactly the price typed. **Copy results** writes plain text with
+  TAB-separated columns, so it pastes into email, Teams or Excel. What was
+  typed survives closing and reopening in the same page session (module
+  state — tests call `__resetPriceCalculatorSession`); nothing is stored
+  anywhere. Hidden from anyone without Pricing access, like the menu entry.
 - **A worksheet is never started from a request** (Ray, 2026-10-13) — the
   button was built and removed; `RequestRef` on New Product Pricing is unused.
 
@@ -8025,10 +8039,16 @@ looked at. Three things it had to learn:
   fixed port collides with the previous run's Chrome still shutting down.
 - **The theme is `localStorage["aets-theme"]`**, set before the app renders.
   Check light AND dark — native controls and tinted panels differ between them.
-- **`SHOT_WIDTH=768 node scripts/…`** checks another window width, and every
-  run reports when the PAGE scrolls sideways ("WARNING: the page scrolls
-  sideways by 55px") — the house rule a screenshot of one element can't show.
-  Sweep a few widths (640, 768, 1024, 1300, 1600) after a layout change.
+- **`SHOT_WIDTH=768 node scripts/…`** checks another width — EMULATED through
+  the DevTools protocol, because headless Chrome won't open a window narrower
+  than ~500px, so phone widths (360, 390) are real. Every run reports when the
+  PAGE scrolls sideways ("WARNING: the page scrolls sideways by 55px") — the
+  house rule a screenshot of one element can't show. Sweep a few widths
+  (390, 768, 1024, 1300, 1600) after a layout change.
+- **`SHOT_CLICK="Price calculator"`** presses a button (by aria-label or text)
+  before capturing — for a dialog or menu that only exists once opened — and
+  **`SHOT_TYPE='{"COGS":"12"}'`** fills inputs by aria-label the way React
+  sees typing.
 
 ### The header fits every width — labels at 2xl, the buttons wrap below
 

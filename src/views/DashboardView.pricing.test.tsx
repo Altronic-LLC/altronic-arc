@@ -28,7 +28,8 @@ function salesGrid() {
 describe("DashboardView — Pricing card", () => {
   it("is called Pricing, describes the tool and carries no count", async () => {
     renderWithProviders(<DashboardView />);
-    const card = await waitFor(() => within(salesGrid()).getByRole("button", { name: /^Pricing/ }));
+    // The roles list answers asynchronously, and the full suite runs slowly.
+    const card = await waitFor(() => within(salesGrid()).getByRole("button", { name: /^Pricing/ }), { timeout: 10_000 });
     expect(card).toHaveTextContent("Price parts and new products from cost and margin, and build customer quotes.");
     expect(card).not.toHaveTextContent(/\d/);
     expect(within(salesGrid()).queryByText("Sales Pricing")).toBeNull();

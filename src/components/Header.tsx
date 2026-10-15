@@ -49,6 +49,7 @@ import { pathAccessState } from "@/api/appAccess";
 import { useAccessDenials } from "@/hooks/useListAccess";
 import { useMyQuoteAccess } from "@/hooks/useQuoteRoles";
 import { useMyPricingAccess } from "@/hooks/usePricingRoles";
+import { PriceCalculatorButton } from "./PriceCalculator";
 import { useTheme } from "@/hooks/useTheme";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useKanbanAvailable } from "@/hooks/useIsPhone";
@@ -458,6 +459,7 @@ export function Header() {
           </Link>
 
           <div className="flex items-center gap-2 sm:hidden">
+            <PriceCalculatorButton compact />
             <AgendaButton />
             <RefreshButton />
             <SuggestFeatureButton />
@@ -574,6 +576,7 @@ export function Header() {
           <span className="hidden whitespace-nowrap text-[11px] text-fg-muted xl:inline">
             {USE_MOCK ? "Demo mode · mock data" : "Connected to SharePoint"}
           </span>
+          <PriceCalculatorButton />
           <AgendaButton />
           <RefreshButton />
           <SuggestFeatureButton />

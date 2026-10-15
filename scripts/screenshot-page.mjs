@@ -79,6 +79,11 @@ const evalJs = async (expression) =>
   (await send("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true }))
     .result?.result?.value;
 
+// Emulate the width rather than trust the window: headless Chrome won't open a
+// window narrower than ~500px, so a phone width needs the DevTools override.
+const width = Number(process.env.SHOT_WIDTH ?? "1300");
+await send("Emulation.setDeviceMetricsOverride", { width, height: 1600, deviceScaleFactor: 1, mobile: width < 640 });
+
 const target = new URL(url);
 await send("Page.navigate", { url: `${target.origin}/` });
 if (theme) {
@@ -102,6 +107,38 @@ if (!signedIn) fail("Couldn't get past the sign-in page — is the dev server in
 await evalJs(
   `history.pushState({}, "", ${JSON.stringify(target.pathname + target.search)}); dispatchEvent(new PopStateEvent("popstate")); true`,
 );
+
+// SHOT_CLICK="Price calculator" presses that button first (by aria-label or
+// text) — for a dialog or a menu that only exists once opened.
+if (process.env.SHOT_CLICK) {
+  await sleep(1500);
+  const clicked = await evalJs(`(() => {
+    const want = ${JSON.stringify(process.env.SHOT_CLICK)};
+    const b = [...document.querySelectorAll("button, a")].find(
+      (el) => el.offsetParent !== null && (el.getAttribute("aria-label") === want || el.textContent.trim() === want),
+    );
+    if (b) b.click();
+    return !!b;
+  })()`);
+  if (!clicked) fail(`No visible button "${process.env.SHOT_CLICK}" to click.`);
+}
+
+// SHOT_TYPE='{"COGS":"12","GM wanted":"40"}' fills inputs by aria-label, the
+// way React sees typing (the native value setter, then an input event).
+if (process.env.SHOT_TYPE) {
+  await sleep(500);
+  await evalJs(`(() => {
+    const values = ${process.env.SHOT_TYPE};
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
+    for (const [label, value] of Object.entries(values)) {
+      const el = document.querySelector(\`input[aria-label="\${label}"]\`);
+      if (!el) continue;
+      setter.call(el, value);
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+    return true;
+  })()`);
+}
 
 let rect = null;
 for (let i = 0; i < 60 && !rect; i++) {
