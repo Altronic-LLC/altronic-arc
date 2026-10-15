@@ -57,6 +57,9 @@ export const MOCK_SAP_PARTS: SapPart[] = [
   { altronicPartNumber: "690100-1", sapPartNumber: "3002-0040-01", description: "DE-3000 DISPLAY MODULE", mpg: "CTL", listPrice: 2200, cost: 760 },
   { altronicPartNumber: "690100-2", sapPartNumber: "3002-0040-02", description: "DE-3000 DISPLAY MODULE, EXTENDED TEMP", mpg: "CTL", listPrice: 2350, cost: 805 },
   { altronicPartNumber: "690130-1", sapPartNumber: "3002-0044-01", description: "DE-3000 I/O EXPANSION", mpg: "CTL", listPrice: 1850, cost: 610 },
+  // DEMO (Ray, 2026-10-15): in SAP, but with NO material price group — the
+  // manager types one on PR-2026-0006 to compare it against the CTL parts.
+  { altronicPartNumber: "690150-1", sapPartNumber: "3002-0050-01", description: "DE-3000 BACKLIGHT KIT", mpg: "", listPrice: null, cost: 82 },
   // Components for New Product Pricing BOMs — in SAP with a cost, not sold.
   { altronicPartNumber: "601018", sapPartNumber: "5100-0018-00", description: "RESISTOR, 4K7, 1/4W", mpg: "CMP", listPrice: null, cost: 0.04 },
   { altronicPartNumber: "701230", sapPartNumber: "5200-0230-00", description: "IC, MICROCONTROLLER, 32-BIT", mpg: "CMP", listPrice: null, cost: 11.6 },
@@ -236,6 +239,27 @@ export const MOCK_PRICING_REQUESTS: PricingRequest[] = [
     createdBy: KATIE,
     createdAt: "2026-10-01T11:00:00Z",
     modifiedAt: "2026-10-02T09:00:00Z",
+  }),
+  request({
+    // DEMO: SAP holds the part but gave it no material price group, so there's
+    // nothing to compare until a manager types one (e.g. CTL).
+    id: 6,
+    requestNumber: "PR-2026-0006",
+    status: "Submitted",
+    altronicPartNumber: "690150-1",
+    sapPartNumber: "3002-0050-01",
+    requestedDescription: "Backlight kit for the DE-3000",
+    description: "DE-3000 BACKLIGHT KIT",
+    mpg: "",
+    requestedBy: KATIE,
+    notes: "Retrofit for the older displays at the Midland yard.",
+    customerSoldTo: "0008842",
+    customerName: "Permian Field Services",
+    customerGroup: "DI",
+    watchers: [KATIE],
+    createdBy: KATIE,
+    createdAt: "2026-10-14T16:20:00Z",
+    modifiedAt: "2026-10-14T16:20:00Z",
   }),
 ];
 

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/render";
-import { __resetPricingMockStores } from "@/data/pricingMockData";
+import { __resetPricingMockStores, pricingMockDb } from "@/data/pricingMockData";
 import { PricingRequestsView } from "./PricingRequestsView";
 import { PricingRequestDetailView } from "./PricingRequestDetailView";
 import { PricingRequestFormModal } from "@/components/PricingRequestFormModal";
@@ -111,6 +111,29 @@ describe("PricingRequestDetailView", () => {
     const price = await screen.findByTestId("request-price");
     await waitFor(() => expect(within(price).getByText("Leave as Contact Factory")).toBeInTheDocument(), { timeout: 10_000 });
     expect(within(price).getByText("Yes")).toBeInTheDocument();
+  });
+
+  it("lets a manager type a material price group SAP hasn't given the part, and compares against it", async () => {
+    who.email = MANAGER;
+    renderDetail(6);
+    await screen.findByTestId("pricing-workbench");
+    expect(await screen.findByText(/No material price group yet/)).toBeInTheDocument();
+    // Opening it moves it to In Review, and the workbench remounts on a status
+    // change — wait for the page to show it before typing.
+    expect((await screen.findAllByText("In Review")).length).toBeGreaterThan(0);
+    const box = await within(await screen.findByTestId("pricing-workbench")).findByLabelText("Material price group");
+    await userEvent.type(box, "ctl{Enter}");
+    await waitFor(() => expect(pricingMockDb.requests.find((r) => r.id === 6)?.mpg).toBe("CTL"));
+    expect(await screen.findByText("Material price group CTL")).toBeInTheDocument();
+    expect(await screen.findByText("DE-3000 I/O EXPANSION")).toBeInTheDocument();
+  });
+
+  it("shows SAP's material price group read-only when SAP has one", async () => {
+    who.email = MANAGER;
+    renderDetail(3);
+    const workbench = await screen.findByTestId("pricing-workbench");
+    expect(await within(workbench).findByText("SAP's for this part.")).toBeInTheDocument();
+    expect(within(workbench).queryByLabelText("Material price group")).toBeNull();
   });
 
   it("offers Added to SAP to an admin on a request SAP hasn't got", async () => {

@@ -16,7 +16,7 @@ import {
 } from "@/lib/pricingMath";
 import { formatMoney, formatPct } from "@/lib/quoteMoney";
 import { useComparables, useMpgDistributorDiscount, useSapPart } from "@/hooks/usePricingLookup";
-import { usePriceRequest } from "@/hooks/usePricingRequests";
+import { usePriceRequest, useSetPricingRequestMpg } from "@/hooks/usePricingRequests";
 import { SAP_DATA_CONNECTED } from "@/api/pricingLookup";
 import { FieldColumn, FieldLabel, PRICE_PANEL, PricingCard } from "./pricingAtoms";
 import { ChoicePills } from "./ChoicePills";
@@ -53,8 +53,15 @@ export function PricingWorkbench({
   canPrice: boolean;
 }) {
   const price = usePriceRequest();
+  const setMpg = useSetPricingRequestMpg();
   const sapPart = useSapPart({ altronicPartNumber: request.altronicPartNumber, sapPartNumber: request.sapPartNumber });
-  const mpg = request.mpg || sapPart.data?.mpg || "";
+  // The material price group: SAP's when SAP has one for the part; otherwise
+  // the one a manager TYPED (Ray, 2026-10-15), saved on the request — so a
+  // part SAP hasn't classified (or SAP not connected) can still be compared.
+  const sapMpg = sapPart.data?.mpg || "";
+  const mpg = sapMpg || request.mpg;
+  const [mpgText, setMpgText] = useState(request.mpg);
+  useEffect(() => setMpgText(request.mpg), [request.mpg]);
   const mpgDiscount = useMpgDistributorDiscount(mpg);
   const subject = { altronicPartNumber: request.altronicPartNumber, sapPartNumber: request.sapPartNumber };
   const prefix = familyPrefix(request.altronicPartNumber);
@@ -119,6 +126,12 @@ export function PricingWorkbench({
     [costNum, discountNum, inputKind, inputNum, customerDiscountNum],
   );
 
+  function saveMpg() {
+    const next = mpgText.trim().toUpperCase();
+    setMpgText(next);
+    if (next !== request.mpg) setMpg.mutate({ id: request.id, mpg: next });
+  }
+
   const canSubmit =
     !locked && result.listPrice !== null && costNum !== null && contactFactory !== "" && !price.isPending;
 
@@ -156,6 +169,38 @@ export function PricingWorkbench({
 
       <PricingCard title="Price this request" tone="price">
         <div className="flex flex-wrap items-start gap-x-6 gap-y-3">
+          <FieldColumn
+            header={<FieldLabel>Material price group</FieldLabel>}
+            hint={
+              sapMpg
+                ? "SAP's for this part."
+                : locked
+                  ? request.mpg
+                    ? "Typed — SAP has none for this part."
+                    : "None — SAP has none for this part."
+                  : "SAP has none — type one to compare. Saved on the request."
+            }
+          >
+            {sapMpg || locked ? (
+              <span className="text-sm font-medium text-fg">{mpg || "—"}</span>
+            ) : (
+              <input
+                aria-label="Material price group"
+                value={mpgText}
+                maxLength={20}
+                placeholder="e.g. CTL"
+                onChange={(e) => setMpgText(e.target.value.toUpperCase())}
+                onBlur={saveMpg}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    saveMpg();
+                  }
+                }}
+                className="input !h-9 !w-24 uppercase"
+              />
+            )}
+          </FieldColumn>
           <NumberField
             label="Cost"
             prefix="$"
@@ -281,7 +326,9 @@ export function PricingWorkbench({
         panel={mpgPanel.data}
         loading={mpgPanel.isLoading}
         notConnected={!SAP_DATA_CONNECTED || mpgPanel.notConnected}
-        emptyReason={mpg ? null : "SAP hasn't given this part a material price group."}
+        emptyReason={
+          mpg ? null : canPrice ? "No material price group yet — type one under Price this request to compare." : "SAP hasn't given this part a material price group."
+        }
       />
       <ComparablesCard
         title={prefix ? `Family ${prefix}…` : "Family"}

@@ -457,6 +457,36 @@ export function useCancelPricingRequest() {
   });
 }
 
+/**
+ * A manager types the material price group SAP hasn't given the part (Ray,
+ * 2026-10-15), so it can be compared and its distributor discount found. It
+ * feeds pricing, so it is a PRICING write — `priceGate`, asked here rather
+ * than trusting the screen. Upper-cased and trimmed; blank clears it.
+ */
+export function useSetPricingRequestMpg() {
+  const qc = useQueryClient();
+  const resolve = useResolvePricingAccess();
+  return useMutation({
+    mutationFn: async ({ id, mpg }: { id: number; mpg: string }) => {
+      requirePricingGate(priceGate(await resolve()));
+      const before = await currentRequest(qc, id);
+      return updatePricingRequest(id, { mpg: mpg.trim().toUpperCase() }, before);
+    },
+    onMutate: async ({ id, mpg }) => {
+      await qc.cancelQueries({ queryKey: PRICING_REQUESTS_KEY });
+      const previous = qc.getQueryData<PricingRequest[]>(PRICING_REQUESTS_KEY);
+      patchRequest(qc, id, (r) => ({ ...r, mpg: mpg.trim().toUpperCase() }));
+      return { previous };
+    },
+    onSuccess: (updated) => upsertRequest(qc, updated),
+    onError: (err: unknown, _vars, ctx) => {
+      if (ctx?.previous) qc.setQueryData(PRICING_REQUESTS_KEY, ctx.previous);
+      errorToast(describeListWriteFailure(err, { action: "save the material price group", site: PRICING_SITE_LABEL, permission: "editing" }));
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: PRICING_REQUESTS_KEY }),
+  });
+}
+
 /** Edit the request's own details (notes, description, customer) before it is priced. */
 export function useUpdatePricingRequest() {
   const qc = useQueryClient();

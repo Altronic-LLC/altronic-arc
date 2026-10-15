@@ -49,6 +49,7 @@ import {
   useMarkAddedToSap,
   usePriceRequest,
   useReopenPricingRequest,
+  useSetPricingRequestMpg,
   type PriceRequestVars,
   type PricingRequestFormInput,
 } from "./usePricingRequests";
@@ -304,5 +305,24 @@ describe("usePriceRequest", () => {
     const { result } = renderHook(() => usePriceRequest(), { wrapper });
     await expectRefused(() => result.current.mutateAsync({ id: 4, entry: ENTRY }), /isn't in SAP/);
     expect(historyApi.recordPricing).not.toHaveBeenCalled();
+  });
+});
+
+describe("useSetPricingRequestMpg", () => {
+  it("lets a manager type the material price group SAP hasn't given the part — upper-cased", async () => {
+    who.person = PEOPLE.manager;
+    const { wrapper } = setup();
+    const { result } = renderHook(() => useSetPricingRequestMpg(), { wrapper });
+    const out = await act(() => result.current.mutateAsync({ id: 6, mpg: " ctl " }));
+    expect(out.mpg).toBe("CTL");
+    expect(pricingMockDb.requests.find((r) => r.id === 6)?.mpg).toBe("CTL");
+  });
+
+  it("refuses a requester — the MPG feeds pricing, so it is a pricing write", async () => {
+    who.person = PEOPLE.requester;
+    const { wrapper } = setup();
+    const { result } = renderHook(() => useSetPricingRequestMpg(), { wrapper });
+    await expectRefused(() => result.current.mutateAsync({ id: 6, mpg: "CTL" }), /managers and admins/);
+    expect(pricingMockDb.requests.find((r) => r.id === 6)?.mpg).toBe("");
   });
 });

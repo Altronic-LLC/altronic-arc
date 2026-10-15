@@ -4486,6 +4486,14 @@ falls back to the admins.
   average**, and the part being priced plus any part with no list price or no
   cost are excluded and say why. Only the SUMMARY (key, average, count) is
   saved to History, never every row.
+- **A manager can TYPE the material price group** when SAP has none for the
+  part (Ray, 2026-10-15) — the first field under Price this request, saved on
+  blur / Enter to the request's own `Mpg` column (`useSetPricingRequestMpg`,
+  `priceGate`'d, upper-cased). It then drives the MPG comparables and the
+  distributor discount exactly as SAP's would. **SAP's MPG always wins** and
+  shows read-only; a priced (locked) request shows the typed one read-only.
+  The workbench is keyed on `${id}-${status}`, so opening a Submitted request
+  (→ In Review) REMOUNTS it — a test must wait for In Review before typing.
 
 #### SAP data — the Fabric seam, NOT wired yet
 
