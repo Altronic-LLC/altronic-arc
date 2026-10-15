@@ -20,6 +20,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.190.1",
+    date: "2026-10-15",
+    changes: [
+      "A comment that gets a new reply now moves to the top of the discussion, so the latest conversation is always the first thing you see",
+      "Replies under a comment still read oldest to newest, and comments with no replies keep their place",
+    ],
+  },
+  {
     version: "0.189.0",
     date: "2026-10-13",
     changes: [

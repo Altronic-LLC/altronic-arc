@@ -8851,6 +8851,13 @@ Seven things that are load-bearing:
 - **A MIRRORED parent is found within a 2-minute window** (same author,
   nearest in time) after an exact match fails. A mirror is stamped "now" by
   the fan-out, a second or so after the original the reply names.
+- **Threads are ordered by LATEST ACTIVITY, newest first** (BusinessIT#43,
+  Matthew Traina): the later of a top-level comment's own time and its newest
+  reply's. Placed by the top-level time alone, a new reply to an old comment
+  sat below messages written before it and read as old. Replies INSIDE a
+  thread stay oldest-first so the conversation reads downward. Ties keep the
+  input order, so a thread with no replies is exactly where it always was.
+  Display only — nothing stored changes.
 - **ONE level of display nesting**, but the marker records the DIRECT parent.
   So deeper nesting could be shown later with no change to stored data. A
   reply whose parent can't be found shows as top-level — never dropped — and

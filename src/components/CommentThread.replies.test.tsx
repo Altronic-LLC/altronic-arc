@@ -51,10 +51,12 @@ describe("CommentThread — showing replies", () => {
     // Its quote line says what it answers.
     expect(within(replies).getByText(/Replying to Matthew Traina/)).toBeInTheDocument();
 
-    // Order on the page: Sarah's comment, then Matthew's, then the reply.
+    // Order on the page: Matthew's comment, then the reply under it, then
+    // Sarah's. The reply is the newest activity, so its thread comes first
+    // (BusinessIT #43) even though Sarah posted after Matthew.
     const text = document.body.textContent ?? "";
-    expect(text.indexOf("Newest top-level")).toBeLessThan(text.indexOf("rev B drawing"));
-    expect(text.indexOf("rev B drawing.”")).toBeLessThan(text.indexOf("Drawing attached."));
+    expect(text.indexOf("rev B drawing")).toBeLessThan(text.indexOf("Drawing attached."));
+    expect(text.indexOf("Drawing attached.")).toBeLessThan(text.indexOf("Newest top-level"));
   });
 
   it("a thread with no replies renders no reply area", () => {

@@ -154,9 +154,11 @@ export function splitReplyMarker(bodyHtml: string): { marker: string; body: stri
 }
 
 /**
- * Arrange a thread for display: top-level comments in the order given, each
- * followed by the replies under it, oldest reply first so a conversation
- * reads downward.
+ * Arrange a thread for display: each top-level comment followed by the
+ * replies under it, oldest reply first so a conversation reads downward. The
+ * threads themselves are ordered by their latest activity — a top-level
+ * comment's own time, or its newest reply's — newest first, so a thread that
+ * has just been replied to moves to the top.
  *
  * - A reply to a reply is shown under the same top-level comment (one level).
  * - A reply whose parent can't be found — deleted, or edited in SharePoint so
@@ -208,11 +210,15 @@ export function groupCommentThreads(comments: Comment[]): CommentThreadGroup[] {
     }
   }
 
-  // Top-level comments keep their position by their OWN timestamp. `order`
-  // can only be out of place if a root was first reached through a reply, so
-  // restore the input order.
+  // A thread sits where its LATEST activity puts it, newest first (BusinessIT
+  // #43). Placed by the top-level comment's own time, a new reply to an old
+  // comment landed far down the page, under messages written before it, and
+  // read as old. Ties keep the input order, so a thread with no replies sits
+  // exactly where it always did.
   const position = new Map(comments.map((c, i) => [c, i]));
-  order.sort((a, b) => position.get(a)! - position.get(b)!);
+  const latest = (root: Comment): number =>
+    Math.max(root.timestamp.getTime(), ...groups.get(root)!.map((r) => r.timestamp.getTime()));
+  order.sort((a, b) => latest(b) - latest(a) || position.get(a)! - position.get(b)!);
 
   return order.map((comment) => ({
     comment,

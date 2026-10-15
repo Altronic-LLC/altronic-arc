@@ -1022,7 +1022,11 @@ const SECTIONS: ManualSection[] = [
           box directly under that comment, and your reply is shown{" "}
           <strong>indented beneath it</strong> instead of at the top of the
           thread, so the conversation stays together. Replies read oldest
-          first, top to bottom. A reply starts with a short line saying who and
+          first, top to bottom. A new reply also{" "}
+          <strong>moves its whole conversation to the top</strong> of the
+          comments, because the comments are ordered by each conversation's
+          latest activity — so the newest thing said is always near the top,
+          even when it answers an older comment. A reply starts with a short line saying who and
           what it answers ("↪ Replying to Matthew Traina: …"), which is also
           what you see in SharePoint and the old Power Apps form. Replies are
           one level deep: replying to a reply adds to the same thread, and its
