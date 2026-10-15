@@ -7,6 +7,7 @@ import {
   MOCK_SAP_CUSTOMERS,
   MOCK_SAP_EXTRA_PLANT_COSTS,
   MOCK_SAP_GROUP_DISCOUNTS,
+  MOCK_SAP_GROUP_MATERIAL_DISCOUNTS,
   MOCK_SAP_MPG_DISCOUNTS,
 } from "@/data/pricingMockData";
 import {
@@ -176,10 +177,24 @@ export async function sapMpgDistributorDiscounts(mpgs: string[]): Promise<Record
   return mockDelay(out);
 }
 
-/** A customer group's discount for an MPG. null when SAP has none for that pair. */
-export async function sapCustomerGroupDiscount(customerGroup: string, mpg: string): Promise<number | null> {
+/**
+ * A customer group's discounts for one part: on the MATERIAL itself (by SAP
+ * part number) and on its material price group. Each null when SAP has none.
+ * `resolveCustomerDiscount` (lib/pricingMath) decides which one applies.
+ */
+export async function sapCustomerGroupDiscounts(args: {
+  customerGroup: string;
+  sapPartNumber: string;
+  mpg: string;
+}): Promise<{ materialPct: number | null; mpgPct: number | null }> {
   if (!USE_MOCK) notConnected();
-  return mockDelay(MOCK_SAP_GROUP_DISCOUNTS[customerGroup]?.[mpg] ?? null);
+  const group = args.customerGroup.trim();
+  const sap = args.sapPartNumber.trim();
+  const mpg = args.mpg.trim();
+  return mockDelay({
+    materialPct: sap ? (MOCK_SAP_GROUP_MATERIAL_DISCOUNTS[group]?.[sap] ?? null) : null,
+    mpgPct: mpg ? (MOCK_SAP_GROUP_DISCOUNTS[group]?.[mpg] ?? null) : null,
+  });
 }
 
 /** Every part in a material price group. */

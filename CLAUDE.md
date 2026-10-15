@@ -4491,9 +4491,30 @@ falls back to the admins.
   (`STANDARD_DISTRIBUTOR_DISCOUNT_PCT`); editable either way, and its source
   (`SAP` / `Default` / `Manual`) is saved with the price. Cost's source
   (`SAP` / `Manual`) likewise.
-- **The customer's price IS the distributor price** (Ray, 2026-10-13):
-  `list × (1 − distributor discount)`, with the same margin as the base GM.
-  There is no separate customer-group discount to enter on a request.
+- **The customer's price is list less THEIR discount — by customer group**
+  (Ray, 2026-10-15; it REPLACED "the customer's price IS the distributor
+  price", 2026-10-13). `resolveCustomerDiscount` (`lib/pricingMath.ts`) is the
+  ONE rule, the way SAP prices a customer:
+  1. the customer group's discount on the **material** itself — set per
+     customer group, and it beats the MPG's;
+  2. else the group's discount on the **material price group**;
+  3. else the standard **34%** — and **34% with no customer at all**.
+  **TWO discounts on a request, on purpose** (Ray picked this over one): the
+  **distributor** discount (SAP's per MPG, else 34%) turns the target GM into
+  the LIST price, so the list is the same for every customer; the
+  **customer** discount comes off that list to give this customer's price, and
+  the result shows its own **Customer GM**. Both are editable and seeded once;
+  the customer one's source (`Material` / `MPG` / `Default` / `Manual`) is
+  saved as `customerDiscountSource` in the history entry (optional — older
+  entries have none; no SharePoint column, it's inside the History JSON). The
+  request's `CustomerDiscountPct` / `CustomerPrice` columns already existed.
+  `useCustomerDiscount` answers the RESOLVED discount, and `null` only while
+  SAP is being asked, so a field isn't seeded with 34% a beat before the
+  group's real figure lands. The seam is `sapCustomerGroupDiscounts` (the
+  group's material and MPG discounts in one call); mock tables
+  `MOCK_SAP_GROUP_DISCOUNTS` (group × MPG) and
+  `MOCK_SAP_GROUP_MATERIAL_DISCOUNTS` (group × SAP #: OE gets 25% on
+  2001-0310-15, against 15% on HRN).
 - **Comparables**: two panels — the part's **MPG**, and its **family** (the
   first six digits of the Altronic number). Each part is measured at ITS OWN
   MPG's discount (a family can span several MPGs), the average is a **simple
@@ -4512,9 +4533,9 @@ falls back to the admins.
 #### SAP data — the Fabric seam, NOT wired yet
 
 `api/pricingLookup.ts` is the ONE seam to SAP: parts (by either number),
-customers, per-MPG distributor discounts, MPG and family parts (its
-customer-group discount lookup is unused since the customer price became the
-distributor price). It is
+customers, per-MPG distributor discounts, each customer group's discounts
+on a material and its MPG (`sapCustomerGroupDiscounts`), MPG and family parts.
+It is
 **read-only** — ARC never writes to SAP or Fabric. The data will come from the
 Fabric SAP warehouse through Tim's Fabric API-for-GraphQL module
 (`api/fabric.ts` on Tim-Sandbox); the table names are still to come. Until
@@ -4691,12 +4712,17 @@ out) and `VITE_USE_MOCK=false`. That server reads and writes LIVE SharePoint.
   old one is untouched. Statuses Draft / Sent / Won / Lost / Expired; a
   validity in days.
 - **Lines come from four places**: a New Product worksheet (its list and
-  breaks at the distributor price, **pinned to the revision** — when the
-  worksheet has moved on, the line offers **"Update to R#"**), an existing SAP
-  part, a priced request, or a free line (freight, tooling, NRE). The
-  customer's price is the **distributor price**: the worksheet's own
-  distributor discount, or SAP's for the part's MPG (else 34%) — shown and
-  editable on the line.
+  breaks, **pinned to the revision** — when the worksheet has moved on, the
+  line offers **"Update to R#"**), an existing SAP part, a priced request, or
+  a free line (freight, tooling, NRE). The discount each starts from, shown
+  and editable on the line:
+  - **an SAP part** — the quote customer's discount by `resolveCustomerDiscount`
+    (group × material, else group × MPG, else 34%; Ray, 2026-10-15);
+  - **a worksheet** — the WORKSHEET's own distributor discount, NOT the
+    customer group's. A deliberate earlier call for a product not yet in SAP
+    (pinned in `QuoteLineModal.test.tsx`), left in place when the group rule
+    arrived; changing it is Ray's call;
+  - **a priced request** — the customer price it was given.
 - **A worksheet line can be ONE separately priced sub-assembly** (Ray,
   2026-10-14), not the whole product — `lineFromWorksheetRow`, read from the
   CURRENT revision's snapshot (`pricedRowsOf`), at the row's own discount.

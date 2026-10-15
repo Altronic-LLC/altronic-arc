@@ -61,6 +61,37 @@ describe("QuoteLineModal", () => {
     });
   });
 
+  it("a SAP part line starts from the customer GROUP's discount on that material, over its MPG's", async () => {
+    // OE customers get 25% on the 15 ft harness itself, against 15% on the rest of HRN.
+    const onAdd = vi.fn<(line: CustomerQuoteLine) => void>();
+    renderWithProviders(
+      <QuoteLineModal customer={{ ...CUSTOMER, name: "Cooper Machinery Services", customerGroup: "OE" }} onAdd={onAdd} onClose={vi.fn()} />,
+    );
+    const dialog = screen.getByRole("dialog", { name: "Add a quote line" });
+    await userEvent.click(within(dialog).getByRole("radio", { name: "SAP part" }));
+    await userEvent.type(within(dialog).getByLabelText("Altronic part number"), "593027-15");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Look up" }));
+    await waitFor(() => expect(within(dialog).getByLabelText("Customer discount")).toHaveValue(25));
+    expect(within(dialog).getByText("SAP's discount for group OE on this part")).toBeInTheDocument();
+
+    // The 25 ft harness has no material discount, so OE's HRN 15% applies.
+    await userEvent.clear(within(dialog).getByLabelText("Altronic part number"));
+    await userEvent.type(within(dialog).getByLabelText("Altronic part number"), "593027-25");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Look up" }));
+    await waitFor(() => expect(within(dialog).getByLabelText("Customer discount")).toHaveValue(15));
+    expect(within(dialog).getByText("SAP's discount for group OE on HRN")).toBeInTheDocument();
+  });
+
+  it("a SAP part line for a customer with no group starts from the standard 34%", async () => {
+    renderWithProviders(<QuoteLineModal customer={{ ...CUSTOMER, customerGroup: "" }} onAdd={vi.fn()} onClose={vi.fn()} />);
+    const dialog = screen.getByRole("dialog", { name: "Add a quote line" });
+    await userEvent.click(within(dialog).getByRole("radio", { name: "SAP part" }));
+    await userEvent.type(within(dialog).getByLabelText("Altronic part number"), "593027-15");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Look up" }));
+    await waitFor(() => expect(within(dialog).getByLabelText("Customer discount")).toHaveValue(34));
+    expect(within(dialog).getByText("the standard 34% — no customer group")).toBeInTheDocument();
+  });
+
   it("an Other line carries its customer part number (and SAP #) onto the line", async () => {
     const { onAdd, dialog } = renderModal();
     await userEvent.click(within(dialog).getByRole("radio", { name: "Other line" }));

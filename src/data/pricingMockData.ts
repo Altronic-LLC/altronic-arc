@@ -95,6 +95,15 @@ export const MOCK_SAP_GROUP_DISCOUNTS: Record<string, Record<string, number>> = 
   IC: { IGN: 45, HRN: 40 },
 };
 
+/**
+ * Customer group → SAP part number → discount %: a discount on the material
+ * itself, which beats the group's MPG discount (Ray, 2026-10-15). OE customers
+ * get 25% on the 15 ft CPU-95 harness, against 15% on the rest of HRN.
+ */
+export const MOCK_SAP_GROUP_MATERIAL_DISCOUNTS: Record<string, Record<string, number>> = {
+  OE: { "2001-0310-15": 25 },
+};
+
 // -----------------------------------------------------------------------------
 // Roles
 // -----------------------------------------------------------------------------

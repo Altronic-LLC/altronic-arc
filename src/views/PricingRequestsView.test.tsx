@@ -163,12 +163,29 @@ describe("PricingRequestDetailView", () => {
     expect(screen.queryByRole("button", { name: /new-product worksheet/i })).toBeNull();
   });
 
-  it("shows the customer price as the distributor price, with no separate customer discount to enter", async () => {
+  // Ray, 2026-10-15 — replaces "the customer's price IS the distributor price":
+  // the customer's discount comes from their customer group (on the material,
+  // else the MPG, else 34%) and comes off the list; the distributor discount
+  // still sets the list, so the list is the same for every customer.
+  it("prices the customer at their GROUP's discount, beside the distributor discount that sets the list", async () => {
     who.email = MANAGER;
-    renderDetail(2);
-    await screen.findByTestId("pricing-workbench");
-    expect(screen.getByText(/Price for Gulf Coast Compression \(distributor price\)/)).toBeInTheDocument();
-    expect(screen.queryByText(/Gulf Coast Compression discount/)).toBeNull();
+    renderDetail(2); // PR-2026-0002 — Gulf Coast Compression (DI), a HRN harness
+    const bench = await screen.findByTestId("pricing-workbench");
+    await waitFor(() => expect(within(bench).getByLabelText("Customer discount")).toHaveValue(34));
+    expect(within(bench).getByText("SAP's for group DI on HRN")).toBeInTheDocument();
+    expect(within(bench).getByLabelText("Distributor discount")).toHaveValue(30);
+    expect(within(bench).getByText("Price for Gulf Coast Compression")).toBeInTheDocument();
+    expect(within(bench).getByText("Customer GM")).toBeInTheDocument();
+  });
+
+  it("uses the group's MPG discount for an OE customer, and saves where it came from", async () => {
+    who.email = MANAGER;
+    renderDetail(3); // PR-2026-0003 — INNIO Waukesha (OE), a CTL part: OE gets 18% on CTL
+    // Opening it moves it to In Review, which remounts the workbench — wait for that.
+    expect((await screen.findAllByText("In Review")).length).toBeGreaterThan(0);
+    const bench = await screen.findByTestId("pricing-workbench");
+    await waitFor(() => expect(within(bench).getByLabelText("Customer discount")).toHaveValue(18));
+    expect(within(bench).getByText("SAP's for group OE on CTL")).toBeInTheDocument();
   });
 });
 

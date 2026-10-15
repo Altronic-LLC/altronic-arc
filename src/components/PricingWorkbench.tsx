@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Loader2 } from "lucide-react";
 import type {
   CostSource,
+  CustomerDiscountSource,
   DiscountSource,
   PriceInput,
   PricingHistoryRecord,
@@ -15,7 +16,7 @@ import {
   type ComparablesPanel,
 } from "@/lib/pricingMath";
 import { formatMoney, formatPct } from "@/lib/quoteMoney";
-import { useComparables, useMpgDistributorDiscount, useSapPart } from "@/hooks/usePricingLookup";
+import { useComparables, useCustomerDiscount, useMpgDistributorDiscount, useSapPart } from "@/hooks/usePricingLookup";
 import { usePriceRequest, useSetPricingRequestMpg } from "@/hooks/usePricingRequests";
 import { SAP_DATA_CONNECTED } from "@/api/pricingLookup";
 import { FieldColumn, FieldLabel, PRICE_PANEL, PricingCard } from "./pricingAtoms";
@@ -63,6 +64,16 @@ export function PricingWorkbench({
   const [mpgText, setMpgText] = useState(request.mpg);
   useEffect(() => setMpgText(request.mpg), [request.mpg]);
   const mpgDiscount = useMpgDistributorDiscount(mpg);
+  // THIS customer's discount (Ray, 2026-10-15): their group's on the material,
+  // else on the MPG, else 34% — and 34% with no customer. It comes off the
+  // list; the distributor discount above is what turns a target GM INTO the
+  // list, so the list is the same whoever the customer is.
+  const customerDiscount = useCustomerDiscount({
+    customerGroup: request.customerGroup,
+    sapPartNumber: sapPart.data?.sapPartNumber || request.sapPartNumber,
+    mpg,
+  });
+  const resolvedCustomer = customerDiscount.discount;
   const subject = { altronicPartNumber: request.altronicPartNumber, sapPartNumber: request.sapPartNumber };
   const prefix = familyPrefix(request.altronicPartNumber);
   const mpgPanel = useComparables("mpg", mpg || null, subject);
@@ -77,6 +88,8 @@ export function PricingWorkbench({
   const [costTouched, setCostTouched] = useState(!!last);
   const [discount, setDiscount] = useState(fmtInput(last?.distributorDiscountPct));
   const [discountTouched, setDiscountTouched] = useState(!!last);
+  const [custDiscount, setCustDiscount] = useState(fmtInput(last?.customerDiscountPct));
+  const [custDiscountTouched, setCustDiscountTouched] = useState(!!last && last.customerDiscountPct !== null);
   const [inputKind, setInputKind] = useState<PriceInput["kind"]>(last?.input.kind ?? "gm");
   const [inputValue, setInputValue] = useState(fmtInput(last?.input.value));
   const [note, setNote] = useState("");
@@ -98,13 +111,17 @@ export function PricingWorkbench({
     if (sapMpgDiscount !== null) setDiscount(String(sapMpgDiscount));
     else if (!mpgDiscount.isLoading) setDiscount(String(STANDARD_DISTRIBUTOR_DISCOUNT_PCT));
   }, [sapMpgDiscount, mpgDiscount.isLoading, discountTouched]);
+  useEffect(() => {
+    if (!custDiscountTouched && resolvedCustomer) setCustDiscount(String(resolvedCustomer.pct));
+  }, [resolvedCustomer?.pct, resolvedCustomer?.source, custDiscountTouched]);
 
   const costNum = toNumber(cost);
   const discountNum = toNumber(discount) ?? STANDARD_DISTRIBUTOR_DISCOUNT_PCT;
-  // The customer's price IS the distributor price (Ray, 2026-10-13): the
-  // customer is given list less the distributor discount, so there is no
-  // separate customer discount to enter.
-  const customerDiscountNum = discountNum;
+  // The customer's price is list less THEIR discount (Ray, 2026-10-15) — it
+  // replaced "the customer's price IS the distributor price" (2026-10-13).
+  const customerDiscountNum = toNumber(custDiscount) ?? STANDARD_DISTRIBUTOR_DISCOUNT_PCT;
+  const customerDiscountSource: CustomerDiscountSource =
+    resolvedCustomer && customerDiscountNum === resolvedCustomer.pct ? resolvedCustomer.source : "Manual";
   const inputNum = toNumber(inputValue);
 
   const costSource: CostSource = sapCost !== null && costNum === sapCost ? "SAP" : "Manual";
@@ -149,6 +166,7 @@ export function PricingWorkbench({
         baseGM: result.baseGM,
         customerGroup: request.customerGroup,
         customerDiscountPct: customerDiscountNum,
+        customerDiscountSource,
         customerPrice: result.customerPrice,
         customerGM: result.customerGM,
         mpg: mpg && mpgPanel.data ? summarizePanel(mpg, mpgPanel.data) : null,
@@ -232,6 +250,18 @@ export function PricingWorkbench({
             }
           />
           <NumberField
+            label="Customer discount"
+            suffix="%"
+            width="!w-20"
+            value={custDiscount}
+            onChange={(v) => {
+              setCustDiscount(v);
+              setCustDiscountTouched(true);
+            }}
+            disabled={locked}
+            source={customerDiscountHint(customerDiscountSource, request.customerGroup, mpg)}
+          />
+          <NumberField
             label={inputKind === "gm" ? "Target base GM" : "List price"}
             header={
               // The toggle sits in the LABEL row, at the label row's height,
@@ -281,10 +311,11 @@ export function PricingWorkbench({
           </FieldColumn>
         </div>
 
-        <dl className={cn("mt-4 grid max-w-3xl grid-cols-1 gap-3 p-3 sm:grid-cols-3", PRICE_PANEL)} aria-label="Result">
+        <dl className={cn("mt-4 grid max-w-3xl grid-cols-2 gap-3 p-3 sm:grid-cols-4", PRICE_PANEL)} aria-label="Result">
           <Result label="List price" value={formatMoney(result.listPrice)} strong />
-          <Result label={`Price for ${request.customerName || "the customer"} (distributor price)`} value={formatMoney(result.customerPrice)} strong />
-          <Result label="Base GM" value={formatPct(result.baseGM)} strong />
+          <Result label="Base GM" value={formatPct(result.baseGM)} />
+          <Result label={`Price for ${request.customerName || "the customer"}`} value={formatMoney(result.customerPrice)} strong />
+          <Result label="Customer GM" value={formatPct(result.customerGM)} />
         </dl>
         {result.problem && inputValue.trim() !== "" && (
           <p className="mt-2 text-xs text-cooper-red" role="alert">
@@ -341,6 +372,19 @@ export function PricingWorkbench({
       {history && history.history.length > 0 && <PriceHistoryCard history={history} />}
     </div>
   );
+}
+
+/** Where the customer discount came from, in words, for the field's hint. */
+export function customerDiscountHint(source: CustomerDiscountSource, customerGroup: string, mpg: string): string {
+  const group = customerGroup.trim();
+  if (source === "Material") return `SAP's for group ${group} on this part`;
+  if (source === "MPG") return `SAP's for group ${group} on ${mpg}`;
+  if (source === "Default") {
+    return group
+      ? `standard ${STANDARD_DISTRIBUTOR_DISCOUNT_PCT}% — SAP has none for group ${group}`
+      : `standard ${STANDARD_DISTRIBUTOR_DISCOUNT_PCT}% — no customer`;
+  }
+  return "typed";
 }
 
 function NumberField({
@@ -485,7 +529,9 @@ function PriceHistoryCard({ history }: { history: PricingHistoryRecord }) {
               </span>
             </div>
             <p className="mt-1 text-xs text-fg-muted">
-              Cost {formatMoney(e.cost)} ({e.costSource}) · discount {e.distributorDiscountPct}% ({e.discountSource}) ·
+              Cost {formatMoney(e.cost)} ({e.costSource}) · distributor discount {e.distributorDiscountPct}% ({e.discountSource}) ·
+              {e.customerDiscountPct !== null &&
+                ` customer discount ${e.customerDiscountPct}%${e.customerDiscountSource ? ` (${e.customerDiscountSource})` : ""} ·`}
               base GM {formatPct(e.baseGM)}
               {e.customerPrice !== null && ` · customer ${formatMoney(e.customerPrice)} (${formatPct(e.customerGM)})`}
               {e.input.kind === "gm" ? ` · from a ${e.input.value}% target` : " · list typed"}

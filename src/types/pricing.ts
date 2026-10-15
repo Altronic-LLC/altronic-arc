@@ -96,6 +96,14 @@ export const DISCOUNT_SOURCES = ["SAP", "Default", "Manual"] as const;
 export type DiscountSource = (typeof DISCOUNT_SOURCES)[number];
 
 /**
+ * Where a CUSTOMER's discount came from (Ray, 2026-10-15): SAP's discount for
+ * their customer group on this MATERIAL, else on its material price group,
+ * else the standard 34% — or typed by the manager.
+ */
+export const CUSTOMER_DISCOUNT_SOURCES = ["Material", "MPG", "Default", "Manual"] as const;
+export type CustomerDiscountSource = (typeof CUSTOMER_DISCOUNT_SOURCES)[number];
+
+/**
  * What the manager typed: a target base GM, a list price, or the CUSTOMER
  * price (= the distributor price), from which the list is worked back
  * (New Product Pricing only — Ray, 2026-10-13).
@@ -126,6 +134,8 @@ export interface PricingHistoryEntry {
   baseGM: number | null;
   customerGroup: string;
   customerDiscountPct: number | null;
+  /** Optional: pricings recorded before 2026-10-15 have none. */
+  customerDiscountSource?: CustomerDiscountSource;
   customerPrice: number | null;
   customerGM: number | null;
   mpg: ComparablesSummary | null;

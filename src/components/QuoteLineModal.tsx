@@ -3,7 +3,7 @@ import { X } from "lucide-react";
 import type { CustomerQuoteLine, QuoteCustomerInfo } from "@/types/pricing";
 import { useNewProductWorksheets } from "@/hooks/useNewProductPricing";
 import { usePricingRequests } from "@/hooks/usePricingRequests";
-import { useMpgDistributorDiscount, useSapPart } from "@/hooks/usePricingLookup";
+import { useCustomerDiscount, useSapPart } from "@/hooks/usePricingLookup";
 import { STANDARD_DISTRIBUTOR_DISCOUNT_PCT } from "@/lib/pricingMath";
 import { SAP_DATA_CONNECTED } from "@/api/pricingLookup";
 import {
@@ -26,9 +26,12 @@ import { cn } from "@/lib/cn";
 //   * an existing SAP part — list price less the discount;
 //   * a priced pricing request — the customer price it was given;
 //   * a free-typed line — freight, tooling, NRE.
-// The customer's price is the DISTRIBUTOR price (Ray, 2026-10-13): list less
-// the distributor discount — the worksheet's own for a worksheet line, SAP's
-// for the part's MPG (else the standard 34%) for a SAP part. It is shown and
+// The customer's price is list less THEIR discount (Ray, 2026-10-15) —
+// `resolveCustomerDiscount`: their customer group's discount on the material,
+// else on its MPG, else the standard 34%. That is the SAP PART line. A
+// WORKSHEET line still starts from the worksheet's own distributor discount,
+// not the customer group's — a deliberate earlier call for a product not yet in
+// SAP, left in place until Ray decides otherwise. Either is shown and
 // editable, so a line is never priced at a discount nobody saw.
 // =============================================================================
 
@@ -92,19 +95,33 @@ export function QuoteLineModal({
   const row = rowsOfWs.find((r) => r.name === rowName) ?? null;
   const sapPart = useSapPart({ altronicPartNumber: lookedUp, sapPartNumber: "" }, kind === "sapPart" && !!lookedUp);
   const mpg = kind === "worksheet" ? ws?.mpg ?? "" : kind === "sapPart" ? sapPart.data?.mpg ?? "" : "";
-  const mpgDiscount = useMpgDistributorDiscount(kind === "sapPart" ? mpg : "");
-  // The distributor discount this line starts from, and where it came from.
+  const group = customer.customerGroup.trim();
+  const customerDiscount = useCustomerDiscount({
+    customerGroup: group,
+    sapPartNumber: kind === "sapPart" ? sapPart.data?.sapPartNumber ?? "" : "",
+    mpg: kind === "sapPart" ? mpg : "",
+  });
+  const resolved = customerDiscount.discount;
+  const groupName = group ? `group ${group}` : "";
+  // The discount this line starts from, and where it came from.
   const suggested: { pct: number; from: string } | null =
     kind === "worksheet"
-      ? row
-        ? { pct: row.sellingPrice.distributorDiscountPct, from: `${row.name}'s distributor discount on ${ws!.worksheetNumber}` }
-        : ws
-          ? { pct: ws.distributorDiscountPct, from: `${ws.worksheetNumber}'s distributor discount` }
-          : null
-      : kind === "sapPart" && sapPart.data
-        ? mpgDiscount.data !== null && mpgDiscount.data !== undefined
-          ? { pct: mpgDiscount.data, from: `SAP's distributor discount for ${mpg}` }
-          : { pct: STANDARD_DISTRIBUTOR_DISCOUNT_PCT, from: `the standard ${STANDARD_DISTRIBUTOR_DISCOUNT_PCT}% — SAP has none for ${mpg || "it"}` }
+      ? !ws
+        ? null
+        : row
+          ? { pct: row.sellingPrice.distributorDiscountPct, from: `${row.name}'s distributor discount on ${ws.worksheetNumber}` }
+          : { pct: ws.distributorDiscountPct, from: `${ws.worksheetNumber}'s distributor discount` }
+      : kind === "sapPart" && sapPart.data && resolved
+        ? resolved.source === "Material"
+          ? { pct: resolved.pct, from: `SAP's discount for ${groupName} on this part` }
+          : resolved.source === "MPG"
+            ? { pct: resolved.pct, from: `SAP's discount for ${groupName} on ${mpg}` }
+            : {
+                pct: STANDARD_DISTRIBUTOR_DISCOUNT_PCT,
+                from: group
+                  ? `the standard ${STANDARD_DISTRIBUTOR_DISCOUNT_PCT}% — SAP has none for ${groupName}`
+                  : `the standard ${STANDARD_DISTRIBUTOR_DISCOUNT_PCT}% — no customer group`,
+              }
         : null;
 
   useEffect(() => {

@@ -6,12 +6,18 @@ import {
   lookupSapMaterialCosts,
   listMpgParts,
   lookupSapPart,
-  sapCustomerGroupDiscount,
+  sapCustomerGroupDiscounts,
   sapMpgDistributorDiscounts,
   searchSapCustomers,
 } from "@/api/pricingLookup";
 import type { SapCustomer, SapMaterialCost, SapPart } from "@/types/pricing";
-import { buildComparablesPanel, comparisonFigures, type ComparablesPanel, type ComparisonFigures } from "@/lib/pricingMath";
+import {
+  buildComparablesPanel,
+  comparisonFigures,
+  resolveCustomerDiscount,
+  type ComparablesPanel,
+  type ComparisonFigures,
+} from "@/lib/pricingMath";
 
 // =============================================================================
 // Sales Pricing — the SAP facts, as queries. Every one of these can answer
@@ -84,16 +90,34 @@ export function useMpgDistributorDiscount(mpg: string) {
   return { ...q, ...connectionOf(q) };
 }
 
-/** A customer group's discount for an MPG — null when SAP has none. */
-export function useCustomerGroupDiscount(customerGroup: string, mpg: string) {
-  const q = useQuery<number | null>({
-    queryKey: ["pricing-sap", "group-discount", customerGroup, mpg],
-    queryFn: () => sapCustomerGroupDiscount(customerGroup, mpg),
-    enabled: !!customerGroup && !!mpg,
+/**
+ * A customer's discount for one part, RESOLVED (Ray, 2026-10-15): their group's
+ * discount on the material, else on its MPG, else the standard 34% — and 34%
+ * with no customer. `discount` is null only while SAP is being asked, so a
+ * field isn't seeded with 34% a moment before the group's real discount lands.
+ * SAP not connected resolves to the default too, and `notConnected` says so.
+ */
+export function useCustomerDiscount(args: { customerGroup: string; sapPartNumber: string; mpg: string }) {
+  const group = args.customerGroup.trim();
+  const sap = args.sapPartNumber.trim();
+  const mpg = args.mpg.trim();
+  const asks = !!group && (!!sap || !!mpg);
+  const q = useQuery<{ materialPct: number | null; mpgPct: number | null }>({
+    queryKey: ["pricing-sap", "group-discounts", group, sap, mpg],
+    queryFn: () => sapCustomerGroupDiscounts({ customerGroup: group, sapPartNumber: sap, mpg }),
+    enabled: asks,
     staleTime: STALE_MS,
     retry,
   });
-  return { ...q, ...connectionOf(q) };
+  const settled = !asks || q.isSuccess || q.isError;
+  const discount = settled
+    ? resolveCustomerDiscount({
+        customerGroup: group,
+        materialDiscountPct: q.data?.materialPct ?? null,
+        mpgDiscountPct: q.data?.mpgPct ?? null,
+      })
+    : null;
+  return { discount, isLoading: asks && q.isLoading, ...connectionOf(q) };
 }
 
 /**

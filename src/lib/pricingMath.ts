@@ -40,6 +40,30 @@ import { roundCents } from "./quotePricing";
 /** The standard distributor discount, used when SAP has none for an MPG. */
 export const STANDARD_DISTRIBUTOR_DISCOUNT_PCT = 34;
 
+/**
+ * A CUSTOMER's discount off list (Ray, 2026-10-15) — how SAP prices a customer:
+ *
+ *   1. their customer group's discount on this MATERIAL, if SAP has one —
+ *      a material discount is set per customer group, and beats the MPG's;
+ *   2. else their customer group's discount on the material price group;
+ *   3. else the standard 34% — and 34% when there is no customer at all.
+ *
+ * It is NOT the distributor discount: that one turns a target GM into the list
+ * price, so the list is the same for every customer; this one comes off that
+ * list to give THIS customer's price.
+ */
+export function resolveCustomerDiscount(args: {
+  customerGroup: string;
+  materialDiscountPct: number | null;
+  mpgDiscountPct: number | null;
+}): { pct: number; source: "Material" | "MPG" | "Default" } {
+  if (args.customerGroup.trim()) {
+    if (finite(args.materialDiscountPct)) return { pct: args.materialDiscountPct, source: "Material" };
+    if (finite(args.mpgDiscountPct)) return { pct: args.mpgDiscountPct, source: "MPG" };
+  }
+  return { pct: STANDARD_DISTRIBUTOR_DISCOUNT_PCT, source: "Default" };
+}
+
 function finite(n: number | null | undefined): n is number {
   return typeof n === "number" && Number.isFinite(n);
 }
