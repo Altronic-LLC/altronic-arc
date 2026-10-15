@@ -3957,7 +3957,9 @@ const SECTIONS: ManualSection[] = [
           than one plant, pick the plant whose cost you want. Or type the
           cost (COGS) yourself. Then the GM
           you want or a price you have in mind. It shows the customer price,
-          its GM and profit, and the price at round GMs — 25%, 30%, 35% and so
+          its GM and profit — a price worked out from a GM is rounded up to
+          the cent, so it never earns less than the GM you asked for — and
+          the price at round GMs — 25%, 30%, 35% and so
           on — from 10 points below to 20 above, with your own price in place.{" "}
           <strong>Copy results</strong> puts it all on your clipboard, ready
           to paste into an email or a spreadsheet. Nothing is saved.

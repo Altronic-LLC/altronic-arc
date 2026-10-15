@@ -4440,8 +4440,17 @@ Awaiting SAP → Submitted → In Review → Priced       (and Cancelled)
   it, so the bar now shows for a requester too (who has no other tab). Pieces:
   `components/PriceCalculator.tsx`, maths in `lib/priceCalculator.ts`.
   - **No back end**: a description, COGS, then a GM wanted OR a manual price.
-    It shows the CUSTOMER price (`cost ÷ (1 − GM)`, to the cent — **no list
-    price**), the GM and profit. The GM shown is what the ROUNDED price earns.
+    It shows the CUSTOMER price (`cost ÷ (1 − GM)` — **no list price**),
+    the GM and profit. The GM shown is what the ROUNDED price earns.
+  - **A price from a GM is rounded UP to the cent** (`priceForGm`; Ray,
+    2026-10-15: "why doesn't the GM line up"). Rounding to the NEAREST cent
+    let a cheap part fall short of the target — $0.2495 at 60% is $0.62375,
+    and $0.62 earns only 59.8% — so the price never goes below the GM asked
+    for ($0.63, 60.4%). The cents are trimmed to 12 significant digits first,
+    or float noise bumps an exact price a cent ($2.10 at 30% is $3.00, which
+    floats as 300.00000000000006 cents). The ladder rows round up the same
+    way. A typed manual price is taken as typed. This is the Calculator only:
+    a request's list price still rounds to the whole dollar (`pricingMath`).
   - **The ladder is at ROUND GMs — multiples of 5** (Ray: "rounded to 5, like
     5, 10, 15%"): from the multiple of 5 nearest the result, 10 below to 20
     above, steps at ≤0% or ≥100% dropped. The result is always its own row:

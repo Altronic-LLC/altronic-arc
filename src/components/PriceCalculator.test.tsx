@@ -56,8 +56,8 @@ describe("PriceCalculatorDialog", () => {
 
     const rows = within(dialog.getByRole("table", { name: "Prices by GM" })).getAllByRole("row").slice(1);
     expect(rows.map((r) => r.querySelectorAll("td")[1].textContent)).toEqual([
-      "$17.14",
-      "$18.46",
+      "$17.15",
+      "$18.47",
       "$20.00",
       "$21.82",
       "$24.00",

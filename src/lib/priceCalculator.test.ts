@@ -10,6 +10,22 @@ describe("calculate", () => {
     expect(odd.gm).toBeCloseTo(33.02, 2);
   });
 
+  it("rounds UP to the cent, so a cheap part never earns less than the GM asked for", () => {
+    // Ray's 74HC4051N: $0.2495 at 60% is $0.62375. To the nearest cent that was
+    // $0.62 — only 59.8%. Rounded up it is $0.63, 60.4%.
+    const r = calculate({ cogs: 0.2495, mode: "gm", gm: 60, price: null });
+    expect(r.price).toBe(0.63);
+    expect(r.gm).toBeGreaterThanOrEqual(60);
+    expect(r.gm).toBeCloseTo(60.4, 1);
+  });
+
+  it("doesn't bump an exact price up a cent for float noise", () => {
+    // $2.10 at 30% is exactly $3.00, but in floats 300.00000000000006 cents —
+    // a bare Math.ceil reads that as $3.01. Likewise $0.07 → $0.10, not $0.11.
+    expect(calculate({ cogs: 2.1, mode: "gm", gm: 30, price: null }).price).toBe(3);
+    expect(calculate({ cogs: 0.07, mode: "gm", gm: 30, price: null }).price).toBe(0.1);
+  });
+
   it("works the GM out of a price typed by hand", () => {
     const r = calculate({ cogs: 15, mode: "price", gm: null, price: 25 });
     expect(r.price).toBe(25);
@@ -36,7 +52,7 @@ describe("gmLadder — round GM steps", () => {
     const result = calculate({ cogs: 12, mode: "gm", gm: 40, price: null });
     const rows = gmLadder(12, 40, result);
     expect(rows.map((r) => Math.round(r.gm))).toEqual([30, 35, 40, 45, 50, 55, 60]);
-    expect(rows.map((r) => r.price)).toEqual([17.14, 18.46, 20, 21.82, 24, 26.67, 30]);
+    expect(rows.map((r) => r.price)).toEqual([17.15, 18.47, 20, 21.82, 24, 26.67, 30]);
     expect(rows.filter((r) => r.current).map((r) => r.price)).toEqual([20]);
   });
 

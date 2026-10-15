@@ -51,6 +51,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "A Calculator on the Pricing bar: a quick customer price from COGS and a GM or manual price, prices at round GMs (25%, 30%, 35%…) from 10 points below to 20 above, and Copy results",
       "The Calculator brings in SAP's current cost and description when you enter an SAP part number, read live from SAP, with a plant picker when a part is stocked at more than one plant",
       "Each new SAP part number in the Calculator replaces the description with SAP's",
+      "The Calculator rounds a price up to the cent, so a cheap part never earns less than the GM you asked for",
       "A manager can type a material price group on a request SAP hasn't classified, to compare it against that group and use its discount",
       "Worksheets have quantity breaks and revisions — save over the current revision or save a new one, compare with SAP once the product exists, and export to Excel",
       "Customer Quotes: build a quote from new-product worksheets, SAP parts, priced requests and extra lines, at the distributor price for each quantity break, and download the customer PDF",

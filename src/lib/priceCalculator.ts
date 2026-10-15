@@ -45,9 +45,19 @@ export function marginPct(price: number, cost: number): number {
   return ((price - cost) / price) * 100;
 }
 
-/** The customer price that earns `gmPct` on `cost`, to the cent. */
+/**
+ * The customer price that earns AT LEAST `gmPct` on `cost`, rounded UP to the
+ * cent (Ray, 2026-10-15). Rounding to the nearest cent let a cheap part fall
+ * short of the GM asked for — $0.2495 at 60% is $0.62375, and $0.62 earns only
+ * 59.8% — so the price never goes below the target, and the GM shown is what
+ * that price really earns (60.4% at $0.63). The cents figure is trimmed to 12
+ * significant digits first, as `roundCents` does: $2.10 at 30% is exactly
+ * $3.00 but floats as 300.00000000000006 cents, and a bare `Math.ceil` would
+ * read that as $3.01.
+ */
 export function priceForGm(cost: number, gmPct: number): number {
-  return roundCents(cost / (1 - gmPct / 100));
+  const cents = Number(((cost / (1 - gmPct / 100)) * 100).toPrecision(12));
+  return Math.ceil(cents) / 100;
 }
 
 export function calculate(input: { cogs: number | null; mode: CalcMode; gm: number | null; price: number | null }): CalcResult {
