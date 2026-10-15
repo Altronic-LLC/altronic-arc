@@ -341,6 +341,7 @@ src/
 │   ├── projectFiles.ts           Documents-library project folders + files
 │   ├── attachments.ts            List-item attachments (task | eir | csaListing) via SP REST
 │   ├── qzPrint.ts                QZ Tray browser-side client — silent print to a named printer, never throws
+│   ├── fabric.ts                 Microsoft Fabric API for GraphQL — READ-ONLY SAP warehouse transport, silent token, no write export
 │   ├── email.ts                  Mention + change-alert mail; reports sends that FAIL
 │   ├── errorReport.ts            "Report issue" mail to the app manager
 │   └── editFailureReport.ts      Emails the user their input when a write can't be saved
@@ -625,6 +626,7 @@ src/
 │   ├── authErrors.ts             AADSTS codes that mean "fix your account", in plain English
 │   ├── emailIdentity.ts          Matching a person to a stored address (sign-in name ≠ mailbox)
 │   ├── erLayout.ts               About-page ER diagram geometry — department groups packed, connectors routed round cards (pure)
+│   ├── sapMaterialNumber.ts      stripSapPadding() — SAP's zero-padded material numbers, as people write them
 │   └── pcbChecklist.ts           PCB-category task checklist logic
 │
 ├── types/
@@ -890,7 +892,8 @@ src/
 │   ├── AboutView.tsx             In-app architecture + ER diagram DATA (tables, groups, connections)
 │   ├── ManualView.tsx            In-app user manual
 │   ├── DevQzPrintTestView.tsx    Dev-only QZ Tray connection/print test harness — never renders in production
-│   └── DevEmailGroupingTestView.tsx  Dev-only: sends test emails to yourself to check Outlook conversation grouping — never renders in production
+│   ├── DevEmailGroupingTestView.tsx  Dev-only: sends test emails to yourself to check Outlook conversation grouping — never renders in production
+│   └── DevFabricTestView.tsx     Dev-only Fabric GraphQL harness (CORS probe, token claims, run a query) — never renders in production
 │
 └── styles/
     └── globals.css               Tailwind + CSS variable theme tokens + @page (letter)
@@ -7218,6 +7221,76 @@ changes, so a shorter list can't leave `index` pointing past its end.
 write.** Every report reads; none of them creates or edits a SharePoint row.
 Real enforcement for the underlying data stays whatever its own screen
 already has (`/operations/teradyne`, `/digital-qc`, `/ignition-qc`).
+
+## SAP data — Microsoft Fabric, READ-ONLY
+
+SAP data reaches ARC from the **Fabric SAP data warehouse**, never from SAP
+itself. ARC only ever READS it; prices, decisions and anything a person
+enters still go to SharePoint lists. Pieces: `api/fabric.ts` (transport),
+`FABRIC_GRAPHQL_ENDPOINT` / `FABRIC_ENABLED` in `config.ts`, `fabricScopes`
+in `auth/msalConfig.ts`, `lib/sapMaterialNumber.ts`, and the dev harness
+`views/DevFabricTestView.tsx` at `/dev/fabric-test` (`npm run dev` only).
+
+**Why GraphQL and not SQL.** The warehouse's SQL analytics endpoint speaks
+TDS on port 1433, which a browser cannot open, and ARC has no server to
+proxy it. A Fabric **"API for GraphQL"** item is HTTPS + a delegated Entra
+bearer token, so the browser can call it directly. The endpoint is copied
+verbatim out of the Fabric portal (the workspace id appears twice, once
+un-hyphenated in the subdomain).
+
+**Tested live 2026-10-15 (Tim):**
+
+| Check | Result |
+|---|---|
+| CORS from ARC's origin (junk-token probe) | **Works** — Fabric answers cross-origin |
+| A real query (`zBC_SRV_DX_MATs`), with a token from `az account get-access-token` | **Works** — endpoint, table and Tim's item permission all fine |
+| ARC's OWN silent token (Check token) | **Fails** — ARC's app registration has no Power BI Service permission yet |
+
+So the transport is proven and the only blocker is configuration, not code.
+
+Six things that are load-bearing:
+
+- **The token is a separate RESOURCE from Graph.** `fabricScopes`
+  (`https://analysis.windows.net/powerbi/api/GraphQLApi.Execute.All`) must
+  never join `graphScopes`: Entra issues one token per resource, and mixing
+  them fails the whole request — sign-in included.
+- **Silent only, never a prompt.** `acquireFabricToken` mirrors
+  `graphFetchScoped`. A tenant or user without consent gets an unavailable
+  lookup, never a login popup mid-form. Fabric's portal sample uses
+  `InteractiveBrowserCredential` and `user_impersonation`; don't copy either
+  (the second doesn't exist on the Power BI resource for a custom app).
+- **Read-only does NOT come from the scope.** `GraphQLApi.Execute.All` grants
+  queries AND mutations; Fabric has no read-only variant. So two things must
+  hold instead: the GraphQL item exposes **no mutations**, and `api/fabric.ts`
+  exports no write function (`fabric.test.ts` asserts it).
+- **GraphQL answers 200 with an `errors` array** for a failed query.
+  `fabricQuery` checks that once, and treats a PARTIAL result (data AND
+  errors) as a failure — a reference list silently missing rows is worse than
+  none.
+- **Every request is time-bounded** (30s, `FABRIC_TIMEOUT_MS`) — the QZ Tray
+  lesson: a connection that never settles must not hang the caller.
+- **SAP material numbers are zero-padded** (`000000000001234`). Run them
+  through `stripSapPadding` before matching or showing them; it is null-safe,
+  since one null row in a GraphQL batch would otherwise throw for all of them.
+
+**The dev harness's pasted-token box** bypasses MSAL so the whole route can be
+proven before ARC's app registration has the scope (that is how the query was
+proven above). No production code path may pass `accessToken` — a pasted
+token belongs to whoever ran the CLI, not to the signed-in user.
+
+**Still to do before a feature uses it:**
+
+1. **Entra:** ARC's app registration → API permissions → Power BI Service →
+   Delegated → `GraphQLApi.Execute.All`. Not admin-consent-required; a
+   tenant-wide admin grant saves every user a one-off prompt. Then re-run
+   Check token and confirm the scope is in `scp`.
+2. **Fabric item permission per user:** "Run Queries and Mutations" on the
+   GraphQL item — best granted to a security group. Tim's working query
+   proves only his own.
+3. **Confirm the GraphQL item exposes no mutations.**
+4. **The first consumer is Sales Pricing** (`api/pricingLookup.ts` on
+   `47-sales-pricing-tool`), which degrades to typed entry until this is
+   wired and Ray supplies the table/column list.
 
 ## Dates: always `DateField`, never `<input type="date">`
 
