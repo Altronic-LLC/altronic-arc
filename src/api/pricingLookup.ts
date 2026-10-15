@@ -10,8 +10,7 @@ import {
   MOCK_SAP_MPG_DISCOUNTS,
 } from "@/data/pricingMockData";
 import {
-  matchesSapMaterialKeys,
-  sapMaterialLookupKeys,
+  sapMaterialLookupKey,
   sapMaterialPlants,
   SAP_MATERIAL_COST_FIELDS,
   toSapMaterialCost,
@@ -73,62 +72,38 @@ export const SAP_COST_LOOKUP_CONNECTED = USE_MOCK || FABRIC_ENABLED;
 const SAP_COST_LOOKUP_LIMIT = 50;
 
 /**
- * A material's cost at every plant that stocks it, by SAP # (10 digits) or
- * old / Altronic #. Empty when SAP doesn't hold it. The rows are ONE material,
- * sorted by plant (`sapMaterialPlants`).
+ * A material's cost at every plant that stocks it, by SAP number (10 digits,
+ * dashed or not). Empty when SAP doesn't hold it, or until a whole number has
+ * been typed. Sorted by plant (`sapMaterialPlants`).
  */
 export async function lookupSapMaterialCosts(partNumber: string): Promise<SapMaterialCost[]> {
-  const keys = sapMaterialLookupKeys(partNumber);
-  if (!keys.sap && keys.old.length === 0) return [];
+  const sap = sapMaterialLookupKey(partNumber);
+  if (!sap) return [];
 
   if (USE_MOCK) {
     const rows: SapMaterialCost[] = [];
     for (const p of pricingMockDb.sapParts) {
-      const base: SapMaterialCost = {
-        plant: "4222",
-        sapPartNumber: p.sapPartNumber,
-        altronicPartNumber: p.altronicPartNumber,
-        description: p.description,
-        mpg: p.mpg,
-        unitCost: p.cost,
-        priceControl: "S",
-        unitOfMeasure: "PC",
-      };
-      if (!matchesSapMaterialKeys(base, keys)) continue;
+      if (p.sapPartNumber !== sap) continue;
+      const base: SapMaterialCost = { plant: "4222", sapPartNumber: p.sapPartNumber, description: p.description, unitCost: p.cost };
       rows.push(base);
       for (const extra of MOCK_SAP_EXTRA_PLANT_COSTS) {
-        if (extra.sapPartNumber === p.sapPartNumber) rows.push({ ...base, plant: extra.plant, unitCost: extra.unitCost });
+        if (extra.sapPartNumber === sap) rows.push({ ...base, plant: extra.plant, unitCost: extra.unitCost });
       }
     }
-    return mockDelay(sapMaterialPlants(rows, keys));
+    return mockDelay(sapMaterialPlants(rows));
   }
 
   if (!FABRIC_ENABLED) notConnected();
 
-  // One query, OR'd: the SAP number against Material, the typed text (as
-  // typed and upper-cased) against OldMaterialNumber. Variables, never string
-  // interpolation, so a typed quote can't break the query.
-  const clauses: string[] = [];
-  const variables: Record<string, string> = {};
-  if (keys.sap) {
-    clauses.push("{ Material: { eq: $sap } }");
-    variables.sap = keys.sap;
-  }
-  keys.old.forEach((v, i) => {
-    clauses.push(`{ OldMaterialNumber: { eq: $old${i} } }`);
-    variables[`old${i}`] = v;
-  });
-  const declared = Object.keys(variables)
-    .map((k) => `$${k}: String!`)
-    .join(", ");
-  const query = `query(${declared}) {
-  vw_cogs_material_apis(first: ${SAP_COST_LOOKUP_LIMIT}, filter: { or: [${clauses.join(", ")}] }) {
+  // ONE equality on Material and four columns — kept narrow for speed.
+  // The number travels as a variable, never interpolated into the query.
+  const query = `query($sap: String!) {
+  vw_cogs_material_apis(first: ${SAP_COST_LOOKUP_LIMIT}, filter: { Material: { eq: $sap } }) {
     items { ${SAP_MATERIAL_COST_FIELDS.join(" ")} }
   }
 }`;
-  const data = await fabricQuery<{ vw_cogs_material_apis?: { items?: SapMaterialCostRow[] | null } | null }>(query, variables);
-  const rows = (data.vw_cogs_material_apis?.items ?? []).map(toSapMaterialCost);
-  return sapMaterialPlants(rows, keys);
+  const data = await fabricQuery<{ vw_cogs_material_apis?: { items?: SapMaterialCostRow[] | null } | null }>(query, { sap });
+  return sapMaterialPlants((data.vw_cogs_material_apis?.items ?? []).map(toSapMaterialCost));
 }
 
 /**

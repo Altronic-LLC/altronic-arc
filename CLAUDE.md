@@ -627,7 +627,7 @@ src/
 │   ├── emailIdentity.ts          Matching a person to a stored address (sign-in name ≠ mailbox)
 │   ├── erLayout.ts               About-page ER diagram geometry — department groups packed, connectors routed round cards (pure)
 │   ├── sapMaterialNumber.ts      stripSapPadding() — SAP's zero-padded material numbers, as people write them
-│   ├── sapMaterialCost.ts        The Calculator's SAP cost lookup (pure) — the Fabric cost view's row → SapMaterialCost, SAP-vs-Altronic # keys, one material per plant
+│   ├── sapMaterialCost.ts        The Calculator's SAP cost lookup (pure) — the Fabric cost view's row → SapMaterialCost, the 10-digit SAP # key, a row per plant
 │   └── pcbChecklist.ts           PCB-category task checklist logic
 │
 ├── types/
@@ -4446,10 +4446,10 @@ Awaiting SAP → Submitted → In Review → Priced       (and Cancelled)
     5, 10, 15%"): from the multiple of 5 nearest the result, 10 below to 20
     above, steps at ≤0% or ≥100% dropped. The result is always its own row:
     it IS the round row when its GM is one, otherwise it's slotted in between.
-  - **SAP or Altronic #** + Look up brings in SAP's CURRENT cost as COGS
-    (and the description when blank) — applied once per lookup (and per
-    plant pick), so typing over it sticks, and the COGS hint says "From SAP"
-    only while the box still holds SAP's figure. Not found / no cost / no
+  - **SAP part #** + Look up brings in SAP's CURRENT cost as COGS and
+    REPLACES the description with SAP's on every new number — applied once per
+    lookup (and per plant pick), so typing over it sticks, and the COGS hint
+    says "From SAP" only while the box still holds SAP's figure. Not found / no cost / no
     access / unreachable each say so and leave the cost alone. **This is the
     FIRST real Fabric read** — see "The Calculator's cost view" below.
   - **Copy results** writes plain text with TAB-separated columns (and the
@@ -4539,19 +4539,28 @@ What the live rows taught, each load-bearing:
   rows; `sapMaterialPlants` keeps ONE material, a row per plant, sorted by
   plant. The Calculator brings in the first plant's cost and shows a **Plant**
   picker (each plant with its cost) when there is more than one.
-- **`Material` is the dashed SAP # (1000-4869-00); `OldMaterialNumber` is
-  usually the Altronic # (711078)** — and sometimes a vendor part number with
-  letters (3549S-1AG-502A). The box takes EITHER: exactly 10 digits is an SAP
-  number, matched dashed; everything is also tried as the old number, as typed
-  and upper-cased. It is deliberately **not dashed while typing** — "593027-15"
-  is an Altronic number, and dashing it would look up the wrong part.
+- **It searches by SAP NUMBER ONLY, and asks for four columns** (Ray, same
+  day: "it needs to be faster… only look for the SAP number and the unit
+  cost"). The first version OR'd `Material` with `OldMaterialNumber` (two
+  `varchar(max)` columns) and returned eight columns, and was noticeably slow.
+  Now: one `eq` on `Material` (the dashed SAP #, 1000-4869-00), and only
+  `Plant`, `Material`, `MaterialDescription`, `UnitCost` back. **Don't widen
+  it again without measuring** — an Altronic-number search is the OR that was
+  dropped. The box dashes as typed, and Look up waits for all 10 digits
+  (`sapMaterialLookupKey`), so a half-typed number never reaches Fabric.
+- **The description FOLLOWS the part** (Ray: "whenever you enter a new SAP part
+  number, the description must be … updated"). Every new lookup replaces it
+  with SAP's `MaterialDescription`. When SAP doesn't hold the new number, a
+  description the PREVIOUS lookup put there is cleared (it described another
+  part), but one the person typed is kept — `sapDescription` in the dialog
+  remembers which is which.
 - **`UnitCost` is the cost of ONE** at the price SAP uses (moving price ÷ price
   unit for V, standard for S) — taken as it comes. **0 or blank is NO cost**,
   never a $0 COGS.
 - **A blank `MaterialPriceGroup` is no group.**
 - **The view holds no list price** — it is cost only.
-- **The filter goes through variables, never string interpolation**, so a
-  typed quote can't break the query (`{ or: [{ Material: { eq: $sap } }, …] }`).
+- **The number goes through a variable, never string interpolation**
+  (`filter: { Material: { eq: $sap } }`).
   Pinned in `api/pricingLookup.materialCost.real.test.ts` with `USE_MOCK:
   false` — mock mode never builds a query.
 - **A refusal says which**: a sign-in with no Fabric grant

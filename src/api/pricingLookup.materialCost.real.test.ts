@@ -27,52 +27,38 @@ beforeEach(() => {
 const row = (plant: string, cost: number) => ({
   Plant: plant,
   Material: "1000-4869-00",
-  OldMaterialNumber: "711078",
   MaterialDescription: "CAPACITOR, 1NF",
   UnitCost: cost,
-  MaterialPriceGroup: "GA",
-  PriceControl: "V",
-  BaseUnitOfMeasure: "PC",
 });
 
 describe("lookupSapMaterialCosts (real mode)", () => {
-  it("asks the view by SAP number OR old number, through variables, and maps each plant", async () => {
+  it("asks ONE equality on Material for four columns — kept narrow for speed", async () => {
     fabricQuery.mockResolvedValue({ vw_cogs_material_apis: { items: [row("4230", 0.07), row("4222", 0.0655)] } });
 
     const out = await lookupSapMaterialCosts("1000486900");
 
     const [query, variables] = fabricQuery.mock.calls[0];
     expect(query).toContain("vw_cogs_material_apis(");
-    expect(query).toContain("filter: { or: [{ Material: { eq: $sap } }, { OldMaterialNumber: { eq: $old0 } }] }");
-    expect(query).toContain("$sap: String!, $old0: String!");
-    expect(query).toContain("items { Plant Material OldMaterialNumber MaterialDescription UnitCost");
-    expect(variables).toEqual({ sap: "1000-4869-00", old0: "1000486900" });
-    expect(out.map((r) => [r.plant, r.unitCost])).toEqual([
-      ["4222", 0.0655],
-      ["4230", 0.07],
+    expect(query).toContain("filter: { Material: { eq: $sap } }");
+    expect(query).not.toContain("OldMaterialNumber");
+    expect(query).not.toContain("or:");
+    expect(query).toContain("items { Plant Material MaterialDescription UnitCost }");
+    expect(variables).toEqual({ sap: "1000-4869-00" });
+    expect(out.map((r) => [r.plant, r.unitCost, r.description])).toEqual([
+      ["4222", 0.0655, "CAPACITOR, 1NF"],
+      ["4230", 0.07, "CAPACITOR, 1NF"],
     ]);
   });
 
-  it("asks an Altronic number against the old number only, as typed and upper-cased", async () => {
-    fabricQuery.mockResolvedValue({ vw_cogs_material_apis: { items: [] } });
-    await lookupSapMaterialCosts("3549s-1ag-502a");
-    const [query, variables] = fabricQuery.mock.calls[0];
-    expect(query).not.toContain("Material: { eq");
-    expect(variables).toEqual({ old0: "3549s-1ag-502a", old1: "3549S-1AG-502A" });
-  });
-
-  it("never puts the typed text into the query itself", async () => {
-    fabricQuery.mockResolvedValue({ vw_cogs_material_apis: { items: [] } });
-    await lookupSapMaterialCosts('71"} ) { x');
-    expect(fabricQuery.mock.calls[0][0]).not.toContain('71"}');
-  });
-
-  it("is empty when SAP has nothing, and asks nothing for a blank box", async () => {
-    fabricQuery.mockResolvedValue({ vw_cogs_material_apis: { items: null } });
+  it("never asks Fabric about a half-typed or non-SAP number", async () => {
+    expect(await lookupSapMaterialCosts("1000-4869-0")).toEqual([]);
     expect(await lookupSapMaterialCosts("711078")).toEqual([]);
-    fabricQuery.mockClear();
-    expect(await lookupSapMaterialCosts("  ")).toEqual([]);
     expect(fabricQuery).not.toHaveBeenCalled();
+  });
+
+  it("is empty when SAP has nothing", async () => {
+    fabricQuery.mockResolvedValue({ vw_cogs_material_apis: { items: null } });
+    expect(await lookupSapMaterialCosts("9999000000")).toEqual([]);
   });
 });
 

@@ -44,8 +44,8 @@ export function useSapPart(args: { altronicPartNumber: string; sapPartNumber: st
 }
 
 /**
- * A material's cost at each plant, from the Fabric cost view — the
- * Calculator's lookup. Retries only a network blip or a server error: a
+ * A material's cost at each plant, by SAP number, from the Fabric cost view —
+ * the Calculator's lookup. Retries only a network blip or a server error: a
  * refused token or query fails the same way every time.
  */
 export function useSapMaterialCosts(partNumber: string, enabled = true) {
