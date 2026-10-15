@@ -362,6 +362,27 @@ export interface SapPart {
   cost: number | null;
 }
 
+/**
+ * One material at one plant, from the Fabric view `rpt.vw_cogs_material_api`
+ * (Ray, 2026-10-15) — what the Calculator's SAP lookup reads. A material has a
+ * row per plant, so a lookup can answer several.
+ */
+export interface SapMaterialCost {
+  plant: string;
+  /** SAP's `Material` — the dashed SAP part number, 1000-4869-00. */
+  sapPartNumber: string;
+  /** SAP's `OldMaterialNumber` — usually the Altronic number (711078). */
+  altronicPartNumber: string;
+  description: string;
+  /** Blank when SAP gives the material no group. */
+  mpg: string;
+  /** The cost of ONE, at the price SAP uses (`UnitCost`); null when SAP has none. */
+  unitCost: number | null;
+  /** S = standard price, V = moving average. */
+  priceControl: string;
+  unitOfMeasure: string;
+}
+
 export interface SapCustomer {
   soldTo: string;
   name: string;

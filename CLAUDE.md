@@ -627,6 +627,7 @@ src/
 │   ├── emailIdentity.ts          Matching a person to a stored address (sign-in name ≠ mailbox)
 │   ├── erLayout.ts               About-page ER diagram geometry — department groups packed, connectors routed round cards (pure)
 │   ├── sapMaterialNumber.ts      stripSapPadding() — SAP's zero-padded material numbers, as people write them
+│   ├── sapMaterialCost.ts        The Calculator's SAP cost lookup (pure) — the Fabric cost view's row → SapMaterialCost, SAP-vs-Altronic # keys, one material per plant
 │   └── pcbChecklist.ts           PCB-category task checklist logic
 │
 ├── types/
@@ -4445,11 +4446,12 @@ Awaiting SAP → Submitted → In Review → Priced       (and Cancelled)
     5, 10, 15%"): from the multiple of 5 nearest the result, 10 below to 20
     above, steps at ≤0% or ≥100% dropped. The result is always its own row:
     it IS the round row when its GM is one, otherwise it's slotted in between.
-  - **SAP part #** + Look up brings in SAP's CURRENT cost as COGS (and the
-    description when blank) through `useSapPart` — applied once per lookup,
-    so typing over it sticks, and the COGS hint says "From SAP" only while
-    the box still holds SAP's figure. Not found / no cost / not connected /
-    unreachable each say so and leave the cost alone.
+  - **SAP or Altronic #** + Look up brings in SAP's CURRENT cost as COGS
+    (and the description when blank) — applied once per lookup (and per
+    plant pick), so typing over it sticks, and the COGS hint says "From SAP"
+    only while the box still holds SAP's figure. Not found / no cost / no
+    access / unreachable each say so and leave the cost alone. **This is the
+    FIRST real Fabric read** — see "The Calculator's cost view" below.
   - **Copy results** writes plain text with TAB-separated columns (and the
     SAP # when one was looked up), so it pastes into email, Teams or Excel.
   - What was typed survives closing and reopening in the same page session
@@ -4517,6 +4519,57 @@ then:
   never retry it.
 
 Wiring it is that one file plus flipping `SAP_DATA_CONNECTED`.
+
+#### The Calculator's cost view — the first real Fabric read
+
+Ray, 2026-10-15. ONE lookup in the seam is live: `lookupSapMaterialCosts`
+reads the warehouse view **`rpt.vw_cogs_material_api`**, exposed on the
+Fabric API for GraphQL as **`vw_cogs_material_apis`** (the SQL name plus an
+`s`, no schema prefix; field names match the SQL columns). Confirmed with a
+live query on 2026-10-15 — introspection is OFF on the API item, so names are
+read from the warehouse explorer and proved with a query, not discovered.
+Only the Calculator uses it (`useSapMaterialCosts`); everything else in the
+seam is still "not connected" and `SAP_DATA_CONNECTED` stays false.
+`SAP_COST_LOOKUP_CONNECTED` is this lookup's own switch (`USE_MOCK ||
+FABRIC_ENABLED`). The pure half is `lib/sapMaterialCost.ts`.
+
+What the live rows taught, each load-bearing:
+
+- **A material has a row PER PLANT.** One typed number can answer several
+  rows; `sapMaterialPlants` keeps ONE material, a row per plant, sorted by
+  plant. The Calculator brings in the first plant's cost and shows a **Plant**
+  picker (each plant with its cost) when there is more than one.
+- **`Material` is the dashed SAP # (1000-4869-00); `OldMaterialNumber` is
+  usually the Altronic # (711078)** — and sometimes a vendor part number with
+  letters (3549S-1AG-502A). The box takes EITHER: exactly 10 digits is an SAP
+  number, matched dashed; everything is also tried as the old number, as typed
+  and upper-cased. It is deliberately **not dashed while typing** — "593027-15"
+  is an Altronic number, and dashing it would look up the wrong part.
+- **`UnitCost` is the cost of ONE** at the price SAP uses (moving price ÷ price
+  unit for V, standard for S) — taken as it comes. **0 or blank is NO cost**,
+  never a $0 COGS.
+- **A blank `MaterialPriceGroup` is no group.**
+- **The view holds no list price** — it is cost only.
+- **The filter goes through variables, never string interpolation**, so a
+  typed quote can't break the query (`{ or: [{ Material: { eq: $sap } }, …] }`).
+  Pinned in `api/pricingLookup.materialCost.real.test.ts` with `USE_MOCK:
+  false` — mock mode never builds a query.
+- **A refusal says which**: a sign-in with no Fabric grant
+  (`FabricAuthError`), a 401/403 from the API (no read permission on the
+  item), or SAP unreachable (`describeSapCostFailure`). Only a network blip or
+  a 5xx is retried (`isRetryableSapCostFailure`).
+
+**Who can look up a cost is decided by Fabric, not ARC.** The Calculator is
+open to every pricing role, but the plan gives only managers and admins
+"Run Queries" on the API item, so a requester's lookup is refused and says
+so — the typed COGS box still works for everyone. Whether requesters should
+see SAP cost is Ray's call, still open.
+
+**Testing it locally needs real mode**: `npx vite --mode fabric --port 5173`
+with a git-ignored `.env.fabric.local` holding the repo's `VITE_*` variables
+(pulled with `gh variable list`; the multi-line `VITE_QZ_CERTIFICATE` left
+out) and `VITE_USE_MOCK=false`. That server reads and writes LIVE SharePoint.
+`/dev/fabric-test` there runs any GraphQL query by hand.
 
 #### New Product Pricing — worksheets for products not yet in SAP
 

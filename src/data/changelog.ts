@@ -49,7 +49,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "The New Product worksheet's price fields line up on one row, like the request's",
       "Pricing is called Pricing on the Dashboard and in the Departments menu, and its Dashboard card has no count",
       "A Calculator on the Pricing bar: a quick customer price from COGS and a GM or manual price, prices at round GMs (25%, 30%, 35%…) from 10 points below to 20 above, and Copy results",
-      "The Calculator brings in SAP's current cost when you enter an SAP part number",
+      "The Calculator brings in SAP's current cost when you enter an SAP or Altronic part number, read live from SAP, with a plant picker when a part is stocked at more than one plant",
       "A manager can type a material price group on a request SAP hasn't classified, to compare it against that group and use its discount",
       "Worksheets have quantity breaks and revisions — save over the current revision or save a new one, compare with SAP once the product exists, and export to Excel",
       "Customer Quotes: build a quote from new-product worksheets, SAP parts, priced requests and extra lines, at the distributor price for each quantity break, and download the customer PDF",

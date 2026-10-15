@@ -1,14 +1,16 @@
 import { useQueries, useQuery } from "@tanstack/react-query";
 import {
   isPricingDataNotConnected,
+  isRetryableSapCostFailure,
   listFamilyParts,
+  lookupSapMaterialCosts,
   listMpgParts,
   lookupSapPart,
   sapCustomerGroupDiscount,
   sapMpgDistributorDiscounts,
   searchSapCustomers,
 } from "@/api/pricingLookup";
-import type { SapCustomer, SapPart } from "@/types/pricing";
+import type { SapCustomer, SapMaterialCost, SapPart } from "@/types/pricing";
 import { buildComparablesPanel, comparisonFigures, type ComparablesPanel, type ComparisonFigures } from "@/lib/pricingMath";
 
 // =============================================================================
@@ -37,6 +39,23 @@ export function useSapPart(args: { altronicPartNumber: string; sapPartNumber: st
     enabled: enabled && (!!key[0] || !!key[1]),
     staleTime: STALE_MS,
     retry,
+  });
+  return { ...q, ...connectionOf(q) };
+}
+
+/**
+ * A material's cost at each plant, from the Fabric cost view — the
+ * Calculator's lookup. Retries only a network blip or a server error: a
+ * refused token or query fails the same way every time.
+ */
+export function useSapMaterialCosts(partNumber: string, enabled = true) {
+  const pn = partNumber.trim();
+  const q = useQuery<SapMaterialCost[]>({
+    queryKey: ["pricing-sap", "material-cost", pn.toUpperCase()],
+    queryFn: () => lookupSapMaterialCosts(pn),
+    enabled: enabled && pn !== "",
+    staleTime: STALE_MS,
+    retry: (count, err) => isRetryableSapCostFailure(err) && count < 1,
   });
   return { ...q, ...connectionOf(q) };
 }

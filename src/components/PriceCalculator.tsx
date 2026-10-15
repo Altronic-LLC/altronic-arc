@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Calculator, Check, Copy, Loader2, Search, X } from "lucide-react";
 import { useMyPricingAccess } from "@/hooks/usePricingRoles";
-import { useSapPart } from "@/hooks/usePricingLookup";
-import { formatSapPartNumber } from "@/lib/sapPartNumber";
+import { useSapMaterialCosts } from "@/hooks/usePricingLookup";
+import { describeSapCostFailure } from "@/api/pricingLookup";
 import { calculate, gmLadder, resultsText, type CalcMode } from "@/lib/priceCalculator";
 import { formatMoney, formatPct } from "@/lib/quoteMoney";
 import { FieldColumn, FieldLabel, PRICE_PANEL } from "./pricingFields";
@@ -70,29 +70,43 @@ export function PriceCalculatorDialog({ onClose }: { onClose: () => void }) {
     Object.assign(session, { sap, description, cogs, mode, value });
   }, [sap, description, cogs, mode, value]);
 
-  // SAP's current cost for a part number (Ray, 2026-10-15) — fills COGS, and
-  // the description when it's blank. Applied ONCE per lookup, so typing over
-  // the cost afterwards sticks. Real mode answers "not connected" until the
-  // Fabric connection is wired, and the dialog says so.
-  const sapPart = useSapPart({ altronicPartNumber: "", sapPartNumber: lookedUp }, lookedUp !== "");
+  // SAP's current cost (Ray, 2026-10-15), read from the Fabric view
+  // `rpt.vw_cogs_material_api` by SAP # or Altronic #. A material has a row per
+  // plant: the first plant's cost is brought in, and a picker offers the rest.
+  // Applied ONCE per lookup (and per plant pick), so typing over the cost
+  // afterwards sticks.
+  const costs = useSapMaterialCosts(lookedUp, lookedUp !== "");
+  const plants = useMemo(() => costs.data ?? [], [costs.data]);
+  const [plant, setPlant] = useState("");
+  const row = plants.find((p) => p.plant === plant) ?? plants[0] ?? null;
   const [sapCost, setSapCost] = useState<number | null>(null);
   const applied = useRef("");
   useEffect(() => {
-    const part = sapPart.data;
-    if (!lookedUp || !part || applied.current === lookedUp) return;
+    if (!lookedUp || plants.length === 0 || applied.current === lookedUp) return;
     applied.current = lookedUp;
-    if (part.cost !== null) {
-      setCogs(String(part.cost));
-      setSapCost(part.cost);
-    }
-    setDescription((d) => (d.trim() ? d : part.description));
-  }, [sapPart.data, lookedUp]);
+    const firstPlant = plants[0];
+    setPlant(firstPlant.plant);
+    applyCost(firstPlant.unitCost);
+    setDescription((d) => (d.trim() ? d : firstPlant.description));
+  }, [plants, lookedUp]);
+
+  function applyCost(unitCost: number | null) {
+    setSapCost(unitCost);
+    if (unitCost !== null) setCogs(String(unitCost));
+  }
+
+  function pickPlant(next: string) {
+    setPlant(next);
+    applyCost(plants.find((p) => p.plant === next)?.unitCost ?? null);
+  }
 
   function lookUp() {
     const pn = sap.trim();
     if (!pn) return;
     applied.current = "";
     setLookedUp(pn);
+    setPlant("");
+    setSapCost(null);
   }
 
   useEffect(() => {
@@ -118,7 +132,8 @@ export function PriceCalculatorDialog({ onClose }: { onClose: () => void }) {
 
   async function copy() {
     if (result.price === null || cost === null) return;
-    const text = resultsText({ description, sapPartNumber: lookedUp && sapPart.data ? lookedUp : "", cogs: cost, mode, result, ladder });
+    const sapPartNumber = row ? (plants.length > 1 ? `${row.sapPartNumber}, plant ${row.plant}` : row.sapPartNumber) : "";
+    const text = resultsText({ description, sapPartNumber, cogs: cost, mode, result, ladder });
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
@@ -129,18 +144,18 @@ export function PriceCalculatorDialog({ onClose }: { onClose: () => void }) {
   }
 
   function sapHint(): string {
-    if (!lookedUp) return "Enter it and press Look up.";
-    if (sapPart.isFetching) return "Looking it up in SAP…";
-    if (sapPart.notConnected) return "SAP data isn't connected to ARC yet — type the cost.";
-    if (sapPart.isError) return "Couldn't reach SAP just now — type the cost, or try again.";
-    if (sapPart.data === null) return `SAP doesn't have ${lookedUp}.`;
-    if (sapPart.data && sapPart.data.cost === null) return `SAP has no cost for ${lookedUp} — type it.`;
-    return sapPart.data ? `${sapPart.data.description} — cost brought in.` : "";
+    if (!lookedUp) return "SAP # or Altronic #, then Look up.";
+    if (costs.isFetching) return "Looking it up in SAP…";
+    if (costs.isError) return describeSapCostFailure(costs.error);
+    if (!row) return `SAP doesn't have ${lookedUp}.`;
+    if (row.unitCost === null) return `SAP has no cost for ${row.sapPartNumber || lookedUp} at plant ${row.plant} — type it.`;
+    return `${row.sapPartNumber} · ${row.description} — cost brought in.`;
   }
 
   function clear() {
     setSap("");
     setLookedUp("");
+    setPlant("");
     setSapCost(null);
     setDescription("");
     setCogs("");
@@ -168,12 +183,12 @@ export function PriceCalculatorDialog({ onClose }: { onClose: () => void }) {
         <p className="mb-4 text-xs text-fg-muted">A quick customer price from cost and margin. Nothing is saved.</p>
 
         <div className="mb-3">
-          <FieldColumn header={<FieldLabel>SAP part #</FieldLabel>} hint={sapHint()}>
+          <FieldColumn header={<FieldLabel>SAP or Altronic #</FieldLabel>} hint={sapHint()}>
             <input
               ref={first}
-              aria-label="SAP part number"
+              aria-label="Part number"
               value={sap}
-              onChange={(e) => setSap(formatSapPartNumber(e.target.value))}
+              onChange={(e) => setSap(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
@@ -186,13 +201,36 @@ export function PriceCalculatorDialog({ onClose }: { onClose: () => void }) {
             <button
               type="button"
               onClick={lookUp}
-              disabled={!sap.trim() || sapPart.isFetching}
+              disabled={!sap.trim() || costs.isFetching}
               className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border bg-surface px-3 text-sm font-medium text-fg hover:bg-surface-2 disabled:opacity-50"
             >
-              {sapPart.isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+              {costs.isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
               Look up
             </button>
           </FieldColumn>
+          {/* A material has a row per plant — offer the others, each with its cost. */}
+          {plants.length > 1 && (
+            <div role="radiogroup" aria-label="Plant" className="mt-2 flex flex-wrap items-center gap-1.5">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted">Plant</span>
+              {plants.map((p) => (
+                <button
+                  key={p.plant}
+                  type="button"
+                  role="radio"
+                  aria-checked={row?.plant === p.plant}
+                  onClick={() => pickPlant(p.plant)}
+                  className={cn(
+                    "rounded-md border px-2 py-1 text-xs tabular-nums",
+                    row?.plant === p.plant
+                      ? "border-cooper-green bg-cooper-green/10 font-semibold text-fg"
+                      : "border-border text-fg-muted hover:text-fg",
+                  )}
+                >
+                  {p.plant} · {formatMoney(p.unitCost)}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <label className="flex flex-col gap-1 text-xs">
@@ -206,7 +244,13 @@ export function PriceCalculatorDialog({ onClose }: { onClose: () => void }) {
         </label>
 
         <div className="mt-3 flex flex-wrap items-start gap-x-6 gap-y-3">
-          <FieldColumn header={<FieldLabel>COGS</FieldLabel>} hint={sapCost !== null && asNumber(cogs) === sapCost ? "From SAP — current cost." : "Cost of one."}>
+          <FieldColumn header={<FieldLabel>COGS</FieldLabel>} hint={
+              sapCost !== null && asNumber(cogs) === sapCost
+                ? plants.length > 1 && row
+                  ? `From SAP — plant ${row.plant}'s current cost.`
+                  : "From SAP — current cost."
+                : "Cost of one."
+            }>
             <span className="text-fg-muted">$</span>
             <input
               type="number"

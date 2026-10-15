@@ -1,7 +1,22 @@
-import { USE_MOCK } from "./config";
+import { FABRIC_ENABLED, USE_MOCK } from "./config";
 import { mockDelay } from "./mockLatency";
-import type { SapCustomer, SapPart } from "@/types/pricing";
-import { pricingMockDb, MOCK_SAP_CUSTOMERS, MOCK_SAP_GROUP_DISCOUNTS, MOCK_SAP_MPG_DISCOUNTS } from "@/data/pricingMockData";
+import { fabricQuery, FabricAuthError, FabricNotConfiguredError, FabricRequestError } from "./fabric";
+import type { SapCustomer, SapMaterialCost, SapPart } from "@/types/pricing";
+import {
+  pricingMockDb,
+  MOCK_SAP_CUSTOMERS,
+  MOCK_SAP_EXTRA_PLANT_COSTS,
+  MOCK_SAP_GROUP_DISCOUNTS,
+  MOCK_SAP_MPG_DISCOUNTS,
+} from "@/data/pricingMockData";
+import {
+  matchesSapMaterialKeys,
+  sapMaterialLookupKeys,
+  sapMaterialPlants,
+  SAP_MATERIAL_COST_FIELDS,
+  toSapMaterialCost,
+  type SapMaterialCostRow,
+} from "@/lib/sapMaterialCost";
 import { familyPrefix } from "@/lib/pricingMath";
 
 // =============================================================================
@@ -42,6 +57,113 @@ function notConnected(): never {
 }
 
 const norm = (s: string) => s.trim().toLowerCase();
+
+// -----------------------------------------------------------------------------
+// The Calculator's cost lookup — the FIRST real Fabric read (Ray, 2026-10-15).
+// One view, `rpt.vw_cogs_material_api`, exposed on the Fabric API for GraphQL
+// as `vw_cogs_material_apis`; field names match the SQL columns (confirmed
+// against a live query, 2026-10-15). Only the Calculator uses it — every
+// other SAP fact above is still "not connected" until its own view exists.
+// -----------------------------------------------------------------------------
+
+/** Whether the Calculator's SAP cost lookup can be asked. */
+export const SAP_COST_LOOKUP_CONNECTED = USE_MOCK || FABRIC_ENABLED;
+
+/** Rows for one typed number. 50 is far past the plants a material sits at. */
+const SAP_COST_LOOKUP_LIMIT = 50;
+
+/**
+ * A material's cost at every plant that stocks it, by SAP # (10 digits) or
+ * old / Altronic #. Empty when SAP doesn't hold it. The rows are ONE material,
+ * sorted by plant (`sapMaterialPlants`).
+ */
+export async function lookupSapMaterialCosts(partNumber: string): Promise<SapMaterialCost[]> {
+  const keys = sapMaterialLookupKeys(partNumber);
+  if (!keys.sap && keys.old.length === 0) return [];
+
+  if (USE_MOCK) {
+    const rows: SapMaterialCost[] = [];
+    for (const p of pricingMockDb.sapParts) {
+      const base: SapMaterialCost = {
+        plant: "4222",
+        sapPartNumber: p.sapPartNumber,
+        altronicPartNumber: p.altronicPartNumber,
+        description: p.description,
+        mpg: p.mpg,
+        unitCost: p.cost,
+        priceControl: "S",
+        unitOfMeasure: "PC",
+      };
+      if (!matchesSapMaterialKeys(base, keys)) continue;
+      rows.push(base);
+      for (const extra of MOCK_SAP_EXTRA_PLANT_COSTS) {
+        if (extra.sapPartNumber === p.sapPartNumber) rows.push({ ...base, plant: extra.plant, unitCost: extra.unitCost });
+      }
+    }
+    return mockDelay(sapMaterialPlants(rows, keys));
+  }
+
+  if (!FABRIC_ENABLED) notConnected();
+
+  // One query, OR'd: the SAP number against Material, the typed text (as
+  // typed and upper-cased) against OldMaterialNumber. Variables, never string
+  // interpolation, so a typed quote can't break the query.
+  const clauses: string[] = [];
+  const variables: Record<string, string> = {};
+  if (keys.sap) {
+    clauses.push("{ Material: { eq: $sap } }");
+    variables.sap = keys.sap;
+  }
+  keys.old.forEach((v, i) => {
+    clauses.push(`{ OldMaterialNumber: { eq: $old${i} } }`);
+    variables[`old${i}`] = v;
+  });
+  const declared = Object.keys(variables)
+    .map((k) => `$${k}: String!`)
+    .join(", ");
+  const query = `query(${declared}) {
+  vw_cogs_material_apis(first: ${SAP_COST_LOOKUP_LIMIT}, filter: { or: [${clauses.join(", ")}] }) {
+    items { ${SAP_MATERIAL_COST_FIELDS.join(" ")} }
+  }
+}`;
+  const data = await fabricQuery<{ vw_cogs_material_apis?: { items?: SapMaterialCostRow[] | null } | null }>(query, variables);
+  const rows = (data.vw_cogs_material_apis?.items ?? []).map(toSapMaterialCost);
+  return sapMaterialPlants(rows, keys);
+}
+
+/**
+ * Why a cost lookup failed, in words someone at a desk can act on. The
+ * Calculator offers the typed COGS box either way, so every answer ends there.
+ * Nothing is guessed: a refused token and a refused query are different
+ * fixes, and an unrecognised failure says only that SAP couldn't be reached.
+ */
+export function describeSapCostFailure(err: unknown): string {
+  if (isPricingDataNotConnected(err) || err instanceof FabricNotConfiguredError) {
+    return "SAP data isn't connected to ARC yet — type the cost.";
+  }
+  if (err instanceof FabricAuthError) {
+    if (err.cause === "account") return `${err.message} Type the cost for now.`;
+    return "Your sign-in can't read SAP costs yet — ARC hasn't been given Fabric access for your account. Type the cost, or ask an admin.";
+  }
+  if (err instanceof FabricRequestError && err.cause === "http" && (err.detail.status === 401 || err.detail.status === 403)) {
+    return "Your account can't read SAP costs — type the cost, or ask an admin for access.";
+  }
+  return "Couldn't reach SAP just now — type the cost, or try again.";
+}
+
+/**
+ * Whether a failed cost lookup is worth retrying: only a network blip or a
+ * server error. A refused token, a refused query or a rejected GraphQL query
+ * fails the same way every time.
+ */
+export function isRetryableSapCostFailure(err: unknown): boolean {
+  if (isPricingDataNotConnected(err) || err instanceof FabricNotConfiguredError || err instanceof FabricAuthError) return false;
+  if (err instanceof FabricRequestError) {
+    if (err.cause === "transport") return true;
+    return err.cause === "http" && (err.detail.status ?? 0) >= 500;
+  }
+  return true;
+}
 
 /**
  * A part, by Altronic number or SAP number — the SAP number wins when both are

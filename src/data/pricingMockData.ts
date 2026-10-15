@@ -67,6 +67,16 @@ export const MOCK_SAP_PARTS: SapPart[] = [
 ];
 
 /** Standard distributor discount per MPG. No CTL entry — SAP hasn't one, so 34% applies. */
+/**
+ * The Calculator's cost view (`rpt.vw_cogs_material_api`) has a row per PLANT.
+ * Every mock part sits at plant 4222; this one is also stocked at 4211 at a
+ * different cost, so the plant picker can be shown. 4230 sorts AFTER 4222, so
+ * the demo part still brings in $120 first.
+ */
+export const MOCK_SAP_EXTRA_PLANT_COSTS: { sapPartNumber: string; plant: string; unitCost: number }[] = [
+  { sapPartNumber: "2001-0310-15", plant: "4230", unitCost: 126.5 },
+];
+
 export const MOCK_SAP_MPG_DISCOUNTS: Record<string, number> = { IGN: 36, HRN: 30 };
 
 export const MOCK_SAP_CUSTOMERS: SapCustomer[] = [
