@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Ban, Download, Loader2, Plus, Save, X } from "lucide-react";
 import { NEW_PRODUCT_PRICING_CONFIGURED } from "@/api/config";
@@ -47,7 +47,17 @@ import { CommentComposer } from "@/components/CommentComposer";
 import { CommentThread } from "@/components/CommentThread";
 import { PersonMultiField } from "@/components/PersonMultiField";
 import { useOverlayDismiss } from "@/components/useOverlayDismiss";
-import { ActionButton, PricingCard, PricingManagerGate, PricingPage, ReadField } from "@/components/pricingAtoms";
+import {
+  ActionButton,
+  COST_PANEL,
+  FieldColumn,
+  FieldLabel,
+  PRICE_PANEL,
+  PricingCard,
+  PricingManagerGate,
+  PricingPage,
+  ReadField,
+} from "@/components/pricingAtoms";
 import { cn } from "@/lib/cn";
 
 // =============================================================================
@@ -388,13 +398,21 @@ function Worksheet({ ws, rows }: { ws: NewProductWorksheet; rows: SubAssembly[] 
 
           <SapComparisonCard ws={ws} readOnly={cancelled} />
 
-          <PricingCard title="Price">
+          <PricingCard title="Price" tone="price">
             <div className="flex flex-wrap items-start gap-x-6 gap-y-3">
-              <label className="flex flex-col gap-1 text-xs">
-                <span className="font-semibold uppercase tracking-wider text-fg-muted">Material price group</span>
-                <input value={mpg} disabled={readOnly} onChange={(e) => { setMpg(e.target.value.toUpperCase()); touch(); }} className="input !w-36" placeholder="Optional" />
-                <span className="text-[11px] text-fg-muted">Brings in SAP's distributor discount for it.</span>
-              </label>
+              <FieldColumn header={<FieldLabel>Material price group</FieldLabel>} hint="Brings in SAP's distributor discount for it.">
+                <input
+                  aria-label="Material price group"
+                  value={mpg}
+                  disabled={readOnly}
+                  onChange={(e) => {
+                    setMpg(e.target.value.toUpperCase());
+                    touch();
+                  }}
+                  className="input !h-9 !w-36"
+                  placeholder="Optional"
+                />
+              </FieldColumn>
               <Num
                 label="Distributor discount"
                 suffix="%"
@@ -408,6 +426,50 @@ function Worksheet({ ws, rows }: { ws: NewProductWorksheet; rows: SubAssembly[] 
                 }}
                 hint={discountSource === "SAP" ? `SAP's for ${mpg}` : discountSource === "Default" ? `standard ${STANDARD_DISTRIBUTOR_DISCOUNT_PCT}%` : "typed"}
               />
+              <Num
+                label={inputKind === "gm" ? "Target base GM" : inputKind === "list" ? "List price" : "Customer price"}
+                header={
+                  // The toggle sits in the label row, so this box lines up with the others.
+                  <div role="radiogroup" aria-label="Price from" className="inline-flex h-6 items-stretch gap-0.5 rounded-md bg-surface-2 p-0.5">
+                    {(["gm", "list", "customer"] as const).map((k) => (
+                      <button
+                        key={k}
+                        type="button"
+                        role="radio"
+                        aria-checked={inputKind === k}
+                        disabled={readOnly}
+                        onClick={() => {
+                          setInputKind(k);
+                          setInputValue("");
+                          touch();
+                        }}
+                        className={cn(
+                          "rounded px-2 text-[11px] font-semibold uppercase tracking-wider",
+                          inputKind === k ? "bg-surface text-fg shadow-sm" : "text-fg-muted hover:text-fg",
+                        )}
+                      >
+                        {k === "gm" ? "Target GM" : k === "list" ? "List price" : "Customer price"}
+                      </button>
+                    ))}
+                  </div>
+                }
+                suffix={inputKind === "gm" ? "%" : undefined}
+                prefix={inputKind === "gm" ? undefined : "$"}
+                width={inputKind === "gm" ? "!w-20" : "!w-32"}
+                hint={
+                  inputKind === "gm"
+                    ? "Rounded to the dollar."
+                    : inputKind === "customer"
+                      ? "The distributor price; the list is worked back from it."
+                      : "Taken as typed."
+                }
+                value={inputValue}
+                disabled={readOnly}
+                onChange={(v) => {
+                  setInputValue(v);
+                  touch();
+                }}
+              />
             </div>
             {ws.overheadPct > 0 && viewingCurrent && (
               <p className="mt-3 rounded-md border border-ajax-yellow/40 bg-ajax-yellow/10 px-3 py-2 text-xs text-fg">
@@ -415,50 +477,19 @@ function Worksheet({ ws, rows }: { ws: NewProductWorksheet; rows: SubAssembly[] 
                 each sub-assembly or part — add it there before saving.
               </p>
             )}
-            <div className="mt-4 flex flex-wrap items-end gap-3">
-              <div role="radiogroup" aria-label="Price from" className="inline-flex gap-1 rounded-lg bg-surface-2 p-1">
-                {(["gm", "list", "customer"] as const).map((k) => (
-                  <button
-                    key={k}
-                    type="button"
-                    role="radio"
-                    aria-checked={inputKind === k}
-                    disabled={readOnly}
-                    onClick={() => {
-                      setInputKind(k);
-                      setInputValue("");
-                      touch();
-                    }}
-                    className={cn("rounded-md px-3 py-1.5 text-sm font-medium", inputKind === k ? "bg-surface text-fg shadow-sm" : "text-fg-muted hover:text-fg")}
-                  >
-                    {k === "gm" ? "Target GM" : k === "list" ? "List price" : "Customer price"}
-                  </button>
-                ))}
-              </div>
-              <div>
-                <Num
-                  label={inputKind === "gm" ? "Target base GM" : inputKind === "list" ? "List price" : "Customer price"}
-                  suffix={inputKind === "gm" ? "%" : undefined}
-                  prefix={inputKind === "gm" ? undefined : "$"}
-                  width="!w-32"
-                  hint={inputKind === "customer" ? "The distributor price; the list is worked back from it." : undefined}
-                  value={inputValue}
-                  disabled={readOnly}
-                  onChange={(v) => {
-                    setInputValue(v);
-                    touch();
-                  }}
-                />
-              </div>
-            </div>
 
-            <dl className="mt-4 grid grid-cols-2 gap-3 rounded-lg border border-border bg-surface-2/40 p-3 sm:grid-cols-5" aria-label="Cost and price">
-              <Result label="Unit cost (uploaded)" value={formatMoney(cost.unit.uploaded)} />
-              <Result label="Unit cost (used)" value={formatMoney(cost.unit.used)} strong />
-              <Result label="List price" value={formatMoney(result.listPrice)} strong />
-              <Result label="Customer price" value={formatMoney(result.distributorPrice)} strong />
-              <Result label="Base GM" value={formatPct(result.baseGM)} strong />
-            </dl>
+            {/* Cost (neutral) beside the selling price (green), so the two never blur. */}
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-[2fr_3fr]" aria-label="Cost and price">
+              <dl className={cn("grid grid-cols-2 gap-3 p-3", COST_PANEL)} aria-label="Cost">
+                <Result label="Unit cost (uploaded)" value={formatMoney(cost.unit.uploaded)} />
+                <Result label="Unit cost (used)" value={formatMoney(cost.unit.used)} strong />
+              </dl>
+              <dl className={cn("grid grid-cols-3 gap-3 p-3", PRICE_PANEL)} aria-label="Selling price">
+                <Result label="List price" value={formatMoney(result.listPrice)} strong />
+                <Result label="Customer price" value={formatMoney(result.distributorPrice)} strong />
+                <Result label="Base GM" value={formatPct(result.baseGM)} strong />
+              </dl>
+            </div>
             {cost.problems.length > 0 && (
               <ul className="mt-2 list-disc pl-5 text-xs text-cooper-red">
                 {cost.problems.map((p) => (
@@ -635,6 +666,7 @@ function Worksheet({ ws, rows }: { ws: NewProductWorksheet; rows: SubAssembly[] 
 
 function Num({
   label,
+  header,
   value,
   onChange,
   disabled,
@@ -643,7 +675,9 @@ function Num({
   hint,
   width,
 }: {
+  /** The input's accessible name; drawn as the label unless `header` replaces it. */
   label: string;
+  header?: ReactNode;
   /** An important-prefixed width class (".input" sets width: 100%). */
   width?: string;
   value: string;
@@ -654,15 +688,19 @@ function Num({
   hint?: string;
 }) {
   return (
-    <label className="flex flex-col gap-1 text-xs">
-      <span className="font-semibold uppercase tracking-wider text-fg-muted">{label}</span>
-      <span className="flex items-center gap-1">
-        {prefix && <span className="text-fg-muted">{prefix}</span>}
-        <input type="number" step="any" value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} className={cn("input tabular-nums", width)} />
-        {suffix && <span className="text-fg-muted">{suffix}</span>}
-      </span>
-      {hint && <span className="text-[11px] text-fg-muted">{hint}</span>}
-    </label>
+    <FieldColumn header={header ?? <FieldLabel>{label}</FieldLabel>} hint={hint}>
+      {prefix && <span className="text-fg-muted">{prefix}</span>}
+      <input
+        type="number"
+        step="any"
+        aria-label={label}
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
+        className={cn("input !h-9 text-right tabular-nums", width)}
+      />
+      {suffix && <span className="text-fg-muted">{suffix}</span>}
+    </FieldColumn>
   );
 }
 
@@ -742,7 +780,7 @@ function CompareToSap({ ws }: { ws: NewProductWorksheet }) {
 
   if (!SAP_DATA_CONNECTED) {
     return (
-      <PricingCard title="Compare to SAP">
+      <PricingCard title="Compare to SAP" tone="reference">
         <p className="text-sm text-fg-muted">Available once SAP data is connected.</p>
       </PricingCard>
     );
@@ -758,7 +796,7 @@ function CompareToSap({ ws }: { ws: NewProductWorksheet }) {
     : [];
 
   return (
-    <PricingCard title="Compare to SAP">
+    <PricingCard title="Compare to SAP" tone="reference">
       <div className="flex gap-2">
         <input
           aria-label="SAP part number"

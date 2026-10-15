@@ -4,7 +4,7 @@ import type { PriceBreakTier, PriceInput, RowPricing } from "@/types/pricing";
 import type { SubAssemblyDraft } from "@/api/newProductSubAssemblies";
 import { MAX_PRICE_BREAKS, priceBreaksProblem, rowSellingPrice, tierRanges } from "@/lib/pricingMath";
 import { formatMoney, formatPct } from "@/lib/quoteMoney";
-import { FieldColumn, FieldLabel } from "./pricingAtoms";
+import { COST_PANEL, FieldColumn, FieldLabel, PRICE_PANEL } from "./pricingAtoms";
 import { cn } from "@/lib/cn";
 
 // =============================================================================
@@ -88,7 +88,7 @@ export function RowSellingPrice({
   const overridden = pricing.distributorDiscountPct !== null;
 
   return (
-    <section aria-label={`${label} — own selling price`} className="mt-3 rounded-lg border border-border bg-surface-2/40 p-3">
+    <section aria-label={`${label} — own selling price`} className="mt-3 rounded-lg border border-border border-l-4 border-l-cooper-green bg-cooper-green/[0.03] p-3">
       <div className="flex items-center justify-between gap-2">
         <h3 className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-fg-muted">
           <Tag className="h-3.5 w-3.5" /> Own selling price
@@ -169,12 +169,17 @@ export function RowSellingPrice({
         </FieldColumn>
       </div>
 
-      <dl className="mt-3 grid max-w-2xl grid-cols-2 gap-3 sm:grid-cols-4" aria-label={`${label} — own price`}>
-        <Figure label="Cost each" value={formatMoney(sell.cost)} title="One of this row, with its overhead" />
-        <Figure label="List price" value={formatMoney(sell.result.listPrice)} strong />
-        <Figure label="Customer price" value={formatMoney(sell.result.distributorPrice)} strong />
-        <Figure label="Base GM" value={formatPct(sell.result.baseGM)} strong />
-      </dl>
+      {/* Cost (neutral) beside the selling price (green) — the Price card's arrangement. */}
+      <div className="mt-3 grid max-w-2xl grid-cols-1 gap-2 sm:grid-cols-[1fr_3fr]" aria-label={`${label} — own price`}>
+        <dl className={cn("p-2.5", COST_PANEL)}>
+          <Figure label="Cost each" value={formatMoney(sell.cost)} title="One of this row, with its overhead" />
+        </dl>
+        <dl className={cn("grid grid-cols-3 gap-3 p-2.5", PRICE_PANEL)}>
+          <Figure label="List price" value={formatMoney(sell.result.listPrice)} strong />
+          <Figure label="Customer price" value={formatMoney(sell.result.distributorPrice)} strong />
+          <Figure label="Base GM" value={formatPct(sell.result.baseGM)} strong />
+        </dl>
+      </div>
       {sell.result.problem && <p className="mt-1 text-xs text-cooper-red">{sell.result.problem}</p>}
 
       <div className="mt-3">

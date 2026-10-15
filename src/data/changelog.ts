@@ -45,6 +45,8 @@ export const CHANGELOG: ChangelogEntry[] = [
       "New Product worksheets keep an SAP comparison — existing SAP parts with their list price, cost and base GM, as a pricing reference",
       "A worksheet revision that prices only its parts says how many in the revision list, instead of a blank price",
       "The top bar fits the window at every width — no more sideways scrolling on laptop-sized and tablet screens",
+      "Sales Pricing is colour-coded: selling prices in green, SAP and comparable-part reference in blue, cost in plain boxes",
+      "The New Product worksheet's price fields line up on one row, like the request's",
       "Worksheets have quantity breaks and revisions — save over the current revision or save a new one, compare with SAP once the product exists, and export to Excel",
       "Customer Quotes: build a quote from new-product worksheets, SAP parts, priced requests and extra lines, at the distributor price for each quantity break, and download the customer PDF",
       "Quote lines show their SAP part number and take an optional customer part number, both on the PDF; edit a draft quote's customer, contact and validity from the Customer card",

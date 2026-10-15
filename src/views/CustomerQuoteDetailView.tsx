@@ -281,6 +281,7 @@ function Quote({ quote: q }: { quote: CustomerQuote }) {
           </PricingCard>
 
           <PricingCard
+            tone="price"
             title="Lines"
             action={
               draft && !q.linesCorrupt ? (
@@ -418,7 +419,7 @@ function Quote({ quote: q }: { quote: CustomerQuote }) {
                     })}
                   </tbody>
                   <tfoot>
-                    <tr className="border-t-2 border-border font-semibold">
+                    <tr className="border-t-2 border-cooper-green/40 bg-cooper-green/10 font-semibold">
                       <td className="px-2 py-2" colSpan={4}>
                         Total
                       </td>

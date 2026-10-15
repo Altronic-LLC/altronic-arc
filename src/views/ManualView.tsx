@@ -3946,6 +3946,12 @@ const SECTIONS: ManualSection[] = [
           the <strong>Excel</strong> button downloads the worksheet.
         </P>
         <P>
+          Colour tells you what a figure is across Sales Pricing:{" "}
+          <strong>green</strong> is a selling price (list, customer price,
+          margin, breaks and a quote's total), <strong>blue</strong> is
+          reference from SAP or comparable parts, and plain boxes are cost.
+        </P>
+        <P>
           <strong>Sell a sub-assembly or part separately.</strong> Press{" "}
           <strong>Sell … separately</strong> on a row to give it its own price —
           a target GM, a list price or a customer price — and up to three

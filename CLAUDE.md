@@ -4612,6 +4612,17 @@ Wiring it is that one file plus flipping `SAP_DATA_CONNECTED`.
 - **Fresh rows per revision**, on NP Sub-Assemblies and Customer Quotes alike.
   An earlier revision is never rewritten.
 - **Draft-then-save** on the worksheet page.
+- **Colour by MEANING** (Ray, 2026-10-15) — `pricingAtoms.tsx`:
+  `PricingCard`'s `tone` and the `PRICE_PANEL` / `COST_PANEL` /
+  `REFERENCE_PANEL` classes. **Green = what we SELL at** (list, customer
+  price, GM, breaks, a quote's lines and total); **blue = what we compare
+  AGAINST** (SAP comparison, MPG / family comparables, Compare to SAP);
+  **neutral = cost and working-out**. Cost always sits in its own neutral box
+  BESIDE the green price box, never inside it. Yellow and red keep their jobs
+  (warnings, errors). The brand hexes are fixed, so colour goes on borders, a
+  left accent bar and light tints — never on text, where blue on the dark
+  theme is hard to read. A new pricing card picks a tone by what it holds,
+  or none.
 - **A width on an `.input` needs `!`** (`!w-24`, `!px-1.5`). `.input` in
   `globals.css` sets `width: 100%` AFTER Tailwind's utilities, so a plain
   `w-20` is silently ignored — that is why the break fields once stretched

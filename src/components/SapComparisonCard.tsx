@@ -73,7 +73,7 @@ export function SapComparisonCard({ ws, readOnly }: { ws: NewProductWorksheet; r
   }
 
   return (
-    <PricingCard title="SAP comparison" testId="sap-comparison">
+    <PricingCard title="SAP comparison" testId="sap-comparison" tone="reference">
       <p className="text-xs text-fg-muted">
         Existing SAP parts to price against — list, cost and base GM at the distributor price, read from SAP each time
         the page opens. The list is kept on this worksheet.

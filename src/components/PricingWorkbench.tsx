@@ -18,7 +18,7 @@ import { formatMoney, formatPct } from "@/lib/quoteMoney";
 import { useComparables, useMpgDistributorDiscount, useSapPart } from "@/hooks/usePricingLookup";
 import { usePriceRequest } from "@/hooks/usePricingRequests";
 import { SAP_DATA_CONNECTED } from "@/api/pricingLookup";
-import { FieldColumn, FieldLabel, PricingCard } from "./pricingAtoms";
+import { FieldColumn, FieldLabel, PRICE_PANEL, PricingCard } from "./pricingAtoms";
 import { ChoicePills } from "./ChoicePills";
 import { cn } from "@/lib/cn";
 
@@ -154,7 +154,7 @@ export function PricingWorkbench({
         </p>
       )}
 
-      <PricingCard title="Price this request">
+      <PricingCard title="Price this request" tone="price">
         <div className="flex flex-wrap items-start gap-x-6 gap-y-3">
           <NumberField
             label="Cost"
@@ -236,7 +236,7 @@ export function PricingWorkbench({
           </FieldColumn>
         </div>
 
-        <dl className="mt-4 grid max-w-3xl grid-cols-1 gap-3 rounded-lg border border-border bg-surface-2/40 p-3 sm:grid-cols-3" aria-label="Result">
+        <dl className={cn("mt-4 grid max-w-3xl grid-cols-1 gap-3 p-3 sm:grid-cols-3", PRICE_PANEL)} aria-label="Result">
           <Result label="List price" value={formatMoney(result.listPrice)} strong />
           <Result label={`Price for ${request.customerName || "the customer"} (distributor price)`} value={formatMoney(result.customerPrice)} strong />
           <Result label="Base GM" value={formatPct(result.baseGM)} strong />
@@ -366,7 +366,7 @@ function ComparablesCard({
     </span>
   ) : null;
   return (
-    <PricingCard title={title} action={summary}>
+    <PricingCard title={title} action={summary} tone="reference">
       {notConnected ? (
         <p className="text-sm text-fg-muted">Comparables appear here once SAP data is connected.</p>
       ) : emptyReason ? (

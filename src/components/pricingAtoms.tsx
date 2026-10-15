@@ -191,19 +191,51 @@ export function PricingHeader({
   );
 }
 
+// -----------------------------------------------------------------------------
+// Colour by MEANING (Ray, 2026-10-15) — so a selling price never looks like a
+// reference figure or a cost:
+//   price     GREEN  what we SELL at — list, customer price, GM, breaks, totals
+//   reference BLUE   what we compare AGAINST — SAP comparison, comparables
+//   (none)    NEUTRAL — cost, details, history: the working-out
+// Yellow and red keep their existing jobs (warnings, errors). The brand hexes
+// are fixed, so colour goes on borders, an accent bar and light tints — never
+// on text, where blue on the dark theme would be hard to read.
+// -----------------------------------------------------------------------------
+
+export type PricingTone = "price" | "reference";
+
+const CARD_TONE: Record<PricingTone, string> = {
+  price: "border-l-4 border-l-cooper-green bg-cooper-green/[0.03]",
+  reference: "border-l-4 border-l-superior-blue bg-superior-blue/[0.03]",
+};
+
+/** A block of SELLING figures — list, customer price, GM. */
+export const PRICE_PANEL = "rounded-lg border border-cooper-green/40 bg-cooper-green/10";
+/** A block of COST figures — the working-out, deliberately plain. */
+export const COST_PANEL = "rounded-lg border border-border bg-surface-2/60";
+/** A block of REFERENCE figures — what SAP or comparable parts say. */
+export const REFERENCE_PANEL = "rounded-lg border border-superior-blue/30 bg-superior-blue/10";
+
 export function PricingCard({
   title,
   action,
   children,
   testId,
+  tone,
 }: {
   title: React.ReactNode;
   action?: React.ReactNode;
   children: React.ReactNode;
   testId?: string;
+  /** Colours the card by what it holds — see the note above. Omit for neutral. */
+  tone?: PricingTone;
 }) {
   return (
-    <section className="rounded-xl border border-border bg-surface p-4 sm:p-5" data-testid={testId}>
+    <section
+      className={cn("rounded-xl border border-border bg-surface p-4 sm:p-5", tone && CARD_TONE[tone])}
+      data-testid={testId}
+      data-tone={tone}
+    >
       <div className="mb-3 flex items-center justify-between gap-2">
         <h2 className="font-display text-sm font-semibold uppercase tracking-wider text-fg-muted">{title}</h2>
         {action}

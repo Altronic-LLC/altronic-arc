@@ -248,7 +248,7 @@ function RequestDetail({ access }: { access: MyPricingAccess }) {
             </dl>
           </PricingCard>
 
-          <PricingCard title="Price" testId="request-price">
+          <PricingCard title="Price" testId="request-price" tone="price">
             {r.listPrice === null ? (
               <p className="text-sm text-fg-muted">
                 {r.status === "Cancelled" ? "Not priced." : "Not priced yet — you'll be emailed when it is."}
