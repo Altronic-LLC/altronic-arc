@@ -20,47 +20,29 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.190.1",
+    date: "2026-10-16",
+    changes: [
+      "Release notes tidied up",
+      "The Calculator's SAP lookup is faster: it gets ready as the Calculator opens, and looks the part up as soon as the 10th digit is typed",
+    ],
+  },
+  {
     version: "0.190.0",
     date: "2026-10-13",
+    // Deliberately SHORT (Ray, 2026-10-16): these notes are readable by
+    // everyone signed in, so they say WHAT exists, never HOW a price is worked
+    // out — no discounts, margins or rounding rules. The detail lives in
+    // CLAUDE.md and the pricing team's own screens.
     changes: [
       "New Pricing tool, in review — only the reviewer can open it for now; everyone else still sees Pricing as Coming soon",
-      "Raise a pricing request for a Contact Factory part: enter the Altronic or the SAP part number and ARC fills in the other, plus a description, who it's for, notes and the customer",
-      "A request for a part SAP already has goes straight to the pricing managers; one SAP hasn't got goes to an admin to set it up first, then on with Added to SAP",
-      "Pricing managers see the part's cost, the distributor discount, and the average margin of its material price group and its part family, then set a target margin or a list price",
-      "The list price is worked back from cost and rounded to the dollar; the requester is emailed the list and customer price and can download a price PDF",
-      "A customer's discount comes from their customer group — on the part, else on its material price group, else 34% (34% with no customer) — beside the distributor discount that sets the list price, with the customer GM shown",
-      "A Customer Quote line for an SAP part starts from the customer's group discount",
-      "Every price keeps a history of how it was reached, and a manager can reopen a request to change it",
-      "New Product Pricing: cost a product that isn't in SAP yet from its sub-assemblies and standalone parts, each with an Altronic and an SAP part number",
-      "Add a sub-assembly's components from a CSV or by hand and edit any of them; add a part from SAP or with a typed cost; base and adjusted cost sit side by side",
-      "Attach files to each sub-assembly or part, and comment on and watch a worksheet",
-      "The component table gives most of its width to the description, and Add sub-assembly / Add part sit below the last item, just above the price",
-      "Price a new product from a customer price as well as a target GM or list price — ARC works the list price back from it",
-      "Compare to SAP looks the product up by the SAP part number you enter",
-      "The worksheet's price fields, revision picker and quantity breaks are sized to their contents",
-      "Overhead is set on each sub-assembly or part, and is optional — it replaces the one overhead on the whole product",
-      "A customer quote's quantity, customer part # and status fields are sized to their contents",
-      "Pricing a request asks Leave as Contact Factory? Yes or No; the answer is saved on the request, so the requester sees it with the price and in their email",
-      "The Price this request fields are sized to their contents and line up on one row — cost, discount, target and Leave as Contact Factory",
-      "A sub-assembly or part on a New Product worksheet can be sold separately, with its own price, distributor discount and quantity breaks",
-      "Customer Quotes can add a separately priced sub-assembly as its own line, pinned to the revision",
-      "New Product worksheets keep an SAP comparison — existing SAP parts with their list price, cost and base GM, as a pricing reference",
-      "A worksheet revision that prices only its parts says how many in the revision list, instead of a blank price",
+      "Pricing requests: ask the pricing team for a price on a part, and see the final price when it's set",
+      "Tools for the pricing team: pricing new products, customer quotes, and a quick price calculator",
+      "Pricing is called Pricing on the Dashboard and in the Departments menu",
       "The top bar fits the window at every width — no more sideways scrolling on laptop-sized and tablet screens",
-      "Pricing is colour-coded: selling prices in green, SAP and comparable-part reference in blue, cost in plain boxes",
-      "The New Product worksheet's price fields line up on one row, like the request's",
-      "Pricing is called Pricing on the Dashboard and in the Departments menu, and its Dashboard card has no count",
-      "A Calculator on the Pricing bar: a quick customer price from COGS and a GM or manual price, prices at round GMs (25%, 30%, 35%…) from 10 points below to 20 above, and Copy results",
-      "The Calculator brings in SAP's current cost and description when you enter an SAP part number, read live from SAP, with a plant picker when a part is stocked at more than one plant",
-      "Each new SAP part number in the Calculator replaces the description with SAP's",
-      "The Calculator rounds a price up to the cent, so a cheap part never earns less than the GM you asked for",
-      "A manager can type a material price group on a request SAP hasn't classified, to compare it against that group and use its discount",
-      "Worksheets have quantity breaks and revisions — save over the current revision or save a new one, compare with SAP once the product exists, and export to Excel",
-      "Customer Quotes: build a quote from new-product worksheets, SAP parts, priced requests and extra lines, at the customer's discount for each quantity break, and download the customer PDF",
-      "Quote lines show their SAP part number and take an optional customer part number, both on the PDF; edit a draft quote's customer, contact and validity from the Customer card",
-      "The Pricing Roles tab shows a checkbox per role, like the other roles screens",
     ],
-  },  {
+  },
+  {
     version: "0.189.0",
     date: "2026-10-13",
     changes: [

@@ -180,6 +180,13 @@ describe("PriceCalculatorDialog", () => {
     expect(dialog.getByLabelText("COGS")).toHaveValue(50);
   });
 
+  it("looks up on the 10th digit, without pressing Look up", async () => {
+    const dialog = await open();
+    await userEvent.type(dialog.getByLabelText("SAP part number"), "2001031025");
+    await waitFor(() => expect(dialog.getByLabelText("COGS")).toHaveValue(142));
+    expect(dialog.getByLabelText("Description")).toHaveValue("HARNESS, CPU-95, 25 FT");
+  });
+
   it("knows the real SAP parts read from the live view, so the demo answers for them", async () => {
     const dialog = await open();
     await userEvent.type(dialog.getByLabelText("SAP part number"), "1000164400{Enter}");

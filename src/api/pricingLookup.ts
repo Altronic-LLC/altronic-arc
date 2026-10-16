@@ -95,6 +95,35 @@ const SAP_COST_LOOKUP_LIMIT = 50;
  * dashed or not). Empty when SAP doesn't hold it, or until a whole number has
  * been typed. Sorted by plant (`sapMaterialPlants`).
  */
+let warmed: Promise<void> | null = null;
+
+/**
+ * Warm the live lookup the moment the Calculator opens (Ray, 2026-10-16: "the
+ * SAP lookup needs to be much faster"). The FIRST Fabric call of a session
+ * pays for the token and for waking the GraphQL endpoint and the warehouse
+ * behind it; doing that with a one-row query while the person is still typing
+ * takes it off the lookup they wait for. Once per page session, never throws,
+ * and does nothing where the lookup isn't live.
+ */
+export function warmSapCostLookup(): Promise<void> {
+  if (SAP_COST_LOOKUP_IS_DEMO || !FABRIC_ENABLED) return Promise.resolve();
+  if (!warmed) {
+    warmed = fabricQuery("query { vw_cogs_material_apis(first: 1) { items { Plant } } }")
+      .then(() => undefined)
+      .catch(() => {
+        // A failed warm-up (not signed in yet, say) is retried next time the
+        // Calculator opens; the lookup itself reports any real problem.
+        warmed = null;
+      });
+  }
+  return warmed;
+}
+
+/** Tests only — the warm-up is once per page session. */
+export function __resetSapCostWarmup(): void {
+  warmed = null;
+}
+
 export async function lookupSapMaterialCosts(partNumber: string): Promise<SapMaterialCost[]> {
   const sap = sapMaterialLookupKey(partNumber);
   if (!sap) return [];

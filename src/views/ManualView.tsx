@@ -3956,8 +3956,9 @@ const SECTIONS: ManualSection[] = [
         <P>
           <strong>Price calculator.</strong> The <strong>Calculator</strong>{" "}
           button on the Pricing bar (every pricing role) works out a quick
-          customer price. Enter an SAP part number and press Look up to bring
-          in its current cost and description from SAP — each new number
+          customer price. Type an SAP part number and, as soon as all 10
+          digits are in, it brings in the part's current cost and description
+          from SAP — each new number
           replaces the description — and, when the part is stocked at more
           than one plant, pick the plant whose cost you want. Or type the
           cost (COGS) yourself. Then the GM
