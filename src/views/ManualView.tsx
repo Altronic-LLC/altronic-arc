@@ -2632,7 +2632,9 @@ const SECTIONS: ManualSection[] = [
           height is Units Tested — with a{" "}
           <strong>First Pass Yield (FPY%)</strong> line over it, always
           showing the trailing three calendar months, ending at the current
-          month. A month with nothing tested yet shows no point on the FPY
+          month. Above each bar, <strong>Total:</strong> gives the units
+          tested that month, with <strong>Failed:</strong> (in red) directly
+          below it. A month with nothing tested yet shows no point on the FPY
           line for that month, rather than a misleading 0%.
         </P>
         <P>
@@ -2689,8 +2691,8 @@ const SECTIONS: ManualSection[] = [
           for each of Teradyne, Digital QC and Ignition QC in turn. Every
           chart is shown larger than on its normal page, each trend chart
           shows the passed count inside its blue segment, and each Defect
-          Breakdown's donut fills most of the screen with a smaller legend
-          beside it. A small Fullscreen button in the corner puts the browser
+          Breakdown's donut fills most of the screen with a large,
+          easy-to-read legend beside it. A small Fullscreen button in the corner puts the browser
           itself into fullscreen. It's meant for a monitor or kiosk display
           and is available for testing.
         </P>

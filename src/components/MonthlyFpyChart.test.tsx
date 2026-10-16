@@ -67,14 +67,41 @@ describe("MonthlyFpyChart", () => {
     expect(screen.getByText("Units failed")).toBeInTheDocument();
   });
 
-  it("shows the month labels and the Units Tested total on each bar", () => {
+  it("shows the month labels and a labelled Total above each bar", () => {
     render(
       <MonthlyFpyChart
         data={[month({ monthKey: "2026-07", label: "Jul", unitsTested: 1234, unitsFailed: 5 })]}
       />,
     );
     expect(screen.getByText("Jul")).toBeInTheDocument();
-    expect(screen.getByText("1,234")).toBeInTheDocument();
+    expect(screen.getByText("Total: 1,234")).toBeInTheDocument();
+  });
+
+  it("shows a labelled Failed count directly below the Total", () => {
+    render(
+      <MonthlyFpyChart
+        data={[month({ monthKey: "2026-07", label: "Jul", unitsTested: 1234, unitsFailed: 34 })]}
+      />,
+    );
+    const total = screen.getByText("Total: 1,234");
+    const failed = screen.getByText("Failed: 34");
+    // Same column, and Failed sits lower (a larger y) than Total.
+    expect(failed.getAttribute("x")).toBe(total.getAttribute("x"));
+    expect(Number(failed.getAttribute("y"))).toBeGreaterThan(Number(total.getAttribute("y")));
+  });
+
+  it("shows Failed: 0 for a month with nothing failed, and no labels for an untested month", () => {
+    render(
+      <MonthlyFpyChart
+        data={[
+          month({ monthKey: "2026-07", label: "Jul", unitsTested: 800, unitsFailed: 0, fpyPercent: 100 }),
+          month({ monthKey: "2026-08", label: "Aug", unitsTested: 0, unitsFailed: 0 }),
+        ]}
+      />,
+    );
+    expect(screen.getByText("Failed: 0")).toBeInTheDocument();
+    expect(screen.getAllByText(/^Total:/)).toHaveLength(1);
+    expect(screen.getAllByText(/^Failed:/)).toHaveLength(1);
   });
 
   it("shows the passed count (total minus failed) inside the blue segment", () => {

@@ -43,6 +43,31 @@ describe("DefectBreakdownDonut", () => {
     expect(screen.getByText("No defects logged in Sep.")).toBeInTheDocument();
   });
 
+  it("uses a much larger legend in kiosk mode, readable from across the room", () => {
+    const segments = [{ label: "Wire bridge", count: 41 }];
+    const { unmount } = render(
+      <DefectBreakdownDonut monthLabel="Oct" total={2315} segments={segments} large />,
+    );
+    expect(screen.getByText("Wire bridge").parentElement?.parentElement).toHaveClass("text-xl");
+    unmount();
+
+    render(<DefectBreakdownDonut monthLabel="Oct" total={2315} segments={segments} />);
+    expect(screen.getByText("Wire bridge").parentElement?.parentElement).toHaveClass("text-sm");
+  });
+
+  it("splits the center caption over two lines in kiosk mode so it fits inside the ring", () => {
+    const { unmount } = render(
+      <DefectBreakdownDonut monthLabel="Oct" total={2315} unitLabel="Boards" segments={[]} large />,
+    );
+    expect(screen.getByText("Boards tested")).toBeInTheDocument();
+    expect(screen.getByText("Oct")).toBeInTheDocument();
+    expect(screen.queryByText("Boards tested · Oct")).not.toBeInTheDocument();
+    unmount();
+
+    render(<DefectBreakdownDonut monthLabel="Oct" total={2315} unitLabel="Boards" segments={[]} />);
+    expect(screen.getByText("Boards tested · Oct")).toBeInTheDocument();
+  });
+
   it("renders without crashing when total is zero too", () => {
     render(<DefectBreakdownDonut monthLabel="Sep" total={0} segments={[]} />);
     expect(screen.getByRole("img")).toBeInTheDocument();

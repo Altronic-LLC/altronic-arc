@@ -69,10 +69,12 @@ export function DefectBreakdownDonut({
       : segments.map((s) => `${s.label}: ${s.count.toLocaleString()}`).join("; ");
 
   return (
-    // In kiosk mode (`large`) the ring dominates and the legend shrinks and
-    // narrows rather than growing to fill the row (Tim, 2026-09-18) — the
-    // legend's job on a screen nobody is standing next to is naming the
-    // colors, not being read line by line.
+    // In kiosk mode (`large`) the ring dominates and the legend sits beside
+    // it at a capped width rather than growing to fill the row (Tim,
+    // 2026-09-18). Its text was then made much LARGER (Tim, 2026-10-16):
+    // at text-xs it was unreadable from across the room, which is where a
+    // kiosk is read from. It may shrink (min-w-0) and truncate a long label
+    // rather than push the row wider than a mid-size screen.
     <div
       className={cn(
         "flex items-center",
@@ -111,7 +113,7 @@ export function DefectBreakdownDonut({
         ))}
         <text
           x={CENTER}
-          y={CENTER - 6}
+          y={CENTER - (large ? 12 : 6)}
           textAnchor="middle"
           dominantBaseline="middle"
           className={cn(
@@ -121,30 +123,59 @@ export function DefectBreakdownDonut({
         >
           {total.toLocaleString()}
         </text>
-        <text
-          x={CENTER}
-          y={CENTER + (large ? 22 : 16)}
-          textAnchor="middle"
-          dominantBaseline="middle"
-          className={cn("fill-fg-muted", large ? "text-[13px]" : "text-[9px]")}
-        >
-          {unitLabel} tested · {monthLabel}
-        </text>
+        {/* In kiosk mode the caption is TWO lines: "Boards tested · Oct" at
+            13px ran wider than the ring's hole (~126 viewBox units) and
+            collided with the ring (Tim, 2026-10-16). The normal page's 9px
+            caption fits on one line. */}
+        {large ? (
+          <>
+            <text
+              x={CENTER}
+              y={CENTER + 18}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              className="fill-fg-muted text-[13px]"
+            >
+              {unitLabel} tested
+            </text>
+            <text
+              x={CENTER}
+              y={CENTER + 35}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              className="fill-fg-muted text-[13px]"
+            >
+              {monthLabel}
+            </text>
+          </>
+        ) : (
+          <text
+            x={CENTER}
+            y={CENTER + 16}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            className="fill-fg-muted text-[9px]"
+          >
+            {unitLabel} tested · {monthLabel}
+          </text>
+        )}
       </svg>
 
       <div
         className={cn(
-          "flex flex-col gap-1",
-          large ? "w-full max-w-[280px] shrink-0 text-xs sm:w-auto" : "min-w-0 flex-1 text-sm",
+          "flex flex-col",
+          large
+            ? "w-full min-w-0 max-w-[480px] gap-2 text-xl sm:w-auto"
+            : "min-w-0 flex-1 gap-1 text-sm",
         )}
       >
         {segments.length === 0 ? (
           <p className="text-fg-muted">No defects logged in {monthLabel}.</p>
         ) : (
           segments.map((s, i) => (
-            <div key={s.label} className="flex items-center gap-2">
+            <div key={s.label} className={cn("flex items-center", large ? "gap-3" : "gap-2")}>
               <span
-                className="h-2.5 w-2.5 shrink-0 rounded-sm"
+                className={cn("shrink-0 rounded-sm", large ? "h-4 w-4" : "h-2.5 w-2.5")}
                 style={{ backgroundColor: colors[i] }}
               />
               <span className="min-w-0 flex-1 truncate text-fg">{s.label}</span>

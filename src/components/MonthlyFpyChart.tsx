@@ -14,7 +14,7 @@ import type { MonthlyFpy } from "@/lib/monthlyYield";
 // =============================================================================
 
 const WIDTH = 640;
-const HEIGHT = 280;
+const HEIGHT = 300;
 const PAD = { top: 32, right: 44, bottom: 32, left: 56 };
 const PLOT_W = WIDTH - PAD.left - PAD.right;
 const PLOT_H = HEIGHT - PAD.top - PAD.bottom;
@@ -27,8 +27,12 @@ const PLOT_H = HEIGHT - PAD.top - PAD.bottom;
 // (reported live, 2026-09-17, screenshot: "4,664" and "94.6%" collided into
 // unreadable text). Splitting the space means neither series can ever reach
 // into the other's label room, however the numbers land.
+//
+// The gap holds TWO label lines above the tallest bar — "Total:" with
+// "Failed:" right below it (Tim, 2026-10-16) — so it is wide enough that a
+// full-height bar's labels still clear the lowest FPY% point.
 const LINE_BAND_H = PLOT_H * 0.3; // top ~30% — the FPY% line and its labels
-const BAND_GAP = 16; // breathing room between the two bands
+const BAND_GAP = 34; // room for the Total / Failed labels between the bands
 const BAR_BAND_TOP = PAD.top + LINE_BAND_H + BAND_GAP;
 const BAR_BAND_H = PLOT_H - LINE_BAND_H - BAND_GAP;
 
@@ -167,15 +171,28 @@ export function MonthlyFpyChart({
                   className="fill-cooper-red"
                 />
               )}
+              {/* Total tested, with Failed directly below it, both above
+                  the bar — Failed in the failed segment's red so the two
+                  read as a pair with the bar beneath them. */}
               {d.unitsTested > 0 && (
-                <text
-                  x={xCenter(i)}
-                  y={yTotalTop - 6}
-                  textAnchor="middle"
-                  className="fill-fg text-[11px] font-semibold tabular-nums"
-                >
-                  {d.unitsTested.toLocaleString()}
-                </text>
+                <>
+                  <text
+                    x={xCenter(i)}
+                    y={yTotalTop - 20}
+                    textAnchor="middle"
+                    className="fill-fg text-[11px] font-semibold tabular-nums"
+                  >
+                    Total: {d.unitsTested.toLocaleString()}
+                  </text>
+                  <text
+                    x={xCenter(i)}
+                    y={yTotalTop - 6}
+                    textAnchor="middle"
+                    className="fill-cooper-red text-[11px] font-semibold tabular-nums"
+                  >
+                    Failed: {d.unitsFailed.toLocaleString()}
+                  </text>
+                </>
               )}
               {/* The passed count, inside the blue segment itself — total
                   minus failures. White for contrast against superior-blue,
