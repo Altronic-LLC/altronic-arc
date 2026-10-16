@@ -28,6 +28,11 @@ import { useUnseenMentionSet } from "@/hooks/useUnseenMentions";
 
 type StatusFilter = string | null;
 
+/** The default status axis: every request that isn't Complete. */
+const OPEN = "ALL_OPEN";
+/** `?status=ALL` — the "Search all build requests" checkbox. */
+const SEARCH_ALL = "ALL";
+
 function isOpen(status: string): boolean {
   return status !== "Complete";
 }
@@ -41,11 +46,19 @@ export function BuildRequestsView() {
 
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const statusFilter = (searchParams.get("status") as StatusFilter) ?? null;
-  const setStatus = (s: StatusFilter) => {
+  // The list opens on OPEN requests (BusinessIT#52): almost everybody is
+  // looking for live work, and the Dashboard card they arrive from counts open
+  // ones. An absent `status` means Open; `status=ALL` is the "Search all"
+  // checkbox — no status narrowing at all, so a search finds a request whose
+  // status you don't know. It is ONE param, so the checkbox and the pills can
+  // never disagree about what is on screen.
+  const statusParam = searchParams.get("status");
+  const searchAll = statusParam === SEARCH_ALL;
+  const statusFilter: StatusFilter = searchAll ? null : (statusParam ?? OPEN);
+  const setStatus = (s: string) => {
     const sp = new URLSearchParams(searchParams);
-    if (s) sp.set("status", s);
-    else sp.delete("status");
+    if (s === OPEN) sp.delete("status");
+    else sp.set("status", s);
     setSearchParams(sp, { replace: true });
   };
   const query = searchParams.get("q") ?? "";
@@ -137,7 +150,7 @@ export function BuildRequestsView() {
     () =>
       filteredByBar
         .filter((b) => {
-          if (statusFilter === "ALL_OPEN") return isOpen(b.status);
+          if (statusFilter === OPEN) return isOpen(b.status);
           if (statusFilter) return b.status === statusFilter;
           return true;
         })
@@ -158,6 +171,10 @@ export function BuildRequestsView() {
     [brs, liveStatuses],
   );
   const openCount = filteredByBar.filter((b) => isOpen(b.status)).length;
+  // Requests that match every filter and the search but sit outside the
+  // status being shown — so a search that misses on Open can say the answer is
+  // one tick away rather than "nothing matches".
+  const hiddenByStatus = searchAll ? 0 : filteredByBar.length - filtered.length;
 
   // Header ids that have at least one part with an unseen mention — surfaces
   // the "Mentioned" pill on the row even when the mention is on an item.
@@ -205,8 +222,8 @@ export function BuildRequestsView() {
           <Pill
             label="Open"
             count={openCount}
-            active={statusFilter === "ALL_OPEN"}
-            onClick={() => setStatus(statusFilter === "ALL_OPEN" ? null : "ALL_OPEN")}
+            active={statusFilter === OPEN}
+            onClick={() => setStatus(OPEN)}
             emphasized
           />
           {statusPills.map((s) => (
@@ -215,7 +232,8 @@ export function BuildRequestsView() {
               label={s}
               count={countByStatus[s] ?? 0}
               active={statusFilter === s}
-              onClick={() => setStatus(statusFilter === s ? null : s)}
+              // Clicking the active pill goes back to Open, the default.
+              onClick={() => setStatus(statusFilter === s ? OPEN : s)}
             />
           ))}
         </div>
@@ -253,14 +271,36 @@ export function BuildRequestsView() {
             onChange={setEngineers}
           />
         </Field>
-        <Field label="Search">
+        {/* A <div>, not Field's <label>: the checkbox carries its own label,
+            and a label inside a label steals the click. */}
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-fg-muted">
+              Search
+            </span>
+            <label
+              className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-fg-muted hover:text-fg"
+              title="Search every build request, whatever its status — Complete included"
+            >
+              <input
+                type="checkbox"
+                checked={searchAll}
+                onChange={(e) => setStatus(e.target.checked ? SEARCH_ALL : OPEN)}
+                className="h-3.5 w-3.5 accent-accent"
+              />
+              Search all build requests
+            </label>
+          </div>
           <SearchInput
             value={query}
             onChange={setQuery}
-            placeholder="Search anything — add words to narrow"
+            placeholder={
+              searchAll ? "Search every build request" : "Search open build requests"
+            }
+            ariaLabel="Search"
             className="select"
           />
-        </Field>
+        </div>
         <Field label="Requestor">
           <SingleSelect
             allLabel="Anyone"
@@ -288,15 +328,27 @@ export function BuildRequestsView() {
       {isLoading ? (
         <LoadingTasks noun="build requests" />
       ) : filtered.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border py-16 text-center text-fg-muted">
-          {brs.length === 0
-            ? "No build requests yet. Click 'New Build Request' to create the first one."
-            : "No build requests match the current filters."}
+        <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border py-16 text-center text-fg-muted">
+          <span>
+            {brs.length === 0
+              ? "No build requests yet. Click 'New Build Request' to create the first one."
+              : statusFilter === OPEN
+                ? "No open build requests match the current filters."
+                : "No build requests match the current filters."}
+          </span>
+          {hiddenByStatus > 0 && (
+            <SearchAllHint count={hiddenByStatus} onSearchAll={() => setStatus(SEARCH_ALL)} />
+          )}
         </div>
       ) : (
         <div className="flex flex-col gap-2">
-          <div className="text-xs text-fg-muted">
-            Showing {filtered.length} of {brs.length} build requests
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-fg-muted">
+            <span>
+              Showing {filtered.length} of {brs.length} build requests
+            </span>
+            {query.trim() !== "" && hiddenByStatus > 0 && (
+              <SearchAllHint count={hiddenByStatus} onSearchAll={() => setStatus(SEARCH_ALL)} />
+            )}
           </div>
           {filtered.map((b) => (
             <BuildRequestRow
@@ -312,6 +364,21 @@ export function BuildRequestsView() {
 
       {showNew && <BuildRequestFormModal onClose={() => setShowNew(false)} />}
     </div>
+  );
+}
+
+function SearchAllHint({ count, onSearchAll }: { count: number; onSearchAll: () => void }) {
+  return (
+    <span>
+      {count} more in other statuses {count === 1 ? "matches" : "match"} —{" "}
+      <button
+        type="button"
+        onClick={onSearchAll}
+        className="font-medium text-accent underline-offset-2 hover:underline"
+      >
+        Search all build requests
+      </button>
+    </span>
   );
 }
 
