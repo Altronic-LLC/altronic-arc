@@ -125,12 +125,44 @@ describe("splitReplyMarker", () => {
 });
 
 describe("groupCommentThreads", () => {
-  it("puts a reply directly under its parent, not at the top", () => {
+  it("puts a reply directly under its parent, not as a comment of its own", () => {
     const reply = comment("2026-10-01T15:00:00Z", "Ray White", withReplyMarker("<p>On it.</p>", MATT));
     const groups = groupCommentThreads(newestFirst(MATT, RAY, reply));
-    expect(groups.map((g) => g.comment)).toEqual([RAY, MATT]);
-    expect(groups[1].replies).toEqual([reply]);
-    expect(groups[0].replies).toEqual([]);
+    expect(groups.map((g) => g.comment)).toEqual([MATT, RAY]);
+    expect(groups[0].replies).toEqual([reply]);
+    expect(groups[1].replies).toEqual([]);
+  });
+
+  describe("orders threads by their latest activity (BusinessIT #43)", () => {
+    const LATER = comment("2026-10-02T09:00:00Z", "Glenn Terry", "<p>Newer, no replies.</p>");
+
+    it("moves an old comment above newer ones when it gets a new reply", () => {
+      const reply = comment("2026-10-03T10:00:00Z", "Ray White", withReplyMarker("<p>Done.</p>", MATT));
+      const groups = groupCommentThreads(newestFirst(MATT, RAY, LATER, reply));
+      expect(groups.map((g) => g.comment)).toEqual([MATT, LATER, RAY]);
+      expect(groups[0].replies).toEqual([reply]);
+    });
+
+    it("leaves an old thread where it is when its reply is older than newer comments", () => {
+      const reply = comment("2026-10-01T15:00:00Z", "Ray White", withReplyMarker("<p>Done.</p>", MATT));
+      const groups = groupCommentThreads(newestFirst(MATT, RAY, LATER, reply));
+      expect(groups.map((g) => g.comment)).toEqual([LATER, MATT, RAY]);
+    });
+
+    it("counts a reply to a reply as activity on the top-level thread", () => {
+      const r1 = comment("2026-10-01T15:00:00Z", "Ray White", withReplyMarker("<p>r1</p>", MATT));
+      const r2 = comment("2026-10-03T10:00:00Z", "Matthew Traina", withReplyMarker("<p>r2</p>", r1));
+      const groups = groupCommentThreads(newestFirst(MATT, RAY, LATER, r1, r2));
+      expect(groups.map((g) => g.comment)).toEqual([MATT, LATER, RAY]);
+      // The conversation inside the thread still reads downward.
+      expect(groups[0].replies).toEqual([r1, r2]);
+    });
+
+    it("keeps the input order between threads whose latest activity ties", () => {
+      const twin = comment(LATER.timestamp.toISOString(), "Ray White", "<p>Same second.</p>");
+      expect(groupCommentThreads([LATER, twin]).map((g) => g.comment)).toEqual([LATER, twin]);
+      expect(groupCommentThreads([twin, LATER]).map((g) => g.comment)).toEqual([twin, LATER]);
+    });
   });
 
   it("keeps ONE level: a reply to a reply sits under the same top-level comment", () => {
