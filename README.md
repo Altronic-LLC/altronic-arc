@@ -2,190 +2,157 @@
 
 **Every team. One ARC. Always forward.**
 
-A company-wide platform that brings every Altronic department's tools and
-processes into one web app, behind a single Microsoft sign-in. One codebase,
-one app — replacing what would otherwise be separate per-department tools.
-
-**Engineering** is the first team aboard. Its modules live here today: Task
-tracking (list + kanban), Engineering Information Requests (EIRs), and Test
-Sheets, sharing authentication, a SharePoint backend, a single theme, and an
-in-app admin section. Purchasing, Supply Chain, Operations, and Customer
-Service follow, each as its own module over the same foundation. Any tool that
-would otherwise spawn its own Power App, Power Automate flow, or one-off
-SharePoint view should land here instead.
+A company-wide platform that brings every Altronic department's tools into one
+web app, behind a single Microsoft sign-in. One codebase, one app — replacing
+what would otherwise be separate Power Apps, Power Automate flows and one-off
+SharePoint views. Any new department tool should land here.
 
 Hosted at <https://altronic-llc.github.io/altronic-arc/>.
-Built to be iterated on with [Claude Code](https://claude.com/claude-code).
+Built to be iterated on with [Claude Code](https://claude.com/claude-code) —
+**`CLAUDE.md` is the working manual** (file-by-file guide, every list's
+quirks, and the rules each one was learned from). Read it before a
+non-trivial change.
 
-## What's in the app today
+## What's in the app
 
-| Module | Where it lives | Backed by |
-|---|---|---|
-| Dashboard | `/` | aggregates Tasks + EIRs |
-| Tasks | `/list`, `/kanban`, `/task/:id` | SharePoint **Project Task List** |
-| EIRs | `/eirs`, `/eir/:id` | SharePoint **Engineering Information Request** list |
-| Test Sheets | `/test-sheets`, `/test-sheet/:id` | SharePoint **Test Results** list |
-| Projects (admin) | `/admin/projects` | SharePoint **Projects** list |
-| Admins (admin) | `/admin/admins` | SharePoint **Admins** list |
-| Attachments | inline on task detail | SharePoint **Documents** library, project-folder routed |
-| User Manual | `/manual` | In-app documentation |
-| About | `/about` | System flow + ER diagram |
+Each department is its own lazy-loaded section; they share sign-in, the
+SharePoint/Graph layer, the UI kit and one theme.
 
-Sign-in is Microsoft Entra ID (MSAL, PKCE). Reads/writes use Microsoft
-Graph v1.0 with the `Sites.Selected` scope — granted per-site on the
-Altronic Engineering team site.
+| Department | Tools |
+|---|---|
+| **Engineering** | Tasks (list + board), EIRs (list + board), Test Sheets, ECNs + the MFGFRM-038 checklist, Build Requests, Drawing File Logs, CSA Listings, Parts List, Project Folders, Where am I? |
+| **Panels** | Panel Orders, Panel Tasks, QC Time Tracking, Panel QC Issue Tracker (with label printing) |
+| **Operations** | Operations Tasks, Maintenance (work orders, PM schedules, assets, calendar), Teradyne Log, Harness Production Log |
+| **Coils** | Potting Sample Log, Coil Defect Log |
+| **Quality Control** | QC Forms (CPU-95 test sheet), Digital QC Defect Log, Ignition QC Defect Log |
+| **Supply Chain** | Suppliers (SRM), FAITs, Gray Market Requests, MRB, Cost Impact Notices, SCNs + SCN Documents, Supply Chain Files, Insourcing Quotes |
+| **Customer Service / Sales** | Visit Reports, Customers (CRM), Open Orders Report, Sales Documentation, Pricing *(in review — one reviewer only)* |
+| **Everyone** | Dashboard, My Agenda, ARC Feature Requests, User Manual (`/manual`), About (`/about`), Admin (`/admin/*`) |
 
-## Attachments
+Reports (fixed KPI dashboards and a kiosk view) exist but are reached by URL
+only — see CLAUDE.md.
 
-Tasks **do not** use SharePoint list-item attachments. Files are routed
-to the team's `Documents/General/Project Folders/` library:
+**Data:** SharePoint lists and libraries across several team sites, read and
+written through Microsoft Graph v1.0 with **`Sites.Selected`** (granted per
+site collection). The Pricing tool's Calculator also reads SAP cost from the
+**Fabric SAP warehouse** through Fabric's API for GraphQL — read-only.
 
-1. Every project folder there is tagged with a `Project Reference` lookup
-   column pointing at the Projects list.
-2. When you upload a file on a task, the app looks up the task's
-   project, finds the folder tagged with that project, and uploads
-   there. The task shows the 5 most-recently-modified files in that
-   folder with a **View all in SharePoint →** link to the folder.
-3. If no folder is tagged with the task's project, the file goes into
-   the shared **Miscellaneous** folder with the project code prefixed
-   onto the filename (`349-MT-ACI_drawing.pdf`) so it stays findable.
-4. The same routing applies to **comment attachments**: drop a file into
-   the comment composer and it uploads to the project folder, then
-   inlines a hyperlink to it in the comment body.
+**Access:** Microsoft Entra ID (MSAL, PKCE). Which tools a person sees comes
+from their SharePoint access and ARC's role lists — that is navigation, **not
+security**. The bundle is public JavaScript; the real boundary is
+SharePoint's (and Fabric's) own permissions, per list.
 
-EIRs still use list-item attachments for now (see the backlog if you
-want that migrated).
-
-## Quick start
+## Running it locally
 
 ```bash
-# Install
 npm install
-
-# Run with mock data — no auth, no network
-npm run dev
+npm run dev        # http://localhost:5173/
 ```
 
-Open <http://localhost:5173/> and the app boots with realistic sample
-data: tasks, EIRs, test sheets, projects, comments, admins. Changes
-work locally and persist to `localStorage`; clear it to reset.
+There are three ways to run it, chosen by environment files (all git-ignored):
 
-## Going live with real SharePoint data
+| Mode | How | What you get |
+|---|---|---|
+| **Demo** | `npm run dev` with no env files | Sample data for every tool, no sign-in, no network. Press **Continue as Demo User** (a Pricing admin, so every screen can be walked). |
+| **Demo + live Calculator** | `.env.development.local` with `VITE_USE_MOCK="true"`, `VITE_FABRIC_IN_DEMO="true"`, `VITE_AZURE_CLIENT_ID` and `VITE_AZURE_TENANT_ID` | Demo data everywhere, but Pricing's Calculator looks SAP cost up **live** from Fabric, after a one-off **Sign in to SAP** popup. Dev server only — no build can switch it on. |
+| **Fully live** | `npx vite --mode fabric --port 5173`, with the repo's `VITE_*` variables in `.env.fabric.local` and `VITE_USE_MOCK="false"` | Signs in as you and reads and writes **real SharePoint** — be careful. `/dev/fabric-test` runs any Fabric GraphQL query by hand. |
 
-1. Get the Entra app's **Client ID** from your admin (see
-   `docs/admin-request.md` for the request template if you need to ask
-   for one).
-2. Copy `.env.example` to `.env.local` and fill in:
-   - `VITE_USE_MOCK=false`
-   - `VITE_AZURE_CLIENT_ID=<client id>`
-   - The other variables are already pre-populated with confirmed list
-     and site IDs.
-3. The Entra app must list both `http://localhost:5173/` (dev) and your
-   GitHub Pages URL (`https://altronic-llc.github.io/altronic-arc/`)
-   as SPA redirect URIs.
-4. `npm run dev` — you'll be prompted to sign in on first load.
+To fill `.env.fabric.local` from the repo's variables:
 
-## Required environment variables
+```bash
+gh variable list --json name,value \
+  -q '.[] | select(.name|startswith("VITE_")) | select(.name!="VITE_QZ_CERTIFICATE" and .name!="VITE_USE_MOCK") | "\(.name)=\"\(.value)\""' \
+  > .env.fabric.local
+echo 'VITE_USE_MOCK="false"' >> .env.fabric.local
+```
 
-Set these as **GitHub repo Variables** (Settings → Secrets and
-variables → Actions → Variables) so they bake into the production
-bundle:
+(`VITE_QZ_CERTIFICATE` is multi-line and only needed for label printing.)
+The Entra app lists `http://localhost:5173/` and the Pages URL as SPA
+redirect URIs, so sign-in works on that port.
 
-| Variable | Purpose |
-|---|---|
-| `VITE_USE_MOCK` | `false` for real-mode deploys |
-| `VITE_AZURE_CLIENT_ID` | Entra app registration's client id |
-| `VITE_AZURE_TENANT_ID` | Already known: `bde86e02-…` |
-| `VITE_SP_SITE_ID` | Altronic Engineering site id |
-| `VITE_SP_LIST_ID` | Project Task List list id |
-| `VITE_SP_PROJECTS_LIST_ID` | Projects list id |
-| `VITE_SP_TEST_RESULTS_LIST_ID` | Test Results list id |
-| `VITE_SP_EIRS_LIST_ID` | EIR list id |
-| `VITE_SP_ADMINS_LIST_ID` | Admins list id |
-| `VITE_SHARED_MAILBOX` | Mailbox for @-mention notifications |
-| `VITE_SP_SITE_URL` | Optional, only needed if EIRs migrate to SP REST attachments |
+## Configuration
+
+Every `VITE_*` value is baked in at **build** time from **GitHub repo
+Variables** (Settings → Secrets and variables → Actions → Variables) — setting
+one does nothing until the next deploy. `src/api/config.ts` is the one place
+they're read; most list ids carry a documented default there, and some are
+deliberately unset so a feature stays off until it's turned on.
+
+**A new `VITE_*` variable must also be added to the named list in
+`.github/workflows/deploy.yml`**, or it can never reach a production build.
 
 ## Deploying
 
-The workflow at `.github/workflows/deploy.yml` builds and deploys on
-every push to `main`.
+`.github/workflows/deploy.yml` tests, builds and deploys to GitHub Pages on
+every push to `main`. **`npm test` gates the deploy** — a red suite ships
+nothing. `main` is protected: changes go in through a pull request, squash
+merged.
 
-**One-time setup:**
-1. GitHub → Settings → Pages → Source: **GitHub Actions**.
-2. Add the variables above under Settings → Secrets and variables →
-   Actions → Variables.
-3. Push to `main`.
+Every user-visible change gets a changelog entry in `src/data/changelog.ts`
+(shown in the footer's version history) and the same version in
+`public/version.json` — that file is what tells people already in the app that
+a new version is out. CLAUDE.md has the full protocol, including what release
+notes may and may not say.
+
+## Checks
+
+```bash
+npm run typecheck   # tsc
+npm test            # Vitest + React Testing Library (600+ test files)
+npm run build       # production build
+```
+
+Tests run in Vitest's `test` mode and never read your `.env.*.local` files —
+the deploy has none, so a test must not depend on one.
+
+jsdom can't see layout, so UI changes are also checked by eye:
+
+```bash
+node scripts/screenshot-page.mjs http://localhost:5173/<route> '<css selector>' out.png [light|dark]
+```
+
+It drives your installed Chrome headless, signs in as the demo user and
+captures one element. `SHOT_WIDTH`, `SHOT_CLICK`, `SHOT_TYPE`,
+`SHOT_THEN_CLICK` and `SHOT_WAIT_MS` cover other widths, dialogs and forms; it
+warns when the page scrolls sideways and prints any page errors.
 
 ## Architecture
 
-The full file-by-file guide lives in `CLAUDE.md`. Short version:
-
 ```
 src/
-├── auth/          MSAL config + provider
-├── api/           Graph fetch wrapper + per-list modules
-│                  (tasks, eirs, testSheets, admins, attachments,
-│                   projectFiles, sharepoint)
-├── data/          Mock data + changelog
-├── hooks/         React Query hooks (useTasks, useEirs,
-│                  useTestSheets, useAdmins, useTaskFiles, …)
-├── lib/           Pure utilities (mappers, parsers, sanitiseHtml)
+├── auth/          MSAL config + provider, sign-in screens
+├── api/           One module per SharePoint list (and Fabric), each with a
+│                  mock branch and a real one — the only code that knows which
+├── hooks/         React Query hooks per list, optimistic writes, role gates
+├── lib/           Pure rules: mappers, numbering, pricing maths, alerts
 ├── types/         Domain types
-├── components/    Reusable UI pieces (Header, atoms, modals,
-│                  AttachmentsSection, TaskAttachmentsSection, …)
-├── views/         Page-level views — one per route
-└── styles/        Tailwind + CSS-var theme
+├── components/    Shared UI + per-department atoms and forms
+├── views/         One component per route
+├── data/          Mock data + the changelog
+└── styles/        Tailwind + CSS-variable themes (light and dark)
 ```
 
-The app-wide rule: **every API call goes through a single function in
-`src/api/<list>.ts`, which branches on `USE_MOCK`.** No other file
-knows whether it's talking to a mock store or to Graph. New engineering
-modules added to this app should follow the same shape.
+The rule that holds it together: **every data call goes through
+`src/api/<list>.ts`, which branches on `USE_MOCK`** — so any feature can be
+built and demoed on mock data before its SharePoint list exists. A new list
+follows the same `api/` → `hooks/` → `views/` shape, and a new table ships
+with sorting and column filters. CLAUDE.md has the recipes, including keeping
+the About page diagrams and the User Manual current.
 
 ## Tech stack
 
-- React 19 + Vite + TypeScript — fast iteration, strict types
-- Tailwind CSS — utility styling, CSS-var-driven theming, light + dark
-- MSAL.js — OAuth 2.0 PKCE flow with Entra ID
-- TanStack Query — data fetching, caching, optimistic updates with undo
-- dnd-kit — Kanban drag-and-drop
-- React Router v6 — every list / detail / admin route
-- Vitest + React Testing Library — unit tests (currently ~250)
+- React 18 + Vite + TypeScript
+- Tailwind CSS, CSS-variable theming
+- MSAL.js (Entra ID, PKCE) and Microsoft Graph v1.0
+- TanStack Query — caching and optimistic updates with undo
+- React Router v6, dnd-kit (boards)
+- ExcelJS and jsPDF, loaded only when a report or PDF is made
+- Vitest + React Testing Library
 
-## Adding a new module
+## Where to look
 
-Treat ARC as the canonical home for any new department tool. Sketch:
-
-1. Add a SharePoint list (or reuse an existing one).
-2. Drop a new `src/api/<thing>.ts` with `list/get/create/update`
-   functions and a mock branch.
-3. Add a `src/hooks/use<Thing>.ts` with React Query wrappers.
-4. Add `src/views/<Thing>sView.tsx` + `src/views/<Thing>DetailView.tsx`.
-5. Wire routes in `src/App.tsx` and a nav entry in
-   `src/components/Header.tsx` (under the "Engineering Requests"
-   dropdown if it's a list-style module).
-6. Update `src/views/AboutView.tsx` — add the new list to
-   `SYSTEM_TIERS`'s SharePoint band, a new entry to `SCHEMA_TABLES`
-   for the ER diagram, and any new foreign keys to `CONNECTIONS`.
-7. Add a Manual section under `src/views/ManualView.tsx`.
-8. Bump version + add a changelog entry in `src/data/changelog.ts`.
-
-CLAUDE.md spells out the changelog + diagram update protocols in more
-detail.
-
-## Mock vs. real
-
-A single env var: `VITE_USE_MOCK`.
-- `true` (default) — data from `src/data/mockData.ts`, no auth.
-- `false` — data from Microsoft Graph + the live SharePoint site.
-
-Develop the entire UI without ever touching auth or Graph; the switch
-is a single flip.
-
-## Where to ask questions
-
-- **In-app User Manual** (`/manual`) — answers most user questions.
-- **About page** (`/about`) — visual system flow + ER diagram.
-- **`CLAUDE.md`** — the working manual for whoever (or whatever) is
-  modifying the code.
-- **`BACKLOG.md`** — what's queued, what's shipped.
+- **User Manual** (`/manual`) — how each tool is used.
+- **About** (`/about`) — system flow and the data-model diagram.
+- **`CLAUDE.md`** — the working manual for changing the code.
+- **`BACKLOG.md`** — what's queued.
+- **`docs/`** — design notes (Insourcing Quotes, guest notifications).
