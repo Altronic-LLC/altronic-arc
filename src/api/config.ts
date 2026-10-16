@@ -1280,6 +1280,19 @@ export const FABRIC_GRAPHQL_ENDPOINT: string | undefined =
  */
 export const FABRIC_ENABLED = !!FABRIC_GRAPHQL_ENDPOINT;
 
+/**
+ * DEV ONLY: demo data everywhere, but the Calculator's SAP cost lookup asks
+ * the LIVE Fabric view (Ray, 2026-10-16: "I want the live connection for the
+ * calculator"). Needs all three — the dev server (`import.meta.env.DEV`, false
+ * in every build), demo mode, and `VITE_FABRIC_IN_DEMO=true` — so a production
+ * bundle can't switch it on. Demo mode never signs in to Microsoft, so the
+ * Calculator offers "Sign in to SAP": one popup, for Fabric only
+ * (`signInToFabric` in api/fabric.ts). Also needs VITE_AZURE_CLIENT_ID /
+ * VITE_AZURE_TENANT_ID for that popup.
+ */
+export const FABRIC_IN_DEMO =
+  USE_MOCK && import.meta.env.DEV && import.meta.env.VITE_FABRIC_IN_DEMO === "true";
+
 /** Throw a clear error if the app tries to call Graph without being configured. */
 export function assertGraphConfigured(): void {
   if (USE_MOCK) return;

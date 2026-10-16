@@ -37,6 +37,7 @@ let msalInstance: unknown;
 
 vi.mock("@/auth/AuthProvider", () => ({
   getMsalInstance: () => msalInstance,
+  getFabricMsalInstance: async () => msalInstance,
 }));
 
 beforeEach(() => {

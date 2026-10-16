@@ -1,4 +1,4 @@
-import { FABRIC_ENABLED, USE_MOCK } from "./config";
+import { FABRIC_ENABLED, FABRIC_IN_DEMO, USE_MOCK } from "./config";
 import { mockDelay } from "./mockLatency";
 import { fabricQuery, FabricAuthError, FabricNotConfiguredError, FabricRequestError } from "./fabric";
 import type { SapCustomer, SapMaterialCost, SapPart } from "@/types/pricing";
@@ -74,7 +74,15 @@ export const SAP_COST_LOOKUP_CONNECTED = USE_MOCK || FABRIC_ENABLED;
  * The demo answers from mock data, not SAP — so "SAP doesn't have it" would be
  * wrong there. The Calculator says "not in the demo data" instead.
  */
-export const SAP_COST_LOOKUP_IS_DEMO = USE_MOCK;
+export const SAP_COST_LOOKUP_IS_DEMO = USE_MOCK && !FABRIC_IN_DEMO;
+
+/**
+ * True when a failed cost lookup just needs a Fabric sign-in the person can
+ * give right there — the dev demo, where nothing signed in to Microsoft yet.
+ */
+export function needsSapSignIn(err: unknown): boolean {
+  return FABRIC_IN_DEMO && err instanceof FabricAuthError && (err.cause === "not-signed-in" || err.cause === "needs-consent");
+}
 
 /** A demo part the Calculator can suggest, in the dashed form. */
 export const SAP_COST_DEMO_EXAMPLE = "2001-0310-15";
@@ -91,7 +99,7 @@ export async function lookupSapMaterialCosts(partNumber: string): Promise<SapMat
   const sap = sapMaterialLookupKey(partNumber);
   if (!sap) return [];
 
-  if (USE_MOCK) {
+  if (USE_MOCK && !FABRIC_IN_DEMO) {
     const rows: SapMaterialCost[] = [];
     for (const p of pricingMockDb.sapParts) {
       if (p.sapPartNumber !== sap) continue;
@@ -132,6 +140,7 @@ export function describeSapCostFailure(err: unknown): string {
   }
   if (err instanceof FabricAuthError) {
     if (err.cause === "account") return `${err.message} Type the cost for now.`;
+    if (needsSapSignIn(err)) return "Sign in to SAP to bring in the live cost — or type it.";
     return "Your sign-in can't read SAP costs yet — ARC hasn't been given Fabric access for your account. Type the cost, or ask an admin.";
   }
   if (err instanceof FabricRequestError && err.cause === "http" && (err.detail.status === 401 || err.detail.status === 403)) {

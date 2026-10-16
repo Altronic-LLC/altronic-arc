@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Calculator, Check, Copy, Loader2, Search, X } from "lucide-react";
 import { useMyPricingAccess } from "@/hooks/usePricingRoles";
 import { useSapMaterialCosts } from "@/hooks/usePricingLookup";
-import { describeSapCostFailure, SAP_COST_DEMO_EXAMPLE, SAP_COST_LOOKUP_IS_DEMO } from "@/api/pricingLookup";
+import { describeSapCostFailure, needsSapSignIn, SAP_COST_DEMO_EXAMPLE, SAP_COST_LOOKUP_IS_DEMO } from "@/api/pricingLookup";
+import { signInToFabric } from "@/api/fabric";
 import { sapMaterialLookupKey } from "@/lib/sapMaterialCost";
 import { formatSapPartNumber } from "@/lib/sapPartNumber";
 import { calculate, gmLadder, resultsText, type CalcMode } from "@/lib/priceCalculator";
@@ -118,6 +119,20 @@ export function PriceCalculatorDialog({ onClose }: { onClose: () => void }) {
   }
 
   const whole = sapMaterialLookupKey(sap) !== null;
+  const [signingIn, setSigningIn] = useState(false);
+  const signInNeeded = costs.isError && needsSapSignIn(costs.error);
+
+  async function signIn() {
+    setSigningIn(true);
+    try {
+      await signInToFabric();
+      await costs.refetch();
+    } catch (err) {
+      pushToast({ message: `Couldn't sign in to SAP: ${err instanceof Error ? err.message : String(err)}` });
+    } finally {
+      setSigningIn(false);
+    }
+  }
 
   function lookUp() {
     const pn = sapMaterialLookupKey(sap);
@@ -231,6 +246,17 @@ export function PriceCalculatorDialog({ onClose }: { onClose: () => void }) {
               {costs.isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
               Look up
             </button>
+            {signInNeeded && (
+              <button
+                type="button"
+                onClick={() => void signIn()}
+                disabled={signingIn}
+                className="inline-flex h-9 items-center gap-1.5 rounded-md bg-accent px-3 text-sm font-medium text-white hover:bg-accent/90 disabled:opacity-50"
+              >
+                {signingIn && <Loader2 className="h-4 w-4 animate-spin" />}
+                Sign in to SAP
+              </button>
+            )}
           </FieldColumn>
           {/* A material has a row per plant — offer the others, each with its cost. */}
           {plants.length > 1 && (

@@ -1,5 +1,5 @@
 import { InteractionRequiredAuthError } from "@azure/msal-browser";
-import { getMsalInstance } from "@/auth/AuthProvider";
+import { getFabricMsalInstance } from "@/auth/AuthProvider";
 import { fabricScopes } from "@/auth/msalConfig";
 import { authErrorLine, describeAuthError } from "@/lib/authErrors";
 import { FABRIC_GRAPHQL_ENDPOINT } from "./config";
@@ -83,7 +83,7 @@ export class FabricRequestError extends Error {
  * people to fix them.
  */
 export async function acquireFabricToken(scopes: string[] = fabricScopes): Promise<string> {
-  const instance = getMsalInstance();
+  const instance = await getFabricMsalInstance();
   if (!instance) {
     throw new FabricAuthError(
       "MSAL isn't initialised. Fabric needs a real signed-in account, so set " +
@@ -205,6 +205,19 @@ export async function probeFabricCors(endpoint: string): Promise<FabricCorsProbe
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * Sign in for Fabric, with a popup — the ONE interactive Fabric path, and only
+ * ever called from a button (the Calculator's "Sign in to SAP", dev demo only).
+ * Asking for the Fabric scope here also grants its consent, so the silent
+ * `acquireFabricToken` works afterwards.
+ */
+export async function signInToFabric(): Promise<void> {
+  const instance = await getFabricMsalInstance();
+  if (!instance) throw new FabricAuthError("Fabric sign-in isn't available here.", "not-signed-in");
+  const result = await instance.loginPopup({ scopes: fabricScopes, prompt: "select_account" });
+  if (result.account) instance.setActiveAccount(result.account);
 }
 
 /**

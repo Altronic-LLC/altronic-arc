@@ -54,6 +54,8 @@ interface ImportMetaEnv {
   /** Fabric API for GraphQL endpoint — READ-ONLY reference data.
    * Optional; config.ts carries the documented default. */
   readonly VITE_FABRIC_GRAPHQL_ENDPOINT: string;
+  /** DEV ONLY — demo data, but the Calculator's cost lookup asks live Fabric. */
+  readonly VITE_FABRIC_IN_DEMO?: string;
   readonly VITE_SP_SITE_URL: string;
   readonly VITE_SHARED_MAILBOX: string;
   readonly VITE_APP_MANAGER_EMAIL: string;

@@ -4612,7 +4612,32 @@ demo doesn't hold says "isn't in the demo data — the demo isn't connected to
 SAP. Try 2001-0310-15" (`SAP_COST_LOOKUP_IS_DEMO`), never "SAP doesn't have
 it": Ray tried a real number in the demo and read that as a broken lookup.
 
-**Testing it locally needs real mode**: `npx vite --mode fabric --port 5173`
+**Demo data WITH the live Calculator — the local default** (Ray,
+2026-10-16: "I want the live connection for the calculator to the query").
+`FABRIC_IN_DEMO` (`VITE_FABRIC_IN_DEMO=true`) keeps demo data everywhere but
+sends the Calculator's cost lookup to the LIVE view. It needs all three of the
+dev server (`import.meta.env.DEV` — false in every build), demo mode and the
+flag, so production can't switch it on. Demo mode never boots MSAL, so:
+
+- `getFabricMsalInstance` (`auth/AuthProvider.tsx`) builds a SEPARATE MSAL
+  instance the first time the Calculator asks (real mode returns the app's
+  own). `acquireFabricToken` uses it, so a lookup is still silent-only.
+- **"Sign in to SAP"** appears in the Calculator when the lookup only needs a
+  sign-in (`needsSapSignIn`) and calls `signInToFabric` — a `loginPopup` for
+  the Fabric scope, the ONE interactive Fabric path, button-only. Asking for
+  the scope there also grants its consent.
+- The popup returns to the app's base URL (`http://localhost:5173/`), the
+  redirect the app registration already holds; it needs
+  VITE_AZURE_CLIENT_ID / VITE_AZURE_TENANT_ID.
+- In this mode a part the live view lacks says "SAP doesn't have…", not "not
+  in the demo data" (`SAP_COST_LOOKUP_IS_DEMO` is false).
+
+Ray's `npm run dev` gets it from a git-ignored **`.env.development.local`**
+(`VITE_USE_MOCK`, `VITE_FABRIC_IN_DEMO`, the client and tenant ids). Vitest
+runs in `test` mode and never reads it. Pinned in
+`PriceCalculator.fabricInDemo.test.tsx`.
+
+**Testing it ALL live (real SharePoint too)**: `npx vite --mode fabric --port 5173`
 with a git-ignored `.env.fabric.local` holding the repo's `VITE_*` variables
 (pulled with `gh variable list`; the multi-line `VITE_QZ_CERTIFICATE` left
 out) and `VITE_USE_MOCK=false`. That server reads and writes LIVE SharePoint.
