@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.191.0",
+    date: "2026-10-16",
+    changes: [
+      "The Build Requests list now opens on open requests, matching the Dashboard card's count",
+      "New Search all build requests checkbox beside the search box finds a request whatever its status, Complete included",
+      "When your search finds nothing open, the list says how many requests in other statuses match, with a link to search them all",
+    ],
+  },
+  {
     version: "0.189.0",
     date: "2026-10-13",
     changes: [
