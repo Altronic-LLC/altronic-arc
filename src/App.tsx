@@ -166,6 +166,28 @@ const QuoteCustomersView = lazy(() =>
 const QuoteRolesView = lazy(() =>
   import("@/views/QuoteRolesView").then((m) => ({ default: m.QuoteRolesView })),
 );
+// Sales Pricing (BusinessIT#47) — its own lazy chunk, like every department screen.
+const PricingRequestsView = lazy(() =>
+  import("@/views/PricingRequestsView").then((m) => ({ default: m.PricingRequestsView })),
+);
+const PricingRequestDetailView = lazy(() =>
+  import("@/views/PricingRequestDetailView").then((m) => ({ default: m.PricingRequestDetailView })),
+);
+const PricingRolesView = lazy(() =>
+  import("@/views/PricingRolesView").then((m) => ({ default: m.PricingRolesView })),
+);
+const NewProductPricingView = lazy(() =>
+  import("@/views/NewProductPricingView").then((m) => ({ default: m.NewProductPricingView })),
+);
+const NewProductPricingDetailView = lazy(() =>
+  import("@/views/NewProductPricingDetailView").then((m) => ({ default: m.NewProductPricingDetailView })),
+);
+const CustomerQuotesView = lazy(() =>
+  import("@/views/CustomerQuotesView").then((m) => ({ default: m.CustomerQuotesView })),
+);
+const CustomerQuoteDetailView = lazy(() =>
+  import("@/views/CustomerQuoteDetailView").then((m) => ({ default: m.CustomerQuoteDetailView })),
+);
 const AdminOpenOrdersRolesView = lazy(() =>
   import("@/views/AdminOpenOrdersRolesView").then((m) => ({
     default: m.AdminOpenOrdersRolesView,
@@ -346,6 +368,11 @@ const DevQzPrintTestView = lazy(() =>
 // `import.meta.env.DEV` guard on its <Route> below.
 const DevEmailGroupingTestView = lazy(() =>
   import("@/views/DevEmailGroupingTestView").then((m) => ({ default: m.DevEmailGroupingTestView })),
+);
+// Dev-only Microsoft Fabric GraphQL test harness — never rendered in
+// production, see the `import.meta.env.DEV` guard on its <Route> below.
+const DevFabricTestView = lazy(() =>
+  import("@/views/DevFabricTestView").then((m) => ({ default: m.DevFabricTestView })),
 );
 const QcFormsView = lazy(() =>
   import("@/views/QcFormsView").then((m) => ({ default: m.QcFormsView })),
@@ -691,6 +718,62 @@ export function App() {
               element={
                 <Suspense fallback={<LoadingTasks noun="quote roles" />}>
                   <QuoteRolesView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/sales/pricing"
+              element={
+                <Suspense fallback={<LoadingTasks noun="pricing requests" />}>
+                  <PricingRequestsView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/sales/pricing/request/:id"
+              element={
+                <Suspense fallback={<LoadingTasks noun="this request" />}>
+                  <PricingRequestDetailView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/sales/pricing/new-products"
+              element={
+                <Suspense fallback={<LoadingTasks noun="worksheets" />}>
+                  <NewProductPricingView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/sales/pricing/new-product/:id"
+              element={
+                <Suspense fallback={<LoadingTasks noun="this worksheet" />}>
+                  <NewProductPricingDetailView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/sales/pricing/quotes"
+              element={
+                <Suspense fallback={<LoadingTasks noun="customer quotes" />}>
+                  <CustomerQuotesView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/sales/pricing/quote/:id"
+              element={
+                <Suspense fallback={<LoadingTasks noun="this quote" />}>
+                  <CustomerQuoteDetailView />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/sales/pricing/roles"
+              element={
+                <Suspense fallback={<LoadingTasks noun="pricing roles" />}>
+                  <PricingRolesView />
                 </Suspense>
               }
             />
@@ -1163,6 +1246,16 @@ export function App() {
                 element={
                   <Suspense fallback={<LoadingTasks noun="the email grouping test page" />}>
                     <DevEmailGroupingTestView />
+                  </Suspense>
+                }
+              />
+            )}
+            {import.meta.env.DEV && (
+              <Route
+                path="/dev/fabric-test"
+                element={
+                  <Suspense fallback={<LoadingTasks noun="the Fabric test page" />}>
+                    <DevFabricTestView />
                   </Suspense>
                 }
               />

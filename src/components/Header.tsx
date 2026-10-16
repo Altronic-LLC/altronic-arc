@@ -48,6 +48,7 @@ import { cn } from "@/lib/cn";
 import { pathAccessState } from "@/api/appAccess";
 import { useAccessDenials } from "@/hooks/useListAccess";
 import { useMyQuoteAccess } from "@/hooks/useQuoteRoles";
+import { useMyPricingAccess } from "@/hooks/usePricingRoles";
 import { useTheme } from "@/hooks/useTheme";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useKanbanAvailable } from "@/hooks/useIsPhone";
@@ -87,6 +88,12 @@ interface DepartmentItem {
    * Navigation only; every quote screen and write asks its own gate.
    */
   requiresQuoteAccess?: boolean;
+  /**
+   * Sales Pricing: `"with"` is shown only to someone with pricing access (the
+   * preview switch AND a pricing role); `"without"` only to everyone else —
+   * the old "Coming soon" row, so the review stays private.
+   */
+  pricingAccess?: "with" | "without";
 }
 
 interface DepartmentGroup {
@@ -385,7 +392,14 @@ const DEPARTMENTS: DepartmentGroup[] = [
         icon: <FolderOpen className="h-4 w-4" />,
         matchesPath: (p) => p.startsWith("/sales/documentation"),
       },
-      soon("Pricing Requests", <Calculator className="h-4 w-4" />),
+      {
+        to: "/sales/pricing",
+        label: "Pricing",
+        icon: <Calculator className="h-4 w-4" />,
+        matchesPath: (p) => p.startsWith("/sales/pricing"),
+        pricingAccess: "with",
+      },
+      { ...soon("Pricing", <Calculator className="h-4 w-4" />), pricingAccess: "without" },
     ],
   },
 ];
@@ -431,7 +445,7 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-surface shadow-sm">
-      <div className="mx-auto flex max-w-[1600px] flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-6 sm:px-6">
+      <div className="mx-auto flex max-w-[1600px] flex-col gap-2 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6 sm:gap-y-2 sm:px-6">
         <div className="flex items-center justify-between gap-3 sm:flex-1">
           <Link to="/" className="flex min-w-0 items-center gap-2 text-fg sm:gap-3">
             <Brandmark className="h-7 w-auto shrink-0 sm:h-9" />
@@ -600,7 +614,7 @@ function AgendaButton() {
       className="relative flex h-9 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-medium text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
     >
       <CalendarClock className="h-4 w-4" />
-      <span className="hidden whitespace-nowrap xl:inline">My Agenda</span>
+      <span className="hidden whitespace-nowrap 2xl:inline">My Agenda</span>
       {count != null && count > 0 && (
         <span
           data-testid="agenda-badge"
@@ -628,7 +642,7 @@ function SuggestFeatureButton() {
       className="flex h-9 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-medium text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
     >
       <Lightbulb className="h-4 w-4" />
-      <span className="hidden whitespace-nowrap xl:inline">Suggest a feature</span>
+      <span className="hidden whitespace-nowrap 2xl:inline">Suggest a feature</span>
     </Link>
   );
 }
@@ -676,7 +690,7 @@ function RefreshButton() {
       className="flex h-9 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-medium text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
     >
       <RefreshCw className={cn("h-4 w-4", fetching && "animate-spin")} />
-      <span className="hidden whitespace-nowrap xl:inline">Refresh</span>
+      <span className="hidden whitespace-nowrap 2xl:inline">Refresh</span>
     </button>
   );
 }
@@ -729,6 +743,8 @@ function DepartmentsMenu({
   const denials = useAccessDenials();
   const { rights: quoteRights } = useMyQuoteAccess();
   const canSeeQuotes = quoteRights.canAccess || quoteRights.canManageRoles;
+  const { rights: pricingRights } = useMyPricingAccess();
+  const canSeePricing = pricingRights.canAccess;
 
   useEffect(() => {
     if (!open) return;
@@ -779,6 +795,10 @@ function DepartmentsMenu({
               <div className="space-y-1">
                 {group.items
                   .filter((item) => !item.requiresQuoteAccess || canSeeQuotes)
+                  .filter(
+                    (item) =>
+                      !item.pricingAccess || (item.pricingAccess === "with" ? canSeePricing : !canSeePricing),
+                  )
                   .map((item) => {
                   const itemActive = item.matchesPath(pathname);
 

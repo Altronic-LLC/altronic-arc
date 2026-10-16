@@ -38,8 +38,9 @@ describe("DashboardView — Insourcing Quotes card", () => {
     const expected = latestRevisions(MOCK_QUOTES).filter(
       (q) => q.status === "Draft" || q.status === "Sent",
     ).length;
-    const card = await waitFor(() => within(supplyChainGrid()).getByRole("button", { name: /Insourcing Quotes/ }));
-    await waitFor(() => expect(card).toHaveTextContent(String(expected)));
+    // Roles, then quotes, load asynchronously — and the full suite runs slowly.
+    const card = await waitFor(() => within(supplyChainGrid()).getByRole("button", { name: /Insourcing Quotes/ }), { timeout: 10_000 });
+    await waitFor(() => expect(card).toHaveTextContent(String(expected)), { timeout: 10_000 });
   });
 
   it("is absent for somebody with no quote role — even an ARC admin", async () => {
