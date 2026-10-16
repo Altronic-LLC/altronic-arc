@@ -1189,7 +1189,109 @@ export const QUOTES_CONFIGURED =
     !!SP_QUOTE_CUSTOMERS_LIST_ID &&
     !!SP_QUOTE_ROLES_LIST_ID);
 
+// =============================================================================
+// Sales Pricing (BusinessIT#47) — four lists on ALTRONICSALESTEAM
+// (SITES.salesTeam), created by scripts/create-pricing-lists.ps1 on
+// 2026-10-13. Each has UNIQUE permissions: Pricing History and New Product
+// Pricing hold cost and margin and are readable by managers and admins only.
+//
+// The ids carry documented defaults: they gate nothing by themselves (an
+// unset Pricing Roles list means nobody has a role, and the preview switch
+// below means nobody but the reviewer gets in while it's being built).
+// =============================================================================
+
+/** "Pricing Roles" — requester / manager / admin. No role = no access. */
+export const SP_PRICING_ROLES_LIST_ID =
+  import.meta.env.VITE_SP_PRICING_ROLES_LIST_ID || "b7d55541-b016-495c-b04b-e164b980862b";
+
+/** "Pricing Requests" — every pricing role reads it; the FINAL price only. */
+export const SP_PRICING_REQUESTS_LIST_ID =
+  import.meta.env.VITE_SP_PRICING_REQUESTS_LIST_ID || "2b0e934b-5795-40f4-abb0-c7ccdcfcc5c6";
+
+/** "Pricing History" — how each price was reached. Managers and admins only. */
+export const SP_PRICING_HISTORY_LIST_ID =
+  import.meta.env.VITE_SP_PRICING_HISTORY_LIST_ID || "a59a40e1-4470-4d42-bc11-a81d93c326d0";
+
+/** "New Product Pricing" — worksheets for products not yet in SAP. Managers and admins only. */
+export const SP_NEW_PRODUCT_PRICING_LIST_ID =
+  import.meta.env.VITE_SP_NEW_PRODUCT_PRICING_LIST_ID || "1dae4eb5-058e-4a93-81c7-4bbf90f65b2a";
+
+/**
+ * "NP Sub-Assemblies" — each worksheet's sub-assemblies, one row per
+ * sub-assembly per revision. NO default: created by a later run of
+ * create-pricing-lists.ps1, and unset means the worksheet screens say so.
+ */
+export const SP_NP_SUBASSEMBLIES_LIST_ID: string | undefined =
+  import.meta.env.VITE_SP_NP_SUBASSEMBLIES_LIST_ID || undefined;
+
+/** "Customer Quotes" — SQ-YYYY-####-R#. NO default, for the same reason. */
+export const SP_CUSTOMER_QUOTES_LIST_ID: string | undefined =
+  import.meta.env.VITE_SP_CUSTOMER_QUOTES_LIST_ID || undefined;
+
+/** Are the New Product Pricing lists all there? Mock mode always is. */
+export const NEW_PRODUCT_PRICING_CONFIGURED = USE_MOCK || !!SP_NP_SUBASSEMBLIES_LIST_ID;
+export const CUSTOMER_QUOTES_CONFIGURED = USE_MOCK || !!SP_CUSTOMER_QUOTES_LIST_ID;
+
+/**
+ * Sales Pricing is IN REVIEW until this is "true" (Ray, 2026-10-13: "grant me
+ * exclusive access so I can review it"). While it isn't, only the addresses
+ * in PRICING_PREVIEW_USERS can see or open the tool — whatever the Pricing
+ * Roles list says, ARC admins included. Mock mode ignores it, so the demo
+ * works. Going live is one repo variable and a redeploy.
+ */
+export const PRICING_LIVE = USE_MOCK || import.meta.env.VITE_PRICING_LIVE === "true";
+
+/** Comma-separated addresses let in while PRICING_LIVE is off. */
+export const PRICING_PREVIEW_USERS: string =
+  import.meta.env.VITE_PRICING_PREVIEW_USERS || "ray.white@altronic-llc.com";
+
 export const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
+
+// =============================================================================
+// Microsoft Fabric — READ-ONLY reference data
+//
+// ARC never writes to Fabric. The SQL analytics endpoint speaks TDS on port
+// 1433, which a browser cannot do at all, so the only surface reachable from
+// here is a Fabric "API for GraphQL" item, which is HTTPS + an Entra token.
+// See `api/fabric.ts` for the transport and CLAUDE.md for the wider decision.
+// =============================================================================
+
+/**
+ * The Fabric API for GraphQL endpoint. The workspace id appears twice — once
+ * un-hyphenated in the subdomain, once hyphenated in the path — followed by
+ * the GraphQL API item's own id, so this whole URL is copied verbatim out of
+ * the Fabric portal rather than assembled from parts.
+ *
+ * Carries a documented default (env-overridable) like every list id: it is
+ * not a secret — it is useless without a delegated Entra token — and an
+ * unset value here only means the dev harness starts with an empty box.
+ */
+export const FABRIC_GRAPHQL_ENDPOINT: string | undefined =
+  import.meta.env.VITE_FABRIC_GRAPHQL_ENDPOINT ||
+  "https://41ff2528ccc04879a8a8d3e077341e9d.z41.graphql.fabric.microsoft.com" +
+    "/v1/workspaces/41ff2528-ccc0-4879-a8a8-d3e077341e9d" +
+    "/graphqlapis/51f31934-7ba5-4c93-8a0e-979aac00eddf/graphql";
+
+/**
+ * Whether anything in the app may reach for Fabric at all. The same
+ * "off until configured" shape as PANEL_QC_LABEL_PRINTER_NAME and
+ * EIR_ROLES_ENFORCED — an unset endpoint means a Fabric-backed lookup
+ * doesn't render, never that it errors.
+ */
+export const FABRIC_ENABLED = !!FABRIC_GRAPHQL_ENDPOINT;
+
+/**
+ * DEV ONLY: demo data everywhere, but the Calculator's SAP cost lookup asks
+ * the LIVE Fabric view (Ray, 2026-10-16: "I want the live connection for the
+ * calculator"). Needs all three — the dev server (`import.meta.env.DEV`, false
+ * in every build), demo mode, and `VITE_FABRIC_IN_DEMO=true` — so a production
+ * bundle can't switch it on. Demo mode never signs in to Microsoft, so the
+ * Calculator offers "Sign in to SAP": one popup, for Fabric only
+ * (`signInToFabric` in api/fabric.ts). Also needs VITE_AZURE_CLIENT_ID /
+ * VITE_AZURE_TENANT_ID for that popup.
+ */
+export const FABRIC_IN_DEMO =
+  USE_MOCK && import.meta.env.DEV && import.meta.env.VITE_FABRIC_IN_DEMO === "true";
 
 /** Throw a clear error if the app tries to call Graph without being configured. */
 export function assertGraphConfigured(): void {

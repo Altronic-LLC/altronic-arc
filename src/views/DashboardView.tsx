@@ -56,6 +56,7 @@ import { isOpenScn } from "@/components/scnAtoms";
 import { useQuickLinksFor } from "@/hooks/useQuickLinks";
 import { useQuotes } from "@/hooks/useQuotes";
 import { useMyQuoteAccess } from "@/hooks/useQuoteRoles";
+import { useMyPricingAccess } from "@/hooks/usePricingRoles";
 import { latestRevisions } from "@/lib/quoteNumber";
 import { QuickLinksRow } from "@/components/QuickLinksRow";
 import { isEcnOnHold } from "@/lib/ecnMapper";
@@ -1201,8 +1202,11 @@ export function DashboardView() {
           to={"/sales/documentation"}
           onClick={() => navigate("/sales/documentation")}
         />
+        {/* Sales Pricing — a real card for whoever has access; everybody else
+            still sees "Coming soon", so the review stays private. */}
+        <SalesPricingCard onOpen={() => navigate("/sales/pricing")} />
         <PlaceholderCard name="Customer Feedback" icon={<MessageSquare className="h-5 w-5" />} />
-        <PlaceholderCard name="Pricing Requests" icon={<Calculator className="h-5 w-5" />} />
+        <SalesPricingPlaceholder />
       </DeptSection>
 
       <p className="text-center text-xs text-fg-muted">
@@ -1560,6 +1564,35 @@ function InsourcingQuotesCardBody({ onOpen }: { onOpen: () => void }) {
       onClick={onOpen}
     />
   );
+}
+
+/**
+ * Sales Pricing — shown ONLY to someone the preview switch and the Pricing
+ * Roles list let in. The requests list is read only once the card renders.
+ */
+function SalesPricingCard({ onOpen }: { onOpen: () => void }) {
+  const { rights } = useMyPricingAccess();
+  if (!rights.canAccess) return null;
+  // "Pricing", with NO count (Ray, 2026-10-15) — a description card, like
+  // Customers and Visit Reports, so the Dashboard reads no pricing list.
+  // ajax-yellow: the one tone this section hadn't used.
+  return (
+    <TypeCard
+      name="Pricing"
+      icon={<Calculator className="h-5 w-5" />}
+      tone="ajax-yellow"
+      description="Price parts and new products from cost and margin, and build customer quotes."
+      to={"/sales/pricing"}
+      onClick={onOpen}
+    />
+  );
+}
+
+/** The old "Coming soon" card, for everyone without access — sorted last, like every placeholder. */
+function SalesPricingPlaceholder() {
+  const { rights } = useMyPricingAccess();
+  if (rights.canAccess) return null;
+  return <PlaceholderCard name="Pricing" icon={<Calculator className="h-5 w-5" />} />;
 }
 
 function PlaceholderCard({ name, icon }: { name: string; icon: React.ReactNode }) {

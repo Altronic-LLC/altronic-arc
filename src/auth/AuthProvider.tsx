@@ -2,7 +2,7 @@ import { PublicClientApplication, EventType, type AuthenticationResult } from "@
 import { MsalProvider } from "@azure/msal-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { buildMsalConfig } from "./msalConfig";
-import { USE_MOCK } from "@/api/config";
+import { FABRIC_IN_DEMO, USE_MOCK } from "@/api/config";
 import { resetSessionExpired } from "@/hooks/useSessionExpiry";
 
 let pca: PublicClientApplication | null = null;
@@ -133,6 +133,33 @@ export function AuthProvider({ children }: AuthProviderProps) {
  * Returns null in mock mode and during initialisation; callers must handle
  * the null case.
  */
+let fabricDemoPca: Promise<PublicClientApplication> | null = null;
+
+/**
+ * The MSAL instance a Fabric call signs in with. Real mode: the app's own.
+ * Demo mode with FABRIC_IN_DEMO (dev server only): a separate instance, built
+ * and initialised the first time the Calculator asks — demo mode never boots
+ * MSAL otherwise, and nothing else in the demo uses it. null when neither.
+ */
+export async function getFabricMsalInstance(): Promise<PublicClientApplication | null> {
+  if (!USE_MOCK) return getMsalInstance();
+  if (!FABRIC_IN_DEMO) return null;
+  if (!fabricDemoPca) {
+    fabricDemoPca = (async () => {
+      const instance = new PublicClientApplication(buildMsalConfig());
+      await instance.initialize();
+      const [account] = instance.getAllAccounts();
+      if (account && !instance.getActiveAccount()) instance.setActiveAccount(account);
+      return instance;
+    })();
+    // A failed build mustn't be cached for the session.
+    fabricDemoPca.catch(() => {
+      fabricDemoPca = null;
+    });
+  }
+  return fabricDemoPca;
+}
+
 export function getMsalInstance(): PublicClientApplication | null {
   if (USE_MOCK) return null;
   try {
