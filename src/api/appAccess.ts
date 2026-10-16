@@ -53,6 +53,7 @@ import {
   SP_QUOTE_ASSEMBLIES_LIST_ID,
   SP_QUOTE_ITEMS_LIST_ID,
   SP_QUOTES_LIST_ID,
+  SP_PRICING_REQUESTS_LIST_ID,
   SP_SCHEDULED_MAINTENANCE_LIST_ID,
   SP_SCNS_LIST_ID,
   SP_SUPPLIERS_LIST_ID,
@@ -288,6 +289,15 @@ export const APPS: AppSpec[] = [
     label: "Insourcing Quotes",
     site: "pmo",
     lists: ids(SP_QUOTES_LIST_ID, SP_QUOTE_ASSEMBLIES_LIST_ID, SP_QUOTE_ITEMS_LIST_ID),
+  },
+  // Sales Pricing — the requests list every pricing role reads. Pricing
+  // History and New Product Pricing are managers-only by design, so a
+  // requester refused THOSE must not lock the whole app.
+  {
+    path: "/sales/pricing",
+    label: "Pricing",
+    site: "salesTeam",
+    lists: ids(SP_PRICING_REQUESTS_LIST_ID),
   },
 ];
 

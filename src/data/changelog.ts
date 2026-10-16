@@ -20,11 +20,34 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "0.190.1",
-    date: "2026-10-15",
+    version: "0.190.2",
+    date: "2026-10-16",
     changes: [
       "A comment that gets a new reply now moves to the top of the discussion, so the latest conversation is always the first thing you see",
       "Replies under a comment still read oldest to newest, and comments with no replies keep their place",
+    ],
+  },
+  {
+    version: "0.190.1",
+    date: "2026-10-16",
+    changes: [
+      "Release notes tidied up",
+      "The Calculator's SAP lookup is faster: it gets ready as the Calculator opens, and looks the part up as soon as the 10th digit is typed",
+    ],
+  },
+  {
+    version: "0.190.0",
+    date: "2026-10-13",
+    // Deliberately SHORT (Ray, 2026-10-16): these notes are readable by
+    // everyone signed in, so they say WHAT exists, never HOW a price is worked
+    // out — no discounts, margins or rounding rules. The detail lives in
+    // CLAUDE.md and the pricing team's own screens.
+    changes: [
+      "New Pricing tool, in review — only the reviewer can open it for now; everyone else still sees Pricing as Coming soon",
+      "Pricing requests: ask the pricing team for a price on a part, and see the final price when it's set",
+      "Tools for the pricing team: pricing new products, customer quotes, and a quick price calculator",
+      "Pricing is called Pricing on the Dashboard and in the Departments menu",
+      "The top bar fits the window at every width — no more sideways scrolling on laptop-sized and tablet screens",
     ],
   },
   {

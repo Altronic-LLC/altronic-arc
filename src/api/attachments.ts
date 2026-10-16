@@ -17,6 +17,10 @@ import {
   SP_GRAY_MARKET_LIST_ID,
   SP_MRB_LIST_ID,
   SP_PMO_SITE_URL,
+  SP_PRICING_REQUESTS_LIST_ID,
+  SP_NEW_PRODUCT_PRICING_LIST_ID,
+  SP_CUSTOMER_QUOTES_LIST_ID,
+  SP_NP_SUBASSEMBLIES_LIST_ID,
   SP_QUOTES_LIST_ID,
   SP_QUOTE_ITEMS_LIST_ID,
   SP_SALESTEAM_SITE_URL,
@@ -78,7 +82,11 @@ export type AttachmentParent =
   | "scn"
   | "equipment"
   | "quote"
-  | "quoteItem";
+  | "quoteItem"
+  | "pricingRequest"
+  | "newProductPricing"
+  | "npSubAssembly"
+  | "customerQuote";
 
 interface ParentConfig {
   listId: string | undefined;
@@ -223,6 +231,30 @@ const PARENT_CONFIG: Record<AttachmentParent, ParentConfig> = {
     listId: SP_QUOTE_ITEMS_LIST_ID,
     siteUrl: SP_PMO_SITE_URL,
     listIdEnvVar: "VITE_SP_QUOTE_ITEMS_LIST_ID",
+  },
+  // Sales Pricing — the customer's drawing or spec on a request, and the
+  // supplier quotes behind a new product's estimates. Both on the Sales site.
+  pricingRequest: {
+    listId: SP_PRICING_REQUESTS_LIST_ID,
+    siteUrl: SP_SALESTEAM_SITE_URL,
+    listIdEnvVar: "VITE_SP_PRICING_REQUESTS_LIST_ID",
+  },
+  newProductPricing: {
+    listId: SP_NEW_PRODUCT_PRICING_LIST_ID,
+    siteUrl: SP_SALESTEAM_SITE_URL,
+    listIdEnvVar: "VITE_SP_NEW_PRODUCT_PRICING_LIST_ID",
+  },
+  // Each sub-assembly's (or part's) own files — copied onto the fresh row a
+  // new revision writes, so every revision keeps its files.
+  npSubAssembly: {
+    listId: SP_NP_SUBASSEMBLIES_LIST_ID,
+    siteUrl: SP_SALESTEAM_SITE_URL,
+    listIdEnvVar: "VITE_SP_NP_SUBASSEMBLIES_LIST_ID",
+  },
+  customerQuote: {
+    listId: SP_CUSTOMER_QUOTES_LIST_ID,
+    siteUrl: SP_SALESTEAM_SITE_URL,
+    listIdEnvVar: "VITE_SP_CUSTOMER_QUOTES_LIST_ID",
   },
 };
 
