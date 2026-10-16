@@ -154,13 +154,13 @@ describe("PriceCalculatorDialog", () => {
     await waitFor(() => expect(dialog.getByLabelText("Description")).toHaveValue("HARNESS, CPU-95, 15 FT"));
     await userEvent.clear(dialog.getByLabelText("SAP part number"));
     await userEvent.type(dialog.getByLabelText("SAP part number"), "9999000000{Enter}");
-    expect(await dialog.findByText("SAP doesn't have 9999-0000-00.")).toBeInTheDocument();
+    expect(await dialog.findByText(/9999-0000-00 isn't in the demo data/)).toBeInTheDocument();
     expect(dialog.getByLabelText("Description")).toHaveValue("");
 
     await userEvent.type(dialog.getByLabelText("Description"), "typed by hand");
     await userEvent.clear(dialog.getByLabelText("SAP part number"));
     await userEvent.type(dialog.getByLabelText("SAP part number"), "9999000001{Enter}");
-    expect(await dialog.findByText("SAP doesn't have 9999-0000-01.")).toBeInTheDocument();
+    expect(await dialog.findByText(/9999-0000-01 isn't in the demo data/)).toBeInTheDocument();
     expect(dialog.getByLabelText("Description")).toHaveValue("typed by hand");
   });
 
@@ -168,13 +168,23 @@ describe("PriceCalculatorDialog", () => {
     const dialog = await open();
     await userEvent.type(dialog.getByLabelText("COGS"), "50");
     await userEvent.type(dialog.getByLabelText("SAP part number"), "9999000000{Enter}");
-    expect(await dialog.findByText("SAP doesn't have 9999-0000-00.")).toBeInTheDocument();
+    // The demo says it's the demo, never "SAP doesn't have it" — and offers a part to try.
+    expect(
+      await dialog.findByText("9999-0000-00 isn't in the demo data — the demo isn't connected to SAP. Try 2001-0310-15."),
+    ).toBeInTheDocument();
     expect(dialog.getByLabelText("COGS")).toHaveValue(50);
 
     await userEvent.clear(dialog.getByLabelText("SAP part number"));
     await userEvent.type(dialog.getByLabelText("SAP part number"), "1003011518{Enter}");
     expect(await dialog.findByText("SAP has no cost for 1003-0115-18 at plant 4222 — type it.")).toBeInTheDocument();
     expect(dialog.getByLabelText("COGS")).toHaveValue(50);
+  });
+
+  it("knows the real SAP parts read from the live view, so the demo answers for them", async () => {
+    const dialog = await open();
+    await userEvent.type(dialog.getByLabelText("SAP part number"), "1000164400{Enter}");
+    await waitFor(() => expect(dialog.getByLabelText("COGS")).toHaveValue(0.2495));
+    expect(dialog.getByLabelText("Description")).toHaveValue("I.C., 74HC4051N");
   });
 
   it("names the SAP part and its plant in the copied results", async () => {

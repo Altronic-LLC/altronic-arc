@@ -6,6 +6,7 @@ import {
   pricingMockDb,
   MOCK_SAP_CUSTOMERS,
   MOCK_SAP_EXTRA_PLANT_COSTS,
+  MOCK_SAP_MATERIAL_COSTS,
   MOCK_SAP_GROUP_DISCOUNTS,
   MOCK_SAP_GROUP_MATERIAL_DISCOUNTS,
   MOCK_SAP_MPG_DISCOUNTS,
@@ -69,6 +70,15 @@ const norm = (s: string) => s.trim().toLowerCase();
 /** Whether the Calculator's SAP cost lookup can be asked. */
 export const SAP_COST_LOOKUP_CONNECTED = USE_MOCK || FABRIC_ENABLED;
 
+/**
+ * The demo answers from mock data, not SAP — so "SAP doesn't have it" would be
+ * wrong there. The Calculator says "not in the demo data" instead.
+ */
+export const SAP_COST_LOOKUP_IS_DEMO = USE_MOCK;
+
+/** A demo part the Calculator can suggest, in the dashed form. */
+export const SAP_COST_DEMO_EXAMPLE = "2001-0310-15";
+
 /** Rows for one typed number. 50 is far past the plants a material sits at. */
 const SAP_COST_LOOKUP_LIMIT = 50;
 
@@ -90,6 +100,9 @@ export async function lookupSapMaterialCosts(partNumber: string): Promise<SapMat
       for (const extra of MOCK_SAP_EXTRA_PLANT_COSTS) {
         if (extra.sapPartNumber === sap) rows.push({ ...base, plant: extra.plant, unitCost: extra.unitCost });
       }
+    }
+    for (const m of MOCK_SAP_MATERIAL_COSTS) {
+      if (m.sapPartNumber === sap) rows.push({ ...m });
     }
     return mockDelay(sapMaterialPlants(rows));
   }

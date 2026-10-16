@@ -4604,6 +4604,14 @@ open to every pricing role, but the plan gives only managers and admins
 so — the typed COGS box still works for everyone. Whether requesters should
 see SAP cost is Ray's call, still open.
 
+**The demo knows real parts, and says it's the demo.** `MOCK_SAP_MATERIAL_COSTS`
+holds rows copied from the live view (1000-1644-00 at $0.2495, and the five
+from the first live query), cost lookup ONLY — they aren't in the part
+catalogue, so they never appear as comparables or quote parts. A number the
+demo doesn't hold says "isn't in the demo data — the demo isn't connected to
+SAP. Try 2001-0310-15" (`SAP_COST_LOOKUP_IS_DEMO`), never "SAP doesn't have
+it": Ray tried a real number in the demo and read that as a broken lookup.
+
 **Testing it locally needs real mode**: `npx vite --mode fabric --port 5173`
 with a git-ignored `.env.fabric.local` holding the repo's `VITE_*` variables
 (pulled with `gh variable list`; the multi-line `VITE_QZ_CERTIFICATE` left
@@ -8240,7 +8248,13 @@ looked at. Three things it had to learn:
 - **`SHOT_CLICK="Price calculator"`** presses a button (by aria-label or text)
   before capturing — for a dialog or menu that only exists once opened — and
   **`SHOT_TYPE='{"COGS":"12"}'`** fills inputs by aria-label the way React
-  sees typing.
+  sees typing. **`SHOT_THEN_CLICK="Look up"`** presses a second button AFTER
+  the typing (and says if it was disabled), and **`SHOT_WAIT_MS=1500`** waits
+  for the result.
+- **Page errors are printed** after the capture (exceptions, `console.error`,
+  `console.warn`) — a screenshot alone can't show why something didn't
+  happen. React Router's two "Future Flag" warnings are always there; ignore
+  them.
 
 ### The header fits every width — labels at 2xl, the buttons wrap below
 

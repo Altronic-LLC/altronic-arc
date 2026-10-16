@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Calculator, Check, Copy, Loader2, Search, X } from "lucide-react";
 import { useMyPricingAccess } from "@/hooks/usePricingRoles";
 import { useSapMaterialCosts } from "@/hooks/usePricingLookup";
-import { describeSapCostFailure } from "@/api/pricingLookup";
+import { describeSapCostFailure, SAP_COST_DEMO_EXAMPLE, SAP_COST_LOOKUP_IS_DEMO } from "@/api/pricingLookup";
 import { sapMaterialLookupKey } from "@/lib/sapMaterialCost";
 import { formatSapPartNumber } from "@/lib/sapPartNumber";
 import { calculate, gmLadder, resultsText, type CalcMode } from "@/lib/priceCalculator";
@@ -166,7 +166,11 @@ export function PriceCalculatorDialog({ onClose }: { onClose: () => void }) {
     if (!lookedUp) return sap.trim() && !whole ? "All 10 digits, like 1000-4869-00." : "Enter it and press Look up.";
     if (costs.isFetching) return "Looking it up in SAP…";
     if (costs.isError) return describeSapCostFailure(costs.error);
-    if (!row) return `SAP doesn't have ${lookedUp}.`;
+    if (!row) {
+      return SAP_COST_LOOKUP_IS_DEMO
+        ? `${lookedUp} isn't in the demo data — the demo isn't connected to SAP. Try ${SAP_COST_DEMO_EXAMPLE}.`
+        : `SAP doesn't have ${lookedUp}.`;
+    }
     if (row.unitCost === null) return `SAP has no cost for ${row.sapPartNumber || lookedUp} at plant ${row.plant} — type it.`;
     return "Cost and description brought in.";
   }

@@ -62,11 +62,21 @@ const sock = new WebSocket(wsUrl);
 await new Promise((r) => sock.addEventListener("open", r));
 let nextId = 0;
 const pending = new Map();
+// Page errors are collected and printed at the end — a screenshot alone can't
+// show why something didn't happen.
+const pageErrors = [];
 sock.addEventListener("message", (e) => {
   const m = JSON.parse(e.data);
   if (m.id && pending.has(m.id)) {
     pending.get(m.id)(m);
     pending.delete(m.id);
+  }
+  if (m.method === "Runtime.exceptionThrown") {
+    const d = m.params.exceptionDetails;
+    pageErrors.push(`exception: ${d.exception?.description ?? d.text}`);
+  }
+  if (m.method === "Runtime.consoleAPICalled" && (m.params.type === "error" || m.params.type === "warning")) {
+    pageErrors.push(`console.${m.params.type}: ${m.params.args.map((a) => a.value ?? a.description ?? "").join(" ")}`);
   }
 });
 const send = (method, params = {}) =>
@@ -81,6 +91,7 @@ const evalJs = async (expression) =>
 
 // Emulate the width rather than trust the window: headless Chrome won't open a
 // window narrower than ~500px, so a phone width needs the DevTools override.
+await send("Runtime.enable");
 const width = Number(process.env.SHOT_WIDTH ?? "1300");
 await send("Emulation.setDeviceMetricsOverride", { width, height: 1600, deviceScaleFactor: 1, mobile: width < 640 });
 
@@ -140,6 +151,23 @@ if (process.env.SHOT_TYPE) {
   })()`);
 }
 
+// SHOT_THEN_CLICK="Look up" presses a second button AFTER the typing — for a
+// form that does something once filled in. SHOT_WAIT_MS waits for the result.
+if (process.env.SHOT_THEN_CLICK) {
+  await sleep(500);
+  const clicked = await evalJs(`(() => {
+    const want = ${JSON.stringify(process.env.SHOT_THEN_CLICK)};
+    const b = [...document.querySelectorAll("button, a")].find(
+      (el) => el.offsetParent !== null && (el.getAttribute("aria-label") === want || el.textContent.trim() === want),
+    );
+    if (b) b.click();
+    return b ? (b.disabled ? "disabled" : "clicked") : "";
+  })()`);
+  if (!clicked) fail(`No visible button "${process.env.SHOT_THEN_CLICK}" to click after typing.`);
+  if (clicked === "disabled") console.log(`note: "${process.env.SHOT_THEN_CLICK}" was disabled when pressed`);
+}
+if (process.env.SHOT_WAIT_MS) await sleep(Number(process.env.SHOT_WAIT_MS));
+
 let rect = null;
 for (let i = 0; i < 60 && !rect; i++) {
   await sleep(500);
@@ -173,5 +201,6 @@ writeFileSync(out, Buffer.from(shot.result.data, "base64"));
 // The house rule is no sideways page scroll — say so when there is one.
 const overflow = await evalJs(`document.documentElement.scrollWidth - document.documentElement.clientWidth`);
 console.log(`saved ${out}${overflow > 0 ? ` — WARNING: the page scrolls sideways by ${overflow}px` : ""}`);
+for (const e of pageErrors) console.log(`page ${e}`);
 chrome.kill();
 process.exit(0);
