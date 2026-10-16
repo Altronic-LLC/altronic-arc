@@ -42,6 +42,24 @@ from their SharePoint access and ARC's role lists — that is navigation, **not
 security**. The bundle is public JavaScript; the real boundary is
 SharePoint's (and Fabric's) own permissions, per list.
 
+## By the numbers
+
+As of v0.191.0, 2026-10-16:
+
+| | |
+|---|---|
+| Tests | **7,932** in **617** test files, all passing — about 6½ minutes in CI |
+| Source | **691** files, about **206,000** lines (tests add **105,000** more) |
+| Screens | **121** views across **124** routes |
+| Building blocks | **155** components · **92** hooks · **98** API modules · **172** pure-logic modules |
+| SharePoint | **93** list ids configured, across **7** sites |
+| History | **450** releases in the changelog · **553** commits |
+| Scripts | **42** in `scripts/` (list creation, data loads, schema discovery) |
+
+The test figures are the deploy's own (`gh run view <run> --log`, the
+**Test Files** and **Tests** lines); the rest are `git ls-files` counts, test
+files excluded from the source figures.
+
 ## Running it locally
 
 ```bash
@@ -98,7 +116,7 @@ notes may and may not say.
 
 ```bash
 npm run typecheck   # tsc
-npm test            # Vitest + React Testing Library (600+ test files)
+npm test            # Vitest + React Testing Library — 7,900+ tests
 npm run build       # production build
 ```
 
