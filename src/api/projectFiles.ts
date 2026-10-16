@@ -1,4 +1,4 @@
-import { GraphError, graphFetch } from "./graph";
+import { GraphError, graphFetch, graphFetchAll } from "./graph";
 import { SP_SITE_ID, USE_MOCK } from "./config";
 import { safeUniqueFilename } from "@/lib/uniqueFilename";
 
@@ -739,11 +739,13 @@ export async function createProjectFolder(
     `/sites/${SP_SITE_ID}/drive/root:/${encodeDrivePath(PROJECT_FOLDERS_PATH.split("/"))}`;
 
   // Read the siblings once: it tells us both whether this project is already
-  // covered and what the Project Reference column is really called.
-  const siblings = await graphFetch<{ value: GraphDriveChild[] }>(
+  // covered and what the Project Reference column is really called. Paged —
+  // a single $top=999 page would silently miss the folders past it, and
+  // "already has a folder" is the one check that must see them all.
+  const siblings = await graphFetchAll<GraphDriveChild>(
     `${rootPath}:/children?$expand=listItem($expand=fields)&$top=999`,
   );
-  const folders = (siblings.value ?? []).filter((c) => c.folder);
+  const folders = siblings.filter((c) => c.folder);
   const taken = folders.find(
     (c) => !isMiscFolder(c.name) && readLookupId(c.listItem?.fields ?? {}) === projectLookupId,
   );
@@ -839,11 +841,12 @@ export async function updateProjectFolder(
   const itemPath = `/sites/${SP_SITE_ID}/drive/items/${folderId}`;
 
   // The siblings tell us what the Project Reference column is called AND
-  // whether the chosen project is already covered by another folder.
-  const siblings = await graphFetch<{ value: GraphDriveChild[] }>(
+  // whether the chosen project is already covered by another folder. Paged,
+  // for the same reason as createProjectFolder above.
+  const siblings = await graphFetchAll<GraphDriveChild>(
     `${rootPath}:/children?$expand=listItem($expand=fields)&$top=999`,
   );
-  const folders = (siblings.value ?? []).filter((c) => c.folder);
+  const folders = siblings.filter((c) => c.folder);
   const target = folders.find((c) => c.id === folderId);
   if (!target) throw new Error("That folder isn't in the library any more.");
   if (isMiscFolder(target.name)) throw new Error("The Miscellaneous folder can't be edited.");

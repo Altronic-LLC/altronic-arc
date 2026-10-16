@@ -104,7 +104,14 @@ deliberately unset so a feature stays off until it's turned on.
 `.github/workflows/deploy.yml` tests, builds and deploys to GitHub Pages on
 every push to `main`. **`npm test` gates the deploy** — a red suite ships
 nothing. `main` is protected: changes go in through a pull request, squash
-merged.
+merged. `.github/workflows/pr.yml` runs the typecheck and the same tests on
+every pull request, so a red suite is caught before it reaches `main`; make
+its `verify` job a required status check so that holds.
+
+**Rolling back:** run *Deploy to GitHub Pages* by hand (Actions → Run
+workflow) and put the last known-good commit SHA in the `ref` box — that
+build is tested and redeployed exactly as it was, no revert commit needed.
+Then fix forward on a branch. `git revert` + merge works too, just slower.
 
 Every user-visible change gets a changelog entry in `src/data/changelog.ts`
 (shown in the footer's version history) and the same version in

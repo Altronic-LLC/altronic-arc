@@ -1,6 +1,7 @@
 import { InteractionRequiredAuthError } from "@azure/msal-browser";
 import { getFabricMsalInstance } from "@/auth/AuthProvider";
 import { fabricScopes } from "@/auth/msalConfig";
+import { CHOOSE_ACCOUNT_MESSAGE, resolveAccount } from "@/auth/activeAccount";
 import { authErrorLine, describeAuthError } from "@/lib/authErrors";
 import { FABRIC_GRAPHQL_ENDPOINT } from "./config";
 import { decodeJwtClaims, fetchWithRetry, type AccessTokenClaims } from "./graph";
@@ -92,9 +93,14 @@ export async function acquireFabricToken(scopes: string[] = fabricScopes): Promi
     );
   }
 
-  let account = instance.getActiveAccount() ?? instance.getAllAccounts()[0] ?? null;
+  // Same account rule as graph.ts — see auth/activeAccount.ts.
+  const all = instance.getAllAccounts();
+  const account = resolveAccount(instance.getActiveAccount(), all);
   if (!account) {
-    throw new FabricAuthError("Not signed in.", "not-signed-in");
+    throw new FabricAuthError(
+      all.length > 1 ? CHOOSE_ACCOUNT_MESSAGE : "Not signed in.",
+      "not-signed-in",
+    );
   }
   if (!instance.getActiveAccount()) instance.setActiveAccount(account);
 

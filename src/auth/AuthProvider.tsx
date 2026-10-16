@@ -148,8 +148,12 @@ export async function getFabricMsalInstance(): Promise<PublicClientApplication |
     fabricDemoPca = (async () => {
       const instance = new PublicClientApplication(buildMsalConfig());
       await instance.initialize();
-      const [account] = instance.getAllAccounts();
-      if (account && !instance.getActiveAccount()) instance.setActiveAccount(account);
+      // Same rule as the real-mode boot above: one cached account is
+      // unambiguous, more than one is a question for the picker.
+      const accounts = instance.getAllAccounts();
+      if (accounts.length === 1 && !instance.getActiveAccount()) {
+        instance.setActiveAccount(accounts[0]);
+      }
       return instance;
     })();
     // A failed build mustn't be cached for the session.

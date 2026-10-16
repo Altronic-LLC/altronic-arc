@@ -8,6 +8,7 @@ import {
   useSessionExpiryReason,
 } from "@/hooks/useSessionExpiry";
 import { SignInPage } from "./SignInPage";
+import { resolveAccount } from "./activeAccount";
 
 // Session-scoped flag remembering that the demo user clicked through the
 // sign-in page. Persists across page navigations within a tab, resets when
@@ -71,24 +72,31 @@ export function AuthGate({ children }: { children: ReactNode }) {
   // profile more than one person has signed into) picking `accounts[0]`
   // silently attaches whoever happens to be first in that list — with NO
   // check that they're the person actually at the keyboard. Reported by Ray,
-  // 2026-09-02: a Gray Market Request's Requestor showed Anisha Hobbs when
-  // Patricia was the one who submitted it — Anisha had signed in on that
-  // browser before, MSAL's localStorage-backed cache (msalConfig.ts) still
-  // held her account, and this effect silently activated it for Patricia's
-  // whole session with no sign-in prompt at all. Every write ARC makes reads
-  // the "current user" from whichever account is active here, so this one
-  // effect was silently misattributing anything a second person did.
-  //
-  // Leaving no account active when there's more than one falls through to
-  // `!isAuthenticated` below, which shows SignInPage — and SignInPage's
-  // button asks MSAL for `prompt: "select_account"`, forcing Microsoft's own
-  // account picker rather than ever guessing.
+  // 2026-09-02: a Gray Market Request's Requestor showed a colleague who had
+  // signed into ARC on that browser before — MSAL's localStorage-backed cache
+  // (msalConfig.ts) still held her account, and this effect silently
+  // activated it for the whole session with no sign-in prompt at all. Every
+  // write ARC makes reads the "current user" from whichever account is
+  // active here, so this one effect was silently misattributing anything a
+  // second person did.
   useEffect(() => {
     if (USE_MOCK) return;
     if (accounts.length === 1 && !instance.getActiveAccount()) {
       instance.setActiveAccount(accounts[0]);
     }
   }, [accounts, instance]);
+
+  // Who ARC may act as right now — the rule lives in auth/activeAccount.ts.
+  //
+  // `isAuthenticated` alone is NOT enough. msal-react's useIsAuthenticated()
+  // answers true whenever ANY account is cached, active or not, so the
+  // 2026-09-02 fix above (activate nothing with two cached accounts) never
+  // reached the sign-in page by itself: the app rendered anyway, and the
+  // Graph client then picked `accounts[0]` for itself (found by review,
+  // 2026-10-16). Rendering the app requires an unambiguous account. With two
+  // cached and none chosen, SignInPage asks for `prompt: "select_account"` —
+  // Microsoft's own picker — rather than ever guessing.
+  const account = USE_MOCK ? null : resolveAccount(instance.getActiveAccount(), accounts);
 
   // If we're showing the sign-in page because MSAL has no account at all,
   // clear any expiry flag so a fresh sign-in doesn't inherit the previous
@@ -114,6 +122,9 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   // Real mode: show the sign-in page until MSAL reports a signed-in user.
   if (!isAuthenticated) return <SignInPage />;
+
+  // Signed in, but ambiguously: more than one cached account and none chosen.
+  if (!account) return <SignInPage reason="choose" />;
 
   // Token dead but the account is still cached: same screen, different message.
   // A banner over a half-loaded page was the wrong shape for this — every query
