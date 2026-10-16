@@ -161,6 +161,11 @@ how they interact with the app.
 
 ### 1. Add a changelog entry
 
+**Pricing notes say WHAT, never HOW** (Ray, 2026-10-16). The history modal is
+readable by everyone signed in, so a Pricing entry never states discounts,
+margins, rounding or how a price is worked out — v0.190.0 was cut from 36
+bullets to 5 for exactly this. Put the detail in this file instead.
+
 1. Open `src/data/changelog.ts`.
 2. Add a new entry at the **top** of the `CHANGELOG` array (newest first).
 3. Bump the version using semver-lite:
@@ -4578,6 +4583,15 @@ What the live rows taught, each load-bearing:
   it again without measuring** — an Altronic-number search is the OR that was
   dropped. The box dashes as typed, and Look up waits for all 10 digits
   (`sapMaterialLookupKey`), so a half-typed number never reaches Fabric.
+- **Speed, on ARC's side** (Ray, 2026-10-16: "much faster"):
+  `warmSapCostLookup` runs a ONE-ROW query as the Calculator opens — once per
+  page session, never throws — so the first lookup doesn't also pay for the
+  silent token and a cold Fabric endpoint; and the lookup fires on the 10th
+  digit, no click. Look up stays, and `lookupSeq` makes pressing it again on
+  the same number re-apply SAP's figures. What's left is Fabric's own time:
+  `Material` is `varchar(max)` in a VIEW, which the warehouse can't skip
+  through cheaply — a real table with a short `Material` column (refreshed by
+  a pipeline) is the fix on that side, Fabric's, not ARC's.
 - **The description FOLLOWS the part** (Ray: "whenever you enter a new SAP part
   number, the description must be … updated"). Every new lookup replaces it
   with SAP's `MaterialDescription`. When SAP doesn't hold the new number, a

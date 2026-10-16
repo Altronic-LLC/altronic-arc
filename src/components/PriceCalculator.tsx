@@ -2,7 +2,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Calculator, Check, Copy, Loader2, Search, X } from "lucide-react";
 import { useMyPricingAccess } from "@/hooks/usePricingRoles";
 import { useSapMaterialCosts } from "@/hooks/usePricingLookup";
-import { describeSapCostFailure, needsSapSignIn, SAP_COST_DEMO_EXAMPLE, SAP_COST_LOOKUP_IS_DEMO } from "@/api/pricingLookup";
+import {
+  describeSapCostFailure,
+  needsSapSignIn,
+  SAP_COST_DEMO_EXAMPLE,
+  SAP_COST_LOOKUP_IS_DEMO,
+  warmSapCostLookup,
+} from "@/api/pricingLookup";
 import { signInToFabric } from "@/api/fabric";
 import { sapMaterialLookupKey } from "@/lib/sapMaterialCost";
 import { formatSapPartNumber } from "@/lib/sapPartNumber";
@@ -79,12 +85,20 @@ export function PriceCalculatorDialog({ onClose }: { onClose: () => void }) {
   // picker offers the rest.
   // Applied ONCE per lookup (and per plant pick), so typing over the cost
   // afterwards sticks.
+  // Wake the live lookup as the dialog opens, so the first part looked up
+  // doesn't also pay for the sign-in token and a cold Fabric endpoint.
+  useEffect(() => {
+    void warmSapCostLookup();
+  }, []);
   const costs = useSapMaterialCosts(lookedUp, lookedUp !== "");
   const plants = useMemo(() => costs.data ?? [], [costs.data]);
   const [plant, setPlant] = useState("");
   const row = plants.find((p) => p.plant === plant) ?? plants[0] ?? null;
   const [sapCost, setSapCost] = useState<number | null>(null);
   const applied = useRef("");
+  // Bumped by every Look up, so pressing it again on the SAME number re-applies
+  // SAP's figures (lookedUp alone doesn't change, so the effect wouldn't run).
+  const [lookupSeq, setLookupSeq] = useState(0);
   // The description SAP last put in the box — so a part SAP doesn't hold can
   // clear it (it described the previous part) without touching typed text.
   const sapDescription = useRef<string | null>(null);
@@ -106,7 +120,7 @@ export function PriceCalculatorDialog({ onClose }: { onClose: () => void }) {
       sapDescription.current = null;
       return stale ? "" : d;
     });
-  }, [plants, lookedUp, costs.isSuccess]);
+  }, [plants, lookedUp, costs.isSuccess, lookupSeq]);
 
   function applyCost(unitCost: number | null) {
     setSapCost(unitCost);
@@ -134,11 +148,20 @@ export function PriceCalculatorDialog({ onClose }: { onClose: () => void }) {
     }
   }
 
+  // Look up the moment the 10th digit lands — no waiting for a click. The
+  // button stays for looking the same number up again.
+  useEffect(() => {
+    const pn = sapMaterialLookupKey(sap);
+    if (pn && pn !== lookedUp) lookUp();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sap]);
+
   function lookUp() {
     const pn = sapMaterialLookupKey(sap);
     if (!pn) return;
     applied.current = "";
     setLookedUp(pn);
+    setLookupSeq((n) => n + 1);
     setPlant("");
     setSapCost(null);
   }
