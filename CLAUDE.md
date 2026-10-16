@@ -7201,10 +7201,14 @@ donuts) specifically so the kiosk cycle below — which just walks that same
 array in order — alternates naturally with no cycle-specific ordering logic
 of its own.
 
-**In kiosk mode the ring dominates and the legend shrinks and narrows,
-rather than growing to fill the row** (Tim, 2026-09-18: "make the defect
+**In kiosk mode the ring dominates and the legend sits beside it at a capped
+width, rather than growing to fill the row** (Tim, 2026-09-18: "make the defect
 donut larger and make the donut take the majority of the space with a much
-smaller legend"). `DefectBreakdownDonut`'s `large` prop now does three
+smaller legend"). **Its TEXT is large, though** (Tim, 2026-10-16: "make the
+legend font much larger") — `text-xl` with 16px swatches, capped at
+`max-w-[480px]` and allowed to shrink (`min-w-0`, labels truncate). The
+`text-xs` described below was unreadable from across the room, which is where
+a kiosk is read from; "smaller legend" meant narrower, not tinier text. `DefectBreakdownDonut`'s `large` prop now does three
 things together: the ring's rendered size jumps from `h-40 w-40` to as much
 as `h-[30rem] w-[30rem]` on a wide kiosk screen (the `SIZE`/`RADIUS`/
 `STROKE` constants driving the SVG's `viewBox` are UNCHANGED — a bigger
@@ -7212,9 +7216,9 @@ CSS box scales every coordinate-based value inside the same `viewBox`
 uniformly, arcs, stroke width and `<text>` font-size alike, the same
 "the SVG needs no per-prop resizing" point the trend chart's kiosk note
 below already makes); the legend switches from growing (`flex-1`) to a
-capped, shrink-proof width (`max-w-[280px]`) with smaller text (`text-xs`)
-so it reads as a small key beside the chart rather than competing with it
-for width; and the whole group centers itself in the page rather than
+capped width (`max-w-[480px]`, originally 280px with `text-xs` — enlarged
+2026-10-16, see above) so it reads as a key beside the chart rather than
+competing with it for width; and the whole group centers itself in the page rather than
 sitting flush left, so the extra room a 1800px-wide kiosk card leaves
 around a big donut reads as breathing space, not an accident.
 

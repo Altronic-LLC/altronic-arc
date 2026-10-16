@@ -20,6 +20,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.191.1",
+    date: "2026-10-16",
+    changes: [
+      "The three-month FPY charts now label each bar's figures: Total tested, with the number Failed right below it",
+      "The Defect Breakdown legend is much larger on the kiosk display, so each defect can be read from across the room",
+      "The kiosk donut's center caption now fits inside the ring instead of running into it",
+    ],
+  },
+  {
     version: "0.191.0",
     date: "2026-10-16",
     changes: [
