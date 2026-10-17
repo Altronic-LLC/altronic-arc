@@ -29,7 +29,7 @@
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
     "jszip": "^3.10.1",
-    "lucide-react": "^0.460.0",
+    "lucide-react": "^1.56.0",
     "mermaid": "^11.15.0",
     "qz-tray": "^2.2.6",
     "react": "^18.3.1",
