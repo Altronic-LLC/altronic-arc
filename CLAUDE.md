@@ -361,7 +361,7 @@ make us revisit them. A new entry here is itself a `docs:` PR.
 | **MSAL cache in `localStorage`.** Users stay signed in across restarts. Shared PCs are handled by `resolveAccount()` + the picker, not by the cache location. | Active (2026-09-02, re-fixed 2026-10-16) | Kiosk builds could switch to `sessionStorage`; a token-theft incident would force it everywhere. |
 | **QZ Tray signing key embedded in the public bundle.** Self-signed cert, trusted only on machines Cooper configures; the alternative was a signing endpoint. | **Accepted risk** (Ray, 2026-09-09) | A backend exists anyway (move signing there), or the cert is ever trusted outside kiosk machines. |
 | **Notifications are sent as the shared mailbox using each user's own token** (`Mail.Send.Shared`, Send-As per user). | Active, with a known gap | Send-As should move to a security group (BACKLOG #1); an Exchange transport rule should limit the mailbox to internal recipients. A backend would replace this with a service identity. |
-| **Public repository.** Lets GitHub Pages host for free on the current plan. Exposes code, staff addresses in `config.ts`, fixture data and incident notes. | **Open decision** (SEC-03, 2026-10-16) | Decide: private repo (needs a plan that allows Pages), or scrub (recipients to lists, synthetic fixtures, incident notes out of CLAUDE.md). |
+| **Public repository.** Lets GitHub Pages host for free on the current plan. Exposes code, staff addresses in `config.ts`, fixture data and incident notes. | **Deferred** (2026-10-17): not ready to change hosting, so the repo stays public and the fix is the **scrub route** — recipients to the Admin → Notification recipients lists with env fallbacks only, synthetic people and customers in every mock fixture, incident narratives out of this file, `scripts/data/*.csv` reviewed. | Hosting is revisited (Vercel or Azure Static Web Apps, both deploy from a private repo), or a second leak class appears. |
 | **Numbers are allocated in the client.** Tolerated with the EIR pattern; to be replaced by `allocateNumber()` + *Enforce unique values*. | Tolerated (ARCH-01) | The next duplicate number, or the next new numbered list. |
 | **Guests and scheduled sends go through Power Automate, not ARC.** | Active (2026-09-23) | A flow needs ARC's business rules (then it belongs in a backend ARC owns). |
 
@@ -376,7 +376,7 @@ Reports are private and are **not** committed — this is a public repo.
 
 Stable IDs; cite them in commit messages when closing one.
 
-- **SEC-03** public repo carries staff addresses, hardcoded recipients, fixture data from real rows — decision above
+- **SEC-03** public repo carries staff addresses, hardcoded recipients, fixture data from real rows — deferred to the scrub route, see the decision above
 - **SEC-02** QZ key in the bundle — accepted, recorded above
 - **SEC-04** shared-mailbox Send-As is per user and unaudited — group grant + transport rule (IT)
 - **SEC-06** no Content-Security-Policy (`<meta>` CSP is possible on Pages; needs browser testing against QZ `wss://`, Fabric, mermaid)
@@ -387,7 +387,8 @@ Stable IDs; cite them in commit messages when closing one.
 - **DEP-01** framework majors (react-router 7 first — the only production advisory — then vite 8 + vitest 5, tailwind 4, msal 5, React 19)
 - **DEP-02** `qz-tray` LGPL-2.1 — legal confirmation that the separate chunk satisfies it
 - **TEST-03** coverage is claimed at 100 % and measured nowhere; `usePanelRoles`, `usePartsRoles`, `openOrdersRoles`, `msalConfig` untested
-- **Process** `Checks / verify` not yet a required status check; `enforce_admins` off; auto-merge disabled; one required review on a two-person team means the author's second account or the other person must approve
+- **Process** (2026-10-17) auto-merge and delete-branch-on-merge are ON; "require status checks" is ON but the required-checks list is still EMPTY — add `verify` (from the Checks workflow) or the gate is advisory; `enforce_admins` left off by choice while the team is two people; one required review still means the author's second account or the other person approves
+- **OPS-05** deploys can go backwards: re-running an old *successful* deploy republishes that old build and Pages serves whichever deploy finished last (happened 2026-10-17, 80 minutes on 0.191.2 while main said 0.191.3). Add a `deploy.yml` step that reads the live `version.json` and fails if the version about to publish is lower, with an `allow_rollback` input for the intentional case. Until then: only ever re-run the LATEST green deploy, or use `workflow_dispatch` with a `ref`
 
 ## File-by-file overview
 
